@@ -457,7 +457,9 @@ export function PremiumScreen({
               style={({ pressed }) => [styles.manageButton, pressed && styles.pressed]}
             >
               <Text style={styles.manageButtonText}>
-                {t(language, promoOnly ? 'subs.manageMembership' : 'settings.demoPro')}
+                {/* The Settings demo section is gone (2026-08-22), so this is
+                    the one place preview-Pro can be turned back off. */}
+                {t(language, promoOnly ? 'subs.manageMembership' : 'pro.previewOff')}
               </Text>
             </Pressable>
           </>

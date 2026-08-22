@@ -42,15 +42,14 @@ module.exports = [
     name: 'every screen with a back button and a centred title uses ScreenHeaderTitle',
     run() {
       const expected = [
-        'AiTransparencyScreen',
-        'FeatureRequestsScreen',
+        // Support, feature requests, the design shelf and the AI info page
+        // were removed from Settings (2026-08-22).
         'LegalDocumentScreen',
         'MyDataScreen',
         'NotificationsScreen',
         'PromoCodeScreen',
         'SettingsScreen',
         'SubscriptionScreen',
-        'SupportScreen',
         'TrainingBreakScreen',
       ];
       for (const name of expected) {

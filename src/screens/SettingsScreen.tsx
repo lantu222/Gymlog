@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
@@ -6,7 +6,6 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW, SectionLabel, ToggleSwitch } from '../components/SettingsUi';
 import { t } from '../lib/i18n';
-import { isDemoBuild } from '../lib/demoMode';
 import { resolveProEntitlement } from '../lib/proEntitlement';
 import { resolveThemeRowState } from '../lib/themePreference';
 import { Theme, useTheme, useThemedStyles } from '../theming';
@@ -14,8 +13,6 @@ import { appInfo, layout } from '../theme';
 import { AppLanguage, AppPreferences } from '../types/models';
 
 interface SettingsScreenProps {
-  /** Demo build only: create and adopt a one-session test programme. */
-  onCreateDemoProgram?: () => void;
   preferences: AppPreferences;
   /** ISO timestamp of the first completed session — the honest "member since". */
   firstSessionAt: string | null;
@@ -42,12 +39,14 @@ interface SettingsScreenProps {
    * Management is for people who already pay.
    */
   onOpenPremium: () => void;
-  onOpenSupport: () => void;
-  onOpenFeatures: () => void;
-  /** Temporary: the shelf for finished components that have no caller yet. */
-  onOpenDesignDemo: () => void;
-  onOpenAiInfo: () => void;
   onOpenLegal: (document: 'privacy' | 'terms') => void;
+  /**
+   * Where the list was scrolled when a sub-screen was opened, so coming
+   * back lands on the row that was tapped instead of the top (user,
+   * 2026-08-22). The parent owns the value because this screen unmounts.
+   */
+  initialScrollOffset?: number;
+  onScrollOffsetChange?: (offsetY: number) => void;
   onResetAllData: () => void;
   /**
    * Null in builds without a configured sign-in — the rows are hidden rather
@@ -163,21 +162,12 @@ function Seg<T extends string>({
 }
 
 /** Prototype Row: 13px/15px padding, 36 tile r11, hairline divider inside a Card. */
-/**
- * The backup row's one-line status: who is signed in, and when the cloud copy
- * was last written — or that it never has been, which is the honest default.
- */
-function accountStatusLabel(
-  account: { email: string | null; lastBackupAt: string | null },
-  language: AppLanguage,
-): string {
-  const identity = account.email
-    ? t(language, 'account.signedInAs', { email: account.email })
-    : null;
-  const backup = account.lastBackupAt
-    ? t(language, 'account.lastBackup', { time: new Date(account.lastBackupAt).toLocaleDateString() })
-    : t(language, 'account.noBackupYet');
-  return identity ? `${identity} · ${backup}` : backup;
+/** "22.8.2026 14.32" — the date alone hid every same-day backup. */
+function backupTimeLabel(iso: string): string {
+  const date = new Date(iso);
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  return `${date.toLocaleDateString()} ${hh}:${mm}`;
 }
 
 function Row({
@@ -185,6 +175,7 @@ function Row({
   iconColor,
   title,
   sub,
+  subNode,
   value,
   control,
   chevron = false,
@@ -196,6 +187,8 @@ function Row({
   iconColor?: string;
   title: string;
   sub?: string;
+  /** Rich subtitle; wins over `sub` when both are given. */
+  subNode?: React.ReactNode;
   value?: string;
   control?: React.ReactNode;
   chevron?: boolean;
@@ -214,7 +207,7 @@ function Row({
       </View>
       <View style={styles.rowCopy}>
         <Text style={[styles.rowTitle, danger && { color: RED }]}>{title}</Text>
-        {sub ? <Text style={styles.rowSub}>{sub}</Text> : null}
+        {subNode ?? (sub ? <Text style={styles.rowSub}>{sub}</Text> : null)}
       </View>
       {value !== undefined ? <Text style={styles.rowValue}>{value}</Text> : null}
       {control}
@@ -256,23 +249,20 @@ export function SettingsScreen({
   onOpenPromo,
   onOpenSubscription,
   onOpenPremium,
-  onOpenSupport,
-  onOpenFeatures,
-  onOpenDesignDemo,
-  onOpenAiInfo,
   onOpenLegal,
   onResetAllData,
   account,
-  onCreateDemoProgram,
+  initialScrollOffset = 0,
+  onScrollOffsetChange,
 }: SettingsScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const [resetVisible, setResetVisible] = useState(false);
   const language = preferences.appLanguage;
   // A redeemed promo is Pro too, so the badge cannot read the preview switch.
-  const entitlement = resolveProEntitlement(preferences);
-  const proUnlocked = entitlement.unlocked;
-  const demoBuild = isDemoBuild();
+  const proUnlocked = resolveProEntitlement(preferences).unlocked;
+  const scrollRef = useRef<ScrollView>(null);
+  const restoredRef = useRef(false);
   const themeRow = resolveThemeRowState(preferences);
   const displayName = preferences.profileName?.trim() ? preferences.profileName.trim() : t(language, 'profile.guestName');
   const soundAndHaptics = preferences.soundCuesEnabled || preferences.hapticsEnabled;
@@ -292,7 +282,21 @@ export function SettingsScreen({
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
+      <ScrollView
+        ref={scrollRef}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.body}
+        scrollEventThrottle={64}
+        onScroll={(event) => onScrollOffsetChange?.(event.nativeEvent.contentOffset.y)}
+        onContentSizeChange={() => {
+          // contentOffset is iOS-only, so the restore is a one-time scrollTo
+          // once the content is tall enough to hold the old position.
+          if (!restoredRef.current && initialScrollOffset > 0) {
+            restoredRef.current = true;
+            scrollRef.current?.scrollTo({ y: initialScrollOffset, animated: false });
+          }
+        }}
+      >
         {/* profile chip */}
         <Pressable
           accessibilityRole="button"
@@ -462,29 +466,25 @@ export function SettingsScreen({
               />
             ) : null}
             {account && account.signedIn ? (
-              <>
-                <Row
-                  icon="shield"
-                  title={t(language, 'account.backupNow')}
-                  sub={accountStatusLabel(account, language)}
-                  chevron
-                  onPress={account.busy ? undefined : account.onBackupNow}
-                />
-                <Row
-                  icon="trash"
-                  title={t(language, 'account.deleteRemote')}
-                  sub={t(language, 'account.deleteRemote.sub')}
-                  chevron
-                  onPress={account.busy ? undefined : account.onDeleteRemote}
-                />
-                <Row
-                  icon="body"
-                  title={t(language, 'account.signOut')}
-                  sub={t(language, 'account.signOut.sub')}
-                  chevron
-                  onPress={account.busy ? undefined : account.onSignOut}
-                />
-              </>
+              <Row
+                icon="shield"
+                title={t(language, 'account.backupNow')}
+                // Just the identity and, in green, when the cloud copy was
+                // last written (user, 2026-08-22). Green only once a backup
+                // exists — "never" is not a success state.
+                subNode={
+                  <Text style={styles.rowSub}>
+                    {account.email ? `${account.email} · ` : ''}
+                    {account.lastBackupAt ? (
+                      <Text style={styles.rowSubOk}>{backupTimeLabel(account.lastBackupAt)}</Text>
+                    ) : (
+                      t(language, 'account.noBackupYet')
+                    )}
+                  </Text>
+                }
+                chevron
+                onPress={account.busy ? undefined : account.onBackupNow}
+              />
             ) : null}
             <Row
               icon="upload"
@@ -518,66 +518,45 @@ export function SettingsScreen({
         </View>
 
         <View style={styles.section}>
-          <SectionLabel label={t(language, 'settings.section.support')} />
-          <View style={styles.card}>
-            <Row icon="chat" title={t(language, 'settings.contact')} sub={t(language, 'settings.contact.sub')} chevron onPress={onOpenSupport} />
-            <Row
-              icon="spark"
-              title={t(language, 'settings.features')}
-              sub={t(language, 'settings.features.sub')}
-              chevron
-              onPress={onOpenFeatures}
-            />
-            {/* Temporary shelf — remove this row together with
-                DesignDemoScreen once both components have real callers. */}
-            <Row
-              icon="spark"
-              title={t(language, 'settings.designDemo')}
-              sub={t(language, 'settings.designDemo.sub')}
-              chevron
-              last
-              onPress={onOpenDesignDemo}
-            />
-          </View>
-        </View>
-
-        <View style={styles.section}>
           <SectionLabel label={t(language, 'settings.section.about')} />
           <View style={styles.card}>
-            <Row
-              icon="spark"
-              title={t(language, 'settings.aiInfo')}
-              sub={t(language, 'settings.aiInfo.sub')}
-              chevron
-              onPress={onOpenAiInfo}
-            />
+            {/* The no-analytics fact moved into the privacy policy alone —
+                a row restating one sentence of it was a sign explaining a
+                sign (removed with the AI-info and support rows, 2026-08-22). */}
             <Row
               icon="shield"
               title={t(language, 'settings.privacy')}
               chevron
               onPress={() => onOpenLegal('privacy')}
             />
-            <Row icon="doc" title={t(language, 'settings.terms')} chevron onPress={() => onOpenLegal('terms')} />
-            {/* Not a toggle. This app sends no analytics at all, so a switch
-                here would have been a lie in both positions — and the privacy
-                policy states the same fact. It is a statement, not a setting. */}
-            <Row
-              icon="analytics"
-              title={t(language, 'settings.analytics')}
-              sub={t(language, 'settings.analytics.sub')}
-              last
-            />
+            <Row icon="doc" title={t(language, 'settings.terms')} chevron last onPress={() => onOpenLegal('terms')} />
           </View>
         </View>
 
         <View style={styles.section}>
           <SectionLabel label={t(language, 'settings.section.dangerZone')} />
           <View style={styles.card}>
-            {/* No "Sign out" and no "Delete account". There is no account to
-                sign out of or delete — the app is local-only and the privacy
-                policy says so. Two chevrons asserting otherwise were the one
-                place Settings contradicted it. Resetting the data is the real
-                destructive action, and it is right here. */}
+            {/* Everything that removes or detaches lives here in red — the
+                cloud copy, the account, the data (user, 2026-08-22). The
+                sign-in offer itself stays up in YOUR DATA, because signing
+                in is not a danger. */}
+            {account && account.signedIn ? (
+              <>
+                <Row
+                  icon="trash"
+                  title={t(language, 'account.deleteRemote')}
+                  sub={t(language, 'account.deleteRemote.sub')}
+                  danger
+                  onPress={account.busy ? undefined : account.onDeleteRemote}
+                />
+                <Row
+                  icon="body"
+                  title={t(language, 'account.signOut')}
+                  danger
+                  onPress={account.busy ? undefined : account.onSignOut}
+                />
+              </>
+            ) : null}
             <Row
               icon="trash"
               title={t(language, 'settings.resetData')}
@@ -588,56 +567,6 @@ export function SettingsScreen({
             />
           </View>
         </View>
-
-        {/* Demo only, and it disappears on its own: isDemoBuild reads the same
-            app.json flag the release guard checks, so clearing that flag to ship
-            takes this switch with it. No separate list to remember.
-
-            It lives down here rather than on the Pro page because that is where
-            it was, and it was in the way. Its job is to let you walk the app as
-            Free and as Pro and see the difference — so it has to turn OFF as
-            easily as it turns ON, which the Pro page's CTA never did. */}
-        {demoBuild ? (
-          <View style={styles.section}>
-            <SectionLabel label={t(language, 'settings.section.demo')} />
-            <View style={styles.card}>
-              <Row
-                icon="spark"
-                title={t(language, 'settings.demoPro')}
-                // Truthful about which source is granting Pro: a redeemed promo
-                // outranks this switch, so flipping it off would not show Free
-                // and the row says so instead of appearing broken.
-                sub={
-                  entitlement.source === 'promo'
-                    ? t(language, 'settings.demoPro.promo')
-                    : t(language, 'settings.demoPro.sub')
-                }
-                last
-                control={
-                  <ToggleSwitch
-                    label={t(language, 'settings.demoPro')}
-                    value={preferences.adaptiveCoachPremiumUnlocked}
-                    onChange={(next) => onPreferencesChange({ adaptiveCoachPremiumUnlocked: next })}
-                  />
-                }
-              />
-            </View>
-            {/* One real session, one real week: logging it once genuinely
-                completes the plan, so the completion card can be walked on a
-                device without faking a single number. */}
-            {onCreateDemoProgram ? (
-              <View style={[styles.card, styles.demoCardGap]}>
-                <Row
-                  icon="calendar"
-                  title={t(language, 'settings.demoOneSession')}
-                  sub={t(language, 'settings.demoOneSession.sub')}
-                  last
-                  onPress={onCreateDemoProgram}
-                />
-              </View>
-            ) : null}
-          </View>
-        ) : null}
 
         <Text style={styles.footer}>Vinha · v{appInfo.version}</Text>
       </ScrollView>
@@ -810,6 +739,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 2,
     lineHeight: 17,
   },
+  rowSubOk: {
+    color: theme.greenInk,
+    fontWeight: '700',
+  },
   rowValue: {
     color: theme.ink,
     fontSize: 14,
@@ -817,7 +750,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   seg: {
     flexDirection: 'row',
-    backgroundColor: '#EEE8FA',
+    // Was #EEE8FA — so close to the card that the control read as a ghost
+    // (user, 2026-08-22). A firmer track makes the white active pill pop.
+    backgroundColor: '#D9CCF2',
     borderRadius: 12,
     padding: 3,
     gap: 2,

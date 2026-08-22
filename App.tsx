@@ -252,10 +252,6 @@ import { TrainingBreakScreen } from './src/screens/TrainingBreakScreen';
 import { PromoCodeScreen } from './src/screens/PromoCodeScreen';
 import { SubscriptionScreen } from './src/screens/SubscriptionScreen';
 import { MembershipEndScreen } from './src/screens/MembershipEndScreen';
-import { SupportScreen } from './src/screens/SupportScreen';
-import { DesignDemoScreen } from './src/screens/DesignDemoScreen';
-import { FeatureRequestsScreen } from './src/screens/FeatureRequestsScreen';
-import { AiTransparencyScreen } from './src/screens/AiTransparencyScreen';
 import { LegalDocumentScreen } from './src/screens/LegalDocumentScreen';
 import { ProOfferScreen } from './src/screens/ProOfferScreen';
 import { AICoachChatScreen } from './src/screens/AICoachChatScreen';
@@ -939,6 +935,9 @@ function VinhaApp() {
     history: [],
   });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  // Where Settings was scrolled when a sub-screen opened; the screen
+  // unmounts on navigation, so the position survives here.
+  const settingsScrollOffsetRef = useRef(0);
   const [completionSummary, setCompletionSummary] = useState<CompletionSummaryState | null>(null);
   const [workoutCelebration, setWorkoutCelebration] = useState<WorkoutCelebrationState | null>(null);
   const [finishSaveState, setFinishSaveState] = useState<FinishSaveState>({
@@ -2038,98 +2037,6 @@ function VinhaApp() {
     await handleAdoptReadyProgram(nextTemplateId, { lead: true });
   }
 
-  /**
-   * Demo build only (the Settings row that calls this is behind isDemoBuild).
-   *
-   * One real session in a one-week block: logging it once genuinely reaches
-   * 1/1, so the completion card can be walked on a device without faking a
-   * single number. The plan id prefix is what makes the block one week —
-   * see the demo_plan_ branch where Home counts the plan's weeks.
-   */
-  const DEMO_PROGRAM_NAME = 'Demo: yksi treeni';
-
-  async function handleCreateDemoCompletionProgram() {
-    const now = new Date().toISOString();
-    // Idempotent on purpose. Pressing this twice used to author a second
-    // template and then, at the free cap, `upsertWorkoutTemplate` threw
-    // ProgramLimitReachedError — which nothing caught, so the row did nothing
-    // and said nothing. A demo tool must be repeatable: an existing demo
-    // programme is reused and its plan rebuilt, which also repairs the
-    // entry-less plans the earlier build wrote.
-    const existing = workoutTemplates.find((item) => item.name === DEMO_PROGRAM_NAME) ?? null;
-    if (existing) {
-      const sessions = getWorkoutTemplateSessions(existing.id);
-      const planId = `demo_plan_${existing.id}`;
-      await upsertWorkoutPlan({
-        id: planId,
-        name: DEMO_PROGRAM_NAME,
-        mode: 'rotation',
-        entries: sessions.map((session, index) => ({
-          id: `${planId}_entry_${index + 1}`,
-          workoutTemplateId: existing.id,
-          workoutTemplateSessionId: session.id,
-          label: `Day ${index + 1}`,
-          orderIndex: index,
-        })),
-        isActive: true,
-        createdAt: now,
-        updatedAt: now,
-      });
-      await updatePreferences({
-        activePlanIds: addActiveProgram(preferences.activePlanIds, planId),
-        activePlanId: planId,
-        // A rebuilt round is a new block, so an answered completion card for
-        // this plan must not keep the new one hidden.
-        dismissedCompletionPlanIds: preferences.dismissedCompletionPlanIds.filter((id) => id !== planId),
-      });
-      resetToRoute(ROOT_ROUTES.home);
-      return;
-    }
-
-    // The session id is minted here rather than read back after the write:
-    // getWorkoutTemplateSessions reads the React `database` state, which is
-    // still the pre-write copy inside this handler, so the read returned []
-    // and the plan was created with no entries at all. Home skips an
-    // entry-less plan, which is why pressing this button appeared to do
-    // nothing.
-    const demoSessionId = createId('template_session');
-    const templateId = await upsertWorkoutTemplate({
-      name: DEMO_PROGRAM_NAME,
-      sessions: [
-        {
-          id: demoSessionId,
-          name: 'Day 1: Full Body',
-          exercises: [
-            { name: 'Goblet Squat', targetSets: 2, repMin: 8, repMax: 10, restSeconds: 60, trackedDefault: true, libraryItemId: null },
-            { name: 'Push-Up', targetSets: 2, repMin: 8, repMax: 12, restSeconds: 60, trackedDefault: true, libraryItemId: null },
-          ],
-        },
-      ],
-    });
-    const planId = `demo_plan_${templateId}`;
-    await upsertWorkoutPlan({
-      id: planId,
-      name: DEMO_PROGRAM_NAME,
-      mode: 'rotation',
-      entries: [
-        {
-          id: `${planId}_entry_1`,
-          workoutTemplateId: templateId,
-          workoutTemplateSessionId: demoSessionId,
-          label: 'Day 1',
-          orderIndex: 0,
-        },
-      ],
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
-    });
-    await updatePreferences({
-      activePlanIds: addActiveProgram(preferences.activePlanIds, planId),
-      activePlanId: planId,
-    });
-    resetToRoute(ROOT_ROUTES.home);
-  }
 
   /**
    * Emphasis save (design screen 3): new set counts, written to the reader's
@@ -5543,7 +5450,9 @@ function VinhaApp() {
         keepScreenAwake={preferences.keepScreenAwakeDuringWorkout}
         exercisePrLookup={exercisePrLookup}
         restAlerts={{
-          alerts: preferences.notificationPrefs.restAlerts,
+          // The master notifications switch silences these too — three lit
+          // switches after "off" were the visual half of the same lie.
+          alerts: preferences.notificationPrefs.pushEnabled && preferences.notificationPrefs.restAlerts,
           warning: preferences.notificationPrefs.restWarning,
           ongoing: preferences.notificationPrefs.sessionOngoing,
           asked: preferences.notificationPrefs.restAlertsAsked,
@@ -5659,7 +5568,9 @@ function VinhaApp() {
         onFinishSession={() => void handleConfirmFinishWorkout()}
         isSavingWorkout={finishSaveState.status === 'saving'}
         restAlerts={{
-          alerts: preferences.notificationPrefs.restAlerts,
+          // The master notifications switch silences these too — three lit
+          // switches after "off" were the visual half of the same lie.
+          alerts: preferences.notificationPrefs.pushEnabled && preferences.notificationPrefs.restAlerts,
           warning: preferences.notificationPrefs.restWarning,
           ongoing: preferences.notificationPrefs.sessionOngoing,
         }}
@@ -6167,44 +6078,6 @@ function VinhaApp() {
         }}
       />
     );
-  } else if (route.tab === 'profile' && route.screen === 'support') {
-    content = (
-      <SupportScreen
-        language={preferences.appLanguage}
-        profileName={preferences.profileName}
-        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
-      />
-    );
-  } else if (route.tab === 'profile' && route.screen === 'design_demo') {
-    content = (
-      <DesignDemoScreen
-        language={preferences.appLanguage}
-        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
-      />
-    );
-  } else if (route.tab === 'profile' && route.screen === 'features') {
-    content = (
-      <FeatureRequestsScreen
-        language={preferences.appLanguage}
-        votedIds={preferences.featureVotedIds}
-        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
-        onToggleVote={(id) =>
-          void updatePreferences({
-            featureVotedIds: preferences.featureVotedIds.includes(id)
-              ? preferences.featureVotedIds.filter((votedId) => votedId !== id)
-              : [...preferences.featureVotedIds, id],
-          })
-        }
-      />
-    );
-  } else if (route.tab === 'profile' && route.screen === 'ai_transparency') {
-    content = (
-      <AiTransparencyScreen
-        language={preferences.appLanguage}
-        liveModeConfigured={isAiCoachLiveConfigured()}
-        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
-      />
-    );
   } else if (route.tab === 'profile' && route.screen === 'legal') {
     content = (
       <LegalDocumentScreen
@@ -6246,19 +6119,11 @@ function VinhaApp() {
     content = (
       <SettingsScreen
         preferences={preferences}
-        onCreateDemoProgram={() => {
-          // upsertWorkoutTemplate THROWS at the program cap. Without this the
-          // row was a button that did nothing and said nothing.
-          handleCreateDemoCompletionProgram().catch((error) => {
-            if (error instanceof ProgramLimitReachedError) {
-              setProgramLimitVisible(true);
-              return;
-            }
-            console.error('Demo program failed', error);
-            showToast(t(preferences.appLanguage, 'toast.programCopyFailed'));
-          });
-        }}
         firstSessionAt={lifetimeSummary.firstSessionAt}
+        initialScrollOffset={settingsScrollOffsetRef.current}
+        onScrollOffsetChange={(offsetY) => {
+          settingsScrollOffsetRef.current = offsetY;
+        }}
         onOpenEditProfile={() => navigate({ tab: 'profile', screen: 'edit_profile' })}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
         onPreferencesChange={async (patch) => {
@@ -6277,10 +6142,6 @@ function VinhaApp() {
         onOpenPromo={() => navigate({ tab: 'profile', screen: 'promo' })}
         onOpenSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
         onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
-        onOpenSupport={() => navigate({ tab: 'profile', screen: 'support' })}
-        onOpenFeatures={() => navigate({ tab: 'profile', screen: 'features' })}
-        onOpenDesignDemo={() => navigate({ tab: 'profile', screen: 'design_demo' })}
-        onOpenAiInfo={() => navigate({ tab: 'profile', screen: 'ai_transparency' })}
         account={
           accountBackup.available
             ? {
@@ -6345,6 +6206,16 @@ function VinhaApp() {
         unitPreference={unitPreference}
         planName={profilePlanSummary.name}
         planDaysPerWeek={profilePlanSummary.daysPerWeek}
+        planCycleCaption={
+          preferences.trainingCycle
+            ? t(preferences.appLanguage, 'plan.rhythm.summary', {
+                on: preferences.trainingCycle.pattern.filter(Boolean).length,
+                off: preferences.trainingCycle.pattern.filter((day) => !day).length,
+                length: preferences.trainingCycle.pattern.length,
+              })
+            : null
+        }
+        planWeekdayIndexes={homeTrainingDayIndexes}
         planExerciseCount={profilePlanSummary.exerciseCount}
         planFocusCaption={profilePlanSummary.focusCaption}
         onOpenSettings={() => navigate({ tab: 'profile', screen: 'settings' })}
@@ -6844,10 +6715,6 @@ function VinhaApp() {
       route.screen === 'training_break' ||
       route.screen === 'promo' ||
       route.screen === 'subscription' ||
-      route.screen === 'support' ||
-      route.screen === 'features' ||
-      route.screen === 'ai_transparency' ||
-      route.screen === 'design_demo' ||
       route.screen === 'legal');
   const premiumActive = route.tab === 'profile' && route.screen === 'premium';
   const planSettingsActive = route.tab === 'profile' && route.screen === 'plan_settings';

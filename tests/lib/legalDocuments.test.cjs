@@ -165,17 +165,21 @@ module.exports = [
     },
   },
   {
-    name: 'the settings analytics row states a fact instead of offering a switch',
+    name: 'the no-analytics fact lives in the policy, not as a settings row',
     run() {
+      // The row restated one sentence of the privacy policy and was removed
+      // with the other explainer rows (user, 2026-08-22). If it comes back,
+      // it must come back as a statement — never as a switch, which would
+      // be untrue in both positions.
       const settings = read('src/screens/SettingsScreen.tsx');
-      const rowBlock = settings.slice(settings.indexOf('icon="analytics"'), settings.indexOf('icon="analytics"') + 400);
       assert.ok(
-        !/ToggleSwitch/.test(rowBlock),
-        'The analytics row must not be a toggle — the app sends nothing, so a switch is untrue in both positions',
+        !settings.includes('settings.analytics'),
+        'the analytics settings row must stay removed — the policy carries the fact',
       );
-      const i18n = read('src/lib/i18n.ts');
-      assert.ok(i18n.includes("'settings.analytics': 'No analytics'"));
-      assert.ok(i18n.includes("'settings.analytics': 'Ei analytiikkaa'"));
+      // And the policy still carries it, in both languages.
+      const legal = read('src/lib/legalDocuments.ts');
+      assert.match(legal, /No analytics, telemetry or crash reporting/);
+      assert.match(legal, /analytiikkaa/i);
     },
   },
   {
