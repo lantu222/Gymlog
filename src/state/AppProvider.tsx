@@ -14,6 +14,7 @@ import {
 import { createSerialTaskQueue, RunExclusive } from '../lib/serialTaskQueue';
 import { buildWorkoutTemplateSessions } from '../lib/workoutTemplateSessions';
 import { persistCompletedWorkoutSessionToDatabase, PersistCompletedWorkoutInput, SessionSaveSummary } from './completedWorkoutPersistence';
+import type { HevyImportedWorkout } from '../lib/hevyImport';
 import {
   getBodyweightProgress,
   getLatestLogForTemplateExercise,
@@ -103,6 +104,15 @@ interface AppContextValue {
    * crash, and the exercise library is reseeded exactly like on load.
    */
   restoreDatabaseFromBackup: (input: Partial<AppDatabase>) => Promise<void>;
+  /**
+   * Writes a parsed Hevy export into the history, through the same
+   * persistence path a finished live workout takes. Session ids are
+   * derived from the Hevy start time, so importing the same file twice
+   * reports duplicates instead of doubling the history.
+   */
+  importWorkoutHistory: (
+    workouts: HevyImportedWorkout[],
+  ) => Promise<{ imported: number; duplicates: number }>;
   saveCardioSession: (input: {
     activityType: CardioActivityType;
     startedAt: string;
@@ -705,6 +715,54 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     });
   }
 
+  function importWorkoutHistory(workouts: HevyImportedWorkout[]) {
+    return runExclusive(async () => {
+      let current = databaseRef.current;
+      let imported = 0;
+      let duplicates = 0;
+      for (const workout of workouts) {
+        const startedMs = Date.parse(workout.startedAt);
+        const result = persistCompletedWorkoutSessionToDatabase(current, {
+          sessionId: `hevy_${startedMs}`,
+          // Not a template that exists, and does not need to be: ready
+          // programme sessions reference ids outside the database too, and
+          // every history surface reads the snapshots.
+          workoutTemplateId: 'hevy_import',
+          workoutTemplateSessionId: null,
+          workoutNameSnapshot: workout.name,
+          startedAt: workout.startedAt,
+          performedAt: workout.endedAt ?? workout.startedAt,
+          logs: workout.exercises.map((exercise, orderIndex) => ({
+            exerciseTemplateId: null,
+            exerciseNameSnapshot: exercise.name,
+            weight: Math.max(0, ...exercise.sets.map((set) => set.weightKg)),
+            repsPerSet: exercise.sets.map((set) => set.reps),
+            sets: exercise.sets.map((set, setIndex) => ({
+              orderIndex: setIndex,
+              weight: set.weightKg,
+              reps: set.reps,
+              kind: set.kind,
+              outcome: 'completed' as const,
+              status: 'completed' as const,
+            })),
+            tracked: false,
+            orderIndex,
+          })),
+        });
+        if (result.didPersist) {
+          imported += 1;
+          current = result.database;
+        } else {
+          duplicates += 1;
+        }
+      }
+      if (imported > 0) {
+        await commit(current);
+      }
+      return { imported, duplicates };
+    });
+  }
+
   function restoreDatabaseFromBackup(input: Partial<AppDatabase>) {
     return runExclusive(async () => {
       const restored = normalizeDatabase(input);
@@ -773,6 +831,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       addMeasurementEntry,
       resetAllData,
       restoreDatabaseFromBackup,
+      importWorkoutHistory,
     }),
     [database, hydrated],
   );

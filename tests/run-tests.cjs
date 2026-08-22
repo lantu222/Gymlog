@@ -173,6 +173,7 @@ const suites = [
   ...require('./lib/aiCoachBudget.test.cjs'),
   ...require('./lib/aiCoachLiveGate.test.cjs'),
   ...require('./lib/accountBackup.test.cjs'),
+  ...require('./lib/hevyImport.test.cjs'),
   ...require('./lib/aiCoachEval.test.cjs'),
   ...require('./api/aiCoachEndpoint.test.cjs'),
   ...require('./lib/aiCoachModules.test.cjs'),

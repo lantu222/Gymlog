@@ -875,6 +875,7 @@ function VinhaApp() {
     deleteCompletedWorkoutSession,
     saveCardioSession,
     restoreDatabaseFromBackup,
+    importWorkoutHistory,
   } = useAppContext();
   const workout = useWorkoutContext();
 
@@ -6817,6 +6818,17 @@ function VinhaApp() {
           const workoutTemplateId = await upsertWorkoutTemplate(draft);
           setSettingsImportVisible(false);
           navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+        }}
+        onImportHistory={async (preview) => {
+          const result = await importWorkoutHistory(preview.workouts);
+          setSettingsImportVisible(false);
+          showToast(
+            t(
+              preferences.appLanguage,
+              result.duplicates > 0 ? 'hevy.doneWithDuplicates' : 'hevy.done',
+              { imported: String(result.imported), duplicates: String(result.duplicates) },
+            ),
+          );
         }}
       />
       <ProgramLimitSheet
