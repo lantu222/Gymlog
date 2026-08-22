@@ -181,6 +181,7 @@ const suites = [
   ...require('./lib/homePlanProgress.test.cjs'),
   ...require('./lib/homeSessionHero.test.cjs'),
   ...require('./lib/sessionFocusClassification.test.cjs'),
+  ...require('./lib/substitutionGroups.test.cjs'),
   ...require('./lib/workoutCompleteView.test.cjs'),
   ...require('./lib/homeCalendar.test.cjs'),
   ...require('./lib/trainingSchedule.test.cjs'),
