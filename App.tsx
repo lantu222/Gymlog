@@ -5828,6 +5828,19 @@ function VinhaApp() {
         lastSession={coachLastSession}
         onOpenAnalysis={(sessionId) => navigate({ tab: 'home', screen: 'analysis', sessionId })}
         onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
+        pinnedStatCardKeys={homePinnedStatCardKeys}
+        onLogMeasurement={async (intent) => {
+          if (intent.kind === 'bodyweight') {
+            await addBodyweightEntry(intent.value);
+          } else {
+            await addMeasurementEntry(intent.kind, intent.value, intent.unit === 'kg' ? 'cm' : intent.unit);
+          }
+        }}
+        onPinStatCard={(key) => {
+          if (!homePinnedStatCardKeys.includes(key)) {
+            void updatePreferences({ homeStatCardKeys: [...homePinnedStatCardKeys, key] });
+          }
+        }}
       />
     );
   } else if (route.tab === 'home' && route.screen === 'pro_offer') {

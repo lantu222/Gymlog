@@ -17,7 +17,9 @@ import { requestAiCoachAdvice } from '../lib/aiCoachClient';
 import { buildAiCoachPreviewAnswer } from '../lib/aiCoachPreview';
 import { FREE_COACH_QUESTIONS_PER_WEEK } from '../lib/aiCoachQuota';
 import { CoachChatIntroInput, CoachContextChip, buildCoachContextChips, buildCoachContextReadout, buildCoachNoticed, buildCoachOpeningLine, buildCoachOpeningOffer, buildCoachOpeningRows } from '../lib/coachChat';
+import { MEASUREMENT_LABEL_KEYS } from '../lib/homeStatCards';
 import { I18nKey, t } from '../lib/i18n';
+import { MeasurementIntent, parseMeasurementIntent } from '../lib/measurementIntent';
 import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { layout, spacing } from '../theme';
@@ -65,6 +67,15 @@ interface AICoachChatScreenProps {
   lastSession: { id: string; name: string } | null;
   onOpenAnalysis: (sessionId: string) => void;
   onOpenPremium: () => void;
+  /**
+   * "Rinnanympärys on 90 cm" typed into the chat is a reading to log, not a
+   * question (user, 2026-08-23). The chat offers to log it — one tap — and,
+   * if that measurement has no card on Home yet, offers the card once.
+   * Nothing is written without the tap.
+   */
+  pinnedStatCardKeys: string[];
+  onLogMeasurement: (intent: MeasurementIntent) => Promise<void>;
+  onPinStatCard: (key: string) => void;
 }
 
 interface ChatMessage {
@@ -73,6 +84,8 @@ interface ChatMessage {
   text: string;
   /** The coach's structured answer, rendered as sections rather than prose. */
   advice?: AICoachAdvice;
+  /** An offer with buttons: log the reading the reader just stated, or put its card on Home. */
+  offer?: { type: 'log' | 'pin'; intent: MeasurementIntent };
   evidence?: string;
   /** Set when the answer is withheld: the real conclusion, blurred. */
   lockedBody?: string;
@@ -104,6 +117,9 @@ export function AICoachChatScreen({
   lastSession,
   onOpenAnalysis,
   onOpenPremium,
+  pinnedStatCardKeys,
+  onLogMeasurement,
+  onPinStatCard,
 }: AICoachChatScreenProps) {
   const theme = useTheme();
   const themeName = useThemeName();
@@ -172,6 +188,52 @@ export function AICoachChatScreen({
 
   const mustAcknowledgeOnline = liveConfigured && !onlineNoticeAcknowledged;
 
+  const measurementLabel = useCallback(
+    (intent: MeasurementIntent) =>
+      intent.kind === 'bodyweight' ? t(language, 'cards.bodyweight') : t(language, MEASUREMENT_LABEL_KEYS[intent.kind]),
+    [language],
+  );
+  const formatReading = useCallback(
+    (intent: MeasurementIntent) =>
+      `${measurementLabel(intent)} ${String(intent.value).replace('.', language === 'fi' ? ',' : '.')} ${intent.unit}`,
+    [language, measurementLabel],
+  );
+
+  const resolveOffer = useCallback(
+    async (messageId: string, offer: NonNullable<ChatMessage['offer']>, accepted: boolean) => {
+      if (!accepted) {
+        setMessages((current) => current.filter((message) => message.id !== messageId));
+        return;
+      }
+      if (offer.type === 'log') {
+        await onLogMeasurement(offer.intent);
+        const pinned = pinnedStatCardKeys.includes(offer.intent.kind);
+        setMessages((current) =>
+          current.flatMap((message) =>
+            message.id === messageId
+              ? [
+                  { id: `${messageId}:done`, fromCoach: true, text: t(language, 'coachChat.measure.logged', { reading: formatReading(offer.intent) }) },
+                  // The card offer follows only when Home does not have it — a
+                  // pinned card offered again would be the sign explaining a sign.
+                  ...(pinned ? [] : [{ id: `${messageId}:pin`, fromCoach: true, text: '', offer: { type: 'pin' as const, intent: offer.intent } }]),
+                ]
+              : [message],
+          ),
+        );
+        return;
+      }
+      onPinStatCard(offer.intent.kind);
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === messageId
+            ? { id: `${messageId}:done`, fromCoach: true, text: t(language, 'coachChat.measure.pinned', { label: measurementLabel(offer.intent) }) }
+            : message,
+        ),
+      );
+    },
+    [formatReading, language, measurementLabel, onLogMeasurement, onPinStatCard, pinnedStatCardKeys],
+  );
+
   const send = useCallback(
     async (prompt: string) => {
       const trimmed = prompt.trim();
@@ -182,7 +244,14 @@ export function AICoachChatScreen({
 
       const token = (askToken.current += 1);
       setDraft('');
-      setMessages((current) => [...current, { id: `me:${token}`, fromCoach: false, text: trimmed }]);
+      const intent = parseMeasurementIntent(trimmed, language);
+      setMessages((current) => [
+        ...current,
+        { id: `me:${token}`, fromCoach: false, text: trimmed },
+        ...(intent
+          ? [{ id: `offer:${token}`, fromCoach: true, text: '', offer: { type: 'log' as const, intent } }]
+          : []),
+      ]);
 
       // Out of quota: the question still lands, and the answer that exists is
       // shown blurred rather than refused. The door stays open (design rule);
@@ -347,7 +416,35 @@ export function AICoachChatScreen({
           ) : null}
 
           {messages.map((message) =>
-            message.lockedBody ? (
+            message.offer ? (
+              <View key={message.id} style={styles.bubbleRow}>
+                <View style={[styles.coachBubble, styles.offerBubble]}>
+                  <Text style={styles.coachText}>
+                    {message.offer.type === 'log'
+                      ? t(language, 'coachChat.measure.offer', { reading: formatReading(message.offer.intent) })
+                      : t(language, 'coachChat.measure.pinOffer', { label: measurementLabel(message.offer.intent) })}
+                  </Text>
+                  <View style={styles.offerActions}>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => void resolveOffer(message.id, message.offer as NonNullable<ChatMessage['offer']>, false)}
+                      style={({ pressed }) => [styles.offerGhost, pressed && styles.pressed]}
+                    >
+                      <Text style={styles.offerGhostText}>{t(language, 'coachChat.measure.skip')}</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => void resolveOffer(message.id, message.offer as NonNullable<ChatMessage['offer']>, true)}
+                      style={({ pressed }) => [styles.offerCta, pressed && styles.pressed]}
+                    >
+                      <Text style={styles.offerCtaText}>
+                        {t(language, message.offer.type === 'log' ? 'coachChat.measure.log' : 'coachChat.measure.pin')}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+            ) : message.lockedBody ? (
               <View key={message.id} style={styles.lockWrap}>
                 <ProLockedCard
                   language={language}
@@ -562,6 +659,37 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   onlineButtonText: {
     color: theme.onHighlight,
     fontSize: 13.5,
+    fontWeight: '800',
+  },
+  offerBubble: {
+    gap: 10,
+  },
+  offerActions: {
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'flex-end',
+  },
+  offerGhost: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  offerGhostText: {
+    color: theme.muted,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  offerCta: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    backgroundColor: theme.highlight,
+  },
+  offerCtaText: {
+    color: theme.onHighlight,
+    fontSize: 13,
     fontWeight: '800',
   },
   answerSection: {
