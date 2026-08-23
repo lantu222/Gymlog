@@ -160,8 +160,14 @@ export function scoreCase(evalCase: AiCoachEvalCase, advice: AICoachAdvice): Eva
   }
 
   // 4. Silence, where silence is the honest answer.
+  //
+  // Scored on the fields that make claims. `assumptions` restates the
+  // question ("you are asking about your training progress") and is excluded:
+  // the live coach answered an empty account perfectly and was failed for
+  // echoing the word the reader used.
   if (evalCase.expectsAbstention) {
-    const claimed = TREND_CLAIMS.filter((word) => contains(answer, word));
+    const claims = [advice.takeaway, ...advice.why, ...advice.nextSteps, ...advice.plan].filter(Boolean).join(' ');
+    const claimed = TREND_CLAIMS.filter((word) => contains(claims, word));
     checks.push({
       check: 'abstains',
       passed: claimed.length === 0,

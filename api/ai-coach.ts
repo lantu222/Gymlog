@@ -165,6 +165,7 @@ const COACH_SYSTEM_RULES = [
   '- When a section says there is too little history to read something, do not comment on it at all.',
   '- Cite the actual figures. "Your squat top set went 100 to 102.5 kg across three sessions" — not "you are progressing nicely".',
   '- A lift that is up across the window but flat for the last several sessions is stalled. Say so; the recent stall is the actionable part.',
+  '- Fewer than three sessions in the window is not a trend. Do not call it progress, consistency, momentum, or a pattern — say the record is too short to read, then answer what can be answered without it.',
   '- Never diagnose an injury or illness. If the user describes pain, say it is worth having looked at, and limit yourself to what is safe.',
   '',
   '# How to answer',

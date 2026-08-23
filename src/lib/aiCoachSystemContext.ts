@@ -129,6 +129,14 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
         'No sessions logged in this window. Do not describe trends, volume, or progress.',
       ])!,
     );
+  } else if (history.sessionCount < 3) {
+    // The live eval caught "progress" and "consistent" written over one
+    // logged session. A single data point is a fact, not a direction.
+    blocks.push(
+      section('Reading note', [
+        `Only ${history.sessionCount} session${history.sessionCount === 1 ? '' : 's'} in this window: not a trend. Do not describe progress, consistency, or momentum.`,
+      ])!,
+    );
   }
 
   // Plateaus — prominent, with actionable phrasing
