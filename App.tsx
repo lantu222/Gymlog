@@ -167,7 +167,7 @@ import { suggestHomeStatCardKeys } from './src/lib/homeCardSuggestions';
 import { buildHomePromoSlides } from './src/lib/homePromoSlides';
 import { isMeasurementCardKey } from './src/lib/homeStatCards';
 import { resolveNextPlanEntryIndex } from './src/lib/planRotation';
-import { cycleSchedule, weekdaySchedule } from './src/lib/trainingSchedule';
+import { cycleSchedule, trainsOn, weekdaySchedule } from './src/lib/trainingSchedule';
 import {
   planWeekdayIndexes,
   resolveProgramTrainingDays,
@@ -3449,20 +3449,6 @@ function VinhaApp() {
   }, [database.workoutPlans, database.workoutSessions, database.exerciseLogs, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.dismissedCompletionPlanIds, preferences.recommendedProgramId, preferences.setupGoal, preferences.todaySession, recommendedReadyContent, recommendedReadyTemplate, setupSelection, workoutTemplates]);
   // The AI tab's opening state. Deterministic, so the most valuable-looking
   // part of the coach costs nothing to render and works offline.
-  const coachChatIntro = useMemo(
-    () => ({
-      todaySessionTitle: homeActivePlanCard?.nextSession
-        ? localizeSessionName(
-            formatWorkoutDisplayLabel(homeActivePlanCard.nextSession.title),
-            preferences.appLanguage,
-          )
-        : null,
-      sessionsThisWeek: homeSummary.streak.sessionsThisWeek,
-      weeklyRead: proWeeklyRead,
-      fatigue: proFatigue,
-    }),
-    [homeActivePlanCard, homeSummary.streak.sessionsThisWeek, preferences.appLanguage, proFatigue, proWeeklyRead],
-  );
   const progressWeeklyTarget = Number.parseInt(homeActivePlanCard?.sessionsPerWeek ?? '', 10) || null;
   // "Your cards" on Home: full catalog computed once, pins resolved from prefs.
   const homeStatCardSources = useMemo(
@@ -3562,6 +3548,32 @@ function VinhaApp() {
     const cycle = preferences.trainingCycle;
     return cycle ? cycleSchedule(cycle.pattern, cycle.anchorDayStart) : weekdaySchedule(homeTrainingDayIndexes);
   }, [homeTrainingDayIndexes, preferences.trainingCycle]);
+  // Only a session the schedule actually puts on TODAY is "on the plan
+  // today". The next session in the rotation used to be named regardless, so
+  // the coach opened a rest day with "Upper is on the plan today — walk
+  // through it?" (#bugs, 2026-08-23). On a rest day the coach says so and
+  // names what comes next.
+  const coachChatIntro = useMemo(
+    () => ({
+      todaySessionTitle:
+        homeActivePlanCard?.nextSession && trainsOn(homeTrainingSchedule, new Date())
+          ? localizeSessionName(
+              formatWorkoutDisplayLabel(homeActivePlanCard.nextSession.title),
+              preferences.appLanguage,
+            )
+          : null,
+      nextSessionTitle: homeActivePlanCard?.nextSession
+        ? localizeSessionName(
+            formatWorkoutDisplayLabel(homeActivePlanCard.nextSession.title),
+            preferences.appLanguage,
+          )
+        : null,
+      sessionsThisWeek: homeSummary.streak.sessionsThisWeek,
+      weeklyRead: proWeeklyRead,
+      fatigue: proFatigue,
+    }),
+    [homeActivePlanCard, homeSummary.streak.sessionsThisWeek, homeTrainingSchedule, preferences.appLanguage, proFatigue, proWeeklyRead],
+  );
   /**
    * Home must never say "find a programme" while one is running.
    *

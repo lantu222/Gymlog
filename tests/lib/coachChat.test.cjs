@@ -199,4 +199,20 @@ module.exports = [
       assert.equal(rows[0].askLabel, 'Käy läpi →');
     },
   },
+  {
+    // #bugs 2026-08-23: a rest day opened with "Upper is on the plan today".
+    // The next session in the rotation is "next", and only the schedule can
+    // make it "today".
+    name: 'a rest day says rest and names the next session, instead of calling it today',
+    run() {
+      const rest = { todaySessionTitle: null, nextSessionTitle: 'Upper Ma', sessionsThisWeek: 2, weeklyRead: [] };
+      assert.equal(buildCoachOpeningLine(rest, 'fi'), 'Tänään on lepopäivä. Seuraavaksi: Upper Ma. Käydäänkö se läpi?');
+      const offer = buildCoachOpeningOffer(rest, 'fi');
+      assert.ok(offer);
+      assert.equal(offer.question, 'Käy seuraava treenini Upper Ma läpi.');
+      // A training day still says today.
+      const today = { todaySessionTitle: 'Upper Ma', nextSessionTitle: 'Upper Ma', sessionsThisWeek: 2, weeklyRead: [] };
+      assert.match(buildCoachOpeningLine(today, 'fi'), /on tänään ohjelmassa/);
+    },
+  },
 ];

@@ -39,6 +39,8 @@ export interface CoachNoticedItem {
 export interface CoachChatIntroInput {
   /** Today's planned session title, already localized. Null on a rest day. */
   todaySessionTitle: string | null;
+  /** The next session in the rotation, whatever day it lands on. */
+  nextSessionTitle?: string | null;
   sessionsThisWeek: number;
   weeklyRead: WeeklyReadRow[];
   fatigue: FatigueResult | null;
@@ -190,6 +192,11 @@ export function buildCoachOpeningLine(input: CoachChatIntroInput, language: AppL
   if (input.todaySessionTitle) {
     return t(language, 'coachChat.open.plan', { session: input.todaySessionTitle });
   }
+  if (input.nextSessionTitle) {
+    // A rest day with a programme running: say so, and name what is next
+    // rather than pretending the next session is today's.
+    return t(language, 'coachChat.open.rest', { session: input.nextSessionTitle });
+  }
   if (input.sessionsThisWeek > 0) {
     return t(language, 'coachChat.open.logged', { count: input.sessionsThisWeek });
   }
@@ -308,6 +315,14 @@ export function buildCoachOpeningOffer(
     // the one tap that does something today is the session.
     return {
       question: t(language, 'coachChat.ask.walkThrough', { session: input.todaySessionTitle }),
+      askLabel: t(language, 'coachChat.offer.walkThrough'),
+    };
+  }
+  if (input.nextSessionTitle && !stalled) {
+    // Rest day: the offer is the NEXT session, and the question says so
+    // instead of calling it today's.
+    return {
+      question: t(language, 'coachChat.ask.walkThroughNext', { session: input.nextSessionTitle }),
       askLabel: t(language, 'coachChat.offer.walkThrough'),
     };
   }

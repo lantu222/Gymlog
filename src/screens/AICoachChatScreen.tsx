@@ -22,7 +22,7 @@ import { I18nKey, t } from '../lib/i18n';
 import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { layout, spacing } from '../theme';
-import { AICoachTrainingContext } from '../types/aiCoach';
+import { AICoachAdvice, AICoachTrainingContext } from '../types/aiCoach';
 import { AppLanguage } from '../types/models';
 
 /**
@@ -79,6 +79,28 @@ interface ChatMessage {
 
 /** Width of the soft light behind the dark thread's header. */
 const TOP_LIGHT = 460;
+
+/**
+ * The structured advice as one readable message: the takeaway first, the
+ * reasons as bullets, then the steps numbered, then the plan. Empty sections
+ * simply do not appear — a short answer stays short.
+ */
+function formatCoachReply(answer: AICoachAdvice): string {
+  const lines: string[] = [answer.takeaway];
+  const why = (answer.why ?? []).filter(Boolean);
+  const steps = (answer.nextSteps ?? []).filter(Boolean);
+  const plan = (answer.plan ?? []).filter(Boolean);
+  if (why.length) {
+    lines.push('', ...why.map((line) => `• ${line}`));
+  }
+  if (steps.length) {
+    lines.push('', ...steps.map((line, index) => `${index + 1}. ${line}`));
+  }
+  if (plan.length) {
+    lines.push('', ...plan.map((line) => `→ ${line}`));
+  }
+  return lines.join('\n');
+}
 
 function SparkGlyph({ color, size = 18 }: { color: string; size?: number }) {
   return (
@@ -222,7 +244,11 @@ export function AICoachChatScreen({
         if (!proUnlocked && !answer.unanswered) {
           onFreeQuestionUsed();
         }
-        const reply = [answer.takeaway, answer.nextSteps?.[0]].filter(Boolean).join(' ');
+        // The whole answer, not its first two lines. The live coach returns a
+        // takeaway, its reasons, every next step and a plan; showing only the
+        // takeaway and one step read as "a bit thin" (#bugs, 2026-08-23) —
+        // because two thirds of what was paid for was dropped on the floor.
+        const reply = formatCoachReply(answer);
         setMessages((current) => [
           ...current,
           {
