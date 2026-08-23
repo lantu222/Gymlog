@@ -1,5 +1,6 @@
 import { buildAiCoachPreviewAnswer } from '../src/lib/aiCoachPreview';
 import { buildAiCoachSystemContext } from '../src/lib/aiCoachSystemContext';
+import { normalizeAiCoachTrainingContext } from '../src/lib/aiTrainingContext';
 import {
   BudgetState,
   checkBudget,
@@ -238,7 +239,9 @@ function parseBody(body: unknown): ParsedBody | null {
 
   return {
     prompt: candidate.prompt.trim(),
-    context: candidate.context as AICoachAdviceRequest['context'],
+    // Repaired, not trusted: a context with fields missing used to reach the
+    // preview builder and crash the function on `trackedLifts[0]`.
+    context: normalizeAiCoachTrainingContext(candidate.context as Partial<AICoachAdviceRequest['context']>),
     language: candidate.language === 'fi' || candidate.language === 'en' ? candidate.language : undefined,
     mode: candidate.mode === 'compose' ? 'compose' : 'advice',
   };
@@ -463,7 +466,11 @@ export function validateProgramme(payload: unknown) {
  * response - the deterministic composer needs the exercise library, which is
  * on the device - so every failure is an error the client answers locally.
  */
-async function requestClaudeProgramme(input: ParsedBody) {
+type ProgrammeResult =
+  | AICoachAdviceError
+  | { ok: true; source: 'live'; proposal: { title: string; sessions: unknown[] } };
+
+async function requestClaudeProgramme(input: ParsedBody): Promise<ProgrammeResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return createError({ code: 'MISSING_API_KEY', message: 'ANTHROPIC_API_KEY is not configured.' });
@@ -576,13 +583,16 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   if (input.mode === 'compose') {
     const composed = await requestClaudeProgramme(input);
-    if (composed.ok) {
+    if (composed.ok === true) {
       res.status(200).json(composed);
       return;
     }
+    // Narrowed by the literal discriminant: Vercel's compiler refused the
+    // truthiness form and reported `error` as missing on the union.
+    const failure: AICoachAdviceError = composed;
     const composeStatus =
-      composed.error.code === 'UPSTREAM_TIMEOUT' ? 504 : composed.error.code === 'RATE_LIMIT' ? 429 : composed.error.code === 'BAD_REQUEST' ? 400 : 502;
-    res.status(composeStatus).json(composed);
+      failure.error.code === 'UPSTREAM_TIMEOUT' ? 504 : failure.error.code === 'RATE_LIMIT' ? 429 : failure.error.code === 'BAD_REQUEST' ? 400 : 502;
+    res.status(composeStatus).json(failure);
     return;
   }
 

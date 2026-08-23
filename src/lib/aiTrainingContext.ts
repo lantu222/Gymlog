@@ -222,3 +222,47 @@ export function buildAiTrainingContext({
     ...(plannerSetup !== undefined ? { plannerSetup } : {}),
   };
 }
+
+/**
+ * A context with every field present, whatever the client sent.
+ *
+ * The endpoint accepted any object as a context, and the preview builder
+ * then read `context.trackedLifts[0]` — so a request with `context: {}`
+ * (a smoke test, an older client, a hand-written call) crashed the function
+ * instead of answering. Same rule as the database loader: missing fields get
+ * defaults, never a throw. Only shape is repaired here; a present field is
+ * trusted as the client sent it.
+ */
+export function normalizeAiCoachTrainingContext(
+  input: Partial<AICoachTrainingContext> | null | undefined,
+): AICoachTrainingContext {
+  const candidate = input && typeof input === 'object' ? input : {};
+  const array = <T,>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
+  const number = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? value : 0);
+  const fatigue = candidate.fatigue && typeof candidate.fatigue === 'object' ? candidate.fatigue : null;
+  return {
+    unitPreference: candidate.unitPreference === 'lb' ? 'lb' : 'kg',
+    activeSession: candidate.activeSession ?? null,
+    recentCompletedSessions: array(candidate.recentCompletedSessions),
+    trackedLifts: array(candidate.trackedLifts),
+    latestTopSets: array(candidate.latestTopSets),
+    sessionsThisWeek: number(candidate.sessionsThisWeek),
+    sessionsLast30Days: number(candidate.sessionsLast30Days),
+    rhythm: array(candidate.rhythm),
+    readyProgramCount: number(candidate.readyProgramCount),
+    recommendedProgramId: candidate.recommendedProgramId ?? null,
+    recommendedProgramTitle: candidate.recommendedProgramTitle ?? null,
+    customProgramTitle: candidate.customProgramTitle ?? null,
+    plateaus: array(candidate.plateaus),
+    fatigue: fatigue ?? {
+      acwr: 0,
+      recoveryScore: 0,
+      signal: 'optimal',
+      sessionCount7d: 0,
+      confident: false,
+    },
+    history:
+      candidate.history && typeof candidate.history === 'object' ? candidate.history : emptyAiCoachHistory(),
+    plannerSetup: candidate.plannerSetup ?? null,
+  };
+}
