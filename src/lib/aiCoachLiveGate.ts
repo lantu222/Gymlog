@@ -16,7 +16,9 @@
  * Flip to true ONLY after the usage limit is set on the production key.
  * tests/releaseReadiness.test.cjs enforces that this gate stays wired.
  */
-export const AI_LIVE_SPEND_CAP_CONFIRMED = false;
+// Flipped 2026-08-23: the Anthropic Console monthly spend limit is set to
+// $10 on the production key (user confirmation in session).
+export const AI_LIVE_SPEND_CAP_CONFIRMED = true;
 
 /**
  * The URL the client is allowed to use, given the build type. Returns '' —
