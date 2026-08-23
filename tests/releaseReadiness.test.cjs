@@ -367,6 +367,34 @@ module.exports = [
     },
   },
   {
+    name: 'release: the development transcript log is off before Play',
+    run() {
+      // The policy says prompts are not logged. During development the
+      // endpoint may log them behind src/lib/aiCoachDebug.ts so the real
+      // conversations can be reviewed — and this is what stops that switch
+      // from shipping by being forgotten.
+      const fs = require('node:fs');
+      const debugPath = path.join(root, 'src', 'lib', 'aiCoachDebug.ts');
+      if (!fs.existsSync(debugPath)) {
+        return; // deleted — the cleanest way to turn it off
+      }
+      const debug = read('src/lib/aiCoachDebug.ts');
+      const match = debug.match(/export const AI_COACH_DEBUG_TRANSCRIPTS = (true|false);/);
+      assert.ok(match, 'aiCoachDebug.ts must declare AI_COACH_DEBUG_TRANSCRIPTS as a literal boolean');
+      // Same permission slip as the paywall guards: fine while the build
+      // declares itself a demo, a lie the moment that flag is cleared to ship.
+      if (readJson('app.json')?.expo?.extra?.demoBuild === true) {
+        return;
+      }
+      assert.equal(
+        match[1],
+        'false',
+        'AI_COACH_DEBUG_TRANSCRIPTS is still true: the coach endpoint logs conversations. '
+          + 'Flip it to false (or delete src/lib/aiCoachDebug.ts) and unset AI_COACH_DEBUG_TRANSCRIPTS in Vercel before release.',
+      );
+    },
+  },
+  {
     name: 'release: live AI cannot ship before the spend cap is confirmed',
     run() {
       // The endpoint's request bounds and per-instance budget are brakes; the

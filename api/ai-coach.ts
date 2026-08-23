@@ -1,6 +1,7 @@
 import { buildAiCoachPreviewAnswer } from '../src/lib/aiCoachPreview';
 import { buildAiCoachSystemContext } from '../src/lib/aiCoachSystemContext';
 import { normalizeAiCoachTrainingContext } from '../src/lib/aiTrainingContext';
+import { AI_COACH_DEBUG_TRANSCRIPTS } from '../src/lib/aiCoachDebug';
 import {
   BudgetState,
   checkBudget,
@@ -598,6 +599,19 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   const result = await requestClaude(input);
+  // TEMPORARY transcript log — see src/lib/aiCoachDebug.ts. Question and
+  // answer only; the training context is never logged.
+  if (AI_COACH_DEBUG_TRANSCRIPTS && process.env.AI_COACH_DEBUG_TRANSCRIPTS === '1') {
+    console.log(
+      'TRANSCRIPT',
+      JSON.stringify({
+        language: input.language,
+        prompt: input.prompt,
+        source: result.ok ? result.source : `error:${result.error.code}`,
+        answer: result.ok ? result.answer : result.fallback ?? null,
+      }),
+    );
+  }
   if (result.ok) {
     res.status(200).json(result);
     return;
