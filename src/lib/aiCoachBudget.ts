@@ -43,7 +43,10 @@ export const DEFAULT_BUDGET_LIMITS: AiCoachBudgetLimits = {
   // The app's own history block caps near 5 KB; this leaves headroom for the
   // rest of the payload without letting a crafted one run away.
   maxContextChars: 24000,
-  maxOutputTokens: 700,
+  // 700 cut Finnish answers off mid-JSON (a takeaway, reasons, steps and a
+  // plan run long in an inflected language) and the app fell back to
+  // preview. Still a hard cap on the expensive half of the call.
+  maxOutputTokens: 1200,
   // ~1.5M tokens per window per instance. Generous for real use, and still a
   // bound rather than an open tap.
   instanceTokenBudget: 1_500_000,

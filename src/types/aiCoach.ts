@@ -104,7 +104,16 @@ export interface AICoachHistoryWeek {
 }
 
 export interface AICoachHistorySchedule {
+  /** Weekday plans only; empty for a cycle. */
   trainingDays: SetupWeekday[];
+  /**
+   * A rolling rhythm ("2 on, 1 off") the weekday list cannot express. The
+   * coach used to read the questionnaire's availability instead and told a
+   * 2-on-1-off reader their schedule was mon-wed-thu (transcript, 2026-08-23).
+   */
+  cycle?: { onDays: number; offDays: number; length: number } | null;
+  /** ISO date of the next day the schedule trains on, from today. */
+  nextTrainingDate?: string | null;
   plannedPerWeek: number;
   plannedSessions: number;
   completedSessions: number;

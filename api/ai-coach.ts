@@ -311,7 +311,7 @@ async function requestClaude(input: AICoachAdviceRequest) {
   if (!apiKey) {
     return createError(
       { code: 'MISSING_API_KEY', message: 'ANTHROPIC_API_KEY is not configured.' },
-      buildAiCoachPreviewAnswer(input.prompt, input.context),
+      buildAiCoachPreviewAnswer(input.prompt, input.context, input.language),
       'ANTHROPIC_API_KEY puuttuu. AI Coach preview-vastaus palautettiin sen sijaan.',
     );
   }
@@ -339,7 +339,7 @@ async function requestClaude(input: AICoachAdviceRequest) {
             ? 'Coach budget for this window is spent.'
             : 'Request is larger than the coach endpoint accepts.',
       },
-      buildAiCoachPreviewAnswer(input.prompt, input.context),
+      buildAiCoachPreviewAnswer(input.prompt, input.context, input.language),
       'Live AI Coach ei ollut käytettävissä juuri nyt. Preview-vastaus palautettiin.',
     );
   }
@@ -388,7 +388,7 @@ async function requestClaude(input: AICoachAdviceRequest) {
       console.error('AI Coach upstream request failed', response.status, body.slice(0, 400));
       return createError(
         { code: 'UPSTREAM_ERROR', message: 'Claude request failed.' },
-        buildAiCoachPreviewAnswer(input.prompt, input.context),
+        buildAiCoachPreviewAnswer(input.prompt, input.context, input.language),
         'Live AI Coach ei vastannut oikein. Preview-vastaus palautettiin.',
       );
     }
@@ -397,9 +397,19 @@ async function requestClaude(input: AICoachAdviceRequest) {
     const parsed = validateAnswer(extractToolInput(payload));
 
     if (!parsed) {
+      // Shape only, never content: the stop reason tells a truncated answer
+      // (max_tokens) from a refused tool call, and that is the whole diagnosis.
+      const meta = payload && typeof payload === 'object' ? (payload as { stop_reason?: string; content?: unknown[] }) : {};
+      console.error(
+        'AI Coach invalid answer payload',
+        JSON.stringify({
+          stop_reason: meta.stop_reason ?? null,
+          blocks: Array.isArray(meta.content) ? meta.content.map((block) => (block as { type?: string }).type ?? '?') : null,
+        }),
+      );
       return createError(
         { code: 'INVALID_RESPONSE', message: 'Claude returned an invalid schema payload.' },
-        buildAiCoachPreviewAnswer(input.prompt, input.context),
+        buildAiCoachPreviewAnswer(input.prompt, input.context, input.language),
         'Live AI Coach palautti virheellisen vastauksen. Preview-vastaus palautettiin.',
       );
     }
@@ -409,7 +419,7 @@ async function requestClaude(input: AICoachAdviceRequest) {
     const isAbort = error instanceof Error && error.name === 'AbortError';
     return createError(
       { code: isAbort ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_ERROR', message: isAbort ? 'Claude request timed out.' : 'Claude request failed.' },
-      buildAiCoachPreviewAnswer(input.prompt, input.context),
+      buildAiCoachPreviewAnswer(input.prompt, input.context, input.language),
       isAbort ? 'Live AI Coach aikakatkaistiin. Preview-vastaus palautettiin.' : 'Live AI Coach ei ollut tavoitettavissa. Preview-vastaus palautettiin.',
     );
   } finally {
@@ -576,7 +586,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     res.status(429).json(
       createError(
         { code: 'RATE_LIMIT', message: 'Too many requests. Try again shortly.' },
-        buildAiCoachPreviewAnswer(input.prompt, input.context),
+        buildAiCoachPreviewAnswer(input.prompt, input.context, input.language),
         'Pyyntoraja tayttyi hetkeksi. Preview-vastaus palautettiin.',
       ),
     );

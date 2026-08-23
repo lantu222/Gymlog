@@ -94,7 +94,7 @@ module.exports = [
     name: 'a failed or slow upstream call still answers with the preview fallback',
     run() {
       assert.match(source, /UPSTREAM_TIMEOUT/);
-      assert.match(source, /buildAiCoachPreviewAnswer\(input\.prompt, input\.context\)/);
+      assert.match(source, /buildAiCoachPreviewAnswer\(input\.prompt, input\.context, input\.language\)/);
       // An unset key must degrade to preview, never surface as a crash.
       assert.match(source, /MISSING_API_KEY/);
     },

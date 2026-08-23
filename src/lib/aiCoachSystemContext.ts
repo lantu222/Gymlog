@@ -115,11 +115,18 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
 
   if (history.schedule) {
     const s = history.schedule;
+    const planned = s.cycle
+      ? `${s.cycle.onDays} days on, ${s.cycle.offDays} off, repeating every ${s.cycle.length} days (~${s.plannedPerWeek}x/week). Not tied to weekdays.`
+      : `${s.plannedPerWeek}x/week on ${s.trainingDays.join(', ')}`;
     blocks.push(
-      section('Schedule', [
-        line('Planned', `${s.plannedPerWeek}x/week on ${s.trainingDays.join(', ')}`),
-        line('Adherence', `${s.completedSessions} done of ${s.plannedSessions} planned in this window`),
-      ])!,
+      section(
+        'Schedule',
+        [
+          line('Planned', planned),
+          s.nextTrainingDate ? line('Next training day', s.nextTrainingDate) : null,
+          line('Adherence', `${s.completedSessions} done of ${s.plannedSessions} planned in this window`),
+        ].filter((entry): entry is string => entry !== null),
+      )!,
     );
   }
 

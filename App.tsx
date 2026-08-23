@@ -3061,73 +3061,6 @@ function VinhaApp() {
       ? { id: modules.analysis.sessionId, name: modules.analysis.caption }
       : null;
   }, [database.exerciseLogs, preferences.appLanguage, route, workoutSessions]);
-  const aiCoachTrainingContext = useMemo(
-    () =>
-      buildAiTrainingContext({
-        unitPreference,
-        activeWorkoutSummary: homeActiveWorkoutSummary,
-        homeSummary,
-        workoutSessions,
-        exerciseLogs: database.exerciseLogs,
-        trackedProgress,
-        readyProgramCount: workout.templates.length,
-        recommendedProgramId: preferences.recommendedProgramId,
-        recommendedProgramTitle: preferences.recommendedProgramId
-          ? formatWorkoutDisplayLabel(getWorkoutTemplateById(preferences.recommendedProgramId)?.name)
-          : null,
-        customProgramTitle: selectedCustomProgram.workoutId
-          ? formatWorkoutDisplayLabel(selectedCustomProgram.title)
-          : null,
-        // Same source the Training plan screen edits, so planned-versus-actual
-        // in the context cannot disagree with the schedule the user set.
-        trainingDays: preferences.setupAvailableDays,
-        plannerSetup: preferences.aiSetupCompleted
-          ? {
-              goal: preferences.aiPlannerGoal,
-              daysPerWeek: preferences.aiPlannerDaysPerWeek,
-              experience: preferences.aiPlannerExperience,
-              sessionMinutes: preferences.aiPlannerSessionMinutes,
-              equipment: preferences.aiPlannerEquipment,
-              recovery: preferences.aiPlannerRecovery,
-              mustInclude: preferences.aiPlannerMustInclude
-                .split(',')
-                .map((item) => item.trim())
-                .filter(Boolean),
-              avoid: preferences.aiPlannerAvoid
-                .split(',')
-                .map((item) => item.trim())
-                .filter(Boolean),
-              limitations: preferences.aiPlannerLimitations
-                .split(',')
-                .map((item) => item.trim())
-                .filter(Boolean),
-            }
-          : null,
-      }),
-    [
-      homeActiveWorkoutSummary,
-      homeSummary,
-      selectedCustomProgram.title,
-      selectedCustomProgram.workoutId,
-      trackedProgress,
-      unitPreference,
-      preferences.aiSetupCompleted,
-      preferences.aiPlannerGoal,
-      preferences.aiPlannerDaysPerWeek,
-      preferences.aiPlannerExperience,
-      preferences.aiPlannerSessionMinutes,
-      preferences.aiPlannerEquipment,
-      preferences.aiPlannerRecovery,
-      preferences.aiPlannerMustInclude,
-      preferences.aiPlannerAvoid,
-      preferences.aiPlannerLimitations,
-      preferences.recommendedProgramId,
-      preferences.setupAvailableDays,
-      workout.templates.length,
-      workoutSessions,
-      database.exerciseLogs,
-    ],
-  );
   const availableEquipmentForDrills = useMemo(
     () =>
       resolveAvailableEquipment({
@@ -3548,6 +3481,76 @@ function VinhaApp() {
     const cycle = preferences.trainingCycle;
     return cycle ? cycleSchedule(cycle.pattern, cycle.anchorDayStart) : weekdaySchedule(homeTrainingDayIndexes);
   }, [homeTrainingDayIndexes, preferences.trainingCycle]);
+  const aiCoachTrainingContext = useMemo(
+    () =>
+      buildAiTrainingContext({
+        unitPreference,
+        activeWorkoutSummary: homeActiveWorkoutSummary,
+        homeSummary,
+        workoutSessions,
+        exerciseLogs: database.exerciseLogs,
+        trackedProgress,
+        readyProgramCount: workout.templates.length,
+        recommendedProgramId: preferences.recommendedProgramId,
+        recommendedProgramTitle: preferences.recommendedProgramId
+          ? formatWorkoutDisplayLabel(getWorkoutTemplateById(preferences.recommendedProgramId)?.name)
+          : null,
+        customProgramTitle: selectedCustomProgram.workoutId
+          ? formatWorkoutDisplayLabel(selectedCustomProgram.title)
+          : null,
+        // The plan's real rhythm — cycle or weekdays — so planned-versus-actual
+        // and "next training day" cannot disagree with Home. Availability alone
+        // told a 2-on-1-off reader their schedule was mon-wed-thu (2026-08-23).
+        trainingDays: preferences.setupAvailableDays,
+        schedule: homeTrainingSchedule,
+        plannerSetup: preferences.aiSetupCompleted
+          ? {
+              goal: preferences.aiPlannerGoal,
+              daysPerWeek: preferences.aiPlannerDaysPerWeek,
+              experience: preferences.aiPlannerExperience,
+              sessionMinutes: preferences.aiPlannerSessionMinutes,
+              equipment: preferences.aiPlannerEquipment,
+              recovery: preferences.aiPlannerRecovery,
+              mustInclude: preferences.aiPlannerMustInclude
+                .split(',')
+                .map((item) => item.trim())
+                .filter(Boolean),
+              avoid: preferences.aiPlannerAvoid
+                .split(',')
+                .map((item) => item.trim())
+                .filter(Boolean),
+              limitations: preferences.aiPlannerLimitations
+                .split(',')
+                .map((item) => item.trim())
+                .filter(Boolean),
+            }
+          : null,
+      }),
+    [
+      homeActiveWorkoutSummary,
+      homeSummary,
+      selectedCustomProgram.title,
+      selectedCustomProgram.workoutId,
+      trackedProgress,
+      unitPreference,
+      preferences.aiSetupCompleted,
+      preferences.aiPlannerGoal,
+      preferences.aiPlannerDaysPerWeek,
+      preferences.aiPlannerExperience,
+      preferences.aiPlannerSessionMinutes,
+      preferences.aiPlannerEquipment,
+      preferences.aiPlannerRecovery,
+      preferences.aiPlannerMustInclude,
+      preferences.aiPlannerAvoid,
+      preferences.aiPlannerLimitations,
+      preferences.recommendedProgramId,
+      preferences.setupAvailableDays,
+      homeTrainingSchedule,
+      workout.templates.length,
+      workoutSessions,
+      database.exerciseLogs,
+    ],
+  );
   // Only a session the schedule actually puts on TODAY is "on the plan
   // today". The next session in the rotation used to be named regardless, so
   // the coach opened a rest day with "Upper is on the plan today — walk
