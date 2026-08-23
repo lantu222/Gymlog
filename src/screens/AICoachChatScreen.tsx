@@ -17,15 +17,7 @@ import { ProLockedCard } from '../components/ProLockedCard';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
 import { buildAiCoachPreviewAnswer } from '../lib/aiCoachPreview';
 import { FREE_COACH_QUESTIONS_PER_WEEK } from '../lib/aiCoachQuota';
-import {
-  CoachChatIntroInput,
-  CoachContextChip,
-  CoachNoticedItem,
-  buildCoachContextChips,
-  buildCoachContextReadout,
-  buildCoachNoticed,
-  buildCoachOpeningLine,
-} from '../lib/coachChat';
+import { CoachChatIntroInput, CoachContextChip, buildCoachContextChips, buildCoachContextReadout, buildCoachNoticed, buildCoachOpeningLine, buildCoachOpeningRows } from '../lib/coachChat';
 import { I18nKey, t } from '../lib/i18n';
 import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
@@ -87,12 +79,6 @@ function SparkGlyph({ color, size = 18 }: { color: string; size?: number }) {
   );
 }
 
-function toneColor(tone: CoachContextChip['tone']) {
-  const theme = useTheme();
-
-  return tone === 'plan' ? theme.purple : tone === 'warn' ? PW.amber : PW.red;
-}
-
 export function AICoachChatScreen({
   language = 'en',
   proUnlocked,
@@ -127,7 +113,13 @@ export function AICoachChatScreen({
     [intro.weeklyRead, language, proUnlocked],
   );
   const openingLine = useMemo(() => buildCoachOpeningLine(intro, language), [intro, language]);
-  const showReadout = messages.length === 0 && readout.length > 0;
+  // Today's line, what the coach noticed, and the readout — one rotating
+  // stage instead of three stacked surfaces (user, 2026-08-23).
+  const openingRows = useMemo(
+    () => buildCoachOpeningRows({ openingLine, noticed, readout, language }),
+    [language, noticed, openingLine, readout],
+  );
+  const showReadout = messages.length === 0 && openingRows.length > 0;
 
   /**
    * What the coach has read, and what today is — one line.
@@ -277,42 +269,13 @@ export function AICoachChatScreen({
           contentContainerStyle={styles.thread}
           keyboardShouldPersistTaps="handled"
         >
-          {showReadout ? <CoachReadoutTicker rows={readout} /> : null}
-
-          {/* Pro's real difference: the coach opens the conversation. */}
-          {noticed.length > 0 ? (
-            <View style={styles.noticedCard}>
-              <View style={styles.noticedHead}>
-                <SparkGlyph color={PW.sheetLavender} size={15} />
-                <Text style={styles.noticedLabel}>
-                  {noticed.length === 1
-                    ? t(language, 'coachChat.noticedOne')
-                    : t(language, 'coachChat.noticed', { count: noticed.length })}
-                </Text>
-              </View>
-              {noticed.map((item: CoachNoticedItem) => (
-                <Pressable
-                  key={item.key}
-                  accessibilityRole="button"
-                  onPress={() => void send(item.question)}
-                  style={({ pressed }) => [styles.noticedRow, pressed && styles.pressed]}
-                >
-                  <View style={[styles.noticedDot, { backgroundColor: toneColor(item.tone) }]} />
-                  <View style={styles.noticedCopy}>
-                    <Text style={styles.noticedTitle}>{item.title}</Text>
-                    <Text style={styles.noticedBody}>{item.body}</Text>
-                    <Text style={styles.noticedAsk}>{t(language, 'coachChat.noticedAsk')}</Text>
-                  </View>
-                </Pressable>
-              ))}
-            </View>
+          {showReadout ? (
+            <CoachReadoutTicker
+              rows={openingRows}
+              askLabel={t(language, 'coachChat.noticedAsk')}
+              onAsk={(question) => void send(question)}
+            />
           ) : null}
-
-          <View style={styles.bubbleRow}>
-            <View style={styles.coachBubble}>
-              <Text style={styles.coachText}>{openingLine}</Text>
-            </View>
-          </View>
 
           {/* The written analysis is Pro (the Pro page's table says so), so a
               free user gets the link and the reason, not a dead end. It is a
@@ -502,59 +465,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 14,
     gap: 20,
-  },
-  noticedCard: {
-    backgroundColor: PW.sheetTop,
-    borderRadius: 20,
-    paddingHorizontal: 17,
-    paddingTop: 16,
-    paddingBottom: 6,
-  },
-  noticedHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-  noticedLabel: {
-    flex: 1,
-    fontSize: 10.5,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    color: PW.sheetLavender,
-  },
-  noticedRow: {
-    flexDirection: 'row',
-    gap: 11,
-    marginTop: 13,
-    paddingBottom: 10,
-  },
-  noticedDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 999,
-    marginTop: 5,
-  },
-  noticedCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  noticedTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  noticedBody: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.7)',
-    lineHeight: 18,
-    marginTop: 3,
-  },
-  noticedAsk: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: PW.sheetLavender,
-    marginTop: 7,
   },
   bubbleRow: {
     flexDirection: 'row',

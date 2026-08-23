@@ -5,6 +5,7 @@ const {
   buildCoachContextReadout,
   buildCoachOpeningLine,
   buildCoachNoticed,
+  buildCoachOpeningRows,
 } = require('../../.test-dist/lib/coachChat.js');
 
 function row(overrides) {
@@ -142,6 +143,31 @@ module.exports = [
       assert.doesNotMatch(last.value, /Deadlift/);
       // English stays English.
       assert.match(buildCoachContextReadout(context, 'en')[0].value, /Day 2: Deadlift & Press/);
+    },
+  },
+  {
+    // Three stacked surfaces became one stage (2026-08-23): today's line
+    // leads, noticed items keep the tap that used to live on their card, and
+    // the readout follows. Order is what the reader sees in the first seconds.
+    name: 'the opening ticker folds today, the noticed items and the readout into one ordered sequence',
+    run() {
+      const rows = buildCoachOpeningRows({
+        openingLine: 'Lower Pump is on the plan today.',
+        noticed: [{ key: 'bench', tone: 'warn', title: 'Bench · stalled', body: '3 weeks flat', question: 'What about my bench?' }],
+        readout: [{ key: 'rhythm', label: 'Rhythm', value: '3 this week' }],
+        language: 'en',
+      });
+      assert.deepEqual(rows.map((r) => r.key), ['today', 'noticed-bench', 'rhythm']);
+      assert.equal(rows[0].label, 'Today');
+      assert.equal(rows[0].question, undefined);
+      assert.equal(rows[1].question, 'What about my bench?');
+      assert.match(rows[1].value, /Bench · stalled — 3 weeks flat/);
+      assert.equal(rows[2].question, undefined);
+      // An empty opening line adds no slide.
+      assert.deepEqual(
+        buildCoachOpeningRows({ openingLine: '  ', noticed: [], readout: [], language: 'fi' }),
+        [],
+      );
     },
   },
 ];

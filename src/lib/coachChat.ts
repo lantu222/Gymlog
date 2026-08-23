@@ -51,6 +51,19 @@ export interface CoachContextRow {
 }
 
 /**
+ * One slide of the opening ticker. A slide with a `question` is an offer —
+ * tapping it asks the coach on the reader's behalf; a slide without one is
+ * a fact from the log, read out and left alone.
+ */
+export interface CoachTickerRow {
+  key: string;
+  label: string;
+  value: string;
+  question?: string;
+  tone?: ChipTone;
+}
+
+/**
  * What the coach can already see, before you type anything.
  *
  * The tab opened onto most of a screen of nothing: the greeting sat at the
@@ -232,4 +245,38 @@ export function buildCoachNoticed(
   }
 
   return items;
+}
+
+/**
+ * Everything the coach has to say before the first question, as one rotating
+ * sequence — today's line first, then what it noticed, then the readout.
+ *
+ * These were three stacked surfaces (ticker, "things I noticed" card, opening
+ * bubble) and together they pushed the conversation off the screen (user,
+ * 2026-08-23). Folded into one stage: the noticed items keep their question,
+ * so the tap that used to live on the card lives on the slide.
+ */
+export function buildCoachOpeningRows(input: {
+  openingLine: string;
+  noticed: CoachNoticedItem[];
+  readout: CoachContextRow[];
+  language: AppLanguage;
+}): CoachTickerRow[] {
+  const rows: CoachTickerRow[] = [];
+  if (input.openingLine.trim()) {
+    rows.push({ key: 'today', label: t(input.language, 'coachChat.readout.today'), value: input.openingLine });
+  }
+  for (const item of input.noticed) {
+    rows.push({
+      key: `noticed-${item.key}`,
+      label: t(input.language, 'coachChat.readout.noticed'),
+      value: `${item.title} — ${item.body}`,
+      question: item.question,
+      tone: item.tone,
+    });
+  }
+  for (const row of input.readout) {
+    rows.push({ key: row.key, label: row.label, value: row.value });
+  }
+  return rows;
 }
