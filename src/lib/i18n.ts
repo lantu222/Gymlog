@@ -1838,6 +1838,9 @@ const EN = {
   'coachChat.online.body':
     'Your question and a numeric summary of your recent training (exercise names, sets, reps, kilograms, dates) are sent over an encrypted connection to our server and on to Anthropic, which writes the answer. Your name, email and body measurements are not sent. Nothing is kept or used for training.',
   'coachChat.online.ok': 'Got it',
+  'coachChat.section.why': 'Why',
+  'coachChat.section.next': 'Next',
+  'coachChat.section.plan': 'Plan',
   'coachChat.readout.noticed': 'I noticed',
   'coachChat.readout.lastSession': 'Last workout',
   'coachChat.readout.lift': 'Heaviest set',
@@ -5178,6 +5181,9 @@ const FI: Record<I18nKey, string> = {
   'coachChat.online.body':
     'Kysymyksesi ja numeerinen tiivistelmä viimeaikaisesta treenistäsi (liikenimet, sarjat, toistot, kilot, päivämäärät) lähetetään salattua yhteyttä pitkin palvelimellemme ja sieltä Anthropicille, joka kirjoittaa vastauksen. Nimeäsi, sähköpostiasi tai kehonmittojasi ei lähetetä. Mitään ei säilytetä eikä käytetä mallien opettamiseen.',
   'coachChat.online.ok': 'Selvä',
+  'coachChat.section.why': 'Miksi',
+  'coachChat.section.next': 'Seuraavaksi',
+  'coachChat.section.plan': 'Suunnitelma',
   'coachChat.readout.noticed': 'Huomasin',
   'coachChat.readout.lastSession': 'Viime treeni',
   'coachChat.readout.lift': 'Kovin sarja',

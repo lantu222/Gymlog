@@ -71,6 +71,8 @@ interface ChatMessage {
   id: string;
   fromCoach: boolean;
   text: string;
+  /** The coach's structured answer, rendered as sections rather than prose. */
+  advice?: AICoachAdvice;
   evidence?: string;
   /** Set when the answer is withheld: the real conclusion, blurred. */
   lockedBody?: string;
@@ -78,28 +80,6 @@ interface ChatMessage {
 
 /** Width of the soft light behind the dark thread's header. */
 const TOP_LIGHT = 460;
-
-/**
- * The structured advice as one readable message: the takeaway first, the
- * reasons as bullets, then the steps numbered, then the plan. Empty sections
- * simply do not appear — a short answer stays short.
- */
-function formatCoachReply(answer: AICoachAdvice): string {
-  const lines: string[] = [answer.takeaway];
-  const why = (answer.why ?? []).filter(Boolean);
-  const steps = (answer.nextSteps ?? []).filter(Boolean);
-  const plan = (answer.plan ?? []).filter(Boolean);
-  if (why.length) {
-    lines.push('', ...why.map((line) => `• ${line}`));
-  }
-  if (steps.length) {
-    lines.push('', ...steps.map((line, index) => `${index + 1}. ${line}`));
-  }
-  if (plan.length) {
-    lines.push('', ...plan.map((line) => `→ ${line}`));
-  }
-  return lines.join('\n');
-}
 
 function SparkGlyph({ color, size = 18 }: { color: string; size?: number }) {
   return (
@@ -243,17 +223,17 @@ export function AICoachChatScreen({
         if (!proUnlocked && !answer.unanswered) {
           onFreeQuestionUsed();
         }
-        // The whole answer, not its first two lines. The live coach returns a
-        // takeaway, its reasons, every next step and a plan; showing only the
-        // takeaway and one step read as "a bit thin" (#bugs, 2026-08-23) —
-        // because two thirds of what was paid for was dropped on the floor.
-        const reply = formatCoachReply(answer);
+        // The whole answer, as sections: a takeaway, then the reasons, the
+        // steps and the plan each on their own lines. One run-on paragraph
+        // buried the dates and numbers (#bugs, 2026-08-23).
+        const reply = answer.takeaway;
         setMessages((current) => [
           ...current,
           {
             id: `coach:${token}`,
             fromCoach: true,
             text: reply || answer.takeaway,
+            advice: answer,
           },
         ]);
       } catch {
@@ -384,6 +364,27 @@ export function AICoachChatScreen({
               >
                 <View style={message.fromCoach ? styles.coachBubble : styles.meBubble}>
                   <Text style={message.fromCoach ? styles.coachText : styles.meText}>{message.text}</Text>
+                  {message.advice
+                    ? (
+                        [
+                          { key: 'why', label: 'coachChat.section.why' as const, lines: message.advice.why, mark: (_i: number) => '\u2022' },
+                          { key: 'next', label: 'coachChat.section.next' as const, lines: message.advice.nextSteps, mark: (i: number) => `${i + 1}.` },
+                          { key: 'plan', label: 'coachChat.section.plan' as const, lines: message.advice.plan, mark: (_i: number) => '\u2192' },
+                        ] as const
+                      )
+                        .filter((sectionDef) => sectionDef.lines.length > 0)
+                        .map((sectionDef) => (
+                          <View key={sectionDef.key} style={styles.answerSection}>
+                            <Text style={styles.answerSectionLabel}>{t(language, sectionDef.label)}</Text>
+                            {sectionDef.lines.map((lineText, index) => (
+                              <View key={`${sectionDef.key}-${index}`} style={styles.answerLine}>
+                                <Text style={styles.answerMark}>{sectionDef.mark(index)}</Text>
+                                <Text style={styles.answerLineText}>{lineText}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        ))
+                    : null}
                   {message.evidence ? <Text style={styles.evidence}>{message.evidence}</Text> : null}
                 </View>
               </View>
@@ -562,6 +563,36 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.onHighlight,
     fontSize: 13.5,
     fontWeight: '800',
+  },
+  answerSection: {
+    marginTop: 10,
+    gap: 4,
+  },
+  answerSectionLabel: {
+    color: theme.faint,
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  answerLine: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'flex-start',
+  },
+  answerMark: {
+    color: theme.highlight,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '800',
+    minWidth: 16,
+  },
+  answerLineText: {
+    flex: 1,
+    color: theme.ink,
+    fontSize: 14,
+    lineHeight: 20,
   },
   bubbleRow: {
     flexDirection: 'row',
