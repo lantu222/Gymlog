@@ -5841,6 +5841,7 @@ function VinhaApp() {
             void updatePreferences({ homeStatCardKeys: [...homePinnedStatCardKeys, key] });
           }
         }}
+        transcriptReporter={accountBackup.state.status === 'signed_in' ? accountBackup.state.email : null}
       />
     );
   } else if (route.tab === 'home' && route.screen === 'pro_offer') {

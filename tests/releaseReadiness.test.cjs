@@ -390,7 +390,8 @@ module.exports = [
         match[1],
         'false',
         'AI_COACH_DEBUG_TRANSCRIPTS is still true: the coach endpoint logs conversations. '
-          + 'Flip it to false (or delete src/lib/aiCoachDebug.ts) and unset AI_COACH_DEBUG_TRANSCRIPTS in Vercel before release.',
+          + 'Flip it to false (or delete src/lib/aiCoachDebug.ts), unset AI_COACH_DEBUG_TRANSCRIPTS and TRANSCRIPT_READ_SECRET in Vercel, '
+          + 'delete api/transcripts.ts and scripts/coach-transcripts.cjs, and empty transcripts/ in the Blob store before release.',
       );
     },
   },

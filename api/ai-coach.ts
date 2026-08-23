@@ -1,3 +1,4 @@
+import { put } from '@vercel/blob';
 import { buildAiCoachPreviewAnswer } from '../src/lib/aiCoachPreview';
 import { buildAiCoachSystemContext } from '../src/lib/aiCoachSystemContext';
 import { normalizeAiCoachTrainingContext } from '../src/lib/aiTrainingContext';
@@ -264,6 +265,7 @@ function parseBody(body: unknown): ParsedBody | null {
     context: normalizeAiCoachTrainingContext(candidate.context as Partial<AICoachAdviceRequest['context']>),
     language: candidate.language === 'fi' || candidate.language === 'en' ? candidate.language : undefined,
     mode: candidate.mode === 'compose' ? 'compose' : 'advice',
+    reporter: typeof candidate.reporter === 'string' && candidate.reporter.length <= 200 ? candidate.reporter : undefined,
   };
 }
 
@@ -636,19 +638,35 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return;
   }
 
+  const startedAt = Date.now();
   const result = await requestClaude(input);
   // TEMPORARY transcript log — see src/lib/aiCoachDebug.ts. Question and
-  // answer only; the training context is never logged.
+  // answer only; the training context is never logged. Stored in the same
+  // private Blob store as the backups and read back by
+  // scripts/coach-transcripts.cjs through api/transcripts.ts.
   if (AI_COACH_DEBUG_TRANSCRIPTS && process.env.AI_COACH_DEBUG_TRANSCRIPTS === '1') {
-    console.log(
-      'TRANSCRIPT',
-      JSON.stringify({
-        language: input.language,
-        prompt: input.prompt,
-        source: result.ok ? result.source : `error:${result.error.code}`,
-        answer: result.ok ? result.answer : result.fallback ?? null,
-      }),
-    );
+    const at = new Date();
+    const day = at.toISOString().slice(0, 10);
+    const pathname = `transcripts/${day}/${at.toISOString().replace(/[:.]/g, '-')}-${Math.random().toString(36).slice(2, 8)}.json`;
+    try {
+      await put(
+        pathname,
+        JSON.stringify({
+          at: at.toISOString(),
+          reporter: input.reporter ?? null,
+          language: input.language,
+          model: CLAUDE_MODEL,
+          durationMs: Date.now() - startedAt,
+          prompt: input.prompt,
+          source: result.ok ? result.source : `error:${result.error.code}`,
+          answer: result.ok ? result.answer : result.fallback ?? null,
+        }),
+        { access: 'private', contentType: 'application/json', addRandomSuffix: false },
+      );
+    } catch (error) {
+      // The log must never cost the reader an answer.
+      console.warn('transcript store failed', error instanceof Error ? error.message : error);
+    }
   }
   if (result.ok) {
     res.status(200).json(result);

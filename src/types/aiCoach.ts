@@ -205,6 +205,13 @@ export interface AICoachAdviceRequest {
    * absent, which is what an older client sends.
    */
   language?: 'fi' | 'en';
+  /**
+   * TEMPORARY, development only: the signed-in account's email, so the
+   * transcript log can say which phone asked. Sent only while
+   * AI_COACH_DEBUG_TRANSCRIPTS is on (src/lib/aiCoachDebug.ts) and ignored
+   * by the server otherwise.
+   */
+  reporter?: string;
 }
 
 export interface AICoachAdviceSuccess {

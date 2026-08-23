@@ -20,6 +20,7 @@ import { CoachChatIntroInput, CoachContextChip, buildCoachContextChips, buildCoa
 import { MEASUREMENT_LABEL_KEYS } from '../lib/homeStatCards';
 import { I18nKey, t } from '../lib/i18n';
 import { MeasurementIntent, parseMeasurementIntent } from '../lib/measurementIntent';
+import { AI_COACH_DEBUG_TRANSCRIPTS } from '../lib/aiCoachDebug';
 import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { layout, spacing } from '../theme';
@@ -76,6 +77,8 @@ interface AICoachChatScreenProps {
   pinnedStatCardKeys: string[];
   onLogMeasurement: (intent: MeasurementIntent) => Promise<void>;
   onPinStatCard: (key: string) => void;
+  /** TEMPORARY: the signed-in email, attached to the development transcript log. */
+  transcriptReporter: string | null;
 }
 
 interface ChatMessage {
@@ -120,6 +123,7 @@ export function AICoachChatScreen({
   pinnedStatCardKeys,
   onLogMeasurement,
   onPinStatCard,
+  transcriptReporter,
 }: AICoachChatScreenProps) {
   const theme = useTheme();
   const themeName = useThemeName();
@@ -135,7 +139,7 @@ export function AICoachChatScreen({
   // the honest way to fill the screen and the claim Pro is sold on.
   const readout = useMemo(
     () => buildCoachContextReadout(trainingContext, language),
-    [language, trainingContext],
+    [language, trainingContext, transcriptReporter],
   );
   const noticed = useMemo(
     () => (proUnlocked ? buildCoachNoticed(intro.weeklyRead, language) : []),
@@ -281,7 +285,12 @@ export function AICoachChatScreen({
 
       setAsking(true);
       try {
-        const result = await requestAiCoachAdvice({ prompt: trimmed, context: trainingContext, language });
+        const result = await requestAiCoachAdvice({
+          prompt: trimmed,
+          context: trainingContext,
+          language,
+          ...(AI_COACH_DEBUG_TRANSCRIPTS && transcriptReporter ? { reporter: transcriptReporter } : {}),
+        });
         if (token !== askToken.current) {
           return;
         }
