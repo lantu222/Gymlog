@@ -189,6 +189,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       hasOpenedAppBefore: false,
       homeWidgetPromptDismissed: false,
       accountBackupPromptDismissed: false,
+      aiOnlineNoticeAcknowledged: false,
       setupHandoffCompleted: false,
       entryFlowCompleted: false,
       trainingFirstRunDismissed: false,

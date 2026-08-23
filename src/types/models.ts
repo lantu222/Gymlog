@@ -361,6 +361,11 @@ export interface AppPreferences {
   /** The Home sign-in offer asked once and was declined; it never returns. */
   accountBackupPromptDismissed: boolean;
   /**
+   * The reader has seen the online-mode disclosure in the coach chat. The
+   * privacy policy promises it before the first question leaves the device.
+   */
+  aiOnlineNoticeAcknowledged: boolean;
+  /**
    * Whether the hand-off step after onboarding has had its turn. It offers the
    * widget and a tracking card once; a reader who ran onboarding again has
    * already been asked.

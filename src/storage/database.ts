@@ -597,6 +597,10 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
         typeof input?.preferences?.accountBackupPromptDismissed === 'boolean'
           ? input.preferences.accountBackupPromptDismissed
           : fallback.preferences.accountBackupPromptDismissed,
+      aiOnlineNoticeAcknowledged:
+        typeof input?.preferences?.aiOnlineNoticeAcknowledged === 'boolean'
+          ? input.preferences.aiOnlineNoticeAcknowledged
+          : fallback.preferences.aiOnlineNoticeAcknowledged,
       // A stored install that predates this flag has already been through
       // onboarding, so the hand-off has had its turn — without this, the flag
       // reads false on the next launch and an old install gets ambushed by a

@@ -5799,6 +5799,9 @@ function VinhaApp() {
       <AICoachChatScreen
         language={preferences.appLanguage}
         proUnlocked={coachProUnlocked}
+        liveConfigured={isAiCoachLiveConfigured()}
+        onlineNoticeAcknowledged={preferences.aiOnlineNoticeAcknowledged}
+        onAcknowledgeOnlineNotice={() => void updatePreferences({ aiOnlineNoticeAcknowledged: true })}
         freeQuestionsRemaining={resolveCoachQuota(preferences.aiCoachFreeQuota).remaining}
         onFreeQuestionUsed={() =>
           void updatePreferences({ aiCoachFreeQuota: recordCoachQuestion(preferences.aiCoachFreeQuota) })

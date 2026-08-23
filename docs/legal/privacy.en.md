@@ -1,6 +1,6 @@
 # Privacy policy
 
-*Updated 18 August 2026*
+*Updated 23 August 2026*
 
 What Vinha stores, where it stays, and what never leaves your phone.
 
@@ -42,13 +42,13 @@ Deleting the data is immediate and total: Settings → My data → reset, or uni
 
 ## The AI coach
 
-The AI coach has two modes, and today only the first one is active.
+The AI coach has two modes.
 
 On-device mode (the default): answers are generated on your phone from your own training log. Nothing leaves the device — not the question, not the answer.
 
-Online mode: if a future version enables it, your question and a numeric summary of your recent training (exercise names, sets, reps, kilograms, session dates) are sent over an encrypted connection to our endpoint and from there to Anthropic’s API, which produces the answer. Your name, email, device identifiers and body measurements are not part of that summary. The data is used to answer that one question. It is not used to train models, and we do not keep a copy.
+Online mode: when a version enables it, your question and a numeric summary of your recent training (exercise names, sets, reps, kilograms, session dates) are sent over an encrypted connection to our endpoint and from there to Anthropic’s API, which produces the answer. Your name, email, device identifiers and body measurements are not part of that summary. The data is used to answer that one question. It is not used to train models, and we do not keep a copy.
 
-You will be told in the app before online mode is ever switched on.
+The app tells you the first time you open the coach in online mode, before any question is sent, and nothing is sent until you have read it.
 
 ## What the app does not do
 

@@ -50,7 +50,7 @@ function publisher(): string {
 }
 
 /** Bumped whenever the wording changes in a way a user should re-read. */
-export const LEGAL_LAST_UPDATED = '2026-08-18';
+export const LEGAL_LAST_UPDATED = '2026-08-23';
 
 export type LegalDocumentId = 'privacy' | 'terms';
 
@@ -113,10 +113,10 @@ const PRIVACY_EN: LegalSection[] = [
   {
     heading: 'The AI coach',
     body: [
-      'The AI coach has two modes, and today only the first one is active.',
+      'The AI coach has two modes.',
       'On-device mode (the default): answers are generated on your phone from your own training log. Nothing leaves the device — not the question, not the answer.',
-      'Online mode: if a future version enables it, your question and a numeric summary of your recent training (exercise names, sets, reps, kilograms, session dates) are sent over an encrypted connection to our endpoint and from there to Anthropic’s API, which produces the answer. Your name, email, device identifiers and body measurements are not part of that summary. The data is used to answer that one question. It is not used to train models, and we do not keep a copy.',
-      'You will be told in the app before online mode is ever switched on.',
+      'Online mode: when a version enables it, your question and a numeric summary of your recent training (exercise names, sets, reps, kilograms, session dates) are sent over an encrypted connection to our endpoint and from there to Anthropic’s API, which produces the answer. Your name, email, device identifiers and body measurements are not part of that summary. The data is used to answer that one question. It is not used to train models, and we do not keep a copy.',
+      'The app tells you the first time you open the coach in online mode, before any question is sent, and nothing is sent until you have read it.',
     ],
   },
   {
@@ -210,10 +210,10 @@ const PRIVACY_FI: LegalSection[] = [
   {
     heading: 'AI-valmentaja',
     body: [
-      'AI-valmentajalla on kaksi tilaa, ja tällä hetkellä vain ensimmäinen on käytössä.',
+      'AI-valmentajalla on kaksi tilaa.',
       'Laitetila (oletus): vastaukset muodostetaan puhelimessasi omasta treenilokistasi. Mitään ei lähde laitteelta — ei kysymys eikä vastaus.',
-      'Verkkotila: jos tuleva versio ottaa sen käyttöön, kysymyksesi ja numeerinen yhteenveto viime aikojen treeneistäsi (liikkeiden nimet, sarjat, toistot, kilot, treenipäivämäärät) lähetetään salattua yhteyttä pitkin päätepisteeseemme ja sieltä Anthropicin rajapintaan, joka muodostaa vastauksen. Nimesi, sähköpostisi, laitetunnisteesi ja kehon mittasi eivät kuulu yhteenvetoon. Tietoja käytetään vain sen yhden kysymyksen vastaamiseen. Niillä ei kouluteta malleja, emmekä säilytä niistä kopiota.',
-      'Saat tiedon sovelluksessa ennen kuin verkkotila kytketään päälle.',
+      'Verkkotila: kun versio ottaa sen käyttöön, kysymyksesi ja numeerinen yhteenveto viime aikojen treeneistäsi (liikkeiden nimet, sarjat, toistot, kilot, treenipäivämäärät) lähetetään salattua yhteyttä pitkin päätepisteeseemme ja sieltä Anthropicin rajapintaan, joka muodostaa vastauksen. Nimesi, sähköpostisi, laitetunnisteesi ja kehon mittasi eivät kuulu yhteenvetoon. Tietoja käytetään vain sen yhden kysymyksen vastaamiseen. Niillä ei kouluteta malleja, emmekä säilytä niistä kopiota.',
+      'Sovellus kertoo sinulle kun avaat valmentajan ensimmäisen kerran verkkotilassa — ennen kuin yhtään kysymystä lähetetään, eikä mitään lähde ennen kuin olet lukenut ilmoituksen.',
     ],
   },
   {

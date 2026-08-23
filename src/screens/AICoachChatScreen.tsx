@@ -42,6 +42,15 @@ import { AppLanguage } from '../types/models';
 interface AICoachChatScreenProps {
   language?: AppLanguage;
   proUnlocked: boolean;
+  /**
+   * Online mode: questions leave the device. The privacy policy promises the
+   * reader is told in the app before that happens, so while this is true
+   * and the notice is unacknowledged, the chat shows the disclosure and
+   * sends nothing.
+   */
+  liveConfigured: boolean;
+  onlineNoticeAcknowledged: boolean;
+  onAcknowledgeOnlineNotice: () => void;
   freeQuestionsRemaining: number;
   onFreeQuestionUsed: () => void;
   trainingContext: AICoachTrainingContext;
@@ -82,6 +91,9 @@ function SparkGlyph({ color, size = 18 }: { color: string; size?: number }) {
 export function AICoachChatScreen({
   language = 'en',
   proUnlocked,
+  liveConfigured,
+  onlineNoticeAcknowledged,
+  onAcknowledgeOnlineNotice,
   freeQuestionsRemaining,
   onFreeQuestionUsed,
   trainingContext,
@@ -157,10 +169,13 @@ export function AICoachChatScreen({
     }
   }, [messages.length, scrollToEnd]);
 
+  const mustAcknowledgeOnline = liveConfigured && !onlineNoticeAcknowledged;
+
   const send = useCallback(
     async (prompt: string) => {
       const trimmed = prompt.trim();
-      if (!trimmed || asking) {
+      if (!trimmed || asking || mustAcknowledgeOnline) {
+        // Nothing leaves the device until the online disclosure is answered.
         return;
       }
 
@@ -234,7 +249,7 @@ export function AICoachChatScreen({
         }
       }
     },
-    [asking, canAsk, language, onFreeQuestionUsed, proUnlocked, sessionCount, trainingContext],
+    [asking, canAsk, language, mustAcknowledgeOnline, onFreeQuestionUsed, proUnlocked, sessionCount, trainingContext],
   );
 
   return (
@@ -276,6 +291,20 @@ export function AICoachChatScreen({
           contentContainerStyle={styles.thread}
           keyboardShouldPersistTaps="handled"
         >
+          {mustAcknowledgeOnline ? (
+            <View style={styles.onlineCard}>
+              <Text style={styles.onlineTitle}>{t(language, 'coachChat.online.title')}</Text>
+              <Text style={styles.onlineBody}>{t(language, 'coachChat.online.body')}</Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={onAcknowledgeOnlineNotice}
+                style={({ pressed }) => [styles.onlineButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.onlineButtonText}>{t(language, 'coachChat.online.ok')}</Text>
+              </Pressable>
+            </View>
+          ) : null}
+
           {showReadout ? (
             <CoachReadoutTicker
               rows={openingRows}
@@ -472,6 +501,38 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 14,
     gap: 20,
+  },
+  onlineCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
+    padding: 16,
+    marginBottom: 12,
+    gap: 8,
+  },
+  onlineTitle: {
+    color: theme.ink,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  onlineBody: {
+    color: theme.muted,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  onlineButton: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    backgroundColor: theme.highlight,
+  },
+  onlineButtonText: {
+    color: theme.onHighlight,
+    fontSize: 13.5,
+    fontWeight: '800',
   },
   bubbleRow: {
     flexDirection: 'row',

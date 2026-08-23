@@ -1,6 +1,6 @@
 # Tietosuojaseloste
 
-*Päivitetty 18.8.2026*
+*Päivitetty 23.8.2026*
 
 Mitä Vinha tallentaa, missä se pysyy ja mikä ei koskaan lähde puhelimestasi.
 
@@ -42,13 +42,13 @@ Tietojen poisto on välitön ja täydellinen: Asetukset → Omat tiedot → noll
 
 ## AI-valmentaja
 
-AI-valmentajalla on kaksi tilaa, ja tällä hetkellä vain ensimmäinen on käytössä.
+AI-valmentajalla on kaksi tilaa.
 
 Laitetila (oletus): vastaukset muodostetaan puhelimessasi omasta treenilokistasi. Mitään ei lähde laitteelta — ei kysymys eikä vastaus.
 
-Verkkotila: jos tuleva versio ottaa sen käyttöön, kysymyksesi ja numeerinen yhteenveto viime aikojen treeneistäsi (liikkeiden nimet, sarjat, toistot, kilot, treenipäivämäärät) lähetetään salattua yhteyttä pitkin päätepisteeseemme ja sieltä Anthropicin rajapintaan, joka muodostaa vastauksen. Nimesi, sähköpostisi, laitetunnisteesi ja kehon mittasi eivät kuulu yhteenvetoon. Tietoja käytetään vain sen yhden kysymyksen vastaamiseen. Niillä ei kouluteta malleja, emmekä säilytä niistä kopiota.
+Verkkotila: kun versio ottaa sen käyttöön, kysymyksesi ja numeerinen yhteenveto viime aikojen treeneistäsi (liikkeiden nimet, sarjat, toistot, kilot, treenipäivämäärät) lähetetään salattua yhteyttä pitkin päätepisteeseemme ja sieltä Anthropicin rajapintaan, joka muodostaa vastauksen. Nimesi, sähköpostisi, laitetunnisteesi ja kehon mittasi eivät kuulu yhteenvetoon. Tietoja käytetään vain sen yhden kysymyksen vastaamiseen. Niillä ei kouluteta malleja, emmekä säilytä niistä kopiota.
 
-Saat tiedon sovelluksessa ennen kuin verkkotila kytketään päälle.
+Sovellus kertoo sinulle kun avaat valmentajan ensimmäisen kerran verkkotilassa — ennen kuin yhtään kysymystä lähetetään, eikä mitään lähde ennen kuin olet lukenut ilmoituksen.
 
 ## Mitä sovellus ei tee
 
