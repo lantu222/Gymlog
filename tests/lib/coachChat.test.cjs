@@ -6,6 +6,7 @@ const {
   buildCoachOpeningLine,
   buildCoachNoticed,
   buildCoachOpeningRows,
+  buildCoachOpeningOffer,
 } = require('../../.test-dist/lib/coachChat.js');
 
 function row(overrides) {
@@ -168,6 +169,34 @@ module.exports = [
         buildCoachOpeningRows({ openingLine: '  ', noticed: [], readout: [], language: 'fi' }),
         [],
       );
+    },
+  },
+  {
+    // "Want me to walk through it?" shipped with no way to say yes. Every
+    // opening line that ends in an offer now carries its one-tap answer.
+    name: 'an opening line that makes an offer carries a one-tap answer',
+    run() {
+      const plan = { todaySessionTitle: 'Lower Pump', sessionsThisWeek: 2, weeklyRead: [] };
+      const offer = buildCoachOpeningOffer(plan, 'fi');
+      assert.ok(offer);
+      assert.match(offer.question, /Lower Pump/);
+      assert.equal(offer.askLabel, 'Käy läpi →');
+      assert.match(buildCoachOpeningLine(plan, 'fi'), /Käydäänkö se läpi\?/);
+
+      const stalled = {
+        todaySessionTitle: null,
+        sessionsThisWeek: 2,
+        weeklyRead: [row({ key: 'bench', tone: 'amber', name: 'Bench' })],
+      };
+      assert.match(buildCoachOpeningOffer(stalled, 'en').question, /bench/);
+
+      // "Ask me anything" is answered by the input box, not a button.
+      assert.equal(buildCoachOpeningOffer({ todaySessionTitle: null, sessionsThisWeek: 0, weeklyRead: [] }, 'en'), null);
+
+      // And the row builder puts the offer on the today slide.
+      const rows = buildCoachOpeningRows({ openingLine: 'x', offer, noticed: [], readout: [], language: 'fi' });
+      assert.equal(rows[0].question, offer.question);
+      assert.equal(rows[0].askLabel, 'Käy läpi →');
     },
   },
 ];

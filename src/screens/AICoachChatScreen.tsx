@@ -17,7 +17,7 @@ import { ProLockedCard } from '../components/ProLockedCard';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
 import { buildAiCoachPreviewAnswer } from '../lib/aiCoachPreview';
 import { FREE_COACH_QUESTIONS_PER_WEEK } from '../lib/aiCoachQuota';
-import { CoachChatIntroInput, CoachContextChip, buildCoachContextChips, buildCoachContextReadout, buildCoachNoticed, buildCoachOpeningLine, buildCoachOpeningRows } from '../lib/coachChat';
+import { CoachChatIntroInput, CoachContextChip, buildCoachContextChips, buildCoachContextReadout, buildCoachNoticed, buildCoachOpeningLine, buildCoachOpeningOffer, buildCoachOpeningRows } from '../lib/coachChat';
 import { I18nKey, t } from '../lib/i18n';
 import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
@@ -116,8 +116,15 @@ export function AICoachChatScreen({
   // Today's line, what the coach noticed, and the readout — one rotating
   // stage instead of three stacked surfaces (user, 2026-08-23).
   const openingRows = useMemo(
-    () => buildCoachOpeningRows({ openingLine, noticed, readout, language }),
-    [language, noticed, openingLine, readout],
+    () =>
+      buildCoachOpeningRows({
+        openingLine,
+        offer: buildCoachOpeningOffer(intro, language),
+        noticed,
+        readout,
+        language,
+      }),
+    [intro, language, noticed, openingLine, readout],
   );
   const showReadout = messages.length === 0 && openingRows.length > 0;
 

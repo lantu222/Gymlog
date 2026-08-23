@@ -60,6 +60,8 @@ export interface CoachTickerRow {
   label: string;
   value: string;
   question?: string;
+  /** The button text for this slide's question; the ticker's default otherwise. */
+  askLabel?: string;
   tone?: ChipTone;
 }
 
@@ -258,13 +260,21 @@ export function buildCoachNoticed(
  */
 export function buildCoachOpeningRows(input: {
   openingLine: string;
+  /** The one-tap answer to the opening line's offer, when it makes one. */
+  offer?: { question: string; askLabel: string } | null;
   noticed: CoachNoticedItem[];
   readout: CoachContextRow[];
   language: AppLanguage;
 }): CoachTickerRow[] {
   const rows: CoachTickerRow[] = [];
   if (input.openingLine.trim()) {
-    rows.push({ key: 'today', label: t(input.language, 'coachChat.readout.today'), value: input.openingLine });
+    rows.push({
+      key: 'today',
+      label: t(input.language, 'coachChat.readout.today'),
+      value: input.openingLine,
+      question: input.offer?.question,
+      askLabel: input.offer?.askLabel,
+    });
   }
   for (const item of input.noticed) {
     rows.push({
@@ -279,4 +289,33 @@ export function buildCoachOpeningRows(input: {
     rows.push({ key: row.key, label: row.label, value: row.value });
   }
   return rows;
+}
+
+/**
+ * The action behind the opening line. Every variant that ends in an offer
+ * ("want me to walk through it?") has to be answerable in one tap, or the
+ * slide is a promise with no button — which is exactly what shipped first
+ * (user, 2026-08-23: "there is no option to walk through it"). The variants
+ * that say "ask me anything" have the input box as their answer.
+ */
+export function buildCoachOpeningOffer(
+  input: CoachChatIntroInput,
+  language: AppLanguage,
+): { question: string; askLabel: string } | null {
+  const stalled = input.weeklyRead.find((row) => row.tone === 'amber' && row.key !== 'recovery');
+  if (input.todaySessionTitle) {
+    // Plan today wins even beside a stalled lift: the line names both, and
+    // the one tap that does something today is the session.
+    return {
+      question: t(language, 'coachChat.ask.walkThrough', { session: input.todaySessionTitle }),
+      askLabel: t(language, 'coachChat.offer.walkThrough'),
+    };
+  }
+  if (stalled) {
+    return {
+      question: t(language, 'coachChat.ask.about', { subject: stalled.name.toLowerCase() }),
+      askLabel: t(language, 'coachChat.offer.lookAtIt'),
+    };
+  }
+  return null;
 }

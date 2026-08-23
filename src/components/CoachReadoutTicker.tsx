@@ -132,12 +132,12 @@ export function CoachReadoutTicker({ rows, askLabel, onAsk }: CoachReadoutTicker
     row.question ? (
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={askLabel}
+        accessibilityLabel={row.askLabel ?? askLabel}
         hitSlop={10}
         onPress={() => onAsk(row.question as string)}
         style={({ pressed }) => [styles.askButton, pressed && styles.pressed]}
       >
-        <Text style={styles.ask}>{askLabel}</Text>
+        <Text style={styles.ask}>{row.askLabel ?? askLabel}</Text>
       </Pressable>
     ) : null;
 
