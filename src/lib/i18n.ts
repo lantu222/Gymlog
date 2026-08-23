@@ -5277,7 +5277,7 @@ const FI: Record<I18nKey, string> = {
   'pro.page.chartLabel': 'SINUN {lift} · TYÖPAINO',
   'pro.page.chartNext': 'Valmentajan seuraava askel · +{step}',
   'pro.page.chartEmpty': 'Kirjaa muutama treeni seuratulla liikkeellä, niin oma kuvaajasi rakentuu tähän.',
-  'pro.page.colFree': 'Free',
+  'pro.page.colFree': 'Ilmainen',
   'pro.page.colPro': 'Pro',
 
   'pro.v2.group.coach.kicker': 'SYY PÄIVITTÄÄ',
