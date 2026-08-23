@@ -29,16 +29,26 @@ type ApiResponse = {
 
 const RATE_LIMIT_WINDOW_MS = Number(process.env.AI_COACH_RATE_LIMIT_WINDOW_MS ?? 10 * 60 * 1000);
 const RATE_LIMIT_MAX = Number(process.env.AI_COACH_RATE_LIMIT_MAX ?? 12);
-// 20 s: Sonnet 5 thinks before it answers and a 12 s cap timed out on
-// ordinary questions (eval, 2026-08-23). The app's own fetch timeout stays
-// the outer bound.
-const CLAUDE_TIMEOUT_MS = Number(process.env.AI_COACH_CLAUDE_TIMEOUT_MS ?? 20000);
+// 30 s: Sonnet 5 thinks before it answers, and the first call after a cold
+// start (cache creation included) ran past 20 s twice in one evening
+// (2026-08-23). A late real answer beats an on-time preview fallback. The
+// app's own fetch timeout (40 s) stays the outer bound.
+const CLAUDE_TIMEOUT_MS = Number(process.env.AI_COACH_CLAUDE_TIMEOUT_MS ?? 30000);
 
 const CLAUDE_MODEL = process.env.AI_COACH_CLAUDE_MODEL ?? 'claude-haiku-4-5-20251001';
-// Coaching answers are short and grounded; a low effort setting keeps the
-// Sonnet/Opus tiers fast. Haiku 4.5 rejects the parameter, so it is only sent
-// to models that accept it.
-const EFFORT_CONFIG = /haiku/.test(CLAUDE_MODEL) ? {} : { output_config: { effort: 'low' } };
+// Coaching answers are short and grounded, so the default is a modest effort
+// setting, which keeps the Sonnet/Opus tiers fast. AI_COACH_EFFORT tunes it
+// without a deploy: low | medium | high, or 'off' to disable thinking
+// entirely. Haiku 4.5 rejects both parameters, so it gets neither.
+// Medium: on Sonnet 5, low effort produced garbled Finnish tokens in one
+// answer out of three ("eikän", "viikonon"); medium was clean in every run
+// and no slower (probe, 2026-08-23).
+const EFFORT_SETTING = (process.env.AI_COACH_EFFORT ?? 'medium').trim();
+const EFFORT_CONFIG: Record<string, unknown> = /haiku/.test(CLAUDE_MODEL)
+  ? {}
+  : EFFORT_SETTING === 'off'
+    ? { thinking: { type: 'disabled' } }
+    : { output_config: { effort: ['low', 'medium', 'high'].includes(EFFORT_SETTING) ? EFFORT_SETTING : 'low' } };
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
 /**
@@ -179,9 +189,9 @@ const COACH_SYSTEM_RULES = [
   '',
   '# How to answer',
   '- Answer the question in the first sentence.',
-  '- Two concrete actions beat ten. Give a number wherever a number is the answer.',
+  '- Two concrete actions beat ten: at most three reasons and two next steps. Give a number wherever a number is the answer.',
   '- All weights are kilograms.',
-  '- Answer in the language the user wrote in.',
+  '- Answer in the language the user wrote in, and write numbers and dates the way that language does: Finnish uses a decimal comma (82,5 kg) and day.month dates (3.8.); English uses 82.5 kg and 3 Aug. Never write ISO dates such as 2026-08-03 in prose — the context uses them only as data.',
   '- Do not describe yourself, your context, or how you reasoned.',
   '',
   '# Saying less',
