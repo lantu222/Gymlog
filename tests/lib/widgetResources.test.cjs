@@ -608,4 +608,31 @@ module.exports = [
       }
     },
   },
+  {
+    // Found on a phone 2026-08-23: every APK built since 17.8. showed "Tee
+    // ohjelma" in the widget. The plugin had moved the payload version to 9
+    // over several commits; the generated Kotlin in android/ still said 4 and
+    // rejected every payload the app wrote. android/ is not in git, so only a
+    // local check can see it — and this is exactly where a stale prebuild
+    // shows up first.
+    name: 'widgetResources: the generated Kotlin in android/ is not behind the plugin (run prebuild)',
+    run() {
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const generated = path.join(__dirname, '..', '..', 'android', 'app', 'src', 'main', 'java', 'app', 'vinha', 'HomeWidgetProvider.kt');
+      if (!fs.existsSync(generated)) {
+        return; // no native directory here (CI, fresh clone) — nothing to compare
+      }
+      const kotlin = fs.readFileSync(generated, 'utf8');
+      const match = kotlin.match(/PAYLOAD_VERSION = (\d+)/);
+      assert.ok(match, 'generated HomeWidgetProvider.kt has no PAYLOAD_VERSION');
+      assert.equal(
+        Number(match[1]),
+        HOME_WIDGET_PAYLOAD_VERSION,
+        `android/ was generated for widget payload v${match[1]} but the app writes v${HOME_WIDGET_PAYLOAD_VERSION}. `
+          + 'Every widget on every phone shows the empty state until you run: '
+          + 'npx expo prebuild --platform android --clean (then restore android/local.properties).',
+      );
+    },
+  },
 ];
