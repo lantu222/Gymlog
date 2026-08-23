@@ -120,8 +120,17 @@ export function scoreCase(evalCase: AiCoachEvalCase, advice: AICoachAdvice): Eva
   const checks: EvalCheckResult[] = [];
 
   // 1. Grounding — the check the whole app rests on.
+  // A proposed next load is the coach's job: 77.5 after an 80 kg top set is
+  // a derivation, not an invention, and so is a 10 % deload. Any figure
+  // within 10 % of a context figure counts as grounded; a number with no
+  // neighbour in the context does not.
+  const contextNumbers = [...contextFigures].map(Number).filter((value) => Number.isFinite(value) && value > 0);
+  const isDerived = (figure: string) => {
+    const value = Number(figure);
+    return Number.isFinite(value) && contextNumbers.some((base) => Math.abs(value - base) <= base * 0.1);
+  };
   const unsupported = extractFigures(answer).filter(
-    (figure) => !contextFigures.has(figure) && !allowed.has(figure),
+    (figure) => !contextFigures.has(figure) && !allowed.has(figure) && !isDerived(figure),
   );
   checks.push({
     check: 'grounded',
@@ -166,7 +175,10 @@ export function scoreCase(evalCase: AiCoachEvalCase, advice: AICoachAdvice): Eva
   // the live coach answered an empty account perfectly and was failed for
   // echoing the word the reader used.
   if (evalCase.expectsAbstention) {
-    const claims = [advice.takeaway, ...advice.why, ...advice.nextSteps, ...advice.plan].filter(Boolean).join(' ');
+    // Claims live in the takeaway and the reasons. A next step that says
+    // "log three sessions so I can read progress" is advice about the future,
+    // not a claim about the past.
+    const claims = [advice.takeaway, ...advice.why].filter(Boolean).join(' ');
     const claimed = TREND_CLAIMS.filter((word) => contains(claims, word));
     checks.push({
       check: 'abstains',

@@ -8,7 +8,8 @@ const AI_COACH_API_URL = resolveLiveAiCoachUrl(
   process.env.EXPO_PUBLIC_AI_COACH_API_URL,
   process.env.NODE_ENV !== 'production',
 );
-const REQUEST_TIMEOUT_MS = 12000;
+// Outer bound over the endpoint's 20 s Claude timeout plus the round trip.
+const REQUEST_TIMEOUT_MS = 28000;
 
 export interface RequestAiCoachAdviceResult {
   answer: AICoachAdvice;

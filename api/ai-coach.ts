@@ -29,8 +29,16 @@ type ApiResponse = {
 
 const RATE_LIMIT_WINDOW_MS = Number(process.env.AI_COACH_RATE_LIMIT_WINDOW_MS ?? 10 * 60 * 1000);
 const RATE_LIMIT_MAX = Number(process.env.AI_COACH_RATE_LIMIT_MAX ?? 12);
-const CLAUDE_TIMEOUT_MS = Number(process.env.AI_COACH_CLAUDE_TIMEOUT_MS ?? 12000);
+// 20 s: Sonnet 5 thinks before it answers and a 12 s cap timed out on
+// ordinary questions (eval, 2026-08-23). The app's own fetch timeout stays
+// the outer bound.
+const CLAUDE_TIMEOUT_MS = Number(process.env.AI_COACH_CLAUDE_TIMEOUT_MS ?? 20000);
+
 const CLAUDE_MODEL = process.env.AI_COACH_CLAUDE_MODEL ?? 'claude-haiku-4-5-20251001';
+// Coaching answers are short and grounded; a low effort setting keeps the
+// Sonnet/Opus tiers fast. Haiku 4.5 rejects the parameter, so it is only sent
+// to models that accept it.
+const EFFORT_CONFIG = /haiku/.test(CLAUDE_MODEL) ? {} : { output_config: { effort: 'low' } };
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
 /**
@@ -259,14 +267,19 @@ function validateAnswer(payload: unknown): AICoachAdvice | null {
   }
 
   const candidate = payload as Partial<AICoachAdvice>;
-  const { takeaway, why, nextSteps, plan, assumptions } = candidate;
-  if (
-    typeof takeaway !== 'string' ||
-    !isStringArray(why) ||
-    !isStringArray(nextSteps) ||
-    !isStringArray(plan) ||
-    !isStringArray(assumptions)
-  ) {
+  const { takeaway } = candidate;
+  if (typeof takeaway !== 'string' || !takeaway.trim()) {
+    return null;
+  }
+  // A list the model left out is an empty list, not an invalid answer:
+  // Sonnet 5 omits `plan: []` when there is no plan to give, and the whole
+  // answer fell back to preview over it (eval, 2026-08-23).
+  const list = (value: unknown) => (isStringArray(value) ? value : value === undefined ? [] : null);
+  const why = list(candidate.why);
+  const nextSteps = list(candidate.nextSteps);
+  const plan = list(candidate.plan);
+  const assumptions = list(candidate.assumptions);
+  if (why === null || nextSteps === null || plan === null || assumptions === null) {
     return null;
   }
 
@@ -362,6 +375,7 @@ async function requestClaude(input: AICoachAdviceRequest) {
       },
       body: JSON.stringify({
         model: CLAUDE_MODEL,
+        ...EFFORT_CONFIG,
         max_tokens: CLAUDE_MAX_TOKENS,
         // Rules first, then this user's training context. The cache breakpoint
         // sits after both: follow-up questions in the same conversation reuse
@@ -375,6 +389,9 @@ async function requestClaude(input: AICoachAdviceRequest) {
             name: ADVICE_TOOL_NAME,
             description: 'Return coaching advice for the athlete described in the training context.',
             input_schema: AI_COACH_RESPONSE_SCHEMA,
+            // The API validates the tool input against the schema before it
+            // reaches us — required lists included.
+            strict: true,
           },
         ],
         tool_choice: { type: 'tool', name: ADVICE_TOOL_NAME },
@@ -516,6 +533,7 @@ async function requestClaudeProgramme(input: ParsedBody): Promise<ProgrammeResul
       },
       body: JSON.stringify({
         model: CLAUDE_MODEL,
+        ...EFFORT_CONFIG,
         max_tokens: CLAUDE_MAX_TOKENS,
         system: [
           { type: 'text', text: COMPOSER_SYSTEM_RULES },
