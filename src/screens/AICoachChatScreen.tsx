@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -307,8 +306,12 @@ export function AICoachChatScreen({
         </View>
       </View>
 
+      {/* 'padding' on Android too. The manifest's adjustResize used to lift the
+          composer above the keyboard; with RN 0.83's mandatory edge-to-edge it
+          no longer does, and the keyboard covered the thread and the field
+          (#bugs, 2026-08-23: 'hard to see what you are typing'). */}
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
         style={styles.body}
       >
         <ScrollView
