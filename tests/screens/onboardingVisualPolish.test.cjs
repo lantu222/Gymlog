@@ -105,6 +105,35 @@ module.exports = [
       assert.match(onboardingSource, /buildingPlanDotHidden: \{\s*color: 'transparent',/);
       assert.match(onboardingSource, /setBuildingPlanComplete\(true\)/);
 
+      // The pulse is one animated node PER ROW, never one shared between
+      // them. A single interpolation is a single native node and
+      // PropsAnimatedNode holds exactly one connectedViewTag, so a shared one
+      // had to leave one row and join the next inside the same Fabric mount
+      // batch — and when the connect landed first it threw "Animated node N
+      // is already attached to a view" and killed the app ~85 % through the
+      // build (2026-08-24). Two nodes cannot collide.
+      assert.match(onboardingSource, /const buildingPlanPulseScales = useRef\(/);
+      assert.match(onboardingSource, /const buildingPlanPulseOpacities = useRef\(/);
+      assert.match(onboardingSource, /opacity: buildingPlanPulseOpacities\[index\]/);
+      assert.match(onboardingSource, /scale: buildingPlanPulseScales\[index\]/);
+      assert.doesNotMatch(
+        onboardingSource,
+        /const buildingPlanPulse(Scale|Opacity) = useRef\(/,
+        'one pulse node shared across the step rows is the crash this guards',
+      );
+
+      // And the caption fade rides a plain View. On the Text it sat on a
+      // subtree whose children relay four times a second (the ellipsis), in
+      // the same batch as the phase change that was already racing.
+      assert.match(
+        onboardingSource,
+        /<Animated\.View style=\{\{ opacity: buildingPlanCaptionOpacity \}\}>/,
+      );
+      assert.doesNotMatch(
+        onboardingSource,
+        /<Animated\.Text style=\{\[styles\.buildingPlanThinkingText/,
+      );
+
       // Slim determinate progress bar + percent readout (calm, not a hype ring).
       assert.match(loaderBody, /styles\.buildingPlanProgressTrack/);
       assert.match(loaderBody, /styles\.buildingPlanProgressFill, \{ width: `\$\{buildingPlanPercent\}%` \}/);

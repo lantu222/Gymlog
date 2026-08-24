@@ -490,6 +490,13 @@ function cycleDaysPerWeek(on: number, off: number): SetupDaysPerWeek {
   return Math.min(6, Math.max(2, Math.round((7 * on) / (on + off)))) as SetupDaysPerWeek;
 }
 
+/**
+ * The build screen's phase rows, as a fixed-length list to allocate animated
+ * nodes against. The labels themselves are translated per render; this only
+ * has to agree with how many there are, and the render clamps to it.
+ */
+const BUILDING_PLAN_PHASE_COUNT = [0, 1, 2, 3] as const;
+
 function getRecommendedDaysForLevel(level: SetupLevel): SetupDaysPerWeek {
   return level === 'beginner' ? 3 : level === 'pro' ? 5 : 4;
 }
@@ -1615,13 +1622,32 @@ export function OnboardingScreen({
   const buildingPlanThinkingOpacity = useRef(new Animated.Value(0)).current;
   const buildingPlanCaptionOpacity = useRef(new Animated.Value(0)).current;
   const buildingPlanPulse = useRef(new Animated.Value(0)).current;
-  // Interpolated once (disconnectAnimatedNodes rule) — renderBuildingPlan runs
-  // on every percent tick, so inline interpolations there churned nodes fast.
-  const buildingPlanPulseScale = useRef(
-    buildingPlanPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }),
+  /**
+   * One interpolation PER ROW, not one shared between them.
+   *
+   * Interpolating once was already the rule here (the disconnectAnimatedNodes
+   * rule: renderBuildingPlan re-runs on every percent tick). What that rule
+   * did not say is that a single interpolation is also a single native node,
+   * and `PropsAnimatedNode` holds exactly one `connectedViewTag`. The pulse
+   * rode whichever step row was active, so every phase change asked one node
+   * to leave one view and join another in the same Fabric mount batch — and
+   * when the connect landed before the disconnect it threw
+   * "Animated node N is already attached to a view", killing the app about
+   * 85 % through the build (reported 2026-08-24).
+   *
+   * A node each means a phase change is now "row 2's node detaches, row 3's
+   * node attaches" — two nodes, two views, no collision possible. They all
+   * read the same driver, so the rows still pulse in step.
+   */
+  const buildingPlanPulseScales = useRef(
+    BUILDING_PLAN_PHASE_COUNT.map(() =>
+      buildingPlanPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }),
+    ),
   ).current;
-  const buildingPlanPulseOpacity = useRef(
-    buildingPlanPulse.interpolate({ inputRange: [0, 1], outputRange: [0.64, 1] }),
+  const buildingPlanPulseOpacities = useRef(
+    BUILDING_PLAN_PHASE_COUNT.map(() =>
+      buildingPlanPulse.interpolate({ inputRange: [0, 1], outputRange: [0.64, 1] }),
+    ),
   ).current;
   const buildingPlanRingSpin = useRef(new Animated.Value(0)).current;
   const planReadyCardTranslateX = useRef(new Animated.Value(0)).current;
@@ -3906,31 +3932,38 @@ export function OnboardingScreen({
 
   function renderBuildingPlan() {
     const activePhaseIndex = Math.min(buildingPlanPhaseIndex, buildingPlanPhases.length - 1);
-    const pulseScale = buildingPlanPulseScale;
-    const pulseOpacity = buildingPlanPulseOpacity;
 
     return (
       <Animated.View style={[styles.buildingPlanScreen, { opacity: buildingPlanScreenOpacity }]}>
         {showBuildingPlanThinking ? (
           <Animated.View style={[styles.buildingPlanThinkingScene, { opacity: buildingPlanThinkingOpacity }]}>
             <View style={styles.buildingPlanThinkingCenter}>
-              <Animated.Text style={[styles.buildingPlanThinkingText, { opacity: buildingPlanCaptionOpacity }]}>
-                {buildingPlanComplete ? (
-                  t(language, 'onb.building.ready')
-                ) : (
-                  <>
-                    {t(language, 'onb.building.title')}
-                    {/* All three dots hold their width from the first frame;
-                        the unlit ones are painted transparent. Appending
-                        1–3 real dots changed the line's width every tick, and
-                        on a narrow phone the title bounced between one and
-                        two lines (user 2026-08-23). */}
-                    <Text>.</Text>
-                    <Text style={buildingPlanEllipsisStep >= 1 ? null : styles.buildingPlanDotHidden}>.</Text>
-                    <Text style={buildingPlanEllipsisStep >= 2 ? null : styles.buildingPlanDotHidden}>.</Text>
-                  </>
-                )}
-              </Animated.Text>
+              {/* The fade rides a View, not the Text.
+
+                  It was on the Text, whose children then had to change every
+                  ellipsis tick — animated props on a subtree that relays four
+                  times a second, in the same mount batch as the phase change
+                  that was already racing. The wrapper never reflows, so the
+                  caption's node has nothing to collide with. */}
+              <Animated.View style={{ opacity: buildingPlanCaptionOpacity }}>
+                <Text style={styles.buildingPlanThinkingText}>
+                  {buildingPlanComplete ? (
+                    t(language, 'onb.building.ready')
+                  ) : (
+                    <>
+                      {t(language, 'onb.building.title')}
+                      {/* All three dots hold their width from the first frame;
+                          the unlit ones are painted transparent. Appending
+                          1–3 real dots changed the line's width every tick,
+                          and on a narrow phone the title bounced between one
+                          and two lines (user 2026-08-23). */}
+                      <Text>.</Text>
+                      <Text style={buildingPlanEllipsisStep >= 1 ? null : styles.buildingPlanDotHidden}>.</Text>
+                      <Text style={buildingPlanEllipsisStep >= 2 ? null : styles.buildingPlanDotHidden}>.</Text>
+                    </>
+                  )}
+                </Text>
+              </Animated.View>
 
               <View style={styles.buildingPlanProgressBlock}>
                 <View style={styles.buildingPlanProgressTrack}>
@@ -3951,7 +3984,8 @@ export function OnboardingScreen({
                       style={[
                         styles.buildingPlanStepRow,
                         active && styles.buildingPlanStepRowActive,
-                        active && { opacity: pulseOpacity },
+                        // This row's own node — never the one next door's.
+                        active && { opacity: buildingPlanPulseOpacities[index] },
                       ]}
                     >
                       <View
@@ -3966,7 +4000,12 @@ export function OnboardingScreen({
                             <Path d="M4 12.4 9.2 17.6 20 6.8" stroke="#FFFFFF" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
                           </Svg>
                         ) : active ? (
-                          <Animated.View style={[styles.buildingPlanStepActiveDot, { transform: [{ scale: pulseScale }] }]} />
+                          <Animated.View
+                            style={[
+                              styles.buildingPlanStepActiveDot,
+                              { transform: [{ scale: buildingPlanPulseScales[index] }] },
+                            ]}
+                          />
                         ) : null}
                       </View>
                       <View style={styles.buildingPlanStepCopy}>
