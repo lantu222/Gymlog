@@ -193,10 +193,35 @@ export function HomeStatCardsSection({
     return () => loop.stop();
   }, [editing, jiggle, reduceMotion]);
 
-  // Interpolated once — rebuilding these per render leaks native animated
-  // nodes and ends in the Fabric disconnectAnimatedNodes crash.
-  const evenRotate = useRef(jiggle.interpolate({ inputRange: [0, 1], outputRange: ['-0.55deg', '0.55deg'] })).current;
-  const oddRotate = useRef(jiggle.interpolate({ inputRange: [0, 1], outputRange: ['0.55deg', '-0.55deg'] })).current;
+  /**
+   * One interpolation per card slot, created once and kept.
+   *
+   * "Interpolate once" was already the rule (rebuilding per render leaks
+   * native nodes). The half of it that was missing: one interpolation is also
+   * one native node, and `PropsAnimatedNode` holds exactly one
+   * `connectedViewTag`. There used to be two nodes here — an even one and an
+   * odd one — and with three pinned cards the even node was asked to sit on
+   * card 0 and card 2 at the same time, which throws "Animated node N is
+   * already attached to a view" and takes the app down.
+   *
+   * The same defect crashed the plan-build screen on 2026-08-24; this is the
+   * other place it was waiting. Keyed by index rather than a fixed array
+   * because the pinned list has no compile-time length. Direction still
+   * alternates, so the jiggle looks exactly as it did.
+   */
+  const rotateNodes = useRef(new Map<number, ReturnType<Animated.Value['interpolate']>>()).current;
+  const rotateFor = (index: number) => {
+    const existing = rotateNodes.get(index);
+    if (existing) {
+      return existing;
+    }
+    const node = jiggle.interpolate({
+      inputRange: [0, 1],
+      outputRange: index % 2 === 0 ? ['-0.55deg', '0.55deg'] : ['0.55deg', '-0.55deg'],
+    });
+    rotateNodes.set(index, node);
+    return node;
+  };
 
   const removeCard = (key: string) => {
     onChangePinnedKeys(pinnedKeys.filter((pinned) => pinned !== key));
@@ -289,7 +314,7 @@ export function HomeStatCardsSection({
             key={card.key}
             style={[
               styles.cardCell,
-              editing && !reduceMotion && { transform: [{ rotate: index % 2 === 0 ? evenRotate : oddRotate }] },
+              editing && !reduceMotion && { transform: [{ rotate: rotateFor(index) }] },
             ]}
           >
             <Pressable

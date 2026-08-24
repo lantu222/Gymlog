@@ -130,6 +130,28 @@ module.exports = [
     },
   },
   {
+    name: 'animated nodes: no interpolation is shared between two views',
+    run() {
+      // One interpolation is one native node, and PropsAnimatedNode holds
+      // exactly one connectedViewTag. Sharing one across sibling views throws
+      // "Animated node N is already attached to a view" and kills the app —
+      // it took down the plan-build screen on 2026-08-24, and the same shape
+      // was waiting in the Home card grid. Both are keyed per index now.
+      const cards = read('src/components/HomeStatCardsSection.tsx');
+      assert.match(cards, /const rotateNodes = useRef\(new Map</);
+      assert.match(cards, /rotate: rotateFor\(index\)/);
+      assert.doesNotMatch(
+        cards,
+        /index % 2 === 0 \? evenRotate : oddRotate/,
+        'one node on every even card is the crash this guards',
+      );
+
+      const onboarding = read('src/screens/OnboardingScreen.tsx');
+      assert.match(onboarding, /buildingPlanPulseOpacities\[index\]/);
+      assert.doesNotMatch(onboarding, /const buildingPlanPulse(Scale|Opacity) = useRef\(/);
+    },
+  },
+  {
     name: 'theming: style factories are built per theme, not per render',
     run() {
       const source = read('src/theming.ts');
