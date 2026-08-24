@@ -81,6 +81,7 @@ import { buildTailoringBadgeLabels, TailoringPreferencesInput } from '../lib/tai
 import { getReadyTemplatePresentation } from '../lib/templatePresentation';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
 import { patternFromOnOff } from '../lib/trainingSchedule';
+import { localizeSessionName } from '../lib/sessionNameLabel';
 import { colors, radii, spacing } from '../theme';
 import { haptics } from '../utils/haptics';
 import {
@@ -3286,7 +3287,9 @@ export function OnboardingScreen({
       if (normalized.includes('plank') || normalized.includes('core') || normalized.includes('abs')) return 'CORE';
       return focusOf(selectedSession?.name ?? '', selectedIndex).toUpperCase();
     };
-    const dayTitle = selectedSession?.name ?? `Day ${selectedIndex + 1}`;
+    const dayTitle = selectedSession
+      ? localizeSessionName(selectedSession.name, language)
+      : `Day ${selectedIndex + 1}`;
     const dayDuration = selectedSession?.guidance?.estimatedDuration ?? null;
     const dayExercises = selectedSession?.exercises ?? [];
 
@@ -3303,11 +3306,15 @@ export function OnboardingScreen({
       >
         <View style={styles.planReadyDayHeader}>
           <View style={styles.planReadyDayHeaderCopy}>
-            <Text style={styles.planReadyDayKicker}>{`DAY ${selectedIndex + 1} OF ${dayCount}`}</Text>
+            <Text style={styles.planReadyDayKicker}>
+              {t(language, 'onb.day.kicker', { index: selectedIndex + 1, count: dayCount })}
+            </Text>
             <Text style={styles.planReadyDayTitle}>{dayTitle}</Text>
           </View>
           <View style={styles.planReadyDayWeekBadge}>
-            <Text style={styles.planReadyDayWeekBadgeText}>{`Week 1 of ${planReadyWeeks}`}</Text>
+            <Text style={styles.planReadyDayWeekBadgeText}>
+              {t(language, 'onb.day.week', { weeks: planReadyWeeks })}
+            </Text>
           </View>
         </View>
 
@@ -3325,7 +3332,9 @@ export function OnboardingScreen({
         </View>
 
         <Text style={styles.planReadyDayExercisesLabel}>
-          {`${dayExercises.length} ${dayExercises.length === 1 ? 'EXERCISE' : 'EXERCISES'}`}
+          {t(language, dayExercises.length === 1 ? 'onb.day.exerciseOne' : 'onb.day.exerciseMany', {
+            count: dayExercises.length,
+          })}
         </Text>
         <View style={styles.planReadyDayExerciseList}>
           {dayExercises.map((exercise, index) => (
@@ -3887,7 +3896,11 @@ export function OnboardingScreen({
       ? t(language, 'onb.cta.saving')
       : stage === 'review'
       ? planReadyView === 'day'
-        ? t(language, 'onb.cta.backToPlan')
+        ? // "Seuraava" walks the days forward; the chevron walks them back
+          // (user 2026-08-23). Only the last day's button returns to the plan.
+          planReadyWorkoutPage < projectedSessions.length - 1
+          ? t(language, 'common.next')
+          : t(language, 'onb.cta.backToPlan')
         : planReadyView === 'pro'
         ? t(language, 'onb.cta.startTraining')
         : t(language, 'common.continue')
@@ -3940,9 +3953,21 @@ export function OnboardingScreen({
     if (stage === 'review') {
       if (planReadyView === 'pro') {
         setPlanReadyView('overview');
-      } else {
-        setStageIndex(getStageIndex('planning'));
+        return;
       }
+      if (planReadyView === 'day') {
+        // Backward through the days, then out to the plan. This used to fall
+        // through to the questionnaire: one tap on the chevron from a day
+        // view landed on the focus step and the review had to be rebuilt
+        // (user 2026-08-23, "iso virhe").
+        if (planReadyWorkoutPage > 0) {
+          setPlanReadyWorkoutPage((current) => current - 1);
+          return;
+        }
+        setPlanReadyView('overview');
+        return;
+      }
+      setStageIndex(getStageIndex('planning'));
       return;
     }
     if (stage === 'location') {
@@ -4039,6 +4064,10 @@ export function OnboardingScreen({
                 if (stage === 'review') {
                   void haptics.success();
                   if (planReadyView === 'day') {
+                    if (planReadyWorkoutPage < projectedSessions.length - 1) {
+                      setPlanReadyWorkoutPage((current) => current + 1);
+                      return;
+                    }
                     setPlanReadyView('overview');
                     return;
                   }

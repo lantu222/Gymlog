@@ -206,6 +206,12 @@ interface HomeScreenProps {
   onSetTrainingDays?: () => void;
   /** Opens the running program's full plan — "Katso koko ohjelma". */
   onOpenActivePlan?: () => void;
+  /**
+   * Opens one session's own day view. The rows used to open the whole plan,
+   * which answers a different question than the row the thumb was on
+   * (user 2026-08-23: "sen pitäisi mennä siihen mitä klikkasin").
+   */
+  onOpenPlanSession?: (sessionId: string) => void;
   onSelectHistorySession?: (sessionId: string) => void;
   /** "Your cards": one computed card per catalog item, Add-sheet order. */
   statCatalogCards?: HomeStatCard[];
@@ -306,6 +312,7 @@ export function HomeScreen({
   onOpenHistory,
   onSetTrainingDays,
   onOpenActivePlan,
+  onOpenPlanSession,
   onSelectHistorySession,
   statCatalogCards = [],
   suggestedStatCardKeys = [],
@@ -1083,7 +1090,11 @@ export function HomeScreen({
                     accessibilityLabel={`${weekdayText ? `${weekdayText}: ` : ''}${sessionTitle}${
                       doneThisWeek ? `, ${t(language, 'home.plan.doneThisWeek').toLowerCase()}` : ''
                     }${isNext ? `, ${t(language, 'plan.upNext').toLowerCase()}` : ''}`}
-                    onPress={onOpenActivePlan}
+                    // The row opens its own day; the section title above still
+                    // opens the whole plan (user 2026-08-23).
+                    onPress={
+                      onOpenPlanSession ? () => onOpenPlanSession(session.id) : onOpenActivePlan
+                    }
                     // A3: the row slides right under the thumb rather than
                     // dimming — the speed line it carries points that way.
                     style={({ pressed }) => [pressed && styles.rowPressed]}

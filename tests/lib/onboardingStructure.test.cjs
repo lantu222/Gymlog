@@ -86,17 +86,31 @@ module.exports = [
       assert.match(reviewBody, /onOpenWeek=\{/);
       assert.match(reviewBody, /setPlanReadyView\('day'\)/);
 
-      // Day view: read-only preview — day title is the session name (one source
-      // of truth), no A-F switcher, no letter badges, numbered exercise list.
-      assert.match(dayBody, /`DAY \$\{selectedIndex \+ 1\} OF \$\{dayCount\}`/);
-      assert.match(dayBody, /const dayTitle = selectedSession\?\.name/);
-      assert.match(dayBody, /`Week 1 of \$\{planReadyWeeks\}`/);
+      // Day view: read-only preview — day title is the session name (one
+      // source of truth, localised), no A-F switcher, no letter badges,
+      // numbered exercise list. Headers speak i18n, not template literals
+      // (2026-08-23: the Finnish run showed "Day 1 · Week 1 of 4").
+      assert.match(dayBody, /t\(language, 'onb\.day\.kicker', \{ index: selectedIndex \+ 1, count: dayCount \}\)/);
+      assert.match(dayBody, /localizeSessionName\(selectedSession\.name, language\)/);
+      assert.match(dayBody, /t\(language, 'onb\.day\.week', \{ weeks: planReadyWeeks \}\)/);
       assert.doesNotMatch(dayBody, /planReadyDayTab/);
       assert.doesNotMatch(dayBody, /setPlanReadyWorkoutPage\(tab\.index\)/);
-      assert.match(dayBody, /\? 'EXERCISE' : 'EXERCISES'/);
+      assert.match(dayBody, /'onb\.day\.exerciseOne' : 'onb\.day\.exerciseMany'/);
       assert.match(dayBody, /String\(index \+ 1\)\.padStart\(2, '0'\)/);
       assert.match(dayBody, /exercise\.setsLabel/);
       assert.match(dayBody, /exercise\.repsLabel/);
+
+      // The day view browses: the footer walks forward through the days and
+      // the chevron walks back, out to the plan from day one — never out of
+      // the review into the questionnaire (2026-08-23, "iso virhe").
+      assert.match(
+        onboardingSource,
+        /if \(planReadyView === 'day'\) \{[\s\S]{0,600}setPlanReadyWorkoutPage\(\(current\) => current - 1\)[\s\S]{0,200}setPlanReadyView\('overview'\)/,
+      );
+      assert.match(
+        onboardingSource,
+        /planReadyWorkoutPage < projectedSessions\.length - 1[\s\S]{0,120}\? t\(language, 'common\.next'\)/,
+      );
 
       // The automated-progression toggle screen is gone from onboarding — the
       // paywall took its slot. The PREFERENCE is untouched: it still ships from
@@ -110,9 +124,13 @@ module.exports = [
       assert.doesNotMatch(onboardingSource, /renderPlanReadyAccount/);
 
       // Overview continues to the progression screen; the day view's footer
-      // returns to the plan ("Back to plan"); progression completes onboarding.
+      // steps through the days and returns to the plan only from the last
+      // one; progression completes onboarding.
       assert.match(onboardingSource, /setPlanReadyWorkoutPage\(0\);\s*setPlanReadyView\('day'\)/);
-      assert.match(onboardingSource, /if \(planReadyView === 'day'\) \{\s*setPlanReadyView\('overview'\);/);
+      assert.match(
+        onboardingSource,
+        /if \(planReadyView === 'day'\) \{\s*if \(planReadyWorkoutPage < projectedSessions\.length - 1\) \{\s*setPlanReadyWorkoutPage\(\(current\) => current \+ 1\);/,
+      );
       assert.match(onboardingSource, /setPlanReadyView\('pro'\)/);
       assert.match(onboardingSource, /onCompleteToTraining\(selection, activeRecommendedProgramId\)/);
       assert.doesNotMatch(onboardingSource, /: 'See day 1'/);

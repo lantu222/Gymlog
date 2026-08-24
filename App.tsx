@@ -6640,6 +6640,20 @@ function VinhaApp() {
             workoutTemplateId: homeActivePlanCard.programId,
           });
         }}
+        // A session row opens its own day, not the whole plan — the plan is
+        // one tap away behind the section title (user 2026-08-23).
+        onOpenPlanSession={(sessionId) => {
+          if (!homeActivePlanCard) {
+            return;
+          }
+          navigate({
+            tab: 'workout',
+            screen: 'programDay',
+            programType: homeActivePlanCard.programType ?? 'ready',
+            workoutTemplateId: homeActivePlanCard.programId,
+            sessionId,
+          });
+        }}
         onSelectHistorySession={(sessionId) => navigate({ tab: 'home', screen: 'session', sessionId })}
       />
     );
