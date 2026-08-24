@@ -1843,7 +1843,12 @@ export function ProgressScreen({
       <>
         <SectionLabel label={t(language, 'progress.section.allMeasures')} />
         <View style={styles.measureList}>
-          {measureModels.map((item) => {
+          {/* Measures with entries first, outlined (user 2026-08-23): the
+              catalog order buried "Rinta · 93,5 cm" under three empty rows.
+              The sort is stable, so within each half the catalog order holds. */}
+          {[...measureModels]
+            .sort((left, right) => Number(right.values.length > 0) - Number(left.values.length > 0))
+            .map((item) => {
             const active = item.key === selectedMeasure;
             const latest = item.values.length ? item.values[item.values.length - 1] : null;
             const delta = item.values.length >= 2 ? item.values[item.values.length - 1] - item.values[0] : null;
@@ -1852,7 +1857,11 @@ export function ProgressScreen({
               <Pressable
                 key={item.key}
                 onPress={() => setSelectedMeasure(item.key)}
-                style={[styles.measureRow, active && styles.measureRowActive]}
+                style={[
+                  styles.measureRow,
+                  latest !== null && styles.measureRowLogged,
+                  active && styles.measureRowActive,
+                ]}
               >
                 <View style={styles.measureRowIcon}>
                   <MeasureIcon name={item.icon} />
@@ -2765,8 +2774,15 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderWidth: 1.5,
     borderColor: theme.border,
   },
+  // A row that holds data wears a quiet outline; the selected row keeps the
+  // full-strength purple so the two states stay tellable apart.
+  measureRowLogged: {
+    borderColor: theme.purpleBright,
+    borderWidth: 1,
+  },
   measureRowActive: {
     borderColor: theme.purple,
+    borderWidth: 1.5,
   },
   measureRowIcon: {
     width: 38,
