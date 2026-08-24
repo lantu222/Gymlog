@@ -4,7 +4,7 @@ const path = require('node:path');
 
 const { darkTheme, lightTheme } = require('../../.test-dist/theming.js');
 const { HG } = require('../../.test-dist/lightTheme.js');
-const { resolveThemeName, resolveThemeRowState } = require('../../.test-dist/lib/themePreference.js');
+const { resolveThemeName } = require('../../.test-dist/lib/themePreference.js');
 
 const root = path.join(__dirname, '..', '..');
 const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
@@ -70,7 +70,7 @@ module.exports = [
     },
   },
   {
-    name: 'theming: choosing a theme goes through the Pro gate, never the provider',
+    name: 'theming: one resolver decides, and the provider still only takes a theme',
     run() {
       // The provider takes a theme; it does not decide one. Keeping the
       // entitlement out of this file is what lets a screen be rendered under
@@ -79,10 +79,6 @@ module.exports = [
       assert.doesNotMatch(source, /isProUnlocked|promoProUntil|AppPreferences/);
       assert.match(source, /theme = lightTheme/);
 
-      const resolver = read('src/lib/themePreference.ts');
-      assert.match(resolver, /isProUnlocked/);
-      assert.match(resolver, /darkThemeEnabled && isProUnlocked/);
-
       // The vestigial preference is still gone: it was typed as the single
       // value 'dark', stored 'dark', and read by nothing.
       const models = read('src/types/models.ts');
@@ -90,20 +86,47 @@ module.exports = [
     },
   },
   {
-    name: 'theming: dark is gated on Pro and the choice survives losing it',
+    name: 'theming: dark is free, and no surface still consults the entitlement',
     run() {
+      // The gate came off on 2026-08-23: a theme is not a feature anyone
+      // subscribes for, and gating it shipped one finished palette to nobody.
+      // A free account with the switch on gets dark, full stop.
       const free = { darkThemeEnabled: true, promoProUntil: null, adaptiveCoachPremiumUnlocked: false };
-      assert.equal(resolveThemeName(free), 'light', 'free users must not get the paid theme');
-      assert.deepEqual(resolveThemeRowState(free), { locked: true, value: false });
+      assert.equal(resolveThemeName(free), 'dark', 'dark is not a paid theme any more');
+      assert.equal(resolveThemeName({ ...free, darkThemeEnabled: false }), 'light');
 
-      const pro = { ...free, adaptiveCoachPremiumUnlocked: true };
-      assert.equal(resolveThemeName(pro), 'dark');
-      assert.deepEqual(resolveThemeRowState(pro), { locked: false, value: true });
+      // The resolver reads the switch and nothing else — the entitlement
+      // import is what a half-removed gate would leave behind.
+      const resolver = read('src/lib/themePreference.ts');
+      assert.doesNotMatch(resolver, /isProUnlocked|proEntitlement|promoProUntil/);
+      assert.doesNotMatch(resolver, /resolveThemeRowState/);
 
-      // Pro but toggled off stays light, and the stored choice is never
-      // rewritten — losing Pro must not silently erase what the user picked.
-      assert.equal(resolveThemeName({ ...pro, darkThemeEnabled: false }), 'light');
-      assert.equal(free.darkThemeEnabled, true);
+      // And the ghosts: no locked row in Settings, no theme in the benefit
+      // list, no theme card on the unlock screen. A removed gate that still
+      // has copy selling it is the failure this guards.
+      const settings = read('src/screens/SettingsScreen.tsx');
+      assert.doesNotMatch(settings, /themeProPill|resolveThemeRowState|unlockDarkTheme/);
+      const benefits = read('src/lib/proBenefits.ts');
+      assert.doesNotMatch(benefits, /pro\.v2\.read\.theme|unlock\.theme/);
+      const i18n = read('src/lib/i18n.ts');
+      assert.doesNotMatch(i18n, /'pro\.v2\.read\.theme|'unlock\.theme|darkTheme\.subPro/);
+    },
+  },
+  {
+    name: 'theming: the choice is asked once, right after "Let\'s begin"',
+    run() {
+      const app = read('App.tsx');
+      // Opened by the entry-flow handler, so the answer is in before the
+      // questionnaire the reader then has to look at.
+      assert.match(
+        app,
+        /async function handleContinueEntry\(\)[\s\S]{0,700}?setThemeChoiceVisible\(true\)/,
+      );
+      // And the dialog closes onto the flow rather than navigating: it used to
+      // reset to Home, which was right only when a purchase opened it.
+      assert.match(app, /onDone=\{\(\) => setThemeChoiceVisible\(false\)\}/);
+      // The unlock screen no longer chains into it.
+      assert.doesNotMatch(app, /onDone=\{\(\) => setThemeChoiceVisible\(true\)\}/);
     },
   },
   {

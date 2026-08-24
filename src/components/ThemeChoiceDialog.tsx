@@ -17,12 +17,14 @@ interface ThemeChoiceDialogProps {
 }
 
 /**
- * "The dark theme is yours now — want it?"
+ * "Light or dark?"
  *
- * Shown once, on the way out of the unlock screen. It exists because that
- * screen announces the dark theme as one of the six things that just changed,
- * and until now the reader had to go and find it: Settings, App, third row
- * down. A perk you have to hunt for reads as a perk you did not really get.
+ * Asked once on the way in, right after "Let's begin" — before the
+ * questionnaire, so the reader answers the rest of onboarding in the palette
+ * they chose. It used to be offered on the way out of the Pro unlock screen,
+ * back when dark was a perk somebody had just paid for; the gate came off on
+ * 2026-08-23 and the question moved to the only place it was ever really a
+ * question.
  *
  * The choice applies on tap rather than on a confirm button, and the dialog is
  * themed, so tapping Dark repaints the dialog under the reader's finger. That

@@ -1,41 +1,24 @@
 import { AppPreferences } from '../types/models';
-import { isProUnlocked } from './proEntitlement';
 
 export type ThemeName = 'light' | 'dark';
 
-type ThemePreferences = Pick<
-  AppPreferences,
-  'darkThemeEnabled' | 'promoProUntil' | 'adaptiveCoachPremiumUnlocked'
->;
+type ThemePreferences = Pick<AppPreferences, 'darkThemeEnabled'>;
 
 /**
  * Which theme the app should serve.
  *
- * Dark is a Pro perk (user decision 2026-07-22), so the toggle alone is not
- * enough — the same shape as `resolveProgressionOptions`, and for the same
- * reason: one place combines the user's choice with the entitlement, so no
- * screen can hand a free user a paid theme or a Pro user a dead switch.
+ * The reader's switch, and nothing else.
  *
- * The stored preference is kept as the user set it. Losing Pro turns the app
- * light again but does not silently rewrite their choice, so it comes back if
- * they resubscribe.
+ * Dark used to be a Pro perk (2026-07-22) and this function combined the
+ * toggle with the entitlement. That reversed on 2026-08-23: a theme is not a
+ * feature anybody subscribes for, and gating it meant the app shipped one
+ * palette to most people while the other one was finished and sitting there.
+ * The choice is now offered on the way in, before there is an account to
+ * charge — see the theme step after "Let's begin".
+ *
+ * Kept as a function rather than reading the flag inline so there is still one
+ * place that decides, and so the read cannot drift screen by screen.
  */
-export function resolveThemeName(
-  preferences: ThemePreferences,
-  now: Date = new Date(),
-): ThemeName {
-  return preferences.darkThemeEnabled && isProUnlocked(preferences, now) ? 'dark' : 'light';
-}
-
-/**
- * What the Settings row should show. The row has three honest states and this
- * is the only place that decides between them, so the copy cannot drift from
- * what the engine actually does.
- */
-export function resolveThemeRowState(
-  preferences: ThemePreferences,
-  now: Date = new Date(),
-): { locked: boolean; value: boolean } {
-  const unlocked = isProUnlocked(preferences, now);
-  return { locked: !unlocked, value: preferences.darkThemeEnabled && unlocked };
+export function resolveThemeName(preferences: ThemePreferences): ThemeName {
+  return preferences.darkThemeEnabled ? 'dark' : 'light';
 }

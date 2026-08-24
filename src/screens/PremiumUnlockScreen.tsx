@@ -29,10 +29,12 @@ import { queryReduceMotion } from '../utils/reduceMotion';
  * PRO_LIVE_BENEFITS exactly (proBenefits.test.cjs). That is what stops this
  * screen outliving a feature, which is exactly how version one broke.
  *
- * Themed rather than dark-only (design offered both). One of the rows
- * announces that the dark theme is now available, and announcing it on an
- * already-dark screen reads as "it is on" — the reader goes to Settings and
- * finds it off. Forcing dark later is one line; going back is a rewrite.
+ * Themed rather than dark-only (design offered both). The original reason was
+ * a theme row on this screen: announcing "dark is now available" on an
+ * already-dark screen read as "it is on". That row is gone — dark stopped
+ * being a perk on 2026-08-23 — but staying themed is still right, because a
+ * screen that ignores the theme the reader just picked is the same lie in
+ * reverse. Forcing dark is one line; going back would be a rewrite.
  */
 interface PremiumUnlockScreenProps {
   language?: AppLanguage;
@@ -79,7 +81,6 @@ const IC: Record<string, { path: string; filled?: boolean }> = {
   'unlock.reads.t': { path: 'M4 7h16M4 12h11M4 17h7' },
   'unlock.history.t': { path: 'M12 7v5l3.5 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
   'unlock.programs.t': { path: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z' },
-  'unlock.theme.t': { path: 'M20 14.5A8.5 8.5 0 019.5 4a8.5 8.5 0 1010.5 10.5z' },
 };
 
 const RECEIPT: Record<string, { nameKey: I18nKey; priceKey: I18nKey; unitKey: I18nKey }> = {

@@ -12,10 +12,13 @@ import { AppLanguage } from '../types/models';
 /**
  * The Pro paywall, from the "GAINER Paywall Sell" design.
  *
- * It runs dark whatever the app's theme is, on purpose: the dark theme is
- * itself a Pro feature, so the screen that sells Pro is the first taste of it.
- * That is why this file paints from its own constants rather than the theme —
- * same arrangement the onboarding uses to stay light.
+ * It runs dark whatever the app's theme is, on purpose. The original reason
+ * was that dark WAS the perk, so the sales screen was the first taste of it;
+ * that stopped being true on 2026-08-23. It stays dark for what turned out to
+ * be the better reason: this is the one screen in the app that is selling
+ * rather than working, and looking unlike everything around it is how a reader
+ * can tell. That is why this file paints from its own constants rather than
+ * the theme.
  *
  * Order is the design's, and the design's argument for it is the reason to keep
  * it: strongest claim first, price last. Built for you (their own answers) →

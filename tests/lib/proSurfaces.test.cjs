@@ -141,38 +141,21 @@ module.exports = [
     },
   },
   {
-    name: 'the dark-theme row is a live switch for Pro and a paywall for everyone else',
+    name: 'the dark-theme row is one live switch, for everyone',
     run() {
-      // The engine landed 2026-08-01, so the row stopped saying Soon. What it
-      // must not become is a switch a free user can flip: the state comes from
-      // resolveThemeRowState, which folds in the entitlement.
-      assert.match(settingsSource, /resolveThemeRowState\(preferences\)/);
-      assert.match(
-        settingsSource,
-        /title=\{t\(language, 'settings\.darkTheme'\)\}[\s\S]{0,600}?themeRow\.locked \? \(/,
-      );
-      // The locked row goes to the Pro page, not to subscription management.
-      //
-      // This guard used to pin onOpenSubscription, which is what the row
-      // actually did — while the comment directly above it in SettingsScreen
-      // said "opens the Pro page". The code and its own comment had disagreed
-      // since the row was written, and the guard froze the wrong one of the two.
-      //
-      // The reason the Pro page is right: a free reader tapping a locked Pro
-      // feature is asking how to unlock it, and subscription management is a
-      // screen whose entire subject is a subscription they do not have. It also
-      // showed them a price list, which is the thing the redesign took out.
-      assert.match(settingsSource, /onPress=\{themeRow\.locked \? onOpenPremium : undefined\}/);
-      assert.doesNotMatch(
-        settingsSource,
-        /themeRow\.locked \? onOpenSubscription/,
-        'a locked Pro row must not route to subscription management',
-      );
-      assert.match(settingsSource, /onPress=\{proUnlocked \? onOpenSubscription : onOpenPremium\}/);
-      assert.match(settingsSource, /value=\{themeRow\.value\}/);
+      // History of this row: "Soon" until the engine landed 2026-08-01, then a
+      // two-state row (switch for Pro, PRO pill for everyone else), then free
+      // outright on 2026-08-23. What it must not grow back is a locked state —
+      // a switch that repaints nothing is the failure this guards.
+      assert.match(settingsSource, /value=\{preferences\.darkThemeEnabled\}/);
       assert.match(settingsSource, /onPreferencesChange\(\{ darkThemeEnabled: next \}\)/);
-      // The subtitle no longer promises something unbuilt.
+      assert.doesNotMatch(settingsSource, /themeRow|themeProPill/);
+      // The row is not a paywall entry point any more, but the membership row
+      // above it still is — so onOpenPremium must stay wired for that one.
+      assert.match(settingsSource, /onPress=\{proUnlocked \? onOpenSubscription : onOpenPremium\}/);
+      // The subtitle no longer promises something unbuilt, nor sells Pro.
       assert.doesNotMatch(i18nSource, /'settings\.darkTheme\.sub': '[^']*still in build/);
+      assert.doesNotMatch(i18nSource, /'settings\.darkTheme\.sub': '[^']*Pro/);
     },
   },
   {

@@ -46,7 +46,10 @@ export const PRO_LIVE_BENEFITS: ProBenefit[] = [
   { titleKey: 'pro.v2.read.records.t', bodyKey: 'pro.v2.read.records.b', gate: 'isRecordLocked' },
   { titleKey: 'pro.v2.read.setlog.t', bodyKey: 'pro.v2.read.setlog.b', gate: 'isSetLogLocked' },
   { titleKey: 'pro.v2.read.recovery.t', bodyKey: 'pro.v2.read.recovery.b', gate: 'proInsights' },
-  { titleKey: 'pro.v2.read.theme.t', bodyKey: 'pro.v2.read.theme.b', gate: 'resolveThemeName' },
+  // The dark theme was here until 2026-08-23, gated by resolveThemeName. It
+  // is free now and that function no longer reads the entitlement, so the
+  // claim had nothing enforcing it — a benefit whose gate is gone is a
+  // promise the paywall cannot keep.
 ];
 
 /**
@@ -122,14 +125,8 @@ export const PRO_UNLOCK_CARDS: ProUnlockCard[] = [
     nowKey: 'unlock.programs.now',
     gates: ['pro.v2.plan.programs.t'],
   },
-  {
-    titleKey: 'unlock.theme.t',
-    bodyKey: 'unlock.theme.b',
-    placeKey: 'unlock.theme.to',
-    wasKey: 'unlock.theme.was',
-    nowKey: 'unlock.theme.now',
-    gates: ['pro.v2.read.theme.t'],
-  },
+  // No theme card: the unlock screen announces what just changed, and since
+  // 2026-08-23 the theme did not — it was already the reader's to pick.
 ];
 
 /**

@@ -7,7 +7,6 @@ import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW, SectionLabel, ToggleSwitch } from '../components/SettingsUi';
 import { t } from '../lib/i18n';
 import { resolveProEntitlement } from '../lib/proEntitlement';
-import { resolveThemeRowState } from '../lib/themePreference';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { appInfo, layout } from '../theme';
 import { AppLanguage, AppPreferences } from '../types/models';
@@ -263,7 +262,6 @@ export function SettingsScreen({
   const proUnlocked = resolveProEntitlement(preferences).unlocked;
   const scrollRef = useRef<ScrollView>(null);
   const restoredRef = useRef(false);
-  const themeRow = resolveThemeRowState(preferences);
   const displayName = preferences.profileName?.trim() ? preferences.profileName.trim() : t(language, 'profile.guestName');
   const soundAndHaptics = preferences.soundCuesEnabled || preferences.hapticsEnabled;
 
@@ -336,36 +334,21 @@ export function SettingsScreen({
         <View style={styles.section}>
           <SectionLabel label={t(language, 'settings.section.app')} />
           <View style={styles.card}>
-            {/* Theme choice is a Pro perk (user decision 2026-07-22). The row
-                has two honest states and resolveThemeRowState picks between
-                them: a live switch for Pro, and for everyone else a PRO pill
-                that opens the Pro page rather than a switch that repaints
-                nothing. It stopped saying "Soon" on 2026-08-01, when the
-                engine landed. */}
+            {/* One switch, for everyone. This row had two states — a live
+                switch for Pro and a PRO pill for everyone else — until the
+                gate came off on 2026-08-23. Nothing here consults the
+                entitlement any more, which is the point: a leftover lock is
+                how a removed gate keeps haunting the app. */}
             <Row
               icon="moon"
               title={t(language, 'settings.darkTheme')}
-              // "A Pro perk" is a reason to upgrade, which is only useful to
-              // someone who has not. Once Pro is on it is the one line on the
-              // row that says nothing about what the switch does.
-              sub={t(language, themeRow.locked ? 'settings.darkTheme.sub' : 'settings.darkTheme.subPro')}
-              // The Pro page, as the comment above has said all along.
-              onPress={themeRow.locked ? onOpenPremium : undefined}
+              sub={t(language, 'settings.darkTheme.sub')}
               control={
-                themeRow.locked ? (
-                  <View
-                    accessibilityLabel={t(language, 'settings.a11y.unlockDarkTheme')}
-                    style={styles.themeProPill}
-                  >
-                    <Text style={styles.themeProPillText}>PRO</Text>
-                  </View>
-                ) : (
-                  <ToggleSwitch
-                    label={t(language, 'settings.darkTheme')}
-                    value={themeRow.value}
-                    onChange={(next) => onPreferencesChange({ darkThemeEnabled: next })}
-                  />
-                )
+                <ToggleSwitch
+                  label={t(language, 'settings.darkTheme')}
+                  value={preferences.darkThemeEnabled}
+                  onChange={(next) => onPreferencesChange({ darkThemeEnabled: next })}
+                />
               }
             />
             <Row
@@ -686,20 +669,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.purpleDark,
     fontSize: 11.5,
     fontWeight: '800',
-  },
-  themeProPill: {
-    paddingVertical: 4,
-    paddingHorizontal: 11,
-    borderRadius: 999,
-    backgroundColor: theme.purpleLight,
-    borderWidth: 1,
-    borderColor: theme.purple,
-  },
-  themeProPillText: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-    color: theme.purpleDark,
   },
   section: {
     marginTop: 22,

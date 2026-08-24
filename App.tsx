@@ -966,7 +966,7 @@ function VinhaApp() {
   // Settings' "Import plan (CSV)" opens the same sheet the Programs tab uses,
   // straight into its paste view. One importer, two doors.
   const [settingsImportVisible, setSettingsImportVisible] = useState(false);
-  /** The theme offer that follows a purchase — see the unlock screen's onDone. */
+  /** The theme question, asked once right after "Let's begin". */
   const [themeChoiceVisible, setThemeChoiceVisible] = useState(false);
   // null = still asking Android, or the device cannot pin widgets at all.
   const [homeWidgetState, setHomeWidgetState] = useState<{ supported: boolean; added: boolean } | null>(
@@ -2699,6 +2699,11 @@ function VinhaApp() {
       selectedAccessTier: 'free',
       adaptiveCoachPremiumUnlocked: false,
     });
+    // "Let's begin" opens the theme question (user 2026-08-23). It sits here
+    // rather than anywhere later because the answer decides what the rest of
+    // onboarding looks like — asking afterwards would repaint a flow the
+    // reader has already been through.
+    setThemeChoiceVisible(true);
   }
 
   async function handleBackToEntry() {
@@ -5977,11 +5982,11 @@ function VinhaApp() {
         // paywall does, but the button names a destination and the reader takes
         // it literally: Home is where training starts.
         //
-        // On the way, the theme offer. The unlock screen lists the dark theme
-        // as one of the six things that just changed, and without this the
-        // reader has to go and find it three rows into Settings — a perk you
-        // have to hunt for reads as one you did not really get.
-        onDone={() => setThemeChoiceVisible(true)}
+        // Straight Home. The theme offer used to sit in between, because the
+        // unlock screen listed dark as one of the things that just changed —
+        // it does not any more (free since 2026-08-23), and offering a choice
+        // the reader already made during onboarding is asking twice.
+        onDone={() => resetToRoute(ROOT_ROUTES.home)}
       />
     );
   } else if (route.tab === 'profile' && route.screen === 'training_plan') {
@@ -6853,10 +6858,10 @@ function VinhaApp() {
         // Written straight to preferences, so the dialog repaints itself along
         // with everything behind it. That IS the preview.
         onChange={(dark) => void updatePreferences({ darkThemeEnabled: dark })}
-        onDone={() => {
-          setThemeChoiceVisible(false);
-          resetToRoute(ROOT_ROUTES.home);
-        }}
+        // Closes onto the path screen, which onboarding is already showing
+        // behind it. No navigation: the dialog interrupts the flow, it does
+        // not move it.
+        onDone={() => setThemeChoiceVisible(false)}
       />
     </AppShell>
   );
