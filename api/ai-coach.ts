@@ -45,8 +45,8 @@ const CLAUDE_MODEL = process.env.AI_COACH_CLAUDE_MODEL ?? 'claude-haiku-4-5-2025
 // answer out of three ("eikän", "viikonon"); medium was clean in every run
 // and no slower (probe, 2026-08-23).
 const EFFORT_SETTING = (process.env.AI_COACH_EFFORT ?? 'medium').trim();
-function effortConfig(setting: string): Record<string, unknown> {
-  if (/haiku/.test(CLAUDE_MODEL)) return {};
+function effortConfig(setting: string, model: string = CLAUDE_MODEL): Record<string, unknown> {
+  if (/haiku/.test(model)) return {};
   if (setting === 'off') return { thinking: { type: 'disabled' } };
   return { output_config: { effort: ['low', 'medium', 'high'].includes(setting) ? setting : 'low' } };
 }
@@ -285,6 +285,13 @@ function parseBody(body: unknown): ParsedBody | null {
       && ['low', 'medium', 'high', 'off'].includes(candidate.effortOverride)
         ? candidate.effortOverride
         : undefined,
+    modelOverride:
+      AI_COACH_DEBUG_TRANSCRIPTS
+      && process.env.AI_COACH_DEBUG_TRANSCRIPTS === '1'
+      && typeof candidate.modelOverride === 'string'
+      && /^claude-[a-z0-9.-]{2,40}$/.test(candidate.modelOverride)
+        ? candidate.modelOverride
+        : undefined,
   };
 }
 
@@ -405,8 +412,10 @@ async function requestClaude(input: AICoachAdviceRequest) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: CLAUDE_MODEL,
-        ...(input.effortOverride ? effortConfig(input.effortOverride) : EFFORT_CONFIG),
+        model: input.modelOverride ?? CLAUDE_MODEL,
+        ...(input.modelOverride || input.effortOverride
+          ? effortConfig(input.effortOverride ?? EFFORT_SETTING, input.modelOverride ?? CLAUDE_MODEL)
+          : EFFORT_CONFIG),
         max_tokens: CLAUDE_MAX_TOKENS,
         // Rules first, then this user's training context. Two cache
         // breakpoints: the rules block is identical for every user, so it

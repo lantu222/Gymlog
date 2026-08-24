@@ -267,6 +267,8 @@ export interface AICoachAdviceRequest {
    * AI_COACH_DEBUG_TRANSCRIPTS is on; ignored otherwise.
    */
   effortOverride?: string;
+  /** TEMPORARY, development only: per-request model override under the same debug gate. */
+  modelOverride?: string;
 }
 
 export interface AICoachAdviceSuccess {
