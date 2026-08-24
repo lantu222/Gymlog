@@ -151,25 +151,19 @@ module.exports = [
       assert.match(homeScreenSource, /t\(language, 'home\.history\.seeAll'\)/);
       assert.match(i18nSource, /'home\.history\.seeAll': 'See all'/);
       assert.match(homeScreenSource, /item\.kind === 'cardio' && item\.cardioIcon \? \(/);
-      // Warmup / Workout / Cooldown accordions: workout open by default,
-      // animated height + rotating chevron, agenda rows inside.
-      // All three section accordions start collapsed (user preference).
-      assert.match(homeScreenSource, /warmup: false,\s*workout: false,\s*cooldown: false/);
-      // The blocks are chosen by classified focus, never by the session title:
-      // the title is display text, and feeding it here is what made every
-      // Finnish session share one generic warmup.
-      assert.match(homeScreenSource, /const focusKind = nextPlanSession\?\.focusKind \?\? 'general'/);
-      assert.match(homeScreenSource, /const warmup = getDefaultWarmup\(focusKind, language, availableEquipment\)/);
-      assert.match(homeScreenSource, /const cooldown = getDefaultCooldown\(focusKind, language, availableEquipment\)/);
-      assert.doesNotMatch(homeScreenSource, /getDefault(Warmup|Cooldown)\(focusTitle/);
-      // Accordion interpolations live in a useRef built once per mount — an
-      // inline sectionAnims[key].interpolate() per render leaks native nodes
-      // (Fabric disconnectAnimatedNodes crash).
-      assert.match(homeScreenSource, /const sectionStyles = useRef\(\{/);
-      assert.match(homeScreenSource, /maxHeight: sectionAnims\.workout\.interpolate\(\{ inputRange: \[0, 1\], outputRange: \[0, 420\] \}\)/);
-      assert.match(homeScreenSource, /style=\{\[styles\.secBody, sectionStyles\[key\]\.body\]\}/);
-      assert.match(homeScreenSource, /duration: 380/);
-      assert.match(homeScreenSource, /secTitle:\s*\{[\s\S]*fontSize: 20/);
+      // The warmup/workout/cooldown accordions are gone (user 2026-08-23):
+      // warmup and cooldown ride inside the guided session, and the lifts
+      // render flat on the surface — no box, no tap to see them.
+      assert.doesNotMatch(homeScreenSource, /openSections|sectionAnims|renderSection|SectionKey/);
+      assert.doesNotMatch(homeScreenSource, /getDefaultWarmup|getDefaultCooldown/);
+      assert.match(homeScreenSource, /styles\.heroList, rise\(RISE_SEC_BASE\)/);
+      assert.match(
+        homeScreenSource,
+        /styles\.heroListMeta\}>[\s\S]{0,120}'home\.section\.workoutMeta', \{ count: totalExerciseCount, sets: totalSets \}/,
+      );
+      // And the promo carousel went with them: Home runs today's session, the
+      // season and programme offers live on their own screens.
+      assert.doesNotMatch(homeScreenSource, /HomePromoCarousel|promoSlides/);
       assert.match(homeScreenSource, /planExerciseNumberChip:\s*\{\s*width: 25,\s*height: 25/);
       assert.match(homeScreenSource, /planExerciseScheme:\s*\{[\s\S]*fontFamily: 'JetBrainsMono'/);
       assert.match(homeScreenSource, /exercise\.schemeLabel \?\? exercise\.setsLabel/);
@@ -444,12 +438,12 @@ module.exports = [
         'week card should render before the session hero',
       );
       assert.ok(
-        homeScreenSource.indexOf('styles.hero') < homeScreenSource.indexOf('styles.secs'),
-        'session hero should render before the section accordions',
+        homeScreenSource.indexOf('styles.hero') < homeScreenSource.indexOf('styles.heroList'),
+        'session hero should render before its flat exercise list',
       );
       assert.ok(
-        homeScreenSource.indexOf('styles.secs') < homeScreenSource.indexOf('styles.btnRow'),
-        'section accordions should render before the Adapt/Start row',
+        homeScreenSource.indexOf('styles.heroList') < homeScreenSource.indexOf('styles.btnRow'),
+        'the exercise list should render before the Adapt/Start row',
       );
       assert.ok(
         homeScreenSource.indexOf('styles.btnRow') < homeScreenSource.indexOf('styles.emptyWorkoutRow'),

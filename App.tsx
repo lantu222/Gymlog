@@ -162,7 +162,6 @@ import {
 import { buildProgramCampaigns } from './src/lib/programCampaigns';
 import { AFFINITY_REASON_KEYS, resolveProgramAffinity } from './src/lib/programAffinity';
 import { suggestHomeStatCardKeys } from './src/lib/homeCardSuggestions';
-import { buildHomePromoSlides } from './src/lib/homePromoSlides';
 import { isMeasurementCardKey } from './src/lib/homeStatCards';
 import { resolveNextPlanEntryIndex } from './src/lib/planRotation';
 import { cycleSchedule, weekdaySchedule } from './src/lib/trainingSchedule';
@@ -4684,49 +4683,6 @@ function VinhaApp() {
    * the calendar is actually in, a recommendation the reader is not already
    * running, and a target only once there are lifts to measure one from.
    */
-  const homePromoSlides = useMemo(() => {
-    const now = new Date();
-    const current = resolveSeasonWindow(now);
-    const next = nextSeasonWindow(now);
-    const label = (date: Date) =>
-      preferences.appLanguage === 'fi'
-        ? `${date.getDate()}.${date.getMonth() + 1}.`
-        : `${date.getDate()}/${date.getMonth() + 1}`;
-    const lastDay = (window: SeasonWindow) => seasonLastDay(window);
-    const season = (window: SeasonWindow, state: 'running' | 'upcoming') => ({
-      season: window.season,
-      state,
-      week: state === 'running' ? seasonWeek(window, now) : 0,
-      weeksLeft: state === 'running' ? seasonWeeksLeft(window, now) : SEASON_WEEKS,
-      progress: state === 'running' ? seasonProgressRatio(window, now) : 0,
-      daysUntilStart: state === 'running' ? 0 : daysUntil(window.start, now),
-      // Signed up, not "is the season programme my active plan". The old
-      // reading un-joined you the moment you trained something else, and it
-      // could not tell a pre-registration from a programme swap at all.
-      enrolled: isEnrolled(preferences.seasonEnrolments, window.season, window.year),
-      rangeLabel: formatSeasonDateRange(window, preferences.appLanguage),
-      endLabel: label(lastDay(window)),
-      startLabel: label(window.start),
-      templateId: getSeasonProgramId(window.season),
-    });
-    const recommendation = programsRecommendations.find(
-      (item) => !activeProgramTemplateIds.includes(item.id),
-    );
-    return buildHomePromoSlides({
-      seasons: [season(current, 'running'), season(next, 'upcoming')],
-      recommendation: recommendation ? { templateId: recommendation.id, title: recommendation.name } : null,
-      goalCount: preferences.strengthGoals.length,
-      trackedLiftCount: trackedProgress.length,
-    });
-  }, [
-    activeProgramTemplateIds,
-    preferences.appLanguage,
-    preferences.seasonEnrolments,
-    preferences.strengthGoals,
-    programsRecommendations,
-    trackedProgress,
-  ]);
-
   /**
    * Signing up for a season — the whole act, in one place.
    *
@@ -6506,7 +6462,6 @@ function VinhaApp() {
             : undefined
         }
         onRedoOnboarding={() => void handleRedoOnboarding()}
-        availableEquipment={availableEquipmentForDrills}
         greetingState={homeGreetingState}
         widgetPrompt={
           homeWidgetState?.supported && !homeWidgetState.added && !preferences.homeWidgetPromptDismissed
@@ -6518,48 +6473,6 @@ function VinhaApp() {
         }
         trainingSchedule={homeTrainingSchedule}
         doneThisWeekSessionIds={homeDoneThisWeekSessionIds}
-        promoSlides={homePromoSlides}
-        onPressPromo={(slide) => {
-          if (slide.kind === 'season' && slide.season) {
-            // Signing up for a season that has not opened swaps nothing, so
-            // the card can do it in one tap. Everything else opens the screen.
-            if (slide.season.canEnrolHere) {
-              handleEnrolSeason(slide.season.season, nextSeasonWindow().year);
-              return;
-            }
-            navigate({ tab: 'workout', screen: 'season', season: slide.season.season });
-            return;
-          }
-          if (slide.kind === 'program' && slide.templateId) {
-            navigate({
-              tab: 'workout',
-              screen: 'program',
-              programType: 'ready',
-              workoutTemplateId: slide.templateId,
-            });
-            return;
-          }
-          // Ready-made targets, not the exercise library: the library is 873
-          // rows answering "what could I train", and a target answers a
-          // different question with about five candidates.
-          navigate({ tab: 'workout', screen: 'goalPicker' });
-        }}
-        // The ghost button on the season card: its one programme, opened where
-        // the week and the exercises are — not the season scoreboard again.
-        onPressPromoSecondary={(slide) => {
-          if (slide.season?.canEnrolHere) {
-            navigate({ tab: 'workout', screen: 'season', season: slide.season.season });
-            return;
-          }
-          if (slide.templateId) {
-            navigate({
-              tab: 'workout',
-              screen: 'program',
-              programType: 'ready',
-              workoutTemplateId: slide.templateId,
-            });
-          }
-        }}
         statCatalogCards={homeStatCatalogCards}
         suggestedStatCardKeys={suggestHomeStatCardKeys({
           focusAreas: preferences.setupFocusAreas,

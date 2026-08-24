@@ -105,7 +105,6 @@ const suites = [
   ...require('./lib/profileOverview.test.cjs'),
   ...require('./lib/homeStatCards.test.cjs'),
   ...require('./lib/homeCardSuggestions.test.cjs'),
-  ...require('./lib/homePromoSlides.test.cjs'),
   ...require('./lib/ratingPrompt.test.cjs'),
   ...require('./lib/blurredPreviewText.test.cjs'),
   ...require('./lib/bodyweightCard.test.cjs'),

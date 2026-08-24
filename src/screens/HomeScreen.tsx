@@ -24,11 +24,7 @@ import { HomeStatCard } from '../lib/homeStatCards';
 import { VinhaIcon } from '../components/VinhaIcon';
 import { getHomeMiniCalendarDays, getHomeMonthCalendar, HomeDaySessionSummary } from '../lib/homeCalendar';
 import { isScheduleKnown, TrainingSchedule, trainsOn, UNKNOWN_SCHEDULE } from '../lib/trainingSchedule';
-import {
-  getDefaultCooldown,
-  getDefaultWarmup,
-  getSessionFocusTitle,
-} from '../lib/homeSessionHero';
+import { getSessionFocusTitle } from '../lib/homeSessionHero';
 import {
   getGreetingRotation,
   isRotatingGreeting,
@@ -43,10 +39,8 @@ import { hasFixedWeekdays, resolveSessionWeekday, weekdayCodeForDate, weekdayLab
 import { t } from '../lib/i18n';
 import { ProMomentContent } from '../lib/proInsights';
 import { CutButton } from '../components/CutButton';
-import { HomePromoCarousel } from '../components/HomePromoCarousel';
 import { VinhaWordmark } from '../components/VinhaWordmark';
 import { CutSurface } from '../components/CutSurface';
-import { HomePromoSlide } from '../lib/homePromoSlides';
 import { ProLockedCard } from '../components/ProLockedCard';
 import { ProMomentSheet } from '../components/ProMomentSheet';
 import { PW } from '../lightTheme';
@@ -67,16 +61,12 @@ const RISE_DELAYS_MS = [40, 100, 160, 300, 360, 420, 460, 480, 520, 560, 600] as
 const RISE_HEADER = 0;
 const RISE_WEEK = 1;
 const RISE_HERO = 2;
-const RISE_SEC_BASE = 3; // warmup 3, workout 4, cooldown 5
+const RISE_SEC_BASE = 3; // the hero's exercise list
 const RISE_BTNROW = 6;
 const RISE_DIVIDER = 7;
 const RISE_EMPTY_ROW = 10;
 
 const RISE_EASING = Easing.bezier(0.22, 1, 0.36, 1);
-const SECTION_EASING = Easing.bezier(0.4, 0, 0.2, 1);
-
-
-type SectionKey = 'warmup' | 'workout' | 'cooldown';
 
 export interface HomeHistoryItem {
   id: string;
@@ -218,11 +208,6 @@ interface HomeScreenProps {
   onOpenActivePlan?: () => void;
   onSelectHistorySession?: (sessionId: string) => void;
   /** "Your cards": one computed card per catalog item, Add-sheet order. */
-  /** Offers under the start button; empty means the strip does not render. */
-  promoSlides?: HomePromoSlide[];
-  onPressPromo?: (slide: HomePromoSlide) => void;
-  /** The season card's ghost button — its programme, not the season screen. */
-  onPressPromoSecondary?: (slide: HomePromoSlide) => void;
   statCatalogCards?: HomeStatCard[];
   suggestedStatCardKeys?: string[];
   onDismissStatCardSuggestion?: (key: string) => void;
@@ -249,11 +234,6 @@ interface HomeScreenProps {
    */
   doneThisWeekSessionIds?: string[];
   language?: AppLanguage;
-  /**
-   * Equipment chips the user actually has; null when the setup never said.
-   * Keeps the default warmup honest — no rower for a bodyweight-only user.
-   */
-  availableEquipment?: string[] | null;
   /**
    * What the log actually says, for the greeting. Defaults describe a fresh
    * account, so an unwired caller gets the first-run line rather than a
@@ -317,9 +297,6 @@ export function HomeScreen({
   onSetTrainingDays,
   onOpenActivePlan,
   onSelectHistorySession,
-  promoSlides = [],
-  onPressPromo,
-  onPressPromoSecondary,
   statCatalogCards = [],
   suggestedStatCardKeys = [],
   onDismissStatCardSuggestion,
@@ -330,7 +307,6 @@ export function HomeScreen({
   doneThisWeekSessionIds = [],
   language = 'en',
   profileName = null,
-  availableEquipment = null,
   greetingState = { totalSessions: 0, trainedToday: false, weekStreak: 0 },
   widgetPrompt = null,
   sessionSwaps = {},
@@ -365,11 +341,6 @@ export function HomeScreen({
   const [calendarExpanded, setCalendarExpanded] = useState(false);
   // Months away from today. Reset on close so reopening always lands on now.
   const [monthOffset, setMonthOffset] = useState(0);
-  const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
-    warmup: false,
-    workout: false,
-    cooldown: false,
-  });
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
 
   const topCalendarDays = getHomeMiniCalendarDays(new Date(), language).slice(0, 6);
@@ -445,11 +416,6 @@ export function HomeScreen({
     return today ? `${today.weekdayLabel} ${stamp}` : stamp;
   }, [topCalendarDays]);
 
-  // Classified in App.tsx from the full exercise list; the five rows below are
-  // not enough to work it out here.
-  const focusKind = nextPlanSession?.focusKind ?? 'general';
-  const warmup = getDefaultWarmup(focusKind, language, availableEquipment);
-  const cooldown = getDefaultCooldown(focusKind, language, availableEquipment);
   // Computed where the whole session was still in hand (App.tsx): Home only
   // receives the first five exercises, so a preview built here would quote a
   // shorter session than the one that starts.
@@ -475,11 +441,6 @@ export function HomeScreen({
   const riseValues = useRef(RISE_DELAYS_MS.map(() => new Animated.Value(0))).current;
   const progressFillAnim = useRef(new Animated.Value(0)).current;
   const calendarAnim = useRef(new Animated.Value(0)).current;
-  const sectionAnims = useRef<Record<SectionKey, Animated.Value>>({
-    warmup: new Animated.Value(0),
-    workout: new Animated.Value(0),
-    cooldown: new Animated.Value(0),
-  }).current;
 
   useEffect(() => {
     let mounted = true;
@@ -548,22 +509,8 @@ export function HomeScreen({
 
   const rise = (index: number) => riseStyles[index];
 
-  // Same rule for the accordion chevrons/bodies, the calendar, and the hero
-  // progress bar: interpolate once, not per render.
-  const sectionStyles = useRef({
-    warmup: {
-      chevron: { transform: [{ rotate: sectionAnims.warmup.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] }) }] },
-      body: { opacity: sectionAnims.warmup, maxHeight: sectionAnims.warmup.interpolate({ inputRange: [0, 1], outputRange: [0, 420] }) },
-    },
-    workout: {
-      chevron: { transform: [{ rotate: sectionAnims.workout.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] }) }] },
-      body: { opacity: sectionAnims.workout, maxHeight: sectionAnims.workout.interpolate({ inputRange: [0, 1], outputRange: [0, 420] }) },
-    },
-    cooldown: {
-      chevron: { transform: [{ rotate: sectionAnims.cooldown.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] }) }] },
-      body: { opacity: sectionAnims.cooldown, maxHeight: sectionAnims.cooldown.interpolate({ inputRange: [0, 1], outputRange: [0, 420] }) },
-    },
-  }).current;
+  // Same rule for the calendar chevron/body and the hero progress bar:
+  // interpolate once, not per render.
   const calendarStyles = useRef({
     chevron: { transform: [{ rotate: calendarAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] }) }] },
     body: { opacity: calendarAnim, maxHeight: calendarAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 480] }) },
@@ -590,21 +537,6 @@ export function HomeScreen({
     }).start();
   };
 
-  const toggleSection = (key: SectionKey) => {
-    const next = !openSections[key];
-    setOpenSections((current) => ({ ...current, [key]: next }));
-    if (reduceMotion) {
-      sectionAnims[key].setValue(next ? 1 : 0);
-      return;
-    }
-    Animated.timing(sectionAnims[key], {
-      toValue: next ? 1 : 0,
-      duration: 380,
-      easing: SECTION_EASING,
-      useNativeDriver: false,
-    }).start();
-  };
-
   /**
    * The hero button offers a workout only when there is one to offer.
    *
@@ -627,107 +559,6 @@ export function HomeScreen({
     onCreateWorkoutFromExercises();
   };
 
-
-  const renderSection = (
-    key: SectionKey,
-    title: string,
-    countLabel: string,
-    rows: Array<{ name: string; schemeLabel: string; slotId?: string; swapped?: boolean }>,
-    extraCount = 0,
-  ) => (
-    <Animated.View
-      key={key}
-      style={rise(RISE_SEC_BASE + (key === 'warmup' ? 0 : key === 'workout' ? 1 : 2))}
-    >
-      {/* A3: the cut, but no speed line.
-          The design draws the line on OSIOT rows, which in its mock open a
-          screen. Ours is an accordion, and once expanded the line stopped
-          being a row marker and became a diagonal slash across a whole panel.
-          The design's own rule is that the line means "this goes forward" —
-          opening in place is not that. */}
-      <CutSurface
-        size="lg"
-        fill={theme.surface}
-        stroke={theme.border}
-        strokeWidth={1}
-        style={styles.secCard}
-      >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t(language, openSections[key] ? 'home.a11y.collapseSection' : 'home.a11y.expandSection', { title })}
-        onPress={() => toggleSection(key)}
-        style={styles.secBtn}
-      >
-        {/* One line, always. "Palautuminen" is a syllable longer than
-            "Jäähdyttely" and wrapped the header, which pushed the count and
-            chevron out of alignment with the two sections above it. */}
-        <Text style={styles.secTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
-          {title}
-        </Text>
-        <Text style={styles.secCount}>{countLabel}</Text>
-        <Animated.View style={sectionStyles[key].chevron}>
-          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-            <Path d="m6 9 6 6 6-6" stroke="#8B84A0" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-        </Animated.View>
-      </Pressable>
-      <Animated.View style={[styles.secBody, sectionStyles[key].body]}>
-        <View style={styles.secInner}>
-          {rows.map((row, index) => (
-            <View key={`${row.name}-${index}`} style={styles.planExerciseRow}>
-              <View style={[styles.planExerciseNumberChip, row.swapped && styles.planExerciseNumberChipSwapped]}>
-                <Text style={[styles.planExerciseNumberText, row.swapped && styles.planExerciseNumberTextSwapped]}>
-                  {index + 1}
-                </Text>
-              </View>
-              {/* The name gets the row to itself and the scheme sits under it.
-                  Side by side, "Tankosoutu kumarrettuna Smith-laitteessa" lost
-                  its ending to "3×10" — and the whole point of giving every
-                  exercise a Finnish name is that the reader can read it. The
-                  session total ("7 liikettä · 19 sarjaa") is already in the
-                  header above; per-row sets only become something to act on in
-                  the logger. */}
-              <View style={styles.planExerciseCopy}>
-                <Text style={styles.planExerciseName} numberOfLines={2}>
-                  {row.name}
-                </Text>
-                <Text style={styles.planExerciseScheme}>{row.schemeLabel}</Text>
-              </View>
-              {/* Changing a lift belongs next to the lift, not behind a menu
-                  that says "swap any exercise" while showing you none. Only on
-                  rows whose slot can be identified — a button that cannot
-                  apply its own result is worse than no button. */}
-              {row.slotId && onSwapSessionExercise ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t(language, 'home.a11y.swapExercise', { name: row.name })}
-                  hitSlop={8}
-                  onPress={() => setSwapSlotId(row.slotId ?? null)}
-                  style={({ pressed }) => [styles.planExerciseSwap, pressed && styles.pressed]}
-                >
-                  <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
-                    <Path
-                      d="M7 8h10M7 8l3-3M7 8l3 3M17 16H7m10 0-3-3m3 3-3 3"
-                      stroke={row.swapped ? theme.purple : theme.faint}
-                      strokeWidth={2.2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
-                </Pressable>
-              ) : null}
-            </View>
-          ))}
-          {extraCount > 0 ? (
-            <View style={styles.planExerciseRow}>
-              <Text style={styles.planListFooterText}>{t(language, 'home.section.more', { count: extraCount })}</Text>
-            </View>
-          ) : null}
-        </View>
-      </Animated.View>
-      </CutSurface>
-    </Animated.View>
-  );
 
   return (
     <View style={styles.screenBackground}>
@@ -1087,37 +918,67 @@ export function HomeScreen({
 
             </Animated.View>
 
-            <View style={styles.secs}>
-              {renderSection(
-                'warmup',
-                t(language, 'home.section.warmup'),
-                t(language, 'home.section.warmupMeta', { count: warmup.drills.length, min: warmup.minutes }),
-                warmup.drills,
-              )}
-              {renderSection(
-                'workout',
-                t(language, 'home.section.workout'),
-                t(language, 'home.section.workoutMeta', { count: totalExerciseCount, sets: totalSets }),
-                nextPlanSession.exercises.map((exercise) => {
-                  const swappedName = exercise.slotId ? sessionSwaps[exercise.slotId] : undefined;
-                  return {
-                    name: exerciseNameLabel(language, swappedName ?? exercise.name),
-                    // A swap changes the lift, not the prescription — same
-                    // sets, same reps, same slot.
-                    schemeLabel: exercise.schemeLabel ?? exercise.setsLabel,
-                    slotId: exercise.slotId,
-                    swapped: Boolean(swappedName),
-                  };
-                }),
-                nextPlanSession.hiddenExerciseCount,
-              )}
-              {renderSection(
-                'cooldown',
-                t(language, 'home.section.cooldown'),
-                t(language, 'home.section.cooldownMeta', { count: cooldown.drills.length, min: cooldown.minutes }),
-                cooldown.drills,
-              )}
-            </View>
+            {/* Today's lifts, flat on the surface (user 2026-08-23): the
+                three warmup/workout/cooldown boxes are gone. Warmup and
+                cooldown ride inside the guided session anyway; the lifts are
+                the decision, so Home shows them without a tap or a box. */}
+            <Animated.View style={[styles.heroList, rise(RISE_SEC_BASE)]}>
+              <Text style={styles.heroListMeta}>
+                {t(language, 'home.section.workoutMeta', { count: totalExerciseCount, sets: totalSets })}
+              </Text>
+              {nextPlanSession.exercises.map((exercise, index) => {
+                const swappedName = exercise.slotId ? sessionSwaps[exercise.slotId] : undefined;
+                // A swap changes the lift, not the prescription — same sets,
+                // same reps, same slot.
+                const rowName = exerciseNameLabel(language, swappedName ?? exercise.name);
+                const swapped = Boolean(swappedName);
+                return (
+                  <View key={`${exercise.name}-${index}`} style={styles.planExerciseRow}>
+                    <View style={[styles.planExerciseNumberChip, swapped && styles.planExerciseNumberChipSwapped]}>
+                      <Text style={[styles.planExerciseNumberText, swapped && styles.planExerciseNumberTextSwapped]}>
+                        {index + 1}
+                      </Text>
+                    </View>
+                    <View style={styles.planExerciseCopy}>
+                      <Text style={styles.planExerciseName} numberOfLines={2}>
+                        {rowName}
+                      </Text>
+                      <Text style={styles.planExerciseScheme}>{exercise.schemeLabel ?? exercise.setsLabel}</Text>
+                    </View>
+                    {/* Changing a lift belongs next to the lift, not behind a
+                        menu. Only on rows whose slot can be identified — a
+                        button that cannot apply its own result is worse than
+                        no button. */}
+                    {exercise.slotId && onSwapSessionExercise ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={t(language, 'home.a11y.swapExercise', { name: rowName })}
+                        hitSlop={8}
+                        onPress={() => setSwapSlotId(exercise.slotId ?? null)}
+                        style={({ pressed }) => [styles.planExerciseSwap, pressed && styles.pressed]}
+                      >
+                        <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
+                          <Path
+                            d="M7 8h10M7 8l3-3M7 8l3 3M17 16H7m10 0-3-3m3 3-3 3"
+                            stroke={swapped ? theme.purple : theme.faint}
+                            strokeWidth={2.2}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </Svg>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                );
+              })}
+              {nextPlanSession.hiddenExerciseCount > 0 ? (
+                <View style={styles.planExerciseRow}>
+                  <Text style={styles.planListFooterText}>
+                    {t(language, 'home.section.more', { count: nextPlanSession.hiddenExerciseCount })}
+                  </Text>
+                </View>
+              ) : null}
+            </Animated.View>
           </>
         ) : null}
 
@@ -1169,19 +1030,9 @@ export function HomeScreen({
           </Pressable>
         </Animated.View>
 
-        {/* Offers, directly under the action they are an alternative to. Each
-            slide is built from state that is true right now — a running
-            season, a programme not already yours, a target you have the lifts
-            to set — so the strip disappears rather than filling with copy. */}
-        <Animated.View style={rise(RISE_BTNROW)}>
-          <HomePromoCarousel
-            gutter={20}
-            slides={promoSlides}
-            language={language}
-            onPress={(slide) => onPressPromo?.(slide)}
-            onPressSecondary={(slide) => onPressPromoSecondary?.(slide)}
-          />
-        </Animated.View>
+        {/* No promo carousel here any more (user 2026-08-23): Home is for
+            running today's session, and the season/programme offers live on
+            their own screens. */}
 
         {/* The active program.
             The block above is today; this is the block today belongs to. It
@@ -2166,46 +2017,16 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 999,
     backgroundColor: theme.purple,
   },
-  secs: {
-    marginTop: 20,
-    gap: 10,
+  // The hero's lifts, flat on the surface — no card, no accordion.
+  heroList: {
+    marginTop: 18,
   },
-  secCard: {
-    // The path paints the fill and the edge now.
-    backgroundColor: 'transparent',
-    overflow: 'hidden',
-    shadowColor: theme.purpleBright,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 2,
-  },
-  secBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 16,
-  },
-  secTitle: {
-    flex: 1,
-    color: theme.ink,
-    fontSize: 20,
-    lineHeight: 25,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-  },
-  secCount: {
+  heroListMeta: {
     color: theme.faint,
     fontSize: 13.5,
     lineHeight: 17,
     fontWeight: '700',
-  },
-  secBody: {
-    overflow: 'hidden',
-  },
-  secInner: {
-    paddingHorizontal: 16,
-    paddingBottom: 8,
+    marginBottom: 4,
   },
   planExerciseRow: {
     flexDirection: 'row',
