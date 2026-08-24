@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createEmptyDatabase } from '../data/seed';
 import { resolveDeviceLanguage } from '../storage/deviceLocale';
@@ -11,6 +11,7 @@ import {
   ProgramSlots,
   resolveProgramSlots,
 } from '../lib/programSlots';
+import { rememberName } from '../lib/exerciseNameBook';
 import { createSerialTaskQueue, RunExclusive } from '../lib/serialTaskQueue';
 import { buildWorkoutTemplateSessions } from '../lib/workoutTemplateSessions';
 import { persistCompletedWorkoutSessionToDatabase, PersistCompletedWorkoutInput, SessionSaveSummary } from './completedWorkoutPersistence';
@@ -122,6 +123,13 @@ interface AppContextValue {
     distanceKm?: number | null;
     feel?: CardioFeel | null;
   }) => Promise<CardioSession>;
+  /** The reader's own lift names, learned one import correction at a time. */
+  exerciseNameBook: AppDatabase['exerciseNameBook'];
+  /** Teach the book one spelling. Re-teaching replaces the previous answer. */
+  teachExerciseName: (
+    wrote: string,
+    exercise: { name: string; libraryItemId: string | null },
+  ) => Promise<void>;
   addBodyweightEntry: (weightKg: number, recordedAt?: string) => Promise<void>;
   addMeasurementEntry: (kind: MeasurementKind, value: number, unit: MeasurementUnit, recordedAt?: string) => Promise<void>;
   resetAllData: () => Promise<void>;
@@ -153,6 +161,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     exerciseLogs: [],
     bodyweightEntries: [],
     measurementEntries: [],
+    exerciseNameBook: [],
     preferences: {
       appLanguage: resolveDeviceLanguage(),
       unitPreference: 'kg',
@@ -599,6 +608,19 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     });
   }
 
+  function teachExerciseName(
+    wrote: string,
+    exercise: { name: string; libraryItemId: string | null },
+  ) {
+    return runExclusive(async () => {
+      const current = databaseRef.current;
+      await commit({
+        ...current,
+        exerciseNameBook: rememberName(current.exerciseNameBook, wrote, exercise),
+      });
+    });
+  }
+
   function deleteCompletedWorkoutSession(sessionId: string) {
     return runExclusive(async () => {
       const current = databaseRef.current;
@@ -791,6 +813,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       cardioSessions: database.cardioSessions ?? [],
       bodyweightEntries: bodyweightRepository.list(database),
       measurementEntries: database.measurementEntries,
+      exerciseNameBook: database.exerciseNameBook,
       trackedProgress: getTrackedExerciseProgress(database),
       bodyweightProgress: getBodyweightProgress(database),
       getWorkoutExercises(workoutTemplateId: string) {
@@ -833,6 +856,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       deleteCompletedWorkoutSession,
       saveCardioSession,
       addBodyweightEntry,
+      teachExerciseName,
       addMeasurementEntry,
       resetAllData,
       restoreDatabaseFromBackup,

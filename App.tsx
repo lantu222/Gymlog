@@ -873,6 +873,8 @@ function VinhaApp() {
     trackedProgress,
     bodyweightProgress,
     measurementEntries,
+    exerciseNameBook,
+    teachExerciseName,
     getWorkoutExercises,
     getWorkoutTemplateSessions,
     getSessionLogs,
@@ -6803,6 +6805,10 @@ function VinhaApp() {
         initialView="csv"
         language={preferences.appLanguage}
         exerciseLibrary={exerciseBrowserItems}
+        nameBook={exerciseNameBook}
+        onTeachName={(wrote, exercise) =>
+          teachExerciseName(wrote, { name: exercise.name, libraryItemId: exercise.id })
+        }
         onClose={() => setSettingsImportVisible(false)}
         onAiAssisted={() =>
           navigate(coachProUnlocked ? { tab: 'home', screen: 'ai_setup' } : { tab: 'profile', screen: 'premium' })

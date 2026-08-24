@@ -1,4 +1,5 @@
-import type { WorkoutTemplateDraft } from '../types/models';
+import type { ExerciseNameBookEntry, WorkoutTemplateDraft } from '../types/models';
+import { lookupNameBook } from './exerciseNameBook';
 
 /**
  * CSV program import (design_handoff_programs_redesign):
@@ -23,6 +24,12 @@ export interface CsvProgramRow {
   matchedName: string | null;
   libraryItemId: string | null;
   suggestion: string | null;
+  /**
+   * Matched because the reader taught this spelling, not because the fuzzy
+   * match found it. Worth showing: it is the difference between the app
+   * guessing and the app remembering.
+   */
+  viaNameBook: boolean;
 }
 
 export interface CsvProgramPreview {
@@ -95,11 +102,32 @@ function tokenOverlapScore(left: string, right: string) {
   return shared / Math.max(leftTokens.size, rightTokens.size);
 }
 
-function matchExercise(rawName: string, library: CsvLibraryEntry[]) {
+function matchExercise(
+  rawName: string,
+  library: CsvLibraryEntry[],
+  nameBook: readonly ExerciseNameBookEntry[],
+) {
   const normalized = normalizeName(rawName);
   if (!normalized) {
-    return { matchedName: null, libraryItemId: null, suggestion: null };
+    return { matchedName: null, libraryItemId: null, suggestion: null, viaNameBook: false };
   }
+
+  // The reader's own vocabulary wins outright, before any guessing.
+  //
+  // It has to come first, not last: "alatalja" shares no letters with "Seated
+  // Cable Row", but it might well overlap 50 % of the tokens in some unrelated
+  // lift, and a fuzzy guess that beats a taught answer would make the teaching
+  // pointless. Being told is better evidence than being clever.
+  const learned = lookupNameBook(nameBook, rawName);
+  if (learned) {
+    return {
+      matchedName: learned.exerciseName,
+      libraryItemId: learned.libraryItemId,
+      suggestion: null,
+      viaNameBook: true,
+    };
+  }
+
   const compact = normalized.replace(/ /g, '');
 
   let containsCandidate: CsvLibraryEntry | null = null;
@@ -109,7 +137,7 @@ function matchExercise(rawName: string, library: CsvLibraryEntry[]) {
     const entryNormalized = normalizeName(entry.name);
     // Exact match, tolerant of spacing/punctuation ("Dead Lift" === "Deadlift").
     if (entryNormalized === normalized || entryNormalized.replace(/ /g, '') === compact) {
-      return { matchedName: entry.name, libraryItemId: entry.id, suggestion: null };
+      return { matchedName: entry.name, libraryItemId: entry.id, suggestion: null, viaNameBook: false };
     }
     if (
       !containsCandidate
@@ -125,15 +153,19 @@ function matchExercise(rawName: string, library: CsvLibraryEntry[]) {
   }
 
   if (containsCandidate) {
-    return { matchedName: containsCandidate.name, libraryItemId: containsCandidate.id, suggestion: null };
+    return { matchedName: containsCandidate.name, libraryItemId: containsCandidate.id, suggestion: null, viaNameBook: false };
   }
   if (bestOverlap && bestOverlap.score >= 0.5) {
-    return { matchedName: null, libraryItemId: null, suggestion: bestOverlap.entry.name };
+    return { matchedName: null, libraryItemId: null, suggestion: bestOverlap.entry.name, viaNameBook: false };
   }
-  return { matchedName: null, libraryItemId: null, suggestion: null };
+  return { matchedName: null, libraryItemId: null, suggestion: null, viaNameBook: false };
 }
 
-export function parseCsvProgram(text: string, library: CsvLibraryEntry[]): CsvProgramPreview {
+export function parseCsvProgram(
+  text: string,
+  library: CsvLibraryEntry[],
+  nameBook: readonly ExerciseNameBookEntry[] = [],
+): CsvProgramPreview {
   const lines = text
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -188,7 +220,7 @@ export function parseCsvProgram(text: string, library: CsvLibraryEntry[]): CsvPr
       sets,
       repMin: reps.repMin,
       repMax: reps.repMax,
-      ...matchExercise(exerciseName, library),
+      ...matchExercise(exerciseName, library, nameBook),
     });
   }
 

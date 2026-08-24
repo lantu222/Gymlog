@@ -526,6 +526,24 @@ export interface CardioSession {
   feel?: CardioFeel | null;
 }
 
+/**
+ * One of the reader's own names for a lift, and what it means.
+ *
+ * Learned when they correct an unmatched import row — see lib/exerciseNameBook.
+ * Theirs rather than the app's, so it lives in the database and travels with
+ * their backup.
+ */
+export interface ExerciseNameBookEntry {
+  /** Normalised lookup key (normalizeAlias). */
+  alias: string;
+  /** The spelling as they typed it, for showing back to them. */
+  wrote: string;
+  /** The library exercise it resolves to. */
+  exerciseName: string;
+  libraryItemId: string | null;
+  learnedAt: string;
+}
+
 export interface AppDatabase {
   workoutTemplates: WorkoutTemplate[];
   exerciseTemplates: ExerciseTemplate[];
@@ -536,6 +554,8 @@ export interface AppDatabase {
   exerciseLogs: ExerciseLog[];
   bodyweightEntries: BodyweightEntry[];
   measurementEntries: MeasurementEntry[];
+  /** The reader's own exercise vocabulary, learned one correction at a time. */
+  exerciseNameBook: ExerciseNameBookEntry[];
   preferences: AppPreferences;
 }
 

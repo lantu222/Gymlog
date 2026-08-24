@@ -430,6 +430,28 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
           .filter((log): log is NonNullable<typeof log> => Boolean(log))
       : [],
     bodyweightEntries: Array.isArray(input?.bodyweightEntries) ? input.bodyweightEntries : [],
+    // Every field is required for an entry to be usable, and a half-written
+    // one would resolve a name to nothing — so a malformed row is dropped
+    // rather than repaired. Absent entirely (any database written before
+    // 2026-08-24) is simply an empty book.
+    exerciseNameBook: Array.isArray(input?.exerciseNameBook)
+      ? input.exerciseNameBook
+          .filter(
+            (entry: any) =>
+              typeof entry?.alias === 'string' &&
+              entry.alias.trim().length > 0 &&
+              typeof entry?.exerciseName === 'string' &&
+              entry.exerciseName.trim().length > 0,
+          )
+          .map((entry: any) => ({
+            alias: entry.alias,
+            wrote: typeof entry?.wrote === 'string' && entry.wrote.trim() ? entry.wrote : entry.alias,
+            exerciseName: entry.exerciseName,
+            libraryItemId: typeof entry?.libraryItemId === 'string' ? entry.libraryItemId : null,
+            learnedAt:
+              typeof entry?.learnedAt === 'string' ? entry.learnedAt : new Date().toISOString(),
+          }))
+      : [],
     measurementEntries: Array.isArray(input?.measurementEntries)
       ? input.measurementEntries
           .map((entry: any) => {

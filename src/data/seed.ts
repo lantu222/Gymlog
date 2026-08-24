@@ -1,4 +1,4 @@
-﻿import {
+import {
   AppDatabase,
   AppLanguage,
   ExerciseLibraryItem,
@@ -181,6 +181,7 @@ export function createEmptyDatabase(appLanguage: AppLanguage = DEFAULT_PREFERENC
     exerciseLogs: [],
     bodyweightEntries: [],
     measurementEntries: [],
+    exerciseNameBook: [],
     preferences: {
       ...DEFAULT_PREFERENCES,
       // The argument, actually used. Spreading DEFAULT_PREFERENCES after it
@@ -471,6 +472,7 @@ export function createSeedDatabase(): AppDatabase {
       { id: 'bodyweight_3', recordedAt: '2026-03-15T08:08:00+02:00', weight: 81.8 },
     ],
     measurementEntries: [],
+    exerciseNameBook: [],
     preferences: DEFAULT_PREFERENCES,
   };
 }

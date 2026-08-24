@@ -4,9 +4,10 @@ import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { buildDraftFromCsvPreview, CsvLibraryEntry, parseCsvProgram } from '../lib/csvProgramImport';
+import { countKnownNames } from '../lib/exerciseNameBook';
 import { HevyImportPreview, isHevyHistoryCsv, parseHevyCsv } from '../lib/hevyImport';
 import { I18nKey, t } from '../lib/i18n';
-import type { AppLanguage, WorkoutTemplateDraft } from '../types/models';
+import type { AppLanguage, ExerciseNameBookEntry, WorkoutTemplateDraft } from '../types/models';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 
 // Program accent (design_handoff_programs_redesign, hue 150). The handoff
@@ -48,6 +49,16 @@ interface NewProgramSheetProps {
    * detection banner, so the paste is never mis-parsed as a programme.
    */
   onImportHistory?: (preview: HevyImportPreview) => Promise<void> | void;
+  /**
+   * The reader's own names for lifts, learned from earlier corrections. Rows
+   * the library cannot match are matched against this first.
+   */
+  nameBook?: readonly ExerciseNameBookEntry[];
+  /**
+   * Called when the reader says what one of their own names means. Persisting
+   * it is the caller's job; this sheet only re-parses once it comes back.
+   */
+  onTeachName?: (wrote: string, exercise: CsvLibraryEntry) => Promise<void> | void;
 }
 
 function OptionIcon({ name }: { name: 'spark' | 'build' | 'table' }) {
@@ -94,6 +105,8 @@ export function NewProgramSheet({
   onBuildYourself,
   onImportProgram,
   onImportHistory,
+  nameBook = [],
+  onTeachName,
 }: NewProgramSheetProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -106,6 +119,12 @@ export function NewProgramSheet({
   const defaultProgramName = t(language, 'csv.defaultName');
   const [programName, setProgramName] = useState(defaultProgramName);
   const [importing, setImporting] = useState(false);
+  /**
+   * Which unmatched name the reader is currently explaining, and what they
+   * have typed to find it. Null = nobody is being asked anything.
+   */
+  const [teaching, setTeaching] = useState<string | null>(null);
+  const [teachQuery, setTeachQuery] = useState('');
 
   // Detected BEFORE the programme parser runs: a Hevy export is set rows,
   // and reading them as Day/Exercise/Sets/Reps would produce garbage.
@@ -114,9 +133,45 @@ export function NewProgramSheet({
     [csvText],
   );
   const preview = useMemo(
-    () => (csvText.trim() && !hevyPreview ? parseCsvProgram(csvText, exerciseLibrary) : null),
-    [csvText, exerciseLibrary, hevyPreview],
+    () => (csvText.trim() && !hevyPreview ? parseCsvProgram(csvText, exerciseLibrary, nameBook) : null),
+    [csvText, exerciseLibrary, hevyPreview, nameBook],
   );
+  /**
+   * How many of the reader's own names this sheet recognised — the visible
+   * proof that teaching it was worth doing. Distinct spellings, because a
+   * name used on six days was taught once and rescued one name, not six.
+   */
+  const recognisedOwnNames = useMemo(
+    () =>
+      preview
+        ? countKnownNames(nameBook, preview.rows.filter((row) => row.viaNameBook).map((row) => row.exerciseName))
+        : 0,
+    [nameBook, preview],
+  );
+  /** The library, filtered by what the reader typed while explaining a name. */
+  const teachResults = useMemo(() => {
+    if (teaching === null) {
+      return [];
+    }
+    const query = teachQuery.trim().toLowerCase();
+    const pool = query
+      ? exerciseLibrary.filter((entry) => entry.name.toLowerCase().includes(query))
+      : exerciseLibrary;
+    // Capped: 873 rows inside a sheet is a scroll, not a choice.
+    return pool.slice(0, 20);
+  }, [exerciseLibrary, teachQuery, teaching]);
+
+  async function handleTeach(exercise: CsvLibraryEntry) {
+    if (teaching === null || !onTeachName) {
+      return;
+    }
+    const wrote = teaching;
+    setTeaching(null);
+    setTeachQuery('');
+    // The preview re-parses on its own once the book comes back through props
+    // — this sheet does not keep a second copy of what was learned.
+    await onTeachName(wrote, exercise);
+  }
 
   function reset() {
     setView(initialView);
@@ -323,6 +378,15 @@ export function NewProgramSheet({
                     </Text>
                   </View>
 
+                  {/* What the book did for this import. Without a line saying
+                      so, the reader's earlier corrections are invisible work
+                      and look like the app simply got better at guessing. */}
+                  {recognisedOwnNames > 0 ? (
+                    <Text style={styles.ownNamesNote}>
+                      {t(language, 'csv.ownNames', { count: recognisedOwnNames })}
+                    </Text>
+                  ) : null}
+
                   {preview.errors.length > 0 && preview.rows.length > 0 ? (
                     <Text style={styles.errorNote}>{preview.errors.join('\n')}</Text>
                   ) : null}
@@ -337,8 +401,23 @@ export function NewProgramSheet({
                         <Text style={[styles.previewHeaderCell, styles.previewSets]}>{t(language, 'csv.col.sets')}</Text>
                         <Text style={[styles.previewHeaderCell, styles.previewReps]}>{t(language, 'csv.col.reps')}</Text>
                       </View>
-                      {preview.rows.map((row, index) => (
-                        <View key={`${row.day}-${row.exerciseName}-${index}`} style={[styles.previewRow, !row.matchedName && styles.previewRowUnmatched]}>
+                      {preview.rows.map((row, index) => {
+                        const teachable = !row.matchedName && Boolean(onTeachName);
+                        const open = teaching !== null && teaching === row.exerciseName;
+                        return (
+                        <View key={`${row.day}-${row.exerciseName}-${index}`}>
+                        <Pressable
+                          accessibilityRole={teachable ? 'button' : undefined}
+                          accessibilityLabel={
+                            teachable ? t(language, 'csv.teach.a11y', { name: row.exerciseName }) : undefined
+                          }
+                          disabled={!teachable}
+                          onPress={() => {
+                            setTeaching(open ? null : row.exerciseName);
+                            setTeachQuery('');
+                          }}
+                          style={[styles.previewRow, !row.matchedName && styles.previewRowUnmatched]}
+                        >
                           <Text style={[styles.previewCellDay, styles.previewDay]} numberOfLines={1}>
                             {row.day}
                           </Text>
@@ -346,11 +425,21 @@ export function NewProgramSheet({
                             <Text style={[styles.previewCellName, !row.matchedName && styles.previewCellNameUnmatched]} numberOfLines={1}>
                               {row.matchedName ?? row.exerciseName}
                             </Text>
+                            {row.viaNameBook ? (
+                              // Say which of the two happened. "We guessed" and
+                              // "you told us" are different promises, and only
+                              // one of them is worth trusting without a look.
+                              <Text style={styles.previewCellLearned} numberOfLines={1}>
+                                {t(language, 'csv.yourName', { name: row.exerciseName })}
+                              </Text>
+                            ) : null}
                             {!row.matchedName ? (
                               <Text style={styles.previewCellHint} numberOfLines={1}>
-                                {row.suggestion
-                                  ? t(language, 'csv.didYouMean', { name: row.suggestion })
-                                  : t(language, 'csv.willSkip')}
+                                {teachable
+                                  ? t(language, 'csv.teach.prompt')
+                                  : row.suggestion
+                                    ? t(language, 'csv.didYouMean', { name: row.suggestion })
+                                    : t(language, 'csv.willSkip')}
                               </Text>
                             ) : null}
                           </View>
@@ -358,8 +447,40 @@ export function NewProgramSheet({
                           <Text style={[styles.previewCellMeta, styles.previewReps]}>
                             {row.repMin === row.repMax ? row.repMax : `${row.repMin}–${row.repMax}`}
                           </Text>
+                        </Pressable>
+                        {open ? (
+                          <View style={styles.teachPanel}>
+                            <Text style={styles.teachTitle}>
+                              {t(language, 'csv.teach.title', { name: row.exerciseName })}
+                            </Text>
+                            <TextInput
+                              value={teachQuery}
+                              onChangeText={setTeachQuery}
+                              placeholder={t(language, 'csv.teach.search')}
+                              placeholderTextColor={theme.faint}
+                              autoCorrect={false}
+                              style={styles.teachInput}
+                            />
+                            {teachResults.map((entry) => (
+                              <Pressable
+                                key={entry.id}
+                                accessibilityRole="button"
+                                onPress={() => void handleTeach(entry)}
+                                style={({ pressed }) => [styles.teachResult, pressed && styles.teachResultPressed]}
+                              >
+                                <Text style={styles.teachResultText} numberOfLines={1}>
+                                  {entry.name}
+                                </Text>
+                              </Pressable>
+                            ))}
+                            {teachResults.length === 0 ? (
+                              <Text style={styles.previewCellHint}>{t(language, 'csv.teach.noMatch')}</Text>
+                            ) : null}
+                          </View>
+                        ) : null}
                         </View>
-                      ))}
+                        );
+                      })}
                     </View>
                   ) : null}
 
@@ -641,6 +762,54 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   previewCellHint: {
     color: '#B45309',
     fontSize: 10.5,
+    fontWeight: '600',
+  },
+  previewCellLearned: {
+    color: theme.purple,
+    fontSize: 10.5,
+    fontWeight: '700',
+  },
+  ownNamesNote: {
+    color: theme.purple,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 8,
+  },
+  // The "what did you mean" panel, opening under the row it belongs to.
+  teachPanel: {
+    backgroundColor: theme.surfaceSoft,
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 6,
+    gap: 6,
+  },
+  teachTitle: {
+    color: theme.ink,
+    fontSize: 12.5,
+    fontWeight: '800',
+  },
+  teachInput: {
+    height: 38,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
+    paddingHorizontal: 10,
+    color: theme.ink,
+    fontSize: 13,
+  },
+  teachResult: {
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: theme.surface,
+  },
+  teachResultPressed: {
+    backgroundColor: theme.purpleLight,
+  },
+  teachResultText: {
+    color: theme.ink,
+    fontSize: 13,
     fontWeight: '600',
   },
   previewCellMeta: {
