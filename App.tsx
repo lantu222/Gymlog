@@ -22,7 +22,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { AppShell } from './src/components/AppShell';
 import { BottomTabBar } from './src/components/BottomTabBar';
 import { getHomeSummary, getMonthTrainingTotals } from './src/lib/dashboard';
-import { formatDurationMinutes, formatRepRange, formatSetScheme, formatShortDate, formatTime, formatVolume, formatWeight, pluralize } from './src/lib/format';
+import { formatDurationMinutes, formatRepRange, formatSetScheme, formatShortDate, formatTime, formatVolume, formatWeight, pluralize, removeTrailingZeros } from './src/lib/format';
 import { createId } from './src/lib/ids';
 import {
   buildFirstRunCustomProgramName,
@@ -5629,6 +5629,30 @@ function VinhaApp() {
               }
             }
           }
+          // Every lift with its heaviest set, so the day card can answer
+          // without the session being opened (user 2026-08-23).
+          const lifts = logs.map((log) => {
+            const sets = getComparableLogSets(log);
+            let best: { weight: number; reps: number } | null = null;
+            for (const set of sets) {
+              if (
+                best === null ||
+                set.weight > best.weight ||
+                (set.weight === best.weight && set.reps > best.reps)
+              ) {
+                best = set;
+              }
+            }
+            return {
+              name: exerciseNameLabel(preferences.appLanguage, log.exerciseNameSnapshot),
+              sets: sets.length,
+              top: best
+                ? best.weight > 0
+                  ? `${removeTrailingZeros(best.weight)} kg × ${best.reps}`
+                  : t(preferences.appLanguage, 'cal.liftReps', { reps: best.reps })
+                : null,
+            };
+          });
           return {
             sessionId: session.id,
             title: localizeSessionName(
@@ -5640,6 +5664,7 @@ function VinhaApp() {
             sets: session.setsCompleted ?? 0,
             volumeKg: session.totalVolumeKg ?? 0,
             topLift,
+            lifts,
             swaps: session.exercisesSwapped ?? 0,
             note: session.sessionNotes?.trim() ? session.sessionNotes.trim() : null,
           };

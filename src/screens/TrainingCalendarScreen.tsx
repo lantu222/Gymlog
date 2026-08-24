@@ -30,6 +30,12 @@ export interface CalendarDaySummary {
   sets: number;
   volumeKg: number;
   topLift: { name: string; weightKg: number; reps: number } | null;
+  /**
+   * Every logged lift with its set count and heaviest set, so the card
+   * answers the day without opening the session (user 2026-08-23: "antaa
+   * dataa mahd paljon ettei tarvitse avata välttämättä").
+   */
+  lifts: Array<{ name: string; sets: number; top: string | null }>;
   swaps: number;
   note: string | null;
 }
@@ -275,6 +281,28 @@ export function TrainingCalendarScreen({
                 </View>
               ) : null}
 
+              {/* Every lift of the day, so the card answers without opening
+                  the session (user 2026-08-23). */}
+              {detail.lifts.length > 0 ? (
+                <View style={styles.dayLifts}>
+                  {detail.lifts.map((lift, index) => (
+                    <View key={`${lift.name}-${index}`} style={styles.dayLiftRow}>
+                      <View style={styles.dayLiftCopy}>
+                        <Text style={styles.dayLiftName} numberOfLines={1}>
+                          {lift.name}
+                        </Text>
+                        <Text style={styles.dayLiftSets}>
+                          {t(language, lift.sets === 1 ? 'complete.exerciseSetsOne' : 'complete.exerciseSetsMany', {
+                            count: lift.sets,
+                          })}
+                        </Text>
+                      </View>
+                      {lift.top ? <Text style={styles.dayLiftTop}>{lift.top}</Text> : null}
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+
               {detail.note ? <Text style={styles.dayNote}>{`”${detail.note}”`}</Text> : null}
             </View>
           </View>
@@ -405,8 +433,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Theme tokens, not light-theme literals: the hardcoded lilacs read as a
+  // grid of white squares on the dark theme (user 2026-08-23, "vähän turhan
+  // valkoisia kalenteriruudut").
   dayRest: {
-    backgroundColor: '#F1ECFB',
+    backgroundColor: theme.purpleSoft,
   },
   dayTrained: {
     backgroundColor: theme.purple,
@@ -419,7 +450,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderColor: 'rgba(124, 58, 237, 0.22)',
   },
   dayToday: {
-    backgroundColor: '#EFE7FF',
+    backgroundColor: theme.purpleLight,
     borderWidth: 1.5,
     borderStyle: 'dashed',
     borderColor: theme.purple,
@@ -434,7 +465,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: '#FFFFFF',
   },
   dayTextToday: {
-    color: '#5B21B6',
+    color: theme.purpleBright,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -553,6 +584,40 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '600',
     fontStyle: 'italic',
     marginTop: 11,
+  },
+  dayLifts: {
+    marginTop: 10,
+  },
+  dayLiftRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+  },
+  dayLiftCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  dayLiftName: {
+    color: theme.ink,
+    fontSize: 13.5,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  dayLiftSets: {
+    color: theme.faint,
+    fontSize: 11.5,
+    lineHeight: 15,
+    fontWeight: '600',
+  },
+  dayLiftTop: {
+    color: theme.muted,
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   emptyCard: {
     alignItems: 'center',

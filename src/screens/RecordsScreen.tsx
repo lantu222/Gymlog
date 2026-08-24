@@ -197,8 +197,10 @@ export function RecordsList({
   return (
     <>
       <View style={styles.kindRow}>
-        {/* A3: same shape as every other selector in the app. */}
-        <CutSurface size="sm" fill="#EEE8FA" style={styles.segment}>
+        {/* A3: same shape as every other selector in the app. Theme tokens,
+            not light literals — the hardcoded lilac-and-white pair glowed on
+            the dark theme (user 2026-08-23, "sama tausta ongelma"). */}
+        <CutSurface size="sm" fill={theme.purpleSoft} style={styles.segment}>
           {KINDS.map((entry) => {
             const on = kind === entry;
             const label = (
@@ -214,7 +216,7 @@ export function RecordsList({
                 onPress={() => setKind(entry)}
               >
                 {on ? (
-                  <CutSurface size="chip" fill="#FFFFFF" style={styles.segmentItem}>
+                  <CutSurface size="chip" fill={theme.surface} style={styles.segmentItem}>
                     {label}
                   </CutSurface>
                 ) : (
@@ -339,7 +341,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
   },
   segmentTextOn: {
-    color: '#5B21B6',
+    color: theme.purpleBright,
   },
   liftCount: {
     color: theme.faint,
@@ -435,7 +437,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 11,
-    backgroundColor: '#EFE7FF',
+    backgroundColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -514,7 +516,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     width: 62,
     height: 62,
     borderRadius: 31,
-    backgroundColor: '#EFE7FF',
+    backgroundColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
