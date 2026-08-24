@@ -217,13 +217,12 @@ export function ProgramPickScreen({
               },
         ]}
       >
-        {/* box-none here too: the outer container passes touches through, but a
-            plain View is still a touch target and would swallow every tap that
-            landed on the card's own text — which is most of the half. Text
-            without a handler is not a target, so taps fall through to the
-            Pressable behind, and the week link keeps working because it is
-            one. */}
-        <View pointerEvents="box-none">
+        {/* Everything except the week link ignores touches outright, so the
+            WHOLE half is the tap target. The old pass-through relied on plain
+            Views not being targets, and it was not true of all of them —
+            selection only registered from certain spots (user 2026-08-23).
+            The week link renders after this block, interactive. */}
+        <View pointerEvents="none">
           <View style={styles.halfHead}>
             <View style={styles.halfHeadCopy}>
               {option.recommended ? (
@@ -233,11 +232,11 @@ export function ProgramPickScreen({
                   </Text>
                 </View>
               ) : null}
+              {/* No description sentence under the name any more (user
+                  2026-08-23, "tyhmää geneeristä ai tekstiä"): the name, the
+                  numbers and the focus bar are the card. */}
               <Text style={[styles.name, selected && styles.nameSelected, light && styles.textLight]} numberOfLines={2}>
                 {option.title}
-              </Text>
-              <Text style={[styles.desc, light && styles.descLight]} numberOfLines={2}>
-                {option.subtitle}
               </Text>
             </View>
             <Check selected={selected} />
@@ -264,34 +263,26 @@ export function ProgramPickScreen({
               <View style={styles.splitWrap}>
                 <FocusBar focus={option.focus} light language={language} />
               </View>
-              {onOpenWeek && weekLinkLabel ? (
-                <Pressable accessibilityRole="button" hitSlop={8} onPress={onOpenWeek} style={styles.weekLink}>
-                  <Text style={styles.weekLinkText}>{weekLinkLabel}</Text>
-                  <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-                    <Path d="M5 12h13M12 5l7 7-7 7" />
-                  </Svg>
-                </Pressable>
-              ) : null}
             </>
           ) : (
-            <>
-              <Text style={styles.compactStats}>
-                {[
-                  t(language, 'onb.pick.daysValue', { count: option.days }),
-                  t(language, 'onb.pick.minsValue', { count: option.mins }),
-                  t(language, 'onb.pick.weeksValue', { count: option.weeks }),
-                  t(language, 'onb.pick.workoutsValue', { count: option.totalWorkouts }),
-                ].join('  ·  ')}
-              </Text>
-              <View style={styles.tapRow}>
-                <Text style={styles.tapText}>{t(language, 'onb.pick.tapToChoose')}</Text>
-                <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={HG.purple} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-                  <Path d="M5 12h13M12 5l7 7-7 7" />
-                </Svg>
-              </View>
-            </>
+            <Text style={styles.compactStats}>
+              {[
+                t(language, 'onb.pick.daysValue', { count: option.days }),
+                t(language, 'onb.pick.minsValue', { count: option.mins }),
+                t(language, 'onb.pick.weeksValue', { count: option.weeks }),
+                t(language, 'onb.pick.workoutsValue', { count: option.totalWorkouts }),
+              ].join('  ·  ')}
+            </Text>
           )}
         </View>
+        {selected && onOpenWeek && weekLinkLabel ? (
+          <Pressable accessibilityRole="button" hitSlop={8} onPress={onOpenWeek} style={styles.weekLink}>
+            <Text style={styles.weekLinkText}>{weekLinkLabel}</Text>
+            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+              <Path d="M5 12h13M12 5l7 7-7 7" />
+            </Svg>
+          </Pressable>
+        ) : null}
       </View>
     );
   };
@@ -391,10 +382,10 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 9.5, fontWeight: '800', letterSpacing: 1.3 },
   badgeTextLight: { color: '#FFFFFF' },
   badgeTextDark: { color: HG.purpleDark },
-  name: { fontSize: 23, fontWeight: '800', letterSpacing: -0.6, lineHeight: 25, color: HG.ink },
-  nameSelected: { fontSize: 30, lineHeight: 32, letterSpacing: -0.75 },
-  desc: { fontSize: 13, fontWeight: '600', marginTop: 5, lineHeight: 17.5, color: HG.muted },
-  descLight: { color: 'rgba(255,255,255,0.84)' },
+  // Bigger since 2026-08-23 ("vain isolla ohjelman nimi") — the description
+  // sentence under it is gone, so the name carries the card.
+  name: { fontSize: 26, fontWeight: '800', letterSpacing: -0.65, lineHeight: 28, color: HG.ink },
+  nameSelected: { fontSize: 34, lineHeight: 36, letterSpacing: -0.85 },
 
   statRow: {
     flexDirection: 'row',
@@ -424,8 +415,6 @@ const styles = StyleSheet.create({
   weekLinkText: { fontSize: 11.5, fontWeight: '800', letterSpacing: 0.9, color: '#FFFFFF', textTransform: 'uppercase' },
 
   compactStats: { fontSize: 12.5, fontWeight: '700', color: HG.muted, marginTop: 12 },
-  tapRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 16 },
-  tapText: { fontSize: 11.5, fontWeight: '800', letterSpacing: 0.9, color: HG.purple, textTransform: 'uppercase' },
 
   check: { width: 28, height: 28, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
   checkOn: { backgroundColor: '#FFFFFF' },
