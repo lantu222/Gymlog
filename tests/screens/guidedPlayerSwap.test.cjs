@@ -9,36 +9,43 @@ const playerSource = fs.readFileSync(
 const i18nSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'), 'utf8');
 
 /**
- * Swapping a lift, from the two screens you are actually on when you need to.
+ * Swapping a lift lives behind the set screen's dots menu — and only there.
  *
- * The sheet offered the programme's substitution group and nothing else, and
- * the button that opened it hid itself when that group was empty — which is
- * exactly the moment a reader wants it, standing at a machine somebody else is
- * using. Reported 2026-08-21: "ei tässäkään voi vaihtaa liikettä".
+ * This has moved twice, both times on the user's word. 2026-08-21: "ei
+ * tässäkään voi vaihtaa liikettä" — swap buttons grew on the set screen and
+ * the rest screen, ungated. 2026-08-23, after a second tester's round: a set
+ * screen is for logging reps and weight, so everything else — swap included —
+ * goes behind the three dots ("3 pisteen taakse siirtyy kaikki liikkeiden
+ * vaihto"), and the rest screen's swap button goes away ("Poista vaihda liike
+ * tästä ruudusta"). What must survive the move: the row never hides itself,
+ * and the sheet still searches the whole library.
  */
 module.exports = [
   {
-    name: 'guided swap: the button never hides itself',
+    name: 'guided swap: reachable from the actions sheet, never gated',
     run() {
-      // An empty group is a reason to search the library, not a reason to take
-      // the button away.
-      assert.doesNotMatch(playerSource, /onSwapExercise=\{swapOptions\.length \?/);
-      assert.match(playerSource, /onSwapExercise=\{\(\) => setSwapOpen\(true\)\}/);
-      // And the prop is required, so a future screen cannot pass null back in.
-      assert.match(playerSource, /onSwapExercise: \(\) => void;/);
+      // The sheet's swap row must not hide when the substitution group is
+      // empty — an empty group is a reason to search the library.
+      assert.doesNotMatch(playerSource, /swapOptions\.length \?/);
+      assert.match(playerSource, /label=\{t\(language, 'guided\.action\.swap'\)\}/);
     },
   },
   {
-    name: 'guided swap: the rest screen can swap too',
+    name: 'guided swap: no dedicated buttons on the set or rest screens',
     run() {
-      // A rest only ever falls between sets of one exercise, so the lift it
-      // belongs to is unambiguous — and resting is when you notice the machine
-      // is gone.
+      // The set screen's own controls are pause and the menu; swap rides
+      // behind the menu rather than as a fourth button.
+      assert.doesNotMatch(playerSource, /onSwapExercise/);
+      // The rest screen lost its swap button (2026-08-23); its old label is
+      // gone from the app entirely.
+      assert.doesNotMatch(playerSource, /'guided\.swap\.action'/);
+      assert.doesNotMatch(i18nSource, /'guided\.swap\.action'/);
+      // But the actions sheet still resolves the lift a rest belongs to, so
+      // swapping mid-rest stays possible through the menu.
       assert.match(
         playerSource,
         /step\.type === 'set' \|\| step\.type === 'position' \|\| step\.type === 'rest'/,
       );
-      assert.match(playerSource, /label=\{t\(language, 'guided\.swap\.action'\)\}/);
     },
   },
   {
@@ -60,7 +67,6 @@ module.exports = [
     name: 'guided swap: every new string reads in both languages',
     run() {
       for (const key of [
-        'guided.swap.action',
         'guided.swap.search',
         'guided.swap.suggested',
         'guided.swap.library',

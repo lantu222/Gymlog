@@ -45,7 +45,7 @@ import {
   buildGuidedDrillsFromBlock,
   buildGuidedSteps,
   getGuidedStepPlanKey,
-  findGuidedLibraryIndex,
+  findGuidedLibraryIndex,
   getGuidedPhaseSkipTargetIndex,
   findGuidedPhaseStart,
   findGuidedSessionPr,
@@ -190,6 +190,7 @@ function GPIcon({ name, size = 22, color = '#fff', sw = 2.2 }: { name: string; s
     back: <Path d="M19 5l-9 7 9 7zM6 5v14" />,
     check: <Path d="M4.5 12.5l5 5L19.5 7" />,
     chevR: <Path d="M9 6l6 6-6 6" />,
+    chevD: <Path d="M6 9l6 6 6-6" />,
     sound: (
       <>
         <Path d="M4 9v6h4l5 4V5L8 9z" />
@@ -1096,6 +1097,9 @@ export function GuidedPlayerScreen({
   const [swapOpen, setSwapOpen] = useState(false);
   const [swapQuery, setSwapQuery] = useState('');
   const [confirmingEnd, setConfirmingEnd] = useState(false);
+  /** The lift whose final set was just logged — a one-second check-splash
+      before the next exercise's walk-up screen. Null = no splash showing. */
+  const [doneSplashName, setDoneSplashName] = useState<string | null>(null);
   const frozen = paused || howtoOpen || exitOpen || pauseSheetOpen || swapOpen;
 
   const stepSeconds = (target: GuidedStep): number => {
@@ -1298,6 +1302,19 @@ export function GuidedPlayerScreen({
     });
     workout.completeSet(slotId, setIndex, unitPreference);
     cue('done');
+    // Logging the final set used to cut straight to the next lift's walk-up
+    // screen, which read as the app skipping a beat it should have spent on
+    // the finished lift (user 2026-08-23). One short check-splash, then NEXT
+    // UP comes in as before. Only between exercises: the last set of the whole
+    // block flows into the phase splash, which does its own acknowledging.
+    const current = steps[stepIndex];
+    if (
+      current?.type === 'set' &&
+      current.setIndex === current.setCount - 1 &&
+      steps[stepIndex + 1]?.type === 'position'
+    ) {
+      setDoneSplashName(current.exerciseName);
+    }
     advance();
   };
 
@@ -1926,10 +1943,8 @@ export function GuidedPlayerScreen({
               library={exerciseLibrary}
               language={language}
               elapsedSeconds={derivedElapsedSeconds}
-              muted={muted}
               paused={paused}
               resolveTarget={resolveTarget}
-              onToggleMute={() => onToggleSoundCues(!soundCuesEnabled)}
               // Pause pauses, and nothing else. It used to open the actions
               // sheet on the way, so the one control you reach for when the
               // rack is taken put five decisions in front of you first.
@@ -1943,8 +1958,11 @@ export function GuidedPlayerScreen({
                 workout.pauseWorkout();
               }}
               onOpenActions={() => setPauseSheetOpen(true)}
+              onAddSet={() => {
+                void haptics.select();
+                workout.addSet(step.slotId);
+              }}
               panels={setPanelSource}
-              onSwapExercise={() => setSwapOpen(true)}
               onConfirm={confirmSet}
             />
           )}
@@ -1991,11 +2009,8 @@ export function GuidedPlayerScreen({
                       />
                     </View>
                   </View>
-                  <GhostBtn
-                    icon="swap"
-                    label={t(language, 'guided.swap.action')}
-                    onPress={() => setSwapOpen(true)}
-                  />
+                  {/* No "Swap exercise" here any more (user 2026-08-23): rest
+                      is rest, and the swap lives behind the set screen's menu. */}
                   <Pressable style={styles.skipRestBtn} onPress={advance}>
                     <GPIcon name="skip" size={18} color="#fff" />
                     <Text style={{ fontSize: 15.5, fontWeight: '800', color: '#fff' }}>{t(language, 'guided.skipRest')}</Text>
@@ -2036,6 +2051,15 @@ export function GuidedPlayerScreen({
           onFinish={onFinishSession}
         />
       )}
+
+      {/* Covers the walk-up screen for its first second; a tap dismisses it. */}
+      {mode === 'player' && doneSplashName ? (
+        <ExerciseDoneSplash
+          label={t(language, 'guided.label.done')}
+          name={exerciseNameLabel(language, doneSplashName)}
+          onDone={() => setDoneSplashName(null)}
+        />
+      ) : null}
 
       {step.type === 'set' ? (
         <Exercise3DSheet
@@ -2135,6 +2159,15 @@ export function GuidedPlayerScreen({
                 }}
               />
             ) : null}
+            {/* The set screen lost its speaker button when the controls went
+                down to pause + menu, so the toggle lives here now. It stays
+                open on press: a toggle you cannot see flip is a toggle you
+                press twice. */}
+            <GhostBtn
+              icon={muted ? 'sound' : 'mute'}
+              label={t(language, muted ? 'guided.action.soundOn' : 'guided.action.soundOff')}
+              onPress={() => onToggleSoundCues(!soundCuesEnabled)}
+            />
             {actionExercise ? (
               <>
                 <Text style={styles.sheetFootnote}>
@@ -2304,14 +2337,12 @@ function SetStepView({
   library,
   language,
   elapsedSeconds,
-  muted,
   paused,
   resolveTarget,
-  onToggleMute,
   onPause,
   onOpenActions,
+  onAddSet,
   panels,
-  onSwapExercise,
   onConfirm,
 }: {
   stepIndex: number;
@@ -2320,12 +2351,11 @@ function SetStepView({
   library: ExerciseLibraryItem[];
   language: AppLanguage;
   elapsedSeconds: number;
-  muted: boolean;
   paused: boolean;
   resolveTarget: (slotId: string, setIndex: number) => GuidedSetTarget | null;
-  onToggleMute: () => void;
   onPause: () => void;
   onOpenActions: () => void;
+  onAddSet: () => void;
   /** Resolved by the player; null falls back to the plain photo. */
   panels: {
     history: SetPanelHistory | null;
@@ -2333,8 +2363,6 @@ function SetStepView({
     imageUrl: string | null;
     initials: string;
   } | null;
-  /** Null when this exercise has no catalog alternatives. */
-  onSwapExercise: () => void;
   onConfirm: (slotId: string, setIndex: number, reps: number, loadKg: number | null) => void;
 }) {
   const theme = useTheme();
@@ -2350,9 +2378,18 @@ function SetStepView({
   const [kg, setKg] = useState(target?.loadKg ?? 0);
   /** Which dial is open for editing; null = both locked. */
   const [dial, setDial] = useState<'reps' | 'weight' | null>(null);
+  /**
+   * The history/how-to panels, folded away. The second tester's core note
+   * (2026-08-23) was that a set screen is for logging reps and weight, and
+   * everything else on it is in the way — so the panels open from a slim tab
+   * at the top and stay closed until someone standing at a new machine wants
+   * them. Deliberately not remembered across steps: each lift starts quiet.
+   */
+  const [panelsOpen, setPanelsOpen] = useState(false);
 
   useEffect(() => {
     setDial(null);
+    setPanelsOpen(false);
     setReps(target?.reps ?? 8);
     setKg(target?.loadKg ?? 0);
     // Re-derive when the step changes — and when the exercise under the step
@@ -2400,21 +2437,35 @@ function SetStepView({
         onPress={dial ? () => setDial(null) : undefined}
         accessible={false}
       >
-        {/* Three panels where the photo was. A photo answers "what does this
-            look like", which is a question you have once; "what did I lift last
-            time" is the one you have standing at the rack. */}
-        {panels ? (
-          <SetPanels
-            height={236}
-            language={language}
-            history={panels.history}
-            instructions={panels.instructions}
-            imageUrl={panels.imageUrl}
-            initials={panels.initials}
-          />
-        ) : (
-          <MediaZone name={step.exerciseName} library={library} height={236} mode="set" showActions={false} fit="cover" language={language} />
-        )}
+        {/* The panels ride behind a tab instead of owning the top third of the
+            screen. Closed is the normal state; the tab is the pull. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: panelsOpen }}
+          accessibilityLabel={t(language, 'guided.panelsToggle')}
+          hitSlop={8}
+          onPress={() => setPanelsOpen((value) => !value)}
+          style={styles.setPanelsTab}
+        >
+          <View style={{ transform: [{ rotate: panelsOpen ? '180deg' : '0deg' }] }}>
+            <GPIcon name="chevD" size={15} color={theme.muted} sw={2.6} />
+          </View>
+          <Text style={styles.setPanelsTabText}>{t(language, 'guided.panelsToggle')}</Text>
+        </Pressable>
+        {panelsOpen ? (
+          panels ? (
+            <SetPanels
+              height={220}
+              language={language}
+              history={panels.history}
+              instructions={panels.instructions}
+              imageUrl={panels.imageUrl}
+              initials={panels.initials}
+            />
+          ) : (
+            <MediaZone name={step.exerciseName} library={library} height={220} mode="set" showActions={false} fit="cover" language={language} />
+          )
+        ) : null}
 
         {/* set counter + dots on the left, session clock on the right */}
         <View style={styles.setMetaRow}>
@@ -2440,6 +2491,17 @@ function SetStepView({
                 );
               })}
             </View>
+            {/* One more set, decided where the sets are counted — the sheet
+                kept this three taps away from the row that says 3/3. */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(language, 'guided.action.addSet')}
+              hitSlop={8}
+              onPress={onAddSet}
+              style={styles.setAddBtn}
+            >
+              <GPIcon name="plus" size={13} color={theme.green} sw={3} />
+            </Pressable>
           </View>
           <View style={styles.setClock}>
             <GPIcon name="clock" size={19} color={theme.muted} sw={2} />
@@ -2545,8 +2607,10 @@ function SetStepView({
           </Pressable>
         </View>
 
-        {/* pause + mute sit together under the CTA (v4); the list view used to
-            hide behind the exit sheet, so it rides along as a labelled pill */}
+        {/* Two buttons, no more (user 2026-08-23): pause, and the menu.
+            Mute and swap moved behind the dots with the rest of the
+            "something else" actions — a set screen's own controls are the
+            ones you use mid-set. */}
         <View style={styles.setControls}>
           <Pressable
             accessibilityRole="button"
@@ -2558,43 +2622,65 @@ function SetStepView({
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={t(language, 'guided.a11y.sound')}
-            onPress={onToggleMute}
-            style={styles.setRoundBtn}
-          >
-            <GPIcon name={muted ? 'mute' : 'sound'} size={24} color={muted ? theme.faint : theme.ink} sw={2.2} />
-          </Pressable>
-          {/* Everything pause used to put in your way — go back one, skip this,
-              add a set, skip the exercise — lives behind its own button now. */}
-          <Pressable
-            accessibilityRole="button"
             accessibilityLabel={t(language, 'guided.a11y.actions')}
             onPress={onOpenActions}
             style={styles.setRoundBtn}
           >
             <GPIcon name="dots" size={24} color={theme.ink} sw={2.2} />
           </Pressable>
-          {/* Was "List" — the table logger is gone, and this slot now does the
-              one thing people left the guided flow for. Same icon on purpose:
-              the button did not move, only what it opens. Hidden when the
-              exercise has no alternatives, rather than opening an empty sheet. */}
-          {onSwapExercise ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t(language, 'guided.action.swap')}
-              onPress={onSwapExercise}
-              style={styles.setListBtn}
-            >
-              <GPIcon name="swap" size={20} color={theme.ink} sw={2.2} />
-              <Text style={styles.setListBtnText}>{t(language, 'guided.swapShort')}</Text>
-            </Pressable>
-          ) : null}
         </View>
         {/* No "Seuraava · …" line here: on a set it named the same lift's next
             set, which the dots above already say. The drills keep theirs — a
             next drill with its seconds is worth a line. */}
       </Pressable>
     </StepIn>
+  );
+}
+
+/**
+ * A breath between the last set of one lift and the next lift's walk-up
+ * screen: the finished name under a green check, in and out in about a
+ * second. Runs its whole life on one animated value so the fade-out needs no
+ * second timer; a tap ends it early. The parent unmounts it via onDone.
+ */
+function ExerciseDoneSplash({ label, name, onDone }: { label: string; name: string; onDone: () => void }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const anim = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(anim.interpolate({ inputRange: [0, 0.1, 0.82, 1], outputRange: [0, 1, 1, 0] })).current;
+  const scale = useRef(anim.interpolate({ inputRange: [0, 0.22, 1], outputRange: [0.84, 1, 1] })).current;
+  // The latest onDone without re-running the effect: the parent recreates the
+  // callback every render, and restarting the timing would hold the splash up
+  // for as long as the player keeps ticking.
+  const doneRef = useRef(onDone);
+  doneRef.current = onDone;
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 1150,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) {
+        doneRef.current();
+      }
+    });
+    return () => anim.stopAnimation();
+  }, [anim]);
+  return (
+    <Animated.View style={[StyleSheet.absoluteFillObject, { backgroundColor: theme.bg, opacity }]}>
+      <Pressable style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }} onPress={() => doneRef.current()}>
+        <Animated.View style={{ transform: [{ scale }], alignItems: 'center', gap: 14 }}>
+          <View style={styles.doneSplashCheck}>
+            <GPIcon name="check" size={30} color={theme.green} sw={3} />
+          </View>
+          <Text style={styles.doneSplashLabel}>{label}</Text>
+          <Text style={styles.doneSplashName} numberOfLines={2}>
+            {name}
+          </Text>
+        </Animated.View>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -3005,23 +3091,49 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   setLogButtonText: { fontSize: 17, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.17 },
   setControls: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12, paddingTop: 14, paddingBottom: 10 },
-  setListBtn: {
-    height: 60,
-    borderRadius: 999,
-    paddingHorizontal: 20,
+  // The tab the folded-away panels open from. Slim on purpose: it is the one
+  // piece of the panels that stays on the quiet screen.
+  setPanelsTab: {
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 9,
+    gap: 6,
+    height: 34,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    marginTop: 8,
     backgroundColor: theme.surface,
     borderWidth: 1,
     borderColor: theme.border,
-    shadowColor: '#28185A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.07,
-    shadowRadius: 14,
-    elevation: 2,
   },
-  setListBtnText: { fontSize: 15, fontWeight: '800', color: theme.ink, letterSpacing: -0.15 },
+  setPanelsTabText: { fontSize: 12.5, fontWeight: '800', color: theme.muted, letterSpacing: 0.3 },
+  setAddBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: theme.green,
+    backgroundColor: theme.greenSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  doneSplashCheck: {
+    width: 64,
+    height: 64,
+    borderRadius: 999,
+    backgroundColor: theme.greenSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  doneSplashLabel: { fontSize: 13, fontWeight: '800', letterSpacing: 2, color: theme.green },
+  doneSplashName: {
+    fontSize: 34,
+    fontWeight: '800',
+    letterSpacing: -0.9,
+    color: theme.ink,
+    textAlign: 'center',
+    paddingHorizontal: 24,
+  },
   setRoundBtn: {
     width: 60,
     height: 60,
