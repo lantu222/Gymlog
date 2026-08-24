@@ -2230,6 +2230,10 @@ const EN = {
   // 59,90 against 9,90 x 12 = 118,80 is 49.6% off. The badge said 40% for
   // months — the retired price set's number, left behind when the prices moved.
   'pro.page.save': 'Save 50%',
+  // Not "most popular": nothing has been sold yet, so that would be a claim
+  // about other buyers who do not exist. This one is arithmetic — 119,00
+  // against 59,90 a year pays for itself in two years and costs nothing after.
+  'pro.page.bestValue': 'Best value',
   'pro.page.restore': 'Restore purchase',
   'pro.page.terms': 'Terms',
   'pro.page.privacy': 'Privacy',
@@ -5577,6 +5581,7 @@ const FI: Record<I18nKey, string> = {
   'pro.page.billedYearly': 'Laskutus 59,90 € / vuosi',
   'pro.page.billedMonthly': 'Laskutetaan kuukausittain',
   'pro.page.save': 'Säästä 50 %',
+  'pro.page.bestValue': 'Paras arvo',
   'pro.page.restore': 'Palauta osto',
   'pro.page.terms': 'Ehdot',
   'pro.page.privacy': 'Tietosuoja',

@@ -43,7 +43,11 @@ export interface SubscriptionTerm {
   priceKey: I18nKey;
   perKey: I18nKey;
   renews: boolean;
-  /** Set only on yearly — the same 50% the paywall computes. */
+  /**
+   * Yearly carries the 50% the paywall computes; lifetime carries its
+   * two-year payback. Both are arithmetic — a badge on this screen has to be
+   * something a reader could check.
+   */
   badgeKey?: I18nKey;
 }
 
@@ -78,6 +82,7 @@ export const SUBSCRIPTION_TERMS: Record<SubscriptionTermKey, SubscriptionTerm> =
     priceKey: 'pro.page.perLifetime',
     perKey: 'pro.v3.unit.lifetime',
     renews: false,
+    badgeKey: 'pro.page.bestValue',
   },
 };
 

@@ -194,4 +194,35 @@ module.exports = [
       }
     },
   },
+  {
+    /**
+     * A badge on the plan cards is a sales claim, and this screen is where a
+     * reader decides to hand over money. Both badges here are arithmetic they
+     * could check against the prices printed next to them. "Most popular" was
+     * asked for and is the one that cannot be: nothing has been sold, so it
+     * would describe buyers who do not exist.
+     */
+    name: 'subscription: every plan badge is arithmetic, not a claim about other buyers',
+    run() {
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const root = path.join(__dirname, '..', '..');
+      const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
+
+      // Lifetime earns a badge: 119,00 against 59,90 a year pays back in two.
+      assert.equal(SUBSCRIPTION_TERMS.lifetime.badgeKey, 'pro.page.bestValue');
+      assert.equal(SUBSCRIPTION_TERMS.yearly.badgeKey, 'subs.term.yearlyBadge');
+      // Monthly is the baseline the others are measured against, so it has
+      // nothing to claim.
+      assert.equal(SUBSCRIPTION_TERMS.monthly.badgeKey, undefined);
+
+      // The same badge on the other surface that renders plans.
+      assert.match(read('src/screens/PremiumScreen.tsx'), /badgeKey: 'pro\.page\.bestValue'/);
+
+      const i18nSource = read('src/lib/i18n.ts');
+      assert.equal(i18nSource.split("'pro.page.bestValue':").length - 1, 2, 'needs both languages');
+      // The claim nobody can check stays out of the shipped strings.
+      assert.doesNotMatch(i18nSource, /'pro\.page\.mostPopular'/);
+    },
+  },
 ];

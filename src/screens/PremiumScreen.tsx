@@ -234,7 +234,10 @@ const PLANS: Array<{
     nameKey: 'pro.page.lifetime',
     priceKey: 'pro.page.perLifetime',
     unitKey: 'pro.v3.unit.lifetime',
-    badgeKey: null,
+    // The two-year payback stated above, said out loud. Not "most popular":
+    // nothing has been sold, so that would be a claim about buyers who do not
+    // exist — and the one badge on this screen that could not be checked.
+    badgeKey: 'pro.page.bestValue',
     fineKey: 'pro.v3.fine.lifetime',
     trialFineKey: 'pro.v2.ctaSubLifetime',
   },
