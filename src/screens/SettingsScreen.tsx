@@ -39,6 +39,8 @@ interface SettingsScreenProps {
    */
   onOpenPremium: () => void;
   onOpenLegal: (document: 'privacy' | 'terms') => void;
+  /** Opens the same rating sheet the finish flow shows. */
+  onOpenRating: () => void;
   /**
    * Where the list was scrolled when a sub-screen was opened, so coming
    * back lands on the row that was tapped instead of the top (user,
@@ -114,6 +116,7 @@ const IC_PATHS: Record<string, string> = {
   calendar: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4',
   back: 'M15 5l-7 7 7 7',
   chevron: 'M9 6l6 6-6 6',
+  star: 'm12 3.5 2.6 5.27 5.82.85-4.21 4.1.99 5.79L12 16.77l-5.2 2.74.99-5.79-4.21-4.1 5.82-.85z',
 };
 
 function Ic({ n, c, s = 20, sw = 2 }: { n: string; c?: string; s?: number; sw?: number }) {
@@ -249,6 +252,7 @@ export function SettingsScreen({
   onOpenSubscription,
   onOpenPremium,
   onOpenLegal,
+  onOpenRating,
   onResetAllData,
   account,
   initialScrollOffset = 0,
@@ -506,6 +510,18 @@ export function SettingsScreen({
             {/* The no-analytics fact moved into the privacy policy alone —
                 a row restating one sentence of it was a sign explaining a
                 sign (removed with the AI-info and support rows, 2026-08-22). */}
+            {/* Hidden once rated, like the sheet — the reader has done it,
+                and the app has nothing left to ask for (user 2026-08-24:
+                "kerran kun suorittaa se lähtee kaikkialta"). */}
+            {preferences.ratingPrompt.rated ? null : (
+              <Row
+                icon="star"
+                title={t(language, 'settings.rate')}
+                sub={t(language, 'settings.rate.sub')}
+                chevron
+                onPress={onOpenRating}
+              />
+            )}
             <Row
               icon="shield"
               title={t(language, 'settings.privacy')}

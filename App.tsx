@@ -6310,6 +6310,11 @@ function VinhaApp() {
             : null
         }
         onOpenLegal={(document) => navigate({ tab: 'profile', screen: 'legal', document })}
+        // The same sheet the finish flow shows, opened on purpose rather than
+        // offered. No decideRatingPrompt here: the timing rules exist to stop
+        // the app interrupting, and a reader who taps "Rate Vinha" is not
+        // being interrupted.
+        onOpenRating={() => setRatingSheetVisible(true)}
         onResetAllData={async () => {
           // Sign out BEFORE wiping: reset while signed in would let the
           // auto-backup push the freshly emptied database over the cloud

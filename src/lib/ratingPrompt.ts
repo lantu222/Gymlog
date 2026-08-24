@@ -19,10 +19,17 @@
 
 /** Nothing to rate before the app has actually done its job a few times. */
 export const RATING_MIN_SESSIONS = 4;
-/** A "no" has to last long enough that the second ask is not nagging. */
-export const RATING_COOLDOWN_DAYS = 60;
-/** Three asks over a lifetime. After that the answer is no. */
-export const RATING_MAX_ASKS = 3;
+/**
+ * A week between asks (user decision 2026-08-24: "jos ei arviointia suorita
+ * tässä se ilmestyy 1krt viikko").
+ *
+ * There is deliberately no lifetime cap any more. What keeps this from being
+ * a weekly nag is `atPeakMoment`: the ask only ever fires on the way out of a
+ * finished session, so a reader who trains three times a week sees it once,
+ * at a moment they just succeeded at something — and a reader who stops
+ * training stops being asked entirely.
+ */
+export const RATING_COOLDOWN_DAYS = 7;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -58,7 +65,7 @@ export type RatingPromptDecision =
   | {
       ask: false;
       /** Why not — kept for tests and for the demo screen's readout. */
-      reason: 'already_rated' | 'asked_enough' | 'too_few_sessions' | 'not_a_peak_moment' | 'cooling_down';
+      reason: 'already_rated' | 'too_few_sessions' | 'not_a_peak_moment' | 'cooling_down';
     };
 
 export function decideRatingPrompt({
@@ -69,9 +76,6 @@ export function decideRatingPrompt({
 }: RatingPromptInput): RatingPromptDecision {
   if (state.rated) {
     return { ask: false, reason: 'already_rated' };
-  }
-  if (state.askCount >= RATING_MAX_ASKS) {
-    return { ask: false, reason: 'asked_enough' };
   }
   if (sessionsLogged < RATING_MIN_SESSIONS) {
     return { ask: false, reason: 'too_few_sessions' };
@@ -104,7 +108,11 @@ export function recordRatingAsked(state: RatingPromptState, nowMs: number): Rati
   };
 }
 
-/** The reader went through to the store. There is no fourth ask after this. */
+/**
+ * The reader went through to the store. Nothing asks again after this —
+ * not the sheet, and not the Settings row, which hides on the same flag
+ * (user 2026-08-24: "kerran kun suorittaa se lähtee kaikkialta").
+ */
 export function recordRatingCompleted(state: RatingPromptState): RatingPromptState {
   return { ...state, rated: true };
 }

@@ -1918,6 +1918,8 @@ const EN = {
   'rating.cta': 'Rate on Google Play',
   'rating.notNow': 'Not now',
   'rating.a11y.star': 'Give {count} out of 5 stars',
+  'settings.rate': 'Rate Vinha',
+  'settings.rate.sub': 'One rating on Google Play is worth a lot',
 
   // ── Design demo (internal surface for unwired components) ─────────────
   'designDemo.title': 'Design demo',
@@ -5293,6 +5295,8 @@ const FI: Record<I18nKey, string> = {
   'rating.cta': 'Arvioi Google Playssa',
   'rating.notNow': 'Ei nyt',
   'rating.a11y.star': 'Anna {count}/5 tähteä',
+  'settings.rate': 'Arvioi Vinha',
+  'settings.rate.sub': 'Yksi arvio Google Playssä merkitsee paljon',
 
   'designDemo.title': 'Design-demo',
   'designDemo.lead': 'Valmiita osia joilla ei ole vielä kutsujaa. Mikään täällä ei kirjoita tietojasi.',

@@ -2,7 +2,6 @@ const assert = require('node:assert/strict');
 
 const {
   RATING_COOLDOWN_DAYS,
-  RATING_MAX_ASKS,
   RATING_MIN_SESSIONS,
   decideRatingPrompt,
   emptyRatingPromptState,
@@ -67,18 +66,47 @@ module.exports = [
     },
   },
   {
-    name: 'stops for good after the maximum number of asks',
+    name: 'the weekly ask has no lifetime cap — only rating ends it',
     run() {
+      // User decision 2026-08-24: it comes back once a week until the reader
+      // rates. The old three-ask ceiling is gone on purpose.
+      assert.equal(RATING_COOLDOWN_DAYS, 7);
+
       let state = emptyRatingPromptState;
       let clock = NOW;
-      for (let index = 0; index < RATING_MAX_ASKS; index += 1) {
-        assert.deepEqual(decideRatingPrompt(input({ state, nowMs: clock })), { ask: true });
+      for (let index = 0; index < 12; index += 1) {
+        assert.deepEqual(
+          decideRatingPrompt(input({ state, nowMs: clock })),
+          { ask: true },
+          `ask ${index + 1} should still be offered`,
+        );
         state = recordRatingAsked(state, clock);
         clock += (RATING_COOLDOWN_DAYS + 1) * DAY_MS;
       }
-      assert.deepEqual(decideRatingPrompt(input({ state, nowMs: clock })), {
+      assert.equal(state.askCount, 12);
+
+      // What actually ends it, everywhere at once.
+      const rated = recordRatingCompleted(state);
+      assert.deepEqual(decideRatingPrompt(input({ state: rated, nowMs: clock })), {
         ask: false,
-        reason: 'asked_enough',
+        reason: 'already_rated',
+      });
+    },
+  },
+  {
+    /**
+     * The only thing standing between "weekly" and "a weekly nag". The ask
+     * fires on the way out of a finished session, so a reader who stops
+     * training stops being asked — the sheet cannot find them on a launch,
+     * a settings visit, or any other idle moment.
+     */
+    name: 'weekly means weekly-after-a-workout, not weekly-on-launch',
+    run() {
+      const state = { lastAskedAt: null, askCount: 4, rated: false };
+      const overdue = NOW + 400 * DAY_MS;
+      assert.deepEqual(decideRatingPrompt(input({ state, nowMs: overdue, atPeakMoment: false })), {
+        ask: false,
+        reason: 'not_a_peak_moment',
       });
     },
   },
@@ -137,6 +165,15 @@ module.exports = [
       assert.match(read('src/types/models.ts'), /ratingPrompt: RatingPromptState;/);
       assert.match(read('src/storage/database.ts'), /ratingPrompt: normalizeRatingPrompt\(/);
       assert.match(read('src/data/seed.ts'), /ratingPrompt: \{ lastAskedAt: null, askCount: 0, rated: false \}/);
+
+      // Settings offers it too, and hides once rated — the same flag that
+      // silences the sheet ("kerran kun suorittaa se lähtee kaikkialta").
+      const settingsSource = read('src/screens/SettingsScreen.tsx');
+      assert.match(settingsSource, /preferences\.ratingPrompt\.rated \? null : \(/);
+      assert.match(settingsSource, /onPress=\{onOpenRating\}/);
+      // Tapping it is not an interruption, so it skips the timing rules the
+      // automatic ask has to obey.
+      assert.match(appSource, /onOpenRating=\{\(\) => setRatingSheetVisible\(true\)\}/);
     },
   },
 ];
