@@ -139,6 +139,50 @@ export interface AICoachHistory {
   truncated: boolean;
 }
 
+export interface AICoachBodyMeasurementTrend {
+  kind: string;
+  unit: string;
+  latestValue: number;
+  latestAt: string;
+  previousValue: number | null;
+  previousAt: string | null;
+}
+
+export interface AICoachBodyChange {
+  deltaKg: number;
+  spanDays: number;
+}
+
+/**
+ * What the body record says: latest weight with its short trends, and the
+ * latest + previous reading of every measured site. Without this block the
+ * coach knows nothing about the body it is coaching — a chest-growth or
+ * nutrition question got a training summary (transcript review, 23.8.).
+ */
+export interface AICoachBody {
+  weightKg: number | null;
+  weightAt: string | null;
+  weightChange30d: AICoachBodyChange | null;
+  weightChange90d: AICoachBodyChange | null;
+  measurements: AICoachBodyMeasurementTrend[];
+}
+
+export interface AICoachGoal {
+  text: string;
+  kind: string | null;
+  targetValue: number | null;
+  unit: string | null;
+  startValue: number | null;
+  currentValue: number | null;
+  setAt: string | null;
+}
+
+export interface AICoachProfile {
+  heightCm: number | null;
+  age: number | null;
+  gender: string | null;
+}
+
 export interface AICoachTrainingContext {
   unitPreference: UnitPreference;
   activeSession: AICoachActiveSessionSummary | null;
@@ -156,6 +200,10 @@ export interface AICoachTrainingContext {
   fatigue: AICoachFatigueSummary;
   history: AICoachHistory;
   plannerSetup?: AICoachPlannerSetupSummary | null;
+  /** Optional so an older client's payload still parses. */
+  body?: AICoachBody | null;
+  goals?: AICoachGoal[];
+  profile?: AICoachProfile | null;
 }
 
 export type AICoachActionKind =

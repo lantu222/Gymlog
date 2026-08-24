@@ -190,6 +190,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       homeWidgetPromptDismissed: false,
       accountBackupPromptDismissed: false,
       aiOnlineNoticeAcknowledged: false,
+      coachGoals: [],
       setupHandoffCompleted: false,
       entryFlowCompleted: false,
       trainingFirstRunDismissed: false,

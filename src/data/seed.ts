@@ -55,6 +55,7 @@ const DEFAULT_PREFERENCES = {
   homeWidgetPromptDismissed: false,
   accountBackupPromptDismissed: false,
   aiOnlineNoticeAcknowledged: false,
+  coachGoals: [],
   setupHandoffCompleted: false,
   entryFlowCompleted: false,
   trainingFirstRunDismissed: false,

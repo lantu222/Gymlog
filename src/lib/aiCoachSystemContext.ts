@@ -146,6 +146,50 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
     );
   }
 
+  // Body record — weight trend and measured sites. Dates stay ISO here; the
+  // rules tell the model to rewrite them for the reader's language.
+  if (context.body) {
+    const b = context.body;
+    const bodyLines: string[] = [];
+    if (b.weightKg !== null) {
+      const parts = [`${trim(b.weightKg)} kg (${b.weightAt})`];
+      if (b.weightChange30d) {
+        parts.push(`${b.weightChange30d.deltaKg > 0 ? '+' : ''}${trim(b.weightChange30d.deltaKg)} kg over last ${b.weightChange30d.spanDays} days`);
+      }
+      if (b.weightChange90d && (!b.weightChange30d || b.weightChange90d.spanDays > b.weightChange30d.spanDays)) {
+        parts.push(`90d: ${b.weightChange90d.deltaKg > 0 ? '+' : ''}${trim(b.weightChange90d.deltaKg)} kg over ${b.weightChange90d.spanDays} days`);
+      }
+      bodyLines.push(line('Weight', parts.join(' | ')));
+    }
+    for (const m of b.measurements) {
+      const prev = m.previousValue !== null ? ` | previous ${trim(m.previousValue)} ${m.unit} (${m.previousAt})` : ' | only one reading — not a trend';
+      bodyLines.push(line(m.kind, `${trim(m.latestValue)} ${m.unit} (${m.latestAt})${prev}`));
+    }
+    const bodyBlock = section('Body record', bodyLines);
+    if (bodyBlock) blocks.push(bodyBlock);
+  }
+
+  const goalLines = (context.goals ?? []).map((goal) => {
+    const parts: string[] = [];
+    if (goal.startValue !== null) parts.push(`start ${trim(goal.startValue)} ${goal.unit ?? ''}`.trim());
+    if (goal.currentValue !== null) parts.push(`now ${trim(goal.currentValue)} ${goal.unit ?? ''}`.trim());
+    if (goal.targetValue !== null) parts.push(`target ${trim(goal.targetValue)} ${goal.unit ?? ''}`.trim());
+    const detail = parts.length > 0 ? ` — ${parts.join(', ')}` : '';
+    const setAt = goal.setAt ? ` (set ${goal.setAt})` : '';
+    return `- "${goal.text}"${setAt}${detail}`;
+  });
+  const goalBlock = section('Goals — stated by the user; tie advice to these', goalLines);
+  if (goalBlock) blocks.push(goalBlock);
+
+  if (context.profile) {
+    const p = context.profile;
+    const profileParts: string[] = [];
+    if (p.gender) profileParts.push(p.gender);
+    if (p.age !== null) profileParts.push(`${p.age} y`);
+    if (p.heightCm !== null) profileParts.push(`${p.heightCm} cm`);
+    if (profileParts.length > 0) blocks.push(section('Profile', [profileParts.join(' | ')])!);
+  }
+
   // Plateaus — prominent, with actionable phrasing
   const plateauLines = context.plateaus.map((p) => {
     const weight = p.topWeightKg !== null ? `${p.topWeightKg} ${u}` : '—';
