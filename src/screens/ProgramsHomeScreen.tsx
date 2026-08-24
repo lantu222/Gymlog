@@ -259,6 +259,7 @@ interface ProgramsHomeScreenProps {
   /** The reader's own lift names, for the CSV importer's matcher. */
   nameBook?: readonly ExerciseNameBookEntry[];
   onTeachName?: (wrote: string, exercise: CsvLibraryEntry) => Promise<void> | void;
+  onPickImage?: () => Promise<string | null>;
   language?: AppLanguage;
   onOpenLibrary: () => void;
 }
@@ -897,6 +898,7 @@ export function ProgramsHomeScreen({
   exerciseLibraryEntries,
   nameBook,
   onTeachName,
+  onPickImage,
   language = 'en',
   onOpenLibrary,
 }: ProgramsHomeScreenProps) {
@@ -1592,6 +1594,7 @@ export function ProgramsHomeScreen({
         exerciseLibrary={exerciseLibraryEntries}
         nameBook={nameBook}
         onTeachName={onTeachName}
+        onPickImage={onPickImage}
         onClose={() => setCreateOpen(false)}
         onAiAssisted={onAiAssisted}
         onBuildYourself={onCreateProgram}

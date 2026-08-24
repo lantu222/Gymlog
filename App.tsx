@@ -236,6 +236,8 @@ import { PlanSettingsScreen } from './src/screens/PlanSettingsScreen';
 import { setNumberLanguage } from './src/lib/format';
 import { buildPremiumHeroChart } from './src/lib/premiumHeroChart';
 import { buildProChatHeroScript } from './src/lib/proChatHero';
+import { programTableToCsv } from './src/lib/programImageImport';
+import { pickProgramImage } from './src/utils/programImagePicker';
 import { PremiumScreen } from './src/screens/PremiumScreen';
 import { PremiumUnlockScreen } from './src/screens/PremiumUnlockScreen';
 import { VinhaSplashScreen } from './src/screens/VinhaSplashScreen';
@@ -255,7 +257,7 @@ import { LegalDocumentScreen } from './src/screens/LegalDocumentScreen';
 import { ProOfferScreen } from './src/screens/ProOfferScreen';
 import { AICoachChatScreen } from './src/screens/AICoachChatScreen';
 import { buildCoachContextChips } from './src/lib/coachChat';
-import { isAiCoachLiveConfigured, requestProgrammeComposition } from './src/lib/aiCoachClient';
+import { isAiCoachLiveConfigured, requestProgrammeComposition, requestProgramTableFromImage } from './src/lib/aiCoachClient';
 import { buildProgrammeDraft, composeProgrammePreview, resolveLiveProposal } from './src/lib/programmeBrief';
 import { ProgressScreen } from './src/screens/ProgressScreen';
 import { ProgramDayScreen } from './src/screens/ProgramDayScreen';
@@ -2692,6 +2694,23 @@ function VinhaApp() {
       return;
     }
     navigate(ROOT_ROUTES.home);
+  }
+
+  /**
+   * A photo of a programme, as the CSV text the paste box would have held.
+   *
+   * Every failure returns null on purpose: no network, no permission, an
+   * unreadable photo and a photo of something else all leave the reader with
+   * nothing to import, and the sheet says so in one sentence rather than
+   * teaching them the difference.
+   */
+  async function handlePickProgramImage(): Promise<string | null> {
+    const picked = await pickProgramImage();
+    if (picked.status !== 'picked') {
+      return null;
+    }
+    const rows = await requestProgramTableFromImage(picked.image);
+    return rows && rows.length > 0 ? programTableToCsv(rows) : null;
   }
 
   async function handleContinueEntry() {
@@ -5996,6 +6015,7 @@ function VinhaApp() {
         exerciseLibrary={exerciseBrowserItems}
             nameBook={exerciseNameBook}
             onTeachName={(wrote, exercise) => teachExerciseName(wrote, { name: exercise.name, libraryItemId: exercise.id })}
+            onPickImage={handlePickProgramImage}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
         onOpenPlanSettings={handleOpenPlanSettings}
         onChangeTrainingDays={(days) => void handleChangeTrainingDays(days)}
@@ -6440,6 +6460,7 @@ function VinhaApp() {
         exerciseLibraryEntries={exerciseBrowserItems}
             nameBook={exerciseNameBook}
             onTeachName={(wrote, exercise) => teachExerciseName(wrote, { name: exercise.name, libraryItemId: exercise.id })}
+            onPickImage={handlePickProgramImage}
         onAiAssisted={() => navigate(coachProUnlocked ? { tab: 'home', screen: 'ai_setup' } : { tab: 'profile', screen: 'premium' })}
         onImportProgram={async (draft) => {
           const workoutTemplateId = await upsertWorkoutTemplate(draft);
@@ -6810,6 +6831,7 @@ function VinhaApp() {
         language={preferences.appLanguage}
         exerciseLibrary={exerciseBrowserItems}
         nameBook={exerciseNameBook}
+        onPickImage={handlePickProgramImage}
         onTeachName={(wrote, exercise) =>
           teachExerciseName(wrote, { name: exercise.name, libraryItemId: exercise.id })
         }

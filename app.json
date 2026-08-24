@@ -55,6 +55,18 @@
           "color": "#7C3AED"
         }
       ],
+      [
+
+        "expo-image-picker",
+
+        {
+
+          "photosPermission": "Vinha reads your training programme from a photo you choose."
+
+        }
+
+      ],
+
       "./plugins/withHomeWidget.js",
     "./plugins/withBuildArchitectures.js"
     ]

@@ -4,6 +4,15 @@ import { buildAiCoachSystemContext } from '../src/lib/aiCoachSystemContext';
 import { normalizeAiCoachTrainingContext } from '../src/lib/aiTrainingContext';
 import { AI_COACH_DEBUG_TRANSCRIPTS } from '../src/lib/aiCoachDebug';
 import {
+  isProgramImageMediaType,
+  PROGRAM_IMAGE_MAX_BASE64_CHARS,
+  PROGRAM_TABLE_RULES,
+  PROGRAM_TABLE_SCHEMA,
+  PROGRAM_TABLE_TOOL_NAME,
+  ProgramImageMediaType,
+  validateProgramTable,
+} from '../src/lib/programImageImport';
+import {
   BudgetState,
   checkBudget,
   createBudgetState,
@@ -246,6 +255,38 @@ function checkRateLimit(ip: string) {
 }
 
 type ParsedBody = AICoachAdviceRequest & { mode: 'advice' | 'compose' };
+
+/**
+ * The photo-import request, which shares nothing with the other two modes but
+ * the key, the budget and the rate limit: no prompt, no training context, just
+ * a picture of a spreadsheet.
+ */
+interface ParsedImageBody {
+  mode: 'table';
+  mediaType: ProgramImageMediaType;
+  dataBase64: string;
+}
+
+function parseImageBody(body: unknown): ParsedImageBody | null {
+  const parsed = typeof body === 'string' ? JSON.parse(body) : body;
+  if (!parsed || typeof parsed !== 'object') {
+    return null;
+  }
+  const candidate = parsed as { mode?: unknown; mediaType?: unknown; dataBase64?: unknown };
+  if (candidate.mode !== 'table' || !isProgramImageMediaType(candidate.mediaType)) {
+    return null;
+  }
+  if (
+    typeof candidate.dataBase64 !== 'string' ||
+    !candidate.dataBase64 ||
+    // Refused before it is sent upstream, so an oversized body is never
+    // charged for. The client downscales; this is the backstop.
+    candidate.dataBase64.length > PROGRAM_IMAGE_MAX_BASE64_CHARS
+  ) {
+    return null;
+  }
+  return { mode: 'table', mediaType: candidate.mediaType, dataBase64: candidate.dataBase64 };
+}
 
 function parseBody(body: unknown): ParsedBody | null {
   const parsed = typeof body === 'string' ? JSON.parse(body) : body;
@@ -585,6 +626,106 @@ async function requestClaudeProgramme(input: ParsedBody): Promise<ProgrammeResul
   }
 }
 
+/**
+ * The photo-import mode: a picture of a spreadsheet in, the four columns the
+ * CSV importer reads out.
+ *
+ * On-device OCR was the alternative and is the wrong tool — it reads
+ * characters, not tables. This shares the coach's key, budget and rate limit
+ * because it is the same spend from the same account.
+ */
+type TableResult =
+  | AICoachAdviceError
+  | { ok: true; source: 'live'; rows: ReturnType<typeof validateProgramTable> };
+
+async function requestClaudeTable(input: ParsedImageBody): Promise<TableResult> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return createError({ code: 'MISSING_API_KEY', message: 'ANTHROPIC_API_KEY is not configured.' });
+  }
+
+  const now = Date.now();
+  // Images are charged by area, not by characters. Base64 length is the only
+  // size this endpoint can see, and ~750 base64 chars per token is the right
+  // order of magnitude for a screenshot — enough for the brake to mean
+  // something rather than to wave every image through as "0 chars of prompt".
+  const budget = checkBudget(
+    { promptChars: Math.round(input.dataBase64.length / 3), contextChars: PROGRAM_TABLE_RULES.length },
+    budgetState,
+    now,
+    BUDGET_LIMITS,
+  );
+  if (!budget.allowed) {
+    const rejection = budget.rejection;
+    return createError({
+      code: rejection?.reason === 'budget_exhausted' ? 'RATE_LIMIT' : 'BAD_REQUEST',
+      message:
+        rejection?.reason === 'budget_exhausted'
+          ? 'Coach budget for this window is spent.'
+          : 'Image is larger than the import endpoint accepts.',
+    });
+  }
+  budgetState = recordSpend(budgetState, budget.estimatedTokens, now, BUDGET_LIMITS);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), CLAUDE_TIMEOUT_MS);
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: CLAUDE_MODEL,
+        ...EFFORT_CONFIG,
+        max_tokens: CLAUDE_MAX_TOKENS,
+        system: [{ type: 'text', text: PROGRAM_TABLE_RULES }],
+        tools: [
+          {
+            name: PROGRAM_TABLE_TOOL_NAME,
+            description: 'Report the training programme visible in the image as rows.',
+            input_schema: PROGRAM_TABLE_SCHEMA,
+          },
+        ],
+        tool_choice: { type: 'tool', name: PROGRAM_TABLE_TOOL_NAME },
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: { type: 'base64', media_type: input.mediaType, data: input.dataBase64 },
+              },
+              { type: 'text', text: 'Report every exercise row in this programme.' },
+            ],
+          },
+        ],
+      }),
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      console.error('AI table upstream request failed', response.status, body.slice(0, 400));
+      return createError({ code: 'UPSTREAM_ERROR', message: 'Claude request failed.' });
+    }
+    const rows = validateProgramTable(extractToolInput(await response.json(), PROGRAM_TABLE_TOOL_NAME));
+    if (rows === null) {
+      return createError({ code: 'INVALID_RESPONSE', message: 'Claude returned an invalid table payload.' });
+    }
+    return { ok: true as const, source: 'live' as const, rows };
+  } catch (error) {
+    const isAbort = error instanceof Error && error.name === 'AbortError';
+    return createError({
+      code: isAbort ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_ERROR',
+      message: isAbort ? 'Claude request timed out.' : 'Claude request failed.',
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   setCors(res);
 
@@ -595,6 +736,38 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   if (req.method !== 'POST') {
     res.status(405).json(createError({ code: 'METHOD_NOT_ALLOWED', message: 'Use POST.' }, undefined, undefined, 'preview'));
+    return;
+  }
+
+  // The photo import is parsed first and separately: it carries no prompt and
+  // no training context, so parseBody would reject it as malformed.
+  let imageInput: ParsedImageBody | null = null;
+  try {
+    imageInput = parseImageBody(req.body);
+  } catch {
+    imageInput = null;
+  }
+  if (imageInput) {
+    const ipForImage = getIpAddress(req);
+    if (checkRateLimit(ipForImage).limited) {
+      res.status(429).json(createError({ code: 'RATE_LIMIT', message: 'Too many requests. Try again shortly.' }));
+      return;
+    }
+    const table = await requestClaudeTable(imageInput);
+    if (table.ok === true) {
+      res.status(200).json(table);
+      return;
+    }
+    const tableFailure: AICoachAdviceError = table;
+    const tableStatus =
+      tableFailure.error.code === 'UPSTREAM_TIMEOUT'
+        ? 504
+        : tableFailure.error.code === 'RATE_LIMIT'
+          ? 429
+          : tableFailure.error.code === 'BAD_REQUEST'
+            ? 400
+            : 502;
+    res.status(tableStatus).json(tableFailure);
     return;
   }
 

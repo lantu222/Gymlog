@@ -58,8 +58,19 @@ function splitCsvLine(line: string, delimiter: string) {
   const cells: string[] = [];
   let current = '';
   let inQuotes = false;
-  for (const char of line) {
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
     if (char === '"') {
+      // A doubled quote inside a quoted cell is one literal quote — the CSV
+      // escape. This dropped every quote character instead, so a lift called
+      // Bench ("close grip") arrived with its quotes silently removed. Found
+      // when the photo importer, which writes this format itself, round
+      // -tripped a name through it (2026-08-24).
+      if (inQuotes && line[index + 1] === '"') {
+        current += '"';
+        index += 1;
+        continue;
+      }
       inQuotes = !inQuotes;
       continue;
     }

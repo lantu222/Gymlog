@@ -1,5 +1,6 @@
 import { buildAiCoachPreviewAnswer } from './aiCoachPreview';
 import { resolveLiveAiCoachUrl } from './aiCoachLiveGate';
+import { ProgramImageMediaType, ProgramTableRow, validateProgramTable } from './programImageImport';
 import { AICoachAdvice, AICoachAdviceError, AICoachAdviceRequest, AICoachAdviceSuccess } from '../types/aiCoach';
 
 // Routed through the spend-cap gate: a release build only sees the URL after
@@ -146,6 +147,47 @@ function isProposalPayload(value: unknown): value is { ok: true; proposal: LiveP
     typeof record.proposal?.title === 'string' &&
     Array.isArray(record.proposal?.sessions)
   );
+}
+
+/**
+ * Read a programme out of a photograph.
+ *
+ * Returns the rows, or null when the app cannot reach a server or the answer
+ * is not one. Null is deliberately indistinguishable from "the image had no
+ * programme in it" at this layer: both leave the reader with nothing to
+ * import, and the screen says so once rather than in two shades.
+ *
+ * The image is a one-off upload the reader initiated by choosing a photo, so
+ * needing the network here is acceptable in a way it is not for logging a set.
+ */
+export async function requestProgramTableFromImage(
+  input: { dataBase64: string; mediaType: ProgramImageMediaType },
+  upstreamSignal?: AbortSignal,
+): Promise<ProgramTableRow[] | null> {
+  if (!AI_COACH_API_URL) {
+    return null;
+  }
+  const { signal, cleanup } = getAbortSignal(REQUEST_TIMEOUT_MS, upstreamSignal);
+  try {
+    const response = await fetch(AI_COACH_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'table', mediaType: input.mediaType, dataBase64: input.dataBase64 }),
+      signal,
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const payload = (await response.json()) as { ok?: unknown; rows?: unknown };
+    // Validated again on the way in, with the same function the server used
+    // on the way out: this side cannot assume the server it reached is the
+    // one this build was written against.
+    return payload?.ok === true ? validateProgramTable(payload) : null;
+  } catch {
+    return null;
+  } finally {
+    cleanup();
+  }
 }
 
 export async function requestProgrammeComposition(

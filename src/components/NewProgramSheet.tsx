@@ -55,6 +55,13 @@ interface NewProgramSheetProps {
    */
   nameBook?: readonly ExerciseNameBookEntry[];
   /**
+   * Reads a programme out of a photo the reader picks. Returns the CSV text
+   * the paste box would have held, or null when nothing usable came back —
+   * the sheet does not care which of the several ways it can fail happened,
+   * because the reader is left in the same place by all of them.
+   */
+  onPickImage?: () => Promise<string | null>;
+  /**
    * Called when the reader says what one of their own names means. Persisting
    * it is the caller's job; this sheet only re-parses once it comes back.
    */
@@ -107,6 +114,7 @@ export function NewProgramSheet({
   onImportHistory,
   nameBook = [],
   onTeachName,
+  onPickImage,
 }: NewProgramSheetProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -125,6 +133,30 @@ export function NewProgramSheet({
    */
   const [teaching, setTeaching] = useState<string | null>(null);
   const [teachQuery, setTeachQuery] = useState('');
+  const [readingImage, setReadingImage] = useState(false);
+  const [imageNote, setImageNote] = useState<string | null>(null);
+
+  async function handlePickImage() {
+    if (!onPickImage || readingImage) {
+      return;
+    }
+    setImageNote(null);
+    setReadingImage(true);
+    try {
+      const csv = await onPickImage();
+      if (csv) {
+        setCsvText(csv);
+      } else {
+        // One sentence for every way this ends badly. The reader is in the
+        // same place whether the network failed, the photo was not a
+        // programme, or permission was refused: nothing to import, try the
+        // paste box. Naming the branch would not change what they do next.
+        setImageNote(t(language, 'csv.photo.failed'));
+      }
+    } finally {
+      setReadingImage(false);
+    }
+  }
 
   // Detected BEFORE the programme parser runs: a Hevy export is set rows,
   // and reading them as Day/Exercise/Sets/Reps would produce garbage.
@@ -316,9 +348,27 @@ export function NewProgramSheet({
                 autoCapitalize="none"
                 autoCorrect={false}
               />
-              <Pressable accessibilityRole="button" onPress={() => setCsvText(SAMPLE_CSV)} hitSlop={6}>
-                <Text style={styles.sampleLink}>{t(language, 'csv.loadSample')}</Text>
-              </Pressable>
+              <View style={styles.csvLinkRow}>
+                <Pressable accessibilityRole="button" onPress={() => setCsvText(SAMPLE_CSV)} hitSlop={6}>
+                  <Text style={styles.sampleLink}>{t(language, 'csv.loadSample')}</Text>
+                </Pressable>
+                {/* A photo of the reader's spreadsheet becomes the same text a
+                    paste would have produced, so it lands in the box above and
+                    joins this flow rather than getting one of its own. */}
+                {onPickImage ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={readingImage}
+                    onPress={() => void handlePickImage()}
+                    hitSlop={6}
+                  >
+                    <Text style={styles.sampleLink}>
+                      {readingImage ? t(language, 'csv.photo.reading') : t(language, 'csv.photo.cta')}
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
+              {imageNote ? <Text style={styles.errorNote}>{imageNote}</Text> : null}
 
               {hevyPreview ? (
                 <>
@@ -768,6 +818,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.purple,
     fontSize: 10.5,
     fontWeight: '700',
+  },
+  csvLinkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   ownNamesNote: {
     color: theme.purple,
