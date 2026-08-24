@@ -6527,6 +6527,7 @@ function VinhaApp() {
             : undefined
         }
         onRedoOnboarding={() => void handleRedoOnboarding()}
+        availableEquipment={availableEquipmentForDrills}
         greetingState={homeGreetingState}
         widgetPrompt={
           homeWidgetState?.supported && !homeWidgetState.added && !preferences.homeWidgetPromptDismissed

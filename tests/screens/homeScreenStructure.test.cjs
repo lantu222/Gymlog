@@ -151,11 +151,24 @@ module.exports = [
       assert.match(homeScreenSource, /t\(language, 'home\.history\.seeAll'\)/);
       assert.match(i18nSource, /'home\.history\.seeAll': 'See all'/);
       assert.match(homeScreenSource, /item\.kind === 'cardio' && item\.cardioIcon \? \(/);
-      // The warmup/workout/cooldown accordions are gone (user 2026-08-23):
-      // warmup and cooldown ride inside the guided session, and the lifts
-      // render flat on the surface — no box, no tap to see them.
+      // The three BOXED accordions are gone (user 2026-08-23) and the lifts
+      // render flat with no tap to see them. Warmup and recovery came back a
+      // few hours later, as rows rather than cards: the reader kept the flat
+      // look but wanted the two blocks reachable from it.
       assert.doesNotMatch(homeScreenSource, /openSections|sectionAnims|renderSection|SectionKey/);
-      assert.doesNotMatch(homeScreenSource, /getDefaultWarmup|getDefaultCooldown/);
+      assert.doesNotMatch(homeScreenSource, /styles\.secCard|styles\.secBtn|styles\.secBody/);
+      assert.match(homeScreenSource, /getDefaultWarmup\(focusKind, language, availableEquipment\)/);
+      assert.match(homeScreenSource, /getDefaultCooldown\(focusKind, language, availableEquipment\)/);
+      // One open at a time, and closed to start: the lifts are the decision.
+      assert.match(homeScreenSource, /useState<'warmup' \| 'cooldown' \| null>\(null\)/);
+      // A row: hairline top border, no fill and no corner radius. A card here
+      // is the thing that was just removed.
+      // Bounded to the block's own braces — an unbounded [\s\S]*? runs past
+      // the closing brace and reports whatever the next style happens to say.
+      const blockRow = /blockRow:\s*\{([^}]*)\}/.exec(homeScreenSource);
+      assert.ok(blockRow, 'blockRow style not found');
+      assert.match(blockRow[1], /borderTopWidth: 1/);
+      assert.doesNotMatch(blockRow[1], /borderRadius|backgroundColor/);
       assert.match(homeScreenSource, /styles\.heroList, rise\(RISE_SEC_BASE\)/);
       assert.match(
         homeScreenSource,

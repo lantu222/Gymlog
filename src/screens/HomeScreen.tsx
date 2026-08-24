@@ -24,7 +24,7 @@ import { HomeStatCard } from '../lib/homeStatCards';
 import { VinhaIcon } from '../components/VinhaIcon';
 import { getHomeMiniCalendarDays, getHomeMonthCalendar, HomeDaySessionSummary } from '../lib/homeCalendar';
 import { isScheduleKnown, TrainingSchedule, trainsOn, UNKNOWN_SCHEDULE } from '../lib/trainingSchedule';
-import { getSessionFocusTitle } from '../lib/homeSessionHero';
+import { getDefaultCooldown, getDefaultWarmup, getSessionFocusTitle } from '../lib/homeSessionHero';
 import {
   getGreetingRotation,
   isRotatingGreeting,
@@ -67,6 +67,73 @@ const RISE_DIVIDER = 7;
 const RISE_EMPTY_ROW = 10;
 
 const RISE_EASING = Easing.bezier(0.22, 1, 0.36, 1);
+
+/**
+ * Warmup or recovery, as a row rather than a card.
+ *
+ * The boxed accordions this replaces put three walls around content that was
+ * mostly a list of names; the row keeps the opening and drops the box. It
+ * stays flush with the lift rows above and below it, so an unopened block
+ * reads as one more line of the session rather than a section of its own.
+ */
+function BlockRow({
+  title,
+  meta,
+  drills,
+  open,
+  onToggle,
+  language,
+}: {
+  title: string;
+  meta: string;
+  drills: Array<{ name: string; schemeLabel: string }>;
+  open: boolean;
+  onToggle: () => void;
+  language: AppLanguage;
+}) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
+
+  if (drills.length === 0) {
+    return null;
+  }
+
+  return (
+    <View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={t(language, open ? 'home.a11y.collapseSection' : 'home.a11y.expandSection', { title })}
+        onPress={onToggle}
+        style={({ pressed }) => [styles.blockRow, pressed && styles.pressed]}
+      >
+        <Text style={styles.blockTitle}>{title}</Text>
+        <Text style={styles.blockMeta}>{meta}</Text>
+        <View style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }}>
+          <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="m6 9 6 6 6-6"
+              stroke={theme.faint}
+              strokeWidth={2.4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+        </View>
+      </Pressable>
+      {open
+        ? drills.map((drill, index) => (
+            <View key={`${drill.name}-${index}`} style={styles.blockDrillRow}>
+              <Text style={styles.blockDrillName} numberOfLines={1}>
+                {drill.name}
+              </Text>
+              <Text style={styles.blockDrillScheme}>{drill.schemeLabel}</Text>
+            </View>
+          ))
+        : null}
+    </View>
+  );
+}
 
 export interface HomeHistoryItem {
   id: string;
@@ -241,6 +308,11 @@ interface HomeScreenProps {
   doneThisWeekSessionIds?: string[];
   language?: AppLanguage;
   /**
+   * Equipment the reader actually has; null when setup never said. Keeps the
+   * default warmup honest — no rower for a bodyweight-only user.
+   */
+  availableEquipment?: string[] | null;
+  /**
    * What the log actually says, for the greeting. Defaults describe a fresh
    * account, so an unwired caller gets the first-run line rather than a
    * "welcome back" nobody earned.
@@ -314,6 +386,7 @@ export function HomeScreen({
   onOpenActivePlan,
   onOpenPlanSession,
   onSelectHistorySession,
+  availableEquipment = null,
   statCatalogCards = [],
   suggestedStatCardKeys = [],
   onDismissStatCardSuggestion,
@@ -359,6 +432,17 @@ export function HomeScreen({
   const [calendarExpanded, setCalendarExpanded] = useState(false);
   // Months away from today. Reset on close so reopening always lands on now.
   const [monthOffset, setMonthOffset] = useState(0);
+  /**
+   * Which of the two optional blocks is open.
+   *
+   * The three boxed accordions went on 2026-08-23 and the flat list that
+   * replaced them is the look the reader wants kept — but warmup and recovery
+   * had nowhere to live, and dropping them meant Home no longer said the
+   * session had any. They are back as rows rather than cards: a line, a count
+   * and a chevron, opening in place. Closed by default, because the lifts are
+   * the decision and these two are the answer to a second question.
+   */
+  const [openBlock, setOpenBlock] = useState<'warmup' | 'cooldown' | null>(null);
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
 
   const topCalendarDays = getHomeMiniCalendarDays(new Date(), language).slice(0, 6);
@@ -434,6 +518,11 @@ export function HomeScreen({
     return today ? `${today.weekdayLabel} ${stamp}` : stamp;
   }, [topCalendarDays]);
 
+  // Classified in App.tsx from the full exercise list; the five rows Home
+  // receives are not enough to work it out here.
+  const focusKind = nextPlanSession?.focusKind ?? 'general';
+  const warmup = getDefaultWarmup(focusKind, language, availableEquipment);
+  const cooldown = getDefaultCooldown(focusKind, language, availableEquipment);
   // Computed where the whole session was still in hand (App.tsx): Home only
   // receives the first five exercises, so a preview built here would quote a
   // shorter session than the one that starts.
@@ -936,11 +1025,22 @@ export function HomeScreen({
 
             </Animated.View>
 
-            {/* Today's lifts, flat on the surface (user 2026-08-23): the
-                three warmup/workout/cooldown boxes are gone. Warmup and
-                cooldown ride inside the guided session anyway; the lifts are
-                the decision, so Home shows them without a tap or a box. */}
+            {/* Today's session, flat on the surface (user 2026-08-23): the
+                three boxed accordions are gone. The lifts are the decision, so
+                they stand open with no tap and no card; warmup and recovery
+                are a second question, so they are rows that open in place. */}
             <Animated.View style={[styles.heroList, rise(RISE_SEC_BASE)]}>
+              <BlockRow
+                title={t(language, 'home.section.warmup')}
+                meta={t(language, 'home.section.warmupMeta', {
+                  count: warmup.drills.length,
+                  min: warmup.minutes,
+                })}
+                drills={warmup.drills}
+                open={openBlock === 'warmup'}
+                onToggle={() => setOpenBlock((current) => (current === 'warmup' ? null : 'warmup'))}
+                language={language}
+              />
               <Text style={styles.heroListMeta}>
                 {t(language, 'home.section.workoutMeta', { count: totalExerciseCount, sets: totalSets })}
               </Text>
@@ -996,6 +1096,17 @@ export function HomeScreen({
                   </Text>
                 </View>
               ) : null}
+              <BlockRow
+                title={t(language, 'home.section.cooldown')}
+                meta={t(language, 'home.section.cooldownMeta', {
+                  count: cooldown.drills.length,
+                  min: cooldown.minutes,
+                })}
+                drills={cooldown.drills}
+                open={openBlock === 'cooldown'}
+                onToggle={() => setOpenBlock((current) => (current === 'cooldown' ? null : 'cooldown'))}
+                language={language}
+              />
             </Animated.View>
           </>
         ) : null}
@@ -2073,6 +2184,51 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 17,
     fontWeight: '700',
     marginBottom: 4,
+    marginTop: 4,
+  },
+  // A row, not a card: same hairline the lift rows use, no fill, no radius.
+  blockRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 13,
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+  },
+  blockTitle: {
+    flex: 1,
+    color: theme.ink,
+    fontSize: 15,
+    lineHeight: 19,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  blockMeta: {
+    color: theme.faint,
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontWeight: '700',
+  },
+  blockDrillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 7,
+    paddingLeft: 2,
+  },
+  blockDrillName: {
+    flex: 1,
+    color: theme.muted,
+    fontSize: 13.5,
+    lineHeight: 18,
+    fontWeight: '600',
+  },
+  blockDrillScheme: {
+    color: theme.faint,
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontWeight: '700',
+    fontFamily: 'JetBrainsMono',
   },
   planExerciseRow: {
     flexDirection: 'row',
