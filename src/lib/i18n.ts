@@ -960,6 +960,7 @@ const EN = {
   'onb.days.cycle.on3off1': '3 training · 1 rest',
   'onb.days.cycle.on1off2': '1 training · 2 rest',
   'onb.days.cycleSummary': 'Repeats every {len} days — not tied to weekdays.',
+  'onb.days.cycleWeek': 'YOUR NEXT SEVEN DAYS',
   'onb.day.kicker': 'DAY {index} OF {count}',
   'onb.day.week': 'Week 1 of {weeks}',
   'onb.day.exerciseOne': '1 EXERCISE',
@@ -2273,7 +2274,6 @@ const EN = {
   // Asked once on the way in, right after "Let's begin". It used to be offered
   // on the way out of the Pro unlock screen, back when dark was a perk.
   'themeChoice.title': 'Light or dark?',
-  'themeChoice.body': 'Tap one — the switch is instant, and this is what the whole app will look like.',
   'themeChoice.light': 'Light',
   'themeChoice.dark': 'Dark',
   'themeChoice.done': 'Done',
@@ -4375,6 +4375,7 @@ const FI: Record<I18nKey, string> = {
   'onb.days.cycle.on3off1': '3 treeniä · 1 lepo',
   'onb.days.cycle.on1off2': '1 treeni · 2 lepoa',
   'onb.days.cycleSummary': 'Toistuu {len} päivän jaksoina — ei sidottu viikonpäiviin.',
+  'onb.days.cycleWeek': 'SEURAAVAT SEITSEMÄN PÄIVÄÄ',
   'onb.day.kicker': 'PÄIVÄ {index}/{count}',
   'onb.day.week': 'Viikko 1/{weeks}',
   'onb.day.exerciseOne': '1 LIIKE',
@@ -5592,7 +5593,6 @@ const FI: Record<I18nKey, string> = {
   'promo.heroSub': 'Lunasta tarjous- tai lahjakoodi.',
   'promo.proOn': 'Pro on käytössä',
   'themeChoice.title': 'Vaalea vai tumma?',
-  'themeChoice.body': 'Napauta jompaakumpaa — vaihto näkyy heti, ja tältä koko appi näyttää.',
   'themeChoice.light': 'Vaalea',
   'themeChoice.dark': 'Tumma',
   'themeChoice.done': 'Valmis',

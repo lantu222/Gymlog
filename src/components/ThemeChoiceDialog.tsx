@@ -47,8 +47,12 @@ export function ThemeChoiceDialog({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDone}>
       <View style={styles.overlay}>
         <View style={styles.dialog}>
+          {/* No explanatory line under the title (user 2026-08-24). It said
+              the tap was instant and that this is what the app looks like —
+              both of which the two live previews say by being live previews.
+              A caption that narrates the control below it is the caption the
+              control did not need. */}
           <Text style={styles.title}>{t(language, 'themeChoice.title')}</Text>
-          <Text style={styles.body}>{t(language, 'themeChoice.body')}</Text>
 
           <View style={styles.options}>
             <ThemeOption
@@ -154,13 +158,6 @@ const makeStyles = (theme: Theme) =>
       fontWeight: '800',
       letterSpacing: -0.6,
       lineHeight: 26,
-    },
-    body: {
-      color: theme.muted,
-      fontSize: 13.5,
-      fontWeight: '600',
-      lineHeight: 20,
-      marginTop: 8,
     },
     options: {
       flexDirection: 'row',

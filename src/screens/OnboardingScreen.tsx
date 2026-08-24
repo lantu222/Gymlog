@@ -3149,9 +3149,42 @@ export function OnboardingScreen({
             })}
           </View>
           {cyclePattern ? (
-            <Text style={styles.daysSummaryLine}>
-              {t(language, 'onb.days.cycleSummary', { len: cyclePattern.length })}
-            </Text>
+            <>
+              {/* Which weekdays the rhythm actually lands on (user
+                  2026-08-24). A cycle is defined without weekdays, which is
+                  the point of it — but "2 on, 1 off" is abstract until you
+                  see that it means training Mon, Tue, Thu, Fri, Sun this
+                  week. Read-only on purpose: tapping a day here would be the
+                  weekday picker again, and the two cannot both be the answer.
+                  Anchored on today, because that is when the cycle starts. */}
+              <Text style={styles.daysCycleLabel}>{t(language, 'onb.days.cycleWeek')}</Text>
+              <View style={styles.daysWeekRow}>
+                {Array.from({ length: 7 }).map((_, offset) => {
+                  const date = new Date();
+                  date.setDate(date.getDate() + offset);
+                  const trains = cyclePattern[offset % cyclePattern.length];
+                  const weekday = WEEKDAY_OPTIONS[(date.getDay() + 6) % 7];
+                  return (
+                    <View
+                      key={offset}
+                      accessible
+                      accessibilityLabel={`${getWeekdayShortLabel(weekday, language)}${t(
+                        language,
+                        trains ? 'setup.a11y.trainingDay' : 'setup.a11y.restDay',
+                      )}`}
+                      style={[styles.daysWeekCell, trains && styles.daysWeekCellActive]}
+                    >
+                      <Text style={[styles.daysWeekCellText, trains && styles.daysWeekCellTextActive]}>
+                        {t(language, WEEKDAY_LETTER_KEYS[weekday])}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+              <Text style={styles.daysSummaryLine}>
+                {t(language, 'onb.days.cycleSummary', { len: cyclePattern.length })}
+              </Text>
+            </>
           ) : null}
         </View>
       ),
