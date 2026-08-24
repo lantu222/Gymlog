@@ -2425,8 +2425,6 @@ function SetStepView({
    * feature not existing.
    */
   const heldForFatigue = untouched && !autoFromKg && !prefilledFrom && target?.heldForFatigue === true;
-  const heldForFeel =
-    untouched && !autoFromKg && !prefilledFrom && !heldForFatigue && target?.heldForFeel === true;
 
   return (
     <StepIn stepKey={`set-${stepIndex}`}>
@@ -2589,11 +2587,6 @@ function SetStepView({
                   <View style={styles.setHoldBadge}>
                     <GPIcon name="shield" size={13} color={theme.green} sw={2.2} />
                     <Text style={styles.setHoldBadgeText}>{t(language, 'guided.heldForRecovery')}</Text>
-                  </View>
-                ) : heldForFeel ? (
-                  <View style={styles.setHoldBadge}>
-                    <GPIcon name="shield" size={13} color={theme.green} sw={2.2} />
-                    <Text style={styles.setHoldBadgeText}>{t(language, 'guided.heldForFeel')}</Text>
                   </View>
                 ) : null}
             </View>

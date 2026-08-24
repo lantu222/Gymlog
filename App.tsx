@@ -286,7 +286,6 @@ import {
   ExerciseLogDraft,
   ExerciseTemplate,
   ExerciseTemplateDraft,
-  SessionFeel,
   SetupDaysPerWeek,
   SetupEquipment,
   SetupScheduleMode,
@@ -1564,24 +1563,6 @@ function VinhaApp() {
     () => toProgressionFatigueSignal(proFatigue),
     [proFatigue],
   );
-  /**
-   * The reader's own verdict on each finished session, for the gate.
-   *
-   * Only sessions that were actually answered go in. A session with no feel
-   * is left out of the map entirely rather than mapped to null, so "never
-   * asked" and "skipped" stay indistinguishable from each other and from
-   * "felt fine" — which is the honest state, since none of the three is a
-   * statement about the training.
-   */
-  const sessionFeelById = useMemo(() => {
-    const map: Record<string, SessionFeel> = {};
-    for (const session of database.workoutSessions) {
-      if (session.feel) {
-        map[session.id] = session.feel;
-      }
-    }
-    return map;
-  }, [database.workoutSessions]);
   const proPlateauLift = useMemo(() => detectPlateau(proLiftHistories), [proLiftHistories]);
   const proPlateau = useMemo(
     () =>
@@ -1947,7 +1928,6 @@ function VinhaApp() {
       workout.startCustomWorkout(runtimeTemplate, nextUnitPreference, {
         ...resolveProgressionOptions(preferences),
         fatigueSignal: progressionFatigueSignal,
-        sessionFeelById,
       });
       // Today's changes are spent the moment they are applied — an adaptation
       // is an answer about right now, and a stale one is worse than none.
@@ -2349,7 +2329,6 @@ function VinhaApp() {
       workout.startCustomWorkout(runtimeTemplate, unitPreference, {
         ...resolveProgressionOptions(preferences),
         fatigueSignal: progressionFatigueSignal,
-        sessionFeelById,
       });
       setSessionSwaps({});
       navigateToGuidedWorkout(workoutTemplateId);

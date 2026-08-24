@@ -1,7 +1,7 @@
 // Type-only, and explicitly so: this module now exports runtime predicates, and
 // format.ts imports them. Erasing these keeps workoutTypes a leaf at build time
 // instead of a node in a cycle through progressionGate and cardio.
-import type { SessionFeel, SetupLevel, UnitPreference } from '../../types/models';
+import type { SetupLevel, UnitPreference } from '../../types/models';
 import type { ProgressionFatigueSignal } from '../../lib/progressionGate';
 import type { ActiveCardioSession } from '../../lib/cardio';
 
@@ -126,15 +126,6 @@ export interface WorkoutSetInstance {
    * can perceive is not one they can knowingly pay for.
    */
   heldForFatigue?: boolean;
-  /**
-   * The load would have moved up, and the reader called the last session too
-   * hard.
-   *
-   * Separate from heldForFatigue so the badge can name the reason. One is the
-   * app's recovery model deciding; this one is the reader's own answer coming
-   * back to them, which is the only way they can tell it was read at all.
-   */
-  heldForFeel?: boolean;
   /**
    * When the prefill came from the same lift in a DIFFERENT slot — another
    * program, another day, an empty workout — this is when that session was
@@ -340,15 +331,6 @@ export interface WorkoutProgressionOptions {
    * mid-session would only let a load move for a reason the user never sees.
    */
   fatigueSignal?: ProgressionFatigueSignal;
-  /**
-   * How finished sessions felt, keyed by session id.
-   *
-   * A map rather than one value because each slot was last trained in its own
-   * session: the squat's last outing and the bench's last outing are usually
-   * different days with different answers, and collapsing them to "the last
-   * workout" would apply one lift's verdict to another.
-   */
-  sessionFeelById?: Record<string, SessionFeel | null>;
 }
 
 export interface WorkoutSessionMaterializeOptions {
@@ -365,6 +347,4 @@ export interface WorkoutSessionMaterializeOptions {
   setupLevel?: SetupLevel | null;
   /** Recovery at session start; holds an earned progression when high. */
   fatigueSignal?: ProgressionFatigueSignal;
-  /** How finished sessions felt, keyed by session id. */
-  sessionFeelById?: Record<string, SessionFeel | null>;
 }

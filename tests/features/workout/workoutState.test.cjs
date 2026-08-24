@@ -549,24 +549,28 @@ module.exports = [
   },
   {
     /**
-     * The gate can be right and still never fire: the fatigue holds sat in
-     * progressionGate for months while nothing passed a signal in. This walks
-     * the actual reducer so the feel has to survive every hop between the
-     * start action and the set — payload, materialize options, gate call.
+     * The gate can be right and the badge still never appear.
+     * materializeExercise builds each set by listing its fields by hand, and
+     * heldForFatigue was never on that list: the gate computed the hold,
+     * resolveHistoricalSetDraft carried it, and the set dropped it. So the
+     * recovery badge — a Pro behaviour the paywall sells by name — had never
+     * once been shown. Guarded here rather than in the gate's own tests,
+     * because the gate was right the whole time; it was the hop into the set
+     * that lost it.
      */
-    name: 'the feel of the session a slot was last trained in reaches that slot\'s prefill',
+    name: 'a recovery hold survives the hop from the gate into the set',
     run() {
       const SLOT = 'primary_press_1';
       const DAY_MS = 86400000;
       const now = Date.parse('2026-08-24T09:00:00.000Z');
-      const ceilingEntry = (daysAgo, sessionId) => ({
+      const ceilingEntry = (daysAgo) => ({
         slotId: SLOT,
         templateId: 'tpl',
         templateName: 'Push',
         exerciseName: 'Bench Press',
         substitutionGroup: 'horizontal_press',
         performedAt: new Date(now - daysAgo * DAY_MS).toISOString(),
-        sessionId,
+        sessionId: 'sess-' + daysAgo,
         sets: [0, 1, 2].map((setIndex) => ({
           setIndex,
           loadKg: 60,
@@ -576,84 +580,65 @@ module.exports = [
         skipped: false,
       });
 
-      const template = {
-        id: 'tpl',
-        name: 'Push',
-        defaultScheduleMode: 'weekday',
-        sessions: [
-          {
-            id: 'push_a',
-            name: 'Push A',
-            orderIndex: 1,
-            exercises: [
-              {
-                id: 'ex_bench',
-                exerciseName: 'Bench Press',
-                slotId: SLOT,
-                role: 'primary',
-                progressionPriority: 'high',
-                trackingMode: 'load_and_reps',
-                sets: 3,
-                repsMin: 8,
-                repsMax: 12,
-                restSecondsMin: 120,
-                restSecondsMax: 150,
-                substitutionGroup: 'horizontal_press',
-              },
-            ],
-          },
-        ],
-      };
-
-      const start = (sessionFeelById, fatigueSignal) =>
+      const start = (fatigueSignal) =>
         workoutReducer(
           {
             ...workoutInitialState,
             history: {
               sessions: [],
               lastSelectedTemplateId: null,
-              slotHistory: { [SLOT]: [ceilingEntry(0, 'sess-latest'), ceilingEntry(3, 'sess-older')] },
+              slotHistory: { [SLOT]: [ceilingEntry(0), ceilingEntry(3)] },
             },
           },
           {
             type: 'session/startFromRuntimeTemplate',
             payload: {
-              template,
+              template: {
+                id: 'tpl',
+                name: 'Push',
+                defaultScheduleMode: 'weekday',
+                sessions: [
+                  {
+                    id: 'push_a',
+                    name: 'Push A',
+                    orderIndex: 1,
+                    exercises: [
+                      {
+                        id: 'ex_bench',
+                        exerciseName: 'Bench Press',
+                        slotId: SLOT,
+                        role: 'primary',
+                        progressionPriority: 'high',
+                        trackingMode: 'load_and_reps',
+                        sets: 3,
+                        repsMin: 8,
+                        repsMax: 12,
+                        restSecondsMin: 120,
+                        restSecondsMax: 150,
+                        substitutionGroup: 'horizontal_press',
+                      },
+                    ],
+                  },
+                ],
+              },
               sessionOrderIndex: 1,
               unitPreference: 'kg',
               progression: {
                 automatedProgressionEnabled: true,
                 setupLevel: 'beginner',
-                sessionFeelById,
                 fatigueSignal,
               },
             },
           },
         ).activeSession.exercises[0].sets[0];
 
-      // Both sessions cleared the ceiling, so the load has earned its jump.
-      const unanswered = start(undefined);
-      assert.equal(unanswered.plannedLoadKg, 62.5);
-      assert.equal(unanswered.heldForFeel, undefined);
+      // Both sessions cleared the ceiling: rested, the load moves.
+      const rested = start(undefined);
+      assert.equal(rested.plannedLoadKg, 62.5);
+      assert.equal(rested.heldForFatigue, undefined);
 
-      // The reader called that session too hard: the load stays, and the set
-      // carries the reason so the badge can name it.
-      const tooHard = start({ 'sess-latest': 'too_hard' });
-      assert.equal(tooHard.plannedLoadKg, 60);
-      assert.equal(tooHard.heldForFeel, true);
-
-      // A verdict on some OTHER session must not reach this slot — that is the
-      // whole reason the option is a map and not one value.
-      const otherSession = start({ 'sess-unrelated': 'too_hard' });
-      assert.equal(otherSession.plannedLoadKg, 62.5);
-      assert.equal(otherSession.heldForFeel, undefined);
-
-      // The recovery hold rides the same path and had been falling off it:
-      // the set was assembled field by field and this one was never listed,
-      // so the Pro badge the paywall sells by name could not appear. Guarded
-      // here rather than in the gate's own tests, because the gate was right
-      // the whole time — it was the hop into the set that lost it.
-      const cooked = start(undefined, 'high');
+      // Cooked: the load stays AND the set says why.
+      const cooked = start('high');
       assert.equal(cooked.plannedLoadKg, 60);
       assert.equal(cooked.heldForFatigue, true);
     },

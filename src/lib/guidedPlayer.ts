@@ -445,11 +445,6 @@ export interface GuidedSetTarget {
    * number themselves, the app has no claim on it either way.
    */
   heldForFatigue: boolean;
-  /**
-   * The load had earned a jump and the reader's own "too hard" held it. Same
-   * "only while untouched" rule as the others.
-   */
-  heldForFeel: boolean;
 }
 
 export interface GuidedNextPreview {
@@ -559,7 +554,6 @@ export function resolveGuidedSetTarget(
     draftRepsText: string;
     autoProgressedFromKg?: number;
     heldForFatigue?: boolean;
-    heldForFeel?: boolean;
     prefilledFromPerformedAt?: string;
     actualLoadKg?: number;
     actualReps?: number;
@@ -597,7 +591,6 @@ export function resolveGuidedSetTarget(
       autoProgressedFromKg: null,
       prefilledFromPerformedAt: null,
       heldForFatigue: false,
-      heldForFeel: false,
     };
   }
 
@@ -614,7 +607,6 @@ export function resolveGuidedSetTarget(
     autoProgressedFromKg: untouched && set.autoProgressedFromKg !== undefined ? set.autoProgressedFromKg : null,
     prefilledFromPerformedAt: untouched ? set.prefilledFromPerformedAt ?? null : null,
     heldForFatigue: untouched && set.heldForFatigue === true,
-    heldForFeel: untouched && set.heldForFeel === true,
   };
 }
 
