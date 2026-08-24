@@ -21,6 +21,8 @@ import {
   ViewStyle,
 } from 'react-native';
 import { HG } from '../lightTheme';
+import { useThemeName } from '../theming';
+import { HG_DARK } from '../darkTheme';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { BadgePill, SurfaceAccent, SurfaceCard } from '../components/MainScreenPrimitives';
@@ -175,21 +177,130 @@ function getQuestionnaireStepLabel(stage: SetupStage, language: AppLanguage) {
   return t(language, 'onb.stepLabel', { index: index + 1, count: ONBOARDING_PROGRESS_STAGES.length });
 }
 
-// Light redesign palette (HG tokens from the design handoff).
-const ONBOARDING_PANEL = HG.bg;
-const ONBOARDING_BG = ONBOARDING_PANEL;
-const ONBOARDING_TOP = ONBOARDING_PANEL;
-const ONBOARDING_CARD = '#FFFFFF';
-const ONBOARDING_CARD_ACTIVE = '#EFE7FF';
-const ONBOARDING_PRIMARY = '#7C3AED';
-const ONBOARDING_PRIMARY_SOFT = 'rgba(124,58,237,0.14)';
-const ONBOARDING_TEXT = '#101828';
-// Emphasis treatment (user-approved on Welcome/StartPath/Health): secondary
-// copy runs darker than the old #667085 so it stays legible on dim displays.
-const ONBOARDING_TEXT_SOFT = '#475467';
-const ONBOARDING_TEXT_MUTED = '#9A93AC';
-const ONBOARDING_BORDER = '#E4D8FF';
-const ONBOARDING_BORDER_ACTIVE = '#7C3AED';
+/**
+ * Onboarding's own palette, in two.
+ *
+ * The questionnaire was built light and signed off light, so the light values
+ * below are the originals to the digit — deliberately NOT remapped onto the
+ * app's `Theme` tokens, which are close but not identical (`#7C3AED` against
+ * `theme.purple`'s `#6D28D9`, and so on). Remapping would have quietly
+ * restyled a flow nobody asked to restyle.
+ *
+ * Dark exists because the theme is chosen one tap after "Let's begin"
+ * (2026-08-23), and a reader who picks dark and is then walked through eight
+ * white screens has been told one thing and shown another. It is tuned to sit
+ * beside the app's dark theme rather than to invert the light one: same
+ * near-black ground, same lifted surfaces, the purple brightened so it still
+ * reads as the accent against a dark card.
+ */
+interface OnbPalette {
+  panel: string;
+  card: string;
+  cardActive: string;
+  primary: string;
+  primarySoft: string;
+  text: string;
+  textSoft: string;
+  textMuted: string;
+  border: string;
+  borderActive: string;
+  /** Unfilled progress dots and bar tracks. */
+  trackIdle: string;
+  /** The level slider's groove, a shade warmer than trackIdle. */
+  sliderTrack: string;
+  /** A grey (not lilac) tile — the avoid step's body-part squares. */
+  neutralTile: string;
+  /**
+   * The near-black "chosen" fill on the about-you checks, and what is legible
+   * on it. In dark a near-black fill on a dark card is no fill at all, so the
+   * pair inverts to the light ink with dark type on it.
+   */
+  inkStrong: string;
+  onInkStrong: string;
+  /** The chosen row on the personalization list, and its title. */
+  optionActive: string;
+  onOptionActive: string;
+  /** Focus-tag tints, which carry coloured type and cannot go white-on-white. */
+  badgeNeutral: string;
+  badgeBlue: string;
+  badgePurple: string;
+  /** The week-preview glyph's bars. */
+  previewBar: string;
+  /** The chosen about-you row's background. */
+  rowActive: string;
+}
+
+const ONB_LIGHT: OnbPalette = {
+  panel: HG.bg,
+  card: '#FFFFFF',
+  cardActive: '#EFE7FF',
+  primary: '#7C3AED',
+  primarySoft: 'rgba(124,58,237,0.14)',
+  text: '#101828',
+  // Emphasis treatment (user-approved on Welcome/StartPath/Health): secondary
+  // copy runs darker than the old #667085 so it stays legible on dim displays.
+  textSoft: '#475467',
+  textMuted: '#9A93AC',
+  border: '#E4D8FF',
+  borderActive: '#7C3AED',
+  trackIdle: '#E6DEF6',
+  sliderTrack: '#EDE6FB',
+  neutralTile: '#F1F0F4',
+  inkStrong: '#06080B',
+  onInkStrong: '#FFFFFF',
+  optionActive: '#F4FAFF',
+  onOptionActive: '#0B0F14',
+  badgeNeutral: '#F2ECFF',
+  badgeBlue: '#E1ECFB',
+  badgePurple: '#EFE7FF',
+  previewBar: '#F3F7FF',
+  rowActive: '#F7F8FA',
+};
+
+const ONB_DARK: OnbPalette = {
+  panel: HG_DARK.bg,
+  card: HG_DARK.surface,
+  cardActive: HG_DARK.purpleLight,
+  primary: HG_DARK.purple,
+  primarySoft: 'rgba(155,109,255,0.18)',
+  text: HG_DARK.ink,
+  textSoft: HG_DARK.muted,
+  textMuted: HG_DARK.faint,
+  border: HG_DARK.border,
+  borderActive: HG_DARK.purple,
+  trackIdle: HG_DARK.border,
+  sliderTrack: HG_DARK.surfaceSoft,
+  neutralTile: HG_DARK.surfaceSoft,
+  // Inverted deliberately: the light palette fills the chosen check near-black
+  // with white type, and the dark one fills it near-white with dark type. A
+  // near-black fill on a near-black card is an invisible "chosen" state.
+  inkStrong: HG_DARK.ink,
+  onInkStrong: HG_DARK.bg,
+  optionActive: HG_DARK.purpleLight,
+  onOptionActive: HG_DARK.ink,
+  badgeNeutral: HG_DARK.surfaceSoft,
+  badgeBlue: 'rgba(10,132,255,0.20)',
+  badgePurple: HG_DARK.purpleLight,
+  previewBar: HG_DARK.surfaceSoft,
+  rowActive: HG_DARK.surfaceSoft,
+};
+
+/** Forward reference: the sheet factory is defined with the styles, at the foot. */
+type OnbStyles = ReturnType<typeof makeOnboardingStyles>;
+
+/**
+ * The palette and the matching sheet, for any component in this file.
+ *
+ * Onboarding paints from its own constants rather than the app `Theme`, so it
+ * cannot use `useThemedStyles` — but it still has to follow the theme the
+ * reader picked one screen ago, which is what this reads.
+ */
+function useOnboardingPalette(): { C: OnbPalette; styles: OnbStyles } {
+  const dark = useThemeName() === 'dark';
+  return dark
+    ? { C: ONB_DARK, styles: ONBOARDING_STYLES.dark }
+    : { C: ONB_LIGHT, styles: ONBOARDING_STYLES.light };
+}
 function formatPlanReadyExercisePrescription(exercise: {
   sets: number;
   repsMin: number;
@@ -638,7 +749,7 @@ const GOAL_SELECTION_OPTIONS: Array<{
   tags: option.tags,
 }));
 
-function getLocationFocusBadgeStyle(tone: FocusBadgeTone) {
+function getLocationFocusBadgeStyle(styles: OnbStyles, tone: FocusBadgeTone) {
   switch (tone) {
     case 'green':
       return styles.locationFocusBadgeGreen;
@@ -652,7 +763,7 @@ function getLocationFocusBadgeStyle(tone: FocusBadgeTone) {
   }
 }
 
-function getLocationFocusBadgeTextStyle(tone: FocusBadgeTone) {
+function getLocationFocusBadgeTextStyle(styles: OnbStyles, tone: FocusBadgeTone) {
   switch (tone) {
     case 'green':
       return styles.locationFocusBadgeTextGreen;
@@ -701,6 +812,7 @@ function ChoiceChip({
   active: boolean;
   onPress: () => void;
 }) {
+  const { styles } = useOnboardingPalette();
   return (
     <Pressable onPress={onPress} style={[styles.choiceChip, active && styles.choiceChipActive]}>
       <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>{label}</Text>
@@ -741,6 +853,7 @@ function LocationChoiceCard({
   leadingRadio?: boolean;
   tall?: boolean;
 }) {
+  const { C, styles } = useOnboardingPalette();
   const focusBadge = normalizeFocusBadge(focusLabel, focusTone);
   const normalizedTags = (tags ?? [])
     .map((tag) => normalizeFocusBadge(tag, 'neutral'))
@@ -772,7 +885,7 @@ function LocationChoiceCard({
     >
       {active ? (
         <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
-          <Path d="M5 12l5 5L19 7" stroke={ONBOARDING_PRIMARY} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+          <Path d="M5 12l5 5L19 7" stroke={C.primary} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
         </Svg>
       ) : null}
     </View>
@@ -800,10 +913,10 @@ function LocationChoiceCard({
                 {label}
               </Text>
               {focusBadge ? (
-                <View style={[styles.locationFocusBadge, getLocationFocusBadgeStyle(focusBadge.tone), active && styles.locationFocusBadgeOnActive]}>
+                <View style={[styles.locationFocusBadge, getLocationFocusBadgeStyle(styles, focusBadge.tone), active && styles.locationFocusBadgeOnActive]}>
                   <Text
                     numberOfLines={1}
-                    style={[styles.locationFocusBadgeText, getLocationFocusBadgeTextStyle(focusBadge.tone), active && styles.locationFocusBadgeTextOnActive]}
+                    style={[styles.locationFocusBadgeText, getLocationFocusBadgeTextStyle(styles, focusBadge.tone), active && styles.locationFocusBadgeTextOnActive]}
                   >
                     {focusBadge.label}
                   </Text>
@@ -818,10 +931,10 @@ function LocationChoiceCard({
                 {normalizedTags.map((tag, index) => (
                   <View
                     key={`${tag.label}:${tag.tone}:${index}`}
-                    style={[styles.locationFocusBadge, getLocationFocusBadgeStyle(tag.tone), active && styles.locationFocusBadgeChipOnActive]}
+                    style={[styles.locationFocusBadge, getLocationFocusBadgeStyle(styles, tag.tone), active && styles.locationFocusBadgeChipOnActive]}
                   >
                     <Text
-                      style={[styles.locationFocusBadgeText, getLocationFocusBadgeTextStyle(tag.tone), active && styles.locationFocusBadgeChipTextOnActive]}
+                      style={[styles.locationFocusBadgeText, getLocationFocusBadgeTextStyle(styles, tag.tone), active && styles.locationFocusBadgeChipTextOnActive]}
                     >
                       {tag.label}
                     </Text>
@@ -860,6 +973,7 @@ function SetupOptionCard({
   accessibilityLabel?: string;
   onPress: () => void;
 }) {
+  const { styles } = useOnboardingPalette();
   const hasBackground = Boolean(backgroundSource);
   const hasFocusImage = Boolean(focusImageSource);
   const iconImage = hasBackground && imageMode === 'icon';
@@ -1059,6 +1173,7 @@ function ProfileCheckRow({
   active: boolean;
   onPress: () => void;
 }) {
+  const { styles } = useOnboardingPalette();
   return (
     <Pressable onPress={onPress} style={[styles.profileCheckRow, active && styles.profileCheckRowActive]}>
       <View style={[styles.profileCheckBox, active && styles.profileCheckBoxActive]}>
@@ -1151,6 +1266,7 @@ function getAgeRangeFromAge(age: number): SetupAgeRange {
 }
 
 function PreviewGlyph({ dayCount }: { dayCount: number }) {
+  const { styles } = useOnboardingPalette();
   const bars = dayCount >= 4 ? [20, 30, 24, 30] : dayCount === 2 ? [18, 28, 0, 22] : [18, 28, 18, 26];
   return (
     <View style={styles.previewGlyph}>
@@ -1226,6 +1342,7 @@ const LEVEL_FIELD_WIDTH = 280;
  * layer, like `AmbientDrift`: a row of parked bars is stranger than none.
  */
 function LevelStreaks({ levelIndex }: { levelIndex: number }) {
+  const { C, styles } = useOnboardingPalette();
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
   const bars = LEVEL_STREAKS[levelIndex] ?? LEVEL_STREAKS[0];
   // One value per bar in the WIDEST tier, so switching level never changes the
@@ -1316,7 +1433,7 @@ function LevelStreaks({ levelIndex }: { levelIndex: number }) {
               width: bar.width,
               height: bar.height,
               opacity: fades[index],
-              backgroundColor: bar.accent ? ONBOARDING_PRIMARY : ONBOARDING_TEXT,
+              backgroundColor: bar.accent ? C.primary : C.text,
               transform: [{ translateX: sweeps[index] }],
             },
           ]}
@@ -1327,6 +1444,7 @@ function LevelStreaks({ levelIndex }: { levelIndex: number }) {
 }
 
 function StepDots({ index, light = false }: { index: number; light?: boolean }) {
+  const { styles } = useOnboardingPalette();
   return (
     <View style={styles.pagination}>
       {ONBOARDING_PROGRESS_STAGES.map((stage, stageIndex) => (
@@ -1435,9 +1553,10 @@ function getTrainingProfileSetupSummary(level: SetupLevel, daysPerWeek: SetupDay
 }
 
 function TrainingSetupMetric({ icon, label }: { icon: VinhaIconName; label: string }) {
+  const { C, styles } = useOnboardingPalette();
   return (
     <View style={styles.trainingSetupMetric}>
-      <VinhaIcon name={icon} size={18} color={ONBOARDING_PRIMARY} />
+      <VinhaIcon name={icon} size={18} color={C.primary} />
       <Text style={styles.trainingSetupMetricText}>{label}</Text>
     </View>
   );
@@ -1461,6 +1580,7 @@ export function OnboardingScreen({
   onCompleteToCustom,
   onCancel,
 }: OnboardingScreenProps) {
+  const { C, styles } = useOnboardingPalette();
   const insets = useSafeAreaInsets();
   // Catalog keys resolved once per language for the helpers that want plain
   // labels (caution summaries, focus rows).
@@ -2734,7 +2854,7 @@ export function OnboardingScreen({
             <View style={styles.levelLogoRow}>
               {/* Onboarding is light-only and paints from its own constants,
                   so the mark takes them rather than the theme's near-matches. */}
-              <VinhaWordmark size={44} fitness color={ONBOARDING_TEXT} accentColor={ONBOARDING_PRIMARY} />
+              <VinhaWordmark size={44} fitness color={C.text} accentColor={C.primary} />
             </View>
           </View>
 
@@ -3067,7 +3187,7 @@ export function OnboardingScreen({
           style={styles.avoidRowHeader}
         >
           <View style={[styles.avoidRowTile, colors ? { backgroundColor: colors.soft } : null]}>
-            <CautionGlyph color={colors ? colors.ink : ONBOARDING_TEXT_MUTED} />
+            <CautionGlyph color={colors ? colors.ink : C.textMuted} />
           </View>
           <View style={styles.avoidRowCopy}>
             <Text style={[styles.avoidRowTitle, colors ? { color: colors.ink } : null]}>{areaLabel}</Text>
@@ -3321,12 +3441,12 @@ export function OnboardingScreen({
         <View style={styles.planReadyDayMetaRow}>
           {dayDuration ? (
             <View style={styles.planReadyDayMetaItem}>
-              <VinhaIcon name="tempo" color={ONBOARDING_TEXT_SOFT} size={15} />
+              <VinhaIcon name="tempo" color={C.textSoft} size={15} />
               <Text style={styles.planReadyDayMetaText}>{dayDuration}</Text>
             </View>
           ) : null}
           <View style={styles.planReadyDayMetaItem}>
-            <VinhaIcon name="progress" color={ONBOARDING_TEXT_SOFT} size={15} />
+            <VinhaIcon name="progress" color={C.textSoft} size={15} />
             <Text style={styles.planReadyDayMetaText}>{levelLabel}</Text>
           </View>
         </View>
@@ -3454,7 +3574,7 @@ export function OnboardingScreen({
                   </Text>
                   <View style={[styles.focusListRadio, active && styles.focusListRadioActive]}>
                     {active ? (
-                      <VinhaIcon name="check" size={12} color={cautionColors ? cautionColors.ink : ONBOARDING_PRIMARY} />
+                      <VinhaIcon name="check" size={12} color={cautionColors ? cautionColors.ink : C.primary} />
                     ) : null}
                   </View>
                 </Pressable>
@@ -4087,7 +4207,7 @@ export function OnboardingScreen({
 
             {/* The "Takaisin" link that sat here moved to the top-left chevron. */}
           </>
-          {busy ? <ActivityIndicator color={ONBOARDING_TEXT} size="small" /> : null}
+          {busy ? <ActivityIndicator color={C.text} size="small" /> : null}
         </View>
       ) : null}
 
@@ -4174,18 +4294,25 @@ export function OnboardingScreen({
   );
 }
 
-const styles = StyleSheet.create({
+/**
+ * Built once per palette at module load, not per render.
+ *
+ * Two StyleSheets rather than a `useThemedStyles` factory because this sheet
+ * is ~2200 entries: registering it on every theme read would be the most
+ * expensive thing on the screen, and there are exactly two possible answers.
+ */
+const makeOnboardingStyles = (C: OnbPalette) => StyleSheet.create({
   root: {
     flex: 1,
   },
   rootLight: {
-    backgroundColor: ONBOARDING_BG,
+    backgroundColor: C.panel,
   },
   scrollView: {
     flex: 1,
   },
   scrollViewLight: {
-    backgroundColor: ONBOARDING_BG,
+    backgroundColor: C.panel,
   },
   scrollContent: {
     paddingHorizontal: spacing.lg,
@@ -4214,22 +4341,22 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 5,
     borderRadius: radii.pill,
-    backgroundColor: '#E6DEF6',
+    backgroundColor: C.trackIdle,
   },
   dotLight: {
-    backgroundColor: '#E6DEF6',
+    backgroundColor: C.trackIdle,
   },
   dotActive: {
-    backgroundColor: ONBOARDING_PRIMARY,
+    backgroundColor: C.primary,
   },
   dotActiveLight: {
-    backgroundColor: ONBOARDING_PRIMARY,
+    backgroundColor: C.primary,
   },
   stageBody: {
     gap: spacing.lg,
   },
   locationStageShell: {
-    backgroundColor: ONBOARDING_PANEL,
+    backgroundColor: C.panel,
     marginHorizontal: -spacing.lg,
     overflow: 'hidden',
   },
@@ -4238,11 +4365,11 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: ONBOARDING_TOP,
+    backgroundColor: C.panel,
     zIndex: 10,
   },
   locationTopPane: {
-    backgroundColor: ONBOARDING_TOP,
+    backgroundColor: C.panel,
     // The back chevron sits in the corner above this pane (40 tall + its gap).
     // Every stage's bar and title used to start level with it once the footer
     // "Takaisin" link moved up there; the whole pane steps down instead, so no
@@ -4273,7 +4400,7 @@ const styles = StyleSheet.create({
     right: -12,
     bottom: -36,
     height: 72,
-    backgroundColor: ONBOARDING_PANEL,
+    backgroundColor: C.panel,
     transform: [{ rotate: '-4deg' }],
   },
   locationTopCopy: {
@@ -4290,7 +4417,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   locationStepLabel: {
-    color: ONBOARDING_PRIMARY,
+    color: C.primary,
     fontSize: 12.5,
     lineHeight: 15,
     fontWeight: '800',
@@ -4302,7 +4429,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   locationHeadline: {
-    color: ONBOARDING_TEXT,
+    color: C.text,
     fontSize: 28,
     lineHeight: 32,
     fontWeight: '800',
@@ -4319,7 +4446,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.56,
   },
   locationBottomPane: {
-    backgroundColor: ONBOARDING_PANEL,
+    backgroundColor: C.panel,
     paddingHorizontal: spacing.lg * 2 - 14,
     paddingTop: 0,
   },
@@ -4333,9 +4460,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   equipmentExpandedCard: {
-    backgroundColor: ONBOARDING_CARD,
+    backgroundColor: C.card,
     borderWidth: 2,
-    borderColor: ONBOARDING_BORDER_ACTIVE,
+    borderColor: C.borderActive,
     borderRadius: 18,
     padding: 16,
   },
@@ -4350,13 +4477,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   equipmentExpandedTitle: {
-    color: ONBOARDING_TEXT,
+    color: C.text,
     fontSize: 17,
     lineHeight: 21,
     fontWeight: '800',
   },
   equipmentExpandedCount: {
-    color: ONBOARDING_PRIMARY,
+    color: C.primary,
     fontSize: 12,
     lineHeight: 15,
     fontWeight: '800',
@@ -4365,14 +4492,14 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: ONBOARDING_PRIMARY,
+    backgroundColor: C.primary,
     borderWidth: 1.5,
     borderColor: '#5B21B6',
     alignItems: 'center',
     justifyContent: 'center',
   },
   equipmentChipsPrompt: {
-    color: ONBOARDING_TEXT_SOFT,
+    color: C.textSoft,
     fontSize: 12,
     lineHeight: 15,
     fontWeight: '700',
@@ -4390,17 +4517,17 @@ const styles = StyleSheet.create({
     gap: 5,
     borderRadius: 999,
     borderWidth: 1.5,
-    borderColor: ONBOARDING_BORDER,
-    backgroundColor: ONBOARDING_CARD,
+    borderColor: C.border,
+    backgroundColor: C.card,
     paddingVertical: 7,
     paddingHorizontal: 12,
   },
   equipmentChipActive: {
-    borderColor: ONBOARDING_BORDER_ACTIVE,
-    backgroundColor: ONBOARDING_CARD_ACTIVE,
+    borderColor: C.borderActive,
+    backgroundColor: C.cardActive,
   },
   equipmentChipText: {
-    color: ONBOARDING_TEXT_SOFT,
+    color: C.textSoft,
     fontSize: 12.5,
     lineHeight: 16,
     fontWeight: '700',
@@ -4410,7 +4537,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   equipmentOrChooseLabel: {
-    color: ONBOARDING_TEXT_MUTED,
+    color: C.textMuted,
     fontSize: 11,
     lineHeight: 14,
     fontWeight: '800',
@@ -4449,7 +4576,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   levelTitle: {
-    color: ONBOARDING_TEXT,
+    color: C.text,
     fontSize: 22,
     lineHeight: 27,
     fontWeight: '800',
@@ -4457,7 +4584,7 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   levelLine: {
-    color: ONBOARDING_TEXT_SOFT,
+    color: C.textSoft,
     fontSize: 13.5,
     lineHeight: 18.5,
     fontWeight: '600',
@@ -4466,7 +4593,7 @@ const styles = StyleSheet.create({
   levelSliderTrack: {
     flexDirection: 'row',
     alignSelf: 'stretch',
-    backgroundColor: '#EDE6FB',
+    backgroundColor: C.sliderTrack,
     borderRadius: 999,
     padding: 4,
     marginTop: 22,
@@ -4478,8 +4605,8 @@ const styles = StyleSheet.create({
     bottom: 4,
     left: 4,
     borderRadius: 999,
-    backgroundColor: ONBOARDING_PRIMARY,
-    shadowColor: ONBOARDING_PRIMARY,
+    backgroundColor: C.primary,
+    shadowColor: C.primary,
     shadowOpacity: 0.32,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
@@ -4499,11 +4626,11 @@ const styles = StyleSheet.create({
    * so the choice looks like three buttons, which is what it is.
    */
   levelSliderSegmentIdle: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.card,
     marginHorizontal: 2,
   },
   levelSliderLabel: {
-    color: ONBOARDING_TEXT_SOFT,
+    color: C.textSoft,
     fontSize: 14,
     fontWeight: '800',
   },
@@ -4511,7 +4638,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   levelSliderHint: {
-    color: ONBOARDING_TEXT_MUTED,
+    color: C.textMuted,
     fontSize: 12,
     lineHeight: 15,
     fontWeight: '600',
@@ -4525,14 +4652,14 @@ const styles = StyleSheet.create({
   },
   levelYearsText: {
     flex: 1,
-    color: ONBOARDING_TEXT_MUTED,
+    color: C.textMuted,
     fontSize: 11.5,
     lineHeight: 14,
     fontWeight: '700',
     textAlign: 'center',
   },
   levelYearsTextActive: {
-    color: ONBOARDING_PRIMARY,
+    color: C.primary,
     fontWeight: '800',
   },
   daysChipRow: {
@@ -4549,22 +4676,22 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 15,
     borderWidth: 1.5,
-    borderColor: ONBOARDING_BORDER,
-    backgroundColor: ONBOARDING_CARD,
+    borderColor: C.border,
+    backgroundColor: C.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
   daysChipActive: {
-    borderColor: ONBOARDING_PRIMARY,
-    backgroundColor: ONBOARDING_PRIMARY,
-    shadowColor: ONBOARDING_PRIMARY,
+    borderColor: C.primary,
+    backgroundColor: C.primary,
+    shadowColor: C.primary,
     shadowOpacity: 0.28,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
     elevation: 5,
   },
   daysChipText: {
-    color: ONBOARDING_TEXT,
+    color: C.text,
     fontSize: 18,
     fontWeight: '800',
   },
@@ -4573,16 +4700,16 @@ const styles = StyleSheet.create({
   },
   daysChipRecommended: {
     borderColor: '#C9B6FF',
-    backgroundColor: ONBOARDING_PRIMARY_SOFT,
+    backgroundColor: C.primarySoft,
   },
   daysChipCaption: {
-    color: ONBOARDING_PRIMARY,
+    color: C.primary,
     fontSize: 9.5,
     lineHeight: 12,
     fontWeight: '800',
   },
   daysWeekLabel: {
-    color: ONBOARDING_TEXT,
+    color: C.text,
     fontSize: 12.5,
     lineHeight: 16,
     fontWeight: '800',
@@ -4599,17 +4726,17 @@ const styles = StyleSheet.create({
     height: 46,
     borderRadius: 13,
     borderWidth: 1.5,
-    borderColor: ONBOARDING_BORDER,
-    backgroundColor: ONBOARDING_CARD,
+    borderColor: C.border,
+    backgroundColor: C.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
   daysWeekCellActive: {
-    borderColor: ONBOARDING_PRIMARY,
-    backgroundColor: ONBOARDING_PRIMARY,
+    borderColor: C.primary,
+    backgroundColor: C.primary,
   },
   daysWeekCellText: {
-    color: ONBOARDING_TEXT_SOFT,
+    color: C.textSoft,
     fontSize: 14,
     fontWeight: '800',
   },
@@ -4617,7 +4744,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   daysSummaryLine: {
-    color: ONBOARDING_TEXT_SOFT,
+    color: C.textSoft,
     fontSize: 13,
     lineHeight: 17,
     fontWeight: '700',
@@ -4625,7 +4752,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   daysCycleLabel: {
-    color: ONBOARDING_TEXT,
+    color: C.text,
     fontSize: 12.5,
     lineHeight: 16,
     fontWeight: '800',
@@ -4644,17 +4771,17 @@ const styles = StyleSheet.create({
     gap: 5,
     borderRadius: 999,
     borderWidth: 1.5,
-    borderColor: ONBOARDING_BORDER,
-    backgroundColor: ONBOARDING_CARD,
+    borderColor: C.border,
+    backgroundColor: C.card,
     paddingVertical: 9,
     paddingHorizontal: 14,
   },
   daysCycleChipActive: {
-    borderColor: ONBOARDING_BORDER_ACTIVE,
-    backgroundColor: ONBOARDING_CARD_ACTIVE,
+    borderColor: C.borderActive,
+    backgroundColor: C.cardActive,
   },
   daysCycleChipText: {
-    color: ONBOARDING_TEXT_SOFT,
+    color: C.textSoft,
     fontSize: 13,
     lineHeight: 17,
     fontWeight: '700',
@@ -4664,7 +4791,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   daysRecommendHint: {
-    color: ONBOARDING_PRIMARY,
+    color: C.primary,
     fontSize: 12,
     lineHeight: 15,
     fontWeight: '700',
@@ -4693,9 +4820,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   avoidRow: {
-    backgroundColor: ONBOARDING_CARD,
+    backgroundColor: C.card,
     borderWidth: 1.5,
-    borderColor: ONBOARDING_BORDER,
+    borderColor: C.border,
     borderRadius: 16,
   },
   avoidRowHeader: {
@@ -4708,7 +4835,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: '#F1F0F4',
+    backgroundColor: C.neutralTile,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -4718,7 +4845,7 @@ const styles = StyleSheet.create({
     gap: 1,
   },
   avoidRowTitle: {
-    color: ONBOARDING_TEXT,
+    color: C.text,
     fontSize: 15,
     lineHeight: 19,
     fontWeight: '800',
@@ -4750,7 +4877,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     borderWidth: 1.5,
-    borderColor: ONBOARDING_BORDER,
+    borderColor: C.border,
     borderRadius: 13,
     paddingVertical: 9,
     paddingHorizontal: 11,
@@ -4769,27 +4896,27 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   avoidLevelTitle: {
-    color: ONBOARDING_TEXT,
+    color: C.text,
     fontSize: 13.5,
     lineHeight: 17,
     fontWeight: '800',
   },
   avoidLevelBody: {
-    color: ONBOARDING_TEXT_SOFT,
+    color: C.textSoft,
     fontSize: 11.5,
     lineHeight: 15,
     fontWeight: '600',
   },
   avoidGhostRow: {
     borderWidth: 1.5,
-    borderColor: ONBOARDING_BORDER,
+    borderColor: C.border,
     borderStyle: 'dashed',
     borderRadius: 16,
     paddingVertical: 13,
     alignItems: 'center',
   },
   avoidGhostText: {
-    color: ONBOARDING_TEXT_SOFT,
+    color: C.textSoft,
     fontSize: 13.5,
     fontWeight: '700',
   },
@@ -4800,17 +4927,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: ONBOARDING_CARD,
+    backgroundColor: C.card,
     borderWidth: 1.5,
-    borderColor: ONBOARDING_BORDER,
+    borderColor: C.border,
     borderRadius: 14,
     paddingVertical: 10,
     paddingHorizontal: 14,
   },
   focusListRowActive: {
-    backgroundColor: ONBOARDING_PRIMARY,
-    borderColor: ONBOARDING_PRIMARY,
-    shadowColor: ONBOARDING_PRIMARY,
+    backgroundColor: C.primary,
+    borderColor: C.primary,
+    shadowColor: C.primary,
     shadowOpacity: 0.24,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 5 },
@@ -4818,7 +4945,7 @@ const styles = StyleSheet.create({
   },
   focusListLabel: {
     flex: 1,
-    color: ONBOARDING_TEXT,
+    color: C.text,
     fontSize: 15,
     lineHeight: 19,
     fontWeight: '800',
@@ -4881,7 +5008,7 @@ const styles = StyleSheet.create({
   },
   trainingSetupMetricText: {
     flex: 1,
-    color: ONBOARDING_TEXT,
+    color: C.text,
     fontSize: 11,
     lineHeight: 14,
     fontWeight: '700',
@@ -4896,9 +5023,9 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: ONBOARDING_CARD,
+    backgroundColor: C.card,
     borderWidth: 1,
-    borderColor: ONBOARDING_BORDER,
+    borderColor: C.border,
     justifyContent: 'center',
     overflow: 'hidden',
   },
@@ -4915,9 +5042,9 @@ const styles = StyleSheet.create({
     paddingVertical: 22,
   },
   locationChoiceCardActive: {
-    backgroundColor: ONBOARDING_PRIMARY,
-    borderColor: ONBOARDING_PRIMARY,
-    shadowColor: ONBOARDING_PRIMARY,
+    backgroundColor: C.primary,
+    borderColor: C.primary,
+    shadowColor: C.primary,
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
@@ -4950,7 +5077,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   locationChoiceLabel: {
-    color: ONBOARDING_TEXT,
+    color: C.text,
     fontSize: 17,
     lineHeight: 21,
     fontWeight: '800',
@@ -4967,16 +5094,16 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   locationFocusBadgeNeutral: {
-    backgroundColor: '#F2ECFF',
+    backgroundColor: C.badgeNeutral,
   },
   locationFocusBadgeGreen: {
     backgroundColor: '#E8F7EE',
   },
   locationFocusBadgeBlue: {
-    backgroundColor: '#E1ECFB',
+    backgroundColor: C.badgeBlue,
   },
   locationFocusBadgePurple: {
-    backgroundColor: '#EFE7FF',
+    backgroundColor: C.badgePurple,
   },
   locationFocusBadgeText: {
     fontSize: 10.5,
@@ -4986,7 +5113,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   locationFocusBadgeTextNeutral: {
-    color: ONBOARDING_TEXT_SOFT,
+    color: C.textSoft,
   },
   locationFocusBadgeTextGreen: {
     color: '#16A34A',
@@ -4995,7 +5122,7 @@ const styles = StyleSheet.create({
     color: '#0A84FF',
   },
   locationFocusBadgeTextPurple: {
-    color: ONBOARDING_PRIMARY,
+    color: C.primary,
   },
   locationFocusBadgeOnActive: {
     backgroundColor: '#FFFFFF',
@@ -5010,7 +5137,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   locationChoiceSubtitle: {
-    color: ONBOARDING_TEXT_SOFT,
+    color: C.textSoft,
     fontSize: 14,
     lineHeight: 19,
     fontWeight: '600',
@@ -5071,7 +5198,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: 'rgba(6,8,11,0.10)',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.card,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs + 2,
     flexDirection: 'row',
@@ -5079,8 +5206,8 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   profileCheckRowActive: {
-    borderColor: '#06080B',
-    backgroundColor: '#F7F8FA',
+    borderColor: C.inkStrong,
+    backgroundColor: C.rowActive,
   },
   profileCheckBox: {
     width: 24,
@@ -5088,17 +5215,17 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(6,8,11,0.24)',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.card,
   },
   profileCheckBoxActive: {
-    borderColor: '#06080B',
-    backgroundColor: '#06080B',
+    borderColor: C.inkStrong,
+    backgroundColor: C.inkStrong,
   },
   profileCheckMark: {
     position: 'absolute',
     height: 2,
     borderRadius: 2,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.onInkStrong,
   },
   profileCheckMarkShort: {
     width: 7,
@@ -5124,14 +5251,14 @@ const styles = StyleSheet.create({
   },
   profileCheckTitle: {
     flexShrink: 1,
-    color: '#06080B',
+    color: C.text,
     fontSize: 17,
     lineHeight: 22,
     fontWeight: '900',
     letterSpacing: -0.2,
   },
   profileCheckTitleActive: {
-    color: '#06080B',
+    color: C.text,
   },
   profileCheckDotRow: {
     flexDirection: 'row',
@@ -5150,7 +5277,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(6,8,11,0.22)',
   },
   profileCheckDotActive: {
-    backgroundColor: '#06080B',
+    backgroundColor: C.inkStrong,
   },
   profileCheckBadge: {
     minHeight: 20,
@@ -5158,12 +5285,12 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: 'rgba(6,8,11,0.10)',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.card,
     justifyContent: 'center',
   },
   profileCheckBadgeActive: {
-    borderColor: '#06080B',
-    backgroundColor: '#06080B',
+    borderColor: C.inkStrong,
+    backgroundColor: C.inkStrong,
   },
   profileCheckBadgeText: {
     color: 'rgba(6,8,11,0.62)',
@@ -5173,7 +5300,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   profileCheckBadgeTextActive: {
-    color: '#FFFFFF',
+    color: C.onInkStrong,
   },
   profileCheckBody: {
     color: 'rgba(6,8,11,0.56)',
@@ -5211,7 +5338,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   focusPickHint: {
-    color: ONBOARDING_TEXT_SOFT,
+    color: C.textSoft,
     fontSize: 12.5,
     lineHeight: 16,
     fontWeight: '700',
@@ -5239,11 +5366,11 @@ const styles = StyleSheet.create({
   },
   buildingPlanScreen: {
     flex: 1,
-    backgroundColor: ONBOARDING_TOP,
+    backgroundColor: C.panel,
   },
   buildingPlanThinkingScene: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: ONBOARDING_TOP,
+    backgroundColor: C.panel,
     alignItems: 'center',
     justifyContent: 'flex-start',
     paddingHorizontal: 22,
@@ -5265,16 +5392,16 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 5,
     borderRadius: 999,
-    backgroundColor: '#E6DEF6',
+    backgroundColor: C.trackIdle,
     overflow: 'hidden',
   },
   buildingPlanProgressFill: {
     height: 5,
     borderRadius: 999,
-    backgroundColor: ONBOARDING_PRIMARY,
+    backgroundColor: C.primary,
   },
   buildingPlanPercentText: {
-    color: ONBOARDING_PRIMARY,
+    color: C.primary,
     fontSize: 13,
     lineHeight: 16,
     fontWeight: '800',
@@ -5282,7 +5409,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   buildingPlanThinkingText: {
-    color: ONBOARDING_TEXT,
+    color: C.text,
     fontSize: 28,
     lineHeight: 34,
     fontWeight: '800',
@@ -5310,49 +5437,49 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   buildingPlanStepRowActive: {
-    backgroundColor: ONBOARDING_PRIMARY_SOFT,
+    backgroundColor: C.primarySoft,
   },
   buildingPlanStepIcon: {
     width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 1.8,
-    borderColor: ONBOARDING_BORDER,
+    borderColor: C.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   buildingPlanStepIconDone: {
     borderWidth: 0,
-    backgroundColor: ONBOARDING_PRIMARY,
+    backgroundColor: C.primary,
   },
   buildingPlanStepIconActive: {
-    borderColor: ONBOARDING_PRIMARY,
-    backgroundColor: ONBOARDING_PRIMARY_SOFT,
+    borderColor: C.primary,
+    backgroundColor: C.primarySoft,
   },
   buildingPlanStepActiveDot: {
     width: 9,
     height: 9,
     borderRadius: 4.5,
-    backgroundColor: ONBOARDING_PRIMARY,
+    backgroundColor: C.primary,
   },
   buildingPlanStepCopy: {
     flex: 1,
     gap: 3,
   },
   buildingPlanStepText: {
-    color: ONBOARDING_TEXT,
+    color: C.text,
     fontSize: 14.5,
     lineHeight: 19,
     fontWeight: '700',
   },
   buildingPlanStepSubtitle: {
-    color: ONBOARDING_TEXT_SOFT,
+    color: C.textSoft,
     fontSize: 11,
     lineHeight: 14,
     fontWeight: '700',
   },
   buildingPlanStepTextPending: {
-    color: ONBOARDING_TEXT_SOFT,
+    color: C.textSoft,
     fontWeight: '600',
   },
   optionBlock: {
@@ -5369,8 +5496,8 @@ const styles = StyleSheet.create({
     minHeight: 112,
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: ONBOARDING_BORDER,
-    backgroundColor: ONBOARDING_CARD,
+    borderColor: C.border,
+    backgroundColor: C.card,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     gap: spacing.xs,
@@ -5393,13 +5520,13 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   setupOptionCardActive: {
-    backgroundColor: ONBOARDING_CARD_ACTIVE,
-    borderColor: ONBOARDING_BORDER_ACTIVE,
+    backgroundColor: C.cardActive,
+    borderColor: C.borderActive,
   },
   setupOptionCardImage: {
     overflow: 'hidden',
-    borderColor: ONBOARDING_BORDER,
-    backgroundColor: ONBOARDING_CARD,
+    borderColor: C.border,
+    backgroundColor: C.card,
     paddingHorizontal: 0,
     paddingVertical: 0,
     gap: 0,
@@ -5407,14 +5534,14 @@ const styles = StyleSheet.create({
   setupOptionCardIcon: {
     minHeight: 188,
     overflow: 'hidden',
-    borderColor: ONBOARDING_BORDER,
-    backgroundColor: ONBOARDING_CARD,
+    borderColor: C.border,
+    backgroundColor: C.card,
     paddingHorizontal: 0,
     paddingVertical: 0,
     gap: 0,
   },
   setupOptionCardIconActive: {
-    borderColor: ONBOARDING_BORDER_ACTIVE,
+    borderColor: C.borderActive,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.16,
@@ -5511,7 +5638,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 999,
-    backgroundColor: ONBOARDING_PRIMARY,
+    backgroundColor: C.primary,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.24)',
     alignItems: 'center',
@@ -5533,7 +5660,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     height: 2,
     borderRadius: 2,
-    backgroundColor: ONBOARDING_TEXT,
+    backgroundColor: C.text,
   },
   setupOptionCardSelectionCheckMarkShort: {
     width: 5,
@@ -5548,7 +5675,7 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '-45deg' }],
   },
   setupOptionCardImageActive: {
-    borderColor: ONBOARDING_BORDER_ACTIVE,
+    borderColor: C.borderActive,
   },
   setupOptionCardImageSurface: {
     overflow: 'hidden',
@@ -5569,7 +5696,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(6,8,11,0.34)',
   },
   setupOptionCardTitle: {
-    color: ONBOARDING_TEXT,
+    color: C.text,
     fontSize: 24,
     lineHeight: 29,
     fontWeight: '900',
@@ -5587,7 +5714,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   setupOptionCardBody: {
-    color: ONBOARDING_TEXT_SOFT,
+    color: C.textSoft,
     fontSize: 14,
     lineHeight: 19,
     fontWeight: '700',
@@ -5682,7 +5809,7 @@ const styles = StyleSheet.create({
   previewGlyphBar: {
     flex: 1,
     borderRadius: radii.pill,
-    backgroundColor: '#F3F7FF',
+    backgroundColor: C.previewBar,
   },
   previewGlyphGap: {
     flex: 1,
@@ -5986,8 +6113,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   personalizationOptionActive: {
-    borderColor: '#F4FAFF',
-    backgroundColor: '#F4FAFF',
+    borderColor: C.optionActive,
+    backgroundColor: C.optionActive,
   },
   personalizationOptionTitle: {
     color: colors.textPrimary,
@@ -5995,7 +6122,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   personalizationOptionTitleActive: {
-    color: '#0B0F14',
+    color: C.onOptionActive,
   },
   personalizationOptionBody: {
     color: colors.textSecondary,
@@ -6037,7 +6164,7 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(255,255,255,0.06)',
   },
   footerLight: {
-    backgroundColor: ONBOARDING_PANEL,
+    backgroundColor: C.panel,
     borderTopWidth: 0,
     borderTopColor: 'transparent',
   },
@@ -6066,17 +6193,17 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '800',
     letterSpacing: 1.5,
-    color: ONBOARDING_PRIMARY,
+    color: C.primary,
   },
   planReadyDayTitle: {
     marginTop: 4,
     fontSize: 25,
     fontWeight: '800',
     letterSpacing: -0.25,
-    color: ONBOARDING_TEXT,
+    color: C.text,
   },
   planReadyDayWeekBadge: {
-    backgroundColor: ONBOARDING_CARD_ACTIVE,
+    backgroundColor: C.cardActive,
     borderRadius: 999,
     paddingHorizontal: 11,
     paddingVertical: 7,
@@ -6100,7 +6227,7 @@ const styles = StyleSheet.create({
   planReadyDayMetaText: {
     fontSize: 13,
     fontWeight: '700',
-    color: ONBOARDING_TEXT_SOFT,
+    color: C.textSoft,
   },
   planReadyDayExercisesLabel: {
     marginTop: 18,
@@ -6108,7 +6235,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.3,
-    color: ONBOARDING_TEXT_SOFT,
+    color: C.textSoft,
   },
   planReadyDayExerciseList: {
     gap: 8,
@@ -6117,9 +6244,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 13,
-    backgroundColor: ONBOARDING_CARD,
+    backgroundColor: C.card,
     borderWidth: 1,
-    borderColor: ONBOARDING_BORDER,
+    borderColor: C.border,
     borderRadius: 14,
     paddingHorizontal: 15,
     paddingVertical: 12,
@@ -6128,7 +6255,7 @@ const styles = StyleSheet.create({
     width: 20,
     fontSize: 13,
     fontWeight: '800',
-    color: ONBOARDING_PRIMARY,
+    color: C.primary,
   },
   planReadyDayExerciseCopy: {
     flex: 1,
@@ -6137,14 +6264,14 @@ const styles = StyleSheet.create({
   planReadyDayExerciseName: {
     fontSize: 15,
     fontWeight: '800',
-    color: ONBOARDING_TEXT,
+    color: C.text,
   },
   planReadyDayExerciseGroup: {
     marginTop: 2,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.66,
-    color: ONBOARDING_TEXT_SOFT,
+    color: C.textSoft,
     textTransform: 'uppercase',
   },
   planReadyDayExerciseRight: {
@@ -6153,16 +6280,16 @@ const styles = StyleSheet.create({
   planReadyDayExerciseSets: {
     fontSize: 13,
     fontWeight: '800',
-    color: ONBOARDING_TEXT,
+    color: C.text,
   },
   planReadyDayExerciseReps: {
     marginTop: 1,
     fontSize: 12,
     fontWeight: '700',
-    color: ONBOARDING_TEXT_SOFT,
+    color: C.textSoft,
   },
   planReadyFixedFooter: {
-    backgroundColor: ONBOARDING_PANEL,
+    backgroundColor: C.panel,
     borderTopWidth: 0,
     borderTopColor: 'transparent',
     paddingHorizontal: 18,
@@ -6181,12 +6308,12 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ONBOARDING_PRIMARY,
+    backgroundColor: C.primary,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.24)',
   },
   primaryButtonText: {
-    color: ONBOARDING_TEXT,
+    color: C.text,
     fontSize: 19,
     fontWeight: '900',
     letterSpacing: -0.3,
@@ -6228,7 +6355,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   secondaryTextDark: {
-    color: ONBOARDING_TEXT_SOFT,
+    color: C.textSoft,
   },
   footerBackText: {
     opacity: 1,
@@ -6385,3 +6512,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
+const ONBOARDING_STYLES = {
+  light: makeOnboardingStyles(ONB_LIGHT),
+  dark: makeOnboardingStyles(ONB_DARK),
+} as const;

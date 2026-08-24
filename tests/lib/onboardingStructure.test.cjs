@@ -369,8 +369,10 @@ module.exports = [
       assert.match(onboardingSource, /titleKey: 'onb\.goal\.strength\.title'/);
       assert.match(onboardingSource, /goal: 'lean_athletic'/);
       assert.match(onboardingSource, /goal: 'general_fitness'/);
-      assert.match(onboardingSource, /getLocationFocusBadgeStyle\(tag\.tone\)/);
-      assert.match(onboardingSource, /getLocationFocusBadgeTextStyle\(tag\.tone\)/);
+      // The sheet is a parameter since the palette split (2026-08-23): these
+      // are plain functions, so they cannot read the theme through a hook.
+      assert.match(onboardingSource, /getLocationFocusBadgeStyle\(styles, tag\.tone\)/);
+      assert.match(onboardingSource, /getLocationFocusBadgeTextStyle\(styles, tag\.tone\)/);
       // Sentence case replaced the old shouty two-line headline.
       assert.doesNotMatch(goalBody, /WHAT DO YOU/);
       assert.doesNotMatch(goalBody, /WANT MOST\?/);
@@ -657,12 +659,39 @@ module.exports = [
     },
   },
   {
-    name: 'plan-ready screens share the light onboarding palette',
+    name: 'plan-ready screens share the onboarding palette, in both themes',
     run() {
-      assert.match(onboardingSource, /const ONBOARDING_PANEL = HG.bg/);
-      assert.match(onboardingSource, /const ONBOARDING_CARD = '#FFFFFF'/);
-      assert.match(onboardingSource, /const ONBOARDING_PRIMARY = '#7C3AED'/);
-      assert.match(onboardingSource, /const ONBOARDING_TEXT = '#101828'/);
+      // The light values are the originals to the digit. Onboarding paints
+      // from its own constants rather than the app Theme, whose tokens are
+      // close but not identical — remapping would have restyled a signed-off
+      // flow nobody asked to restyle.
+      assert.match(onboardingSource, /const ONB_LIGHT: OnbPalette = \{[\s\S]*?panel: HG\.bg/);
+      assert.match(onboardingSource, /const ONB_LIGHT: OnbPalette = \{[\s\S]*?card: '#FFFFFF'/);
+      assert.match(onboardingSource, /const ONB_LIGHT: OnbPalette = \{[\s\S]*?primary: '#7C3AED'/);
+      assert.match(onboardingSource, /const ONB_LIGHT: OnbPalette = \{[\s\S]*?text: '#101828'/);
+      // And a dark counterpart exists for every one of them, so a reader who
+      // picks dark one tap after "Let's begin" is not walked through eight
+      // white screens.
+      assert.match(onboardingSource, /const ONB_DARK: OnbPalette = \{[\s\S]*?panel: HG_DARK\.bg/);
+      const shape = (name) => {
+        const body = new RegExp(`const ${name}: OnbPalette = \\{([\\s\\S]*?)\\n\\};`).exec(onboardingSource);
+        assert.ok(body, `${name} not found`);
+        return [...body[1].matchAll(/^\s*(\w+):/gm)].map((m) => m[1]).sort();
+      };
+      assert.deepEqual(shape('ONB_LIGHT'), shape('ONB_DARK'), 'both palettes must fill the same tokens');
+      // Every token is wired: an unused one is the "written but never
+      // connected" bug this codebase keeps finding.
+      for (const token of shape('ONB_LIGHT')) {
+        assert.ok(
+          new RegExp(`\\bC\\.${token}\\b`).test(onboardingSource),
+          `palette token ${token} is defined but never used`,
+        );
+      }
+      // The sheet is built per palette at module load, not per render: it is
+      // ~2200 entries and there are exactly two possible answers.
+      assert.match(onboardingSource, /const makeOnboardingStyles = \(C: OnbPalette\) => StyleSheet\.create/);
+      assert.match(onboardingSource, /light: makeOnboardingStyles\(ONB_LIGHT\)/);
+      assert.match(onboardingSource, /dark: makeOnboardingStyles\(ONB_DARK\)/);
       // The old black plan-ready stage is gone.
       assert.doesNotMatch(onboardingSource, /planReadyStage:\s*\{\s*backgroundColor: '#050505'/);
       assert.doesNotMatch(onboardingSource, /planReadyHeader:/);

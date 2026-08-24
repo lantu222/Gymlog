@@ -6,17 +6,58 @@ import Svg, { Path } from 'react-native-svg';
 
 import { OnboardingBackButton } from '../components/OnboardingBackButton';
 import { t } from '../lib/i18n';
-import { Theme, useThemedStyles } from '../theming';
+import { darkTheme, Theme, useTheme, useThemedStyles } from '../theming';
+import { HG_DARK } from '../darkTheme';
 import { AppLanguage } from '../types/models';
 
-// Light design tokens (HG palette, same as WelcomeScreen).
-const SURFACE = '#FFFFFF';
-const INK = '#101828';
-const MUTED = '#667085';
-const BORDER = '#E4D8FF';
-const PURPLE = '#7C3AED';
-const PURPLE_DARK = '#5B21B6';
-const PURPLE_SOFT = '#EEE7FC';
+/**
+ * This screen's own tokens, in two.
+ *
+ * Light is the original HG set to the digit; dark exists because the theme is
+ * chosen one screen earlier (2026-08-23) and this is the first screen after
+ * that choice — a white one here contradicts the tap the reader just made.
+ * Kept local rather than mapped onto the app `Theme`, whose values are close
+ * but not identical, so the light flow is pixel-for-pixel unchanged.
+ */
+interface PathPalette {
+  surface: string;
+  ink: string;
+  muted: string;
+  border: string;
+  purple: string;
+  purpleDark: string;
+  purpleSoft: string;
+  /** Secondary copy, a notch darker than `muted` in light. */
+  soft: string;
+  /** The chosen card's border. */
+  chosen: string;
+}
+
+const PATH_LIGHT: PathPalette = {
+  surface: '#FFFFFF',
+  ink: '#101828',
+  muted: '#667085',
+  border: '#E4D8FF',
+  purple: '#7C3AED',
+  purpleDark: '#5B21B6',
+  purpleSoft: '#EEE7FC',
+  soft: '#475467',
+  chosen: '#C9B6FF',
+};
+
+const PATH_DARK: PathPalette = {
+  surface: HG_DARK.surface,
+  ink: HG_DARK.ink,
+  muted: HG_DARK.muted,
+  border: HG_DARK.border,
+  purple: HG_DARK.purple,
+  purpleDark: HG_DARK.purpleBright,
+  purpleSoft: HG_DARK.purpleSoft,
+  soft: HG_DARK.muted,
+  chosen: HG_DARK.purple,
+};
+
+const paletteFor = (theme: Theme): PathPalette => (theme === darkTheme ? PATH_DARK : PATH_LIGHT);
 
 type StartPath = 'build' | 'ready';
 
@@ -52,6 +93,7 @@ function PathIcon({ name, color }: { name: 'sparkle' | 'grid'; color: string }) 
 
 function CheckCircle({ selected }: { selected: boolean }) {
   const styles = useThemedStyles(makeStyles);
+  const C = paletteFor(useTheme());
 
   if (!selected) {
     return <View style={styles.checkRing} />;
@@ -59,7 +101,7 @@ function CheckCircle({ selected }: { selected: boolean }) {
   return (
     <View style={styles.checkCircle}>
       <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-        <Path d="M5 12l5 5L19 7" stroke={PURPLE} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M5 12l5 5L19 7" stroke={C.purple} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
       </Svg>
     </View>
   );
@@ -78,6 +120,7 @@ interface PathCardProps {
 
 function PathCard({ icon, title, body, recommendedLabel, selected, fontFamily, accessibilityLabel, onPress }: PathCardProps) {
   const styles = useThemedStyles(makeStyles);
+  const C = paletteFor(useTheme());
 
   return (
     <Pressable
@@ -88,7 +131,7 @@ function PathCard({ icon, title, body, recommendedLabel, selected, fontFamily, a
       style={({ pressed }) => [styles.card, selected && styles.cardSelected, pressed && styles.cardPressed]}
     >
       <View style={[styles.cardIconTile, selected && styles.cardIconTileSelected]}>
-        <PathIcon name={icon} color={selected ? '#FFFFFF' : PURPLE} />
+        <PathIcon name={icon} color={selected ? '#FFFFFF' : C.purple} />
       </View>
       <View style={styles.cardCopy}>
         <View style={styles.cardTitleRow}>
@@ -173,21 +216,23 @@ export function StartPathScreen({
   );
 }
 
-const makeStyles = (theme: Theme) => StyleSheet.create({
+const makeStyles = (theme: Theme) => {
+  const C = paletteFor(theme);
+  return StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: theme.bg,
     paddingHorizontal: 24,
   },
   heading: {
-    color: INK,
+    color: C.ink,
     fontSize: 28,
     lineHeight: 34,
     fontWeight: '800',
     letterSpacing: -0.4,
   },
   subheading: {
-    color: '#475467',
+    color: C.soft,
     fontSize: 14.5,
     lineHeight: 20,
     fontWeight: '700',
@@ -204,15 +249,15 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 14,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: BORDER,
-    backgroundColor: SURFACE,
+    borderColor: C.border,
+    backgroundColor: C.surface,
     padding: 20,
   },
   cardSelected: {
-    backgroundColor: PURPLE,
+    backgroundColor: C.purple,
     borderWidth: 2,
-    borderColor: PURPLE_DARK,
-    shadowColor: PURPLE,
+    borderColor: C.purpleDark,
+    shadowColor: C.purple,
     shadowOpacity: 0.3,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 16 },
@@ -226,9 +271,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     width: 54,
     height: 54,
     borderRadius: 16,
-    backgroundColor: PURPLE_SOFT,
+    backgroundColor: C.purpleSoft,
     borderWidth: 1.5,
-    borderColor: '#C9B6FF',
+    borderColor: C.chosen,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -247,7 +292,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexWrap: 'wrap',
   },
   cardTitle: {
-    color: INK,
+    color: C.ink,
     fontSize: 18.5,
     lineHeight: 23,
     fontWeight: '800',
@@ -256,7 +301,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: '#FFFFFF',
   },
   cardBody: {
-    color: '#475467',
+    color: C.soft,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '700',
@@ -266,32 +311,32 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   recommendedPill: {
     borderRadius: 999,
-    backgroundColor: PURPLE_SOFT,
+    backgroundColor: C.purpleSoft,
     borderWidth: 1.5,
-    borderColor: '#C9B6FF',
+    borderColor: C.chosen,
     paddingVertical: 3,
     paddingHorizontal: 8,
   },
   recommendedPillSelected: {
     backgroundColor: theme.surface,
-    borderColor: PURPLE_DARK,
+    borderColor: C.purpleDark,
   },
   recommendedPillText: {
-    color: PURPLE,
+    color: C.purple,
     fontSize: 9.5,
     lineHeight: 12,
     fontWeight: '900',
     letterSpacing: 0.8,
   },
   recommendedPillTextSelected: {
-    color: PURPLE_DARK,
+    color: C.purpleDark,
   },
   checkRing: {
     width: 26,
     height: 26,
     borderRadius: 999,
     borderWidth: 2,
-    borderColor: '#C9B6FF',
+    borderColor: C.chosen,
   },
   checkCircle: {
     width: 26,
@@ -299,7 +344,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 999,
     backgroundColor: theme.surface,
     borderWidth: 1.5,
-    borderColor: PURPLE_DARK,
+    borderColor: C.purpleDark,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -309,10 +354,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   cta: {
     height: 56,
     borderRadius: 18,
-    backgroundColor: PURPLE,
+    backgroundColor: C.purple,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: PURPLE,
+    shadowColor: C.purple,
     shadowOpacity: 0.32,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 14 },
@@ -335,8 +380,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 14,
   },
   backText: {
-    color: MUTED,
+    color: C.muted,
     fontSize: 14.5,
     fontWeight: '700',
   },
 });
+};

@@ -22,17 +22,52 @@ import { CATALOG_FOCUS_OPTIONS, CatalogFocusKey, matchesCatalogFocus } from '../
 import { programFamilyIdentity } from '../lib/programFamilyIdentity';
 import { getReadyProgramCollectionCopy, READY_PROGRAM_COLLECTIONS } from '../lib/readyProgramCollections';
 import { getReadyTemplatePresentation } from '../lib/templatePresentation';
-import { Theme, useThemedStyles } from '../theming';
+import { darkTheme, Theme, useTheme, useThemedStyles } from '../theming';
+import { HG_DARK } from '../darkTheme';
 
-// Light design tokens (HG palette, same as the other onboarding screens).
-const SURFACE = '#FFFFFF';
-const INK = '#101828';
-const MUTED = '#667085';
-const FAINT = '#9A93AC';
-const BORDER = '#E4D8FF';
-const PURPLE = '#7C3AED';
-const PURPLE_DARK = '#5B21B6';
-const SEGMENT_TRACK = '#EBE3FA';
+/**
+ * This screen's own tokens, in two — same arrangement as StartPathScreen.
+ *
+ * Light is the original set to the digit; dark exists because the theme is
+ * picked before the reader ever gets here (2026-08-23), and the "browse ready
+ * programmes" path would otherwise be the one branch of onboarding that
+ * ignored the choice.
+ */
+interface CatalogPalette {
+  surface: string;
+  ink: string;
+  muted: string;
+  faint: string;
+  border: string;
+  purple: string;
+  purpleDark: string;
+  segmentTrack: string;
+}
+
+const CATALOG_LIGHT: CatalogPalette = {
+  surface: '#FFFFFF',
+  ink: '#101828',
+  muted: '#667085',
+  faint: '#9A93AC',
+  border: '#E4D8FF',
+  purple: '#7C3AED',
+  purpleDark: '#5B21B6',
+  segmentTrack: '#EBE3FA',
+};
+
+const CATALOG_DARK: CatalogPalette = {
+  surface: HG_DARK.surface,
+  ink: HG_DARK.ink,
+  muted: HG_DARK.muted,
+  faint: HG_DARK.faint,
+  border: HG_DARK.border,
+  purple: HG_DARK.purple,
+  purpleDark: HG_DARK.purpleBright,
+  segmentTrack: HG_DARK.surfaceSoft,
+};
+
+const paletteFor = (theme: Theme): CatalogPalette =>
+  theme === darkTheme ? CATALOG_DARK : CATALOG_LIGHT;
 
 /** Cover height from the design. Tall enough for the name to sit on the scrim. */
 const COVER_HEIGHT = 132;
@@ -69,9 +104,10 @@ interface OnboardingReadyCatalogScreenProps {
 }
 
 function BackChevron() {
+  const C = paletteFor(useTheme());
   return (
     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-      <Path d="M15 5l-7 7 7 7" stroke={INK} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M15 5l-7 7 7 7" stroke={C.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -139,6 +175,7 @@ function ProgramCover({ title, width }: { title: string; width: number }) {
 
 function SelectionCircle({ selected }: { selected: boolean }) {
   const styles = useThemedStyles(makeStyles);
+  const C = paletteFor(useTheme());
 
   if (!selected) {
     return <View style={styles.selectRing} />;
@@ -146,7 +183,7 @@ function SelectionCircle({ selected }: { selected: boolean }) {
   return (
     <View style={styles.selectCircle}>
       <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-        <Path d="M5 12l5 5L19 7" stroke={PURPLE} strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M5 12l5 5L19 7" stroke={C.purple} strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round" />
       </Svg>
     </View>
   );
@@ -406,7 +443,9 @@ export function OnboardingReadyCatalogScreen({
   );
 }
 
-const makeStyles = (theme: Theme) => StyleSheet.create({
+const makeStyles = (theme: Theme) => {
+  const C = paletteFor(theme);
+  return StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: theme.bg,
@@ -424,14 +463,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginBottom: 2,
   },
   title: {
-    color: INK,
+    color: C.ink,
     fontSize: 28,
     lineHeight: 32,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
   overline: {
-    color: FAINT,
+    color: C.faint,
     fontSize: 11,
     lineHeight: 14,
     fontWeight: '800',
@@ -447,8 +486,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   chip: {
     borderRadius: 999,
     borderWidth: 1.5,
-    borderColor: BORDER,
-    backgroundColor: SURFACE,
+    borderColor: C.border,
+    backgroundColor: C.surface,
     paddingHorizontal: 13,
     paddingVertical: 8,
     alignItems: 'center',
@@ -459,11 +498,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 8,
   },
   chipActive: {
-    backgroundColor: PURPLE,
-    borderColor: PURPLE_DARK,
+    backgroundColor: C.purple,
+    borderColor: C.purpleDark,
   },
   chipText: {
-    color: INK,
+    color: C.ink,
     fontSize: 12.5,
     fontWeight: '700',
     textAlign: 'center',
@@ -474,7 +513,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   segmentTrack: {
     flexDirection: 'row',
-    backgroundColor: SEGMENT_TRACK,
+    backgroundColor: C.segmentTrack,
     borderRadius: 12,
     padding: 3,
   },
@@ -486,7 +525,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
   },
   segmentActive: {
-    backgroundColor: SURFACE,
+    backgroundColor: C.surface,
     shadowColor: '#1E1246',
     shadowOpacity: 0.12,
     shadowRadius: 6,
@@ -494,12 +533,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     elevation: 2,
   },
   segmentText: {
-    color: MUTED,
+    color: C.muted,
     fontSize: 12.5,
     fontWeight: '700',
   },
   segmentTextActive: {
-    color: PURPLE_DARK,
+    color: C.purpleDark,
     fontWeight: '800',
   },
   resultRow: {
@@ -510,12 +549,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     minHeight: 18,
   },
   resultCount: {
-    color: FAINT,
+    color: C.faint,
     fontSize: 12,
     fontWeight: '700',
   },
   clearFilters: {
-    color: PURPLE,
+    color: C.purple,
     fontSize: 12,
     fontWeight: '800',
   },
@@ -530,13 +569,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingBottom: 11,
   },
   sectionLabel: {
-    color: FAINT,
+    color: C.faint,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1.1,
   },
   sectionCount: {
-    color: FAINT,
+    color: C.faint,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -545,9 +584,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   card: {
     borderRadius: 20,
-    backgroundColor: SURFACE,
+    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: C.border,
     overflow: 'hidden',
     shadowColor: '#7850C8',
     shadowOpacity: 0.09,
@@ -557,8 +596,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   cardSelected: {
     borderWidth: 2,
-    borderColor: PURPLE,
-    shadowColor: PURPLE,
+    borderColor: C.purple,
+    shadowColor: C.purple,
     shadowOpacity: 0.24,
     shadowRadius: 26,
     shadowOffset: { width: 0, height: 12 },
@@ -642,7 +681,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingBottom: 13,
   },
   metaText: {
-    color: PURPLE_DARK,
+    color: C.purpleDark,
     fontSize: 11.5,
     fontWeight: '800',
   },
@@ -650,7 +689,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     width: 3,
     height: 3,
     borderRadius: 999,
-    backgroundColor: FAINT,
+    backgroundColor: C.faint,
   },
   emptyState: {
     alignItems: 'center',
@@ -658,12 +697,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 4,
   },
   emptyTitle: {
-    color: INK,
+    color: C.ink,
     fontSize: 14.5,
     fontWeight: '800',
   },
   emptyBody: {
-    color: MUTED,
+    color: C.muted,
     fontSize: 12.5,
     fontWeight: '600',
   },
@@ -671,3 +710,4 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingTop: 10,
   },
 });
+};
