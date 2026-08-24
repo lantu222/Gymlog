@@ -1,5 +1,8 @@
 const assert = require('node:assert/strict');
 
+const { getReadyProgramBlockWeeks } = require('../../.test-dist/lib/readyProgramDuration.js');
+const { getWorkoutTemplateById } = require('../../.test-dist/features/workout/workoutCatalog.js');
+
 const {
   buildFirstRunRecommendationReasons,
   buildScheduleFitNote,
@@ -84,7 +87,13 @@ function assertUserReadyRecommendation(selection, options = {}) {
   // clean. The composed week is now programDayComposer's job and is covered by
   // its own suite; this helper checks the recommendation, not the week.
   assert.ok(reasons.join(' ').length > 20, recommendation.featuredProgramId);
-  assert.equal(recommendation.trainingBlock.blockLengthWeeks, 4, recommendation.featuredProgramId);
+  // The catalog owns the block length; onboarding reports it rather than
+  // holding a four-week answer of its own.
+  assert.equal(
+    recommendation.trainingBlock.blockLengthWeeks,
+    getReadyProgramBlockWeeks(getWorkoutTemplateById(recommendation.featuredProgramId)),
+    recommendation.featuredProgramId,
+  );
   assert.equal(recommendation.trainingBlock.currentWeekRole, 'baseline', recommendation.featuredProgramId);
   assert.equal(recommendation.recommendationConfidence > 0 && recommendation.recommendationConfidence <= 1, true);
 

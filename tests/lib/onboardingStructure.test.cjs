@@ -735,7 +735,12 @@ module.exports = [
       const dayBody = getFunctionBody('renderPlanReadyDay');
 
       // Weeks / per-week / total workouts come from the payload with safe fallbacks.
-      assert.match(reviewBody, /const planReadyWeeks = planReadyPayload\.blockLengthWeeks > 0 \? planReadyPayload\.blockLengthWeeks : 4/);
+      // The fallback is the catalog's floor, not a four-week answer of the
+      // screen's own — nothing is offered below eight weeks any more.
+      assert.match(
+        reviewBody,
+        /const planReadyWeeks = planReadyPayload\.blockLengthWeeks > 0 \? planReadyPayload\.blockLengthWeeks : READY_PROGRAM_MIN_BLOCK_WEEKS/,
+      );
       // Composed-week day count wins; the raw template count is only a fallback.
       assert.match(reviewBody, /projectedDaysPerWeek[\s\S]*planReadyPayload\.programDaysPerWeek[\s\S]*planReadyPayload\.requestedDaysPerWeek/);
       assert.match(reviewBody, /const planReadyTotalWorkouts = planReadyWeeks \* planReadyPerWeek/);

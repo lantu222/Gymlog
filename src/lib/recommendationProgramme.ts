@@ -1,5 +1,6 @@
 import { getRecommendationProgramDefinition } from './recommendationCatalog';
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
+import { READY_PROGRAM_MIN_BLOCK_WEEKS, getReadyProgramBlockWeeks } from './readyProgramDuration';
 import { formatLiftDisplayLabel } from './displayLabel';
 import { pickPoolVariant, SUPPLEMENTAL_DAY_POOL, SupplementalDayKind } from './catalogExercisePools';
 import { resolveAvailableEquipment } from './equipmentExerciseFilter';
@@ -19,7 +20,6 @@ import type {
 } from '../types/recommendation';
 import type { SetupFocusArea, SetupWeekday } from '../types/models';
 
-const STARTER_BLOCK_LENGTH_WEEKS = 4;
 const STARTER_PHASE_LABELS = ['Week 1 Baseline', 'Week 2 Build', 'Week 3 Build', 'Week 4 Review + easier week'];
 const WEEKDAY_ORDER: SetupWeekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const DEFAULT_RHYTHM_BY_DAYS: Record<number, SetupWeekday[]> = {
@@ -30,13 +30,29 @@ const DEFAULT_RHYTHM_BY_DAYS: Record<number, SetupWeekday[]> = {
   6: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'],
 };
 
-function buildStarterDurationModel(): RecommendationProgrammeDurationModel {
+/**
+ * The block length onboarding promises: the catalog's answer for the
+ * programme it is handing over.
+ *
+ * Falls back to the shortest block the catalog can produce rather than to a
+ * number of its own. An unknown programme id means the recommendation is
+ * already in trouble; inventing a different calendar on top of it would only
+ * hide that.
+ */
+function resolveStarterBlockWeeks(programId: string): number {
+  const template = getWorkoutTemplateById(programId);
+  return template ? getReadyProgramBlockWeeks(template) : READY_PROGRAM_MIN_BLOCK_WEEKS;
+}
+
+function buildStarterDurationModel(blockLengthWeeks: number): RecommendationProgrammeDurationModel {
   return {
     status: 'starter',
-    blockLengthWeeks: STARTER_BLOCK_LENGTH_WEEKS,
-    label: '4-week starter block',
-    description: 'A concrete first block that can be repeated, edited, or upgraded after week 4.',
-    laterDurations: [6, 8],
+    blockLengthWeeks,
+    label: `${blockLengthWeeks}-week starter block`,
+    description:
+      `A concrete first block: a repeating four-week cycle — baseline, build, build, easier week — `
+      + `run over ${blockLengthWeeks} weeks, and editable at any point.`,
+    laterDurations: [],
   };
 }
 
@@ -115,11 +131,16 @@ function buildFamilySessionComposition(familyId: TemplateFamilyId): Recommendati
 }
 
 function buildFamilyProgrammeProfile(programId: string, familyId: TemplateFamilyId): RecommendationProgrammeProfile {
+  // The plan onboarding hands over IS a catalog programme, so its length is
+  // the catalog's answer rather than a second constant kept beside it. The
+  // two disagreed the moment the catalog moved to 8-12 weeks: the same
+  // programme said four weeks on the way in and eight on its own page.
+  const blockLengthWeeks = resolveStarterBlockWeeks(programId);
   const base = {
     programId,
     familyId,
-    blockLengthWeeks: STARTER_BLOCK_LENGTH_WEEKS,
-    durationModel: buildStarterDurationModel(),
+    blockLengthWeeks,
+    durationModel: buildStarterDurationModel(blockLengthWeeks),
     sessionComposition: buildFamilySessionComposition(familyId),
   };
 
@@ -129,7 +150,7 @@ function buildFamilyProgrammeProfile(programId: string, familyId: TemplateFamily
         ...base,
         progressionStyle: 'strength_wave',
         phaseLabels: STARTER_PHASE_LABELS,
-        volumeProgression: 'Use week 1 as the baseline volume, build in weeks 2-3, then pull fatigue back in week 4 before deciding whether to repeat or edit.',
+        volumeProgression: 'Use week 1 as the baseline volume, build in weeks 2-3, then pull fatigue back in week 4 before the cycle starts again.',
         intensityProgression: 'Add load conservatively only after clean sets land at the top of the range, then keep week 4 easier for review.',
         exerciseStability: 'Keep anchor lifts stable for the whole block and only rotate support lifts if recovery or equipment demands it.',
         easierWeek: {
@@ -143,7 +164,7 @@ function buildFamilyProgrammeProfile(programId: string, familyId: TemplateFamily
         progressionStyle: 'powerbuilding_wave',
         phaseLabels: STARTER_PHASE_LABELS,
         volumeProgression: 'Open with enough bodybuilding volume to support the heavy lifts, build for two weeks, then reduce fatigue in week 4.',
-        intensityProgression: 'Keep the first three weeks strength-led, then use week 4 to review performance before repeating or adjusting the block.',
+        intensityProgression: 'Keep the first three weeks of each cycle strength-led, then use the fourth to review performance before the next one.',
         exerciseStability: 'Hold strength anchors steady and keep volume-day accessories mostly stable so performance and hypertrophy both stay trackable.',
         easierWeek: {
           week: 4,

@@ -5,6 +5,14 @@ const {
   buildRecommendationProgrammeProfile,
   getRecommendationProgrammeSummary,
 } = require('../../.test-dist/lib/recommendationProgramme.js');
+const { getReadyProgramBlockWeeks, READY_PROGRAM_MIN_BLOCK_WEEKS } = require('../../.test-dist/lib/readyProgramDuration.js');
+const { getWorkoutTemplateById } = require('../../.test-dist/features/workout/workoutCatalog.js');
+
+/** What the catalog says this programme's block is — the single source. */
+function expectedCatalogWeeks(programId) {
+  const template = getWorkoutTemplateById(programId);
+  return template ? getReadyProgramBlockWeeks(template) : READY_PROGRAM_MIN_BLOCK_WEEKS;
+}
 
 const baseSelection = {
   gender: 'unspecified',
@@ -37,10 +45,16 @@ function selection(overrides = {}) {
 }
 
 function assertProgrammeContractPayload(payload, expectations = {}) {
-  assert.equal(payload.blockLengthWeeks, 4);
+  // The rule, not the number: onboarding hands over a catalog programme, so
+  // its block length has to BE the catalog's answer for that programme. The
+  // two used to be separate constants and drifted apart the moment the
+  // catalog moved off four weeks — the same plan said four on the way in and
+  // eight on its own page.
+  const catalogWeeks = expectedCatalogWeeks(payload.programId);
+  assert.equal(payload.blockLengthWeeks, catalogWeeks);
   assert.equal(payload.durationModel.status, 'starter');
-  assert.equal(payload.durationModel.blockLengthWeeks, 4);
-  assert.match(payload.durationModel.label, /starter|4-week/i);
+  assert.equal(payload.durationModel.blockLengthWeeks, catalogWeeks);
+  assert.match(payload.durationModel.label, new RegExp(`${catalogWeeks}-week`, 'i'));
   assert.ok(payload.sessionComposition.prepBlock.body.length > 20);
   assert.ok(payload.sessionComposition.mainBlock.body.length > 20);
   assert.ok(payload.sessionComposition.supportBlock.body.length > 20);
@@ -54,14 +68,20 @@ function assertProgrammeContractPayload(payload, expectations = {}) {
 
 module.exports = [
   {
-    name: 'recommendation programme builds a 4-week strength block with an easier review week',
+    name: 'the starter block runs the catalog length, on a repeating four-week cycle',
     run() {
-      const profile = buildRecommendationProgrammeProfile('tpl_3_day_strength_base_v1');
+      const programId = 'tpl_3_day_strength_base_v1';
+      const profile = buildRecommendationProgrammeProfile(programId);
+      const catalogWeeks = expectedCatalogWeeks(programId);
 
-      assert.equal(profile.blockLengthWeeks, 4);
+      // Onboarding no longer holds a block length of its own.
+      assert.equal(profile.blockLengthWeeks, catalogWeeks);
       assert.equal(profile.durationModel.status, 'starter');
-      assert.equal(profile.durationModel.blockLengthWeeks, 4);
+      assert.equal(profile.durationModel.blockLengthWeeks, catalogWeeks);
+      assert.ok(catalogWeeks >= READY_PROGRAM_MIN_BLOCK_WEEKS, 'no four-week starter block survives');
       assert.equal(profile.progressionStyle, 'strength_wave');
+      // The four-week shape is the CYCLE inside the block, not the block:
+      // baseline, build, build, easier week — then it runs again.
       assert.equal(profile.easierWeek.week, 4);
       assert.match(profile.phaseLabels[0], /Week 1/i);
       assert.match(profile.phaseLabels[3], /Week 4/i);
@@ -77,7 +97,7 @@ module.exports = [
       const summary = getRecommendationProgrammeSummary('tpl_4_day_powerbuilding_v1');
 
       assert.ok(summary);
-      assert.match(summary, /4-week/i);
+      assert.match(summary, new RegExp(`${expectedCatalogWeeks('tpl_4_day_powerbuilding_v1')}-week`, 'i'));
       assert.match(summary, /heavy|strength/i);
       assert.match(summary, /volume|hypertrophy|muscle/i);
       assert.match(summary, /easier week|pivot|deload/i);

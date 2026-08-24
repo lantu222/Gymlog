@@ -68,6 +68,7 @@ import {
 import { buildRecommendationTradeoffLabel } from '../lib/recommendationExplanation';
 import { buildRecommendationOptionIds } from '../lib/recommendationPresentation';
 import { buildRecommendationPlanReadyPayload } from '../lib/recommendationProgramme';
+import { READY_PROGRAM_MIN_BLOCK_WEEKS } from '../lib/readyProgramDuration';
 import { buildSessionGuidance } from '../lib/sessionGuidance';
 import { getFocusAreaLabel, getOnboardingFocusAreaPresentationOptions } from '../lib/focusAreaPresentation';
 import {
@@ -3362,7 +3363,7 @@ export function OnboardingScreen({
       return renderPlanReadyDay();
     }
 
-    const planReadyWeeks = planReadyPayload.blockLengthWeeks > 0 ? planReadyPayload.blockLengthWeeks : 4;
+    const planReadyWeeks = planReadyPayload.blockLengthWeeks > 0 ? planReadyPayload.blockLengthWeeks : READY_PROGRAM_MIN_BLOCK_WEEKS;
     // Composed-week day count wins; the raw template's own count is only a
     // fallback (days-per-week truth).
     const planReadyPerWeek =
@@ -3443,7 +3444,7 @@ export function OnboardingScreen({
     const dayCount = Math.max(days.length, 1);
     const selectedIndex = Math.min(Math.max(planReadyWorkoutPage, 0), dayCount - 1);
     const selectedSession = days[selectedIndex] ?? null;
-    const planReadyWeeks = planReadyPayload.blockLengthWeeks > 0 ? planReadyPayload.blockLengthWeeks : 4;
+    const planReadyWeeks = planReadyPayload.blockLengthWeeks > 0 ? planReadyPayload.blockLengthWeeks : READY_PROGRAM_MIN_BLOCK_WEEKS;
     const focusOf = (name: string, index: number) => {
       const normalized = (name ?? '').toLowerCase();
       if (normalized.includes('full')) return 'Full Body';

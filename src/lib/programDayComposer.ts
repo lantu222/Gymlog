@@ -1,6 +1,7 @@
 import { WorkoutTemplateExercise } from '../features/workout/workoutTypes';
 import { getWorkoutTemplateById, WORKOUT_SUBSTITUTION_GROUPS } from '../features/workout/workoutCatalog';
 import { buildRecommendationPlanReadyPayload } from './recommendationProgramme';
+import { READY_PROGRAM_MIN_BLOCK_WEEKS } from './readyProgramDuration';
 import { applyCautionFlagsToExercises, CautionExerciseSwap } from './cautionExerciseFilter';
 import { applyEquipmentToExercises, resolveAvailableEquipment } from './equipmentExerciseFilter';
 import { buildFocusEmphasisAdditions, FocusEmphasisAddition } from './focusEmphasis';
@@ -180,7 +181,7 @@ export function composeProgramWeekForSelection(
     );
   });
 
-  const weeks = payload.blockLengthWeeks > 0 ? payload.blockLengthWeeks : 4;
+  const weeks = payload.blockLengthWeeks > 0 ? payload.blockLengthWeeks : READY_PROGRAM_MIN_BLOCK_WEEKS;
   const days = sessions.length;
 
   return {

@@ -1,5 +1,8 @@
 const assert = require('node:assert/strict');
 
+const { getReadyProgramBlockWeeks } = require('../../.test-dist/lib/readyProgramDuration.js');
+const { getWorkoutTemplateById } = require('../../.test-dist/features/workout/workoutCatalog.js');
+
 const { getRecommendationProgramDefinition } = require('../../.test-dist/lib/recommendationCatalog.js');
 
 const { buildRecommendationInput } = require('../../.test-dist/lib/recommendationInput.js');
@@ -212,7 +215,11 @@ module.exports = [
       assert.equal(result.featuredProgramId, 'tpl_4_day_strength_size_v1');
       assert.match(result.fallbackReason, /optional/i);
       assert.equal(result.recommendationConfidence < 1, true);
-      assert.equal(result.trainingBlock.blockLengthWeeks, 4);
+      // The catalog owns the length; onboarding no longer keeps its own.
+      assert.equal(
+        result.trainingBlock.blockLengthWeeks,
+        getReadyProgramBlockWeeks(getWorkoutTemplateById(result.featuredProgramId)),
+      );
       assert.equal(result.trainingBlock.currentWeek, 1);
       assert.equal(result.trainingBlock.currentWeekRole, 'baseline');
       assert.match(result.trainingBlock.nextWeekAction, /week 2/i);
