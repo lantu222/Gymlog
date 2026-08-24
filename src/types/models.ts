@@ -294,6 +294,24 @@ export interface MeasurementEntry {
   unit: MeasurementUnit;
 }
 
+/**
+ * A goal the user stated to the coach in their own words ("kasvatan
+ * rinnanympärystä"). One goal per kind; setting a new one replaces it.
+ * The coach ties its answers to these — a chest question from someone
+ * growing their chest is a different question than from someone cutting.
+ */
+export interface CoachGoal {
+  id: string;
+  /** The goal in the user's own words. */
+  text: string;
+  kind: MeasurementKind | 'bodyweight' | null;
+  targetValue: number | null;
+  unit: 'cm' | 'kg' | '%' | null;
+  /** The measurement's value when the goal was set, for progress-since. */
+  startValue: number | null;
+  createdAt: string;
+}
+
 export interface AppPreferences {
   appLanguage: AppLanguage;
   unitPreference: UnitPreference;
@@ -373,6 +391,7 @@ export interface AppPreferences {
    * privacy policy promises it before the first question leaves the device.
    */
   aiOnlineNoticeAcknowledged: boolean;
+  coachGoals: CoachGoal[];
   /**
    * Whether the hand-off step after onboarding has had its turn. It offers the
    * widget and a tracking card once; a reader who ran onboarding again has

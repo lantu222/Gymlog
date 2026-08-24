@@ -627,6 +627,12 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
         typeof input?.preferences?.aiOnlineNoticeAcknowledged === 'boolean'
           ? input.preferences.aiOnlineNoticeAcknowledged
           : fallback.preferences.aiOnlineNoticeAcknowledged,
+      coachGoals: Array.isArray(input?.preferences?.coachGoals)
+        ? input.preferences.coachGoals.filter(
+            (goal): goal is NonNullable<typeof goal> =>
+              Boolean(goal) && typeof goal === 'object' && typeof goal.id === 'string' && typeof goal.text === 'string',
+          )
+        : fallback.preferences.coachGoals,
       // A stored install that predates this flag has already been through
       // onboarding, so the hand-off has had its turn — without this, the flag
       // reads false on the next launch and an old install gets ambushed by a

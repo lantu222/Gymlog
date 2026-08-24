@@ -1,7 +1,7 @@
 import { HomeSummary } from './dashboard';
 import { ExerciseProgressSummary } from './progression';
-import { ExerciseLog, SetupWeekday, UnitPreference, WorkoutSession } from '../types/models';
-import { AICoachHistory, AICoachTrainingContext } from '../types/aiCoach';
+import { BodyweightEntry, CoachGoal, ExerciseLog, MeasurementEntry, SetupWeekday, UnitPreference, WorkoutSession } from '../types/models';
+import { AICoachBody, AICoachBodyChange, AICoachGoal, AICoachHistory, AICoachProfile, AICoachTrainingContext } from '../types/aiCoach';
 import { detectPlateaus } from './progressionAnalyzer';
 import { buildFatigueModel } from './fatigueModel';
 import { buildTrainingHistory, DEFAULT_HISTORY_WINDOW_DAYS } from './trainingHistory';
@@ -58,6 +58,13 @@ export interface BuildAiTrainingContextInput {
   schedule?: TrainingSchedule | null;
   historyWindowDays?: number;
   includeActiveSessionContext?: boolean;
+  /** Body record + goals: without these a chest or nutrition question gets a training summary. */
+  bodyweightEntries?: BodyweightEntry[];
+  measurementEntries?: MeasurementEntry[];
+  coachGoals?: CoachGoal[];
+  bodyweightGoalKg?: number | null;
+  profile?: AICoachProfile | null;
+  now?: Date;
 }
 
 /**
@@ -84,6 +91,96 @@ export function emptyAiCoachHistory(trainingDays: SetupWeekday[] = []): AICoachH
         : null,
     truncated: false,
   };
+}
+
+function weightChange(sorted: BodyweightEntry[], windowDays: number, now: Date): AICoachBodyChange | null {
+  const cutoff = now.getTime() - windowDays * 24 * 60 * 60 * 1000;
+  const inWindow = sorted.filter((entry) => new Date(entry.recordedAt).getTime() >= cutoff);
+  if (inWindow.length < 2) {
+    // One weigh-in is a fact, not a direction — report no change at all.
+    return null;
+  }
+  const first = inWindow[0];
+  const last = inWindow[inWindow.length - 1];
+  const spanDays = Math.round((new Date(last.recordedAt).getTime() - new Date(first.recordedAt).getTime()) / (24 * 60 * 60 * 1000));
+  return { deltaKg: Math.round((last.weight - first.weight) * 10) / 10, spanDays };
+}
+
+export function buildAiCoachBodyState(
+  bodyweightEntries: BodyweightEntry[],
+  measurementEntries: MeasurementEntry[],
+  now: Date = new Date(),
+): AICoachBody | null {
+  const weights = [...bodyweightEntries].sort(
+    (left, right) => new Date(left.recordedAt).getTime() - new Date(right.recordedAt).getTime(),
+  );
+  const latestWeight = weights[weights.length - 1] ?? null;
+
+  const byKind = new Map<string, MeasurementEntry[]>();
+  for (const entry of measurementEntries) {
+    const list = byKind.get(entry.kind) ?? [];
+    list.push(entry);
+    byKind.set(entry.kind, list);
+  }
+  const measurements = [...byKind.entries()].map(([kind, entries]) => {
+    const sorted = entries.sort((left, right) => new Date(left.recordedAt).getTime() - new Date(right.recordedAt).getTime());
+    const latest = sorted[sorted.length - 1];
+    const previous = sorted[sorted.length - 2] ?? null;
+    return {
+      kind,
+      unit: latest.unit,
+      latestValue: latest.value,
+      latestAt: latest.recordedAt.slice(0, 10),
+      previousValue: previous?.value ?? null,
+      previousAt: previous ? previous.recordedAt.slice(0, 10) : null,
+    };
+  });
+
+  if (!latestWeight && measurements.length === 0) {
+    return null;
+  }
+  return {
+    weightKg: latestWeight?.weight ?? null,
+    weightAt: latestWeight ? latestWeight.recordedAt.slice(0, 10) : null,
+    weightChange30d: weightChange(weights, 30, now),
+    weightChange90d: weightChange(weights, 90, now),
+    measurements,
+  };
+}
+
+export function buildAiCoachGoals(
+  coachGoals: CoachGoal[],
+  bodyweightGoalKg: number | null,
+  body: AICoachBody | null,
+): AICoachGoal[] {
+  const currentFor = (kind: string | null): number | null => {
+    if (kind === 'bodyweight') return body?.weightKg ?? null;
+    if (!kind) return null;
+    return body?.measurements.find((entry) => entry.kind === kind)?.latestValue ?? null;
+  };
+  const goals: AICoachGoal[] = coachGoals.map((goal) => ({
+    text: goal.text,
+    kind: goal.kind,
+    targetValue: goal.targetValue,
+    unit: goal.unit,
+    startValue: goal.startValue,
+    currentValue: currentFor(goal.kind),
+    setAt: goal.createdAt.slice(0, 10),
+  }));
+  // The onboarding weight goal counts as a goal too — but the one the user
+  // stated to the coach wins when both name bodyweight.
+  if (bodyweightGoalKg !== null && !goals.some((goal) => goal.kind === 'bodyweight')) {
+    goals.push({
+      text: 'reach target bodyweight',
+      kind: 'bodyweight',
+      targetValue: bodyweightGoalKg,
+      unit: 'kg',
+      startValue: null,
+      currentValue: body?.weightKg ?? null,
+      setAt: null,
+    });
+  }
+  return goals;
 }
 
 function buildHistoryBlock(
@@ -150,7 +247,14 @@ export function buildAiTrainingContext({
   schedule = null,
   historyWindowDays = DEFAULT_HISTORY_WINDOW_DAYS,
   includeActiveSessionContext = false,
+  bodyweightEntries = [],
+  measurementEntries = [],
+  coachGoals = [],
+  bodyweightGoalKg = null,
+  profile = null,
+  now = new Date(),
 }: BuildAiTrainingContextInput): AICoachTrainingContext {
+  const body = buildAiCoachBodyState(bodyweightEntries, measurementEntries, now);
   const recentCompletedSessions = [...workoutSessions]
     .sort((left, right) => new Date(right.performedAt).getTime() - new Date(left.performedAt).getTime())
     .slice(0, 3)
@@ -226,6 +330,9 @@ export function buildAiTrainingContext({
     fatigue,
     history: buildHistoryBlock(workoutSessions, exerciseLogs, trainingDays, historyWindowDays, schedule),
     ...(plannerSetup !== undefined ? { plannerSetup } : {}),
+    body,
+    goals: buildAiCoachGoals(coachGoals, bodyweightGoalKg, body),
+    profile: profile && (profile.heightCm !== null || profile.age !== null || profile.gender !== null) ? profile : null,
   };
 }
 
@@ -270,5 +377,8 @@ export function normalizeAiCoachTrainingContext(
     history:
       candidate.history && typeof candidate.history === 'object' ? candidate.history : emptyAiCoachHistory(),
     plannerSetup: candidate.plannerSetup ?? null,
+    body: candidate.body && typeof candidate.body === 'object' ? candidate.body : null,
+    goals: array(candidate.goals),
+    profile: candidate.profile && typeof candidate.profile === 'object' ? candidate.profile : null,
   };
 }

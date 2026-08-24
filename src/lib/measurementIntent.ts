@@ -19,7 +19,7 @@ export interface MeasurementIntent {
   unit: 'cm' | 'kg' | '%';
 }
 
-const KIND_WORDS: Array<{ kind: MeasurementIntentKind; pattern: RegExp }> = [
+export const KIND_WORDS: Array<{ kind: MeasurementIntentKind; pattern: RegExp }> = [
   { kind: 'bodyfat', pattern: /rasvaprosent|rasva-?%|body ?fat/i },
   { kind: 'bodyweight', pattern: /\bpaino(ni)?\b|\bpainan\b|\bweigh(t|s)?\b|\bbodyweight\b/i },
   { kind: 'chest', pattern: /rinna(n|t)?\s*ympär|\brinta\b|\bchest\b/i },
@@ -51,7 +51,7 @@ export function parseMeasurementIntent(text: string, _language: AppLanguage = 'f
     return null;
   }
   // A goal is not a reading: "tavoite 100 cm" must not be logged as today's chest.
-  if (/tavoit|goal|target|pitäisi|should|haluaisin|want/i.test(message)) {
+  if (/tavoit|goal|target|pitäisi|should|haluaisin|haluan|yritän|aion|want|aim|trying/i.test(message)) {
     return null;
   }
 

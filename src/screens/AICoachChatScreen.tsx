@@ -20,6 +20,7 @@ import { CoachChatIntroInput, CoachContextChip, buildCoachContextChips, buildCoa
 import { MEASUREMENT_LABEL_KEYS } from '../lib/homeStatCards';
 import { I18nKey, t } from '../lib/i18n';
 import { MeasurementIntent, parseMeasurementIntent } from '../lib/measurementIntent';
+import { GoalIntent, parseGoalIntent } from '../lib/goalIntent';
 import { AI_COACH_DEBUG_TRANSCRIPTS } from '../lib/aiCoachDebug';
 import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
@@ -77,6 +78,8 @@ interface AICoachChatScreenProps {
   pinnedStatCardKeys: string[];
   onLogMeasurement: (intent: MeasurementIntent) => Promise<void>;
   onPinStatCard: (key: string) => void;
+  /** "Yritän kasvattaa rinnanympärystä" stated in chat becomes a saved goal — offered, never assumed. */
+  onSetGoal: (intent: GoalIntent) => Promise<void>;
   /** TEMPORARY: the signed-in email, attached to the development transcript log. */
   transcriptReporter: string | null;
 }
@@ -87,8 +90,8 @@ interface ChatMessage {
   text: string;
   /** The coach's structured answer, rendered as sections rather than prose. */
   advice?: AICoachAdvice;
-  /** An offer with buttons: log the reading the reader just stated, or put its card on Home. */
-  offer?: { type: 'log' | 'pin'; intent: MeasurementIntent };
+  /** An offer with buttons: log the reading, put its card on Home, or save the stated goal. */
+  offer?: { type: 'log' | 'pin'; intent: MeasurementIntent } | { type: 'goal'; intent: GoalIntent };
   evidence?: string;
   /** Set when the answer is withheld: the real conclusion, blurred. */
   lockedBody?: string;
@@ -123,6 +126,7 @@ export function AICoachChatScreen({
   pinnedStatCardKeys,
   onLogMeasurement,
   onPinStatCard,
+  onSetGoal,
   transcriptReporter,
 }: AICoachChatScreenProps) {
   const theme = useTheme();
@@ -193,12 +197,12 @@ export function AICoachChatScreen({
   const mustAcknowledgeOnline = liveConfigured && !onlineNoticeAcknowledged;
 
   const measurementLabel = useCallback(
-    (intent: MeasurementIntent) =>
+    (intent: Pick<MeasurementIntent, 'kind'>) =>
       intent.kind === 'bodyweight' ? t(language, 'cards.bodyweight') : t(language, MEASUREMENT_LABEL_KEYS[intent.kind]),
     [language],
   );
   const formatReading = useCallback(
-    (intent: MeasurementIntent) =>
+    (intent: MeasurementIntent | { kind: MeasurementIntent['kind']; value: number; unit: string }) =>
       `${measurementLabel(intent)} ${String(intent.value).replace('.', language === 'fi' ? ',' : '.')} ${intent.unit}`,
     [language, measurementLabel],
   );
@@ -207,6 +211,17 @@ export function AICoachChatScreen({
     async (messageId: string, offer: NonNullable<ChatMessage['offer']>, accepted: boolean) => {
       if (!accepted) {
         setMessages((current) => current.filter((message) => message.id !== messageId));
+        return;
+      }
+      if (offer.type === 'goal') {
+        await onSetGoal(offer.intent);
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === messageId
+              ? { id: `${messageId}:done`, fromCoach: true, text: t(language, 'coachChat.goal.done') }
+              : message,
+          ),
+        );
         return;
       }
       if (offer.type === 'log') {
@@ -235,7 +250,7 @@ export function AICoachChatScreen({
         ),
       );
     },
-    [formatReading, language, measurementLabel, onLogMeasurement, onPinStatCard, pinnedStatCardKeys],
+    [formatReading, language, measurementLabel, onLogMeasurement, onPinStatCard, onSetGoal, pinnedStatCardKeys],
   );
 
   const send = useCallback(
@@ -248,12 +263,16 @@ export function AICoachChatScreen({
 
       const token = (askToken.current += 1);
       setDraft('');
-      const intent = parseMeasurementIntent(trimmed, language);
+      const measurement = parseMeasurementIntent(trimmed, language);
+      const goal = measurement ? null : parseGoalIntent(trimmed, language);
       setMessages((current) => [
         ...current,
         { id: `me:${token}`, fromCoach: false, text: trimmed },
-        ...(intent
-          ? [{ id: `offer:${token}`, fromCoach: true, text: '', offer: { type: 'log' as const, intent } }]
+        ...(measurement
+          ? [{ id: `offer:${token}`, fromCoach: true, text: '', offer: { type: 'log' as const, intent: measurement } }]
+          : []),
+        ...(goal
+          ? [{ id: `offer:${token}`, fromCoach: true, text: '', offer: { type: 'goal' as const, intent: goal } }]
           : []),
       ]);
 
@@ -429,9 +448,11 @@ export function AICoachChatScreen({
               <View key={message.id} style={styles.bubbleRow}>
                 <View style={[styles.coachBubble, styles.offerBubble]}>
                   <Text style={styles.coachText}>
-                    {message.offer.type === 'log'
-                      ? t(language, 'coachChat.measure.offer', { reading: formatReading(message.offer.intent) })
-                      : t(language, 'coachChat.measure.pinOffer', { label: measurementLabel(message.offer.intent) })}
+                    {message.offer.type === 'goal'
+                      ? t(language, 'coachChat.goal.offer', { text: message.offer.intent.text })
+                      : message.offer.type === 'log'
+                        ? t(language, 'coachChat.measure.offer', { reading: formatReading(message.offer.intent) })
+                        : t(language, 'coachChat.measure.pinOffer', { label: measurementLabel(message.offer.intent) })}
                   </Text>
                   <View style={styles.offerActions}>
                     <Pressable
@@ -447,7 +468,14 @@ export function AICoachChatScreen({
                       style={({ pressed }) => [styles.offerCta, pressed && styles.pressed]}
                     >
                       <Text style={styles.offerCtaText}>
-                        {t(language, message.offer.type === 'log' ? 'coachChat.measure.log' : 'coachChat.measure.pin')}
+                        {t(
+                          language,
+                          message.offer.type === 'goal'
+                            ? 'coachChat.goal.set'
+                            : message.offer.type === 'log'
+                              ? 'coachChat.measure.log'
+                              : 'coachChat.measure.pin',
+                        )}
                       </Text>
                     </Pressable>
                   </View>

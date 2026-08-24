@@ -3530,6 +3530,17 @@ function VinhaApp() {
         // told a 2-on-1-off reader their schedule was mon-wed-thu (2026-08-23).
         trainingDays: preferences.setupAvailableDays,
         schedule: homeTrainingSchedule,
+        // The body record and goals: without these a chest-growth or nutrition
+        // question got a training summary (transcript review, 23.8.).
+        bodyweightEntries: database.bodyweightEntries,
+        measurementEntries: database.measurementEntries,
+        coachGoals: preferences.coachGoals,
+        bodyweightGoalKg: preferences.bodyweightGoalKg,
+        profile: {
+          heightCm: preferences.setupHeightCm,
+          age: preferences.setupAge,
+          gender: preferences.setupGender,
+        },
         plannerSetup: preferences.aiSetupCompleted
           ? {
               goal: preferences.aiPlannerGoal,
@@ -3560,6 +3571,13 @@ function VinhaApp() {
       selectedCustomProgram.workoutId,
       trackedProgress,
       unitPreference,
+      database.bodyweightEntries,
+      database.measurementEntries,
+      preferences.coachGoals,
+      preferences.bodyweightGoalKg,
+      preferences.setupHeightCm,
+      preferences.setupAge,
+      preferences.setupGender,
       preferences.aiSetupCompleted,
       preferences.aiPlannerGoal,
       preferences.aiPlannerDaysPerWeek,
@@ -5851,6 +5869,35 @@ function VinhaApp() {
           if (!homePinnedStatCardKeys.includes(key)) {
             void updatePreferences({ homeStatCardKeys: [...homePinnedStatCardKeys, key] });
           }
+        }}
+        onSetGoal={async (intent) => {
+          const latestOf = (values: Array<{ recordedAt: string; value: number }>) =>
+            values.length > 0
+              ? values.reduce((best, entry) => (entry.recordedAt > best.recordedAt ? entry : best)).value
+              : null;
+          const startValue =
+            intent.kind === 'bodyweight'
+              ? latestOf(database.bodyweightEntries.map((entry) => ({ recordedAt: entry.recordedAt, value: entry.weight })))
+              : latestOf(
+                  database.measurementEntries
+                    .filter((entry) => entry.kind === intent.kind)
+                    .map((entry) => ({ recordedAt: entry.recordedAt, value: entry.value })),
+                );
+          await updatePreferences({
+            coachGoals: [
+              // One goal per kind: restating replaces, it does not stack.
+              ...preferences.coachGoals.filter((goal) => goal.kind !== intent.kind),
+              {
+                id: `goal-${Date.now().toString(36)}`,
+                text: intent.text,
+                kind: intent.kind,
+                targetValue: intent.targetValue,
+                unit: intent.unit ?? (intent.kind === 'bodyweight' ? 'kg' : intent.kind === 'bodyfat' ? '%' : 'cm'),
+                startValue,
+                createdAt: new Date().toISOString(),
+              },
+            ],
+          });
         }}
         transcriptReporter={accountBackup.state.status === 'signed_in' ? accountBackup.state.email : null}
       />

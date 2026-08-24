@@ -54,11 +54,12 @@ const CLAUDE_MODEL = process.env.AI_COACH_CLAUDE_MODEL ?? 'claude-haiku-4-5-2025
 // answer out of three ("eikän", "viikonon"); medium was clean in every run
 // and no slower (probe, 2026-08-23).
 const EFFORT_SETTING = (process.env.AI_COACH_EFFORT ?? 'medium').trim();
-const EFFORT_CONFIG: Record<string, unknown> = /haiku/.test(CLAUDE_MODEL)
-  ? {}
-  : EFFORT_SETTING === 'off'
-    ? { thinking: { type: 'disabled' } }
-    : { output_config: { effort: ['low', 'medium', 'high'].includes(EFFORT_SETTING) ? EFFORT_SETTING : 'low' } };
+function effortConfig(setting: string, model: string = CLAUDE_MODEL): Record<string, unknown> {
+  if (/haiku/.test(model)) return {};
+  if (setting === 'off') return { thinking: { type: 'disabled' } };
+  return { output_config: { effort: ['low', 'medium', 'high'].includes(setting) ? setting : 'low' } };
+}
+const EFFORT_CONFIG: Record<string, unknown> = effortConfig(EFFORT_SETTING);
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
 /**
@@ -199,10 +200,21 @@ const COACH_SYSTEM_RULES = [
   '',
   '# How to answer',
   '- Answer the question in the first sentence.',
+  '- Answer the question that was asked: a nutrition question gets a nutrition answer, a measurement question a measurement answer — never a training summary the user did not ask for.',
+  '- Every line must state a conclusion or an instruction the user could not read off their own screen. Numbers appear only as evidence for a claim — never recite a session\'s sets, a list of entries, or a series of dates back to the user; the app already shows them.',
+  '- "Analyse" means: what improved, what stalled, what was unusual, and what to do about it — not a recap of what was done.',
   '- Two concrete actions beat ten: at most three reasons and two next steps. Give a number wherever a number is the answer.',
+  '- Be brief: the takeaway is one or two sentences, and every reason and step is a single clause of at most ~15 words. Cut anything the reader did not ask for.',
+  '- Fill `plan` only when the user asked for a plan or schedule; otherwise return it empty.',
   '- All weights are kilograms.',
   '- Answer in the language the user wrote in, and write numbers and dates the way that language does: Finnish uses a decimal comma (82,5 kg) and day.month dates (3.8.); English uses 82.5 kg and 3 Aug. Never write ISO dates such as 2026-08-03 in prose — the context uses them only as data.',
   '- Do not describe yourself, your context, or how you reasoned.',
+  '',
+  '# Body, goals and nutrition',
+  '- When the context lists goals, tie the answer to them: say where the user stands against the goal and name the one thing that moves it next.',
+  '- A circumference goal is built from training volume, progression and food together — read the relevant lifts from the history when advising on it.',
+  '- Nutrition questions: general sports-nutrition knowledge is allowed here, but anchor every number to this user — protein 1.6–2.2 g per kg of their logged bodyweight, surplus or deficit according to their stated goal. If bodyweight is missing from the context, give the per-kg rule and note that logging bodyweight lets you compute it exactly.',
+  '- Never prescribe a diet for a medical condition.',
   '',
   '# Saying less',
   '- Silence is a valid output. When there is nothing worth saying, say the small true thing rather than manufacturing an insight.',
@@ -307,6 +319,20 @@ function parseBody(body: unknown): ParsedBody | null {
     language: candidate.language === 'fi' || candidate.language === 'en' ? candidate.language : undefined,
     mode: candidate.mode === 'compose' ? 'compose' : 'advice',
     reporter: typeof candidate.reporter === 'string' && candidate.reporter.length <= 200 ? candidate.reporter : undefined,
+    effortOverride:
+      AI_COACH_DEBUG_TRANSCRIPTS
+      && process.env.AI_COACH_DEBUG_TRANSCRIPTS === '1'
+      && typeof candidate.effortOverride === 'string'
+      && ['low', 'medium', 'high', 'off'].includes(candidate.effortOverride)
+        ? candidate.effortOverride
+        : undefined,
+    modelOverride:
+      AI_COACH_DEBUG_TRANSCRIPTS
+      && process.env.AI_COACH_DEBUG_TRANSCRIPTS === '1'
+      && typeof candidate.modelOverride === 'string'
+      && /^claude-[a-z0-9.-]{2,40}$/.test(candidate.modelOverride)
+        ? candidate.modelOverride
+        : undefined,
   };
 }
 
@@ -427,14 +453,17 @@ async function requestClaude(input: AICoachAdviceRequest) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: CLAUDE_MODEL,
-        ...EFFORT_CONFIG,
+        model: input.modelOverride ?? CLAUDE_MODEL,
+        ...(input.modelOverride || input.effortOverride
+          ? effortConfig(input.effortOverride ?? EFFORT_SETTING, input.modelOverride ?? CLAUDE_MODEL)
+          : EFFORT_CONFIG),
         max_tokens: CLAUDE_MAX_TOKENS,
-        // Rules first, then this user's training context. The cache breakpoint
-        // sits after both: follow-up questions in the same conversation reuse
-        // the whole prefix, which is most of the request.
+        // Rules first, then this user's training context. Two cache
+        // breakpoints: the rules block is identical for every user, so it
+        // hits across users; the context breakpoint adds same-conversation
+        // follow-ups on top.
         system: [
-          { type: 'text', text: COACH_SYSTEM_RULES },
+          { type: 'text', text: COACH_SYSTEM_RULES, cache_control: { type: 'ephemeral' } },
           { type: 'text', text: contextText, cache_control: { type: 'ephemeral' } },
         ],
         tools: [
