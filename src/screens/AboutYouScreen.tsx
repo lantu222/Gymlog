@@ -6,17 +6,51 @@ import Svg, { Path } from 'react-native-svg';
 
 import { OnboardingBackButton } from '../components/OnboardingBackButton';
 import { t } from '../lib/i18n';
-import { Theme, useThemedStyles } from '../theming';
+import { darkTheme, Theme, useTheme, useThemedStyles } from '../theming';
+import { HG_DARK } from '../darkTheme';
 import { AppLanguage } from '../types/models';
 
-// Light design tokens (HG palette, same as WelcomeScreen).
-const SURFACE = '#FFFFFF';
-const INK = '#101828';
-const MUTED = '#667085';
-const FAINT = '#9A93AC';
-const BORDER = '#E4D8FF';
-const PURPLE = '#7C3AED';
-const PURPLE_LIGHT = '#EFE7FF';
+/**
+ * This screen's own tokens, in two — the fourth onboarding screen to get
+ * them, and the one that proved why the sweep had to be finished.
+ *
+ * It was missed on 2026-08-23: the theme had already been chosen by the time
+ * the reader arrived, so the shell painted a near-black ground while every
+ * card here stayed white and the title rendered near-black on it — invisible.
+ * Reported from the phone the same morning ("liian valkoinen ja otsikkoa ei
+ * näy"). Light values are the originals to the digit.
+ */
+interface AboutPalette {
+  surface: string;
+  ink: string;
+  muted: string;
+  faint: string;
+  border: string;
+  purple: string;
+  purpleLight: string;
+}
+
+const ABOUT_LIGHT: AboutPalette = {
+  surface: '#FFFFFF',
+  ink: '#101828',
+  muted: '#667085',
+  faint: '#9A93AC',
+  border: '#E4D8FF',
+  purple: '#7C3AED',
+  purpleLight: '#EFE7FF',
+};
+
+const ABOUT_DARK: AboutPalette = {
+  surface: HG_DARK.surface,
+  ink: HG_DARK.ink,
+  muted: HG_DARK.muted,
+  faint: HG_DARK.faint,
+  border: HG_DARK.border,
+  purple: HG_DARK.purple,
+  purpleLight: HG_DARK.purpleLight,
+};
+
+const paletteFor = (theme: Theme): AboutPalette => (theme === darkTheme ? ABOUT_DARK : ABOUT_LIGHT);
 
 export type AboutYouGender = 'male' | 'female' | null;
 
@@ -105,6 +139,7 @@ export function AboutYouScreen({
   onBack,
 }: AboutYouScreenProps) {
   const styles = useThemedStyles(makeStyles);
+  const C = paletteFor(useTheme());
   const insets = useSafeAreaInsets();
   const [manropeLoaded] = useFonts({ Manrope: require('../../assets/fonts/Manrope.ttf') });
   const fontFamily = manropeLoaded ? 'Manrope' : undefined;
@@ -153,7 +188,7 @@ export function AboutYouScreen({
               value={name}
               onChangeText={setName}
               placeholder={t(language, 'aboutYou.namePlaceholder')}
-              placeholderTextColor={FAINT}
+              placeholderTextColor={C.faint}
               maxLength={32}
               autoCapitalize="words"
               autoCorrect={false}
@@ -249,7 +284,9 @@ export function AboutYouScreen({
   );
 }
 
-const makeStyles = (theme: Theme) => StyleSheet.create({
+const makeStyles = (theme: Theme) => {
+  const C = paletteFor(theme);
+  return StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: theme.bg,
@@ -262,7 +299,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingBottom: 16,
   },
   title: {
-    color: INK,
+    color: C.ink,
     fontSize: 28,
     lineHeight: 34,
     fontWeight: '800',
@@ -276,9 +313,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 6,
   },
   identityCard: {
-    backgroundColor: SURFACE,
+    backgroundColor: C.surface,
     borderWidth: 1.5,
-    borderColor: BORDER,
+    borderColor: C.border,
     borderRadius: 18,
     padding: 18,
     marginTop: 24,
@@ -298,25 +335,25 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 1,
   },
   profileStatValue: {
-    color: INK,
+    color: C.ink,
     fontSize: 18,
     fontWeight: '800',
     letterSpacing: -0.2,
   },
   profileStatLabel: {
-    color: FAINT,
+    color: C.faint,
     fontSize: 11.5,
     fontWeight: '700',
   },
   profileName: {
-    color: INK,
+    color: C.ink,
     fontSize: 19,
     fontWeight: '800',
     letterSpacing: -0.2,
     marginTop: 14,
   },
   profileHint: {
-    color: FAINT,
+    color: C.faint,
     fontSize: 12.5,
     fontWeight: '600',
     marginTop: 2,
@@ -341,28 +378,28 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   avatarFilled: {
     borderWidth: 2,
-    borderColor: PURPLE,
-    backgroundColor: PURPLE_LIGHT,
+    borderColor: C.purple,
+    backgroundColor: C.purpleLight,
   },
   avatarPlaceholder: {
-    color: FAINT,
+    color: C.faint,
     fontSize: 22,
     fontWeight: '800',
   },
   avatarInitials: {
-    color: PURPLE,
+    color: C.purple,
     fontSize: 20,
     fontWeight: '800',
     letterSpacing: 0.4,
   },
   fieldLabel: {
-    color: FAINT,
+    color: C.faint,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1,
   },
   nameInput: {
-    color: INK,
+    color: C.ink,
     fontSize: 17,
     fontWeight: '700',
     paddingVertical: 8,
@@ -371,9 +408,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderBottomColor: '#C9B6FF',
   },
   fieldCard: {
-    backgroundColor: SURFACE,
+    backgroundColor: C.surface,
     borderWidth: 1.5,
-    borderColor: BORDER,
+    borderColor: C.border,
     borderRadius: 18,
     padding: 18,
     marginTop: 14,
@@ -389,19 +426,19 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: '#C9B6FF',
-    backgroundColor: SURFACE,
+    backgroundColor: C.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   genderTileSelected: {
-    backgroundColor: PURPLE,
-    borderColor: PURPLE,
+    backgroundColor: C.purple,
+    borderColor: C.purple,
   },
   genderTilePressed: {
     opacity: 0.85,
   },
   genderTileText: {
-    color: INK,
+    color: C.ink,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -418,7 +455,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 999,
-    backgroundColor: PURPLE_LIGHT,
+    backgroundColor: C.purpleLight,
     borderWidth: 1.5,
     borderColor: '#C9B6FF',
     alignItems: 'center',
@@ -428,7 +465,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     opacity: 0.7,
   },
   stepperButtonText: {
-    color: PURPLE,
+    color: C.purple,
     fontSize: 22,
     fontWeight: '800',
     lineHeight: 26,
@@ -439,18 +476,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 6,
   },
   stepperValue: {
-    color: INK,
+    color: C.ink,
     fontSize: 26,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
   stepperUnit: {
-    color: MUTED,
+    color: C.muted,
     fontSize: 13.5,
     fontWeight: '600',
   },
   footNote: {
-    color: FAINT,
+    color: C.faint,
     fontSize: 12.5,
     fontWeight: '600',
     textAlign: 'center',
@@ -463,10 +500,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   cta: {
     height: 56,
     borderRadius: 18,
-    backgroundColor: PURPLE,
+    backgroundColor: C.purple,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: PURPLE,
+    shadowColor: C.purple,
     shadowOpacity: 0.32,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 14 },
@@ -489,8 +526,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 14,
   },
   backText: {
-    color: MUTED,
+    color: C.muted,
     fontSize: 14.5,
     fontWeight: '700',
   },
 });
+};
