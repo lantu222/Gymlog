@@ -29,7 +29,6 @@ import { BadgePill, SurfaceAccent, SurfaceCard } from '../components/MainScreenP
 import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
 import { VinhaIcon, VinhaIconName } from '../components/VinhaIcon';
 import { VinhaWordmark } from '../components/VinhaWordmark';
-import { ProPaywallScreen } from './ProPaywallScreen';
 import { ProgramPickScreen } from './ProgramPickScreen';
 import { LEVEL_STREAKS } from '../lib/levelStreaks';
 import { OnboardingOptionIcon, OnboardingOptionIconName } from '../components/OnboardingOptionIcon';
@@ -129,14 +128,8 @@ interface OnboardingScreenProps {
   onSkip: () => void | Promise<void>;
   onCompleteToTraining: (selection: FirstRunSetupSelection, recommendedProgramId: string) => void | Promise<void>;
   /**
-   * The paywall's CTA. Separate from onCompleteToTraining because it does
-   * something first: grants the seven days, so the button's own sentence is
-   * true. Two buttons that end onboarding identically would be one button.
-   */
-  onStartProTrial: (selection: FirstRunSetupSelection, recommendedProgramId: string) => void | Promise<void>;
-  /**
    * Fires when a full-bleed review screen takes over — the program picker's
-   * diagonal and the paywall's hero both run to the top edge. The shell
+   * diagonal runs to the top edge. The shell
    * reserves the status-bar strip for onboarding and paints it light, which
    * would cut a band across either of them.
    */
@@ -1581,7 +1574,6 @@ export function OnboardingScreen({
   onBackToEntry,
   onSkip,
   onCompleteToTraining,
-  onStartProTrial,
   onFullBleedReviewChange,
   onCompleteToProgramDetail,
   onCompleteToCustom,
@@ -1734,7 +1726,15 @@ export function OnboardingScreen({
     useState<RecommendationRefinementPanel>(null);
   const [selectedRecommendationProgramId, setSelectedRecommendationProgramId] = useState<string | null>(null);
   const [planReadyWorkoutPage, setPlanReadyWorkoutPage] = useState(0);
-  const [planReadyView, setPlanReadyView] = useState<'overview' | 'day' | 'pro'>('overview');
+  /**
+   * The plan-ready screen has two views, not three.
+   *
+   * A 'pro' one used to close onboarding with the paywall — user decision
+   * 2026-08-24 to take it out: the reader has just been handed a programme
+   * and the next thing the app did was ask for money. The paywall itself is
+   * unchanged and still reachable from Profile.
+   */
+  const [planReadyView, setPlanReadyView] = useState<'overview' | 'day'>('overview');
   /**
    * The recommendation is the answer until the user gives another one.
    *
@@ -1757,11 +1757,6 @@ export function OnboardingScreen({
   useEffect(() => {
     if (STAGES[stageIndex] !== 'review') {
       onFullBleedReviewChange?.(null);
-      return;
-    }
-    if (planReadyView === 'pro') {
-      // The paywall's hero is dark top to bottom.
-      onFullBleedReviewChange?.('light');
       return;
     }
     if (planReadyView !== 'overview') {
@@ -3363,9 +3358,6 @@ export function OnboardingScreen({
    * where the programs are, once, and the CTA never moves.
    */
   function renderReview() {
-    if (planReadyView === 'pro') {
-      return renderPlanReadyPro();
-    }
     if (planReadyView === 'day') {
       return renderPlanReadyDay();
     }
@@ -3426,10 +3418,14 @@ export function OnboardingScreen({
           void haptics.select();
           setSelectedRecommendationProgramId(id);
         }}
-        ctaLabel={t(language, 'common.continue')}
+        ctaLabel={t(language, 'onb.cta.startTraining')}
+        // Straight into the app. This used to open the paywall — the reader
+        // had just been handed a programme and the next thing the app did was
+        // ask for money (user decision 2026-08-24). The paywall is unchanged
+        // and still reachable from Profile.
         onContinue={() => {
           void haptics.success();
-          setPlanReadyView('pro');
+          void runAction(() => onCompleteToTraining(selection, activeRecommendedProgramId));
         }}
         onOpenWeek={() => {
           setPlanReadyWorkoutPage(0);
@@ -3544,26 +3540,6 @@ export function OnboardingScreen({
    * the honest version of the same moment. The preference itself still defaults
    * on and stays editable in plan settings for anyone who has Pro.
    */
-  function renderPlanReadyPro() {
-    const goalOption = GOAL_OPTIONS.find((option) => option.goal === goal) ?? GOAL_OPTIONS[0];
-    return (
-      <ProPaywallScreen
-        language={language}
-        goalLabel={t(language, goalOption.titleKey).toLowerCase()}
-        daysPerWeek={projectedDaysPerWeek}
-        busy={busy}
-        onStartTrial={() => {
-          void haptics.success();
-          void runAction(() => onStartProTrial(selection, activeRecommendedProgramId));
-        }}
-        onSkip={() => {
-          void haptics.select();
-          void runAction(() => onCompleteToTraining(selection, activeRecommendedProgramId));
-        }}
-      />
-    );
-  }
-
   function renderPlanning() {
     const visibleFocusOptions = FOCUS_AREA_OPTIONS.filter((option) => option.area !== 'mobility');
     const flaggedFocusSelected = visibleFocusOptions.some(
@@ -4093,9 +4069,9 @@ export function OnboardingScreen({
           planReadyWorkoutPage < projectedSessions.length - 1
           ? t(language, 'common.next')
           : t(language, 'onb.cta.backToPlan')
-        : planReadyView === 'pro'
-        ? t(language, 'onb.cta.startTraining')
-        : t(language, 'common.continue')
+        : // The overview's button is the last one in onboarding now that the
+          // paywall no longer follows it, so it says what it does.
+          t(language, 'onb.cta.startTraining')
       : stage === 'planning'
       ? t(language, 'onb.cta.buildPlan')
       : stage === 'avoid'
@@ -4103,12 +4079,10 @@ export function OnboardingScreen({
         ? t(language, 'common.continue')
         : t(language, 'onb.cta.skip')
       : t(language, 'common.continue');
-  // The footer stays visible through every plan-ready view: overview continues
-  // to the progression screen, the day view returns to the plan, and the
-  // progression screen's "Start training" completes onboarding.
-  // The Pro paywall is full-bleed and carries its own CTA and dismiss, so
-  // the shared footer would stack a second pair of buttons under it.
-  const footerVisible = !(stage === 'review' && (planReadyView === 'pro' || planReadyView === 'overview'));
+  // The programme picker is full-bleed and carries its own pinned CTA, so the
+  // shared footer would stack a second pair of buttons under it. The day view
+  // does use the shared footer, which is what walks through the days.
+  const footerVisible = !(stage === 'review' && planReadyView === 'overview');
   const scrollLockedStage = stage === 'level' || stage === 'days';
   // Steps 1-2 (location/goal) scroll so an expanded benefits panel or a
   // wrapped chip row stays reachable above the footer, but they should not
@@ -4129,12 +4103,11 @@ export function OnboardingScreen({
     return renderBuildingPlan();
   }
 
-  // The paywall is a full-screen surface with its own scroll and its own
+  // The picker is a full-screen surface with its own scroll and its own
   // pinned CTA, so it cannot live inside the onboarding's ScrollView: a flex:1
   // child of a scroll container collapses to content height, and the footer
   // anchored to it ends up somewhere down the page instead of on the screen.
-  const fullBleedReview =
-    stage === 'review' && (planReadyView === 'pro' || planReadyView === 'overview');
+  const fullBleedReview = stage === 'review' && planReadyView === 'overview';
   if (fullBleedReview) {
     return renderReview();
   }
@@ -4143,10 +4116,6 @@ export function OnboardingScreen({
   // replaces is below. Where it goes is the same decision the link made.
   const goBack = () => {
     if (stage === 'review') {
-      if (planReadyView === 'pro') {
-        setPlanReadyView('overview');
-        return;
-      }
       if (planReadyView === 'day') {
         // Backward through the days, then out to the plan. This used to fall
         // through to the questionnaire: one tap on the chevron from a day
@@ -4263,10 +4232,9 @@ export function OnboardingScreen({
                     setPlanReadyView('overview');
                     return;
                   }
-                  if (planReadyView === 'overview') {
-                    setPlanReadyView('pro');
-                    return;
-                  }
+                  // The overview IS the end of onboarding now: the paywall
+                  // that used to sit between it and the app is gone (user
+                  // 2026-08-24).
                   void runAction(() => onCompleteToTraining(selection, activeRecommendedProgramId));
                   return;
                 }

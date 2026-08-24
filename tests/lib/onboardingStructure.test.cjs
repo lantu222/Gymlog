@@ -41,21 +41,17 @@ module.exports = [
     run() {
       const reviewBody = getFunctionBody('renderReview');
       const dayBody = getFunctionBody('renderPlanReadyDay');
-      const proBody = getFunctionBody('renderPlanReadyPro');
 
-      // Plan-ready is a four-view flow: program pick (08b) -> overview -> day
-      // preview -> the Pro paywall. The last view used to be an
-      // automated-progression toggle, which asked a free user to configure a
-      // feature resolveProgressionOptions gates behind Pro. No account gate —
-      // auth lives on Welcome.
-      assert.match(onboardingSource, /const \[planReadyView, setPlanReadyView\] = useState<'overview' \| 'day' \| 'pro'>\('overview'\)/);
+      // Plan-ready is a TWO-view flow: the programme pick (08b) and the day
+      // preview behind it. There used to be a third — the Pro paywall as the
+      // closing step — removed on 2026-08-24 because the reader had just been
+      // handed a programme and the next thing the app did was ask for money.
+      // The paywall screen itself is untouched and still reached from Profile.
+      assert.match(onboardingSource, /const \[planReadyView, setPlanReadyView\] = useState<'overview' \| 'day'>\('overview'\)/);
       assert.doesNotMatch(onboardingSource, /renderProgramPick|ProgramPickCard/);
-      assert.match(reviewBody, /if \(planReadyView === 'pro'\) \{\s*return renderPlanReadyPro\(\);/);
-      assert.match(proBody, /<ProPaywallScreen/);
-      // The paywall's two buttons must not be the same button: the CTA
-      // grants the trial it advertises, "maybe later" just finishes.
-      assert.match(proBody, /onStartTrial=\{[\s\S]*onStartProTrial\(/);
-      assert.match(proBody, /onSkip=\{[\s\S]*onCompleteToTraining\(/);
+      assert.doesNotMatch(onboardingSource, /renderPlanReadyPro|ProPaywallScreen|onStartProTrial/);
+      // The picker's own CTA is what finishes onboarding now.
+      assert.match(reviewBody, /onContinue=\{[\s\S]{0,400}?onCompleteToTraining\(selection, activeRecommendedProgramId\)/);
       assert.match(reviewBody, /if \(planReadyView === 'day'\) \{\s*return renderPlanReadyDay\(\);/);
 
       // One plan-ready screen, from design 08b variant D: two programs either
@@ -70,7 +66,8 @@ module.exports = [
       // The CTA continues; it does not save. The plan is written at the very
       // end, after the paywall — and "Valitse tämä ohjelma" beside a card
       // already reading "VALITSE TÄMÄ" was the same words meaning two things.
-      assert.match(reviewBody, /ctaLabel=\{t\(language, 'common\.continue'\)\}/);
+      // The picker's CTA ends onboarding, so it says so rather than "Continue".
+      assert.match(reviewBody, /ctaLabel=\{t\(language, 'onb\.cta\.startTraining'\)\}/);
 
       // Days-per-week truth: the picker's stats and focus split come from the
       // composed week (what actually gets saved), never the raw catalog
@@ -131,14 +128,14 @@ module.exports = [
         onboardingSource,
         /if \(planReadyView === 'day'\) \{\s*if \(planReadyWorkoutPage < projectedSessions\.length - 1\) \{\s*setPlanReadyWorkoutPage\(\(current\) => current \+ 1\);/,
       );
-      assert.match(onboardingSource, /setPlanReadyView\('pro'\)/);
       assert.match(onboardingSource, /onCompleteToTraining\(selection, activeRecommendedProgramId\)/);
       assert.doesNotMatch(onboardingSource, /: 'See day 1'/);
-      // The shared footer stands down for both full-bleed views: each brings
-      // its own pinned CTA.
+      // The shared footer stands down for the picker, which is full-bleed and
+      // brings its own pinned CTA. The day view keeps it — that is what walks
+      // the days forward.
       assert.match(
         onboardingSource,
-        /const footerVisible = !\(stage === 'review' && \(planReadyView === 'pro' \|\| planReadyView === 'overview'\)\)/,
+        /const footerVisible = !\(stage === 'review' && planReadyView === 'overview'\)/,
       );
 
       // The ready-catalog pick ADOPTS the programme, it does not merely

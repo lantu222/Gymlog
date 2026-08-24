@@ -2764,30 +2764,15 @@ function VinhaApp() {
     ) {
       await addBodyweightEntry(selection.currentWeightKg);
     }
-    // This used to hop to the standalone pro_offer screen. The Pro sale now
-    // happens INSIDE onboarding, as its last step, so keeping the hop would
-    // put two paywalls back to back — the same duplication the plan-ready
-    // screens had. The pro_offer route and screen are left in place but no
-    // longer reached from here.
+    // Onboarding ends here, on the app itself.
+    //
+    // Two paywalls have been removed from this seam. First the hop to the
+    // standalone pro_offer screen, when the sale moved inside onboarding as
+    // its last step; then that last step too (user 2026-08-24) — the reader
+    // has just been handed a programme, and asking for money in the same
+    // breath is the wrong moment. Both the route and the paywall screen are
+    // left in place and reachable from Profile; neither is reached from here.
     resetToRoute(ROOT_ROUTES.home);
-  }
-
-  /**
-   * The paywall's CTA: grant the seven days, then finish onboarding exactly as
-   * "Maybe later" does. The grant is what makes the button's own sentence true
-   * — and what makes it a different button from the one beside it.
-   */
-  async function handleOnboardingStartProTrial(
-    selection: FirstRunSetupSelection,
-    recommendedProgramId: string,
-  ) {
-    // Null when the trial is switched off. Writing it would clear a promo the
-    // user might already be holding, so nothing is written at all.
-    const trialUntil = resolveTrialProUntil();
-    if (trialUntil !== null) {
-      await updatePreferences({ promoProUntil: trialUntil });
-    }
-    await handleOnboardingCompleteToTraining(selection, recommendedProgramId);
   }
 
   async function handleOnboardingCompleteToProgramDetail(
@@ -5118,7 +5103,6 @@ function VinhaApp() {
           onBackToEntry={() => setOnboardingStep('about')}
           onSkip={() => void handleOnboardingSkip()}
           onCompleteToTraining={handleOnboardingCompleteToTraining}
-          onStartProTrial={handleOnboardingStartProTrial}
           onFullBleedReviewChange={setFullBleedReview}
           onCompleteToProgramDetail={handleOnboardingCompleteToProgramDetail}
           onCompleteToCustom={handleOnboardingCompleteToCustom}
@@ -5157,7 +5141,6 @@ function VinhaApp() {
         onSkip={() => navigateBack(ROOT_ROUTES.profile)}
         onCancel={() => navigateBack(ROOT_ROUTES.profile)}
         onCompleteToTraining={handleSetupCompleteToTraining}
-        onStartProTrial={handleSetupCompleteToTraining}
         onCompleteToProgramDetail={handleSetupOpenProgramDetail}
         onCompleteToCustom={handleSetupBuildOwn}
       />

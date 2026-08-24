@@ -43,20 +43,21 @@ module.exports = [
       assert.match(appSource, /onFullBleedReviewChange=\{setFullBleedReview\}/);
       assert.doesNotMatch(appSource, /#1D1C35/);
 
-      // Plan-ready views animate on one shared card; the footer stays visible
-      // through every view (overview -> progression -> Start training).
-      // Visible on every step except the Pro paywall, which is full-bleed
-      // and carries its own CTA and dismiss.
+      // Plan-ready views animate on one shared card. The shared footer is
+      // hidden on the programme picker, which is full-bleed and pins its own
+      // CTA; the day view uses it, and that is what walks the days. The Pro
+      // paywall used to be the other exception — it left the flow entirely on
+      // 2026-08-24.
       assert.match(
         onboardingSource,
-        /const footerVisible = !\(stage === 'review' && \(planReadyView === 'pro' \|\| planReadyView === 'overview'\)\)/,
+        /const footerVisible = !\(stage === 'review' && planReadyView === 'overview'\)/,
       );
       assert.match(onboardingSource, /Animated\.timing\(planReadyCardTranslateX/);
       assert.match(onboardingSource, /planReadyCardOpacity/);
 
       // CTA labels are sentence case in the light redesign. "See day 1" is gone —
       // the day view is a read-only preview whose footer returns "Back to plan".
-      assert.match(onboardingSource, /\? t\(language, 'onb\.cta\.startTraining'\)/);
+      assert.match(onboardingSource, /t\(language, 'onb\.cta\.startTraining'\)/);
       assert.doesNotMatch(onboardingSource, /: 'See day 1'/);
       assert.match(onboardingSource, /\? t\(language, 'onb\.cta\.buildPlan'\)/);
       assert.match(onboardingSource, /t\(language, 'onb\.cta\.saving'\)/);

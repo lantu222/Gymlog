@@ -4,6 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Pattern, Polygon, Rect, Stop } from 'react-native-svg';
 
 import { HG } from '../lightTheme';
+import { HG_DARK } from '../darkTheme';
+import { darkTheme, Theme, useTheme } from '../theming';
 import { PROGRAM_FOCUS_COLORS, ProgramFocusSegment,
   getProgramFocusQualityLabel,
 } from '../lib/programFocusSplit';
@@ -77,6 +79,7 @@ export interface ProgramPickScreenProps {
 }
 
 function FocusBar({ focus, light, language }: { focus: ProgramFocusSegment[]; light: boolean; language: AppLanguage }) {
+  const styles = stylesFor(useTheme());
   if (focus.length === 0) {
     return null;
   }
@@ -112,10 +115,12 @@ function FocusBar({ focus, light, language }: { focus: ProgramFocusSegment[]; li
 }
 
 function Check({ selected }: { selected: boolean }) {
+  const theme = useTheme();
+  const styles = stylesFor(theme);
   return (
     <View style={[styles.check, selected ? styles.checkOn : styles.checkOff]}>
       {selected ? (
-        <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={HG.purple} strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round">
+        <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={paletteFor(theme).purple} strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round">
           <Path d="M5 12l5 5L19 7" />
         </Svg>
       ) : null}
@@ -128,16 +133,21 @@ function Check({ selected }: { selected: boolean }) {
  * the seam is one shape rather than a stack of clipped rectangles.
  */
 function HalfCover({ points, light, id }: { points: string; light: boolean; id: string }) {
+  // `light` means "this is the chosen, purple half" — not the theme. The
+  // purple is the same in both themes; it is the OTHER half that has to
+  // follow the theme, and painting it white on a dark run is what put a
+  // white slab under the purple one (user 2026-08-24).
+  const C = paletteFor(useTheme());
   return (
     <Svg style={StyleSheet.absoluteFill} viewBox="0 0 100 100" preserveAspectRatio="none">
       <Defs>
         <Pattern id={`stripe-${id}`} width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
-          <Rect width="4" height="4" fill={light ? '#6D28D9' : '#E9E1F8'} />
-          <Rect width="2" height="4" fill={light ? '#7C3AED' : '#DCD1F2'} />
+          <Rect width="4" height="4" fill={light ? '#6D28D9' : C.quietStripe} />
+          <Rect width="2" height="4" fill={light ? '#7C3AED' : C.quietStripeAlt} />
         </Pattern>
         <SvgLinearGradient id={`scrim-${id}`} x1="0" y1="0" x2="0.45" y2="1">
-          <Stop offset="0" stopColor={light ? '#5B21B6' : '#FFFFFF'} stopOpacity={light ? 0.55 : 0.6} />
-          <Stop offset="1" stopColor={light ? '#5B21B6' : '#FFFFFF'} stopOpacity={light ? 0.92 : 0.93} />
+          <Stop offset="0" stopColor={light ? '#5B21B6' : C.quietScrim} stopOpacity={light ? 0.55 : 0.6} />
+          <Stop offset="1" stopColor={light ? '#5B21B6' : C.quietScrim} stopOpacity={light ? 0.92 : 0.93} />
         </SvgLinearGradient>
       </Defs>
       <Polygon points={points} fill={`url(#stripe-${id})`} />
@@ -160,6 +170,8 @@ export function ProgramPickScreen({
   onTopToneChange,
   busy = false,
 }: ProgramPickScreenProps) {
+  const theme = useTheme();
+  const styles = stylesFor(theme);
   // Full-bleed: the diagonal runs to the top edge, so the shell hands the
   // status-bar strip back and the screen insets its own copy instead.
   const insets = useSafeAreaInsets();
@@ -348,7 +360,7 @@ export function ProgramPickScreen({
             height={18}
             viewBox="0 0 24 24"
             fill="none"
-            stroke={topSelected ? '#FFFFFF' : HG.purpleDark}
+            stroke={topSelected ? '#FFFFFF' : paletteFor(theme).purpleDark}
             strokeWidth={2.6}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -363,14 +375,71 @@ export function ProgramPickScreen({
 
 const PAD = 22;
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: HG.bg, overflow: 'hidden' },
+/**
+ * The last screen of onboarding, in two palettes.
+ *
+ * The selected half is purple in both themes — that is the whole diagonal
+ * device and it does not need a dark version. What did need one is the
+ * *unselected* half, which was painted white: on a dark run the screen came
+ * out purple over a white slab, reported from the phone 2026-08-24.
+ *
+ * Light values are the originals, same rule as the other onboarding screens.
+ */
+interface PickPalette {
+  bg: string;
+  ink: string;
+  muted: string;
+  faint: string;
+  border: string;
+  purple: string;
+  purpleDark: string;
+  purpleLight: string;
+  /** The quiet half's diagonal fill: two stripe tones and the scrim over them. */
+  quietStripe: string;
+  quietStripeAlt: string;
+  quietScrim: string;
+}
+
+const PICK_LIGHT: PickPalette = {
+  bg: HG.bg,
+  ink: HG.ink,
+  muted: HG.muted,
+  faint: HG.faint,
+  border: HG.border,
+  purple: HG.purple,
+  purpleDark: HG.purpleDark,
+  purpleLight: HG.purpleLight,
+  quietStripe: '#E9E1F8',
+  quietStripeAlt: '#DCD1F2',
+  quietScrim: '#FFFFFF',
+};
+
+const PICK_DARK: PickPalette = {
+  bg: HG_DARK.bg,
+  ink: HG_DARK.ink,
+  muted: HG_DARK.muted,
+  faint: HG_DARK.faint,
+  border: HG_DARK.border,
+  purple: HG_DARK.purple,
+  purpleDark: HG_DARK.purpleBright,
+  purpleLight: HG_DARK.purpleLight,
+  quietStripe: HG_DARK.surfaceSoft,
+  quietStripeAlt: HG_DARK.surface,
+  quietScrim: HG_DARK.bg,
+};
+
+const paletteFor = (theme: Theme): PickPalette => (theme === darkTheme ? PICK_DARK : PICK_LIGHT);
+/** Forward reference: the two sheets are built at the foot of the file. */
+const stylesFor = (theme: Theme) => (theme === darkTheme ? PICK_STYLES.dark : PICK_STYLES.light);
+
+const makePickStyles = (C: PickPalette) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.bg, overflow: 'hidden' },
   hit: { position: 'absolute', left: 0, right: 0 },
   halfContent: { position: 'absolute', left: 0, right: 0, paddingHorizontal: PAD },
 
   titleWrap: { position: 'absolute', left: 0, right: 0, top: 0, paddingHorizontal: PAD },
-  title: { fontSize: 26, fontWeight: '800', letterSpacing: -0.65, color: HG.ink },
-  meta: { fontSize: 12.5, fontWeight: '600', marginTop: 4, color: HG.muted },
+  title: { fontSize: 26, fontWeight: '800', letterSpacing: -0.65, color: C.ink },
+  meta: { fontSize: 12.5, fontWeight: '600', marginTop: 4, color: C.muted },
   metaLight: { color: 'rgba(255,255,255,0.72)' },
   textLight: { color: '#FFFFFF' },
 
@@ -378,13 +447,13 @@ const styles = StyleSheet.create({
   halfHeadCopy: { flex: 1, minWidth: 0 },
   badge: { alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, marginBottom: 8 },
   badgeLight: { backgroundColor: 'rgba(255,255,255,0.2)' },
-  badgeDark: { backgroundColor: HG.purpleLight },
+  badgeDark: { backgroundColor: C.purpleLight },
   badgeText: { fontSize: 9.5, fontWeight: '800', letterSpacing: 1.3 },
   badgeTextLight: { color: '#FFFFFF' },
-  badgeTextDark: { color: HG.purpleDark },
+  badgeTextDark: { color: C.purpleDark },
   // Bigger since 2026-08-23 ("vain isolla ohjelman nimi") — the description
   // sentence under it is gone, so the name carries the card.
-  name: { fontSize: 26, fontWeight: '800', letterSpacing: -0.65, lineHeight: 28, color: HG.ink },
+  name: { fontSize: 26, fontWeight: '800', letterSpacing: -0.65, lineHeight: 28, color: C.ink },
   nameSelected: { fontSize: 34, lineHeight: 36, letterSpacing: -0.85 },
 
   statRow: {
@@ -400,25 +469,25 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 10.5, fontWeight: '700', color: 'rgba(255,255,255,0.72)', marginTop: 2 },
 
   splitWrap: { marginTop: 14 },
-  splitLabel: { fontSize: 9.5, fontWeight: '800', letterSpacing: 1.15, color: HG.faint, marginBottom: 7 },
+  splitLabel: { fontSize: 9.5, fontWeight: '800', letterSpacing: 1.15, color: C.faint, marginBottom: 7 },
   splitLabelLight: { color: 'rgba(255,255,255,0.7)' },
   splitTrack: { flexDirection: 'row', height: 7, gap: 2, borderRadius: 999, overflow: 'hidden' },
   splitLegend: { flexDirection: 'row', flexWrap: 'wrap', gap: 13, marginTop: 8 },
   splitLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   splitDot: { width: 8, height: 8, borderRadius: 2 },
-  splitLegendText: { fontSize: 11, fontWeight: '700', color: HG.muted },
+  splitLegendText: { fontSize: 11, fontWeight: '700', color: C.muted },
   splitLegendTextLight: { color: 'rgba(255,255,255,0.85)' },
-  splitPct: { fontWeight: '800', color: HG.ink },
+  splitPct: { fontWeight: '800', color: C.ink },
   splitPctLight: { color: '#FFFFFF' },
 
   weekLink: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14 },
   weekLinkText: { fontSize: 11.5, fontWeight: '800', letterSpacing: 0.9, color: '#FFFFFF', textTransform: 'uppercase' },
 
-  compactStats: { fontSize: 12.5, fontWeight: '700', color: HG.muted, marginTop: 12 },
+  compactStats: { fontSize: 12.5, fontWeight: '700', color: C.muted, marginTop: 12 },
 
   check: { width: 28, height: 28, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
   checkOn: { backgroundColor: '#FFFFFF' },
-  checkOff: { borderWidth: 2, borderColor: HG.border },
+  checkOff: { borderWidth: 2, borderColor: C.border },
 
   ctaWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: PAD },
   cta: {
@@ -430,7 +499,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   ctaOnPurple: {
-    backgroundColor: HG.purple,
+    backgroundColor: C.purple,
     shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 14 },
     shadowOpacity: 0.34,
@@ -448,6 +517,11 @@ const styles = StyleSheet.create({
   ctaBusy: { opacity: 0.6 },
   ctaText: { fontSize: 16.5, fontWeight: '800' },
   ctaTextOnPurple: { color: '#FFFFFF' },
-  ctaTextOnWhite: { color: HG.purpleDark },
+  ctaTextOnWhite: { color: C.purpleDark },
   pressed: { opacity: 0.9 },
 });
+
+const PICK_STYLES = {
+  light: makePickStyles(PICK_LIGHT),
+  dark: makePickStyles(PICK_DARK),
+} as const;
