@@ -232,12 +232,20 @@ export interface ExerciseLogSet {
   skippedReason?: string | null;
 }
 
+/**
+ * The reader's one-word verdict on a finished session, asked right after
+ * Done (user 2026-08-23: "hei miltä treeni tuntui? Raskas kevyt tms").
+ * Absent = never asked or skipped — not "felt fine".
+ */
+export type SessionFeel = 'easy' | 'right' | 'hard' | 'too_hard';
+
 export interface WorkoutSession {
   id: string;
   workoutTemplateId: string;
   workoutTemplateSessionId?: string | null;
   workoutNameSnapshot: string;
   sessionNotes?: string | null;
+  feel?: SessionFeel | null;
   performedAt: string;
   startedAt?: string;
   durationMinutes?: number;

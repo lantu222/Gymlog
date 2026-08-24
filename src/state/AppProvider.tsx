@@ -41,6 +41,7 @@ import {
   MeasurementEntry,
   MeasurementKind,
   MeasurementUnit,
+  SessionFeel,
   UnitPreference,
   WorkoutPlan,
   WorkoutTemplateDraft,
@@ -94,6 +95,7 @@ interface AppContextValue {
     patch: {
       workoutNameSnapshot?: string;
       sessionNotes?: string | null;
+      feel?: SessionFeel | null;
     },
   ) => Promise<void>;
   /** Removes a saved workout and the sets logged in it. */
@@ -586,6 +588,8 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     patch: {
       workoutNameSnapshot?: string;
       sessionNotes?: string | null;
+      /** The post-workout verdict, written after the save (feel sheet). */
+      feel?: SessionFeel | null;
     },
   ) {
     return runExclusive(async () => {

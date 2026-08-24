@@ -18,7 +18,7 @@ import { ProMomentContent } from '../lib/proInsights';
 import { ProLockedCard } from '../components/ProLockedCard';
 import { ProMomentSheet } from '../components/ProMomentSheet';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
-import { AppLanguage } from '../types/models';
+import { AppLanguage, SessionFeel } from '../types/models';
 import { haptics } from '../utils/haptics';
 import { sound } from '../utils/sound';
 import { queryReduceMotion } from '../utils/reduceMotion';
@@ -209,7 +209,11 @@ interface WorkoutCompletionScreenProps {
   /** The next planned session, same source the guided finish used. */
   nextUp?: { name: string; weekday: string } | null;
   language?: AppLanguage;
-  onDone: () => void;
+  /**
+   * Done asks "miltä treeni tuntui" on the way out (user 2026-08-23) and
+   * hands the answer here; null = skipped, and skipping costs one tap.
+   */
+  onDone: (feel: SessionFeel | null) => void;
   /**
    * Paywall moment 1: the coach's one change for next time. The blurred lines
    * are the REAL deterministic conclusion; null hides the lock entirely (fresh
@@ -274,6 +278,8 @@ export function WorkoutCompletionScreen({
   const insets = useSafeAreaInsets();
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
   const [momentSheetVisible, setMomentSheetVisible] = useState(false);
+  /** The "miltä treeni tuntui" ask, shown when Done is pressed. */
+  const [feelSheetVisible, setFeelSheetVisible] = useState(false);
   const pr = prCards[0] ?? null;
 
   // The workout is saved by the time this screen mounts — mark the moment.
@@ -676,7 +682,7 @@ export function WorkoutCompletionScreen({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t(language, 'complete.finish')}
-              onPress={onDone}
+              onPress={() => setFeelSheetVisible(true)}
               style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
             >
               <Text style={styles.primaryButtonText}>{t(language, 'complete.finish')}</Text>
@@ -684,6 +690,52 @@ export function WorkoutCompletionScreen({
           </Animated.View>
         </View>
       </ScrollView>
+
+      {/* One question on the way out (user 2026-08-23): how did it feel?
+          Four colour-coded answers, and skipping costs one tap. The verdict
+          is written onto the saved session. */}
+      {feelSheetVisible ? (
+        <View style={styles.feelOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => onDone(null)} accessible={false} />
+          <View style={[styles.feelSheet, { paddingBottom: insets.bottom + 14 }]}>
+            <Text style={styles.feelTitle}>{t(language, 'complete.feel.title')}</Text>
+            {(
+              [
+                { feel: 'easy', color: theme.green, labelKey: 'complete.feel.easy' },
+                { feel: 'right', color: theme.purple, labelKey: 'complete.feel.right' },
+                { feel: 'hard', color: '#E0922F', labelKey: 'complete.feel.hard' },
+                { feel: 'too_hard', color: '#D64545', labelKey: 'complete.feel.tooHard' },
+              ] as const
+            ).map((option) => (
+              <Pressable
+                key={option.feel}
+                accessibilityRole="button"
+                accessibilityLabel={t(language, option.labelKey)}
+                onPress={() => {
+                  void haptics.select();
+                  onDone(option.feel);
+                }}
+                style={({ pressed }) => [
+                  styles.feelOption,
+                  { borderColor: option.color },
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View style={[styles.feelDot, { backgroundColor: option.color }]} />
+                <Text style={styles.feelOptionText}>{t(language, option.labelKey)}</Text>
+              </Pressable>
+            ))}
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => onDone(null)}
+              style={styles.feelSkip}
+              hitSlop={8}
+            >
+              <Text style={styles.feelSkipText}>{t(language, 'complete.feel.skip')}</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
 
       {lockedInsight ? (
         <ProMomentSheet
@@ -705,6 +757,59 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   screenBackground: {
     flex: 1,
     backgroundColor: theme.bg,
+  },
+  feelOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(10, 6, 30, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  feelSheet: {
+    backgroundColor: theme.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    gap: 10,
+  },
+  feelTitle: {
+    color: theme.ink,
+    fontSize: 19,
+    lineHeight: 24,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    marginBottom: 4,
+  },
+  feelOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    borderWidth: 1.5,
+    borderRadius: 16,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    backgroundColor: theme.surfaceSoft,
+  },
+  feelDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 999,
+  },
+  feelOptionText: {
+    color: theme.ink,
+    fontSize: 15.5,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  feelSkip: {
+    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  feelSkipText: {
+    color: theme.muted,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '700',
   },
   content: {
     paddingBottom: 26,

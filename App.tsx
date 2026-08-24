@@ -5591,7 +5591,13 @@ function VinhaApp() {
             : null
         }
         onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
-        onDone={() => {
+        onDone={(feel) => {
+          // The verdict lands on the already-saved session; leaving does not
+          // wait for the write (it goes through the same serial queue every
+          // other database write uses).
+          if (feel) {
+            void updateCompletedWorkoutSession(completionSummary.sessionId, { feel });
+          }
           workout.clearCompletedWorkout();
           leaveFinishedWorkout(ROOT_ROUTES.home);
         }}

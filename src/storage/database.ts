@@ -343,6 +343,10 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
             typeof session?.sessionNotes === 'string' && session.sessionNotes.trim().length
               ? session.sessionNotes.trim()
               : null,
+          feel:
+            session?.feel === 'easy' || session?.feel === 'right' || session?.feel === 'hard' || session?.feel === 'too_hard'
+              ? session.feel
+              : null,
           performedAt: typeof session?.performedAt === 'string' ? session.performedAt : new Date().toISOString(),
           startedAt: typeof session?.startedAt === 'string' ? session.startedAt : undefined,
           durationMinutes:

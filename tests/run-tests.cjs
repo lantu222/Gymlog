@@ -151,6 +151,7 @@ const suites = [
   ...require('./lib/programSlots.test.cjs'),
   ...require('./lib/programSeasons.test.cjs'),
   ...require('./lib/personalRecords.test.cjs'),
+  ...require('./lib/sessionFeel.test.cjs'),
   ...require('./lib/recordWindow.test.cjs'),
   ...require('./lib/exerciseSetLog.test.cjs'),
   ...require('./lib/logRecordedWork.test.cjs'),
