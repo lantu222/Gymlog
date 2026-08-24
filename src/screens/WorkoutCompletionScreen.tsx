@@ -200,9 +200,7 @@ interface WorkoutCompletionScreenProps {
   performedAt: string;
   durationMinutes: number;
   setsCompleted: number;
-  totalVolume: number;
   exercisesLogged: number;
-  volumeDeltaKg: number | null;
   muscles: MuscleFocusRow[];
   exerciseCards: WorkoutCompletionExerciseCard[];
   prCards: WorkoutCompletionPrCard[];
@@ -246,7 +244,12 @@ function formatPrNote(pr: WorkoutCompletionPrCard, language: AppLanguage) {
     return t(language, 'complete.pr.first');
   }
   const delta = pr.estimatedOneRepMaxKg - pr.previousBestOneRepMaxKg;
-  return t(language, 'complete.pr.delta', { delta: removeTrailingZeros(Number(delta.toFixed(1))) });
+  // The delta alone made the reader do the arithmetic mid-celebration
+  // (user 2026-08-23): the number they want is the new max itself.
+  return t(language, 'complete.pr.delta', {
+    delta: removeTrailingZeros(Number(delta.toFixed(1))),
+    max: removeTrailingZeros(Number(pr.estimatedOneRepMaxKg.toFixed(1))),
+  });
 }
 
 export function WorkoutCompletionScreen({
@@ -254,9 +257,7 @@ export function WorkoutCompletionScreen({
   performedAt,
   durationMinutes,
   setsCompleted,
-  totalVolume,
   exercisesLogged,
-  volumeDeltaKg,
   muscles,
   exerciseCards,
   prCards,
@@ -516,19 +517,9 @@ export function WorkoutCompletionScreen({
               </Text>
               <Text style={styles.statLabel}>{t(language, 'complete.stat.duration')}</Text>
             </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statCell}>
-              <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>
-                {Math.round(totalVolume).toLocaleString('en-US')}
-                <Text style={styles.statUnit}> kg</Text>
-              </Text>
-              <Text style={styles.statLabel}>{t(language, 'complete.stat.volume')}</Text>
-              {volumeDeltaKg !== null && volumeDeltaKg !== 0 ? (
-                <Text style={[styles.statDelta, volumeDeltaKg > 0 ? styles.statDeltaUp : styles.statDeltaDown]}>
-                  {volumeDeltaKg > 0 ? '▲' : '▼'} {Math.abs(volumeDeltaKg).toLocaleString('en-US')} kg
-                </Text>
-              ) : null}
-            </View>
+            {/* No volume cell (user 2026-08-23): three things to follow —
+                duration, sets, exercises. Volume is a training-nerd number
+                and it lives in Progress for whoever wants it. */}
             <View style={styles.statDivider} />
             <View style={styles.statCell}>
               <Text style={styles.statValue}>{setsCompleted}</Text>
@@ -871,21 +862,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 18,
   },
+  // Flat since 2026-08-23 ("voisiko olla vain asiat ilman laatikoita"):
+  // the gold tile and the words carry the moment; the box carried nothing.
   noteCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    backgroundColor: theme.surface,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: HAIRLINE,
     paddingVertical: 15,
-    paddingHorizontal: 16,
-    shadowColor: '#281C5A',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.08,
-    shadowRadius: 30,
-    elevation: 3,
+    paddingHorizontal: 4,
   },
   noteIconTile: {
     width: 46,
@@ -923,22 +907,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 18,
     fontWeight: '600',
   },
+  // Flat: three figures and their dividers, no box around them.
   statsCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 4,
-    backgroundColor: theme.surface,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: HAIRLINE,
     paddingVertical: 17,
     paddingHorizontal: 6,
-    marginTop: 20,
-    shadowColor: '#281C5A',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.06,
-    shadowRadius: 30,
-    elevation: 2,
+    marginTop: 8,
   },
   statCell: {
     flex: 1,
@@ -965,19 +941,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.7,
   },
-  statDelta: {
-    marginTop: 3,
-    fontSize: 10.5,
-    lineHeight: 14,
-    fontWeight: '800',
-    fontVariant: ['tabular-nums'],
-  },
-  statDeltaUp: {
-    color: theme.green,
-  },
-  statDeltaDown: {
-    color: '#D64545',
-  },
   statDivider: {
     width: 1,
     height: 40,
@@ -994,18 +957,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1,
   },
+  // Flat: the section label above already frames the content.
   sectionCard: {
-    backgroundColor: theme.surface,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: HAIRLINE,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    shadowColor: '#281C5A',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.06,
-    shadowRadius: 30,
-    elevation: 2,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
   },
   exercisesCard: {
     paddingVertical: 6,

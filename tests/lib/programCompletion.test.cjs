@@ -157,4 +157,22 @@ module.exports = [
       assert.equal(countPlanSessionsInRange(sessions, planTemplates, Number.NaN, weekEnd), 0);
     },
   },
+  {
+    name: 'a session with zero logged sets does not advance the week bar',
+    run() {
+      // "Onko viikko 2/6 legit" (user 2026-08-23): an opened-and-abandoned
+      // player saved with setsCompleted: 0 counted like a workout. A legacy
+      // save without the field still counts — absent is unknown, not empty.
+      const planTemplates = new Set(['tpl_plan']);
+      const weekStart = Date.parse('2026-08-10T00:00:00.000Z');
+      const weekEnd = Date.parse('2026-08-17T00:00:00.000Z');
+      const sessions = [
+        { workoutTemplateId: 'tpl_plan', performedAt: '2026-08-11T10:00:00.000Z', setsCompleted: 0 },
+        { workoutTemplateId: 'tpl_plan', performedAt: '2026-08-12T10:00:00.000Z', setsCompleted: 15 },
+        { workoutTemplateId: 'tpl_plan', performedAt: '2026-08-13T10:00:00.000Z' },
+      ];
+
+      assert.equal(countPlanSessionsInRange(sessions, planTemplates, weekStart, weekEnd), 2);
+    },
+  },
 ];

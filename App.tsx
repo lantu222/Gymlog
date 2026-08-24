@@ -5564,9 +5564,7 @@ function VinhaApp() {
         performedAt={completionSummary.performedAt}
         durationMinutes={completionSummary.durationMinutes}
         setsCompleted={completionSummary.setsCompleted}
-        totalVolume={completionSummary.totalVolume}
         exercisesLogged={completionSummary.exercisesLogged}
-        volumeDeltaKg={completionSummary.volumeDeltaKg}
         muscles={completionSummary.muscles}
         exerciseCards={completionSummary.exerciseCards}
         prCards={completionSummary.prCards}

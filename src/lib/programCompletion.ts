@@ -145,6 +145,13 @@ export function countPlanSessionsInRange(
     if (!session.workoutTemplateId || !templateIds.has(session.workoutTemplateId)) {
       continue;
     }
+    // A session with zero logged sets is an opened player, not a workout —
+    // counting one made the week bar claim "2/6" after a single real session
+    // (user 2026-08-23, "onko viikko 2/6 legit"). Undefined stays counted:
+    // it is a legacy save that predates the field, not a known-empty one.
+    if (session.setsCompleted === 0) {
+      continue;
+    }
     const stamp = Date.parse(session.performedAt);
     if (Number.isFinite(stamp) && stamp >= fromMs && stamp < toMs) {
       count += 1;
