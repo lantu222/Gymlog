@@ -1,5 +1,5 @@
 import type { WorkoutSlotHistoryEntry } from '../features/workout/workoutTypes';
-import { SetupLevel } from '../types/models';
+import { SessionFeel, SetupLevel } from '../types/models';
 
 /**
  * Double progression, as specified (ADR-004 + progression-gating-rules.md).
@@ -45,6 +45,7 @@ export type ProgressionFatigueSignal = 'normal' | 'elevated' | 'high';
 export type ProgressionHoldReason =
   | 'fatigue_high'
   | 'fatigue_elevated'
+  | 'feel_too_hard'
   | 'set_skipped'
   | 'insufficient_sets'
   | 'low_completion_rate'
@@ -95,6 +96,15 @@ export interface ProgressionGateInput {
   level?: SetupLevel | null;
   /** Caller-computed. Undefined counts as clear, per the spec's T11. */
   fatigueSignal?: ProgressionFatigueSignal;
+  /**
+   * What the reader said about the session this slot was last trained in
+   * (user 2026-08-23: "pientä hienosäätöä treeniin jos mahdollista").
+   *
+   * Caller-computed like the fatigue signal, and absent for the same two
+   * reasons: never asked, or skipped. Absent is NOT "felt fine" — it earns
+   * neither the hold nor the shortcut below.
+   */
+  latestSessionFeel?: SessionFeel | null;
   /** Bodyweight exercises accumulate reps; load never moves. */
   trackingMode?: string;
 }
@@ -135,7 +145,7 @@ function daysBetween(laterIso: string, earlierIso: string): number {
 }
 
 export function evaluateProgression(input: ProgressionGateInput): ProgressionDecision {
-  const { history, repsMin, repsMax, targetSets, fatigueSignal, trackingMode } = input;
+  const { history, repsMin, repsMax, targetSets, fatigueSignal, latestSessionFeel, trackingMode } = input;
   const params = PROGRESSION_LEVEL_PARAMS[getProgressionTier(input.level)];
 
   // ── Silence: no target to evaluate against, or not enough baseline ────────
@@ -168,6 +178,17 @@ export function evaluateProgression(input: ProgressionGateInput): ProgressionDec
   }
   if (fatigueSignal === 'elevated') {
     return { recommendation: 'hold', holdReason: 'fatigue_elevated', loadKg: currentLoadKg };
+  }
+
+  // The reader already answered this question. Adding load to a session they
+  // called too hard contradicts them with a number, and the app would be
+  // asking how it felt while treating the answer as decoration.
+  //
+  // Only 'too_hard' holds. 'hard' is what a working set at the top of its rep
+  // range is supposed to feel like — holding on it would stall every honest
+  // reader and reward the ones who under-report.
+  if (latestSessionFeel === 'too_hard') {
+    return { recommendation: 'hold', holdReason: 'feel_too_hard', loadKg: currentLoadKg };
   }
 
   if (latest.skipped) {
@@ -204,7 +225,17 @@ export function evaluateProgression(input: ProgressionGateInput): ProgressionDec
     consecutive += 1;
   }
 
-  if (consecutive < params.requiredConsecutive) {
+  // The confirmation session exists to prove the load is owned rather than
+  // caught once. A reader who cleared the ceiling on every set and then called
+  // the session easy has just supplied that proof directly, so the second
+  // session is asking them to repeat something they already answered.
+  //
+  // This is the only place the feel can speed anything up, and it reaches only
+  // the wait: every other hold above — recovery, a skipped set, a missed
+  // ceiling, a return from a break — has already returned by the time we get
+  // here, and 'easy' does not overrule any of them.
+  const confirmedByFeel = latestSessionFeel === 'easy';
+  if (consecutive < params.requiredConsecutive && !confirmedByFeel) {
     return { recommendation: 'hold', holdReason: 'awaiting_confirmation', loadKg: currentLoadKg };
   }
 
@@ -238,9 +269,25 @@ export function resolveProgressedLoadKg(
    * so on the set, the same way it says where a raised load came from.
    */
   heldForFatigue: boolean;
+  /**
+   * True when the load would have moved but the reader called the last
+   * session too hard.
+   *
+   * Kept apart from `heldForFatigue` because the badge has to say which one
+   * happened. "Held for recovery" on a session the reader themselves called
+   * too hard credits the app for a judgement the reader made, and leaves them
+   * with no way to tell that their answer was what did it.
+   */
+  heldForFeel: boolean;
 } {
   if (!input.automatedProgressionEnabled) {
-    return { loadKg: input.fallbackLoadKg, progressed: false, fromLoadKg: null, heldForFatigue: false };
+    return {
+      loadKg: input.fallbackLoadKg,
+      progressed: false,
+      fromLoadKg: null,
+      heldForFatigue: false,
+      heldForFeel: false,
+    };
   }
 
   const decision = evaluateProgression(input);
@@ -253,6 +300,7 @@ export function resolveProgressedLoadKg(
       progressed: true,
       fromLoadKg: decision.fromLoadKg,
       heldForFatigue: false,
+      heldForFeel: false,
     };
   }
 
@@ -267,10 +315,41 @@ export function resolveProgressedLoadKg(
   //
   // So: re-run the gate with recovery out of the way. It is only a recovery
   // hold if the load would otherwise have moved.
+  // Both overrideable holds are lifted at once, and the question asked of what
+  // is left is the same one: was this load going anywhere on its own merits?
+  //
+  // Lifting them one at a time does not work. Recovery is checked first, so a
+  // reader who is both cooked and reported "too hard" would fail the recovery
+  // re-run (the feel still holds it) and fail the feel re-run (the decision
+  // says fatigue) — and the weight would sit there held for two reasons with
+  // neither badge lit, which is the silence this flag exists to break.
+  //
+  // Only the HOLDS are lifted. 'easy' stays, because it is not a hold: it is
+  // the thing that satisfies the confirmation session, and clearing it would
+  // withdraw the very reason the load had earned its jump.
+  const feelWithoutItsHold = input.latestSessionFeel === 'too_hard' ? null : input.latestSessionFeel;
+  const earnedOnPerformance =
+    evaluateProgression({ ...input, fatigueSignal: 'normal', latestSessionFeel: feelWithoutItsHold })
+      .recommendation === 'increase';
+
   const heldForFatigue =
     decision.recommendation === 'hold'
     && (decision.holdReason === 'fatigue_high' || decision.holdReason === 'fatigue_elevated')
-    && evaluateProgression({ ...input, fatigueSignal: 'normal' }).recommendation === 'increase';
+    && earnedOnPerformance;
 
-  return { loadKg: input.fallbackLoadKg, progressed: false, fromLoadKg: null, heldForFatigue };
+  // Recovery is checked first and keeps the badge when both apply: it is the
+  // stronger claim, and showing two reasons for one unchanged weight would
+  // explain less than showing one.
+  const heldForFeel =
+    decision.recommendation === 'hold'
+    && decision.holdReason === 'feel_too_hard'
+    && earnedOnPerformance;
+
+  return {
+    loadKg: input.fallbackLoadKg,
+    progressed: false,
+    fromLoadKg: null,
+    heldForFatigue,
+    heldForFeel,
+  };
 }

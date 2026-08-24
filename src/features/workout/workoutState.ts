@@ -165,17 +165,37 @@ export function getHistoryEntriesForExercise(
  * `autoProgressedFromKg` stays undefined here, which is what keeps the AUTO
  * badge off a weight the gate did not choose.
  */
+/**
+ * What a set's prefill resolved to, named rather than inferred.
+ *
+ * Spelling it out is what keeps `materializeExercise` honest: it builds the
+ * set by listing fields by hand, and while this shape was a union inferred
+ * from three separate returns, a field that existed on only one branch could
+ * be — and was — silently left off that list.
+ */
+interface ResolvedSetDraft {
+  draftLoadText: string;
+  draftRepsText: string;
+  plannedLoadKg: number | undefined;
+  autoProgressedFromKg: number | undefined;
+  heldForFatigue: boolean | undefined;
+  heldForFeel: boolean | undefined;
+  prefilledFromPerformedAt: string | undefined;
+}
+
 function resolveNamedHistoryDraft(
   history: WorkoutHistoryStore,
   setIndex: number,
   unitPreference: 'kg' | 'lb',
   exercise: WorkoutTemplateExercise,
-) {
-  const blank = {
+): ResolvedSetDraft {
+  const blank: ResolvedSetDraft = {
     draftLoadText: '',
     draftRepsText: '',
     plannedLoadKg: undefined,
     autoProgressedFromKg: undefined,
+    heldForFatigue: undefined,
+    heldForFeel: undefined,
     prefilledFromPerformedAt: undefined,
   };
 
@@ -194,6 +214,9 @@ function resolveNamedHistoryDraft(
     draftRepsText: '',
     plannedLoadKg: matched.loadKg,
     autoProgressedFromKg: undefined,
+    // The gate never looked at this weight, so it has no hold to report on it.
+    heldForFatigue: undefined,
+    heldForFeel: undefined,
     // Where it came from, so the logger can say so rather than presenting a
     // weight from another program as if it belonged to this slot.
     prefilledFromPerformedAt: entry.performedAt,
@@ -208,7 +231,7 @@ function resolveHistoricalSetDraft(
   unitPreference: 'kg' | 'lb',
   exercise: WorkoutTemplateExercise,
   options: WorkoutSessionMaterializeOptions,
-) {
+): ResolvedSetDraft {
   const entries = getHistoryEntries(history, slotId, templateSlotId);
   const latest = entries[0];
   const matched = findHistoricalSetForIndex(latest, setIndex);
@@ -223,6 +246,8 @@ function resolveHistoricalSetDraft(
         draftRepsText: '',
         plannedLoadKg: undefined,
         autoProgressedFromKg: undefined,
+        heldForFatigue: undefined,
+        heldForFeel: undefined,
         prefilledFromPerformedAt: undefined,
       };
     }
@@ -233,7 +258,7 @@ function resolveHistoricalSetDraft(
   // ceiling on every working set, the prefill moves up by the level's
   // increment. Every other outcome repeats last time's load, which is what
   // this function did unconditionally before the gate existed.
-  const { loadKg, fromLoadKg, heldForFatigue } = resolveProgressedLoadKg({
+  const { loadKg, fromLoadKg, heldForFatigue, heldForFeel } = resolveProgressedLoadKg({
     history: entries,
     repsMin: exercise.repsMin,
     repsMax: exercise.repsMax,
@@ -245,6 +270,9 @@ function resolveHistoricalSetDraft(
     // since it was written; until now nothing passed a signal in, so they
     // never fired on a single set.
     fatigueSignal: options.fatigueSignal,
+    // The verdict on the session THIS slot was last trained in — not the last
+    // workout overall, which is usually a different day and a different lift.
+    latestSessionFeel: options.sessionFeelById?.[latest.sessionId] ?? null,
     fallbackLoadKg: matched.loadKg,
   });
 
@@ -257,6 +285,7 @@ function resolveHistoricalSetDraft(
     plannedLoadKg: loadKg,
     autoProgressedFromKg: fromLoadKg ?? undefined,
     heldForFatigue: heldForFatigue || undefined,
+    heldForFeel: heldForFeel || undefined,
     // This slot's own history — the ordinary case, nothing to explain.
     prefilledFromPerformedAt: undefined,
   };
@@ -289,6 +318,13 @@ function materializeExercise(
       draftLoadText: resolved.draftLoadText,
       draftRepsText: resolved.draftRepsText,
       autoProgressedFromKg: resolved.autoProgressedFromKg,
+      // These two were computed, carried all the way here by
+      // resolveHistoricalSetDraft, and then dropped: this object lists its
+      // fields by hand, and neither was ever on the list. So the gate held
+      // loads for recovery and the badge never once appeared — a Pro
+      // behaviour the paywall sells by name, invisible since it was wired.
+      heldForFatigue: resolved.heldForFatigue,
+      heldForFeel: resolved.heldForFeel,
       prefilledFromPerformedAt: resolved.prefilledFromPerformedAt,
       status: 'pending',
       edited: false,
@@ -602,6 +638,7 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
         sessionOrderIndex: action.payload.sessionOrderIndex,
         automatedProgressionEnabled: action.payload.progression?.automatedProgressionEnabled ?? false,
         fatigueSignal: action.payload.progression?.fatigueSignal,
+        sessionFeelById: action.payload.progression?.sessionFeelById,
         setupLevel: action.payload.progression?.setupLevel ?? null,
       });
 
@@ -624,6 +661,7 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
         sessionOrderIndex: action.payload.sessionOrderIndex,
         automatedProgressionEnabled: action.payload.progression?.automatedProgressionEnabled ?? false,
         fatigueSignal: action.payload.progression?.fatigueSignal,
+        sessionFeelById: action.payload.progression?.sessionFeelById,
         setupLevel: action.payload.progression?.setupLevel ?? null,
       });
 

@@ -170,11 +170,11 @@ module.exports = [
       // `fromLoadKg` is what the loggers show as "AUTO +2.5 kg" — a progressed
       // load has to be able to say where it came from.
       const on = resolveProgressedLoadKg({ ...shared, automatedProgressionEnabled: true });
-      assert.deepEqual(on, { loadKg: 62.5, progressed: true, fromLoadKg: 60, heldForFatigue: false });
+      assert.deepEqual(on, { loadKg: 62.5, progressed: true, fromLoadKg: 60, heldForFatigue: false, heldForFeel: false });
 
       // OFF is exactly the old behaviour: repeat what was logged.
       const off = resolveProgressedLoadKg({ ...shared, automatedProgressionEnabled: false });
-      assert.deepEqual(off, { loadKg: 60, progressed: false, fromLoadKg: null, heldForFatigue: false });
+      assert.deepEqual(off, { loadKg: 60, progressed: false, fromLoadKg: null, heldForFatigue: false, heldForFeel: false });
 
       // ON but not earned still repeats — the toggle promises a rule, not a
       // weekly increase.
@@ -183,7 +183,7 @@ module.exports = [
         history: [entry(60, [12, 11, 10], 0), entry(60, 12, 3)],
         automatedProgressionEnabled: true,
       });
-      assert.deepEqual(notEarned, { loadKg: 60, progressed: false, fromLoadKg: null, heldForFatigue: false });
+      assert.deepEqual(notEarned, { loadKg: 60, progressed: false, fromLoadKg: null, heldForFatigue: false, heldForFeel: false });
     },
   },
   {
@@ -264,6 +264,106 @@ module.exports = [
       // With progression off there is nothing to hold, so nothing to say.
       const free = resolveProgressedLoadKg({ ...base, automatedProgressionEnabled: false, fatigueSignal: 'high' });
       assert.equal(free.heldForFatigue, false);
+      assert.equal(free.loadKg, 60);
+    },
+  },
+  {
+    name: 'feel: "too hard" holds an earned jump, and "hard" does not',
+    run() {
+      const earned = [entry(60, 12, 0), entry(60, 12, 3)];
+
+      assert.equal(gate({ history: earned }).recommendation, 'increase');
+
+      const tooHard = gate({ history: earned, latestSessionFeel: 'too_hard' });
+      assert.equal(tooHard.recommendation, 'hold');
+      assert.equal(tooHard.holdReason, 'feel_too_hard');
+
+      // 'hard' is what the top of a rep range is supposed to feel like.
+      // Holding on it would stall every honest reader and quietly reward the
+      // ones who under-report.
+      assert.equal(gate({ history: earned, latestSessionFeel: 'hard' }).recommendation, 'increase');
+      assert.equal(gate({ history: earned, latestSessionFeel: 'right' }).recommendation, 'increase');
+
+      // Absent is "never asked" or "skipped", not "felt fine" — and it earns
+      // neither the hold nor the shortcut.
+      assert.equal(gate({ history: earned, latestSessionFeel: null }).recommendation, 'increase');
+      assert.equal(gate({ history: earned }).recommendation, 'increase');
+    },
+  },
+  {
+    name: 'feel: "easy" satisfies the confirmation session but overrules nothing else',
+    run() {
+      // An intermediate normally needs a second session at the same load.
+      const once = [entry(60, 12, 0), entry(60, [12, 11, 10], 3), entry(60, 10, 6)];
+      assert.equal(gate({ history: once, level: 'advanced' }).holdReason, 'awaiting_confirmation');
+
+      // Clearing every set's ceiling and then calling it easy IS the proof the
+      // confirmation session exists to collect.
+      const confirmed = gate({ history: once, level: 'advanced', latestSessionFeel: 'easy' });
+      assert.equal(confirmed.recommendation, 'increase');
+      assert.equal(confirmed.loadKg, 61.25);
+
+      // It reaches the wait and nothing else. Every earlier hold still wins.
+      const missedCeiling = [entry(60, 9, 0), entry(60, 9, 3), entry(60, 9, 6)];
+      assert.equal(
+        gate({ history: missedCeiling, level: 'advanced', latestSessionFeel: 'easy' }).holdReason,
+        'rep_ceiling_not_reached',
+      );
+      assert.equal(
+        gate({ history: once, level: 'advanced', latestSessionFeel: 'easy', fatigueSignal: 'high' }).holdReason,
+        'fatigue_high',
+      );
+      const afterGap = [entry(60, 12, 0), entry(60, 12, 9), entry(60, 12, 12)];
+      assert.equal(
+        gate({ history: afterGap, level: 'advanced', latestSessionFeel: 'easy' }).holdReason,
+        'gap_return',
+      );
+    },
+  },
+  {
+    name: 'a feel hold names itself, and never takes credit for a jump that was not coming',
+    run() {
+      const base = {
+        history: [entry(60, 12, 0), entry(60, 12, 3)],
+        repsMin: 8,
+        repsMax: 12,
+        targetSets: 3,
+        level: 'beginner',
+        automatedProgressionEnabled: true,
+        fallbackLoadKg: 60,
+      };
+
+      const held = resolveProgressedLoadKg({ ...base, latestSessionFeel: 'too_hard' });
+      assert.equal(held.loadKg, 60);
+      assert.equal(held.progressed, false);
+      assert.equal(held.heldForFeel, true);
+      // The two reasons stay apart: the badge has to say which one happened,
+      // and "recovery" on a call the reader made themselves would credit the
+      // app for their judgement.
+      assert.equal(held.heldForFatigue, false);
+
+      // Nothing was going to move, so nothing was held.
+      const notEarned = resolveProgressedLoadKg({
+        ...base,
+        history: [entry(60, 9, 0), entry(60, 9, 3)],
+        latestSessionFeel: 'too_hard',
+      });
+      assert.equal(notEarned.heldForFeel, false);
+
+      // Recovery is checked first, so a cooked reader who also said too hard
+      // reports the recovery hold — and only that one, so the badge cannot
+      // show two reasons for one weight.
+      const both = resolveProgressedLoadKg({ ...base, fatigueSignal: 'high', latestSessionFeel: 'too_hard' });
+      assert.equal(both.heldForFatigue, true);
+      assert.equal(both.heldForFeel, false);
+
+      // With progression off there is no load to hold, so no claim to make.
+      const free = resolveProgressedLoadKg({
+        ...base,
+        automatedProgressionEnabled: false,
+        latestSessionFeel: 'too_hard',
+      });
+      assert.equal(free.heldForFeel, false);
       assert.equal(free.loadKg, 60);
     },
   },

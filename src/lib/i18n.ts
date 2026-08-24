@@ -1504,6 +1504,7 @@ const EN = {
   // raised, this one a weight the app deliberately did not. Says why, because
   // "unchanged" is otherwise indistinguishable from nothing having happened.
   'guided.heldForRecovery': 'HELD · RECOVERY',
+  'guided.heldForFeel': 'HELD · YOU SAID TOO HARD',
   'guided.a11y.weightDown': 'Lower the weight by 2.5 kg',
   'guided.a11y.weightUp': 'Raise the weight by 2.5 kg',
   'guided.a11y.repsDown': 'One rep fewer',
@@ -4897,6 +4898,7 @@ const FI: Record<I18nKey, string> = {
   'guided.autoLoad': 'AUTOMAATTINEN +{kg} KG',
   'guided.carriedFrom': 'VIIMEKSI · {date}',
   'guided.heldForRecovery': 'PIDETÄÄN · PALAUTUMINEN',
+  'guided.heldForFeel': 'PIDETÄÄN · SANOIT LIIAN RASKAS',
   'guided.a11y.weightDown': 'Vähennä painoa 2,5 kg',
   'guided.a11y.weightUp': 'Lisää painoa 2,5 kg',
   'guided.a11y.repsDown': 'Yksi toisto vähemmän',
