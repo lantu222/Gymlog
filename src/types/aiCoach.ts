@@ -260,6 +260,13 @@ export interface AICoachAdviceRequest {
    * by the server otherwise.
    */
   reporter?: string;
+  /**
+   * TEMPORARY, development only: per-request thinking-effort override
+   * (low | medium | high | off) so latency settings can be A/B-measured
+   * against production without a deploy per setting. Honored only while
+   * AI_COACH_DEBUG_TRANSCRIPTS is on; ignored otherwise.
+   */
+  effortOverride?: string;
 }
 
 export interface AICoachAdviceSuccess {
