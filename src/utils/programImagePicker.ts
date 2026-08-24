@@ -18,7 +18,6 @@ export interface PickedProgramImage {
 export type PickProgramImageResult =
   | { status: 'picked'; image: PickedProgramImage }
   | { status: 'cancelled' }
-  | { status: 'denied' }
   | { status: 'too_large' }
   | { status: 'failed' };
 
@@ -51,11 +50,13 @@ async function encode(uri: string, width: number | undefined): Promise<string | 
  */
 export async function pickProgramImage(): Promise<PickProgramImageResult> {
   try {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      return { status: 'denied' };
-    }
-
+    // No permission request.
+    //
+    // Android 13+ opens the system photo picker, which hands back only the
+    // file the reader chose and needs no permission at all — the generated
+    // manifest carries READ_EXTERNAL_STORAGE capped at SDK 32 for exactly
+    // that reason. Asking anyway can only produce a dialog the reader does
+    // not need and a false refusal when the OS declines to show one.
     const picked = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 1,
