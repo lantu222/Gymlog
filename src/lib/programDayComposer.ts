@@ -22,6 +22,14 @@ export interface ComposedProgramSession {
   id: string;
   /** Raw schedule-day name; format with formatWorkoutDisplayLabel for UI. */
   name: string;
+  /**
+   * The weekday this session lands on, from the schedule the reader chose
+   * (user 2026-08-24: "päivät ei päivämäärät vaan viikonpäivät").
+   *
+   * A weekday, deliberately, not a date. The plan has no start date yet on
+   * this screen, so any date printed here would be one the app made up.
+   */
+  weekdayLabel: string;
   orderIndex: number;
   source: 'template' | 'suggested';
   exercises: WorkoutTemplateExercise[];
@@ -131,6 +139,7 @@ export function composeProgramWeekForSelection(
     return {
       id: sessionId,
       name: day.name,
+      weekdayLabel: day.weekdayLabel,
       orderIndex: dayIndex,
       source: sourceSession ? 'template' : 'suggested',
       exercises,

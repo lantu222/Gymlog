@@ -158,4 +158,44 @@ module.exports = [
       assert.doesNotMatch(onboardingSource, /Plans that adapt to you get better results/);
     },
   },
+  {
+    /**
+     * Three reports with one cause: the title lay ON the top half and flipped
+     * white when that half was selected. So it vanished on the light card,
+     * could not follow the theme, and the screen read as "too white".
+     */
+    name: 'plan-ready: the title is its own band, above the split rather than on it',
+    run() {
+      const pickSource = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'screens', 'ProgramPickScreen.tsx'),
+        'utf8',
+      );
+
+      // Its own surface, and no longer an overlay that flips with selection.
+      assert.match(pickSource, /titleBand: \{ backgroundColor: C\.bg/);
+      assert.doesNotMatch(pickSource, /styles\.titleWrap/);
+      assert.doesNotMatch(pickSource, /topSelected && styles\.textLight\]} numberOfLines=\{2\}/);
+      assert.doesNotMatch(pickSource, /metaLight/);
+
+      // The split is a sibling below the band, and owns the measured height.
+      assert.match(pickSource, /<View style=\{styles\.split\} onLayout=\{onLayout\}>/);
+
+      // The status-bar tone follows the theme now, because the band is what
+      // sits under the clock — not whichever programme was tapped last.
+      assert.match(pickSource, /onTopToneChange\?\.\(themeName === 'dark' \? 'dark' : 'light'\)/);
+    },
+  },
+  {
+    name: 'plan-ready: each day says which weekday it lands on, and never a date',
+    run() {
+      const composerSource = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'lib', 'programDayComposer.ts'),
+        'utf8',
+      );
+      // Carried from the schedule the reader chose rather than re-derived.
+      assert.match(composerSource, /weekdayLabel: day\.weekdayLabel,/);
+      assert.match(onboardingSource, /weekdayLabel: session\.weekdayLabel,/);
+      assert.match(onboardingSource, /selectedSession\?\.weekdayLabel,/);
+    },
+  },
 ];

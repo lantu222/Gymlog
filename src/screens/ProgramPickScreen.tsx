@@ -5,7 +5,7 @@ import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Pattern, Polygon,
 
 import { HG } from '../lightTheme';
 import { HG_DARK } from '../darkTheme';
-import { darkTheme, Theme, useTheme } from '../theming';
+import { darkTheme, Theme, useTheme, useThemeName } from '../theming';
 import { PROGRAM_FOCUS_COLORS, ProgramFocusSegment,
   getProgramFocusQualityLabel,
 } from '../lib/programFocusSplit';
@@ -191,9 +191,13 @@ export function ProgramPickScreen({
   // midpoint, so a tap can never be ambiguous.
   const seamMidPct = ((l + r) / 2) * 100;
 
+  // The tone of what sits UNDER the status bar. That used to be whichever
+  // half was selected; it is the title band now, so it follows the theme and
+  // stops flipping every time the reader taps the other programme.
+  const themeName = useThemeName();
   React.useEffect(() => {
-    onTopToneChange?.(topSelected ? 'light' : 'dark');
-  }, [onTopToneChange, topSelected]);
+    onTopToneChange?.(themeName === 'dark' ? 'dark' : 'light');
+  }, [onTopToneChange, themeName]);
 
   const onLayout = (event: LayoutChangeEvent) => setHeight(event.nativeEvent.layout.height);
 
@@ -213,7 +217,10 @@ export function ProgramPickScreen({
                 top: 0,
                 height: `${topSafePct}%`,
                 justifyContent: selected ? 'flex-start' : 'center',
-                paddingTop: insets.top + 78,
+                // Was `insets.top + 78`, reserving room for the title that used
+                // to float over this half. The title has its own band now, and
+                // the split starts below it, so the inset is already spent.
+                paddingTop: 18,
               }
             : {
                 // Anchored to its TOP edge, not sized from the bottom. As
@@ -300,7 +307,25 @@ export function ProgramPickScreen({
   };
 
   return (
-    <View style={styles.screen} onLayout={onLayout}>
+    <View style={styles.screen}>
+      {/* The title is its own band, above the split (user 2026-08-24: "voisiko
+          ohjelmasi on valmis otsikko jäädä omana osanaan").
+
+          It used to lie ON the top half and flip white when that half was
+          selected, which is three of the reports at once: it vanished on the
+          light card, it could not follow the theme, and the screen read as
+          "too white". A band with its own surface cannot disappear behind
+          either choice, because it is not on either of them. */}
+      <View style={[styles.titleBand, { paddingTop: insets.top + 8 }]}>
+        <Text style={styles.title} numberOfLines={2}>
+          {title}
+        </Text>
+        <Text style={styles.meta} numberOfLines={1}>
+          {meta}
+        </Text>
+      </View>
+
+      <View style={styles.split} onLayout={onLayout}>
       {top ? <HalfCover points={topPoints} light={topSelected} id="top" /> : null}
       {bottom ? <HalfCover points={bottomPoints} light={!topSelected} id="bottom" /> : null}
 
@@ -326,16 +351,6 @@ export function ProgramPickScreen({
 
       {renderHalf(top, true)}
       {renderHalf(bottom, false)}
-
-      {/* The title lies on the top half and flips with the selection. */}
-      <View pointerEvents="none" style={[styles.titleWrap, { paddingTop: insets.top + 8 }]}>
-        <Text style={[styles.title, topSelected && styles.textLight]} numberOfLines={2}>
-          {title}
-        </Text>
-        <Text style={[styles.meta, topSelected && styles.metaLight]} numberOfLines={1}>
-          {meta}
-        </Text>
-      </View>
 
       {/* Pinned, always. It takes the selected card's contrast so it reads as
           the same surface the choice was made on. */}
@@ -368,6 +383,7 @@ export function ProgramPickScreen({
             <Path d="M5 12h13M12 5l7 7-7 7" />
           </Svg>
         </Pressable>
+      </View>
       </View>
     </View>
   );
@@ -437,10 +453,14 @@ const makePickStyles = (C: PickPalette) => StyleSheet.create({
   hit: { position: 'absolute', left: 0, right: 0 },
   halfContent: { position: 'absolute', left: 0, right: 0, paddingHorizontal: PAD },
 
-  titleWrap: { position: 'absolute', left: 0, right: 0, top: 0, paddingHorizontal: PAD },
+  /**
+   * The band's own surface, not the screen's: it has to stay legible whichever
+   * half is selected, which is the whole reason it stopped being an overlay.
+   */
+  titleBand: { backgroundColor: C.bg, paddingHorizontal: PAD, paddingBottom: 14 },
+  split: { flex: 1, overflow: 'hidden' },
   title: { fontSize: 26, fontWeight: '800', letterSpacing: -0.65, color: C.ink },
   meta: { fontSize: 12.5, fontWeight: '600', marginTop: 4, color: C.muted },
-  metaLight: { color: 'rgba(255,255,255,0.72)' },
   textLight: { color: '#FFFFFF' },
 
   halfHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },

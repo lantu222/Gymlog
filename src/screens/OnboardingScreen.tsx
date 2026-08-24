@@ -2037,6 +2037,7 @@ export function OnboardingScreen({
             .map((session) => ({
               id: session.id,
               name: session.name,
+              weekdayLabel: session.weekdayLabel,
               guidance: buildSessionGuidance(recommendedProgram, session),
               hiddenExerciseCount: Math.max(0, session.exercises.length - 5),
               exercises: session.exercises.slice(0, 5).map((exercise) => ({
@@ -3482,8 +3483,17 @@ export function OnboardingScreen({
       >
         <View style={styles.planReadyDayHeader}>
           <View style={styles.planReadyDayHeaderCopy}>
+            {/* The weekday the reader picked, alongside "Day 2 of 3" — the
+                split showed which session it was but never which day it
+                lands on (user 2026-08-24). A weekday, not a date: the plan
+                has no start date yet here, and a date would be invented. */}
             <Text style={styles.planReadyDayKicker}>
-              {t(language, 'onb.day.kicker', { index: selectedIndex + 1, count: dayCount })}
+              {[
+                t(language, 'onb.day.kicker', { index: selectedIndex + 1, count: dayCount }),
+                selectedSession?.weekdayLabel,
+              ]
+                .filter(Boolean)
+                .join('  ·  ')}
             </Text>
             <Text style={styles.planReadyDayTitle}>{dayTitle}</Text>
           </View>
