@@ -5994,6 +5994,8 @@ function VinhaApp() {
         trainingDays={preferences.setupAvailableDays}
         trainingCycle={preferences.trainingCycle}
         exerciseLibrary={exerciseBrowserItems}
+            nameBook={exerciseNameBook}
+            onTeachName={(wrote, exercise) => teachExerciseName(wrote, { name: exercise.name, libraryItemId: exercise.id })}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
         onOpenPlanSettings={handleOpenPlanSettings}
         onChangeTrainingDays={(days) => void handleChangeTrainingDays(days)}
@@ -6436,6 +6438,8 @@ function VinhaApp() {
         customPrograms={programsCustomItems}
         exerciseLibraryCount={exerciseBrowserItems.length}
         exerciseLibraryEntries={exerciseBrowserItems}
+            nameBook={exerciseNameBook}
+            onTeachName={(wrote, exercise) => teachExerciseName(wrote, { name: exercise.name, libraryItemId: exercise.id })}
         onAiAssisted={() => navigate(coachProUnlocked ? { tab: 'home', screen: 'ai_setup' } : { tab: 'profile', screen: 'premium' })}
         onImportProgram={async (draft) => {
           const workoutTemplateId = await upsertWorkoutTemplate(draft);

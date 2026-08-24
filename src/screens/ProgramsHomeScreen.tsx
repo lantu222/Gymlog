@@ -38,7 +38,7 @@ import { StrengthGoalProgress } from '../lib/strengthGoals';
 import type { ProgramSeason } from '../lib/programSeasons';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import type { WorkoutLevel } from '../features/workout/workoutTypes';
-import type { AppLanguage, WorkoutTemplateDraft } from '../types/models';
+import type { AppLanguage, WorkoutTemplateDraft, ExerciseNameBookEntry } from '../types/models';
 import { removeTrailingZeros } from '../lib/format';
 
 // Designed program covers (README "Program Covers"): a per-program hue rendered
@@ -256,6 +256,9 @@ interface ProgramsHomeScreenProps {
   onAiAssisted: () => void;
   onImportProgram: (draft: WorkoutTemplateDraft) => Promise<void> | void;
   exerciseLibraryEntries: CsvLibraryEntry[];
+  /** The reader's own lift names, for the CSV importer's matcher. */
+  nameBook?: readonly ExerciseNameBookEntry[];
+  onTeachName?: (wrote: string, exercise: CsvLibraryEntry) => Promise<void> | void;
   language?: AppLanguage;
   onOpenLibrary: () => void;
 }
@@ -892,6 +895,8 @@ export function ProgramsHomeScreen({
   onAiAssisted,
   onImportProgram,
   exerciseLibraryEntries,
+  nameBook,
+  onTeachName,
   language = 'en',
   onOpenLibrary,
 }: ProgramsHomeScreenProps) {
@@ -1585,6 +1590,8 @@ export function ProgramsHomeScreen({
         language={language}
         visible={createOpen}
         exerciseLibrary={exerciseLibraryEntries}
+        nameBook={nameBook}
+        onTeachName={onTeachName}
         onClose={() => setCreateOpen(false)}
         onAiAssisted={onAiAssisted}
         onBuildYourself={onCreateProgram}
