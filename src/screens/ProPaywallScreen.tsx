@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, G, Path, Rect, Stop } from 'react-native-svg';
 
@@ -86,6 +86,33 @@ function PwIcon({ name, size = 20, color = PW.purple }: { name: PwIconName; size
 
 function PwLabel({ children }: { children: React.ReactNode }) {
   return <Text style={styles.sectionLabel}>{children}</Text>;
+}
+
+/**
+ * Staggered entrance, one section at a time. The whole sell used to land in
+ * a single frame straight out of onboarding, which read as loud (user
+ * 2026-08-23: "too soon ja liian hyökkäävä... popupit tulee tähän hienosti
+ * ja animoidusti"). The pinned CTA does not ride this — the design requires
+ * it visible without scrolling from the first frame.
+ */
+function PwRise({ index, children }: { index: number; children: React.ReactNode }) {
+  const anim = React.useRef(new Animated.Value(0)).current;
+  // One interpolation per value — a per-render interpolate leaks native
+  // animated nodes (same rule as every other screen).
+  const style = React.useRef({
+    opacity: anim,
+    transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
+  }).current;
+  React.useEffect(() => {
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 420,
+      delay: 140 + index * 110,
+      easing: Easing.bezier(0.22, 1, 0.36, 1),
+      useNativeDriver: true,
+    }).start();
+  }, [anim, index]);
+  return <Animated.View style={style}>{children}</Animated.View>;
 }
 
 export interface ProPaywallScreenProps {
@@ -178,11 +205,13 @@ export function ProPaywallScreen({
             <Rect x="0" y="0" width="100%" height="100%" fill="url(#paywallHeroScrim)" />
           </Svg>
 
-          <View style={styles.heroCopy}>
-            <Text style={styles.heroEyebrow}>{t(language, 'paywall.eyebrow')}</Text>
-            <Text style={styles.heroTitle}>{t(language, 'paywall.title')}</Text>
-            <Text style={styles.heroSub}>{t(language, 'paywall.sub')}</Text>
-          </View>
+          <PwRise index={0}>
+            <View style={styles.heroCopy}>
+              <Text style={styles.heroEyebrow}>{t(language, 'paywall.eyebrow')}</Text>
+              <Text style={styles.heroTitle}>{t(language, 'paywall.title')}</Text>
+              <Text style={styles.heroSub}>{t(language, 'paywall.sub')}</Text>
+            </View>
+          </PwRise>
         </View>
 
         <View style={styles.body}>
@@ -190,6 +219,7 @@ export function ProPaywallScreen({
               the question this page exists to answer, and it sat under four
               sections of argument. */}
           {/* Plans */}
+          <PwRise index={1}>
           <View style={styles.planRow}>
             <Pressable
               accessibilityRole="button"
@@ -280,9 +310,10 @@ export function ProPaywallScreen({
               </CutSurface>
             </Pressable>
           </View>
-
+          </PwRise>
 
           {/* Built for you — quotes the questionnaire's own answers back. */}
+          <PwRise index={2}>
           <View>
             <PwLabel>{t(language, 'paywall.built.label')}</PwLabel>
             <CutSurface size="lg" fill="#241B4A" stroke={PW.border} strokeWidth={1} style={styles.card}>
@@ -307,8 +338,10 @@ export function ProPaywallScreen({
               </View>
             </CutSurface>
           </View>
+          </PwRise>
 
           {/* What you get */}
+          <PwRise index={3}>
           <View>
             <PwLabel>{t(language, 'paywall.benefits.label')}</PwLabel>
             <CutSurface size="lg" fill={PW.card} stroke={PW.border} strokeWidth={1} style={[styles.card, styles.benefitCard]}>
@@ -325,8 +358,10 @@ export function ProPaywallScreen({
               ))}
             </CutSurface>
           </View>
+          </PwRise>
 
           {/* Free vs Pro */}
+          <PwRise index={4}>
           <View>
             <PwLabel>{t(language, 'paywall.vs.label')}</PwLabel>
             {/* One fill for the whole frame. The per-column fills went: a filled
@@ -348,8 +383,10 @@ export function ProPaywallScreen({
               ))}
             </CutSurface>
           </View>
+          </PwRise>
 
           {/* Your first month */}
+          <PwRise index={5}>
           <View>
             <PwLabel>{t(language, 'paywall.month.label')}</PwLabel>
             <CutSurface size="lg" fill={PW.card} stroke={PW.border} strokeWidth={1} style={[styles.card, styles.journeyCard]}>
@@ -373,8 +410,10 @@ export function ProPaywallScreen({
               </View>
             </CutSurface>
           </View>
+          </PwRise>
 
           {/* Trust */}
+          <PwRise index={6}>
           <View style={styles.trustGrid}>
             {trust.map((item, index) => (
               <View key={item} style={[styles.trustChip, index === 0 && styles.trustChipWide]}>
@@ -383,6 +422,7 @@ export function ProPaywallScreen({
               </View>
             ))}
           </View>
+          </PwRise>
         </View>
       </ScrollView>
 
