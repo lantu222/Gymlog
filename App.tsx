@@ -671,17 +671,34 @@ function buildSetupSelectionFromPreferences(preferences: AppPreferences): FirstR
       preferences.setupAvailableDays.length > 0
         ? preferences.setupAvailableDays
         : DEFAULT_FIRST_RUN_SELECTION.availableDays,
+    trainingCyclePattern: preferences.trainingCycle?.pattern ?? null,
     currentWeightKg: preferences.setupCurrentWeightKg,
     targetWeightKg: preferences.bodyweightGoalKg,
     unitPreference: preferences.unitPreference,
   };
 }
 
+/** Local midnight, the anchor a training cycle counts from. */
+function localTodayStart(): number {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+}
+
 function buildSetupPreferencePatch(
   selection: FirstRunSetupSelection,
   recommendedProgramId: string | null,
+  // The cycle already in preferences, so an unchanged pattern keeps its
+  // anchor: re-anchoring "2 on, 1 off" to today would silently shift which
+  // day of the rhythm today is for a reader who only re-ran the questions.
+  previousCycle: AppPreferences['trainingCycle'] = null,
 ): Partial<AppPreferences> {
+  const cyclePattern = selection.trainingCyclePattern ?? null;
   return {
+    trainingCycle: cyclePattern
+      ? previousCycle && previousCycle.pattern.join(',') === cyclePattern.join(',')
+        ? previousCycle
+        : { pattern: cyclePattern, anchorDayStart: localTodayStart() }
+      : null,
     onboardingCompleted: true,
     setupCompleted: true,
     profileName: selection.profileName?.trim() ? selection.profileName.trim().slice(0, 32) : null,
@@ -1749,7 +1766,7 @@ function VinhaApp() {
   }
 
   async function persistSetupSelection(selection: FirstRunSetupSelection, recommendedProgramId: string | null) {
-    await completeOnboarding(buildSetupPreferencePatch(selection, recommendedProgramId));
+    await completeOnboarding(buildSetupPreferencePatch(selection, recommendedProgramId, preferences.trainingCycle));
 
     if (
       typeof selection.currentWeightKg === 'number' &&
@@ -2800,7 +2817,7 @@ function VinhaApp() {
     await saveOnboardingResult({
       preferences: {
         onboardingCompleted: true,
-        ...buildSetupPreferencePatch(selection, recommendedProgramId),
+        ...buildSetupPreferencePatch(selection, recommendedProgramId, preferences.trainingCycle),
       },
       templateDraft: savedPlan.draft,
       // Session ids come from the template that was actually written, not from
@@ -2952,7 +2969,7 @@ function VinhaApp() {
     await saveOnboardingResult({
       preferences: {
         onboardingCompleted: true,
-        ...buildSetupPreferencePatch(selection, recommendedProgramId),
+        ...buildSetupPreferencePatch(selection, recommendedProgramId, preferences.trainingCycle),
       },
       templateDraft: savedPlan.draft,
       // Session ids come from the template that was actually written, not from

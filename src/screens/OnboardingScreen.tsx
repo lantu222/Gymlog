@@ -80,6 +80,7 @@ import { buildCautionSummaryLabel, CAUTION_TO_FOCUS_AREAS } from '../lib/caution
 import { buildTailoringBadgeLabels, TailoringPreferencesInput } from '../lib/tailoringFit';
 import { getReadyTemplatePresentation } from '../lib/templatePresentation';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
+import { patternFromOnOff } from '../lib/trainingSchedule';
 import { colors, radii, spacing } from '../theme';
 import { haptics } from '../utils/haptics';
 import {
@@ -351,6 +352,31 @@ const LEVEL_SLIDER_OPTIONS: Array<{
 
 // Training-days step (04b): number chips on top, a tappable week row below.
 const TRAINING_DAY_COUNT_OPTIONS: SetupDaysPerWeek[] = [2, 3, 4, 5, 6];
+
+/**
+ * Repeating on/off rhythms the days step offers under the weekday picker
+ * (user 2026-08-23): a cycle is for the reader whose training week has no
+ * fixed days — every other day, two on one off. Choosing one persists as
+ * preferences.trainingCycle, which overrides the weekday list everywhere a
+ * calendar day is marked training or rest.
+ */
+const CYCLE_PRESET_OPTIONS = [
+  { id: 'on1off1', on: 1, off: 1, labelKey: 'onb.days.cycle.on1off1' },
+  { id: 'on2off1', on: 2, off: 1, labelKey: 'onb.days.cycle.on2off1' },
+  { id: 'on3off1', on: 3, off: 1, labelKey: 'onb.days.cycle.on3off1' },
+  { id: 'on1off2', on: 1, off: 2, labelKey: 'onb.days.cycle.on1off2' },
+] as const;
+type CyclePresetId = (typeof CYCLE_PRESET_OPTIONS)[number]['id'];
+
+/**
+ * What a cycle means in the questionnaire's own unit. The recommender picks a
+ * programme by sessions per week, and the honest number for a cycle is the
+ * average count of training days a seven-day window holds, clamped to the
+ * 2–6 the answer supports.
+ */
+function cycleDaysPerWeek(on: number, off: number): SetupDaysPerWeek {
+  return Math.min(6, Math.max(2, Math.round((7 * on) / (on + off)))) as SetupDaysPerWeek;
+}
 
 function getRecommendedDaysForLevel(level: SetupLevel): SetupDaysPerWeek {
   return level === 'beginner' ? 3 : level === 'pro' ? 5 : 4;
@@ -1497,13 +1523,17 @@ export function OnboardingScreen({
   const [trainingEnvironment, setTrainingEnvironment] = useState<SetupTrainingEnvironment>(
     setupSeed.trainingEnvironment,
   );
-  // Whether the selected equipment card shows its chips. Selecting opens it;
-  // tapping its header again closes it without un-selecting (user, 2026-08-19).
-  const [equipmentCardOpen, setEquipmentCardOpen] = useState(true);
   const [selectedLocationOptionId, setSelectedLocationOptionId] = useState<LocationSelectionOptionId | null>(() =>
     initialSelection || editMode
       ? getDefaultLocationOptionId(setupSeed.equipment, setupSeed.trainingEnvironment)
       : null,
+  );
+  // Whether the selected equipment card shows its chips. Tapping the header
+  // toggles it without un-selecting (user, 2026-08-19). Since 2026-08-23 a
+  // full gym keeps its chips closed — "everything" is a complete answer — and
+  // only the setups where the chips are the real question open on select.
+  const [equipmentCardOpen, setEquipmentCardOpen] = useState(
+    selectedLocationOptionId !== null && selectedLocationOptionId !== 'full_gym',
   );
   const [equipmentItems, setEquipmentItems] = useState<string[]>(setupSeed.equipmentItems ?? []);
   const [levelTrackWidth, setLevelTrackWidth] = useState(0);
@@ -1536,6 +1566,15 @@ export function OnboardingScreen({
   const [scheduleMode, setScheduleMode] = useState<SetupScheduleMode>(setupSeed.scheduleMode);
   const [weeklyMinutes, setWeeklyMinutes] = useState<number | null>(setupSeed.weeklyMinutes ?? null);
   const [availableDays, setAvailableDays] = useState<SetupWeekday[]>(setupSeed.availableDays);
+  // The repeating rhythm, kept as the raw pattern rather than a preset id so
+  // a cycle set elsewhere (the plan screen's steppers can build ones these
+  // chips do not offer) survives a re-run of the questionnaire untouched.
+  // Availability (the weekday list) stays as its own answer either way.
+  const [cyclePattern, setCyclePattern] = useState<boolean[] | null>(setupSeed.trainingCyclePattern ?? null);
+  const cyclePresetId: CyclePresetId | null =
+    CYCLE_PRESET_OPTIONS.find(
+      (option) => cyclePattern !== null && patternFromOnOff(option.on, option.off).join(',') === cyclePattern.join(','),
+    )?.id ?? null;
   const [unitPreference, setUnitPreference] = useState<UnitPreference>(initialUnitPreference);
   const [currentWeightDraft, setCurrentWeightDraft] = useState(
     formatWeightInputValue(setupSeed.currentWeightKg, initialUnitPreference),
@@ -1638,6 +1677,7 @@ export function OnboardingScreen({
       automatedProgression: automatedProgressionEnabled,
       weeklyMinutes,
       availableDays,
+      trainingCyclePattern: cyclePattern,
       currentWeightKg: currentWeightValue === null ? null : convertWeightToKg(currentWeightValue, unitPreference),
       targetWeightKg: targetWeightValue === null ? null : convertWeightToKg(targetWeightValue, unitPreference),
       unitPreference,
@@ -1645,6 +1685,7 @@ export function OnboardingScreen({
     [
       automatedProgressionEnabled,
       availableDays,
+      cyclePattern,
       age,
       ageRange,
       cautionFlags,
@@ -2171,7 +2212,12 @@ export function OnboardingScreen({
         return current.filter((item) => item !== area);
       }
 
-      if (current.length >= 2) {
+      // Was 2, raised on request (user 2026-08-23: "enemmän kuin 1-2"). Not
+      // unlimited: every focus area adds its own accessory lifts to the week
+      // (buildFocusEmphasisAdditions), so at some count "focus" stops meaning
+      // anything and the sessions just swell. Past the cap the oldest choice
+      // rolls off, same as before.
+      if (current.length >= 4) {
         return [...current.slice(1), area];
       }
 
@@ -2348,7 +2394,10 @@ export function OnboardingScreen({
     void haptics.select();
     const defaults = EQUIPMENT_DEFAULT_ITEMS[option.id] ?? [];
     setSelectedLocationOptionId(option.id);
-    setEquipmentCardOpen(true);
+    // Full gym stays closed on select (user 2026-08-23): its default is
+    // everything, so the chips are a correction, not a question. Home and
+    // bodyweight open, because "what do you actually have" is the question.
+    setEquipmentCardOpen(option.id !== 'full_gym');
     setEquipmentItems(defaults);
     applyEquipmentEnvironment(option, defaults);
   }
@@ -2434,6 +2483,9 @@ export function OnboardingScreen({
                             onPress={() => toggleEquipmentItem(option, item)}
                             style={[styles.equipmentChip, active && styles.equipmentChipActive]}
                           >
+                            {/* Colour alone marked the chosen chips; a check
+                                says it outright (user 2026-08-23). */}
+                            {active ? <VinhaIcon name="check" size={12} color="#5B21B6" /> : null}
                             <Text style={[styles.equipmentChipText, active && styles.equipmentChipTextActive]}>{label}</Text>
                           </Pressable>
                         );
@@ -2604,11 +2656,15 @@ export function OnboardingScreen({
 
     return (
       <View style={[styles.locationStageShell, { minHeight: locationStageHeight }, shellStyle]}>
+        {/* The bar rides the back chevron's row (user 2026-08-23): on a short
+            phone the old bar-below-button layout pushed the last option card
+            off screen, and a row that only holds a 40px circle has the width
+            for it. */}
+        <View pointerEvents="none" style={styles.locationProgressBarWrap}>
+          <StepDots index={stageIndex} />
+        </View>
         <View style={[styles.locationTopPane, { height: fixedTopPaneHeight }, topPaneStyle]}>
           <View style={styles.locationTopSlope} />
-          <View pointerEvents="none" style={styles.locationProgressBarWrap}>
-            <StepDots index={stageIndex} />
-          </View>
           <View style={[styles.locationTopCopy, topCopyStyle]}>
             <Text style={[styles.locationStepLabel, stepLabelStyle]}>{stepLabel}</Text>
             {titleLines.map((line) => (
@@ -2772,7 +2828,9 @@ export function OnboardingScreen({
     setDaysPerWeek(option);
     setAvailableDays(DEFAULT_RHYTHM_BY_DAYS[option]);
     // Chips hand the weekly rhythm back to the app; hand-picked days below
-    // switch to self-managed scheduling instead.
+    // switch to self-managed scheduling instead. Either way it is a weekly
+    // answer, so a chosen cycle gives way to it.
+    setCyclePattern(null);
     setScheduleMode('app_managed');
     setProfileFrequencySelected(true);
   }
@@ -2792,12 +2850,27 @@ export function OnboardingScreen({
     void haptics.select();
     setAvailableDays(next);
     setDaysPerWeek(next.length as SetupDaysPerWeek);
+    setCyclePattern(null);
     setScheduleMode('self_managed');
+    setProfileFrequencySelected(true);
+  }
+
+  function selectCyclePreset(option: (typeof CYCLE_PRESET_OPTIONS)[number]) {
+    void haptics.select();
+    // Tapping the active preset steps back to plain weekdays.
+    if (cyclePresetId === option.id) {
+      setCyclePattern(null);
+      return;
+    }
+    setCyclePattern(patternFromOnOff(option.on, option.off));
+    setDaysPerWeek(cycleDaysPerWeek(option.on, option.off));
+    setScheduleMode('app_managed');
     setProfileFrequencySelected(true);
   }
 
   function renderDays() {
     const recommendedDays = getRecommendedDaysForLevel(level);
+    const cycleActive = cyclePattern !== null;
     // Until a count is chosen the week shown IS the recommendation, so the
     // chips have to draw the recommendation's rhythm. Falling back to
     // daysPerWeek's default put three days on screen looking chosen, under a
@@ -2822,10 +2895,12 @@ export function OnboardingScreen({
           <View style={styles.daysChipRow}>
             {TRAINING_DAY_COUNT_OPTIONS.map((option) => {
               // Before a choice, the recommendation is what the rest of the
-              // screen is showing, so it is what reads as selected.
-              const active = profileFrequencySelected
-                ? daysPerWeek === option
-                : option === recommendedDays;
+              // screen is showing, so it is what reads as selected. With a
+              // cycle chosen the count is derived, and a lit chip next to a
+              // lit preset would be two answers claiming the same question.
+              const active =
+                !cycleActive &&
+                (profileFrequencySelected ? daysPerWeek === option : option === recommendedDays);
               const recommended = option === recommendedDays;
 
               return (
@@ -2855,44 +2930,80 @@ export function OnboardingScreen({
             })}
           </View>
 
-          {/* Until a count is chosen, this step LOOKS answered — the weekday
-              cells are drawn from the recommendation and the summary reads as
-              a result — while Continue stays disabled on
-              profileFrequencySelected. "Tap days to adjust" told the user the
-              opposite of what the screen required, with nothing saying why.
-              The level stage already solves this by asking when unselected. */}
-          <Text style={styles.daysWeekLabel}>
-            {t(language, profileFrequencySelected ? 'onb.days.tapToAdjust' : 'onb.days.pickCount')}
-          </Text>
-          <View style={styles.daysWeekRow}>
-            {WEEKDAY_OPTIONS.map((day) => {
-              const dayActive = selectedDays.includes(day);
+          {/* A chosen cycle overrides the weekdays everywhere else in the
+              app, so the week row is hidden rather than greyed while one is
+              active — two rhythms on one screen, one of them inert, is how a
+              screen disagrees with itself (same rule as the plan screen). */}
+          {!cycleActive ? (
+            <>
+              {/* Until a count is chosen, this step LOOKS answered — the
+                  weekday cells are drawn from the recommendation and the
+                  summary reads as a result — while Continue stays disabled on
+                  profileFrequencySelected. "Tap days to adjust" told the user
+                  the opposite of what the screen required, with nothing
+                  saying why. The level stage solves this by asking. */}
+              <Text style={styles.daysWeekLabel}>
+                {t(language, profileFrequencySelected ? 'onb.days.tapToAdjust' : 'onb.days.pickCount')}
+              </Text>
+              <View style={styles.daysWeekRow}>
+                {WEEKDAY_OPTIONS.map((day) => {
+                  const dayActive = selectedDays.includes(day);
 
+                  return (
+                    <Pressable
+                      key={day}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${getWeekdayShortLabel(day, language)}${
+                        dayActive ? t(language, 'setup.a11y.trainingDay') : t(language, 'setup.a11y.restDay')
+                      }`}
+                      accessibilityState={{ selected: dayActive }}
+                      onPress={() => toggleTrainingDay(day)}
+                      style={[styles.daysWeekCell, dayActive && styles.daysWeekCellActive]}
+                    >
+                      <Text style={[styles.daysWeekCellText, dayActive && styles.daysWeekCellTextActive]}>
+                        {t(language, WEEKDAY_LETTER_KEYS[day])}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.daysSummaryLine}>
+                {t(language, 'onb.days.summary', { days: selectedDays.length, rest: restCount })}
+              </Text>
+              {profileFrequencySelected && daysPerWeek !== recommendedDays ? (
+                <Text style={styles.daysRecommendHint}>
+                  {t(language, 'onb.days.recommendHint', { days: recommendedDays })}
+                </Text>
+              ) : null}
+            </>
+          ) : null}
+
+          {/* Cycle splits (user 2026-08-23): the rhythms that do not fit
+              inside a week. */}
+          <Text style={styles.daysCycleLabel}>{t(language, 'onb.days.cycleLabel')}</Text>
+          <View style={styles.daysCycleRow}>
+            {CYCLE_PRESET_OPTIONS.map((option) => {
+              const active = cyclePresetId === option.id;
               return (
                 <Pressable
-                  key={day}
+                  key={option.id}
                   accessibilityRole="button"
-                  accessibilityLabel={`${getWeekdayShortLabel(day, language)}${
-                    dayActive ? t(language, 'setup.a11y.trainingDay') : t(language, 'setup.a11y.restDay')
-                  }`}
-                  accessibilityState={{ selected: dayActive }}
-                  onPress={() => toggleTrainingDay(day)}
-                  style={[styles.daysWeekCell, dayActive && styles.daysWeekCellActive]}
+                  accessibilityState={{ selected: active }}
+                  onPress={() => selectCyclePreset(option)}
+                  style={[styles.daysCycleChip, active && styles.daysCycleChipActive]}
                 >
-                  <Text style={[styles.daysWeekCellText, dayActive && styles.daysWeekCellTextActive]}>
-                    {t(language, WEEKDAY_LETTER_KEYS[day])}
+                  {active ? <VinhaIcon name="check" size={12} color="#5B21B6" /> : null}
+                  <Text style={[styles.daysCycleChipText, active && styles.daysCycleChipTextActive]}>
+                    {t(language, option.labelKey)}
                   </Text>
                 </Pressable>
               );
             })}
           </View>
-
-          <Text style={styles.daysSummaryLine}>
-            {t(language, 'onb.days.summary', { days: selectedDays.length, rest: restCount })}
-          </Text>
-          {profileFrequencySelected && daysPerWeek !== recommendedDays ? (
-            <Text style={styles.daysRecommendHint}>
-              {t(language, 'onb.days.recommendHint', { days: recommendedDays })}
+          {cyclePattern ? (
+            <Text style={styles.daysSummaryLine}>
+              {t(language, 'onb.days.cycleSummary', { len: cyclePattern.length })}
             </Text>
           ) : null}
         </View>
@@ -3668,7 +3779,6 @@ export function OnboardingScreen({
     const activePhaseIndex = Math.min(buildingPlanPhaseIndex, buildingPlanPhases.length - 1);
     const pulseScale = buildingPlanPulseScale;
     const pulseOpacity = buildingPlanPulseOpacity;
-    const buildingPlanAnimatedEllipsis = '.'.repeat(buildingPlanEllipsisStep + 1);
 
     return (
       <Animated.View style={[styles.buildingPlanScreen, { opacity: buildingPlanScreenOpacity }]}>
@@ -3676,9 +3786,21 @@ export function OnboardingScreen({
           <Animated.View style={[styles.buildingPlanThinkingScene, { opacity: buildingPlanThinkingOpacity }]}>
             <View style={styles.buildingPlanThinkingCenter}>
               <Animated.Text style={[styles.buildingPlanThinkingText, { opacity: buildingPlanCaptionOpacity }]}>
-                {buildingPlanComplete
-                  ? t(language, 'onb.building.ready')
-                  : `${t(language, 'onb.building.title')}${buildingPlanAnimatedEllipsis}`}
+                {buildingPlanComplete ? (
+                  t(language, 'onb.building.ready')
+                ) : (
+                  <>
+                    {t(language, 'onb.building.title')}
+                    {/* All three dots hold their width from the first frame;
+                        the unlit ones are painted transparent. Appending
+                        1–3 real dots changed the line's width every tick, and
+                        on a narrow phone the title bounced between one and
+                        two lines (user 2026-08-23). */}
+                    <Text>.</Text>
+                    <Text style={buildingPlanEllipsisStep >= 1 ? null : styles.buildingPlanDotHidden}>.</Text>
+                    <Text style={buildingPlanEllipsisStep >= 2 ? null : styles.buildingPlanDotHidden}>.</Text>
+                  </>
+                )}
               </Animated.Text>
 
               <View style={styles.buildingPlanProgressBlock}>
@@ -4047,13 +4169,16 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     width: '100%',
   },
+  // Level with the back chevron: the shell starts at the safe-area edge, the
+  // chevron circle is 40 tall at top 10, and the bar centers on that height
+  // to the chevron's right.
   locationProgressBarWrap: {
     position: 'absolute',
-    top: 54,
-    left: spacing.lg * 2,
-    right: spacing.lg * 2,
+    top: 10,
+    left: 70,
+    right: spacing.lg,
+    height: 40,
     zIndex: 3,
-    minHeight: 12,
     justifyContent: 'center',
   },
   dot: {
@@ -4106,7 +4231,10 @@ const styles = StyleSheet.create({
   },
   locationEquipmentTopPane: {
     justifyContent: 'flex-start',
-    height: 206,
+    // 206 with the copy pushed 58 down, when the progress bar lived inside
+    // this pane. The bar moved up to the chevron row; the freed band goes to
+    // the option list below, which is the part that clipped on short phones.
+    height: 168,
     paddingTop: 36,
     paddingBottom: 12,
   },
@@ -4128,7 +4256,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   locationEquipmentTopCopy: {
-    paddingTop: 58,
+    paddingTop: 12,
     paddingBottom: 0,
     gap: 2,
   },
@@ -4228,6 +4356,9 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   equipmentChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     borderRadius: 999,
     borderWidth: 1.5,
     borderColor: ONBOARDING_BORDER,
@@ -4464,6 +4595,45 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 16,
   },
+  daysCycleLabel: {
+    color: ONBOARDING_TEXT,
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginTop: 24,
+    marginBottom: 10,
+  },
+  daysCycleRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  daysCycleChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: ONBOARDING_BORDER,
+    backgroundColor: ONBOARDING_CARD,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+  },
+  daysCycleChipActive: {
+    borderColor: ONBOARDING_BORDER_ACTIVE,
+    backgroundColor: ONBOARDING_CARD_ACTIVE,
+  },
+  daysCycleChipText: {
+    color: ONBOARDING_TEXT_SOFT,
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '700',
+  },
+  daysCycleChipTextActive: {
+    color: '#5B21B6',
+    fontWeight: '800',
+  },
   daysRecommendHint: {
     color: ONBOARDING_PRIMARY,
     fontSize: 12,
@@ -4653,13 +4823,13 @@ const styles = StyleSheet.create({
     width: '47.6%',
   },
   trainingProfileTopPane: {
-    height: 150,
+    height: 112,
     justifyContent: 'flex-start',
     paddingTop: 24,
     paddingBottom: 8,
   },
   trainingProfileTopCopy: {
-    paddingTop: 58,
+    paddingTop: 12,
     paddingBottom: 0,
     gap: 3,
   },
@@ -4985,18 +5155,17 @@ const styles = StyleSheet.create({
   profileCheckBodyActive: {
     color: 'rgba(6,8,11,0.66)',
   },
-  // The progress bar is absolutely positioned at top: 54 and is 12 tall, so
-  // the copy has to start below 66. At 24 + 42 it started AT 66 and "VAIHE
-  // 6/6" sat on the last segment of its own progress bar. Matched to the
-  // equipment step, which is the same shell with room in it.
+  // Matched to the equipment step, which is the same shell with room in it.
+  // The 58px copy offset died with the in-pane progress bar (it existed so
+  // "VAIHE 6/6" would not sit on the bar's last segment).
   focusAreaTopPane: {
-    height: 216,
+    height: 178,
     justifyContent: 'flex-start',
     paddingTop: 36,
     paddingBottom: 8,
   },
   focusAreaTopCopy: {
-    paddingTop: 58,
+    paddingTop: 12,
     paddingBottom: 0,
     gap: 3,
   },
@@ -5093,6 +5262,9 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginBottom: 22,
     minHeight: 34,
+  },
+  buildingPlanDotHidden: {
+    color: 'transparent',
   },
   buildingPlanStepList: {
     width: '100%',

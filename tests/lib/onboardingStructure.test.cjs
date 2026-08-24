@@ -431,7 +431,9 @@ module.exports = [
       assert.match(onboardingSource, /if \(next\.length < 2 \|\| next\.length > 6\)/);
       assert.match(onboardingSource, /setDaysPerWeek\(next\.length as SetupDaysPerWeek\)/);
       assert.match(onboardingSource, /setScheduleMode\('self_managed'\)/);
-      assert.match(onboardingSource, /trainingProfileTopPane:\s*\{[\s\S]*height: 150/);
+      // 112, down from 150: the in-pane progress bar and the 58px copy offset
+      // that cleared it are gone (2026-08-23).
+      assert.match(onboardingSource, /trainingProfileTopPane:\s*\{[\s\S]*height: 112/);
     },
   },
   {
@@ -442,7 +444,9 @@ module.exports = [
       assert.match(planningBody, /stepLabel: getQuestionnaireStepLabel\('planning', language\)/);
       assert.match(planningBody, /titleLines: \[t\(language, 'onb\.stage\.focus\.title1'\), t\(language, 'onb\.stage\.focus\.title2'\)\]/);
       assert.match(planningBody, /FOCUS_AREA_OPTIONS\.filter\(\(option\) => option\.area !== 'mobility'\)/);
-      // Name-only selectable rows, tap-to-fill like the goal step; 1-2 picks.
+      // Name-only selectable rows, tap-to-fill like the goal step; 1-4 picks
+      // (raised from 2 on request, 2026-08-23 — every area still adds its own
+      // accessory lifts, so the cap holds "focus" to a meaning).
       assert.match(planningBody, /visibleFocusOptions\.map/);
       assert.match(planningBody, /toggleFocusArea\(option\.area\)/);
       assert.match(planningBody, /styles\.focusListRowActive/);
@@ -454,10 +458,10 @@ module.exports = [
       assert.match(planningBody, /t\(language, 'onb\.focusCaution'\)/);
       assert.doesNotMatch(planningBody, /This shapes your training/);
       assert.match(planningBody, /t\(language, 'onb\.pickAreas'\)/);
-      assert.match(i18nSource, /'onb\.pickAreas': 'Pick 1–2 areas\.'/);
+      assert.match(i18nSource, /'onb\.pickAreas': 'Pick 1–4 areas\.'/);
       assert.doesNotMatch(planningBody, /Why focus areas\?/);
       assert.match(onboardingSource, /const FOCUS_AREA_OPTIONS = getOnboardingFocusAreaPresentationOptions\(\)/);
-      assert.match(onboardingSource, /current\.length >= 2/);
+      assert.match(onboardingSource, /current\.length >= 4/);
 
       // Avoid-step flags colour the rows: amber careful / red avoid + triangle.
       assert.match(planningBody, /getFocusAreaCautionLevel\(option\.area, cautionFlags\)/);
@@ -575,11 +579,18 @@ module.exports = [
       assert.match(onboardingSource, /const fixedTopPaneHeight = Math\.min\(380, Math\.round\(locationStageHeight \* 0\.34\) \+ 34\)/);
       assert.match(onboardingSource, /styles\.locationTopPane, \{ height: fixedTopPaneHeight \}, topPaneStyle/);
       assert.match(onboardingSource, /<View pointerEvents="none" style=\{styles\.locationProgressBarWrap\}>[\s\S]*<StepDots index=\{stageIndex\} \/>/);
-      // The progress bar is absolute at top: 54 and 12 tall, so the copy has
-      // to start below 66. At 24 + 42 the focus step started AT 66 and "VAIHE
-      // 6/6" sat on the last segment of its own bar.
+      // The progress bar shares the back chevron's row (user 2026-08-23): on a
+      // short phone the bar-below-button layout pushed the last option card
+      // off screen. The bar renders as the shell's child, not the pane's, and
+      // centers on the chevron's 40px height at top 10.
+      assert.match(
+        onboardingSource,
+        /<View pointerEvents="none" style=\{styles\.locationProgressBarWrap\}>[\s\S]{0,400}<View style=\{\[styles\.locationTopPane/,
+      );
+      assert.match(onboardingSource, /locationProgressBarWrap:\s*\{[\s\S]*?top: 10,[\s\S]*?height: 40/);
+      // And the 58px offsets that cleared the in-pane bar are gone with it.
       assert.match(onboardingSource, /focusAreaTopPane:\s*\{[\s\S]*?paddingTop: 36/);
-      assert.match(onboardingSource, /focusAreaTopCopy:\s*\{\s*paddingTop: 58/);
+      assert.doesNotMatch(onboardingSource, /paddingTop: 58/);
       assert.match(onboardingSource, /stage === 'planning'/);
       assert.match(onboardingSource, /scrollEnabled=\{!scrollLockedStage\}/);
       assert.match(onboardingSource, /bounces=\{allowScrollBounce\}/);
@@ -591,6 +602,40 @@ module.exports = [
       assert.match(onboardingSource, /const allowScrollBounce = !scrollLockedStage && stage !== 'location' && stage !== 'goal'/);
       // Step 2 goal chips wrap instead of truncating.
       assert.match(onboardingSource, /locationChoiceTagRow:\s*\{[\s\S]*flexWrap: 'wrap'/);
+    },
+  },
+  {
+    name: 'days step offers the repeating cycle splits and persists them',
+    run() {
+      // The four splits asked for on 2026-08-23: 1+1, 2+1, 3+1, 1+2.
+      for (const preset of ['on1off1', 'on2off1', 'on3off1', 'on1off2']) {
+        assert.match(onboardingSource, new RegExp(`id: '${preset}'`));
+        const key = `onb.days.cycle.${preset}`;
+        const occurrences = i18nSource.split(`'${key}':`).length - 1;
+        assert.equal(occurrences, 2, `${key} is missing one of its two languages`);
+      }
+      // The selection carries the raw pattern, not a preset id, so a custom
+      // cycle built on the plan screen survives a questionnaire re-run.
+      assert.match(onboardingSource, /trainingCyclePattern: cyclePattern,/);
+      assert.match(
+        onboardingSource,
+        /const \[cyclePattern, setCyclePattern\] = useState<boolean\[\] \| null>\(setupSeed\.trainingCyclePattern \?\? null\)/,
+      );
+      // A cycle hides the weekday row rather than greying it (plan-screen
+      // rule), and choosing weekdays or a count clears the cycle.
+      assert.match(onboardingSource, /\{!cycleActive \? \(/);
+      // Three clears: the count chips, the weekday toggles, and tapping the
+      // active preset itself.
+      const countBody = onboardingSource.slice(
+        onboardingSource.indexOf('function selectTrainingDaysCount'),
+        onboardingSource.indexOf('function renderDays'),
+      );
+      assert.equal(countBody.split('setCyclePattern(null)').length - 1, 3);
+      // App.tsx persists the pattern anchored at today — and keeps the old
+      // anchor when only the questionnaire was re-run with the same pattern.
+      assert.match(appSource, /trainingCyclePattern: preferences\.trainingCycle\?\.pattern \?\? null/);
+      assert.match(appSource, /previousCycle\.pattern\.join\(','\) === cyclePattern\.join\(','\)/);
+      assert.match(appSource, /\{ pattern: cyclePattern, anchorDayStart: localTodayStart\(\) \}/);
     },
   },
   {

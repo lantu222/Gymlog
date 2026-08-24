@@ -93,9 +93,16 @@ module.exports = [
       assert.match(i18nSource, /'onb\.building\.sub2': 'Creating training structure\.\.\.'/);
 
       // Heading flips to the done copy; animated ellipsis while in progress.
-      assert.match(loaderBody, /buildingPlanComplete[\s\S]{0,80}'onb\.building\.ready'[\s\S]{0,120}'onb\.building\.title'[\s\S]{0,40}buildingPlanAnimatedEllipsis/);
+      // The dots hold constant width — appending '.'.repeat(step) changed the
+      // line's width every tick and on a narrow phone the title bounced
+      // between one and two lines (user 2026-08-23). Unlit dots render
+      // transparent instead of being absent.
+      assert.match(loaderBody, /buildingPlanComplete \? \([\s\S]{0,40}'onb\.building\.ready'[\s\S]{0,200}'onb\.building\.title'/);
       assert.match(onboardingSource, /buildingPlanEllipsisStep/);
-      assert.match(onboardingSource, /'\.'\.repeat\(buildingPlanEllipsisStep \+ 1\)/);
+      assert.doesNotMatch(onboardingSource, /'\.'\.repeat\(/);
+      assert.match(loaderBody, /buildingPlanEllipsisStep >= 1 \? null : styles\.buildingPlanDotHidden/);
+      assert.match(loaderBody, /buildingPlanEllipsisStep >= 2 \? null : styles\.buildingPlanDotHidden/);
+      assert.match(onboardingSource, /buildingPlanDotHidden: \{\s*color: 'transparent',/);
       assert.match(onboardingSource, /setBuildingPlanComplete\(true\)/);
 
       // Slim determinate progress bar + percent readout (calm, not a hype ring).
