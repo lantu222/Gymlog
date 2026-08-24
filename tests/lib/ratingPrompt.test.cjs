@@ -100,4 +100,43 @@ module.exports = [
       assert.equal(next.lastAskedAt, new Date(NOW).toISOString());
     },
   },
+  {
+    /**
+     * The rules, the sheet and its strings all existed and nothing called
+     * them — the i18n block said "built, deliberately not wired" and the
+     * reader's report was that the rating ask "disappeared". Unit tests
+     * counted as callers, so the dead-code guard stayed quiet. These are
+     * source-level on purpose: they pin the chain the guard cannot see.
+     */
+    name: 'rating: the sheet is actually wired, and the ask is remembered across restarts',
+    run() {
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const root = path.join(__dirname, '..', '..');
+      const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
+      const appSource = read('App.tsx');
+
+      // Decided at the peak moment, on the way out of the finish screen.
+      assert.match(appSource, /<RateAppSheet/);
+      assert.match(appSource, /decideRatingPrompt\(\{/);
+      assert.match(appSource, /atPeakMoment: true/);
+      assert.match(appSource, /maybeAskForRating\(\);/);
+
+      // Counted when SHOWN, not when answered: a reader who closes it has
+      // still been asked, and counting only answers would ask forever.
+      assert.match(appSource, /setRatingSheetVisible\(true\);\s*\n\s*void updatePreferences\(\{ ratingPrompt: recordRatingAsked\(/);
+
+      // Every star opens the listing. No branch on the number: that is review
+      // gating, and it is against Play policy.
+      assert.match(appSource, /const PLAY_LISTING_URL = 'https:\/\/play\.google\.com\/store\/apps\/details\?id=app\.vinha'/);
+      assert.match(appSource, /void Linking\.openURL\(PLAY_LISTING_URL\)/);
+      assert.doesNotMatch(appSource, /onRate=\{\(rating\)/);
+
+      // Persisted, because "we asked twice and you said no" is a promise, and
+      // a promise held only in memory is broken by the next restart.
+      assert.match(read('src/types/models.ts'), /ratingPrompt: RatingPromptState;/);
+      assert.match(read('src/storage/database.ts'), /ratingPrompt: normalizeRatingPrompt\(/);
+      assert.match(read('src/data/seed.ts'), /ratingPrompt: \{ lastAskedAt: null, askCount: 0, rated: false \}/);
+    },
+  },
 ];

@@ -208,6 +208,15 @@ import {
   ProgramCategoryKey,
 } from './src/lib/programCategories';
 import { ProgramLimitSheet } from './src/components/ProgramLimitSheet';
+import { RateAppSheet } from './src/components/RateAppSheet';
+import { decideRatingPrompt, recordRatingAsked, recordRatingCompleted } from './src/lib/ratingPrompt';
+
+/**
+ * The listing, opened by every star. Not the in-app review API: Google's own
+ * card must not be preceded by a custom prompt that asks for a rating, and the
+ * sheet is exactly that.
+ */
+const PLAY_LISTING_URL = 'https://play.google.com/store/apps/details?id=app.vinha';
 import { buildCustomProgramDetail, buildCustomSessionRuntimeTemplate, buildReadyProgramDetail, buildReadySessionRuntimeTemplate } from './src/lib/programDetails';
 import { applySessionAdaptation, previewSessionTrim } from './src/lib/sessionAdaptation';
 import { buildProgramInsightMap } from './src/lib/programInsights';
@@ -961,6 +970,7 @@ function VinhaApp() {
   const settingsScrollOffsetRef = useRef(0);
   const [completionSummary, setCompletionSummary] = useState<CompletionSummaryState | null>(null);
   const [workoutCelebration, setWorkoutCelebration] = useState<WorkoutCelebrationState | null>(null);
+  const [ratingSheetVisible, setRatingSheetVisible] = useState(false);
   const [finishSaveState, setFinishSaveState] = useState<FinishSaveState>({
     status: 'idle',
     sessionId: null,
@@ -1225,6 +1235,32 @@ function VinhaApp() {
       setFinishSaveState({ status: 'idle', sessionId: null, message: null });
       setNavigationState({ route: nextRoute, history: [] });
     });
+    maybeAskForRating();
+  }
+
+  /**
+   * The rating ask, at the one moment the reader has just finished something.
+   *
+   * Fired on the way out of the finish screen rather than on it: the finish
+   * screen already asks how the session felt, and two sheets stacked on one
+   * tap is how a reader learns to dismiss sheets without reading them.
+   *
+   * The ask is recorded when the sheet is SHOWN, not when it is answered. A
+   * reader who closes it has still been asked, and counting only the answers
+   * would let the app ask forever.
+   */
+  function maybeAskForRating() {
+    const decision = decideRatingPrompt({
+      state: preferences.ratingPrompt,
+      sessionsLogged: database.workoutSessions.length + database.cardioSessions.length,
+      atPeakMoment: true,
+      nowMs: Date.now(),
+    });
+    if (!decision.ask) {
+      return;
+    }
+    setRatingSheetVisible(true);
+    void updatePreferences({ ratingPrompt: recordRatingAsked(preferences.ratingPrompt, Date.now()) });
   }
 
   function navigateToTab(tab: RootTabKey) {
@@ -6925,6 +6961,24 @@ function VinhaApp() {
         // behind it. No navigation: the dialog interrupts the flow, it does
         // not move it.
         onDone={() => setThemeChoiceVisible(false)}
+      />
+      {/* Built months ago and left unwired — the strings even said so. The
+          sheet takes the star it was given and ignores it on purpose: every
+          star opens the same listing, because routing the low ones somewhere
+          private is review gating and against Play policy. */}
+      <RateAppSheet
+        visible={ratingSheetVisible}
+        language={preferences.appLanguage}
+        onRate={() => {
+          setRatingSheetVisible(false);
+          // Every star arrives here. Marked rated on the way out rather than
+          // on the way back: the app never learns whether a review was
+          // actually left, and asking again someone who went to the listing
+          // is worse than missing one who changed their mind.
+          void updatePreferences({ ratingPrompt: recordRatingCompleted(preferences.ratingPrompt) });
+          void Linking.openURL(PLAY_LISTING_URL);
+        }}
+        onDismiss={() => setRatingSheetVisible(false)}
       />
     </AppShell>
   );

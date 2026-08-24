@@ -85,6 +85,7 @@ const DEFAULT_PREFERENCES = {
   setupWeeklyMinutes: null,
   setupAvailableDays: [],
   trainingCycle: null,
+  ratingPrompt: { lastAskedAt: null, askCount: 0, rated: false },
   todaySession: null,
   setupTrainingFeel: 'challenging' as const,
   setupWorkoutVariety: 'balanced' as const,

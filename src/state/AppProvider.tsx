@@ -170,6 +170,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       keepScreenAwakeDuringWorkout: true,
       soundCuesEnabled: true,
       darkThemeEnabled: false,
+      ratingPrompt: { lastAskedAt: null, askCount: 0, rated: false },
       hapticsEnabled: true,
       homeStatCardKeys: null,
       notificationPrefs: {

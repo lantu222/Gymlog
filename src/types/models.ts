@@ -239,6 +239,22 @@ export interface ExerciseLogSet {
  */
 export type SessionFeel = 'easy' | 'right' | 'hard' | 'too_hard';
 
+/**
+ * What the app remembers about asking for a store rating.
+ *
+ * Lives here rather than beside the rules in src/lib/ratingPrompt.ts because
+ * it is persisted state: AppPreferences holds it, and storage normalizes it on
+ * every load.
+ */
+export interface RatingPromptState {
+  /** ISO timestamp of the last time the sheet was shown, null if never. */
+  lastAskedAt: string | null;
+  /** How many times the sheet has been shown. */
+  askCount: number;
+  /** The reader went through to the store. We never ask again. */
+  rated: boolean;
+}
+
 export interface WorkoutSession {
   id: string;
   workoutTemplateId: string;
@@ -327,6 +343,14 @@ export interface AppPreferences {
    * lapses — resolveThemeName decides what actually gets served.
    */
   darkThemeEnabled: boolean;
+  /**
+   * Whether the store-rating sheet may be shown, and how often it already has.
+   *
+   * A preference rather than a derived value: "we already asked twice and they
+   * said no" is a promise, and a promise that lives only in memory is broken
+   * by the next restart. See src/lib/ratingPrompt.ts for the rules.
+   */
+  ratingPrompt: RatingPromptState;
   /**
    * "Your cards" pins on Home. null = never customized (defaults apply);
    * [] = the user removed every card and that choice sticks.

@@ -13,6 +13,7 @@ import {
   AppPreferences,
   ExerciseTemplate,
   MeasurementEntry,
+  RatingPromptState,
   SetupCautionFlag,
   WorkoutTemplate,
   WorkoutTemplateSessionRecord,
@@ -202,6 +203,29 @@ function normalizeTodaySession(value: unknown): { dayStart: number; sessionId: s
  * honoured. The length cap is a sanity bound, not a product rule: nothing can
  * write a 400-day rhythm through the editor, but a corrupt file could.
  */
+/**
+ * A corrupt or absent rating record must never read as "already asked three
+ * times" (the sheet would be silently dead forever) nor as "already rated".
+ * Anything unreadable falls back to the fresh state, which is the only value
+ * that cannot cost the reader something they did not choose.
+ */
+function normalizeRatingPrompt(value: unknown): RatingPromptState {
+  const fresh: RatingPromptState = { lastAskedAt: null, askCount: 0, rated: false };
+  if (typeof value !== 'object' || value === null) {
+    return fresh;
+  }
+  const raw = value as { lastAskedAt?: unknown; askCount?: unknown; rated?: unknown };
+  const askCount =
+    typeof raw.askCount === 'number' && Number.isFinite(raw.askCount) && raw.askCount >= 0
+      ? Math.floor(raw.askCount)
+      : 0;
+  return {
+    lastAskedAt: typeof raw.lastAskedAt === 'string' && raw.lastAskedAt.length > 0 ? raw.lastAskedAt : null,
+    askCount,
+    rated: raw.rated === true,
+  };
+}
+
 function normalizeTrainingCycle(
   value: unknown,
   fallbackValue: { pattern: boolean[]; anchorDayStart: number } | null,
@@ -855,6 +879,7 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
             )
           : fallback.preferences.setupAvailableDays,
       trainingCycle: normalizeTrainingCycle(input?.preferences?.trainingCycle, fallback.preferences.trainingCycle),
+      ratingPrompt: normalizeRatingPrompt(input?.preferences?.ratingPrompt),
       todaySession: normalizeTodaySession(input?.preferences?.todaySession),
       setupTrainingFeel:
         input?.preferences?.setupTrainingFeel === 'easy' ||

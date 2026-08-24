@@ -26,14 +26,13 @@ export const RATING_MAX_ASKS = 3;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export interface RatingPromptState {
-  /** ISO timestamp of the last time the sheet was shown, null if never. */
-  lastAskedAt: string | null;
-  /** How many times the sheet has been shown. */
-  askCount: number;
-  /** The reader went through to the store. We never ask again. */
-  rated: boolean;
-}
+/**
+ * The state itself is declared with the other persisted shapes; the rules that
+ * read it live here. Re-exported so callers can take both from one place.
+ */
+import type { RatingPromptState } from '../types/models';
+
+export type { RatingPromptState };
 
 export const emptyRatingPromptState: RatingPromptState = {
   lastAskedAt: null,
