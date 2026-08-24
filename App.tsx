@@ -3280,7 +3280,12 @@ function VinhaApp() {
           durationMinutes: estimatedDuration,
           trim: previewSessionTrim(durationInputs, routineSeconds),
           focusKind,
-          exercises: session.exercises.slice(0, 5).map((exercise) => ({
+          // The whole session, not the first five (user 2026-08-24: "saako
+          // treeni osion näkyviin kokonaan"). Home decides what to show and
+          // the reader can fold the list; truncating here meant the count in
+          // the header and the rows beneath it were two different numbers,
+          // and every consumer had to add the hidden ones back to get one.
+          exercises: session.exercises.map((exercise) => ({
             name: exercise.name,
             setsLabel: `${exercise.targetSets} sets`,
             schemeLabel: formatSetScheme(
@@ -3292,7 +3297,6 @@ function VinhaApp() {
             slotId: activeRuntimeExercises.get(exercise.id)?.slotId,
             substitutionGroup: activeRuntimeExercises.get(exercise.id)?.substitutionGroup,
           })),
-          hiddenExerciseCount: Math.max(exerciseCount - 5, 0),
         };
       });
       // Was `homeSessions[0]`, always. Finishing day 1 offered day 1 again,
@@ -4077,11 +4081,7 @@ function VinhaApp() {
     return {
       name: homeActivePlanCard.title,
       daysPerWeek: Number.parseInt(homeActivePlanCard.sessionsPerWeek, 10) || homeActivePlanCard.sessions.length || null,
-      // Hidden exercises are counted too — the card claims the plan's size, not
-      // the size of the Home preview.
-      exerciseCount:
-        exerciseNames.size +
-        homeActivePlanCard.sessions.reduce((sum, session) => sum + (session.hiddenExerciseCount ?? 0), 0),
+      exerciseCount: exerciseNames.size,
       focusCaption: focusCaption.length > 0 ? focusCaption : null,
     };
   }, [homeActivePlanCard, preferences.appLanguage]);
@@ -6053,7 +6053,7 @@ function VinhaApp() {
         sessions={(homeActivePlanCard?.sessions ?? []).map((session) => ({
           id: session.id,
           title: localizeSessionName(formatWorkoutDisplayLabel(session.title), preferences.appLanguage),
-          exerciseCount: session.exercises.length + (session.hiddenExerciseCount ?? 0),
+          exerciseCount: session.exercises.length,
           totalSets: session.totalSets ?? 0,
           isNext: session.id === homeActivePlanCard?.nextSession.id,
         }))}

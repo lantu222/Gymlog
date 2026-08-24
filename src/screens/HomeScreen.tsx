@@ -443,6 +443,10 @@ export function HomeScreen({
    * the decision and these two are the answer to a second question.
    */
   const [openBlock, setOpenBlock] = useState<'warmup' | 'cooldown' | null>(null);
+  // Open by default, unlike warmup and cooldown: the lifts are what the screen
+  // is for. The fold exists so a long day can be got out of the way, not so
+  // the session starts hidden.
+  const [workoutListOpen, setWorkoutListOpen] = useState(true);
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
 
   const topCalendarDays = getHomeMiniCalendarDays(new Date(), language).slice(0, 6);
@@ -479,7 +483,7 @@ export function HomeScreen({
   // The number carried alongside the label, not parsed back out of it.
   const planDurationMinutes =
     nextPlanSession?.durationMinutes ?? (Number.parseInt(planDuration.replace(/\D/g, ''), 10) || 45);
-  const totalExerciseCount = (nextPlanSession?.exercises.length ?? 0) + (nextPlanSession?.hiddenExerciseCount ?? 0);
+  const totalExerciseCount = nextPlanSession?.exercises.length ?? 0;
   const totalSets = nextPlanSession?.totalSets ?? 0;
   // Rotates once per day, so the line is stable while the screen is open.
   const greeting = useMemo(
@@ -1041,10 +1045,38 @@ export function HomeScreen({
                 onToggle={() => setOpenBlock((current) => (current === 'warmup' ? null : 'warmup'))}
                 language={language}
               />
-              <Text style={styles.heroListMeta}>
-                {t(language, 'home.section.workoutMeta', { count: totalExerciseCount, sets: totalSets })}
-              </Text>
-              {nextPlanSession.exercises.map((exercise, index) => {
+              {/* The lifts still stand open by default — they are the
+                  decision. But a six-lift day pushed recovery off the screen,
+                  so the meta line doubles as the fold, matching the two rows
+                  around it instead of being the one section that cannot
+                  close. */}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded: workoutListOpen }}
+                accessibilityLabel={t(
+                  language,
+                  workoutListOpen ? 'home.a11y.collapseSection' : 'home.a11y.expandSection',
+                  { title: t(language, 'home.section.workout') },
+                )}
+                onPress={() => setWorkoutListOpen((open) => !open)}
+                style={({ pressed }) => [styles.heroListMetaRow, pressed && styles.pressed]}
+              >
+                <Text style={styles.heroListMeta}>
+                  {t(language, 'home.section.workoutMeta', { count: totalExerciseCount, sets: totalSets })}
+                </Text>
+                <View style={{ transform: [{ rotate: workoutListOpen ? '180deg' : '0deg' }] }}>
+                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="m6 9 6 6 6-6"
+                      stroke={theme.faint}
+                      strokeWidth={2.4}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                </View>
+              </Pressable>
+              {(workoutListOpen ? nextPlanSession.exercises : []).map((exercise, index) => {
                 const swappedName = exercise.slotId ? sessionSwaps[exercise.slotId] : undefined;
                 // A swap changes the lift, not the prescription — same sets,
                 // same reps, same slot.
@@ -1089,13 +1121,6 @@ export function HomeScreen({
                   </View>
                 );
               })}
-              {nextPlanSession.hiddenExerciseCount > 0 ? (
-                <View style={styles.planExerciseRow}>
-                  <Text style={styles.planListFooterText}>
-                    {t(language, 'home.section.more', { count: nextPlanSession.hiddenExerciseCount })}
-                  </Text>
-                </View>
-              ) : null}
               <BlockRow
                 title={t(language, 'home.section.cooldown')}
                 meta={t(language, 'home.section.cooldownMeta', {
@@ -1606,7 +1631,7 @@ export function HomeScreen({
                       </Text>
                       <Text style={styles.adaptOptionSub}>
                         {t(language, 'home.today.meta', {
-                          exercises: session.exercises.length + (session.hiddenExerciseCount ?? 0),
+                          exercises: session.exercises.length,
                           sets: session.totalSets ?? 0,
                         })}
                       </Text>
@@ -2178,6 +2203,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   heroList: {
     marginTop: 18,
   },
+  heroListMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    paddingVertical: 4,
+  },
   heroListMeta: {
     color: theme.faint,
     fontSize: 13.5,
@@ -2281,12 +2313,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 4,
-  },
-  planListFooterText: {
-    color: theme.faint,
-    fontSize: 12.5,
-    lineHeight: 16,
-    fontWeight: '600',
   },
   btnRow: {
     flexDirection: 'row',

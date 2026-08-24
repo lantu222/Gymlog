@@ -684,4 +684,31 @@ module.exports = [
       assert.match(homeScreenSource, /weekStripDotUnknown/);
     },
   },
+  {
+    name: 'the session lists every lift it has, and the list can be folded away',
+    run() {
+      // Home used to receive the first five lifts and a count of the rest, so
+      // the header said "6 exercises" over five rows and a "+1 more" that did
+      // nothing when tapped. The whole session comes through now.
+      assert.doesNotMatch(appSource, /exercises: session\.exercises\.slice\(0, 5\)/);
+      assert.match(appSource, /exercises: session\.exercises\.map\(\(exercise\) => \(\{/);
+
+      // One number, derived from the rows themselves rather than added back
+      // from a second field that could disagree with them.
+      assert.match(
+        homeScreenSource,
+        /const totalExerciseCount = nextPlanSession\?\.exercises\.length \?\? 0;/,
+      );
+      assert.doesNotMatch(homeScreenSource, /hiddenExerciseCount/);
+      assert.doesNotMatch(homeScreenSource, /home\.section\.more/);
+
+      // The fold: the meta line toggles, and it starts open because the lifts
+      // are what the screen is for.
+      assert.match(homeScreenSource, /const \[workoutListOpen, setWorkoutListOpen\] = useState\(true\)/);
+      assert.match(homeScreenSource, /onPress=\{\(\) => setWorkoutListOpen\(\(open\) => !open\)\}/);
+      assert.match(homeScreenSource, /\(workoutListOpen \? nextPlanSession\.exercises : \[\]\)\.map\(/);
+      // Same affordance as the warmup and cooldown rows around it.
+      assert.match(homeScreenSource, /accessibilityState=\{\{ expanded: workoutListOpen \}\}/);
+    },
+  },
 ];

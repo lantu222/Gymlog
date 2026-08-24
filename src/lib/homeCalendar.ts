@@ -119,7 +119,6 @@ export interface HomeDaySessionSummary {
     slotId?: string;
     substitutionGroup?: string;
   }>;
-  hiddenExerciseCount: number;
 }
 
 export interface HomeDayView {
