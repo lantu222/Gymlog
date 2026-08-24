@@ -1,4 +1,4 @@
-import { ExerciseLog, WorkoutSession } from '../types/models';
+import { ExerciseLog, SessionFeel, WorkoutSession } from '../types/models';
 import { getComparableLogSets } from './exerciseLog';
 import { getCompletedSetCount, getSessionTotalVolume } from './progression';
 
@@ -21,6 +21,13 @@ export interface HistorySessionViewModel {
   sessionInsertedExercises: number;
   partialExercises: number;
   legacyMismatchCount: number;
+  /**
+   * The reader's own one-word verdict, or null when they were never asked or
+   * skipped the question. Null stays null all the way to the row: an
+   * unanswered session gets no colour, because a neutral colour would read as
+   * "this one was fine".
+   */
+  feel: SessionFeel | null;
 }
 
 function normalizeText(value: string) {
@@ -90,6 +97,7 @@ export function buildHistorySessionViewModel(
     sessionInsertedExercises,
     partialExercises,
     legacyMismatchCount,
+    feel: session.feel ?? null,
   };
 }
 

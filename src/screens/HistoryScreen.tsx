@@ -21,6 +21,7 @@ import {
   filterHistorySessionViewModels,
   HistorySessionViewModel,
 } from '../lib/historyView';
+import { SessionFeelSummary, sessionFeelColor, summariseSessionFeel } from '../lib/sessionFeel';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { I18nKey, t } from '../lib/i18n';
 import { localizeSessionName } from '../lib/sessionNameLabel';
@@ -122,6 +123,72 @@ function EmptyState({ title, body }: { title: string; body: string }) {
   );
 }
 
+const FEEL_READ_LABEL_KEY = {
+  demanding: 'history.feel.demanding',
+  balanced: 'history.feel.balanced',
+  light: 'history.feel.light',
+} as const;
+
+/**
+ * How the recent training has felt, as one line above the list.
+ *
+ * Renders nothing at all when no session has been answered. A card saying
+ * "answer a few more" to somebody who has never seen the question is an empty
+ * box explaining an absence they did not notice; the prompt is only useful to
+ * a reader who has started answering and is nearly at a read.
+ */
+function FeelSummaryCard({
+  summary,
+  language,
+}: {
+  summary: SessionFeelSummary;
+  language: AppLanguage;
+}) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
+
+  if (summary.answered === 0) {
+    return null;
+  }
+
+  return (
+    <View style={styles.feelSummary}>
+      <Text style={styles.feelSummaryHeading}>{t(language, 'history.feel.heading')}</Text>
+      {summary.read ? (
+        <View style={styles.feelSummaryRow}>
+          <Text style={styles.feelSummaryRead}>
+            {t(language, FEEL_READ_LABEL_KEY[summary.read])}
+          </Text>
+          <Text style={styles.feelSummaryBasis}>
+            {t(language, 'history.feel.basis', {
+              answered: summary.answered,
+              considered: summary.considered,
+            })}
+          </Text>
+        </View>
+      ) : (
+        <Text style={styles.feelSummaryBasis}>{t(language, 'history.feel.tooFew')}</Text>
+      )}
+      {/* Counted separately because it does not average: two brutal sessions
+          among ten comfortable ones is worth seeing, and a mean files them
+          under "mixed" and hides them. */}
+      {summary.tooHardCount > 0 ? (
+        <View style={styles.feelSummaryRow}>
+          <View
+            style={[
+              styles.feelSummaryDot,
+              { backgroundColor: sessionFeelColor(theme, 'too_hard') },
+            ]}
+          />
+          <Text style={styles.feelSummaryBasis}>
+            {t(language, 'history.feel.tooHard', { count: summary.tooHardCount })}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 function SessionRow({
   session,
   unitPreference,
@@ -148,8 +215,15 @@ function SessionRow({
     .filter(Boolean)
     .join(' · ');
 
+  // Only an answered session is coloured. A default colour for the rest would
+  // turn "never asked" into a verdict, and most sessions predate the question.
+  const feelColor = session.feel ? sessionFeelColor(theme, session.feel) : null;
+
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.sessionCard, pressed && styles.pressed]}>
+      {feelColor ? (
+        <View style={[styles.sessionFeelStripe, { backgroundColor: feelColor }]} />
+      ) : null}
       <View style={styles.sessionCardTop}>
         <Text style={styles.sessionCardTitle} numberOfLines={1}>
           {sessionTitle(session.workoutName, language)}
@@ -218,6 +292,9 @@ export function HistoryScreen({
     [searchQuery, sessionViewModels],
   );
   const filtersActive = searchQuery.trim().length > 0;
+  // Deliberately off the unfiltered list: this describes the training, and a
+  // search for "penkki" must not change how demanding the last month was.
+  const feelSummary = useMemo(() => summariseSessionFeel(sessionViewModels), [sessionViewModels]);
 
   /* ── session detail ─────────────────────────────────────────────────── */
   if (selectedSession) {
@@ -419,6 +496,8 @@ export function HistoryScreen({
               </Text>
             </View>
 
+            <FeelSummaryCard summary={feelSummary} language={language} />
+
             {filteredSessions.length ? (
               <View style={styles.sessionList}>
                 {filteredSessions.map((session) => (
@@ -563,6 +642,56 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     ...CARD_SHADOW,
+  },
+  /**
+   * Inset rather than clipped to the card edge: `overflow: 'hidden'` on a
+   * shadowed card drops the shadow on Android, so the stripe carries its own
+   * radius and sits just inside the border instead.
+   */
+  sessionFeelStripe: {
+    position: 'absolute',
+    left: 5,
+    top: 12,
+    bottom: 12,
+    width: 4,
+    borderRadius: 2,
+  },
+  feelSummary: {
+    backgroundColor: theme.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    gap: 6,
+  },
+  feelSummaryHeading: {
+    fontSize: 11,
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+    color: theme.faint,
+    fontWeight: '700',
+  },
+  feelSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  feelSummaryRead: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: theme.ink,
+  },
+  feelSummaryBasis: {
+    fontSize: 13,
+    color: theme.muted,
+    flexShrink: 1,
+  },
+  feelSummaryDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   sessionDelete: {
     width: 30,

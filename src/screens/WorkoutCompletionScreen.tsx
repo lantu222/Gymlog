@@ -12,6 +12,7 @@ import { formatTime, removeTrailingZeros } from '../lib/format';
 import { bodyPartLabel, t } from '../lib/i18n';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { localizeSessionName } from '../lib/sessionNameLabel';
+import { SESSION_FEEL_LABEL_KEY, SESSION_FEEL_SCALE, sessionFeelColor } from '../lib/sessionFeel';
 import { MuscleFocusRow } from '../lib/workoutCompleteView';
 import { WorkoutCompletionExerciseCard, WorkoutCompletionPrCard } from '../lib/workoutCompletionSummary';
 import { ProMomentContent } from '../lib/proInsights';
@@ -699,32 +700,32 @@ export function WorkoutCompletionScreen({
           <Pressable style={StyleSheet.absoluteFill} onPress={() => onDone(null)} accessible={false} />
           <View style={[styles.feelSheet, { paddingBottom: insets.bottom + 14 }]}>
             <Text style={styles.feelTitle}>{t(language, 'complete.feel.title')}</Text>
-            {(
-              [
-                { feel: 'easy', color: theme.green, labelKey: 'complete.feel.easy' },
-                { feel: 'right', color: theme.purple, labelKey: 'complete.feel.right' },
-                { feel: 'hard', color: '#E0922F', labelKey: 'complete.feel.hard' },
-                { feel: 'too_hard', color: '#D64545', labelKey: 'complete.feel.tooHard' },
-              ] as const
-            ).map((option) => (
-              <Pressable
-                key={option.feel}
-                accessibilityRole="button"
-                accessibilityLabel={t(language, option.labelKey)}
-                onPress={() => {
-                  void haptics.select();
-                  onDone(option.feel);
-                }}
-                style={({ pressed }) => [
-                  styles.feelOption,
-                  { borderColor: option.color },
-                  pressed && styles.pressed,
-                ]}
-              >
-                <View style={[styles.feelDot, { backgroundColor: option.color }]} />
-                <Text style={styles.feelOptionText}>{t(language, option.labelKey)}</Text>
-              </Pressable>
-            ))}
+            {/* Built from the shared scale so the sheet that collects the
+                answer and the history that reads it back cannot drift — same
+                four steps, same order, same colours. */}
+            {SESSION_FEEL_SCALE.map((feel) => {
+              const color = sessionFeelColor(theme, feel);
+              const label = t(language, SESSION_FEEL_LABEL_KEY[feel]);
+              return (
+                <Pressable
+                  key={feel}
+                  accessibilityRole="button"
+                  accessibilityLabel={label}
+                  onPress={() => {
+                    void haptics.select();
+                    onDone(feel);
+                  }}
+                  style={({ pressed }) => [
+                    styles.feelOption,
+                    { borderColor: color },
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <View style={[styles.feelDot, { backgroundColor: color }]} />
+                  <Text style={styles.feelOptionText}>{label}</Text>
+                </Pressable>
+              );
+            })}
             <Pressable
               accessibilityRole="button"
               onPress={() => onDone(null)}
