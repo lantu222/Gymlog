@@ -327,4 +327,121 @@ module.exports = [
       );
     },
   },
+  {
+    name: 'release: the sign-in backup keeps the promises the privacy policy makes',
+    run() {
+      // The privacy policy spent a year saying "no backend, no sync". Cloud
+      // backup makes that conditional, and the policy has to say so in both
+      // languages BEFORE a build with sign-in reaches anyone — the app.json
+      // plugin is what makes such a build possible, so it is the trigger.
+      const plugins = JSON.stringify(readJson('app.json')?.expo?.plugins ?? []);
+      if (plugins.includes('@react-native-google-signin/google-signin')) {
+        const legal = read('src/lib/legalDocuments.ts');
+        assert.match(
+          legal,
+          /Cloud backup \(optional\)/,
+          'app.json ships Google sign-in but the English privacy policy does not describe the cloud backup',
+        );
+        assert.match(
+          legal,
+          /Pilvivarmuuskopio \(vapaaehtoinen\)/,
+          'app.json ships Google sign-in but the Finnish privacy policy does not describe the cloud backup',
+        );
+      }
+
+      // And the endpoint must never trust a token without checking WHOSE
+      // token it is: audience verification is what separates "a Google user"
+      // from "a Google user of this app".
+      const endpoint = read('api/backup.ts');
+      assert.match(endpoint, /tokeninfo/, 'api/backup.ts must verify tokens against Google tokeninfo');
+      assert.match(
+        endpoint,
+        /GOOGLE_WEB_CLIENT_ID/,
+        'api/backup.ts must compare the token audience to GOOGLE_WEB_CLIENT_ID',
+      );
+      assert.doesNotMatch(
+        endpoint,
+        /console\.log/,
+        'the backup endpoint must not log — payloads are training histories',
+      );
+    },
+  },
+  {
+    name: 'release: the development transcript log is off before Play',
+    run() {
+      // The policy says prompts are not logged. During development the
+      // endpoint may log them behind src/lib/aiCoachDebug.ts so the real
+      // conversations can be reviewed — and this is what stops that switch
+      // from shipping by being forgotten.
+      const fs = require('node:fs');
+      const debugPath = path.join(root, 'src', 'lib', 'aiCoachDebug.ts');
+      if (!fs.existsSync(debugPath)) {
+        return; // deleted — the cleanest way to turn it off
+      }
+      const debug = read('src/lib/aiCoachDebug.ts');
+      const match = debug.match(/export const AI_COACH_DEBUG_TRANSCRIPTS = (true|false);/);
+      assert.ok(match, 'aiCoachDebug.ts must declare AI_COACH_DEBUG_TRANSCRIPTS as a literal boolean');
+      // Same permission slip as the paywall guards: fine while the build
+      // declares itself a demo, a lie the moment that flag is cleared to ship.
+      if (readJson('app.json')?.expo?.extra?.demoBuild === true) {
+        return;
+      }
+      assert.equal(
+        match[1],
+        'false',
+        'AI_COACH_DEBUG_TRANSCRIPTS is still true: the coach endpoint logs conversations. '
+          + 'Flip it to false (or delete src/lib/aiCoachDebug.ts), unset AI_COACH_DEBUG_TRANSCRIPTS and TRANSCRIPT_READ_SECRET in Vercel, '
+          + 'delete api/transcripts.ts and scripts/coach-transcripts.cjs, and empty transcripts/ in the Blob store before release.',
+      );
+    },
+  },
+  {
+    name: 'release: live AI cannot ship before the spend cap is confirmed',
+    run() {
+      // The endpoint's request bounds and per-instance budget are brakes; the
+      // only real ceiling on the bill is the usage limit set by hand in the
+      // Anthropic Console. No test can see the Console, so the repo carries a
+      // signature instead: AI_LIVE_SPEND_CAP_CONFIRMED in aiCoachLiveGate.ts.
+      // While it is false, a release build ignores the live URL entirely —
+      // which is only true as long as the client stays routed through the gate.
+      const gate = read('src/lib/aiCoachLiveGate.ts');
+      const flagMatch = gate.match(/export const AI_LIVE_SPEND_CAP_CONFIRMED = (true|false);/);
+      assert.ok(
+        flagMatch,
+        'aiCoachLiveGate.ts must declare AI_LIVE_SPEND_CAP_CONFIRMED as a literal boolean — '
+          + 'the constant is a human signature, not a computed value',
+      );
+
+      const client = read('src/lib/aiCoachClient.ts');
+      assert.match(
+        client,
+        /resolveLiveAiCoachUrl\(\s*process\.env\.EXPO_PUBLIC_AI_COACH_API_URL/,
+        'aiCoachClient must resolve its URL through resolveLiveAiCoachUrl; reading the env '
+          + 'variable directly would let a misconfigured release build open the tap',
+      );
+      assert.equal(
+        (client.match(/EXPO_PUBLIC_AI_COACH_API_URL/g) ?? []).length,
+        1,
+        'the env variable must be read exactly once, through the gate',
+      );
+
+      // A live URL committed to build config while the cap is unconfirmed is
+      // the exact accident the gate exists for — name it here rather than let
+      // the gate silently strip it in production.
+      if (flagMatch[1] === 'false') {
+        for (const candidate of ['.env', '.env.production', 'eas.json', 'app.json']) {
+          const filePath = path.join(root, candidate);
+          if (!fs.existsSync(filePath)) {
+            continue;
+          }
+          assert.ok(
+            !/EXPO_PUBLIC_AI_COACH_API_URL\s*[=:]\s*['"]?https?:\/\//.test(read(candidate)),
+            `${candidate} points releases at a live coach URL, but AI_LIVE_SPEND_CAP_CONFIRMED `
+              + 'is still false. Set the usage limit in the Anthropic Console first, then flip '
+              + 'the constant (docs/ai-coach-backend.md, runbook step 1).',
+          );
+        }
+      }
+    },
+  },
 ];

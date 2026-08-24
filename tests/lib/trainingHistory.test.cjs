@@ -286,4 +286,42 @@ module.exports = [
       assert.equal(history.weeks[0].sessions, 1, 'one of three planned sessions happened');
     },
   },
+  {
+    // Transcript 2026-08-23: the coach told a 2-on-1-off reader "your
+    // schedule is mon-wed-thu" and put the next session on Wednesday. The
+    // history read availability; now it reads the plan's real rhythm, and
+    // says when the next training day actually is.
+    name: 'a cycle schedule reaches the coach as a rhythm and a next training day, not weekdays',
+    run() {
+      const { cycleSchedule } = require('../../.test-dist/lib/trainingSchedule.js');
+      const { buildAiCoachSystemContext } = require('../../.test-dist/lib/aiCoachSystemContext.js');
+      const now = new Date(2026, 7, 23, 12).getTime(); // Sunday 23.8.2026
+      // Anchored on Monday 24.8.: Mon+Tue on, Wed off, Thu+Fri on, ...
+      const anchor = new Date(2026, 7, 24).getTime();
+      const schedule = cycleSchedule([true, true, false], anchor);
+      const history = buildTrainingHistory({
+        sessions: [{ id: 's1', workoutTemplateId: 'x', workoutNameSnapshot: 'Upper', performedAt: new Date(2026, 7, 21, 17).toISOString(), totalVolumeKg: 1000 }],
+        logs: [],
+        trainingDays: ['mon', 'wed', 'thu'],
+        schedule,
+        now,
+      });
+      assert.ok(history.adherence);
+      assert.deepEqual(history.adherence.cycle, { onDays: 2, offDays: 1, length: 3 });
+      assert.deepEqual(history.adherence.trainingDays, []);
+      assert.equal(history.adherence.nextTrainingDate, '2026-08-24');
+      assert.equal(history.adherence.plannedPerWeek, 4.7);
+
+      const text = buildAiCoachSystemContext({
+        unitPreference: 'kg', activeSession: null, recentCompletedSessions: [], trackedLifts: [], latestTopSets: [],
+        sessionsThisWeek: 0, sessionsLast30Days: 1, rhythm: [], readyProgramCount: 0, recommendedProgramId: null,
+        recommendedProgramTitle: null, customProgramTitle: null, plateaus: [],
+        fatigue: { acwr: 0, recoveryScore: 0, signal: 'optimal', sessionCount7d: 0, confident: false },
+        history: { windowDays: 56, sessionCount: 1, totalVolumeKg: 1000, sessions: [], lifts: [], weeks: history.weeks, schedule: history.adherence, truncated: false },
+      });
+      assert.match(text, /2 days on, 1 off, repeating every 3 days/);
+      assert.match(text, /Next training day: 2026-08-24/);
+      assert.doesNotMatch(text, /on mon, wed, thu/);
+    },
+  },
 ];

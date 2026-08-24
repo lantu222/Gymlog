@@ -5,6 +5,8 @@ const {
   buildCoachContextReadout,
   buildCoachOpeningLine,
   buildCoachNoticed,
+  buildCoachOpeningRows,
+  buildCoachOpeningOffer,
 } = require('../../.test-dist/lib/coachChat.js');
 
 function row(overrides) {
@@ -142,6 +144,75 @@ module.exports = [
       assert.doesNotMatch(last.value, /Deadlift/);
       // English stays English.
       assert.match(buildCoachContextReadout(context, 'en')[0].value, /Day 2: Deadlift & Press/);
+    },
+  },
+  {
+    // Three stacked surfaces became one stage (2026-08-23): today's line
+    // leads, noticed items keep the tap that used to live on their card, and
+    // the readout follows. Order is what the reader sees in the first seconds.
+    name: 'the opening ticker folds today, the noticed items and the readout into one ordered sequence',
+    run() {
+      const rows = buildCoachOpeningRows({
+        openingLine: 'Lower Pump is on the plan today.',
+        noticed: [{ key: 'bench', tone: 'warn', title: 'Bench · stalled', body: '3 weeks flat', question: 'What about my bench?' }],
+        readout: [{ key: 'rhythm', label: 'Rhythm', value: '3 this week' }],
+        language: 'en',
+      });
+      assert.deepEqual(rows.map((r) => r.key), ['today', 'noticed-bench', 'rhythm']);
+      assert.equal(rows[0].label, 'Today');
+      assert.equal(rows[0].question, undefined);
+      assert.equal(rows[1].question, 'What about my bench?');
+      assert.match(rows[1].value, /Bench · stalled — 3 weeks flat/);
+      assert.equal(rows[2].question, undefined);
+      // An empty opening line adds no slide.
+      assert.deepEqual(
+        buildCoachOpeningRows({ openingLine: '  ', noticed: [], readout: [], language: 'fi' }),
+        [],
+      );
+    },
+  },
+  {
+    // "Want me to walk through it?" shipped with no way to say yes. Every
+    // opening line that ends in an offer now carries its one-tap answer.
+    name: 'an opening line that makes an offer carries a one-tap answer',
+    run() {
+      const plan = { todaySessionTitle: 'Lower Pump', sessionsThisWeek: 2, weeklyRead: [] };
+      const offer = buildCoachOpeningOffer(plan, 'fi');
+      assert.ok(offer);
+      assert.match(offer.question, /Lower Pump/);
+      assert.equal(offer.askLabel, 'Käy läpi →');
+      assert.match(buildCoachOpeningLine(plan, 'fi'), /Käydäänkö se läpi\?/);
+
+      const stalled = {
+        todaySessionTitle: null,
+        sessionsThisWeek: 2,
+        weeklyRead: [row({ key: 'bench', tone: 'amber', name: 'Bench' })],
+      };
+      assert.match(buildCoachOpeningOffer(stalled, 'en').question, /bench/);
+
+      // "Ask me anything" is answered by the input box, not a button.
+      assert.equal(buildCoachOpeningOffer({ todaySessionTitle: null, sessionsThisWeek: 0, weeklyRead: [] }, 'en'), null);
+
+      // And the row builder puts the offer on the today slide.
+      const rows = buildCoachOpeningRows({ openingLine: 'x', offer, noticed: [], readout: [], language: 'fi' });
+      assert.equal(rows[0].question, offer.question);
+      assert.equal(rows[0].askLabel, 'Käy läpi →');
+    },
+  },
+  {
+    // #bugs 2026-08-23: a rest day opened with "Upper is on the plan today".
+    // The next session in the rotation is "next", and only the schedule can
+    // make it "today".
+    name: 'a rest day says rest and names the next session, instead of calling it today',
+    run() {
+      const rest = { todaySessionTitle: null, nextSessionTitle: 'Upper Ma', sessionsThisWeek: 2, weeklyRead: [] };
+      assert.equal(buildCoachOpeningLine(rest, 'fi'), 'Tänään on lepopäivä. Seuraavaksi: Upper Ma. Käydäänkö se läpi?');
+      const offer = buildCoachOpeningOffer(rest, 'fi');
+      assert.ok(offer);
+      assert.equal(offer.question, 'Käy seuraava treenini Upper Ma läpi.');
+      // A training day still says today.
+      const today = { todaySessionTitle: 'Upper Ma', nextSessionTitle: 'Upper Ma', sessionsThisWeek: 2, weeklyRead: [] };
+      assert.match(buildCoachOpeningLine(today, 'fi'), /on tänään ohjelmassa/);
     },
   },
 ];

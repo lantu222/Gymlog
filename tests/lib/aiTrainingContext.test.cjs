@@ -173,4 +173,27 @@ module.exports = [
       assert.ok(history.weeks.length >= 4);
     },
   },
+  {
+    // The deployed endpoint crashed on `context: {}` (FUNCTION_INVOCATION_FAILED,
+    // formatLiftLine reading trackedLifts[0]) — the smoke test found it before
+    // a user did. A context with fields missing is repaired, not thrown on.
+    name: 'a context with fields missing is normalized so the preview can answer it',
+    run() {
+      const { normalizeAiCoachTrainingContext } = require('../../.test-dist/lib/aiTrainingContext.js');
+      const { buildAiCoachPreviewAnswer } = require('../../.test-dist/lib/aiCoachPreview.js');
+      for (const raw of [{}, null, undefined, { trackedLifts: 'nonsense' }, { unitPreference: 'stone' }]) {
+        const context = normalizeAiCoachTrainingContext(raw);
+        assert.deepEqual(context.trackedLifts, []);
+        assert.equal(context.unitPreference, 'kg');
+        assert.equal(context.fatigue.confident, false);
+        assert.equal(typeof context.history.windowDays, 'number');
+        const answer = buildAiCoachPreviewAnswer('hei', context, 'fi');
+        assert.ok(answer && typeof answer.takeaway === 'string');
+      }
+      // A present field is trusted as sent.
+      const kept = normalizeAiCoachTrainingContext({ unitPreference: 'lb', sessionsThisWeek: 3 });
+      assert.equal(kept.unitPreference, 'lb');
+      assert.equal(kept.sessionsThisWeek, 3);
+    },
+  },
 ];

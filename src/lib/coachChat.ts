@@ -39,6 +39,8 @@ export interface CoachNoticedItem {
 export interface CoachChatIntroInput {
   /** Today's planned session title, already localized. Null on a rest day. */
   todaySessionTitle: string | null;
+  /** The next session in the rotation, whatever day it lands on. */
+  nextSessionTitle?: string | null;
   sessionsThisWeek: number;
   weeklyRead: WeeklyReadRow[];
   fatigue: FatigueResult | null;
@@ -48,6 +50,21 @@ export interface CoachContextRow {
   key: 'lastSession' | 'lift' | 'rhythm';
   label: string;
   value: string;
+}
+
+/**
+ * One slide of the opening ticker. A slide with a `question` is an offer —
+ * tapping it asks the coach on the reader's behalf; a slide without one is
+ * a fact from the log, read out and left alone.
+ */
+export interface CoachTickerRow {
+  key: string;
+  label: string;
+  value: string;
+  question?: string;
+  /** The button text for this slide's question; the ticker's default otherwise. */
+  askLabel?: string;
+  tone?: ChipTone;
 }
 
 /**
@@ -175,6 +192,11 @@ export function buildCoachOpeningLine(input: CoachChatIntroInput, language: AppL
   if (input.todaySessionTitle) {
     return t(language, 'coachChat.open.plan', { session: input.todaySessionTitle });
   }
+  if (input.nextSessionTitle) {
+    // A rest day with a programme running: say so, and name what is next
+    // rather than pretending the next session is today's.
+    return t(language, 'coachChat.open.rest', { session: input.nextSessionTitle });
+  }
   if (input.sessionsThisWeek > 0) {
     return t(language, 'coachChat.open.logged', { count: input.sessionsThisWeek });
   }
@@ -232,4 +254,83 @@ export function buildCoachNoticed(
   }
 
   return items;
+}
+
+/**
+ * Everything the coach has to say before the first question, as one rotating
+ * sequence — today's line first, then what it noticed, then the readout.
+ *
+ * These were three stacked surfaces (ticker, "things I noticed" card, opening
+ * bubble) and together they pushed the conversation off the screen (user,
+ * 2026-08-23). Folded into one stage: the noticed items keep their question,
+ * so the tap that used to live on the card lives on the slide.
+ */
+export function buildCoachOpeningRows(input: {
+  openingLine: string;
+  /** The one-tap answer to the opening line's offer, when it makes one. */
+  offer?: { question: string; askLabel: string } | null;
+  noticed: CoachNoticedItem[];
+  readout: CoachContextRow[];
+  language: AppLanguage;
+}): CoachTickerRow[] {
+  const rows: CoachTickerRow[] = [];
+  if (input.openingLine.trim()) {
+    rows.push({
+      key: 'today',
+      label: t(input.language, 'coachChat.readout.today'),
+      value: input.openingLine,
+      question: input.offer?.question,
+      askLabel: input.offer?.askLabel,
+    });
+  }
+  for (const item of input.noticed) {
+    rows.push({
+      key: `noticed-${item.key}`,
+      label: t(input.language, 'coachChat.readout.noticed'),
+      value: `${item.title} — ${item.body}`,
+      question: item.question,
+      tone: item.tone,
+    });
+  }
+  for (const row of input.readout) {
+    rows.push({ key: row.key, label: row.label, value: row.value });
+  }
+  return rows;
+}
+
+/**
+ * The action behind the opening line. Every variant that ends in an offer
+ * ("want me to walk through it?") has to be answerable in one tap, or the
+ * slide is a promise with no button — which is exactly what shipped first
+ * (user, 2026-08-23: "there is no option to walk through it"). The variants
+ * that say "ask me anything" have the input box as their answer.
+ */
+export function buildCoachOpeningOffer(
+  input: CoachChatIntroInput,
+  language: AppLanguage,
+): { question: string; askLabel: string } | null {
+  const stalled = input.weeklyRead.find((row) => row.tone === 'amber' && row.key !== 'recovery');
+  if (input.todaySessionTitle) {
+    // Plan today wins even beside a stalled lift: the line names both, and
+    // the one tap that does something today is the session.
+    return {
+      question: t(language, 'coachChat.ask.walkThrough', { session: input.todaySessionTitle }),
+      askLabel: t(language, 'coachChat.offer.walkThrough'),
+    };
+  }
+  if (input.nextSessionTitle && !stalled) {
+    // Rest day: the offer is the NEXT session, and the question says so
+    // instead of calling it today's.
+    return {
+      question: t(language, 'coachChat.ask.walkThroughNext', { session: input.nextSessionTitle }),
+      askLabel: t(language, 'coachChat.offer.walkThrough'),
+    };
+  }
+  if (stalled) {
+    return {
+      question: t(language, 'coachChat.ask.about', { subject: stalled.name.toLowerCase() }),
+      askLabel: t(language, 'coachChat.offer.lookAtIt'),
+    };
+  }
+  return null;
 }

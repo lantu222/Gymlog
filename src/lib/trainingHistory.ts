@@ -1,5 +1,6 @@
 import { getTotalVolume } from './progression';
 import { ExerciseLog, SetupWeekday, WorkoutSession } from '../types/models';
+import { TrainingSchedule, trainsOn } from './trainingSchedule';
 
 /**
  * The numeric layer under everything the coach says.
@@ -77,6 +78,10 @@ export interface WeekSummary {
 
 export interface ScheduleAdherence {
   trainingDays: SetupWeekday[];
+  /** A rolling rhythm the weekday list cannot express; null for weekday plans. */
+  cycle?: { onDays: number; offDays: number; length: number } | null;
+  /** ISO date of the next training day on or after today. */
+  nextTrainingDate?: string | null;
   plannedPerWeek: number;
   plannedSessions: number;
   completedSessions: number;
@@ -101,6 +106,11 @@ export interface TrainingHistoryInput {
   logs: ExerciseLog[];
   /** Weekdays the plan schedules; empty means the plan has no fixed days. */
   trainingDays?: SetupWeekday[];
+  /**
+   * The plan's real rhythm when known. Wins over `trainingDays`: a cycle
+   * cannot be written as weekdays, and availability is not a plan.
+   */
+  schedule?: TrainingSchedule | null;
   windowDays?: number;
   now?: number;
 }
@@ -281,7 +291,11 @@ function buildWeeks(
   sessions: SessionSummary[],
   trainingDays: SetupWeekday[],
   now: number,
+  schedule: TrainingSchedule | null = null,
 ): WeekSummary[] {
+  const isTrainingDay = (date: Date) =>
+    schedule ? trainsOn(schedule, date) : trainingDays.includes(WEEKDAY_BY_INDEX[date.getDay()]);
+  const hasPlan = schedule ? true : trainingDays.length > 0;
   if (sessions.length === 0) {
     return [];
   }
@@ -296,24 +310,22 @@ function buildWeeks(
     const inWeek = sessions.filter((entry) => entry.time >= weekStart && entry.time < weekEnd);
 
     let plannedSessions: number | null = null;
-    if (trainingDays.length > 0) {
-      if (weekStart < currentWeek) {
-        plannedSessions = trainingDays.length;
-      } else {
-        // The running week has not finished promising anything yet.
-        let planned = 0;
-        for (let offset = 0; offset < 7; offset += 1) {
-          const dayStart = new Date(weekStart);
-          dayStart.setDate(dayStart.getDate() + offset);
-          if (dayStart.getTime() > todayStart) {
-            break;
-          }
-          if (trainingDays.includes(WEEKDAY_BY_INDEX[dayStart.getDay()])) {
-            planned += 1;
-          }
+    if (hasPlan) {
+      // Count the week's days through the schedule, so a cycle's planned
+      // count is the days it actually lands on, not a weekday tally. The
+      // running week only promises up to today.
+      let planned = 0;
+      for (let offset = 0; offset < 7; offset += 1) {
+        const dayStart = new Date(weekStart);
+        dayStart.setDate(dayStart.getDate() + offset);
+        if (weekStart >= currentWeek && dayStart.getTime() > todayStart) {
+          break;
         }
-        plannedSessions = planned;
+        if (isTrainingDay(dayStart)) {
+          planned += 1;
+        }
       }
+      plannedSessions = planned;
     }
 
     weeks.push({
@@ -331,6 +343,7 @@ export function buildTrainingHistory({
   sessions,
   logs,
   trainingDays = [],
+  schedule = null,
   windowDays = DEFAULT_HISTORY_WINDOW_DAYS,
   now = Date.now(),
 }: TrainingHistoryInput): TrainingHistory {
@@ -349,17 +362,9 @@ export function buildTrainingHistory({
   const summaries = inWindow.map((session) => summarizeSession(session, logsBySession, logs));
   const windowIds = new Set(inWindow.map((session) => session.id));
   const windowLogs = logs.filter((log) => windowIds.has(log.sessionId) && !log.skipped);
-  const weeks = buildWeeks(summaries, trainingDays, now);
+  const weeks = buildWeeks(summaries, trainingDays, now, schedule);
 
-  const adherence: ScheduleAdherence | null =
-    trainingDays.length > 0
-      ? {
-          trainingDays,
-          plannedPerWeek: trainingDays.length,
-          plannedSessions: weeks.reduce((sum, week) => sum + (week.plannedSessions ?? 0), 0),
-          completedSessions: summaries.length,
-        }
-      : null;
+  const adherence: ScheduleAdherence | null = describeSchedule(schedule, trainingDays, weeks, summaries.length, now);
 
   return {
     windowDays,
@@ -370,4 +375,57 @@ export function buildTrainingHistory({
     totalVolumeKg: Math.round(summaries.reduce((sum, entry) => sum + (entry.volumeKg ?? 0), 0)),
     sessionCount: summaries.length,
   };
+}
+
+/** The next day on or after today the schedule trains on, as an ISO date. */
+function nextTrainingDate(schedule: TrainingSchedule, now: number): string | null {
+  for (let offset = 0; offset < 14; offset += 1) {
+    const day = new Date(now);
+    day.setHours(0, 0, 0, 0);
+    day.setDate(day.getDate() + offset);
+    if (trainsOn(schedule, day)) {
+      return isoDate(day.getTime());
+    }
+  }
+  return null;
+}
+
+function describeSchedule(
+  schedule: TrainingSchedule | null,
+  trainingDays: SetupWeekday[],
+  weeks: WeekSummary[],
+  completedSessions: number,
+  now: number,
+): ScheduleAdherence | null {
+  const plannedSessions = weeks.reduce((sum, week) => sum + (week.plannedSessions ?? 0), 0);
+  if (schedule?.kind === 'cycle') {
+    const onDays = schedule.pattern.filter(Boolean).length;
+    const length = schedule.pattern.length;
+    return {
+      trainingDays: [],
+      cycle: { onDays, offDays: length - onDays, length },
+      nextTrainingDate: nextTrainingDate(schedule, now),
+      plannedPerWeek: Math.round((7 * onDays) / length * 10) / 10,
+      plannedSessions,
+      completedSessions,
+    };
+  }
+  if (schedule?.kind === 'weekdays') {
+    const days = schedule.weekdayIndexes.map((index) => WEEKDAY_BY_INDEX[(index + 1) % 7]);
+    if (days.length === 0) {
+      return null;
+    }
+    return {
+      trainingDays: days,
+      cycle: null,
+      nextTrainingDate: nextTrainingDate(schedule, now),
+      plannedPerWeek: days.length,
+      plannedSessions,
+      completedSessions,
+    };
+  }
+  if (trainingDays.length > 0) {
+    return { trainingDays, plannedPerWeek: trainingDays.length, plannedSessions, completedSessions };
+  }
+  return null;
 }

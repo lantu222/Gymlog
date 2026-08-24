@@ -58,6 +58,8 @@ import { buildHomeWidgetPayload, findHomeWidgetNextSession, HomeWidgetTarget } f
 import { parseWidgetDeepLink } from './src/lib/widgetDeepLink';
 import { planSetupHandoff } from './src/lib/setupHandoff';
 import { SetupHandoffChoices, SetupHandoffScreen } from './src/screens/SetupHandoffScreen';
+import { useAccountBackup } from './src/features/account/useAccountBackup';
+import { hasLocalDataWorthKeeping } from './src/lib/accountBackup';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { selectHomePrimaryAction } from './src/lib/homePrimaryAction';
 import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
@@ -164,7 +166,7 @@ import { AFFINITY_REASON_KEYS, resolveProgramAffinity } from './src/lib/programA
 import { suggestHomeStatCardKeys } from './src/lib/homeCardSuggestions';
 import { isMeasurementCardKey } from './src/lib/homeStatCards';
 import { resolveNextPlanEntryIndex } from './src/lib/planRotation';
-import { cycleSchedule, weekdaySchedule } from './src/lib/trainingSchedule';
+import { cycleSchedule, trainsOn, weekdaySchedule } from './src/lib/trainingSchedule';
 import {
   planWeekdayIndexes,
   resolveProgramTrainingDays,
@@ -249,10 +251,6 @@ import { TrainingBreakScreen } from './src/screens/TrainingBreakScreen';
 import { PromoCodeScreen } from './src/screens/PromoCodeScreen';
 import { SubscriptionScreen } from './src/screens/SubscriptionScreen';
 import { MembershipEndScreen } from './src/screens/MembershipEndScreen';
-import { SupportScreen } from './src/screens/SupportScreen';
-import { DesignDemoScreen } from './src/screens/DesignDemoScreen';
-import { FeatureRequestsScreen } from './src/screens/FeatureRequestsScreen';
-import { AiTransparencyScreen } from './src/screens/AiTransparencyScreen';
 import { LegalDocumentScreen } from './src/screens/LegalDocumentScreen';
 import { ProOfferScreen } from './src/screens/ProOfferScreen';
 import { AICoachChatScreen } from './src/screens/AICoachChatScreen';
@@ -892,8 +890,21 @@ function VinhaApp() {
     updateCompletedWorkoutSession,
     deleteCompletedWorkoutSession,
     saveCardioSession,
+    restoreDatabaseFromBackup,
+    importWorkoutHistory,
   } = useAppContext();
   const workout = useWorkoutContext();
+
+  // Account & cloud backup: sign in with Google on the hand-off card or in
+  // Settings, and the data survives a new phone. Free and Pro alike (decision
+  // 2026-08-22). Absent entirely in builds without the OAuth client id.
+  const accountBackup = useAccountBackup({
+    hydrated,
+    database,
+    workoutHistory: workout.history,
+    restoreDatabase: restoreDatabaseFromBackup,
+    restoreWorkoutHistory: workout.restoreHistoryFromBackup,
+  });
 
   /**
    * Where "back to the programmes" lands.
@@ -941,6 +952,9 @@ function VinhaApp() {
     history: [],
   });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  // Where Settings was scrolled when a sub-screen opened; the screen
+  // unmounts on navigation, so the position survives here.
+  const settingsScrollOffsetRef = useRef(0);
   const [completionSummary, setCompletionSummary] = useState<CompletionSummaryState | null>(null);
   const [workoutCelebration, setWorkoutCelebration] = useState<WorkoutCelebrationState | null>(null);
   const [finishSaveState, setFinishSaveState] = useState<FinishSaveState>({
@@ -2040,98 +2054,6 @@ function VinhaApp() {
     await handleAdoptReadyProgram(nextTemplateId, { lead: true });
   }
 
-  /**
-   * Demo build only (the Settings row that calls this is behind isDemoBuild).
-   *
-   * One real session in a one-week block: logging it once genuinely reaches
-   * 1/1, so the completion card can be walked on a device without faking a
-   * single number. The plan id prefix is what makes the block one week —
-   * see the demo_plan_ branch where Home counts the plan's weeks.
-   */
-  const DEMO_PROGRAM_NAME = 'Demo: yksi treeni';
-
-  async function handleCreateDemoCompletionProgram() {
-    const now = new Date().toISOString();
-    // Idempotent on purpose. Pressing this twice used to author a second
-    // template and then, at the free cap, `upsertWorkoutTemplate` threw
-    // ProgramLimitReachedError — which nothing caught, so the row did nothing
-    // and said nothing. A demo tool must be repeatable: an existing demo
-    // programme is reused and its plan rebuilt, which also repairs the
-    // entry-less plans the earlier build wrote.
-    const existing = workoutTemplates.find((item) => item.name === DEMO_PROGRAM_NAME) ?? null;
-    if (existing) {
-      const sessions = getWorkoutTemplateSessions(existing.id);
-      const planId = `demo_plan_${existing.id}`;
-      await upsertWorkoutPlan({
-        id: planId,
-        name: DEMO_PROGRAM_NAME,
-        mode: 'rotation',
-        entries: sessions.map((session, index) => ({
-          id: `${planId}_entry_${index + 1}`,
-          workoutTemplateId: existing.id,
-          workoutTemplateSessionId: session.id,
-          label: `Day ${index + 1}`,
-          orderIndex: index,
-        })),
-        isActive: true,
-        createdAt: now,
-        updatedAt: now,
-      });
-      await updatePreferences({
-        activePlanIds: addActiveProgram(preferences.activePlanIds, planId),
-        activePlanId: planId,
-        // A rebuilt round is a new block, so an answered completion card for
-        // this plan must not keep the new one hidden.
-        dismissedCompletionPlanIds: preferences.dismissedCompletionPlanIds.filter((id) => id !== planId),
-      });
-      resetToRoute(ROOT_ROUTES.home);
-      return;
-    }
-
-    // The session id is minted here rather than read back after the write:
-    // getWorkoutTemplateSessions reads the React `database` state, which is
-    // still the pre-write copy inside this handler, so the read returned []
-    // and the plan was created with no entries at all. Home skips an
-    // entry-less plan, which is why pressing this button appeared to do
-    // nothing.
-    const demoSessionId = createId('template_session');
-    const templateId = await upsertWorkoutTemplate({
-      name: DEMO_PROGRAM_NAME,
-      sessions: [
-        {
-          id: demoSessionId,
-          name: 'Day 1: Full Body',
-          exercises: [
-            { name: 'Goblet Squat', targetSets: 2, repMin: 8, repMax: 10, restSeconds: 60, trackedDefault: true, libraryItemId: null },
-            { name: 'Push-Up', targetSets: 2, repMin: 8, repMax: 12, restSeconds: 60, trackedDefault: true, libraryItemId: null },
-          ],
-        },
-      ],
-    });
-    const planId = `demo_plan_${templateId}`;
-    await upsertWorkoutPlan({
-      id: planId,
-      name: DEMO_PROGRAM_NAME,
-      mode: 'rotation',
-      entries: [
-        {
-          id: `${planId}_entry_1`,
-          workoutTemplateId: templateId,
-          workoutTemplateSessionId: demoSessionId,
-          label: 'Day 1',
-          orderIndex: 0,
-        },
-      ],
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
-    });
-    await updatePreferences({
-      activePlanIds: addActiveProgram(preferences.activePlanIds, planId),
-      activePlanId: planId,
-    });
-    resetToRoute(ROOT_ROUTES.home);
-  }
 
   /**
    * Emphasis save (design screen 3): new set counts, written to the reader's
@@ -3155,73 +3077,6 @@ function VinhaApp() {
       ? { id: modules.analysis.sessionId, name: modules.analysis.caption }
       : null;
   }, [database.exerciseLogs, preferences.appLanguage, route, workoutSessions]);
-  const aiCoachTrainingContext = useMemo(
-    () =>
-      buildAiTrainingContext({
-        unitPreference,
-        activeWorkoutSummary: homeActiveWorkoutSummary,
-        homeSummary,
-        workoutSessions,
-        exerciseLogs: database.exerciseLogs,
-        trackedProgress,
-        readyProgramCount: workout.templates.length,
-        recommendedProgramId: preferences.recommendedProgramId,
-        recommendedProgramTitle: preferences.recommendedProgramId
-          ? formatWorkoutDisplayLabel(getWorkoutTemplateById(preferences.recommendedProgramId)?.name)
-          : null,
-        customProgramTitle: selectedCustomProgram.workoutId
-          ? formatWorkoutDisplayLabel(selectedCustomProgram.title)
-          : null,
-        // Same source the Training plan screen edits, so planned-versus-actual
-        // in the context cannot disagree with the schedule the user set.
-        trainingDays: preferences.setupAvailableDays,
-        plannerSetup: preferences.aiSetupCompleted
-          ? {
-              goal: preferences.aiPlannerGoal,
-              daysPerWeek: preferences.aiPlannerDaysPerWeek,
-              experience: preferences.aiPlannerExperience,
-              sessionMinutes: preferences.aiPlannerSessionMinutes,
-              equipment: preferences.aiPlannerEquipment,
-              recovery: preferences.aiPlannerRecovery,
-              mustInclude: preferences.aiPlannerMustInclude
-                .split(',')
-                .map((item) => item.trim())
-                .filter(Boolean),
-              avoid: preferences.aiPlannerAvoid
-                .split(',')
-                .map((item) => item.trim())
-                .filter(Boolean),
-              limitations: preferences.aiPlannerLimitations
-                .split(',')
-                .map((item) => item.trim())
-                .filter(Boolean),
-            }
-          : null,
-      }),
-    [
-      homeActiveWorkoutSummary,
-      homeSummary,
-      selectedCustomProgram.title,
-      selectedCustomProgram.workoutId,
-      trackedProgress,
-      unitPreference,
-      preferences.aiSetupCompleted,
-      preferences.aiPlannerGoal,
-      preferences.aiPlannerDaysPerWeek,
-      preferences.aiPlannerExperience,
-      preferences.aiPlannerSessionMinutes,
-      preferences.aiPlannerEquipment,
-      preferences.aiPlannerRecovery,
-      preferences.aiPlannerMustInclude,
-      preferences.aiPlannerAvoid,
-      preferences.aiPlannerLimitations,
-      preferences.recommendedProgramId,
-      preferences.setupAvailableDays,
-      workout.templates.length,
-      workoutSessions,
-      database.exerciseLogs,
-    ],
-  );
   const availableEquipmentForDrills = useMemo(
     () =>
       resolveAvailableEquipment({
@@ -3543,20 +3398,6 @@ function VinhaApp() {
   }, [database.workoutPlans, database.workoutSessions, database.exerciseLogs, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.dismissedCompletionPlanIds, preferences.recommendedProgramId, preferences.setupGoal, preferences.todaySession, recommendedReadyContent, recommendedReadyTemplate, setupSelection, workoutTemplates]);
   // The AI tab's opening state. Deterministic, so the most valuable-looking
   // part of the coach costs nothing to render and works offline.
-  const coachChatIntro = useMemo(
-    () => ({
-      todaySessionTitle: homeActivePlanCard?.nextSession
-        ? localizeSessionName(
-            formatWorkoutDisplayLabel(homeActivePlanCard.nextSession.title),
-            preferences.appLanguage,
-          )
-        : null,
-      sessionsThisWeek: homeSummary.streak.sessionsThisWeek,
-      weeklyRead: proWeeklyRead,
-      fatigue: proFatigue,
-    }),
-    [homeActivePlanCard, homeSummary.streak.sessionsThisWeek, preferences.appLanguage, proFatigue, proWeeklyRead],
-  );
   const progressWeeklyTarget = Number.parseInt(homeActivePlanCard?.sessionsPerWeek ?? '', 10) || null;
   // "Your cards" on Home: full catalog computed once, pins resolved from prefs.
   const homeStatCardSources = useMemo(
@@ -3656,6 +3497,102 @@ function VinhaApp() {
     const cycle = preferences.trainingCycle;
     return cycle ? cycleSchedule(cycle.pattern, cycle.anchorDayStart) : weekdaySchedule(homeTrainingDayIndexes);
   }, [homeTrainingDayIndexes, preferences.trainingCycle]);
+  const aiCoachTrainingContext = useMemo(
+    () =>
+      buildAiTrainingContext({
+        unitPreference,
+        activeWorkoutSummary: homeActiveWorkoutSummary,
+        homeSummary,
+        workoutSessions,
+        exerciseLogs: database.exerciseLogs,
+        trackedProgress,
+        readyProgramCount: workout.templates.length,
+        recommendedProgramId: preferences.recommendedProgramId,
+        recommendedProgramTitle: preferences.recommendedProgramId
+          ? formatWorkoutDisplayLabel(getWorkoutTemplateById(preferences.recommendedProgramId)?.name)
+          : null,
+        customProgramTitle: selectedCustomProgram.workoutId
+          ? formatWorkoutDisplayLabel(selectedCustomProgram.title)
+          : null,
+        // The plan's real rhythm — cycle or weekdays — so planned-versus-actual
+        // and "next training day" cannot disagree with Home. Availability alone
+        // told a 2-on-1-off reader their schedule was mon-wed-thu (2026-08-23).
+        trainingDays: preferences.setupAvailableDays,
+        schedule: homeTrainingSchedule,
+        plannerSetup: preferences.aiSetupCompleted
+          ? {
+              goal: preferences.aiPlannerGoal,
+              daysPerWeek: preferences.aiPlannerDaysPerWeek,
+              experience: preferences.aiPlannerExperience,
+              sessionMinutes: preferences.aiPlannerSessionMinutes,
+              equipment: preferences.aiPlannerEquipment,
+              recovery: preferences.aiPlannerRecovery,
+              mustInclude: preferences.aiPlannerMustInclude
+                .split(',')
+                .map((item) => item.trim())
+                .filter(Boolean),
+              avoid: preferences.aiPlannerAvoid
+                .split(',')
+                .map((item) => item.trim())
+                .filter(Boolean),
+              limitations: preferences.aiPlannerLimitations
+                .split(',')
+                .map((item) => item.trim())
+                .filter(Boolean),
+            }
+          : null,
+      }),
+    [
+      homeActiveWorkoutSummary,
+      homeSummary,
+      selectedCustomProgram.title,
+      selectedCustomProgram.workoutId,
+      trackedProgress,
+      unitPreference,
+      preferences.aiSetupCompleted,
+      preferences.aiPlannerGoal,
+      preferences.aiPlannerDaysPerWeek,
+      preferences.aiPlannerExperience,
+      preferences.aiPlannerSessionMinutes,
+      preferences.aiPlannerEquipment,
+      preferences.aiPlannerRecovery,
+      preferences.aiPlannerMustInclude,
+      preferences.aiPlannerAvoid,
+      preferences.aiPlannerLimitations,
+      preferences.recommendedProgramId,
+      preferences.setupAvailableDays,
+      homeTrainingSchedule,
+      workout.templates.length,
+      workoutSessions,
+      database.exerciseLogs,
+    ],
+  );
+  // Only a session the schedule actually puts on TODAY is "on the plan
+  // today". The next session in the rotation used to be named regardless, so
+  // the coach opened a rest day with "Upper is on the plan today — walk
+  // through it?" (#bugs, 2026-08-23). On a rest day the coach says so and
+  // names what comes next.
+  const coachChatIntro = useMemo(
+    () => ({
+      todaySessionTitle:
+        homeActivePlanCard?.nextSession && trainsOn(homeTrainingSchedule, new Date())
+          ? localizeSessionName(
+              formatWorkoutDisplayLabel(homeActivePlanCard.nextSession.title),
+              preferences.appLanguage,
+            )
+          : null,
+      nextSessionTitle: homeActivePlanCard?.nextSession
+        ? localizeSessionName(
+            formatWorkoutDisplayLabel(homeActivePlanCard.nextSession.title),
+            preferences.appLanguage,
+          )
+        : null,
+      sessionsThisWeek: homeSummary.streak.sessionsThisWeek,
+      weeklyRead: proWeeklyRead,
+      fatigue: proFatigue,
+    }),
+    [homeActivePlanCard, homeSummary.streak.sessionsThisWeek, homeTrainingSchedule, preferences.appLanguage, proFatigue, proWeeklyRead],
+  );
   /**
    * Home must never say "find a programme" while one is running.
    *
@@ -3735,9 +3672,10 @@ function VinhaApp() {
             canOfferWidget: Boolean(homeWidgetState?.supported) && !homeWidgetState?.added,
             pinnedCardKeys: homePinnedStatCardKeys,
             focusAreas: preferences.setupFocusAreas,
+            canOfferAccountBackup: accountBackup.available && accountBackup.state.status === 'signed_out',
           })
         : null,
-    [homePinnedStatCardKeys, homeWidgetState, preferences.setupFocusAreas, setupHandoffReady],
+    [accountBackup.available, accountBackup.state.status, homePinnedStatCardKeys, homeWidgetState, preferences.setupFocusAreas, setupHandoffReady],
   );
   const setupHandoffActive = setupHandoffPlan?.shouldShow ?? false;
 
@@ -3748,6 +3686,70 @@ function VinhaApp() {
       void updatePreferences({ setupHandoffCompleted: true });
     }
   }, [setupHandoffPlan, setupHandoffReady, updatePreferences]);
+
+  /**
+   * The whole sign-in conversation: outcome toasts, and the one dialog that
+   * appears when both the phone and the cloud hold data. Shared by the
+   * hand-off card and the Settings row so both tell the same story.
+   */
+  const handleAccountSignIn = useCallback(async () => {
+    const language = preferences.appLanguage;
+    const outcome = await accountBackup.signIn();
+    if (outcome.kind === 'backed_up') {
+      showToast(t(language, 'account.backupDone'));
+      return outcome.kind;
+    }
+    if (outcome.kind === 'restored') {
+      showToast(t(language, 'account.restore.restored'));
+      return outcome.kind;
+    }
+    if (outcome.kind === 'failed') {
+      showToast(t(language, 'account.signInFailed'));
+      return outcome.kind;
+    }
+    if (outcome.kind === 'unavailable') {
+      showToast(t(language, 'account.signInUnavailable'));
+      return outcome.kind;
+    }
+    if (outcome.kind !== 'choice') {
+      // Cancelled: the reader changed their mind, and that is not an error.
+      return outcome.kind;
+    }
+    const summary = outcome.summary;
+    Alert.alert(
+      t(language, 'account.restore.title'),
+      t(language, 'account.restore.body', {
+        date: new Date(summary.exportedAt).toLocaleDateString(),
+        workouts: String(summary.workoutCount),
+        programs: String(summary.customProgramCount),
+      }),
+      [
+        {
+          text: t(language, 'account.restore.keepLocal'),
+          onPress: () => {
+            void accountBackup.resolveRestoreChoice('keep_local').then((ok) => {
+              showToast(t(language, ok ? 'account.backupDone' : 'account.backupFailed'));
+            });
+          },
+        },
+        {
+          text: t(language, 'account.restore.useBackup'),
+          style: 'destructive',
+          onPress: () => {
+            void accountBackup.resolveRestoreChoice('restore').then((ok) => {
+              if (ok) {
+                showToast(t(language, 'account.restore.restored'));
+              }
+            });
+          },
+        },
+      ],
+      // Dismissing would leave the pending choice dangling with no way back.
+      { cancelable: false },
+    );
+    return outcome.kind;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountBackup, preferences.appLanguage]);
 
   const handleSetupHandoffDone = async (choices: SetupHandoffChoices) => {
     const patch: Partial<AppPreferences> = { setupHandoffCompleted: true };
@@ -3770,6 +3772,11 @@ function VinhaApp() {
     // The system dialog last, so it is not racing a state write.
     if (choices.addWidget) {
       await requestPinHomeWidget();
+    }
+    // And sign-in after that: it opens its own sheet, and the reader asked for
+    // it — a cancel there is a change of mind, not an error.
+    if (choices.signInForBackup) {
+      await handleAccountSignIn();
     }
   };
 
@@ -5126,7 +5133,7 @@ function VinhaApp() {
             : null
         }
         onDone={(choices) => void handleSetupHandoffDone(choices)}
-        onSkip={() => void handleSetupHandoffDone({ addWidget: false, pinTrackingCard: false, pinBodyweightCard: false })}
+        onSkip={() => void handleSetupHandoffDone({ addWidget: false, pinTrackingCard: false, pinBodyweightCard: false, signInForBackup: false })}
       />
     );
   } else if (route.tab === 'profile' && route.screen === 'setup') {
@@ -5432,7 +5439,9 @@ function VinhaApp() {
         keepScreenAwake={preferences.keepScreenAwakeDuringWorkout}
         exercisePrLookup={exercisePrLookup}
         restAlerts={{
-          alerts: preferences.notificationPrefs.restAlerts,
+          // The master notifications switch silences these too — three lit
+          // switches after "off" were the visual half of the same lie.
+          alerts: preferences.notificationPrefs.pushEnabled && preferences.notificationPrefs.restAlerts,
           warning: preferences.notificationPrefs.restWarning,
           ongoing: preferences.notificationPrefs.sessionOngoing,
           asked: preferences.notificationPrefs.restAlertsAsked,
@@ -5548,7 +5557,9 @@ function VinhaApp() {
         onFinishSession={() => void handleConfirmFinishWorkout()}
         isSavingWorkout={finishSaveState.status === 'saving'}
         restAlerts={{
-          alerts: preferences.notificationPrefs.restAlerts,
+          // The master notifications switch silences these too — three lit
+          // switches after "off" were the visual half of the same lie.
+          alerts: preferences.notificationPrefs.pushEnabled && preferences.notificationPrefs.restAlerts,
           warning: preferences.notificationPrefs.restWarning,
           ongoing: preferences.notificationPrefs.sessionOngoing,
         }}
@@ -5799,6 +5810,9 @@ function VinhaApp() {
       <AICoachChatScreen
         language={preferences.appLanguage}
         proUnlocked={coachProUnlocked}
+        liveConfigured={isAiCoachLiveConfigured()}
+        onlineNoticeAcknowledged={preferences.aiOnlineNoticeAcknowledged}
+        onAcknowledgeOnlineNotice={() => void updatePreferences({ aiOnlineNoticeAcknowledged: true })}
         freeQuestionsRemaining={resolveCoachQuota(preferences.aiCoachFreeQuota).remaining}
         onFreeQuestionUsed={() =>
           void updatePreferences({ aiCoachFreeQuota: recordCoachQuestion(preferences.aiCoachFreeQuota) })
@@ -5810,6 +5824,20 @@ function VinhaApp() {
         lastSession={coachLastSession}
         onOpenAnalysis={(sessionId) => navigate({ tab: 'home', screen: 'analysis', sessionId })}
         onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
+        pinnedStatCardKeys={homePinnedStatCardKeys}
+        onLogMeasurement={async (intent) => {
+          if (intent.kind === 'bodyweight') {
+            await addBodyweightEntry(intent.value);
+          } else {
+            await addMeasurementEntry(intent.kind, intent.value, intent.unit === 'kg' ? 'cm' : intent.unit);
+          }
+        }}
+        onPinStatCard={(key) => {
+          if (!homePinnedStatCardKeys.includes(key)) {
+            void updatePreferences({ homeStatCardKeys: [...homePinnedStatCardKeys, key] });
+          }
+        }}
+        transcriptReporter={accountBackup.state.status === 'signed_in' ? accountBackup.state.email : null}
       />
     );
   } else if (route.tab === 'home' && route.screen === 'pro_offer') {
@@ -6079,44 +6107,6 @@ function VinhaApp() {
         }}
       />
     );
-  } else if (route.tab === 'profile' && route.screen === 'support') {
-    content = (
-      <SupportScreen
-        language={preferences.appLanguage}
-        profileName={preferences.profileName}
-        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
-      />
-    );
-  } else if (route.tab === 'profile' && route.screen === 'design_demo') {
-    content = (
-      <DesignDemoScreen
-        language={preferences.appLanguage}
-        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
-      />
-    );
-  } else if (route.tab === 'profile' && route.screen === 'features') {
-    content = (
-      <FeatureRequestsScreen
-        language={preferences.appLanguage}
-        votedIds={preferences.featureVotedIds}
-        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
-        onToggleVote={(id) =>
-          void updatePreferences({
-            featureVotedIds: preferences.featureVotedIds.includes(id)
-              ? preferences.featureVotedIds.filter((votedId) => votedId !== id)
-              : [...preferences.featureVotedIds, id],
-          })
-        }
-      />
-    );
-  } else if (route.tab === 'profile' && route.screen === 'ai_transparency') {
-    content = (
-      <AiTransparencyScreen
-        language={preferences.appLanguage}
-        liveModeConfigured={isAiCoachLiveConfigured()}
-        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
-      />
-    );
   } else if (route.tab === 'profile' && route.screen === 'legal') {
     content = (
       <LegalDocumentScreen
@@ -6158,19 +6148,11 @@ function VinhaApp() {
     content = (
       <SettingsScreen
         preferences={preferences}
-        onCreateDemoProgram={() => {
-          // upsertWorkoutTemplate THROWS at the program cap. Without this the
-          // row was a button that did nothing and said nothing.
-          handleCreateDemoCompletionProgram().catch((error) => {
-            if (error instanceof ProgramLimitReachedError) {
-              setProgramLimitVisible(true);
-              return;
-            }
-            console.error('Demo program failed', error);
-            showToast(t(preferences.appLanguage, 'toast.programCopyFailed'));
-          });
-        }}
         firstSessionAt={lifetimeSummary.firstSessionAt}
+        initialScrollOffset={settingsScrollOffsetRef.current}
+        onScrollOffsetChange={(offsetY) => {
+          settingsScrollOffsetRef.current = offsetY;
+        }}
         onOpenEditProfile={() => navigate({ tab: 'profile', screen: 'edit_profile' })}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
         onPreferencesChange={async (patch) => {
@@ -6189,12 +6171,51 @@ function VinhaApp() {
         onOpenPromo={() => navigate({ tab: 'profile', screen: 'promo' })}
         onOpenSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
         onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
-        onOpenSupport={() => navigate({ tab: 'profile', screen: 'support' })}
-        onOpenFeatures={() => navigate({ tab: 'profile', screen: 'features' })}
-        onOpenDesignDemo={() => navigate({ tab: 'profile', screen: 'design_demo' })}
-        onOpenAiInfo={() => navigate({ tab: 'profile', screen: 'ai_transparency' })}
+        account={
+          accountBackup.available
+            ? {
+                signedIn: accountBackup.state.status === 'signed_in',
+                email: accountBackup.state.email,
+                lastBackupAt: accountBackup.state.lastBackupAt,
+                busy: accountBackup.phase !== 'idle',
+                onSignIn: () => void handleAccountSignIn(),
+                onBackupNow: () => {
+                  void accountBackup.backupNow().then((ok) => {
+                    showToast(t(preferences.appLanguage, ok ? 'account.backupDone' : 'account.backupFailed'));
+                  });
+                },
+                onSignOut: () => void accountBackup.signOut(),
+                onDeleteRemote: () => {
+                  Alert.alert(
+                    t(preferences.appLanguage, 'account.deleteRemote'),
+                    t(preferences.appLanguage, 'account.deleteRemote.sub'),
+                    [
+                      { text: t(preferences.appLanguage, 'common.cancel'), style: 'cancel' },
+                      {
+                        text: t(preferences.appLanguage, 'account.deleteRemote'),
+                        style: 'destructive',
+                        onPress: () => {
+                          void accountBackup.deleteRemoteBackup().then((ok) => {
+                            if (ok) {
+                              showToast(t(preferences.appLanguage, 'account.deleteRemote.done'));
+                            }
+                          });
+                        },
+                      },
+                    ],
+                  );
+                },
+              }
+            : null
+        }
         onOpenLegal={(document) => navigate({ tab: 'profile', screen: 'legal', document })}
         onResetAllData={async () => {
+          // Sign out BEFORE wiping: reset while signed in would let the
+          // auto-backup push the freshly emptied database over the cloud
+          // copy — the reset would silently destroy the one safety net it
+          // is the safety net for. Signed out, the cloud copy survives and
+          // the next sign-in offers it back.
+          await accountBackup.signOut();
           await resetAllData();
           setCompletionSummary(null);
           setWorkoutCelebration(null);
@@ -6214,6 +6235,16 @@ function VinhaApp() {
         unitPreference={unitPreference}
         planName={profilePlanSummary.name}
         planDaysPerWeek={profilePlanSummary.daysPerWeek}
+        planCycleCaption={
+          preferences.trainingCycle
+            ? t(preferences.appLanguage, 'plan.rhythm.summary', {
+                on: preferences.trainingCycle.pattern.filter(Boolean).length,
+                off: preferences.trainingCycle.pattern.filter((day) => !day).length,
+                length: preferences.trainingCycle.pattern.length,
+              })
+            : null
+        }
+        planWeekdayIndexes={homeTrainingDayIndexes}
         planExerciseCount={profilePlanSummary.exerciseCount}
         planFocusCaption={profilePlanSummary.focusCaption}
         onOpenSettings={() => navigate({ tab: 'profile', screen: 'settings' })}
@@ -6494,6 +6525,28 @@ function VinhaApp() {
               }
             : null
         }
+        accountBackupPrompt={
+          // The one-time offer for installs that never see the hand-off card
+          // again. Signed out, never dismissed, and with logged work worth
+          // keeping — a fresh install gets the hand-off, not this.
+          accountBackup.available &&
+          accountBackup.state.status === 'signed_out' &&
+          !preferences.accountBackupPromptDismissed &&
+          hasLocalDataWorthKeeping(database)
+            ? {
+                onSignIn: () => {
+                  void handleAccountSignIn().then((kind) => {
+                    // An answered offer never returns; a cancelled sheet or a
+                    // failure leaves it up for another try or a real dismissal.
+                    if (kind === 'backed_up' || kind === 'restored' || kind === 'choice') {
+                      void updatePreferences({ accountBackupPromptDismissed: true });
+                    }
+                  });
+                },
+                onDismiss: () => void updatePreferences({ accountBackupPromptDismissed: true }),
+              }
+            : null
+        }
         trainingSchedule={homeTrainingSchedule}
         doneThisWeekSessionIds={homeDoneThisWeekSessionIds}
         statCatalogCards={homeStatCatalogCards}
@@ -6648,10 +6701,6 @@ function VinhaApp() {
       route.screen === 'training_break' ||
       route.screen === 'promo' ||
       route.screen === 'subscription' ||
-      route.screen === 'support' ||
-      route.screen === 'features' ||
-      route.screen === 'ai_transparency' ||
-      route.screen === 'design_demo' ||
       route.screen === 'legal');
   const premiumActive = route.tab === 'profile' && route.screen === 'premium';
   const planSettingsActive = route.tab === 'profile' && route.screen === 'plan_settings';
@@ -6754,6 +6803,17 @@ function VinhaApp() {
           const workoutTemplateId = await upsertWorkoutTemplate(draft);
           setSettingsImportVisible(false);
           navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+        }}
+        onImportHistory={async (preview) => {
+          const result = await importWorkoutHistory(preview.workouts);
+          setSettingsImportVisible(false);
+          showToast(
+            t(
+              preferences.appLanguage,
+              result.duplicates > 0 ? 'hevy.doneWithDuplicates' : 'hevy.done',
+              { imported: String(result.imported), duplicates: String(result.duplicates) },
+            ),
+          );
         }}
       />
       <ProgramLimitSheet

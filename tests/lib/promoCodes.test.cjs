@@ -51,15 +51,19 @@ module.exports = [
         'src/lib/demoMode DEMO_BUILD and app.json extra.demoBuild disagree',
       );
 
-      // Settings renders the demo section behind that flag and nothing else, so
-      // clearing it takes the switch with it.
+      // The Settings demo section was removed by user decision (2026-08-22);
+      // the one remaining preview-Pro switch lives on the Premium screen's
+      // active state, where it can also be turned back off.
       const settings = fs.readFileSync(
         path.join(root, 'src', 'screens', 'SettingsScreen.tsx'),
         'utf8',
       );
-      assert.match(settings, /const demoBuild = isDemoBuild\(\)/);
-      assert.match(settings, /\{demoBuild \? \(/);
-      assert.match(settings, /adaptiveCoachPremiumUnlocked: next/);
+      assert.ok(!/isDemoBuild/.test(settings), 'the Settings demo section must stay removed');
+      const premium = fs.readFileSync(
+        path.join(root, 'src', 'screens', 'PremiumScreen.tsx'),
+        'utf8',
+      );
+      assert.match(premium, /pro\.previewOff/);
     },
   },
 ];

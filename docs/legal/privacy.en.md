@@ -1,6 +1,6 @@
 # Privacy policy
 
-*Updated 18 August 2026*
+*Updated 23 August 2026*
 
 What Vinha stores, where it stays, and what never leaves your phone.
 
@@ -8,7 +8,7 @@ What Vinha stores, where it stays, and what never leaves your phone.
 
 Vinha keeps your training data on your phone. There is no behavioural analytics and no tracking. We do not see your workouts, and we cannot — nothing is uploaded unless you turn on the AI coach in its online mode, and even then only training numbers are sent, never your identity.
 
-If you uninstall the app, that data is gone from the phone. The only copy that can exist elsewhere is the one your own Google account keeps in Android backup, if you have that turned on — we hold none.
+If you uninstall the app, that data is gone from the phone. The only copies that can exist elsewhere are the one your own Google account keeps in Android backup, if you have that turned on, and the optional cloud backup described below — which exists only if you chose to sign in, and which you can delete from Settings at any time.
 
 ## Who is responsible
 
@@ -28,25 +28,27 @@ Everything below is entered by you, or produced by the app from what you entered
 
 ## Where it is stored
 
-In the app’s local storage on your device, under three keys — one for your training log, one for the workout you have in progress, and one small one for your settings. It is not synced to a server we run, and we have no way to read it remotely.
+In the app’s local storage on your device, under three keys — one for your training log, one for the workout you have in progress, and one small one for your settings. If you sign in for cloud backup, a fourth small key holds your account identity (Google id, email, last backup time). Apart from the optional cloud backup below, nothing is synced to a server we run, and we have no way to read your device remotely.
 
 If the app ever finds that storage unreadable, it moves the damaged copy aside under a third key instead of deleting it, and starts a fresh one — so a broken file is not the same thing as a lost training log. That copy stays on your device like everything else, and erasing the app’s data removes it too.
 
-Android backup is switched on for this app. That means your device can copy Vinha’s local data — your training log, bodyweight and measurement entries, programmes and settings — into the backup of your own Google account, so a new phone can restore it. Vinha has no backend and no sync, so this backup is the only way your history survives changing devices.
+Android backup is switched on for this app. That means your device can copy Vinha’s local data — your training log, bodyweight and measurement entries, programmes and settings — into the backup of your own Google account, so a new phone can restore it. Unless you sign in for the optional cloud backup below, this is the only way your history survives changing devices.
 
 That copy is between you and Google. We never see it, we cannot read it, and nothing is sent to any server we run. Google encrypts it, and on current Android versions the key is tied to your device PIN. You can switch it off at any time in Android settings under Google → Backup, and Vinha keeps working exactly the same.
+
+Cloud backup (optional): if the app offers sign-in and you sign in with Google, a copy of the same training data is sent over an encrypted connection to our backup endpoint and stored there, so a new phone can restore it after you sign in again. Signing in is never required — every feature works without it. From your Google account we receive and keep only its identifier and email address, used solely to know which backup is yours; the backup is never used for anything except giving it back to you. Delete the cloud copy at any time in Settings (“Delete cloud backup”), or by signing out and asking us to remove it.
 
 Deleting the data is immediate and total: Settings → My data → reset, or uninstalling the app.
 
 ## The AI coach
 
-The AI coach has two modes, and today only the first one is active.
+The AI coach has two modes.
 
 On-device mode (the default): answers are generated on your phone from your own training log. Nothing leaves the device — not the question, not the answer.
 
-Online mode: if a future version enables it, your question and a numeric summary of your recent training (exercise names, sets, reps, kilograms, session dates) are sent over an encrypted connection to our endpoint and from there to Anthropic’s API, which produces the answer. Your name, email, device identifiers and body measurements are not part of that summary. The data is used to answer that one question. It is not used to train models, and we do not keep a copy.
+Online mode: when a version enables it, your question and a numeric summary of your recent training (exercise names, sets, reps, kilograms, session dates) are sent over an encrypted connection to our endpoint and from there to Anthropic’s API, which produces the answer. Your name, email, device identifiers and body measurements are not part of that summary. The data is used to answer that one question. It is not used to train models, and we do not keep a copy.
 
-You will be told in the app before online mode is ever switched on.
+The app tells you the first time you open the coach in online mode, before any question is sent, and nothing is sent until you have read it.
 
 ## What the app does not do
 
@@ -67,7 +69,7 @@ If you buy Pro, the payment is handled entirely by Google Play. We never see you
 
 ## Your rights
 
-Under the GDPR you have the right to access your data, correct it, delete it, and take it with you. Because your data lives on your device, you exercise these rights directly and without asking us:
+Under the GDPR you have the right to access your data, correct it, delete it, and take it with you. Because your data lives on your device, you exercise these rights directly and without asking us — and if you signed in for cloud backup, the one server copy is deleted by you too, from Settings → Delete cloud backup:
 
 - See it: Settings → My data shows what is stored.
 - Correct it: edit your profile, or edit any logged session.

@@ -120,26 +120,23 @@ module.exports = [
         'PlanSettingsScreen must not read the raw preview flag — a promo user is Pro too',
       );
 
-      // Settings resolves the same way, but through resolveProEntitlement
-      // because its demo row has to say WHICH source is granting Pro.
+      // Settings resolves through resolveProEntitlement too — a promo user
+      // is Pro. The demo row that named the granting source is gone
+      // (2026-08-22), so the unlocked boolean alone is what remains.
       assert.match(
         settingsSource,
         /import \{ resolveProEntitlement \} from '\.\.\/lib\/proEntitlement';/,
       );
-      assert.match(settingsSource, /const proUnlocked = entitlement\.unlocked;/);
+      assert.match(settingsSource, /resolveProEntitlement\(preferences\)\.unlocked/);
 
-      // The raw preview flag may be read in exactly one place: the demo switch,
-      // which IS that flag. Everywhere else it would hide promo users from a
-      // Pro surface, which is the bug this whole suite exists for.
-      const demoStart = settingsSource.indexOf('{demoBuild ? (');
-      assert.ok(demoStart > 0, 'the demo block is gone — move this guard, do not delete it');
-      const demoEnd = settingsSource.indexOf(') : null}', demoStart);
-      const outsideDemo =
-        settingsSource.slice(0, demoStart) + settingsSource.slice(demoEnd);
+      // The demo switch left Settings entirely (2026-08-22), so there is no
+      // longer ANY legitimate read of the raw preview flag here: everywhere it
+      // would hide promo users from a Pro surface, which is the bug this whole
+      // suite exists for.
       assert.doesNotMatch(
-        outsideDemo,
+        settingsSource,
         /preferences\.adaptiveCoachPremiumUnlocked/,
-        'SettingsScreen reads the raw preview flag outside the demo switch',
+        'SettingsScreen reads the raw preview flag — a promo user is Pro too',
       );
     },
   },

@@ -121,9 +121,10 @@ module.exports = [
           .some((line) => /\bfetch\s*\(/.test(line));
       const fetchSites = srcFiles.filter((file) => isCallSite(fs.readFileSync(file, 'utf8')));
       assert.deepEqual(
-        fetchSites.map((file) => path.basename(file)),
-        ['aiCoachClient.ts'],
-        'The policy says the app has exactly one outbound request. Update the policy or remove the call.',
+        fetchSites.map((file) => path.basename(file)).sort(),
+        ['aiCoachClient.ts', 'backupApi.ts'],
+        'The policy names exactly two outbound request sites: the AI coach and the '
+          + 'optional cloud backup. Update the policy or remove the call.',
       );
 
       const allSource = srcFiles.map((file) => fs.readFileSync(file, 'utf8')).join('\n');
@@ -146,7 +147,13 @@ module.exports = [
       const keys = new Set(allSource.match(/@vinha\/[a-z0-9/]+/g) ?? []);
       assert.deepEqual(
         [...keys].sort(),
-        ['@vinha/database/corrupt', '@vinha/database/v1', '@vinha/preferences/v1', '@vinha/workout/v1'],
+        [
+          '@vinha/account/v1',
+          '@vinha/database/corrupt',
+          '@vinha/database/v1',
+          '@vinha/preferences/v1',
+          '@vinha/workout/v1',
+        ],
         'The policy declares these storage keys. A new one needs a line in "Where it is stored".',
       );
       const legacy = new Set(allSource.match(/@gymlog\/[a-z0-9/]+/g) ?? []);
@@ -158,17 +165,21 @@ module.exports = [
     },
   },
   {
-    name: 'the settings analytics row states a fact instead of offering a switch',
+    name: 'the no-analytics fact lives in the policy, not as a settings row',
     run() {
+      // The row restated one sentence of the privacy policy and was removed
+      // with the other explainer rows (user, 2026-08-22). If it comes back,
+      // it must come back as a statement — never as a switch, which would
+      // be untrue in both positions.
       const settings = read('src/screens/SettingsScreen.tsx');
-      const rowBlock = settings.slice(settings.indexOf('icon="analytics"'), settings.indexOf('icon="analytics"') + 400);
       assert.ok(
-        !/ToggleSwitch/.test(rowBlock),
-        'The analytics row must not be a toggle — the app sends nothing, so a switch is untrue in both positions',
+        !settings.includes('settings.analytics'),
+        'the analytics settings row must stay removed — the policy carries the fact',
       );
-      const i18n = read('src/lib/i18n.ts');
-      assert.ok(i18n.includes("'settings.analytics': 'No analytics'"));
-      assert.ok(i18n.includes("'settings.analytics': 'Ei analytiikkaa'"));
+      // And the policy still carries it, in both languages.
+      const legal = read('src/lib/legalDocuments.ts');
+      assert.match(legal, /No analytics, telemetry or crash reporting/);
+      assert.match(legal, /analytiikkaa/i);
     },
   },
   {
@@ -194,25 +205,38 @@ module.exports = [
     },
   },
   {
-    name: 'no surface offers an account the app does not have',
+    name: 'every account surface is backed by the real sign-in, never a decorative one',
     run() {
-      // The policy says there is no account, no sign-in and no server-side
-      // profile. Settings used to carry "Sign out" and "Delete account" rows
-      // with chevrons and no handler — a promise of something that does not
-      // exist anywhere in the app.
+      // Settings once carried "Sign out" and "Delete account" rows with
+      // chevrons and no handler. Since 2026-08-22 the app HAS an account —
+      // the optional Google sign-in that keys the cloud backup — so the guard
+      // flips: account rows are allowed, but only wired through the real
+      // feature and hidden in builds that cannot sign anyone in.
+      const settings = read('src/screens/SettingsScreen.tsx');
+      const referencesAccount = /account\.(signIn|signOut|backupNow|deleteRemote)/.test(settings);
+      if (referencesAccount) {
+        assert.ok(
+          fs.existsSync(path.join(root, 'src', 'features', 'account', 'googleAuth.ts')),
+          'Settings shows account rows but src/features/account/googleAuth.ts is gone — '
+            + 'that is the decorative-buttons bug coming back.',
+        );
+        // The rows must be gated on the account prop, so a build without a
+        // configured OAuth client shows nothing rather than a dead button.
+        assert.match(
+          settings,
+          /\{account && /,
+          'Account rows must render behind the account prop gate.',
+        );
+      }
+
+      // The old fake keys stay dead either way; the real feature has its own.
       const i18n = read('src/lib/i18n.ts');
       for (const key of ['settings.signOut', 'settings.deleteAccount']) {
         assert.ok(
           !i18n.includes(`'${key}'`),
-          `${key} is back. The app has no account, so nothing can sign out of or delete one.`,
+          `${key} is back. The account rows live under account.* and are gated on the real feature.`,
         );
       }
-
-      const settings = read('src/screens/SettingsScreen.tsx');
-      assert.ok(
-        !/signOut|deleteAccount/.test(settings),
-        'Settings references an account action again.',
-      );
     },
   },
   {

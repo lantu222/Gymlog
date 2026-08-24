@@ -62,7 +62,7 @@ export function isMeasurementCardKey(key: string): boolean {
   return key === 'bodyfat' || (MEASUREMENT_CARD_KINDS as string[]).includes(key);
 }
 
-const MEASUREMENT_LABEL_KEYS: Record<MeasurementKind, I18nKey> = {
+export const MEASUREMENT_LABEL_KEYS: Record<MeasurementKind, I18nKey> = {
   bodyfat: 'progress.measure.bodyfat',
   shoulders: 'progress.measure.shoulders',
   chest: 'progress.measure.chest',

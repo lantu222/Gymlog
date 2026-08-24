@@ -66,6 +66,13 @@ export interface SetupHandoffInput {
   /** Card keys already on Home. Bodyweight is there by default. */
   pinnedCardKeys: string[];
   focusAreas: SetupFocusArea[];
+  /**
+   * False when this build has no sign-in configured, or the reader is already
+   * signed in. The offer is a card here — after onboarding, optional, skipped
+   * by the same "Not now" as everything else — by explicit decision
+   * (2026-08-22): sign-in never blocks the door, it stands beside it.
+   */
+  canOfferAccountBackup: boolean;
 }
 
 export interface SetupHandoffPlan {
@@ -80,6 +87,8 @@ export interface SetupHandoffPlan {
    * has; asked for by the user (2026-08-19) as the obvious second card.
    */
   offerBodyweight: boolean;
+  /** Sign in with Google and keep the data past this phone. Free and Pro alike. */
+  offerAccountBackup: boolean;
 }
 
 /**
@@ -97,11 +106,17 @@ export function planSetupHandoff(input: SetupHandoffInput): SetupHandoffPlan {
   const offerBodyweight =
     offer.cardKey !== 'bodyweight' && !input.pinnedCardKeys.includes('bodyweight');
 
+  // `=== true` rather than truthiness: stored plans and older callers may not
+  // carry the field at all, and `undefined` leaking into shouldShow turned a
+  // boolean contract into a three-valued one.
+  const offerAccountBackup = input.canOfferAccountBackup === true;
+
   return {
-    shouldShow: input.canOfferWidget || tracking !== null || offerBodyweight,
+    shouldShow: input.canOfferWidget || tracking !== null || offerBodyweight || offerAccountBackup,
     offerWidget: input.canOfferWidget,
     tracking,
     offerBodyweight,
+    offerAccountBackup,
   };
 }
 
@@ -112,7 +127,12 @@ export function planSetupHandoff(input: SetupHandoffInput): SetupHandoffPlan {
  * phone that has had the app before is the usual case.
  */
 export function countSetupHandoffOffers(
-  plan: Pick<SetupHandoffPlan, 'offerWidget' | 'tracking' | 'offerBodyweight'>,
+  plan: Pick<SetupHandoffPlan, 'offerWidget' | 'tracking' | 'offerBodyweight' | 'offerAccountBackup'>,
 ): number {
-  return (plan.offerWidget ? 1 : 0) + (plan.tracking ? 1 : 0) + (plan.offerBodyweight ? 1 : 0);
+  return (
+    (plan.offerWidget ? 1 : 0) +
+    (plan.tracking ? 1 : 0) +
+    (plan.offerBodyweight ? 1 : 0) +
+    (plan.offerAccountBackup ? 1 : 0)
+  );
 }

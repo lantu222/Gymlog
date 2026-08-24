@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,20 +16,15 @@ import { ProLockedCard } from '../components/ProLockedCard';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
 import { buildAiCoachPreviewAnswer } from '../lib/aiCoachPreview';
 import { FREE_COACH_QUESTIONS_PER_WEEK } from '../lib/aiCoachQuota';
-import {
-  CoachChatIntroInput,
-  CoachContextChip,
-  CoachNoticedItem,
-  buildCoachContextChips,
-  buildCoachContextReadout,
-  buildCoachNoticed,
-  buildCoachOpeningLine,
-} from '../lib/coachChat';
+import { CoachChatIntroInput, CoachContextChip, buildCoachContextChips, buildCoachContextReadout, buildCoachNoticed, buildCoachOpeningLine, buildCoachOpeningOffer, buildCoachOpeningRows } from '../lib/coachChat';
+import { MEASUREMENT_LABEL_KEYS } from '../lib/homeStatCards';
 import { I18nKey, t } from '../lib/i18n';
+import { MeasurementIntent, parseMeasurementIntent } from '../lib/measurementIntent';
+import { AI_COACH_DEBUG_TRANSCRIPTS } from '../lib/aiCoachDebug';
 import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { layout, spacing } from '../theme';
-import { AICoachTrainingContext } from '../types/aiCoach';
+import { AICoachAdvice, AICoachTrainingContext } from '../types/aiCoach';
 import { AppLanguage } from '../types/models';
 
 /**
@@ -50,6 +44,15 @@ import { AppLanguage } from '../types/models';
 interface AICoachChatScreenProps {
   language?: AppLanguage;
   proUnlocked: boolean;
+  /**
+   * Online mode: questions leave the device. The privacy policy promises the
+   * reader is told in the app before that happens, so while this is true
+   * and the notice is unacknowledged, the chat shows the disclosure and
+   * sends nothing.
+   */
+  liveConfigured: boolean;
+  onlineNoticeAcknowledged: boolean;
+  onAcknowledgeOnlineNotice: () => void;
   freeQuestionsRemaining: number;
   onFreeQuestionUsed: () => void;
   trainingContext: AICoachTrainingContext;
@@ -65,12 +68,27 @@ interface AICoachChatScreenProps {
   lastSession: { id: string; name: string } | null;
   onOpenAnalysis: (sessionId: string) => void;
   onOpenPremium: () => void;
+  /**
+   * "Rinnanympärys on 90 cm" typed into the chat is a reading to log, not a
+   * question (user, 2026-08-23). The chat offers to log it — one tap — and,
+   * if that measurement has no card on Home yet, offers the card once.
+   * Nothing is written without the tap.
+   */
+  pinnedStatCardKeys: string[];
+  onLogMeasurement: (intent: MeasurementIntent) => Promise<void>;
+  onPinStatCard: (key: string) => void;
+  /** TEMPORARY: the signed-in email, attached to the development transcript log. */
+  transcriptReporter: string | null;
 }
 
 interface ChatMessage {
   id: string;
   fromCoach: boolean;
   text: string;
+  /** The coach's structured answer, rendered as sections rather than prose. */
+  advice?: AICoachAdvice;
+  /** An offer with buttons: log the reading the reader just stated, or put its card on Home. */
+  offer?: { type: 'log' | 'pin'; intent: MeasurementIntent };
   evidence?: string;
   /** Set when the answer is withheld: the real conclusion, blurred. */
   lockedBody?: string;
@@ -87,15 +105,12 @@ function SparkGlyph({ color, size = 18 }: { color: string; size?: number }) {
   );
 }
 
-function toneColor(tone: CoachContextChip['tone']) {
-  const theme = useTheme();
-
-  return tone === 'plan' ? theme.purple : tone === 'warn' ? PW.amber : PW.red;
-}
-
 export function AICoachChatScreen({
   language = 'en',
   proUnlocked,
+  liveConfigured,
+  onlineNoticeAcknowledged,
+  onAcknowledgeOnlineNotice,
   freeQuestionsRemaining,
   onFreeQuestionUsed,
   trainingContext,
@@ -105,6 +120,10 @@ export function AICoachChatScreen({
   lastSession,
   onOpenAnalysis,
   onOpenPremium,
+  pinnedStatCardKeys,
+  onLogMeasurement,
+  onPinStatCard,
+  transcriptReporter,
 }: AICoachChatScreenProps) {
   const theme = useTheme();
   const themeName = useThemeName();
@@ -120,14 +139,27 @@ export function AICoachChatScreen({
   // the honest way to fill the screen and the claim Pro is sold on.
   const readout = useMemo(
     () => buildCoachContextReadout(trainingContext, language),
-    [language, trainingContext],
+    [language, trainingContext, transcriptReporter],
   );
   const noticed = useMemo(
     () => (proUnlocked ? buildCoachNoticed(intro.weeklyRead, language) : []),
     [intro.weeklyRead, language, proUnlocked],
   );
   const openingLine = useMemo(() => buildCoachOpeningLine(intro, language), [intro, language]);
-  const showReadout = messages.length === 0 && readout.length > 0;
+  // Today's line, what the coach noticed, and the readout — one rotating
+  // stage instead of three stacked surfaces (user, 2026-08-23).
+  const openingRows = useMemo(
+    () =>
+      buildCoachOpeningRows({
+        openingLine,
+        offer: buildCoachOpeningOffer(intro, language),
+        noticed,
+        readout,
+        language,
+      }),
+    [intro, language, noticed, openingLine, readout],
+  );
+  const showReadout = messages.length === 0 && openingRows.length > 0;
 
   /**
    * What the coach has read, and what today is — one line.
@@ -158,16 +190,72 @@ export function AICoachChatScreen({
     }
   }, [messages.length, scrollToEnd]);
 
+  const mustAcknowledgeOnline = liveConfigured && !onlineNoticeAcknowledged;
+
+  const measurementLabel = useCallback(
+    (intent: MeasurementIntent) =>
+      intent.kind === 'bodyweight' ? t(language, 'cards.bodyweight') : t(language, MEASUREMENT_LABEL_KEYS[intent.kind]),
+    [language],
+  );
+  const formatReading = useCallback(
+    (intent: MeasurementIntent) =>
+      `${measurementLabel(intent)} ${String(intent.value).replace('.', language === 'fi' ? ',' : '.')} ${intent.unit}`,
+    [language, measurementLabel],
+  );
+
+  const resolveOffer = useCallback(
+    async (messageId: string, offer: NonNullable<ChatMessage['offer']>, accepted: boolean) => {
+      if (!accepted) {
+        setMessages((current) => current.filter((message) => message.id !== messageId));
+        return;
+      }
+      if (offer.type === 'log') {
+        await onLogMeasurement(offer.intent);
+        const pinned = pinnedStatCardKeys.includes(offer.intent.kind);
+        setMessages((current) =>
+          current.flatMap((message) =>
+            message.id === messageId
+              ? [
+                  { id: `${messageId}:done`, fromCoach: true, text: t(language, 'coachChat.measure.logged', { reading: formatReading(offer.intent) }) },
+                  // The card offer follows only when Home does not have it — a
+                  // pinned card offered again would be the sign explaining a sign.
+                  ...(pinned ? [] : [{ id: `${messageId}:pin`, fromCoach: true, text: '', offer: { type: 'pin' as const, intent: offer.intent } }]),
+                ]
+              : [message],
+          ),
+        );
+        return;
+      }
+      onPinStatCard(offer.intent.kind);
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === messageId
+            ? { id: `${messageId}:done`, fromCoach: true, text: t(language, 'coachChat.measure.pinned', { label: measurementLabel(offer.intent) }) }
+            : message,
+        ),
+      );
+    },
+    [formatReading, language, measurementLabel, onLogMeasurement, onPinStatCard, pinnedStatCardKeys],
+  );
+
   const send = useCallback(
     async (prompt: string) => {
       const trimmed = prompt.trim();
-      if (!trimmed || asking) {
+      if (!trimmed || asking || mustAcknowledgeOnline) {
+        // Nothing leaves the device until the online disclosure is answered.
         return;
       }
 
       const token = (askToken.current += 1);
       setDraft('');
-      setMessages((current) => [...current, { id: `me:${token}`, fromCoach: false, text: trimmed }]);
+      const intent = parseMeasurementIntent(trimmed, language);
+      setMessages((current) => [
+        ...current,
+        { id: `me:${token}`, fromCoach: false, text: trimmed },
+        ...(intent
+          ? [{ id: `offer:${token}`, fromCoach: true, text: '', offer: { type: 'log' as const, intent } }]
+          : []),
+      ]);
 
       // Out of quota: the question still lands, and the answer that exists is
       // shown blurred rather than refused. The door stays open (design rule);
@@ -197,7 +285,12 @@ export function AICoachChatScreen({
 
       setAsking(true);
       try {
-        const result = await requestAiCoachAdvice({ prompt: trimmed, context: trainingContext, language });
+        const result = await requestAiCoachAdvice({
+          prompt: trimmed,
+          context: trainingContext,
+          language,
+          ...(AI_COACH_DEBUG_TRANSCRIPTS && transcriptReporter ? { reporter: transcriptReporter } : {}),
+        });
         if (token !== askToken.current) {
           return;
         }
@@ -208,13 +301,17 @@ export function AICoachChatScreen({
         if (!proUnlocked && !answer.unanswered) {
           onFreeQuestionUsed();
         }
-        const reply = [answer.takeaway, answer.nextSteps?.[0]].filter(Boolean).join(' ');
+        // The whole answer, as sections: a takeaway, then the reasons, the
+        // steps and the plan each on their own lines. One run-on paragraph
+        // buried the dates and numbers (#bugs, 2026-08-23).
+        const reply = answer.takeaway;
         setMessages((current) => [
           ...current,
           {
             id: `coach:${token}`,
             fromCoach: true,
             text: reply || answer.takeaway,
+            advice: answer,
           },
         ]);
       } catch {
@@ -235,7 +332,7 @@ export function AICoachChatScreen({
         }
       }
     },
-    [asking, canAsk, language, onFreeQuestionUsed, proUnlocked, sessionCount, trainingContext],
+    [asking, canAsk, language, mustAcknowledgeOnline, onFreeQuestionUsed, proUnlocked, sessionCount, trainingContext],
   );
 
   return (
@@ -267,8 +364,12 @@ export function AICoachChatScreen({
         </View>
       </View>
 
+      {/* 'padding' on Android too. The manifest's adjustResize used to lift the
+          composer above the keyboard; with RN 0.83's mandatory edge-to-edge it
+          no longer does, and the keyboard covered the thread and the field
+          (#bugs, 2026-08-23: 'hard to see what you are typing'). */}
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
         style={styles.body}
       >
         <ScrollView
@@ -277,42 +378,27 @@ export function AICoachChatScreen({
           contentContainerStyle={styles.thread}
           keyboardShouldPersistTaps="handled"
         >
-          {showReadout ? <CoachReadoutTicker rows={readout} /> : null}
-
-          {/* Pro's real difference: the coach opens the conversation. */}
-          {noticed.length > 0 ? (
-            <View style={styles.noticedCard}>
-              <View style={styles.noticedHead}>
-                <SparkGlyph color={PW.sheetLavender} size={15} />
-                <Text style={styles.noticedLabel}>
-                  {noticed.length === 1
-                    ? t(language, 'coachChat.noticedOne')
-                    : t(language, 'coachChat.noticed', { count: noticed.length })}
-                </Text>
-              </View>
-              {noticed.map((item: CoachNoticedItem) => (
-                <Pressable
-                  key={item.key}
-                  accessibilityRole="button"
-                  onPress={() => void send(item.question)}
-                  style={({ pressed }) => [styles.noticedRow, pressed && styles.pressed]}
-                >
-                  <View style={[styles.noticedDot, { backgroundColor: toneColor(item.tone) }]} />
-                  <View style={styles.noticedCopy}>
-                    <Text style={styles.noticedTitle}>{item.title}</Text>
-                    <Text style={styles.noticedBody}>{item.body}</Text>
-                    <Text style={styles.noticedAsk}>{t(language, 'coachChat.noticedAsk')}</Text>
-                  </View>
-                </Pressable>
-              ))}
+          {mustAcknowledgeOnline ? (
+            <View style={styles.onlineCard}>
+              <Text style={styles.onlineTitle}>{t(language, 'coachChat.online.title')}</Text>
+              <Text style={styles.onlineBody}>{t(language, 'coachChat.online.body')}</Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={onAcknowledgeOnlineNotice}
+                style={({ pressed }) => [styles.onlineButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.onlineButtonText}>{t(language, 'coachChat.online.ok')}</Text>
+              </Pressable>
             </View>
           ) : null}
 
-          <View style={styles.bubbleRow}>
-            <View style={styles.coachBubble}>
-              <Text style={styles.coachText}>{openingLine}</Text>
-            </View>
-          </View>
+          {showReadout ? (
+            <CoachReadoutTicker
+              rows={openingRows}
+              askLabel={t(language, 'coachChat.noticedAsk')}
+              onAsk={(question) => void send(question)}
+            />
+          ) : null}
 
           {/* The written analysis is Pro (the Pro page's table says so), so a
               free user gets the link and the reason, not a dead end. It is a
@@ -339,7 +425,35 @@ export function AICoachChatScreen({
           ) : null}
 
           {messages.map((message) =>
-            message.lockedBody ? (
+            message.offer ? (
+              <View key={message.id} style={styles.bubbleRow}>
+                <View style={[styles.coachBubble, styles.offerBubble]}>
+                  <Text style={styles.coachText}>
+                    {message.offer.type === 'log'
+                      ? t(language, 'coachChat.measure.offer', { reading: formatReading(message.offer.intent) })
+                      : t(language, 'coachChat.measure.pinOffer', { label: measurementLabel(message.offer.intent) })}
+                  </Text>
+                  <View style={styles.offerActions}>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => void resolveOffer(message.id, message.offer as NonNullable<ChatMessage['offer']>, false)}
+                      style={({ pressed }) => [styles.offerGhost, pressed && styles.pressed]}
+                    >
+                      <Text style={styles.offerGhostText}>{t(language, 'coachChat.measure.skip')}</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => void resolveOffer(message.id, message.offer as NonNullable<ChatMessage['offer']>, true)}
+                      style={({ pressed }) => [styles.offerCta, pressed && styles.pressed]}
+                    >
+                      <Text style={styles.offerCtaText}>
+                        {t(language, message.offer.type === 'log' ? 'coachChat.measure.log' : 'coachChat.measure.pin')}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+            ) : message.lockedBody ? (
               <View key={message.id} style={styles.lockWrap}>
                 <ProLockedCard
                   language={language}
@@ -356,6 +470,27 @@ export function AICoachChatScreen({
               >
                 <View style={message.fromCoach ? styles.coachBubble : styles.meBubble}>
                   <Text style={message.fromCoach ? styles.coachText : styles.meText}>{message.text}</Text>
+                  {message.advice
+                    ? (
+                        [
+                          { key: 'why', label: 'coachChat.section.why' as const, lines: message.advice.why, mark: (_i: number) => '\u2022' },
+                          { key: 'next', label: 'coachChat.section.next' as const, lines: message.advice.nextSteps, mark: (i: number) => `${i + 1}.` },
+                          { key: 'plan', label: 'coachChat.section.plan' as const, lines: message.advice.plan, mark: (_i: number) => '\u2192' },
+                        ] as const
+                      )
+                        .filter((sectionDef) => sectionDef.lines.length > 0)
+                        .map((sectionDef) => (
+                          <View key={sectionDef.key} style={styles.answerSection}>
+                            <Text style={styles.answerSectionLabel}>{t(language, sectionDef.label)}</Text>
+                            {sectionDef.lines.map((lineText, index) => (
+                              <View key={`${sectionDef.key}-${index}`} style={styles.answerLine}>
+                                <Text style={styles.answerMark}>{sectionDef.mark(index)}</Text>
+                                <Text style={styles.answerLineText}>{lineText}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        ))
+                    : null}
                   {message.evidence ? <Text style={styles.evidence}>{message.evidence}</Text> : null}
                 </View>
               </View>
@@ -503,58 +638,98 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingBottom: 14,
     gap: 20,
   },
-  noticedCard: {
-    backgroundColor: PW.sheetTop,
-    borderRadius: 20,
-    paddingHorizontal: 17,
-    paddingTop: 16,
-    paddingBottom: 6,
+  onlineCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
+    padding: 16,
+    marginBottom: 12,
+    gap: 8,
   },
-  noticedHead: {
+  onlineTitle: {
+    color: theme.ink,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  onlineBody: {
+    color: theme.muted,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  onlineButton: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    backgroundColor: theme.highlight,
+  },
+  onlineButtonText: {
+    color: theme.onHighlight,
+    fontSize: 13.5,
+    fontWeight: '800',
+  },
+  offerBubble: {
+    gap: 10,
+  },
+  offerActions: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
+    gap: 10,
+    justifyContent: 'flex-end',
   },
-  noticedLabel: {
-    flex: 1,
+  offerGhost: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  offerGhostText: {
+    color: theme.muted,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  offerCta: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    backgroundColor: theme.highlight,
+  },
+  offerCtaText: {
+    color: theme.onHighlight,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  answerSection: {
+    marginTop: 10,
+    gap: 4,
+  },
+  answerSectionLabel: {
+    color: theme.faint,
     fontSize: 10.5,
     fontWeight: '800',
-    letterSpacing: 1.2,
-    color: PW.sheetLavender,
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+    marginBottom: 2,
   },
-  noticedRow: {
+  answerLine: {
     flexDirection: 'row',
-    gap: 11,
-    marginTop: 13,
-    paddingBottom: 10,
+    gap: 8,
+    alignItems: 'flex-start',
   },
-  noticedDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 999,
-    marginTop: 5,
-  },
-  noticedCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  noticedTitle: {
+  answerMark: {
+    color: theme.highlight,
     fontSize: 14,
+    lineHeight: 20,
     fontWeight: '800',
-    color: '#FFFFFF',
+    minWidth: 16,
   },
-  noticedBody: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.7)',
-    lineHeight: 18,
-    marginTop: 3,
-  },
-  noticedAsk: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: PW.sheetLavender,
-    marginTop: 7,
+  answerLineText: {
+    flex: 1,
+    color: theme.ink,
+    fontSize: 14,
+    lineHeight: 20,
   },
   bubbleRow: {
     flexDirection: 'row',

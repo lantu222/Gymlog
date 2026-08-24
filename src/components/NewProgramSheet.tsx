@@ -4,6 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { buildDraftFromCsvPreview, CsvLibraryEntry, parseCsvProgram } from '../lib/csvProgramImport';
+import { HevyImportPreview, isHevyHistoryCsv, parseHevyCsv } from '../lib/hevyImport';
 import { I18nKey, t } from '../lib/i18n';
 import type { AppLanguage, WorkoutTemplateDraft } from '../types/models';
 import { Theme, useTheme, useThemedStyles } from '../theming';
@@ -40,6 +41,13 @@ interface NewProgramSheetProps {
   onAiAssisted: () => void;
   onBuildYourself: () => void;
   onImportProgram: (draft: WorkoutTemplateDraft) => Promise<void> | void;
+  /**
+   * A pasted Hevy export is HISTORY, not a programme — workouts already
+   * performed. When the paste is recognised as one, this runs instead of
+   * the programme importer. Optional: a caller without it still gets the
+   * detection banner, so the paste is never mis-parsed as a programme.
+   */
+  onImportHistory?: (preview: HevyImportPreview) => Promise<void> | void;
 }
 
 function OptionIcon({ name }: { name: 'spark' | 'build' | 'table' }) {
@@ -85,6 +93,7 @@ export function NewProgramSheet({
   onAiAssisted,
   onBuildYourself,
   onImportProgram,
+  onImportHistory,
 }: NewProgramSheetProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -98,9 +107,15 @@ export function NewProgramSheet({
   const [programName, setProgramName] = useState(defaultProgramName);
   const [importing, setImporting] = useState(false);
 
+  // Detected BEFORE the programme parser runs: a Hevy export is set rows,
+  // and reading them as Day/Exercise/Sets/Reps would produce garbage.
+  const hevyPreview = useMemo(
+    () => (csvText.trim() && isHevyHistoryCsv(csvText) ? parseHevyCsv(csvText) : null),
+    [csvText],
+  );
   const preview = useMemo(
-    () => (csvText.trim() ? parseCsvProgram(csvText, exerciseLibrary) : null),
-    [csvText, exerciseLibrary],
+    () => (csvText.trim() && !hevyPreview ? parseCsvProgram(csvText, exerciseLibrary) : null),
+    [csvText, exerciseLibrary, hevyPreview],
   );
 
   function reset() {
@@ -113,6 +128,19 @@ export function NewProgramSheet({
   function handleClose() {
     reset();
     onClose();
+  }
+
+  async function handleImportHistory() {
+    if (!hevyPreview || hevyPreview.workouts.length === 0 || !onImportHistory || importing) {
+      return;
+    }
+    setImporting(true);
+    try {
+      await onImportHistory(hevyPreview);
+      handleClose();
+    } finally {
+      setImporting(false);
+    }
   }
 
   async function handleImport() {
@@ -237,7 +265,48 @@ export function NewProgramSheet({
                 <Text style={styles.sampleLink}>{t(language, 'csv.loadSample')}</Text>
               </Pressable>
 
-              {preview ? (
+              {hevyPreview ? (
+                <>
+                  <View style={[styles.resultBanner, hevyPreview.workouts.length > 0 ? styles.resultBannerOk : styles.resultBannerWarn]}>
+                    <Text style={styles.resultBannerText}>
+                      {hevyPreview.workouts.length === 0
+                        ? t(language, 'hevy.empty')
+                        : t(language, 'hevy.detected', {
+                            workouts: hevyPreview.workouts.length,
+                            sets: hevyPreview.setCount,
+                            first: hevyPreview.firstDate ? new Date(hevyPreview.firstDate).toLocaleDateString() : '',
+                            last: hevyPreview.lastDate ? new Date(hevyPreview.lastDate).toLocaleDateString() : '',
+                          })}
+                    </Text>
+                  </View>
+                  {hevyPreview.skippedRowCount > 0 ? (
+                    <Text style={styles.errorNote}>
+                      {t(language, 'hevy.skipped', { count: hevyPreview.skippedRowCount })}
+                    </Text>
+                  ) : null}
+                  {hevyPreview.workouts.length > 0 && onImportHistory ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={t(language, 'hevy.import', { count: hevyPreview.workouts.length })}
+                      onPress={() => void handleImportHistory()}
+                      disabled={importing}
+                      style={({ pressed }) => [styles.importButton, (pressed || importing) && styles.pressed]}
+                    >
+                      <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                        <Path d="M12 4v10m0 0l-4-4m4 4l4-4M5 19h14" stroke="#FFFFFF" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+                      </Svg>
+                      <Text style={styles.importButtonText}>
+                        {importing
+                          ? t(language, 'csv.importing')
+                          : t(language, 'hevy.import', { count: hevyPreview.workouts.length })}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                  {hevyPreview.workouts.length > 0 && !onImportHistory ? (
+                    <Text style={styles.errorNote}>{t(language, 'hevy.useSettings')}</Text>
+                  ) : null}
+                </>
+              ) : preview ? (
                 <>
                   <View style={[styles.resultBanner, preview.unmatchedCount === 0 && preview.rows.length > 0 ? styles.resultBannerOk : styles.resultBannerWarn]}>
                     <Text style={styles.resultBannerText}>

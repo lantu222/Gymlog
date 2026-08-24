@@ -38,6 +38,10 @@ const ALLOWED = {
   getProgramSeason: 'Season lookup by program, kept beside the seasons it answers for.',
   isSeasonActive: 'Season window predicate, kept beside resolveSeasonWindow.',
   listPromoCodes: 'Lists live codes for a demo sheet that does not exist yet.',
+  emptyRatingPromptState: 'Rating prompt state machine, waiting for its post-workout wiring; the demo shelf that exercised it was removed 2026-08-22.',
+  decideRatingPrompt: 'See emptyRatingPromptState.',
+  recordRatingAsked: 'See emptyRatingPromptState.',
+  recordRatingCompleted: 'See emptyRatingPromptState.',
 };
 
 const EXPORT_RE = /^export\s+(?:async\s+)?(?:function|const|class)\s+([A-Za-z_$][\w$]*)/gm;

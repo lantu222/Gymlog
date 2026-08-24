@@ -36,6 +36,14 @@ interface ProfileScreenProps {
   unitPreference: UnitPreference;
   planName?: string | null;
   planDaysPerWeek?: number | null;
+  /**
+   * The active plan's rhythm as one line when it runs on a cycle ("2 on,
+   * 1 off — repeating every 3 days"). Null for weekday plans, which the
+   * chips below can express.
+   */
+  planCycleCaption?: string | null;
+  /** The plan's OWN training weekdays, Monday-first indexes 0–6. */
+  planWeekdayIndexes?: number[];
   planExerciseCount?: number | null;
   planFocusCaption?: string | null;
   planIsAiBuilt?: boolean;
@@ -221,6 +229,8 @@ export function ProfileScreen({
   unitPreference,
   planName,
   planDaysPerWeek,
+  planCycleCaption = null,
+  planWeekdayIndexes = [],
   planExerciseCount,
   planFocusCaption,
   planIsAiBuilt = false,
@@ -413,12 +423,17 @@ export function ProfileScreen({
                     <Badge icon={<DumbbellIcon />} label={t(language, 'profile.badge.exercises', { count: planExerciseCount })} />
                   ) : null}
                 </View>
-                {/* Weekday chips only when the questionnaire actually captured
-                    training days — no invented rhythm. */}
-                {preferences.setupAvailableDays.length > 0 ? (
+                {/* The plan's rhythm, not the questionnaire's openings: this
+                    used to light setupAvailableDays, so a 2-on-1-off cycle
+                    read as "mon wed thu" — availability is not a plan (user,
+                    2026-08-22). A cycle gets its own sentence, because seven
+                    weekday chips cannot express a 3-day loop. */}
+                {planCycleCaption ? (
+                  <Text style={styles.planCaption}>{planCycleCaption}</Text>
+                ) : planWeekdayIndexes.length > 0 ? (
                   <View style={styles.weekdayRow}>
-                    {WEEKDAY_CHIPS.map((chip) => {
-                      const active = preferences.setupAvailableDays.includes(chip.day);
+                    {WEEKDAY_CHIPS.map((chip, index) => {
+                      const active = planWeekdayIndexes.includes(index);
                       return (
                         <View key={chip.day} style={[styles.weekdayChip, active && styles.weekdayChipActive]}>
                           <Text style={[styles.weekdayChipText, active && styles.weekdayChipTextActive]}>

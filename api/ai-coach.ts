@@ -1,5 +1,8 @@
+import { put } from '@vercel/blob';
 import { buildAiCoachPreviewAnswer } from '../src/lib/aiCoachPreview';
 import { buildAiCoachSystemContext } from '../src/lib/aiCoachSystemContext';
+import { normalizeAiCoachTrainingContext } from '../src/lib/aiTrainingContext';
+import { AI_COACH_DEBUG_TRANSCRIPTS } from '../src/lib/aiCoachDebug';
 import {
   BudgetState,
   checkBudget,
@@ -27,8 +30,26 @@ type ApiResponse = {
 
 const RATE_LIMIT_WINDOW_MS = Number(process.env.AI_COACH_RATE_LIMIT_WINDOW_MS ?? 10 * 60 * 1000);
 const RATE_LIMIT_MAX = Number(process.env.AI_COACH_RATE_LIMIT_MAX ?? 12);
-const CLAUDE_TIMEOUT_MS = Number(process.env.AI_COACH_CLAUDE_TIMEOUT_MS ?? 12000);
+// 30 s: Sonnet 5 thinks before it answers, and the first call after a cold
+// start (cache creation included) ran past 20 s twice in one evening
+// (2026-08-23). A late real answer beats an on-time preview fallback. The
+// app's own fetch timeout (40 s) stays the outer bound.
+const CLAUDE_TIMEOUT_MS = Number(process.env.AI_COACH_CLAUDE_TIMEOUT_MS ?? 30000);
+
 const CLAUDE_MODEL = process.env.AI_COACH_CLAUDE_MODEL ?? 'claude-haiku-4-5-20251001';
+// Coaching answers are short and grounded, so the default is a modest effort
+// setting, which keeps the Sonnet/Opus tiers fast. AI_COACH_EFFORT tunes it
+// without a deploy: low | medium | high, or 'off' to disable thinking
+// entirely. Haiku 4.5 rejects both parameters, so it gets neither.
+// Medium: on Sonnet 5, low effort produced garbled Finnish tokens in one
+// answer out of three ("eikän", "viikonon"); medium was clean in every run
+// and no slower (probe, 2026-08-23).
+const EFFORT_SETTING = (process.env.AI_COACH_EFFORT ?? 'medium').trim();
+const EFFORT_CONFIG: Record<string, unknown> = /haiku/.test(CLAUDE_MODEL)
+  ? {}
+  : EFFORT_SETTING === 'off'
+    ? { thinking: { type: 'disabled' } }
+    : { output_config: { effort: ['low', 'medium', 'high'].includes(EFFORT_SETTING) ? EFFORT_SETTING : 'low' } };
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
 /**
@@ -164,13 +185,14 @@ const COACH_SYSTEM_RULES = [
   '- When a section says there is too little history to read something, do not comment on it at all.',
   '- Cite the actual figures. "Your squat top set went 100 to 102.5 kg across three sessions" — not "you are progressing nicely".',
   '- A lift that is up across the window but flat for the last several sessions is stalled. Say so; the recent stall is the actionable part.',
+  '- Fewer than three sessions in the window is not a trend. Do not call it progress, consistency, momentum, or a pattern — say the record is too short to read, then answer what can be answered without it.',
   '- Never diagnose an injury or illness. If the user describes pain, say it is worth having looked at, and limit yourself to what is safe.',
   '',
   '# How to answer',
   '- Answer the question in the first sentence.',
-  '- Two concrete actions beat ten. Give a number wherever a number is the answer.',
+  '- Two concrete actions beat ten: at most three reasons and two next steps. Give a number wherever a number is the answer.',
   '- All weights are kilograms.',
-  '- Answer in the language the user wrote in.',
+  '- Answer in the language the user wrote in, and write numbers and dates the way that language does: Finnish uses a decimal comma (82,5 kg) and day.month dates (3.8.); English uses 82.5 kg and 3 Aug. Never write ISO dates such as 2026-08-03 in prose — the context uses them only as data.',
   '- Do not describe yourself, your context, or how you reasoned.',
   '',
   '# Saying less',
@@ -238,9 +260,12 @@ function parseBody(body: unknown): ParsedBody | null {
 
   return {
     prompt: candidate.prompt.trim(),
-    context: candidate.context as AICoachAdviceRequest['context'],
+    // Repaired, not trusted: a context with fields missing used to reach the
+    // preview builder and crash the function on `trackedLifts[0]`.
+    context: normalizeAiCoachTrainingContext(candidate.context as Partial<AICoachAdviceRequest['context']>),
     language: candidate.language === 'fi' || candidate.language === 'en' ? candidate.language : undefined,
     mode: candidate.mode === 'compose' ? 'compose' : 'advice',
+    reporter: typeof candidate.reporter === 'string' && candidate.reporter.length <= 200 ? candidate.reporter : undefined,
   };
 }
 
@@ -254,14 +279,19 @@ function validateAnswer(payload: unknown): AICoachAdvice | null {
   }
 
   const candidate = payload as Partial<AICoachAdvice>;
-  const { takeaway, why, nextSteps, plan, assumptions } = candidate;
-  if (
-    typeof takeaway !== 'string' ||
-    !isStringArray(why) ||
-    !isStringArray(nextSteps) ||
-    !isStringArray(plan) ||
-    !isStringArray(assumptions)
-  ) {
+  const { takeaway } = candidate;
+  if (typeof takeaway !== 'string' || !takeaway.trim()) {
+    return null;
+  }
+  // A list the model left out is an empty list, not an invalid answer:
+  // Sonnet 5 omits `plan: []` when there is no plan to give, and the whole
+  // answer fell back to preview over it (eval, 2026-08-23).
+  const list = (value: unknown) => (isStringArray(value) ? value : value === undefined ? [] : null);
+  const why = list(candidate.why);
+  const nextSteps = list(candidate.nextSteps);
+  const plan = list(candidate.plan);
+  const assumptions = list(candidate.assumptions);
+  if (why === null || nextSteps === null || plan === null || assumptions === null) {
     return null;
   }
 
@@ -306,7 +336,7 @@ async function requestClaude(input: AICoachAdviceRequest) {
   if (!apiKey) {
     return createError(
       { code: 'MISSING_API_KEY', message: 'ANTHROPIC_API_KEY is not configured.' },
-      buildAiCoachPreviewAnswer(input.prompt, input.context),
+      buildAiCoachPreviewAnswer(input.prompt, input.context, input.language),
       'ANTHROPIC_API_KEY puuttuu. AI Coach preview-vastaus palautettiin sen sijaan.',
     );
   }
@@ -334,7 +364,7 @@ async function requestClaude(input: AICoachAdviceRequest) {
             ? 'Coach budget for this window is spent.'
             : 'Request is larger than the coach endpoint accepts.',
       },
-      buildAiCoachPreviewAnswer(input.prompt, input.context),
+      buildAiCoachPreviewAnswer(input.prompt, input.context, input.language),
       'Live AI Coach ei ollut käytettävissä juuri nyt. Preview-vastaus palautettiin.',
     );
   }
@@ -357,6 +387,7 @@ async function requestClaude(input: AICoachAdviceRequest) {
       },
       body: JSON.stringify({
         model: CLAUDE_MODEL,
+        ...EFFORT_CONFIG,
         max_tokens: CLAUDE_MAX_TOKENS,
         // Rules first, then this user's training context. The cache breakpoint
         // sits after both: follow-up questions in the same conversation reuse
@@ -370,6 +401,9 @@ async function requestClaude(input: AICoachAdviceRequest) {
             name: ADVICE_TOOL_NAME,
             description: 'Return coaching advice for the athlete described in the training context.',
             input_schema: AI_COACH_RESPONSE_SCHEMA,
+            // The API validates the tool input against the schema before it
+            // reaches us — required lists included.
+            strict: true,
           },
         ],
         tool_choice: { type: 'tool', name: ADVICE_TOOL_NAME },
@@ -383,7 +417,7 @@ async function requestClaude(input: AICoachAdviceRequest) {
       console.error('AI Coach upstream request failed', response.status, body.slice(0, 400));
       return createError(
         { code: 'UPSTREAM_ERROR', message: 'Claude request failed.' },
-        buildAiCoachPreviewAnswer(input.prompt, input.context),
+        buildAiCoachPreviewAnswer(input.prompt, input.context, input.language),
         'Live AI Coach ei vastannut oikein. Preview-vastaus palautettiin.',
       );
     }
@@ -392,9 +426,19 @@ async function requestClaude(input: AICoachAdviceRequest) {
     const parsed = validateAnswer(extractToolInput(payload));
 
     if (!parsed) {
+      // Shape only, never content: the stop reason tells a truncated answer
+      // (max_tokens) from a refused tool call, and that is the whole diagnosis.
+      const meta = payload && typeof payload === 'object' ? (payload as { stop_reason?: string; content?: unknown[] }) : {};
+      console.error(
+        'AI Coach invalid answer payload',
+        JSON.stringify({
+          stop_reason: meta.stop_reason ?? null,
+          blocks: Array.isArray(meta.content) ? meta.content.map((block) => (block as { type?: string }).type ?? '?') : null,
+        }),
+      );
       return createError(
         { code: 'INVALID_RESPONSE', message: 'Claude returned an invalid schema payload.' },
-        buildAiCoachPreviewAnswer(input.prompt, input.context),
+        buildAiCoachPreviewAnswer(input.prompt, input.context, input.language),
         'Live AI Coach palautti virheellisen vastauksen. Preview-vastaus palautettiin.',
       );
     }
@@ -404,7 +448,7 @@ async function requestClaude(input: AICoachAdviceRequest) {
     const isAbort = error instanceof Error && error.name === 'AbortError';
     return createError(
       { code: isAbort ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_ERROR', message: isAbort ? 'Claude request timed out.' : 'Claude request failed.' },
-      buildAiCoachPreviewAnswer(input.prompt, input.context),
+      buildAiCoachPreviewAnswer(input.prompt, input.context, input.language),
       isAbort ? 'Live AI Coach aikakatkaistiin. Preview-vastaus palautettiin.' : 'Live AI Coach ei ollut tavoitettavissa. Preview-vastaus palautettiin.',
     );
   } finally {
@@ -463,7 +507,11 @@ export function validateProgramme(payload: unknown) {
  * response - the deterministic composer needs the exercise library, which is
  * on the device - so every failure is an error the client answers locally.
  */
-async function requestClaudeProgramme(input: ParsedBody) {
+type ProgrammeResult =
+  | AICoachAdviceError
+  | { ok: true; source: 'live'; proposal: { title: string; sessions: unknown[] } };
+
+async function requestClaudeProgramme(input: ParsedBody): Promise<ProgrammeResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return createError({ code: 'MISSING_API_KEY', message: 'ANTHROPIC_API_KEY is not configured.' });
@@ -497,6 +545,7 @@ async function requestClaudeProgramme(input: ParsedBody) {
       },
       body: JSON.stringify({
         model: CLAUDE_MODEL,
+        ...EFFORT_CONFIG,
         max_tokens: CLAUDE_MAX_TOKENS,
         system: [
           { type: 'text', text: COMPOSER_SYSTEM_RULES },
@@ -567,7 +616,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     res.status(429).json(
       createError(
         { code: 'RATE_LIMIT', message: 'Too many requests. Try again shortly.' },
-        buildAiCoachPreviewAnswer(input.prompt, input.context),
+        buildAiCoachPreviewAnswer(input.prompt, input.context, input.language),
         'Pyyntoraja tayttyi hetkeksi. Preview-vastaus palautettiin.',
       ),
     );
@@ -576,17 +625,49 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   if (input.mode === 'compose') {
     const composed = await requestClaudeProgramme(input);
-    if (composed.ok) {
+    if (composed.ok === true) {
       res.status(200).json(composed);
       return;
     }
+    // Narrowed by the literal discriminant: Vercel's compiler refused the
+    // truthiness form and reported `error` as missing on the union.
+    const failure: AICoachAdviceError = composed;
     const composeStatus =
-      composed.error.code === 'UPSTREAM_TIMEOUT' ? 504 : composed.error.code === 'RATE_LIMIT' ? 429 : composed.error.code === 'BAD_REQUEST' ? 400 : 502;
-    res.status(composeStatus).json(composed);
+      failure.error.code === 'UPSTREAM_TIMEOUT' ? 504 : failure.error.code === 'RATE_LIMIT' ? 429 : failure.error.code === 'BAD_REQUEST' ? 400 : 502;
+    res.status(composeStatus).json(failure);
     return;
   }
 
+  const startedAt = Date.now();
   const result = await requestClaude(input);
+  // TEMPORARY transcript log — see src/lib/aiCoachDebug.ts. Question and
+  // answer only; the training context is never logged. Stored in the same
+  // private Blob store as the backups and read back by
+  // scripts/coach-transcripts.cjs through api/transcripts.ts.
+  if (AI_COACH_DEBUG_TRANSCRIPTS && process.env.AI_COACH_DEBUG_TRANSCRIPTS === '1') {
+    const at = new Date();
+    const day = at.toISOString().slice(0, 10);
+    const pathname = `transcripts/${day}/${at.toISOString().replace(/[:.]/g, '-')}-${Math.random().toString(36).slice(2, 8)}.json`;
+    try {
+      await put(
+        pathname,
+        JSON.stringify({
+          at: at.toISOString(),
+          reporter: input.reporter ?? null,
+          language: input.language,
+          model: CLAUDE_MODEL,
+          durationMs: Date.now() - startedAt,
+          prompt: input.prompt,
+          source: result.ok ? result.source : `error:${result.error.code}`,
+          answer: result.ok ? result.answer : result.fallback ?? null,
+        }),
+        { access: 'private', contentType: 'application/json', addRandomSuffix: false },
+      );
+    } catch (error) {
+      // The log must never cost the reader an answer.
+      console.warn('transcript store failed', error instanceof Error ? error.message : error);
+    }
+  }
   if (result.ok) {
     res.status(200).json(result);
     return;
