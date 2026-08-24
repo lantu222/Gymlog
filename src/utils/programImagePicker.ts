@@ -6,8 +6,8 @@ import { PROGRAM_IMAGE_MAX_BASE64_CHARS, ProgramImageMediaType } from '../lib/pr
 /**
  * Choosing a photo of a programme and getting it small enough to send.
  *
- * Kept out of `src/lib` because every line of it touches the device: a
- * permission dialog, the system picker, and the image encoder.
+ * Kept out of `src/lib` because every line of it touches the device: the
+ * system picker and the image encoder.
  */
 
 export interface PickedProgramImage {
