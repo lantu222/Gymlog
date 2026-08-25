@@ -1588,9 +1588,9 @@ function VinhaApp() {
    * Recovery, in the shape the progression gate acts on.
    *
    * The gate has carried fatigue holds since it was written, and nothing ever
-   * passed a signal in — so `paywall.benefit.recover.b` ("Pro reads your load
-   * and eases off before fatigue costs you a week") described something that
-   * never happened on a single set. This is the wire.
+   * passed a signal in — so the paywall's "Pro reads your load and eases off
+   * before fatigue costs you a week" described something that never happened
+   * on a single set. This is the wire.
    *
    * It rides on the progression options, which resolveProgressionOptions
    * already gates behind Pro, so the hold is a paid behaviour by construction

@@ -110,10 +110,11 @@ module.exports = [
       // agreeing — which is exactly the release step: flip extra.demoBuild to
       // false, and this test names what became a lie.
       const screen = read('src/screens/PremiumScreen.tsx');
-      // The onboarding paywall makes the same promise, louder and to every new
-      // user, so it is covered by the same guard.
-      const paywall = read('src/screens/ProPaywallScreen.tsx');
-      const advertisesTrial = /'pro\.v2\.cta'/.test(screen) || /'paywall\.cta'/.test(paywall);
+      // The onboarding paywall used to make the same promise and was covered
+      // here too; the screen went unreachable when onboarding stopped ending
+      // on it (d262ca1) and was deleted 2026-08-25. The Pro page is now the
+      // one surface that can advertise a trial.
+      const advertisesTrial = /'pro\.v2\.cta'/.test(screen);
       if (!advertisesTrial) {
         return;
       }
@@ -207,13 +208,10 @@ module.exports = [
       // And while it is off, NOTHING may still promise it. Covering only the
       // onboarding paywall was the gap that let the Pro page keep advertising
       // "Start 7-day free trial" for a whole session after the switch flipped —
-      // and the Pro page is where all twelve entry points lead.
+      // and the Pro page is where all twelve entry points lead. (The
+      // onboarding paywall itself was deleted 2026-08-25 after going
+      // unreachable, so the Pro page is the only CTA left to check.)
       if (!trialEnabled) {
-        assert.match(
-          read('src/screens/ProPaywallScreen.tsx'),
-          /trial \? 'paywall\.cta' : 'paywall\.cta\.noTrial'/,
-          'The trial is off but the onboarding paywall CTA does not switch copy.',
-        );
         assert.match(
           read('src/screens/PremiumScreen.tsx'),
           /PRO_TRIAL_ENABLED \? 'pro\.v2\.cta' : 'pro\.v2\.cta\.noTrial'/,
@@ -311,15 +309,10 @@ module.exports = [
       // It used to hang off the demo flag and this test asserted that wiring.
       // That was the wrong bar: the demo build is the one a reader holds, so
       // "unreachable in a release build" made the claim unreachable by nobody.
-      // The figures are deleted. This asserts they are still deleted.
-      const paywall = read('src/screens/ProPaywallScreen.tsx');
-      assert.doesNotMatch(
-        paywall,
-        /HERO_STATS|showStats/,
-        'the hero statistics must stay deleted, not come back behind a flag',
-      );
-      // The cohort citation lived in the dictionary, not the screen, so that
-      // is where it has to stay gone.
+      // The figures are deleted — and the screen that carried them
+      // (ProPaywallScreen) followed on 2026-08-25, so what is left to guard
+      // is the dictionary: the cohort citation lived there, not the screen,
+      // and that is where it has to stay gone.
       assert.doesNotMatch(
         read('src/lib/i18n.ts'),
         /paywall\.cohort|n = 4/,

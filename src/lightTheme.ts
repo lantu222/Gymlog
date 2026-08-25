@@ -116,23 +116,6 @@ export type AW3Palette = { readonly [K in AW3Token]: string };
  * against the otherwise light app — the contrast is what marks it as the paid
  * feature. Shared with the full-analysis screen so the two cannot drift.
  */
-/**
- * The exercise-info sheet, a dark panel that slides over the live logger.
- *
- * Values lifted verbatim from the retired dark theme, which the sheet used to
- * import directly. That import made a deliberate dark surface look like a
- * leftover, and it was the last thing outside onboarding holding the old
- * palette alive. Declared here it is a choice; whether that choice is still
- * right is a design question, not a colour-token one.
- */
-export const INFO_SHEET = {
-  scrim: 'rgba(8, 11, 16, 0.84)',
-  text: '#F4FAFF',
-  textSoft: '#C6D8E8',
-  textMuted: '#9CB3C7',
-  accent: '#96D8FF',
-} as const;
-
 export const COACH = {
   bg: '#17122A',
   surface: '#221A3D',

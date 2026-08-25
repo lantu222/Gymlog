@@ -46,7 +46,8 @@ module.exports = [
       // preview behind it. There used to be a third — the Pro paywall as the
       // closing step — removed on 2026-08-24 because the reader had just been
       // handed a programme and the next thing the app did was ask for money.
-      // The paywall screen itself is untouched and still reached from Profile.
+      // The paywall screen went unreachable with this change and was deleted
+      // on 2026-08-25; the guard below keeps onboarding from re-growing one.
       assert.match(onboardingSource, /const \[planReadyView, setPlanReadyView\] = useState<'overview' \| 'day'>\('overview'\)/);
       assert.doesNotMatch(onboardingSource, /renderProgramPick|ProgramPickCard/);
       assert.doesNotMatch(onboardingSource, /renderPlanReadyPro|ProPaywallScreen|onStartProTrial/);

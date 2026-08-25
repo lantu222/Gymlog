@@ -94,7 +94,6 @@ const suites = [
   ...require('./lib/cardio.test.cjs'),
   ...require('./lib/exerciseRig/squat.test.cjs'),
   ...require('./lib/workoutLoggerNavigation.test.cjs'),
-  ...require('./lib/exerciseInfo.test.cjs'),
   ...require('./lib/exerciseSuggestions.test.cjs'),
   ...require('./lib/routeHistory.test.cjs'),
   ...require('./lib/dashboard.test.cjs'),

@@ -280,15 +280,18 @@ module.exports = [
       //
       // The prices lost nothing: five other keys pin 59,90 and two pin 9,90,
       // all from screens that exist.
+      //
+      // Three more paywall.* keys left the map on 2026-08-25 the same way the
+      // first three did: ProPaywallScreen went unreachable when onboarding
+      // stopped ending on it and was deleted, and cta.footYear / yearly.note /
+      // yearly.week rendered nowhere else. The two plan prices below survive
+      // because PremiumScreen and PremiumUnlockScreen read them.
       const priced = {
         'pro.page.billedYearly': /59,90/,
         'coach.lock.fine': /59,90/,
         'pro.v2.ctaSubYearly': /59,90/,
         'paywall.plan.yearly.price': /59,90/,
-        'paywall.cta.footYear': /59,90/,
         'pro.page.perYearly': /4,99/,
-        'paywall.plan.yearly.note': /4,99/,
-        'paywall.plan.yearly.week': /1,15/,
         'pro.page.perMonthly': /9,90/,
         'paywall.plan.monthly.price': /9,90/,
         'pro.page.perLifetime': /119,00/,
@@ -306,7 +309,7 @@ module.exports = [
       // The root cause: PremiumScreen carried '5,99 €' and '9,99 €' as string
       // literals in its plan array, so the numbers this guard exists for were
       // not in the file this guard reads.
-      for (const file of ['PremiumScreen.tsx', 'ProPaywallScreen.tsx']) {
+      for (const file of ['PremiumScreen.tsx']) {
         // Comments are exempt: the one in PremiumScreen quotes both retired
         // prices to explain how they came to ship together, and losing that
         // to a guard about rendered strings would be the wrong trade.
@@ -489,12 +492,9 @@ module.exports = [
     name: 'the post-onboarding offer states only counts the code can prove',
     run() {
       // The two figures are read from the catalog and the library, never typed.
-      // The onboarding paywall's programs line follows the same rule — it is
-      // the only number on that screen anyone can check, so it must not become
-      // a string the day someone adds a program.
-      const paywallSource = read('src', 'screens', 'ProPaywallScreen.tsx');
-      assert.match(paywallSource, /count: WORKOUT_TEMPLATES_V1\.length/);
-      assert.doesNotMatch(paywallSource, /'\d+ (programs|ohjelmaa)/);
+      // (The onboarding paywall followed the same rule until the screen was
+      // deleted 2026-08-25 — it had been unreachable since onboarding stopped
+      // ending on it.)
       assert.match(proOfferSource, /WORKOUT_TEMPLATES_V1\.length/);
       assert.match(proOfferSource, /GENERATED_EXERCISE_LIBRARY\.length/);
       assert.doesNotMatch(proOfferSource, /'\d+ (ready programs|exercises)/);

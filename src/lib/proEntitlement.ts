@@ -86,9 +86,10 @@ export const PRO_TRIAL_DAYS = 7;
  * app.json stops declaring extra.demoBuild while this is still false, so the
  * switch cannot reach a store by being forgotten.
  *
- * Turning it off is not enough on its own: the paywall's CTA says "Start 7
- * days free", and a button that grants nothing while promising a week is worse
- * than no button. ProPaywallScreen reads this flag and sells the year instead.
+ * Turning it off is not enough on its own: a CTA that says "Start 7 days
+ * free" while granting nothing is worse than no button, so the Pro page reads
+ * this flag and sells the year instead. (The onboarding paywall used to read
+ * it too, until that screen was deleted 2026-08-25.)
  */
 export const PRO_TRIAL_ENABLED = false;
 
