@@ -8,7 +8,6 @@ function read(...segments) {
 
 const appSource = read('App.tsx');
 const settingsSource = read('src', 'screens', 'SettingsScreen.tsx');
-const planSettingsSource = read('src', 'screens', 'PlanSettingsScreen.tsx');
 const premiumSource = read('src', 'screens', 'PremiumScreen.tsx');
 const homeSource = read('src', 'screens', 'HomeScreen.tsx');
 const proOfferSource = read('src', 'screens', 'ProOfferScreen.tsx');
@@ -107,20 +106,13 @@ module.exports = [
     },
   },
   {
-    name: 'Settings and Plan settings resolve Pro through the entitlement',
+    name: 'Settings resolves Pro through the entitlement',
     run() {
-      assert.match(
-        planSettingsSource,
-        /import \{ isProUnlocked \} from '\.\.\/lib\/proEntitlement';/,
-      );
-      assert.match(planSettingsSource, /const proUnlocked = isProUnlocked\(preferences\);/);
-      assert.doesNotMatch(
-        planSettingsSource,
-        /preferences\.adaptiveCoachPremiumUnlocked/,
-        'PlanSettingsScreen must not read the raw preview flag — a promo user is Pro too',
-      );
+      // Plan settings sat beside this guard until the screen was removed
+      // outright (user decision 2026-08-25) — its equipment, swap and
+      // progression editors went with it.
 
-      // Settings resolves through resolveProEntitlement too — a promo user
+      // Settings resolves through resolveProEntitlement — a promo user
       // is Pro. The demo row that named the granting source is gone
       // (2026-08-22), so the unlocked boolean alone is what remains.
       assert.match(

@@ -192,22 +192,6 @@ export type AppRoute =
     }
   | {
       tab: 'profile';
-      screen: 'plan_settings';
-    }
-  | {
-      tab: 'profile';
-      screen: 'exercise_preferences';
-    }
-  | {
-      tab: 'profile';
-      screen: 'equipment';
-    }
-  | {
-      tab: 'profile';
-      screen: 'joint_swaps';
-    }
-  | {
-      tab: 'profile';
       screen: 'premium';
       /**
        * Why the reader is here. The paywall sold automated progression to

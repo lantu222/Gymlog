@@ -106,8 +106,6 @@ interface TrainingPlanScreenProps {
    * the people most ready to pay.
    */
   onCopyToCustomPlan?: () => void;
-  /** Equipment, swaps and progression live one level deeper. */
-  onOpenPlanSettings: () => void;
   onAiAssisted: () => void;
   onBuildYourself: () => void;
   onImportProgram: (draft: WorkoutTemplateDraft) => Promise<void> | void;
@@ -150,7 +148,6 @@ export function TrainingPlanScreen({
   onChangeTrainingCycle,
   onEditCustomPlan,
   onCopyToCustomPlan,
-  onOpenPlanSettings,
   onAiAssisted,
   onBuildYourself,
   onImportProgram,
@@ -516,21 +513,6 @@ export function TrainingPlanScreen({
               ) : null}
             </View>
 
-            {/* The one entry into equipment / swaps / progression — keeps every
-                plan-related surface behind this single screen. */}
-            <View style={settingsStyles.section}>
-              <Pressable
-                accessibilityRole="button"
-                onPress={onOpenPlanSettings}
-                style={({ pressed }) => [settingsStyles.card, styles.planSettingsRow, pressed && { opacity: 0.75 }]}
-              >
-                <View style={styles.planSettingsCopy}>
-                  <Text style={styles.planSettingsTitle}>{t(language, 'plan.settings')}</Text>
-                  <Text style={styles.planSettingsSub}>{t(language, 'plan.settingsSub')}</Text>
-                </View>
-                <ChevronIcon />
-              </Pressable>
-            </View>
           </>
         ) : (
           <View style={styles.emptyBlock}>
@@ -885,27 +867,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     textAlign: 'center',
     marginTop: 6,
     paddingHorizontal: 20,
-  },
-  planSettingsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 14,
-  },
-  planSettingsCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  planSettingsTitle: {
-    color: theme.ink,
-    fontSize: 14.5,
-    fontWeight: '800',
-  },
-  planSettingsSub: {
-    color: theme.muted,
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
   },
   createButton: {
     height: 50,

@@ -242,12 +242,8 @@ import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { OnboardingReadyCatalogScreen } from './src/screens/OnboardingReadyCatalogScreen';
 import { StartPathScreen } from './src/screens/StartPathScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
-import { EquipmentPreferencesScreen } from './src/screens/EquipmentPreferencesScreen';
-import { ExercisePreferencesScreen } from './src/screens/ExercisePreferencesScreen';
 import { ExerciseDetailScreen } from './src/screens/ExerciseDetailScreen';
 import { ExercisesScreen } from './src/screens/ExercisesScreen';
-import { JointFriendlySwapsScreen } from './src/screens/JointFriendlySwapsScreen';
-import { PlanSettingsScreen } from './src/screens/PlanSettingsScreen';
 import { setNumberLanguage } from './src/lib/format';
 import { buildPremiumHeroChart } from './src/lib/premiumHeroChart';
 import { buildProChatHeroScript } from './src/lib/proChatHero';
@@ -303,7 +299,6 @@ import {
   ExerciseTemplateDraft,
   SetupDaysPerWeek,
   SetupEquipment,
-  SetupScheduleMode,
   SetupWeekday,
   SetupGender,
   SetupTrainingEnvironment,
@@ -601,22 +596,6 @@ function getBackRoute(route: AppRoute, workoutHome: AppRoute): AppRoute | null {
 
   if (route.tab === 'profile' && route.screen === 'setup') {
     return ROOT_ROUTES.profile;
-  }
-
-  if (route.tab === 'profile' && route.screen === 'plan_settings') {
-    return ROOT_ROUTES.profile;
-  }
-
-  if (route.tab === 'profile' && route.screen === 'exercise_preferences') {
-    return { tab: 'profile', screen: 'plan_settings' };
-  }
-
-  if (route.tab === 'profile' && route.screen === 'equipment') {
-    return { tab: 'profile', screen: 'plan_settings' };
-  }
-
-  if (route.tab === 'profile' && route.screen === 'joint_swaps') {
-    return { tab: 'profile', screen: 'plan_settings' };
   }
 
   if (route.tab === 'profile' && route.screen === 'premium') {
@@ -2879,69 +2858,8 @@ function VinhaApp() {
     navigate({ tab: 'profile', screen: 'setup' });
   }
 
-  function handleOpenPlanSettings() {
-    navigate({ tab: 'profile', screen: 'plan_settings' });
-  }
-
-  function handleOpenExercisePreferences() {
-    navigate({ tab: 'profile', screen: 'exercise_preferences' });
-  }
-
-  function handleOpenEquipment() {
-    navigate({ tab: 'profile', screen: 'equipment' });
-  }
-
-  function handleOpenJointSwaps() {
-    navigate({ tab: 'profile', screen: 'joint_swaps' });
-  }
-
   function handleOpenPremium() {
     navigate({ tab: 'profile', screen: 'premium' });
-  }
-
-  async function handleTailoringPreferenceChange(patch: Partial<AppPreferences>) {
-    const nextPreferences = {
-      ...preferences,
-      ...patch,
-    };
-    const nextSetupSelection = buildSetupSelectionFromPreferences(nextPreferences);
-
-    if (!nextSetupSelection) {
-      await updatePreferences(patch);
-      return;
-    }
-
-    const nextTailoringPreferences = buildTailoringPreferences(nextPreferences);
-    const nextRecommendation = resolveFirstRunRecommendationWithTailoring(nextSetupSelection, nextTailoringPreferences);
-
-    await updatePreferences({
-      ...patch,
-      recommendedProgramId: nextRecommendation.featuredProgramId,
-    });
-  }
-
-  async function handleUpdateScheduleMode(nextMode: SetupScheduleMode) {
-    if (preferences.setupScheduleMode === nextMode) {
-      return;
-    }
-
-    const patch: Partial<AppPreferences> = {
-      setupScheduleMode: nextMode,
-    };
-
-    if (nextMode === 'app_managed') {
-      patch.setupAvailableDays = [];
-    } else if (preferences.setupAvailableDays.length === 0 && preferences.setupDaysPerWeek) {
-      patch.setupAvailableDays = DEFAULT_RHYTHM_BY_DAYS[preferences.setupDaysPerWeek];
-    }
-
-    await updatePreferences(patch);
-    showToast(
-      t(
-        preferences.appLanguage,
-        nextMode === 'app_managed' ? 'toast.scheduleAppManaged' : 'toast.scheduleSelfManaged',
-      ),
-    );
   }
 
   async function handleSetupCompleteToTraining(selection: FirstRunSetupSelection, recommendedProgramId: string) {
@@ -6028,68 +5946,6 @@ function VinhaApp() {
         onAskCoach={() => navigate({ tab: 'home', screen: 'ai_chat' })}
       />
     );
-  } else if (route.tab === 'profile' && route.screen === 'plan_settings') {
-    content = (
-      <PlanSettingsScreen
-        language={preferences.appLanguage}
-        preferences={preferences}
-        recommendedProgramName={currentFitReadyTemplate?.name ?? recommendedReadyTemplate?.name ?? null}
-        onBack={() => navigateBack(ROOT_ROUTES.profile)}
-        onRefineSetup={handleOpenSetupEditor}
-        onOpenExercisePreferences={handleOpenExercisePreferences}
-        onOpenEquipment={handleOpenEquipment}
-        onOpenJointSwaps={handleOpenJointSwaps}
-        onOpenPremium={handleOpenPremium}
-        onScheduleModeChange={(mode) => void handleUpdateScheduleMode(mode)}
-        onAutomatedProgressionChange={(enabled) => void updatePreferences({ automatedProgressionEnabled: enabled })}
-        onOpenProgram={
-          (setupRecommendation?.featuredProgramId ?? preferences.recommendedProgramId)
-            ? () => openRecommendedProgramDetail((setupRecommendation?.featuredProgramId ?? preferences.recommendedProgramId)!)
-            : undefined
-        }
-        onAskAiCoach={() => {
-          // The coach answers in Finnish; the question it was handed was an
-          // English literal, and the chat shows it as the reader's own message.
-          const askProgramName = currentFitReadyTemplate?.name ?? recommendedReadyTemplate?.name;
-          navigate({
-            tab: 'home',
-            screen: 'ai',
-            prompt: askProgramName
-              ? t(preferences.appLanguage, 'plan.askFit', {
-                  program: formatWorkoutDisplayLabel(askProgramName),
-                })
-              : t(preferences.appLanguage, 'plan.askFitGeneric'),
-          });
-        }}
-      />
-    );
-  } else if (route.tab === 'profile' && route.screen === 'exercise_preferences') {
-    content = (
-      <ExercisePreferencesScreen
-        language={preferences.appLanguage}
-        preferences={preferences}
-        onBack={() => navigateBack({ tab: 'profile', screen: 'plan_settings' })}
-        onChange={(patch) => void handleTailoringPreferenceChange(patch)}
-      />
-    );
-  } else if (route.tab === 'profile' && route.screen === 'equipment') {
-    content = (
-      <EquipmentPreferencesScreen
-        language={preferences.appLanguage}
-        preferences={preferences}
-        onBack={() => navigateBack({ tab: 'profile', screen: 'plan_settings' })}
-        onChange={(patch) => void handleTailoringPreferenceChange(patch)}
-      />
-    );
-  } else if (route.tab === 'profile' && route.screen === 'joint_swaps') {
-    content = (
-      <JointFriendlySwapsScreen
-        language={preferences.appLanguage}
-        preferences={preferences}
-        onBack={() => navigateBack({ tab: 'profile', screen: 'plan_settings' })}
-        onChange={(patch) => void handleTailoringPreferenceChange(patch)}
-      />
-    );
   } else if (route.tab === 'profile' && route.screen === 'premium') {
     content = (
       <PremiumScreen
@@ -6173,7 +6029,6 @@ function VinhaApp() {
             onTeachName={(wrote, exercise) => teachExerciseName(wrote, { name: exercise.name, libraryItemId: exercise.id })}
             onPickImage={handlePickProgramImage}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
-        onOpenPlanSettings={handleOpenPlanSettings}
         onChangeTrainingDays={(days) => void handleChangeTrainingDays(days)}
         onChangeTrainingCycle={(cycle) => void updatePreferences({ trainingCycle: cycle })}
         onEditCustomPlan={
@@ -6900,10 +6755,6 @@ function VinhaApp() {
       route.screen === 'subscription' ||
       route.screen === 'legal');
   const premiumActive = route.tab === 'profile' && route.screen === 'premium';
-  const planSettingsActive = route.tab === 'profile' && route.screen === 'plan_settings';
-  const exercisePreferencesActive = route.tab === 'profile' && route.screen === 'exercise_preferences';
-  const equipmentActive = route.tab === 'profile' && route.screen === 'equipment';
-  const jointSwapsActive = route.tab === 'profile' && route.screen === 'joint_swaps';
   const aiCoachActive = route.tab === 'home' && route.screen === 'ai';
   const aiSetupActive = route.tab === 'home' && route.screen === 'ai_setup';
   const historyActive = route.tab === 'home' && (route.screen === 'history' || route.screen === 'session' || route.screen === 'cardio');

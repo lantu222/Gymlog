@@ -213,7 +213,6 @@ const suites = [
   ...require('./lib/displayLabel.test.cjs'),
   ...require('./lib/decimalSeparator.test.cjs'),
   ...require('./lib/localizedFormatting.test.cjs'),
-  ...require('./lib/tailoring.test.cjs'),
   ...require('./lib/tailoringFit.test.cjs'),
   ...require('./lib/recommendationExplanation.test.cjs'),
   ...require('./lib/recommendationProfile.test.cjs'),
