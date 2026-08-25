@@ -176,6 +176,15 @@ export function AICoachChatScreen({
    * in its dependency list would be one turn behind.
    */
   const conversation = useRef<AICoachConversationTurn[]>([]);
+  /**
+   * Whether the last answer actually came from the coach.
+   *
+   * A build with no endpoint is offline by design; a build with one can still
+   * be offline for a minute — rate limited, upstream down. The badge states
+   * which, so a canned answer is never mistaken for a coached one.
+   */
+  const [answeredOffline, setAnsweredOffline] = useState(false);
+  const online = liveConfigured && !answeredOffline;
 
   const chips = useMemo(() => buildCoachContextChips(intro, language), [intro, language]);
   // Shown until the first question. It is the reader's own log, which is both
@@ -418,6 +427,9 @@ export function AICoachChatScreen({
         // "the AI chat does not work" looks from the reader's side: a real
         // answer, just a useless one. Say which it was.
         const fellBackToPreview = liveConfigured && result.source === 'preview';
+        // Recovers on its own: the next answer that reaches the model clears
+        // the badge, so it reports the present rather than a past outage.
+        setAnsweredOffline(result.source === 'preview');
         // Charged for an answer, not for a send. An answer that could only ask
         // for a clearer question is free: three a week is too few to spend one
         // on a chip the app itself offered and could not handle.
@@ -511,6 +523,8 @@ export function AICoachChatScreen({
         if (token !== askToken.current) {
           return;
         }
+        // The request never landed, which is the plainest offline there is.
+        setAnsweredOffline(true);
         // An upstream failure still knocked: the call was made and it costs.
         if (!proUnlocked) {
           onFreeQuestionUsed();
@@ -559,7 +573,19 @@ export function AICoachChatScreen({
           <SparkGlyph color={theme.purple} />
         </View>
         <View style={styles.headerCopy}>
-          <Text style={styles.headerTitle}>{t(language, 'coachChat.title')}</Text>
+          <View style={styles.headerTitleRow}>
+            <Text style={styles.headerTitle}>{t(language, 'coachChat.title')}</Text>
+            <View
+              style={[styles.modeBadge, online ? styles.modeBadgeOnline : styles.modeBadgeOffline]}
+              accessibilityRole="text"
+              accessibilityLabel={t(language, online ? 'coachChat.mode.onlineA11y' : 'coachChat.mode.offlineA11y')}
+            >
+              <View style={[styles.modeDot, online ? styles.modeDotOnline : styles.modeDotOffline]} />
+              <Text style={[styles.modeText, online ? styles.modeTextOnline : styles.modeTextOffline]}>
+                {t(language, online ? 'coachChat.mode.online' : 'coachChat.mode.offline')}
+              </Text>
+            </View>
+          </View>
           {/* One line, not a subtitle plus a strip of chips plus a footnote.
               What the coach has read and what today is are the same fact. */}
           <Text style={styles.headerSub} numberOfLines={2}>
@@ -968,6 +994,57 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  // Small and quiet. It is a state, not a warning — the only time it should
+  // catch the eye is when it disagrees with what the reader expects.
+  modeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  modeBadgeOnline: {
+    borderColor: theme.border,
+    backgroundColor: 'transparent',
+  },
+  modeBadgeOffline: {
+    borderColor: theme.highlight,
+    backgroundColor: 'transparent',
+  },
+  modeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  modeDotOnline: {
+    backgroundColor: theme.highlight,
+  },
+  modeDotOffline: {
+    // Hollow rather than a second colour: a red light would read as broken,
+    // and an offline answer is a degraded answer, not a failure.
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: theme.faint,
+  },
+  modeText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  modeTextOnline: {
+    color: theme.faint,
+  },
+  modeTextOffline: {
+    color: theme.faint,
+  },
   bubbleRow: {
     flexDirection: 'row',
     justifyContent: 'flex-start',
@@ -977,7 +1054,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   // The coach gets no bubble at all: it is the voice of the screen, not a
   // participant in it. Only the user's own words are enclosed.
+  //
+  // `flex: 1` and not just a maxWidth. Without it the block is only as wide as
+  // its widest line, and an answer whose takeaway is one short sentence
+  // squeezed every reason and step under it into that same narrow column —
+  // the same text, three times as tall, and a screen of scrolling to read it
+  // (user, 2026-08-25, on the offline answers where the takeaway is shortest).
   coachBubble: {
+    flex: 1,
     maxWidth: '96%',
   },
   meBubble: {

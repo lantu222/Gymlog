@@ -28,6 +28,14 @@ module.exports = [
 
       const i18n = fs.readFileSync(path.join(__dirname, '../../src/lib/i18n.ts'), 'utf8');
       assert.equal((i18n.match(/'coachChat\.offlineAnswer':/g) ?? []).length, 2, 'both languages');
+
+      // The header says which mode the chat is in, and it recovers on its own:
+      // the badge reports the last answer, not a past outage.
+      assert.match(screen, /const online = liveConfigured && !answeredOffline;/);
+      assert.match(screen, /setAnsweredOffline\(result\.source === 'preview'\);/);
+      // A request that never landed is the plainest offline there is.
+      assert.match(screen, /setAnsweredOffline\(true\);/);
+      assert.equal((i18n.match(/'coachChat\.mode\.online':/g) ?? []).length, 2, 'both languages');
     },
   },
   {
