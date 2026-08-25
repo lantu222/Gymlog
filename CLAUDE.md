@@ -18,7 +18,9 @@ npm run slack:notify    # Post a note to a Slack channel (see docs/slack-workflo
 
 Findings that are real but out of scope go to Slack rather than into the change
 in front of you. `#bugs` for defects, `#marketing` for store copy and competitor
-notes, `#releases` for what shipped — setup in
+notes, `#releases` for what shipped, `#to-do` for post-launch work with its
+cost estimate attached (read/write through the Slack connector; no webhook) —
+setup in
 [docs/slack-workflow.md](docs/slack-workflow.md).
 
 The user logs bugs from their phone into `#bugs`. Read the channel through the
