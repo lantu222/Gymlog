@@ -128,3 +128,122 @@ kysymyksillä, joilla 23.8. epäonnistuttiin.
 - Ei ruokapäiväkirjaa — ravinto neuvotaan painon ja tavoitteen varassa,
   kunnes joskus ehkä muuta.
 - Ilmoitusehdotus koskee vain punnitusta; muut muistutuslajit myöhemmin.
+
+## 6. Tarkennukset 25.8. — käyttäjän viisi kohtaa
+
+Vaihe 1 on tehty (`a7090f7`). Nämä viisi tarkentavat vaiheita 2–4, ja jokainen
+on päätös eikä idea: mitä tehdään, ja miksi juuri tässä muodossa.
+
+### 6.1 Tavoitteille pääsuositus, ei numeroitua prioriteettia
+
+Ongelma on tosi: `CoachGoal` on lista ilman järjestystä, ja neljä tavoitetta
+samalla tasolla tuottaa neljä laimeaa vastausta.
+
+`priority: 1..n` **hylättiin**. Kaksi syytä. Ensinnäkin se on kenttä jota kukaan
+ei ylläpidä — asetetaan kerran ja vanhenee hiljaa, sama vikaluokka kuin muissa
+kirjoitetuissa muttei kytketyissä oletusarvoissa. Toiseksi ranking ei ratkaise
+oikeaa ristiriitaa: rasvanpudotus ja rinnanympärys eivät sovi yhteen
+painottamalla, koska kaloriohje voi olla vain joko ylijäämä tai alijäämä.
+Järjestys ei valitse, se hämärtää.
+
+Tehdään sen sijaan:
+
+- `preferences.primaryGoalId` — yksi tavoite kerrallaan on "nyt tärkein",
+  muut jäävät listalle taustaksi. Vaihdettavissa yhdellä napautuksella.
+- Promptisääntö: kun tavoitteet vetävät eri suuntiin, valmentaja **nimeää
+  ristiriidan kerran ja kysyy kumpi ensin** — ei jaa eroa. Tämä on sama
+  koneisto kuin 6.4, eli se rakentuu ilmaiseksi sen päälle.
+- Kontekstiin `goals`-listaan `isPrimary`-lippu.
+
+### 6.2 Ravinto: kentät ovat jo olemassa, lupa laskea puuttuu
+
+Sukupuoli, ikä ja pituus **ovat jo kontekstissa** — `App.tsx` syöttää
+`setupGender`, `setupAge` ja `setupHeightCm`, ne kysytään onboardingissa ja
+niitä voi muokata Omat tiedot -ruudulla. Kenttiä ei siis tarvitse lisätä.
+
+Puuttuva pala on lupa laskea. Nykyinen sääntö antaa vain proteiinin
+(1,6–2,2 g/kg) eikä sano mitään ylläpidosta, joten malli ei tuota sitä
+"300 kcal ylijäämää" jota tavoitevalmennus vaatii, vaikka sillä on kaikki
+tarvittava. Lisätään sääntö: kun pituus, ikä ja sukupuoli ovat kontekstissa,
+laske ylläpito (Mifflin-St Jeor) ja ilmoita ylijäämä tai alijäämä lukuna;
+kun jokin niistä puuttuu, anna per kg -sääntö ja sano mitä puuttuu.
+
+**Aktiivisuustasoa ei kysytä.** Appi mittaa sen jo: `sessionsThisWeek`,
+`sessionsLast30Days` ja cardio-minuutit. Itse ilmoitettu "kohtalaisen
+aktiivinen" on kenttä joka valehtelee kuukauden kuluttua; laskettu treenimäärä
+ei. Aktiivisuuskerroin johdetaan näistä.
+
+### 6.3 Ehdotuksille cooldown — hylkäys tarkoittaa ei
+
+Rakennetaan vaiheen 3 mukana, sisään leivottuna eikä jälkikäteen. Malli on jo
+olemassa: `ratingPrompt.ts` tekee täsmälleen tämän (kysy viikoittain, katoa kun
+on vastattu).
+
+Viisi keskustelua on liian lyhyt. Jos käyttäjä sanoo ei aamupunnitus-
+muistutukselle, hän tarkoittaa "ei", ei "kysy ensi viikolla". Siksi:
+
+- ensimmäinen hylkäys → 30 vrk hiljaisuutta sille ehdotustyypille
+- toinen hylkäys → ei enää koskaan tälle tyypille
+- hyväksytty ehdotus → ei koskaan uudestaan (asia on jo päällä)
+
+Tallennus: `preferences.coachSuggestionState` — tyyppi → `{ rejectedCount,
+lastRejectedAt, acceptedAt }`. Sama muistisääntö kuin siruissa: asia joka on
+aina esillä on kohinaa.
+
+### 6.4 Kun valmentaja ei tiedä: yksi kysymys, veloituksetta
+
+**Tästä aloitetaan.** Halvin toteuttaa ja muuttaa sävyn neuvomisesta
+valmentamiseen: jos mittauksia ei ole koskaan kirjattu, paras vastaus
+kysymykseen "miten saan rinnanympäryksen kasvamaan nopeammin" ei ole neuvo
+vaan mittauspyyntö.
+
+Koneisto on jo paikallaan, eikä sitä ole kytketty: `AICoachAdvice.unanswered`
+on olemassa, ja client jättää veloittamatta kun se on tosi
+(`AICoachChatScreen`). Vain palvelin ei ole koskaan asettanut sitä — lippua
+asettaa tällä hetkellä pelkkä offline-esikatselu.
+
+Toteutus:
+
+- `AI_COACH_RESPONSE_SCHEMA` saa `unanswered`-kentän (ei pakollinen).
+- `validateAnswer` päästää sen läpi.
+- Sääntö: kun konteksti ei riitä tarkkaan vastaukseen, älä arvaa äläkä anna
+  yleisvastausta — **kysy täsmälleen yksi lyhyt jatkokysymys**, laita se
+  `takeaway`iin, jätä muut kentät tyhjiksi ja merkitse `unanswered`.
+- Rajaus samaan sääntöön: kysy vain kun puuttuva tieto oikeasti estää
+  vastaamisen. Jos hyödyllinen vastaus on olemassa, se annetaan. Muuten
+  kysymisestä tulee tapa väistää.
+- Kysymys suunnataan siihen mitä appi voi ottaa vastaan (mitta, tavoite,
+  paino), jotta vaiheen 3 ehdotusnappi voi tarttua siihen suoraan.
+
+Kaksi ehtoa jotka tekevät tästä oikean eivätkä ärsyttävän: **vastauskysymys ei
+saa veloittaa** (viikkokiintiö on 3 ilmaista kysymystä; käyttäjä ei maksa
+siitä ettei app tiennyt — ennakkotapaus `dde8c7c`), ja kysymys **tarjotaan
+lopulta nappina** eikä pelkkänä tekstinä. Nappi tulee vaiheessa 3; ilman sitä
+kysymys on tyhjä lupaus, joten 6.4 ei ole valmis ennen kuin se on kytketty.
+
+### 6.5 Luottamustaso lasketaan, ei arvioida
+
+Tavoite on oikea — "kolmen kuukauden datan perusteella" on eri lause kuin
+"näyttää siltä" — mutta **malli ei arvioi omaa luottamustaan**. Se on juuri se
+asia jossa kielimallit ovat huonoja, ja lopputulos on hedge-generaattori:
+"näyttää siltä" liimataan kaiken eteen ja epävarmuudesta tulee tyylikeino.
+
+Luottamus lasketaan clientissä siitä mitä jo lasketaan (sessiot ikkunassa,
+mittausten määrä, historian pituus) ja annetaan kontekstiin **faktana**, ei
+arviona: `history.confidence: 'low' | 'medium' | 'high'` sekä luvut joista se
+seuraa. Sitten yksi promptisääntö kääntää tason sallituksi sanamuodoksi.
+Silloin luottamus ei voi hallusinoitua, koska malli ei keksi sitä.
+
+Alkeismuoto on jo säännöissä ("fewer than three sessions is not a trend");
+kyse on sen laajentamisesta portaisiin. **Tasoa ei näytetä käyttäjälle
+siruna** — sävy riittää.
+
+### 6.6 Uusi toteutusjärjestys
+
+1. **6.4** — ei-tiedä-kysymys + `unanswered` palvelimelta (aloitettu 25.8.)
+2. **6.1** — pääsuositus ja ristiriitasääntö
+3. **6.5** — luottamus kontekstifaktana
+4. **Vaihe 2** — smalltalk clientissä + istunnon viestihistoria
+5. **Vaihe 3 + 6.3** — suggestions-kenttä, napit ja cooldown samassa
+6. **Vaihe 4** — eval-tapaukset, myös 6.4:lle (kysyykö se silloin kun pitää,
+   ja onko se hiljaa silloin kun ei pidä) ja 6.2:lle (tuleeko kaloriluku)

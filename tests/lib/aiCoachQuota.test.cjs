@@ -65,4 +65,21 @@ module.exports = [
       assert.equal(resolveCoachQuota({ weekStart: 'garbage', used: 2 }, WED).remaining, 3);
     },
   },
+  {
+    name: 'coach quota: a reply that only asks a question does not spend one',
+    run() {
+      // The other half of the same rule lives in the chat screen, and it is a
+      // condition rather than a function — so it is guarded at the source.
+      // Losing the `!answer.unanswered` term would charge for every follow-up
+      // question the coach asks, which is exactly what it was added to stop.
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const screen = fs.readFileSync(
+        path.join(__dirname, '../../src/screens/AICoachChatScreen.tsx'),
+        'utf8',
+      );
+
+      assert.match(screen, /if \(!proUnlocked && !answer\.unanswered\) \{\s*\n\s*onFreeQuestionUsed\(\);/);
+    },
+  },
 ];

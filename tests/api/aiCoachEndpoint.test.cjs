@@ -32,6 +32,35 @@ module.exports = [
     },
   },
   {
+    name: 'a follow-up question comes back marked, so the free tier is not charged for it',
+    run() {
+      // The client has always skipped the charge on `unanswered` — but only
+      // the offline preview ever set it, so a live "I need to know X first"
+      // spent one of three questions a week. All four pieces must hold
+      // together: the model may report it, the rules say when, the rules say
+      // when not, and the validator carries it through.
+      assert.match(source, /unanswered: \{\s*\n\s*type: 'boolean'/);
+      assert.match(source, /# When you cannot answer/);
+      assert.match(source, /ask exactly one short follow-up question/);
+      assert.match(source, /set `unanswered` to true/);
+      // The opposite failure — hedging every thin answer into a question —
+      // is the more likely one, so both guards are asserted.
+      assert.match(source, /Ask only when the missing fact actually blocks the answer/);
+      assert.match(source, /Never set `unanswered` on a reply that does answer/);
+      assert.match(source, /\.\.\.\(candidate\.unanswered === true \? \{ unanswered: true \} : \{\}\)/);
+    },
+  },
+  {
+    name: 'the coach introduces itself as Vinha, not under the old brand',
+    run() {
+      // GAINER is another company's EU trademark; the app has been Vinha
+      // Fitness since the rename. This is the one place the model could say
+      // the name out loud.
+      assert.match(source, /You are Vinha Coach, the training coach inside Vinha Fitness/);
+      assert.doesNotMatch(source, /GAINER/);
+    },
+  },
+  {
     name: 'the cached prefix covers the rules and the training context',
     run() {
       // The context is the bulk of every request. Follow-up questions in one

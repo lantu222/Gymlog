@@ -174,6 +174,11 @@ const AI_COACH_RESPONSE_SCHEMA = {
       items: { type: 'string' },
       description: 'Anything you had to assume because the context did not say. Empty when nothing was assumed.',
     },
+    unanswered: {
+      type: 'boolean',
+      description:
+        'True only when `takeaway` is a follow-up question instead of an answer, because the context did not hold what the question needed. The app does not charge a free-tier question for it.',
+    },
   },
 } as const;
 
@@ -183,7 +188,7 @@ const AI_COACH_RESPONSE_SCHEMA = {
  * Kept as a constant prefix so it caches cleanly ahead of the training context.
  */
 const COACH_SYSTEM_RULES = [
-  'You are GAINER Coach, the training coach inside a strength and hypertrophy logging app.',
+  'You are Vinha Coach, the training coach inside Vinha Fitness, a strength and hypertrophy logging app.',
   '',
   '# Scope',
   '- You advise on training: programming, progression, exercise selection, technique cues, recovery, and nutrition as it relates to gaining muscle or losing fat.',
@@ -191,7 +196,7 @@ const COACH_SYSTEM_RULES = [
   '',
   '# Evidence rules — these outrank being helpful',
   '- The training context is the entire record of this user. Never state a number, session, exercise, or date that does not appear in it.',
-  '- If the context lacks what you need, say what you would need. Do not estimate, and do not fill the gap with what is typical.',
+  '- If the context lacks what you need, do not answer anyway. Do not estimate, and do not fill the gap with what is typical — ask instead, under "When you cannot answer" below.',
   '- When a section says there is too little history to read something, do not comment on it at all.',
   '- Cite the actual figures. "Your squat top set went 100 to 102.5 kg across three sessions" — not "you are progressing nicely".',
   '- A lift that is up across the window but flat for the last several sessions is stalled. Say so; the recent stall is the actionable part.',
@@ -209,6 +214,13 @@ const COACH_SYSTEM_RULES = [
   '- All weights are kilograms.',
   '- Answer in the language the user wrote in, and write numbers and dates the way that language does: Finnish uses a decimal comma (82,5 kg) and day.month dates (3.8.); English uses 82.5 kg and 3 Aug. Never write ISO dates such as 2026-08-03 in prose — the context uses them only as data.',
   '- Do not describe yourself, your context, or how you reasoned.',
+  '',
+  '# When you cannot answer',
+  '- A coach asks before advising. When the context does not hold what an accurate answer needs, do not guess and do not fall back on a generic answer: ask exactly one short follow-up question, put that question in `takeaway`, leave `why`, `nextSteps`, `plan` and `assumptions` empty, and set `unanswered` to true.',
+  '- One question, never two, and never a question plus an answer. It is the whole reply.',
+  '- Ask only when the missing fact actually blocks the answer. If a useful answer exists from what you have, give it — asking instead of answering is evasion, and it is the more common failure.',
+  '- Prefer a question the app can act on: a measurement to log, a goal to set, a bodyweight to record. "Chest growth is measured, not guessed — shall we log your chest measurement now so there is a starting point?" beats "what do you mean by faster?".',
+  '- Never set `unanswered` on a reply that does answer. The flag means the reader was asked something, not that the answer was short or uncertain.',
   '',
   '# Body, goals and nutrition',
   '- When the context lists goals, tie the answer to them: say where the user stands against the goal and name the one thing that moves it next.',
@@ -362,12 +374,18 @@ function validateAnswer(payload: unknown): AICoachAdvice | null {
     return null;
   }
 
+  // A follow-up question is not a billable answer. The client already reads
+  // this flag and skips the free-tier charge; until now only the offline
+  // preview ever set it, so a live "I need to know X first" cost a question
+  // out of three a week. Carried through only when true, so an answer stays
+  // the same object it was.
   return {
     takeaway,
     why,
     nextSteps,
     plan,
     assumptions,
+    ...(candidate.unanswered === true ? { unanswered: true } : {}),
   };
 }
 
