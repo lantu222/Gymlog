@@ -1095,27 +1095,26 @@ export function HomeScreen({
                 style={({ pressed }) => [styles.heroListMetaRow, pressed && styles.pressed]}
               >
                 {/* Named like its neighbours (user 2026-08-25): "Treeni"
-                    between Lämmittely and Palautuminen. The counts sit UNDER
-                    the title at the left edge, on the same margin the
-                    section's exercise rows start from — beside the title they
-                    read as part of it (user, same evening). */}
-                <View style={styles.heroListTitleRow}>
-                  <Text style={styles.heroListTitle}>{t(language, 'home.section.workout')}</Text>
-                  <View style={{ transform: [{ rotate: workoutListOpen ? '180deg' : '0deg' }] }}>
-                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                      <Path
-                        d="m6 9 6 6 6-6"
-                        stroke={theme.faint}
-                        strokeWidth={2.4}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </Svg>
-                  </View>
-                </View>
+                    between Lämmittely and Palautuminen, and laid out exactly
+                    like them — title left, counts at the right edge before
+                    the chevron, the same seat Lämmittely's own meta sits in.
+                    (Two other seats were tried the same evening; this row
+                    reads as family only when it IS the family layout.) */}
+                <Text style={styles.heroListTitle}>{t(language, 'home.section.workout')}</Text>
                 <Text style={styles.heroListMeta} numberOfLines={1}>
                   {t(language, 'home.section.workoutMeta', { count: totalExerciseCount, sets: totalSets })}
                 </Text>
+                <View style={{ transform: [{ rotate: workoutListOpen ? '180deg' : '0deg' }] }}>
+                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="m6 9 6 6 6-6"
+                      stroke={theme.faint}
+                      strokeWidth={2.4}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                </View>
               </Pressable>
               {(workoutListOpen ? nextPlanSession.exercises : []).map((exercise, index) => {
                 const swappedName = exercise.slotId ? sessionSwaps[exercise.slotId] : undefined;
@@ -2186,19 +2185,16 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   heroList: {
     marginTop: 18,
   },
-  // A two-line header: title row on top, counts under it at the left edge.
+  // The same anatomy as blockRow, so the three section rows read as one
+  // family: title takes the line, meta sits at the right edge, chevron last.
   heroListMetaRow: {
-    paddingVertical: 8,
-    gap: 3,
-  },
-  heroListTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: 10,
+    paddingVertical: 8,
   },
-  // Same voice as blockTitle, so the three section rows read as one family.
   heroListTitle: {
+    flex: 1,
     color: theme.ink,
     fontSize: 15,
     lineHeight: 19,
