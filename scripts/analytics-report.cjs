@@ -3,12 +3,14 @@
  * The daily glance: pulls the anonymous usage events and prints the numbers
  * the events exist to answer — dailies, the onboarding funnel, and retention.
  *
- *   npx tsc -p tsconfig.test.json          # once, after src changes
  *   node scripts/analytics-report.cjs                  # everything
  *   node scripts/analytics-report.cjs --since 2026-08-25
  *
  * Needs EXPO_PUBLIC_ANALYTICS_URL and ANALYTICS_READ_SECRET in .env.local.
  * Downloads and money are not here — Play Console owns those.
+ *
+ * scripts/analytics-dashboard.cjs draws the same numbers as a local HTML
+ * page; both share fetchEvents/aggregate below so they cannot disagree.
  */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -26,24 +28,18 @@ function env() {
   return out;
 }
 
-async function main() {
+/** Pulls and flattens the events. Shared with the HTML dashboard. */
+async function fetchEvents(since) {
   const vars = env();
   const url = (vars.EXPO_PUBLIC_ANALYTICS_URL ?? '').trim();
   const secret = (vars.ANALYTICS_READ_SECRET ?? '').trim();
   if (!url || !secret) {
-    console.error('Need EXPO_PUBLIC_ANALYTICS_URL and ANALYTICS_READ_SECRET in .env.local');
-    process.exitCode = 1;
-    return;
+    throw new Error('Need EXPO_PUBLIC_ANALYTICS_URL and ANALYTICS_READ_SECRET in .env.local');
   }
-
-  const sinceArg = process.argv.indexOf('--since');
-  const since = sinceArg !== -1 ? process.argv[sinceArg + 1] : undefined;
   const query = since ? `?since=${since}&limit=2000` : '?limit=2000';
   const response = await fetch(url + query, { headers: { 'x-analytics-secret': secret } });
   if (!response.ok) {
-    console.error(`HTTP ${response.status}: ${await response.text()}`);
-    process.exitCode = 1;
-    return;
+    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
   }
   const payload = await response.json();
   const events = [];
@@ -52,14 +48,14 @@ async function main() {
       events.push({ installId: batch.installId, name: event.name, at: event.at, props: event.props ?? {} });
     }
   }
-  if (events.length === 0) {
-    console.log('No events yet.');
-    return;
-  }
   events.sort((a, b) => a.at.localeCompare(b.at));
-  const day = (iso) => iso.slice(0, 10);
+  return { events, batchTotal: payload.total ?? 0 };
+}
 
-  // ── Dailies ──────────────────────────────────────────────────────────────
+const day = (iso) => iso.slice(0, 10);
+
+/** Every number both renderers print, from one pass over the events. */
+function aggregate(events) {
   const byDay = new Map();
   for (const event of events) {
     const key = day(event.at);
@@ -73,15 +69,10 @@ async function main() {
     if (event.name === 'coach_question_asked') row.coach += 1;
     if (event.name === 'paywall_viewed') row.paywall += 1;
   }
-  console.log('\nPÄIVITTÄIN  (aktiiviset · avaukset · treenit · coach-kysymykset · paywall)');
-  for (const [key, row] of [...byDay.entries()].sort()) {
-    console.log(
-      `  ${key}   ${String(row.installs.size).padStart(3)} · ${String(row.opens).padStart(3)} · ${String(row.workouts).padStart(3)} · ${String(row.coach).padStart(3)} · ${String(row.paywall).padStart(3)}`,
-    );
-  }
+  const dailies = [...byDay.entries()]
+    .sort()
+    .map(([key, row]) => ({ day: key, actives: row.installs.size, opens: row.opens, workouts: row.workouts, coach: row.coach, paywall: row.paywall }));
 
-  // ── Onboarding funnel ────────────────────────────────────────────────────
-  // Per install: the set of steps it ever reached, then how many made each.
   const stepsByInstall = new Map();
   const completed = new Set();
   const adopted = new Set();
@@ -99,8 +90,7 @@ async function main() {
   }
   const reached = (step) => [...stepsByInstall.values()].filter((set) => set.has(step)).length;
   const total = new Set(events.map((event) => event.installId)).size;
-  console.log(`\nSUPPILO  (${total} asennusta nähty)`);
-  const stages = [
+  const funnel = [
     ['aloitti onboardingin (path)', reached('path')],
     ['perustiedot (about)', reached('about')],
     ['kysely (questionnaire)', reached('questionnaire')],
@@ -110,13 +100,7 @@ async function main() {
     ['treeni aloitettu', startedWorkout.size],
     ['treeni kirjattu', finishedWorkout.size],
   ];
-  for (const [label, count] of stages) {
-    const share = total ? Math.round((count / total) * 100) : 0;
-    console.log(`  ${String(count).padStart(4)}  (${String(share).padStart(3)} %)  ${label}`);
-  }
 
-  // ── Retention ────────────────────────────────────────────────────────────
-  // First open per install, then whether it was seen again on D+1..2 / D+6..8.
   const firstOpen = new Map();
   const openDays = new Map();
   for (const event of events) {
@@ -137,13 +121,45 @@ async function main() {
     return false;
   };
   const installs = [...firstOpen.keys()];
-  const d2 = installs.filter((id) => within(id, 1, 2)).length;
-  const d7 = installs.filter((id) => within(id, 6, 8)).length;
-  console.log(`\nPALUU  D2: ${d2}/${installs.length}   D7: ${d7}/${installs.length}`);
-  console.log(`\n${events.length} events, ${payload.total} batches on the server.`);
+  const retention = {
+    installs: installs.length,
+    d2: installs.filter((id) => within(id, 1, 2)).length,
+    d7: installs.filter((id) => within(id, 6, 8)).length,
+  };
+
+  return { dailies, funnel, funnelTotal: total, retention };
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  process.exitCode = 1;
-});
+module.exports = { fetchEvents, aggregate };
+
+async function main() {
+  const sinceArg = process.argv.indexOf('--since');
+  const since = sinceArg !== -1 ? process.argv[sinceArg + 1] : undefined;
+  const { events, batchTotal } = await fetchEvents(since);
+  if (events.length === 0) {
+    console.log('No events yet.');
+    return;
+  }
+  const { dailies, funnel, funnelTotal, retention } = aggregate(events);
+
+  console.log('\nPÄIVITTÄIN  (aktiiviset · avaukset · treenit · coach-kysymykset · paywall)');
+  for (const row of dailies) {
+    console.log(
+      `  ${row.day}   ${String(row.actives).padStart(3)} · ${String(row.opens).padStart(3)} · ${String(row.workouts).padStart(3)} · ${String(row.coach).padStart(3)} · ${String(row.paywall).padStart(3)}`,
+    );
+  }
+  console.log(`\nSUPPILO  (${funnelTotal} asennusta nähty)`);
+  for (const [label, count] of funnel) {
+    const share = funnelTotal ? Math.round((count / funnelTotal) * 100) : 0;
+    console.log(`  ${String(count).padStart(4)}  (${String(share).padStart(3)} %)  ${label}`);
+  }
+  console.log(`\nPALUU  D2: ${retention.d2}/${retention.installs}   D7: ${retention.d7}/${retention.installs}`);
+  console.log(`\n${events.length} events, ${batchTotal} batches on the server.`);
+}
+
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error.message);
+    process.exitCode = 1;
+  });
+}
