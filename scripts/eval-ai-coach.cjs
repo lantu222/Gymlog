@@ -19,6 +19,40 @@ const { buildAiCoachPreviewAnswer } = require('../.test-dist/lib/aiCoachPreview.
 const live = process.argv.includes('--live');
 const endpoint = process.env.AI_COACH_API_URL;
 
+/**
+ * The endpoint allows 12 requests per 10 minutes from one address, and a phone
+ * on the same network shares them. A nine-case run fits — until a slow call is
+ * retried, and then it does not: the previous run spent thirteen requests on
+ * nine cases and stopped on the tenth.
+ *
+ * So the runner counts what it spends and waits for the window rather than
+ * walking into the wall. One slot is held back for a retry.
+ */
+const RATE_LIMIT_MAX = Number(process.env.AI_COACH_RATE_LIMIT_MAX ?? 12);
+const RATE_WINDOW_MS = Number(process.env.AI_COACH_RATE_LIMIT_WINDOW_MS ?? 10 * 60 * 1000);
+const budget = { windowStartedAt: 0, used: 0 };
+/** Slowest call of the run, so a timeout is a measurement rather than a surprise. */
+const timings = [];
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function reserveRequestSlot() {
+  const now = Date.now();
+  if (budget.windowStartedAt === 0 || now - budget.windowStartedAt >= RATE_WINDOW_MS) {
+    budget.windowStartedAt = now;
+    budget.used = 0;
+  }
+  // One held back: a retry must not be the request that trips the limit.
+  if (budget.used >= RATE_LIMIT_MAX - 1) {
+    const waitMs = budget.windowStartedAt + RATE_WINDOW_MS - now + 2000;
+    console.log(`  rate window full (${budget.used} used) — waiting ${Math.ceil(waitMs / 1000)}s`);
+    await sleep(waitMs);
+    budget.windowStartedAt = Date.now();
+    budget.used = 0;
+  }
+  budget.used += 1;
+}
+
 async function answerFor(evalCase, retry = false) {
   if (!live) {
     return buildAiCoachPreviewAnswer(evalCase.prompt, evalCase.context, evalCase.language);
@@ -28,6 +62,8 @@ async function answerFor(evalCase, retry = false) {
     throw new Error('--live needs AI_COACH_API_URL');
   }
 
+  await reserveRequestSlot();
+  const startedAt = Date.now();
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -40,6 +76,7 @@ async function answerFor(evalCase, retry = false) {
     }),
   });
   const payload = await response.json();
+  timings.push({ id: evalCase.id, ms: Date.now() - startedAt });
 
   // A fallback answer is not the live coach; scoring it would quietly report
   // the preview's number as if the endpoint had produced it.
@@ -51,10 +88,21 @@ async function answerFor(evalCase, retry = false) {
     // A rate limit is not transient on that timescale: retrying immediately
     // just spends another slot, so it stops the run and says why.
     if (code === 'RATE_LIMIT') {
-      throw new Error(
-        `${evalCase.id}: rate limited. The endpoint allows 12 requests per 10 minutes per IP, ` +
-          'and a phone on the same network shares them. Wait for the window and run again.',
-      );
+      // The runner's own count can start mid-window — the server has been
+      // answering somebody else, a phone on the same address most likely. So
+      // this waits the window out and tries once more rather than throwing
+      // away the cases already answered.
+      if (retry) {
+        throw new Error(
+          `${evalCase.id}: still rate limited after waiting. Something else on this address is ` +
+            'using the endpoint; stop it, or wait ten minutes and run again.',
+        );
+      }
+      console.log(`  ${evalCase.id}: rate limited — waiting ${Math.ceil(RATE_WINDOW_MS / 1000)}s for the window`);
+      await sleep(RATE_WINDOW_MS + 2000);
+      budget.windowStartedAt = Date.now();
+      budget.used = 0;
+      return answerFor(evalCase, true);
     }
     if (retry) {
       throw new Error(`${evalCase.id}: endpoint returned ${code} twice`);
@@ -83,6 +131,15 @@ async function main() {
   const run = scoreRun(results);
   console.log(`\nVinha Coach eval — ${live ? 'LIVE endpoint' : 'offline preview'}\n`);
   console.log(formatRunReport(run));
+  if (timings.length > 0) {
+    const slowest = [...timings].sort((left, right) => right.ms - left.ms)[0];
+    const total = timings.reduce((sum, entry) => sum + entry.ms, 0);
+    console.log(
+      `
+latency: ${Math.round(total / timings.length / 100) / 10}s average, ` +
+        `slowest ${Math.round(slowest.ms / 100) / 10}s (${slowest.id}), ${timings.length} requests`,
+    );
+  }
   if (skipped.length > 0) {
     // Said out loud: a set that quietly shrinks reads as full coverage.
     console.log(`\n${skipped.length} case(s) skipped, live only: ${skipped.join(', ')}`);
