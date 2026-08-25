@@ -27,9 +27,28 @@ function focusOf(name: string): string {
   return (match?.[1] ?? '').trim();
 }
 
+/**
+ * The candidate localized EXCEPT its last segment, which stays English.
+ *
+ * The wound is mixed-language: the clip happened in the English source
+ * ("Full Body + C...") and the duplication then localized what it could,
+ * leaving "Koko keho + C..." in the store. Its stem matches neither the
+ * English candidate (F ≠ K) nor the full Finnish one ("Koko keho +
+ * Kiertoharjoittelu", K ≠ C) — only this half-translated form does.
+ */
+function headLocalized(focus: string): string {
+  const parts = focus.split(/(\s*[&+/]\s*)/);
+  const lastIndex = parts.length - 1;
+  return parts
+    .map((part, index) =>
+      /^\s*[&+/]\s*$/.test(part) || index === lastIndex ? part : localizeWorkoutFocus(part, 'fi'),
+    )
+    .join('');
+}
+
 let candidateCache: string[] | null = null;
 
-/** Every catalog session focus, in English and in Finnish, deduplicated. */
+/** Every catalog session focus — English, Finnish, and head-localized. */
 function candidates(): string[] {
   if (candidateCache) {
     return candidateCache;
@@ -42,7 +61,7 @@ function candidates(): string[] {
       if (!focus) {
         continue;
       }
-      for (const form of [focus, localizeWorkoutFocus(focus, 'fi')]) {
+      for (const form of [focus, localizeWorkoutFocus(focus, 'fi'), headLocalized(focus)]) {
         const key = form.toLowerCase();
         if (!seen.has(key)) {
           seen.add(key);
@@ -57,7 +76,10 @@ function candidates(): string[] {
 
 export function repairTruncatedSessionName(name: string): string {
   const trimmed = name.trim();
-  const cut = trimmed.match(/^(.*?)(?:\.{3}|…)$/);
+  // Two OR more dots: the wound on the user's phone was transcribed as both
+  // "H..." and "H..", and requiring exactly three left the two-dot form
+  // uncured through a whole build (2026-08-25). One dot stays a sentence end.
+  const cut = trimmed.match(/^(.*?)\s*(?:\.{2,}|…)$/);
   if (!cut) {
     return name;
   }

@@ -15,8 +15,13 @@ module.exports = [
       // Finnish-saved custom programmes complete through the localizer.
       assert.equal(repairTruncatedSessionName('Päivä 1: Koko keho + H...'), 'Päivä 1: Koko keho + HIIT');
 
-      // The unicode ellipsis is the same wound with one character.
+      // The unicode ellipsis is the same wound with one character — and so is
+      // the two-dot form, which the first version of this repair missed on
+      // the very phone it was written for.
       assert.equal(repairTruncatedSessionName('Day 1: Full Body + H…'), 'Day 1: Full Body + HIIT');
+      assert.equal(repairTruncatedSessionName('Day 1: Full Body + H..'), 'Day 1: Full Body + HIIT');
+      assert.equal(repairTruncatedSessionName('Päivä 2: Koko keho + C..'), 'Päivä 2: Koko keho + Circuit');
+      assert.equal(repairTruncatedSessionName('Day 1: Full Body + H ...'), 'Day 1: Full Body + HIIT');
 
       // No day prefix still completes — the stem is the key, not the frame.
       assert.equal(repairTruncatedSessionName('Full Body + Interv...'), 'Full Body + Intervals');

@@ -968,12 +968,16 @@ export function HomeScreen({
                   onPress={() => setTodaySheetVisible(true)}
                   style={({ pressed }) => [styles.heroTitleRow, pressed && styles.pressed]}
                 >
+                  {/* Two lines as the last resort after the shrink: a name
+                      too long for one line at 60 % used to ellipsize, and a
+                      clipped hero was reported three times before its causes
+                      (plural) were all found (user 2026-08-25). */}
                   <AnimatedGreeting
                     text={localizeWorkoutFocus(focusTitle, language)}
                     style={styles.heroTitle}
                     accentColor={theme.purpleBright}
                     mode="line"
-                    numberOfLines={1}
+                    numberOfLines={2}
                     adjustsFontSizeToFit
                     minimumFontScale={0.6}
                   />
