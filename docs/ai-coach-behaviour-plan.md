@@ -128,3 +128,185 @@ kysymyksillä, joilla 23.8. epäonnistuttiin.
 - Ei ruokapäiväkirjaa — ravinto neuvotaan painon ja tavoitteen varassa,
   kunnes joskus ehkä muuta.
 - Ilmoitusehdotus koskee vain punnitusta; muut muistutuslajit myöhemmin.
+
+## 6. Tarkennukset 25.8. — käyttäjän viisi kohtaa
+
+Vaihe 1 on tehty (`a7090f7`). Nämä viisi tarkentavat vaiheita 2–4, ja jokainen
+on päätös eikä idea: mitä tehdään, ja miksi juuri tässä muodossa.
+
+### 6.1 Tavoitteille pääsuositus, ei numeroitua prioriteettia
+
+Ongelma on tosi: `CoachGoal` on lista ilman järjestystä, ja neljä tavoitetta
+samalla tasolla tuottaa neljä laimeaa vastausta.
+
+`priority: 1..n` **hylättiin**. Kaksi syytä. Ensinnäkin se on kenttä jota kukaan
+ei ylläpidä — asetetaan kerran ja vanhenee hiljaa, sama vikaluokka kuin muissa
+kirjoitetuissa muttei kytketyissä oletusarvoissa. Toiseksi ranking ei ratkaise
+oikeaa ristiriitaa: rasvanpudotus ja rinnanympärys eivät sovi yhteen
+painottamalla, koska kaloriohje voi olla vain joko ylijäämä tai alijäämä.
+Järjestys ei valitse, se hämärtää.
+
+Tehdään sen sijaan:
+
+- `preferences.primaryGoalId` — yksi tavoite kerrallaan on "nyt tärkein",
+  muut jäävät listalle taustaksi. **Tehty 25.8.** Vaihtaminen tapahtuu
+  lausumalla tavoite valmentajalle: uusin sanottu nousee johtoon. Se on
+  toistaiseksi ainoa tapa, koska **tavoitteilla ei ole omaa ruutua lainkaan**
+  — ne ovat näkymättömiä kaikkialla paitsi valmentajan kontekstissa. Tämä on
+  tiedossa oleva aukko, ei oletus siitä että hallintanäkymä olisi olemassa.
+- Vanhentunut tai tyhjä `primaryGoalId` putoaa uusimpaan tavoitteeseen, eikä
+  lista jää koskaan päättömäksi: joko tasan yksi johtaa tai tavoitteita ei ole.
+  Vanha asennus lähettää tavoitteet ilman lippua, ja palvelin korjaa ne samalla
+  säännöllä.
+- Onboardingin painotavoite johtaa vain jos valmentajalle ei ole sanottu mitään:
+  napautettu kenttä ei ohita omin sanoin lausuttua tavoitetta.
+- Promptisääntö: kun tavoitteet vetävät eri suuntiin, valmentaja **nimeää
+  ristiriidan kerran ja kysyy kumpi ensin** — ei jaa eroa. Tämä on sama
+  koneisto kuin 6.4, eli se rakentuu ilmaiseksi sen päälle.
+- Kontekstiin `goals`-listaan `isPrimary`-lippu.
+
+### 6.2 Ravinto: kentät ovat jo olemassa, lupa laskea puuttuu
+
+Sukupuoli, ikä ja pituus **ovat jo kontekstissa** — `App.tsx` syöttää
+`setupGender`, `setupAge` ja `setupHeightCm`, ne kysytään onboardingissa ja
+niitä voi muokata Omat tiedot -ruudulla. Kenttiä ei siis tarvitse lisätä.
+
+Puuttuva pala on lupa laskea. Nykyinen sääntö antaa vain proteiinin
+(1,6–2,2 g/kg) eikä sano mitään ylläpidosta, joten malli ei tuota sitä
+"300 kcal ylijäämää" jota tavoitevalmennus vaatii, vaikka sillä on kaikki
+tarvittava. Lisätään sääntö: kun pituus, ikä ja sukupuoli ovat kontekstissa,
+laske ylläpito (Mifflin-St Jeor) ja ilmoita ylijäämä tai alijäämä lukuna;
+kun jokin niistä puuttuu, anna per kg -sääntö ja sano mitä puuttuu.
+
+**Aktiivisuustasoa ei kysytä.** Appi mittaa sen jo: `sessionsThisWeek`,
+`sessionsLast30Days` ja cardio-minuutit. Itse ilmoitettu "kohtalaisen
+aktiivinen" on kenttä joka valehtelee kuukauden kuluttua; laskettu treenimäärä
+ei. Aktiivisuuskerroin johdetaan näistä.
+
+### 6.3 Ehdotuksille cooldown — hylkäys tarkoittaa ei
+
+Rakennetaan vaiheen 3 mukana, sisään leivottuna eikä jälkikäteen. Malli on jo
+olemassa: `ratingPrompt.ts` tekee täsmälleen tämän (kysy viikoittain, katoa kun
+on vastattu).
+
+Viisi keskustelua on liian lyhyt. Jos käyttäjä sanoo ei aamupunnitus-
+muistutukselle, hän tarkoittaa "ei", ei "kysy ensi viikolla". Siksi:
+
+- ensimmäinen hylkäys → 30 vrk hiljaisuutta sille ehdotustyypille
+- toinen hylkäys → ei enää koskaan tälle tyypille
+- hyväksytty ehdotus → ei koskaan uudestaan (asia on jo päällä)
+
+Tallennus: `preferences.coachSuggestionState` — tyyppi → `{ rejectedCount,
+lastRejectedAt, acceptedAt }`. Sama muistisääntö kuin siruissa: asia joka on
+aina esillä on kohinaa.
+
+### 6.4 Kun valmentaja ei tiedä: yksi kysymys, veloituksetta
+
+**Tästä aloitetaan.** Halvin toteuttaa ja muuttaa sävyn neuvomisesta
+valmentamiseen: jos mittauksia ei ole koskaan kirjattu, paras vastaus
+kysymykseen "miten saan rinnanympäryksen kasvamaan nopeammin" ei ole neuvo
+vaan mittauspyyntö.
+
+Koneisto on jo paikallaan, eikä sitä ole kytketty: `AICoachAdvice.unanswered`
+on olemassa, ja client jättää veloittamatta kun se on tosi
+(`AICoachChatScreen`). Vain palvelin ei ole koskaan asettanut sitä — lippua
+asettaa tällä hetkellä pelkkä offline-esikatselu.
+
+Toteutus:
+
+- `AI_COACH_RESPONSE_SCHEMA` saa `unanswered`-kentän (ei pakollinen).
+- `validateAnswer` päästää sen läpi.
+- Sääntö: kun konteksti ei riitä tarkkaan vastaukseen, älä arvaa äläkä anna
+  yleisvastausta — **kysy täsmälleen yksi lyhyt jatkokysymys**, laita se
+  `takeaway`iin, jätä muut kentät tyhjiksi ja merkitse `unanswered`.
+- Rajaus samaan sääntöön: kysy vain kun puuttuva tieto oikeasti estää
+  vastaamisen. Jos hyödyllinen vastaus on olemassa, se annetaan. Muuten
+  kysymisestä tulee tapa väistää.
+- Kysymys suunnataan siihen mitä appi voi ottaa vastaan (mitta, tavoite,
+  paino), jotta vaiheen 3 ehdotusnappi voi tarttua siihen suoraan.
+
+Kaksi ehtoa jotka tekevät tästä oikean eivätkä ärsyttävän: **vastauskysymys ei
+saa veloittaa** (viikkokiintiö on 3 ilmaista kysymystä; käyttäjä ei maksa
+siitä ettei app tiennyt — ennakkotapaus `dde8c7c`), ja kysymys **tarjotaan
+nappina** eikä pelkkänä tekstinä.
+
+**Nappi kytketty 25.8.**: neljäs ehdotuslaji `log_measurement`, ja sääntö joka
+käskee liittää kysymykseen sitä vastaavan ehdotuksen. Valmentaja ei kirjaa
+lukemaa itse — lukema on juuri se mitä sillä ei ole — vaan nappi avaa sivun
+jolla se kirjataan (paino omalle ruudulleen, muut Edistymisen mittaosioon
+oikean mitan kohdalle). Ei tarjota mitalle joka on jo kirjattu.
+
+### 6.5 Luottamustaso lasketaan, ei arvioida
+
+Tavoite on oikea — "kolmen kuukauden datan perusteella" on eri lause kuin
+"näyttää siltä" — mutta **malli ei arvioi omaa luottamustaan**. Se on juuri se
+asia jossa kielimallit ovat huonoja, ja lopputulos on hedge-generaattori:
+"näyttää siltä" liimataan kaiken eteen ja epävarmuudesta tulee tyylikeino.
+
+Luottamus lasketaan clientissä siitä mitä jo lasketaan (sessiot ikkunassa,
+mittausten määrä, historian pituus) ja annetaan kontekstiin **faktana**, ei
+arviona: `history.confidence: 'low' | 'medium' | 'high'` sekä luvut joista se
+seuraa. Sitten yksi promptisääntö kääntää tason sallituksi sanamuodoksi.
+
+**Tehty 25.8.** Portaat: alle 3 istuntoa = low (sama raja jonka prompti jo
+tunsi), 12 istuntoa **ja** 42 vuorokauden jänne = high, muu = medium. Ylin
+porras vaatii molemmat, koska kahteen viikkoon ahdetut 12 istuntoa kertovat
+suunnasta vähemmän kuin kuudelle viikolle levitetyt. Taso tulee promptiin
+"Reading note"-osiona, joka sanoo suoraan kuinka lujaa saa puhua; sääntö
+kieltää erikseen oman luottamuksen arvioinnin ja peräkkäiset "näyttää
+siltä" -alut.
+Silloin luottamus ei voi hallusinoitua, koska malli ei keksi sitä.
+
+Alkeismuoto on jo säännöissä ("fewer than three sessions is not a trend");
+kyse on sen laajentamisesta portaisiin. **Tasoa ei näytetä käyttäjälle
+siruna** — sävy riittää.
+
+### 6.6 Uusi toteutusjärjestys
+
+1. **6.4** — ei-tiedä-kysymys + `unanswered` palvelimelta (aloitettu 25.8.)
+2. **6.1** — pääsuositus ja ristiriitasääntö
+3. **6.5** — luottamus kontekstifaktana
+4. ~~**Vaihe 2** — smalltalk clientissä + istunnon viestihistoria~~ **tehty 25.8.**
+   - `coachSmallTalk.ts`: koko viesti on smalltalkia tai ei mitään — ei
+     numeroita, ei kysymysmerkkiä, korkeintaan 4 sanaa, jokainen sanastosta.
+     Väärä positiivinen (oikea kysymys → "ole hyvä") on paljon pahempi kuin
+     ohi mennyt kiitos, joten testit ovat pääosin vääriä positiivisia vastaan.
+     Vastataan **ennen kiintiöporttia**: kiintiön loppuminen ei saa estää
+     valmentajaa kiittämästä takaisin.
+   - `coachConversation.ts`: 3 viimeistä vaihtoa muistissa (ref, ei state —
+     state olisi lähetyshetkellä vuoron jäljessä), mukana pyynnössä oikeina
+     vuoroina. Vain takeaway palaa takaisin: perustelut olivat jo ruudulla
+     eikä koko vastausta kannata maksaa uudelleen joka vuorolla. Historia on
+     pyynnön **välimuistittomassa** puoliskossa, joten se lasketaan budjettiin.
+     Mitään ei talleteta — keskustelu päättyy ruudun mukana.
+5. **Vaihe 3 + 6.3** — suggestions-kenttä, napit ja cooldown samassa
+   - **Osa 1 tehty 25.8.**: `suggestion` vastauksessa (max 1), kontekstiin
+     `homeState` (mitkä kortit ovat Kodissa + mitä ei saa ehdottaa),
+     `coachSuggestionState` jäähdytys (1. ei = 30 vrk, 2. ei = ei koskaan,
+     kyllä = ei koskaan). Vaimennetut lajit **matkaavat promptiin** eikä
+     ehdotusta suodateta jälkikäteen — muuten maksettaisiin ehdotuksesta joka
+     heitetään pois. Nappi piirretään vain jos appi osaa sen tehdä: tuntematon
+     mitta ja jäsentymätön tavoiteteksti pudotetaan.
+   - **Osa 2 tehty 25.8.**: `weigh_in_reminder`. Oma ilmoituslaji
+     (`notificationPrefs.weighInReminder`, klo 7.30, 14 vrk kerrallaan koska
+     päivittäinen viesti neljälle viikolle veisi 28 käyttöjärjestelmän 48
+     paikasta), rivi Asetusten ilmoituksiin, ja päivä jolle punnitus on jo
+     kirjattu jää väliin. Prioriteetti heti ennätyksen jälkeen: tämä on ainoa
+     viesti jonka lukija pyytää nimeltä, joten se ei häviä paikkaansa
+     oletuksena päällä olevalle treenimuistutukselle.
+6. ~~**Vaihe 4** — eval-tapaukset~~ **tehty 25.8.**
+   - Neljä uutta tapausta: rinnanympärystavoite, ruokakysymys, "kysy ensin"
+     (mittauksia ei ole) ja jatkokysymys ("entä sitten?" edeltävän vaihdon
+     kanssa). Tapaukset voivat nyt kantaa kehon kirjanpidon, tavoitteet ja
+     keskusteluhistorian.
+   - Kaksi uutta tarkistusta: `expectsQuestion` vaatii **molemmat** puoliskot
+     (kysymys esitetään JA se on merkitty — merkitsemätön kysymys veloittaisi
+     lukijalta), ja `allowsComputedFigures` ohittaa ankkurointitarkistuksen
+     ravintotapauksessa, koska proteiiniluku on laskutoimitus painosta eikä
+     väite menneestä.
+   - Kolme tapausta on **vain live-ajoon**: esikatselu on avainsanamokki jossa
+     ei ole haaraa tavoitteelle eikä mitalle, joten niiden pisteyttäminen
+     offline liikuttaisi lukua syistä jotka eivät kerro promptista mitään.
+     Ajuri **kertoo mitä se ohitti** eikä kutista settiä hiljaa.
+   - Offline-luku uusilla säännöillä: **86,2 %** (25/29). Livekoe ajetaan
+     deployn jälkeen samalla komennolla `--live`-lipulla.

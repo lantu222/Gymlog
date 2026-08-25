@@ -85,6 +85,59 @@ module.exports = [
     },
   },
   {
+    name: 'aiCoachGoals: exactly one goal leads, and a stale id does not leave the list headless',
+    run() {
+      const body = buildAiCoachBodyState([weightEntry(2, 82.4)], [], NOW);
+      const older = {
+        id: 'g-old',
+        text: 'pudota rasvaa',
+        kind: 'bodyweight',
+        targetValue: 78,
+        unit: 'kg',
+        startValue: 84,
+        createdAt: '2026-08-01T06:00:00.000Z',
+      };
+      const newer = {
+        id: 'g-new',
+        text: 'kasvata rinnanympärystä',
+        kind: 'chest',
+        targetValue: 104,
+        unit: 'cm',
+        startValue: 96.5,
+        createdAt: '2026-08-24T06:00:00.000Z',
+      };
+
+      const chosen = buildAiCoachGoals([older, newer], null, body, 'g-old');
+      assert.deepEqual(
+        chosen.map((goal) => goal.isPrimary),
+        [true, false],
+        'the stored choice leads even when it is not the newest',
+      );
+
+      // A goal can be replaced (one per kind), which retires its id. The list
+      // must still have a head, or every answer is measured against nothing.
+      const stale = buildAiCoachGoals([older, newer], null, body, 'g-deleted');
+      assert.deepEqual(
+        stale.map((goal) => goal.isPrimary),
+        [false, true],
+        'a stale id falls back to the most recently stated goal',
+      );
+
+      const none = buildAiCoachGoals([older, newer], null, body, null);
+      assert.equal(none.filter((goal) => goal.isPrimary).length, 1, 'never two heads, never none');
+
+      // The onboarding number is a tapped field, not a spoken goal: it leads
+      // only when nothing was ever said to the coach.
+      const withOnboarding = buildAiCoachGoals([newer], 78, body, null);
+      assert.deepEqual(
+        withOnboarding.map((goal) => goal.isPrimary),
+        [true, false],
+        'a stated goal outranks the onboarding bodyweight target',
+      );
+      assert.equal(buildAiCoachGoals([], 78, body, null)[0].isPrimary, true, 'alone, it leads');
+    },
+  },
+  {
     name: 'aiCoachSystemContext: body and goals render as sections; a normalized bare context omits them',
     run() {
       const body = buildAiCoachBodyState(
@@ -114,9 +167,62 @@ module.exports = [
       assert.ok(text.includes('## Profile'), 'profile section present');
       assert.ok(text.includes('181 cm'));
 
+      // The flag only exists if it reaches the text — the model reads this
+      // rendering, never the object.
+      assert.ok(text.includes('[primary] "yritän kasvattaa rinnanympärystä"'), 'the leading goal is marked in the prompt');
+
       const bare = buildAiCoachSystemContext(normalizeAiCoachTrainingContext({}));
       assert.ok(!bare.includes('## Body record'), 'no body section without a record');
       assert.ok(!bare.includes('## Goals'), 'no goals section without goals');
+    },
+  },
+  {
+    name: 'the reading note tells the coach how firmly it may speak',
+    run() {
+      const note = (history) =>
+        buildAiCoachSystemContext(normalizeAiCoachTrainingContext({ history }));
+      const sessions = (count, everyDays) =>
+        Array.from({ length: count }, (_, index) => ({
+          sessionId: `s${index}`,
+          performedAt: new Date(2026, 5, 1 + index * everyDays).toISOString(),
+        }));
+
+      const thin = note({ sessionCount: 2, sessions: sessions(2, 3), windowDays: 56 });
+      assert.ok(thin.includes('not a trend'), 'a short record is named as one');
+
+      const middling = note({ sessionCount: 6, sessions: sessions(6, 4), windowDays: 56 });
+      assert.ok(middling.includes('enough to read a direction'), 'a medium record gets one qualification');
+      assert.ok(!middling.includes('not a trend'));
+
+      const long = note({ sessionCount: 16, sessions: sessions(16, 3), windowDays: 56 });
+      assert.ok(long.includes('Do not hedge'), 'a long record is stated plainly');
+    },
+  },
+  {
+    name: 'aiCoachGoals: a payload from an app that predates the primary flag still gets a head',
+    run() {
+      // Installed apps keep sending the old shape until the reader updates,
+      // and the rules promise the model that exactly one goal leads.
+      const legacy = normalizeAiCoachTrainingContext({
+        goals: [
+          { text: 'pudota rasvaa', kind: 'bodyweight', targetValue: 78, unit: 'kg', startValue: 84, currentValue: 82, setAt: '2026-08-01' },
+          { text: 'kasvata rinnanympärystä', kind: 'chest', targetValue: 104, unit: 'cm', startValue: 96.5, currentValue: 98, setAt: '2026-08-24' },
+        ],
+      });
+      assert.deepEqual(
+        legacy.goals.map((goal) => goal.isPrimary),
+        [false, true],
+        'the newest goal leads when the client said nothing about it',
+      );
+
+      // A payload that does carry the flag is left exactly as it came.
+      const current = normalizeAiCoachTrainingContext({
+        goals: [
+          { text: 'a', kind: null, targetValue: null, unit: null, startValue: null, currentValue: null, setAt: null, isPrimary: true },
+          { text: 'b', kind: null, targetValue: null, unit: null, startValue: null, currentValue: null, setAt: null, isPrimary: false },
+        ],
+      });
+      assert.deepEqual(current.goals.map((goal) => goal.isPrimary), [true, false]);
     },
   },
 ];

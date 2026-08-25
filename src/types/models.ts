@@ -1,4 +1,5 @@
 import { CancelSurveyAnswer } from '../lib/cancelSurvey';
+import { CoachSuggestionState } from '../lib/coachSuggestions';
 import { SeasonEnrolment } from '../lib/seasonEnrolment';
 import { StrengthGoal } from '../lib/strengthGoals';
 import { SubscriptionTermKey } from '../lib/subscriptionView';
@@ -60,6 +61,12 @@ export interface NotificationPrefs {
   sessionReminders: boolean;
   /** Local time of day for session reminders, 24h "HH:MM". */
   reminderTime: string;
+  /**
+   * A morning nudge to step on the scale, offered by the coach when a goal
+   * needs weight tracked and it is not on. Off until someone asks for it —
+   * this is the one notification a reader opts into by name.
+   */
+  weighInReminder: boolean;
   /**
    * Rest & alerts (design: Background Timer). Defaults assume a noisy gym —
    * each is defeatable here, none is a marketing push.
@@ -416,6 +423,21 @@ export interface AppPreferences {
    */
   aiOnlineNoticeAcknowledged: boolean;
   coachGoals: CoachGoal[];
+  /**
+   * Which goal is the one the coach answers against right now.
+   *
+   * Ranking every goal 1..n was considered and dropped: it is a field nobody
+   * maintains, and it cannot resolve the conflict that matters anyway — fat
+   * loss and chest growth do not settle by weighting, because the calorie
+   * answer is either a surplus or a deficit. One goal leads; the rest stay on
+   * the list as background. Null falls back to the most recently stated goal.
+   */
+  primaryGoalId: string | null;
+  /**
+   * What the coach has already offered and how that went, per suggestion
+   * kind. A refusal is an answer rather than a "later": see coachSuggestions.
+   */
+  coachSuggestionState: CoachSuggestionState;
   /**
    * Whether the hand-off step after onboarding has had its turn. It offers the
    * widget and a tracking card once; a reader who ran onboarding again has

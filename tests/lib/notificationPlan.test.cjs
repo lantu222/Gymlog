@@ -53,6 +53,50 @@ function planWith(overrides = {}) {
 
 module.exports = [
   {
+    name: 'notificationPlan: the weigh-in nudge is off until asked for, then daily, and skips a day already weighed',
+    run() {
+      // This is the one message a reader turns on by name, so it stays off
+      // until they do.
+      assert.equal(planWith().filter((item) => item.category === 'weighIn').length, 0);
+
+      const on = planWith({ prefs: { weighInReminder: true, level: 'motivating' } }).filter(
+        (item) => item.category === 'weighIn',
+      );
+      assert.ok(on.length >= 10, `daily over the horizon, got ${on.length}`);
+      // Tomorrow morning, not this afternoon: 07:30 today has already gone.
+      assert.equal(on[0].fireAtMs, at(2026, 7, 2, 7, 30));
+      assert.ok(on.every((item, index) => index === 0 || item.fireAtMs > on[index - 1].fireAtMs));
+
+      // Already on the scale this morning — a reminder for something done is
+      // the sign that explains a sign.
+      const weighedTomorrow = planWith({
+        prefs: { weighInReminder: true },
+        nowMs: at(2026, 7, 1, 12, 0),
+        lastBodyweightAtMs: at(2026, 7, 2, 8, 0),
+      }).filter((item) => item.category === 'weighIn');
+      assert.ok(
+        weighedTomorrow.every((item) => item.fireAtMs !== at(2026, 7, 2, 7, 30)),
+        'the day with a weigh-in on it gets no nudge',
+      );
+    },
+  },
+  {
+    name: 'notificationPlan: on a crowded quiet day the weigh-in outranks the session reminder',
+    run() {
+      // A reader who asked for this by name should not lose it to a reminder
+      // that was on by default — only a personal record outranks it.
+      const quiet = planWith({
+        prefs: { weighInReminder: true, level: 'quiet' },
+        trainingDays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
+      });
+      const thursday = quiet.filter(
+        (item) => item.fireAtMs >= at(2026, 7, 2, 0, 0) && item.fireAtMs < at(2026, 7, 3, 0, 0),
+      );
+      assert.equal(thursday.length, 1, 'quiet is one message a day');
+      assert.equal(thursday[0].category, 'weighIn');
+    },
+  },
+  {
     name: 'notificationPlan: the master switch off schedules nothing at all',
     run() {
       assert.deepEqual(planWith({ prefs: { pushEnabled: false } }), []);

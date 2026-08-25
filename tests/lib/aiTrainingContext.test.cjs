@@ -77,6 +77,7 @@ module.exports = [
         'fatigue',
         'goals',
         'history',
+        'homeState',
         'latestTopSets',
         'plateaus',
         'profile',
@@ -197,6 +198,51 @@ module.exports = [
       const kept = normalizeAiCoachTrainingContext({ unitPreference: 'lb', sessionsThisWeek: 3 });
       assert.equal(kept.unitPreference, 'lb');
       assert.equal(kept.sessionsThisWeek, 3);
+    },
+  },
+  {
+    name: 'history confidence is counted from the record, and both halves are needed for the top step',
+    run() {
+      const { resolveHistoryConfidence } = require('../../.test-dist/lib/aiTrainingContext.js');
+
+      // The bottom step is the rule the prompt already had: three sessions is
+      // where a trend starts.
+      assert.equal(resolveHistoryConfidence(0, 0), 'low');
+      assert.equal(resolveHistoryConfidence(2, 30), 'low');
+      assert.equal(resolveHistoryConfidence(3, 1), 'medium');
+
+      // Twelve sessions crammed into a fortnight say less about a direction
+      // than the same twelve spread over six weeks, so the top step needs the
+      // count and the calendar together.
+      assert.equal(resolveHistoryConfidence(12, 41), 'medium', 'enough sessions, too short a stretch');
+      assert.equal(resolveHistoryConfidence(11, 56), 'medium', 'long enough stretch, too few sessions');
+      assert.equal(resolveHistoryConfidence(12, 42), 'high');
+    },
+  },
+  {
+    name: 'a history from an older app is recounted, not called short',
+    run() {
+      const { normalizeAiCoachTrainingContext } = require('../../.test-dist/lib/aiTrainingContext.js');
+
+      // Defaulting a missing flag to 'low' would tell a reader with two
+      // months of training that their record is too short to read.
+      const sessions = Array.from({ length: 14 }, (_, index) => ({
+        sessionId: `s${index}`,
+        performedAt: new Date(2026, 5, 1 + index * 4).toISOString(),
+      }));
+      const recounted = normalizeAiCoachTrainingContext({
+        history: { sessionCount: 14, sessions },
+      });
+      assert.equal(recounted.history.confidence, 'high');
+
+      // A history that already carries the level is left alone.
+      const asSent = normalizeAiCoachTrainingContext({
+        history: { sessionCount: 14, sessions, confidence: 'medium' },
+      });
+      assert.equal(asSent.history.confidence, 'medium');
+
+      // And a context with no history at all is still the empty one.
+      assert.equal(normalizeAiCoachTrainingContext({}).history.confidence, 'low');
     },
   },
 ];

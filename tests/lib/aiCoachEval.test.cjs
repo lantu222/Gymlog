@@ -24,6 +24,66 @@ const empty = AI_COACH_EVAL_CASES.find((entry) => entry.id === 'empty-account');
 
 module.exports = [
   {
+    name: 'eval: a question only passes when it is both asked and marked',
+    run() {
+      const asksCase = AI_COACH_EVAL_CASES.find((entry) => entry.id === 'goal-with-no-readings-asks-first');
+      const check = (answer) => scoreCase(asksCase, answer).checks.find((entry) => entry.check === 'asks');
+
+      // Both halves: a question that is not marked would be charged to the
+      // reader out of three questions a week.
+      assert.equal(
+        check(advice({ takeaway: 'Onko rinnanympärystä mitattu kertaakaan?', unanswered: true })).passed,
+        true,
+      );
+      assert.equal(
+        check(advice({ takeaway: 'Onko rinnanympärystä mitattu kertaakaan?' })).passed,
+        false,
+        'an unmarked question still costs a question',
+      );
+      assert.equal(
+        check(advice({ takeaway: 'Lisää volyymia rinnalle.', unanswered: true })).passed,
+        false,
+        'a marked non-question is not a question',
+      );
+    },
+  },
+  {
+    name: 'eval: a computed nutrition figure is not scored as fabrication',
+    run() {
+      // Protein grams are arithmetic on a logged weight. Scoring them against
+      // the context would fail every correct nutrition answer.
+      const nutrition = AI_COACH_EVAL_CASES.find((entry) => entry.id === 'nutrition-anchored-to-bodyweight');
+      assert.equal(nutrition.allowsComputedFigures, true);
+      const result = scoreCase(nutrition, advice({ takeaway: '129-177 g proteiinia päivässä.' }));
+      assert.equal(
+        result.checks.some((entry) => entry.check === 'grounded'),
+        false,
+        'grounding is the wrong lens here and is not applied',
+      );
+
+      // It still applies everywhere else.
+      assert.ok(scoreCase(stalled, advice({ takeaway: 'Volyymi 6240 kg.' })).checks.some((entry) => entry.check === 'grounded'));
+    },
+  },
+  {
+    name: 'eval: the follow-up case carries the exchange it follows',
+    run() {
+      // Without the earlier turn the prompt has no subject, so the case would
+      // be testing nothing.
+      const followUp = AI_COACH_EVAL_CASES.find((entry) => entry.id === 'follow-up-has-an-antecedent');
+      assert.equal(followUp.history.length, 1);
+      assert.match(followUp.history[0].takeaway, /82,5 kg/);
+
+      const runner = require('node:fs').readFileSync(
+        require('node:path').join(__dirname, '../../scripts/eval-ai-coach.cjs'),
+        'utf8',
+      );
+      assert.match(runner, /\.\.\.\(evalCase\.history \? \{ history: evalCase\.history \} : \{\}\)/);
+      // A shrunken set has to say so out loud.
+      assert.match(runner, /case\(s\) skipped, live only/);
+    },
+  },
+  {
     name: 'eval: figures are extracted without tripping over dates',
     run() {
       assert.deepEqual(extractFigures('82.5 kg for 5 sessions'), ['82.5', '5']);
@@ -32,6 +92,12 @@ module.exports = [
       // A performedAt year is not a claim about training.
       assert.deepEqual(extractFigures('since 2026 you lifted 100'), ['100']);
       assert.deepEqual(extractFigures('no numbers here'), []);
+      // Finnish writes dates as day.month, which reads as a decimal. The rules
+      // tell the coach to write them that way, so a correct answer was being
+      // reported as fabricating "2.6" (live run, 25.8.).
+      assert.deepEqual(extractFigures('96,5 cm (2.6.) -> 98 cm (21.7.), tavoite 104 cm'), ['96.5', '98', '104']);
+      // A real decimal that only looks like a date keeps its place.
+      assert.deepEqual(extractFigures('nosta 2,5 kg ja tee 8.5 toistoa'), ['2.5', '8.5']);
     },
   },
   {

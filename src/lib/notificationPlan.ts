@@ -27,7 +27,7 @@ import { t } from './i18n';
 import { AppLanguage, NotificationLevel, NotificationPrefs, SetupWeekday } from '../types/models';
 import { exerciseNameLabel } from './exerciseNameLabel';
 
-export type NotificationCategory = 'record' | 'comeback' | 'reminder' | 'weekly';
+export type NotificationCategory = 'record' | 'comeback' | 'reminder' | 'weekly' | 'weighIn';
 
 export interface PlannedNotification {
   /** Stable across re-plans, so an unchanged plan re-schedules identically. */
@@ -56,6 +56,8 @@ export interface NotificationPlanInput {
   weekVolumeKg: number;
   latestPr: LatestPrSignal | null;
   onTrainingBreak: boolean;
+  /** Last weigh-in, so today's nudge is skipped once it is already done. */
+  lastBodyweightAtMs?: number | null;
 }
 
 export const DAILY_CAP_BY_LEVEL: Record<NotificationLevel, number> = {
@@ -69,15 +71,26 @@ export const REMINDER_HORIZON_DAYS = 28;
 /** Days of silence before the comeback nudge. */
 export const COMEBACK_AFTER_DAYS = 5;
 export const WEEKLY_SUMMARY_HOUR = 18;
+/** Before breakfast: a weight taken at the same time of day is comparable. */
+export const WEIGH_IN_HOUR = 7;
+export const WEIGH_IN_MINUTE = 30;
+/**
+ * Half the reminder horizon. A daily message over four weeks would be 28 of
+ * the 48 slots the OS allows, and the app re-plans on every launch anyway.
+ */
+export const WEIGH_IN_HORIZON_DAYS = 14;
 export const RECORD_HOUR = 9;
 /** iOS keeps at most 64 pending local notifications; stay well under it. */
 export const MAX_SCHEDULED = 48;
 
 const CATEGORY_PRIORITY: Record<NotificationCategory, number> = {
   record: 0,
-  comeback: 1,
-  reminder: 2,
-  weekly: 3,
+  // Second only to a record: this is the one message the reader asked for by
+  // name, so it does not lose its slot to a reminder that is on by default.
+  weighIn: 1,
+  comeback: 2,
+  reminder: 3,
+  weekly: 4,
 };
 
 const JS_WEEKDAY: Record<SetupWeekday, number> = {
@@ -167,6 +180,42 @@ function buildSessionReminders(input: NotificationPlanInput): PlannedNotificatio
     });
   }
 
+  return reminders;
+}
+
+/**
+ * A morning nudge to weigh in, every day it is on.
+ *
+ * Daily is the point: a weight is noise on any single morning and a line over
+ * a fortnight, so the habit is what is being asked for. Today is skipped once
+ * the scale has already been used — a reminder for something already done is
+ * the sign that explains a sign.
+ */
+function buildWeighInReminders(input: NotificationPlanInput): PlannedNotification[] {
+  const { prefs, language, nowMs } = input;
+  if (!prefs.weighInReminder) {
+    return [];
+  }
+
+  const now = new Date(nowMs);
+  const reminders: PlannedNotification[] = [];
+  for (let offset = 0; offset <= WEIGH_IN_HORIZON_DAYS; offset += 1) {
+    const fireAtMs = atLocalTime(now, offset, WEIGH_IN_HOUR, WEIGH_IN_MINUTE);
+    if (fireAtMs <= nowMs) {
+      continue;
+    }
+    const weighedAt = input.lastBodyweightAtMs ?? null;
+    if (weighedAt !== null && isSameLocalDay(weighedAt, fireAtMs)) {
+      continue;
+    }
+    reminders.push({
+      key: `weighin-${localDayKey(fireAtMs)}`,
+      category: 'weighIn',
+      title: t(language, 'notif.msg.weighInTitle'),
+      body: t(language, 'notif.msg.weighInBody'),
+      fireAtMs,
+    });
+  }
   return reminders;
 }
 
@@ -296,6 +345,7 @@ export function buildNotificationPlan(input: NotificationPlanInput): PlannedNoti
 
   const planned = [
     ...buildSessionReminders(input),
+    ...buildWeighInReminders(input),
     buildComebackNudge(input),
     buildWeeklySummary(input),
     buildRecordNote(input),

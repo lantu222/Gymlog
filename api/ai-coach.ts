@@ -19,7 +19,14 @@ import {
   readBudgetLimitsFromEnv,
   recordSpend,
 } from '../src/lib/aiCoachBudget';
-import { AICoachAdvice, AICoachAdviceError, AICoachAdviceRequest, AICoachAdviceSuccess } from '../src/types/aiCoach';
+import {
+  AICoachAdvice,
+  AICoachAdviceError,
+  AICoachAdviceRequest,
+  AICoachAdviceSuccess,
+  AICoachConversationTurn,
+  AICoachSuggestion,
+} from '../src/types/aiCoach';
 
 type ApiRequest = {
   method?: string;
@@ -174,6 +181,35 @@ const AI_COACH_RESPONSE_SCHEMA = {
       items: { type: 'string' },
       description: 'Anything you had to assume because the context did not say. Empty when nothing was assumed.',
     },
+    unanswered: {
+      type: 'boolean',
+      description:
+        'True only when `takeaway` is a follow-up question instead of an answer, because the context did not hold what the question needed. The app does not charge a free-tier question for it.',
+    },
+    suggestion: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['kind'],
+      description:
+        'At most one thing to offer to do for the reader, drawn as a button. Omit unless the App state section shows the thing is missing and the conversation actually called for it.',
+      properties: {
+        kind: {
+          type: 'string',
+          enum: ['pin_stat_card', 'set_goal', 'weigh_in_reminder', 'log_measurement'],
+          description:
+            'log_measurement: open the page where a measurement is recorded, when the answer needs a reading the Body record does not have. pin_stat_card: put a measurement card on the home screen. set_goal: save the goal the reader described in their own words. weigh_in_reminder: switch on a morning nudge to weigh in, when the goal needs weight tracked and it is off.',
+        },
+        statKey: {
+          type: 'string',
+          description: 'For pin_stat_card and log_measurement: which measurement, e.g. "chest".',
+        },
+        goalText: {
+          type: 'string',
+          description:
+            'For set_goal only: the goal in the words and language the reader used, with the target if they gave one — "kasvattaa rinnanympärystä 104 cm". The app parses it, and drops the offer if it cannot.',
+        },
+      },
+    },
   },
 } as const;
 
@@ -183,7 +219,7 @@ const AI_COACH_RESPONSE_SCHEMA = {
  * Kept as a constant prefix so it caches cleanly ahead of the training context.
  */
 const COACH_SYSTEM_RULES = [
-  'You are GAINER Coach, the training coach inside a strength and hypertrophy logging app.',
+  'You are Vinha Coach, the training coach inside Vinha Fitness, a strength and hypertrophy logging app.',
   '',
   '# Scope',
   '- You advise on training: programming, progression, exercise selection, technique cues, recovery, and nutrition as it relates to gaining muscle or losing fat.',
@@ -191,11 +227,12 @@ const COACH_SYSTEM_RULES = [
   '',
   '# Evidence rules — these outrank being helpful',
   '- The training context is the entire record of this user. Never state a number, session, exercise, or date that does not appear in it.',
-  '- If the context lacks what you need, say what you would need. Do not estimate, and do not fill the gap with what is typical.',
+  '- If the context lacks what you need, do not answer anyway. Do not estimate, and do not fill the gap with what is typical — ask instead, under "When you cannot answer" below.',
   '- When a section says there is too little history to read something, do not comment on it at all.',
   '- Cite the actual figures. "Your squat top set went 100 to 102.5 kg across three sessions" — not "you are progressing nicely".',
   '- A lift that is up across the window but flat for the last several sessions is stalled. Say so; the recent stall is the actionable part.',
   '- Fewer than three sessions in the window is not a trend. Do not call it progress, consistency, momentum, or a pattern — say the record is too short to read, then answer what can be answered without it.',
+  '- The "Reading note" section says how much record the answer rests on. It is counted from the log, so treat it as fact and let it set how firmly you speak: hedge nothing on a long record, qualify once on a short one. Never rate your own confidence, and never open successive sentences with "it seems" or "it looks like" — a hedge on every line carries no information.',
   '- Never diagnose an injury or illness. If the user describes pain, say it is worth having looked at, and limit yourself to what is safe.',
   '',
   '# How to answer',
@@ -210,11 +247,26 @@ const COACH_SYSTEM_RULES = [
   '- Answer in the language the user wrote in, and write numbers and dates the way that language does: Finnish uses a decimal comma (82,5 kg) and day.month dates (3.8.); English uses 82.5 kg and 3 Aug. Never write ISO dates such as 2026-08-03 in prose — the context uses them only as data.',
   '- Do not describe yourself, your context, or how you reasoned.',
   '',
+  '# When you cannot answer',
+  '- A coach asks before advising. When the context does not hold what an accurate answer needs, do not guess and do not fall back on a generic answer: ask exactly one short follow-up question, put that question in `takeaway`, leave `why`, `nextSteps`, `plan` and `assumptions` empty, and set `unanswered` to true.',
+  '- One question, never two, and never a question plus an answer. It is the whole reply.',
+  '- Ask only when the missing fact actually blocks the answer. If a useful answer exists from what you have, give it — asking instead of answering is evasion, and it is the more common failure.',
+  '- Pair such a question with the matching `suggestion` so the reader can answer it with one tap — asking to log a chest measurement while offering no way to do it is a question that goes nowhere.',
+  '- Prefer a question the app can act on: a measurement to log, a goal to set, a bodyweight to record. "Chest growth is measured, not guessed — shall we log your chest measurement now so there is a starting point?" beats "what do you mean by faster?".',
+  '- Never set `unanswered` on a reply that does answer. The flag means the reader was asked something, not that the answer was short or uncertain.',
+  '',
   '# Body, goals and nutrition',
   '- When the context lists goals, tie the answer to them: say where the user stands against the goal and name the one thing that moves it next.',
+  '- Exactly one goal carries `isPrimary`. That is the goal a general question is answered against; the others are background you may mention only when they change the advice.',
+  '- When goals pull against each other — a surplus for size and a deficit for fat loss cannot both be right — name the conflict in one sentence and ask which comes first, following "When you cannot answer". Do not split the difference, and do not quietly pick one.',
   '- A circumference goal is built from training volume, progression and food together — read the relevant lifts from the history when advising on it.',
   '- Nutrition questions: general sports-nutrition knowledge is allowed here, but anchor every number to this user — protein 1.6–2.2 g per kg of their logged bodyweight, surplus or deficit according to their stated goal. If bodyweight is missing from the context, give the per-kg rule and note that logging bodyweight lets you compute it exactly.',
   '- Never prescribe a diet for a medical condition.',
+  '',
+  '# Offering to do something',
+  '- You may offer one action per answer, in `suggestion`, and only when the conversation led there — an offer bolted onto an unrelated answer is an advert.',
+  '- Offer only what the App state section shows is missing. Never offer what is already on, and never offer a kind listed under "Do not offer": the reader has answered that question.',
+  '- Most answers carry no suggestion at all. Leave it out unless it clearly helps.',
   '',
   '# Saying less',
   '- Silence is a valid output. When there is nothing worth saying, say the small true thing rather than manufacturing an insight.',
@@ -300,6 +352,43 @@ function parseImageBody(body: unknown): ParsedImageBody | null {
   return { mode: 'table', mediaType: candidate.mediaType, dataBase64: candidate.dataBase64 };
 }
 
+/**
+ * The open conversation, trimmed to what a follow-up actually needs.
+ *
+ * Three exchanges is enough for "entä sitten?" to have an antecedent, and the
+ * cap matters: this rides in the uncached part of every request, so an
+ * unbounded history would be paid for on every turn. Each side is clipped too
+ * — a takeaway is one or two sentences by the rules, and anything longer is a
+ * client that sent more than it should.
+ */
+const MAX_HISTORY_TURNS = 3;
+const MAX_HISTORY_CHARS = 600;
+
+function sanitizeHistory(value: unknown): AICoachConversationTurn[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const clean = value
+    .filter((turn): turn is AICoachConversationTurn => {
+      if (!turn || typeof turn !== 'object') {
+        return false;
+      }
+      const record = turn as Partial<AICoachConversationTurn>;
+      return (
+        typeof record.question === 'string' &&
+        typeof record.takeaway === 'string' &&
+        record.question.trim().length > 0 &&
+        record.takeaway.trim().length > 0
+      );
+    })
+    .map((turn) => ({
+      question: turn.question.trim().slice(0, MAX_HISTORY_CHARS),
+      takeaway: turn.takeaway.trim().slice(0, MAX_HISTORY_CHARS),
+    }));
+  // Oldest first, so the newest exchanges are the ones kept.
+  return clean.slice(-MAX_HISTORY_TURNS);
+}
+
 function parseBody(body: unknown): ParsedBody | null {
   const parsed = typeof body === 'string' ? JSON.parse(body) : body;
   if (!parsed || typeof parsed !== 'object') {
@@ -316,6 +405,7 @@ function parseBody(body: unknown): ParsedBody | null {
     // Repaired, not trusted: a context with fields missing used to reach the
     // preview builder and crash the function on `trackedLifts[0]`.
     context: normalizeAiCoachTrainingContext(candidate.context as Partial<AICoachAdviceRequest['context']>),
+    history: sanitizeHistory(candidate.history),
     language: candidate.language === 'fi' || candidate.language === 'en' ? candidate.language : undefined,
     mode: candidate.mode === 'compose' ? 'compose' : 'advice',
     reporter: typeof candidate.reporter === 'string' && candidate.reporter.length <= 200 ? candidate.reporter : undefined,
@@ -354,6 +444,7 @@ function validateAnswer(payload: unknown): AICoachAdvice | null {
   // Sonnet 5 omits `plan: []` when there is no plan to give, and the whole
   // answer fell back to preview over it (eval, 2026-08-23).
   const list = (value: unknown) => (isStringArray(value) ? value : value === undefined ? [] : null);
+  const suggestion = validateSuggestion(candidate.suggestion);
   const why = list(candidate.why);
   const nextSteps = list(candidate.nextSteps);
   const plan = list(candidate.plan);
@@ -362,12 +453,82 @@ function validateAnswer(payload: unknown): AICoachAdvice | null {
     return null;
   }
 
+  // A follow-up question is not a billable answer. The client already reads
+  // this flag and skips the free-tier charge; until now only the offline
+  // preview ever set it, so a live "I need to know X first" cost a question
+  // out of three a week. Carried through only when true, so an answer stays
+  // the same object it was.
   return {
     takeaway,
     why,
     nextSteps,
     plan,
     assumptions,
+    ...(candidate.unanswered === true ? { unanswered: true } : {}),
+    ...(suggestion ? { suggestion } : {}),
+  };
+}
+
+/**
+ * Which part of the shape was wrong, as a field name and a reason.
+ *
+ * The log used to say only that a payload was invalid, plus the stop reason —
+ * which answers "was it truncated?" and nothing else. A complete tool_use that
+ * still fails validation left no way to tell an empty takeaway from a
+ * malformed list (live eval, 25.8.), so the answer dropped to preview and the
+ * cause stayed a guess.
+ *
+ * Field names and shapes only. Nothing the reader wrote or the model answered
+ * goes into a log line.
+ */
+export function describeAnswerShape(payload: unknown): string {
+  if (!payload || typeof payload !== 'object') {
+    return `not-an-object:${typeof payload}`;
+  }
+  const candidate = payload as Partial<AICoachAdvice>;
+  if (typeof candidate.takeaway !== 'string') {
+    return `takeaway:${candidate.takeaway === undefined ? 'missing' : typeof candidate.takeaway}`;
+  }
+  if (!candidate.takeaway.trim()) {
+    return 'takeaway:empty';
+  }
+  for (const field of ['why', 'nextSteps', 'plan', 'assumptions'] as const) {
+    const value = candidate[field];
+    if (value === undefined) {
+      continue;
+    }
+    if (!Array.isArray(value)) {
+      return `${field}:${typeof value}`;
+    }
+    if (!value.every((item) => typeof item === 'string')) {
+      return `${field}:array-of-${[...new Set(value.map((item) => typeof item))].join('|')}`;
+    }
+  }
+  return 'shape-ok';
+}
+
+/**
+ * The offer, or nothing. An unknown kind is dropped rather than passed on: the
+ * client draws a button per kind, and a button it cannot carry out would be a
+ * promise the app does not keep.
+ */
+function validateSuggestion(value: unknown): AICoachSuggestion | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const candidate = value as Partial<AICoachSuggestion>;
+  if (
+    candidate.kind !== 'pin_stat_card' &&
+    candidate.kind !== 'set_goal' &&
+    candidate.kind !== 'weigh_in_reminder' &&
+    candidate.kind !== 'log_measurement'
+  ) {
+    return null;
+  }
+  return {
+    kind: candidate.kind,
+    statKey: typeof candidate.statKey === 'string' && candidate.statKey.trim() ? candidate.statKey.trim() : null,
+    goalText: typeof candidate.goalText === 'string' && candidate.goalText.trim() ? candidate.goalText.trim().slice(0, 200) : null,
   };
 }
 
@@ -414,7 +575,14 @@ async function requestClaude(input: AICoachAdviceRequest) {
   const contextText = `# Training context\n\n${buildAiCoachSystemContext(input.context)}`;
   const now = Date.now();
   const budget = checkBudget(
-    { promptChars: input.prompt.length, contextChars: contextText.length + COACH_SYSTEM_RULES.length },
+    {
+      // The conversation rides in the prompt half: it is uncached and paid
+      // for on every turn, so it has to be measured with the question.
+      promptChars:
+        input.prompt.length +
+        (input.history ?? []).reduce((total, turn) => total + turn.question.length + turn.takeaway.length, 0),
+      contextChars: contextText.length + COACH_SYSTEM_RULES.length,
+    },
     budgetState,
     now,
     BUDGET_LIMITS,
@@ -477,7 +645,17 @@ async function requestClaude(input: AICoachAdviceRequest) {
           },
         ],
         tool_choice: { type: 'tool', name: ADVICE_TOOL_NAME },
-        messages: [{ role: 'user', content: input.prompt }],
+        // The open conversation as real turns, so "why?" and "and then?" have
+        // something to refer back to. The earlier answers go back as their
+        // takeaway alone — the reasons and steps were shown on screen, and
+        // resending them would pay for the whole answer again every turn.
+        messages: [
+          ...(input.history ?? []).flatMap((turn) => [
+            { role: 'user', content: turn.question },
+            { role: 'assistant', content: turn.takeaway },
+          ]),
+          { role: 'user', content: input.prompt },
+        ],
       }),
       signal: controller.signal,
     });
@@ -504,6 +682,7 @@ async function requestClaude(input: AICoachAdviceRequest) {
         JSON.stringify({
           stop_reason: meta.stop_reason ?? null,
           blocks: Array.isArray(meta.content) ? meta.content.map((block) => (block as { type?: string }).type ?? '?') : null,
+          shape: describeAnswerShape(extractToolInput(payload)),
         }),
       );
       return createError(

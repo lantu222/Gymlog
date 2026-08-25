@@ -137,7 +137,15 @@ export interface AICoachHistory {
   schedule: AICoachHistorySchedule | null;
   /** True when older sessions were dropped to keep the payload small. */
   truncated: boolean;
+  /**
+   * How much record the reading rests on — counted here, never judged by the
+   * model. A model asked to rate its own confidence hedges everything; a
+   * number of sessions and a span of days cannot.
+   */
+  confidence: AICoachHistoryConfidence;
 }
+
+export type AICoachHistoryConfidence = 'low' | 'medium' | 'high';
 
 export interface AICoachBodyMeasurementTrend {
   kind: string;
@@ -175,6 +183,29 @@ export interface AICoachGoal {
   startValue: number | null;
   currentValue: number | null;
   setAt: string | null;
+  /**
+   * The one goal the answer is measured against. Exactly one goal carries it
+   * whenever there is any goal at all — a list where everything is equally
+   * important reads as a list where nothing is.
+   */
+  isPrimary: boolean;
+}
+
+/**
+ * What the app already has switched on, so the coach can offer only what is
+ * missing. Offering to pin a card that is already on Home is the sign that
+ * explains a sign.
+ */
+export interface AICoachHomeState {
+  /** Measurement cards currently on Home. */
+  pinnedStatCardKeys: string[];
+  /** Whether the morning weigh-in nudge is already switched on. */
+  weighInReminderEnabled: boolean;
+  /**
+   * Offer kinds that must not be proposed at all right now — already taken up,
+   * or turned down recently enough that asking again would be nagging.
+   */
+  silencedSuggestions: string[];
 }
 
 export interface AICoachProfile {
@@ -204,6 +235,7 @@ export interface AICoachTrainingContext {
   body?: AICoachBody | null;
   goals?: AICoachGoal[];
   profile?: AICoachProfile | null;
+  homeState?: AICoachHomeState | null;
 }
 
 export type AICoachActionKind =
@@ -241,11 +273,43 @@ export interface AICoachAdvice {
    * the app itself offered. An answer that answers nothing does not cost one.
    */
   unanswered?: boolean;
+  /**
+   * One thing the coach offers to do, drawn as a button by the chat. At most
+   * one per answer: a reply that ends in three offers is a menu, not advice.
+   */
+  suggestion?: AICoachSuggestion | null;
+}
+
+export interface AICoachSuggestion {
+  kind: 'pin_stat_card' | 'set_goal' | 'weigh_in_reminder' | 'log_measurement';
+  /** For pin_stat_card and log_measurement: which measurement. */
+  statKey?: string | null;
+  /**
+   * For set_goal: the goal in the reader's own words. The chat parses it with
+   * the same reader the typed path uses, and drops the offer when it will not
+   * parse — a button that cannot carry out what it says is worse than none.
+   */
+  goalText?: string | null;
+}
+
+/**
+ * One earlier exchange in the conversation that is open right now: what was
+ * asked, and the takeaway that came back.
+ *
+ * Without these, "entä sitten?" and "miksi?" arrive with no antecedent and the
+ * coach answers a question nobody asked. Nothing is stored — the list dies
+ * with the screen, which is why there is no memory across devices or sessions.
+ */
+export interface AICoachConversationTurn {
+  question: string;
+  takeaway: string;
 }
 
 export interface AICoachAdviceRequest {
   prompt: string;
   context: AICoachTrainingContext;
+  /** Oldest first. The server keeps the most recent few and drops the rest. */
+  history?: AICoachConversationTurn[];
   /**
    * The language the answer must come back in. The live coach is told to
    * answer in the language the user wrote in; the offline preview has no

@@ -41,6 +41,31 @@ export interface AiCoachEvalCase {
   allowedNewFigures?: string[];
   /** True when the honest answer is to say little and claim nothing. */
   expectsAbstention?: boolean;
+  /**
+   * True when the honest answer is a question rather than advice, because the
+   * context does not hold what an accurate answer needs.
+   */
+  expectsQuestion?: boolean;
+  /**
+   * Turns off the grounding check for a case whose answer is arithmetic on the
+   * body record — a protein target or a calorie figure is computed from the
+   * reader's own numbers, so every figure in it is legitimately new.
+   */
+  allowsComputedFigures?: boolean;
+  /**
+   * Earlier exchanges to send with the prompt, for cases where the question
+   * only means something as a follow-up ("and then?").
+   */
+  history?: Array<{ question: string; takeaway: string }>;
+  /** The language the prompt is written in, so the offline run answers in it too. */
+  language?: 'fi' | 'en';
+  /**
+   * Skipped in the offline run. The preview is a keyword mock with no branch
+   * for a body measurement or a goal, so scoring it here would move the number
+   * for reasons that say nothing about the prompt. The runner reports how many
+   * it skipped rather than quietly shrinking the set.
+   */
+  liveOnly?: boolean;
 }
 
 export interface EvalCheckResult {
@@ -81,7 +106,12 @@ export function flattenAdvice(advice: AICoachAdvice): string {
  * dates are skipped: they come from timestamps, not from claims about training.
  */
 export function extractFigures(text: string): string[] {
-  const matches = text.match(/\d+(?:[.,]\d+)?/g) ?? [];
+  // Finnish writes dates as day.month, which reads as a decimal: "96,5 cm
+  // (2.6.)" made the scorer report 2.6 as a fabricated figure and failed an
+  // answer that was exactly right. The rules tell the coach to write dates
+  // this way, so the scorer has to know the shape before it counts numbers.
+  const withoutDates = text.replace(/(^|[^0-9.,])([0-9]{1,2})[.]([0-9]{1,2})[.]([0-9]{2,4})?/g, '$1 ');
+  const matches = withoutDates.match(/\d+(?:[.,]\d+)?/g) ?? [];
   return matches
     .map((raw) => raw.replace(',', '.'))
     .filter((value) => {
@@ -132,14 +162,20 @@ export function scoreCase(evalCase: AiCoachEvalCase, advice: AICoachAdvice): Eva
   const unsupported = extractFigures(answer).filter(
     (figure) => !contextFigures.has(figure) && !allowed.has(figure) && !isDerived(figure),
   );
-  checks.push({
-    check: 'grounded',
-    passed: unsupported.length === 0,
-    detail:
-      unsupported.length === 0
-        ? 'every figure traces to the context'
-        : `figures not in the context: ${[...new Set(unsupported)].join(', ')}`,
-  });
+  // A nutrition answer computes from the body record — a protein target is
+  // arithmetic on a logged weight, not a claim about a session that happened.
+  // Grounding is the wrong lens for it, and listing every arithmetic result a
+  // case might produce would make the fixture guess the answer.
+  if (!evalCase.allowsComputedFigures) {
+    checks.push({
+      check: 'grounded',
+      passed: unsupported.length === 0,
+      detail:
+        unsupported.length === 0
+          ? 'every figure traces to the context'
+          : `figures not in the context: ${[...new Set(unsupported)].join(', ')}`,
+    });
+  }
 
   // 2. The figures a good answer has to reach for.
   for (const figure of evalCase.mustCite ?? []) {
@@ -174,6 +210,24 @@ export function scoreCase(evalCase: AiCoachEvalCase, advice: AICoachAdvice): Eva
   // question ("you are asking about your training progress") and is excluded:
   // the live coach answered an empty account perfectly and was failed for
   // echoing the word the reader used.
+  // 5. A question, where a question is the honest answer.
+  //
+  // Both halves matter: the reply has to actually ask something, and it has
+  // to be marked, because the mark is what stops the free tier being charged
+  // for a turn that answered nothing.
+  if (evalCase.expectsQuestion) {
+    const asked = /[?？]/.test(advice.takeaway);
+    checks.push({
+      check: 'asks',
+      passed: asked && advice.unanswered === true,
+      detail: asked
+        ? advice.unanswered === true
+          ? 'asked one question and marked the reply'
+          : 'asked a question but did not mark it, so it would be charged'
+        : `answered instead of asking: "${advice.takeaway.slice(0, 60)}"`,
+    });
+  }
+
   if (evalCase.expectsAbstention) {
     // Claims live in the takeaway and the reasons. A next step that says
     // "log three sessions so I can read progress" is advice about the future,

@@ -575,6 +575,10 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
         )
           ? (input!.preferences!.notificationPrefs!.reminderTime as string)
           : fallback.preferences.notificationPrefs.reminderTime,
+        weighInReminder: boolOr(
+          input?.preferences?.notificationPrefs?.weighInReminder,
+          fallback.preferences.notificationPrefs.weighInReminder,
+        ),
         restAlerts: boolOr(input?.preferences?.notificationPrefs?.restAlerts, fallback.preferences.notificationPrefs.restAlerts),
         restWarning: boolOr(input?.preferences?.notificationPrefs?.restWarning, fallback.preferences.notificationPrefs.restWarning),
         sessionOngoing: boolOr(input?.preferences?.notificationPrefs?.sessionOngoing, fallback.preferences.notificationPrefs.sessionOngoing),
@@ -657,6 +661,12 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
               Boolean(goal) && typeof goal === 'object' && typeof goal.id === 'string' && typeof goal.text === 'string',
           )
         : fallback.preferences.coachGoals,
+      primaryGoalId:
+        typeof input?.preferences?.primaryGoalId === 'string' ? input.preferences.primaryGoalId : null,
+      coachSuggestionState:
+        input?.preferences?.coachSuggestionState && typeof input.preferences.coachSuggestionState === 'object'
+          ? input.preferences.coachSuggestionState
+          : {},
       // A stored install that predates this flag has already been through
       // onboarding, so the hand-off has had its turn — without this, the flag
       // reads false on the next launch and an old install gets ambushed by a

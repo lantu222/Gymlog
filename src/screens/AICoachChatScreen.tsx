@@ -17,15 +17,18 @@ import { requestAiCoachAdvice } from '../lib/aiCoachClient';
 import { buildAiCoachPreviewAnswer } from '../lib/aiCoachPreview';
 import { FREE_COACH_QUESTIONS_PER_WEEK } from '../lib/aiCoachQuota';
 import { CoachChatIntroInput, CoachContextChip, buildCoachContextChips, buildCoachContextReadout, buildCoachNoticed, buildCoachOpeningLine, buildCoachOpeningOffer, buildCoachOpeningRows } from '../lib/coachChat';
+import { coachSmallTalkReplyKey, parseCoachSmallTalk } from '../lib/coachSmallTalk';
+import { appendCoachTurn } from '../lib/coachConversation';
+import { CoachSuggestionKind } from '../lib/coachSuggestions';
 import { MEASUREMENT_LABEL_KEYS } from '../lib/homeStatCards';
 import { I18nKey, t } from '../lib/i18n';
-import { MeasurementIntent, parseMeasurementIntent } from '../lib/measurementIntent';
+import { MeasurementIntent, isMeasurementIntentKind, parseMeasurementIntent } from '../lib/measurementIntent';
 import { GoalIntent, parseGoalIntent } from '../lib/goalIntent';
 import { AI_COACH_DEBUG_TRANSCRIPTS } from '../lib/aiCoachDebug';
 import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { layout, spacing } from '../theme';
-import { AICoachAdvice, AICoachTrainingContext } from '../types/aiCoach';
+import { AICoachAdvice, AICoachConversationTurn, AICoachTrainingContext } from '../types/aiCoach';
 import { AppLanguage } from '../types/models';
 
 /**
@@ -80,6 +83,17 @@ interface AICoachChatScreenProps {
   onPinStatCard: (key: string) => void;
   /** "Yritän kasvattaa rinnanympärystä" stated in chat becomes a saved goal — offered, never assumed. */
   onSetGoal: (intent: GoalIntent) => Promise<void>;
+  /**
+   * How a coach-proposed offer ended. A refusal buys a month of silence and a
+   * second one ends that kind of offer for good, so it has to be recorded
+   * whichever way the reader answered.
+   */
+  onCoachSuggestionResolved: (kind: CoachSuggestionKind, accepted: boolean) => void;
+  /** Whether the morning weigh-in nudge is already on, so it is never offered twice. */
+  weighInReminderEnabled: boolean;
+  onEnableWeighInReminder: () => void;
+  /** Opens the measures page on one measurement, so a question can be answered with a tap. */
+  onOpenMeasure: (kind: string) => void;
   /** TEMPORARY: the signed-in email, attached to the development transcript log. */
   transcriptReporter: string | null;
 }
@@ -91,7 +105,22 @@ interface ChatMessage {
   /** The coach's structured answer, rendered as sections rather than prose. */
   advice?: AICoachAdvice;
   /** An offer with buttons: log the reading, put its card on Home, or save the stated goal. */
-  offer?: { type: 'log' | 'pin'; intent: MeasurementIntent } | { type: 'goal'; intent: GoalIntent };
+  offer?:
+    | { type: 'log'; intent: MeasurementIntent }
+    // Only the kind is ever read, and a coach-proposed card has no reading
+    // behind it — asking for a value here would mean inventing one.
+    | { type: 'pin'; intent: Pick<MeasurementIntent, 'kind'> }
+    | { type: 'goal'; intent: GoalIntent }
+    // Nothing to carry: the offer is the switch itself.
+    | { type: 'weighIn' }
+    // Opens the page that records this measurement. The coach cannot log one
+    // itself — the reading is the thing it does not have.
+    | { type: 'openMeasure'; intent: Pick<MeasurementIntent, 'kind'> };
+  /**
+   * Set when the coach proposed this rather than the typed message. Only those
+   * count towards the cooldown: it exists to stop the coach nagging.
+   */
+  suggestionKind?: CoachSuggestionKind;
   evidence?: string;
   /** Set when the answer is withheld: the real conclusion, blurred. */
   lockedBody?: string;
@@ -127,6 +156,10 @@ export function AICoachChatScreen({
   onLogMeasurement,
   onPinStatCard,
   onSetGoal,
+  onCoachSuggestionResolved,
+  weighInReminderEnabled,
+  onEnableWeighInReminder,
+  onOpenMeasure,
   transcriptReporter,
 }: AICoachChatScreenProps) {
   const theme = useTheme();
@@ -137,6 +170,21 @@ export function AICoachChatScreen({
   const [asking, setAsking] = useState(false);
   const scrollRef = useRef<ScrollView | null>(null);
   const askToken = useRef(0);
+  /**
+   * The open conversation, in a ref rather than state: `send` must read the
+   * exchanges as they are at the moment of sending, and a state value captured
+   * in its dependency list would be one turn behind.
+   */
+  const conversation = useRef<AICoachConversationTurn[]>([]);
+  /**
+   * Whether the last answer actually came from the coach.
+   *
+   * A build with no endpoint is offline by design; a build with one can still
+   * be offline for a minute — rate limited, upstream down. The badge states
+   * which, so a canned answer is never mistaken for a coached one.
+   */
+  const [answeredOffline, setAnsweredOffline] = useState(false);
+  const online = liveConfigured && !answeredOffline;
 
   const chips = useMemo(() => buildCoachContextChips(intro, language), [intro, language]);
   // Shown until the first question. It is the reader's own log, which is both
@@ -208,9 +256,35 @@ export function AICoachChatScreen({
   );
 
   const resolveOffer = useCallback(
-    async (messageId: string, offer: NonNullable<ChatMessage['offer']>, accepted: boolean) => {
+    async (
+      messageId: string,
+      offer: NonNullable<ChatMessage['offer']>,
+      accepted: boolean,
+      suggestionKind?: CoachSuggestionKind,
+    ) => {
+      // Both answers are answers. Recording only the acceptances would leave
+      // the refusal invisible and the same offer would come back next week.
+      if (suggestionKind) {
+        onCoachSuggestionResolved(suggestionKind, accepted);
+      }
       if (!accepted) {
         setMessages((current) => current.filter((message) => message.id !== messageId));
+        return;
+      }
+      if (offer.type === 'openMeasure') {
+        onOpenMeasure(offer.intent.kind);
+        setMessages((current) => current.filter((message) => message.id !== messageId));
+        return;
+      }
+      if (offer.type === 'weighIn') {
+        onEnableWeighInReminder();
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === messageId
+              ? { id: `${messageId}:done`, fromCoach: true, text: t(language, 'coachChat.weighIn.done') }
+              : message,
+          ),
+        );
         return;
       }
       if (offer.type === 'goal') {
@@ -250,7 +324,18 @@ export function AICoachChatScreen({
         ),
       );
     },
-    [formatReading, language, measurementLabel, onLogMeasurement, onPinStatCard, onSetGoal, pinnedStatCardKeys],
+    [
+      formatReading,
+      language,
+      measurementLabel,
+      onCoachSuggestionResolved,
+      onEnableWeighInReminder,
+      onLogMeasurement,
+      onOpenMeasure,
+      onPinStatCard,
+      onSetGoal,
+      pinnedStatCardKeys,
+    ],
   );
 
   const send = useCallback(
@@ -263,6 +348,26 @@ export function AICoachChatScreen({
 
       const token = (askToken.current += 1);
       setDraft('');
+
+      // "Kiitos" is answered here. It never reaches the network, so it costs
+      // nothing and cannot come back as an analysis with a four-week plan
+      // attached (transcript review, 2026-08-23). Checked before the quota
+      // gate on purpose: being out of questions must not stop the coach from
+      // saying you are welcome.
+      const smallTalk = parseCoachSmallTalk(trimmed);
+      if (smallTalk) {
+        setMessages((current) => [
+          ...current,
+          { id: `me:${token}`, fromCoach: false, text: trimmed },
+          {
+            id: `coach:${token}`,
+            fromCoach: true,
+            text: t(language, coachSmallTalkReplyKey(smallTalk, current.length)),
+          },
+        ]);
+        return;
+      }
+
       const measurement = parseMeasurementIntent(trimmed, language);
       const goal = measurement ? null : parseGoalIntent(trimmed, language);
       setMessages((current) => [
@@ -308,22 +413,101 @@ export function AICoachChatScreen({
           prompt: trimmed,
           context: trainingContext,
           language,
+          // What was already said in this thread, so a follow-up resolves.
+          history: conversation.current,
           ...(AI_COACH_DEBUG_TRANSCRIPTS && transcriptReporter ? { reporter: transcriptReporter } : {}),
         });
         if (token !== askToken.current) {
           return;
         }
         const answer = result.answer;
+        // The endpoint answers with a canned offline reply when it cannot
+        // reach the model — rate limited, upstream down, key missing. Until
+        // now the chat showed that as if the coach had said it, which is how
+        // "the AI chat does not work" looks from the reader's side: a real
+        // answer, just a useless one. Say which it was.
+        const fellBackToPreview = liveConfigured && result.source === 'preview';
+        // Recovers on its own: the next answer that reaches the model clears
+        // the badge, so it reports the present rather than a past outage.
+        setAnsweredOffline(result.source === 'preview');
         // Charged for an answer, not for a send. An answer that could only ask
         // for a clearer question is free: three a week is too few to spend one
         // on a chip the app itself offered and could not handle.
         if (!proUnlocked && !answer.unanswered) {
           onFreeQuestionUsed();
         }
+        // Kept even when the answer was a follow-up question: without it the
+        // reader's reply to that question would arrive with no antecedent,
+        // which is the exact failure this exists to fix.
+        conversation.current = appendCoachTurn(conversation.current, {
+          question: trimmed,
+          takeaway: answer.takeaway,
+        });
         // The whole answer, as sections: a takeaway, then the reasons, the
         // steps and the plan each on their own lines. One run-on paragraph
         // buried the dates and numbers (#bugs, 2026-08-23).
         const reply = answer.takeaway;
+        // The coach's own offer, turned into a button — but only one it can
+        // actually carry out. A pin needs a measurement the app knows; a goal
+        // is read with the same parser the typed path uses, and an offer that
+        // will not parse is dropped rather than shown as a dead button.
+        const suggestion = answer.suggestion ?? null;
+        const suggestedOffer: ChatMessage | null = (() => {
+          if (!suggestion) {
+            return null;
+          }
+          if (suggestion.kind === 'log_measurement') {
+            const kind = suggestion.statKey ?? '';
+            // Never offered for something already measured: the point is the
+            // reading the record does not have.
+            const measured = (trainingContext.body?.measurements ?? []).some((entry) => entry.kind === kind);
+            if (!isMeasurementIntentKind(kind) || measured) {
+              return null;
+            }
+            return {
+              id: `suggest:${token}`,
+              fromCoach: true,
+              text: '',
+              offer: { type: 'openMeasure' as const, intent: { kind } },
+              suggestionKind: 'log_measurement' as const,
+            };
+          }
+          if (suggestion.kind === 'weigh_in_reminder') {
+            return weighInReminderEnabled
+              ? null
+              : {
+                  id: `suggest:${token}`,
+                  fromCoach: true,
+                  text: '',
+                  offer: { type: 'weighIn' as const },
+                  suggestionKind: 'weigh_in_reminder' as const,
+                };
+          }
+          if (suggestion.kind === 'pin_stat_card') {
+            const kind = suggestion.statKey ?? '';
+            if (!isMeasurementIntentKind(kind) || pinnedStatCardKeys.includes(kind)) {
+              return null;
+            }
+            return {
+              id: `suggest:${token}`,
+              fromCoach: true,
+              text: '',
+              offer: { type: 'pin' as const, intent: { kind } },
+              suggestionKind: 'pin_stat_card' as const,
+            };
+          }
+          const intent = suggestion.goalText ? parseGoalIntent(suggestion.goalText, language) : null;
+          if (!intent) {
+            return null;
+          }
+          return {
+            id: `suggest:${token}`,
+            fromCoach: true,
+            text: '',
+            offer: { type: 'goal' as const, intent },
+            suggestionKind: 'set_goal' as const,
+          };
+        })();
         setMessages((current) => [
           ...current,
           {
@@ -331,12 +515,16 @@ export function AICoachChatScreen({
             fromCoach: true,
             text: reply || answer.takeaway,
             advice: answer,
+            ...(fellBackToPreview ? { evidence: t(language, 'coachChat.offlineAnswer') } : {}),
           },
+          ...(suggestedOffer ? [suggestedOffer] : []),
         ]);
       } catch {
         if (token !== askToken.current) {
           return;
         }
+        // The request never landed, which is the plainest offline there is.
+        setAnsweredOffline(true);
         // An upstream failure still knocked: the call was made and it costs.
         if (!proUnlocked) {
           onFreeQuestionUsed();
@@ -351,7 +539,18 @@ export function AICoachChatScreen({
         }
       }
     },
-    [asking, canAsk, language, mustAcknowledgeOnline, onFreeQuestionUsed, proUnlocked, sessionCount, trainingContext],
+    [
+      asking,
+      canAsk,
+      language,
+      mustAcknowledgeOnline,
+      onFreeQuestionUsed,
+      pinnedStatCardKeys,
+      proUnlocked,
+      sessionCount,
+      trainingContext,
+      weighInReminderEnabled,
+    ],
   );
 
   return (
@@ -374,7 +573,19 @@ export function AICoachChatScreen({
           <SparkGlyph color={theme.purple} />
         </View>
         <View style={styles.headerCopy}>
-          <Text style={styles.headerTitle}>{t(language, 'coachChat.title')}</Text>
+          <View style={styles.headerTitleRow}>
+            <Text style={styles.headerTitle}>{t(language, 'coachChat.title')}</Text>
+            <View
+              style={[styles.modeBadge, online ? styles.modeBadgeOnline : styles.modeBadgeOffline]}
+              accessibilityRole="text"
+              accessibilityLabel={t(language, online ? 'coachChat.mode.onlineA11y' : 'coachChat.mode.offlineA11y')}
+            >
+              <View style={[styles.modeDot, online ? styles.modeDotOnline : styles.modeDotOffline]} />
+              <Text style={[styles.modeText, online ? styles.modeTextOnline : styles.modeTextOffline]}>
+                {t(language, online ? 'coachChat.mode.online' : 'coachChat.mode.offline')}
+              </Text>
+            </View>
+          </View>
           {/* One line, not a subtitle plus a strip of chips plus a footnote.
               What the coach has read and what today is are the same fact. */}
           <Text style={styles.headerSub} numberOfLines={2}>
@@ -448,7 +659,13 @@ export function AICoachChatScreen({
               <View key={message.id} style={styles.bubbleRow}>
                 <View style={[styles.coachBubble, styles.offerBubble]}>
                   <Text style={styles.coachText}>
-                    {message.offer.type === 'goal'
+                    {message.offer.type === 'openMeasure'
+                      ? t(language, 'coachChat.measure.firstOffer', {
+                          label: measurementLabel(message.offer.intent),
+                        })
+                      : message.offer.type === 'weighIn'
+                        ? t(language, 'coachChat.weighIn.offer')
+                      : message.offer.type === 'goal'
                       ? t(language, 'coachChat.goal.offer', { text: message.offer.intent.text })
                       : message.offer.type === 'log'
                         ? t(language, 'coachChat.measure.offer', { reading: formatReading(message.offer.intent) })
@@ -457,24 +674,42 @@ export function AICoachChatScreen({
                   <View style={styles.offerActions}>
                     <Pressable
                       accessibilityRole="button"
-                      onPress={() => void resolveOffer(message.id, message.offer as NonNullable<ChatMessage['offer']>, false)}
+                      onPress={() =>
+                        void resolveOffer(
+                          message.id,
+                          message.offer as NonNullable<ChatMessage['offer']>,
+                          false,
+                          message.suggestionKind,
+                        )
+                      }
                       style={({ pressed }) => [styles.offerGhost, pressed && styles.pressed]}
                     >
                       <Text style={styles.offerGhostText}>{t(language, 'coachChat.measure.skip')}</Text>
                     </Pressable>
                     <Pressable
                       accessibilityRole="button"
-                      onPress={() => void resolveOffer(message.id, message.offer as NonNullable<ChatMessage['offer']>, true)}
+                      onPress={() =>
+                        void resolveOffer(
+                          message.id,
+                          message.offer as NonNullable<ChatMessage['offer']>,
+                          true,
+                          message.suggestionKind,
+                        )
+                      }
                       style={({ pressed }) => [styles.offerCta, pressed && styles.pressed]}
                     >
                       <Text style={styles.offerCtaText}>
                         {t(
                           language,
-                          message.offer.type === 'goal'
-                            ? 'coachChat.goal.set'
-                            : message.offer.type === 'log'
-                              ? 'coachChat.measure.log'
-                              : 'coachChat.measure.pin',
+                          message.offer.type === 'openMeasure'
+                            ? 'coachChat.measure.open'
+                            : message.offer.type === 'weighIn'
+                              ? 'coachChat.weighIn.on'
+                            : message.offer.type === 'goal'
+                              ? 'coachChat.goal.set'
+                              : message.offer.type === 'log'
+                                ? 'coachChat.measure.log'
+                                : 'coachChat.measure.pin',
                         )}
                       </Text>
                     </Pressable>
@@ -759,6 +994,57 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  // Small and quiet. It is a state, not a warning — the only time it should
+  // catch the eye is when it disagrees with what the reader expects.
+  modeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  modeBadgeOnline: {
+    borderColor: theme.border,
+    backgroundColor: 'transparent',
+  },
+  modeBadgeOffline: {
+    borderColor: theme.highlight,
+    backgroundColor: 'transparent',
+  },
+  modeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  modeDotOnline: {
+    backgroundColor: theme.highlight,
+  },
+  modeDotOffline: {
+    // Hollow rather than a second colour: a red light would read as broken,
+    // and an offline answer is a degraded answer, not a failure.
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: theme.faint,
+  },
+  modeText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  modeTextOnline: {
+    color: theme.faint,
+  },
+  modeTextOffline: {
+    color: theme.faint,
+  },
   bubbleRow: {
     flexDirection: 'row',
     justifyContent: 'flex-start',
@@ -768,7 +1054,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   // The coach gets no bubble at all: it is the voice of the screen, not a
   // participant in it. Only the user's own words are enclosed.
+  //
+  // `flex: 1` and not just a maxWidth. Without it the block is only as wide as
+  // its widest line, and an answer whose takeaway is one short sentence
+  // squeezed every reason and step under it into that same narrow column —
+  // the same text, three times as tall, and a screen of scrolling to read it
+  // (user, 2026-08-25, on the offline answers where the takeaway is shortest).
   coachBubble: {
+    flex: 1,
     maxWidth: '96%',
   },
   meBubble: {

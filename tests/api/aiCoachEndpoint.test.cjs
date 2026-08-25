@@ -32,6 +32,76 @@ module.exports = [
     },
   },
   {
+    name: 'a follow-up question comes back marked, so the free tier is not charged for it',
+    run() {
+      // The client has always skipped the charge on `unanswered` — but only
+      // the offline preview ever set it, so a live "I need to know X first"
+      // spent one of three questions a week. All four pieces must hold
+      // together: the model may report it, the rules say when, the rules say
+      // when not, and the validator carries it through.
+      assert.match(source, /unanswered: \{\s*\n\s*type: 'boolean'/);
+      assert.match(source, /# When you cannot answer/);
+      assert.match(source, /ask exactly one short follow-up question/);
+      assert.match(source, /set `unanswered` to true/);
+      // The opposite failure — hedging every thin answer into a question —
+      // is the more likely one, so both guards are asserted.
+      assert.match(source, /Ask only when the missing fact actually blocks the answer/);
+      assert.match(source, /Never set `unanswered` on a reply that does answer/);
+      assert.match(source, /\.\.\.\(candidate\.unanswered === true \? \{ unanswered: true \} : \{\}\)/);
+    },
+  },
+  {
+    name: 'confidence is read off the record, never rated by the model',
+    run() {
+      // A model asked how sure it is answers "it seems that" in front of
+      // every sentence. The count is a fact in the context; the rule only
+      // says how to speak given it.
+      assert.match(source, /Reading note" section says how much record the answer rests on/);
+      assert.match(source, /Never rate your own confidence/);
+      // No schema field for it — that would be the self-rating this avoids.
+      const schema = source.slice(source.indexOf('AI_COACH_RESPONSE_SCHEMA'), source.indexOf('COACH_SYSTEM_RULES'));
+      assert.doesNotMatch(schema, /confidence/);
+    },
+  },
+  {
+    name: 'one goal leads, and conflicting goals are named rather than averaged',
+    run() {
+      // Four goals at the same level produced four vague answers. The rules
+      // have to say which one a general question is measured against, and
+      // what to do when two of them cannot both be satisfied — a surplus and
+      // a deficit have no midpoint worth giving.
+      assert.match(source, /Exactly one goal carries `isPrimary`/);
+      assert.match(source, /name the conflict in one sentence and ask which comes first/);
+      assert.match(source, /Do not split the difference/);
+    },
+  },
+  {
+    name: 'a rejected answer says which field was wrong, without logging what it said',
+    run() {
+      // "stop_reason: tool_use" answers "was it truncated?" and nothing else.
+      // A complete tool call that still fails validation used to leave no way
+      // to tell an empty takeaway from a malformed list (live eval, 25.8.).
+      assert.match(source, /shape: describeAnswerShape\(extractToolInput\(payload\)\)/);
+      assert.match(source, /return 'takeaway:empty';/);
+      assert.match(source, /return `\$\{field\}:\$\{typeof value\}`;/);
+
+      // Field names and shapes only. The reader's question and the model's
+      // answer must never reach a log line.
+      const fn = source.slice(source.indexOf('export function describeAnswerShape'), source.indexOf('The offer, or nothing'));
+      assert.doesNotMatch(fn, /candidate\.takeaway\.slice|JSON\.stringify\(candidate/);
+    },
+  },
+  {
+    name: 'the coach introduces itself as Vinha, not under the old brand',
+    run() {
+      // GAINER is another company's EU trademark; the app has been Vinha
+      // Fitness since the rename. This is the one place the model could say
+      // the name out loud.
+      assert.match(source, /You are Vinha Coach, the training coach inside Vinha Fitness/);
+      assert.doesNotMatch(source, /GAINER/);
+    },
+  },
+  {
     name: 'the cached prefix covers the rules and the training context',
     run() {
       // The context is the bulk of every request. Follow-up questions in one

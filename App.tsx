@@ -102,6 +102,11 @@ import { recordCoachQuestion, resolveCoachQuota } from './src/lib/aiCoachQuota';
 import { buildHomePlanProgress } from './src/lib/homePlanProgress';
 import { buildHomeStatCardCatalog, buildHomeStatCards, resolveHomeStatCardKeys } from './src/lib/homeStatCards';
 import {
+  recordSuggestionAccepted,
+  recordSuggestionRejected,
+  silencedSuggestionKinds,
+} from './src/lib/coachSuggestions';
+import {
   buildSessionEquipmentLabel,
   classifySessionFocus,
   getDefaultCooldown,
@@ -3575,11 +3580,19 @@ function VinhaApp() {
         bodyweightEntries: database.bodyweightEntries,
         measurementEntries: database.measurementEntries,
         coachGoals: preferences.coachGoals,
+        primaryGoalId: preferences.primaryGoalId,
         bodyweightGoalKg: preferences.bodyweightGoalKg,
         profile: {
           heightCm: preferences.setupHeightCm,
           age: preferences.setupAge,
           gender: preferences.setupGender,
+        },
+        // What Home already carries, and what the coach must not bring up:
+        // an offer for something already on is the sign explaining a sign.
+        homeState: {
+          pinnedStatCardKeys: homePinnedStatCardKeys,
+          weighInReminderEnabled: preferences.notificationPrefs.weighInReminder,
+          silencedSuggestions: silencedSuggestionKinds(preferences.coachSuggestionState),
         },
         plannerSetup: preferences.aiSetupCompleted
           ? {
@@ -3614,6 +3627,10 @@ function VinhaApp() {
       database.bodyweightEntries,
       database.measurementEntries,
       preferences.coachGoals,
+      preferences.primaryGoalId,
+      homePinnedStatCardKeys,
+      preferences.coachSuggestionState,
+      preferences.notificationPrefs.weighInReminder,
       preferences.bodyweightGoalKg,
       preferences.setupHeightCm,
       preferences.setupAge,
@@ -5919,12 +5936,13 @@ function VinhaApp() {
                     .filter((entry) => entry.kind === intent.kind)
                     .map((entry) => ({ recordedAt: entry.recordedAt, value: entry.value })),
                 );
+          const id = `goal-${Date.now().toString(36)}`;
           await updatePreferences({
             coachGoals: [
               // One goal per kind: restating replaces, it does not stack.
               ...preferences.coachGoals.filter((goal) => goal.kind !== intent.kind),
               {
-                id: `goal-${Date.now().toString(36)}`,
+                id,
                 text: intent.text,
                 kind: intent.kind,
                 targetValue: intent.targetValue,
@@ -5933,8 +5951,34 @@ function VinhaApp() {
                 createdAt: new Date().toISOString(),
               },
             ],
+            // Saying a goal out loud makes it the one the coach answers
+            // against. There is no other way to change it yet — goals have no
+            // screen of their own — so the spoken word has to be the switch.
+            primaryGoalId: id,
           });
         }}
+        weighInReminderEnabled={preferences.notificationPrefs.weighInReminder}
+        onOpenMeasure={(kind) =>
+          // Bodyweight has a screen of its own; everything else is a section
+          // of Progress that can open on the right measurement.
+          navigate(
+            kind === 'bodyweight'
+              ? { tab: 'progress', screen: 'bodyweight' }
+              : { tab: 'progress', screen: 'list', section: 'measures', measure: kind },
+          )
+        }
+        onEnableWeighInReminder={() =>
+          void updatePreferences({
+            notificationPrefs: { ...preferences.notificationPrefs, weighInReminder: true },
+          })
+        }
+        onCoachSuggestionResolved={(kind, accepted) =>
+          void updatePreferences({
+            coachSuggestionState: accepted
+              ? recordSuggestionAccepted(preferences.coachSuggestionState, kind)
+              : recordSuggestionRejected(preferences.coachSuggestionState, kind),
+          })
+        }
         transcriptReporter={accountBackup.state.status === 'signed_in' ? accountBackup.state.email : null}
       />
     );

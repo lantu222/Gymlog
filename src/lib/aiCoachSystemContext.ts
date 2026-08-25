@@ -136,12 +136,27 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
         'No sessions logged in this window. Do not describe trends, volume, or progress.',
       ])!,
     );
-  } else if (history.sessionCount < 3) {
+  } else if (history.confidence === 'low') {
     // The live eval caught "progress" and "consistent" written over one
     // logged session. A single data point is a fact, not a direction.
     blocks.push(
       section('Reading note', [
         `Only ${history.sessionCount} session${history.sessionCount === 1 ? '' : 's'} in this window: not a trend. Do not describe progress, consistency, or momentum.`,
+      ])!,
+    );
+  } else if (history.confidence === 'medium') {
+    // How sure the record allows the answer to sound. Counted from the log,
+    // never asked of the model — a model rating its own confidence hedges
+    // everything and the hedge stops carrying information.
+    blocks.push(
+      section('Reading note', [
+        `${history.sessionCount} sessions in the last ${history.windowDays} days: enough to read a direction, not enough to call it settled. Qualify the reading once, in the sentence it belongs to — not in front of every claim.`,
+      ])!,
+    );
+  } else {
+    blocks.push(
+      section('Reading note', [
+        `${history.sessionCount} sessions across the last ${history.windowDays} days: a long enough record to state findings plainly. Do not hedge.`,
       ])!,
     );
   }
@@ -176,10 +191,33 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
     if (goal.targetValue !== null) parts.push(`target ${trim(goal.targetValue)} ${goal.unit ?? ''}`.trim());
     const detail = parts.length > 0 ? ` — ${parts.join(', ')}` : '';
     const setAt = goal.setAt ? ` (set ${goal.setAt})` : '';
-    return `- "${goal.text}"${setAt}${detail}`;
+    // The flag has to reach the text or it does not exist: the model reads
+    // this rendering, not the object.
+    const lead = goal.isPrimary ? '[primary] ' : '';
+    return `- ${lead}"${goal.text}"${setAt}${detail}`;
   });
-  const goalBlock = section('Goals — stated by the user; tie advice to these', goalLines);
+  const goalBlock = section(
+    'Goals — stated by the user; tie advice to these. [primary] is the one a general question is answered against',
+    goalLines,
+  );
   if (goalBlock) blocks.push(goalBlock);
+
+  if (context.homeState) {
+    // What is already on, so an offer is only ever made for what is missing.
+    const home = context.homeState;
+    const homeLines = [
+      line(
+        'Cards on Home',
+        home.pinnedStatCardKeys.length > 0 ? home.pinnedStatCardKeys.join(', ') : 'none',
+      ),
+      line('Morning weigh-in reminder', home.weighInReminderEnabled ? 'on' : 'off'),
+      home.silencedSuggestions.length > 0
+        ? line('Do not offer', `${home.silencedSuggestions.join(', ')} — already handled or declined`)
+        : null,
+    ].filter((entry): entry is string => entry !== null);
+    const homeBlock = section('App state — offer only what is missing here', homeLines);
+    if (homeBlock) blocks.push(homeBlock);
+  }
 
   if (context.profile) {
     const p = context.profile;

@@ -1,7 +1,16 @@
 import { HomeSummary } from './dashboard';
 import { ExerciseProgressSummary } from './progression';
 import { BodyweightEntry, CoachGoal, ExerciseLog, MeasurementEntry, SetupWeekday, UnitPreference, WorkoutSession } from '../types/models';
-import { AICoachBody, AICoachBodyChange, AICoachGoal, AICoachHistory, AICoachProfile, AICoachTrainingContext } from '../types/aiCoach';
+import {
+  AICoachBody,
+  AICoachBodyChange,
+  AICoachGoal,
+  AICoachHistory,
+  AICoachHistoryConfidence,
+  AICoachHomeState,
+  AICoachProfile,
+  AICoachTrainingContext,
+} from '../types/aiCoach';
 import { detectPlateaus } from './progressionAnalyzer';
 import { buildFatigueModel } from './fatigueModel';
 import { buildTrainingHistory, DEFAULT_HISTORY_WINDOW_DAYS } from './trainingHistory';
@@ -62,8 +71,12 @@ export interface BuildAiTrainingContextInput {
   bodyweightEntries?: BodyweightEntry[];
   measurementEntries?: MeasurementEntry[];
   coachGoals?: CoachGoal[];
+  /** Which of them leads; null falls back to the newest. */
+  primaryGoalId?: string | null;
   bodyweightGoalKg?: number | null;
   profile?: AICoachProfile | null;
+  /** What Home already shows and what the coach must not offer right now. */
+  homeState?: AICoachHomeState | null;
   now?: Date;
 }
 
@@ -90,6 +103,8 @@ export function emptyAiCoachHistory(trainingDays: SetupWeekday[] = []): AICoachH
           }
         : null,
     truncated: false,
+    // Nothing logged is the clearest low there is.
+    confidence: 'low',
   };
 }
 
@@ -152,7 +167,18 @@ export function buildAiCoachGoals(
   coachGoals: CoachGoal[],
   bodyweightGoalKg: number | null,
   body: AICoachBody | null,
+  primaryGoalId: string | null = null,
 ): AICoachGoal[] {
+  // Which goal leads. A stored id that no longer matches a goal must not leave
+  // the list headless, so the newest stated goal takes over — the last thing
+  // the reader said out loud is the best guess at what they care about now.
+  const primaryId =
+    coachGoals.find((goal) => goal.id === primaryGoalId)?.id ??
+    coachGoals.reduce<CoachGoal | null>(
+      (newest, goal) => (newest === null || goal.createdAt > newest.createdAt ? goal : newest),
+      null,
+    )?.id ??
+    null;
   const currentFor = (kind: string | null): number | null => {
     if (kind === 'bodyweight') return body?.weightKg ?? null;
     if (!kind) return null;
@@ -166,6 +192,7 @@ export function buildAiCoachGoals(
     startValue: goal.startValue,
     currentValue: currentFor(goal.kind),
     setAt: goal.createdAt.slice(0, 10),
+    isPrimary: goal.id === primaryId,
   }));
   // The onboarding weight goal counts as a goal too — but the one the user
   // stated to the coach wins when both name bodyweight.
@@ -178,9 +205,41 @@ export function buildAiCoachGoals(
       startValue: null,
       currentValue: body?.weightKg ?? null,
       setAt: null,
+      // An onboarding answer leads only when nothing was ever said to the
+      // coach: a goal the reader stated in their own words outranks a number
+      // they tapped into a setup step months ago.
+      isPrimary: goals.length === 0,
     });
   }
   return goals;
+}
+
+/**
+ * How much record a reading rests on. Counted from the log, not asked of the
+ * model: self-rated confidence turns into "it seems that" in front of every
+ * sentence, and the hedge stops meaning anything.
+ *
+ * The thresholds continue the rule the prompt already had — three sessions is
+ * where a trend starts — and the top step needs both a count and a stretch of
+ * calendar, because twelve sessions crammed into a fortnight say less about a
+ * direction than the same twelve spread across six weeks.
+ */
+export function resolveHistoryConfidence(sessionCount: number, spanDays: number): AICoachHistoryConfidence {
+  if (sessionCount < 3) {
+    return 'low';
+  }
+  return sessionCount >= 12 && spanDays >= 42 ? 'high' : 'medium';
+}
+
+function historySpanDays(sessions: { performedAt: string }[]): number {
+  if (sessions.length < 2) {
+    return 0;
+  }
+  const times = sessions.map((entry) => new Date(entry.performedAt).getTime()).filter((time) => Number.isFinite(time));
+  if (times.length < 2) {
+    return 0;
+  }
+  return Math.round((Math.max(...times) - Math.min(...times)) / (24 * 60 * 60 * 1000));
 }
 
 function buildHistoryBlock(
@@ -228,6 +287,7 @@ function buildHistoryBlock(
     weeks: history.weeks,
     schedule: history.adherence,
     truncated: history.sessionCount > sessions.length,
+    confidence: resolveHistoryConfidence(history.sessionCount, historySpanDays(history.sessions)),
   };
 }
 
@@ -250,8 +310,10 @@ export function buildAiTrainingContext({
   bodyweightEntries = [],
   measurementEntries = [],
   coachGoals = [],
+  primaryGoalId = null,
   bodyweightGoalKg = null,
   profile = null,
+  homeState = null,
   now = new Date(),
 }: BuildAiTrainingContextInput): AICoachTrainingContext {
   const body = buildAiCoachBodyState(bodyweightEntries, measurementEntries, now);
@@ -331,8 +393,9 @@ export function buildAiTrainingContext({
     history: buildHistoryBlock(workoutSessions, exerciseLogs, trainingDays, historyWindowDays, schedule),
     ...(plannerSetup !== undefined ? { plannerSetup } : {}),
     body,
-    goals: buildAiCoachGoals(coachGoals, bodyweightGoalKg, body),
+    goals: buildAiCoachGoals(coachGoals, bodyweightGoalKg, body, primaryGoalId),
     profile: profile && (profile.heightCm !== null || profile.age !== null || profile.gender !== null) ? profile : null,
+    homeState,
   };
 }
 
@@ -346,6 +409,54 @@ export function buildAiTrainingContext({
  * defaults, never a throw. Only shape is repaired here; a present field is
  * trusted as the client sent it.
  */
+/**
+ * The history block, repaired rather than trusted. The renderer walks
+ * `sessions`, `lifts` and `weeks` unconditionally, so a payload that carries a
+ * history without one of them used to throw on the way to the model — an
+ * error where the honest outcome is a thinner answer.
+ */
+function normalizeHistory(input: Partial<AICoachHistory> | null | undefined): AICoachHistory {
+  if (!input || typeof input !== 'object') {
+    return emptyAiCoachHistory();
+  }
+  const empty = emptyAiCoachHistory();
+  const list = <T,>(value: unknown, fallback: T[]): T[] => (Array.isArray(value) ? (value as T[]) : fallback);
+  const sessions = list(input.sessions, empty.sessions);
+  return {
+    windowDays:
+      typeof input.windowDays === 'number' && Number.isFinite(input.windowDays) ? input.windowDays : empty.windowDays,
+    sessionCount:
+      typeof input.sessionCount === 'number' && Number.isFinite(input.sessionCount)
+        ? input.sessionCount
+        : sessions.length,
+    totalVolumeKg:
+      typeof input.totalVolumeKg === 'number' && Number.isFinite(input.totalVolumeKg) ? input.totalVolumeKg : 0,
+    sessions,
+    lifts: list(input.lifts, empty.lifts),
+    weeks: list(input.weeks, empty.weeks),
+    schedule: input.schedule ?? null,
+    truncated: input.truncated === true,
+    // An older app sends a history with no confidence in it. Falling back to
+    // 'low' would tell a reader with a year of training that their record is
+    // too short, so it is recounted from what the payload does carry.
+    confidence:
+      input.confidence ??
+      resolveHistoryConfidence(
+        typeof input.sessionCount === 'number' && Number.isFinite(input.sessionCount)
+          ? input.sessionCount
+          : sessions.length,
+        historySpanDays(sessions),
+      ),
+  };
+}
+
+function withPrimaryGoal(goals: AICoachGoal[]): AICoachGoal[] {
+  if (goals.length === 0 || goals.some((goal) => goal.isPrimary === true)) {
+    return goals;
+  }
+  return goals.map((goal, index) => ({ ...goal, isPrimary: index === goals.length - 1 }));
+}
+
 export function normalizeAiCoachTrainingContext(
   input: Partial<AICoachTrainingContext> | null | undefined,
 ): AICoachTrainingContext {
@@ -374,11 +485,16 @@ export function normalizeAiCoachTrainingContext(
       sessionCount7d: 0,
       confident: false,
     },
-    history:
-      candidate.history && typeof candidate.history === 'object' ? candidate.history : emptyAiCoachHistory(),
+    history: normalizeHistory(candidate.history),
     plannerSetup: candidate.plannerSetup ?? null,
     body: candidate.body && typeof candidate.body === 'object' ? candidate.body : null,
-    goals: array(candidate.goals),
+    // An installed app that predates the primary goal sends goals without the
+    // flag, and it keeps sending them until the reader updates. Rather than
+    // leaving the list headless, the newest goal — last in the order the
+    // client appends them — takes the lead, which is what a null stored
+    // choice resolves to anyway.
+    goals: withPrimaryGoal(array<AICoachGoal>(candidate.goals)),
     profile: candidate.profile && typeof candidate.profile === 'object' ? candidate.profile : null,
+    homeState: candidate.homeState && typeof candidate.homeState === 'object' ? candidate.homeState : null,
   };
 }

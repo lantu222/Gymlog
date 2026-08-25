@@ -47,6 +47,11 @@ export function useScheduledNotifications(database: AppDatabase) {
         exerciseLogs: database.exerciseLogs,
         exerciseTemplates: database.exerciseTemplates,
       }),
+      // So this morning's nudge disappears once the scale has been used.
+      lastBodyweightAtMs: database.bodyweightEntries.reduce<number | null>((latest, entry) => {
+        const at = new Date(entry.recordedAt).getTime();
+        return Number.isFinite(at) && (latest === null || at > latest) ? at : latest;
+      }, null),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
@@ -54,6 +59,7 @@ export function useScheduledNotifications(database: AppDatabase) {
       database.cardioSessions,
       database.exerciseLogs,
       database.exerciseTemplates,
+      database.bodyweightEntries,
       foregroundTick,
     ],
   );
@@ -88,10 +94,12 @@ export function useScheduledNotifications(database: AppDatabase) {
     notificationPrefs.comebackNudge,
     notificationPrefs.sessionReminders,
     notificationPrefs.reminderTime,
+    notificationPrefs.weighInReminder,
     appLanguage,
     trainingDaysKey,
     onTrainingBreak,
     signals.lastSessionAtMs,
+    signals.lastBodyweightAtMs,
     signals.weekSessionCount,
     signals.weekVolumeKg,
     prKey,

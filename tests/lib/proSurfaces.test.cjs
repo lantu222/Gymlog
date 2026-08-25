@@ -580,12 +580,25 @@ module.exports = [
 
       // The PRO pill is gone; the free quota still has its own row, so nothing
       // honest was lost with it.
-      assert.doesNotMatch(chat, /styles.badge/);
-      assert.match(chat, /styles.quotaRow/);
+      //
+      // This assertion used to end in a literal backspace (0x08), left by a
+      // word-boundary escape that went through a shell heredoc. It asked for
+      // "styles.badge" followed by a control character no source file
+      // contains, so the guard could never fail whatever the screen did.
+      assert.doesNotMatch(chat, /styles[.]badge[^A-Za-z]/);
+      assert.match(chat, /styles[.]quotaRow[^A-Za-z]/);
 
       // The coach gets no bubble — it is the voice of the screen. Only the
-      // user's own words are enclosed.
-      assert.match(chat, /coachBubble: \{\s*maxWidth: '96%',\s*\},/);
+      // user's own words are enclosed. Checked as the absence of a bubble
+      // rather than as an exact style block, so the layout can change without
+      // the coach quietly growing a background.
+      const coachBubble = chat.slice(chat.indexOf('coachBubble: {'), chat.indexOf('meBubble: {'));
+      assert.doesNotMatch(coachBubble, /backgroundColor|borderRadius|paddingVertical|paddingHorizontal/);
+      // It must take the row, though. Sized to its content, an answer whose
+      // takeaway is one short sentence squeezed its reasons and steps into
+      // that same narrow column and doubled in height (user, 2026-08-25).
+      assert.match(coachBubble, /flex: 1,/);
+      assert.match(coachBubble, /maxWidth: '96%',/);
       assert.match(chat, /meBubble: \{[\s\S]*?backgroundColor: theme\.purple/);
 
       // Bottom-anchored: a half-empty thread must not leave a dead middle.
