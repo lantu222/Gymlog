@@ -15,18 +15,6 @@ import type { AppLanguage } from '../types/models';
 
 export const WEEKDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
-/** Same spread pattern as ProgramDetailScreen's schedule preview. */
-const TRAINING_DAY_SPREAD: Record<number, number[]> = {
-  1: [0],
-  2: [0, 3],
-  3: [0, 2, 4],
-  4: [0, 1, 3, 5],
-  5: [0, 1, 3, 4, 5],
-  6: [0, 1, 2, 3, 4, 5],
-};
-
-const WEEKDAY_SET = new Set(WEEKDAYS);
-
 // The three-letter codes are matched against saved plan entries, so they stay
 // English; only what the chip shows is translated.
 const WEEKDAY_DISPLAY_KEYS: Record<string, I18nKey> = {
@@ -38,15 +26,6 @@ const WEEKDAY_DISPLAY_KEYS: Record<string, I18nKey> = {
   SAT: 'setup.day.sat',
   SUN: 'setup.day.sun',
 };
-
-/**
- * A generic Mon/Wed/Fri-style spread, only ever used to fill a GAP in a plan
- * that does carry fixed weekdays. It never invents a whole week.
- */
-function weekdayForSession(index: number, sessionCount: number) {
-  const spread = TRAINING_DAY_SPREAD[Math.min(6, Math.max(1, sessionCount))] ?? [0, 2, 4];
-  return WEEKDAYS[spread[index] ?? Math.min(index, 6)];
-}
 
 /**
  * The plan's own weekday vocabulary for a date, Monday first.
@@ -64,26 +43,8 @@ export function weekdayLabel(code: string, language: AppLanguage) {
   return (key ? t(language, key) : code).toUpperCase();
 }
 
-/** True when at least one session in the week names a real weekday. */
-export function hasFixedWeekdays(sessions: readonly { dayLabel?: string | null }[]): boolean {
-  return sessions.some((entry) => WEEKDAY_SET.has(entry.dayLabel?.trim().slice(0, 3).toUpperCase() ?? ''));
-}
-
-/**
- * The weekday for one session, or null when the plan has no schedule at all.
- *
- * Null is a real answer, not a failure: with nothing scheduled the row draws no
- * badge rather than a made-up day or a session number the title already states.
- */
-export function resolveSessionWeekday(
-  dayLabel: string | null | undefined,
-  index: number,
-  sessionCount: number,
-  anyFixedWeekday: boolean,
-): string | null {
-  const normalized = dayLabel?.trim().slice(0, 3).toUpperCase() ?? '';
-  if (WEEKDAY_SET.has(normalized)) {
-    return normalized;
-  }
-  return anyFixedWeekday ? weekdayForSession(index, sessionCount) : null;
-}
+// hasFixedWeekdays / resolveSessionWeekday are gone (2026-08-25): they read
+// the plan's STORED weekday labels, which a switch to a training cycle leaves
+// untouched — so the Home rows kept saying MON/THU under a six-day rotation.
+// The rows now ask trainingSchedule.upcomingSessionDayStarts, the same source
+// every calendar lights its dots from.

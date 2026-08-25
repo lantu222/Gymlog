@@ -23,7 +23,7 @@ import { CardioIconKind } from '../lib/cardio';
 import { HomeStatCard } from '../lib/homeStatCards';
 import { VinhaIcon } from '../components/VinhaIcon';
 import { getHomeMiniCalendarDays, getHomeMonthCalendar, HomeDaySessionSummary } from '../lib/homeCalendar';
-import { isScheduleKnown, TrainingSchedule, trainsOn, UNKNOWN_SCHEDULE } from '../lib/trainingSchedule';
+import { isScheduleKnown, TrainingSchedule, trainsOn, UNKNOWN_SCHEDULE, upcomingSessionDayStarts } from '../lib/trainingSchedule';
 import { getDefaultCooldown, getDefaultWarmup, getSessionFocusTitle } from '../lib/homeSessionHero';
 import {
   getGreetingRotation,
@@ -35,7 +35,7 @@ import { AnimatedGreeting } from '../components/AnimatedGreeting';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
 import { localizeSessionFocus, localizeSessionName, localizeWorkoutFocus } from '../lib/sessionNameLabel';
-import { hasFixedWeekdays, resolveSessionWeekday, weekdayCodeForDate, weekdayLabel } from '../lib/planWeekdays';
+import { weekdayCodeForDate, weekdayLabel } from '../lib/planWeekdays';
 import { t } from '../lib/i18n';
 import { ProMomentContent } from '../lib/proInsights';
 import { CutButton } from '../components/CutButton';
@@ -453,7 +453,11 @@ export function HomeScreen({
   // The calendar's answer to "which row is today", kept apart from the
   // rotation's answer to "which row is next". They are different questions and
   // the program rows used to ask only the second one.
-  const todayWeekdayCode = weekdayCodeForDate(new Date());
+  const todayDayStart = new Date(
+    new Date().getFullYear(),
+    new Date().getMonth(),
+    new Date().getDate(),
+  ).getTime();
   const monthCalendar = useMemo(
     () => getHomeMonthCalendar(new Date(), language, monthOffset),
     [language, monthOffset],
@@ -464,6 +468,20 @@ export function HomeScreen({
   // Every session the programme holds, for the today-picker. One session
   // is not a choice, so the title only becomes a button past that.
   const planSessions = activePlan?.sessions ?? [];
+  /**
+   * Which calendar day each programme session lands on next — asked from the
+   * schedule, the same source the strip above lights its dots from. The rows
+   * used to read the plan's STORED weekday labels, which survive a switch to
+   * a cycle untouched: the card said MON/THU while the calendar walked a
+   * six-day rotation (user, 2026-08-25).
+   */
+  const planSessionDayStarts = useMemo(
+    () => upcomingSessionDayStarts(trainingSchedule, planSessions.length),
+    // The array identity changes per render; length + schedule are the inputs
+    // the projection actually reads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [trainingSchedule, planSessions.length],
+  );
   useEffect(() => {
     const shown = Keyboard.addListener('keyboardDidShow', (event) =>
       setKeyboardInset(event.endCoordinates.height),
@@ -1204,16 +1222,19 @@ export function HomeScreen({
               {activePlan.title}
             </Text>
             <View style={styles.programDays}>
-              {activePlan.sessions.map((session, index, allSessions) => {
-                const anyFixed = hasFixedWeekdays(allSessions);
-                const weekday = resolveSessionWeekday(session.dayLabel, index, allSessions.length, anyFixed);
+              {activePlan.sessions.map((session, index) => {
+                // The schedule's projected date for this session — the same
+                // truth the calendar strip lights. Null when nothing is known,
+                // and the row simply draws no badge.
+                const dayStart = planSessionDayStarts[index] ?? null;
+                const weekday = dayStart !== null ? weekdayCodeForDate(new Date(dayStart)) : null;
                 // The outline still answers the plan — it is the row the hero
                 // is offering, and it is quiet. The word on the row answers a
                 // different question: was this one done this week.
                 const isNext = activePlan.nextSession?.id === session.id;
-                const isToday = weekday !== null && weekday === todayWeekdayCode;
+                const isToday = dayStart !== null && dayStart === todayDayStart;
                 const doneThisWeek = doneThisWeekSessionIds.includes(session.id);
-                // The badge is the weekday, and only when the plan really has
+                // The badge is the day, and only when the schedule really has
                 // one. Without a schedule it repeated the session number that
                 // the title already states, and cost the title the width it
                 // then truncated for.

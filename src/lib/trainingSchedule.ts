@@ -132,3 +132,48 @@ export function sessionSlotOn(schedule: TrainingSchedule, date: Date): number | 
   const within = schedule.pattern.slice(0, cycleOffset(schedule, date)).filter(Boolean).length;
   return turns * perTurn + within;
 }
+
+/**
+ * For each of a programme's sessions, the local day start of its NEXT
+ * occurrence on the calendar, today included.
+ *
+ * The inverse of `sessionSlotOn`, so the active-programme rows can wear the
+ * same days the calendar strip lights. They used to read the plan's stored
+ * weekday labels instead — labels a switch to a cycle leaves untouched, so
+ * the card went on saying MON/THU while every calendar walked a six-day
+ * rotation (user, 2026-08-25).
+ *
+ * Null for a session the schedule cannot place: nothing is known, or the
+ * horizon ran out first — which is a real answer for a weekday plan with
+ * more sessions than chosen days, not a failure to search harder.
+ */
+export function upcomingSessionDayStarts(
+  schedule: TrainingSchedule,
+  sessionCount: number,
+  from: Date = new Date(),
+  horizonDays = 42,
+): (number | null)[] {
+  const result: (number | null)[] = Array.from({ length: Math.max(0, sessionCount) }, () => null);
+  if (!isScheduleKnown(schedule) || sessionCount <= 0) {
+    return result;
+  }
+
+  let unplaced = sessionCount;
+  for (let step = 0; step < horizonDays && unplaced > 0; step += 1) {
+    // Calendar-arithmetic construction keeps the walk DST-safe.
+    const date = new Date(from.getFullYear(), from.getMonth(), from.getDate() + step);
+    const slot = sessionSlotOn(schedule, date);
+    if (slot === null) {
+      continue;
+    }
+    // Same modulo walk as getHomeDayView: a cycle longer than the programme
+    // returns to session 1 rather than running off the end of the list.
+    const index = ((slot % sessionCount) + sessionCount) % sessionCount;
+    if (result[index] === null) {
+      result[index] = date.getTime();
+      unplaced -= 1;
+    }
+  }
+
+  return result;
+}

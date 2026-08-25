@@ -584,8 +584,13 @@ module.exports = [
      */
     name: 'the TODAY badge reads the calendar and the outline reads the plan',
     run() {
-      assert.match(homeScreenSource, /const todayWeekdayCode = weekdayCodeForDate\(new Date\(\)\)/);
-      assert.match(homeScreenSource, /const isToday = weekday !== null && weekday === todayWeekdayCode/);
+      // The rows now read the SCHEDULE'S projection, the same source the
+      // strip lights its dots from — not the plan's stored weekday labels,
+      // which survive a switch to a cycle untouched and kept saying MON/THU
+      // under a six-day rotation (user, 2026-08-25).
+      assert.match(homeScreenSource, /upcomingSessionDayStarts\(trainingSchedule, planSessions\.length\)/);
+      assert.match(homeScreenSource, /const isToday = dayStart !== null && dayStart === todayDayStart/);
+      assert.doesNotMatch(homeScreenSource, /resolveSessionWeekday|hasFixedWeekdays/);
       assert.match(homeScreenSource, /const isNext = activePlan\.nextSession\?\.id === session\.id/);
       // The outline is the plan's mark, the pill is the calendar's.
       assert.match(homeScreenSource, /stroke=\{isNext \? theme\.purpleBright : undefined\}/);

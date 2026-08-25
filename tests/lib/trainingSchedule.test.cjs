@@ -126,6 +126,48 @@ module.exports = [
     },
   },
   {
+    name: 'trainingSchedule: each session names the next day it lands on',
+    run() {
+      const { upcomingSessionDayStarts } = require('../../.test-dist/lib/trainingSchedule.js');
+      const dayStart = (year, month, day) => new Date(year, month - 1, day).getTime();
+
+      // The user's own case (2026-08-25): four on, two off, two sessions.
+      // From the anchor day the programme alternates A B A B across the four
+      // training days, so each session's next occurrence is simply the next
+      // two calendar days — not the MON/THU the plan's stored labels froze.
+      const cycle = cycleSchedule(patternFromOnOff(4, 2), on(2026, 8, 24));
+      assert.deepEqual(upcomingSessionDayStarts(cycle, 2, on(2026, 8, 24)), [
+        dayStart(2026, 8, 24),
+        dayStart(2026, 8, 25),
+      ]);
+      // Asked from a rest day, the projection walks over it to the next turn.
+      assert.deepEqual(upcomingSessionDayStarts(cycle, 2, on(2026, 8, 28)), [
+        dayStart(2026, 8, 30),
+        dayStart(2026, 8, 31),
+      ]);
+
+      // Weekday plans answer with the same days their strip lights: Tue/Thu,
+      // asked on Monday 2026-07-27.
+      const weekly = weekdaySchedule([1, 3]);
+      assert.deepEqual(upcomingSessionDayStarts(weekly, 2, on(2026, 7, 27)), [
+        dayStart(2026, 7, 28),
+        dayStart(2026, 7, 30),
+      ]);
+
+      // A third session that two chosen weekdays can never reach stays null —
+      // a real answer, not a longer search.
+      assert.deepEqual(upcomingSessionDayStarts(weekly, 3, on(2026, 7, 27)), [
+        dayStart(2026, 7, 28),
+        dayStart(2026, 7, 30),
+        null,
+      ]);
+
+      // Nothing known, nothing claimed.
+      assert.deepEqual(upcomingSessionDayStarts(UNKNOWN_SCHEDULE, 2, on(2026, 7, 27)), [null, null]);
+      assert.deepEqual(upcomingSessionDayStarts(weekly, 0, on(2026, 7, 27)), []);
+    },
+  },
+  {
     name: 'trainingSchedule: the schedule is copied, not captured',
     run() {
       // The pattern comes from React state on the way in and goes into
