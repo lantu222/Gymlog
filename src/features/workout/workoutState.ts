@@ -10,7 +10,7 @@ import { CardioActivityType } from '../../types/models';
 import { isUnloadedTrackingMode } from './workoutTypes';
 import { GuidedResumeAnchor, WorkoutTemplateExercise, WorkoutExerciseInsertInput, WorkoutExerciseInstance, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRestTimerState, WorkoutRuntimeTemplate, WorkoutSessionMaterializeOptions, WorkoutSessionRuntime, WorkoutSessionSummary, WorkoutSetDraftInput, WorkoutSetEffort, WorkoutSetInstance, WorkoutSlotHistoryEntry, WorkoutSlotHistorySet, WorkoutStatus, WorkoutUiState, WorkoutExerciseStatus } from './workoutTypes';
 import { getWorkoutTemplateById } from './workoutCatalog';
-import { resolveProgressedLoadKg } from '../../lib/progressionGate';
+import { resolveProgressedLoadKg, resolveProgressedReps } from '../../lib/progressionGate';
 import { findHistoricalSetForIndex, findLatestEntryForExerciseName } from '../../lib/exerciseHistoryLookup';
 
 export interface WorkoutFeatureState {
@@ -167,6 +167,8 @@ interface ResolvedSetDraft {
   autoProgressedFromKg: number | undefined;
   heldForFatigue: boolean | undefined;
   prefilledFromPerformedAt: string | undefined;
+  plannedTargetReps: number | undefined;
+  autoProgressedFromReps: number | undefined;
 }
 
 /**
@@ -196,6 +198,9 @@ function resolveNamedHistoryDraft(
     autoProgressedFromKg: undefined,
     heldForFatigue: undefined,
     prefilledFromPerformedAt: undefined,
+    // Borrowed history does not feed the rep gate either — see above.
+    plannedTargetReps: undefined,
+    autoProgressedFromReps: undefined,
   };
 
   const entry = findLatestEntryForExerciseName(history.slotHistory, exercise.exerciseName, {
@@ -218,6 +223,8 @@ function resolveNamedHistoryDraft(
     // Where it came from, so the logger can say so rather than presenting a
     // weight from another program as if it belonged to this slot.
     prefilledFromPerformedAt: entry.performedAt,
+    plannedTargetReps: undefined,
+    autoProgressedFromReps: undefined,
   };
 }
 
@@ -246,6 +253,8 @@ function resolveHistoricalSetDraft(
         autoProgressedFromKg: undefined,
         heldForFatigue: undefined,
         prefilledFromPerformedAt: undefined,
+        plannedTargetReps: undefined,
+        autoProgressedFromReps: undefined,
       };
     }
     return resolveNamedHistoryDraft(history, setIndex, unitPreference, exercise);
@@ -270,6 +279,19 @@ function resolveHistoricalSetDraft(
     fallbackLoadKg: matched.loadKg,
   });
 
+  // Bodyweight progresses by reps where the load gate stays silent — same
+  // options, same history, and the same Pro gate riding in on
+  // automatedProgressionEnabled.
+  const repsResolution = resolveProgressedReps({
+    history: entries,
+    templateTargetReps: exercise.repsMax,
+    targetSets: exercise.sets,
+    level: options.setupLevel,
+    trackingMode: exercise.trackingMode,
+    automatedProgressionEnabled: options.automatedProgressionEnabled ?? false,
+    fatigueSignal: options.fatigueSignal,
+  });
+
   // Prefill the weight so the user usually just adjusts it with the console
   // and types reps; reps stay empty so entering them is the signal that logs
   // the set (handoff §5).
@@ -278,9 +300,11 @@ function resolveHistoricalSetDraft(
     draftRepsText: '',
     plannedLoadKg: loadKg,
     autoProgressedFromKg: fromLoadKg ?? undefined,
-    heldForFatigue: heldForFatigue || undefined,
+    heldForFatigue: (heldForFatigue || repsResolution.heldForFatigue) || undefined,
     // This slot's own history — the ordinary case, nothing to explain.
     prefilledFromPerformedAt: undefined,
+    plannedTargetReps: repsResolution.progressed ? repsResolution.targetReps : undefined,
+    autoProgressedFromReps: repsResolution.fromReps ?? undefined,
   };
 }
 
@@ -318,6 +342,8 @@ function materializeExercise(
       // behaviour the paywall sells by name, invisible since it was wired.
       heldForFatigue: resolved.heldForFatigue,
       prefilledFromPerformedAt: resolved.prefilledFromPerformedAt,
+      plannedTargetReps: resolved.plannedTargetReps,
+      autoProgressedFromReps: resolved.autoProgressedFromReps,
       status: 'pending',
       edited: false,
     };
@@ -1130,6 +1156,9 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
         set.draftLoadText = historical ? formatWeightInputValue(historical.loadKg, action.payload.unitPreference) : '';
         set.plannedLoadKg = historical?.loadKg;
         set.autoProgressedFromKg = undefined;
+        // The rep target the gate picked belongs to the swapped-away lift too.
+        set.plannedTargetReps = undefined;
+        set.autoProgressedFromReps = undefined;
         set.prefilledFromPerformedAt = historical ? swappedInEntry?.performedAt : undefined;
       });
       session.ui.swapSheetSlotId = null;

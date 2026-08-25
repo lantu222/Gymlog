@@ -274,3 +274,131 @@ export function resolveProgressedLoadKg(
 
   return { loadKg: input.fallbackLoadKg, progressed: false, fromLoadKg: null, heldForFatigue };
 }
+
+/** One more rep, both tiers — a rep is already the smallest step there is. */
+export const REP_INCREMENT = 1;
+
+/**
+ * Named, not inlined at the call site: `heldForFatigue` on the load resolver
+ * shipped computed-but-dropped because the receiving object listed its fields
+ * by hand. A named type keeps the field list in one place for both resolvers.
+ */
+export interface ProgressedRepsResolution {
+  /** What the reps dial should open at. */
+  targetReps: number;
+  progressed: boolean;
+  /** The floor the user actually proved last time, when the target moved. */
+  fromReps: number | null;
+  /** Same contract as the load resolver: earned, and recovery said not today. */
+  heldForFatigue: boolean;
+}
+
+/** The weakest set is the level the session proved, so it is what we raise. */
+function entryMinReps(entry: WorkoutSlotHistoryEntry): number {
+  return entry.sets.reduce((min, set) => Math.min(min, set.reps), Number.POSITIVE_INFINITY);
+}
+
+export interface ProgressedRepsInput {
+  /** Newest first, as the slot history stores it. */
+  history: WorkoutSlotHistoryEntry[];
+  /** The template's single rep target (repsMax; min equals it in the catalog). */
+  templateTargetReps: number;
+  targetSets: number;
+  level?: SetupLevel | null;
+  fatigueSignal?: ProgressionFatigueSignal;
+  trackingMode?: string;
+  automatedProgressionEnabled: boolean;
+}
+
+type RepsRecommendation = 'silent' | 'hold' | 'increase';
+
+function evaluateRepsProgression(input: ProgressedRepsInput): RepsRecommendation {
+  const { history, templateTargetReps, targetSets, fatigueSignal } = input;
+  const params = PROGRESSION_LEVEL_PARAMS[getProgressionTier(input.level)];
+
+  if (!(templateTargetReps > 0) || !(targetSets > 0)) {
+    return 'silent';
+  }
+  if (history.length < params.minSessions) {
+    return 'silent';
+  }
+
+  const latest = history[0];
+  if (!latest || latest.sets.length === 0) {
+    return 'silent';
+  }
+
+  // Same order as the load gate: fatigue is a hard block and comes first.
+  if (fatigueSignal === 'high' || fatigueSignal === 'elevated') {
+    return 'hold';
+  }
+  if (latest.skipped || latest.sets.length < targetSets) {
+    return 'hold';
+  }
+
+  const previous = history[1];
+  if (previous && daysBetween(latest.performedAt, previous.performedAt) >= GAP_DAYS) {
+    return 'hold';
+  }
+
+  // Ready = every working set reached the target — the load gate's own rule,
+  // with the target playing the ceiling. No same-level requirement across
+  // sessions: reps drift upward naturally, and 13-13-13 after 12-12-12 is
+  // confirmation, not a different lift.
+  let consecutive = 0;
+  for (const entry of history) {
+    if (!isProgressionReadySession(entry, templateTargetReps, targetSets)) {
+      break;
+    }
+    consecutive += 1;
+  }
+  if (consecutive < params.requiredConsecutive) {
+    return 'hold';
+  }
+
+  return 'increase';
+}
+
+/**
+ * What the reps dial should open at, for exercises that progress by reps.
+ *
+ * The load resolver's counterpart for bodyweight work, where ADR-004 keeps the
+ * load gate silent: an earned session moves the target one rep past the floor
+ * the user proved, and every other outcome opens at the template target — which
+ * is exactly what the dial did unconditionally before this existed. Holds are
+ * excluded: their "reps" are seconds, and a seconds dose is not dialled by one.
+ */
+export function resolveProgressedReps(input: ProgressedRepsInput): ProgressedRepsResolution {
+  const base: ProgressedRepsResolution = {
+    targetReps: input.templateTargetReps,
+    progressed: false,
+    fromReps: null,
+    heldForFatigue: false,
+  };
+
+  if (!input.automatedProgressionEnabled || input.trackingMode !== 'bodyweight') {
+    return base;
+  }
+
+  const recommendation = evaluateRepsProgression(input);
+  if (recommendation === 'increase') {
+    // The floor can sit above the template target when the user has been
+    // overshooting it; raising from the proven floor is what keeps +1 honest.
+    const fromReps = Math.max(input.templateTargetReps, entryMinReps(input.history[0]));
+    return {
+      targetReps: fromReps + REP_INCREMENT,
+      progressed: true,
+      fromReps,
+      heldForFatigue: false,
+    };
+  }
+
+  // Same rule as the load resolver: it is only a recovery hold if the reps
+  // would otherwise have moved.
+  const heldForFatigue =
+    recommendation === 'hold'
+    && (input.fatigueSignal === 'high' || input.fatigueSignal === 'elevated')
+    && evaluateRepsProgression({ ...input, fatigueSignal: 'normal' }) === 'increase';
+
+  return { ...base, heldForFatigue };
+}

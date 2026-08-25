@@ -2417,14 +2417,34 @@ function SetStepView({
    */
   const prefilledFrom = untouched && !autoFromKg ? target?.prefilledFromPerformedAt ?? null : null;
   /**
-   * The load had earned a jump and the recovery read held it.
+   * Signed, because the chip is: green says the app added weight, red would
+   * say it took some off. Today the gate only ever raises, so the red branch
+   * waits for a rule that lowers — but the rendering must not print "+-1,25"
+   * the day one exists.
+   */
+  const autoDeltaKg = autoFromKg !== null ? kg - autoFromKg : null;
+  /**
+   * The reps counterpart, for exercises that progress by reps instead of load
+   * (bodyweight). Same "only while the number is still the gate's" rule,
+   * checked against the reps dial instead of the weight dial.
+   */
+  const repsUntouched = target != null && reps === target.reps;
+  const autoFromReps =
+    repsUntouched && target?.autoProgressedFromReps != null ? target.autoProgressedFromReps : null;
+  /**
+   * The load (or rep target) had earned a jump and the recovery read held it.
    *
-   * The other two badges explain a number that changed. This one explains a
+   * The other badges explain a number that changed. This one explains a
    * number that did not — which is the harder thing to notice and the reason
    * it needs saying at all. A hold nobody sees is indistinguishable from the
    * feature not existing.
    */
-  const heldForFatigue = untouched && !autoFromKg && !prefilledFrom && target?.heldForFatigue === true;
+  const heldForFatigue =
+    (bodyweight ? repsUntouched : untouched)
+    && !autoFromKg
+    && !prefilledFrom
+    && autoFromReps === null
+    && target?.heldForFatigue === true;
 
   return (
     <StepIn stepKey={`set-${stepIndex}`}>
@@ -2561,36 +2581,60 @@ function SetStepView({
             ) : null}
           </View>
 
-          {/* Badges about the weight sit under the row, not inside the card,
+          {/* Badges about the numbers sit under the row, not inside the cards,
               so a badge does not make one card taller than the other. */}
-          {!bodyweight ? (
-            <View style={styles.setBadgeRow}>
-                {/* Automated progression is Pro-gated upstream (resolveProgressionOptions),
-                    so this badge only ever renders for an unlocked account — and only
-                    when the load moved, which is the one case the user did not choose
-                    the weight themselves. */}
-                {autoFromKg !== null ? (
-                  <View style={styles.setAutoBadge}>
-                    <GPIcon name="arrowUp" size={13} color={theme.purple} sw={2.8} />
-                    <Text style={styles.setAutoBadgeText}>
-                      {t(language, 'guided.autoLoad', { kg: removeTrailingZeros(kg - autoFromKg) })}
-                    </Text>
+          <View style={styles.setBadgeRow}>
+              {/* Automated progression is Pro-gated upstream (resolveProgressionOptions),
+                  so these badges only ever render for an unlocked account — and only
+                  when a number moved, which is the one case the user did not choose
+                  it themselves. Green adds, red would take away (the gate only
+                  raises today), and the same pair covers reps on bodyweight work. */}
+              {autoDeltaKg !== null && autoDeltaKg !== 0 ? (
+                <View style={autoDeltaKg > 0 ? styles.setAutoBadgeUp : styles.setAutoBadgeDown}>
+                  <View style={autoDeltaKg > 0 ? null : { transform: [{ rotate: '180deg' }] }}>
+                    <GPIcon
+                      name="arrowUp"
+                      size={13}
+                      color={autoDeltaKg > 0 ? theme.greenInk : theme.danger}
+                      sw={2.8}
+                    />
                   </View>
-                ) : prefilledFrom ? (
-                  <View style={styles.setAutoBadge}>
-                    <GPIcon name="clock" size={13} color={theme.purple} sw={2.4} />
-                    <Text style={styles.setAutoBadgeText}>
-                      {t(language, 'guided.carriedFrom', { date: formatShortDate(prefilledFrom, language) })}
-                    </Text>
+                  <Text style={autoDeltaKg > 0 ? styles.setAutoBadgeUpText : styles.setAutoBadgeDownText}>
+                    {t(language, autoDeltaKg > 0 ? 'guided.autoLoad' : 'guided.autoLoadDown', {
+                      kg: removeTrailingZeros(Math.abs(autoDeltaKg)),
+                    })}
+                  </Text>
+                </View>
+              ) : autoFromReps !== null && reps - autoFromReps !== 0 ? (
+                <View style={reps > autoFromReps ? styles.setAutoBadgeUp : styles.setAutoBadgeDown}>
+                  <View style={reps > autoFromReps ? null : { transform: [{ rotate: '180deg' }] }}>
+                    <GPIcon
+                      name="arrowUp"
+                      size={13}
+                      color={reps > autoFromReps ? theme.greenInk : theme.danger}
+                      sw={2.8}
+                    />
                   </View>
-                ) : heldForFatigue ? (
-                  <View style={styles.setHoldBadge}>
-                    <GPIcon name="shield" size={13} color={theme.green} sw={2.2} />
-                    <Text style={styles.setHoldBadgeText}>{t(language, 'guided.heldForRecovery')}</Text>
-                  </View>
-                ) : null}
-            </View>
-          ) : null}
+                  <Text style={reps > autoFromReps ? styles.setAutoBadgeUpText : styles.setAutoBadgeDownText}>
+                    {t(language, reps > autoFromReps ? 'guided.autoReps' : 'guided.autoRepsDown', {
+                      count: Math.abs(reps - autoFromReps),
+                    })}
+                  </Text>
+                </View>
+              ) : prefilledFrom ? (
+                <View style={styles.setAutoBadge}>
+                  <GPIcon name="clock" size={13} color={theme.purple} sw={2.4} />
+                  <Text style={styles.setAutoBadgeText}>
+                    {t(language, 'guided.carriedFrom', { date: formatShortDate(prefilledFrom, language) })}
+                  </Text>
+                </View>
+              ) : heldForFatigue ? (
+                <View style={styles.setHoldBadge}>
+                  <GPIcon name="shield" size={13} color={theme.muted} sw={2.2} />
+                  <Text style={styles.setHoldBadgeText}>{t(language, 'guided.heldForRecovery')}</Text>
+                </View>
+              ) : null}
+          </View>
         </View>
 
         <View style={{ paddingHorizontal: 22 }}>
@@ -3060,11 +3104,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.purpleSoft,
   },
   setAutoBadgeText: { fontSize: 11.5, fontWeight: '900', letterSpacing: 0.4, color: theme.purple },
-  // Green, not purple: purple marks a load the app RAISED. A hold is the app
-  // protecting the session — the same colour would read as the same event
-  // with a different word, and green is the app's "this is deliberate and
-  // fine" rather than an alarm, which a held weight is not.
-  setHoldBadge: {
+  // Green up, red down (user 2026-08-25): the progression chip states its
+  // direction in colour, not just in sign. Purple stays on the badges that
+  // explain provenance rather than a change (carried-from).
+  setAutoBadgeUp: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
@@ -3074,7 +3117,34 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 14,
     backgroundColor: theme.greenSoft,
   },
-  setHoldBadgeText: { fontSize: 11.5, fontWeight: '900', letterSpacing: 0.4, color: theme.green },
+  setAutoBadgeUpText: { fontSize: 11.5, fontWeight: '900', letterSpacing: 0.4, color: theme.greenInk },
+  setAutoBadgeDown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 2,
+    paddingHorizontal: 11,
+    height: 27,
+    borderRadius: 14,
+    backgroundColor: theme.dangerSoft,
+  },
+  setAutoBadgeDownText: { fontSize: 11.5, fontWeight: '900', letterSpacing: 0.4, color: theme.danger },
+  // Quiet, not green: green now marks a raise, and a hold is the opposite
+  // claim — the app deliberately NOT raising. Muted on the soft surface reads
+  // as calm bookkeeping rather than either a success or an alarm.
+  setHoldBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 2,
+    paddingHorizontal: 11,
+    height: 27,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
+  },
+  setHoldBadgeText: { fontSize: 11.5, fontWeight: '900', letterSpacing: 0.4, color: theme.muted },
   // 64 → 52 and a lighter shadow: the button had the height of the two dials
   // above it put together, and the shadow made it read taller still.
   setLogButton: {

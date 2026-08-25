@@ -327,6 +327,7 @@ module.exports = [
         autoProgressedFromKg: null,
         prefilledFromPerformedAt: null,
         heldForFatigue: false,
+        autoProgressedFromReps: null,
       });
       // No draft, no plan → previous actual load.
       assert.deepEqual(resolveGuidedSetTarget(sets, 2, 'load_and_reps'), {
@@ -335,6 +336,7 @@ module.exports = [
         autoProgressedFromKg: null,
         prefilledFromPerformedAt: null,
         heldForFatigue: false,
+        autoProgressedFromReps: null,
       });
       // First set, no history: planned max reps, null load.
       const fresh = [
@@ -346,6 +348,7 @@ module.exports = [
         autoProgressedFromKg: null,
         prefilledFromPerformedAt: null,
         heldForFatigue: false,
+        autoProgressedFromReps: null,
       });
       // Bodyweight never carries a load.
       assert.deepEqual(resolveGuidedSetTarget(sets, 1, 'bodyweight'), {
@@ -354,6 +357,7 @@ module.exports = [
         autoProgressedFromKg: null,
         prefilledFromPerformedAt: null,
         heldForFatigue: false,
+        autoProgressedFromReps: null,
       });
       assert.equal(resolveGuidedSetTarget(sets, 9, 'load_and_reps'), null);
       assert.equal(formatGuidedTarget({ reps: 8, loadKg: 62.5 }), '8 × 62.5 kg');
@@ -424,6 +428,7 @@ module.exports = [
         autoProgressedFromKg: null,
         prefilledFromPerformedAt: null,
         heldForFatigue: false,
+        autoProgressedFromReps: null,
       });
 
       // Swapped after set 2 (index 1): neither the load nor the reps of the
@@ -434,6 +439,7 @@ module.exports = [
         autoProgressedFromKg: null,
         prefilledFromPerformedAt: null,
         heldForFatigue: false,
+        autoProgressedFromReps: null,
       });
 
       // A set logged AFTER the swap carries forward normally again.
@@ -467,6 +473,7 @@ module.exports = [
         autoProgressedFromKg: 60,
         prefilledFromPerformedAt: null,
         heldForFatigue: false,
+        autoProgressedFromReps: null,
       });
 
       // Typed over in the list logger — this is the user's weight now, and
@@ -477,6 +484,7 @@ module.exports = [
         autoProgressedFromKg: null,
         prefilledFromPerformedAt: null,
         heldForFatigue: false,
+        autoProgressedFromReps: null,
       });
 
       // Bodyweight never carries a load, so it never carries the badge either.
@@ -496,6 +504,66 @@ module.exports = [
         draftRepsText: '',
       };
       assert.equal(resolveGuidedSetTarget([plain], 0, 'load_and_reps').autoProgressedFromKg, null);
+    },
+  },
+  {
+    name: 'a rep-progressed bodyweight target opens the dial on the raised number',
+    run() {
+      const suggested = (overrides = {}) => ({
+        setIndex: 0,
+        status: 'pending',
+        plannedRepsMin: 12,
+        plannedRepsMax: 12,
+        plannedTargetReps: 13,
+        autoProgressedFromReps: 12,
+        draftLoadText: '',
+        draftRepsText: '',
+        ...overrides,
+      });
+
+      // The gate's target replaces the template fallback, and the badge knows
+      // the floor it was raised from.
+      assert.deepEqual(resolveGuidedSetTarget([suggested()], 0, 'bodyweight'), {
+        reps: 13,
+        loadKg: null,
+        autoProgressedFromKg: null,
+        prefilledFromPerformedAt: null,
+        autoProgressedFromReps: 12,
+        heldForFatigue: false,
+      });
+
+      // A previous completed set wins, and takes the badge with it: the shown
+      // number is the day's own, not the gate's.
+      const sets = [
+        { ...suggested(), status: 'completed', actualReps: 11 },
+        suggested({ setIndex: 1 }),
+      ];
+      const second = resolveGuidedSetTarget(sets, 1, 'bodyweight');
+      assert.equal(second.reps, 11);
+      assert.equal(second.autoProgressedFromReps, null);
+
+      // No suggestion recorded (free tier, progression off, not earned):
+      // exactly the old behaviour, template ceiling and no badge.
+      const plain = resolveGuidedSetTarget(
+        [suggested({ plannedTargetReps: undefined, autoProgressedFromReps: undefined })],
+        0,
+        'bodyweight',
+      );
+      assert.equal(plain.reps, 12);
+      assert.equal(plain.autoProgressedFromReps, null);
+
+      // Loaded lifts never carry the rep badge — they have the load gate.
+      assert.equal(
+        resolveGuidedSetTarget([suggested({ plannedLoadKg: 60, draftLoadText: '60' })], 0, 'load_and_reps')
+          .autoProgressedFromReps,
+        null,
+      );
+
+      // A hold's numbers are seconds; the rep suggestion does not apply.
+      const hold = resolveGuidedSetTarget([suggested()], 0, 'hold');
+      assert.equal(hold.reps, 12);
+      assert.equal(hold.timed, true);
+      assert.equal(hold.autoProgressedFromReps, null);
     },
   },
   {

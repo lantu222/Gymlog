@@ -166,6 +166,7 @@ const suites = [
   ...require('./lib/cutCorner.test.cjs'),
   ...require('./lib/programEquipment.test.cjs'),
   ...require('./lib/progressionRuleLabel.test.cjs'),
+  ...require('./lib/singleRepTarget.test.cjs'),
   ...require('./lib/programBrowse.test.cjs'),
   ...require('./lib/readyProgramCards.test.cjs'),
   ...require('./lib/exerciseInstructionsFi.test.cjs'),

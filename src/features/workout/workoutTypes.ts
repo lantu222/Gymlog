@@ -135,6 +135,19 @@ export interface WorkoutSetInstance {
    * history — and for a blank set.
    */
   prefilledFromPerformedAt?: string;
+  /**
+   * The reps this set should open at when automated progression moved the
+   * target (bodyweight work, where the load gate stays silent). Undefined
+   * whenever the template target stands — the dial falls back to
+   * plannedRepsMax, which is what it always did.
+   */
+  plannedTargetReps?: number;
+  /**
+   * The rep floor the user proved before progression raised it — the reps
+   * counterpart to autoProgressedFromKg, and set only alongside
+   * plannedTargetReps.
+   */
+  autoProgressedFromReps?: number;
   actualLoadKg?: number;
   actualReps?: number;
   status: WorkoutSetStatus;

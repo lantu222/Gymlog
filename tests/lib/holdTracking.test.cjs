@@ -152,9 +152,14 @@ module.exports = [
     name: 'nothing else is prescribed in what can only be seconds',
     run() {
       // The catalogs wrote seconds into the rep fields long before there was a
-      // mode to say so. Anything left at 20+ "reps" that is not a hold must be
+      // mode to say so. Anything left at 30+ "reps" that is not a hold must be
       // a genuine high-rep set or a work interval — this pins the exceptions
       // so a new "Plank 3x30-60" cannot slip back in as repetitions.
+      //
+      // The line was 20 while rep RANGES existed: a 15-20 burnout kept a floor
+      // under 20 and only seconds started there. Single rep targets (2026-08-25)
+      // put honest ×20 and ×25 accessory sets right on the old line, so it
+      // moves to where seconds prescriptions actually start: 30.
       const KNOWN_HIGH_REP = new Set([
         'Bicycle Crunch',
         "Farmer's Walk",
@@ -177,7 +182,7 @@ module.exports = [
           CATALOG_EXERCISES.filter(
             (exercise) =>
               exercise.trackingMode !== 'hold' &&
-              exercise.repsMin >= 20 &&
+              exercise.repsMin >= 30 &&
               !KNOWN_HIGH_REP.has(exercise.exerciseName) &&
               !INTERVAL_OR_DISTANCE.test(exercise.exerciseName),
           ).map((exercise) => `${exercise.exerciseName} (${exercise.repsMin}-${exercise.repsMax})`),

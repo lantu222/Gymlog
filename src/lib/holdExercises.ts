@@ -52,6 +52,9 @@ const HOLD_EXERCISE_NAMES = [
   'Standing Forward Fold',
   'Standing Hamstring and Calf Stretch',
   'Supported Deep Squat Hold',
+  // 30 "reps" of standing on one leg was 30 seconds wearing the wrong unit —
+  // found by the single-rep-target guard, mis-marked since the catalog landed.
+  'Supported Single-Leg Balance',
   'Tuck Planche Hold',
   'Vacuum (Stomach)',
   'Wall Handstand Hold',

@@ -267,4 +267,106 @@ module.exports = [
       assert.equal(free.loadKg, 60);
     },
   },
+  {
+    name: 'rep progression: bodyweight moves the target by one when it is earned',
+    run() {
+      const { resolveProgressedReps } = require('../../.test-dist/lib/progressionGate.js');
+      const base = {
+        templateTargetReps: 12,
+        targetSets: 3,
+        level: 'beginner',
+        trackingMode: 'bodyweight',
+        automatedProgressionEnabled: true,
+      };
+
+      // Cleared on every set → one more than the floor the user proved.
+      const earned = resolveProgressedReps({ ...base, history: [entry(0, 12, 0), entry(0, [12, 11, 10], 3)] });
+      assert.equal(earned.progressed, true);
+      assert.equal(earned.fromReps, 12);
+      assert.equal(earned.targetReps, 13);
+
+      // Overshooting raises from the proven floor, not from the template:
+      // 15-14-13 on a 12 target suggests 14, not 13.
+      const overshoot = resolveProgressedReps({ ...base, history: [entry(0, [15, 14, 13], 0), entry(0, 12, 3)] });
+      assert.equal(overshoot.progressed, true);
+      assert.equal(overshoot.fromReps, 13);
+      assert.equal(overshoot.targetReps, 14);
+
+      // One set short of the target → the template target stands.
+      const missed = resolveProgressedReps({ ...base, history: [entry(0, [12, 12, 11], 0), entry(0, 12, 3)] });
+      assert.equal(missed.progressed, false);
+      assert.equal(missed.targetReps, 12);
+      assert.equal(missed.fromReps, null);
+
+      // The same Pro-gated switch as the load: off means the old behaviour.
+      const off = resolveProgressedReps({
+        ...base,
+        automatedProgressionEnabled: false,
+        history: [entry(0, 12, 0), entry(0, 12, 3)],
+      });
+      assert.equal(off.progressed, false);
+      assert.equal(off.targetReps, 12);
+    },
+  },
+  {
+    name: 'rep progression: only bodyweight — loads have the load gate, holds are seconds',
+    run() {
+      const { resolveProgressedReps } = require('../../.test-dist/lib/progressionGate.js');
+      const history = [entry(0, 12, 0), entry(0, 12, 3)];
+      for (const trackingMode of ['load_and_reps', 'reps_first', 'hold']) {
+        const result = resolveProgressedReps({
+          history,
+          templateTargetReps: 12,
+          targetSets: 3,
+          level: 'beginner',
+          trackingMode,
+          automatedProgressionEnabled: true,
+        });
+        assert.equal(result.progressed, false, trackingMode);
+        assert.equal(result.targetReps, 12, trackingMode);
+      }
+    },
+  },
+  {
+    name: 'rep progression: fatigue holds an earned jump and says so, like the load gate',
+    run() {
+      const { resolveProgressedReps } = require('../../.test-dist/lib/progressionGate.js');
+      const base = {
+        history: [entry(0, 12, 0), entry(0, 12, 3)],
+        templateTargetReps: 12,
+        targetSets: 3,
+        level: 'beginner',
+        trackingMode: 'bodyweight',
+        automatedProgressionEnabled: true,
+      };
+
+      const held = resolveProgressedReps({ ...base, fatigueSignal: 'high' });
+      assert.equal(held.progressed, false);
+      assert.equal(held.targetReps, 12);
+      assert.equal(held.heldForFatigue, true);
+
+      // Not earned → the fatigue hold is not the reason, so no claim.
+      const notEarned = resolveProgressedReps({
+        ...base,
+        history: [entry(0, 9, 0), entry(0, 9, 3)],
+        fatigueSignal: 'high',
+      });
+      assert.equal(notEarned.heldForFatigue, false);
+
+      // An intermediate needs the confirming session for reps too.
+      const once = resolveProgressedReps({
+        ...base,
+        level: 'advanced',
+        history: [entry(0, 12, 0), entry(0, [12, 11, 10], 3), entry(0, 10, 6)],
+      });
+      assert.equal(once.progressed, false);
+      const confirmed = resolveProgressedReps({
+        ...base,
+        level: 'advanced',
+        history: [entry(0, 12, 0), entry(0, 12, 3), entry(0, 10, 6)],
+      });
+      assert.equal(confirmed.progressed, true);
+      assert.equal(confirmed.targetReps, 13);
+    },
+  },
 ];

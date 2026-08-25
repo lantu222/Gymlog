@@ -445,6 +445,12 @@ export interface GuidedSetTarget {
    * number themselves, the app has no claim on it either way.
    */
   heldForFatigue: boolean;
+  /**
+   * The rep floor this target was raised from, for exercises that progress by
+   * reps instead of load (bodyweight — the load gate is silent there). Null on
+   * loaded lifts and whenever `reps` is not the gate's own number.
+   */
+  autoProgressedFromReps: number | null;
 }
 
 export interface GuidedNextPreview {
@@ -555,6 +561,8 @@ export function resolveGuidedSetTarget(
     autoProgressedFromKg?: number;
     heldForFatigue?: boolean;
     prefilledFromPerformedAt?: string;
+    plannedTargetReps?: number;
+    autoProgressedFromReps?: number;
     actualLoadKg?: number;
     actualReps?: number;
   }>,
@@ -579,10 +587,17 @@ export function resolveGuidedSetTarget(
     )
     .sort((left, right) => right.setIndex - left.setIndex)[0];
 
-  const reps = previous?.actualReps ?? set.plannedRepsMax;
-
   // A hold logs no weight either — its "reps" are seconds.
   if (trackingMode === 'bodyweight' || trackingMode === 'hold') {
+    // Bodyweight progresses by reps: the gate's target replaces the template
+    // fallback, and the previous completed set still wins — mid-session the
+    // day's own numbers are the better prescription.
+    const suggestedReps = trackingMode === 'bodyweight' ? set.plannedTargetReps : undefined;
+    const reps = previous?.actualReps ?? suggestedReps ?? set.plannedRepsMax;
+    // Same rule as the load badges below: the claim follows the number. Once
+    // the shown reps are not the ones the gate picked, it has nothing to
+    // point at.
+    const untouchedReps = suggestedReps !== undefined && reps === suggestedReps;
     return {
       reps,
       // Set only when true, so a bodyweight target keeps the shape it had.
@@ -590,10 +605,15 @@ export function resolveGuidedSetTarget(
       loadKg: null,
       autoProgressedFromKg: null,
       prefilledFromPerformedAt: null,
-      heldForFatigue: false,
+      autoProgressedFromReps:
+        untouchedReps && set.autoProgressedFromReps !== undefined ? set.autoProgressedFromReps : null,
+      // The hold is reported while today is still untouched; after the first
+      // logged set the day has its own numbers to answer for.
+      heldForFatigue: trackingMode === 'bodyweight' && previous == null && set.heldForFatigue === true,
     };
   }
 
+  const reps = previous?.actualReps ?? set.plannedRepsMax;
   const draftLoad = parseNumberInput(set.draftLoadText);
   const loadKg = draftLoad ?? set.plannedLoadKg ?? previous?.actualLoadKg ?? null;
   // Both badges follow the number, not the set: once the shown load drifts off
@@ -607,6 +627,7 @@ export function resolveGuidedSetTarget(
     autoProgressedFromKg: untouched && set.autoProgressedFromKg !== undefined ? set.autoProgressedFromKg : null,
     prefilledFromPerformedAt: untouched ? set.prefilledFromPerformedAt ?? null : null,
     heldForFatigue: untouched && set.heldForFatigue === true,
+    autoProgressedFromReps: null,
   };
 }
 
