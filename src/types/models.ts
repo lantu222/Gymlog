@@ -417,6 +417,16 @@ export interface AppPreferences {
   aiOnlineNoticeAcknowledged: boolean;
   coachGoals: CoachGoal[];
   /**
+   * Which goal is the one the coach answers against right now.
+   *
+   * Ranking every goal 1..n was considered and dropped: it is a field nobody
+   * maintains, and it cannot resolve the conflict that matters anyway — fat
+   * loss and chest growth do not settle by weighting, because the calorie
+   * answer is either a surplus or a deficit. One goal leads; the rest stay on
+   * the list as background. Null falls back to the most recently stated goal.
+   */
+  primaryGoalId: string | null;
+  /**
    * Whether the hand-off step after onboarding has had its turn. It offers the
    * widget and a tracking card once; a reader who ran onboarding again has
    * already been asked.

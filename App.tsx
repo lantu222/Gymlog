@@ -3575,6 +3575,7 @@ function VinhaApp() {
         bodyweightEntries: database.bodyweightEntries,
         measurementEntries: database.measurementEntries,
         coachGoals: preferences.coachGoals,
+        primaryGoalId: preferences.primaryGoalId,
         bodyweightGoalKg: preferences.bodyweightGoalKg,
         profile: {
           heightCm: preferences.setupHeightCm,
@@ -3614,6 +3615,7 @@ function VinhaApp() {
       database.bodyweightEntries,
       database.measurementEntries,
       preferences.coachGoals,
+      preferences.primaryGoalId,
       preferences.bodyweightGoalKg,
       preferences.setupHeightCm,
       preferences.setupAge,
@@ -5919,12 +5921,13 @@ function VinhaApp() {
                     .filter((entry) => entry.kind === intent.kind)
                     .map((entry) => ({ recordedAt: entry.recordedAt, value: entry.value })),
                 );
+          const id = `goal-${Date.now().toString(36)}`;
           await updatePreferences({
             coachGoals: [
               // One goal per kind: restating replaces, it does not stack.
               ...preferences.coachGoals.filter((goal) => goal.kind !== intent.kind),
               {
-                id: `goal-${Date.now().toString(36)}`,
+                id,
                 text: intent.text,
                 kind: intent.kind,
                 targetValue: intent.targetValue,
@@ -5933,6 +5936,10 @@ function VinhaApp() {
                 createdAt: new Date().toISOString(),
               },
             ],
+            // Saying a goal out loud makes it the one the coach answers
+            // against. There is no other way to change it yet — goals have no
+            // screen of their own — so the spoken word has to be the switch.
+            primaryGoalId: id,
           });
         }}
         transcriptReporter={accountBackup.state.status === 'signed_in' ? accountBackup.state.email : null}

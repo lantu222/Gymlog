@@ -175,6 +175,12 @@ export interface AICoachGoal {
   startValue: number | null;
   currentValue: number | null;
   setAt: string | null;
+  /**
+   * The one goal the answer is measured against. Exactly one goal carries it
+   * whenever there is any goal at all — a list where everything is equally
+   * important reads as a list where nothing is.
+   */
+  isPrimary: boolean;
 }
 
 export interface AICoachProfile {

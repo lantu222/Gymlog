@@ -149,7 +149,17 @@ Järjestys ei valitse, se hämärtää.
 Tehdään sen sijaan:
 
 - `preferences.primaryGoalId` — yksi tavoite kerrallaan on "nyt tärkein",
-  muut jäävät listalle taustaksi. Vaihdettavissa yhdellä napautuksella.
+  muut jäävät listalle taustaksi. **Tehty 25.8.** Vaihtaminen tapahtuu
+  lausumalla tavoite valmentajalle: uusin sanottu nousee johtoon. Se on
+  toistaiseksi ainoa tapa, koska **tavoitteilla ei ole omaa ruutua lainkaan**
+  — ne ovat näkymättömiä kaikkialla paitsi valmentajan kontekstissa. Tämä on
+  tiedossa oleva aukko, ei oletus siitä että hallintanäkymä olisi olemassa.
+- Vanhentunut tai tyhjä `primaryGoalId` putoaa uusimpaan tavoitteeseen, eikä
+  lista jää koskaan päättömäksi: joko tasan yksi johtaa tai tavoitteita ei ole.
+  Vanha asennus lähettää tavoitteet ilman lippua, ja palvelin korjaa ne samalla
+  säännöllä.
+- Onboardingin painotavoite johtaa vain jos valmentajalle ei ole sanottu mitään:
+  napautettu kenttä ei ohita omin sanoin lausuttua tavoitetta.
 - Promptisääntö: kun tavoitteet vetävät eri suuntiin, valmentaja **nimeää
   ristiriidan kerran ja kysyy kumpi ensin** — ei jaa eroa. Tämä on sama
   koneisto kuin 6.4, eli se rakentuu ilmaiseksi sen päälle.

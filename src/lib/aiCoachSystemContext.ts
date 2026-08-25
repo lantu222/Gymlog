@@ -176,9 +176,15 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
     if (goal.targetValue !== null) parts.push(`target ${trim(goal.targetValue)} ${goal.unit ?? ''}`.trim());
     const detail = parts.length > 0 ? ` — ${parts.join(', ')}` : '';
     const setAt = goal.setAt ? ` (set ${goal.setAt})` : '';
-    return `- "${goal.text}"${setAt}${detail}`;
+    // The flag has to reach the text or it does not exist: the model reads
+    // this rendering, not the object.
+    const lead = goal.isPrimary ? '[primary] ' : '';
+    return `- ${lead}"${goal.text}"${setAt}${detail}`;
   });
-  const goalBlock = section('Goals — stated by the user; tie advice to these', goalLines);
+  const goalBlock = section(
+    'Goals — stated by the user; tie advice to these. [primary] is the one a general question is answered against',
+    goalLines,
+  );
   if (goalBlock) blocks.push(goalBlock);
 
   if (context.profile) {

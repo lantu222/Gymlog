@@ -203,6 +203,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       accountBackupPromptDismissed: false,
       aiOnlineNoticeAcknowledged: false,
       coachGoals: [],
+      primaryGoalId: null,
       setupHandoffCompleted: false,
       entryFlowCompleted: false,
       trainingFirstRunDismissed: false,

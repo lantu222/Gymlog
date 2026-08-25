@@ -62,6 +62,8 @@ export interface BuildAiTrainingContextInput {
   bodyweightEntries?: BodyweightEntry[];
   measurementEntries?: MeasurementEntry[];
   coachGoals?: CoachGoal[];
+  /** Which of them leads; null falls back to the newest. */
+  primaryGoalId?: string | null;
   bodyweightGoalKg?: number | null;
   profile?: AICoachProfile | null;
   now?: Date;
@@ -152,7 +154,18 @@ export function buildAiCoachGoals(
   coachGoals: CoachGoal[],
   bodyweightGoalKg: number | null,
   body: AICoachBody | null,
+  primaryGoalId: string | null = null,
 ): AICoachGoal[] {
+  // Which goal leads. A stored id that no longer matches a goal must not leave
+  // the list headless, so the newest stated goal takes over — the last thing
+  // the reader said out loud is the best guess at what they care about now.
+  const primaryId =
+    coachGoals.find((goal) => goal.id === primaryGoalId)?.id ??
+    coachGoals.reduce<CoachGoal | null>(
+      (newest, goal) => (newest === null || goal.createdAt > newest.createdAt ? goal : newest),
+      null,
+    )?.id ??
+    null;
   const currentFor = (kind: string | null): number | null => {
     if (kind === 'bodyweight') return body?.weightKg ?? null;
     if (!kind) return null;
@@ -166,6 +179,7 @@ export function buildAiCoachGoals(
     startValue: goal.startValue,
     currentValue: currentFor(goal.kind),
     setAt: goal.createdAt.slice(0, 10),
+    isPrimary: goal.id === primaryId,
   }));
   // The onboarding weight goal counts as a goal too — but the one the user
   // stated to the coach wins when both name bodyweight.
@@ -178,6 +192,10 @@ export function buildAiCoachGoals(
       startValue: null,
       currentValue: body?.weightKg ?? null,
       setAt: null,
+      // An onboarding answer leads only when nothing was ever said to the
+      // coach: a goal the reader stated in their own words outranks a number
+      // they tapped into a setup step months ago.
+      isPrimary: goals.length === 0,
     });
   }
   return goals;
@@ -250,6 +268,7 @@ export function buildAiTrainingContext({
   bodyweightEntries = [],
   measurementEntries = [],
   coachGoals = [],
+  primaryGoalId = null,
   bodyweightGoalKg = null,
   profile = null,
   now = new Date(),
@@ -331,7 +350,7 @@ export function buildAiTrainingContext({
     history: buildHistoryBlock(workoutSessions, exerciseLogs, trainingDays, historyWindowDays, schedule),
     ...(plannerSetup !== undefined ? { plannerSetup } : {}),
     body,
-    goals: buildAiCoachGoals(coachGoals, bodyweightGoalKg, body),
+    goals: buildAiCoachGoals(coachGoals, bodyweightGoalKg, body, primaryGoalId),
     profile: profile && (profile.heightCm !== null || profile.age !== null || profile.gender !== null) ? profile : null,
   };
 }
@@ -346,6 +365,13 @@ export function buildAiTrainingContext({
  * defaults, never a throw. Only shape is repaired here; a present field is
  * trusted as the client sent it.
  */
+function withPrimaryGoal(goals: AICoachGoal[]): AICoachGoal[] {
+  if (goals.length === 0 || goals.some((goal) => goal.isPrimary === true)) {
+    return goals;
+  }
+  return goals.map((goal, index) => ({ ...goal, isPrimary: index === goals.length - 1 }));
+}
+
 export function normalizeAiCoachTrainingContext(
   input: Partial<AICoachTrainingContext> | null | undefined,
 ): AICoachTrainingContext {
@@ -378,7 +404,12 @@ export function normalizeAiCoachTrainingContext(
       candidate.history && typeof candidate.history === 'object' ? candidate.history : emptyAiCoachHistory(),
     plannerSetup: candidate.plannerSetup ?? null,
     body: candidate.body && typeof candidate.body === 'object' ? candidate.body : null,
-    goals: array(candidate.goals),
+    // An installed app that predates the primary goal sends goals without the
+    // flag, and it keeps sending them until the reader updates. Rather than
+    // leaving the list headless, the newest goal — last in the order the
+    // client appends them — takes the lead, which is what a null stored
+    // choice resolves to anyway.
+    goals: withPrimaryGoal(array<AICoachGoal>(candidate.goals)),
     profile: candidate.profile && typeof candidate.profile === 'object' ? candidate.profile : null,
   };
 }

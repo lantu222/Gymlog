@@ -56,6 +56,7 @@ const DEFAULT_PREFERENCES = {
   accountBackupPromptDismissed: false,
   aiOnlineNoticeAcknowledged: false,
   coachGoals: [],
+  primaryGoalId: null,
   setupHandoffCompleted: false,
   entryFlowCompleted: false,
   trainingFirstRunDismissed: false,

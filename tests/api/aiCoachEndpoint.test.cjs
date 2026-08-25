@@ -51,6 +51,18 @@ module.exports = [
     },
   },
   {
+    name: 'one goal leads, and conflicting goals are named rather than averaged',
+    run() {
+      // Four goals at the same level produced four vague answers. The rules
+      // have to say which one a general question is measured against, and
+      // what to do when two of them cannot both be satisfied — a surplus and
+      // a deficit have no midpoint worth giving.
+      assert.match(source, /Exactly one goal carries `isPrimary`/);
+      assert.match(source, /name the conflict in one sentence and ask which comes first/);
+      assert.match(source, /Do not split the difference/);
+    },
+  },
+  {
     name: 'the coach introduces itself as Vinha, not under the old brand',
     run() {
       // GAINER is another company's EU trademark; the app has been Vinha
