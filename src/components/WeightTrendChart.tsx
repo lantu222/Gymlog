@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
-import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 
 import { WeightWindowDay, buildWeightAxisTicks } from '../lib/bodyweightCard';
 import { removeTrailingZeros } from '../lib/format';
+import { queryReduceMotion } from '../utils/reduceMotion';
 import { Theme, useTheme, useThemedStyles } from '../theming';
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 /**
  * The weight curve over a run of CALENDAR days.
@@ -40,6 +43,52 @@ export function WeightTrendChart({ days, unitLabel }: WeightTrendChartProps) {
     setWidth((current) => (Math.abs(current - next) < 1 ? current : next));
   };
 
+  /**
+   * The newest reading lands, it does not just be there. Saving a weigh-in no
+   * longer shows a toast (user 2026-08-25) — the confirmation IS the dot
+   * arriving on the line, so the latest dot scales in when its identity
+   * changes. Keyed on the day and value, not on pixels: a relayout must not
+   * replay the landing. One Animated.Value, driving props on ONE circle —
+   * a node shared across views is the crash this app has already had.
+   */
+  const newest = [...days].reverse().find((day) => day.value !== null) ?? null;
+  const newestKey = newest ? `${newest.dayStart}:${newest.value}` : null;
+  const landAnim = useRef(new Animated.Value(1)).current;
+  const seenKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!newestKey || seenKeyRef.current === newestKey) {
+      return;
+    }
+    const isFirstRender = seenKeyRef.current === null;
+    seenKeyRef.current = newestKey;
+    if (isFirstRender) {
+      // Opening the screen is not a save; the chart arrives settled.
+      landAnim.setValue(1);
+      return;
+    }
+    let cancelled = false;
+    void queryReduceMotion().then((reduced) => {
+      if (cancelled) {
+        return;
+      }
+      if (reduced) {
+        landAnim.setValue(1);
+        return;
+      }
+      landAnim.setValue(0);
+      Animated.timing(landAnim, {
+        toValue: 1,
+        duration: 420,
+        easing: Easing.bezier(0.3, 1.3, 0.5, 1),
+        // SVG props cannot ride the native driver.
+        useNativeDriver: false,
+      }).start();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [landAnim, newestKey]);
+
   const values = days.map((day) => day.value).filter((value): value is number => value !== null);
   const ticks = buildWeightAxisTicks(values);
   // "104 cm" needs more shoulder than "82,5".
@@ -60,9 +109,10 @@ export function WeightTrendChart({ days, unitLabel }: WeightTrendChartProps) {
     .map((day, index) => (day.value === null ? null : { x: xFor(index), y: yFor(day.value) }))
     .filter((point): point is { x: number; y: number } => point !== null);
 
-  // A week labels every day; a three-month window cannot — 90 day numbers
-  // overlap into a smear. Thin to roughly eight, keeping today's.
-  const labelStride = Math.max(1, Math.ceil(days.length / 8));
+  // A week labels every day; a three-month window cannot — 90 dates overlap
+  // into a smear. Thin to roughly six (dates are wider than bare day
+  // numbers), keeping today's.
+  const labelStride = Math.max(1, Math.ceil(days.length / 6));
   const showLabel = (day: WeightWindowDay, index: number) => day.isToday || index % labelStride === 0;
 
   return (
@@ -92,17 +142,30 @@ export function WeightTrendChart({ days, unitLabel }: WeightTrendChartProps) {
                 strokeLinejoin="round"
               />
             ) : null}
-            {plotted.map((point) => (
-              <Circle
-                key={`${point.x}-${point.y}`}
-                cx={point.x}
-                cy={point.y}
-                r={5}
-                fill={theme.surface}
-                stroke={theme.highlight}
-                strokeWidth={3}
-              />
-            ))}
+            {plotted.map((point, index) =>
+              index === plotted.length - 1 ? (
+                <AnimatedCircle
+                  key={`${point.x}-${point.y}`}
+                  cx={point.x}
+                  cy={point.y}
+                  r={landAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 5] })}
+                  opacity={landAnim}
+                  fill={theme.surface}
+                  stroke={theme.highlight}
+                  strokeWidth={3}
+                />
+              ) : (
+                <Circle
+                  key={`${point.x}-${point.y}`}
+                  cx={point.x}
+                  cy={point.y}
+                  r={5}
+                  fill={theme.surface}
+                  stroke={theme.highlight}
+                  strokeWidth={3}
+                />
+              ),
+            )}
           </Svg>
 
           <View style={styles.axisLabels} pointerEvents="none">
@@ -118,7 +181,7 @@ export function WeightTrendChart({ days, unitLabel }: WeightTrendChartProps) {
               showLabel(day, index) ? (
                 <Text
                   key={day.dayStart}
-                  style={[styles.footerLabel, day.isToday && styles.footerLabelToday, { left: xFor(index) - 16 }]}
+                  style={[styles.footerLabel, day.isToday && styles.footerLabelToday, { left: xFor(index) - 20 }]}
                 >
                   {day.label}
                 </Text>
@@ -158,7 +221,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   footerLabel: {
     position: 'absolute',
     top: 0,
-    width: 32,
+    // "26.7." needs more room than a bare day number did.
+    width: 40,
     textAlign: 'center',
     fontSize: 11.5,
     fontWeight: '600',

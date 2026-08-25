@@ -40,7 +40,7 @@ import { getExerciseProgressForName } from './src/lib/progression';
 import { formatWorkoutDisplayLabel } from './src/lib/displayLabel';
 import { buildCardioStatsLine, getCardioActivity } from './src/lib/cardio';
 import { setSoundCuesEnabled } from './src/utils/sound';
-import { setHapticsEnabled } from './src/utils/haptics';
+import { haptics, setHapticsEnabled } from './src/utils/haptics';
 import {
   getNotificationPermissionGranted,
   requestNotificationPermission,
@@ -5742,7 +5742,10 @@ function VinhaApp() {
         showBodyweightDetail={route.screen === 'bodyweight'}
         onAddBodyweight={async (weightKg) => {
           await addBodyweightEntry(weightKg);
-          showToast(t(preferences.appLanguage, 'toast.bodyweightSaved'));
+          // No "saved" toast (user 2026-08-25: "outo pilleri... ihan turha").
+          // The save announces itself: the dot lands on the chart, and the
+          // haptic says it landed.
+          void haptics.success();
         }}
         // The same height the questionnaire asks for and the profile stores —
         // the BMI card edits that field rather than keeping a second copy.
@@ -6171,7 +6174,6 @@ function VinhaApp() {
     content = (
       <SettingsScreen
         preferences={preferences}
-        firstSessionAt={lifetimeSummary.firstSessionAt}
         initialScrollOffset={settingsScrollOffsetRef.current}
         onScrollOffsetChange={(offsetY) => {
           settingsScrollOffsetRef.current = offsetY;
@@ -6280,6 +6282,7 @@ function VinhaApp() {
         onOpenRecords={() => navigate({ tab: 'progress', screen: 'list', section: 'records' })}
         onManagePlan={() => navigate({ tab: 'profile', screen: 'training_plan' })}
         onEditProfile={() => navigate({ tab: 'profile', screen: 'edit_profile' })}
+        onOpenRating={() => setRatingSheetVisible(true)}
       />
     );
   } else if (route.tab === 'workout' && route.screen === 'plans') {

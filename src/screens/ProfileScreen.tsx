@@ -64,6 +64,12 @@ interface ProfileScreenProps {
    * offered one — see the prompt under the identity name.
    */
   onEditProfile: () => void;
+  /**
+   * Opens the same rating sheet Settings and the finish flow use. The star
+   * row renders only while the app is unrated, and disappears for good after
+   * — same rule as everywhere else the ask lives.
+   */
+  onOpenRating?: () => void;
 }
 
 function getInitials(name: string | null | undefined) {
@@ -246,6 +252,7 @@ export function ProfileScreen({
   recordCount,
   onManagePlan,
   onEditProfile,
+  onOpenRating,
 }: ProfileScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -394,6 +401,42 @@ export function ProfileScreen({
             <Text style={styles.inviteButtonText}>{t(language, 'profile.invite')}</Text>
           </CutSurface>
         </Pressable>
+
+        {/* Rate the app — five stars as the invitation (user 2026-08-25).
+            One button, one destination: the whole row opens the same rating
+            sheet Settings uses. The stars are not individually pressable on
+            purpose — routing by star value is the pre-filtering Play's
+            policy forbids. Gone for good once rated, like every other ask. */}
+        {onOpenRating && !preferences.ratingPrompt.rated ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(language, 'settings.rate')}
+            onPress={onOpenRating}
+            style={({ pressed }) => [pressed && styles.pressedRow]}
+          >
+            <CutSurface
+              size="lg"
+              fill={theme.surface}
+              stroke={theme.border}
+              strokeWidth={1}
+              style={styles.rateCard}
+            >
+              <Text style={styles.rateTitle}>{t(language, 'settings.rate')}</Text>
+              <View style={styles.rateStars}>
+                {[0, 1, 2, 3, 4].map((star) => (
+                  <Svg key={star} width={22} height={22} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M12 3.5l2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8-4.2-4.1 5.9-.9L12 3.5z"
+                      stroke={theme.gold}
+                      strokeWidth={1.8}
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                ))}
+              </View>
+            </CutSurface>
+          </Pressable>
+        ) : null}
 
         {/* TRAINING PLAN */}
         <View style={settingsStyles.section}>
@@ -640,6 +683,23 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.ink,
     fontSize: 14.5,
     fontWeight: '800',
+  },
+  rateCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 22,
+    paddingVertical: 13,
+    marginTop: 10,
+  },
+  rateTitle: {
+    color: theme.ink,
+    fontSize: 14.5,
+    fontWeight: '800',
+  },
+  rateStars: {
+    flexDirection: 'row',
+    gap: 4,
   },
   weekdayRow: {
     flexDirection: 'row',

@@ -35,6 +35,10 @@ module.exports = [
       // Ends today rather than centring it: a history is "how did I get here".
       assert.equal(window[6].isToday, true);
       assert.equal(window[6].value, null);
+      // Day AND month: these windows cross month ends, and a bare day axis
+      // read "26 30 3 7 11" — numbers, not dates (user, 2026-08-25).
+      assert.equal(window[0].label, '19.8.');
+      assert.equal(window[6].label, '25.8.');
       // The reading keeps its own day; the empty days between keep theirs.
       assert.equal(window[1].value, 96.5);
       assert.equal(window[3].value, null);

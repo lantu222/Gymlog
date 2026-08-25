@@ -252,7 +252,11 @@ export function buildValueWindow(
     const dayStart = date.getTime();
     return {
       dayStart,
-      label: String(date.getDate()),
+      // Day AND month: these windows run for months and cross month ends, so
+      // a bare day-of-month axis read "26 30 3 7 11" — a number sequence, not
+      // dates (user, 2026-08-25). The weight card's own week keeps its bare
+      // day; inside seven days the month never needs saying twice.
+      label: `${date.getDate()}.${date.getMonth() + 1}.`,
       value: byDay.get(dayStart) ?? null,
       isToday: dayStart === today,
     };

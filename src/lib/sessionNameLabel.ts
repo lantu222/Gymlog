@@ -220,7 +220,12 @@ export function localizeWorkoutFocus(focus: string, language: AppLanguage = 'en'
  */
 export function localizeSessionFocus(name: string, language: AppLanguage = 'en'): string {
   const raw = name.trim();
-  const dayMatch = raw.match(/^(.*?)\bDay\s+(\d+)\s*:\s*(.*)$/i);
+  // Both spellings: catalog data says "Day 1:", but a duplicated or composed
+  // custom programme SAVES its session names in Finnish ("Päivä 1:", by
+  // design — customProgramDuplication), and the Finnish prefix used to slip
+  // through here untouched. That put "Päivä 1:" back on the very rows this
+  // function exists to unclutter (user, 2026-08-25).
+  const dayMatch = raw.match(/^(.*?)\b(?:Day|Päivä)\s+(\d+)\s*:\s*(.*)$/i);
   if (!dayMatch) {
     return localizeSessionName(raw, language);
   }

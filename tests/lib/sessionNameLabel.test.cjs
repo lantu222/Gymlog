@@ -25,6 +25,13 @@ module.exports = [
       assert.equal(localizeSessionFocus('Day 3', 'fi'), 'Päivä 3');
       assert.equal(localizeSessionFocus('Day 3:', 'fi'), 'Päivä 3');
       assert.equal(localizeSessionFocus('', 'fi'), '');
+
+      // Custom programmes SAVE their session names in Finnish (by design —
+      // customProgramDuplication), and the Finnish ordinal used to slip
+      // through untouched: "Päivä 1:" came back onto the very rows this
+      // function exists to unclutter (user, 2026-08-25).
+      assert.equal(localizeSessionFocus('Päivä 1: Koko keho + HIIT', 'fi'), 'Koko keho + HIIT');
+      assert.equal(localizeSessionFocus('Päivä 3', 'fi'), 'Päivä 3');
     },
   },
   {

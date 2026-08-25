@@ -14,7 +14,6 @@ import { AppLanguage, AppPreferences } from '../types/models';
 interface SettingsScreenProps {
   preferences: AppPreferences;
   /** ISO timestamp of the first completed session — the honest "member since". */
-  firstSessionAt: string | null;
   onBack: () => void;
   onPreferencesChange: (patch: Partial<AppPreferences>) => void;
   onOpenMyData: () => void;
@@ -67,21 +66,6 @@ interface SettingsScreenProps {
 
 const RED = '#C0392B';
 const RED_SOFT = '#FBEAE7';
-
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-function memberSinceLabel(firstSessionAt: string | null, language: AppLanguage) {
-  if (!firstSessionAt) {
-    return t(language, 'settings.newHere');
-  }
-  const date = new Date(firstSessionAt);
-  if (Number.isNaN(date.getTime())) {
-    return t(language, 'settings.newHere');
-  }
-  const dateLabel =
-    language === 'fi' ? `${date.getMonth() + 1}/${date.getFullYear()}` : `${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
-  return t(language, 'settings.memberSince', { date: dateLabel });
-}
 
 function getInitials(name: string | null) {
   if (!name?.trim()) {
@@ -205,7 +189,7 @@ function Row({
   const inner = (
     <View style={[styles.row, !last && styles.rowDivider]}>
       <View style={[styles.rowTile, danger && { backgroundColor: RED_SOFT }]}>
-        <Ic n={icon} c={danger ? RED : iconColor ?? theme.purpleDark} />
+        <Ic n={icon} c={danger ? RED : iconColor ?? theme.highlight} />
       </View>
       <View style={styles.rowCopy}>
         <Text style={[styles.rowTitle, danger && { color: RED }]}>{title}</Text>
@@ -238,7 +222,6 @@ function Row({
  */
 export function SettingsScreen({
   preferences,
-  firstSessionAt,
   onBack,
   onPreferencesChange,
   onOpenMyData,
@@ -281,7 +264,16 @@ export function SettingsScreen({
           <Ic n="back" c={theme.ink} s={20} sw={2.4} />
         </Pressable>
         <ScreenHeaderTitle title={t(language, 'settings.title')} />
-        <View style={styles.headerSpacer} />
+        {proUnlocked ? (
+          <View style={styles.proBadge}>
+            <Svg width={12} height={12} viewBox="0 0 24 24">
+              <Path d={IC_PATHS.spark} fill={theme.highlight} />
+            </Svg>
+            <Text style={styles.proBadgeText}>PRO</Text>
+          </View>
+        ) : (
+          <View style={styles.headerSpacer} />
+        )}
       </View>
 
       <ScrollView
@@ -319,18 +311,12 @@ export function SettingsScreen({
             <Text style={styles.profileChipInitials}>{getInitials(preferences.profileName)}</Text>
           </View>
           <View style={styles.profileChipCopy}>
+            {/* Just the name. The "member since / new here" line under it was
+                the user's "ihan turha" (2026-08-25), and the PRO badge moved
+                to the header's top-right corner on the same note. */}
             <Text numberOfLines={1} style={styles.profileChipName}>
               {displayName}
             </Text>
-            <Text style={styles.profileChipMeta}>{memberSinceLabel(firstSessionAt, language)}</Text>
-            {proUnlocked ? (
-              <View style={styles.proBadge}>
-                <Svg width={12} height={12} viewBox="0 0 24 24">
-                  <Path d={IC_PATHS.spark} fill={theme.purpleDark} />
-                </Svg>
-                <Text style={styles.proBadgeText}>PRO</Text>
-              </View>
-            ) : null}
           </View>
           <Ic n="chevron" c={theme.faint} s={18} sw={2.2} />
         </Pressable>
@@ -664,25 +650,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
-  profileChipMeta: {
-    color: theme.muted,
-    fontSize: 12.5,
-    fontWeight: '600',
-    marginTop: 2,
-  },
+  // Accent-coded and in the header's corner now (user 2026-08-25).
   proBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    alignSelf: 'flex-start',
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 999,
-    backgroundColor: theme.purpleLight,
-    marginTop: 6,
+    backgroundColor: theme.highlightSoft,
   },
   proBadgeText: {
-    color: theme.purpleDark,
+    color: theme.highlight,
     fontSize: 11.5,
     fontWeight: '800',
   },
@@ -700,11 +679,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.border,
   },
+  // Accent-tinted (user 2026-08-25: "tee ikoneista oransseja").
   rowTile: {
     width: 36,
     height: 36,
     borderRadius: 11,
-    backgroundColor: theme.purpleLight,
+    backgroundColor: theme.highlightSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
