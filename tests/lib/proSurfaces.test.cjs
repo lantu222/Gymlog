@@ -580,8 +580,13 @@ module.exports = [
 
       // The PRO pill is gone; the free quota still has its own row, so nothing
       // honest was lost with it.
-      assert.doesNotMatch(chat, /styles.badge/);
-      assert.match(chat, /styles.quotaRow/);
+      //
+      // This assertion used to end in a literal backspace (0x08), left by a
+      // word-boundary escape that went through a shell heredoc. It asked for
+      // "styles.badge" followed by a control character no source file
+      // contains, so the guard could never fail whatever the screen did.
+      assert.doesNotMatch(chat, /styles[.]badge[^A-Za-z]/);
+      assert.match(chat, /styles[.]quotaRow[^A-Za-z]/);
 
       // The coach gets no bubble — it is the voice of the screen. Only the
       // user's own words are enclosed. Checked as the absence of a bubble
