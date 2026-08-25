@@ -7,6 +7,7 @@ import {
   AICoachGoal,
   AICoachHistory,
   AICoachHistoryConfidence,
+  AICoachHomeState,
   AICoachProfile,
   AICoachTrainingContext,
 } from '../types/aiCoach';
@@ -74,6 +75,8 @@ export interface BuildAiTrainingContextInput {
   primaryGoalId?: string | null;
   bodyweightGoalKg?: number | null;
   profile?: AICoachProfile | null;
+  /** What Home already shows and what the coach must not offer right now. */
+  homeState?: AICoachHomeState | null;
   now?: Date;
 }
 
@@ -310,6 +313,7 @@ export function buildAiTrainingContext({
   primaryGoalId = null,
   bodyweightGoalKg = null,
   profile = null,
+  homeState = null,
   now = new Date(),
 }: BuildAiTrainingContextInput): AICoachTrainingContext {
   const body = buildAiCoachBodyState(bodyweightEntries, measurementEntries, now);
@@ -391,6 +395,7 @@ export function buildAiTrainingContext({
     body,
     goals: buildAiCoachGoals(coachGoals, bodyweightGoalKg, body, primaryGoalId),
     profile: profile && (profile.heightCm !== null || profile.age !== null || profile.gender !== null) ? profile : null,
+    homeState,
   };
 }
 
@@ -490,5 +495,6 @@ export function normalizeAiCoachTrainingContext(
     // choice resolves to anyway.
     goals: withPrimaryGoal(array<AICoachGoal>(candidate.goals)),
     profile: candidate.profile && typeof candidate.profile === 'object' ? candidate.profile : null,
+    homeState: candidate.homeState && typeof candidate.homeState === 'object' ? candidate.homeState : null,
   };
 }

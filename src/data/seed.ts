@@ -57,6 +57,7 @@ const DEFAULT_PREFERENCES = {
   aiOnlineNoticeAcknowledged: false,
   coachGoals: [],
   primaryGoalId: null,
+  coachSuggestionState: {},
   setupHandoffCompleted: false,
   entryFlowCompleted: false,
   trainingFirstRunDismissed: false,

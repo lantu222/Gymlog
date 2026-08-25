@@ -25,6 +25,7 @@ import {
   AICoachAdviceRequest,
   AICoachAdviceSuccess,
   AICoachConversationTurn,
+  AICoachSuggestion,
 } from '../src/types/aiCoach';
 
 type ApiRequest = {
@@ -185,6 +186,30 @@ const AI_COACH_RESPONSE_SCHEMA = {
       description:
         'True only when `takeaway` is a follow-up question instead of an answer, because the context did not hold what the question needed. The app does not charge a free-tier question for it.',
     },
+    suggestion: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['kind'],
+      description:
+        'At most one thing to offer to do for the reader, drawn as a button. Omit unless the App state section shows the thing is missing and the conversation actually called for it.',
+      properties: {
+        kind: {
+          type: 'string',
+          enum: ['pin_stat_card', 'set_goal'],
+          description:
+            'pin_stat_card: put a measurement card on the home screen. set_goal: save the goal the reader described in their own words.',
+        },
+        statKey: {
+          type: 'string',
+          description: 'For pin_stat_card only: which measurement, e.g. "chest".',
+        },
+        goalText: {
+          type: 'string',
+          description:
+            'For set_goal only: the goal in the words and language the reader used, with the target if they gave one — "kasvattaa rinnanympärystä 104 cm". The app parses it, and drops the offer if it cannot.',
+        },
+      },
+    },
   },
 } as const;
 
@@ -236,6 +261,11 @@ const COACH_SYSTEM_RULES = [
   '- A circumference goal is built from training volume, progression and food together — read the relevant lifts from the history when advising on it.',
   '- Nutrition questions: general sports-nutrition knowledge is allowed here, but anchor every number to this user — protein 1.6–2.2 g per kg of their logged bodyweight, surplus or deficit according to their stated goal. If bodyweight is missing from the context, give the per-kg rule and note that logging bodyweight lets you compute it exactly.',
   '- Never prescribe a diet for a medical condition.',
+  '',
+  '# Offering to do something',
+  '- You may offer one action per answer, in `suggestion`, and only when the conversation led there — an offer bolted onto an unrelated answer is an advert.',
+  '- Offer only what the App state section shows is missing. Never offer what is already on, and never offer a kind listed under "Do not offer": the reader has answered that question.',
+  '- Most answers carry no suggestion at all. Leave it out unless it clearly helps.',
   '',
   '# Saying less',
   '- Silence is a valid output. When there is nothing worth saying, say the small true thing rather than manufacturing an insight.',
@@ -413,6 +443,7 @@ function validateAnswer(payload: unknown): AICoachAdvice | null {
   // Sonnet 5 omits `plan: []` when there is no plan to give, and the whole
   // answer fell back to preview over it (eval, 2026-08-23).
   const list = (value: unknown) => (isStringArray(value) ? value : value === undefined ? [] : null);
+  const suggestion = validateSuggestion(candidate.suggestion);
   const why = list(candidate.why);
   const nextSteps = list(candidate.nextSteps);
   const plan = list(candidate.plan);
@@ -433,6 +464,27 @@ function validateAnswer(payload: unknown): AICoachAdvice | null {
     plan,
     assumptions,
     ...(candidate.unanswered === true ? { unanswered: true } : {}),
+    ...(suggestion ? { suggestion } : {}),
+  };
+}
+
+/**
+ * The offer, or nothing. An unknown kind is dropped rather than passed on: the
+ * client draws a button per kind, and a button it cannot carry out would be a
+ * promise the app does not keep.
+ */
+function validateSuggestion(value: unknown): AICoachSuggestion | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const candidate = value as Partial<AICoachSuggestion>;
+  if (candidate.kind !== 'pin_stat_card' && candidate.kind !== 'set_goal') {
+    return null;
+  }
+  return {
+    kind: candidate.kind,
+    statKey: typeof candidate.statKey === 'string' && candidate.statKey.trim() ? candidate.statKey.trim() : null,
+    goalText: typeof candidate.goalText === 'string' && candidate.goalText.trim() ? candidate.goalText.trim().slice(0, 200) : null,
   };
 }
 

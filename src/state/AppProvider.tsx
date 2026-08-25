@@ -204,6 +204,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       aiOnlineNoticeAcknowledged: false,
       coachGoals: [],
       primaryGoalId: null,
+      coachSuggestionState: {},
       setupHandoffCompleted: false,
       entryFlowCompleted: false,
       trainingFirstRunDismissed: false,

@@ -18,10 +18,11 @@ import { buildAiCoachPreviewAnswer } from '../lib/aiCoachPreview';
 import { FREE_COACH_QUESTIONS_PER_WEEK } from '../lib/aiCoachQuota';
 import { CoachChatIntroInput, CoachContextChip, buildCoachContextChips, buildCoachContextReadout, buildCoachNoticed, buildCoachOpeningLine, buildCoachOpeningOffer, buildCoachOpeningRows } from '../lib/coachChat';
 import { coachSmallTalkReplyKey, parseCoachSmallTalk } from '../lib/coachSmallTalk';
-import { appendCoachTurn } from '../lib/coachConversation';
+import { appendCoachTurn } from '../lib/coachConversation';
+import { CoachSuggestionKind } from '../lib/coachSuggestions';
 import { MEASUREMENT_LABEL_KEYS } from '../lib/homeStatCards';
 import { I18nKey, t } from '../lib/i18n';
-import { MeasurementIntent, parseMeasurementIntent } from '../lib/measurementIntent';
+import { MeasurementIntent, isMeasurementIntentKind, parseMeasurementIntent } from '../lib/measurementIntent';
 import { GoalIntent, parseGoalIntent } from '../lib/goalIntent';
 import { AI_COACH_DEBUG_TRANSCRIPTS } from '../lib/aiCoachDebug';
 import { PW } from '../lightTheme';
@@ -82,6 +83,12 @@ interface AICoachChatScreenProps {
   onPinStatCard: (key: string) => void;
   /** "Yritän kasvattaa rinnanympärystä" stated in chat becomes a saved goal — offered, never assumed. */
   onSetGoal: (intent: GoalIntent) => Promise<void>;
+  /**
+   * How a coach-proposed offer ended. A refusal buys a month of silence and a
+   * second one ends that kind of offer for good, so it has to be recorded
+   * whichever way the reader answered.
+   */
+  onCoachSuggestionResolved: (kind: CoachSuggestionKind, accepted: boolean) => void;
   /** TEMPORARY: the signed-in email, attached to the development transcript log. */
   transcriptReporter: string | null;
 }
@@ -93,7 +100,17 @@ interface ChatMessage {
   /** The coach's structured answer, rendered as sections rather than prose. */
   advice?: AICoachAdvice;
   /** An offer with buttons: log the reading, put its card on Home, or save the stated goal. */
-  offer?: { type: 'log' | 'pin'; intent: MeasurementIntent } | { type: 'goal'; intent: GoalIntent };
+  offer?:
+    | { type: 'log'; intent: MeasurementIntent }
+    // Only the kind is ever read, and a coach-proposed card has no reading
+    // behind it — asking for a value here would mean inventing one.
+    | { type: 'pin'; intent: Pick<MeasurementIntent, 'kind'> }
+    | { type: 'goal'; intent: GoalIntent };
+  /**
+   * Set when the coach proposed this rather than the typed message. Only those
+   * count towards the cooldown: it exists to stop the coach nagging.
+   */
+  suggestionKind?: CoachSuggestionKind;
   evidence?: string;
   /** Set when the answer is withheld: the real conclusion, blurred. */
   lockedBody?: string;
@@ -129,6 +146,7 @@ export function AICoachChatScreen({
   onLogMeasurement,
   onPinStatCard,
   onSetGoal,
+  onCoachSuggestionResolved,
   transcriptReporter,
 }: AICoachChatScreenProps) {
   const theme = useTheme();
@@ -216,7 +234,17 @@ export function AICoachChatScreen({
   );
 
   const resolveOffer = useCallback(
-    async (messageId: string, offer: NonNullable<ChatMessage['offer']>, accepted: boolean) => {
+    async (
+      messageId: string,
+      offer: NonNullable<ChatMessage['offer']>,
+      accepted: boolean,
+      suggestionKind?: CoachSuggestionKind,
+    ) => {
+      // Both answers are answers. Recording only the acceptances would leave
+      // the refusal invisible and the same offer would come back next week.
+      if (suggestionKind) {
+        onCoachSuggestionResolved(suggestionKind, accepted);
+      }
       if (!accepted) {
         setMessages((current) => current.filter((message) => message.id !== messageId));
         return;
@@ -258,7 +286,7 @@ export function AICoachChatScreen({
         ),
       );
     },
-    [formatReading, language, measurementLabel, onLogMeasurement, onPinStatCard, onSetGoal, pinnedStatCardKeys],
+    [formatReading, language, measurementLabel, onCoachSuggestionResolved, onLogMeasurement, onPinStatCard, onSetGoal, pinnedStatCardKeys],
   );
 
   const send = useCallback(
@@ -361,6 +389,40 @@ export function AICoachChatScreen({
         // steps and the plan each on their own lines. One run-on paragraph
         // buried the dates and numbers (#bugs, 2026-08-23).
         const reply = answer.takeaway;
+        // The coach's own offer, turned into a button — but only one it can
+        // actually carry out. A pin needs a measurement the app knows; a goal
+        // is read with the same parser the typed path uses, and an offer that
+        // will not parse is dropped rather than shown as a dead button.
+        const suggestion = answer.suggestion ?? null;
+        const suggestedOffer: ChatMessage | null = (() => {
+          if (!suggestion) {
+            return null;
+          }
+          if (suggestion.kind === 'pin_stat_card') {
+            const kind = suggestion.statKey ?? '';
+            if (!isMeasurementIntentKind(kind) || pinnedStatCardKeys.includes(kind)) {
+              return null;
+            }
+            return {
+              id: `suggest:${token}`,
+              fromCoach: true,
+              text: '',
+              offer: { type: 'pin' as const, intent: { kind } },
+              suggestionKind: 'pin_stat_card' as const,
+            };
+          }
+          const intent = suggestion.goalText ? parseGoalIntent(suggestion.goalText, language) : null;
+          if (!intent) {
+            return null;
+          }
+          return {
+            id: `suggest:${token}`,
+            fromCoach: true,
+            text: '',
+            offer: { type: 'goal' as const, intent },
+            suggestionKind: 'set_goal' as const,
+          };
+        })();
         setMessages((current) => [
           ...current,
           {
@@ -369,6 +431,7 @@ export function AICoachChatScreen({
             text: reply || answer.takeaway,
             advice: answer,
           },
+          ...(suggestedOffer ? [suggestedOffer] : []),
         ]);
       } catch {
         if (token !== askToken.current) {
@@ -388,7 +451,7 @@ export function AICoachChatScreen({
         }
       }
     },
-    [asking, canAsk, language, mustAcknowledgeOnline, onFreeQuestionUsed, proUnlocked, sessionCount, trainingContext],
+    [asking, canAsk, language, mustAcknowledgeOnline, onFreeQuestionUsed, pinnedStatCardKeys, proUnlocked, sessionCount, trainingContext],
   );
 
   return (
@@ -494,14 +557,28 @@ export function AICoachChatScreen({
                   <View style={styles.offerActions}>
                     <Pressable
                       accessibilityRole="button"
-                      onPress={() => void resolveOffer(message.id, message.offer as NonNullable<ChatMessage['offer']>, false)}
+                      onPress={() =>
+                        void resolveOffer(
+                          message.id,
+                          message.offer as NonNullable<ChatMessage['offer']>,
+                          false,
+                          message.suggestionKind,
+                        )
+                      }
                       style={({ pressed }) => [styles.offerGhost, pressed && styles.pressed]}
                     >
                       <Text style={styles.offerGhostText}>{t(language, 'coachChat.measure.skip')}</Text>
                     </Pressable>
                     <Pressable
                       accessibilityRole="button"
-                      onPress={() => void resolveOffer(message.id, message.offer as NonNullable<ChatMessage['offer']>, true)}
+                      onPress={() =>
+                        void resolveOffer(
+                          message.id,
+                          message.offer as NonNullable<ChatMessage['offer']>,
+                          true,
+                          message.suggestionKind,
+                        )
+                      }
                       style={({ pressed }) => [styles.offerCta, pressed && styles.pressed]}
                     >
                       <Text style={styles.offerCtaText}>

@@ -39,6 +39,15 @@ const RANGE: Record<MeasurementIntent['unit'], [number, number]> = {
   '%': [2, 70],
 };
 
+/**
+ * Whether a string names a measurement this app can actually show a card for.
+ * The coach may propose one by name, and a name the app does not know would
+ * become a button that does nothing.
+ */
+export function isMeasurementIntentKind(value: string): value is MeasurementIntentKind {
+  return KIND_WORDS.some((entry) => entry.kind === value);
+}
+
 function unitFor(kind: MeasurementIntentKind): MeasurementIntent['unit'] {
   if (kind === 'bodyweight') return 'kg';
   if (kind === 'bodyfat') return '%';

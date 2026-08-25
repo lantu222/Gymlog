@@ -202,6 +202,22 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
   );
   if (goalBlock) blocks.push(goalBlock);
 
+  if (context.homeState) {
+    // What is already on, so an offer is only ever made for what is missing.
+    const home = context.homeState;
+    const homeLines = [
+      line(
+        'Cards on Home',
+        home.pinnedStatCardKeys.length > 0 ? home.pinnedStatCardKeys.join(', ') : 'none',
+      ),
+      home.silencedSuggestions.length > 0
+        ? line('Do not offer', `${home.silencedSuggestions.join(', ')} — already handled or declined`)
+        : null,
+    ].filter((entry): entry is string => entry !== null);
+    const homeBlock = section('App state — offer only what is missing here', homeLines);
+    if (homeBlock) blocks.push(homeBlock);
+  }
+
   if (context.profile) {
     const p = context.profile;
     const profileParts: string[] = [];

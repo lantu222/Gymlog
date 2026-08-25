@@ -275,5 +275,15 @@ siruna** — sävy riittää.
      pyynnön **välimuistittomassa** puoliskossa, joten se lasketaan budjettiin.
      Mitään ei talleteta — keskustelu päättyy ruudun mukana.
 5. **Vaihe 3 + 6.3** — suggestions-kenttä, napit ja cooldown samassa
+   - **Osa 1 tehty 25.8.**: `suggestion` vastauksessa (max 1), kontekstiin
+     `homeState` (mitkä kortit ovat Kodissa + mitä ei saa ehdottaa),
+     `coachSuggestionState` jäähdytys (1. ei = 30 vrk, 2. ei = ei koskaan,
+     kyllä = ei koskaan). Vaimennetut lajit **matkaavat promptiin** eikä
+     ehdotusta suodateta jälkikäteen — muuten maksettaisiin ehdotuksesta joka
+     heitetään pois. Nappi piirretään vain jos appi osaa sen tehdä: tuntematon
+     mitta ja jäsentymätön tavoiteteksti pudotetaan.
+   - **Jäljellä**: `weigh_in_reminder` eli aamupunnitusilmoitus. Vaatii oman
+     ilmoituslajin (`NotificationPrefs` + `notificationPlan.ts` + rivi
+     Asetuksiin), joten se on oma vaiheensa eikä roikkuvana lippuna.
 6. **Vaihe 4** — eval-tapaukset, myös 6.4:lle (kysyykö se silloin kun pitää,
    ja onko se hiljaa silloin kun ei pidä) ja 6.2:lle (tuleeko kaloriluku)

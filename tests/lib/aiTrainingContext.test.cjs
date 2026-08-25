@@ -77,6 +77,7 @@ module.exports = [
         'fatigue',
         'goals',
         'history',
+        'homeState',
         'latestTopSets',
         'plateaus',
         'profile',

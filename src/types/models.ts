@@ -1,4 +1,5 @@
 import { CancelSurveyAnswer } from '../lib/cancelSurvey';
+import { CoachSuggestionState } from '../lib/coachSuggestions';
 import { SeasonEnrolment } from '../lib/seasonEnrolment';
 import { StrengthGoal } from '../lib/strengthGoals';
 import { SubscriptionTermKey } from '../lib/subscriptionView';
@@ -426,6 +427,11 @@ export interface AppPreferences {
    * the list as background. Null falls back to the most recently stated goal.
    */
   primaryGoalId: string | null;
+  /**
+   * What the coach has already offered and how that went, per suggestion
+   * kind. A refusal is an answer rather than a "later": see coachSuggestions.
+   */
+  coachSuggestionState: CoachSuggestionState;
   /**
    * Whether the hand-off step after onboarding has had its turn. It offers the
    * widget and a tracking card once; a reader who ran onboarding again has

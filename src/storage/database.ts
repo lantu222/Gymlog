@@ -659,6 +659,10 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
         : fallback.preferences.coachGoals,
       primaryGoalId:
         typeof input?.preferences?.primaryGoalId === 'string' ? input.preferences.primaryGoalId : null,
+      coachSuggestionState:
+        input?.preferences?.coachSuggestionState && typeof input.preferences.coachSuggestionState === 'object'
+          ? input.preferences.coachSuggestionState
+          : {},
       // A stored install that predates this flag has already been through
       // onboarding, so the hand-off has had its turn — without this, the flag
       // reads false on the next launch and an old install gets ambushed by a

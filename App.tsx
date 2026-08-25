@@ -102,6 +102,11 @@ import { recordCoachQuestion, resolveCoachQuota } from './src/lib/aiCoachQuota';
 import { buildHomePlanProgress } from './src/lib/homePlanProgress';
 import { buildHomeStatCardCatalog, buildHomeStatCards, resolveHomeStatCardKeys } from './src/lib/homeStatCards';
 import {
+  recordSuggestionAccepted,
+  recordSuggestionRejected,
+  silencedSuggestionKinds,
+} from './src/lib/coachSuggestions';
+import {
   buildSessionEquipmentLabel,
   classifySessionFocus,
   getDefaultCooldown,
@@ -3582,6 +3587,12 @@ function VinhaApp() {
           age: preferences.setupAge,
           gender: preferences.setupGender,
         },
+        // What Home already carries, and what the coach must not bring up:
+        // an offer for something already on is the sign explaining a sign.
+        homeState: {
+          pinnedStatCardKeys: homePinnedStatCardKeys,
+          silencedSuggestions: silencedSuggestionKinds(preferences.coachSuggestionState),
+        },
         plannerSetup: preferences.aiSetupCompleted
           ? {
               goal: preferences.aiPlannerGoal,
@@ -3616,6 +3627,8 @@ function VinhaApp() {
       database.measurementEntries,
       preferences.coachGoals,
       preferences.primaryGoalId,
+      homePinnedStatCardKeys,
+      preferences.coachSuggestionState,
       preferences.bodyweightGoalKg,
       preferences.setupHeightCm,
       preferences.setupAge,
@@ -5942,6 +5955,13 @@ function VinhaApp() {
             primaryGoalId: id,
           });
         }}
+        onCoachSuggestionResolved={(kind, accepted) =>
+          void updatePreferences({
+            coachSuggestionState: accepted
+              ? recordSuggestionAccepted(preferences.coachSuggestionState, kind)
+              : recordSuggestionRejected(preferences.coachSuggestionState, kind),
+          })
+        }
         transcriptReporter={accountBackup.state.status === 'signed_in' ? accountBackup.state.email : null}
       />
     );

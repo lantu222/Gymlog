@@ -191,6 +191,21 @@ export interface AICoachGoal {
   isPrimary: boolean;
 }
 
+/**
+ * What the app already has switched on, so the coach can offer only what is
+ * missing. Offering to pin a card that is already on Home is the sign that
+ * explains a sign.
+ */
+export interface AICoachHomeState {
+  /** Measurement cards currently on Home. */
+  pinnedStatCardKeys: string[];
+  /**
+   * Offer kinds that must not be proposed at all right now — already taken up,
+   * or turned down recently enough that asking again would be nagging.
+   */
+  silencedSuggestions: string[];
+}
+
 export interface AICoachProfile {
   heightCm: number | null;
   age: number | null;
@@ -218,6 +233,7 @@ export interface AICoachTrainingContext {
   body?: AICoachBody | null;
   goals?: AICoachGoal[];
   profile?: AICoachProfile | null;
+  homeState?: AICoachHomeState | null;
 }
 
 export type AICoachActionKind =
@@ -255,6 +271,23 @@ export interface AICoachAdvice {
    * the app itself offered. An answer that answers nothing does not cost one.
    */
   unanswered?: boolean;
+  /**
+   * One thing the coach offers to do, drawn as a button by the chat. At most
+   * one per answer: a reply that ends in three offers is a menu, not advice.
+   */
+  suggestion?: AICoachSuggestion | null;
+}
+
+export interface AICoachSuggestion {
+  kind: 'pin_stat_card' | 'set_goal';
+  /** For pin_stat_card: which measurement's card. */
+  statKey?: string | null;
+  /**
+   * For set_goal: the goal in the reader's own words. The chat parses it with
+   * the same reader the typed path uses, and drops the offer when it will not
+   * parse — a button that cannot carry out what it says is worse than none.
+   */
+  goalText?: string | null;
 }
 
 /**
