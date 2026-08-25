@@ -1,6 +1,6 @@
 import { buildAiTrainingContext } from './aiTrainingContext';
 import { AiCoachEvalCase } from './aiCoachEval';
-import { ExerciseLog, WorkoutSession } from '../types/models';
+import { BodyweightEntry, CoachGoal, ExerciseLog, MeasurementEntry, WorkoutSession } from '../types/models';
 import { AICoachTrainingContext } from '../types/aiCoach';
 
 /**
@@ -66,6 +66,12 @@ export function buildEvalContext(
   sessions: WorkoutSession[],
   logs: ExerciseLog[],
   trainingDays: Array<'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'> = [],
+  body: {
+    bodyweightEntries?: BodyweightEntry[];
+    measurementEntries?: MeasurementEntry[];
+    coachGoals?: CoachGoal[];
+    profile?: { heightCm: number | null; age: number | null; gender: string | null };
+  } = {},
 ): AICoachTrainingContext {
   // Derived, never hardcoded: a fixture that states a count the sessions
   // contradict makes the context itself a lie, and then a coach that repeats
@@ -94,6 +100,7 @@ export function buildEvalContext(
     recommendedProgramTitle: null,
     customProgramTitle: null,
     trainingDays,
+    ...body,
   });
 }
 
@@ -128,6 +135,31 @@ const patchyLogs = [
 
 // ── Case 5: an empty account — the coach has nothing and must say so ────────
 const emptyContext = buildEvalContext([], []);
+
+// ── Cases 6-9: the body, the goal, the question, and the follow-up ──────────
+//
+// Everything above tests the training log. These test what phase 1 added and
+// what 6.4 changed: a stated goal, a body record, and the reply that is a
+// question because the record cannot answer.
+const chestGoal: CoachGoal = {
+  id: 'g-chest',
+  text: 'kasvattaa rinnanympärystä',
+  kind: 'chest',
+  targetValue: 104,
+  unit: 'cm',
+  startValue: 96.5,
+  createdAt: at(56),
+};
+const chestReadings: MeasurementEntry[] = [
+  { id: 'm1', kind: 'chest', recordedAt: at(56), value: 96.5, unit: 'cm' },
+  { id: 'm2', kind: 'chest', recordedAt: at(7), value: 98, unit: 'cm' },
+];
+const weighIns: BodyweightEntry[] = [
+  { id: 'bw1', recordedAt: at(30), weight: 79.2 },
+  { id: 'bw2', recordedAt: at(2), weight: 80.4 },
+];
+const pushSessions = [0, 1, 2, 3, 4, 5].map((index) => session(`g${index}`, 'Push', index * 6, 3200));
+const pushLogs = pushSessions.map((entry, index) => log(entry.id, 'Bench Press', 80 + index * 2.5, [8, 8, 8]));
 
 export const AI_COACH_EVAL_CASES: AiCoachEvalCase[] = [
   buildEvalCase({
@@ -170,6 +202,75 @@ export const AI_COACH_EVAL_CASES: AiCoachEvalCase[] = [
     // The log shows absence, never why — that is the user's to explain.
     mustNotSay: ['lazy', 'you gave up', 'motivation dropped'],
     allowedNewFigures: PRESCRIPTION_FIGURES,
+  }),
+  buildEvalCase({
+    id: 'chest-goal-progress',
+    language: 'fi' as const,
+    liveOnly: true,
+    intent: 'A stated goal is what a general question is measured against',
+    prompt: 'Kasvaako rintani?',
+    context: buildEvalContext(pushSessions, pushLogs, ['mon', 'thu'], {
+      coachGoals: [chestGoal],
+      measurementEntries: chestReadings,
+      bodyweightEntries: weighIns,
+    }),
+    // The two readings and the target are the whole answer to this question.
+    mustCite: ['98'],
+    mustMention: ['104'],
+    // The reader asked about a measurement, not about their bench.
+    mustNotSay: ['bench press', 'penkkipunnerrus'],
+    allowedNewFigures: [...PRESCRIPTION_FIGURES, '1.5', '96.5', '6'],
+  }),
+  buildEvalCase({
+    id: 'nutrition-anchored-to-bodyweight',
+    language: 'fi' as const,
+    intent: 'A nutrition answer is arithmetic on this reader, not a general leaflet',
+    prompt: 'Paljonko minun pitäisi syödä proteiinia?',
+    context: buildEvalContext(pushSessions, pushLogs, ['mon', 'thu'], {
+      coachGoals: [chestGoal],
+      bodyweightEntries: weighIns,
+      profile: { heightCm: 181, age: 29, gender: 'male' },
+    }),
+    // Every figure here is computed from the logged weight, so grounding is
+    // the wrong lens — see allowsComputedFigures.
+    allowsComputedFigures: true,
+    mustMention: ['protei'],
+    // The failure this case exists for: a range with no reader in it.
+    mustNotSay: ['yleensä suositellaan', 'generally recommended', 'it depends'],
+  }),
+  buildEvalCase({
+    id: 'goal-with-no-readings-asks-first',
+    language: 'fi' as const,
+    liveOnly: true,
+    intent: 'With nothing measured, the honest reply is one question, and it is free',
+    prompt: 'Miten saan rinnanympäryksen kasvamaan nopeammin?',
+    // The goal is stated but the tape has never come out: there is no
+    // starting point, so there is nothing to advise against.
+    context: buildEvalContext(pushSessions, pushLogs, ['mon', 'thu'], {
+      coachGoals: [chestGoal],
+      bodyweightEntries: weighIns,
+    }),
+    expectsQuestion: true,
+    mustNotSay: ['senttiä kuukaudessa', 'cm per month'],
+    allowedNewFigures: PRESCRIPTION_FIGURES,
+  }),
+  buildEvalCase({
+    id: 'follow-up-has-an-antecedent',
+    language: 'fi' as const,
+    liveOnly: true,
+    intent: '"And then?" continues the last answer instead of starting over',
+    prompt: 'Entä sitten?',
+    context: buildEvalContext(stalledSessions, stalledLogs),
+    history: [
+      {
+        question: 'Miksi penkki ei nouse?',
+        takeaway: 'Penkki on ollut 82,5 kg viidessä peräkkäisessä treenissä.',
+      },
+    ],
+    // Without the exchange above, this prompt has no subject at all and the
+    // coach used to answer a question nobody asked.
+    mustMention: ['penk'],
+    allowedNewFigures: [...PRESCRIPTION_FIGURES, '85', '2.5'],
   }),
   buildEvalCase({
     id: 'empty-account',

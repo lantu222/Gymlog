@@ -21,7 +21,7 @@ const endpoint = process.env.AI_COACH_API_URL;
 
 async function answerFor(evalCase) {
   if (!live) {
-    return buildAiCoachPreviewAnswer(evalCase.prompt, evalCase.context);
+    return buildAiCoachPreviewAnswer(evalCase.prompt, evalCase.context, evalCase.language);
   }
 
   if (!endpoint) {
@@ -31,7 +31,13 @@ async function answerFor(evalCase) {
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt: evalCase.prompt, context: evalCase.context }),
+    body: JSON.stringify({
+      prompt: evalCase.prompt,
+      context: evalCase.context,
+      // A follow-up case is only a follow-up if the exchange goes with it.
+      ...(evalCase.history ? { history: evalCase.history } : {}),
+      ...(evalCase.language ? { language: evalCase.language } : {}),
+    }),
   });
   const payload = await response.json();
 
@@ -45,14 +51,26 @@ async function answerFor(evalCase) {
 
 async function main() {
   const results = [];
+  const skipped = [];
   for (const evalCase of AI_COACH_EVAL_CASES) {
+    // The preview is a keyword mock with no branch for a goal or a body
+    // measurement. Scoring those cases offline would move the number for
+    // reasons that have nothing to do with the prompt.
+    if (!live && evalCase.liveOnly) {
+      skipped.push(evalCase.id);
+      continue;
+    }
     const answer = await answerFor(evalCase);
     results.push(scoreCase(evalCase, answer));
   }
 
   const run = scoreRun(results);
-  console.log(`\nGAINER coach eval — ${live ? 'LIVE endpoint' : 'offline preview'}\n`);
+  console.log(`\nVinha Coach eval — ${live ? 'LIVE endpoint' : 'offline preview'}\n`);
   console.log(formatRunReport(run));
+  if (skipped.length > 0) {
+    // Said out loud: a set that quietly shrinks reads as full coverage.
+    console.log(`\n${skipped.length} case(s) skipped, live only: ${skipped.join(', ')}`);
+  }
   console.log('');
 
   // Non-zero exit on any failure so this can gate a prompt change in CI.

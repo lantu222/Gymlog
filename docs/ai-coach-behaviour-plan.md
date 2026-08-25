@@ -289,5 +289,19 @@ siruna** — sävy riittää.
      kirjattu jää väliin. Prioriteetti heti ennätyksen jälkeen: tämä on ainoa
      viesti jonka lukija pyytää nimeltä, joten se ei häviä paikkaansa
      oletuksena päällä olevalle treenimuistutukselle.
-6. **Vaihe 4** — eval-tapaukset, myös 6.4:lle (kysyykö se silloin kun pitää,
-   ja onko se hiljaa silloin kun ei pidä) ja 6.2:lle (tuleeko kaloriluku)
+6. ~~**Vaihe 4** — eval-tapaukset~~ **tehty 25.8.**
+   - Neljä uutta tapausta: rinnanympärystavoite, ruokakysymys, "kysy ensin"
+     (mittauksia ei ole) ja jatkokysymys ("entä sitten?" edeltävän vaihdon
+     kanssa). Tapaukset voivat nyt kantaa kehon kirjanpidon, tavoitteet ja
+     keskusteluhistorian.
+   - Kaksi uutta tarkistusta: `expectsQuestion` vaatii **molemmat** puoliskot
+     (kysymys esitetään JA se on merkitty — merkitsemätön kysymys veloittaisi
+     lukijalta), ja `allowsComputedFigures` ohittaa ankkurointitarkistuksen
+     ravintotapauksessa, koska proteiiniluku on laskutoimitus painosta eikä
+     väite menneestä.
+   - Kolme tapausta on **vain live-ajoon**: esikatselu on avainsanamokki jossa
+     ei ole haaraa tavoitteelle eikä mitalle, joten niiden pisteyttäminen
+     offline liikuttaisi lukua syistä jotka eivät kerro promptista mitään.
+     Ajuri **kertoo mitä se ohitti** eikä kutista settiä hiljaa.
+   - Offline-luku uusilla säännöillä: **86,2 %** (25/29). Livekoe ajetaan
+     deployn jälkeen samalla komennolla `--live`-lipulla.
