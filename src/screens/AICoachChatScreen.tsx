@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Keyboard,
-  KeyboardAvoidingView,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -194,10 +193,17 @@ export function AICoachChatScreen({
    * screen between the field and the keys (user, 2026-08-25) — on a phone,
    * the most expensive space there is.
    */
-  const [keyboardUp, setKeyboardUp] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   useEffect(() => {
-    const shown = Keyboard.addListener('keyboardDidShow', () => setKeyboardUp(true));
-    const hidden = Keyboard.addListener('keyboardDidHide', () => setKeyboardUp(false));
+    // Measured, not inferred. KeyboardAvoidingView's padding under-lifts on
+    // RN 0.83's edge-to-edge Android — the tab-bar reserve was silently
+    // covering the shortfall, and removing that reserve put the composer
+    // under the keys (user, 2026-08-25, with a photo). The event reports the
+    // keyboard's real height, so the padding cannot be wrong by construction.
+    const shown = Keyboard.addListener('keyboardDidShow', (event) =>
+      setKeyboardHeight(event.endCoordinates?.height ?? 0),
+    );
+    const hidden = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0));
     return () => {
       shown.remove();
       hidden.remove();
@@ -621,10 +627,7 @@ export function AICoachChatScreen({
           composer above the keyboard; with RN 0.83's mandatory edge-to-edge it
           no longer does, and the keyboard covered the thread and the field
           (#bugs, 2026-08-23: 'hard to see what you are typing'). */}
-      <KeyboardAvoidingView
-        behavior="padding"
-        style={styles.body}
-      >
+      <View style={styles.body}>
         <ScrollView
           ref={scrollRef}
           showsVerticalScrollIndicator={false}
@@ -838,7 +841,14 @@ export function AICoachChatScreen({
           </Text>
         ) : null}
 
-        <View style={[styles.composerWrap, keyboardUp && styles.composerWrapKeyboard]}>
+        <View
+          style={[
+            styles.composerWrap,
+            // The keyboard replaces the floating tab bar as the thing under
+            // the composer, so its measured height replaces the reserve.
+            keyboardHeight > 0 && { paddingBottom: keyboardHeight + spacing.sm },
+          ]}
+        >
           <View style={[styles.composer, !canAsk && styles.composerSpent]}>
             <TextInput
               value={draft}
@@ -872,7 +882,7 @@ export function AICoachChatScreen({
             </Pressable>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </View>
   );
 }
@@ -1217,10 +1227,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     // The floating bar is 88 tall; the reserve added another 32 on top, which
     // is why the field sat well above it with dead space underneath.
     paddingBottom: layout.bottomTabBarHeight + spacing.sm,
-  },
-  // Keyboard up: the bar it was making room for is not on screen.
-  composerWrapKeyboard: {
-    paddingBottom: spacing.sm,
   },
   composer: {
     minHeight: 50,

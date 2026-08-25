@@ -36,6 +36,14 @@ module.exports = [
       // A request that never landed is the plainest offline there is.
       assert.match(screen, /setAnsweredOffline\(true\);/);
       assert.equal((i18n.match(/'coachChat\.mode\.online':/g) ?? []).length, 2, 'both languages');
+
+      // The composer is lifted by the keyboard's MEASURED height, never by
+      // KeyboardAvoidingView's estimate: on edge-to-edge Android the estimate
+      // under-lifts, and the field ended up under the keys (photo, 25.8.).
+      assert.match(screen, /setKeyboardHeight\(event\.endCoordinates\?\.height \?\? 0\)/);
+      assert.match(screen, /keyboardHeight > 0 && \{ paddingBottom: keyboardHeight \+ spacing\.sm \}/);
+      // In code, not in the comment that explains why it left.
+      assert.doesNotMatch(screen, /<KeyboardAvoidingView|KeyboardAvoidingView,/);
     },
   },
   {
