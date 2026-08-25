@@ -1,3 +1,4 @@
 @echo off
 cd /d "%~dp0"
-node scriptsnalytics-dashboard.cjs
+node scripts/analytics-dashboard.cjs
+if errorlevel 1 pause
