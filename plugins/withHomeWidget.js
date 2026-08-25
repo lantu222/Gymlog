@@ -66,11 +66,12 @@ const UPDATE_PERIOD_MS = 1800000;
  * them. If a token moves there, move it here too — nothing enforces it, because
  * nothing on this side of the process boundary can import TypeScript.
  *
- * One colour logic for every calendar in the app (user 2026-08-25): a training
- * day is the theme's highlight — orange on dark, violet on light, the same
- * `theme.highlight` the app's own calendars mark training days with — and a
- * rest day is green. `train` fills a trained day and outlines a planned one;
- * `restSoft`/`restInk` are the app's quiet green pair for rest cells.
+ * A training day carries the theme's highlight — orange on dark, violet on
+ * light, the same `theme.highlight` the app's own calendars mark training days
+ * with. `train` fills a trained day and outlines a planned one. A rest day
+ * draws as nothing: the green rest tint was tried on every cell and the month
+ * read as "ihan liian värikäs" on a real launcher (user 2026-08-25 evening) —
+ * the marks carry the message, the quiet carries the marks.
  * `onTrain` is what a date reads as on the fill — white on the light theme's
  * deep violet, near-black on the dark theme's bright orange, because a bright
  * fill is where white text fails.
@@ -99,10 +100,10 @@ const LIGHT = {
   faint: '#8A82A0',
   train: '#6D28D9',
   onTrain: '#FFFFFF',
-  restSoft: '#E8F7EE',
-  restInk: '#157A3A',
-  // The 2x1's one coloured word on a rest day: rest is green, full strength.
-  rest: '#16A34A',
+  // The 2x1's one coloured word on a rest day. Warm, and deliberately not a
+  // calendar mark: a rest day is the one thing the 2x1 exists to say, and it
+  // should not read as a pip.
+  rest: '#C2410C',
   brand: '#7C3AED',
   texture: '#2E7C3AED',
   glow: '#1F7C3AED',
@@ -118,9 +119,7 @@ const DARK = {
   faint: '#7C739E',
   train: '#FF8A4C',
   onTrain: '#241203',
-  restSoft: '#16321F',
-  restInk: '#5FE3A6',
-  rest: '#37D08A',
+  rest: '#FB923C',
   brand: '#A98BFF',
   texture: '#3DA98BFF',
   glow: '#33A98BFF',
@@ -507,10 +506,9 @@ function drawables() {
     files[`widget_texture_${theme}.xml`] = textureVector(palette);
     for (const state of PIP_STATES) {
       // Trained is the solid highlight fill, a planned day the same colour as
-      // an outline, rest the quiet green, and padding stays truly nothing —
-      // the same recipe the app's activity calendar draws (2026-08-25).
-      const fill =
-        state === 'done' ? palette.train : state === 'off' ? palette.restSoft : '#00000000';
+      // an outline; rest and padding draw as nothing. A green rest tint was
+      // tried and read as too colourful on the launcher (user 2026-08-25).
+      const fill = state === 'done' ? palette.train : '#00000000';
       const ring = state === 'plan' ? palette.train : null;
       files[`${pipResourceName(state, false, theme)}.xml`] = pipDrawable(fill, ring);
       files[`${pipResourceName(state, true, theme)}.xml`] = pipDrawable(
@@ -526,8 +524,8 @@ function drawables() {
 
 /**
  * What a date reads as. On the trained fill it is the fill's own on-colour, on
- * a planned outline the outline's colour, on a rest cell the quiet green ink —
- * except today, which is ink so the ring has something to hold.
+ * a planned outline the outline's colour; off it, the quiet grey — except
+ * today, which is ink so the ring has something to hold.
  */
 function dateColor(palette, state, today) {
   if (state === 'done') {
@@ -536,7 +534,7 @@ function dateColor(palette, state, today) {
   if (state === 'plan') {
     return today ? palette.ink : palette.train;
   }
-  return today ? palette.ink : state === 'off' ? palette.restInk : palette.muted;
+  return today ? palette.ink : palette.muted;
 }
 
 function root(theme, { padding, paddingHorizontal = null, children }) {
@@ -1085,7 +1083,6 @@ function paletteLiteral(name, palette, theme) {
         muted = Color.parseColor("${palette.muted}"),
         faint = Color.parseColor("${palette.faint}"),
         rest = Color.parseColor("${palette.rest}"),
-        restInk = Color.parseColor("${palette.restInk}"),
         train = Color.parseColor("${palette.train}"),
         onTrain = Color.parseColor("${palette.onTrain}"),
         brand = Color.parseColor("${palette.brand}"),
@@ -1147,7 +1144,6 @@ open class HomeWidgetProvider : AppWidgetProvider() {
         val muted: Int,
         val faint: Int,
         val rest: Int,
-        val restInk: Int,
         val train: Int,
         val onTrain: Int,
         val brand: Int,
@@ -1164,7 +1160,6 @@ open class HomeWidgetProvider : AppWidgetProvider() {
             state == "done" -> onTrain
             today -> ink
             state == "plan" -> train
-            state == "off" -> restInk
             else -> muted
         }
     }

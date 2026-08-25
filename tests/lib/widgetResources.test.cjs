@@ -245,11 +245,12 @@ module.exports = [
     },
   },
   {
-    name: 'widgetResources: one colour logic — training is the highlight, rest is green',
+    name: 'widgetResources: training days carry the highlight, everything else is quiet',
     run() {
-      // The same two-colour rule as every calendar in the app (2026-08-25):
-      // a trained day is the solid highlight, a planned day the same colour as
-      // an outline, a rest day the quiet green tint, and padding is nothing.
+      // A trained day is the solid highlight, a planned day the same colour as
+      // an outline. Rest and padding draw as nothing — the green rest tint was
+      // tried on every cell and read as too colourful on a real launcher
+      // (user 2026-08-25 evening), so the marks alone carry the message.
       for (const theme of ['light', 'dark']) {
         // The card fill carries alpha; the pills do not. Compare the RGB only.
         const rgb = (value) => `#${value.slice(-6).toUpperCase()}`;
@@ -260,16 +261,13 @@ module.exports = [
         // Planned wears the trained colour as a ring over an empty fill: one
         // colour means training day, filled means it happened.
         const done = rgb(fillOf('done'));
+        assert.notEqual(done, card, `${theme}: the trained mark vanishes into the card`);
         assert.equal(fillOf('plan').toUpperCase(), '#00000000', `${theme}: a planned day is filled in`);
         assert.equal(rgb(pip('plan').match(/<stroke[^>]*android:color="(#[0-9A-Fa-f]{6,8})"/)[1]), done, `${theme}: planned and trained disagree on the training colour`);
 
-        // Rest is its own quiet green — not the card, not the training colour,
-        // and not nothing: rest is green is the other half of the rule.
-        const restFill = rgb(fillOf('off'));
-        assert.equal(new Set([done, restFill, card]).size, 3, `${theme}: a date state shares a colour`);
-        assert.notEqual(fillOf('off').toUpperCase(), '#00000000', `${theme}: a rest day lost its green`);
-
-        // Padding is the one cell drawn as nothing at all.
+        // Free days and padding are drawn as nothing rather than as a tint: a
+        // month of coloured pills reads as a month of marks.
+        assert.equal(fillOf('off').toUpperCase(), '#00000000', `${theme}: a free day is painted`);
         assert.equal(fillOf('pad').toUpperCase(), '#00000000', `${theme}: a padding cell is painted`);
       }
     },

@@ -123,19 +123,22 @@ export function WeightBmiCards({
 
   return (
     <>
-      <View style={styles.sectionHead}>
-        <Text style={styles.sectionTitle}>{t(language, 'weightCard.title')}</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t(language, 'weightCard.log')}
-          onPress={onLogWeight}
-          style={({ pressed }) => [styles.actionPill, pressed && styles.pressed]}
-        >
-          <Text style={styles.actionPillText}>{t(language, 'weightCard.log')}</Text>
-        </Pressable>
-      </View>
-
+      {/* The title and the log pill live INSIDE the card, with everything
+          they describe. They used to sit above it, which read as "everything
+          except the title and the button is outside the box"
+          (user 2026-08-25). */}
       <View style={styles.card}>
+        <View style={styles.sectionHead}>
+          <Text style={styles.sectionTitle}>{t(language, 'weightCard.title')}</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(language, 'weightCard.log')}
+            onPress={onLogWeight}
+            style={({ pressed }) => [styles.actionPill, pressed && styles.pressed]}
+          >
+            <Text style={styles.actionPillText}>{t(language, 'weightCard.log')}</Text>
+          </Pressable>
+        </View>
         <View style={styles.weightHeadRow}>
           <View>
             <Text style={styles.mutedLabel}>{t(language, 'weightCard.current')}</Text>
@@ -172,19 +175,18 @@ export function WeightBmiCards({
         )}
       </View>
 
-      <View style={styles.sectionHead}>
-        <Text style={styles.sectionTitle}>{t(language, 'bmi.title')}</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t(language, 'bmi.edit')}
-          onPress={onEditBmi}
-          style={({ pressed }) => [styles.actionPill, pressed && styles.pressed]}
-        >
-          <Text style={styles.actionPillText}>{t(language, 'bmi.edit')}</Text>
-        </Pressable>
-      </View>
-
-      <View style={styles.card} onLayout={(event) => setGaugeWidth(event.nativeEvent.layout.width - 32)}>
+      <View style={[styles.card, styles.cardFollowing]} onLayout={(event) => setGaugeWidth(event.nativeEvent.layout.width - 32)}>
+        <View style={styles.sectionHead}>
+          <Text style={styles.sectionTitle}>{t(language, 'bmi.title')}</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(language, 'bmi.edit')}
+            onPress={onEditBmi}
+            style={({ pressed }) => [styles.actionPill, pressed && styles.pressed]}
+          >
+            <Text style={styles.actionPillText}>{t(language, 'bmi.edit')}</Text>
+          </Pressable>
+        </View>
         {bmi !== null && band ? (
           <>
             <View
@@ -228,12 +230,13 @@ export function WeightBmiCards({
 }
 
 const makeStyles = (theme: Theme) => StyleSheet.create({
+  // Sits inside the card now, so the card's own padding provides the top
+  // edge and only the gap to the content below is this row's business.
   sectionHead: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 18,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 21,
@@ -260,6 +263,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.border,
     padding: 16,
+  },
+  // The gap the BMI head's top margin used to provide when it sat between
+  // the two cards.
+  cardFollowing: {
+    marginTop: 14,
   },
   weightHeadRow: {
     flexDirection: 'row',

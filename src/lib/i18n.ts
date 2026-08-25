@@ -457,7 +457,6 @@ const EN = {
   'toast.workoutCreated': 'Workout created',
   'toast.cardioSaved': 'Cardio session saved',
   'toast.cardioSaveFailed': 'Could not save cardio session',
-  'toast.measurementSaved': 'Measurement saved',
   'toast.aiSetupSaved': 'Vinha Coach setup saved',
   // AI assisted, rebuilt as one text field. The reader says it; the app
   // shows what it read before it shows the week.
@@ -3672,7 +3671,6 @@ const FI: Record<I18nKey, string> = {
   'toast.workoutCreated': 'Treeni luotu',
   'toast.cardioSaved': 'Cardio-treeni tallennettu',
   'toast.cardioSaveFailed': 'Cardio-treeniä ei voitu tallentaa',
-  'toast.measurementSaved': 'Mittaus tallennettu',
   'toast.aiSetupSaved': 'Vinha-valmentaja -asetukset tallennettu',
   'aiCompose.title': 'Kerro omin sanoin',
   'aiCompose.lead': 'Kerro millainen ohjelman pitäisi olla — päivät, liikkeet, mikä on kipeä. Se mitä kerroit alussa kulkee mukana itsestään.',

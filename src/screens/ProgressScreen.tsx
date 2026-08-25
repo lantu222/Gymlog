@@ -1846,24 +1846,27 @@ export function ProgressScreen({
                 : t(language, 'progress.addFirst')}
             </Text>
 
-          </View>
-
-          {selectedMeasureWindow.some((day) => day.value !== null) ? (
-            <WeightTrendChart days={selectedMeasureWindow} />
-          ) : (
-            <Text style={styles.measureChartEmpty}>{t(language, 'progress.noEntriesRange')}</Text>
-          )}
-          <View style={styles.trendRangeRow}>
-            <Seg
-              options={MEASURE_RANGES.map((option) => ({
-                key: option.key,
-                label: option.label ?? t(language, option.labelKey ?? 'progress.range.all'),
-              }))}
-              value={resolvedMeasureRange}
-              onChange={setMeasureRange}
-              lockedKeys={lockedMeasureRanges}
-              onLockedPress={onOpenPremium}
-            />
+            {/* Inside the card with the number it draws: the chart floated
+                below the box while the weight card kept its chart inside,
+                and the two layouts read as each other's mirror image
+                (user 2026-08-25, "päinvastoin on mennyt"). */}
+            {selectedMeasureWindow.some((day) => day.value !== null) ? (
+              <WeightTrendChart days={selectedMeasureWindow} />
+            ) : (
+              <Text style={styles.measureChartEmpty}>{t(language, 'progress.noEntriesRange')}</Text>
+            )}
+            <View style={styles.trendRangeRow}>
+              <Seg
+                options={MEASURE_RANGES.map((option) => ({
+                  key: option.key,
+                  label: option.label ?? t(language, option.labelKey ?? 'progress.range.all'),
+                }))}
+                value={resolvedMeasureRange}
+                onChange={setMeasureRange}
+                lockedKeys={lockedMeasureRanges}
+                onLockedPress={onOpenPremium}
+              />
+            </View>
           </View>
         </View>
 

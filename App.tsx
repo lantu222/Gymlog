@@ -5687,7 +5687,11 @@ function VinhaApp() {
         onSaveHeight={(nextHeightCm) => void updatePreferences({ setupHeightCm: nextHeightCm })}
         onAddMeasurement={async (kind, value, unit) => {
           await addMeasurementEntry(kind, value, unit);
-          showToast(t(preferences.appLanguage, 'toast.measurementSaved'));
+          // No "saved" toast, same rule as bodyweight (user 2026-08-25:
+          // "teksti mittaus tallennettu poistetaan ja kaikki tämmöiset").
+          // The value lands on the card in front of the reader; the haptic
+          // says it landed.
+          void haptics.success();
         }}
         recentSessions={homeRecentSessions}
         onOpenSessionHistory={() => navigate({ tab: 'home', screen: 'history' })}
