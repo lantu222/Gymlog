@@ -183,6 +183,82 @@ export function WeightLogSheet({
   );
 }
 
+/** Tape measures, and body fat as a percentage — the two shapes of measure. */
+const MEASURE_BOUNDS: Record<string, { min: number; max: number; step: number; majorEvery: number }> = {
+  '%': { min: 3, max: 60, step: 0.1, majorEvery: 10 },
+  cm: { min: 20, max: 200, step: 0.5, majorEvery: 10 },
+};
+
+interface MeasureLogSheetProps {
+  visible: boolean;
+  language: AppLanguage;
+  /** The measure's own name, so the sheet says what is being logged. */
+  title: string;
+  unit: string;
+  /** Opens on the last reading; the common edit is a small one. */
+  initialValue: number;
+  dateIso: string;
+  onCancel: () => void;
+  onSave: (value: number) => void;
+}
+
+/**
+ * Logging a tape measurement or a body-fat reading.
+ *
+ * The same dialled ruler the weight logger uses, for the same reason the user
+ * gave when asking for it (2026-08-25): the measures screen had a bare text
+ * field and a green Save button wedged into the card, and "kaikkiin näihin
+ * tulee kirjaa nappi niinkuin oman painon mittauksessa". A keyboard for a
+ * number you nudge by half a centimetre is the wrong instrument.
+ *
+ * No cm/in toggle here either — see the note at the top of this file. The app
+ * stores centimetres, and a sheet that dialled inches would be the one place
+ * inches existed.
+ */
+export function MeasureLogSheet({
+  visible,
+  language,
+  title,
+  unit,
+  initialValue,
+  dateIso,
+  onCancel,
+  onSave,
+}: MeasureLogSheetProps) {
+  const styles = useThemedStyles(makeStyles);
+  const bounds = MEASURE_BOUNDS[unit] ?? MEASURE_BOUNDS.cm;
+  const [value, setValue] = useState(initialValue);
+
+  useEffect(() => {
+    if (visible) {
+      setValue(initialValue);
+    }
+  }, [visible, initialValue]);
+
+  return (
+    <SheetShell visible={visible} language={language} onClose={onCancel}>
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>{title}</Text>
+        <View style={styles.datePill}>
+          <Text style={styles.datePillText}>{formatShortDate(dateIso, language)}</Text>
+        </View>
+      </View>
+
+      <BigValue value={value} suffix={unit} decimals={1} />
+      <RulerPicker
+        min={bounds.min}
+        max={bounds.max}
+        step={bounds.step}
+        majorEvery={bounds.majorEvery}
+        value={value}
+        onChange={setValue}
+      />
+
+      <SheetActions language={language} onCancel={onCancel} onSave={() => onSave(value)} />
+    </SheetShell>
+  );
+}
+
 interface BmiEditSheetProps {
   visible: boolean;
   language: AppLanguage;

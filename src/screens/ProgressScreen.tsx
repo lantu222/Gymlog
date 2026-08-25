@@ -5,7 +5,7 @@ import Svg, { Circle, Path, Polyline, Rect } from 'react-native-svg';
 import { VinhaIcon } from '../components/VinhaIcon';
 import { SimpleLineChart } from '../components/SimpleLineChart';
 import { WeightTrendChart } from '../components/WeightTrendChart';
-import { BmiEditSheet, WeightLogSheet } from '../components/MeasureRulerSheet';
+import { BmiEditSheet, MeasureLogSheet, WeightLogSheet } from '../components/MeasureRulerSheet';
 import { WeightBmiCards } from '../components/WeightBmiCards';
 import { buildBodyweightCardStats, buildValueWindow, buildWeightWindow } from '../lib/bodyweightCard';
 import type { HomeRecentSessionItem } from './HomeScreen';
@@ -66,7 +66,7 @@ import {
 type ProgressSection = 'overview' | 'records' | 'tracked' | 'measures';
 type ProgressFilter = 'all' | 'new_best' | 'moving_up' | 'building' | 'below_last';
 type OverviewMetric = 'volume' | 'duration' | 'bodyweight';
-type OverviewRange = '1m' | '3m' | '6m' | 'all';
+type OverviewRange = '7d' | '1m' | '3m' | '6m' | 'all';
 type MeasureKey =
   | 'bodyweight'
   | 'bodyfat'
@@ -77,7 +77,7 @@ type MeasureKey =
   | 'hips'
   | 'thighs'
   | 'calves';
-type MeasureRange = '3m' | '1y' | 'all';
+type MeasureRange = '7d' | '3m' | '1y' | 'all';
 type MeasureIconName = 'scale' | 'drop' | 'tape';
 
 interface ProgressScreenProps {
@@ -230,17 +230,21 @@ const OVERVIEW_METRICS: Array<{ key: OverviewMetric; labelKey: I18nKey }> = [
 
 // Range chips are numerals with a unit letter — the same in both languages
 // except "All", which resolves through the dictionary at render.
-const OVERVIEW_RANGES: Array<{ key: OverviewRange; label: string | null }> = [
+// `label` is a language-neutral abbreviation where one exists; the two ranges
+// that need a word carry the key instead, so neither can ship untranslated.
+const OVERVIEW_RANGES: Array<{ key: OverviewRange; label: string | null; labelKey?: I18nKey }> = [
+  { key: '7d', label: null, labelKey: 'progress.range.week' },
   { key: '1m', label: '1M' },
   { key: '3m', label: '3M' },
   { key: '6m', label: '6M' },
-  { key: 'all', label: null },
+  { key: 'all', label: null, labelKey: 'progress.range.all' },
 ];
 
-const MEASURE_RANGES: Array<{ key: MeasureRange; label: string | null }> = [
+const MEASURE_RANGES: Array<{ key: MeasureRange; label: string | null; labelKey?: I18nKey }> = [
+  { key: '7d', label: null, labelKey: 'progress.range.week' },
   { key: '3m', label: '3M' },
   { key: '1y', label: '1Y' },
-  { key: 'all', label: null },
+  { key: 'all', label: null, labelKey: 'progress.range.all' },
 ];
 
 const MEASURE_CONFIG: Array<{
@@ -305,6 +309,11 @@ function getOverviewRangeStart(range: OverviewRange) {
   const start = new Date(now);
 
   switch (range) {
+    case '7d':
+      // Six days back plus today — the same seven the weight card draws.
+      start.setDate(start.getDate() - 6);
+      start.setHours(0, 0, 0, 0);
+      return start;
     case '1m':
       start.setMonth(start.getMonth() - 1);
       return start;
@@ -333,7 +342,7 @@ function bucketOverviewPointsByRange(
   range: OverviewRange,
   strategy: 'latest' | 'sum',
 ) {
-  if ((range === '1m' || range === '3m') && strategy === 'sum') {
+  if ((range === '7d' || range === '1m' || range === '3m') && strategy === 'sum') {
     return points;
   }
 
@@ -392,6 +401,7 @@ function formatMonthYearLabel(dateString: string, language: AppLanguage) {
 
 function formatOverviewChartLabel(dateString: string, range: OverviewRange, language: AppLanguage) {
   switch (range) {
+    case '7d':
     case '1m':
     case '3m':
       return formatDayMonthLabel(dateString, language);
@@ -848,9 +858,10 @@ export function ProgressScreen({
   const [progressFilter, setProgressFilter] = useState<ProgressFilter>('all');
   const [expandedKey, setExpandedKey] = useState<string | null>(selectedExerciseKey ?? null);
   const [overviewMetric, setOverviewMetric] = useState<OverviewMetric>('volume');
-  const [overviewRange, setOverviewRange] = useState<OverviewRange>('3m');
+  // The week opens both charts (user 2026-08-25) — see TrendRange.
+  const [overviewRange, setOverviewRange] = useState<OverviewRange>('7d');
   const [selectedMeasure, setSelectedMeasure] = useState<MeasureKey>(showBodyweightDetail ? 'bodyweight' : 'bodyweight');
-  const [measureRange, setMeasureRange] = useState<MeasureRange>('3m');
+  const [measureRange, setMeasureRange] = useState<MeasureRange>('7d');
   /**
    * Pro can lapse while this screen is mounted — a promo code expires, the
    * preview switch goes off — and the selected range is component state that
@@ -865,8 +876,7 @@ export function ProgressScreen({
   const lockedMeasureRanges = MEASURE_RANGES.map((option) => option.key).filter((key) =>
     isMeasureRangeLocked(key, proUnlocked),
   );
-  const [measureUnit, setMeasureUnit] = useState<MeasurementUnit>('cm');
-  const [measureInput, setMeasureInput] = useState('');
+  const [measureSheetVisible, setMeasureSheetVisible] = useState(false);
   const [weightSheetVisible, setWeightSheetVisible] = useState(false);
   const [bmiSheetVisible, setBmiSheetVisible] = useState(false);
   const bodyweightStats = useMemo(
@@ -982,7 +992,7 @@ export function ProgressScreen({
    */
   const overviewWeightWindow = useMemo(() => {
     const nowMs = Date.now();
-    const daysByRange: Record<string, number> = { '1m': 31, '3m': 91, '6m': 183 };
+    const daysByRange: Record<string, number> = { '7d': 7, '1m': 31, '3m': 91, '6m': 183 };
     let days = daysByRange[resolvedOverviewRange];
     if (!days) {
       const first = bodyweightProgress.entries.length
@@ -1194,13 +1204,8 @@ export function ProgressScreen({
   }, [initialMeasure]);
   const selectedMeasureModel = measureModels.find((model) => model.key === selectedMeasure) ?? measureModels[0];
 
-  useEffect(() => {
-    // Input unit follows the selected measure (fixed for bodyweight/bodyfat).
-    setMeasureUnit(
-      selectedMeasureModel.key === 'bodyfat' ? '%' : selectedMeasureModel.unit === 'in' ? 'in' : 'cm',
-    );
-    setMeasureInput('');
-  }, [selectedMeasureModel.key, selectedMeasureModel.unit]);
+  // The unit-follows-the-measure effect went with the text field: the ruler
+  // dials the measure's own unit and there is no draft to clear between them.
 
   const selectedMeasureRangePoints = useMemo(() => {
     const start = getMeasurementRangeStart(resolvedMeasureRange);
@@ -1228,7 +1233,9 @@ export function ProgressScreen({
     }));
     const nowMs = Date.now();
     let days: number;
-    if (resolvedMeasureRange === '3m') {
+    if (resolvedMeasureRange === '7d') {
+      days = 7;
+    } else if (resolvedMeasureRange === '3m') {
       days = 91;
     } else if (resolvedMeasureRange === '1y') {
       days = 365;
@@ -1247,18 +1254,18 @@ export function ProgressScreen({
       ? selectedMeasureRangePoints[selectedMeasureRangePoints.length - 1].value - selectedMeasureRangePoints[0].value
       : null;
 
-  async function handleSaveMeasure() {
-    const parsed = parseNumberInput(measureInput);
-    if (!parsed || parsed <= 0) {
+  async function handleSaveMeasure(value: number) {
+    if (!Number.isFinite(value) || value <= 0) {
       return;
     }
 
     if (selectedMeasureModel.kind === null) {
-      onAddBodyweight(convertWeightToKg(parsed, unitPreference));
+      onAddBodyweight(convertWeightToKg(value, unitPreference));
     } else {
-      await onAddMeasurement(selectedMeasureModel.kind, parsed, measureUnit);
+      // Always centimetres: the ruler dials the unit the app stores, so there
+      // is no reading to convert on the way in.
+      await onAddMeasurement(selectedMeasureModel.kind, value, 'cm');
     }
-    setMeasureInput('');
   }
 
   // ── sections ──
@@ -1418,7 +1425,7 @@ export function ProgressScreen({
           </View>
           {overviewMetric === 'bodyweight' ? (
             overviewWeightWindow.some((day) => day.value !== null) ? (
-              <WeightTrendChart days={overviewWeightWindow} unitLabel={unitPreference} />
+              <WeightTrendChart days={overviewWeightWindow} />
             ) : (
               <Text style={styles.measureChartEmpty}>{overviewChart.emptyLabel}</Text>
             )
@@ -1438,7 +1445,7 @@ export function ProgressScreen({
             <Seg
               options={OVERVIEW_RANGES.map((option) => ({
                 key: option.key,
-                label: option.label ?? t(language, 'progress.range.all'),
+                label: option.label ?? t(language, option.labelKey ?? 'progress.range.all'),
               }))}
               value={resolvedOverviewRange}
               onChange={setOverviewRange}
@@ -1823,9 +1830,22 @@ export function ProgressScreen({
           <View style={styles.card}>
             <View style={styles.measureDetailHead}>
               <Text style={styles.measureDetailLabel}>{t(language, model.labelKey)}</Text>
-              {selectedMeasureDelta !== null && selectedMeasureDelta !== 0 ? (
-                <DeltaPill delta={selectedMeasureDelta} unit={model.unit} lowerIsBetter={model.lowerIsBetter} />
-              ) : null}
+              <View style={styles.measureHeadActions}>
+                {selectedMeasureDelta !== null && selectedMeasureDelta !== 0 ? (
+                  <DeltaPill delta={selectedMeasureDelta} unit={model.unit} lowerIsBetter={model.lowerIsBetter} />
+                ) : null}
+                {/* The same pill the weight card carries, opening the same
+                    kind of ruler — user 2026-08-25 asked for one way to log a
+                    number, not two. */}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'weightCard.log')}
+                  onPress={() => setMeasureSheetVisible(true)}
+                  style={({ pressed }) => [styles.measureLogPill, pressed && { opacity: 0.75 }]}
+                >
+                  <Text style={styles.measureLogPillText}>{t(language, 'weightCard.log')}</Text>
+                </Pressable>
+              </View>
             </View>
             <View style={styles.measureValueRow}>
               <Text style={styles.measureValue}>
@@ -1839,33 +1859,10 @@ export function ProgressScreen({
                 : t(language, 'progress.addFirst')}
             </Text>
 
-            <View style={styles.measureEntryRow}>
-              <TextInput
-                value={measureInput}
-                onChangeText={setMeasureInput}
-                keyboardType="decimal-pad"
-                placeholder={`0 ${model.kind === null ? unitPreference : measureUnit}`}
-                placeholderTextColor={theme.faint}
-                style={styles.measureInput}
-              />
-              {model.kind !== null && model.key !== 'bodyfat' ? (
-                <Seg
-                  options={[
-                    { key: 'cm' as MeasurementUnit, label: 'cm' },
-                    { key: 'in' as MeasurementUnit, label: 'in' },
-                  ]}
-                  value={measureUnit}
-                  onChange={setMeasureUnit}
-                />
-              ) : null}
-              <Pressable onPress={() => void handleSaveMeasure()} style={styles.measureSaveButton}>
-                <Text style={styles.measureSaveText}>{t(language, 'progress.save')}</Text>
-              </Pressable>
-            </View>
           </View>
 
           {selectedMeasureWindow.some((day) => day.value !== null) ? (
-            <WeightTrendChart days={selectedMeasureWindow} unitLabel={model.unit} />
+            <WeightTrendChart days={selectedMeasureWindow} />
           ) : (
             <Text style={styles.measureChartEmpty}>{t(language, 'progress.noEntriesRange')}</Text>
           )}
@@ -1873,7 +1870,7 @@ export function ProgressScreen({
             <Seg
               options={MEASURE_RANGES.map((option) => ({
                 key: option.key,
-                label: option.label ?? t(language, 'progress.range.all'),
+                label: option.label ?? t(language, option.labelKey ?? 'progress.range.all'),
               }))}
               value={resolvedMeasureRange}
               onChange={setMeasureRange}
@@ -2014,6 +2011,23 @@ export function ProgressScreen({
         onSave={(weightKg) => {
           onAddBodyweight(weightKg);
           setWeightSheetVisible(false);
+        }}
+      />
+      {/* Tape measures and body fat, on the same ruler. Opens on the last
+          reading, or mid-scale when there is nothing to open on. */}
+      <MeasureLogSheet
+        visible={measureSheetVisible}
+        language={language}
+        title={t(language, selectedMeasureModel.labelKey)}
+        unit={selectedMeasureModel.unit}
+        initialValue={
+          selectedMeasureLatest ?? (selectedMeasureModel.unit === '%' ? 20 : 90)
+        }
+        dateIso={new Date().toISOString()}
+        onCancel={() => setMeasureSheetVisible(false)}
+        onSave={(value) => {
+          void handleSaveMeasure(value);
+          setMeasureSheetVisible(false);
         }}
       />
       <BmiEditSheet
@@ -2780,12 +2794,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '600',
     marginTop: 6,
   },
-  measureEntryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    marginTop: 14,
-  },
   measureChartEmpty: {
     marginTop: 16,
     textAlign: 'center',
@@ -2793,29 +2801,22 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '600',
     color: theme.faint,
   },
-  measureInput: {
-    flex: 1,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: theme.bg,
-    borderWidth: 1,
-    borderColor: theme.border,
-    paddingHorizontal: 13,
-    color: theme.ink,
-    fontSize: 14.5,
-    fontWeight: '700',
-  },
-  measureSaveButton: {
-    height: 44,
-    paddingHorizontal: 18,
-    borderRadius: 12,
-    backgroundColor: theme.green,
+  measureHeadActions: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 8,
   },
-  measureSaveText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+  // The weight card's action pill, same shape and same accent, because it
+  // opens the same kind of sheet.
+  measureLogPill: {
+    backgroundColor: theme.highlight,
+    borderRadius: 999,
+    paddingVertical: 9,
+    paddingHorizontal: 20,
+  },
+  measureLogPillText: {
+    color: theme.onHighlight,
+    fontSize: 14.5,
     fontWeight: '800',
   },
   measureList: {

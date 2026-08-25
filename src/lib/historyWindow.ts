@@ -29,13 +29,23 @@
 
 export const FREE_TREND_MONTHS = 3;
 
-/** Overview trend ranges, shortest first. */
-export type TrendRange = '1m' | '3m' | '6m' | 'all';
+/**
+ * Overview trend ranges, shortest first.
+ *
+ * The week leads and is the default. Three months was, and with two weigh-ins
+ * in the log it drew ninety empty slots with both dots crushed against the
+ * right edge — "pallo on ihan väärässä kohtaan" (user, 2026-08-25). A window
+ * nobody has data for is not a longer view, it is an emptier one, and the
+ * reader who wants it is one tap away.
+ */
+export type TrendRange = '7d' | '1m' | '3m' | '6m' | 'all';
 /** Body-measure ranges, shortest first. */
-export type MeasureTrendRange = '3m' | '1y' | 'all';
+export type MeasureTrendRange = '7d' | '3m' | '1y' | 'all';
 
-const FREE_TREND_RANGES: readonly TrendRange[] = ['1m', '3m'];
-const FREE_MEASURE_RANGES: readonly MeasureTrendRange[] = ['3m'];
+// The week is shorter than the free cap, so it is free in every tier by
+// definition — a paywall on seven days would be a paywall on this week.
+const FREE_TREND_RANGES: readonly TrendRange[] = ['7d', '1m', '3m'];
+const FREE_MEASURE_RANGES: readonly MeasureTrendRange[] = ['7d', '3m'];
 
 export function isTrendRangeLocked(range: TrendRange, proUnlocked: boolean): boolean {
   return !proUnlocked && !FREE_TREND_RANGES.includes(range);

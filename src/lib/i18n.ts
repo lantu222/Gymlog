@@ -419,6 +419,7 @@ const EN = {
   'progress.metric.duration': 'Duration',
   'progress.metric.bodyweight': 'Bodyweight',
   'progress.range.all': 'All',
+  'progress.range.week': '7D',
   'progress.measure.bodyweight': 'Body weight',
 
   // ── Weight card + BMI gauge (Home Workout Report teardown, 2026-08-13) ──
@@ -3760,6 +3761,7 @@ const FI: Record<I18nKey, string> = {
   'progress.metric.duration': 'Kesto',
   'progress.metric.bodyweight': 'Kehonpaino',
   'progress.range.all': 'Kaikki',
+  'progress.range.week': '7 PV',
   'progress.measure.bodyweight': 'Kehonpaino',
 
   'weightCard.title': 'Paino',

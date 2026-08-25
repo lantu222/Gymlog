@@ -20,6 +20,11 @@ module.exports = [
     run() {
       assert.equal(FREE_TREND_MONTHS, 3);
 
+      // The week is the default view and is shorter than the free cap, so
+      // locking it would be a paywall on this week (added 2026-08-25).
+      assert.equal(isTrendRangeLocked('7d', false), false);
+      assert.equal(isMeasureRangeLocked('7d', false), false);
+
       assert.equal(isTrendRangeLocked('1m', false), false);
       assert.equal(isTrendRangeLocked('3m', false), false);
       assert.equal(isTrendRangeLocked('6m', false), true);
@@ -29,10 +34,10 @@ module.exports = [
       assert.equal(isMeasureRangeLocked('1y', false), true);
       assert.equal(isMeasureRangeLocked('all', false), true);
 
-      for (const range of ['1m', '3m', '6m', 'all']) {
+      for (const range of ['7d', '1m', '3m', '6m', 'all']) {
         assert.equal(isTrendRangeLocked(range, true), false, `pro ${range}`);
       }
-      for (const range of ['3m', '1y', 'all']) {
+      for (const range of ['7d', '3m', '1y', 'all']) {
         assert.equal(isMeasureRangeLocked(range, true), false, `pro ${range}`);
       }
     },

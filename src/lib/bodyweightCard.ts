@@ -246,17 +246,24 @@ export function buildValueWindow(
     }
   }
   const span = Math.max(2, Math.round(days));
+  /**
+   * Bare day inside a fortnight, day.month beyond it.
+   *
+   * Both halves of this are a user verdict from the same day (2026-08-25). A
+   * bare day-of-month axis over three months read "26 30 3 7 11" — a number
+   * sequence rather than a calendar. But dates over a WEEK read as clutter
+   * next to the weight card's "22 23 24 25 26 27 28", which is the axis the
+   * user pointed at and asked every other chart to copy. Inside two weeks the
+   * month cannot change more than once, so the day alone is unambiguous.
+   */
+  const withMonth = span > 14;
   return Array.from({ length: span }, (_, index) => {
     // Calendar arithmetic, not +86 400 000 ms — DST would slide the slots.
     const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (span - 1) + index);
     const dayStart = date.getTime();
     return {
       dayStart,
-      // Day AND month: these windows run for months and cross month ends, so
-      // a bare day-of-month axis read "26 30 3 7 11" — a number sequence, not
-      // dates (user, 2026-08-25). The weight card's own week keeps its bare
-      // day; inside seven days the month never needs saying twice.
-      label: `${date.getDate()}.${date.getMonth() + 1}.`,
+      label: withMonth ? `${date.getDate()}.${date.getMonth() + 1}.` : String(date.getDate()),
       value: byDay.get(dayStart) ?? null,
       isToday: dayStart === today,
     };

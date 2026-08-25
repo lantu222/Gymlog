@@ -35,10 +35,17 @@ module.exports = [
       // Ends today rather than centring it: a history is "how did I get here".
       assert.equal(window[6].isToday, true);
       assert.equal(window[6].value, null);
-      // Day AND month: these windows cross month ends, and a bare day axis
-      // read "26 30 3 7 11" — numbers, not dates (user, 2026-08-25).
-      assert.equal(window[0].label, '19.8.');
-      assert.equal(window[6].label, '25.8.');
+      // A week is labelled like the weight card: bare day numbers, which is
+      // the axis the user pointed at and asked the others to copy.
+      assert.equal(window[0].label, '19');
+      assert.equal(window[6].label, '25');
+
+      // Past a fortnight the month has to be said, or the axis reads
+      // "26 30 3 7 11" — a number sequence rather than a calendar (both
+      // verdicts from the user, 2026-08-25).
+      const long = buildValueWindow([], now, 40);
+      assert.equal(long[long.length - 1].label, '25.8.');
+      assert.equal(long[0].label, '17.7.');
       // The reading keeps its own day; the empty days between keep theirs.
       assert.equal(window[1].value, 96.5);
       assert.equal(window[3].value, null);

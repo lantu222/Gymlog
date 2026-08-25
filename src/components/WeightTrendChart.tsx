@@ -20,20 +20,25 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
  */
 
 const HEIGHT = 190;
-const AXIS_WIDTH = 38;
+const AXIS_WIDTH = 44;
 const PAD_TOP = 12;
 const PAD_BOTTOM = 26;
+/**
+ * Room for the newest dot.
+ *
+ * Every slot is drawn at its own centre, so the last one lands half a slot from
+ * the right edge — fine at seven slots, and at ninety that half-slot is four
+ * pixels and the dot (r5 + a 3px stroke) is sliced in half by the card. Read as
+ * "pallo on ihan väärässä kohtaan" (user, 2026-08-25): it was not misplaced,
+ * it was clipped.
+ */
+const PAD_RIGHT = 10;
 
 interface WeightTrendChartProps {
   days: WeightWindowDay[];
-  /**
-   * Unit for the axis labels. The weight card omits it (the card already says
-   * kg); the measures section and the trends tab pass cm, % or kg.
-   */
-  unitLabel?: string;
 }
 
-export function WeightTrendChart({ days, unitLabel }: WeightTrendChartProps) {
+export function WeightTrendChart({ days }: WeightTrendChartProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const [width, setWidth] = useState(0);
@@ -91,9 +96,8 @@ export function WeightTrendChart({ days, unitLabel }: WeightTrendChartProps) {
 
   const values = days.map((day) => day.value).filter((value): value is number => value !== null);
   const ticks = buildWeightAxisTicks(values);
-  // "104 cm" needs more shoulder than "82,5".
-  const axisWidth = unitLabel ? AXIS_WIDTH + 16 : AXIS_WIDTH;
-  const plotWidth = Math.max(width - axisWidth, 1);
+  const axisWidth = AXIS_WIDTH;
+  const plotWidth = Math.max(width - axisWidth - PAD_RIGHT, 1);
   const plotHeight = HEIGHT - PAD_TOP - PAD_BOTTOM;
   const max = ticks.length ? ticks[0] : 1;
   const min = ticks.length ? ticks[ticks.length - 1] : 0;
@@ -109,10 +113,15 @@ export function WeightTrendChart({ days, unitLabel }: WeightTrendChartProps) {
     .map((day, index) => (day.value === null ? null : { x: xFor(index), y: yFor(day.value) }))
     .filter((point): point is { x: number; y: number } => point !== null);
 
-  // A week labels every day; a three-month window cannot — 90 dates overlap
-  // into a smear. Thin to roughly six (dates are wider than bare day
-  // numbers), keeping today's.
-  const labelStride = Math.max(1, Math.ceil(days.length / 6));
+  /**
+   * A week labels EVERY day; a three-month window cannot.
+   *
+   * The divisor is the count of labels that fit, and it has to be at least the
+   * length of a week or a seven-day window starts skipping days — which is
+   * exactly what shipped: "22 24 25 26 28", with the 23rd and the 27th missing
+   * and today's 25 breaking the stride (user, 2026-08-25).
+   */
+  const labelStride = Math.max(1, Math.ceil(days.length / 7));
   const showLabel = (day: WeightWindowDay, index: number) => day.isToday || index % labelStride === 0;
 
   return (
@@ -168,10 +177,14 @@ export function WeightTrendChart({ days, unitLabel }: WeightTrendChartProps) {
             )}
           </Svg>
 
+          {/* Numbers only. The unit was repeated on all seven ticks and
+              wrapped onto its own line at "58,3 / cm", turning the axis into a
+              column of debris — user, 2026-08-25 ("vasemmalla mittayksikkö
+              pois"). The card's headline above already says the unit, once. */}
           <View style={styles.axisLabels} pointerEvents="none">
             {ticks.map((tick) => (
               <Text key={tick} style={[styles.axisLabel, { top: yFor(tick) - 8, width: axisWidth - 8 }]}>
-                {unitLabel ? `${removeTrailingZeros(tick)} ${unitLabel}` : removeTrailingZeros(tick)}
+                {removeTrailingZeros(tick)}
               </Text>
             ))}
           </View>
