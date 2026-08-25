@@ -18,6 +18,42 @@ function entry(recordedAt, weight) {
 
 module.exports = [
   {
+    name: 'value window: calendar days ending today, gaps keep their slots',
+    run() {
+      const { buildValueWindow } = require('../../.test-dist/lib/bodyweightCard.js');
+      const now = new Date(2026, 7, 25, 12, 0).getTime(); // 25 Aug, local noon
+
+      const window = buildValueWindow(
+        [
+          { recordedAt: new Date(2026, 7, 20, 8, 0).toISOString(), value: 96.5 },
+          { recordedAt: new Date(2026, 7, 24, 8, 0).toISOString(), value: 98 },
+        ],
+        now,
+        7,
+      );
+      assert.equal(window.length, 7);
+      // Ends today rather than centring it: a history is "how did I get here".
+      assert.equal(window[6].isToday, true);
+      assert.equal(window[6].value, null);
+      // The reading keeps its own day; the empty days between keep theirs.
+      assert.equal(window[1].value, 96.5);
+      assert.equal(window[3].value, null);
+      assert.equal(window[5].value, 98);
+
+      // Two readings on one day: the later one wins, same rule as weigh-ins.
+      const sameDay = buildValueWindow(
+        [
+          { recordedAt: new Date(2026, 7, 25, 8, 0).toISOString(), value: 6 },
+          { recordedAt: new Date(2026, 7, 25, 20, 0).toISOString(), value: 7 },
+        ],
+        now,
+        3,
+      );
+      assert.equal(sameDay[2].value, 7);
+    },
+  },
+
+  {
     name: 'an empty log shows no numbers rather than zeroes',
     run() {
       assert.deepEqual(buildBodyweightCardStats([]), {

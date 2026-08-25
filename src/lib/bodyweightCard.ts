@@ -217,6 +217,48 @@ export function buildWeightWindow(
   });
 }
 
+/**
+ * The same calendar-days window, for any dated value — a tape measurement, a
+ * body-fat reading, or the weight itself on the trends tab. The other charts
+ * spaced entries evenly, and the user's verdict was blunt: every grid should
+ * look identical to the weight one (2026-08-25). Identical starts at the
+ * axis: calendar days, where a gap keeps its slot.
+ *
+ * Backward-looking (ends today) rather than centred like the weight card's
+ * week: a history over months is read as "how did I get here".
+ */
+export function buildValueWindow(
+  entries: ReadonlyArray<{ recordedAt: string; value: number }>,
+  nowMs: number,
+  days: number,
+): WeightWindowDay[] {
+  const now = new Date(nowMs);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  // Latest reading of each day wins, same rule as the weigh-ins.
+  const byDay = new Map<number, number>();
+  const byDayAt = new Map<number, number>();
+  for (const entry of entries) {
+    const day = dayStartOf(entry.recordedAt);
+    const at = new Date(entry.recordedAt).getTime();
+    if (!byDayAt.has(day) || at >= (byDayAt.get(day) ?? 0)) {
+      byDay.set(day, entry.value);
+      byDayAt.set(day, at);
+    }
+  }
+  const span = Math.max(2, Math.round(days));
+  return Array.from({ length: span }, (_, index) => {
+    // Calendar arithmetic, not +86 400 000 ms — DST would slide the slots.
+    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (span - 1) + index);
+    const dayStart = date.getTime();
+    return {
+      dayStart,
+      label: String(date.getDate()),
+      value: byDay.get(dayStart) ?? null,
+      isToday: dayStart === today,
+    };
+  });
+}
+
 export function calculateBmi(weightKg: number, heightCm: number): number | null {
   if (!Number.isFinite(weightKg) || !Number.isFinite(heightCm) || weightKg <= 0 || heightCm <= 0) {
     return null;

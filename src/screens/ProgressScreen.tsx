@@ -4,9 +4,10 @@ import Svg, { Circle, Path, Polyline, Rect } from 'react-native-svg';
 
 import { VinhaIcon } from '../components/VinhaIcon';
 import { SimpleLineChart } from '../components/SimpleLineChart';
+import { WeightTrendChart } from '../components/WeightTrendChart';
 import { BmiEditSheet, WeightLogSheet } from '../components/MeasureRulerSheet';
 import { WeightBmiCards } from '../components/WeightBmiCards';
-import { buildBodyweightCardStats, buildWeightWindow } from '../lib/bodyweightCard';
+import { buildBodyweightCardStats, buildValueWindow, buildWeightWindow } from '../lib/bodyweightCard';
 import type { HomeRecentSessionItem } from './HomeScreen';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import {
@@ -973,6 +974,29 @@ export function ProgressScreen({
     };
   }, [activityCalendar.weeks, workoutSessions]);
 
+  /**
+   * The trend tab's bodyweight grid, on the same calendar-days axis as the
+   * weight card. The user put the two side by side and asked why the same
+   * weight looks different on different tabs (2026-08-25) — there was no
+   * answer, so now it cannot.
+   */
+  const overviewWeightWindow = useMemo(() => {
+    const nowMs = Date.now();
+    const daysByRange: Record<string, number> = { '1m': 31, '3m': 91, '6m': 183 };
+    let days = daysByRange[resolvedOverviewRange];
+    if (!days) {
+      const first = bodyweightProgress.entries.length
+        ? Math.min(...bodyweightProgress.entries.map((entry) => new Date(entry.recordedAt).getTime()))
+        : nowMs;
+      days = Math.min(730, Math.max(14, Math.ceil((nowMs - first) / 86_400_000) + 1));
+    }
+    return buildValueWindow(
+      bodyweightProgress.entries.map((entry) => ({ recordedAt: entry.recordedAt, value: entry.weight })),
+      nowMs,
+      days,
+    );
+  }, [bodyweightProgress.entries, resolvedOverviewRange]);
+
   const overviewChart = useMemo(() => {
     const start = getOverviewRangeStart(resolvedOverviewRange);
     // Seen with the clock 100 days ahead of one logged session: the 3-month
@@ -1191,6 +1215,30 @@ export function ProgressScreen({
     return points;
   }, [resolvedMeasureRange, selectedMeasureModel]);
 
+  /**
+   * The same calendar-days axis the weight card draws (the photo the user
+   * sent, 2026-08-25, is the reference): orange line, hollow dots, a day per
+   * slot so a gap stays a gap. The range picker sets the window's length;
+   * "all" reaches back to the first entry.
+   */
+  const selectedMeasureWindow = useMemo(() => {
+    const entries = selectedMeasureModel.values.map((value, index) => ({
+      recordedAt: selectedMeasureModel.dates[index],
+      value,
+    }));
+    const nowMs = Date.now();
+    let days: number;
+    if (resolvedMeasureRange === '3m') {
+      days = 91;
+    } else if (resolvedMeasureRange === '1y') {
+      days = 365;
+    } else {
+      const first = entries.length ? new Date(entries[0].recordedAt).getTime() : nowMs;
+      days = Math.min(730, Math.max(14, Math.ceil((nowMs - first) / 86_400_000) + 1));
+    }
+    return buildValueWindow(entries, nowMs, days);
+  }, [resolvedMeasureRange, selectedMeasureModel]);
+
   const selectedMeasureLatest = selectedMeasureModel.values.length
     ? selectedMeasureModel.values[selectedMeasureModel.values.length - 1]
     : null;
@@ -1368,16 +1416,24 @@ export function ProgressScreen({
           <View style={styles.trendValueRow}>
             <Text style={styles.trendValue}>{overviewChart.valueLabel}</Text>
           </View>
-          <SimpleLineChart
-            points={overviewChart.points}
-            unitLabel={overviewChart.unitLabel}
-            accent={theme.purple}
-            emptyLabel={overviewChart.emptyLabel}
-            footerLabels={overviewChart.footerLabels}
-            yTickValues={overviewChart.yTickValues}
-            formatValueLabel={overviewChart.formatValueLabel}
-            tooltipFormatter={overviewChart.tooltipFormatter}
-          />
+          {overviewMetric === 'bodyweight' ? (
+            overviewWeightWindow.some((day) => day.value !== null) ? (
+              <WeightTrendChart days={overviewWeightWindow} unitLabel={unitPreference} />
+            ) : (
+              <Text style={styles.measureChartEmpty}>{overviewChart.emptyLabel}</Text>
+            )
+          ) : (
+            <SimpleLineChart
+              points={overviewChart.points}
+              unitLabel={overviewChart.unitLabel}
+              accent={theme.purple}
+              emptyLabel={overviewChart.emptyLabel}
+              footerLabels={overviewChart.footerLabels}
+              yTickValues={overviewChart.yTickValues}
+              formatValueLabel={overviewChart.formatValueLabel}
+              tooltipFormatter={overviewChart.tooltipFormatter}
+            />
+          )}
           <View style={styles.trendRangeRow}>
             <Seg
               options={OVERVIEW_RANGES.map((option) => ({
@@ -1808,16 +1864,11 @@ export function ProgressScreen({
             </View>
           </View>
 
-          <SimpleLineChart
-            points={selectedMeasureRangePoints}
-            unitLabel={model.unit}
-            accent={theme.purple}
-            emptyLabel={t(language, 'progress.noEntriesRange')}
-            tooltipFormatter={(point) => ({
-              title: point.label,
-              value: `${removeTrailingZeros(Number(point.value.toFixed(1)))} ${model.unit}`,
-            })}
-          />
+          {selectedMeasureWindow.some((day) => day.value !== null) ? (
+            <WeightTrendChart days={selectedMeasureWindow} unitLabel={model.unit} />
+          ) : (
+            <Text style={styles.measureChartEmpty}>{t(language, 'progress.noEntriesRange')}</Text>
+          )}
           <View style={styles.trendRangeRow}>
             <Seg
               options={MEASURE_RANGES.map((option) => ({
@@ -2734,6 +2785,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 9,
     marginTop: 14,
+  },
+  measureChartEmpty: {
+    marginTop: 16,
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.faint,
   },
   measureInput: {
     flex: 1,
