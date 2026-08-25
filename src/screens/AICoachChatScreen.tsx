@@ -412,6 +412,12 @@ export function AICoachChatScreen({
           return;
         }
         const answer = result.answer;
+        // The endpoint answers with a canned offline reply when it cannot
+        // reach the model — rate limited, upstream down, key missing. Until
+        // now the chat showed that as if the coach had said it, which is how
+        // "the AI chat does not work" looks from the reader's side: a real
+        // answer, just a useless one. Say which it was.
+        const fellBackToPreview = liveConfigured && result.source === 'preview';
         // Charged for an answer, not for a send. An answer that could only ask
         // for a clearer question is free: three a week is too few to spend one
         // on a chip the app itself offered and could not handle.
@@ -497,6 +503,7 @@ export function AICoachChatScreen({
             fromCoach: true,
             text: reply || answer.takeaway,
             advice: answer,
+            ...(fellBackToPreview ? { evidence: t(language, 'coachChat.offlineAnswer') } : {}),
           },
           ...(suggestedOffer ? [suggestedOffer] : []),
         ]);

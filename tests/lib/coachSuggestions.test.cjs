@@ -15,6 +15,22 @@ const daysAgo = (days) => new Date(NOW.getTime() - days * 24 * 60 * 60 * 1000);
 
 module.exports = [
   {
+    name: 'a canned offline answer is labelled as one, not passed off as the coach',
+    run() {
+      // The endpoint answers with a preview reply when it cannot reach the
+      // model — rate limited, upstream down, key missing. Shown unlabelled,
+      // that is what "the AI chat does not work" looks like from the reader's
+      // side: a real-looking answer that says nothing (found live, 25.8.,
+      // when an eval run used up the per-IP rate limit the phone shares).
+      const screen = fs.readFileSync(path.join(__dirname, '../../src/screens/AICoachChatScreen.tsx'), 'utf8');
+      assert.match(screen, /const fellBackToPreview = liveConfigured && result\.source === 'preview';/);
+      assert.match(screen, /fellBackToPreview \? \{ evidence: t\(language, 'coachChat\.offlineAnswer'\) \}/);
+
+      const i18n = fs.readFileSync(path.join(__dirname, '../../src/lib/i18n.ts'), 'utf8');
+      assert.equal((i18n.match(/'coachChat\.offlineAnswer':/g) ?? []).length, 2, 'both languages');
+    },
+  },
+  {
     name: 'coach suggestions: a refusal is an answer, not a "later"',
     run() {
       // Nothing said yet: the offer may be made.
