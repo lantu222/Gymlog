@@ -217,8 +217,9 @@ export const AI_COACH_EVAL_CASES: AiCoachEvalCase[] = [
     // The two readings and the target are the whole answer to this question.
     mustCite: ['98'],
     mustMention: ['104'],
-    // The reader asked about a measurement, not about their bench.
-    mustNotSay: ['bench press', 'penkkipunnerrus'],
+    // No mustNotSay for the lifts here. The live run tied a falling bench to
+    // the chest measurement, which is the connection a coach is for — ruling
+    // it out would have scored good coaching as a failure.
     allowedNewFigures: [...PRESCRIPTION_FIGURES, '1.5', '96.5', '6'],
   }),
   buildEvalCase({
@@ -244,10 +245,15 @@ export const AI_COACH_EVAL_CASES: AiCoachEvalCase[] = [
     liveOnly: true,
     intent: 'With nothing measured, the honest reply is one question, and it is free',
     prompt: 'Miten saan rinnanympäryksen kasvamaan nopeammin?',
-    // The goal is stated but the tape has never come out: there is no
-    // starting point, so there is nothing to advise against.
+    // The goal is stated but the tape has never come out: no reading, no
+    // starting value, no target — so there is nothing to advise against, and
+    // the honest move is to ask for the first measurement.
+    //
+    // The first version of this case reused the goal above, which carries a
+    // start of 96.5 cm. The live coach answered from that number, correctly:
+    // the fixture, not the coach, was wrong about what was missing.
     context: buildEvalContext(pushSessions, pushLogs, ['mon', 'thu'], {
-      coachGoals: [chestGoal],
+      coachGoals: [{ ...chestGoal, id: 'g-bare', targetValue: null, startValue: null }],
       bodyweightEntries: weighIns,
     }),
     expectsQuestion: true,

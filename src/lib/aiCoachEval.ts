@@ -106,7 +106,12 @@ export function flattenAdvice(advice: AICoachAdvice): string {
  * dates are skipped: they come from timestamps, not from claims about training.
  */
 export function extractFigures(text: string): string[] {
-  const matches = text.match(/\d+(?:[.,]\d+)?/g) ?? [];
+  // Finnish writes dates as day.month, which reads as a decimal: "96,5 cm
+  // (2.6.)" made the scorer report 2.6 as a fabricated figure and failed an
+  // answer that was exactly right. The rules tell the coach to write dates
+  // this way, so the scorer has to know the shape before it counts numbers.
+  const withoutDates = text.replace(/(^|[^0-9.,])([0-9]{1,2})[.]([0-9]{1,2})[.]([0-9]{2,4})?/g, '$1 ');
+  const matches = withoutDates.match(/\d+(?:[.,]\d+)?/g) ?? [];
   return matches
     .map((raw) => raw.replace(',', '.'))
     .filter((value) => {

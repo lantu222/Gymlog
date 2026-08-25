@@ -92,6 +92,12 @@ module.exports = [
       // A performedAt year is not a claim about training.
       assert.deepEqual(extractFigures('since 2026 you lifted 100'), ['100']);
       assert.deepEqual(extractFigures('no numbers here'), []);
+      // Finnish writes dates as day.month, which reads as a decimal. The rules
+      // tell the coach to write them that way, so a correct answer was being
+      // reported as fabricating "2.6" (live run, 25.8.).
+      assert.deepEqual(extractFigures('96,5 cm (2.6.) -> 98 cm (21.7.), tavoite 104 cm'), ['96.5', '98', '104']);
+      // A real decimal that only looks like a date keeps its place.
+      assert.deepEqual(extractFigures('nosta 2,5 kg ja tee 8.5 toistoa'), ['2.5', '8.5']);
     },
   },
   {
