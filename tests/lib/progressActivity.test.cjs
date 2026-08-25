@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 
 const { getProgressActivityDayStatus } = require('../../.test-dist/lib/progressActivity.js');
+const { cycleSchedule, weekdaySchedule } = require('../../.test-dist/lib/trainingSchedule.js');
 
 // A fixed week so weekday maths is readable: 2026-07-20 is a Monday.
 function dayStart(dayOfMonth) {
@@ -20,7 +21,8 @@ function day(dayOfMonth, overrides = {}) {
   };
 }
 
-const PLAN = { trainingDays: ['mon', 'thu'], todayStart: TODAY };
+// Monday-first indexes: 0 = Monday, 3 = Thursday.
+const PLAN = { schedule: weekdaySchedule([0, 3]), todayStart: TODAY };
 
 module.exports = [
   {
@@ -76,15 +78,29 @@ module.exports = [
     },
   },
   {
+    name: 'a cycle schedule marks the same days the home calendar would',
+    run() {
+      // Two on, one off anchored to Monday the 20th: 20 ✓ 21 ✓ 22 rest, 23 ✓ …
+      // A weekday list cannot express this rhythm — the whole reason the
+      // calendar takes a schedule (2026-08-25).
+      const cycle = { schedule: cycleSchedule([true, true, false], dayStart(20)), todayStart: TODAY };
+      assert.equal(getProgressActivityDayStatus(day(20), cycle), 'missed');
+      assert.equal(getProgressActivityDayStatus(day(22), cycle), 'rest');
+      assert.equal(getProgressActivityDayStatus(day(23), cycle), 'upcoming');
+      assert.equal(getProgressActivityDayStatus(day(25), cycle), 'rest');
+      assert.equal(getProgressActivityDayStatus(day(26), cycle), 'upcoming');
+    },
+  },
+  {
     name: 'without a schedule nothing is ever called missed',
     run() {
-      assert.equal(getProgressActivityDayStatus(day(20), { trainingDays: [], todayStart: TODAY }), 'rest');
+      assert.equal(getProgressActivityDayStatus(day(20), { schedule: weekdaySchedule([]), todayStart: TODAY }), 'rest');
     },
   },
   {
     name: 'without a reference day nothing is ever called missed',
     run() {
-      assert.equal(getProgressActivityDayStatus(day(20), { trainingDays: ['mon'] }), 'rest');
+      assert.equal(getProgressActivityDayStatus(day(20), { schedule: weekdaySchedule([0]) }), 'rest');
     },
   },
 ];

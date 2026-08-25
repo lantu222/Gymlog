@@ -49,12 +49,17 @@ export const HOME_WIDGET_MONTH_ROWS = 6;
 const LOOKAHEAD_DAYS = 14;
 
 /**
- * What a date pip says. Three states, not four: "today" used to be one of them,
- * which meant a day could not be today *and* done at once — and "you already
- * did it" is the one thing you glance at a home screen to find out. Today is
- * now a separate flag the native side draws as a ring around the number.
+ * What a date pip says. "Today" is not a state: it used to be one, which meant
+ * a day could not be today *and* done at once — and "you already did it" is
+ * the one thing you glance at a home screen to find out. Today is a ring the
+ * native side draws around the number.
+ *
+ * `off` is a rest day and draws in the rest green; `pad` is a cell from the
+ * neighbouring month, there to keep the columns honest, and draws as nothing.
+ * While rest was transparent the two could share a state — a rest day with a
+ * colour cannot be shared with a day that must have none (2026-08-25).
  */
-export type HomeWidgetDayState = 'done' | 'plan' | 'off';
+export type HomeWidgetDayState = 'done' | 'plan' | 'off' | 'pad';
 
 /**
  * Where a tap goes. Slugs, not routes: the app resolves them against live
@@ -433,7 +438,7 @@ export function buildHomeWidgetPayload(input: HomeWidgetInput): HomeWidgetPayloa
         dateLabel: day.inMonth ? `${day.dayOfMonth}` : '',
         dateKey: toDateKey(new Date(day.dayStart)),
         inMonth: day.inMonth,
-        state: day.inMonth ? state : 'off',
+        state: day.inMonth ? state : 'pad',
       };
     }),
   );

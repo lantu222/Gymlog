@@ -1,14 +1,11 @@
-import { getHomeMonthCalendar, HomeMonthCalendarDay } from './homeCalendar';
-import type { AppLanguage, WorkoutSession } from '../types/models';
+import type { WorkoutSession } from '../types/models';
 
 /**
- * The training month, and the streak behind it.
+ * The weekly training streak.
  *
- * The grid itself comes from `getHomeMonthCalendar` rather than a second
- * implementation: Home already draws a month, and two calendars in one app
- * disagree about the first Monday exactly once and then nobody can reproduce
- * it. This adds the only thing that layer is missing — which days were
- * trained — plus the summary and the streak underneath it.
+ * This file once built a whole month grid for a standalone calendar screen;
+ * that screen was retired as a duplicate of Progress → Activity (2026-08-25),
+ * and the streak is the one thing the activity section still asks for.
  */
 
 const DAY = 86_400_000;
@@ -20,102 +17,6 @@ function dayStartOf(iso: string): number | null {
   }
   const date = new Date(stamp);
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-}
-
-export interface TrainingCalendarDay extends HomeMonthCalendarDay {
-  /** Sessions logged that day, in the order they were performed. */
-  sessionIds: string[];
-}
-
-export interface TrainingCalendar {
-  monthLabel: string;
-  weekdayLabels: string[];
-  weeks: TrainingCalendarDay[][];
-  /** The month being shown, for the summary and for paging. */
-  year: number;
-  month: number;
-}
-
-/**
- * A month with its logged sessions marked.
- *
- * `monthOffset` pages backwards and forwards; only `isToday` stays anchored to
- * the real date, so a paged month never claims a day is today.
- */
-export function buildTrainingCalendar(
-  sessions: readonly WorkoutSession[],
-  options: { now?: Date; language?: AppLanguage; monthOffset?: number } = {},
-): TrainingCalendar {
-  const { now = new Date(), language = 'en', monthOffset = 0 } = options;
-  const base = getHomeMonthCalendar(now, language, monthOffset);
-
-  const byDay = new Map<number, string[]>();
-  for (const session of sessions) {
-    const day = dayStartOf(session.performedAt);
-    if (day === null) {
-      continue;
-    }
-    const list = byDay.get(day);
-    if (list) {
-      list.push(session.id);
-    } else {
-      byDay.set(day, [session.id]);
-    }
-  }
-
-  const shifted = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
-
-  return {
-    monthLabel: base.monthLabel,
-    weekdayLabels: base.weekdayLabels,
-    year: shifted.getFullYear(),
-    month: shifted.getMonth(),
-    weeks: base.weeks.map((week) =>
-      week.map((day) => ({
-        ...day,
-        // Days from the neighbouring months are drawn as padding, so marking
-        // them trained would put a purple square outside the month it belongs
-        // to and double-count it when the reader pages there.
-        sessionIds: day.inMonth ? (byDay.get(day.dayStart) ?? []) : [],
-      })),
-    ),
-  };
-}
-
-export interface TrainingMonthSummary {
-  sessions: number;
-  volumeKg: number;
-  /** Mean session length, rounded; null when no session recorded one. */
-  averageMinutes: number | null;
-}
-
-/** What the month came to, from the sessions inside it. */
-export function summarizeTrainingMonth(
-  sessions: readonly WorkoutSession[],
-  year: number,
-  month: number,
-): TrainingMonthSummary {
-  const inMonth = sessions.filter((session) => {
-    const stamp = Date.parse(session.performedAt);
-    if (!Number.isFinite(stamp)) {
-      return false;
-    }
-    const date = new Date(stamp);
-    return date.getFullYear() === year && date.getMonth() === month;
-  });
-
-  const durations = inMonth
-    .map((session) => session.durationMinutes)
-    .filter((minutes): minutes is number => typeof minutes === 'number' && minutes > 0);
-
-  return {
-    sessions: inMonth.length,
-    volumeKg: inMonth.reduce((total, session) => total + (session.totalVolumeKg ?? 0), 0),
-    averageMinutes:
-      durations.length > 0
-        ? Math.round(durations.reduce((total, minutes) => total + minutes, 0) / durations.length)
-        : null,
-  };
 }
 
 /**

@@ -200,14 +200,16 @@ module.exports = [
     run() {
       for (const theme of ['light', 'dark']) {
         assert.ok(drawableNames.has(`widget_card_${theme}`));
-        for (const state of ['done', 'plan', 'off']) {
+        for (const state of ['done', 'plan', 'off', 'pad']) {
           assert.ok(drawableNames.has(`widget_pip_${state}_${theme}`), `pip missing: ${state}/${theme}`);
           assert.ok(drawableNames.has(`widget_pip_${state}_today_${theme}`), `today pip missing: ${state}/${theme}`);
         }
       }
-      // Two cards, two textures, six pips per theme, and one copy each of the
-      // two marks: an image is tinted at runtime rather than written out twice.
-      assert.equal(drawableNames.size, 18);
+      // Two cards, two textures, eight pips per theme, and one copy each of
+      // the two marks: an image is tinted at runtime rather than written out
+      // twice. Eight, not six — rest carries the green tint now, so padding
+      // needed its own truly-empty state (2026-08-25).
+      assert.equal(drawableNames.size, 22);
       assert.ok(drawableNames.has('widget_logo'));
       assert.ok(drawableNames.has('widget_arrow'));
       assert.ok(kotlin.includes('"setColorFilter"'), 'the marks are never tinted, so one theme draws the other’s');
@@ -217,36 +219,58 @@ module.exports = [
     name: 'widgetResources: a date is either today or it is not, and it shows',
     run() {
       // Today is drawn on its own axis — a ring — so a day can be today *and*
-      // trained. That was the whole reason the state list is three long.
+      // trained. The one state with a ring of its own is `plan`: the outline
+      // IS how a planned day is marked, and today swaps it for the ink ring.
+      // Padding stays bare both ways — a cell from the neighbouring month has
+      // nothing to announce.
+      const fill = (xml) => xml.match(/<solid android:color="(#[0-9A-Fa-f]{6,8})"/)[1];
       for (const theme of ['light', 'dark']) {
-        for (const state of ['done', 'plan', 'off']) {
+        for (const state of ['done', 'plan', 'off', 'pad']) {
           const plain = FILES[`res/drawable/widget_pip_${state}_${theme}.xml`];
           const today = FILES[`res/drawable/widget_pip_${state}_today_${theme}.xml`];
-          assert.ok(!plain.includes('<stroke'), `${state}/${theme} rings a day that is not today`);
-          assert.match(today, /<stroke android:width="[\d.]+dp"/, `${state}/${theme} does not mark today`);
+          if (state === 'plan') {
+            assert.match(plain, /<stroke android:width="[\d.]+dp"/, `${theme}: a planned day has no outline`);
+          } else {
+            assert.ok(!plain.includes('<stroke'), `${state}/${theme} rings a day that is not today`);
+          }
+          if (state === 'pad') {
+            assert.ok(!today.includes('<stroke'), `${theme}: the ring landed on a cell outside the month`);
+          } else {
+            assert.match(today, /<stroke android:width="[\d.]+dp"/, `${state}/${theme} does not mark today`);
+          }
           // Same fill either way: the ring is added, it does not replace.
-          const fill = (xml) => xml.match(/<solid android:color="(#[0-9A-Fa-f]{6,8})"/)[1];
           assert.equal(fill(plain), fill(today));
         }
       }
     },
   },
   {
-    name: 'widgetResources: trained, planned and free are three different colours',
+    name: 'widgetResources: one colour logic — training is the highlight, rest is green',
     run() {
-      // This is the failure that only showed up on a device last time: two pale
-      // purples two steps apart are one colour on a small mark.
+      // The same two-colour rule as every calendar in the app (2026-08-25):
+      // a trained day is the solid highlight, a planned day the same colour as
+      // an outline, a rest day the quiet green tint, and padding is nothing.
       for (const theme of ['light', 'dark']) {
         // The card fill carries alpha; the pills do not. Compare the RGB only.
         const rgb = (value) => `#${value.slice(-6).toUpperCase()}`;
-        const colorOf = (state) =>
-          FILES[`res/drawable/widget_pip_${state}_${theme}.xml`].match(/android:color="(#[0-9A-Fa-f]{6,8})"/)[1];
+        const pip = (state) => FILES[`res/drawable/widget_pip_${state}_${theme}.xml`];
+        const fillOf = (state) => pip(state).match(/<solid android:color="(#[0-9A-Fa-f]{6,8})"/)[1];
         const card = rgb(FILES[`res/drawable/widget_card_${theme}.xml`].match(/<solid android:color="(#[0-9A-Fa-f]{6,8})"/)[1]);
-        const [done, plan] = [rgb(colorOf('done')), rgb(colorOf('plan'))];
-        assert.equal(new Set([done, plan, card]).size, 3, `${theme}: a date state shares a colour`);
-        // A free day is the card, drawn as nothing rather than as grey: a month
-        // of grey pills reads as a month of marks.
-        assert.equal(colorOf('off').toUpperCase(), '#00000000', `${theme}: a free day is painted`);
+
+        // Planned wears the trained colour as a ring over an empty fill: one
+        // colour means training day, filled means it happened.
+        const done = rgb(fillOf('done'));
+        assert.equal(fillOf('plan').toUpperCase(), '#00000000', `${theme}: a planned day is filled in`);
+        assert.equal(rgb(pip('plan').match(/<stroke[^>]*android:color="(#[0-9A-Fa-f]{6,8})"/)[1]), done, `${theme}: planned and trained disagree on the training colour`);
+
+        // Rest is its own quiet green — not the card, not the training colour,
+        // and not nothing: rest is green is the other half of the rule.
+        const restFill = rgb(fillOf('off'));
+        assert.equal(new Set([done, restFill, card]).size, 3, `${theme}: a date state shares a colour`);
+        assert.notEqual(fillOf('off').toUpperCase(), '#00000000', `${theme}: a rest day lost its green`);
+
+        // Padding is the one cell drawn as nothing at all.
+        assert.equal(fillOf('pad').toUpperCase(), '#00000000', `${theme}: a padding cell is painted`);
       }
     },
   },

@@ -746,8 +746,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // The calendar colour logic, worn by the week strip too: a training day is
+  // the highlight, a rest day stays quiet (user 2026-08-25).
   weekdayChipActive: {
-    backgroundColor: theme.purpleLight,
+    backgroundColor: theme.highlightSoft,
   },
   weekdayChipEditing: {
     borderWidth: 1.5,
@@ -759,7 +761,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
   },
   weekdayChipTextActive: {
-    color: theme.purpleDark,
+    color: theme.highlight,
   },
   scheduleCaption: {
     color: theme.muted,

@@ -1,4 +1,4 @@
-import { SetupWeekday } from '../types/models';
+import { isScheduleKnown, TrainingSchedule, trainsOn } from './trainingSchedule';
 
 /**
  * What a square in the activity calendar means.
@@ -7,6 +7,10 @@ import { SetupWeekday } from '../types/models';
  * genuinely a planned training day. A rest day without a session is just rest,
  * and a training day still ahead is upcoming, not a failure — the calendar
  * should never invent a streak the user broke.
+ *
+ * The plan's rhythm comes in as a TrainingSchedule, the same shape Home and
+ * the widget read, so a two-on-one-off cycle marks the same days here as it
+ * does everywhere else. A weekday list could not say that (2026-08-25).
  */
 export type ProgressActivityDayStatus = 'done' | 'missed' | 'upcoming' | 'rest' | 'outside';
 
@@ -19,13 +23,11 @@ export interface ProgressActivityDayInput {
 }
 
 export interface ProgressActivityOptions {
-  /** Weekdays the plan schedules; empty means the plan has no fixed days. */
-  trainingDays?: SetupWeekday[];
+  /** The plan's rhythm; unknown means nothing is ever called missed. */
+  schedule?: TrainingSchedule;
   /** Start-of-day timestamp for today, used to place a day in past or future. */
   todayStart?: number;
 }
-
-const WEEKDAY_BY_INDEX: SetupWeekday[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
 export function getProgressActivityDayStatus(
   day: ProgressActivityDayInput,
@@ -39,14 +41,13 @@ export function getProgressActivityDayStatus(
     return 'done';
   }
 
-  const planned = options.trainingDays ?? [];
-  if (planned.length === 0) {
+  const schedule = options.schedule;
+  if (!schedule || !isScheduleKnown(schedule)) {
     // Without a schedule there is nothing to have missed.
     return 'rest';
   }
 
-  const weekday = WEEKDAY_BY_INDEX[new Date(day.dayStart).getDay()];
-  if (!planned.includes(weekday)) {
+  if (!trainsOn(schedule, new Date(day.dayStart))) {
     return 'rest';
   }
 

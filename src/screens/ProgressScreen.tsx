@@ -44,6 +44,7 @@ import {
   resolveTrendRange,
 } from '../lib/historyWindow';
 import { getProgressActivityDayStatus } from '../lib/progressActivity';
+import type { TrainingSchedule } from '../lib/trainingSchedule';
 import type { PersonalRecord, RecordKind, RecordSource } from '../lib/personalRecords';
 import { RecordRow, RecordsList } from './RecordsScreen';
 import {
@@ -58,7 +59,6 @@ import {
   MeasurementEntry,
   MeasurementKind,
   MeasurementUnit,
-  SetupWeekday,
   UnitPreference,
   WorkoutSession,
 } from '../types/models';
@@ -86,8 +86,11 @@ interface ProgressScreenProps {
   bodyweightProgress: BodyweightProgressSummary;
   measurementEntries: MeasurementEntry[];
   workoutSessions: WorkoutSession[];
-  /** Weekdays the active plan schedules; drives missed vs rest in the calendar. */
-  trainingDays?: SetupWeekday[];
+  /**
+   * The plan's rhythm — cycle or weekdays — the same schedule Home and the
+   * widget mark their calendars from, so all three agree on which day trains.
+   */
+  trainingSchedule?: TrainingSchedule;
   activityCalendar: {
     monthLabel: string;
     weekdayLabels: string[];
@@ -121,12 +124,6 @@ interface ProgressScreenProps {
   /** One entry per tracked lift, for the set log behind each curve. */
   setLogSources?: RecordSource[];
   onStartWorkout?: () => void;
-  /**
-   * The training calendar. The month below this is plan ADHERENCE — done,
-   * missed, upcoming against the plan — which answers a different question
-   * from "when did I train and what did I do", so both exist.
-   */
-  onOpenCalendar?: () => void;
   showBodyweightDetail?: boolean;
   onAddBodyweight: (weightKg: number) => void;
   /** Stated height, in cm. Null until the reader gives one — BMI waits for it. */
@@ -158,21 +155,16 @@ const PROGRESS_WEEKDAY_KEYS: I18nKey[] = [
 // Evaluated once at import, so the themed dots have to come from a call.
 const calendarLegend = (theme: Theme): Array<{ key: string; labelKey: I18nKey; dotStyle: object }> => [
   // Each dot must be the same recipe as its bubble, or the legend explains a
-  // calendar that does not exist. Four states, three distinguishing devices:
-  // solid = trained, purple outline = planned, gold outline = missed, quiet
-  // fill = rest.
-  { key: 'done', labelKey: 'progress.legend.done', dotStyle: { backgroundColor: theme.purple } },
+  // calendar that does not exist. One logic for every calendar in the app
+  // (user 2026-08-25): a training day is orange, a rest day is green. Solid
+  // orange = trained, orange outline = a scheduled training day, green = rest.
+  { key: 'done', labelKey: 'progress.legend.done', dotStyle: { backgroundColor: theme.highlight } },
   {
-    key: 'missed',
-    labelKey: 'progress.legend.missed',
-    dotStyle: { backgroundColor: theme.surfaceSoft, borderWidth: 1.5, borderColor: theme.gold },
-  },
-  {
-    key: 'upcoming',
+    key: 'planned',
     labelKey: 'progress.legend.upcoming',
-    dotStyle: { borderWidth: 1.5, borderColor: theme.purple },
+    dotStyle: { borderWidth: 1.5, borderColor: theme.highlight },
   },
-  { key: 'rest', labelKey: 'progress.legend.rest', dotStyle: { backgroundColor: theme.surfaceSoft } },
+  { key: 'rest', labelKey: 'progress.legend.rest', dotStyle: { backgroundColor: theme.greenSoft } },
 ];
 
 /**
@@ -822,7 +814,7 @@ export function ProgressScreen({
   measurementEntries,
   workoutSessions,
   activityCalendar,
-  trainingDays,
+  trainingSchedule,
   rhythm,
   weeklyTargetSessions = null,
   unitPreference,
@@ -835,7 +827,6 @@ export function ProgressScreen({
   records = { weight: [], reps: [], volume: [] },
   setLogSources = [],
   onStartWorkout,
-  onOpenCalendar,
   showBodyweightDetail,
   onAddBodyweight,
   heightCm = null,
@@ -1510,15 +1501,7 @@ export function ProgressScreen({
 
         <SectionLabel
           label={t(language, 'progress.section.activity')}
-          right={
-            onOpenCalendar ? (
-              <Pressable onPress={onOpenCalendar} hitSlop={8}>
-                <Text style={styles.recordsLink}>{t(language, 'cal.open')}</Text>
-              </Pressable>
-            ) : (
-              calendarMonthLabel
-            )
-          }
+          right={calendarMonthLabel}
         />
         <View style={styles.card}>
           {/* The streak the calendar is really about, above the grid it is
@@ -1549,21 +1532,26 @@ export function ProgressScreen({
           <View style={styles.calendarGrid}>
             {activityCalendarDays.map((day) => {
               const status = getProgressActivityDayStatus(day, {
-                trainingDays,
+                schedule: trainingSchedule,
                 todayStart: todayStartTimestamp,
               });
               if (status === 'outside') {
                 return <View key={day.dayStart} style={styles.calendarCell} />;
               }
 
+              // Two colours, one logic, every calendar (user 2026-08-25):
+              // a training day is orange, a rest day is green. Trained gets
+              // the solid fill; a scheduled day — behind or ahead — gets the
+              // outline. Missed is not singled out: the history records what
+              // happened, not what did not.
+              const planned = status === 'missed' || status === 'upcoming';
               return (
                 <View key={day.dayStart} style={styles.calendarCell}>
                   <View
                     style={[
                       styles.calendarBubble,
                       status === 'done' && styles.calendarBubbleDone,
-                      status === 'missed' && styles.calendarBubbleMissed,
-                      status === 'upcoming' && styles.calendarBubbleUpcoming,
+                      planned && styles.calendarBubblePlanned,
                       status !== 'done' && day.isToday && styles.calendarBubbleToday,
                     ]}
                   >
@@ -1571,8 +1559,7 @@ export function ProgressScreen({
                       style={[
                         styles.calendarBubbleText,
                         status === 'done' && styles.calendarBubbleTextDone,
-                        status === 'missed' && styles.calendarBubbleTextMissed,
-                        status === 'upcoming' && styles.calendarBubbleTextUpcoming,
+                        planned && styles.calendarBubbleTextPlanned,
                         status !== 'done' && day.isToday && styles.calendarBubbleTextToday,
                       ]}
                     >
@@ -2495,51 +2482,41 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     width: `${100 / 7}%`,
     paddingHorizontal: 3,
   },
-  // Rest is the default and by far the most common cell, so it has to be the
-  // quietest thing on screen. A hardcoded pale lavender made it the loudest
-  // under the dark theme — a grid of white blobs with the states that matter
-  // lost among them.
+  // Rest is the default and by far the most common cell, so it carries the
+  // quiet green tint — loud enough to say "rest is green" (user 2026-08-25),
+  // soft enough that the orange training days still lead the eye.
   calendarBubble: {
     aspectRatio: 1,
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.surfaceSoft,
+    backgroundColor: theme.greenSoft,
   },
   calendarBubbleDone: {
-    backgroundColor: theme.purple,
+    backgroundColor: theme.highlight,
   },
-  // Missed reads as a quiet outline, not an alarm: the point is to show the
-  // shape of the month, not to scold anyone for a skipped Thursday.
-  calendarBubbleMissed: {
-    backgroundColor: theme.surfaceSoft,
-    borderWidth: 1,
-    borderColor: theme.gold,
-  },
-  calendarBubbleUpcoming: {
+  // One outline for behind and ahead alike: it marks a scheduled training
+  // day, and the history is no place to be scolded for a skipped Thursday.
+  calendarBubblePlanned: {
     backgroundColor: 'transparent',
     borderWidth: 1.5,
-    borderColor: theme.purple,
+    borderColor: theme.highlight,
   },
   calendarBubbleToday: {
-    backgroundColor: theme.purpleLight,
     borderWidth: 1.5,
-    borderColor: theme.purple,
+    borderColor: theme.highlight,
     borderStyle: 'dashed',
   },
   calendarBubbleText: {
-    color: theme.faint,
+    color: theme.greenInk,
     fontSize: 11.5,
     fontWeight: '700',
   },
   calendarBubbleTextDone: {
-    color: '#FFFFFF',
+    color: theme.onHighlight,
   },
-  calendarBubbleTextMissed: {
-    color: theme.gold,
-  },
-  calendarBubbleTextUpcoming: {
-    color: theme.purpleDark,
+  calendarBubbleTextPlanned: {
+    color: theme.highlight,
   },
   calendarLegend: {
     flexDirection: 'row',
@@ -2563,7 +2540,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '700',
   },
   calendarBubbleTextToday: {
-    color: theme.purpleDark,
+    color: theme.highlight,
   },
   progressHistoryCard: {
     backgroundColor: theme.surface,

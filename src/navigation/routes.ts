@@ -136,11 +136,6 @@ export type AppRoute =
       screen: 'bodyweight';
     }
   | {
-      /** The training month, and the day you tap in it. */
-      tab: 'progress';
-      screen: 'calendar';
-    }
-  | {
       tab: 'profile';
       screen: 'list';
     }

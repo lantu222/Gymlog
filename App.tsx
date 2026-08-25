@@ -204,7 +204,6 @@ import { exerciseNameLabel } from './src/lib/exerciseNameLabel';
 import { buildProgramFingerprint } from './src/lib/programFingerprint';
 import { resolveRecords } from './src/lib/personalRecords';
 import { getComparableLogSets } from './src/lib/exerciseLog';
-import { TrainingCalendarScreen } from './src/screens/TrainingCalendarScreen';
 import { removeStrengthGoal, resolveGoalProgress, upsertStrengthGoal } from './src/lib/strengthGoals';
 import {
   countByCategory,
@@ -584,9 +583,7 @@ function getBackRoute(route: AppRoute, workoutHome: AppRoute): AppRoute | null {
 
   if (
     route.tab === 'progress' &&
-    (route.screen === 'detail' ||
-      route.screen === 'bodyweight' ||
-      route.screen === 'calendar')
+    (route.screen === 'detail' || route.screen === 'bodyweight')
   ) {
     return ROOT_ROUTES.progress;
   }
@@ -3916,7 +3913,10 @@ function VinhaApp() {
     setPendingWidgetTarget(null);
 
     if (pendingWidgetTarget === 'calendar') {
-      resetToRoute({ tab: 'progress', screen: 'calendar' });
+      // The widget's month opens the same calendar it is a small copy of:
+      // Progress → Activity. The standalone calendar screen it used to open
+      // was retired as a duplicate (user 2026-08-25).
+      resetToRoute(ROOT_ROUTES.progress);
       return;
     }
     if (pendingWidgetTarget === 'programs') {
@@ -5645,76 +5645,6 @@ function VinhaApp() {
         onViewProgress={() => leaveFinishedWorkout(ROOT_ROUTES.progress)}
       />
     );
-  } else if (route.tab === 'progress' && route.screen === 'calendar') {
-    content = (
-      <TrainingCalendarScreen
-        language={preferences.appLanguage}
-        sessions={workoutSessions}
-        resolveDay={(sessionIds) => {
-          // The day's own record, from what the session stored. Two sessions
-          // on one date is real, and the first one is what the card shows.
-          const session = workoutSessions.find((entry) => entry.id === sessionIds[0]);
-          if (!session) {
-            return null;
-          }
-          const logs = getSessionLogs(session.id).filter((log) => !log.skipped);
-          let topLift: { name: string; weightKg: number; reps: number } | null = null;
-          for (const log of logs) {
-            for (const set of getComparableLogSets(log)) {
-              if (set.weight > 0 && (topLift === null || set.weight > topLift.weightKg)) {
-                topLift = {
-                  name: exerciseNameLabel(preferences.appLanguage, log.exerciseNameSnapshot),
-                  weightKg: set.weight,
-                  reps: set.reps,
-                };
-              }
-            }
-          }
-          // Every lift with its heaviest set, so the day card can answer
-          // without the session being opened (user 2026-08-23).
-          const lifts = logs.map((log) => {
-            const sets = getComparableLogSets(log);
-            let best: { weight: number; reps: number } | null = null;
-            for (const set of sets) {
-              if (
-                best === null ||
-                set.weight > best.weight ||
-                (set.weight === best.weight && set.reps > best.reps)
-              ) {
-                best = set;
-              }
-            }
-            return {
-              name: exerciseNameLabel(preferences.appLanguage, log.exerciseNameSnapshot),
-              sets: sets.length,
-              top: best
-                ? best.weight > 0
-                  ? `${removeTrailingZeros(best.weight)} kg × ${best.reps}`
-                  : t(preferences.appLanguage, 'cal.liftReps', { reps: best.reps })
-                : null,
-            };
-          });
-          return {
-            sessionId: session.id,
-            title: localizeSessionName(
-              formatWorkoutDisplayLabel(session.workoutNameSnapshot),
-              preferences.appLanguage,
-            ),
-            durationMinutes: session.durationMinutes ?? null,
-            exercises: session.exercisesCompleted ?? logs.length,
-            sets: session.setsCompleted ?? 0,
-            volumeKg: session.totalVolumeKg ?? 0,
-            topLift,
-            lifts,
-            swaps: session.exercisesSwapped ?? 0,
-            note: session.sessionNotes?.trim() ? session.sessionNotes.trim() : null,
-          };
-        }}
-        onBack={() => navigateBack(ROOT_ROUTES.progress)}
-        onOpenSession={(sessionId) => navigate({ tab: 'home', screen: 'session', sessionId })}
-        onStartWorkout={() => resetToRoute(ROOT_ROUTES.home)}
-      />
-    );
   } else if (route.tab === 'progress') {
     content = (
         <ProgressScreen
@@ -5723,16 +5653,15 @@ function VinhaApp() {
           records={personalRecords}
           setLogSources={recordSources}
           onStartWorkout={() => resetToRoute(ROOT_ROUTES.home)}
-          onOpenCalendar={() => navigate({ tab: 'progress', screen: 'calendar' })}
           summaries={trackedProgress}
           bodyweightProgress={bodyweightProgress}
           measurementEntries={measurementEntries}
           workoutSessions={workoutSessions}
           activityCalendar={homeSummary.streak.calendar}
-          // Same source the Training plan screen edits, so the calendar cannot
-          // disagree with the schedule the user set. Empty when Vinha places
-          // the week, and then nothing is ever called missed.
-          trainingDays={preferences.setupAvailableDays}
+          // The same resolved rhythm Home and the widget mark their calendars
+          // from — cycle or weekdays — so a 2-on-1-off reader sees the same
+          // training days on every calendar in the app.
+          trainingSchedule={homeTrainingSchedule}
           rhythm={progressTrainingRhythm}
           weeklyTargetSessions={progressWeeklyTarget}
           unitPreference={unitPreference}

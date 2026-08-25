@@ -124,14 +124,16 @@ module.exports = [
     name: 'widgetPayload: the days either side of the month are drawn as nothing',
     run() {
       // They hold their column so the weekdays line up, and say nothing else —
-      // a June date marked green under a July heading is a lie about the month.
+      // a June date marked under a July heading is a lie about the month. Not
+      // 'off' either: a rest day now carries the green tint, and these cells
+      // must carry no colour at all (2026-08-25).
       const payload = build({ completedDayStarts: [at(2026, 6, 30, 18)] });
       const outside = payload.monthWeeks.flat().filter((day) => !day.inMonth);
 
       assert.ok(outside.length > 0);
       for (const day of outside) {
         assert.equal(day.dateLabel, '');
-        assert.equal(day.state, 'off');
+        assert.equal(day.state, 'pad');
         // The key is still there: the native side needs it to know the ring
         // belongs to no cell at all on a day the grid does not contain.
         assert.match(day.dateKey, /^\d{4}-\d{2}-\d{2}$/);
@@ -146,11 +148,11 @@ module.exports = [
     },
   },
   {
-    name: 'widgetPayload: three states, and one of them is not today',
+    name: 'widgetPayload: four states, and none of them is today',
     run() {
       const payload = build();
       for (const day of payload.monthWeeks.flat()) {
-        assert.ok(['done', 'plan', 'off'].includes(day.state), `${day.state} is not a state the widget can draw`);
+        assert.ok(['done', 'plan', 'off', 'pad'].includes(day.state), `${day.state} is not a state the widget can draw`);
       }
       // Today is a training day that has not been logged: planned. Whether it
       // is also today is the ring's business, drawn on its own axis.
@@ -163,8 +165,9 @@ module.exports = [
       const payload = build({ completedDayStarts: [at(2026, 7, 28, 19), at(2026, 7, 30, 7)] });
 
       // Wednesday the 29th was a training day, is in the past and was never
-      // logged, so it reads free — see the next case.
-      assert.deepEqual(states(payload, CURRENT_ROW), ['off', 'done', 'off', 'done', 'off', 'off', 'off']);
+      // logged, so it reads free — see the next case. The row's weekend is
+      // August, which pads July's grid rather than resting in it.
+      assert.deepEqual(states(payload, CURRENT_ROW), ['off', 'done', 'off', 'done', 'off', 'pad', 'pad']);
       // The old shape had to choose between "done" and "today". This one does
       // not: the state says trained, the date key lets the ring land on it too.
       assert.equal(payload.monthWeeks[CURRENT_ROW][THURSDAY].dateKey, '2026-07-30');
@@ -178,8 +181,9 @@ module.exports = [
       const payload = build();
       assert.equal(states(payload, CURRENT_ROW)[1], 'off');
       assert.equal(states(payload, CURRENT_ROW)[2], 'off');
-      // Every training day still ahead this month is planned, though.
-      assert.deepEqual(states(payload, CURRENT_ROW).slice(4), ['off', 'off', 'off']);
+      // Every training day still ahead this month is planned, though — and
+      // the weekend after the 31st belongs to August, so it pads.
+      assert.deepEqual(states(payload, CURRENT_ROW).slice(4), ['off', 'pad', 'pad']);
       assert.equal(payload.monthWeeks[0].filter((day) => day.state === 'plan').length, 0);
     },
   },

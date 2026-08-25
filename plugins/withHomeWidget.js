@@ -66,11 +66,14 @@ const UPDATE_PERIOD_MS = 1800000;
  * them. If a token moves there, move it here too — nothing enforces it, because
  * nothing on this side of the process boundary can import TypeScript.
  *
- * `done` and `plan` are the two marks the calendar makes: trained is green in
- * both themes (it is the one colour a fitness app may not reassign), planned is
- * the brand violet. `onDone`/`onPlan` are what a date reads as once it sits on
- * one of them — light text on the light theme's deep fills, dark text on the
- * dark theme's bright ones, because a bright fill is where white text fails.
+ * One colour logic for every calendar in the app (user 2026-08-25): a training
+ * day is the theme's highlight — orange on dark, violet on light, the same
+ * `theme.highlight` the app's own calendars mark training days with — and a
+ * rest day is green. `train` fills a trained day and outlines a planned one;
+ * `restSoft`/`restInk` are the app's quiet green pair for rest cells.
+ * `onTrain` is what a date reads as on the fill — white on the light theme's
+ * deep violet, near-black on the dark theme's bright orange, because a bright
+ * fill is where white text fails.
  */
 /**
  * The card fill is opaque, and it is opaque on evidence.
@@ -94,13 +97,12 @@ const LIGHT = {
   ink: '#17131F',
   muted: '#5E5670',
   faint: '#8A82A0',
-  done: '#16A34A',
-  onDone: '#FFFFFF',
-  plan: '#6D28D9',
-  onPlan: '#FFFFFF',
-  // Warm, and deliberately not one of the calendar's three: a rest day is the
-  // one thing the 2x1 exists to say, and it should not read as a pip.
-  rest: '#C2410C',
+  train: '#6D28D9',
+  onTrain: '#FFFFFF',
+  restSoft: '#E8F7EE',
+  restInk: '#157A3A',
+  // The 2x1's one coloured word on a rest day: rest is green, full strength.
+  rest: '#16A34A',
   brand: '#7C3AED',
   texture: '#2E7C3AED',
   glow: '#1F7C3AED',
@@ -114,11 +116,11 @@ const DARK = {
   ink: '#F4F1FF',
   muted: '#A79FC4',
   faint: '#7C739E',
-  done: '#22C55E',
-  onDone: '#0A1C10',
-  plan: '#9B6DFF',
-  onPlan: '#1B1233',
-  rest: '#FB923C',
+  train: '#FF8A4C',
+  onTrain: '#241203',
+  restSoft: '#16321F',
+  restInk: '#5FE3A6',
+  rest: '#37D08A',
   brand: '#A98BFF',
   texture: '#3DA98BFF',
   glow: '#33A98BFF',
@@ -444,7 +446,7 @@ function pipDrawable(fill, ring) {
 `;
 }
 
-const PIP_STATES = ['done', 'plan', 'off'];
+const PIP_STATES = ['done', 'plan', 'off', 'pad'];
 
 function pipResourceName(state, today, theme) {
   return `widget_pip_${state}${today ? '_today' : ''}_${theme}`;
@@ -504,9 +506,17 @@ function drawables() {
     files[`widget_card_${theme}.xml`] = cardDrawable(palette, theme);
     files[`widget_texture_${theme}.xml`] = textureVector(palette);
     for (const state of PIP_STATES) {
-      const fill = state === 'done' ? palette.done : state === 'plan' ? palette.plan : '#00000000';
-      files[`${pipResourceName(state, false, theme)}.xml`] = pipDrawable(fill, null);
-      files[`${pipResourceName(state, true, theme)}.xml`] = pipDrawable(fill, palette.ink);
+      // Trained is the solid highlight fill, a planned day the same colour as
+      // an outline, rest the quiet green, and padding stays truly nothing —
+      // the same recipe the app's activity calendar draws (2026-08-25).
+      const fill =
+        state === 'done' ? palette.train : state === 'off' ? palette.restSoft : '#00000000';
+      const ring = state === 'plan' ? palette.train : null;
+      files[`${pipResourceName(state, false, theme)}.xml`] = pipDrawable(fill, ring);
+      files[`${pipResourceName(state, true, theme)}.xml`] = pipDrawable(
+        fill,
+        state === 'pad' ? null : palette.ink,
+      );
     }
   }
   return files;
@@ -515,17 +525,18 @@ function drawables() {
 // ── Layout building blocks ─────────────────────────────────────────────────
 
 /**
- * What a date reads as. On a fill it is the fill's own on-colour; off it, the
- * quiet grey — except today, which is ink so the ring has something to hold.
+ * What a date reads as. On the trained fill it is the fill's own on-colour, on
+ * a planned outline the outline's colour, on a rest cell the quiet green ink —
+ * except today, which is ink so the ring has something to hold.
  */
 function dateColor(palette, state, today) {
   if (state === 'done') {
-    return palette.onDone;
+    return palette.onTrain;
   }
   if (state === 'plan') {
-    return palette.onPlan;
+    return today ? palette.ink : palette.train;
   }
-  return today ? palette.ink : palette.muted;
+  return today ? palette.ink : state === 'off' ? palette.restInk : palette.muted;
 }
 
 function root(theme, { padding, paddingHorizontal = null, children }) {
@@ -616,7 +627,9 @@ ${pad(1)}    android:text="${preview ? preview.axis[index] : ''}" />`).join('\n'
     const cells = Array.from({ length: DAY_COUNT }, (_, dayIndex) => {
       const cellIndex = rowIndex * DAY_COUNT + dayIndex;
       const cell = preview ? preview.cells[cellIndex] : null;
-      const state = cell ? cell.state : 'off';
+      // 'pad', not 'off': the runtime layout is repainted by the provider
+      // before it is seen, and rest cells now carry a tint that would flash.
+      const state = cell ? cell.state : 'pad';
       const today = Boolean(cell && cell.today);
       return `${pad(2)}<LinearLayout
 ${pad(2)}    android:layout_width="0dp"
@@ -905,7 +918,7 @@ function routineLayout(theme, { preview = null } = {}) {
  * the reader bought, and light is what a fresh install resolves.
  *
  * The example month is a five-row one, half of it trained and the rest of the
- * week ahead planned, with today in the middle. It shows all three marks in one
+ * week ahead planned, with today in the middle. It shows every mark in one
  * glance, which is the whole point of a preview.
  */
 const PREVIEW_AXIS = Array.from({ length: DAY_COUNT }, (_, index) => `@string/widget_preview_axis_${index}`);
@@ -920,7 +933,9 @@ function previewCalendar() {
   const cells = Array.from({ length: MONTH_ROWS * DAY_COUNT }, (_, index) => {
     const dayOfMonth = index - PREVIEW_FIRST_COLUMN + 1;
     if (dayOfMonth < 1 || dayOfMonth > PREVIEW_DAYS) {
-      return { date: '', state: 'off', today: false };
+      // Padding, not rest: a rest cell carries the green tint, and these two
+      // blanks belong to no month the preview is showing.
+      return { date: '', state: 'pad', today: false };
     }
     const state = PREVIEW_DONE.includes(dayOfMonth) ? 'done' : PREVIEW_PLAN.includes(dayOfMonth) ? 'plan' : 'off';
     return { date: `${dayOfMonth}`, state, today: dayOfMonth === PREVIEW_TODAY };
@@ -1070,10 +1085,10 @@ function paletteLiteral(name, palette, theme) {
         muted = Color.parseColor("${palette.muted}"),
         faint = Color.parseColor("${palette.faint}"),
         rest = Color.parseColor("${palette.rest}"),
-        done = Color.parseColor("${palette.done}"),
+        restInk = Color.parseColor("${palette.restInk}"),
+        train = Color.parseColor("${palette.train}"),
+        onTrain = Color.parseColor("${palette.onTrain}"),
         brand = Color.parseColor("${palette.brand}"),
-        onDone = Color.parseColor("${palette.onDone}"),
-        onPlan = Color.parseColor("${palette.onPlan}"),
         pips = mapOf(
 ${pips}
         ),
@@ -1111,7 +1126,7 @@ import java.util.Locale
  * Draws the home-screen widget family from the JSON the app writes to filesDir.
  *
  * Deliberately dumb: it reads finished strings and puts them on TextViews, and
- * reads three state names and puts a drawable behind a date. All dates,
+ * reads four state names and puts a drawable behind a date. All dates,
  * translation and pluralisation happened in JS (src/lib/widgetPayload.ts) where
  * they are covered by tests. Generated by plugins/withHomeWidget.js — edit it
  * there, not here, because android/ is regenerated by prebuild.
@@ -1132,10 +1147,10 @@ open class HomeWidgetProvider : AppWidgetProvider() {
         val muted: Int,
         val faint: Int,
         val rest: Int,
-        val done: Int,
+        val restInk: Int,
+        val train: Int,
+        val onTrain: Int,
         val brand: Int,
-        val onDone: Int,
-        val onPlan: Int,
         val pips: Map<String, Int>,
     ) {
         /** Anything unrecognised draws as a free day rather than as nothing. */
@@ -1145,10 +1160,12 @@ open class HomeWidgetProvider : AppWidgetProvider() {
         }
 
         /** What a date reads as once its pill is behind it. */
-        fun dateInk(state: String?, today: Boolean): Int = when (state) {
-            "done" -> onDone
-            "plan" -> onPlan
-            else -> if (today) ink else muted
+        fun dateInk(state: String?, today: Boolean): Int = when {
+            state == "done" -> onTrain
+            today -> ink
+            state == "plan" -> train
+            state == "off" -> restInk
+            else -> muted
         }
     }
 
@@ -1281,9 +1298,11 @@ ${paletteLiteral('dark', DARK, 'dark')}
                 val cellIndex = rowIndex * DAY_COUNT + dayIndex
                 val day = week?.optJSONObject(dayIndex)
                 // The days either side of the month keep their column and say
-                // nothing: they are there so the weekdays line up, not to be read.
+                // nothing: they are there so the weekdays line up, not to be
+                // read. "pad", not "off" — a rest day now carries a tint, and
+                // these cells must carry none.
                 val inMonth = day?.optBoolean("inMonth") == true
-                val state = if (inMonth) day?.optString("state") else "off"
+                val state = if (inMonth) day?.optString("state") else "pad"
                 val today = inMonth && day?.optString("dateKey") == todayKey()
 
                 views.setTextViewText(cellIds[cellIndex], if (inMonth) day?.optString("dateLabel") ?: "" else "")
@@ -1342,10 +1361,11 @@ ${paletteLiteral('dark', DARK, 'dark')}
         views.setTextViewText(R.id.widget_routine_title, today?.optString("title") ?: "")
         views.setTextColor(
             R.id.widget_routine_title,
+            // The calendar's own logic, spoken as one word: a training day —
+            // ahead or already done — is the highlight, a rest day is green.
             when (kind) {
                 "rest" -> palette.rest
-                "done" -> palette.done
-                "work" -> palette.brand
+                "done", "work" -> palette.train
                 else -> palette.ink
             },
         )

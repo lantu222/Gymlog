@@ -6,11 +6,7 @@ const {
   resolveRecord,
   resolveRecords,
 } = require('../../.test-dist/lib/personalRecords.js');
-const {
-  buildTrainingCalendar,
-  summarizeTrainingMonth,
-  weeklyTrainingStreak,
-} = require('../../.test-dist/lib/trainingCalendar.js');
+const { weeklyTrainingStreak } = require('../../.test-dist/lib/trainingCalendar.js');
 
 function at(year, month, day) {
   return new Date(year, month - 1, day, 12, 0, 0, 0);
@@ -149,41 +145,6 @@ module.exports = [
       assert.equal(groups[0].month, 7, 'August first');
       assert.equal(groups[0].records.length, 2);
       assert.equal(groups[1].month, 6);
-    },
-  },
-  {
-    name: 'the calendar marks trained days without inventing a second grid',
-    run() {
-      const sessions = [
-        { id: 's1', performedAt: at(2026, 8, 3).toISOString(), totalVolumeKg: 4000, durationMinutes: 60 },
-        { id: 's2', performedAt: at(2026, 8, 3).toISOString(), totalVolumeKg: 1000, durationMinutes: 30 },
-        { id: 's3', performedAt: at(2026, 8, 5).toISOString(), totalVolumeKg: 5000, durationMinutes: 50 },
-        // Previous month — must not appear on August's squares.
-        { id: 's4', performedAt: at(2026, 7, 29).toISOString(), totalVolumeKg: 3000, durationMinutes: 45 },
-      ];
-      const calendar = buildTrainingCalendar(sessions, { now: NOW, monthOffset: 0 });
-      const days = calendar.weeks.flat();
-
-      const third = days.find((day) => day.inMonth && day.dayOfMonth === 3);
-      assert.deepEqual(third.sessionIds, ['s1', 's2'], 'two sessions on one day');
-      assert.equal(days.find((day) => day.inMonth && day.dayOfMonth === 5).sessionIds.length, 1);
-      assert.equal(days.find((day) => day.inMonth && day.dayOfMonth === 4).sessionIds.length, 0);
-
-      // Padding days belong to another month; marking them would put a
-      // trained square outside the month it happened in.
-      assert.ok(days.filter((day) => !day.inMonth).every((day) => day.sessionIds.length === 0));
-
-      const summary = summarizeTrainingMonth(sessions, 2026, 7);
-      assert.equal(summary.sessions, 3, 'July is not August');
-      assert.equal(summary.volumeKg, 10000);
-      assert.equal(summary.averageMinutes, 47);
-
-      // No session recorded a duration: no average rather than zero.
-      assert.equal(
-        summarizeTrainingMonth([{ id: 'x', performedAt: at(2026, 8, 2).toISOString() }], 2026, 7)
-          .averageMinutes,
-        null,
-      );
     },
   },
   {
