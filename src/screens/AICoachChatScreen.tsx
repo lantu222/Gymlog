@@ -17,6 +17,8 @@ import { requestAiCoachAdvice } from '../lib/aiCoachClient';
 import { buildAiCoachPreviewAnswer } from '../lib/aiCoachPreview';
 import { FREE_COACH_QUESTIONS_PER_WEEK } from '../lib/aiCoachQuota';
 import { CoachChatIntroInput, CoachContextChip, buildCoachContextChips, buildCoachContextReadout, buildCoachNoticed, buildCoachOpeningLine, buildCoachOpeningOffer, buildCoachOpeningRows } from '../lib/coachChat';
+import { coachSmallTalkReplyKey, parseCoachSmallTalk } from '../lib/coachSmallTalk';
+import { appendCoachTurn } from '../lib/coachConversation';
 import { MEASUREMENT_LABEL_KEYS } from '../lib/homeStatCards';
 import { I18nKey, t } from '../lib/i18n';
 import { MeasurementIntent, parseMeasurementIntent } from '../lib/measurementIntent';
@@ -25,7 +27,7 @@ import { AI_COACH_DEBUG_TRANSCRIPTS } from '../lib/aiCoachDebug';
 import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { layout, spacing } from '../theme';
-import { AICoachAdvice, AICoachTrainingContext } from '../types/aiCoach';
+import { AICoachAdvice, AICoachConversationTurn, AICoachTrainingContext } from '../types/aiCoach';
 import { AppLanguage } from '../types/models';
 
 /**
@@ -137,6 +139,12 @@ export function AICoachChatScreen({
   const [asking, setAsking] = useState(false);
   const scrollRef = useRef<ScrollView | null>(null);
   const askToken = useRef(0);
+  /**
+   * The open conversation, in a ref rather than state: `send` must read the
+   * exchanges as they are at the moment of sending, and a state value captured
+   * in its dependency list would be one turn behind.
+   */
+  const conversation = useRef<AICoachConversationTurn[]>([]);
 
   const chips = useMemo(() => buildCoachContextChips(intro, language), [intro, language]);
   // Shown until the first question. It is the reader's own log, which is both
@@ -263,6 +271,26 @@ export function AICoachChatScreen({
 
       const token = (askToken.current += 1);
       setDraft('');
+
+      // "Kiitos" is answered here. It never reaches the network, so it costs
+      // nothing and cannot come back as an analysis with a four-week plan
+      // attached (transcript review, 2026-08-23). Checked before the quota
+      // gate on purpose: being out of questions must not stop the coach from
+      // saying you are welcome.
+      const smallTalk = parseCoachSmallTalk(trimmed);
+      if (smallTalk) {
+        setMessages((current) => [
+          ...current,
+          { id: `me:${token}`, fromCoach: false, text: trimmed },
+          {
+            id: `coach:${token}`,
+            fromCoach: true,
+            text: t(language, coachSmallTalkReplyKey(smallTalk, current.length)),
+          },
+        ]);
+        return;
+      }
+
       const measurement = parseMeasurementIntent(trimmed, language);
       const goal = measurement ? null : parseGoalIntent(trimmed, language);
       setMessages((current) => [
@@ -308,6 +336,8 @@ export function AICoachChatScreen({
           prompt: trimmed,
           context: trainingContext,
           language,
+          // What was already said in this thread, so a follow-up resolves.
+          history: conversation.current,
           ...(AI_COACH_DEBUG_TRANSCRIPTS && transcriptReporter ? { reporter: transcriptReporter } : {}),
         });
         if (token !== askToken.current) {
@@ -320,6 +350,13 @@ export function AICoachChatScreen({
         if (!proUnlocked && !answer.unanswered) {
           onFreeQuestionUsed();
         }
+        // Kept even when the answer was a follow-up question: without it the
+        // reader's reply to that question would arrive with no antecedent,
+        // which is the exact failure this exists to fix.
+        conversation.current = appendCoachTurn(conversation.current, {
+          question: trimmed,
+          takeaway: answer.takeaway,
+        });
         // The whole answer, as sections: a takeaway, then the reasons, the
         // steps and the plan each on their own lines. One run-on paragraph
         // buried the dates and numbers (#bugs, 2026-08-23).

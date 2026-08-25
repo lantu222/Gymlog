@@ -1855,6 +1855,16 @@ const EN = {
   'coachPreview.default.plan2': 'Bench stuck?',
   'coachPreview.default.plan3': 'Fix my split?',
   'coachChat.title': 'Vinha Coach',
+  // Small talk is answered here, not by the model: a thank-you used to come
+  // back as a full analysis, and it cost one of three free questions a week.
+  'coach.smalltalk.thanks.a': 'Any time.',
+  'coach.smalltalk.thanks.b': 'You are welcome.',
+  'coach.smalltalk.farewell.a': 'See you at the next session.',
+  'coach.smalltalk.farewell.b': 'Take care — I will be here.',
+  'coach.smalltalk.greeting.a': 'Hey. What is on your mind?',
+  'coach.smalltalk.greeting.b': 'Hello. Ask me anything about your training.',
+  'coach.smalltalk.acknowledgement.a': 'Good.',
+  'coach.smalltalk.acknowledgement.b': 'Got it.',
   'coachChat.subtitle': 'Reads your {count} logged sessions',
   'coachChat.subtitleFresh': 'Log a session and it starts reading',
   'coachChat.chip.today': '{session} today',
@@ -5237,6 +5247,16 @@ const FI: Record<I18nKey, string> = {
   'coachPreview.default.plan2': 'Penkki jumissa?',
   'coachPreview.default.plan3': 'Miten korjaan treenijakoni?',
   'coachChat.title': 'Vinha-valmentaja',
+  // Keskustelufraasit vastataan täällä, ei mallilla: "kiitos" tuotti ennen
+  // täyden analyysin ja söi yhden kolmesta ilmaisesta kysymyksestä.
+  'coach.smalltalk.thanks.a': 'Ole hyvä.',
+  'coach.smalltalk.thanks.b': 'Eipä kestä.',
+  'coach.smalltalk.farewell.a': 'Nähdään seuraavassa treenissä.',
+  'coach.smalltalk.farewell.b': 'Moi — olen täällä kun tarvitset.',
+  'coach.smalltalk.greeting.a': 'Moi. Mikä mielessä?',
+  'coach.smalltalk.greeting.b': 'Terve. Kysy mitä vain treeneistäsi.',
+  'coach.smalltalk.acknowledgement.a': 'Hyvä.',
+  'coach.smalltalk.acknowledgement.b': 'Selvä.',
   'coachChat.subtitle': 'Lukee {count} kirjattua treeniäsi',
   'coachChat.subtitleFresh': 'Kirjaa treeni, niin se alkaa lukea',
   'coachChat.chip.today': '{session} tänään',

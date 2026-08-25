@@ -257,9 +257,24 @@ export interface AICoachAdvice {
   unanswered?: boolean;
 }
 
+/**
+ * One earlier exchange in the conversation that is open right now: what was
+ * asked, and the takeaway that came back.
+ *
+ * Without these, "entä sitten?" and "miksi?" arrive with no antecedent and the
+ * coach answers a question nobody asked. Nothing is stored — the list dies
+ * with the screen, which is why there is no memory across devices or sessions.
+ */
+export interface AICoachConversationTurn {
+  question: string;
+  takeaway: string;
+}
+
 export interface AICoachAdviceRequest {
   prompt: string;
   context: AICoachTrainingContext;
+  /** Oldest first. The server keeps the most recent few and drops the rest. */
+  history?: AICoachConversationTurn[];
   /**
    * The language the answer must come back in. The live coach is told to
    * answer in the language the user wrote in; the offline preview has no

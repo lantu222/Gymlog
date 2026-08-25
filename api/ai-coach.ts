@@ -19,7 +19,13 @@ import {
   readBudgetLimitsFromEnv,
   recordSpend,
 } from '../src/lib/aiCoachBudget';
-import { AICoachAdvice, AICoachAdviceError, AICoachAdviceRequest, AICoachAdviceSuccess } from '../src/types/aiCoach';
+import {
+  AICoachAdvice,
+  AICoachAdviceError,
+  AICoachAdviceRequest,
+  AICoachAdviceSuccess,
+  AICoachConversationTurn,
+} from '../src/types/aiCoach';
 
 type ApiRequest = {
   method?: string;
@@ -315,6 +321,43 @@ function parseImageBody(body: unknown): ParsedImageBody | null {
   return { mode: 'table', mediaType: candidate.mediaType, dataBase64: candidate.dataBase64 };
 }
 
+/**
+ * The open conversation, trimmed to what a follow-up actually needs.
+ *
+ * Three exchanges is enough for "entä sitten?" to have an antecedent, and the
+ * cap matters: this rides in the uncached part of every request, so an
+ * unbounded history would be paid for on every turn. Each side is clipped too
+ * — a takeaway is one or two sentences by the rules, and anything longer is a
+ * client that sent more than it should.
+ */
+const MAX_HISTORY_TURNS = 3;
+const MAX_HISTORY_CHARS = 600;
+
+function sanitizeHistory(value: unknown): AICoachConversationTurn[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const clean = value
+    .filter((turn): turn is AICoachConversationTurn => {
+      if (!turn || typeof turn !== 'object') {
+        return false;
+      }
+      const record = turn as Partial<AICoachConversationTurn>;
+      return (
+        typeof record.question === 'string' &&
+        typeof record.takeaway === 'string' &&
+        record.question.trim().length > 0 &&
+        record.takeaway.trim().length > 0
+      );
+    })
+    .map((turn) => ({
+      question: turn.question.trim().slice(0, MAX_HISTORY_CHARS),
+      takeaway: turn.takeaway.trim().slice(0, MAX_HISTORY_CHARS),
+    }));
+  // Oldest first, so the newest exchanges are the ones kept.
+  return clean.slice(-MAX_HISTORY_TURNS);
+}
+
 function parseBody(body: unknown): ParsedBody | null {
   const parsed = typeof body === 'string' ? JSON.parse(body) : body;
   if (!parsed || typeof parsed !== 'object') {
@@ -331,6 +374,7 @@ function parseBody(body: unknown): ParsedBody | null {
     // Repaired, not trusted: a context with fields missing used to reach the
     // preview builder and crash the function on `trackedLifts[0]`.
     context: normalizeAiCoachTrainingContext(candidate.context as Partial<AICoachAdviceRequest['context']>),
+    history: sanitizeHistory(candidate.history),
     language: candidate.language === 'fi' || candidate.language === 'en' ? candidate.language : undefined,
     mode: candidate.mode === 'compose' ? 'compose' : 'advice',
     reporter: typeof candidate.reporter === 'string' && candidate.reporter.length <= 200 ? candidate.reporter : undefined,
@@ -435,7 +479,14 @@ async function requestClaude(input: AICoachAdviceRequest) {
   const contextText = `# Training context\n\n${buildAiCoachSystemContext(input.context)}`;
   const now = Date.now();
   const budget = checkBudget(
-    { promptChars: input.prompt.length, contextChars: contextText.length + COACH_SYSTEM_RULES.length },
+    {
+      // The conversation rides in the prompt half: it is uncached and paid
+      // for on every turn, so it has to be measured with the question.
+      promptChars:
+        input.prompt.length +
+        (input.history ?? []).reduce((total, turn) => total + turn.question.length + turn.takeaway.length, 0),
+      contextChars: contextText.length + COACH_SYSTEM_RULES.length,
+    },
     budgetState,
     now,
     BUDGET_LIMITS,
@@ -498,7 +549,17 @@ async function requestClaude(input: AICoachAdviceRequest) {
           },
         ],
         tool_choice: { type: 'tool', name: ADVICE_TOOL_NAME },
-        messages: [{ role: 'user', content: input.prompt }],
+        // The open conversation as real turns, so "why?" and "and then?" have
+        // something to refer back to. The earlier answers go back as their
+        // takeaway alone — the reasons and steps were shown on screen, and
+        // resending them would pay for the whole answer again every turn.
+        messages: [
+          ...(input.history ?? []).flatMap((turn) => [
+            { role: 'user', content: turn.question },
+            { role: 'assistant', content: turn.takeaway },
+          ]),
+          { role: 'user', content: input.prompt },
+        ],
       }),
       signal: controller.signal,
     });

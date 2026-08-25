@@ -261,7 +261,19 @@ siruna** — sävy riittää.
 1. **6.4** — ei-tiedä-kysymys + `unanswered` palvelimelta (aloitettu 25.8.)
 2. **6.1** — pääsuositus ja ristiriitasääntö
 3. **6.5** — luottamus kontekstifaktana
-4. **Vaihe 2** — smalltalk clientissä + istunnon viestihistoria
+4. ~~**Vaihe 2** — smalltalk clientissä + istunnon viestihistoria~~ **tehty 25.8.**
+   - `coachSmallTalk.ts`: koko viesti on smalltalkia tai ei mitään — ei
+     numeroita, ei kysymysmerkkiä, korkeintaan 4 sanaa, jokainen sanastosta.
+     Väärä positiivinen (oikea kysymys → "ole hyvä") on paljon pahempi kuin
+     ohi mennyt kiitos, joten testit ovat pääosin vääriä positiivisia vastaan.
+     Vastataan **ennen kiintiöporttia**: kiintiön loppuminen ei saa estää
+     valmentajaa kiittämästä takaisin.
+   - `coachConversation.ts`: 3 viimeistä vaihtoa muistissa (ref, ei state —
+     state olisi lähetyshetkellä vuoron jäljessä), mukana pyynnössä oikeina
+     vuoroina. Vain takeaway palaa takaisin: perustelut olivat jo ruudulla
+     eikä koko vastausta kannata maksaa uudelleen joka vuorolla. Historia on
+     pyynnön **välimuistittomassa** puoliskossa, joten se lasketaan budjettiin.
+     Mitään ei talleteta — keskustelu päättyy ruudun mukana.
 5. **Vaihe 3 + 6.3** — suggestions-kenttä, napit ja cooldown samassa
 6. **Vaihe 4** — eval-tapaukset, myös 6.4:lle (kysyykö se silloin kun pitää,
    ja onko se hiljaa silloin kun ei pidä) ja 6.2:lle (tuleeko kaloriluku)
