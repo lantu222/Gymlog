@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
   Pressable,
   ScrollView,
@@ -15,7 +16,8 @@ import { CoachReadoutTicker } from '../components/CoachReadoutTicker';
 import { ProLockedCard } from '../components/ProLockedCard';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
 import { buildAiCoachPreviewAnswer } from '../lib/aiCoachPreview';
-import { FREE_COACH_QUESTIONS_PER_WEEK } from '../lib/aiCoachQuota';
+import { FREE_COACH_QUESTIONS_PER_WEEK, coachQuotaReset } from '../lib/aiCoachQuota';
+import { formatShortDate } from '../lib/format';
 import { CoachChatIntroInput, CoachContextChip, buildCoachContextChips, buildCoachContextReadout, buildCoachNoticed, buildCoachOpeningLine, buildCoachOpeningOffer, buildCoachOpeningRows } from '../lib/coachChat';
 import { coachSmallTalkReplyKey, parseCoachSmallTalk } from '../lib/coachSmallTalk';
 import { appendCoachTurn } from '../lib/coachConversation';
@@ -184,6 +186,23 @@ export function AICoachChatScreen({
    * which, so a canned answer is never mistaken for a coached one.
    */
   const [answeredOffline, setAnsweredOffline] = useState(false);
+  /**
+   * Whether the keyboard is up.
+   *
+   * The composer reserves room for the floating tab bar underneath it. With
+   * the keyboard open that bar is gone, and the reserve became a band of dead
+   * screen between the field and the keys (user, 2026-08-25) — on a phone,
+   * the most expensive space there is.
+   */
+  const [keyboardUp, setKeyboardUp] = useState(false);
+  useEffect(() => {
+    const shown = Keyboard.addListener('keyboardDidShow', () => setKeyboardUp(true));
+    const hidden = Keyboard.addListener('keyboardDidHide', () => setKeyboardUp(false));
+    return () => {
+      shown.remove();
+      hidden.remove();
+    };
+  }, []);
   const online = liveConfigured && !answeredOffline;
 
   const chips = useMemo(() => buildCoachContextChips(intro, language), [intro, language]);
@@ -231,6 +250,10 @@ export function AICoachChatScreen({
 
   const canAsk = proUnlocked || freeQuestionsRemaining > 0;
   const used = FREE_COACH_QUESTIONS_PER_WEEK - Math.max(0, freeQuestionsRemaining);
+  // Recomputed on every render rather than memoized: it is a date read from
+  // the clock, and a chat left open across midnight would otherwise keep
+  // counting from yesterday.
+  const quotaReset = coachQuotaReset();
 
   const scrollToEnd = useCallback(() => {
     requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
@@ -805,10 +828,17 @@ export function AICoachChatScreen({
         </ScrollView>
 
         {!canAsk ? (
-          <Text style={styles.resetNote}>{t(language, 'coachChat.quotaReset')}</Text>
+          <Text style={styles.resetNote}>
+            {quotaReset.inDays === 1
+              ? t(language, 'coachChat.quotaResetTomorrow')
+              : t(language, 'coachChat.quotaResetIn', {
+                  date: formatShortDate(quotaReset.at.toISOString(), language),
+                  count: quotaReset.inDays,
+                })}
+          </Text>
         ) : null}
 
-        <View style={styles.composerWrap}>
+        <View style={[styles.composerWrap, keyboardUp && styles.composerWrapKeyboard]}>
           <View style={[styles.composer, !canAsk && styles.composerSpent]}>
             <TextInput
               value={draft}
@@ -817,8 +847,12 @@ export function AICoachChatScreen({
               placeholderTextColor={theme.faint}
               selectionColor={theme.highlight}
               style={styles.input}
-              onSubmitEditing={() => void send(draft)}
-              returnKeyType="send"
+              // Wraps and grows, like every messaging app the reader already
+              // uses. A single line meant a long question scrolled sideways
+              // out of sight while it was being written. The cap keeps a
+              // pasted paragraph from eating the thread; past it, it scrolls.
+              multiline
+              textAlignVertical="top"
             />
             <Pressable
               accessibilityRole="button"
@@ -1184,10 +1218,17 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     // is why the field sat well above it with dead space underneath.
     paddingBottom: layout.bottomTabBarHeight + spacing.sm,
   },
+  // Keyboard up: the bar it was making room for is not on screen.
+  composerWrapKeyboard: {
+    paddingBottom: spacing.sm,
+  },
   composer: {
-    height: 50,
+    minHeight: 50,
+    maxHeight: 132,
     flexDirection: 'row',
-    alignItems: 'center',
+    // Bottom, not centre: as the field grows the send button stays on the
+    // last line rather than drifting to the middle of a paragraph.
+    alignItems: 'flex-end',
     gap: 10,
     backgroundColor: theme.surface,
     borderWidth: 1,
@@ -1205,6 +1246,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '600',
     color: theme.ink,
     padding: 0,
+    // Android centres a one-line multiline field oddly without this, and the
+    // vertical padding is what keeps a grown field off its own border.
+    paddingVertical: 14,
+    maxHeight: 116,
   },
   sendButton: {
     width: 38,

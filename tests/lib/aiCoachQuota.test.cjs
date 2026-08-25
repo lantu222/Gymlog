@@ -14,6 +14,27 @@ const NEXT_MON = new Date(2026, 6, 27, 0, 5);
 
 module.exports = [
   {
+    name: 'coach quota: the reset says which day it is and how far off, not just "Monday"',
+    run() {
+      const { coachQuotaReset } = require('../../.test-dist/lib/aiCoachQuota.js');
+      const on = (iso) => coachQuotaReset(new Date(`${iso}T12:00:00`));
+
+      // Tuesday: six days to go, not "Monday" with no distance in it.
+      assert.equal(on('2026-08-25').inDays, 6);
+      assert.equal(on('2026-08-25').at.getDay(), 1, 'lands on a Monday');
+      assert.equal(on('2026-08-30').inDays, 1, 'Sunday is one day out');
+
+      // Monday itself: this week's quota is live, so the next reset is the
+      // Monday after — reporting zero would say the questions are back when
+      // they already are.
+      assert.equal(on('2026-08-31').inDays, 7);
+
+      // Counted between local midnights, so late Sunday is still one day.
+      const lateSunday = coachQuotaReset(new Date('2026-08-30T23:55:00'));
+      assert.equal(lateSunday.inDays, 1);
+    },
+  },
+  {
     name: 'coach quota: the week key is the local Monday',
     run() {
       assert.equal(coachQuotaWeekStart(WED), '2026-07-20');
