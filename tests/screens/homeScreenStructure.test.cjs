@@ -60,9 +60,12 @@ module.exports = [
         !fs.existsSync(path.join(__dirname, '..', '..', 'src', 'lib', 'homeGreeting.ts')),
         'homeGreeting.ts is back — if the greeting returns, restore its render too',
       );
-      // The date survived the greeting row and wears the accent
-      // ("Ti 25.08 oranssiksi").
-      assert.match(homeScreenSource, /greetingDate:\s*\{[\s\S]{0,160}color: theme\.highlight/);
+      // The date survived the greeting row. It wore the accent for half a day
+      // ("Ti 25.08 oranssiksi") and went back to ink the same evening — the
+      // user's call both times — with the programme counter now sharing its
+      // row from the hero, so the session title owns a full line.
+      assert.match(homeScreenSource, /greetingDate:\s*\{[\s\S]{0,200}color: theme\.ink/);
+      assert.match(homeScreenSource, /greetingRow[\s\S]{0,700}styles\.heroProg/);
       assert.match(homeScreenSource, /content:\s*\{[\s\S]*paddingTop: 24/);
       // The PRO pill is back, and it reads the entitlement. It was removed for
       // advertising a subscription to people who already paid; that reason
@@ -449,12 +452,14 @@ module.exports = [
         homeScreenSource.indexOf('styles.headerRow') < homeScreenSource.indexOf('styles.weekCard'),
         'header should render before the week card',
       );
+      // 'styles.hero,' with the comma: bare 'styles.hero' would match the
+      // heroProg counter, which lives up on the date row now.
       assert.ok(
-        homeScreenSource.indexOf('styles.weekCard') < homeScreenSource.indexOf('styles.hero'),
+        homeScreenSource.indexOf('styles.weekCard') < homeScreenSource.indexOf('styles.hero,'),
         'week card should render before the session hero',
       );
       assert.ok(
-        homeScreenSource.indexOf('styles.hero') < homeScreenSource.indexOf('styles.heroList'),
+        homeScreenSource.indexOf('styles.hero,') < homeScreenSource.indexOf('styles.heroList'),
         'session hero should render before its flat exercise list',
       );
       assert.ok(

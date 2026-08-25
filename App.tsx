@@ -264,7 +264,6 @@ import { PromoCodeScreen } from './src/screens/PromoCodeScreen';
 import { SubscriptionScreen } from './src/screens/SubscriptionScreen';
 import { MembershipEndScreen } from './src/screens/MembershipEndScreen';
 import { LegalDocumentScreen } from './src/screens/LegalDocumentScreen';
-import { ProOfferScreen } from './src/screens/ProOfferScreen';
 import { AICoachChatScreen } from './src/screens/AICoachChatScreen';
 import { buildCoachContextChips } from './src/lib/coachChat';
 import { isAiCoachLiveConfigured, requestProgrammeComposition, requestProgramTableFromImage } from './src/lib/aiCoachClient';
@@ -556,7 +555,6 @@ function getBackRoute(route: AppRoute, workoutHome: AppRoute): AppRoute | null {
     route.tab === 'home' &&
     (route.screen === 'ai' ||
       route.screen === 'ai_chat' ||
-      route.screen === 'pro_offer' ||
       route.screen === 'ai_setup' ||
       route.screen === 'history' ||
       route.screen === 'session' ||
@@ -2831,8 +2829,8 @@ function VinhaApp() {
     // standalone pro_offer screen, when the sale moved inside onboarding as
     // its last step; then that last step too (user 2026-08-24) — the reader
     // has just been handed a programme, and asking for money in the same
-    // breath is the wrong moment. Both the route and the paywall screen are
-    // left in place and reachable from Profile; neither is reached from here.
+    // breath is the wrong moment. Both orphaned screens were deleted on
+    // 2026-08-25; the Pro page in Profile is where the sale lives.
     resetToRoute(ROOT_ROUTES.home);
   }
 
@@ -5924,14 +5922,6 @@ function VinhaApp() {
         transcriptReporter={accountBackup.state.status === 'signed_in' ? accountBackup.state.email : null}
       />
     );
-  } else if (route.tab === 'home' && route.screen === 'pro_offer') {
-    content = (
-      <ProOfferScreen
-        language={preferences.appLanguage}
-        onContinueFree={() => resetToRoute(ROOT_ROUTES.home)}
-        onSeePro={() => navigate({ tab: 'profile', screen: 'premium' })}
-      />
-    );
   } else if (route.tab === 'home' && route.screen === 'analysis') {
     content = (
       <SessionAnalysisScreen
@@ -6717,12 +6707,10 @@ function VinhaApp() {
     // button — on a paywall, the most expensive space on the screen. The
     // membership screen has the same pinned footer, and there the bar covered
     // the second button outright.
-    !(route.tab === 'profile' && (route.screen === 'premium' || route.screen === 'membership_end')) &&
-    // Third screen with a pinned footer that the floating bar sat on top of —
-    // and the worst of the three, because this one is the post-onboarding
-    // paywall and the bar covered its primary button outright. Any new screen
-    // that pins a CTA to the bottom belongs on this list.
-    !(route.tab === 'home' && route.screen === 'pro_offer');
+    // Any new screen that pins a CTA to the bottom belongs on this list. The
+    // post-onboarding offer was the third entry until the screen was deleted
+    // (2026-08-25) — its bar covered the primary button outright.
+    !(route.tab === 'profile' && (route.screen === 'premium' || route.screen === 'membership_end'));
   const setupOnboardingActive = route.tab === 'profile' && route.screen === 'setup';
   const onboardingScreenActive = onboardingActive || setupOnboardingActive;
   const welcomeActive = onboardingActive && entryFlowActive;

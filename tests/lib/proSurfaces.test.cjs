@@ -10,7 +10,6 @@ const appSource = read('App.tsx');
 const settingsSource = read('src', 'screens', 'SettingsScreen.tsx');
 const premiumSource = read('src', 'screens', 'PremiumScreen.tsx');
 const homeSource = read('src', 'screens', 'HomeScreen.tsx');
-const proOfferSource = read('src', 'screens', 'ProOfferScreen.tsx');
 const i18nSource = read('src', 'lib', 'i18n.ts');
 const unlockSource = read('src', 'screens', 'PremiumUnlockScreen.tsx');
 const guidedSource = read('src', 'screens', 'GuidedPlayerScreen.tsx');
@@ -81,7 +80,7 @@ module.exports = [
       );
       assert.match(gate, /screen === 'premium'/);
       assert.match(gate, /screen === 'membership_end'/);
-      assert.match(gate, /screen === 'pro_offer'/);
+      // pro_offer was the third entry until the screen was deleted (2026-08-25).
     },
   },
   {
@@ -393,7 +392,7 @@ module.exports = [
       );
       assert.doesNotMatch(premiumSource, /pro\.v2\.coach\.adaptive|pro\.v2\.coach\.rest/);
       assert.doesNotMatch(premiumSource, /pro\.v2\.row\.adaptive'/);
-      assert.doesNotMatch(proOfferSource, /proOffer\.pro\.adaptive/);
+      // (The pro-offer screen carried the claim too, until it was deleted.)
 
       const benefits = read('src', 'lib', 'proBenefits.ts');
       assert.doesNotMatch(benefits, /coach\.adaptive|coach\.rest/);
@@ -489,26 +488,22 @@ module.exports = [
     },
   },
   {
-    name: 'the post-onboarding offer states only counts the code can prove',
+    name: 'onboarding ends on the app, and the retired offer screens stay deleted',
     run() {
-      // The two figures are read from the catalog and the library, never typed.
-      // (The onboarding paywall followed the same rule until the screen was
-      // deleted 2026-08-25 — it had been unreachable since onboarding stopped
-      // ending on it.)
-      assert.match(proOfferSource, /WORKOUT_TEMPLATES_V1\.length/);
-      assert.match(proOfferSource, /GENERATED_EXERCISE_LIBRARY\.length/);
-      assert.doesNotMatch(proOfferSource, /'\d+ (ready programs|exercises)/);
-
-      // No trial promise, and continuing free is the primary action.
-      assert.doesNotMatch(proOfferSource, /trial|kokeilu/i);
-      assert.match(proOfferSource, /proOffer\.continueFree/);
-
-      // No longer reached: the Pro sale moved INSIDE onboarding as its last
-      // step (the "GAINER Paywall Sell" design), and keeping this hop would
-      // have put two paywalls back to back. The screen and its route are still
-      // here — unrouted, not deleted — so this asserts the duplication is gone
-      // rather than that the screen is.
-      assert.doesNotMatch(appSource, /resetToRoute\(\{ tab: 'home', screen: 'pro_offer' \}\)/);
+      // Two paywall surfaces used to sit after onboarding: the standalone
+      // pro_offer hop, then the in-onboarding "GAINER Paywall Sell" step.
+      // The user removed the step (2026-08-24), which orphaned both screens,
+      // and both were deleted 2026-08-25. The sale lives on the Pro page.
+      // This keeps them from coming back as unreachable code with guards
+      // dutifully reading their source — which is exactly how they lingered.
+      for (const gone of ['ProOfferScreen.tsx', 'ProPaywallScreen.tsx']) {
+        assert.ok(
+          !fs.existsSync(path.join(__dirname, '..', '..', 'src', 'screens', gone)),
+          `${gone} is back — if a post-onboarding sale returns, route it and re-add its guards`,
+        );
+      }
+      // Route usages only — the seam's history comment may name the screen.
+      assert.doesNotMatch(appSource, /screen === 'pro_offer'|screen: 'pro_offer'/);
     },
   },
   {

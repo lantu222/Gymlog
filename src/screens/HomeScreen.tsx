@@ -683,10 +683,22 @@ export function HomeScreen({
           </View>
 
           {/* The rule and the greeting that sat here are gone (user
-              2026-08-25) — the date stays, in the accent, and it is the one
-              place this screen states it. */}
+              2026-08-25) — the date stays, and it is the one place this
+              screen states it. The programme counter moved up here from the
+              hero row (user, same day): beside the title it took the width
+              the title then truncated for, and this row had a free edge. */}
           <View style={styles.greetingRow}>
             <Text style={styles.greetingDate}>{todayStamp}</Text>
+            {activePlan && nextPlanSession ? (
+              <View style={styles.heroProg}>
+                <Text style={styles.heroProgLabel}>
+                  {t(language, 'home.hero.sessionsProgress', { done: sessionsDone, total: sessionsTotal })}
+                </Text>
+                <View style={styles.heroProgTrack}>
+                  <Animated.View style={[styles.heroProgFill, { width: progressFillWidth }]} />
+                </View>
+              </View>
+            ) : null}
           </View>
         </Animated.View>
 
@@ -978,14 +990,9 @@ export function HomeScreen({
                   ) : null}
                 </Pressable>
                 </View>
-                <View style={styles.heroProg}>
-                  <Text style={styles.heroProgLabel}>
-                    {t(language, 'home.hero.sessionsProgress', { done: sessionsDone, total: sessionsTotal })}
-                  </Text>
-                  <View style={styles.heroProgTrack}>
-                    <Animated.View style={[styles.heroProgFill, { width: progressFillWidth }]} />
-                  </View>
-                </View>
+                {/* The 0/16 counter sat here and cost the title its width —
+                    it lives on the date row now (user 2026-08-25), so the
+                    session name finally owns the whole line. */}
               </View>
 
             </Animated.View>
@@ -1161,7 +1168,9 @@ export function HomeScreen({
               <Text style={styles.programEyebrow}>{t(language, 'programs.activeProgram')}</Text>
               <Text style={styles.programWeek}>{activePlan.weekLabel}</Text>
             </View>
-            <Text style={styles.programTitle} numberOfLines={1}>
+            {/* Two lines: one was the third report of a clipped name on this
+                screen (user 2026-08-25). */}
+            <Text style={styles.programTitle} numberOfLines={2}>
               {activePlan.title}
             </Text>
             <View style={styles.programDays}>
@@ -1848,18 +1857,20 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   // of horizontal padding, so nothing clips.
   greetingRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    // Centred, not baseline: the right side is a two-line stack (counter over
+    // its track), and baseline would hang the date off its first line.
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
     marginTop: 11,
   },
-  // In the accent ("Ti 25.08 oranssiksi" — user 2026-08-25), and a step up in
-  // size now that it holds the row alone.
+  // Back to ink (user 2026-08-25, same day it went orange — the accent is
+  // busy enough on this screen, and the counter now shares the row).
   greetingDate: {
     fontFamily: 'JetBrainsMono-ExtraBold',
     fontSize: 11.5,
     letterSpacing: 1.05,
-    color: theme.highlight,
+    color: theme.ink,
     flexShrink: 0,
   },
   // Two halves behind the label, clipped by the pill's own radius.
