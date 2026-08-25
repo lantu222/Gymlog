@@ -1283,6 +1283,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   sendButton: {
     width: 38,
     height: 38,
+    // The composer aligns its children to the bottom so the button rides the
+    // last line of a grown field — but at one line that parked the arrow low
+    // (user, 2026-08-25). Half the 50-38 slack underneath re-centres it, and
+    // a grown field still keeps the button on its bottom edge.
+    marginBottom: 6,
     borderRadius: 12,
     backgroundColor: theme.highlight,
     alignItems: 'center',
