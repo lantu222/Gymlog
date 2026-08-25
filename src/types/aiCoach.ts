@@ -137,7 +137,15 @@ export interface AICoachHistory {
   schedule: AICoachHistorySchedule | null;
   /** True when older sessions were dropped to keep the payload small. */
   truncated: boolean;
+  /**
+   * How much record the reading rests on — counted here, never judged by the
+   * model. A model asked to rate its own confidence hedges everything; a
+   * number of sessions and a span of days cannot.
+   */
+  confidence: AICoachHistoryConfidence;
 }
+
+export type AICoachHistoryConfidence = 'low' | 'medium' | 'high';
 
 export interface AICoachBodyMeasurementTrend {
   kind: string;

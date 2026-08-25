@@ -177,6 +177,28 @@ module.exports = [
     },
   },
   {
+    name: 'the reading note tells the coach how firmly it may speak',
+    run() {
+      const note = (history) =>
+        buildAiCoachSystemContext(normalizeAiCoachTrainingContext({ history }));
+      const sessions = (count, everyDays) =>
+        Array.from({ length: count }, (_, index) => ({
+          sessionId: `s${index}`,
+          performedAt: new Date(2026, 5, 1 + index * everyDays).toISOString(),
+        }));
+
+      const thin = note({ sessionCount: 2, sessions: sessions(2, 3), windowDays: 56 });
+      assert.ok(thin.includes('not a trend'), 'a short record is named as one');
+
+      const middling = note({ sessionCount: 6, sessions: sessions(6, 4), windowDays: 56 });
+      assert.ok(middling.includes('enough to read a direction'), 'a medium record gets one qualification');
+      assert.ok(!middling.includes('not a trend'));
+
+      const long = note({ sessionCount: 16, sessions: sessions(16, 3), windowDays: 56 });
+      assert.ok(long.includes('Do not hedge'), 'a long record is stated plainly');
+    },
+  },
+  {
     name: 'aiCoachGoals: a payload from an app that predates the primary flag still gets a head',
     run() {
       // Installed apps keep sending the old shape until the reader updates,

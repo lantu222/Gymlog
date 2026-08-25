@@ -136,12 +136,27 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
         'No sessions logged in this window. Do not describe trends, volume, or progress.',
       ])!,
     );
-  } else if (history.sessionCount < 3) {
+  } else if (history.confidence === 'low') {
     // The live eval caught "progress" and "consistent" written over one
     // logged session. A single data point is a fact, not a direction.
     blocks.push(
       section('Reading note', [
         `Only ${history.sessionCount} session${history.sessionCount === 1 ? '' : 's'} in this window: not a trend. Do not describe progress, consistency, or momentum.`,
+      ])!,
+    );
+  } else if (history.confidence === 'medium') {
+    // How sure the record allows the answer to sound. Counted from the log,
+    // never asked of the model — a model rating its own confidence hedges
+    // everything and the hedge stops carrying information.
+    blocks.push(
+      section('Reading note', [
+        `${history.sessionCount} sessions in the last ${history.windowDays} days: enough to read a direction, not enough to call it settled. Qualify the reading once, in the sentence it belongs to — not in front of every claim.`,
+      ])!,
+    );
+  } else {
+    blocks.push(
+      section('Reading note', [
+        `${history.sessionCount} sessions across the last ${history.windowDays} days: a long enough record to state findings plainly. Do not hedge.`,
       ])!,
     );
   }

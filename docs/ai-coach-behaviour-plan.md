@@ -242,6 +242,14 @@ Luottamus lasketaan clientissä siitä mitä jo lasketaan (sessiot ikkunassa,
 mittausten määrä, historian pituus) ja annetaan kontekstiin **faktana**, ei
 arviona: `history.confidence: 'low' | 'medium' | 'high'` sekä luvut joista se
 seuraa. Sitten yksi promptisääntö kääntää tason sallituksi sanamuodoksi.
+
+**Tehty 25.8.** Portaat: alle 3 istuntoa = low (sama raja jonka prompti jo
+tunsi), 12 istuntoa **ja** 42 vuorokauden jänne = high, muu = medium. Ylin
+porras vaatii molemmat, koska kahteen viikkoon ahdetut 12 istuntoa kertovat
+suunnasta vähemmän kuin kuudelle viikolle levitetyt. Taso tulee promptiin
+"Reading note"-osiona, joka sanoo suoraan kuinka lujaa saa puhua; sääntö
+kieltää erikseen oman luottamuksen arvioinnin ja peräkkäiset "näyttää
+siltä" -alut.
 Silloin luottamus ei voi hallusinoitua, koska malli ei keksi sitä.
 
 Alkeismuoto on jo säännöissä ("fewer than three sessions is not a trend");

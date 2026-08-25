@@ -1,7 +1,15 @@
 import { HomeSummary } from './dashboard';
 import { ExerciseProgressSummary } from './progression';
 import { BodyweightEntry, CoachGoal, ExerciseLog, MeasurementEntry, SetupWeekday, UnitPreference, WorkoutSession } from '../types/models';
-import { AICoachBody, AICoachBodyChange, AICoachGoal, AICoachHistory, AICoachProfile, AICoachTrainingContext } from '../types/aiCoach';
+import {
+  AICoachBody,
+  AICoachBodyChange,
+  AICoachGoal,
+  AICoachHistory,
+  AICoachHistoryConfidence,
+  AICoachProfile,
+  AICoachTrainingContext,
+} from '../types/aiCoach';
 import { detectPlateaus } from './progressionAnalyzer';
 import { buildFatigueModel } from './fatigueModel';
 import { buildTrainingHistory, DEFAULT_HISTORY_WINDOW_DAYS } from './trainingHistory';
@@ -92,6 +100,8 @@ export function emptyAiCoachHistory(trainingDays: SetupWeekday[] = []): AICoachH
           }
         : null,
     truncated: false,
+    // Nothing logged is the clearest low there is.
+    confidence: 'low',
   };
 }
 
@@ -201,6 +211,34 @@ export function buildAiCoachGoals(
   return goals;
 }
 
+/**
+ * How much record a reading rests on. Counted from the log, not asked of the
+ * model: self-rated confidence turns into "it seems that" in front of every
+ * sentence, and the hedge stops meaning anything.
+ *
+ * The thresholds continue the rule the prompt already had — three sessions is
+ * where a trend starts — and the top step needs both a count and a stretch of
+ * calendar, because twelve sessions crammed into a fortnight say less about a
+ * direction than the same twelve spread across six weeks.
+ */
+export function resolveHistoryConfidence(sessionCount: number, spanDays: number): AICoachHistoryConfidence {
+  if (sessionCount < 3) {
+    return 'low';
+  }
+  return sessionCount >= 12 && spanDays >= 42 ? 'high' : 'medium';
+}
+
+function historySpanDays(sessions: { performedAt: string }[]): number {
+  if (sessions.length < 2) {
+    return 0;
+  }
+  const times = sessions.map((entry) => new Date(entry.performedAt).getTime()).filter((time) => Number.isFinite(time));
+  if (times.length < 2) {
+    return 0;
+  }
+  return Math.round((Math.max(...times) - Math.min(...times)) / (24 * 60 * 60 * 1000));
+}
+
 function buildHistoryBlock(
   workoutSessions: WorkoutSession[],
   exerciseLogs: ExerciseLog[],
@@ -246,6 +284,7 @@ function buildHistoryBlock(
     weeks: history.weeks,
     schedule: history.adherence,
     truncated: history.sessionCount > sessions.length,
+    confidence: resolveHistoryConfidence(history.sessionCount, historySpanDays(history.sessions)),
   };
 }
 
@@ -365,6 +404,47 @@ export function buildAiTrainingContext({
  * defaults, never a throw. Only shape is repaired here; a present field is
  * trusted as the client sent it.
  */
+/**
+ * The history block, repaired rather than trusted. The renderer walks
+ * `sessions`, `lifts` and `weeks` unconditionally, so a payload that carries a
+ * history without one of them used to throw on the way to the model — an
+ * error where the honest outcome is a thinner answer.
+ */
+function normalizeHistory(input: Partial<AICoachHistory> | null | undefined): AICoachHistory {
+  if (!input || typeof input !== 'object') {
+    return emptyAiCoachHistory();
+  }
+  const empty = emptyAiCoachHistory();
+  const list = <T,>(value: unknown, fallback: T[]): T[] => (Array.isArray(value) ? (value as T[]) : fallback);
+  const sessions = list(input.sessions, empty.sessions);
+  return {
+    windowDays:
+      typeof input.windowDays === 'number' && Number.isFinite(input.windowDays) ? input.windowDays : empty.windowDays,
+    sessionCount:
+      typeof input.sessionCount === 'number' && Number.isFinite(input.sessionCount)
+        ? input.sessionCount
+        : sessions.length,
+    totalVolumeKg:
+      typeof input.totalVolumeKg === 'number' && Number.isFinite(input.totalVolumeKg) ? input.totalVolumeKg : 0,
+    sessions,
+    lifts: list(input.lifts, empty.lifts),
+    weeks: list(input.weeks, empty.weeks),
+    schedule: input.schedule ?? null,
+    truncated: input.truncated === true,
+    // An older app sends a history with no confidence in it. Falling back to
+    // 'low' would tell a reader with a year of training that their record is
+    // too short, so it is recounted from what the payload does carry.
+    confidence:
+      input.confidence ??
+      resolveHistoryConfidence(
+        typeof input.sessionCount === 'number' && Number.isFinite(input.sessionCount)
+          ? input.sessionCount
+          : sessions.length,
+        historySpanDays(sessions),
+      ),
+  };
+}
+
 function withPrimaryGoal(goals: AICoachGoal[]): AICoachGoal[] {
   if (goals.length === 0 || goals.some((goal) => goal.isPrimary === true)) {
     return goals;
@@ -400,8 +480,7 @@ export function normalizeAiCoachTrainingContext(
       sessionCount7d: 0,
       confident: false,
     },
-    history:
-      candidate.history && typeof candidate.history === 'object' ? candidate.history : emptyAiCoachHistory(),
+    history: normalizeHistory(candidate.history),
     plannerSetup: candidate.plannerSetup ?? null,
     body: candidate.body && typeof candidate.body === 'object' ? candidate.body : null,
     // An installed app that predates the primary goal sends goals without the

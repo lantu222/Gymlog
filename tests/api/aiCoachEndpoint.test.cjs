@@ -51,6 +51,19 @@ module.exports = [
     },
   },
   {
+    name: 'confidence is read off the record, never rated by the model',
+    run() {
+      // A model asked how sure it is answers "it seems that" in front of
+      // every sentence. The count is a fact in the context; the rule only
+      // says how to speak given it.
+      assert.match(source, /Reading note" section says how much record the answer rests on/);
+      assert.match(source, /Never rate your own confidence/);
+      // No schema field for it — that would be the self-rating this avoids.
+      const schema = source.slice(source.indexOf('AI_COACH_RESPONSE_SCHEMA'), source.indexOf('COACH_SYSTEM_RULES'));
+      assert.doesNotMatch(schema, /confidence/);
+    },
+  },
+  {
     name: 'one goal leads, and conflicting goals are named rather than averaged',
     run() {
       // Four goals at the same level produced four vague answers. The rules
