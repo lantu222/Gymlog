@@ -92,6 +92,21 @@ module.exports = [
     },
   },
   {
+    name: 'growth advice walks the levers in order, and never repeats itself',
+    run() {
+      // Protein is arithmetic on a logged weight — the cheapest correct
+      // answer, which is why it was becoming the answer to everything (user,
+      // 2026-08-25). The training levers are readable from the log and come
+      // first; food is reached, not defaulted to.
+      assert.match(source, /progression, volume, frequency, food/);
+      assert.match(source, /must not be the default one/);
+      // The conversation travels with the request, so "same question again"
+      // is detectable — and the reply must move, not loop.
+      assert.match(source, /Never repeat advice you already gave in this conversation/);
+      assert.match(source, /the next lever is due/);
+    },
+  },
+  {
     name: 'the coach introduces itself as Vinha, not under the old brand',
     run() {
       // GAINER is another company's EU trademark; the app has been Vinha

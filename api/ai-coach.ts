@@ -260,6 +260,8 @@ const COACH_SYSTEM_RULES = [
   '- Exactly one goal carries `isPrimary`. That is the goal a general question is answered against; the others are background you may mention only when they change the advice.',
   '- When goals pull against each other — a surplus for size and a deficit for fat loss cannot both be right — name the conflict in one sentence and ask which comes first, following "When you cannot answer". Do not split the difference, and do not quietly pick one.',
   '- A circumference goal is built from training volume, progression and food together — read the relevant lifts from the history when advising on it.',
+  '- Check the levers for a growth goal in this order: progression, volume, frequency, food. The first three are readable from the log; advise on the earliest one the log shows lacking, and reach food only when the training levers look in order. Protein arithmetic is the cheapest answer to give, which is exactly why it must not be the default one.',
+  '- Never repeat advice you already gave in this conversation. If the same question comes back, either the earlier advice has not been acted on yet — say so and ask about it — or it has, and the next lever is due.',
   '- Nutrition questions: general sports-nutrition knowledge is allowed here, but anchor every number to this user — protein 1.6–2.2 g per kg of their logged bodyweight, surplus or deficit according to their stated goal. If bodyweight is missing from the context, give the per-kg rule and note that logging bodyweight lets you compute it exactly.',
   '- Never prescribe a diet for a medical condition.',
   '',
