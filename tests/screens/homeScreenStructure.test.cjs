@@ -480,6 +480,16 @@ module.exports = [
         homeScreenSource.indexOf('styles.btnRow') < homeScreenSource.indexOf('styles.emptyWorkoutRow'),
         'Adapt/Start row should render before the empty workout row',
       );
+      // The assembly layer may not abbreviate: a 20-char cap with hand-added
+      // dots in formatHomeSessionTitle cut "Day 1: Full Body + H|IIT" at the
+      // H, and the cut rode through translation onto every surface. Screens
+      // own their own numberOfLines; the card hands over the full name.
+      const titleHelper = appSource.slice(
+        appSource.indexOf('function formatHomeSessionTitle'),
+        appSource.indexOf('function VinhaApp'),
+      );
+      assert.ok(titleHelper.length > 0, 'formatHomeSessionTitle should exist');
+      assert.doesNotMatch(titleHelper, /slice\(0|\.\.\.`|…/, 'the session title must never be abbreviated at assembly');
       assert.match(appSource, /activePlan=\{homeActivePlanCard\}/);
       assert.match(appSource, /const homeRecentSessions = useMemo/);
       assert.match(appSource, /\[\.\.\.workoutSessions\][\s\S]*\.sort/);

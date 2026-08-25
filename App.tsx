@@ -844,7 +844,14 @@ function getExerciseFocusName(name: string) {
 function formatHomeSessionTitle(name: string, exercises: Array<{ name?: string; exerciseName?: string }>) {
   const displayName = formatWorkoutDisplayLabel(name, 'Workout');
   if (!/^(minimal\s+[abc]|workout\s+[abc]|day\s+\d+|session\s+\d+)$/i.test(displayName.trim())) {
-    return displayName.length > 22 ? `${displayName.slice(0, 20).trim()}...` : displayName;
+    // The full name, never sliced. A 20-character cap with hand-appended dots
+    // lived here and cut "Day 1: Full Body + H|IIT" at exactly the H — and
+    // because every surface builds its titles from this one card, the cut
+    // rode through translation onto Home, Profile and the plan screen alike,
+    // surviving three rounds of display fixes and one data-repair built on
+    // the wrong theory (2026-08-25). Screens own their own line counts now;
+    // an assembly layer has no business abbreviating.
+    return displayName;
   }
 
   const primaryName = exercises[0]?.name ?? exercises[0]?.exerciseName ?? '';
