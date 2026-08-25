@@ -128,7 +128,7 @@ import { buildCancelSurveyAnswer } from './src/lib/cancelSurvey';
 import { MOCK_BILLING, nextChargeAt } from './src/lib/subscriptionView';
 import { toProgressionFatigueSignal } from './src/lib/progressionGate';
 import { resolveThemeName } from './src/lib/themePreference';
-import { localizeSessionName, localizeWorkoutFocus } from './src/lib/sessionNameLabel';
+import { localizeSessionFocus, localizeSessionName, localizeWorkoutFocus } from './src/lib/sessionNameLabel';
 
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
 import { buildExerciseHistoryLookup } from './src/lib/workoutEditorTable';
@@ -3660,15 +3660,18 @@ function VinhaApp() {
   // names what comes next.
   const coachChatIntro = useMemo(
     () => ({
+      // Focus, not the ordinal: the coach's line has the day in it already
+      // ("today", "next on the plan"), so "Päivä 1:" pushed the real name past
+      // the edge and it arrived as "Koko keho + H..." (user, 2026-08-25).
       todaySessionTitle:
         homeActivePlanCard?.nextSession && trainsOn(homeTrainingSchedule, new Date())
-          ? localizeSessionName(
+          ? localizeSessionFocus(
               formatWorkoutDisplayLabel(homeActivePlanCard.nextSession.title),
               preferences.appLanguage,
             )
           : null,
       nextSessionTitle: homeActivePlanCard?.nextSession
-        ? localizeSessionName(
+        ? localizeSessionFocus(
             formatWorkoutDisplayLabel(homeActivePlanCard.nextSession.title),
             preferences.appLanguage,
           )

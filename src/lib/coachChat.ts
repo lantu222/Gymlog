@@ -319,11 +319,13 @@ export function buildCoachOpeningOffer(
     };
   }
   if (input.nextSessionTitle && !stalled) {
-    // Rest day: the offer is the NEXT session, and the question says so
-    // instead of calling it today's.
+    // Rest day: the offer is the NEXT session, and both the question and the
+    // button say so. "Walk me through it" on a rest day read as an invitation
+    // to train today — the line said rest and the button said go, and the
+    // button is what a reader believes (user, 2026-08-25).
     return {
       question: t(language, 'coachChat.ask.walkThroughNext', { session: input.nextSessionTitle }),
-      askLabel: t(language, 'coachChat.offer.walkThrough'),
+      askLabel: t(language, 'coachChat.offer.previewNext'),
     };
   }
   if (stalled) {

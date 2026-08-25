@@ -34,7 +34,7 @@ import {
 import { AnimatedGreeting } from '../components/AnimatedGreeting';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
-import { localizeSessionName, localizeWorkoutFocus } from '../lib/sessionNameLabel';
+import { localizeSessionFocus, localizeSessionName, localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { hasFixedWeekdays, resolveSessionWeekday, weekdayCodeForDate, weekdayLabel } from '../lib/planWeekdays';
 import { t } from '../lib/i18n';
 import { ProMomentContent } from '../lib/proInsights';
@@ -1218,7 +1218,9 @@ export function HomeScreen({
                 // the title already states, and cost the title the width it
                 // then truncated for.
                 const weekdayText = weekday ? weekdayLabel(weekday, language) : null;
-                const sessionTitle = localizeSessionName(session.title, language);
+                // The badge already says which day this is; the ordinal in the
+                // name said it again and cost the focus the room to be read.
+                const sessionTitle = localizeSessionFocus(session.title, language);
                 return (
                   <Pressable
                     key={session.id}

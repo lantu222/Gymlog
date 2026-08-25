@@ -206,10 +206,20 @@ module.exports = [
     name: 'a rest day says rest and names the next session, instead of calling it today',
     run() {
       const rest = { todaySessionTitle: null, nextSessionTitle: 'Upper Ma', sessionsThisWeek: 2, weeklyRead: [] };
-      assert.equal(buildCoachOpeningLine(rest, 'fi'), 'Tänään on lepopäivä. Seuraavaksi: Upper Ma. Käydäänkö se läpi?');
+      // Rest is the sentence, not a preamble. The old line buried it in front
+      // of a question that invited training, and a reader took the invitation
+      // for the answer (user, 2026-08-25).
+      assert.equal(
+        buildCoachOpeningLine(rest, 'fi'),
+        'Tänään on lepopäivä — ei nostettavaa. Seuraavana ohjelmassa: Upper Ma.',
+      );
       const offer = buildCoachOpeningOffer(rest, 'fi');
       assert.ok(offer);
       assert.equal(offer.question, 'Käy seuraava treenini Upper Ma läpi.');
+      // The button has to agree with the sentence: "walk me through it" on a
+      // rest day reads as "do it now", and the button is what a reader trusts.
+      assert.equal(offer.askLabel, 'Katso ennakkoon →');
+      assert.notEqual(offer.askLabel, 'Käy läpi →');
       // A training day still says today.
       const today = { todaySessionTitle: 'Upper Ma', nextSessionTitle: 'Upper Ma', sessionsThisWeek: 2, weeklyRead: [] };
       assert.match(buildCoachOpeningLine(today, 'fi'), /on tänään ohjelmassa/);

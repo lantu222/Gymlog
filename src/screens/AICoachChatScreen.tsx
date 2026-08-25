@@ -1024,7 +1024,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 3,
   },
   modeDotOnline: {
-    backgroundColor: theme.highlight,
+    // Green, not the accent. Orange means pressable in this app, and a state
+    // badge is not a button — it promised a tap that does not exist.
+    backgroundColor: theme.green,
   },
   modeDotOffline: {
     // Hollow rather than a second colour: a red light would read as broken,

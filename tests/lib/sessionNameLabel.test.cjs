@@ -7,6 +7,27 @@ const {
 
 module.exports = [
   {
+    name: 'session focus: the ordinal goes where something else already names the day',
+    run() {
+      const { localizeSessionFocus } = require('../../.test-dist/lib/sessionNameLabel.js');
+
+      // The home card carries a MA/TO badge, so "Päivä 1:" said it twice and
+      // cost the focus the width it then truncated for.
+      assert.equal(localizeSessionFocus('Day 1: Full Body', 'fi'), 'Koko keho');
+      assert.equal(localizeSessionFocus('HOME Starter - Day 2: Upper Body', 'fi'), 'Ylävartalo');
+      assert.equal(localizeSessionFocus('Day 1: Full Body', 'en'), 'Full Body');
+
+      // A name with no day in it is just the name.
+      assert.equal(localizeSessionFocus('Bench Day', 'fi'), 'Penkkipäivä');
+
+      // The editor's placeholder has no focus to fall back on, so the ordinal
+      // stays rather than leaving an empty row.
+      assert.equal(localizeSessionFocus('Day 3', 'fi'), 'Päivä 3');
+      assert.equal(localizeSessionFocus('Day 3:', 'fi'), 'Päivä 3');
+      assert.equal(localizeSessionFocus('', 'fi'), '');
+    },
+  },
+  {
     name: 'session names keep the plan brand and translate the structure',
     run() {
       assert.equal(

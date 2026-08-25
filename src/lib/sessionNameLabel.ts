@@ -207,6 +207,33 @@ export function localizeWorkoutFocus(focus: string, language: AppLanguage = 'en'
 }
 
 /**
+ * The session's focus alone: "HOME Starter - Day 1: Full Body" → "Koko keho".
+ *
+ * For rows that already say which day this is. The card on Home carries a
+ * weekday badge, so "Päivä 1:" says it a second time — and the repetition is
+ * not free: it took the width the real name then truncated for, leaving
+ * "Päivä 1: Koko keho + H…" (user, 2026-08-25). The programme name sits above
+ * the list, so the brand in front goes with it.
+ *
+ * A session with no focus at all — "Day 3", the editor's placeholder — keeps
+ * its ordinal, because removing the focus would leave nothing to show.
+ */
+export function localizeSessionFocus(name: string, language: AppLanguage = 'en'): string {
+  const raw = name.trim();
+  const dayMatch = raw.match(/^(.*?)\bDay\s+(\d+)\s*:\s*(.*)$/i);
+  if (!dayMatch) {
+    return localizeSessionName(raw, language);
+  }
+  const focus = dayMatch[3].trim();
+  if (!focus) {
+    // "Day 3:" with nothing after it — the ordinal is all there is, and
+    // handing it back through the full localizer keeps the dangling colon.
+    return language === 'fi' ? `Päivä ${dayMatch[2]}` : `Day ${dayMatch[2]}`;
+  }
+  return localizeWorkoutFocus(focus, language);
+}
+
+/**
  * "HOME Starter - Day 1: Full Body" → "HOME Starter - Päivä 1: Koko keho".
  * The plan name in front is a brand and is never touched.
  */
