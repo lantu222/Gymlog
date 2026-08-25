@@ -19,7 +19,7 @@ const { buildAiCoachPreviewAnswer } = require('../.test-dist/lib/aiCoachPreview.
 const live = process.argv.includes('--live');
 const endpoint = process.env.AI_COACH_API_URL;
 
-async function answerFor(evalCase) {
+async function answerFor(evalCase, retry = false) {
   if (!live) {
     return buildAiCoachPreviewAnswer(evalCase.prompt, evalCase.context, evalCase.language);
   }
@@ -44,7 +44,23 @@ async function answerFor(evalCase) {
   // A fallback answer is not the live coach; scoring it would quietly report
   // the preview's number as if the endpoint had produced it.
   if (!payload.ok) {
-    throw new Error(`${evalCase.id}: endpoint returned ${payload.error?.code ?? 'an error'}`);
+    const code = payload.error?.code ?? 'an error';
+    // A cold function or a slow model call is not a verdict on the prompt.
+    // One blip used to discard the whole run — the cases already answered,
+    // and the money they cost — so a transient failure gets one retry.
+    // A rate limit is not transient on that timescale: retrying immediately
+    // just spends another slot, so it stops the run and says why.
+    if (code === 'RATE_LIMIT') {
+      throw new Error(
+        `${evalCase.id}: rate limited. The endpoint allows 12 requests per 10 minutes per IP, ` +
+          'and a phone on the same network shares them. Wait for the window and run again.',
+      );
+    }
+    if (retry) {
+      throw new Error(`${evalCase.id}: endpoint returned ${code} twice`);
+    }
+    console.warn(`  ${evalCase.id}: ${code}, retrying once`);
+    return answerFor(evalCase, true);
   }
   return payload.answer;
 }
