@@ -282,8 +282,12 @@ siruna** — sävy riittää.
      ehdotusta suodateta jälkikäteen — muuten maksettaisiin ehdotuksesta joka
      heitetään pois. Nappi piirretään vain jos appi osaa sen tehdä: tuntematon
      mitta ja jäsentymätön tavoiteteksti pudotetaan.
-   - **Jäljellä**: `weigh_in_reminder` eli aamupunnitusilmoitus. Vaatii oman
-     ilmoituslajin (`NotificationPrefs` + `notificationPlan.ts` + rivi
-     Asetuksiin), joten se on oma vaiheensa eikä roikkuvana lippuna.
+   - **Osa 2 tehty 25.8.**: `weigh_in_reminder`. Oma ilmoituslaji
+     (`notificationPrefs.weighInReminder`, klo 7.30, 14 vrk kerrallaan koska
+     päivittäinen viesti neljälle viikolle veisi 28 käyttöjärjestelmän 48
+     paikasta), rivi Asetusten ilmoituksiin, ja päivä jolle punnitus on jo
+     kirjattu jää väliin. Prioriteetti heti ennätyksen jälkeen: tämä on ainoa
+     viesti jonka lukija pyytää nimeltä, joten se ei häviä paikkaansa
+     oletuksena päällä olevalle treenimuistutukselle.
 6. **Vaihe 4** — eval-tapaukset, myös 6.4:lle (kysyykö se silloin kun pitää,
    ja onko se hiljaa silloin kun ei pidä) ja 6.2:lle (tuleeko kaloriluku)

@@ -181,6 +181,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
         comebackNudge: true,
         sessionReminders: false,
         reminderTime: '17:30',
+        weighInReminder: false,
         restAlerts: true,
         restWarning: true,
         sessionOngoing: true,

@@ -62,6 +62,12 @@ export interface NotificationPrefs {
   /** Local time of day for session reminders, 24h "HH:MM". */
   reminderTime: string;
   /**
+   * A morning nudge to step on the scale, offered by the coach when a goal
+   * needs weight tracked and it is not on. Off until someone asks for it —
+   * this is the one notification a reader opts into by name.
+   */
+  weighInReminder: boolean;
+  /**
    * Rest & alerts (design: Background Timer). Defaults assume a noisy gym —
    * each is defeatable here, none is a marketing push.
    */

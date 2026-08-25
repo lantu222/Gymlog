@@ -199,6 +199,8 @@ export interface AICoachGoal {
 export interface AICoachHomeState {
   /** Measurement cards currently on Home. */
   pinnedStatCardKeys: string[];
+  /** Whether the morning weigh-in nudge is already switched on. */
+  weighInReminderEnabled: boolean;
   /**
    * Offer kinds that must not be proposed at all right now — already taken up,
    * or turned down recently enough that asking again would be nagging.
@@ -279,7 +281,7 @@ export interface AICoachAdvice {
 }
 
 export interface AICoachSuggestion {
-  kind: 'pin_stat_card' | 'set_goal';
+  kind: 'pin_stat_card' | 'set_goal' | 'weigh_in_reminder';
   /** For pin_stat_card: which measurement's card. */
   statKey?: string | null;
   /**

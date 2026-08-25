@@ -12,7 +12,7 @@
  * sign that explains a sign.
  */
 
-export type CoachSuggestionKind = 'pin_stat_card' | 'set_goal';
+export type CoachSuggestionKind = 'pin_stat_card' | 'set_goal' | 'weigh_in_reminder';
 
 export interface CoachSuggestionRecord {
   /** How many times this kind of offer has been turned down. */
@@ -25,7 +25,7 @@ export interface CoachSuggestionRecord {
 
 export type CoachSuggestionState = Partial<Record<CoachSuggestionKind, CoachSuggestionRecord>>;
 
-export const COACH_SUGGESTION_KINDS: CoachSuggestionKind[] = ['pin_stat_card', 'set_goal'];
+export const COACH_SUGGESTION_KINDS: CoachSuggestionKind[] = ['pin_stat_card', 'set_goal', 'weigh_in_reminder'];
 
 /**
  * A month. Long enough that the second offer feels like a new conversation

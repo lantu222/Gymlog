@@ -87,13 +87,25 @@ module.exports = [
       assert.match(screen, /if \(!isMeasurementIntentKind\(kind\) \|\| pinnedStatCardKeys\.includes\(kind\)\)/);
       assert.match(screen, /parseGoalIntent\(suggestion\.goalText, language\)/);
 
+      // The weigh-in offer is a switch with nothing to carry, and it must not
+      // be offered when it is already on.
+      assert.match(screen, /if \(suggestion\.kind === 'weigh_in_reminder'\) \{[\s\S]*?return weighInReminderEnabled/);
+      // The toggle has to be in the scheduling hook's dependency list, or
+      // turning it on would not re-arm anything until the next cold start.
+      const hook = fs.readFileSync(path.join(__dirname, '../../src/hooks/useScheduledNotifications.ts'), 'utf8');
+      assert.match(hook, /notificationPrefs\.weighInReminder,/);
+      assert.match(hook, /signals\.lastBodyweightAtMs,/);
+
       const endpoint = fs.readFileSync(path.join(__dirname, '../../api/ai-coach.ts'), 'utf8');
       // One offer per answer, and only for what the app state says is missing.
       assert.match(endpoint, /You may offer one action per answer/);
       assert.match(endpoint, /Never offer what is already on/);
       // An unknown kind is dropped rather than passed to a client that would
       // have to draw a button for it.
-      assert.match(endpoint, /if \(candidate\.kind !== 'pin_stat_card' && candidate\.kind !== 'set_goal'\)/);
+      assert.match(
+        endpoint,
+        /candidate\.kind !== 'pin_stat_card' &&\s*\n\s*candidate\.kind !== 'set_goal' &&\s*\n\s*candidate\.kind !== 'weigh_in_reminder'/,
+      );
     },
   },
 ];

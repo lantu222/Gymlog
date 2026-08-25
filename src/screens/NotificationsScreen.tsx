@@ -52,6 +52,7 @@ const TRAINING_TOGGLES: Array<{ key: keyof NotificationPrefs; titleKey: I18nKey;
   { key: 'weeklySummary', titleKey: 'notif.weekly', subKey: 'notif.weeklySub' },
   { key: 'comebackNudge', titleKey: 'notif.comeback', subKey: 'notif.comebackSub' },
   { key: 'sessionReminders', titleKey: 'notif.reminders', subKey: 'notif.remindersSub' },
+  { key: 'weighInReminder', titleKey: 'notif.weighIn', subKey: 'notif.weighInSub' },
 ];
 
 function RadioDot({ on }: { on: boolean }) {

@@ -575,6 +575,10 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
         )
           ? (input!.preferences!.notificationPrefs!.reminderTime as string)
           : fallback.preferences.notificationPrefs.reminderTime,
+        weighInReminder: boolOr(
+          input?.preferences?.notificationPrefs?.weighInReminder,
+          fallback.preferences.notificationPrefs.weighInReminder,
+        ),
         restAlerts: boolOr(input?.preferences?.notificationPrefs?.restAlerts, fallback.preferences.notificationPrefs.restAlerts),
         restWarning: boolOr(input?.preferences?.notificationPrefs?.restWarning, fallback.preferences.notificationPrefs.restWarning),
         sessionOngoing: boolOr(input?.preferences?.notificationPrefs?.sessionOngoing, fallback.preferences.notificationPrefs.sessionOngoing),

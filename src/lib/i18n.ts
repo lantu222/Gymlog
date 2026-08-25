@@ -1627,6 +1627,10 @@ const EN = {
   'notif.msg.weeklyBody': '{count} sessions, {volume} lifted.',
   'notif.msg.weeklyBodyNoVolume': 'Sessions this week: {count}.',
   'notif.msg.recordTitle': 'New personal record',
+  'notif.msg.weighInTitle': 'Morning weigh-in',
+  'notif.msg.weighInBody': 'Same time, same conditions — that is what makes the line readable.',
+  'notif.weighIn': 'Morning weigh-in',
+  'notif.weighInSub': 'A daily nudge to step on the scale before breakfast.',
   'notif.msg.recordBody': 'Yesterday you hit {weight} × {reps} on {exercise}.',
   'notif.footer': 'Vinha keeps notifications off until you turn them on. No streak pressure, no dark patterns.',
   // Home-screen widget. Rendered by the launcher, so every string is finished
@@ -1858,6 +1862,9 @@ const EN = {
   // Small talk is answered here, not by the model: a thank-you used to come
   // back as a full analysis, and it cost one of three free questions a week.
   'coach.smalltalk.thanks.a': 'Any time.',
+  'coachChat.weighIn.offer': 'Want a morning nudge to weigh in? Same time each day is what makes the line readable.',
+  'coachChat.weighIn.on': 'Turn it on',
+  'coachChat.weighIn.done': 'Morning weigh-in is on. You can turn it off in Settings.',
   'coach.smalltalk.thanks.b': 'You are welcome.',
   'coach.smalltalk.farewell.a': 'See you at the next session.',
   'coach.smalltalk.farewell.b': 'Take care — I will be here.',
@@ -5033,6 +5040,10 @@ const FI: Record<I18nKey, string> = {
   'notif.msg.weeklyBody': '{count} treeniä, {volume} nostettu.',
   'notif.msg.weeklyBodyNoVolume': 'Treenejä tällä viikolla: {count}.',
   'notif.msg.recordTitle': 'Uusi ennätys',
+  'notif.msg.weighInTitle': 'Aamupunnitus',
+  'notif.msg.weighInBody': 'Sama aika, samat olosuhteet — vasta siitä syntyy luettava käyrä.',
+  'notif.weighIn': 'Aamupunnitus',
+  'notif.weighInSub': 'Päivittäinen muistutus punnitukseen ennen aamiaista.',
   'notif.msg.recordBody': 'Eilen teit liikkeessä {exercise} {weight} × {reps}.',
   'notif.footer': 'Vinha pitää ilmoitukset pois, kunnes laitat ne päälle. Ei putkipainetta, ei kyseenalaisia kikkoja.',
   'widget.weekday.0': 'Maanantai',
@@ -5250,6 +5261,9 @@ const FI: Record<I18nKey, string> = {
   // Keskustelufraasit vastataan täällä, ei mallilla: "kiitos" tuotti ennen
   // täyden analyysin ja söi yhden kolmesta ilmaisesta kysymyksestä.
   'coach.smalltalk.thanks.a': 'Ole hyvä.',
+  'coachChat.weighIn.offer': 'Laitetaanko aamumuistutus punnitukseen? Sama kellonaika joka päivä tekee käyrästä luettavan.',
+  'coachChat.weighIn.on': 'Laita päälle',
+  'coachChat.weighIn.done': 'Aamupunnitus on päällä. Voit ottaa sen pois Asetuksista.',
   'coach.smalltalk.thanks.b': 'Eipä kestä.',
   'coach.smalltalk.farewell.a': 'Nähdään seuraavassa treenissä.',
   'coach.smalltalk.farewell.b': 'Moi — olen täällä kun tarvitset.',

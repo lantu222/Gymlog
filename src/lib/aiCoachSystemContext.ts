@@ -210,6 +210,7 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
         'Cards on Home',
         home.pinnedStatCardKeys.length > 0 ? home.pinnedStatCardKeys.join(', ') : 'none',
       ),
+      line('Morning weigh-in reminder', home.weighInReminderEnabled ? 'on' : 'off'),
       home.silencedSuggestions.length > 0
         ? line('Do not offer', `${home.silencedSuggestions.join(', ')} — already handled or declined`)
         : null,

@@ -3591,6 +3591,7 @@ function VinhaApp() {
         // an offer for something already on is the sign explaining a sign.
         homeState: {
           pinnedStatCardKeys: homePinnedStatCardKeys,
+          weighInReminderEnabled: preferences.notificationPrefs.weighInReminder,
           silencedSuggestions: silencedSuggestionKinds(preferences.coachSuggestionState),
         },
         plannerSetup: preferences.aiSetupCompleted
@@ -3629,6 +3630,7 @@ function VinhaApp() {
       preferences.primaryGoalId,
       homePinnedStatCardKeys,
       preferences.coachSuggestionState,
+      preferences.notificationPrefs.weighInReminder,
       preferences.bodyweightGoalKg,
       preferences.setupHeightCm,
       preferences.setupAge,
@@ -5955,6 +5957,12 @@ function VinhaApp() {
             primaryGoalId: id,
           });
         }}
+        weighInReminderEnabled={preferences.notificationPrefs.weighInReminder}
+        onEnableWeighInReminder={() =>
+          void updatePreferences({
+            notificationPrefs: { ...preferences.notificationPrefs, weighInReminder: true },
+          })
+        }
         onCoachSuggestionResolved={(kind, accepted) =>
           void updatePreferences({
             coachSuggestionState: accepted

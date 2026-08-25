@@ -89,6 +89,9 @@ interface AICoachChatScreenProps {
    * whichever way the reader answered.
    */
   onCoachSuggestionResolved: (kind: CoachSuggestionKind, accepted: boolean) => void;
+  /** Whether the morning weigh-in nudge is already on, so it is never offered twice. */
+  weighInReminderEnabled: boolean;
+  onEnableWeighInReminder: () => void;
   /** TEMPORARY: the signed-in email, attached to the development transcript log. */
   transcriptReporter: string | null;
 }
@@ -105,7 +108,9 @@ interface ChatMessage {
     // Only the kind is ever read, and a coach-proposed card has no reading
     // behind it — asking for a value here would mean inventing one.
     | { type: 'pin'; intent: Pick<MeasurementIntent, 'kind'> }
-    | { type: 'goal'; intent: GoalIntent };
+    | { type: 'goal'; intent: GoalIntent }
+    // Nothing to carry: the offer is the switch itself.
+    | { type: 'weighIn' };
   /**
    * Set when the coach proposed this rather than the typed message. Only those
    * count towards the cooldown: it exists to stop the coach nagging.
@@ -147,6 +152,8 @@ export function AICoachChatScreen({
   onPinStatCard,
   onSetGoal,
   onCoachSuggestionResolved,
+  weighInReminderEnabled,
+  onEnableWeighInReminder,
   transcriptReporter,
 }: AICoachChatScreenProps) {
   const theme = useTheme();
@@ -249,6 +256,17 @@ export function AICoachChatScreen({
         setMessages((current) => current.filter((message) => message.id !== messageId));
         return;
       }
+      if (offer.type === 'weighIn') {
+        onEnableWeighInReminder();
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === messageId
+              ? { id: `${messageId}:done`, fromCoach: true, text: t(language, 'coachChat.weighIn.done') }
+              : message,
+          ),
+        );
+        return;
+      }
       if (offer.type === 'goal') {
         await onSetGoal(offer.intent);
         setMessages((current) =>
@@ -286,7 +304,17 @@ export function AICoachChatScreen({
         ),
       );
     },
-    [formatReading, language, measurementLabel, onCoachSuggestionResolved, onLogMeasurement, onPinStatCard, onSetGoal, pinnedStatCardKeys],
+    [
+      formatReading,
+      language,
+      measurementLabel,
+      onCoachSuggestionResolved,
+      onEnableWeighInReminder,
+      onLogMeasurement,
+      onPinStatCard,
+      onSetGoal,
+      pinnedStatCardKeys,
+    ],
   );
 
   const send = useCallback(
@@ -398,6 +426,17 @@ export function AICoachChatScreen({
           if (!suggestion) {
             return null;
           }
+          if (suggestion.kind === 'weigh_in_reminder') {
+            return weighInReminderEnabled
+              ? null
+              : {
+                  id: `suggest:${token}`,
+                  fromCoach: true,
+                  text: '',
+                  offer: { type: 'weighIn' as const },
+                  suggestionKind: 'weigh_in_reminder' as const,
+                };
+          }
           if (suggestion.kind === 'pin_stat_card') {
             const kind = suggestion.statKey ?? '';
             if (!isMeasurementIntentKind(kind) || pinnedStatCardKeys.includes(kind)) {
@@ -451,7 +490,18 @@ export function AICoachChatScreen({
         }
       }
     },
-    [asking, canAsk, language, mustAcknowledgeOnline, onFreeQuestionUsed, pinnedStatCardKeys, proUnlocked, sessionCount, trainingContext],
+    [
+      asking,
+      canAsk,
+      language,
+      mustAcknowledgeOnline,
+      onFreeQuestionUsed,
+      pinnedStatCardKeys,
+      proUnlocked,
+      sessionCount,
+      trainingContext,
+      weighInReminderEnabled,
+    ],
   );
 
   return (
@@ -548,7 +598,9 @@ export function AICoachChatScreen({
               <View key={message.id} style={styles.bubbleRow}>
                 <View style={[styles.coachBubble, styles.offerBubble]}>
                   <Text style={styles.coachText}>
-                    {message.offer.type === 'goal'
+                    {message.offer.type === 'weighIn'
+                      ? t(language, 'coachChat.weighIn.offer')
+                      : message.offer.type === 'goal'
                       ? t(language, 'coachChat.goal.offer', { text: message.offer.intent.text })
                       : message.offer.type === 'log'
                         ? t(language, 'coachChat.measure.offer', { reading: formatReading(message.offer.intent) })
@@ -584,11 +636,13 @@ export function AICoachChatScreen({
                       <Text style={styles.offerCtaText}>
                         {t(
                           language,
-                          message.offer.type === 'goal'
-                            ? 'coachChat.goal.set'
-                            : message.offer.type === 'log'
-                              ? 'coachChat.measure.log'
-                              : 'coachChat.measure.pin',
+                          message.offer.type === 'weighIn'
+                            ? 'coachChat.weighIn.on'
+                            : message.offer.type === 'goal'
+                              ? 'coachChat.goal.set'
+                              : message.offer.type === 'log'
+                                ? 'coachChat.measure.log'
+                                : 'coachChat.measure.pin',
                         )}
                       </Text>
                     </Pressable>

@@ -195,9 +195,9 @@ const AI_COACH_RESPONSE_SCHEMA = {
       properties: {
         kind: {
           type: 'string',
-          enum: ['pin_stat_card', 'set_goal'],
+          enum: ['pin_stat_card', 'set_goal', 'weigh_in_reminder'],
           description:
-            'pin_stat_card: put a measurement card on the home screen. set_goal: save the goal the reader described in their own words.',
+            'pin_stat_card: put a measurement card on the home screen. set_goal: save the goal the reader described in their own words. weigh_in_reminder: switch on a morning nudge to weigh in, when the goal needs weight tracked and it is off.',
         },
         statKey: {
           type: 'string',
@@ -478,7 +478,11 @@ function validateSuggestion(value: unknown): AICoachSuggestion | null {
     return null;
   }
   const candidate = value as Partial<AICoachSuggestion>;
-  if (candidate.kind !== 'pin_stat_card' && candidate.kind !== 'set_goal') {
+  if (
+    candidate.kind !== 'pin_stat_card' &&
+    candidate.kind !== 'set_goal' &&
+    candidate.kind !== 'weigh_in_reminder'
+  ) {
     return null;
   }
   return {
