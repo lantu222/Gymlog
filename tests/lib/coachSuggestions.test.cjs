@@ -129,10 +129,28 @@ module.exports = [
       assert.match(hook, /notificationPrefs\.weighInReminder,/);
       assert.match(hook, /signals\.lastBodyweightAtMs,/);
 
+      // "Painan 69,2 kg — pystytkö lisäämään sen?" was answered with "I
+      // cannot log it for you" by a reply that could have carried the button
+      // that does. A stated value now travels on the suggestion and the
+      // button logs it in one tap; the unit must fit the measurement, so a
+      // bodyweight in centimetres is dropped rather than drawn.
+      assert.match(screen, /kind === 'bodyweight' \? suggestion\.unit === 'kg' : suggestion\.unit === 'cm' \|\| suggestion\.unit === '%'/);
+      assert.match(screen, /type: 'log' as const,/);
+      const endpointSrc = fs.readFileSync(path.join(__dirname, '../../api/ai-coach.ts'), 'utf8');
+      // The server refuses to forward garbage a button would then write.
+      assert.match(endpointSrc, /candidate\.value > 0 && candidate\.value < 1000/);
+      // And the rules forbid the dead promise outright.
+      assert.match(endpointSrc, /Never say you will open, log, or set anything/);
+      assert.match(endpointSrc, /attach log_measurement with statKey, value and unit/);
+
       // The reading is the thing the coach does not have, so the offer opens
       // the page rather than pretending to log a number it invented.
       assert.match(screen, /if \(suggestion\.kind === 'log_measurement'\)/);
-      assert.match(screen, /if \(!isMeasurementIntentKind\(kind\) \|\| measured\)/);
+      // Split now: the kind gate first, the already-measured gate only on the
+      // open-page path — a stated value may still be logged for a measured
+      // site, because a new reading is the point.
+      assert.match(screen, /if \(!isMeasurementIntentKind\(kind\)\)/);
+      assert.match(screen, /if \(measured\)/);
       assert.match(app, /onOpenMeasure=\{\(kind\) =>/);
       assert.match(app, /section: 'measures', measure: kind/);
       // Bodyweight has its own screen; sending it to the measures section

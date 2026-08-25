@@ -208,6 +208,16 @@ const AI_COACH_RESPONSE_SCHEMA = {
           description:
             'For set_goal only: the goal in the words and language the reader used, with the target if they gave one — "kasvattaa rinnanympärystä 104 cm". The app parses it, and drops the offer if it cannot.',
         },
+        value: {
+          type: 'number',
+          description:
+            'For log_measurement, when the reader stated the number: the value, so the button logs it in one tap. Omit when no number was given — the button opens the recording page instead.',
+        },
+        unit: {
+          type: 'string',
+          enum: ['cm', 'kg', '%'],
+          description: 'For log_measurement with a value: the unit of that value.',
+        },
       },
     },
   },
@@ -269,6 +279,8 @@ const COACH_SYSTEM_RULES = [
   '- You may offer one action per answer, in `suggestion`, and only when the conversation led there — an offer bolted onto an unrelated answer is an advert.',
   '- Offer only what the App state section shows is missing. Never offer what is already on, and never offer a kind listed under "Do not offer": the reader has answered that question.',
   '- Most answers carry no suggestion at all. Leave it out unless it clearly helps.',
+  '- You cannot open screens, write entries, or change anything yourself — the suggestion button under your answer is the only hand you have. Never say you will open, log, or set anything: attach the suggestion and say what the button under the answer does.',
+  '- When the reader asks you to record a number they stated — a bodyweight, a measurement — attach log_measurement with statKey, value and unit, and tell them the button below logs it. When they should record something but gave no number, attach log_measurement without a value: the button opens the recording page.',
   '',
   '# Saying less',
   '- Silence is a valid output. When there is nothing worth saying, say the small true thing rather than manufacturing an insight.',
@@ -531,6 +543,13 @@ function validateSuggestion(value: unknown): AICoachSuggestion | null {
     kind: candidate.kind,
     statKey: typeof candidate.statKey === 'string' && candidate.statKey.trim() ? candidate.statKey.trim() : null,
     goalText: typeof candidate.goalText === 'string' && candidate.goalText.trim() ? candidate.goalText.trim().slice(0, 200) : null,
+    // A reading is a small positive number. Anything outside that is a
+    // malformed offer, and a button that would log garbage is dropped whole.
+    value:
+      typeof candidate.value === 'number' && Number.isFinite(candidate.value) && candidate.value > 0 && candidate.value < 1000
+        ? candidate.value
+        : null,
+    unit: candidate.unit === 'cm' || candidate.unit === 'kg' || candidate.unit === '%' ? candidate.unit : null,
   };
 }
 

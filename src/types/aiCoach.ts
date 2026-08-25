@@ -290,6 +290,15 @@ export interface AICoachSuggestion {
    * parse — a button that cannot carry out what it says is worse than none.
    */
   goalText?: string | null;
+  /**
+   * For log_measurement: the value the reader stated, so the button can write
+   * it in one tap. "Painan 69,2 kg — pystytkö lisäämään sen?" used to get the
+   * answer "I cannot log it for you", from a coach whose reply could have
+   * carried the button that does (user, 2026-08-25). Without a value the
+   * button opens the recording page instead.
+   */
+  value?: number | null;
+  unit?: 'cm' | 'kg' | '%' | null;
 }
 
 /**

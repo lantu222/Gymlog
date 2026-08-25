@@ -487,10 +487,33 @@ export function AICoachChatScreen({
           }
           if (suggestion.kind === 'log_measurement') {
             const kind = suggestion.statKey ?? '';
-            // Never offered for something already measured: the point is the
-            // reading the record does not have.
+            if (!isMeasurementIntentKind(kind)) {
+              return null;
+            }
+            // With the value the reader stated, the button writes the entry in
+            // one tap — the coach was answering "I cannot log it for you" to a
+            // request its own reply could have carried the button for
+            // (user, 2026-08-25). The unit must fit the measurement: kilograms
+            // belong to bodyweight, centimetres and percentages to the tape.
+            const unitFits =
+              kind === 'bodyweight' ? suggestion.unit === 'kg' : suggestion.unit === 'cm' || suggestion.unit === '%';
+            if (typeof suggestion.value === 'number' && Number.isFinite(suggestion.value) && suggestion.value > 0 && unitFits) {
+              return {
+                id: `suggest:${token}`,
+                fromCoach: true,
+                text: '',
+                offer: {
+                  type: 'log' as const,
+                  intent: { kind, value: suggestion.value, unit: suggestion.unit as 'cm' | 'kg' | '%' },
+                },
+                suggestionKind: 'log_measurement' as const,
+              };
+            }
+            // No value: the offer opens the recording page — but never for
+            // something already measured, since the point is the reading the
+            // record does not have.
             const measured = (trainingContext.body?.measurements ?? []).some((entry) => entry.kind === kind);
-            if (!isMeasurementIntentKind(kind) || measured) {
+            if (measured) {
               return null;
             }
             return {
