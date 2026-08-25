@@ -50,7 +50,7 @@ function publisher(): string {
 }
 
 /** Bumped whenever the wording changes in a way a user should re-read. */
-export const LEGAL_LAST_UPDATED = '2026-08-23';
+export const LEGAL_LAST_UPDATED = '2026-08-25';
 
 export type LegalDocumentId = 'privacy' | 'terms';
 
@@ -75,7 +75,7 @@ const PRIVACY_EN: LegalSection[] = [
   {
     heading: 'The short version',
     body: [
-      'Vinha keeps your training data on your phone. There is no behavioural analytics and no tracking. We do not see your workouts, and we cannot — nothing is uploaded unless you turn on the AI coach in its online mode, and even then only training numbers are sent, never your identity.',
+      'Vinha keeps your training data on your phone. We do not see your workouts, and we cannot — nothing about their content is uploaded unless you turn on the AI coach in its online mode, and even then only training numbers are sent, never your identity. The app does send anonymous usage statistics (which screens were reached, never what was in them), described in their own section below.',
       'If you uninstall the app, that data is gone from the phone. The only copies that can exist elsewhere are the one your own Google account keeps in Android backup, if you have that turned on, and the optional cloud backup described below — which exists only if you chose to sign in, and which you can delete from Settings at any time.',
     ],
   },
@@ -103,6 +103,7 @@ const PRIVACY_EN: LegalSection[] = [
     heading: 'Where it is stored',
     body: [
       'In the app’s local storage on your device, under three keys — one for your training log, one for the workout you have in progress, and one small one for your settings. If you sign in for cloud backup, a fourth small key holds your account identity (Google id, email, last backup time). Apart from the optional cloud backup below, nothing is synced to a server we run, and we have no way to read your device remotely.',
+      'A fifth small key holds the outgoing queue of the anonymous usage events described below — event names and timestamps, nothing more — until they are sent.',
       'If the app ever finds that storage unreadable, it moves the damaged copy aside under a third key instead of deleting it, and starts a fresh one — so a broken file is not the same thing as a lost training log. That copy stays on your device like everything else, and erasing the app’s data removes it too.',
       'Android backup is switched on for this app. That means your device can copy Vinha’s local data — your training log, bodyweight and measurement entries, programmes and settings — into the backup of your own Google account, so a new phone can restore it. Unless you sign in for the optional cloud backup below, this is the only way your history survives changing devices.',
       'That copy is between you and Google. We never see it, we cannot read it, and nothing is sent to any server we run. Google encrypts it, and on current Android versions the key is tied to your device PIN. You can switch it off at any time in Android settings under Google → Backup, and Vinha keeps working exactly the same.',
@@ -120,13 +121,22 @@ const PRIVACY_EN: LegalSection[] = [
     ],
   },
   {
+    heading: 'Usage statistics',
+    body: [
+      'To see whether the app works — for example, whether some step of the setup is so hard that people give up there — the app sends anonymous usage events to our own server: things like "setup step 3 reached", "a workout was completed", "the coach was asked a question".',
+      'Each install gets a random identifier, generated on your phone. It is not connected to your name, email, account or any advertising identity, and it resets if you reinstall the app.',
+      'The events carry no content: never an exercise name, a weight, a measurement or anything you typed. The full list of events is fixed in the app code, and the server refuses anything outside it.',
+      'These events go to the same server as the AI coach traffic and nowhere else. They are not shared, not sold, and not used for advertising.',
+    ],
+  },
+  {
     heading: 'What the app does not do',
     bullets: [
-      'No analytics, telemetry or crash reporting. The app measures nothing about you.',
+      'No third-party analytics and no crash-reporting SDKs. The only usage data is the anonymous statistics described above, sent to our own server and no one else.',
       'No advertising and no ad networks.',
       'No third-party trackers or social SDKs.',
       'No advertising profile, and no identity attached to your training. Signing in and entering a competition are the only features that need an account, and they collect only what they need to work.',
-      'No access to location, contacts, camera, photos, microphone or your files.',
+      'No access to location, contacts, microphone or your files. Photos are opened only when you yourself pick an image to import a program from, and only that image is read.',
       'Your data is never sold, rented or shared. There is no one to share it with.',
     ],
   },
@@ -172,7 +182,7 @@ const PRIVACY_FI: LegalSection[] = [
   {
     heading: 'Lyhyesti',
     body: [
-      'Vinha pitää treenitietosi puhelimessasi. Ei käyttäytymisanalytiikkaa eikä seurantaa. Emme näe treenejäsi emmekä voi nähdä — mitään ei lähetetä mihinkään, ellet ota AI-valmentajaa käyttöön verkkotilassa, ja silloinkin lähtee vain treeninumeroita, ei henkilöllisyyttäsi.',
+      'Vinha pitää treenitietosi puhelimessasi. Emme näe treenejäsi emmekä voi nähdä — niiden sisällöstä ei lähde mitään, ellet ota AI-valmentajaa käyttöön verkkotilassa, ja silloinkin lähtee vain treeninumeroita, ei henkilöllisyyttäsi. Sovellus lähettää nimettömiä käyttötilastoja (mille ruuduille päästiin, ei koskaan mitä niissä oli) — ne kuvataan omassa osiossaan alla.',
       'Jos poistat sovelluksen, tiedot katoavat puhelimesta. Muualla voi olla kaksi kopiota: oman Google-tilisi Android-varmuuskopio, jos se on käytössä, ja alla kuvattu vapaaehtoinen pilvivarmuuskopio — joka on olemassa vain jos valitsit kirjautumisen, ja jonka voit poistaa asetuksista milloin tahansa.',
     ],
   },
@@ -199,6 +209,7 @@ const PRIVACY_FI: LegalSection[] = [
   {
     heading: 'Missä tiedot ovat',
     body: [
+      'Pieni oma avain säilyttää alla kuvattujen nimettömien käyttötapahtumien lähtöjonon — tapahtumanimiä ja aikaleimoja, ei muuta — kunnes ne on lähetetty.',
       'Sovelluksen paikallisessa tallennustilassa laitteellasi, kolmen avaimen alla — yksi treenilokille, yksi kesken olevalle treenille ja yksi pieni asetuksille. Jos kirjaudut pilvivarmuuskopioon, neljäs pieni avain säilyttää tilitietosi (Google-tunniste, sähköposti, viimeisin varmuuskopiohetki). Alla kuvattua vapaaehtoista pilvivarmuuskopiota lukuun ottamatta mitään ei synkronoida meidän palvelimellemme, eikä meillä ole keinoa lukea laitettasi etänä.',
       'Jos sovellus joskus toteaa tallennuksen lukukelvottomaksi, se siirtää vaurioituneen kopion sivuun kolmannen avaimen alle sen sijaan että poistaisi sen, ja aloittaa uuden — rikkoutunut tiedosto ei ole sama asia kuin menetetty treeniloki. Kopio pysyy laitteellasi kuten kaikki muukin, ja sovelluksen tietojen poistaminen poistaa myös sen.',
       'Androidin varmuuskopiointi on tälle sovellukselle päällä. Se tarkoittaa, että laitteesi voi kopioida Vinhan paikallisen datan — treenilokin, paino- ja mittamerkinnät, ohjelmat ja asetukset — oman Google-tilisi varmuuskopioon, jotta uusi puhelin voi palauttaa ne. Ellet kirjaudu alla kuvattuun vapaaehtoiseen pilvivarmuuskopioon, tämä on ainoa tapa jolla historiasi selviää laitteen vaihdosta.',
@@ -217,13 +228,22 @@ const PRIVACY_FI: LegalSection[] = [
     ],
   },
   {
+    heading: 'Käyttötilastot',
+    body: [
+      'Jotta näemme toimiiko sovellus — esimerkiksi onko jokin käyttöönoton vaihe niin vaikea että siihen jäädään — sovellus lähettää nimettömiä käyttötapahtumia omalle palvelimellemme: esimerkiksi "käyttöönoton vaihe 3 saavutettu", "treeni kirjattiin", "valmentajalta kysyttiin".',
+      'Jokainen asennus saa satunnaisen tunnisteen, joka luodaan puhelimessasi. Sitä ei ole kytketty nimeesi, sähköpostiisi, tiliisi eikä mainostunnisteisiin, ja se nollautuu jos asennat sovelluksen uudelleen.',
+      'Tapahtumissa ei ole sisältöä: ei koskaan liikkeen nimeä, painoa, mittaa tai mitään kirjoittamaasi. Tapahtumien lista on kiinnitetty sovelluksen koodiin, ja palvelin hylkää kaiken sen ulkopuolisen.',
+      'Tapahtumat menevät samalle palvelimelle kuin AI-valmentajan liikenne eivätkä mihinkään muualle. Niitä ei jaeta, ei myydä eikä käytetä mainontaan.',
+    ],
+  },
+  {
     heading: 'Mitä sovellus ei tee',
     bullets: [
-      'Ei analytiikkaa, telemetriaa eikä kaatumisraportointia. Sovellus ei mittaa sinusta mitään.',
+      'Ei kolmannen osapuolen analytiikkaa eikä kaatumisraportointi-SDK:ita. Ainoa käyttödata on alla kuvatut nimettömät tilastot, jotka menevät omalle palvelimellemme eikä kenellekään muulle.',
       'Ei mainoksia eikä mainosverkostoja.',
       'Ei kolmannen osapuolen seurantaa eikä sosiaalisen median SDK:ita.',
       'Ei mainosprofiilia eikä henkilöllisyyttä kiinnitettynä treeneihisi. Kirjautuminen ja kilpailuun osallistuminen ovat ainoat toiminnot jotka tarvitsevat tilin, ja ne keräävät vain sen mitä toimiakseen tarvitsevat.',
-      'Ei pääsyä sijaintiin, yhteystietoihin, kameraan, kuviin, mikrofoniin tai tiedostoihisi.',
+      'Ei pääsyä sijaintiin, yhteystietoihin, mikrofoniin tai tiedostoihisi. Kuvia avataan vain kun itse valitset kuvan ohjelman tuontia varten, ja vain se kuva luetaan.',
       'Tietojasi ei myydä, vuokrata eikä jaeta. Ei ole ketään kenelle jakaa.',
     ],
   },

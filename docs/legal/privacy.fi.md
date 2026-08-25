@@ -1,12 +1,12 @@
 # Tietosuojaseloste
 
-*Päivitetty 23.8.2026*
+*Päivitetty 25.8.2026*
 
 Mitä Vinha tallentaa, missä se pysyy ja mikä ei koskaan lähde puhelimestasi.
 
 ## Lyhyesti
 
-Vinha pitää treenitietosi puhelimessasi. Ei käyttäytymisanalytiikkaa eikä seurantaa. Emme näe treenejäsi emmekä voi nähdä — mitään ei lähetetä mihinkään, ellet ota AI-valmentajaa käyttöön verkkotilassa, ja silloinkin lähtee vain treeninumeroita, ei henkilöllisyyttäsi.
+Vinha pitää treenitietosi puhelimessasi. Emme näe treenejäsi emmekä voi nähdä — niiden sisällöstä ei lähde mitään, ellet ota AI-valmentajaa käyttöön verkkotilassa, ja silloinkin lähtee vain treeninumeroita, ei henkilöllisyyttäsi. Sovellus lähettää nimettömiä käyttötilastoja (mille ruuduille päästiin, ei koskaan mitä niissä oli) — ne kuvataan omassa osiossaan alla.
 
 Jos poistat sovelluksen, tiedot katoavat puhelimesta. Muualla voi olla kaksi kopiota: oman Google-tilisi Android-varmuuskopio, jos se on käytössä, ja alla kuvattu vapaaehtoinen pilvivarmuuskopio — joka on olemassa vain jos valitsit kirjautumisen, ja jonka voit poistaa asetuksista milloin tahansa.
 
@@ -27,6 +27,8 @@ Kaikki alla oleva on joko sinun syöttämääsi tai sovelluksen laskemaa sinun s
 - Ostotila: onko Pro voimassa, ja käytetty kampanjakoodi jos sellaisen syötit.
 
 ## Missä tiedot ovat
+
+Pieni oma avain säilyttää alla kuvattujen nimettömien käyttötapahtumien lähtöjonon — tapahtumanimiä ja aikaleimoja, ei muuta — kunnes ne on lähetetty.
 
 Sovelluksen paikallisessa tallennustilassa laitteellasi, kolmen avaimen alla — yksi treenilokille, yksi kesken olevalle treenille ja yksi pieni asetuksille. Jos kirjaudut pilvivarmuuskopioon, neljäs pieni avain säilyttää tilitietosi (Google-tunniste, sähköposti, viimeisin varmuuskopiohetki). Alla kuvattua vapaaehtoista pilvivarmuuskopiota lukuun ottamatta mitään ei synkronoida meidän palvelimellemme, eikä meillä ole keinoa lukea laitettasi etänä.
 
@@ -50,13 +52,23 @@ Verkkotila: kun versio ottaa sen käyttöön, kysymyksesi ja numeerinen yhteenve
 
 Sovellus kertoo sinulle kun avaat valmentajan ensimmäisen kerran verkkotilassa — ennen kuin yhtään kysymystä lähetetään, eikä mitään lähde ennen kuin olet lukenut ilmoituksen.
 
+## Käyttötilastot
+
+Jotta näemme toimiiko sovellus — esimerkiksi onko jokin käyttöönoton vaihe niin vaikea että siihen jäädään — sovellus lähettää nimettömiä käyttötapahtumia omalle palvelimellemme: esimerkiksi "käyttöönoton vaihe 3 saavutettu", "treeni kirjattiin", "valmentajalta kysyttiin".
+
+Jokainen asennus saa satunnaisen tunnisteen, joka luodaan puhelimessasi. Sitä ei ole kytketty nimeesi, sähköpostiisi, tiliisi eikä mainostunnisteisiin, ja se nollautuu jos asennat sovelluksen uudelleen.
+
+Tapahtumissa ei ole sisältöä: ei koskaan liikkeen nimeä, painoa, mittaa tai mitään kirjoittamaasi. Tapahtumien lista on kiinnitetty sovelluksen koodiin, ja palvelin hylkää kaiken sen ulkopuolisen.
+
+Tapahtumat menevät samalle palvelimelle kuin AI-valmentajan liikenne eivätkä mihinkään muualle. Niitä ei jaeta, ei myydä eikä käytetä mainontaan.
+
 ## Mitä sovellus ei tee
 
-- Ei analytiikkaa, telemetriaa eikä kaatumisraportointia. Sovellus ei mittaa sinusta mitään.
+- Ei kolmannen osapuolen analytiikkaa eikä kaatumisraportointi-SDK:ita. Ainoa käyttödata on alla kuvatut nimettömät tilastot, jotka menevät omalle palvelimellemme eikä kenellekään muulle.
 - Ei mainoksia eikä mainosverkostoja.
 - Ei kolmannen osapuolen seurantaa eikä sosiaalisen median SDK:ita.
 - Ei mainosprofiilia eikä henkilöllisyyttä kiinnitettynä treeneihisi. Kirjautuminen ja kilpailuun osallistuminen ovat ainoat toiminnot jotka tarvitsevat tilin, ja ne keräävät vain sen mitä toimiakseen tarvitsevat.
-- Ei pääsyä sijaintiin, yhteystietoihin, kameraan, kuviin, mikrofoniin tai tiedostoihisi.
+- Ei pääsyä sijaintiin, yhteystietoihin, mikrofoniin tai tiedostoihisi. Kuvia avataan vain kun itse valitset kuvan ohjelman tuontia varten, ja vain se kuva luetaan.
 - Tietojasi ei myydä, vuokrata eikä jaeta. Ei ole ketään kenelle jakaa.
 
 ## Ilmoitukset

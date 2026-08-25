@@ -142,6 +142,7 @@ const suites = [
   ...require('./lib/coachChat.test.cjs'),
   ...require('./lib/coachSmallTalk.test.cjs'),
   ...require('./lib/coachConversation.test.cjs'),
+  ...require('./lib/analytics.test.cjs'),
   ...require('./lib/coachSuggestions.test.cjs'),
   ...require('./lib/aiCoachCostModel.test.cjs'),
   ...require('./lib/trainingHistory.test.cjs'),

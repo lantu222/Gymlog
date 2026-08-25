@@ -14,6 +14,7 @@ import Svg, { Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { CoachReadoutTicker } from '../components/CoachReadoutTicker';
 import { ProLockedCard } from '../components/ProLockedCard';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
+import { trackEvent } from '../features/analytics/analyticsClient';
 import { buildAiCoachPreviewAnswer } from '../lib/aiCoachPreview';
 import { FREE_COACH_QUESTIONS_PER_WEEK, coachQuotaReset } from '../lib/aiCoachQuota';
 import { formatShortDate } from '../lib/format';
@@ -437,6 +438,9 @@ export function AICoachChatScreen({
       }
 
       setAsking(true);
+      // The fact of a question, never its text: whether the coach is used at
+      // all is the number the AI bill is justified against.
+      trackEvent('coach_question_asked');
       try {
         const result = await requestAiCoachAdvice({
           prompt: trimmed,

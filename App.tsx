@@ -129,6 +129,7 @@ import { MOCK_BILLING, nextChargeAt } from './src/lib/subscriptionView';
 import { toProgressionFatigueSignal } from './src/lib/progressionGate';
 import { resolveThemeName } from './src/lib/themePreference';
 import { localizeSessionFocus, localizeSessionName, localizeWorkoutFocus } from './src/lib/sessionNameLabel';
+import { trackEvent } from './src/features/analytics/analyticsClient';
 
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
 import { buildExerciseHistoryLookup } from './src/lib/workoutEditorTable';
@@ -1452,6 +1453,23 @@ function VinhaApp() {
   >('path');
   // Both start paths share about-you (profile creation); they fork after.
   const [onboardingPath, setOnboardingPath] = useState<'build' | 'ready'>('build');
+  // The funnel's spine: which onboarding stage was reached. If half of every
+  // install stops at one stage, that stage is the finding — the question this
+  // whole event pipe exists to answer (user, 2026-08-25).
+  useEffect(() => {
+    if (onboardingActive) {
+      trackEvent('onboarding_step', { path: onboardingStep });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onboardingActive, onboardingStep]);
+  // Conversion's top of funnel: the paywall was on screen. Purchases will
+  // come from Play's own reporting once billing exists.
+  useEffect(() => {
+    if (route.tab === 'profile' && route.screen === 'premium') {
+      trackEvent('paywall_viewed');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route]);
   const [busySavingReadyPick, setBusySavingReadyPick] = useState(false);
 
   // The onboarding flow state lives in memory; when the gate closes (finished)
@@ -1723,6 +1741,7 @@ function VinhaApp() {
         ...adaptedSession,
         performedAt: adaptedSession.performedAt,
       });
+      trackEvent('workout_completed');
       if (!summary.sessionId || !summary.performedAt) {
         throw new Error('Workout save did not produce a valid summary');
       }
@@ -1824,6 +1843,7 @@ function VinhaApp() {
   }
 
   async function persistSetupSelection(selection: FirstRunSetupSelection, recommendedProgramId: string | null) {
+    trackEvent('onboarding_completed', { path: onboardingPath });
     await completeOnboarding(buildSetupPreferencePatch(selection, recommendedProgramId, preferences.trainingCycle));
 
     if (
@@ -2016,6 +2036,7 @@ function VinhaApp() {
     if (!template) {
       return;
     }
+    trackEvent('plan_adopted');
 
     // Already running this programme under some other plan id (an onboarding
     // pick, say) — joining again would spend a cap slot on a duplicate. But
@@ -3718,9 +3739,13 @@ function VinhaApp() {
       }
     };
     void refresh();
+    // Also the day's app_open: the same foreground moment the widget check
+    // uses. Daily actives and D2/D7 retention are counted from these.
+    trackEvent('app_open');
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         void refresh();
+        trackEvent('app_open');
       }
     });
     return () => {
@@ -5077,6 +5102,7 @@ function VinhaApp() {
   // template first, then the completed session, and only then the summary
   // screen — a failed save must leave the logger open with its sets intact.
   const finishLoggedWorkoutSave = async (draft: WorkoutTemplateDraft, summary: WorkoutEditorFinishSummary) => {
+    trackEvent('workout_completed');
     const workoutTemplateId = await upsertWorkoutTemplate(draft);
     const sessionId = createId('session');
     await saveCompletedWorkoutSession({

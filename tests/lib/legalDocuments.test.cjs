@@ -122,9 +122,10 @@ module.exports = [
       const fetchSites = srcFiles.filter((file) => isCallSite(fs.readFileSync(file, 'utf8')));
       assert.deepEqual(
         fetchSites.map((file) => path.basename(file)).sort(),
-        ['aiCoachClient.ts', 'backupApi.ts'],
-        'The policy names exactly two outbound request sites: the AI coach and the '
-          + 'optional cloud backup. Update the policy or remove the call.',
+        ['aiCoachClient.ts', 'analyticsClient.ts', 'backupApi.ts'],
+        'The policy names exactly three outbound request sites: the AI coach, the '
+          + 'anonymous usage events, and the optional cloud backup. Update the '
+          + 'policy or remove the call.',
       );
 
       const allSource = srcFiles.map((file) => fs.readFileSync(file, 'utf8')).join('\n');
@@ -149,6 +150,7 @@ module.exports = [
         [...keys].sort(),
         [
           '@vinha/account/v1',
+          '@vinha/analytics/v1',
           '@vinha/database/corrupt',
           '@vinha/database/v1',
           '@vinha/preferences/v1',
@@ -178,7 +180,8 @@ module.exports = [
       );
       // And the policy still carries it, in both languages.
       const legal = read('src/lib/legalDocuments.ts');
-      assert.match(legal, /No analytics, telemetry or crash reporting/);
+      assert.match(legal, /No third-party analytics and no crash-reporting SDKs/);
+      assert.match(legal, /Usage statistics/);
       assert.match(legal, /analytiikkaa/i);
     },
   },

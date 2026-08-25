@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
+import { trackEvent } from '../analytics/analyticsClient';
 
 import { CardioActivityType, UnitPreference } from '../../types/models';
 import { ActiveCardioSession } from '../../lib/cardio';
@@ -169,6 +170,7 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
           return;
         }
 
+        trackEvent('workout_started');
         dispatch({
           type: 'session/startFromTemplate',
           payload: {
@@ -184,6 +186,7 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
           return;
         }
 
+        trackEvent('workout_started');
         dispatch({
           type: 'session/startFromRuntimeTemplate',
           payload: {

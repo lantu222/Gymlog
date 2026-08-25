@@ -1,12 +1,12 @@
 # Privacy policy
 
-*Updated 23 August 2026*
+*Updated 25 August 2026*
 
 What Vinha stores, where it stays, and what never leaves your phone.
 
 ## The short version
 
-Vinha keeps your training data on your phone. There is no behavioural analytics and no tracking. We do not see your workouts, and we cannot — nothing is uploaded unless you turn on the AI coach in its online mode, and even then only training numbers are sent, never your identity.
+Vinha keeps your training data on your phone. We do not see your workouts, and we cannot — nothing about their content is uploaded unless you turn on the AI coach in its online mode, and even then only training numbers are sent, never your identity. The app does send anonymous usage statistics (which screens were reached, never what was in them), described in their own section below.
 
 If you uninstall the app, that data is gone from the phone. The only copies that can exist elsewhere are the one your own Google account keeps in Android backup, if you have that turned on, and the optional cloud backup described below — which exists only if you chose to sign in, and which you can delete from Settings at any time.
 
@@ -30,6 +30,8 @@ Everything below is entered by you, or produced by the app from what you entered
 
 In the app’s local storage on your device, under three keys — one for your training log, one for the workout you have in progress, and one small one for your settings. If you sign in for cloud backup, a fourth small key holds your account identity (Google id, email, last backup time). Apart from the optional cloud backup below, nothing is synced to a server we run, and we have no way to read your device remotely.
 
+A fifth small key holds the outgoing queue of the anonymous usage events described below — event names and timestamps, nothing more — until they are sent.
+
 If the app ever finds that storage unreadable, it moves the damaged copy aside under a third key instead of deleting it, and starts a fresh one — so a broken file is not the same thing as a lost training log. That copy stays on your device like everything else, and erasing the app’s data removes it too.
 
 Android backup is switched on for this app. That means your device can copy Vinha’s local data — your training log, bodyweight and measurement entries, programmes and settings — into the backup of your own Google account, so a new phone can restore it. Unless you sign in for the optional cloud backup below, this is the only way your history survives changing devices.
@@ -50,13 +52,23 @@ Online mode: when a version enables it, your question and a numeric summary of y
 
 The app tells you the first time you open the coach in online mode, before any question is sent, and nothing is sent until you have read it.
 
+## Usage statistics
+
+To see whether the app works — for example, whether some step of the setup is so hard that people give up there — the app sends anonymous usage events to our own server: things like "setup step 3 reached", "a workout was completed", "the coach was asked a question".
+
+Each install gets a random identifier, generated on your phone. It is not connected to your name, email, account or any advertising identity, and it resets if you reinstall the app.
+
+The events carry no content: never an exercise name, a weight, a measurement or anything you typed. The full list of events is fixed in the app code, and the server refuses anything outside it.
+
+These events go to the same server as the AI coach traffic and nowhere else. They are not shared, not sold, and not used for advertising.
+
 ## What the app does not do
 
-- No analytics, telemetry or crash reporting. The app measures nothing about you.
+- No third-party analytics and no crash-reporting SDKs. The only usage data is the anonymous statistics described above, sent to our own server and no one else.
 - No advertising and no ad networks.
 - No third-party trackers or social SDKs.
 - No advertising profile, and no identity attached to your training. Signing in and entering a competition are the only features that need an account, and they collect only what they need to work.
-- No access to location, contacts, camera, photos, microphone or your files.
+- No access to location, contacts, microphone or your files. Photos are opened only when you yourself pick an image to import a program from, and only that image is read.
 - Your data is never sold, rented or shared. There is no one to share it with.
 
 ## Notifications
