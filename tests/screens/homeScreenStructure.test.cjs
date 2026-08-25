@@ -178,7 +178,13 @@ module.exports = [
       assert.match(homeScreenSource, /styles\.heroList, rise\(RISE_SEC_BASE\)/);
       assert.match(
         homeScreenSource,
-        /styles\.heroListMeta\}>[\s\S]{0,120}'home\.section\.workoutMeta', \{ count: totalExerciseCount, sets: totalSets \}/,
+        /styles\.heroListMeta[\s\S]{0,160}'home\.section\.workoutMeta', \{ count: totalExerciseCount, sets: totalSets \}/,
+      );
+      // The lifts' fold row is titled like its neighbours — "Treeni" between
+      // Lämmittely and Palautuminen, counts beside it (user 2026-08-25).
+      assert.match(
+        homeScreenSource,
+        /styles\.heroListTitle\}>\{t\(language, 'home\.section\.workout'\)\}/,
       );
       // And the promo carousel went with them: Home runs today's session, the
       // season and programme offers live on their own screens.

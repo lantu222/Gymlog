@@ -7,6 +7,7 @@ import { isSubscriptionTermKey } from '../lib/subscriptionView';
 import { createEmptyDatabase } from '../data/seed';
 import { resolveDeviceLanguage } from './deviceLocale';
 import { normalizeExerciseLog } from '../lib/exerciseLog';
+import { repairTruncatedSessionName } from '../lib/sessionNameRepair';
 import { buildLegacyTemplateSessions, getLegacyTemplateSessionId } from '../lib/workoutTemplateSessions';
 import {
   AppDatabase,
@@ -141,7 +142,13 @@ function normalizeTemplateSessions(
   return sessions
     .map((session: any, index: number) => ({
       id: typeof session?.id === 'string' && session.id.trim().length ? session.id : `${template.id}_session_${index + 1}`,
-      name: typeof session?.name === 'string' && session.name.trim().length ? session.name.trim() : index === 0 ? String(template?.name ?? 'Workout') : `Session ${index + 1}`,
+      // Repaired on every load: a composed programme saved day names that were
+      // ALREADY truncated ("… + H..."), and no renderer can un-clip a stored
+      // string. The repair completes an unambiguous stem from the catalog and
+      // leaves anything else exactly as written.
+      name: typeof session?.name === 'string' && session.name.trim().length
+        ? repairTruncatedSessionName(session.name.trim())
+        : index === 0 ? String(template?.name ?? 'Workout') : `Session ${index + 1}`,
       orderIndex: typeof session?.orderIndex === 'number' ? session.orderIndex : index,
       exerciseIds: Array.isArray(session?.exerciseIds)
         ? session.exerciseIds.filter((value: unknown): value is string => typeof value === 'string')

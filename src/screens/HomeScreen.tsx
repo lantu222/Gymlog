@@ -1090,7 +1090,11 @@ export function HomeScreen({
                 onPress={() => setWorkoutListOpen((open) => !open)}
                 style={({ pressed }) => [styles.heroListMetaRow, pressed && styles.pressed]}
               >
-                <Text style={styles.heroListMeta}>
+                {/* Named like its neighbours (user 2026-08-25): "Treeni"
+                    between Lämmittely and Palautuminen, with the counts kept
+                    on the left beside it rather than pushed to the edge. */}
+                <Text style={styles.heroListTitle}>{t(language, 'home.section.workout')}</Text>
+                <Text style={[styles.heroListMeta, { flex: 1 }]} numberOfLines={1}>
                   {t(language, 'home.section.workoutMeta', { count: totalExerciseCount, sets: totalSets })}
                 </Text>
                 <View style={{ transform: [{ rotate: workoutListOpen ? '180deg' : '0deg' }] }}>
@@ -2177,17 +2181,22 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   heroListMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-    paddingVertical: 4,
+    gap: 10,
+    paddingVertical: 8,
+  },
+  // Same voice as blockTitle, so the three section rows read as one family.
+  heroListTitle: {
+    color: theme.ink,
+    fontSize: 15,
+    lineHeight: 19,
+    fontWeight: '800',
+    letterSpacing: -0.2,
   },
   heroListMeta: {
     color: theme.faint,
     fontSize: 13.5,
     lineHeight: 17,
     fontWeight: '700',
-    marginBottom: 4,
-    marginTop: 4,
   },
   // A row, not a card: same hairline the lift rows use, no fill, no radius.
   blockRow: {
