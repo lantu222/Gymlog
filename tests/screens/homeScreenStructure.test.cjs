@@ -51,23 +51,19 @@ module.exports = [
       assert.doesNotMatch(homeScreenSource, /const HOME_BACKGROUND =/);
       assert.match(homeScreenSource, /screenBackground:\s*\{[\s\S]*backgroundColor: theme.bg/);
 
-      // The greeting is chosen by homeGreeting from what the log says, then
-      // rendered through i18n — never a hardcoded "welcome back".
-      assert.match(homeScreenSource, /t\(language, greeting\.titleKey, greeting\.titleVars\)/);
-      // Home shows ONE line now (design 1C). The subtitle key stays part of
-      // selectHomeGreeting's contract; the surface simply stopped using it.
-      assert.doesNotMatch(homeScreenSource, /t\(language, greeting\.subtitleKey\)/);
-      assert.match(homeScreenSource, /selectHomeGreeting\(\{/);
-      // A state greeting earned from the log outranks the clock.
-      assert.match(homeScreenSource, /if \(!isRotatingGreeting\(greeting\.titleKey\)\)/);
-      assert.match(homeScreenSource, /selectTimeGreetingKey\(\)/);
-      // Never "Hyvää aamua, " with nothing after it.
-      assert.match(homeScreenSource, /firstName\s*\?\s*t\(language, 'home\.greet\.time\.named'/);
-      assert.doesNotMatch(homeScreenSource, /t\(language, 'home\.greeting\.title'\)/);
-      assert.match(i18nSource, /'home\.greet\.first\.title': 'Welcome to Vinha'/);
-      assert.match(i18nSource, /'home\.greet\.back1\.title': 'Tervetuloa takaisin'/);
+      // The greeting line and its rotation are gone outright (user
+      // 2026-08-25): the header is the wordmark, the PRO pill and the date.
+      // lib/homeGreeting went with its only caller — a rotation nobody
+      // renders must not survive as dead code.
+      assert.doesNotMatch(homeScreenSource, /selectHomeGreeting|isRotatingGreeting|selectTimeGreetingKey/);
+      assert.ok(
+        !fs.existsSync(path.join(__dirname, '..', '..', 'src', 'lib', 'homeGreeting.ts')),
+        'homeGreeting.ts is back — if the greeting returns, restore its render too',
+      );
+      // The date survived the greeting row and wears the accent
+      // ("Ti 25.08 oranssiksi").
+      assert.match(homeScreenSource, /greetingDate:\s*\{[\s\S]{0,160}color: theme\.highlight/);
       assert.match(homeScreenSource, /content:\s*\{[\s\S]*paddingTop: 24/);
-      assert.match(homeScreenSource, /greetingLine:\s*\{[\s\S]*fontSize: 13\.5/);
       // The PRO pill is back, and it reads the entitlement. It was removed for
       // advertising a subscription to people who already paid; that reason
       // applied to the gold offer, not to a status badge. Gold goes to the Pro
@@ -80,10 +76,17 @@ module.exports = [
       // The label is one word; what it means is in the accessibility label.
       assert.match(homeScreenSource, /proUnlocked \? 'home\.proPill\.manage' : 'home\.proPill\.get'/);
       // The full lockup: the app is called Vinha Fitness, and Home is where
-      // the reader looks to see whose app this is.
+      // the reader looks to see whose app this is. The speed rule under it is
+      // gone with the greeting (user 2026-08-25).
       assert.match(homeScreenSource, /<VinhaWordmark size=\{30\} fitness \/>/);
-      assert.match(homeScreenSource, /speedRule:\s*\{[\s\S]*skewX: '-18deg'/);
-      // The date is stated once, on the greeting row — today's cell in the
+      assert.doesNotMatch(homeScreenSource, /speedRule/);
+      // Training dots wear the accent, rest stays green (user 2026-08-25) —
+      // in both the week strip and the month grid, or the legend lies.
+      assert.match(homeScreenSource, /weekStripDotTraining:\s*\{[\s\S]{0,60}backgroundColor: theme\.highlight/);
+      assert.match(homeScreenSource, /weekStripDotRecovery:\s*\{[\s\S]{0,60}backgroundColor: theme\.green/);
+      assert.match(homeScreenSource, /monthDayDotTraining:\s*\{[\s\S]{0,60}backgroundColor: theme\.highlight/);
+      assert.match(homeScreenSource, /monthDayDotRecovery:\s*\{[\s\S]{0,60}backgroundColor: theme\.green/);
+      // The date is stated once, on its own row — today's cell in the
       // week strip is told apart by its highlight, not by different content.
       assert.match(homeScreenSource, /const dayLabel = day\.weekdayLabel;/);
       assert.match(homeScreenSource, /const \[plateauSheetVisible, setPlateauSheetVisible\] = useState\(false\)/);

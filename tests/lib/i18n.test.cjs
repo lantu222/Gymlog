@@ -17,7 +17,6 @@ module.exports = [
       assert.equal(t('en', 'welcome.continueGoogle'), 'Continue with Google');
       assert.equal(t('fi', 'common.cancel'), 'Peruuta');
       assert.notEqual(t('fi', 'brand.tagline'), t('en', 'brand.tagline'));
-      assert.notEqual(t('fi', 'home.greet.first.title'), t('en', 'home.greet.first.title'));
       assert.notEqual(t('fi', 'home.adaptSheet.shorter.cta'), t('en', 'home.adaptSheet.shorter.cta'));
     },
   },
@@ -31,7 +30,7 @@ module.exports = [
         '4 exercises · 11 sets',
       );
       // Unknown placeholders stay literal rather than rendering "undefined".
-      assert.equal(t('en', 'cards.previous', { value: 80 }), 'Previous 80 {unit}');
+      assert.equal(t('en', 'guided.autoLoad', {}), 'AUTO +{kg} KG');
     },
   },
   {

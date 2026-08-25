@@ -25,12 +25,6 @@ import { VinhaIcon } from '../components/VinhaIcon';
 import { getHomeMiniCalendarDays, getHomeMonthCalendar, HomeDaySessionSummary } from '../lib/homeCalendar';
 import { isScheduleKnown, TrainingSchedule, trainsOn, UNKNOWN_SCHEDULE, upcomingSessionDayStarts } from '../lib/trainingSchedule';
 import { getDefaultCooldown, getDefaultWarmup, getSessionFocusTitle } from '../lib/homeSessionHero';
-import {
-  getGreetingRotation,
-  isRotatingGreeting,
-  selectHomeGreeting,
-  selectTimeGreetingKey,
-} from '../lib/homeGreeting';
 import { AnimatedGreeting } from '../components/AnimatedGreeting';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
@@ -257,8 +251,6 @@ interface HomeScreenProps {
   onOpenPremium?: () => void;
   /** Where an existing subscriber goes from the header pill. */
   onOpenSubscription?: () => void;
-  /** For the greeting's first name. Null when the profile has no name. */
-  profileName?: string | null;
   /** Paywall moment 2: a real stalled lift, or null when nothing is stalled. */
   plateau?: {
     headline: string;
@@ -312,16 +304,6 @@ interface HomeScreenProps {
    * default warmup honest — no rower for a bodyweight-only user.
    */
   availableEquipment?: string[] | null;
-  /**
-   * What the log actually says, for the greeting. Defaults describe a fresh
-   * account, so an unwired caller gets the first-run line rather than a
-   * "welcome back" nobody earned.
-   */
-  greetingState?: {
-    totalSessions: number;
-    trainedToday: boolean;
-    weekStreak: number;
-  };
   /**
    * The one-time home-screen widget offer. Null unless the device can actually
    * pin one and the user has not answered yet — an offer that cannot be
@@ -396,8 +378,6 @@ export function HomeScreen({
   trainingSchedule = UNKNOWN_SCHEDULE,
   doneThisWeekSessionIds = [],
   language = 'en',
-  profileName = null,
-  greetingState = { totalSessions: 0, trainedToday: false, weekStreak: 0 },
   accountBackupPrompt = null,
   widgetPrompt = null,
   sessionSwaps = {},
@@ -503,36 +483,9 @@ export function HomeScreen({
     nextPlanSession?.durationMinutes ?? (Number.parseInt(planDuration.replace(/\D/g, ''), 10) || 45);
   const totalExerciseCount = nextPlanSession?.exercises.length ?? 0;
   const totalSets = nextPlanSession?.totalSets ?? 0;
-  // Rotates once per day, so the line is stable while the screen is open.
-  const greeting = useMemo(
-    () =>
-      selectHomeGreeting({
-        totalSessions: greetingState.totalSessions,
-        trainedToday: greetingState.trainedToday,
-        weekStreak: greetingState.weekStreak,
-        rotation: getGreetingRotation(),
-      }),
-    [greetingState.totalSessions, greetingState.trainedToday, greetingState.weekStreak],
-  );
-  /**
-   * One line, and the state's own greeting outranks the clock.
-   *
-   * A first visit, a session logged today or a real streak are claims earned
-   * from the log; "good morning" is true of everyone. The rotating "welcome
-   * back" fillers are the only ones the clock replaces.
-   */
-  const greetingLine = useMemo(() => {
-    if (!isRotatingGreeting(greeting.titleKey)) {
-      return t(language, greeting.titleKey, greeting.titleVars);
-    }
-    const timeGreeting = t(language, selectTimeGreetingKey());
-    const firstName = profileName?.trim() ? profileName.trim().split(/\s+/)[0] : null;
-    // Never "Hyvää aamua, " with nothing after it, and never a stand-in name.
-    return firstName
-      ? t(language, 'home.greet.time.named', { greeting: timeGreeting, name: firstName })
-      : timeGreeting;
-  }, [greeting, language, profileName]);
-
+  // The greeting line and the rule above it are gone (user 2026-08-25): the
+  // header is the wordmark, the PRO pill and the date. The greeting rotation
+  // (lib/homeGreeting) went with its only caller.
   const todayStamp = useMemo(() => {
     const today = topCalendarDays.find((day) => day.isToday);
     const now = new Date();
@@ -729,20 +682,10 @@ export function HomeScreen({
             </Pressable>
           </View>
 
-          {/* Three brightnesses left to right, at the same −18° as the A3 cut.
-              No gradient: three plain views skewed as one row. */}
-          <View style={styles.speedRule}>
-            <View style={[styles.speedRuleHead, { backgroundColor: theme.purpleBright }]} />
-            <View style={[styles.speedRuleMid, { backgroundColor: theme.purpleBright }]} />
-            <View style={[styles.speedRuleTail, { backgroundColor: theme.purpleBright }]} />
-          </View>
-
+          {/* The rule and the greeting that sat here are gone (user
+              2026-08-25) — the date stays, in the accent, and it is the one
+              place this screen states it. */}
           <View style={styles.greetingRow}>
-            <AnimatedGreeting
-              text={greetingLine}
-              style={styles.greetingLine}
-              accentColor={theme.purpleBright}
-            />
             <Text style={styles.greetingDate}>{todayStamp}</Text>
           </View>
         </Animated.View>
@@ -1903,24 +1846,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   // The skew is allowed to overhang: the scroll content already carries 20px
   // of horizontal padding, so nothing clips.
-  speedRule: {
-    height: 3,
-    marginTop: 13,
-    marginLeft: 2,
-    flexDirection: 'row',
-    transform: [{ skewX: '-18deg' }],
-  },
-  speedRuleHead: {
-    width: 34,
-  },
-  speedRuleMid: {
-    width: 14,
-    opacity: 0.3,
-  },
-  speedRuleTail: {
-    flex: 1,
-    opacity: 0.12,
-  },
   greetingRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
@@ -1928,18 +1853,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 12,
     marginTop: 11,
   },
-  greetingLine: {
-    flexShrink: 1,
-    fontSize: 13.5,
-    lineHeight: 18,
-    fontWeight: '700',
-    color: theme.muted,
-  },
+  // In the accent ("Ti 25.08 oranssiksi" — user 2026-08-25), and a step up in
+  // size now that it holds the row alone.
   greetingDate: {
     fontFamily: 'JetBrainsMono-ExtraBold',
-    fontSize: 10.5,
+    fontSize: 11.5,
     letterSpacing: 1.05,
-    color: theme.muted,
+    color: theme.highlight,
     flexShrink: 0,
   },
   // Two halves behind the label, clipped by the pill's own radius.
@@ -1973,8 +1893,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     height: 7,
     borderRadius: 999,
   },
+  // Training wears the accent, rest stays green (user 2026-08-25).
   weekStripDotTraining: {
-    backgroundColor: theme.purpleBright,
+    backgroundColor: theme.highlight,
   },
   weekStripDotUnknown: {
     backgroundColor: 'transparent',
@@ -2073,7 +1994,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 999,
   },
   monthDayDotTraining: {
-    backgroundColor: theme.purpleBright,
+    backgroundColor: theme.highlight,
   },
   monthDayDotRecovery: {
     backgroundColor: theme.green,

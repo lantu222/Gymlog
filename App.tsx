@@ -3415,21 +3415,6 @@ function VinhaApp() {
     () => resolveHomeStatCardKeys(preferences.homeStatCardKeys),
     [preferences.homeStatCardKeys],
   );
-  // What Home's greeting is allowed to claim. Every field is read from the
-  // log — an account with no sessions gets the first-run line, not "welcome
-  // back", and the streak is only named when the weeks are really there.
-  const homeGreetingState = useMemo(() => {
-    const todayStart = new Date().setHours(0, 0, 0, 0);
-    const sessions = getCanonicalCompletedSessions(database);
-    return {
-      totalSessions: sessions.length,
-      trainedToday: sessions.some((session) => {
-        const performed = new Date(session.performedAt).getTime();
-        return Number.isFinite(performed) && performed >= todayStart;
-      }),
-      weekStreak: homeSummary.streak.currentWeekStreak,
-    };
-  }, [database.workoutSessions, database.exerciseLogs, homeSummary.streak.currentWeekStreak]);
   // Same equipment truth the composer filters exercises with, for the default
   // warmup/cooldown drills: null = setup never said, [] = no equipment at all.
   // Week-strip training dots from the days the user actually picked
@@ -6538,7 +6523,6 @@ function VinhaApp() {
       <HomeScreen
         language={preferences.appLanguage}
         onOpenSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
-        profileName={preferences.profileName}
         activePlan={homeActivePlanCard}
         onCompletionStartNext={(planId, templateId) => void handleCompletionStartNext(planId, templateId)}
         onCompletionRestart={(planId) => void handleCompletionRestart(planId)}
@@ -6563,7 +6547,6 @@ function VinhaApp() {
         }
         onRedoOnboarding={() => void handleRedoOnboarding()}
         availableEquipment={availableEquipmentForDrills}
-        greetingState={homeGreetingState}
         widgetPrompt={
           homeWidgetState?.supported && !homeWidgetState.added && !preferences.homeWidgetPromptDismissed
             ? {

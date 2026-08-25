@@ -327,20 +327,16 @@ export function HomeStatCardsSection({
                 {card.label}
               </Text>
               {card.value !== null ? (
-                <>
-                  <View style={styles.valueRow}>
-                    <Text style={styles.valueText}>{formatHomeStatValue(card.value)}</Text>
-                    <Text style={styles.unitText}>
-                      {card.unit}
-                      {card.reps !== null ? ` · ×${card.reps}` : ''}
-                    </Text>
-                  </View>
-                  <Text numberOfLines={1} style={styles.previousText}>
-                    {card.previous !== null
-                      ? t(language, 'cards.previous', { value: formatHomeStatValue(card.previous), unit: card.unit })
-                      : t(language, 'cards.firstEntry')}
+                // The current value alone (user 2026-08-25): the "previous"
+                // line under it restated what the sparkline already draws,
+                // and the card is for the number that is true today.
+                <View style={styles.valueRow}>
+                  <Text style={styles.valueText}>{formatHomeStatValue(card.value)}</Text>
+                  <Text style={styles.unitText}>
+                    {card.unit}
+                    {card.reps !== null ? ` · ×${card.reps}` : ''}
                   </Text>
-                </>
+                </View>
               ) : (
                 <View style={styles.valueRow}>
                   <Text style={styles.noDataText}>{t(language, 'cards.noData')}</Text>
@@ -567,12 +563,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.muted,
     fontSize: 12,
     fontWeight: '700',
-  },
-  previousText: {
-    color: theme.faint,
-    fontSize: 11.5,
-    fontWeight: '700',
-    marginBottom: 4,
   },
   valueRow: {
     flexDirection: 'row',

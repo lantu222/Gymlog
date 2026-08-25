@@ -86,9 +86,11 @@ const makeStyles = (theme: Theme) =>
       color: theme.purple,
     },
     // Brand: "Fitness" a step lighter than "Vinha" — 700 against 800 — and in
-    // the purple, so the name reads as one and the weight stays on Vinha.
+    // the accent (user 2026-08-25: orange in dark; light keeps the violet the
+    // lockup has always worn), so the name reads as one and the weight stays
+    // on Vinha.
     fitness: {
       fontWeight: '700',
-      color: theme.purple,
+      color: theme.highlight,
     },
   });

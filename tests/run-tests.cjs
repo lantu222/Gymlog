@@ -147,8 +147,6 @@ const suites = [
   ...require('./lib/aiCoachCostModel.test.cjs'),
   ...require('./lib/trainingHistory.test.cjs'),
   ...require('./lib/serialTaskQueue.test.cjs'),
-  ...require('./lib/homeGreeting.test.cjs'),
-  ...require('./lib/timeGreeting.test.cjs'),
   ...require('./lib/catalogExercisePools.test.cjs'),
   ...require('./lib/onboardingPlanSweep.test.cjs'),
   ...require('./lib/progressionGate.test.cjs'),
