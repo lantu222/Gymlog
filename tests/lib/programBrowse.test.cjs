@@ -42,19 +42,33 @@ module.exports = [
     },
   },
   {
-    name: 'no single reason may fill the whole row',
+    name: 'no two cards say the identical sentence, and every reason speaks before any repeats',
     run() {
       // 21 hypertrophy programs share a goal. Taking matches in catalog order
       // would spend every slot on "same goal, different split" and never reach
       // the level-up card, which is the one worth showing.
       const active = WORKOUT_TEMPLATES_V1.find((template) => template.goalType === 'hypertrophy');
-      const matches = resolveProgramAffinity(active, WORKOUT_TEMPLATES_V1, 4);
-      assert.ok(matches.length > 0);
-      // One card per reason, always. On device two cards sat side by side
-      // carrying the identical sentence, which reads as a rendering fault
-      // rather than as two suggestions.
-      const reasons = matches.map((match) => match.reason);
-      assert.equal(new Set(reasons).size, reasons.length, `a reason repeated: ${reasons}`);
+      const matches = resolveProgramAffinity(active, WORKOUT_TEMPLATES_V1, 9);
+      assert.ok(matches.length >= 4, `a hypertrophy anchor should fill a row: ${matches.length}`);
+
+      // The device-found fault this guards: two cards side by side carrying
+      // the identical sentence, reading as a rendering fault rather than two
+      // suggestions. The rule sits on the RENDERED sentence (the row grew
+      // past four on user request, 2026-08-25): three of the four sentences
+      // interpolate the candidate's days, nextLevel's does not — so its
+      // identity is the reason alone and it can appear once, ever.
+      const days = new Map(WORKOUT_TEMPLATES_V1.map((template) => [template.id, template.daysPerWeek]));
+      const sentences = matches.map((match) =>
+        match.reason === 'nextLevel' ? match.reason : `${match.reason}:${days.get(match.templateId)}`,
+      );
+      assert.equal(new Set(sentences).size, sentences.length, `identical sentence twice: ${sentences}`);
+      assert.ok(matches.filter((match) => match.reason === 'nextLevel').length <= 1);
+
+      // Round-robin: every reason that has anything to say gets its first
+      // card before any reason gets a second one.
+      const present = [...new Set(matches.map((match) => match.reason))];
+      const firstRound = matches.slice(0, present.length).map((match) => match.reason);
+      assert.equal(new Set(firstRound).size, present.length, `a reason repeated early: ${firstRound}`);
 
       // Every reason has a sentence in both languages.
       const i18n = read('src', 'lib', 'i18n.ts');

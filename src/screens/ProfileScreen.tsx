@@ -45,7 +45,12 @@ interface ProfileScreenProps {
   /** The plan's OWN training weekdays, Monday-first indexes 0–6. */
   planWeekdayIndexes?: number[];
   planExerciseCount?: number | null;
-  planFocusCaption?: string | null;
+  /**
+   * One entry per session, full names with the "Day N:" ordinal stripped —
+   * the card lists the days themselves instead of a deduplicated one-liner
+   * that truncated (#bugs 2026-08-25).
+   */
+  planSessionNames?: string[];
   planIsAiBuilt?: boolean;
   onOpenSettings: () => void;
   /** Opens the Records tab on Progress, where the full list lives. */
@@ -145,10 +150,12 @@ function TrophyIcon() {
 function SparkIcon() {
   const theme = useTheme();
 
-  // Filled spark, prototype's AI badge glyph.
+  // Filled spark, prototype's AI badge glyph. `highlight` like the badge text
+  // around it: the plan card's data is accent-coded (user 2026-08-25), which
+  // reads orange in dark and violet in light.
   return (
     <Svg width={13} height={13} viewBox="0 0 24 24">
-      <Path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" fill={theme.purpleDark} />
+      <Path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" fill={theme.highlight} />
     </Svg>
   );
 }
@@ -160,7 +167,7 @@ function CalendarIcon() {
     <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
       <Path
         d="M4 6h16v15H4zM4 10h16M8 3v4M16 3v4"
-        stroke={theme.muted}
+        stroke={theme.highlight}
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -176,7 +183,7 @@ function DumbbellIcon() {
     <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
       <Path
         d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"
-        stroke={theme.muted}
+        stroke={theme.highlight}
         strokeWidth={2}
         strokeLinecap="round"
       />
@@ -210,13 +217,13 @@ function Avatar({ initials }: { initials: string }) {
   );
 }
 
-function Badge({ icon, label, accent = false }: { icon: React.ReactNode; label: string; accent?: boolean }) {
+function Badge({ icon, label }: { icon: React.ReactNode; label: string }) {
   const styles = useThemedStyles(makeStyles);
 
   return (
-    <View style={[styles.badge, accent && styles.badgeAccent]}>
+    <View style={styles.badge}>
       {icon}
-      <Text style={[styles.badgeText, accent && styles.badgeTextAccent]}>{label}</Text>
+      <Text style={styles.badgeText}>{label}</Text>
     </View>
   );
 }
@@ -232,7 +239,7 @@ export function ProfileScreen({
   planCycleCaption = null,
   planWeekdayIndexes = [],
   planExerciseCount,
-  planFocusCaption,
+  planSessionNames = [],
   planIsAiBuilt = false,
   onOpenSettings,
   onOpenRecords,
@@ -413,9 +420,11 @@ export function ProfileScreen({
             {resolvedPlanName ? (
               <>
                 <View style={styles.badgeRow}>
-                  {/* Mock parity: AI badge always on — engine wiring comes later.
-                      Only the AI badge is purple; the meta badges are grey. */}
-                  <Badge accent icon={<SparkIcon />} label="AI" />
+                  {/* Mock parity: AI badge always on — engine wiring comes
+                      later. All three badges wear the accent now: the card's
+                      data is what the user scans, so it carries the colour
+                      (user 2026-08-25). */}
+                  <Badge icon={<SparkIcon />} label="AI" />
                   {planDaysPerWeek ? (
                     <Badge icon={<CalendarIcon />} label={t(language, 'profile.badge.perWeek', { count: planDaysPerWeek })} />
                   ) : null}
@@ -444,10 +453,21 @@ export function ProfileScreen({
                     })}
                   </View>
                 ) : null}
-                {planFocusCaption ? (
-                  <Text numberOfLines={1} style={styles.planCaption}>
-                    {planFocusCaption}
-                  </Text>
+                {/* The days themselves, one full name per row ("venytä
+                    alemmaksi että ohjelman päivät näkyisivät tässä nopeasti"
+                    — user 2026-08-25). Replaces a deduplicated one-liner that
+                    truncated at "Koko keho + H...". */}
+                {planSessionNames.length > 0 ? (
+                  <View style={styles.planDayList}>
+                    {planSessionNames.map((name, index) => (
+                      <View key={`${index}-${name}`} style={styles.planDayRow}>
+                        <Text style={styles.planDayIndex}>{index + 1}</Text>
+                        <Text numberOfLines={2} style={styles.planDayName}>
+                          {name}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
                 ) : null}
               </>
             ) : (
@@ -681,24 +701,44 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 999,
-    backgroundColor: theme.surfaceSoft,
-  },
-  badgeAccent: {
-    backgroundColor: theme.purpleLight,
+    backgroundColor: theme.highlightSoft,
   },
   badgeText: {
-    color: theme.muted,
+    color: theme.highlight,
     fontSize: 11.5,
     fontWeight: '800',
-  },
-  badgeTextAccent: {
-    color: theme.purpleDark,
   },
   planCaption: {
     color: theme.muted,
     fontSize: 12.5,
     fontWeight: '700',
     marginTop: 12,
+  },
+  planDayList: {
+    marginTop: 12,
+    gap: 8,
+  },
+  planDayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  planDayIndex: {
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    backgroundColor: theme.surfaceSoft,
+    color: theme.muted,
+    fontSize: 11.5,
+    fontWeight: '800',
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  planDayName: {
+    flex: 1,
+    color: theme.ink,
+    fontSize: 13.5,
+    fontWeight: '700',
   },
   recordsLinkCard: {
     flexDirection: 'row',
@@ -757,8 +797,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.44,
   },
+  // The numbers wear the accent ("Numerot oranssilla?" — user 2026-08-25):
+  // orange in dark, violet in light, same token as every other emphasis.
   statValue: {
-    color: theme.ink,
+    color: theme.highlight,
     fontSize: 24,
     fontWeight: '800',
     letterSpacing: -0.5,

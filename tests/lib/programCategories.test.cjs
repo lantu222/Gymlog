@@ -134,7 +134,10 @@ module.exports = [
       // "same goal, one level up".
       assert.match(app, /backfillRecommendations\(\{/);
       assert.match(app, /adoptedIds: activeProgramTemplateIds/);
-      assert.match(app, /limit: waterfall \? 2 : 4/);
+      // Six cards (user asked for a fuller row, 2026-08-25) — but only ever
+      // filled with reasoned matches, so the constant is the CAP, not a
+      // padding target: with no anchor the row still shrinks to the picks.
+      assert.match(app, /limit: 6/);
       assert.match(screen, /recommendations\.length > 0 \? \(/);
 
       // Never labelled AI. aiInfo.never.2 states the model is never used to

@@ -112,7 +112,6 @@ import {
   getDefaultCooldown,
   getDefaultWarmup,
   getSessionBodyFocusLabel,
-  getSessionFocusTitle,
   SessionFocusKind,
 } from './src/lib/homeSessionHero';
 import { estimateRoutineBlockSeconds } from './src/lib/guidedPlayer';
@@ -128,7 +127,7 @@ import { buildCancelSurveyAnswer } from './src/lib/cancelSurvey';
 import { MOCK_BILLING, nextChargeAt } from './src/lib/subscriptionView';
 import { toProgressionFatigueSignal } from './src/lib/progressionGate';
 import { resolveThemeName } from './src/lib/themePreference';
-import { localizeSessionFocus, localizeSessionName, localizeWorkoutFocus } from './src/lib/sessionNameLabel';
+import { localizeSessionFocus, localizeSessionName } from './src/lib/sessionNameLabel';
 import { trackEvent } from './src/features/analytics/analyticsClient';
 
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
@@ -4055,7 +4054,7 @@ function VinhaApp() {
 
   const profilePlanSummary = useMemo(() => {
     if (!homeActivePlanCard) {
-      return { name: null, daysPerWeek: null, exerciseCount: null, focusCaption: null };
+      return { name: null, daysPerWeek: null, exerciseCount: null, sessionNames: [] as string[] };
     }
 
     const exerciseNames = new Set<string>();
@@ -4065,23 +4064,19 @@ function VinhaApp() {
       }
     }
 
-    // Distinct focuses only — a 2-day Full Body plan should read "Full Body",
-    // not "Full Body · Full Body".
-    const focusTitles: string[] = [];
-    for (const session of homeActivePlanCard.sessions) {
-      const focus = getSessionFocusTitle(session.title, homeActivePlanCard.title);
-      const localized = focus ? localizeWorkoutFocus(focus, preferences.appLanguage) : focus;
-      if (localized && !focusTitles.includes(localized)) {
-        focusTitles.push(localized);
-      }
-    }
-    const focusCaption = focusTitles.slice(0, 3).join(' · ');
+    // One row per day, full names. This used to be a deduplicated one-liner
+    // ("Koko keho + H... · Koko keho + C...") that truncated exactly where the
+    // days stopped reading alike — the user asked for the days themselves
+    // (#bugs 2026-08-25).
+    const sessionNames = homeActivePlanCard.sessions.map((session) =>
+      localizeSessionFocus(formatWorkoutDisplayLabel(session.title), preferences.appLanguage),
+    );
 
     return {
       name: homeActivePlanCard.title,
       daysPerWeek: Number.parseInt(homeActivePlanCard.sessionsPerWeek, 10) || homeActivePlanCard.sessions.length || null,
       exerciseCount: exerciseNames.size,
-      focusCaption: focusCaption.length > 0 ? focusCaption : null,
+      sessionNames,
     };
   }, [homeActivePlanCard, preferences.appLanguage]);
   // Guided-player context props (entry eyebrow + finish-screen cards).
@@ -4520,11 +4515,12 @@ function VinhaApp() {
    * "For you" — the programs the recommendation engine actually picked, each
    * with the reason it picked them.
    *
-   * Only the two the waterfall gives a reason for. The scorer ranks every
-   * program, so a row of five is easy and three of them would arrive with no
-   * "why" — and a recommendation without a reason is the thing this app has
-   * repeatedly refused to ship. One or two cards that can explain themselves
-   * beat five that cannot.
+   * Every card carries a "why": the waterfall's picks bring their own, and the
+   * affinity backfill names its reason per match (same goal one level up, a
+   * different split, ...). That is the rule that used to cap this row at two —
+   * a recommendation without a reason is the thing this app has repeatedly
+   * refused to ship — and it still holds at six (user asked for more cards,
+   * #bugs 2026-08-25): the row grows only as far as reasoned matches exist.
    *
    * NOT labelled AI, deliberately. aiInfo.never.2 states that the model is
    * "never used to pick your programme — that is a scored, testable decision",
@@ -4532,20 +4528,28 @@ function VinhaApp() {
    * badge here would contradict the app's own privacy page.
    */
   /**
-   * "Sinulle" — two cards, and neither of them is something you already run.
+   * "Sinulle" — and nothing in it is something you already run.
    *
-   * The questionnaire's two picks are the starting point, but adopting one
-   * used to leave it in the row, so the tab kept recommending a programme the
-   * reader was already training. A taken programme drops out and the gap is
-   * filled from the catalog, measured from what is being trained NOW — see
+   * The questionnaire's two picks lead, but adopting one used to leave it in
+   * the row, so the tab kept recommending a programme the reader was already
+   * training. A taken programme drops out and the row is filled from the
+   * catalog, measured from what is being trained NOW — see
    * lib/recommendationBackfill. The first reason the ranker reaches for is
-   * "same goal, one level up", so the replacement is usually a step harder.
+   * "same goal, one level up", so the fill is usually a step harder.
    */
   const programsRecommendations = useMemo(
     () => {
       const byId = new Map(workout.templates.map((template) => [template.id, template]));
       const waterfall = setupRecommendation?.waterfall;
-      const anchor = homeActivePlanCard?.programId ? byId.get(homeActivePlanCard.programId) ?? null : null;
+      // A custom programme is not in the catalog, so it cannot anchor the
+      // affinity read directly — but it was composed from the same answers
+      // the questionnaire's featured ready pick matches (goal, level, days),
+      // so that pick stands in. Without the fallback a custom-programme user
+      // saw the row collapse to the two questionnaire cards forever.
+      const anchor =
+        (homeActivePlanCard?.programId ? byId.get(homeActivePlanCard.programId) ?? null : null)
+        ?? recommendedReadyTemplate
+        ?? null;
       const picks = waterfall
         ? [
             { templateId: waterfall.primaryProgramId, whyKey: waterfall.whyPrimary },
@@ -4561,9 +4565,11 @@ function VinhaApp() {
         adoptedIds: activeProgramTemplateIds,
         anchor,
         catalog: workout.templates,
-        // Without a questionnaire there are no picks at all and the whole row
-        // is neighbours of the active programme, which is worth four cards.
-        limit: waterfall ? 2 : 4,
+        // Six either way: the questionnaire's picks lead when they exist, and
+        // affinity neighbours of the active programme fill the rest. With no
+        // active programme there is nothing to measure affinity from, so the
+        // row honestly shrinks to the picks instead of padding.
+        limit: 6,
       })
         .map((slot) => {
           const template = byId.get(slot.templateId);
@@ -4589,6 +4595,7 @@ function VinhaApp() {
       activeProgramTemplateIds,
       homeActivePlanCard?.programId,
       preferences.appLanguage,
+      recommendedReadyTemplate,
       setupRecommendation?.waterfall,
       workout.templates,
     ],
@@ -6014,10 +6021,12 @@ function VinhaApp() {
         planType={homeActivePlanCard?.programType ?? null}
         planDaysPerWeek={profilePlanSummary.daysPerWeek}
         planExerciseCount={profilePlanSummary.exerciseCount}
-        planFocusCaption={profilePlanSummary.focusCaption}
         sessions={(homeActivePlanCard?.sessions ?? []).map((session) => ({
           id: session.id,
-          title: localizeSessionName(formatWorkoutDisplayLabel(session.title), preferences.appLanguage),
+          // Focus only, no "Päivä N:" — the row's position already says which
+          // day this is, and the ordinal cost the name its width (#bugs
+          // 2026-08-25).
+          title: localizeSessionFocus(formatWorkoutDisplayLabel(session.title), preferences.appLanguage),
           exerciseCount: session.exercises.length,
           totalSets: session.totalSets ?? 0,
           isNext: session.id === homeActivePlanCard?.nextSession.id,
@@ -6280,7 +6289,7 @@ function VinhaApp() {
         }
         planWeekdayIndexes={homeTrainingDayIndexes}
         planExerciseCount={profilePlanSummary.exerciseCount}
-        planFocusCaption={profilePlanSummary.focusCaption}
+        planSessionNames={profilePlanSummary.sessionNames}
         onOpenSettings={() => navigate({ tab: 'profile', screen: 'settings' })}
         recordCount={distinctRecordCount}
         onOpenRecords={() => navigate({ tab: 'progress', screen: 'list', section: 'records' })}

@@ -97,21 +97,54 @@ export function resolveProgramAffinity(
   const matches: AffinityMatch[] = [];
   const seen = new Set<string>();
 
-  // ONE card per reason. Two cards side by side carrying the identical
-  // sentence — "Sama tavoite, taso ylöspäin" twice — reads as a rendering
-  // fault, and a catalog with 21 hypertrophy programs would otherwise spend
-  // every slot on "same goal, different split" and never reach the level-up
-  // card. The row is at most four cards, and each says something different.
-  const perReason = 1;
-  for (const reason of order) {
-    for (const templateId of buckets[reason].slice(0, perReason)) {
-      if (seen.has(templateId) || matches.length >= limit) {
-        continue;
+  // No two cards may carry the IDENTICAL sentence. That is the device-found
+  // fault this row once shipped ("Sama tavoite, taso ylöspäin" twice, side by
+  // side, reading as a rendering bug) — but the rule lives on the rendered
+  // sentence, not on the reason: three of the four sentences interpolate the
+  // candidate's days, so "Sama tavoite, 3 päivää viikossa" next to "Sama
+  // tavoite, 5 päivää viikossa" says two different things. nextLevel's
+  // sentence is static, so it can appear once, ever.
+  //
+  // Round-robin: every reason speaks once, in quality order, before any
+  // reason gets a second card — a catalog with 21 hypertrophy programs must
+  // not spend the whole row on "same goal, different split" before the
+  // level-up card has had its turn. (Row size raised from four on user
+  // request, 2026-08-25.)
+  const daysById = new Map(catalog.map((template) => [template.id, template.daysPerWeek]));
+  const sentencesSaid = new Set<string>();
+  const cursors: Record<AffinityReason, number> = {
+    nextLevel: 0,
+    sameGoalOtherSplit: 0,
+    lighterWeek: 0,
+    sameDays: 0,
+  };
+
+  let progressed = true;
+  while (matches.length < limit && progressed) {
+    progressed = false;
+    for (const reason of order) {
+      const bucket = buckets[reason];
+      while (cursors[reason] < bucket.length) {
+        const templateId = bucket[cursors[reason]];
+        cursors[reason] += 1;
+        if (seen.has(templateId)) {
+          continue;
+        }
+        const sentence = reason === 'nextLevel' ? reason : `${reason}:${daysById.get(templateId)}`;
+        if (sentencesSaid.has(sentence)) {
+          continue;
+        }
+        seen.add(templateId);
+        sentencesSaid.add(sentence);
+        matches.push({ templateId, reason });
+        progressed = true;
+        break;
       }
-      seen.add(templateId);
-      matches.push({ templateId, reason });
+      if (matches.length >= limit) {
+        break;
+      }
     }
   }
 
-  return matches.slice(0, limit);
+  return matches;
 }

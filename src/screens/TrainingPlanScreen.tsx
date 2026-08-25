@@ -71,7 +71,6 @@ interface TrainingPlanScreenProps {
   planType: 'ready' | 'custom' | null;
   planDaysPerWeek: number | null;
   planExerciseCount: number | null;
-  planFocusCaption: string | null;
   sessions: TrainingPlanSessionItem[];
   trainingDays: SetupWeekday[];
   /**
@@ -133,7 +132,6 @@ export function TrainingPlanScreen({
   planType,
   planDaysPerWeek,
   planExerciseCount,
-  planFocusCaption,
   sessions,
   trainingDays,
   trainingCycle = null,
@@ -297,7 +295,9 @@ export function TrainingPlanScreen({
                 ) : null}
               </View>
               <Text style={styles.activeName}>{planName}</Text>
-              {planFocusCaption ? <Text style={styles.activeCaption}>{planFocusCaption}</Text> : null}
+              {/* No session-name caption here: the TREENIT list right below
+                  carries the days in full, and this line truncated them into
+                  "Koko keho + H..." (#bugs 2026-08-25). */}
               {planExerciseCount ? (
                 <View style={styles.badgeRow}>
                   <View style={styles.badge}>
@@ -463,7 +463,7 @@ export function TrainingPlanScreen({
                       <SessionTile title={session.title} />
                       <View style={styles.sessionCopy}>
                         <View style={styles.sessionTitleRow}>
-                          <Text numberOfLines={1} style={styles.sessionTitle}>
+                          <Text numberOfLines={2} style={styles.sessionTitle}>
                             {session.title}
                           </Text>
                           {session.isNext ? (
@@ -638,12 +638,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 21,
     fontWeight: '800',
     marginTop: 10,
-  },
-  activeCaption: {
-    color: theme.muted,
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 4,
   },
   badgeRow: {
     flexDirection: 'row',
