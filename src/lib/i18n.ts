@@ -3200,9 +3200,6 @@ const EN = {
   'coach.dayMany': '{count} days',
   'coach.analysis.topSetNew': '{lift} top set {set} — a new best',
   // ── Activity calendar legend ──────────────────────────────────────────
-  'progress.legend.done': 'Trained',
-  'progress.legend.upcoming': 'Training day',
-  'progress.legend.rest': 'Rest',
   // ── Progress hero delta ───────────────────────────────────────────────
   'progress.heroSince': '{delta} since you started · {from} → {to}',
   // ── Recent session rows ───────────────────────────────────────────────
@@ -6261,9 +6258,6 @@ const FI: Record<I18nKey, string> = {
   'coach.dayMany': '{count} päivässä',
   'coach.analysis.topSetNew': '{lift} raskain sarja {set} — uusi ennätys',
   // ── Activity calendar legend ──────────────────────────────────────────
-  'progress.legend.done': 'Treenattu',
-  'progress.legend.upcoming': 'Treenipäivä',
-  'progress.legend.rest': 'Lepo',
   // ── Progress hero delta ───────────────────────────────────────────────
   'progress.heroSince': '{delta} aloituksesta · {from} → {to}',
   // ── Recent session rows ───────────────────────────────────────────────

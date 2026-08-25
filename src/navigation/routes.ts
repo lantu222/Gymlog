@@ -125,6 +125,12 @@ export type AppRoute =
        * the reader had to find body fat again to log it.
        */
       measure?: string;
+      /**
+       * Scroll the overview to a named block on arrival. The widget's
+       * calendar tap lands here, and the calendar lives mid-page — arriving
+       * at the top of the overview is arriving somewhere else (2026-08-25).
+       */
+      scrollTo?: 'activity';
     }
   | {
       tab: 'progress';

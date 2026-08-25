@@ -110,6 +110,11 @@ interface ProgressScreenProps {
   initialSection?: ProgressSection;
   /** The measurement the measures section should select on arrival. */
   initialMeasure?: string;
+  /**
+   * Scroll the overview to a named block on arrival — the widget's calendar
+   * tap should land ON the calendar, which lives mid-page (2026-08-25).
+   */
+  scrollToTarget?: 'activity';
   selectedExerciseKey?: string;
   /**
    * The three most recent records, and how many there are in total.
@@ -150,21 +155,6 @@ const PROGRESS_WEEKDAY_KEYS: I18nKey[] = [
   'onb.weekday.fri',
   'onb.weekday.sat',
   'onb.weekday.sun',
-];
-
-// Evaluated once at import, so the themed dots have to come from a call.
-const calendarLegend = (theme: Theme): Array<{ key: string; labelKey: I18nKey; dotStyle: object }> => [
-  // Each dot must be the same recipe as its bubble, or the legend explains a
-  // calendar that does not exist. One logic for every calendar in the app
-  // (user 2026-08-25): a training day is orange, a rest day is green. Solid
-  // orange = trained, orange outline = a scheduled training day, green = rest.
-  { key: 'done', labelKey: 'progress.legend.done', dotStyle: { backgroundColor: theme.highlight } },
-  {
-    key: 'planned',
-    labelKey: 'progress.legend.upcoming',
-    dotStyle: { borderWidth: 1.5, borderColor: theme.highlight },
-  },
-  { key: 'rest', labelKey: 'progress.legend.rest', dotStyle: { backgroundColor: theme.greenSoft } },
 ];
 
 /**
@@ -820,6 +810,7 @@ export function ProgressScreen({
   unitPreference,
   language = 'en',
   initialSection,
+  scrollToTarget,
   initialMeasure,
   selectedExerciseKey,
   topRecords = [],
@@ -918,6 +909,28 @@ export function ProgressScreen({
       setSelectedMeasure('bodyweight');
     }
   }, [showBodyweightDetail]);
+
+  // The widget's calendar tap: land ON the calendar, not at the top of the
+  // overview it lives halfway down. The block's y is only known once it has
+  // laid out, so whichever happens last — the request or the layout — does
+  // the scrolling.
+  const activityBlockY = useRef<number | null>(null);
+  const pendingActivityScroll = useRef(false);
+  const scrollToActivityBlock = () => {
+    if (activityBlockY.current === null) {
+      return;
+    }
+    pendingActivityScroll.current = false;
+    scrollRef.current?.scrollTo({ y: Math.max(0, activityBlockY.current - 8), animated: true });
+  };
+  useEffect(() => {
+    if (scrollToTarget === 'activity') {
+      setProgressSection('overview');
+      pendingActivityScroll.current = true;
+      scrollToActivityBlock();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollToTarget]);
 
   function switchSection(section: ProgressSection) {
     setProgressSection(section);
@@ -1499,10 +1512,21 @@ export function ProgressScreen({
           </>
         ) : null}
 
-        <SectionLabel
-          label={t(language, 'progress.section.activity')}
-          right={calendarMonthLabel}
-        />
+        <View
+          onLayout={(event) => {
+            // Direct child of the scroll content, so this y is the scroll
+            // offset the widget tap needs.
+            activityBlockY.current = event.nativeEvent.layout.y;
+            if (pendingActivityScroll.current) {
+              scrollToActivityBlock();
+            }
+          }}
+        >
+          <SectionLabel
+            label={t(language, 'progress.section.activity')}
+            right={calendarMonthLabel}
+          />
+        </View>
         <View style={styles.card}>
           {/* The streak the calendar is really about, above the grid it is
               counted from. The current week never breaks it — see
@@ -1539,28 +1563,25 @@ export function ProgressScreen({
                 return <View key={day.dayStart} style={styles.calendarCell} />;
               }
 
-              // Two colours, one logic, every calendar (user 2026-08-25):
-              // a training day is orange, a rest day is green. Trained gets
-              // the solid fill; a scheduled day — behind or ahead — gets the
-              // outline. Missed is not singled out: the history records what
-              // happened, not what did not.
-              const planned = status === 'missed' || status === 'upcoming';
+              // One mark, one meaning (user 2026-08-25): a training day —
+              // trained, ahead, or behind — is the solid highlight, and
+              // everything else is quiet. No trained/planned split and no
+              // legend to explain it: orange means training day, full stop.
+              const training = status !== 'rest';
               return (
                 <View key={day.dayStart} style={styles.calendarCell}>
                   <View
                     style={[
                       styles.calendarBubble,
-                      status === 'done' && styles.calendarBubbleDone,
-                      planned && styles.calendarBubblePlanned,
-                      status !== 'done' && day.isToday && styles.calendarBubbleToday,
+                      training && styles.calendarBubbleTraining,
+                      !training && day.isToday && styles.calendarBubbleToday,
                     ]}
                   >
                     <Text
                       style={[
                         styles.calendarBubbleText,
-                        status === 'done' && styles.calendarBubbleTextDone,
-                        planned && styles.calendarBubbleTextPlanned,
-                        status !== 'done' && day.isToday && styles.calendarBubbleTextToday,
+                        training && styles.calendarBubbleTextTraining,
+                        !training && day.isToday && styles.calendarBubbleTextToday,
                       ]}
                     >
                       {day.dayNumber}
@@ -1571,14 +1592,6 @@ export function ProgressScreen({
             })}
           </View>
 
-          <View style={styles.calendarLegend}>
-            {calendarLegend(theme).map((entry) => (
-              <View key={entry.key} style={styles.legendItem}>
-                <View style={[styles.legendDot, entry.dotStyle]} />
-                <Text style={styles.legendText}>{t(language, entry.labelKey)}</Text>
-              </View>
-            ))}
-          </View>
         </View>
 
         <View style={styles.progressHistoryCard}>
@@ -2485,25 +2498,19 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     width: `${100 / 7}%`,
     paddingHorizontal: 3,
   },
-  // Rest is the default and by far the most common cell, so it carries the
-  // quiet green tint — loud enough to say "rest is green" (user 2026-08-25),
-  // soft enough that the orange training days still lead the eye.
+  // Rest is the default and by far the most common cell, so it stays the
+  // quietest thing on screen — the green tint was tried and the month read
+  // as too colourful (user 2026-08-25). One mark carries the message.
   calendarBubble: {
     aspectRatio: 1,
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.greenSoft,
+    backgroundColor: theme.surfaceSoft,
   },
-  calendarBubbleDone: {
+  // Any training day — trained, ahead, or behind — wears the same fill.
+  calendarBubbleTraining: {
     backgroundColor: theme.highlight,
-  },
-  // One outline for behind and ahead alike: it marks a scheduled training
-  // day, and the history is no place to be scolded for a skipped Thursday.
-  calendarBubblePlanned: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: theme.highlight,
   },
   calendarBubbleToday: {
     borderWidth: 1.5,
@@ -2511,36 +2518,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderStyle: 'dashed',
   },
   calendarBubbleText: {
-    color: theme.greenInk,
+    color: theme.faint,
     fontSize: 11.5,
     fontWeight: '700',
   },
-  calendarBubbleTextDone: {
+  calendarBubbleTextTraining: {
     color: theme.onHighlight,
-  },
-  calendarBubbleTextPlanned: {
-    color: theme.highlight,
-  },
-  calendarLegend: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 14,
-    marginTop: 14,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  legendDot: {
-    width: 11,
-    height: 11,
-    borderRadius: 4,
-  },
-  legendText: {
-    color: theme.muted,
-    fontSize: 11.5,
-    fontWeight: '700',
   },
   calendarBubbleTextToday: {
     color: theme.highlight,

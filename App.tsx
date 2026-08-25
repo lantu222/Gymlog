@@ -3914,9 +3914,11 @@ function VinhaApp() {
 
     if (pendingWidgetTarget === 'calendar') {
       // The widget's month opens the same calendar it is a small copy of:
-      // Progress → Activity. The standalone calendar screen it used to open
-      // was retired as a duplicate (user 2026-08-25).
-      resetToRoute(ROOT_ROUTES.progress);
+      // Progress → Activity, scrolled to the calendar itself — the block
+      // lives mid-page, and landing at the top of the overview is landing
+      // somewhere else (user 2026-08-25). The standalone calendar screen
+      // this used to open was retired as a duplicate.
+      resetToRoute({ tab: 'progress', screen: 'list', section: 'overview', scrollTo: 'activity' });
       return;
     }
     if (pendingWidgetTarget === 'programs') {
@@ -5673,6 +5675,7 @@ function VinhaApp() {
           selectedExerciseKey={route.screen === 'detail' ? route.exerciseKey : undefined}
         initialSection={route.screen === 'list' ? route.section : undefined}
         initialMeasure={route.screen === 'list' ? route.measure : undefined}
+        scrollToTarget={route.screen === 'list' ? route.scrollTo : undefined}
         showBodyweightDetail={route.screen === 'bodyweight'}
         onAddBodyweight={async (weightKg) => {
           await addBodyweightEntry(weightKg);
