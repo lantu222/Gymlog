@@ -996,7 +996,68 @@ export function HomeScreen({
               </View>
 
             </Animated.View>
+          </>
+        ) : null}
 
+        {/* Start and Adapt, ABOVE the session's contents. A tester tapped the
+            first exercise to "check it off": the list rendered before any
+            call to action, and the only start button sat below the fold
+            (user report 2026-08-25). Deliberately NOT pinned over the bottom
+            bar — Home is the tab root, so the floating bar cannot be hidden
+            here, and a pinned CTA would stack a second floating layer on it. */}
+        <Animated.View style={[styles.btnRow, rise(RISE_BTNROW)]}>
+          {activePlan && nextPlanSession ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(language, 'home.a11y.adaptSession')}
+              onPress={() => setAdaptSheetVisible(true)}
+              style={({ pressed }) => [styles.adaptButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.adaptButtonText}>{t(language, 'home.adapt')}</Text>
+            </Pressable>
+          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(
+              language,
+              heroStartsSession
+                ? hasActiveSession
+                  ? 'home.a11y.resumeSession'
+                  : 'home.a11y.startSession'
+                : 'home.a11y.findProgram',
+            )}
+            onPress={pressHeroAction}
+            style={({ pressed }) => [styles.startButtonWrap, pressed && styles.cutPressed]}
+          >
+            {/* A big filled play button (user 2026-08-25): the outline version
+                below the list read as one row among many, and starting is the
+                one thing this screen exists for. */}
+            <CutSurface
+              size="lg"
+              fill={theme.accent}
+              stroke={theme.accent}
+              strokeWidth={1.5}
+              style={styles.startButton}
+            >
+              <Svg width={20} height={20} viewBox="0 0 24 24">
+                <Path d="M8 5.5v13l11-6.5z" fill={theme.onHighlight} />
+              </Svg>
+              <Text style={styles.startButtonText}>
+                {t(
+                  language,
+                  heroStartsSession
+                    ? hasActiveSession
+                      ? 'home.resumeWorkout'
+                      : 'home.startWorkout'
+                    : 'home.findProgram',
+                )}
+              </Text>
+            </CutSurface>
+          </Pressable>
+        </Animated.View>
+
+        {activePlan && nextPlanSession ? (
+          <>
             {/* Today's session, flat on the surface (user 2026-08-23): the
                 three boxed accordions are gone. The lifts are the decision, so
                 they stand open with no tap and no card; warmup and recovery
@@ -1104,53 +1165,8 @@ export function HomeScreen({
           </>
         ) : null}
 
-        <Animated.View style={[styles.btnRow, rise(RISE_BTNROW)]}>
-          {activePlan && nextPlanSession ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t(language, 'home.a11y.adaptSession')}
-              onPress={() => setAdaptSheetVisible(true)}
-              style={({ pressed }) => [styles.adaptButton, pressed && styles.pressed]}
-            >
-              <Text style={styles.adaptButtonText}>{t(language, 'home.adapt')}</Text>
-            </Pressable>
-          ) : null}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t(
-              language,
-              heroStartsSession
-                ? hasActiveSession
-                  ? 'home.a11y.resumeSession'
-                  : 'home.a11y.startSession'
-                : 'home.a11y.findProgram',
-            )}
-            onPress={pressHeroAction}
-            style={({ pressed }) => [styles.startButtonWrap, pressed && styles.cutPressed]}
-          >
-            <CutSurface
-              size="lg"
-              fill={theme.surface}
-              stroke={theme.accent}
-              strokeWidth={1.5}
-              style={styles.startButton}
-            >
-              <Text style={styles.startButtonText}>
-                {t(
-                  language,
-                  heroStartsSession
-                    ? hasActiveSession
-                      ? 'home.resumeWorkout'
-                      : 'home.startWorkout'
-                    : 'home.findProgram',
-                )}
-              </Text>
-              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                <Path d="M5 12h14M13 6l6 6-6 6" stroke={theme.accent} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-              </Svg>
-            </CutSurface>
-          </Pressable>
-        </Animated.View>
+        {/* The Start/Adapt row lived here, under the whole list — moved above
+            it (user report 2026-08-25). */}
 
         {/* No promo carousel here any more (user 2026-08-23): Home is for
             running today's session, and the season/programme offers live on
@@ -2313,8 +2329,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     shadowRadius: 16,
     elevation: 4,
   },
+  // On the filled accent now — the outline version's accent-on-surface text
+  // went with the outline (user 2026-08-25: "iso play nappi").
   startButtonText: {
-    color: theme.accent,
+    color: theme.onHighlight,
     fontSize: 17.5,
     lineHeight: 22,
     fontWeight: '800',

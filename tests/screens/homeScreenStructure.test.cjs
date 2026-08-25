@@ -189,15 +189,16 @@ module.exports = [
       // Inline Adapt + Start row (no floating bar) and the Adapt sheet, which
       // is now one real action rather than four rows that closed it.
       assert.match(homeScreenSource, /adaptButton:\s*\{\s*flex: 1,\s*height: 56,\s*borderRadius: 16,\s*borderWidth: 1\.5,\s*borderColor: theme.border/);
-      // Start workout is the green action: green border, label, and arrow.
-      // A3: the shape is drawn, and the green stays — this is the one button
-      // on the screen that is not purple, which is the point of it.
+      // Start workout is a FILLED play button now (user 2026-08-25, after a
+      // tester tapped the first exercise to "check it off" — the outline
+      // version below the list read as one row among many).
       assert.match(homeScreenSource, /startButton:\s*\{\s*height: 56/);
-      assert.match(homeScreenSource, /stroke=\{theme\.accent\}/);
+      assert.match(homeScreenSource, /fill=\{theme\.accent\}[\s\S]{0,160}style=\{styles\.startButton\}/);
+      assert.match(homeScreenSource, /M8 5\.5v13l11-6\.5z/);
       // The start CTA reads `accent`, not `green`: green also means "done"
       // (completed sets, finished cardio), and the dark theme moves the action
-      // accent to orange without moving those.
-      assert.match(homeScreenSource, /startButtonText:\s*\{\s*color: theme.accent/);
+      // accent to orange without moving those. Its text sits ON the fill.
+      assert.match(homeScreenSource, /startButtonText:\s*\{\s*color: theme.onHighlight/);
       // The hero button says "Start workout" only when there is a session to
       // start. With no programme it used to promise one anyway and open an empty
       // workout — the same thing the row below it already offers — so the label
@@ -462,9 +463,12 @@ module.exports = [
         homeScreenSource.indexOf('styles.hero,') < homeScreenSource.indexOf('styles.heroList'),
         'session hero should render before its flat exercise list',
       );
+      // The CTA row renders BEFORE the exercise list (user report 2026-08-25):
+      // below it, a tester never found the start button and tapped the first
+      // exercise instead.
       assert.ok(
-        homeScreenSource.indexOf('styles.heroList') < homeScreenSource.indexOf('styles.btnRow'),
-        'the exercise list should render before the Adapt/Start row',
+        homeScreenSource.indexOf('styles.btnRow') < homeScreenSource.indexOf('styles.heroList'),
+        'the Adapt/Start row should render before the exercise list',
       );
       assert.ok(
         homeScreenSource.indexOf('styles.btnRow') < homeScreenSource.indexOf('styles.emptyWorkoutRow'),
