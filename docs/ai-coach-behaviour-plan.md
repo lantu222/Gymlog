@@ -228,8 +228,13 @@ Toteutus:
 Kaksi ehtoa jotka tekevät tästä oikean eivätkä ärsyttävän: **vastauskysymys ei
 saa veloittaa** (viikkokiintiö on 3 ilmaista kysymystä; käyttäjä ei maksa
 siitä ettei app tiennyt — ennakkotapaus `dde8c7c`), ja kysymys **tarjotaan
-lopulta nappina** eikä pelkkänä tekstinä. Nappi tulee vaiheessa 3; ilman sitä
-kysymys on tyhjä lupaus, joten 6.4 ei ole valmis ennen kuin se on kytketty.
+nappina** eikä pelkkänä tekstinä.
+
+**Nappi kytketty 25.8.**: neljäs ehdotuslaji `log_measurement`, ja sääntö joka
+käskee liittää kysymykseen sitä vastaavan ehdotuksen. Valmentaja ei kirjaa
+lukemaa itse — lukema on juuri se mitä sillä ei ole — vaan nappi avaa sivun
+jolla se kirjataan (paino omalle ruudulleen, muut Edistymisen mittaosioon
+oikean mitan kohdalle). Ei tarjota mitalle joka on jo kirjattu.
 
 ### 6.5 Luottamustaso lasketaan, ei arvioida
 

@@ -1863,6 +1863,8 @@ const EN = {
   // back as a full analysis, and it cost one of three free questions a week.
   'coach.smalltalk.thanks.a': 'Any time.',
   'coachChat.weighIn.offer': 'Want a morning nudge to weigh in? Same time each day is what makes the line readable.',
+  'coachChat.measure.firstOffer': 'Nothing is logged for {label} yet, so there is no starting point to read. Want to record one now?',
+  'coachChat.measure.open': 'Log it',
   'coachChat.weighIn.on': 'Turn it on',
   'coachChat.weighIn.done': 'Morning weigh-in is on. You can turn it off in Settings.',
   'coach.smalltalk.thanks.b': 'You are welcome.',
@@ -5262,6 +5264,8 @@ const FI: Record<I18nKey, string> = {
   // täyden analyysin ja söi yhden kolmesta ilmaisesta kysymyksestä.
   'coach.smalltalk.thanks.a': 'Ole hyvä.',
   'coachChat.weighIn.offer': 'Laitetaanko aamumuistutus punnitukseen? Sama kellonaika joka päivä tekee käyrästä luettavan.',
+  'coachChat.measure.firstOffer': '{label} ei ole kirjattuna kertaakaan, joten lähtötasoa ei ole. Kirjataanko nyt?',
+  'coachChat.measure.open': 'Kirjaa',
   'coachChat.weighIn.on': 'Laita päälle',
   'coachChat.weighIn.done': 'Aamupunnitus on päällä. Voit ottaa sen pois Asetuksista.',
   'coach.smalltalk.thanks.b': 'Eipä kestä.',

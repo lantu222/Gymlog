@@ -77,6 +77,7 @@ module.exports = [
     name: 'coach suggestions: both answers are recorded, and an unusable offer is never drawn',
     run() {
       const screen = fs.readFileSync(path.join(__dirname, '../../src/screens/AICoachChatScreen.tsx'), 'utf8');
+      const app = fs.readFileSync(path.join(__dirname, '../../App.tsx'), 'utf8');
 
       // Recording only the acceptances would leave a refusal invisible and
       // the same offer would return next week.
@@ -96,6 +97,16 @@ module.exports = [
       assert.match(hook, /notificationPrefs\.weighInReminder,/);
       assert.match(hook, /signals\.lastBodyweightAtMs,/);
 
+      // The reading is the thing the coach does not have, so the offer opens
+      // the page rather than pretending to log a number it invented.
+      assert.match(screen, /if \(suggestion\.kind === 'log_measurement'\)/);
+      assert.match(screen, /if \(!isMeasurementIntentKind\(kind\) \|\| measured\)/);
+      assert.match(app, /onOpenMeasure=\{\(kind\) =>/);
+      assert.match(app, /section: 'measures', measure: kind/);
+      // Bodyweight has its own screen; sending it to the measures section
+      // would open a page that cannot record it.
+      assert.match(app, /kind === 'bodyweight'/);
+
       const endpoint = fs.readFileSync(path.join(__dirname, '../../api/ai-coach.ts'), 'utf8');
       // One offer per answer, and only for what the app state says is missing.
       assert.match(endpoint, /You may offer one action per answer/);
@@ -104,8 +115,11 @@ module.exports = [
       // have to draw a button for it.
       assert.match(
         endpoint,
-        /candidate\.kind !== 'pin_stat_card' &&\s*\n\s*candidate\.kind !== 'set_goal' &&\s*\n\s*candidate\.kind !== 'weigh_in_reminder'/,
+        /candidate\.kind !== 'pin_stat_card' &&[\s\S]*?candidate\.kind !== 'set_goal' &&[\s\S]*?candidate\.kind !== 'weigh_in_reminder' &&[\s\S]*?candidate\.kind !== 'log_measurement'/,
       );
+      // 6.4 without this is a question that goes nowhere: the rules have to
+      // tell the coach to hand the reader the button along with the question.
+      assert.match(endpoint, /Pair such a question with the matching `suggestion`/);
     },
   },
 ];

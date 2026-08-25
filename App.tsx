@@ -5958,6 +5958,15 @@ function VinhaApp() {
           });
         }}
         weighInReminderEnabled={preferences.notificationPrefs.weighInReminder}
+        onOpenMeasure={(kind) =>
+          // Bodyweight has a screen of its own; everything else is a section
+          // of Progress that can open on the right measurement.
+          navigate(
+            kind === 'bodyweight'
+              ? { tab: 'progress', screen: 'bodyweight' }
+              : { tab: 'progress', screen: 'list', section: 'measures', measure: kind },
+          )
+        }
         onEnableWeighInReminder={() =>
           void updatePreferences({
             notificationPrefs: { ...preferences.notificationPrefs, weighInReminder: true },

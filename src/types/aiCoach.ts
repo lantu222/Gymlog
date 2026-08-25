@@ -281,8 +281,8 @@ export interface AICoachAdvice {
 }
 
 export interface AICoachSuggestion {
-  kind: 'pin_stat_card' | 'set_goal' | 'weigh_in_reminder';
-  /** For pin_stat_card: which measurement's card. */
+  kind: 'pin_stat_card' | 'set_goal' | 'weigh_in_reminder' | 'log_measurement';
+  /** For pin_stat_card and log_measurement: which measurement. */
   statKey?: string | null;
   /**
    * For set_goal: the goal in the reader's own words. The chat parses it with

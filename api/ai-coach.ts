@@ -195,13 +195,13 @@ const AI_COACH_RESPONSE_SCHEMA = {
       properties: {
         kind: {
           type: 'string',
-          enum: ['pin_stat_card', 'set_goal', 'weigh_in_reminder'],
+          enum: ['pin_stat_card', 'set_goal', 'weigh_in_reminder', 'log_measurement'],
           description:
-            'pin_stat_card: put a measurement card on the home screen. set_goal: save the goal the reader described in their own words. weigh_in_reminder: switch on a morning nudge to weigh in, when the goal needs weight tracked and it is off.',
+            'log_measurement: open the page where a measurement is recorded, when the answer needs a reading the Body record does not have. pin_stat_card: put a measurement card on the home screen. set_goal: save the goal the reader described in their own words. weigh_in_reminder: switch on a morning nudge to weigh in, when the goal needs weight tracked and it is off.',
         },
         statKey: {
           type: 'string',
-          description: 'For pin_stat_card only: which measurement, e.g. "chest".',
+          description: 'For pin_stat_card and log_measurement: which measurement, e.g. "chest".',
         },
         goalText: {
           type: 'string',
@@ -251,6 +251,7 @@ const COACH_SYSTEM_RULES = [
   '- A coach asks before advising. When the context does not hold what an accurate answer needs, do not guess and do not fall back on a generic answer: ask exactly one short follow-up question, put that question in `takeaway`, leave `why`, `nextSteps`, `plan` and `assumptions` empty, and set `unanswered` to true.',
   '- One question, never two, and never a question plus an answer. It is the whole reply.',
   '- Ask only when the missing fact actually blocks the answer. If a useful answer exists from what you have, give it — asking instead of answering is evasion, and it is the more common failure.',
+  '- Pair such a question with the matching `suggestion` so the reader can answer it with one tap — asking to log a chest measurement while offering no way to do it is a question that goes nowhere.',
   '- Prefer a question the app can act on: a measurement to log, a goal to set, a bodyweight to record. "Chest growth is measured, not guessed — shall we log your chest measurement now so there is a starting point?" beats "what do you mean by faster?".',
   '- Never set `unanswered` on a reply that does answer. The flag means the reader was asked something, not that the answer was short or uncertain.',
   '',
@@ -481,7 +482,8 @@ function validateSuggestion(value: unknown): AICoachSuggestion | null {
   if (
     candidate.kind !== 'pin_stat_card' &&
     candidate.kind !== 'set_goal' &&
-    candidate.kind !== 'weigh_in_reminder'
+    candidate.kind !== 'weigh_in_reminder' &&
+    candidate.kind !== 'log_measurement'
   ) {
     return null;
   }

@@ -18,7 +18,7 @@ import { buildAiCoachPreviewAnswer } from '../lib/aiCoachPreview';
 import { FREE_COACH_QUESTIONS_PER_WEEK } from '../lib/aiCoachQuota';
 import { CoachChatIntroInput, CoachContextChip, buildCoachContextChips, buildCoachContextReadout, buildCoachNoticed, buildCoachOpeningLine, buildCoachOpeningOffer, buildCoachOpeningRows } from '../lib/coachChat';
 import { coachSmallTalkReplyKey, parseCoachSmallTalk } from '../lib/coachSmallTalk';
-import { appendCoachTurn } from '../lib/coachConversation';
+import { appendCoachTurn } from '../lib/coachConversation';
 import { CoachSuggestionKind } from '../lib/coachSuggestions';
 import { MEASUREMENT_LABEL_KEYS } from '../lib/homeStatCards';
 import { I18nKey, t } from '../lib/i18n';
@@ -92,6 +92,8 @@ interface AICoachChatScreenProps {
   /** Whether the morning weigh-in nudge is already on, so it is never offered twice. */
   weighInReminderEnabled: boolean;
   onEnableWeighInReminder: () => void;
+  /** Opens the measures page on one measurement, so a question can be answered with a tap. */
+  onOpenMeasure: (kind: string) => void;
   /** TEMPORARY: the signed-in email, attached to the development transcript log. */
   transcriptReporter: string | null;
 }
@@ -110,7 +112,10 @@ interface ChatMessage {
     | { type: 'pin'; intent: Pick<MeasurementIntent, 'kind'> }
     | { type: 'goal'; intent: GoalIntent }
     // Nothing to carry: the offer is the switch itself.
-    | { type: 'weighIn' };
+    | { type: 'weighIn' }
+    // Opens the page that records this measurement. The coach cannot log one
+    // itself — the reading is the thing it does not have.
+    | { type: 'openMeasure'; intent: Pick<MeasurementIntent, 'kind'> };
   /**
    * Set when the coach proposed this rather than the typed message. Only those
    * count towards the cooldown: it exists to stop the coach nagging.
@@ -154,6 +159,7 @@ export function AICoachChatScreen({
   onCoachSuggestionResolved,
   weighInReminderEnabled,
   onEnableWeighInReminder,
+  onOpenMeasure,
   transcriptReporter,
 }: AICoachChatScreenProps) {
   const theme = useTheme();
@@ -256,6 +262,11 @@ export function AICoachChatScreen({
         setMessages((current) => current.filter((message) => message.id !== messageId));
         return;
       }
+      if (offer.type === 'openMeasure') {
+        onOpenMeasure(offer.intent.kind);
+        setMessages((current) => current.filter((message) => message.id !== messageId));
+        return;
+      }
       if (offer.type === 'weighIn') {
         onEnableWeighInReminder();
         setMessages((current) =>
@@ -304,16 +315,17 @@ export function AICoachChatScreen({
         ),
       );
     },
-    [
-      formatReading,
-      language,
-      measurementLabel,
-      onCoachSuggestionResolved,
-      onEnableWeighInReminder,
-      onLogMeasurement,
-      onPinStatCard,
-      onSetGoal,
-      pinnedStatCardKeys,
+    [
+      formatReading,
+      language,
+      measurementLabel,
+      onCoachSuggestionResolved,
+      onEnableWeighInReminder,
+      onLogMeasurement,
+      onOpenMeasure,
+      onPinStatCard,
+      onSetGoal,
+      pinnedStatCardKeys,
     ],
   );
 
@@ -426,6 +438,22 @@ export function AICoachChatScreen({
           if (!suggestion) {
             return null;
           }
+          if (suggestion.kind === 'log_measurement') {
+            const kind = suggestion.statKey ?? '';
+            // Never offered for something already measured: the point is the
+            // reading the record does not have.
+            const measured = (trainingContext.body?.measurements ?? []).some((entry) => entry.kind === kind);
+            if (!isMeasurementIntentKind(kind) || measured) {
+              return null;
+            }
+            return {
+              id: `suggest:${token}`,
+              fromCoach: true,
+              text: '',
+              offer: { type: 'openMeasure' as const, intent: { kind } },
+              suggestionKind: 'log_measurement' as const,
+            };
+          }
           if (suggestion.kind === 'weigh_in_reminder') {
             return weighInReminderEnabled
               ? null
@@ -490,17 +518,17 @@ export function AICoachChatScreen({
         }
       }
     },
-    [
-      asking,
-      canAsk,
-      language,
-      mustAcknowledgeOnline,
-      onFreeQuestionUsed,
-      pinnedStatCardKeys,
-      proUnlocked,
-      sessionCount,
-      trainingContext,
-      weighInReminderEnabled,
+    [
+      asking,
+      canAsk,
+      language,
+      mustAcknowledgeOnline,
+      onFreeQuestionUsed,
+      pinnedStatCardKeys,
+      proUnlocked,
+      sessionCount,
+      trainingContext,
+      weighInReminderEnabled,
     ],
   );
 
@@ -598,8 +626,12 @@ export function AICoachChatScreen({
               <View key={message.id} style={styles.bubbleRow}>
                 <View style={[styles.coachBubble, styles.offerBubble]}>
                   <Text style={styles.coachText}>
-                    {message.offer.type === 'weighIn'
-                      ? t(language, 'coachChat.weighIn.offer')
+                    {message.offer.type === 'openMeasure'
+                      ? t(language, 'coachChat.measure.firstOffer', {
+                          label: measurementLabel(message.offer.intent),
+                        })
+                      : message.offer.type === 'weighIn'
+                        ? t(language, 'coachChat.weighIn.offer')
                       : message.offer.type === 'goal'
                       ? t(language, 'coachChat.goal.offer', { text: message.offer.intent.text })
                       : message.offer.type === 'log'
@@ -636,8 +668,10 @@ export function AICoachChatScreen({
                       <Text style={styles.offerCtaText}>
                         {t(
                           language,
-                          message.offer.type === 'weighIn'
-                            ? 'coachChat.weighIn.on'
+                          message.offer.type === 'openMeasure'
+                            ? 'coachChat.measure.open'
+                            : message.offer.type === 'weighIn'
+                              ? 'coachChat.weighIn.on'
                             : message.offer.type === 'goal'
                               ? 'coachChat.goal.set'
                               : message.offer.type === 'log'
