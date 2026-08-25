@@ -243,15 +243,21 @@ export const AI_COACH_EVAL_CASES: AiCoachEvalCase[] = [
     id: 'goal-with-no-readings-asks-first',
     language: 'fi' as const,
     liveOnly: true,
-    intent: 'With nothing measured, the honest reply is one question, and it is free',
-    prompt: 'Miten saan rinnanympäryksen kasvamaan nopeammin?',
+    intent: 'A question that cannot be answered without a reading gets a question back',
+    prompt: 'Onko rinnanympärykseni kasvanut viime kuukausina?',
     // The goal is stated but the tape has never come out: no reading, no
-    // starting value, no target — so there is nothing to advise against, and
-    // the honest move is to ask for the first measurement.
+    // starting value, no target.
     //
-    // The first version of this case reused the goal above, which carries a
-    // start of 96.5 cm. The live coach answered from that number, correctly:
-    // the fixture, not the coach, was wrong about what was missing.
+    // This case was wrong twice before it was right, both times in the same
+    // direction — it failed the coach for obeying the rules. It first reused
+    // the goal above, which carries a start of 96.5 cm, and the coach answered
+    // from that number. Then it asked "how do I grow it faster", which is
+    // answerable without ever measuring: volume, progression and food are all
+    // in the context, and the rules say to answer when a useful answer exists.
+    //
+    // "Has it grown" is the question that genuinely cannot be answered. It is
+    // a comparison between two readings, and with none there is no substitute
+    // — only a question back.
     context: buildEvalContext(pushSessions, pushLogs, ['mon', 'thu'], {
       coachGoals: [{ ...chestGoal, id: 'g-bare', targetValue: null, startValue: null }],
       bodyweightEntries: weighIns,
