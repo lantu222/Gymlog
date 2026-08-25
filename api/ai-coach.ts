@@ -470,6 +470,44 @@ function validateAnswer(payload: unknown): AICoachAdvice | null {
 }
 
 /**
+ * Which part of the shape was wrong, as a field name and a reason.
+ *
+ * The log used to say only that a payload was invalid, plus the stop reason —
+ * which answers "was it truncated?" and nothing else. A complete tool_use that
+ * still fails validation left no way to tell an empty takeaway from a
+ * malformed list (live eval, 25.8.), so the answer dropped to preview and the
+ * cause stayed a guess.
+ *
+ * Field names and shapes only. Nothing the reader wrote or the model answered
+ * goes into a log line.
+ */
+export function describeAnswerShape(payload: unknown): string {
+  if (!payload || typeof payload !== 'object') {
+    return `not-an-object:${typeof payload}`;
+  }
+  const candidate = payload as Partial<AICoachAdvice>;
+  if (typeof candidate.takeaway !== 'string') {
+    return `takeaway:${candidate.takeaway === undefined ? 'missing' : typeof candidate.takeaway}`;
+  }
+  if (!candidate.takeaway.trim()) {
+    return 'takeaway:empty';
+  }
+  for (const field of ['why', 'nextSteps', 'plan', 'assumptions'] as const) {
+    const value = candidate[field];
+    if (value === undefined) {
+      continue;
+    }
+    if (!Array.isArray(value)) {
+      return `${field}:${typeof value}`;
+    }
+    if (!value.every((item) => typeof item === 'string')) {
+      return `${field}:array-of-${[...new Set(value.map((item) => typeof item))].join('|')}`;
+    }
+  }
+  return 'shape-ok';
+}
+
+/**
  * The offer, or nothing. An unknown kind is dropped rather than passed on: the
  * client draws a button per kind, and a button it cannot carry out would be a
  * promise the app does not keep.
@@ -644,6 +682,7 @@ async function requestClaude(input: AICoachAdviceRequest) {
         JSON.stringify({
           stop_reason: meta.stop_reason ?? null,
           blocks: Array.isArray(meta.content) ? meta.content.map((block) => (block as { type?: string }).type ?? '?') : null,
+          shape: describeAnswerShape(extractToolInput(payload)),
         }),
       );
       return createError(

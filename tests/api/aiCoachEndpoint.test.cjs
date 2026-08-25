@@ -76,6 +76,22 @@ module.exports = [
     },
   },
   {
+    name: 'a rejected answer says which field was wrong, without logging what it said',
+    run() {
+      // "stop_reason: tool_use" answers "was it truncated?" and nothing else.
+      // A complete tool call that still fails validation used to leave no way
+      // to tell an empty takeaway from a malformed list (live eval, 25.8.).
+      assert.match(source, /shape: describeAnswerShape\(extractToolInput\(payload\)\)/);
+      assert.match(source, /return 'takeaway:empty';/);
+      assert.match(source, /return `\$\{field\}:\$\{typeof value\}`;/);
+
+      // Field names and shapes only. The reader's question and the model's
+      // answer must never reach a log line.
+      const fn = source.slice(source.indexOf('export function describeAnswerShape'), source.indexOf('The offer, or nothing'));
+      assert.doesNotMatch(fn, /candidate\.takeaway\.slice|JSON\.stringify\(candidate/);
+    },
+  },
+  {
     name: 'the coach introduces itself as Vinha, not under the old brand',
     run() {
       // GAINER is another company's EU trademark; the app has been Vinha
