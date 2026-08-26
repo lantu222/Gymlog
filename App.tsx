@@ -69,6 +69,7 @@ import {
 } from './src/lib/programAdoption';
 import { buildAiTrainingContext } from './src/lib/aiTrainingContext';
 import { buildAiCoachProgramme } from './src/lib/aiCoachProgramme';
+import { buildProgramCapNotice, programCapNoticeKey } from './src/lib/programCapNotice';
 import { computePostSessionInsight } from './src/lib/postSessionInsight';
 import { composeProgramWeekForSelection } from './src/lib/programDayComposer';
 import { resolveAvailableEquipment } from './src/lib/equipmentExerciseFilter';
@@ -1513,7 +1514,7 @@ function VinhaApp() {
       // explicitly choosing a new lead, so the completion flow passes `lead`.
       activePlanId: options?.lead ? plan.id : preferences.activePlanId ?? plan.id,
     });
-    showToast(t(preferences.appLanguage, 'season.joined', { program: plan.name }));
+    showToast(programCapToast(plan.name));
   }
 
   /**
@@ -1758,7 +1759,7 @@ function VinhaApp() {
       return;
     }
     await updatePreferences({ activePlanId: plan.id });
-    showToast(t(preferences.appLanguage, 'season.joined', { program: plan.name }));
+    showToast(programCapToast(plan.name));
   }
 
   async function handleRemoveActiveProgram(planId: string) {
@@ -1907,6 +1908,29 @@ function VinhaApp() {
    * programme slot: that is said before anything is written, because finding
    * out at a paywall mid-edit is the surprise the silence was meant to avoid.
    */
+  /**
+   * The confirmation that a programme is now running, carrying how many are.
+   *
+   * The cap was enforced and never mentioned until the try that failed, so a
+   * reader met it as a wall rather than as a number they had been watching
+   * (user 2026-08-26). All three adoption paths speak through here, because
+   * three separately worded toasts is how they drift.
+   *
+   * Read before the write: `preferences.activePlanIds` in this closure is the
+   * set as it was, which is what the notice counts from.
+   */
+  function programCapToast(programName: string) {
+    const notice = buildProgramCapNotice({
+      activePlanIds: preferences.activePlanIds,
+      proUnlocked: resolveProEntitlement(preferences).unlocked,
+    });
+    return t(preferences.appLanguage, `programs.cap.${programCapNoticeKey(notice)}` as I18nKey, {
+      program: programName,
+      used: notice.used,
+      cap: notice.cap,
+    });
+  }
+
   async function handleRemoveProgramExercise(
     programType: 'ready' | 'custom',
     programId: string,
@@ -2092,7 +2116,7 @@ function VinhaApp() {
       activePlanIds: addActiveProgram(preferences.activePlanIds, plan.id),
       activePlanId: options?.lead ? plan.id : preferences.activePlanId ?? plan.id,
     });
-    showToast(t(preferences.appLanguage, 'season.joined', { program: plan.name }));
+    showToast(programCapToast(plan.name));
   }
 
   function handleStartCustomProgram(workoutTemplateId: string) {

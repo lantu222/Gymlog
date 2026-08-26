@@ -2809,6 +2809,12 @@ const EN = {
   'programs.cap.paywall': 'Free runs {cap} programmes at once. Pro runs five.',
   'programs.cap.full': 'You are running {cap} programmes. Drop one to take on another.',
   'season.joined': 'You are in — {program} is now your programme.',
+  // The counter rides the confirmation of the act that spends it. Three
+  // wordings, because "1/2" alone means nothing the first time and everything
+  // when it is the last one.
+  'programs.cap.first': '{program} is now your programme. You can run {cap} at a time on the free plan — this is your first.',
+  'programs.cap.count': '{program} is now your programme · {used}/{cap} running',
+  'programs.cap.last': '{program} is now your programme · {used}/{cap} — your last place. Drop one to take on another.',
   'season.replace.title': 'Replace your programme?',
   'season.replace.message': 'The season is run on one programme. Joining swaps {current} for {season}. Your logged workouts stay exactly as they are.',
   'season.oneProgram': 'One program for the whole season, the same one for everyone, and it does not change. Everything else in the catalog still works — it is just not the season, and it does not score.',
@@ -5908,6 +5914,9 @@ const FI: Record<I18nKey, string> = {
   'programs.cap.paywall': 'Ilmaisella {cap} ohjelmaa rinnakkain. Prolla viisi.',
   'programs.cap.full': 'Sinulla on {cap} ohjelmaa käynnissä. Poista yksi ottaaksesi uuden.',
   'season.joined': 'Olet mukana — {program} on nyt ohjelmasi.',
+  'programs.cap.first': '{program} on nyt ohjelmasi. Ilmaisversiossa voit ajaa {cap} ohjelmaa kerrallaan — tämä on ensimmäinen.',
+  'programs.cap.count': '{program} on nyt ohjelmasi · {used}/{cap} käynnissä',
+  'programs.cap.last': '{program} on nyt ohjelmasi · {used}/{cap} — viimeinen paikka. Poista yksi ottaaksesi uuden.',
   'season.replace.title': 'Vaihdetaanko ohjelmasi?',
   'season.replace.message': 'Kausi kuljetaan yhdellä ohjelmalla. Liittyminen vaihtaa ohjelman {current} tilalle ohjelman {season}. Kirjaamasi treenit säilyvät täsmälleen ennallaan.',
   'season.oneProgram': 'Yksi ohjelma koko kaudelle, sama kaikille, eikä se vaihdu. Kirjaston muut ohjelmat toimivat edelleen — ne eivät vain ole kausi eivätkä pisteytä.',
