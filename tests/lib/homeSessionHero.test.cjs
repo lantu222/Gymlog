@@ -25,6 +25,23 @@ module.exports = [
     },
   },
   {
+    name: 'the ordinal is read in both languages, so no name loses its number',
+    run() {
+      // A duplicated or composed custom programme saves its session names in
+      // Finnish by design, so this spelling is the one a real reader's own
+      // programme carries. English-only, the head was not recognised as an
+      // ordinal and the A/B/number strip below it removed the "4" — the Home
+      // hero read the bare word "Päivä" (user 2026-08-26).
+      assert.equal(getSessionFocusTitle('Päivä 4: Ylävartalo + HIIT'), 'Ylävartalo + HIIT');
+      assert.equal(getSessionFocusTitle('Day 2: Back & Biceps'), 'Back & Biceps');
+      // An ordinal with no focus after it keeps the ordinal whole: half of it
+      // names nothing at all.
+      assert.equal(getSessionFocusTitle('Päivä 4'), 'Päivä 4');
+      assert.equal(getSessionFocusTitle('Päivä 4:'), 'Päivä 4');
+      assert.equal(getSessionFocusTitle('Day 3'), 'Day 3');
+    },
+  },
+  {
     name: 'body focus label humanizes split types',
     run() {
       assert.equal(getSessionBodyFocusLabel('full_body'), 'Full body');

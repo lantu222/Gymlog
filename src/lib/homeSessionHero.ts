@@ -27,10 +27,18 @@ export function getSessionFocusTitle(sessionTitle?: string | null, planTitle?: s
   const base = sessionTitle?.trim() || planTitle?.trim() || 'Workout';
   const [head, ...rest] = base.split(':');
   const afterColon = rest.join(':').trim();
-  if (/^day\s*\d+$/i.test(head.trim()) && afterColon) {
-    return afterColon;
-  }
   const beforeColon = head.trim();
+  // Both spellings of the ordinal. A duplicated or composed custom programme
+  // SAVES its session names in Finnish by design (customProgramDuplication),
+  // so "Päivä 4: Ylävartalo + HIIT" arrives here — and an English-only test
+  // let it fall through to the suffix strip below, which removed the "4" and
+  // put the bare word "Päivä" on the Home hero (user 2026-08-26). Same shape
+  // as the truncation saga: an assembly helper that only knew English.
+  if (/^(?:day|päivä)\s*\d+$/i.test(beforeColon)) {
+    // The focus when there is one; otherwise the ordinal itself, which is all
+    // the session has to show — and is still better than half of it.
+    return afterColon || beforeColon;
+  }
   const stripped = beforeColon.replace(/\s+(?:[A-Ca-c]|\d+)$/, '').trim();
   return stripped || beforeColon || 'Workout';
 }
