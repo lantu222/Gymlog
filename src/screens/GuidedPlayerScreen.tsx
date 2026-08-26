@@ -1113,6 +1113,13 @@ export function GuidedPlayerScreen({
   // the session clock's tick so it needs no timer of its own.
   const ownElapsedSeconds = ownBlock ? Math.max(0, Math.floor((clockNowMs - ownBlock.startedAt) / 1000)) : 0;
 
+  /**
+   * A phase splash that offers the "do it yourself" fork. Those wait for a
+   * tap; the work splash is a beat between phases and passes on its own.
+   */
+  const splashCarriesChoice = (target: GuidedStep) =>
+    target.type === 'splash' && (target.phase === 'warmup' || target.phase === 'cooldown');
+
   const stepSeconds = (target: GuidedStep): number => {
     switch (target.type) {
       case 'ready':
@@ -1122,7 +1129,7 @@ export function GuidedPlayerScreen({
       case 'position':
         return target.seconds;
       case 'splash':
-        return SPLASH_MS / 1000;
+        return splashCarriesChoice(target) ? 0 : SPLASH_MS / 1000;
       // An interval's work bout runs on the clock like everything else here.
       // An ordinary set does not: it ends when the reader says it ended.
       case 'set':
@@ -1219,7 +1226,7 @@ export function GuidedPlayerScreen({
       step.type === 'drill' ||
       step.type === 'rest' ||
       step.type === 'position' ||
-      step.type === 'splash' ||
+      (step.type === 'splash' && !splashCarriesChoice(step)) ||
       (step.type === 'set' && step.interval !== undefined);
     if (!timed) {
       endsAtRef.current = null;
@@ -1809,7 +1816,16 @@ export function GuidedPlayerScreen({
 
           {step.type === 'splash' && (
             <StepIn stepKey={`splash-${stepIndex}`}>
-              <Pressable style={styles.splashRoot} onPress={advance}>
+              {/* A splash that asks a question waits for the answer. The work
+                  splash is a beat between phases and still passes on its own;
+                  the warmup and recovery ones carry a fork, and a choice on a
+                  2.3-second timer is a choice you reach for and miss (user
+                  2026-08-26). */}
+              <Pressable
+                style={styles.splashRoot}
+                onPress={splashCarriesChoice(step) ? undefined : advance}
+                disabled={splashCarriesChoice(step)}
+              >
                 {step.doneLabel ? (
                   <PopIn popKey={stepIndex}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 18 }}>
@@ -1829,17 +1845,25 @@ export function GuidedPlayerScreen({
                     real choice, so it gets a real button rather than a muted
                     line of text nobody found (user 2026-08-26). */}
                 {skippablePhase ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    hitSlop={10}
-                    onPress={() => setOwnBlock({ phase: skippablePhase, startedAt: Date.now() })}
-                    style={({ pressed }) => [styles.ownBlockCta, pressed && { opacity: 0.75 }]}
-                  >
-                    <GPIcon name="check" size={16} color={theme.purple} sw={2.6} />
-                    <Text style={styles.ownBlockCtaText}>
-                      {t(language, `guided.own.${skippablePhase}` as 'guided.own.warmup')}
-                    </Text>
-                  </Pressable>
+                  <View style={{ alignSelf: 'stretch', gap: 10, marginTop: 30, paddingHorizontal: 8 }}>
+                    <BigBtn
+                      icon="play"
+                      color={theme.purple}
+                      label={t(language, `guided.own.start.${skippablePhase}` as 'guided.own.start.warmup')}
+                      onPress={advance}
+                    />
+                    <Pressable
+                      accessibilityRole="button"
+                      hitSlop={10}
+                      onPress={() => setOwnBlock({ phase: skippablePhase, startedAt: Date.now() })}
+                      style={({ pressed }) => [styles.ownBlockCta, pressed && { opacity: 0.75 }]}
+                    >
+                      <GPIcon name="check" size={16} color={theme.purple} sw={2.6} />
+                      <Text style={styles.ownBlockCtaText}>
+                        {t(language, `guided.own.${skippablePhase}` as 'guided.own.warmup')}
+                      </Text>
+                    </Pressable>
+                  </View>
                 ) : null}
               </Pressable>
             </StepIn>

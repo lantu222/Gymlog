@@ -1355,6 +1355,8 @@ const EN = {
   // Leaving a block is not skipping it: a reader with their own five minutes
   // on the bike is warming up, and the guided drills are what they are
   // leaving (user 2026-08-26).
+  'guided.own.start.warmup': 'Start the warm-up',
+  'guided.own.start.cooldown': 'Start the recovery',
   'guided.own.warmup': 'Warm up your own way',
   'guided.own.cooldown': 'Recover your own way',
   'guided.own.eyebrow': 'YOUR OWN WAY',
@@ -4545,6 +4547,8 @@ const FI: Record<I18nKey, string> = {
   'guided.skipRest': 'Ohita lepo',
   'guided.resume': 'Jatka',
   'guided.pause': 'Tauko',
+  'guided.own.start.warmup': 'Aloita lämmittely',
+  'guided.own.start.cooldown': 'Aloita palautuminen',
   'guided.own.warmup': 'Lämmittele omatoimisesti',
   'guided.own.cooldown': 'Palaudu omatoimisesti',
   'guided.own.eyebrow': 'OMATOIMISESTI',
