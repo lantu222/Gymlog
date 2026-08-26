@@ -481,6 +481,40 @@ export function ProgramDetailScreen({
           ))}
         </View>
 
+        {/* Who it is for, first.
+
+            It sat fourth, under the day list and the progression rules — so
+            the reader worked through how a programme runs before finding out
+            whether it was meant for them, which is the question they opened
+            it with (user 2026-08-26, "nostetaan kenelle osio ylös").
+
+            It still carries the one thing that can make it the wrong pick: a
+            week that does not have room for it. */}
+        {audience ? (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{t(language, 'detail.forWhom')}</Text>
+            </View>
+            <View style={styles.ruleCard}>
+              <Text style={styles.audienceText}>{audience}</Text>
+              {daysWarning ? (
+                <View style={styles.warnRow}>
+                  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M12 4l9 16H3z M12 10v4M12 17v.01"
+                      stroke={theme.amber}
+                      strokeWidth={2.2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                  <Text style={styles.warnText}>{daysWarning}</Text>
+                </View>
+              ) : null}
+            </View>
+          </>
+        ) : null}
+
         {/* The week as seven chips: which days train, and what they are. A
             dot-and-word list said "Treeni / Palautuminen" seven times and
             never named a single session. */}
@@ -694,32 +728,6 @@ export function ProgramDetailScreen({
           </>
         ) : null}
 
-        {/* Who it is for, and the one thing that can make it the wrong pick:
-            a week that does not have room for it. */}
-        {audience ? (
-          <>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{t(language, 'detail.forWhom')}</Text>
-            </View>
-            <View style={styles.ruleCard}>
-              <Text style={styles.audienceText}>{audience}</Text>
-              {daysWarning ? (
-                <View style={styles.warnRow}>
-                  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                    <Path
-                      d="M12 4l9 16H3z M12 10v4M12 17v.01"
-                      stroke={theme.amber}
-                      strokeWidth={2.2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
-                  <Text style={styles.warnText}>{daysWarning}</Text>
-                </View>
-              ) : null}
-            </View>
-          </>
-        ) : null}
 
         {equipment.length > 0 ? (
           <>

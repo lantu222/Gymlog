@@ -211,6 +211,26 @@ module.exports = [
      * the reader is when they want it — on the programme, and at the end of the
      * day's list where "one more lift" is felt.
      */
+    name: 'the programme page answers "is this for me" before it explains itself',
+    run() {
+      // "Kenelle" sat fourth, under the day list and the progression rules, so
+      // the reader worked through how a programme runs before finding out
+      // whether it was meant for them — which is the question they opened it
+      // with (user 2026-08-26, "nostetaan kenelle osio ylös").
+      // First mention of each: "equipment" appears again further down for the
+      // chips it labels, and a second sighting is not a second section.
+      const seen = [];
+      for (const match of programDetailSource.matchAll(
+        /'detail\.(forWhom|rhythm|workouts|progression|equipment)'/g,
+      )) {
+        if (!seen.includes(match[1])) {
+          seen.push(match[1]);
+        }
+      }
+      assert.deepEqual(seen, ['forWhom', 'rhythm', 'workouts', 'progression', 'equipment']);
+    },
+  },
+  {
     name: 'changing a fixed programme is a change to a lift, not a lesson about the catalog',
     run() {
       const programDaySource = fs.readFileSync(
