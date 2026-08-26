@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   getPopularExerciseLibraryItems,
@@ -167,6 +168,7 @@ export function AddExerciseSheet({
   onConfirmSelection,
 }: AddExerciseSheetProps) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useThemedStyles(makeStyles);
   const sheetTitle = title ?? t(language, 'editor.addExercise');
   const addLabel = actionLabel ?? t(language, 'editor.add');
@@ -588,7 +590,13 @@ export function AddExerciseSheet({
           />
 
           {multiSelect ? (
-            <View style={styles.footer}>
+            /* The sheet is anchored to the bottom edge and its footer padding
+               was a fixed number, so on a phone with system buttons the confirm
+               button sat behind them — and "Lisää N liikettä" is the only way
+               anything gets added at all ("nappi häviää alas... mitään
+               liikkeitä ei voi lisätä", #bugs 2026-08-26). The bar's height is
+               only known at runtime. */
+            <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.lg }]}>
               <Text style={styles.footerSelectionText}>
                 {pendingSelectedIds.length === 0
                   ? t(language, 'sheet.selectSome')
@@ -636,7 +644,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: radii.pill,
-    backgroundColor: '#D1D5DB',
+    backgroundColor: theme.border,
     marginTop: spacing.sm,
   },
   header: {
@@ -747,8 +755,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.surface,
   },
   filterPillActive: {
-    backgroundColor: '#E8F6EC',
-    borderColor: '#22C55E',
+    backgroundColor: theme.purpleLight,
+    borderColor: theme.purple,
   },
   filterPillText: {
     color: theme.muted,
@@ -756,7 +764,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '700',
   },
   filterPillTextActive: {
-    color: theme.greenInk,
+    color: theme.purpleDark,
   },
   quickBodyPartGroup: {
     gap: spacing.sm,
@@ -777,8 +785,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.surface,
   },
   quickBodyPartChipActive: {
-    backgroundColor: '#22C55E',
-    borderColor: '#22C55E',
+    backgroundColor: theme.purple,
+    borderColor: theme.purple,
   },
   quickBodyPartChipText: {
     color: theme.muted,
@@ -829,8 +837,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginBottom: spacing.md,
   },
   gridCardSelected: {
-    borderColor: '#22C55E',
-    backgroundColor: '#F8FFFA',
+    borderColor: theme.purple,
+    backgroundColor: theme.purpleLight,
   },
   gridCardMedia: {
     position: 'relative',
@@ -866,8 +874,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
   },
   gridCheckBadgeActive: {
-    backgroundColor: '#22C55E',
-    borderColor: '#22C55E',
+    backgroundColor: theme.purple,
+    borderColor: theme.purple,
   },
   gridCheckBadgeText: {
     color: theme.ink,
@@ -912,7 +920,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.purpleBright,
   },
   gridActionPillSelected: {
-    backgroundColor: theme.greenSoft,
+    backgroundColor: theme.purpleLight,
   },
   gridActionText: {
     color: '#FFFFFF',
@@ -920,7 +928,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
   },
   gridActionTextSelected: {
-    color: theme.greenInk,
+    color: theme.purpleDark,
   },
   emptyCard: {
     borderRadius: radii.lg,

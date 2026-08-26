@@ -213,10 +213,13 @@ function Thumb({
 
 function AddButton({ onPress }: { onPress?: () => void }) {
   const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
 
   return (
     <Pressable onPress={onPress} disabled={!onPress} hitSlop={6} style={styles.addButton}>
-      <PlusIcon />
+      {/* The ink the orange was paired with, not white: on the light theme's
+          orange a white glyph is the lower-contrast of the two. */}
+      <PlusIcon color={theme.onHighlight} />
     </Pressable>
   );
 }
@@ -957,7 +960,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 999,
-    backgroundColor: theme.green,
+    // Orange: the app's own "you can press this". A green circle in a
+    // purple-and-orange app was the loudest wrong note on the page
+    // ("+ikoni sotkee värit aivan pieleen", #bugs 2026-08-26).
+    backgroundColor: theme.highlight,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,

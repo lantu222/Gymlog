@@ -240,6 +240,7 @@ const suites = [
   ...require('./screens/homeScreenStructure.test.cjs'),
   ...require('./screens/programsHomeStructure.test.cjs'),
   ...require('./screens/programPlanOverview.test.cjs'),
+  ...require('./screens/addExerciseSheet.test.cjs'),
   ...require('./screens/onboardingVisualPolish.test.cjs'),
   ...require('./screens/headerBackReachable.test.cjs'),
   ...require('./lib/workoutDiscovery.test.cjs'),
