@@ -10,6 +10,7 @@ import { I18nKey, t } from '../lib/i18n';
 import { ProgramDetailSessionItem } from '../lib/programDetails';
 import { programCoverStyle } from '../lib/programVisualIdentity';
 import { buildSwapOptionsForSlot } from '../lib/tailoringFit';
+import { buildSwapShortlist } from '../lib/swapShortlist';
 import { localizeSessionName } from '../lib/sessionNameLabel';
 import { layout, radii, spacing } from '../theme';
 import { Theme, darkTheme, useTheme, useThemedStyles } from '../theming';
@@ -129,7 +130,13 @@ export function ProgramDayScreen({
       currentName,
       // The stored programme's own id, which removal is written against.
       exerciseId: exercise.id ?? null,
-      options: buildSwapOptionsForSlot(exercise.substitutionGroup ?? '', currentName, tailoringPreferences),
+      // Split rather than listed — see swapShortlist: nine valid lifts ranked
+      // together buried the machine version and pushed the actions off the
+      // bottom of the sheet.
+      shortlist: buildSwapShortlist(
+        currentName,
+        buildSwapOptionsForSlot(exercise.substitutionGroup ?? '', currentName, tailoringPreferences),
+      ),
     };
   }, [session.exercises, swapSlotId, sessionSwaps, tailoringPreferences]);
 
@@ -352,25 +359,40 @@ export function ProgramDayScreen({
               })}
             </Text>
             <ScrollView style={styles.swapList} showsVerticalScrollIndicator={false}>
-              {(swapRow?.options ?? []).length === 0 ? (
+              {swapRow && swapRow.shortlist.total === 0 ? (
                 <Text style={styles.swapEmpty}>{t(language, 'home.swapSheet.empty')}</Text>
               ) : (
-                (swapRow?.options ?? []).map((option) => (
-                  <Pressable
-                    key={option.exerciseName}
-                    onPress={() => {
-                      if (swapRow) {
-                        onSwapExercise?.(swapRow.slotId, option.exerciseName);
-                      }
-                      setSwapSlotId(null);
-                    }}
-                    style={({ pressed }) => [styles.swapOption, pressed && styles.swapOptionPressed]}
-                  >
-                    <Text style={styles.swapOptionName} numberOfLines={1}>
-                      {exerciseNameLabel(language, option.exerciseName)}
-                    </Text>
-                  </Pressable>
-                ))
+                ([
+                  { key: 'home.swapSheet.variations' as const, rows: swapRow?.shortlist.variations ?? [] },
+                  { key: 'home.swapSheet.related' as const, rows: swapRow?.shortlist.related ?? [] },
+                ]).map((section) =>
+                  section.rows.length === 0 ? null : (
+                    <View key={section.key}>
+                      {/* Named only when both halves are there — one heading
+                          over the whole list labels nothing. */}
+                      {(swapRow?.shortlist.variations.length ?? 0) > 0 &&
+                      (swapRow?.shortlist.related.length ?? 0) > 0 ? (
+                        <Text style={styles.swapGroup}>{t(language, section.key)}</Text>
+                      ) : null}
+                      {section.rows.map((option) => (
+                        <Pressable
+                          key={option.exerciseName}
+                          onPress={() => {
+                            if (swapRow) {
+                              onSwapExercise?.(swapRow.slotId, option.exerciseName);
+                            }
+                            setSwapSlotId(null);
+                          }}
+                          style={({ pressed }) => [styles.swapOption, pressed && styles.swapOptionPressed]}
+                        >
+                          <Text style={styles.swapOptionName} numberOfLines={1}>
+                            {exerciseNameLabel(language, option.exerciseName)}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ),
+                )
               )}
             </ScrollView>
             {/* The other thing a reader wants from a lift they cannot do. It
@@ -385,7 +407,9 @@ export function ProgramDayScreen({
                 }}
                 style={({ pressed }) => [styles.swapRemove, pressed && styles.swapOptionPressed]}
               >
-                <Text style={styles.swapRemoveText}>{t(language, 'home.swapSheet.remove')}</Text>
+                <Text style={[styles.swapRemoveText, { color: theme.danger }]}>
+                  {t(language, 'home.swapSheet.remove')}
+                </Text>
                 <Text style={styles.swapRemoveNote}>{t(language, 'home.swapSheet.removeNote')}</Text>
               </Pressable>
             ) : null}
@@ -694,11 +718,20 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderTopColor: theme.border,
     gap: 2,
   },
+  // Red, like Home's: this is the answer that does not come back.
   swapRemoveText: {
-    color: theme.ink,
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '700',
+  },
+  swapGroup: {
+    color: theme.faint,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+    marginTop: 10,
+    marginBottom: 2,
   },
   swapRemoveNote: {
     color: theme.faint,

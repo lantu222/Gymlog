@@ -211,6 +211,7 @@ const suites = [
   ...require('./lib/extraExerciseLibrary.test.cjs'),
   ...require('./lib/sessionDrops.test.cjs'),
   ...require('./lib/programCapNotice.test.cjs'),
+  ...require('./lib/swapShortlist.test.cjs'),
   ...require('./lib/aiCoachPreview.test.cjs'),
   ...require('./lib/coachChipAnswers.test.cjs'),
   ...require('./lib/aiCoachActions.test.cjs'),

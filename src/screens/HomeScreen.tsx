@@ -29,6 +29,7 @@ import { getDefaultCooldown, getDefaultWarmup, getSessionFocusTitle } from '../l
 import { AnimatedGreeting } from '../components/AnimatedGreeting';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
+import { buildSwapShortlist } from '../lib/swapShortlist';
 import { localizeSessionFocus, localizeSessionName, localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { weekdayCodeForDate, weekdayLabel } from '../lib/planWeekdays';
 import { t } from '../lib/i18n';
@@ -532,13 +533,23 @@ export function HomeScreen({
   const swapRow = useMemo(() => {
     const exercise = nextPlanSession?.exercises.find((item) => item.slotId && item.slotId === swapSlotId);
     if (!exercise?.slotId) {
-      return { currentName: '', exerciseId: null, options: [] as ReturnType<typeof buildSwapOptionsForSlot> };
+      return {
+        currentName: '',
+        exerciseId: null,
+        shortlist: { variations: [], related: [], total: 0 } as ReturnType<typeof buildSwapShortlist>,
+      };
     }
     const currentName = sessionSwaps[exercise.slotId] ?? exercise.name;
     return {
       currentName,
       exerciseId: exercise.exerciseId ?? null,
-      options: buildSwapOptionsForSlot(exercise.substitutionGroup ?? '', currentName, tailoringPreferences),
+      // Split rather than listed: nine valid lifts interleaved by score put the
+      // machine version fourth behind three glute bridges, and pushed the
+      // actions off the bottom of the sheet (user 2026-08-26).
+      shortlist: buildSwapShortlist(
+        currentName,
+        buildSwapOptionsForSlot(exercise.substitutionGroup ?? '', currentName, tailoringPreferences),
+      ),
     };
   }, [nextPlanSession, swapSlotId, sessionSwaps, tailoringPreferences]);
 
@@ -1860,28 +1871,45 @@ export function HomeScreen({
                 name: exerciseNameLabel(language, swapRow.currentName),
               })}
             </Text>
-            <View style={styles.adaptOpts}>
-              {swapRow.options.map((option) => (
-                <Pressable
-                  key={option.exerciseName}
-                  accessibilityRole="button"
-                  accessibilityLabel={exerciseNameLabel(language, option.exerciseName)}
-                  onPress={() => {
-                    if (swapSlotId) {
-                      onSwapSessionExercise?.(swapSlotId, option.exerciseName);
-                    }
-                    setSwapSlotId(null);
-                  }}
-                  style={({ pressed }) => [styles.adaptOpt, pressed && styles.pressed]}
-                >
-                  <View style={styles.adaptOptCopy}>
-                    <Text style={styles.adaptOptTitle}>
-                      {exerciseNameLabel(language, option.exerciseName)}
-                    </Text>
+            {/* The list scrolls; the actions below it do not. With nine rows
+                the sheet grew past the screen and "Poista ohjelmasta" could
+                not be reached at all (user 2026-08-26). */}
+            <ScrollView style={styles.adaptOptsScroll} showsVerticalScrollIndicator={false}>
+              {([
+                { key: 'home.swapSheet.variations' as const, rows: swapRow.shortlist.variations },
+                { key: 'home.swapSheet.related' as const, rows: swapRow.shortlist.related },
+              ]).map((section) =>
+                section.rows.length === 0 ? null : (
+                  <View key={section.key} style={styles.adaptOpts}>
+                    {/* Named only when both halves are there — one heading over
+                        the whole list labels nothing. */}
+                    {swapRow.shortlist.variations.length > 0 && swapRow.shortlist.related.length > 0 ? (
+                      <Text style={styles.adaptOptGroup}>{t(language, section.key)}</Text>
+                    ) : null}
+                    {section.rows.map((option) => (
+                      <Pressable
+                        key={option.exerciseName}
+                        accessibilityRole="button"
+                        accessibilityLabel={exerciseNameLabel(language, option.exerciseName)}
+                        onPress={() => {
+                          if (swapSlotId) {
+                            onSwapSessionExercise?.(swapSlotId, option.exerciseName);
+                          }
+                          setSwapSlotId(null);
+                        }}
+                        style={({ pressed }) => [styles.adaptOpt, pressed && styles.pressed]}
+                      >
+                        <View style={styles.adaptOptCopy}>
+                          <Text style={styles.adaptOptTitle}>
+                            {exerciseNameLabel(language, option.exerciseName)}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    ))}
                   </View>
-                </Pressable>
-              ))}
-            </View>
+                ),
+              )}
+            </ScrollView>
             {/* Getting rid of a lift, under the replacements rather than among
                 them: the same question, but the answer you cannot undo by
                 picking another row, so it does not sit where a mis-tap lands.
@@ -1903,7 +1931,7 @@ export function HomeScreen({
                 }}
                 style={({ pressed }) => [styles.adaptDrop, pressed && styles.pressed]}
               >
-                <Text style={styles.adaptDropText}>
+                <Text style={[styles.adaptDropText, styles.adaptDropTextToday]}>
                   {t(
                     language,
                     sessionDrops.includes(swapSlotId) ? 'home.swapSheet.restore' : 'home.swapSheet.drop',
@@ -1923,7 +1951,9 @@ export function HomeScreen({
                 }}
                 style={({ pressed }) => [styles.adaptDrop, pressed && styles.pressed]}
               >
-                <Text style={styles.adaptDropText}>{t(language, 'home.swapSheet.remove')}</Text>
+                <Text style={[styles.adaptDropText, styles.adaptDropTextRemove]}>
+                  {t(language, 'home.swapSheet.remove')}
+                </Text>
                 <Text style={styles.adaptDropNote}>{t(language, 'home.swapSheet.removeNote')}</Text>
               </Pressable>
             ) : null}
@@ -2995,9 +3025,22 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 18,
   },
   adaptPrimaryText: { fontSize: 16, fontWeight: '800', letterSpacing: -0.2, color: '#FFFFFF' },
-  // Separated from the replacement rows by a rule, not by colour: it is a
-  // different kind of answer, and a red button in a list of neutral ones reads
-  // as a warning about the list.
+  // The list scrolls under a ceiling so the actions below it always land on
+  // screen. Nine rows used to push "Poista ohjelmasta" past the bottom edge.
+  adaptOptsScroll: {
+    maxHeight: 300,
+  },
+  adaptOptGroup: {
+    color: theme.faint,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  // Separated from the replacement rows by a rule. The two answers are then
+  // told apart by colour, because they differ in how far they reach: orange is
+  // the app's "you can press this", red is the one that does not come back.
   adaptDrop: {
     marginTop: 10,
     paddingTop: 12,
@@ -3007,11 +3050,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 2,
   },
   adaptDropText: {
-    color: theme.ink,
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '700',
   },
+  adaptDropTextToday: { color: theme.highlight },
+  adaptDropTextRemove: { color: theme.danger },
   adaptDropNote: {
     color: theme.faint,
     fontSize: 12,
