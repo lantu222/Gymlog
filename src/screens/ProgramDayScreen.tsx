@@ -83,6 +83,11 @@ interface ProgramDayScreenProps {
    * programme is copied behind this, silently.
    */
   onRemoveExercise?: (exerciseId: string) => void;
+  /**
+   * Keep today's swap in the programme. Offered only on a row that is already
+   * swapped — before the choice there is nothing to make permanent.
+   */
+  onKeepSwap?: (exerciseId: string, exerciseName: string) => void;
   tailoringPreferences?: Parameters<typeof buildSwapOptionsForSlot>[2];
   onBack: () => void;
 }
@@ -99,6 +104,7 @@ export function ProgramDayScreen({
   onSwapExercise,
   onAddExercise,
   onRemoveExercise,
+  onKeepSwap,
   tailoringPreferences,
   onBack,
 }: ProgramDayScreenProps) {
@@ -395,6 +401,27 @@ export function ProgramDayScreen({
                 )
               )}
             </ScrollView>
+            {/* A swap answers today. This makes it the programme's answer —
+                offered only once there is a swap to keep. */}
+            {swapRow?.exerciseId && sessionSwaps[swapRow.slotId] && onKeepSwap ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  onKeepSwap(swapRow.exerciseId as string, sessionSwaps[swapRow.slotId]);
+                  setSwapSlotId(null);
+                }}
+                style={({ pressed }) => [styles.swapRemove, pressed && styles.swapOptionPressed]}
+              >
+                <Text style={[styles.swapRemoveText, { color: theme.highlight }]}>
+                  {t(language, 'home.swapSheet.keep')}
+                </Text>
+                <Text style={styles.swapRemoveNote}>
+                  {t(language, 'home.swapSheet.keepNote', {
+                    name: exerciseNameLabel(language, sessionSwaps[swapRow.slotId]),
+                  })}
+                </Text>
+              </Pressable>
+            ) : null}
             {/* The other thing a reader wants from a lift they cannot do. It
                 was reachable only through "tee tästä oma versio", which nobody
                 found and which asked them to understand the catalog first. */}

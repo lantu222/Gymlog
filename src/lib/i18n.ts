@@ -145,6 +145,8 @@ const EN = {
   'home.promo.goal.body': 'One target to aim at — a 100 kg bench, say. Measured from your own best set.',
   'home.promo.goal.cta': 'Set a target',
   'home.swapSheet.title': 'Swap {name} for',
+  'home.swapSheet.keep': 'Keep this swap in my programme',
+  'home.swapSheet.keepNote': '{name} is prescribed from now on, not just today.',
   'home.swapSheet.variations': 'Same lift, different kit',
   'home.swapSheet.related': 'Same area, different lift',
   'home.swapSheet.remove': 'Remove from my programme',
@@ -457,6 +459,7 @@ const EN = {
   // because "Make my own copy" does.
   'toast.programCopyFailed': 'Could not copy the program',
   'toast.programNowYours': 'The programme is yours now, so you can change it',
+  'toast.swapKept': '{name} is in your programme from now on',
   'toast.lastExerciseInDay': 'That is the last exercise of the day — delete the day in the editor instead',
   'toast.workoutDuplicateFailed': 'Could not duplicate workout',
   // Both were English literals inside App.tsx, shown in a Finnish app.
@@ -3395,6 +3398,8 @@ const FI: Record<I18nKey, string> = {
   'home.promo.goal.body': 'Yksi tavoite mihin tähdätä — vaikka penkkipunnerrus 100 kg. Mitataan omasta parhaasta sarjastasi.',
   'home.promo.goal.cta': 'Aseta tavoite',
   'home.swapSheet.title': 'Vaihda {name}',
+  'home.swapSheet.keep': 'Pidä tämä vaihto ohjelmassa',
+  'home.swapSheet.keepNote': '{name} on jatkossa ohjelmassasi, ei vain tänään.',
   'home.swapSheet.variations': 'Sama liike, eri väline',
   'home.swapSheet.related': 'Sama alue, eri liike',
   'home.swapSheet.remove': 'Poista ohjelmasta',
@@ -3696,6 +3701,7 @@ const FI: Record<I18nKey, string> = {
   'toast.addExercisesTemplate': 'Lisää liikkeitä ennen tämän pohjan aloittamista',
   'toast.programCopyFailed': 'Ohjelmaa ei voitu kopioida',
   'toast.programNowYours': 'Ohjelma on nyt sinun, joten voit muuttaa sitä',
+  'toast.swapKept': '{name} on tästä lähtien ohjelmassasi',
   'toast.lastExerciseInDay': 'Tämä on päivän viimeinen liike — poista koko päivä muokkaimessa',
   'toast.workoutDuplicateFailed': 'Treeniä ei voitu kopioida',
   'toast.cardioSaveFailed': 'Cardio-treeniä ei voitu tallentaa',

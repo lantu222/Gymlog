@@ -350,6 +350,15 @@ interface HomeScreenProps {
    * temporary one sent them looking for an editor they could not find.
    */
   onRemoveSessionExercise?: (exerciseId: string) => void;
+  /**
+   * Keep today's swap in the programme, so the lift you changed to is the one
+   * prescribed from now on.
+   *
+   * Offered only on a row that IS swapped: before the choice there is nothing
+   * to make permanent, and a mode switch above the list would ask the reader
+   * to decide how far a change reaches before they know what they are picking.
+   */
+  onKeepSwapInProgram?: (exerciseId: string, exerciseName: string) => void;
   /** Ranks the swap list the same way the player does. */
   tailoringPreferences?: TailoringPreferencesInput | null;
   /**
@@ -406,6 +415,7 @@ export function HomeScreen({
   onDropSessionExercise,
   onRestoreSessionExercise,
   onRemoveSessionExercise,
+  onKeepSwapInProgram,
   tailoringPreferences = null,
   onStartTrimmedSession,
 }: HomeScreenProps) {
@@ -1910,6 +1920,28 @@ export function HomeScreen({
                 ),
               )}
             </ScrollView>
+            {/* A swap made yesterday's answer today's. This turns it into the
+                programme's answer — offered here rather than as a mode above
+                the list, because before choosing there is nothing to keep. */}
+            {swapSlotId && swapRow.exerciseId && sessionSwaps[swapSlotId] && onKeepSwapInProgram ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  onKeepSwapInProgram(swapRow.exerciseId as string, sessionSwaps[swapSlotId]);
+                  setSwapSlotId(null);
+                }}
+                style={({ pressed }) => [styles.adaptDrop, pressed && styles.pressed]}
+              >
+                <Text style={[styles.adaptDropText, styles.adaptDropTextToday]}>
+                  {t(language, 'home.swapSheet.keep')}
+                </Text>
+                <Text style={styles.adaptDropNote}>
+                  {t(language, 'home.swapSheet.keepNote', {
+                    name: exerciseNameLabel(language, sessionSwaps[swapSlotId]),
+                  })}
+                </Text>
+              </Pressable>
+            ) : null}
             {/* Getting rid of a lift, under the replacements rather than among
                 them: the same question, but the answer you cannot undo by
                 picking another row, so it does not sit where a mis-tap lands.

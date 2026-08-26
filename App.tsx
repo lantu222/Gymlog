@@ -105,7 +105,7 @@ import {
   getSessionBodyFocusLabel,
   SessionFocusKind,
 } from './src/lib/homeSessionHero';
-import { estimateRoutineBlockSeconds } from './src/lib/guidedPlayer';
+import { estimateRoutineBlockSeconds, findGuidedLibraryIndex } from './src/lib/guidedPlayer';
 import { estimateSessionMinutes } from './src/lib/sessionDuration';
 import { buildMuscleFocus, getVolumeDeltaVsPrevious } from './src/lib/workoutCompleteView';
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
@@ -1931,11 +1931,32 @@ function VinhaApp() {
     });
   }
 
-  async function handleRemoveProgramExercise(
+  /**
+   * What one edit to a programme's exercise does. Both reach the template the
+   * same way — copying a ready programme first when there is no template to
+   * write to — so they share a path rather than two near-identical ones.
+   */
+  type ProgramExerciseEdit = { kind: 'remove' } | { kind: 'replace'; exerciseName: string };
+
+  /**
+   * The library entry a name belongs to, so a swapped-in lift keeps its photo,
+   * its instructions and its history. Writing the name alone leaves the row
+   * pointing at the exercise it used to be.
+   */
+  function resolveLibraryItemIdForName(name: string): string | null {
+    const index = findGuidedLibraryIndex(
+      name,
+      exerciseLibrary.map((item) => item.name),
+    );
+    return index === null || index < 0 ? null : exerciseLibrary[index]?.id ?? null;
+  }
+
+  async function handleEditProgramExercise(
     programType: 'ready' | 'custom',
     programId: string,
     sessionId: string,
     exerciseId: string,
+    edit: ProgramExerciseEdit,
   ) {
     if (programType === 'custom') {
       const template = workoutTemplates.find((item) => item.id === programId);
@@ -1946,17 +1967,29 @@ function VinhaApp() {
         id: session.id,
         name: session.name,
         exercises: session.exercises
-          .filter((exercise) => !(session.id === sessionId && exercise.id === exerciseId))
-          .map((exercise) => ({
-            id: exercise.id,
-            name: exercise.name,
-            targetSets: exercise.targetSets,
-            repMin: exercise.repMin,
-            repMax: exercise.repMax,
-            restSeconds: exercise.restSeconds,
-            trackedDefault: exercise.trackedDefault,
-            libraryItemId: exercise.libraryItemId ?? null,
-          })),
+          .filter(
+            (exercise) =>
+              edit.kind !== 'remove' || !(session.id === sessionId && exercise.id === exerciseId),
+          )
+          .map((exercise) => {
+            const target = session.id === sessionId && exercise.id === exerciseId;
+            // Only the lift changes. Sets, reps and rest are the prescription,
+            // and a swap is a different way to train it, not a different dose.
+            const name = target && edit.kind === 'replace' ? edit.exerciseName : exercise.name;
+            return {
+              id: exercise.id,
+              name,
+              targetSets: exercise.targetSets,
+              repMin: exercise.repMin,
+              repMax: exercise.repMax,
+              restSeconds: exercise.restSeconds,
+              trackedDefault: exercise.trackedDefault,
+              libraryItemId:
+                target && edit.kind === 'replace'
+                  ? resolveLibraryItemIdForName(name)
+                  : exercise.libraryItemId ?? null,
+            };
+          }),
       }));
       // A day with nothing left in it is not a day: Home would draw a session
       // card with no session behind it, and starting it would open an empty
@@ -1967,6 +2000,24 @@ function VinhaApp() {
       }
       await upsertWorkoutTemplate({ id: template.id, name: template.name, sessions });
       void haptics.success();
+      if (edit.kind === 'replace') {
+        // Today's swap has been spent by the programme itself. Leaving it in
+        // place would keep an override on a slot that now already says this.
+        setSessionSwaps((current) => {
+          const next = { ...current };
+          for (const [slotId, name] of Object.entries(next)) {
+            if (name === edit.exerciseName) {
+              delete next[slotId];
+            }
+          }
+          return next;
+        });
+        showToast(
+          t(preferences.appLanguage, 'toast.swapKept', {
+            name: exerciseNameLabel(preferences.appLanguage, edit.exerciseName),
+          }),
+        );
+      }
       return;
     }
 
@@ -1992,20 +2043,28 @@ function VinhaApp() {
         orderIndex: sessionIndex,
         exerciseIds: session.exercises.map((exercise) => exercise.id),
         exercises: session.exercises
-          .filter((exercise) => !(session.id === sessionId && exercise.id === exerciseId))
-          .map((exercise, exerciseIndex) => ({
-            id: exercise.id,
-            workoutTemplateId: template.id,
-            workoutTemplateSessionId: session.id,
-            name: exercise.exerciseName,
-            targetSets: exercise.sets,
-            repMin: exercise.repsMin,
-            repMax: exercise.repsMax,
-            restSeconds: exercise.restSecondsMin,
-            trackedDefault: false,
-            orderIndex: exerciseIndex,
-            libraryItemId: null,
-          })),
+          .filter(
+            (exercise) =>
+              edit.kind !== 'remove' || !(session.id === sessionId && exercise.id === exerciseId),
+          )
+          .map((exercise, exerciseIndex) => {
+            const target = session.id === sessionId && exercise.id === exerciseId;
+            const name =
+              target && edit.kind === 'replace' ? edit.exerciseName : exercise.exerciseName;
+            return {
+              id: exercise.id,
+              workoutTemplateId: template.id,
+              workoutTemplateSessionId: session.id,
+              name,
+              targetSets: exercise.sets,
+              repMin: exercise.repsMin,
+              repMax: exercise.repsMax,
+              restSeconds: exercise.restSecondsMin,
+              trackedDefault: false,
+              orderIndex: exerciseIndex,
+              libraryItemId: target && edit.kind === 'replace' ? resolveLibraryItemIdForName(name) : null,
+            };
+          }),
       })),
       workoutTemplates.map((item) => item.name),
       preferences.appLanguage,
@@ -2045,6 +2104,17 @@ function VinhaApp() {
           : {},
       );
       void haptics.success();
+      if (edit.kind === 'replace') {
+        setSessionSwaps((current) => {
+          const next = { ...current };
+          for (const [slotId, name] of Object.entries(next)) {
+            if (name === edit.exerciseName) {
+              delete next[slotId];
+            }
+          }
+          return next;
+        });
+      }
       showToast(t(preferences.appLanguage, 'toast.programNowYours'));
       navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
     } catch (error) {
@@ -4856,7 +4926,7 @@ function VinhaApp() {
       handleStartCustomProgram,
       handleAdoptCustomProgram,
       handleStartCustomProgramSession,
-      removeProgramExercise: handleRemoveProgramExercise,
+      editProgramExercise: handleEditProgramExercise,
       handleSaveRhythm,
       handleSaveEmphasis,
       handleDeleteCustomWorkout,
@@ -5092,11 +5162,24 @@ function VinhaApp() {
         onRemoveSessionExercise={(exerciseId) => {
           const sessionId = homeActivePlanCard?.nextSession?.id;
           if (homeActivePlanCard && sessionId) {
-            void handleRemoveProgramExercise(
+            void handleEditProgramExercise(
               homeActivePlanCard.programType,
               homeActivePlanCard.programId,
               sessionId,
               exerciseId,
+              { kind: 'remove' },
+            );
+          }
+        }}
+        onKeepSwapInProgram={(exerciseId, exerciseName) => {
+          const sessionId = homeActivePlanCard?.nextSession?.id;
+          if (homeActivePlanCard && sessionId) {
+            void handleEditProgramExercise(
+              homeActivePlanCard.programType,
+              homeActivePlanCard.programId,
+              sessionId,
+              exerciseId,
+              { kind: 'replace', exerciseName },
             );
           }
         }}

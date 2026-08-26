@@ -237,8 +237,15 @@ module.exports = [
       assert.match(appSource, /onAddExercise=\{[\s\S]{0,200}screen: 'template'/);
       assert.match(
         appSource,
-        /onRemoveExercise=\{[\s\S]{0,200}removeProgramExercise\(route\.programType, route\.workoutTemplateId, daySession\.id, exerciseId\)/,
+        /onRemoveExercise=\{[\s\S]{0,200}editProgramExercise\(route\.programType, route\.workoutTemplateId, daySession\.id, exerciseId, \{[\s\S]{0,60}kind: 'remove'/,
       );
+      // The same path keeps a swap, because both are one edit to one lift in
+      // one programme — two near-identical handlers is how they drift.
+      assert.match(
+        appSource,
+        /onKeepSwap=\{[\s\S]{0,240}kind: 'replace',\s*\n\s*exerciseName,/,
+      );
+      assert.match(programDaySource, /home\.swapSheet\.keep/);
       // The sheet's own padding was a fixed number, so its last row sat behind
       // the phone's system buttons and could not be pressed.
       assert.match(programDaySource, /paddingBottom: insets\.bottom \+ 28/);

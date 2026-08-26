@@ -28,26 +28,32 @@ module.exports = [
       // Every number the renderer holds is checked against the source here.
       assert.match(svg, /fill="#101828"/);
       assert.match(generator, /0x10, 0x18, 0x28/);
+      // Two colours, the app's own: purple on the left arm, orange on the
+      // right (user 2026-08-26).
       assert.match(svg, /stroke="#8B5CF6"/);
       assert.match(generator, /0x8B, 0x5C, 0xF6/);
+      assert.match(svg, /stroke="#FF8A4C"/);
+      assert.match(generator, /0xFF, 0x8A, 0x4C/);
 
-      assert.match(svg, /d="M330 264 L512 724 L694 264"/);
-      assert.match(generator, /PointF 330, 264/);
-      assert.match(generator, /PointF 512, 724/);
-      assert.match(generator, /PointF 694, 264/);
+      assert.match(svg, /d="M270 230 L512 680 L754 230"/);
+      assert.match(generator, /PointF 270, 230/);
+      assert.match(generator, /PointF 512, 680/);
+      assert.match(generator, /PointF 754, 230/);
 
-      assert.match(svg, /stroke-width="126"/);
-      assert.match(generator, /\$STROKE = 126\.0/);
-      assert.match(svg, /transform="skewX\(-7\) translate\(36 0\)"/);
-      assert.match(generator, /\$SKEW_DEG = -7\.0/);
-      assert.match(generator, /\$SHIFT_X = 36\.0/);
+      assert.match(svg, /stroke-width="150"/);
+      assert.match(generator, /\$STROKE = 150\.0/);
 
-      assert.match(svg, /transform="rotate\(-16 512 512\)"/);
-      assert.match(generator, /\$CUT_ROTATION_DEG = -16\.0/);
-      assert.match(svg, /y="392"[^>]*height="30"/);
-      assert.match(svg, /y="606"[^>]*height="30"/);
-      assert.match(generator, /\$CUT_TOPS = @\(392\.0, 606\.0\)/);
-      assert.match(generator, /\$CUT_HEIGHT = 30\.0/);
+      // The lean and the two cuts are gone. Named here as absences, because
+      // "the renderer still draws something plausible" is exactly the failure
+      // this file exists to catch.
+      assert.doesNotMatch(svg, /skewX|rotate\(/);
+      assert.doesNotMatch(generator, /SKEW_DEG|SHIFT_X|CUT_/);
+
+      // The split is the glyph's own middle, so each arm is one colour and the
+      // mitre at the vertex is never cut across.
+      assert.match(svg, /clipPath id="left"[\s\S]{0,120}width="512"/);
+      assert.match(svg, /rect x="512"[^>]*width="512"/);
+      assert.match(generator, /\$SPLIT_X = 512\.0/);
 
       // Android shows the middle 72 of a 108dp foreground. Written as the ratio
       // rather than 0.667 so it stays legible as the reason, not a magic number.

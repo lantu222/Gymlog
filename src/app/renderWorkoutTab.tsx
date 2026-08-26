@@ -84,15 +84,16 @@ export interface WorkoutTabDeps {
   handleAdoptCustomProgram: (workoutTemplateId: string, options?: { lead?: boolean }) => Promise<void>;
   handleStartCustomProgramSession: (workoutTemplateId: string, sessionId: string, trimSets?: boolean) => void;
   /**
-   * Take one lift out of a programme for good. A ready programme is copied
-   * underneath this — the reader asked to drop a lift, not to learn how the
-   * catalog is stored.
+   * Change one lift in a programme for good — drop it, or keep a swap. A ready
+   * programme is copied underneath this: the reader asked to change a lift,
+   * not to learn how the catalog is stored.
    */
-  removeProgramExercise: (
+  editProgramExercise: (
     programType: 'ready' | 'custom',
     programId: string,
     sessionId: string,
     exerciseId: string,
+    edit: { kind: 'remove' } | { kind: 'replace'; exerciseName: string },
   ) => Promise<void>;
   handleSaveRhythm: (workoutTemplateId: string, dayIndexes: number[]) => Promise<void>;
   handleSaveEmphasis: (
@@ -175,7 +176,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     handleStartCustomProgram,
     handleAdoptCustomProgram,
     handleStartCustomProgramSession,
-    removeProgramExercise,
+    editProgramExercise,
     handleSaveRhythm,
     handleSaveEmphasis,
     handleDeleteCustomWorkout,
@@ -469,7 +470,15 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             : undefined
         }
         onRemoveExercise={(exerciseId) =>
-          void removeProgramExercise(route.programType, route.workoutTemplateId, daySession.id, exerciseId)
+          void editProgramExercise(route.programType, route.workoutTemplateId, daySession.id, exerciseId, {
+            kind: 'remove',
+          })
+        }
+        onKeepSwap={(exerciseId, exerciseName) =>
+          void editProgramExercise(route.programType, route.workoutTemplateId, daySession.id, exerciseId, {
+            kind: 'replace',
+            exerciseName,
+          })
         }
         tailoringPreferences={preferences}
         onBack={() => navigateBack({ tab: 'workout', screen: 'program', programType: route.programType, workoutTemplateId: route.workoutTemplateId })}
