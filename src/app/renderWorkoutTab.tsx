@@ -21,6 +21,7 @@ import { computeSeasonProgress, countSeasonRecords, resolveSeasonBadges } from '
 import { removeStrengthGoal, upsertStrengthGoal } from '../lib/strengthGoals';
 import { buildTailoringBadgeLabels } from '../lib/tailoringFit';
 import { AppRoute, ROOT_ROUTES } from '../navigation/routes';
+import { haptics } from '../utils/haptics';
 import { CreateTemplateScreen } from '../screens/CreateTemplateScreen';
 import { EmptyWorkoutScreen } from '../screens/EmptyWorkoutScreen';
 import { ExerciseDetailScreen } from '../screens/ExerciseDetailScreen';
@@ -490,9 +491,11 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         defaultRestSeconds={preferences.defaultRestSeconds}
         onBack={() => navigateBack(workoutHomeRoute)}
         onSave={async (draft) => {
-          const isEditing = Boolean(draft.id);
           const workoutTemplateId = await upsertWorkoutTemplate(draft);
-          showToast(isEditing ? 'Template updated' : 'Template saved');
+          // Was an untranslated "Template saved" — English on a Finnish
+          // screen, saying what the programme page opening right after it
+          // already says. The haptic carries it now (user 2026-08-26).
+          void haptics.success();
           replaceRoute({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
         }}
       />
@@ -574,7 +577,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             throw error;
           }
           if (isNew) {
-            showToast(t(preferences.appLanguage, 'toast.workoutCreated'));
+            void haptics.success();
           }
         }}
       />

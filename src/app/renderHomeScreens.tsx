@@ -7,6 +7,7 @@ import { recordSuggestionAccepted, recordSuggestionRejected } from '../lib/coach
 import { t } from '../lib/i18n';
 import { ProgramLimitReachedError } from '../lib/programSlots';
 import { AppRoute, ROOT_ROUTES } from '../navigation/routes';
+import { haptics } from '../utils/haptics';
 import { AICoachChatScreen } from '../screens/AICoachChatScreen';
 import { AICoachScreen } from '../screens/AICoachScreen';
 import { AiProgramComposerScreen } from '../screens/AiProgramComposerScreen';
@@ -136,7 +137,11 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
           setCardioSaving(true);
           try {
             await saveCardioSession(input);
-            showToast(t(preferences.appLanguage, 'toast.cardioSaved'));
+            // No "saved" toast: the session appears in the history the screen
+            // returns to, and the haptic says it landed (user 2026-08-26,
+            // "kaikki tämmöiset pitäisi saada pois apista"). Failures still
+            // speak — an error is the one thing that has no other signal.
+            void haptics.success();
           } catch (error) {
             console.error('Failed to save cardio session', error);
             showToast(t(preferences.appLanguage, 'toast.cardioSaveFailed'));
@@ -198,7 +203,8 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
           );
           try {
             const workoutTemplateId = await upsertWorkoutTemplate(draft);
-            showToast(t(preferences.appLanguage, 'toast.aiProgrammeSaved'));
+            // The programme's own page is the confirmation — it opens next.
+            void haptics.success();
             navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
           } catch (error) {
             if (error instanceof ProgramLimitReachedError) {

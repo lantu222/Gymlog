@@ -1648,7 +1648,9 @@ function VinhaApp() {
         })),
       })),
     });
-    showToast(t(preferences.appLanguage, 'toast.emphasisSaved'));
+    // The emphasis is visible on the rows it changed; a toast on top said the
+    // same thing more slowly (user 2026-08-26).
+    void haptics.success();
   }
 
   async function handleCompletionRestart(planId: string) {
@@ -2011,7 +2013,7 @@ function VinhaApp() {
     );
     Promise.resolve(upsertWorkoutTemplate(draft))
       .then((workoutTemplateId) => {
-        showToast(t(preferences.appLanguage, 'toast.programCopied'));
+        void haptics.success();
         navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
       })
       .catch((error) => {
@@ -2039,7 +2041,7 @@ function VinhaApp() {
 
     Promise.resolve(upsertWorkoutTemplate(draft))
       .then((nextWorkoutTemplateId) => {
-        showToast(t(preferences.appLanguage, 'toast.workoutDuplicated'));
+        void haptics.success();
         navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId: nextWorkoutTemplateId });
       })
       .catch((error) => {
@@ -2050,7 +2052,7 @@ function VinhaApp() {
 
   async function handleDeleteCustomWorkout(workoutTemplateId: string) {
     await deleteWorkoutTemplate(workoutTemplateId);
-    showToast(t(preferences.appLanguage, 'toast.workoutDeleted'));
+    void haptics.success();
     navigate(workoutHomeRoute);
   }
 
@@ -2333,13 +2335,13 @@ function VinhaApp() {
     ) {
       await addBodyweightEntry(selection.currentWeightKg);
     }
-    showToast(t(preferences.appLanguage, 'toast.setupUpdated'));
+    void haptics.success();
     resetToRoute(ROOT_ROUTES.home);
   }
 
   async function handleSetupOpenProgramDetail(selection: FirstRunSetupSelection, recommendedProgramId: string) {
     await persistSetupSelection(selection, recommendedProgramId);
-    showToast(t(preferences.appLanguage, 'toast.setupUpdated'));
+    void haptics.success();
     const template = getWorkoutTemplateById(recommendedProgramId);
     if (!template) {
       navigate(workoutHomeRoute);
@@ -2355,7 +2357,7 @@ function VinhaApp() {
     prefillName: string,
   ) {
     await persistSetupSelection(selection, recommendedProgramId);
-    showToast(t(preferences.appLanguage, 'toast.setupUpdated'));
+    void haptics.success();
     navigate({ tab: 'workout', screen: 'editor', prefillName });
   }
   const customWorkoutRuntimeMap = useMemo(
