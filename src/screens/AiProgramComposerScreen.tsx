@@ -117,7 +117,17 @@ export function AiProgramComposerScreen({
     const parts: string[] = [];
     const { signals } = proposal;
     if (signals.daysPerWeek) {
-      parts.push(t(language, 'aiCompose.read.days', { count: signals.daysPerWeek }));
+      // When the ask was bigger than the composer can lay out, say both — it
+      // used to report the capped number as though the reader had written it
+      // (user asked for five and was told "read: 4 days", 2026-08-26).
+      parts.push(
+        signals.requestedDaysPerWeek
+          ? t(language, 'aiCompose.read.daysCapped', {
+              asked: signals.requestedDaysPerWeek,
+              count: signals.daysPerWeek,
+            })
+          : t(language, 'aiCompose.read.days', { count: signals.daysPerWeek }),
+      );
     }
     if (signals.lifts.length) {
       parts.push(signals.lifts.map((lift) => exerciseNameLabel(language, lift)).join(', '));

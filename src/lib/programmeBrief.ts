@@ -42,6 +42,17 @@ import {
 
 export interface ProgrammeBriefSignals {
   daysPerWeek: AiPlannerDaysPerWeek | null;
+  /**
+   * The number of days the brief actually asked for, before the composer's
+   * ceiling. Only set when the two differ.
+   *
+   * The composer plans at most four sessions, and it used to quietly hand
+   * back four while the screen reported "read from your brief: 4 days" — the
+   * app putting a number in the reader's mouth that they had not written
+   * (user asked for five, 2026-08-26). What the composer can build is a limit
+   * worth saying out loud; misquoting the request to hide it is not.
+   */
+  requestedDaysPerWeek: number | null;
   sessionMinutes: number | null;
   goal: AiPlannerGoal | null;
   equipment: AiPlannerEquipment | null;
@@ -177,7 +188,8 @@ function splitSentences(brief: string): string[] {
     .filter(Boolean);
 }
 
-function parseDays(brief: string): AiPlannerDaysPerWeek | null {
+/** What the brief asked for, uncapped — null when it named no number. */
+function parseRequestedDays(brief: string): number | null {
   const lower = brief.toLowerCase();
   const numeric = lower.match(/(\d)\s*(?:x|×|krt|kertaa|kerta|pv|päiv|day|d\b|treeni|sessio|session|treenipäiv)/);
   let days: number | null = numeric ? Number(numeric[1]) : null;
@@ -197,13 +209,19 @@ function parseDays(brief: string): AiPlannerDaysPerWeek | null {
       }
     }
   }
-  if (days === null) {
+  return days;
+}
+
+/** The composer plans this many sessions at most. */
+const COMPOSER_MAX_DAYS = 4;
+
+function capDays(requested: number | null): AiPlannerDaysPerWeek | null {
+  if (requested === null) {
     return null;
   }
-  // The composer plans 1–4 sessions; more days than that become 4 rather
-  // than an invented fifth split.
-  const clamped = Math.max(1, Math.min(4, days));
-  return clamped as AiPlannerDaysPerWeek;
+  // More days than the composer can lay out become four rather than an
+  // invented fifth split — but the screen says so; see requestedDaysPerWeek.
+  return Math.max(1, Math.min(COMPOSER_MAX_DAYS, requested)) as AiPlannerDaysPerWeek;
 }
 
 function parseMinutes(brief: string): number | null {
@@ -298,8 +316,14 @@ export function parseProgrammeBrief(brief: string): ProgrammeBriefSignals {
   const requestedLower = lifts.map((lift) => lift.toLowerCase());
   const filteredAvoid = avoidTerms.filter((term) => !requestedLower.some((lift) => lift.includes(term)));
 
+  const requestedDays = parseRequestedDays(brief);
+  const cappedDays = capDays(requestedDays);
+
   return {
-    daysPerWeek: parseDays(brief),
+    daysPerWeek: cappedDays,
+    // Only when the ask and the answer differ — otherwise the screen would
+    // repeat the same number twice.
+    requestedDaysPerWeek: requestedDays !== null && requestedDays !== cappedDays ? requestedDays : null,
     sessionMinutes: parseMinutes(brief),
     goal: parseGoal(brief),
     equipment: parseEquipment(brief),

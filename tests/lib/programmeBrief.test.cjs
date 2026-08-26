@@ -49,12 +49,26 @@ module.exports = [
     },
   },
   {
-    name: 'more days than the composer plans become four, and a brief with nothing in it is a complete instruction',
+    name: 'more days than the composer plans become four, and it says so instead of misquoting the ask',
     run() {
-      assert.equal(parseProgrammeBrief('6 päivää').daysPerWeek, 4);
+      // The cap is right — the composer has no fifth split to lay out. What
+      // was wrong was the screen then reporting "read from your brief: 4
+      // days" about a brief that said five: the app putting a number in the
+      // reader's mouth (user 2026-08-26).
+      const six = parseProgrammeBrief('6 päivää');
+      assert.equal(six.daysPerWeek, 4);
+      assert.equal(six.requestedDaysPerWeek, 6, 'the ask survives so the screen can say both');
+
+      // Within the ceiling there is nothing to disclose, and repeating the
+      // same number twice would read as a correction that never happened.
+      const three = parseProgrammeBrief('3 päivää');
+      assert.equal(three.daysPerWeek, 3);
+      assert.equal(three.requestedDaysPerWeek, null);
+
       const empty = parseProgrammeBrief('jotain kivaa');
       assert.deepEqual(empty, {
         daysPerWeek: null,
+        requestedDaysPerWeek: null,
         sessionMinutes: null,
         goal: null,
         equipment: null,

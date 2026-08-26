@@ -462,24 +462,33 @@ function getPrescribedSets(variant: PlannedExerciseVariant, goal: ReturnType<typ
   return Math.max(1, base + recoveryDelta + experienceDelta);
 }
 
+/**
+ * One rep number per exercise, not a range.
+ *
+ * The catalogs dropped their ranges on 2026-08-25 and saved programmes
+ * followed on the 26th — a single target is what lets automated progression
+ * say "hit it, next time +2.5 kg" without the range making the claim mushy.
+ * The composer kept writing "4 × 6–8" into programmes that sit next to
+ * catalog ones reading "4 × 8" (user 2026-08-26). The ceiling wins here for
+ * the same reason it won there: the progression gate always measured
+ * readiness against repsMax.
+ */
 function getRepRange(variant: PlannedExerciseVariant, goal: ReturnType<typeof mapSetupGoalToAiGoal>) {
+  const single = (reps: number) => ({ repsMin: reps, repsMax: reps });
+
   if (variant === 'warmup') {
-    return { repsMin: 8, repsMax: 10 };
+    return single(10);
   }
 
   if (variant === 'primary') {
-    if (goal === 'strength') {
-      return { repsMin: 4, repsMax: 6 };
-    }
-
-    return { repsMin: 6, repsMax: 8 };
+    return goal === 'strength' ? single(6) : single(8);
   }
 
   if (variant === 'secondary') {
-    return goal === 'strength' ? { repsMin: 6, repsMax: 8 } : { repsMin: 8, repsMax: 10 };
+    return goal === 'strength' ? single(8) : single(10);
   }
 
-  return goal === 'muscle' ? { repsMin: 10, repsMax: 15 } : { repsMin: 8, repsMax: 12 };
+  return goal === 'muscle' ? single(15) : single(12);
 }
 
 function getRestSeconds(variant: PlannedExerciseVariant, goal: ReturnType<typeof mapSetupGoalToAiGoal>) {
