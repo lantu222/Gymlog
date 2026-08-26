@@ -1982,14 +1982,22 @@ export function GuidedPlayerScreen({
                     color={paused ? undefined : theme.ink}
                     onPress={() => setPaused((value) => !value)}
                   />
+                  {/* Paused, the one other thing worth offering: leaving this
+                      exercise. An interval has no set to log, no weight to
+                      change and no rest to shorten, so the full actions sheet
+                      would be five decisions where there is one (#bugs
+                      2026-08-26, "ohita tämä liike ei muita valintoja"). */}
+                  {paused ? (
+                    <GhostBtn
+                      icon="x"
+                      label={t(language, 'guided.action.skipExercise')}
+                      onPress={handleSkipExercise}
+                    />
+                  ) : null}
                 </View>
-                <ProgressRail
-                  groups={groups}
-                  current={step.groupIndex}
-                  dark={false}
-                  dotIndex={step.setIndex}
-                  dotsDone={exerciseBySlot.get(step.slotId)?.sets.filter((set) => set.status === 'completed').length ?? 0}
-                />
+                {/* No rail here: a `set` step already gets one from the shared
+                    branch below, and adding a second drew the bar twice
+                    (#bugs 2026-08-26, "alapalkki on virheellinen"). */}
               </View>
             </StepIn>
           )}
@@ -2105,11 +2113,25 @@ export function GuidedPlayerScreen({
                     </View>
                   </View>
                   {/* No "Swap exercise" here any more (user 2026-08-23): rest
-                      is rest, and the swap lives behind the set screen's menu. */}
-                  <Pressable style={styles.skipRestBtn} onPress={advance}>
-                    <GPIcon name="skip" size={18} color="#fff" />
-                    <Text style={{ fontSize: 15.5, fontWeight: '800', color: '#fff' }}>{t(language, 'guided.skipRest')}</Text>
-                  </Pressable>
+                      is rest, and the swap lives behind the set screen's menu.
+                      And no "skip rest" on an interval's easy half: skipping
+                      the walk is skipping half the exercise, not shortening a
+                      wait (#bugs 2026-08-26). Pause stays on both. */}
+                  {step.recoveryKind ? null : (
+                    <Pressable style={styles.skipRestBtn} onPress={advance}>
+                      <GPIcon name="skip" size={18} color="#fff" />
+                      <Text style={{ fontSize: 15.5, fontWeight: '800', color: '#fff' }}>{t(language, 'guided.skipRest')}</Text>
+                    </Pressable>
+                  )}
+                  {/* Paused on the easy half: the same single way out as the
+                      work bout, and nothing else. */}
+                  {step.recoveryKind && paused ? (
+                    <GhostBtn
+                      icon="x"
+                      label={t(language, 'guided.action.skipExercise')}
+                      onPress={handleSkipExercise}
+                    />
+                  ) : null}
                 </View>
                 <ProgressRail
                   groups={groups}
@@ -2571,7 +2593,12 @@ function SetStepView({
           )
         ) : null}
 
-        {/* set counter + dots on the left, session clock on the right */}
+        {/* The set counter, its dots and the add button — and nothing else.
+            The session clock used to share this row, and the dots grow with
+            every set added: at seven the clock was against the edge and the
+            next one pushed it off the screen (#bugs 2026-08-26, "sarja ja
+            kello ei voi olla vierekkäin"). It sits on the name row now, where
+            nothing grows, and the dots absorb the squeeze here. */}
         <View style={styles.setMetaRow}>
           <View style={styles.setMetaLeft}>
             <Text style={styles.setCounter}>
@@ -2602,14 +2629,10 @@ function SetStepView({
               accessibilityLabel={t(language, 'guided.action.addSet')}
               hitSlop={8}
               onPress={onAddSet}
-              style={styles.setAddBtn}
+              style={[styles.setAddBtn, { flexShrink: 0 }]}
             >
               <GPIcon name="plus" size={13} color={theme.green} sw={3} />
             </Pressable>
-          </View>
-          <View style={styles.setClock}>
-            <GPIcon name="clock" size={19} color={theme.muted} sw={2} />
-            <Text style={styles.setClockText}>{formatSessionClock(elapsedSeconds)}</Text>
           </View>
         </View>
 
@@ -2617,6 +2640,10 @@ function SetStepView({
           <Text style={styles.setName} numberOfLines={2}>
             {exerciseNameLabel(language, step.exerciseName)}
           </Text>
+          <View style={styles.setClock}>
+            <GPIcon name="clock" size={19} color={theme.muted} sw={2} />
+            <Text style={styles.setClockText}>{formatSessionClock(elapsedSeconds)}</Text>
+          </View>
         </View>
 
         <View style={styles.setTargetArea}>
@@ -3118,9 +3145,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingTop: 18,
     paddingHorizontal: 24,
   },
-  setMetaLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  setMetaLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 },
   setCounter: { fontSize: 19, fontWeight: '800', letterSpacing: -0.4, color: theme.purple, fontVariant: ['tabular-nums'] },
-  setDots: { flexDirection: 'row', gap: 5 },
+  // The dots are the one part of this row that grows without a bound — one
+  // per set, and a reader can keep adding sets. They give way first, and the
+  // counter beside them still says how many there are.
+  setDots: { flexDirection: 'row', gap: 5, flexShrink: 1, overflow: 'hidden' },
   setDot: {
     width: 19,
     height: 19,
@@ -3129,10 +3159,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  setClock: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  setClock: { flexDirection: 'row', alignItems: 'center', gap: 7, flexShrink: 0 },
   setClockText: { fontSize: 19, fontWeight: '800', color: theme.muted, letterSpacing: -0.2, fontVariant: ['tabular-nums'] },
-  setNameRow: { paddingTop: 6, paddingHorizontal: 24 },
-  setName: { fontSize: 21, fontWeight: '800', letterSpacing: -0.63, color: theme.ink, lineHeight: 24 },
+  setNameRow: {
+    paddingTop: 6,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  // The name yields to the clock rather than the other way round: the clock
+  // is four characters wide forever, and a long lift name has two lines.
+  setName: { flex: 1, minWidth: 0, fontSize: 21, fontWeight: '800', letterSpacing: -0.63, color: theme.ink, lineHeight: 24 },
   setTargetArea: { flex: 1, minHeight: 0, justifyContent: 'center', paddingHorizontal: 22, gap: 10 },
   // Two dials of equal width. Each is a card, so the reps dial no longer
   // floats as a bare headline over a boxed weight — same shape, same weight.

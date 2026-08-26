@@ -406,7 +406,18 @@ export function getGuidedPhaseLabel(step: GuidedStep, language: AppLanguage = 'e
         count: step.exerciseCount,
       });
     case 'rest':
-      return t(language, 'guided.label.rest');
+      // An interval's easy half is a phase of the work, and the header saying
+      // LEPO over a ring saying KÄVELE is the app disagreeing with itself.
+      return step.recoveryKind
+        ? t(
+            language,
+            step.recoveryKind === 'walk'
+              ? 'guided.interval.walk'
+              : step.recoveryKind === 'rest'
+                ? 'guided.interval.rest'
+                : 'guided.interval.easy',
+          )
+        : t(language, 'guided.label.rest');
   }
 }
 
