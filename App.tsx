@@ -93,14 +93,9 @@ import {
   detectPlateau,
   pickCompletionLift,
 } from './src/lib/proInsights';
-import { recordCoachQuestion, resolveCoachQuota } from './src/lib/aiCoachQuota';
 import { buildHomePlanProgress } from './src/lib/homePlanProgress';
 import { buildHomeStatCardCatalog, buildHomeStatCards, resolveHomeStatCardKeys } from './src/lib/homeStatCards';
-import {
-  recordSuggestionAccepted,
-  recordSuggestionRejected,
-  silencedSuggestionKinds,
-} from './src/lib/coachSuggestions';
+import { silencedSuggestionKinds } from './src/lib/coachSuggestions';
 import {
   buildSessionEquipmentLabel,
   classifySessionFocus,
@@ -215,6 +210,7 @@ import { popRoute, pushRoute } from './src/navigation/routeHistory';
 import { AppRoute, ROOT_ROUTES, RootTabKey, WORKOUT_PLAN_ROUTE } from './src/navigation/routes';
 import { getBackRoute } from './src/app/backRoute';
 import { renderProfileTab } from './src/app/renderProfileTab';
+import { renderHomeScreens } from './src/app/renderHomeScreens';
 import { renderProgressTab } from './src/app/renderProgressTab';
 import { formatGoalLabel, formatHomeSessionTitle } from './src/app/homeSessionTitle';
 import {
@@ -231,13 +227,9 @@ import {
   getStartOfWeek,
   WorkoutCelebrationState,
 } from './src/app/workoutCompletionState';
-import { SessionAnalysisScreen } from './src/screens/SessionAnalysisScreen';
 import { buildSessionAnalysis } from './src/lib/sessionAnalysis';
-import { AICoachScreen } from './src/screens/AICoachScreen';
-import { AiProgramComposerScreen } from './src/screens/AiProgramComposerScreen';
 import { AboutYouScreen, AboutYouValues } from './src/screens/AboutYouScreen';
 import { CreateTemplateScreen } from './src/screens/CreateTemplateScreen';
-import { HistoryScreen } from './src/screens/HistoryScreen';
 import { LaunchScreen } from './src/screens/LaunchScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
@@ -254,10 +246,8 @@ import { pickProgramImage } from './src/utils/programImagePicker';
 import { VinhaSplashScreen } from './src/screens/VinhaSplashScreen';
 import { ExportablePlan } from './src/screens/ExportPlanScreen';
 import { NewProgramSheet } from './src/components/NewProgramSheet';
-import { AICoachChatScreen } from './src/screens/AICoachChatScreen';
 import { buildCoachContextChips } from './src/lib/coachChat';
-import { isAiCoachLiveConfigured, requestProgrammeComposition, requestProgramTableFromImage } from './src/lib/aiCoachClient';
-import { buildProgrammeDraft, composeProgrammePreview, resolveLiveProposal } from './src/lib/programmeBrief';
+import { requestProgramTableFromImage } from './src/lib/aiCoachClient';
 import { ProgramDayScreen } from './src/screens/ProgramDayScreen';
 import { ProgramDetailScreen } from './src/screens/ProgramDetailScreen';
 import { ProgramsHomeScreen, ProgramsExploreItem } from './src/screens/ProgramsHomeScreen';
@@ -267,7 +257,6 @@ import { WorkoutCelebrationScreen } from './src/screens/WorkoutCelebrationScreen
 import { WorkoutEditorFinishSummary, WorkoutEditorScreen } from './src/screens/WorkoutEditorScreen';
 import { EmptyWorkoutScreen } from './src/screens/EmptyWorkoutScreen';
 import { GuidedPlayerScreen } from './src/screens/GuidedPlayerScreen';
-import { CardioScreen } from './src/screens/CardioScreen';
 import { WorkoutsScreen } from './src/screens/WorkoutsScreen';
 import { WorkoutProvider, useWorkoutContext } from './src/features/workout/WorkoutProvider';
 import { adaptLegacyWorkoutTemplateToRuntimeTemplate } from './src/features/workout/customWorkoutAdapter';
@@ -4986,37 +4975,55 @@ function VinhaApp() {
         }}
       />
     );
-  } else if (route.tab === 'home' && route.screen === 'cardio') {
-    content = (
-      <CardioScreen
-        language={preferences.appLanguage}
-        keepScreenAwake={preferences.keepScreenAwakeDuringWorkout}
-        cardioSessions={cardioSessions}
-        hasActiveStrengthSession={Boolean(workout.activeSession)}
-        isSaving={cardioSaving}
-        onResumeStrengthSession={() => {
-          navigateToActiveWorkout();
-        }}
-        onDiscardStrengthSession={() => {
-          workout.discardWorkout();
-          setFinishSaveState({ status: 'idle', sessionId: null, message: null });
-        }}
-        onSaveCardioSession={async (input) => {
-          setCardioSaving(true);
-          try {
-            await saveCardioSession(input);
-            showToast(t(preferences.appLanguage, 'toast.cardioSaved'));
-          } catch (error) {
-            console.error('Failed to save cardio session', error);
-            showToast(t(preferences.appLanguage, 'toast.cardioSaveFailed'));
-            throw error;
-          } finally {
-            setCardioSaving(false);
-          }
-        }}
-        onLeave={() => navigateBack(ROOT_ROUTES.home)}
-      />
-    );
+  } else if (
+    route.tab === 'home' &&
+    (route.screen === 'cardio' ||
+      route.screen === 'ai' ||
+      route.screen === 'ai_setup' ||
+      route.screen === 'history' ||
+      route.screen === 'session' ||
+      route.screen === 'ai_chat' ||
+      route.screen === 'analysis')
+  ) {
+    // Every home sub-screen; the dashboard stays in the chain's final else,
+    // where it doubles as the safety net for cleared guard state.
+    content = renderHomeScreens({
+      route,
+      navigate,
+      navigateBack,
+      preferences,
+      updatePreferences,
+      workout,
+      cardioSessions,
+      cardioSaving,
+      setCardioSaving,
+      saveCardioSession,
+      navigateToActiveWorkout,
+      setFinishSaveState,
+      showToast,
+      homeAiPromptSuggestions,
+      aiCoachTrainingContext,
+      handleOpenAICoach,
+      handleSelectAiCoachAction,
+      exerciseLibrary,
+      programSlots,
+      setProgramLimitVisible,
+      workoutTemplates,
+      upsertWorkoutTemplate,
+      workoutSessions,
+      getSessionLogs,
+      deleteCompletedWorkoutSession,
+      unitPreference,
+      coachProUnlocked,
+      database,
+      coachChatIntro,
+      coachLastSession,
+      homePinnedStatCardKeys,
+      addBodyweightEntry,
+      addMeasurementEntry,
+      accountBackup,
+      sessionAnalysis,
+    });
   } else if (route.tab === 'workout' && route.screen === 'guided') {
     content = (
       <GuidedPlayerScreen
@@ -5126,179 +5133,6 @@ function VinhaApp() {
       addMeasurementEntry,
       homeRecentSessions,
     });
-  } else if (route.tab === 'home' && route.screen === 'ai') {
-    content = (
-      <AICoachScreen
-        language={preferences.appLanguage}
-        initialPrompt={route.prompt}
-        suggestions={homeAiPromptSuggestions}
-        trainingContext={aiCoachTrainingContext}
-        onBack={() => navigateBack(ROOT_ROUTES.home)}
-        onSubmitPrompt={handleOpenAICoach}
-        onSelectAction={handleSelectAiCoachAction}
-      />
-    );
-  } else if (route.tab === 'home' && route.screen === 'ai_setup') {
-    // "AI assisted", rebuilt as one text field (feedback round 2, #3). Live
-    // when a coach server is configured, the deterministic composer
-    // otherwise — the same proposal shape either way, and every exercise in
-    // it a library exercise. Saving makes a programme of the reader's own,
-    // which the free-tier cap counts like any other.
-    content = (
-      <AiProgramComposerScreen
-        language={preferences.appLanguage}
-        preferences={preferences}
-        liveConfigured={isAiCoachLiveConfigured()}
-        onBack={() => navigateBack(ROOT_ROUTES.home)}
-        compose={async (brief) => {
-          const live = await requestProgrammeComposition({
-            brief,
-            context: aiCoachTrainingContext,
-            language: preferences.appLanguage,
-          });
-          if (live) {
-            return resolveLiveProposal(live, brief, exerciseLibrary, preferences.defaultRestSeconds);
-          }
-          return composeProgrammePreview(brief, preferences, exerciseLibrary);
-        }}
-        onSave={async (proposal) => {
-          if (!programSlots.canCreate) {
-            setProgramLimitVisible(true);
-            return;
-          }
-          const draft = buildProgrammeDraft(
-            proposal,
-            workoutTemplates.map((item) => item.name),
-          );
-          try {
-            const workoutTemplateId = await upsertWorkoutTemplate(draft);
-            showToast(t(preferences.appLanguage, 'toast.aiProgrammeSaved'));
-            navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
-          } catch (error) {
-            if (error instanceof ProgramLimitReachedError) {
-              setProgramLimitVisible(true);
-              return;
-            }
-            console.error('Failed to save composed programme', error);
-            showToast(t(preferences.appLanguage, 'toast.aiBuildFailed'));
-          }
-        }}
-      />
-    );
-  } else if (route.tab === 'home' && (route.screen === 'history' || route.screen === 'session')) {
-    content = (
-      <HistoryScreen
-        sessions={workoutSessions}
-        cardioSessions={cardioSessions}
-        unitPreference={unitPreference}
-        language={preferences.appLanguage}
-        selectedSessionId={route.screen === 'session' ? route.sessionId : undefined}
-        getSessionLogs={getSessionLogs}
-        onSelectSession={(sessionId) => navigate({ tab: 'home', screen: 'session', sessionId })}
-        onDeleteSession={(sessionId) => void deleteCompletedWorkoutSession(sessionId)}
-        onBack={() => navigateBack(ROOT_ROUTES.home)}
-      />
-    );
-  } else if (route.tab === 'home' && route.screen === 'ai_chat') {
-    content = (
-      <AICoachChatScreen
-        language={preferences.appLanguage}
-        proUnlocked={coachProUnlocked}
-        liveConfigured={isAiCoachLiveConfigured()}
-        onlineNoticeAcknowledged={preferences.aiOnlineNoticeAcknowledged}
-        onAcknowledgeOnlineNotice={() => void updatePreferences({ aiOnlineNoticeAcknowledged: true })}
-        freeQuestionsRemaining={resolveCoachQuota(preferences.aiCoachFreeQuota).remaining}
-        onFreeQuestionUsed={() =>
-          void updatePreferences({ aiCoachFreeQuota: recordCoachQuestion(preferences.aiCoachFreeQuota) })
-        }
-        trainingContext={aiCoachTrainingContext}
-        intro={coachChatIntro}
-        sessionCount={database.workoutSessions.length}
-        quickAskKeys={['coach.chip.analyze', 'coach.chip.program', 'coach.chip.protein']}
-        lastSession={coachLastSession}
-        onOpenAnalysis={(sessionId) => navigate({ tab: 'home', screen: 'analysis', sessionId })}
-        onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
-        pinnedStatCardKeys={homePinnedStatCardKeys}
-        onLogMeasurement={async (intent) => {
-          if (intent.kind === 'bodyweight') {
-            await addBodyweightEntry(intent.value);
-          } else {
-            await addMeasurementEntry(intent.kind, intent.value, intent.unit === 'kg' ? 'cm' : intent.unit);
-          }
-        }}
-        onPinStatCard={(key) => {
-          if (!homePinnedStatCardKeys.includes(key)) {
-            void updatePreferences({ homeStatCardKeys: [...homePinnedStatCardKeys, key] });
-          }
-        }}
-        onSetGoal={async (intent) => {
-          const latestOf = (values: Array<{ recordedAt: string; value: number }>) =>
-            values.length > 0
-              ? values.reduce((best, entry) => (entry.recordedAt > best.recordedAt ? entry : best)).value
-              : null;
-          const startValue =
-            intent.kind === 'bodyweight'
-              ? latestOf(database.bodyweightEntries.map((entry) => ({ recordedAt: entry.recordedAt, value: entry.weight })))
-              : latestOf(
-                  database.measurementEntries
-                    .filter((entry) => entry.kind === intent.kind)
-                    .map((entry) => ({ recordedAt: entry.recordedAt, value: entry.value })),
-                );
-          const id = `goal-${Date.now().toString(36)}`;
-          await updatePreferences({
-            coachGoals: [
-              // One goal per kind: restating replaces, it does not stack.
-              ...preferences.coachGoals.filter((goal) => goal.kind !== intent.kind),
-              {
-                id,
-                text: intent.text,
-                kind: intent.kind,
-                targetValue: intent.targetValue,
-                unit: intent.unit ?? (intent.kind === 'bodyweight' ? 'kg' : intent.kind === 'bodyfat' ? '%' : 'cm'),
-                startValue,
-                createdAt: new Date().toISOString(),
-              },
-            ],
-            // Saying a goal out loud makes it the one the coach answers
-            // against. There is no other way to change it yet — goals have no
-            // screen of their own — so the spoken word has to be the switch.
-            primaryGoalId: id,
-          });
-        }}
-        weighInReminderEnabled={preferences.notificationPrefs.weighInReminder}
-        onOpenMeasure={(kind) =>
-          // Bodyweight has a screen of its own; everything else is a section
-          // of Progress that can open on the right measurement.
-          navigate(
-            kind === 'bodyweight'
-              ? { tab: 'progress', screen: 'bodyweight' }
-              : { tab: 'progress', screen: 'list', section: 'measures', measure: kind },
-          )
-        }
-        onEnableWeighInReminder={() =>
-          void updatePreferences({
-            notificationPrefs: { ...preferences.notificationPrefs, weighInReminder: true },
-          })
-        }
-        onCoachSuggestionResolved={(kind, accepted) =>
-          void updatePreferences({
-            coachSuggestionState: accepted
-              ? recordSuggestionAccepted(preferences.coachSuggestionState, kind)
-              : recordSuggestionRejected(preferences.coachSuggestionState, kind),
-          })
-        }
-        transcriptReporter={accountBackup.state.status === 'signed_in' ? accountBackup.state.email : null}
-      />
-    );
-  } else if (route.tab === 'home' && route.screen === 'analysis') {
-    content = (
-      <SessionAnalysisScreen
-        analysis={sessionAnalysis}
-        language={preferences.appLanguage}
-        onBack={() => navigateBack(ROOT_ROUTES.home)}
-        onAskCoach={() => navigate({ tab: 'home', screen: 'ai_chat' })}
-      />
-    );
   } else if (route.tab === 'profile') {
     // Everything under the profile tab except `setup`, which the onboarding
     // gate above already claimed — the module's ProfileScreen fallback never

@@ -109,7 +109,9 @@ module.exports = [
     name: 'coach suggestions: both answers are recorded, and an unusable offer is never drawn',
     run() {
       const screen = fs.readFileSync(path.join(__dirname, '../../src/screens/AICoachChatScreen.tsx'), 'utf8');
-      const app = fs.readFileSync(path.join(__dirname, '../../App.tsx'), 'utf8');
+      // The chat screen's wiring moved to src/app with the home sub-screens
+      // (phase A) — read the whole switchboard, not App.tsx alone.
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
 
       // Recording only the acceptances would leave a refusal invisible and
       // the same offer would return next week.
