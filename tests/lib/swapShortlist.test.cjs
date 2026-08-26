@@ -72,6 +72,42 @@ module.exports = [
     },
   },
   {
+    name: 'shortlist: a lift the session already holds is not offered as a change',
+    run() {
+      // The pool offered "taljapotku" for a slot in a session that already had
+      // taljapotku two rows down (#bugs 2026-08-26). Swapping to it means doing
+      // the same exercise twice and calling it a change.
+      const options = [
+        { exerciseName: 'Cable Kickback', reason: null, score: 5 },
+        { exerciseName: 'Frog Pump', reason: null, score: 4 },
+      ];
+      const shortlist = buildSwapShortlist('Barbell Hip Thrust', options, {
+        // Matched on identity, so the other spelling counts too.
+        alreadyInSession: ['Kickback Cable'],
+      });
+      const names = [...shortlist.variations, ...shortlist.related].map((o) => o.exerciseName);
+      assert.deepEqual(names, ['Frog Pump']);
+    },
+  },
+  {
+    name: 'shortlist: search reaches past the six rows, in the language the reader types',
+    run() {
+      // The shortlist is deliberately short and the pool behind it is not. A
+      // reader who knows what they want should not have to be offered it.
+      const options = [
+        { exerciseName: 'Cable Kickback', searchLabel: 'Taljapotku', reason: null, score: 5 },
+        { exerciseName: 'Frog Pump', searchLabel: 'Sammakkopumppu', reason: null, score: 4 },
+      ];
+      const byFinnish = buildSwapShortlist('Barbell Hip Thrust', options, { query: 'talja' });
+      assert.deepEqual(byFinnish.related.map((o) => o.exerciseName), ['Cable Kickback']);
+      // The English name still matches, since that is what the pool stores.
+      const byEnglish = buildSwapShortlist('Barbell Hip Thrust', options, { query: 'frog' });
+      assert.deepEqual(byEnglish.related.map((o) => o.exerciseName), ['Frog Pump']);
+      // An empty query changes nothing.
+      assert.equal(buildSwapShortlist('Barbell Hip Thrust', options, { query: '  ' }).total, 2);
+    },
+  },
+  {
     name: 'shortlist: a movement with no siblings still offers a full list',
     run() {
       // Cutting related lifts to three when there are no variations to pair

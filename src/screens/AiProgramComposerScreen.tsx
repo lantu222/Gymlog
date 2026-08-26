@@ -41,17 +41,7 @@ interface AiProgramComposerScreenProps {
   onBack: () => void;
 }
 
-const LEVEL_KEYS: Record<NonNullable<AppPreferences['setupLevel']>, I18nKey> = {
-  beginner: 'myData.level.beginner',
-  advanced: 'myData.level.advanced',
-  pro: 'myData.level.pro',
-};
 
-const EQUIPMENT_KEYS: Record<NonNullable<AppPreferences['setupEquipment']>, I18nKey> = {
-  gym: 'setup.equip.gym',
-  home: 'setup.equip.home',
-  minimal: 'setup.equip.minimal',
-};
 
 export function AiProgramComposerScreen({
   language,
@@ -67,26 +57,6 @@ export function AiProgramComposerScreen({
   const [brief, setBrief] = useState(initialBrief ?? '');
   const [busy, setBusy] = useState<'idle' | 'composing' | 'saving'>(initialBrief ? 'composing' : 'idle');
   const [proposal, setProposal] = useState<ProgrammeProposal | null>(null);
-
-  // What travels with the brief without being asked again.
-  const knownChips = useMemo(() => {
-    const chips: string[] = [];
-    if (preferences.setupDaysPerWeek) {
-      chips.push(t(language, 'aiCompose.known.days', { count: preferences.setupDaysPerWeek }));
-    }
-    if (preferences.setupLevel) {
-      chips.push(t(language, LEVEL_KEYS[preferences.setupLevel]));
-    }
-    if (preferences.setupEquipment) {
-      chips.push(t(language, EQUIPMENT_KEYS[preferences.setupEquipment]));
-    }
-    for (const flag of preferences.setupCautionFlags) {
-      if (flag.level !== 'info') {
-        chips.push(t(language, `onb.area.${flag.area}` as I18nKey));
-      }
-    }
-    return chips;
-  }, [language, preferences.setupCautionFlags, preferences.setupDaysPerWeek, preferences.setupEquipment, preferences.setupLevel]);
 
   const canCompose = brief.trim().length >= 3 && busy === 'idle';
 
@@ -201,18 +171,12 @@ export function AiProgramComposerScreen({
           accessibilityLabel={t(language, 'aiCompose.title')}
         />
 
-        {knownChips.length ? (
-          <View style={styles.knownBlock}>
-            <Text style={styles.knownLabel}>{t(language, 'aiCompose.known')}</Text>
-            <View style={styles.chipRow}>
-              {knownChips.map((chip) => (
-                <View key={chip} style={styles.chip}>
-                  <Text style={styles.chipText}>{chip}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        ) : null}
+        {/* The "Tiedossa jo" chips stood here — days, level, equipment,
+            cautions, drawn as a row of pills. They were meant to save typing
+            and read as a fence instead: a list of things already decided,
+            above a field asking what you want (user 2026-08-26, "se rajoittaa
+            liikaa"). The setup still travels with the brief; it just no longer
+            announces itself as the answer before the question. */}
 
         <CutButton
           label={busy === 'composing' ? t(language, 'aiCompose.composing') : t(language, 'aiCompose.compose')}
@@ -305,11 +269,6 @@ const makeStyles = (theme: Theme) =>
       lineHeight: 22,
       fontWeight: '600',
     },
-    knownBlock: { gap: 8 },
-    knownLabel: { color: theme.faint, fontSize: 11, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase' },
-    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    chip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: theme.purpleLight },
-    chipText: { color: theme.purpleDark, fontSize: 12, fontWeight: '700' },
     spinner: { marginTop: 4 },
     proposal: { padding: spacing.md, gap: 10 },
     readEyebrow: { color: theme.purple, fontSize: 11, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase' },

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import Svg, { ClipPath, Defs, G, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -124,6 +124,12 @@ export function ProgramDayScreen({
     cooldown: false,
   });
   const [swapSlotId, setSwapSlotId] = useState<string | null>(null);
+  /** Narrows the pool. Cleared with the sheet, so it never opens pre-filtered. */
+  const [swapQuery, setSwapQuery] = useState('');
+  const closeSwapSheet = () => {
+    setSwapSlotId(null);
+    setSwapQuery('');
+  };
 
   const swapRow = useMemo(() => {
     const exercise = session.exercises.find((item) => item.slotId && item.slotId === swapSlotId);
@@ -141,10 +147,20 @@ export function ProgramDayScreen({
       // bottom of the sheet.
       shortlist: buildSwapShortlist(
         currentName,
-        buildSwapOptionsForSlot(exercise.substitutionGroup ?? '', currentName, tailoringPreferences),
+        buildSwapOptionsForSlot(exercise.substitutionGroup ?? '', currentName, tailoringPreferences).map(
+          (option) => ({ ...option, searchLabel: exerciseNameLabel(language, option.exerciseName) }),
+        ),
+        {
+          // Offering a lift the day already holds is a change that changes
+          // nothing (#bugs 2026-08-26).
+          alreadyInSession: session.exercises.map(
+            (item) => (item.slotId ? sessionSwaps[item.slotId] : undefined) ?? item.name,
+          ),
+          query: swapQuery,
+        },
       ),
     };
-  }, [session.exercises, swapSlotId, sessionSwaps, tailoringPreferences]);
+  }, [session.exercises, swapSlotId, sessionSwaps, tailoringPreferences, swapQuery, language]);
 
   const focusKind = useMemo(
     () => classifySessionFocus(session.exercises.map((exercise) => exercise.name)),
@@ -350,10 +366,10 @@ export function ProgramDayScreen({
         visible={swapRow !== null}
         transparent
         animationType="slide"
-        onRequestClose={() => setSwapSlotId(null)}
+        onRequestClose={() => closeSwapSheet()}
       >
         <View style={styles.swapOverlay}>
-          <Pressable style={styles.swapScrim} onPress={() => setSwapSlotId(null)} />
+          <Pressable style={styles.swapScrim} onPress={() => closeSwapSheet()} />
           {/* The sheet's own padding was a fixed 28, so on a phone with system
               buttons the last row sat behind them and could not be pressed
               (user 2026-08-26). The bar's height is only known at runtime. */}
@@ -364,6 +380,18 @@ export function ProgramDayScreen({
                 name: exerciseNameLabel(language, swapRow?.currentName ?? ''),
               })}
             </Text>
+            {/* The shortlist is deliberately six rows and the pool behind it is
+                not: a reader who knows what they want should not have to be
+                offered it (#bugs 2026-08-26). */}
+            <TextInput
+              value={swapQuery}
+              onChangeText={setSwapQuery}
+              placeholder={t(language, 'home.swapSheet.search')}
+              placeholderTextColor={theme.faint}
+              style={styles.swapSearch}
+              autoCorrect={false}
+              accessibilityLabel={t(language, 'home.swapSheet.search')}
+            />
             <ScrollView style={styles.swapList} showsVerticalScrollIndicator={false}>
               {swapRow && swapRow.shortlist.total === 0 ? (
                 <Text style={styles.swapEmpty}>{t(language, 'home.swapSheet.empty')}</Text>
@@ -388,7 +416,7 @@ export function ProgramDayScreen({
                               if (swapRow) {
                                 onSwapExercise?.(swapRow.slotId, option.exerciseName);
                               }
-                              setSwapSlotId(null);
+                              closeSwapSheet();
                             }}
                             style={({ pressed }) => [
                               styles.swapOption,
@@ -411,7 +439,7 @@ export function ProgramDayScreen({
                               hitSlop={8}
                               onPress={() => {
                                 onKeepSwap(swapRow.exerciseId as string, option.exerciseName);
-                                setSwapSlotId(null);
+                                closeSwapSheet();
                               }}
                               style={({ pressed }) => [styles.swapOptionKeep, pressed && styles.swapOptionPressed]}
                             >
@@ -432,7 +460,7 @@ export function ProgramDayScreen({
                 accessibilityRole="button"
                 onPress={() => {
                   onKeepSwap(swapRow.exerciseId as string, sessionSwaps[swapRow.slotId]);
-                  setSwapSlotId(null);
+                  closeSwapSheet();
                 }}
                 style={({ pressed }) => [styles.swapRemove, pressed && styles.swapOptionPressed]}
               >
@@ -454,7 +482,7 @@ export function ProgramDayScreen({
                 accessibilityRole="button"
                 onPress={() => {
                   onRemoveExercise(swapRow.exerciseId as string);
-                  setSwapSlotId(null);
+                  closeSwapSheet();
                 }}
                 style={({ pressed }) => [styles.swapRemove, pressed && styles.swapOptionPressed]}
               >
@@ -774,6 +802,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '700',
+  },
+  swapSearch: {
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 12,
+    backgroundColor: theme.surfaceSoft,
+    color: theme.ink,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 15,
+    fontWeight: '600',
+    marginTop: 10,
   },
   swapOptionRow: {
     flexDirection: 'row',

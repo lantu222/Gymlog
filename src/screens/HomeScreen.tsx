@@ -456,6 +456,12 @@ export function HomeScreen({
   const [keyboardInset, setKeyboardInset] = useState(0);
   /** Which row's swap sheet is open, by slot id. */
   const [swapSlotId, setSwapSlotId] = useState<string | null>(null);
+  /** Narrows the pool. Cleared with the sheet, so it never opens pre-filtered. */
+  const [swapQuery, setSwapQuery] = useState('');
+  const closeSwapSheet = () => {
+    setSwapSlotId(null);
+    setSwapQuery('');
+  };
   const [calendarExpanded, setCalendarExpanded] = useState(false);
   // Months away from today. Reset on close so reopening always lands on now.
   const [monthOffset, setMonthOffset] = useState(0);
@@ -607,10 +613,21 @@ export function HomeScreen({
       // actions off the bottom of the sheet (user 2026-08-26).
       shortlist: buildSwapShortlist(
         currentName,
-        buildSwapOptionsForSlot(exercise.substitutionGroup ?? '', currentName, tailoringPreferences),
+        buildSwapOptionsForSlot(exercise.substitutionGroup ?? '', currentName, tailoringPreferences).map(
+          (option) => ({ ...option, searchLabel: exerciseNameLabel(language, option.exerciseName) }),
+        ),
+        {
+          // What today's session already contains, swaps included: offering a
+          // lift that is two rows down is a change that changes nothing
+          // (#bugs 2026-08-26).
+          alreadyInSession: (nextPlanSession?.exercises ?? []).map(
+            (item) => (item.slotId ? sessionSwaps[item.slotId] : undefined) ?? item.name,
+          ),
+          query: swapQuery,
+        },
       ),
     };
-  }, [nextPlanSession, swapSlotId, sessionSwaps, tailoringPreferences]);
+  }, [nextPlanSession, swapSlotId, sessionSwaps, tailoringPreferences, swapQuery, language]);
 
   // --- Animations -----------------------------------------------------------
 
@@ -1941,10 +1958,10 @@ export function HomeScreen({
         visible={swapSlotId !== null}
         transparent
         animationType={reduceMotion ? 'none' : 'slide'}
-        onRequestClose={() => setSwapSlotId(null)}
+        onRequestClose={() => closeSwapSheet()}
       >
         <View style={styles.adaptOverlay}>
-          <Pressable style={styles.adaptScrim} onPress={() => setSwapSlotId(null)} />
+          <Pressable style={styles.adaptScrim} onPress={() => closeSwapSheet()} />
           <View style={[styles.adaptSheet, { paddingBottom: insets.bottom + 26 }]}>
             <View style={styles.adaptGrip} />
             <Text style={styles.adaptTitle}>
@@ -1952,6 +1969,19 @@ export function HomeScreen({
                 name: exerciseNameLabel(language, swapRow.currentName),
               })}
             </Text>
+            {/* A search, because the shortlist is deliberately six rows and the
+                pool behind it is not: a reader who knows what they want should
+                not have to be offered it (#bugs 2026-08-26). Typing widens the
+                search back over the whole pool. */}
+            <TextInput
+              value={swapQuery}
+              onChangeText={setSwapQuery}
+              placeholder={t(language, 'home.swapSheet.search')}
+              placeholderTextColor={theme.faint}
+              style={styles.adaptSearch}
+              autoCorrect={false}
+              accessibilityLabel={t(language, 'home.swapSheet.search')}
+            />
             {/* The list scrolls; the actions below it do not. With nine rows
                 the sheet grew past the screen and "Poista ohjelmasta" could
                 not be reached at all (user 2026-08-26). */}
@@ -1978,7 +2008,7 @@ export function HomeScreen({
                             if (swapSlotId) {
                               onSwapSessionExercise?.(swapSlotId, option.exerciseName);
                             }
-                            setSwapSlotId(null);
+                            closeSwapSheet();
                           }}
                           style={({ pressed }) => [styles.adaptOpt, styles.adaptOptGrow, pressed && styles.pressed]}
                         >
@@ -2003,7 +2033,7 @@ export function HomeScreen({
                             hitSlop={8}
                             onPress={() => {
                               onKeepSwapInProgram(swapRow.exerciseId as string, option.exerciseName);
-                              setSwapSlotId(null);
+                              closeSwapSheet();
                             }}
                             style={({ pressed }) => [styles.adaptOptKeep, pressed && styles.pressed]}
                           >
@@ -2024,7 +2054,7 @@ export function HomeScreen({
                 accessibilityRole="button"
                 onPress={() => {
                   onKeepSwapInProgram(swapRow.exerciseId as string, sessionSwaps[swapSlotId]);
-                  setSwapSlotId(null);
+                  closeSwapSheet();
                 }}
                 style={({ pressed }) => [styles.adaptDrop, pressed && styles.pressed]}
               >
@@ -2055,7 +2085,7 @@ export function HomeScreen({
                   } else {
                     onDropSessionExercise?.(swapSlotId);
                   }
-                  setSwapSlotId(null);
+                  closeSwapSheet();
                 }}
                 style={({ pressed }) => [styles.adaptDrop, pressed && styles.pressed]}
               >
@@ -2075,7 +2105,7 @@ export function HomeScreen({
                 accessibilityRole="button"
                 onPress={() => {
                   onRemoveSessionExercise(swapRow.exerciseId as string);
-                  setSwapSlotId(null);
+                  closeSwapSheet();
                 }}
                 style={({ pressed }) => [styles.adaptDrop, pressed && styles.pressed]}
               >
@@ -2087,7 +2117,7 @@ export function HomeScreen({
             ) : null}
             <Pressable
               accessibilityRole="button"
-              onPress={() => setSwapSlotId(null)}
+              onPress={() => closeSwapSheet()}
               hitSlop={8}
               style={styles.adaptCancel}
             >
@@ -2811,6 +2841,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 15,
     lineHeight: 19,
     fontWeight: '800',
+  },
+  adaptSearch: {
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 12,
+    backgroundColor: theme.surfaceSoft,
+    color: theme.ink,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 10,
   },
   adaptOptRow: {
     flexDirection: 'row',

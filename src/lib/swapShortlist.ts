@@ -1,6 +1,15 @@
 import { TailoredSwapOption } from './tailoringFit';
 
 /**
+ * A swap option carrying the label the reader actually sees.
+ *
+ * The pool's names are English and the reader types Finnish, so a search over
+ * `exerciseName` alone finds nothing for "kyykky". The caller localises once
+ * and passes it along rather than this module learning about languages.
+ */
+export type SearchableSwapOption = TailoredSwapOption & { searchLabel?: string };
+
+/**
  * The swap list, cut down to a choice a reader can actually make.
  *
  * The pool a substitution group holds is the set of lifts that are VALID here,
@@ -54,9 +63,9 @@ export function movementHead(name: string): string {
 
 export interface SwapShortlist {
   /** The same movement, different gear or loading. */
-  variations: TailoredSwapOption[];
+  variations: SearchableSwapOption[];
   /** A different movement from the same pool — same area, other angle. */
-  related: TailoredSwapOption[];
+  related: SearchableSwapOption[];
   /** How many the pool held before the cut, so the sheet can offer the rest. */
   total: number;
 }
@@ -83,19 +92,42 @@ function identityKey(name: string): string {
     .join(' ');
 }
 
+export interface SwapShortlistOptions {
+  /**
+   * Every lift already in today's session.
+   *
+   * The pool offered "taljapotku" as a replacement for a slot in a session that
+   * already had taljapotku two rows down (#bugs 2026-08-26). Swapping to it
+   * would mean doing the same exercise twice and calling it a change.
+   */
+  alreadyInSession?: readonly string[];
+  /** What the reader typed to narrow the list. */
+  query?: string;
+}
+
 export function buildSwapShortlist(
   currentExerciseName: string,
-  options: readonly TailoredSwapOption[],
+  options: readonly SearchableSwapOption[],
+  { alreadyInSession = [], query = '' }: SwapShortlistOptions = {},
 ): SwapShortlist {
   const head = movementHead(currentExerciseName);
-  const variations: TailoredSwapOption[] = [];
-  const related: TailoredSwapOption[] = [];
+  // Matched on identity, not on the exact string: the session may hold the
+  // other spelling of the same lift.
+  const inSession = new Set(alreadyInSession.map(identityKey));
+  const needle = query.trim().toLowerCase();
+  const variations: SearchableSwapOption[] = [];
+  const related: SearchableSwapOption[] = [];
   // First wins, so the tailoring pass's ranking decides which spelling shows.
   const seen = new Set<string>();
 
   for (const option of options) {
     const identity = identityKey(option.exerciseName);
-    if (seen.has(identity)) {
+    if (seen.has(identity) || inSession.has(identity)) {
+      continue;
+    }
+    // Searched on the English name AND on whatever the caller passes as a
+    // label, because the reader types Finnish and the pool is English.
+    if (needle && !`${option.exerciseName} ${option.searchLabel ?? ''}`.toLowerCase().includes(needle)) {
       continue;
     }
     seen.add(identity);
