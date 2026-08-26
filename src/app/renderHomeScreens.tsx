@@ -330,6 +330,10 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
           }
         }}
         onSaveProgramme={saveProgramme}
+        // The catalog's own page, where a ready programme is read and taken on.
+        onOpenProgramme={(programId) =>
+          navigate({ tab: 'workout', screen: 'program', programType: 'ready', workoutTemplateId: programId })
+        }
         transcriptReporter={accountBackup.state.status === 'signed_in' ? accountBackup.state.email : null}
       />
     );

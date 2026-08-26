@@ -91,7 +91,11 @@ const BODY_PART_KEYWORDS: ReadonlyArray<{ pattern: RegExp; part: SetupFocusArea;
     avoid: ['bench press', 'dips', 'fly'],
   },
   {
-    pattern: /selk[äa]|back(?! squat)|lats?\b/i,
+    // `lats?\b` had a boundary only at the end, so it matched the tail of any
+    // word ending in "lat" — and Finnish "jalat" (legs) is exactly that. Asking
+    // for legs flagged the back as well, which then vetoed deadlifts and pulled
+    // back-tagged programmes up the match (found 2026-08-26).
+    pattern: /selk[äa]|back(?! squat)|\blats?\b/i,
     part: 'back',
     caution: 'back',
     avoid: ['deadlift', 'good morning', 'bent over', 'back extension'],

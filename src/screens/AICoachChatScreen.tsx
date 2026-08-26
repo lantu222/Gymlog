@@ -27,11 +27,16 @@ import { MEASUREMENT_LABEL_KEYS } from '../lib/homeStatCards';
 import { I18nKey, t } from '../lib/i18n';
 import { MeasurementIntent, isMeasurementIntentKind, parseMeasurementIntent } from '../lib/measurementIntent';
 import { GoalIntent, parseGoalIntent } from '../lib/goalIntent';
+// Deterministic: asking the coach to name a programme gets programmes that do
+// not exist; a scorer over the real catalog cannot.
+import { matchProgrammeToBrief, shouldOfferCatalogInstead } from '../lib/briefProgrammeMatch';
+import { ProgrammeProposal, parseProgrammeBrief } from '../lib/programmeBrief';
+import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
+import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { AI_COACH_DEBUG_TRANSCRIPTS } from '../lib/aiCoachDebug';
 import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { layout, spacing } from '../theme';
-import { ProgrammeProposal } from '../lib/programmeBrief';
 import { AICoachAdvice, AICoachConversationTurn, AICoachTrainingContext } from '../types/aiCoach';
 import { AppLanguage } from '../types/models';
 
@@ -108,6 +113,14 @@ interface AICoachChatScreenProps {
   onComposeProgramme: (brief: string) => Promise<ProgrammeProposal | null>;
   /** Saves a proposal as a programme of the reader's own. */
   onSaveProgramme: (proposal: ProgrammeProposal) => Promise<void>;
+  /**
+   * Opens a catalog programme's own page, where it can be read and taken on.
+   *
+   * Browsing and running the catalog is free, so this path has no Pro gate —
+   * which means a free reader who asks for five days gets a real answer rather
+   * than a paywall.
+   */
+  onOpenProgramme: (programId: string) => void;
   /** TEMPORARY: the signed-in email, attached to the development transcript log. */
   transcriptReporter: string | null;
 }
@@ -153,10 +166,31 @@ interface ChatMessage {
    * brief in the same thread. That is the thing the composer screen cannot do.
    */
   proposal?: ProgrammeProposal;
+  /**
+   * A catalog programme that answers the brief better than a composed week
+   * would.
+   *
+   * The composer only has splits for one to four days, so "5 päivää" came back
+   * as four with a note explaining the trim — while fourteen designed five- and
+   * six-day programmes sat in the catalog (user 2026-08-26, "eikö aichat voi
+   * vain ottaa lähimpää ohjelmaa mikä vastaa käyttäjän puheita?").
+   */
+  catalog?: { programId: string; title: string; daysPerWeek: number };
 }
 
 /** Width of the soft light behind the dark thread's header. */
 const TOP_LIGHT = 460;
+
+/**
+ * A catalog programme's display name, or null when the id resolves to nothing.
+ *
+ * Null rather than the raw id: a chat message reading "tpl_5_day_ppl_v1" is
+ * worse than the composed week it replaced.
+ */
+function catalogProgrammeTitle(programId: string): string | null {
+  const name = getWorkoutTemplateById(programId)?.name;
+  return name ? formatWorkoutDisplayLabel(name) : null;
+}
 
 /** The word on each offer's accept button, keyed by what the offer does. */
 const OFFER_CTA_KEYS: Record<NonNullable<ChatMessage['offer']>['type'], I18nKey> = {
@@ -201,6 +235,7 @@ export function AICoachChatScreen({
   onOpenMeasure,
   onComposeProgramme,
   onSaveProgramme,
+  onOpenProgramme,
   transcriptReporter,
 }: AICoachChatScreenProps) {
   const theme = useTheme();
@@ -391,6 +426,33 @@ export function AICoachChatScreen({
         return;
       }
       if (offer.type === 'compose') {
+        // When the brief asks for more days than the composer can lay out, the
+        // catalog is the better answer than a trimmed week — it already holds
+        // designed five- and six-day programmes. Checked before the Pro gate on
+        // purpose: browsing and running the catalog is free, so a free reader
+        // who asks for five days gets a real answer instead of a paywall.
+        const signals = parseProgrammeBrief(offer.brief);
+        if (shouldOfferCatalogInstead(signals)) {
+          const match = matchProgrammeToBrief(signals);
+          const title = match ? catalogProgrammeTitle(match.programId) : null;
+          if (match && title) {
+            setMessages((current) =>
+              current.map((message) =>
+                message.id === messageId
+                  ? {
+                      id: `${messageId}:catalog`,
+                      fromCoach: true,
+                      text: t(language, 'coachChat.compose.catalogLead', {
+                        asked: signals.requestedDaysPerWeek ?? match.daysPerWeek,
+                      }),
+                      catalog: { programId: match.programId, title, daysPerWeek: match.daysPerWeek },
+                    }
+                  : message,
+              ),
+            );
+            return;
+          }
+        }
         // Building a programme is the Pro feature, and it used to be gated by
         // the composer screen's own route guard. That screen is gone, so the
         // gate moves onto the act — otherwise moving the entrance into the free
@@ -855,7 +917,26 @@ export function AICoachChatScreen({
           ) : null}
 
           {messages.map((message) =>
-            message.proposal ? (
+            message.catalog ? (
+              <View key={message.id} style={styles.bubbleRow}>
+                <View style={[styles.coachBubble, styles.offerBubble]}>
+                  <Text style={styles.coachText}>{message.text}</Text>
+                  <Text style={styles.catalogName}>{message.catalog.title}</Text>
+                  <Text style={styles.catalogMeta}>
+                    {t(language, 'coachChat.compose.catalogMeta', { count: message.catalog.daysPerWeek })}
+                  </Text>
+                  <View style={styles.offerActions}>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => onOpenProgramme((message.catalog as { programId: string }).programId)}
+                      style={({ pressed }) => [styles.offerCta, pressed && styles.pressed]}
+                    >
+                      <Text style={styles.offerCtaText}>{t(language, 'coachChat.compose.catalogOpen')}</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+            ) : message.proposal ? (
               /* The week, in the thread that asked for it. Full width rather
                  than in a bubble: a four-day programme squeezed into a chat
                  bubble is the shape that made this live on its own screen. */
@@ -1147,6 +1228,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   offerBubble: {
     gap: 10,
   },
+  catalogName: { color: theme.ink, fontSize: 17, lineHeight: 22, fontWeight: '800', marginTop: 2 },
+  catalogMeta: { color: theme.muted, fontSize: 13, lineHeight: 18, fontWeight: '700' },
   // Full width, unlike every other coach message: a four-day week narrowed to
   // bubble width is the shape that put this on its own screen to begin with.
   proposalWrap: {

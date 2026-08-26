@@ -241,7 +241,15 @@ module.exports = [
       // chat they can use, and gating nothing would have given the feature away
       // (user 2026-08-26, "koostajaruudun voi poistaa").
       assert.doesNotMatch(appSource, /ai_setup/);
-      assert.match(chat, /if \(offer\.type === 'compose'\) \{[\s\S]{0,600}if \(!proUnlocked\) \{\s*\n\s*onOpenPremium\(\);/);
+      // Composing is gated inside the compose branch, and the catalog branch is
+      // checked BEFORE the gate on purpose: browsing and running ready
+      // programmes is free, so a reader who asks for five days gets a real
+      // answer rather than a paywall.
+      const composeAt = chat.indexOf("if (offer.type === 'compose') {");
+      const gateAt = chat.indexOf('if (!proUnlocked) {', composeAt);
+      assert.ok(composeAt !== -1 && gateAt !== -1, 'the compose branch gates on Pro');
+      assert.match(chat.slice(gateAt, gateAt + 120), /if \(!proUnlocked\) \{\s*\n\s*onOpenPremium\(\);/);
+      assert.match(chat.slice(composeAt, gateAt), /shouldOfferCatalogInstead\(signals\)/);
       // The offer says so before the tap, so the paywall is not a surprise.
       assert.match(chat, /coachChat\.compose\.pro/);
     },
