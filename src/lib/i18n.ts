@@ -1352,8 +1352,16 @@ const EN = {
   'guided.pause': 'Pause',
   // Skipping a warmup drill by drill is five taps to the bar (user,
   // 2026-08-20). The whole block goes in one.
-  'guided.skipBlock.warmup': 'Skip warmup',
-  'guided.skipBlock.cooldown': 'Skip cooldown',
+  // Leaving a block is not skipping it: a reader with their own five minutes
+  // on the bike is warming up, and the guided drills are what they are
+  // leaving (user 2026-08-26).
+  'guided.own.warmup': 'Warm up your own way',
+  'guided.own.cooldown': 'Recover your own way',
+  'guided.own.eyebrow': 'YOUR OWN WAY',
+  'guided.own.hint': 'The clock is running. Press done when you are ready.',
+  'guided.own.suggestion': 'VINHA WOULD HAVE SUGGESTED',
+  'guided.own.done.warmup': 'Done — start the workout',
+  'guided.own.done.cooldown': 'Done — finish the workout',
   'guided.skip': 'Skip',
   // Set screen v4: "Set 2/3" reads as a sentence next to the session clock.
   'guided.setOfCount': 'Set {index}/{count}',
@@ -4537,8 +4545,13 @@ const FI: Record<I18nKey, string> = {
   'guided.skipRest': 'Ohita lepo',
   'guided.resume': 'Jatka',
   'guided.pause': 'Tauko',
-  'guided.skipBlock.warmup': 'Ohita lämmittely',
-  'guided.skipBlock.cooldown': 'Ohita jäähdyttely',
+  'guided.own.warmup': 'Lämmittele omatoimisesti',
+  'guided.own.cooldown': 'Palaudu omatoimisesti',
+  'guided.own.eyebrow': 'OMATOIMISESTI',
+  'guided.own.hint': 'Kello käy. Paina valmis kun olet valmis.',
+  'guided.own.suggestion': 'VINHA OLISI EHDOTTANUT',
+  'guided.own.done.warmup': 'Valmis — aloita treeni',
+  'guided.own.done.cooldown': 'Valmis — päätä treeni',
   'guided.skip': 'Ohita',
   'guided.setOfCount': 'Sarja {index}/{count}',
   'guided.reps': 'TOISTOT',

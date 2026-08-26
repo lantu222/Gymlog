@@ -1077,6 +1077,21 @@ export function GuidedPlayerScreen({
   const [paused, setPaused] = useState(false);
   const [howtoOpen, setHowtoOpen] = useState(false);
   /**
+   * Doing a block your own way.
+   *
+   * The block used to offer "Skip warmup", which named the wrong thing: a
+   * reader with their own five minutes on the bike is not skipping the
+   * warmup, they are doing it — the guided drills are what they are leaving
+   * (user 2026-08-26). So the block is left by SAYING you will do it
+   * yourself, and the app waits with a clock instead of jumping straight to
+   * the first lift. The step index does not move until you come back, so
+   * backgrounding the app mid-warmup returns you here rather than to a set
+   * you never started.
+   */
+  const [ownBlock, setOwnBlock] = useState<{ phase: 'warmup' | 'cooldown'; startedAt: number } | null>(
+    null,
+  );
+  /**
    * The set screen's exercise info (history, how-to, photo). It opens from the
    * header's right-hand button now, so the state lives beside the header
    * rather than inside the set view (user 2026-08-26). Reset on every step, so
@@ -1093,7 +1108,10 @@ export function GuidedPlayerScreen({
   /** The lift whose final set was just logged — a one-second check-splash
       before the next exercise's walk-up screen. Null = no splash showing. */
   const [doneSplashName, setDoneSplashName] = useState<string | null>(null);
-  const frozen = paused || howtoOpen || exitOpen || pauseSheetOpen || swapOpen;
+  const frozen = paused || howtoOpen || exitOpen || pauseSheetOpen || swapOpen || ownBlock !== null;
+  // Seconds since the reader said they would do it themselves. Derived from
+  // the session clock's tick so it needs no timer of its own.
+  const ownElapsedSeconds = ownBlock ? Math.max(0, Math.floor((clockNowMs - ownBlock.startedAt) / 1000)) : 0;
 
   const stepSeconds = (target: GuidedStep): number => {
     switch (target.type) {
@@ -1807,18 +1825,19 @@ export function GuidedPlayerScreen({
                 </Text>
                 <Text style={styles.splashTitle}>{step.title}</Text>
                 <Text style={{ fontSize: 15, fontWeight: '600', color: theme.muted }}>{step.sub}</Text>
-                {/* The block is a suggestion, not a gate. Its own screen is
-                    where a reader decides to warm up their own way. */}
+                {/* The block is a suggestion, not a gate — and leaving it is a
+                    real choice, so it gets a real button rather than a muted
+                    line of text nobody found (user 2026-08-26). */}
                 {skippablePhase ? (
                   <Pressable
                     accessibilityRole="button"
                     hitSlop={10}
-                    onPress={skipPhase}
-                    style={{ marginTop: 26, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                    onPress={() => setOwnBlock({ phase: skippablePhase, startedAt: Date.now() })}
+                    style={({ pressed }) => [styles.ownBlockCta, pressed && { opacity: 0.75 }]}
                   >
-                    <GPIcon name="skip" size={15} color={theme.muted} sw={2.4} />
-                    <Text style={{ fontSize: 14.5, fontWeight: '700', color: theme.muted }}>
-                      {t(language, `guided.skipBlock.${skippablePhase}` as 'guided.skipBlock.warmup')}
+                    <GPIcon name="check" size={16} color={theme.purple} sw={2.6} />
+                    <Text style={styles.ownBlockCtaText}>
+                      {t(language, `guided.own.${skippablePhase}` as 'guided.own.warmup')}
                     </Text>
                   </Pressable>
                 ) : null}
@@ -2218,6 +2237,49 @@ export function GuidedPlayerScreen({
         />
       ) : null}
 
+      {/* The waiting room for a block you are doing yourself. A clock that
+          counts UP, because the app does not know how long your warmup takes
+          and should not pretend to — and the drills it would have run, quiet,
+          as a reminder rather than a list to obey. */}
+      {ownBlock && (
+        <View style={styles.ownBlockSheet}>
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, paddingHorizontal: 28 }}>
+            <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: theme.purple }}>
+              {t(language, 'guided.own.eyebrow')}
+            </Text>
+            <Text style={styles.splashTitle}>
+              {t(language, ownBlock.phase === 'warmup' ? 'guided.phase.warmup' : 'guided.phase.cooldown')}
+            </Text>
+            <Text style={styles.ownBlockClock}>{formatSessionClock(ownElapsedSeconds)}</Text>
+            <Text style={styles.ownBlockHint}>{t(language, 'guided.own.hint')}</Text>
+
+            {(ownBlock.phase === 'warmup' ? warmupDrills : cooldownDrills).length > 0 ? (
+              <View style={styles.ownBlockList}>
+                <Text style={styles.ownBlockListHead}>{t(language, 'guided.own.suggestion')}</Text>
+                {(ownBlock.phase === 'warmup' ? warmupDrills : cooldownDrills).map((drill) => (
+                  <Text key={drill.name} style={styles.ownBlockListRow} numberOfLines={1}>
+                    {exerciseNameLabel(language, drill.name)}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
+          </View>
+          <View style={{ paddingHorizontal: 24, paddingBottom: 18 }}>
+            <BigBtn
+              icon="check"
+              label={t(
+                language,
+                ownBlock.phase === 'warmup' ? 'guided.own.done.warmup' : 'guided.own.done.cooldown',
+              )}
+              onPress={() => {
+                setOwnBlock(null);
+                skipPhase();
+              }}
+            />
+          </View>
+        </View>
+      )}
+
       {howtoOpen && (
         <HowToSheetView
           libraryItem={
@@ -2297,11 +2359,12 @@ export function GuidedPlayerScreen({
                 do something else" surface. */}
             {skippablePhase ? (
               <GhostBtn
-                icon="skip"
-                label={t(language, `guided.skipBlock.${skippablePhase}` as 'guided.skipBlock.warmup')}
+                icon="check"
+                label={t(language, `guided.own.${skippablePhase}` as 'guided.own.warmup')}
                 onPress={() => {
                   setPauseSheetOpen(false);
-                  skipPhase();
+                  setPaused(false);
+                  setOwnBlock({ phase: skippablePhase, startedAt: Date.now() });
                 }}
               />
             ) : null}
@@ -3138,6 +3201,55 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
   },
   splashTitle: { fontSize: 46, fontWeight: '800', letterSpacing: -1.4, color: theme.ink, textAlign: 'center' },
+
+  /* doing a block your own way */
+  ownBlockCta: {
+    marginTop: 26,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+    minHeight: 50,
+    paddingHorizontal: 22,
+    borderRadius: 15,
+    borderWidth: 1.5,
+    borderColor: theme.purple,
+    backgroundColor: theme.purpleLight,
+  },
+  ownBlockCtaText: { fontSize: 15.5, fontWeight: '800', color: theme.purpleDark, letterSpacing: -0.1 },
+  ownBlockSheet: { ...StyleSheet.absoluteFillObject, backgroundColor: theme.bg },
+  ownBlockClock: {
+    fontSize: 62,
+    fontWeight: '800',
+    letterSpacing: -2,
+    color: theme.ink,
+    fontVariant: ['tabular-nums'],
+    marginTop: 8,
+  },
+  ownBlockHint: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.muted,
+    textAlign: 'center',
+    maxWidth: 280,
+  },
+  ownBlockList: {
+    marginTop: 22,
+    alignSelf: 'stretch',
+    gap: 4,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+  },
+  ownBlockListHead: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+    color: theme.faint,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  ownBlockListRow: { fontSize: 14, fontWeight: '600', color: theme.muted, textAlign: 'center' },
   readyDigit: { fontSize: 150, fontWeight: '800', letterSpacing: -7, color: theme.ink, lineHeight: 160, fontVariant: ['tabular-nums'] },
 
   /* drill / set */
