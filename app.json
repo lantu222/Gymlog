@@ -19,7 +19,7 @@
       "backgroundColor": "#F7F3FF",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#101828",
+        "backgroundColor": "#FF8A4C",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },

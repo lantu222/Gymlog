@@ -26,14 +26,16 @@ module.exports = [
       // SVG, so nothing stops the two drifting apart — and a drifted renderer
       // does not fail loudly, it just quietly produces a slightly wrong icon.
       // Every number the renderer holds is checked against the source here.
-      assert.match(svg, /fill="#101828"/);
-      assert.match(generator, /0x10, 0x18, 0x28/);
-      // Two colours, the app's own: purple on the left arm, orange on the
-      // right (user 2026-08-26).
-      assert.match(svg, /stroke="#8B5CF6"/);
-      assert.match(generator, /0x8B, 0x5C, 0xF6/);
-      assert.match(svg, /stroke="#FF8A4C"/);
+      // A white V on a full orange field (user 2026-08-26, chosen from eight
+      // prototypes). The dark tile it replaces was the actual complaint: it sat
+      // among every other dark tile on a home screen.
+      assert.match(svg, /fill="#FF8A4C"/);
       assert.match(generator, /0xFF, 0x8A, 0x4C/);
+      assert.match(svg, /stroke="#FFFFFF"/);
+      assert.match(generator, /0xFF, 0xFF, 0xFF/);
+      // Android composites the foreground over backgroundColor, so a field that
+      // lives only in the SVG would give a white V on the old ink.
+      assert.equal(appJson.expo.android.adaptiveIcon.backgroundColor, '#FF8A4C');
 
       assert.match(svg, /d="M270 230 L512 680 L754 230"/);
       assert.match(generator, /PointF 270, 230/);
@@ -43,17 +45,14 @@ module.exports = [
       assert.match(svg, /stroke-width="150"/);
       assert.match(generator, /\$STROKE = 150\.0/);
 
-      // The lean and the two cuts are gone. Named here as absences, because
-      // "the renderer still draws something plausible" is exactly the failure
-      // this file exists to catch.
-      assert.doesNotMatch(svg, /skewX|rotate\(/);
-      assert.doesNotMatch(generator, /SKEW_DEG|SHIFT_X|CUT_/);
-
-      // The split is the glyph's own middle, so each arm is one colour and the
-      // mitre at the vertex is never cut across.
-      assert.match(svg, /clipPath id="left"[\s\S]{0,120}width="512"/);
-      assert.match(svg, /rect x="512"[^>]*width="512"/);
-      assert.match(generator, /\$SPLIT_X = 512\.0/);
+      // Rotated, not skewed: the whole glyph turns, so the mitre and the flat
+      // caps keep the angles the path gives them. The skew read as italic.
+      assert.match(svg, /transform="rotate\(-8 512 512\)"/);
+      assert.match(generator, /\$TILT_DEG = -8\.0/);
+      assert.doesNotMatch(svg, /skewX/);
+      // The two cuts are gone. Named as an absence, because "the renderer still
+      // draws something plausible" is the failure this file exists to catch.
+      assert.doesNotMatch(generator, /SKEW_DEG|SHIFT_X|CUT_|SPLIT_X/);
 
       // Android shows the middle 72 of a 108dp foreground. Written as the ratio
       // rather than 0.667 so it stays legible as the reason, not a magic number.
@@ -76,7 +75,7 @@ module.exports = [
       // A backgroundImage would win over backgroundColor, so having both is a
       // way to change the colour and see nothing happen.
       assert.equal(adaptive.backgroundImage, undefined);
-      assert.equal(adaptive.backgroundColor, '#101828');
+      assert.equal(adaptive.backgroundColor, '#FF8A4C');
 
       assert.ok(fs.existsSync(asset(expo.web.favicon)), 'favicon is missing');
       assert.ok(fs.existsSync(asset(expo.splash.image)), 'splash image is missing');

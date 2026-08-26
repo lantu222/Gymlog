@@ -53,6 +53,13 @@ import { queryReduceMotion } from '../utils/reduceMotion';
 
 // Entrance stagger (Home v4 "rise"): translateY 16 -> 0 + fade, 500ms,
 // cubic-bezier(.22,1,.36,1). Indices name each animated section.
+/**
+ * How long a dropped programme waits before it really goes. Long enough to
+ * notice the row change and reach for it; short enough that the list is not
+ * lying about its contents while you look at it.
+ */
+const REMOVAL_UNDO_MS = 5000;
+
 const RISE_DELAYS_MS = [40, 100, 160, 300, 360, 420, 460, 480, 520, 560, 600] as const;
 const RISE_HEADER = 0;
 const RISE_WEEK = 1;
@@ -205,6 +212,11 @@ interface HomeScreenProps {
    * under the lead programme rather than competing with it for the hero.
    */
   otherPrograms?: HomeOtherProgram[];
+  /**
+   * "2/2 ohjelmaa käynnissä" — null unless a place is actually at stake, which
+   * is most of the time. See describeProgramCap.
+   */
+  programCapLine?: string | null;
   onOpenOtherProgram?: (planId: string) => void;
   onRemoveOtherProgram?: (planId: string) => void;
   /** Adapt sheet: drop the programme Home is leading with. */
@@ -372,6 +384,7 @@ interface HomeScreenProps {
 export function HomeScreen({
   activePlan = null,
   otherPrograms = [],
+  programCapLine = null,
   onOpenOtherProgram,
   onRemoveOtherProgram,
   onRemoveActivePlan,
@@ -540,6 +553,42 @@ export function HomeScreen({
   // The row whose swap sheet is open, with its current lift resolved through
   // today's swaps — reopening the sheet after a swap must offer the pool for
   // what is there now, not what the template originally said.
+  /**
+   * A dropped programme, still on screen and still recoverable.
+   *
+   * Nothing is destroyed by dropping one — it stays in the Programs tab and can
+   * be taken up again — but the row vanished under the reader's thumb, and a
+   * reader who does not already know that reads it as gone for good. The pause
+   * is the whole fix: no dialog to dismiss on every deliberate tap, and a way
+   * back from an accidental one.
+   */
+  const [pendingRemoval, setPendingRemoval] = useState<string | null>(null);
+  const removalTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (removalTimer.current) {
+        clearTimeout(removalTimer.current);
+      }
+    },
+    [],
+  );
+  const undoRemoval = () => {
+    if (removalTimer.current) {
+      clearTimeout(removalTimer.current);
+      removalTimer.current = null;
+    }
+    setPendingRemoval(null);
+  };
+  const beginRemoval = (planId: string) => {
+    undoRemoval();
+    setPendingRemoval(planId);
+    removalTimer.current = setTimeout(() => {
+      removalTimer.current = null;
+      setPendingRemoval(null);
+      onRemoveOtherProgram?.(planId);
+    }, REMOVAL_UNDO_MS);
+  };
+
   const swapRow = useMemo(() => {
     const exercise = nextPlanSession?.exercises.find((item) => item.slotId && item.slotId === swapSlotId);
     if (!exercise?.slotId) {
@@ -1427,38 +1476,60 @@ export function HomeScreen({
         {otherPrograms.length > 0 ? (
           <Animated.View style={[styles.otherProgramsBlock, rise(RISE_DIVIDER)]}>
             <Text style={styles.programEyebrow}>{t(language, 'home.otherPrograms')}</Text>
-            {otherPrograms.map((program) => (
-              <Pressable
-                key={program.planId}
-                accessibilityRole="button"
-                accessibilityLabel={program.title}
-                onPress={() => onOpenOtherProgram?.(program.planId)}
-                style={({ pressed }) => [styles.otherProgramRow, pressed && styles.pressed]}
-              >
-                <View style={styles.otherProgramCopy}>
-                  <Text style={styles.otherProgramTitle} numberOfLines={1}>
-                    {program.title}
-                  </Text>
-                  <Text style={styles.otherProgramMeta} numberOfLines={1}>
-                    {program.meta}
-                  </Text>
-                </View>
-                {/* The way back out of the cap. Without it, two programmes is a
-                    dead end and every later choice is a paywall the reader
-                    cannot dismiss by changing their mind. */}
+            {/* Only when a place is at stake. A count nobody is near is a sign
+                about nothing, and those teach people to stop reading signs. */}
+            {programCapLine ? <Text style={styles.otherProgramsCap}>{programCapLine}</Text> : null}
+            {otherPrograms.map((program) => {
+              const pending = pendingRemoval === program.planId;
+              return (
                 <Pressable
+                  key={program.planId}
                   accessibilityRole="button"
-                  accessibilityLabel={t(language, 'home.removeProgram', { program: program.title })}
-                  hitSlop={10}
-                  onPress={() => onRemoveOtherProgram?.(program.planId)}
-                  style={({ pressed }) => [styles.otherProgramRemove, pressed && styles.pressed]}
+                  accessibilityLabel={program.title}
+                  onPress={() => (pending ? undoRemoval() : onOpenOtherProgram?.(program.planId))}
+                  style={({ pressed }) => [styles.otherProgramRow, pressed && styles.pressed]}
                 >
-                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                    <Path d="M6 6l12 12M18 6L6 18" stroke={theme.faint} strokeWidth={2.2} strokeLinecap="round" />
-                  </Svg>
+                  <View style={styles.otherProgramCopy}>
+                    <Text
+                      style={[styles.otherProgramTitle, pending && styles.otherProgramGone]}
+                      numberOfLines={1}
+                    >
+                      {program.title}
+                    </Text>
+                    <Text
+                      style={[styles.otherProgramMeta, pending && styles.otherProgramGone]}
+                      numberOfLines={1}
+                    >
+                      {pending ? t(language, 'home.removeProgram.pending') : program.meta}
+                    </Text>
+                  </View>
+                  {/* The way back out of the cap. Without it, two programmes is
+                      a dead end and every later choice is a paywall the reader
+                      cannot dismiss by changing their mind.
+                      It used to take effect on the tap. Nothing was destroyed —
+                      the programme stays in the Programs tab — but a row that
+                      vanishes under your thumb reads as destruction, and the
+                      reader has to already know that to feel otherwise
+                      (user 2026-08-26). So the row waits, struck through, and
+                      says how to get it back. */}
+                  {pending ? (
+                    <Text style={styles.otherProgramUndo}>{t(language, 'home.removeProgram.undo')}</Text>
+                  ) : (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={t(language, 'home.removeProgram', { program: program.title })}
+                      hitSlop={10}
+                      onPress={() => beginRemoval(program.planId)}
+                      style={({ pressed }) => [styles.otherProgramRemove, pressed && styles.pressed]}
+                    >
+                      <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                        <Path d="M6 6l12 12M18 6L6 18" stroke={theme.faint} strokeWidth={2.2} strokeLinecap="round" />
+                      </Svg>
+                    </Pressable>
+                  )}
                 </Pressable>
-              </Pressable>
-            ))}
+              );
+            })}
           </Animated.View>
         ) : null}
 
@@ -2715,6 +2786,25 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 15,
     lineHeight: 19,
     fontWeight: '800',
+  },
+  otherProgramsCap: {
+    color: theme.muted,
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: '600',
+    marginTop: -2,
+    marginBottom: 6,
+  },
+  otherProgramGone: {
+    textDecorationLine: 'line-through',
+    color: theme.faint,
+  },
+  otherProgramUndo: {
+    color: theme.highlight,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '800',
+    paddingHorizontal: 4,
   },
   otherProgramsBlock: {
     marginTop: 22,

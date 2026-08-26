@@ -2,10 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const {
-  buildProgramCapNotice,
-  programCapNoticeKey,
-} = require('../../.test-dist/lib/programCapNotice.js');
+const { describeProgramCap, programCapLineKey } = require('../../.test-dist/lib/programCapNotice.js');
 const {
   FREE_ACTIVE_PROGRAM_CAP,
   PRO_ACTIVE_PROGRAM_CAP,
@@ -13,79 +10,92 @@ const {
 
 module.exports = [
   {
-    name: 'cap notice: the first programme is explained in words, not as a fraction',
+    name: 'cap line: silence until a place is actually at stake',
     run() {
       // The cap was enforced and never mentioned until the try that failed, so
-      // the reader met it as a wall instead of a number they had been watching
-      // (user 2026-08-26). "1/2" means nothing to someone seeing it first.
-      const first = buildProgramCapNotice({ activePlanIds: [], proUnlocked: false });
-      assert.equal(first.used, 1);
-      assert.equal(first.cap, FREE_ACTIVE_PROGRAM_CAP);
-      assert.equal(first.explain, true);
-      assert.equal(programCapNoticeKey(first), 'first');
-    },
-  },
-  {
-    name: 'cap notice: it counts the state the reader is about to be in',
-    run() {
-      // Reporting the set they are leaving would say "0/2 running" on the
-      // screen that just started one.
-      const second = buildProgramCapNotice({ activePlanIds: ['plan_a'], proUnlocked: false });
-      assert.equal(second.used, 2);
-      assert.equal(second.explain, false);
-      assert.equal(second.atCap, true, 'two of two is the last place on the free tier');
-      assert.equal(programCapNoticeKey(second), 'last');
+      // the reader met it as a refusal (user 2026-08-26). The answer is not to
+      // report the count everywhere: a number nobody is near is a sign about
+      // nothing, and those teach people to stop reading signs.
+      const fresh = describeProgramCap({ activePlanIds: [], proUnlocked: false });
+      assert.equal(fresh.used, 0);
+      assert.equal(fresh.cap, FREE_ACTIVE_PROGRAM_CAP);
+      assert.equal(programCapLineKey(fresh), null, 'nothing to say with every place free');
 
-      const roomy = buildProgramCapNotice({ activePlanIds: ['plan_a'], proUnlocked: true });
-      assert.equal(roomy.cap, PRO_ACTIVE_PROGRAM_CAP);
-      assert.equal(roomy.atCap, false);
-      assert.equal(programCapNoticeKey(roomy), 'count');
+      const oneLeft = describeProgramCap({ activePlanIds: ['a'], proUnlocked: false });
+      assert.equal(oneLeft.lastPlace, true);
+      assert.equal(programCapLineKey(oneLeft), 'lastPlace');
+
+      const full = describeProgramCap({ activePlanIds: ['a', 'b'], proUnlocked: false });
+      assert.equal(full.atCap, true);
+      assert.equal(programCapLineKey(full), 'atCap');
     },
   },
   {
-    name: 'cap notice: a repeated id from an older build does not report a full set',
+    name: 'cap line: Pro has more places, and stays quiet until it does not',
+    run() {
+      const roomy = describeProgramCap({ activePlanIds: ['a', 'b'], proUnlocked: true });
+      assert.equal(roomy.cap, PRO_ACTIVE_PROGRAM_CAP);
+      assert.equal(programCapLineKey(roomy), null);
+
+      const full = describeProgramCap({ activePlanIds: ['a', 'b', 'c', 'd', 'e'], proUnlocked: true });
+      assert.equal(programCapLineKey(full), 'atCap');
+    },
+  },
+  {
+    name: 'cap line: a repeated id from an older build does not report a full set',
     run() {
       // The set is de-duplicated wherever it is written, but a stored list can
       // still hold a repeat — counting one twice would tell a reader with one
       // programme that they are at the limit.
-      const notice = buildProgramCapNotice({
-        activePlanIds: ['plan_a', 'plan_a'],
-        proUnlocked: false,
-      });
-      assert.equal(notice.used, 2);
-      assert.equal(notice.explain, false);
+      const state = describeProgramCap({ activePlanIds: ['a', 'a'], proUnlocked: false });
+      assert.equal(state.used, 1);
+      assert.equal(state.atCap, false);
     },
   },
   {
-    name: 'cap notice: a Pro reader at the cap is told to drop one, never to buy',
+    name: 'cap line: nobody at the cap is sold what they already own',
     run() {
-      const full = buildProgramCapNotice({
-        activePlanIds: ['a', 'b', 'c', 'd'],
-        proUnlocked: true,
-      });
-      assert.equal(full.used, PRO_ACTIVE_PROGRAM_CAP);
-      assert.equal(programCapNoticeKey(full), 'last');
       const fi = fs.readFileSync(path.join(__dirname, '../../src/lib/i18n.ts'), 'utf8');
-      const line = fi.match(/'programs\.cap\.last': 'Sinulla.*|'programs\.cap\.last': '\{program\}.*/g) ?? [];
-      assert.ok(line.length >= 1, 'the last-place wording must exist in Finnish and English');
-      for (const wording of line) {
+      const lines = fi.match(/'programs\.cap\.(?:atCap|lastPlace)': '[^']*'/g) ?? [];
+      assert.equal(lines.length, 4, 'both wordings, both languages');
+      for (const line of lines) {
         assert.doesNotMatch(
-          wording,
+          line,
           /\bPro\b|\bosta\b|\bupgrade\b|\bpäivitä\b/i,
-          `selling to someone at the cap: ${wording}`,
+          `selling to someone at the cap: ${line}`,
         );
       }
     },
   },
   {
-    name: 'cap notice: all three adoption paths speak through one helper',
+    name: 'cap line: it lives on the list, and adopting says nothing at all',
     run() {
       const app = require('../helpers/appWiringSource.cjs').readAppWiring();
-      // Three separately worded toasts is how they drift apart.
-      assert.doesNotMatch(app, /'season\.joined'/);
-      assert.equal(app.split('showToast(programCapToast(plan.name));').length - 1, 3);
-      // Counted from the set BEFORE the write, which is what this closure holds.
-      assert.match(app, /activePlanIds: preferences\.activePlanIds,\s*\n\s*proUnlocked: resolveProEntitlement/);
+      const home = fs.readFileSync(path.join(__dirname, '../../src/screens/HomeScreen.tsx'), 'utf8');
+
+      // This was a toast on every adoption for about an hour. A popup that says
+      // what the screen behind it already shows is the thing the reader keeps
+      // asking to be rid of ("otit ohjelman käyttöön", #bugs 2026-08-26).
+      assert.doesNotMatch(app, /programCapToast|'season\.joined'/);
+      assert.doesNotMatch(app, /toast\.programNowYours|toast\.swapKept/);
+      assert.match(app, /programCapLine=\{programCapLine\}/);
+      assert.match(home, /programCapLine \? <Text style=\{styles\.otherProgramsCap\}/);
+    },
+  },
+  {
+    name: 'programme drop: the row waits, and says where the programme went',
+    run() {
+      const home = fs.readFileSync(path.join(__dirname, '../../src/screens/HomeScreen.tsx'), 'utf8');
+      // Nothing is destroyed by dropping one, but the row vanished under the
+      // reader's thumb and that reads as destruction unless you already know
+      // otherwise (user 2026-08-26).
+      assert.match(home, /const REMOVAL_UNDO_MS = 5000;/);
+      assert.match(home, /setPendingRemoval\(planId\)/);
+      assert.match(home, /onRemoveOtherProgram\?\.\(planId\);/);
+      assert.match(home, /home\.removeProgram\.undo/);
+      // And it says where it went, because "gone" was the fear.
+      const fi = fs.readFileSync(path.join(__dirname, '../../src/lib/i18n.ts'), 'utf8');
+      assert.match(fi, /'home\.removeProgram\.pending': 'Poistettu — säilyy Ohjelmat-välilehdellä'/);
     },
   },
 ];

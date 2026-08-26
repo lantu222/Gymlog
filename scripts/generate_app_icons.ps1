@@ -2,16 +2,21 @@
 #
 #   powershell -ExecutionPolicy Bypass -File scripts/generate_app_icons.ps1
 #
-# The source of record is assets/branding/vinha-icon.svg: one big upright V on
-# the ink field, purple on the left half and orange on the right — the app's own
-# two colours, meeting at the vertex. The numbers below mirror that file exactly,
-# and tests/lib/appIcon.test.cjs fails if the two ever disagree, because a
-# renderer that has quietly drifted from its design source still produces a
+# The source of record is assets/branding/vinha-icon.svg: a white V, tilted 8°,
+# on a full orange field. The numbers below mirror that file exactly, and
+# tests/lib/appIcon.test.cjs fails if the two ever disagree, because a renderer
+# that has quietly drifted from its design source still produces a
 # plausible-looking icon.
 #
-# It used to lean, and two thin cuts crossed it: it moved so fast it tore. The
-# lean and the tears are gone (user 2026-08-26) — a straight V reads at every
-# size, and the cuts were the part that closed up and turned to mud below 40px.
+# Chosen from eight prototypes (user 2026-08-26, "paras on E tai F"). The ink
+# field it replaces was the actual complaint: a dark tile sits among every other
+# dark tile on a home screen, so the icon was hard to find rather than boring in
+# itself. Colour the whole field and the mark is the size of the icon.
+#
+# Two earlier ideas are gone with it. The lean used to be a skew — vertical
+# edges falling while horizontals stayed — which read as italic; this is a
+# rotation, so the V keeps its own angles. And two thin cuts crossed the glyph:
+# they closed up below 40px and turned it to mud.
 #
 # Why a renderer and not just the PNG exports: Android's adaptive icon needs the
 # glyph ALONE on transparency, scaled into the mask's safe zone. No exported
@@ -29,9 +34,8 @@ $branding = Join-Path $assets 'branding'
 
 # --- the source geometry, in the SVG's 1024 space -------------------------
 
-$FIELD = [System.Drawing.Color]::FromArgb(255, 0x10, 0x18, 0x28)   # #101828
-$GLYPH_LEFT = [System.Drawing.Color]::FromArgb(255, 0x8B, 0x5C, 0xF6)    # #8B5CF6
-$GLYPH_RIGHT = [System.Drawing.Color]::FromArgb(255, 0xFF, 0x8A, 0x4C)   # #FF8A4C
+$FIELD = [System.Drawing.Color]::FromArgb(255, 0xFF, 0x8A, 0x4C)   # #FF8A4C
+$GLYPH = [System.Drawing.Color]::FromArgb(255, 0xFF, 0xFF, 0xFF)   # #FFFFFF
 $CANVAS = 1024.0
 
 # M270 230 L512 680 L754 230 — the V, stroked, not filled.
@@ -42,11 +46,9 @@ $V_POINTS = @(
 )
 $STROKE = 150.0
 
-# The colours meet at x = 512, which is where the vertex is: the split is the
-# glyph's own middle, so each arm is one colour and neither is cut across.
-# Drawing the whole V twice under opposite clips keeps the mitre exact — two
-# separate strokes meeting at a point would leave a notch at the join.
-$SPLIT_X = 512.0
+# Rotated, not skewed: the whole glyph turns, so the mitre at the vertex and the
+# flat caps keep the angles the path gives them.
+$TILT_DEG = -8.0
 
 # Android shows the middle 72 of a 108 foreground layer. Scaling the WHOLE
 # composition by that ratio — not re-centring the glyph — is what keeps the
@@ -58,13 +60,12 @@ $ADAPTIVE_SCALE = 72.0 / 108.0
 function New-GlyphTransform {
   param([double]$Size, [double]$Scale)
 
-  # The composition is scaled about the canvas centre, so canvas x = 512 always
-  # lands on the bitmap's own centre whatever the size or the adaptive scale.
-  # That is what lets the colour split be found without re-deriving it.
   $fit = New-Object System.Drawing.Drawing2D.Matrix
   $fit.Translate($Size / 2, $Size / 2)
   $fit.Scale(($Size / $CANVAS) * $Scale, ($Size / $CANVAS) * $Scale)
   $fit.Translate(-$CANVAS / 2, -$CANVAS / 2)
+  # About the canvas centre, matching transform="rotate(-8 512 512)".
+  $fit.RotateAt($TILT_DEG, (New-Object System.Drawing.PointF 512, 512))
   return $fit
 }
 
@@ -82,8 +83,7 @@ function Draw-Glyph {
     [System.Drawing.Graphics]$Graphics,
     [System.Drawing.Color]$Color,
     [double]$Size,
-    [double]$Scale,
-    [string]$Half = 'both'
+    [double]$Scale
   )
 
   $pen = New-Object System.Drawing.Pen $Color, $STROKE
@@ -92,25 +92,10 @@ function Draw-Glyph {
   $pen.StartCap = [System.Drawing.Drawing2D.LineCap]::Flat
   $pen.EndCap = [System.Drawing.Drawing2D.LineCap]::Flat
 
-  $savedClip = $Graphics.Clip
-  if ($Half -ne 'both') {
-    # Clipping in device space, since the split is the bitmap's own centre. A
-    # whole extra pixel of overlap: two clips that meet exactly leave a hairline
-    # of field colour showing through where their antialiased edges meet.
-    $mid = [Math]::Round($Size / 2.0)
-    $rect = if ($Half -eq 'left') {
-      New-Object System.Drawing.Rectangle 0, 0, ([int]$mid + 1), ([int]$Size)
-    } else {
-      New-Object System.Drawing.Rectangle ([int]$mid), 0, ([int]$Size - [int]$mid), ([int]$Size)
-    }
-    $Graphics.SetClip($rect)
-  }
-
   $saved = $Graphics.Transform
   $Graphics.Transform = New-GlyphTransform -Size $Size -Scale $Scale
   $Graphics.DrawLines($pen, $V_POINTS)
   $Graphics.Transform = $saved
-  $Graphics.Clip = $savedClip
   $pen.Dispose()
 }
 
@@ -120,8 +105,7 @@ function Save-Opaque {
   $bmp = New-Object System.Drawing.Bitmap $Size, $Size, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
   $g = New-Graphics -Bitmap $bmp
   $g.Clear($FIELD)
-  Draw-Glyph -Graphics $g -Color $GLYPH_LEFT -Size $Size -Scale $Scale -Half 'left'
-  Draw-Glyph -Graphics $g -Color $GLYPH_RIGHT -Size $Size -Scale $Scale -Half 'right'
+  Draw-Glyph -Graphics $g -Color $GLYPH -Size $Size -Scale $Scale
   $g.Dispose()
   $bmp.Save($Path, [System.Drawing.Imaging.ImageFormat]::Png)
   $bmp.Dispose()
@@ -133,8 +117,7 @@ function Save-Glyph {
     [string]$Path,
     [int]$Size,
     [double]$Scale,
-    [System.Drawing.Color]$Color,
-    [System.Drawing.Color]$RightColor = [System.Drawing.Color]::Empty
+    [System.Drawing.Color]$Color
   )
 
   # Built in luminance and converted to alpha at the end. Drawing straight onto
@@ -151,17 +134,11 @@ function Save-Glyph {
   $data = $bmp.LockBits($rect, [System.Drawing.Imaging.ImageLockMode]::ReadWrite, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
   $bytes = New-Object byte[] ($data.Stride * $Size)
   [System.Runtime.InteropServices.Marshal]::Copy($data.Scan0, $bytes, 0, $bytes.Length)
-  # The composition scales about the centre, so the colour split is the bitmap's
-  # own middle at every size. A single colour (the monochrome layer) passes no
-  # RightColor and paints the whole silhouette.
-  $split = if ($RightColor.IsEmpty) { $Size + 1 } else { [int][Math]::Round($Size / 2.0) }
   for ($i = 0; $i -lt $bytes.Length; $i += 4) {
-    $x = ($i % $data.Stride) / 4
-    $paint = if ($x -lt $split) { $Color } else { $RightColor }
     $bytes[$i + 3] = $bytes[$i + 1]   # green channel == coverage for white on black
-    $bytes[$i] = $paint.B
-    $bytes[$i + 1] = $paint.G
-    $bytes[$i + 2] = $paint.R
+    $bytes[$i] = $Color.B
+    $bytes[$i + 1] = $Color.G
+    $bytes[$i + 2] = $Color.R
   }
   [System.Runtime.InteropServices.Marshal]::Copy($bytes, 0, $data.Scan0, $bytes.Length)
   $bmp.UnlockBits($data)
@@ -181,7 +158,7 @@ Save-Opaque -Path (Join-Path $branding 'vinha-play-store-512.png') -Size 512
 Save-Opaque -Path (Join-Path $branding 'vinha-app-icon.png') -Size 256
 
 # Android adaptive: glyph on transparency, field supplied by backgroundColor.
-Save-Glyph -Path (Join-Path $assets 'android-icon-foreground.png') -Size 1024 -Scale $ADAPTIVE_SCALE -Color $GLYPH_LEFT -RightColor $GLYPH_RIGHT
+Save-Glyph -Path (Join-Path $assets 'android-icon-foreground.png') -Size 1024 -Scale $ADAPTIVE_SCALE -Color $GLYPH
 # Themed icons: Android tints the silhouette itself, so it ships as one white
 # shape. Two colours here would be repainted anyway.
 Save-Glyph -Path (Join-Path $assets 'android-icon-monochrome.png') -Size 1024 -Scale $ADAPTIVE_SCALE -Color ([System.Drawing.Color]::White)

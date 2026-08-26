@@ -458,8 +458,6 @@ const EN = {
   // Removed in the orphan sweep when nothing used them; restored here
   // because "Make my own copy" does.
   'toast.programCopyFailed': 'Could not copy the program',
-  'toast.programNowYours': 'The programme is yours now, so you can change it',
-  'toast.swapKept': '{name} is in your programme from now on',
   'toast.lastExerciseInDay': 'That is the last exercise of the day — delete the day in the editor instead',
   'toast.workoutDuplicateFailed': 'Could not duplicate workout',
   // Both were English literals inside App.tsx, shown in a Finnish app.
@@ -2808,18 +2806,18 @@ const EN = {
   'season.join': 'Start the season',
   'home.otherPrograms': 'YOUR OTHER PROGRAMMES',
   'home.removeProgram': 'Remove {program}',
+  'home.removeProgram.pending': 'Dropped — it stays in Programs',
+  'home.removeProgram.undo': 'Undo',
   'unlock.programs.t': '{proActive} programmes at once',
   'unlock.programs.b': 'The cap went {active} → {proActive}. Nothing you were running had to go.',
   'unlock.programs.to': 'HOME',
   'programs.cap.paywall': 'Free runs {cap} programmes at once. Pro runs five.',
   'programs.cap.full': 'You are running {cap} programmes. Drop one to take on another.',
   'season.joined': 'You are in — {program} is now your programme.',
-  // The counter rides the confirmation of the act that spends it. Three
-  // wordings, because "1/2" alone means nothing the first time and everything
-  // when it is the last one.
-  'programs.cap.first': '{program} is now your programme. You can run {cap} at a time on the free plan — this is your first.',
-  'programs.cap.count': '{program} is now your programme · {used}/{cap} running',
-  'programs.cap.last': '{program} is now your programme · {used}/{cap} — your last place. Drop one to take on another.',
+  // Shown above the programme list, and only when a place is at stake. A count
+  // nobody is near is a sign about nothing.
+  'programs.cap.lastPlace': '{used}/{cap} programmes running · one place left',
+  'programs.cap.atCap': '{used}/{cap} programmes running · drop one to take on another',
   'season.replace.title': 'Replace your programme?',
   'season.replace.message': 'The season is run on one programme. Joining swaps {current} for {season}. Your logged workouts stay exactly as they are.',
   'season.oneProgram': 'One program for the whole season, the same one for everyone, and it does not change. Everything else in the catalog still works — it is just not the season, and it does not score.',
@@ -3700,8 +3698,6 @@ const FI: Record<I18nKey, string> = {
   'toast.addExercisesSession': 'Lisää liikkeitä ennen tämän treenin aloittamista',
   'toast.addExercisesTemplate': 'Lisää liikkeitä ennen tämän pohjan aloittamista',
   'toast.programCopyFailed': 'Ohjelmaa ei voitu kopioida',
-  'toast.programNowYours': 'Ohjelma on nyt sinun, joten voit muuttaa sitä',
-  'toast.swapKept': '{name} on tästä lähtien ohjelmassasi',
   'toast.lastExerciseInDay': 'Tämä on päivän viimeinen liike — poista koko päivä muokkaimessa',
   'toast.workoutDuplicateFailed': 'Treeniä ei voitu kopioida',
   'toast.cardioSaveFailed': 'Cardio-treeniä ei voitu tallentaa',
@@ -5915,6 +5911,8 @@ const FI: Record<I18nKey, string> = {
   'season.join': 'Aloita kausi',
   'home.otherPrograms': 'MUUT OHJELMASI',
   'home.removeProgram': 'Poista {program}',
+  'home.removeProgram.pending': 'Poistettu — säilyy Ohjelmat-välilehdellä',
+  'home.removeProgram.undo': 'Kumoa',
   'unlock.programs.t': '{proActive} ohjelmaa rinnakkain',
   // "Kahdesta tuli viisi" is the sentence this replaces, and it could not be
   // interpolated: both numbers carried a case ending. Same fix as the coach
@@ -5924,9 +5922,8 @@ const FI: Record<I18nKey, string> = {
   'programs.cap.paywall': 'Ilmaisella {cap} ohjelmaa rinnakkain. Prolla viisi.',
   'programs.cap.full': 'Sinulla on {cap} ohjelmaa käynnissä. Poista yksi ottaaksesi uuden.',
   'season.joined': 'Olet mukana — {program} on nyt ohjelmasi.',
-  'programs.cap.first': '{program} on nyt ohjelmasi. Ilmaisversiossa voit ajaa {cap} ohjelmaa kerrallaan — tämä on ensimmäinen.',
-  'programs.cap.count': '{program} on nyt ohjelmasi · {used}/{cap} käynnissä',
-  'programs.cap.last': '{program} on nyt ohjelmasi · {used}/{cap} — viimeinen paikka. Poista yksi ottaaksesi uuden.',
+  'programs.cap.lastPlace': '{used}/{cap} ohjelmaa käynnissä · yksi paikka jäljellä',
+  'programs.cap.atCap': '{used}/{cap} ohjelmaa käynnissä · poista yksi ottaaksesi uuden',
   'season.replace.title': 'Vaihdetaanko ohjelmasi?',
   'season.replace.message': 'Kausi kuljetaan yhdellä ohjelmalla. Liittyminen vaihtaa ohjelman {current} tilalle ohjelman {season}. Kirjaamasi treenit säilyvät täsmälleen ennallaan.',
   'season.oneProgram': 'Yksi ohjelma koko kaudelle, sama kaikille, eikä se vaihdu. Kirjaston muut ohjelmat toimivat edelleen — ne eivät vain ole kausi eivätkä pisteytä.',
