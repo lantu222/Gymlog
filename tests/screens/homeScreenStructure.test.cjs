@@ -203,7 +203,11 @@ module.exports = [
       // The play mark sits in a ring since the CTA design (2026-08-26): a
       // mark with an edge reads as a target, and the shimmer needs something
       // to pass behind. Still a triangle, still filled with the on-accent ink.
-      assert.match(homeScreenSource, /M9 5\.5v13l10-6\.5z/);
+      // Centred on the triangle's CENTROID (base 8.5, apex 18.5 → 11.83, the
+      // viewBox middle), not its bounding box: boxed by its extents the mark
+      // sat visibly right of its circle (user 2026-08-26).
+      assert.match(homeScreenSource, /M8\.5 5\.5v13l10-6\.5z/);
+      assert.doesNotMatch(homeScreenSource, /startPlayRing:[\s\S]{0,220}paddingLeft/);
       assert.match(homeScreenSource, /styles\.startPlayRing/);
       assert.match(homeScreenSource, /<CtaShimmer/);
       // The start CTA reads `accent`, not `green`: green also means "done"

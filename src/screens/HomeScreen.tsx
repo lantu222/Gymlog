@@ -524,6 +524,29 @@ export function HomeScreen({
   const riseValues = useRef(RISE_DELAYS_MS.map(() => new Animated.Value(0))).current;
   const progressFillAnim = useRef(new Animated.Value(0)).current;
   const calendarAnim = useRef(new Animated.Value(0)).current;
+  /**
+   * The play mark rides the light as it goes past — twice, then it settles.
+   * A short overshoot rather than a swell: the mark is 28dp, and anything
+   * slower than a quarter second on something that small reads as a wobble.
+   */
+  const playBounce = useRef(new Animated.Value(1)).current;
+  const bouncePlay = () => {
+    playBounce.setValue(1);
+    Animated.sequence([
+      Animated.timing(playBounce, {
+        toValue: 1.18,
+        duration: 130,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(playBounce, {
+        toValue: 1,
+        duration: 200,
+        easing: Easing.out(Easing.back(2.4)),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -1046,12 +1069,26 @@ export function HomeScreen({
               strokeWidth={1.5}
               style={styles.startButton}
             >
-              <CtaShimmer tint="rgba(255,255,255,0.5)" />
-              <View style={styles.startPlayRing}>
+              <CtaShimmer
+                tint="rgba(255,255,255,0.5)"
+                onSweep={(index) => {
+                  // Only the first couple of passes move the mark (user
+                  // 2026-08-26): a button that jumps every time the light
+                  // goes by is a button that never settles.
+                  if (index < 2) {
+                    bouncePlay();
+                  }
+                }}
+              />
+              <Animated.View style={[styles.startPlayRing, { transform: [{ scale: playBounce }] }]}>
+                {/* Centred on the triangle's centroid, not its bounding box:
+                    a play mark boxed by its extents sits visibly right of the
+                    circle it is in (user 2026-08-26). Base at x=8.5, apex at
+                    18.5 puts the centroid at 11.83 — the viewBox's middle. */}
                 <Svg width={16} height={16} viewBox="0 0 24 24">
-                  <Path d="M9 5.5v13l10-6.5z" fill={theme.onHighlight} />
+                  <Path d="M8.5 5.5v13l10-6.5z" fill={theme.onHighlight} />
                 </Svg>
-              </View>
+              </Animated.View>
               <Text style={styles.startButtonText}>
                 {t(
                   language,
@@ -2355,7 +2392,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.14)',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingLeft: 2,
   },
   startButton: {
     height: 56,

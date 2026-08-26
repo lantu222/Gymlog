@@ -10,29 +10,39 @@ import { queryReduceMotion } from '../utils/reduceMotion';
  * Design: "Aloita treeni CTA" (Claude Design, 2026-08-26). The design loops
  * this every 3.2 s forever, and on every animated element of the player at
  * once. It runs on ONE element here — the button the screen exists to get
- * pressed — and it rests between sweeps rather than pulsing without pause:
- * a motion that repeats on a fixed beat stops being an invitation and
- * becomes wallpaper, and this app's own rule is to mark the exception rather
- * than decorate the normal.
+ * pressed — four times, five seconds apart, and then stops for good (user
+ * 2026-08-26). A motion that repeats without end stops being an invitation
+ * and becomes wallpaper, and this app's own rule is to mark the exception
+ * rather than decorate the normal.
  *
  * transform-only, so it runs on the native driver and costs the UI thread
  * nothing per frame. Silent under reduce-motion, where a sweeping highlight
  * is exactly the kind of thing the setting exists to stop.
  */
+/** How long one band takes to cross the button. */
+const SWEEP_MS = 900;
+
 export function CtaShimmer({
-  /** Sweeps to play when the screen arrives, then it goes quiet. */
-  bursts = 2,
-  /** Rest between sweeps within a burst. */
-  gapMs = 2600,
+  /** Sweeps to play, then it goes quiet for good. */
+  bursts = 4,
+  /** Start-to-start spacing between sweeps. */
+  periodMs = 5000,
   tint = 'rgba(255,255,255,0.55)',
+  /** Fired as each sweep begins, so a caller can move with it. */
+  onSweep,
 }: {
   bursts?: number;
-  gapMs?: number;
+  periodMs?: number;
   tint?: string;
+  onSweep?: (index: number) => void;
 }) {
   const progress = useRef(new Animated.Value(0)).current;
   const [width, setWidth] = useState(0);
   const [allowed, setAllowed] = useState(false);
+  // The latest callback without restarting the run: a caller that rebuilds it
+  // every render would otherwise reset the sweep counter on every frame.
+  const onSweepRef = useRef(onSweep);
+  onSweepRef.current = onSweep;
 
   useEffect(() => {
     let cancelled = false;
@@ -50,20 +60,41 @@ export function CtaShimmer({
     if (!allowed || width <= 0) {
       return;
     }
-    const sweep = Animated.sequence([
+    let cancelled = false;
+    let index = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    // Driven by hand rather than Animated.loop so each sweep can announce
+    // itself — the play mark rides the first couple of passes.
+    const sweep = () => {
+      if (cancelled || index >= bursts) {
+        return;
+      }
+      onSweepRef.current?.(index);
+      index += 1;
+      progress.setValue(0);
       Animated.timing(progress, {
         toValue: 1,
-        duration: 900,
+        duration: SWEEP_MS,
         easing: Easing.inOut(Easing.quad),
         useNativeDriver: true,
-      }),
-      Animated.delay(gapMs),
-      Animated.timing(progress, { toValue: 0, duration: 0, useNativeDriver: true }),
-    ]);
-    const animation = bursts > 1 ? Animated.loop(sweep, { iterations: bursts }) : sweep;
-    animation.start();
-    return () => animation.stop();
-  }, [allowed, bursts, gapMs, progress, width]);
+      }).start(({ finished }) => {
+        if (!finished || cancelled) {
+          return;
+        }
+        timer = setTimeout(sweep, Math.max(0, periodMs - SWEEP_MS));
+      });
+    };
+
+    sweep();
+    return () => {
+      cancelled = true;
+      if (timer) {
+        clearTimeout(timer);
+      }
+      progress.stopAnimation();
+    };
+  }, [allowed, bursts, periodMs, progress, width]);
 
   if (!allowed || width === 0) {
     // Still measured, so the sweep has a distance to travel once the answer
