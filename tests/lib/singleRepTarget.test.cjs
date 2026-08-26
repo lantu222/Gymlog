@@ -1,7 +1,8 @@
 const assert = require('node:assert/strict');
 
 const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog.js');
-const { collapseRepRange, intervalOffSeconds } = require('../../.test-dist/lib/singleRepTarget.js');
+const { collapseRepRange } = require('../../.test-dist/lib/singleRepTarget.js');
+const { intervalOffSeconds } = require('../../.test-dist/lib/intervalScheme.js');
 
 /**
  * Every catalog exercise prescribes ONE rep number, not a range (user decision

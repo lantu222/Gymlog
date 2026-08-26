@@ -392,12 +392,15 @@ function RestRing({
   leftSeconds,
   plannedSeconds,
   size = 244,
+  /** The arc's colour. An interval's work bout draws it in the highlight. */
+  stroke,
   children,
 }: {
   stepKey: number;
   leftSeconds: number;
   plannedSeconds: number;
   size?: number;
+  stroke?: string;
   children: React.ReactNode;
 }) {
   const theme = useTheme();
@@ -425,7 +428,7 @@ function RestRing({
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={theme.purple}
+          stroke={stroke ?? theme.purple}
           strokeWidth={strokeWidth}
           fill="none"
           strokeLinecap="round"
@@ -1078,6 +1081,10 @@ export function GuidedPlayerScreen({
         return target.seconds;
       case 'splash':
         return SPLASH_MS / 1000;
+      // An interval's work bout runs on the clock like everything else here.
+      // An ordinary set does not: it ends when the reader says it ended.
+      case 'set':
+        return target.interval?.workSeconds ?? 0;
       default:
         return 0;
     }
@@ -1150,6 +1157,13 @@ export function GuidedPlayerScreen({
   }, [stepIndex, steps.length]);
   const advanceRef = useRef(advance);
   advanceRef.current = advance;
+  /**
+   * What a running-out timer does. Everything but an interval just advances;
+   * an interval's work bout also LOGS itself, because the whole point of the
+   * interval screen is that the reader never taps it — assigned below, where
+   * confirmSet exists.
+   */
+  const expireRef = useRef<() => void>(() => advanceRef.current());
 
   useEffect(() => {
     if (mode !== 'player' || frozen) {
@@ -1157,7 +1171,13 @@ export function GuidedPlayerScreen({
       endsAtRef.current = null;
       return;
     }
-    const timed = step.type === 'ready' || step.type === 'drill' || step.type === 'rest' || step.type === 'position' || step.type === 'splash';
+    const timed =
+      step.type === 'ready' ||
+      step.type === 'drill' ||
+      step.type === 'rest' ||
+      step.type === 'position' ||
+      step.type === 'splash' ||
+      (step.type === 'set' && step.interval !== undefined);
     if (!timed) {
       endsAtRef.current = null;
       return;
@@ -1199,9 +1219,11 @@ export function GuidedPlayerScreen({
           // at — but a cue fired minutes late (we were backgrounded when it
           // expired) is noise, so only sound it if we caught the moment.
           if (step.type === 'rest' && next > -1500) {
-            cue('rest');
+            // An interval's recovery ending means "go" — the next thing is a
+            // work bout, not a set you walk up to in your own time.
+            cue(step.recoveryKind ? 'go' : 'rest');
           }
-          advanceRef.current();
+          expireRef.current();
         }
         return;
       }
@@ -1280,6 +1302,18 @@ export function GuidedPlayerScreen({
       steps[stepIndex + 1]?.type === 'position'
     ) {
       setDoneSplashName(current.exerciseName);
+    }
+    advance();
+  };
+
+  // The interval work bout logs the seconds its name promised and runs on.
+  // Unloaded on purpose: a treadmill speed is not a weight, and asking for
+  // one mid-sprint is asking for nothing.
+  expireRef.current = () => {
+    const current = steps[stepIndex];
+    if (current?.type === 'set' && current.interval) {
+      confirmSet(current.slotId, current.setIndex, current.interval.workSeconds, null);
+      return;
     }
     advance();
   };
@@ -1901,7 +1935,66 @@ export function GuidedPlayerScreen({
             </StepIn>
           )}
 
-          {step.type === 'set' && (
+          {/* An interval work bout: a clock, not a form. The dials, the log
+              button and the weight are all absent on purpose — you are running
+              (user 2026-08-26, "juoksuihin pitää keksiä oma ui"). */}
+          {step.type === 'set' && step.interval && (
+            <StepIn stepKey={`interval-${stepIndex}`}>
+              <View style={{ flex: 1, minHeight: 0 }}>
+                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                  <Text style={styles.intervalRound}>
+                    {t(language, 'guided.interval.round', {
+                      index: step.setIndex + 1,
+                      count: step.setCount,
+                    })}
+                  </Text>
+                  <RestRing
+                    stepKey={stepIndex}
+                    leftSeconds={secondsLeft}
+                    plannedSeconds={step.interval.workSeconds}
+                    stroke={theme.highlight}
+                  >
+                    <Text style={[styles.intervalPhase, { color: theme.highlight }]}>
+                      {t(language, step.interval.workKind === 'run' ? 'guided.interval.run' : 'guided.interval.hard')}
+                    </Text>
+                    <Text style={styles.restCountdown}>{formatGuidedCountdown(secondsLeft)}</Text>
+                  </RestRing>
+                  {/* What comes next, so the pace is a decision made before it
+                      arrives rather than a surprise at zero. */}
+                  <Text style={styles.intervalNext}>
+                    {t(language, 'guided.interval.then', {
+                      phase: t(
+                        language,
+                        step.interval.recoveryKind === 'walk'
+                          ? 'guided.interval.walk'
+                          : step.interval.recoveryKind === 'rest'
+                            ? 'guided.interval.rest'
+                            : 'guided.interval.easy',
+                      ),
+                      seconds: step.interval.recoverySeconds,
+                    })}
+                  </Text>
+                </View>
+                <View style={{ paddingHorizontal: 24, paddingBottom: 10, gap: 12 }}>
+                  <BigBtn
+                    label={t(language, paused ? 'guided.resume' : 'guided.pause')}
+                    icon={paused ? 'play' : 'pause'}
+                    color={paused ? undefined : theme.ink}
+                    onPress={() => setPaused((value) => !value)}
+                  />
+                </View>
+                <ProgressRail
+                  groups={groups}
+                  current={step.groupIndex}
+                  dark={false}
+                  dotIndex={step.setIndex}
+                  dotsDone={exerciseBySlot.get(step.slotId)?.sets.filter((set) => set.status === 'completed').length ?? 0}
+                />
+              </View>
+            </StepIn>
+          )}
+
+          {step.type === 'set' && !step.interval && (
             <SetStepView
               key={`set-${stepIndex}`}
               stepIndex={stepIndex}
@@ -1938,8 +2031,29 @@ export function GuidedPlayerScreen({
             <StepIn stepKey={`rest-${stepIndex}`}>
               <View style={{ flex: 1, minHeight: 0 }}>
                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                  <RestRing stepKey={stepIndex} leftSeconds={secondsLeft} plannedSeconds={step.seconds}>
-                    <Text style={styles.restRingLabel}>{t(language, 'guided.rest')}</Text>
+                  <RestRing
+                    stepKey={stepIndex}
+                    leftSeconds={secondsLeft}
+                    plannedSeconds={step.seconds}
+                    // An interval's easy half is a phase of the work, not a
+                    // pause in it: green, the colour recovery wears everywhere
+                    // else in the app.
+                    stroke={step.recoveryKind ? theme.green : undefined}
+                  >
+                    <Text
+                      style={[styles.restRingLabel, step.recoveryKind ? { color: theme.greenInk } : null]}
+                    >
+                      {step.recoveryKind
+                        ? t(
+                            language,
+                            step.recoveryKind === 'walk'
+                              ? 'guided.interval.walk'
+                              : step.recoveryKind === 'rest'
+                                ? 'guided.interval.rest'
+                                : 'guided.interval.easy',
+                          )
+                        : t(language, 'guided.rest')}
+                    </Text>
                     <Text style={styles.restCountdown}>{formatGuidedCountdown(secondsLeft)}</Text>
                     {/* No "PAUSED" caption: the button below it has already
                         flipped to Jatka, and a ring frozen mid-sweep is not
@@ -1947,7 +2061,18 @@ export function GuidedPlayerScreen({
                   </RestRing>
                 </View>
                 <View style={{ paddingHorizontal: 24, paddingBottom: 10, gap: 12 }}>
+                  {/* What comes back after the easy half — the same forward
+                      look the work bout gives. */}
+                  {step.recoveryKind ? (
+                    <Text style={[styles.intervalNext, { textAlign: 'center' }]}>
+                      {t(language, 'guided.interval.thenWork')}
+                    </Text>
+                  ) : null}
                   <View style={{ flexDirection: 'row', gap: 10 }}>
+                    {/* No ±15 s on an interval: its two halves are the rhythm
+                        the machine is set to, and stretching one desyncs the
+                        reader from the belt they are standing on. */}
+                    {step.recoveryKind ? null : (
                     <View style={{ flex: 1 }}>
                       <GhostBtn
                         label="−15s"
@@ -1959,6 +2084,8 @@ export function GuidedPlayerScreen({
                         }}
                       />
                     </View>
+                    )}
+                    {step.recoveryKind ? null : (
                     <View style={{ flex: 1 }}>
                       <GhostBtn
                         label="+15s"
@@ -1968,6 +2095,7 @@ export function GuidedPlayerScreen({
                         }}
                       />
                     </View>
+                    )}
                     <View style={{ flex: 1 }}>
                       <GhostBtn
                         icon={paused ? 'play' : 'pause'}
@@ -2915,6 +3043,28 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderWidth: 1,
   },
   mediaInitials: { fontSize: 118, fontWeight: '800', letterSpacing: -5, color: 'rgba(124,58,237,0.22)' },
+
+  /* interval */
+  intervalRound: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.8,
+    color: theme.muted,
+    marginBottom: 10,
+  },
+  // The one word you read at a glance while moving, so it carries the weight
+  // the reps number carries on an ordinary set.
+  intervalPhase: {
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+  },
+  intervalNext: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.muted,
+    marginTop: 12,
+  },
 
   /* splash / ready */
   splashRoot: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 32 },

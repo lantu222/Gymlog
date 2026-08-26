@@ -7,7 +7,8 @@ import { isSubscriptionTermKey } from '../lib/subscriptionView';
 import { createEmptyDatabase } from '../data/seed';
 import { resolveDeviceLanguage } from './deviceLocale';
 import { normalizeExerciseLog } from '../lib/exerciseLog';
-import { collapseRepRange, intervalOffSeconds } from '../lib/singleRepTarget';
+import { intervalOffSeconds } from '../lib/intervalScheme';
+import { collapseRepRange } from '../lib/singleRepTarget';
 import { buildLegacyTemplateSessions, getLegacyTemplateSessionId } from '../lib/workoutTemplateSessions';
 import {
   AppDatabase,

@@ -15,6 +15,7 @@ import { parseNumberInput, removeTrailingZeros } from './format';
 // that loop stays a type relationship and never becomes a module cycle.
 import type { SessionRoutineBlock } from './homeSessionHero';
 import { t } from './i18n';
+import { IntervalRecoveryKind, IntervalScheme, parseIntervalScheme } from './intervalScheme';
 import type { GuidedResumeAnchor } from '../features/workout/workoutTypes';
 import { AppLanguage } from '../types/models';
 
@@ -68,6 +69,13 @@ export type GuidedStep =
       groupIndex: number;
       exerciseIndex: number;
       exerciseCount: number;
+      /**
+       * Present when the exercise names an interval scheme. The set is then a
+       * timed work bout rather than a number to dial in: the screen counts it
+       * down, logs it and runs on into the recovery without a tap, because
+       * nobody taps a phone mid-sprint.
+       */
+      interval?: IntervalScheme;
     }
   | {
       type: 'rest';
@@ -77,6 +85,8 @@ export type GuidedStep =
       setIndex: number;
       seconds: number;
       groupIndex: number;
+      /** The recovery half of an interval — a walk, not a rest. */
+      recoveryKind?: IntervalRecoveryKind;
     }
   | { type: 'finish' };
 
@@ -265,6 +275,9 @@ export function buildGuidedSteps(
         exerciseIndex,
         exerciseCount: roster.length,
       });
+      // An interval states its own two halves; everything else is a set with a
+      // number to dial in and a rest after it.
+      const interval = parseIntervalScheme(exercise.name);
       for (let setIndex = 0; setIndex < exercise.setCount; setIndex += 1) {
         steps.push({
           type: 'set',
@@ -276,6 +289,7 @@ export function buildGuidedSteps(
           groupIndex,
           exerciseIndex,
           exerciseCount: roster.length,
+          ...(interval ? { interval } : {}),
         });
         // No rest after an exercise's last set. What follows is the next
         // exercise, and the player already gives that its own "get into
@@ -291,8 +305,12 @@ export function buildGuidedSteps(
             slotId: exercise.slotId,
             exerciseName: exercise.name,
             setIndex,
-            seconds: Math.max(15, exercise.restSeconds),
+            // An interval's recovery is exactly what its name says — including
+            // a tabata's ten seconds, which the fifteen-second floor for
+            // ordinary rests would have stretched to fifteen.
+            seconds: interval ? interval.recoverySeconds : Math.max(15, exercise.restSeconds),
             groupIndex,
+            ...(interval ? { recoveryKind: interval.recoveryKind } : {}),
           });
         }
       }
