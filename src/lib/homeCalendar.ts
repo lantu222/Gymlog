@@ -109,6 +109,12 @@ export interface HomeDaySessionSummary {
   exercises: Array<{
     name: string;
     setsLabel: string;
+    /**
+     * The stored template's own exercise id. Removing a lift from the
+     * programme is written against this — the slot id below belongs to the
+     * runtime and finds nothing in the template.
+     */
+    exerciseId?: string;
     /** Sets-by-reps scheme, e.g. "4 × 6–8" (Home v3 agenda list). */
     schemeLabel?: string;
     /**

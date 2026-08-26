@@ -1891,6 +1891,148 @@ function VinhaApp() {
     });
   }
 
+  /**
+   * Take one lift out of the programme for good, from wherever the reader is
+   * looking at it.
+   *
+   * "Jätä tänään pois" answers today; this answers the plan. They sit together
+   * because the reader asking "how do I get rid of this exercise" does not yet
+   * know which of the two they mean, and offering only the temporary one sent
+   * them hunting for an editor they could not find (user 2026-08-26).
+   *
+   * A ready programme is immutable at runtime, so removing from one means the
+   * programme becomes the reader's own. That copy is made silently and takes
+   * the plan's place — the reader asked to drop a lift, not to learn how the
+   * catalog is stored. The one thing not done silently is spending their last
+   * programme slot: that is said before anything is written, because finding
+   * out at a paywall mid-edit is the surprise the silence was meant to avoid.
+   */
+  async function handleRemoveProgramExercise(
+    programType: 'ready' | 'custom',
+    programId: string,
+    sessionId: string,
+    exerciseId: string,
+  ) {
+    if (programType === 'custom') {
+      const template = workoutTemplates.find((item) => item.id === programId);
+      if (!template) {
+        return;
+      }
+      const sessions = getWorkoutTemplateSessions(template.id).map((session) => ({
+        id: session.id,
+        name: session.name,
+        exercises: session.exercises
+          .filter((exercise) => !(session.id === sessionId && exercise.id === exerciseId))
+          .map((exercise) => ({
+            id: exercise.id,
+            name: exercise.name,
+            targetSets: exercise.targetSets,
+            repMin: exercise.repMin,
+            repMax: exercise.repMax,
+            restSeconds: exercise.restSeconds,
+            trackedDefault: exercise.trackedDefault,
+            libraryItemId: exercise.libraryItemId ?? null,
+          })),
+      }));
+      // A day with nothing left in it is not a day: Home would draw a session
+      // card with no session behind it, and starting it would open an empty
+      // player. Deleting the day is a different decision, made in the editor.
+      if (sessions.find((session) => session.id === sessionId)?.exercises.length === 0) {
+        showToast(t(preferences.appLanguage, 'toast.lastExerciseInDay'));
+        return;
+      }
+      await upsertWorkoutTemplate({ id: template.id, name: template.name, sessions });
+      void haptics.success();
+      return;
+    }
+
+    const template = WORKOUT_TEMPLATES_V1.find((item) => item.id === programId);
+    if (!template) {
+      return;
+    }
+    // No cap check for the programme being run: the copy replaces it, so the
+    // reader ends with what they started with. Copying one they are only
+    // browsing does add, and the repository charges that as before.
+    const readyPlanId = buildReadyProgramPlanId(programId);
+    const wasRunning = preferences.activePlanIds.includes(readyPlanId);
+    if (!wasRunning && !programSlots.canCreate) {
+      setProgramLimitVisible(true);
+      return;
+    }
+    const draft = buildDuplicatedCustomProgramDraft(
+      template.name,
+      template.sessions.map((session, sessionIndex) => ({
+        id: session.id,
+        workoutTemplateId: template.id,
+        name: session.name,
+        orderIndex: sessionIndex,
+        exerciseIds: session.exercises.map((exercise) => exercise.id),
+        exercises: session.exercises
+          .filter((exercise) => !(session.id === sessionId && exercise.id === exerciseId))
+          .map((exercise, exerciseIndex) => ({
+            id: exercise.id,
+            workoutTemplateId: template.id,
+            workoutTemplateSessionId: session.id,
+            name: exercise.exerciseName,
+            targetSets: exercise.sets,
+            repMin: exercise.repsMin,
+            repMax: exercise.repsMax,
+            restSeconds: exercise.restSecondsMin,
+            trackedDefault: false,
+            orderIndex: exerciseIndex,
+            libraryItemId: null,
+          })),
+      })),
+      workoutTemplates.map((item) => item.name),
+      preferences.appLanguage,
+    );
+
+    try {
+      const workoutTemplateId = await upsertWorkoutTemplate(draft, { replacesPlanId: readyPlanId });
+      const planId = buildCustomProgramPlanId(workoutTemplateId);
+      // Read the ids back rather than trusting the draft's: the repository
+      // assigns them, and a plan pointing at ids that were never stored is a
+      // programme whose days resolve to nothing.
+      const sessionIds = getWorkoutTemplateSessions(workoutTemplateId)
+        .filter((session) => session.exercises.length > 0)
+        .map((session) => session.id);
+      const plan = buildProgramWorkoutPlan({
+        planId,
+        workoutTemplateId,
+        programName: formatWorkoutDisplayLabel(draft.name),
+        sessionIds,
+        dayLabels: planLabelsForProgramme(sessionIds.length, preferences.setupAvailableDays),
+        now: new Date().toISOString(),
+      });
+      await upsertWorkoutPlan(plan);
+      // The copy takes the ready programme's place rather than joining it —
+      // the reader had one programme before this and must have one after. Only
+      // when the ready one was actually running: editing a day of a programme
+      // they are merely browsing must not adopt anything.
+      await updatePreferences(
+        wasRunning
+          ? {
+              activePlanIds: addActiveProgram(
+                removeActiveProgram(preferences.activePlanIds, readyPlanId),
+                plan.id,
+              ),
+              activePlanId: plan.id,
+            }
+          : {},
+      );
+      void haptics.success();
+      showToast(t(preferences.appLanguage, 'toast.programNowYours'));
+      navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+    } catch (error) {
+      if (error instanceof ProgramLimitReachedError) {
+        setProgramLimitVisible(true);
+        return;
+      }
+      console.error('Failed to remove exercise from ready program', error);
+      showToast(t(preferences.appLanguage, 'toast.programCopyFailed'));
+    }
+  }
+
   async function handleAdoptCustomProgram(workoutTemplateId: string, options?: { lead?: boolean }) {
     const template = customWorkoutRuntimeMap[workoutTemplateId];
     // An empty program is not a plan. Home would draw a card with no session
@@ -1965,75 +2107,6 @@ function VinhaApp() {
     handleStartCustomProgramSession(workoutTemplateId, firstSessionId);
   }
 
-
-  /**
-   * "Make my own copy" on a ready program.
-   *
-   * This is the whole shape of the free tier in one function: the catalog is
-   * free to browse and free to run, and the moment you want one CHANGED it
-   * becomes a program of your own — which is what the cap counts. Everyone who
-   * reaches this button is by definition past "let me look around" and into
-   * "I want it my way", which is the moment their paying users describe.
-   */
-  function handleCopyReadyProgramToCustom(programId?: string) {
-    // Defaults to the active program, which is where this started; the detail
-    // screen passes the one being looked at.
-    const resolvedId =
-      programId ??
-      (homeActivePlanCard?.programType === 'ready' ? homeActivePlanCard.programId : null);
-    if (!resolvedId) {
-      return;
-    }
-    if (!programSlots.canCreate) {
-      setProgramLimitVisible(true);
-      return;
-    }
-    const template = WORKOUT_TEMPLATES_V1.find((item) => item.id === resolvedId);
-    if (!template) {
-      return;
-    }
-    // The catalog's shape is not the database's, so the ready session is
-    // mapped into the same one duplication already takes from a custom
-    // program. One duplication path, two sources.
-    const draft = buildDuplicatedCustomProgramDraft(
-      template.name,
-      template.sessions.map((session, sessionIndex) => ({
-        id: session.id,
-        workoutTemplateId: template.id,
-        name: session.name,
-        orderIndex: sessionIndex,
-        exerciseIds: session.exercises.map((exercise) => exercise.id),
-        exercises: session.exercises.map((exercise, exerciseIndex) => ({
-          id: exercise.id,
-          workoutTemplateId: template.id,
-          workoutTemplateSessionId: session.id,
-          name: exercise.exerciseName,
-          targetSets: exercise.sets,
-          repMin: exercise.repsMin,
-          repMax: exercise.repsMax,
-          restSeconds: exercise.restSecondsMin,
-          trackedDefault: false,
-          orderIndex: exerciseIndex,
-          libraryItemId: null,
-        })),
-      })),
-      workoutTemplates.map((item) => item.name),
-      preferences.appLanguage,
-    );
-    Promise.resolve(upsertWorkoutTemplate(draft))
-      .then((workoutTemplateId) => {
-        void haptics.success();
-        navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
-      })
-      .catch((error) => {
-        if (error instanceof ProgramLimitReachedError) {
-          setProgramLimitVisible(true);
-          return;
-        }
-        console.error('Failed to copy ready program', error);
-        showToast(t(preferences.appLanguage, 'toast.programCopyFailed'));
-      });
-  }
 
   function handleDuplicateCustomProgram(workoutTemplateId: string) {
     const template = workoutTemplates.find((item) => item.id === workoutTemplateId);
@@ -2709,6 +2782,10 @@ function VinhaApp() {
           // and every consumer had to add the hidden ones back to get one.
           exercises: session.exercises.map((exercise) => ({
             name: exercise.name,
+            // The template's own id, which is what removing from the programme
+            // writes against. The slot id belongs to the runtime and cannot
+            // find a row in the stored template.
+            exerciseId: exercise.id,
             setsLabel: `${exercise.targetSets} sets`,
             schemeLabel: formatSetScheme(
               exercise.targetSets,
@@ -4755,7 +4832,7 @@ function VinhaApp() {
       handleStartCustomProgram,
       handleAdoptCustomProgram,
       handleStartCustomProgramSession,
-      handleCopyReadyProgramToCustom,
+      removeProgramExercise: handleRemoveProgramExercise,
       handleSaveRhythm,
       handleSaveEmphasis,
       handleDeleteCustomWorkout,
@@ -4855,7 +4932,6 @@ function VinhaApp() {
       teachExerciseName,
       handlePickProgramImage,
       handleChangeTrainingDays,
-      handleCopyReadyProgramToCustom,
       programSlots,
       setProgramLimitVisible,
       upsertWorkoutTemplate,
@@ -4989,6 +5065,17 @@ function VinhaApp() {
         onRestoreSessionExercise={(slotId) =>
           setSessionDrops((current) => current.filter((id) => id !== slotId))
         }
+        onRemoveSessionExercise={(exerciseId) => {
+          const sessionId = homeActivePlanCard?.nextSession?.id;
+          if (homeActivePlanCard && sessionId) {
+            void handleRemoveProgramExercise(
+              homeActivePlanCard.programType,
+              homeActivePlanCard.programId,
+              sessionId,
+              exerciseId,
+            );
+          }
+        }}
         tailoringPreferences={preferences}
         onStartTrimmedSession={(sessionId) => {
           if (!homeActivePlanCard) {

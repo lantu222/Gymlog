@@ -211,23 +211,37 @@ module.exports = [
      * the reader is when they want it — on the programme, and at the end of the
      * day's list where "one more lift" is felt.
      */
-    name: 'the offer to make a ready programme your own is rendered, not just translated',
+    name: 'changing a fixed programme is a change to a lift, not a lesson about the catalog',
     run() {
       const programDaySource = fs.readFileSync(
         path.join(__dirname, '..', '..', 'src', 'screens', 'ProgramDayScreen.tsx'),
         'utf8',
       );
 
-      assert.match(programDetailSource, /detail\.ownVersion\.note/);
-      assert.match(programDetailSource, /detail\.ownVersion\.cta/);
-      assert.match(programDaySource, /detail\.ownVersion\.cta/);
+      // "Tee tästä oma versio" is gone from both screens. It asked the reader
+      // to understand that catalog programmes are fixed and theirs are not
+      // before they could change one lift — and the reader looking for a way
+      // to drop an exercise never found it (user 2026-08-26). The copy still
+      // happens; it happens underneath the change that needs it.
+      assert.doesNotMatch(programDetailSource, /detail\.ownVersion/);
+      assert.doesNotMatch(programDaySource, /detail\.ownVersion/);
+      assert.doesNotMatch(programDaySource, /onCopyToCustom/);
+
       // A plus that can really add belongs to a programme whose days are the
-      // reader's; a fixed one gets the copy instead of a shrug.
+      // reader's. Removal is offered on every programme, fixed or not.
       assert.match(programDaySource, /editor\.addExercise/);
       assert.match(programDaySource, /onAddExercise \?/);
+      assert.match(programDaySource, /home\.swapSheet\.remove/);
+      assert.match(programDaySource, /onRemoveExercise\(swapRow\.exerciseId as string\)/);
 
-      assert.match(appSource, /onCopyToCustom=\{[\s\S]{0,200}handleCopyReadyProgramToCustom\(route\.workoutTemplateId\)/);
       assert.match(appSource, /onAddExercise=\{[\s\S]{0,200}screen: 'template'/);
+      assert.match(
+        appSource,
+        /onRemoveExercise=\{[\s\S]{0,200}removeProgramExercise\(route\.programType, route\.workoutTemplateId, daySession\.id, exerciseId\)/,
+      );
+      // The sheet's own padding was a fixed number, so its last row sat behind
+      // the phone's system buttons and could not be pressed.
+      assert.match(programDaySource, /paddingBottom: insets\.bottom \+ 28/);
     },
   },
 ];

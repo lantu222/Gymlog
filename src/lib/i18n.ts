@@ -145,6 +145,8 @@ const EN = {
   'home.promo.goal.body': 'One target to aim at — a 100 kg bench, say. Measured from your own best set.',
   'home.promo.goal.cta': 'Set a target',
   'home.swapSheet.title': 'Swap {name} for',
+  'home.swapSheet.remove': 'Remove from my programme',
+  'home.swapSheet.removeNote': 'For good. Today and every time after.',
   'home.swapSheet.drop': 'Leave it out today',
   'home.swapSheet.restore': 'Put it back',
   'home.swapSheet.dropNote': 'Today only. Your programme stays as it is.',
@@ -452,6 +454,8 @@ const EN = {
   // Removed in the orphan sweep when nothing used them; restored here
   // because "Make my own copy" does.
   'toast.programCopyFailed': 'Could not copy the program',
+  'toast.programNowYours': 'The programme is yours now, so you can change it',
+  'toast.lastExerciseInDay': 'That is the last exercise of the day — delete the day in the editor instead',
   'toast.workoutDuplicateFailed': 'Could not duplicate workout',
   // Both were English literals inside App.tsx, shown in a Finnish app.
   'toast.cardioSaveFailed': 'Could not save cardio session',
@@ -2443,7 +2447,6 @@ const EN = {
   'plan.upNext': 'UP NEXT',
   'plan.sessionMeta': '{exercises} exercises · {sets} sets',
   'plan.readOnlyNote': 'Ready program sessions are fixed. Build a custom plan to edit sessions freely.',
-  'plan.copyToCustom': 'Make my own copy',
   // The cap, in the two places a reader meets it: the comparison table
   // and the moment it stops them. Ready programs are never capped — this
   // is a limit on authoring, and the copy has to be precise about that or
@@ -2972,8 +2975,6 @@ const EN = {
   'equip.cardio': 'Cardio machines',
   'equip.mat': 'Mat',
   'detail.equipment': 'WHAT YOU NEED',
-  'detail.ownVersion.note': 'A ready program’s sessions are fixed. Make it yours and you can change every exercise, set and day.',
-  'detail.ownVersion.cta': 'Make my own version',
   'detail.equipmentOk': 'Everything is at the gym you picked in setup.',
   'detail.equipmentMissing': 'Your setup is missing: {items}. The app swaps those exercises.',
   'detail.progression': 'HOW THE WEIGHT GOES UP',
@@ -3386,6 +3387,8 @@ const FI: Record<I18nKey, string> = {
   'home.promo.goal.body': 'Yksi tavoite mihin tähdätä — vaikka penkkipunnerrus 100 kg. Mitataan omasta parhaasta sarjastasi.',
   'home.promo.goal.cta': 'Aseta tavoite',
   'home.swapSheet.title': 'Vaihda {name}',
+  'home.swapSheet.remove': 'Poista ohjelmasta',
+  'home.swapSheet.removeNote': 'Pysyvästi. Tänään ja jatkossa.',
   'home.swapSheet.drop': 'Jätä tänään pois',
   'home.swapSheet.restore': 'Ota takaisin',
   'home.swapSheet.dropNote': 'Vain tälle kerralle. Ohjelmasi pysyy ennallaan.',
@@ -3682,6 +3685,8 @@ const FI: Record<I18nKey, string> = {
   'toast.addExercisesSession': 'Lisää liikkeitä ennen tämän treenin aloittamista',
   'toast.addExercisesTemplate': 'Lisää liikkeitä ennen tämän pohjan aloittamista',
   'toast.programCopyFailed': 'Ohjelmaa ei voitu kopioida',
+  'toast.programNowYours': 'Ohjelma on nyt sinun, joten voit muuttaa sitä',
+  'toast.lastExerciseInDay': 'Tämä on päivän viimeinen liike — poista koko päivä muokkaimessa',
   'toast.workoutDuplicateFailed': 'Treeniä ei voitu kopioida',
   'toast.cardioSaveFailed': 'Cardio-treeniä ei voitu tallentaa',
   'toast.aiSetupSaved': 'Vinha-valmentaja -asetukset tallennettu',
@@ -5560,7 +5565,6 @@ const FI: Record<I18nKey, string> = {
   'plan.upNext': 'SEURAAVAKSI',
   'plan.sessionMeta': '{exercises} liikettä · {sets} sarjaa',
   'plan.readOnlyNote': 'Valmiin ohjelman treenit ovat kiinteitä. Rakenna oma ohjelma, niin voit muokata treenejä vapaasti.',
-  'plan.copyToCustom': 'Tee tästä oma versio',
   'programLimit.title': 'Kolme omaa ohjelmaa',
   'programLimit.body': 'Ilmaisversiossa on kolme kerrallaan. Jokainen valmis ohjelma pysyy auki ja kaikki kirjaamasi pysyy sinun — tämä on raja rakentamiselle, ei treenaamiselle.',
   'programLimit.cta': 'Katso, mitä Pro tekee',
@@ -6052,8 +6056,6 @@ const FI: Record<I18nKey, string> = {
   'equip.cardio': 'Kuntolaitteet',
   'equip.mat': 'Alusta',
   'detail.equipment': 'MITÄ TARVITSET',
-  'detail.ownVersion.note': 'Valmiin ohjelman treenit ovat kiinteitä. Tee siitä oma versio, niin voit muuttaa jokaista liikettä, sarjaa ja päivää.',
-  'detail.ownVersion.cta': 'Tee tästä oma versio',
   'detail.equipmentOk': 'Kaikki löytyy salilta, jonka valitsit asetuksissa.',
   'detail.equipmentMissing': 'Asetuksistasi puuttuu: {items}. Appi vaihtaa ne liikkeet.',
   'detail.progression': 'MITEN PAINOT NOUSEVAT',

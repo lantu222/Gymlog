@@ -65,7 +65,17 @@ module.exports = [
       // slot silently.
       assert.match(
         provider,
-        /if \(!existingTemplate && draft\.origin !== 'freestyle'\) \{[\s\S]{0,400}ProgramLimitReachedError/,
+        /if \(!existingTemplate && draft\.origin !== 'freestyle' && !replacesRunningPlan\) \{[\s\S]{0,400}ProgramLimitReachedError/,
+      );
+      // The one exemption, and it is verified here rather than claimed by the
+      // caller — otherwise a screen could talk its way past the cap by passing
+      // an id. A ready programme is immutable, so changing one lift in the one
+      // you run means storing a copy; that copy REPLACES the original, so the
+      // reader ends with the number of programmes they started with and there
+      // is nothing for the cap to count. Copying a second one still counts.
+      assert.match(
+        provider,
+        /current\.preferences\.activePlanIds\.includes\(options\.replacesPlanId\)/,
       );
       // Counted over AUTHORED templates: a freestyle log leaves a template
       // behind, and counting those meant three ad-hoc sessions filled the free
@@ -76,7 +86,7 @@ module.exports = [
       // Editing must never be blocked — the guard sits inside the
       // "no existing template" branch, which is the create case only.
       const gate = provider.slice(
-        provider.indexOf("if (!existingTemplate && draft.origin !== 'freestyle') {"),
+        provider.indexOf("if (!existingTemplate && draft.origin !== 'freestyle' && !replacesRunningPlan) {"),
         provider.indexOf('const workoutTemplateId ='),
       );
       assert.ok(gate.includes('ProgramLimitReachedError'), 'the throw belongs to the create branch');
@@ -127,22 +137,32 @@ module.exports = [
     },
   },
   {
-    name: 'wanting a ready program changed is the funnel into the cap',
+    name: 'changing a ready programme copies it, and that copy is not a second programme',
     run() {
       const plan = read('src', 'screens', 'TrainingPlanScreen.tsx');
+      const detail = read('src', 'screens', 'ProgramDetailScreen.tsx');
+      const day = read('src', 'screens', 'ProgramDayScreen.tsx');
       const app = require('../helpers/appWiringSource.cjs').readAppWiring();
 
-      // Browsing and running the catalog is free and unlimited; the slot is
-      // spent at "I want it my way", which is the moment their paying users
-      // actually describe. Before this button that moment was only reachable
-      // by knowing "build your own" existed somewhere else entirely.
-      assert.match(plan, /onCopyToCustomPlan/);
-      assert.match(plan, /t\(language, 'plan\.copyToCustom'\)/);
-      assert.match(app, /handleCopyReadyProgramToCustom/);
-      // It is offered on ready programs only — a custom plan already has Edit.
-      assert.match(app, /programType === 'ready' \? handleCopyReadyProgramToCustom : undefined/);
-      // And it reuses the one duplication path rather than a second copier.
+      // "Tee tästä oma versio" stood on all three screens and was removed
+      // (user 2026-08-26): it asked the reader to understand that catalog
+      // programmes are fixed and theirs are not, before they could change one
+      // lift — and the reader hunting for a way to drop an exercise never
+      // found it. The duplication still happens, underneath the change.
+      for (const source of [plan, detail, day]) {
+        assert.doesNotMatch(source, /copyToCustom|ownVersion/);
+      }
+      assert.doesNotMatch(app, /handleCopyReadyProgramToCustom/);
+
+      // It still reuses the one duplication path rather than a second copier.
       assert.match(app, /buildDuplicatedCustomProgramDraft\([\s\S]{0,80}template\.name/);
+      // And the copy replaces the running plan instead of joining it, so the
+      // reader keeps the number of programmes they had. Charging a slot to
+      // remove one exercise would price editing, which the cap never gates.
+      assert.match(app, /upsertWorkoutTemplate\(draft, \{ replacesPlanId: readyPlanId \}\)/);
+      assert.match(app, /removeActiveProgram\(preferences\.activePlanIds, readyPlanId\)/);
+      // Copying one the reader is only browsing does add, and still counts.
+      assert.match(app, /if \(!wasRunning && !programSlots\.canCreate\)/);
     },
   },
   {

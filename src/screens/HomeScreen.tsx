@@ -340,6 +340,15 @@ interface HomeScreenProps {
   sessionDrops?: string[];
   onDropSessionExercise?: (slotId: string) => void;
   onRestoreSessionExercise?: (slotId: string) => void;
+  /**
+   * Out of the programme for good, not just today. Keyed by the template's own
+   * exercise id, because that is what the stored programme is edited against.
+   *
+   * It sits beside the temporary one because a reader asking "how do I get rid
+   * of this" does not yet know which of the two they mean — offering only the
+   * temporary one sent them looking for an editor they could not find.
+   */
+  onRemoveSessionExercise?: (exerciseId: string) => void;
   /** Ranks the swap list the same way the player does. */
   tailoringPreferences?: TailoringPreferencesInput | null;
   /**
@@ -395,6 +404,7 @@ export function HomeScreen({
   sessionDrops = [],
   onDropSessionExercise,
   onRestoreSessionExercise,
+  onRemoveSessionExercise,
   tailoringPreferences = null,
   onStartTrimmedSession,
 }: HomeScreenProps) {
@@ -522,11 +532,12 @@ export function HomeScreen({
   const swapRow = useMemo(() => {
     const exercise = nextPlanSession?.exercises.find((item) => item.slotId && item.slotId === swapSlotId);
     if (!exercise?.slotId) {
-      return { currentName: '', options: [] as ReturnType<typeof buildSwapOptionsForSlot> };
+      return { currentName: '', exerciseId: null, options: [] as ReturnType<typeof buildSwapOptionsForSlot> };
     }
     const currentName = sessionSwaps[exercise.slotId] ?? exercise.name;
     return {
       currentName,
+      exerciseId: exercise.exerciseId ?? null,
       options: buildSwapOptionsForSlot(exercise.substitutionGroup ?? '', currentName, tailoringPreferences),
     };
   }, [nextPlanSession, swapSlotId, sessionSwaps, tailoringPreferences]);
@@ -1871,11 +1882,14 @@ export function HomeScreen({
                 </Pressable>
               ))}
             </View>
-            {/* Leaving one out, under the replacements rather than among them:
-                it is the same question — what am I doing today — but it is the
-                answer you cannot undo by picking another row, so it does not
-                sit where a mis-tap lands. Today only; the programme is edited
-                from its own page. */}
+            {/* Getting rid of a lift, under the replacements rather than among
+                them: the same question, but the answer you cannot undo by
+                picking another row, so it does not sit where a mis-tap lands.
+                Both readings are offered, because a reader who wants an
+                exercise gone does not yet know which one they mean — and being
+                shown only the temporary one sends them hunting for an editor
+                (user 2026-08-26). Each says its own scope; neither is red,
+                because a warning colour here would be about the list. */}
             {swapSlotId && (onDropSessionExercise || onRestoreSessionExercise) ? (
               <Pressable
                 accessibilityRole="button"
@@ -1896,6 +1910,21 @@ export function HomeScreen({
                   )}
                 </Text>
                 <Text style={styles.adaptDropNote}>{t(language, 'home.swapSheet.dropNote')}</Text>
+              </Pressable>
+            ) : null}
+            {/* Only when the row can be found in the stored programme — a
+                button that cannot carry out what it says is worse than none. */}
+            {swapRow.exerciseId && onRemoveSessionExercise ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  onRemoveSessionExercise(swapRow.exerciseId as string);
+                  setSwapSlotId(null);
+                }}
+                style={({ pressed }) => [styles.adaptDrop, pressed && styles.pressed]}
+              >
+                <Text style={styles.adaptDropText}>{t(language, 'home.swapSheet.remove')}</Text>
+                <Text style={styles.adaptDropNote}>{t(language, 'home.swapSheet.removeNote')}</Text>
               </Pressable>
             ) : null}
             <Pressable

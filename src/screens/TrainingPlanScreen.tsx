@@ -96,15 +96,6 @@ interface TrainingPlanScreenProps {
   onChangeTrainingCycle?: (cycle: TrainingCycleValue | null) => void;
   /** Present only for custom plans — ready programs are immutable. */
   onEditCustomPlan?: () => void;
-  /**
-   * Ready programs only: copy this one into a program of your own so it can be
-   * edited. This is the funnel the free-tier cap sits on — browsing and
-   * running the catalog is unlimited, and wanting one CHANGED is the moment
-   * that costs a slot. Without a button here that moment was only reachable by
-   * knowing that "build your own" existed, so the cap could never be met by
-   * the people most ready to pay.
-   */
-  onCopyToCustomPlan?: () => void;
   onAiAssisted: () => void;
   onBuildYourself: () => void;
   onImportProgram: (draft: WorkoutTemplateDraft) => Promise<void> | void;
@@ -145,7 +136,6 @@ export function TrainingPlanScreen({
   onChangeTrainingDays,
   onChangeTrainingCycle,
   onEditCustomPlan,
-  onCopyToCustomPlan,
   onAiAssisted,
   onBuildYourself,
   onImportProgram,
@@ -497,19 +487,11 @@ export function TrainingPlanScreen({
                   );
                 })}
               </View>
+              {/* "Tee tästä oma versio" stood under this note. Removed with
+                  the other two: a fixed programme is now changed by changing a
+                  lift in it, and the copy happens underneath that. */}
               {!onEditCustomPlan ? (
-                <>
-                  <Text style={styles.readOnlyNote}>{t(language, 'plan.readOnlyNote')}</Text>
-                  {onCopyToCustomPlan ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      onPress={onCopyToCustomPlan}
-                      style={({ pressed }) => [styles.copyButton, pressed && { opacity: 0.75 }]}
-                    >
-                      <Text style={styles.copyButtonText}>{t(language, 'plan.copyToCustom')}</Text>
-                    </Pressable>
-                  ) : null}
-                </>
+                <Text style={styles.readOnlyNote}>{t(language, 'plan.readOnlyNote')}</Text>
               ) : null}
             </View>
 
@@ -825,20 +807,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
-  },
-  copyButton: {
-    marginTop: 12,
-    height: 46,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: theme.purple,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  copyButtonText: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: theme.purple,
   },
   readOnlyNote: {
     color: theme.faint,

@@ -73,7 +73,6 @@ export interface ProfileTabDeps {
   teachExerciseName: (wrote: string, target: { name: string; libraryItemId: string }) => void;
   handlePickProgramImage: () => Promise<string | null>;
   handleChangeTrainingDays: (days: SetupWeekday[]) => Promise<void>;
-  handleCopyReadyProgramToCustom: (programId?: string) => void;
   programSlots: { canCreate: boolean };
   setProgramLimitVisible: (visible: boolean) => void;
   upsertWorkoutTemplate: (draft: WorkoutTemplateDraft) => Promise<string>;
@@ -123,7 +122,6 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
     teachExerciseName,
     handlePickProgramImage,
     handleChangeTrainingDays,
-    handleCopyReadyProgramToCustom,
     programSlots,
     setProgramLimitVisible,
     upsertWorkoutTemplate,
@@ -250,9 +248,6 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
             ? () =>
                 navigate({ tab: 'workout', screen: 'template', workoutTemplateId: homeActivePlanCard.programId })
             : undefined
-        }
-        onCopyToCustomPlan={
-          homeActivePlanCard?.programType === 'ready' ? handleCopyReadyProgramToCustom : undefined
         }
         onAiAssisted={() => navigate(coachProUnlocked ? { tab: 'home', screen: 'ai_setup' } : { tab: 'profile', screen: 'premium' })}
         onBuildYourself={() =>

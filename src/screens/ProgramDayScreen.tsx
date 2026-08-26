@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Svg, { ClipPath, Defs, G, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CutSurface } from '../components/CutSurface';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
@@ -72,8 +73,15 @@ interface ProgramDayScreenProps {
   onSwapExercise?: (slotId: string, exerciseName: string) => void;
   /** Custom programmes only: opens the editor that can add a lift for real. */
   onAddExercise?: () => void;
-  /** Ready programmes only: the copy that makes the day editable at all. */
-  onCopyToCustom?: () => void;
+  /**
+   * Out of the programme for good, by the template's own exercise id.
+   *
+   * Replaces "tee tästä oma versio", which was the only way to make a fixed
+   * day editable and which nobody found: the reader was looking for a way to
+   * drop one lift, not for a lesson in how the catalog is stored. A ready
+   * programme is copied behind this, silently.
+   */
+  onRemoveExercise?: (exerciseId: string) => void;
   tailoringPreferences?: Parameters<typeof buildSwapOptionsForSlot>[2];
   onBack: () => void;
 }
@@ -89,11 +97,12 @@ export function ProgramDayScreen({
   sessionSwaps = {},
   onSwapExercise,
   onAddExercise,
-  onCopyToCustom,
+  onRemoveExercise,
   tailoringPreferences,
   onBack,
 }: ProgramDayScreenProps) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useThemedStyles(makeStyles);
   const tints = roleTints(theme);
   const { width: heroWidth } = useWindowDimensions();
@@ -118,6 +127,8 @@ export function ProgramDayScreen({
     return {
       slotId: exercise.slotId,
       currentName,
+      // The stored programme's own id, which removal is written against.
+      exerciseId: exercise.id ?? null,
       options: buildSwapOptionsForSlot(exercise.substitutionGroup ?? '', currentName, tailoringPreferences),
     };
   }, [session.exercises, swapSlotId, sessionSwaps, tailoringPreferences]);
@@ -293,27 +304,6 @@ export function ProgramDayScreen({
               </View>
               <Text style={styles.addRowText}>{t(language, 'editor.addExercise')}</Text>
             </Pressable>
-          ) : onCopyToCustom ? (
-            <View style={styles.addFixedBlock}>
-              <Text style={styles.addFixedNote}>{t(language, 'detail.ownVersion.note')}</Text>
-              <Pressable
-                accessibilityRole="button"
-                onPress={onCopyToCustom}
-                style={({ pressed }) => [styles.addRow, pressed && styles.swapOptionPressed]}
-              >
-                <View style={styles.addGlyph}>
-                  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                    <Path
-                      d="M12 5v14M5 12h14"
-                      stroke={theme.purple}
-                      strokeWidth={2.4}
-                      strokeLinecap="round"
-                    />
-                  </Svg>
-                </View>
-                <Text style={styles.addRowText}>{t(language, 'detail.ownVersion.cta')}</Text>
-              </Pressable>
-            </View>
           ) : null}
         </View>
 
@@ -351,7 +341,10 @@ export function ProgramDayScreen({
       >
         <View style={styles.swapOverlay}>
           <Pressable style={styles.swapScrim} onPress={() => setSwapSlotId(null)} />
-          <View style={styles.swapSheet}>
+          {/* The sheet's own padding was a fixed 28, so on a phone with system
+              buttons the last row sat behind them and could not be pressed
+              (user 2026-08-26). The bar's height is only known at runtime. */}
+          <View style={[styles.swapSheet, { paddingBottom: insets.bottom + 28 }]}>
             <View style={styles.swapGrip} />
             <Text style={styles.swapTitle} numberOfLines={2}>
               {t(language, 'home.swapSheet.title', {
@@ -380,6 +373,22 @@ export function ProgramDayScreen({
                 ))
               )}
             </ScrollView>
+            {/* The other thing a reader wants from a lift they cannot do. It
+                was reachable only through "tee tästä oma versio", which nobody
+                found and which asked them to understand the catalog first. */}
+            {swapRow?.exerciseId && onRemoveExercise ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  onRemoveExercise(swapRow.exerciseId as string);
+                  setSwapSlotId(null);
+                }}
+                style={({ pressed }) => [styles.swapRemove, pressed && styles.swapOptionPressed]}
+              >
+                <Text style={styles.swapRemoveText}>{t(language, 'home.swapSheet.remove')}</Text>
+                <Text style={styles.swapRemoveNote}>{t(language, 'home.swapSheet.removeNote')}</Text>
+              </Pressable>
+            ) : null}
           </View>
         </View>
       </Modal>
@@ -675,6 +684,27 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 11.5,
     lineHeight: 15,
     fontWeight: '800',
+  },
+  // Below the replacements and behind a rule: a different kind of answer, and
+  // not one that should sit where a mis-tap in the list lands.
+  swapRemove: {
+    marginTop: 12,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+    gap: 2,
+  },
+  swapRemoveText: {
+    color: theme.ink,
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  swapRemoveNote: {
+    color: theme.faint,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
   },
   swapOverlay: {
     flex: 1,

@@ -123,16 +123,6 @@ interface ProgramDetailScreenProps {
    * with room to explain it never received it.
    */
   fitReason?: string | null;
-  /**
-   * Duplicates this ready program into one of the reader's own.
-   *
-   * The moment someone wants a ready program CHANGED is the documented buying
-   * moment, and until now it existed only for the program you were already
-   * running — browse the other fifty-four and the thought had nowhere to go.
-   *
-   * Absent for custom programmes: those are edited in place.
-   */
-  onCopyToCustom?: () => void;
   activePlanSummary?: {
     weekLabel: string;
     progressPercent: number;
@@ -194,7 +184,6 @@ export function ProgramDetailScreen({
   onBack,
   onStartSession,
   onPrimaryAction,
-  onCopyToCustom,
   onOpenSession,
   programBlockWeeks = null,
   trainingDayIndexes = null,
@@ -668,24 +657,11 @@ export function ProgramDetailScreen({
           ))}
         </View>
 
-        {/* The way out of a fixed programme, at the moment it is felt.
-            A ready programme's days cannot be edited, and the offer to copy it
-            into one of your own lived three levels deep in Profile — reachable
-            only by readers who already knew it existed. This copy was written
-            for this screen and never rendered; the handler has taken the
-            programme id the whole time and had no caller. */}
-        {onCopyToCustom ? (
-          <View style={styles.ownVersionBlock}>
-            <Text style={styles.ownVersionNote}>{t(language, 'detail.ownVersion.note')}</Text>
-            <Pressable
-              accessibilityRole="button"
-              onPress={onCopyToCustom}
-              style={({ pressed }) => [styles.ownVersionButton, pressed && { opacity: 0.75 }]}
-            >
-              <Text style={styles.ownVersionButtonText}>{t(language, 'detail.ownVersion.cta')}</Text>
-            </Pressable>
-          </View>
-        ) : null}
+        {/* "Tee tästä oma versio" stood here. It asked the reader to
+            understand that catalog programmes are fixed and theirs are not,
+            before they could change one lift — and the reader looking for a
+            way to drop an exercise never found it (user 2026-08-26). The copy
+            still happens; it happens underneath the change that needed it. */}
 
         {/* How the weight goes up.
             The catalog carries these four rules per template and the app had
@@ -1264,34 +1240,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 17,
     lineHeight: 22,
     fontWeight: '800',
-    textAlign: 'center',
-  },
-  ownVersionBlock: {
-    marginTop: 14,
-  },
-  // Outlined, not filled: the filled button on this screen is the one that
-  // starts training. Same shape as the copy action in Profile, which this
-  // replaces as the way in.
-  ownVersionNote: {
-    color: theme.faint,
-    fontSize: 12.5,
-    lineHeight: 18,
-    fontWeight: '600',
-  },
-  ownVersionButton: {
-    marginTop: 12,
-    minHeight: 46,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: theme.purple,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.md,
-  },
-  ownVersionButtonText: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: theme.purple,
     textAlign: 'center',
   },
 });

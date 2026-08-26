@@ -50,6 +50,20 @@ import {
   WorkoutTemplateSessionWithExercises,
 } from '../types/models';
 
+export interface UpsertWorkoutTemplateOptions {
+  /**
+   * The plan this new programme takes the place of.
+   *
+   * Granted only when that plan is actually one the reader is running, checked
+   * inside the provider — a screen cannot talk its way past the cap by passing
+   * an id. A ready programme is immutable, so changing one lift in the one you
+   * train means storing a copy; that copy replaces the original rather than
+   * joining it, so the reader keeps the same number of programmes and the cap
+   * has nothing to count.
+   */
+  replacesPlanId?: string;
+}
+
 interface AppContextValue {
   database: AppDatabase;
   hydrated: boolean;
@@ -74,7 +88,7 @@ interface AppContextValue {
   setUnitPreference: (nextUnit: UnitPreference) => Promise<void>;
   updatePreferences: (patch: Partial<AppPreferences>) => Promise<void>;
   completeOnboarding: (patch?: Partial<AppPreferences>) => Promise<void>;
-  upsertWorkoutTemplate: (draft: WorkoutTemplateDraft) => Promise<string>;
+  upsertWorkoutTemplate: (draft: WorkoutTemplateDraft, options?: UpsertWorkoutTemplateOptions) => Promise<string>;
   upsertWorkoutPlan: (plan: WorkoutPlan) => Promise<void>;
   /** Onboarding's whole result — preferences, template and plan — in one save. */
   saveOnboardingResult: (input: {
@@ -382,12 +396,15 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     });
   }
 
-  function upsertWorkoutTemplate(draft: WorkoutTemplateDraft) {
-    return runExclusive(() => upsertWorkoutTemplateExclusive(draft));
+  function upsertWorkoutTemplate(draft: WorkoutTemplateDraft, options?: UpsertWorkoutTemplateOptions) {
+    return runExclusive(() => upsertWorkoutTemplateExclusive(draft, options));
   }
 
-  async function upsertWorkoutTemplateExclusive(draft: WorkoutTemplateDraft) {
-    const built = buildTemplateUpsert(draft);
+  async function upsertWorkoutTemplateExclusive(
+    draft: WorkoutTemplateDraft,
+    options?: UpsertWorkoutTemplateOptions,
+  ) {
+    const built = buildTemplateUpsert(draft, options);
     await commit(built.database);
     return built.workoutTemplateId;
   }
@@ -396,7 +413,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
    * The template write with no commit of its own, so a caller writing more than
    * one thing can carry the result forward and land it all in a single save.
    */
-  function buildTemplateUpsert(draft: WorkoutTemplateDraft) {
+  function buildTemplateUpsert(draft: WorkoutTemplateDraft, options?: UpsertWorkoutTemplateOptions) {
     const trimmedName = draft.name.trim();
     const nextName = trimmedName || 'Untitled workout';
     const current = databaseRef.current;
@@ -410,7 +427,18 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     // Freestyle logging is exempt: it is not authoring, and throwing here
     // would mean a user at the cap could not save a workout they had already
     // performed.
-    if (!existingTemplate && draft.origin !== 'freestyle') {
+    //
+    // One exemption, verified here rather than claimed by the caller: a copy
+    // that REPLACES a ready programme the reader is currently running. Changing
+    // one lift in the programme you already train is using what you have, not
+    // acquiring another — you end with the same number of programmes you
+    // started with. Charging a slot for it would price the act of editing,
+    // which the paragraph above says is never blocked. Copying a SECOND ready
+    // programme still counts, because that one adds.
+    const replacesRunningPlan =
+      typeof options?.replacesPlanId === 'string' &&
+      current.preferences.activePlanIds.includes(options.replacesPlanId);
+    if (!existingTemplate && draft.origin !== 'freestyle' && !replacesRunningPlan) {
       const slots = resolveProgramSlots(
         countAuthoredPrograms(current.workoutTemplates),
         isProUnlocked(current.preferences),

@@ -83,7 +83,17 @@ export interface WorkoutTabDeps {
   handleStartCustomProgram: (workoutTemplateId: string) => void;
   handleAdoptCustomProgram: (workoutTemplateId: string, options?: { lead?: boolean }) => Promise<void>;
   handleStartCustomProgramSession: (workoutTemplateId: string, sessionId: string, trimSets?: boolean) => void;
-  handleCopyReadyProgramToCustom: (programId?: string) => void;
+  /**
+   * Take one lift out of a programme for good. A ready programme is copied
+   * underneath this — the reader asked to drop a lift, not to learn how the
+   * catalog is stored.
+   */
+  removeProgramExercise: (
+    programType: 'ready' | 'custom',
+    programId: string,
+    sessionId: string,
+    exerciseId: string,
+  ) => Promise<void>;
   handleSaveRhythm: (workoutTemplateId: string, dayIndexes: number[]) => Promise<void>;
   handleSaveEmphasis: (
     workoutTemplateId: string,
@@ -165,7 +175,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     handleStartCustomProgram,
     handleAdoptCustomProgram,
     handleStartCustomProgramSession,
-    handleCopyReadyProgramToCustom,
+    removeProgramExercise,
     handleSaveRhythm,
     handleSaveEmphasis,
     handleDeleteCustomWorkout,
@@ -377,15 +387,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
 
           handleStartCustomProgramSession(route.workoutTemplateId, sessionId);
         }}
-        // Every ready programme, not only the one being run: wanting a
-        // programme changed is the buying moment, and it happens while
-        // browsing as often as while training. The cap check and the paywall
-        // live in the handler.
-        onCopyToCustom={
-          route.programType === 'ready'
-            ? () => handleCopyReadyProgramToCustom(route.workoutTemplateId)
-            : undefined
-        }
         programBlockWeeks={readyTemplate ? getReadyProgramBlockWeeks(readyTemplate) : null}
         trainingDayIndexes={planWeekdayIndexes(
           database.workoutPlans.find((plan) => plan.entries[0]?.workoutTemplateId === route.workoutTemplateId)
@@ -467,10 +468,8 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             ? () => navigate({ tab: 'workout', screen: 'template', workoutTemplateId: route.workoutTemplateId })
             : undefined
         }
-        onCopyToCustom={
-          route.programType === 'ready'
-            ? () => handleCopyReadyProgramToCustom(route.workoutTemplateId)
-            : undefined
+        onRemoveExercise={(exerciseId) =>
+          void removeProgramExercise(route.programType, route.workoutTemplateId, daySession.id, exerciseId)
         }
         tailoringPreferences={preferences}
         onBack={() => navigateBack({ tab: 'workout', screen: 'program', programType: route.programType, workoutTemplateId: route.workoutTemplateId })}
