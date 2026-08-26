@@ -186,15 +186,27 @@ function mergeExerciseLibrary(
  * has no day — so it becomes "no override" and the rotation answers, which is
  * what it does on every other day anyway.
  */
-function normalizeTodaySession(value: unknown): { dayStart: number; sessionId: string } | null {
+function normalizeTodaySession(
+  value: unknown,
+): { dayStart: number; sessionId: string; pickedAt: number } | null {
   if (typeof value !== 'object' || value === null) {
     return null;
   }
-  const raw = value as { dayStart?: unknown; sessionId?: unknown };
+  const raw = value as { dayStart?: unknown; sessionId?: unknown; pickedAt?: unknown };
   if (typeof raw.dayStart !== 'number' || !Number.isFinite(raw.dayStart) || typeof raw.sessionId !== 'string') {
     return null;
   }
-  return raw.sessionId ? { dayStart: raw.dayStart, sessionId: raw.sessionId } : null;
+  return raw.sessionId
+    ? {
+        dayStart: raw.dayStart,
+        sessionId: raw.sessionId,
+        // A pick stored before pickedAt existed is treated as made at the
+        // start of its day: any completion that day is then later than the
+        // pick, which is exactly how those picks already behaved.
+        pickedAt:
+          typeof raw.pickedAt === 'number' && Number.isFinite(raw.pickedAt) ? raw.pickedAt : raw.dayStart,
+      }
+    : null;
 }
 
 /**

@@ -666,15 +666,18 @@ module.exports = [
       assert.match(homeScreenSource, /planSessions\.length < 2/);
 
       // Dated, not sticky. A pick that outlived its day would quietly replace
-      // the programme's rotation with one session forever.
+      // the programme's rotation with one session forever. It carries the
+      // instant too, which is what tells a stale pick from a deliberate
+      // repeat — see lib/todaySessionPick and its suite.
       const handlerStart = appSource.indexOf('async function handlePickTodaySession(');
       assert.ok(handlerStart > 0, 'handlePickTodaySession not found');
       const handler = appSource.slice(handlerStart, handlerStart + 800);
       assert.match(handler, /todaySession: \{/);
       assert.match(handler, /dayStart:/);
+      assert.match(handler, /pickedAt: now\.getTime\(\)/);
 
-      // And the card only honours it while that day IS today.
-      assert.match(appSource, /preferences\.todaySession\.dayStart === todayDayStart/);
+      // And the card asks the rule rather than restating it.
+      assert.match(appSource, /resolveTodaySessionPick\(\{/);
 
       // The pencil is offered only where a rename can actually land: the
       // catalog's templates are immutable at runtime.

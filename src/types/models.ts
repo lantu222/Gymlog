@@ -493,7 +493,14 @@ export interface AppPreferences {
    * is a local midnight, and an override for a day that is no longer today is
    * simply ignored rather than needing to be cleared.
    */
-  todaySession: { dayStart: number; sessionId: string } | null;
+  /**
+   * The session the reader chose for today, and when they chose it.
+   *
+   * `pickedAt` is what tells a stale pick from a deliberate repeat: a pick
+   * made before the session was finished is answered, a pick made after it
+   * means "again" (2026-08-26).
+   */
+  todaySession: { dayStart: number; sessionId: string; pickedAt: number } | null;
   setupTrainingFeel: TrainingFeelPreference;
   setupWorkoutVariety: WorkoutVarietyPreference;
   setupFreeWeightsPreference: ExerciseModalityPreference;

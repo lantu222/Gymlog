@@ -201,6 +201,7 @@ import { popRoute, pushRoute } from './src/navigation/routeHistory';
 import { AppRoute, ROOT_ROUTES, RootTabKey, WORKOUT_PLAN_ROUTE } from './src/navigation/routes';
 import { getBackRoute } from './src/app/backRoute';
 import { renderProfileTab } from './src/app/renderProfileTab';
+import { resolveTodaySessionPick } from './src/lib/todaySessionPick';
 import { renderHomeScreens } from './src/app/renderHomeScreens';
 import { renderWorkoutTab } from './src/app/renderWorkoutTab';
 import { renderProgressTab } from './src/app/renderProgressTab';
@@ -1830,6 +1831,10 @@ function VinhaApp() {
       todaySession: {
         dayStart: new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(),
         sessionId,
+        // The instant matters, not just the day: picking a session you already
+        // trained today is how you say "again", and without a timestamp it was
+        // indistinguishable from the stale pick left over from this morning.
+        pickedAt: now.getTime(),
       },
     });
   }
@@ -2712,23 +2717,14 @@ function VinhaApp() {
       // knows what comes next in the programme and cannot know that today is
       // legs — but it is right again tomorrow, so the override is dated rather
       // than sticky, and a stale one is ignored instead of cleared.
-      const pickedToday =
-        preferences.todaySession && preferences.todaySession.dayStart === todayDayStart
-          ? homeSessions.find((session) => session.id === preferences.todaySession?.sessionId) ?? null
-          : null;
-      // A pick answers "what am I doing today", and once it is done the question
-      // has changed. Left standing it offered the finished workout again —
-      // reported straight after the first real session run through the picker,
-      // with the counter already reading 1/48 behind it.
-      const pickedDone =
-        pickedToday !== null &&
-        completedPlanSessions.some(
-          (entry) =>
-            entry.workoutTemplateSessionId === pickedToday.id &&
-            toDayStartMs(entry.performedAt) === todayDayStart,
-        );
-      const nextSession =
-        (pickedDone ? null : pickedToday) ?? homeSessions[nextSessionIndex] ?? homeSessions[0] ?? null;
+      const pickedToday = resolveTodaySessionPick({
+        pick: preferences.todaySession,
+        sessions: homeSessions,
+        todayDayStart,
+        completed: completedPlanSessions,
+        toDayStart: toDayStartMs,
+      });
+      const nextSession = pickedToday ?? homeSessions[nextSessionIndex] ?? homeSessions[0] ?? null;
       if (activeTemplate && nextSession) {
         const estimatedDuration = Number.parseInt(nextSession.duration.replace(/\D/g, ''), 10) || 20;
         const planTemplateIds = new Set(sortedEntries.map((entry) => entry.workoutTemplateId));
