@@ -484,11 +484,12 @@ module.exports = [
       // dots in formatHomeSessionTitle cut "Day 1: Full Body + H|IIT" at the
       // H, and the cut rode through translation onto every surface. Screens
       // own their own numberOfLines; the card hands over the full name.
-      const titleHelper = appSource.slice(
-        appSource.indexOf('function formatHomeSessionTitle'),
-        appSource.indexOf('function VinhaApp'),
+      // The helper moved to src/app in the phase-A split (2026-08-26).
+      const titleHelper = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'app', 'homeSessionTitle.ts'),
+        'utf8',
       );
-      assert.ok(titleHelper.length > 0, 'formatHomeSessionTitle should exist');
+      assert.ok(titleHelper.includes('function formatHomeSessionTitle'), 'formatHomeSessionTitle should exist');
       assert.doesNotMatch(titleHelper, /slice\(0|\.\.\.`|…/, 'the session title must never be abbreviated at assembly');
       assert.match(appSource, /activePlan=\{homeActivePlanCard\}/);
       assert.match(appSource, /const homeRecentSessions = useMemo/);

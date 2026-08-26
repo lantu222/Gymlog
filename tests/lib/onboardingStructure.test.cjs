@@ -16,6 +16,12 @@ const appSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'App.tsx'),
   'utf8',
 );
+// The questionnaire-to-preferences builders moved out of App.tsx in the
+// phase-A split (2026-08-26) — the persistence pins read their new home.
+const handoffSource = fs.readFileSync(
+  path.join(__dirname, '..', '..', 'src', 'app', 'onboardingHandoff.ts'),
+  'utf8',
+);
 const iconSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'components', 'VinhaIcon.tsx'),
   'utf8',
@@ -117,7 +123,7 @@ module.exports = [
       assert.doesNotMatch(onboardingSource, /renderPlanReadyProgression/);
       assert.match(onboardingSource, /const \[automatedProgressionEnabled, setAutomatedProgressionEnabled\] = useState\(/);
       assert.match(onboardingSource, /automatedProgression: automatedProgressionEnabled/);
-      assert.match(appSource, /automatedProgressionEnabled: selection\.automatedProgression \?\? true/);
+      assert.match(handoffSource, /automatedProgressionEnabled: selection\.automatedProgression \?\? true/);
       assert.doesNotMatch(onboardingSource, /Save your plan/);
       assert.doesNotMatch(onboardingSource, /renderPlanReadyAccount/);
 
@@ -171,7 +177,7 @@ module.exports = [
       assert.doesNotMatch(appSource, /setTimeout\(resolve, 3000\)/);
       // Save path shares the composed week with the onboarding previews
       // (days-per-week truth): what was shown is exactly what is saved.
-      assert.match(appSource, /function buildSavedOnboardingPlan\([\s\S]*composeProgramWeekForSelection\(selection, recommendedProgramId\)/);
+      assert.match(handoffSource, /function buildSavedOnboardingPlan\([\s\S]*composeProgramWeekForSelection\(selection, recommendedProgramId\)/);
       // The rule is still the order — saved and activated BEFORE Home — but it
       // is now one write instead of four. The template, its exercises, the plan
       // and the preferences land in a single commit, and the plan is built
@@ -289,7 +295,7 @@ module.exports = [
         /stage === 'avoid'\s*\r?\n?\s*\? cautionFlags\.length > 0\s*\r?\n?\s*\? t\(language, 'common\.continue'\)\s*\r?\n?\s*: t\(language, 'onb\.cta\.skip'\)/,
       );
       assert.match(onboardingSource, /cautionFlags,/);
-      assert.match(appSource, /setupCautionFlags: selection\.cautionFlags \?\? \[\]/);
+      assert.match(handoffSource, /setupCautionFlags: selection\.cautionFlags \?\? \[\]/);
     },
   },
   {
@@ -319,7 +325,7 @@ module.exports = [
       assert.match(onboardingSource, /setTrainingEnvironment\(hasHeavy \? 'home_gym' : 'minimal_equipment'\)/);
       // Chip labels persist into the setup selection and preferences.
       assert.match(onboardingSource, /const \[equipmentItems, setEquipmentItems\] = useState<string\[\]>\(setupSeed\.equipmentItems \?\? \[\]\)/);
-      assert.match(appSource, /setupEquipmentItems: selection\.equipmentItems \?\? \[\]/);
+      assert.match(handoffSource, /setupEquipmentItems: selection\.equipmentItems \?\? \[\]/);
       // No "why it's great" expansion anywhere.
       assert.doesNotMatch(onboardingSource, /WHY IT'S GREAT/);
     },
@@ -649,11 +655,12 @@ module.exports = [
         onboardingSource.indexOf('function renderDays'),
       );
       assert.equal(countBody.split('setCyclePattern(null)').length - 1, 3);
-      // App.tsx persists the pattern anchored at today — and keeps the old
-      // anchor when only the questionnaire was re-run with the same pattern.
-      assert.match(appSource, /trainingCyclePattern: preferences\.trainingCycle\?\.pattern \?\? null/);
-      assert.match(appSource, /previousCycle\.pattern\.join\(','\) === cyclePattern\.join\(','\)/);
-      assert.match(appSource, /\{ pattern: cyclePattern, anchorDayStart: localTodayStart\(\) \}/);
+      // The handoff persists the pattern anchored at today — and keeps the
+      // old anchor when only the questionnaire was re-run with the same
+      // pattern.
+      assert.match(handoffSource, /trainingCyclePattern: preferences\.trainingCycle\?\.pattern \?\? null/);
+      assert.match(handoffSource, /previousCycle\.pattern\.join\(','\) === cyclePattern\.join\(','\)/);
+      assert.match(handoffSource, /\{ pattern: cyclePattern, anchorDayStart: localTodayStart\(\) \}/);
     },
   },
   {

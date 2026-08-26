@@ -25,7 +25,6 @@ import { getHomeSummary, getMonthTrainingTotals } from './src/lib/dashboard';
 import { formatDurationMinutes, formatRepRange, formatSetScheme, formatShortDate, formatTime, formatVolume, formatWeight, pluralize, removeTrailingZeros } from './src/lib/format';
 import { createId } from './src/lib/ids';
 import {
-  buildFirstRunCustomProgramName,
   buildFirstRunRecommendationReasons,
   buildFirstRunPromptSuggestions,
   DEFAULT_RHYTHM_BY_DAYS,
@@ -74,7 +73,7 @@ import {
   buildProgramWorkoutPlan,
 } from './src/lib/programAdoption';
 import { buildAiTrainingContext } from './src/lib/aiTrainingContext';
-import { computePostSessionInsight, PostSessionInsight } from './src/lib/postSessionInsight';
+import { computePostSessionInsight } from './src/lib/postSessionInsight';
 import { composeProgramWeekForSelection } from './src/lib/programDayComposer';
 import { resolveAvailableEquipment } from './src/lib/equipmentExerciseFilter';
 import { getReadyProgramBlockWeeks } from './src/lib/readyProgramDuration';
@@ -116,7 +115,7 @@ import {
 } from './src/lib/homeSessionHero';
 import { estimateRoutineBlockSeconds } from './src/lib/guidedPlayer';
 import { estimateSessionMinutes } from './src/lib/sessionDuration';
-import { buildMuscleFocus, getTopSetLabel, getVolumeDeltaVsPrevious, MuscleFocusRow } from './src/lib/workoutCompleteView';
+import { buildMuscleFocus, getVolumeDeltaVsPrevious } from './src/lib/workoutCompleteView';
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { I18nKey, t } from './src/lib/i18n';
 import { buildCoachModules } from './src/lib/aiCoachModules';
@@ -132,13 +131,7 @@ import { trackEvent } from './src/features/analytics/analyticsClient';
 
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
 import { buildExerciseHistoryLookup } from './src/lib/workoutEditorTable';
-import {
-  buildExercisePrLookup,
-  estimateOneRepMaxKg,
-  resolvePreviousExercisePr,
-  WorkoutCompletionExerciseCard,
-  WorkoutCompletionPrCard,
-} from './src/lib/workoutCompletionSummary';
+import { buildExercisePrLookup } from './src/lib/workoutCompletionSummary';
 import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
 import { ProgramLimitReachedError } from './src/lib/programSlots';
 import {
@@ -227,6 +220,22 @@ import { buildProgramInsightMap } from './src/lib/programInsights';
 import { buildTailoringBadgeLabels, buildTailoringPreferences } from './src/lib/tailoringFit';
 import { popRoute, pushRoute } from './src/navigation/routeHistory';
 import { AppRoute, ROOT_ROUTES, RootTabKey, WORKOUT_PLAN_ROUTE } from './src/navigation/routes';
+import { getBackRoute } from './src/app/backRoute';
+import { formatGoalLabel, formatHomeSessionTitle } from './src/app/homeSessionTitle';
+import {
+  buildSavedOnboardingPlan,
+  buildSavedOnboardingWorkoutPlan,
+  buildSetupPreferencePatch,
+  buildSetupSelectionFromPreferences,
+} from './src/app/onboardingHandoff';
+import {
+  buildCompletionCardsFromAdaptedSession,
+  buildExerciseLogsForCompletedSession,
+  CompletionSummaryState,
+  getEndOfWeek,
+  getStartOfWeek,
+  WorkoutCelebrationState,
+} from './src/app/workoutCompletionState';
 import { SessionAnalysisScreen } from './src/screens/SessionAnalysisScreen';
 import { buildSessionAnalysis } from './src/lib/sessionAnalysis';
 import { AICoachScreen } from './src/screens/AICoachScreen';
@@ -283,22 +292,15 @@ import { WorkoutProvider, useWorkoutContext } from './src/features/workout/Worko
 import { adaptLegacyWorkoutTemplateToRuntimeTemplate } from './src/features/workout/customWorkoutAdapter';
 import { AdaptedCompletedWorkoutExercise, adaptCompletedWorkoutSessionForAppDatabase } from './src/features/workout/workoutAppAdapter';
 import { getWorkoutTemplateById, WORKOUT_TEMPLATES_V1 } from './src/features/workout/workoutCatalog';
-import { isTimedTrackingMode, WorkoutRuntimeTemplate, WorkoutTemplateExercise } from './src/features/workout/workoutTypes';
+import { isTimedTrackingMode } from './src/features/workout/workoutTypes';
 import { AppProvider, useAppContext } from './src/state/AppProvider';
 import {
-  AppDatabase,
   AppLanguage,
   AppPreferences,
-  ExerciseLibraryItem,
-  ExerciseLog,
-  ExerciseLogDraft,
-  ExerciseTemplate,
   ExerciseTemplateDraft,
   SetupDaysPerWeek,
-  SetupEquipment,
   SetupWeekday,
   SetupGender,
-  SetupTrainingEnvironment,
   UnitPreference,
   WorkoutTemplateDraft,
 } from './src/types/models';
@@ -307,162 +309,6 @@ import { AICoachAction } from './src/types/aiCoach';
 void SplashScreen.preventAutoHideAsync().catch(() => {
   // Native splash may already be controlled by the host app during fast refresh.
 });
-
-interface CompletionSummaryState {
-  sessionId: string;
-  workoutName: string;
-  performedAt: string;
-  durationMinutes: number;
-  setsCompleted: number;
-  totalVolume: number;
-  exercisesLogged: number;
-  volumeDeltaKg: number | null;
-  muscles: MuscleFocusRow[];
-  exerciseCards: WorkoutCompletionExerciseCard[];
-  prCards: WorkoutCompletionPrCard[];
-  insight: PostSessionInsight | null;
-}
-
-function isWorkoutCompletionPrCard(
-  card: WorkoutCompletionPrCard | null,
-): card is WorkoutCompletionPrCard {
-  return card !== null;
-}
-
-function buildCompletionCardsFromAdaptedSession({
-  exercises,
-  exerciseTemplates,
-  exerciseLibrary,
-  exercisePrLookup,
-  language,
-}: {
-  exercises: AdaptedCompletedWorkoutExercise[];
-  exerciseTemplates: ExerciseTemplate[];
-  exerciseLibrary: ExerciseLibraryItem[];
-  exercisePrLookup: ReturnType<typeof buildExercisePrLookup>;
-  language: AppLanguage;
-}) {
-  const templatesById = new Map(exerciseTemplates.map((item) => [item.id, item] as const));
-  const libraryById = new Map(exerciseLibrary.map((item) => [item.id, item] as const));
-
-  const exerciseCards: WorkoutCompletionExerciseCard[] = exercises.map((exercise) => {
-    const template = exercise.persistedExerciseTemplateId
-      ? templatesById.get(exercise.persistedExerciseTemplateId) ?? null
-      : null;
-    const libraryItem = template?.libraryItemId ? libraryById.get(template.libraryItemId) ?? null : null;
-    const completedSets = exercise.sets.filter((set) => set.status === 'completed').length;
-    const totalVolumeKg = exercise.sets.reduce((total, set) => {
-      if (set.status !== 'completed') {
-        return total;
-      }
-      const weightKg = typeof set.weightKg === 'number' ? set.weightKg : 0;
-      const reps = typeof set.reps === 'number' ? set.reps : 0;
-      return total + weightKg * reps;
-    }, 0);
-
-    return {
-      id: exercise.slotId,
-      name: exercise.exerciseName,
-      imageUrl: libraryItem?.imageUrls?.[0] ?? null,
-      completedSets,
-      totalSets: Math.max(1, exercise.sets.length),
-      totalVolumeKg,
-      notes: exercise.notes,
-      topSetLabel: getTopSetLabel(exercise.sets, language, exercise.trackingMode),
-    };
-  });
-
-  const prCards: WorkoutCompletionPrCard[] = exercises
-    .map((exercise): WorkoutCompletionPrCard | null => {
-      const template = exercise.persistedExerciseTemplateId
-        ? templatesById.get(exercise.persistedExerciseTemplateId) ?? null
-        : null;
-      const libraryItem = template?.libraryItemId ? libraryById.get(template.libraryItemId) ?? null : null;
-      const bestSet = exercise.sets.reduce<{
-        estimatedOneRepMaxKg: number;
-        performedWeightKg: number;
-        performedReps: number;
-      } | null>((best, set) => {
-        if (set.status !== 'completed' || typeof set.weightKg !== 'number' || typeof set.reps !== 'number') {
-          return best;
-        }
-
-        const estimate = estimateOneRepMaxKg(set.weightKg, set.reps);
-        if (estimate === null) {
-          return best;
-        }
-
-        if (!best || estimate > best.estimatedOneRepMaxKg) {
-          return {
-            estimatedOneRepMaxKg: estimate,
-            performedWeightKg: set.weightKg,
-            performedReps: set.reps,
-          };
-        }
-
-        return best;
-      }, null);
-
-      if (!bestSet) {
-        return null;
-      }
-
-      const previousBestOneRepMaxKg = resolvePreviousExercisePr({
-        libraryItemId: template?.libraryItemId ?? null,
-        exerciseName: exercise.exerciseName,
-        lookup: exercisePrLookup,
-      });
-
-      if (previousBestOneRepMaxKg !== null && bestSet.estimatedOneRepMaxKg <= previousBestOneRepMaxKg + 0.05) {
-        return null;
-      }
-
-      return {
-        id: `pr:${exercise.slotId}`,
-        exerciseName: exercise.exerciseName,
-        imageUrl: libraryItem?.imageUrls?.[0] ?? null,
-        estimatedOneRepMaxKg: bestSet.estimatedOneRepMaxKg,
-        previousBestOneRepMaxKg,
-        performedWeightKg: bestSet.performedWeightKg,
-        performedReps: bestSet.performedReps,
-      };
-    })
-    .filter(isWorkoutCompletionPrCard)
-    .slice(0, 3);
-
-  // Mark the recap rows whose exercise earned a PR this session.
-  const prSlotIds = new Set(prCards.map((card) => card.id.replace(/^pr:/, '')));
-  const exerciseCardsWithPr = exerciseCards.map((card) =>
-    prSlotIds.has(card.id) ? { ...card, isPr: true } : card,
-  );
-
-  return {
-    exerciseCards: exerciseCardsWithPr,
-    prCards,
-  };
-}
-
-function buildExerciseLogsForCompletedSession(sessionId: string, drafts: ExerciseLogDraft[]): ExerciseLog[] {
-  return drafts.map((draft, index) => ({
-    id: `draft:${sessionId}:${index}`,
-    sessionId,
-    exerciseTemplateId: draft.exerciseTemplateId,
-    exerciseNameSnapshot: draft.exerciseNameSnapshot,
-    weight: draft.skipped ? 0 : draft.weight ?? 0,
-    repsPerSet: draft.skipped ? [] : draft.repsPerSet ?? [],
-    sets: draft.sets,
-    tracked: draft.tracked,
-    orderIndex: draft.orderIndex,
-    skipped: draft.skipped,
-    sessionInserted: draft.sessionInserted,
-    status: draft.status,
-    slotId: draft.slotId,
-    templateSlotId: draft.templateSlotId,
-    templateExerciseId: draft.templateExerciseId,
-    notes: draft.notes,
-    swappedFrom: draft.swappedFrom,
-  }));
-}
 
 interface NavigationState {
   route: AppRoute;
@@ -475,386 +321,12 @@ interface FinishSaveState {
   message: string | null;
 }
 
-interface WorkoutCelebrationState {
-  workoutName: string;
-  heroImageUrl: string | null;
-  workoutsThisWeek: number;
-  totalLiftedKgThisWeek: number;
-  totalDurationMinutesThisWeek: number;
-  prCount: number;
-}
-
-function getStartOfWeek(date: Date) {
-  const next = new Date(date);
-  const day = next.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  next.setHours(0, 0, 0, 0);
-  next.setDate(next.getDate() + diff);
-  return next;
-}
-
-function getEndOfWeek(date: Date) {
-  const start = getStartOfWeek(date);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 7);
-  return end;
-}
-
-function buildWorkoutCelebrationState({
-  completionSummary,
-  workoutSessions,
-}: {
-  completionSummary: CompletionSummaryState;
-  workoutSessions: AppDatabase['workoutSessions'];
-}): WorkoutCelebrationState {
-  const performedAt = new Date(completionSummary.performedAt);
-  const weekStart = getStartOfWeek(performedAt);
-  const weekEnd = getEndOfWeek(performedAt);
-
-  const hasCurrentSession = workoutSessions.some((session) => session.id === completionSummary.sessionId);
-  const sessionsForCalculation = hasCurrentSession
-    ? workoutSessions
-    : [
-        ...workoutSessions,
-        {
-          id: completionSummary.sessionId,
-          workoutTemplateId: '__summary__',
-          workoutNameSnapshot: completionSummary.workoutName,
-          performedAt: completionSummary.performedAt,
-          durationMinutes: completionSummary.durationMinutes,
-          setsCompleted: completionSummary.setsCompleted,
-          totalVolumeKg: completionSummary.totalVolume,
-        },
-      ];
-
-  const sessionsThisWeek = sessionsForCalculation.filter((session) => {
-    const performed = new Date(session.performedAt);
-    return performed >= weekStart && performed < weekEnd;
-  });
-
-  return {
-    workoutName: completionSummary.workoutName,
-    heroImageUrl: completionSummary.prCards[0]?.imageUrl ?? completionSummary.exerciseCards[0]?.imageUrl ?? null,
-    workoutsThisWeek: sessionsThisWeek.length,
-    totalLiftedKgThisWeek: sessionsThisWeek.reduce((total, session) => total + (session.totalVolumeKg ?? 0), 0),
-    totalDurationMinutesThisWeek: sessionsThisWeek.reduce((total, session) => total + (session.durationMinutes ?? 0), 0),
-    prCount: completionSummary.prCards.length,
-  };
-}
-
 const DEFAULT_HOME_AI_PROMPT_SUGGESTIONS = [
   'Best 3-day muscle plan?',
   'Bench stuck?',
   'Fix my split?',
   '30-day run challenge?',
 ];
-
-function getBackRoute(route: AppRoute, workoutHome: AppRoute): AppRoute | null {
-  if (
-    route.tab === 'home' &&
-    (route.screen === 'ai' ||
-      route.screen === 'ai_chat' ||
-      route.screen === 'ai_setup' ||
-      route.screen === 'history' ||
-      route.screen === 'session' ||
-      route.screen === 'analysis' ||
-      route.screen === 'cardio')
-  ) {
-    return ROOT_ROUTES.home;
-  }
-
-  if (route.tab === 'workout' && route.screen === 'detail') {
-    return ROOT_ROUTES.workout;
-  }
-
-  if (
-    route.tab === 'workout' &&
-    (route.screen === 'plans' ||
-      route.screen === 'program' ||
-      route.screen === 'programDay' ||
-      route.screen === 'template' ||
-      route.screen === 'editor' ||
-      route.screen === 'guided' ||
-      route.screen === 'summary' ||
-      route.screen === 'celebration')
-  ) {
-    return workoutHome;
-  }
-
-  if (
-    route.tab === 'progress' &&
-    (route.screen === 'detail' || route.screen === 'bodyweight')
-  ) {
-    return ROOT_ROUTES.progress;
-  }
-
-  if (route.tab === 'profile' && route.screen === 'setup') {
-    return ROOT_ROUTES.profile;
-  }
-
-  if (route.tab === 'profile' && route.screen === 'premium') {
-    return ROOT_ROUTES.profile;
-  }
-
-  // Back out of the unlock moment lands on Profile, not on the paywall you
-  // just came through — going 'back' to a page selling what you now own.
-  if (route.tab === 'profile' && route.screen === 'premium_unlock') {
-    return ROOT_ROUTES.profile;
-  }
-
-  return null;
-}
-
-function getDefaultTrainingEnvironment(equipment: SetupEquipment): SetupTrainingEnvironment {
-  switch (equipment) {
-    case 'gym':
-      return 'full_gym';
-    case 'home':
-      return 'home_gym';
-    case 'minimal':
-    default:
-      return 'minimal_equipment';
-  }
-}
-
-function buildSetupSelectionFromPreferences(preferences: AppPreferences): FirstRunSetupSelection | null {
-  if (
-    !preferences.setupCompleted ||
-    !preferences.setupGoal ||
-    !preferences.setupDaysPerWeek ||
-    !preferences.setupEquipment
-  ) {
-    return null;
-  }
-
-  return {
-    profileName: preferences.profileName,
-    gender: preferences.setupGender ?? DEFAULT_FIRST_RUN_SELECTION.gender,
-    age: preferences.setupAge ?? DEFAULT_FIRST_RUN_SELECTION.age,
-    ageRange: preferences.setupAgeRange ?? DEFAULT_FIRST_RUN_SELECTION.ageRange,
-    heightCm: preferences.setupHeightCm,
-    goal: preferences.setupGoal,
-    goals:
-      preferences.setupGoals.length > 0
-        ? preferences.setupGoals
-        : [preferences.setupGoal],
-    level: preferences.setupLevel ?? DEFAULT_FIRST_RUN_SELECTION.level,
-    daysPerWeek: preferences.setupDaysPerWeek,
-    equipment: preferences.setupEquipment,
-    trainingEnvironment:
-      preferences.setupTrainingEnvironment ?? getDefaultTrainingEnvironment(preferences.setupEquipment),
-    equipmentItems: preferences.setupEquipmentItems,
-    secondaryOutcomes:
-      preferences.setupSecondaryOutcomes.length > 0
-        ? preferences.setupSecondaryOutcomes
-        : DEFAULT_FIRST_RUN_SELECTION.secondaryOutcomes,
-    focusAreas: preferences.setupFocusAreas.length > 0 ? preferences.setupFocusAreas : DEFAULT_FIRST_RUN_SELECTION.focusAreas,
-    cautionFlags: preferences.setupCautionFlags,
-    guidanceMode: preferences.setupGuidanceMode ?? DEFAULT_FIRST_RUN_SELECTION.guidanceMode,
-    scheduleMode: preferences.setupScheduleMode ?? DEFAULT_FIRST_RUN_SELECTION.scheduleMode,
-    automatedProgression: preferences.automatedProgressionEnabled,
-    weeklyMinutes: preferences.setupWeeklyMinutes,
-    availableDays:
-      preferences.setupAvailableDays.length > 0
-        ? preferences.setupAvailableDays
-        : DEFAULT_FIRST_RUN_SELECTION.availableDays,
-    trainingCyclePattern: preferences.trainingCycle?.pattern ?? null,
-    currentWeightKg: preferences.setupCurrentWeightKg,
-    targetWeightKg: preferences.bodyweightGoalKg,
-    unitPreference: preferences.unitPreference,
-  };
-}
-
-/** Local midnight, the anchor a training cycle counts from. */
-function localTodayStart(): number {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-}
-
-function buildSetupPreferencePatch(
-  selection: FirstRunSetupSelection,
-  recommendedProgramId: string | null,
-  // The cycle already in preferences, so an unchanged pattern keeps its
-  // anchor: re-anchoring "2 on, 1 off" to today would silently shift which
-  // day of the rhythm today is for a reader who only re-ran the questions.
-  previousCycle: AppPreferences['trainingCycle'] = null,
-): Partial<AppPreferences> {
-  const cyclePattern = selection.trainingCyclePattern ?? null;
-  return {
-    trainingCycle: cyclePattern
-      ? previousCycle && previousCycle.pattern.join(',') === cyclePattern.join(',')
-        ? previousCycle
-        : { pattern: cyclePattern, anchorDayStart: localTodayStart() }
-      : null,
-    onboardingCompleted: true,
-    setupCompleted: true,
-    profileName: selection.profileName?.trim() ? selection.profileName.trim().slice(0, 32) : null,
-    setupGender: selection.gender,
-    setupAge: selection.age ?? null,
-    setupAgeRange: selection.ageRange ?? null,
-    setupHeightCm: selection.heightCm ?? null,
-    setupGoal: selection.goal,
-    setupGoals: selection.goals?.length ? selection.goals : [selection.goal],
-    setupLevel: selection.level,
-    setupDaysPerWeek: selection.daysPerWeek,
-    setupEquipment: selection.equipment,
-    setupTrainingEnvironment: selection.trainingEnvironment,
-    setupEquipmentItems: selection.equipmentItems ?? [],
-    setupSecondaryOutcomes: selection.secondaryOutcomes,
-    setupFocusAreas: selection.focusAreas,
-    setupCautionFlags: selection.cautionFlags ?? [],
-    setupGuidanceMode: selection.guidanceMode,
-    setupScheduleMode: selection.scheduleMode,
-    automatedProgressionEnabled: selection.automatedProgression ?? true,
-    setupWeeklyMinutes: selection.weeklyMinutes ?? null,
-    setupAvailableDays: selection.scheduleMode === 'self_managed' ? selection.availableDays : [],
-    setupCurrentWeightKg: selection.currentWeightKg ?? null,
-    bodyweightGoalKg: selection.targetWeightKg ?? null,
-    recommendedProgramId,
-    activePlanId: null,
-    unitPreference: selection.unitPreference,
-  };
-}
-
-function buildSavedOnboardingPlan(
-  selection: FirstRunSetupSelection,
-  recommendedProgramId: string,
-  // The name is written into the template at creation time, so it has to be
-  // written in the reader's language. Omitting this defaulted to English and
-  // put "Strong Chest Advanced" on a Finnish Home screen.
-  language: AppLanguage,
-  savedTemplateId?: string,
-) {
-  // Single source of truth with the onboarding previews (days-per-week truth):
-  // the same composed week the picker and plan overview showed is what saves.
-  const composedWeek = composeProgramWeekForSelection(selection, recommendedProgramId);
-  const sessions = (composedWeek?.sessions ?? []).map((session) => ({
-    id: session.id,
-    name: formatWorkoutDisplayLabel(session.name, 'Workout'),
-    orderIndex: session.orderIndex,
-    exercises: session.exercises,
-  }));
-  const draft: WorkoutTemplateDraft = {
-    name: buildFirstRunCustomProgramName(selection, language),
-    sessions: sessions.map((session) => ({
-      id: session.id,
-      name: session.name,
-      exercises: session.exercises.map((exercise) => ({
-        id: exercise.id,
-        name: exercise.exerciseName,
-        targetSets: exercise.sets,
-        repMin: exercise.repsMin,
-        repMax: exercise.repsMax,
-        restSeconds: exercise.restSecondsMax,
-        trackedDefault: true,
-      })),
-    })),
-  };
-  const runtimeTemplate: WorkoutRuntimeTemplate = {
-    id: savedTemplateId ?? recommendedProgramId,
-    name: draft.name,
-    defaultScheduleMode: 'rolling_sequence',
-    sessions,
-  };
-
-  return { draft, runtimeTemplate, firstSessionId: sessions[0]?.id ?? null };
-}
-
-function buildSavedOnboardingWorkoutPlan(
-  selection: FirstRunSetupSelection,
-  workoutTemplateId: string,
-  sessionIds: string[],
-  language: AppLanguage,
-) {
-  const days = selection.scheduleMode === 'self_managed' && selection.availableDays.length > 0
-    ? selection.availableDays
-    : DEFAULT_RHYTHM_BY_DAYS[selection.daysPerWeek] ?? DEFAULT_RHYTHM_BY_DAYS[3];
-  const timestamp = new Date().toISOString();
-  const planId = `onboarding_plan_${workoutTemplateId}`;
-
-  return {
-    id: planId,
-    name: buildFirstRunCustomProgramName(selection, language),
-    mode: 'rotation' as const,
-    entries: Array.from({ length: Math.max(1, sessionIds.length) }, (_, index) => ({
-      id: `${planId}_entry_${index + 1}`,
-      workoutTemplateId,
-      workoutTemplateSessionId: sessionIds[index] ?? null,
-      label: days[index % days.length] ?? `Day ${index + 1}`,
-      orderIndex: index,
-    })),
-    isActive: true,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  };
-}
-
-/**
- * The goal tag on a program cover.
- *
- * Returned hardcoded English until an emulator pass found "Muscle" and
- * "Strength" sitting on cards in a Finnish app, directly under category chips
- * reading "Lihaskasvu" and "Voima". It reuses those same keys now, so the tag
- * and the chip that filters for it cannot say different words.
- */
-function formatGoalLabel(goalType: string, language: AppLanguage = 'en') {
-  if (goalType === 'hypertrophy') {
-    return t(language, 'programs.cat.muscle');
-  }
-  if (goalType === 'strength') {
-    return t(language, 'programs.cat.strength');
-  }
-  return t(language, 'programs.cat.balanced');
-}
-
-function formatSplitLabel(splitType?: string) {
-  if (!splitType) {
-    return 'Workout plan';
-  }
-
-  return splitType
-    .split('_')
-    .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
-    .join(' / ');
-}
-
-function getExerciseFocusName(name: string) {
-  const normalized = name.toLowerCase();
-  if (/(squat|lunge|leg press|leg extension|quad)/.test(normalized)) {
-    return 'Lower Focus';
-  }
-  if (/(deadlift|hip thrust|glute|leg curl|hamstring)/.test(normalized)) {
-    return 'Posterior Focus';
-  }
-  if (/(bench|press|push-up|fly|dip)/.test(normalized)) {
-    return 'Push Focus';
-  }
-  if (/(row|pull-up|pulldown|face pull)/.test(normalized)) {
-    return 'Pull Focus';
-  }
-  if (/(run|mobility|stretch|yoga|conditioning|hiit)/.test(normalized)) {
-    return 'Conditioning Focus';
-  }
-  return 'Full Body Focus';
-}
-
-function formatHomeSessionTitle(name: string, exercises: Array<{ name?: string; exerciseName?: string }>) {
-  const displayName = formatWorkoutDisplayLabel(name, 'Workout');
-  if (!/^(minimal\s+[abc]|workout\s+[abc]|day\s+\d+|session\s+\d+)$/i.test(displayName.trim())) {
-    // The full name, never sliced. A 20-character cap with hand-appended dots
-    // lived here and cut "Day 1: Full Body + H|IIT" at exactly the H — and
-    // because every surface builds its titles from this one card, the cut
-    // rode through translation onto Home, Profile and the plan screen alike,
-    // surviving three rounds of display fixes and one data-repair built on
-    // the wrong theory (2026-08-25). Screens own their own line counts now;
-    // an assembly layer has no business abbreviating.
-    return displayName;
-  }
-
-  const primaryName = exercises[0]?.name ?? exercises[0]?.exerciseName ?? '';
-  return getExerciseFocusName(primaryName);
-}
-
 
 function VinhaApp() {
   const theme = useTheme();
