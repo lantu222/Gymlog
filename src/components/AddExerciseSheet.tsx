@@ -819,7 +819,22 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: spacing.md,
     marginTop: spacing.sm,
   },
+  /**
+   * Two per row, by giving the card a width to wrap on.
+   *
+   * It inherited `flex: 1` from gridCard, and `flex: 1` means `flexBasis: 0` —
+   * a child with no base width never makes the line overflow, so `flexWrap`
+   * had nothing to trigger on and all four popular exercises shared one row at
+   * about 80dp each. The names broke every three letters (user 2026-08-26).
+   *
+   * The basis is 47 rather than 48 because the gap counts too: two 48% cards
+   * plus a 16dp gap is wider than the row, which would wrap them to one per
+   * line instead. Grow fills whatever is left over, capped at 48%.
+   */
   featuredCard: {
+    flexGrow: 1,
+    flexShrink: 0,
+    flexBasis: '47%',
     maxWidth: '48%',
     marginBottom: 0,
   },
