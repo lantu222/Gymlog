@@ -195,9 +195,9 @@ const AI_COACH_RESPONSE_SCHEMA = {
       properties: {
         kind: {
           type: 'string',
-          enum: ['pin_stat_card', 'set_goal', 'weigh_in_reminder', 'log_measurement'],
+          enum: ['pin_stat_card', 'set_goal', 'weigh_in_reminder', 'log_measurement', 'compose_programme'],
           description:
-            'log_measurement: open the page where a measurement is recorded, when the answer needs a reading the Body record does not have. pin_stat_card: put a measurement card on the home screen. set_goal: save the goal the reader described in their own words. weigh_in_reminder: switch on a morning nudge to weigh in, when the goal needs weight tracked and it is off.',
+            'log_measurement: open the page where a measurement is recorded, when the answer needs a reading the Body record does not have. pin_stat_card: put a measurement card on the home screen. set_goal: save the goal the reader described in their own words. weigh_in_reminder: switch on a morning nudge to weigh in, when the goal needs weight tracked and it is off. compose_programme: build a programme from the brief in `brief` — offer this whenever the reader asks for a new programme.',
         },
         statKey: {
           type: 'string',
@@ -207,6 +207,11 @@ const AI_COACH_RESPONSE_SCHEMA = {
           type: 'string',
           description:
             'For set_goal only: the goal in the words and language the reader used, with the target if they gave one — "kasvattaa rinnanympärystä 104 cm". Keep their own sentence: it must name the body part or bodyweight, and paraphrasing has dropped that before. The app parses it and discards the offer if it cannot, which leaves your answer pointing at a button nobody sees.',
+        },
+        brief: {
+          type: 'string',
+          description:
+            'For compose_programme only: the programme brief, written from what this conversation established and in the reader\'s own language — days per week, the focus or lifts they named, anything that hurts. "5 päivää viikossa, painotus rinta, pakarat ja vatsa". It is quoted back to them before they tap, so it must be theirs and not your embellishment. Do not invent what was never said.',
         },
         value: {
           type: 'number',
@@ -278,8 +283,10 @@ const COACH_SYSTEM_RULES = [
   '- Never prescribe a diet for a medical condition.',
   '',
   '# What the app itself can do',
-  '- Vinha builds programmes. "Kerro omin sanoin" / "Tell it in your own words" takes a brief in the reader\'s own words — days, lifts, what hurts — and composes a programme from the app\'s own exercise library, which they can then save as theirs.',
-  '- So never tell the reader a programme cannot be built, or that their only options are the ready-made list and editing what they have. You do not press the button, but say the feature exists and what to type into it. Asked for a new programme, that is the answer — not a refusal.',
+  '- Vinha builds programmes, and you can start it: attach the `compose_programme` suggestion with a `brief`, and the button under your answer composes a week from the app\'s own exercise library for the reader to look at and save.',
+  '- So never tell the reader a programme cannot be built, or that their only options are the ready-made list and editing what they have. Asked for a new programme, offer to build it. That is the answer — not a refusal.',
+  '- Ask first only when the brief would be empty. One question — usually days per week, or what they want to focus on — then offer. Two rounds of questions before a button is an interrogation, and everything else the composer needs it already reads from their setup.',
+  '- The app decides whether that button is included with their plan and says so under it. Do not discuss what is paid and what is free; you do not know their subscription.',
   '- Do not describe any other screen, button or menu path. You are told about this one because you were denying it existed; everything else you have not been told about, and guessing at it is inventing app behaviour. If the reader asks how to do something in the app that is not covered here, say plainly that you do not know that part rather than guessing, and never suggest reinstalling or updating the app.',
   '',
   '# Offering to do something',
@@ -542,12 +549,21 @@ function validateSuggestion(value: unknown): AICoachSuggestion | null {
     candidate.kind !== 'pin_stat_card' &&
     candidate.kind !== 'set_goal' &&
     candidate.kind !== 'weigh_in_reminder' &&
-    candidate.kind !== 'log_measurement'
+    candidate.kind !== 'log_measurement' &&
+    candidate.kind !== 'compose_programme'
   ) {
+    return null;
+  }
+  // A compose offer with no brief has nothing to hand the composer, and the
+  // button would open an empty field — the retyping the offer exists to spare.
+  const brief =
+    typeof candidate.brief === 'string' && candidate.brief.trim() ? candidate.brief.trim().slice(0, 400) : null;
+  if (candidate.kind === 'compose_programme' && !brief) {
     return null;
   }
   return {
     kind: candidate.kind,
+    brief,
     statKey: typeof candidate.statKey === 'string' && candidate.statKey.trim() ? candidate.statKey.trim() : null,
     goalText: typeof candidate.goalText === 'string' && candidate.goalText.trim() ? candidate.goalText.trim().slice(0, 200) : null,
     // A reading is a small positive number. Anything outside that is a

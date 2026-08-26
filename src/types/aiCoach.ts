@@ -311,9 +311,20 @@ export interface AICoachAdvice {
 }
 
 export interface AICoachSuggestion {
-  kind: 'pin_stat_card' | 'set_goal' | 'weigh_in_reminder' | 'log_measurement';
+  kind: 'pin_stat_card' | 'set_goal' | 'weigh_in_reminder' | 'log_measurement' | 'compose_programme';
   /** For pin_stat_card and log_measurement: which measurement. */
   statKey?: string | null;
+  /**
+   * For compose_programme: the brief, written from the conversation and in the
+   * reader's own words. The coach used to gather days, focus and cautions
+   * across five turns and then answer "I cannot build a programme" — throwing
+   * away exactly what the composer takes (log 2026-08-26). The button hands
+   * this over, and the composer opens with the week already built.
+   *
+   * Quoted back before the tap: the reader is about to spend a programme slot,
+   * and an offer they cannot check is not an offer.
+   */
+  brief?: string | null;
   /**
    * For set_goal: the goal in the reader's own words. The chat parses it with
    * the same reader the typed path uses, and drops the offer when it will not

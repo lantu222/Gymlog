@@ -18,6 +18,13 @@ export type AppRoute =
   | {
       tab: 'home';
       screen: 'ai_setup';
+      /**
+       * A brief the coach chat assembled from the conversation. When present
+       * the composer opens with it filled in and already composed — the reader
+       * asked for a programme in chat, and being handed an empty field would
+       * be the app asking them to say it a second time.
+       */
+      brief?: string;
     }
   | {
       tab: 'home';

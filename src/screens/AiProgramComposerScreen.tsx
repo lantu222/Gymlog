@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { CutButton } from '../components/CutButton';
@@ -31,6 +31,12 @@ interface AiProgramComposerScreenProps {
   /** True when a coach server is configured; the footnote says which composer answered. */
   liveConfigured: boolean;
   compose: (brief: string) => Promise<ProgrammeProposal>;
+  /**
+   * A brief the coach chat already gathered. The screen opens with it in the
+   * field and composes straight away — the reader stated it in the
+   * conversation, and an empty field here would be the app asking twice.
+   */
+  initialBrief?: string;
   onSave: (proposal: ProgrammeProposal) => Promise<void> | void;
   onBack: () => void;
 }
@@ -53,12 +59,13 @@ export function AiProgramComposerScreen({
   liveConfigured,
   compose,
   onSave,
+  initialBrief,
   onBack,
 }: AiProgramComposerScreenProps) {
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
-  const [brief, setBrief] = useState('');
-  const [busy, setBusy] = useState<'idle' | 'composing' | 'saving'>('idle');
+  const [brief, setBrief] = useState(initialBrief ?? '');
+  const [busy, setBusy] = useState<'idle' | 'composing' | 'saving'>(initialBrief ? 'composing' : 'idle');
   const [proposal, setProposal] = useState<ProgrammeProposal | null>(null);
 
   // What travels with the brief without being asked again.
@@ -83,17 +90,41 @@ export function AiProgramComposerScreen({
 
   const canCompose = brief.trim().length >= 3 && busy === 'idle';
 
+  const runCompose = useCallback(
+    async (text: string) => {
+      setBusy('composing');
+      try {
+        const next = await compose(text);
+        setProposal(next);
+      } finally {
+        setBusy('idle');
+      }
+    },
+    [compose],
+  );
+
+  // The brief came from the chat, so the week is what the reader is waiting
+  // for — not a filled-in field with a button still to press. Runs once: the
+  // dependency is the brief the screen opened with, and the screen is keyed on
+  // it, so a second handover mounts a new screen rather than recomposing this
+  // one over a proposal the reader may already be reading.
+  useEffect(() => {
+    const seed = initialBrief?.trim();
+    if (seed && seed.length >= 3) {
+      void runCompose(seed);
+    } else if (seed !== undefined) {
+      // Too short to compose; leave the reader in the field rather than in a
+      // spinner that resolves to nothing.
+      setBusy('idle');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialBrief]);
+
   const handleCompose = async () => {
     if (!canCompose) {
       return;
     }
-    setBusy('composing');
-    try {
-      const next = await compose(brief.trim());
-      setProposal(next);
-    } finally {
-      setBusy('idle');
-    }
+    await runCompose(brief.trim());
   };
 
   const handleSave = async () => {

@@ -178,8 +178,13 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
     return (
       <AiProgramComposerScreen
         language={preferences.appLanguage}
+        // Keyed on the brief so a second handover from the chat mounts a fresh
+        // screen instead of dropping a new brief into one already showing a
+        // proposal for the old one.
+        key={`compose:${route.brief ?? ''}`}
         preferences={preferences}
         liveConfigured={isAiCoachLiveConfigured()}
+        initialBrief={route.brief}
         onBack={() => navigateBack(ROOT_ROUTES.home)}
         compose={async (brief) => {
           const live = await requestProgrammeComposition({
@@ -323,6 +328,10 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
               : recordSuggestionRejected(preferences.coachSuggestionState, kind),
           })
         }
+        // The conversation, handed to the composer. The route guard sends a
+        // free reader to the Pro page from here, which is why the button below
+        // the offer says so before it is tapped.
+        onComposeProgramme={(brief) => navigate({ tab: 'home', screen: 'ai_setup', brief })}
         transcriptReporter={accountBackup.state.status === 'signed_in' ? accountBackup.state.email : null}
       />
     );

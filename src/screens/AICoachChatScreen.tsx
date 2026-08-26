@@ -96,6 +96,12 @@ interface AICoachChatScreenProps {
   onEnableWeighInReminder: () => void;
   /** Opens the measures page on one measurement, so a question can be answered with a tap. */
   onOpenMeasure: (kind: string) => void;
+  /**
+   * Hands the coach's brief to the composer, which opens with the week already
+   * built. The chat asks for the programme; the composer is where it is read
+   * and saved — one proposal view, one save path.
+   */
+  onComposeProgramme: (brief: string) => void;
   /** TEMPORARY: the signed-in email, attached to the development transcript log. */
   transcriptReporter: string | null;
 }
@@ -117,7 +123,12 @@ interface ChatMessage {
     | { type: 'weighIn' }
     // Opens the page that records this measurement. The coach cannot log one
     // itself — the reading is the thing it does not have.
-    | { type: 'openMeasure'; intent: Pick<MeasurementIntent, 'kind'> };
+    | { type: 'openMeasure'; intent: Pick<MeasurementIntent, 'kind'> }
+    // The conversation, handed to the composer. Asked for a programme, the
+    // coach used to gather the days, the focus and the cautions across five
+    // turns and then answer "I cannot build one" — throwing away exactly the
+    // brief the composer takes (log 2026-08-26).
+    | { type: 'compose'; brief: string };
   /**
    * Set when the coach proposed this rather than the typed message. Only those
    * count towards the cooldown: it exists to stop the coach nagging.
@@ -130,6 +141,16 @@ interface ChatMessage {
 
 /** Width of the soft light behind the dark thread's header. */
 const TOP_LIGHT = 460;
+
+/** The word on each offer's accept button, keyed by what the offer does. */
+const OFFER_CTA_KEYS: Record<NonNullable<ChatMessage['offer']>['type'], I18nKey> = {
+  openMeasure: 'coachChat.measure.open',
+  weighIn: 'coachChat.weighIn.on',
+  goal: 'coachChat.goal.set',
+  log: 'coachChat.measure.log',
+  pin: 'coachChat.measure.pin',
+  compose: 'coachChat.compose.build',
+};
 
 function SparkGlyph({ color, size = 18 }: { color: string; size?: number }) {
   return (
@@ -162,6 +183,7 @@ export function AICoachChatScreen({
   weighInReminderEnabled,
   onEnableWeighInReminder,
   onOpenMeasure,
+  onComposeProgramme,
   transcriptReporter,
 }: AICoachChatScreenProps) {
   const theme = useTheme();
@@ -285,6 +307,32 @@ export function AICoachChatScreen({
     [language, measurementLabel],
   );
 
+  /**
+   * The sentence above an offer's buttons. A chain of ternaries got a branch
+   * wrong every time one was added, and a sixth would have been unreadable.
+   */
+  const offerBody = useCallback(
+    (offer: NonNullable<ChatMessage['offer']>) => {
+      switch (offer.type) {
+        case 'openMeasure':
+          return t(language, 'coachChat.measure.firstOffer', { label: measurementLabel(offer.intent) });
+        case 'weighIn':
+          return t(language, 'coachChat.weighIn.offer');
+        case 'goal':
+          return t(language, 'coachChat.goal.offer', { text: offer.intent.text });
+        case 'log':
+          return t(language, 'coachChat.measure.offer', { reading: formatReading(offer.intent) });
+        case 'compose':
+          // The brief is quoted back. The reader is about to spend a programme
+          // slot on it, and a summary they cannot check is not an offer.
+          return t(language, 'coachChat.compose.offer', { brief: offer.brief });
+        default:
+          return t(language, 'coachChat.measure.pinOffer', { label: measurementLabel(offer.intent) });
+      }
+    },
+    [formatReading, language, measurementLabel],
+  );
+
   const resolveOffer = useCallback(
     async (
       messageId: string,
@@ -304,6 +352,13 @@ export function AICoachChatScreen({
       if (offer.type === 'openMeasure') {
         onOpenMeasure(offer.intent.kind);
         setMessages((current) => current.filter((message) => message.id !== messageId));
+        return;
+      }
+      if (offer.type === 'compose') {
+        // The bubble stays. The composer opens over this conversation and the
+        // reader comes back to it; a chat that erased the request it just
+        // acted on would read as though nothing had been asked.
+        onComposeProgramme(offer.brief);
         return;
       }
       if (offer.type === 'weighIn') {
@@ -359,6 +414,7 @@ export function AICoachChatScreen({
       language,
       measurementLabel,
       onCoachSuggestionResolved,
+      onComposeProgramme,
       onEnableWeighInReminder,
       onLogMeasurement,
       onOpenMeasure,
@@ -488,6 +544,27 @@ export function AICoachChatScreen({
         const suggestedOffer: ChatMessage | null = (() => {
           if (!suggestion) {
             return null;
+          }
+          if (suggestion.kind === 'compose_programme') {
+            // The brief is the whole offer: without it there is nothing to
+            // hand over, and the composer would open on an empty field — the
+            // "type it again" the merge exists to remove.
+            const brief = suggestion.brief?.trim() ?? '';
+            if (!brief) {
+              return null;
+            }
+            return {
+              id: `suggest:${token}`,
+              fromCoach: true,
+              text: '',
+              offer: { type: 'compose' as const, brief },
+              // Deliberately no suggestionKind. The cooldown exists to stop the
+              // coach nagging about things nobody asked for, and it ends an
+              // offer for good once taken up — right for a card or a reminder,
+              // which are switches. This one only appears because the reader
+              // asked for a programme, and asking twice is normal; silencing it
+              // would restore the refusal this whole change removes.
+            };
           }
           if (suggestion.kind === 'log_measurement') {
             const kind = suggestion.statKey ?? '';
@@ -716,19 +793,13 @@ export function AICoachChatScreen({
             message.offer ? (
               <View key={message.id} style={styles.bubbleRow}>
                 <View style={[styles.coachBubble, styles.offerBubble]}>
-                  <Text style={styles.coachText}>
-                    {message.offer.type === 'openMeasure'
-                      ? t(language, 'coachChat.measure.firstOffer', {
-                          label: measurementLabel(message.offer.intent),
-                        })
-                      : message.offer.type === 'weighIn'
-                        ? t(language, 'coachChat.weighIn.offer')
-                      : message.offer.type === 'goal'
-                      ? t(language, 'coachChat.goal.offer', { text: message.offer.intent.text })
-                      : message.offer.type === 'log'
-                        ? t(language, 'coachChat.measure.offer', { reading: formatReading(message.offer.intent) })
-                        : t(language, 'coachChat.measure.pinOffer', { label: measurementLabel(message.offer.intent) })}
-                  </Text>
+                  <Text style={styles.coachText}>{offerBody(message.offer)}</Text>
+                  {/* Said before the tap, not at the paywall. Only to readers
+                      it applies to: a Pro badge shown to someone who already
+                      pays is a sign explaining nothing. */}
+                  {message.offer.type === 'compose' && !proUnlocked ? (
+                    <Text style={styles.offerNote}>{t(language, 'coachChat.compose.pro')}</Text>
+                  ) : null}
                   <View style={styles.offerActions}>
                     <Pressable
                       accessibilityRole="button"
@@ -756,20 +827,7 @@ export function AICoachChatScreen({
                       }
                       style={({ pressed }) => [styles.offerCta, pressed && styles.pressed]}
                     >
-                      <Text style={styles.offerCtaText}>
-                        {t(
-                          language,
-                          message.offer.type === 'openMeasure'
-                            ? 'coachChat.measure.open'
-                            : message.offer.type === 'weighIn'
-                              ? 'coachChat.weighIn.on'
-                            : message.offer.type === 'goal'
-                              ? 'coachChat.goal.set'
-                              : message.offer.type === 'log'
-                                ? 'coachChat.measure.log'
-                                : 'coachChat.measure.pin',
-                        )}
-                      </Text>
+                      <Text style={styles.offerCtaText}>{t(language, OFFER_CTA_KEYS[message.offer.type])}</Text>
                     </Pressable>
                   </View>
                 </View>
@@ -1023,6 +1081,15 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     borderColor: theme.border,
+  },
+  // A quiet line under the offer, not a badge: it qualifies the button below
+  // rather than competing with it.
+  offerNote: {
+    color: theme.faint,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '700',
+    marginTop: 6,
   },
   offerGhostText: {
     color: theme.muted,
