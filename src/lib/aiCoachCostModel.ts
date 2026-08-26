@@ -31,6 +31,39 @@ export const HAIKU_4_5_PRICING: ModelPricing = {
   outputPerMTok: 5,
 };
 
+/**
+ * Claude Sonnet 5 — what production actually runs.
+ *
+ * `AI_COACH_CLAUDE_MODEL` overrides the Haiku default in the deployed
+ * environment, because Haiku's answers were not good enough to ship (user
+ * decision 2026-08-23). Every rate is exactly 2x Haiku's, verified against
+ * platform.claude.com/docs/en/about-claude/pricing on 2026-08-26.
+ */
+export const SONNET_5_PRICING: ModelPricing = {
+  inputPerMTok: 2,
+  cacheWritePerMTok: 2.5,
+  cacheReadPerMTok: 0.2,
+  outputPerMTok: 10,
+};
+
+/**
+ * How many tokens the same text costs on this model, relative to Haiku 4.5.
+ *
+ * Price per token is only half of a model switch. Claude 4.7 and later ship a
+ * different tokenizer that produces roughly 30% more tokens for identical
+ * text, so a context measured in Haiku tokens understates Sonnet 5's bill even
+ * before the per-token rate is applied. Sonnet 4.6 and earlier use the old
+ * tokenizer and sit at 1.0.
+ *
+ * Approximate by construction: the real figure depends on the text. Vinha's
+ * payload is mostly exercise names, numbers and Finnish, which the old
+ * tokenizer already split badly, so 1.3 is the conservative end.
+ */
+export const TOKENIZER_FACTOR_VS_HAIKU_4_5: Record<'haiku-4-5' | 'sonnet-5', number> = {
+  'haiku-4-5': 1,
+  'sonnet-5': 1.3,
+};
+
 export interface CoachUsageProfile {
   label: string;
   /**

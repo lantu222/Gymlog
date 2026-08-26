@@ -2,6 +2,8 @@ const assert = require('node:assert/strict');
 
 const {
   HAIKU_4_5_PRICING,
+  SONNET_5_PRICING,
+  TOKENIZER_FACTOR_VS_HAIKU_4_5,
   conversationCost,
   cacheBreakEvenQuestions,
   monthlyCost,
@@ -71,6 +73,44 @@ module.exports = [
       const double = monthlyCost(profile({ conversationsPerMonth: 20 }), HAIKU_4_5_PRICING);
       assert.ok(Math.abs(double.perUserUsd - monthly.perUserUsd * 2) < 1e-9);
       assert.ok(Math.abs(monthly.fleetUsd(1000) - monthly.perUserUsd * 1000) < 1e-6);
+    },
+  },
+  {
+    name: 'sonnet 5 is priced at exactly twice haiku, and costs more than twice as much',
+    run() {
+      // Production runs Sonnet 5 via AI_COACH_CLAUDE_MODEL, because Haiku's
+      // answers were not good enough to ship (user decision 2026-08-23). The
+      // rates are 2x Haiku's across every category — verified against
+      // platform.claude.com pricing 2026-08-26.
+      for (const key of ['inputPerMTok', 'cacheWritePerMTok', 'cacheReadPerMTok', 'outputPerMTok']) {
+        assert.equal(
+          SONNET_5_PRICING[key],
+          HAIKU_4_5_PRICING[key] * 2,
+          `${key} is no longer exactly 2x Haiku — re-read the pricing page`,
+        );
+      }
+
+      // But 2x the rate is not 2x the bill. Claude 4.7 and later tokenize the
+      // same text into about 30% more tokens, so the real multiplier is ~2.6x
+      // and a comparison that skips this understates it by a quarter.
+      assert.equal(TOKENIZER_FACTOR_VS_HAIKU_4_5['haiku-4-5'], 1);
+      assert.ok(TOKENIZER_FACTOR_VS_HAIKU_4_5['sonnet-5'] > 1);
+
+      const base = profile({ questionsPerConversation: 2 });
+      const haiku = conversationCost(base, HAIKU_4_5_PRICING).cachedUsd;
+      const factor = TOKENIZER_FACTOR_VS_HAIKU_4_5['sonnet-5'];
+      const sonnet = conversationCost(
+        {
+          ...base,
+          prefixTokens: Math.round(base.prefixTokens * factor),
+          promptTokens: Math.round(base.promptTokens * factor),
+          outputTokens: Math.round(base.outputTokens * factor),
+        },
+        SONNET_5_PRICING,
+      ).cachedUsd;
+
+      const ratio = sonnet / haiku;
+      assert.ok(ratio > 2.5 && ratio < 2.7, `expected ~2.6x, got ${ratio.toFixed(2)}x`);
     },
   },
   {

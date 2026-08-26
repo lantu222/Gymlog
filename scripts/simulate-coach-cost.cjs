@@ -25,11 +25,39 @@ const { buildAiCoachSystemContext } = require(path.join(DIST, 'aiCoachSystemCont
 const { estimateTokens, DEFAULT_BUDGET_LIMITS } = require(path.join(DIST, 'aiCoachBudget.js'));
 const {
   HAIKU_4_5_PRICING,
+  SONNET_5_PRICING,
+  TOKENIZER_FACTOR_VS_HAIKU_4_5,
   conversationCost,
   cacheBreakEvenQuestions,
   monthlyCost,
   grossMarginShare,
 } = require(path.join(DIST, 'aiCoachCostModel.js'));
+
+/**
+ * Which model to price. Defaults to what production runs, not what the code
+ * falls back to — the deployed AI_COACH_CLAUDE_MODEL has been Sonnet 5 since
+ * 2026-08-23, and a simulation of the unused default answers no question.
+ *
+ *   node scripts/simulate-coach-cost.cjs                    # sonnet-5
+ *   node scripts/simulate-coach-cost.cjs --model haiku-4-5
+ */
+const MODEL_KEY = (() => {
+  const i = process.argv.indexOf('--model');
+  const value = i === -1 ? 'sonnet-5' : process.argv[i + 1];
+  if (value !== 'sonnet-5' && value !== 'haiku-4-5') {
+    console.error(`Unknown --model ${value}. Use sonnet-5 or haiku-4-5.`);
+    process.exit(1);
+  }
+  return value;
+})();
+const PRICING = MODEL_KEY === 'sonnet-5' ? SONNET_5_PRICING : HAIKU_4_5_PRICING;
+/**
+ * estimateTokens is calibrated on the pre-4.7 tokenizer. Claude 4.7 and later
+ * split the same text into roughly 30% more tokens, so every measured count
+ * has to be scaled before it is priced or the bill comes out low.
+ */
+const TOKENIZER = TOKENIZER_FACTOR_VS_HAIKU_4_5[MODEL_KEY];
+const modelTokens = (tokens) => Math.round(tokens * TOKENIZER);
 
 const DAY_MS = 86400000;
 const NOW = Date.parse('2026-07-28T09:00:00.000Z');
@@ -110,16 +138,17 @@ const ENGAGEMENT = [
   { label: 'abusive (at the rate limit, every day)', conversationsPerMonth: 30, questionsPerConversation: 12 },
 ];
 
-const PROMPT_TOKENS = estimateTokens('x'.repeat(160)); // a real typed question
-const OUTPUT_TOKENS = 350; // schema-shaped answer; max_tokens caps it at 700
+const PROMPT_TOKENS = modelTokens(estimateTokens('x'.repeat(160))); // a real typed question
+const OUTPUT_TOKENS = modelTokens(350); // schema-shaped answer; max_tokens caps it at 700
 const usd = (value) => `$${value.toFixed(4)}`;
 
 const constants = readEndpointConstants();
-const overheadTokens = estimateTokens('x'.repeat(constants.rulesChars + constants.schemaChars));
+const overheadTokens = modelTokens(estimateTokens('x'.repeat(constants.rulesChars + constants.schemaChars)));
 
 console.log('AI Coach cost simulation');
 console.log('='.repeat(78));
-console.log(`Model: claude-haiku-4-5   in $${HAIKU_4_5_PRICING.inputPerMTok}/MTok   out $${HAIKU_4_5_PRICING.outputPerMTok}/MTok`);
+console.log(`Model: claude-${MODEL_KEY}   in $${PRICING.inputPerMTok}/MTok   out $${PRICING.outputPerMTok}/MTok`);
+console.log(`Tokenizer: ${TOKENIZER}x Haiku 4.5 token counts for the same text`);
 console.log(`Fixed overhead per call: rules + tool schema = ~${overheadTokens} tokens`);
 console.log(`Output assumed ${OUTPUT_TOKENS} tokens (endpoint caps at ${DEFAULT_BUDGET_LIMITS.maxOutputTokens})`);
 console.log('');
@@ -139,7 +168,7 @@ const measured = PROFILES.map((profile) => {
       `~${String(contextTokens).padStart(5)} tok  (${headroom}% of the ${DEFAULT_BUDGET_LIMITS.maxContextChars}-char cap)`,
   );
 
-  return { ...profile, contextTokens, prefixTokens: contextTokens + overheadTokens };
+  return { ...profile, contextTokens, prefixTokens: modelTokens(contextTokens) + overheadTokens };
 });
 
 console.log('');
@@ -156,7 +185,7 @@ for (const engagement of ENGAGEMENT) {
       questionsPerConversation: engagement.questionsPerConversation,
       conversationsPerMonth: engagement.conversationsPerMonth,
     },
-    HAIKU_4_5_PRICING,
+    PRICING,
   );
   const verdict = cost.cachedUsd <= cost.uncachedUsd ? 'cache wins' : 'cache COSTS more';
   console.log(
@@ -164,7 +193,7 @@ for (const engagement of ENGAGEMENT) {
       `cached ${usd(cost.cachedUsd)}   uncached ${usd(cost.uncachedUsd)}   ${verdict}`,
   );
 }
-console.log(`\nBreak-even: caching pays from ${cacheBreakEvenQuestions(HAIKU_4_5_PRICING)} questions per 5-minute window.`);
+console.log(`\nBreak-even: caching pays from ${cacheBreakEvenQuestions(PRICING)} questions per 5-minute window.`);
 
 console.log('');
 console.log('COST PER PRO USER PER MONTH');
@@ -181,7 +210,7 @@ for (const profile of measured) {
         questionsPerConversation: engagement.questionsPerConversation,
         conversationsPerMonth: engagement.conversationsPerMonth,
       },
-      HAIKU_4_5_PRICING,
+      PRICING,
     );
     return usd(monthly.perUserUsd).padStart(13);
   });
@@ -201,7 +230,7 @@ const fleetMonthly = monthlyCost(
     questionsPerConversation: 2,
     conversationsPerMonth: 12,
   },
-  HAIKU_4_5_PRICING,
+  PRICING,
 );
 for (const users of [100, 1000, 10000, 100000]) {
   console.log(`${String(users).padStart(7)} Pro users   ${usd(fleetMonthly.fleetUsd(users)).padStart(12)} / month`);
@@ -219,7 +248,7 @@ const worst = monthlyCost(
     questionsPerConversation: 12,
     conversationsPerMonth: 30,
   },
-  HAIKU_4_5_PRICING,
+  PRICING,
 );
 console.log(`per user  ${usd(worst.perUserUsd)} / month`);
 for (const price of [4.99, 7.99, 9.99]) {
