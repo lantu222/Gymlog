@@ -656,6 +656,7 @@ function BigBtn({
   icon = 'check',
   disabled,
   shimmer,
+  tall,
 }: {
   label: string;
   onPress: () => void;
@@ -669,6 +670,8 @@ function BigBtn({
    * button a screen exists to get pressed, not on every button.
    */
   shimmer?: boolean;
+  /** For a screen whose whole job is this one decision. */
+  tall?: boolean;
 }) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -681,11 +684,15 @@ function BigBtn({
   return (
     <Pressable
       onPress={disabled ? undefined : onPress}
-      style={[styles.bigBtn, { backgroundColor: color, opacity: disabled ? 0.6 : 1, shadowColor: color }]}
+      style={[
+        styles.bigBtn,
+        tall && styles.bigBtnTall,
+        { backgroundColor: color, opacity: disabled ? 0.6 : 1, shadowColor: color },
+      ]}
     >
       {shimmer && !disabled ? <CtaShimmer tint={`${foreground}55`} /> : null}
-      <GPIcon name={icon} size={20} color={foreground} sw={2.6} />
-      <Text style={[styles.bigBtnText, { color: foreground }]}>{label}</Text>
+      <GPIcon name={icon} size={tall ? 23 : 20} color={foreground} sw={2.6} />
+      <Text style={[styles.bigBtnText, tall && styles.bigBtnTextTall, { color: foreground }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -1822,36 +1829,46 @@ export function GuidedPlayerScreen({
                   2.3-second timer is a choice you reach for and miss (user
                   2026-08-26). */}
               <Pressable
-                style={styles.splashRoot}
+                style={skippablePhase ? styles.splashChoiceRoot : styles.splashRoot}
                 onPress={splashCarriesChoice(step) ? undefined : advance}
                 disabled={splashCarriesChoice(step)}
               >
-                {step.doneLabel ? (
-                  <PopIn popKey={stepIndex}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 18 }}>
-                      <View style={styles.splashCheck}>
-                        <GPIcon name="check" size={16} color={theme.green} sw={2.8} />
+                {/* The block name owns the upper half; the decision sits down
+                    where a thumb already is (user 2026-08-26). */}
+                <View style={skippablePhase ? styles.splashChoiceCopy : undefined}>
+                  {step.doneLabel ? (
+                    <PopIn popKey={stepIndex}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+                        <View style={styles.splashCheck}>
+                          <GPIcon name="check" size={16} color={theme.green} sw={2.8} />
+                        </View>
+                        <Text style={{ fontSize: 14.5, fontWeight: '800', color: theme.green }}>{step.doneLabel}</Text>
                       </View>
-                      <Text style={{ fontSize: 14.5, fontWeight: '800', color: theme.green }}>{step.doneLabel}</Text>
-                    </View>
-                  </PopIn>
-                ) : null}
-                <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: theme.muted }}>
-                  {t(language, 'guided.upNext')}
-                </Text>
-                <Text style={styles.splashTitle}>{step.title}</Text>
-                <Text style={{ fontSize: 15, fontWeight: '600', color: theme.muted }}>{step.sub}</Text>
+                    </PopIn>
+                  ) : null}
+                  <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: theme.muted }}>
+                    {t(language, 'guided.upNext')}
+                  </Text>
+                  <Text style={styles.splashTitle}>{step.title}</Text>
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: theme.muted }}>{step.sub}</Text>
+                </View>
                 {/* The block is a suggestion, not a gate — and leaving it is a
                     real choice, so it gets a real button rather than a muted
-                    line of text nobody found (user 2026-08-26). */}
+                    line of text nobody found (user 2026-08-26). Orange on the
+                    one that continues, because orange means pressable
+                    everywhere else in this app. */}
                 {skippablePhase ? (
-                  <View style={{ alignSelf: 'stretch', gap: 10, marginTop: 30, paddingHorizontal: 8 }}>
+                  <View style={{ alignSelf: 'stretch', gap: 12 }}>
                     <BigBtn
+                      tall
                       icon="play"
-                      color={theme.purple}
+                      color={theme.accent}
                       label={t(language, `guided.own.start.${skippablePhase}` as 'guided.own.start.warmup')}
                       onPress={advance}
                     />
+                    <Text style={styles.splashChoiceHint}>
+                      {t(language, `guided.own.ask.${skippablePhase}` as 'guided.own.ask.warmup')}
+                    </Text>
                     <Pressable
                       accessibilityRole="button"
                       hitSlop={10}
@@ -3226,9 +3243,26 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   splashTitle: { fontSize: 46, fontWeight: '800', letterSpacing: -1.4, color: theme.ink, textAlign: 'center' },
 
+  // The phase intro that carries a fork: copy in the upper half, the two
+  // buttons down where a thumb rests rather than floating mid-screen.
+  splashChoiceRoot: {
+    flex: 1,
+    paddingHorizontal: 26,
+    paddingTop: 8,
+    paddingBottom: 26,
+    justifyContent: 'space-between',
+  },
+  splashChoiceCopy: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
+  splashChoiceHint: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: theme.muted,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+
   /* doing a block your own way */
   ownBlockCta: {
-    marginTop: 26,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -3525,7 +3559,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     shadowRadius: 24,
     elevation: 6,
   },
+  bigBtnTall: { height: 70, borderRadius: 22 },
   bigBtnText: { fontSize: 16.5, fontWeight: '800', color: '#fff', letterSpacing: -0.2 },
+  bigBtnTextTall: { fontSize: 19 },
   ghostBtn: {
     height: 48,
     borderRadius: 15,

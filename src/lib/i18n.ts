@@ -1357,6 +1357,10 @@ const EN = {
   // leaving (user 2026-08-26).
   'guided.own.start.warmup': 'Start the warm-up',
   'guided.own.start.cooldown': 'Start the recovery',
+  // A question the button under it answers, rather than a sentence quoting
+  // that button's own label back at the reader.
+  'guided.own.ask.warmup': 'Rather warm up your own way?',
+  'guided.own.ask.cooldown': 'Rather recover your own way?',
   'guided.own.warmup': 'Warm up your own way',
   'guided.own.cooldown': 'Recover your own way',
   'guided.own.eyebrow': 'YOUR OWN WAY',
@@ -4549,6 +4553,8 @@ const FI: Record<I18nKey, string> = {
   'guided.pause': 'Tauko',
   'guided.own.start.warmup': 'Aloita lämmittely',
   'guided.own.start.cooldown': 'Aloita palautuminen',
+  'guided.own.ask.warmup': 'Teetkö lämmittelyn mieluummin omalla tavallasi?',
+  'guided.own.ask.cooldown': 'Palaudutko mieluummin omalla tavallasi?',
   'guided.own.warmup': 'Lämmittele omatoimisesti',
   'guided.own.cooldown': 'Palaudu omatoimisesti',
   'guided.own.eyebrow': 'OMATOIMISESTI',
