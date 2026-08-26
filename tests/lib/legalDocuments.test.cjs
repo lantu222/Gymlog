@@ -274,7 +274,7 @@ module.exports = [
       assert.ok(premium.includes("onOpenLegal('privacy')"), 'Pro page privacy link is inert text');
       assert.ok(premium.includes("onOpenLegal('terms')"), 'Pro page terms link is inert text');
 
-      const app = read('App.tsx');
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
       assert.ok(app.includes('<LegalDocumentScreen'), 'The legal screen is never rendered');
       assert.ok(
         (app.match(/screen: 'legal', document/g) ?? []).length >= 2,

@@ -81,7 +81,7 @@ module.exports = [
       );
       assert.ok(gate.includes('ProgramLimitReachedError'), 'the throw belongs to the create branch');
 
-      const app = read('App.tsx');
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
       // The two authoring entries check before navigating, so the wall lands
       // where the user pressed rather than after they have filled in a form.
       assert.match(app, /programSlots\.canCreate[\s\S]{0,120}setProgramLimitVisible\(true\)/);
@@ -130,7 +130,7 @@ module.exports = [
     name: 'wanting a ready program changed is the funnel into the cap',
     run() {
       const plan = read('src', 'screens', 'TrainingPlanScreen.tsx');
-      const app = read('App.tsx');
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
 
       // Browsing and running the catalog is free and unlimited; the slot is
       // spent at "I want it my way", which is the moment their paying users

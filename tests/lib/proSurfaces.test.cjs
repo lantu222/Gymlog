@@ -6,7 +6,10 @@ function read(...segments) {
   return fs.readFileSync(path.join(__dirname, '..', '..', ...segments), 'utf8');
 }
 
-const appSource = read('App.tsx');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+
+// The switchboard and its extracted tab modules — see helpers/appWiringSource.
+const appSource = readAppWiring();
 const settingsSource = read('src', 'screens', 'SettingsScreen.tsx');
 const premiumSource = read('src', 'screens', 'PremiumScreen.tsx');
 const homeSource = read('src', 'screens', 'HomeScreen.tsx');

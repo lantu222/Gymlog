@@ -707,9 +707,14 @@ module.exports = [
       assert.match(homeScreenSource, /home\.calendar\.setDays/);
       assert.match(homeScreenSource, /onSetTrainingDays/);
       // editSchedule: true, because landing on a read-only schedule with an
-      // Edit button is not what "Pick your training days" promised.
+      // Edit button is not what "Pick your training days" promised. The
+      // receiving end moved to src/app with the profile tab (phase A), so it
+      // is read from the whole wiring, not App.tsx alone.
       assert.match(appSource, /screen: 'training_plan', editSchedule: true/);
-      assert.match(appSource, /startEditingSchedule=\{route\.editSchedule === true\}/);
+      assert.match(
+        require('../helpers/appWiringSource.cjs').readAppWiring(),
+        /startEditingSchedule=\{route\.editSchedule === true\}/,
+      );
 
       // The dots themselves stay gated on real data in both calendar views.
       // The gate is a schedule now rather than a weekday count, because a

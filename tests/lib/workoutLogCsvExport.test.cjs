@@ -125,7 +125,7 @@ module.exports = [
       assert.doesNotMatch(screen, /proUnlocked|isProUnlocked|onOpenPremium/);
       assert.match(screen, /buildWorkoutLogCsv\(log\)/);
 
-      const app = read('App.tsx');
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
       assert.match(app, /log=\{\{ sessions: database\.workoutSessions, logs: database\.exerciseLogs \}\}/);
 
       // The claims themselves, each checked against the code that backs it.

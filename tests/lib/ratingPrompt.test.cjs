@@ -142,7 +142,7 @@ module.exports = [
       const path = require('node:path');
       const root = path.join(__dirname, '..', '..');
       const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
-      const appSource = read('App.tsx');
+      const appSource = require('../helpers/appWiringSource.cjs').readAppWiring();
 
       // Decided at the peak moment, on the way out of the finish screen.
       assert.match(appSource, /<RateAppSheet/);

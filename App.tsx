@@ -40,10 +40,6 @@ import { formatWorkoutDisplayLabel } from './src/lib/displayLabel';
 import { buildCardioStatsLine, getCardioActivity } from './src/lib/cardio';
 import { setSoundCuesEnabled } from './src/utils/sound';
 import { haptics, setHapticsEnabled } from './src/utils/haptics';
-import {
-  getNotificationPermissionGranted,
-  requestNotificationPermission,
-} from './src/utils/appNotifications';
 import { useScheduledNotifications } from './src/hooks/useScheduledNotifications';
 import { ThemeProvider, themeForName, useTheme } from './src/theming';
 import { writeHomeWidgetPayload } from './src/utils/homeWidget';
@@ -120,10 +116,7 @@ import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVi
 import { I18nKey, t } from './src/lib/i18n';
 import { buildCoachModules } from './src/lib/aiCoachModules';
 import { isProUnlocked, resolveProEntitlement, resolveProgressionOptions, resolveTrialProUntil } from './src/lib/proEntitlement';
-import { isDemoBuild } from './src/lib/demoMode';
 import { ThemeChoiceDialog } from './src/components/ThemeChoiceDialog';
-import { buildCancelSurveyAnswer } from './src/lib/cancelSurvey';
-import { MOCK_BILLING, nextChargeAt } from './src/lib/subscriptionView';
 import { toProgressionFatigueSignal } from './src/lib/progressionGate';
 import { resolveThemeName } from './src/lib/themePreference';
 import { localizeSessionFocus, localizeSessionName } from './src/lib/sessionNameLabel';
@@ -221,6 +214,7 @@ import { buildTailoringBadgeLabels, buildTailoringPreferences } from './src/lib/
 import { popRoute, pushRoute } from './src/navigation/routeHistory';
 import { AppRoute, ROOT_ROUTES, RootTabKey, WORKOUT_PLAN_ROUTE } from './src/navigation/routes';
 import { getBackRoute } from './src/app/backRoute';
+import { renderProfileTab } from './src/app/renderProfileTab';
 import { formatGoalLabel, formatHomeSessionTitle } from './src/app/homeSessionTitle';
 import {
   buildSavedOnboardingPlan,
@@ -256,22 +250,9 @@ import { buildPremiumHeroChart } from './src/lib/premiumHeroChart';
 import { buildProChatHeroScript } from './src/lib/proChatHero';
 import { programTableToCsv } from './src/lib/programImageImport';
 import { pickProgramImage } from './src/utils/programImagePicker';
-import { PremiumScreen } from './src/screens/PremiumScreen';
-import { PremiumUnlockScreen } from './src/screens/PremiumUnlockScreen';
 import { VinhaSplashScreen } from './src/screens/VinhaSplashScreen';
-import { ProfileScreen } from './src/screens/ProfileScreen';
-import { SettingsScreen } from './src/screens/SettingsScreen';
-import { MyDataScreen } from './src/screens/MyDataScreen';
-import { ExportPlanScreen, ExportablePlan } from './src/screens/ExportPlanScreen';
+import { ExportablePlan } from './src/screens/ExportPlanScreen';
 import { NewProgramSheet } from './src/components/NewProgramSheet';
-import { EditProfileScreen } from './src/screens/EditProfileScreen';
-import { TrainingPlanScreen } from './src/screens/TrainingPlanScreen';
-import { NotificationsScreen } from './src/screens/NotificationsScreen';
-import { TrainingBreakScreen } from './src/screens/TrainingBreakScreen';
-import { PromoCodeScreen } from './src/screens/PromoCodeScreen';
-import { SubscriptionScreen } from './src/screens/SubscriptionScreen';
-import { MembershipEndScreen } from './src/screens/MembershipEndScreen';
-import { LegalDocumentScreen } from './src/screens/LegalDocumentScreen';
 import { AICoachChatScreen } from './src/screens/AICoachChatScreen';
 import { buildCoachContextChips } from './src/lib/coachChat';
 import { isAiCoachLiveConfigured, requestProgrammeComposition, requestProgramTableFromImage } from './src/lib/aiCoachClient';
@@ -5346,350 +5327,54 @@ function VinhaApp() {
         onAskCoach={() => navigate({ tab: 'home', screen: 'ai_chat' })}
       />
     );
-  } else if (route.tab === 'profile' && route.screen === 'premium') {
-    content = (
-      <PremiumScreen
-        reason={route.reason ?? null}
-        language={preferences.appLanguage}
-        previewUnlocked={preferences.adaptiveCoachPremiumUnlocked}
-        proUnlocked={coachProUnlocked}
-        chatScript={premiumChatScript}
-        onManageSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
-        onBack={() => navigateBack(ROOT_ROUTES.profile)}
-        onTogglePreview={(plan) => {
-          // The CTA sells a subscription the app cannot take money for (demo
-          // build). What it actually does is flip the preview switch — and if
-          // that turns Pro ON, the unlock moment follows, which is the point.
-          const turningOn = !preferences.adaptiveCoachPremiumUnlocked;
-          void updatePreferences({
-            adaptiveCoachPremiumUnlocked: turningOn,
-            // The purchase instant and the chosen term, stored together. Every
-            // renewal date in the app is counted from these rather than written
-            // — the requirement #bugs locked after the receipt shipped a
-            // hardcoded "15.9.2026". Billing replaces this one write.
-            ...(turningOn
-              ? { mockSubscriptionPurchasedAt: new Date().toISOString(), mockSubscriptionTerm: plan }
-              : {}),
-          });
-          if (turningOn) {
-            navigate({ tab: 'profile', screen: 'premium_unlock', plan });
-          }
-        }}
-        onOpenLegal={(document) => navigate({ tab: 'profile', screen: 'legal', document })}
-      />
-    );
-  } else if (route.tab === 'profile' && route.screen === 'premium_unlock') {
-    content = (
-      <PremiumUnlockScreen
-        language={preferences.appLanguage}
-        plan={route.plan}
-        // The reads just unlocked; this is the first one, from their own log.
-        coachSpecimen={proCoachSpecimen}
-        onOpenAnalysis={() => navigate({ tab: 'progress', screen: 'list' })}
-        onManageSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
-        // Counted here, from the instant the purchase was recorded plus the
-        // term's own length. One function, shared with the subscription screen.
-        renewsAt={nextChargeAt(
-          route.plan ?? preferences.mockSubscriptionTerm,
-          preferences.mockSubscriptionPurchasedAt ?? MOCK_BILLING.lastChargedAt,
-        )}
-        // "Takaisin treeniin" goes to Home, not back to the tab the purchase
-        // happened to start from. The route lives under `profile` because the
-        // paywall does, but the button names a destination and the reader takes
-        // it literally: Home is where training starts.
-        //
-        // Straight Home. The theme offer used to sit in between, because the
-        // unlock screen listed dark as one of the things that just changed —
-        // it does not any more (free since 2026-08-23), and offering a choice
-        // the reader already made during onboarding is asking twice.
-        onDone={() => resetToRoute(ROOT_ROUTES.home)}
-      />
-    );
-  } else if (route.tab === 'profile' && route.screen === 'training_plan') {
-    content = (
-      <TrainingPlanScreen
-        language={preferences.appLanguage}
-        startEditingSchedule={route.editSchedule === true}
-        planName={profilePlanSummary.name}
-        planType={homeActivePlanCard?.programType ?? null}
-        planDaysPerWeek={profilePlanSummary.daysPerWeek}
-        planExerciseCount={profilePlanSummary.exerciseCount}
-        sessions={(homeActivePlanCard?.sessions ?? []).map((session) => ({
-          id: session.id,
-          // Focus only, no "Päivä N:" — the row's position already says which
-          // day this is, and the ordinal cost the name its width (#bugs
-          // 2026-08-25).
-          title: localizeSessionFocus(formatWorkoutDisplayLabel(session.title), preferences.appLanguage),
-          exerciseCount: session.exercises.length,
-          totalSets: session.totalSets ?? 0,
-          isNext: session.id === homeActivePlanCard?.nextSession.id,
-        }))}
-        trainingDays={preferences.setupAvailableDays}
-        trainingCycle={preferences.trainingCycle}
-        exerciseLibrary={exerciseBrowserItems}
-            nameBook={exerciseNameBook}
-            onTeachName={(wrote, exercise) => teachExerciseName(wrote, { name: exercise.name, libraryItemId: exercise.id })}
-            onPickImage={handlePickProgramImage}
-        onBack={() => navigateBack(ROOT_ROUTES.profile)}
-        onChangeTrainingDays={(days) => void handleChangeTrainingDays(days)}
-        onChangeTrainingCycle={(cycle) => void updatePreferences({ trainingCycle: cycle })}
-        onEditCustomPlan={
-          homeActivePlanCard?.programType === 'custom'
-            ? () =>
-                navigate({ tab: 'workout', screen: 'template', workoutTemplateId: homeActivePlanCard.programId })
-            : undefined
-        }
-        onCopyToCustomPlan={
-          homeActivePlanCard?.programType === 'ready' ? handleCopyReadyProgramToCustom : undefined
-        }
-        onAiAssisted={() => navigate(coachProUnlocked ? { tab: 'home', screen: 'ai_setup' } : { tab: 'profile', screen: 'premium' })}
-        onBuildYourself={() =>
-          programSlots.canCreate
-            ? navigate({ tab: 'workout', screen: 'template' })
-            : setProgramLimitVisible(true)
-        }
-        onImportProgram={async (draft) => {
-          const workoutTemplateId = await upsertWorkoutTemplate(draft);
-          navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
-        }}
-      />
-    );
-  } else if (route.tab === 'profile' && route.screen === 'notifications') {
-    content = (
-      <NotificationsScreen
-        language={preferences.appLanguage}
-        prefs={preferences.notificationPrefs}
-        trainingDays={preferences.setupAvailableDays}
-        onTrainingBreak={preferences.trainingBreak !== null}
-        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
-        onChange={(patch) =>
-          void updatePreferences({ notificationPrefs: { ...preferences.notificationPrefs, ...patch } })
-        }
-        requestPermission={requestNotificationPermission}
-        checkPermission={getNotificationPermissionGranted}
-        onOpenTrainingPlan={() => navigate({ tab: 'profile', screen: 'training_plan' })}
-      />
-    );
-  } else if (route.tab === 'profile' && route.screen === 'training_break') {
-    content = (
-      <TrainingBreakScreen
-        language={preferences.appLanguage}
-        trainingBreak={preferences.trainingBreak}
-        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
-        onStartBreak={(reason, note) =>
-          void updatePreferences({ trainingBreak: { reason, note, startedAt: new Date().toISOString() } })
-        }
-        onEndBreak={() => void updatePreferences({ trainingBreak: null })}
-      />
-    );
-  } else if (route.tab === 'profile' && route.screen === 'promo') {
-    content = (
-      <PromoCodeScreen
-        language={preferences.appLanguage}
-        promoProUntil={preferences.promoProUntil}
-        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
-        // Only the promo date is stored. Flipping the preview switch here too
-        // would make a 30-day code permanent Pro, because nothing ever turns
-        // that switch back off — resolveProEntitlement reads the date itself.
-        onRedeemed={(proUntilIso) => void updatePreferences({ promoProUntil: proUntilIso })}
-      />
-    );
-  } else if (route.tab === 'profile' && route.screen === 'subscription') {
-    content = (
-      <SubscriptionScreen
-        language={preferences.appLanguage}
-        entitlement={proEntitlement}
-        // Only an *expired* promo means "lapsed". A live one is active Pro and
-        // resolveSubscriptionView reads it from the entitlement instead.
-        lapsedPromoUntil={proEntitlement.unlocked ? null : preferences.promoProUntil}
-        mockTerm={preferences.mockSubscriptionTerm}
-        mockCancelled={preferences.mockSubscriptionCancelled}
-        purchasedAt={preferences.mockSubscriptionPurchasedAt}
-        onChangeMockTerm={(term) => void updatePreferences({ mockSubscriptionTerm: term })}
-        onChangeMockCancelled={(cancelled) =>
-          void updatePreferences({ mockSubscriptionCancelled: cancelled })
-        }
-        demoBuild={isDemoBuild()}
-        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
-        onManageMembership={() => navigate({ tab: 'profile', screen: 'membership_end' })}
-        onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
-      />
-    );
-  } else if (route.tab === 'profile' && route.screen === 'membership_end') {
-    content = (
-      <MembershipEndScreen
-        language={preferences.appLanguage}
-        // The entitlement names its own source, so the screen never has to
-        // guess which of promo / demo switch is keeping Pro on.
-        source={proEntitlement.source ?? 'none'}
-        promoUntil={proEntitlement.promoUntil}
-        periodEndsAt={nextChargeAt(preferences.mockSubscriptionTerm, MOCK_BILLING.lastChargedAt)}
-        onBack={() => navigateBack({ tab: 'profile', screen: 'subscription' })}
-        onKeep={() => navigateBack({ tab: 'profile', screen: 'subscription' })}
-        // Cancelling leaves Pro switched ON until the period ends — that is what
-        // the page promises two lines above the button, so ending it on the spot
-        // would contradict the screen the reader is standing on.
-        onEndNow={() => void updatePreferences({ mockSubscriptionCancelled: true })}
-        onSurveyDone={(reasons, note) => {
-          const answer = buildCancelSurveyAnswer(reasons, note, new Date().toISOString());
-          if (answer) {
-            void updatePreferences({ cancelSurveyAnswer: answer });
-          }
-        }}
-      />
-    );
-  } else if (route.tab === 'profile' && route.screen === 'legal') {
-    content = (
-      <LegalDocumentScreen
-        document={route.document}
-        language={preferences.appLanguage}
-        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
-      />
-    );
-  } else if (route.tab === 'profile' && route.screen === 'edit_profile') {
-    content = (
-      <EditProfileScreen
-        language={preferences.appLanguage}
-        initialName={preferences.profileName}
-        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
-        onSave={(name) => void updatePreferences({ profileName: name })}
-      />
-    );
-  } else if (route.tab === 'profile' && route.screen === 'my_data') {
-    content = (
-      <MyDataScreen
-        language={preferences.appLanguage}
-        preferences={preferences}
-        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
-        onSaveBasics={(patch) => void updatePreferences(patch)}
-        onEditLimitations={() => navigate({ tab: 'profile', screen: 'setup', stage: 'avoid' })}
-        onCreateNewPlan={() => navigate({ tab: 'profile', screen: 'setup', stage: 'location' })}
-      />
-    );
-  } else if (route.tab === 'profile' && route.screen === 'export_plan') {
-    content = (
-      <ExportPlanScreen
-        language={preferences.appLanguage}
-        plans={exportablePlans}
-        log={{ sessions: database.workoutSessions, logs: database.exerciseLogs }}
-        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
-      />
-    );
-  } else if (route.tab === 'profile' && route.screen === 'settings') {
-    content = (
-      <SettingsScreen
-        preferences={preferences}
-        initialScrollOffset={settingsScrollOffsetRef.current}
-        onScrollOffsetChange={(offsetY) => {
-          settingsScrollOffsetRef.current = offsetY;
-        }}
-        onOpenEditProfile={() => navigate({ tab: 'profile', screen: 'edit_profile' })}
-        onBack={() => navigateBack(ROOT_ROUTES.profile)}
-        onPreferencesChange={async (patch) => {
-          await updatePreferences(patch);
-        }}
-        onOpenMyData={() => navigate({ tab: 'profile', screen: 'my_data' })}
-        onImportPlan={() => setSettingsImportVisible(true)}
-        onExportPlan={() => navigate({ tab: 'profile', screen: 'export_plan' })}
-        homeWidget={
-          homeWidgetState?.supported
-            ? { added: homeWidgetState.added, onAdd: () => void handleAddHomeWidget() }
-            : null
-        }
-        onOpenNotifications={() => navigate({ tab: 'profile', screen: 'notifications' })}
-        onOpenTrainingBreak={() => navigate({ tab: 'profile', screen: 'training_break' })}
-        onOpenPromo={() => navigate({ tab: 'profile', screen: 'promo' })}
-        onOpenSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
-        onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
-        account={
-          accountBackup.available
-            ? {
-                signedIn: accountBackup.state.status === 'signed_in',
-                email: accountBackup.state.email,
-                lastBackupAt: accountBackup.state.lastBackupAt,
-                busy: accountBackup.phase !== 'idle',
-                onSignIn: () => void handleAccountSignIn(),
-                onBackupNow: () => {
-                  void accountBackup.backupNow().then((ok) => {
-                    showToast(t(preferences.appLanguage, ok ? 'account.backupDone' : 'account.backupFailed'));
-                  });
-                },
-                onSignOut: () => void accountBackup.signOut(),
-                onDeleteRemote: () => {
-                  Alert.alert(
-                    t(preferences.appLanguage, 'account.deleteRemote'),
-                    t(preferences.appLanguage, 'account.deleteRemote.sub'),
-                    [
-                      { text: t(preferences.appLanguage, 'common.cancel'), style: 'cancel' },
-                      {
-                        text: t(preferences.appLanguage, 'account.deleteRemote'),
-                        style: 'destructive',
-                        onPress: () => {
-                          void accountBackup.deleteRemoteBackup().then((ok) => {
-                            if (ok) {
-                              showToast(t(preferences.appLanguage, 'account.deleteRemote.done'));
-                            }
-                          });
-                        },
-                      },
-                    ],
-                  );
-                },
-              }
-            : null
-        }
-        onOpenLegal={(document) => navigate({ tab: 'profile', screen: 'legal', document })}
-        // The same sheet the finish flow shows, opened on purpose rather than
-        // offered. No decideRatingPrompt here: the timing rules exist to stop
-        // the app interrupting, and a reader who taps "Rate Vinha" is not
-        // being interrupted.
-        onOpenRating={() => setRatingSheetVisible(true)}
-        onResetAllData={async () => {
-          // Sign out BEFORE wiping: reset while signed in would let the
-          // auto-backup push the freshly emptied database over the cloud
-          // copy — the reset would silently destroy the one safety net it
-          // is the safety net for. Signed out, the cloud copy survives and
-          // the next sign-in offers it back.
-          await accountBackup.signOut();
-          await resetAllData();
-          setCompletionSummary(null);
-          setWorkoutCelebration(null);
-          setFinishSaveState({ status: 'idle', sessionId: null, message: null });
-          workout.clearCompletedWorkout();
-          resetToRoute(ROOT_ROUTES.home);
-        }}
-      />
-    );
   } else if (route.tab === 'profile') {
-    content = (
-      <ProfileScreen
-        preferences={preferences}
-        lifetime={lifetimeSummary}
-        trackedProgress={trackedProgress}
-        exerciseLibrary={exerciseLibrary}
-        unitPreference={unitPreference}
-        planName={profilePlanSummary.name}
-        planDaysPerWeek={profilePlanSummary.daysPerWeek}
-        planCycleCaption={
-          preferences.trainingCycle
-            ? t(preferences.appLanguage, 'plan.rhythm.summary', {
-                on: preferences.trainingCycle.pattern.filter(Boolean).length,
-                off: preferences.trainingCycle.pattern.filter((day) => !day).length,
-                length: preferences.trainingCycle.pattern.length,
-              })
-            : null
-        }
-        planWeekdayIndexes={homeTrainingDayIndexes}
-        planExerciseCount={profilePlanSummary.exerciseCount}
-        planSessionNames={profilePlanSummary.sessionNames}
-        onOpenSettings={() => navigate({ tab: 'profile', screen: 'settings' })}
-        recordCount={distinctRecordCount}
-        onOpenRecords={() => navigate({ tab: 'progress', screen: 'list', section: 'records' })}
-        onManagePlan={() => navigate({ tab: 'profile', screen: 'training_plan' })}
-        onEditProfile={() => navigate({ tab: 'profile', screen: 'edit_profile' })}
-        onOpenRating={() => setRatingSheetVisible(true)}
-      />
-    );
+    // Everything under the profile tab except `setup`, which the onboarding
+    // gate above already claimed — the module's ProfileScreen fallback never
+    // sees it. Branch order inside the module mirrors the old chain exactly.
+    content = renderProfileTab({
+      route,
+      navigate,
+      navigateBack,
+      resetToRoute,
+      preferences,
+      updatePreferences,
+      coachProUnlocked,
+      premiumChatScript,
+      proCoachSpecimen,
+      proEntitlement,
+      profilePlanSummary,
+      homeActivePlanCard,
+      exerciseBrowserItems,
+      exerciseNameBook,
+      teachExerciseName,
+      handlePickProgramImage,
+      handleChangeTrainingDays,
+      handleCopyReadyProgramToCustom,
+      programSlots,
+      setProgramLimitVisible,
+      upsertWorkoutTemplate,
+      exportablePlans,
+      database,
+      settingsScrollOffsetRef,
+      homeWidgetState,
+      handleAddHomeWidget,
+      accountBackup,
+      handleAccountSignIn,
+      showToast,
+      setSettingsImportVisible,
+      setRatingSheetVisible,
+      resetAllData,
+      setCompletionSummary,
+      setWorkoutCelebration,
+      setFinishSaveState,
+      workout,
+      lifetimeSummary,
+      trackedProgress,
+      exerciseLibrary,
+      unitPreference,
+      homeTrainingDayIndexes,
+      distinctRecordCount,
+    });
   } else if (route.tab === 'workout' && route.screen === 'plans') {
     content = (
       <WorkoutsScreen
