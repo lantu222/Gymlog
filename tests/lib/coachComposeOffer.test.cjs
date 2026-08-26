@@ -48,32 +48,36 @@ module.exports = [
     },
   },
   {
-    name: 'compose offer: the brief travels to a composer that opens already composed',
+    name: 'compose offer: the week is drawn in the thread that asked for it',
     run() {
       const screen = read('src/screens/AICoachChatScreen.tsx');
       const wiring = require('../helpers/appWiringSource.cjs').readAppWiring();
 
       assert.match(screen, /offer: \{ type: 'compose' as const, brief \}/);
-      assert.match(screen, /onComposeProgramme\(offer\.brief\)/);
-      // The route carries the brief, and the composer is keyed on it so a
-      // second handover cannot land in a screen still showing the first
-      // proposal.
-      assert.match(wiring, /navigate\(\{ tab: 'home', screen: 'ai_setup', brief \}\)/);
-      assert.match(wiring, /initialBrief=\{route\.brief\}/);
-      assert.match(wiring, /key=\{`compose:\$\{route\.brief \?\? ''\}`\}/);
-      const routes = read('src/navigation/routes.ts');
-      const aiSetupAt = routes.indexOf("screen: 'ai_setup';");
-      assert.ok(aiSetupAt !== -1, 'the composer route must still exist');
-      // The brief has to sit in THIS union member, not merely somewhere in the
-      // file — a route that cannot carry it drops the handover silently.
-      const member = routes.slice(aiSetupAt, routes.indexOf('| {', aiSetupAt));
-      assert.match(member, /brief\?: string;/);
+      assert.match(screen, /await onComposeProgramme\(offer\.brief\)/);
 
-      const composer = read('src/screens/AiProgramComposerScreen.tsx');
-      // Opening on a spinner rather than an idle field is the point: the
-      // reader asked in the chat and is waiting for a week, not for a button.
-      assert.match(composer, /initialBrief \? 'composing' : 'idle'/);
-      assert.match(composer, /void runCompose\(seed\)/);
+      // It used to hand the brief over and navigate to the composer screen,
+      // which saved a step and ended the conversation. Drawing the week here is
+      // what lets the reader answer it — "tee siitä 5-päiväinen" — and get a
+      // revised brief back in the same thread (user 2026-08-26).
+      assert.doesNotMatch(wiring, /screen: 'ai_setup', brief/);
+      assert.doesNotMatch(wiring, /initialBrief/);
+      assert.doesNotMatch(read('src/navigation/routes.ts'), /brief\?: string/);
+      assert.doesNotMatch(read('src/screens/AiProgramComposerScreen.tsx'), /initialBrief/);
+
+      // One card, drawn by both surfaces. A second copy in the chat would mean
+      // the day list, the unmet-lift notes and the save path exist twice.
+      assert.match(screen, /<ProgrammeProposalCard/);
+      assert.match(read('src/screens/AiProgramComposerScreen.tsx'), /<ProgrammeProposalCard/);
+      // And one compose + save, so the chat cannot store a programme the
+      // composer would have refused.
+      assert.match(wiring, /compose=\{composeProgramme\}/);
+      assert.match(wiring, /onSave=\{saveProgramme\}/);
+      assert.match(wiring, /onSaveProgramme=\{saveProgramme\}/);
+
+      // A failure says so instead of leaving the thread on "building…".
+      assert.match(screen, /coachChat\.compose\.failed/);
+      assert.match(screen, /coachChat\.compose\.building/);
     },
   },
   {

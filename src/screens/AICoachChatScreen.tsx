@@ -12,6 +12,7 @@ import {
 import Svg, { Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 import { CoachReadoutTicker } from '../components/CoachReadoutTicker';
+import { ProgrammeProposalCard } from '../components/ProgrammeProposalCard';
 import { ProLockedCard } from '../components/ProLockedCard';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
 import { trackEvent } from '../features/analytics/analyticsClient';
@@ -30,6 +31,7 @@ import { AI_COACH_DEBUG_TRANSCRIPTS } from '../lib/aiCoachDebug';
 import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { layout, spacing } from '../theme';
+import { ProgrammeProposal } from '../lib/programmeBrief';
 import { AICoachAdvice, AICoachConversationTurn, AICoachTrainingContext } from '../types/aiCoach';
 import { AppLanguage } from '../types/models';
 
@@ -97,11 +99,15 @@ interface AICoachChatScreenProps {
   /** Opens the measures page on one measurement, so a question can be answered with a tap. */
   onOpenMeasure: (kind: string) => void;
   /**
-   * Hands the coach's brief to the composer, which opens with the week already
-   * built. The chat asks for the programme; the composer is where it is read
-   * and saved — one proposal view, one save path.
+   * Compose a week from the brief and hand it back, so it can be read here.
+   *
+   * It used to navigate to the composer screen. The week is drawn in the
+   * conversation now — see ChatMessage.proposal for why that is the point
+   * rather than a shortcut.
    */
-  onComposeProgramme: (brief: string) => void;
+  onComposeProgramme: (brief: string) => Promise<ProgrammeProposal | null>;
+  /** Saves a proposal as a programme of the reader's own. */
+  onSaveProgramme: (proposal: ProgrammeProposal) => Promise<void>;
   /** TEMPORARY: the signed-in email, attached to the development transcript log. */
   transcriptReporter: string | null;
 }
@@ -137,6 +143,16 @@ interface ChatMessage {
   evidence?: string;
   /** Set when the answer is withheld: the real conclusion, blurred. */
   lockedBody?: string;
+  /**
+   * A composed week, in the conversation that asked for it.
+   *
+   * The button used to hand the brief to the composer screen and navigate
+   * away, which saved a step but ended the conversation. The point of drawing
+   * it here is not the step: it is that the reader can answer it — "tee siitä
+   * 5-päiväinen", "vaihda maastaveto pois" — and the coach can offer a revised
+   * brief in the same thread. That is the thing the composer screen cannot do.
+   */
+  proposal?: ProgrammeProposal;
 }
 
 /** Width of the soft light behind the dark thread's header. */
@@ -184,6 +200,7 @@ export function AICoachChatScreen({
   onEnableWeighInReminder,
   onOpenMeasure,
   onComposeProgramme,
+  onSaveProgramme,
   transcriptReporter,
 }: AICoachChatScreenProps) {
   const theme = useTheme();
@@ -311,6 +328,25 @@ export function AICoachChatScreen({
    * The sentence above an offer's buttons. A chain of ternaries got a branch
    * wrong every time one was added, and a sixth would have been unreadable.
    */
+  /**
+   * Which proposal is being written, so its card can say so.
+   *
+   * Kept per-message rather than as one flag: two proposals can sit in a
+   * thread, and a single "saving" would grey out both.
+   */
+  const [savingProposalId, setSavingProposalId] = useState<string | null>(null);
+  const handleSaveProposal = useCallback(
+    async (messageId: string, proposal: ProgrammeProposal) => {
+      setSavingProposalId(messageId);
+      try {
+        await onSaveProgramme(proposal);
+      } finally {
+        setSavingProposalId(null);
+      }
+    },
+    [onSaveProgramme],
+  );
+
   const offerBody = useCallback(
     (offer: NonNullable<ChatMessage['offer']>) => {
       switch (offer.type) {
@@ -355,10 +391,28 @@ export function AICoachChatScreen({
         return;
       }
       if (offer.type === 'compose') {
-        // The bubble stays. The composer opens over this conversation and the
-        // reader comes back to it; a chat that erased the request it just
-        // acted on would read as though nothing had been asked.
-        onComposeProgramme(offer.brief);
+        // The offer becomes the week it was offering. Replaced rather than
+        // appended: leaving "shall I build this?" above the thing it built
+        // would invite a second tap that composes the same brief again.
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === messageId
+              ? { id: `${messageId}:building`, fromCoach: true, text: t(language, 'coachChat.compose.building') }
+              : message,
+          ),
+        );
+        const proposal = await onComposeProgramme(offer.brief);
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === `${messageId}:building`
+              ? proposal
+                ? { id: `${messageId}:proposal`, fromCoach: true, text: '', proposal }
+                : // A failed compose says so rather than leaving the thread on
+                  // "building…" forever.
+                  { id: `${messageId}:failed`, fromCoach: true, text: t(language, 'coachChat.compose.failed') }
+              : message,
+          ),
+        );
         return;
       }
       if (offer.type === 'weighIn') {
@@ -790,7 +844,19 @@ export function AICoachChatScreen({
           ) : null}
 
           {messages.map((message) =>
-            message.offer ? (
+            message.proposal ? (
+              /* The week, in the thread that asked for it. Full width rather
+                 than in a bubble: a four-day programme squeezed into a chat
+                 bubble is the shape that made this live on its own screen. */
+              <View key={message.id} style={styles.proposalWrap}>
+                <ProgrammeProposalCard
+                  proposal={message.proposal}
+                  language={language}
+                  busy={savingProposalId === message.id ? 'saving' : 'idle'}
+                  onSave={() => void handleSaveProposal(message.id, message.proposal as ProgrammeProposal)}
+                />
+              </View>
+            ) : message.offer ? (
               <View key={message.id} style={styles.bubbleRow}>
                 <View style={[styles.coachBubble, styles.offerBubble]}>
                   <Text style={styles.coachText}>{offerBody(message.offer)}</Text>
@@ -1069,6 +1135,17 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   offerBubble: {
     gap: 10,
+  },
+  // Full width, unlike every other coach message: a four-day week narrowed to
+  // bubble width is the shape that put this on its own screen to begin with.
+  proposalWrap: {
+    marginTop: 10,
+    marginBottom: 4,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
+    overflow: 'hidden',
   },
   offerActions: {
     flexDirection: 'row',

@@ -114,6 +114,52 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
     sessionAnalysis,
   } = deps;
 
+  /**
+   * Composing and saving a week, written once for the two screens that do it.
+   *
+   * The chat draws the proposal in the conversation and the composer screen
+   * draws it under its own text field, but they must build and store exactly
+   * the same thing — two copies of this is how the chat ends up saving a
+   * programme the composer would have refused.
+   */
+  async function composeProgramme(brief: string) {
+    const live = await requestProgrammeComposition({
+      brief,
+      context: aiCoachTrainingContext,
+      language: preferences.appLanguage,
+    });
+    if (live) {
+      return resolveLiveProposal(live, brief, exerciseLibrary, preferences.defaultRestSeconds);
+    }
+    return composeProgrammePreview(brief, preferences, exerciseLibrary);
+  }
+
+  async function saveProgramme(proposal: Parameters<typeof buildProgrammeDraft>[0]) {
+    // Checked before the write as well as inside it: the wall should land where
+    // the reader pressed, not after the programme has been built.
+    if (!programSlots.canCreate) {
+      setProgramLimitVisible(true);
+      return;
+    }
+    const draft = buildProgrammeDraft(
+      proposal,
+      workoutTemplates.map((item) => item.name),
+    );
+    try {
+      const workoutTemplateId = await upsertWorkoutTemplate(draft);
+      // The programme's own page is the confirmation — it opens next.
+      void haptics.success();
+      navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+    } catch (error) {
+      if (error instanceof ProgramLimitReachedError) {
+        setProgramLimitVisible(true);
+        return;
+      }
+      console.error('Failed to save composed programme', error);
+      showToast(t(preferences.appLanguage, 'toast.aiBuildFailed'));
+    }
+  }
+
   if (route.tab !== 'home') {
     return null;
   }
@@ -178,48 +224,11 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
     return (
       <AiProgramComposerScreen
         language={preferences.appLanguage}
-        // Keyed on the brief so a second handover from the chat mounts a fresh
-        // screen instead of dropping a new brief into one already showing a
-        // proposal for the old one.
-        key={`compose:${route.brief ?? ''}`}
         preferences={preferences}
         liveConfigured={isAiCoachLiveConfigured()}
-        initialBrief={route.brief}
         onBack={() => navigateBack(ROOT_ROUTES.home)}
-        compose={async (brief) => {
-          const live = await requestProgrammeComposition({
-            brief,
-            context: aiCoachTrainingContext,
-            language: preferences.appLanguage,
-          });
-          if (live) {
-            return resolveLiveProposal(live, brief, exerciseLibrary, preferences.defaultRestSeconds);
-          }
-          return composeProgrammePreview(brief, preferences, exerciseLibrary);
-        }}
-        onSave={async (proposal) => {
-          if (!programSlots.canCreate) {
-            setProgramLimitVisible(true);
-            return;
-          }
-          const draft = buildProgrammeDraft(
-            proposal,
-            workoutTemplates.map((item) => item.name),
-          );
-          try {
-            const workoutTemplateId = await upsertWorkoutTemplate(draft);
-            // The programme's own page is the confirmation — it opens next.
-            void haptics.success();
-            navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
-          } catch (error) {
-            if (error instanceof ProgramLimitReachedError) {
-              setProgramLimitVisible(true);
-              return;
-            }
-            console.error('Failed to save composed programme', error);
-            showToast(t(preferences.appLanguage, 'toast.aiBuildFailed'));
-          }
-        }}
+        compose={composeProgramme}
+        onSave={saveProgramme}
       />
     );
   }
@@ -328,10 +337,18 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
               : recordSuggestionRejected(preferences.coachSuggestionState, kind),
           })
         }
-        // The conversation, handed to the composer. The route guard sends a
-        // free reader to the Pro page from here, which is why the button below
-        // the offer says so before it is tapped.
-        onComposeProgramme={(brief) => navigate({ tab: 'home', screen: 'ai_setup', brief })}
+        // The week is built here and read in the thread that asked for it.
+        // Failures come back as null so the chat can say so rather than
+        // sitting on "building…" forever.
+        onComposeProgramme={async (brief) => {
+          try {
+            return await composeProgramme(brief);
+          } catch (error) {
+            console.error('Failed to compose programme from chat', error);
+            return null;
+          }
+        }}
+        onSaveProgramme={saveProgramme}
         transcriptReporter={accountBackup.state.status === 'signed_in' ? accountBackup.state.email : null}
       />
     );
