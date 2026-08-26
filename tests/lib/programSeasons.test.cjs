@@ -81,7 +81,7 @@ module.exports = [
       const path = require('node:path');
       const read = (...segments) => fs.readFileSync(path.join(__dirname, '..', '..', ...segments), 'utf8');
       const screen = read('src', 'screens', 'ProgramsHomeScreen.tsx');
-      const app = read('App.tsx');
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
 
       // A lib with no consumer is dead code by the standard applied to the
       // rest of this app, so the row has to be reachable on the screen.

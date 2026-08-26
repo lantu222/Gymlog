@@ -521,10 +521,17 @@ module.exports = [
       assert.match(routesSource, /screen: 'empty'/);
       // workout/empty renders the dedicated HG freestyle screen; the editor
       // keeps its own branch and no longer has an emptyWorkout presentation.
-      assert.match(appSource, /route\.tab === 'workout' && route\.screen === 'empty'/);
-      assert.match(appSource, /route\.tab === 'workout' && route\.screen === 'editor'/);
-      assert.match(appSource, /<EmptyWorkoutScreen/);
+      // The branches live in renderWorkoutTab since phase A, where the tab
+      // guard is hoisted and each screen keeps its own if.
+      const workoutTabSource = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'app', 'renderWorkoutTab.tsx'),
+        'utf8',
+      );
+      assert.match(workoutTabSource, /if \(route\.screen === 'empty'\)/);
+      assert.match(workoutTabSource, /if \(route\.screen === 'editor'\)/);
+      assert.match(workoutTabSource, /<EmptyWorkoutScreen/);
       assert.doesNotMatch(appSource, /presentation=/);
+      assert.doesNotMatch(workoutTabSource, /presentation=/);
       // The inline tip is gone entirely. It used to be passed as null from both
       // call sites, which meant a dark-themed card that could never render —
       // this guard pinned the null; now it pins the absence.

@@ -10,7 +10,8 @@ const programDetailsSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'lib', 'programDetails.ts'),
   'utf8',
 );
-const appSource = fs.readFileSync(path.join(__dirname, '..', '..', 'App.tsx'), 'utf8');
+// The workout tab's wiring moved to src/app in the phase-A split (2026-08-26).
+const appSource = require('../helpers/appWiringSource.cjs').readAppWiring();
 const i18nSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'), 'utf8');
 
 module.exports = [
@@ -30,7 +31,7 @@ module.exports = [
     run() {
       const fs = require('node:fs');
       const path = require('node:path');
-      const app = fs.readFileSync(path.join(__dirname, '..', '..', 'App.tsx'), 'utf8');
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
       const branch = app.slice(app.indexOf('onPrimaryAction={() => {'), app.indexOf('onStartSession={(sessionId) => {'));
       assert.ok(branch.length > 100, 'the primary action branch moved');
       assert.match(branch, /handleAdoptReadyProgram\(route\.workoutTemplateId/);

@@ -373,7 +373,7 @@ module.exports = [
     run() {
       // Measuring a three-day season against someone's own six-day split
       // would call four workouts a missed week.
-      const app = read('App.tsx');
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
       assert.match(app, /weeklyTarget: seasonProgramTemplate\?\.daysPerWeek \?\? null/);
       assert.match(app, /programId: seasonProgramId/);
       // And the copy says the rule, because a reader whose own workouts score
@@ -472,7 +472,7 @@ module.exports = [
       // its week 19 of 26 and its seven weeks left: every number on the screen
       // belonged to a different season than the title above it.
       const screen = read('src', 'screens', 'SeasonScreen.tsx');
-      const app = read('App.tsx');
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
 
       assert.match(screen, /const upcoming = current\.season !== season;/);
       assert.match(screen, /const window = upcoming \? nextSeasonWindow\(\) : current;/);

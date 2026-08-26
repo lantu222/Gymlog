@@ -91,7 +91,7 @@ module.exports = [
     name: 'the row is wired, and targets are ready-made rather than typed',
     run() {
       const screen = read('src', 'screens', 'ProgramsHomeScreen.tsx');
-      const app = read('App.tsx');
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
 
       // The old sheet could only offer lifts already logged, so the reader a
       // first target would help most was shown an empty list. The picker

@@ -6,7 +6,8 @@ const programsHomeSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'screens', 'ProgramsHomeScreen.tsx'),
   'utf8',
 );
-const appSource = fs.readFileSync(path.join(__dirname, '..', '..', 'App.tsx'), 'utf8');
+// The workout tab's wiring moved to src/app in the phase-A split (2026-08-26).
+const appSource = require('../helpers/appWiringSource.cjs').readAppWiring();
 const routesSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'navigation', 'routes.ts'), 'utf8');
 const bottomTabBarSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'components', 'BottomTabBar.tsx'),
@@ -216,8 +217,10 @@ module.exports = [
   {
     name: 'app wires programs home to real stores and existing handlers',
     run() {
-      assert.match(appSource, /import \{ ProgramsHomeScreen, ProgramsExploreItem \} from '\.\/src\/screens\/ProgramsHomeScreen'/);
-      assert.match(appSource, /route\.tab === 'workout' && route\.screen === 'programs_home'/);
+      // The screen renders from renderWorkoutTab since phase A; App.tsx keeps
+      // only the ProgramsExploreItem type for its memo shapes.
+      assert.match(appSource, /import \{ ProgramsHomeScreen \} from '\.\.\/screens\/ProgramsHomeScreen'/);
+      assert.match(appSource, /if \(route\.screen === 'programs_home'\)/);
       // App hands this tab the program's NAME and nothing else; the plan
       // card itself goes to Home, which is the screen that runs it.
       assert.match(appSource, /activeProgramTitle=\{homeActivePlanCard\?\.title \?\? null\}/);

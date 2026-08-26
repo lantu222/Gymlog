@@ -85,7 +85,7 @@ module.exports = [
     name: 'the rail can reach what a tile promises',
     run() {
       const screen = read('src', 'screens', 'ProgramsHomeScreen.tsx');
-      const app = read('App.tsx');
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
 
       // Explore was eight hand-picked ids. A tile saying "Voima 8" filtering
       // that list would open three, so the filtered rail reads the whole
@@ -103,7 +103,7 @@ module.exports = [
     name: 'the "for you" row carries a reason per card, and never claims to be AI',
     run() {
       const screen = read('src', 'screens', 'ProgramsHomeScreen.tsx');
-      const app = read('App.tsx');
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
       const i18n = read('src', 'lib', 'i18n.ts');
 
       // Only the programs the waterfall gives a reason for. The scorer ranks
