@@ -41,6 +41,16 @@ export interface CoachChatIntroInput {
   todaySessionTitle: string | null;
   /** The next session in the rotation, whatever day it lands on. */
   nextSessionTitle?: string | null;
+  /**
+   * Whether a programme is running at all.
+   *
+   * A reader with no programme used to get no opening offer: every branch
+   * below is about a session or a lift, and they have neither. That is exactly
+   * the reader for whom the chat's newest capability — building a week from a
+   * sentence — is the useful first thing to say, so the empty case stops being
+   * empty rather than the offer being bolted onto readers who are mid-block.
+   */
+  hasProgramme?: boolean;
   sessionsThisWeek: number;
   weeklyRead: WeeklyReadRow[];
   fatigue: FatigueResult | null;
@@ -332,6 +342,16 @@ export function buildCoachOpeningOffer(
     return {
       question: t(language, 'coachChat.ask.about', { subject: stalled.name.toLowerCase() }),
       askLabel: t(language, 'coachChat.offer.lookAtIt'),
+    };
+  }
+  // Nothing to train and nothing to read: the one branch that used to return
+  // null. Asking for a programme is the thing this reader can actually do, and
+  // the chat can now build one — so the offer says so once, here, instead of
+  // sitting on every screen as a permanent advert.
+  if (input.hasProgramme === false) {
+    return {
+      question: t(language, 'coachChat.ask.buildProgramme'),
+      askLabel: t(language, 'coachChat.offer.buildProgramme'),
     };
   }
   return null;

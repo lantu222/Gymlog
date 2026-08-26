@@ -190,8 +190,29 @@ module.exports = [
       };
       assert.match(buildCoachOpeningOffer(stalled, 'en').question, /bench/);
 
-      // "Ask me anything" is answered by the input box, not a button.
+      // "Ask me anything" is answered by the input box, not a button — as long
+      // as there is a programme to ask about.
       assert.equal(buildCoachOpeningOffer({ todaySessionTitle: null, sessionsThisWeek: 0, weeklyRead: [] }, 'en'), null);
+
+      // With no programme, every branch above is about a session or a lift the
+      // reader does not have, and the opening had nothing to offer. That is
+      // exactly the reader for whom the chat's newest capability is the useful
+      // first thing to say — so the empty case stops being empty, rather than
+      // the offer being bolted onto readers who are mid-block.
+      const noProgramme = buildCoachOpeningOffer(
+        { todaySessionTitle: null, sessionsThisWeek: 0, weeklyRead: [], hasProgramme: false },
+        'fi',
+      );
+      assert.ok(noProgramme, 'the empty opening now offers to build one');
+      assert.equal(noProgramme.askLabel, 'Rakenna minulle ohjelma →');
+      // And it stays out of the way of a reader who has one.
+      assert.equal(
+        buildCoachOpeningOffer(
+          { todaySessionTitle: null, sessionsThisWeek: 0, weeklyRead: [], hasProgramme: true },
+          'fi',
+        ),
+        null,
+      );
 
       // And the row builder puts the offer on the today slide.
       const rows = buildCoachOpeningRows({ openingLine: 'x', offer, noticed: [], readout: [], language: 'fi' });

@@ -1838,6 +1838,10 @@ const EN = {
   'coachChat.offer.walkThrough': 'Walk me through it →',
   'coachChat.offer.previewNext': 'Look at it in advance →',
   'coachChat.offer.lookAtIt': 'Yes, look at it →',
+  // Shown only when no programme is running, which is the one opening that used
+  // to have nothing to offer.
+  'coachChat.ask.buildProgramme': 'Tell me how you want to train — days, lifts, anything that hurts — and I will build the week here.',
+  'coachChat.offer.buildProgramme': 'Build me a programme →',
   'coachChat.noticed': '{count} THINGS I NOTICED THIS WEEK',
   'coachChat.noticedOne': 'ONE THING I NOTICED THIS WEEK',
   'coachChat.noticedAsk': 'Ask about this →',
@@ -5013,6 +5017,8 @@ const FI: Record<I18nKey, string> = {
   'coachChat.offer.walkThrough': 'Käy läpi →',
   'coachChat.offer.previewNext': 'Katso ennakkoon →',
   'coachChat.offer.lookAtIt': 'Katsotaan →',
+  'coachChat.ask.buildProgramme': 'Kerro miten haluat treenata — päivät, liikkeet, mikä on kipeä — niin rakennan viikon tähän.',
+  'coachChat.offer.buildProgramme': 'Rakenna minulle ohjelma →',
   'coachChat.noticed': '{count} ASIAA JOTKA HUOMASIN',
   'coachChat.noticedOne': 'YKSI ASIA JONKA HUOMASIN',
   'coachChat.noticedAsk': 'Kysy tästä →',

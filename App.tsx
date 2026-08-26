@@ -3212,6 +3212,9 @@ function VinhaApp() {
       sessionsThisWeek: homeSummary.streak.sessionsThisWeek,
       weeklyRead: proWeeklyRead,
       fatigue: proFatigue,
+      // The one opening that had nothing to offer. The chat can build a week
+      // from a sentence now, and this is the reader that needs to know.
+      hasProgramme: Boolean(homeActivePlanCard),
     }),
     [homeActivePlanCard, homeSummary.streak.sessionsThisWeek, homeTrainingSchedule, preferences.appLanguage, proFatigue, proWeeklyRead],
   );
