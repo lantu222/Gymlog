@@ -7,7 +7,7 @@ import { isSubscriptionTermKey } from '../lib/subscriptionView';
 import { createEmptyDatabase } from '../data/seed';
 import { resolveDeviceLanguage } from './deviceLocale';
 import { normalizeExerciseLog } from '../lib/exerciseLog';
-import { collapseRepRange } from '../lib/singleRepTarget';
+import { collapseRepRange, intervalOffSeconds } from '../lib/singleRepTarget';
 import { buildLegacyTemplateSessions, getLegacyTemplateSessionId } from '../lib/workoutTemplateSessions';
 import {
   AppDatabase,
@@ -269,6 +269,9 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
           repMin: typeof exercise?.repMin === 'number' ? exercise.repMin : 6,
           repMax: typeof exercise?.repMax === 'number' ? exercise.repMax : 8,
         });
+        // An interval's rest is the off-phase its own name states — a saved
+        // 30/30 carried a 60 s rest on top of the 30 s walk (2026-08-26).
+        const offSeconds = intervalOffSeconds(name);
         return {
           id: String(exercise?.id ?? ''),
           workoutTemplateId: String(exercise?.workoutTemplateId ?? ''),
@@ -278,7 +281,8 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
           targetSets: typeof exercise?.targetSets === 'number' ? exercise.targetSets : 3,
           repMin: reps.repMin,
           repMax: reps.repMax,
-          restSeconds: typeof exercise?.restSeconds === 'number' ? exercise.restSeconds : null,
+          restSeconds:
+            offSeconds ?? (typeof exercise?.restSeconds === 'number' ? exercise.restSeconds : null),
           trackedDefault: typeof exercise?.trackedDefault === 'boolean' ? exercise.trackedDefault : true,
           orderIndex: typeof exercise?.orderIndex === 'number' ? exercise.orderIndex : 0,
           libraryItemId: typeof exercise?.libraryItemId === 'string' || exercise?.libraryItemId === null ? exercise.libraryItemId : null,

@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 
 const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog.js');
-const { collapseRepRange } = require('../../.test-dist/lib/singleRepTarget.js');
+const { collapseRepRange, intervalOffSeconds } = require('../../.test-dist/lib/singleRepTarget.js');
 
 /**
  * Every catalog exercise prescribes ONE rep number, not a range (user decision
@@ -66,6 +66,47 @@ module.exports = [
       );
       assert.match(databaseSource, /const reps = collapseRepRange\(\{/);
       assert.match(databaseSource, /repMin: reps\.repMin,\s*\r?\n\s*repMax: reps\.repMax,/);
+      assert.match(databaseSource, /const offSeconds = intervalOffSeconds\(name\)/);
+      assert.match(databaseSource, /offSeconds \?\? \(typeof exercise\?\.restSeconds === 'number'/);
+    },
+  },
+  {
+    name: 'an interval rests exactly the off-phase its name states',
+    run() {
+      // 30/30 means the walk IS the rest — a saved programme carried a 60 s
+      // rest on top of the 30 s walk, and the player offered "30 s kävelyä,
+      // 30 s juoksua, sitten minuutin tauko" (user, 2026-08-26).
+      assert.equal(intervalOffSeconds('Treadmill HIIT (30s on / 30s off)'), 30);
+      assert.equal(intervalOffSeconds('Bike HIIT (45s sprint / 15s rest)'), 15);
+      // Everything that is not an interval keeps its own rest.
+      assert.equal(intervalOffSeconds('Bench Press'), null);
+      assert.equal(intervalOffSeconds('Plank'), null);
+      assert.equal(intervalOffSeconds('Air Bike (30s sprint)'), null);
+    },
+  },
+  {
+    name: 'the catalogs already prescribe the exact off-phase as the interval rest',
+    run() {
+      for (const template of WORKOUT_TEMPLATES_V1) {
+        for (const session of template.sessions) {
+          for (const exercise of session.exercises) {
+            const off = intervalOffSeconds(exercise.exerciseName);
+            if (off === null) {
+              continue;
+            }
+            assert.equal(
+              exercise.restSecondsMin,
+              off,
+              `${template.id} ${exercise.id}: interval rest floor must equal the named off-phase`,
+            );
+            assert.equal(
+              exercise.restSecondsMax,
+              off,
+              `${template.id} ${exercise.id}: interval rest ceiling must equal the named off-phase`,
+            );
+          }
+        }
+      }
     },
   },
 ];

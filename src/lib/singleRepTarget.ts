@@ -24,3 +24,23 @@ export function collapseRepRange(exercise: {
   }
   return { repMin: exercise.repMax, repMax: exercise.repMax };
 }
+
+/**
+ * The off-phase length an interval exercise states in its own name, or null
+ * for everything that is not one.
+ *
+ * "Treadmill HIIT (30s on / 30s off)" means 30 seconds of work and 30
+ * seconds of recovery, continuously — the walk IS the rest. A saved
+ * programme carried a 45-60 s rest on top of it, so the player offered
+ * "30 s kävelyä, 30 s juoksua, sitten minuutin tauko", which is not what
+ * the name promises (user, 2026-08-26). The rest between interval reps is
+ * exactly the named off-phase, nothing more.
+ */
+export function intervalOffSeconds(name: string): number | null {
+  const match = /\/\s*(\d+)\s*s\s*(?:off|rest|walk)\b/i.exec(name);
+  if (!match) {
+    return null;
+  }
+  const seconds = Number(match[1]);
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : null;
+}
