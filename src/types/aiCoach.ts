@@ -214,6 +214,34 @@ export interface AICoachProfile {
   gender: string | null;
 }
 
+/**
+ * One day of the programme the reader is actually running, exactly as their
+ * own plan page lists it.
+ *
+ * Without this the coach knew a title and nothing else, so "what does my
+ * programme contain" was answered "I cannot see your programme's exercises in
+ * this data" — true of the payload, and absurd to a reader looking at the
+ * exercises on the next screen (user 2026-08-25).
+ */
+export interface AICoachProgrammeDay {
+  name: string;
+  /** The weekday the plan puts it on, when the plan fixes one. */
+  dayLabel: string | null;
+  estimatedMinutes: number | null;
+  /** `4 x 8` or `3 x 30 s` — whatever the reader's own row says. */
+  exercises: { name: string; scheme: string }[];
+}
+
+export interface AICoachProgramme {
+  title: string;
+  /** Ready-made from the catalog, or one the reader authored. */
+  source: 'ready' | 'custom';
+  daysPerWeek: number;
+  days: AICoachProgrammeDay[];
+  /** True when longer days were shortened to keep the payload small. */
+  truncated: boolean;
+}
+
 export interface AICoachTrainingContext {
   unitPreference: UnitPreference;
   activeSession: AICoachActiveSessionSummary | null;
@@ -227,6 +255,8 @@ export interface AICoachTrainingContext {
   recommendedProgramId: string | null;
   recommendedProgramTitle: string | null;
   customProgramTitle: string | null;
+  /** The running programme's actual week. Null when no plan is active. */
+  programme?: AICoachProgramme | null;
   plateaus: AICoachPlateauSummary[];
   fatigue: AICoachFatigueSummary;
   history: AICoachHistory;

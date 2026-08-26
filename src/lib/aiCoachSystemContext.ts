@@ -1,4 +1,5 @@
 import { AICoachTrainingContext } from '../types/aiCoach';
+import { renderAiCoachProgramme } from './aiCoachProgramme';
 
 function line(label: string, value: string) {
   return `${label}: ${value}`;
@@ -242,6 +243,12 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
   if (context.customProgramTitle) planParts.push(`custom: ${context.customProgramTitle}`);
   planParts.push(`${context.readyProgramCount} ready programs available`);
   blocks.push(section('Plans', [planParts.join(' | ')])!);
+
+  // The running programme's actual week. Titles alone made "what does my
+  // programme contain" unanswerable and "does it suit my goal" a guess.
+  if (context.programme) {
+    blocks.push(section('Current programme (the reader can see this on their plan page)', renderAiCoachProgramme(context.programme))!);
+  }
 
   // Planner setup — only if configured
   if (context.plannerSetup) {

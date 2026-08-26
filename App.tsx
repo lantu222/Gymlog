@@ -68,6 +68,7 @@ import {
   buildProgramWorkoutPlan,
 } from './src/lib/programAdoption';
 import { buildAiTrainingContext } from './src/lib/aiTrainingContext';
+import { buildAiCoachProgramme } from './src/lib/aiCoachProgramme';
 import { computePostSessionInsight } from './src/lib/postSessionInsight';
 import { composeProgramWeekForSelection } from './src/lib/programDayComposer';
 import { resolveAvailableEquipment } from './src/lib/equipmentExerciseFilter';
@@ -2918,6 +2919,10 @@ function VinhaApp() {
         customProgramTitle: selectedCustomProgram.workoutId
           ? formatWorkoutDisplayLabel(selectedCustomProgram.title)
           : null,
+        // The week itself, from Home's own composed card. A title alone made
+        // the coach answer "I cannot see your programme's exercises in this
+        // data" to a reader one tap away from the list (#bugs 2026-08-25).
+        programme: buildAiCoachProgramme(homeActivePlanCard),
         // The plan's real rhythm — cycle or weekdays — so planned-versus-actual
         // and "next training day" cannot disagree with Home. Availability alone
         // told a 2-on-1-off reader their schedule was mon-wed-thu (2026-08-23).
@@ -2967,6 +2972,7 @@ function VinhaApp() {
       }),
     [
       homeActiveWorkoutSummary,
+      homeActivePlanCard,
       homeSummary,
       selectedCustomProgram.title,
       selectedCustomProgram.workoutId,

@@ -81,6 +81,7 @@ module.exports = [
         'latestTopSets',
         'plateaus',
         'profile',
+        'programme',
         'readyProgramCount',
         'recentCompletedSessions',
         'recommendedProgramId',

@@ -9,6 +9,7 @@ import {
   AICoachHistoryConfidence,
   AICoachHomeState,
   AICoachProfile,
+  AICoachProgramme,
   AICoachTrainingContext,
 } from '../types/aiCoach';
 import { detectPlateaus } from './progressionAnalyzer';
@@ -50,6 +51,8 @@ export interface BuildAiTrainingContextInput {
   recommendedProgramId: string | null;
   recommendedProgramTitle: string | null;
   customProgramTitle: string | null;
+  /** The running programme's actual week — see buildAiCoachProgramme. */
+  programme?: AICoachProgramme | null;
   plannerSetup?: {
     goal: string | null;
     daysPerWeek: number | null;
@@ -302,6 +305,7 @@ export function buildAiTrainingContext({
   recommendedProgramId,
   recommendedProgramTitle,
   customProgramTitle,
+  programme = null,
   plannerSetup,
   trainingDays = [],
   schedule = null,
@@ -388,6 +392,7 @@ export function buildAiTrainingContext({
     recommendedProgramId,
     recommendedProgramTitle,
     customProgramTitle,
+    programme,
     plateaus,
     fatigue,
     history: buildHistoryBlock(workoutSessions, exerciseLogs, trainingDays, historyWindowDays, schedule),
@@ -477,6 +482,7 @@ export function normalizeAiCoachTrainingContext(
     recommendedProgramId: candidate.recommendedProgramId ?? null,
     recommendedProgramTitle: candidate.recommendedProgramTitle ?? null,
     customProgramTitle: candidate.customProgramTitle ?? null,
+    programme: candidate.programme && typeof candidate.programme === 'object' ? candidate.programme : null,
     plateaus: array(candidate.plateaus),
     fatigue: fatigue ?? {
       acwr: 0,

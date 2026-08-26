@@ -206,6 +206,7 @@ const suites = [
   ...require('./lib/homeVisuals.test.cjs'),
   ...require('./lib/aiTrainingContext.test.cjs'),
   ...require('./lib/aiCoachSystemContext.test.cjs'),
+  ...require('./lib/aiCoachProgramme.test.cjs'),
   ...require('./lib/aiCoachPreview.test.cjs'),
   ...require('./lib/coachChipAnswers.test.cjs'),
   ...require('./lib/aiCoachActions.test.cjs'),

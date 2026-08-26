@@ -141,8 +141,11 @@ module.exports = [
       const endpointSrc = fs.readFileSync(path.join(__dirname, '../../api/ai-coach.ts'), 'utf8');
       // The server refuses to forward garbage a button would then write.
       assert.match(endpointSrc, /candidate\.value > 0 && candidate\.value < 1000/);
-      // And the rules forbid the dead promise outright.
-      assert.match(endpointSrc, /Never say you will open, log, or set anything/);
+      // And the rules forbid the dead promise outright. It moved up to the
+      // evidence rules after the coach broke it anyway ("Avaan
+      // painonkirjauksen sinulle", log 2026-08-25) — see the ordering guard in
+      // tests/api/aiCoachEndpoint.test.cjs.
+      assert.match(endpointSrc, /Never say you are doing, opening, logging, setting or changing anything/);
       assert.match(endpointSrc, /attach log_measurement with statKey, value and unit/);
 
       // The reading is the thing the coach does not have, so the offer opens

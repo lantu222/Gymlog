@@ -143,6 +143,21 @@ module.exports = [
       assert.match(rules, /too little history to read something, do not comment on it/);
       // Medical safety.
       assert.match(rules, /Never diagnose an injury or illness/);
+      // The coach is text and one button. It answered "I'll open weight
+      // logging for you" and nothing opened (log 2026-08-25), so the ban sits
+      // with the evidence rules that outrank being helpful, not with the
+      // suggestion mechanics where it read as advice about buttons.
+      assert.match(rules, /Never say you are doing, opening, logging, setting or changing anything/);
+      const evidenceAt = rules.indexOf('# Evidence rules');
+      const offeringAt = rules.indexOf('# Offering to do something');
+      const banAt = rules.indexOf('Never say you are doing, opening');
+      assert.ok(evidenceAt < banAt && banAt < offeringAt, 'the ban belongs to the evidence rules');
+      // It denied that the app can build a programme, while the app has a
+      // composer that does exactly that (log 2026-08-26).
+      assert.match(rules, /never tell the reader a programme cannot be built/);
+      // ...and it told the reader to reinstall the app when a button of ours
+      // did not appear, which is support advice it has no basis for.
+      assert.match(rules, /never suggest reinstalling or updating the app/);
       // Silence is a valid output — ADR-003.
       assert.match(rules, /Silence is a valid output/);
       // The app is kilograms-only and bilingual.
