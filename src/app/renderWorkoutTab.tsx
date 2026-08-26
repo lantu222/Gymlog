@@ -84,16 +84,22 @@ export interface WorkoutTabDeps {
   handleAdoptCustomProgram: (workoutTemplateId: string, options?: { lead?: boolean }) => Promise<void>;
   handleStartCustomProgramSession: (workoutTemplateId: string, sessionId: string, trimSets?: boolean) => void;
   /**
-   * Change one lift in a programme for good — drop it, or keep a swap. A ready
-   * programme is copied underneath this: the reader asked to change a lift,
-   * not to learn how the catalog is stored.
+   * Change what a programme's day holds, for good — drop a lift, keep a swap,
+   * or add from the library. A ready programme is copied underneath this: the
+   * reader asked to change a lift, not to learn how the catalog is stored.
+   *
+   * `exerciseId` names the row being changed and is empty for an add, which
+   * has no row yet.
    */
   editProgramExercise: (
     programType: 'ready' | 'custom',
     programId: string,
     sessionId: string,
     exerciseId: string,
-    edit: { kind: 'remove' } | { kind: 'replace'; exerciseName: string },
+    edit:
+      | { kind: 'remove' }
+      | { kind: 'replace'; exerciseName: string }
+      | { kind: 'add'; exerciseNames: string[] },
   ) => Promise<void>;
   handleSaveRhythm: (workoutTemplateId: string, dayIndexes: number[]) => Promise<void>;
   handleSaveEmphasis: (
@@ -461,10 +467,13 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         onSwapExercise={(slotId, exerciseName) =>
           setSessionSwaps((current) => ({ ...current, [slotId]: exerciseName }))
         }
-        onAddExercise={
-          route.programType === 'custom'
-            ? () => navigate({ tab: 'workout', screen: 'template', workoutTemplateId: route.workoutTemplateId })
-            : undefined
+        exerciseLibrary={exerciseBrowserItems}
+        recentExerciseLibraryItems={recentExerciseBrowserItems}
+        onAddExercises={(exerciseNames) =>
+          void editProgramExercise(route.programType, route.workoutTemplateId, daySession.id, '', {
+            kind: 'add',
+            exerciseNames,
+          })
         }
         onRemoveExercise={(exerciseId) =>
           void editProgramExercise(route.programType, route.workoutTemplateId, daySession.id, exerciseId, {

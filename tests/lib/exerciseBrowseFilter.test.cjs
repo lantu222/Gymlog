@@ -1,0 +1,93 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const {
+  isBrowsableExercise,
+  filterBrowsableExercises,
+} = require('../../.test-dist/lib/exerciseBrowseFilter.js');
+const { createSeedExerciseLibrary } = require('../../.test-dist/data/seed.js');
+
+module.exports = [
+  {
+    name: 'browse filter: stretches and field drills are not offered as sets',
+    run() {
+      for (const name of [
+        'Behind Head Chest Stretch',
+        'Dynamic Chest Stretch',
+        'Chest Push (multiple response)',
+        'Chest Push (single response)',
+        'Front Cone Hops (or hurdle hops)',
+        'Hurdle Hops',
+        'Bench Sprint',
+      ]) {
+        assert.equal(isBrowsableExercise({ name }), false, `still offered: ${name}`);
+      }
+    },
+  },
+  {
+    name: 'browse filter: the rule does not reach past what it names',
+    run() {
+      // Each of these was caught by a broader draft of the rule. A drag curl is
+      // a barbell biceps lift; sled and Bosu work is loaded and logged; the
+      // Olympic "balance" positions are lifts, not balance drills.
+      for (const name of [
+        'Drag Curl',
+        'Sled Push',
+        'Sled Row',
+        'Bear Crawl Sled Drags',
+        'Bosu Ball Cable Crunch With Side Bends',
+        'Heaving Snatch Balance',
+        'Jerk Balance',
+        'Barbell Bench Press - Medium Grip',
+        'Machine Hip Thrust',
+      ]) {
+        assert.equal(isBrowsableExercise({ name }), true, `wrongly hidden: ${name}`);
+      }
+    },
+  },
+  {
+    name: 'browse filter: a query is the reader naming it, so nothing is withheld',
+    run() {
+      const items = [{ name: 'Barbell Bench Press' }, { name: 'Dynamic Chest Stretch' }];
+      assert.equal(filterBrowsableExercises(items).length, 1);
+      assert.equal(filterBrowsableExercises(items, { query: '' }).length, 1);
+      assert.equal(filterBrowsableExercises(items, { query: '  ' }).length, 1);
+      assert.equal(filterBrowsableExercises(items, { query: 'stretch' }).length, 2);
+      // Even a query that matches neither: the point is that the picker stops
+      // choosing once the reader has, not that the word was "stretch".
+      assert.equal(filterBrowsableExercises(items, { query: 'kyykky' }).length, 2);
+    },
+  },
+  {
+    name: 'browse filter: it removes a real slice of the real library, and no more',
+    run() {
+      // A rule that hides nothing is decoration; one that hides hundreds has
+      // stopped being a filter and started being a different library.
+      const library = createSeedExerciseLibrary();
+      const kept = filterBrowsableExercises(library);
+      const hidden = library.length - kept.length;
+      assert.ok(hidden >= 40, `hid only ${hidden} of ${library.length}`);
+      assert.ok(hidden <= 90, `hid ${hidden} of ${library.length} — too wide`);
+
+      // The lifts a programme is actually built from all survive.
+      const names = new Set(kept.map((item) => item.name));
+      for (const name of ['Barbell Bench Press - Medium Grip', 'Barbell Squat', 'Barbell Deadlift']) {
+        assert.ok(names.has(name), `missing from the picker: ${name}`);
+      }
+    },
+  },
+  {
+    name: 'browse filter: the picker actually uses it',
+    run() {
+      const sheet = fs.readFileSync(
+        path.join(__dirname, '../../src/components/AddExerciseSheet.tsx'),
+        'utf8',
+      );
+      assert.match(sheet, /filterBrowsableExercises/);
+      // Applied to the list the reader browses, with the query passed through
+      // so searching still reaches everything.
+      assert.match(sheet, /filterBrowsableExercises\(\s*items,\s*\{ query \}\s*\)/);
+    },
+  },
+];

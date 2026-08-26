@@ -1935,7 +1935,33 @@ function VinhaApp() {
    * same way — copying a ready programme first when there is no template to
    * write to — so they share a path rather than two near-identical ones.
    */
-  type ProgramExerciseEdit = { kind: 'remove' } | { kind: 'replace'; exerciseName: string };
+  type ProgramExerciseEdit =
+    | { kind: 'remove' }
+    | { kind: 'replace'; exerciseName: string }
+    | { kind: 'add'; exerciseNames: string[] };
+
+  /**
+   * The prescription a lift added from the library starts on.
+   *
+   * The day screen adds a name, not a dose — the library has no opinion about
+   * how many sets of it you do. These are the same defaults the template
+   * editor writes, so a lift added from either place looks the same afterwards.
+   */
+  function buildAddedProgramExercises(exerciseNames: string[], sessionId: string) {
+    return exerciseNames.map((name) => {
+      const libraryItemId = resolveLibraryItemIdForName(name);
+      const defaults = getExerciseTemplateDefaults(
+        exerciseLibrary.find((item) => item.id === libraryItemId),
+        preferences.defaultRestSeconds,
+      );
+      return {
+        id: createId(`${sessionId}_add`),
+        name,
+        libraryItemId,
+        ...defaults,
+      };
+    });
+  }
 
   /**
    * The library entry a name belongs to, so a swapped-in lift keeps its photo,
@@ -1965,7 +1991,8 @@ function VinhaApp() {
       const sessions = getWorkoutTemplateSessions(template.id).map((session) => ({
         id: session.id,
         name: session.name,
-        exercises: session.exercises
+        exercises: [
+          ...session.exercises
           .filter(
             (exercise) =>
               edit.kind !== 'remove' || !(session.id === sessionId && exercise.id === exerciseId),
@@ -1989,6 +2016,11 @@ function VinhaApp() {
                   : exercise.libraryItemId ?? null,
             };
           }),
+          // Added at the end of the day it was added from, and nowhere else.
+          ...(edit.kind === 'add' && session.id === sessionId
+            ? buildAddedProgramExercises(edit.exerciseNames, session.id)
+            : []),
+        ],
       }));
       // A day with nothing left in it is not a day: Home would draw a session
       // card with no session behind it, and starting it would open an empty
@@ -2040,7 +2072,8 @@ function VinhaApp() {
         name: session.name,
         orderIndex: sessionIndex,
         exerciseIds: session.exercises.map((exercise) => exercise.id),
-        exercises: session.exercises
+        exercises: [
+          ...session.exercises
           .filter(
             (exercise) =>
               edit.kind !== 'remove' || !(session.id === sessionId && exercise.id === exerciseId),
@@ -2063,6 +2096,17 @@ function VinhaApp() {
               libraryItemId: target && edit.kind === 'replace' ? resolveLibraryItemIdForName(name) : null,
             };
           }),
+          // A ready programme is copied to be edited, so adding to one of its
+          // days works exactly as removing from one already does.
+          ...(edit.kind === 'add' && session.id === sessionId
+            ? buildAddedProgramExercises(edit.exerciseNames, session.id).map((exercise, index) => ({
+                ...exercise,
+                workoutTemplateId: template.id,
+                workoutTemplateSessionId: session.id,
+                orderIndex: session.exercises.length + index,
+              }))
+            : []),
+        ],
       })),
       workoutTemplates.map((item) => item.name),
       preferences.appLanguage,

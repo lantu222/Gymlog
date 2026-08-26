@@ -18,6 +18,7 @@ import {
   getSuggestedExerciseLibraryItems,
 } from '../lib/exerciseSuggestions';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { filterBrowsableExercises } from '../lib/exerciseBrowseFilter';
 import { buildExerciseSearchHaystack, exerciseMatchesQuery } from '../lib/exerciseSearch';
 import { I18nKey, t } from '../lib/i18n';
 import {
@@ -240,7 +241,10 @@ export function AddExerciseSheet({
   const filteredItems = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    return items.filter((item) => {
+    // Stretches and cone drills are in the library but are not sets, and they
+    // came back alongside the bench press whenever a body part was picked
+    // (#bugs 2026-08-26). A typed query lifts the hiding: see the module.
+    return filterBrowsableExercises(items, { query }).filter((item) => {
       if (query && !exerciseMatchesQuery(buildExerciseSearchHaystack(item, language), query)) {
         return false;
       }
@@ -506,7 +510,7 @@ export function AddExerciseSheet({
                             </View>
 
                             <View style={styles.gridCardCopy}>
-                              <Text numberOfLines={2} style={styles.gridCardTitle}>
+                              <Text numberOfLines={3} style={styles.gridCardTitle}>
                                 {exerciseNameLabel(language, item.name)}
                               </Text>
                               <Text numberOfLines={1} style={styles.gridCardBodyPart}>
@@ -575,7 +579,7 @@ export function AddExerciseSheet({
                   </View>
 
                   <View style={styles.gridCardCopy}>
-                    <Text numberOfLines={2} style={styles.gridCardTitle}>
+                    <Text numberOfLines={3} style={styles.gridCardTitle}>
                                 {exerciseNameLabel(language, item.name)}
                               </Text>
                     <Text numberOfLines={1} style={styles.gridCardBodyPart}>
@@ -636,13 +640,23 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(17, 17, 17, 0.16)',
+    backgroundColor: 'rgba(6, 4, 16, 0.45)',
   },
+  /**
+   * The sheet stands on `bg`, not on `surface`.
+   *
+   * Both the sheet and the cards inside it were `surface`, which in dark is a
+   * lighter indigo than the app behind them — so the sheet read as a pale
+   * rectangle pasted over a near-black screen, and the cards had no edge
+   * against it ("tausta värikin näyttää oudolta", #bugs 2026-08-26). Ground on
+   * `bg` and the sheet belongs to the app; the cards keep `surface` and lift
+   * off it.
+   */
   sheet: {
     maxHeight: '92%',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    backgroundColor: theme.surface,
+    backgroundColor: theme.bg,
     borderWidth: 1,
     borderColor: theme.border,
     overflow: 'hidden',
@@ -916,11 +930,22 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: spacing.md,
     gap: 4,
   },
+  /**
+   * Sized for Finnish compounds, not for English.
+   *
+   * "Istuen ojentajapunnerrus" broke as "Istuen ojentajap / unnerrus" and the
+   * card next to it truncated mid-word at two lines (#bugs 2026-08-26). The
+   * card is about 141dp of text at a 411dp screen, and the longest single word
+   * in the library is 25 characters, so no size makes every name fit on one
+   * line — the aim is that the common name fits and the long one is at least
+   * shown whole. 14dp holds roughly eighteen characters, and the third line
+   * takes what is left rather than cutting it off.
+   */
   gridCardTitle: {
     color: theme.ink,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '800',
-    lineHeight: 20,
+    lineHeight: 18,
   },
   gridCardBodyPart: {
     color: theme.ink,

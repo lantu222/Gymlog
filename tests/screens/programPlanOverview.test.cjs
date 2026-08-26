@@ -252,14 +252,34 @@ module.exports = [
       assert.doesNotMatch(programDaySource, /detail\.ownVersion/);
       assert.doesNotMatch(programDaySource, /onCopyToCustom/);
 
-      // A plus that can really add belongs to a programme whose days are the
-      // reader's. Removal is offered on every programme, fixed or not.
+      // The plus opens the library here, over the day. It used to navigate to
+      // the template editor on the Workout tab, and the reader tapped it and
+      // asked what tab they had landed on ("vie johonkin ihan outoon
+      // välilehteen", #bugs 2026-08-26). Removal is offered on every
+      // programme, fixed or not, and adding now is too — the copy-on-write
+      // that makes a ready day editable already existed for removal.
       assert.match(programDaySource, /editor\.addExercise/);
-      assert.match(programDaySource, /onAddExercise \?/);
+      assert.match(programDaySource, /setAddSheetOpen\(true\)/);
+      assert.match(programDaySource, /<AddExerciseSheet/);
+      assert.doesNotMatch(programDaySource, /onAddExercise\b(?!s)/);
       assert.match(programDaySource, /home\.swapSheet\.remove/);
       assert.match(programDaySource, /onRemoveExercise\(swapRow\.exerciseId as string\)/);
 
-      assert.match(appSource, /onAddExercise=\{[\s\S]{0,200}screen: 'template'/);
+      assert.doesNotMatch(appSource, /onAddExercise=\{/);
+      assert.match(
+        appSource,
+        /onAddExercises=\{[\s\S]{0,220}kind: 'add',\s*\n\s*exerciseNames,/,
+      );
+
+      // The swap search reaches the library, not just the slot's six.
+      // Searching "taka" returned "Tälle paikalle ei ole vaihtoehtoa", which
+      // is a sentence about the pool and was read as a sentence about the app
+      // ("ei pysty hakemaan todellisuudessa mitään", #bugs 2026-08-26).
+      assert.match(programDaySource, /swapLibraryMatches/);
+      assert.match(programDaySource, /exerciseMatchesQuery\(buildExerciseSearchHaystack\(item, language\), query\)/);
+      assert.match(programDaySource, /home\.swapSheet\.library/);
+      // And the pool-is-empty line only shows when nothing was searched for.
+      assert.match(programDaySource, /swapQuery\.trim\(\) \? 'home\.swapSheet\.noMatches' : 'home\.swapSheet\.empty'/);
       assert.match(
         appSource,
         /onRemoveExercise=\{[\s\S]{0,200}editProgramExercise\(route\.programType, route\.workoutTemplateId, daySession\.id, exerciseId, \{[\s\S]{0,60}kind: 'remove'/,

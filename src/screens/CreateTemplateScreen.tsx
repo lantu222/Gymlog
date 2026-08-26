@@ -9,6 +9,7 @@ import { AddExerciseSheet } from '../components/AddExerciseSheet';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { getExerciseTemplateDefaults } from '../lib/exerciseSuggestions';
+import { formatRepRange } from '../lib/format';
 import { I18nKey, t } from '../lib/i18n';
 import { libraryLabel } from '../lib/libraryLabel';
 import { layout, radii, spacing } from '../theme';
@@ -574,8 +575,13 @@ export function CreateTemplateScreen({
                                 ? `${libraryLabel(libraryItem.bodyPart, language)} · ${libraryLabel(libraryItem.equipment, language)}`
                                 : t(language, 'tpl.setsReps', {
                                     sets: exercise.targetSets,
-                                    repMin: exercise.repMin,
-                                    repMax: exercise.repMax,
+                                    // "12-12 toistoa" — the row printed both
+                                    // ends of the range even when they were the
+                                    // same number (#bugs 2026-08-26). The app
+                                    // has one rep-range formatter and it has
+                                    // always collapsed an equal range; this row
+                                    // was interpolating the raw fields instead.
+                                    reps: formatRepRange(exercise.repMin, exercise.repMax),
                                   })}
                             </Text>
                           </View>

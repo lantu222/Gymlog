@@ -3,8 +3,10 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDim
 import Svg, { ClipPath, Defs, G, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AddExerciseSheet } from '../components/AddExerciseSheet';
 import { CutSurface } from '../components/CutSurface';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { buildExerciseSearchHaystack, exerciseMatchesQuery } from '../lib/exerciseSearch';
 import { getDefaultCooldown, getDefaultWarmup, classifySessionFocus } from '../lib/homeSessionHero';
 import { I18nKey, t } from '../lib/i18n';
 import { ProgramDetailSessionItem } from '../lib/programDetails';
@@ -14,7 +16,7 @@ import { buildSwapShortlist } from '../lib/swapShortlist';
 import { localizeSessionName } from '../lib/sessionNameLabel';
 import { layout, radii, spacing } from '../theme';
 import { Theme, darkTheme, useTheme, useThemedStyles } from '../theming';
-import { AppLanguage } from '../types/models';
+import { AppLanguage, ExerciseLibraryItem } from '../types/models';
 
 /**
  * The day view (design: GAINER Hourglass Shape, screen 2) — the one separate
@@ -72,8 +74,20 @@ interface ProgramDayScreenProps {
   /** Slot id -> chosen lift, shared with the session this screen starts. */
   sessionSwaps?: Record<string, string>;
   onSwapExercise?: (slotId: string, exerciseName: string) => void;
-  /** Custom programmes only: opens the editor that can add a lift for real. */
-  onAddExercise?: () => void;
+  /**
+   * Lifts added to this day, by library name.
+   *
+   * "+ Lisää liike" used to navigate to the template editor on the Workout
+   * tab — a different screen, on a different tab, with its own save button and
+   * its own idea of what was being edited. The reader tapped it and asked what
+   * tab they had landed on ("vie johonkin ihan outoon välilehteen", #bugs
+   * 2026-08-26). The library opens here instead, over the day it is adding to,
+   * and a ready programme is copied behind it exactly as removing a lift
+   * already does.
+   */
+  onAddExercises?: (exerciseNames: string[]) => void;
+  exerciseLibrary?: ExerciseLibraryItem[];
+  recentExerciseLibraryItems?: ExerciseLibraryItem[];
   /**
    * Out of the programme for good, by the template's own exercise id.
    *
@@ -102,7 +116,9 @@ export function ProgramDayScreen({
   availableEquipment = null,
   sessionSwaps = {},
   onSwapExercise,
-  onAddExercise,
+  onAddExercises,
+  exerciseLibrary,
+  recentExerciseLibraryItems = [],
   onRemoveExercise,
   onKeepSwap,
   tailoringPreferences,
@@ -123,6 +139,7 @@ export function ProgramDayScreen({
     exercises: true,
     cooldown: false,
   });
+  const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [swapSlotId, setSwapSlotId] = useState<string | null>(null);
   /** Narrows the pool. Cleared with the sheet, so it never opens pre-filtered. */
   const [swapQuery, setSwapQuery] = useState('');
@@ -162,12 +179,57 @@ export function ProgramDayScreen({
     };
   }, [session.exercises, swapSlotId, sessionSwaps, tailoringPreferences, swapQuery, language]);
 
+  /**
+   * What the search box reaches once the shortlist runs out.
+   *
+   * The shortlist is the slot's substitution group, six rows of it. That is
+   * the right default and the wrong search: typing "taka" returned "Tälle
+   * paikalle ei ole vaihtoehtoa — ohjelma määrää tämän liikkeen", which is a
+   * sentence about the pool being empty, read as a sentence about the app
+   * having nothing ("ei pysty hakemaan todellisuudessa mitään ainoastaan ne 6
+   * mitä ehdotetaan", #bugs 2026-08-26). With a query typed, the whole library
+   * is on offer — a named lift is the reader's decision, not a suggestion to
+   * be ranked.
+   */
+  const swapLibraryMatches = useMemo(() => {
+    const query = swapQuery.trim().toLowerCase();
+    if (!query || !swapRow || !exerciseLibrary) {
+      return [];
+    }
+
+    const alreadyOffered = new Set([
+      swapRow.currentName,
+      ...swapRow.shortlist.variations.map((option) => option.exerciseName),
+      ...swapRow.shortlist.related.map((option) => option.exerciseName),
+      ...session.exercises.map((item) => (item.slotId ? sessionSwaps[item.slotId] : undefined) ?? item.name),
+    ]);
+
+    return exerciseLibrary
+      .filter((item) => !alreadyOffered.has(item.name))
+      .filter((item) => exerciseMatchesQuery(buildExerciseSearchHaystack(item, language), query))
+      .slice(0, 12);
+  }, [exerciseLibrary, language, session.exercises, sessionSwaps, swapQuery, swapRow]);
+
   const focusKind = useMemo(
     () => classifySessionFocus(session.exercises.map((exercise) => exercise.name)),
     [session.exercises],
   );
   const warmup = getDefaultWarmup(focusKind, language, availableEquipment);
   const cooldown = getDefaultCooldown(focusKind, language, availableEquipment);
+
+  const canAddExercises = Boolean(onAddExercises && exerciseLibrary && exerciseLibrary.length > 0);
+
+  // What the day already holds, so the picker can rank around it rather than
+  // offering back what is on the screen behind it.
+  const currentLibraryItemIds = useMemo(() => {
+    if (!exerciseLibrary) {
+      return [];
+    }
+    const present = new Set(
+      session.exercises.map((item) => (item.slotId ? sessionSwaps[item.slotId] : undefined) ?? item.name),
+    );
+    return exerciseLibrary.filter((item) => present.has(item.name)).map((item) => item.id);
+  }, [exerciseLibrary, session.exercises, sessionSwaps]);
 
   // Only the roles this day actually contains — a legend for a role that
   // never appears below it is furniture.
@@ -310,15 +372,12 @@ export function ProgramDayScreen({
               </View>
             </View>
           ))}
-          {/* The end of the list is where "and one more" is felt, and until now
-              the day could only swap what was already there. Which action
-              belongs here depends on whose programme it is: a custom day opens
-              the editor that can really add a lift, a fixed one offers the copy
-              that makes adding possible at all. Neither is a plus that shrugs. */}
-          {onAddExercise ? (
+          {/* The end of the list is where "and one more" is felt. The library
+              opens over this screen — see onAddExercises. */}
+          {canAddExercises ? (
             <Pressable
               accessibilityRole="button"
-              onPress={onAddExercise}
+              onPress={() => setAddSheetOpen(true)}
               style={({ pressed }) => [styles.addRow, pressed && styles.swapOptionPressed]}
             >
               <View style={styles.addGlyph}>
@@ -393,19 +452,32 @@ export function ProgramDayScreen({
               accessibilityLabel={t(language, 'home.swapSheet.search')}
             />
             <ScrollView style={styles.swapList} showsVerticalScrollIndicator={false}>
-              {swapRow && swapRow.shortlist.total === 0 ? (
-                <Text style={styles.swapEmpty}>{t(language, 'home.swapSheet.empty')}</Text>
+              {swapRow && swapRow.shortlist.total === 0 && swapLibraryMatches.length === 0 ? (
+                <Text style={styles.swapEmpty}>
+                  {t(language, swapQuery.trim() ? 'home.swapSheet.noMatches' : 'home.swapSheet.empty')}
+                </Text>
               ) : (
                 ([
                   { key: 'home.swapSheet.variations' as const, rows: swapRow?.shortlist.variations ?? [] },
                   { key: 'home.swapSheet.related' as const, rows: swapRow?.shortlist.related ?? [] },
+                  {
+                    key: 'home.swapSheet.library' as const,
+                    rows: swapLibraryMatches.map((item) => ({
+                      exerciseName: item.name,
+                      reason: null,
+                      score: 0,
+                    })),
+                  },
                 ]).map((section) =>
                   section.rows.length === 0 ? null : (
                     <View key={section.key}>
-                      {/* Named only when both halves are there — one heading
-                          over the whole list labels nothing. */}
-                      {(swapRow?.shortlist.variations.length ?? 0) > 0 &&
-                      (swapRow?.shortlist.related.length ?? 0) > 0 ? (
+                      {/* Named only when there is more than one group — one
+                          heading over the whole list labels nothing. */}
+                      {[
+                        swapRow?.shortlist.variations.length ?? 0,
+                        swapRow?.shortlist.related.length ?? 0,
+                        swapLibraryMatches.length,
+                      ].filter((count) => count > 0).length > 1 ? (
                         <Text style={styles.swapGroup}>{t(language, section.key)}</Text>
                       ) : null}
                       {section.rows.map((option) => (
@@ -495,6 +567,30 @@ export function ProgramDayScreen({
           </View>
         </View>
       </Modal>
+
+      {/* The library, over the day it is adding to. Same component the editor
+          uses, so search, body-part chips and the photos are the ones the
+          reader already knows. */}
+      {canAddExercises ? (
+        <AddExerciseSheet
+          visible={addSheetOpen}
+          language={language}
+          items={exerciseLibrary ?? []}
+          recentItems={recentExerciseLibraryItems}
+          currentItemIds={currentLibraryItemIds}
+          title={t(language, 'editor.addExercise')}
+          subtitle={localizeSessionName(session.name, language)}
+          multiSelect
+          onClose={() => setAddSheetOpen(false)}
+          onSelectItem={() => undefined}
+          onConfirmSelection={(items) => {
+            setAddSheetOpen(false);
+            if (items.length > 0) {
+              onAddExercises?.(items.map((item) => item.name));
+            }
+          }}
+        />
+      ) : null}
 
       {/* The "Start this workout" dock was removed on request. */}
     </View>
@@ -856,13 +952,22 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(30, 18, 70, 0.42)',
   },
+  /**
+   * 88%, not 70%.
+   *
+   * The sheet now carries a search box, up to three groups of rows and two
+   * actions under them, and at 70% the rows were a peephole with the whole
+   * screen dark and unused above it ("vähän sumpussa koko pakka voi antaa
+   * reilusti tilaa", #bugs 2026-08-26). The cap still exists so the row being
+   * swapped stays visible behind the sheet.
+   */
   swapSheet: {
     backgroundColor: theme.bg,
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
     paddingHorizontal: spacing.lg,
     paddingBottom: 28,
-    maxHeight: '70%',
+    maxHeight: '88%',
   },
   swapGrip: {
     alignSelf: 'center',
@@ -880,8 +985,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
     marginBottom: 10,
   },
+  // Shrinks so the actions under it stay on screen, grows into whatever the
+  // taller sheet leaves over.
   swapList: {
     flexGrow: 0,
+    flexShrink: 1,
+    minHeight: 0,
   },
   swapEmpty: {
     color: theme.muted,
