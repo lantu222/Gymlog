@@ -381,20 +381,44 @@ export function ProgramDayScreen({
                         <Text style={styles.swapGroup}>{t(language, section.key)}</Text>
                       ) : null}
                       {section.rows.map((option) => (
-                        <Pressable
-                          key={option.exerciseName}
-                          onPress={() => {
-                            if (swapRow) {
-                              onSwapExercise?.(swapRow.slotId, option.exerciseName);
-                            }
-                            setSwapSlotId(null);
-                          }}
-                          style={({ pressed }) => [styles.swapOption, pressed && styles.swapOptionPressed]}
-                        >
-                          <Text style={styles.swapOptionName} numberOfLines={1}>
-                            {exerciseNameLabel(language, option.exerciseName)}
-                          </Text>
-                        </Pressable>
+                        <View key={option.exerciseName} style={styles.swapOptionRow}>
+                          {/* The row is today's answer — the one you can undo. */}
+                          <Pressable
+                            onPress={() => {
+                              if (swapRow) {
+                                onSwapExercise?.(swapRow.slotId, option.exerciseName);
+                              }
+                              setSwapSlotId(null);
+                            }}
+                            style={({ pressed }) => [
+                              styles.swapOption,
+                              styles.swapOptionGrow,
+                              pressed && styles.swapOptionPressed,
+                            ]}
+                          >
+                            <Text style={styles.swapOptionName} numberOfLines={1}>
+                              {exerciseNameLabel(language, option.exerciseName)}
+                            </Text>
+                          </Pressable>
+                          {/* And the durable one, here rather than behind a
+                              second visit to this sheet. */}
+                          {swapRow?.exerciseId && onKeepSwap ? (
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={t(language, 'home.swapSheet.keepOne', {
+                                name: exerciseNameLabel(language, option.exerciseName),
+                              })}
+                              hitSlop={8}
+                              onPress={() => {
+                                onKeepSwap(swapRow.exerciseId as string, option.exerciseName);
+                                setSwapSlotId(null);
+                              }}
+                              style={({ pressed }) => [styles.swapOptionKeep, pressed && styles.swapOptionPressed]}
+                            >
+                              <Text style={styles.swapOptionKeepText}>{t(language, 'home.swapSheet.keepShort')}</Text>
+                            </Pressable>
+                          ) : null}
+                        </View>
                       ))}
                     </View>
                   ),
@@ -750,6 +774,24 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '700',
+  },
+  swapOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  swapOptionGrow: { flex: 1 },
+  swapOptionKeep: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  swapOptionKeepText: {
+    color: theme.muted,
+    fontSize: 12,
+    fontWeight: '800',
   },
   swapGroup: {
     color: theme.faint,

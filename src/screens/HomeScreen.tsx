@@ -1968,24 +1968,49 @@ export function HomeScreen({
                       <Text style={styles.adaptOptGroup}>{t(language, section.key)}</Text>
                     ) : null}
                     {section.rows.map((option) => (
-                      <Pressable
-                        key={option.exerciseName}
-                        accessibilityRole="button"
-                        accessibilityLabel={exerciseNameLabel(language, option.exerciseName)}
-                        onPress={() => {
-                          if (swapSlotId) {
-                            onSwapSessionExercise?.(swapSlotId, option.exerciseName);
-                          }
-                          setSwapSlotId(null);
-                        }}
-                        style={({ pressed }) => [styles.adaptOpt, pressed && styles.pressed]}
-                      >
-                        <View style={styles.adaptOptCopy}>
-                          <Text style={styles.adaptOptTitle}>
-                            {exerciseNameLabel(language, option.exerciseName)}
-                          </Text>
-                        </View>
-                      </Pressable>
+                      <View key={option.exerciseName} style={styles.adaptOptRow}>
+                        {/* The row is today's answer: the bigger target is the
+                            one you can undo. */}
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={exerciseNameLabel(language, option.exerciseName)}
+                          onPress={() => {
+                            if (swapSlotId) {
+                              onSwapSessionExercise?.(swapSlotId, option.exerciseName);
+                            }
+                            setSwapSlotId(null);
+                          }}
+                          style={({ pressed }) => [styles.adaptOpt, styles.adaptOptGrow, pressed && styles.pressed]}
+                        >
+                          <View style={styles.adaptOptCopy}>
+                            <Text style={styles.adaptOptTitle}>
+                              {exerciseNameLabel(language, option.exerciseName)}
+                            </Text>
+                          </View>
+                        </Pressable>
+                        {/* And the durable answer, on the row rather than
+                            behind a second visit to this sheet. Both are
+                            common — a machine taken today is not the same as a
+                            lift you never want again — so the choice belongs at
+                            the moment of choosing, not after it (user
+                            2026-08-26). */}
+                        {swapRow.exerciseId && onKeepSwapInProgram ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={t(language, 'home.swapSheet.keepOne', {
+                              name: exerciseNameLabel(language, option.exerciseName),
+                            })}
+                            hitSlop={8}
+                            onPress={() => {
+                              onKeepSwapInProgram(swapRow.exerciseId as string, option.exerciseName);
+                              setSwapSlotId(null);
+                            }}
+                            style={({ pressed }) => [styles.adaptOptKeep, pressed && styles.pressed]}
+                          >
+                            <Text style={styles.adaptOptKeepText}>{t(language, 'home.swapSheet.keepShort')}</Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
                     ))}
                   </View>
                 ),
@@ -2785,6 +2810,26 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.ink,
     fontSize: 15,
     lineHeight: 19,
+    fontWeight: '800',
+  },
+  adaptOptRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  adaptOptGrow: { flex: 1 },
+  // A quiet pill, not a second button: the row beside it is the answer most
+  // taps want, and two equal-weight targets would make the reader choose twice.
+  adaptOptKeep: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  adaptOptKeepText: {
+    color: theme.muted,
+    fontSize: 12,
     fontWeight: '800',
   },
   otherProgramsCap: {

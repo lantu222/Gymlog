@@ -361,7 +361,12 @@ function CardioPlayerView({
         <Animated.View style={[styles.playerIconTile, { transform: [{ scale: pulse }] }]}>
           <CardioIcon kind={activity.icon} size={34} color={theme.purple} />
         </Animated.View>
-        <Text style={styles.playerActivityName}>{cardioActivityName(language, session.activityType)}</Text>
+        {/* One line, shrinking rather than clipping: the activity's own word is
+            the last one in Finnish word order, so a cut takes exactly the part
+            that says what you are doing. */}
+        <Text style={styles.playerActivityName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+          {cardioActivityName(language, session.activityType)}
+        </Text>
         <Text style={[styles.playerTimer, { color: running ? theme.ink : theme.faint }]}>
           {formatCardioDuration(elapsedMs / 1000)}
         </Text>

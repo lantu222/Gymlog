@@ -24,10 +24,28 @@ module.exports = [
         CARDIO_ACTIVITIES.map((activity) => activity.id),
         ['run', 'tread-run', 'tread-walk', 'cycle-in', 'cycle-out', 'row'],
       );
-      assert.equal(getCardioActivity('tread-walk').name, 'Free Treadmill Walk');
+      assert.equal(getCardioActivity('tread-walk').name, 'Treadmill walk');
       assert.equal(getCardioActivity('cycle-in').equipmentLabel, 'Exercise bike');
-      // Unknown type falls back to Free Run instead of crashing.
+      // Unknown type falls back to the run instead of crashing.
       assert.equal(getCardioActivity('swim').id, 'run');
+
+      // No name begins with the word every one of them shared. "Free" carried
+      // no information — all six are free — and it pushed the word that says
+      // WHICH activity to the end, where the clip lands: "Vapaa kävely matolla"
+      // read as "Vapaa kävely ma…" and the walking disappeared (#bugs
+      // 2026-08-26).
+      for (const activity of CARDIO_ACTIVITIES) {
+        assert.doesNotMatch(activity.name, /^Free\b/, `${activity.id} still leads with "Free"`);
+      }
+      const fi = require('node:fs').readFileSync(
+        require('node:path').join(__dirname, '../../src/lib/i18n.ts'),
+        'utf8',
+      );
+      const labels = fi.match(/'cardio\.activity\.[a-z-]+': '[^']*'/g) ?? [];
+      assert.equal(labels.length, 12, 'six activities, two languages');
+      for (const label of labels) {
+        assert.doesNotMatch(label, /: '(?:Free|Vapaa) /, `${label} still leads with the shared word`);
+      }
     },
   },
   {

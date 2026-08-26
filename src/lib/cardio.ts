@@ -20,13 +20,20 @@ export interface CardioActivity {
   icon: CardioIconKind;
 }
 
+/**
+ * Every one of these used to begin "Free" / "Vapaa" — a word that carried no
+ * information, because all six were free. It cost four characters at the front
+ * of every label, and the word that says WHICH activity arrived fourth: "Vapaa
+ * kävely matolla" clipped to "Vapaa kävely ma…" in the player and the finish
+ * line, so the reader watched the walking disappear (#bugs 2026-08-26).
+ */
 export const CARDIO_ACTIVITIES: CardioActivity[] = [
-  { id: 'run', name: 'Free Run', equipmentLabel: 'No equipment', icon: 'run' },
-  { id: 'tread-run', name: 'Free Treadmill Run', equipmentLabel: 'Treadmill', icon: 'treadmill' },
-  { id: 'tread-walk', name: 'Free Treadmill Walk', equipmentLabel: 'Treadmill', icon: 'walk' },
-  { id: 'cycle-in', name: 'Free Indoor Cycle', equipmentLabel: 'Exercise bike', icon: 'cycle' },
-  { id: 'cycle-out', name: 'Free Outdoor Cycle', equipmentLabel: 'Outdoor bike', icon: 'cycle' },
-  { id: 'row', name: 'Free Row', equipmentLabel: 'Rower', icon: 'row' },
+  { id: 'run', name: 'Run', equipmentLabel: 'No equipment', icon: 'run' },
+  { id: 'tread-run', name: 'Treadmill run', equipmentLabel: 'Treadmill', icon: 'treadmill' },
+  { id: 'tread-walk', name: 'Treadmill walk', equipmentLabel: 'Treadmill', icon: 'walk' },
+  { id: 'cycle-in', name: 'Indoor cycle', equipmentLabel: 'Exercise bike', icon: 'cycle' },
+  { id: 'cycle-out', name: 'Outdoor cycle', equipmentLabel: 'Outdoor bike', icon: 'cycle' },
+  { id: 'row', name: 'Row', equipmentLabel: 'Rower', icon: 'row' },
 ];
 
 export function getCardioActivity(activityType: string): CardioActivity {
