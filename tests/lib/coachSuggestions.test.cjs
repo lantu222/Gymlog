@@ -120,7 +120,10 @@ module.exports = [
       // A button the app cannot carry out is worse than no button: an unknown
       // measurement and an unparseable goal are both dropped.
       assert.match(screen, /if \(!isMeasurementIntentKind\(kind\) \|\| pinnedStatCardKeys\.includes\(kind\)\)/);
-      assert.match(screen, /parseGoalIntent\(suggestion\.goalText, language\)/);
+      // ...but a goal the coach itself declared is read on the declared path,
+      // where only the body part and the number are still open. The sniffer's
+      // rules were discarding offers the coach had merely paraphrased.
+      assert.match(screen, /parseGoalIntent\(suggestion\.goalText, language, \{ declared: true \}\)/);
 
       // The weigh-in offer is a switch with nothing to carry, and it must not
       // be offered when it is already on.

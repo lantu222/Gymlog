@@ -36,7 +36,9 @@ const NUMBER = /(\d{1,3}(?:[.,]\d{1,2})?)\s*(cm|kg|%)/i;
  * partitives on top rather than loosening the logger's matching.
  */
 const EXTRA_KIND_WORDS: Array<{ kind: MeasurementIntentKind; pattern: RegExp }> = [
-  { kind: 'bodyweight', pattern: /\bpainoa\b|\bpainoani\b/i },
+  // "haluisin painaa 80 kg" is the commonest way to state a weight goal in
+  // Finnish, and none of these forms was here — see `declared` below.
+  { kind: 'bodyweight', pattern: /\bpainoa\b|\bpainoani\b|\bpainaa\b|\bpainaisin\b|\bpainoon\b/i },
   { kind: 'chest', pattern: /\brintaa\b|\brintaani\b/i },
   { kind: 'arms', pattern: /\bhauista\b|käsivarsia/i },
   { kind: 'thighs', pattern: /\breisiä\b/i },
@@ -51,14 +53,34 @@ function unitFor(kind: MeasurementIntentKind): 'cm' | 'kg' | '%' {
   return 'cm';
 }
 
-export function parseGoalIntent(text: string, _language: AppLanguage = 'fi'): GoalIntent | null {
+export interface ParseGoalIntentOptions {
+  /**
+   * The caller already knows this is a goal — the coach attached a `set_goal`
+   * suggestion — so only the body part and the number are still in question.
+   *
+   * Without this the two jobs shared one rule. Sniffing an unprompted message
+   * must be strict, because a false positive nags about a goal nobody stated;
+   * validating a declared one must not be, because the coach paraphrases. It
+   * answered the reader's "haluisin painaa 80kg" by offering to save "painaa
+   * 80 kg" — its own trim dropped the word the sniffer required, the offer was
+   * silently discarded, and the answer went on telling the reader to press a
+   * button that was never drawn ("En nää nappia", log 2026-08-25).
+   */
+  declared?: boolean;
+}
+
+export function parseGoalIntent(
+  text: string,
+  _language: AppLanguage = 'fi',
+  { declared = false }: ParseGoalIntentOptions = {},
+): GoalIntent | null {
   const message = text.trim();
   if (!message || message.includes('?')) {
     return null;
   }
   // A number with a unit implies the direction: "tavoite rinnanympärys 104 cm"
   // needs no verb to be a goal.
-  if (!GOAL_WORDS.test(message) || !(DIRECTION_WORDS.test(message) || NUMBER.test(message))) {
+  if (!declared && (!GOAL_WORDS.test(message) || !(DIRECTION_WORDS.test(message) || NUMBER.test(message)))) {
     return null;
   }
   const match =

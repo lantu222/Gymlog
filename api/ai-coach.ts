@@ -206,7 +206,7 @@ const AI_COACH_RESPONSE_SCHEMA = {
         goalText: {
           type: 'string',
           description:
-            'For set_goal only: the goal in the words and language the reader used, with the target if they gave one — "kasvattaa rinnanympärystä 104 cm". The app parses it, and drops the offer if it cannot.',
+            'For set_goal only: the goal in the words and language the reader used, with the target if they gave one — "kasvattaa rinnanympärystä 104 cm". Keep their own sentence: it must name the body part or bodyweight, and paraphrasing has dropped that before. The app parses it and discards the offer if it cannot, which leaves your answer pointing at a button nobody sees.',
         },
         value: {
           type: 'number',

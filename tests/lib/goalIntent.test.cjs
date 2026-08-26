@@ -45,6 +45,33 @@ module.exports = [
     },
   },
   {
+    name: 'goalIntent: a goal the coach declared is read from its own words, not held to the sniffer',
+    run() {
+      // The reader wrote "haluisin painaa 80kg"; the coach offered to save
+      // "painaa 80 kg". The trim dropped the goal word the sniffer demands, so
+      // the offer was discarded while the answer kept telling them to press a
+      // button ("En nää nappia", log 2026-08-25).
+      assert.equal(parseGoalIntent('painaa 80 kg', 'fi'), null, 'unprompted, this is still not a stated goal');
+
+      const declared = parseGoalIntent('painaa 80 kg', 'fi', { declared: true });
+      assert.ok(declared, 'the coach already said this is a goal');
+      assert.equal(declared.kind, 'bodyweight');
+      assert.equal(declared.targetValue, 80);
+      assert.equal(declared.unit, 'kg');
+
+      // Declared or not, a goal still has to name something the app can track,
+      // or the button saves a sentence nothing can ever measure against.
+      assert.equal(parseGoalIntent('jaksaa paremmin', 'fi', { declared: true }), null);
+      assert.equal(parseGoalIntent('onko tämä hyvä', 'fi', { declared: true }), null, 'a question is never a goal');
+
+      // The reader's full sentence must keep working — it is what the coach is
+      // now told to pass through unchanged.
+      const verbatim = parseGoalIntent('haluisin painaa 80 kg', 'fi', { declared: true });
+      assert.equal(verbatim.kind, 'bodyweight');
+      assert.equal(verbatim.targetValue, 80);
+    },
+  },
+  {
     name: 'goalIntent: a goal with a number never leaks into the measurement logger',
     run() {
       const text = 'haluan kasvattaa rinnanympärystä 104 cm';

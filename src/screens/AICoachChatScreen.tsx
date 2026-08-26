@@ -552,7 +552,12 @@ export function AICoachChatScreen({
               suggestionKind: 'pin_stat_card' as const,
             };
           }
-          const intent = suggestion.goalText ? parseGoalIntent(suggestion.goalText, language) : null;
+          // Declared: the coach chose set_goal, so only the body part and the
+          // number still need reading. Holding it to the sniffer's rules threw
+          // away offers whose text the coach had merely paraphrased.
+          const intent = suggestion.goalText
+            ? parseGoalIntent(suggestion.goalText, language, { declared: true })
+            : null;
           if (!intent) {
             return null;
           }
