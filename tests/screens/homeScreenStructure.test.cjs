@@ -496,7 +496,15 @@ module.exports = [
       assert.match(appSource, /\[\.\.\.workoutSessions\][\s\S]*\.sort/);
       assert.match(appSource, /\.slice\(0, 3\)/);
       assert.doesNotMatch(appSource, /<HomeScreen[\s\S]*recentSessions=\{homeRecentSessions\}/);
-      assert.match(appSource, /<ProgressScreen[\s\S]*recentSessions=\{homeRecentSessions\}/);
+      // The ProgressScreen call moved to src/app with the progress tab
+      // (phase A) — the recent-sessions pin follows it there.
+      assert.match(
+        require('node:fs').readFileSync(
+          require('node:path').join(__dirname, '..', '..', 'src', 'app', 'renderProgressTab.tsx'),
+          'utf8',
+        ),
+        /<ProgressScreen[\s\S]*recentSessions=\{homeRecentSessions\}/,
+      );
       assert.doesNotMatch(appSource, /customTemplates=/);
       assert.match(appSource, /onCreateWorkoutFromExercises=\{\(\) => navigate\(\{ tab: 'workout', screen: 'empty' \}\)\}/);
       assert.doesNotMatch(appSource, /onCreateWorkoutFromExercises=\{\(\) => navigate\(\{ tab: 'workout', screen: 'editor' \}\)\}/);
@@ -504,8 +512,10 @@ module.exports = [
       assert.doesNotMatch(appSource, /<HomeScreen[\s\S]*onOpenProgressOverview=/);
       assert.doesNotMatch(appSource, /<HomeScreen[\s\S]*onOpenTrackedProgress=/);
       assert.doesNotMatch(appSource, /<HomeScreen[\s\S]*onOpenBodyStats=/);
-      assert.match(appSource, /onOpenSessionHistory=\{\(\) => navigate\(\{ tab: 'home', screen: 'history' \}\)\}/);
-      assert.match(appSource, /onOpenRecentSession=\{\(sessionId\) => navigate\(\{ tab: 'home', screen: 'session', sessionId \}\)\}/);
+      // Wired in the progress module since phase A — read the whole wiring.
+      const wiringSource = require('../helpers/appWiringSource.cjs').readAppWiring();
+      assert.match(wiringSource, /onOpenSessionHistory=\{\(\) => navigate\(\{ tab: 'home', screen: 'history' \}\)\}/);
+      assert.match(wiringSource, /onOpenRecentSession=\{\(sessionId\) => navigate\(\{ tab: 'home', screen: 'session', sessionId \}\)\}/);
       assert.doesNotMatch(appSource, /onOpenAICoach=\{handleOpenAICoach\}/);
 
       assert.match(routesSource, /screen: 'empty'/);
@@ -560,7 +570,11 @@ module.exports = [
       assert.match(progressScreenSource, /onOpenRecentSession\?\.\(session\.id\)/);
       assert.match(progressScreenSource, /useState<ProgressSection>\(initialSection \?\? 'overview'\)/);
       assert.match(progressScreenSource, /useEffect\(\(\) => \{[\s\S]*setProgressSection\(initialSection\);[\s\S]*\}, \[initialSection\]\)/);
-      assert.match(appSource, /initialSection=\{route\.screen === 'list' \? route\.section : undefined\}/);
+      // Wired in the progress module since phase A.
+      assert.match(
+        require('../helpers/appWiringSource.cjs').readAppWiring(),
+        /initialSection=\{route\.screen === 'list' \? route\.section : undefined\}/,
+      );
 
       // Bottom bar EXPERIMENT (dark floating pill): absolutely positioned so it
       // floats low over the content (no backdrop strip), a dark pill, a circular

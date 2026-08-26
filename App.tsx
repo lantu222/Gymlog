@@ -215,6 +215,7 @@ import { popRoute, pushRoute } from './src/navigation/routeHistory';
 import { AppRoute, ROOT_ROUTES, RootTabKey, WORKOUT_PLAN_ROUTE } from './src/navigation/routes';
 import { getBackRoute } from './src/app/backRoute';
 import { renderProfileTab } from './src/app/renderProfileTab';
+import { renderProgressTab } from './src/app/renderProgressTab';
 import { formatGoalLabel, formatHomeSessionTitle } from './src/app/homeSessionTitle';
 import {
   buildSavedOnboardingPlan,
@@ -257,7 +258,6 @@ import { AICoachChatScreen } from './src/screens/AICoachChatScreen';
 import { buildCoachContextChips } from './src/lib/coachChat';
 import { isAiCoachLiveConfigured, requestProgrammeComposition, requestProgramTableFromImage } from './src/lib/aiCoachClient';
 import { buildProgrammeDraft, composeProgrammePreview, resolveLiveProposal } from './src/lib/programmeBrief';
-import { ProgressScreen } from './src/screens/ProgressScreen';
 import { ProgramDayScreen } from './src/screens/ProgramDayScreen';
 import { ProgramDetailScreen } from './src/screens/ProgramDetailScreen';
 import { ProgramsHomeScreen, ProgramsExploreItem } from './src/screens/ProgramsHomeScreen';
@@ -5101,59 +5101,31 @@ function VinhaApp() {
       />
     );
   } else if (route.tab === 'progress') {
-    content = (
-        <ProgressScreen
-          topRecords={personalRecords.weight.slice(0, 3)}
-          recordCount={distinctRecordCount}
-          records={personalRecords}
-          setLogSources={recordSources}
-          onStartWorkout={() => resetToRoute(ROOT_ROUTES.home)}
-          summaries={trackedProgress}
-          bodyweightProgress={bodyweightProgress}
-          measurementEntries={measurementEntries}
-          workoutSessions={workoutSessions}
-          activityCalendar={homeSummary.streak.calendar}
-          // The same resolved rhythm Home and the widget mark their calendars
-          // from — cycle or weekdays — so a 2-on-1-off reader sees the same
-          // training days on every calendar in the app.
-          trainingSchedule={homeTrainingSchedule}
-          rhythm={progressTrainingRhythm}
-          weeklyTargetSessions={progressWeeklyTarget}
-          unitPreference={unitPreference}
-          weeklyRead={proWeeklyRead}
-          readMoment={proPlateau?.moment ?? null}
-          proUnlocked={coachProUnlocked}
-          onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
-          language={preferences.appLanguage}
-          selectedExerciseKey={route.screen === 'detail' ? route.exerciseKey : undefined}
-        initialSection={route.screen === 'list' ? route.section : undefined}
-        initialMeasure={route.screen === 'list' ? route.measure : undefined}
-        scrollToTarget={route.screen === 'list' ? route.scrollTo : undefined}
-        showBodyweightDetail={route.screen === 'bodyweight'}
-        onAddBodyweight={async (weightKg) => {
-          await addBodyweightEntry(weightKg);
-          // No "saved" toast (user 2026-08-25: "outo pilleri... ihan turha").
-          // The save announces itself: the dot lands on the chart, and the
-          // haptic says it landed.
-          void haptics.success();
-        }}
-        // The same height the questionnaire asks for and the profile stores —
-        // the BMI card edits that field rather than keeping a second copy.
-        heightCm={preferences.setupHeightCm}
-        onSaveHeight={(nextHeightCm) => void updatePreferences({ setupHeightCm: nextHeightCm })}
-        onAddMeasurement={async (kind, value, unit) => {
-          await addMeasurementEntry(kind, value, unit);
-          // No "saved" toast, same rule as bodyweight (user 2026-08-25:
-          // "teksti mittaus tallennettu poistetaan ja kaikki tämmöiset").
-          // The value lands on the card in front of the reader; the haptic
-          // says it landed.
-          void haptics.success();
-        }}
-        recentSessions={homeRecentSessions}
-        onOpenSessionHistory={() => navigate({ tab: 'home', screen: 'history' })}
-        onOpenRecentSession={(sessionId) => navigate({ tab: 'home', screen: 'session', sessionId })}
-      />
-    );
+    content = renderProgressTab({
+      route,
+      navigate,
+      resetToRoute,
+      preferences,
+      updatePreferences,
+      personalRecords,
+      distinctRecordCount,
+      recordSources,
+      trackedProgress,
+      bodyweightProgress,
+      measurementEntries,
+      workoutSessions,
+      activityCalendar: homeSummary.streak.calendar,
+      homeTrainingSchedule,
+      progressTrainingRhythm,
+      progressWeeklyTarget,
+      unitPreference,
+      proWeeklyRead,
+      proPlateauMoment: proPlateau?.moment ?? null,
+      coachProUnlocked,
+      addBodyweightEntry,
+      addMeasurementEntry,
+      homeRecentSessions,
+    });
   } else if (route.tab === 'home' && route.screen === 'ai') {
     content = (
       <AICoachScreen
