@@ -231,7 +231,13 @@ export function applyDecimalSeparator(text: string) {
 }
 
 export function removeTrailingZeros(value: number) {
-  const text = value % 1 === 0 ? `${value}` : value.toFixed(1).replace(/\.0$/, '');
+  // Two decimals, not one. The weight dial steps 1.25 kg — the smallest real
+  // plate pair — and a single decimal rendered that as "1,3": a number the
+  // app never stored and the reader never dialled, which then walked up the
+  // bar as 1,3 · 2,5 · 3,8 · 5 (#bugs 2026-08-26). Trailing zeros still go,
+  // so 2.5 stays "2,5" and 60 stays "60".
+  const text =
+    value % 1 === 0 ? `${value}` : value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
   return decimalSeparator === '.' ? text : text.replace('.', decimalSeparator);
 }
 

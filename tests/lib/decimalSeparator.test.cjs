@@ -43,6 +43,24 @@ module.exports = [
     },
   },
   {
+    name: 'a quarter kilo survives being printed',
+    run() {
+      // The weight dial steps 1.25 kg, and one decimal turned that into
+      // "1,3" — a number the app never stored and the reader never dialled.
+      // It then walked up the bar as 1,3 · 2,5 · 3,8 · 5 (#bugs 2026-08-26).
+      setNumberLanguage('fi');
+      assert.equal(removeTrailingZeros(1.25), '1,25');
+      assert.equal(removeTrailingZeros(3.75), '3,75');
+      assert.equal(removeTrailingZeros(61.25), '61,25');
+      // And the common cases keep the shape they always had: no trailing
+      // zeros, no separator on a whole number.
+      assert.equal(removeTrailingZeros(2.5), '2,5');
+      assert.equal(removeTrailingZeros(60), '60');
+      setNumberLanguage('en');
+      assert.equal(removeTrailingZeros(1.25), '1.25');
+    },
+  },
+  {
     name: 'decimal: an unknown language falls back to Finnish, not English',
     run() {
       // Forgetting to set it, or setting it to something unsupported, must

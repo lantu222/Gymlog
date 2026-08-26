@@ -68,7 +68,6 @@ import {
   resolveGuidedSetTarget,
 } from '../lib/guidedPlayer';
 import { getExerciseInstructions } from '../lib/exerciseInstructions';
-import { CountBeat } from '../components/CountBeat';
 import { CtaShimmer } from '../components/CtaShimmer';
 import { SetPanelHistory, SetPanels } from '../components/SetPanels';
 import { getDrillLibraryName } from '../lib/drillMedia';
@@ -1901,60 +1900,56 @@ export function GuidedPlayerScreen({
                   have, and a way to stop the clock. The photo, the how-to link
                   and the first-set breakdown all moved off this screen — you
                   are not reading, you are walking. */}
-              <View style={{ flex: 1, minHeight: 0, alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-                <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: theme.purple }}>
-                  {t(language, 'guided.nextUp')}
-                </Text>
-                <Text style={styles.positionName} numberOfLines={2}>
-                  {exerciseNameLabel(language, step.exerciseName)}
-                </Text>
-                {(() => {
-                  const exercise = exerciseBySlot.get(step.slotId);
-                  const target = resolveTarget(step.slotId, 0);
-                  if (!exercise || !target) {
-                    return null;
-                  }
-                  return (
-                    <Text style={styles.positionPlan}>
-                      {t(
-                        language,
-                        isTimedTrackingMode(exercise.trackingMode)
-                          ? 'guided.prescriptionHold'
-                          : 'guided.prescription',
-                        {
-                          sets: exercise.sets.length,
-                          reps: target.reps,
-                        },
-                      )}
-                    </Text>
-                  );
-                })()}
-                <View style={{ height: 18 }} />
-                {/* The count lands on every new second inside the same
-                    draining ring the rest screen uses (design "Lepoajastin",
-                    2026-08-26). The design orbits a decorative arc here; a
-                    ring that DRAINS says the same "it is running" and also
-                    says how much is left, which the number alone cannot. */}
-                <RestRing
-                  stepKey={stepIndex}
-                  leftSeconds={secondsLeft}
-                  plannedSeconds={step.seconds}
-                  size={186}
-                >
-                  <CountBeat value={Math.ceil(Math.max(0, secondsLeft))}>
-                    <Text
-                      style={[
-                        styles.drillCountdown,
-                        { color: secondsLeft <= 3.05 ? theme.green : theme.ink },
-                      ]}
-                    >
-                      {formatGuidedCountdown(secondsLeft)}
-                    </Text>
-                  </CountBeat>
-                </RestRing>
-                <Text style={{ fontSize: 12, fontWeight: '700', letterSpacing: 1.7, color: theme.muted, marginTop: 10 }}>
-                  {t(language, paused ? 'guided.stopped' : 'guided.untilStart')}
-                </Text>
+              {/* Three zones, not one centred clump (user 2026-08-26): what
+                  is coming sits at the top where a heading belongs, the clock
+                  owns the middle, and the button owns the bottom. The ring the
+                  Lepoajastin design put around the count is gone with it —
+                  the plain number was the version that read better on a
+                  treadmill, and the only part worth keeping was the room. */}
+              <View style={{ flex: 1, minHeight: 0 }}>
+                <View style={{ alignItems: 'center', gap: 8, paddingTop: 26, paddingHorizontal: 24 }}>
+                  <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: theme.purple }}>
+                    {t(language, 'guided.nextUp')}
+                  </Text>
+                  <Text style={styles.positionName} numberOfLines={2}>
+                    {exerciseNameLabel(language, step.exerciseName)}
+                  </Text>
+                  {(() => {
+                    const exercise = exerciseBySlot.get(step.slotId);
+                    const target = resolveTarget(step.slotId, 0);
+                    if (!exercise || !target) {
+                      return null;
+                    }
+                    return (
+                      <Text style={styles.positionPlan}>
+                        {t(
+                          language,
+                          isTimedTrackingMode(exercise.trackingMode)
+                            ? 'guided.prescriptionHold'
+                            : 'guided.prescription',
+                          {
+                            sets: exercise.sets.length,
+                            reps: target.reps,
+                          },
+                        )}
+                      </Text>
+                    );
+                  })()}
+                </View>
+
+                <View style={{ flex: 1, minHeight: 0, alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  <Text
+                    style={[
+                      styles.drillCountdown,
+                      { color: secondsLeft <= 3.05 ? theme.green : theme.ink },
+                    ]}
+                  >
+                    {formatGuidedCountdown(secondsLeft)}
+                  </Text>
+                  <Text style={{ fontSize: 12, fontWeight: '700', letterSpacing: 1.7, color: theme.muted }}>
+                    {t(language, paused ? 'guided.stopped' : 'guided.untilStart')}
+                  </Text>
+                </View>
               </View>
               <View style={{ paddingHorizontal: 22, paddingBottom: 14 }}>
                 {/* One control, both jobs: stop the clock to take your time,
