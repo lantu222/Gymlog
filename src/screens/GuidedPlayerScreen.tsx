@@ -74,8 +74,6 @@ import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { libraryLabel } from '../lib/libraryLabel';
 import { localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { classifySessionFocus, getDefaultCooldown, getDefaultWarmup } from '../lib/homeSessionHero';
-import { Exercise3DSheet } from '../components/exercise3d/Exercise3DSheet';
-import { hasExercise3D } from '../components/exercise3d/exercisePose';
 import { formatShortDate, removeTrailingZeros } from '../lib/format';
 import { estimateSessionMinutes } from '../lib/sessionDuration';
 import { t } from '../lib/i18n';
@@ -312,44 +310,13 @@ function MediaZone({
   useEffect(() => setImageFailed(false), [name]);
 
   const imageUrl = match?.imageUrls?.[0] ?? null;
-  const muscle = match?.primaryMuscles?.[0] ?? null;
 
-  // The media zone always shows the flat photo (or initials). Exercises that
-  // have a 3D rig get a button in the top-right corner that opens the animated
-  // "how it's done" sheet — so the 3D only renders on demand, never during
-  // normal training. Warmup drills never have a rig. The muscle chip was
+  // The media zone always shows the flat photo (or initials). A 3D rig with
+  // an on-demand sheet lived here until 2026-08-26 ("poistetaan kaikki 3d
+  // videot mitä tehtiin, palaan tähän joskus myöhemmin") — the HowToSheet
+  // with written instructions is the how-to path now. The muscle chip was
   // dropped in the v4 pass (user: the label added nothing on any exercise).
-  const has3D = showActions && mode !== 'drill' && hasExercise3D(name);
-  const [sheetOpen, setSheetOpen] = useState(false);
-
-  const overlays = (
-    <>
-      {has3D ? (
-        <>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t(language, 'guided.a11y.watchHowTo', { name: exerciseNameLabel(language, name) })}
-            onPress={() => setSheetOpen(true)}
-            style={styles.media3dButton}
-            hitSlop={8}
-          >
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={theme.ink} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
-              <Path d="M3 7.5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-              <Path d="M15 10.5 20 7.5v9l-5-3z" />
-            </Svg>
-          </Pressable>
-          <Exercise3DSheet
-            name={name}
-            muscle={muscle}
-            language={language}
-            instructions={getExerciseInstructions(match?.name, match?.instructions, language)}
-            visible={sheetOpen}
-            onClose={() => setSheetOpen(false)}
-          />
-        </>
-      ) : null}
-    </>
-  );
+  const overlays = null;
 
   const initials = getGuidedInitials(name);
   // The panel is the FLOOR, not the fallback. It used to render only after
@@ -1091,7 +1058,6 @@ export function GuidedPlayerScreen({
   const [howtoOpen, setHowtoOpen] = useState(false);
   // v4 set screen: the top-bar camera opens the 3D rig from screen level, so
   // the media zone no longer carries its own button.
-  const [setVideoOpen, setSetVideoOpen] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
   const [pauseSheetOpen, setPauseSheetOpen] = useState(false);
   const [swapOpen, setSwapOpen] = useState(false);
@@ -1753,8 +1719,9 @@ export function GuidedPlayerScreen({
                     // Screen readers heard "Katso, miten Chest-Supported Row
                     // tehdään" while the screen showed Rintatuettu soutu.
                     label: t(language, 'guided.a11y.watchHowTo', { name: exerciseNameLabel(language, step.exerciseName) }),
-                    onPress: () =>
-                      hasExercise3D(step.exerciseName) ? setSetVideoOpen(true) : setHowtoOpen(true),
+                    // Straight to the written how-to: the 3D sheet this used
+                    // to branch into was removed 2026-08-26.
+                    onPress: () => setHowtoOpen(true),
                   }
                 : null
             }
@@ -2058,17 +2025,6 @@ export function GuidedPlayerScreen({
           label={t(language, 'guided.label.done')}
           name={exerciseNameLabel(language, doneSplashName)}
           onDone={() => setDoneSplashName(null)}
-        />
-      ) : null}
-
-      {step.type === 'set' ? (
-        <Exercise3DSheet
-          name={step.exerciseName}
-          muscle={libraryFor(step.exerciseName)?.primaryMuscles?.[0] ?? null}
-          language={language}
-          instructions={libraryFor(step.exerciseName)?.instructions ?? undefined}
-          visible={setVideoOpen}
-          onClose={() => setSetVideoOpen(false)}
         />
       ) : null}
 
@@ -2571,7 +2527,11 @@ function SetStepView({
                 unit="kg"
                 open={dial === 'weight'}
                 onToggle={() => setDial((current) => (current === 'weight' ? null : 'weight'))}
-                onStep={(direction) => setKg((current) => Math.max(0, Number((current + direction * 2.5).toFixed(1))))}
+                // 1.25 kg per step (user wish, #bugs 2026-08-26): the smallest
+                // real plate pair. A hold still runs and accelerates, so big
+                // jumps cost no more than they did at 2.5. Two decimals, or
+                // 61.25 would round itself to 61.3 on the way through.
+                onStep={(direction) => setKg((current) => Math.max(0, Number((current + direction * 1.25).toFixed(2))))}
                 downLabel={t(language, 'guided.a11y.weightDown')}
                 upLabel={t(language, 'guided.a11y.weightUp')}
                 editHint={t(language, 'guided.a11y.tapToEdit')}
@@ -2683,16 +2643,20 @@ function SetStepView({
 
 /**
  * A breath between the last set of one lift and the next lift's walk-up
- * screen: the finished name under a green check, in and out in about a
- * second. Runs its whole life on one animated value so the fade-out needs no
- * second timer; a tap ends it early. The parent unmounts it via onDone.
+ * screen: the finished name under a green check. About a second was too
+ * quick to register on the gym floor — "kestää ehkä sekunnin ja sitten
+ * siirtyy jo seuraavaan" (user, #bugs 2026-08-26) — so it holds for ~3.5 s
+ * now, still on one animated value so the fade-out needs no second timer,
+ * and a tap still ends it early. The parent unmounts it via onDone.
  */
 function ExerciseDoneSplash({ label, name, onDone }: { label: string; name: string; onDone: () => void }) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const anim = useRef(new Animated.Value(0)).current;
-  const opacity = useRef(anim.interpolate({ inputRange: [0, 0.1, 0.82, 1], outputRange: [0, 1, 1, 0] })).current;
-  const scale = useRef(anim.interpolate({ inputRange: [0, 0.22, 1], outputRange: [0.84, 1, 1] })).current;
+  // The in and out stay as fast as before (~120 ms in, ~280 ms out); only
+  // the plateau between them grew.
+  const opacity = useRef(anim.interpolate({ inputRange: [0, 0.035, 0.92, 1], outputRange: [0, 1, 1, 0] })).current;
+  const scale = useRef(anim.interpolate({ inputRange: [0, 0.075, 1], outputRange: [0.84, 1, 1] })).current;
   // The latest onDone without re-running the effect: the parent recreates the
   // callback every render, and restarting the timing would hold the splash up
   // for as long as the player keeps ticking.
@@ -2701,7 +2665,7 @@ function ExerciseDoneSplash({ label, name, onDone }: { label: string; name: stri
   useEffect(() => {
     Animated.timing(anim, {
       toValue: 1,
-      duration: 1150,
+      duration: 3500,
       easing: Easing.linear,
       useNativeDriver: true,
     }).start(({ finished }) => {
@@ -2951,20 +2915,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderWidth: 1,
   },
   mediaInitials: { fontSize: 118, fontWeight: '800', letterSpacing: -5, color: 'rgba(124,58,237,0.22)' },
-  // Top-right affordance that opens the animated 3D how-to for this exercise.
-  media3dButton: {
-    position: 'absolute',
-    right: 12,
-    top: 12,
-    width: 38,
-    height: 38,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    borderWidth: 1,
-    borderColor: '#E6DAF8',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 
   /* splash / ready */
   splashRoot: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 32 },

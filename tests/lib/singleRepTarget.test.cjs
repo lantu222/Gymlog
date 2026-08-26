@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 
 const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog.js');
+const { collapseRepRange } = require('../../.test-dist/lib/singleRepTarget.js');
 
 /**
  * Every catalog exercise prescribes ONE rep number, not a range (user decision
@@ -35,6 +36,36 @@ module.exports = [
         [],
         'Catalog exercises with a rep range — set repsMin equal to repsMax:\n  ' + offenders.join('\n  '),
       );
+    },
+  },
+  {
+    name: 'a saved programme collapses its rep ranges the way the catalog did',
+    run() {
+      // repsMax wins, same as the catalog on 2026-08-25 — the progression
+      // gate always measured readiness against it (user 2026-08-26: the same
+      // rule for programmes already in the reader's own database).
+      assert.deepEqual(collapseRepRange({ name: 'Bench Press', repMin: 8, repMax: 10 }), { repMin: 10, repMax: 10 });
+      assert.deepEqual(collapseRepRange({ name: 'Kettlebell Swing', repMin: 15, repMax: 20 }), { repMin: 20, repMax: 20 });
+      // Already single: untouched.
+      assert.deepEqual(collapseRepRange({ name: 'Back Squat', repMin: 5, repMax: 5 }), { repMin: 5, repMax: 5 });
+      // A hold's numbers are seconds, and 30-60 s is a dose bracket.
+      assert.deepEqual(collapseRepRange({ name: 'Plank', repMin: 30, repMax: 60 }), { repMin: 30, repMax: 60 });
+    },
+  },
+  {
+    name: 'load-time normalization applies the collapse to stored exercise templates',
+    run() {
+      // Source-read guard: the compiled database module drags AsyncStorage
+      // into Node, so the wiring is pinned as text and the behaviour is
+      // covered by the pure-function case above.
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const databaseSource = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'storage', 'database.ts'),
+        'utf8',
+      );
+      assert.match(databaseSource, /const reps = collapseRepRange\(\{/);
+      assert.match(databaseSource, /repMin: reps\.repMin,\s*\r?\n\s*repMax: reps\.repMax,/);
     },
   },
 ];

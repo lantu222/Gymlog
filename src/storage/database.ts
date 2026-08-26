@@ -7,6 +7,7 @@ import { isSubscriptionTermKey } from '../lib/subscriptionView';
 import { createEmptyDatabase } from '../data/seed';
 import { resolveDeviceLanguage } from './deviceLocale';
 import { normalizeExerciseLog } from '../lib/exerciseLog';
+import { collapseRepRange } from '../lib/singleRepTarget';
 import { buildLegacyTemplateSessions, getLegacyTemplateSessionId } from '../lib/workoutTemplateSessions';
 import {
   AppDatabase,
@@ -258,24 +259,35 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
   const fallback = createEmptyDatabase();
 
   const rawExerciseTemplates: ExerciseTemplate[] = Array.isArray(input?.exerciseTemplates)
-    ? input.exerciseTemplates.map((exercise: any) => ({
-        id: String(exercise?.id ?? ''),
-        workoutTemplateId: String(exercise?.workoutTemplateId ?? ''),
-        workoutTemplateSessionId:
-          typeof exercise?.workoutTemplateSessionId === 'string' ? exercise.workoutTemplateSessionId : '',
-        name: typeof exercise?.name === 'string' ? exercise.name : 'Exercise',
-        targetSets: typeof exercise?.targetSets === 'number' ? exercise.targetSets : 3,
-        repMin: typeof exercise?.repMin === 'number' ? exercise.repMin : 6,
-        repMax: typeof exercise?.repMax === 'number' ? exercise.repMax : 8,
-        restSeconds: typeof exercise?.restSeconds === 'number' ? exercise.restSeconds : null,
-        trackedDefault: typeof exercise?.trackedDefault === 'boolean' ? exercise.trackedDefault : true,
-        orderIndex: typeof exercise?.orderIndex === 'number' ? exercise.orderIndex : 0,
-        libraryItemId: typeof exercise?.libraryItemId === 'string' || exercise?.libraryItemId === null ? exercise.libraryItemId : null,
-        persistedExerciseTemplateId:
-          typeof exercise?.persistedExerciseTemplateId === 'string' || exercise?.persistedExerciseTemplateId === null
-            ? exercise.persistedExerciseTemplateId
-            : undefined,
-      }))
+    ? input.exerciseTemplates.map((exercise: any) => {
+        const name = typeof exercise?.name === 'string' ? exercise.name : 'Exercise';
+        // Programmes saved before 2026-08-25 still carry rep ranges; the
+        // catalogs collapsed theirs that day, and stored programmes follow
+        // the same rule on load (holds excepted — their numbers are seconds).
+        const reps = collapseRepRange({
+          name,
+          repMin: typeof exercise?.repMin === 'number' ? exercise.repMin : 6,
+          repMax: typeof exercise?.repMax === 'number' ? exercise.repMax : 8,
+        });
+        return {
+          id: String(exercise?.id ?? ''),
+          workoutTemplateId: String(exercise?.workoutTemplateId ?? ''),
+          workoutTemplateSessionId:
+            typeof exercise?.workoutTemplateSessionId === 'string' ? exercise.workoutTemplateSessionId : '',
+          name,
+          targetSets: typeof exercise?.targetSets === 'number' ? exercise.targetSets : 3,
+          repMin: reps.repMin,
+          repMax: reps.repMax,
+          restSeconds: typeof exercise?.restSeconds === 'number' ? exercise.restSeconds : null,
+          trackedDefault: typeof exercise?.trackedDefault === 'boolean' ? exercise.trackedDefault : true,
+          orderIndex: typeof exercise?.orderIndex === 'number' ? exercise.orderIndex : 0,
+          libraryItemId: typeof exercise?.libraryItemId === 'string' || exercise?.libraryItemId === null ? exercise.libraryItemId : null,
+          persistedExerciseTemplateId:
+            typeof exercise?.persistedExerciseTemplateId === 'string' || exercise?.persistedExerciseTemplateId === null
+              ? exercise.persistedExerciseTemplateId
+              : undefined,
+        };
+      })
     : [];
 
   const rawTemplates: WorkoutTemplate[] = Array.isArray(input?.workoutTemplates)
