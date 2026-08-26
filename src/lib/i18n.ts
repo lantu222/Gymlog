@@ -3312,7 +3312,7 @@ const FI: Record<I18nKey, string> = {
   'home.emptyWorkout.title': 'Tyhjä treeni',
   'home.emptyWorkout.meta': 'Kirjaa vapaasti',
   'home.cardio.title': 'Cardio',
-  'home.cardio.meta': 'Juoksu, pyöräily ja kävely',
+  'home.cardio.meta': 'Juoksu, pyöräily, kävely',
   'home.history.title': 'Historia',
   'home.history.seeAll': 'Näytä kaikki',
 

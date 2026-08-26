@@ -1390,7 +1390,12 @@ export function HomeScreen({
                 </Svg>
               </View>
               <Text style={styles.emptyWorkoutTitle}>{t(language, 'home.cardio.title')}</Text>
-              <Text style={styles.emptyWorkoutMeta}>{t(language, 'home.cardio.meta')}</Text>
+              {/* One line always: at a large system font scale the list
+                  wrapped and "kävely" fell off its row (#bugs 2026-08-26).
+                  The label shrinks a hair instead of dropping a word. */}
+              <Text style={styles.emptyWorkoutMeta} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                {t(language, 'home.cardio.meta')}
+              </Text>
             </Pressable>
           ) : null}
         </Animated.View>
