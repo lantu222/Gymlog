@@ -28,14 +28,28 @@ import { estimateSessionMinutes } from './sessionDuration';
 export interface SessionAdaptation {
   /** Template slot id → the exercise name to do instead. */
   swaps: Record<string, string>;
+  /**
+   * Slot ids left out of today's session.
+   *
+   * Same scope as a swap: an answer about today, spent when the session
+   * starts, and never a change to the programme — the programme is edited from
+   * its own page. A reader who cannot use one machine today should not have to
+   * rewrite their plan to get past it.
+   */
+  drops: string[];
   /** Trim the session's working sets, accessories first. */
   trimSets: boolean;
 }
 
-export const EMPTY_SESSION_ADAPTATION: SessionAdaptation = { swaps: {}, trimSets: false };
+export const EMPTY_SESSION_ADAPTATION: SessionAdaptation = { swaps: {}, drops: [], trimSets: false };
 
 export function hasSessionAdaptation(adaptation: SessionAdaptation | null | undefined): boolean {
-  return Boolean(adaptation && (adaptation.trimSets || Object.keys(adaptation.swaps).length > 0));
+  return Boolean(
+    adaptation &&
+      (adaptation.trimSets ||
+        Object.keys(adaptation.swaps).length > 0 ||
+        (adaptation.drops?.length ?? 0) > 0),
+  );
 }
 
 /** Same 30 % rule the Home copy quotes, so the promise and the act agree. */
@@ -132,7 +146,16 @@ export function applySessionAdaptation(
     return template;
   }
 
-  const allExercises = template.sessions.flatMap((session) => session.exercises);
+  // Dropped first, so a trim shares the sets out among what is actually left
+  // rather than spending part of its 30 % on an exercise nobody will do.
+  const dropped = new Set(adaptation.drops ?? []);
+  const withoutDropped = dropped.size
+    ? template.sessions.map((session) => ({
+        ...session,
+        exercises: session.exercises.filter((exercise) => !dropped.has(exercise.slotId)),
+      }))
+    : template.sessions;
+  const allExercises = withoutDropped.flatMap((session) => session.exercises);
   const kept = adaptation.trimSets
     ? planSessionTrim(
         allExercises.map((exercise) => ({
@@ -146,7 +169,7 @@ export function applySessionAdaptation(
 
   return {
     ...template,
-    sessions: template.sessions.map((session) => ({
+    sessions: withoutDropped.map((session) => ({
       ...session,
       exercises: session.exercises.map((exercise) => {
         const swapName = adaptation.swaps[exercise.slotId];

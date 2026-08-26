@@ -15,11 +15,16 @@ const {
   EXERCISE_INSTRUCTIONS_FI_TABLE,
 } = require('../../.test-dist/lib/exerciseInstructions.js');
 const { GENERATED_EXERCISE_LIBRARY } = require('../../.test-dist/data/generatedExerciseLibrary.js');
+const { EXTRA_EXERCISE_LIBRARY } = require('../../.test-dist/data/extraExerciseLibrary.js');
 const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog.js');
 const { findGuidedLibraryIndex } = require('../../.test-dist/lib/guidedPlayer.js');
 
-const BY_NAME = new Map(GENERATED_EXERCISE_LIBRARY.map((item) => [item.name, item]));
-const LIBRARY_NAMES = GENERATED_EXERCISE_LIBRARY.map((item) => item.name);
+// The extras are library entries too — they exist because the generated file
+// lacks them and `exercise:sync` would erase them. Reading only the generated
+// half made a hand-added exercise look like a translation of nothing.
+const FULL_LIBRARY = [...GENERATED_EXERCISE_LIBRARY, ...EXTRA_EXERCISE_LIBRARY];
+const BY_NAME = new Map(FULL_LIBRARY.map((item) => [item.name, item]));
+const LIBRARY_NAMES = FULL_LIBRARY.map((item) => item.name);
 
 /** Every library entry a ready program can actually put in front of a reader. */
 function reachableLibraryEntries() {

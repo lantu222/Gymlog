@@ -85,6 +85,11 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
     'Rullaa tanko suoraan lantion päälle ja nojaa penkkiin niin, että lapaluut ovat sen yläreunan kohdalla.',
     'Työnnä jalkaterillä ja ojenna lantio ylös tangon läpi. Paino on lapaluilla ja jalkaterillä. Ojenna niin ylös kuin pystyt ja palaa hallitusti alas.',
   ],
+  'Machine Hip Thrust': [
+    'Asetu laitteeseen selkä tukea vasten ja lantiotyyny tai -tanko lantion päälle, aivan lonkkaluiden alapuolelle.',
+    'Säädä istuin niin, että sääret ovat pystysuorassa liikkeen yläasennossa, ja työnnä kantapäillä lantio ylös.',
+    'Purista pakarat yläasennossa ilman että alaselkä notkahtaa, ja laske hallitusti alas niin että paino ei jää lepäämään.',
+  ],
   'Barbell Incline Bench Press - Medium Grip': [
     'Asetu selinmakuulle vinopenkkiin. Ota tangosta keskileveä ote ja nosta se telineestä suorille käsille.',
     'Laske tankoa hallitusti alas, kunnes se koskettaa ylärintaa.',

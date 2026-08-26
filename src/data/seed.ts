@@ -9,6 +9,7 @@ import {
   WorkoutPlan,
 } from '../types/models';
 import { GENERATED_EXERCISE_LIBRARY } from './generatedExerciseLibrary';
+import { EXTRA_EXERCISE_LIBRARY } from './extraExerciseLibrary';
 
 const DEFAULT_PREFERENCES = {
   // 'en' is the STRUCTURAL fallback, not the answer. A first install resolves
@@ -150,7 +151,9 @@ function createLegacySeedExerciseLibrary(): ExerciseLibraryItem[] {
 }
 
 export function createSeedExerciseLibrary(): ExerciseLibraryItem[] {
-  return [...createLegacySeedExerciseLibrary(), ...GENERATED_EXERCISE_LIBRARY];
+  // The extras last: they exist because the generated library lacks them, so
+  // they can never shadow it, and `exercise:sync` cannot wipe them.
+  return [...createLegacySeedExerciseLibrary(), ...GENERATED_EXERCISE_LIBRARY, ...EXTRA_EXERCISE_LIBRARY];
 }
 
 function sessionRecord(id: string, name: string, orderIndex: number, exerciseIds: string[]) {

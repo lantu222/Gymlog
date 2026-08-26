@@ -331,6 +331,15 @@ interface HomeScreenProps {
    */
   sessionSwaps?: Record<string, string>;
   onSwapSessionExercise?: (slotId: string, exerciseName: string) => void;
+  /**
+   * Slots left out of today's session. Same scope as a swap — an answer about
+   * today, not an edit to the programme, which is changed from its own page.
+   * A dropped row stays visible, struck through, so leaving something out is
+   * as easy to undo as it was to do.
+   */
+  sessionDrops?: string[];
+  onDropSessionExercise?: (slotId: string) => void;
+  onRestoreSessionExercise?: (slotId: string) => void;
   /** Ranks the swap list the same way the player does. */
   tailoringPreferences?: TailoringPreferencesInput | null;
   /**
@@ -383,6 +392,9 @@ export function HomeScreen({
   widgetPrompt = null,
   sessionSwaps = {},
   onSwapSessionExercise,
+  sessionDrops = [],
+  onDropSessionExercise,
+  onRestoreSessionExercise,
   tailoringPreferences = null,
   onStartTrimmedSession,
 }: HomeScreenProps) {
@@ -1165,31 +1177,29 @@ export function HomeScreen({
                 // same reps, same slot.
                 const rowName = exerciseNameLabel(language, swappedName ?? exercise.name);
                 const swapped = Boolean(swappedName);
-                return (
-                  <View key={`${exercise.name}-${index}`} style={styles.planExerciseRow}>
+                const dropped = Boolean(exercise.slotId && sessionDrops.includes(exercise.slotId));
+                // The whole row opens the sheet, not the 15dp glyph at its
+                // edge: the reader was tapping the name — the part that says
+                // what the row is — and nothing happened (user 2026-08-26).
+                // The glyph stays as the thing that says the row is tappable.
+                const canAdapt = Boolean(exercise.slotId) && Boolean(onSwapSessionExercise || onDropSessionExercise);
+                const row = (
+                  <>
                     <View style={[styles.planExerciseNumberChip, swapped && styles.planExerciseNumberChipSwapped]}>
                       <Text style={[styles.planExerciseNumberText, swapped && styles.planExerciseNumberTextSwapped]}>
                         {index + 1}
                       </Text>
                     </View>
                     <View style={styles.planExerciseCopy}>
-                      <Text style={styles.planExerciseName} numberOfLines={2}>
+                      <Text style={[styles.planExerciseName, dropped && styles.planExerciseDropped]} numberOfLines={2}>
                         {rowName}
                       </Text>
-                      <Text style={styles.planExerciseScheme}>{exercise.schemeLabel ?? exercise.setsLabel}</Text>
+                      <Text style={[styles.planExerciseScheme, dropped && styles.planExerciseDropped]}>
+                        {dropped ? t(language, 'home.swapSheet.droppedToday') : exercise.schemeLabel ?? exercise.setsLabel}
+                      </Text>
                     </View>
-                    {/* Changing a lift belongs next to the lift, not behind a
-                        menu. Only on rows whose slot can be identified — a
-                        button that cannot apply its own result is worse than
-                        no button. */}
-                    {exercise.slotId && onSwapSessionExercise ? (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={t(language, 'home.a11y.swapExercise', { name: rowName })}
-                        hitSlop={8}
-                        onPress={() => setSwapSlotId(exercise.slotId ?? null)}
-                        style={({ pressed }) => [styles.planExerciseSwap, pressed && styles.pressed]}
-                      >
+                    {canAdapt ? (
+                      <View style={styles.planExerciseSwap}>
                         <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
                           <Path
                             d="M7 8h10M7 8l3-3M7 8l3 3M17 16H7m10 0-3-3m3 3-3 3"
@@ -1199,9 +1209,27 @@ export function HomeScreen({
                             strokeLinejoin="round"
                           />
                         </Svg>
-                      </Pressable>
+                      </View>
                     ) : null}
-                  </View>
+                  </>
+                );
+                if (!canAdapt) {
+                  return (
+                    <View key={`${exercise.name}-${index}`} style={styles.planExerciseRow}>
+                      {row}
+                    </View>
+                  );
+                }
+                return (
+                  <Pressable
+                    key={`${exercise.name}-${index}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={t(language, 'home.a11y.swapExercise', { name: rowName })}
+                    onPress={() => setSwapSlotId(exercise.slotId ?? null)}
+                    style={({ pressed }) => [styles.planExerciseRow, pressed && styles.pressed]}
+                  >
+                    {row}
+                  </Pressable>
                 );
               })}
               <BlockRow
@@ -1843,6 +1871,33 @@ export function HomeScreen({
                 </Pressable>
               ))}
             </View>
+            {/* Leaving one out, under the replacements rather than among them:
+                it is the same question — what am I doing today — but it is the
+                answer you cannot undo by picking another row, so it does not
+                sit where a mis-tap lands. Today only; the programme is edited
+                from its own page. */}
+            {swapSlotId && (onDropSessionExercise || onRestoreSessionExercise) ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  if (sessionDrops.includes(swapSlotId)) {
+                    onRestoreSessionExercise?.(swapSlotId);
+                  } else {
+                    onDropSessionExercise?.(swapSlotId);
+                  }
+                  setSwapSlotId(null);
+                }}
+                style={({ pressed }) => [styles.adaptDrop, pressed && styles.pressed]}
+              >
+                <Text style={styles.adaptDropText}>
+                  {t(
+                    language,
+                    sessionDrops.includes(swapSlotId) ? 'home.swapSheet.restore' : 'home.swapSheet.drop',
+                  )}
+                </Text>
+                <Text style={styles.adaptDropNote}>{t(language, 'home.swapSheet.dropNote')}</Text>
+              </Pressable>
+            ) : null}
             <Pressable
               accessibilityRole="button"
               onPress={() => setSwapSlotId(null)}
@@ -2342,6 +2397,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 12.5,
     lineHeight: 16,
     fontFamily: 'JetBrainsMono',
+  },
+  // Struck through rather than removed: a row that vanishes takes its own undo
+  // with it, and the reader has to remember what was there to put it back.
+  planExerciseDropped: {
+    textDecorationLine: 'line-through',
+    color: theme.faint,
   },
   planExerciseSwap: {
     width: 28,
@@ -2905,6 +2966,29 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 18,
   },
   adaptPrimaryText: { fontSize: 16, fontWeight: '800', letterSpacing: -0.2, color: '#FFFFFF' },
+  // Separated from the replacement rows by a rule, not by colour: it is a
+  // different kind of answer, and a red button in a list of neutral ones reads
+  // as a warning about the list.
+  adaptDrop: {
+    marginTop: 10,
+    paddingTop: 12,
+    paddingHorizontal: 4,
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+    gap: 2,
+  },
+  adaptDropText: {
+    color: theme.ink,
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  adaptDropNote: {
+    color: theme.faint,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
+  },
   adaptCancel: {
     alignSelf: 'center',
     minHeight: 44,

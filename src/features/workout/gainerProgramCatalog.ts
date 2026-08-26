@@ -14,7 +14,10 @@ const Vinha_PROGRESSION_RULES = {
 // tests/lib/substitutionGroups.test.cjs keeps it that way.
 export const Vinha_PROGRAM_SUBSTITUTION_GROUPS: WorkoutSubstitutionGroup[] = [
   { id: "deadlift_pattern", allowedExerciseNames: ["Deadlift", "Conventional Deadlift", "Competition Deadlift", "Deficit Deadlift", "Sumo Deadlift", "Good Morning"] },
-  { id: "hip_thrust_bridge", allowedExerciseNames: ["Barbell Hip Thrust", "Banded Hip Thrust", "Hip Thrust (Bodyweight or Light Bar)", "Hip Thrust (Bodyweight)", "Single-Leg Hip Thrust", "Glute Bridge (Banded)", "Banded Glute Bridge", "Glute Bridge Hold", "Glute Bridge March"] },
+  // "Machine Hip Thrust" is not from the imported programmes — it is the one
+  // the gym actually has, and the group offered every version of the movement
+  // except that one (user 2026-08-26). It lives in extraExerciseLibrary.ts.
+  { id: "hip_thrust_bridge", allowedExerciseNames: ["Barbell Hip Thrust", "Machine Hip Thrust", "Banded Hip Thrust", "Hip Thrust (Bodyweight or Light Bar)", "Hip Thrust (Bodyweight)", "Single-Leg Hip Thrust", "Glute Bridge (Banded)", "Banded Glute Bridge", "Glute Bridge Hold", "Glute Bridge March"] },
   { id: "glute_isolation", allowedExerciseNames: ["Cable Kickback", "Cable Glute Kickback", "Cable Abductor", "Banded Lateral Walk", "Banded Fire Hydrant", "Standing Hip Abduction", "Side-Lying Leg Raise", "Reverse Hyperextension", "Frog Pump", "Frog Pump (Banded)"] },
   { id: "triceps_cable", allowedExerciseNames: ["Rope Pushdown", "Cable Triceps Pushdown", "Cable Triceps Extension", "Cable Triceps Kickback", "Triceps Kickback"] },
   { id: "forearms", allowedExerciseNames: ["Wrist Curl", "Reverse Wrist Curl"] },

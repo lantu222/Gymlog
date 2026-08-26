@@ -896,6 +896,12 @@ function VinhaApp() {
    * "what am I doing today", and it is spent when the session starts.
    */
   const [sessionSwaps, setSessionSwaps] = useState<Record<string, string>>({});
+  /**
+   * Slots left out of today's session, chosen on Home beside the swaps and
+   * spent at the same moment. Not a change to the programme — that is edited
+   * from the programme's own page.
+   */
+  const [sessionDrops, setSessionDrops] = useState<string[]>([]);
   // Shown when a create is blocked, from wherever it was attempted. Not a
   // route: the user was in the middle of something, and a screen change
   // would lose the thing they were doing to a wall they may dismiss.
@@ -1391,7 +1397,7 @@ function VinhaApp() {
       void updatePreferences({ trainingFirstRunDismissed: true });
       const runtimeTemplate = applySessionAdaptation(
         buildReadySessionRuntimeTemplate(template, sessionId),
-        { swaps: sessionSwaps, trimSets },
+        { swaps: sessionSwaps, drops: sessionDrops, trimSets },
       );
       workout.startCustomWorkout(runtimeTemplate, nextUnitPreference, {
         ...resolveProgressionOptions(preferences),
@@ -1400,6 +1406,7 @@ function VinhaApp() {
       // Today's changes are spent the moment they are applied — an adaptation
       // is an answer about right now, and a stale one is worse than none.
       setSessionSwaps({});
+      setSessionDrops([]);
       navigateToGuidedWorkout(workoutTemplateId);
     });
   }
@@ -1795,13 +1802,14 @@ function VinhaApp() {
       void updatePreferences({ trainingFirstRunDismissed: true });
       const runtimeTemplate = applySessionAdaptation(
         buildCustomSessionRuntimeTemplate(customTemplate, sessionId),
-        { swaps: sessionSwaps, trimSets },
+        { swaps: sessionSwaps, drops: sessionDrops, trimSets },
       );
       workout.startCustomWorkout(runtimeTemplate, unitPreference, {
         ...resolveProgressionOptions(preferences),
         fatigueSignal: progressionFatigueSignal,
       });
       setSessionSwaps({});
+      setSessionDrops([]);
       navigateToGuidedWorkout(workoutTemplateId);
     });
   }
@@ -4973,6 +4981,13 @@ function VinhaApp() {
         sessionSwaps={sessionSwaps}
         onSwapSessionExercise={(slotId, exerciseName) =>
           setSessionSwaps((current) => ({ ...current, [slotId]: exerciseName }))
+        }
+        sessionDrops={sessionDrops}
+        onDropSessionExercise={(slotId) =>
+          setSessionDrops((current) => (current.includes(slotId) ? current : [...current, slotId]))
+        }
+        onRestoreSessionExercise={(slotId) =>
+          setSessionDrops((current) => current.filter((id) => id !== slotId))
         }
         tailoringPreferences={preferences}
         onStartTrimmedSession={(sessionId) => {

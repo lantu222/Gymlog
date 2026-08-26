@@ -38,6 +38,7 @@ const EXERCISE_NAME_FI: Record<string, string> = {
   'Good Morning': 'Aamunavaus',
   'Hip Thrust': 'Lantionnosto',
   'Barbell Hip Thrust': 'Lantionnosto tangolla',
+  'Machine Hip Thrust': 'Lantionnosto laitteessa',
   'Glute Bridge': 'Lantionnosto lattialla',
   'Kettlebell Swing': 'Kahvakuulaheilautus',
   'One-Arm Kettlebell Swings': 'Yhden käden kahvakuulaheilautus',

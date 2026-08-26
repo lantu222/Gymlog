@@ -145,6 +145,10 @@ const EN = {
   'home.promo.goal.body': 'One target to aim at — a 100 kg bench, say. Measured from your own best set.',
   'home.promo.goal.cta': 'Set a target',
   'home.swapSheet.title': 'Swap {name} for',
+  'home.swapSheet.drop': 'Leave it out today',
+  'home.swapSheet.restore': 'Put it back',
+  'home.swapSheet.dropNote': 'Today only. Your programme stays as it is.',
+  'home.swapSheet.droppedToday': 'Left out today',
   'home.swapSheet.empty': 'No swap for this slot yet — the program prescribes this lift.',
   'home.swap': 'Swap',
 
@@ -3382,6 +3386,10 @@ const FI: Record<I18nKey, string> = {
   'home.promo.goal.body': 'Yksi tavoite mihin tähdätä — vaikka penkkipunnerrus 100 kg. Mitataan omasta parhaasta sarjastasi.',
   'home.promo.goal.cta': 'Aseta tavoite',
   'home.swapSheet.title': 'Vaihda {name}',
+  'home.swapSheet.drop': 'Jätä tänään pois',
+  'home.swapSheet.restore': 'Ota takaisin',
+  'home.swapSheet.dropNote': 'Vain tälle kerralle. Ohjelmasi pysyy ennallaan.',
+  'home.swapSheet.droppedToday': 'Jätetty tänään pois',
   'home.swapSheet.empty': 'Tälle paikalle ei ole vaihtoehtoa — ohjelma määrää tämän liikkeen.',
   'home.swap': 'Vaihda',
 
