@@ -68,6 +68,8 @@ import {
   resolveGuidedSetTarget,
 } from '../lib/guidedPlayer';
 import { getExerciseInstructions } from '../lib/exerciseInstructions';
+import { CountBeat } from '../components/CountBeat';
+import { CtaShimmer } from '../components/CtaShimmer';
 import { SetPanelHistory, SetPanels } from '../components/SetPanels';
 import { getDrillLibraryName } from '../lib/drillMedia';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
@@ -461,7 +463,8 @@ function TopBar({
    * Set screen v4: the right slot shows the how-it's-done camera instead of
    * mute, and mute moves down beside pause.
    */
-  video?: { label: string; onPress: () => void } | null;
+  /** `active` lights the button while the panel it opens is showing. */
+  video?: { label: string; onPress: () => void; active?: boolean } | null;
 }) {
   const theme = useTheme();
 
@@ -478,8 +481,15 @@ function TopBar({
         {label}
       </Text>
       {video ? (
-        <Pressable accessibilityRole="button" accessibilityLabel={video.label} onPress={video.onPress} style={buttonStyle} hitSlop={8}>
-          <GPIcon name="video" size={20} color={iconColor} sw={2.1} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: video.active }}
+          accessibilityLabel={video.label}
+          onPress={video.onPress}
+          style={[buttonStyle, video.active ? styles.topBtnActive : null]}
+          hitSlop={8}
+        >
+          <GPIcon name="video" size={20} color={video.active ? theme.purple : iconColor} sw={2.1} />
         </Pressable>
       ) : (
         <Pressable onPress={onMute} style={buttonStyle} hitSlop={8}>
@@ -646,6 +656,7 @@ function BigBtn({
   color: colorProp,
   icon = 'check',
   disabled,
+  shimmer,
 }: {
   label: string;
   onPress: () => void;
@@ -653,6 +664,12 @@ function BigBtn({
   /** A green tick on a button that stops something reads as confirm. */
   icon?: string;
   disabled?: boolean;
+  /**
+   * A band of light across the button as the screen arrives — the same mark
+   * the Home CTA wears (design 2026-08-26). Opt-in: it belongs on the one
+   * button a screen exists to get pressed, not on every button.
+   */
+  shimmer?: boolean;
 }) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -667,6 +684,7 @@ function BigBtn({
       onPress={disabled ? undefined : onPress}
       style={[styles.bigBtn, { backgroundColor: color, opacity: disabled ? 0.6 : 1, shadowColor: color }]}
     >
+      {shimmer && !disabled ? <CtaShimmer tint={`${foreground}55`} /> : null}
       <GPIcon name={icon} size={20} color={foreground} sw={2.6} />
       <Text style={[styles.bigBtnText, { color: foreground }]}>{label}</Text>
     </Pressable>
@@ -1059,6 +1077,13 @@ export function GuidedPlayerScreen({
 
   const [paused, setPaused] = useState(false);
   const [howtoOpen, setHowtoOpen] = useState(false);
+  /**
+   * The set screen's exercise info (history, how-to, photo). It opens from the
+   * header's right-hand button now, so the state lives beside the header
+   * rather than inside the set view (user 2026-08-26). Reset on every step, so
+   * each lift starts quiet — the rule the old tab followed too.
+   */
+  const [setPanelsOpen, setSetPanelsOpen] = useState(false);
   // v4 set screen: the top-bar camera opens the 3D rig from screen level, so
   // the media zone no longer carries its own button.
   const [exitOpen, setExitOpen] = useState(false);
@@ -1123,6 +1148,7 @@ export function GuidedPlayerScreen({
       firedRef.current = false;
       lastBeepSecondRef.current = null;
       setStepIndex(clamped);
+      setSetPanelsOpen(false);
       // Index for old readers, anchor for the resume: the index goes stale
       // the moment the plan is rebuilt, the anchor does not.
       workout.setGuidedStep(clamped, getGuidedStepAnchor(target));
@@ -1752,10 +1778,13 @@ export function GuidedPlayerScreen({
                 ? {
                     // Screen readers heard "Katso, miten Chest-Supported Row
                     // tehdään" while the screen showed Rintatuettu soutu.
-                    label: t(language, 'guided.a11y.watchHowTo', { name: exerciseNameLabel(language, step.exerciseName) }),
-                    // Straight to the written how-to: the 3D sheet this used
-                    // to branch into was removed 2026-08-26.
-                    onPress: () => setHowtoOpen(true),
+                    // The set screen's info button. It opens the panels that
+                    // used to hang off a tab above the set counter — history,
+                    // how-to and the photo, all of which the written sheet
+                    // only half covered.
+                    label: t(language, 'guided.panelsToggle'),
+                    active: setPanelsOpen,
+                    onPress: () => setSetPanelsOpen((value) => !value),
                   }
                 : null
             }
@@ -1901,15 +1930,29 @@ export function GuidedPlayerScreen({
                   );
                 })()}
                 <View style={{ height: 18 }} />
-                <Text
-                  style={[
-                    styles.drillCountdown,
-                    { color: secondsLeft <= 3.05 ? theme.green : theme.ink },
-                  ]}
+                {/* The count lands on every new second inside the same
+                    draining ring the rest screen uses (design "Lepoajastin",
+                    2026-08-26). The design orbits a decorative arc here; a
+                    ring that DRAINS says the same "it is running" and also
+                    says how much is left, which the number alone cannot. */}
+                <RestRing
+                  stepKey={stepIndex}
+                  leftSeconds={secondsLeft}
+                  plannedSeconds={step.seconds}
+                  size={186}
                 >
-                  {formatGuidedCountdown(secondsLeft)}
-                </Text>
-                <Text style={{ fontSize: 12, fontWeight: '700', letterSpacing: 1.7, color: theme.muted }}>
+                  <CountBeat value={Math.ceil(Math.max(0, secondsLeft))}>
+                    <Text
+                      style={[
+                        styles.drillCountdown,
+                        { color: secondsLeft <= 3.05 ? theme.green : theme.ink },
+                      ]}
+                    >
+                      {formatGuidedCountdown(secondsLeft)}
+                    </Text>
+                  </CountBeat>
+                </RestRing>
+                <Text style={{ fontSize: 12, fontWeight: '700', letterSpacing: 1.7, color: theme.muted, marginTop: 10 }}>
                   {t(language, paused ? 'guided.stopped' : 'guided.untilStart')}
                 </Text>
               </View>
@@ -1919,6 +1962,7 @@ export function GuidedPlayerScreen({
                     "I'm ready" button on top of a stop button would be two
                     ways to say the same thing. */}
                 <BigBtn
+                  shimmer
                   label={t(language, paused ? 'guided.imReady' : 'guided.stopClock')}
                   icon={paused ? 'check' : 'pause'}
                   color={paused ? undefined : theme.ink}
@@ -2031,6 +2075,7 @@ export function GuidedPlayerScreen({
                 workout.addSet(step.slotId);
               }}
               panels={setPanelSource}
+              panelsOpen={setPanelsOpen}
               onConfirm={confirmSet}
             />
           )}
@@ -2449,6 +2494,7 @@ function SetStepView({
   onOpenActions,
   onAddSet,
   panels,
+  panelsOpen,
   onConfirm,
 }: {
   stepIndex: number;
@@ -2458,6 +2504,13 @@ function SetStepView({
   language: AppLanguage;
   elapsedSeconds: number;
   paused: boolean;
+  /**
+   * Owned by the player, not this view: the header's right-hand button is what
+   * opens the exercise info now, and the header is the parent's (user
+   * 2026-08-26). The tab that used to sit above the set counter is gone with
+   * the row it cost.
+   */
+  panelsOpen: boolean;
   resolveTarget: (slotId: string, setIndex: number) => GuidedSetTarget | null;
   onPause: () => void;
   onOpenActions: () => void;
@@ -2484,18 +2537,9 @@ function SetStepView({
   const [kg, setKg] = useState(target?.loadKg ?? 0);
   /** Which dial is open for editing; null = both locked. */
   const [dial, setDial] = useState<'reps' | 'weight' | null>(null);
-  /**
-   * The history/how-to panels, folded away. The second tester's core note
-   * (2026-08-23) was that a set screen is for logging reps and weight, and
-   * everything else on it is in the way — so the panels open from a slim tab
-   * at the top and stay closed until someone standing at a new machine wants
-   * them. Deliberately not remembered across steps: each lift starts quiet.
-   */
-  const [panelsOpen, setPanelsOpen] = useState(false);
 
   useEffect(() => {
     setDial(null);
-    setPanelsOpen(false);
     setReps(target?.reps ?? 8);
     setKg(target?.loadKg ?? 0);
     // Re-derive when the step changes — and when the exercise under the step
@@ -2563,21 +2607,10 @@ function SetStepView({
         onPress={dial ? () => setDial(null) : undefined}
         accessible={false}
       >
-        {/* The panels ride behind a tab instead of owning the top third of the
-            screen. Closed is the normal state; the tab is the pull. */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ expanded: panelsOpen }}
-          accessibilityLabel={t(language, 'guided.panelsToggle')}
-          hitSlop={8}
-          onPress={() => setPanelsOpen((value) => !value)}
-          style={styles.setPanelsTab}
-        >
-          <View style={{ transform: [{ rotate: panelsOpen ? '180deg' : '0deg' }] }}>
-            <GPIcon name="chevD" size={15} color={theme.muted} sw={2.6} />
-          </View>
-          <Text style={styles.setPanelsTabText}>{t(language, 'guided.panelsToggle')}</Text>
-        </Pressable>
+        {/* The panels open from the header's right-hand button now. They used
+            to ride behind a tab pinned above the set counter, which cost a
+            whole row on the tightest screen in the app for a label nobody
+            needed to read twice (user 2026-08-26). */}
         {panelsOpen ? (
           panels ? (
             <SetPanels
@@ -3038,6 +3071,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.09)',
     borderColor: GPD.line,
   },
+  // Lit while the panel it opens is showing: the button is a toggle, and a
+  // toggle you cannot see the state of is a button you press twice.
+  topBtnActive: {
+    backgroundColor: theme.purpleLight,
+    borderColor: theme.purple,
+  },
   topLabel: { flex: 1, textAlign: 'center', fontSize: 11.5, fontWeight: '800', letterSpacing: 1.6, marginHorizontal: 8 },
   rail: {
     flexDirection: 'row',
@@ -3299,22 +3338,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   setLogButtonText: { fontSize: 17, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.17 },
   setControls: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12, paddingTop: 14, paddingBottom: 10 },
-  // The tab the folded-away panels open from. Slim on purpose: it is the one
-  // piece of the panels that stays on the quiet screen.
-  setPanelsTab: {
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    height: 34,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    marginTop: 8,
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-  },
-  setPanelsTabText: { fontSize: 12.5, fontWeight: '800', color: theme.muted, letterSpacing: 0.3 },
   setAddBtn: {
     width: 26,
     height: 26,
@@ -3360,6 +3383,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   bigBtn: {
     height: 60,
     borderRadius: 19,
+    // Keeps the shimmer inside the button's corners.
+    overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

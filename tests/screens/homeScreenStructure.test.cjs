@@ -200,7 +200,12 @@ module.exports = [
       // version below the list read as one row among many).
       assert.match(homeScreenSource, /startButton:\s*\{\s*height: 56/);
       assert.match(homeScreenSource, /fill=\{theme\.accent\}[\s\S]{0,160}style=\{styles\.startButton\}/);
-      assert.match(homeScreenSource, /M8 5\.5v13l11-6\.5z/);
+      // The play mark sits in a ring since the CTA design (2026-08-26): a
+      // mark with an edge reads as a target, and the shimmer needs something
+      // to pass behind. Still a triangle, still filled with the on-accent ink.
+      assert.match(homeScreenSource, /M9 5\.5v13l10-6\.5z/);
+      assert.match(homeScreenSource, /styles\.startPlayRing/);
+      assert.match(homeScreenSource, /<CtaShimmer/);
       // The start CTA reads `accent`, not `green`: green also means "done"
       // (completed sets, finished cardio), and the dark theme moves the action
       // accent to orange without moving those. Its text sits ON the fill.

@@ -18,6 +18,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { CardioIcon } from '../components/CardioIcon';
+import { CtaShimmer } from '../components/CtaShimmer';
 import { HomeStatCardsSection } from '../components/HomeStatCardsSection';
 import { CardioIconKind } from '../lib/cardio';
 import { HomeStatCard } from '../lib/homeStatCards';
@@ -1035,7 +1036,9 @@ export function HomeScreen({
           >
             {/* A big filled play button (user 2026-08-25): the outline version
                 below the list read as one row among many, and starting is the
-                one thing this screen exists for. */}
+                one thing this screen exists for. The play mark sits in a ring
+                and a band of light sweeps the button as the screen arrives
+                (design "Aloita treeni CTA", 2026-08-26). */}
             <CutSurface
               size="lg"
               fill={theme.accent}
@@ -1043,9 +1046,12 @@ export function HomeScreen({
               strokeWidth={1.5}
               style={styles.startButton}
             >
-              <Svg width={20} height={20} viewBox="0 0 24 24">
-                <Path d="M8 5.5v13l11-6.5z" fill={theme.onHighlight} />
-              </Svg>
+              <CtaShimmer tint="rgba(255,255,255,0.5)" />
+              <View style={styles.startPlayRing}>
+                <Svg width={16} height={16} viewBox="0 0 24 24">
+                  <Path d="M9 5.5v13l10-6.5z" fill={theme.onHighlight} />
+                </Svg>
+              </View>
               <Text style={styles.startButtonText}>
                 {t(
                   language,
@@ -2340,8 +2346,22 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   cutPressed: {
     transform: [{ translateY: 1 }, { scale: 0.985 }],
   },
+  // The play mark in a ring, as the design draws it: a mark with an edge
+  // reads as a target, and the sweep needs something to pass behind.
+  startPlayRing: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingLeft: 2,
+  },
   startButton: {
     height: 56,
+    // The sweep is an absolutely-positioned child, and without this it would
+    // run past the button's cut edges.
+    overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
