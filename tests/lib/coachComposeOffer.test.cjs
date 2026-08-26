@@ -63,16 +63,18 @@ module.exports = [
       assert.doesNotMatch(wiring, /screen: 'ai_setup', brief/);
       assert.doesNotMatch(wiring, /initialBrief/);
       assert.doesNotMatch(read('src/navigation/routes.ts'), /brief\?: string/);
-      assert.doesNotMatch(read('src/screens/AiProgramComposerScreen.tsx'), /initialBrief/);
+      // The composer screen is gone entirely — the chat does everything it did.
+      assert.ok(!require('node:fs').existsSync(path.join(__dirname, '../../src/screens/AiProgramComposerScreen.tsx')));
 
-      // One card, drawn by both surfaces. A second copy in the chat would mean
-      // the day list, the unmet-lift notes and the save path exist twice.
+      // The card the composer screen used to own is now the chat's, extracted
+      // rather than copied — which is what made the merge safe and then made
+      // the screen redundant.
       assert.match(screen, /<ProgrammeProposalCard/);
-      assert.match(read('src/screens/AiProgramComposerScreen.tsx'), /<ProgrammeProposalCard/);
-      // And one compose + save, so the chat cannot store a programme the
-      // composer would have refused.
-      assert.match(wiring, /compose=\{composeProgramme\}/);
-      assert.match(wiring, /onSave=\{saveProgramme\}/);
+
+      // Compose and save are written once, so the chat cannot store a
+      // programme the old composer would have refused.
+      assert.match(wiring, /async function composeProgramme\(brief: string\)/);
+      assert.match(wiring, /async function saveProgramme\(/);
       assert.match(wiring, /onSaveProgramme=\{saveProgramme\}/);
 
       // A failure says so instead of leaving the thread on "building…".

@@ -2644,16 +2644,6 @@ function VinhaApp() {
   );
   const proEntitlement = resolveProEntitlement(preferences);
   const coachProUnlocked = proEntitlement.unlocked;
-  // The AI composer is Pro (the Pro page table says so, so it must be true).
-  // Every entry into it already gates, but the route itself must too — a
-  // stale history entry or an entitlement that lapsed while the screen was
-  // open would otherwise leave a free reader on a screen they cannot use.
-  useEffect(() => {
-    if (route.tab === 'home' && route.screen === 'ai_setup' && !coachProUnlocked) {
-      navigate({ tab: 'profile', screen: 'premium' });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coachProUnlocked, route]);
   // Seven days out. There is no billing, so this is the demo story the paywall
   // already tells rather than a date anything will act on.
   const premiumTrialEndsAt = useMemo(() => {
@@ -4798,7 +4788,6 @@ function VinhaApp() {
     route.tab === 'home' &&
     (route.screen === 'cardio' ||
       route.screen === 'ai' ||
-      route.screen === 'ai_setup' ||
       route.screen === 'history' ||
       route.screen === 'session' ||
       route.screen === 'ai_chat' ||
@@ -5320,7 +5309,6 @@ function VinhaApp() {
       route.screen === 'legal');
   const premiumActive = route.tab === 'profile' && route.screen === 'premium';
   const aiCoachActive = route.tab === 'home' && route.screen === 'ai';
-  const aiSetupActive = route.tab === 'home' && route.screen === 'ai_setup';
   const historyActive = route.tab === 'home' && (route.screen === 'history' || route.screen === 'session' || route.screen === 'cardio');
   // The saved-session view opens on the same purple hero as Workout Complete,
   // so the status bar joins it instead of sitting above it as a light strip.
@@ -5374,14 +5362,11 @@ function VinhaApp() {
           ? '#8B5CF6'
           : workoutSummaryActive || welcomeActive || fullBleedReview !== null
             ? 'transparent'
-            : aiSetupActive
-              ? theme.surface
-              : undefined
+            : undefined
       }
       statusBarTranslucent={
         welcomeActive || workoutSummaryActive || historySessionActive || fullBleedReview !== null
       }
-      shellBackgroundColor={aiSetupActive ? theme.surface : undefined}
       tabBar={
         showTabBar ? (
           <BottomTabBar
@@ -5389,7 +5374,7 @@ function VinhaApp() {
             activeTab={route.tab === 'workout' && route.screen === 'plans' ? null : route.tab}
             aiActive={
               route.tab === 'home' &&
-              (route.screen === 'ai_chat' || route.screen === 'ai' || route.screen === 'ai_setup')
+              (route.screen === 'ai_chat' || route.screen === 'ai')
             }
             onTabPress={navigateToTab}
             // The design's rule for the middle button: it opens the chat, for
@@ -5412,8 +5397,12 @@ function VinhaApp() {
           teachExerciseName(wrote, { name: exercise.name, libraryItemId: exercise.id })
         }
         onClose={() => setSettingsImportVisible(false)}
+        // The chat, for everyone. The composer screen it used to open is gone,
+        // and the Pro gate moved onto the act of composing — sending a free
+        // reader to a paywall instead of to a chat they can use would have been
+        // gating the wrong thing.
         onAiAssisted={() =>
-          navigate(coachProUnlocked ? { tab: 'home', screen: 'ai_setup' } : { tab: 'profile', screen: 'premium' })
+          navigate({ tab: 'home', screen: 'ai_chat' })
         }
         onBuildYourself={() => navigate({ tab: 'workout', screen: 'template' })}
         onImportProgram={async (draft) => {

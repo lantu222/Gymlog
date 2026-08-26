@@ -17,10 +17,6 @@ export type AppRoute =
     }
   | {
       tab: 'home';
-      screen: 'ai_setup';
-    }
-  | {
-      tab: 'home';
       screen: 'history';
     }
   | {

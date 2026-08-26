@@ -383,7 +383,9 @@ module.exports = [
       assert.match(appShellSource, /shellBackgroundColor \?\? theme\.bg/);
       // Status-bar icons follow the theme now; only gradient heroes override.
       assert.match(appShellSource, /statusBarStyleOverride \?\? \(themeName === 'dark' \? 'light' : 'dark'\)/);
-      assert.match(appSource, /shellBackgroundColor=\{aiSetupActive \? theme\.surface : undefined\}/);
+      // The composer screen's own shell tint went with the screen (user
+      // 2026-08-26, "koostajaruudun voi poistaa").
+      assert.doesNotMatch(appSource, /aiSetupActive/);
       assert.doesNotMatch(workoutsScreenSource, /Search for programs/);
       assert.doesNotMatch(workoutsScreenSource, /{activeSession \?/);
       assert.doesNotMatch(homeScreenSource, /YOUR PLAN/);

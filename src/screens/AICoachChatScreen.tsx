@@ -391,6 +391,15 @@ export function AICoachChatScreen({
         return;
       }
       if (offer.type === 'compose') {
+        // Building a programme is the Pro feature, and it used to be gated by
+        // the composer screen's own route guard. That screen is gone, so the
+        // gate moves onto the act — otherwise moving the entrance into the free
+        // chat would have quietly given the feature away. The line under the
+        // offer says so before the tap, so the paywall is not a surprise.
+        if (!proUnlocked) {
+          onOpenPremium();
+          return;
+        }
         // The offer becomes the week it was offering. Replaced rather than
         // appended: leaving "shall I build this?" above the thing it built
         // would invite a second tap that composes the same brief again.
@@ -474,6 +483,8 @@ export function AICoachChatScreen({
       onOpenMeasure,
       onPinStatCard,
       onSetGoal,
+      onOpenPremium,
+      proUnlocked,
       pinnedStatCardKeys,
     ],
   );

@@ -10,7 +10,6 @@ import { AppRoute, ROOT_ROUTES } from '../navigation/routes';
 import { haptics } from '../utils/haptics';
 import { AICoachChatScreen } from '../screens/AICoachChatScreen';
 import { AICoachScreen } from '../screens/AICoachScreen';
-import { AiProgramComposerScreen } from '../screens/AiProgramComposerScreen';
 import { CardioScreen } from '../screens/CardioScreen';
 import { HistoryScreen } from '../screens/HistoryScreen';
 import { SessionAnalysisScreen } from '../screens/SessionAnalysisScreen';
@@ -211,24 +210,6 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
         onBack={() => navigateBack(ROOT_ROUTES.home)}
         onSubmitPrompt={handleOpenAICoach}
         onSelectAction={handleSelectAiCoachAction}
-      />
-    );
-  }
-
-  if (route.screen === 'ai_setup') {
-    // "AI assisted", rebuilt as one text field (feedback round 2, #3). Live
-    // when a coach server is configured, the deterministic composer
-    // otherwise — the same proposal shape either way, and every exercise in
-    // it a library exercise. Saving makes a programme of the reader's own,
-    // which the free-tier cap counts like any other.
-    return (
-      <AiProgramComposerScreen
-        language={preferences.appLanguage}
-        preferences={preferences}
-        liveConfigured={isAiCoachLiveConfigured()}
-        onBack={() => navigateBack(ROOT_ROUTES.home)}
-        compose={composeProgramme}
-        onSave={saveProgramme}
       />
     );
   }

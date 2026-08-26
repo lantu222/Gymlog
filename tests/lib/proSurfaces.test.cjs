@@ -234,14 +234,16 @@ module.exports = [
       assert.match(chat, /buildAiCoachPreviewAnswer\(trimmed, trainingContext, language\)/);
       assert.match(chat, /lockedBody: \[withheld\.takeaway/);
 
-      // "AI program builder — Pro": the composer route and both entries gate on
-      // Pro. The route gate is an effect, because the entries are not the only
-      // way onto a route (history, a lapsed entitlement mid-screen).
-      assert.match(appSource, /route\.screen === 'ai_setup' && !coachProUnlocked\) \{\s*navigate\(\{ tab: 'profile', screen: 'premium' \}\);/);
-      assert.equal(
-        (appSource.match(/onAiAssisted=\{\(\) => navigate\(coachProUnlocked \? \{ tab: 'home', screen: 'ai_setup' \} : \{ tab: 'profile', screen: 'premium' \}\)\}/g) ?? []).length,
-        2,
-      );
+      // "AI program builder — Pro". The composer screen is gone and every
+      // entrance now opens the chat, which is free for everyone — so the gate
+      // moved from the route onto the ACT of composing. Gating the entrance
+      // instead would have sent a free reader to a paywall rather than to a
+      // chat they can use, and gating nothing would have given the feature away
+      // (user 2026-08-26, "koostajaruudun voi poistaa").
+      assert.doesNotMatch(appSource, /ai_setup/);
+      assert.match(chat, /if \(offer\.type === 'compose'\) \{[\s\S]{0,600}if \(!proUnlocked\) \{\s*\n\s*onOpenPremium\(\);/);
+      // The offer says so before the tap, so the paywall is not a surprise.
+      assert.match(chat, /coachChat\.compose\.pro/);
     },
   },
   {

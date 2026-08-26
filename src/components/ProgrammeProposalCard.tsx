@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { CutButton } from './CutButton';
 import { CutSurface } from './CutSurface';
@@ -15,27 +15,19 @@ import { AppLanguage } from '../types/models';
  * A composed week, wherever it is being read.
  *
  * It lived inside AiProgramComposerScreen, which meant the chat could only
- * hand a brief over and navigate away. Putting a second copy in the chat was
- * the obvious move and the wrong one: the day list, the unmet-lift notes, the
- * save path and the programme-cap dialog would exist twice and drift.
- *
- * So there is one card. The composer screen shows it under its own text field;
- * the chat shows it as a message. That is what makes the merge safe rather
- * than merely shorter — and it is why the reader can now keep talking after a
- * proposal instead of leaving the conversation to look at one.
+ * hand a brief over and navigate away. Extracting it is what let the week be
+ * drawn in the conversation without the day list, the unmet-lift notes and the
+ * save path existing in two places — and once that was true, the screen it came
+ * from had nothing left that the chat could not do, so it is gone (user
+ * 2026-08-26, "koostajaruudun voi poistaa").
  */
 
 export interface ProgrammeProposalCardProps {
   proposal: ProgrammeProposal;
   language: AppLanguage;
-  /** 'saving' disables the actions; the label says which one is running. */
+  /** 'saving' disables the action; the label says so. */
   busy?: 'idle' | 'saving';
   onSave: () => void;
-  /**
-   * Compose the same brief again. Absent in the chat, where asking again is
-   * what the conversation is for.
-   */
-  onAgain?: () => void;
 }
 
 export function ProgrammeProposalCard({
@@ -43,7 +35,6 @@ export function ProgrammeProposalCard({
   language,
   busy = 'idle',
   onSave,
-  onAgain,
 }: ProgrammeProposalCardProps) {
   const styles = useThemedStyles(makeStyles);
 
@@ -125,17 +116,15 @@ export function ProgrammeProposalCard({
         </Text>
       ) : null}
 
+      {/* No "compose again" here. The card lives in a conversation now, and
+          asking again is what the conversation is for — a button that re-ran
+          the same brief would produce the same week and say nothing. */}
       <View style={styles.actions}>
         <CutButton
           label={busy === 'saving' ? t(language, 'aiCompose.saving') : t(language, 'aiCompose.save')}
           variant={busy === 'idle' ? 'primary' : 'disabled'}
           onPress={onSave}
         />
-        {onAgain ? (
-          <Pressable onPress={onAgain} hitSlop={8} style={styles.again} disabled={busy !== 'idle'}>
-            <Text style={styles.againText}>{t(language, 'aiCompose.again')}</Text>
-          </Pressable>
-        ) : null}
       </View>
 
       <Text style={styles.source}>
@@ -173,7 +162,5 @@ const makeStyles = (theme: Theme) =>
     exerciseScheme: { color: theme.muted, fontSize: 13, lineHeight: 19, fontWeight: '700' },
     note: { color: theme.muted, fontSize: 13, lineHeight: 18, fontWeight: '600', marginTop: 4 },
     actions: { gap: 10, marginTop: 8 },
-    again: { alignSelf: 'center', paddingVertical: 6 },
-    againText: { color: theme.purple, fontSize: 14, fontWeight: '800' },
     source: { color: theme.faint, fontSize: 11.5, lineHeight: 15, fontWeight: '600', marginTop: 2 },
   });

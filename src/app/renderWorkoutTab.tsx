@@ -818,7 +818,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         nameBook={exerciseNameBook}
         onTeachName={(wrote, exercise) => teachExerciseName(wrote, { name: exercise.name, libraryItemId: exercise.id })}
         onPickImage={handlePickProgramImage}
-        onAiAssisted={() => navigate(coachProUnlocked ? { tab: 'home', screen: 'ai_setup' } : { tab: 'profile', screen: 'premium' })}
+        onAiAssisted={() => navigate({ tab: 'home', screen: 'ai_chat' })}
         onImportProgram={async (draft) => {
           const workoutTemplateId = await upsertWorkoutTemplate(draft);
           navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });

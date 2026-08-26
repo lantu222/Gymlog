@@ -12,7 +12,6 @@ export function getBackRoute(route: AppRoute, workoutHome: AppRoute): AppRoute |
     route.tab === 'home' &&
     (route.screen === 'ai' ||
       route.screen === 'ai_chat' ||
-      route.screen === 'ai_setup' ||
       route.screen === 'history' ||
       route.screen === 'session' ||
       route.screen === 'analysis' ||

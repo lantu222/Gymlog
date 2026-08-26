@@ -249,7 +249,7 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
                 navigate({ tab: 'workout', screen: 'template', workoutTemplateId: homeActivePlanCard.programId })
             : undefined
         }
-        onAiAssisted={() => navigate(coachProUnlocked ? { tab: 'home', screen: 'ai_setup' } : { tab: 'profile', screen: 'premium' })}
+        onAiAssisted={() => navigate({ tab: 'home', screen: 'ai_chat' })}
         onBuildYourself={() =>
           programSlots.canCreate
             ? navigate({ tab: 'workout', screen: 'template' })
