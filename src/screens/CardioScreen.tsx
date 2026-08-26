@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CardioIcon } from '../components/CardioIcon';
 import {
@@ -188,24 +189,33 @@ export function CardioScreen({
       {endSheetOpen && activeCardio && (
         <CardioSheet onClose={() => setEndSheetOpen(false)}>
           <Text style={styles.sheetTitle}>{t(language, 'cardio.endTitle')}</Text>
+          {/* Cancel above discard, not below it. Both were neutral ghosts in a
+              column, so the safe way out sat under the destructive one at the
+              very bottom edge — the two easiest places to hit by accident were
+              "throw the session away" and "the thing behind the phone's
+              buttons" (user 2026-08-26). */}
           <View style={{ gap: 10 }}>
             <SheetPrimaryBtn
+              // Orange, the app's own "you can press this". Green belonged to
+              // no part of this app's language.
               label={t(language, 'cardio.finish')}
-              color={theme.green}
+              color={theme.highlight}
+              textColor={theme.onHighlight}
               onPress={() => {
                 setEndSheetOpen(false);
                 workout.pauseCardio();
                 setFinishing(true);
               }}
             />
+            <SheetGhostBtn label={t(language, 'common.cancel')} onPress={() => setEndSheetOpen(false)} />
             <SheetGhostBtn
               label={t(language, 'cardio.discard')}
+              tone="danger"
               onPress={() => {
                 setEndSheetOpen(false);
                 workout.clearCardio();
               }}
             />
-            <SheetGhostBtn label={t(language, 'common.cancel')} onPress={() => setEndSheetOpen(false)} />
           </View>
         </CardioSheet>
       )}
@@ -373,15 +383,29 @@ function CardioPlayerView({
         {!running ? <Text style={styles.pausedLabel}>{t(language, 'cardio.paused')}</Text> : <View style={{ height: 20 }} />}
       </View>
 
-      <View style={{ alignItems: 'center', paddingBottom: 36 }}>
-        <Pressable onPress={running ? onPause : onResume} style={styles.pauseBtn}>
-          <Svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
-            {running ? <Path d="M9 5v14M15 5v14" /> : <Path d="M8 5l11 7-11 7z" />}
-          </Svg>
-        </Pressable>
-        <Text style={{ fontSize: 13, fontWeight: '700', color: theme.muted, marginTop: 10 }}>
-          {t(language, running ? 'cardio.pause' : 'cardio.resume')}
-        </Text>
+      {/* Ending was the X in the top corner, which is where you close a screen
+          rather than where you finish a workout — so the one control that saves
+          the session was the one that looked like discarding it. It sits beside
+          pause now (user 2026-08-26). */}
+      <View style={styles.playerControls}>
+        <View style={{ alignItems: 'center' }}>
+          <Pressable onPress={running ? onPause : onResume} style={styles.pauseBtn}>
+            <Svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+              {running ? <Path d="M9 5v14M15 5v14" /> : <Path d="M8 5l11 7-11 7z" />}
+            </Svg>
+          </Pressable>
+          <Text style={styles.playerControlLabel}>
+            {t(language, running ? 'cardio.pause' : 'cardio.resume')}
+          </Text>
+        </View>
+        <View style={{ alignItems: 'center' }}>
+          <Pressable onPress={onExit} style={styles.endBtn}>
+            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={theme.onHighlight} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+              <Path d="M6 6h12v12H6z" />
+            </Svg>
+          </Pressable>
+          <Text style={styles.playerControlLabel}>{t(language, 'cardio.end')}</Text>
+        </View>
       </View>
     </View>
   );
@@ -504,11 +528,14 @@ function CardioFinishView({
 /* ── sheets ── */
 function CardioSheet({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
   const styles = useThemedStyles(makeStyles);
+  const insets = useSafeAreaInsets();
 
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.sheetScrim} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={() => undefined}>
+        {/* Bottom-anchored, so its padding has to know how tall the phone's
+            system bar is. A fixed number put the last button behind it. */}
+        <Pressable style={[styles.sheet, { paddingBottom: insets.bottom + 30 }]} onPress={() => undefined}>
           <View style={styles.sheetHandle} />
           {children}
         </Pressable>
@@ -517,24 +544,55 @@ function CardioSheet({ onClose, children }: { onClose: () => void; children: Rea
   );
 }
 
-function SheetPrimaryBtn({ label, color, onPress }: { label: string; color: string; onPress: () => void }) {
+function SheetPrimaryBtn({
+  label,
+  color,
+  textColor = '#fff',
+  onPress,
+}: {
+  label: string;
+  color: string;
+  /** The ink `color` was paired with. White is right on purple, not on orange. */
+  textColor?: string;
+  onPress: () => void;
+}) {
   const styles = useThemedStyles(makeStyles);
 
   return (
     <Pressable onPress={onPress} style={[styles.sheetPrimaryBtn, { backgroundColor: color, shadowColor: color }]}>
-      <Text style={{ fontSize: 16, fontWeight: '800', color: '#fff' }}>{label}</Text>
+      {/* The ink the fill was paired with. `highlight` is purple on the light
+          theme and orange on the dark one, and white reads on only one of
+          them — which is exactly what onHighlight exists to answer. */}
+      <Text style={{ fontSize: 16, fontWeight: '800', color: textColor }}>{label}</Text>
     </Pressable>
   );
 }
 
-function SheetGhostBtn({ label, onPress }: { label: string; onPress: () => void }) {
+function SheetGhostBtn({
+  label,
+  onPress,
+  tone = 'neutral',
+}: {
+  label: string;
+  onPress: () => void;
+  /** 'danger' for the answer that throws the session away. */
+  tone?: 'neutral' | 'danger';
+}) {
   const theme = useTheme();
 
   const styles = useThemedStyles(makeStyles);
 
   return (
     <Pressable onPress={onPress} style={styles.sheetGhostBtn}>
-      <Text style={{ fontSize: 14.5, fontWeight: '800', color: theme.ink }}>{label}</Text>
+      <Text
+        style={{
+          fontSize: 14.5,
+          fontWeight: '800',
+          color: tone === 'danger' ? theme.danger : theme.ink,
+        }}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -558,7 +616,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 14,
     backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: '#E4D8FF',
+    borderColor: theme.border,
     borderRadius: 18,
     paddingTop: 16,
     paddingHorizontal: 15,
@@ -609,7 +667,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: '#E4DBF5',
+    borderColor: theme.border,
   },
   playerTopLabel: { fontSize: 11.5, fontWeight: '800', letterSpacing: 1.6, color: theme.muted },
   playerIconTile: {
@@ -631,6 +689,25 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 8,
   },
   pausedLabel: { fontSize: 13, fontWeight: '800', letterSpacing: 1.8, color: theme.muted, marginTop: 2 },
+  playerControls: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    gap: 34,
+    paddingBottom: 36,
+  },
+  playerControlLabel: { fontSize: 13, fontWeight: '700', color: theme.muted, marginTop: 10 },
+  // Smaller than pause and orange rather than purple: pause is what you press
+  // ten times in a session, ending it once.
+  endBtn: {
+    width: 60,
+    height: 60,
+    borderRadius: 999,
+    backgroundColor: theme.highlight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
   pauseBtn: {
     width: 68,
     height: 68,
@@ -650,7 +727,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   finishCard: {
     backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: '#E4DBF5',
+    borderColor: theme.border,
     borderRadius: 20,
     paddingVertical: 16,
     paddingHorizontal: 17,
@@ -668,7 +745,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     height: 48,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#E4DBF5',
+    borderColor: theme.border,
     backgroundColor: theme.bg,
     paddingHorizontal: 14,
     fontSize: 16,
@@ -678,7 +755,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   feelPill: {
     borderRadius: 999,
     borderWidth: 1.5,
-    borderColor: '#E4DBF5',
+    borderColor: theme.border,
     backgroundColor: theme.surface,
     paddingHorizontal: 15,
     paddingVertical: 9,
@@ -693,7 +770,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E4DBF5',
+    borderTopColor: theme.border,
   },
   completeBtn: {
     height: 56,
@@ -722,7 +799,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 22,
     paddingBottom: 30,
   },
-  sheetHandle: { width: 40, height: 5, borderRadius: 3, backgroundColor: '#E4DBF5', alignSelf: 'center', marginBottom: 16 },
+  sheetHandle: { width: 40, height: 5, borderRadius: 3, backgroundColor: theme.border, alignSelf: 'center', marginBottom: 16 },
   sheetTitle: { fontSize: 20, fontWeight: '800', color: theme.ink, marginBottom: 16 },
   sheetPrimaryBtn: {
     height: 56,
@@ -738,7 +815,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     height: 48,
     borderRadius: 15,
     borderWidth: 1.5,
-    borderColor: '#E4DBF5',
+    borderColor: theme.border,
     backgroundColor: theme.surface,
     alignItems: 'center',
     justifyContent: 'center',
