@@ -172,9 +172,14 @@ module.exports = [
       // Custom programs have no rules and get no section: they are the
       // reader's own sessions, and inventing a rule invents the whole thing.
       assert.match(programDetailSource, /\{progressionRules \? \(/);
-      // The warning only fires when the setup actually says how many days the
-      // reader has. Guessing would turn a real warning into noise.
-      assert.match(programDetailSource, /availableDays != null && availableDays > 0/);
+      // The days warning is gone. "Vaatii 4 päivää viikossa. Sinun viikossasi
+      // on 1." compared the programme's day count against the reader's stated
+      // AVAILABILITY, which is a different thing from their plan's rhythm — so
+      // it fired on anyone whose week was recorded loosely, and the reader
+      // could not tell what it was about (user 2026-08-26, "en ihan tajua mikä
+      // tämä on"). A warning nobody can act on is furniture with an alarm on
+      // it; the day count is stated plainly in the Rytmi section.
+      assert.doesNotMatch(programDetailSource, /availableDays|daysWarning|styles\.warnRow/);
 
       // The pinned footer and its "start the first session" shortcut are gone;
       // the adopt button above replaced both. Session rows still open the day.

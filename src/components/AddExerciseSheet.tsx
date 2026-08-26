@@ -448,7 +448,15 @@ export function AddExerciseSheet({
             </Pressable>
           </View>
 
+          {/* `flex: 1, minHeight: 0` is what keeps the footer on screen.
+              Without it the list is laid out at its content height — hundreds
+              of exercises — inside a sheet capped at 92% with overflow hidden,
+              so "Lisää N liikettä" was pushed past the sheet's own bottom edge
+              and clipped away. It looked like a button hidden behind the phone's
+              system bar, and padding it up did nothing, because it was never on
+              screen to begin with (user 2026-08-26, second report). */}
           <FlatList
+            style={styles.grid}
             data={mainItems}
             keyExtractor={(item) => item.id}
             numColumns={2}
@@ -680,6 +688,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  // The list takes the space left over, rather than the space it wants.
+  grid: { flexGrow: 1, flexShrink: 1, minHeight: 0 },
   content: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xxl,

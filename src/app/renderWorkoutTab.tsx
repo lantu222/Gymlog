@@ -292,9 +292,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             ? getReadyProgramContent(readyTemplate.id, preferences.appLanguage)?.audience ?? null
             : null
         }
-        availableDays={
-          preferences.setupAvailableDays.length > 0 ? preferences.setupAvailableDays.length : null
-        }
         equipment={
           readyTemplate
             ? resolveProgramEquipment(

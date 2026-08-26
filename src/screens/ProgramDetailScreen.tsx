@@ -7,8 +7,6 @@ import { CutSurface } from '../components/CutSurface';
 import { ProgramPhotoSlot } from '../components/ProgramPhotoSlot';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { I18nKey, t } from '../lib/i18n';
-import {
-} from '../lib/homeSessionHero';
 import { ProgramDetailViewModel } from '../lib/programDetails';
 import { progressionRuleLabel } from '../lib/progressionRuleLabel';
 import { EQUIPMENT_CHIP_KEYS, missingEquipment } from '../lib/programEquipment';
@@ -110,8 +108,6 @@ interface ProgramDetailScreenProps {
   } | null;
   /** Who the program is for, already in the reader's language. */
   audience?: string | null;
-  /** Training days the reader's own week has, when the setup says. */
-  availableDays?: number | null;
   /** Gear the program needs, derived from its exercises. */
   equipment?: string[];
   /** Gear the reader has; null when the setup never said. */
@@ -192,7 +188,6 @@ export function ProgramDetailScreen({
   onEdit,
   progressionRules = null,
   audience = null,
-  availableDays = null,
   equipment = [],
   availableEquipment = null,
   fitReason = null,
@@ -243,13 +238,6 @@ export function ProgramDetailScreen({
     () => missingEquipment(equipment as never, availableEquipment),
     [availableEquipment, equipment],
   );
-  const daysWarning =
-    availableDays != null && availableDays > 0 && program.sessions.length > availableDays
-      ? t(language, 'detail.daysWarning', {
-          count: program.sessions.length,
-          have: availableDays,
-        })
-      : null;
   const displayTitle = formatWorkoutDisplayLabel(program.title, 'Workout plan');
   /**
    * The hero's bars: one per session, height from its exercise count.
@@ -495,22 +483,16 @@ export function ProgramDetailScreen({
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>{t(language, 'detail.forWhom')}</Text>
             </View>
+            {/* A warning triangle stood here: "Vaatii 4 päivää viikossa. Sinun
+                viikossasi on 1." It compared the programme's day count against
+                the reader's stated AVAILABILITY, which is a different thing
+                from their plan's rhythm — so it fired on people whose week was
+                simply recorded loosely, and the reader could not tell what it
+                was even about (user 2026-08-26, "en ihan tajua mikä tämä on").
+                A warning nobody can act on is furniture with an alarm on it.
+                The day count is stated plainly in the Rytmi section below. */}
             <View style={styles.ruleCard}>
               <Text style={styles.audienceText}>{audience}</Text>
-              {daysWarning ? (
-                <View style={styles.warnRow}>
-                  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                    <Path
-                      d="M12 4l9 16H3z M12 10v4M12 17v.01"
-                      stroke={theme.amber}
-                      strokeWidth={2.2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
-                  <Text style={styles.warnText}>{daysWarning}</Text>
-                </View>
-              ) : null}
             </View>
           </>
         ) : null}
@@ -1060,22 +1042,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     fontWeight: '600',
-  },
-  warnRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: theme.border,
-  },
-  warnText: {
-    flex: 1,
-    color: theme.amberInk,
-    fontSize: 12.5,
-    lineHeight: 18,
-    fontWeight: '700',
   },
   roleTag: {
     borderRadius: 6,

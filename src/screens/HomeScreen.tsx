@@ -53,13 +53,6 @@ import { queryReduceMotion } from '../utils/reduceMotion';
 
 // Entrance stagger (Home v4 "rise"): translateY 16 -> 0 + fade, 500ms,
 // cubic-bezier(.22,1,.36,1). Indices name each animated section.
-/**
- * How long a dropped programme waits before it really goes. Long enough to
- * notice the row change and reach for it; short enough that the list is not
- * lying about its contents while you look at it.
- */
-const REMOVAL_UNDO_MS = 5000;
-
 const RISE_DELAYS_MS = [40, 100, 160, 300, 360, 420, 460, 480, 520, 560, 600] as const;
 const RISE_HEADER = 0;
 const RISE_WEEK = 1;
@@ -569,30 +562,11 @@ export function HomeScreen({
    * back from an accidental one.
    */
   const [pendingRemoval, setPendingRemoval] = useState<string | null>(null);
-  const removalTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      if (removalTimer.current) {
-        clearTimeout(removalTimer.current);
-      }
-    },
-    [],
-  );
-  const undoRemoval = () => {
-    if (removalTimer.current) {
-      clearTimeout(removalTimer.current);
-      removalTimer.current = null;
-    }
+  const undoRemoval = () => setPendingRemoval(null);
+  const beginRemoval = (planId: string) => setPendingRemoval(planId);
+  const confirmRemoval = (planId: string) => {
     setPendingRemoval(null);
-  };
-  const beginRemoval = (planId: string) => {
-    undoRemoval();
-    setPendingRemoval(planId);
-    removalTimer.current = setTimeout(() => {
-      removalTimer.current = null;
-      setPendingRemoval(null);
-      onRemoveOtherProgram?.(planId);
-    }, REMOVAL_UNDO_MS);
+    onRemoveOtherProgram?.(planId);
   };
 
   const swapRow = useMemo(() => {
@@ -1530,7 +1504,25 @@ export function HomeScreen({
                       (user 2026-08-26). So the row waits, struck through, and
                       says how to get it back. */}
                   {pending ? (
-                    <Text style={styles.otherProgramUndo}>{t(language, 'home.removeProgram.undo')}</Text>
+                    /* No countdown. A timer means the reader is racing the app
+                       to keep their own programme, and "hurry up" is the wrong
+                       thing to say about a decision (user 2026-08-26, "otetaan
+                       aika pois"). The row waits as long as it takes: Kumoa on
+                       the row, and the red X confirms. */
+                    <View style={styles.otherProgramConfirm}>
+                      <Text style={styles.otherProgramUndo}>{t(language, 'home.removeProgram.undo')}</Text>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={t(language, 'home.removeProgram.confirm', { program: program.title })}
+                        hitSlop={10}
+                        onPress={() => confirmRemoval(program.planId)}
+                        style={({ pressed }) => [styles.otherProgramRemove, pressed && styles.pressed]}
+                      >
+                        <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                          <Path d="M6 6l12 12M18 6L6 18" stroke={theme.danger} strokeWidth={2.6} strokeLinecap="round" />
+                        </Svg>
+                      </Pressable>
+                    </View>
                   ) : (
                     <Pressable
                       accessibilityRole="button"
@@ -2886,6 +2878,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     textDecorationLine: 'line-through',
     color: theme.faint,
   },
+  otherProgramConfirm: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   otherProgramUndo: {
     color: theme.highlight,
     fontSize: 13,

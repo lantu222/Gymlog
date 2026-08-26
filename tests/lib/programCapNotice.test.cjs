@@ -89,13 +89,22 @@ module.exports = [
       // Nothing is destroyed by dropping one, but the row vanished under the
       // reader's thumb and that reads as destruction unless you already know
       // otherwise (user 2026-08-26).
-      assert.match(home, /const REMOVAL_UNDO_MS = 5000;/);
       assert.match(home, /setPendingRemoval\(planId\)/);
       assert.match(home, /onRemoveOtherProgram\?\.\(planId\);/);
       assert.match(home, /home\.removeProgram\.undo/);
+
+      // And no countdown. It waited five seconds and then committed, which
+      // means the reader races the app to keep their own programme — "hurry
+      // up" is the wrong thing to say about a decision (user 2026-08-26,
+      // "otetaan aika pois"). The row waits as long as it takes: Kumoa on the
+      // row, and a red X confirms.
+      assert.doesNotMatch(home, /REMOVAL_UNDO_MS|setTimeout\(\(\) => \{\s*\n\s*removalTimer/);
+      assert.match(home, /const confirmRemoval = \(planId: string\) => \{/);
+      assert.match(home, /home\.removeProgram\.confirm/);
+
       // And it says where it went, because "gone" was the fear.
       const fi = fs.readFileSync(path.join(__dirname, '../../src/lib/i18n.ts'), 'utf8');
-      assert.match(fi, /'home\.removeProgram\.pending': 'Poistettu — säilyy Ohjelmat-välilehdellä'/);
+      assert.match(fi, /'home\.removeProgram\.pending': 'Poistetaanko\? Säilyy Ohjelmat-välilehdellä'/);
     },
   },
 ];
