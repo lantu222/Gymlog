@@ -318,7 +318,11 @@ const makeStyles = (theme: Theme) => {
     paddingHorizontal: 8,
   },
   recommendedPillSelected: {
-    backgroundColor: theme.surface,
+    // White, not theme.surface. The chosen card is purple in both themes, so
+    // the pill on top of it does not belong to the page's surface colour —
+    // following it turned the badge into a black hole punched in the card as
+    // soon as the dark theme was picked (user 2026-08-27).
+    backgroundColor: '#FFFFFF',
     borderColor: C.purpleDark,
   },
   recommendedPillText: {
@@ -342,7 +346,9 @@ const makeStyles = (theme: Theme) => {
     width: 26,
     height: 26,
     borderRadius: 999,
-    backgroundColor: theme.surface,
+    // Same reason as recommendedPillSelected: this tick only ever sits on the
+    // chosen purple card, so it is white there whatever the page behind is.
+    backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
     borderColor: C.purpleDark,
     alignItems: 'center',

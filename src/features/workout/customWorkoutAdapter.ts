@@ -69,15 +69,42 @@ function getPriority(exercise: ExerciseTemplate, libraryItem?: ExerciseLibraryIt
   return exercise.trackedDefault ? 'medium' : 'low';
 }
 
+/**
+ * The library, indexed once.
+ *
+ * This used to be built inside adaptExercise — a Map over all 873 items, plus
+ * a linear name scan that normalized every one of them, for each exercise of
+ * each day of each programme, every time the database changed. The reader felt
+ * it as a day screen that "lagged" and buttons that did not answer (#bugs
+ * 2026-08-27). The work is the same shape; it just happens once.
+ */
+interface ExerciseLibraryIndex {
+  byId: Map<string, ExerciseLibraryItem>;
+  byName: Map<string, ExerciseLibraryItem>;
+}
+
+function indexExerciseLibrary(exerciseLibrary: ExerciseLibraryItem[]): ExerciseLibraryIndex {
+  const byId = new Map<string, ExerciseLibraryItem>();
+  const byName = new Map<string, ExerciseLibraryItem>();
+  for (const item of exerciseLibrary) {
+    byId.set(item.id, item);
+    // First wins, matching the .find() this replaced.
+    const key = normalizeName(item.name);
+    if (!byName.has(key)) {
+      byName.set(key, item);
+    }
+  }
+  return { byId, byName };
+}
+
 function adaptExercise(
   exercise: ExerciseTemplate,
-  exerciseLibrary: ExerciseLibraryItem[],
+  library: ExerciseLibraryIndex,
   defaultRestSeconds: number,
 ): WorkoutTemplateExercise {
-  const libraryById = new Map(exerciseLibrary.map((item) => [item.id, item] as const));
   const libraryItem =
-    (exercise.libraryItemId ? libraryById.get(exercise.libraryItemId) : undefined) ??
-    exerciseLibrary.find((item) => normalizeName(item.name) === normalizeName(exercise.name));
+    (exercise.libraryItemId ? library.byId.get(exercise.libraryItemId) : undefined) ??
+    library.byName.get(normalizeName(exercise.name));
 
   return {
     id: exercise.id,
@@ -102,6 +129,7 @@ export function adaptLegacyWorkoutTemplateToRuntimeTemplate(
   exerciseLibrary: ExerciseLibraryItem[],
   defaultRestSeconds: number,
 ): WorkoutRuntimeTemplate {
+  const library = indexExerciseLibrary(exerciseLibrary);
   return {
     id: template.id,
     name: template.name,
@@ -116,7 +144,7 @@ export function adaptLegacyWorkoutTemplateToRuntimeTemplate(
         exercises: session.exercises
           .slice()
           .sort((left, right) => left.orderIndex - right.orderIndex)
-          .map((exercise) => adaptExercise(exercise, exerciseLibrary, defaultRestSeconds)),
+          .map((exercise) => adaptExercise(exercise, library, defaultRestSeconds)),
       })),
   };
 }

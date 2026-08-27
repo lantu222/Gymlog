@@ -118,10 +118,11 @@ module.exports = [
       // A bodyweight set is still repetitions.
       assert.match(getTopSetLabel(sets, 'en', 'bodyweight'), /60 reps/);
       assert.match(getTopSetLabel(sets, 'fi', 'bodyweight'), /60 toistoa/);
-      // A loaded set is unchanged.
+      // A loaded set states its unit. It used to read "60 × 8" under a label
+      // saying "heaviest set", which is a load without saying of what.
       assert.equal(
         getTopSetLabel([{ status: 'completed', weightKg: 60, reps: 8 }], 'en', 'load_and_reps'),
-        '60 × 8',
+        '60 kg × 8',
       );
     },
   },

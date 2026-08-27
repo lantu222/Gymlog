@@ -438,7 +438,11 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
                 onSignIn: () => void handleAccountSignIn(),
                 onBackupNow: () => {
                   void accountBackup.backupNow().then((ok) => {
-                    showToast(t(preferences.appLanguage, ok ? 'account.backupDone' : 'account.backupFailed'));
+                    // Only the failure speaks; the row's green timestamp is
+                    // the success, and it is already on screen.
+                    if (!ok) {
+                      showToast(t(preferences.appLanguage, 'account.backupFailed'));
+                    }
                   });
                 },
                 onSignOut: () => void accountBackup.signOut(),
@@ -452,11 +456,12 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
                         text: t(preferences.appLanguage, 'account.deleteRemote'),
                         style: 'destructive',
                         onPress: () => {
-                          void accountBackup.deleteRemoteBackup().then((ok) => {
-                            if (ok) {
-                              showToast(t(preferences.appLanguage, 'account.deleteRemote.done'));
-                            }
-                          });
+                          // The one the reader photographed off the phone and
+                          // marked prio 1: a white bar reading "Pilvivarmuus-
+                          // kopio poistettu" over a row that has just changed
+                          // to "Ei vielä varmuuskopiota". The row is the
+                          // answer; the bar was the app saying it twice.
+                          void accountBackup.deleteRemoteBackup();
                         },
                       },
                     ],

@@ -22,6 +22,7 @@ import { formatShortDate } from '../lib/format';
 import { CoachChatIntroInput, CoachContextChip, buildCoachContextChips, buildCoachContextReadout, buildCoachNoticed, buildCoachOpeningLine, buildCoachOpeningOffer, buildCoachOpeningRows } from '../lib/coachChat';
 import { coachSmallTalkReplyKey, parseCoachSmallTalk } from '../lib/coachSmallTalk';
 import { appendCoachTurn } from '../lib/coachConversation';
+import { CoachChatMemory, resumeCoachChat } from '../lib/coachChatMemory';
 import { CoachSuggestionKind } from '../lib/coachSuggestions';
 import { MEASUREMENT_LABEL_KEYS } from '../lib/homeStatCards';
 import { I18nKey, t } from '../lib/i18n';
@@ -123,9 +124,19 @@ interface AICoachChatScreenProps {
   onOpenProgramme: (programId: string) => void;
   /** TEMPORARY: the signed-in email, attached to the development transcript log. */
   transcriptReporter: string | null;
+  /**
+   * The thread as it stood when this screen was last open, or null to start a
+   * new one.
+   *
+   * The conversation lives above this screen because this screen unmounts:
+   * the coach's best answers end in "katso tämä treeni", and following that
+   * used to throw away the brief that earned it. See lib/coachChatMemory.
+   */
+  memory: CoachChatMemory<ChatMessage> | null;
+  onMemoryChange: (memory: CoachChatMemory<ChatMessage>) => void;
 }
 
-interface ChatMessage {
+export interface ChatMessage {
   id: string;
   fromCoach: boolean;
   text: string;
@@ -237,12 +248,20 @@ export function AICoachChatScreen({
   onSaveProgramme,
   onOpenProgramme,
   transcriptReporter,
+  memory,
+  onMemoryChange,
 }: AICoachChatScreenProps) {
   const theme = useTheme();
   const themeName = useThemeName();
   const styles = useThemedStyles(makeStyles);
   const [draft, setDraft] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  /**
+   * Reopened rather than restarted. The check runs once, on mount: a thread
+   * that was live when the reader tapped through to a workout is still live
+   * when they come back, and one from this morning is not.
+   */
+  const resumed = useRef(resumeCoachChat(memory, new Date().toISOString())).current;
+  const [messages, setMessages] = useState<ChatMessage[]>(resumed?.messages ?? []);
   const [asking, setAsking] = useState(false);
   const scrollRef = useRef<ScrollView | null>(null);
   const askToken = useRef(0);
@@ -251,7 +270,27 @@ export function AICoachChatScreen({
    * exchanges as they are at the moment of sending, and a state value captured
    * in its dependency list would be one turn behind.
    */
-  const conversation = useRef<AICoachConversationTurn[]>([]);
+  const conversation = useRef<AICoachConversationTurn[]>(resumed?.turns ?? []);
+
+  /**
+   * Publish the thread upward whenever it changes.
+   *
+   * The messages are the trigger and the model history rides along: every
+   * write to conversation.current happens in the same turn as a setMessages,
+   * so watching one carries both. Skipped while the thread is empty, so
+   * opening the screen and leaving it does not stamp a new session over the
+   * one that just expired.
+   */
+  useEffect(() => {
+    if (messages.length === 0) {
+      return;
+    }
+    onMemoryChange({
+      lastActiveAt: new Date().toISOString(),
+      messages,
+      turns: conversation.current,
+    });
+  }, [messages, onMemoryChange]);
   /**
    * Whether the last answer actually came from the coach.
    *

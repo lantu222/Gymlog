@@ -55,7 +55,6 @@ import { SetupHandoffChoices, SetupHandoffScreen } from './src/screens/SetupHand
 import { useAccountBackup } from './src/features/account/useAccountBackup';
 import { hasLocalDataWorthKeeping } from './src/lib/accountBackup';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
-import { selectHomePrimaryAction } from './src/lib/homePrimaryAction';
 import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
 import {
   addActiveProgram,
@@ -122,6 +121,9 @@ import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNaviga
 import { buildExerciseHistoryLookup } from './src/lib/workoutEditorTable';
 import { buildExercisePrLookup } from './src/lib/workoutCompletionSummary';
 import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
+import { CoachChatMemory } from './src/lib/coachChatMemory';
+import type { ChatMessage } from './src/screens/AICoachChatScreen';
+import { applyProgramSessionEdit } from './src/lib/programSessionEdit';
 import { ProgramLimitReachedError } from './src/lib/programSlots';
 import {
   ProgramSeason,
@@ -306,6 +308,7 @@ function VinhaApp() {
     updatePreferences,
     completeOnboarding,
     upsertWorkoutTemplate,
+    editWorkoutTemplateSessions,
     programSlots,
     upsertWorkoutPlan,
     saveOnboardingResult,
@@ -313,9 +316,12 @@ function VinhaApp() {
     resetAllData,
     addBodyweightEntry,
     addMeasurementEntry,
+    deleteBodyweightEntry,
+    deleteMeasurementEntry,
     saveCompletedWorkoutSession,
     updateCompletedWorkoutSession,
     deleteCompletedWorkoutSession,
+    deleteCardioSession,
     saveCardioSession,
     restoreDatabaseFromBackup,
     importWorkoutHistory,
@@ -897,6 +903,15 @@ function VinhaApp() {
    * "what am I doing today", and it is spent when the session starts.
    */
   const [sessionSwaps, setSessionSwaps] = useState<Record<string, string>>({});
+  /**
+   * The open coach conversation, held here because the chat screen unmounts.
+   *
+   * Its best answers end in "katso tämä treeni", and following that used to
+   * throw away the brief that earned it (#bugs 2026-08-27). Not persisted: the
+   * thread ends when the app does, and lib/coachChatMemory ends it after eight
+   * hours anyway.
+   */
+  const [coachChatMemory, setCoachChatMemory] = useState<CoachChatMemory<ChatMessage> | null>(null);
   /**
    * Slots left out of today's session, chosen on Home beside the swaps and
    * spent at the same moment. Not a change to the programme — that is edited
@@ -1633,15 +1648,10 @@ function VinhaApp() {
     if (updates.length === 0) {
       return;
     }
-    const template = workoutTemplates.find((item) => item.id === workoutTemplateId);
-    if (!template) {
-      return;
-    }
     const setsByExerciseId = new Map(updates.map((update) => [update.exerciseId, update.sets]));
-    await upsertWorkoutTemplate({
-      id: template.id,
-      name: template.name,
-      sessions: getWorkoutTemplateSessions(template.id).map((session) => ({
+    await editWorkoutTemplateSessions(workoutTemplateId, (sessions) => ({
+      kind: 'save',
+      sessions: sessions.map((session) => ({
         id: session.id,
         name: session.name,
         exercises: session.exercises.map((exercise) => ({
@@ -1655,7 +1665,7 @@ function VinhaApp() {
           libraryItemId: exercise.libraryItemId ?? null,
         })),
       })),
-    });
+    }));
     // The emphasis is visible on the rows it changed; a toast on top said the
     // same thing more slowly (user 2026-08-26).
     void haptics.success();
@@ -1671,7 +1681,8 @@ function VinhaApp() {
     // touching a single logged session.
     await upsertWorkoutPlan({ ...plan, updatedAt: new Date().toISOString() });
     await dismissCompletionCard(planId);
-    showToast(t(preferences.appLanguage, 'home.complete.restarted'));
+    // The hero counts 0 of N and the completion card is gone: the restart is
+    // the thing on screen, not a sentence about it.
   }
 
   /**
@@ -1863,15 +1874,9 @@ function VinhaApp() {
     if (!trimmed || !templateId || homeActivePlanCard?.programType !== 'custom') {
       return;
     }
-    const template = workoutTemplates.find((item) => item.id === templateId);
-    if (!template) {
-      return;
-    }
-
-    await upsertWorkoutTemplate({
-      id: template.id,
-      name: template.name,
-      sessions: getWorkoutTemplateSessions(template.id).map((session) => ({
+    await editWorkoutTemplateSessions(templateId, (sessions) => ({
+      kind: 'save',
+      sessions: sessions.map((session) => ({
         id: session.id,
         // Every other field is copied because upsert replaces the record; only
         // the one session the reader named changes.
@@ -1887,7 +1892,7 @@ function VinhaApp() {
           libraryItemId: exercise.libraryItemId ?? null,
         })),
       })),
-    });
+    }));
   }
 
   /**
@@ -1984,52 +1989,34 @@ function VinhaApp() {
     edit: ProgramExerciseEdit,
   ) {
     if (programType === 'custom') {
-      const template = workoutTemplates.find((item) => item.id === programId);
-      if (!template) {
-        return;
-      }
-      const sessions = getWorkoutTemplateSessions(template.id).map((session) => ({
-        id: session.id,
-        name: session.name,
-        exercises: [
-          ...session.exercises
-          .filter(
-            (exercise) =>
-              edit.kind !== 'remove' || !(session.id === sessionId && exercise.id === exerciseId),
-          )
-          .map((exercise) => {
-            const target = session.id === sessionId && exercise.id === exerciseId;
-            // Only the lift changes. Sets, reps and rest are the prescription,
-            // and a swap is a different way to train it, not a different dose.
-            const name = target && edit.kind === 'replace' ? edit.exerciseName : exercise.name;
-            return {
-              id: exercise.id,
-              name,
-              targetSets: exercise.targetSets,
-              repMin: exercise.repMin,
-              repMax: exercise.repMax,
-              restSeconds: exercise.restSeconds,
-              trackedDefault: exercise.trackedDefault,
-              libraryItemId:
-                target && edit.kind === 'replace'
-                  ? resolveLibraryItemIdForName(name)
-                  : exercise.libraryItemId ?? null,
-            };
-          }),
-          // Added at the end of the day it was added from, and nowhere else.
-          ...(edit.kind === 'add' && session.id === sessionId
-            ? buildAddedProgramExercises(edit.exerciseNames, session.id)
-            : []),
-        ],
-      }));
-      // A day with nothing left in it is not a day: Home would draw a session
-      // card with no session behind it, and starting it would open an empty
-      // player. Deleting the day is a different decision, made in the editor.
-      if (sessions.find((session) => session.id === sessionId)?.exercises.length === 0) {
+      // The day is read inside the write, not before it: an add that lands
+      // while the previous add is still being saved must build on it rather
+      // than on the screen's copy of how the programme looked a render ago.
+      const added =
+        edit.kind === 'add' ? buildAddedProgramExercises(edit.exerciseNames, sessionId) : [];
+      const result = await editWorkoutTemplateSessions(programId, (sessions) =>
+        applyProgramSessionEdit(
+          sessions,
+          sessionId,
+          edit.kind === 'remove'
+            ? { kind: 'remove', exerciseId }
+            : edit.kind === 'replace'
+              ? {
+                  kind: 'replace',
+                  exerciseId,
+                  exerciseName: edit.exerciseName,
+                  libraryItemId: resolveLibraryItemIdForName(edit.exerciseName),
+                }
+              : { kind: 'add', exercises: added },
+        ),
+      );
+      if (result.reason === 'lastExerciseInDay') {
         showToast(t(preferences.appLanguage, 'toast.lastExerciseInDay'));
         return;
       }
-      await upsertWorkoutTemplate({ id: template.id, name: template.name, sessions });
+      if (!result.saved) {
+        return;
+      }
       void haptics.success();
       if (edit.kind === 'replace') {
         // Today's swap has been spent by the programme itself. Leaving it in
@@ -2055,6 +2042,23 @@ function VinhaApp() {
     if (!template) {
       return;
     }
+
+    /**
+     * Already have a version of this one? Edit it.
+     *
+     * This branch used to build a fresh copy from the catalog every time, so
+     * editing the same ready programme three times left the reader with THREE
+     * programmes — the third arriving as "(kopio 2)", and the free cap filling
+     * up with the same programme (#bugs 2026-08-26). The catalog original is
+     * immutable and keeps its id forever; the copy now records which one it
+     * came from, and a second edit finds it and goes down the custom path.
+     */
+    const existingCopy = workoutTemplates.find((item) => item.sourceTemplateId === programId);
+    if (existingCopy) {
+      await handleEditProgramExercise('custom', existingCopy.id, sessionId, exerciseId, edit);
+      return;
+    }
+
     // No cap check for the programme being run: the copy replaces it, so the
     // reader ends with what they started with. Copying one they are only
     // browsing does add, and the repository charges that as before.
@@ -2115,6 +2119,8 @@ function VinhaApp() {
       // original is untouched and comes back whole if they take it up again.
       { keepName: true },
     );
+    // The link the next edit will look for.
+    draft.sourceTemplateId = programId;
 
     try {
       const workoutTemplateId = await upsertWorkoutTemplate(draft, { replacesPlanId: readyPlanId });
@@ -3359,7 +3365,11 @@ function VinhaApp() {
     const language = preferences.appLanguage;
     const outcome = await accountBackup.signIn();
     if (outcome.kind === 'backed_up') {
-      showToast(t(language, 'account.backupDone'));
+      // No toast. The backup row states the result better than a bar can: it
+      // carries the account and, in green, when the cloud copy was written.
+      // A pill saying "Varmuuskopioitu" over a row that already says
+      // "juuri nyt" is the class of message the reader has asked to be rid of
+      // four times (#bugs 2026-08-26, prio 1).
       return outcome.kind;
     }
     if (outcome.kind === 'restored') {
@@ -3391,7 +3401,10 @@ function VinhaApp() {
           text: t(language, 'account.restore.keepLocal'),
           onPress: () => {
             void accountBackup.resolveRestoreChoice('keep_local').then((ok) => {
-              showToast(t(language, ok ? 'account.backupDone' : 'account.backupFailed'));
+              // Only the failure speaks. Success is the row's green timestamp.
+              if (!ok) {
+                showToast(t(language, 'account.backupFailed'));
+              }
             });
           },
         },
@@ -3893,16 +3906,6 @@ function VinhaApp() {
           }
         : null,
     [recommendedReadyContent, recommendedReadyTemplate],
-  );
-  const primaryActionSelection = useMemo(
-    () =>
-      selectHomePrimaryAction({
-        activeWorkout: homeActiveWorkoutSummary,
-        nextPlannedWorkout,
-        lastWorkout: lastReusableWorkout,
-        recommendedWorkout: recommendedHomeWorkout,
-      }),
-    [homeActiveWorkoutSummary, lastReusableWorkout, nextPlannedWorkout, recommendedHomeWorkout],
   );
   const hasSavedTrainingSetup = useMemo(
     () => preferences.trainingFirstRunDismissed || Boolean(workout.activeSession),
@@ -4865,6 +4868,7 @@ function VinhaApp() {
       workoutSessions,
       getSessionLogs,
       deleteCompletedWorkoutSession,
+      deleteCardioSession,
       unitPreference,
       coachProUnlocked,
       database,
@@ -4874,6 +4878,8 @@ function VinhaApp() {
       addBodyweightEntry,
       addMeasurementEntry,
       accountBackup,
+      coachChatMemory,
+      onCoachChatMemoryChange: setCoachChatMemory,
       sessionAnalysis,
     });
   } else if (route.tab === 'workout' && route.screen === 'summary' && completionSummary) {
@@ -5038,6 +5044,8 @@ function VinhaApp() {
       coachProUnlocked,
       addBodyweightEntry,
       addMeasurementEntry,
+      deleteBodyweightEntry,
+      deleteMeasurementEntry,
       homeRecentSessions,
     });
   } else if (route.tab === 'profile') {

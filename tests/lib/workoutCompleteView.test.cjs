@@ -13,8 +13,10 @@ module.exports = [
   {
     name: 'top set label picks the heaviest completed set, reps break ties',
     run() {
-      assert.equal(getTopSetLabel([done(60, 8), done(62.5, 6), done(60, 10)]), '62.5 × 6');
-      assert.equal(getTopSetLabel([done(60, 8), done(60, 10)]), '60 × 10');
+      // The unit rides along: the finish screen prints this under "heaviest
+      // set", where a bare number says nothing (#bugs 2026-08-26).
+      assert.equal(getTopSetLabel([done(60, 8), done(62.5, 6), done(60, 10)]), '62.5 kg × 6');
+      assert.equal(getTopSetLabel([done(60, 8), done(60, 10)]), '60 kg × 10');
       // Bodyweight-only sets read as reps.
       assert.equal(getTopSetLabel([done(0, 12), done(null, 14)]), '14 reps');
       // Pending/skipped sets are ignored; nothing completed -> null.

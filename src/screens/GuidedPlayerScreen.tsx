@@ -67,6 +67,7 @@ import {
   resolveGuidedResumeIndex,
   resolveGuidedSetTarget,
 } from '../lib/guidedPlayer';
+import { commitDialWeight, stepDialWeight } from '../lib/weightDial';
 import { getExerciseInstructions } from '../lib/exerciseInstructions';
 import { CtaShimmer } from '../components/CtaShimmer';
 import { SetPanelHistory, SetPanels } from '../components/SetPanels';
@@ -675,7 +676,11 @@ function BigBtn({
 }) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const color = colorProp ?? theme.green;
+  // Orange, not green. The dark theme collapses the two accent families —
+  // anything pressable is orange, violet carries brand — and green is the
+  // colour of "done", not of "press me". A green "Valmis — aloita treeni" put
+  // the finished colour on the button that starts the thing (#bugs 2026-08-26).
+  const color = colorProp ?? theme.accent;
   // Derived from the fill, not fixed: callers paint this button `theme.ink` to
   // mean "the quiet one", and ink is near-white under the dark theme — so a
   // hard-coded white label made the button read as blank.
@@ -807,6 +812,7 @@ function DialCard({
   editHint,
   wide,
   faint,
+  onCommit,
 }: {
   label: string;
   value: string;
@@ -820,9 +826,16 @@ function DialCard({
   editHint: string;
   wide: boolean;
   faint: boolean;
+  /**
+   * Commit a typed value. Given, the open card lets the number be written
+   * instead of only stepped — which is what the pencil on the closed card has
+   * been promising all along (#bugs 2026-08-27, "ei voi valita tasan 12 kg").
+   */
+  onCommit?: (text: string) => void;
 }) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const [draft, setDraft] = useState<string | null>(null);
 
   const number = (
     <View style={styles.setDialValue}>
@@ -859,7 +872,35 @@ function DialCard({
       {open ? (
         <View style={styles.setDialControls}>
           <DialButton glyph="−" accessibilityLabel={downLabel} onStep={() => onStep(-1)} />
-          {number}
+          {onCommit ? (
+            <View style={styles.setDialValue}>
+              <TextInput
+                value={draft ?? value}
+                onChangeText={setDraft}
+                onFocus={() => setDraft(value)}
+                onBlur={() => {
+                  if (draft !== null) {
+                    onCommit(draft);
+                    setDraft(null);
+                  }
+                }}
+                onSubmitEditing={() => {
+                  if (draft !== null) {
+                    onCommit(draft);
+                    setDraft(null);
+                  }
+                }}
+                keyboardType="decimal-pad"
+                returnKeyType="done"
+                selectTextOnFocus
+                accessibilityLabel={label}
+                style={[styles.setDialNumber, styles.setDialNumberOpen, faint && { color: theme.faint }]}
+              />
+              {unit ? <Text style={styles.setDialUnit}>{unit}</Text> : null}
+            </View>
+          ) : (
+            number
+          )}
           <DialButton glyph="+" accessibilityLabel={upLabel} onStep={() => onStep(1)} />
         </View>
       ) : (
@@ -1835,7 +1876,7 @@ export function GuidedPlayerScreen({
               >
                 {/* The block name owns the upper half; the decision sits down
                     where a thumb already is (user 2026-08-26). */}
-                <View style={skippablePhase ? styles.splashChoiceCopy : undefined}>
+                <View style={skippablePhase ? styles.splashChoiceCopy : styles.splashCopy}>
                   {step.doneLabel ? (
                     <PopIn popKey={stepIndex}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 18 }}>
@@ -1869,17 +1910,17 @@ export function GuidedPlayerScreen({
                     <Text style={styles.splashChoiceHint}>
                       {t(language, `guided.own.ask.${skippablePhase}` as 'guided.own.ask.warmup')}
                     </Text>
-                    <Pressable
-                      accessibilityRole="button"
-                      hitSlop={10}
+                    {/* The same button, twice. These are two ways to do the
+                        same block, not a choice and its footnote — so nothing
+                        about them differs except the words (user 2026-08-27,
+                        "identtisesti eli muuten ei eroa kuin teksti"). */}
+                    <BigBtn
+                      tall
+                      icon="play"
+                      color={theme.accent}
+                      label={t(language, `guided.own.${skippablePhase}` as 'guided.own.warmup')}
                       onPress={() => setOwnBlock({ phase: skippablePhase, startedAt: Date.now() })}
-                      style={({ pressed }) => [styles.ownBlockCta, pressed && { opacity: 0.75 }]}
-                    >
-                      <GPIcon name="check" size={16} color={theme.purple} sw={2.6} />
-                      <Text style={styles.ownBlockCtaText}>
-                        {t(language, `guided.own.${skippablePhase}` as 'guided.own.warmup')}
-                      </Text>
-                    </Pressable>
+                    />
                   </View>
                 ) : null}
               </Pressable>
@@ -2294,16 +2335,11 @@ export function GuidedPlayerScreen({
             <Text style={styles.ownBlockClock}>{formatSessionClock(ownElapsedSeconds)}</Text>
             <Text style={styles.ownBlockHint}>{t(language, 'guided.own.hint')}</Text>
 
-            {(ownBlock.phase === 'warmup' ? warmupDrills : cooldownDrills).length > 0 ? (
-              <View style={styles.ownBlockList}>
-                <Text style={styles.ownBlockListHead}>{t(language, 'guided.own.suggestion')}</Text>
-                {(ownBlock.phase === 'warmup' ? warmupDrills : cooldownDrills).map((drill) => (
-                  <Text key={drill.name} style={styles.ownBlockListRow} numberOfLines={1}>
-                    {exerciseNameLabel(language, drill.name)}
-                  </Text>
-                ))}
-              </View>
-            ) : null}
+            {/* "Vinha olisi ehdottanut" and its three lifts are gone. The
+                reader has just pressed "on my own": listing what the app would
+                have picked instead is the app arguing with a choice it offered
+                (#bugs 2026-08-26, reported on the warm-up and again on the
+                cooldown). The clock is what this screen is for. */}
           </View>
           <View style={{ paddingHorizontal: 24, paddingBottom: 18 }}>
             <BigBtn
@@ -2815,10 +2851,11 @@ function SetStepView({
                 open={dial === 'weight'}
                 onToggle={() => setDial((current) => (current === 'weight' ? null : 'weight'))}
                 // 1.25 kg per step (user wish, #bugs 2026-08-26): the smallest
-                // real plate pair. A hold still runs and accelerates, so big
-                // jumps cost no more than they did at 2.5. Two decimals, or
-                // 61.25 would round itself to 61.3 on the way through.
-                onStep={(direction) => setKg((current) => Math.max(0, Number((current + direction * 1.25).toFixed(2))))}
+                // real plate pair. Bounded at both ends now — a held button
+                // accelerates to a tick every 45 ms and the top end had nothing
+                // stopping it. See lib/weightDial.
+                onStep={(direction) => setKg((current) => stepDialWeight(current, direction))}
+                onCommit={(text) => setKg((current) => commitDialWeight(text, current))}
                 downLabel={t(language, 'guided.a11y.weightDown')}
                 upLabel={t(language, 'guided.a11y.weightUp')}
                 editHint={t(language, 'guided.a11y.tapToEdit')}
@@ -3242,6 +3279,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
   },
   splashTitle: { fontSize: 46, fontWeight: '800', letterSpacing: -1.4, color: theme.ink, textAlign: 'center' },
+  /**
+   * The block had no style at all, which is not the same as "no layout".
+   *
+   * An unstyled View takes the width of its widest child — here the "warm-up
+   * done" row — and its other children stretch to that width and then sit at
+   * its left edge, because only the big title carried textAlign: 'center'. So
+   * the eyebrow and the meta line landed left of the title while the title was
+   * centred, and the block read as crooked (user 2026-08-26, "tekstit ovat
+   * ihan vinossa"). Centring the box centres every line in it, whatever the
+   * line happens to be.
+   */
+  splashCopy: { alignItems: 'center', gap: 6 },
 
   // The phase intro that carries a fork: copy in the upper half, the two
   // buttons down where a thumb rests rather than floating mid-screen.
@@ -3249,7 +3298,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flex: 1,
     paddingHorizontal: 26,
     paddingTop: 8,
-    paddingBottom: 26,
+    // Lifted off the bottom edge (user 2026-08-26, "vähän ylemmäs nappeja"):
+    // the pair sat against the system bar, which on a tall phone is below
+    // where a thumb rests rather than at it.
+    paddingBottom: 64,
     justifyContent: 'space-between',
   },
   splashChoiceCopy: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
@@ -3262,19 +3314,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
 
   /* doing a block your own way */
-  ownBlockCta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 9,
-    minHeight: 50,
-    paddingHorizontal: 22,
-    borderRadius: 15,
-    borderWidth: 1.5,
-    borderColor: theme.purple,
-    backgroundColor: theme.purpleLight,
-  },
-  ownBlockCtaText: { fontSize: 15.5, fontWeight: '800', color: theme.purpleDark, letterSpacing: -0.1 },
   ownBlockSheet: { ...StyleSheet.absoluteFillObject, backgroundColor: theme.bg },
   ownBlockClock: {
     fontSize: 62,
@@ -3291,23 +3330,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     textAlign: 'center',
     maxWidth: 280,
   },
-  ownBlockList: {
-    marginTop: 22,
-    alignSelf: 'stretch',
-    gap: 4,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: theme.border,
-  },
-  ownBlockListHead: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.4,
-    color: theme.faint,
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  ownBlockListRow: { fontSize: 14, fontWeight: '600', color: theme.muted, textAlign: 'center' },
   readyDigit: { fontSize: 150, fontWeight: '800', letterSpacing: -7, color: theme.ink, lineHeight: 160, fontVariant: ['tabular-nums'] },
 
   /* drill / set */

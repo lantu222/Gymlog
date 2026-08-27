@@ -327,6 +327,13 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
           // after the fact. 'authored' is the safe default: it counts, which
           // is how those rows already behaved.
           origin: template?.origin === 'freestyle' ? 'freestyle' : 'authored',
+          // Null for anything stored before the link existed. Guessing it from
+          // the name would re-attach copies to catalog programmes they may no
+          // longer resemble; an unlinked copy simply behaves as it does today.
+          sourceTemplateId:
+            typeof template?.sourceTemplateId === 'string' && template.sourceTemplateId.trim().length
+              ? template.sourceTemplateId
+              : null,
         };
       })
     : [];

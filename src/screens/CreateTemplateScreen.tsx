@@ -634,7 +634,6 @@ export function CreateTemplateScreen({
         items={exerciseLibrary}
         recentItems={recentExerciseLibraryItems}
         currentItemIds={activeSessionLibraryIds}
-        selectedIds={[]}
         language={language}
         title={t(language, 'editor.addExercises')}
         subtitle={t(language, 'tpl.pickForDay')}

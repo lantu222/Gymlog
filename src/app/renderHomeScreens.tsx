@@ -62,6 +62,7 @@ export interface HomeScreensDeps {
   workoutSessions: HistoryScreenProps['sessions'];
   getSessionLogs: HistoryScreenProps['getSessionLogs'];
   deleteCompletedWorkoutSession: (sessionId: string) => Promise<unknown>;
+  deleteCardioSession: (sessionId: string) => Promise<unknown>;
   unitPreference: HistoryScreenProps['unitPreference'];
   coachProUnlocked: boolean;
   database: Pick<AppDatabase, 'workoutSessions' | 'bodyweightEntries' | 'measurementEntries'>;
@@ -71,6 +72,9 @@ export interface HomeScreensDeps {
   addBodyweightEntry: (weightKg: number) => Promise<unknown>;
   addMeasurementEntry: (kind: MeasurementKind, value: number, unit: MeasurementUnit) => Promise<unknown>;
   accountBackup: { state: { status: string; email: string | null } };
+  /** The coach thread, held above the screen so leaving it does not end it. */
+  coachChatMemory: ChatScreenProps['memory'];
+  onCoachChatMemoryChange: ChatScreenProps['onMemoryChange'];
   sessionAnalysis: React.ComponentProps<typeof SessionAnalysisScreen>['analysis'];
 }
 
@@ -101,6 +105,7 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
     workoutSessions,
     getSessionLogs,
     deleteCompletedWorkoutSession,
+    deleteCardioSession,
     unitPreference,
     coachProUnlocked,
     database,
@@ -110,6 +115,8 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
     addBodyweightEntry,
     addMeasurementEntry,
     accountBackup,
+    coachChatMemory,
+    onCoachChatMemoryChange,
     sessionAnalysis,
   } = deps;
 
@@ -225,6 +232,7 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
         getSessionLogs={getSessionLogs}
         onSelectSession={(sessionId) => navigate({ tab: 'home', screen: 'session', sessionId })}
         onDeleteSession={(sessionId) => void deleteCompletedWorkoutSession(sessionId)}
+        onDeleteCardioSession={(sessionId) => void deleteCardioSession(sessionId)}
         onBack={() => navigateBack(ROOT_ROUTES.home)}
       />
     );
@@ -335,6 +343,8 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
           navigate({ tab: 'workout', screen: 'program', programType: 'ready', workoutTemplateId: programId })
         }
         transcriptReporter={accountBackup.state.status === 'signed_in' ? accountBackup.state.email : null}
+        memory={coachChatMemory}
+        onMemoryChange={onCoachChatMemoryChange}
       />
     );
   }

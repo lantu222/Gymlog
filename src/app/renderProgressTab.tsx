@@ -37,6 +37,8 @@ export interface ProgressTabDeps {
   coachProUnlocked: boolean;
   addBodyweightEntry: (weightKg: number) => Promise<unknown>;
   addMeasurementEntry: (kind: MeasurementKind, value: number, unit: MeasurementUnit) => Promise<unknown>;
+  deleteBodyweightEntry: (entryId: string) => Promise<unknown>;
+  deleteMeasurementEntry: (entryId: string) => Promise<unknown>;
   homeRecentSessions: ProgressScreenProps['recentSessions'];
 }
 
@@ -64,6 +66,8 @@ export function renderProgressTab(deps: ProgressTabDeps): React.ReactElement | n
     coachProUnlocked,
     addBodyweightEntry,
     addMeasurementEntry,
+    deleteBodyweightEntry,
+    deleteMeasurementEntry,
     homeRecentSessions,
   } = deps;
 
@@ -100,6 +104,16 @@ export function renderProgressTab(deps: ProgressTabDeps): React.ReactElement | n
       initialMeasure={route.screen === 'list' ? route.measure : undefined}
       scrollToTarget={route.screen === 'list' ? route.scrollTo : undefined}
       showBodyweightDetail={route.screen === 'bodyweight'}
+      // Removing a reading is silent the same way adding one is: the row
+      // leaves the list and the curve redraws without it.
+      onDeleteBodyweight={(entryId) => {
+        void deleteBodyweightEntry(entryId);
+        void haptics.success();
+      }}
+      onDeleteMeasurement={(entryId) => {
+        void deleteMeasurementEntry(entryId);
+        void haptics.success();
+      }}
       onAddBodyweight={async (weightKg) => {
         await addBodyweightEntry(weightKg);
         // No "saved" toast (user 2026-08-25: "outo pilleri... ihan turha").

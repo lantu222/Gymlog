@@ -55,6 +55,8 @@ interface HistoryScreenProps {
   onSelectSession: (sessionId: string) => void;
   /** Absent hides the delete affordance entirely rather than inerting it. */
   onDeleteSession?: (sessionId: string) => void;
+  /** A run is a thing you logged, so it is a thing you can unlog. */
+  onDeleteCardioSession?: (sessionId: string) => void;
   onBack: () => void;
 }
 
@@ -269,6 +271,7 @@ export function HistoryScreen({
   getSessionLogs,
   onSelectSession,
   onDeleteSession,
+  onDeleteCardioSession,
   onBack,
 }: HistoryScreenProps) {
   const theme = useTheme();
@@ -278,6 +281,7 @@ export function HistoryScreen({
   // Held as the whole row, not an id: the dialog names the workout it is
   // about to delete, and an id cannot be read aloud.
   const [pendingDelete, setPendingDelete] = useState<HistorySessionViewModel | null>(null);
+  const [pendingCardioDelete, setPendingCardioDelete] = useState<{ id: string; name: string } | null>(null);
   const selectedSession = sessions.find((session) => session.id === selectedSessionId);
 
   const sessionViewModels = useMemo(
@@ -555,12 +559,44 @@ export function HistoryScreen({
                             {buildCardioStatsLine(session.durationSec, session.distanceKm)}
                           </Text>
                         </View>
+                        {/* The same affordance the workout rows above have. A
+                            list where one kind of entry can be removed and the
+                            one beside it cannot reads as a bug, and was one
+                            (#bugs 2026-08-26). */}
+                        {onDeleteCardioSession ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={t(language, 'history.deleteCardio')}
+                            hitSlop={10}
+                            onPress={() => setPendingCardioDelete({ id: session.id, name: activity.name })}
+                            style={({ pressed }) => [styles.cardioDelete, pressed && { opacity: 0.6 }]}
+                          >
+                            <Text style={styles.cardioDeleteGlyph}>×</Text>
+                          </Pressable>
+                        ) : null}
                       </View>
                     );
                   })}
                 </View>
               </>
             ) : null}
+
+            <ConfirmDialog
+              visible={pendingCardioDelete !== null}
+              language={language}
+              destructive
+              title={t(language, 'history.deleteCardio.title')}
+              message={t(language, 'history.deleteCardio.body')}
+              confirmLabel={t(language, 'history.deleteCardio')}
+              onCancel={() => setPendingCardioDelete(null)}
+              onConfirm={() => {
+                const target = pendingCardioDelete;
+                setPendingCardioDelete(null);
+                if (target) {
+                  onDeleteCardioSession?.(target.id);
+                }
+              }}
+            />
           </>
         )}
       </ScrollView>
@@ -952,6 +988,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     paddingVertical: 13,
+  },
+  cardioDelete: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardioDeleteGlyph: {
+    color: theme.faint,
+    fontSize: 21,
+    lineHeight: 23,
+    fontWeight: '600',
   },
   cardioIcon: {
     width: 36,

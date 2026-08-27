@@ -101,7 +101,7 @@ Pure TypeScript functions with no React dependencies. This is where all business
 | Area | Files |
 |---|---|
 | Recommendation & onboarding | `recommendationScoring`, `recommendationProfile`, `recommendationProgramme`, `firstRunSetup`, `onboardingStructure` |
-| Home decisions | `homePrimaryAction`, `homeProgramSelection`, `dashboard` |
+| Home decisions | `homeProgramSelection`, `dashboard` |
 | Workout session | `guidedPlayer`, `sessionDuration`, `workoutLoggingSessionBootstrap`, `workoutLoggerNavigation` |
 | AI Coach | `aiCoachClient`, `aiCoachPreview`, `aiCoachActions`, `aiTrainingContext`, `aiCoachPlan` |
 | Progress & history | `historyView`, `progressionActivePlan`, `progressionSignal` |

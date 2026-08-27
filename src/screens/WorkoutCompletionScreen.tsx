@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const HERO_GRADIENT_WIDTH = Dimensions.get('window').width;
 const HERO_GRADIENT_HEIGHT = 360;
 
-import { formatTime, removeTrailingZeros } from '../lib/format';
+import { formatTime, formatWeight, removeTrailingZeros } from '../lib/format';
 import { bodyPartLabel, t } from '../lib/i18n';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { localizeSessionName } from '../lib/sessionNameLabel';
@@ -239,9 +239,16 @@ function formatWhenLabel(performedAt: string, language: AppLanguage) {
   return `${day} · ${formatTime(performedAt, language)}`;
 }
 
-function formatPrTitle(pr: WorkoutCompletionPrCard, language: AppLanguage) {
-  const name = exerciseNameLabel(language, pr.exerciseName);
-  return `${name} · ${removeTrailingZeros(pr.performedWeightKg)} kg × ${pr.performedReps}`;
+/**
+ * The set that earned the record. Its own line.
+ *
+ * Name and numbers used to share one line clipped to numberOfLines={1}, and a
+ * long lift name ate the half worth reading: "Lantionnosto laitteessa · 38,75
+ * …" is a record banner that does not say what the record was (#bugs
+ * 2026-08-26). The name can wrap to two; the set never truncates.
+ */
+function formatPrSet(pr: WorkoutCompletionPrCard) {
+  return `${formatWeight(pr.performedWeightKg)} × ${pr.performedReps}`;
 }
 
 function formatPrNote(pr: WorkoutCompletionPrCard, language: AppLanguage) {
@@ -506,9 +513,10 @@ export function WorkoutCompletionScreen({
               </View>
               <View style={styles.noteCopy}>
                 <Text style={styles.prEyebrow}>{t(language, 'complete.pr.eyebrow')}</Text>
-                <Text style={styles.noteTitle} numberOfLines={1}>
-                  {formatPrTitle(pr, language)}
+                <Text style={styles.noteTitle} numberOfLines={2}>
+                  {exerciseNameLabel(language, pr.exerciseName)}
                 </Text>
+                <Text style={styles.prSet}>{formatPrSet(pr)}</Text>
                 <Text style={styles.noteSub} numberOfLines={2}>
                   {formatPrNote(pr, language)}
                 </Text>
@@ -1005,6 +1013,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 21,
     fontWeight: '800',
     letterSpacing: -0.2,
+  },
+  // The number the banner exists for: never clipped, and heavy enough to be
+  // read before the sentence under it.
+  prSet: {
+    color: theme.ink,
+    fontSize: 15,
+    fontWeight: '800',
+    marginTop: 2,
   },
   noteSub: {
     marginTop: 2,

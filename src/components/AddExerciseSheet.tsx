@@ -32,6 +32,17 @@ import { CutButton } from './CutButton';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { radii, spacing } from '../theme';
 
+/**
+ * One array, shared by every caller that has nothing selected.
+ *
+ * `= []` in the parameter list looks like the same thing and is not: it builds
+ * a new array on every render, and this sheet's reset effect both depends on
+ * that array and writes it into state. New array, effect runs, state changes,
+ * render, new array — a loop with no exit that ran the whole time the sheet
+ * was MOUNTED, open or not. Three screens sat on it (#bugs 2026-08-27).
+ */
+const NOTHING_SELECTED: string[] = [];
+
 interface AddExerciseSheetProps {
   visible: boolean;
   language?: AppLanguage;
@@ -156,8 +167,8 @@ export function AddExerciseSheet({
   language = 'en',
   items,
   recentItems,
-  currentItemIds = [],
-  selectedIds = [],
+  currentItemIds = NOTHING_SELECTED,
+  selectedIds = NOTHING_SELECTED,
   title,
   subtitle,
   actionLabel,
@@ -183,12 +194,18 @@ export function AddExerciseSheet({
 
   useEffect(() => {
     if (!visible) {
-      wasVisibleRef.current = false;
-      setSearch('');
-      setCategory('all');
-      setBodyPart('all');
-      setEquipment('all');
-      setPendingSelectedIds(selectedIds);
+      // Reset when the sheet CLOSES, not on every render it spends closed.
+      // The guard is the second half of the loop fix above: a caller that
+      // hands in a fresh array each render (an inline `selectedIds={[]}`, say)
+      // must not be able to turn a closed sheet into a render loop either.
+      if (wasVisibleRef.current) {
+        wasVisibleRef.current = false;
+        setSearch('');
+        setCategory('all');
+        setBodyPart('all');
+        setEquipment('all');
+        setPendingSelectedIds(selectedIds);
+      }
       return;
     }
 

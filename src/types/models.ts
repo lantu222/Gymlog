@@ -170,6 +170,17 @@ export interface WorkoutTemplate {
    * free cap counts authoring. See `countAuthoredPrograms`.
    */
   origin: WorkoutTemplateOrigin;
+  /**
+   * The catalog programme this one was copied from, if any.
+   *
+   * Identity already lived in the id on the catalog side — a ready programme
+   * keeps `tpl_gainer_advanced_glutes_v1` forever and is never written to.
+   * What was missing is the link back: nothing recorded "this is MY version of
+   * Advanced Glutes", so editing that programme a second time could not find
+   * the copy the first edit made and built another one. Three edits, three
+   * programmes, and the third arrived named "(kopio 2)" (#bugs 2026-08-26).
+   */
+  sourceTemplateId?: string | null;
 }
 
 export type WorkoutTemplateOrigin = 'authored' | 'freestyle';
@@ -638,6 +649,8 @@ export interface WorkoutTemplateDraft {
   exercises?: ExerciseTemplateDraft[];
   /** Defaults to 'authored'; only freestyle logging passes 'freestyle'. */
   origin?: WorkoutTemplateOrigin;
+  /** Set when this draft is a copy of a catalog programme. */
+  sourceTemplateId?: string | null;
 }
 
 export interface WorkoutTemplateSessionDraft {

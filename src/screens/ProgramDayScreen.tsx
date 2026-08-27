@@ -1,5 +1,15 @@
-import React, { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  BackHandler,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import Svg, { ClipPath, Defs, G, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -147,6 +157,30 @@ export function ProgramDayScreen({
     setSwapSlotId(null);
     setSwapQuery('');
   };
+
+  /**
+   * Hardware back, while a sheet is open, closes the sheet — and nothing else.
+   *
+   * The app's own back listener knows only about routes: it popped this screen
+   * out from under whichever sheet was open, and the sheet is a native dialog
+   * window that outlives the React screen it belonged to. What the reader got
+   * was an app that still drew but answered no touches anywhere, with a
+   * restart the only way out (#bugs 2026-08-27). Registering only while a
+   * sheet is open puts this listener after the app's, and BackHandler calls
+   * the newest first, so returning true here is what keeps the screen mounted.
+   */
+  useEffect(() => {
+    if (!addSheetOpen && swapSlotId === null) {
+      return undefined;
+    }
+    const handler = BackHandler.addEventListener('hardwareBackPress', () => {
+      setAddSheetOpen(false);
+      setSwapSlotId(null);
+      setSwapQuery('');
+      return true;
+    });
+    return () => handler.remove();
+  }, [addSheetOpen, swapSlotId]);
 
   const swapRow = useMemo(() => {
     const exercise = session.exercises.find((item) => item.slotId && item.slotId === swapSlotId);

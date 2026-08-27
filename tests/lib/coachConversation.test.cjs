@@ -40,13 +40,17 @@ module.exports = [
 
       // A ref, not state: state captured in the send callback's dependency
       // list would be one turn behind, and a follow-up would refer to the
-      // wrong answer.
-      assert.match(screen, /const conversation = useRef<AICoachConversationTurn\[\]>\(\[\]\)/);
+      // wrong answer. What it STARTS from is now the resumed thread rather
+      // than an empty list — leaving the screen no longer ends the
+      // conversation (#bugs 2026-08-27) — but it is still a ref.
+      assert.match(screen, /const conversation = useRef<AICoachConversationTurn\[\]>\(/);
+      assert.doesNotMatch(screen, /useState<AICoachConversationTurn\[\]>/);
+      assert.match(screen, /const resumed = useRef\(resumeCoachChat\(memory, /);
       assert.match(screen, /history: conversation\.current,/);
       assert.match(screen, /conversation\.current = appendCoachTurn\(conversation\.current, \{/);
 
-      // Nothing about the thread is written to storage: the privacy copy
-      // promises the conversation ends with the screen.
+      // Nothing about the thread is written to storage: it lives in memory for
+      // as long as the app does, and no longer.
       const lib = fs.readFileSync(path.join(__dirname, '../../src/lib/coachConversation.ts'), 'utf8');
       const code = lib.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
       assert.doesNotMatch(code, /AsyncStorage|@vinha\//);

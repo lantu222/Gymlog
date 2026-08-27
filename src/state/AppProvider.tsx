@@ -50,6 +50,20 @@ import {
   WorkoutTemplateSessionWithExercises,
 } from '../types/models';
 
+/**
+ * What one edit decided to do with a template's days: write them, or stop
+ * without writing and say why, so the screen can explain itself.
+ */
+export type WorkoutTemplateSessionsEdit =
+  | { kind: 'save'; sessions: WorkoutTemplateSessionDraft[] }
+  | { kind: 'skip'; reason: string };
+
+export interface WorkoutTemplateSessionsEditResult {
+  saved: boolean;
+  /** 'templateMissing' when the programme was gone, otherwise the edit's own. */
+  reason?: string;
+}
+
 export interface UpsertWorkoutTemplateOptions {
   /**
    * The plan this new programme takes the place of.
@@ -98,6 +112,15 @@ interface AppContextValue {
     activate: (planId: string) => Partial<AppPreferences>;
   }) => Promise<{ workoutTemplateId: string; planId: string }>;
   renameWorkoutTemplate: (workoutTemplateId: string, nextName: string) => Promise<void>;
+  /**
+   * The only safe way to change what a template's days hold: the days are read
+   * inside the same write slot, so an edit can never be built on a snapshot an
+   * earlier edit has already moved past.
+   */
+  editWorkoutTemplateSessions: (
+    workoutTemplateId: string,
+    edit: (sessions: WorkoutTemplateSessionWithExercises[]) => WorkoutTemplateSessionsEdit,
+  ) => Promise<WorkoutTemplateSessionsEditResult>;
   deleteWorkoutTemplate: (workoutTemplateId: string) => Promise<void>;
   saveWorkoutSession: (
     workoutTemplateId: string,
@@ -115,6 +138,10 @@ interface AppContextValue {
   ) => Promise<void>;
   /** Removes a saved workout and the sets logged in it. */
   deleteCompletedWorkoutSession: (sessionId: string) => Promise<void>;
+  /** Entry has a second half: what you typed in, you can take back. */
+  deleteMeasurementEntry: (entryId: string) => Promise<void>;
+  deleteBodyweightEntry: (entryId: string) => Promise<void>;
+  deleteCardioSession: (sessionId: string) => Promise<void>;
   /**
    * Replaces local data with a cloud backup, through the same normalizer a
    * stored database goes through on load — an old backup gets defaults, not a
@@ -488,6 +515,11 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       // An edit never changes what a template is: a freestyle log opened in the
       // editor stays freestyle, and vice versa.
       origin: existingTemplate?.origin ?? draft.origin ?? 'authored',
+      // Nor does it change where it came from. The link is written once, by
+      // the copy that created the template, and every later edit carries it —
+      // otherwise the second edit would look for a copy and not find the one
+      // it is editing.
+      sourceTemplateId: existingTemplate?.sourceTemplateId ?? draft.sourceTemplateId ?? null,
     };
 
     let nextDatabase = workoutTemplateRepository.upsert(current, nextTemplate);
@@ -591,6 +623,50 @@ export function AppProvider({ children }: React.PropsWithChildren) {
           updatedAt: new Date().toISOString(),
         }),
       );
+    });
+  }
+
+  /**
+   * Change what a template's days hold, reading and writing in one queue slot.
+   *
+   * The read half matters as much as the write half, and this is the lesson
+   * that cost a morning. Callers used to rebuild the whole template from
+   * `getWorkoutTemplateSessions` — which reads the RENDERED database — and
+   * hand the result to `upsertWorkoutTemplate`, whose queue then made the
+   * *write* atomic against a snapshot that was already stale. Two edits closer
+   * together than a render (add a lift, add another before React had painted,
+   * which on a laggy screen is easy) both started from the same days, and the
+   * second wrote the first one out of existence. The reader was sure they had
+   * added lifts and the lifts were gone — and they were right (#bugs
+   * 2026-08-27, "mielestäni lisäsin nämä jo" / "liikkeet olivat hävinneet").
+   *
+   * Here the read happens inside the same exclusive slot as the write, from
+   * databaseRef.current, so every edit builds on the one before it. Note the
+   * call to `upsertWorkoutTemplateExclusive` rather than `upsertWorkoutTemplate`:
+   * queueing from inside the queue would deadlock.
+   */
+  function editWorkoutTemplateSessions(
+    workoutTemplateId: string,
+    edit: (sessions: WorkoutTemplateSessionWithExercises[]) => WorkoutTemplateSessionsEdit,
+  ): Promise<WorkoutTemplateSessionsEditResult> {
+    return runExclusive(async () => {
+      const current = databaseRef.current;
+      const template = workoutTemplateRepository.findById(current, workoutTemplateId);
+      if (!template) {
+        return { saved: false, reason: 'templateMissing' as const };
+      }
+
+      const outcome = edit(buildWorkoutTemplateSessions(template, current.exerciseTemplates));
+      if (outcome.kind === 'skip') {
+        return { saved: false, reason: outcome.reason };
+      }
+
+      await upsertWorkoutTemplateExclusive({
+        id: template.id,
+        name: template.name,
+        sessions: outcome.sessions,
+      });
+      return { saved: true };
     });
   }
 
@@ -740,6 +816,53 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     });
   }
 
+  /**
+   * The three things the reader could enter and then not take back.
+   *
+   * The app could delete a programme and a logged workout, and nothing else —
+   * so a mistyped measurement, a stray weigh-in and a run that was really a
+   * walk all became permanent the moment they were saved, and stayed in every
+   * chart and every calendar that reads them (#bugs 2026-08-26: "mittaa ei saa
+   * poistettua", "sama kalenteri moka", "juoksuja ei voi poistaa mutta treenit
+   * voi"). Delete is not a feature here; it is the other half of entry.
+   *
+   * Same queue as every other write, so a delete cannot race the save that
+   * put the entry there.
+   */
+  function deleteMeasurementEntry(entryId: string) {
+    return runExclusive(async () => {
+      const current = databaseRef.current;
+      const next = current.measurementEntries.filter((entry) => entry.id !== entryId);
+      if (next.length === current.measurementEntries.length) {
+        return;
+      }
+      await commit({ ...current, measurementEntries: next });
+    });
+  }
+
+  function deleteBodyweightEntry(entryId: string) {
+    return runExclusive(async () => {
+      const current = databaseRef.current;
+      const next = bodyweightRepository.list(current).filter((entry) => entry.id !== entryId);
+      if (next.length === bodyweightRepository.list(current).length) {
+        return;
+      }
+      await commit({ ...current, bodyweightEntries: next });
+    });
+  }
+
+  function deleteCardioSession(sessionId: string) {
+    return runExclusive(async () => {
+      const current = databaseRef.current;
+      const sessions = current.cardioSessions ?? [];
+      const next = sessions.filter((session) => session.id !== sessionId);
+      if (next.length === sessions.length) {
+        return;
+      }
+      await commit({ ...current, cardioSessions: next });
+    });
+  }
+
   function saveCardioSession(input: {
     activityType: CardioActivityType;
     startedAt: string;
@@ -882,11 +1005,15 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       upsertWorkoutPlan,
       saveOnboardingResult,
       renameWorkoutTemplate,
+      editWorkoutTemplateSessions,
       deleteWorkoutTemplate,
       saveWorkoutSession,
       saveCompletedWorkoutSession: persistCompletedWorkoutSession,
       updateCompletedWorkoutSession,
       deleteCompletedWorkoutSession,
+      deleteMeasurementEntry,
+      deleteBodyweightEntry,
+      deleteCardioSession,
       saveCardioSession,
       addBodyweightEntry,
       teachExerciseName,

@@ -245,7 +245,7 @@ function Chevron({
       <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
         <Path
           d={direction === 'left' ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'}
-          stroke={over ? '#FFFFFF' : theme.muted}
+          stroke={over ? '#FFFFFF' : theme.highlight}
           strokeWidth={2.6}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -407,10 +407,15 @@ function InstructionsPanel({
         right={t(language, 'panels.how.steps', { count: steps.length })}
         styles={styles}
       />
+      {/* The bar is on. This panel has always scrolled; with the indicator
+          hidden and the fade over the last line, a long first step read as
+          text that had been cut off rather than text you could reach — the
+          reader asked for scrolling it already had (#bugs 2026-08-26). */}
       <ScrollView
         style={styles.stepScroll}
         contentContainerStyle={styles.stepList}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator
+        persistentScrollbar
       >
         {steps.map((step, order) => (
           <View key={`${order}-${step.slice(0, 12)}`} style={styles.step}>
@@ -461,13 +466,18 @@ const makeStyles = (theme: Theme) =>
       paddingHorizontal: 12,
     },
     chevron: {
-      width: 26,
-      height: 26,
+      // Bigger, filled and outlined in something you can see. A 26 px circle
+      // with a hairline border in border-grey is a control the reader has to
+      // hunt for, and this one is next to text they are trying to read
+      // (#bugs 2026-08-26, "nuolia on vaikea nähdä").
+      width: 32,
+      height: 32,
       borderRadius: 999,
       alignItems: 'center',
       justifyContent: 'center',
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
+      borderWidth: 1.5,
+      borderColor: theme.highlight,
+      backgroundColor: theme.highlightSoft,
     },
     chevronOver: {
       borderWidth: 0,

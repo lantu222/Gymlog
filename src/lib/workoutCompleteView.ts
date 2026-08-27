@@ -7,7 +7,7 @@
 import { isTimedTrackingMode, WorkoutTrackingMode } from '../features/workout/workoutTypes';
 import { AppLanguage } from '../types/models';
 import { t } from './i18n';
-import { removeTrailingZeros } from './format';
+import { formatWeight, removeTrailingZeros } from './format';
 
 export interface CompletedSetLike {
   status: 'completed' | 'skipped' | string;
@@ -75,8 +75,11 @@ export function getTopSetLabel(
 
   const weight = top.weightKg ?? 0;
   if (weight > 0) {
-    const weightLabel = removeTrailingZeros(weight);
-    return `${weightLabel} × ${top.reps}`;
+    // formatWeight, not the bare number: "38,75 × 9" under a label reading
+    // "raskain sarja" states a load without saying of what (#bugs 2026-08-26,
+    // "38,75 mitä, mittayksiköt puuttuu"). Every other surface that prints a
+    // load goes through here.
+    return `${formatWeight(weight)} × ${top.reps}`;
   }
   return t(language, 'logger.repsValue', { count: top.reps ?? 0 });
 }

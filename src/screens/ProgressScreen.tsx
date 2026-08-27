@@ -5,6 +5,7 @@ import Svg, { Circle, Path, Polyline, Rect } from 'react-native-svg';
 import { VinhaIcon } from '../components/VinhaIcon';
 import { SimpleLineChart } from '../components/SimpleLineChart';
 import { WeightTrendChart } from '../components/WeightTrendChart';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { BmiEditSheet, MeasureLogSheet, WeightLogSheet } from '../components/MeasureRulerSheet';
 import { WeightBmiCards } from '../components/WeightBmiCards';
 import { buildBodyweightCardStats, buildValueWindow, buildWeightWindow } from '../lib/bodyweightCard';
@@ -131,6 +132,16 @@ interface ProgressScreenProps {
   onStartWorkout?: () => void;
   showBodyweightDetail?: boolean;
   onAddBodyweight: (weightKg: number) => void;
+  /**
+   * Taking a reading back.
+   *
+   * The list below the card is the only place an individual entry has ever
+   * been visible: the "all measures" rows show one line per MEASURE, latest
+   * value only, so a mistyped 385 cm waist had nowhere to be removed from
+   * (#bugs 2026-08-26, "mittaa ei saa poistettua").
+   */
+  onDeleteMeasurement?: (entryId: string) => void;
+  onDeleteBodyweight?: (entryId: string) => void;
   /** Stated height, in cm. Null until the reader gives one — BMI waits for it. */
   heightCm?: number | null;
   onSaveHeight?: (heightCm: number) => void;
@@ -820,6 +831,8 @@ export function ProgressScreen({
   onStartWorkout,
   showBodyweightDetail,
   onAddBodyweight,
+  onDeleteMeasurement,
+  onDeleteBodyweight,
   heightCm = null,
   onSaveHeight,
   onAddMeasurement,
@@ -843,6 +856,7 @@ export function ProgressScreen({
   // The week opens both charts (user 2026-08-25) — see TrendRange.
   const [overviewRange, setOverviewRange] = useState<OverviewRange>('7d');
   const [selectedMeasure, setSelectedMeasure] = useState<MeasureKey>(showBodyweightDetail ? 'bodyweight' : 'bodyweight');
+  const [pendingEntryDelete, setPendingEntryDelete] = useState<string | null>(null);
   const [measureRange, setMeasureRange] = useState<MeasureRange>('7d');
   /**
    * Pro can lapse while this screen is mounted — a promo code expires, the
@@ -1174,11 +1188,15 @@ export function ProgressScreen({
         const entries = bodyweightProgress.entries;
         const values = [...entries].reverse().map((entry) => convertWeightFromKg(entry.weight, unitPreference));
         const dates = [...entries].reverse().map((entry) => entry.recordedAt);
+        // Ids ride along with the values: a chart only needs numbers, but a
+        // list you can delete from needs to know which entry each row is.
+        const entryIds = [...entries].reverse().map((entry) => entry.id);
         return {
           ...config,
           unit: unitPreference as string,
           values,
           dates,
+          entryIds,
         };
       }
 
@@ -1192,6 +1210,7 @@ export function ProgressScreen({
         unit: unit as string,
         values: kindEntries.map((entry) => convertMeasurementValue(entry.value, entry.unit, unit)),
         dates: kindEntries.map((entry) => entry.recordedAt),
+        entryIds: kindEntries.map((entry) => entry.id),
       };
     });
   }, [bodyweightProgress.entries, measurementEntries, unitPreference]);
@@ -1819,6 +1838,7 @@ export function ProgressScreen({
                 one tab over: Summary → Trend → Body weight, where the range
                 selector still applies. */}
           </View>
+          {renderMeasureEntries()}
           {renderMeasureList()}
         </>
       );
@@ -1883,12 +1903,75 @@ export function ProgressScreen({
           </View>
         </View>
 
+        {renderMeasureEntries()}
         {renderMeasureList()}
       </>
     );
   }
 
   /** Shared by both measure layouts — the picker has to stay reachable. */
+  /**
+   * The selected measure's own readings, newest first, each removable.
+   *
+   * The list under this one shows a row per MEASURE — latest value and a
+   * sparkline — which is the right summary and the wrong place to fix a typo:
+   * an individual reading had no row anywhere in the app, so it could not be
+   * taken back (#bugs 2026-08-26). Only the selected measure's entries, so
+   * this stays a short list rather than a second history screen.
+   */
+  function renderMeasureEntries() {
+    const model = selectedMeasureModel;
+    const remove = model.kind === null ? onDeleteBodyweight : onDeleteMeasurement;
+    if (!remove || model.entryIds.length === 0) {
+      return null;
+    }
+    // Newest first: the one you just mistyped is the one you came to remove.
+    const rows = model.entryIds
+      .map((id, index) => ({ id, value: model.values[index], recordedAt: model.dates[index] }))
+      .reverse();
+
+    return (
+      <>
+        <SectionLabel label={t(language, 'progress.entries')} />
+        <View style={styles.card}>
+          {rows.map((row, index) => (
+            <View key={row.id} style={[styles.entryRow, index > 0 && styles.entryRowDivided]}>
+              <Text style={styles.entryDate}>{formatShortDate(row.recordedAt, language)}</Text>
+              <Text style={styles.entryValue}>
+                {removeTrailingZeros(Number(row.value.toFixed(1)))} {model.unit}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t(language, 'progress.entries.delete')}
+                hitSlop={10}
+                onPress={() => setPendingEntryDelete(row.id)}
+                style={({ pressed }) => [styles.entryDelete, pressed && { opacity: 0.6 }]}
+              >
+                <Text style={styles.entryDeleteGlyph}>×</Text>
+              </Pressable>
+            </View>
+          ))}
+        </View>
+        <ConfirmDialog
+          visible={pendingEntryDelete !== null}
+          language={language}
+          destructive
+          title={t(language, 'progress.entries.delete.title')}
+          message={t(language, 'progress.entries.delete.body')}
+          confirmLabel={t(language, 'progress.entries.delete')}
+          onCancel={() => setPendingEntryDelete(null)}
+          onConfirm={() => {
+            const target = pendingEntryDelete;
+            setPendingEntryDelete(null);
+            if (target) {
+              remove(target);
+            }
+          }}
+        />
+      </>
+    );
+  }
+
   function renderMeasureList() {
     return (
       <>
@@ -2781,6 +2864,39 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.onHighlight,
     fontSize: 14.5,
     fontWeight: '800',
+  },
+  entryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 11,
+  },
+  entryRowDivided: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.border,
+  },
+  entryDate: {
+    flex: 1,
+    color: theme.muted,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  entryValue: {
+    color: theme.ink,
+    fontSize: 14.5,
+    fontWeight: '800',
+  },
+  entryDelete: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  entryDeleteGlyph: {
+    color: theme.faint,
+    fontSize: 21,
+    lineHeight: 23,
+    fontWeight: '600',
   },
   measureList: {
     gap: 9,

@@ -862,7 +862,6 @@ export function WorkoutEditorScreen({
         items={exerciseLibrary}
         recentItems={recentExerciseLibraryItems}
         currentItemIds={sessionLibraryIds}
-        selectedIds={[]}
         title={sheetTitle}
         subtitle={sheetSubtitle}
         actionLabel={t(language, 'editor.add')}
