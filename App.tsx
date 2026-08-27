@@ -123,7 +123,11 @@ import { buildExercisePrLookup } from './src/lib/workoutCompletionSummary';
 import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
 import { CoachChatMemory } from './src/lib/coachChatMemory';
 import type { ChatMessage } from './src/screens/AICoachChatScreen';
-import { applyProgramSessionEdit } from './src/lib/programSessionEdit';
+import {
+  applyProgramSessionEdit,
+  MoveDirection,
+  ProgramPrescription,
+} from './src/lib/programSessionEdit';
 import { ProgramLimitReachedError } from './src/lib/programSlots';
 import {
   ProgramSeason,
@@ -309,6 +313,8 @@ function VinhaApp() {
     completeOnboarding,
     upsertWorkoutTemplate,
     editWorkoutTemplateSessions,
+    findWorkoutTemplateIdBySource,
+    getWorkoutTemplateSessionsFresh,
     programSlots,
     upsertWorkoutPlan,
     saveOnboardingResult,
@@ -693,8 +699,23 @@ function VinhaApp() {
     resetToRoute(ROOT_ROUTES[tab]);
   }
 
-  // Guided player (design_handoff_guided_player) is the default way to run a
-  // session; the table logger stays reachable via "Switch to list view".
+  /**
+   * Guided player (design_handoff_guided_player) is the only way to run a
+   * PROGRAMME session.
+   *
+   * The list logger itself is alive and shipping — an empty workout runs on
+   * it, and the editor route already seeds itself from a stored template. What
+   * was removed is the button from here to there (see the note on
+   * guided.exit.finishSave in i18n).
+   *
+   * The two are not interchangeable, and the difference is not layout. This
+   * screen drives WorkoutProvider, so its session is the only one written to
+   * @vinha/workout/v1 and the only one that survives the app being killed; the
+   * list logger holds its sets in component state until you finish. And its
+   * save is freestyle by construction (see finishLoggedWorkoutSave): no plan
+   * identity, so no previous-session comparison and no progression. Offering
+   * it for a programme day means giving it both, not adding a switch.
+   */
   function navigateToGuidedWorkout(workoutTemplateId: string) {
     workoutLogNavigationAllowedAtRef.current = Date.now();
     navigate({ tab: 'workout', screen: 'guided', workoutTemplateId });
@@ -1943,7 +1964,9 @@ function VinhaApp() {
   type ProgramExerciseEdit =
     | { kind: 'remove' }
     | { kind: 'replace'; exerciseName: string }
-    | { kind: 'add'; exerciseNames: string[] };
+    | { kind: 'add'; exerciseNames: string[] }
+    | { kind: 'prescribe'; prescription: ProgramPrescription }
+    | { kind: 'move'; direction: MoveDirection };
 
   /**
    * The prescription a lift added from the library starts on.
@@ -1981,7 +2004,34 @@ function VinhaApp() {
     return index === null || index < 0 ? null : exerciseLibrary[index]?.id ?? null;
   }
 
-  async function handleEditProgramExercise(
+  /**
+   * Programme edits run one at a time, in the order they were pressed.
+   *
+   * Not for the writes themselves — the provider already serialises those. It
+   * is for the decision in front of them: editing a ready programme first asks
+   * whether a copy of it exists and then makes one if it does not, and two
+   * edits overlapping across that gap both answer "no". A stepper turns that
+   * from a theoretical race into the normal case, because the second tap
+   * arrives while the first copy is still being written.
+   */
+  const programEditQueue = useRef<Promise<void>>(Promise.resolve());
+
+  function handleEditProgramExercise(
+    programType: 'ready' | 'custom',
+    programId: string,
+    sessionId: string,
+    exerciseId: string,
+    edit: ProgramExerciseEdit,
+  ): Promise<void> {
+    const next = programEditQueue.current.then(() =>
+      runProgramExerciseEdit(programType, programId, sessionId, exerciseId, edit),
+    );
+    // A failed edit must not wedge every edit queued behind it.
+    programEditQueue.current = next.catch(() => undefined);
+    return next;
+  }
+
+  async function runProgramExerciseEdit(
     programType: 'ready' | 'custom',
     programId: string,
     sessionId: string,
@@ -2007,7 +2057,11 @@ function VinhaApp() {
                   exerciseName: edit.exerciseName,
                   libraryItemId: resolveLibraryItemIdForName(edit.exerciseName),
                 }
-              : { kind: 'add', exercises: added },
+              : edit.kind === 'prescribe'
+                ? { kind: 'prescribe', exerciseId, prescription: edit.prescription }
+                : edit.kind === 'move'
+                  ? { kind: 'move', exerciseId, direction: edit.direction }
+                  : { kind: 'add', exercises: added },
         ),
       );
       if (result.reason === 'lastExerciseInDay') {
@@ -2044,6 +2098,24 @@ function VinhaApp() {
     }
 
     /**
+     * A move with nowhere to go, checked before anything is written.
+     *
+     * Everything below this line copies the catalog programme into a custom
+     * one — that is what editing a ready programme means. Pressing "up" on the
+     * top row is not an edit, and letting it through would hand the reader a
+     * copy of the whole programme, and one fewer free slot, in exchange for a
+     * list that looks exactly as it did.
+     */
+    if (edit.kind === 'move') {
+      const day = template.sessions.find((session) => session.id === sessionId);
+      const from = day?.exercises.findIndex((exercise) => exercise.id === exerciseId) ?? -1;
+      const to = edit.direction === 'up' ? from - 1 : from + 1;
+      if (!day || from === -1 || to < 0 || to >= day.exercises.length) {
+        return;
+      }
+    }
+
+    /**
      * Already have a version of this one? Edit it.
      *
      * This branch used to build a fresh copy from the catalog every time, so
@@ -2052,10 +2124,18 @@ function VinhaApp() {
      * up with the same programme (#bugs 2026-08-26). The catalog original is
      * immutable and keeps its id forever; the copy now records which one it
      * came from, and a second edit finds it and goes down the custom path.
+     *
+     * Asked of the database rather than of `workoutTemplates`, which is the
+     * screen's copy and one render behind: three stepper taps inside a single
+     * render all read "no copy yet" and all three made one. Serialising the
+     * handler (see programEditQueue) is the other half — the lookup has to run
+     * after the previous edit's write, not merely against fresh data.
      */
-    const existingCopy = workoutTemplates.find((item) => item.sourceTemplateId === programId);
-    if (existingCopy) {
-      await handleEditProgramExercise('custom', existingCopy.id, sessionId, exerciseId, edit);
+    const existingCopyId = await findWorkoutTemplateIdBySource(programId);
+    if (existingCopyId) {
+      // Straight to the body, not back through the queue this call is already
+      // holding — the same reason the provider has an "Exclusive" twin.
+      await runProgramExerciseEdit('custom', existingCopyId, sessionId, exerciseId, edit);
       return;
     }
 
@@ -2070,13 +2150,8 @@ function VinhaApp() {
     }
     const draft = buildDuplicatedCustomProgramDraft(
       template.name,
-      template.sessions.map((session, sessionIndex) => ({
-        id: session.id,
-        workoutTemplateId: template.id,
-        name: session.name,
-        orderIndex: sessionIndex,
-        exerciseIds: session.exercises.map((exercise) => exercise.id),
-        exercises: [
+      template.sessions.map((session, sessionIndex) => {
+        const exercises = [
           ...session.exercises
           .filter(
             (exercise) =>
@@ -2086,14 +2161,19 @@ function VinhaApp() {
             const target = session.id === sessionId && exercise.id === exerciseId;
             const name =
               target && edit.kind === 'replace' ? edit.exerciseName : exercise.exerciseName;
+            // The catalog's dose unless this row is the one being re-dosed.
+            const dose =
+              target && edit.kind === 'prescribe'
+                ? edit.prescription
+                : { targetSets: exercise.sets, repMin: exercise.repsMin, repMax: exercise.repsMax };
             return {
               id: exercise.id,
               workoutTemplateId: template.id,
               workoutTemplateSessionId: session.id,
               name,
-              targetSets: exercise.sets,
-              repMin: exercise.repsMin,
-              repMax: exercise.repsMax,
+              targetSets: dose.targetSets,
+              repMin: dose.repMin,
+              repMax: dose.repMax,
               restSeconds: exercise.restSecondsMin,
               trackedDefault: false,
               orderIndex: exerciseIndex,
@@ -2110,8 +2190,25 @@ function VinhaApp() {
                 orderIndex: session.exercises.length + index,
               }))
             : []),
-        ],
-      })),
+        ];
+
+        if (edit.kind === 'move' && session.id === sessionId) {
+          const from = exercises.findIndex((exercise) => exercise.id === exerciseId);
+          const [moved] = exercises.splice(from, 1);
+          exercises.splice(edit.direction === 'up' ? from - 1 : from + 1, 0, moved);
+        }
+
+        return {
+          id: session.id,
+          workoutTemplateId: template.id,
+          name: session.name,
+          orderIndex: sessionIndex,
+          exerciseIds: session.exercises.map((exercise) => exercise.id),
+          // Re-numbered from where the rows now sit: the position in this
+          // array is what the reader sees, and orderIndex is what is stored.
+          exercises: exercises.map((exercise, orderIndex) => ({ ...exercise, orderIndex })),
+        };
+      }),
       workoutTemplates.map((item) => item.name),
       preferences.appLanguage,
       // Its own name, not "(kopio)". The reader asked to change a lift, not to
@@ -2128,7 +2225,10 @@ function VinhaApp() {
       // Read the ids back rather than trusting the draft's: the repository
       // assigns them, and a plan pointing at ids that were never stored is a
       // programme whose days resolve to nothing.
-      const sessionIds = getWorkoutTemplateSessions(workoutTemplateId)
+      // Fresh, not rendered: this line runs inside the closure that created
+      // the copy, and that closure's `database` predates it.
+      const copiedSessions = await getWorkoutTemplateSessionsFresh(workoutTemplateId);
+      const sessionIds = copiedSessions
         .filter((session) => session.exercises.length > 0)
         .map((session) => session.id);
       const plan = buildProgramWorkoutPlan({
@@ -2167,7 +2267,32 @@ function VinhaApp() {
           return next;
         });
       }
-      navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+      /**
+       * Onto the copy's version of the day the reader is standing on.
+       *
+       * This used to land on the programme page, which was survivable when
+       * every edit here was a one-shot press in a sheet that closed anyway.
+       * With a stepper it is not: the first "+" copied the programme and then
+       * moved the reader to a different screen, with the sheet they were still
+       * using floating over it. The days are copied in order, so the day at
+       * the same position is the same day.
+       */
+      const dayIndex = template.sessions.findIndex((session) => session.id === sessionId);
+      // Read off the unfiltered list: the plan drops a day with nothing in it,
+      // but the days are still stored in their original order, and indexing
+      // the filtered list would walk one day forward past a dropped one.
+      const copiedSessionId = dayIndex > -1 ? copiedSessions[dayIndex]?.id : undefined;
+      navigate(
+        copiedSessionId
+          ? {
+              tab: 'workout',
+              screen: 'programDay',
+              programType: 'custom',
+              workoutTemplateId,
+              sessionId: copiedSessionId,
+            }
+          : { tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId },
+      );
     } catch (error) {
       if (error instanceof ProgramLimitReachedError) {
         setProgramLimitVisible(true);
@@ -4677,6 +4802,33 @@ function VinhaApp() {
       logs: summary.logs,
       startedAt: summary.startedAt,
       performedAt: summary.performedAt,
+    });
+    /**
+     * Remembered for the next time these lifts come up.
+     *
+     * The weight a set opens on is read from the workout provider's slot
+     * history, and the only thing that ever wrote to it was the guided
+     * player's own finish — so a lift done here left no trace, and opened at
+     * nothing next time even though the numbers had just been written to the
+     * database ("paino automaattisesti siihen mitä on viimeksi tehnyt", #bugs
+     * 2026-08-27). Only completed sets with both numbers: a row that was put
+     * on the board and not done is not a weight.
+     */
+    workout.recordLoggedWorkout({
+      performedAt: summary.performedAt,
+      sessionId,
+      templateName: summary.workoutName,
+      exercises: summary.logs.map((log) => ({
+        exerciseName: log.exerciseNameSnapshot,
+        sets: log.sets
+          .filter((set) => set.outcome === 'completed' && set.reps > 0)
+          .map((set, setIndex) => ({
+            setIndex,
+            loadKg: set.weight,
+            reps: set.reps,
+            completedAt: set.completedAt ?? summary.performedAt,
+          })),
+      })),
     });
     setCompletionSummary({
       sessionId,

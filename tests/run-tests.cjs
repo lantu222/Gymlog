@@ -78,6 +78,8 @@ const suites = [
   ...require('./lib/proBenefits.test.cjs'),
   ...require('./features/workout/workoutAppAdapter.test.cjs'),
   ...require('./features/workout/workoutState.test.cjs'),
+  ...require('./features/workout/removeSet.test.cjs'),
+  ...require('./features/workout/loggedHistory.test.cjs'),
   ...require('./state/completedWorkoutPersistence.test.cjs'),
   ...require('./utils/haptics.test.cjs'),
   ...require('./utils/reduceMotion.test.cjs'),

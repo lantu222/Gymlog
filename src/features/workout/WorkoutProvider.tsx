@@ -50,6 +50,21 @@ interface WorkoutContextValue {
   repeatLastSet: (slotId: string, setIndex: number, unitPreference: UnitPreference) => void;
   undoSet: (slotId: string, setIndex: number) => void;
   addSet: (slotId: string) => void;
+  /** Takes the last pending set back. Refuses on a logged set or the last one. */
+  removeSet: (slotId: string) => void;
+  /**
+   * File a session logged outside the player, so the next set of those lifts
+   * opens on what was actually done. See the 'history/recordLogged' action.
+   */
+  recordLoggedWorkout: (input: {
+    performedAt: string;
+    sessionId: string;
+    templateName: string;
+    exercises: Array<{
+      exerciseName: string;
+      sets: Array<{ setIndex: number; loadKg: number; reps: number; completedAt?: string | null }>;
+    }>;
+  }) => void;
   skipExercise: (slotId: string, reason?: string) => void;
   swapExercise: (
     slotId: string,
@@ -250,6 +265,12 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
       },
       addSet(slotId) {
         dispatch({ type: 'exercise/addSet', payload: { slotId } });
+      },
+      recordLoggedWorkout(input) {
+        dispatch({ type: 'history/recordLogged', payload: input });
+      },
+      removeSet(slotId) {
+        dispatch({ type: 'exercise/removeSet', payload: { slotId } });
       },
       skipExercise(slotId, reason) {
         dispatch({ type: 'exercise/skip', payload: { slotId, reason } });

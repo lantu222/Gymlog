@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import Svg, { Circle, ClipPath, Defs, G, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CutSurface } from '../components/CutSurface';
@@ -13,9 +13,13 @@ import { EQUIPMENT_CHIP_KEYS, missingEquipment } from '../lib/programEquipment';
 import { EmphasisSheet } from '../components/EmphasisSheet';
 import { EMPHASIS_AREA_KEYS, emphasisAreaForExercise, resolveProgramEmphasis } from '../lib/programEmphasis';
 import { WEEKDAY_KEYS } from '../lib/programTrainingDays';
-import { EMPHASIS_RAMP, programCoverStyle } from '../lib/programVisualIdentity';
+import { EMPHASIS_RAMP } from '../lib/programVisualIdentity';
 import { Theme, useTheme, useThemedStyles } from '../theming';
-import { localizeSessionName, localizeWorkoutFocus } from '../lib/sessionNameLabel';
+import {
+  formatPlanSessionTitle,
+  localizeSessionName,
+  localizeWorkoutFocus,
+} from '../lib/sessionNameLabel';
 import { layout, radii, spacing } from '../theme';
 import type { AppLanguage } from '../types/models';
 
@@ -51,23 +55,10 @@ const ROLE_LEVEL_KEYS: Record<string, I18nKey> = {
 /*
  * This screen used to carry its own palette — nine PLAN_* constants and about
  * thirty inline hexes, all light. Under the dark theme it kept every one of
- * them: white cards, near-black body copy on a near-black page. The colours
- * below now come from the theme, and the handful that stay fixed (the hero
- * gradient, white on that gradient) are fixed because they sit on a painted
- * surface that does not change.
+ * them: white cards, near-black body copy on a near-black page. Every colour
+ * here now comes from the theme; the last fixed ones went with the painted
+ * hero they sat on (2026-08-27).
  */
-/**
- * How far up the hero's left edge the seam cuts.
- *
- * Shallower than the browse card's 0.82: at 210px tall the same ratio would
- * carve nearly forty pixels off the corner and start eating the back button.
- */
-/**
- * The programme hero. Raised from 210 so the painted area comes well down the
- * page instead of ending just under the title.
- */
-const HERO_HEIGHT = 262;
-const HERO_SEAM_RATIO = 0.92;
 
 
 interface ProgramDetailScreenProps {
@@ -133,33 +124,6 @@ function parseMinutesFromBadges(badges: string[]) {
   return durationBadge ? Number.parseInt(durationBadge.replace(/\D/g, ''), 10) || 0 : 0;
 }
 
-function formatPlanSessionTitle(
-  session: ProgramDetailViewModel['sessions'][number],
-  index: number,
-  programTitle: string,
-  language: AppLanguage,
-) {
-  // The English name is what is stored and matched on; localizeSessionName only
-  // rewrites the parts it recognises.
-  const sessionName = formatWorkoutDisplayLabel(session.name, 'Workout');
-  const normalizedProgram = programTitle.toLowerCase();
-  const normalizedSession = sessionName.toLowerCase();
-
-  if (normalizedProgram.includes('full body') && /^minimal\s+[a-z]$/.test(normalizedSession)) {
-    return `${t(language, 'detail.day', { index: index + 1 })}. ${t(language, 'facet.fullBody')}`;
-  }
-
-  if (/^workout\s+[a-z]$/.test(normalizedSession)) {
-    return `${t(language, 'detail.day', { index: index + 1 })}. ${t(language, 'ai.signal.workout')}`;
-  }
-
-  if (/^day\s+\d+/i.test(sessionName)) {
-    return localizeSessionName(sessionName, language);
-  }
-
-  return `${t(language, 'detail.day', { index: index + 1 })}. ${localizeSessionName(sessionName, language)}`;
-}
-
 function getTrainingDayIndexes(sessionCount: number) {
   if (sessionCount <= 1) {
     return new Set([0]);
@@ -201,7 +165,6 @@ export function ProgramDetailScreen({
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   // The programme's own colour, the same one its browse cover wears.
-  const identity = programCoverStyle(program.id, program.title);
   const [emphasisSheetVisible, setEmphasisSheetVisible] = useState(false);
   // Flat, in a fixed order: the sheet returns set counts by index, so this
   // list is the contract between the two.
@@ -228,7 +191,6 @@ export function ProgramDetailScreen({
     [program.sessions],
   );
   const [confirmVisible, setConfirmVisible] = useState(false);
-  const { width: heroWidth } = useWindowDimensions();
   /**
    * The one thing that makes a good program the wrong pick: a week without
    * room for it. Only shown when the setup actually says how many days the
@@ -239,19 +201,8 @@ export function ProgramDetailScreen({
     [availableEquipment, equipment],
   );
   const displayTitle = formatWorkoutDisplayLabel(program.title, 'Workout plan');
-  /**
-   * The hero's bars: one per session, height from its exercise count.
-   *
-   * The same idea the browse covers draw, so a program looks like itself
-   * wherever it is met.
-   */
-  const heroBars = useMemo(() => {
-    const counts = program.sessions.map((session) => session.exerciseCount);
-    const peak = Math.max(1, ...counts);
-    return counts.map((count) => Math.max(0.3, count / peak));
-  }, [program.sessions]);
   /** Goal and level, both translated — badges[0..1] are English. */
-  const heroPill = useMemo(() => {
+  const levelLabel = useMemo(() => {
     const levelKey = ROLE_LEVEL_KEYS[(program.badges[1] ?? '').toLowerCase()];
     return levelKey ? t(language, levelKey) : null;
   }, [language, program.badges]);
@@ -352,78 +303,45 @@ export function ProgramDetailScreen({
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* The hero says what the program IS before anything else.
-            The screen opened on a header, a photo slot and a stats card —
-            three containers before a reader learned whether this was a
-            strength program or a cut. */}
-        <View style={styles.hero}>
-          <Svg width={heroWidth} height={HERO_HEIGHT} style={StyleSheet.absoluteFill}>
-            <Defs>
-              {/* The same seam the browse cards carry, at hero scale (design:
-                  GAINER Boost-tyyli, frame D). Clipped inside the SVG for the
-                  same reason: overflow clips to the rectangle, and the
-                  gradient, the bars and the scrim would all run past the
-                  slope. */}
-              <ClipPath id="detailHeroSeam">
-                <Path d={`M0 0 H${heroWidth} V${HERO_HEIGHT} L0 ${HERO_HEIGHT * HERO_SEAM_RATIO} Z`} />
-              </ClipPath>
-              <SvgLinearGradient id="detailHero" x1="0" y1="0" x2="1" y2="1">
-                <Stop offset="0" stopColor={identity.hero[0]} />
-                <Stop offset="1" stopColor={identity.hero[1]} />
-              </SvgLinearGradient>
-              <SvgLinearGradient id="detailHeroScrim" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor="#1E1246" stopOpacity={0} />
-                <Stop offset="1" stopColor="#1E1246" stopOpacity={0.62} />
-              </SvgLinearGradient>
-            </Defs>
-            <G clipPath="url(#detailHeroSeam)">
-            <Rect x="0" y="0" width={heroWidth} height={HERO_HEIGHT} fill="url(#detailHero)" />
-            {/* The program's week, as bars — the same fingerprint the browse
-                cards draw, so a program looks like itself wherever it is met. */}
-            {heroBars.map((ratio, index) => {
-              const slot = (heroWidth - 28) / Math.max(1, heroBars.length);
-              const barWidth = Math.max(6, slot - 6);
-              const barHeight = Math.max(10, ratio * 74);
-              return (
-                <Rect
-                  key={index}
-                  x={14 + index * slot + (slot - barWidth) / 2}
-                  y={HERO_HEIGHT - barHeight}
-                  width={barWidth}
-                  height={barHeight}
-                  rx={3}
-                  fill="#FFFFFF"
-                  fillOpacity={0.18}
-                />
-              );
-            })}
-            <Rect x="0" y="60" width={heroWidth} height={150} fill="url(#detailHeroScrim)" />
-            </G>
-          </Svg>
-          <View style={styles.heroTopRow}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t(language, 'common.back')}
-              hitSlop={10}
-              onPress={onBack}
-              style={styles.heroGlass}
-            >
-              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                <Path d="M15 6l-6 6 6 6" stroke="#FFFFFF" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-              </Svg>
-            </Pressable>
-          </View>
-          <View style={styles.heroBottom}>
-            {heroPill ? (
-              <View style={styles.heroPill}>
-                <Text style={styles.heroPillText}>{heroPill}</Text>
-              </View>
-            ) : null}
-            <Text style={styles.heroTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.6}>
-              {displayTitle}
-            </Text>
-          </View>
+        {/*
+          Title first, numbers under it, nothing painted.
+
+          This opened on a 262 px gradient carrying a back button, a level
+          chip and the title — a third of the screen, most of it empty colour,
+          before a single fact about the programme ("ylä heron viel ihan
+          liikaa tilaa … otsikko ylös data siihen ja ei mitään värikästä
+          heroa", #bugs 2026-08-27). The programme's own colours are gone with
+          it, and so is the week-as-bars fingerprint the browse cards draw: on
+          this screen the sessions are listed below in full, so the drawing
+          was decoration of something the reader was about to read.
+        */}
+        <View style={styles.headerRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(language, 'common.back')}
+            hitSlop={10}
+            onPress={onBack}
+            style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.6 }]}
+          >
+            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M15 6l-6 6 6 6"
+                stroke={theme.ink}
+                strokeWidth={2.4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          </Pressable>
+          {levelLabel ? (
+            <View style={styles.levelPill}>
+              <Text style={styles.levelPillText}>{levelLabel}</Text>
+            </View>
+          ) : null}
         </View>
+        <Text style={styles.pageTitle} numberOfLines={3}>
+          {displayTitle}
+        </Text>
 
         {fitReason ? (
           <View style={styles.reasonCard}>
@@ -806,53 +724,47 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flex: 1,
     backgroundColor: theme.bg,
   },
-  hero: {
-    height: HERO_HEIGHT,
-    marginHorizontal: -20,
-    marginTop: -8,
-    overflow: 'hidden',
-    justifyContent: 'space-between',
-  },
-  heroTopRow: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingTop: 46,
+    gap: 12,
+    marginTop: 6,
   },
-  heroGlass: {
-    width: 34,
-    height: 34,
+  backButton: {
+    width: 36,
+    height: 36,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  heroBottom: {
-    paddingHorizontal: 18,
-    paddingBottom: 18,
-  },
-  heroPill: {
-    alignSelf: 'flex-start',
+  // The level, in the theme's own wash rather than a white chip that only
+  // worked because it sat on a painted background.
+  levelPill: {
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: theme.surfaceSoft,
+    borderWidth: 1,
+    borderColor: theme.border,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  heroPillText: {
-    color: '#101828',
+  levelPillText: {
+    color: theme.muted,
     fontSize: 10,
     lineHeight: 13,
     fontWeight: '800',
     letterSpacing: 0.9,
   },
-  heroTitle: {
-    color: '#FFFFFF',
+  pageTitle: {
+    color: theme.ink,
     fontSize: 30,
     lineHeight: 34,
     fontWeight: '800',
     letterSpacing: -0.9,
-    marginTop: 9,
+    marginTop: 2,
   },
   leadCopy: {
     color: theme.ink,
@@ -1181,19 +1093,29 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 13,
     fontWeight: '900',
   },
+  /**
+   * Red, not a hint of red.
+   *
+   * This was `dangerSoft` behind `danger` text — in the dark theme a
+   * near-black maroon under soft coral, which reads as a disabled button
+   * rather than as the one action on the page that does not come back
+   * ("poista ohjelma voisi olla punainen oikeasti nyt on vähän haalea",
+   * 2026-08-27). Filled, with white on it, in both themes. The confirmation
+   * dialog is what stands between the press and the deletion; the button's
+   * job is to be unmistakable.
+   */
   destructiveButton: {
     minHeight: 48,
     borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.dangerSoft,
-    borderWidth: 1,
-    borderColor: theme.dangerBorder,
+    backgroundColor: theme.danger,
   },
   destructiveButtonText: {
-    color: theme.danger,
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '900',
+    letterSpacing: 0.2,
   },
   adoptButton: {
     marginTop: 22,

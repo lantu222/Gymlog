@@ -526,3 +526,60 @@ export function buildProgrammeDraft(proposal: ProgrammeProposal, existingNames: 
     })),
   };
 }
+
+/**
+ * The request, laid out.
+ *
+ * The build offer quoted the brief back as one sentence and asked yes or no.
+ * On a five-day request that sentence runs six lines, and the reader could not
+ * tell what they were agreeing to — "tähän joku että oikeasti voisi nähdä
+ * kokonaisuuden" (#bugs 2026-08-27).
+ *
+ * This is the REQUEST, not the week. The week is composed after the offer is
+ * accepted, and on the live path it comes back from the model — so drawing a
+ * week here would be drawing one the build might not produce. What can be
+ * shown honestly before anything runs is what the app read from the sentence,
+ * which is also the thing worth checking: get the days or the lifts wrong and
+ * the whole build is wrong.
+ */
+export interface ProgrammeBriefOutline {
+  /** What the composer will lay out. */
+  plannedDays: number | null;
+  /**
+   * What the brief asked for, when the composer cannot give it. Null when the
+   * two agree — saying "you asked for 4, I build 4" is noise.
+   */
+  requestedDays: number | null;
+  sessionMinutes: number | null;
+  lifts: string[];
+  focusAreas: SetupFocusArea[];
+}
+
+export function outlineProgrammeBrief(signals: ProgrammeBriefSignals): ProgrammeBriefOutline {
+  return {
+    plannedDays: signals.daysPerWeek,
+    requestedDays:
+      signals.requestedDaysPerWeek !== null && signals.requestedDaysPerWeek !== signals.daysPerWeek
+        ? signals.requestedDaysPerWeek
+        : null,
+    sessionMinutes: signals.sessionMinutes,
+    lifts: signals.lifts,
+    focusAreas: signals.focusBodyParts,
+  };
+}
+
+/**
+ * Whether there is anything to draw.
+ *
+ * A brief the parser got nothing out of must not produce an empty box with a
+ * heading over it: that reads as the app having understood nothing, which is
+ * worse than the sentence on its own.
+ */
+export function hasProgrammeBriefOutline(outline: ProgrammeBriefOutline): boolean {
+  return (
+    outline.plannedDays !== null ||
+    outline.sessionMinutes !== null ||
+    outline.lifts.length > 0 ||
+    outline.focusAreas.length > 0
+  );
+}

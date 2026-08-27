@@ -56,6 +56,30 @@ export type WorkoutAction =
   | { type: 'set/repeatLast'; payload: { slotId: string; setIndex: number; nowMs: number; unitPreference: 'kg' | 'lb' } }
   | { type: 'set/undo'; payload: { slotId: string; setIndex: number } }
   | { type: 'exercise/addSet'; payload: { slotId: string } }
+  | { type: 'exercise/removeSet'; payload: { slotId: string } }
+  /**
+   * A session logged outside the guided player, remembered for next time.
+   *
+   * The weight a set opens on comes from `slotHistory`, and the only writer
+   * was finishWorkout — the guided player's own finish. A lift done in an
+   * empty workout therefore left no trace the prefill could see, and opened at
+   * nothing the next time ("paino automaattisesti siihen mitä on viimeksi
+   * tehnyt", #bugs 2026-08-27), even though the app had the numbers in the
+   * database all along. The named lookup already reads across every slot, so
+   * this only has to put the entry somewhere.
+   */
+  | {
+      type: 'history/recordLogged';
+      payload: {
+        performedAt: string;
+        sessionId: string;
+        templateName: string;
+        exercises: Array<{
+          exerciseName: string;
+          sets: Array<{ setIndex: number; loadKg: number; reps: number; completedAt?: string | null }>;
+        }>;
+      };
+    }
   | { type: 'exercise/skip'; payload: { slotId: string; reason?: string } }
   | { type: 'exercise/insertAfter'; payload: { afterSlotId: string; exercise: WorkoutExerciseInsertInput } }
   | {
@@ -1052,6 +1076,90 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       exercise.status = 'active';
       updateActiveExercise(session, exerciseIndex, nextSetIndex);
       session.restTimer = createInitialTimer();
+      session.updatedAt = new Date().toISOString();
+      return { ...state, activeSession: session };
+    }
+
+    /**
+     * A logged session that never went through the player, filed where the
+     * prefill can find it.
+     *
+     * Additive by construction: it writes under its own slot key and touches
+     * no existing entry, so a lift with guided history keeps it and only gains
+     * a newer entry when the freestyle session really is newer — which is what
+     * "what you last did" means.
+     */
+    case 'history/recordLogged': {
+      const { performedAt, sessionId, templateName, exercises } = action.payload;
+      const slotHistory: WorkoutHistoryStore['slotHistory'] = { ...state.history.slotHistory };
+
+      exercises.forEach((exercise) => {
+        const name = exercise.exerciseName?.trim();
+        // A row with no sets is an exercise that was listed and not done. It
+        // is not a weight, and prefilling from it would open the next session
+        // on nothing while claiming a source.
+        if (!name || exercise.sets.length === 0) {
+          return;
+        }
+        // Keyed by the lift, not by a slot it never had. The named lookup
+        // reads across every key, so this only has to be stable and its own.
+        const slotId = `logged:${name.toLowerCase()}`;
+        const entry: WorkoutSlotHistoryEntry = {
+          slotId,
+          templateId: '',
+          templateName,
+          exerciseName: name,
+          substitutionGroup: '',
+          performedAt,
+          sessionId,
+          sets: exercise.sets.map((set) => ({
+            setIndex: set.setIndex,
+            loadKg: set.loadKg,
+            reps: set.reps,
+            completedAt: set.completedAt ?? performedAt,
+            effort: null,
+          })),
+          skipped: false,
+        };
+        slotHistory[slotId] = [entry, ...(slotHistory[slotId] ?? [])].slice(0, 10);
+      });
+
+      return { ...state, history: { ...state.history, slotHistory } };
+    }
+
+    /**
+     * One set fewer, the other half of addSet.
+     *
+     * Only ever the last PENDING set, and never the last set standing:
+     * removing a set you have already logged would throw away work through a
+     * control meant for planning, and an exercise with no sets is not an
+     * exercise. Both refusals are silent — the row simply does not change, and
+     * the caller hides the control when there is nothing to take.
+     */
+    case 'exercise/removeSet': {
+      if (!state.activeSession) {
+        return state;
+      }
+
+      const session = cloneSession(state.activeSession);
+      const exerciseIndex = findExerciseIndex(session, action.payload.slotId);
+      if (exerciseIndex < 0) {
+        return state;
+      }
+
+      const exercise = session.exercises[exerciseIndex];
+      if (exercise.sets.length <= 1) {
+        return state;
+      }
+
+      const last = exercise.sets[exercise.sets.length - 1];
+      if (last.status !== 'pending') {
+        return state;
+      }
+
+      exercise.sets = exercise.sets.slice(0, -1);
+      const nextIndex = exercise.sets[exercise.sets.length - 1]?.setIndex ?? 0;
+      updateActiveExercise(session, exerciseIndex, nextIndex);
       session.updatedAt = new Date().toISOString();
       return { ...state, activeSession: session };
     }

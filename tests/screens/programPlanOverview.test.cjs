@@ -92,15 +92,26 @@ module.exports = [
       // green through exactly that.
       assert.doesNotMatch(programDetailSource, /const PLAN_[A-Z_]* =/);
       assert.match(programDetailSource, /backgroundColor: theme.bg/);
-      // The one place a fixed colour is still right: white on the hero's own
-      // painted gradient, which does not change with the theme.
-      assert.match(programDetailSource, /heroTitle: \{\s*color: '#FFFFFF'/);
-      // The screen leads with a hero that says what the program IS. It opened
-      // on a header, a photo slot and a stats card — three containers before a
-      // reader learned whether this was a strength program or a cut.
-      assert.match(programDetailSource, /styles\.hero\b/);
-      assert.match(programDetailSource, /heroBars\.map/);
-      assert.match(programDetailSource, /styles\.heroTitle/);
+      /**
+       * The painted hero is gone, and with it the last fixed colours.
+       *
+       * These lines used to pin it in place: a 262 px gradient carrying a
+       * back button, a level chip and the title, with the week drawn behind
+       * it as bars. That is a third of the screen, most of it empty colour,
+       * before a single fact about the programme — "ylä heron viel ihan
+       * liikaa tilaa … otsikko ylös data siihen ja ei mitään värikästä
+       * heroa" (#bugs 2026-08-27). The title now leads in the theme's own
+       * ink and the stat strip follows it directly.
+       */
+      assert.match(programDetailSource, /pageTitle: \{\s*color: theme\.ink/);
+      assert.match(programDetailSource, /styles\.pageTitle/);
+      assert.match(programDetailSource, /styles\.headerRow/);
+      assert.doesNotMatch(programDetailSource, /styles\.hero\b/);
+      assert.doesNotMatch(programDetailSource, /heroBars/);
+      assert.doesNotMatch(programDetailSource, /styles\.heroTitle/);
+      // White text still exists where a painted surface still exists — the
+      // adopt button and the filled day chip. What went is white text that
+      // depended on a gradient BEHIND the page.
       assert.doesNotMatch(programDetailSource, /styles\.headerTitle/);
       assert.doesNotMatch(programDetailSource, /styles\.planCard\b/);
       // Four numbers, so the commitment is legible before the button.
@@ -294,6 +305,64 @@ module.exports = [
       // The sheet's own padding was a fixed number, so its last row sat behind
       // the phone's system buttons and could not be pressed.
       assert.match(programDaySource, /paddingBottom: insets\.bottom \+ 28/);
+    },
+  },
+  {
+    /**
+     * The day page lost its gradient too, and kept everything that was in it.
+     *
+     * The programme page went first; the day's own 292 px hero was the same
+     * argument one screen along, with one difference worth stating — it
+     * carried content, not just colour. So the day name and the two numbers
+     * stayed and only the paint went ("ilman gradienttia mutta voisiko silti
+     * jättää lämmittely liikkeet ja lopetus osiot", 2026-08-27).
+     */
+    name: 'the day page leads with its title and keeps every section it had',
+    run() {
+      const day = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'screens', 'ProgramDayScreen.tsx'),
+        'utf8',
+      );
+      assert.doesNotMatch(day, /HERO_HEIGHT/);
+      assert.doesNotMatch(day, /styles\.hero\b/);
+      assert.doesNotMatch(day, /SvgLinearGradient/);
+      assert.match(day, /pageTitle: \{\s*color: theme\.ink/);
+      // What the hero was carrying, still carried — except that the title is
+      // now the DAY the reader tapped rather than the programme's name with
+      // the session under it, which named the same day twice, differently.
+      assert.match(day, /formatPlanSessionTitle\(session, dayNumber - 1, programTitle, language\)/);
+      assert.doesNotMatch(day, /styles\.pageSession/);
+      assert.match(day, /styles\.pageStatValue/);
+      // And the sections under it, untouched.
+      assert.match(day, /detail\.day\.warmup/);
+      assert.match(day, /detail\.day\.exercises/);
+      assert.match(day, /detail\.day\.cooldown/);
+      assert.match(day, /ROLE_TAG_KEYS\[exercise\.role/);
+    },
+  },
+  {
+    /**
+     * Reordering is a mode on the list, not a trip through a sheet.
+     *
+     * The arrows lived inside the per-row edit sheet: three taps and a read
+     * to move one row one place, with the list you are ordering hidden behind
+     * the sheet while you do it.
+     */
+    name: 'the day page can be reordered from the rows themselves',
+    run() {
+      const day = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'screens', 'ProgramDayScreen.tsx'),
+        'utf8',
+      );
+      assert.match(day, /const \[reorderMode, setReorderMode\] = useState\(false\)/);
+      assert.match(day, /'detail\.day\.reorder'/);
+      assert.match(day, /<MoveButton/);
+      // Only when there is an order to change.
+      assert.match(day, /onMoveExercise && session\.exercises\.length > 1/);
+      // The ends of the list refuse, rather than saving a move that cannot
+      // happen — a ready programme would otherwise be copied for nothing.
+      assert.match(day, /disabled=\{index === 0\}/);
+      assert.match(day, /disabled=\{index === session\.exercises\.length - 1\}/);
     },
   },
 ];

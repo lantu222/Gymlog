@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 const {
   buildProgrammeDraft,
   composeProgrammePreview,
+  hasProgrammeBriefOutline,
+  outlineProgrammeBrief,
   parseProgrammeBrief,
   resolveLiveProposal,
 } = require('../../.test-dist/lib/programmeBrief.js');
@@ -12,6 +14,52 @@ const library = Object.values(require('../../.test-dist/data/generatedExerciseLi
 const preferences = createSeedDatabase().preferences;
 
 module.exports = [
+  /**
+   * The build offer used to quote the brief back as one sentence and ask yes
+   * or no; on a five-day request that is six lines of prose and the reader
+   * could not see what they were agreeing to (#bugs 2026-08-27).
+   */
+  {
+    name: 'the outline carries the days, the length, the lifts and the focus',
+    run() {
+      const outline = outlineProgrammeBrief(
+        parseProgrammeBrief('4 päivää viikossa, 45 min, penkki ja lantionnosto, rinta painopisteenä.'),
+      );
+      assert.equal(outline.plannedDays, 4);
+      assert.equal(outline.sessionMinutes, 45);
+      assert.deepEqual(outline.lifts, ['Bench Press', 'Hip Thrust']);
+      assert.ok(outline.focusAreas.includes('chest'));
+      assert.ok(hasProgrammeBriefOutline(outline));
+    },
+  },
+  {
+    /**
+     * The composer lays out at most four days. Saying "you asked for 4, I
+     * build 4" is noise; saying nothing when they differ is the app putting a
+     * number in the reader's mouth.
+     */
+    name: 'the requested day count is carried only when the composer cannot meet it',
+    run() {
+      const trimmed = outlineProgrammeBrief(parseProgrammeBrief('5 päivää viikossa'));
+      assert.equal(trimmed.requestedDays, 5);
+      assert.notEqual(trimmed.plannedDays, 5);
+
+      const met = outlineProgrammeBrief(parseProgrammeBrief('3 päivää viikossa'));
+      assert.equal(met.plannedDays, 3);
+      assert.equal(met.requestedDays, null);
+    },
+  },
+  {
+    /**
+     * A sentence the parser got nothing out of must not draw an empty box
+     * under a heading — that reads as the app having understood nothing.
+     */
+    name: 'a brief with nothing in it draws no outline',
+    run() {
+      const outline = outlineProgrammeBrief(parseProgrammeBrief('moikka'));
+      assert.equal(hasProgrammeBriefOutline(outline), false);
+    },
+  },
   {
     name: 'a Finnish brief is read for days, the lift, the focus and the caution — each from its own sentence',
     run() {

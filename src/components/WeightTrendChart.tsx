@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 
-import { WeightWindowDay, buildWeightAxisTicks } from '../lib/bodyweightCard';
+import { WeightWindowDay, buildWeightAxisTicks, weightMarkersFit } from '../lib/bodyweightCard';
 import { removeTrailingZeros } from '../lib/format';
 import { queryReduceMotion } from '../utils/reduceMotion';
 import { Theme, useTheme, useThemedStyles } from '../theming';
@@ -98,6 +98,7 @@ export function WeightTrendChart({ days }: WeightTrendChartProps) {
   const ticks = buildWeightAxisTicks(values);
   const axisWidth = AXIS_WIDTH;
   const plotWidth = Math.max(width - axisWidth - PAD_RIGHT, 1);
+  const markersFit = weightMarkersFit(days.filter((day) => day.value !== null).length, plotWidth);
   const plotHeight = HEIGHT - PAD_TOP - PAD_BOTTOM;
   const max = ticks.length ? ticks[0] : 1;
   const min = ticks.length ? ticks[ticks.length - 1] : 0;
@@ -151,6 +152,9 @@ export function WeightTrendChart({ days }: WeightTrendChartProps) {
                 strokeLinejoin="round"
               />
             ) : null}
+            {/* The rings go when they stop fitting; the line does not change,
+                and the newest weigh-in keeps its marker because it is the
+                number the card is about. */}
             {plotted.map((point, index) =>
               index === plotted.length - 1 ? (
                 <AnimatedCircle
@@ -163,7 +167,7 @@ export function WeightTrendChart({ days }: WeightTrendChartProps) {
                   stroke={theme.highlight}
                   strokeWidth={3}
                 />
-              ) : (
+              ) : markersFit ? (
                 <Circle
                   key={`${point.x}-${point.y}`}
                   cx={point.x}
@@ -173,7 +177,7 @@ export function WeightTrendChart({ days }: WeightTrendChartProps) {
                   stroke={theme.highlight}
                   strokeWidth={3}
                 />
-              ),
+              ) : null,
             )}
           </Svg>
 

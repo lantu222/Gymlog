@@ -28,6 +28,14 @@ export interface ProgramDetailExerciseItem {
   name: string;
   role: WorkoutRole;
   sets: number;
+  /**
+   * The numbers behind `prescription`, carried so the day screen can offer a
+   * stepper on them. The string is for reading; these are for editing.
+   */
+  repMin: number;
+  repMax: number;
+  /** A hold is prescribed in seconds, and its stepper has to say so. */
+  timed: boolean;
   prescription: string;
   /** "tauko"-less rest range, e.g. "45–105 s" or "1,5–2,5 min". */
   restLabel: string;
@@ -136,6 +144,9 @@ function buildSessionItems(
         name: exercise.exerciseName,
         role: exercise.role,
         sets: exercise.sets,
+        repMin: exercise.repsMin,
+        repMax: exercise.repsMax,
+        timed: isTimedTrackingMode(exercise.trackingMode),
         prescription: buildPrescription(exercise.repsMin, exercise.repsMax, exercise.sets, exercise.trackingMode),
         restLabel: buildRestLabel(exercise.restSecondsMin, exercise.restSecondsMax),
         slotId: exercise.slotId,

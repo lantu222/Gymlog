@@ -56,6 +56,7 @@ import {
   formatGuidedTarget,
   getGuidedBackTargetIndex,
   getGuidedInitials,
+  buildGuidedRunSheet,
   getGuidedNextName,
   getGuidedNextPreview,
   getGuidedPhaseLabel,
@@ -204,6 +205,7 @@ function GPIcon({ name, size = 22, color = '#fff', sw = 2.2 }: { name: string; s
       </>
     ),
     plus: <Path d="M12 5v14M5 12h14" />,
+    minus: <Path d="M5 12h14" />,
     // Pencil: the "this card opens" mark on a closed dial.
     edit: <Path d="M4 20h4l10.5-10.5a2.1 2.1 0 00-3-3L5 17v3zM13.5 6.5l3 3" />,
     arrowUp: <Path d="M12 19V5M6 11l6-6 6 6" />,
@@ -500,25 +502,48 @@ function TopBar({
   );
 }
 
+/**
+ * The rail is also the way in to the run sheet.
+ *
+ * It was already the only thing on screen that stood for the whole session
+ * rather than for this moment of it — it just could not be read, being dots.
+ * Making it the handle keeps the player at one control per screen: nothing new
+ * appears, the thing that was already there answers a question it was already
+ * being asked ("Treenin aikana ei ole mitään keinoa nähdä seuraavaa liikettä",
+ * #bugs 2026-08-27).
+ */
 function ProgressRail({
   groups,
   current,
   dark,
   dotIndex,
   dotsDone,
+  onPress,
+  openLabel,
 }: {
   groups: Array<{ phase: string; setCount?: number }>;
   current: number;
   dark: boolean;
   dotIndex: number;
   dotsDone: number;
+  onPress?: () => void;
+  openLabel?: string;
 }) {
   const theme = useTheme();
 
   const styles = useThemedStyles(makeStyles);
 
+  const Rail = onPress ? Pressable : View;
+
   return (
-    <View style={styles.rail}>
+    <Rail
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={onPress ? openLabel : undefined}
+      onPress={onPress}
+      // The dots are small and the bar is thin; the target is the strip.
+      hitSlop={onPress ? 10 : undefined}
+      style={styles.rail}
+    >
       {groups.map((group, index) => {
         const isCurrent = index === current;
         const done = index < current;
@@ -577,7 +602,7 @@ function ProgressRail({
           />
         );
       })}
-    </View>
+    </Rail>
   );
 }
 
@@ -1150,6 +1175,9 @@ export function GuidedPlayerScreen({
   // the media zone no longer carries its own button.
   const [exitOpen, setExitOpen] = useState(false);
   const [pauseSheetOpen, setPauseSheetOpen] = useState(false);
+  /** The session as a list, opened from the rail. Read-only — it moves nothing. */
+  const [runSheetOpen, setRunSheetOpen] = useState(false);
+  const [confirmingSkipExercise, setConfirmingSkipExercise] = useState(false);
   const [swapOpen, setSwapOpen] = useState(false);
   const [swapQuery, setSwapQuery] = useState('');
   const [confirmingEnd, setConfirmingEnd] = useState(false);
@@ -2170,6 +2198,27 @@ export function GuidedPlayerScreen({
                 void haptics.select();
                 workout.addSet(step.slotId);
               }}
+              /**
+               * Only when there is a set to take: more than one, and the last
+               * one still pending. A control that refuses on press is a
+               * control the reader tries twice; the reducer refuses too, so
+               * this decides what is DRAWN, not what is allowed.
+               */
+              onRemoveSet={
+                (() => {
+                  const exercise = workout.activeSession?.exercises.find(
+                    (candidate) => candidate.slotId === step.slotId,
+                  );
+                  const sets = exercise?.sets ?? [];
+                  if (sets.length <= 1 || sets[sets.length - 1]?.status !== 'pending') {
+                    return null;
+                  }
+                  return () => {
+                    void haptics.select();
+                    workout.removeSet(step.slotId);
+                  };
+                })()
+              }
               panels={setPanelSource}
               panelsOpen={setPanelsOpen}
               onConfirm={confirmSet}
@@ -2273,6 +2322,13 @@ export function GuidedPlayerScreen({
                       onPress={handleSkipExercise}
                     />
                   ) : null}
+                  {/* What the rest is for. The line already existed and was
+                      drawn on warm-up drills only, so the half of the session
+                      you actually wait through was the half that never said
+                      what was coming. */}
+                  {step.recoveryKind ? null : (
+                    <NextLine text={nextPreview?.line ?? null} dark={false} language={language} />
+                  )}
                 </View>
                 <ProgressRail
                   groups={groups}
@@ -2280,6 +2336,8 @@ export function GuidedPlayerScreen({
                   dark={false}
                   dotIndex={step.setIndex}
                   dotsDone={exerciseBySlot.get(step.slotId)?.sets.filter((set) => set.status === 'completed').length ?? 0}
+                  onPress={() => setRunSheetOpen(true)}
+                  openLabel={t(language, 'guided.runSheet.open')}
                 />
               </View>
             </StepIn>
@@ -2296,6 +2354,8 @@ export function GuidedPlayerScreen({
                   ? exerciseBySlot.get(step.slotId)?.sets.filter((set) => set.status === 'completed').length ?? 0
                   : 0
               }
+              onPress={() => setRunSheetOpen(true)}
+              openLabel={t(language, 'guided.runSheet.open')}
             />
           )}
         </>
@@ -2378,13 +2438,19 @@ export function GuidedPlayerScreen({
         <GPSheet onClose={() => setExitOpen(false)}>
           <Text style={styles.sheetTitle}>{t(language, 'guided.exit.title')}</Text>
           <View style={{ gap: 10 }}>
-            <BigBtn label={t(language, 'guided.exit.keep')} onPress={() => setExitOpen(false)} />
+            {/* No "keep training" button.
+                Closing the sheet already is keeping training — the grip, the
+                scrim and the back button all do it — so the button repeated a
+                gesture that was there, and made two real decisions look like
+                three (user 2026-08-27). What is left is the two things that
+                actually differ in what happens to your sets. The label still
+                exists as the confirmation's cancel. */}
             {completedSetCount > 0 ? (
               // Leaving the gym after three of six lifts used to mean either
               // skipping through the rest to reach the finish step, or losing
               // the three. This is the same save the finish step runs — the
               // session ends where it is, and what was logged is kept.
-              <GhostBtn
+              <BigBtn
                 icon="check"
                 label={t(language, 'guided.exit.finishSave')}
                 onPress={() => {
@@ -2397,13 +2463,62 @@ export function GuidedPlayerScreen({
                 like the third of three equal choices. */}
             <GhostBtn icon="x" danger label={t(language, 'guided.exit.end')} onPress={handleEndSession} />
           </View>
-          <Text style={styles.sheetFootnote}>
-            {completedSetCount > 0
-              ? t(language, completedSetCount === 1 ? 'guided.exit.footnoteSavedOne' : 'guided.exit.footnoteSavedMany', {
-                  count: completedSetCount,
-                })
-              : t(language, 'guided.exit.footnote')}
-          </Text>
+          {/* No footnote. It existed to explain the difference between three
+              buttons, which is a sign the buttons were not explaining
+              themselves — and the one thing worth saying, that discarding
+              throws the sets away, is now said where it matters: in the
+              confirmation, at the moment you press it (#bugs 2026-08-26). */}
+        </GPSheet>
+      )}
+
+      {/*
+        The session, read out loud.
+
+        Deliberately inert: nothing here jumps you anywhere. Being able to see
+        the fourth lift while resting after the second is a different need from
+        wanting to skip to it, and a list you can fall through with a thumb
+        while your hands are chalked is how sets get skipped by accident.
+      */}
+      {runSheetOpen && (
+        <GPSheet onClose={() => setRunSheetOpen(false)}>
+          <Text style={styles.sheetTitle}>{t(language, 'guided.runSheet.title')}</Text>
+          <ScrollView style={{ flexGrow: 0, flexShrink: 1 }} showsVerticalScrollIndicator={false}>
+            {buildGuidedRunSheet(stepPlan, stepIndex).map((item) => (
+              <View key={item.groupIndex} style={styles.runRow}>
+                {/* Done / here / to come, as a mark rather than as a colour:
+                    the dark theme flattens the accents into each other. */}
+                <View
+                  style={[
+                    styles.runDot,
+                    item.status === 'done' && { backgroundColor: theme.green, borderColor: theme.green },
+                    item.status === 'current' && { backgroundColor: theme.purple, borderColor: theme.purple },
+                  ]}
+                >
+                  {item.status === 'done' ? <GPIcon name="check" size={11} color="#fff" /> : null}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.runName,
+                      item.status === 'current' && { color: theme.purple },
+                      item.status === 'done' && { color: theme.muted },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {exerciseNameLabel(language, item.name)}
+                  </Text>
+                  {item.status === 'current' ? (
+                    <Text style={styles.runHere}>{t(language, 'guided.runSheet.here')}</Text>
+                  ) : null}
+                </View>
+                {item.setCount ? (
+                  <Text style={styles.runMeta}>
+                    {t(language, 'guided.runSheet.sets', { count: item.setCount })}
+                  </Text>
+                ) : null}
+              </View>
+            ))}
+          </ScrollView>
         </GPSheet>
       )}
 
@@ -2424,14 +2539,12 @@ export function GuidedPlayerScreen({
                 setPaused(false);
               }}
             />
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <View style={{ flex: 1 }}>
-                <GhostBtn icon="back" label={t(language, 'guided.pauseSheet.backOne')} onPress={backOne} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <GhostBtn icon="skip" label={t(language, 'guided.pauseSheet.skipThis')} onPress={skipCurrent} />
-              </View>
-            </View>
+            {/* "One back" and "skip this" are gone. Two skips a thumb's width
+                apart — one for the set, one for the exercise — is a pair you
+                pick between by reading, on a sheet you opened mid-set; and
+                stepping back is not something a reader asked for once
+                (#bugs 2026-08-26). Skipping the exercise is the one that
+                survives, in red and behind a confirmation. */}
             {/* Mid-block, the same escape: this sheet is already the "I need to
                 do something else" surface. */}
             {skippablePhase ? (
@@ -2456,14 +2569,11 @@ export function GuidedPlayerScreen({
             />
             {actionExercise ? (
               <>
-                <Text style={styles.sheetFootnote}>
-                  {exerciseNameLabel(language, actionExercise.exerciseName)}
-                </Text>
-                <GhostBtn
-                  icon="plus"
-                  label={t(language, 'guided.action.addSet')}
-                  onPress={handleAddSet}
-                />
+                {/* No name header: the exercise is already the biggest thing on
+                    the screen behind this sheet, and repeating it here read as
+                    a heading that had wandered in. And no "add set" — the set
+                    row at the top of the workout has the + already, which is
+                    where a set is added from (#bugs 2026-08-26). */}
                 {/* No longer gated on the substitution group: the sheet
                     searches the whole library, so there is always something
                     behind this row. */}
@@ -2477,10 +2587,13 @@ export function GuidedPlayerScreen({
                     }}
                   />
                 ) : null}
+                {/* Red, and it asks. This sat between two other outlined rows
+                    and threw away a whole exercise on one tap. */}
                 <GhostBtn
                   icon="x"
+                  danger
                   label={t(language, 'guided.action.skipExercise')}
-                  onPress={handleSkipExercise}
+                  onPress={() => setConfirmingSkipExercise(true)}
                 />
               </>
             ) : null}
@@ -2512,6 +2625,20 @@ export function GuidedPlayerScreen({
         onConfirm={() => {
           setConfirmingEnd(false);
           onEndSession();
+        }}
+      />
+      <ConfirmDialog
+        visible={confirmingSkipExercise}
+        language={language}
+        destructive
+        title={t(language, 'guided.skipExercise.title')}
+        message={t(language, 'guided.skipExercise.body')}
+        confirmLabel={t(language, 'guided.skipExercise.confirm')}
+        cancelLabel={t(language, 'guided.exit.keep')}
+        onCancel={() => setConfirmingSkipExercise(false)}
+        onConfirm={() => {
+          setConfirmingSkipExercise(false);
+          handleSkipExercise();
         }}
       />
 
@@ -2628,6 +2755,7 @@ function SetStepView({
   onPause,
   onOpenActions,
   onAddSet,
+  onRemoveSet,
   panels,
   panelsOpen,
   onConfirm,
@@ -2650,6 +2778,8 @@ function SetStepView({
   onPause: () => void;
   onOpenActions: () => void;
   onAddSet: () => void;
+  /** Absent when there is no set to take back. */
+  onRemoveSet?: (() => void) | null;
   /** Resolved by the player; null falls back to the plain photo. */
   panels: {
     history: SetPanelHistory | null;
@@ -2792,6 +2922,22 @@ function SetStepView({
             </View>
             {/* One more set, decided where the sets are counted — the sheet
                 kept this three taps away from the row that says 3/3. */}
+            {/* One fewer, decided where the sets are counted — the + has been
+                here since the sheet stopped owning it, and adding a set you
+                cannot take back is half a control (#bugs 2026-08-26). Hidden
+                rather than disabled when there is nothing to take: the last
+                set, or a set already logged. */}
+            {onRemoveSet ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t(language, 'guided.action.removeSet')}
+                hitSlop={8}
+                onPress={onRemoveSet}
+                style={[styles.setAddBtn, { flexShrink: 0, borderColor: theme.danger }]}
+              >
+                <GPIcon name="minus" size={13} color={theme.danger} sw={3} />
+              </Pressable>
+            ) : null}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t(language, 'guided.action.addSet')}
@@ -3670,6 +3816,43 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   sheetHandle: { width: 40, height: 5, borderRadius: 3, backgroundColor: '#E4DBF5', alignSelf: 'center', marginBottom: 16 },
   sheetTitle: { fontSize: 20, fontWeight: '800', color: theme.ink, marginBottom: 16 },
+  runRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border,
+  },
+  // Hollow until reached, filled when it is where you are, ticked when done.
+  runDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: theme.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  runName: {
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '700',
+    color: theme.ink,
+  },
+  runHere: {
+    fontSize: 11.5,
+    lineHeight: 15,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    color: theme.purple,
+    marginTop: 2,
+  },
+  runMeta: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: theme.faint,
+  },
   sheetFootnote: {
     fontSize: 12.5,
     fontWeight: '600',

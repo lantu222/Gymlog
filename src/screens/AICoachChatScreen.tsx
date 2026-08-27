@@ -31,13 +31,20 @@ import { GoalIntent, parseGoalIntent } from '../lib/goalIntent';
 // Deterministic: asking the coach to name a programme gets programmes that do
 // not exist; a scorer over the real catalog cannot.
 import { matchProgrammeToBrief, shouldOfferCatalogInstead } from '../lib/briefProgrammeMatch';
-import { ProgrammeProposal, parseProgrammeBrief } from '../lib/programmeBrief';
+import {
+  ProgrammeProposal,
+  hasProgrammeBriefOutline,
+  outlineProgrammeBrief,
+  parseProgrammeBrief,
+} from '../lib/programmeBrief';
+import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { getFocusAreaLabel } from '../lib/focusAreaPresentation';
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { AI_COACH_DEBUG_TRANSCRIPTS } from '../lib/aiCoachDebug';
 import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
-import { layout, spacing } from '../theme';
+import { layout, radii, spacing } from '../theme';
 import { AICoachAdvice, AICoachConversationTurn, AICoachTrainingContext } from '../types/aiCoach';
 import { AppLanguage } from '../types/models';
 
@@ -433,9 +440,12 @@ export function AICoachChatScreen({
         case 'log':
           return t(language, 'coachChat.measure.offer', { reading: formatReading(offer.intent) });
         case 'compose':
-          // The brief is quoted back. The reader is about to spend a programme
-          // slot on it, and a summary they cannot check is not an offer.
-          return t(language, 'coachChat.compose.offer', { brief: offer.brief });
+          // The question only. What was read out of the brief is laid out
+          // under it (ComposeOutline) rather than quoted back as one sentence
+          // — on a five-day request that sentence ran six lines and the
+          // reader could not see what they were agreeing to (#bugs
+          // 2026-08-27).
+          return t(language, 'coachChat.compose.outlineAsk');
         default:
           return t(language, 'coachChat.measure.pinOffer', { label: measurementLabel(offer.intent) });
       }
@@ -991,6 +1001,9 @@ export function AICoachChatScreen({
               <View key={message.id} style={styles.bubbleRow}>
                 <View style={[styles.coachBubble, styles.offerBubble]}>
                   <Text style={styles.coachText}>{offerBody(message.offer)}</Text>
+                  {message.offer.type === 'compose' ? (
+                    <ComposeOutline brief={message.offer.brief} language={language} styles={styles} />
+                  ) : null}
                   {/* Said before the tap, not at the paywall. Only to readers
                       it applies to: a Pro badge shown to someone who already
                       pays is a sign explaining nothing. */}
@@ -1174,6 +1187,81 @@ export function AICoachChatScreen({
   );
 }
 
+/**
+ * What the app read out of the brief, before it builds anything.
+ *
+ * Deliberately the REQUEST and not the week. The week is composed after this
+ * offer is accepted, and on the live path it comes back from the model — so
+ * drawing a week here would be drawing one the build might not produce. The
+ * brief stays underneath in full: a summary that hides the sentence it was
+ * derived from cannot be checked against it, and the parser does not read
+ * everything a person writes.
+ */
+function ComposeOutline({
+  brief,
+  language,
+  styles,
+}: {
+  brief: string;
+  language: AppLanguage;
+  styles: ReturnType<typeof makeStyles>;
+}) {
+  const outline = useMemo(() => outlineProgrammeBrief(parseProgrammeBrief(brief)), [brief]);
+
+  const lines: string[] = [];
+  if (outline.requestedDays !== null && outline.plannedDays !== null) {
+    // The ceiling, said out loud. Quoting the request back as if it were met
+    // is the app putting a number in the reader's mouth.
+    lines.push(
+      t(language, 'coachChat.compose.outlineDaysTrimmed', {
+        requested: outline.requestedDays,
+        planned: outline.plannedDays,
+      }),
+    );
+  } else if (outline.plannedDays !== null) {
+    lines.push(t(language, 'coachChat.compose.outlineDays', { count: outline.plannedDays }));
+  }
+  if (outline.sessionMinutes !== null) {
+    lines.push(t(language, 'coachChat.compose.outlineMinutes', { count: outline.sessionMinutes }));
+  }
+  if (outline.lifts.length > 0) {
+    lines.push(
+      t(language, 'coachChat.compose.outlineLifts', {
+        names: outline.lifts.map((lift) => exerciseNameLabel(language, lift)).join(', '),
+      }),
+    );
+  }
+  if (outline.focusAreas.length > 0) {
+    lines.push(
+      t(language, 'coachChat.compose.outlineFocus', {
+        areas: outline.focusAreas.map((area) => getFocusAreaLabel(area, language)).join(', '),
+      }),
+    );
+  }
+
+  const briefLine = (
+    <Text style={styles.outlineBrief}>{t(language, 'coachChat.compose.outlineBrief', { brief })}</Text>
+  );
+
+  // Nothing was read: a heading over an empty box says the app understood
+  // nothing, which is worse than the sentence on its own.
+  if (!hasProgrammeBriefOutline(outline)) {
+    return briefLine;
+  }
+
+  return (
+    <View style={styles.outlineCard}>
+      <Text style={styles.outlineTitle}>{t(language, 'coachChat.compose.outlineTitle')}</Text>
+      {lines.map((line) => (
+        <Text key={line} style={styles.outlineLine}>
+          {line}
+        </Text>
+      ))}
+      {briefLine}
+    </View>
+  );
+}
+
 const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
@@ -1294,6 +1382,38 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   // A quiet line under the offer, not a badge: it qualifies the button below
   // rather than competing with it.
+  outlineCard: {
+    marginTop: 10,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    gap: 4,
+  },
+  outlineTitle: {
+    color: theme.faint,
+    fontSize: 10.5,
+    lineHeight: 14,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginBottom: 2,
+  },
+  outlineLine: {
+    color: theme.ink,
+    fontSize: 13.5,
+    lineHeight: 19,
+    fontWeight: '700',
+  },
+  // The sentence it was read from, kept but quieter.
+  outlineBrief: {
+    color: theme.muted,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '600',
+    marginTop: 6,
+  },
   offerNote: {
     color: theme.faint,
     fontSize: 12,

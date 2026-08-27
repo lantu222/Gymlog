@@ -7,10 +7,9 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  useWindowDimensions,
   View,
 } from 'react-native';
-import Svg, { ClipPath, Defs, G, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddExerciseSheet } from '../components/AddExerciseSheet';
@@ -20,10 +19,15 @@ import { buildExerciseSearchHaystack, exerciseMatchesQuery } from '../lib/exerci
 import { getDefaultCooldown, getDefaultWarmup, classifySessionFocus } from '../lib/homeSessionHero';
 import { I18nKey, t } from '../lib/i18n';
 import { ProgramDetailSessionItem } from '../lib/programDetails';
-import { programCoverStyle } from '../lib/programVisualIdentity';
+import {
+  canStepProgramPrescription,
+  MoveDirection,
+  ProgramPrescription,
+  stepProgramPrescription,
+} from '../lib/programSessionEdit';
 import { buildSwapOptionsForSlot } from '../lib/tailoringFit';
 import { buildSwapShortlist } from '../lib/swapShortlist';
-import { localizeSessionName } from '../lib/sessionNameLabel';
+import { formatPlanSessionTitle, localizeSessionName } from '../lib/sessionNameLabel';
 import { layout, radii, spacing } from '../theme';
 import { Theme, darkTheme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage, ExerciseLibraryItem } from '../types/models';
@@ -36,16 +40,6 @@ import { AppLanguage, ExerciseLibraryItem } from '../types/models';
  * the two screens cannot describe different sessions.
  */
 
-/**
- * The hero is a painted area, not a strip.
- *
- * At 172px it stopped just under the title and the stats sat on the page
- * below it, so the colour read as a band that had been cut off. It now runs
- * past the role card and under the first section heading — the seam lands in
- * empty space rather than through a line of text.
- */
-const HERO_HEIGHT = 292;
-const HERO_SEAM_RATIO = 0.93;
 
 const ROLE_TAG_KEYS: Record<string, I18nKey> = {
   primary: 'detail.role.primary',
@@ -75,7 +69,6 @@ const roleTints = (theme: Theme): Record<string, { bg: string; ink: string }> =>
 
 interface ProgramDayScreenProps {
   programTitle: string;
-  templateId: string;
   session: ProgramDetailSessionItem;
   dayNumber: number;
   dayCount: number;
@@ -112,13 +105,26 @@ interface ProgramDayScreenProps {
    * swapped — before the choice there is nothing to make permanent.
    */
   onKeepSwap?: (exerciseId: string, exerciseName: string) => void;
+  /**
+   * How many sets, how many reps — "Sarja/toisto määrää mahdoton muuttaa"
+   * (#bugs 2026-08-27). The numbers were a rendered string: this screen showed
+   * the catalog's dose and offered no way to disagree with it, so a reader who
+   * wanted four sets instead of six had to rebuild the programme by hand in
+   * the editor on another tab.
+   */
+  onPrescribe?: (exerciseId: string, prescription: ProgramPrescription) => void;
+  /**
+   * One place up or down. Ordering is the programme's other real decision:
+   * what you do while fresh is what you get strongest at, so a reader who
+   * wants to squat first has changed their training, not their list.
+   */
+  onMoveExercise?: (exerciseId: string, direction: MoveDirection) => void;
   tailoringPreferences?: Parameters<typeof buildSwapOptionsForSlot>[2];
   onBack: () => void;
 }
 
 export function ProgramDayScreen({
   programTitle,
-  templateId,
   session,
   dayNumber,
   dayCount,
@@ -131,6 +137,8 @@ export function ProgramDayScreen({
   recentExerciseLibraryItems = [],
   onRemoveExercise,
   onKeepSwap,
+  onPrescribe,
+  onMoveExercise,
   tailoringPreferences,
   onBack,
 }: ProgramDayScreenProps) {
@@ -138,8 +146,6 @@ export function ProgramDayScreen({
   const insets = useSafeAreaInsets();
   const styles = useThemedStyles(makeStyles);
   const tints = roleTints(theme);
-  const { width: heroWidth } = useWindowDimensions();
-  const identity = programCoverStyle(templateId, programTitle);
 
   // Warm-up and recovery closed by default: they are the same generated
   // blocks on every session of this focus, and the lifts are what the reader
@@ -151,6 +157,31 @@ export function ProgramDayScreen({
   });
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [swapSlotId, setSwapSlotId] = useState<string | null>(null);
+  /**
+   * The row being re-dosed, and the numbers as the reader has stepped them.
+   *
+   * The draft is seeded once, when the sheet opens, and every press writes the
+   * whole prescription rather than a delta. Two quick taps on "+" therefore
+   * land as 5 then 6, not as 5 twice: the second press does not have to wait
+   * for the first one's save to come back around through props before it knows
+   * what it is adding to.
+   */
+  /**
+   * Reordering, as a mode rather than as a trip through a sheet.
+   *
+   * Moving a lift lived inside the per-row edit sheet, which is three taps
+   * and a read to shift one row one place — and the list you are ordering is
+   * behind the sheet while you do it ("voisi vaihtaa liikkeiden järjestästä
+   * helposti", 2026-08-27). Here the arrows are on the rows, the whole day
+   * stays visible, and each tap moves and saves.
+   */
+  const [reorderMode, setReorderMode] = useState(false);
+  const [tuneExerciseId, setTuneExerciseId] = useState<string | null>(null);
+  const [tuneDraft, setTuneDraft] = useState<ProgramPrescription | null>(null);
+  const closeTuneSheet = () => {
+    setTuneExerciseId(null);
+    setTuneDraft(null);
+  };
   /** Narrows the pool. Cleared with the sheet, so it never opens pre-filtered. */
   const [swapQuery, setSwapQuery] = useState('');
   const closeSwapSheet = () => {
@@ -170,17 +201,19 @@ export function ProgramDayScreen({
    * the newest first, so returning true here is what keeps the screen mounted.
    */
   useEffect(() => {
-    if (!addSheetOpen && swapSlotId === null) {
+    if (!addSheetOpen && swapSlotId === null && tuneExerciseId === null) {
       return undefined;
     }
     const handler = BackHandler.addEventListener('hardwareBackPress', () => {
       setAddSheetOpen(false);
       setSwapSlotId(null);
       setSwapQuery('');
+      setTuneExerciseId(null);
+      setTuneDraft(null);
       return true;
     });
     return () => handler.remove();
-  }, [addSheetOpen, swapSlotId]);
+  }, [addSheetOpen, swapSlotId, tuneExerciseId]);
 
   const swapRow = useMemo(() => {
     const exercise = session.exercises.find((item) => item.slotId && item.slotId === swapSlotId);
@@ -272,49 +305,89 @@ export function ProgramDayScreen({
     return ['primary', 'secondary', 'accessory'].filter((role) => seen.has(role));
   }, [session.exercises]);
 
+  const canTune = Boolean(onPrescribe || onMoveExercise);
+
+  /** The row the sheet is open on, plus where in the day it currently sits. */
+  const tuneRow = useMemo(() => {
+    const index = session.exercises.findIndex((exercise) => exercise.id === tuneExerciseId);
+    if (index === -1 || !tuneDraft) {
+      return null;
+    }
+    const exercise = session.exercises[index];
+    return {
+      id: exercise.id,
+      name: exerciseNameLabel(
+        language,
+        (exercise.slotId ? sessionSwaps[exercise.slotId] : undefined) ?? exercise.name,
+      ),
+      timed: exercise.timed,
+      index,
+      count: session.exercises.length,
+    };
+  }, [language, session.exercises, sessionSwaps, tuneDraft, tuneExerciseId]);
+
+  const stepTune = (field: 'sets' | 'reps', direction: 1 | -1) => {
+    if (!tuneDraft || !tuneRow || !onPrescribe) {
+      return;
+    }
+    const next = stepProgramPrescription(tuneDraft, field, direction);
+    if (next === tuneDraft) {
+      return;
+    }
+    setTuneDraft(next);
+    onPrescribe(tuneRow.id, next);
+  };
+
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.hero}>
-          <Svg width={heroWidth} height={HERO_HEIGHT} style={StyleSheet.absoluteFill}>
-            <Defs>
-              <SvgLinearGradient id="dayHero" x1="0" y1="0" x2="0.8" y2="1">
-                <Stop offset="0" stopColor={identity.hero[0]} />
-                <Stop offset="1" stopColor={identity.hero[1]} />
-              </SvgLinearGradient>
-              <ClipPath id="dayHeroSeam">
-                <Path d={`M0 0 H${heroWidth} V${HERO_HEIGHT} L0 ${HERO_HEIGHT * HERO_SEAM_RATIO} Z`} />
-              </ClipPath>
-            </Defs>
-            <G clipPath="url(#dayHeroSeam)">
-              <Rect x="0" y="0" width={heroWidth} height={HERO_HEIGHT} fill="url(#dayHero)" />
-            </G>
-          </Svg>
-          <View style={styles.heroTopRow}>
-            <Pressable hitSlop={8} onPress={onBack} style={styles.heroGlass}>
-              <Svg viewBox="0 0 24 24" width={18} height={18}>
-                <Path d="M15 6l-6 6 6 6" stroke="#FFFFFF" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-              </Svg>
-            </Pressable>
+        {/*
+          The same treatment the programme page got: title first, numbers
+          under it, nothing painted (#bugs 2026-08-27). Only the gradient
+          went — the day's name and its two numbers are what the block was
+          carrying, and they stay, as does everything under it.
+        */}
+        <View style={styles.headerRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(language, 'common.back')}
+            hitSlop={10}
+            onPress={onBack}
+            style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.6 }]}
+          >
+            <Svg viewBox="0 0 24 24" width={18} height={18}>
+              <Path
+                d="M15 6l-6 6 6 6"
+                stroke={theme.ink}
+                strokeWidth={2.4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
+            </Svg>
+          </Pressable>
+        </View>
+        {/*
+          The day, named exactly as the row you tapped named it.
+
+          This said the PROGRAMME's name in the big type with the session
+          underneath, so the list said "Päivä 1. Rinta" and the page it opened
+          said "Chest Day / Rinta" — the same day under two names, one of them
+          new to the reader ("nyt tähän pelkästään se mitä on klikannut",
+          2026-08-27). The programme's name is on the page you came from and
+          is not repeated here.
+        */}
+        <Text style={styles.pageTitle} numberOfLines={2}>
+          {formatPlanSessionTitle(session, dayNumber - 1, programTitle, language)}
+        </Text>
+        <View style={styles.pageStats}>
+          <View>
+            <Text style={styles.pageStatValue}>{session.exerciseCount}</Text>
+            <Text style={styles.pageStatLabel}>{t(language, 'detail.day.exercisesStat')}</Text>
           </View>
-          {/* The programme's name, big. "PÄIVÄ 1 / 1" was a counter on a
-              one-day programme — a fraction that only ever reads 1/1 tells the
-              reader nothing they cannot see. */}
-          <Text style={styles.heroTitle} numberOfLines={2}>
-            {programTitle}
-          </Text>
-          <Text style={styles.heroSession} numberOfLines={1}>
-            {localizeSessionName(session.name, language).replace(/^[^:]*:\s*/, '')}
-          </Text>
-          <View style={styles.heroStats}>
-            <View>
-              <Text style={styles.heroStatValue}>{session.exerciseCount}</Text>
-              <Text style={styles.heroStatLabel}>{t(language, 'detail.day.exercisesStat')}</Text>
-            </View>
-            <View>
-              <Text style={styles.heroStatValue}>{session.totalSets}</Text>
-              <Text style={styles.heroStatLabel}>{t(language, 'detail.day.sets')}</Text>
-            </View>
+          <View>
+            <Text style={styles.pageStatValue}>{session.totalSets}</Text>
+            <Text style={styles.pageStatLabel}>{t(language, 'detail.day.sets')}</Text>
           </View>
         </View>
 
@@ -366,6 +439,19 @@ export function ProgramDayScreen({
           onToggle={() => setOpenSections((current) => ({ ...current, exercises: !current.exercises }))}
         >
         <View style={styles.exerciseList}>
+          {/* Offered only when there is an order to change: one lift cannot be
+              reordered, and a control that does nothing is furniture. */}
+          {onMoveExercise && session.exercises.length > 1 ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setReorderMode((current) => !current)}
+              style={({ pressed }) => [styles.reorderToggle, pressed && styles.swapOptionPressed]}
+            >
+              <Text style={[styles.reorderToggleText, reorderMode && { color: theme.accent }]}>
+                {t(language, reorderMode ? 'detail.day.reorderDone' : 'detail.day.reorder')}
+              </Text>
+            </Pressable>
+          ) : null}
           {session.exercises.map((exercise, index) => (
             <View key={exercise.id} style={[styles.exerciseCard, index === 0 && styles.exerciseCardAnchor]}>
               <View style={styles.exerciseTop}>
@@ -387,14 +473,62 @@ export function ProgramDayScreen({
                 </View>
               </View>
               <View style={styles.exerciseBottom}>
-                <Text style={styles.exerciseScheme}>
-                  {exercise.prescription}
-                  <Text style={styles.exerciseRest}>
-                    {'  ·  '}
+                {/* The dose is a button and the rest is not, because the rest
+                    is the only one of the three this sheet cannot change. A
+                    control that opens onto half of what it covers is how a
+                    reader learns to distrust the other half. */}
+                <View style={styles.exerciseDose}>
+                  {canTune ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      hitSlop={6}
+                      onPress={() => {
+                        setTuneExerciseId(exercise.id);
+                        setTuneDraft({
+                          targetSets: exercise.sets,
+                          repMin: exercise.repMin,
+                          repMax: exercise.repMax,
+                        });
+                      }}
+                      style={({ pressed }) => [styles.doseChip, pressed && styles.swapOptionPressed]}
+                    >
+                      <Text style={styles.doseChipText}>{exercise.prescription}</Text>
+                      <Svg width={12} height={12} viewBox="0 0 24 24">
+                        <Path
+                          d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                          fill={theme.purple}
+                        />
+                      </Svg>
+                    </Pressable>
+                  ) : (
+                    <Text style={styles.exerciseScheme}>{exercise.prescription}</Text>
+                  )}
+                  <Text style={styles.exerciseRest} numberOfLines={1}>
                     {t(language, 'detail.day.rest', { range: exercise.restLabel })}
                   </Text>
-                </Text>
-                {exercise.slotId && onSwapExercise ? (
+                </View>
+                {reorderMode && onMoveExercise ? (
+                  // Same slot the swap button uses, so the row does not jump
+                  // sideways when the mode flips under the thumb.
+                  <View style={styles.moveRow}>
+                    <MoveButton
+                      direction="up"
+                      styles={styles}
+                      theme={theme}
+                      label={t(language, 'detail.day.moveUp')}
+                      disabled={index === 0}
+                      onPress={() => onMoveExercise(exercise.id, 'up')}
+                    />
+                    <MoveButton
+                      direction="down"
+                      styles={styles}
+                      theme={theme}
+                      label={t(language, 'detail.day.moveDown')}
+                      disabled={index === session.exercises.length - 1}
+                      onPress={() => onMoveExercise(exercise.id, 'down')}
+                    />
+                  </View>
+                ) : exercise.slotId && onSwapExercise ? (
                   <Pressable
                     hitSlop={6}
                     onPress={() => setSwapSlotId(exercise.slotId ?? null)}
@@ -602,6 +736,120 @@ export function ProgramDayScreen({
         </View>
       </Modal>
 
+      {/*
+        Sets, reps and the row's place in the day — the three numbers the
+        catalog decided and the reader could not answer back.
+
+        Every press writes. There is no save button because there is no draft
+        to lose: the reader who steps sets to four and puts the phone down has
+        a programme with four sets in it, not a sheet they forgot to confirm.
+      */}
+      <Modal
+        visible={tuneRow !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => closeTuneSheet()}
+      >
+        <View style={styles.swapOverlay}>
+          <Pressable style={styles.swapScrim} onPress={() => closeTuneSheet()} />
+          <View style={[styles.swapSheet, { paddingBottom: insets.bottom + 28 }]}>
+            <View style={styles.swapGrip} />
+            <Text style={styles.tuneEyebrow}>{t(language, 'detail.day.tuneEyebrow')}</Text>
+            <Text style={styles.swapTitle} numberOfLines={2}>
+              {tuneRow?.name ?? ''}
+            </Text>
+
+            {tuneRow && tuneDraft && onPrescribe ? (
+              <>
+                <View style={styles.tuneRow}>
+                  <Text style={styles.tuneLabel}>{t(language, 'detail.day.setsLabel')}</Text>
+                  <View style={styles.tuneControls}>
+                    <RoundButton
+                      glyph="minus"
+                      styles={styles}
+                      theme={theme}
+                      disabled={!canStepProgramPrescription(tuneDraft, 'sets', -1)}
+                      onPress={() => stepTune('sets', -1)}
+                    />
+                    <Text style={styles.tuneValue}>{tuneDraft.targetSets}</Text>
+                    <RoundButton
+                      glyph="plus"
+                      styles={styles}
+                      theme={theme}
+                      disabled={!canStepProgramPrescription(tuneDraft, 'sets', 1)}
+                      onPress={() => stepTune('sets', 1)}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.tuneRow}>
+                  <Text style={styles.tuneLabel}>{t(language, 'editor.reps')}</Text>
+                  <View style={styles.tuneControls}>
+                    <RoundButton
+                      glyph="minus"
+                      styles={styles}
+                      theme={theme}
+                      disabled={!canStepProgramPrescription(tuneDraft, 'reps', -1)}
+                      onPress={() => stepTune('reps', -1)}
+                    />
+                    {/* A range stays a range: "6–8" steps to "7–9" rather than
+                        collapsing to a single number the programme never wrote. */}
+                    <Text style={styles.tuneValue}>
+                      {tuneDraft.repMin === tuneDraft.repMax
+                        ? `${tuneDraft.repMin}`
+                        : `${tuneDraft.repMin}–${tuneDraft.repMax}`}
+                      {tuneRow.timed ? ' s' : ''}
+                    </Text>
+                    <RoundButton
+                      glyph="plus"
+                      styles={styles}
+                      theme={theme}
+                      disabled={!canStepProgramPrescription(tuneDraft, 'reps', 1)}
+                      onPress={() => stepTune('reps', 1)}
+                    />
+                  </View>
+                </View>
+              </>
+            ) : null}
+
+            {tuneRow && onMoveExercise ? (
+              <View style={[styles.tuneRow, styles.tuneRowLast]}>
+                <Text style={styles.tuneLabel}>{t(language, 'detail.day.orderLabel')}</Text>
+                <View style={styles.tuneControls}>
+                  <RoundButton
+                    glyph="up"
+                    styles={styles}
+                    theme={theme}
+                    label={t(language, 'detail.day.moveUp')}
+                    disabled={tuneRow.index === 0}
+                    onPress={() => onMoveExercise(tuneRow.id, 'up')}
+                  />
+                  <Text style={styles.tuneValue}>
+                    {tuneRow.index + 1} / {tuneRow.count}
+                  </Text>
+                  <RoundButton
+                    glyph="down"
+                    styles={styles}
+                    theme={theme}
+                    label={t(language, 'detail.day.moveDown')}
+                    disabled={tuneRow.index === tuneRow.count - 1}
+                    onPress={() => onMoveExercise(tuneRow.id, 'down')}
+                  />
+                </View>
+              </View>
+            ) : null}
+
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => closeTuneSheet()}
+              style={({ pressed }) => [styles.tuneDone, pressed && styles.swapOptionPressed]}
+            >
+              <Text style={styles.tuneDoneText}>{t(language, 'common.close')}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
       {/* The library, over the day it is adding to. Same component the editor
           uses, so search, body-part chips and the photos are the ones the
           reader already knows. */}
@@ -628,6 +876,105 @@ export function ProgramDayScreen({
 
       {/* The "Start this workout" dock was removed on request. */}
     </View>
+  );
+}
+
+/** One place up or down, on the row itself. */
+function MoveButton({
+  direction,
+  disabled,
+  onPress,
+  label,
+  styles,
+  theme,
+}: {
+  direction: 'up' | 'down';
+  disabled?: boolean;
+  onPress: () => void;
+  label: string;
+  styles: ReturnType<typeof makeStyles>;
+  theme: Theme;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: Boolean(disabled) }}
+      disabled={disabled}
+      hitSlop={6}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.moveButton,
+        disabled && styles.moveButtonOff,
+        pressed && !disabled && styles.swapOptionPressed,
+      ]}
+    >
+      <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+        <Path
+          d={direction === 'up' ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'}
+          stroke={disabled ? theme.faint : theme.purple}
+          strokeWidth={2.6}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    </Pressable>
+  );
+}
+
+const ROUND_GLYPHS = {
+  minus: 'M6 12h12',
+  plus: 'M12 6v12M6 12h12',
+  up: 'M6 15l6-6 6 6',
+  down: 'M6 9l6 6 6-6',
+} as const;
+
+/**
+ * One press of one number.
+ *
+ * Disabled is drawn, not hidden: a "+" that vanishes at twelve sets reads as
+ * the app losing the button, while a greyed one says the programme has a
+ * ceiling and you have reached it.
+ */
+function RoundButton({
+  glyph,
+  disabled,
+  onPress,
+  label,
+  styles,
+  theme,
+}: {
+  glyph: keyof typeof ROUND_GLYPHS;
+  disabled?: boolean;
+  onPress: () => void;
+  label?: string;
+  styles: ReturnType<typeof makeStyles>;
+  theme: Theme;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: Boolean(disabled) }}
+      disabled={disabled}
+      hitSlop={6}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.roundButton,
+        disabled && styles.roundButtonOff,
+        pressed && !disabled && styles.swapOptionPressed,
+      ]}
+    >
+      <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+        <Path
+          d={ROUND_GLYPHS[glyph]}
+          stroke={disabled ? theme.faint : theme.purple}
+          strokeWidth={2.4}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    </Pressable>
   );
 }
 
@@ -693,72 +1040,57 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     // tab bar on every day page. Just the tab bar's reserve now.
     paddingBottom: layout.bottomTabBarReserve,
   },
-  hero: {
-    height: HERO_HEIGHT,
-    justifyContent: 'flex-start',
-    paddingHorizontal: 18,
-    paddingTop: 46,
-  },
-  heroTopRow: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    paddingHorizontal: spacing.lg,
+    marginTop: 6,
   },
-  heroGlass: {
-    width: 34,
-    height: 34,
+  backButton: {
+    width: 36,
+    height: 36,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  heroKick: {
-    flex: 1,
-    color: 'rgba(255,255,255,0.78)',
-    fontSize: 10.5,
-    lineHeight: 14,
-    fontWeight: '800',
-    letterSpacing: 1.1,
-  },
-  heroTitle: {
-    color: '#FFFFFF',
+  pageTitle: {
+    color: theme.ink,
     fontSize: 30,
     lineHeight: 35,
     fontWeight: '800',
     letterSpacing: -0.9,
-    marginTop: 18,
+    marginTop: 14,
+    paddingHorizontal: spacing.lg,
   },
-  heroSession: {
-    color: 'rgba(255,255,255,0.82)',
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: '700',
-    marginTop: 4,
-  },
-  heroStats: {
+  pageStats: {
     flexDirection: 'row',
     gap: 22,
-    marginTop: 18,
+    marginTop: 16,
+    paddingHorizontal: spacing.lg,
   },
-  heroStatValue: {
-    color: '#FFFFFF',
+  pageStatValue: {
+    color: theme.ink,
     fontSize: 18,
     lineHeight: 22,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
-  heroStatLabel: {
-    color: 'rgba(255,255,255,0.78)',
+  pageStatLabel: {
+    color: theme.faint,
     fontSize: 10,
     lineHeight: 13,
     fontWeight: '800',
     letterSpacing: 0.8,
     marginTop: 1,
   },
-  // Pulled up onto the hero so the colour reads as a header the content sits
-  // on, rather than a band that stops.
+  // Was pulled up by -58 so it overlapped the painted hero and made the
+  // colour read as a header rather than a band that stops. With no hero to
+  // overlap, it sits in the flow like every other card.
   roleCard: {
-    marginTop: -58,
+    marginTop: 18,
     marginHorizontal: spacing.lg,
     borderRadius: radii.lg,
     borderWidth: 1,
@@ -903,6 +1235,134 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
     marginTop: 10,
+  },
+  // Numbers and rest on one line, with whatever is left going to the rest so
+  // "tauko 2 min" never pushes the swap button off the row.
+  exerciseDose: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  doseChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  doseChipText: {
+    color: theme.ink,
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '800',
+    letterSpacing: -0.1,
+  },
+  tuneEyebrow: {
+    color: theme.faint,
+    fontSize: 10.5,
+    lineHeight: 14,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+    marginBottom: 4,
+  },
+  tuneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border,
+  },
+  tuneRowLast: {
+    borderBottomWidth: 0,
+  },
+  tuneLabel: {
+    flex: 1,
+    color: theme.ink,
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '700',
+  },
+  tuneControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  // Fixed width, so stepping 9 to 10 does not shuffle the buttons sideways
+  // under the thumb that is still pressing them.
+  tuneValue: {
+    minWidth: 62,
+    textAlign: 'center',
+    color: theme.ink,
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  roundButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roundButtonOff: {
+    opacity: 0.45,
+  },
+  tuneDone: {
+    marginTop: 18,
+    borderRadius: radii.md,
+    backgroundColor: theme.surfaceSoft,
+    borderWidth: 1,
+    borderColor: theme.border,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  tuneDoneText: {
+    color: theme.ink,
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '800',
+  },
+  // Right-aligned above the rows: an action ON the list, not a row in it.
+  reorderToggle: {
+    alignSelf: 'flex-end',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    marginBottom: 2,
+  },
+  reorderToggleText: {
+    color: theme.purple,
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  moveRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  moveButton: {
+    width: 34,
+    height: 30,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moveButtonOff: {
+    opacity: 0.4,
   },
   swapButton: {
     borderRadius: 9,

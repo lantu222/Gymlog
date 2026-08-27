@@ -10,6 +10,8 @@
  * dictionary doesn't know is passed through untouched, so a new catalog entry
  * degrades to English rather than breaking.
  */
+import { formatWorkoutDisplayLabel } from './displayLabel';
+import { t } from './i18n';
 import { AppLanguage } from '../types/models';
 
 /** Focus words used across workoutCatalog + gainerProgramCatalog. */
@@ -264,4 +266,40 @@ export function localizeSessionName(name: string, language: AppLanguage = 'en'):
   const [, prefix, dayNumber, focus] = dayMatch;
   const dayLabel = language === 'fi' ? `Päivä ${dayNumber}` : `Day ${dayNumber}`;
   return `${prefix}${dayLabel}: ${localizeWorkoutFocus(focus, language)}`;
+}
+
+/**
+ * A day of a programme, named the way the reader met it: "Päivä 1. Rinta".
+ *
+ * Lived in ProgramDetailScreen, which is the screen you tap it on. The day
+ * page then built its own title out of the programme name and a stripped
+ * session name, so the row said "Päivä 1. Rinta" and the page you landed on
+ * said "Chest Day / Rinta" — the same day under two names, one of which the
+ * reader had never seen (2026-08-27). One function, both screens.
+ */
+export function formatPlanSessionTitle(
+  session: { name: string },
+  index: number,
+  programTitle: string,
+  language: AppLanguage,
+): string {
+  // The English name is what is stored and matched on; localizeSessionName only
+  // rewrites the parts it recognises.
+  const sessionName = formatWorkoutDisplayLabel(session.name, 'Workout');
+  const normalizedProgram = programTitle.toLowerCase();
+  const normalizedSession = sessionName.toLowerCase();
+
+  if (normalizedProgram.includes('full body') && /^minimal\s+[a-z]$/.test(normalizedSession)) {
+    return `${t(language, 'detail.day', { index: index + 1 })}. ${t(language, 'facet.fullBody')}`;
+  }
+
+  if (/^workout\s+[a-z]$/.test(normalizedSession)) {
+    return `${t(language, 'detail.day', { index: index + 1 })}. ${t(language, 'ai.signal.workout')}`;
+  }
+
+  if (/^day\s+\d+/i.test(sessionName)) {
+    return localizeSessionName(sessionName, language);
+  }
+
+  return `${t(language, 'detail.day', { index: index + 1 })}. ${localizeSessionName(sessionName, language)}`;
 }

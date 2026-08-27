@@ -194,6 +194,18 @@ interface MeasureLogSheetProps {
   language: AppLanguage;
   /** The measure's own name, so the sheet says what is being logged. */
   title: string;
+  /**
+   * Where to put the tape.
+   *
+   * "Käsivarret" said which limb and nothing about which part of it, and the
+   * reader read it as possibly the forearm ("ehkä vähän missleading voisi olla
+   * hauiksen ympärysmitta", #bugs 2026-08-27). The name is fixed, but the
+   * same ambiguity sits on every one of these: chest at the nipples or under
+   * the arms, waist at the navel or the narrowest point. A girth taken from a
+   * different place each time is not a measurement, and this screen exists to
+   * draw a trend through them.
+   */
+  hint?: string | null;
   unit: string;
   /** Opens on the last reading; the common edit is a small one. */
   initialValue: number;
@@ -219,6 +231,7 @@ export function MeasureLogSheet({
   visible,
   language,
   title,
+  hint = null,
   unit,
   initialValue,
   dateIso,
@@ -243,6 +256,7 @@ export function MeasureLogSheet({
           <Text style={styles.datePillText}>{formatShortDate(dateIso, language)}</Text>
         </View>
       </View>
+      {hint ? <Text style={styles.hint}>{hint}</Text> : null}
 
       <BigValue value={value} suffix={unit} decimals={1} />
       <RulerPicker
@@ -345,6 +359,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
     color: theme.ink,
+  },
+  // Under the name, above the number: read once, then you dial.
+  hint: {
+    marginTop: 6,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+    color: theme.muted,
   },
   datePill: {
     backgroundColor: theme.surfaceSoft,

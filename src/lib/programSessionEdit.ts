@@ -45,10 +45,76 @@ export interface ProgramSessionDayDraft {
   }>;
 }
 
+export type MoveDirection = 'up' | 'down';
+
+/** The two numbers on the row: "5 × 12". */
+export interface ProgramPrescription {
+  targetSets: number;
+  repMin: number;
+  repMax: number;
+}
+
+/**
+ * Bounds, not preferences.
+ *
+ * These are the numbers a stepper is allowed to reach, and they exist because
+ * a held "+" on a phone runs faster than the eye: without a ceiling the row
+ * reads "97 × 300" and the session estimate behind it turns into a working
+ * day. The floor is the same argument from the other side — zero sets is a
+ * lift that is in the programme and never done.
+ */
+export const PROGRAM_SETS_RANGE = { min: 1, max: 12 } as const;
+export const PROGRAM_REPS_RANGE = { min: 1, max: 50 } as const;
+
+/**
+ * One press of one stepper.
+ *
+ * Reps move as a block. The catalog writes ranges — "3 × 6–8" is a real row,
+ * and the span between the ends is the programme saying "stop when form goes",
+ * not an accident of two numbers. Adding a rep to a range therefore gives
+ * "7–9", and the step is refused outright when either end would leave the
+ * bounds, so the span can never be silently squeezed flat by a stepper that
+ * clamped one end and not the other.
+ */
+export function stepProgramPrescription(
+  current: ProgramPrescription,
+  field: 'sets' | 'reps',
+  direction: 1 | -1,
+): ProgramPrescription {
+  if (field === 'sets') {
+    const targetSets = current.targetSets + direction;
+    if (targetSets < PROGRAM_SETS_RANGE.min || targetSets > PROGRAM_SETS_RANGE.max) {
+      return current;
+    }
+    return { ...current, targetSets };
+  }
+
+  const repMin = current.repMin + direction;
+  const repMax = current.repMax + direction;
+  if (repMin < PROGRAM_REPS_RANGE.min || repMax > PROGRAM_REPS_RANGE.max) {
+    return current;
+  }
+  return { ...current, repMin, repMax };
+}
+
+/** True while the stepper still has somewhere to go — what greys the button out. */
+export function canStepProgramPrescription(
+  current: ProgramPrescription,
+  field: 'sets' | 'reps',
+  direction: 1 | -1,
+): boolean {
+  const next = stepProgramPrescription(current, field, direction);
+  return next !== current;
+}
+
 export type ProgramSessionEdit =
   | { kind: 'remove'; exerciseId: string }
   | { kind: 'replace'; exerciseId: string; exerciseName: string; libraryItemId: string | null }
-  | { kind: 'add'; exercises: ReadonlyArray<ProgramSessionExerciseSnapshot> };
+  | { kind: 'add'; exercises: ReadonlyArray<ProgramSessionExerciseSnapshot> }
+  /** The dose: how many sets, how many reps. Everything else about the row stays. */
+  | { kind: 'prescribe'; exerciseId: string; prescription: ProgramPrescription }
+  /** One place up or down inside its own day. */
+  | { kind: 'move'; exerciseId: string; direction: MoveDirection };
 
 export type ProgramSessionEditOutcome =
   | { kind: 'save'; sessions: ProgramSessionDayDraft[] }
@@ -57,7 +123,14 @@ export type ProgramSessionEditOutcome =
    * with no session behind it, and starting it would open an empty player.
    * Deleting the day is a different decision, made in the editor.
    */
-  | { kind: 'skip'; reason: 'lastExerciseInDay' };
+  | { kind: 'skip'; reason: 'lastExerciseInDay' }
+  /**
+   * The top row has no row above it. Writing the programme back unchanged
+   * would be a save with nothing in it, and the reader would watch a
+   * confirmation for an edit that never happened.
+   */
+  | { kind: 'skip'; reason: 'alreadyAtEdge' }
+  | { kind: 'skip'; reason: 'exerciseMissing' };
 
 function toDraftExercise(
   exercise: ProgramSessionExerciseSnapshot,
@@ -86,23 +159,58 @@ export function applyProgramSessionEdit(
   sessionId: string,
   edit: ProgramSessionEdit,
 ): ProgramSessionEditOutcome {
+  // Answered before the programme is rebuilt: a move that cannot happen must
+  // not come back as a save, or the screen confirms an edit it did not make.
+  if (edit.kind === 'move') {
+    const day = sessions.find((session) => session.id === sessionId);
+    const from = day?.exercises.findIndex((exercise) => exercise.id === edit.exerciseId) ?? -1;
+    if (!day || from === -1) {
+      return { kind: 'skip', reason: 'exerciseMissing' };
+    }
+    const to = edit.direction === 'up' ? from - 1 : from + 1;
+    if (to < 0 || to >= day.exercises.length) {
+      return { kind: 'skip', reason: 'alreadyAtEdge' };
+    }
+  }
+
   const next: ProgramSessionDayDraft[] = sessions.map((session) => {
     const isTargetDay = session.id === sessionId;
     const exercises = session.exercises
       .filter((exercise) => !(isTargetDay && edit.kind === 'remove' && exercise.id === edit.exerciseId))
       .map((exercise) => {
-        const isTargetRow = isTargetDay && edit.kind === 'replace' && exercise.id === edit.exerciseId;
-        if (!isTargetRow) {
+        const rewrites = edit.kind === 'replace' || edit.kind === 'prescribe';
+        if (!isTargetDay || !rewrites || exercise.id !== edit.exerciseId) {
           return toDraftExercise(exercise);
         }
-        // Only the lift changes. Sets, reps and rest are the prescription, and
-        // a swap is a different way to train it, not a different dose.
-        return {
-          ...toDraftExercise(exercise),
-          name: edit.exerciseName,
-          libraryItemId: edit.libraryItemId,
-        };
+        if (edit.kind === 'replace') {
+          // Only the lift changes. Sets, reps and rest are the prescription,
+          // and a swap is a different way to train it, not a different dose.
+          return {
+            ...toDraftExercise(exercise),
+            name: edit.exerciseName,
+            libraryItemId: edit.libraryItemId,
+          };
+        }
+        if (edit.kind === 'prescribe') {
+          // The mirror image of a swap: the dose changes, the lift does not.
+          return {
+            ...toDraftExercise(exercise),
+            targetSets: edit.prescription.targetSets,
+            repMin: edit.prescription.repMin,
+            repMax: edit.prescription.repMax,
+          };
+        }
+        return toDraftExercise(exercise);
       });
+
+    if (isTargetDay && edit.kind === 'move') {
+      const from = exercises.findIndex((exercise) => exercise.id === edit.exerciseId);
+      const to = edit.direction === 'up' ? from - 1 : from + 1;
+      // Lifted out and put back one place along, so the rows between it and
+      // its destination close up behind it rather than swapping identities.
+      const [moved] = exercises.splice(from, 1);
+      exercises.splice(to, 0, moved);
+    }
 
     return {
       id: session.id,

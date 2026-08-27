@@ -121,6 +121,10 @@ interface AppContextValue {
     workoutTemplateId: string,
     edit: (sessions: WorkoutTemplateSessionWithExercises[]) => WorkoutTemplateSessionsEdit,
   ) => Promise<WorkoutTemplateSessionsEditResult>;
+  findWorkoutTemplateIdBySource: (sourceTemplateId: string) => Promise<string | null>;
+  getWorkoutTemplateSessionsFresh: (
+    workoutTemplateId: string,
+  ) => Promise<WorkoutTemplateSessionWithExercises[]>;
   deleteWorkoutTemplate: (workoutTemplateId: string) => Promise<void>;
   saveWorkoutSession: (
     workoutTemplateId: string,
@@ -645,6 +649,49 @@ export function AppProvider({ children }: React.PropsWithChildren) {
    * call to `upsertWorkoutTemplateExclusive` rather than `upsertWorkoutTemplate`:
    * queueing from inside the queue would deadlock.
    */
+  /**
+   * The days of a stored programme, read from stored data.
+   *
+   * `getWorkoutTemplateSessions` reads the RENDERED database, which is the
+   * right thing for a screen and the wrong thing immediately after a write:
+   * the closure that just awaited an upsert still holds the render from
+   * before it, so a template created a moment ago is not there yet. Copying a
+   * ready programme did exactly that — read the copy's days back to build its
+   * plan, got nothing, and `buildProgramWorkoutPlan` floors the count at one.
+   * Every reader who edited a lift in a three-day programme was handed a
+   * one-day plan pointing at no session (verified in stored data on the
+   * emulator 2026-08-27: FIT's copy, three days, one entry).
+   */
+  function getWorkoutTemplateSessionsFresh(
+    workoutTemplateId: string,
+  ): Promise<WorkoutTemplateSessionWithExercises[]> {
+    return runExclusive(async () => {
+      const current = databaseRef.current;
+      const template = workoutTemplateRepository.findById(current, workoutTemplateId);
+      return template ? buildWorkoutTemplateSessions(template, current.exerciseTemplates) : [];
+    });
+  }
+
+  /**
+   * "Do I already have a copy of this catalog programme?" — asked of stored
+   * data, not of the screen.
+   *
+   * The caller used to answer this from the rendered `workoutTemplates` array,
+   * which is one render behind the database. That was survivable while an edit
+   * was a deliberate press every few seconds. It stopped being survivable when
+   * the day screen grew a stepper: three quick taps on "+" are three edits
+   * inside one render, all three see no copy, and all three make one — which
+   * is the copy-accumulation bug back again, from the other end (verified on
+   * the emulator 2026-08-27, two "HOME Starter" rows from a single adjustment).
+   */
+  function findWorkoutTemplateIdBySource(sourceTemplateId: string): Promise<string | null> {
+    return runExclusive(async () =>
+      databaseRef.current.workoutTemplates.find(
+        (template) => template.sourceTemplateId === sourceTemplateId,
+      )?.id ?? null,
+    );
+  }
+
   function editWorkoutTemplateSessions(
     workoutTemplateId: string,
     edit: (sessions: WorkoutTemplateSessionWithExercises[]) => WorkoutTemplateSessionsEdit,
@@ -1006,6 +1053,8 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       saveOnboardingResult,
       renameWorkoutTemplate,
       editWorkoutTemplateSessions,
+      findWorkoutTemplateIdBySource,
+      getWorkoutTemplateSessionsFresh,
       deleteWorkoutTemplate,
       saveWorkoutSession,
       saveCompletedWorkoutSession: persistCompletedWorkoutSession,

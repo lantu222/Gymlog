@@ -243,19 +243,21 @@ const MEASURE_RANGES: Array<{ key: MeasureRange; label: string | null; labelKey?
 const MEASURE_CONFIG: Array<{
   key: MeasureKey;
   labelKey: I18nKey;
+  /** Where to put the tape, shown in the logging sheet. */
+  hintKey?: I18nKey;
   icon: MeasureIconName;
   kind: MeasurementKind | null;
   lowerIsBetter: boolean;
 }> = [
   { key: 'bodyweight', labelKey: 'progress.measure.bodyweight', icon: 'scale', kind: null, lowerIsBetter: false },
-  { key: 'bodyfat', labelKey: 'progress.measure.bodyfat', icon: 'drop', kind: 'bodyfat', lowerIsBetter: true },
-  { key: 'shoulders', labelKey: 'progress.measure.shoulders', icon: 'tape', kind: 'shoulders', lowerIsBetter: false },
-  { key: 'chest', labelKey: 'progress.measure.chest', icon: 'tape', kind: 'chest', lowerIsBetter: false },
-  { key: 'arms', labelKey: 'progress.measure.arms', icon: 'tape', kind: 'arms', lowerIsBetter: false },
-  { key: 'waist', labelKey: 'progress.measure.waist', icon: 'tape', kind: 'waist', lowerIsBetter: true },
-  { key: 'hips', labelKey: 'progress.measure.hips', icon: 'tape', kind: 'hips', lowerIsBetter: false },
-  { key: 'thighs', labelKey: 'progress.measure.thighs', icon: 'tape', kind: 'thighs', lowerIsBetter: false },
-  { key: 'calves', labelKey: 'progress.measure.calves', icon: 'tape', kind: 'calves', lowerIsBetter: false },
+  { key: 'bodyfat', labelKey: 'progress.measure.bodyfat', hintKey: 'progress.measure.hint.bodyfat', icon: 'drop', kind: 'bodyfat', lowerIsBetter: true },
+  { key: 'shoulders', labelKey: 'progress.measure.shoulders', hintKey: 'progress.measure.hint.shoulders', icon: 'tape', kind: 'shoulders', lowerIsBetter: false },
+  { key: 'chest', labelKey: 'progress.measure.chest', hintKey: 'progress.measure.hint.chest', icon: 'tape', kind: 'chest', lowerIsBetter: false },
+  { key: 'arms', labelKey: 'progress.measure.arms', hintKey: 'progress.measure.hint.arms', icon: 'tape', kind: 'arms', lowerIsBetter: false },
+  { key: 'waist', labelKey: 'progress.measure.waist', hintKey: 'progress.measure.hint.waist', icon: 'tape', kind: 'waist', lowerIsBetter: true },
+  { key: 'hips', labelKey: 'progress.measure.hips', hintKey: 'progress.measure.hint.hips', icon: 'tape', kind: 'hips', lowerIsBetter: false },
+  { key: 'thighs', labelKey: 'progress.measure.thighs', hintKey: 'progress.measure.hint.thighs', icon: 'tape', kind: 'thighs', lowerIsBetter: false },
+  { key: 'calves', labelKey: 'progress.measure.calves', hintKey: 'progress.measure.hint.calves', icon: 'tape', kind: 'calves', lowerIsBetter: false },
 ];
 
 // Honest signal palette (light) keyed by getExerciseProgressSignal kinds.
@@ -2105,6 +2107,7 @@ export function ProgressScreen({
         visible={measureSheetVisible}
         language={language}
         title={t(language, selectedMeasureModel.labelKey)}
+        hint={selectedMeasureModel.hintKey ? t(language, selectedMeasureModel.hintKey) : null}
         unit={selectedMeasureModel.unit}
         initialValue={
           selectedMeasureLatest ?? (selectedMeasureModel.unit === '%' ? 20 : 90)

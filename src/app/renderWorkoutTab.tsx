@@ -28,6 +28,7 @@ import { ExerciseDetailScreen } from '../screens/ExerciseDetailScreen';
 import { ExercisesScreen } from '../screens/ExercisesScreen';
 import { GuidedPlayerScreen } from '../screens/GuidedPlayerScreen';
 import { ProgramDayScreen } from '../screens/ProgramDayScreen';
+import { MoveDirection, ProgramPrescription } from '../lib/programSessionEdit';
 import { ProgramDetailScreen } from '../screens/ProgramDetailScreen';
 import { ProgramsHomeScreen } from '../screens/ProgramsHomeScreen';
 import { SeasonScreen } from '../screens/SeasonScreen';
@@ -99,7 +100,9 @@ export interface WorkoutTabDeps {
     edit:
       | { kind: 'remove' }
       | { kind: 'replace'; exerciseName: string }
-      | { kind: 'add'; exerciseNames: string[] },
+      | { kind: 'add'; exerciseNames: string[] }
+      | { kind: 'prescribe'; prescription: ProgramPrescription }
+      | { kind: 'move'; direction: MoveDirection },
   ) => Promise<void>;
   handleSaveRhythm: (workoutTemplateId: string, dayIndexes: number[]) => Promise<void>;
   handleSaveEmphasis: (
@@ -458,7 +461,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
       <ProgramDayScreen
         language={preferences.appLanguage}
         programTitle={program.title}
-        templateId={route.workoutTemplateId}
         session={daySession}
         dayNumber={dayIndex + 1}
         dayCount={program.sessions.length}
@@ -484,6 +486,18 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           void editProgramExercise(route.programType, route.workoutTemplateId, daySession.id, exerciseId, {
             kind: 'replace',
             exerciseName,
+          })
+        }
+        onPrescribe={(exerciseId, prescription) =>
+          void editProgramExercise(route.programType, route.workoutTemplateId, daySession.id, exerciseId, {
+            kind: 'prescribe',
+            prescription,
+          })
+        }
+        onMoveExercise={(exerciseId, direction) =>
+          void editProgramExercise(route.programType, route.workoutTemplateId, daySession.id, exerciseId, {
+            kind: 'move',
+            direction,
           })
         }
         tailoringPreferences={preferences}

@@ -1187,3 +1187,68 @@ export function getGuidedInitials(name: string): string {
     .map((word) => word[0].toUpperCase())
     .join('');
 }
+
+/** One line of the run sheet: a warm-up drill, a lift, or a cool-down drill. */
+export interface GuidedRunItem {
+  groupIndex: number;
+  phase: GuidedPhase;
+  name: string;
+  /** Sets, for a lift. Null for a drill, which is measured in seconds. */
+  setCount: number | null;
+  status: 'done' | 'current' | 'upcoming';
+}
+
+/**
+ * The whole session as a list, with where you are in it.
+ *
+ * "Treenin aikana ei ole mitään keinoa nähdä seuraavaa liikettä" (#bugs
+ * 2026-08-27). The player shows one step at a time on purpose — you are
+ * lifting, not reading — and the rail under it is dots, which say how far
+ * along you are and nothing about what they stand for. So the session existed
+ * only as the step you were on: to find out whether the last lift was coming
+ * you had to reach it.
+ *
+ * Built from the steps rather than from the groups because the groups carry no
+ * names: a group is a shape on a rail, and this is the same session read out
+ * loud. The order is the order it will be done in, which is why the first step
+ * of each group wins — it names the group before any of its sets do.
+ */
+export function buildGuidedRunSheet(plan: GuidedStepPlan, stepIndex: number): GuidedRunItem[] {
+  const currentGroup = groupIndexOfStep(plan.steps[stepIndex]);
+  const items: GuidedRunItem[] = [];
+  const seen = new Set<number>();
+
+  for (const step of plan.steps) {
+    const groupIndex = groupIndexOfStep(step);
+    if (groupIndex === null || seen.has(groupIndex)) {
+      continue;
+    }
+    if (step.type === 'splash' || step.type === 'finish') {
+      continue;
+    }
+    const name =
+      step.type === 'ready' || step.type === 'drill' ? step.drillName : step.exerciseName;
+    seen.add(groupIndex);
+    items.push({
+      groupIndex,
+      phase: step.phase,
+      name,
+      setCount: plan.groups[groupIndex]?.setCount ?? null,
+      status:
+        currentGroup === null || groupIndex > currentGroup
+          ? 'upcoming'
+          : groupIndex === currentGroup
+            ? 'current'
+            : 'done',
+    });
+  }
+
+  return items;
+}
+
+function groupIndexOfStep(step: GuidedStep | undefined): number | null {
+  if (!step || step.type === 'splash' || step.type === 'finish') {
+    return null;
+  }
+  return step.groupIndex;
+}

@@ -37,6 +37,7 @@ const {
   getGuidedStepAnchor,
   findGuidedStepIndexByAnchor,
   dialHoldIntervalMs,
+  buildGuidedRunSheet,
   GUIDED_POSITION_SECONDS,
 } = require('../../.test-dist/lib/guidedPlayer.js');
 
@@ -55,6 +56,74 @@ function buildPlan() {
 }
 
 module.exports = [
+  /**
+   * "Treenin aikana ei ole mitään keinoa nähdä seuraavaa liikettä" (#bugs
+   * 2026-08-27). The player is one step at a time by design and the rail under
+   * it is dots; between them the session had no readable form.
+   */
+  {
+    name: 'the run sheet lists the session once, in the order it will be done',
+    run() {
+      const plan = buildPlan();
+      const sheet = buildGuidedRunSheet(plan, 0);
+      assert.deepEqual(
+        sheet.map((item) => item.name),
+        ['Rowing machine', 'Band pull-aparts', 'Bench Press', 'Overhead Press', 'Chest doorway stretch'],
+      );
+      // A lift is measured in sets, a drill in seconds — so only lifts carry one.
+      assert.deepEqual(
+        sheet.map((item) => item.setCount),
+        [null, null, 3, 2, null],
+      );
+      assert.deepEqual(
+        sheet.map((item) => item.phase),
+        ['warmup', 'warmup', 'work', 'work', 'cooldown'],
+      );
+    },
+  },
+  {
+    name: 'where you are splits the sheet into done, current and upcoming',
+    run() {
+      const plan = buildPlan();
+      // A set of the second lift: everything before it is behind you.
+      const at = plan.steps.findIndex(
+        (step) => step.type === 'set' && step.exerciseName === 'Overhead Press',
+      );
+      const sheet = buildGuidedRunSheet(plan, at);
+      assert.deepEqual(
+        sheet.map((item) => item.status),
+        ['done', 'done', 'done', 'current', 'upcoming'],
+      );
+    },
+  },
+  {
+    /**
+     * Rests belong to the exercise they follow, so resting inside an exercise
+     * must not read as having finished it.
+     */
+    name: 'a rest between sets still counts as being on that exercise',
+    run() {
+      const plan = buildPlan();
+      const at = plan.steps.findIndex((step) => step.type === 'rest');
+      const sheet = buildGuidedRunSheet(plan, at);
+      const bench = sheet.find((item) => item.name === 'Bench Press');
+      assert.equal(bench.status, 'current');
+    },
+  },
+  {
+    /**
+     * The finish step belongs to no group. Reading it as "group 0" would mark
+     * the whole session upcoming on the one screen where it is all behind you.
+     */
+    name: 'on the finish step every line reads as upcoming rather than as restarted',
+    run() {
+      const plan = buildPlan();
+      const at = plan.steps.findIndex((step) => step.type === 'finish');
+      const sheet = buildGuidedRunSheet(plan, at);
+      assert.ok(sheet.every((item) => item.status === 'upcoming'));
+      assert.equal(sheet.length, 5);
+    },
+  },
   {
     name: 'parseSchemeLabelSeconds handles min, timed sets, plain seconds and rep sets',
     run() {

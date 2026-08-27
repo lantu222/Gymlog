@@ -161,13 +161,66 @@ export function buildWeightAxisTicks(values: readonly number[], tickCount = 7): 
   // air above the highest value and below the lowest: a dot welded to the top
   // gridline reads as clipped.
   const rawStep = Math.max(span / (tickCount - 2), 0.6 / (tickCount - 1));
-  const step = NICE_STEPS.find((candidate) => candidate >= rawStep) ?? rawStep;
-
-  // Centred on the data, so a flat series sits on the middle gridline.
   const centre = (rawMax + rawMin) / 2;
-  const top = centre + (step * (tickCount - 1)) / 2;
+  const half = (tickCount - 1) / 2;
+
+  /**
+   * Snap the step AND the origin.
+   *
+   * Snapping only the step is what this used to do, and it left the grid
+   * hanging off the middle of the data: evenly spaced lines reading 68,35 —
+   * 68,85 — 69,35, two decimals on a number the reader enters with one, under
+   * a headline saying 70,7 kg (#bugs 2026-08-26). A gridline is a number you
+   * read, and 70,85 kg is not a weight anybody thinks in.
+   *
+   * Rounding the centre to a multiple of the step can move it by half a step,
+   * which could push the highest weigh-in onto the outermost line — so the
+   * step widens until the whole series fits inside the grid it is centred on.
+   */
+  const step =
+    NICE_STEPS.filter((candidate) => candidate >= rawStep).find((candidate) => {
+      const snapped = Math.round(centre / candidate) * candidate;
+      // Strictly inside, not merely within: a dot welded to the outermost
+      // gridline reads as clipped, which is the clear air the step size was
+      // buying before the origin was snapped too.
+      return rawMax < snapped + candidate * half && rawMin > snapped - candidate * half;
+    }) ??
+    NICE_STEPS[NICE_STEPS.length - 1];
+
+  // Centred on the data, so a flat series sits on the middle gridline — and on
+  // the step's own grid, so every label is a round number.
+  const top = Math.round(centre / step) * step + step * half;
 
   return Array.from({ length: tickCount }, (_, index) => Number((top - step * index).toFixed(2)));
+}
+
+/**
+ * The marker is 13 dp wide — r 5 plus a 3 dp ring. Two of them need about that
+ * again between their centres to read as two dots rather than one blob.
+ */
+const MARKER_PITCH = 16;
+
+/**
+ * Whether the plotted points are far enough apart to wear their own markers.
+ *
+ * The chart drew a ring per weigh-in whatever the range, so a week of data and
+ * a year of data got the same mark at wildly different spacing: at 3 months
+ * thirteen dots sit comfortably, at a year fifty-three overlap into a caterpillar
+ * and the line disappears underneath them (user 2026-08-27, "3m asti hyvä,
+ * sen jälkeen liian tiheää").
+ *
+ * Nothing is dropped when this returns false — the line still passes through
+ * every point, and the newest one keeps its marker because it is the reader's
+ * current weight. Only the rings go.
+ */
+export function weightMarkersFit(pointCount: number, plotWidth: number): boolean {
+  if (pointCount <= 1) {
+    return true;
+  }
+  if (!Number.isFinite(plotWidth) || plotWidth <= 0) {
+    return true;
+  }
+  return plotWidth / pointCount >= MARKER_PITCH;
 }
 
 export interface WeightWindowDay {

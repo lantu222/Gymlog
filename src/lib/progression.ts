@@ -27,6 +27,17 @@ export interface ExerciseProgressSummary {
   latestReps: string;
   bestWeight: number | null;
   bestReps: number;
+  /**
+   * The one number this lift is judged on, per session.
+   *
+   * Kilos for a loaded lift; total reps for a lift that is never loaded,
+   * because that one does not progress in kilos and reading its weight gives
+   * 0 every time. `bestValueBefore` excludes the latest session on purpose —
+   * see getExerciseProgressSignal.
+   */
+  latestValue: number | null;
+  previousValue: number | null;
+  bestValueBefore: number | null;
 }
 
 export interface BodyweightProgressSummary {
@@ -167,6 +178,27 @@ function finalizeExerciseSummary(
   }, null);
   const bestReps = sortedLogs.reduce((best, log) => Math.max(best, getTotalReps(getComparableReps(log))), 0);
 
+  /**
+   * A lift that is never loaded is measured in reps.
+   *
+   * Its weight reads 0 every session, so "the latest equals the best" is true
+   * from the second session onward and stays true — which is how a treadmill
+   * HIIT at 0 kg wore "Uusi ennätys" permanently while the lift beside it,
+   * which had genuinely done something, wore "Alkuvaihe" (#bugs 2026-08-26).
+   * Reps are what the progression rules already raise on a bodyweight lift.
+   */
+  const byReps = bestWeight === null || bestWeight <= 0;
+  const valueOf = (log: ExerciseLogWithSession | undefined): number | null => {
+    if (!log) {
+      return null;
+    }
+    if (!byReps) {
+      return getTopComparableWeight(log);
+    }
+    const reps = getTotalReps(getComparableReps(log));
+    return reps > 0 ? reps : null;
+  };
+
   return {
     key,
     name,
@@ -178,6 +210,16 @@ function finalizeExerciseSummary(
     latestReps: latestLog ? getComparableReps(latestLog).join(',') : '-',
     bestWeight,
     bestReps,
+    latestValue: valueOf(latestLog),
+    previousValue: valueOf(previousLog),
+    // Newest first, so the history is everything after the first entry.
+    bestValueBefore: sortedLogs.slice(1).reduce<number | null>((best, log) => {
+      const value = valueOf(log);
+      if (value === null) {
+        return best;
+      }
+      return best === null || value > best ? value : best;
+    }, null),
   };
 }
 
@@ -293,11 +335,19 @@ export function getExerciseProgressSignal(
   summary: ExerciseProgressSummary,
   language: AppLanguage = 'en',
 ): ExerciseProgressSignal {
+  /**
+   * Beaten, not matched.
+   *
+   * This used to compare the latest session against a best that already
+   * contained it — "the latest IS the best" — which is also true of every
+   * session that merely repeats it. Combined with an unloaded lift reading 0
+   * kg forever, that made the chip permanent, and a chip that is always on
+   * says nothing. Mark the exception, not the normal.
+   */
   if (
-    summary.latestWeight !== null &&
-    summary.bestWeight !== null &&
-    summary.logs.length > 1 &&
-    Math.abs(summary.latestWeight - summary.bestWeight) < 0.0001
+    summary.latestValue !== null &&
+    summary.bestValueBefore !== null &&
+    summary.latestValue - summary.bestValueBefore > 0.0001
   ) {
     return {
       kind: 'new_best',
@@ -306,9 +356,9 @@ export function getExerciseProgressSignal(
   }
 
   if (
-    summary.latestWeight !== null &&
-    summary.previousWeight !== null &&
-    summary.latestWeight - summary.previousWeight > 0.0001
+    summary.latestValue !== null &&
+    summary.previousValue !== null &&
+    summary.latestValue - summary.previousValue > 0.0001
   ) {
     return {
       kind: 'moving_up',
@@ -317,9 +367,9 @@ export function getExerciseProgressSignal(
   }
 
   if (
-    summary.latestWeight !== null &&
-    summary.previousWeight !== null &&
-    summary.previousWeight - summary.latestWeight > 0.0001
+    summary.latestValue !== null &&
+    summary.previousValue !== null &&
+    summary.previousValue - summary.latestValue > 0.0001
   ) {
     return {
       kind: 'below_last',

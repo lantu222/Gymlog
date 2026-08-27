@@ -1,7 +1,20 @@
 const assert = require('node:assert/strict');
 
-const { getExerciseProgressSignal } = require('../../.test-dist/lib/progression.js');
+const {
+  getExerciseProgressSignal,
+  getTrackedExerciseProgress,
+} = require('../../.test-dist/lib/progression.js');
 
+/**
+ * The chip on the Kehitys list.
+ *
+ * It used to ask "is the latest session the best one?" against a best that
+ * included the latest session — true of a record broken, and equally true of
+ * a record merely repeated. On a lift that is never loaded, whose weight
+ * reads 0 every session, it was true forever: a treadmill HIIT wore "Uusi
+ * ennätys" permanently while a sumo deadlift that had just moved five tonnes
+ * wore "Alkuvaihe" beside it (#bugs 2026-08-26).
+ */
 function createSummary(overrides = {}) {
   return {
     key: 'bench press',
@@ -12,43 +25,101 @@ function createSummary(overrides = {}) {
     latestReps: '8,7,6',
     bestWeight: 85,
     bestReps: 21,
+    latestValue: 85,
+    previousValue: 82.5,
+    bestValueBefore: 82.5,
     ...overrides,
+  };
+}
+
+/** One session of one lift, as the database stores it. */
+function log(id, performedAt, sets) {
+  return {
+    id,
+    sessionId: `s_${id}`,
+    exerciseTemplateId: `t_${id}`,
+    exerciseNameSnapshot: 'Push-up',
+    tracked: true,
+    skipped: false,
+    orderIndex: 0,
+    performedAt,
+    sets: sets.map((set, index) => ({
+      id: `${id}_${index}`,
+      setIndex: index,
+      orderIndex: index,
+      weight: set.weight,
+      reps: set.reps,
+      status: 'completed',
+      kind: 'working',
+    })),
+  };
+}
+
+function databaseWith(logs) {
+  return {
+    exerciseTemplates: [],
+    exerciseLibrary: [],
+    exerciseLogs: logs,
+    workoutSessions: logs.map((item) => ({
+      id: item.sessionId,
+      performedAt: item.performedAt,
+      startedAt: item.performedAt,
+    })),
+    preferences: { trackedExerciseLibraryItemIds: [] },
   };
 }
 
 module.exports = [
   {
-    name: 'progress signal marks a new best when the latest log matches the best weight',
+    name: 'a record has to be beaten, not matched',
     run() {
-      const signal = getExerciseProgressSignal(createSummary());
-      assert.equal(signal.kind, 'new_best');
-      assert.equal(signal.label, 'New best');
+      // 85 today, 85 before: the same lift, not a new record. With three
+      // sessions behind it that reads as building; the point is what it is
+      // NOT, which is a record.
+      assert.equal(
+        getExerciseProgressSignal(
+          createSummary({
+            logs: [{ id: '1' }, { id: '2' }, { id: '3' }],
+            bestValueBefore: 85,
+            previousValue: 85,
+          }),
+        ).kind,
+        'building',
+      );
+      // 85 today against 82.5 before: beaten.
+      assert.equal(getExerciseProgressSignal(createSummary()).kind, 'new_best');
     },
   },
   {
-    name: 'progress signal marks moving up when latest weight beats the previous log but not the best',
+    name: 'progress signal marks moving up when the latest beats the previous but not the best',
     run() {
       const signal = getExerciseProgressSignal(
-        createSummary({
-          latestWeight: 82.5,
-          previousWeight: 80,
-          bestWeight: 85,
-        }),
+        createSummary({ latestValue: 82.5, previousValue: 80, bestValueBefore: 85 }),
       );
-
       assert.equal(signal.kind, 'moving_up');
     },
   },
   {
-    name: 'progress signal falls back to building or starting when weight comparisons are missing',
+    name: 'progress signal marks below last when the latest drops',
+    run() {
+      assert.equal(
+        getExerciseProgressSignal(
+          createSummary({ latestValue: 77.5, previousValue: 80, bestValueBefore: 85 }),
+        ).kind,
+        'below_last',
+      );
+    },
+  },
+  {
+    name: 'progress signal falls back to building or starting when there is nothing to compare',
     run() {
       assert.equal(
         getExerciseProgressSignal(
           createSummary({
             logs: [{ id: '1' }, { id: '2' }, { id: '3' }],
-            latestWeight: null,
-            previousWeight: null,
-            bestWeight: null,
+            latestValue: null,
+            previousValue: null,
+            bestValueBefore: null,
           }),
         ).kind,
         'building',
@@ -58,13 +129,66 @@ module.exports = [
         getExerciseProgressSignal(
           createSummary({
             logs: [{ id: '1' }],
-            latestWeight: null,
-            previousWeight: null,
-            bestWeight: null,
+            latestValue: null,
+            previousValue: null,
+            bestValueBefore: null,
           }),
         ).kind,
         'starting',
       );
+    },
+  },
+  {
+    /**
+     * The bug as the reader met it: two sessions of the same unloaded lift,
+     * the same reps both times. Under the old rule that was a permanent
+     * record, because 0 kg equals 0 kg.
+     */
+    name: 'an unloaded lift repeating itself is not a record',
+    run() {
+      const [summary] = getTrackedExerciseProgress(
+        databaseWith([
+          log('a', '2026-08-20T10:00:00.000Z', [{ weight: 0, reps: 30 }]),
+          log('b', '2026-08-26T10:00:00.000Z', [{ weight: 0, reps: 30 }]),
+        ]),
+      );
+      assert.equal(summary.bestWeight, 0);
+      assert.equal(getExerciseProgressSignal(summary).kind, 'starting');
+    },
+  },
+  {
+    /**
+     * And the other half: an unloaded lift that DID improve has to say so.
+     * Reps are the only thing that moves on one, so reps are what it is
+     * judged on.
+     */
+    name: 'an unloaded lift that adds reps is a record',
+    run() {
+      const [summary] = getTrackedExerciseProgress(
+        databaseWith([
+          log('a', '2026-08-20T10:00:00.000Z', [{ weight: 0, reps: 20 }]),
+          log('b', '2026-08-26T10:00:00.000Z', [{ weight: 0, reps: 30 }]),
+        ]),
+      );
+      assert.equal(summary.latestValue, 30);
+      assert.equal(summary.bestValueBefore, 20);
+      assert.equal(getExerciseProgressSignal(summary).kind, 'new_best');
+    },
+  },
+  {
+    /**
+     * A lift with one session has nothing behind it, so it reads as a
+     * baseline — whatever the numbers were. This is what the sumo deadlift
+     * was doing, and it was right: 5121 kg is a first, not an improvement.
+     */
+    name: 'a lift with one session is a baseline however heavy it was',
+    run() {
+      const [summary] = getTrackedExerciseProgress(
+        databaseWith([log('a', '2026-08-26T10:00:00.000Z', [{ weight: 5121.25, reps: 8 }])]),
+      );
+      assert.equal(summary.latestValue, 5121.25);
+      assert.equal(summary.bestValueBefore, null);
+      assert.equal(getExerciseProgressSignal(summary).kind, 'starting');
     },
   },
 ];

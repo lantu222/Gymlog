@@ -264,6 +264,61 @@ module.exports = [
     },
   },
   {
+    /**
+     * A gridline is a number you read, so it has to be a number you would
+     * write. The axis used to snap the step and hang the grid off the middle
+     * of the data, giving evenly spaced lines labelled 68,35 — 68,85 — 69,35:
+     * two decimals under a headline that says 70,7 kg, on a value entered with
+     * one (#bugs 2026-08-26).
+     */
+    name: 'every gridline lands on a multiple of the step, not on the data average',
+    run() {
+      const assert = require('node:assert/strict');
+      const { buildWeightAxisTicks } = require('../../.test-dist/lib/bodyweightCard');
+
+      for (const values of [[68.9, 70.7], [75.4], [60, 95], [70.95, 71.2], [82.3, 82.35]]) {
+        const ticks = buildWeightAxisTicks(values);
+        const step = Number((ticks[0] - ticks[1]).toFixed(4));
+        for (const tick of ticks) {
+          const multiples = tick / step;
+          assert.ok(
+            Math.abs(multiples - Math.round(multiples)) < 1e-6,
+            `${tick} is not a multiple of the ${step} step for ${JSON.stringify(values)}`,
+          );
+        }
+      }
+
+      // The reported case, spelled out.
+      assert.deepEqual(buildWeightAxisTicks([68.9, 70.7]), [71.5, 71, 70.5, 70, 69.5, 69, 68.5]);
+    },
+  },
+  {
+    /**
+     * The chart drew a ring per weigh-in whatever the range, so a year of
+     * weekly entries overlapped into a caterpillar with the line hidden under
+     * it. The demo made the boundary obvious: fine to three months, too dense
+     * after (user 2026-08-27).
+     */
+    name: 'markers are drawn only while they have room to be separate dots',
+    run() {
+      const assert = require('node:assert/strict');
+      const { weightMarkersFit } = require('../../.test-dist/lib/bodyweightCard');
+
+      const PLOT = 300;
+      // A quarter of weekly weigh-ins, and a week of daily ones: room to spare.
+      assert.equal(weightMarkersFit(13, PLOT), true);
+      assert.equal(weightMarkersFit(7, PLOT), true);
+      // Half a year and a year of weekly weigh-ins: the rings would touch.
+      assert.equal(weightMarkersFit(26, PLOT), false);
+      assert.equal(weightMarkersFit(53, PLOT), false);
+
+      // A single point is always its own dot, and a chart with no width yet
+      // must not flicker its markers off during the first layout pass.
+      assert.equal(weightMarkersFit(1, PLOT), true);
+      assert.equal(weightMarkersFit(40, 0), true);
+    },
+  },
+  {
     name: 'gridlines are evenly spaced at a step a person can read',
     run() {
       // Rounding six equal slices of a padded range to one decimal produced
