@@ -158,6 +158,32 @@ and fails when no review ran. Without that step the exact failure this whole
 document is about — an absence that looks like a clean review — would have
 survived the switch from Codex intact. It was caught on the first real run.
 
+## A green check is not yet proof of a review
+
+On #27 the check went green, the guard printed `Review ran`, and the review
+posted nothing at all. The run's own result block explains why:
+
+```
+"total_cost_usd": 0.6717614,
+"permission_denials_count": 11,
+"modelUsage": { claude-haiku-4-5, claude-sonnet-5, claude-opus-5 }
+```
+
+It did the work — two minutes across three models — and eleven of its tool
+calls were denied. The likely cause is the `--allowedTools` line in
+`claude_args`, which names one tool and may therefore be the whole allowance
+rather than an addition to what the skill already grants.
+
+`show_full_output: true` is switched on temporarily to find out which eleven.
+It should come back out in the same change that fixes the list: this repository
+is public, and that setting publishes everything the review concludes to a log
+anyone can read, including a security finding at the moment it is found rather
+than once it is fixed.
+
+Until then the honest statement about the workflow is narrower than it was
+yesterday: it proves a review **ran**, not that a review was **able to report**.
+The pre-PR `/code-review` is doing the actual work, as it has all along.
+
 ## When the review does not run
 
 - **Check red, "No CLAUDE_CODE_OAUTH_TOKEN secret"** — setup step 3 has not been
