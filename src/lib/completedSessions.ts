@@ -153,9 +153,41 @@ export function getVolumeThisWeekKg(database: AppDatabase, now = new Date()) {
     }, 0);
 }
 
+/**
+ * Where a rolling window of `days` calendar days back from `now` begins.
+ *
+ * Calendar stepping, not a count of fixed 24-hour chunks. A window spanning a
+ * clock change contains a 23- or 25-hour day, so subtracting `days * DAY_MS`
+ * puts the edge an hour off the same time of day that many days back — wide
+ * enough to count something older than the window claims to cover, or narrow
+ * enough to drop something inside it.
+ *
+ * One case the Date constructor decides rather than this function: on the hour
+ * that spring-forward skips, a wall-clock time that never happens normalizes
+ * forward. A window ending 03:30 on such a day therefore starts at 04:30, an
+ * hour short. Bounded, twice a year, and better than the alternative of landing
+ * an hour off every day of the six months following each change.
+ *
+ * Exported because more than one surface asks the same question, and two
+ * copies of this arithmetic drift apart at exactly the moment it matters.
+ */
+export function getRollingWindowStart(now: Date | string | number, days: number) {
+  const reference = new Date(now);
+
+  return new Date(
+    reference.getFullYear(),
+    reference.getMonth(),
+    reference.getDate() - days,
+    reference.getHours(),
+    reference.getMinutes(),
+    reference.getSeconds(),
+    reference.getMilliseconds(),
+  ).getTime();
+}
+
 export function getSessionsLast30Days(database: AppDatabase, now = new Date()) {
   const nowTimestamp = new Date(now).getTime();
-  const windowStart = nowTimestamp - 30 * DAY_MS;
+  const windowStart = getRollingWindowStart(now, 30);
 
   return getAllActivityTimestamps(database).filter((performedAtIso) => {
     const performedAt = new Date(performedAtIso).getTime();
