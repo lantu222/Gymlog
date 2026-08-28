@@ -1,3 +1,4 @@
+import { calendarDaysBetween, getRollingWindowStart } from './completedSessions';
 import { HomeSummary } from './dashboard';
 import { ExerciseProgressSummary } from './progression';
 import { BodyweightEntry, CoachGoal, ExerciseLog, MeasurementEntry, SetupWeekday, UnitPreference, WorkoutSession } from '../types/models';
@@ -112,15 +113,27 @@ export function emptyAiCoachHistory(trainingDays: SetupWeekday[] = []): AICoachH
 }
 
 function weightChange(sorted: BodyweightEntry[], windowDays: number, now: Date): AICoachBodyChange | null {
-  const cutoff = now.getTime() - windowDays * 24 * 60 * 60 * 1000;
-  const inWindow = sorted.filter((entry) => new Date(entry.recordedAt).getTime() >= cutoff);
+  // Calendar stepping: a fixed windowDays * 24h puts the edge an hour off the
+  // time of day it claims for the six months after every clock change, so a
+  // weigh-in near the boundary is admitted or dropped against what the coach is
+  // told the window covers.
+  const cutoff = getRollingWindowStart(now, windowDays);
+  // Bounded at both ends, like every sibling window. A weigh-in stamped in the
+  // future — a wrong device clock keeps that timestamp forever — otherwise
+  // becomes the reading the change is measured to, and a thirty-day window
+  // reports a four-month span.
+  const nowTimestamp = now.getTime();
+  const inWindow = sorted.filter((entry) => {
+    const recordedAt = new Date(entry.recordedAt).getTime();
+    return recordedAt >= cutoff && recordedAt <= nowTimestamp;
+  });
   if (inWindow.length < 2) {
     // One weigh-in is a fact, not a direction — report no change at all.
     return null;
   }
   const first = inWindow[0];
   const last = inWindow[inWindow.length - 1];
-  const spanDays = Math.round((new Date(last.recordedAt).getTime() - new Date(first.recordedAt).getTime()) / (24 * 60 * 60 * 1000));
+  const spanDays = calendarDaysBetween(first.recordedAt, last.recordedAt);
   return { deltaKg: Math.round((last.weight - first.weight) * 10) / 10, spanDays };
 }
 
@@ -132,7 +145,15 @@ export function buildAiCoachBodyState(
   const weights = [...bodyweightEntries].sort(
     (left, right) => new Date(left.recordedAt).getTime() - new Date(right.recordedAt).getTime(),
   );
-  const latestWeight = weights[weights.length - 1] ?? null;
+  // Bounded like the change windows below. Left open, a weigh-in stamped in
+  // the future is reported as the reader's current weight while the change
+  // beside it is measured to a different reading entirely — one payload
+  // stating two weights.
+  const nowTimestamp = now.getTime();
+  const recordedWeights = weights.filter(
+    (entry) => new Date(entry.recordedAt).getTime() <= nowTimestamp,
+  );
+  const latestWeight = recordedWeights[recordedWeights.length - 1] ?? null;
 
   const byKind = new Map<string, MeasurementEntry[]>();
   for (const entry of measurementEntries) {
@@ -251,6 +272,7 @@ function buildHistoryBlock(
   trainingDays: SetupWeekday[],
   windowDays: number,
   schedule: TrainingSchedule | null = null,
+  now: Date = new Date(),
 ): AICoachHistory {
   const history = buildTrainingHistory({
     sessions: workoutSessions,
@@ -258,6 +280,7 @@ function buildHistoryBlock(
     trainingDays,
     schedule,
     windowDays,
+    now: now.getTime(),
   });
 
   const sessions = history.sessions.slice(-MAX_HISTORY_SESSIONS).map((entry) => ({
@@ -358,7 +381,9 @@ export function buildAiTrainingContext({
       topWeightKg: p.topWeightHistory[0] ?? null,
     }));
 
-  const fatigueResult = buildFatigueModel({ workoutSessions, exerciseLogs });
+  // The same reference date every other block in this payload is built from.
+  // Left to its own clock it reports a different week than the history beside it.
+  const fatigueResult = buildFatigueModel({ workoutSessions, exerciseLogs }, now);
   const fatigue = {
     acwr: fatigueResult.acwr,
     recoveryScore: fatigueResult.recoveryScore,
@@ -395,7 +420,7 @@ export function buildAiTrainingContext({
     programme,
     plateaus,
     fatigue,
-    history: buildHistoryBlock(workoutSessions, exerciseLogs, trainingDays, historyWindowDays, schedule),
+    history: buildHistoryBlock(workoutSessions, exerciseLogs, trainingDays, historyWindowDays, schedule, now),
     ...(plannerSetup !== undefined ? { plannerSetup } : {}),
     body,
     goals: buildAiCoachGoals(coachGoals, bodyweightGoalKg, body, primaryGoalId),

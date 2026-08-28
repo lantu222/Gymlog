@@ -1,3 +1,4 @@
+import { getRollingWindowStart } from './completedSessions';
 import { I18nKey, t } from './i18n';
 import { exerciseNameLabel } from './exerciseNameLabel';
 import { localizeSessionName } from './sessionNameLabel';
@@ -74,6 +75,8 @@ export interface CoachModulesInput {
   language: AppLanguage;
   /** Sessions before this many days ago are too old to call "recent". */
   recentDays?: number;
+  /** Injectable so the recent-session window can be pinned in a test. */
+  now?: Date;
 }
 
 const DEFAULT_RECENT_DAYS = 21;
@@ -274,9 +277,20 @@ export function buildCoachModules({
   logs,
   language,
   recentDays = DEFAULT_RECENT_DAYS,
+  now = new Date(),
 }: CoachModulesInput): CoachModules {
-  const cutoff = Date.now() - recentDays * 86400000;
-  const recent = sessions.filter((session) => sessionTime(session) >= cutoff);
+  // Calendar stepping, and a reference date rather than Date.now() read inline:
+  // the first keeps the edge on the time of day the window claims across a
+  // clock change, the second is what makes that checkable at all.
+  const cutoff = getRollingWindowStart(now, recentDays);
+  // Bounded at the top as well: a session stamped in the future — a wrong
+  // device clock keeps that timestamp forever — otherwise becomes the latest
+  // one the analysis describes, and every real session is measured against it.
+  const nowTimestamp = now.getTime();
+  const recent = sessions.filter((session) => {
+    const time = sessionTime(session);
+    return time >= cutoff && time <= nowTimestamp;
+  });
   // Trends need history, so they read every session; only the analysis module
   // is limited to what is recent enough to still be worth commenting on.
   const focus = buildFocus(sessions, logs, language);

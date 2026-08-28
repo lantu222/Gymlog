@@ -1,3 +1,4 @@
+import { calendarDaysBetween, getRollingWindowStart } from './completedSessions';
 import { formatWeight } from './format';
 import { ExerciseLog, PostSessionInsightType, UnitPreference, WorkoutSession } from '../types/models';
 
@@ -222,7 +223,11 @@ function evaluatePlateauDetected(input: PostSessionInsightInput, priorSessions: 
 
 function evaluateSessionVolumePeak(input: PostSessionInsightInput, priorSessions: ReturnType<typeof getPriorSessionsBefore>): Candidate | null {
   const completedAt = new Date(input.completedSession.performedAt).getTime();
-  const windowStart = completedAt - 42 * DAY_MS;
+  // Calendar stepping, not 42 fixed days: the peak claim needs four prior
+  // sessions inside the window, and an hour of drift at the edge is enough to
+  // drop the fourth and withhold a true insight, or admit a fifth from outside
+  // it and make a false one.
+  const windowStart = getRollingWindowStart(completedAt, 42);
   const priorInWindow = priorSessions.filter((session) => {
     const performedAt = new Date(session.performedAt).getTime();
     return performedAt >= windowStart && performedAt < completedAt;
@@ -251,13 +256,20 @@ function evaluateReturnAfterGap(input: PostSessionInsightInput, priorSessions: R
     return null;
   }
 
-  const gapDays = Math.floor(
-    (new Date(input.completedSession.performedAt).getTime() - new Date(latestPrior.performedAt).getTime()) / DAY_MS,
-  );
-
-  if (gapDays < 7) {
+  // The gate is a threshold, not a day count. "At least seven days" means the
+  // previous session is at or before the same time of day seven calendar days
+  // back — which is DST-proof (167 real hours still clears it) without
+  // loosening anything else. Counting days and comparing the count instead
+  // would let a Sunday-night to Sunday-morning gap of 145 hours through as
+  // "seven days", which the old arithmetic correctly withheld.
+  const sevenDaysBack = getRollingWindowStart(input.completedSession.performedAt, 7);
+  if (new Date(latestPrior.performedAt).getTime() > sevenDaysBack) {
     return null;
   }
+
+  // Reported in calendar days, so the sentence agrees with the gate that let
+  // it through rather than quoting a week-long gap as six days.
+  const gapDays = calendarDaysBetween(latestPrior.performedAt, input.completedSession.performedAt);
 
   return {
     type: 'return_after_gap',

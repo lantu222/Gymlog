@@ -212,6 +212,21 @@ export function addCalendarDays(reference: Date | string | number, days: number)
  * midnight would need the result snapped back through
  * `getCalendarWeekStartTimestamp`.
  */
+/**
+ * Whole calendar days between two instants, counted from their local day
+ * starts.
+ *
+ * For reporting a span, never for gating one: "N days apart" is a count, and a
+ * count rounds, which is exactly the looseness a threshold must not have. Gate
+ * with `getRollingWindowStart` instead, then report with this.
+ */
+export function calendarDaysBetween(from: Date | string | number, to: Date | string | number) {
+  return Math.round(
+    (getCalendarDayStartTimestamp(new Date(to)) - getCalendarDayStartTimestamp(new Date(from))) /
+      (24 * 60 * 60 * 1000),
+  );
+}
+
 export function getCalendarWeekStartBefore(weekStart: number, weeks = 1) {
   return addCalendarDays(weekStart, -weeks * 7);
 }

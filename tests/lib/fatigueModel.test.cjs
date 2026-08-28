@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict');
 
+const { withHelsinkiClocks } = require('../helpers/clockChange.cjs');
+
 const { createEmptyDatabase } = require('../../.test-dist/data/seed.js');
 const { buildFatigueModel } = require('../../.test-dist/lib/fatigueModel.js');
 
@@ -20,6 +22,81 @@ function makeSession(id, performedAt, totalVolumeKg) {
 }
 
 module.exports = [
+  {
+    name: 'a fortnight of training across a clock change still earns confidence',
+    run() {
+      withHelsinkiClocks(() => {
+        // Four sessions spanning exactly fourteen calendar days, 22 March to 5
+        // April, crossing the change. Measuring that span as raw milliseconds
+        // over 86400000 gives 13.96, short of the fourteen the confidence gate
+        // wants — and `confident` is what decides whether the app may give load
+        // advice at all, so the reader gets silence for a fortnight of work.
+        const sessions = [
+          makeSession('f1', new Date(2026, 2, 22, 12, 0, 0).toISOString(), 4000),
+          makeSession('f2', new Date(2026, 2, 26, 12, 0, 0).toISOString(), 4000),
+          makeSession('f3', new Date(2026, 3, 1, 12, 0, 0).toISOString(), 4000),
+          makeSession('f4', new Date(2026, 3, 5, 12, 0, 0).toISOString(), 4000),
+        ];
+
+        const model = buildFatigueModel(
+          { workoutSessions: sessions, exerciseLogs: [] },
+          new Date(2026, 3, 5, 18, 0, 0),
+        );
+
+        assert.equal(model.sessionCount28d, 4);
+        assert.equal(model.confident, true);
+
+        // And the gate stays as tight as it was: thirteen days and an hour is
+        // still not fourteen, clock change or no clock change. Counting days
+        // and rounding would have let this through.
+        const short = [
+          makeSession('n1', new Date(2026, 1, 1, 23, 30, 0).toISOString(), 4000),
+          makeSession('n2', new Date(2026, 1, 5, 12, 0, 0).toISOString(), 4000),
+          makeSession('n3', new Date(2026, 1, 10, 12, 0, 0).toISOString(), 4000),
+          makeSession('n4', new Date(2026, 1, 15, 0, 30, 0).toISOString(), 4000),
+        ];
+
+        const shortModel = buildFatigueModel(
+          { workoutSessions: short, exerciseLogs: [] },
+          new Date(2026, 1, 15, 6, 0, 0),
+        );
+
+        assert.equal(shortModel.sessionCount28d, 4);
+        assert.equal(shortModel.confident, false);
+      });
+    },
+  },
+  {
+    name: 'the acute window is seven days, not 168 hours',
+    run() {
+      withHelsinkiClocks(() => {
+        // now = 4 April 2026 12:00. Seven calendar days back is 28 March 12:00,
+        // and *that* span contains the 29 March change, so it is 167 real
+        // hours. (A window ending 5 April would not: the change falls at 03:00
+        // on the 29th, so a window opening at noon that day misses it entirely
+        // and the test would prove nothing.) Subtracting 7 * 24h therefore
+        // opens the acute window at 11:00 and counts a session that is seven
+        // days and half an hour old as part of this week's load.
+        const now = new Date(2026, 3, 4, 12, 0, 0);
+        const sessions = [
+          // Twenty-eight calendar days back is 7 March 12:00, and that span
+          // contains the change too, so the fixed-millisecond edge opens at
+          // 11:00 and admits this one from outside the chronic window.
+          makeSession('outside_28d', new Date(2026, 2, 7, 11, 30, 0).toISOString(), 9000),
+          makeSession('inside_28d', new Date(2026, 2, 28, 11, 30, 0).toISOString(), 5000),
+          makeSession('inside_7d', new Date(2026, 3, 2, 12, 0, 0).toISOString(), 1000),
+        ];
+
+        const model = buildFatigueModel({ workoutSessions: sessions, exerciseLogs: [] }, now);
+
+        // Only the 2 April session is inside seven days.
+        assert.equal(model.sessionCount7d, 1);
+        assert.equal(model.acuteLoadKg, 1000);
+        // Only the 28 March and 2 April sessions are inside twenty-eight.
+        assert.equal(model.sessionCount28d, 2);
+      });
+    },
+  },
   {
     name: 'fatigue: no sessions produces undertrained signal and safe defaults',
     run() {

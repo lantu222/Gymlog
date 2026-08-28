@@ -1,3 +1,4 @@
+import { getRollingWindowStart } from './completedSessions';
 import { ExerciseLog, WorkoutSession } from '../types/models';
 import { getSessionTotalVolume } from './progression';
 
@@ -66,8 +67,12 @@ function resolveSignal(acwr: number): FatigueSignal {
 
 export function buildFatigueModel(input: FatigueModelInput, referenceDate?: Date): FatigueResult {
   const now = referenceDate ?? new Date();
-  const cutoff7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const cutoff28d = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
+  // Calendar stepping for both edges. The ratio itself is robust to an hour —
+  // both windows drift together — but a session logged near either boundary is
+  // counted into the acute load or the chronic one against what the window
+  // claims, and the acute window is only seven days wide to begin with.
+  const cutoff7d = new Date(getRollingWindowStart(now, 7));
+  const cutoff28d = new Date(getRollingWindowStart(now, 28));
 
   const logsBySession: Record<string, ExerciseLog[]> = {};
   for (const log of input.exerciseLogs) {
@@ -99,10 +104,18 @@ export function buildFatigueModel(input: FatigueModelInput, referenceDate?: Date
   const times = sessions28d
     .map((session) => new Date(session.performedAt).getTime())
     .filter((time) => Number.isFinite(time));
-  const spanDays =
-    times.length > 1 ? (Math.max(...times) - Math.min(...times)) / 86400000 : 0;
-  const confident =
-    sessions28d.length >= MIN_SESSIONS_FOR_CONFIDENCE && spanDays >= MIN_SPAN_DAYS_FOR_CONFIDENCE;
+  // A threshold rather than a measured span, for the same reason as the gap
+  // gate in postSessionInsight: fourteen calendar days across a clock change
+  // are 335 hours and must clear it, while thirteen days and an hour must not.
+  // Dividing the raw span fails the first; rounding a day count passes the
+  // second, and `confident` is what lets the app give load advice at all.
+  const earliest = times.length > 1 ? Math.min(...times) : null;
+  const latest = times.length > 1 ? Math.max(...times) : null;
+  const spanIsWideEnough =
+    earliest !== null &&
+    latest !== null &&
+    earliest <= getRollingWindowStart(new Date(latest), MIN_SPAN_DAYS_FOR_CONFIDENCE);
+  const confident = sessions28d.length >= MIN_SESSIONS_FOR_CONFIDENCE && spanIsWideEnough;
 
   return {
     acuteLoadKg: Math.round(acuteLoadKg),
