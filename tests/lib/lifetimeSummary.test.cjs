@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict');
 
+const { withHelsinkiClocks } = require('../helpers/clockChange.cjs');
+
 const { getLifetimeTrainingSummary } = require('../../.test-dist/lib/lifetimeSummary.js');
 
 // Completed log with a single comparable working set so the session counts as
@@ -39,6 +41,26 @@ function buildDatabase(sessions) {
 }
 
 module.exports = [
+  {
+    name: 'the best streak counts through a clock change',
+    run() {
+      withHelsinkiClocks(() => {
+        // Adjacent local Monday midnights are 167 or 169 hours apart when the
+        // span crosses a clock change, never the 168 the equality test expects,
+        // so an unbroken run is cut at every change — twice a year, for life.
+        const database = buildDatabase([
+          createSession('s1', '2026-03-17T12:00:00', 1000),
+          createSession('s2', '2026-03-24T12:00:00', 1000),
+          createSession('s3', '2026-03-31T12:00:00', 1000),
+        ]);
+
+        const summary = getLifetimeTrainingSummary(database, new Date(2026, 3, 1, 12, 0, 0));
+
+        assert.equal(summary.weeksActive, 3);
+        assert.equal(summary.bestWeekStreak, 3);
+      });
+    },
+  },
   {
     name: 'lifetime summary aggregates sessions, volume, and distinct active weeks',
     run() {

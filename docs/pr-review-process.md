@@ -125,15 +125,13 @@ With a Claude API key instead of a subscription token, change the workflow's
 | This workflow, API key | Per token, cents to low dollars per PR | Use if the plan's usage is the binding constraint |
 | Managed Code Review | $15–25 per review, Team/Enterprise plans only | Not available on an individual plan, and ~$400 for a batch this size |
 
-## Retire the Codex connector
+## The Codex connector is gone
 
-The `chatgpt-codex-connector` GitHub App is still installed and still fires on
-every PR, posting its usage-limit comment each time — it did so on #24, the PR
-that added the check replacing it. Nothing here depends on it any more, so
-uninstall it from the repository (GitHub → Settings → GitHub Apps, or
-[the Codex settings page](https://chatgpt.com/codex/cloud/settings/general))
-rather than leaving a reviewer that announces on every PR that it is not
-reviewing.
+The `chatgpt-codex-connector` GitHub App was uninstalled on 28 August 2026. It
+had kept firing on every PR to post its usage-limit comment, including on #24 —
+the PR that added the check replacing it. Nothing here depends on it, and a
+reviewer that announces on every PR that it is not reviewing is worse than no
+reviewer at all.
 
 ## Tuning what gets flagged
 

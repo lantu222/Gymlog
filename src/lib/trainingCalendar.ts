@@ -1,4 +1,5 @@
 import type { WorkoutSession } from '../types/models';
+import { getCalendarWeekStartBefore } from './completedSessions';
 
 /**
  * The weekly training streak.
@@ -7,8 +8,6 @@ import type { WorkoutSession } from '../types/models';
  * that screen was retired as a duplicate of Progress → Activity (2026-08-25),
  * and the streak is the one thing the activity section still asks for.
  */
-
-const DAY = 86_400_000;
 
 function dayStartOf(iso: string): number | null {
   const stamp = Date.parse(iso);
@@ -42,11 +41,15 @@ export function weeklyTrainingStreak(
   }
 
   const thisMonday = mondayOf(now);
-  let cursor = trainedWeeks.has(thisMonday) ? thisMonday : thisMonday - 7 * DAY;
+  // Calendar stepping, not 7 * DAY. The week a clock changes is 167 or 169
+  // hours long, so a fixed step lands at 23:00 or 01:00 and matches no entry in
+  // trainedWeeks, which holds local Monday midnights. Twelve unbroken weeks
+  // then render as one on the Monday after the clocks move.
+  let cursor = trainedWeeks.has(thisMonday) ? thisMonday : getCalendarWeekStartBefore(thisMonday);
   let streak = 0;
   while (trainedWeeks.has(cursor)) {
     streak += 1;
-    cursor -= 7 * DAY;
+    cursor = getCalendarWeekStartBefore(cursor);
   }
   return streak;
 }
@@ -55,5 +58,6 @@ function mondayOf(date: Date): number {
   const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   // getDay() is Sunday-first; the app's weeks start on Monday everywhere else.
   const offset = start.getDay() === 0 ? 6 : start.getDay() - 1;
-  return start.getTime() - offset * DAY;
+  start.setDate(start.getDate() - offset);
+  return start.getTime();
 }

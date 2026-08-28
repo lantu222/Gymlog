@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict');
 
+const { withHelsinkiClocks } = require('../helpers/clockChange.cjs');
+
 const { getTrainingRhythm } = require('../../.test-dist/lib/trainingRhythm.js');
 
 // Completed log with one comparable working set so the session counts as
@@ -40,6 +42,26 @@ function buildDatabase(performedAts) {
 }
 
 module.exports = [
+  {
+    name: 'weekly bars before a clock change are not silently empty',
+    run() {
+      withHelsinkiClocks(() => {
+        // Finland moves its clocks on Sunday 29 March 2026. Keying the bars by
+        // currentWeekStart - index * WEEK_MS puts every week older than the
+        // change an hour off the local Monday midnights the counts are stored
+        // under, so a reader who trained every week sees empty bars.
+        const database = buildDatabase([
+          '2026-03-17T10:00:00',
+          '2026-03-24T10:00:00',
+          '2026-03-31T10:00:00',
+        ]);
+
+        const rhythm = getTrainingRhythm(database, { weeks: 3, now: new Date(2026, 3, 1, 12, 0, 0) });
+
+        assert.deepEqual(rhythm.sessionsPerWeek, [1, 1, 1]);
+      });
+    },
+  },
   {
     name: 'training rhythm counts sessions per calendar week oldest to current',
     run() {

@@ -1,5 +1,6 @@
 import { AppDatabase, UnitPreference, WorkoutPlan, WorkoutPlanEntry } from '../types/models';
 import {
+  getCalendarWeekStartBefore,
   getCalendarWeekStartTimestamp,
   getCanonicalCompletedSessions,
   getCurrentWeekStreak,
@@ -238,12 +239,12 @@ function getLastSessionDelta(database: AppDatabase, unitPreference: UnitPreferen
   };
 }
 
-function getHomeStreak(database: AppDatabase): HomeStreakSummary {
-  const sessionsThisWeek = getSessionsThisWeek(database);
-  const sessionsLast30Days = getSessionsLast30Days(database);
-  const currentWeekStreak = getCurrentWeekStreak(database);
-  const calendar = getMonthlyActivityCalendar(database);
-  const activity = getRecentActivityStrip(database);
+function getHomeStreak(database: AppDatabase, now = new Date()): HomeStreakSummary {
+  const sessionsThisWeek = getSessionsThisWeek(database, now);
+  const sessionsLast30Days = getSessionsLast30Days(database, now);
+  const currentWeekStreak = getCurrentWeekStreak(database, now);
+  const calendar = getMonthlyActivityCalendar(database, now);
+  const activity = getRecentActivityStrip(database, now);
   const totalDurationMinutes = getCanonicalCompletedSessions(database).reduce(
     (sum, session) => sum + getSessionDurationMinutes(session),
     0,
@@ -311,7 +312,7 @@ export function getMonthTrainingTotals(database: AppDatabase, now = new Date()) 
 
 function getHomeWeeklySnapshot(database: AppDatabase, now = new Date()) {
   const currentWeekStart = getCalendarWeekStartTimestamp(now);
-  const previousWeekStart = currentWeekStart - 7 * 24 * 60 * 60 * 1000;
+  const previousWeekStart = getCalendarWeekStartBefore(currentWeekStart);
   const sessions = getCanonicalCompletedSessions(database);
 
   const currentWeekSessions = sessions.filter(
@@ -331,16 +332,29 @@ function getHomeWeeklySnapshot(database: AppDatabase, now = new Date()) {
   };
 }
 
-export function getHomeSummary(database: AppDatabase, unitPreference: UnitPreference): HomeSummary {
-  const sessionsThisWeek = getSessionsThisWeek(database);
+/**
+ * `now` is threaded rather than left to each helper's own `new Date()` so the
+ * date-dependent figures can be asked for at a fixed date. Every date bug found
+ * in here so far has been invisible to the tests for want of exactly that.
+ *
+ * `getNextWorkoutCandidate` is the exception and still reads the wall clock
+ * internally to order weekday plan entries, so `nextWorkout` is not pinned by
+ * this parameter.
+ */
+export function getHomeSummary(
+  database: AppDatabase,
+  unitPreference: UnitPreference,
+  now = new Date(),
+): HomeSummary {
+  const sessionsThisWeek = getSessionsThisWeek(database, now);
 
   return {
     nextWorkout: getNextWorkoutCandidate(database),
     lastSession: getMostRecentSessionSummary(database),
     lastSessionDelta: getLastSessionDelta(database, unitPreference),
     bodyweight: getBodyweightProgress(database),
-    weeklySnapshot: getHomeWeeklySnapshot(database),
+    weeklySnapshot: getHomeWeeklySnapshot(database, now),
     sessionsThisWeek,
-    streak: getHomeStreak(database),
+    streak: getHomeStreak(database, now),
   };
 }
