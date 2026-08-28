@@ -56,6 +56,35 @@ function baseInput(overrides = {}) {
 
 module.exports = [
   {
+    name: 'a session volume peak needs four priors it can actually measure',
+    run() {
+      // Stored sessions may carry no totalVolumeKg at all: database.ts
+      // normalises a missing or malformed value to undefined, so anyone with
+      // legacy or partially written history has them. Counting those as zero
+      // made the smallest possible session "the highest in six weeks".
+      const input = baseInput({
+        completedSession: session('s_tiny', '2026-05-08T10:00:00.000Z', 5, 3),
+        sessionExerciseLogs: [log('s_tiny', 'bench', 'Bench press', 20, [5])],
+        allPriorSessions: [
+          { id: 'v1', performedAt: '2026-04-10T10:00:00.000Z', setsCompleted: 3 },
+          { id: 'v2', performedAt: '2026-04-20T10:00:00.000Z', setsCompleted: 3 },
+          { id: 'v3', performedAt: '2026-04-28T10:00:00.000Z', setsCompleted: 3 },
+          { id: 'v4', performedAt: '2026-05-01T10:00:00.000Z', setsCompleted: 3 },
+        ],
+        allPriorExerciseLogs: [
+          log('v1', 'bench', 'Bench press', 60, [5]),
+          log('v2', 'bench', 'Bench press', 62, [5]),
+          log('v3', 'bench', 'Bench press', 64, [5]),
+          log('v4', 'bench', 'Bench press', 66, [5]),
+        ],
+      });
+
+      const insight = computePostSessionInsight(input, new Date('2026-05-08T12:00:00.000Z'));
+
+      assert.notEqual(insight?.type, 'session_volume_peak');
+    },
+  },
+  {
     name: 'a seven-day comeback across a clock change is still seven days',
     run() {
       withHelsinkiClocks(() => {
