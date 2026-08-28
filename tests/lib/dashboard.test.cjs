@@ -202,6 +202,63 @@ module.exports = [
     },
   },
   {
+    name: 'the 30-day window holds its edge across a clock change, both directions',
+    run() {
+      // Finland moves its clocks on 29 March 2026, so the thirty days ending
+      // 10 April contain a 23-hour day and span 719 real hours, not 720.
+      // Subtracting 30 * DAY_MS therefore starts the window at 11:00 rather
+      // than 12:00 and counts a session that is thirty days and half an hour
+      // old — older than the figure claims to cover.
+      const originalTimezone = process.env.TZ;
+      process.env.TZ = 'Europe/Helsinki';
+
+      try {
+        // Without this the test is vacuous: under UTC there is no clock change,
+        // the window is a flat 720 hours, and the assertions below pass against
+        // the very arithmetic they exist to reject. A runner that ignores a
+        // mid-process TZ override should fail here rather than go quietly green.
+        assert.notEqual(
+          new Date(2026, 3, 10).getTimezoneOffset(),
+          new Date(2026, 2, 10).getTimezoneOffset(),
+          'TZ override did not take effect, so this test proves nothing',
+        );
+
+        // Spring: the thirty days ending 10 April span 719 real hours, so
+        // subtracting 720 starts the window at 11:00 and counts a session that
+        // is thirty days and half an hour old.
+        const spring = createEmptyDatabase();
+        spring.workoutSessions = [
+          createSession('session_just_outside', new Date(2026, 2, 11, 11, 30, 0).toISOString()),
+          createSession('session_just_inside', new Date(2026, 2, 11, 12, 30, 0).toISOString()),
+        ];
+        spring.exerciseLogs = [
+          createCompletedLog('session_just_outside'),
+          createCompletedLog('session_just_inside'),
+        ];
+
+        assert.equal(getSessionsLast30Days(spring, new Date(2026, 3, 10, 12, 0, 0)), 1);
+
+        // Autumn is the same fault in the other direction, and the one a reader
+        // would not guess: clocks go back 25 October 2026, so the thirty days
+        // ending 20 November span 721 hours and subtracting 720 starts the
+        // window at 13:00 — dropping a session that is inside thirty days.
+        const autumn = createEmptyDatabase();
+        autumn.workoutSessions = [
+          createSession('session_inside_autumn', new Date(2026, 9, 21, 12, 30, 0).toISOString()),
+        ];
+        autumn.exerciseLogs = [createCompletedLog('session_inside_autumn')];
+
+        assert.equal(getSessionsLast30Days(autumn, new Date(2026, 10, 20, 12, 0, 0)), 1);
+      } finally {
+        if (originalTimezone === undefined) {
+          delete process.env.TZ;
+        } else {
+          process.env.TZ = originalTimezone;
+        }
+      }
+    },
+  },
+  {
     name: 'active plan rotation advances by workout template session id',
     run() {
       const database = createEmptyDatabase();

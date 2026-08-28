@@ -1,5 +1,9 @@
 import { WorkoutSessionRuntime, WorkoutTemplateSession } from '../features/workout/workoutTypes';
-import { getCanonicalCompletedSessions, getCalendarWeekStartTimestamp } from './completedSessions';
+import {
+  getCanonicalCompletedSessions,
+  getCalendarWeekStartTimestamp,
+  getRollingWindowStart,
+} from './completedSessions';
 import { getComparableLogSets } from './exerciseLog';
 import { formatLogSetSummary, formatShortDate, pluralize } from './format';
 import { AppDatabase, ExerciseLog, UnitPreference, WorkoutSession } from '../types/models';
@@ -251,7 +255,9 @@ export function buildProgramInsightMap({
   const canonicalSessions = getCanonicalCompletedSessions(database);
   const currentWeekStart = getCalendarWeekStartTimestamp(now);
   const nowTimestamp = new Date(now).getTime();
-  const last30DaysStart = nowTimestamp - 30 * 24 * 60 * 60 * 1000;
+  // The same window the Home tile's own 30-day figure uses. Computed here once
+  // meant the two numbers agreed only until a clock change moved one of them.
+  const last30DaysStart = getRollingWindowStart(now, 30);
 
   return Object.fromEntries(
     programs.map((program) => {
