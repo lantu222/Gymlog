@@ -27,10 +27,25 @@ The review that ran was worth having. Its four findings were all real:
 | Bar spacing interpolated after the `FrameLayout` start tag closed, emitting attributes as inert text nodes | `plugins/withHomeWidget.js` | Fixed — `${pad}` sits inside the tag |
 
 So the review found four genuine bugs on its single run, and then the repo went
-nineteen PRs without one. Nothing on GitHub said the reviewer had stopped. A PR
-with no review comments looks the same as a PR that was reviewed and came back
-clean, which is how "reviewed" quietly became something we assumed rather than
-something that happened.
+nineteen PRs without one.
+
+Codex was not silent about it. On every one of those PRs it posted:
+
+> You have reached your Codex usage limits for code reviews.
+
+within seconds of the PR opening — four seconds on #4, five on #22. The
+information was there the whole time, on every pull request, in plain language.
+
+That is the part worth understanding, because it is the reason this was fixed
+with a check rather than with better notifications. A PR comment gates nothing.
+It does not appear in the checks list, it does not colour the merge button, and
+on a PR that merges 2.9 minutes after it opens it is one more thing scrolled
+past on the way to the green button. Nineteen times a bot said "I am not
+reviewing this" and nineteen times the PR merged anyway, not because the message
+was missing but because nothing was standing in the way.
+
+Being told is not the same as being stopped. That is why the replacement's
+signal is a red check: not louder, but in the one place a merge has to look.
 
 ## Why quota was not the only problem
 
@@ -109,6 +124,16 @@ With a Claude API key instead of a subscription token, change the workflow's
 | This workflow, subscription token | Plan usage, plus GitHub Actions minutes | The PR-side backstop |
 | This workflow, API key | Per token, cents to low dollars per PR | Use if the plan's usage is the binding constraint |
 | Managed Code Review | $15–25 per review, Team/Enterprise plans only | Not available on an individual plan, and ~$400 for a batch this size |
+
+## Retire the Codex connector
+
+The `chatgpt-codex-connector` GitHub App is still installed and still fires on
+every PR, posting its usage-limit comment each time — it did so on #24, the PR
+that added the check replacing it. Nothing here depends on it any more, so
+uninstall it from the repository (GitHub → Settings → GitHub Apps, or
+[the Codex settings page](https://chatgpt.com/codex/cloud/settings/general))
+rather than leaving a reviewer that announces on every PR that it is not
+reviewing.
 
 ## Tuning what gets flagged
 

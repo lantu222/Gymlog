@@ -1,8 +1,9 @@
 # Automated review on every pull request.
 #
 # The history this replaces: Codex reviewed PR #3, found four real P2 bugs, and
-# never ran again. The nineteen PRs after it merged with no review of any kind,
-# and nothing anywhere said so — the absence looked exactly like a clean review.
+# never ran again. The nineteen PRs after it merged with no review of any kind.
+# Codex even said so on each one — "You have reached your Codex usage limits" —
+# but a PR comment gates nothing, and every one of those PRs merged anyway.
 # This workflow is built so that cannot repeat: when the review cannot run, the
 # check goes red and names the reason, instead of staying quiet. That covers the
 # action exiting green without reviewing anything, which it does whenever a PR
