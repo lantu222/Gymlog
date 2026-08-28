@@ -1,4 +1,6 @@
 const assert = require('node:assert/strict');
+
+const { withHelsinkiClocks } = require('../helpers/clockChange.cjs');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -33,6 +35,51 @@ function daysAgo(count) {
 }
 
 module.exports = [
+  {
+    name: 'the recent-session window is twenty-one days, not 504 hours',
+    run() {
+      withHelsinkiClocks(() => {
+        // now = 10 April 2026 12:00. Twenty-one calendar days back is 20 March
+        // 12:00, a span containing the 29 March change and so 503 real hours.
+        // Subtracting 21 * 24h opens the window at 11:00 and lets a session
+        // from outside it into the analysis module.
+        //
+        // Before this, the cutoff read Date.now() inline, so there was no way
+        // to ask the question at a fixed date at all.
+        const local = (month, day, hour, minute = 0) =>
+          new Date(2026, month, day, hour, minute, 0).toISOString();
+        const sessions = [
+          session('outside', 'Push', local(2, 20, 11, 30), 5000),
+          session('inside', 'Push', local(3, 5, 12), 1000),
+        ];
+        const logs = [
+          log('outside', 'Bench press', 100, [5]),
+          log('inside', 'Bench press', 60, [5]),
+        ];
+
+        const modules = buildCoachModules({
+          sessions,
+          logs,
+          language: 'fi',
+          now: new Date(2026, 3, 10, 12, 0, 0),
+        });
+
+        // The 20 March session is half an hour outside the window, so there is
+        // nothing inside it to compare against. Admitting it produced a bullet
+        // reading "Kokonaisvolyymi -80% edelliseen samannimiseen treeniin
+        // verrattuna" — a collapse measured against a session the window says
+        // it is not looking at.
+        assert.ok(modules.analysis, 'expected an analysis module');
+        const rendered = JSON.stringify(modules.analysis);
+        assert.doesNotMatch(rendered, /-80%/);
+        assert.equal(
+          modules.analysis.bullets.some((bullet) => bullet.tone === 'down'),
+          false,
+          'no session inside the window to compare against, so nothing is down',
+        );
+      });
+    },
+  },
   {
     name: 'an empty account produces no modules and asks for more data',
     run() {

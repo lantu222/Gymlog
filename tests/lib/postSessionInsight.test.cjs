@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict');
 
+const { withHelsinkiClocks } = require('../helpers/clockChange.cjs');
+
 const { computePostSessionInsight } = require('../../.test-dist/lib/postSessionInsight.js');
 
 function session(id, performedAt, totalVolumeKg = 1000, setsCompleted = 3) {
@@ -53,6 +55,94 @@ function baseInput(overrides = {}) {
 }
 
 module.exports = [
+  {
+    name: 'a seven-day comeback across a clock change is still seven days',
+    run() {
+      withHelsinkiClocks(() => {
+        // 22 March 12:00 to 29 March 12:00 is seven calendar days and 167 real
+        // hours. Flooring the raw span gives six, which is below the gate, so
+        // the reader who came back after a week was told nothing at all.
+        const local = (month, day, hour) => new Date(2026, month, day, hour, 0, 0).toISOString();
+        const input = baseInput({
+          completedSession: session('s_back', local(2, 29, 12), 1000, 3),
+          sessionExerciseLogs: [log('s_back', 'bench', 'Bench press', 68, [5])],
+          allPriorSessions: [
+            session('p1', local(2, 22, 12), 1000, 3),
+            session('p2', local(2, 10, 12), 1000, 3),
+            session('p3', local(2, 1, 12), 1000, 3),
+          ],
+          // Rising then falling, so neither a record nor a plateau outranks the
+          // comeback: this test is about the gap and nothing else.
+          allPriorExerciseLogs: [
+            log('p1', 'bench', 'Bench press', 70, [5]),
+            log('p2', 'bench', 'Bench press', 65, [5]),
+            log('p3', 'bench', 'Bench press', 60, [5]),
+          ],
+        });
+
+        const insight = computePostSessionInsight(input, new Date(2026, 2, 29, 14, 0, 0));
+
+        assert.ok(insight, 'expected a return-after-gap insight, got none');
+        assert.equal(insight.type, 'return_after_gap');
+        assert.match(insight.message, /7/);
+
+        // And the gate stays as tight as it was. Sunday night to the following
+        // Sunday morning touches seven dates but is 145 hours — the old
+        // arithmetic withheld it, and making the seven-day rule DST-proof must
+        // not turn it into "any gap that spans seven calendar squares".
+        const shortGap = baseInput({
+          completedSession: session('s_short', new Date(2026, 4, 10, 0, 30, 0).toISOString(), 1000, 3),
+          sessionExerciseLogs: [log('s_short', 'bench', 'Bench press', 68, [5])],
+          allPriorSessions: [
+            session('q1', new Date(2026, 4, 3, 23, 0, 0).toISOString(), 1000, 3),
+            session('q2', new Date(2026, 3, 20, 12, 0, 0).toISOString(), 1000, 3),
+            session('q3', new Date(2026, 3, 10, 12, 0, 0).toISOString(), 1000, 3),
+          ],
+          allPriorExerciseLogs: [
+            log('q1', 'bench', 'Bench press', 70, [5]),
+            log('q2', 'bench', 'Bench press', 65, [5]),
+            log('q3', 'bench', 'Bench press', 60, [5]),
+          ],
+        });
+
+        const none = computePostSessionInsight(shortGap, new Date(2026, 4, 10, 2, 0, 0));
+        assert.notEqual(none?.type, 'return_after_gap');
+      });
+    },
+  },
+  {
+    name: 'the volume-peak window is six weeks, not 1008 hours',
+    run() {
+      withHelsinkiClocks(() => {
+        // Session completed 5 May 2026 12:00. Forty-two calendar days back is
+        // 24 March 12:00, and that span contains the 29 March clock change, so
+        // it is 1007 real hours. Subtracting 42 * 24h opens the window at 11:00
+        // and drags in a heavier session from half an hour outside it, which
+        // then outranks today's and withholds a peak the reader did set.
+        const local = (month, day, hour, minute = 0) =>
+          new Date(2026, month, day, hour, minute, 0).toISOString();
+
+        const input = baseInput({
+          completedSession: session('s_today', local(4, 5, 12), 1800, 3),
+          sessionExerciseLogs: [log('s_today', 'bench', 'Bench press', 75, [5])],
+          allPriorSessions: [
+            session('s_outside', local(2, 24, 11, 30), 2500, 3),
+            session('s1', local(3, 10, 10), 900, 3),
+            session('s2', local(3, 20, 10), 1000, 3),
+            session('s3', local(3, 28, 10), 1100, 3),
+            session('s4', local(4, 1, 10), 1200, 3),
+          ],
+        });
+
+        const insight = computePostSessionInsight(input, new Date(2026, 4, 5, 14, 0, 0));
+
+        // Named rather than dereferenced: a regression here returns null, and
+        // "cannot read properties of null" does not say which gate fell.
+        assert.ok(insight, 'expected an insight, got none');
+        assert.equal(insight.type, 'session_volume_peak');
+      });
+    },
+  },
   {
     name: 'post-session insight returns null with fewer than 3 prior sessions',
     run() {

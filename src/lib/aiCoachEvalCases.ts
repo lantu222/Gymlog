@@ -83,6 +83,11 @@ export function buildEvalContext(
   ).length;
 
   return buildAiTrainingContext({
+    // Pinned to the same NOW the fixtures are dated from. Left to the real
+    // clock, every case's fatigue and history blocks decay by a day per day
+    // and the harness scores the coach against a reader who has stopped
+    // training.
+    now: new Date(NOW),
     unitPreference: 'kg',
     activeWorkoutSummary: null,
     homeSummary: {

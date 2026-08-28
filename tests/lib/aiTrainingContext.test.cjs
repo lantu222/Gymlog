@@ -1,8 +1,47 @@
 const assert = require('node:assert/strict');
 
-const { buildAiTrainingContext } = require('../../.test-dist/lib/aiTrainingContext.js');
+const {
+  buildAiCoachBodyState,
+  buildAiTrainingContext,
+} = require('../../.test-dist/lib/aiTrainingContext.js');
+
+const { withHelsinkiClocks } = require('../helpers/clockChange.cjs');
 
 module.exports = [
+  {
+    name: 'the coach\'s weight window is thirty days, not 720 hours',
+    run() {
+      withHelsinkiClocks(() => {
+        // now = 10 April 2026 12:00. Thirty calendar days back is 11 March
+        // 12:00, a span of 719 hours, so subtracting 30 * 24h opens the window
+        // at 11:00 and hands the coach a weigh-in from outside it — which then
+        // becomes the "first" reading the reported change is measured from.
+        const now = new Date(2026, 3, 10, 12, 0, 0);
+        const weights = [
+          { id: 'w_outside', recordedAt: new Date(2026, 2, 11, 11, 30, 0).toISOString(), weight: 90 },
+          { id: 'w_first', recordedAt: new Date(2026, 2, 11, 12, 30, 0).toISOString(), weight: 80 },
+          { id: 'w_last', recordedAt: new Date(2026, 3, 9, 12, 0, 0).toISOString(), weight: 82 },
+        ];
+
+        const body = buildAiCoachBodyState(weights, [], now);
+
+        // Measured from the 80 kg reading inside the window, not the 90 kg one
+        // half an hour outside it.
+        assert.equal(body.weightChange30d.deltaKg, 2);
+
+        // And closed at the top: a weigh-in stamped in the future, which a
+        // wrong device clock leaves behind permanently, is not the reading a
+        // thirty-day change is measured to.
+        const withFuture = buildAiCoachBodyState(
+          [...weights, { id: 'w_future', recordedAt: new Date(2027, 0, 1, 12, 0, 0).toISOString(), weight: 120 }],
+          [],
+          now,
+        );
+
+        assert.equal(withFuture.weightChange30d.deltaKg, 2);
+      });
+    },
+  },
   {
     name: 'ai training context keeps a compact but actionable aiCoach summary without active workout context by default',
     run() {
