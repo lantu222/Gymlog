@@ -9,6 +9,7 @@ const {
   freestyleNextSetTarget,
   freestyleVolumeKg,
   matchesMuscleFilter,
+  carryForwardFreestyleSet,
 } = require('../../.test-dist/lib/emptyWorkoutSession.js');
 
 const emptyPrLookup = { byLibraryItemId: {}, byName: {} };
@@ -32,6 +33,60 @@ function makeExercise(overrides = {}) {
 }
 
 module.exports = [
+  /**
+   * "Painot ja toistot automaattisesti" (#bugs 2026-08-28). The second and
+   * third sets of a lift are almost always the first one again, and the
+   * reader was retyping them.
+   */
+  {
+    name: 'a new set starts at the last numbers you entered',
+    run() {
+      assert.deepEqual(
+        carryForwardFreestyleSet([{ kg: '60', reps: '7' }]),
+        { kg: '60', reps: '7' },
+      );
+    },
+  },
+  {
+    /**
+     * Read independently: a reader who has typed the weight for the row above
+     * but not the reps yet would otherwise get a weight and a blank, or
+     * nothing, depending which half they had reached.
+     */
+    name: 'each number is carried from the last set that has it',
+    run() {
+      assert.deepEqual(
+        carryForwardFreestyleSet([
+          { kg: '60', reps: '8' },
+          { kg: '62,5', reps: '' },
+        ]),
+        { kg: '62,5', reps: '8' },
+      );
+    },
+  },
+  {
+    name: 'nothing to carry stays empty rather than inventing a number',
+    run() {
+      assert.deepEqual(carryForwardFreestyleSet([]), { kg: '', reps: '' });
+      assert.deepEqual(
+        carryForwardFreestyleSet([{ kg: '', reps: '' }, { kg: '   ', reps: '' }]),
+        { kg: '', reps: '' },
+      );
+    },
+  },
+  {
+    /**
+     * Bodyweight work is logged at no weight at all, and that is an answer:
+     * the reps still carry.
+     */
+    name: 'a bodyweight set carries its reps without inventing a weight',
+    run() {
+      assert.deepEqual(
+        carryForwardFreestyleSet([{ kg: '', reps: '12' }]),
+        { kg: '', reps: '12' },
+      );
+    },
+  },
   {
     name: 'muscle filter maps design chips onto library body parts',
     run() {

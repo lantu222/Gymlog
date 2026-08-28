@@ -855,6 +855,7 @@ export function ProgramDayScreen({
           reader already knows. */}
       {canAddExercises ? (
         <AddExerciseSheet
+        bottomInset={insets.bottom}
           visible={addSheetOpen}
           language={language}
           items={exerciseLibrary ?? []}

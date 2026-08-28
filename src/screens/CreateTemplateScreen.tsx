@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CutButton } from '../components/CutButton';
 import { CutSurface } from '../components/CutSurface';
@@ -250,6 +251,8 @@ export function CreateTemplateScreen({
   onSave,
 }: CreateTemplateScreenProps) {
   const theme = useTheme();
+  // The add-exercise sheet is a Modal and cannot read this itself.
+  const sheetInsets = useSafeAreaInsets();
   const styles = useThemedStyles(makeStyles);
 
   const [templateName, setTemplateName] = useState(initialDraft.name);
@@ -630,6 +633,7 @@ export function CreateTemplateScreen({
       </ScrollView>
 
       <AddExerciseSheet
+        bottomInset={sheetInsets.bottom}
         visible={activeSession !== null}
         items={exerciseLibrary}
         recentItems={recentExerciseLibraryItems}

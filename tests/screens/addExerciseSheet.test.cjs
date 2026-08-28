@@ -16,11 +16,35 @@ module.exports = [
     name: 'add-exercise sheet: the confirm button clears the phone buttons',
     run() {
       const sheet = read('src/components/AddExerciseSheet.tsx');
-      // The sheet is anchored to the bottom edge, so a fixed footer padding puts
-      // the only button that adds anything behind the system nav bar. Its height
-      // is only known at runtime.
-      assert.match(sheet, /useSafeAreaInsets/);
-      assert.match(sheet, /styles\.footer, \{ paddingBottom: insets\.bottom \+ spacing\.lg \}/);
+      /**
+       * The bar's height comes IN as a prop; it cannot be read here.
+       *
+       * This guard used to pin `insets.bottom + spacing.lg` inside the sheet,
+       * which is what shipped on 26.8 — and the button was still half under
+       * the system buttons two days later (#bugs 2026-08-28). A Modal is its
+       * own native window, and inside one this app gets zero for the bottom
+       * inset from the root provider, from a provider added inside the modal,
+       * and from `initialWindowMetrics` alike; all three were tried on the
+       * emulator with three-button navigation. The screen that opens the sheet
+       * is outside the modal, where the same hook is right.
+       */
+      assert.match(sheet, /bottomInset\?: number;/);
+      assert.match(sheet, /styles\.footer, \{ paddingBottom: bottomInset \+ spacing\.lg \}/);
+      assert.ok(
+        !/useSafeAreaInsets/.test(sheet),
+        'reading the inset inside the modal is the bug this guard exists for',
+      );
+      // And every screen that opens one hands the number over.
+      for (const screen of [
+        'src/screens/ProgramDayScreen.tsx',
+        'src/screens/CreateTemplateScreen.tsx',
+        'src/screens/WorkoutEditorScreen.tsx',
+      ]) {
+        assert.match(read(screen), /bottomInset=\{\w+\.bottom\}/, `${screen} should pass the inset`);
+      }
+      // The free workout has its own copy of this sheet, with the same bug.
+      const empty = read('src/screens/EmptyWorkoutScreen.tsx');
+      assert.match(empty, /styles\.sheetFooter, \{ paddingBottom: bottomInset \+ 16 \}/);
     },
   },
   {

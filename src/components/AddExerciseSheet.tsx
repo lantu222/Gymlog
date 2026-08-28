@@ -10,7 +10,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   getPopularExerciseLibraryItems,
@@ -45,6 +44,11 @@ const NOTHING_SELECTED: string[] = [];
 
 interface AddExerciseSheetProps {
   visible: boolean;
+  /**
+   * Height of the phone's system-button bar, read OUTSIDE this modal.
+   * See the footer for why it cannot be read inside one.
+   */
+  bottomInset?: number;
   language?: AppLanguage;
   items: ExerciseLibraryItem[];
   recentItems: ExerciseLibraryItem[];
@@ -163,6 +167,7 @@ function FilterPillGroup<T extends string>({
 }
 
 export function AddExerciseSheet({
+  bottomInset = 0,
   visible,
   language = 'en',
   items,
@@ -180,7 +185,6 @@ export function AddExerciseSheet({
   onConfirmSelection,
 }: AddExerciseSheetProps) {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const styles = useThemedStyles(makeStyles);
   const sheetTitle = title ?? t(language, 'editor.addExercise');
   const addLabel = actionLabel ?? t(language, 'editor.add');
@@ -625,7 +629,22 @@ export function AddExerciseSheet({
                anything gets added at all ("nappi häviää alas... mitään
                liikkeitä ei voi lisätä", #bugs 2026-08-26). The bar's height is
                only known at runtime. */
-            <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.lg }]}>
+            /**
+             * The system-button bar's height comes in as a prop, measured by
+             * the screen that opens this.
+             *
+             * A Modal is its own native window, and inside one this app gets
+             * zero for the bottom inset three different ways: from the root
+             * provider, from a provider added inside the modal, and from
+             * `initialWindowMetrics`. All three were tried on the emulator
+             * with three-button navigation and the confirm button stayed half
+             * under the bar (#bugs 2026-08-28; the same button, "fixed" on
+             * 26.8 with `insets.bottom + spacing.lg`, which was the first of
+             * the three). Outside the modal the same hook returns the right
+             * number — the tab bar has always sat above the buttons — so the
+             * caller reads it there and hands it over.
+             */
+            <View style={[styles.footer, { paddingBottom: bottomInset + spacing.lg }]}>
               <Text style={styles.footerSelectionText}>
                 {pendingSelectedIds.length === 0
                   ? t(language, 'sheet.selectSome')

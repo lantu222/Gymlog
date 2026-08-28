@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CutButton } from '../components/CutButton';
 import { Theme, useTheme, useThemedStyles } from '../theming';
@@ -234,6 +235,8 @@ export function WorkoutEditorScreen({
   exercisePrLookup,
 }: WorkoutEditorScreenProps) {
   const theme = useTheme();
+  // The add-exercise sheet is a Modal and cannot read this itself.
+  const sheetInsets = useSafeAreaInsets();
   const styles = useThemedStyles(makeStyles);
 
   const [session, setSession] = useState<EditorSessionState>(() => mapDraftToState(initialDraft));
@@ -858,6 +861,7 @@ export function WorkoutEditorScreen({
       </ScrollView>
 
       <AddExerciseSheet
+        bottomInset={sheetInsets.bottom}
         visible={showAddExercise}
         items={exerciseLibrary}
         recentItems={recentExerciseLibraryItems}

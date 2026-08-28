@@ -360,3 +360,37 @@ export function buildFreestyleFinish({
     },
   };
 }
+
+/**
+ * What a set you have just added starts at.
+ *
+ * Blank, until now. In a free workout the second and third sets of a lift are
+ * almost always the first one again — same bar, same reps — so the reader
+ * retyped "60" and "6" for every one of them ("painot ja toistot
+ * automaattisesti eli ylempänä 60kg ja 6toistoo tulisi alempaan kanssa 60kg
+ * 6toistoo", #bugs 2026-08-28).
+ *
+ * The two numbers are carried INDEPENDENTLY, from the last set that has each.
+ * A reader who logs the weight first and the reps after the set is mid-entry
+ * on the row above; taking both from the same row would hand them a weight and
+ * a blank, or nothing at all, depending on which half they had reached.
+ *
+ * A carried number is a suggestion, not a claim about what was lifted: it goes
+ * into the draft text the same way a typed one does, and the set counts as
+ * done only when the reader says so.
+ */
+export function carryForwardFreestyleSet(
+  sets: ReadonlyArray<Pick<FreestyleSetDraft, 'kg' | 'reps'>>,
+): { kg: string; reps: string } {
+  const lastFilled = (read: (set: Pick<FreestyleSetDraft, 'kg' | 'reps'>) => string) => {
+    for (let index = sets.length - 1; index >= 0; index -= 1) {
+      const value = read(sets[index]);
+      if (value.trim() !== '') {
+        return value;
+      }
+    }
+    return '';
+  };
+
+  return { kg: lastFilled((set) => set.kg), reps: lastFilled((set) => set.reps) };
+}

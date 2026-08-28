@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { PlatePop } from '../components/PlatePop';
@@ -24,6 +25,7 @@ import {
   FreestyleExerciseDraft,
   FreestyleFinishSummary,
   buildFreestyleFinish,
+  carryForwardFreestyleSet,
   exerciseInitials,
   freestyleDoneSetCount,
   freestyleHasSetAfter,
@@ -40,6 +42,7 @@ import { AppLanguage, ExerciseLibraryItem, WorkoutTemplateDraft } from '../types
 import { subscribeRestActions, useRestEndAlert } from '../hooks/useRestEndAlert';
 import { RestAlertsSheet } from '../components/RestAlertsSheet';
 import { describeRest } from '../lib/restSchedule';
+import { useKeyboardReveal } from '../hooks/useKeyboardReveal';
 import {
   RestAlertPermission,
   getRestAlertPermission,
@@ -95,8 +98,8 @@ function buildMetaLabel(item: ExerciseLibraryItem, language: AppLanguage) {
   return tag.toLowerCase() === muscle.toLowerCase() ? muscle : `${muscle} · ${tag}`;
 }
 
-function createSet() {
-  return { localKey: createId('set'), kg: '', reps: '', done: false };
+function createSet(carry: { kg: string; reps: string } = { kg: '', reps: '' }) {
+  return { localKey: createId('set'), kg: carry.kg, reps: carry.reps, done: false };
 }
 
 function buildExerciseState(
@@ -212,6 +215,18 @@ function SetCheckButton({ done, label, onPress }: { done: boolean; label: string
 
 interface AddSheetProps {
   visible: boolean;
+  /**
+   * Height of the phone's system-button bar, read by the SCREEN.
+   *
+   * This sheet is a Modal, and a Modal is its own native window: inside one
+   * this app gets zero for the bottom inset from the root provider, from a
+   * provider added inside the modal, and from `initialWindowMetrics` alike —
+   * all three tried on the emulator with three-button navigation while the
+   * confirm button sat half under the bar ("alla olevat napit ei näy kunnolla
+   * jää puhelimen nappien taakse", #bugs 2026-08-28). Outside the modal the
+   * same hook is right, which is why the tab bar has never had this problem.
+   */
+  bottomInset?: number;
   items: ExerciseLibraryItem[];
   language: AppLanguage;
   onClose: () => void;
@@ -240,7 +255,7 @@ function SelectTogglePill({ selected }: { selected: boolean }) {
   );
 }
 
-function AddExerciseSheetHG({ visible, items, language, onClose, onAdd }: AddSheetProps) {
+function AddExerciseSheetHG({ visible, items, language, onClose, onAdd, bottomInset = 0 }: AddSheetProps) {
   const theme = useTheme();
 
   const styles = useThemedStyles(makeStyles);
@@ -421,7 +436,7 @@ function AddExerciseSheetHG({ visible, items, language, onClose, onAdd }: AddShe
             }}
           />
 
-          <View style={styles.sheetFooter}>
+          <View style={[styles.sheetFooter, { paddingBottom: bottomInset + 16 }]}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t(language, 'emptyWorkout.a11y.addSelected')}
@@ -488,7 +503,11 @@ export function EmptyWorkoutScreen({
   // frozen countdown, and not silently gone.
   const restStatus = rest ? describeRest(rest.endsAtMs, nowMs) : null;
   const restRemaining = restStatus ? restStatus.remainingSeconds : null;
+  // The add-exercise sheet is a Modal and cannot read this itself.
+  const sheetInsets = useSafeAreaInsets();
   const restDoneCuedRef = useRef(false);
+  /** Keeps the field being typed into above the keyboard — see the hook. */
+  const keyboard = useKeyboardReveal();
 
   useEffect(() => {
     // The countdown ran out — cue "back to work" once, but KEEP the bar: it
@@ -641,7 +660,9 @@ export function EmptyWorkoutScreen({
   const addSet = (exerciseKey: string) =>
     setExercises((current) =>
       current.map((exercise) =>
-        exercise.localKey === exerciseKey ? { ...exercise, sets: [...exercise.sets, createSet()] } : exercise,
+        exercise.localKey === exerciseKey
+          ? { ...exercise, sets: [...exercise.sets, createSet(carryForwardFreestyleSet(exercise.sets))] }
+          : exercise,
       ),
     );
 
@@ -813,8 +834,16 @@ export function EmptyWorkoutScreen({
       ) : (
         /* ── freestyle logging ── */
         <ScrollView
+          ref={keyboard.scrollRef}
+          onScroll={keyboard.onScroll}
+          scrollEventThrottle={16}
           style={styles.body}
-          contentContainerStyle={[styles.loggingContent, { paddingBottom: rest ? 118 : 24 }]}
+          // The keyboard is drawn OVER this list, not beside it, so the last
+          // rows have nowhere to scroll to without room made for them.
+          contentContainerStyle={[
+            styles.loggingContent,
+            { paddingBottom: (rest ? 118 : 24) + keyboard.keyboardInset },
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -881,6 +910,7 @@ export function EmptyWorkoutScreen({
                           {setIndex + 1}
                         </Text>
                         <TextInput
+                          {...keyboard.field(`${set.localKey}:kg`)}
                           value={set.kg}
                           onChangeText={(value) => patchSet(exercise.localKey, set.localKey, { kg: value })}
                           placeholder="0"
@@ -890,6 +920,7 @@ export function EmptyWorkoutScreen({
                           style={[styles.setInput, styles.setColField]}
                         />
                         <TextInput
+                          {...keyboard.field(`${set.localKey}:reps`)}
                           value={set.reps}
                           onChangeText={(value) => patchSet(exercise.localKey, set.localKey, { reps: value })}
                           placeholder="0"
@@ -979,6 +1010,7 @@ export function EmptyWorkoutScreen({
       />
 
       <AddExerciseSheetHG
+        bottomInset={sheetInsets.bottom}
         visible={sheetVisible}
         items={exerciseLibrary}
         language={language}
