@@ -1,12 +1,11 @@
 import { AppDatabase } from '../types/models';
 import {
+  getCalendarWeekStartBefore,
   getCalendarWeekStartTimestamp,
   getCanonicalCardioSessions,
   getCanonicalCompletedSessions,
   getCurrentWeekStreak,
 } from './completedSessions';
-
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 export interface TrainingRhythmSummary {
   /** Consecutive active calendar weeks ending at the current week (same rule as the home streak). */
@@ -44,7 +43,7 @@ export function getTrainingRhythm(
 
   const sessionsPerWeek: number[] = [];
   for (let index = weeks - 1; index >= 0; index -= 1) {
-    sessionsPerWeek.push(counts.get(currentWeekStart - index * WEEK_MS) ?? 0);
+    sessionsPerWeek.push(counts.get(getCalendarWeekStartBefore(currentWeekStart, index)) ?? 0);
   }
 
   return {

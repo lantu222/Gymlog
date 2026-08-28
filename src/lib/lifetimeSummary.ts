@@ -1,5 +1,9 @@
 import { AppDatabase } from '../types/models';
-import { getCalendarWeekStartTimestamp, getCanonicalCompletedSessions } from './completedSessions';
+import {
+  getCalendarWeekStartBefore,
+  getCalendarWeekStartTimestamp,
+  getCanonicalCompletedSessions,
+} from './completedSessions';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -56,7 +60,7 @@ export function getLifetimeTrainingSummary(
   let bestWeekStreak = 1;
   let runLength = 1;
   for (let index = 1; index < activeWeekStarts.length; index += 1) {
-    if (activeWeekStarts[index] - activeWeekStarts[index - 1] === WEEK_MS) {
+    if (getCalendarWeekStartBefore(activeWeekStarts[index]) === activeWeekStarts[index - 1]) {
       runLength += 1;
     } else {
       runLength = 1;
@@ -66,6 +70,11 @@ export function getLifetimeTrainingSummary(
 
   const firstWeekStart = activeWeekStarts[0];
   const currentWeekStart = getCalendarWeekStartTimestamp(now);
+  // WEEK_MS survives here on purpose: a span of N weeks is N * 168 hours give or
+  // take the one hour a clock change adds or removes, and Math.round absorbs
+  // 1/168 of a week. It is a count of weeks elapsed, not a week start to look
+  // up, so calendar stepping buys nothing — but the rounding is what makes it
+  // safe, and floor would be off by one after every change.
   const weeksSinceStart = Math.max(1, Math.round((currentWeekStart - firstWeekStart) / WEEK_MS) + 1);
 
   // sessions are sorted newest-first, so the earliest is the last entry.

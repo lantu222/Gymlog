@@ -1,3 +1,4 @@
+import { getCalendarWeekStartAfter, getRollingWindowStart } from './completedSessions';
 import { getTotalVolume } from './progression';
 import { ExerciseLog, SetupWeekday, WorkoutSession } from '../types/models';
 import { TrainingSchedule, trainsOn } from './trainingSchedule';
@@ -305,8 +306,18 @@ function buildWeeks(
   const weeks: WeekSummary[] = [];
   const todayStart = new Date(now).setHours(0, 0, 0, 0);
 
-  for (let weekStart = firstWeek; weekStart <= currentWeek; weekStart += 7 * DAY_MS) {
-    const weekEnd = weekStart + 7 * DAY_MS;
+  // Calendar stepping, not 7 * DAY_MS. A week containing a clock change is 167
+  // or 169 hours long, so a fixed step drifts an hour off local Monday midnight
+  // and then compounds: past a spring change the cursor overshoots currentWeek
+  // and the loop exits before emitting the running week at all, and past an
+  // autumn one every weekStart lands on the previous Sunday at 23:00, which
+  // isoDate then names as the week and the planned-session cap reads as a week
+  // already over.
+  let weekStart = firstWeek;
+  while (weekStart <= currentWeek) {
+    // One value, used as this week's upper bound and as the next cursor, so the
+    // two cannot drift apart if either is ever changed.
+    const weekEnd = getCalendarWeekStartAfter(weekStart);
     const inWeek = sessions.filter((entry) => entry.time >= weekStart && entry.time < weekEnd);
 
     let plannedSessions: number | null = null;
@@ -334,6 +345,8 @@ function buildWeeks(
       volumeKg: Math.round(inWeek.reduce((sum, entry) => sum + (entry.volumeKg ?? 0), 0)),
       plannedSessions,
     });
+
+    weekStart = weekEnd;
   }
 
   return weeks;
@@ -347,7 +360,11 @@ export function buildTrainingHistory({
   windowDays = DEFAULT_HISTORY_WINDOW_DAYS,
   now = Date.now(),
 }: TrainingHistoryInput): TrainingHistory {
-  const cutoff = now - windowDays * DAY_MS;
+  // Calendar stepping, like the week rows above: a fixed windowDays * DAY_MS
+  // puts the cutoff an hour off the time of day it claims for the six months
+  // after every clock change, admitting a session from the far side of the
+  // window or dropping one inside it.
+  const cutoff = getRollingWindowStart(now, windowDays);
   const inWindow = sessions
     .filter((session) => sessionTime(session) >= cutoff)
     .sort((left, right) => sessionTime(left) - sessionTime(right));

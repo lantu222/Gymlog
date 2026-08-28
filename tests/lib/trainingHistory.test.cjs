@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict');
 
+const { withHelsinkiClocks } = require('../helpers/clockChange.cjs');
+
 const {
   buildTrainingHistory,
   buildLiftHistories,
@@ -44,6 +46,67 @@ function log(sessionId, name, weight, repsPerSet, extra = {}) {
 }
 
 module.exports = [
+  {
+    name: 'the week rows survive a clock change',
+    run() {
+      withHelsinkiClocks(() => {
+        // Stepping the cursor by 7 * DAY_MS overshoots after the March change:
+        // three steps from Monday 9 March land on Monday 30 March at 01:00,
+        // which is past currentWeek, so the loop exited before emitting the
+        // running week and the most recent week vanished from the coach's
+        // evidence and from the analysis chart.
+        const history = buildTrainingHistory({
+          sessions: [
+            session('w1', 'Push', new Date(2026, 2, 10, 9, 0, 0).toISOString(), 1000),
+            session('w2', 'Push', new Date(2026, 2, 17, 9, 0, 0).toISOString(), 1000),
+            session('w3', 'Push', new Date(2026, 2, 24, 9, 0, 0).toISOString(), 1000),
+            session('w4', 'Push', new Date(2026, 2, 31, 9, 0, 0).toISOString(), 1000),
+          ],
+          logs: [
+            log('w1', 'Bench Press', 60, [8]),
+            log('w2', 'Bench Press', 60, [8]),
+            log('w3', 'Bench Press', 60, [8]),
+            log('w4', 'Bench Press', 60, [8]),
+          ],
+          windowDays: 56,
+          now: new Date(2026, 3, 1, 12, 0, 0).getTime(),
+        });
+
+        assert.deepEqual(
+          history.weeks.map((week) => week.weekStart),
+          ['2026-03-09', '2026-03-16', '2026-03-23', '2026-03-30'],
+        );
+      });
+    },
+  },
+  {
+    name: 'week rows stay named after their Monday through an autumn change',
+    run() {
+      withHelsinkiClocks(() => {
+        // Past the October change the drifted cursor sits at Sunday 23:00, and
+        // isoDate then names each row after the Sunday before it.
+        const history = buildTrainingHistory({
+          sessions: [
+            session('a1', 'Push', new Date(2026, 9, 13, 9, 0, 0).toISOString(), 1000),
+            session('a2', 'Push', new Date(2026, 9, 20, 9, 0, 0).toISOString(), 1000),
+            session('a3', 'Push', new Date(2026, 9, 27, 9, 0, 0).toISOString(), 1000),
+          ],
+          logs: [
+            log('a1', 'Bench Press', 60, [8]),
+            log('a2', 'Bench Press', 60, [8]),
+            log('a3', 'Bench Press', 60, [8]),
+          ],
+          windowDays: 56,
+          now: new Date(2026, 9, 28, 12, 0, 0).getTime(),
+        });
+
+        assert.deepEqual(
+          history.weeks.map((week) => week.weekStart),
+          ['2026-10-12', '2026-10-19', '2026-10-26'],
+        );
+      });
+    },
+  },
   {
     name: 'an empty log produces an empty history rather than zeros',
     run() {

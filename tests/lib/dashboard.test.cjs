@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict');
 
+const { withHelsinkiClocks } = require('../helpers/clockChange.cjs');
+
 const { createEmptyDatabase } = require('../../.test-dist/data/seed.js');
 const {
   getCurrentWeekStreak,
@@ -8,7 +10,10 @@ const {
   getSessionsLast30Days,
   getSessionsThisWeek,
 } = require('../../.test-dist/lib/completedSessions.js');
-const { getNextWorkoutCandidate } = require('../../.test-dist/lib/dashboard.js');
+const {
+  getHomeSummary,
+  getNextWorkoutCandidate,
+} = require('../../.test-dist/lib/dashboard.js');
 
 function createSession(id, performedAt, workoutTemplateId = 'workout_upper', workoutNameSnapshot = 'Upper') {
   return { id, workoutTemplateId, workoutNameSnapshot, performedAt };
@@ -36,6 +41,72 @@ function createCompletedLog(sessionId, orderIndex = 0, weight = 100, reps = [5])
 }
 
 module.exports = [
+  {
+    name: 'the week streak survives a clock change',
+    run() {
+      withHelsinkiClocks(() => {
+        // Finland moves its clocks on Sunday 29 March 2026, inside the week of
+        // Monday 23 March. That week is 167 hours long, so stepping back a flat
+        // WEEK_MS from Monday 30 March lands on Sunday 22 March at 23:00 — a
+        // timestamp no week start can equal, because week starts are local
+        // midnights. Three unbroken weeks then read as one.
+        const database = createEmptyDatabase();
+        database.workoutSessions = [
+          createSession('session_week_16', '2026-03-17T10:00:00'),
+          createSession('session_week_23', '2026-03-24T10:00:00'),
+          createSession('session_week_30', '2026-03-31T10:00:00'),
+        ];
+        database.exerciseLogs = [
+          createCompletedLog('session_week_16'),
+          createCompletedLog('session_week_23'),
+          createCompletedLog('session_week_30'),
+        ];
+
+        assert.equal(getCurrentWeekStreak(database, new Date(2026, 3, 1, 12, 0, 0)), 3);
+
+        // Autumn is the same fault with the cursor an hour the other way:
+        // clocks go back 25 October 2026, so the week of 26 October is 169
+        // hours after the week of 19 October.
+        const autumn = createEmptyDatabase();
+        autumn.workoutSessions = [
+          createSession('session_week_12_oct', '2026-10-13T10:00:00'),
+          createSession('session_week_19_oct', '2026-10-20T10:00:00'),
+          createSession('session_week_26_oct', '2026-10-27T10:00:00'),
+        ];
+        autumn.exerciseLogs = [
+          createCompletedLog('session_week_12_oct'),
+          createCompletedLog('session_week_19_oct'),
+          createCompletedLog('session_week_26_oct'),
+        ];
+
+        assert.equal(getCurrentWeekStreak(autumn, new Date(2026, 9, 28, 12, 0, 0)), 3);
+      });
+    },
+  },
+  {
+    name: 'last week is still last week after a clock change',
+    run() {
+      withHelsinkiClocks(() => {
+        // Same 167-hour week: the previous-week key computed by fixed
+        // milliseconds matches nothing, so every "vs last week" figure reads
+        // zero and the delta shows a gain the reader did not make.
+        const database = createEmptyDatabase();
+        database.workoutSessions = [
+          createSession('session_previous_week', '2026-03-24T10:00:00'),
+          createSession('session_current_week', '2026-03-31T10:00:00'),
+        ];
+        database.exerciseLogs = [
+          createCompletedLog('session_previous_week'),
+          createCompletedLog('session_current_week'),
+        ];
+
+        const summary = getHomeSummary(database, 'kg', new Date(2026, 3, 1, 12, 0, 0));
+
+        assert.equal(summary.weeklySnapshot.workoutsCurrent, 1);
+        assert.equal(summary.weeklySnapshot.workoutsPrevious, 1);
+      });
+    },
+  },
   {
     name: 'completing one workout this week results in Current Streak = 1',
     run() {
@@ -176,10 +247,7 @@ module.exports = [
       // Finland moves its clocks on 29 March 2026, so a strip ending 5 April
       // spans a 23-hour day. Built from fixed 24-hour chunks, every day before
       // the change lands at 01:00 instead of midnight and matches nothing.
-      const originalTimezone = process.env.TZ;
-      process.env.TZ = 'Europe/Helsinki';
-
-      try {
+      withHelsinkiClocks(() => {
         const database = createEmptyDatabase();
         database.workoutSessions = [
           createSession('session_before_dst', new Date(2026, 2, 20, 18, 0, 0).toISOString()),
@@ -192,13 +260,7 @@ module.exports = [
         strip.forEach((day) => {
           assert.equal(new Date(day.dayStart).getHours(), 0);
         });
-      } finally {
-        if (originalTimezone === undefined) {
-          delete process.env.TZ;
-        } else {
-          process.env.TZ = originalTimezone;
-        }
-      }
+      });
     },
   },
   {
@@ -209,10 +271,7 @@ module.exports = [
       // Subtracting 30 * DAY_MS therefore starts the window at 11:00 rather
       // than 12:00 and counts a session that is thirty days and half an hour
       // old — older than the figure claims to cover.
-      const originalTimezone = process.env.TZ;
-      process.env.TZ = 'Europe/Helsinki';
-
-      try {
+      withHelsinkiClocks(() => {
         // Without this the test is vacuous: under UTC there is no clock change,
         // the window is a flat 720 hours, and the assertions below pass against
         // the very arithmetic they exist to reject. A runner that ignores a
@@ -249,13 +308,7 @@ module.exports = [
         autumn.exerciseLogs = [createCompletedLog('session_inside_autumn')];
 
         assert.equal(getSessionsLast30Days(autumn, new Date(2026, 10, 20, 12, 0, 0)), 1);
-      } finally {
-        if (originalTimezone === undefined) {
-          delete process.env.TZ;
-        } else {
-          process.env.TZ = originalTimezone;
-        }
-      }
+      });
     },
   },
   {

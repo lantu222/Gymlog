@@ -1,8 +1,6 @@
 import { getComparableLogSets } from './exerciseLog';
 import { AppDatabase, WorkoutSession } from '../types/models';
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-const WEEK_MS = 7 * DAY_MS;
 const FI_MONTHS = [
   'tammikuu',
   'helmikuu',
@@ -172,17 +170,58 @@ export function getVolumeThisWeekKg(database: AppDatabase, now = new Date()) {
  * copies of this arithmetic drift apart at exactly the moment it matters.
  */
 export function getRollingWindowStart(now: Date | string | number, days: number) {
-  const reference = new Date(now);
+  return addCalendarDays(now, -days);
+}
+
+/**
+ * `reference` shifted by whole calendar days, keeping its time of day.
+ *
+ * The primitive under every window and week helper here. Adding or subtracting
+ * `days * DAY_MS` instead drifts an hour whenever the span crosses a clock
+ * change, and an hour is the whole distance between a timestamp that matches a
+ * stored day or week start and one that matches nothing.
+ *
+ * One case the Date constructor decides rather than this function: a wall-clock
+ * time that spring-forward skips normalizes forward an hour. Under Helsinki's
+ * 03:00 transitions only times in that hour are affected, which is why the week
+ * helpers below — always at local midnight — are exact.
+ */
+export function addCalendarDays(reference: Date | string | number, days: number) {
+  const date = new Date(reference);
 
   return new Date(
-    reference.getFullYear(),
-    reference.getMonth(),
-    reference.getDate() - days,
-    reference.getHours(),
-    reference.getMinutes(),
-    reference.getSeconds(),
-    reference.getMilliseconds(),
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate() + days,
+    date.getHours(),
+    date.getMinutes(),
+    date.getSeconds(),
+    date.getMilliseconds(),
   ).getTime();
+}
+
+/**
+ * The start of the calendar week `weeks` before `weekStart`.
+ *
+ * `weekStart` is expected to be a local week start, as
+ * `getCalendarWeekStartTimestamp` returns. Stepping back by a fixed
+ * `weeks * WEEK_MS` lands at 23:00 or 01:00 whenever the span crosses a clock
+ * change, and no real week start ever equals that, so every lookup and equality
+ * check against a set of week starts silently misses. Under Helsinki's 03:00 transitions local
+ * midnight always exists, so this is exact; a zone that moves its clocks at
+ * midnight would need the result snapped back through
+ * `getCalendarWeekStartTimestamp`.
+ */
+export function getCalendarWeekStartBefore(weekStart: number, weeks = 1) {
+  return addCalendarDays(weekStart, -weeks * 7);
+}
+
+/**
+ * The start of the calendar week `weeks` after `weekStart`. Same reasoning as
+ * `getCalendarWeekStartBefore`, for loops that walk forwards.
+ */
+export function getCalendarWeekStartAfter(weekStart: number, weeks = 1) {
+  return addCalendarDays(weekStart, weeks * 7);
 }
 
 export function getSessionsLast30Days(database: AppDatabase, now = new Date()) {
@@ -279,7 +318,7 @@ export function getCurrentWeekStreak(database: AppDatabase, now = new Date()) {
 
   while (activeWeeks.has(cursor)) {
     streak += 1;
-    cursor -= WEEK_MS;
+    cursor = getCalendarWeekStartBefore(cursor);
   }
 
   return streak;
