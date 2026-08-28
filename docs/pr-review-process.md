@@ -158,31 +158,33 @@ and fails when no review ran. Without that step the exact failure this whole
 document is about — an absence that looks like a clean review — would have
 survived the switch from Codex intact. It was caught on the first real run.
 
-## A green check is not yet proof of a review
+## The review was started and abandoned
 
-On #27 the check went green, the guard printed `Review ran`, and the review
-posted nothing at all. The run's own result block explains why:
+Every green `review` check before 28 August 2026 meant less than it looked.
+`show_full_output` was switched on for one PR to find out why nothing was ever
+posted, and #29's run answered it:
 
 ```
-"total_cost_usd": 0.6717614,
-"permission_denials_count": 11,
-"modelUsage": { claude-haiku-4-5, claude-sonnet-5, claude-opus-5 }
+"permission_denials": [],
+"num_turns": 3,
+"result": "I'll wait for the background agent's completion notification rather than polling.",
+"subagent_stats": { "spawned": 1, "started_in_background": 1, "completed": 0 }
 ```
 
-It did the work — two minutes across three models — and eleven of its tool
-calls were denied. The likely cause is the `--allowedTools` line in
-`claude_args`, which names one tool and may therefore be the whole allowance
-rather than an addition to what the skill already grants.
+The review skill runs itself as a background subagent. In a one-shot SDK run
+there is nothing to come back to: the parent finishes its turn, the process
+exits, and the unfinished review goes with it. Three turns, five cents, nothing
+posted — against the two minutes and sixty-seven cents the same review costs
+when it actually runs.
 
-`show_full_output: true` is switched on temporarily to find out which eleven.
-It should come back out in the same change that fixes the list: this repository
-is public, and that setting publishes everything the review concludes to a log
-anyone can read, including a security finding at the moment it is found rather
-than once it is fixed.
+`CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1'` forces it into the foreground so the
+run waits. `show_full_output` came back out in the same change: this repository
+is public, and one review's text in a world-readable log was the price agreed
+for the diagnostic, not a standing arrangement.
 
-Until then the honest statement about the workflow is narrower than it was
-yesterday: it proves a review **ran**, not that a review was **able to report**.
-The pre-PR `/code-review` is doing the actual work, as it has all along.
+An earlier run had reported `permission_denials: 11`, and that looked like the
+answer until a run with zero denials failed in exactly the same way. Worth
+recording as a wrong turn: a plausible number in a log is not a cause.
 
 ## When the review does not run
 
