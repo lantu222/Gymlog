@@ -61,6 +61,20 @@ jobs:
           # action only starts the inline-comment MCP server when --allowedTools
           # names it here.
           claude_args: '--allowedTools "mcp__github_inline_comment__create_inline_comment"'
+          # TEMPORARY — remove once the allowed-tools list above is fixed.
+          #
+          # On PR #27 the review did the work (128s, $0.67, three models) and
+          # then posted nothing, with permission_denials_count: 11. Which
+          # eleven, the run log does not say: the action hides its output by
+          # default, so a review blocked from doing its job and a review with
+          # nothing to say look identical from outside. This turns that output
+          # on for exactly one ordinary PR, long enough to read the denials.
+          #
+          # It is not a setting to leave on. This repository is public, so
+          # everything Claude concludes about the code lands in a log anyone can
+          # read — including, one day, a security finding, published the moment
+          # it is found rather than once it is fixed.
+          show_full_output: true
 
       # The action can exit green without reviewing anything — it did exactly
       # that the first time this workflow ran. Its own success is therefore not
