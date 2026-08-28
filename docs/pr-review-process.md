@@ -117,10 +117,30 @@ Both paths read `CLAUDE.md`, so review guidance belongs there and nowhere else
 only managed Code Review reads it, so on this setup it would be a file that
 looks like it configures reviews without configuring anything.
 
+## A PR that edits the workflow file is never reviewed
+
+`claude-code-action` refuses to run when the workflow file on the PR differs
+from the version on the default branch. That is a security property, not a bug:
+without it, a PR could rewrite its own reviewer and then be reviewed by the
+rewritten version.
+
+The consequence is permanent. Every PR that touches
+`.github/workflows/claude-review.yml`, including the one that first added it,
+gets no review from this workflow, and the check is red saying so. Review those
+by hand, or with `/code-review` before opening them.
+
+The action signals this by exiting **green** with nothing reviewed, which is why
+the workflow's last step exists: it checks the action's `execution_file` output
+and fails when no review ran. Without that step the exact failure this whole
+document is about — an absence that looks like a clean review — would have
+survived the switch from Codex intact. It was caught on the first real run.
+
 ## When the review does not run
 
 - **Check red, "No CLAUDE_CODE_OAUTH_TOKEN secret"** — setup step 3 has not been
   done, and nothing on the PR has been reviewed.
+- **Check red, "exited without reviewing this PR"** — usually the workflow-file
+  case above. Otherwise read the action's step in the run log for the reason.
 - **Check red, action failure** — read the run log. A failed review is not a
   clean review; re-run it or review the diff by hand before merging.
 - **No check at all** — the workflow file did not reach `main`, or Actions is
