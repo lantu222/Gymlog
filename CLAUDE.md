@@ -52,6 +52,33 @@ To run a single suite, require it directly:
 node -e "const s = require('./tests/lib/guidedPlayer.test.cjs'); s.forEach(t => t.run()); console.log('ok')"
 ```
 
+### Code review
+
+Run `/code-review` before opening a PR, in the same session that wrote the
+change. This is not optional politeness: the median PR here merges 2.9 minutes
+after it opens, so a reviewer that comments on the open PR — Codex, the Claude
+review workflow, any of them — usually arrives after the merge. The only review
+that reliably lands while the code can still change is the one that runs before
+the PR exists.
+
+`.github/workflows/claude-review.yml` posts a second review on the PR itself,
+and goes red rather than silent when it cannot run. Both paths read this file,
+so review guidance belongs here — see [docs/pr-review-process.md](docs/pr-review-process.md)
+for the history and the one-time setup.
+
+What is worth flagging in this repo, beyond ordinary correctness:
+
+- **Date arithmetic that steps by `DAY_MS`.** Helsinki changes clocks twice a
+  year, and a 23- or 25-hour day makes fixed-millisecond stepping land off local
+  midnight. Step by calendar date.
+- **UX that claims something finished before it did.** A success state must
+  follow the resolved write, never precede it.
+- **Anything impure in `src/lib/`** — AsyncStorage, React, side effects.
+- **New domain logic with no suite in `tests/lib/`**, or a new suite missing
+  from `tests/run-tests.cjs`.
+- **Loaders that trust stored data.** `src/storage/database.ts` normalizes on
+  load; a new field that skips it is a crash on someone's old install.
+
 ## Architecture
 
 ### App shell

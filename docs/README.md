@@ -26,6 +26,7 @@ This is the navigation hub for all Vinha documentation.
 | Product values and anti-patterns | `product/vinha-philosophy.md` |
 | Onboarding design intent | `product/onboarding-philosophy.md` |
 | What to do before launch (external tasks) | `manual-launch-tasks.md` |
+| How a PR gets reviewed before it merges | `pr-review-process.md` |
 | **What to do next, in order** | **`execution-plan.md`** |
 | Where the product goes after Phase 3 | `long-term-vision.md` |
 
