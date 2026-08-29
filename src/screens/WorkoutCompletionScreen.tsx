@@ -16,6 +16,7 @@ import { SESSION_FEEL_LABEL_KEY, SESSION_FEEL_SCALE, sessionFeelColor } from '..
 import { MuscleFocusRow } from '../lib/workoutCompleteView';
 import { WorkoutCompletionExerciseCard, WorkoutCompletionPrCard } from '../lib/workoutCompletionSummary';
 import { ProMomentContent } from '../lib/proInsights';
+import { CoachDemoSheet } from '../components/CoachDemoSheet';
 import { ProLockedCard } from '../components/ProLockedCard';
 import { ProMomentSheet } from '../components/ProMomentSheet';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
@@ -299,6 +300,22 @@ export function WorkoutCompletionScreen({
   const insets = useSafeAreaInsets();
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
   const [momentSheetVisible, setMomentSheetVisible] = useState(false);
+  /**
+   * The demo dialog opens on a beat rather than instantly.
+   *
+   * Landing on top of the summary the moment it renders steps on the one
+   * screen in the app whose job is to say well done. The delay is short
+   * enough that it still reads as part of finishing, long enough that the
+   * numbers register first.
+   */
+  const [demoSheetVisible, setDemoSheetVisible] = useState(false);
+  useEffect(() => {
+    if (!demoQuestion) {
+      return undefined;
+    }
+    const timer = setTimeout(() => setDemoSheetVisible(true), 900);
+    return () => clearTimeout(timer);
+  }, [demoQuestion]);
   /** The "miltä treeni tuntui" ask, shown when Done is pressed. */
   const [feelSheetVisible, setFeelSheetVisible] = useState(false);
   const pr = prCards[0] ?? null;
@@ -663,33 +680,6 @@ export function WorkoutCompletionScreen({
             </Animated.View>
           ) : null}
 
-          {/* The coach demo moment. It sits below the locked card on
-              purpose: the reader has just seen a conclusion blurred, and
-              this is the app offering to answer one for real. */}
-          {demoQuestion ? (
-            <Animated.View style={[styles.demoCard, rise(6)]}>
-              <Text style={styles.demoTitle}>{t(language, 'coach.demo.title')}</Text>
-              <Text style={styles.demoQuestion}>{demoQuestion}</Text>
-              <Text style={styles.demoBody}>{t(language, 'coach.demo.body')}</Text>
-              <View style={styles.demoActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={onSkipDemoQuestion}
-                  style={({ pressed }) => [styles.demoSkip, pressed && { opacity: 0.85 }]}
-                >
-                  <Text style={styles.demoSkipText}>{t(language, 'coach.demo.skip')}</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={onSendDemoQuestion}
-                  style={({ pressed }) => [styles.demoSend, pressed && { opacity: 0.85 }]}
-                >
-                  <Text style={styles.demoSendText}>{t(language, 'coach.demo.send')}</Text>
-                </Pressable>
-              </View>
-            </Animated.View>
-          ) : null}
-
           {/* Both of these lived on the guided finish step, which showed the
               same duration/sets/volume/coach as this screen and then handed
               straight over to it. They are the two things it had that this one
@@ -795,6 +785,27 @@ export function WorkoutCompletionScreen({
           onSeePro={() => {
             setMomentSheetVisible(false);
             onOpenPremium?.();
+          }}
+        />
+      ) : null}
+
+      {/* The demo moment interrupts, on purpose. As a row in the list above it
+          could be scrolled past, and three times per install is not something
+          a reader may miss by not scrolling. `insets.bottom` is read HERE and
+          passed down: inside a Modal this app measures it as zero. */}
+      {demoQuestion ? (
+        <CoachDemoSheet
+          visible={demoSheetVisible}
+          question={demoQuestion}
+          language={language}
+          bottomInset={insets.bottom}
+          onSend={() => {
+            setDemoSheetVisible(false);
+            onSendDemoQuestion?.();
+          }}
+          onDismiss={() => {
+            setDemoSheetVisible(false);
+            onSkipDemoQuestion?.();
           }}
         />
       ) : null}
