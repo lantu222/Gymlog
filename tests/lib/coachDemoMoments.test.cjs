@@ -170,6 +170,43 @@ module.exports = [
     },
   },
   {
+    name: 'demo moments: a moment is spent by the send, not by the tap that starts it',
+    run() {
+      const root2 = path.join(__dirname, '..', '..');
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
+
+      // Found on a device: the completion screen used to mark the moment used
+      // and then navigate. The chat refuses to send while the online
+      // disclosure is unacknowledged, so a reader meeting that sheet for the
+      // first time and backing out lost one of three answers having received
+      // none. The tap that starts it must only carry the question across.
+      const send = app.match(/onSendDemoQuestion=\{\(\) => \{[\s\S]*?\n {8}\}\}/);
+      assert.ok(send, 'the completion screen should wire onSendDemoQuestion');
+      assert.doesNotMatch(
+        send[0],
+        /markCoachDemoMomentUsed/,
+        'the moment must not be spent before the chat has actually sent it',
+      );
+      assert.match(send[0], /demoMomentKey: coachDemoMoment\.key/);
+
+      // And it IS spent where the send really happens.
+      const chatWiring = fs.readFileSync(
+        path.join(root2, 'src', 'app', 'renderHomeScreens.tsx'),
+        'utf8',
+      );
+      assert.match(chatWiring, /onDemoQuestionSent=\{\(\) => \{[\s\S]{0,400}?markCoachDemoMomentUsed/);
+
+      // The chat calls that callback immediately before dispatching, and only
+      // once per mount.
+      const chat = fs.readFileSync(
+        path.join(root2, 'src', 'screens', 'AICoachChatScreen.tsx'),
+        'utf8',
+      );
+      assert.match(chat, /demoSent\.current = true;\s*\n\s*onDemoQuestionSent\?\.\(\);\s*\n\s*void send\(demoQuestion, true\);/);
+      assert.match(chat, /if \(!demoQuestion \|\| demoSent\.current \|\| mustAcknowledgeOnline\)/);
+    },
+  },
+  {
     name: 'demo moments: spending one is append-only and cannot double-spend',
     run() {
       const once = markCoachDemoMomentUsed([], 'week1');

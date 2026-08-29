@@ -2,6 +2,7 @@ import React from 'react';
 
 import { isAiCoachLiveConfigured, requestProgrammeComposition } from '../lib/aiCoachClient';
 import { recordCoachQuestion, resolveCoachQuota } from '../lib/aiCoachQuota';
+import { markCoachDemoMomentUsed } from '../lib/coachDemoMoments';
 import { buildProgrammeDraft, composeProgrammePreview, resolveLiveProposal } from '../lib/programmeBrief';
 import { recordSuggestionAccepted, recordSuggestionRejected } from '../lib/coachSuggestions';
 import { t } from '../lib/i18n';
@@ -251,7 +252,18 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
           void updatePreferences({ aiCoachProQuota: recordCoachQuestion(preferences.aiCoachProQuota) })
         }
         demoQuestion={route.demoQuestion ?? null}
-        onDemoQuestionSent={() => navigate({ tab: 'home', screen: 'ai_chat' })}
+        onDemoQuestionSent={() => {
+          // The moment is spent HERE, because this fires the instant the chat
+          // dispatches the real send — past the online-disclosure gate that
+          // silently swallowed it when the completion screen spent it instead.
+          const key = route.demoMomentKey;
+          if (key) {
+            void updatePreferences({
+              coachDemoMomentsUsed: markCoachDemoMomentUsed(preferences.coachDemoMomentsUsed, key),
+            });
+          }
+          navigate({ tab: 'home', screen: 'ai_chat' });
+        }}
         trainingContext={aiCoachTrainingContext}
         intro={coachChatIntro}
         sessionCount={database.workoutSessions.length}

@@ -15,6 +15,8 @@ export type AppRoute =
        * screen; the chat clears it as it sends.
        */
       demoQuestion?: string;
+      /** Which moment it is, so the chat can spend it when it truly sends. */
+      demoMomentKey?: string;
     }
   | {
       tab: 'home';

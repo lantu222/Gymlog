@@ -195,9 +195,11 @@ export function resolveDueCoachDemoMoment(input: CoachDemoMomentInput): CoachDem
 }
 
 /** Spending a moment. Append-only: three per install, and nothing resets it. */
-export function markCoachDemoMomentUsed(
-  used: readonly string[],
-  key: CoachDemoMomentKey,
-): string[] {
+export function markCoachDemoMomentUsed(used: readonly string[], key: string): string[] {
+  // Takes a plain string because the key travels through the route to reach
+  // the screen that spends it, and a route is storage: whatever comes back out
+  // of one is a string until something checks it. An unknown key is stored
+  // rather than rejected — it can only ever cost the reader nothing, whereas
+  // dropping a real one silently gives away an answer twice.
   return used.includes(key) ? [...used] : [...used, key];
 }

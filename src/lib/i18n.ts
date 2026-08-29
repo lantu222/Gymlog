@@ -1884,7 +1884,8 @@ const EN = {
   'coachChat.locked.teaser': 'The coach has your answer',
   'coachChat.locked.cta': 'Unlock this answer',
   'coachChat.placeholder': 'Ask anything about your training…',
-  'coachChat.placeholderSpent': 'Ask anything — 0 left this week',
+  'coachChat.placeholderSpent': 'Your questions come back next month',
+  'coachChat.placeholderFree': 'The coach answers on Pro',
   'coachChat.thinking': 'Reading your log…',
 
   // ── Store rating ask (RateAppSheet — built, deliberately not wired) ────
@@ -5127,7 +5128,8 @@ const FI: Record<I18nKey, string> = {
   'coachChat.locked.teaser': 'Valmentajalla on vastauksesi',
   'coachChat.locked.cta': 'Avaa tämä vastaus',
   'coachChat.placeholder': 'Kysy mitä vain treenistäsi…',
-  'coachChat.placeholderSpent': 'Kysy mitä vain — 0 jäljellä tällä viikolla',
+  'coachChat.placeholderSpent': 'Kysymyksesi palautuvat ensi kuussa',
+  'coachChat.placeholderFree': 'Valmentaja vastaa Prossa',
   'coachChat.thinking': 'Luen lokiasi…',
 
   'rating.title': 'Toimiiko Vinha sinulle?',

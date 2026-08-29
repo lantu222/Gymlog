@@ -5089,16 +5089,17 @@ function VinhaApp() {
           if (!coachDemoMoment || !coachDemoQuestion) {
             return;
           }
-          // Spent on the send, not on the answer. A moment that burned only
-          // on success would re-offer itself after every failed request,
-          // which is a loop that costs money each time round.
-          void updatePreferences({
-            coachDemoMomentsUsed: markCoachDemoMomentUsed(
-              preferences.coachDemoMomentsUsed,
-              coachDemoMoment.key,
-            ),
+          // Spending it HERE was wrong, and the device found it: the chat
+          // will not send while the online disclosure is unacknowledged, so a
+          // reader who met that sheet for the first time and backed out lost
+          // one of three answers without ever getting one. The moment is now
+          // spent by the chat, at the moment it actually dispatches the send.
+          navigate({
+            tab: 'home',
+            screen: 'ai_chat',
+            demoQuestion: coachDemoQuestion,
+            demoMomentKey: coachDemoMoment.key,
           });
-          navigate({ tab: 'home', screen: 'ai_chat', demoQuestion: coachDemoQuestion });
         }}
         onSkipDemoQuestion={() => {
           // Skipping does NOT spend it. The reader declined a question, not

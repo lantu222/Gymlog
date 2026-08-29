@@ -1192,7 +1192,18 @@ export function AICoachChatScreen({
             <TextInput
               value={draft}
               onChangeText={setDraft}
-              placeholder={t(language, canAsk ? 'coachChat.placeholder' : 'coachChat.placeholderSpent')}
+              // Three states, not two. "0 left this week" was written for a
+              // free tier that had a weekly allowance; a free reader now has
+              // no counter at all, so telling them a count of zero describes a
+              // limit they were never inside.
+              placeholder={t(
+                language,
+                canAsk
+                  ? 'coachChat.placeholder'
+                  : proUnlocked
+                    ? 'coachChat.placeholderSpent'
+                    : 'coachChat.placeholderFree',
+              )}
               placeholderTextColor={theme.faint}
               selectionColor={theme.highlight}
               style={styles.input}
