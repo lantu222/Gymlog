@@ -19,6 +19,7 @@ import {
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { filterBrowsableExercises } from '../lib/exerciseBrowseFilter';
 import { buildExerciseSearchHaystack, exerciseMatchesQuery } from '../lib/exerciseSearch';
+import { orderExercisesBySelection } from '../lib/exerciseSelectionOrder';
 import { I18nKey, t } from '../lib/i18n';
 import {
   AppLanguage,
@@ -255,7 +256,8 @@ export function AddExerciseSheet({
       return;
     }
 
-    const selectedItems = items.filter((item) => pendingSelectedIds.includes(item.id));
+    // In tap order, not library order — see orderExercisesBySelection.
+    const selectedItems = orderExercisesBySelection(items, pendingSelectedIds);
     onConfirmSelection(selectedItems);
   }
 

@@ -18,6 +18,7 @@ import { REST_BAR_BOTTOM, RestBar } from '../components/RestBar';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { buildExerciseSearchHaystack, exerciseMatchesQuery } from '../lib/exerciseSearch';
+import { orderExercisesBySelection } from '../lib/exerciseSelectionOrder';
 import { parseNumberInput, removeTrailingZeros } from '../lib/format';
 import {
   EMPTY_WORKOUT_MUSCLE_FILTERS,
@@ -307,7 +308,8 @@ function AddExerciseSheetHG({ visible, items, language, onClose, onAdd, bottomIn
     if (!selectedIds.length) {
       return;
     }
-    onAdd(items.filter((item) => selectedIds.includes(item.id)));
+    // In tap order, not library order — see orderExercisesBySelection.
+    onAdd(orderExercisesBySelection(items, selectedIds));
   };
 
   const listHeader = (
