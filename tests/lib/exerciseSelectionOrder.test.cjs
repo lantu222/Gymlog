@@ -4,8 +4,9 @@ const {
   orderExercisesBySelection,
 } = require('../../.test-dist/lib/exerciseSelectionOrder.js');
 
-// The library order that used to decide it: alphabetical-ish, and nothing to
-// do with what the reader tapped.
+// Stands in for the library array whose order used to decide this. Deliberately
+// NOT sorted — the point is that whatever order this happens to be in must not
+// reach the caller, so Back Squat sits last where sorting would put it first.
 const LIBRARY = [
   { id: 'ex_side_bend', name: 'Barbell Side Bend' },
   { id: 'ex_bench', name: 'Bench Press' },

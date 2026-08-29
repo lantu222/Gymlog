@@ -650,13 +650,17 @@ export function EmptyWorkoutScreen({
   const quickListTitle = t(language, recentExerciseLibraryItems.length > 0 ? 'emptyWorkout.recent' : 'emptyWorkout.popular');
 
   const addExercises = (items: ExerciseLibraryItem[]) => {
+    // Closing comes first. A confirmed selection can resolve to nothing — an
+    // id whose item is gone is dropped rather than added as a hole — and
+    // returning early before this left the sheet standing open on a button
+    // the reader had just pressed.
+    setSheetVisible(false);
     if (!items.length) {
       return;
     }
     setExercises((current) => [...current, ...items.map((item) => buildExerciseState(item, defaultRestSeconds, language))]);
     setStartedAtMs((current) => current ?? Date.now());
     setNowMs(Date.now());
-    setSheetVisible(false);
   };
 
   const removeExercise = (exerciseKey: string) =>
