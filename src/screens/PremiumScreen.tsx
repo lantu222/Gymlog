@@ -1,68 +1,64 @@
-import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import React, { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import Svg, { Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
-import { CutSurface } from '../components/CutSurface';
-import { ProChatHero } from '../components/ProChatHero';
 import { FREE_ACTIVE_PROGRAM_CAP } from '../lib/activeProgramSet';
-import { FREE_COACH_QUESTIONS_PER_WEEK } from '../lib/aiCoachQuota';
-import { FREE_TREND_MONTHS } from '../lib/historyWindow';
-import { I18nKey, t } from '../lib/i18n';
-import { ProChatScript } from '../lib/proChatHero';
+import { t } from '../lib/i18n';
 import { PRO_TRIAL_ENABLED } from '../lib/proEntitlement';
-import { FREE_CUSTOM_PROGRAM_LIMIT } from '../lib/programSlots';
-import { PW } from '../lightTheme';
-import { Theme, useTheme, useThemedStyles } from '../theming';
+import {
+  PRO_TIER_ORDER,
+  PRO_TIERS,
+  ProPlanId,
+  ProTier,
+  ProTierKey,
+  defaultPlanForTier,
+  resolveTierCtaKey,
+  resolveTierFineKey,
+} from '../lib/proTiers';
+import { PRO_SURFACE, PRO_TIER } from '../theme';
 import { AppLanguage } from '../types/models';
 
 /**
- * The Pro full page (design: "Vinha Pro v4 — AI-chat hero").
+ * The Pro page, v6 (design: "Vinha Pro v6 — kolme tasoa").
  *
- * Six blocks and a pinned foot:
+ * One screen, three tabs. Everything that decides a purchase — the tier, the
+ * price, the button, the terms — is visible at once, and only the benefit list
+ * scrolls. v4 was a long scrolling pitch with the plan tiles pinned at the
+ * foot; a reader had to travel to compare tiers, and comparing is the thing
+ * this page is for.
  *
- *   1 hero — a live conversation with the coach, on this reader's own lift
- *   2 what Pro adds — the only block with icons, five rows
- *   3 what the app is in either tier — three checked lines
- *   4 the three objections, as an FAQ
- *   5 fine print
- *   foot — three plan tiles and the CTA, fixed while the page scrolls
+ * WHAT LEFT WITH v4, and why, because both were deliberate:
  *
- * v2 sold with a 22-row comparison table and twelve grouped feature cards. v3
- * deleted both: a reader who has to audit a table has already stopped reading.
- * v4 keeps that body and puts the personal proof back where v3 had removed it —
- * not as a chart block, but as the coach answering a question about this
- * reader's own lift, which is the thing being sold. See components/ProChatHero
- * and lib/proChatHero. The withheld-conclusion moments on Home and in the chat
- * still do the withholding; this page closes.
+ * - The ProChatHero. v3 moved the personal proof off this page, v4 put it
+ *   back, and v6 takes it off again — this time on the argument that the proof
+ *   is not missing, it is elsewhere and better placed. The withheld
+ *   conclusions on Home, Progress and Workout Complete are built from the same
+ *   log and appear at the moment the reader actually hits the wall. This page
+ *   closes; it does not have to prove. (proSurfaces guards that the proof is
+ *   REAL wherever it lives — that rule outlives the component.)
+ * - The DELTA table. The rows now come from lib/proTiers, where each one names
+ *   the gate that makes it true and tests/lib/proTiers checks that the gate
+ *   exists. That is the same rule DELTA carried, applied to three tabs.
  *
- * Every free-tier number below is interpolated from the constant that enforces
- * it — FREE_CUSTOM_PROGRAM_LIMIT, FREE_COACH_QUESTIONS_PER_WEEK,
- * FREE_TREND_MONTHS — so the sales copy cannot drift from the gate.
+ * The copy corrections v6 ships with are documented in lib/proTiers: the
+ * reference design sold the dark theme, the widget and cloud backup as Pro,
+ * and all three are free.
  *
- * The CTA sells a subscription billing does not exist for. That is a demo-only
- * decision and releaseReadiness.test.cjs holds the other end of it; the notice
- * in block 5 says so on screen rather than only in a comment.
+ * The page is deliberately dark in both themes — see PRO_TIER in theme.ts.
  */
+export type PlanId = 'monthly' | 'yearly' | 'lifetime';
+
 interface PremiumScreenProps {
   /**
-   * What sent the reader here, when something specific did.
-   *
-   * A paywall that opens after a refusal and then talks about something else
-   * reads as a random toll gate. Naming the wall they just hit is the
-   * difference between a sale and an interruption.
+   * What sent the reader here, when something specific did. A paywall that
+   * opens after a refusal and then talks about something else reads as a
+   * random toll gate.
    */
   reason?: 'program_cap' | null;
   /** State of the on-device preview switch, which is what the CTA toggles. */
   previewUnlocked: boolean;
   /** Whether Pro is actually on — the preview switch or a live promo code. */
   proUnlocked: boolean;
-  /**
-   * The hero's conversation, built from this reader's own log by
-   * buildProChatHeroScript. It carries its own `personal` flag, so a reader
-   * with nothing logged gets the same hero on sample figures with an EXAMPLE
-   * chip rather than a different screen.
-   */
-  chatScript: ProChatScript;
   language?: AppLanguage;
   onBack: () => void;
   /** Receives the package the reader had selected when they pressed buy. */
@@ -72,188 +68,38 @@ interface PremiumScreenProps {
   onOpenLegal: (document: 'privacy' | 'terms') => void;
 }
 
-const IC = {
-  grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
+/** 24x24 stroke glyphs, one per row icon. `spark` is the only filled one. */
+const GLYPH: Record<string, string> = {
   arrow: 'M7 17L17 7M9 7h8v8',
-  spark: 'M12 2.5l2.1 5.6L19.5 10l-5.4 1.9L12 17.5l-2.1-5.6L4.5 10l5.4-1.9z',
+  grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
+  lines: 'M4 7h16M4 12h11M4 17h7',
+  rows: 'M4 5h16v5H4zM4 14h16v5H4z',
   clock: 'M12 7v5l3.5 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+  moon: 'M20 14.5A8.5 8.5 0 019.5 4a8.5 8.5 0 1010.5 10.5z',
   heart: 'M12 20s-7-4.4-7-9a4 4 0 017-2.6A4 4 0 0119 11c0 4.6-7 9-7 9z',
+  lock: 'M7 10V8a5 5 0 0110 0v2M5.5 10h13v10h-13z',
+  pencil: 'M4 20h4L19.5 8.5l-4-4L4 16v4zM14.5 5.5l4 4',
+  quill: 'M7 3h8l3 3v15H7zM10 12h6M10 16h4',
+  circ: 'M4.5 12a7.5 7.5 0 1015 0 7.5 7.5 0 10-15 0M17.5 6.5l-11 11',
+  infin: 'M8.5 12a3 3 0 11.9 2.1c-1.2 1.2-2 2.4-3.4 2.4a3.5 3.5 0 010-7c1.4 0 2.2 1.2 3.4 2.4M15.5 12a3 3 0 10-.9 2.1c1.2 1.2 2 2.4 3.4 2.4a3.5 3.5 0 000-7c-1.4 0-2.2 1.2-3.4 2.4',
 };
 
-interface DeltaRow {
-  key: string;
-  icon: string;
-  /** The one filled glyph in the set. Everything else is a 2.1pt stroke. */
-  filled?: boolean;
-  titleKey: I18nKey;
-  bodyKey: I18nKey;
-  vars?: Record<string, string | number>;
-  /**
-   * Rows whose whole body is the free tier's number rather than a Pro promise.
-   * They sit a shade quieter, so the block reads as five gains and not as five
-   * limits with a price attached.
-   */
-  quiet?: boolean;
-}
+const SPARK = 'M12 2.6l2.1 5.6 5.4 1.9-5.4 1.9-2.1 5.6-2.1-5.6L4.5 10.1l5.4-1.9z';
 
-/**
- * Five rows, and no sixth.
- *
- * v2 listed twelve. Cutting to five is the design decision this page turns on:
- * a reader buys on one reason, and every row after the one that convinced them
- * is a row that can raise a doubt. Everything cut is still true, still gated
- * and still announced at the unlock moment (PRO_LIVE_BENEFITS) — it is just no
- * longer part of the pitch.
- *
- * Cloud backup left with them, and that one is a gain: it was the only claim on
- * this page wearing a SOON badge, and a paywall that sells a plan is a paywall
- * that has to be re-read every time the plan slips.
- */
-const DELTA: DeltaRow[] = [
-  // The coach leads, because the hero above is the coach. v3 opened on the
-  // programme cap and the first row contradicted the thing the reader had just
-  // watched — the list has to continue the hero's sentence, not change subject.
-  //
-  // The free quota is real and metered (aiCoachQuota.ts); out of quota the chat
-  // still answers, blurred, rather than refusing to talk.
-  {
-    key: 'coach',
-    icon: IC.spark,
-    filled: true,
-    titleKey: 'pro.v3.delta.coach.t',
-    bodyKey: 'pro.v3.delta.coach.b',
-    vars: { count: FREE_COACH_QUESTIONS_PER_WEEK },
-  },
-  // progressionGate.ts, reached through resolveProgressionOptions — the free
-  // tier gets the prefill turned off, not a worse increment.
-  {
-    key: 'progression',
-    icon: IC.arrow,
-    titleKey: 'pro.v3.delta.progression.t',
-    bodyKey: 'pro.v3.delta.progression.b',
-  },
-  {
-    key: 'programs',
-    icon: IC.grid,
-    titleKey: 'pro.v3.delta.programs.t',
-    bodyKey: 'pro.v3.delta.programs.b',
-    vars: { cap: FREE_CUSTOM_PROGRAM_LIMIT },
-    quiet: true,
-  },
-  // Careful wording, and the trust block below backs it up: the LOG is never
-  // capped in either tier. What free narrows is the charts and the records
-  // (historyWindow.ts), and the body says exactly that.
-  {
-    key: 'history',
-    icon: IC.clock,
-    titleKey: 'pro.v3.delta.history.t',
-    bodyKey: 'pro.v3.delta.history.b',
-    vars: { months: FREE_TREND_MONTHS },
-  },
-  // Not a feature, and it earns its row anyway. It is the one reason on the
-  // page that a competitor with a larger team cannot copy.
-  {
-    key: 'support',
-    icon: IC.heart,
-    titleKey: 'pro.v3.delta.support.t',
-    bodyKey: 'pro.v3.delta.support.b',
-  },
-];
-
-/**
- * What the app is regardless of tier.
- *
- * Each line is the loudest complaint about the market leader — the social feed
- * people say they hate, the connection Hevy needs for everything, and the
- * update that lost Strong users years of saved workouts. They cost nothing to
- * state because the app already works this way; not stating them was the only
- * thing wrong. No account exists anywhere in the code, there is exactly one
- * outbound request in the app (the AI coach), and nothing ever deletes a set.
- */
-const TRUST: I18nKey[] = ['pro.v3.trust.private', 'pro.v3.trust.offline', 'pro.v3.trust.forever'];
-
-/**
- * The three questions, answered before they are asked.
- *
- * The first one is the whole objection: a reader who suspects their history is
- * hostage will not subscribe, and will not ask either. It leads on purpose.
- */
-const FAQ: Array<{ key: string; q: I18nKey; a: I18nKey; vars?: Record<string, string | number> }> = [
-  { key: 'data', q: 'pro.v3.faq.data.q', a: 'pro.v3.faq.data.a', vars: { months: FREE_TREND_MONTHS } },
-  { key: 'cancel', q: 'pro.v3.faq.cancel.q', a: 'pro.v3.faq.cancel.a' },
-  { key: 'lifetime', q: 'pro.v3.faq.lifetime.q', a: 'pro.v3.faq.lifetime.a' },
-];
-
-type PlanId = 'monthly' | 'yearly' | 'lifetime';
-
-/**
- * Prices live in the dictionary, not here. Two string literals in this array
- * are how the app once shipped 71,99 €/yr on this page and 59,90 €/yr on the
- * onboarding paywall in the same build: the guard that exists to catch exactly
- * that reads i18n.ts, so a price typed into a screen is a price nothing checks.
- *
- * Order is monthly · yearly · lifetime with the year pre-selected, so the
- * recommended tile sits in the middle where the thumb already is.
- */
-const PLANS: Array<{
-  id: PlanId;
-  nameKey: I18nKey;
-  priceKey: I18nKey;
-  unitKey: I18nKey;
-  badgeKey: I18nKey | null;
-  fineKey: I18nKey;
-  /** Used only while PRO_TRIAL_ENABLED — the "then …" line, not the flat one. */
-  trialFineKey: I18nKey;
-}> = [
-  {
-    id: 'monthly',
-    nameKey: 'pro.page.monthly',
-    priceKey: 'paywall.plan.monthly.price',
-    unitKey: 'pro.v3.unit.month',
-    badgeKey: null,
-    fineKey: 'pro.v3.fine.recurring',
-    trialFineKey: 'pro.v2.ctaSubMonthly',
-  },
-  {
-    id: 'yearly',
-    nameKey: 'pro.page.yearly',
-    priceKey: 'paywall.plan.yearly.price',
-    unitKey: 'pro.v3.unit.year',
-    // 59,90 against 9,90 x 12 = 118,80 is 49.6% off. The badge said 40% for
-    // months, which was the retired price set's number left behind.
-    badgeKey: 'pro.page.save',
-    fineKey: 'pro.v3.fine.recurring',
-    trialFineKey: 'pro.v2.ctaSubYearly',
-  },
-  // Both leaders in this category sell one, it is the loudest thing their
-  // paying users say they wanted, and it fits an app whose whole posture is
-  // that it does not hold anything of yours hostage. Priced at ~2x the year
-  // rather than the market's ~3x: a deliberate two-year payback.
-  {
-    id: 'lifetime',
-    nameKey: 'pro.page.lifetime',
-    priceKey: 'pro.page.perLifetime',
-    unitKey: 'pro.v3.unit.lifetime',
-    // The two-year payback stated above, said out loud. Not "most popular":
-    // nothing has been sold, so that would be a claim about buyers who do not
-    // exist — and the one badge on this screen that could not be checked.
-    badgeKey: 'pro.page.bestValue',
-    fineKey: 'pro.v3.fine.lifetime',
-    trialFineKey: 'pro.v2.ctaSubLifetime',
-  },
-];
-
-/** The save badge sits on gold in both themes, so its ink is fixed, not themed. */
-const BADGE_INK = '#241743';
-
-
-function CheckGlyph({ color, size = 16 }: { color: string; size?: number }) {
+function RowGlyph({ name }: { name: string }) {
+  if (name === 'spark') {
+    return (
+      <Svg width={19} height={19} viewBox="0 0 24 24">
+        <Path d={SPARK} fill={PRO_SURFACE.ink} />
+      </Svg>
+    );
+  }
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Svg width={19} height={19} viewBox="0 0 24 24">
       <Path
-        d="M5 13l4 4L19 7"
-        stroke={color}
-        strokeWidth={2.8}
+        d={GLYPH[name] ?? GLYPH.grid}
+        stroke={PRO_SURFACE.ink}
+        strokeWidth={1.9}
         fill="none"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -262,52 +108,70 @@ function CheckGlyph({ color, size = 16 }: { color: string; size?: number }) {
   );
 }
 
-function DeltaIcon({ row, color }: { row: DeltaRow; color: string }) {
+/**
+ * The tier's sky: colour at the top running to black at the bottom, with two
+ * radial washes over it.
+ *
+ * The Svg is given explicit pixel dimensions rather than percentages. A
+ * percentage-sized Svg with no intrinsic size collapses on Android, and the
+ * washes then paint over the whole screen instead of the top third — the same
+ * trap the Workout Complete hero hit.
+ */
+function HeroSky({ tier, width }: { tier: ProTierKey; width: number }) {
+  const skin = PRO_TIER[tier];
+  const height = 470;
   return (
-    <Svg width={17} height={17} viewBox="0 0 24 24">
-      {row.filled ? (
-        <Path d={row.icon} fill={color} />
-      ) : (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+        <Defs>
+          <LinearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={skin.sky[0]} />
+            <Stop offset="0.78" stopColor={skin.sky[1]} />
+            <Stop offset="1" stopColor="#000000" />
+          </LinearGradient>
+          <RadialGradient id="neb" cx="0.5" cy="0.5" r="0.5">
+            <Stop offset="0" stopColor={skin.neb} />
+            <Stop offset="0.72" stopColor={skin.neb} stopOpacity={0} />
+          </RadialGradient>
+          <RadialGradient id="neb2" cx="0.5" cy="0.5" r="0.5">
+            <Stop offset="0" stopColor={skin.neb2} />
+            <Stop offset="0.7" stopColor={skin.neb2} stopOpacity={0} />
+          </RadialGradient>
+          <LinearGradient id="scrim" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor="#000000" stopOpacity={0} />
+            <Stop offset="0.62" stopColor="#000000" stopOpacity={0.85} />
+            <Stop offset="1" stopColor="#000000" />
+          </LinearGradient>
+        </Defs>
+
+        <Rect x={0} y={0} width={width} height={height} fill="url(#sky)" />
+        <Rect x={-width * 0.3} y={-110} width={width * 1.6} height={420} fill="url(#neb)" />
+        <Rect x={-width * 0.1} y={120} width={width * 1.2} height={260} fill="url(#neb2)" />
+
+        {/* Three thin arcs. They read as a horizon rather than as decoration,
+            which is what keeps the top from looking like a stock gradient. */}
         <Path
-          d={row.icon}
-          stroke={color}
-          strokeWidth={2.1}
+          d={`M-20 210 C ${width * 0.23} 90, ${width * 0.64} 300, ${width + 28} 130`}
           fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+          stroke="rgba(255,255,255,0.16)"
+          strokeWidth={1.2}
         />
-      )}
-    </Svg>
-  );
-}
+        <Path
+          d={`M-20 250 C ${width * 0.28} 140, ${width * 0.66} 340, ${width + 28} 180`}
+          fill="none"
+          stroke="rgba(255,255,255,0.09)"
+          strokeWidth={1}
+        />
+        <Path
+          d={`M-20 165 C ${width * 0.26} 60, ${width * 0.61} 250, ${width + 28} 90`}
+          fill="none"
+          stroke="rgba(255,255,255,0.07)"
+          strokeWidth={1}
+        />
 
-function FaqRow({
-  question,
-  answer,
-  open,
-  onToggle,
-}: {
-  question: string;
-  answer: string;
-  open: boolean;
-  onToggle: () => void;
-}) {
-  const styles = useThemedStyles(makeStyles);
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ expanded: open }}
-      onPress={onToggle}
-      style={[styles.faqCard, open && styles.faqCardOpen]}
-    >
-      <View style={styles.faqHead}>
-        <Text style={styles.faqQuestion}>{question}</Text>
-        {/* One glyph for both states: a plus that becomes a close. */}
-        <Text style={[styles.faqSign, open && styles.faqSignOpen]}>+</Text>
-      </View>
-      {open ? <Text style={styles.faqAnswer}>{answer}</Text> : null}
-    </Pressable>
+        <Rect x={0} y={300} width={width} height={170} fill="url(#scrim)" />
+      </Svg>
+    </View>
   );
 }
 
@@ -315,546 +179,388 @@ export function PremiumScreen({
   reason = null,
   previewUnlocked,
   proUnlocked,
-  chatScript,
-  language = 'en',
+  language = 'fi',
   onBack,
   onTogglePreview,
   onManageSubscription,
   onOpenLegal,
 }: PremiumScreenProps) {
-  const theme = useTheme();
-  const styles = useThemedStyles(makeStyles);
-  const [plan, setPlan] = useState<PlanId>('yearly');
-  const [openFaq, setOpenFaq] = useState<string | null>(null);
-  // Pro via a redeemed code rather than the on-device preview switch: the
-  // switch cannot turn that off, so the page must not offer to.
+  const [tab, setTab] = useState<ProTierKey>('pro');
+  const [plan, setPlan] = useState<ProPlanId>(() => defaultPlanForTier('pro'));
+  const { width } = useWindowDimensions();
+
+  const tier: ProTier = PRO_TIERS[tab];
+  const skin = PRO_TIER[tab];
+  const activePlan = useMemo(
+    () => tier.plans.find((entry) => entry.id === plan) ?? tier.plans[0],
+    [tier, plan],
+  );
+
+  // A redeemed promo cannot be switched off from here, so that reader is sent
+  // to subscription management instead of to a toggle that would do nothing.
   const promoOnly = proUnlocked && !previewUnlocked;
-  const selectedPlan = PLANS.find((option) => option.id === plan) ?? PLANS[1];
+
+  const pickTab = (next: ProTierKey) => {
+    setTab(next);
+    setPlan(defaultPlanForTier(next));
+  };
+
+  const ctaKey = resolveTierCtaKey(tier, PRO_TRIAL_ENABLED);
+  const fineKey = resolveTierFineKey(tier, activePlan.id, PRO_TRIAL_ENABLED);
+
+  const buy = () => {
+    // The free tab sells nothing. Its button is the honest exit, which is the
+    // same thing "Ohita" does — a CTA that flipped the preview switch here
+    // would turn Pro ON for someone who just chose Free.
+    if (tier.key === 'free') {
+      onBack();
+      return;
+    }
+    onTogglePreview(activePlan.id as PlanId);
+  };
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.topBar}>
+    <View style={styles.root}>
+      <HeroSky tier={tab} width={width} />
+
+      <View style={styles.topRow}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t(language, 'common.back')}
+          accessibilityLabel={t(language, 'pro.v6.skip')}
           onPress={onBack}
-          style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.skipPill, pressed && styles.pressed]}
         >
-          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-            <Path d="M6 6l12 12M18 6L6 18" stroke={theme.ink} strokeWidth={2.2} strokeLinecap="round" />
-          </Svg>
+          <Text style={styles.skipText}>{t(language, 'pro.v6.skip')}</Text>
         </Pressable>
-        {/* Restore is required store copy once billing ships; inert until then. */}
-        <Text style={styles.restore}>{t(language, 'pro.page.restore')}</Text>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        {reason === 'program_cap' ? (
-          <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.reasonBanner}>
-            <Text style={styles.reasonBannerText}>
-              {t(language, 'programs.cap.paywall', { cap: FREE_ACTIVE_PROGRAM_CAP })}
-            </Text>
-          </CutSurface>
-        ) : null}
+      <View style={styles.headBlock}>
+        <View style={styles.wordmarkRow}>
+          <Text style={styles.wordmark}>Vinha</Text>
+          {tier.badgeKey ? (
+            <View style={[styles.tierBadge, { borderColor: skin.ring }]}>
+              <Text style={styles.tierBadgeText}>{t(language, tier.badgeKey)}</Text>
+            </View>
+          ) : null}
+        </View>
+        <Text style={styles.head}>{t(language, tier.headKey)}</Text>
+      </View>
 
-        {/* 1 · HERO — the only filled violet surface, and the only thing on the
-            page that moves. It plays this reader's own lift back at them. */}
-        <ProChatHero script={chatScript} language={language} />
+      {reason === 'program_cap' ? (
+        <View style={styles.reasonRow}>
+          <Text style={styles.reasonText}>
+            {t(language, 'programs.cap.paywall', { cap: FREE_ACTIVE_PROGRAM_CAP })}
+          </Text>
+        </View>
+      ) : null}
 
-        {/* 2 · WHAT PRO ADDS — the only block with icons */}
-        <Text style={styles.sectionLabel}>{t(language, 'pro.v3.delta.label')}</Text>
-        <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.deltaCard}>
-          {DELTA.map((row, index) => (
-            <View key={row.key} style={[styles.deltaRow, index > 0 && styles.deltaRowDivided]}>
-              <View style={styles.deltaIcon}>
-                <DeltaIcon row={row} color={theme.purple} />
-              </View>
-              <View style={styles.deltaCopy}>
-                <Text style={styles.deltaTitle}>{t(language, row.titleKey)}</Text>
-                <Text style={[styles.deltaBody, row.quiet && styles.deltaBodyQuiet]}>
-                  {t(language, row.bodyKey, row.vars)}
+      <View style={styles.segmentWrap}>
+        <View style={[styles.segment, { borderColor: skin.ring }]}>
+          {PRO_TIER_ORDER.map((key) => {
+            const on = key === tab;
+            return (
+              <Pressable
+                key={key}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: on }}
+                onPress={() => pickTab(key)}
+                style={[styles.segmentTab, on && styles.segmentTabOn]}
+              >
+                <Text style={[styles.segmentText, on && styles.segmentTextOn]}>
+                  {t(language, PRO_TIERS[key].tabKey)}
                 </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* The only scrolling region. Its parent is flex:1 inside a bounded
+          column — a flex child in a column that is not itself bounded
+          collapses to zero height on RN, which is how the set-screen dials
+          disappeared once. */}
+      <View style={styles.cardWrap}>
+        <View style={styles.card}>
+          <View style={[styles.cardHair, { backgroundColor: skin.accent }]} />
+          <ScrollView
+            style={styles.cardScroll}
+            contentContainerStyle={styles.cardContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {tier.rows.map((row) => (
+              <View key={row.key} style={styles.row}>
+                <View style={styles.rowIcon}>
+                  <RowGlyph name={row.icon} />
+                </View>
+                <View style={styles.rowBody}>
+                  <Text style={styles.rowTitle}>{t(language, row.titleKey, row.vars)}</Text>
+                  {row.bodyKey ? (
+                    <Text style={styles.rowSub}>{t(language, row.bodyKey, row.vars)}</Text>
+                  ) : null}
+                </View>
               </View>
-            </View>
-          ))}
-        </CutSurface>
-
-        {/* 3 · TRUST — true in both tiers, which is why it carries no price */}
-        <View style={styles.trustBlock}>
-          {TRUST.map((key) => (
-            <View key={key} style={styles.trustRow}>
-              <View style={styles.trustCheck}>
-                <CheckGlyph color={theme.green} />
-              </View>
-              <Text style={styles.trustText}>{t(language, key)}</Text>
-            </View>
-          ))}
+            ))}
+          </ScrollView>
         </View>
+      </View>
 
-        {/* 4 · FAQ */}
-        <View style={styles.faqBlock}>
-          {FAQ.map((entry) => (
-            <FaqRow
-              key={entry.key}
-              question={t(language, entry.q)}
-              answer={t(language, entry.a, {
-                ...entry.vars,
-                // The lifetime answer quotes the price, and quotes it from the
-                // same dictionary entry the tile above it reads.
-                price: t(language, 'pro.page.perLifetime'),
-              })}
-              open={openFaq === entry.key}
-              onToggle={() => setOpenFaq(openFaq === entry.key ? null : entry.key)}
-            />
-          ))}
-        </View>
-
-        {/* 5 · FINE PRINT */}
-        <View style={styles.finePrint}>
-          <Text style={styles.noticeText}>{t(language, 'pro.v3.notice')}</Text>
-          <View style={styles.legalRow}>
-            <Pressable accessibilityRole="button" onPress={() => onOpenLegal('terms')} hitSlop={8}>
-              <Text style={styles.legalText}>{t(language, 'pro.page.terms')}</Text>
-            </Pressable>
-            <View style={styles.legalDot} />
-            <Pressable accessibilityRole="button" onPress={() => onOpenLegal('privacy')} hitSlop={8}>
-              <Text style={styles.legalText}>{t(language, 'pro.page.privacy')}</Text>
-            </Pressable>
-          </View>
-        </View>
-      </ScrollView>
-
-      {/*
-        PINNED FOOT. The plan tiles are here rather than in the scroll because
-        the price is the one thing a reader looks for twice, and a page that
-        makes them hunt for it a second time has already lost them.
-
-        This button does not sell anything — billing does not exist. It is here
-        because this is a demo build (user decision 2026-08-01) and the preview
-        switch that used to live here read as a broken feature.
-        releaseReadiness.test.cjs fails while this copy is present and billing
-        still is not, so the demo cannot become the release by forgetting.
-
-        The tab bar is hidden on this route, so only the system inset sits
-        under the button.
-      */}
       <View style={styles.foot}>
-        {/*
-          proUnlocked was once computed and never read, so this page showed a
-          subscriber the same buy button as everyone else — and pressing it ran
-          onTogglePreview, which flips the switch OFF. The one button on the
-          page was a cancel button wearing a purchase label. A reader who
-          already pays gets a status line and a way to manage instead; a promo
-          unlock gets no toggle at all, because the preview switch cannot turn
-          a redeemed code off.
-        */}
         {proUnlocked ? (
-          <>
-            <View style={styles.activeRow}>
-              <CheckGlyph color={theme.green} />
-              <Text style={styles.activeText}>{t(language, 'promo.proOn')}</Text>
-            </View>
+          <View style={styles.activeCard}>
+            <Text style={styles.activeText}>{t(language, 'promo.proOn')}</Text>
             <Pressable
               accessibilityRole="button"
-              onPress={promoOnly ? onManageSubscription : () => onTogglePreview(plan)}
-              style={({ pressed }) => [styles.manageButton, pressed && styles.pressed]}
+              onPress={promoOnly ? onManageSubscription : () => onTogglePreview(activePlan.id as PlanId)}
+              style={({ pressed }) => [styles.cta, pressed && styles.pressed]}
             >
-              <Text style={styles.manageButtonText}>
-                {/* The Settings demo section is gone (2026-08-22), so this is
-                    the one place preview-Pro can be turned back off. */}
+              <Text style={styles.ctaText}>
                 {t(language, promoOnly ? 'subs.manageMembership' : 'pro.previewOff')}
               </Text>
             </Pressable>
-          </>
+          </View>
         ) : (
-          <>
+          <View>
             <View style={styles.planRow}>
-              {PLANS.map((option) => {
-                const on = option.id === plan;
+              {tier.plans.map((entry) => {
+                const on = tier.plans.length === 1 || entry.id === activePlan.id;
                 return (
                   <Pressable
-                    key={option.id}
+                    key={entry.id}
                     accessibilityRole="button"
                     accessibilityState={{ selected: on }}
-                    onPress={() => setPlan(option.id)}
-                    style={[styles.planTile, on && styles.planTileOn]}
+                    onPress={() => setPlan(entry.id)}
+                    style={[styles.planTile, on && { backgroundColor: PRO_SURFACE.tileOn, borderColor: skin.ring }]}
                   >
-                    {option.badgeKey ? (
-                      // An absolutely positioned child does not inherit the
-                      // parent's alignItems, so the pill is centred by a
-                      // full-width anchor rather than by alignSelf.
-                      <View style={styles.planBadgeAnchor} pointerEvents="none">
-                        <View style={styles.planBadge}>
-                          <Text style={styles.planBadgeText}>{t(language, option.badgeKey)}</Text>
+                    <View style={styles.planTop}>
+                      <Text
+                        numberOfLines={1}
+                        style={[styles.planName, on && styles.planNameOn]}
+                      >
+                        {t(language, entry.nameKey)}
+                      </Text>
+                      {entry.badgeKey ? (
+                        <View style={[styles.planBadge, { backgroundColor: skin.accent }]}>
+                          <Text style={styles.planBadgeText}>{t(language, entry.badgeKey)}</Text>
                         </View>
-                      </View>
+                      ) : null}
+                    </View>
+                    <View style={styles.priceRow}>
+                      <Text style={[styles.price, on && styles.priceOn]}>
+                        {t(language, entry.priceKey)}
+                      </Text>
+                      <Text style={styles.priceUnit}>{t(language, entry.unitKey)}</Text>
+                    </View>
+                    {entry.subKey ? (
+                      <Text style={styles.priceSub}>{t(language, entry.subKey)}</Text>
                     ) : null}
-                    <Text style={[styles.planName, on && styles.planNameOn]}>
-                      {t(language, option.nameKey)}
-                    </Text>
-                    <Text style={styles.planPrice}>{t(language, option.priceKey)}</Text>
-                    <Text style={styles.planUnit}>{t(language, option.unitKey)}</Text>
                   </Pressable>
                 );
               })}
             </View>
+
             <Pressable
               accessibilityRole="button"
-              onPress={() => onTogglePreview(plan)}
-              style={({ pressed }) => [styles.ctaButton, pressed && styles.pressed]}
+              onPress={buy}
+              style={({ pressed }) => [styles.cta, pressed && styles.pressed]}
             >
-              {/* The trial can be switched off (PRO_TRIAL_ENABLED). When it
-                  is, this button must stop promising a week. */}
-              <Text style={styles.ctaButtonText}>
-                {t(language, PRO_TRIAL_ENABLED ? 'pro.v2.cta' : 'pro.v2.cta.noTrial')}
-              </Text>
+              <Text style={styles.ctaText}>{t(language, ctaKey)}</Text>
             </Pressable>
-            <Text style={styles.ctaFine}>
-              {t(language, PRO_TRIAL_ENABLED ? selectedPlan.trialFineKey : selectedPlan.fineKey)}
-            </Text>
-          </>
+
+            <Text style={styles.fine}>{t(language, fineKey)}</Text>
+          </View>
         )}
+
+        {/* Stated on every tab, not only on Free: the strongest promise this
+            app makes is that the log itself is never capped, and the Pro tab's
+            "all of your history" line is the one that could read as implying
+            otherwise. */}
+        <Text style={styles.forever}>{t(language, 'pro.v3.trust.forever')}</Text>
+
+        {/* There is no billing. Saying so on the screen rather than only in a
+            comment is what releaseReadiness holds the other end of. */}
+        <Text style={styles.notice}>{t(language, 'pro.v3.notice')}</Text>
+
+        <View style={styles.legalRow}>
+          <Pressable accessibilityRole="link" onPress={() => onOpenLegal('terms')} hitSlop={8}>
+            <Text style={styles.legalLink}>{t(language, 'pro.page.terms')}</Text>
+          </Pressable>
+          <Text style={styles.legalDot}>·</Text>
+          <Pressable accessibilityRole="link" onPress={() => onOpenLegal('privacy')} hitSlop={8}>
+            <Text style={styles.legalLink}>{t(language, 'pro.page.privacy')}</Text>
+          </Pressable>
+          <Text style={styles.legalDot}>·</Text>
+          <Pressable accessibilityRole="link" onPress={onManageSubscription} hitSlop={8}>
+            <Text style={styles.legalLink}>{t(language, 'pro.page.restore')}</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
 }
 
-const makeStyles = (theme: Theme) => StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: theme.bg,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 2,
-    paddingBottom: 8,
-  },
-  closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: theme.surfaceSoft,
+const RADIUS = 26;
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#000000' },
+  pressed: { opacity: 0.85 },
+
+  topRow: { paddingHorizontal: 18, paddingTop: 10, alignItems: 'flex-end' },
+  skipPill: {
+    paddingHorizontal: 19,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: PRO_SURFACE.glass,
     borderWidth: 1,
-    borderColor: theme.border,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: PRO_SURFACE.glassEdge,
   },
-  pressed: {
-    opacity: 0.85,
-  },
-  restore: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: theme.purple,
-  },
-  content: {
-    paddingHorizontal: 16,
-    paddingTop: 0,
-    paddingBottom: 22,
-  },
-  reasonBanner: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginBottom: 14,
-  },
-  reasonBannerText: {
-    color: '#3B1E77',
-    fontSize: 13.5,
-    lineHeight: 19,
-    fontWeight: '800',
-  },
-  sectionLabel: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    color: theme.faint,
-    marginTop: 26,
-    marginBottom: 11,
-    paddingHorizontal: 2,
-  },
-  // Empty on purpose: everything this card drew — fill, border, corner — is
-  // the surface's now, and the rows inside carry their own padding.
-  deltaCard: {},
-  deltaRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 15,
-  },
-  deltaRowDivided: {
-    borderTopWidth: 1,
-    borderTopColor: theme.border,
-  },
-  deltaIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 11,
-    backgroundColor: theme.purpleLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deltaCopy: {
-    flex: 1,
-    minWidth: 0,
-    paddingTop: 1,
-  },
-  deltaTitle: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-    color: theme.ink,
-  },
-  deltaBody: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    lineHeight: 18,
-    color: theme.muted,
-    marginTop: 3,
-  },
-  deltaBodyQuiet: {
-    color: theme.faint,
-  },
-  trustBlock: {
-    marginTop: 24,
-    gap: 12,
-    paddingHorizontal: 2,
-  },
-  trustRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  trustCheck: {
-    marginTop: 1,
-  },
-  trustText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '700',
-    lineHeight: 19,
-    color: theme.ink,
-  },
-  faqBlock: {
-    marginTop: 26,
-    gap: 9,
-  },
-  faqCard: {
-    backgroundColor: theme.surface,
+  skipText: { fontSize: 15.5, fontWeight: '700', color: PRO_SURFACE.ink },
+
+  headBlock: { paddingHorizontal: 20, paddingTop: 10, alignItems: 'center' },
+  wordmarkRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  wordmark: { fontSize: 38, fontWeight: '800', letterSpacing: -1.7, color: PRO_SURFACE.ink },
+  tierBadge: {
+    marginTop: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.13)',
     borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 14,
-    paddingVertical: 13,
-    paddingHorizontal: 14,
   },
-  faqCardOpen: {
-    borderColor: theme.purple,
-  },
-  faqHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  faqQuestion: {
-    flex: 1,
-    fontSize: 13.5,
-    fontWeight: '800',
-    lineHeight: 18,
-    letterSpacing: -0.1,
-    color: theme.ink,
-  },
-  faqSign: {
+  tierBadgeText: { fontSize: 15, fontWeight: '700', color: PRO_SURFACE.ink },
+  head: {
     fontSize: 19,
     fontWeight: '700',
-    lineHeight: 22,
-    color: theme.faint,
-  },
-  faqSignOpen: {
-    color: theme.purple,
-    transform: [{ rotate: '45deg' }],
-  },
-  faqAnswer: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    lineHeight: 19,
-    color: theme.muted,
-    marginTop: 9,
-  },
-  finePrint: {
-    marginTop: 24,
-    alignItems: 'center',
-  },
-  noticeText: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    lineHeight: 18,
-    color: theme.faint,
+    color: PRO_SURFACE.inkDim,
+    marginTop: 7,
+    lineHeight: 24,
     textAlign: 'center',
   },
-  legalRow: {
+
+  reasonRow: { paddingHorizontal: 22, paddingTop: 10 },
+  reasonText: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: PRO_SURFACE.inkMuted,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+
+  segmentWrap: { paddingHorizontal: 22, paddingTop: 15 },
+  segment: {
     flexDirection: 'row',
+    padding: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+  },
+  segmentTab: { flex: 1, height: 40, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  segmentTabOn: { backgroundColor: 'rgba(255,255,255,0.15)' },
+  segmentText: { fontSize: 14.5, fontWeight: '700', color: PRO_SURFACE.inkGhost },
+  segmentTextOn: { color: PRO_SURFACE.ink },
+
+  cardWrap: { flex: 1, paddingHorizontal: 16, paddingTop: 14 },
+  card: {
+    flex: 1,
+    borderRadius: RADIUS,
+    backgroundColor: PRO_SURFACE.card,
+    borderWidth: 1,
+    borderColor: PRO_SURFACE.cardEdge,
+    overflow: 'hidden',
+  },
+  cardHair: { height: 2, marginHorizontal: '22%', opacity: 0.85 },
+  cardScroll: { flex: 1 },
+  cardContent: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 22, gap: 16 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  rowIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.09)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    marginTop: 8,
   },
-  legalText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: theme.muted,
-    // These open the real documents, so they have to look like links.
-    textDecorationLine: 'underline',
-  },
-  legalDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 999,
-    backgroundColor: theme.faint,
-  },
-  foot: {
-    backgroundColor: theme.surface,
-    borderTopWidth: 1,
-    borderTopColor: theme.border,
-    paddingHorizontal: 14,
-    // The save badge overhangs the tile, so the foot needs headroom for it.
-    paddingTop: 24,
-    /**
-     * Its own breathing room, and nothing else.
-     *
-     * This used to be `insets.bottom + 8`, which counted the system bar twice:
-     * AppShell already wraps this route in a SafeAreaView with the bottom edge
-     * (App.tsx), so the drawable area stops above the navigation bar before
-     * this screen sees it — and useSafeAreaInsets still reports the full
-     * window inset regardless. On a gesture-navigation emulator the surplus is
-     * ~24dp and invisible. On a three-button phone it is ~48dp, and it is the
-     * band of dead white under "Peru milloin vain." that made this footer look
-     * like it was floating.
-     *
-     * A flat number means the bar is the same on both, which is the point.
-     */
-    paddingBottom: 20,
-    shadowColor: '#000000',
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: -8 },
-    elevation: 12,
-  },
+  rowBody: { flex: 1 },
+  rowTitle: { fontSize: 16.5, fontWeight: '700', color: PRO_SURFACE.ink, lineHeight: 21 },
+  rowSub: { fontSize: 14, fontWeight: '500', color: PRO_SURFACE.inkFaint, lineHeight: 19, marginTop: 3 },
+
+  foot: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12 },
   planRow: {
     flexDirection: 'row',
-    gap: 8,
+    borderRadius: 22,
+    backgroundColor: PRO_SURFACE.tile,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+    padding: 6,
   },
-  /**
-   * Deliberately tall.
-   *
-   * These three are the decision the whole page builds to, and at the height
-   * they inherited from the mock they read as a segmented control — something
-   * you set, not something you choose. Reclaiming the double-counted inset
-   * made the disparity worse: the CTA and the hero both grew and the tiles
-   * stayed a strip. They get the room now.
-   */
   planTile: {
     flex: 1,
-    minHeight: 104,
-    borderRadius: 16,
-    borderWidth: 2,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    borderRadius: 17,
+    borderWidth: 1,
     borderColor: 'transparent',
-    backgroundColor: theme.surfaceSoft,
-    paddingTop: 16,
-    paddingBottom: 14,
-    paddingHorizontal: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  planTileOn: {
-    borderColor: theme.purple,
-    backgroundColor: theme.purpleLight,
-  },
-  planBadgeAnchor: {
-    position: 'absolute',
-    top: -9,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  planBadge: {
-    backgroundColor: theme.gold,
-    borderRadius: 999,
-    paddingVertical: 2,
-    paddingHorizontal: 7,
-  },
-  planBadgeText: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    color: BADGE_INK,
-  },
-  planName: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-    color: theme.faint,
-  },
-  planNameOn: {
-    color: theme.purpleDark,
-  },
-  planPrice: {
-    fontSize: 19,
-    fontWeight: '800',
-    letterSpacing: -0.6,
-    color: theme.ink,
-    marginTop: 9,
-  },
-  planUnit: {
-    fontSize: 10.5,
+  planTop: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  planName: { fontSize: 13.5, fontWeight: '700', color: PRO_SURFACE.inkGhost, flexShrink: 1 },
+  planNameOn: { color: PRO_SURFACE.ink },
+  planBadge: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999 },
+  planBadgeText: { fontSize: 10.5, fontWeight: '800', color: PRO_SURFACE.badgeInk },
+  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 5, marginTop: 6 },
+  price: { fontSize: 25, fontWeight: '800', letterSpacing: -1, color: 'rgba(255,255,255,0.55)' },
+  priceOn: { color: PRO_SURFACE.ink },
+  priceUnit: { fontSize: 13.5, fontWeight: '600', color: 'rgba(255,255,255,0.5)' },
+  priceSub: { fontSize: 13, fontWeight: '600', color: PRO_SURFACE.inkFaint, marginTop: 2 },
+
+  activeCard: { paddingBottom: 2 },
+  activeText: {
+    fontSize: 15,
     fontWeight: '700',
-    color: theme.muted,
-    marginTop: 4,
+    color: PRO_SURFACE.ink,
+    textAlign: 'center',
+    marginBottom: 12,
   },
-  ctaButton: {
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: theme.purple,
+
+  cta: {
+    height: 56,
+    borderRadius: 999,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 12,
   },
-  ctaButtonText: {
-    fontSize: 16.5,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  ctaFine: {
+  ctaText: { fontSize: 17, fontWeight: '800', letterSpacing: -0.3, color: PRO_SURFACE.ctaInk },
+
+  fine: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: PRO_SURFACE.inkMuted,
     textAlign: 'center',
+    marginTop: 11,
+    lineHeight: 18,
+    paddingHorizontal: 6,
+  },
+  forever: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: PRO_SURFACE.inkFaint,
+    textAlign: 'center',
+    marginTop: 10,
+    lineHeight: 17,
+    paddingHorizontal: 6,
+  },
+  notice: {
     fontSize: 11.5,
     fontWeight: '600',
-    color: theme.muted,
-    marginTop: 9,
+    color: 'rgba(255,255,255,0.34)',
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 16,
+    paddingHorizontal: 6,
   },
-  activeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-    marginBottom: 10,
-  },
-  activeText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: theme.ink,
-  },
-  manageButton: {
-    height: 52,
-    borderRadius: 15,
-    borderWidth: 1.5,
-    borderColor: theme.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  manageButtonText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: theme.ink,
-  },
+
+  legalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12 },
+  legalLink: { fontSize: 12.5, fontWeight: '600', color: PRO_SURFACE.inkMuted },
+  legalDot: { fontSize: 12.5, color: 'rgba(255,255,255,0.3)' },
 });

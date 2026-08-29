@@ -237,8 +237,6 @@ import { OnboardingReadyCatalogScreen } from './src/screens/OnboardingReadyCatal
 import { StartPathScreen } from './src/screens/StartPathScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { setNumberLanguage } from './src/lib/format';
-import { buildPremiumHeroChart } from './src/lib/premiumHeroChart';
-import { buildProChatHeroScript } from './src/lib/proChatHero';
 import { programTableToCsv } from './src/lib/programImageImport';
 import { pickProgramImage } from './src/utils/programImagePicker';
 import { VinhaSplashScreen } from './src/screens/VinhaSplashScreen';
@@ -1020,28 +1018,6 @@ function VinhaApp() {
   const homeSummary = useMemo(() => getHomeSummary(database, unitPreference), [database, unitPreference]);
   const lifetimeSummary = useMemo(() => getLifetimeTrainingSummary(database), [database]);
   const progressTrainingRhythm = useMemo(() => getTrainingRhythm(database), [database]);
-  /**
-   * The Pro page's hero conversation, from this reader's own log.
-   *
-   * buildPremiumHeroChart came back for this: v3 had no chart and nothing
-   * called it, v4 needs the same series to say which lift the coach is talking
-   * about and what it has been doing. Null here is not a failure — the script
-   * falls back to sample figures and labels itself as one.
-   */
-  const premiumHeroChart = useMemo(
-    () => buildPremiumHeroChart(trackedProgress, unitPreference, preferences.appLanguage),
-    [preferences.appLanguage, trackedProgress, unitPreference],
-  );
-  const premiumChatScript = useMemo(
-    () =>
-      buildProChatHeroScript(
-        premiumHeroChart,
-        unitPreference,
-        preferences.setupDaysPerWeek,
-        t(preferences.appLanguage, 'pro.v4.example.lift'),
-      ),
-    [premiumHeroChart, preferences.appLanguage, preferences.setupDaysPerWeek, unitPreference],
-  );
   // The paywall-moments data layer: real lift histories → detections (free)
   // and deterministic conclusions (Pro / blurred). Pure, from logged sets.
   const proLiftHistories = useMemo(
@@ -5212,7 +5188,6 @@ function VinhaApp() {
       preferences,
       updatePreferences,
       coachProUnlocked,
-      premiumChatScript,
       proCoachSpecimen,
       proEntitlement,
       profilePlanSummary,

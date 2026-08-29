@@ -105,29 +105,31 @@ module.exports = [
   {
     name: 'the cap is on authoring: the catalog and the log stay uncapped',
     run() {
-      const premium = read('src', 'screens', 'PremiumScreen.tsx');
-      // The Pro page (v3) dropped the free/premium table, so this no longer
-      // reads a row. It reads the thing that made the row trustworthy: the
-      // number in the sales copy is interpolated from the constant that
-      // enforces the cap, not typed next to it.
+      // The Pro page (v3) dropped the free/premium table, and v6 moved the
+      // rows out of the screen into lib/proTiers. What this checks has not
+      // moved with them: the number in the sales copy is interpolated from the
+      // constant that enforces the cap, not typed next to it.
+      const premium = read('src', 'lib', 'proTiers.ts');
       assert.match(
         premium,
-        /titleKey: 'pro\.v3\.delta\.programs\.t',[\s\S]{0,200}?vars: \{ cap: FREE_CUSTOM_PROGRAM_LIMIT \}/,
+        /titleKey: 'pro\.v6\.free\.own\.t',[\s\S]{0,200}?vars: \{ cap: FREE_CUSTOM_PROGRAM_LIMIT \}/,
         'the programs row must take its free number from FREE_CUSTOM_PROGRAM_LIMIT',
       );
       const copy = read('src', 'lib', 'i18n.ts')
         .split('\n')
-        .filter((line) => line.includes("'pro.v3.delta.programs.b':"));
+        .filter((line) => line.includes("'pro.v6.free.own.t':"));
       assert.equal(copy.length, 2, 'both languages');
       for (const line of copy) {
         assert.match(line, /\{cap\}/, 'the cap must be a placeholder, never a typed digit');
       }
 
-      // Ready programs and logging are identical in both tiers and the page
-      // no longer claims otherwise anywhere. If either ever becomes a
-      // difference, it is a decision, not a drift — so nothing on the Pro page
-      // may quietly start selling them.
-      assert.doesNotMatch(premium, /pro\.v3\.delta\.(ready|logging)/);
+      // Ready programs and logging are identical in both tiers. v6 lists both
+      // on the Free tab, which is the honest place for them; what must never
+      // happen is either appearing among the things Pro adds. If one ever
+      // becomes a real difference that is a decision, not a drift.
+      const proRows = premium.match(/pro: \{[\s\S]*?\n  \},/);
+      assert.ok(proRows, 'the Pro tier block should be findable');
+      assert.doesNotMatch(proRows[0], /pro\.v6\.[a-z]+\.(ready|logging)/);
 
       // The wall says what it does not touch. "Three programs" alone reads as
       // a limit on training.

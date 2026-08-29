@@ -48,7 +48,6 @@ export interface ProfileTabDeps {
   preferences: AppPreferences;
   updatePreferences: (patch: Partial<AppPreferences>) => Promise<unknown>;
   coachProUnlocked: boolean;
-  premiumChatScript: React.ComponentProps<typeof PremiumScreen>['chatScript'];
   proCoachSpecimen: React.ComponentProps<typeof PremiumUnlockScreen>['coachSpecimen'];
   proEntitlement: React.ComponentProps<typeof SubscriptionScreen>['entitlement'];
   profilePlanSummary: {
@@ -112,7 +111,6 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
     preferences,
     updatePreferences,
     coachProUnlocked,
-    premiumChatScript,
     proCoachSpecimen,
     proEntitlement,
     profilePlanSummary,
@@ -159,7 +157,6 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
         language={preferences.appLanguage}
         previewUnlocked={preferences.adaptiveCoachPremiumUnlocked}
         proUnlocked={coachProUnlocked}
-        chatScript={premiumChatScript}
         onManageSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
         onTogglePreview={(plan) => {

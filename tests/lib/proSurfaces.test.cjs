@@ -159,33 +159,39 @@ module.exports = [
       // deletes both (design: "Vinha Pro v3 — tumma"). The guard does not go
       // with them — it narrows to the claims that are left, because a shorter
       // page is only an improvement if the five survivors are all true.
-      const delta = premiumSource.match(/const DELTA: DeltaRow\[\][\s\S]*?\n\];/);
-      assert.ok(delta, 'the "what Pro adds" rows should be declared');
+      // v6 turned the one pitch into three tabs and moved the rows out of the
+      // screen into lib/proTiers, where each one names the gate that makes it
+      // true. tests/lib/proTiers checks that every named gate exists; what is
+      // checked HERE is the part that was always the point — the free-tier
+      // numbers are read from the constants that enforce them.
+      const tiersSource = read('src', 'lib', 'proTiers.ts');
+      const pro = tiersSource.match(/  pro: \{[\s\S]*?\n  \},/);
+      assert.ok(pro, 'the Pro tier should be declared');
 
-      // Exactly five. A sixth row is a decision, not a tidy-up.
+      // Six rows, and a seventh is a decision rather than a tidy-up. Fewer
+      // than that and the tab is thinner than the Free tab beside it, which on
+      // a page where the two are one tap apart is its own argument.
       assert.equal(
-        (delta[0].match(/titleKey: 'pro\.v3\.delta\./g) ?? []).length,
-        5,
-        'the pitch is five rows — adding one is a product decision, make it deliberately',
+        (pro[0].match(/titleKey: 'pro\.v6\.pro\./g) ?? []).length,
+        6,
+        'the Pro pitch is six rows — changing that is a product decision',
       );
 
-      // Each row is a gate that exists. progression → resolveProgressionOptions,
-      // coach → aiCoachQuota, history → historyWindow, programs → programSlots.
-      for (const key of ['programs', 'progression', 'coach', 'history', 'support']) {
-        assert.match(delta[0], new RegExp(`titleKey: 'pro\\.v3\\.delta\\.${key}\\.t'`));
+      for (const key of ['coach', 'progression', 'programs', 'history', 'setlog', 'analysis']) {
+        assert.match(pro[0], new RegExp(`titleKey: 'pro\\.v6\\.pro\\.${key}\\.t'`));
       }
 
-      // Every free-tier number is interpolated from the constant that enforces
-      // it. This is the whole reason the table could go: a number typed into
-      // sales copy drifts silently, a number read from the gate cannot.
+      // A number typed into sales copy drifts silently; a number read from the
+      // gate cannot. This is why the comparison table could be deleted at all.
       for (const [key, constant] of [
-        ['programs', 'FREE_CUSTOM_PROGRAM_LIMIT'],
-        ['coach', 'FREE_COACH_QUESTIONS_PER_WEEK'],
-        ['history', 'FREE_TREND_MONTHS'],
+        ['pro.v6.free.own', 'FREE_CUSTOM_PROGRAM_LIMIT'],
+        ['pro.v6.free.coach', 'FREE_COACH_QUESTIONS_PER_WEEK'],
+        ['pro.v6.free.history', 'FREE_TREND_MONTHS'],
+        ['pro.v6.pro.coach', 'FREE_COACH_QUESTIONS_PER_WEEK'],
       ]) {
         assert.match(
-          delta[0],
-          new RegExp(`pro\\.v3\\.delta\\.${key}\\.[\\s\\S]{0,220}?${constant}`),
+          tiersSource,
+          new RegExp(`${key.replace(/\./g, '\\.')}\\.[\\s\\S]{0,220}?${constant}`),
           `${key} should read its free number from ${constant}`,
         );
       }
@@ -202,8 +208,17 @@ module.exports = [
       // and the trust block has to state the log outright.
       const historyBody = i18nSource
         .split('\n')
-        .filter((line) => line.includes("'pro.v3.delta.history.b':"));
+        .filter((line) => line.includes("'pro.v6.pro.history.b':"));
       assert.equal(historyBody.length, 2, 'both languages');
+      for (const line of historyBody) {
+        assert.match(
+          line,
+          /[Cc]harts and records|[Kk]uvaajat ja ennätykset/,
+          'the history row must say charts and records, not "your history" — the log is never capped',
+        );
+      }
+      // And the log promise itself is stated on the page, on every tab, not
+      // only on the one that happens to mention exporting.
       assert.match(premiumSource, /'pro\.v3\.trust\.forever'/);
       assert.doesNotMatch(premiumSource, /8 weeks|8 viikkoa/);
 
@@ -347,29 +362,37 @@ module.exports = [
       assert.match(premiumSource, /\) : \([\s\S]{0,200}?styles\.planRow/);
       // A redeemed code cannot be turned off by the preview switch, so that
       // case must route to subscription management instead of toggling.
-      assert.match(premiumSource, /promoOnly \? onManageSubscription : \(\) => onTogglePreview\(plan\)/);
+      assert.match(
+        premiumSource,
+        /promoOnly \? onManageSubscription : \(\) => onTogglePreview\(activePlan\.id as PlanId\)/,
+      );
       assert.match(appSource, /onManageSubscription=\{\(\) => navigate\(\{ tab: 'profile', screen: 'subscription' \}\)\}/);
 
-      // v3 moved the personal proof off this page and v4 put it back, in the
-      // form the page is actually selling: the coach answering a question
-      // about the reader's own lift. The rule that outlived both versions is
-      // that the proof is REAL — the hero's script is built from the log, and
-      // a reader with nothing logged gets sample figures wearing a chip that
-      // says so, never sample figures presented as theirs.
-      assert.match(premiumSource, /<ProChatHero script=\{chatScript\}/);
-      assert.match(appSource, /chatScript=\{premiumChatScript\}/);
-      assert.match(appSource, /buildProChatHeroScript\(\s*premiumHeroChart/);
+      // The personal proof has moved three times: v3 took it off this page, v4
+      // put it back as the chat hero, v6 takes it off again. What survives all
+      // three is the rule, not the component — a proof shown to a reader is
+      // built from that reader's own log, or it is labelled as an example.
+      //
+      // v6's argument for removing it is that the proof is not missing, it is
+      // better placed: the withheld conclusions on Home, Progress and Workout
+      // Complete are built from the same log and appear where the reader
+      // actually hits the wall. So the rule is checked THERE now, and this
+      // page must not grow a second, fake one.
+      // Usage, not mention: the screen's own comment explains why the hero is
+      // gone, and a guard that forbids naming the thing you removed makes the
+      // next reader delete the explanation instead of the code.
+      assert.doesNotMatch(premiumSource, /<ProChatHero|chatScript[=:]/);
+      assert.doesNotMatch(appSource, /premiumChatScript|buildProChatHeroScript/);
+      for (const file of ['HomeScreen.tsx', 'ProgressScreen.tsx', 'WorkoutCompletionScreen.tsx']) {
+        assert.match(
+          read('src', 'screens', file),
+          /<ProLockedCard/,
+          `${file} is where the personal proof lives now`,
+        );
+      }
 
-      // And the chart it is built from is computed from real logs, not seeded —
-      // and carries the language, because the lift's name is shown in the
-      // conversation and must read the same as it does in the logger.
-      assert.match(
-        appSource,
-        /buildPremiumHeroChart\(trackedProgress, unitPreference, preferences\.appLanguage\)/,
-      );
-
-      // The blurred-specimen block is gone with v3's hero; nothing on the page
-      // may fake a coach read in its place.
+      // Nothing on the paywall may fake a coach read in its place — not the
+      // v3 specimen block, and not a hardcoded conversation.
       assert.doesNotMatch(premiumSource, /coachSpecimen|specimenScrim/);
     },
   },
