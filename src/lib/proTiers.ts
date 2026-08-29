@@ -256,9 +256,22 @@ export const PRO_TIERS: Record<ProTierKey, ProTier> = {
     rows: [
       {
         key: 'all',
-        icon: 'circ',
+        icon: 'check',
         titleKey: 'pro.v6.life.all.t',
         proof: 'resolveProEntitlement',
+      },
+      {
+        // The cap stated on the tier it matters most to, before the sale
+        // rather than after it. A lifetime buyer who discovers a monthly limit
+        // later is the one customer this pricing cannot afford to surprise —
+        // narrowing "lifetime" after the fact burns exactly the people who
+        // paid most. Framed as what it is: the coach, every month, forever.
+        key: 'coach',
+        icon: 'spark',
+        titleKey: 'pro.v6.life.coach.t',
+        bodyKey: 'pro.v6.life.coach.b',
+        vars: { count: PRO_COACH_QUESTIONS_PER_MONTH },
+        proof: 'PRO_COACH_QUESTIONS_PER_MONTH',
       },
       {
         key: 'norenew',
@@ -272,6 +285,17 @@ export const PRO_TIERS: Record<ProTierKey, ProTier> = {
         icon: 'arrow',
         titleKey: 'pro.v6.life.future.t',
         proof: 'resolveProEntitlement',
+      },
+      {
+        // The question a one-off purchase actually raises: what happens when I
+        // change phones. The restore link is already in this page's own footer,
+        // so this row describes a control the reader can see rather than
+        // promising a new one.
+        key: 'transfer',
+        icon: 'cloud',
+        titleKey: 'pro.v6.life.transfer.t',
+        bodyKey: 'pro.v6.life.transfer.b',
+        proof: 'onManageSubscription',
       },
       {
         key: 'support',

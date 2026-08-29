@@ -78,9 +78,13 @@ const GLYPH: Record<string, string> = {
   moon: 'M20 14.5A8.5 8.5 0 019.5 4a8.5 8.5 0 1010.5 10.5z',
   heart: 'M12 20s-7-4.4-7-9a4 4 0 017-2.6A4 4 0 0119 11c0 4.6-7 9-7 9z',
   lock: 'M7 10V8a5 5 0 0110 0v2M5.5 10h13v10h-13z',
+  cloud: 'M6 17h11a3.5 3.5 0 000-7 5 5 0 00-9.6-1.2A3.4 3.4 0 006 17z',
   pencil: 'M4 20h4L19.5 8.5l-4-4L4 16v4zM14.5 5.5l4 4',
   quill: 'M7 3h8l3 3v15H7zM10 12h6M10 16h4',
-  circ: 'M4.5 12a7.5 7.5 0 1015 0 7.5 7.5 0 10-15 0M17.5 6.5l-11 11',
+  // Was `circ` — a circle with a diagonal through it, which is the universal
+  // NO sign. On the row that says "everything in Pro" it read as the opposite
+  // of what it labelled.
+  check: 'M12 21a9 9 0 100-18 9 9 0 000 18M8.2 12.2l2.6 2.7 5-5.8',
   infin: 'M8.5 12a3 3 0 11.9 2.1c-1.2 1.2-2 2.4-3.4 2.4a3.5 3.5 0 010-7c1.4 0 2.2 1.2 3.4 2.4M15.5 12a3 3 0 10-.9 2.1c1.2 1.2 2 2.4 3.4 2.4a3.5 3.5 0 000-7c-1.4 0-2.2 1.2-3.4 2.4',
 };
 

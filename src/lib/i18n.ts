@@ -2138,6 +2138,10 @@ const EN = {
 
   'pro.v6.life.head': 'Pay once, never again',
   'pro.v6.life.all.t': 'Everything in Pro',
+  'pro.v6.life.coach.t': 'The coach, month after month',
+  'pro.v6.life.coach.b': '{count} questions a month, the same as Pro — with no renewal to pay.',
+  'pro.v6.life.transfer.t': 'Moves to a new phone',
+  'pro.v6.life.transfer.b': '"Restore purchase" opens Pro again.',
   'pro.v6.life.norenew.t': 'No recurring subscription',
   'pro.v6.life.norenew.b': 'No monthly charge and no price rises later.',
   'pro.v6.life.future.t': 'Every future Pro feature too',
@@ -5357,6 +5361,10 @@ const FI: Record<I18nKey, string> = {
 
   'pro.v6.life.head': 'Maksat kerran, et koskaan uudestaan',
   'pro.v6.life.all.t': 'Kaikki Prossa',
+  'pro.v6.life.coach.t': 'Valmentaja kuukaudesta toiseen',
+  'pro.v6.life.coach.b': '{count} kysymystä kuussa, sama kuin Prossa — ilman uusiutuvaa maksua.',
+  'pro.v6.life.transfer.t': 'Siirtyy uudelle puhelimelle',
+  'pro.v6.life.transfer.b': '"Palauta ostokset" avaa Pron uudelleen.',
   'pro.v6.life.norenew.t': 'Ei uusiutuvaa tilausta',
   'pro.v6.life.norenew.b': 'Ei kuukausiveloitusta eikä hinnankorotuksia myöhemmin.',
   'pro.v6.life.future.t': 'Myös kaikki tulevat Pro-ominaisuudet',

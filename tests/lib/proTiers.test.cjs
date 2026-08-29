@@ -81,6 +81,34 @@ module.exports = [
     },
   },
   {
+    name: 'every row names an icon the screen can actually draw',
+    run() {
+      // The screen falls back to the grid glyph for an unknown name, which is
+      // how "Moves to a new phone" shipped wearing four little squares: the
+      // row asked for `cloud` and no cloud existed. A silent fallback needs a
+      // loud test, or the wrong picture is indistinguishable from the right
+      // one until someone looks at the screen.
+      const screen = fs.readFileSync(
+        path.join(root, 'src', 'screens', 'PremiumScreen.tsx'),
+        'utf8',
+      );
+      const table = screen.match(/const GLYPH: Record<string, string> = \{[\s\S]*?\n\};/);
+      assert.ok(table, 'the glyph table should be findable');
+      const drawable = new Set(
+        [...table[0].matchAll(/^\s{2}([a-zA-Z]+):/gm)].map((match) => match[1]),
+      );
+      // `spark` is drawn filled by its own branch rather than from the table.
+      drawable.add('spark');
+
+      for (const row of allRows) {
+        assert.ok(
+          drawable.has(row.icon),
+          `${row.titleKey} asks for the "${row.icon}" icon, which the screen cannot draw`,
+        );
+      }
+    },
+  },
+  {
     name: 'the free tab counts the catalogue it gives away',
     run() {
       assert.equal(READY_PROGRAM_COUNT, WORKOUT_TEMPLATES_V1.length);
