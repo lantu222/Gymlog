@@ -8,6 +8,8 @@ const {
   resolveProgramSlots,
 } = require('../../.test-dist/lib/programSlots.js');
 
+const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog.js');
+
 function read(...segments) {
   return fs.readFileSync(path.join(__dirname, '..', '..', ...segments), 'utf8');
 }
@@ -172,6 +174,24 @@ module.exports = [
       assert.equal(error.limit, 3);
       assert.equal(error.name, 'ProgramLimitReachedError');
       assert.ok(error instanceof Error);
+    },
+  },
+  {
+    name: 'the free-tier claim about ready programs counts the catalog it names',
+    run() {
+      // The block above the cap said 55 while the catalog held 57, and
+      // nothing broke — which is exactly why it drifted. That sentence is
+      // the one lifted into store copy, so the number in it is a claim,
+      // and a claim in this repo has to be checkable against the thing it
+      // counts rather than against the last time someone looked.
+      const source = read('src', 'lib', 'programSlots.ts');
+      const match = source.match(/Ready programs\. All (\d+) stay free/);
+      assert.ok(match, 'the ready-program claim was reworded — repoint or drop this guard');
+      assert.equal(
+        Number(match[1]),
+        WORKOUT_TEMPLATES_V1.length,
+        'programSlots.ts names a ready-program count the catalog no longer has',
+      );
     },
   },
 ];

@@ -2028,7 +2028,7 @@ const EN = {
   // the log — but it read as covering the trend charts, which now stop at
   // three months. Said precisely rather than dropped: the promise is the
   // strongest thing on the page and it survives being stated exactly.
-  'pro.v2.free.body': 'Unlimited logging, three programs of your own, every ready-made program, the guided player and 3D demos, the widget, CSV export — and every set you have ever logged, readable and exportable forever. No ads, no time limit. Premium opens the long view and the coaching layer.',
+  'pro.v2.free.body': 'Unlimited logging, three programs of your own, every ready-made program, the guided player, the widget, CSV export — and every set you have ever logged, readable and exportable forever. No ads, no time limit. Premium opens the long view and the coaching layer.',
 
   'pro.v2.compare': 'FREE VS PREMIUM',
   'pro.v2.row.ads': 'Ads',
@@ -2040,7 +2040,7 @@ const EN = {
   'pro.v2.row.trends': 'Trend charts',
   'pro.v2.row.records': 'Personal records',
   'pro.v2.row.setLog': 'Set log per exercise',
-  'pro.v2.row.guided': 'Guided player & 3D demos',
+  'pro.v2.row.guided': 'Guided player',
   'pro.v2.row.widget': 'Home-screen widget',
   'pro.v2.row.csv': 'CSV export',
   'pro.v2.row.plateau': 'Plateau detection',
@@ -5220,7 +5220,7 @@ const FI: Record<I18nKey, string> = {
   'pro.page.stand.offline': 'Toimii ilman verkkoa. Vain AI-valmentaja tarvitsee yhteyden.',
   'pro.page.stand.yours': 'Jokainen sarja vietävissä tekstinä, ilmaisversiossa, ikuisesti.',
   'pro.v2.free.title': 'Free riittää sellaisenaan',
-  'pro.v2.free.body': 'Rajaton kirjaus, kolme omaa ohjelmaa, kaikki valmiit ohjelmat, ohjattu treenitila ja 3D-demot, widget, CSV-vienti — ja jokainen kirjaamasi sarja luettavissa ja vietävissä ikuisesti. Ei mainoksia, ei aikarajaa. Premium avaa pitkän näkymän ja valmennuskerroksen.',
+  'pro.v2.free.body': 'Rajaton kirjaus, kolme omaa ohjelmaa, kaikki valmiit ohjelmat, ohjattu treenitila, widget, CSV-vienti — ja jokainen kirjaamasi sarja luettavissa ja vietävissä ikuisesti. Ei mainoksia, ei aikarajaa. Premium avaa pitkän näkymän ja valmennuskerroksen.',
 
   'pro.v2.compare': 'FREE VS PREMIUM',
   'pro.v2.row.ads': 'Mainokset',
@@ -5232,7 +5232,7 @@ const FI: Record<I18nKey, string> = {
   'pro.v2.row.trends': 'Kehityskuvaajat',
   'pro.v2.row.records': 'Ennätykset',
   'pro.v2.row.setLog': 'Sarjaloki liikkeittäin',
-  'pro.v2.row.guided': 'Ohjattu treenitila ja 3D-demot',
+  'pro.v2.row.guided': 'Ohjattu treenitila',
   'pro.v2.row.widget': 'Kotinäytön widget',
   'pro.v2.row.csv': 'CSV-vienti',
   'pro.v2.row.plateau': 'Tasanteen havaitseminen',
