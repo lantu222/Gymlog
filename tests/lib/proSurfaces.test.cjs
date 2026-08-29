@@ -216,9 +216,17 @@ module.exports = [
           'the history row must say charts and records, not "your history" — the log is never capped',
         );
       }
-      // And the log promise itself is stated on the page, on every tab, not
-      // only on the one that happens to mention exporting.
-      assert.match(premiumSource, /'pro\.v3\.trust\.forever'/);
+      // And the log promise itself is still stated on the page. It was a
+      // standing line under the CTA until 2026-08-29, when the footer prose was
+      // cut back to the legal links; it now lives on the Free tab's own row,
+      // which is the tab a lapsing subscriber lands on.
+      const yours = i18nSource
+        .split('\n')
+        .filter((line) => line.includes("'pro.v6.free.yours.b':"));
+      assert.equal(yours.length, 2, 'both languages');
+      for (const line of yours) {
+        assert.match(line, /forever|ikuisesti/, 'the log promise must survive the trim');
+      }
       assert.doesNotMatch(premiumSource, /8 weeks|8 viikkoa/);
 
       // Claims from the mocks that describe things this app does not do.

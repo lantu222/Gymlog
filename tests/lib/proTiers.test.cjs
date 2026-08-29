@@ -65,7 +65,10 @@ module.exports = [
           if (row.bodyKey) keys.push(row.bodyKey);
         }
         for (const plan of tier.plans) {
-          keys.push(plan.nameKey, plan.priceKey, plan.unitKey, plan.fineKey);
+          keys.push(plan.nameKey, plan.priceKey, plan.unitKey);
+          // Free carries no fine print: nothing is being sold, so there are no
+          // terms to state and the 0 € tile has already said the rest.
+          if (plan.fineKey) keys.push(plan.fineKey);
           if (plan.subKey) keys.push(plan.subKey);
           if (plan.badgeKey) keys.push(plan.badgeKey);
           if (plan.trialFineKey) keys.push(plan.trialFineKey);

@@ -2087,7 +2087,6 @@ const EN = {
   // the constant that enforces the limit (FREE_CUSTOM_PROGRAM_LIMIT,
   // FREE_COACH_QUESTIONS_PER_WEEK, FREE_TREND_MONTHS, and the lifetime price
   // key), so no number on this page can drift away from the code that means it.
-  'pro.v3.trust.forever': 'Everything you log, on Free or on Pro, is kept forever.',
   'pro.v3.notice': 'Payments are not live yet — these prices are a preview of the store release.',
   'pro.v3.unit.month': '/ month',
   'pro.v3.unit.year': '/ year',
@@ -2120,7 +2119,6 @@ const EN = {
   'pro.v6.price.free': '0 €',
   'pro.v6.unit.forever': '/ forever',
   'pro.v6.cta.free': 'Continue for free',
-  'pro.v6.fine.free': 'No card and no trial period. You can upgrade whenever you like.',
 
   'pro.v6.pro.head': 'For the ones who train every week',
   'pro.v6.pro.coach.t': 'Ask the coach whenever you like',
@@ -5311,7 +5309,6 @@ const FI: Record<I18nKey, string> = {
   'pro.v2.ctaSubLifetime': 'Yksi maksu, 119,00 €. Sen jälkeen se on sinun.',
   'pro.v2.footer': 'Peru milloin vain — lokisi ja datasi ovat sinun, Premium tai ei.',
 
-  'pro.v3.trust.forever': 'Kaikki mitä kirjaat, Freessä tai Prossa, säilyy ikuisesti.',
   'pro.v3.notice': 'Maksut eivät ole vielä käytössä — hinnat ovat ennakkokatsaus kaupan julkaisuun.',
   'pro.v3.unit.month': '/ kk',
   'pro.v3.unit.year': '/ vuosi',
@@ -5341,7 +5338,6 @@ const FI: Record<I18nKey, string> = {
   'pro.v6.price.free': '0 €',
   'pro.v6.unit.forever': '/ ikuisesti',
   'pro.v6.cta.free': 'Jatka ilmaiseksi',
-  'pro.v6.fine.free': 'Ei korttia eikä kokeilujaksoa. Voit päivittää milloin tahansa.',
 
   'pro.v6.pro.head': 'Niille, jotka treenaavat joka viikko',
   'pro.v6.pro.coach.t': 'Kysy valmentajalta milloin vain',

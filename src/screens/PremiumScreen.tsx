@@ -409,19 +409,9 @@ export function PremiumScreen({
               <Text style={styles.ctaText}>{t(language, ctaKey)}</Text>
             </Pressable>
 
-            <Text style={styles.fine}>{t(language, fineKey)}</Text>
+            {fineKey ? <Text style={styles.fine}>{t(language, fineKey)}</Text> : null}
           </View>
         )}
-
-        {/* Stated on every tab, not only on Free: the strongest promise this
-            app makes is that the log itself is never capped, and the Pro tab's
-            "all of your history" line is the one that could read as implying
-            otherwise. */}
-        <Text style={styles.forever}>{t(language, 'pro.v3.trust.forever')}</Text>
-
-        {/* There is no billing. Saying so on the screen rather than only in a
-            comment is what releaseReadiness holds the other end of. */}
-        <Text style={styles.notice}>{t(language, 'pro.v3.notice')}</Text>
 
         <View style={styles.legalRow}>
           <Pressable accessibilityRole="link" onPress={() => onOpenLegal('terms')} hitSlop={8}>
@@ -498,8 +488,8 @@ const styles = StyleSheet.create({
   },
   segmentTab: { flex: 1, height: 40, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
   segmentTabOn: { backgroundColor: 'rgba(255,255,255,0.15)' },
-  segmentText: { fontSize: 14.5, fontWeight: '700', color: PRO_SURFACE.inkGhost },
-  segmentTextOn: { color: PRO_SURFACE.ink },
+  segmentText: { fontSize: 14.5, fontWeight: '700', color: 'rgba(255,255,255,0.30)' },
+  segmentTextOn: { color: 'rgba(255,255,255,0.88)' },
 
   cardWrap: { flex: 1, paddingHorizontal: 16, paddingTop: 14 },
   card: {
@@ -572,7 +562,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 12,
+    marginTop: 24,
   },
   ctaText: { fontSize: 17, fontWeight: '800', letterSpacing: -0.3, color: PRO_SURFACE.ctaInk },
 
@@ -604,7 +594,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
 
-  legalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12 },
+  // The footer lost two lines of prose, so the fine print and the links ended
+  // up stacked tight under the button. The gap keeps the terms of the sale and
+  // the legal links reading as two things rather than one paragraph.
+  legalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 18 },
   legalLink: { fontSize: 12.5, fontWeight: '600', color: PRO_SURFACE.inkMuted },
   legalDot: { fontSize: 12.5, color: 'rgba(255,255,255,0.3)' },
 });

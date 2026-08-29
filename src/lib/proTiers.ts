@@ -67,8 +67,12 @@ export interface ProTierPlan {
    * The line under the CTA. It belongs to the PLAN, not the tier: a monthly
    * buyer reading a yearly renewal price is the exact mistake this shape
    * prevents, and the terms genuinely differ per plan.
+   *
+   * Absent on Free, and deliberately: there are no terms to state when nothing
+   * is being sold, and the line that used to sit there ("no card and no trial
+   * period") was answering a question the 0 € tile has already answered.
    */
-  fineKey: I18nKey;
+  fineKey?: I18nKey;
   /** Used only while PRO_TRIAL_ENABLED — the "then …" wording. */
   trialFineKey?: I18nKey;
 }
@@ -161,7 +165,6 @@ export const PRO_TIERS: Record<ProTierKey, ProTier> = {
         priceKey: 'pro.v6.price.free',
         unitKey: 'pro.v6.unit.forever',
         badgeKey: 'pro.v6.badge.free',
-        fineKey: 'pro.v6.fine.free',
       },
     ],
     ctaKey: 'pro.v6.cta.free',
@@ -305,9 +308,12 @@ export function resolveTierFineKey(
   tier: ProTier,
   planId: ProPlanId,
   trialEnabled: boolean,
-): I18nKey {
+): I18nKey | null {
   const plan = tier.plans.find((entry) => entry.id === planId) ?? tier.plans[0];
-  return trialEnabled && plan.trialFineKey ? plan.trialFineKey : plan.fineKey;
+  if (trialEnabled && plan.trialFineKey) {
+    return plan.trialFineKey;
+  }
+  return plan.fineKey ?? null;
 }
 
 /**

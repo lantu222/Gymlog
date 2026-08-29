@@ -103,9 +103,17 @@ module.exports = [
       const windowCopy = i18n.split('\n').filter((line) => line.includes("'pro.v6.free.history.t':"));
       assert.equal(windowCopy.length, 2, 'both languages');
 
-      const forever = i18n.split('\n').filter((line) => line.includes("'pro.v3.trust.forever':"));
+      // The "kept forever" promise used to be a standing line under the CTA on
+      // every tab. It was cut on 2026-08-29 with the rest of the footer prose,
+      // and the rule moved rather than went: the claim now lives on the Free
+      // tab's own row, which is where a reader worried about losing their log
+      // would actually look, and it is the tab a lapsing subscriber lands on.
+      const forever = i18n.split('\n').filter((line) => line.includes("'pro.v6.free.yours.b':"));
       assert.equal(forever.length, 2, 'the "kept forever" line must exist in both languages');
-      assert.match(premium, /'pro\.v3\.trust\.forever'/, 'the Pro page must still render it');
+      for (const line of forever) {
+        assert.match(line, /forever|ikuisesti/, 'the free tier must still promise the log is kept');
+      }
+      assert.match(premium, /rows\.map|row\.bodyKey/, 'the Pro page must render the tier rows');
 
       // Export is what makes "your log is yours" checkable rather than a
       // promise. v4 stated it in an FAQ answer; v6 has no FAQ, so it moved to
