@@ -21,6 +21,9 @@ import {
   WorkoutTemplateSessionRecord,
 } from '../types/models';
 
+/** Ten minutes. Longer than any rest between sets, short of a stored absurdity. */
+const MAX_DEFAULT_REST_SECONDS = 600;
+
 const CAUTION_AREAS = ['neck', 'shoulders', 'elbows', 'wrists', 'lower_back', 'hips', 'knees', 'ankles'] as const;
 const CAUTION_LEVELS = ['info', 'careful', 'avoid'] as const;
 
@@ -550,9 +553,16 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
           : fallback.preferences.appLanguage,
       // App is kg-only: any legacy 'lb' preference normalizes to kg on load.
       unitPreference: 'kg',
+      // `typeof NaN === 'number'`, so the type check alone let an unusable
+      // value through to every rest timer in the app: NaN survives Math.min,
+      // Math.round and the arithmetic behind the countdown, and comes out as a
+      // rest bar frozen at 0:00 that never ends. A rest is also not zero, not
+      // negative and not a day long.
       defaultRestSeconds:
-        typeof input?.preferences?.defaultRestSeconds === 'number'
-          ? input.preferences.defaultRestSeconds
+        typeof input?.preferences?.defaultRestSeconds === 'number' &&
+        Number.isFinite(input.preferences.defaultRestSeconds) &&
+        input.preferences.defaultRestSeconds > 0
+          ? Math.min(Math.round(input.preferences.defaultRestSeconds), MAX_DEFAULT_REST_SECONDS)
           : fallback.preferences.defaultRestSeconds,
       autoFocusNextInput:
         typeof input?.preferences?.autoFocusNextInput === 'boolean'
