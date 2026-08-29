@@ -1,5 +1,5 @@
 import { FREE_ACTIVE_PROGRAM_CAP, PRO_ACTIVE_PROGRAM_CAP } from './activeProgramSet';
-import { FREE_COACH_QUESTIONS_PER_WEEK } from './aiCoachQuota';
+import { PRO_COACH_QUESTIONS_PER_MONTH } from './aiCoachQuota';
 import { FREE_TREND_MONTHS } from './historyWindow';
 import { I18nKey } from './i18n';
 import { FREE_CUSTOM_PROGRAM_LIMIT } from './programSlots';
@@ -126,14 +126,15 @@ export const PRO_TIERS: Record<ProTierKey, ProTier> = {
         proof: 'FREE_TREND_MONTHS',
       },
       {
-        // The wording follows the constant, so the week the free quota changes
-        // this row changes with it rather than being found later by a reader.
+        // Free asks nothing of its own accord. What it gets is three real
+        // answers at moments the app picks, which is what this row promises
+        // and what coachDemoMoments delivers — the count is in the sentence
+        // because three moments is the whole design, not a tunable number.
         key: 'coach',
         icon: 'spark',
         titleKey: 'pro.v6.free.coach.t',
         bodyKey: 'pro.v6.free.coach.b',
-        vars: { count: FREE_COACH_QUESTIONS_PER_WEEK },
-        proof: 'FREE_COACH_QUESTIONS_PER_WEEK',
+        proof: 'resolveDueCoachDemoMoment',
       },
       {
         // The qualifier is not decoration. "Works with no connection" on its
@@ -176,7 +177,7 @@ export const PRO_TIERS: Record<ProTierKey, ProTier> = {
         icon: 'spark',
         titleKey: 'pro.v6.pro.coach.t',
         bodyKey: 'pro.v6.pro.coach.b',
-        vars: { count: FREE_COACH_QUESTIONS_PER_WEEK },
+        vars: { count: PRO_COACH_QUESTIONS_PER_MONTH },
         proof: 'resolveCoachQuota',
       },
       {

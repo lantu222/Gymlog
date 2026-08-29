@@ -222,6 +222,16 @@ interface WorkoutCompletionScreenProps {
    */
   lockedInsight?: { teaser: string; body: string; moment: ProMomentContent } | null;
   onOpenPremium?: () => void;
+  /**
+   * A coach demo moment that came due with this session (lib/coachDemoMoments).
+   *
+   * Three of these exist per install, ever. The question is shown before it
+   * is sent and the reader is the one who sends it — the app asking on
+   * someone’s behalf without a tap would be putting words in their mouth.
+   */
+  demoQuestion?: string | null;
+  onSendDemoQuestion?: () => void;
+  onSkipDemoQuestion?: () => void;
 }
 
 function formatWhenLabel(performedAt: string, language: AppLanguage) {
@@ -278,6 +288,9 @@ export function WorkoutCompletionScreen({
   nextUp = null,
   onDone,
   lockedInsight = null,
+  demoQuestion = null,
+  onSendDemoQuestion,
+  onSkipDemoQuestion,
   onOpenPremium,
 }: WorkoutCompletionScreenProps) {
   const theme = useTheme();
@@ -650,6 +663,33 @@ export function WorkoutCompletionScreen({
             </Animated.View>
           ) : null}
 
+          {/* The coach demo moment. It sits below the locked card on
+              purpose: the reader has just seen a conclusion blurred, and
+              this is the app offering to answer one for real. */}
+          {demoQuestion ? (
+            <Animated.View style={[styles.demoCard, rise(6)]}>
+              <Text style={styles.demoTitle}>{t(language, 'coach.demo.title')}</Text>
+              <Text style={styles.demoQuestion}>{demoQuestion}</Text>
+              <Text style={styles.demoBody}>{t(language, 'coach.demo.body')}</Text>
+              <View style={styles.demoActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={onSkipDemoQuestion}
+                  style={({ pressed }) => [styles.demoSkip, pressed && { opacity: 0.85 }]}
+                >
+                  <Text style={styles.demoSkipText}>{t(language, 'coach.demo.skip')}</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={onSendDemoQuestion}
+                  style={({ pressed }) => [styles.demoSend, pressed && { opacity: 0.85 }]}
+                >
+                  <Text style={styles.demoSendText}>{t(language, 'coach.demo.send')}</Text>
+                </Pressable>
+              </View>
+            </Animated.View>
+          ) : null}
+
           {/* Both of these lived on the guided finish step, which showed the
               same duration/sets/volume/coach as this screen and then handed
               straight over to it. They are the two things it had that this one
@@ -906,6 +946,64 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   lockedCardWrap: {
     marginTop: 20,
     marginBottom: 12,
+  },
+  demoCard: {
+    marginTop: 4,
+    marginBottom: 12,
+    backgroundColor: theme.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: theme.border,
+    padding: 18,
+  },
+  demoTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.purple,
+    letterSpacing: 0.4,
+  },
+  demoQuestion: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: theme.ink,
+    lineHeight: 23,
+    marginTop: 8,
+  },
+  demoBody: {
+    fontSize: 13.5,
+    fontWeight: '500',
+    color: theme.muted,
+    lineHeight: 19,
+    marginTop: 8,
+  },
+  demoActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 16,
+  },
+  demoSkip: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 999,
+  },
+  demoSkipText: {
+    fontSize: 14.5,
+    fontWeight: '600',
+    color: theme.muted,
+  },
+  demoSend: {
+    flex: 1,
+    height: 48,
+    borderRadius: 999,
+    backgroundColor: theme.purple,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  demoSendText: {
+    fontSize: 15.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   weekCard: {
     backgroundColor: theme.surface,

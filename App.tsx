@@ -93,6 +93,7 @@ import {
   detectPlateau,
   pickCompletionLift,
 } from './src/lib/proInsights';
+import { markCoachDemoMomentUsed, resolveDueCoachDemoMoment } from './src/lib/coachDemoMoments';
 import { buildHomePlanProgress } from './src/lib/homePlanProgress';
 import { buildHomeStatCardCatalog, buildHomeStatCards, resolveHomeStatCardKeys } from './src/lib/homeStatCards';
 import { silencedSuggestionKinds } from './src/lib/coachSuggestions';
@@ -540,6 +541,21 @@ function VinhaApp() {
       hasOpenedAppBefore: true,
     });
   }, [appHydrated, preferences.hasOpenedAppBefore, updatePreferences]);
+
+  /**
+   * The install date the coach demo moments count their 7 / 30 / 90 days from.
+   *
+   * Stamped separately from hasOpenedAppBefore rather than beside it, because
+   * an install that predates this field has already opened the app: it would
+   * never take that branch, and its moments would never fire. Keyed on the
+   * date being missing instead, so an upgrade starts the clock at the upgrade.
+   */
+  useEffect(() => {
+    if (!appHydrated || preferences.firstLaunchAt) {
+      return;
+    }
+    void updatePreferences({ firstLaunchAt: new Date().toISOString() });
+  }, [appHydrated, preferences.firstLaunchAt, updatePreferences]);
 
   useEffect(() => {
     const timeout = setTimeout(() => setMinimumSplashElapsed(true), 1200);
@@ -2795,6 +2811,38 @@ function VinhaApp() {
   );
   const proEntitlement = resolveProEntitlement(preferences);
   const coachProUnlocked = proEntitlement.unlocked;
+
+  /**
+   * The coach demo moment that came due with this session, if one has.
+   *
+   * Free readers get three real coach answers per install, at day 7, 30 and
+   * 90 — offered after a completed session so the log behind the answer is
+   * fresh. Null for Pro, and null until the day and the session count both
+   * come good. See lib/coachDemoMoments.
+   */
+  const coachDemoMoment = useMemo(
+    () =>
+      resolveDueCoachDemoMoment({
+        firstLaunchAt: preferences.firstLaunchAt,
+        usedMoments: preferences.coachDemoMomentsUsed,
+        proUnlocked: coachProUnlocked,
+        sessionCount: database.workoutSessions.length,
+        lifts: proLiftHistories,
+        fatigueSignal: proFatigue?.confident ? proFatigue.signal : null,
+      }),
+    [
+      coachProUnlocked,
+      database.workoutSessions.length,
+      preferences.coachDemoMomentsUsed,
+      preferences.firstLaunchAt,
+      proFatigue,
+      proLiftHistories,
+    ],
+  );
+  const coachDemoQuestion = coachDemoMoment
+    ? t(preferences.appLanguage, coachDemoMoment.questionKey, coachDemoMoment.vars)
+    : null;
+
   // Seven days out. There is no billing, so this is the demo story the paywall
   // already tells rather than a date anything will act on.
   const premiumTrialEndsAt = useMemo(() => {
@@ -5036,6 +5084,26 @@ function VinhaApp() {
             : null
         }
         onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
+        demoQuestion={coachDemoQuestion}
+        onSendDemoQuestion={() => {
+          if (!coachDemoMoment || !coachDemoQuestion) {
+            return;
+          }
+          // Spent on the send, not on the answer. A moment that burned only
+          // on success would re-offer itself after every failed request,
+          // which is a loop that costs money each time round.
+          void updatePreferences({
+            coachDemoMomentsUsed: markCoachDemoMomentUsed(
+              preferences.coachDemoMomentsUsed,
+              coachDemoMoment.key,
+            ),
+          });
+          navigate({ tab: 'home', screen: 'ai_chat', demoQuestion: coachDemoQuestion });
+        }}
+        onSkipDemoQuestion={() => {
+          // Skipping does NOT spend it. The reader declined a question, not
+          // the offer, and it comes back after the next session.
+        }}
         onDone={(feel) => {
           // The verdict lands on the already-saved session; leaving does not
           // wait for the write (it goes through the same serial queue every

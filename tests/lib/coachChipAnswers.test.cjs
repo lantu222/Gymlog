@@ -84,7 +84,7 @@ module.exports = [
         path.join(__dirname, '..', '..', 'src', 'screens', 'AICoachChatScreen.tsx'),
         'utf8',
       );
-      assert.match(screen, /if \(!proUnlocked && !answer\.unanswered\) \{\s*onFreeQuestionUsed\(\);/);
+      assert.match(screen, /if \(proUnlocked && !answer\.unanswered\) \{\s*onQuestionUsed\(\);/);
     },
   },
   {

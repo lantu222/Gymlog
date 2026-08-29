@@ -99,7 +99,7 @@ module.exports = [
       const screen = fs.readFileSync(path.join(__dirname, '../../src/screens/AICoachChatScreen.tsx'), 'utf8');
 
       const smallTalkAt = screen.indexOf('parseCoachSmallTalk(trimmed)');
-      const quotaAt = screen.indexOf('if (!canAsk) {');
+      const quotaAt = screen.indexOf('if (!canAsk && !force) {');
       const requestAt = screen.indexOf('await requestAiCoachAdvice(');
       assert.ok(smallTalkAt !== -1, 'the chat consults the small-talk parser');
       assert.ok(smallTalkAt < quotaAt, 'small talk is answered before the quota gate');

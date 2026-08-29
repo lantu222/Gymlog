@@ -653,16 +653,28 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
             (id: unknown): id is string => typeof id === 'string' && id.length > 0,
           )
         : fallback.preferences.featureVotedIds,
-      aiCoachFreeQuota:
-        input?.preferences?.aiCoachFreeQuota &&
-        typeof input.preferences.aiCoachFreeQuota.weekStart === 'string' &&
-        typeof input.preferences.aiCoachFreeQuota.used === 'number' &&
-        Number.isFinite(input.preferences.aiCoachFreeQuota.used)
+      // The free weekly counter was removed 2026-08-29 along with the free
+      // tier it metered; a stored one is simply not read any more.
+      aiCoachProQuota:
+        input?.preferences?.aiCoachProQuota &&
+        typeof input.preferences.aiCoachProQuota.monthStart === 'string' &&
+        typeof input.preferences.aiCoachProQuota.used === 'number' &&
+        Number.isFinite(input.preferences.aiCoachProQuota.used)
           ? {
-              weekStart: input.preferences.aiCoachFreeQuota.weekStart,
-              used: Math.max(0, Math.round(input.preferences.aiCoachFreeQuota.used)),
+              monthStart: input.preferences.aiCoachProQuota.monthStart,
+              used: Math.max(0, Math.round(input.preferences.aiCoachProQuota.used)),
             }
-          : fallback.preferences.aiCoachFreeQuota,
+          : fallback.preferences.aiCoachProQuota,
+      firstLaunchAt:
+        typeof input?.preferences?.firstLaunchAt === 'string' &&
+        !Number.isNaN(Date.parse(input.preferences.firstLaunchAt))
+          ? input.preferences.firstLaunchAt
+          : fallback.preferences.firstLaunchAt,
+      coachDemoMomentsUsed: Array.isArray(input?.preferences?.coachDemoMomentsUsed)
+        ? input.preferences.coachDemoMomentsUsed.filter(
+            (key: unknown): key is string => typeof key === 'string' && key.length > 0,
+          )
+        : fallback.preferences.coachDemoMomentsUsed,
       adaptiveCoachPremiumUnlocked:
         typeof input?.preferences?.adaptiveCoachPremiumUnlocked === 'boolean'
           ? input.preferences.adaptiveCoachPremiumUnlocked

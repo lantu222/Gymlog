@@ -246,10 +246,12 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
         liveConfigured={isAiCoachLiveConfigured()}
         onlineNoticeAcknowledged={preferences.aiOnlineNoticeAcknowledged}
         onAcknowledgeOnlineNotice={() => void updatePreferences({ aiOnlineNoticeAcknowledged: true })}
-        freeQuestionsRemaining={resolveCoachQuota(preferences.aiCoachFreeQuota).remaining}
-        onFreeQuestionUsed={() =>
-          void updatePreferences({ aiCoachFreeQuota: recordCoachQuestion(preferences.aiCoachFreeQuota) })
+        questionsRemaining={resolveCoachQuota(preferences.aiCoachProQuota).remaining}
+        onQuestionUsed={() =>
+          void updatePreferences({ aiCoachProQuota: recordCoachQuestion(preferences.aiCoachProQuota) })
         }
+        demoQuestion={route.demoQuestion ?? null}
+        onDemoQuestionSent={() => navigate({ tab: 'home', screen: 'ai_chat' })}
         trainingContext={aiCoachTrainingContext}
         intro={coachChatIntro}
         sessionCount={database.workoutSessions.length}

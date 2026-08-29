@@ -185,9 +185,8 @@ module.exports = [
       // gate cannot. This is why the comparison table could be deleted at all.
       for (const [key, constant] of [
         ['pro.v6.free.own', 'FREE_CUSTOM_PROGRAM_LIMIT'],
-        ['pro.v6.free.coach', 'FREE_COACH_QUESTIONS_PER_WEEK'],
         ['pro.v6.free.history', 'FREE_TREND_MONTHS'],
-        ['pro.v6.pro.coach', 'FREE_COACH_QUESTIONS_PER_WEEK'],
+        ['pro.v6.pro.coach', 'PRO_COACH_QUESTIONS_PER_MONTH'],
       ]) {
         assert.match(
           tiersSource,
@@ -236,14 +235,20 @@ module.exports = [
   {
     name: 'the Pro page table promises are wired, not just printed',
     run() {
-      // "AI Coach — 3 / wk": App resolves the quota and the chat gates on it.
-      assert.match(appSource, /freeQuestionsRemaining=\{resolveCoachQuota\(preferences\.aiCoachFreeQuota\)\.remaining\}/);
-      assert.match(appSource, /recordCoachQuestion\(preferences\.aiCoachFreeQuota\)/);
+      // "AI coach — 25 / month": App resolves the allowance and the chat gates
+      // on it. The tier flipped on 2026-08-29 — the counter belongs to Pro now,
+      // and free reaches the model only through its three demo moments.
+      assert.match(appSource, /questionsRemaining=\{resolveCoachQuota\(preferences\.aiCoachProQuota\)\.remaining\}/);
+      assert.match(appSource, /recordCoachQuestion\(preferences\.aiCoachProQuota\)/);
       const chat = read('src', 'screens', 'AICoachChatScreen.tsx');
-      assert.match(chat, /const canAsk = proUnlocked \|\| freeQuestionsRemaining > 0;/);
+      assert.match(chat, /const canAsk = proUnlocked && questionsRemaining > 0;/);
+      // And the demo question is the only thing allowed past that gate.
+      assert.match(chat, /if \(!canAsk && !force\) \{/);
+      assert.match(appSource, /resolveDueCoachDemoMoment\(\{/);
       // Out of quota the door stays open: the question still sends and the
-      // answer comes back blurred, rather than the chat refusing to talk.
-      assert.match(chat, /if \(!canAsk\) \{/);
+      // answer comes back blurred, rather than the chat refusing to talk. This
+      // is what makes a free tier with no allowance liveable rather than a
+      // dead input — the blurred answer is real, local and costs nothing.
       // What is blurred is the REAL withheld answer — the offline coach is
       // free and deterministic, so blurring a placeholder would be a bluff.
       assert.match(chat, /buildAiCoachPreviewAnswer\(trimmed, trainingContext, language\)/);
