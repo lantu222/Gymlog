@@ -119,10 +119,16 @@ function RowGlyph({ name }: { name: string }) {
  */
 function HeroSky({ tier, width }: { tier: ProTierKey; width: number }) {
   const skin = PRO_TIER[tier];
+  // The sky ends at 470, but the canvas runs to 540 so the scrim has somewhere
+  // to finish. Ending both at 470 left the lower nebula only half damped, and
+  // on a device that reads as a coloured band across the top of the benefit
+  // card rather than as a glow behind the wordmark — worst on Lifetime, whose
+  // second wash is violet against an orange sky.
   const height = 470;
+  const canvas = 540;
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+      <Svg width={width} height={canvas} viewBox={`0 0 ${width} ${canvas}`}>
         <Defs>
           <LinearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
             <Stop offset="0" stopColor={skin.sky[0]} />
@@ -133,9 +139,16 @@ function HeroSky({ tier, width }: { tier: ProTierKey; width: number }) {
             <Stop offset="0" stopColor={skin.neb} />
             <Stop offset="0.72" stopColor={skin.neb} stopOpacity={0} />
           </RadialGradient>
+          {/* The second wash is damped to just over half strength, and this is
+              not taste. The reference is a web mock where it carries
+              `filter: blur(10px)`; React Native has no backdrop or layer blur,
+              so the same alpha over a crisp radial reads as a coloured BAND
+              rather than a glow — most visibly on Lifetime, where a violet
+              wash crosses an orange sky right under the tab switcher. The
+              token keeps the design's value; only the paint is softened. */}
           <RadialGradient id="neb2" cx="0.5" cy="0.5" r="0.5">
-            <Stop offset="0" stopColor={skin.neb2} />
-            <Stop offset="0.7" stopColor={skin.neb2} stopOpacity={0} />
+            <Stop offset="0" stopColor={skin.neb2} stopOpacity={0.55} />
+            <Stop offset="0.62" stopColor={skin.neb2} stopOpacity={0} />
           </RadialGradient>
           <LinearGradient id="scrim" x1="0" y1="0" x2="0" y2="1">
             <Stop offset="0" stopColor="#000000" stopOpacity={0} />
@@ -146,7 +159,11 @@ function HeroSky({ tier, width }: { tier: ProTierKey; width: number }) {
 
         <Rect x={0} y={0} width={width} height={height} fill="url(#sky)" />
         <Rect x={-width * 0.3} y={-110} width={width * 1.6} height={420} fill="url(#neb)" />
-        <Rect x={-width * 0.1} y={120} width={width * 1.2} height={260} fill="url(#neb2)" />
+        {/* Lifted from y=120 to y=30. At the reference offset its centre lands
+            at 250dp, which on a real phone is level with the top of the
+            benefit card rather than behind the wordmark — the wash has to sit
+            in the hero it belongs to, not over the content below it. */}
+        <Rect x={-width * 0.1} y={30} width={width * 1.2} height={230} fill="url(#neb2)" />
 
         {/* Three thin arcs. They read as a horizon rather than as decoration,
             which is what keeps the top from looking like a stock gradient. */}
@@ -169,7 +186,32 @@ function HeroSky({ tier, width }: { tier: ProTierKey; width: number }) {
           strokeWidth={1}
         />
 
-        <Rect x={0} y={300} width={width} height={170} fill="url(#scrim)" />
+        <Rect x={0} y={300} width={width} height={240} fill="url(#scrim)" />
+      </Svg>
+    </View>
+  );
+}
+
+/**
+ * The fade at the foot of the benefit list.
+ *
+ * The list scrolls and the card clips it, so without this the last visible row
+ * is cut clean through the middle of a word — which reads as a layout bug
+ * rather than as "there is more below". Painted over the list, not inside it,
+ * so it does not scroll away with the content.
+ */
+function CardFade({ width }: { width: number }) {
+  return (
+    <View style={styles.cardFade} pointerEvents="none">
+      <Svg width={width} height={44} viewBox={`0 0 ${width} 44`}>
+        <Defs>
+          <LinearGradient id="cardFade" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor="#16141E" stopOpacity={0} />
+            <Stop offset="0.85" stopColor="#100E16" stopOpacity={0.95} />
+            <Stop offset="1" stopColor="#100E16" stopOpacity={1} />
+          </LinearGradient>
+        </Defs>
+        <Rect x={0} y={0} width={width} height={44} fill="url(#cardFade)" />
       </Svg>
     </View>
   );
@@ -301,6 +343,7 @@ export function PremiumScreen({
               </View>
             ))}
           </ScrollView>
+          <CardFade width={width} />
         </View>
       </View>
 
@@ -468,6 +511,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   cardHair: { height: 2, marginHorizontal: '22%', opacity: 0.85 },
+  cardFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 44 },
   cardScroll: { flex: 1 },
   cardContent: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 22, gap: 16 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 14 },
