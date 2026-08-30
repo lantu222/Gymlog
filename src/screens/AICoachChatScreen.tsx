@@ -83,7 +83,21 @@ interface AICoachChatScreenProps {
    * that is the whole point of the three moments a free reader gets.
    */
   demoQuestion?: string | null;
+  /** Which of the three it is. Held here because the route is cleared on send. */
+  demoMomentKey?: string | null;
+  /** Dispatched. Clears the hand-off; it does NOT mean an answer arrived. */
   onDemoQuestionSent?: () => void;
+  /**
+   * An answer came back from the real model. THIS is what spends the moment.
+   *
+   * There are three per install and nothing ever returns one, so the thing
+   * that consumes one has to be the thing the reader was promised. A send
+   * that leaves is not it: the phone can be offline — this app is built to
+   * work that way — and the endpoint can fall back to its canned preview
+   * reply, which is the same deterministic text a free reader already gets
+   * for nothing.
+   */
+  onDemoQuestionAnswered?: (key: string) => void;
   trainingContext: AICoachTrainingContext;
   intro: CoachChatIntroInput;
   /** Total logged sessions, for the header line and the evidence footer. */
@@ -245,7 +259,9 @@ export function AICoachChatScreen({
   questionsRemaining,
   onQuestionUsed,
   demoQuestion = null,
+  demoMomentKey = null,
   onDemoQuestionSent,
+  onDemoQuestionAnswered,
   trainingContext,
   intro,
   sessionCount,
@@ -613,6 +629,17 @@ export function AICoachChatScreen({
     ],
   );
 
+  /**
+   * The demo moment's key, held past the hand-off that carried it.
+   *
+   * It arrives on the route and the route is cleared the instant the question
+   * is dispatched — otherwise a remount would fire it again. The answer comes
+   * back seconds later, by which time the prop is null, so the key that
+   * decides which of the three was spent has to survive here. Cleared once
+   * spent, so a second answer in the same session cannot spend it twice.
+   */
+  const demoMomentKeyRef = useRef<string | null>(null);
+
   const send = useCallback(
     /**
      * `force` sends for real regardless of quota. Only a coach demo moment
@@ -713,14 +740,21 @@ export function AICoachChatScreen({
         // Recovers on its own: the next answer that reaches the model clears
         // the badge, so it reports the present rather than a past outage.
         setAnsweredOffline(result.source === 'preview');
-        // Charged for an answer, not for a send. An answer that could only ask
-        // for a clearer question is free: three a week is too few to spend one
-        // on a chip the app itself offered and could not handle.
         // Charged for an answer, not for a send, and only to the tier that
-        // has a counter. A demo question is already paid for by being one of
-        // three, so it never touches the monthly allowance.
+        // has a counter. An answer that could only ask for a clearer question
+        // is free: 25 a month is too few to spend one on a chip the app
+        // itself offered and could not handle.
         if (proUnlocked && !answer.unanswered) {
           onQuestionUsed();
+        }
+        // And the demo moment, on the same rule but stricter, because there
+        // are three of these per install and nothing gives one back. A
+        // preview-sourced reply does not count: that is the deterministic
+        // text a free reader already has, and spending one of three on it
+        // would make the offer a bluff at the one moment it is being tested.
+        if (force && !answer.unanswered && result.source !== 'preview' && demoMomentKeyRef.current) {
+          onDemoQuestionAnswered?.(demoMomentKeyRef.current);
+          demoMomentKeyRef.current = null;
         }
         // Kept even when the answer was a follow-up question: without it the
         // reader's reply to that question would arrive with no antecedent,
@@ -879,6 +913,7 @@ export function AICoachChatScreen({
       canAsk,
       language,
       mustAcknowledgeOnline,
+      onDemoQuestionAnswered,
       onQuestionUsed,
       pinnedStatCardKeys,
       proUnlocked,
@@ -898,13 +933,18 @@ export function AICoachChatScreen({
    */
   const demoSent = useRef(false);
   useEffect(() => {
-    if (!demoQuestion || demoSent.current || mustAcknowledgeOnline) {
+    // `asking` is checked here and not only inside send: send's own first
+    // guard returns on it, and returning after the hand-off had been cleared
+    // would leave the question dispatched by nobody. Waiting is right — the
+    // effect runs again when the request in flight finishes.
+    if (!demoQuestion || demoSent.current || mustAcknowledgeOnline || asking) {
       return;
     }
     demoSent.current = true;
+    demoMomentKeyRef.current = demoMomentKey ?? null;
     onDemoQuestionSent?.();
     void send(demoQuestion, true);
-  }, [demoQuestion, mustAcknowledgeOnline, onDemoQuestionSent, send]);
+  }, [asking, demoMomentKey, demoQuestion, mustAcknowledgeOnline, onDemoQuestionSent, send]);
 
   return (
     <View style={styles.screen}>

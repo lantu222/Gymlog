@@ -252,17 +252,23 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
           void updatePreferences({ aiCoachProQuota: recordCoachQuestion(preferences.aiCoachProQuota) })
         }
         demoQuestion={route.demoQuestion ?? null}
+        demoMomentKey={route.demoMomentKey ?? null}
         onDemoQuestionSent={() => {
-          // The moment is spent HERE, because this fires the instant the chat
-          // dispatches the real send — past the online-disclosure gate that
-          // silently swallowed it when the completion screen spent it instead.
-          const key = route.demoMomentKey;
-          if (key) {
-            void updatePreferences({
-              coachDemoMomentsUsed: markCoachDemoMomentUsed(preferences.coachDemoMomentsUsed, key),
-            });
-          }
+          // Clears the hand-off and nothing else. The question is on the
+          // route, so leaving it there would let a remount fire it a second
+          // time; the chat keeps its own copy of the key for the answer.
           navigate({ tab: 'home', screen: 'ai_chat' });
+        }}
+        onDemoQuestionAnswered={(key) => {
+          // Spending happens on the ANSWER, which is the promise. Spending on
+          // the send was two bugs deep: the completion screen spent it before
+          // the online disclosure could block it, and moving it to the
+          // dispatch still burned one of three whenever the phone was offline
+          // — in an app built to work offline — leaving the reader with two
+          // sample answers and no sample.
+          void updatePreferences({
+            coachDemoMomentsUsed: markCoachDemoMomentUsed(preferences.coachDemoMomentsUsed, key),
+          });
         }}
         trainingContext={aiCoachTrainingContext}
         intro={coachChatIntro}

@@ -170,40 +170,67 @@ module.exports = [
     },
   },
   {
-    name: 'demo moments: a moment is spent by the send, not by the tap that starts it',
+    name: 'demo moments: a moment is spent by an answer arriving, never by a send leaving',
     run() {
       const root2 = path.join(__dirname, '..', '..');
       const app = require('../helpers/appWiringSource.cjs').readAppWiring();
+      const read = (...parts) => fs.readFileSync(path.join(root2, ...parts), 'utf8');
 
-      // Found on a device: the completion screen used to mark the moment used
-      // and then navigate. The chat refuses to send while the online
-      // disclosure is unacknowledged, so a reader meeting that sheet for the
-      // first time and backing out lost one of three answers having received
-      // none. The tap that starts it must only carry the question across.
+      // Three times this has been wired to the wrong event, and every time it
+      // cost a free reader one of three answers and gave nothing back:
+      //
+      //   1. The completion screen spent it and then navigated — but the chat
+      //      refuses to send while the online disclosure is unacknowledged, so
+      //      meeting that sheet and backing out lost one, having received none.
+      //   2. Moved to the chat's dispatch, it burned one whenever the phone was
+      //      offline. This app is built to work offline.
+      //   3. A preview-sourced reply counted, which is the deterministic text a
+      //      free reader already has for nothing.
+      //
+      // Nothing fails at runtime when this slips. Only this holds it.
       const send = app.match(/onSendDemoQuestion=\{\(\) => \{[\s\S]*?\n {8}\}\}/);
       assert.ok(send, 'the completion screen should wire onSendDemoQuestion');
       assert.doesNotMatch(
         send[0],
         /markCoachDemoMomentUsed/,
-        'the moment must not be spent before the chat has actually sent it',
+        'the tap that starts it only carries the question across',
       );
       assert.match(send[0], /demoMomentKey: coachDemoMoment\.key/);
 
-      // And it IS spent where the send really happens.
-      const chatWiring = fs.readFileSync(
-        path.join(root2, 'src', 'app', 'renderHomeScreens.tsx'),
-        'utf8',
-      );
-      assert.match(chatWiring, /onDemoQuestionSent=\{\(\) => \{[\s\S]{0,400}?markCoachDemoMomentUsed/);
+      const home = read('src', 'app', 'renderHomeScreens.tsx');
+      const writes = home.match(/markCoachDemoMomentUsed\(/g) || [];
+      assert.equal(writes.length, 1, 'exactly one place in the app may spend a moment');
 
-      // The chat calls that callback immediately before dispatching, and only
-      // once per mount.
-      const chat = fs.readFileSync(
-        path.join(root2, 'src', 'screens', 'AICoachChatScreen.tsx'),
-        'utf8',
+      const sentAt = home.indexOf('onDemoQuestionSent={');
+      const answeredAt = home.indexOf('onDemoQuestionAnswered={');
+      assert.ok(sentAt > -1 && answeredAt > sentAt, 'both handlers are wired, in this order');
+      assert.doesNotMatch(
+        home.slice(sentAt, answeredAt),
+        /markCoachDemoMomentUsed/,
+        'the dispatch handler must not spend the moment — that is the offline bug',
       );
-      assert.match(chat, /demoSent\.current = true;\s*\n\s*onDemoQuestionSent\?\.\(\);\s*\n\s*void send\(demoQuestion, true\);/);
-      assert.match(chat, /if \(!demoQuestion \|\| demoSent\.current \|\| mustAcknowledgeOnline\)/);
+
+      const chat = read('src', 'screens', 'AICoachChatScreen.tsx');
+      // Dispatched once per mount, with the key kept past the hand-off: the
+      // route is cleared immediately, and the answer arrives seconds later.
+      assert.match(
+        chat,
+        /demoSent\.current = true;\s*\n\s*demoMomentKeyRef\.current = demoMomentKey \?\? null;\s*\n\s*onDemoQuestionSent\?\.\(\);\s*\n\s*void send\(demoQuestion, true\);/,
+      );
+      // `asking` belongs in the effect's own guard, not only inside send:
+      // send returns on it, and returning after the hand-off was cleared
+      // would leave the question dispatched by nobody.
+      assert.match(
+        chat,
+        /if \(!demoQuestion \|\| demoSent\.current \|\| mustAcknowledgeOnline \|\| asking\)/,
+      );
+      const spends = chat.match(/onDemoQuestionAnswered\?\./g) || [];
+      assert.equal(spends.length, 1, 'one spend site in the chat, on the answer');
+      assert.match(
+        chat,
+        /result\.source !== 'preview'[\s\S]{0,200}onDemoQuestionAnswered\?\./,
+        'the spend must be gated on a real model answer, not a preview fallback',
+      );
     },
   },
   {
