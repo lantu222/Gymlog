@@ -1523,6 +1523,8 @@ function VinhaApp() {
     const dayLabels = planLabelsForProgramme(
       template.sessions.length,
       preferences.setupAvailableDays,
+      // Adopting is a moment, and the cycle starts from it.
+      new Date(),
     );
 
     const plan = buildProgramWorkoutPlan({
@@ -2245,7 +2247,7 @@ function VinhaApp() {
         workoutTemplateId,
         programName: formatWorkoutDisplayLabel(draft.name),
         sessionIds,
-        dayLabels: planLabelsForProgramme(sessionIds.length, preferences.setupAvailableDays),
+        dayLabels: planLabelsForProgramme(sessionIds.length, preferences.setupAvailableDays, new Date()),
         now: new Date().toISOString(),
       });
       await upsertWorkoutPlan(plan);
@@ -2377,7 +2379,7 @@ function VinhaApp() {
     // The program's own session count leads, exactly as it does for a ready
     // programme: an imported six-day week dealt across three chosen weekdays
     // would run every session twice and call itself a three-day programme.
-    const dayLabels = planLabelsForProgramme(sessionIds.length, preferences.setupAvailableDays);
+    const dayLabels = planLabelsForProgramme(sessionIds.length, preferences.setupAvailableDays, new Date());
 
     const plan = buildProgramWorkoutPlan({
       planId,

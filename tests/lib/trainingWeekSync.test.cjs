@@ -91,4 +91,41 @@ module.exports = [
       assert.equal(planLabelsForProgramme(6, ['mon', 'wed', 'fri']).length, 6);
     },
   },
+  {
+    name: 'the cycle starts from the first session, on the first day not already gone',
+    run() {
+      // Reported mid-week 2026-08-26: adopting a Mon/Thu plan on a Wednesday
+      // put session one on Monday, a day already spent, so Home offered
+      // session TWO and the programme began in the middle of itself.
+      const wednesday = new Date(2026, 7, 26); // Wed 26 Aug 2026
+      const monday = new Date(2026, 7, 24);
+      const sunday = new Date(2026, 7, 30);
+
+      // Without a date, nothing moves — the raw pattern is still the default.
+      assert.deepEqual(planLabelsForProgramme(2, []), ['mon', 'thu']);
+
+      // On Wednesday the first upcoming day is Thursday, so session one goes
+      // there and Monday follows. The PATTERN is untouched; only which
+      // session lands on which of its days changes.
+      assert.deepEqual(planLabelsForProgramme(2, [], wednesday), ['thu', 'mon']);
+
+      // Adopt on a training day and it starts today.
+      assert.deepEqual(planLabelsForProgramme(2, [], monday), ['mon', 'thu']);
+
+      // Adopt on a rest day past the last one and the week wraps to the
+      // first day, which is what a week does.
+      assert.deepEqual(planLabelsForProgramme(2, [], sunday), ['mon', 'thu']);
+
+      // Days the reader chose are rotated the same way.
+      assert.deepEqual(
+        planLabelsForProgramme(3, ['mon', 'wed', 'fri'], new Date(2026, 7, 27)),
+        ['fri', 'mon', 'wed'],
+        'a Thursday adoption of a Mon/Wed/Fri plan opens on Friday',
+      );
+
+      // One session has nothing to rotate, and must not be reordered into
+      // something else by accident.
+      assert.deepEqual(planLabelsForProgramme(1, ['thu'], wednesday), ['thu']);
+    },
+  },
 ];

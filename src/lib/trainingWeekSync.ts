@@ -86,21 +86,52 @@ export function planLabelsFromWeekdays(
  * count picks the rhythm, because halving a programme silently is a worse
  * answer than starting it on days the reader can still move.
  */
+/**
+ * The cycle starts from the first session, on the first training day that has
+ * not already gone.
+ *
+ * Reported 2026-08-26, mid-week: "keskiviikkona aloitus pitäisi lähteä
+ * ensimmäisestä treenistä eli raskaat pakarat, tästä lähtisi kierto". Adopting
+ * a Mon/Thu plan on a Wednesday used to put session one on Monday — a day
+ * already spent — so Home offered session TWO and the programme appeared to
+ * begin in the middle of itself.
+ *
+ * The weekday pattern is not touched; only which session lands on which of its
+ * days. Rotating the labels left by the first upcoming day means session one
+ * gets that day, and the rest follow in their own order. Adopt on a training
+ * day and it starts today; adopt on a rest day and it starts at the next one.
+ */
+function startFromToday(labels: readonly SetupWeekday[], from: Date): SetupWeekday[] {
+  if (labels.length < 2) {
+    return [...labels];
+  }
+  // getDay() is Sunday-first; every weekday index in this app is Monday-first.
+  const today = (from.getDay() + 6) % 7;
+  const start = labels.findIndex((label) => WEEKDAY_INDEX[label] >= today);
+  if (start <= 0) {
+    // Either the first label is already the next one, or every training day of
+    // the week has passed — and then the week wraps to the first anyway.
+    return [...labels];
+  }
+  return [...labels.slice(start), ...labels.slice(0, start)];
+}
+
 export function planLabelsForProgramme(
   sessionCount: number,
   availableDays: readonly SetupWeekday[],
+  /** When the plan is being adopted. Omitted keeps the raw weekday order. */
+  from?: Date,
 ): SetupWeekday[] {
   const sessions = Math.max(1, Math.min(7, Math.round(sessionCount) || 1));
   const placed = planLabelsFromWeekdays(sessions, availableDays);
-  if (placed) {
-    return placed;
-  }
-  if (sessions === 1) {
-    // One session: the reader's first open day, or Monday.
-    return [availableDays[0] ?? 'mon'];
-  }
-  if (sessions === 7) {
-    return ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-  }
-  return [...DEFAULT_RHYTHM_BY_DAYS[sessions as 2 | 3 | 4 | 5 | 6]];
+  const labels = placed
+    ? placed
+    : sessions === 1
+      ? // One session: the reader's first open day, or Monday.
+        [availableDays[0] ?? 'mon']
+      : sessions === 7
+        ? (['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as SetupWeekday[])
+        : [...DEFAULT_RHYTHM_BY_DAYS[sessions as 2 | 3 | 4 | 5 | 6]];
+
+  return from ? startFromToday(labels, from) : labels;
 }
