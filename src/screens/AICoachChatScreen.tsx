@@ -1174,19 +1174,21 @@ export function AICoachChatScreen({
             </View>
           ) : null}
 
+          {/* A count, and nothing to press. This row used to carry "More with
+              Pro →" and open the paywall — written when it was shown to free
+              readers, and left in place when the row became Pro-only. It then
+              sold an upgrade to someone who had already bought the only tier
+              there is: Lifetime includes the same 25 a month, so there is
+              nothing above this to reach. A dead end dressed as an offer is
+              worse on the paywall's own product than saying nothing. */}
           {proUnlocked && questionsRemaining > 0 && questionsRemaining <= PRO_COACH_QUESTIONS_PER_MONTH / 5 ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={onOpenPremium}
-              style={({ pressed }) => [styles.quotaRow, pressed && styles.pressed]}
-            >
+            <View style={styles.quotaRow}>
               <Text style={styles.quotaText}>
                 {questionsRemaining === 1
                   ? t(language, 'coachChat.quotaLeftOne')
                   : t(language, 'coachChat.quotaLeft', { count: questionsRemaining })}
               </Text>
-              <Text style={styles.quotaCta}>{t(language, 'coachChat.quotaUnlimited')}</Text>
-            </Pressable>
+            </View>
           ) : null}
         </ScrollView>
 
@@ -1702,11 +1704,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: theme.muted,
-  },
-  quotaCta: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: theme.purple,
   },
   quickAsksRail: {
     flexGrow: 0,
