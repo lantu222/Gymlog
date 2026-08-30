@@ -7,6 +7,7 @@ import { CutSurface } from '../components/CutSurface';
 import { ProgramPhotoSlot } from '../components/ProgramPhotoSlot';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { I18nKey, t } from '../lib/i18n';
+import { cycleSchedule, sessionSlotOn } from '../lib/trainingSchedule';
 import { ProgramDetailViewModel } from '../lib/programDetails';
 import { progressionRuleLabel } from '../lib/progressionRuleLabel';
 import { EQUIPMENT_CHIP_KEYS, missingEquipment } from '../lib/programEquipment';
@@ -74,6 +75,15 @@ interface ProgramDetailScreenProps {
   trainingDayIndexes?: number[] | null;
   /** Commits a finished rhythm change. Absent = the strip is read-only. */
   onSaveRhythm?: (dayIndexes: number[]) => void;
+  /**
+   * The app's one training cycle, when one is running. A cycle and a weekday
+   * mask cannot be merged — one repeats every seven days and the other need
+   * not — so while a cycle is on, the week chips become a PREVIEW of the
+   * current calendar week and the presets are the way to change rhythm.
+   */
+  trainingCycle?: { pattern: boolean[]; anchorDayStart: number } | null;
+  /** Null hands the week back to the weekday chips. */
+  onChangeTrainingCycle?: (cycle: { pattern: boolean[]; anchorDayStart: number } | null) => void;
   /**
    * Writes new set counts (design screen 3). Present only for programmes whose
    * sets are the reader's to change — a catalog template is immutable at
@@ -148,6 +158,8 @@ export function ProgramDetailScreen({
   programBlockWeeks = null,
   trainingDayIndexes = null,
   onSaveRhythm,
+  trainingCycle = null,
+  onChangeTrainingCycle,
   onSaveEmphasis,
   onEdit,
   progressionRules = null,
@@ -270,6 +282,94 @@ export function ProgramDetailScreen({
     }
     setDraftDays(next);
   };
+
+  /**
+   * The rhythm presets (design frame 08, engine per the approved proposal
+   * 2026-08-30): one chip row, two engines. A preset whose period is seven
+   * fills the weekday mask; one whose period is NOT seven routes to the real
+   * cycle engine — a 7-day mask sold as "2 on · 1 off" would drift a day per
+   * week and lie by Thursday, which is the exact report the cycle engine was
+   * built from (2026-08-21).
+   *
+   * A cycle anchors to the day it was chosen — the same "starts today" rule
+   * adoption follows.
+   */
+  const RHYTHM_PRESETS: Array<
+    { key: string; on: number; off: number } & ({ weekly: number[] } | { pattern: boolean[] })
+  > = [
+    { key: '5-2', on: 5, off: 2, weekly: [0, 1, 2, 3, 4] },
+    { key: '1-1', on: 1, off: 1, pattern: [true, false] },
+    { key: '2-1', on: 2, off: 1, pattern: [true, true, false] },
+    { key: '2-2', on: 2, off: 2, pattern: [true, true, false, false] },
+    { key: '3-1', on: 3, off: 1, pattern: [true, true, true, false] },
+    { key: '3-2', on: 3, off: 2, pattern: [true, true, true, false, false] },
+    { key: '4-1', on: 4, off: 1, pattern: [true, true, true, true, false] },
+  ];
+  const activePresetKey = useMemo(() => {
+    if (trainingCycle) {
+      const match = RHYTHM_PRESETS.find(
+        (preset) =>
+          'pattern' in preset &&
+          preset.pattern.length === trainingCycle.pattern.length &&
+          preset.pattern.every((value, index) => value === trainingCycle.pattern[index]),
+      );
+      return match?.key ?? 'custom';
+    }
+    const days = draftDays ?? committedDays;
+    return days.length === 5 && [0, 1, 2, 3, 4].every((day) => days.includes(day))
+      ? '5-2'
+      : 'custom';
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trainingCycle, draftDays, committedDays]);
+
+  const applyPreset = (preset: (typeof RHYTHM_PRESETS)[number]) => {
+    if ('weekly' in preset) {
+      onChangeTrainingCycle?.(null);
+      if (onSaveRhythm && preset.weekly.length === committedDays.length) {
+        setDraftDays(null);
+        onSaveRhythm(preset.weekly);
+      } else {
+        // Wrong size for this programme: the draft shows it and the status
+        // line says what is missing — the week saves only when it is whole.
+        setDraftDays(preset.weekly);
+      }
+      return;
+    }
+    const now = new Date();
+    setDraftDays(null);
+    onChangeTrainingCycle?.({
+      pattern: preset.pattern,
+      anchorDayStart: new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(),
+    });
+  };
+
+  /**
+   * The current calendar week as the cycle walks it — a PREVIEW, not an
+   * editor. Codes come from the same sessionSlotOn every calendar asks.
+   */
+  const cycleWeek = useMemo(() => {
+    if (!trainingCycle) {
+      return null;
+    }
+    const schedule = cycleSchedule(trainingCycle.pattern, trainingCycle.anchorDayStart);
+    const now = new Date();
+    const count = program.sessions.length;
+    return Array.from({ length: 7 }, (_, offset) => {
+      const date = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() - ((now.getDay() + 6) % 7) + offset,
+      );
+      const slot = sessionSlotOn(schedule, date);
+      return {
+        isTraining: slot !== null,
+        session:
+          slot !== null && count > 0
+            ? program.sessions[((slot % count) + count) % count]?.name ?? null
+            : null,
+      };
+    });
+  }, [trainingCycle, program.sessions]);
 
   const trainingDaySessions = useMemo(() => {
     const map = new Map<number, string>();
@@ -426,14 +526,23 @@ export function ProgramDetailScreen({
         </View>
         <View style={styles.rhythmRow}>
           {scheduleSlots.map((slot, index) => {
-            const session = slot.isTraining ? trainingDaySessions.get(index) : null;
+            // While a cycle runs, the chips PREVIEW the current calendar week
+            // as the cycle walks it - a weekday mask cannot express a period
+            // that is not seven, and drawing one would put the old week back.
+            const preview = cycleWeek?.[index] ?? null;
+            const isTraining = preview ? preview.isTraining : slot.isTraining;
+            const session = preview
+              ? preview.session
+              : slot.isTraining
+                ? trainingDaySessions.get(index)
+                : null;
             const chip = (
               <>
-                <Text style={[styles.rhythmDayName, slot.isTraining && styles.rhythmDayNameOn]}>
+                <Text style={[styles.rhythmDayName, isTraining && styles.rhythmDayNameOn]}>
                   {slot.day}
                 </Text>
                 <Text
-                  style={[styles.rhythmDayLabel, slot.isTraining && styles.rhythmDayLabelOn]}
+                  style={[styles.rhythmDayLabel, isTraining && styles.rhythmDayLabelOn]}
                   numberOfLines={1}
                 >
                   {session ? shortSessionLabel(session, language) : t(language, 'detail.rest')}
@@ -442,7 +551,7 @@ export function ProgramDetailScreen({
             );
             if (!onSaveRhythm) {
               return (
-                <View key={slot.dayKey} style={[styles.rhythmDay, slot.isTraining && styles.rhythmDayOn]}>
+                <View key={slot.dayKey} style={[styles.rhythmDay, isTraining && styles.rhythmDayOn]}>
                   {chip}
                 </View>
               );
@@ -451,10 +560,18 @@ export function ProgramDetailScreen({
               <Pressable
                 key={slot.dayKey}
                 accessibilityRole="button"
-                onPress={() => toggleRhythmDay(index)}
+                onPress={() => {
+                  // Tapping a day means Custom (design frame 08): the cycle
+                  // hands the week back to the mask, which then takes taps.
+                  if (cycleWeek) {
+                    onChangeTrainingCycle?.(null);
+                    return;
+                  }
+                  toggleRhythmDay(index);
+                }}
                 style={({ pressed }) => [
                   styles.rhythmDay,
-                  slot.isTraining && styles.rhythmDayOn,
+                  isTraining && styles.rhythmDayOn,
                   pressed && styles.rhythmDayPressed,
                 ]}
               >
@@ -463,9 +580,59 @@ export function ProgramDetailScreen({
             );
           })}
         </View>
-        {rhythmIncomplete ? (
+        {onSaveRhythm ? (
+          <View style={styles.patRow}>
+            {[
+              ...RHYTHM_PRESETS.map((preset) => ({
+                key: preset.key,
+                label: t(language, 'detail.week.pattern', { on: preset.on, off: preset.off }),
+                onPress: () => applyPreset(preset),
+              })),
+              {
+                key: 'custom',
+                label: t(language, 'detail.week.custom'),
+                // Custom is the mask, hand-toggled: the cycle steps aside and
+                // the chips above take taps again.
+                onPress: () => onChangeTrainingCycle?.(null),
+              },
+            ].map((entry) => (
+              <Pressable
+                key={entry.key}
+                accessibilityRole="button"
+                accessibilityState={{ selected: activePresetKey === entry.key }}
+                onPress={entry.onPress}
+                style={({ pressed }) => [
+                  styles.patChip,
+                  activePresetKey === entry.key && styles.patChipOn,
+                  pressed && styles.rhythmDayPressed,
+                ]}
+              >
+                <Text
+                  style={[styles.patChipText, activePresetKey === entry.key && styles.patChipTextOn]}
+                >
+                  {entry.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+        {trainingCycle ? (
+          /* The honest sentence about a rhythm that ignores weekdays. */
+          <Text style={styles.rhythmHint}>
+            {t(language, 'detail.week.cycleStatus', {
+              length: trainingCycle.pattern.length,
+              perWeek: String(
+                Math.round(
+                  ((7 * trainingCycle.pattern.filter(Boolean).length) /
+                    trainingCycle.pattern.length) *
+                    10,
+                ) / 10,
+              ),
+            })}
+          </Text>
+        ) : rhythmIncomplete ? (
           /* Both directions. The copy assumed a day had been removed, so
-             adding one first read "Valitse vielä -1 päivä". */
+             adding one first read "Valitse viela -1 paiva". */
           <Text style={styles.rhythmHint}>
             {t(
               language,
@@ -810,6 +977,31 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     gap: 5,
   },
+  patRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+  },
+  patChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
+  },
+  patChipOn: {
+    borderColor: theme.purpleBright,
+    backgroundColor: theme.purpleLight,
+  },
+  patChipText: {
+    fontFamily: 'JetBrainsMono',
+    fontSize: 11,
+    fontWeight: '700',
+    color: theme.muted,
+  },
+  patChipTextOn: { color: theme.purpleBright },
   rhythmDay: {
     flex: 1,
     borderRadius: 13,
@@ -1109,10 +1301,15 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.danger,
+    // Outlined, not a filled slab (design frame 08): destructive keeps its
+    // colour, but a solid red block at the foot of every programme page made
+    // deletion look like a primary action.
+    borderWidth: 1.5,
+    borderColor: theme.danger,
+    backgroundColor: 'transparent',
   },
   destructiveButtonText: {
-    color: '#FFFFFF',
+    color: theme.danger,
     fontSize: 14,
     fontWeight: '900',
     letterSpacing: 0.2,

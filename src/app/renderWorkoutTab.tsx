@@ -404,6 +404,14 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             ? (dayIndexes) => void handleSaveRhythm(route.workoutTemplateId, dayIndexes)
             : undefined
         }
+        // The cycle is the app's one schedule, so it is offered exactly where
+        // the weekday rhythm is: on a programme that has a plan behind it.
+        trainingCycle={preferences.trainingCycle}
+        onChangeTrainingCycle={
+          database.workoutPlans.some((plan) => plan.entries[0]?.workoutTemplateId === route.workoutTemplateId)
+            ? (cycle) => void updatePreferences({ trainingCycle: cycle })
+            : undefined
+        }
         onSaveEmphasis={
           route.programType === 'custom'
             ? (updates) => void handleSaveEmphasis(route.workoutTemplateId, updates)

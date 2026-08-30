@@ -1728,10 +1728,16 @@ function VinhaApp() {
    */
   const activeProgramTemplateIds = useMemo(() => {
     const byId = new Map(database.workoutPlans.map((plan) => [plan.id, plan]));
-    return preferences.activePlanIds
+    // The LEADER counts too. Several writers set `activePlanId` without
+    // adding it to `activePlanIds` (activating a held plan, the season
+    // paths), so the plan Home leads with could be missing from this set —
+    // and its own detail page then offered "Start this programme" for a
+    // programme that was already running (device, 2026-08-30).
+    return [...new Set([preferences.activePlanId, ...preferences.activePlanIds])]
+      .filter((planId): planId is string => Boolean(planId))
       .map((planId) => byId.get(planId)?.entries[0]?.workoutTemplateId ?? null)
       .filter((id): id is string => Boolean(id));
-  }, [database.workoutPlans, preferences.activePlanIds]);
+  }, [database.workoutPlans, preferences.activePlanId, preferences.activePlanIds]);
 
   /**
    * The programmes running alongside the one Home leads with.
