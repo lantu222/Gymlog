@@ -101,24 +101,30 @@ module.exports = [
    * "Järjestyksen muutos täälläkin" (#bugs 2026-08-27).
    */
   {
-    name: 'a lift moves one place inside its own day',
+    name: 'a drag lands where it let go, as one edit',
     run() {
       const three = [
         { id: 'day_1', name: 'Glutes', exercises: [lift('e1', 'A'), lift('e2', 'B'), lift('e3', 'C')] },
       ];
-      const down = applyProgramSessionEdit(three, 'day_1', { kind: 'move', exerciseId: 'e1', direction: 'down' });
-      assert.deepEqual(down.sessions[0].exercises.map((exercise) => exercise.name), ['B', 'A', 'C']);
-      const up = applyProgramSessionEdit(three, 'day_1', { kind: 'move', exerciseId: 'e3', direction: 'up' });
+      // The whole journey in one write: top to bottom is one reorder, not
+      // two moves racing each other through the queue.
+      const down = applyProgramSessionEdit(three, 'day_1', { kind: 'reorder', exerciseId: 'e1', toIndex: 2 });
+      assert.deepEqual(down.sessions[0].exercises.map((exercise) => exercise.name), ['B', 'C', 'A']);
+      const up = applyProgramSessionEdit(three, 'day_1', { kind: 'reorder', exerciseId: 'e3', toIndex: 1 });
       assert.deepEqual(up.sessions[0].exercises.map((exercise) => exercise.name), ['A', 'C', 'B']);
+      // A finger that overshoots the list still means "last": the target is
+      // clamped, never refused.
+      const past = applyProgramSessionEdit(three, 'day_1', { kind: 'reorder', exerciseId: 'e1', toIndex: 99 });
+      assert.deepEqual(past.sessions[0].exercises.map((exercise) => exercise.name), ['B', 'C', 'A']);
     },
   },
   {
     name: 'the other days keep their own order while one day is reordered',
     run() {
       const result = applyProgramSessionEdit(programme(), 'day_1', {
-        kind: 'move',
+        kind: 'reorder',
         exerciseId: 'e2',
-        direction: 'up',
+        toIndex: 0,
       });
       assert.deepEqual(
         result.sessions.map((session) => session.exercises.map((exercise) => exercise.name)),
@@ -127,26 +133,29 @@ module.exports = [
     },
   },
   {
-    name: 'the top row has nowhere to go up, and that is not a save',
+    name: 'a drop that changes nothing is not a save',
     run() {
-      const top = applyProgramSessionEdit(programme(), 'day_1', {
-        kind: 'move',
+      // Dropped back where it started — including via a clamped overshoot on
+      // the last row — reads as no edit, so nothing is written and the
+      // screen cannot confirm an edit it did not make.
+      const same = applyProgramSessionEdit(programme(), 'day_1', {
+        kind: 'reorder',
         exerciseId: 'e1',
-        direction: 'up',
+        toIndex: 0,
       });
-      assert.equal(top.kind, 'skip');
-      assert.equal(top.reason, 'alreadyAtEdge');
-      const bottom = applyProgramSessionEdit(programme(), 'day_1', {
-        kind: 'move',
+      assert.equal(same.kind, 'skip');
+      assert.equal(same.reason, 'alreadyAtEdge');
+      const clamped = applyProgramSessionEdit(programme(), 'day_1', {
+        kind: 'reorder',
         exerciseId: 'e2',
-        direction: 'down',
+        toIndex: 9,
       });
-      assert.equal(bottom.kind, 'skip');
-      assert.equal(bottom.reason, 'alreadyAtEdge');
+      assert.equal(clamped.kind, 'skip');
+      assert.equal(clamped.reason, 'alreadyAtEdge');
       const gone = applyProgramSessionEdit(programme(), 'day_1', {
-        kind: 'move',
+        kind: 'reorder',
         exerciseId: 'nope',
-        direction: 'up',
+        toIndex: 0,
       });
       assert.equal(gone.reason, 'exerciseMissing');
     },
@@ -262,16 +271,16 @@ module.exports = [
      * the top row would otherwise hand the reader a whole second programme
      * that reads exactly like the first.
      */
-    name: 'a move with nowhere to go never copies the catalog programme',
+    name: 'a drop with nowhere to go never copies the catalog programme',
     run() {
       const source = readAppWiring();
       const start = source.indexOf('function handleEditProgramExercise(');
       const copyAt = source.indexOf('buildDuplicatedCustomProgramDraft(', start);
-      const guardAt = source.indexOf("if (edit.kind === 'move') {", start);
-      assert.ok(guardAt > -1, 'the ready branch should answer an impossible move');
+      const guardAt = source.indexOf("if (edit.kind === 'reorder') {", start);
+      assert.ok(guardAt > -1, 'the ready branch should answer a no-op drop');
       assert.ok(
         guardAt < copyAt,
-        'the move guard must run before the programme is duplicated, not after',
+        'the reorder guard must run before the programme is duplicated, not after',
       );
     },
   },

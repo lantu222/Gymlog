@@ -362,21 +362,25 @@ module.exports = [
      * to move one row one place, with the list you are ordering hidden behind
      * the sheet while you do it.
      */
-    name: 'the day page can be reordered from the rows themselves',
+    name: 'the day page is reordered by dragging, as one edit per drag',
     run() {
       const day = fs.readFileSync(
         path.join(__dirname, '..', '..', 'src', 'screens', 'ProgramDayScreen.tsx'),
         'utf8',
       );
-      assert.match(day, /const \[reorderMode, setReorderMode\] = useState\(false\)/);
-      assert.match(day, /'detail\.day\.reorder'/);
-      assert.match(day, /<MoveButton/);
+      // Drag replaced the Reorder mode and its arrows (design frame 05):
+      // grab the handle, the rows make room, and letting go writes ONE
+      // reorder with the destination.
+      assert.doesNotMatch(day, /reorderMode|<MoveButton/);
+      assert.match(day, /onReorderExercise\?\.\(exercise\.id, to\)/);
       // Only when there is an order to change.
-      assert.match(day, /onMoveExercise && session\.exercises\.length > 1/);
-      // The ends of the list refuse, rather than saving a move that cannot
-      // happen — a ready programme would otherwise be copied for nothing.
-      assert.match(day, /disabled=\{index === 0\}/);
-      assert.match(day, /disabled=\{index === session\.exercises\.length - 1\}/);
+      assert.match(day, /onReorderExercise && session\.exercises\.length > 1/);
+      // Two vertical gestures cannot share one finger: the screen's scroll
+      // freezes for the drag's duration.
+      assert.match(day, /scrollEnabled=\{dragIndex === null\}/);
+      // Heights are measured, never guessed — the preview shifts rows by the
+      // dragged row's real height.
+      assert.match(day, /rowHeights\.current\[index\] = event\.nativeEvent\.layout\.height/);
     },
   },
 ];

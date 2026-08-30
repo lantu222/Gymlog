@@ -126,7 +126,6 @@ import { CoachChatMemory } from './src/lib/coachChatMemory';
 import type { ChatMessage } from './src/screens/AICoachChatScreen';
 import {
   applyProgramSessionEdit,
-  MoveDirection,
   ProgramPrescription,
 } from './src/lib/programSessionEdit';
 import { ProgramLimitReachedError } from './src/lib/programSlots';
@@ -1979,7 +1978,7 @@ function VinhaApp() {
     | { kind: 'replace'; exerciseName: string }
     | { kind: 'add'; exerciseNames: string[] }
     | { kind: 'prescribe'; prescription: ProgramPrescription }
-    | { kind: 'move'; direction: MoveDirection };
+    | { kind: 'reorder'; toIndex: number };
 
   /**
    * The prescription a lift added from the library starts on.
@@ -2072,8 +2071,8 @@ function VinhaApp() {
                 }
               : edit.kind === 'prescribe'
                 ? { kind: 'prescribe', exerciseId, prescription: edit.prescription }
-                : edit.kind === 'move'
-                  ? { kind: 'move', exerciseId, direction: edit.direction }
+                : edit.kind === 'reorder'
+                  ? { kind: 'reorder', exerciseId, toIndex: edit.toIndex }
                   : { kind: 'add', exercises: added },
         ),
       );
@@ -2111,7 +2110,7 @@ function VinhaApp() {
     }
 
     /**
-     * A move with nowhere to go, checked before anything is written.
+     * A drop that changes nothing, checked before anything is written.
      *
      * Everything below this line copies the catalog programme into a custom
      * one — that is what editing a ready programme means. Pressing "up" on the
@@ -2119,11 +2118,13 @@ function VinhaApp() {
      * copy of the whole programme, and one fewer free slot, in exchange for a
      * list that looks exactly as it did.
      */
-    if (edit.kind === 'move') {
+    if (edit.kind === 'reorder') {
       const day = template.sessions.find((session) => session.id === sessionId);
       const from = day?.exercises.findIndex((exercise) => exercise.id === exerciseId) ?? -1;
-      const to = edit.direction === 'up' ? from - 1 : from + 1;
-      if (!day || from === -1 || to < 0 || to >= day.exercises.length) {
+      const to = day
+        ? Math.max(0, Math.min(day.exercises.length - 1, Math.round(edit.toIndex)))
+        : -1;
+      if (!day || from === -1 || to === from) {
         return;
       }
     }
@@ -2205,10 +2206,11 @@ function VinhaApp() {
             : []),
         ];
 
-        if (edit.kind === 'move' && session.id === sessionId) {
+        if (edit.kind === 'reorder' && session.id === sessionId) {
           const from = exercises.findIndex((exercise) => exercise.id === exerciseId);
+          const to = Math.max(0, Math.min(exercises.length - 1, Math.round(edit.toIndex)));
           const [moved] = exercises.splice(from, 1);
-          exercises.splice(edit.direction === 'up' ? from - 1 : from + 1, 0, moved);
+          exercises.splice(to, 0, moved);
         }
 
         return {

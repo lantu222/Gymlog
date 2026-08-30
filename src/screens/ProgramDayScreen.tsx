@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
   BackHandler,
   Modal,
   Pressable,
@@ -22,7 +23,6 @@ import { I18nKey, t } from '../lib/i18n';
 import { ProgramDetailSessionItem } from '../lib/programDetails';
 import {
   canStepProgramPrescription,
-  MoveDirection,
   ProgramPrescription,
   stepProgramPrescription,
 } from '../lib/programSessionEdit';
@@ -126,11 +126,12 @@ interface ProgramDayScreenProps {
    */
   onPrescribe?: (exerciseId: string, prescription: ProgramPrescription) => void;
   /**
-   * One place up or down. Ordering is the programme's other real decision:
-   * what you do while fresh is what you get strongest at, so a reader who
-   * wants to squat first has changed their training, not their list.
+   * Dropped where the drag let go. Ordering is the programme's other real
+   * decision: what you do while fresh is what you get strongest at, so a
+   * reader who wants to squat first has changed their training, not their
+   * list. One call per drag, however far it travelled.
    */
-  onMoveExercise?: (exerciseId: string, direction: MoveDirection) => void;
+  onReorderExercise?: (exerciseId: string, toIndex: number) => void;
   tailoringPreferences?: Parameters<typeof buildSwapOptionsForSlot>[2];
   onBack: () => void;
 }
@@ -150,7 +151,7 @@ export function ProgramDayScreen({
   onRemoveExercise,
   onKeepSwap,
   onPrescribe,
-  onMoveExercise,
+  onReorderExercise,
   tailoringPreferences,
   onBack,
 }: ProgramDayScreenProps) {
@@ -179,15 +180,59 @@ export function ProgramDayScreen({
    * what it is adding to.
    */
   /**
-   * Reordering, as a mode rather than as a trip through a sheet.
+   * Reordering by drag (design frame 05): grab the handle, the row lifts,
+   * the others make room, and letting go writes ONE edit with the
+   * destination. This replaced a Reorder mode with per-row arrows, which
+   * was itself the replacement for a trip through a sheet ("voisi vaihtaa
+   * liikkeiden järjestästä helposti", 2026-08-27) — each step of that
+   * ladder kept the list visible and cut the taps; this one cuts them to
+   * zero.
    *
-   * Moving a lift lived inside the per-row edit sheet, which is three taps
-   * and a read to shift one row one place — and the list you are ordering is
-   * behind the sheet while you do it ("voisi vaihtaa liikkeiden järjestästä
-   * helposti", 2026-08-27). Here the arrows are on the rows, the whole day
-   * stays visible, and each tap moves and saves.
+   * Raw responder handlers on the HANDLE only, not a gesture library: the
+   * repo has none, and the handle is a small target with no competing
+   * gesture of its own. The ScrollView is frozen for the drag's duration —
+   * two vertical gestures cannot share one finger.
    */
-  const [reorderMode, setReorderMode] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragTarget, setDragTarget] = useState<number | null>(null);
+  const dragY = useRef(new Animated.Value(0)).current;
+  const dragStartPageY = useRef(0);
+  /** Measured per render; a drag needs real heights, not guesses. */
+  const rowHeights = useRef<number[]>([]);
+
+  const dragTargetFor = (from: number, dy: number) => {
+    const heights = rowHeights.current;
+    let target = from;
+    let remaining = Math.abs(dy);
+    const step = dy > 0 ? 1 : -1;
+    for (
+      let next = from + step;
+      next >= 0 && next < session.exercises.length;
+      next += step
+    ) {
+      const height = heights[next] ?? 0;
+      if (height === 0 || remaining < height / 2) {
+        break;
+      }
+      remaining -= height;
+      target = next;
+    }
+    return target;
+  };
+
+  const endDrag = (commit: boolean) => {
+    const from = dragIndex;
+    const to = dragTarget;
+    setDragIndex(null);
+    setDragTarget(null);
+    dragY.setValue(0);
+    if (commit && from !== null && to !== null && to !== from) {
+      const exercise = session.exercises[from];
+      if (exercise) {
+        onReorderExercise?.(exercise.id, to);
+      }
+    }
+  };
   const [tuneExerciseId, setTuneExerciseId] = useState<string | null>(null);
   const [tuneDraft, setTuneDraft] = useState<ProgramPrescription | null>(null);
   /** The numbers as they were when the sheet opened — the bar's left half. */
@@ -335,7 +380,7 @@ export function ProgramDayScreen({
     return ['primary', 'secondary', 'accessory'].filter((role) => seen.has(role));
   }, [session.exercises]);
 
-  const canTune = Boolean(onPrescribe || onMoveExercise);
+  const canTune = Boolean(onPrescribe);
 
   /** The row the sheet is open on, plus where in the day it currently sits. */
   const tuneRow = useMemo(() => {
@@ -396,7 +441,13 @@ export function ProgramDayScreen({
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        // Two vertical gestures cannot share one finger: the list holds
+        // still while a row is being dragged.
+        scrollEnabled={dragIndex === null}
+      >
         {/*
           The same treatment the programme page got: title first, numbers
           under it, nothing painted (#bugs 2026-08-27). Only the gradient
@@ -470,22 +521,67 @@ export function ProgramDayScreen({
           onToggle={() => setOpenSections((current) => ({ ...current, exercises: !current.exercises }))}
         >
         <View style={styles.exerciseList}>
-          {/* Offered only when there is an order to change: one lift cannot be
-              reordered, and a control that does nothing is furniture. */}
-          {onMoveExercise && session.exercises.length > 1 ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setReorderMode((current) => !current)}
-              style={({ pressed }) => [styles.reorderToggle, pressed && styles.swapOptionPressed]}
+          {session.exercises.map((exercise, index) => {
+            const dragging = dragIndex === index;
+            // While a row travels, the rows between it and its target make
+            // room by exactly its height — the drop is previewed, not
+            // imagined.
+            const shift =
+              dragIndex !== null && dragTarget !== null && !dragging
+                ? dragIndex < index && index <= dragTarget
+                  ? -(rowHeights.current[dragIndex] ?? 0)
+                  : dragTarget <= index && index < dragIndex
+                    ? (rowHeights.current[dragIndex] ?? 0)
+                    : 0
+                : 0;
+            return (
+            <Animated.View
+              key={exercise.id}
+              onLayout={(event) => {
+                rowHeights.current[index] = event.nativeEvent.layout.height;
+              }}
+              style={[
+                styles.exerciseCard,
+                index === 0 && styles.exerciseCardAnchor,
+                shift !== 0 && { transform: [{ translateY: shift }] },
+                dragging && [styles.exerciseCardLift, { transform: [{ translateY: dragY }] }],
+              ]}
             >
-              <Text style={[styles.reorderToggleText, reorderMode && { color: theme.accent }]}>
-                {t(language, reorderMode ? 'detail.day.reorderDone' : 'detail.day.reorder')}
-              </Text>
-            </Pressable>
-          ) : null}
-          {session.exercises.map((exercise, index) => (
-            <View key={exercise.id} style={[styles.exerciseCard, index === 0 && styles.exerciseCardAnchor]}>
               <View style={styles.exerciseTop}>
+                {onReorderExercise && session.exercises.length > 1 ? (
+                  <View
+                    accessibilityRole="button"
+                    accessibilityLabel={t(language, 'detail.day.dragHandle', {
+                      name: exerciseNameLabel(language, exercise.name),
+                    })}
+                    onStartShouldSetResponder={() => true}
+                    onResponderTerminationRequest={() => false}
+                    onResponderGrant={(event) => {
+                      dragStartPageY.current = event.nativeEvent.pageY;
+                      dragY.setValue(0);
+                      setDragIndex(index);
+                      setDragTarget(index);
+                    }}
+                    onResponderMove={(event) => {
+                      const dy = event.nativeEvent.pageY - dragStartPageY.current;
+                      dragY.setValue(dy);
+                      const target = dragTargetFor(index, dy);
+                      setDragTarget((current) => (current === target ? current : target));
+                    }}
+                    onResponderRelease={() => endDrag(true)}
+                    onResponderTerminate={() => endDrag(false)}
+                    style={styles.dragHandle}
+                  >
+                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="M3 9h18M3 15h18"
+                        stroke={theme.faint}
+                        strokeWidth={2.2}
+                        strokeLinecap="round"
+                      />
+                    </Svg>
+                  </View>
+                ) : null}
                 <View style={[styles.exerciseNum, index === 0 && styles.exerciseNumAnchor]}>
                   <Text style={[styles.exerciseNumText, index === 0 && styles.exerciseNumTextAnchor]}>
                     {index + 1}
@@ -542,28 +638,7 @@ export function ProgramDayScreen({
                     </>
                   )}
                 </View>
-                {reorderMode && onMoveExercise ? (
-                  // Same slot the swap button uses, so the row does not jump
-                  // sideways when the mode flips under the thumb.
-                  <View style={styles.moveRow}>
-                    <MoveButton
-                      direction="up"
-                      styles={styles}
-                      theme={theme}
-                      label={t(language, 'detail.day.moveUp')}
-                      disabled={index === 0}
-                      onPress={() => onMoveExercise(exercise.id, 'up')}
-                    />
-                    <MoveButton
-                      direction="down"
-                      styles={styles}
-                      theme={theme}
-                      label={t(language, 'detail.day.moveDown')}
-                      disabled={index === session.exercises.length - 1}
-                      onPress={() => onMoveExercise(exercise.id, 'down')}
-                    />
-                  </View>
-                ) : exercise.slotId && onSwapExercise ? (
+                {exercise.slotId && onSwapExercise ? (
                   <Pressable
                     hitSlop={6}
                     onPress={() => setSwapSlotId(exercise.slotId ?? null)}
@@ -573,8 +648,9 @@ export function ProgramDayScreen({
                   </Pressable>
                 ) : null}
               </View>
-            </View>
-          ))}
+            </Animated.View>
+            );
+          })}
           {/* The end of the list is where "and one more" is felt. The library
               opens over this screen — see onAddExercises. */}
           {canAddExercises ? (
@@ -941,47 +1017,6 @@ export function ProgramDayScreen({
 }
 
 /** One place up or down, on the row itself. */
-function MoveButton({
-  direction,
-  disabled,
-  onPress,
-  label,
-  styles,
-  theme,
-}: {
-  direction: 'up' | 'down';
-  disabled?: boolean;
-  onPress: () => void;
-  label: string;
-  styles: ReturnType<typeof makeStyles>;
-  theme: Theme;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled: Boolean(disabled) }}
-      disabled={disabled}
-      hitSlop={6}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.moveButton,
-        disabled && styles.moveButtonOff,
-        pressed && !disabled && styles.swapOptionPressed,
-      ]}
-    >
-      <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-        <Path
-          d={direction === 'up' ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'}
-          stroke={disabled ? theme.faint : theme.purple}
-          strokeWidth={2.6}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </Svg>
-    </Pressable>
-  );
-}
 
 const ROUND_GLYPHS = {
   minus: 'M6 12h12',
@@ -1398,33 +1433,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
   },
   // Right-aligned above the rows: an action ON the list, not a row in it.
-  reorderToggle: {
-    alignSelf: 'flex-end',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    marginBottom: 2,
-  },
-  reorderToggleText: {
-    color: theme.purple,
-    fontSize: 12.5,
-    lineHeight: 16,
-    fontWeight: '800',
-    letterSpacing: 0.2,
-  },
-  moveRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  moveButton: {
-    width: 34,
-    height: 30,
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.surfaceSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   moveButtonOff: {
     opacity: 0.4,
   },
@@ -1614,6 +1622,23 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 12.5,
     lineHeight: 18,
     fontWeight: '600',
+  },
+  dragHandle: {
+    width: 28,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: -6,
+  },
+  exerciseCardLift: {
+    backgroundColor: theme.purpleSoft,
+    borderRadius: 14,
+    shadowColor: theme.shadow,
+    shadowOpacity: 0.5,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
+    zIndex: 5,
   },
   exerciseCard: {
     borderRadius: radii.lg,

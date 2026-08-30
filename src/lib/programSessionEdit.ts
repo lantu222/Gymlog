@@ -45,8 +45,6 @@ export interface ProgramSessionDayDraft {
   }>;
 }
 
-export type MoveDirection = 'up' | 'down';
-
 /**
  * The numbers on the row: "5 × 12", and the rest between sets.
  *
@@ -140,8 +138,15 @@ export type ProgramSessionEdit =
   | { kind: 'add'; exercises: ReadonlyArray<ProgramSessionExerciseSnapshot> }
   /** The dose: how many sets, how many reps. Everything else about the row stays. */
   | { kind: 'prescribe'; exerciseId: string; prescription: ProgramPrescription }
-  /** One place up or down inside its own day. */
-  | { kind: 'move'; exerciseId: string; direction: MoveDirection };
+  /**
+   * Dropped where the drag let go — the whole journey as ONE edit.
+   *
+   * This replaced per-step "move up/down": a drag of three places written as
+   * three moves is three reads and three writes through the queue, and on a
+   * ready programme the first step forks the copy while the other two race
+   * it. One edit carries the destination, and the fork happens once.
+   */
+  | { kind: 'reorder'; exerciseId: string; toIndex: number };
 
 export type ProgramSessionEditOutcome =
   | { kind: 'save'; sessions: ProgramSessionDayDraft[] }
@@ -186,16 +191,18 @@ export function applyProgramSessionEdit(
   sessionId: string,
   edit: ProgramSessionEdit,
 ): ProgramSessionEditOutcome {
-  // Answered before the programme is rebuilt: a move that cannot happen must
-  // not come back as a save, or the screen confirms an edit it did not make.
-  if (edit.kind === 'move') {
+  // Answered before the programme is rebuilt: a drop that changes nothing
+  // must not come back as a save, or the screen confirms an edit it did not
+  // make. The destination is clamped rather than refused — a finger that
+  // overshoots the list still means "last".
+  if (edit.kind === 'reorder') {
     const day = sessions.find((session) => session.id === sessionId);
     const from = day?.exercises.findIndex((exercise) => exercise.id === edit.exerciseId) ?? -1;
     if (!day || from === -1) {
       return { kind: 'skip', reason: 'exerciseMissing' };
     }
-    const to = edit.direction === 'up' ? from - 1 : from + 1;
-    if (to < 0 || to >= day.exercises.length) {
+    const to = Math.max(0, Math.min(day.exercises.length - 1, Math.round(edit.toIndex)));
+    if (to === from) {
       return { kind: 'skip', reason: 'alreadyAtEdge' };
     }
   }
@@ -235,11 +242,12 @@ export function applyProgramSessionEdit(
         return toDraftExercise(exercise);
       });
 
-    if (isTargetDay && edit.kind === 'move') {
+    if (isTargetDay && edit.kind === 'reorder') {
       const from = exercises.findIndex((exercise) => exercise.id === edit.exerciseId);
-      const to = edit.direction === 'up' ? from - 1 : from + 1;
-      // Lifted out and put back one place along, so the rows between it and
-      // its destination close up behind it rather than swapping identities.
+      const to = Math.max(0, Math.min(exercises.length - 1, Math.round(edit.toIndex)));
+      // Lifted out and put back where the drag let go, so the rows between it
+      // and its destination close up behind it rather than swapping
+      // identities.
       const [moved] = exercises.splice(from, 1);
       exercises.splice(to, 0, moved);
     }

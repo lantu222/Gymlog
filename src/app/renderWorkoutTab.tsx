@@ -28,7 +28,7 @@ import { ExerciseDetailScreen } from '../screens/ExerciseDetailScreen';
 import { ExercisesScreen } from '../screens/ExercisesScreen';
 import { GuidedPlayerScreen } from '../screens/GuidedPlayerScreen';
 import { ProgramDayScreen } from '../screens/ProgramDayScreen';
-import { MoveDirection, ProgramPrescription } from '../lib/programSessionEdit';
+import { ProgramPrescription } from '../lib/programSessionEdit';
 import { ProgramDetailScreen } from '../screens/ProgramDetailScreen';
 import { ProgramsHomeScreen } from '../screens/ProgramsHomeScreen';
 import { SeasonScreen } from '../screens/SeasonScreen';
@@ -102,7 +102,7 @@ export interface WorkoutTabDeps {
       | { kind: 'replace'; exerciseName: string }
       | { kind: 'add'; exerciseNames: string[] }
       | { kind: 'prescribe'; prescription: ProgramPrescription }
-      | { kind: 'move'; direction: MoveDirection },
+      | { kind: 'reorder'; toIndex: number },
   ) => Promise<void>;
   handleSaveRhythm: (workoutTemplateId: string, dayIndexes: number[]) => Promise<void>;
   handleSaveEmphasis: (
@@ -494,10 +494,10 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             prescription,
           })
         }
-        onMoveExercise={(exerciseId, direction) =>
+        onReorderExercise={(exerciseId, toIndex) =>
           void editProgramExercise(route.programType, route.workoutTemplateId, daySession.id, exerciseId, {
-            kind: 'move',
-            direction,
+            kind: 'reorder',
+            toIndex,
           })
         }
         tailoringPreferences={preferences}
