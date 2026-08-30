@@ -294,47 +294,36 @@ export function ProgramDetailScreen({
    * A cycle anchors to the day it was chosen — the same "starts today" rule
    * adoption follows.
    */
-  const RHYTHM_PRESETS: Array<
-    { key: string; on: number; off: number } & ({ weekly: number[] } | { pattern: boolean[] })
-  > = [
-    { key: '5-2', on: 5, off: 2, weekly: [0, 1, 2, 3, 4] },
-    { key: '1-1', on: 1, off: 1, pattern: [true, false] },
-    { key: '2-1', on: 2, off: 1, pattern: [true, true, false] },
-    { key: '2-2', on: 2, off: 2, pattern: [true, true, false, false] },
-    { key: '3-1', on: 3, off: 1, pattern: [true, true, true, false] },
-    { key: '3-2', on: 3, off: 2, pattern: [true, true, true, false, false] },
-    { key: '4-1', on: 4, off: 1, pattern: [true, true, true, true, false] },
-  ];
+  /**
+   * One family, not a catalogue (user 2026-08-30: "tee vain 1workout 1 rest,
+   * 2workout 1rest, 3workout 1rest — ei ruveta jokaista tekemään erikseen").
+   * Every preset is N on · 1 off, and every one is a REAL cycle: a 7-day
+   * mask sold as "2 on · 1 off" would drift a day per week and lie by
+   * Thursday. The weekday chips above stay the hand editor for anyone whose
+   * week does not fit the family.
+   */
+  const RHYTHM_PRESETS = [1, 2, 3, 4].map((on) => ({
+    key: `${on}-1`,
+    on,
+    off: 1,
+    pattern: [...Array.from({ length: on }, () => true), false],
+  }));
   const activePresetKey = useMemo(() => {
-    if (trainingCycle) {
-      const match = RHYTHM_PRESETS.find(
-        (preset) =>
-          'pattern' in preset &&
-          preset.pattern.length === trainingCycle.pattern.length &&
-          preset.pattern.every((value, index) => value === trainingCycle.pattern[index]),
-      );
-      return match?.key ?? 'custom';
+    if (!trainingCycle) {
+      return null;
     }
-    const days = draftDays ?? committedDays;
-    return days.length === 5 && [0, 1, 2, 3, 4].every((day) => days.includes(day))
-      ? '5-2'
-      : 'custom';
+    const match = RHYTHM_PRESETS.find(
+      (preset) =>
+        preset.pattern.length === trainingCycle.pattern.length &&
+        preset.pattern.every((value, index) => value === trainingCycle.pattern[index]),
+    );
+    return match?.key ?? null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trainingCycle, draftDays, committedDays]);
+  }, [trainingCycle]);
 
   const applyPreset = (preset: (typeof RHYTHM_PRESETS)[number]) => {
-    if ('weekly' in preset) {
-      onChangeTrainingCycle?.(null);
-      if (onSaveRhythm && preset.weekly.length === committedDays.length) {
-        setDraftDays(null);
-        onSaveRhythm(preset.weekly);
-      } else {
-        // Wrong size for this programme: the draft shows it and the status
-        // line says what is missing — the week saves only when it is whole.
-        setDraftDays(preset.weekly);
-      }
-      return;
-    }
+    // Anchored to the day it was chosen — the same "starts today" rule
+    // adoption follows.
     const now = new Date();
     setDraftDays(null);
     onChangeTrainingCycle?.({
@@ -521,7 +510,14 @@ export function ProgramDetailScreen({
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{t(language, 'detail.rhythm')}</Text>
           <Text style={styles.sectionMeta}>
-            {t(language, 'detail.trainingDays', { count: program.sessions.length })}
+            {trainingCycle
+              ? // The honest number for a rhythm that ignores weekdays: the
+                // cycle's own shape, not the mask's day count.
+                t(language, 'detail.week.pattern', {
+                  on: trainingCycle.pattern.filter(Boolean).length,
+                  off: trainingCycle.pattern.filter((day) => !day).length,
+                })
+              : t(language, 'detail.trainingDays', { count: program.sessions.length })}
           </Text>
         </View>
         <View style={styles.rhythmRow}>
@@ -582,20 +578,11 @@ export function ProgramDetailScreen({
         </View>
         {onSaveRhythm ? (
           <View style={styles.patRow}>
-            {[
-              ...RHYTHM_PRESETS.map((preset) => ({
-                key: preset.key,
-                label: t(language, 'detail.week.pattern', { on: preset.on, off: preset.off }),
-                onPress: () => applyPreset(preset),
-              })),
-              {
-                key: 'custom',
-                label: t(language, 'detail.week.custom'),
-                // Custom is the mask, hand-toggled: the cycle steps aside and
-                // the chips above take taps again.
-                onPress: () => onChangeTrainingCycle?.(null),
-              },
-            ].map((entry) => (
+            {RHYTHM_PRESETS.map((preset) => ({
+              key: preset.key,
+              label: t(language, 'detail.week.pattern', { on: preset.on, off: preset.off }),
+              onPress: () => applyPreset(preset),
+            })).map((entry) => (
               <Pressable
                 key={entry.key}
                 accessibilityRole="button"
