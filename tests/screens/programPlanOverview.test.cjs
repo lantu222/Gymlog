@@ -338,7 +338,15 @@ module.exports = [
       // the session under it, which named the same day twice, differently.
       assert.match(day, /formatPlanSessionTitle\(session, dayNumber - 1, programTitle, language\)/);
       assert.doesNotMatch(day, /styles\.pageSession/);
-      assert.match(day, /styles\.pageStatValue/);
+      // The stat pair went too (design frame 05: title only at the top) —
+      // both counts already sit on the section headers the rows live under.
+      assert.doesNotMatch(day, /styles\.pageStatValue/);
+      // The role legend survives, but LAST on the screen: the reader meets
+      // ANCHOR on a row before being lectured about it.
+      assert.ok(
+        day.indexOf('styles.roleCard') > day.indexOf('detail.day.cooldown'),
+        'the role legend should render below the sections, not above them',
+      );
       // And the sections under it, untouched.
       assert.match(day, /detail\.day\.warmup/);
       assert.match(day, /detail\.day\.exercises/);

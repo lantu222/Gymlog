@@ -4,6 +4,7 @@ const {
   applyProgramSessionEdit,
   canStepProgramPrescription,
   stepProgramPrescription,
+  PROGRAM_REST_RANGE,
   PROGRAM_REPS_RANGE,
   PROGRAM_SETS_RANGE,
 } = require('../../.test-dist/lib/programSessionEdit');
@@ -284,6 +285,62 @@ module.exports = [
     run() {
       const source = readAppWiring();
       assert.match(source, /exercises\.map\(\(exercise, orderIndex\) => \(\{ \.\.\.exercise, orderIndex \}\)\)/);
+    },
+  },
+  {
+    name: 'rest steps by its own grid, and a missing rest cannot be stepped',
+    run() {
+      // 15 s rather than the design's 30, because the catalogue's own rests
+      // are not multiples of 30 — 45 and 75 are everywhere — and a stepper
+      // whose first press snaps a stored value to a grid has edited more
+      // than the reader asked it to.
+      const dose = { targetSets: 3, repMin: 8, repMax: 8, restSeconds: 90 };
+      assert.deepEqual(stepProgramPrescription(dose, 'rest', 1), { ...dose, restSeconds: 105 });
+      assert.deepEqual(stepProgramPrescription(dose, 'rest', -1), { ...dose, restSeconds: 75 });
+
+      const atFloor = { ...dose, restSeconds: PROGRAM_REST_RANGE.min };
+      assert.deepEqual(stepProgramPrescription(atFloor, 'rest', -1), atFloor);
+      const atCeiling = { ...dose, restSeconds: PROGRAM_REST_RANGE.max };
+      assert.deepEqual(stepProgramPrescription(atCeiling, 'rest', 1), atCeiling);
+
+      // No number, no step: inventing one here would write it.
+      const noRest = { ...dose, restSeconds: null };
+      assert.equal(stepProgramPrescription(noRest, 'rest', 1), noRest);
+      assert.equal(canStepProgramPrescription(noRest, 'rest', 1), false);
+    },
+  },
+  {
+    name: 'prescribe writes rest only when the sheet had a number to step',
+    run() {
+      const sessions = [
+        {
+          id: 'day_1',
+          name: 'Day 1',
+          exercises: [
+            { id: 'a', name: 'Back Squat', targetSets: 4, repMin: 5, repMax: 5, restSeconds: 120, trackedDefault: true },
+          ],
+        },
+      ];
+
+      // A real rest travels with the dose.
+      const withRest = applyProgramSessionEdit(sessions, 'day_1', {
+        kind: 'prescribe',
+        exerciseId: 'a',
+        prescription: { targetSets: 4, repMin: 5, repMax: 5, restSeconds: 150 },
+      });
+      assert.equal(withRest.kind, 'save');
+      assert.equal(withRest.sessions[0].exercises[0].restSeconds, 150);
+
+      // Null means the stored value stays — the sheet never had a number, so
+      // saving sets and reps must not blank the rest behind them.
+      const withoutRest = applyProgramSessionEdit(sessions, 'day_1', {
+        kind: 'prescribe',
+        exerciseId: 'a',
+        prescription: { targetSets: 5, repMin: 5, repMax: 5, restSeconds: null },
+      });
+      assert.equal(withoutRest.kind, 'save');
+      assert.equal(withoutRest.sessions[0].exercises[0].restSeconds, 120);
+      assert.equal(withoutRest.sessions[0].exercises[0].targetSets, 5);
     },
   },
 ];

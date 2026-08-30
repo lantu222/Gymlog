@@ -47,11 +47,18 @@ export interface ProgramSessionDayDraft {
 
 export type MoveDirection = 'up' | 'down';
 
-/** The two numbers on the row: "5 × 12". */
+/**
+ * The numbers on the row: "5 × 12", and the rest between sets.
+ *
+ * Rest is nullable because the stored draft's is: an exercise added before
+ * rest was recorded carries none, and a stepper cannot step a number that is
+ * not there. Null means "do not touch the stored value" on the way back in.
+ */
 export interface ProgramPrescription {
   targetSets: number;
   repMin: number;
   repMax: number;
+  restSeconds: number | null;
 }
 
 /**
@@ -65,6 +72,13 @@ export interface ProgramPrescription {
  */
 export const PROGRAM_SETS_RANGE = { min: 1, max: 12 } as const;
 export const PROGRAM_REPS_RANGE = { min: 1, max: 50 } as const;
+/**
+ * Steps of 15 s rather than the design's 30, because the catalogue's own
+ * rests are not multiples of 30 — 45 and 75 are everywhere — and a stepper
+ * whose first press snaps a stored value to a grid has edited more than the
+ * reader asked it to.
+ */
+export const PROGRAM_REST_RANGE = { min: 15, max: 480, step: 15 } as const;
 
 /**
  * One press of one stepper.
@@ -78,7 +92,7 @@ export const PROGRAM_REPS_RANGE = { min: 1, max: 50 } as const;
  */
 export function stepProgramPrescription(
   current: ProgramPrescription,
-  field: 'sets' | 'reps',
+  field: 'sets' | 'reps' | 'rest',
   direction: 1 | -1,
 ): ProgramPrescription {
   if (field === 'sets') {
@@ -87,6 +101,19 @@ export function stepProgramPrescription(
       return current;
     }
     return { ...current, targetSets };
+  }
+
+  if (field === 'rest') {
+    // A rest that was never recorded cannot be stepped: there is no number
+    // for the press to be relative to, and inventing one here would write it.
+    if (current.restSeconds === null) {
+      return current;
+    }
+    const restSeconds = current.restSeconds + direction * PROGRAM_REST_RANGE.step;
+    if (restSeconds < PROGRAM_REST_RANGE.min || restSeconds > PROGRAM_REST_RANGE.max) {
+      return current;
+    }
+    return { ...current, restSeconds };
   }
 
   const repMin = current.repMin + direction;
@@ -100,7 +127,7 @@ export function stepProgramPrescription(
 /** True while the stepper still has somewhere to go — what greys the button out. */
 export function canStepProgramPrescription(
   current: ProgramPrescription,
-  field: 'sets' | 'reps',
+  field: 'sets' | 'reps' | 'rest',
   direction: 1 | -1,
 ): boolean {
   const next = stepProgramPrescription(current, field, direction);
@@ -193,11 +220,16 @@ export function applyProgramSessionEdit(
         }
         if (edit.kind === 'prescribe') {
           // The mirror image of a swap: the dose changes, the lift does not.
+          // Rest rides along only when the sheet had a number to step — null
+          // means the stored value, whatever it is, stays untouched.
           return {
             ...toDraftExercise(exercise),
             targetSets: edit.prescription.targetSets,
             repMin: edit.prescription.repMin,
             repMax: edit.prescription.repMax,
+            ...(typeof edit.prescription.restSeconds === 'number'
+              ? { restSeconds: edit.prescription.restSeconds }
+              : {}),
           };
         }
         return toDraftExercise(exercise);

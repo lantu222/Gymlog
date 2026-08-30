@@ -54,6 +54,17 @@ const ROLE_LINE_KEYS: Record<string, I18nKey> = {
   accessory: 'detail.role.accessoryLine',
 };
 
+function PencilGlyph({ theme }: { theme: Theme }) {
+  return (
+    <Svg width={12} height={12} viewBox="0 0 24 24">
+      <Path
+        d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+        fill={theme.purple}
+      />
+    </Svg>
+  );
+}
+
 /** Same wash logic the detail screen's role tags use. */
 const roleTints = (theme: Theme): Record<string, { bg: string; ink: string }> =>
   theme === darkTheme
@@ -181,6 +192,17 @@ export function ProgramDayScreen({
   const [tuneDraft, setTuneDraft] = useState<ProgramPrescription | null>(null);
   /** The numbers as they were when the sheet opened — the bar's left half. */
   const [tuneStart, setTuneStart] = useState<ProgramPrescription | null>(null);
+  const openTuneSheet = (exercise: ProgramDetailSessionItem['exercises'][number]) => {
+    const seed = {
+      targetSets: exercise.sets,
+      repMin: exercise.repMin,
+      repMax: exercise.repMax,
+      restSeconds: exercise.restSeconds ?? null,
+    };
+    setTuneExerciseId(exercise.id);
+    setTuneDraft(seed);
+    setTuneStart(seed);
+  };
   const closeTuneSheet = () => {
     setTuneExerciseId(null);
     setTuneDraft(null);
@@ -342,7 +364,7 @@ export function ProgramDayScreen({
    * 5 sets to 3 no longer has a programme that says 4 while their thumb is
    * mid-thought.
    */
-  const stepTune = (field: 'sets' | 'reps', direction: 1 | -1) => {
+  const stepTune = (field: 'sets' | 'reps' | 'rest', direction: 1 | -1) => {
     if (!tuneDraft || !tuneRow || !onPrescribe) {
       return;
     }
@@ -353,18 +375,23 @@ export function ProgramDayScreen({
     setTuneDraft(next);
   };
 
+  const formatRest = (seconds: number) =>
+    seconds < 120
+      ? `${seconds} s`
+      : `${Number.isInteger(seconds / 60) ? seconds / 60 : (seconds / 60).toFixed(1)} min`;
   const formatDose = (dose: ProgramPrescription | null, timed: boolean) =>
     dose
       ? `${dose.targetSets} × ${
           dose.repMin === dose.repMax ? dose.repMin : `${dose.repMin}–${dose.repMax}`
-        }${timed ? ' s' : ''}`
+        }${timed ? ' s' : ''}${dose.restSeconds !== null ? ` · ${formatRest(dose.restSeconds)}` : ''}`
       : '';
   const tuneChanged = Boolean(
     tuneDraft &&
       tuneStart &&
       (tuneDraft.targetSets !== tuneStart.targetSets ||
         tuneDraft.repMin !== tuneStart.repMin ||
-        tuneDraft.repMax !== tuneStart.repMax),
+        tuneDraft.repMax !== tuneStart.repMax ||
+        tuneDraft.restSeconds !== tuneStart.restSeconds),
   );
 
   return (
@@ -409,31 +436,6 @@ export function ProgramDayScreen({
         <Text style={styles.pageTitle} numberOfLines={2}>
           {formatPlanSessionTitle(session, dayNumber - 1, programTitle, language)}
         </Text>
-        <View style={styles.pageStats}>
-          <View>
-            <Text style={styles.pageStatValue}>{session.exerciseCount}</Text>
-            <Text style={styles.pageStatLabel}>{t(language, 'detail.day.exercisesStat')}</Text>
-          </View>
-          <View>
-            <Text style={styles.pageStatValue}>{session.totalSets}</Text>
-            <Text style={styles.pageStatLabel}>{t(language, 'detail.day.sets')}</Text>
-          </View>
-        </View>
-
-        {presentRoles.length > 0 ? (
-          <View style={styles.roleCard}>
-            {presentRoles.map((role, index) => (
-              <View key={role} style={[styles.roleRow, index > 0 && styles.roleRowDivider]}>
-                <View style={[styles.roleTag, { backgroundColor: tints[role].bg }]}>
-                  <Text style={[styles.roleTagText, { color: tints[role].ink }]}>
-                    {t(language, ROLE_TAG_KEYS[role])}
-                  </Text>
-                </View>
-                <Text style={styles.roleLine}>{t(language, ROLE_LINE_KEYS[role])}</Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
 
         {/* Three accordions in Home's shape: the warm-up used to be a plain
             paragraph card next to a list of exercise cards, which made the
@@ -502,44 +504,43 @@ export function ProgramDayScreen({
                 </View>
               </View>
               <View style={styles.exerciseBottom}>
-                {/* The dose is a button and the rest is not, because the rest
-                    is the only one of the three this sheet cannot change. A
-                    control that opens onto half of what it covers is how a
-                    reader learns to distrust the other half. */}
+                {/* Two chips, one sheet (design frame 05): the dose and the
+                    rest both open the same steppers, because the rest became
+                    editable when the prescription grew a restSeconds. Both
+                    wear the pencil — a chip that edits and a chip that only
+                    states, side by side, taught the reader to distrust both. */}
                 <View style={styles.exerciseDose}>
                   {canTune ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      hitSlop={6}
-                      onPress={() => {
-                        setTuneExerciseId(exercise.id);
-                        setTuneDraft({
-                          targetSets: exercise.sets,
-                          repMin: exercise.repMin,
-                          repMax: exercise.repMax,
-                        });
-                        setTuneStart({
-                          targetSets: exercise.sets,
-                          repMin: exercise.repMin,
-                          repMax: exercise.repMax,
-                        });
-                      }}
-                      style={({ pressed }) => [styles.doseChip, pressed && styles.swapOptionPressed]}
-                    >
-                      <Text style={styles.doseChipText}>{exercise.prescription}</Text>
-                      <Svg width={12} height={12} viewBox="0 0 24 24">
-                        <Path
-                          d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
-                          fill={theme.purple}
-                        />
-                      </Svg>
-                    </Pressable>
+                    <>
+                      <Pressable
+                        accessibilityRole="button"
+                        hitSlop={6}
+                        onPress={() => openTuneSheet(exercise)}
+                        style={({ pressed }) => [styles.doseChip, pressed && styles.swapOptionPressed]}
+                      >
+                        <Text style={styles.doseChipText}>{exercise.prescription}</Text>
+                        <PencilGlyph theme={theme} />
+                      </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        hitSlop={6}
+                        onPress={() => openTuneSheet(exercise)}
+                        style={({ pressed }) => [styles.doseChip, pressed && styles.swapOptionPressed]}
+                      >
+                        <Text style={styles.doseChipText} numberOfLines={1}>
+                          {t(language, 'detail.day.rest', { range: exercise.restLabel })}
+                        </Text>
+                        <PencilGlyph theme={theme} />
+                      </Pressable>
+                    </>
                   ) : (
-                    <Text style={styles.exerciseScheme}>{exercise.prescription}</Text>
+                    <>
+                      <Text style={styles.exerciseScheme}>{exercise.prescription}</Text>
+                      <Text style={styles.exerciseRest} numberOfLines={1}>
+                        {t(language, 'detail.day.rest', { range: exercise.restLabel })}
+                      </Text>
+                    </>
                   )}
-                  <Text style={styles.exerciseRest} numberOfLines={1}>
-                    {t(language, 'detail.day.rest', { range: exercise.restLabel })}
-                  </Text>
                 </View>
                 {reorderMode && onMoveExercise ? (
                   // Same slot the swap button uses, so the row does not jump
@@ -619,6 +620,24 @@ export function ProgramDayScreen({
             </View>
           ))}
         </Section>
+        {/* The legend is last on the screen, not first (design frame 05):
+            the reader meets ANCHOR on a row before being lectured about it,
+            and the card answers the question at the moment it is asked. */}
+        {presentRoles.length > 0 ? (
+          <View style={styles.roleCard}>
+            {presentRoles.map((role, index) => (
+              <View key={role} style={[styles.roleRow, index > 0 && styles.roleRowDivider]}>
+                <View style={[styles.roleTag, { backgroundColor: tints[role].bg }]}>
+                  <Text style={[styles.roleTagText, { color: tints[role].ink }]}>
+                    {t(language, ROLE_TAG_KEYS[role])}
+                  </Text>
+                </View>
+                <Text style={styles.roleLine}>{t(language, ROLE_LINE_KEYS[role])}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
       </ScrollView>
 
       {/* The swap writes into the same map the session start reads, so what
@@ -832,7 +851,7 @@ export function ProgramDayScreen({
                 </View>
               </View>
 
-              <View style={[styles.tuneRow, styles.tuneRowLast]}>
+              <View style={styles.tuneRow}>
                 <Text style={styles.tuneLabel}>{t(language, 'editor.reps')}</Text>
                 <View style={styles.tuneControls}>
                   <RoundButton
@@ -859,6 +878,32 @@ export function ProgramDayScreen({
                   />
                 </View>
               </View>
+
+              {/* Rest joins the sheet (design frame 06) — the third number the
+                  catalog decided. Only when the stored draft has one: a
+                  stepper over a missing number would have to invent it. */}
+              {tuneDraft.restSeconds !== null ? (
+                <View style={[styles.tuneRow, styles.tuneRowLast]}>
+                  <Text style={styles.tuneLabel}>{t(language, 'detail.day.restLabel')}</Text>
+                  <View style={styles.tuneControls}>
+                    <RoundButton
+                      glyph="minus"
+                      styles={styles}
+                      theme={theme}
+                      disabled={!canStepProgramPrescription(tuneDraft, 'rest', -1)}
+                      onPress={() => stepTune('rest', -1)}
+                    />
+                    <Text style={styles.tuneValue}>{formatRest(tuneDraft.restSeconds)}</Text>
+                    <RoundButton
+                      glyph="plus"
+                      styles={styles}
+                      theme={theme}
+                      disabled={!canStepProgramPrescription(tuneDraft, 'rest', 1)}
+                      onPress={() => stepTune('rest', 1)}
+                    />
+                  </View>
+                </View>
+              ) : null}
             </>
           ) : null}
         </View>
