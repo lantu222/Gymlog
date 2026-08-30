@@ -101,19 +101,38 @@ export function planLabelsFromWeekdays(
  * gets that day, and the rest follow in their own order. Adopt on a training
  * day and it starts today; adopt on a rest day and it starts at the next one.
  */
-function startFromToday(labels: readonly SetupWeekday[], from: Date): SetupWeekday[] {
-  if (labels.length < 2) {
+/**
+ * Place the session that comes NEXT on the first training day not yet gone,
+ * and let the rest follow it in the programme's own order.
+ *
+ * Adoption is the case with `nextIndex` 0 — nothing is finished, so session
+ * one takes today or the next open day. Editing the week is the same question
+ * asked later: a reader who has done two of three sessions and then moves a
+ * day still expects session three next, on the next day they train. Writing
+ * the labels back in Monday-first order instead put session one on the
+ * earliest weekday, and Home then offered session three while stamping MON on
+ * it — the same contradiction adoption used to have, restored by an edit.
+ *
+ * The cyclic order of the days is never disturbed; only which session sits on
+ * which of them.
+ */
+export function rotateLabelsForNextSession(
+  labels: readonly SetupWeekday[],
+  nextIndex: number,
+  from: Date,
+): SetupWeekday[] {
+  const count = labels.length;
+  if (count < 2) {
     return [...labels];
   }
   // getDay() is Sunday-first; every weekday index in this app is Monday-first.
   const today = (from.getDay() + 6) % 7;
-  const start = labels.findIndex((label) => WEEKDAY_INDEX[label] >= today);
-  if (start <= 0) {
-    // Either the first label is already the next one, or every training day of
-    // the week has passed — and then the week wraps to the first anyway.
-    return [...labels];
-  }
-  return [...labels.slice(start), ...labels.slice(0, start)];
+  const upcoming = labels.findIndex((label) => WEEKDAY_INDEX[label] >= today);
+  // No day left this week means the week wraps to its first day, which is
+  // what a week does.
+  const start = upcoming === -1 ? 0 : upcoming;
+  const target = ((Math.round(nextIndex) % count) + count) % count;
+  return labels.map((_, index) => labels[(((start + index - target) % count) + count) % count]);
 }
 
 export function planLabelsForProgramme(
@@ -133,5 +152,5 @@ export function planLabelsForProgramme(
         ? (['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as SetupWeekday[])
         : [...DEFAULT_RHYTHM_BY_DAYS[sessions as 2 | 3 | 4 | 5 | 6]];
 
-  return from ? startFromToday(labels, from) : labels;
+  return from ? rotateLabelsForNextSession(labels, 0, from) : labels;
 }

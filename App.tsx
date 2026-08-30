@@ -164,6 +164,7 @@ import {
 import {
   planLabelsForProgramme,
   planLabelsFromWeekdays,
+  rotateLabelsForNextSession,
   weekdaysFromPlanLabels,
 } from './src/lib/trainingWeekSync';
 import { programCoverStyle } from './src/lib/programVisualIdentity';
@@ -1591,7 +1592,16 @@ function VinhaApp() {
       return;
     }
     const ordered = [...plan.entries].sort((left, right) => left.orderIndex - right.orderIndex);
-    const entries = ordered.map((entry, index) => ({ ...entry, label: WEEKDAY_KEYS[dayIndexes[index]] }));
+    // The strip is a set of days, not a per-session assignment — it hands them
+    // back Monday-first however they were tapped. Which session lands on which
+    // of them is this app's answer, and it is the same one adoption gives:
+    // whatever comes next in the rotation takes the first day not yet gone.
+    const labels = rotateLabelsForNextSession(
+      dayIndexes.map((index) => WEEKDAY_KEYS[index]),
+      resolveNextPlanEntryIndex(ordered, getCanonicalCompletedSessions(database)),
+      new Date(),
+    );
+    const entries = ordered.map((entry, index) => ({ ...entry, label: labels[index] }));
     await upsertWorkoutPlan({
       ...plan,
       entries,
@@ -1648,9 +1658,19 @@ function VinhaApp() {
       // left alone rather than replaced by a week they did not choose.
       return;
     }
+    // Same rule as adoption and as the rhythm strip: the session that comes
+    // next takes the first training day that has not gone. Writing the spread
+    // straight through put session one on the earliest weekday, so a reader
+    // who moved a day mid-week was offered one session and shown another one's
+    // day beside it.
+    const placed = rotateLabelsForNextSession(
+      labels,
+      resolveNextPlanEntryIndex(ordered, getCanonicalCompletedSessions(database)),
+      new Date(),
+    );
     await upsertWorkoutPlan({
       ...plan,
-      entries: ordered.map((entry, index) => ({ ...entry, label: labels[index] })),
+      entries: ordered.map((entry, index) => ({ ...entry, label: placed[index] })),
       // Untouched on purpose: the plan record's own boundary is what the week
       // counter counts from, so moving days must not restart the block.
       updatedAt: plan.updatedAt,

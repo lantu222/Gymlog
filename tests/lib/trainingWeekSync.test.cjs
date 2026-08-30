@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const {
   planLabelsForProgramme,
   planLabelsFromWeekdays,
+  rotateLabelsForNextSession,
   weekdaysFromPlanLabels,
 } = require('../../.test-dist/lib/trainingWeekSync.js');
 
@@ -126,6 +127,45 @@ module.exports = [
       // One session has nothing to rotate, and must not be reordered into
       // something else by accident.
       assert.deepEqual(planLabelsForProgramme(1, ['thu'], wednesday), ['thu']);
+    },
+  },
+  {
+    name: "moving a day keeps the next session on the next training day",
+    run() {
+      // Sunday 30 Aug 2026. The reader trains wed/fri/sun and has finished
+      // nothing, so session one is next and Sunday is the first day left.
+      const sunday = new Date(2026, 7, 30);
+      assert.deepEqual(
+        rotateLabelsForNextSession(["wed", "fri", "sun"], 0, sunday),
+        ["sun", "wed", "fri"],
+      );
+
+      // Two sessions done, so session THREE is next — and it, not session
+      // one, is what today gets. Writing the spread Monday-first instead is
+      // what let Home offer one session and print another one's day on it.
+      assert.deepEqual(
+        rotateLabelsForNextSession(["wed", "fri", "sun"], 2, sunday),
+        ["wed", "fri", "sun"],
+        "session three takes Sunday; the other two follow in programme order",
+      );
+
+      // Every training day of the week has gone: the week wraps to its own
+      // first day rather than refusing to place anything.
+      assert.deepEqual(
+        rotateLabelsForNextSession(["mon", "wed", "fri"], 0, sunday),
+        ["mon", "wed", "fri"],
+      );
+
+      // A one-session programme has nothing to rotate and must not be
+      // reordered into something else by accident.
+      assert.deepEqual(rotateLabelsForNextSession(["thu"], 0, sunday), ["thu"]);
+
+      // An out-of-range pointer is folded rather than throwing: it arrives
+      // from a rotation that is modulo the entry count anyway.
+      assert.deepEqual(
+        rotateLabelsForNextSession(["wed", "fri", "sun"], 3, sunday),
+        rotateLabelsForNextSession(["wed", "fri", "sun"], 0, sunday),
+      );
     },
   },
 ];
