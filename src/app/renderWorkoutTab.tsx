@@ -6,6 +6,7 @@ import { buildFirstRunRecommendationReasons, FirstRunSetupSelection } from '../l
 import { formatShortDate } from '../lib/format';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { t } from '../lib/i18n';
+import { buildDaySwapCandidates } from '../lib/programDaySwap';
 import { AFFINITY_REASON_KEYS, resolveProgramAffinity } from '../lib/programAffinity';
 import { composeProgramWeekForSelection } from '../lib/programDayComposer';
 import { buildCustomProgramDetail, buildReadyProgramDetail } from '../lib/programDetails';
@@ -102,7 +103,8 @@ export interface WorkoutTabDeps {
       | { kind: 'replace'; exerciseName: string }
       | { kind: 'add'; exerciseNames: string[] }
       | { kind: 'prescribe'; prescription: ProgramPrescription }
-      | { kind: 'move'; direction: MoveDirection },
+      | { kind: 'move'; direction: MoveDirection }
+      | { kind: 'replaceDay'; candidateTemplateId: string; candidateSessionId: string; name: string },
   ) => Promise<void>;
   handleSaveRhythm: (workoutTemplateId: string, dayIndexes: number[]) => Promise<void>;
   handleSaveEmphasis: (
@@ -498,6 +500,17 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           void editProgramExercise(route.programType, route.workoutTemplateId, daySession.id, exerciseId, {
             kind: 'move',
             direction,
+          })
+        }
+        daySwapCandidates={buildDaySwapCandidates(daySession.id, exerciseLibrary)}
+        onSwapDay={(candidate) =>
+          // The empty exerciseId is deliberate: every other edit in this
+          // union names a lift, and this one names the day.
+          void editProgramExercise(route.programType, route.workoutTemplateId, daySession.id, '', {
+            kind: 'replaceDay',
+            candidateTemplateId: candidate.templateId,
+            candidateSessionId: candidate.sessionId,
+            name: candidate.sessionName,
           })
         }
         tailoringPreferences={preferences}

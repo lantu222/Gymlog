@@ -156,6 +156,7 @@ const suites = [
   ...require('./lib/entryDeletion.test.cjs'),
   ...require('./lib/readyProgrammeCopy.test.cjs'),
   ...require('./lib/successToasts.test.cjs'),
+  ...require('./lib/programDaySwap.test.cjs'),
   ...require('./lib/programSessionEdit.test.cjs'),
   ...require('./lib/weightDial.test.cjs'),
   ...require('./lib/welcomeMarquee.test.cjs'),

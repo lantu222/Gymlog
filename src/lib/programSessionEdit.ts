@@ -114,7 +114,17 @@ export type ProgramSessionEdit =
   /** The dose: how many sets, how many reps. Everything else about the row stays. */
   | { kind: 'prescribe'; exerciseId: string; prescription: ProgramPrescription }
   /** One place up or down inside its own day. */
-  | { kind: 'move'; exerciseId: string; direction: MoveDirection };
+  | { kind: 'move'; exerciseId: string; direction: MoveDirection }
+  /**
+   * The whole day, replaced by another one.
+   *
+   * Every other edit in this union changes one exercise inside a day. This
+   * one changes what the day IS — the request it answers was "haluaisin
+   * vaihtaa kokonaisen päivän", not a swap of one lift. The name travels
+   * with the exercises: a day whose contents became a chest session while
+   * its heading still said Legs would be the worst of both.
+   */
+  | { kind: 'replaceDay'; name: string; exercises: ReadonlyArray<ProgramSessionExerciseSnapshot> };
 
 export type ProgramSessionEditOutcome =
   | { kind: 'save'; sessions: ProgramSessionDayDraft[] }
@@ -173,6 +183,13 @@ export function applyProgramSessionEdit(
     }
   }
 
+  // A replacement with nothing in it would empty the day, and the guard at
+  // the bottom would report it as "last exercise in day" — a true sentence
+  // about the wrong action. Answered here, in its own words.
+  if (edit.kind === 'replaceDay' && edit.exercises.length === 0) {
+    return { kind: 'skip', reason: 'lastExerciseInDay' };
+  }
+
   const next: ProgramSessionDayDraft[] = sessions.map((session) => {
     const isTargetDay = session.id === sessionId;
     const exercises = session.exercises
@@ -210,6 +227,14 @@ export function applyProgramSessionEdit(
       // its destination close up behind it rather than swapping identities.
       const [moved] = exercises.splice(from, 1);
       exercises.splice(to, 0, moved);
+    }
+
+    if (isTargetDay && edit.kind === 'replaceDay') {
+      return {
+        id: session.id,
+        name: edit.name,
+        exercises: edit.exercises.map(toDraftExercise),
+      };
     }
 
     return {
