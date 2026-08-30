@@ -23,8 +23,8 @@ module.exports = [
   {
     name: 'i18n: templates interpolate {name} vars in both languages',
     run() {
-      assert.equal(t('en', 'home.hero.sessionsProgress', { done: 2, total: 8 }), '2 of 8 sessions');
-      assert.equal(t('fi', 'home.hero.sessionsProgress', { done: 2, total: 8 }), '2/8 treeniä');
+      assert.equal(t('en', 'home.hero.sessionsProgress', { done: 2, total: 8 }), '2 sessions logged');
+      assert.equal(t('fi', 'home.hero.sessionsProgress', { done: 2, total: 8 }), '2 treeniä kirjattu');
       assert.equal(
         t('en', 'home.section.workoutMeta', { count: 4, sets: 11 }),
         '4 exercises · 11 sets',

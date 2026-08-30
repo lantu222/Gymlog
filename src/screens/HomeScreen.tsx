@@ -25,7 +25,7 @@ import { CardioIconKind } from '../lib/cardio';
 import { HomeStatCard } from '../lib/homeStatCards';
 import { VinhaIcon } from '../components/VinhaIcon';
 import { getHomeMiniCalendarDays, getHomeMonthCalendar, HomeDaySessionSummary } from '../lib/homeCalendar';
-import { isScheduleKnown, TrainingSchedule, trainsOn, UNKNOWN_SCHEDULE, upcomingSessionDayStarts } from '../lib/trainingSchedule';
+import { isScheduleKnown, sessionSlotOn, TrainingSchedule, trainsOn, UNKNOWN_SCHEDULE, upcomingSessionDayStarts } from '../lib/trainingSchedule';
 import { getDefaultCooldown, getDefaultWarmup, getSessionFocusTitle } from '../lib/homeSessionHero';
 import { AnimatedGreeting } from '../components/AnimatedGreeting';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
@@ -1353,100 +1353,79 @@ export function HomeScreen({
             <Text style={styles.programTitle} numberOfLines={2}>
               {activePlan.title}
             </Text>
-            <View style={styles.programDays}>
-              {activePlan.sessions.map((session, index) => {
-                // The schedule's projected date for this session — the same
-                // truth the calendar strip lights. Null when nothing is known,
-                // and the row simply draws no badge.
-                const dayStart = planSessionDayStarts[index] ?? null;
-                const weekday = dayStart !== null ? weekdayCodeForDate(new Date(dayStart)) : null;
-                // The outline still answers the plan — it is the row the hero
-                // is offering, and it is quiet. The word on the row answers a
-                // different question: was this one done this week.
-                const isNext = activePlan.nextSession?.id === session.id;
-                const isToday = dayStart !== null && dayStart === todayDayStart;
-                const doneThisWeek = doneThisWeekSessionIds.includes(session.id);
-                // The badge is the day, and only when the schedule really has
-                // one. Without a schedule it repeated the session number that
-                // the title already states, and cost the title the width it
-                // then truncated for.
-                const weekdayText = weekday ? weekdayLabel(weekday, language) : null;
-                // The badge already says which day this is; the ordinal in the
-                // name said it again and cost the focus the room to be read.
-                const sessionTitle = localizeSessionFocus(session.title, language);
-                return (
-                  <Pressable
-                    key={session.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${weekdayText ? `${weekdayText}: ` : ''}${sessionTitle}${
-                      doneThisWeek ? `, ${t(language, 'home.plan.doneThisWeek').toLowerCase()}` : ''
-                    }${isNext ? `, ${t(language, 'plan.upNext').toLowerCase()}` : ''}`}
-                    // The row opens its own day; the section title above still
-                    // opens the whole plan (user 2026-08-23).
-                    onPress={
-                      onOpenPlanSession ? () => onOpenPlanSession(session.id) : onOpenActivePlan
-                    }
-                    // A3: the row slides right under the thumb rather than
-                    // dimming — the speed line it carries points that way.
-                    style={({ pressed }) => [pressed && styles.rowPressed]}
-                  >
-                    <CutSurface
-                      size="lg"
-                      fill={theme.surface}
-                      stroke={isNext ? theme.purpleBright : undefined}
-                      speedLine={{ color: theme.purpleBright }}
-                      style={[styles.dayRow, styles.dayRowCut]}
+            {/* The programme week as a compact strip, not five cards
+                (design frame 15). The cards each carried a weekday badge, a
+                name, a duration and a chevron — a week of them was a screen
+                of furniture repeating what one row can say. The strip is the
+                same truth the calendar lights: each chip is a weekday, and a
+                training day wears the first letters of the session that
+                lands on it. The rows' tap targets went with the cards; the
+                one door into the plan is the button below. */}
+            {scheduleKnown ? (
+              <View
+                style={styles.programWeekStrip}
+                accessibilityLabel={activePlan.sessions
+                  .map((session, index) => {
+                    const dayStart = planSessionDayStarts[index] ?? null;
+                    const weekday = dayStart !== null ? weekdayCodeForDate(new Date(dayStart)) : null;
+                    return weekday
+                      ? `${weekdayLabel(weekday, language)}: ${localizeSessionFocus(session.title, language)}`
+                      : localizeSessionFocus(session.title, language);
+                  })
+                  .join(', ')}
+              >
+                {Array.from({ length: 7 }, (_, offset) => {
+                  // This calendar week, Monday first — the same walk the
+                  // month grid does, from the same schedule.
+                  const now = new Date();
+                  const monday = new Date(
+                    now.getFullYear(),
+                    now.getMonth(),
+                    now.getDate() - ((now.getDay() + 6) % 7) + offset,
+                  );
+                  const slot = sessionSlotOn(trainingSchedule, monday);
+                  const session =
+                    slot !== null && activePlan.sessions.length > 0
+                      ? activePlan.sessions[((slot % activePlan.sessions.length) + activePlan.sessions.length) % activePlan.sessions.length]
+                      : null;
+                  const code = session
+                    ? localizeSessionFocus(session.title, language)
+                        .replace(/[^\p{L}]/gu, '')
+                        .slice(0, 3)
+                        .toUpperCase()
+                    : null;
+                  const isToday = monday.getDate() === now.getDate() && monday.getMonth() === now.getMonth();
+                  // Reported, not predicted: a chip goes green only when its
+                  // session was actually trained this week — the same fact
+                  // the old rows carried as the "Tehty" pill.
+                  const done = session !== null && doneThisWeekSessionIds.includes(session.id);
+                  return (
+                    <View
+                      key={offset}
+                      style={[
+                        styles.programWeekDay,
+                        session === null && styles.programWeekDayOff,
+                        isToday && styles.programWeekDayToday,
+                        done && styles.programWeekDayDone,
+                      ]}
                     >
-                    {weekdayText ? (
-                      // Nesting is allowed when the inner element is off the
-                      // corner — the design names this badge as the example.
-                      <CutSurface
-                        size="chip"
-                        fill={isToday ? theme.purple : theme.bg}
-                        style={styles.dayBadge}
-                      >
-                        <Text style={[styles.dayBadgeText, isToday && styles.dayBadgeTextToday]}>{weekdayText}</Text>
-                      </CutSurface>
-                    ) : null}
-                    {/* Two lines, not one. On one line the title, the TODAY
-                        pill and the duration competed for the same width, and
-                        the title is the one that lost — "Päivä 1: Työntö ja
-                        kevyt juoksu" arrived as "Päivä 1: Työntö ja…". The
-                        title now owns the first line and the two labels that
-                        describe it sit under it. */}
-                    <View style={styles.dayCopy}>
-                      <Text style={styles.dayTitle} numberOfLines={2}>
-                        {sessionTitle}
+                      <Text style={styles.programWeekDayName}>
+                        {weekdayLabel(weekdayCodeForDate(monday), language)}
                       </Text>
-                      <View style={styles.dayMetaRow}>
-                        {/* One word, and only when it is a fact. Two chips that
-                            predict — one from the calendar, one from the
-                            rotation — landed on different rows on most days and
-                            argued with each other. */}
-                        {doneThisWeek ? (
-                          <CutSurface size="chip" fill={theme.green} style={styles.todayPill}>
-                            <Text style={[styles.todayPillText, styles.donePillText]}>
-                              {t(language, 'home.plan.doneThisWeek')}
-                            </Text>
-                          </CutSurface>
-                        ) : null}
-                        <Text style={styles.dayDuration}>{session.duration}</Text>
-                      </View>
+                      <Text
+                        style={[
+                          styles.programWeekDayCode,
+                          session === null && styles.programWeekDayCodeOff,
+                          done && styles.programWeekDayCodeDone,
+                        ]}
+                      >
+                        {code ?? '·'}
+                      </Text>
                     </View>
-                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                      <Path
-                        d="m9 6 6 6-6 6"
-                        stroke={theme.faint}
-                        strokeWidth={2.2}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </Svg>
-                    </CutSurface>
-                  </Pressable>
-                );
-              })}
-            </View>
+                  );
+                })}
+              </View>
+            ) : null}
             {/* One action, not two (design: Sheets & Pickers, frame 04).
                 "Edit days" went: a day row opens that day, and the schedule
                 editor lives on the plan screen this button already opens —
@@ -1544,6 +1523,10 @@ export function HomeScreen({
         <Animated.View style={[styles.sectionDivider, rise(RISE_DIVIDER)]} />
 
         <Animated.View style={rise(RISE_EMPTY_ROW)}>
+          {/* Named, like every other section (design frame 15): two rows with
+              no heading read as leftovers under the plan rather than as the
+              other things this screen can log. */}
+          <Text style={styles.logElseTitle}>{t(language, 'home.logElse')}</Text>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t(language, 'home.a11y.startEmptyWorkout')}
@@ -2601,91 +2584,59 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     letterSpacing: -0.3,
     marginTop: 4,
   },
-  programDays: {
-    marginTop: 11,
-    gap: 8,
+  /* The programme week as chips (design frame 15). */
+  programWeekStrip: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 4,
   },
-  dayRow: {
-    // Twice the old 54: a session title is a sentence in Finnish, and the row
-    // has to hold it plus the two labels under it without either truncating.
-    minHeight: 108,
-    borderRadius: 13,
+  programWeekDay: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 3,
+    paddingVertical: 9,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: theme.border,
-    backgroundColor: theme.surface,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 13,
-    paddingVertical: 14,
+    backgroundColor: 'rgba(255,255,255,0.03)',
   },
-  dayCopy: {
-    flex: 1,
-    gap: 8,
+  programWeekDayOff: {
+    backgroundColor: 'transparent',
   },
-  dayMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  programWeekDayToday: {
+    borderColor: 'rgba(155,109,255,0.45)',
+    backgroundColor: 'rgba(155,109,255,0.08)',
+  },
+  programWeekDayDone: {
+    borderColor: 'rgba(55,208,138,0.45)',
+  },
+  programWeekDayCodeDone: {
+    color: theme.green,
+  },
+  programWeekDayName: {
+    fontFamily: 'JetBrainsMono',
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    color: theme.faint,
+  },
+  programWeekDayCode: {
+    fontFamily: 'JetBrainsMono',
+    fontSize: 10.5,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    color: theme.purpleBright,
+  },
+  programWeekDayCodeOff: {
+    color: theme.faint,
   },
   dayRowToday: {
     borderColor: theme.purple,
     borderWidth: 1.5,
   },
-  dayBadge: {
-    width: 42,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayBadgeText: {
-    color: theme.muted,
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-  },
-  dayBadgeTextToday: {
-    color: '#FFFFFF',
-  },
-  dayTitle: {
-    color: theme.ink,
-    fontSize: 16,
-    lineHeight: 21,
-    fontWeight: '800',
-  },
-  todayPill: {
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  todayPillText: {
-    color: '#FFFFFF',
-    fontSize: 9.5,
-    lineHeight: 12,
-    fontWeight: '900',
-    letterSpacing: 0.8,
-  },
   // The quieter of the two: the row it sits on already carries the outline.
   nextPillText: {
     color: theme.purple,
-  },
-  dayDuration: {
-    color: theme.muted,
-    fontSize: 13,
-    lineHeight: 17,
-    fontWeight: '600',
-  },
-  dayRowCut: {
-    // The surface paints the background now, and the speed line needs room to
-    // the left of the badge.
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-    paddingLeft: 26,
-  },
-  rowPressed: {
-    transform: [{ translateX: 3 }],
   },
   programActions: {
     gap: 10,
@@ -2812,6 +2763,15 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     height: 1,
     backgroundColor: theme.border,
     marginTop: 22,
+  },
+  logElseTitle: {
+    fontFamily: 'JetBrainsMono',
+    fontSize: 10.5,
+    fontWeight: '700',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: theme.faint,
+    marginBottom: 10,
   },
   emptyWorkoutRow: {
     minHeight: 54,
@@ -2962,9 +2922,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   adaptScrim: {
     ...StyleSheet.absoluteFillObject,
-  },
-  donePillText: {
-    color: '#FFFFFF',
   },
   // The kicker and the title stack; that stack shares the row with the session
   // counter. Put in the row directly, the kicker became a third column and

@@ -144,7 +144,9 @@ module.exports = [
       // Home simplification round (2026-07-20): hero title bumped to 38.
       assert.match(homeScreenSource, /heroTitle:\s*\{[\s\S]*fontSize: 38/);
       assert.match(homeScreenSource, /t\(language, 'home\.hero\.sessionsProgress', \{ done: sessionsDone, total: sessionsTotal \}\)/);
-      assert.match(i18nSource, /'home\.hero\.sessionsProgress': '\{done\} of \{total\} sessions'/);
+      // Counts sessions plainly (design frame 15): "of 60" repeated the block
+      // total that the programme section's "Week 1 of 12" already carries.
+      assert.match(i18nSource, /'home\.hero\.sessionsProgress': '\{done\} sessions logged'/);
       assert.match(homeScreenSource, /heroProgTrack:\s*\{\s*width: 88,\s*height: 6/);
       assert.match(homeScreenSource, /heroProgFill:\s*\{[\s\S]*backgroundColor: theme.purple/);
       assert.match(homeScreenSource, /progressFillAnim\.interpolate\(\{ inputRange: \[0, 100\], outputRange: \['0%', '100%'\] \}\)/);
@@ -426,10 +428,13 @@ module.exports = [
       // program; Home is for running one, and only one screen owns it.
       assert.match(homeScreenSource, /onPress=\{onOpenActivePlan\}/);
       assert.match(homeScreenSource, /t\(language, 'programs\.activeProgram'\)/);
-      assert.match(homeScreenSource, /activePlan\.sessions\.map/);
-      // Two actions and nothing else: see the plan, edit the days.
+      // The sessions feed the strip's accessibility line now — the five day
+      // cards became a compact week strip (design frame 15).
+      assert.match(homeScreenSource, /activePlan\.sessions\s*\n?\s*\.map/);
+      // ONE action: see the plan. "Edit days" went with frame 04 — the
+      // schedule editor lives on the plan screen this button opens.
       assert.match(homeScreenSource, /t\(language, 'programs\.viewPlan'\)/);
-      assert.match(homeScreenSource, /onPress=\{onSetTrainingDays\}/);
+      assert.doesNotMatch(homeScreenSource, /programs\.editDays/);
       // The weekday rule is shared, not copied. Two screens with their own
       // opinion about the same week is the bug that rule exists to prevent.
       assert.match(homeScreenSource, /from '\.\.\/lib\/planWeekdays'/);
@@ -646,11 +651,12 @@ module.exports = [
       // which survive a switch to a cycle untouched and kept saying MON/THU
       // under a six-day rotation (user, 2026-08-25).
       assert.match(homeScreenSource, /upcomingSessionDayStarts\(trainingSchedule, planSessions\.length\)/);
-      assert.match(homeScreenSource, /const isToday = dayStart !== null && dayStart === todayDayStart/);
       assert.doesNotMatch(homeScreenSource, /resolveSessionWeekday|hasFixedWeekdays/);
-      assert.match(homeScreenSource, /const isNext = activePlan\.nextSession\?\.id === session\.id/);
-      // The outline is the plan's mark, the pill is the calendar's.
-      assert.match(homeScreenSource, /stroke=\{isNext \? theme\.purpleBright : undefined\}/);
+      // The five day cards became a compact strip (design frame 15), and the
+      // strip asks the SCHEDULE which session a date owns — the same walk the
+      // calendars do — never the plan's stored weekday labels.
+      assert.match(homeScreenSource, /styles\.programWeekStrip/);
+      assert.match(homeScreenSource, /sessionSlotOn\(trainingSchedule, monday\)/);
       assert.doesNotMatch(homeScreenSource, /const isToday = activePlan\.nextSession/);
     },
   },
@@ -709,7 +715,10 @@ module.exports = [
     run() {
       assert.doesNotMatch(homeScreenSource, /'programs\.today'/);
       assert.doesNotMatch(homeScreenSource, /t\(language, 'plan\.upNext'\)\s*\}/);
+      // The strip still REPORTS: a chip goes green only when its session was
+      // trained this week — the "Tehty" pill's fact, one glyph smaller.
       assert.match(homeScreenSource, /doneThisWeekSessionIds\.includes\(session\.id\)/);
+      assert.match(homeScreenSource, /programWeekDayDone/);
       assert.match(i18nSource, /'home\.plan\.doneThisWeek': 'Tehty'/);
 
       // And the hero carries no label of its own: the answer to a name being

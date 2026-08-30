@@ -53,7 +53,6 @@ import { parseWidgetDeepLink } from './src/lib/widgetDeepLink';
 import { planSetupHandoff } from './src/lib/setupHandoff';
 import { SetupHandoffChoices, SetupHandoffScreen } from './src/screens/SetupHandoffScreen';
 import { useAccountBackup } from './src/features/account/useAccountBackup';
-import { hasLocalDataWorthKeeping } from './src/lib/accountBackup';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
 import {
@@ -95,6 +94,7 @@ import {
 } from './src/lib/proInsights';
 import { markCoachDemoMomentUsed, resolveDueCoachDemoMoment } from './src/lib/coachDemoMoments';
 import { buildHomePlanProgress } from './src/lib/homePlanProgress';
+import { resolveHomePrompt } from './src/lib/homePrompts';
 import { buildHomeStatCardCatalog, buildHomeStatCards, resolveHomeStatCardKeys } from './src/lib/homeStatCards';
 import { silencedSuggestionKinds } from './src/lib/coachSuggestions';
 import {
@@ -3229,6 +3229,23 @@ function VinhaApp() {
     () => resolveHomeStatCardKeys(preferences.homeStatCardKeys),
     [preferences.homeStatCardKeys],
   );
+  /**
+   * The ONE prompt card Home may show (design frame 15). The suggester and
+   * the sign-in offer used to render independently and stacked; the queue
+   * decides, and the props below go quiet for whichever card is not up.
+   */
+  const homeSuggestedStatCardKeys = suggestHomeStatCardKeys({
+    focusAreas: preferences.setupFocusAreas,
+    goals: [preferences.setupGoal, ...preferences.setupGoals],
+    pinnedKeys: homePinnedStatCardKeys,
+    dismissedKeys: preferences.dismissedCardSuggestionKeys,
+  });
+  const homePrompt = resolveHomePrompt({
+    signInAvailable: accountBackup.available && accountBackup.state.status === 'signed_out',
+    signInDismissed: preferences.accountBackupPromptDismissed,
+    loggedSessionCount: database.workoutSessions.length + database.cardioSessions.length,
+    suggestionKey: homeSuggestedStatCardKeys[0] ?? null,
+  });
   // Same equipment truth the composer filters exercises with, for the default
   // warmup/cooldown drills: null = setup never said, [] = no equipment at all.
   // Week-strip training dots from the days the user actually picked
@@ -5347,13 +5364,11 @@ function VinhaApp() {
             : null
         }
         accountBackupPrompt={
-          // The one-time offer for installs that never see the hand-off card
-          // again. Signed out, never dismissed, and with logged work worth
-          // keeping — a fresh install gets the hand-off, not this.
-          accountBackup.available &&
-          accountBackup.state.status === 'signed_out' &&
-          !preferences.accountBackupPromptDismissed &&
-          hasLocalDataWorthKeeping(database)
+          // One prompt at a time, and this one waits for the third logged
+          // session (lib/homePrompts): a fresh install has nothing worth
+          // backing up, and the account ask is the one most likely to be
+          // both refused and remembered.
+          homePrompt === 'signIn'
             ? {
                 onSignIn: () => {
                   void handleAccountSignIn().then((kind) => {
@@ -5371,12 +5386,7 @@ function VinhaApp() {
         trainingSchedule={homeTrainingSchedule}
         doneThisWeekSessionIds={homeDoneThisWeekSessionIds}
         statCatalogCards={homeStatCatalogCards}
-        suggestedStatCardKeys={suggestHomeStatCardKeys({
-          focusAreas: preferences.setupFocusAreas,
-          goals: [preferences.setupGoal, ...preferences.setupGoals],
-          pinnedKeys: homePinnedStatCardKeys,
-          dismissedKeys: preferences.dismissedCardSuggestionKeys,
-        })}
+        suggestedStatCardKeys={homePrompt === 'suggestion' ? homeSuggestedStatCardKeys : []}
         onDismissStatCardSuggestion={(key) =>
           void updatePreferences({
             dismissedCardSuggestionKeys: [...preferences.dismissedCardSuggestionKeys, key],

@@ -260,6 +260,31 @@ export function HomeStatCardsSection({
           in weeks ago would be unpredictable rather than helpful. */}
       {suggestion ? (
         <View style={styles.suggestCard}>
+          {/* Where the suggestion came from, before what it wants (design
+              frame 14): a card that opens with its own provenance reads as
+              the app remembering, not the app selling. The X is the same
+              answer as "Not now" — two doors, one meaning. */}
+          <View style={styles.suggestKickerRow}>
+            <Text style={styles.suggestKicker} numberOfLines={1}>
+              {t(language, 'cards.suggest.from', { label: suggestion.label })}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(language, 'cards.suggest.no')}
+              hitSlop={8}
+              onPress={() => onDismissSuggestion?.(suggestion.key)}
+              style={({ pressed }) => [styles.suggestX, pressed && { opacity: 0.7 }]}
+            >
+              <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M6 6l12 12M18 6L6 18"
+                  stroke={theme.muted}
+                  strokeWidth={2.4}
+                  strokeLinecap="round"
+                />
+              </Svg>
+            </Pressable>
+          </View>
           <View style={styles.suggestCopy}>
             {/* One sentence per measurement, not one sentence with the label
                 dropped in: Finnish inflects, so "{label}" produced
@@ -459,6 +484,30 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginBottom: 12,
     gap: 12,
   },
+  suggestKickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  suggestKicker: {
+    flex: 1,
+    fontFamily: 'JetBrainsMono',
+    fontSize: 10.5,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: theme.faint,
+  },
+  suggestX: {
+    width: 26,
+    height: 26,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: theme.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   suggestCopy: {
     gap: 8,
   },
@@ -530,12 +579,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   suggestPrimary: {
     borderRadius: 10,
-    backgroundColor: theme.purpleBright,
+    // The kit's colour rule: orange is "anything pressable", and adding the
+    // card is the thing to do. Violet is for state.
+    backgroundColor: theme.highlight,
     paddingHorizontal: 16,
     paddingVertical: 9,
   },
   suggestPrimaryText: {
-    color: '#FFFFFF',
+    color: theme.onHighlight, // was '#FFFFFF',
     fontSize: 13,
     fontWeight: '800',
   },
