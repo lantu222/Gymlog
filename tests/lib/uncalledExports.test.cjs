@@ -42,6 +42,8 @@ const ALLOWED = {
   decideRatingPrompt: 'See emptyRatingPromptState.',
   recordRatingAsked: 'See emptyRatingPromptState.',
   recordRatingCompleted: 'See emptyRatingPromptState.',
+  UNLISTED_READY_PROGRAMS:
+    'A declaration, not a call: the programmes deliberately kept out of the browse collections, read only by the guard that fails when a template is in neither. Wiring it to a screen would give it behaviour it must not have — it exists so that "not browsable" is always a decision someone wrote down.',
 };
 
 const EXPORT_RE = /^export\s+(?:async\s+)?(?:function|const|class)\s+([A-Za-z_$][\w$]*)/gm;

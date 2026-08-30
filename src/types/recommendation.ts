@@ -1,4 +1,4 @@
-import type { SetupFocusArea, SetupGoal, SetupLevel, SetupSecondaryOutcome, SetupEquipment, SetupGender } from './models';
+import type { SetupAgeRange, SetupFocusArea, SetupGoal, SetupLevel, SetupSecondaryOutcome, SetupEquipment, SetupGender } from './models';
 import type { RecommendationProfile } from '../lib/recommendationProfile';
 import type { I18nKey } from '../lib/i18n';
 
@@ -33,6 +33,14 @@ export interface RecommendationInput {
   weeklyMinutes: number | null;
   preferredSessionMinutes: number | null;
   wantsConsistency: boolean;
+  /**
+   * The band the reader picked in onboarding, or null when they skipped it.
+   *
+   * Collected since the first setup screen and, until now, read by nothing:
+   * stored, shown back on the My data screen, and never once allowed to change
+   * an answer. See scorePreferenceFit for the single thing it decides.
+   */
+  ageRange: SetupAgeRange | null;
 }
 
 export interface RecommendationProgramDefinition {

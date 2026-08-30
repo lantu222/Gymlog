@@ -34,6 +34,12 @@ export const READY_PROGRAM_COLLECTIONS: ReadyProgramCollection[] = [
       'tpl_3_day_upper_lower_lite_v1',
       'tpl_3_day_strength_base_v1',
       'tpl_4_day_muscle_builder_v1',
+      'tpl_gainer_at_home_beginner_v1',
+      'tpl_gainer_strength_5x5_v1',
+      // "Joint-friendly" describes how it trains, not a condition it treats.
+      // That is the line this app holds wherever it touches health: a
+      // description of the training passes, a claim about a complaint does not.
+      'tpl_gainer_joint_friendly_v1',
     ],
   },
   {
@@ -65,6 +71,11 @@ export const READY_PROGRAM_COLLECTIONS: ReadyProgramCollection[] = [
       'tpl_5_day_upper_lower_full_v1',
       'tpl_6_day_ppl_v1',
       'tpl_6_day_arnold_v1',
+      'tpl_gainer_dream_body_man_v1',
+      'tpl_gainer_dream_body_female_v1',
+      'tpl_gainer_beginner_bro_split_v1',
+      'tpl_gainer_hourglass_shape_v1',
+      'tpl_gainer_strong_lean_female_v1',
     ],
   },
   {
@@ -81,6 +92,9 @@ export const READY_PROGRAM_COLLECTIONS: ReadyProgramCollection[] = [
       'tpl_3_day_upper_lower_lite_v1',
       'tpl_4_day_upper_lower_v1',
       'tpl_fit_elite_v1',
+      'tpl_gainer_athlete_conditioning_v1',
+      'tpl_gainer_runners_strength_v1',
+      'tpl_gainer_mobility_flow_v1',
     ],
   },
   {
@@ -97,6 +111,9 @@ export const READY_PROGRAM_COLLECTIONS: ReadyProgramCollection[] = [
       'tpl_6_day_arnold_v1',
       'tpl_strong_elite_v1',
       'tpl_fit_elite_v1',
+      'tpl_gainer_advanced_ppl_v1',
+      'tpl_gainer_expert_powerbuilding_v1',
+      'tpl_gainer_calisthenics_mastery_v1',
     ],
   },
   {
@@ -129,6 +146,30 @@ export const READY_PROGRAM_COLLECTIONS: ReadyProgramCollection[] = [
       'tpl_focus_arms_v1',
       'tpl_focus_legs_v1',
       'tpl_focus_glutes_v1',
+      'tpl_gainer_glute_foundations_v1',
+      'tpl_gainer_advanced_glutes_v1',
     ],
   },
+];
+
+/**
+ * In the catalogue on purpose, out of the browse collections on purpose.
+ *
+ * Every id here needs a reason, and the suite fails on a template that is
+ * in neither a collection nor this list. That is the whole point: eighteen
+ * programmes went missing from the picker without anything going red,
+ * including eleven of the sixteen the welcome screen was curated to show.
+ */
+export const UNLISTED_READY_PROGRAMS: readonly string[] = [
+  // Seasons are joined from SeasonScreen, not picked as a plan. A dated
+  // competition in the "pick a programme" list would be a different promise.
+  'tpl_season_summer_v1',
+  'tpl_season_winter_v1',
+  // Awaiting a decision (2026-08-29). These two are reachable on the Programs
+  // tab, where a reader goes looking for them, but are not offered to every
+  // new user during onboarding. Naming a collection around them is the point
+  // where the catalogue starts making claims about a health condition rather
+  // than about training.
+  'tpl_gainer_prenatal_fitness_v1',
+  'tpl_gainer_postpartum_recovery_v1',
 ];

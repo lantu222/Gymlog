@@ -6,6 +6,10 @@ const { resolveProgramAffinity, AFFINITY_REASON_KEYS } = require('../../.test-di
 const { buildProgramCampaigns } = require('../../.test-dist/lib/programCampaigns.js');
 const { PROGRAM_CATEGORIES } = require('../../.test-dist/lib/programCategories.js');
 const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog');
+const {
+  READY_PROGRAM_COLLECTIONS,
+  UNLISTED_READY_PROGRAMS,
+} = require('../../.test-dist/lib/readyProgramCollections.js');
 
 function read(...segments) {
   return fs.readFileSync(path.join(__dirname, '..', '..', ...segments), 'utf8');
@@ -134,6 +138,40 @@ module.exports = [
           assert.match(value, /^#[0-9A-F]{6}$/, `${entry.key} has a colour RN cannot parse: ${value}`);
         }
         assert.match(entry.icon, /^M/, `${entry.key} icon is not a path`);
+      }
+    },
+  },
+  {
+    name: 'every ready programme is either browsable or listed as deliberately not',
+    run() {
+      // Eighteen programmes were in the catalogue and in no collection, so the
+      // onboarding picker showed 37 of 57 — including eleven of the sixteen the
+      // welcome screen is hand-curated to advertise. Nothing went red, because
+      // absence cost nothing. It costs something now.
+      const listed = new Set();
+      for (const collection of READY_PROGRAM_COLLECTIONS) {
+        for (const id of collection.templateIds) {
+          listed.add(id);
+        }
+      }
+      const unlisted = new Set(UNLISTED_READY_PROGRAMS);
+
+      const missing = WORKOUT_TEMPLATES_V1.filter(
+        (template) => !listed.has(template.id) && !unlisted.has(template.id),
+      ).map((template) => template.name);
+      assert.deepEqual(
+        missing,
+        [],
+        'these programmes exist but cannot be found: add them to a collection, or to UNLISTED_READY_PROGRAMS with a reason',
+      );
+
+      // The exclusion list may only name programmes that exist, and may not
+      // name one that is also in a collection — either would make it a place
+      // where a stale id hides rather than a decision anyone can read.
+      const ids = new Set(WORKOUT_TEMPLATES_V1.map((template) => template.id));
+      for (const id of unlisted) {
+        assert.ok(ids.has(id), `UNLISTED_READY_PROGRAMS names ${id}, which is not in the catalogue`);
+        assert.ok(!listed.has(id), `${id} is both excluded and in a collection`);
       }
     },
   },
