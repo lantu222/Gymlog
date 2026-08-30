@@ -743,8 +743,10 @@ export function AICoachChatScreen({
         // Charged for an answer, not for a send, and only to the tier that
         // has a counter. An answer that could only ask for a clearer question
         // is free: 25 a month is too few to spend one on a chip the app
-        // itself offered and could not handle.
-        if (proUnlocked && !answer.unanswered) {
+        // itself offered and could not handle. A preview-sourced reply is
+        // free on the same rule as the demo charge below — it is the canned
+        // text, not the product the counter meters (PR #33 review).
+        if (proUnlocked && !answer.unanswered && result.source !== 'preview') {
           onQuestionUsed();
         }
         // And the demo moment, on the same rule but stricter, because there

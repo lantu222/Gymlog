@@ -225,7 +225,7 @@ export function PremiumScreen({
   reason = null,
   previewUnlocked,
   proUnlocked,
-  language = 'fi',
+  language = 'en',
   onBack,
   onTogglePreview,
   onManageSubscription,
