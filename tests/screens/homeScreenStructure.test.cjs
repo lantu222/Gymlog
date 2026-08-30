@@ -192,9 +192,11 @@ module.exports = [
       assert.match(homeScreenSource, /planExerciseNumberChip:\s*\{\s*width: 25,\s*height: 25/);
       assert.match(homeScreenSource, /planExerciseScheme:\s*\{[\s\S]*fontFamily: 'JetBrainsMono'/);
       assert.match(homeScreenSource, /exercise\.schemeLabel \?\? exercise\.setsLabel/);
-      // Inline Adapt + Start row (no floating bar) and the Adapt sheet, which
-      // is now one real action rather than four rows that closed it.
-      assert.match(homeScreenSource, /adaptButton:\s*\{\s*flex: 1,\s*height: 56,\s*borderRadius: 16,\s*borderWidth: 1\.5,\s*borderColor: theme.border/);
+      // Inline Start row, no floating bar. Adapt stood beside it until
+      // 2026-08-30 and is gone with its sheet: dropping the programme and
+      // rebuilding it already live in the programme's own screen, and the
+      // short version was answering a question the player answers set by set.
+      assert.doesNotMatch(homeScreenSource, /adaptButton|adaptSheetVisible|onStartTrimmedSession/);
       // Start workout is a FILLED play button now (user 2026-08-25, after a
       // tester tapped the first exercise to "check it off" — the outline
       // version below the list read as one row among many).
@@ -230,30 +232,18 @@ module.exports = [
       assert.match(i18nSource, /'home\.startWorkout': 'Start workout'/);
       assert.match(i18nSource, /'home\.findProgram': 'Find a program'/);
       assert.match(appSource, /onFindProgram=\{\(\) => navigateToTab\('workout'\)\}/);
-      assert.match(i18nSource, /'home\.adaptSheet\.shorter\.title': 'Shorter session'/);
-      // Minutes again, but only because there is now one formula. The sheet
-      // and the player used to disagree about the same session (~35 vs ~50)
-      // and the promise was the one the user read first, so the copy retreated
-      // to sets. Both numbers now come from previewSessionTrim, which runs the
-      // real trim plan through estimateSessionMinutes.
-      assert.match(homeScreenSource, /t\(language, 'home\.adaptSheet\.shorter\.explain', \{[\s\S]*after: adaptTrim\.minutes,/);
-      assert.match(homeScreenSource, /const adaptTrim = nextPlanSession\?\.trim \?\? null;/);
-      // Home sees only the first five exercises, so it must not compute the
-      // preview itself — App.tsx does it where the whole session is in hand.
+      // Adapt is gone, whole (user 2026-08-30). Of its three rows, dropping the
+      // programme and rebuilding it both already live in the programme's own
+      // screen — doing them from Home was a second door onto the same
+      // decision — and the short version was answering before you leave the
+      // house a question the player now answers set by set. The trim estimate
+      // that fed it went with it: it had exactly one reader.
+      assert.doesNotMatch(homeScreenSource, /adaptSheet\.|adaptTrim|onStartTrimmedSession|onRedoOnboarding|onRemoveActivePlan/);
+      assert.doesNotMatch(appSource, /previewSessionTrim|onStartTrimmedSession|onRedoOnboarding=/);
+      assert.doesNotMatch(i18nSource, /'home\.adapt'|'home\.adaptSheet\./);
+      // Home still must not compute a session preview for itself: it sees only
+      // the first five exercises, which is why the estimate lived in App.tsx.
       assert.doesNotMatch(homeScreenSource, /previewSessionTrim|getAdaptTrimEstimate/);
-      assert.match(appSource, /trim: previewSessionTrim\(durationInputs, routineSeconds\)/);
-
-      // The three options that used to sit beside it are gone, and must not
-      // come back here: a taken rack and a body with nothing in it are both
-      // discovered in the gym, and the player answers both. Only the trim is
-      // knowable before you leave the house.
-      assert.doesNotMatch(i18nSource, /'home\.adaptSheet\.(equipment|swap|energy)\./);
-      assert.doesNotMatch(homeScreenSource, /adaptSheet\.(equipment|swap|energy)/);
-
-      // And the trim actually starts a session instead of closing a sheet.
-      assert.match(homeScreenSource, /onStartTrimmedSession\?\.\(nextPlanSession\.id\)/);
-      assert.match(homeScreenSource, /adaptCancel/);
-      assert.match(homeScreenSource, /onRequestClose=\{\(\) => setAdaptSheetVisible\(false\)\}/);
       // Hero + accordions render only with an active plan.
       assert.match(homeScreenSource, /\{activePlan && nextPlanSession \? \(/);
       // The Home pro sheet is gone (GAINER Paywall Moments): the PRO pill

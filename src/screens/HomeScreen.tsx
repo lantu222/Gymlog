@@ -212,8 +212,6 @@ interface HomeScreenProps {
   programCapLine?: string | null;
   onOpenOtherProgram?: (planId: string) => void;
   onRemoveOtherProgram?: (planId: string) => void;
-  /** Adapt sheet: drop the programme Home is leading with. */
-  onRemoveActivePlan?: () => void;
   /** Completion card: adopt the step-up programme and lead with it. */
   onCompletionStartNext?: (planId: string, templateId: string) => void;
   /** Completion card: run the same block again from 0. */
@@ -222,8 +220,6 @@ interface HomeScreenProps {
   onCompletionDismiss?: (planId: string) => void;
   /** Completion card: dismiss and go browse the catalog. */
   onCompletionBrowse?: (planId: string) => void;
-  /** Adapt sheet: answer the onboarding questions again. */
-  onRedoOnboarding?: () => void;
   /**
    * The reader saying "today is legs, not upper".
    *
@@ -366,12 +362,6 @@ interface HomeScreenProps {
   onKeepSwapInProgram?: (exerciseId: string, exerciseName: string) => void;
   /** Ranks the swap list the same way the player does. */
   tailoringPreferences?: TailoringPreferencesInput | null;
-  /**
-   * Start today's session with its accessory sets trimmed. One gesture, not a
-   * stored mode: "adapt" is a decision about right now, and an adaptation left
-   * lying around for tomorrow would be a worse answer than none.
-   */
-  onStartTrimmedSession?: (sessionId: string) => void;
 }
 
 export function HomeScreen({
@@ -380,12 +370,10 @@ export function HomeScreen({
   programCapLine = null,
   onOpenOtherProgram,
   onRemoveOtherProgram,
-  onRemoveActivePlan,
   onCompletionStartNext,
   onCompletionRestart,
   onCompletionDismiss,
   onCompletionBrowse,
-  onRedoOnboarding,
   onPickTodaySession,
   onRenameSession,
   onStartActivePlanSession,
@@ -423,7 +411,6 @@ export function HomeScreen({
   onRemoveSessionExercise,
   onKeepSwapInProgram,
   tailoringPreferences = null,
-  onStartTrimmedSession,
 }: HomeScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -431,8 +418,6 @@ export function HomeScreen({
   const scheduleKnown = isScheduleKnown(trainingSchedule);
   const [plateauSheetVisible, setPlateauSheetVisible] = useState(false);
   const insets = useSafeAreaInsets();
-  const [confirmingRemovePlan, setConfirmingRemovePlan] = useState(false);
-  const [adaptSheetVisible, setAdaptSheetVisible] = useState(false);
   const [todaySheetVisible, setTodaySheetVisible] = useState(false);
   // Which row is being renamed, and the text so far. Kept out of the row so a
   // rename in progress survives the list re-ordering underneath it.
@@ -547,7 +532,6 @@ export function HomeScreen({
   // Computed where the whole session was still in hand (App.tsx): Home only
   // receives the first five exercises, so a preview built here would quote a
   // shorter session than the one that starts.
-  const adaptTrim = nextPlanSession?.trim ?? null;
 
   // The row whose swap sheet is open, with its current lift resolved through
   // today's swaps — reopening the sheet after a swap must offer the pool for
@@ -1118,23 +1102,18 @@ export function HomeScreen({
           </>
         ) : null}
 
-        {/* Start and Adapt, ABOVE the session's contents. A tester tapped the
-            first exercise to "check it off": the list rendered before any
-            call to action, and the only start button sat below the fold
-            (user report 2026-08-25). Deliberately NOT pinned over the bottom
-            bar — Home is the tab root, so the floating bar cannot be hidden
-            here, and a pinned CTA would stack a second floating layer on it. */}
+        {/* Start, ABOVE the session's contents. A tester tapped the first
+            exercise to "check it off": the list rendered before any call to
+            action, and the only start button sat below the fold (user report
+            2026-08-25). Deliberately NOT pinned over the bottom bar — Home is
+            the tab root, so the floating bar cannot be hidden here, and a
+            pinned CTA would stack a second floating layer on it.
+
+            Adapt stood beside it until 2026-08-30 and is gone with its sheet:
+            of its three rows, dropping the programme and rebuilding it both
+            already live in the programme's own screen, and the short version
+            was answering a question the player now answers set by set. */}
         <Animated.View style={[styles.btnRow, rise(RISE_BTNROW)]}>
-          {activePlan && nextPlanSession ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t(language, 'home.a11y.adaptSession')}
-              onPress={() => setAdaptSheetVisible(true)}
-              style={({ pressed }) => [styles.adaptButton, pressed && styles.pressed]}
-            >
-              <Text style={styles.adaptButtonText}>{t(language, 'home.adapt')}</Text>
-            </Pressable>
-          ) : null}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t(
@@ -1326,8 +1305,8 @@ export function HomeScreen({
           </>
         ) : null}
 
-        {/* The Start/Adapt row lived here, under the whole list — moved above
-            it (user report 2026-08-25). */}
+        {/* The start row lived here, under the whole list — moved above it
+            (user report 2026-08-25). */}
 
         {/* No promo carousel here any more (user 2026-08-23): Home is for
             running today's session, and the season/programme offers live on
@@ -1716,30 +1695,6 @@ export function HomeScreen({
         <View style={styles.bottomSafeFade} />
       </ScrollView>
 
-      {/* Adapt = shorten today, and only that.
-          This was four rows, all four of which closed the sheet and did
-          nothing. Three of them were also in the wrong place: a taken rack and
-          a body with no strength in it are both discovered in the gym, and the
-          player answers both (swap the lift, dial the weight down set by set).
-          Time is the one thing you know before you leave the house, so it is
-          the one adaptation that belongs on Home — and it starts the session
-          rather than storing a mode, because "how is today going" has no
-          meaning tomorrow. */}
-      <ConfirmDialog
-        language={language}
-        visible={confirmingRemovePlan}
-        destructive
-        title={t(language, 'home.adaptSheet.remove.confirmTitle')}
-        message={t(language, 'home.adaptSheet.remove.confirmMessage')}
-        confirmLabel={t(language, 'home.adaptSheet.remove.title')}
-        cancelLabel={t(language, 'home.adaptSheet.cancel')}
-        onCancel={() => setConfirmingRemovePlan(false)}
-        onConfirm={() => {
-          setConfirmingRemovePlan(false);
-          onRemoveActivePlan?.();
-        }}
-      />
-
       {/* Today's workout — the program's own sessions, and which one today is.
 
           Dated rather than sticky: the pick answers for today and the rotation
@@ -1862,91 +1817,6 @@ export function HomeScreen({
                 );
               })}
             </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={adaptSheetVisible}
-        transparent
-        animationType={reduceMotion ? 'none' : 'slide'}
-        onRequestClose={() => setAdaptSheetVisible(false)}
-      >
-        <View style={styles.adaptOverlay}>
-          <Pressable style={styles.adaptScrim} onPress={() => setAdaptSheetVisible(false)} />
-          <View style={[styles.adaptSheet, { paddingBottom: insets.bottom + 26 }]}>
-            <View style={styles.adaptGrip} />
-            <Text style={styles.adaptTitle}>{t(language, 'home.adaptSheet.title')}</Text>
-
-            {/* Three things a reader might mean by "adapt", smallest commitment
-                first: this session, this programme, the whole plan. Each states
-                what it does NOT touch, because every one of them looks like it
-                might cost you your log. */}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t(language, 'home.adaptSheet.shorter.cta')}
-              onPress={() => {
-                setAdaptSheetVisible(false);
-                if (nextPlanSession) {
-                  onStartTrimmedSession?.(nextPlanSession.id);
-                }
-              }}
-              style={({ pressed }) => [styles.adaptOption, pressed && styles.pressed]}
-            >
-              <Text style={styles.adaptOptionTitle}>{t(language, 'home.adaptSheet.shorter.cta')}</Text>
-              <Text style={styles.adaptOptionSub}>
-                {adaptTrim
-                  ? t(language, 'home.adaptSheet.shorter.explain', {
-                      sets: adaptTrim.droppedSets,
-                      before: planDurationMinutes,
-                      after: adaptTrim.minutes,
-                    })
-                  : t(language, 'home.adaptSheet.shorter.explainNoEstimate')}
-              </Text>
-            </Pressable>
-
-            {onRemoveActivePlan ? (
-              /* Red, and it asks. It sits between two harmless options, and a
-                 thumb that misses by a row should not cost someone the plan
-                 their week is built on. */
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t(language, 'home.adaptSheet.remove.title')}
-                onPress={() => {
-                  setAdaptSheetVisible(false);
-                  setConfirmingRemovePlan(true);
-                }}
-                style={({ pressed }) => [styles.adaptOption, styles.adaptOptionDanger, pressed && styles.pressed]}
-              >
-                <Text style={[styles.adaptOptionTitle, styles.adaptOptionTitleDanger]}>
-                  {t(language, 'home.adaptSheet.remove.title')}
-                </Text>
-                <Text style={styles.adaptOptionSub}>{t(language, 'home.adaptSheet.remove.sub')}</Text>
-              </Pressable>
-            ) : null}
-
-            {onRedoOnboarding ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t(language, 'home.adaptSheet.redo.title')}
-                onPress={() => {
-                  setAdaptSheetVisible(false);
-                  onRedoOnboarding();
-                }}
-                style={({ pressed }) => [styles.adaptOption, pressed && styles.pressed]}
-              >
-                <Text style={styles.adaptOptionTitle}>{t(language, 'home.adaptSheet.redo.title')}</Text>
-                <Text style={styles.adaptOptionSub}>{t(language, 'home.adaptSheet.redo.sub')}</Text>
-              </Pressable>
-            ) : null}
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setAdaptSheetVisible(false)}
-              hitSlop={8}
-              style={styles.adaptCancel}
-            >
-              <Text style={styles.adaptCancelText}>{t(language, 'home.adaptSheet.cancel')}</Text>
-            </Pressable>
           </View>
         </View>
       </Modal>
@@ -2120,7 +1990,7 @@ export function HomeScreen({
               hitSlop={8}
               style={styles.adaptCancel}
             >
-              <Text style={styles.adaptCancelText}>{t(language, 'home.adaptSheet.cancel')}</Text>
+              <Text style={styles.adaptCancelText}>{t(language, 'common.cancel')}</Text>
             </Pressable>
           </View>
         </View>
@@ -2633,27 +2503,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 10,
     marginTop: 20,
   },
-  adaptButton: {
-    flex: 1,
-    height: 56,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: theme.border,
-    backgroundColor: theme.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: theme.purpleBright,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 2,
-  },
-  adaptButtonText: {
-    color: theme.ink,
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: '800',
-  },
   startButtonWrap: {
     flex: 1.3,
   },
@@ -3149,25 +2998,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.2,
   },
-  adaptOption: {
-    borderWidth: 1.5,
-    borderColor: theme.border,
-    borderRadius: 16,
-    paddingVertical: 13,
-    paddingHorizontal: 15,
-    marginTop: 10,
-    gap: 3,
-  },
   // Was a fixed pink on a fixed cream — a white card sitting in a dark sheet.
   // The same class as the button that drew white on white: a colour copied in
   // rather than taken from the theme is only ever right for one of them.
-  adaptOptionDanger: {
-    borderColor: theme.dangerBorder,
-    backgroundColor: theme.dangerSoft,
-  },
-  adaptOptionTitleDanger: {
-    color: theme.danger,
-  },
   adaptOptionTitle: {
     color: theme.ink,
     fontSize: 15,

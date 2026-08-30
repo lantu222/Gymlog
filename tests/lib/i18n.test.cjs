@@ -17,7 +17,7 @@ module.exports = [
       assert.equal(t('en', 'welcome.continueGoogle'), 'Continue with Google');
       assert.equal(t('fi', 'common.cancel'), 'Peruuta');
       assert.notEqual(t('fi', 'brand.tagline'), t('en', 'brand.tagline'));
-      assert.notEqual(t('fi', 'home.adaptSheet.shorter.cta'), t('en', 'home.adaptSheet.shorter.cta'));
+      assert.notEqual(t('fi', 'home.startWorkout'), t('en', 'home.startWorkout'));
     },
   },
   {
@@ -37,7 +37,7 @@ module.exports = [
     name: 'i18n: unknown language falls back to English',
     run() {
       assert.equal(t('sv', 'common.cancel'), 'Cancel');
-      assert.equal(t('sv', 'home.adapt'), 'Adapt');
+      assert.equal(t('sv', 'home.startWorkout'), 'Start workout');
     },
   },
   {

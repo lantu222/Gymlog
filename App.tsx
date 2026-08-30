@@ -205,7 +205,7 @@ import { decideRatingPrompt, recordRatingAsked, recordRatingCompleted } from './
  */
 const PLAY_LISTING_URL = 'https://play.google.com/store/apps/details?id=app.vinha';
 import { buildCustomSessionRuntimeTemplate, buildReadySessionRuntimeTemplate } from './src/lib/programDetails';
-import { applySessionAdaptation, previewSessionTrim } from './src/lib/sessionAdaptation';
+import { applySessionAdaptation } from './src/lib/sessionAdaptation';
 import { buildProgramInsightMap } from './src/lib/programInsights';
 import { buildTailoringPreferences } from './src/lib/tailoringFit';
 import { popRoute, pushRoute } from './src/navigation/routeHistory';
@@ -1424,7 +1424,6 @@ function VinhaApp() {
     workoutTemplateId: string,
     sessionId: string,
     nextUnitPreference: UnitPreference,
-    trimSets = false,
   ) {
     const template = getWorkoutTemplateById(workoutTemplateId);
     if (!template) {
@@ -1439,7 +1438,7 @@ function VinhaApp() {
       void updatePreferences({ trainingFirstRunDismissed: true });
       const runtimeTemplate = applySessionAdaptation(
         buildReadySessionRuntimeTemplate(template, sessionId),
-        { swaps: sessionSwaps, drops: sessionDrops, trimSets },
+        { swaps: sessionSwaps, drops: sessionDrops },
       );
       workout.startCustomWorkout(runtimeTemplate, nextUnitPreference, {
         ...resolveProgressionOptions(preferences),
@@ -1453,8 +1452,8 @@ function VinhaApp() {
     });
   }
 
-  function handleStartReadyProgramSession(workoutTemplateId: string, sessionId: string, trimSets = false) {
-    startReadyProgramSessionWithUnit(workoutTemplateId, sessionId, unitPreference, trimSets);
+  function handleStartReadyProgramSession(workoutTemplateId: string, sessionId: string) {
+    startReadyProgramSessionWithUnit(workoutTemplateId, sessionId, unitPreference);
   }
 
   /**
@@ -1838,7 +1837,7 @@ function VinhaApp() {
     handleStartReadyProgramSession(workoutTemplateId, firstSessionId);
   }
 
-  function handleStartCustomProgramSession(workoutTemplateId: string, sessionId: string, trimSets = false) {
+  function handleStartCustomProgramSession(workoutTemplateId: string, sessionId: string) {
     const customTemplate = customWorkoutRuntimeMap[workoutTemplateId];
     if (!customTemplate) {
       return;
@@ -1859,7 +1858,7 @@ function VinhaApp() {
       void updatePreferences({ trainingFirstRunDismissed: true });
       const runtimeTemplate = applySessionAdaptation(
         buildCustomSessionRuntimeTemplate(customTemplate, sessionId),
-        { swaps: sessionSwaps, drops: sessionDrops, trimSets },
+        { swaps: sessionSwaps, drops: sessionDrops },
       );
       workout.startCustomWorkout(runtimeTemplate, unitPreference, {
         ...resolveProgressionOptions(preferences),
@@ -3128,7 +3127,6 @@ function VinhaApp() {
           dayLabel: entryLabel,
           totalSets: session.exercises.reduce((sum, exercise) => sum + exercise.targetSets, 0),
           durationMinutes: estimatedDuration,
-          trim: previewSessionTrim(durationInputs, routineSeconds),
           focusKind,
           // The whole session, not the first five (user 2026-08-24: "saako
           // treeni osion näkyviin kokonaan"). Home decides what to show and
@@ -5390,12 +5388,6 @@ function VinhaApp() {
           }
         }}
         onRemoveOtherProgram={(planId) => void handleRemoveActiveProgram(planId)}
-        onRemoveActivePlan={
-          preferences.activePlanId
-            ? () => void handleRemoveActiveProgram(preferences.activePlanId as string)
-            : undefined
-        }
-        onRedoOnboarding={() => void handleRedoOnboarding()}
         availableEquipment={availableEquipmentForDrills}
         widgetPrompt={
           homeWidgetState?.supported && !homeWidgetState.added && !preferences.homeWidgetPromptDismissed
@@ -5495,16 +5487,6 @@ function VinhaApp() {
           }
         }}
         tailoringPreferences={preferences}
-        onStartTrimmedSession={(sessionId) => {
-          if (!homeActivePlanCard) {
-            return;
-          }
-          if (homeActivePlanCard.programType === 'custom') {
-            handleStartCustomProgramSession(homeActivePlanCard.programId, sessionId, true);
-            return;
-          }
-          handleStartReadyProgramSession(homeActivePlanCard.programId, sessionId, true);
-        }}
         // Paused counts: it is still a session the button resumes.
         hasActiveSession={workout.activeSession !== null && workout.activeSession.status !== 'completed'}
         onPickTodaySession={(sessionId) => void handlePickTodaySession(sessionId)}

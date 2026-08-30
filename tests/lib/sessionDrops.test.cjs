@@ -57,19 +57,20 @@ module.exports = [
     },
   },
   {
-    name: 'drops: a trim shares its sets among what is left, not among what was dropped',
+    name: 'drops: a dropped exercise leaves the session and the rest are untouched',
     run() {
+      // The set trim this suite also covered went with the Adapt sheet that
+      // was its only way in (2026-08-30). Dropping did not: it is answered in
+      // the gym, from the day's own list, and it still has to leave the
+      // others exactly as prescribed.
       const adapted = applySessionAdaptation(template(), {
         swaps: {},
         drops: ['accessory_3'],
-        trimSets: true,
       });
       const remaining = adapted.sessions[0].exercises;
       assert.deepEqual(remaining.map((exercise) => exercise.slotId), ['primary_1', 'secondary_2']);
-      // Trimming an exercise nobody will do spends the budget on nothing and
-      // leaves the session as long as it was.
       const total = remaining.reduce((sum, exercise) => sum + exercise.sets, 0);
-      assert.ok(total < 7, `expected the remaining two to lose a set, got ${total}`);
+      assert.equal(total, 7, 'dropping one exercise must not re-prescribe the others');
     },
   },
   {
@@ -79,7 +80,7 @@ module.exports = [
       // Both are answers about today. Clearing one and keeping the other would
       // carry a stale decision into the next session.
       assert.match(wiring, /setSessionSwaps\(\{\}\);\s*\n\s*setSessionDrops\(\[\]\);/);
-      assert.match(wiring, /\{ swaps: sessionSwaps, drops: sessionDrops, trimSets \}/);
+      assert.match(wiring, /\{ swaps: sessionSwaps, drops: sessionDrops \}/);
       // Dropping twice must not stack the same slot.
       assert.match(wiring, /current\.includes\(slotId\) \? current : \[\.\.\.current, slotId\]/);
     },

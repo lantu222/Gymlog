@@ -38,7 +38,6 @@ const EN = {
   // and the price-set guard in proSurfaces pins both.
   'paywall.plan.yearly.price': '59,90 €',
   'paywall.plan.monthly.price': '9,90 €',
-  'home.a11y.adaptSession': "Adapt today's session",
   'home.a11y.swapExercise': 'Swap {name} for another exercise',
   'home.a11y.startSession': "Start today's workout",
   'home.a11y.resumeSession': 'Resume the workout in progress',
@@ -67,7 +66,6 @@ const EN = {
   'home.section.warmupMeta': '{count} drills · {min} min',
   'home.section.workoutMeta': '{count} exercises · {sets} sets',
   'home.section.cooldownMeta': '{count} stretches · {min} min',
-  'home.adapt': 'Adapt',
   'home.today.title': "Today's workout",
   'home.today.caption': 'Pick the one you are actually doing. Tomorrow follows the program again.',
   'home.today.next': 'Next in the program',
@@ -90,26 +88,12 @@ const EN = {
   'home.history.seeAll': 'See all',
 
   // ── Home · Adapt sheet ─────────────────────────────────────────────────
-  'home.adaptSheet.shorter.title': 'Shorter session',
   // Minutes AND sets. This said sets alone, because the minute figure came
   // from a different estimator than the one the player shows on the very next
   // screen ("~35 min" against "~50 min" for the same session). Both numbers
   // now come from one formula run over the real trim plan, so the sheet and
   // the player agree. Sets stay because they are exact where minutes are an
   // estimate.
-  'home.adaptSheet.shorter.explain':
-    'About {after} min instead of {before} — {sets} sets fewer, all from the accessory work. The main lift is untouched.',
-  'home.adaptSheet.shorter.explainNoEstimate':
-    'Trims the accessory work. The main lift is untouched.',
-  'home.adaptSheet.shorter.cta': 'Start the short version',
-  'home.adaptSheet.title': 'Adapt',
-  'home.adaptSheet.remove.confirmTitle': 'Drop this programme?',
-  'home.adaptSheet.remove.confirmMessage': 'Your workouts, records and history all stay. Only the plan is removed, and you can take it on again whenever you like.',
-  'home.adaptSheet.remove.title': 'Drop this programme',
-  'home.adaptSheet.remove.sub': 'Everything you have logged stays. Only the plan goes.',
-  'home.adaptSheet.redo.title': 'Answer the questions again',
-  'home.adaptSheet.redo.sub': 'Rebuild your programme from scratch. Your log is untouched.',
-  'home.adaptSheet.cancel': 'Cancel',
   'home.promo.season.running': 'RUNNING · WEEK {week} / {total}',
   'home.promo.season.pointsUntil': 'POINTS UNTIL {date}',
   'home.promo.season.opensIn': 'OPENS IN {count} DAYS',
@@ -3377,7 +3361,6 @@ const FI: Record<I18nKey, string> = {
   // -- Suunnitelmien hinnat (ks. EN-lohkon huomautus) ----------------------
   'paywall.plan.yearly.price': '59,90 €',
   'paywall.plan.monthly.price': '9,90 €',
-  'home.a11y.adaptSession': 'Mukauta tämän päivän treeniä',
   'home.a11y.swapExercise': 'Vaihda {name} toiseen liikkeeseen',
   'home.a11y.startSession': 'Aloita tämän päivän treeni',
   'home.a11y.resumeSession': 'Jatka kesken olevaa treeniä',
@@ -3406,7 +3389,6 @@ const FI: Record<I18nKey, string> = {
   'home.section.warmupMeta': '{count} liikettä · {min} min',
   'home.section.workoutMeta': '{count} liikettä · {sets} sarjaa',
   'home.section.cooldownMeta': '{count} venytystä · {min} min',
-  'home.adapt': 'Mukauta',
   'home.today.title': 'Tämän päivän treeni',
   'home.today.caption': 'Valitse se jonka oikeasti teet. Huomenna edetään taas ohjelman mukaan.',
   'home.today.next': 'Seuraavaksi ohjelmassa',
@@ -3427,19 +3409,6 @@ const FI: Record<I18nKey, string> = {
   'home.history.seeAll': 'Näytä kaikki',
 
   // ── Home · Adapt sheet ─────────────────────────────────────────────────
-  'home.adaptSheet.shorter.title': 'Lyhyempi treeni',
-  'home.adaptSheet.shorter.explain':
-    'Noin {after} min {before} minuutin sijaan — {sets} sarjaa vähemmän, kaikki apuliikkeistä. Päänostoon ei kosketa.',
-  'home.adaptSheet.shorter.explainNoEstimate': 'Karsii apuliikkeitä. Päänostoon ei kosketa.',
-  'home.adaptSheet.shorter.cta': 'Aloita lyhennetty versio',
-  'home.adaptSheet.title': 'Mukauta',
-  'home.adaptSheet.remove.confirmTitle': 'Poistetaanko tämä ohjelma?',
-  'home.adaptSheet.remove.confirmMessage': 'Treenisi, ennätyksesi ja historiasi säilyvät kaikki. Vain ohjelma poistuu, ja voit ottaa sen uudelleen käyttöön milloin haluat.',
-  'home.adaptSheet.remove.title': 'Poista tämä ohjelma',
-  'home.adaptSheet.remove.sub': 'Kaikki kirjaamasi säilyy. Vain ohjelma lähtee.',
-  'home.adaptSheet.redo.title': 'Vastaa kysymyksiin uudelleen',
-  'home.adaptSheet.redo.sub': 'Rakenna ohjelmasi alusta. Lokiisi ei kosketa.',
-  'home.adaptSheet.cancel': 'Peruuta',
   'home.promo.season.running': 'KÄYNNISSÄ · VIIKKO {week} / {total}',
   'home.promo.season.pointsUntil': 'PISTEET {date} ASTI',
   'home.promo.season.opensIn': 'ALKUUN {count} PV',
