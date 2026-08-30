@@ -1089,16 +1089,23 @@ export function HomeScreen({
                     adjustsFontSizeToFit
                     minimumFontScale={0.6}
                   />
+                  {/* Pushed to the right edge and coloured, on request
+                      (2026-08-30). Tucked against the title in the app's
+                      faintest grey it read as punctuation; orange is this
+                      app's one word for "you can press this", and the far
+                      edge is where the thumb already is. */}
                   {onPickTodaySession && planSessions.length > 1 ? (
-                    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-                      <Path
-                        d="M6 9l6 6 6-6"
-                        stroke={theme.faint}
-                        strokeWidth={2.4}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </Svg>
+                    <View style={styles.heroTitleChevron}>
+                      <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
+                        <Path
+                          d="M6 9l6 6 6-6"
+                          stroke={theme.highlight}
+                          strokeWidth={2.6}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </Svg>
+                    </View>
                   ) : null}
                 </Pressable>
                 </View>
@@ -3091,6 +3098,17 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    // The row spans the hero so the chevron has a right edge to sit against.
+    // Without it the row hugged its contents and "far right" was wherever the
+    // title happened to end.
+    alignSelf: 'stretch',
+  },
+  heroTitleChevron: {
+    marginLeft: 'auto',
+    // The glyph is 28px and the target should not be. Padding rather than a
+    // hitSlop: the press belongs to the whole title row, and this only has to
+    // stop the arrow sitting flush against the screen edge.
+    paddingLeft: 6,
   },
   todayList: {
     marginTop: 18,
