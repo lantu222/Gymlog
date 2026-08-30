@@ -229,10 +229,13 @@ interface WorkoutCompletionScreenProps {
    * Three of these exist per install, ever. The question is shown before it
    * is sent and the reader is the one who sends it — the app asking on
    * someone’s behalf without a tap would be putting words in their mouth.
+   *
+   * Declining costs nothing and needs no handler: the dialog closes and the
+   * offer comes back after the next session. Only sending has a consequence,
+   * so only sending has a callback.
    */
   demoQuestion?: string | null;
   onSendDemoQuestion?: () => void;
-  onSkipDemoQuestion?: () => void;
 }
 
 function formatWhenLabel(performedAt: string, language: AppLanguage) {
@@ -291,7 +294,6 @@ export function WorkoutCompletionScreen({
   lockedInsight = null,
   demoQuestion = null,
   onSendDemoQuestion,
-  onSkipDemoQuestion,
   onOpenPremium,
 }: WorkoutCompletionScreenProps) {
   const theme = useTheme();
@@ -803,10 +805,7 @@ export function WorkoutCompletionScreen({
             setDemoSheetVisible(false);
             onSendDemoQuestion?.();
           }}
-          onDismiss={() => {
-            setDemoSheetVisible(false);
-            onSkipDemoQuestion?.();
-          }}
+          onDismiss={() => setDemoSheetVisible(false)}
         />
       ) : null}
     </View>
@@ -957,64 +956,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   lockedCardWrap: {
     marginTop: 20,
     marginBottom: 12,
-  },
-  demoCard: {
-    marginTop: 4,
-    marginBottom: 12,
-    backgroundColor: theme.surface,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: theme.border,
-    padding: 18,
-  },
-  demoTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: theme.purple,
-    letterSpacing: 0.4,
-  },
-  demoQuestion: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: theme.ink,
-    lineHeight: 23,
-    marginTop: 8,
-  },
-  demoBody: {
-    fontSize: 13.5,
-    fontWeight: '500',
-    color: theme.muted,
-    lineHeight: 19,
-    marginTop: 8,
-  },
-  demoActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 16,
-  },
-  demoSkip: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 999,
-  },
-  demoSkipText: {
-    fontSize: 14.5,
-    fontWeight: '600',
-    color: theme.muted,
-  },
-  demoSend: {
-    flex: 1,
-    height: 48,
-    borderRadius: 999,
-    backgroundColor: theme.purple,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  demoSendText: {
-    fontSize: 15.5,
-    fontWeight: '700',
-    color: '#FFFFFF',
   },
   weekCard: {
     backgroundColor: theme.surface,

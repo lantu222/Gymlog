@@ -36,6 +36,8 @@ type HistoryScreenProps = React.ComponentProps<typeof HistoryScreen>;
 export interface HomeScreensDeps {
   route: AppRoute;
   navigate: (route: AppRoute) => void;
+  /** Same screen, different params, no new history entry. */
+  replaceRoute: (route: AppRoute) => void;
   navigateBack: (fallback?: AppRoute | null) => void;
   preferences: AppPreferences;
   updatePreferences: (patch: Partial<AppPreferences>) => Promise<unknown>;
@@ -83,6 +85,7 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
   const {
     route,
     navigate,
+    replaceRoute,
     navigateBack,
     preferences,
     updatePreferences,
@@ -257,7 +260,13 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
           // Clears the hand-off and nothing else. The question is on the
           // route, so leaving it there would let a remount fire it a second
           // time; the chat keeps its own copy of the key for the answer.
-          navigate({ tab: 'home', screen: 'ai_chat' });
+          //
+          // REPLACE, not navigate. pushRoute compares whole route objects, so
+          // the params make this a different route and it was pushed — the
+          // reader's next Back landed on the chat they were already looking
+          // at, question and all, which is both a dead press and a route
+          // still carrying a question a remount could re-send.
+          replaceRoute({ tab: 'home', screen: 'ai_chat' });
         }}
         onDemoQuestionAnswered={(key) => {
           // Spending happens on the ANSWER, which is the promise. Spending on
