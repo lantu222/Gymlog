@@ -259,6 +259,12 @@ interface KitBarProps {
   onClear: () => void;
   bottomInset: number;
   reduceMotion?: boolean | null;
+  /**
+   * False renders the bar in flow instead of over the sheet — for sheets that
+   * manage their own column (a FlatList that must keep its footer on screen)
+   * and only need the bar's language, not its overlay.
+   */
+  floating?: boolean;
 }
 
 export function KitBar({
@@ -270,6 +276,7 @@ export function KitBar({
   onClear,
   bottomInset,
   reduceMotion = false,
+  floating = true,
 }: KitBarProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -290,10 +297,22 @@ export function KitBar({
 
   const translateY = rise.interpolate({ inputRange: [0, 1], outputRange: [KIT_BAR_SPACE + bottomInset + 40, 0] });
 
+  // In flow the bar has no reserved space to slide out of: it appears when
+  // there is something to commit and takes its room, exactly like the sheet's
+  // own picked-state padding would have.
+  if (!floating && !visible) {
+    return null;
+  }
+
   return (
     <Animated.View
       pointerEvents={visible ? 'auto' : 'none'}
-      style={[styles.bar, { paddingBottom: 30 + bottomInset, transform: [{ translateY }] }]}
+      style={[
+        styles.bar,
+        floating
+          ? { paddingBottom: 30 + bottomInset, transform: [{ translateY }] }
+          : [styles.barInFlow, { paddingBottom: 16 + bottomInset }],
+      ]}
     >
       <View style={styles.swapline}>
         <Text style={styles.swapFrom} numberOfLines={1}>
@@ -500,6 +519,11 @@ const makeStyles = (theme: Theme) =>
       justifyContent: 'center',
     },
     tickOn: { backgroundColor: theme.highlight, borderColor: theme.highlight },
+    barInFlow: {
+      position: 'relative',
+      marginHorizontal: -18,
+      marginBottom: -0,
+    },
     bar: {
       position: 'absolute',
       left: 0,
