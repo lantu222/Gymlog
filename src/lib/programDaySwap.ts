@@ -72,23 +72,30 @@ export function summariseSessionMuscles(
 }
 
 /**
- * Every catalogue day that could stand in for one, minus the day itself.
+ * Every catalogue day that could stand in for another one.
  *
  * Deliberately not filtered down to "days like this one": the reader asking
  * for this wants a day that is NOT like this one — that is the entire point of
  * the request. Sorting is by muscle group so the list can be read by what it
  * trains, which is how the ask was phrased ("rinta, vatsat"), rather than by
  * which programme it came from.
+ *
+ * EXPENSIVE, and the whole catalogue rather than one day's shortlist, so that
+ * the cost can be paid once and cached against the library. It walks ~197
+ * written sessions and each one summarises against the full 874-entry exercise
+ * library. Built inline in a render path it ran that on every keystroke of a
+ * set stepper; the day being replaced is removed afterwards, by
+ * `daySwapCandidatesExcluding`, which is a filter over a list that no longer
+ * has to be rebuilt.
  */
 export function buildDaySwapCandidates(
-  currentSessionId: string,
   library: readonly DaySwapLibraryItem[],
 ): DaySwapCandidate[] {
   const candidates: DaySwapCandidate[] = [];
 
   for (const template of WORKOUT_TEMPLATES_V1) {
     for (const session of template.sessions) {
-      if (session.id === currentSessionId || session.exercises.length === 0) {
+      if (session.exercises.length === 0) {
         continue;
       }
       const names = session.exercises.map((exercise) => exercise.exerciseName);
@@ -110,6 +117,20 @@ export function buildDaySwapCandidates(
       a.templateName.localeCompare(b.templateName) ||
       a.sessionName.localeCompare(b.sessionName),
   );
+}
+
+/**
+ * The same list without the day being replaced.
+ *
+ * Separate from the build so the build can be memoized against the library
+ * while this — the only part that depends on where the reader is standing —
+ * stays a cheap filter.
+ */
+export function daySwapCandidatesExcluding(
+  candidates: readonly DaySwapCandidate[],
+  sessionId: string,
+): DaySwapCandidate[] {
+  return candidates.filter((candidate) => candidate.sessionId !== sessionId);
 }
 
 /**

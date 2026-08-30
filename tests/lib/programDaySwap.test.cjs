@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const {
   buildDaySwapCandidates,
   buildSwappedDayExercises,
+  daySwapCandidatesExcluding,
   daySwapMuscleOptions,
   filterDaySwapCandidates,
   summariseSessionMuscles,
@@ -41,13 +42,20 @@ module.exports = [
     name: 'day swap: candidates are real catalogue days, never the day itself',
     run() {
       const anySession = WORKOUT_TEMPLATES_V1[0].sessions[0];
-      const candidates = buildDaySwapCandidates(anySession.id, LIBRARY);
+      const all = buildDaySwapCandidates(LIBRARY);
+      const candidates = daySwapCandidatesExcluding(all, anySession.id);
 
       assert.ok(candidates.length > 50, 'the catalogue should offer plenty to swap to');
+      // The build is the expensive half and knows nothing about where the
+      // reader is standing, so it can be cached against the library; dropping
+      // the day itself is the cheap half and happens per screen.
+      assert.equal(candidates.length, all.length - 1, 'exactly one day is dropped');
       assert.ok(
         !candidates.some((candidate) => candidate.sessionId === anySession.id),
         'the day being replaced must not be offered as its own replacement',
       );
+      // A session id that is in no template drops nothing rather than throwing.
+      assert.equal(daySwapCandidatesExcluding(all, 'nothing').length, all.length);
 
       // Every candidate is a day someone wrote, with its programme named — the
       // reader is choosing provenance, not a generated block.
@@ -66,7 +74,7 @@ module.exports = [
       // "haluan rinta%vatsat treenit myös mukaan" — so a chest day and a core
       // day both have to be findable, or the feature does not answer its own
       // request.
-      const candidates = buildDaySwapCandidates('nothing', LIBRARY);
+      const candidates = buildDaySwapCandidates(LIBRARY);
       const options = daySwapMuscleOptions(candidates);
       assert.ok(options.includes('chest'), 'the catalogue must offer a chest day');
       assert.ok(options.includes('core'), 'the catalogue must offer a core day');
@@ -97,7 +105,7 @@ module.exports = [
   {
     name: 'day swap: the replacement lands in the target day, with new ids',
     run() {
-      const candidates = buildDaySwapCandidates('nothing', LIBRARY);
+      const candidates = buildDaySwapCandidates(LIBRARY);
       const pick = candidates.find((candidate) => candidate.exerciseCount >= 3);
       assert.ok(pick, 'need a candidate with a few exercises');
 

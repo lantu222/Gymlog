@@ -122,7 +122,9 @@ interface ProgramDayScreenProps {
    */
   onMoveExercise?: (exerciseId: string, direction: MoveDirection) => void;
   /**
-   * Catalogue days this one could be replaced by. Empty or absent hides the
+   * Every catalogue day, including this one — the sheet drops it. Passed whole
+   * and unfiltered because the list is expensive to build and cheap to filter:
+   * built per screen it was rebuilt on every render. Empty or absent hides the
    * action entirely — a button that opens an empty sheet is worse than no
    * button.
    */
@@ -914,6 +916,7 @@ export function ProgramDayScreen({
         <DaySwapSheet
           visible={daySwapOpen}
           candidates={daySwapCandidates}
+          excludeSessionId={session.id}
           language={language}
           bottomInset={insets.bottom}
           onClose={() => setDaySwapOpen(false)}

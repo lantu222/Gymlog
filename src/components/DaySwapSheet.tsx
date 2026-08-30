@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { bodyPartLabel, t } from '../lib/i18n';
 import {
   DaySwapCandidate,
+  daySwapCandidatesExcluding,
   daySwapMuscleOptions,
   filterDaySwapCandidates,
 } from '../lib/programDaySwap';
@@ -24,7 +25,10 @@ import { AppLanguage } from '../types/models';
  */
 interface DaySwapSheetProps {
   visible: boolean;
+  /** Every catalogue day. Built once against the library and cached there. */
   candidates: readonly DaySwapCandidate[];
+  /** The day being replaced, which cannot be its own replacement. */
+  excludeSessionId: string;
   language: AppLanguage;
   onPick: (candidate: DaySwapCandidate) => void;
   onClose: () => void;
@@ -35,6 +39,7 @@ interface DaySwapSheetProps {
 export function DaySwapSheet({
   visible,
   candidates,
+  excludeSessionId,
   language,
   onPick,
   onClose,
@@ -43,8 +48,39 @@ export function DaySwapSheet({
   const styles = useThemedStyles(makeStyles);
   const [muscle, setMuscle] = useState<string | null>(null);
 
-  const muscles = useMemo(() => daySwapMuscleOptions(candidates), [candidates]);
-  const shown = useMemo(() => filterDaySwapCandidates(candidates, muscle), [candidates, muscle]);
+  // Memos over a `candidates` identity that is now stable: the list is built
+  // once against the exercise library instead of once per render, so these
+  // stop recomputing on every keystroke behind the sheet.
+  const usable = useMemo(
+    () => daySwapCandidatesExcluding(candidates, excludeSessionId),
+    [candidates, excludeSessionId],
+  );
+  const muscles = useMemo(() => daySwapMuscleOptions(usable), [usable]);
+  const shown = useMemo(() => filterDaySwapCandidates(usable, muscle), [usable, muscle]);
+
+  const renderRow = useCallback(
+    ({ item }: { item: DaySwapCandidate }) => (
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => onPick(item)}
+        style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+      >
+        <View style={styles.rowBody}>
+          <Text style={styles.rowName}>{item.sessionName}</Text>
+          {/* The programme it came from. A day with no provenance is a day the
+              reader cannot judge. */}
+          <Text style={styles.rowFrom}>{item.templateName}</Text>
+        </View>
+        <Text style={styles.rowMeta}>
+          {t(language, 'programDay.swapDay.meta', {
+            exercises: item.exerciseCount,
+            sets: item.setCount,
+          })}
+        </Text>
+      </Pressable>
+    ),
+    [language, onPick, styles],
+  );
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -91,29 +127,19 @@ export function DaySwapSheet({
             ))}
           </ScrollView>
 
-          <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
-            {shown.map((candidate) => (
-              <Pressable
-                key={`${candidate.templateId}:${candidate.sessionId}`}
-                accessibilityRole="button"
-                onPress={() => onPick(candidate)}
-                style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-              >
-                <View style={styles.rowBody}>
-                  <Text style={styles.rowName}>{candidate.sessionName}</Text>
-                  {/* The programme it came from. A day with no provenance is a
-                      day the reader cannot judge. */}
-                  <Text style={styles.rowFrom}>{candidate.templateName}</Text>
-                </View>
-                <Text style={styles.rowMeta}>
-                  {t(language, 'programDay.swapDay.meta', {
-                    exercises: candidate.exerciseCount,
-                    sets: candidate.setCount,
-                  })}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
+          {/* FlatList, not a ScrollView: unfiltered this is every written day
+              in the catalogue — around 197 rows — and a ScrollView mounts all
+              of them in one frame, during the sheet's own slide-in, which is
+              exactly where a dropped frame is seen. */}
+          <FlatList
+            style={styles.list}
+            data={shown}
+            renderItem={renderRow}
+            keyExtractor={(candidate) => `${candidate.templateId}:${candidate.sessionId}`}
+            showsVerticalScrollIndicator={false}
+            initialNumToRender={8}
+            windowSize={5}
+          />
 
           <Pressable
             accessibilityRole="button"
