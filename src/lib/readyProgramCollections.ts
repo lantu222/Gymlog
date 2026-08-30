@@ -165,11 +165,11 @@ export const UNLISTED_READY_PROGRAMS: readonly string[] = [
   // competition in the "pick a programme" list would be a different promise.
   'tpl_season_summer_v1',
   'tpl_season_winter_v1',
-  // Awaiting a decision (2026-08-29). These two are reachable on the Programs
-  // tab, where a reader goes looking for them, but are not offered to every
-  // new user during onboarding. Naming a collection around them is the point
-  // where the catalogue starts making claims about a health condition rather
-  // than about training.
+  // Decided 2026-08-29: these stay out of onboarding for good. They remain on
+  // the Programs tab, where a reader goes looking for them on purpose, and are
+  // not offered to every new user while they are choosing a first programme.
+  // Naming a collection around them is the point where a training catalogue
+  // starts making claims about a health condition rather than about training.
   'tpl_gainer_prenatal_fitness_v1',
   'tpl_gainer_postpartum_recovery_v1',
 ];
