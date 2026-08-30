@@ -26,8 +26,6 @@ import {
   ProgramPrescription,
   stepProgramPrescription,
 } from '../lib/programSessionEdit';
-import { DaySwapCandidate } from '../lib/programDaySwap';
-import { DaySwapSheet } from '../components/DaySwapSheet';
 import { buildSwapOptionsForSlot } from '../lib/tailoringFit';
 import { buildSwapShortlist } from '../lib/swapShortlist';
 import { formatPlanSessionTitle, localizeSessionName } from '../lib/sessionNameLabel';
@@ -122,15 +120,6 @@ interface ProgramDayScreenProps {
    * wants to squat first has changed their training, not their list.
    */
   onMoveExercise?: (exerciseId: string, direction: MoveDirection) => void;
-  /**
-   * Every catalogue day, including this one — the sheet drops it. Passed whole
-   * and unfiltered because the list is expensive to build and cheap to filter:
-   * built per screen it was rebuilt on every render. Empty or absent hides the
-   * action entirely — a button that opens an empty sheet is worse than no
-   * button.
-   */
-  daySwapCandidates?: readonly DaySwapCandidate[];
-  onSwapDay?: (candidate: DaySwapCandidate) => void;
   tailoringPreferences?: Parameters<typeof buildSwapOptionsForSlot>[2];
   onBack: () => void;
 }
@@ -151,8 +140,6 @@ export function ProgramDayScreen({
   onKeepSwap,
   onPrescribe,
   onMoveExercise,
-  daySwapCandidates,
-  onSwapDay,
   tailoringPreferences,
   onBack,
 }: ProgramDayScreenProps) {
@@ -306,8 +293,6 @@ export function ProgramDayScreen({
   const cooldown = getDefaultCooldown(focusKind, language, availableEquipment);
 
   const canAddExercises = Boolean(onAddExercises && exerciseLibrary && exerciseLibrary.length > 0);
-  const canSwapDay = Boolean(onSwapDay && daySwapCandidates && daySwapCandidates.length > 0);
-  const [daySwapOpen, setDaySwapOpen] = useState(false);
 
   // What the day already holds, so the picker can rank around it rather than
   // offering back what is on the screen behind it.
@@ -610,28 +595,6 @@ export function ProgramDayScreen({
               <Text style={styles.addRowText}>{t(language, 'editor.addExercise')}</Text>
             </Pressable>
           ) : null}
-          {/* Below the exercises, not above them: the day is read first and
-              replaced second. */}
-          {canSwapDay ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setDaySwapOpen(true)}
-              style={({ pressed }) => [styles.addRow, pressed && styles.swapOptionPressed]}
-            >
-              <View style={styles.addGlyph}>
-                <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                  <Path
-                    d="M7 7h10l-3-3M17 17H7l3 3"
-                    stroke={theme.purple}
-                    strokeWidth={2.2}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </Svg>
-              </View>
-              <Text style={styles.addRowText}>{t(language, 'programDay.swapDay.action')}</Text>
-            </Pressable>
-          ) : null}
         </View>
 
         </Section>
@@ -926,21 +889,6 @@ export function ProgramDayScreen({
         />
       ) : null}
 
-      {canSwapDay && daySwapCandidates && onSwapDay ? (
-        <DaySwapSheet
-          visible={daySwapOpen}
-          candidates={daySwapCandidates}
-          excludeSessionId={session.id}
-          currentDayName={localizeSessionName(session.name, language)}
-          language={language}
-          bottomInset={insets.bottom}
-          onClose={() => setDaySwapOpen(false)}
-          onPick={(candidate) => {
-            setDaySwapOpen(false);
-            onSwapDay(candidate);
-          }}
-        />
-      ) : null}
 
       {/* The "Start this workout" dock was removed on request. */}
     </View>

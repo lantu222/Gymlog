@@ -134,7 +134,6 @@ const EN = {
   'kit.justThisTime': 'Just this time',
   'kit.forEver': 'For ever',
   'kit.pickAnother': 'Pick another lift',
-  'kit.pickAnotherDay': 'Pick another day',
   'kit.doToday': 'Do this today',
   'kit.keepCurrent': 'Keep {name}',
   'kit.today': 'Today',
@@ -212,11 +211,6 @@ const EN = {
 
   // ── Common ─────────────────────────────────────────────────────────────
   'common.cancel': 'Cancel',
-  'programDay.swapDay.action': 'Swap this day',
-  'programDay.swapDay.title': 'Swap this day',
-  'programDay.swapDay.lead': 'Pick a day from the catalogue. It keeps its own sets and reps, and the rest of your programme is untouched.',
-  'programDay.swapDay.all': 'All',
-  'programDay.swapDay.meta': '{exercises} exercises · {sets} sets',
   'common.today': 'Today',
   'common.yesterday': 'Yesterday',
   'common.daysAgo': '{count} days ago',
@@ -3458,7 +3452,6 @@ const FI: Record<I18nKey, string> = {
   'kit.justThisTime': 'Vain tämän kerran',
   'kit.forEver': 'Pysyvästi',
   'kit.pickAnother': 'Valitse toinen liike',
-  'kit.pickAnotherDay': 'Valitse toinen päivä',
   'kit.doToday': 'Tee tämä tänään',
   'kit.keepCurrent': 'Pidä {name}',
   'kit.today': 'Tänään',
@@ -3536,11 +3529,6 @@ const FI: Record<I18nKey, string> = {
 
   // ── Common ─────────────────────────────────────────────────────────────
   'common.cancel': 'Peruuta',
-  'programDay.swapDay.action': 'Vaihda tämä päivä',
-  'programDay.swapDay.title': 'Vaihda tämä päivä',
-  'programDay.swapDay.lead': 'Valitse päivä katalogista. Se tuo omat sarjansa ja toistonsa, eikä muuhun ohjelmaasi kosketa.',
-  'programDay.swapDay.all': 'Kaikki',
-  'programDay.swapDay.meta': '{exercises} liikettä · {sets} sarjaa',
   'common.today': 'Tänään',
   'common.yesterday': 'Eilen',
   'common.daysAgo': '{count} pv sitten',

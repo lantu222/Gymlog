@@ -6,7 +6,6 @@ import { buildFirstRunRecommendationReasons, FirstRunSetupSelection } from '../l
 import { formatShortDate } from '../lib/format';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { t } from '../lib/i18n';
-import { DaySwapCandidate } from '../lib/programDaySwap';
 import { AFFINITY_REASON_KEYS, resolveProgramAffinity } from '../lib/programAffinity';
 import { composeProgramWeekForSelection } from '../lib/programDayComposer';
 import { buildCustomProgramDetail, buildReadyProgramDetail } from '../lib/programDetails';
@@ -103,8 +102,7 @@ export interface WorkoutTabDeps {
       | { kind: 'replace'; exerciseName: string }
       | { kind: 'add'; exerciseNames: string[] }
       | { kind: 'prescribe'; prescription: ProgramPrescription }
-      | { kind: 'move'; direction: MoveDirection }
-      | { kind: 'replaceDay'; candidateTemplateId: string; candidateSessionId: string; name: string },
+      | { kind: 'move'; direction: MoveDirection },
   ) => Promise<void>;
   handleSaveRhythm: (workoutTemplateId: string, dayIndexes: number[]) => Promise<void>;
   handleSaveEmphasis: (
@@ -124,13 +122,6 @@ export interface WorkoutTabDeps {
   editorDraft: React.ComponentProps<typeof WorkoutEditorScreen>['initialDraft'];
   editorExerciseHistoryLookup: React.ComponentProps<typeof WorkoutEditorScreen>['exerciseHistoryLookup'];
   exerciseLibrary: AppDatabase['exerciseLibrary'];
-  /**
-   * Every catalogue day a programme day could be swapped for, built once
-   * against the exercise library. Held above the render chain because
-   * building it walks ~197 written sessions against an 874-entry library:
-   * inline here it ran on every render of the day screen.
-   */
-  daySwapCandidates: readonly DaySwapCandidate[];
   guidedEntryEyebrow: GuidedProps['entryEyebrow'];
   guidedWeekProgress: GuidedProps['weekProgress'];
   guidedNextUp: GuidedProps['nextUp'];
@@ -210,7 +201,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     editorDraft,
     editorExerciseHistoryLookup,
     exerciseLibrary,
-    daySwapCandidates,
     guidedEntryEyebrow,
     guidedWeekProgress,
     guidedNextUp,
@@ -508,17 +498,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           void editProgramExercise(route.programType, route.workoutTemplateId, daySession.id, exerciseId, {
             kind: 'move',
             direction,
-          })
-        }
-        daySwapCandidates={daySwapCandidates}
-        onSwapDay={(candidate) =>
-          // The empty exerciseId is deliberate: every other edit in this
-          // union names a lift, and this one names the day.
-          void editProgramExercise(route.programType, route.workoutTemplateId, daySession.id, '', {
-            kind: 'replaceDay',
-            candidateTemplateId: candidate.templateId,
-            candidateSessionId: candidate.sessionId,
-            name: candidate.sessionName,
           })
         }
         tailoringPreferences={preferences}

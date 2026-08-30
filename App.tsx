@@ -93,7 +93,6 @@ import {
   detectPlateau,
   pickCompletionLift,
 } from './src/lib/proInsights';
-import { buildDaySwapCandidates, buildSwappedDayExercises } from './src/lib/programDaySwap';
 import { markCoachDemoMomentUsed, resolveDueCoachDemoMoment } from './src/lib/coachDemoMoments';
 import { buildHomePlanProgress } from './src/lib/homePlanProgress';
 import { buildHomeStatCardCatalog, buildHomeStatCards, resolveHomeStatCardKeys } from './src/lib/homeStatCards';
@@ -1034,17 +1033,6 @@ function VinhaApp() {
   }, [navigationState.history.length, onboardingActive, route, workout]);
 
   const homeSummary = useMemo(() => getHomeSummary(database, unitPreference), [database, unitPreference]);
-  /**
-   * Every catalogue day a programme day could be swapped for.
-   *
-   * Up here rather than in the day screen's render because building it walks
-   * ~197 written sessions and summarises each against the whole 874-entry
-   * exercise library. Called inline in the render chain it ran that on every
-   * render of the day screen — every tap of a set stepper — and handed down a
-   * fresh array identity that invalidated the sheet's own memos with it. The
-   * library is the only input, so one memo covers the app's whole lifetime.
-   */
-  const daySwapCandidates = useMemo(() => buildDaySwapCandidates(exerciseLibrary), [exerciseLibrary]);
   const lifetimeSummary = useMemo(() => getLifetimeTrainingSummary(database), [database]);
   const progressTrainingRhythm = useMemo(() => getTrainingRhythm(database), [database]);
   // The paywall-moments data layer: real lift histories → detections (free)
@@ -1991,13 +1979,7 @@ function VinhaApp() {
     | { kind: 'replace'; exerciseName: string }
     | { kind: 'add'; exerciseNames: string[] }
     | { kind: 'prescribe'; prescription: ProgramPrescription }
-    | { kind: 'move'; direction: MoveDirection }
-    /**
-     * The whole day, swapped for another out of the catalogue. The only
-     * member of this union that does not name an exercise — the day screen
-     * passes an empty exerciseId for it, because the subject is the day.
-     */
-    | { kind: 'replaceDay'; candidateTemplateId: string; candidateSessionId: string; name: string };
+    | { kind: 'move'; direction: MoveDirection };
 
   /**
    * The prescription a lift added from the library starts on.
@@ -2092,17 +2074,7 @@ function VinhaApp() {
                 ? { kind: 'prescribe', exerciseId, prescription: edit.prescription }
                 : edit.kind === 'move'
                   ? { kind: 'move', exerciseId, direction: edit.direction }
-                  : edit.kind === 'replaceDay'
-                    ? {
-                        kind: 'replaceDay',
-                        name: edit.name,
-                        exercises: buildSwappedDayExercises(
-                          { templateId: edit.candidateTemplateId, sessionId: edit.candidateSessionId },
-                          sessionId,
-                          resolveLibraryItemIdForName,
-                        ),
-                      }
-                    : { kind: 'add', exercises: added },
+                  : { kind: 'add', exercises: added },
         ),
       );
       if (result.reason === 'lastExerciseInDay') {
@@ -2296,28 +2268,6 @@ function VinhaApp() {
             }
           : {},
       );
-      /**
-       * A whole-day swap needs a second write, and that is the honest cost.
-       *
-       * The duplication above weaves the other edits in as it copies, which
-       * keeps them to one write. replaceDay cannot ride along: the copy
-       * assigns its own session ids, so the day to replace is only
-       * identifiable once the copy exists. Matched by POSITION, because
-       * position is what the copy preserves — the ids deliberately do not
-       * survive it.
-       */
-      if (edit.kind === 'replaceDay') {
-        const dayIndex = template.sessions.findIndex((session) => session.id === sessionId);
-        const copiedDay = dayIndex >= 0 ? copiedSessions[dayIndex] : undefined;
-        if (copiedDay) {
-          await runProgramExerciseEdit('custom', workoutTemplateId, copiedDay.id, exerciseId, edit);
-        }
-        // Deliberately no early return. Returning here is what made the first
-        // build look like nothing happened: the copy was made and edited, and
-        // the reader was left standing on the catalogue original, which is
-        // immutable and therefore still showed the day they had just replaced.
-        // The navigation below is the half that moves them onto the copy.
-      }
       void haptics.success();
       if (edit.kind === 'replace') {
         setSessionSwaps((current) => {
@@ -5209,7 +5159,6 @@ function VinhaApp() {
     // fallback below catches it — the same drop-through the old chain had.
     content = renderWorkoutTab({
       route,
-      daySwapCandidates,
       navigate,
       navigateBack,
       replaceRoute,
