@@ -56,8 +56,15 @@ export function DaySwapSheet({
           <Text style={styles.title}>{t(language, 'programDay.swapDay.title')}</Text>
           <Text style={styles.lead}>{t(language, 'programDay.swapDay.lead')}</Text>
 
+          {/* A height on the scroller AND on the chips. Two ScrollViews are
+              siblings in this column, and without both the horizontal one is
+              squeezed to nothing by the list below it — the chips still lay
+              out and still read correctly to the accessibility tree, they just
+              paint as empty pills. Found on a device; the same collapse that
+              once flattened the set-screen dials. */}
           <ScrollView
             horizontal
+            style={styles.filterScroll}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filterRow}
           >
@@ -143,10 +150,12 @@ const makeStyles = (theme: Theme) =>
     },
     title: { fontSize: 21, fontWeight: '800', color: theme.ink, letterSpacing: -0.4 },
     lead: { fontSize: 14, fontWeight: '500', color: theme.muted, lineHeight: 20, marginTop: 6 },
-    filterRow: { gap: 8, paddingVertical: 14, paddingRight: 20 },
+    filterScroll: { flexGrow: 0, flexShrink: 0, height: 68 },
+    filterRow: { gap: 8, paddingVertical: 14, paddingRight: 20, alignItems: 'center' },
     chip: {
+      height: 40,
+      justifyContent: 'center',
       paddingHorizontal: 14,
-      paddingVertical: 9,
       borderRadius: 999,
       backgroundColor: theme.surfaceSoft,
       borderWidth: 1,

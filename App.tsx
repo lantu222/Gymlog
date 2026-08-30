@@ -2280,7 +2280,11 @@ function VinhaApp() {
         if (copiedDay) {
           await runProgramExerciseEdit('custom', workoutTemplateId, copiedDay.id, exerciseId, edit);
         }
-        return;
+        // Deliberately no early return. Returning here is what made the first
+        // build look like nothing happened: the copy was made and edited, and
+        // the reader was left standing on the catalogue original, which is
+        // immutable and therefore still showed the day they had just replaced.
+        // The navigation below is the half that moves them onto the copy.
       }
       void haptics.success();
       if (edit.kind === 'replace') {
