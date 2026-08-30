@@ -96,7 +96,8 @@ function BlockRow({
   }
 
   return (
-    <View>
+    <View style={[styles.sectCard, open && styles.sectCardOpen]}>
+      {open ? <View style={styles.sectStripe} /> : null}
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
@@ -104,13 +105,13 @@ function BlockRow({
         onPress={onToggle}
         style={({ pressed }) => [styles.blockRow, pressed && styles.pressed]}
       >
-        <Text style={styles.blockTitle}>{title}</Text>
+        <Text style={[styles.blockTitle, open && styles.sectTitleOpen]}>{title}</Text>
         <Text style={styles.blockMeta}>{meta}</Text>
         <View style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }}>
           <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
             <Path
               d="m6 9 6 6 6-6"
-              stroke={theme.faint}
+              stroke={open ? theme.purpleBright : theme.faint}
               strokeWidth={2.4}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -1211,6 +1212,8 @@ export function HomeScreen({
                   so the meta line doubles as the fold, matching the two rows
                   around it instead of being the one section that cannot
                   close. */}
+              <View style={[styles.sectCard, workoutListOpen && styles.sectCardOpen]}>
+              {workoutListOpen ? <View style={styles.sectStripe} /> : null}
               <Pressable
                 accessibilityRole="button"
                 accessibilityState={{ expanded: workoutListOpen }}
@@ -1228,7 +1231,9 @@ export function HomeScreen({
                     the chevron, the same seat Lämmittely's own meta sits in.
                     (Two other seats were tried the same evening; this row
                     reads as family only when it IS the family layout.) */}
-                <Text style={styles.heroListTitle}>{t(language, 'home.section.workout')}</Text>
+                <Text style={[styles.heroListTitle, workoutListOpen && styles.sectTitleOpen]}>
+                  {t(language, 'home.section.workout')}
+                </Text>
                 <Text style={styles.heroListMeta} numberOfLines={1}>
                   {t(language, 'home.section.workoutMeta', { count: totalExerciseCount, sets: totalSets })}
                 </Text>
@@ -1276,7 +1281,10 @@ export function HomeScreen({
                         <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
                           <Path
                             d="M7 8h10M7 8l3-3M7 8l3 3M17 16H7m10 0-3-3m3 3-3 3"
-                            stroke={swapped ? theme.purple : theme.faint}
+                            // Orange, because it is pressable; violet only
+                            // once a swap is in force, because that is state
+                            // (the kit's colour rule, frame 03).
+                            stroke={swapped ? theme.purple : theme.highlight}
                             strokeWidth={2.2}
                             strokeLinecap="round"
                             strokeLinejoin="round"
@@ -1305,6 +1313,7 @@ export function HomeScreen({
                   </Pressable>
                 );
               })}
+              </View>
               <BlockRow
                 title={t(language, 'home.section.cooldown')}
                 meta={t(language, 'home.section.cooldownMeta', {
@@ -2394,6 +2403,31 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '700',
   },
   // A row, not a card: same hairline the lift rows use, no fill, no radius.
+  /* The phase cards (design: Sheets & Pickers, frame 03). One anatomy for
+     warmup, workout and recovery; no hue per phase — a single violet marks
+     whichever card is open, and orange stays reserved for actions. */
+  sectCard: {
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 16,
+    paddingHorizontal: 15,
+    marginTop: 10,
+    overflow: 'hidden',
+  },
+  sectCardOpen: {
+    backgroundColor: 'rgba(155,109,255,0.07)',
+    borderColor: 'rgba(155,109,255,0.30)',
+  },
+  sectStripe: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 2,
+    backgroundColor: theme.purple,
+  },
+  sectTitleOpen: { color: theme.purpleBright },
   blockRow: {
     flexDirection: 'row',
     alignItems: 'center',

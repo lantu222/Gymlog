@@ -182,10 +182,16 @@ module.exports = [
       );
       // The lifts' fold row is titled like its neighbours — "Treeni" between
       // Lämmittely and Palautuminen, counts beside it (user 2026-08-25).
+      // Since the phase cards (design frame 03) the title also turns violet
+      // while its card is open, so the style is an array now.
       assert.match(
         homeScreenSource,
-        /styles\.heroListTitle\}>\{t\(language, 'home\.section\.workout'\)\}/,
+        /styles\.heroListTitle, workoutListOpen && styles\.sectTitleOpen\]/,
       );
+      // One anatomy for all three phases: warmup, workout and recovery share
+      // the card, and a single violet marks whichever one is open.
+      assert.match(homeScreenSource, /sectCard: \{/);
+      assert.match(homeScreenSource, /sectCardOpen: \{/);
       // And the promo carousel went with them: Home runs today's session, the
       // season and programme offers live on their own screens.
       assert.doesNotMatch(homeScreenSource, /HomePromoCarousel|promoSlides/);
