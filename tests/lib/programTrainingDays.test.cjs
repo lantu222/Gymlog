@@ -49,6 +49,15 @@ module.exports = [
     name: 'a plan that names weekdays is believed; one that names positions is not',
     run() {
       assert.deepEqual(planWeekdayIndexes([{ label: 'mon' }, { label: 'thu' }]), [0, 3]);
+      // Entry order, not Monday-first order. The schedule reads a day's
+      // POSITION in this list as its session number, so sorting here moved
+      // session one onto whichever training day fell earliest in the week —
+      // and a plan adopted on a Sunday printed WED on its first session.
+      assert.deepEqual(
+        planWeekdayIndexes([{ label: 'sun' }, { label: 'wed' }, { label: 'fri' }]),
+        [6, 2, 4],
+        'the plan runs sun, then wed, then fri — in that order',
+      );
       // "Day 1" is a position, not a weekday — returning 0 for it would put
       // every position-labelled plan on Monday.
       assert.deepEqual(planWeekdayIndexes([{ label: 'Day 1' }]), []);

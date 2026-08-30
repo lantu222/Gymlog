@@ -7,8 +7,11 @@ const {
   sessionSlotOn,
   trainsOn,
   UNKNOWN_SCHEDULE,
+  upcomingSessionDayStarts,
   weekdaySchedule,
 } = require('../../.test-dist/lib/trainingSchedule.js');
+const { planWeekdayIndexes } = require('../../.test-dist/lib/programTrainingDays.js');
+const { planLabelsForProgramme } = require('../../.test-dist/lib/trainingWeekSync.js');
 
 /** Local wall-clock, the way the schedule reads dates. */
 function on(year, month, day) {
@@ -183,6 +186,34 @@ module.exports = [
       const weekly = weekdaySchedule(weekdays);
       weekdays.push(5);
       assert.equal(trainsOn(weekly, on(2026, 8, 22)), false);
+    },
+  },
+  {
+    name: "the day the plan opens on is the day it calls session one",
+    run() {
+      // The whole chain, because the break was between its links rather
+      // than inside one: adoption rotates the plan labels so session one
+      // takes the first day that has not gone (trainingWeekSync), the
+      // schedule is built from those labels (planWeekdayIndexes) and the
+      // calendar asks the schedule which session a date owns.
+      // Availability wed/fri/sun, adopted on Sunday 30 Aug 2026.
+      const labels = planLabelsForProgramme(3, ["wed", "fri", "sun"], on(2026, 8, 30));
+      assert.deepEqual(labels, ["sun", "wed", "fri"]);
+
+      const schedule = weekdaySchedule(planWeekdayIndexes(labels.map((label) => ({ label }))));
+
+      // Today is session ONE. Sorting the indexes Monday-first made this 2,
+      // so Home offered session one in the hero and stamped WED on its row.
+      assert.equal(sessionSlotOn(schedule, on(2026, 8, 30)), 0, "Sunday opens the programme");
+      assert.equal(sessionSlotOn(schedule, on(2026, 9, 2)), 1, "Wednesday is session two");
+      assert.equal(sessionSlotOn(schedule, on(2026, 9, 4)), 2, "Friday is session three");
+
+      // And the row badges agree: session one wears today.
+      const starts = upcomingSessionDayStarts(schedule, 3, on(2026, 8, 30));
+      assert.deepEqual(
+        starts.map((start) => new Date(start).getDate()),
+        [30, 2, 4],
+      );
     },
   },
 ];
