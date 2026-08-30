@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CutSurface } from '../components/CutSurface';
@@ -175,6 +176,7 @@ export function ProgramDetailScreen({
   language = 'en',
 }: ProgramDetailScreenProps) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useThemedStyles(makeStyles);
   // The programme's own colour, the same one its browse cover wears.
   const [emphasisSheetVisible, setEmphasisSheetVisible] = useState(false);
@@ -841,6 +843,7 @@ export function ProgramDetailScreen({
         <EmphasisSheet
           visible={emphasisSheetVisible}
           language={language}
+          bottomInset={insets.bottom}
           exercises={emphasisRows}
           onClose={() => setEmphasisSheetVisible(false)}
           onSave={(sets) => {
