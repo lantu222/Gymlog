@@ -93,7 +93,7 @@ import {
   detectPlateau,
   pickCompletionLift,
 } from './src/lib/proInsights';
-import { buildSwappedDayExercises } from './src/lib/programDaySwap';
+import { buildDaySwapCandidates, buildSwappedDayExercises } from './src/lib/programDaySwap';
 import { markCoachDemoMomentUsed, resolveDueCoachDemoMoment } from './src/lib/coachDemoMoments';
 import { buildHomePlanProgress } from './src/lib/homePlanProgress';
 import { buildHomeStatCardCatalog, buildHomeStatCards, resolveHomeStatCardKeys } from './src/lib/homeStatCards';
@@ -1034,6 +1034,17 @@ function VinhaApp() {
   }, [navigationState.history.length, onboardingActive, route, workout]);
 
   const homeSummary = useMemo(() => getHomeSummary(database, unitPreference), [database, unitPreference]);
+  /**
+   * Every catalogue day a programme day could be swapped for.
+   *
+   * Up here rather than in the day screen's render because building it walks
+   * ~197 written sessions and summarises each against the whole 874-entry
+   * exercise library. Called inline in the render chain it ran that on every
+   * render of the day screen — every tap of a set stepper — and handed down a
+   * fresh array identity that invalidated the sheet's own memos with it. The
+   * library is the only input, so one memo covers the app's whole lifetime.
+   */
+  const daySwapCandidates = useMemo(() => buildDaySwapCandidates(exerciseLibrary), [exerciseLibrary]);
   const lifetimeSummary = useMemo(() => getLifetimeTrainingSummary(database), [database]);
   const progressTrainingRhythm = useMemo(() => getTrainingRhythm(database), [database]);
   // The paywall-moments data layer: real lift histories → detections (free)
@@ -5082,6 +5093,7 @@ function VinhaApp() {
     content = renderHomeScreens({
       route,
       navigate,
+      replaceRoute,
       navigateBack,
       preferences,
       updatePreferences,
@@ -5162,10 +5174,6 @@ function VinhaApp() {
             demoMomentKey: coachDemoMoment.key,
           });
         }}
-        onSkipDemoQuestion={() => {
-          // Skipping does NOT spend it. The reader declined a question, not
-          // the offer, and it comes back after the next session.
-        }}
         onDone={(feel) => {
           // The verdict lands on the already-saved session; leaving does not
           // wait for the write (it goes through the same serial queue every
@@ -5203,6 +5211,7 @@ function VinhaApp() {
     // fallback below catches it — the same drop-through the old chain had.
     content = renderWorkoutTab({
       route,
+      daySwapCandidates,
       navigate,
       navigateBack,
       replaceRoute,
@@ -5616,6 +5625,17 @@ function VinhaApp() {
       route.screen === 'promo' ||
       route.screen === 'subscription' ||
       route.screen === 'legal');
+  /**
+   * The Pro page commits to one dark treatment in BOTH themes (theme.ts,
+   * PRO_TIER): the tier's colour is the only thing telling Free from Pro from
+   * Lifetime, and repainting it per reader would make that signal mean
+   * something different for each of them.
+   *
+   * The shell has to be told, or only the page obeys. v4 painted itself
+   * theme.bg and matched by accident; v6 paints itself black, and under the
+   * light theme the safe-area bands above and below it stayed light — two
+   * pale strips framing a black page.
+   */
   const premiumActive = route.tab === 'profile' && route.screen === 'premium';
   const aiCoachActive = route.tab === 'home' && route.screen === 'ai';
   const historyActive = route.tab === 'home' && (route.screen === 'history' || route.screen === 'session' || route.screen === 'cardio');
@@ -5656,11 +5676,18 @@ function VinhaApp() {
       }
       // Only the gradient-hero screens want light icons; everything else takes
       // the shell's light default.
+      // The Pro page is black in both themes, so the bands the shell paints
+      // around it have to be too — see premiumActive.
+      shellBackgroundColor={premiumActive ? '#000000' : undefined}
       statusBarStyleOverride={
         // The workout summary is off this list since its hero turned gold: a
         // pale gold bar needs dark icons, and the shell already derives that
         // from the theme.
-        fullBleedReview ? fullBleedReview : historySessionActive ? 'light' : undefined
+        fullBleedReview
+          ? fullBleedReview
+          : historySessionActive || premiumActive
+            ? 'light'
+            : undefined
       }
       statusBarBackgroundColor={
         // The saved workout's hero scrolls, and under a transparent bar its
@@ -5669,9 +5696,11 @@ function VinhaApp() {
         // the screen moves.
         historySessionActive
           ? '#8B5CF6'
-          : workoutSummaryActive || welcomeActive || fullBleedReview !== null
-            ? 'transparent'
-            : undefined
+          : premiumActive
+            ? '#000000'
+            : workoutSummaryActive || welcomeActive || fullBleedReview !== null
+              ? 'transparent'
+              : undefined
       }
       statusBarTranslucent={
         welcomeActive || workoutSummaryActive || historySessionActive || fullBleedReview !== null
