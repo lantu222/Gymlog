@@ -1616,6 +1616,7 @@ export function HomeScreen({
         {onChangePinnedStatCardKeys ? (
           <Animated.View style={[styles.statCardsSection, rise(RISE_EMPTY_ROW)]}>
             <HomeStatCardsSection
+              bottomInset={insets.bottom}
               catalogCards={statCatalogCards}
               suggestedKeys={suggestedStatCardKeys}
               onDismissSuggestion={onDismissStatCardSuggestion}

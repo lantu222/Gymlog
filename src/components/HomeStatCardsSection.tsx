@@ -3,6 +3,7 @@ import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View 
 import Svg, { Circle, Path, Polyline } from 'react-native-svg';
 
 import { formatHomeStatValue, HomeStatCard, HomeStatCardIcon } from '../lib/homeStatCards';
+import { KitBar, KitRow, KitSheet } from './sheetKit';
 import { I18nKey, t } from '../lib/i18n';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
@@ -19,6 +20,8 @@ const RED = '#C0392B';
 const SPARK_HEIGHT = 34;
 
 interface HomeStatCardsSectionProps {
+  /** Safe-area inset, read on the SCREEN — a Modal measures it as zero. */
+  bottomInset?: number;
   /** One computed card per catalog item, in Add-sheet display order. */
   catalogCards: HomeStatCard[];
   /**
@@ -157,6 +160,7 @@ const SUGGEST_TITLE_KEYS: Record<string, I18nKey> = {
 
 export function HomeStatCardsSection({
   catalogCards,
+  bottomInset = 0,
   suggestedKeys = [],
   onDismissSuggestion,
   pinnedKeys,
@@ -169,6 +173,12 @@ export function HomeStatCardsSection({
   const styles = useThemedStyles(makeStyles);
   const [editing, setEditing] = useState(false);
   const [addSheetVisible, setAddSheetVisible] = useState(false);
+  /** Picked in the add sheet but not committed — the kit bar writes. */
+  const [addPicks, setAddPicks] = useState<string[]>([]);
+  const closeAddSheet = () => {
+    setAddSheetVisible(false);
+    setAddPicks([]);
+  };
 
   const cardByKey = useMemo(() => new Map(catalogCards.map((card) => [card.key, card])), [catalogCards]);
   const pinnedCards = pinnedKeys.map((key) => cardByKey.get(key)).filter((card): card is HomeStatCard => Boolean(card));
@@ -400,60 +410,71 @@ export function HomeStatCardsSection({
         </View>
       </View>
 
-      <Modal
+      {/* The add sheet on the kit (design frame 13): rows pick, the bar
+          counts what you picked, and one button writes them all. The per-row
+          plus that added instantly was a write on a tap — the one thing the
+          kit exists to prevent. */}
+      <KitSheet
         visible={addSheetVisible}
-        transparent
-        animationType={reduceMotion ? 'none' : 'slide'}
-        onRequestClose={() => setAddSheetVisible(false)}
+        onClose={closeAddSheet}
+        title={t(language, 'cards.addSheet.title')}
+        description={t(language, 'cards.addSheet.subtitle')}
+        bottomInset={bottomInset}
+        barUp={addPicks.length > 0}
+        reduceMotion={reduceMotion}
+        bar={
+          <KitBar
+            visible={addPicks.length > 0}
+            from={t(language, 'cards.title')}
+            to={
+              addPicks.length === 1
+                ? t(language, 'cards.addSheet.count.one')
+                : t(language, 'cards.addSheet.count', { count: addPicks.length })
+            }
+            buttons={[
+              {
+                label: t(language, 'cards.addSheet.confirm'),
+                kind: 'p',
+                onPress: () => {
+                  onChangePinnedKeys([...pinnedKeys, ...addPicks]);
+                  closeAddSheet();
+                },
+              },
+            ]}
+            clearLabel={t(language, 'cards.addSheet.clear')}
+            onClear={() => setAddPicks([])}
+            bottomInset={bottomInset}
+            reduceMotion={reduceMotion}
+          />
+        }
       >
-        <View style={styles.sheetScrim}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setAddSheetVisible(false)} />
-          <View style={styles.sheet}>
-            <View style={styles.sheetGrip} />
-            <Text style={styles.sheetTitle}>{t(language, 'cards.addSheet.title')}</Text>
-            <Text style={styles.sheetSubtitle}>{t(language, 'cards.addSheet.subtitle')}</Text>
-            <ScrollView style={styles.sheetList} showsVerticalScrollIndicator={false}>
-              {availableCards.length > 0 ? (
-                availableCards.map((card, index) => (
-                  <View key={card.key} style={[styles.sheetRow, index > 0 && styles.sheetRowDivider]}>
-                    <View style={styles.sheetIconTile}>
-                      <StatIcon icon={card.icon} />
-                    </View>
-                    <View style={styles.sheetRowCopy}>
-                      <Text numberOfLines={1} style={styles.sheetRowTitle}>
-                        {card.label}
-                      </Text>
-                      <Text numberOfLines={1} style={styles.sheetRowSub}>
-                        {addSheetSub(card)}
-                      </Text>
-                    </View>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={t(language, 'cards.a11y.add', { label: card.label })}
-                      onPress={() => addCard(card.key)}
-                      hitSlop={6}
-                      style={({ pressed }) => [styles.sheetAddButton, pressed && { opacity: 0.7 }]}
-                    >
-                      <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                        <Path d="M12 5v14M5 12h14" stroke="#FFFFFF" strokeWidth={2.6} strokeLinecap="round" />
-                      </Svg>
-                    </Pressable>
-                  </View>
-                ))
-              ) : (
-                <Text style={styles.sheetEmpty}>{t(language, 'cards.addSheet.empty')}</Text>
-              )}
-            </ScrollView>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setAddSheetVisible(false)}
-              style={({ pressed }) => [styles.sheetDone, pressed && { opacity: 0.7 }]}
-            >
-              <Text style={styles.sheetDoneText}>{t(language, 'cards.done')}</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+        <ScrollView
+          style={styles.sheetList}
+          contentContainerStyle={styles.sheetListPad}
+          showsVerticalScrollIndicator={false}
+        >
+          {availableCards.length > 0 ? (
+            availableCards.map((card) => (
+              <KitRow
+                key={card.key}
+                title={card.label}
+                meta={addSheetSub(card)}
+                state={addPicks.includes(card.key) ? 'sel' : 'idle'}
+                onPress={() =>
+                  setAddPicks((current) =>
+                    current.includes(card.key)
+                      ? current.filter((key) => key !== card.key)
+                      : [...current, card.key],
+                  )
+                }
+                accessibilityLabel={t(language, 'cards.a11y.add', { label: card.label })}
+              />
+            ))
+          ) : (
+            <Text style={styles.sheetEmpty}>{t(language, 'cards.addSheet.empty')}</Text>
+          )}
+        </ScrollView>
+      </KitSheet>
     </View>
   );
 }
@@ -611,9 +632,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     overflow: 'hidden',
   },
   cardLabel: {
-    color: theme.muted,
-    fontSize: 12,
+    fontFamily: 'JetBrainsMono',
+    fontSize: 10.5,
     fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: theme.faint,
   },
   valueRow: {
     flexDirection: 'row',
@@ -750,6 +774,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  sheetListPad: { paddingHorizontal: 18, paddingBottom: 6 },
   sheetEmpty: {
     color: theme.faint,
     fontSize: 13.5,
