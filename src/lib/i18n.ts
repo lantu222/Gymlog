@@ -1626,6 +1626,8 @@ const EN = {
   'account.prompt.title': 'Keep your training safe',
   'account.prompt.body':
     'Sign in with Google and your workouts survive a lost or new phone. Optional — everything works without it.',
+  'account.prompt.kicker': 'Optional · takes a second',
+  'account.prompt.google': 'Continue with Google',
   'account.prompt.signIn': 'Sign in',
   'account.prompt.dismiss': 'No thanks',
   'pro.previewOff': 'Turn off Pro preview',
@@ -4874,6 +4876,8 @@ const FI: Record<I18nKey, string> = {
   'account.prompt.title': 'Pidä treenisi tallessa',
   'account.prompt.body':
     'Kirjaudu Googlella, niin treenisi säilyvät vaikka puhelin katoaisi tai vaihtuisi. Vapaaehtoinen — kaikki toimii ilmankin.',
+  'account.prompt.kicker': 'Valinnainen · vie hetken',
+  'account.prompt.google': 'Jatka Googlella',
   'account.prompt.signIn': 'Kirjaudu',
   'account.prompt.dismiss': 'Ei kiitos',
   'pro.previewOff': 'Poista Pro-esikatselu',

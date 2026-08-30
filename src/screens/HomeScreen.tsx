@@ -422,6 +422,12 @@ export function HomeScreen({
   const insets = useSafeAreaInsets();
   const [todaySheetVisible, setTodaySheetVisible] = useState(false);
   /**
+   * The sign-in dialog, open while the offer is due. Scrim and back close it
+   * for THIS visit only — the queue brings it back next launch — and only
+   * "No thanks" inside it answers for good.
+   */
+  const [signInPopupOpen, setSignInPopupOpen] = useState(true);
+  /**
    * The day picked but not yet committed. The sheet kit's contract: a tap
    * selects, the commit bar rises with the whole change on one line, and only
    * "Do this today" writes. Tapping the selected row again unpicks it.
@@ -1589,30 +1595,6 @@ export function HomeScreen({
           </Animated.View>
         ) : null}
 
-        {accountBackupPrompt ? (
-          <Animated.View style={[styles.widgetPromptCard, rise(RISE_EMPTY_ROW)]}>
-            <Text style={styles.widgetPromptTitle}>{t(language, 'account.prompt.title')}</Text>
-            <Text style={styles.widgetPromptBody}>{t(language, 'account.prompt.body')}</Text>
-            <View style={styles.widgetPromptActions}>
-              <Pressable
-                accessibilityRole="button"
-                onPress={accountBackupPrompt.onDismiss}
-                hitSlop={8}
-                style={({ pressed }) => [styles.widgetPromptGhost, pressed && styles.pressed]}
-              >
-                <Text style={styles.widgetPromptGhostText}>{t(language, 'account.prompt.dismiss')}</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                onPress={accountBackupPrompt.onSignIn}
-                style={({ pressed }) => [styles.widgetPromptCta, pressed && styles.pressed]}
-              >
-                <Text style={styles.widgetPromptCtaText}>{t(language, 'account.prompt.signIn')}</Text>
-              </Pressable>
-            </View>
-          </Animated.View>
-        ) : null}
-
         {onChangePinnedStatCardKeys ? (
           <Animated.View style={[styles.statCardsSection, rise(RISE_EMPTY_ROW)]}>
             <HomeStatCardsSection
@@ -1691,6 +1673,76 @@ export function HomeScreen({
 
         <View style={styles.bottomSafeFade} />
       </ScrollView>
+
+      {/* Optional sign-in as its own moment (design frame 11): a centred
+          dialog, not a row in the feed. It earns the interruption by waiting
+          for the third logged session (lib/homePrompts) and by never coming
+          back once answered — "No thanks" is a real no. One clear action:
+          the Google button leads, the refusal stays a quiet link. */}
+      <Modal
+        visible={accountBackupPrompt !== null && signInPopupOpen}
+        transparent
+        animationType={reduceMotion ? 'none' : 'fade'}
+        onRequestClose={() => setSignInPopupOpen(false)}
+      >
+        <View style={styles.signInOverlay}>
+          {/* The scrim is "not now", not "no": the offer returns next launch,
+              only the button's own refusal is permanent. */}
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setSignInPopupOpen(false)}
+            accessibilityRole="button"
+          />
+          <View style={styles.signInCard}>
+            <View style={styles.signInKickerRow}>
+              <View style={styles.signInIcon}>
+                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M12 3l7 3v6c0 4-3 6.6-7 8-4-1.4-7-4-7-8V6z"
+                    stroke={theme.green}
+                    strokeWidth={1.8}
+                    strokeLinejoin="round"
+                  />
+                  <Path
+                    d="M9 12l2 2 4-4"
+                    stroke={theme.green}
+                    strokeWidth={1.8}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </Svg>
+              </View>
+              <Text style={styles.signInKicker}>{t(language, 'account.prompt.kicker')}</Text>
+            </View>
+            <Text style={styles.signInTitle}>{t(language, 'account.prompt.title')}</Text>
+            <Text style={styles.signInBody}>{t(language, 'account.prompt.body')}</Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                setSignInPopupOpen(false);
+                accountBackupPrompt?.onSignIn();
+              }}
+              style={({ pressed }) => [styles.signInGoogle, pressed && styles.pressed]}
+            >
+              <View style={styles.signInGoogleBadge}>
+                <Text style={styles.signInGoogleBadgeText}>G</Text>
+              </View>
+              <Text style={styles.signInGoogleText}>{t(language, 'account.prompt.google')}</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={() => {
+                setSignInPopupOpen(false);
+                accountBackupPrompt?.onDismiss();
+              }}
+              style={({ pressed }) => [styles.signInNo, pressed && styles.pressed]}
+            >
+              <Text style={styles.signInNoText}>{t(language, 'account.prompt.dismiss')}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       {/* Today's workout — the program's own sessions, and which one today is.
 
@@ -2765,6 +2817,88 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.border,
     marginTop: 22,
   },
+  /* The optional sign-in dialog (design frame 11). */
+  signInOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(6,4,16,0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 22,
+  },
+  signInCard: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: 26,
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
+    paddingHorizontal: 22,
+    paddingTop: 20,
+    paddingBottom: 16,
+  },
+  signInKickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    marginBottom: 12,
+  },
+  signInIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    backgroundColor: theme.greenSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signInKicker: {
+    fontFamily: 'JetBrainsMono',
+    fontSize: 10.5,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: theme.faint,
+  },
+  signInTitle: {
+    fontSize: 21,
+    fontWeight: '800',
+    color: theme.ink,
+    letterSpacing: -0.4,
+    lineHeight: 27,
+  },
+  signInBody: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: theme.muted,
+    lineHeight: 20,
+    marginTop: 10,
+  },
+  signInGoogle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    height: 52,
+    borderRadius: 999,
+    backgroundColor: '#FFFFFF',
+    marginTop: 20,
+  },
+  signInGoogleBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    backgroundColor: '#F1F3F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signInGoogleBadgeText: { fontSize: 13, fontWeight: '800', color: '#4285F4' },
+  signInGoogleText: { fontSize: 15.5, fontWeight: '700', color: '#17131F' },
+  signInNo: {
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  signInNoText: { fontSize: 14.5, fontWeight: '600', color: theme.muted },
   logElseTitle: {
     fontFamily: 'JetBrainsMono',
     fontSize: 10.5,
