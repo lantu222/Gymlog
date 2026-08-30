@@ -166,6 +166,23 @@ module.exports = [
         rotateLabelsForNextSession(["wed", "fri", "sun"], 3, sunday),
         rotateLabelsForNextSession(["wed", "fri", "sun"], 0, sunday),
       );
+
+      // Days in ANY order. "The first day that has not gone" is only findable
+      // against the week's own order, and reading it off the caller's order
+      // returns a confident wrong answer rather than an error: asked on a
+      // Wednesday, a raw scan of sun/wed/fri matches Sunday first (6 >= 2) and
+      // concludes there is nothing to move — on a day that is a training day.
+      const wednesday = new Date(2026, 7, 26);
+      assert.deepEqual(
+        rotateLabelsForNextSession(["sun", "wed", "fri"], 0, wednesday),
+        ["wed", "fri", "sun"],
+        "already-rotated days still open on today",
+      );
+      assert.deepEqual(
+        rotateLabelsForNextSession(["sun", "wed", "fri"], 0, sunday),
+        rotateLabelsForNextSession(["wed", "fri", "sun"], 0, sunday),
+        "the answer depends on the week, not on how the caller held it",
+      );
     },
   },
 ];

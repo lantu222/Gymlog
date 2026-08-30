@@ -73,35 +73,6 @@ export function planLabelsFromWeekdays(
 }
 
 /**
- * The weekdays a programme should run on when it is taken into use.
- *
- * Adoption used to read the reader's availability and nothing else, falling
- * back to a hardcoded three-day rhythm when the setup had never asked. The
- * plan then dealt sessions round-robin across those labels, so a six-session
- * programme got Mon/Wed/Fri twice and ran as a three-day programme. Every
- * programme became a three-day programme, whatever its own week said.
- *
- * The session count leads now. Availability places the days when it can hold
- * them; when it cannot — too few days chosen, or none — the programme's own
- * count picks the rhythm, because halving a programme silently is a worse
- * answer than starting it on days the reader can still move.
- */
-/**
- * The cycle starts from the first session, on the first training day that has
- * not already gone.
- *
- * Reported 2026-08-26, mid-week: "keskiviikkona aloitus pitäisi lähteä
- * ensimmäisestä treenistä eli raskaat pakarat, tästä lähtisi kierto". Adopting
- * a Mon/Thu plan on a Wednesday used to put session one on Monday — a day
- * already spent — so Home offered session TWO and the programme appeared to
- * begin in the middle of itself.
- *
- * The weekday pattern is not touched; only which session lands on which of its
- * days. Rotating the labels left by the first upcoming day means session one
- * gets that day, and the rest follow in their own order. Adopt on a training
- * day and it starts today; adopt on a rest day and it starts at the next one.
- */
-/**
  * Place the session that comes NEXT on the first training day not yet gone,
  * and let the rest follow it in the programme's own order.
  *
@@ -115,6 +86,15 @@ export function planLabelsFromWeekdays(
  *
  * The cyclic order of the days is never disturbed; only which session sits on
  * which of them.
+ *
+ * Takes the days in any order. That is not politeness: "the first day that has
+ * not gone" is only findable against the week's own order, and reading it off
+ * whatever order the caller happened to hold is how this returns a confident
+ * wrong answer instead of an error. Given days already rotated once —
+ * sun, wed, fri — asked on a WEDNESDAY, a raw scan matches Sunday first
+ * (6 >= 2) and the function concludes there is nothing to move, on a day that
+ * is a training day. Every caller today passes ascending days, and one of them
+ * only does so because a screen sorts them on its way here.
  */
 export function rotateLabelsForNextSession(
   labels: readonly SetupWeekday[],
@@ -125,16 +105,33 @@ export function rotateLabelsForNextSession(
   if (count < 2) {
     return [...labels];
   }
+  const week = [...labels].sort((left, right) => WEEKDAY_INDEX[left] - WEEKDAY_INDEX[right]);
   // getDay() is Sunday-first; every weekday index in this app is Monday-first.
   const today = (from.getDay() + 6) % 7;
-  const upcoming = labels.findIndex((label) => WEEKDAY_INDEX[label] >= today);
+  const upcoming = week.findIndex((label) => WEEKDAY_INDEX[label] >= today);
   // No day left this week means the week wraps to its first day, which is
   // what a week does.
   const start = upcoming === -1 ? 0 : upcoming;
-  const target = ((Math.round(nextIndex) % count) + count) % count;
-  return labels.map((_, index) => labels[(((start + index - target) % count) + count) % count]);
+  const target = Number.isFinite(nextIndex)
+    ? ((Math.round(nextIndex) % count) + count) % count
+    : 0;
+  return week.map((_, index) => week[(((start + index - target) % count) + count) % count]);
 }
 
+/**
+ * The weekdays a programme should run on when it is taken into use.
+ *
+ * Adoption used to read the reader's availability and nothing else, falling
+ * back to a hardcoded three-day rhythm when the setup had never asked. The
+ * plan then dealt sessions round-robin across those labels, so a six-session
+ * programme got Mon/Wed/Fri twice and ran as a three-day programme. Every
+ * programme became a three-day programme, whatever its own week said.
+ *
+ * The session count leads now. Availability places the days when it can hold
+ * them; when it cannot — too few days chosen, or none — the programme's own
+ * count picks the rhythm, because halving a programme silently is a worse
+ * answer than starting it on days the reader can still move.
+ */
 export function planLabelsForProgramme(
   sessionCount: number,
   availableDays: readonly SetupWeekday[],
