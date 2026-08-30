@@ -428,7 +428,18 @@ function describeSchedule(
     };
   }
   if (schedule?.kind === 'weekdays') {
-    const days = schedule.weekdayIndexes.map((index) => WEEKDAY_BY_INDEX[(index + 1) % 7]);
+    // Monday first, and the sort is load-bearing rather than tidiness. The
+    // schedule's own array is in PLAN ORDER — which session owns which day —
+    // because that is what decides "is today session one" further up
+    // (programTrainingDays.planWeekdayIndexes). This list is not that
+    // question: it is the week read aloud, and it ends up in the coach's
+    // system prompt as "3x/week on …". Left in plan order a programme adopted
+    // on a Sunday described itself as "Sun, Wed, Fri", so two readers with the
+    // same week got different sentences depending only on the day they
+    // happened to start.
+    const days = [...schedule.weekdayIndexes]
+      .sort((left, right) => left - right)
+      .map((index) => WEEKDAY_BY_INDEX[(index + 1) % 7]);
     if (days.length === 0) {
       return null;
     }

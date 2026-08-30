@@ -387,4 +387,30 @@ module.exports = [
       assert.doesNotMatch(text, /on mon, wed, thu/);
     },
   },
+  {
+    name: "the week is read aloud Monday-first, whatever order the plan runs it in",
+    run() {
+      // The schedule's weekday list is in PLAN order — which session owns
+      // which day — because that is what decides "is today session one".
+      // This readout is a different question, and it lands in the coach's
+      // system prompt as "3x/week on …". A programme adopted on a Sunday
+      // described its own week as "Sun, Wed, Fri" until this sorted.
+      const { weekdaySchedule } = require("../../.test-dist/lib/trainingSchedule.js");
+      const history = buildTrainingHistory({
+        sessions: [session("s1", "Full Body", at(2), 1000)],
+        logs: [log("s1", "Bench Press", 60, [8])],
+        // sun, wed, fri — the order a Sunday adoption stores.
+        schedule: weekdaySchedule([6, 2, 4]),
+        now: NOW,
+      });
+
+      assert.ok(history.adherence);
+      assert.deepEqual(history.adherence.trainingDays, ["wed", "fri", "sun"]);
+      // And the plan order itself is left alone: sorting a copy, never the
+      // schedule, or the fix would undo the thing it was reading from.
+      const schedule = weekdaySchedule([6, 2, 4]);
+      buildTrainingHistory({ sessions: [], logs: [], schedule, now: NOW });
+      assert.deepEqual(schedule.weekdayIndexes, [6, 2, 4]);
+    },
+  },
 ];
