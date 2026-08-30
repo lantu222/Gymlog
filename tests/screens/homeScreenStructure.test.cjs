@@ -169,26 +169,32 @@ module.exports = [
       assert.match(homeScreenSource, /getDefaultCooldown\(focusKind, language, availableEquipment\)/);
       // One open at a time, and closed to start: the lifts are the decision.
       assert.match(homeScreenSource, /useState<'warmup' \| 'cooldown' \| null>\(null\)/);
-      // A row: hairline top border, no fill and no corner radius. A card here
-      // is the thing that was just removed.
+      // The header row inside a phase card: no fill and no radius of its
+      // own (the card carries those), and no top border — the row is always
+      // the card's first child, and a hairline there doubled the card edge.
+      // Tall on purpose (user 2026-08-30): next to the hero the three
+      // headers read as the session's acts, not as footnotes.
       // Bounded to the block's own braces — an unbounded [\s\S]*? runs past
       // the closing brace and reports whatever the next style happens to say.
       const blockRow = /blockRow:\s*\{([^}]*)\}/.exec(homeScreenSource);
       assert.ok(blockRow, 'blockRow style not found');
-      assert.match(blockRow[1], /borderTopWidth: 1/);
-      assert.doesNotMatch(blockRow[1], /borderRadius|backgroundColor/);
+      assert.doesNotMatch(blockRow[1], /borderTopWidth|borderRadius|backgroundColor/);
       assert.match(homeScreenSource, /styles\.heroList, rise\(RISE_SEC_BASE\)/);
+      // The workout header wears the SAME styles as Warmup and Recovery —
+      // equal height by shared anatomy, not by three numbers agreeing
+      // (user 2026-08-30: the three rows drifted apart in size).
       assert.match(
         homeScreenSource,
-        /styles\.heroListMeta[\s\S]{0,160}'home\.section\.workoutMeta', \{ count: totalExerciseCount, sets: totalSets \}/,
+        /styles\.blockMeta[\s\S]{0,160}'home\.section\.workoutMeta', \{ count: totalExerciseCount, sets: totalSets \}/,
       );
+      assert.doesNotMatch(homeScreenSource, /heroListMetaRow|heroListTitle|heroListMeta[^R]/);
       // The lifts' fold row is titled like its neighbours — "Treeni" between
       // Lämmittely and Palautuminen, counts beside it (user 2026-08-25).
       // Since the phase cards (design frame 03) the title also turns violet
       // while its card is open, so the style is an array now.
       assert.match(
         homeScreenSource,
-        /styles\.heroListTitle, workoutListOpen && styles\.sectTitleOpen\]/,
+        /styles\.blockTitle, workoutListOpen && styles\.sectTitleOpen\]/,
       );
       // One anatomy for all three phases: warmup, workout and recovery share
       // the card, and a single violet marks whichever one is open.

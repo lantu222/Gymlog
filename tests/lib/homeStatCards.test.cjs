@@ -4,8 +4,11 @@ const {
   buildHomeStatCardCatalog,
   buildHomeStatCards,
   resolveHomeStatCardKeys,
+  formatHomeStatRecency,
+  formatHomeStatTrend,
   formatHomeStatValue,
   DEFAULT_HOME_STAT_CARD_KEYS,
+  TREND_MIN_SPAN_DAYS,
 } = require('../../.test-dist/lib/homeStatCards.js');
 
 function createLog(performedAt, weight, reps) {
@@ -160,6 +163,85 @@ module.exports = [
         cards.map((card) => card.key),
         ['bodyweight'],
       );
+    },
+  },
+  {
+    name: 'card carries when it was last true, and a weekly rate once a week of calendar backs it',
+    run() {
+      // Four weigh-ins across two weeks: 80 -> 79.2 is -0.8 kg over 14
+      // calendar days = -0.4 per week, regardless of how unevenly the
+      // points land inside the window.
+      const entries = [
+        { id: 'w1', recordedAt: '2026-08-01T08:00:00', weight: 80 },
+        { id: 'w2', recordedAt: '2026-08-04T08:00:00', weight: 80.4 },
+        { id: 'w3', recordedAt: '2026-08-10T08:00:00', weight: 79.6 },
+        { id: 'w4', recordedAt: '2026-08-15T08:00:00', weight: 79.2 },
+      ];
+      const [card] = buildHomeStatCards(['bodyweight'], { ...EMPTY_SOURCES, bodyweightEntries: entries });
+
+      assert.equal(card.recordedAt, new Date('2026-08-15T08:00:00').getTime());
+      assert.equal(Math.round(card.weeklyTrend * 10) / 10, -0.4);
+      assert.equal(formatHomeStatTrend(card.weeklyTrend), '\u22120.4 / wk');
+
+      // Rising lift: the sign flips and prints as a plus.
+      const sources = {
+        ...EMPTY_SOURCES,
+        trackedProgress: [
+          createLiftSummary('takakyykky', 'Takakyykky', [
+            ['2026-08-01T10:00:00', 100, 5],
+            ['2026-08-15T10:00:00', 105, 5],
+          ]),
+        ],
+      };
+      const [lift] = buildHomeStatCards(['lift:takakyykky'], sources);
+      assert.equal(formatHomeStatTrend(lift.weeklyTrend), '+2.5 / wk');
+    },
+  },
+  {
+    name: 'no trend from under a week of data - two days projected to "per week" would be a guess',
+    run() {
+      const entries = [
+        { id: 'w1', recordedAt: '2026-08-13T08:00:00', weight: 80 },
+        { id: 'w2', recordedAt: '2026-08-15T08:00:00', weight: 79.6 },
+      ];
+      const [card] = buildHomeStatCards(['bodyweight'], { ...EMPTY_SOURCES, bodyweightEntries: entries });
+
+      // The card still knows when it was last true - only the rate is withheld.
+      assert.equal(card.weeklyTrend, null);
+      assert.equal(card.recordedAt, new Date('2026-08-15T08:00:00').getTime());
+
+      // Exactly a week apart is the first honest rate.
+      const week = [
+        { id: 'w1', recordedAt: '2026-08-08T08:00:00', weight: 80 },
+        { id: 'w2', recordedAt: `2026-08-${8 + TREND_MIN_SPAN_DAYS}T08:00:00`, weight: 79 },
+      ];
+      const [weekCard] = buildHomeStatCards(['bodyweight'], { ...EMPTY_SOURCES, bodyweightEntries: week });
+      assert.equal(weekCard.weeklyTrend, -1);
+
+      // No entries at all: both stay null.
+      const [empty] = buildHomeStatCards(['bodyweight'], EMPTY_SOURCES);
+      assert.equal(empty.recordedAt, null);
+      assert.equal(empty.weeklyTrend, null);
+    },
+  },
+  {
+    name: 'recency reads as a phrase near now and as a date once a phrase would be longer than the truth',
+    run() {
+      const now = new Date(2026, 7, 30, 21, 0, 0);
+      const at = (y, m, d, h = 8) => new Date(y, m, d, h).getTime();
+
+      // Calendar days, not 24-hour blocks: a morning weigh-in read at night
+      // is still "today".
+      assert.equal(formatHomeStatRecency(at(2026, 7, 30), 'en', now), 'Today');
+      assert.equal(formatHomeStatRecency(at(2026, 7, 29, 23), 'en', now), 'Yesterday');
+      assert.equal(formatHomeStatRecency(at(2026, 7, 28), 'en', now), '2 days ago');
+      assert.equal(formatHomeStatRecency(at(2026, 7, 24), 'en', now), '6 days ago');
+      assert.equal(formatHomeStatRecency(at(2026, 7, 23), 'en', now), 'Last week');
+      assert.equal(formatHomeStatRecency(at(2026, 7, 17), 'en', now), 'Last week');
+      // 14 days and beyond: the date itself.
+      assert.equal(formatHomeStatRecency(at(2026, 7, 16), 'en', now), '16.8.');
+
+      assert.equal(formatHomeStatRecency(at(2026, 7, 28), 'fi', now), '2 pv sitten');
     },
   },
   {

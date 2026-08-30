@@ -1,3 +1,4 @@
+import { calendarDaysBetween } from './completedSessions';
 import { I18nKey, t } from './i18n';
 import { getTopComparableSet } from './profileOverview';
 import { ExerciseProgressSummary } from './progression';
@@ -30,6 +31,15 @@ export interface HomeStatCard extends HomeStatCardCatalogItem {
   reps: number | null;
   /** Oldest→newest, at most SERIES_POINTS values. */
   series: number[];
+  /** When the latest point was logged (ms since epoch); null with no entries. */
+  recordedAt: number | null;
+  /**
+   * Change per week across the sparkline window, in the card's unit. Null
+   * until the window's ends are at least TREND_MIN_SPAN_DAYS apart — two
+   * weigh-ins a day apart projected to "per week" is a guess wearing a
+   * number.
+   */
+  weeklyTrend: number | null;
 }
 
 export interface HomeStatCardSources {
@@ -40,6 +50,15 @@ export interface HomeStatCardSources {
 
 /** Points shown in a sparkline — roughly "recent memory", not all history. */
 export const SERIES_POINTS = 7;
+
+/** A weekly rate needs at least a week of calendar behind it. */
+export const TREND_MIN_SPAN_DAYS = 7;
+
+/** One sparkline point with the moment it was logged. */
+interface SeriesPoint {
+  value: number;
+  at: number;
+}
 
 /** Tracked lifts offered in the Add sheet, heaviest first. */
 const MAX_LIFT_CATALOG_ITEMS = 8;
@@ -126,30 +145,45 @@ function sortByRecordedAt<T extends { recordedAt: string }>(entries: T[]): T[] {
   );
 }
 
-function buildSeriesCard(item: HomeStatCardCatalogItem, series: number[], reps: number | null = null): HomeStatCard {
-  const value = series.length > 0 ? series[series.length - 1] : null;
-  const previous = series.length >= 2 ? series[series.length - 2] : null;
-
-  return { ...item, value, previous, reps, series };
+function weeklyTrendOf(points: SeriesPoint[]): number | null {
+  if (points.length < 2) {
+    return null;
+  }
+  const first = points[0];
+  const last = points[points.length - 1];
+  const spanDays = calendarDaysBetween(first.at, last.at);
+  if (spanDays < TREND_MIN_SPAN_DAYS) {
+    return null;
+  }
+  return ((last.value - first.value) / spanDays) * 7;
 }
 
-function liftSeries(summary: ExerciseProgressSummary): { series: number[]; reps: number | null } {
+function buildSeriesCard(item: HomeStatCardCatalogItem, points: SeriesPoint[], reps: number | null = null): HomeStatCard {
+  const series = points.map((point) => point.value);
+  const value = series.length > 0 ? series[series.length - 1] : null;
+  const previous = series.length >= 2 ? series[series.length - 2] : null;
+  const recordedAt = points.length > 0 ? points[points.length - 1].at : null;
+
+  return { ...item, value, previous, reps, series, recordedAt, weeklyTrend: weeklyTrendOf(points) };
+}
+
+function liftSeries(summary: ExerciseProgressSummary): { points: SeriesPoint[]; reps: number | null } {
   // logs arrive newest-first from progression.ts; the sparkline wants oldest→newest.
   const chronological = [...summary.logs].sort(
     (left, right) => new Date(left.performedAt).getTime() - new Date(right.performedAt).getTime(),
   );
 
-  const points: Array<{ weight: number; reps: number }> = [];
+  const points: Array<{ weight: number; reps: number; at: number }> = [];
   for (const log of chronological) {
     const topSet = getTopComparableSet(log);
     if (topSet !== null && topSet.weight > 0) {
-      points.push({ weight: topSet.weight, reps: topSet.reps });
+      points.push({ weight: topSet.weight, reps: topSet.reps, at: new Date(log.performedAt).getTime() });
     }
   }
 
   const window = points.slice(-SERIES_POINTS);
   return {
-    series: window.map((point) => point.weight),
+    points: window.map((point) => ({ value: point.weight, at: point.at })),
     reps: window.length > 0 ? window[window.length - 1].reps : null,
   };
 }
@@ -174,27 +208,27 @@ export function buildHomeStatCards(
     }
 
     if (key === 'bodyweight') {
-      const series = sortByRecordedAt(sources.bodyweightEntries)
-        .map((entry) => entry.weight)
+      const points = sortByRecordedAt(sources.bodyweightEntries)
+        .map((entry) => ({ value: entry.weight, at: new Date(entry.recordedAt).getTime() }))
         .slice(-SERIES_POINTS);
-      cards.push(buildSeriesCard(item, series));
+      cards.push(buildSeriesCard(item, points));
       continue;
     }
 
     if (isMeasurementCardKey(key)) {
-      const series = sortByRecordedAt(
+      const points = sortByRecordedAt(
         sources.measurementEntries.filter((entry) => entry.kind === key),
       )
-        .map((entry) => entry.value)
+        .map((entry) => ({ value: entry.value, at: new Date(entry.recordedAt).getTime() }))
         .slice(-SERIES_POINTS);
-      cards.push(buildSeriesCard(item, series));
+      cards.push(buildSeriesCard(item, points));
       continue;
     }
 
     const summary = sources.trackedProgress.find((candidate) => liftCardKey(candidate.key) === key);
     if (summary) {
-      const { series, reps } = liftSeries(summary);
-      cards.push(buildSeriesCard(item, series, reps));
+      const { points, reps } = liftSeries(summary);
+      cards.push(buildSeriesCard(item, points, reps));
     }
   }
 
@@ -227,4 +261,38 @@ export function formatHomeStatValue(value: number | null): string {
     return '—';
   }
   return removeTrailingZeros(Math.round(value * 10) / 10);
+}
+
+/**
+ * "2 days ago" — how old the number on the card is. Beyond two weeks the
+ * phrase stops being shorter than the truth, so the date itself takes over.
+ */
+export function formatHomeStatRecency(
+  recordedAt: number,
+  language: AppLanguage = 'en',
+  now: Date = new Date(),
+): string {
+  const days = calendarDaysBetween(recordedAt, now);
+  if (days <= 0) {
+    return t(language, 'cards.when.today');
+  }
+  if (days === 1) {
+    return t(language, 'cards.when.yesterday');
+  }
+  if (days < 7) {
+    return t(language, 'cards.when.daysAgo', { days });
+  }
+  if (days < 14) {
+    return t(language, 'cards.when.lastWeek');
+  }
+  const date = new Date(recordedAt);
+  return t(language, 'cards.when.onDate', { day: date.getDate(), month: date.getMonth() + 1 });
+}
+
+/** "−0.4 / wk" — the sign always shown, so the direction needs no chart. */
+export function formatHomeStatTrend(weeklyTrend: number, language: AppLanguage = 'en'): string {
+  const rounded = Math.round(weeklyTrend * 10) / 10;
+  const magnitude = removeTrailingZeros(Math.abs(rounded));
+  const signed = rounded > 0 ? '+' + magnitude : rounded < 0 ? '−' + magnitude : magnitude;
+  return t(language, 'cards.trendPerWeek', { trend: signed });
 }

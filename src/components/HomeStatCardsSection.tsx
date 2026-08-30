@@ -2,7 +2,13 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path, Polyline } from 'react-native-svg';
 
-import { formatHomeStatValue, HomeStatCard, HomeStatCardIcon } from '../lib/homeStatCards';
+import {
+  formatHomeStatRecency,
+  formatHomeStatTrend,
+  formatHomeStatValue,
+  HomeStatCard,
+  HomeStatCardIcon,
+} from '../lib/homeStatCards';
 import { KitBar, KitRow, KitSheet } from './sheetKit';
 import { I18nKey, t } from '../lib/i18n';
 import { Theme, useTheme, useThemedStyles } from '../theming';
@@ -378,6 +384,19 @@ export function HomeStatCardsSection({
                 </View>
               )}
               <Sparkline series={card.series} />
+              {/* One honest line of context (design frame 12): when the
+                  number was true, and where it is heading per week. The
+                  trend only appears once the window spans a real week —
+                  see weeklyTrendOf. */}
+              {card.recordedAt !== null ? (
+                <Text numberOfLines={1} style={styles.cardWhen}>
+                  {formatHomeStatRecency(card.recordedAt, language)}
+                  {card.weeklyTrend !== null ? ' · ' : ''}
+                  {card.weeklyTrend !== null ? (
+                    <Text style={styles.cardTrend}>{formatHomeStatTrend(card.weeklyTrend, language)}</Text>
+                  ) : null}
+                </Text>
+              ) : null}
             </Pressable>
             {editing ? (
               <Pressable
@@ -638,6 +657,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     letterSpacing: 1.2,
     textTransform: 'uppercase',
     color: theme.faint,
+  },
+  cardWhen: {
+    marginTop: 7,
+    fontFamily: 'JetBrainsMono',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    color: theme.faint,
+  },
+  cardTrend: {
+    color: theme.green,
   },
   valueRow: {
     flexDirection: 'row',

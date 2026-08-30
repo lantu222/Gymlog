@@ -1229,7 +1229,7 @@ export function HomeScreen({
                   { title: t(language, 'home.section.workout') },
                 )}
                 onPress={() => setWorkoutListOpen((open) => !open)}
-                style={({ pressed }) => [styles.heroListMetaRow, pressed && styles.pressed]}
+                style={({ pressed }) => [styles.blockRow, pressed && styles.pressed]}
               >
                 {/* Named like its neighbours (user 2026-08-25): "Treeni"
                     between Lämmittely and Palautuminen, and laid out exactly
@@ -1237,10 +1237,10 @@ export function HomeScreen({
                     the chevron, the same seat Lämmittely's own meta sits in.
                     (Two other seats were tried the same evening; this row
                     reads as family only when it IS the family layout.) */}
-                <Text style={[styles.heroListTitle, workoutListOpen && styles.sectTitleOpen]}>
+                <Text style={[styles.blockTitle, workoutListOpen && styles.sectTitleOpen]}>
                   {t(language, 'home.section.workout')}
                 </Text>
-                <Text style={styles.heroListMeta} numberOfLines={1}>
+                <Text style={styles.blockMeta} numberOfLines={1}>
                   {t(language, 'home.section.workoutMeta', { count: totalExerciseCount, sets: totalSets })}
                 </Text>
                 <View style={{ transform: [{ rotate: workoutListOpen ? '180deg' : '0deg' }] }}>
@@ -2416,28 +2416,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   heroList: {
     marginTop: 18,
   },
-  // The same anatomy as blockRow, so the three section rows read as one
-  // family: title takes the line, meta sits at the right edge, chevron last.
-  heroListMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 8,
-  },
-  heroListTitle: {
-    flex: 1,
-    color: theme.ink,
-    fontSize: 15,
-    lineHeight: 19,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-  },
-  heroListMeta: {
-    color: theme.faint,
-    fontSize: 13.5,
-    lineHeight: 17,
-    fontWeight: '700',
-  },
   // A row, not a card: same hairline the lift rows use, no fill, no radius.
   /* The phase cards (design: Sheets & Pickers, frame 03). One anatomy for
      warmup, workout and recovery; no hue per phase — a single violet marks
@@ -2464,26 +2442,29 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.purple,
   },
   sectTitleOpen: { color: theme.purpleBright },
+  // Shared by all three section headers — Warmup, Workout, Recovery — so
+  // they are the same height by construction, not by three numbers agreeing.
+  // Tall on purpose (user 2026-08-30): next to the hero these read as the
+  // session's three acts, not as footnotes. No top border: the row is always
+  // the first thing in its card, and a hairline there doubled the card edge.
   blockRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 13,
-    borderTopWidth: 1,
-    borderTopColor: theme.border,
+    paddingVertical: 24,
   },
   blockTitle: {
     flex: 1,
     color: theme.ink,
-    fontSize: 15,
-    lineHeight: 19,
+    fontSize: 17.5,
+    lineHeight: 22,
     fontWeight: '800',
     letterSpacing: -0.2,
   },
   blockMeta: {
     color: theme.faint,
-    fontSize: 12.5,
-    lineHeight: 16,
+    fontSize: 13.5,
+    lineHeight: 17,
     fontWeight: '700',
   },
   blockDrillRow: {
@@ -2646,9 +2627,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   programWeekDay: {
     flex: 1,
     alignItems: 'center',
-    gap: 3,
-    paddingVertical: 9,
-    borderRadius: 12,
+    gap: 5,
+    paddingVertical: 16,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: theme.border,
     backgroundColor: 'rgba(255,255,255,0.03)',
@@ -2668,14 +2649,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   programWeekDayName: {
     fontFamily: 'JetBrainsMono',
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.8,
     color: theme.faint,
   },
   programWeekDayCode: {
     fontFamily: 'JetBrainsMono',
-    fontSize: 10.5,
+    fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.6,
     color: theme.purpleBright,
