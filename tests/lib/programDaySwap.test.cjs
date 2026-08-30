@@ -71,10 +71,23 @@ module.exports = [
       assert.ok(options.includes('chest'), 'the catalogue must offer a chest day');
       assert.ok(options.includes('core'), 'the catalogue must offer a core day');
 
+      // The filter is on the LEADING group, not on membership. Membership was
+      // the first cut and put a session called "Back" under Chest, because
+      // chest made its top three — true, and useless. A filter answers what a
+      // day IS.
       const chest = filterDaySwapCandidates(candidates, 'chest');
       assert.ok(chest.length > 0);
       for (const candidate of chest) {
-        assert.ok(candidate.muscles.includes('chest'));
+        assert.equal(candidate.muscles[0], 'chest');
+      }
+
+      // And every chip the row offers can actually fill the list, or picking
+      // one empties the screen and reads as a bug rather than as an answer.
+      for (const option of options) {
+        assert.ok(
+          filterDaySwapCandidates(candidates, option).length > 0,
+          `the "${option}" chip leads to an empty list`,
+        );
       }
 
       // No filter means everything, not nothing.

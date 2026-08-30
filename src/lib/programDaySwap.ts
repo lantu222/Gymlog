@@ -112,7 +112,14 @@ export function buildDaySwapCandidates(
   );
 }
 
-/** Candidates whose leading muscle group is the one asked for. */
+/**
+ * Candidates whose LEADING muscle group is the one asked for.
+ *
+ * Membership was the first cut — any day that trained chest at all — and on a
+ * device it read wrong: a session called "Back" appeared under the Chest
+ * filter because chest happened to make its top three. True, and useless. The
+ * reader picking a filter is asking what a day IS, not what it touches.
+ */
 export function filterDaySwapCandidates(
   candidates: readonly DaySwapCandidate[],
   muscle: string | null,
@@ -120,15 +127,20 @@ export function filterDaySwapCandidates(
   if (!muscle) {
     return [...candidates];
   }
-  return candidates.filter((candidate) => candidate.muscles.includes(muscle));
+  return candidates.filter((candidate) => candidate.muscles[0] === muscle);
 }
 
-/** Every muscle group the candidate list can actually offer, for the filter row. */
+/**
+ * The filter row, built from LEADING groups only — the same rule the filter
+ * itself applies. Offering a chip that no day leads with would be a filter
+ * that empties the list, which reads as a broken screen rather than as an
+ * honest "none of these".
+ */
 export function daySwapMuscleOptions(candidates: readonly DaySwapCandidate[]): string[] {
   const seen = new Set<string>();
   for (const candidate of candidates) {
-    for (const muscle of candidate.muscles) {
-      seen.add(muscle);
+    if (candidate.muscles[0]) {
+      seen.add(candidate.muscles[0]);
     }
   }
   return [...seen].sort();
