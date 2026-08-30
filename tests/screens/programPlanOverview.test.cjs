@@ -303,8 +303,14 @@ module.exports = [
       );
       assert.match(programDaySource, /home\.swapSheet\.keep/);
       // The sheet's own padding was a fixed number, so its last row sat behind
-      // the phone's system buttons and could not be pressed.
-      assert.match(programDaySource, /paddingBottom: insets\.bottom \+ 28/);
+      // the phone's system buttons and could not be pressed. The inset travels
+      // through the kit's shell now — read on the screen, never in the Modal.
+      assert.match(programDaySource, /bottomInset=\{insets\.bottom\}/);
+      const kitSource = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'components', 'sheetKit.tsx'),
+        'utf8',
+      );
+      assert.match(kitSource, /\(barUp \? KIT_BAR_SPACE : 26\) \+ bottomInset/);
     },
   },
   {

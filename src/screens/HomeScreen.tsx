@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { KitBar, KitGroupLabel, KitRow, KitSearch, KitSheet } from '../components/sheetKit';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { CardioIcon } from '../components/CardioIcon';
@@ -419,6 +420,17 @@ export function HomeScreen({
   const [plateauSheetVisible, setPlateauSheetVisible] = useState(false);
   const insets = useSafeAreaInsets();
   const [todaySheetVisible, setTodaySheetVisible] = useState(false);
+  /**
+   * The day picked but not yet committed. The sheet kit's contract: a tap
+   * selects, the commit bar rises with the whole change on one line, and only
+   * "Do this today" writes. Tapping the selected row again unpicks it.
+   */
+  const [todayPickDraft, setTodayPickDraft] = useState<string | null>(null);
+  const closeTodaySheet = () => {
+    setTodaySheetVisible(false);
+    setTodayPickDraft(null);
+    setRenamingSessionId(null);
+  };
   // Which row is being renamed, and the text so far. Kept out of the row so a
   // rename in progress survives the list re-ordering underneath it.
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null);
@@ -436,9 +448,12 @@ export function HomeScreen({
   const [swapSlotId, setSwapSlotId] = useState<string | null>(null);
   /** Narrows the pool. Cleared with the sheet, so it never opens pre-filtered. */
   const [swapQuery, setSwapQuery] = useState('');
+  /** The replacement picked but not committed — the scope question comes after. */
+  const [swapPickName, setSwapPickName] = useState<string | null>(null);
   const closeSwapSheet = () => {
     setSwapSlotId(null);
     setSwapQuery('');
+    setSwapPickName(null);
   };
   const [calendarExpanded, setCalendarExpanded] = useState(false);
   // Months away from today. Reset on close so reopening always lands on now.
@@ -1423,12 +1438,11 @@ export function HomeScreen({
                 );
               })}
             </View>
-            {/* A3: the cut corner arrives on the pair the design mocks. */}
-            {/* Stacked, not side by side. Sharing a row, "Katso koko ohjelma"
-                and "Muokkaa päiviä" each got half the width and both clipped —
-                the Finnish labels are simply longer than the English ones the
-                row was measured against, and a flex ratio cannot fix a label
-                that needs the whole line. */}
+            {/* One action, not two (design: Sheets & Pickers, frame 04).
+                "Edit days" went: a day row opens that day, and the schedule
+                editor lives on the plan screen this button already opens —
+                Home offering it too was a second door onto the same decision,
+                the exact shape the Adapt sheet was removed for. */}
             <View style={styles.programActions}>
               <CutButton
                 size="lg"
@@ -1436,16 +1450,6 @@ export function HomeScreen({
                 label={t(language, 'programs.viewPlan')}
                 onPress={onOpenActivePlan}
               />
-              {onSetTrainingDays ? (
-                <CutButton
-                  size="lg"
-                  stretch
-                  variant="secondary"
-                  label={t(language, 'programs.editDays')}
-                  accessibilityLabel={t(language, 'programs.editDaysA11y')}
-                  onPress={onSetTrainingDays}
-                />
-              ) : null}
             </View>
           </Animated.View>
         ) : null}
@@ -1700,221 +1704,223 @@ export function HomeScreen({
           Dated rather than sticky: the pick answers for today and the rotation
           answers again tomorrow, so nothing has to remember to undo it. The
           rename lives here too because this is the list where a reader reads
-          the names side by side and notices that one of them is wrong. */}
-      <Modal
+          the names side by side and notices that one of them is wrong.
+
+          On the sheet kit: tap picks, the bar rises with TODAY → the pick, and
+          only "Do this today" writes. The current day wears a violet TODAY tag
+          — state, not a choice — and one button, because nothing here is
+          permanent: tomorrow follows the programme again. */}
+      <KitSheet
         visible={todaySheetVisible}
-        transparent
-        animationType={reduceMotion ? 'none' : 'slide'}
-        onRequestClose={() => setTodaySheetVisible(false)}
-      >
-        <View style={styles.adaptOverlay}>
-          <Pressable style={styles.adaptScrim} onPress={() => setTodaySheetVisible(false)} />
-          <View
-            style={[
-              styles.adaptSheet,
-              { paddingBottom: (keyboardInset > 0 ? keyboardInset : insets.bottom) + 26 },
+        onClose={closeTodaySheet}
+        title={t(language, 'home.today.title')}
+        description={t(language, 'home.today.caption')}
+        bottomInset={keyboardInset > 0 ? keyboardInset : insets.bottom}
+        barUp={todayPickDraft !== null}
+        reduceMotion={reduceMotion}
+        bar={
+          <KitBar
+            visible={todayPickDraft !== null}
+            from={t(language, 'kit.today')}
+            to={localizeSessionName(
+              planSessions.find((session) => session.id === todayPickDraft)?.title ?? '',
+              language,
+            )}
+            buttons={[
+              {
+                label: t(language, 'kit.doToday'),
+                kind: 'p',
+                onPress: () => {
+                  if (todayPickDraft) {
+                    onPickTodaySession?.(todayPickDraft);
+                  }
+                  closeTodaySheet();
+                },
+              },
             ]}
-          >
-            <View style={styles.adaptGrip} />
-            <Text style={styles.adaptTitle}>{t(language, 'home.today.title')}</Text>
-            <Text style={styles.adaptSub}>{t(language, 'home.today.caption')}</Text>
+            clearLabel={t(language, 'kit.keepCurrent', {
+              name: localizeSessionName(nextPlanSession?.title ?? '', language),
+            })}
+            onClear={() => setTodayPickDraft(null)}
+            bottomInset={insets.bottom}
+            reduceMotion={reduceMotion}
+          />
+        }
+      >
+        <ScrollView
+          style={styles.todayList}
+          contentContainerStyle={styles.kitListPad}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {planSessions.map((session) => {
+            const isToday = session.id === nextPlanSession?.id;
+            const renaming = renamingSessionId === session.id;
 
-            <ScrollView style={styles.todayList} keyboardShouldPersistTaps="handled">
-              {planSessions.map((session) => {
-                const isToday = session.id === nextPlanSession?.id;
-                const renaming = renamingSessionId === session.id;
-
-                if (renaming) {
-                  return (
-                    <View key={session.id} style={[styles.adaptOpt, styles.todayRowEditing]}>
-                      <TextInput
-                        value={renameDraft}
-                        onChangeText={setRenameDraft}
-                        autoFocus
-                        selectTextOnFocus
-                        placeholderTextColor={theme.faint}
-                        style={styles.todayRenameInput}
-                        onSubmitEditing={() => {
-                          onRenameSession?.(session.id, renameDraft);
-                          setRenamingSessionId(null);
-                        }}
-                      />
-                      <Pressable
-                        hitSlop={8}
-                        onPress={() => setRenamingSessionId(null)}
-                        style={({ pressed }) => [styles.todayRenameAction, pressed && styles.pressed]}
-                      >
-                        <Text style={styles.todayRenameCancel}>
-                          {t(language, 'home.today.renameCancel')}
-                        </Text>
-                      </Pressable>
-                      <Pressable
-                        hitSlop={8}
-                        onPress={() => {
-                          onRenameSession?.(session.id, renameDraft);
-                          setRenamingSessionId(null);
-                        }}
-                        style={({ pressed }) => [styles.todayRenameAction, pressed && styles.pressed]}
-                      >
-                        <Text style={styles.todayRenameSave}>{t(language, 'home.today.renameSave')}</Text>
-                      </Pressable>
-                    </View>
-                  );
-                }
-
-                return (
-                  <Pressable
-                    key={session.id}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: isToday }}
-                    onPress={() => {
-                      onPickTodaySession?.(session.id);
-                      setTodaySheetVisible(false);
+            if (renaming) {
+              return (
+                <View key={session.id} style={[styles.adaptOpt, styles.todayRowEditing]}>
+                  <TextInput
+                    value={renameDraft}
+                    onChangeText={setRenameDraft}
+                    autoFocus
+                    selectTextOnFocus
+                    placeholderTextColor={theme.faint}
+                    style={styles.todayRenameInput}
+                    onSubmitEditing={() => {
+                      onRenameSession?.(session.id, renameDraft);
+                      setRenamingSessionId(null);
                     }}
-                    style={({ pressed }) => [
-                      styles.adaptOpt,
-                      isToday && styles.todayRowActive,
-                      pressed && styles.pressed,
-                    ]}
+                  />
+                  <Pressable
+                    hitSlop={8}
+                    onPress={() => setRenamingSessionId(null)}
+                    style={({ pressed }) => [styles.todayRenameAction, pressed && styles.pressed]}
                   >
-                    <View style={styles.adaptOptCopy}>
-                      <Text numberOfLines={1} style={styles.adaptOptionTitle}>
-                        {localizeSessionName(session.title, language)}
-                      </Text>
-                      <Text style={styles.adaptOptionSub}>
-                        {t(language, 'home.today.meta', {
-                          exercises: session.exercises.length,
-                          sets: session.totalSets ?? 0,
-                        })}
-                      </Text>
-                    </View>
-                    {isToday ? (
-                      <Text style={styles.todayBadge}>{t(language, 'home.today.picked')}</Text>
-                    ) : null}
-                    {onRenameSession ? (
-                      <Pressable
-                        hitSlop={10}
-                        accessibilityRole="button"
-                        accessibilityLabel={t(language, 'home.today.rename')}
-                        onPress={() => {
-                          setRenameDraft(localizeSessionName(session.title, language));
-                          setRenamingSessionId(session.id);
-                        }}
-                        style={({ pressed }) => [styles.todayRenameAction, pressed && styles.pressed]}
-                      >
-                        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                          <Path
-                            d="M4 20h4L20 8l-4-4L4 16v4z"
-                            stroke={theme.faint}
-                            strokeWidth={2}
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </Svg>
-                      </Pressable>
-                    ) : null}
+                    <Text style={styles.todayRenameCancel}>
+                      {t(language, 'home.today.renameCancel')}
+                    </Text>
                   </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+                  <Pressable
+                    hitSlop={8}
+                    onPress={() => {
+                      onRenameSession?.(session.id, renameDraft);
+                      setRenamingSessionId(null);
+                    }}
+                    style={({ pressed }) => [styles.todayRenameAction, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.todayRenameSave}>{t(language, 'home.today.renameSave')}</Text>
+                  </Pressable>
+                </View>
+              );
+            }
+
+            return (
+              <KitRow
+                key={session.id}
+                title={localizeSessionName(session.title, language)}
+                meta={t(language, 'home.today.meta', {
+                  exercises: session.exercises.length,
+                  sets: session.totalSets ?? 0,
+                })}
+                state={todayPickDraft === session.id ? 'sel' : isToday ? 'cur' : 'idle'}
+                tag={isToday ? t(language, 'kit.today') : null}
+                onPress={() =>
+                  setTodayPickDraft((current) =>
+                    current === session.id || isToday ? null : session.id,
+                  )
+                }
+                onPen={
+                  onRenameSession
+                    ? () => {
+                        setRenameDraft(localizeSessionName(session.title, language));
+                        setRenamingSessionId(session.id);
+                      }
+                    : null
+                }
+                penLabel={t(language, 'home.today.rename')}
+              />
+            );
+          })}
+        </ScrollView>
+      </KitSheet>
 
       {/* Swap sheet for one row of today's plan — same pool and same ranking
-          as the player's, so the two surfaces cannot offer different lists. */}
-      <Modal
+          as the player's, so the two surfaces cannot offer different lists.
+
+          On the sheet kit: one tap target per row, and the scope question —
+          just this time, or for ever — is asked once, in the bar, after there
+          is something to answer it about. The per-row "Keep" button this
+          replaces was a second target hiding a second meaning. */}
+      <KitSheet
         visible={swapSlotId !== null}
-        transparent
-        animationType={reduceMotion ? 'none' : 'slide'}
-        onRequestClose={() => closeSwapSheet()}
+        onClose={closeSwapSheet}
+        title={t(language, 'kit.swapTitle')}
+        context={exerciseNameLabel(language, swapRow.currentName)}
+        bottomInset={insets.bottom}
+        barUp={swapPickName !== null}
+        reduceMotion={reduceMotion}
+        bar={
+          <KitBar
+            visible={swapPickName !== null}
+            from={exerciseNameLabel(language, swapRow.currentName)}
+            to={swapPickName ? exerciseNameLabel(language, swapPickName) : ''}
+            buttons={[
+              {
+                label: t(language, 'kit.justThisTime'),
+                kind: 'p',
+                onPress: () => {
+                  if (swapSlotId && swapPickName) {
+                    onSwapSessionExercise?.(swapSlotId, swapPickName);
+                  }
+                  closeSwapSheet();
+                },
+              },
+              ...(swapRow.exerciseId && onKeepSwapInProgram
+                ? [
+                    {
+                      label: t(language, 'kit.forEver'),
+                      kind: 'd' as const,
+                      onPress: () => {
+                        if (swapPickName) {
+                          onKeepSwapInProgram(swapRow.exerciseId as string, swapPickName);
+                        }
+                        closeSwapSheet();
+                      },
+                    },
+                  ]
+                : []),
+            ]}
+            clearLabel={t(language, 'kit.pickAnother')}
+            onClear={() => setSwapPickName(null)}
+            bottomInset={insets.bottom}
+            reduceMotion={reduceMotion}
+          />
+        }
       >
-        <View style={styles.adaptOverlay}>
-          <Pressable style={styles.adaptScrim} onPress={() => closeSwapSheet()} />
-          <View style={[styles.adaptSheet, { paddingBottom: insets.bottom + 26 }]}>
-            <View style={styles.adaptGrip} />
-            <Text style={styles.adaptTitle}>
-              {t(language, 'home.swapSheet.title', {
-                name: exerciseNameLabel(language, swapRow.currentName),
-              })}
-            </Text>
-            {/* A search, because the shortlist is deliberately six rows and the
-                pool behind it is not: a reader who knows what they want should
-                not have to be offered it (#bugs 2026-08-26). Typing widens the
-                search back over the whole pool. */}
-            <TextInput
-              value={swapQuery}
-              onChangeText={setSwapQuery}
-              placeholder={t(language, 'home.swapSheet.search')}
-              placeholderTextColor={theme.faint}
-              style={styles.adaptSearch}
-              autoCorrect={false}
-              accessibilityLabel={t(language, 'home.swapSheet.search')}
-            />
-            {/* The list scrolls; the actions below it do not. With nine rows
-                the sheet grew past the screen and "Poista ohjelmasta" could
-                not be reached at all (user 2026-08-26). */}
-            <ScrollView style={styles.adaptOptsScroll} showsVerticalScrollIndicator={false}>
-              {([
-                { key: 'home.swapSheet.variations' as const, rows: swapRow.shortlist.variations },
-                { key: 'home.swapSheet.related' as const, rows: swapRow.shortlist.related },
-              ]).map((section) =>
-                section.rows.length === 0 ? null : (
-                  <View key={section.key} style={styles.adaptOpts}>
-                    {/* Named only when both halves are there — one heading over
-                        the whole list labels nothing. */}
-                    {swapRow.shortlist.variations.length > 0 && swapRow.shortlist.related.length > 0 ? (
-                      <Text style={styles.adaptOptGroup}>{t(language, section.key)}</Text>
-                    ) : null}
-                    {section.rows.map((option) => (
-                      <View key={option.exerciseName} style={styles.adaptOptRow}>
-                        {/* The row is today's answer: the bigger target is the
-                            one you can undo. */}
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={exerciseNameLabel(language, option.exerciseName)}
-                          onPress={() => {
-                            if (swapSlotId) {
-                              onSwapSessionExercise?.(swapSlotId, option.exerciseName);
-                            }
-                            closeSwapSheet();
-                          }}
-                          style={({ pressed }) => [styles.adaptOpt, styles.adaptOptGrow, pressed && styles.pressed]}
-                        >
-                          <View style={styles.adaptOptCopy}>
-                            <Text style={styles.adaptOptTitle}>
-                              {exerciseNameLabel(language, option.exerciseName)}
-                            </Text>
-                          </View>
-                        </Pressable>
-                        {/* And the durable answer, on the row rather than
-                            behind a second visit to this sheet. Both are
-                            common — a machine taken today is not the same as a
-                            lift you never want again — so the choice belongs at
-                            the moment of choosing, not after it (user
-                            2026-08-26). */}
-                        {swapRow.exerciseId && onKeepSwapInProgram ? (
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel={t(language, 'home.swapSheet.keepOne', {
-                              name: exerciseNameLabel(language, option.exerciseName),
-                            })}
-                            hitSlop={8}
-                            onPress={() => {
-                              onKeepSwapInProgram(swapRow.exerciseId as string, option.exerciseName);
-                              closeSwapSheet();
-                            }}
-                            style={({ pressed }) => [styles.adaptOptKeep, pressed && styles.pressed]}
-                          >
-                            <Text style={styles.adaptOptKeepText}>{t(language, 'home.swapSheet.keepShort')}</Text>
-                          </Pressable>
-                        ) : null}
-                      </View>
-                    ))}
-                  </View>
-                ),
-              )}
-            </ScrollView>
+        {/* A search, because the shortlist is deliberately six rows and the
+            pool behind it is not: a reader who knows what they want should
+            not have to be offered it (#bugs 2026-08-26). Typing widens the
+            search back over the whole pool. */}
+        <KitSearch
+          value={swapQuery}
+          onChangeText={setSwapQuery}
+          placeholder={t(language, 'home.swapSheet.search')}
+        />
+        {/* The list scrolls; the actions below it do not. With nine rows
+            the sheet grew past the screen and "Poista ohjelmasta" could
+            not be reached at all (user 2026-08-26). */}
+        <ScrollView
+          style={styles.adaptOptsScroll}
+          contentContainerStyle={styles.kitListPad}
+          showsVerticalScrollIndicator={false}
+        >
+          {([
+            { key: 'home.swapSheet.variations' as const, rows: swapRow.shortlist.variations },
+            { key: 'home.swapSheet.related' as const, rows: swapRow.shortlist.related },
+          ]).map((section) =>
+            section.rows.length === 0 ? null : (
+              <View key={section.key}>
+                {/* Named only when both halves are there — one heading over
+                    the whole list labels nothing. */}
+                {swapRow.shortlist.variations.length > 0 && swapRow.shortlist.related.length > 0 ? (
+                  <KitGroupLabel>{t(language, section.key)}</KitGroupLabel>
+                ) : null}
+                {section.rows.map((option) => (
+                  <KitRow
+                    key={option.exerciseName}
+                    title={exerciseNameLabel(language, option.exerciseName)}
+                    state={swapPickName === option.exerciseName ? 'sel' : 'idle'}
+                    onPress={() =>
+                      setSwapPickName((current) =>
+                        current === option.exerciseName ? null : option.exerciseName,
+                      )
+                    }
+                  />
+                ))}
+              </View>
+            ),
+          )}
             {/* A swap made yesterday's answer today's. This turns it into the
                 programme's answer — offered here rather than as a mode above
                 the list, because before choosing there is nothing to keep. */}
@@ -1984,17 +1990,8 @@ export function HomeScreen({
                 <Text style={styles.adaptDropNote}>{t(language, 'home.swapSheet.removeNote')}</Text>
               </Pressable>
             ) : null}
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => closeSwapSheet()}
-              hitSlop={8}
-              style={styles.adaptCancel}
-            >
-              <Text style={styles.adaptCancelText}>{t(language, 'common.cancel')}</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+        </ScrollView>
+      </KitSheet>
 
       {/* Paywall moment sheet: the plateau conclusion, on the user's own
           numbers. The comparison table lives on the full Pro page. */}
@@ -2959,8 +2956,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     // stop the arrow sitting flush against the screen edge.
     paddingLeft: 6,
   },
+  // The kit's lists carry their own horizontal padding: the sheet shell pads
+  // only its header, so a full-bleed list can scroll under it.
+  kitListPad: { paddingHorizontal: 18, paddingBottom: 6 },
   todayList: {
-    marginTop: 18,
+    marginTop: 4,
     // Capped so a six-session program cannot push the list off the sheet and
     // take the last row with it.
     maxHeight: 380,

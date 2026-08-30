@@ -662,7 +662,10 @@ module.exports = [
       // The title is the switch: a reader looking at the wrong workout reaches
       // for its name first.
       assert.match(homeScreenSource, /onPress=\{\(\) => setTodaySheetVisible\(true\)\}/);
-      assert.match(homeScreenSource, /onPickTodaySession\?\.\(session\.id\)/);
+      // On the sheet kit the tap picks a DRAFT and the commit bar writes:
+      // "Do this today" is the only press that calls the handler.
+      assert.match(homeScreenSource, /onPickTodaySession\?\.\(todayPickDraft\)/);
+      assert.match(homeScreenSource, /setTodayPickDraft\(\(current\)/);
       // One session is not a choice.
       assert.match(homeScreenSource, /planSessions\.length < 2/);
 

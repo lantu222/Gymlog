@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { bodyPartLabel, t } from '../lib/i18n';
 import {
@@ -8,6 +8,7 @@ import {
   daySwapMuscleOptions,
   filterDaySwapCandidates,
 } from '../lib/programDaySwap';
+import { KitBar, KitRow, KitSheet, KIT_BAR_SPACE } from './sheetKit';
 import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
@@ -22,6 +23,10 @@ import { AppLanguage } from '../types/models';
  * The muscle filter leads, because the request that produced this feature was
  * phrased in muscles — "haluan rinta ja vatsat treenit myös mukaan" — and not
  * in programme names.
+ *
+ * On the sheet kit: a tap picks, the commit bar rises with the whole change on
+ * one line, and only the button writes — replacing a whole day is the largest
+ * single edit a programme can take, and it used to happen on the row tap.
  */
 interface DaySwapSheetProps {
   visible: boolean;
@@ -29,6 +34,8 @@ interface DaySwapSheetProps {
   candidates: readonly DaySwapCandidate[];
   /** The day being replaced, which cannot be its own replacement. */
   excludeSessionId: string;
+  /** The day's current name, for the bar's left half. */
+  currentDayName: string;
   language: AppLanguage;
   onPick: (candidate: DaySwapCandidate) => void;
   onClose: () => void;
@@ -40,6 +47,7 @@ export function DaySwapSheet({
   visible,
   candidates,
   excludeSessionId,
+  currentDayName,
   language,
   onPick,
   onClose,
@@ -47,6 +55,12 @@ export function DaySwapSheet({
 }: DaySwapSheetProps) {
   const styles = useThemedStyles(makeStyles);
   const [muscle, setMuscle] = useState<string | null>(null);
+  /** Picked but not committed — the bar carries the confirm. */
+  const [pick, setPick] = useState<DaySwapCandidate | null>(null);
+  const close = () => {
+    setPick(null);
+    onClose();
+  };
 
   // Memos over a `candidates` identity that is now stable: the list is built
   // once against the exercise library instead of once per render, so these
@@ -60,157 +74,141 @@ export function DaySwapSheet({
 
   const renderRow = useCallback(
     ({ item }: { item: DaySwapCandidate }) => (
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => onPick(item)}
-        style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-      >
-        <View style={styles.rowBody}>
-          <Text style={styles.rowName}>{item.sessionName}</Text>
-          {/* The programme it came from. A day with no provenance is a day the
-              reader cannot judge. */}
-          <Text style={styles.rowFrom}>{item.templateName}</Text>
-        </View>
-        <Text style={styles.rowMeta}>
-          {t(language, 'programDay.swapDay.meta', {
-            exercises: item.exerciseCount,
-            sets: item.setCount,
-          })}
-        </Text>
-      </Pressable>
+      <KitRow
+        title={item.sessionName}
+        // The programme it came from, then the size. A day with no provenance
+        // is a day the reader cannot judge.
+        meta={`${item.templateName} · ${t(language, 'programDay.swapDay.meta', {
+          exercises: item.exerciseCount,
+          sets: item.setCount,
+        })}`}
+        state={
+          pick && pick.templateId === item.templateId && pick.sessionId === item.sessionId
+            ? 'sel'
+            : 'idle'
+        }
+        onPress={() =>
+          setPick((current) =>
+            current && current.templateId === item.templateId && current.sessionId === item.sessionId
+              ? null
+              : item,
+          )
+        }
+      />
     ),
-    [language, onPick, styles],
+    [language, pick],
   );
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.root}>
-        <Pressable style={styles.scrim} onPress={onClose} accessibilityRole="button" />
-
-        <View style={[styles.sheet, { paddingBottom: 16 + bottomInset }]}>
-          <View style={styles.grabber} />
-          <Text style={styles.title}>{t(language, 'programDay.swapDay.title')}</Text>
-          <Text style={styles.lead}>{t(language, 'programDay.swapDay.lead')}</Text>
-
-          {/* A height on the scroller AND on the chips. Two ScrollViews are
-              siblings in this column, and without both the horizontal one is
-              squeezed to nothing by the list below it — the chips still lay
-              out and still read correctly to the accessibility tree, they just
-              paint as empty pills. Found on a device; the same collapse that
-              once flattened the set-screen dials. */}
-          <ScrollView
-            horizontal
-            style={styles.filterScroll}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterRow}
-          >
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setMuscle(null)}
-              style={[styles.chip, muscle === null && styles.chipOn]}
-            >
-              <Text style={[styles.chipText, muscle === null && styles.chipTextOn]}>
-                {t(language, 'programDay.swapDay.all')}
-              </Text>
-            </Pressable>
-            {muscles.map((entry) => (
-              <Pressable
-                key={entry}
-                accessibilityRole="button"
-                onPress={() => setMuscle(entry)}
-                style={[styles.chip, muscle === entry && styles.chipOn]}
-              >
-                <Text style={[styles.chipText, muscle === entry && styles.chipTextOn]}>
-                  {bodyPartLabel(language, entry)}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-
-          {/* FlatList, not a ScrollView: unfiltered this is every written day
-              in the catalogue — around 197 rows — and a ScrollView mounts all
-              of them in one frame, during the sheet's own slide-in, which is
-              exactly where a dropped frame is seen. */}
-          <FlatList
-            style={styles.list}
-            data={shown}
-            renderItem={renderRow}
-            keyExtractor={(candidate) => `${candidate.templateId}:${candidate.sessionId}`}
-            showsVerticalScrollIndicator={false}
-            initialNumToRender={8}
-            windowSize={5}
-          />
-
+    <KitSheet
+      visible={visible}
+      onClose={close}
+      title={t(language, 'programDay.swapDay.title')}
+      description={t(language, 'programDay.swapDay.lead')}
+      bottomInset={bottomInset}
+      barUp={pick !== null}
+      bar={
+        <KitBar
+          visible={pick !== null}
+          from={currentDayName}
+          to={pick?.sessionName ?? ''}
+          buttons={[
+            {
+              label: t(language, 'programDay.swapDay.action'),
+              // Replacing a day rewrites its contents for good — danger's
+              // colour, by the kit's own rule: permanent, not "this time".
+              kind: 'd',
+              onPress: () => {
+                if (pick) {
+                  onPick(pick);
+                }
+                close();
+              },
+            },
+          ]}
+          clearLabel={t(language, 'kit.pickAnotherDay')}
+          onClear={() => setPick(null)}
+          bottomInset={bottomInset}
+        />
+      }
+    >
+      {/* A height on the scroller AND on the chips. Two scrollers are siblings
+          in this column, and without both the horizontal one is squeezed to
+          nothing by the list below it — the chips still lay out and still read
+          correctly to the accessibility tree, they just paint as empty pills.
+          Found on a device; the same collapse that once flattened the
+          set-screen dials. */}
+      <ScrollView
+        horizontal
+        style={styles.filterScroll}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterRow}
+      >
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setMuscle(null)}
+          style={[styles.chip, muscle === null && styles.chipOn]}
+        >
+          <Text style={[styles.chipText, muscle === null && styles.chipTextOn]}>
+            {t(language, 'programDay.swapDay.all')}
+          </Text>
+        </Pressable>
+        {muscles.map((entry) => (
           <Pressable
+            key={entry}
             accessibilityRole="button"
-            onPress={onClose}
-            style={({ pressed }) => [styles.close, pressed && styles.pressed]}
+            onPress={() => setMuscle(entry)}
+            style={[styles.chip, muscle === entry && styles.chipOn]}
           >
-            <Text style={styles.closeText}>{t(language, 'common.cancel')}</Text>
+            <Text style={[styles.chipText, muscle === entry && styles.chipTextOn]}>
+              {bodyPartLabel(language, entry)}
+            </Text>
           </Pressable>
-        </View>
-      </View>
-    </Modal>
+        ))}
+      </ScrollView>
+
+      {/* FlatList, not a ScrollView: unfiltered this is every written day
+          in the catalogue — around 197 rows — and a ScrollView mounts all
+          of them in one frame, during the sheet's own slide-in, which is
+          exactly where a dropped frame is seen. */}
+      <FlatList
+        style={styles.list}
+        contentContainerStyle={styles.listPad}
+        data={shown}
+        renderItem={renderRow}
+        keyExtractor={(candidate) => `${candidate.templateId}:${candidate.sessionId}`}
+        showsVerticalScrollIndicator={false}
+        initialNumToRender={8}
+        windowSize={5}
+      />
+    </KitSheet>
   );
 }
 
 const makeStyles = (theme: Theme) =>
   StyleSheet.create({
-    root: { flex: 1, justifyContent: 'flex-end' },
-    scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)' },
-    sheet: {
-      maxHeight: '86%',
-      backgroundColor: theme.surface,
-      borderTopLeftRadius: 26,
-      borderTopRightRadius: 26,
-      paddingHorizontal: 20,
-      paddingTop: 10,
+    filterScroll: { flexGrow: 0, flexShrink: 0, height: 64 },
+    filterRow: {
+      gap: 8,
+      paddingVertical: 12,
+      paddingHorizontal: 18,
+      alignItems: 'center',
     },
-    grabber: {
-      alignSelf: 'center',
-      width: 44,
-      height: 5,
-      borderRadius: 999,
-      backgroundColor: theme.border,
-      marginBottom: 14,
-    },
-    title: { fontSize: 21, fontWeight: '800', color: theme.ink, letterSpacing: -0.4 },
-    lead: { fontSize: 14, fontWeight: '500', color: theme.muted, lineHeight: 20, marginTop: 6 },
-    filterScroll: { flexGrow: 0, flexShrink: 0, height: 68 },
-    filterRow: { gap: 8, paddingVertical: 14, paddingRight: 20, alignItems: 'center' },
     chip: {
       height: 40,
       justifyContent: 'center',
       paddingHorizontal: 14,
       borderRadius: 999,
-      backgroundColor: theme.surfaceSoft,
       borderWidth: 1,
       borderColor: theme.border,
-    },
-    chipOn: { backgroundColor: theme.purple, borderColor: theme.purple },
-    chipText: { fontSize: 14, fontWeight: '700', color: theme.muted },
-    chipTextOn: { color: '#FFFFFF' },
-    list: { flexGrow: 0 },
-    row: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      paddingVertical: 14,
-      borderTopWidth: 1,
-      borderTopColor: theme.border,
-    },
-    rowBody: { flex: 1 },
-    rowName: { fontSize: 16, fontWeight: '700', color: theme.ink, lineHeight: 21 },
-    rowFrom: { fontSize: 13, fontWeight: '500', color: theme.muted, marginTop: 2 },
-    rowMeta: { fontSize: 13, fontWeight: '600', color: theme.muted },
-    close: {
-      height: 50,
-      borderRadius: 999,
       backgroundColor: theme.surfaceSoft,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: 14,
     },
-    closeText: { fontSize: 15.5, fontWeight: '700', color: theme.ink },
-    pressed: { opacity: 0.85 },
+    chipOn: {
+      backgroundColor: theme.purpleLight,
+      borderColor: theme.purpleBright,
+    },
+    chipText: { fontSize: 13.5, fontWeight: '700', color: theme.muted },
+    chipTextOn: { color: theme.purpleBright },
+    list: { flexGrow: 0, maxHeight: 430 - KIT_BAR_SPACE / 2 },
+    listPad: { paddingHorizontal: 18, paddingBottom: 6 },
   });

@@ -13,6 +13,7 @@ import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddExerciseSheet } from '../components/AddExerciseSheet';
+import { KitBar, KitGroupLabel, KitRow, KitSearch, KitSheet } from '../components/sheetKit';
 import { CutSurface } from '../components/CutSurface';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { buildExerciseSearchHaystack, exerciseMatchesQuery } from '../lib/exerciseSearch';
@@ -191,15 +192,21 @@ export function ProgramDayScreen({
   const [reorderMode, setReorderMode] = useState(false);
   const [tuneExerciseId, setTuneExerciseId] = useState<string | null>(null);
   const [tuneDraft, setTuneDraft] = useState<ProgramPrescription | null>(null);
+  /** The numbers as they were when the sheet opened — the bar's left half. */
+  const [tuneStart, setTuneStart] = useState<ProgramPrescription | null>(null);
   const closeTuneSheet = () => {
     setTuneExerciseId(null);
     setTuneDraft(null);
+    setTuneStart(null);
   };
   /** Narrows the pool. Cleared with the sheet, so it never opens pre-filtered. */
   const [swapQuery, setSwapQuery] = useState('');
+  /** The replacement picked but not committed — the scope question comes after. */
+  const [swapPickName, setSwapPickName] = useState<string | null>(null);
   const closeSwapSheet = () => {
     setSwapSlotId(null);
     setSwapQuery('');
+    setSwapPickName(null);
   };
 
   /**
@@ -223,6 +230,7 @@ export function ProgramDayScreen({
       setSwapQuery('');
       setTuneExerciseId(null);
       setTuneDraft(null);
+      setTuneStart(null);
       return true;
     });
     return () => handler.remove();
@@ -341,6 +349,14 @@ export function ProgramDayScreen({
     };
   }, [language, session.exercises, sessionSwaps, tuneDraft, tuneExerciseId]);
 
+  /**
+   * Steps write the DRAFT, and the bar's "Save to this day" writes the
+   * programme. Every press used to save — the sheet-kit contract is the
+   * opposite: the commit bar wakes when a number actually changes, shows the
+   * whole edit on one line, and Undo puts the numbers back. A reader stepping
+   * 5 sets to 3 no longer has a programme that says 4 while their thumb is
+   * mid-thought.
+   */
   const stepTune = (field: 'sets' | 'reps', direction: 1 | -1) => {
     if (!tuneDraft || !tuneRow || !onPrescribe) {
       return;
@@ -350,8 +366,21 @@ export function ProgramDayScreen({
       return;
     }
     setTuneDraft(next);
-    onPrescribe(tuneRow.id, next);
   };
+
+  const formatDose = (dose: ProgramPrescription | null, timed: boolean) =>
+    dose
+      ? `${dose.targetSets} × ${
+          dose.repMin === dose.repMax ? dose.repMin : `${dose.repMin}–${dose.repMax}`
+        }${timed ? ' s' : ''}`
+      : '';
+  const tuneChanged = Boolean(
+    tuneDraft &&
+      tuneStart &&
+      (tuneDraft.targetSets !== tuneStart.targetSets ||
+        tuneDraft.repMin !== tuneStart.repMin ||
+        tuneDraft.repMax !== tuneStart.repMax),
+  );
 
   return (
     <View style={styles.screen}>
@@ -504,6 +533,11 @@ export function ProgramDayScreen({
                           repMin: exercise.repMin,
                           repMax: exercise.repMax,
                         });
+                        setTuneStart({
+                          targetSets: exercise.sets,
+                          repMin: exercise.repMin,
+                          repMax: exercise.repMax,
+                        });
                       }}
                       style={({ pressed }) => [styles.doseChip, pressed && styles.swapOptionPressed]}
                     >
@@ -625,111 +659,112 @@ export function ProgramDayScreen({
       </ScrollView>
 
       {/* The swap writes into the same map the session start reads, so what
-          you choose here is what you lift. */}
-      <Modal
+          you choose here is what you lift.
+
+          On the sheet kit: one tap target per row, and the scope question —
+          just this time, or for ever — is asked once, in the bar, after there
+          is a pick to ask it about. */}
+      <KitSheet
         visible={swapRow !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={() => closeSwapSheet()}
+        onClose={closeSwapSheet}
+        title={t(language, 'kit.swapTitle')}
+        context={exerciseNameLabel(language, swapRow?.currentName ?? '')}
+        bottomInset={insets.bottom}
+        barUp={swapPickName !== null}
+        bar={
+          <KitBar
+            visible={swapPickName !== null}
+            from={exerciseNameLabel(language, swapRow?.currentName ?? '')}
+            to={swapPickName ? exerciseNameLabel(language, swapPickName) : ''}
+            buttons={[
+              {
+                label: t(language, 'kit.justThisTime'),
+                kind: 'p',
+                onPress: () => {
+                  if (swapRow && swapPickName) {
+                    onSwapExercise?.(swapRow.slotId, swapPickName);
+                  }
+                  closeSwapSheet();
+                },
+              },
+              ...(swapRow?.exerciseId && onKeepSwap
+                ? [
+                    {
+                      label: t(language, 'kit.forEver'),
+                      kind: 'd' as const,
+                      onPress: () => {
+                        if (swapRow?.exerciseId && swapPickName) {
+                          onKeepSwap(swapRow.exerciseId, swapPickName);
+                        }
+                        closeSwapSheet();
+                      },
+                    },
+                  ]
+                : []),
+            ]}
+            clearLabel={t(language, 'kit.pickAnother')}
+            onClear={() => setSwapPickName(null)}
+            bottomInset={insets.bottom}
+          />
+        }
       >
-        <View style={styles.swapOverlay}>
-          <Pressable style={styles.swapScrim} onPress={() => closeSwapSheet()} />
-          {/* The sheet's own padding was a fixed 28, so on a phone with system
-              buttons the last row sat behind them and could not be pressed
-              (user 2026-08-26). The bar's height is only known at runtime. */}
-          <View style={[styles.swapSheet, { paddingBottom: insets.bottom + 28 }]}>
-            <View style={styles.swapGrip} />
-            <Text style={styles.swapTitle} numberOfLines={2}>
-              {t(language, 'home.swapSheet.title', {
-                name: exerciseNameLabel(language, swapRow?.currentName ?? ''),
-              })}
+        {/* The shortlist is deliberately six rows and the pool behind it is
+            not: a reader who knows what they want should not have to be
+            offered it (#bugs 2026-08-26). */}
+        <KitSearch
+          value={swapQuery}
+          onChangeText={setSwapQuery}
+          placeholder={t(language, 'home.swapSheet.search')}
+        />
+        <ScrollView
+          style={styles.swapList}
+          contentContainerStyle={styles.kitListPad}
+          showsVerticalScrollIndicator={false}
+        >
+          {swapRow && swapRow.shortlist.total === 0 && swapLibraryMatches.length === 0 ? (
+            <Text style={styles.swapEmpty}>
+              {t(language, swapQuery.trim() ? 'home.swapSheet.noMatches' : 'home.swapSheet.empty')}
             </Text>
-            {/* The shortlist is deliberately six rows and the pool behind it is
-                not: a reader who knows what they want should not have to be
-                offered it (#bugs 2026-08-26). */}
-            <TextInput
-              value={swapQuery}
-              onChangeText={setSwapQuery}
-              placeholder={t(language, 'home.swapSheet.search')}
-              placeholderTextColor={theme.faint}
-              style={styles.swapSearch}
-              autoCorrect={false}
-              accessibilityLabel={t(language, 'home.swapSheet.search')}
-            />
-            <ScrollView style={styles.swapList} showsVerticalScrollIndicator={false}>
-              {swapRow && swapRow.shortlist.total === 0 && swapLibraryMatches.length === 0 ? (
-                <Text style={styles.swapEmpty}>
-                  {t(language, swapQuery.trim() ? 'home.swapSheet.noMatches' : 'home.swapSheet.empty')}
-                </Text>
-              ) : (
-                ([
-                  { key: 'home.swapSheet.variations' as const, rows: swapRow?.shortlist.variations ?? [] },
-                  { key: 'home.swapSheet.related' as const, rows: swapRow?.shortlist.related ?? [] },
-                  {
-                    key: 'home.swapSheet.library' as const,
-                    rows: swapLibraryMatches.map((item) => ({
-                      exerciseName: item.name,
-                      reason: null,
-                      score: 0,
-                    })),
-                  },
-                ]).map((section) =>
-                  section.rows.length === 0 ? null : (
-                    <View key={section.key}>
-                      {/* Named only when there is more than one group — one
-                          heading over the whole list labels nothing. */}
-                      {[
-                        swapRow?.shortlist.variations.length ?? 0,
-                        swapRow?.shortlist.related.length ?? 0,
-                        swapLibraryMatches.length,
-                      ].filter((count) => count > 0).length > 1 ? (
-                        <Text style={styles.swapGroup}>{t(language, section.key)}</Text>
-                      ) : null}
-                      {section.rows.map((option) => (
-                        <View key={option.exerciseName} style={styles.swapOptionRow}>
-                          {/* The row is today's answer — the one you can undo. */}
-                          <Pressable
-                            onPress={() => {
-                              if (swapRow) {
-                                onSwapExercise?.(swapRow.slotId, option.exerciseName);
-                              }
-                              closeSwapSheet();
-                            }}
-                            style={({ pressed }) => [
-                              styles.swapOption,
-                              styles.swapOptionGrow,
-                              pressed && styles.swapOptionPressed,
-                            ]}
-                          >
-                            <Text style={styles.swapOptionName} numberOfLines={1}>
-                              {exerciseNameLabel(language, option.exerciseName)}
-                            </Text>
-                          </Pressable>
-                          {/* And the durable one, here rather than behind a
-                              second visit to this sheet. */}
-                          {swapRow?.exerciseId && onKeepSwap ? (
-                            <Pressable
-                              accessibilityRole="button"
-                              accessibilityLabel={t(language, 'home.swapSheet.keepOne', {
-                                name: exerciseNameLabel(language, option.exerciseName),
-                              })}
-                              hitSlop={8}
-                              onPress={() => {
-                                onKeepSwap(swapRow.exerciseId as string, option.exerciseName);
-                                closeSwapSheet();
-                              }}
-                              style={({ pressed }) => [styles.swapOptionKeep, pressed && styles.swapOptionPressed]}
-                            >
-                              <Text style={styles.swapOptionKeepText}>{t(language, 'home.swapSheet.keepShort')}</Text>
-                            </Pressable>
-                          ) : null}
-                        </View>
-                      ))}
-                    </View>
-                  ),
-                )
-              )}
-            </ScrollView>
+          ) : (
+            ([
+              { key: 'home.swapSheet.variations' as const, rows: swapRow?.shortlist.variations ?? [] },
+              { key: 'home.swapSheet.related' as const, rows: swapRow?.shortlist.related ?? [] },
+              {
+                key: 'home.swapSheet.library' as const,
+                rows: swapLibraryMatches.map((item) => ({
+                  exerciseName: item.name,
+                  reason: null,
+                  score: 0,
+                })),
+              },
+            ]).map((section) =>
+              section.rows.length === 0 ? null : (
+                <View key={section.key}>
+                  {/* Named only when there is more than one group — one
+                      heading over the whole list labels nothing. */}
+                  {[
+                    swapRow?.shortlist.variations.length ?? 0,
+                    swapRow?.shortlist.related.length ?? 0,
+                    swapLibraryMatches.length,
+                  ].filter((count) => count > 0).length > 1 ? (
+                    <KitGroupLabel>{t(language, section.key)}</KitGroupLabel>
+                  ) : null}
+                  {section.rows.map((option) => (
+                    <KitRow
+                      key={option.exerciseName}
+                      title={exerciseNameLabel(language, option.exerciseName)}
+                      state={swapPickName === option.exerciseName ? 'sel' : 'idle'}
+                      onPress={() =>
+                        setSwapPickName((current) =>
+                          current === option.exerciseName ? null : option.exerciseName,
+                        )
+                      }
+                    />
+                  ))}
+                </View>
+              ),
+            )
+          )}
             {/* A swap answers today. This makes it the programme's answer —
                 offered only once there is a swap to keep. */}
             {swapRow?.exerciseId && sessionSwaps[swapRow.slotId] && onKeepSwap ? (
@@ -769,123 +804,102 @@ export function ProgramDayScreen({
                 <Text style={styles.swapRemoveNote}>{t(language, 'home.swapSheet.removeNote')}</Text>
               </Pressable>
             ) : null}
-          </View>
-        </View>
-      </Modal>
+        </ScrollView>
+      </KitSheet>
 
       {/*
-        Sets, reps and the row's place in the day — the three numbers the
-        catalog decided and the reader could not answer back.
-
-        Every press writes. There is no save button because there is no draft
-        to lose: the reader who steps sets to four and puts the phone down has
-        a programme with four sets in it, not a sheet they forgot to confirm.
+        Sets and reps — the numbers the catalog decided and the reader could
+        not answer back. On the sheet kit: steppers write a draft, the commit
+        bar wakes when a number actually changes and shows the whole edit on
+        one line, and "Save to this day" is the only press that writes the
+        programme. (Order moved out of this sheet to the arrows on the rows —
+        one number per surface.)
       */}
-      <Modal
+      <KitSheet
         visible={tuneRow !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={() => closeTuneSheet()}
+        onClose={closeTuneSheet}
+        title={tuneRow?.name ?? ''}
+        context={t(language, 'detail.day.tuneEyebrow')}
+        bottomInset={insets.bottom}
+        barUp={tuneChanged}
+        bar={
+          <KitBar
+            visible={tuneChanged}
+            from={formatDose(tuneStart, tuneRow?.timed ?? false)}
+            to={formatDose(tuneDraft, tuneRow?.timed ?? false)}
+            buttons={[
+              {
+                label: t(language, 'kit.saveToDay'),
+                kind: 'p',
+                onPress: () => {
+                  if (tuneRow && tuneDraft && onPrescribe) {
+                    onPrescribe(tuneRow.id, tuneDraft);
+                  }
+                  closeTuneSheet();
+                },
+              },
+            ]}
+            clearLabel={t(language, 'kit.undoChanges')}
+            onClear={() => setTuneDraft(tuneStart)}
+            bottomInset={insets.bottom}
+          />
+        }
       >
-        <View style={styles.swapOverlay}>
-          <Pressable style={styles.swapScrim} onPress={() => closeTuneSheet()} />
-          <View style={[styles.swapSheet, { paddingBottom: insets.bottom + 28 }]}>
-            <View style={styles.swapGrip} />
-            <Text style={styles.tuneEyebrow}>{t(language, 'detail.day.tuneEyebrow')}</Text>
-            <Text style={styles.swapTitle} numberOfLines={2}>
-              {tuneRow?.name ?? ''}
-            </Text>
-
-            {tuneRow && tuneDraft && onPrescribe ? (
-              <>
-                <View style={styles.tuneRow}>
-                  <Text style={styles.tuneLabel}>{t(language, 'detail.day.setsLabel')}</Text>
-                  <View style={styles.tuneControls}>
-                    <RoundButton
-                      glyph="minus"
-                      styles={styles}
-                      theme={theme}
-                      disabled={!canStepProgramPrescription(tuneDraft, 'sets', -1)}
-                      onPress={() => stepTune('sets', -1)}
-                    />
-                    <Text style={styles.tuneValue}>{tuneDraft.targetSets}</Text>
-                    <RoundButton
-                      glyph="plus"
-                      styles={styles}
-                      theme={theme}
-                      disabled={!canStepProgramPrescription(tuneDraft, 'sets', 1)}
-                      onPress={() => stepTune('sets', 1)}
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.tuneRow}>
-                  <Text style={styles.tuneLabel}>{t(language, 'editor.reps')}</Text>
-                  <View style={styles.tuneControls}>
-                    <RoundButton
-                      glyph="minus"
-                      styles={styles}
-                      theme={theme}
-                      disabled={!canStepProgramPrescription(tuneDraft, 'reps', -1)}
-                      onPress={() => stepTune('reps', -1)}
-                    />
-                    {/* A range stays a range: "6–8" steps to "7–9" rather than
-                        collapsing to a single number the programme never wrote. */}
-                    <Text style={styles.tuneValue}>
-                      {tuneDraft.repMin === tuneDraft.repMax
-                        ? `${tuneDraft.repMin}`
-                        : `${tuneDraft.repMin}–${tuneDraft.repMax}`}
-                      {tuneRow.timed ? ' s' : ''}
-                    </Text>
-                    <RoundButton
-                      glyph="plus"
-                      styles={styles}
-                      theme={theme}
-                      disabled={!canStepProgramPrescription(tuneDraft, 'reps', 1)}
-                      onPress={() => stepTune('reps', 1)}
-                    />
-                  </View>
-                </View>
-              </>
-            ) : null}
-
-            {tuneRow && onMoveExercise ? (
-              <View style={[styles.tuneRow, styles.tuneRowLast]}>
-                <Text style={styles.tuneLabel}>{t(language, 'detail.day.orderLabel')}</Text>
+        <View style={styles.kitListPad}>
+          {tuneRow && tuneDraft && onPrescribe ? (
+            <>
+              <View style={styles.tuneRow}>
+                <Text style={styles.tuneLabel}>{t(language, 'detail.day.setsLabel')}</Text>
                 <View style={styles.tuneControls}>
                   <RoundButton
-                    glyph="up"
+                    glyph="minus"
                     styles={styles}
                     theme={theme}
-                    label={t(language, 'detail.day.moveUp')}
-                    disabled={tuneRow.index === 0}
-                    onPress={() => onMoveExercise(tuneRow.id, 'up')}
+                    disabled={!canStepProgramPrescription(tuneDraft, 'sets', -1)}
+                    onPress={() => stepTune('sets', -1)}
                   />
-                  <Text style={styles.tuneValue}>
-                    {tuneRow.index + 1} / {tuneRow.count}
-                  </Text>
+                  <Text style={styles.tuneValue}>{tuneDraft.targetSets}</Text>
                   <RoundButton
-                    glyph="down"
+                    glyph="plus"
                     styles={styles}
                     theme={theme}
-                    label={t(language, 'detail.day.moveDown')}
-                    disabled={tuneRow.index === tuneRow.count - 1}
-                    onPress={() => onMoveExercise(tuneRow.id, 'down')}
+                    disabled={!canStepProgramPrescription(tuneDraft, 'sets', 1)}
+                    onPress={() => stepTune('sets', 1)}
                   />
                 </View>
               </View>
-            ) : null}
 
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => closeTuneSheet()}
-              style={({ pressed }) => [styles.tuneDone, pressed && styles.swapOptionPressed]}
-            >
-              <Text style={styles.tuneDoneText}>{t(language, 'common.close')}</Text>
-            </Pressable>
-          </View>
+              <View style={[styles.tuneRow, styles.tuneRowLast]}>
+                <Text style={styles.tuneLabel}>{t(language, 'editor.reps')}</Text>
+                <View style={styles.tuneControls}>
+                  <RoundButton
+                    glyph="minus"
+                    styles={styles}
+                    theme={theme}
+                    disabled={!canStepProgramPrescription(tuneDraft, 'reps', -1)}
+                    onPress={() => stepTune('reps', -1)}
+                  />
+                  {/* A range stays a range: "6–8" steps to "7–9" rather than
+                      collapsing to a single number the programme never wrote. */}
+                  <Text style={styles.tuneValue}>
+                    {tuneDraft.repMin === tuneDraft.repMax
+                      ? `${tuneDraft.repMin}`
+                      : `${tuneDraft.repMin}–${tuneDraft.repMax}`}
+                    {tuneRow.timed ? ' s' : ''}
+                  </Text>
+                  <RoundButton
+                    glyph="plus"
+                    styles={styles}
+                    theme={theme}
+                    disabled={!canStepProgramPrescription(tuneDraft, 'reps', 1)}
+                    onPress={() => stepTune('reps', 1)}
+                  />
+                </View>
+              </View>
+            </>
+          ) : null}
         </View>
-      </Modal>
+      </KitSheet>
 
       {/* The library, over the day it is adding to. Same component the editor
           uses, so search, body-part chips and the photos are the ones the
@@ -917,6 +931,7 @@ export function ProgramDayScreen({
           visible={daySwapOpen}
           candidates={daySwapCandidates}
           excludeSessionId={session.id}
+          currentDayName={localizeSessionName(session.name, language)}
           language={language}
           bottomInset={insets.bottom}
           onClose={() => setDaySwapOpen(false)}
@@ -1083,6 +1098,9 @@ function Section({
 }
 
 const makeStyles = (theme: Theme) => StyleSheet.create({
+  // The kit's lists carry their own horizontal padding: the sheet shell pads
+  // only its header, so a full-bleed list can scroll under it.
+  kitListPad: { paddingHorizontal: 18, paddingBottom: 6 },
   screen: {
     flex: 1,
     backgroundColor: theme.bg,
