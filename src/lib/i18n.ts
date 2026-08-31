@@ -3145,7 +3145,6 @@ const EN = {
   'exDetail.howTo': 'HOW TO PERFORM',
   'exDetail.noSteps': "Step-by-step cues aren't in the library for this exercise yet.",
   'exDetail.footnote': 'Form cues are general guidance — adjust to how your body moves.',
-  'exDetail.addToWorkout': 'Add to workout',
   'exDetail.tracked': 'Added to tracked lifts',
   'exDetail.untracked': 'Removed from tracked lifts',
   // ── Ready templates browser ───────────────────────────────────────────
@@ -6321,7 +6320,6 @@ const FI: Record<I18nKey, string> = {
   'exDetail.howTo': 'MITEN SUORITETAAN',
   'exDetail.noSteps': 'Vaiheittaisia ohjeita ei ole vielä kirjastossa tälle liikkeelle.',
   'exDetail.footnote': 'Tekniikkavinkit ovat yleisohjeita — säädä sen mukaan, miten kehosi liikkuu.',
-  'exDetail.addToWorkout': 'Lisää treeniin',
   'exDetail.tracked': 'Lisätty seurattuihin liikkeisiin',
   'exDetail.untracked': 'Poistettu seuratuista liikkeistä',
   // ── Ready templates browser ───────────────────────────────────────────

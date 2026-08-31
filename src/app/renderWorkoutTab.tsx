@@ -712,7 +712,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
 
           void updatePreferences({ trackedExerciseLibraryItemIds: nextTrackedIds });
         }}
-        onAddToWorkout={(item) => navigate({ tab: 'workout', screen: 'editor', prefillName: item.name, prefillExerciseLibraryId: item.id })}
       />
     ) : (
       <View />

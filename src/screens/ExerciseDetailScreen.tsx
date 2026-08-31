@@ -42,7 +42,6 @@ interface ExerciseDetailScreenProps {
   language?: AppLanguage;
   onBack: () => void;
   onToggleTracked?: (item: ExerciseLibraryItem) => void;
-  onAddToWorkout?: (item: ExerciseLibraryItem) => void;
 }
 
 function toLabel(value: string | null | undefined, language: AppLanguage) {
@@ -116,20 +115,6 @@ function DumbbellIcon({ color: colorProp, size = 30 }: { color?: string; size?: 
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-    </Svg>
-  );
-}
-
-function ActionIcon({ added }: { added: boolean }) {
-  const theme = useTheme();
-
-  return (
-    <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
-      {added ? (
-        <Path d="M5 13l4 4L19 7" stroke={theme.green} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
-      ) : (
-        <Path d="M12 5v14M5 12h14" stroke="#FFFFFF" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
-      )}
     </Svg>
   );
 }
@@ -215,7 +200,6 @@ export function ExerciseDetailScreen({
   language = 'en',
   onBack,
   onToggleTracked,
-  onAddToWorkout,
 }: ExerciseDetailScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -421,16 +405,18 @@ export function ExerciseDetailScreen({
         </View>
       ) : null}
 
-      <View style={styles.ctaBar}>
-        <Pressable
-          onPress={onAddToWorkout ? () => onAddToWorkout(item) : undefined}
-          disabled={!onAddToWorkout}
-          style={styles.ctaButton}
-        >
-          <ActionIcon added={false} />
-          <Text style={styles.ctaText}>{t(language, 'exDetail.addToWorkout')}</Text>
-        </Pressable>
-      </View>
+      {/*
+        No "Add to workout" bar.
+
+        It opened the logger prefilled with this one lift — a workout of a
+        single exercise, which is not a thing anyone comes to a reference page
+        to start (user 2026-08-31). It was the last door of the same routing
+        the library's "+" used, and it went out with it.
+
+        What this screen is for is reading: the loop, the cues, what goes
+        wrong, your own history. Adding a lift to something belongs where that
+        something exists — the day you are editing, or the session you are in.
+      */}
     </View>
   );
 }
@@ -470,7 +456,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 18,
     paddingTop: 4,
-    paddingBottom: 24,
+    // The pinned CTA bar used to stand between the last line and the bottom
+    // of the screen. With it gone the footnote ran into Android's gesture
+    // strip, so the space it was providing stays as padding.
+    paddingBottom: 40,
   },
   hero: {
     width: '100%',
@@ -702,27 +691,5 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 999,
     overflow: 'hidden',
-  },
-  ctaBar: {
-    paddingHorizontal: 18,
-    paddingTop: 12,
-    paddingBottom: 10,
-    backgroundColor: theme.surface,
-    borderTopWidth: 1,
-    borderTopColor: theme.border,
-  },
-  ctaButton: {
-    height: 54,
-    borderRadius: 16,
-    backgroundColor: theme.green,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  ctaText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFFFFF',
   },
 });
