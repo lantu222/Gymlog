@@ -106,7 +106,6 @@ interface ProgramDetailScreenProps {
    * silently does nothing.
    */
   onSaveEmphasis?: (updates: Array<{ sessionId: string; exerciseId: string; sets: number }>) => void;
-  onEdit?: () => void;
   destructiveActionLabel?: string;
   destructiveActionTitle?: string;
   destructiveActionMessage?: string;
@@ -177,7 +176,6 @@ export function ProgramDetailScreen({
   trainingCycle = null,
   onChangeTrainingCycle,
   onSaveEmphasis,
-  onEdit,
   progressionRules = null,
   audience = null,
   equipment = [],
@@ -813,17 +811,18 @@ export function ProgramDetailScreen({
           </>
         ) : null}
 
+        {/*
+          No "Edit" beside this heading any more (user 2026-08-31).
+
+          It opened the template editor, which is a second way to change a
+          programme the reader can already change by opening the day: sets,
+          reps, order, swaps and removals all live in the day view now. Two
+          editors for one programme is two places to look for the same control
+          and two ways for them to disagree — and the one this heading offered
+          was the one that knows less about the day it is editing.
+        */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{t(language, 'detail.workouts')}</Text>
-          {/* The hero's pencil is gone, but the template editor is only
-              reachable from here — dropping the affordance entirely would
-              orphan a whole screen. It is a quiet text action beside the list
-              it edits instead of a glass button over the artwork. */}
-          {program.source === 'custom' && onEdit ? (
-            <Pressable hitSlop={8} onPress={onEdit}>
-              <Text style={styles.emphasisEdit}>{t(language, 'plan.edit')}</Text>
-            </Pressable>
-          ) : null}
         </View>
         {/* Compact rows now (design: "päivärivi vie tänne") — the full
             content moved to the day view, where roles, rests and the warm-up
