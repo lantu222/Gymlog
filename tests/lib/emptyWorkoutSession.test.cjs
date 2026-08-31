@@ -5,8 +5,8 @@ const {
   buildFreestyleFinish,
   exerciseInitials,
   freestyleDoneSetCount,
-  freestyleHasSetAfter,
   freestyleNextSetTarget,
+  freestyleRestSecondsForTick,
   freestyleVolumeKg,
   matchesMuscleFilter,
   carryForwardFreestyleSet,
@@ -220,52 +220,59 @@ module.exports = [
     },
   },
   {
-    name: 'rest is offered only when a set is still waiting',
+    name: 'ticking a set always starts a rest, whatever else is waiting',
     run() {
-      // Reported from the phone: ticking the one set of a one-set session
-      // opened a 2:00 bar that counted down to nothing and covered "Lopeta
-      // treeni". The list is the pre-toggle state, because the caller decides
-      // before its own setState lands.
-      const single = makeExercise({
+      // The rule this replaces asked "is another set already waiting" and
+      // started nothing when the answer was no. In a freestyle logger the
+      // answer is normally no — you tick the set you just did, THEN add the
+      // next one — so the timer never ran. Reported twice on 2026-08-28
+      // ("tätä lepoa ei tullut kun tein penkkiä", "lepo sekosi, ei näy
+      // mitään") and reproduced on the emulator.
+      const lastSetOfTheSession = { done: false };
+      assert.equal(freestyleRestSecondsForTick({ restSeconds: 120 }, lastSetOfTheSession, 90), 120);
+
+      // Guard the specific shape of the old rule: the session with nothing
+      // else pending is exactly the case that used to come back with no rest.
+      const soloExercise = makeExercise({
         sets: [{ localKey: 'set_1', kg: '100', reps: '5', done: false }],
       });
-      assert.equal(freestyleHasSetAfter([single], 'draft_1', 'set_1'), false);
-
-      // Two sets, ticking the first: the second is the reason to rest.
-      const pair = makeExercise();
-      assert.equal(freestyleHasSetAfter([pair], 'draft_1', 'set_2'), false);
       assert.equal(
-        freestyleHasSetAfter(
-          [makeExercise({ sets: [
-            { localKey: 'set_1', kg: '100', reps: '5', done: false },
-            { localKey: 'set_2', kg: '100', reps: '5', done: false },
-          ] })],
-          'draft_1',
-          'set_1',
-        ),
-        true,
+        freestyleRestSecondsForTick(soloExercise, soloExercise.sets[0], 90),
+        120,
       );
     },
   },
   {
-    name: 'a pending set in another exercise still earns a rest',
+    name: 'the rest is the exercise own, and the default only when it has none',
     run() {
-      // The next set does not have to be in the same exercise — walking off
-      // the last set of the squat into a pending bench is exactly when rest
-      // matters most.
-      const squat = makeExercise({
-        sets: [{ localKey: 'set_1', kg: '100', reps: '5', done: false }],
-      });
-      const bench = makeExercise({
-        localKey: 'draft_2',
-        name: 'Bench Press',
-        sets: [{ localKey: 'set_9', kg: '80', reps: '5', done: false }],
-      });
-
-      assert.equal(freestyleHasSetAfter([squat, bench], 'draft_1', 'set_1'), true);
-      // ...and once the bench is done too, the session has nothing left.
-      const benchDone = { ...bench, sets: [{ ...bench.sets[0], done: true }] };
-      assert.equal(freestyleHasSetAfter([squat, benchDone], 'draft_1', 'set_1'), false);
+      assert.equal(freestyleRestSecondsForTick({ restSeconds: 45 }, { done: false }, 90), 45);
+      assert.equal(freestyleRestSecondsForTick({ restSeconds: 0 }, { done: false }, 90), 90);
+      // Rounded, because the bar counts in whole seconds.
+      assert.equal(freestyleRestSecondsForTick({ restSeconds: 74.4 }, { done: false }, 90), 74);
+    },
+  },
+  {
+    name: 'a rest that cannot be counted is not started',
+    run() {
+      // Both numbers reach here from stored preferences by way of
+      // getExerciseTemplateDefaults. NaN passes `typeof === 'number'`, and it
+      // survives Math.min, Math.round and `now + n * 1000` all the way to the
+      // bar, which then renders frozen at 0:00 and never ends — once per set,
+      // now that every tick starts a rest.
+      assert.equal(freestyleRestSecondsForTick({ restSeconds: NaN }, { done: false }, NaN), null);
+      assert.equal(freestyleRestSecondsForTick({ restSeconds: 0 }, { done: false }, 0), null);
+      assert.equal(freestyleRestSecondsForTick({ restSeconds: -30 }, { done: false }, -5), null);
+      assert.equal(freestyleRestSecondsForTick({ restSeconds: 0 }, { done: false }, Infinity), null);
+      // A usable default still rescues an exercise with no rest of its own.
+      assert.equal(freestyleRestSecondsForTick({ restSeconds: NaN }, { done: false }, 90), 90);
+    },
+  },
+  {
+    name: 'un-ticking a set starts no rest',
+    run() {
+      // Correcting a mis-tap is not the end of a set. `done: true` is the
+      // PRE-toggle state, because the caller decides before its setState lands.
+      assert.equal(freestyleRestSecondsForTick({ restSeconds: 120 }, { done: true }, 90), null);
     },
   },
 

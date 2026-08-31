@@ -141,26 +141,45 @@ export function freestyleVolumeKg(exercises: FreestyleExerciseDraft[]) {
 }
 
 /**
- * Whether ticking this set leaves anything else to log.
+ * The rest to start when a freestyle set is ticked, in seconds — or null when
+ * no rest should run.
  *
- * Rest is the time *before the next set*. Ticking the last one used to open
- * the 2:00 bar anyway, which counted down to nothing and — because the bar
- * floats — covered "Lopeta treeni" at the bottom of the screen, so the timer
- * with no purpose was also standing in front of the only button left to press.
+ * This used to ask a different question: "is another set already waiting?",
+ * and started no rest unless one was. The intent was to stop the last tick of
+ * a session opening a 2:00 countdown to nothing.
  *
- * Takes the pre-toggle list and the set being ticked, because the caller runs
- * this before the state update lands.
+ * It withheld the timer from almost every rest instead. A freestyle session
+ * has no plan: you tick the set you just did and THEN press "+ Lisää sarja"
+ * for the next one, so at the moment of the tick there is normally nothing
+ * waiting and the answer was no. Reported twice from the gym on 2026-08-28 —
+ * "tätä lepoa ei tullut kun tein penkkiä" and "lepo sekosi, ei näy mitään" —
+ * and reproduced on the emulator: log a set the ordinary way and no bar comes.
+ *
+ * So a tick always earns its rest. The end-of-session case the old rule was
+ * written for costs one tap on Ohita, which is the right price for a guess the
+ * app cannot make: nothing at tick time says whether the reader is finished.
+ * The bar cannot cover "Lopeta treeni" while it does — the logging list has
+ * reserved room for it since the screen was built.
  */
-export function freestyleHasSetAfter(
-  exercises: readonly FreestyleExerciseDraft[],
-  exerciseKey: string,
-  setKey: string,
-): boolean {
-  return exercises.some((exercise) =>
-    exercise.sets.some(
-      (set) => !set.done && !(exercise.localKey === exerciseKey && set.localKey === setKey),
-    ),
-  );
+export function freestyleRestSecondsForTick(
+  exercise: FreestyleExerciseDraft,
+  set: FreestyleSetDraft,
+  defaultRestSeconds: number,
+): number | null {
+  // Un-ticking corrects a mistake; it is not the end of a set. The caller
+  // hands over the PRE-toggle set, so this is the one rule about which way
+  // the tick is going, and it lives here rather than at the call site.
+  if (set.done) {
+    return null;
+  }
+
+  // Nothing below a second is a rest. Both numbers can arrive unusable — a
+  // stored preference reaches getExerciseTemplateDefaults unbounded, and NaN
+  // survives every arithmetic step to produce a bar frozen at 0:00 that never
+  // ends. A rest that cannot be counted is not started.
+  const own = Math.round(exercise.restSeconds);
+  const seconds = own > 0 ? own : Math.round(defaultRestSeconds);
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : null;
 }
 
 /** Done-set count across the session, for the stat strip. */

@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { normalizeSeasonEnrolments } from '../lib/seasonEnrolment';
 import { normalizeStrengthGoals } from '../lib/strengthGoals';
 import { normalizeCancelSurveyAnswer } from '../lib/cancelSurvey';
+import { normalizeDefaultRestSeconds } from '../lib/restPreference';
 import { isSubscriptionTermKey } from '../lib/subscriptionView';
 import { createEmptyDatabase } from '../data/seed';
 import { resolveDeviceLanguage } from './deviceLocale';
@@ -570,10 +571,12 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
           : fallback.preferences.appLanguage,
       // App is kg-only: any legacy 'lb' preference normalizes to kg on load.
       unitPreference: 'kg',
-      defaultRestSeconds:
-        typeof input?.preferences?.defaultRestSeconds === 'number'
-          ? input.preferences.defaultRestSeconds
-          : fallback.preferences.defaultRestSeconds,
+      // Every way a stored rest can be unusable, decided in one pure place
+      // that a test can actually run — see normalizeDefaultRestSeconds.
+      defaultRestSeconds: normalizeDefaultRestSeconds(
+        input?.preferences?.defaultRestSeconds,
+        fallback.preferences.defaultRestSeconds,
+      ),
       autoFocusNextInput:
         typeof input?.preferences?.autoFocusNextInput === 'boolean'
           ? input.preferences.autoFocusNextInput

@@ -14,10 +14,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { PlatePop } from '../components/PlatePop';
-import { RestBar } from '../components/RestBar';
+import { REST_BAR_BOTTOM, RestBar } from '../components/RestBar';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { buildExerciseSearchHaystack, exerciseMatchesQuery } from '../lib/exerciseSearch';
+import { orderExercisesBySelection } from '../lib/exerciseSelectionOrder';
 import { parseNumberInput, removeTrailingZeros } from '../lib/format';
 import {
   EMPTY_WORKOUT_MUSCLE_FILTERS,
@@ -28,8 +29,8 @@ import {
   carryForwardFreestyleSet,
   exerciseInitials,
   freestyleDoneSetCount,
-  freestyleHasSetAfter,
   freestyleNextSetTarget,
+  freestyleRestSecondsForTick,
   freestyleVolumeKg,
   matchesMuscleFilter,
 } from '../lib/emptyWorkoutSession';
@@ -307,7 +308,8 @@ function AddExerciseSheetHG({ visible, items, language, onClose, onAdd, bottomIn
     if (!selectedIds.length) {
       return;
     }
-    onAdd(items.filter((item) => selectedIds.includes(item.id)));
+    // In tap order, not library order — see orderExercisesBySelection.
+    onAdd(orderExercisesBySelection(items, selectedIds));
   };
 
   const listHeader = (
@@ -480,7 +482,14 @@ export function EmptyWorkoutScreen({
   const [exercises, setExercises] = useState<FreestyleExerciseState[]>([]);
   const [startedAtMs, setStartedAtMs] = useState<number | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const [rest, setRest] = useState<{ totalSeconds: number; endsAtMs: number } | null>(null);
+  const [rest, setRest] = useState<{ totalSeconds: number; endsAtMs: number; startedAtMs: number } | null>(null);
+  /**
+   * How much room the floating bar needs at the bottom of the list, measured
+   * rather than assumed. This was a flat 118, which holds at the default font
+   * size and stops holding at the accessibility sizes — the bar's three lines
+   * scale, the constant did not, and it went back to covering "Lopeta treeni".
+   */
+  const [restBarHeight, setRestBarHeight] = useState(0);
   const [sheetVisible, setSheetVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -502,10 +511,10 @@ export function EmptyWorkoutScreen({
   // the phone was in a pocket comes back as DONE with its overrun — not as a
   // frozen countdown, and not silently gone.
   const restStatus = rest ? describeRest(rest.endsAtMs, nowMs) : null;
-  const restRemaining = restStatus ? restStatus.remainingSeconds : null;
   // The add-exercise sheet is a Modal and cannot read this itself.
   const sheetInsets = useSafeAreaInsets();
-  const restDoneCuedRef = useRef(false);
+  /** The rest deadline the "back to work" cue has already fired for. */
+  const restDoneCuedRef = useRef<number | null>(null);
   /** Keeps the field being typed into above the keyboard — see the hook. */
   const keyboard = useKeyboardReveal();
 
@@ -513,13 +522,19 @@ export function EmptyWorkoutScreen({
     // The countdown ran out — cue "back to work" once, but KEEP the bar: it
     // flips to the done state and counts how long ago, until the set is
     // logged or the bar is dismissed (design: "coming back").
-    if (restStatus?.phase === 'done' && !restDoneCuedRef.current) {
-      restDoneCuedRef.current = true;
+    //
+    // Cued per DEADLINE, not per bar. A boolean reset only when the bar closed
+    // meant the cue fired for the first rest of a run and never again: ticking
+    // the next set replaces the rest without `rest` ever being null in
+    // between, which — now that every tick starts one — is the ordinary loop.
+    // Keying on endsAtMs also re-arms the cue when +15s revives a done rest.
+    if (restStatus?.phase === 'done' && rest && restDoneCuedRef.current !== rest.endsAtMs) {
+      restDoneCuedRef.current = rest.endsAtMs;
       void haptics.impactMedium();
       sound.rest();
     }
     if (!rest) {
-      restDoneCuedRef.current = false;
+      restDoneCuedRef.current = null;
     }
   }, [rest, restStatus?.phase]);
 
@@ -590,9 +605,11 @@ export function EmptyWorkoutScreen({
       // than run a timer that silently cannot fire.
       setDeniedBannerShown(true);
     }
-    // Once per rest start, on purpose.
+    // Once per rest START, on purpose — keyed on startedAtMs rather than the
+    // deadline, so ±15s does not count as a new rest and re-open the sheet
+    // over a rest that is already running.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rest?.endsAtMs]);
+  }, [rest?.startedAtMs]);
 
   const allowAlerts = async () => {
     setPermissionSheetOpen(false);
@@ -633,13 +650,17 @@ export function EmptyWorkoutScreen({
   const quickListTitle = t(language, recentExerciseLibraryItems.length > 0 ? 'emptyWorkout.recent' : 'emptyWorkout.popular');
 
   const addExercises = (items: ExerciseLibraryItem[]) => {
+    // Closing comes first. A confirmed selection can resolve to nothing — an
+    // id whose item is gone is dropped rather than added as a hole — and
+    // returning early before this left the sheet standing open on a button
+    // the reader had just pressed.
+    setSheetVisible(false);
     if (!items.length) {
       return;
     }
     setExercises((current) => [...current, ...items.map((item) => buildExerciseState(item, defaultRestSeconds, language))]);
     setStartedAtMs((current) => current ?? Date.now());
     setNowMs(Date.now());
-    setSheetVisible(false);
   };
 
   const removeExercise = (exerciseKey: string) =>
@@ -676,14 +697,20 @@ export function EmptyWorkoutScreen({
     if (!set.done) {
       void haptics.success();
       sound.done();
-      // No next set, no rest. The bar used to open on the last tick of the
-      // session, count down to nothing, and cover "Lopeta treeni" while it did.
-      if (freestyleHasSetAfter(exercises, exerciseKey, setKey)) {
-        const duration = exercise.restSeconds > 0 ? Math.round(exercise.restSeconds) : defaultRestSeconds;
-        const now = Date.now();
-        setNowMs(now);
-        setRest({ totalSeconds: duration, endsAtMs: now + duration * 1000 });
-      }
+    }
+
+    // Every tick starts a rest. The rule used to be "only if another set is
+    // already waiting", which in a logger where you add the next set AFTER
+    // ticking this one meant almost never — see freestyleRestSecondsForTick,
+    // which also owns the un-tick case and refuses a duration it cannot count.
+    const duration = freestyleRestSecondsForTick(exercise, set, defaultRestSeconds);
+    if (duration !== null) {
+      const now = Date.now();
+      setNowMs(now);
+      // startedAtMs is the rest's identity: ±15s moves its end, not the fact
+      // that it is the same rest. Things that must happen once per rest key
+      // on this; things that must re-arm when the end moves key on endsAtMs.
+      setRest({ totalSeconds: duration, endsAtMs: now + duration * 1000, startedAtMs: now });
     }
 
     setExercises((current) =>
@@ -706,6 +733,9 @@ export function EmptyWorkoutScreen({
       const now = Date.now();
       const remaining = Math.max(1, Math.ceil((current.endsAtMs - now) / 1000) + deltaSeconds);
       return {
+        // Same rest, moved end: startedAtMs carries so the once-per-rest work
+        // does not run again.
+        startedAtMs: current.startedAtMs,
         totalSeconds: Math.max(1, current.totalSeconds + deltaSeconds),
         endsAtMs: now + remaining * 1000,
       };
@@ -842,7 +872,13 @@ export function EmptyWorkoutScreen({
           // rows have nowhere to scroll to without room made for them.
           contentContainerStyle={[
             styles.loggingContent,
-            { paddingBottom: (rest ? 118 : 24) + keyboard.keyboardInset },
+            // REST_BAR_BOTTOM is where the bar floats; restBarHeight is what
+            // it measured itself as at this font scale. 24 is the ordinary
+            // gap, kept as the floor for the frame before the bar has laid out.
+            {
+              paddingBottom:
+                (rest ? Math.max(24, REST_BAR_BOTTOM + restBarHeight + 12) : 24) + keyboard.keyboardInset,
+            },
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -987,10 +1023,13 @@ export function EmptyWorkoutScreen({
         </ScrollView>
       )}
 
-      {rest && restRemaining !== null && !sheetVisible ? (
+      {/* `rest` alone is the guard — the status derives from it, so a second
+          null-check on the countdown could never fail. The sheet is a Modal
+          and the bar must not float over it. */}
+      {rest && !sheetVisible ? (
         <RestBar
           totalSeconds={rest.totalSeconds}
-          remainingSeconds={restRemaining}
+          remainingSeconds={restStatus?.remainingSeconds ?? 0}
           endsAtMs={rest.endsAtMs}
           overrunSeconds={restStatus?.phase === 'done' ? restStatus.overrunSeconds : null}
           onAdjust={adjustRest}
@@ -998,6 +1037,7 @@ export function EmptyWorkoutScreen({
           onLogSet={() => setRest(null)}
           doneLabel={nextSetLabel}
           language={language}
+          onMeasure={setRestBarHeight}
         />
       ) : null}
 

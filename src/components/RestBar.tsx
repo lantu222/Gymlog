@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { t } from '../lib/i18n';
@@ -29,7 +29,21 @@ interface RestBarProps {
   onLogSet?: () => void;
   /** What the done state names, e.g. "Set 3 · 60 kg × 8". */
   doneLabel?: string | null;
+  /**
+   * The bar's laid-out height, so the list behind it can reserve exactly that
+   * much room. It is not a constant: the copy scales with the system font
+   * size, and a screen that hard-codes a number gets covered at the large
+   * accessibility sizes.
+   */
+  onMeasure?: (height: number) => void;
 }
+
+/**
+ * How far the bar floats above the bottom of its container. Exported because
+ * the room reserved for it is `REST_BAR_BOTTOM + measured height`, and the two
+ * numbers have to agree.
+ */
+export const REST_BAR_BOTTOM = 30;
 
 const formatClock = formatTimer;
 
@@ -49,8 +63,19 @@ export function RestBar({
   overrunSeconds = null,
   onLogSet,
   doneLabel = null,
+  onMeasure,
 }: RestBarProps) {
   const styles = useThemedStyles(makeStyles);
+  const measuredRef = useRef<number | null>(null);
+  const handleLayout = (event: LayoutChangeEvent) => {
+    // Fires every second the countdown re-renders; only a real change is worth
+    // pushing up, or the list's padding restarts its layout pass each tick.
+    const height = Math.ceil(event.nativeEvent.layout.height);
+    if (measuredRef.current !== height) {
+      measuredRef.current = height;
+      onMeasure?.(height);
+    }
+  };
   const slideIn = useRef(new Animated.Value(0)).current;
   // Interpolated once: the bar re-renders every second while the timer runs,
   // and a per-render interpolate leaks native nodes (disconnectAnimatedNodes).
@@ -78,6 +103,7 @@ export function RestBar({
           styles.barDone,
           { opacity: slideIn, transform: [{ translateY: slideInTranslate }] },
         ]}
+        onLayout={handleLayout}
       >
         <View style={styles.row}>
           <View style={styles.copy}>
@@ -108,6 +134,7 @@ export function RestBar({
         styles.bar,
         { opacity: slideIn, transform: [{ translateY: slideInTranslate }] },
       ]}
+      onLayout={handleLayout}
     >
       <View style={styles.row}>
         <Svg viewBox="0 0 24 24" width={19} height={19} style={styles.clockIcon}>
@@ -157,7 +184,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     position: 'absolute',
     left: 14,
     right: 14,
-    bottom: 30,
+    bottom: REST_BAR_BOTTOM,
     zIndex: 8,
     borderRadius: 20,
     overflow: 'hidden',
@@ -233,8 +260,15 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.16)',
   },
+  // Skip is the solid one of the three, and it is solid WHITE rather than
+  // theme.surface. The bar it sits on is purple in both themes, so its
+  // contents cannot follow the theme: surface is #FFFFFF on light — which is
+  // what this was designed against — and #191436 on dark, where the pill
+  // turned into a near-black hole punched in the bar, lettered in the same
+  // purple as the bar behind it. Reported as "ohita nappi oudon värinen"
+  // (2026-08-28) and confirmed on the emulator.
   pillSolid: {
-    backgroundColor: theme.surface,
+    backgroundColor: '#FFFFFF',
   },
   pillText: {
     fontSize: 12.5,
@@ -242,7 +276,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: '#FFFFFF',
   },
   pillTextSolid: {
-    color: theme.purpleDark,
+    color: '#4C1D95',
   },
   // The done pill is green, not white: purpleDark on green is barely legible.
   pillTextOnGreen: {
@@ -252,8 +286,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     height: 4,
     backgroundColor: 'rgba(255,255,255,0.18)',
   },
+  // Same rule as pillSolid: a light fill on the translucent white track. On
+  // dark theme.surface drew the elapsed part of the rest almost black.
   progressFill: {
     height: '100%',
-    backgroundColor: theme.surface,
+    backgroundColor: '#FFFFFF',
   },
 });
