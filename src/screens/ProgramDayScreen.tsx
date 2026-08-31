@@ -18,7 +18,14 @@ import { KitBar, KitGroupLabel, KitRow, KitSearch, KitSheet } from '../component
 import { CutSurface } from '../components/CutSurface';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { buildExerciseSearchHaystack, exerciseMatchesQuery } from '../lib/exerciseSearch';
-import { getDefaultCooldown, getDefaultWarmup, classifySessionFocus } from '../lib/homeSessionHero';
+import {
+  classifySessionFocus,
+  getDefaultCooldown,
+  getDefaultWarmup,
+  listRoutineDrillOptions,
+  routineDrillSlotKey,
+  RoutineBlockKind,
+} from '../lib/homeSessionHero';
 import { I18nKey, t } from '../lib/i18n';
 import { ProgramDetailSessionItem } from '../lib/programDetails';
 import {
@@ -116,6 +123,10 @@ interface ProgramDayScreenProps {
   dayCount: number;
   language?: AppLanguage;
   availableEquipment?: string[] | null;
+  /** The reader's own warm-up / cool-down picks — see routineDrillSlotKey. */
+  routineDrillOverrides?: Record<string, string>;
+  /** Undefined leaves the drills read-only. */
+  onSwapRoutineDrill?: (slotKey: string, drillKey: string) => void;
   /** Slot id -> chosen lift, shared with the session this screen starts. */
   sessionSwaps?: Record<string, string>;
   onSwapExercise?: (slotId: string, exerciseName: string) => void;
@@ -173,6 +184,8 @@ export function ProgramDayScreen({
   dayCount,
   language = 'en',
   availableEquipment = null,
+  routineDrillOverrides = {},
+  onSwapRoutineDrill,
   sessionSwaps = {},
   onSwapExercise,
   onAddExercises,
@@ -386,8 +399,26 @@ export function ProgramDayScreen({
     () => classifySessionFocus(session.exercises.map((exercise) => exercise.name)),
     [session.exercises],
   );
-  const warmup = getDefaultWarmup(focusKind, language, availableEquipment);
-  const cooldown = getDefaultCooldown(focusKind, language, availableEquipment);
+  const warmup = getDefaultWarmup(focusKind, language, availableEquipment, routineDrillOverrides);
+  const cooldown = getDefaultCooldown(focusKind, language, availableEquipment, routineDrillOverrides);
+
+  /**
+   * The drill swap, same shape as Home's (user 2026-08-31: the three sections
+   * are one anatomy, so a drill is swapped the same way on both screens).
+   */
+  const [drillSwap, setDrillSwap] = useState<{ kind: RoutineBlockKind; index: number } | null>(null);
+  const [drillPick, setDrillPick] = useState<string | null>(null);
+  const drillOptions = useMemo(
+    () => (drillSwap ? listRoutineDrillOptions(drillSwap.kind, language, availableEquipment) : []),
+    [availableEquipment, drillSwap, language],
+  );
+  const drillCurrent = drillSwap
+    ? (drillSwap.kind === 'warmup' ? warmup : cooldown).drills[drillSwap.index] ?? null
+    : null;
+  const closeDrillSwap = () => {
+    setDrillSwap(null);
+    setDrillPick(null);
+  };
 
   const canAddExercises = Boolean(onAddExercises && exerciseLibrary && exerciseLibrary.length > 0);
 
@@ -538,6 +569,20 @@ export function ProgramDayScreen({
                 {drill.name}
               </Text>
               <Text style={styles.drillScheme}>{drill.schemeLabel}</Text>
+              {onSwapRoutineDrill ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'home.a11y.swapDrill', { name: drill.name })}
+                  hitSlop={8}
+                  onPress={() => {
+                    setDrillPick(null);
+                    setDrillSwap({ kind: 'warmup', index });
+                  }}
+                  style={({ pressed }) => [styles.rowAction, pressed && styles.swapOptionPressed]}
+                >
+                  <SwapGlyph theme={theme} />
+                </Pressable>
+              ) : null}
             </View>
           ))}
         </Section>
@@ -742,6 +787,20 @@ export function ProgramDayScreen({
                 {drill.name}
               </Text>
               <Text style={styles.drillScheme}>{drill.schemeLabel}</Text>
+              {onSwapRoutineDrill ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'home.a11y.swapDrill', { name: drill.name })}
+                  hitSlop={8}
+                  onPress={() => {
+                    setDrillPick(null);
+                    setDrillSwap({ kind: 'cooldown', index });
+                  }}
+                  style={({ pressed }) => [styles.rowAction, pressed && styles.swapOptionPressed]}
+                >
+                  <SwapGlyph theme={theme} />
+                </Pressable>
+              ) : null}
             </View>
           ))}
         </Section>
@@ -771,6 +830,62 @@ export function ProgramDayScreen({
           On the sheet kit: one tap target per row, and the scope question —
           just this time, or for ever — is asked once, in the bar, after there
           is a pick to ask it about. */}
+      {/* One sheet for both blocks - the pool differs, the question does not. */}
+      <KitSheet
+        visible={drillSwap !== null}
+        onClose={closeDrillSwap}
+        title={t(language, 'drill.sheet.title')}
+        context={
+          drillSwap
+            ? t(language, drillSwap.kind === 'warmup' ? 'drill.sheet.warmup' : 'drill.sheet.cooldown')
+            : undefined
+        }
+        description={drillCurrent?.name}
+        bottomInset={insets.bottom}
+        barUp={drillPick !== null}
+        bar={
+          <KitBar
+            visible={drillPick !== null}
+            from={drillCurrent?.name ?? ''}
+            to={drillOptions.find((option) => option.key === drillPick)?.name ?? ''}
+            buttons={[
+              {
+                label: t(language, 'drill.sheet.save'),
+                kind: 'p',
+                onPress: () => {
+                  if (drillSwap && drillPick) {
+                    onSwapRoutineDrill?.(
+                      routineDrillSlotKey(drillSwap.kind, focusKind, drillSwap.index),
+                      drillPick,
+                    );
+                  }
+                  closeDrillSwap();
+                },
+              },
+            ]}
+            clearLabel={t(language, 'drill.sheet.pickAnother')}
+            onClear={() => setDrillPick(null)}
+            bottomInset={insets.bottom}
+          />
+        }
+      >
+        <ScrollView
+          contentContainerStyle={styles.kitListPad}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {drillOptions.map((option) => (
+            <KitRow
+              key={option.key}
+              title={option.name}
+              meta={option.schemeLabel}
+              state={option.key === drillPick ? 'sel' : option.key === drillCurrent?.key ? 'cur' : 'idle'}
+              onPress={() => setDrillPick(option.key === drillCurrent?.key ? null : option.key)}
+            />
+          ))}
+        </ScrollView>
+      </KitSheet>
+
       <KitSheet
         visible={swapRow !== null}
         onClose={closeSwapSheet}

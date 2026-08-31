@@ -5340,6 +5340,15 @@ function VinhaApp() {
         }}
         onRemoveOtherProgram={(planId) => void handleRemoveActiveProgram(planId)}
         availableEquipment={availableEquipmentForDrills}
+        routineDrillOverrides={preferences.routineDrillOverrides}
+        // Permanent by nature: the drills are generated from the session's
+        // focus, so the choice belongs to every day with that focus rather
+        // than to today. There is no "just this time" to offer.
+        onSwapRoutineDrill={(slotKey, drillKey) =>
+          void updatePreferences({
+            routineDrillOverrides: { ...preferences.routineDrillOverrides, [slotKey]: drillKey },
+          })
+        }
         widgetPrompt={
           homeWidgetState?.supported && !homeWidgetState.added && !preferences.homeWidgetPromptDismissed
             ? {

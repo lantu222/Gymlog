@@ -5,10 +5,18 @@
  */
 import { resolveCatalogBodyPart, resolveCatalogSourceCategory } from './catalogExercisePools';
 import { estimateRoutineBlockSeconds } from './guidedPlayer';
-import { t } from './i18n';
+import { I18nKey, t } from './i18n';
 import { AppLanguage } from '../types/models';
 
 export interface SessionDrill {
+  /**
+   * The drill's own i18n key — its identity across languages and equipment.
+   *
+   * A swap has to name what it picked, and the NAME is a translation: a
+   * Finnish reader who swaps in "Kissa–kamelivenytys" must still get the
+   * cat-camel after switching the app to English.
+   */
+  key: I18nKey;
   name: string;
   schemeLabel: string;
 }
@@ -396,19 +404,99 @@ function drillAllowed(spec: DrillSpec, available: string[] | null) {
   return spec.requires.every((group) => group.some((item) => available.includes(item)));
 }
 
+function resolveDrill(spec: DrillSpec, language: AppLanguage, available: string[] | null): SessionDrill {
+  if (drillAllowed(spec, available)) {
+    return { key: spec.key, name: t(language, spec.key), schemeLabel: spec.scheme };
+  }
+  const key = spec.fallbackKey ?? spec.key;
+  return { key, name: t(language, key), schemeLabel: spec.fallbackScheme ?? spec.scheme };
+}
+
 function resolveDrills(
   specs: DrillSpec[],
   language: AppLanguage,
   available: string[] | null,
 ): SessionRoutineBlock['drills'] {
-  return specs.map((spec) => {
-    if (drillAllowed(spec, available)) {
-      return { name: t(language, spec.key), schemeLabel: spec.scheme };
+  return specs.map((spec) => resolveDrill(spec, language, available));
+}
+
+/** Which of the two blocks a drill belongs to. */
+export type RoutineBlockKind = 'warmup' | 'cooldown';
+
+/**
+ * Which drill a reader put in which slot.
+ *
+ * Keyed by block, focus and position rather than by programme: the drills are
+ * generated from the session's FOCUS, so the same warm-up already stood in
+ * front of every upper-heavy day the reader owns. An override keyed any
+ * narrower would claim to remember a choice for one programme and then quietly
+ * not apply it to the identical day next door.
+ */
+export type RoutineDrillOverrides = Record<string, string>;
+
+export function routineDrillSlotKey(
+  kind: RoutineBlockKind,
+  focus: SessionFocusKind,
+  index: number,
+): string {
+  return `${kind}:${focus}:${index}`;
+}
+
+function specsFor(kind: RoutineBlockKind): Record<SessionFocusKind, DrillSpec[]> {
+  return kind === 'warmup' ? WARMUP_DRILLS : COOLDOWN_DRILLS;
+}
+
+/**
+ * Everything a reader may put in a warm-up (or cool-down) slot: every drill
+ * the app knows for that block, whatever focus it was written for, deduped and
+ * resolved against the gear they said they have.
+ */
+export function listRoutineDrillOptions(
+  kind: RoutineBlockKind,
+  language: AppLanguage = 'en',
+  availableEquipment: string[] | null = null,
+): SessionDrill[] {
+  const seen = new Set<string>();
+  const options: SessionDrill[] = [];
+  for (const specs of Object.values(specsFor(kind))) {
+    for (const spec of specs) {
+      const drill = resolveDrill(spec, language, availableEquipment);
+      if (seen.has(drill.key)) {
+        continue;
+      }
+      seen.add(drill.key);
+      options.push(drill);
     }
-    return {
-      name: t(language, spec.fallbackKey ?? spec.key),
-      schemeLabel: spec.fallbackScheme ?? spec.scheme,
-    };
+  }
+  return options;
+}
+
+/**
+ * The reader's choice, or the default when they never made one.
+ *
+ * An override naming a drill this build no longer ships is dropped rather than
+ * rendered as a raw key — the same rule the stored-data loaders follow.
+ */
+function applyOverrides(
+  kind: RoutineBlockKind,
+  focus: SessionFocusKind,
+  drills: SessionDrill[],
+  overrides: RoutineDrillOverrides | null,
+  language: AppLanguage,
+  available: string[] | null,
+): SessionDrill[] {
+  if (!overrides) {
+    return drills;
+  }
+  const pool = new Map(
+    listRoutineDrillOptions(kind, language, available).map((drill) => [drill.key as string, drill]),
+  );
+  return drills.map((drill, index) => {
+    const chosen = overrides[routineDrillSlotKey(kind, focus, index)];
+    if (!chosen) {
+      return drill;
+    }
+    return pool.get(chosen) ?? drill;
   });
 }
 
@@ -432,8 +520,18 @@ export function getDefaultWarmup(
   focus: SessionFocusKind,
   language: AppLanguage = 'en',
   availableEquipment: string[] | null = null,
+  overrides: RoutineDrillOverrides | null = null,
 ): SessionRoutineBlock {
-  const drills = resolveDrills(WARMUP_DRILLS[focus], language, availableEquipment);
+  const drills = applyOverrides(
+    'warmup',
+    focus,
+    resolveDrills(WARMUP_DRILLS[focus], language, availableEquipment),
+    overrides,
+    language,
+    availableEquipment,
+  );
+  // Minutes follow the drills that are actually there, not the ones that were
+  // there before the swap.
   return { minutes: routineBlockMinutes(drills), drills };
 }
 
@@ -442,7 +540,15 @@ export function getDefaultCooldown(
   focus: SessionFocusKind,
   language: AppLanguage = 'en',
   availableEquipment: string[] | null = null,
+  overrides: RoutineDrillOverrides | null = null,
 ): SessionRoutineBlock {
-  const drills = resolveDrills(COOLDOWN_DRILLS[focus], language, availableEquipment);
+  const drills = applyOverrides(
+    'cooldown',
+    focus,
+    resolveDrills(COOLDOWN_DRILLS[focus], language, availableEquipment),
+    overrides,
+    language,
+    availableEquipment,
+  );
   return { minutes: routineBlockMinutes(drills), drills };
 }

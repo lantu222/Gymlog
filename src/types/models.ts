@@ -510,6 +510,13 @@ export interface AppPreferences {
    */
   trainingCycle: { pattern: boolean[]; anchorDayStart: number } | null;
   /**
+   * Which drill the reader put in which warm-up / cool-down slot.
+   *
+   * Keyed `${'warmup' | 'cooldown'}:${focus}:${index}` — see
+   * routineDrillSlotKey. Empty until they swap one.
+   */
+  routineDrillOverrides: Record<string, string>;
+  /**
    * Today's session, when the reader has picked one by hand.
    *
    * The rotation decides which session comes next, and it is right nearly

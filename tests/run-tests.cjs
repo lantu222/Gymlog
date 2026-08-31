@@ -89,6 +89,7 @@ const suites = [
   ...require('./lib/workoutContentFit.test.cjs'),
   ...require('./lib/sessionGuidance.test.cjs'),
   ...require('./lib/guidedPlayer.test.cjs'),
+  ...require('./lib/routineDrillSwap.test.cjs'),
   ...require('./lib/exerciseHistoryLookup.test.cjs'),
   ...require('./lib/sessionAdaptation.test.cjs'),
   ...require('./lib/sessionDuration.test.cjs'),

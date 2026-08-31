@@ -473,6 +473,15 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         dayNumber={dayIndex + 1}
         dayCount={program.sessions.length}
         availableEquipment={availableEquipmentForDrills}
+        routineDrillOverrides={preferences.routineDrillOverrides}
+        // Permanent by nature: the drills are generated from the session
+        // focus, so a choice belongs to every day with that focus rather
+        // than to this one. There is no "just this time" to offer.
+        onSwapRoutineDrill={(slotKey: string, drillKey: string) =>
+          void updatePreferences({
+            routineDrillOverrides: { ...preferences.routineDrillOverrides, [slotKey]: drillKey },
+          })
+        }
         sessionSwaps={sessionSwaps}
         onSwapExercise={(slotId, exerciseName) =>
           setSessionSwaps((current) => ({ ...current, [slotId]: exerciseName }))

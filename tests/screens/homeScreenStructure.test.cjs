@@ -164,8 +164,19 @@ module.exports = [
       // look but wanted the two blocks reachable from it.
       assert.doesNotMatch(homeScreenSource, /openSections|sectionAnims|renderSection|SectionKey/);
       assert.doesNotMatch(homeScreenSource, /styles\.secCard|styles\.secBtn|styles\.secBody/);
-      assert.match(homeScreenSource, /getDefaultWarmup\(focusKind, language, availableEquipment\)/);
-      assert.match(homeScreenSource, /getDefaultCooldown\(focusKind, language, availableEquipment\)/);
+      // The reader's own drill picks travel in with the block (user
+      // 2026-08-31: "myös warmupliikkeitä voi vaihtaa"). Built without them,
+      // a swap would render for one frame and vanish on the next rebuild.
+      assert.match(
+        homeScreenSource,
+        /getDefaultWarmup\(focusKind, language, availableEquipment, routineDrillOverrides\)/,
+      );
+      assert.match(
+        homeScreenSource,
+        /getDefaultCooldown\(focusKind, language, availableEquipment, routineDrillOverrides\)/,
+      );
+      // And the swap writes through a slot key, never through a drill's name.
+      assert.match(homeScreenSource, /routineDrillSlotKey\(drillSwap\.kind, focusKind, drillSwap\.index\)/);
       // One open at a time, and closed to start: the lifts are the decision.
       assert.match(homeScreenSource, /useState<'warmup' \| 'cooldown' \| null>\(null\)/);
       // The header row inside a phase card: no fill and no radius of its

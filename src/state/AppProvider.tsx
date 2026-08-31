@@ -282,6 +282,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       setupWeeklyMinutes: null,
       setupAvailableDays: [],
       trainingCycle: null,
+      routineDrillOverrides: {},
       todaySession: null,
       setupTrainingFeel: 'challenging',
       setupWorkoutVariety: 'balanced',

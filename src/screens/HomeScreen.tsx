@@ -26,7 +26,14 @@ import { HomeStatCard } from '../lib/homeStatCards';
 import { VinhaIcon } from '../components/VinhaIcon';
 import { getHomeMiniCalendarDays, getHomeMonthCalendar, HomeDaySessionSummary } from '../lib/homeCalendar';
 import { isScheduleKnown, sessionSlotOn, TrainingSchedule, trainsOn, UNKNOWN_SCHEDULE, upcomingSessionDayStarts } from '../lib/trainingSchedule';
-import { getDefaultCooldown, getDefaultWarmup, getSessionFocusTitle } from '../lib/homeSessionHero';
+import {
+  getDefaultCooldown,
+  getDefaultWarmup,
+  getSessionFocusTitle,
+  listRoutineDrillOptions,
+  routineDrillSlotKey,
+  RoutineBlockKind,
+} from '../lib/homeSessionHero';
 import { AnimatedGreeting } from '../components/AnimatedGreeting';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
@@ -79,6 +86,7 @@ function BlockRow({
   drills,
   open,
   onToggle,
+  onSwapDrill,
   language,
 }: {
   title: string;
@@ -86,6 +94,12 @@ function BlockRow({
   drills: Array<{ name: string; schemeLabel: string }>;
   open: boolean;
   onToggle: () => void;
+  /**
+   * Swap the drill in this position — the same offer the lifts have carried
+   * all along (user 2026-08-31: "tee warmup workout ja recovery osioista
+   * identtisiä eli myös warmupliikkeitä voi vaihtaa").
+   */
+  onSwapDrill?: (index: number) => void;
   language: AppLanguage;
 }) {
   const theme = useTheme();
@@ -126,6 +140,25 @@ function BlockRow({
                 {drill.name}
               </Text>
               <Text style={styles.blockDrillScheme}>{drill.schemeLabel}</Text>
+              {onSwapDrill ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'home.a11y.swapDrill', { name: drill.name })}
+                  hitSlop={8}
+                  onPress={() => onSwapDrill(index)}
+                  style={({ pressed }) => [styles.drillSwapButton, pressed && styles.pressed]}
+                >
+                  <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M4 8h13l-3.5-3.5M20 16H7l3.5 3.5"
+                      stroke={theme.highlight}
+                      strokeWidth={2.1}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                </Pressable>
+              ) : null}
             </View>
           ))
         : null}
@@ -298,6 +331,10 @@ interface HomeScreenProps {
    * default warmup honest — no rower for a bodyweight-only user.
    */
   availableEquipment?: string[] | null;
+  /** The reader's own warm-up / cool-down picks — see routineDrillSlotKey. */
+  routineDrillOverrides?: Record<string, string>;
+  /** Undefined leaves the drills read-only, the way they were before. */
+  onSwapRoutineDrill?: (slotKey: string, drillKey: string) => void;
   /**
    * The one-time home-screen widget offer. Null unless the device can actually
    * pin one and the user has not answered yet — an offer that cannot be
@@ -380,6 +417,8 @@ export function HomeScreen({
   onOpenActivePlan,
   onOpenPlanSession,
   availableEquipment = null,
+  routineDrillOverrides = {},
+  onSwapRoutineDrill,
   statCatalogCards = [],
   suggestedStatCardKeys = [],
   onDismissStatCardSuggestion,
@@ -535,8 +574,32 @@ export function HomeScreen({
   // Classified in App.tsx from the full exercise list; the five rows Home
   // receives are not enough to work it out here.
   const focusKind = nextPlanSession?.focusKind ?? 'general';
-  const warmup = getDefaultWarmup(focusKind, language, availableEquipment);
-  const cooldown = getDefaultCooldown(focusKind, language, availableEquipment);
+  const warmup = getDefaultWarmup(focusKind, language, availableEquipment, routineDrillOverrides);
+  const cooldown = getDefaultCooldown(focusKind, language, availableEquipment, routineDrillOverrides);
+
+  /**
+   * Which drill slot the swap sheet is open on, and what it has picked.
+   *
+   * The kit's contract: a tap selects, the bar commits (see sheetKit). One
+   * sheet for both blocks — the pool differs, the question does not.
+   */
+  const [drillSwap, setDrillSwap] = useState<{ kind: RoutineBlockKind; index: number } | null>(null);
+  const [drillPick, setDrillPick] = useState<string | null>(null);
+  const drillOptions = useMemo(
+    () => (drillSwap ? listRoutineDrillOptions(drillSwap.kind, language, availableEquipment) : []),
+    [availableEquipment, drillSwap, language],
+  );
+  const drillCurrent = drillSwap
+    ? (drillSwap.kind === 'warmup' ? warmup : cooldown).drills[drillSwap.index] ?? null
+    : null;
+  const openDrillSwap = (kind: RoutineBlockKind) => (index: number) => {
+    setDrillPick(null);
+    setDrillSwap({ kind, index });
+  };
+  const closeDrillSwap = () => {
+    setDrillSwap(null);
+    setDrillPick(null);
+  };
   // Computed where the whole session was still in hand (App.tsx): Home only
   // receives the first five exercises, so a preview built here would quote a
   // shorter session than the one that starts.
@@ -1206,6 +1269,7 @@ export function HomeScreen({
                 drills={warmup.drills}
                 open={openBlock === 'warmup'}
                 onToggle={() => setOpenBlock((current) => (current === 'warmup' ? null : 'warmup'))}
+                onSwapDrill={onSwapRoutineDrill ? openDrillSwap('warmup') : undefined}
                 language={language}
               />
               {/* The lifts still stand open by default — they are the
@@ -1324,6 +1388,7 @@ export function HomeScreen({
                 drills={cooldown.drills}
                 open={openBlock === 'cooldown'}
                 onToggle={() => setOpenBlock((current) => (current === 'cooldown' ? null : 'cooldown'))}
+                onSwapDrill={onSwapRoutineDrill ? openDrillSwap('cooldown') : undefined}
                 language={language}
               />
             </Animated.View>
@@ -1696,6 +1761,72 @@ export function HomeScreen({
           only "Do this today" writes. The current day wears a violet TODAY tag
           — state, not a choice — and one button, because nothing here is
           permanent: tomorrow follows the programme again. */}
+      {/* Swap a warm-up or recovery drill (user 2026-08-31). One sheet for
+          both blocks — the pool differs, the question does not — and the
+          kit's contract holds: the tap selects, the bar writes. */}
+      <KitSheet
+        visible={drillSwap !== null}
+        onClose={closeDrillSwap}
+        title={t(language, 'drill.sheet.title')}
+        context={
+          drillSwap
+            ? t(language, drillSwap.kind === 'warmup' ? 'drill.sheet.warmup' : 'drill.sheet.cooldown')
+            : undefined
+        }
+        description={drillCurrent?.name}
+        bottomInset={insets.bottom}
+        barUp={drillPick !== null}
+        reduceMotion={reduceMotion}
+        bar={
+          <KitBar
+            visible={drillPick !== null}
+            from={drillCurrent?.name ?? ''}
+            to={drillOptions.find((option) => option.key === drillPick)?.name ?? ''}
+            buttons={[
+              {
+                label: t(language, 'drill.sheet.save'),
+                kind: 'p',
+                onPress: () => {
+                  if (drillSwap && drillPick) {
+                    onSwapRoutineDrill?.(
+                      routineDrillSlotKey(drillSwap.kind, focusKind, drillSwap.index),
+                      drillPick,
+                    );
+                  }
+                  closeDrillSwap();
+                },
+              },
+            ]}
+            clearLabel={t(language, 'drill.sheet.pickAnother')}
+            onClear={() => setDrillPick(null)}
+            bottomInset={insets.bottom}
+            reduceMotion={reduceMotion}
+          />
+        }
+      >
+        <ScrollView
+          contentContainerStyle={styles.kitListPad}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {drillOptions.map((option) => (
+            <KitRow
+              key={option.key}
+              title={option.name}
+              meta={option.schemeLabel}
+              state={
+                option.key === drillPick
+                  ? 'sel'
+                  : option.key === drillCurrent?.key
+                    ? 'cur'
+                    : 'idle'
+              }
+              onPress={() => setDrillPick(option.key === drillCurrent?.key ? null : option.key)}
+            />
+          ))}
+        </ScrollView>
+      </KitSheet>
+
       <KitSheet
         visible={todaySheetVisible}
         onClose={closeTodaySheet}
@@ -2445,6 +2576,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 13.5,
     lineHeight: 18,
     fontWeight: '600',
+  },
+  drillSwapButton: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 2,
   },
   blockDrillScheme: {
     color: theme.faint,
