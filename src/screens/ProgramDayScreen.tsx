@@ -65,6 +65,36 @@ function PencilGlyph({ theme }: { theme: Theme }) {
   );
 }
 
+/** Swap this lift for another. Orange: this app's one word for "pressable". */
+function SwapGlyph({ theme }: { theme: Theme }) {
+  return (
+    <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 8h13l-3.5-3.5M20 16H7l3.5 3.5"
+        stroke={theme.highlight}
+        strokeWidth={2.1}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+/** Take it off the day. Red, because it is the row's one permanent action. */
+function TrashGlyph({ theme }: { theme: Theme }) {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 7h16M10 7V5h4v2M6 7l1 13h10l1-13M10 11v6M14 11v6"
+        stroke={theme.danger}
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 /** Same wash logic the detail screen's role tags use. */
 const roleTints = (theme: Theme): Record<string, { bg: string; ink: string }> =>
   theme === darkTheme
@@ -598,6 +628,36 @@ export function ProgramDayScreen({
                     {t(language, ROLE_TAG_KEYS[exercise.role] ?? 'detail.role.accessory')}
                   </Text>
                 </View>
+                {/* Swap and remove sit on the name line as icons (design
+                    2026-08-31): "Swap" was a word in a button on the line
+                    below, which put a verb in the same row as the numbers and
+                    left removal reachable only from inside the swap sheet. */}
+                {exercise.slotId && onSwapExercise ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t(language, 'detail.day.a11y.swap', {
+                      name: exerciseNameLabel(language, exercise.name),
+                    })}
+                    hitSlop={8}
+                    onPress={() => setSwapSlotId(exercise.slotId ?? null)}
+                    style={({ pressed }) => [styles.rowAction, pressed && styles.swapOptionPressed]}
+                  >
+                    <SwapGlyph theme={theme} />
+                  </Pressable>
+                ) : null}
+                {onRemoveExercise ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t(language, 'detail.day.a11y.remove', {
+                      name: exerciseNameLabel(language, exercise.name),
+                    })}
+                    hitSlop={8}
+                    onPress={() => onRemoveExercise(exercise.id)}
+                    style={({ pressed }) => [styles.rowAction, pressed && styles.swapOptionPressed]}
+                  >
+                    <TrashGlyph theme={theme} />
+                  </Pressable>
+                ) : null}
               </View>
               <View style={styles.exerciseBottom}>
                 {/* Two chips, one sheet (design frame 05): the dose and the
@@ -638,15 +698,6 @@ export function ProgramDayScreen({
                     </>
                   )}
                 </View>
-                {exercise.slotId && onSwapExercise ? (
-                  <Pressable
-                    hitSlop={6}
-                    onPress={() => setSwapSlotId(exercise.slotId ?? null)}
-                    style={({ pressed }) => [styles.swapButton, pressed && styles.swapOptionPressed]}
-                  >
-                    <Text style={styles.swapButtonText}>{t(language, 'home.swap')}</Text>
-                  </Pressable>
-                ) : null}
               </View>
             </Animated.View>
             );
@@ -659,16 +710,14 @@ export function ProgramDayScreen({
               onPress={() => setAddSheetOpen(true)}
               style={({ pressed }) => [styles.addRow, pressed && styles.swapOptionPressed]}
             >
-              <View style={styles.addGlyph}>
-                <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                  <Path
-                    d="M12 5v14M5 12h14"
-                    stroke={theme.purple}
-                    strokeWidth={2.4}
-                    strokeLinecap="round"
-                  />
-                </Svg>
-              </View>
+              <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M12 5v14M5 12h14"
+                  stroke={theme.purple}
+                  strokeWidth={2.4}
+                  strokeLinecap="round"
+                />
+              </Svg>
               <Text style={styles.addRowText}>{t(language, 'editor.addExercise')}</Text>
             </Pressable>
           ) : null}
@@ -1298,7 +1347,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 8,
+    paddingVertical: 15,
+    paddingHorizontal: 2,
     borderTopWidth: 1,
     borderTopColor: theme.border,
   },
@@ -1583,18 +1633,24 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 19,
     fontWeight: '700',
   },
+  // No gap: the rows are separated by the hairline each one carries, the way
+  // a list is, rather than by air between cards (user 2026-08-31).
   exerciseList: {
-    gap: 9,
+    gap: 0,
   },
   // Same dashed affordance the empty workout already uses for "add a lift", so
   // the one gesture looks the same wherever a list can grow.
+  // The label in the middle with its plus beside it (user 2026-08-31): left
+  // -aligned under a list of left-aligned names, it read as a sixth exercise.
   addRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 10,
-    minHeight: 52,
+    minHeight: 62,
+    marginTop: 14,
     paddingHorizontal: 12,
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1.6,
     borderStyle: 'dashed',
     borderColor: theme.border,
@@ -1608,10 +1664,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.surfaceSoft,
   },
   addRowText: {
-    flex: 1,
     color: theme.purpleDark,
-    fontSize: 14,
-    lineHeight: 19,
+    fontSize: 16,
+    lineHeight: 21,
     fontWeight: '800',
   },
   addFixedBlock: {
@@ -1640,16 +1695,30 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     elevation: 10,
     zIndex: 5,
   },
+  /**
+   * A row, not a card (user 2026-08-31: "älä ympyröi treenejä vaan tee
+   * tuollaiset katkoviivat vain väliin").
+   *
+   * Five boxed cards made five objects out of one list, and the box's own
+   * padding was the room the swap and remove icons needed. The hairline does
+   * the separating and the space goes to the content.
+   */
   exerciseCard: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.surface,
-    paddingHorizontal: 13,
-    paddingVertical: 12,
+    paddingHorizontal: 2,
+    paddingVertical: 15,
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
   },
-  exerciseCardAnchor: {
-    borderColor: theme.purpleBright,
+  // The anchor is marked by its number chip, which is filled while the rest
+  // are washed — a second marker on the row's edge said the same thing twice.
+  exerciseCardAnchor: {},
+  // One tap target for the two row icons, sized for a thumb rather than for
+  // the glyph inside it.
+  rowAction: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   exerciseTop: {
     flexDirection: 'row',
@@ -1678,8 +1747,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   exerciseName: {
     flex: 1,
     color: theme.ink,
-    fontSize: 14.5,
-    lineHeight: 19,
+    fontSize: 15.5,
+    lineHeight: 20,
     fontWeight: '800',
     letterSpacing: -0.1,
   },
