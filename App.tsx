@@ -1121,28 +1121,49 @@ function VinhaApp() {
       meta: `${pluralize(remainingSets, 'set')} left | Started ${formatTime(workout.activeSession.startedAt)}`,
     };
   }, [workout.activeSession]);
-  function navigateToActiveWorkout(message?: string) {
+  /**
+   * Go to the session that is already running, if there is one.
+   *
+   * Two different intents come through here and they must not land the same
+   * way. Home's hero and the lock-screen card ask to CONTINUE, and get the set
+   * they left off on. But this is also the guard on "start a session": ask for
+   * Day 2 while Day 1 is running and you are redirected, which is not a resume
+   * at all — the app is telling you something, and dropping you mid-set in
+   * Day 1's player says it silently. That reader logs sets into the wrong day.
+   *
+   * So `resume` is the caller's claim about its own button, and the guards
+   * only make it when the running session IS the one that was asked for. The
+   * overview is what a redirect owes you: the session's name, at the top.
+   */
+  function navigateToActiveWorkout(options?: { message?: string; resume?: boolean }) {
     if (!workout.activeSession) {
       return false;
     }
 
-    if (message) {
-      showToast(message);
+    if (options?.message) {
+      showToast(options.message);
     }
 
     workout.resumeWorkout();
-    // Every caller of this got here by pressing something that says "resume":
-    // Home's hero, the lock-screen card, a start that found a session already
-    // running. The player opens on the set, not on the overview.
-    navigateToGuidedWorkout(workout.activeSession.templateId, { resume: true });
+    navigateToGuidedWorkout(workout.activeSession.templateId, { resume: options?.resume === true });
     return true;
   }
 
-  navigateToActiveWorkoutRef.current = () => navigateToActiveWorkout();
+  /** Whether the running session is the very one a start button just asked for. */
+  function isActiveSessionFor(workoutTemplateId: string, sessionId: string) {
+    const active = workout.activeSession;
+    return (
+      active !== null
+      && active.templateId === workoutTemplateId
+      && active.templateSessionId === sessionId
+    );
+  }
+
+  navigateToActiveWorkoutRef.current = () => navigateToActiveWorkout({ resume: true });
   finishFromNotificationRef.current = () => {
     // "Finish workout" from the lock screen opens the session; ending it is a
     // confirmed step on that screen, not a silent write from a notification.
-    navigateToActiveWorkout();
+    navigateToActiveWorkout({ resume: true });
   };
 
   function getWorkoutLoggerFallbackRoute() {
@@ -1321,7 +1342,7 @@ function VinhaApp() {
   function handleSelectAiCoachAction(action: AICoachAction, prompt: string) {
     switch (action.kind) {
       case 'resume_workout':
-        if (!navigateToActiveWorkout()) {
+        if (!navigateToActiveWorkout({ resume: true })) {
           showToast(t(preferences.appLanguage, 'toast.noActiveWorkout'));
         }
         return;
@@ -1422,7 +1443,9 @@ function VinhaApp() {
       return;
     }
 
-    if (navigateToActiveWorkout()) {
+    // Home's hero says "Jatka treeniä" and comes through here, so this IS the
+    // resume path — but only when the running session is this one.
+    if (navigateToActiveWorkout({ resume: isActiveSessionFor(workoutTemplateId, sessionId) })) {
       return;
     }
 
@@ -1848,7 +1871,8 @@ function VinhaApp() {
       return;
     }
 
-    if (navigateToActiveWorkout()) {
+    // Same rule as the ready-programme start above.
+    if (navigateToActiveWorkout({ resume: isActiveSessionFor(workoutTemplateId, sessionId) })) {
       return;
     }
 
