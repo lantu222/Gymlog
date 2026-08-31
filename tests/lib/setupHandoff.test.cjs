@@ -25,8 +25,11 @@ module.exports = [
   {
     name: 'setupHandoff: an area with no tape falls back to the one number everyone has',
     run() {
-      // Back and mobility are not measured with a tape anywhere in this app.
-      for (const focus of [['back'], ['mobility'], ['bodyweight'], []]) {
+      // Mobility and conditioning are not measured with a tape anywhere in
+      // this app. Back WAS in this list until 2026-08-31, when it got its own
+      // measurement — it was a focus area onboarding let a reader pick and
+      // nothing downstream could act on.
+      for (const focus of [['mobility'], ['conditioning'], ['bodyweight'], []]) {
         assert.deepEqual(
           resolveSetupTrackingOffer(focus),
           { cardKey: 'bodyweight', focus: null },
@@ -42,7 +45,9 @@ module.exports = [
       // offer, so the first area with a measurement wins.
       assert.deepEqual(resolveSetupTrackingOffer(['glutes', 'chest', 'arms']), { cardKey: 'hips', focus: 'glutes' });
       // ...and an unmeasurable area does not block the ones behind it.
-      assert.deepEqual(resolveSetupTrackingOffer(['back', 'mobility', 'arms']), { cardKey: 'arms', focus: 'arms' });
+      assert.deepEqual(resolveSetupTrackingOffer(['mobility', 'conditioning', 'arms']), { cardKey: 'arms', focus: 'arms' });
+      // Back now answers for itself rather than falling through.
+      assert.deepEqual(resolveSetupTrackingOffer(['back']), { cardKey: 'back', focus: 'back' });
     },
   },
   {
@@ -64,12 +69,14 @@ module.exports = [
   {
     name: 'setupHandoff: an already-pinned card is not offered twice',
     run() {
-      // Bodyweight is on Home by default, so a reader who said "back" is offered
-      // the widget alone rather than a card they already have.
+      // Bodyweight is on Home by default, so a reader whose only focus has no
+      // tape is offered the widget alone rather than a card they already have.
+      // (Back was the example here until it got its own measurement on
+      // 2026-08-31 — it now answers for itself.)
       const plan = planSetupHandoff({
         canOfferWidget: true,
         pinnedCardKeys: ['bodyweight'],
-        focusAreas: ['back'],
+        focusAreas: ['mobility'],
       });
       assert.equal(plan.shouldShow, true);
       assert.equal(plan.offerWidget, true);
@@ -133,8 +140,8 @@ module.exports = [
       assert.equal(cardOnly.offerBodyweight, false);
       // And the copy exists in both languages for the single case.
       const i18n = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'), 'utf8');
-      assert.match(i18n, /'handoff\.titleOne': 'One thing before you start'/);
-      assert.match(i18n, /'handoff\.titleOne': 'Yksi asia ennen kuin aloitat'/);
+      assert.match(i18n, /'handoff\.titleOne': 'One more thing'/);
+      assert.match(i18n, /'handoff\.titleOne': 'Yksi asia vielä'/);
     },
   },
   {
@@ -166,10 +173,23 @@ module.exports = [
       assert.equal(hidden.offerAccountBackup, false);
       assert.equal(hidden.shouldShow, false);
 
-      // The copy exists in both languages and says the word that matters.
-      const i18n = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'), 'utf8');
-      assert.match(i18n, /'handoff\.account\.body': '[^']*Optional/);
-      assert.match(i18n, /'handoff\.account\.body': '[^']*Vapaaehtoinen/);
+      // "Beside the door, never in it" is a fact about the SWITCH, not about
+      // a word in the sentence.
+      //
+      // This used to assert that the copy contained "Optional" /
+      // "Vapaaehtoinen". That pinned one wording of the principle rather than
+      // the principle, and it went red on 2026-08-31 for a copy pass that did
+      // not weaken the offer at all. What actually keeps sign-in optional is
+      // that the toggle starts OFF, so pressing Done without touching it is a
+      // complete answer — a string cannot promise that and this can.
+      const screen = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'screens', 'SetupHandoffScreen.tsx'),
+        'utf8',
+      );
+      assert.match(screen, /const \[signInForBackup, setSignInForBackup\] = useState\(false\)/);
+      assert.match(screen, /signInForBackup: plan\.offerAccountBackup && signInForBackup/);
+      // And no separate "not now": Done with everything off already is one.
+      assert.doesNotMatch(screen, /handoff\.notNow|handoff\.skip/);
     },
   },
 ];

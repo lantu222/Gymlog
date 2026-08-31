@@ -69,6 +69,7 @@ export const DEFAULT_HOME_STAT_CARD_KEYS = ['bodyweight'];
 export const MEASUREMENT_CARD_KINDS: MeasurementKind[] = [
   'shoulders',
   'chest',
+  'back',
   'arms',
   'waist',
   'hips',
@@ -85,6 +86,7 @@ export const MEASUREMENT_LABEL_KEYS: Record<MeasurementKind, I18nKey> = {
   bodyfat: 'progress.measure.bodyfat',
   shoulders: 'progress.measure.shoulders',
   chest: 'progress.measure.chest',
+  back: 'progress.measure.back',
   arms: 'progress.measure.arms',
   waist: 'progress.measure.waist',
   hips: 'progress.measure.hips',

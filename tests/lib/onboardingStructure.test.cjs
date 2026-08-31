@@ -441,7 +441,7 @@ module.exports = [
       assert.match(daysBody, /Recommended/);
       assert.match(daysBody, /WEEKDAY_OPTIONS\.map/);
       assert.match(daysBody, /toggleTrainingDay\(day\)/);
-      assert.match(daysBody, /t\(language, WEEKDAY_LETTER_KEYS\[day\]\)/);
+      assert.match(daysBody, /t\(language, WEEKDAY_LETTER_KEYS\[shown\]\)/);
       assert.match(daysBody, /t\(language, 'onb\.days\.summary', \{ days: selectedDays\.length, rest: restCount \}\)/);
       assert.match(i18nSource, /'onb\.days\.summary': '\{days\} training days · \{rest\} rest'/);
       assert.doesNotMatch(daysBody, /TRAINING_FREQUENCY_OPTIONS/);
@@ -645,9 +645,36 @@ module.exports = [
         onboardingSource,
         /const \[cyclePattern, setCyclePattern\] = useState<boolean\[\] \| null>\(setupSeed\.trainingCyclePattern \?\? null\)/,
       );
-      // A cycle hides the weekday row rather than greying it (plan-screen
-      // rule), and choosing weekdays or a count clears the cycle.
-      assert.match(onboardingSource, /\{!cycleActive \? \(/);
+      /**
+       * ONE week row, above the cycle chips, whichever rhythm is answering.
+       *
+       * It used to be rendered twice — an editable row above the chips while
+       * no cycle was chosen, a read-only preview below them once one was — so
+       * picking a preset deleted the row the reader was looking at and drew
+       * another further down. "Painamalla 1treeni 1lepo kaikki pomppaa
+       * oudosti päivät alas vaikka olivat alkuun ylhäällä" (#bugs 2026-08-31).
+       *
+       * Two rows cannot be pinned by counting `daysWeekRow`: the fix IS that
+       * there is one of it, and that it comes first.
+       */
+      const daysRender = onboardingSource.slice(
+        onboardingSource.indexOf('function renderDays'),
+        onboardingSource.indexOf('function renderCautionRow'),
+      );
+      assert.equal(
+        daysRender.split('style={styles.daysWeekRow}').length - 1,
+        1,
+        'the week is rendered once, not once per rhythm',
+      );
+      assert.ok(
+        daysRender.indexOf('style={styles.daysWeekRow}') <
+          daysRender.indexOf('style={styles.daysCycleRow}'),
+        'the week stays above the cycle chips, so choosing one does not move it',
+      );
+      // Read-only while a cycle owns it: tapping a day would be the weekday
+      // picker again, and the two cannot both be the answer.
+      assert.match(daysRender, /return cycleActive \? \(/);
+      // Choosing weekdays or a count still clears the cycle.
       // Three clears: the count chips, the weekday toggles, and tapping the
       // active preset itself.
       const countBody = onboardingSource.slice(

@@ -17,6 +17,7 @@ import { MeasurementKind, SetupFocusArea, SetupGoal } from '../types/models';
 /** Focus areas that have a tape measurement to match. */
 const MEASUREMENT_BY_FOCUS_AREA: Partial<Record<SetupFocusArea, MeasurementKind>> = {
   chest: 'chest',
+  back: 'back',
   shoulders: 'shoulders',
   arms: 'arms',
   calves: 'calves',

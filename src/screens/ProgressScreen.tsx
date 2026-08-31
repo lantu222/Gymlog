@@ -73,6 +73,7 @@ type MeasureKey =
   | 'bodyfat'
   | 'shoulders'
   | 'chest'
+  | 'back'
   | 'arms'
   | 'waist'
   | 'hips'
@@ -253,6 +254,7 @@ const MEASURE_CONFIG: Array<{
   { key: 'bodyfat', labelKey: 'progress.measure.bodyfat', hintKey: 'progress.measure.hint.bodyfat', icon: 'drop', kind: 'bodyfat', lowerIsBetter: true },
   { key: 'shoulders', labelKey: 'progress.measure.shoulders', hintKey: 'progress.measure.hint.shoulders', icon: 'tape', kind: 'shoulders', lowerIsBetter: false },
   { key: 'chest', labelKey: 'progress.measure.chest', hintKey: 'progress.measure.hint.chest', icon: 'tape', kind: 'chest', lowerIsBetter: false },
+  { key: 'back', labelKey: 'progress.measure.back', hintKey: 'progress.measure.hint.back', icon: 'tape', kind: 'back', lowerIsBetter: false },
   { key: 'arms', labelKey: 'progress.measure.arms', hintKey: 'progress.measure.hint.arms', icon: 'tape', kind: 'arms', lowerIsBetter: false },
   { key: 'waist', labelKey: 'progress.measure.waist', hintKey: 'progress.measure.hint.waist', icon: 'tape', kind: 'waist', lowerIsBetter: true },
   { key: 'hips', labelKey: 'progress.measure.hips', hintKey: 'progress.measure.hint.hips', icon: 'tape', kind: 'hips', lowerIsBetter: false },

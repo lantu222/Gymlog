@@ -158,6 +158,7 @@ const SUGGEST_TITLE_KEYS: Record<string, I18nKey> = {
   bodyfat: 'cards.suggest.bodyfat',
   shoulders: 'cards.suggest.shoulders',
   chest: 'cards.suggest.chest',
+  back: 'cards.suggest.back',
   arms: 'cards.suggest.arms',
   waist: 'cards.suggest.waist',
   hips: 'cards.suggest.hips',

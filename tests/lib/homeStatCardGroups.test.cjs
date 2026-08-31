@@ -61,7 +61,7 @@ module.exports = [
       // tape measures the same way round.
       assert.deepEqual(
         groups[1].items.map((item) => item.key),
-        ['shoulders', 'chest', 'arms', 'waist', 'hips', 'thighs', 'calves'],
+        ['shoulders', 'chest', 'back', 'arms', 'waist', 'hips', 'thighs', 'calves'],
       );
     },
   },

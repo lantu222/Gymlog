@@ -131,6 +131,14 @@ export type MeasurementKind =
   | 'bodyfat'
   | 'shoulders'
   | 'chest'
+  /**
+   * Across the lats at their widest, arms down.
+   *
+   * Added 2026-08-31: back was already a focus area onboarding let a reader
+   * pick, and nothing downstream could act on it — no measurement, so no card
+   * and no suggestion. An answer collected and then silently dropped.
+   */
+  | 'back'
   | 'arms'
   | 'waist'
   | 'hips'

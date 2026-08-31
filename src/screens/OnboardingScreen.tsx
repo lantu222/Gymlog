@@ -2629,7 +2629,7 @@ export function OnboardingScreen({
                           >
                             {/* Colour alone marked the chosen chips; a check
                                 says it outright (user 2026-08-23). */}
-                            {active ? <VinhaIcon name="check" size={12} color="#5B21B6" /> : null}
+                            {active ? <VinhaIcon name="check" size={12} color={C.primary} /> : null}
                             <Text style={[styles.equipmentChipText, active && styles.equipmentChipTextActive]}>{label}</Text>
                           </Pressable>
                         );
@@ -3074,53 +3074,89 @@ export function OnboardingScreen({
             })}
           </View>
 
-          {/* A chosen cycle overrides the weekdays everywhere else in the
-              app, so the week row is hidden rather than greyed while one is
-              active — two rhythms on one screen, one of them inert, is how a
-              screen disagrees with itself (same rule as the plan screen). */}
-          {!cycleActive ? (
-            <>
-              {/* Until a count is chosen, this step LOOKS answered — the
-                  weekday cells are drawn from the recommendation and the
-                  summary reads as a result — while Continue stays disabled on
-                  profileFrequencySelected. "Tap days to adjust" told the user
-                  the opposite of what the screen required, with nothing
-                  saying why. The level stage solves this by asking. */}
-              <Text style={styles.daysWeekLabel}>
-                {t(language, profileFrequencySelected ? 'onb.days.tapToAdjust' : 'onb.days.pickCount')}
-              </Text>
-              <View style={styles.daysWeekRow}>
-                {WEEKDAY_OPTIONS.map((day) => {
-                  const dayActive = selectedDays.includes(day);
-
-                  return (
-                    <Pressable
-                      key={day}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${getWeekdayShortLabel(day, language)}${
-                        dayActive ? t(language, 'setup.a11y.trainingDay') : t(language, 'setup.a11y.restDay')
-                      }`}
-                      accessibilityState={{ selected: dayActive }}
-                      onPress={() => toggleTrainingDay(day)}
-                      style={[styles.daysWeekCell, dayActive && styles.daysWeekCellActive]}
-                    >
-                      <Text style={[styles.daysWeekCellText, dayActive && styles.daysWeekCellTextActive]}>
-                        {t(language, WEEKDAY_LETTER_KEYS[day])}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              <Text style={styles.daysSummaryLine}>
-                {t(language, 'onb.days.summary', { days: selectedDays.length, rest: restCount })}
-              </Text>
-              {profileFrequencySelected && daysPerWeek !== recommendedDays ? (
-                <Text style={styles.daysRecommendHint}>
-                  {t(language, 'onb.days.recommendHint', { days: recommendedDays })}
+          {/**
+            * One week row, in one place (user 2026-08-31: "painamalla 1treeni
+            * 1lepo kaikki pomppaa oudosti päivät alas vaikka olivat alkuun
+            * ylhäällä").
+            *
+            * The weekdays used to be rendered twice: an editable row ABOVE the
+            * cycle chips while no cycle was chosen, and a read-only preview
+            * BELOW them once one was. Picking a preset therefore deleted the
+            * row the reader was looking at and drew another one further down
+            * the screen — the same week, moved, which reads as the page
+            * jumping rather than as an answer being given.
+            *
+            * It is one row now, always in this slot. What changes is what it
+            * MEANS: a mask you tap while the week is the rhythm, and the
+            * cycle's own first week once a cycle owns it. Read-only then, on
+            * purpose — tapping a day would be the weekday picker again, and
+            * the two cannot both be the answer.
+            */}
+          <Text style={styles.daysWeekLabel}>
+            {t(
+              language,
+              cycleActive
+                ? 'onb.days.cycleWeek'
+                : profileFrequencySelected
+                  ? 'onb.days.tapToAdjust'
+                  : 'onb.days.pickCount',
+            )}
+          </Text>
+          <View style={styles.daysWeekRow}>
+            {WEEKDAY_OPTIONS.map((day, offset) => {
+              // While a cycle runs, the row walks forward from today — a cycle
+              // is defined without weekdays, so "2 on, 1 off" stays abstract
+              // until you see which days it lands on this week.
+              const cycleDate = new Date();
+              cycleDate.setDate(cycleDate.getDate() + offset);
+              const cycleWeekday = WEEKDAY_OPTIONS[(cycleDate.getDay() + 6) % 7];
+              const shown = cycleActive ? cycleWeekday : day;
+              const dayActive = cycleActive
+                ? Boolean(cyclePattern?.[offset % (cyclePattern?.length ?? 1)])
+                : selectedDays.includes(day);
+              const label = `${getWeekdayShortLabel(shown, language)}${
+                dayActive ? t(language, 'setup.a11y.trainingDay') : t(language, 'setup.a11y.restDay')
+              }`;
+              const cell = (
+                <Text style={[styles.daysWeekCellText, dayActive && styles.daysWeekCellTextActive]}>
+                  {t(language, WEEKDAY_LETTER_KEYS[shown])}
                 </Text>
-              ) : null}
-            </>
+              );
+
+              return cycleActive ? (
+                <View
+                  key={`${shown}-${offset}`}
+                  accessible
+                  accessibilityLabel={label}
+                  style={[styles.daysWeekCell, dayActive && styles.daysWeekCellActive]}
+                >
+                  {cell}
+                </View>
+              ) : (
+                <Pressable
+                  key={day}
+                  accessibilityRole="button"
+                  accessibilityLabel={label}
+                  accessibilityState={{ selected: dayActive }}
+                  onPress={() => toggleTrainingDay(day)}
+                  style={[styles.daysWeekCell, dayActive && styles.daysWeekCellActive]}
+                >
+                  {cell}
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Text style={styles.daysSummaryLine}>
+            {cycleActive && cyclePattern
+              ? t(language, 'onb.days.cycleSummary', { len: cyclePattern.length })
+              : t(language, 'onb.days.summary', { days: selectedDays.length, rest: restCount })}
+          </Text>
+          {/* Only the weekday rhythm has a recommended count to miss. */}
+          {!cycleActive && profileFrequencySelected && daysPerWeek !== recommendedDays ? (
+            <Text style={styles.daysRecommendHint}>
+              {t(language, 'onb.days.recommendHint', { days: recommendedDays })}
+            </Text>
           ) : null}
 
           {/* Cycle splits (user 2026-08-23): the rhythms that do not fit
@@ -3137,7 +3173,7 @@ export function OnboardingScreen({
                   onPress={() => selectCyclePreset(option)}
                   style={[styles.daysCycleChip, active && styles.daysCycleChipActive]}
                 >
-                  {active ? <VinhaIcon name="check" size={12} color="#5B21B6" /> : null}
+                  {active ? <VinhaIcon name="check" size={12} color={C.primary} /> : null}
                   <Text style={[styles.daysCycleChipText, active && styles.daysCycleChipTextActive]}>
                     {t(language, option.labelKey)}
                   </Text>
@@ -3145,44 +3181,6 @@ export function OnboardingScreen({
               );
             })}
           </View>
-          {cyclePattern ? (
-            <>
-              {/* Which weekdays the rhythm actually lands on (user
-                  2026-08-24). A cycle is defined without weekdays, which is
-                  the point of it — but "2 on, 1 off" is abstract until you
-                  see that it means training Mon, Tue, Thu, Fri, Sun this
-                  week. Read-only on purpose: tapping a day here would be the
-                  weekday picker again, and the two cannot both be the answer.
-                  Anchored on today, because that is when the cycle starts. */}
-              <Text style={styles.daysCycleLabel}>{t(language, 'onb.days.cycleWeek')}</Text>
-              <View style={styles.daysWeekRow}>
-                {Array.from({ length: 7 }).map((_, offset) => {
-                  const date = new Date();
-                  date.setDate(date.getDate() + offset);
-                  const trains = cyclePattern[offset % cyclePattern.length];
-                  const weekday = WEEKDAY_OPTIONS[(date.getDay() + 6) % 7];
-                  return (
-                    <View
-                      key={offset}
-                      accessible
-                      accessibilityLabel={`${getWeekdayShortLabel(weekday, language)}${t(
-                        language,
-                        trains ? 'setup.a11y.trainingDay' : 'setup.a11y.restDay',
-                      )}`}
-                      style={[styles.daysWeekCell, trains && styles.daysWeekCellActive]}
-                    >
-                      <Text style={[styles.daysWeekCellText, trains && styles.daysWeekCellTextActive]}>
-                        {t(language, WEEKDAY_LETTER_KEYS[weekday])}
-                      </Text>
-                    </View>
-                  );
-                })}
-              </View>
-              <Text style={styles.daysSummaryLine}>
-                {t(language, 'onb.days.cycleSummary', { len: cyclePattern.length })}
-              </Text>
-            </>
-          ) : null}
         </View>
       ),
     });
@@ -4584,7 +4582,10 @@ const makeOnboardingStyles = (C: OnbPalette) => StyleSheet.create({
     fontWeight: '700',
   },
   equipmentChipTextActive: {
-    color: '#5B21B6',
+    // On C.cardActive, which is dark in the dark theme — the same pair as
+    // daysCycleChipTextActive. The comment claiming this was fixed shipped
+    // before the fix did (PR #35 review).
+    color: C.primary,
     fontWeight: '800',
   },
   equipmentOrChooseLabel: {
@@ -4837,8 +4838,12 @@ const makeOnboardingStyles = (C: OnbPalette) => StyleSheet.create({
     lineHeight: 17,
     fontWeight: '700',
   },
+  // Was a hardcoded #5B21B6 — dark violet on cardActive, and in the dark
+  // theme cardActive IS dark violet (#2C2350), so the chosen preset read as
+  // a blank pill (user 2026-08-31: "on vaikea nähdä mitään tausta liian
+  // tumma"). The token knows which theme it is in; the literal did not.
   daysCycleChipTextActive: {
-    color: '#5B21B6',
+    color: C.primary,
     fontWeight: '800',
   },
   daysRecommendHint: {
@@ -6262,7 +6267,8 @@ const makeOnboardingStyles = (C: OnbPalette) => StyleSheet.create({
   planReadyDayWeekBadgeText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#5B21B6',
+    // Same pair as equipmentChipTextActive: a literal on C.cardActive.
+    color: C.primary,
   },
   planReadyDayMetaRow: {
     flexDirection: 'row',
