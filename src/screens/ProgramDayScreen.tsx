@@ -408,10 +408,22 @@ export function ProgramDayScreen({
    */
   const [drillSwap, setDrillSwap] = useState<{ kind: RoutineBlockKind; index: number } | null>(null);
   const [drillPick, setDrillPick] = useState<string | null>(null);
-  const drillOptions = useMemo(
-    () => (drillSwap ? listRoutineDrillOptions(drillSwap.kind, language, availableEquipment) : []),
-    [availableEquipment, drillSwap, language],
-  );
+  const drillOptions = useMemo(() => {
+    if (!drillSwap) {
+      return [];
+    }
+    // Not the drills standing in the block's OTHER slots: picking one of those
+    // would put the same drill in the warm-up twice, count it twice in the
+    // block's minutes, and walk the reader through it twice in the player.
+    const taken = new Set(
+      (drillSwap.kind === 'warmup' ? warmup : cooldown).drills
+        .filter((_, index) => index !== drillSwap.index)
+        .map((drill) => drill.key as string),
+    );
+    return listRoutineDrillOptions(drillSwap.kind, language, availableEquipment).filter(
+      (option) => !taken.has(option.key as string),
+    );
+  }, [availableEquipment, cooldown, drillSwap, language, warmup]);
   const drillCurrent = drillSwap
     ? (drillSwap.kind === 'warmup' ? warmup : cooldown).drills[drillSwap.index] ?? null
     : null;

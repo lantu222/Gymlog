@@ -128,6 +128,7 @@ import {
   applyProgramSessionEdit,
   ProgramPrescription,
 } from './src/lib/programSessionEdit';
+import { repointPlanEntrySessions } from './src/lib/planSessionOrder';
 import { reorderProgramSessions } from './src/lib/programSessionOrder';
 import { ProgramLimitReachedError } from './src/lib/programSlots';
 import {
@@ -1973,6 +1974,28 @@ function VinhaApp() {
         })),
       };
     });
+
+    // The template is only half the record. Each plan entry pins a weekday to
+    // a session BY ID, and Home, the calendar and the rotation read the
+    // assignment from there — so a reorder that stopped at the template moved
+    // the list on one screen and changed nothing about what gets trained.
+    // Read the order back rather than trusting the draft: the repository is
+    // what decided it.
+    const plan = database.workoutPlans.find(
+      (item) => item.entries[0]?.workoutTemplateId === workoutTemplateId,
+    );
+    if (!plan) {
+      return;
+    }
+    const saved = await getWorkoutTemplateSessionsFresh(workoutTemplateId);
+    const repointed = repointPlanEntrySessions(
+      plan.entries,
+      saved.map((session) => session.id),
+    );
+    if (repointed.kind === 'skip') {
+      return;
+    }
+    await upsertWorkoutPlan({ ...plan, entries: repointed.entries, updatedAt: plan.updatedAt });
   }
 
   /**
@@ -2964,13 +2987,23 @@ function VinhaApp() {
   const routineBlockSeconds = useCallback(
     (focus: SessionFocusKind) => ({
       warmupSeconds: estimateRoutineBlockSeconds(
-        getDefaultWarmup(focus, preferences.appLanguage, availableEquipmentForDrills),
+        getDefaultWarmup(
+          focus,
+          preferences.appLanguage,
+          availableEquipmentForDrills,
+          preferences.routineDrillOverrides,
+        ),
       ),
       cooldownSeconds: estimateRoutineBlockSeconds(
-        getDefaultCooldown(focus, preferences.appLanguage, availableEquipmentForDrills),
+        getDefaultCooldown(
+          focus,
+          preferences.appLanguage,
+          availableEquipmentForDrills,
+          preferences.routineDrillOverrides,
+        ),
       ),
     }),
-    [preferences.appLanguage, availableEquipmentForDrills],
+    [preferences.appLanguage, availableEquipmentForDrills, preferences.routineDrillOverrides],
   );
   // Both used to depend on the whole preferences object, so a theme or sound
   // toggle handed them a new object and they rebuilt — and everything

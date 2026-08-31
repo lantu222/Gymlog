@@ -585,10 +585,22 @@ export function HomeScreen({
    */
   const [drillSwap, setDrillSwap] = useState<{ kind: RoutineBlockKind; index: number } | null>(null);
   const [drillPick, setDrillPick] = useState<string | null>(null);
-  const drillOptions = useMemo(
-    () => (drillSwap ? listRoutineDrillOptions(drillSwap.kind, language, availableEquipment) : []),
-    [availableEquipment, drillSwap, language],
-  );
+  const drillOptions = useMemo(() => {
+    if (!drillSwap) {
+      return [];
+    }
+    // Not the drills standing in the block's OTHER slots: picking one of those
+    // would put the same drill in the warm-up twice, count it twice in the
+    // block's minutes, and walk the reader through it twice in the player.
+    const taken = new Set(
+      (drillSwap.kind === 'warmup' ? warmup : cooldown).drills
+        .filter((_, index) => index !== drillSwap.index)
+        .map((drill) => drill.key as string),
+    );
+    return listRoutineDrillOptions(drillSwap.kind, language, availableEquipment).filter(
+      (option) => !taken.has(option.key as string),
+    );
+  }, [availableEquipment, cooldown, drillSwap, language, warmup]);
   const drillCurrent = drillSwap
     ? (drillSwap.kind === 'warmup' ? warmup : cooldown).drills[drillSwap.index] ?? null
     : null;
@@ -3029,13 +3041,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexShrink: 1,
     textAlign: 'right',
   },
-  historyHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 26,
-    marginBottom: 12,
-  },
   statCardsSection: {
     marginTop: 26,
   },
@@ -3085,51 +3090,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13.5,
     fontWeight: '800',
-  },
-  historySectionTitle: {
-    color: theme.ink,
-    fontSize: 20,
-    lineHeight: 25,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-  },
-  historySeeAll: {
-    color: theme.highlight,
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: '800',
-  },
-  historyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 13,
-  },
-  historyRowDivider: {
-    borderTopWidth: 1,
-    borderTopColor: theme.border,
-  },
-  historyIconTile: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: theme.purpleSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  historyRowTitle: {
-    color: theme.ink,
-    fontSize: 15,
-    lineHeight: 19,
-    fontWeight: '800',
-  },
-  historyRowMeta: {
-    color: theme.muted,
-    fontSize: 12.5,
-    lineHeight: 16,
-    fontWeight: '600',
-    marginTop: 2,
-    fontVariant: ['tabular-nums'],
   },
   bottomSafeFade: {
     height: 16,

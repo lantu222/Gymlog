@@ -463,6 +463,17 @@ module.exports = [
       // reader owns — dragging must never buy them a copy.
       assert.match(programDetailSource, /onReorderSession && program\.sessions\.length > 1/);
       assert.match(appSource, /route\.programType === 'custom'[\s\S]{0,160}handleReorderProgramSession/);
+      // And the PLAN follows the template. Each entry pins a weekday to a
+      // session by id, and Home, the calendar and the rotation read the
+      // assignment from there — a reorder that stopped at the template moved
+      // the list on one screen and changed nothing about what gets trained
+      // (found in review, 2026-08-31).
+      assert.match(appSource, /repointPlanEntrySessions\(\s*plan\.entries/);
+      // Read back, not assumed: the repository decides the saved order.
+      assert.match(
+        appSource,
+        /getWorkoutTemplateSessionsFresh\(workoutTemplateId\)[\s\S]{0,400}repointPlanEntrySessions/,
+      );
     },
   },
   {

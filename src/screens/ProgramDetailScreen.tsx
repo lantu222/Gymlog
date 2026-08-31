@@ -313,17 +313,6 @@ export function ProgramDetailScreen({
   }, [program.badges, program.sessions]);
   // Eight weeks is the catalog's default block; the strip states the same
   // number the total is derived from rather than two numbers that disagree.
-  /**
-   * How long the block runs — only when the programme actually declares it.
-   *
-   * This was a hardcoded 8, so a one-week, one-session programme advertised
-   * "8 VIIKKOA · 8 TREENIÄ". A programme the reader built has no declared
-   * length: it runs until they stop. The strip drops both numbers rather than
-   * inventing a commitment, which is the same rule the description and the
-   * duration already follow.
-   */
-  const blockWeeks = programBlockWeeks ?? null;
-  const totalSessions = blockWeeks === null ? null : program.sessions.length * blockWeeks;
   const progressPercent = activePlanSummary?.progressPercent ?? 1;
   const weekLabel = activePlanSummary?.weekLabel ?? t(language, 'detail.weekFallback');
   const sessionsPerWeek = activePlanSummary?.sessionsPerWeek ?? `${program.sessions.length}`;

@@ -106,4 +106,42 @@ module.exports = [
       assert.ok(cooldowns.length > 0);
     },
   },
+  {
+    /**
+     * Every screen that BUILDS a block is handed the reader's picks.
+     *
+     * The swap showed on Home and in the day editor and never reached the one
+     * screen that actually runs the drill: the player coached the drill that
+     * had been replaced, and the "~50 min" estimate was computed from it too
+     * (found in review, 2026-08-31). Nothing fails at runtime when a caller
+     * forgets the fourth argument — the block simply comes back as the
+     * default — so only this holds it.
+     */
+    name: 'no caller builds a warm-up or cool-down without the picks the reader made',
+    run() {
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const root = path.join(__dirname, '..', '..');
+      const files = [
+        ['App.tsx'],
+        ['src', 'screens', 'GuidedPlayerScreen.tsx'],
+        ['src', 'screens', 'HomeScreen.tsx'],
+        ['src', 'screens', 'ProgramDayScreen.tsx'],
+      ];
+      for (const parts of files) {
+        const source = fs.readFileSync(path.join(root, ...parts), 'utf8');
+        const calls = source.match(/getDefault(?:Warmup|Cooldown)\(([\s\S]*?)\)/g) || [];
+        for (const call of calls) {
+          // The import line names them without calling them.
+          if (!call.includes(',')) {
+            continue;
+          }
+          assert.ok(
+            /routineDrillOverrides/.test(call),
+            `${parts.join('/')} builds a block without the overrides: ${call}`,
+          );
+        }
+      }
+    },
+  },
 ];

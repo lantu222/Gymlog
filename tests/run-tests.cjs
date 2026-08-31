@@ -160,6 +160,7 @@ const suites = [
   ...require('./lib/successToasts.test.cjs'),
   ...require('./lib/programSessionEdit.test.cjs'),
   ...require('./lib/programSessionOrder.test.cjs'),
+  ...require('./lib/planSessionOrder.test.cjs'),
   ...require('./lib/weightDial.test.cjs'),
   ...require('./lib/welcomeMarquee.test.cjs'),
   ...require('./lib/programSlots.test.cjs'),

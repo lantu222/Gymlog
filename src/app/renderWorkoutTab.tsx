@@ -649,6 +649,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         keepScreenAwake={preferences.keepScreenAwakeDuringWorkout}
         unitPreference={unitPreference}
         availableEquipment={availableEquipmentForDrills}
+        routineDrillOverrides={preferences.routineDrillOverrides}
         tailoringPreferences={tailoringPreferences}
         exerciseLibrary={exerciseLibrary}
         soundCuesEnabled={preferences.soundCuesEnabled}
