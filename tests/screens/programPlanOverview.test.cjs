@@ -114,9 +114,20 @@ module.exports = [
       // depended on a gradient BEHIND the page.
       assert.doesNotMatch(programDetailSource, /styles\.headerTitle/);
       assert.doesNotMatch(programDetailSource, /styles\.planCard\b/);
-      // Four numbers, so the commitment is legible before the button.
+      // Three numbers answering one question — how much of a week is this?
+      // It used to run days / session / sessions, where the first and last
+      // were the same number wearing two labels (user 2026-08-31).
       assert.match(programDetailSource, /'detail\.stat\.daysPerWeek'/);
-      assert.match(programDetailSource, /'detail\.stat\.total'/);
+      assert.match(programDetailSource, /'detail\.stat\.minPerSession'/);
+      assert.match(programDetailSource, /'detail\.stat\.minPerWeek'/);
+      // And the day count comes from the RHYTHM, not the session count: a
+      // five-session programme on "4 on / 1 off" trains 5.6 days a week and
+      // the header used to keep saying five.
+      assert.doesNotMatch(programDetailSource, /value: `\$\{program\.sessions\.length\}`/);
+      assert.match(programDetailSource, /formatTrainingDays\(weekLoad\.daysPerWeek\)/);
+      // The cycle hint reads the same number from the same place; computing
+      // it twice is how two lines on one screen end up disagreeing.
+      assert.doesNotMatch(programDetailSource, /7 \* trainingCycle\.pattern\.filter/);
       // The week is seven named chips. A dot-and-word list said
       // "Treeni / Palautuminen" seven times and never named a session.
       assert.match(programDetailSource, /styles\.rhythmDay\b/);

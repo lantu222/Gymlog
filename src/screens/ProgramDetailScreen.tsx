@@ -15,6 +15,12 @@ import { EQUIPMENT_CHIP_KEYS, missingEquipment } from '../lib/programEquipment';
 import { EmphasisSheet } from '../components/EmphasisSheet';
 import { EMPHASIS_AREA_KEYS, emphasisAreaForExercise, resolveProgramEmphasis } from '../lib/programEmphasis';
 import { WEEKDAY_KEYS } from '../lib/programTrainingDays';
+import { estimateSessionMinutes } from '../lib/sessionDuration';
+import {
+  buildTrainingWeekLoad,
+  formatTrainingDays,
+  formatTrainingMinutes,
+} from '../lib/trainingWeekLoad';
 import { EMPHASIS_RAMP } from '../lib/programVisualIdentity';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import {
@@ -220,7 +226,38 @@ export function ProgramDetailScreen({
     const levelKey = ROLE_LEVEL_KEYS[(program.badges[1] ?? '').toLowerCase()];
     return levelKey ? t(language, levelKey) : null;
   }, [language, program.badges]);
-  const durationMinutes = parseMinutesFromBadges(program.badges);
+  /**
+   * Minutes of one session.
+   *
+   * A ready programme states it in a badge and its browse card repeats that
+   * number, so the badge wins where there is one. A programme the reader built
+   * has no badge — but it does have its sessions, and the same estimator the
+   * player runs on them. Without this the header answered "how long is this?"
+   * with an em dash on every programme the reader made (user 2026-08-31).
+   */
+  const durationMinutes = useMemo(() => {
+    const stated = parseMinutesFromBadges(program.badges);
+    if (stated > 0) {
+      return stated;
+    }
+    const estimates = program.sessions
+      .map((session) =>
+        estimateSessionMinutes({
+          exercises: session.exercises.map((exercise) => ({
+            sets: exercise.sets,
+            // The top of the range is what the session is planned for.
+            reps: exercise.repMax,
+            timed: exercise.timed,
+            restSeconds: exercise.restSeconds,
+          })),
+        }),
+      )
+      .filter((minutes) => minutes > 0);
+    if (estimates.length === 0) {
+      return 0;
+    }
+    return Math.round(estimates.reduce((sum, minutes) => sum + minutes, 0) / estimates.length);
+  }, [program.badges, program.sessions]);
   // Eight weeks is the catalog's default block; the strip states the same
   // number the total is derived from rather than two numbers that disagree.
   /**
@@ -278,6 +315,28 @@ export function ProgramDetailScreen({
   useEffect(() => () => setDraftDays(null), []);
   const shownDays = draftDays ?? committedDays;
   const rhythmIncomplete = draftDays !== null && draftDays.length !== committedDays.length;
+
+  /**
+   * What the header promises, recomputed from the rhythm actually on screen.
+   *
+   * It read `program.sessions.length` — how many different sessions exist,
+   * which only equals "days per week" when the rhythm runs one of each every
+   * seven days. A five-session programme on "4 on · 1 off" trains six days
+   * some weeks and the header kept saying five (user 2026-08-31).
+   *
+   * `shownDays`, not the committed array, so the number moves under the
+   * reader's thumb while they are still toggling.
+   */
+  const weekLoad = useMemo(
+    () =>
+      buildTrainingWeekLoad({
+        cyclePattern: trainingCycle?.pattern ?? null,
+        weekdayCount: shownDays.length,
+        sessionCount: program.sessions.length,
+        minutesPerSession: durationMinutes,
+      }),
+    [durationMinutes, program.sessions.length, shownDays, trainingCycle],
+  );
 
   const toggleRhythmDay = (index: number) => {
     if (!onSaveRhythm) {
@@ -476,20 +535,24 @@ export function ProgramDetailScreen({
           <Text style={styles.leadCopy}>{program.description}</Text>
         ) : null}
 
-        {/* Four numbers, so the commitment is legible before the button. */}
+        {/* Three numbers that answer one question — how much of a week is
+            this? — in the order a reader asks it (user 2026-08-31). It used
+            to run days, session, sessions, where the first and last were the
+            same number wearing two labels. */}
         <View style={styles.statStrip}>
           {[
-            { value: `${program.sessions.length}`, label: 'detail.stat.daysPerWeek' as I18nKey },
             {
-              value: durationMinutes > 0 ? `~${durationMinutes}` : '—',
-              label: 'detail.stat.session' as I18nKey,
+              value: formatTrainingDays(weekLoad.daysPerWeek),
+              label: 'detail.stat.daysPerWeek' as I18nKey,
             },
-            ...(blockWeeks !== null && totalSessions !== null
-              ? [
-                  { value: `${blockWeeks}`, label: 'detail.stat.weeks' as I18nKey },
-                  { value: `${totalSessions}`, label: 'detail.stat.total' as I18nKey },
-                ]
-              : [{ value: `${program.sessions.length}`, label: 'detail.stat.perWeek' as I18nKey }]),
+            {
+              value: formatTrainingMinutes(weekLoad.minutesPerSession),
+              label: 'detail.stat.minPerSession' as I18nKey,
+            },
+            {
+              value: formatTrainingMinutes(weekLoad.minutesPerWeek),
+              label: 'detail.stat.minPerWeek' as I18nKey,
+            },
           ].map((stat, index) => (
             <React.Fragment key={stat.label}>
               {index > 0 ? <View style={styles.statStripDivider} /> : null}
@@ -633,13 +696,9 @@ export function ProgramDetailScreen({
           <Text style={styles.rhythmHint}>
             {t(language, 'detail.week.cycleStatus', {
               length: trainingCycle.pattern.length,
-              perWeek: String(
-                Math.round(
-                  ((7 * trainingCycle.pattern.filter(Boolean).length) /
-                    trainingCycle.pattern.length) *
-                    10,
-                ) / 10,
-              ),
+              // The same number the header shows, from the same arithmetic —
+              // computing it twice is how they end up disagreeing.
+              perWeek: formatTrainingDays(weekLoad.daysPerWeek),
             })}
           </Text>
         ) : rhythmIncomplete ? (
