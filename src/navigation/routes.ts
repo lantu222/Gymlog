@@ -110,6 +110,11 @@ export type AppRoute =
       tab: 'workout';
       screen: 'guided';
       workoutTemplateId: string;
+      /**
+       * Arrived by pressing something that said "resume", so the player opens
+       * on the set rather than on the session overview.
+       */
+      resume?: boolean;
     }
   | {
       tab: 'workout';

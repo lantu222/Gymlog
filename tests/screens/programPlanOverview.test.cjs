@@ -206,7 +206,20 @@ module.exports = [
       // The pinned footer and its "start the first session" shortcut are gone;
       // the adopt button above replaced both. Session rows still open the day.
       assert.match(programDetailSource, /program\.sessions\.map/);
-      assert.match(programDetailSource, /program\.source === 'custom'/);
+      assert.match(programDetailSource, /\(onOpenSession \?\? onStartSession\)\(session\.id\)/);
+
+      /**
+       * And the day row is the ONLY way in (user 2026-08-31).
+       *
+       * The Workouts heading carried an "Edit" that opened the template
+       * editor — a second editor for a programme the reader can already edit
+       * by opening the day, where sets, reps, order, swaps and removals all
+       * live. Two editors for one programme is two places to look for one
+       * control, and two ways for them to disagree.
+       */
+      assert.doesNotMatch(programDetailSource, /onEdit/);
+      assert.doesNotMatch(programDetailSource, /'plan\.edit'/);
+      assert.doesNotMatch(appSource, /onEdit=\{route\.programType === 'custom'/);
 
       assert.doesNotMatch(programDetailSource, /WorkoutSceneGraphic/);
       assert.doesNotMatch(programDetailSource, /Session flow/);

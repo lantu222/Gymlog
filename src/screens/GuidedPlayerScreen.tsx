@@ -65,7 +65,7 @@ import {
   getGuidedStepAnchor,
   getGuidedStepLabel,
   isGuidedExerciseOut,
-  resolveGuidedResumeIndex,
+  resolveGuidedOpening,
   resolveGuidedSetTarget,
 } from '../lib/guidedPlayer';
 import { commitDialWeight, stepDialWeight } from '../lib/weightDial';
@@ -92,7 +92,11 @@ import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailo
 import { buildExerciseSearchHaystack, exerciseMatchesQuery } from '../lib/exerciseSearch';
 import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { useKeepScreenAwake } from '../utils/keepAwake';
-import { getHistoryEntriesForExercise } from '../features/workout/workoutState';
+import {
+  getHistoryEntriesForExercise,
+  resolveInstanceBorrowRepWindow,
+} from '../features/workout/workoutState';
+import { resolveLastTimeEntry } from '../lib/exerciseHistoryLookup';
 import {
   isTimedTrackingMode,
   isUnloadedTrackingMode,
@@ -147,6 +151,39 @@ const GPD = {
 
 const SPLASH_MS = 2300;
 
+/**
+ * A phase splash that offers the "do it yourself" fork. Those wait for a
+ * tap; the work splash is a beat between phases and passes on its own.
+ */
+function splashCarriesChoice(target: GuidedStep) {
+  return target.type === 'splash' && (target.phase === 'warmup' || target.phase === 'cooldown');
+}
+
+/**
+ * How long a step runs on the clock. Module scope, not a closure: the screen
+ * can now mount straight onto a resumed step, and the timer it opens with has
+ * to be armed before the first render rather than by the goTo that no longer
+ * happens.
+ */
+function stepSeconds(target: GuidedStep): number {
+  switch (target.type) {
+    case 'ready':
+      return 3;
+    case 'drill':
+    case 'rest':
+    case 'position':
+      return target.seconds;
+    case 'splash':
+      return splashCarriesChoice(target) ? 0 : SPLASH_MS / 1000;
+    // An interval's work bout runs on the clock like everything else here.
+    // An ordinary set does not: it ends when the reader says it ended.
+    case 'set':
+      return target.interval?.workSeconds ?? 0;
+    default:
+      return 0;
+  }
+}
+
 export interface GuidedWeekProgress {
   weekLabel: string;
   done: number;
@@ -187,6 +224,14 @@ interface GuidedPlayerScreenProps {
   isSavingWorkout: boolean;
   /** Rest & alerts settings (design: Background Timer). */
   restAlerts?: { alerts: boolean; warning: boolean; ongoing: boolean };
+  /**
+   * The reader asked to CONTINUE, not to open the session.
+   *
+   * Set by the paths whose own button already said "Resume workout" — Home's
+   * hero, the lock-screen card. Opening the overview after that is the app
+   * asking a question the reader has already answered.
+   */
+  autoResume?: boolean;
 }
 
 /* ── icons ── */
@@ -983,6 +1028,7 @@ export function GuidedPlayerScreen({
   onFinishSession,
   isSavingWorkout,
   restAlerts = { alerts: true, warning: true, ongoing: true },
+  autoResume = false,
 }: GuidedPlayerScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -1092,16 +1138,46 @@ export function GuidedPlayerScreen({
   );
 
   /* ── mode + step position ── */
-  const [mode, setMode] = useState<'entry' | 'player'>('entry');
+  /**
+   * Where this mount opens.
+   *
+   * "Resume workout" on Home used to land here on the overview, because the
+   * screen unmounts when you leave and always came back at `entry`. The button
+   * said continue and delivered a menu (#bugs 2026-08-29) — so an arrival that
+   * explicitly asks to resume goes straight to the set, and every other
+   * arrival still gets the overview it was built for.
+   *
+   * Computed once, in a ref, because it is an opening position and not a
+   * derived value: recomputing it as sets get logged would drag the screen
+   * back to wherever the store's anchor points.
+   */
+  const openingStepRef = useRef<number | null>(null);
+  if (openingStepRef.current === null) {
+    openingStepRef.current = session
+      ? resolveGuidedOpening({
+          steps,
+          storedIndex: session.ui.guidedStepIndex ?? null,
+          anchor: session.ui.guidedResumeAnchor ?? null,
+          isSetCompleted,
+          autoResume,
+        }).stepIndex
+      : 0;
+  }
+  const openingStep = openingStepRef.current;
+  const [mode, setMode] = useState<'entry' | 'player'>(openingStep > 0 ? 'player' : 'entry');
   const [expandedPhases, setExpandedPhases] = useState<string[]>([]);
-  const [stepIndex, setStepIndex] = useState(0);
+  const [stepIndex, setStepIndex] = useState(openingStep);
   const step: GuidedStep = steps[Math.min(stepIndex, steps.length - 1)] ?? { type: 'finish' };
   const stepRef = useRef(step);
   stepRef.current = step;
 
   /* ── timers ── */
-  const [remainingMs, setRemainingMs] = useState(0);
-  const remainingRef = useRef(0);
+  // Seeded from the opening step, not from zero: mounting straight onto a
+  // timed step (a walk-up, a drill) with nothing on the clock would expire it
+  // on the first tick.
+  const openingMs = stepSeconds(steps[openingStep] ?? { type: 'finish' }) * 1000;
+  const [remainingMs, setRemainingMs] = useState(openingMs);
+  const remainingRef = useRef(openingMs);
   /**
    * Wall-clock deadline for the running step. Android throttles (and with the
    * screen off, stops) JS timers in the background, so the remaining time is
@@ -1203,32 +1279,6 @@ export function GuidedPlayerScreen({
   // Seconds since the reader said they would do it themselves. Derived from
   // the session clock's tick so it needs no timer of its own.
   const ownElapsedSeconds = ownBlock ? Math.max(0, Math.floor((clockNowMs - ownBlock.startedAt) / 1000)) : 0;
-
-  /**
-   * A phase splash that offers the "do it yourself" fork. Those wait for a
-   * tap; the work splash is a beat between phases and passes on its own.
-   */
-  const splashCarriesChoice = (target: GuidedStep) =>
-    target.type === 'splash' && (target.phase === 'warmup' || target.phase === 'cooldown');
-
-  const stepSeconds = (target: GuidedStep): number => {
-    switch (target.type) {
-      case 'ready':
-        return 3;
-      case 'drill':
-      case 'rest':
-      case 'position':
-        return target.seconds;
-      case 'splash':
-        return splashCarriesChoice(target) ? 0 : SPLASH_MS / 1000;
-      // An interval's work bout runs on the clock like everything else here.
-      // An ordinary set does not: it ends when the reader says it ended.
-      case 'set':
-        return target.interval?.workSeconds ?? 0;
-      default:
-        return 0;
-    }
-  };
 
   // The speaker button drives the persistent "Cue sounds" preference, so the
   // in-workout shortcut and the settings toggle stay one source of truth.
@@ -1416,13 +1466,17 @@ export function GuidedPlayerScreen({
     goTo(index);
   };
 
-  const resumeIndex = resolveGuidedResumeIndex(
+  // Same resolver the opening position came from, so the card at the top, the
+  // button at the bottom and the step this screen mounted on cannot disagree.
+  const opening = resolveGuidedOpening({
     steps,
-    session.ui.guidedStepIndex ?? null,
+    storedIndex: session.ui.guidedStepIndex ?? null,
+    anchor: session.ui.guidedResumeAnchor ?? null,
     isSetCompleted,
-    session.ui.guidedResumeAnchor ?? null,
-  );
-  const showResume = resumeIndex > 0 && steps[resumeIndex]?.type !== 'finish';
+    autoResume: false,
+  });
+  const resumeIndex = opening.resumeIndex;
+  const showResume = opening.primaryAction === 'resume';
 
   const confirmSet = (slotId: string, setIndex: number, reps: number, loadKg: number | null) => {
     workout.updateSetDraft(slotId, setIndex, {
@@ -1502,18 +1556,33 @@ export function GuidedPlayerScreen({
     const lookupName = getDrillLibraryName(name) ?? name;
     const index = findGuidedLibraryIndex(lookupName, exerciseLibrary.map((item) => item.name));
     const match = index === null ? null : exerciseLibrary[index];
-    const entries = workout.history.slotHistory[slotId] ?? [];
-    // The most recent session that actually logged something. A skipped or
-    // empty entry is not a "last time" — it is a day this lift did not happen.
-    const last =
-      [...entries]
-        .filter((entry) => !entry.skipped && entry.sets.length > 0)
-        .sort((left, right) => new Date(right.performedAt).getTime() - new Date(left.performedAt).getTime())[0] ?? null;
+    /*
+     * Through the same resolver the prefill uses, with the same inputs.
+     *
+     * This read `slotHistory[slotId]` and stopped there, while the prefill fell
+     * through to the slot's unscoped key and then to a name lookup — so the
+     * first time a lift came round in a new slot the table said "first time on
+     * this exercise" directly above a weight badged "LAST TIME · 27.8."
+     * (#bugs 2026-08-29). Same question, one reader.
+     */
+    const instance = exerciseBySlot.get(slotId) ?? null;
+    const resolved = resolveLastTimeEntry({
+      slotHistory: workout.history.slotHistory,
+      slotId,
+      templateSlotId: instance?.templateSlotId ?? null,
+      exerciseName: name,
+      requireLoaded: instance ? !isUnloadedTrackingMode(instance.trackingMode) : false,
+      repWindow: instance ? resolveInstanceBorrowRepWindow(instance) : null,
+    });
+    const last = resolved?.entry ?? null;
     const heaviest = last ? Math.max(...last.sets.map((set) => set.loadKg)) : 0;
 
     const history: SetPanelHistory | null = last
       ? {
           performedAt: last.performedAt,
+          // Said out loud rather than passed off as this slot's own record —
+          // it is a real number, lifted on a different day.
+          borrowed: resolved?.borrowed ?? false,
           sets: last.sets.map((set) => ({
             setIndex: set.setIndex + 1,
             loadKg: set.loadKg,
@@ -1531,7 +1600,7 @@ export function GuidedPlayerScreen({
       imageUrl: match?.imageUrls?.[0] ?? null,
       initials: exerciseNameLabel(language, name).slice(0, 2).toUpperCase(),
     };
-  }, [exerciseLibrary, language, step, workout.history.slotHistory]);
+  }, [exerciseBySlot, exerciseLibrary, language, step, workout.history.slotHistory]);
 
   const swapOptions = useMemo(() => {
     if (!actionExercise) {
@@ -1867,12 +1936,46 @@ export function GuidedPlayerScreen({
                 })}
             </ScrollView>
 
-            <Pressable style={styles.startCta} onPress={() => startAt(0)}>
+            {/*
+              The pinned button is whatever the session actually needs next.
+              It always said "Start session" and always jumped to step 0, even
+              with half the workout logged — so a reader who came back through
+              Home's "Resume workout" met a screen whose biggest, lowest,
+              thumb-nearest button offered to walk them through it again, with
+              the real resume a quiet card up at the top. One of them was
+              pressed, and it was not the quiet one (#bugs 2026-08-29).
+
+              Nothing was lost — starting over only moves the step pointer —
+              but "start" is not what that button did to a session in progress,
+              and it should not have been the one under the thumb.
+            */}
+            {/* Starting over stays available — quietly, and saying so.
+                ABOVE the button, not below it: this root pads 14px off the
+                bottom with no safe-area inset, and that strip is where Android
+                draws its own controls. Anything put there is a control the
+                reader has to fight the system bar for, which this app has
+                already shipped twice (#bugs 2026-08-28). */}
+            {showResume ? (
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={10}
+                onPress={() => startAt(0)}
+                style={styles.startOverLink}
+              >
+                <Text style={styles.startOverText}>{t(language, 'guided.entry.startOver')}</Text>
+              </Pressable>
+            ) : null}
+
+            <Pressable
+              accessibilityRole="button"
+              style={styles.startCta}
+              onPress={() => startAt(showResume ? resumeIndex : 0)}
+            >
               {/* White would be unreadable on the dark theme's orange; that is
                   what `onHighlight` is for. It stays white in light. */}
               <GPIcon name="play" size={19} color={theme.onHighlight} sw={2.5} />
               <Text style={{ fontSize: 16.5, fontWeight: '800', color: theme.onHighlight }}>
-                {t(language, 'guided.entry.start')}
+                {t(language, showResume ? 'guided.entry.resume' : 'guided.entry.start')}
               </Text>
             </Pressable>
           </View>
@@ -3344,6 +3447,16 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 24,
     elevation: 8,
+  },
+  startOverLink: {
+    alignSelf: 'center',
+    paddingTop: 14,
+    paddingHorizontal: 12,
+  },
+  startOverText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: theme.muted,
   },
 
   /* chrome */

@@ -14,6 +14,10 @@
  * lifted this before, here is what you lifted"; it does not answer "here is
  * what you could probably lift", which is a different question with a
  * different (and much weaker) basis.
+ *
+ * Which is exactly why the borrow is gated on the reps: a weight without the
+ * reps it was lifted for is not the known thing, it is half of it. See
+ * `entryMatchesRepWindow`.
  */
 
 import { WorkoutSlotHistoryEntry, WorkoutSlotHistorySet } from '../features/workout/workoutTypes';
@@ -41,6 +45,13 @@ export interface NamedHistoryOptions {
    * there, 0 kg is the honest answer.
    */
   requireLoaded?: boolean;
+  /**
+   * Only accept sessions run at reps close to this prescription. Null (the
+   * default) accepts any, which is right for the slot's own history — this
+   * gate is for weights borrowed from somewhere else. See
+   * `entryMatchesRepWindow`.
+   */
+  repWindow?: RepWindow | null;
 }
 
 /**
@@ -71,6 +82,9 @@ export function findLatestEntryForExerciseName(
       if (options.requireLoaded && heaviestLoadKg(entry) <= 0) {
         return;
       }
+      if (!entryMatchesRepWindow(entry, options.repWindow)) {
+        return;
+      }
       const time = parseTime(entry.performedAt);
       if (time > bestTime) {
         best = entry;
@@ -95,4 +109,183 @@ export function findHistoricalSetForIndex(
     return null;
   }
   return entry.sets.find((item) => item.setIndex === setIndex) ?? entry.sets[setIndex] ?? null;
+}
+
+/**
+ * The rep prescription a slot is asking for, used to decide whether a weight
+ * lifted somewhere else answers for it.
+ */
+export interface RepWindow {
+  min: number;
+  max: number;
+}
+
+/**
+ * How far outside the prescription a session may sit and still count as the
+ * same kind of work.
+ *
+ * Two reps, because five reps is a heavy single-digit set and 6-8 is a heavy
+ * range — the same load, differently written. Fifteen against 6-8 is not a
+ * near miss, it is a different exercise for the same muscle, and that is the
+ * gap this constant exists to refuse.
+ */
+const REP_WINDOW_TOLERANCE = 2;
+
+/**
+ * The reps this session was actually run at.
+ *
+ * Median, not the span: a heavy day with one long back-off set would otherwise
+ * read as covering everything from 5 to 15 and answer for prescriptions it has
+ * no business answering for.
+ */
+function typicalReps(entry: WorkoutSlotHistoryEntry): number | null {
+  const reps = entry.sets
+    .map((set) => set.reps)
+    .filter((value) => Number.isFinite(value) && value > 0)
+    .sort((left, right) => left - right);
+  if (reps.length === 0) {
+    return null;
+  }
+  const middle = Math.floor(reps.length / 2);
+  return reps.length % 2 === 1 ? reps[middle] : (reps[middle - 1] + reps[middle]) / 2;
+}
+
+/**
+ * Whether a session was run at reps close enough to this slot's prescription
+ * that its load is a useful starting point here.
+ *
+ * The case this exists for, reported 2026-08-29: the same lift on two days of
+ * one programme, 6-8 heavy on one and 15-20 on the other. The heavy day's
+ * weight was carried onto the light day the first time it came round, because
+ * the lookup matched on name alone. A weight is only an answer together with
+ * the reps it was lifted for.
+ */
+export function entryMatchesRepWindow(
+  entry: WorkoutSlotHistoryEntry,
+  window: RepWindow | null | undefined,
+): boolean {
+  if (!window) {
+    return true;
+  }
+  const low = Math.min(window.min, window.max);
+  const high = Math.max(window.min, window.max);
+  if (!Number.isFinite(low) || !Number.isFinite(high) || high <= 0) {
+    return true;
+  }
+  const reps = typicalReps(entry);
+  // Nothing to compare against is not a mismatch — a session with no rep count
+  // recorded is unusual, and refusing it would open the set at nothing.
+  if (reps === null) {
+    return true;
+  }
+  return reps >= low - REP_WINDOW_TOLERANCE && reps <= high + REP_WINDOW_TOLERANCE;
+}
+
+/** A session that actually happened: not skipped, and with sets in it. */
+function isUsableEntry(entry: WorkoutSlotHistoryEntry | null | undefined): boolean {
+  return Boolean(entry) && !entry!.skipped && entry!.sets.length > 0;
+}
+
+/**
+ * The newest session in a slot's own history that actually logged something.
+ *
+ * A skipped or empty entry is not a "last time" — it is a day this lift did
+ * not happen.
+ */
+export function selectLatestUsableEntry(
+  entries: readonly WorkoutSlotHistoryEntry[] | null | undefined,
+): WorkoutSlotHistoryEntry | null {
+  let best: WorkoutSlotHistoryEntry | null = null;
+  let bestTime = -Infinity;
+  (entries ?? []).forEach((entry) => {
+    if (!isUsableEntry(entry)) {
+      return;
+    }
+    const time = parseTime(entry.performedAt);
+    if (time > bestTime) {
+      best = entry;
+      bestTime = time;
+    }
+  });
+  return best;
+}
+
+export interface LastTimeQuery {
+  slotHistory: Record<string, WorkoutSlotHistoryEntry[]>;
+  /** The scoped key this session writes under. */
+  slotId: string;
+  /** The unscoped key older installs wrote under. */
+  templateSlotId?: string | null;
+  exerciseName: string;
+  /** See NamedHistoryOptions — loaded lifts reject all-zero sessions. */
+  requireLoaded?: boolean;
+  /** Null for lifts where the prescription does not gate the borrow. */
+  repWindow?: RepWindow | null;
+}
+
+export interface ResolvedLastTime {
+  entry: WorkoutSlotHistoryEntry;
+  /**
+   * True when it came from somewhere else — another day of this programme,
+   * another programme, an empty workout — rather than from this slot's own
+   * history. The screen has to be able to say so.
+   */
+  borrowed: boolean;
+}
+
+/**
+ * ONE answer to "what did you do last time", for every part of the set screen
+ * that asks it.
+ *
+ * The prefill and the "Last time" table used to resolve this separately: the
+ * prefill fell back to the slot's unscoped key and then to a name lookup, the
+ * table read the scoped key and stopped. On a lift's first outing in a new
+ * slot that produced a screen saying both things at once — a table reading
+ * "first time on this exercise" above a weight badged "LAST TIME · 27.8."
+ * (#bugs 2026-08-29). Two readers of one fact is how they drift; there is one
+ * reader now.
+ */
+export function resolveLastTimeEntry(query: LastTimeQuery): ResolvedLastTime | null {
+  // The scoped key is this day's own history, and it is never gated: whatever
+  // reps were done here last time, they were done HERE.
+  const scoped = selectLatestUsableEntry(query.slotHistory?.[query.slotId]);
+  if (scoped) {
+    return { entry: scoped, borrowed: false };
+  }
+
+  const legacy = selectLegacySlotEntry(query.slotHistory, query.templateSlotId, query.repWindow);
+  if (legacy) {
+    return { entry: legacy, borrowed: false };
+  }
+
+  const borrowed = findLatestEntryForExerciseName(query.slotHistory, query.exerciseName, {
+    requireLoaded: query.requireLoaded,
+    repWindow: query.repWindow,
+  });
+  return borrowed ? { entry: borrowed, borrowed: true } : null;
+}
+
+/**
+ * The unscoped key an older install wrote under — and why it is gated.
+ *
+ * Before slot ids carried the day (`<template>:<session>:<slot>`), every day
+ * that used a slot wrote to the same key. So a lift the reader does twice a
+ * week, heavy on one day and light on the other, has BOTH days in there under
+ * one id — which is the reported bug's own shape, sitting in the fallback that
+ * was meant to rescue old installs. It is shared history, so it answers to the
+ * prescription exactly like a borrow from another programme does.
+ */
+export function selectLegacySlotEntry(
+  slotHistory: Record<string, WorkoutSlotHistoryEntry[]>,
+  templateSlotId: string | null | undefined,
+  repWindow: RepWindow | null | undefined,
+): WorkoutSlotHistoryEntry | null {
+  if (!templateSlotId) {
+    return null;
+  }
+  const latest = selectLatestUsableEntry(slotHistory?.[templateSlotId]);
+  if (!latest || !entryMatchesRepWindow(latest, repWindow)) {
+    return null;
+  }
+  return latest;
 }

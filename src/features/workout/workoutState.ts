@@ -8,10 +8,16 @@ import {
 } from '../../lib/cardio';
 import { CardioActivityType } from '../../types/models';
 import { isUnloadedTrackingMode } from './workoutTypes';
-import { GuidedResumeAnchor, WorkoutTemplateExercise, WorkoutExerciseInsertInput, WorkoutExerciseInstance, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRestTimerState, WorkoutRuntimeTemplate, WorkoutSessionMaterializeOptions, WorkoutSessionRuntime, WorkoutSessionSummary, WorkoutSetDraftInput, WorkoutSetEffort, WorkoutSetInstance, WorkoutSlotHistoryEntry, WorkoutSlotHistorySet, WorkoutStatus, WorkoutUiState, WorkoutExerciseStatus } from './workoutTypes';
+import { GuidedResumeAnchor, WorkoutTrackingMode, WorkoutTemplateExercise, WorkoutExerciseInsertInput, WorkoutExerciseInstance, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRestTimerState, WorkoutRuntimeTemplate, WorkoutSessionMaterializeOptions, WorkoutSessionRuntime, WorkoutSessionSummary, WorkoutSetDraftInput, WorkoutSetEffort, WorkoutSetInstance, WorkoutSlotHistoryEntry, WorkoutSlotHistorySet, WorkoutStatus, WorkoutUiState, WorkoutExerciseStatus } from './workoutTypes';
 import { getWorkoutTemplateById } from './workoutCatalog';
 import { resolveProgressedLoadKg, resolveProgressedReps } from '../../lib/progressionGate';
-import { findHistoricalSetForIndex, findLatestEntryForExerciseName } from '../../lib/exerciseHistoryLookup';
+import {
+  findHistoricalSetForIndex,
+  findLatestEntryForExerciseName,
+  RepWindow,
+  selectLatestUsableEntry,
+  selectLegacySlotEntry,
+} from '../../lib/exerciseHistoryLookup';
 
 export interface WorkoutFeatureState {
   hydrated: boolean;
@@ -151,28 +157,51 @@ function buildScopedSlotId(templateId: string, templateSessionId: string, slotId
   return `${templateId}:${templateSessionId}:${slotId}`;
 }
 
+/**
+ * This slot's history: its own scoped key, else the unscoped one an older
+ * install wrote under.
+ *
+ * The scoped key is never gated — whatever was done here was done here. The
+ * unscoped one is, because before slot ids carried the day every day sharing a
+ * slot wrote to it, so it holds a heavy day and a light day under one id. Both
+ * readers of "last time" apply the same gate through `selectLegacySlotEntry`;
+ * the panel showing that shared history while the dial refused to prefill from
+ * it is how these two came to contradict each other in the first place.
+ */
 function getHistoryEntries(
   history: WorkoutHistoryStore,
   slotId: string,
   templateSlotId?: string,
+  legacyRepWindow?: RepWindow | null,
 ) {
   const scopedEntries = history.slotHistory[slotId] ?? [];
-  if (scopedEntries.length > 0 || !templateSlotId) {
+  // Something real under the scoped key: that is the answer. A key holding
+  // only skipped days is not — it says the lift did not happen here.
+  if (selectLatestUsableEntry(scopedEntries) || !templateSlotId) {
     return scopedEntries;
   }
 
-  return history.slotHistory[templateSlotId] ?? [];
+  const legacy = selectLegacySlotEntry(history.slotHistory, templateSlotId, legacyRepWindow);
+  return legacy ? history.slotHistory[templateSlotId] ?? [] : scopedEntries;
 }
 
 export function getHistoryEntriesForExercise(
   history: WorkoutHistoryStore,
-  exercise: Pick<WorkoutExerciseInstance, 'slotId' | 'templateSlotId'> | null | undefined,
+  exercise:
+    | Pick<WorkoutExerciseInstance, 'slotId' | 'templateSlotId' | 'trackingMode' | 'sets'>
+    | null
+    | undefined,
 ) {
   if (!exercise) {
     return [];
   }
 
-  return getHistoryEntries(history, exercise.slotId, exercise.templateSlotId);
+  return getHistoryEntries(
+    history,
+    exercise.slotId,
+    exercise.templateSlotId,
+    resolveInstanceBorrowRepWindow(exercise),
+  );
 }
 
 /**
@@ -209,6 +238,48 @@ interface ResolvedSetDraft {
  * `autoProgressedFromKg` stays undefined here, which is what keeps the AUTO
  * badge off a weight the gate did not choose.
  */
+/**
+ * The prescription a borrowed weight has to match, or null when it does not
+ * have to match one.
+ *
+ * Exported so the set screen's "Last time" panel gates its lookup identically
+ * — the two must resolve the same entry or the screen contradicts itself.
+ */
+export function resolveBorrowRepWindow(exercise: {
+  trackingMode: WorkoutTrackingMode;
+  repsMin: number;
+  repsMax: number;
+}): RepWindow | null {
+  if (isUnloadedTrackingMode(exercise.trackingMode)) {
+    return null;
+  }
+  if (!Number.isFinite(exercise.repsMin) || !Number.isFinite(exercise.repsMax)) {
+    return null;
+  }
+  return { min: exercise.repsMin, max: exercise.repsMax };
+}
+
+/**
+ * The same window, read off a live session's exercise rather than a template.
+ *
+ * A running set carries its prescription per set (`plannedRepsMin/Max`), so
+ * the first set speaks for the exercise — they are materialized from one
+ * template row.
+ */
+export function resolveInstanceBorrowRepWindow(
+  exercise: Pick<WorkoutExerciseInstance, 'trackingMode' | 'sets'>,
+): RepWindow | null {
+  const first = exercise.sets[0];
+  if (!first) {
+    return null;
+  }
+  return resolveBorrowRepWindow({
+    trackingMode: exercise.trackingMode,
+    repsMin: first.plannedRepsMin,
+    repsMax: first.plannedRepsMax,
+  });
+}
+
 function resolveNamedHistoryDraft(
   history: WorkoutHistoryStore,
   setIndex: number,
@@ -231,6 +302,11 @@ function resolveNamedHistoryDraft(
     // 0 kg is a real answer for bodyweight work and a missing one for a loaded
     // lift — the guided player used to hide the weight field, so zeroes exist.
     requireLoaded: !isUnloadedTrackingMode(exercise.trackingMode),
+    // And the reps have to be in the same neighbourhood, or the weight is not
+    // an answer to what this slot is asking. Only for loaded lifts: there is
+    // no load to get wrong on bodyweight work, and refusing the borrow there
+    // would hide a real "last time" for nothing.
+    repWindow: resolveBorrowRepWindow(exercise),
   });
   const matched = findHistoricalSetForIndex(entry, setIndex);
   if (!entry || !matched) {
@@ -261,15 +337,18 @@ function resolveHistoricalSetDraft(
   exercise: WorkoutTemplateExercise,
   options: WorkoutSessionMaterializeOptions,
 ): ResolvedSetDraft {
-  const entries = getHistoryEntries(history, slotId, templateSlotId);
-  const latest = entries[0];
+  const entries = getHistoryEntries(history, slotId, templateSlotId, resolveBorrowRepWindow(exercise));
+  // The newest session that actually logged something, through the same
+  // selector the "Last time" panel uses — reading `entries[0]` here and
+  // sorting there is how the two came to disagree.
+  const latest = selectLatestUsableEntry(entries);
   const matched = findHistoricalSetForIndex(latest, setIndex);
 
   if (!matched) {
     // This slot has been trained before, this set index just was not reached
     // (a template that added a set). Unchanged: the slot is the better source
     // and it has nothing for this index.
-    if (entries.length > 0) {
+    if (latest) {
       return {
         draftLoadText: '',
         draftRepsText: '',
@@ -1240,6 +1319,9 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       // the badge must not say it did.
       const swappedInEntry = findLatestEntryForExerciseName(state.history.slotHistory, action.payload.exerciseName, {
         requireLoaded: !isUnloadedTrackingMode(exercise.trackingMode),
+        // Same gate as the session's own prefill: the swapped-in lift's weight
+        // only carries over from sessions run at reps this slot is asking for.
+        repWindow: resolveInstanceBorrowRepWindow(exercise),
       });
       // Sets logged before this moment were a different lift. Clearing their
       // drafts is not enough on its own: the logger also carries forward from
@@ -1559,7 +1641,7 @@ export function selectWorkoutSummary(state: WorkoutFeatureState) {
 
 export function selectProgressionHint(state: WorkoutFeatureState, slotId: string) {
   const exercise = state.activeSession?.exercises.find((item) => item.slotId === slotId);
-  const history = exercise ? getHistoryEntries(state.history, slotId, exercise.templateSlotId)[0] : null;
+  const history = exercise ? getHistoryEntriesForExercise(state.history, exercise)[0] : null;
   if (!exercise || !history) {
     return null;
   }

@@ -46,7 +46,7 @@ export interface HomeScreensDeps {
   cardioSaving: boolean;
   setCardioSaving: (saving: boolean) => void;
   saveCardioSession: (input: Parameters<CardioScreenProps['onSaveCardioSession']>[0]) => Promise<unknown>;
-  navigateToActiveWorkout: (message?: string) => boolean;
+  navigateToActiveWorkout: (options?: { message?: string; resume?: boolean }) => boolean;
   setFinishSaveState: (value: {
     status: 'idle' | 'saving' | 'error';
     sessionId: string | null;
@@ -183,7 +183,8 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
         hasActiveStrengthSession={Boolean(workout.activeSession)}
         isSaving={cardioSaving}
         onResumeStrengthSession={() => {
-          navigateToActiveWorkout();
+          // The button says resume, so it resumes: straight to the set.
+          navigateToActiveWorkout({ resume: true });
         }}
         onDiscardStrengthSession={() => {
           workout.discardWorkout();

@@ -23,6 +23,7 @@ const {
   resolveGuidedSetTarget,
   getGuidedStepPlanKey,
   resolveGuidedResumeIndex,
+  resolveGuidedOpening,
   getGuidedSkipTargetIndex,
   getGuidedBackTargetIndex,
   getGuidedSessionTitle,
@@ -647,6 +648,88 @@ module.exports = [
       assert.equal(resolveGuidedResumeIndex(steps, 3, isDone), 3);
       // Clamps overshoot.
       assert.equal(resolveGuidedResumeIndex(steps, 99, isDone), steps.length - 1);
+    },
+  },
+  {
+    /**
+     * #bugs 2026-08-29: "menin vahingossa home, sitte jatka treeniä, ja en
+     * tajunnut että minun piti sen jälkeen painaa ylhäältä jatka treeniä
+     * mutta painoin alhaalla olevaa aloita treeni niin aloitin sitten uuden".
+     *
+     * Home's button said continue, the screen behind it opened on the
+     * overview, and the biggest button there offered to start.
+     */
+    name: 'opening: asking to resume skips the overview, and the pinned button follows',
+    run() {
+      const { steps } = buildPlan();
+      const aDone = (slotId) => slotId === 'a';
+      const fresh = () => false;
+
+      // Pressed "resume" with progress: straight onto the step, no overview.
+      const resumed = resolveGuidedOpening({
+        steps,
+        storedIndex: null,
+        isSetCompleted: aDone,
+        autoResume: true,
+      });
+      assert.equal(resumed.mode, 'player');
+      assert.equal(resumed.stepIndex, 12);
+      assert.equal(resumed.resumeIndex, 12);
+      assert.equal(resumed.primaryAction, 'resume');
+
+      // Opened the session any other way: the overview, with its pinned
+      // button pointing at the resume rather than at step 0.
+      const browsed = resolveGuidedOpening({
+        steps,
+        storedIndex: null,
+        isSetCompleted: aDone,
+        autoResume: false,
+      });
+      assert.equal(browsed.mode, 'entry');
+      assert.equal(browsed.stepIndex, 0);
+      assert.equal(browsed.resumeIndex, 12);
+      assert.equal(browsed.primaryAction, 'resume');
+
+      // Nothing logged yet: there is nothing to continue, so "start" is the
+      // honest label and the overview is the right screen — even when the
+      // caller asked to resume.
+      const untouched = resolveGuidedOpening({
+        steps,
+        storedIndex: null,
+        isSetCompleted: fresh,
+        autoResume: true,
+      });
+      assert.equal(untouched.mode, 'entry');
+      assert.equal(untouched.stepIndex, 0);
+      assert.equal(untouched.primaryAction, 'start');
+    },
+  },
+  {
+    name: 'opening: a finished session is not something to resume into',
+    run() {
+      const { steps } = buildPlan();
+      const allDone = () => true;
+      // Everything logged lands on the cooldown splash, which is a real step —
+      // still a resume. The finish screen is not.
+      const cooldown = resolveGuidedOpening({
+        steps,
+        storedIndex: null,
+        isSetCompleted: allDone,
+        autoResume: true,
+      });
+      assert.equal(cooldown.resumeIndex, 16);
+      assert.equal(cooldown.primaryAction, 'resume');
+
+      const atFinish = resolveGuidedOpening({
+        steps,
+        storedIndex: steps.length - 1,
+        isSetCompleted: allDone,
+        autoResume: true,
+      });
+      assert.equal(steps[steps.length - 1].type, 'finish');
+      assert.equal(atFinish.primaryAction, 'start');
+      assert.equal(atFinish.mode, 'entry');
+      assert.equal(atFinish.stepIndex, 0);
     },
   },
   {

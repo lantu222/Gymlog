@@ -38,6 +38,13 @@ export interface SetPanelHistory {
   /** ISO timestamp of the session those sets were logged in. */
   performedAt: string;
   sets: SetPanelSet[];
+  /**
+   * These sets were done under a different slot — another day of the
+   * programme, another programme, an empty workout. Shown, because the weight
+   * on the dial comes from here too, but labelled: "last time" on this slot
+   * and "last time anywhere" are different claims.
+   */
+  borrowed?: boolean;
 }
 
 interface SetPanelsProps {
@@ -309,7 +316,7 @@ function HistoryPanel({
   return (
     <View style={styles.panel}>
       <PanelHead
-        title={t(language, 'panels.last.title')}
+        title={t(language, history.borrowed ? 'panels.last.titleBorrowed' : 'panels.last.title')}
         right={formatSessionDate(history.performedAt, language)}
         styles={styles}
       />
