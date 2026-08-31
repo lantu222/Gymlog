@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -76,6 +76,14 @@ interface ProgramDetailScreenProps {
   onStartSession: (sessionId: string) => void;
   /** The day row's destination — the day view (design screen 2). */
   onOpenSession?: (sessionId: string) => void;
+  /**
+   * Drop a day where the finger let go — the whole journey as ONE write.
+   *
+   * Undefined leaves the list fixed, which is what a catalog programme gets:
+   * reordering one would mean copying it, and nobody asks for a copy by
+   * dragging.
+   */
+  onReorderSession?: (sessionId: string, toIndex: number) => void;
   /** The catalog's declared block length. Null for a programme with none. */
   programBlockWeeks?: number | null;
   /** Monday-first indexes the plan currently trains on, when it names days. */
@@ -162,6 +170,7 @@ export function ProgramDetailScreen({
   onStartSession,
   onPrimaryAction,
   onOpenSession,
+  onReorderSession,
   programBlockWeeks = null,
   trainingDayIndexes = null,
   onSaveRhythm,
@@ -186,6 +195,50 @@ export function ProgramDetailScreen({
   const styles = useThemedStyles(makeStyles);
   // The programme's own colour, the same one its browse cover wears.
   const [emphasisSheetVisible, setEmphasisSheetVisible] = useState(false);
+
+  /**
+   * Dragging a day, identical to dragging a lift (user 2026-08-31: "tee
+   * identtinen systeemi kun siellä missä treenejä voi vaihtaa").
+   *
+   * Raw responder handlers on the grip rather than a gesture library, heights
+   * measured with onLayout rather than guessed, and the ScrollView frozen for
+   * the drag's duration — two vertical gestures cannot share one finger.
+   */
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragTarget, setDragTarget] = useState<number | null>(null);
+  const dragY = useRef(new Animated.Value(0)).current;
+  const dragStartPageY = useRef(0);
+  const rowHeights = useRef<number[]>([]);
+
+  const dragTargetFor = (from: number, dy: number) => {
+    const heights = rowHeights.current;
+    let target = from;
+    let remaining = Math.abs(dy);
+    const step = dy > 0 ? 1 : -1;
+    for (let next = from + step; next >= 0 && next < program.sessions.length; next += step) {
+      const height = heights[next] ?? 0;
+      if (height === 0 || remaining < height / 2) {
+        break;
+      }
+      remaining -= height;
+      target = next;
+    }
+    return target;
+  };
+
+  const endDrag = (commit: boolean) => {
+    const from = dragIndex;
+    const to = dragTarget;
+    setDragIndex(null);
+    setDragTarget(null);
+    dragY.setValue(0);
+    if (commit && from !== null && to !== null && to !== from) {
+      const session = program.sessions[from];
+      if (session) {
+        onReorderSession?.(session.id, to);
+      }
+    }
+  };
   // Flat, in a fixed order: the sheet returns set counts by index, so this
   // list is the contract between the two.
   const emphasisRows = useMemo(
@@ -475,7 +528,11 @@ export function ProgramDetailScreen({
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        scrollEnabled={dragIndex === null}
+        showsVerticalScrollIndicator={false}
+      >
         {/*
           Title first, numbers under it, nothing painted.
 
@@ -691,17 +748,10 @@ export function ProgramDetailScreen({
             ))}
           </View>
         ) : null}
-        {trainingCycle ? (
-          /* The honest sentence about a rhythm that ignores weekdays. */
-          <Text style={styles.rhythmHint}>
-            {t(language, 'detail.week.cycleStatus', {
-              length: trainingCycle.pattern.length,
-              // The same number the header shows, from the same arithmetic —
-              // computing it twice is how they end up disagreeing.
-              perWeek: formatTrainingDays(weekLoad.daysPerWeek),
-            })}
-          </Text>
-        ) : rhythmIncomplete ? (
+        {/* The cycle's own sentence used to sit here, restating a period the
+            chips above already draw and a rate the header already prints
+            (user 2026-08-31). */}
+        {rhythmIncomplete ? (
           /* Both directions. The copy assumed a day had been removed, so
              adding one first read "Valitse viela -1 paiva". */
           <Text style={styles.rhythmHint}>
@@ -715,20 +765,27 @@ export function ProgramDetailScreen({
           </Text>
         ) : null}
 
-        {/* The one thing a reader comes to a programme page to do.
+        {/* The one thing a reader comes to an UNADOPTED programme page to do.
             It used to live in a footer pinned to the bottom of the screen,
             where the floating tab bar covered it completely: the button was
             rendered, and all you could see of it was a violet sliver above the
             nav pill. Here it sits in the flow, right after the week it
-            describes, and nothing can be painted on top of it. */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={program.primaryActionLabel}
-          onPress={onPrimaryAction}
-          style={({ pressed }) => [styles.adoptButton, pressed && { opacity: 0.9 }]}
-        >
-          <Text style={styles.adoptButtonText}>{program.primaryActionLabel}</Text>
-        </Pressable>
+            describes, and nothing can be painted on top of it.
+
+            On the programme already running it said "Start next workout", and
+            that does not belong here (user 2026-08-31): this page is what the
+            programme IS, Home is where today's session is started, and the day
+            rows below open the exact session a reader wants instead. */}
+        {activePlanSummary ? null : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={program.primaryActionLabel}
+            onPress={onPrimaryAction}
+            style={({ pressed }) => [styles.adoptButton, pressed && { opacity: 0.9 }]}
+          >
+            <Text style={styles.adoptButtonText}>{program.primaryActionLabel}</Text>
+          </Pressable>
+        )}
 
         {emphasis ? (
           <>
@@ -785,13 +842,69 @@ export function ProgramDetailScreen({
             its quick Aloita, because starting today's session is the most
             common thing done here. */}
         <View style={styles.workoutList}>
-          {program.sessions.map((session, index) => (
-            <Pressable
+          {program.sessions.map((session, index) => {
+            const dragging = dragIndex === index;
+            // While a row travels, the rows between it and its target make
+            // room by exactly its height — the drop is previewed, not
+            // imagined.
+            const shift =
+              dragIndex !== null && dragTarget !== null && !dragging
+                ? dragIndex < index && index <= dragTarget
+                  ? -(rowHeights.current[dragIndex] ?? 0)
+                  : dragTarget <= index && index < dragIndex
+                    ? (rowHeights.current[dragIndex] ?? 0)
+                    : 0
+                : 0;
+            return (
+            <Animated.View
               key={session.id}
+              onLayout={(event) => {
+                rowHeights.current[index] = event.nativeEvent.layout.height;
+              }}
+              style={[
+                shift !== 0 && { transform: [{ translateY: shift }] },
+                dragging && [styles.workoutCardLift, { transform: [{ translateY: dragY }] }],
+              ]}
+            >
+            <Pressable
               onPress={() => (onOpenSession ?? onStartSession)(session.id)}
               style={({ pressed }) => [styles.workoutCard, pressed && styles.workoutCardPressed]}
             >
               <View style={styles.workoutTopRow}>
+                {onReorderSession && program.sessions.length > 1 ? (
+                  <View
+                    accessibilityRole="button"
+                    accessibilityLabel={t(language, 'detail.day.dragHandle', {
+                      name: formatPlanSessionTitle(session, index, displayTitle, language),
+                    })}
+                    onStartShouldSetResponder={() => true}
+                    onResponderTerminationRequest={() => false}
+                    onResponderGrant={(event) => {
+                      dragStartPageY.current = event.nativeEvent.pageY;
+                      dragY.setValue(0);
+                      setDragIndex(index);
+                      setDragTarget(index);
+                    }}
+                    onResponderMove={(event) => {
+                      const dy = event.nativeEvent.pageY - dragStartPageY.current;
+                      dragY.setValue(dy);
+                      const target = dragTargetFor(index, dy);
+                      setDragTarget((current) => (current === target ? current : target));
+                    }}
+                    onResponderRelease={() => endDrag(true)}
+                    onResponderTerminate={() => endDrag(false)}
+                    style={styles.workoutDragHandle}
+                  >
+                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="M3 9h18M3 15h18"
+                        stroke={theme.faint}
+                        strokeWidth={2.2}
+                        strokeLinecap="round"
+                      />
+                    </Svg>
+                  </View>
+                ) : null}
                 {/* No index tile: the row's own title already says "Päivä 1",
                     so the big numeral was the same fact twice, at the size of
                     the more important one. */}
@@ -826,7 +939,9 @@ export function ProgramDetailScreen({
                 </Svg>
               </View>
             </Pressable>
-          ))}
+            </Animated.View>
+            );
+          })}
         </View>
 
         {/* "Tee tästä oma versio" stood here. It asked the reader to
@@ -1264,6 +1379,21 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.surface,
     padding: spacing.md,
     gap: spacing.sm,
+  },
+  // Wide enough for a thumb, and the row's only place a drag may start —
+  // anywhere else on the card is the tap that opens the day.
+  workoutDragHandle: {
+    width: 34,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: -6,
+    marginRight: 2,
+  },
+  // The travelling row rides above the ones making room for it.
+  workoutCardLift: {
+    zIndex: 5,
+    elevation: 5,
   },
   workoutCardPressed: {
     transform: [{ scale: 0.985 }],

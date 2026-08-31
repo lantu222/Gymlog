@@ -104,6 +104,11 @@ export interface WorkoutTabDeps {
       | { kind: 'prescribe'; prescription: ProgramPrescription }
       | { kind: 'reorder'; toIndex: number },
   ) => Promise<void>;
+  handleReorderProgramSession: (
+    workoutTemplateId: string,
+    sessionId: string,
+    toIndex: number,
+  ) => Promise<void>;
   handleSaveRhythm: (workoutTemplateId: string, dayIndexes: number[]) => Promise<void>;
   handleSaveEmphasis: (
     workoutTemplateId: string,
@@ -186,6 +191,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     handleAdoptCustomProgram,
     handleStartCustomProgramSession,
     editProgramExercise,
+    handleReorderProgramSession,
     handleSaveRhythm,
     handleSaveEmphasis,
     handleDeleteCustomWorkout,
@@ -399,6 +405,14 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           database.workoutPlans.find((plan) => plan.entries[0]?.workoutTemplateId === route.workoutTemplateId)
             ?.entries ?? [],
         )}
+        // Custom only: reordering a catalog programme would mean copying it,
+        // and nobody asks for a copy by dragging.
+        onReorderSession={
+          route.programType === 'custom'
+            ? (sessionId, toIndex) =>
+                void handleReorderProgramSession(route.workoutTemplateId, sessionId, toIndex)
+            : undefined
+        }
         onSaveRhythm={
           database.workoutPlans.some((plan) => plan.entries[0]?.workoutTemplateId === route.workoutTemplateId)
             ? (dayIndexes) => void handleSaveRhythm(route.workoutTemplateId, dayIndexes)

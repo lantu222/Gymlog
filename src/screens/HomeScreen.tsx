@@ -1345,7 +1345,7 @@ export function HomeScreen({
                       <View style={styles.planExerciseSwap}>
                         <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
                           <Path
-                            d="M7 8h10M7 8l3-3M7 8l3 3M17 16H7m10 0-3-3m3 3-3 3"
+                            d="M4 8h13l-3.5-3.5M20 16H7l3.5 3.5"
                             // Orange, because it is pressable; violet only
                             // once a swap is in force, because that is state
                             // (the kit's colour rule, frame 03).

@@ -128,6 +128,7 @@ import {
   applyProgramSessionEdit,
   ProgramPrescription,
 } from './src/lib/programSessionEdit';
+import { reorderProgramSessions } from './src/lib/programSessionOrder';
 import { ProgramLimitReachedError } from './src/lib/programSlots';
 import {
   ProgramSeason,
@@ -1932,6 +1933,46 @@ function VinhaApp() {
         })),
       })),
     }));
+  }
+
+  /**
+   * Move a whole day inside the programme (user 2026-08-31).
+   *
+   * The rotation reads the session list positionally, so this is the edit that
+   * decides which session lands on which weekday - the same list the day rows
+   * print in. Custom programmes only: reordering a catalog programme would
+   * mean copying it, and the reader has not asked for a copy by dragging.
+   */
+  async function handleReorderProgramSession(
+    workoutTemplateId: string,
+    sessionId: string,
+    toIndex: number,
+  ) {
+    await editWorkoutTemplateSessions(workoutTemplateId, (sessions) => {
+      const result = reorderProgramSessions(sessions, sessionId, toIndex);
+      if (result.kind === 'skip') {
+        return { kind: 'skip', reason: result.reason };
+      }
+      return {
+        kind: 'save',
+        // Position in this array is the stored order; every other field is
+        // copied because upsert replaces the record.
+        sessions: result.sessions.map((session) => ({
+          id: session.id,
+          name: session.name,
+          exercises: session.exercises.map((exercise) => ({
+            id: exercise.id,
+            name: exercise.name,
+            targetSets: exercise.targetSets,
+            repMin: exercise.repMin,
+            repMax: exercise.repMax,
+            restSeconds: exercise.restSeconds,
+            trackedDefault: exercise.trackedDefault,
+            libraryItemId: exercise.libraryItemId ?? null,
+          })),
+        })),
+      };
+    });
   }
 
   /**
@@ -5186,6 +5227,7 @@ function VinhaApp() {
       handleStartCustomProgramSession,
       editProgramExercise: handleEditProgramExercise,
       handleSaveRhythm,
+      handleReorderProgramSession,
       handleSaveEmphasis,
       handleDeleteCustomWorkout,
       sessionSwaps,

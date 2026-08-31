@@ -297,8 +297,17 @@ export function formatPlanSessionTitle(
     return `${t(language, 'detail.day', { index: index + 1 })}. ${t(language, 'ai.signal.workout')}`;
   }
 
-  if (/^day\s+\d+/i.test(sessionName)) {
-    return localizeSessionName(sessionName, language);
+  // A stored "Day 3: Upper" keeps its words and loses its number.
+  //
+  // The number is a POSITION, and since 2026-08-31 the reader can drag days
+  // into any order they like — so a name that carries its own numeral will
+  // disagree with where the row actually sits the first time one is moved.
+  // Passing it through unchanged printed "Day 2, Day 3, Day 1" down the list.
+  const storedDayPrefix = /^day\s+\d+\s*[.:–-]?\s*/i;
+  if (storedDayPrefix.test(sessionName)) {
+    const rest = sessionName.replace(storedDayPrefix, '').trim();
+    const label = t(language, 'detail.day', { index: index + 1 });
+    return rest ? `${label}. ${localizeSessionName(rest, language)}` : label;
   }
 
   return `${t(language, 'detail.day', { index: index + 1 })}. ${localizeSessionName(sessionName, language)}`;

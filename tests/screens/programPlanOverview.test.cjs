@@ -443,4 +443,43 @@ module.exports = [
       );
     },
   },
+  {
+    /**
+     * A day is dragged exactly like a lift.
+     *
+     * The exercises inside a day have been draggable since frame 05; the days
+     * themselves were fixed in creation order (user 2026-08-31: "tee
+     * identtinen systeemi kun siellä missä treenejä voi vaihtaa"). Same
+     * contract, so the same three things are pinned: heights measured rather
+     * than guessed, the scroll frozen for the drag, and the drop written once
+     * with its destination.
+     */
+    name: 'the day rows are dragged with the same machinery the lifts use',
+    run() {
+      assert.match(programDetailSource, /rowHeights\.current\[index\] = event\.nativeEvent\.layout\.height/);
+      assert.match(programDetailSource, /scrollEnabled=\{dragIndex === null\}/);
+      assert.match(programDetailSource, /onReorderSession\?\.\(session\.id, to\)/);
+      // Only when there is an order to change, and only on a programme the
+      // reader owns — dragging must never buy them a copy.
+      assert.match(programDetailSource, /onReorderSession && program\.sessions\.length > 1/);
+      assert.match(appSource, /route\.programType === 'custom'[\s\S]{0,160}handleReorderProgramSession/);
+    },
+  },
+  {
+    /**
+     * The programme page stopped offering to start the workout.
+     *
+     * "Poistetaan ohjelman sisällä oleva start next workout — ei kuulu tänne"
+     * (user 2026-08-31). The adopt button stays for a programme the reader
+     * has NOT taken up: that is the one thing this page exists to offer.
+     */
+    name: 'the running programme offers no start button, and an unadopted one still does',
+    run() {
+      assert.match(programDetailSource, /\{activePlanSummary \? null : \(/);
+      assert.match(programDetailSource, /program\.primaryActionLabel/);
+      // The cycle's own sentence went with it — the chips draw the week and
+      // the header prints the rate.
+      assert.doesNotMatch(programDetailSource, /detail\.week\.cycleStatus/);
+    },
+  },
 ];
