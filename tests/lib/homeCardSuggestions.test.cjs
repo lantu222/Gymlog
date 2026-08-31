@@ -59,4 +59,42 @@ module.exports = [
       assert.deepEqual(suggestHomeStatCardKeys({ ...base, goals: [null] }), []);
     },
   },
+  {
+    /**
+     * Every area the reader named gets an offer, not just the first.
+     *
+     * Home showed one suggestion at a time, on the reasoning that a stack of
+     * offers is a to-do list nobody asked for. The reader picked back,
+     * glutes, hamstrings and abs, saw one card, and asked why only one of
+     * their four answers had been used (#bugs 2026-08-31) — an offer they
+     * never see reads as an answer that was thrown away.
+     */
+    name: 'the section offers every suggestion at once, not one at a time',
+    run() {
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const source = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'components', 'HomeStatCardsSection.tsx'),
+        'utf8',
+      );
+      // A list, and every member of it rendered.
+      assert.match(source, /const suggestions = useMemo\(/);
+      assert.match(source, /suggestions\.map\(\(suggestion, suggestionIndex\) => \(/);
+      // Not the old `.find` that kept the rest of them off the screen.
+      assert.doesNotMatch(source, /const suggestion = useMemo\(/);
+      // The identical sentence appears once: under every card it stops being
+      // an explanation and becomes wallpaper.
+      assert.match(source, /suggestionIndex === 0 \? \(/);
+      // And the suggester itself still hands over every area that has a tape.
+      assert.deepEqual(
+        suggestHomeStatCardKeys({
+          focusAreas: ['back', 'glutes', 'hamstrings', 'core'],
+          goals: [],
+          pinnedKeys: [],
+          dismissedKeys: [],
+        }),
+        ['back', 'hips', 'thighs', 'waist'],
+      );
+    },
+  },
 ];

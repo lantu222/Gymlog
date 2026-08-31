@@ -245,12 +245,23 @@ export function HomeStatCardsSection({
     onChangePinnedKeys(pinnedKeys.filter((pinned) => pinned !== key));
   };
 
-  // One at a time, in the order the suggester ranked them: a stack of offers
-  // is a to-do list nobody asked for.
-  const suggestion = useMemo(() => {
-    const key = suggestedKeys.find((candidate) => !pinnedKeys.includes(candidate));
-    return key ? cardByKey.get(key) ?? null : null;
-  }, [suggestedKeys, pinnedKeys, cardByKey]);
+  /**
+   * All of them, in the order the suggester ranked them (user 2026-08-31).
+   *
+   * This showed one at a time, on the reasoning that a stack of offers is a
+   * to-do list nobody asked for. The reader picked back, glutes, hamstrings
+   * and abs in onboarding, saw a single card, and asked why only one of their
+   * four answers had been used — which is the more expensive mistake: an
+   * offer they never see reads as an answer that was thrown away.
+   */
+  const suggestions = useMemo(
+    () =>
+      suggestedKeys
+        .filter((candidate) => !pinnedKeys.includes(candidate))
+        .map((key) => cardByKey.get(key))
+        .filter((card): card is HomeStatCard => card !== undefined),
+    [suggestedKeys, pinnedKeys, cardByKey],
+  );
 
   const addCard = (key: string) => {
     onChangePinnedKeys([...pinnedKeys, key]);
@@ -276,8 +287,8 @@ export function HomeStatCardsSection({
           cares about and what they train for, and then nothing used the
           answer; a Home that pinned cards on its own because of a form filled
           in weeks ago would be unpredictable rather than helpful. */}
-      {suggestion ? (
-        <View style={styles.suggestCard}>
+      {suggestions.map((suggestion, suggestionIndex) => (
+        <View key={suggestion.key} style={styles.suggestCard}>
           {/* Where the suggestion came from, before what it wants (design
               frame 14): a card that opens with its own provenance reads as
               the app remembering, not the app selling. The X is the same
@@ -312,9 +323,11 @@ export function HomeStatCardsSection({
             {/* Sentence first, sample after (user 2026-08-31). The preview sat
                 between the title and the sentence explaining it, so the copy
                 arrived in two halves either side of a box. */}
-            <Text style={styles.suggestBody}>
-              {t(language, suggestion.value !== null ? 'cards.suggest.body' : 'cards.suggest.bodyEmpty')}
-            </Text>
+            {suggestionIndex === 0 ? (
+              <Text style={styles.suggestBody}>
+                {t(language, suggestion.value !== null ? 'cards.suggest.body' : 'cards.suggest.bodyEmpty')}
+              </Text>
+            ) : null}
             {/* The card itself, not a description of it. "Lisää kortti" was a
                 promise; this is the sample — including the honest empty state,
                 which is the answer to "what would I actually get". */}
@@ -352,7 +365,7 @@ export function HomeStatCardsSection({
             </Pressable>
           </View>
         </View>
-      ) : null}
+      ))}
 
       <View style={styles.grid}>
         {pinnedCards.map((card, index) => (
