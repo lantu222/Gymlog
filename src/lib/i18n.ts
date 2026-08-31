@@ -249,6 +249,10 @@ const EN = {
   'startPath.ready.title': 'Pick a ready program',
   'startPath.ready.body': 'Browse the catalog and choose the program you want yourself.',
   'startPath.ready.a11y': 'Pick a ready program yourself from the catalog',
+  'startPath.or': 'OR',
+  'startPath.empty.title': 'Start with nothing',
+  'startPath.empty.body': 'Straight in, no programme on Home. Pick one from Programs, or build your own, whenever you want.',
+  'startPath.empty.a11y': 'Start with nothing: go straight in with no programme on Home',
 
   // ── About you (profile basics, first onboarding step) ──────────────────
   'aboutYou.title': "Let's start with you",
@@ -3591,6 +3595,10 @@ const FI: Record<I18nKey, string> = {
   'startPath.ready.title': 'Valitse valmis ohjelma',
   'startPath.ready.body': 'Selaa katalogia ja valitse sinulle sopivin ohjelma.',
   'startPath.ready.a11y': 'Valitse itse valmis ohjelma katalogista',
+  'startPath.or': 'TAI',
+  'startPath.empty.title': 'Aloita tyhjältä',
+  'startPath.empty.body': 'Suoraan sisään, ei ohjelmaa alkunäytöllä. Voit valita sellaisen Ohjelmat-välilehdeltä tai tehdä oman milloin haluat.',
+  'startPath.empty.a11y': 'Aloita tyhjältä: siirry suoraan sisään ilman ohjelmaa',
 
   'aboutYou.title': 'Aloitetaan sinusta',
   'aboutYou.sub': 'Lisää tietosi, niin räätälöimme ohjelmasi. Voit muuttaa kaiken myöhemmin.',

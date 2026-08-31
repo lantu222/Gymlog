@@ -5001,6 +5001,27 @@ function VinhaApp() {
             setOnboardingPath('build');
             setOnboardingStep('about');
           }}
+          /**
+           * In with nothing at all (user 2026-08-31).
+           *
+           * A reader who wants to look around before committing had to answer
+           * a questionnaire or adopt a programme first — the front door had no
+           * handle for "not yet". No plan, no template, no questionnaire:
+           * `setupCompleted` stays false, so Profile still offers to fill the
+           * profile in later, and Home shows its no-programme state rather
+           * than a plan nobody chose.
+           */
+          onStartEmpty={() => {
+            void completeOnboarding({
+              onboardingCompleted: true,
+              setupCompleted: false,
+              trainingFirstRunDismissed: false,
+              // The handoff's two offers are skipped too: they are the
+              // friction this path exists to escape, and both live in
+              // Settings for whenever the reader wants them.
+              setupHandoffCompleted: true,
+            }).then(() => navigate({ tab: 'home', screen: 'dashboard' }));
+          }}
           onBrowsePrograms={() => {
             // Straight to the catalog. This fork used to detour through the
             // About-you form first, which is the opposite of what the card

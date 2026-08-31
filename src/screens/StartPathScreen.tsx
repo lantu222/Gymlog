@@ -65,6 +65,13 @@ interface StartPathScreenProps {
   language?: AppLanguage;
   onGuidedOnboarding: () => void;
   onBrowsePrograms: () => void;
+  /**
+   * Into the app with no programme at all.
+   *
+   * Undefined hides the row entirely — it is an escape hatch from the front
+   * door, not a mode every caller of this screen should offer.
+   */
+  onStartEmpty?: () => void;
   onBack: () => void;
 }
 
@@ -157,6 +164,7 @@ export function StartPathScreen({
   language = 'en',
   onGuidedOnboarding,
   onBrowsePrograms,
+  onStartEmpty,
   onBack,
 }: StartPathScreenProps) {
   const styles = useThemedStyles(makeStyles);
@@ -184,6 +192,14 @@ export function StartPathScreen({
           accessibilityLabel={t(language, 'startPath.build.a11y')}
           onPress={() => setSelected('build')}
         />
+        {/* The two real answers are alternatives, not a list — the big OR
+            says so (user 2026-08-31). Stacked without it they read as steps,
+            and the second card looked like something you do after the first. */}
+        <View style={styles.orRow}>
+          <View style={styles.orRule} />
+          <Text style={[styles.orLabel, { fontFamily }]}>{t(language, 'startPath.or')}</Text>
+          <View style={styles.orRule} />
+        </View>
         <PathCard
           icon="grid"
           title={t(language, 'startPath.ready.title')}
@@ -194,6 +210,24 @@ export function StartPathScreen({
           onPress={() => setSelected('ready')}
         />
       </View>
+
+      {/* The way out (user 2026-08-31). A reader who wants to look around
+          before committing to anything had to answer a questionnaire or adopt
+          a programme first — the app's front door had no handle for "not yet".
+          Quieter than the two cards because it IS the lesser answer, and it
+          says what it costs rather than pretending it costs nothing: no
+          programme on Home, and where to get one when you want it. */}
+      {onStartEmpty ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t(language, 'startPath.empty.a11y')}
+          onPress={onStartEmpty}
+          style={({ pressed }) => [styles.emptyRow, pressed && styles.emptyRowPressed]}
+        >
+          <Text style={[styles.emptyTitle, { fontFamily }]}>{t(language, 'startPath.empty.title')}</Text>
+          <Text style={[styles.emptyBody, { fontFamily }]}>{t(language, 'startPath.empty.body')}</Text>
+        </Pressable>
+      ) : null}
 
       <View style={styles.footer}>
         <Pressable
@@ -223,6 +257,52 @@ const makeStyles = (theme: Theme) => {
     flex: 1,
     backgroundColor: theme.bg,
     paddingHorizontal: 24,
+  },
+  // A separator that says these are alternatives, not steps.
+  orRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 4,
+  },
+  orRule: {
+    flex: 1,
+    height: 1,
+    backgroundColor: C.border,
+  },
+  orLabel: {
+    color: C.soft,
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '800',
+    letterSpacing: 1.6,
+  },
+  // Not a card: a card here would be a third thing of equal weight, and this
+  // is the answer for someone who does not want to answer.
+  emptyRow: {
+    marginTop: 18,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: C.border,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    gap: 5,
+  },
+  emptyRowPressed: {
+    opacity: 0.75,
+  },
+  emptyTitle: {
+    color: C.ink,
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: '800',
+  },
+  emptyBody: {
+    color: C.soft,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
   },
   heading: {
     color: C.ink,
