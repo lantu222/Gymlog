@@ -4,9 +4,9 @@ import Svg, { Circle, Path, Polyline } from 'react-native-svg';
 
 import {
   formatHomeStatRecency,
-  groupHomeStatCards,
   formatHomeStatTrend,
   formatHomeStatValue,
+  groupHomeStatCards,
   HomeStatCard,
   HomeStatCardIcon,
 } from '../lib/homeStatCards';
