@@ -17,7 +17,7 @@ import { ProLockedCard } from '../components/ProLockedCard';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
 import { trackEvent } from '../features/analytics/analyticsClient';
 import { buildAiCoachPreviewAnswer } from '../lib/aiCoachPreview';
-import { FREE_COACH_QUESTIONS_PER_WEEK, coachQuotaReset } from '../lib/aiCoachQuota';
+import { PRO_COACH_QUESTIONS_PER_MONTH, coachQuotaReset } from '../lib/aiCoachQuota';
 import { formatShortDate } from '../lib/format';
 import { CoachChatIntroInput, CoachContextChip, buildCoachContextChips, buildCoachContextReadout, buildCoachNoticed, buildCoachOpeningLine, buildCoachOpeningOffer, buildCoachOpeningRows } from '../lib/coachChat';
 import { coachSmallTalkReplyKey, parseCoachSmallTalk } from '../lib/coachSmallTalk';
@@ -74,8 +74,30 @@ interface AICoachChatScreenProps {
   liveConfigured: boolean;
   onlineNoticeAcknowledged: boolean;
   onAcknowledgeOnlineNotice: () => void;
-  freeQuestionsRemaining: number;
-  onFreeQuestionUsed: () => void;
+  /** Questions left in this month. Meaningful only while proUnlocked. */
+  questionsRemaining: number;
+  onQuestionUsed: () => void;
+  /**
+   * A question the app is asking on the reader’s behalf, arriving from a
+   * coach demo moment. It is sent once, for real, and bypasses the quota:
+   * that is the whole point of the three moments a free reader gets.
+   */
+  demoQuestion?: string | null;
+  /** Which of the three it is. Held here because the route is cleared on send. */
+  demoMomentKey?: string | null;
+  /** Dispatched. Clears the hand-off; it does NOT mean an answer arrived. */
+  onDemoQuestionSent?: () => void;
+  /**
+   * An answer came back from the real model. THIS is what spends the moment.
+   *
+   * There are three per install and nothing ever returns one, so the thing
+   * that consumes one has to be the thing the reader was promised. A send
+   * that leaves is not it: the phone can be offline — this app is built to
+   * work that way — and the endpoint can fall back to its canned preview
+   * reply, which is the same deterministic text a free reader already gets
+   * for nothing.
+   */
+  onDemoQuestionAnswered?: (key: string) => void;
   trainingContext: AICoachTrainingContext;
   intro: CoachChatIntroInput;
   /** Total logged sessions, for the header line and the evidence footer. */
@@ -234,8 +256,12 @@ export function AICoachChatScreen({
   liveConfigured,
   onlineNoticeAcknowledged,
   onAcknowledgeOnlineNotice,
-  freeQuestionsRemaining,
-  onFreeQuestionUsed,
+  questionsRemaining,
+  onQuestionUsed,
+  demoQuestion = null,
+  demoMomentKey = null,
+  onDemoQuestionSent,
+  onDemoQuestionAnswered,
   trainingContext,
   intro,
   sessionCount,
@@ -375,8 +401,11 @@ export function AICoachChatScreen({
     return today ? `${read} · ${today}` : read;
   }, [chips, language, sessionCount]);
 
-  const canAsk = proUnlocked || freeQuestionsRemaining > 0;
-  const used = FREE_COACH_QUESTIONS_PER_WEEK - Math.max(0, freeQuestionsRemaining);
+  // A free reader never types their way to the model. What they get instead
+  // is the blurred local answer below — the real deterministic one, which
+  // costs nothing — plus three demo moments. The door stays open at a price
+  // the free tier can carry.
+  const canAsk = proUnlocked && questionsRemaining > 0;
   // Recomputed on every render rather than memoized: it is a date read from
   // the clock, and a chat left open across midnight would otherwise keep
   // counting from yesterday.
@@ -600,8 +629,24 @@ export function AICoachChatScreen({
     ],
   );
 
+  /**
+   * The demo moment's key, held past the hand-off that carried it.
+   *
+   * It arrives on the route and the route is cleared the instant the question
+   * is dispatched — otherwise a remount would fire it again. The answer comes
+   * back seconds later, by which time the prop is null, so the key that
+   * decides which of the three was spent has to survive here. Cleared once
+   * spent, so a second answer in the same session cannot spend it twice.
+   */
+  const demoMomentKeyRef = useRef<string | null>(null);
+
   const send = useCallback(
-    async (prompt: string) => {
+    /**
+     * `force` sends for real regardless of quota. Only a coach demo moment
+     * passes it: those three are the free tier’s whole allowance, already
+     * budgeted, and blurring one would make the offer a bluff.
+     */
+    async (prompt: string, force = false) => {
       const trimmed = prompt.trim();
       if (!trimmed || asking || mustAcknowledgeOnline) {
         // Nothing leaves the device until the online disclosure is answered.
@@ -651,7 +696,7 @@ export function AICoachChatScreen({
       // deterministic and costs nothing, so withholding it is a choice about
       // access, not about having something to say. Blurring a placeholder
       // instead would make the lock a bluff.
-      if (!canAsk) {
+      if (!canAsk && !force) {
         const withheld = buildAiCoachPreviewAnswer(trimmed, trainingContext, language);
         setMessages((current) => [
           ...current,
@@ -695,11 +740,31 @@ export function AICoachChatScreen({
         // Recovers on its own: the next answer that reaches the model clears
         // the badge, so it reports the present rather than a past outage.
         setAnsweredOffline(result.source === 'preview');
-        // Charged for an answer, not for a send. An answer that could only ask
-        // for a clearer question is free: three a week is too few to spend one
-        // on a chip the app itself offered and could not handle.
-        if (!proUnlocked && !answer.unanswered) {
-          onFreeQuestionUsed();
+        // Charged for an answer, not for a send, and only to the tier that
+        // has a counter. An answer that could only ask for a clearer question
+        // is free: 25 a month is too few to spend one on a chip the app
+        // itself offered and could not handle. A preview-sourced reply is
+        // free on the same rule as the demo charge below — it is the canned
+        // text, not the product the counter meters (PR #33 review).
+        if (proUnlocked && !answer.unanswered && result.source !== 'preview') {
+          onQuestionUsed();
+        }
+        // And the demo moment, on a different rule, because it meters a
+        // different thing. The counter above meters VALUE, so a reply that
+        // could only ask for a clearer question is forgiven. The moment
+        // meters COST: aiCoachQuota promises three real model calls per
+        // install, ever, and a clarifying reply is a real model call. Left
+        // unspent it re-offered on every completed session after it, each
+        // acceptance billing again past a cap whose word is "ever"
+        // (PR #33 review).
+        //
+        // A preview-sourced reply still does not count: nothing reached the
+        // model, and spending one of three on the deterministic text a free
+        // reader already has would make the offer a bluff at the one moment
+        // it is being tested.
+        if (force && result.source !== 'preview' && demoMomentKeyRef.current) {
+          onDemoQuestionAnswered?.(demoMomentKeyRef.current);
+          demoMomentKeyRef.current = null;
         }
         // Kept even when the answer was a follow-up question: without it the
         // reader's reply to that question would arrive with no antecedent,
@@ -840,8 +905,8 @@ export function AICoachChatScreen({
         // The request never landed, which is the plainest offline there is.
         setAnsweredOffline(true);
         // An upstream failure still knocked: the call was made and it costs.
-        if (!proUnlocked) {
-          onFreeQuestionUsed();
+        if (proUnlocked) {
+          onQuestionUsed();
         }
         setMessages((current) => [
           ...current,
@@ -858,7 +923,8 @@ export function AICoachChatScreen({
       canAsk,
       language,
       mustAcknowledgeOnline,
-      onFreeQuestionUsed,
+      onDemoQuestionAnswered,
+      onQuestionUsed,
       pinnedStatCardKeys,
       proUnlocked,
       sessionCount,
@@ -866,6 +932,29 @@ export function AICoachChatScreen({
       weighInReminderEnabled,
     ],
   );
+
+  /**
+   * The demo moment, sent once.
+   *
+   * The ref rather than a dependency on the prop: the parent clears the
+   * pending question as soon as this fires, and a re-render arriving before
+   * that clear must not send it a second time. One of three, spent twice,
+   * would be the most expensive off-by-one in the app.
+   */
+  const demoSent = useRef(false);
+  useEffect(() => {
+    // `asking` is checked here and not only inside send: send's own first
+    // guard returns on it, and returning after the hand-off had been cleared
+    // would leave the question dispatched by nobody. Waiting is right — the
+    // effect runs again when the request in flight finishes.
+    if (!demoQuestion || demoSent.current || mustAcknowledgeOnline || asking) {
+      return;
+    }
+    demoSent.current = true;
+    demoMomentKeyRef.current = demoMomentKey ?? null;
+    onDemoQuestionSent?.();
+    void send(demoQuestion, true);
+  }, [asking, demoMomentKey, demoQuestion, mustAcknowledgeOnline, onDemoQuestionSent, send]);
 
   return (
     <View style={styles.screen}>
@@ -1095,19 +1184,21 @@ export function AICoachChatScreen({
             </View>
           ) : null}
 
-          {!proUnlocked && freeQuestionsRemaining > 0 ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={onOpenPremium}
-              style={({ pressed }) => [styles.quotaRow, pressed && styles.pressed]}
-            >
+          {/* A count, and nothing to press. This row used to carry "More with
+              Pro →" and open the paywall — written when it was shown to free
+              readers, and left in place when the row became Pro-only. It then
+              sold an upgrade to someone who had already bought the only tier
+              there is: Lifetime includes the same 25 a month, so there is
+              nothing above this to reach. A dead end dressed as an offer is
+              worse on the paywall's own product than saying nothing. */}
+          {proUnlocked && questionsRemaining > 0 && questionsRemaining <= PRO_COACH_QUESTIONS_PER_MONTH / 5 ? (
+            <View style={styles.quotaRow}>
               <Text style={styles.quotaText}>
-                {freeQuestionsRemaining === 1
+                {questionsRemaining === 1
                   ? t(language, 'coachChat.quotaLeftOne')
-                  : t(language, 'coachChat.quotaLeft', { count: freeQuestionsRemaining })}
+                  : t(language, 'coachChat.quotaLeft', { count: questionsRemaining })}
               </Text>
-              <Text style={styles.quotaCta}>{t(language, 'coachChat.quotaUnlimited')}</Text>
-            </Pressable>
+            </View>
           ) : null}
         </ScrollView>
 
@@ -1130,7 +1221,7 @@ export function AICoachChatScreen({
           ))}
         </ScrollView>
 
-        {!canAsk ? (
+        {proUnlocked && !canAsk ? (
           <Text style={styles.resetNote}>
             {quotaReset.inDays === 1
               ? t(language, 'coachChat.quotaResetTomorrow')
@@ -1153,7 +1244,18 @@ export function AICoachChatScreen({
             <TextInput
               value={draft}
               onChangeText={setDraft}
-              placeholder={t(language, canAsk ? 'coachChat.placeholder' : 'coachChat.placeholderSpent')}
+              // Three states, not two. "0 left this week" was written for a
+              // free tier that had a weekly allowance; a free reader now has
+              // no counter at all, so telling them a count of zero describes a
+              // limit they were never inside.
+              placeholder={t(
+                language,
+                canAsk
+                  ? 'coachChat.placeholder'
+                  : proUnlocked
+                    ? 'coachChat.placeholderSpent'
+                    : 'coachChat.placeholderFree',
+              )}
               placeholderTextColor={theme.faint}
               selectionColor={theme.highlight}
               style={styles.input}
@@ -1612,11 +1714,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: theme.muted,
-  },
-  quotaCta: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: theme.purple,
   },
   quickAsksRail: {
     flexGrow: 0,

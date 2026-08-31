@@ -216,8 +216,20 @@ module.exports = [
       // nothing to claim.
       assert.equal(SUBSCRIPTION_TERMS.monthly.badgeKey, undefined);
 
-      // The same badge on the other surface that renders plans.
-      assert.match(read('src/screens/PremiumScreen.tsx'), /badgeKey: 'pro\.page\.bestValue'/);
+      // The Pro page states the same arithmetic, in the form v6 gives it: the
+      // lifetime tile carries no badge at all, and the payback is said in
+      // words under the price instead. The rule survives the change of shape —
+      // what the page claims about lifetime is a division anyone can redo, not
+      // a statement about how many people bought it.
+      const tiers = read('src/lib/proTiers.ts');
+      assert.match(tiers, /id: 'lifetime',[\s\S]{0,240}?subKey: 'pro\.v6\.sub\.lifetime'/);
+      const payback = read('src/lib/i18n.ts')
+        .split('\n')
+        .filter((line) => line.includes("'pro.v6.sub.lifetime':"));
+      assert.equal(payback.length, 2, 'needs both languages');
+      for (const line of payback) {
+        assert.match(line, /two years|kahden vuoden/, 'the lifetime claim must stay the arithmetic');
+      }
 
       const i18nSource = read('src/lib/i18n.ts');
       assert.equal(i18nSource.split("'pro.page.bestValue':").length - 1, 2, 'needs both languages');

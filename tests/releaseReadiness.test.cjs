@@ -114,7 +114,11 @@ module.exports = [
       // here too; the screen went unreachable when onboarding stopped ending
       // on it (d262ca1) and was deleted 2026-08-25. The Pro page is now the
       // one surface that can advertise a trial.
-      const advertisesTrial = /'pro\.v2\.cta'/.test(screen);
+      // v6 moved the CTA copy out of the screen and into the tier table, so
+      // reading only the screen would make this check pass by looking in the
+      // wrong file — a guard that silently stops guarding is the exact failure
+      // mode this suite exists to prevent.
+      const advertisesTrial = /'pro\.v2\.cta'/.test(screen + read('src/lib/proTiers.ts'));
       if (!advertisesTrial) {
         return;
       }
@@ -212,10 +216,26 @@ module.exports = [
       // onboarding paywall itself was deleted 2026-08-25 after going
       // unreachable, so the Pro page is the only CTA left to check.)
       if (!trialEnabled) {
+        // v6 chooses the CTA through resolveTierCtaKey. Both halves are
+        // checked, because either one alone can be true while the button still
+        // lies: the screen must hand it the REAL flag, and the resolver must
+        // be the only path to the trial wording.
         assert.match(
           read('src/screens/PremiumScreen.tsx'),
-          /PRO_TRIAL_ENABLED \? 'pro\.v2\.cta' : 'pro\.v2\.cta\.noTrial'/,
-          'The trial is off but the Pro page CTA does not switch copy, so it promises a week it will not grant.',
+          /resolveTierCtaKey\(tier, PRO_TRIAL_ENABLED\)/,
+          'The Pro page CTA no longer reads the trial flag, so it can promise a week it will not grant.',
+        );
+        assert.match(
+          read('src/lib/proTiers.ts'),
+          /trialEnabled && tier\.trialCtaKey \? tier\.trialCtaKey : tier\.ctaKey/,
+          'resolveTierCtaKey stopped gating the trial wording on the flag.',
+        );
+        // And the same for the line under the button, which is where the
+        // "then 59,90 €" promise actually lives.
+        assert.match(
+          read('src/screens/PremiumScreen.tsx'),
+          /resolveTierFineKey\(tier, activePlan\.id, PRO_TRIAL_ENABLED\)/,
+          'The fine print no longer reads the trial flag.',
         );
       }
     },

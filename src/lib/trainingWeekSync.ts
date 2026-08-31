@@ -73,6 +73,52 @@ export function planLabelsFromWeekdays(
 }
 
 /**
+ * Place the session that comes NEXT on the first training day not yet gone,
+ * and let the rest follow it in the programme's own order.
+ *
+ * Adoption is the case with `nextIndex` 0 — nothing is finished, so session
+ * one takes today or the next open day. Editing the week is the same question
+ * asked later: a reader who has done two of three sessions and then moves a
+ * day still expects session three next, on the next day they train. Writing
+ * the labels back in Monday-first order instead put session one on the
+ * earliest weekday, and Home then offered session three while stamping MON on
+ * it — the same contradiction adoption used to have, restored by an edit.
+ *
+ * The cyclic order of the days is never disturbed; only which session sits on
+ * which of them.
+ *
+ * Takes the days in any order. That is not politeness: "the first day that has
+ * not gone" is only findable against the week's own order, and reading it off
+ * whatever order the caller happened to hold is how this returns a confident
+ * wrong answer instead of an error. Given days already rotated once —
+ * sun, wed, fri — asked on a WEDNESDAY, a raw scan matches Sunday first
+ * (6 >= 2) and the function concludes there is nothing to move, on a day that
+ * is a training day. Every caller today passes ascending days, and one of them
+ * only does so because a screen sorts them on its way here.
+ */
+export function rotateLabelsForNextSession(
+  labels: readonly SetupWeekday[],
+  nextIndex: number,
+  from: Date,
+): SetupWeekday[] {
+  const count = labels.length;
+  if (count < 2) {
+    return [...labels];
+  }
+  const week = [...labels].sort((left, right) => WEEKDAY_INDEX[left] - WEEKDAY_INDEX[right]);
+  // getDay() is Sunday-first; every weekday index in this app is Monday-first.
+  const today = (from.getDay() + 6) % 7;
+  const upcoming = week.findIndex((label) => WEEKDAY_INDEX[label] >= today);
+  // No day left this week means the week wraps to its first day, which is
+  // what a week does.
+  const start = upcoming === -1 ? 0 : upcoming;
+  const target = Number.isFinite(nextIndex)
+    ? ((Math.round(nextIndex) % count) + count) % count
+    : 0;
+  return week.map((_, index) => week[(((start + index - target) % count) + count) % count]);
+}
+
+/**
  * The weekdays a programme should run on when it is taken into use.
  *
  * Adoption used to read the reader's availability and nothing else, falling
@@ -89,18 +135,19 @@ export function planLabelsFromWeekdays(
 export function planLabelsForProgramme(
   sessionCount: number,
   availableDays: readonly SetupWeekday[],
+  /** When the plan is being adopted. Omitted keeps the raw weekday order. */
+  from?: Date,
 ): SetupWeekday[] {
   const sessions = Math.max(1, Math.min(7, Math.round(sessionCount) || 1));
   const placed = planLabelsFromWeekdays(sessions, availableDays);
-  if (placed) {
-    return placed;
-  }
-  if (sessions === 1) {
-    // One session: the reader's first open day, or Monday.
-    return [availableDays[0] ?? 'mon'];
-  }
-  if (sessions === 7) {
-    return ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-  }
-  return [...DEFAULT_RHYTHM_BY_DAYS[sessions as 2 | 3 | 4 | 5 | 6]];
+  const labels = placed
+    ? placed
+    : sessions === 1
+      ? // One session: the reader's first open day, or Monday.
+        [availableDays[0] ?? 'mon']
+      : sessions === 7
+        ? (['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as SetupWeekday[])
+        : [...DEFAULT_RHYTHM_BY_DAYS[sessions as 2 | 3 | 4 | 5 | 6]];
+
+  return from ? rotateLabelsForNextSession(labels, 0, from) : labels;
 }

@@ -4,6 +4,7 @@ const {
   applyProgramSessionEdit,
   canStepProgramPrescription,
   stepProgramPrescription,
+  PROGRAM_REST_RANGE,
   PROGRAM_REPS_RANGE,
   PROGRAM_SETS_RANGE,
 } = require('../../.test-dist/lib/programSessionEdit');
@@ -100,24 +101,30 @@ module.exports = [
    * "Järjestyksen muutos täälläkin" (#bugs 2026-08-27).
    */
   {
-    name: 'a lift moves one place inside its own day',
+    name: 'a drag lands where it let go, as one edit',
     run() {
       const three = [
         { id: 'day_1', name: 'Glutes', exercises: [lift('e1', 'A'), lift('e2', 'B'), lift('e3', 'C')] },
       ];
-      const down = applyProgramSessionEdit(three, 'day_1', { kind: 'move', exerciseId: 'e1', direction: 'down' });
-      assert.deepEqual(down.sessions[0].exercises.map((exercise) => exercise.name), ['B', 'A', 'C']);
-      const up = applyProgramSessionEdit(three, 'day_1', { kind: 'move', exerciseId: 'e3', direction: 'up' });
+      // The whole journey in one write: top to bottom is one reorder, not
+      // two moves racing each other through the queue.
+      const down = applyProgramSessionEdit(three, 'day_1', { kind: 'reorder', exerciseId: 'e1', toIndex: 2 });
+      assert.deepEqual(down.sessions[0].exercises.map((exercise) => exercise.name), ['B', 'C', 'A']);
+      const up = applyProgramSessionEdit(three, 'day_1', { kind: 'reorder', exerciseId: 'e3', toIndex: 1 });
       assert.deepEqual(up.sessions[0].exercises.map((exercise) => exercise.name), ['A', 'C', 'B']);
+      // A finger that overshoots the list still means "last": the target is
+      // clamped, never refused.
+      const past = applyProgramSessionEdit(three, 'day_1', { kind: 'reorder', exerciseId: 'e1', toIndex: 99 });
+      assert.deepEqual(past.sessions[0].exercises.map((exercise) => exercise.name), ['B', 'C', 'A']);
     },
   },
   {
     name: 'the other days keep their own order while one day is reordered',
     run() {
       const result = applyProgramSessionEdit(programme(), 'day_1', {
-        kind: 'move',
+        kind: 'reorder',
         exerciseId: 'e2',
-        direction: 'up',
+        toIndex: 0,
       });
       assert.deepEqual(
         result.sessions.map((session) => session.exercises.map((exercise) => exercise.name)),
@@ -126,26 +133,29 @@ module.exports = [
     },
   },
   {
-    name: 'the top row has nowhere to go up, and that is not a save',
+    name: 'a drop that changes nothing is not a save',
     run() {
-      const top = applyProgramSessionEdit(programme(), 'day_1', {
-        kind: 'move',
+      // Dropped back where it started — including via a clamped overshoot on
+      // the last row — reads as no edit, so nothing is written and the
+      // screen cannot confirm an edit it did not make.
+      const same = applyProgramSessionEdit(programme(), 'day_1', {
+        kind: 'reorder',
         exerciseId: 'e1',
-        direction: 'up',
+        toIndex: 0,
       });
-      assert.equal(top.kind, 'skip');
-      assert.equal(top.reason, 'alreadyAtEdge');
-      const bottom = applyProgramSessionEdit(programme(), 'day_1', {
-        kind: 'move',
+      assert.equal(same.kind, 'skip');
+      assert.equal(same.reason, 'alreadyAtEdge');
+      const clamped = applyProgramSessionEdit(programme(), 'day_1', {
+        kind: 'reorder',
         exerciseId: 'e2',
-        direction: 'down',
+        toIndex: 9,
       });
-      assert.equal(bottom.kind, 'skip');
-      assert.equal(bottom.reason, 'alreadyAtEdge');
+      assert.equal(clamped.kind, 'skip');
+      assert.equal(clamped.reason, 'alreadyAtEdge');
       const gone = applyProgramSessionEdit(programme(), 'day_1', {
-        kind: 'move',
+        kind: 'reorder',
         exerciseId: 'nope',
-        direction: 'up',
+        toIndex: 0,
       });
       assert.equal(gone.reason, 'exerciseMissing');
     },
@@ -261,16 +271,16 @@ module.exports = [
      * the top row would otherwise hand the reader a whole second programme
      * that reads exactly like the first.
      */
-    name: 'a move with nowhere to go never copies the catalog programme',
+    name: 'a drop with nowhere to go never copies the catalog programme',
     run() {
       const source = readAppWiring();
       const start = source.indexOf('function handleEditProgramExercise(');
       const copyAt = source.indexOf('buildDuplicatedCustomProgramDraft(', start);
-      const guardAt = source.indexOf("if (edit.kind === 'move') {", start);
-      assert.ok(guardAt > -1, 'the ready branch should answer an impossible move');
+      const guardAt = source.indexOf("if (edit.kind === 'reorder') {", start);
+      assert.ok(guardAt > -1, 'the ready branch should answer a no-op drop');
       assert.ok(
         guardAt < copyAt,
-        'the move guard must run before the programme is duplicated, not after',
+        'the reorder guard must run before the programme is duplicated, not after',
       );
     },
   },
@@ -284,6 +294,62 @@ module.exports = [
     run() {
       const source = readAppWiring();
       assert.match(source, /exercises\.map\(\(exercise, orderIndex\) => \(\{ \.\.\.exercise, orderIndex \}\)\)/);
+    },
+  },
+  {
+    name: 'rest steps by its own grid, and a missing rest cannot be stepped',
+    run() {
+      // 15 s rather than the design's 30, because the catalogue's own rests
+      // are not multiples of 30 — 45 and 75 are everywhere — and a stepper
+      // whose first press snaps a stored value to a grid has edited more
+      // than the reader asked it to.
+      const dose = { targetSets: 3, repMin: 8, repMax: 8, restSeconds: 90 };
+      assert.deepEqual(stepProgramPrescription(dose, 'rest', 1), { ...dose, restSeconds: 105 });
+      assert.deepEqual(stepProgramPrescription(dose, 'rest', -1), { ...dose, restSeconds: 75 });
+
+      const atFloor = { ...dose, restSeconds: PROGRAM_REST_RANGE.min };
+      assert.deepEqual(stepProgramPrescription(atFloor, 'rest', -1), atFloor);
+      const atCeiling = { ...dose, restSeconds: PROGRAM_REST_RANGE.max };
+      assert.deepEqual(stepProgramPrescription(atCeiling, 'rest', 1), atCeiling);
+
+      // No number, no step: inventing one here would write it.
+      const noRest = { ...dose, restSeconds: null };
+      assert.equal(stepProgramPrescription(noRest, 'rest', 1), noRest);
+      assert.equal(canStepProgramPrescription(noRest, 'rest', 1), false);
+    },
+  },
+  {
+    name: 'prescribe writes rest only when the sheet had a number to step',
+    run() {
+      const sessions = [
+        {
+          id: 'day_1',
+          name: 'Day 1',
+          exercises: [
+            { id: 'a', name: 'Back Squat', targetSets: 4, repMin: 5, repMax: 5, restSeconds: 120, trackedDefault: true },
+          ],
+        },
+      ];
+
+      // A real rest travels with the dose.
+      const withRest = applyProgramSessionEdit(sessions, 'day_1', {
+        kind: 'prescribe',
+        exerciseId: 'a',
+        prescription: { targetSets: 4, repMin: 5, repMax: 5, restSeconds: 150 },
+      });
+      assert.equal(withRest.kind, 'save');
+      assert.equal(withRest.sessions[0].exercises[0].restSeconds, 150);
+
+      // Null means the stored value stays — the sheet never had a number, so
+      // saving sets and reps must not blank the rest behind them.
+      const withoutRest = applyProgramSessionEdit(sessions, 'day_1', {
+        kind: 'prescribe',
+        exerciseId: 'a',
+        prescription: { targetSets: 5, repMin: 5, repMax: 5, restSeconds: null },
+      });
+      assert.equal(withoutRest.kind, 'save');
+      assert.equal(withoutRest.sessions[0].exercises[0].restSeconds, 120);
+      assert.equal(withoutRest.sessions[0].exercises[0].targetSets, 5);
     },
   },
 ];

@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { KitBar, KitGroupLabel, KitRow, KitSearch, KitSheet } from '../components/sheetKit';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { CardioIcon } from '../components/CardioIcon';
@@ -24,8 +25,15 @@ import { CardioIconKind } from '../lib/cardio';
 import { HomeStatCard } from '../lib/homeStatCards';
 import { VinhaIcon } from '../components/VinhaIcon';
 import { getHomeMiniCalendarDays, getHomeMonthCalendar, HomeDaySessionSummary } from '../lib/homeCalendar';
-import { isScheduleKnown, TrainingSchedule, trainsOn, UNKNOWN_SCHEDULE, upcomingSessionDayStarts } from '../lib/trainingSchedule';
-import { getDefaultCooldown, getDefaultWarmup, getSessionFocusTitle } from '../lib/homeSessionHero';
+import { isScheduleKnown, sessionSlotOn, TrainingSchedule, trainsOn, UNKNOWN_SCHEDULE, upcomingSessionDayStarts } from '../lib/trainingSchedule';
+import {
+  getDefaultCooldown,
+  getDefaultWarmup,
+  getSessionFocusTitle,
+  listRoutineDrillOptions,
+  routineDrillSlotKey,
+  RoutineBlockKind,
+} from '../lib/homeSessionHero';
 import { AnimatedGreeting } from '../components/AnimatedGreeting';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
@@ -78,6 +86,7 @@ function BlockRow({
   drills,
   open,
   onToggle,
+  onSwapDrill,
   language,
 }: {
   title: string;
@@ -85,6 +94,12 @@ function BlockRow({
   drills: Array<{ name: string; schemeLabel: string }>;
   open: boolean;
   onToggle: () => void;
+  /**
+   * Swap the drill in this position — the same offer the lifts have carried
+   * all along (user 2026-08-31: "tee warmup workout ja recovery osioista
+   * identtisiä eli myös warmupliikkeitä voi vaihtaa").
+   */
+  onSwapDrill?: (index: number) => void;
   language: AppLanguage;
 }) {
   const theme = useTheme();
@@ -95,7 +110,8 @@ function BlockRow({
   }
 
   return (
-    <View>
+    <View style={[styles.sectCard, open && styles.sectCardOpen]}>
+      {open ? <View style={styles.sectStripe} /> : null}
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
@@ -103,13 +119,13 @@ function BlockRow({
         onPress={onToggle}
         style={({ pressed }) => [styles.blockRow, pressed && styles.pressed]}
       >
-        <Text style={styles.blockTitle}>{title}</Text>
+        <Text style={[styles.blockTitle, open && styles.sectTitleOpen]}>{title}</Text>
         <Text style={styles.blockMeta}>{meta}</Text>
         <View style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }}>
           <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
             <Path
               d="m6 9 6 6 6-6"
-              stroke={theme.faint}
+              stroke={open ? theme.purpleBright : theme.faint}
               strokeWidth={2.4}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -124,19 +140,30 @@ function BlockRow({
                 {drill.name}
               </Text>
               <Text style={styles.blockDrillScheme}>{drill.schemeLabel}</Text>
+              {onSwapDrill ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'home.a11y.swapDrill', { name: drill.name })}
+                  hitSlop={8}
+                  onPress={() => onSwapDrill(index)}
+                  style={({ pressed }) => [styles.drillSwapButton, pressed && styles.pressed]}
+                >
+                  <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M4 8h13l-3.5-3.5M20 16H7l3.5 3.5"
+                      stroke={theme.highlight}
+                      strokeWidth={2.1}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                </Pressable>
+              ) : null}
             </View>
           ))
         : null}
     </View>
   );
-}
-
-export interface HomeHistoryItem {
-  id: string;
-  kind: 'strength' | 'cardio';
-  title: string;
-  meta: string;
-  cardioIcon?: CardioIconKind;
 }
 
 export interface HomeRecentSessionItem {
@@ -212,8 +239,6 @@ interface HomeScreenProps {
   programCapLine?: string | null;
   onOpenOtherProgram?: (planId: string) => void;
   onRemoveOtherProgram?: (planId: string) => void;
-  /** Adapt sheet: drop the programme Home is leading with. */
-  onRemoveActivePlan?: () => void;
   /** Completion card: adopt the step-up programme and lead with it. */
   onCompletionStartNext?: (planId: string, templateId: string) => void;
   /** Completion card: run the same block again from 0. */
@@ -222,8 +247,6 @@ interface HomeScreenProps {
   onCompletionDismiss?: (planId: string) => void;
   /** Completion card: dismiss and go browse the catalog. */
   onCompletionBrowse?: (planId: string) => void;
-  /** Adapt sheet: answer the onboarding questions again. */
-  onRedoOnboarding?: () => void;
   /**
    * The reader saying "today is legs, not upper".
    *
@@ -266,8 +289,6 @@ interface HomeScreenProps {
     moment: ProMomentContent;
   } | null;
   proUnlocked?: boolean;
-  historyItems?: HomeHistoryItem[];
-  onOpenHistory?: () => void;
   /** Opens the training-plan screen so the week can stop being unknown. */
   onSetTrainingDays?: () => void;
   /** Opens the running program's full plan — "Katso koko ohjelma". */
@@ -278,7 +299,6 @@ interface HomeScreenProps {
    * (user 2026-08-23: "sen pitäisi mennä siihen mitä klikkasin").
    */
   onOpenPlanSession?: (sessionId: string) => void;
-  onSelectHistorySession?: (sessionId: string) => void;
   /** "Your cards": one computed card per catalog item, Add-sheet order. */
   statCatalogCards?: HomeStatCard[];
   suggestedStatCardKeys?: string[];
@@ -311,6 +331,10 @@ interface HomeScreenProps {
    * default warmup honest — no rower for a bodyweight-only user.
    */
   availableEquipment?: string[] | null;
+  /** The reader's own warm-up / cool-down picks — see routineDrillSlotKey. */
+  routineDrillOverrides?: Record<string, string>;
+  /** Undefined leaves the drills read-only, the way they were before. */
+  onSwapRoutineDrill?: (slotKey: string, drillKey: string) => void;
   /**
    * The one-time home-screen widget offer. Null unless the device can actually
    * pin one and the user has not answered yet — an offer that cannot be
@@ -366,12 +390,6 @@ interface HomeScreenProps {
   onKeepSwapInProgram?: (exerciseId: string, exerciseName: string) => void;
   /** Ranks the swap list the same way the player does. */
   tailoringPreferences?: TailoringPreferencesInput | null;
-  /**
-   * Start today's session with its accessory sets trimmed. One gesture, not a
-   * stored mode: "adapt" is a decision about right now, and an adaptation left
-   * lying around for tomorrow would be a worse answer than none.
-   */
-  onStartTrimmedSession?: (sessionId: string) => void;
 }
 
 export function HomeScreen({
@@ -380,12 +398,10 @@ export function HomeScreen({
   programCapLine = null,
   onOpenOtherProgram,
   onRemoveOtherProgram,
-  onRemoveActivePlan,
   onCompletionStartNext,
   onCompletionRestart,
   onCompletionDismiss,
   onCompletionBrowse,
-  onRedoOnboarding,
   onPickTodaySession,
   onRenameSession,
   onStartActivePlanSession,
@@ -397,13 +413,12 @@ export function HomeScreen({
   onOpenSubscription,
   plateau = null,
   proUnlocked = false,
-  historyItems = [],
-  onOpenHistory,
   onSetTrainingDays,
   onOpenActivePlan,
   onOpenPlanSession,
-  onSelectHistorySession,
   availableEquipment = null,
+  routineDrillOverrides = {},
+  onSwapRoutineDrill,
   statCatalogCards = [],
   suggestedStatCardKeys = [],
   onDismissStatCardSuggestion,
@@ -423,7 +438,6 @@ export function HomeScreen({
   onRemoveSessionExercise,
   onKeepSwapInProgram,
   tailoringPreferences = null,
-  onStartTrimmedSession,
 }: HomeScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -431,9 +445,24 @@ export function HomeScreen({
   const scheduleKnown = isScheduleKnown(trainingSchedule);
   const [plateauSheetVisible, setPlateauSheetVisible] = useState(false);
   const insets = useSafeAreaInsets();
-  const [confirmingRemovePlan, setConfirmingRemovePlan] = useState(false);
-  const [adaptSheetVisible, setAdaptSheetVisible] = useState(false);
   const [todaySheetVisible, setTodaySheetVisible] = useState(false);
+  /**
+   * The sign-in dialog, open while the offer is due. Scrim and back close it
+   * for THIS visit only — the queue brings it back next launch — and only
+   * "No thanks" inside it answers for good.
+   */
+  const [signInPopupOpen, setSignInPopupOpen] = useState(true);
+  /**
+   * The day picked but not yet committed. The sheet kit's contract: a tap
+   * selects, the commit bar rises with the whole change on one line, and only
+   * "Do this today" writes. Tapping the selected row again unpicks it.
+   */
+  const [todayPickDraft, setTodayPickDraft] = useState<string | null>(null);
+  const closeTodaySheet = () => {
+    setTodaySheetVisible(false);
+    setTodayPickDraft(null);
+    setRenamingSessionId(null);
+  };
   // Which row is being renamed, and the text so far. Kept out of the row so a
   // rename in progress survives the list re-ordering underneath it.
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null);
@@ -451,9 +480,12 @@ export function HomeScreen({
   const [swapSlotId, setSwapSlotId] = useState<string | null>(null);
   /** Narrows the pool. Cleared with the sheet, so it never opens pre-filtered. */
   const [swapQuery, setSwapQuery] = useState('');
+  /** The replacement picked but not committed — the scope question comes after. */
+  const [swapPickName, setSwapPickName] = useState<string | null>(null);
   const closeSwapSheet = () => {
     setSwapSlotId(null);
     setSwapQuery('');
+    setSwapPickName(null);
   };
   const [calendarExpanded, setCalendarExpanded] = useState(false);
   // Months away from today. Reset on close so reopening always lands on now.
@@ -542,12 +574,47 @@ export function HomeScreen({
   // Classified in App.tsx from the full exercise list; the five rows Home
   // receives are not enough to work it out here.
   const focusKind = nextPlanSession?.focusKind ?? 'general';
-  const warmup = getDefaultWarmup(focusKind, language, availableEquipment);
-  const cooldown = getDefaultCooldown(focusKind, language, availableEquipment);
+  const warmup = getDefaultWarmup(focusKind, language, availableEquipment, routineDrillOverrides);
+  const cooldown = getDefaultCooldown(focusKind, language, availableEquipment, routineDrillOverrides);
+
+  /**
+   * Which drill slot the swap sheet is open on, and what it has picked.
+   *
+   * The kit's contract: a tap selects, the bar commits (see sheetKit). One
+   * sheet for both blocks — the pool differs, the question does not.
+   */
+  const [drillSwap, setDrillSwap] = useState<{ kind: RoutineBlockKind; index: number } | null>(null);
+  const [drillPick, setDrillPick] = useState<string | null>(null);
+  const drillOptions = useMemo(() => {
+    if (!drillSwap) {
+      return [];
+    }
+    // Not the drills standing in the block's OTHER slots: picking one of those
+    // would put the same drill in the warm-up twice, count it twice in the
+    // block's minutes, and walk the reader through it twice in the player.
+    const taken = new Set(
+      (drillSwap.kind === 'warmup' ? warmup : cooldown).drills
+        .filter((_, index) => index !== drillSwap.index)
+        .map((drill) => drill.key as string),
+    );
+    return listRoutineDrillOptions(drillSwap.kind, language, availableEquipment).filter(
+      (option) => !taken.has(option.key as string),
+    );
+  }, [availableEquipment, cooldown, drillSwap, language, warmup]);
+  const drillCurrent = drillSwap
+    ? (drillSwap.kind === 'warmup' ? warmup : cooldown).drills[drillSwap.index] ?? null
+    : null;
+  const openDrillSwap = (kind: RoutineBlockKind) => (index: number) => {
+    setDrillPick(null);
+    setDrillSwap({ kind, index });
+  };
+  const closeDrillSwap = () => {
+    setDrillSwap(null);
+    setDrillPick(null);
+  };
   // Computed where the whole session was still in hand (App.tsx): Home only
   // receives the first five exercises, so a preview built here would quote a
   // shorter session than the one that starts.
-  const adaptTrim = nextPlanSession?.trim ?? null;
 
   // The row whose swap sheet is open, with its current lift resolved through
   // today's swaps — reopening the sheet after a swap must offer the pool for
@@ -749,6 +816,83 @@ export function HomeScreen({
     onCreateWorkoutFromExercises();
   };
 
+
+  /**
+   * Start, ABOVE the session contents, and hoisted out of the tree.
+   *
+   * A tester tapped the first exercise to "check it off": the list
+   * rendered before any call to action, and the only start button sat
+   * below the fold (user report 2026-08-25). Deliberately NOT pinned over
+   * the bottom bar - Home is the tab root, so the floating bar cannot be
+   * hidden here, and a pinned CTA would stack a second floating layer.
+   *
+   * Adapt stood beside it until 2026-08-30 and is gone with its sheet.
+   *
+   * It is a const because the session is one box now (2026-08-31) and the
+   * box only exists when a plan is behind it - but this button still has
+   * to render without one, where it reads "find a programme".
+   */
+  const startCta = (
+  <Animated.View style={[styles.btnRow, rise(RISE_BTNROW)]}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={t(
+        language,
+        heroStartsSession
+          ? hasActiveSession
+            ? 'home.a11y.resumeSession'
+            : 'home.a11y.startSession'
+          : 'home.a11y.findProgram',
+      )}
+      onPress={pressHeroAction}
+      style={({ pressed }) => [styles.startButtonWrap, pressed && styles.cutPressed]}
+    >
+      {/* A big filled play button (user 2026-08-25): the outline version
+          below the list read as one row among many, and starting is the
+          one thing this screen exists for. The play mark sits in a ring
+          and a band of light sweeps the button as the screen arrives
+          (design "Aloita treeni CTA", 2026-08-26). */}
+      <CutSurface
+        size="lg"
+        fill={theme.accent}
+        stroke={theme.accent}
+        strokeWidth={1.5}
+        style={styles.startButton}
+      >
+        <CtaShimmer
+          tint="rgba(255,255,255,0.5)"
+          onSweep={(index) => {
+            // Only the first couple of passes move the mark (user
+            // 2026-08-26): a button that jumps every time the light
+            // goes by is a button that never settles.
+            if (index < 2) {
+              bouncePlay();
+            }
+          }}
+        />
+        <Animated.View style={[styles.startPlayRing, { transform: [{ scale: playBounce }] }]}>
+          {/* Centred on the triangle's centroid, not its bounding box:
+              a play mark boxed by its extents sits visibly right of the
+              circle it is in (user 2026-08-26). Base at x=8.5, apex at
+              18.5 puts the centroid at 11.83 — the viewBox's middle. */}
+          <Svg width={16} height={16} viewBox="0 0 24 24">
+            <Path d="M8.5 5.5v13l10-6.5z" fill={theme.onHighlight} />
+          </Svg>
+        </Animated.View>
+        <Text style={styles.startButtonText}>
+          {t(
+            language,
+            heroStartsSession
+              ? hasActiveSession
+                ? 'home.resumeWorkout'
+                : 'home.startWorkout'
+              : 'home.findProgram',
+          )}
+        </Text>
+      </CutSurface>
+    </Pressable>
+  </Animated.View>
+  );
 
   return (
     <View style={styles.screenBackground}>
@@ -1055,9 +1199,15 @@ export function HomeScreen({
           </CutSurface>
         ) : null}
 
-        {/* Session hero (Home v4) — renders only with an active plan */}
+        {/* Session hero (Home v4) — renders only with an active plan.
+
+            One box around the whole session (user 2026-08-31): the name, the
+            button and the three phases were three things floating loose on the
+            background and the reader had to infer they were one. The box has no
+            fixed height — it grows with whichever phase is open, which is the
+            point of drawing it rather than sizing it. */}
         {activePlan && nextPlanSession ? (
-          <>
+          <View style={styles.sessionBox}>
             <Animated.View style={[styles.hero, rise(RISE_HERO)]}>
               <View style={styles.heroTop}>
                 {/* 'line' mode: the anchor must stay on one line and shrink to
@@ -1089,16 +1239,23 @@ export function HomeScreen({
                     adjustsFontSizeToFit
                     minimumFontScale={0.6}
                   />
+                  {/* Pushed to the right edge and coloured, on request
+                      (2026-08-30). Tucked against the title in the app's
+                      faintest grey it read as punctuation; orange is this
+                      app's one word for "you can press this", and the far
+                      edge is where the thumb already is. */}
                   {onPickTodaySession && planSessions.length > 1 ? (
-                    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-                      <Path
-                        d="M6 9l6 6 6-6"
-                        stroke={theme.faint}
-                        strokeWidth={2.4}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </Svg>
+                    <View style={styles.heroTitleChevron}>
+                      <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
+                        <Path
+                          d="M6 9l6 6 6-6"
+                          stroke={theme.highlight}
+                          strokeWidth={2.6}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </Svg>
+                    </View>
                   ) : null}
                 </Pressable>
                 </View>
@@ -1108,91 +1265,12 @@ export function HomeScreen({
               </View>
 
             </Animated.View>
-          </>
-        ) : null}
 
-        {/* Start and Adapt, ABOVE the session's contents. A tester tapped the
-            first exercise to "check it off": the list rendered before any
-            call to action, and the only start button sat below the fold
-            (user report 2026-08-25). Deliberately NOT pinned over the bottom
-            bar — Home is the tab root, so the floating bar cannot be hidden
-            here, and a pinned CTA would stack a second floating layer on it. */}
-        <Animated.View style={[styles.btnRow, rise(RISE_BTNROW)]}>
-          {activePlan && nextPlanSession ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t(language, 'home.a11y.adaptSession')}
-              onPress={() => setAdaptSheetVisible(true)}
-              style={({ pressed }) => [styles.adaptButton, pressed && styles.pressed]}
-            >
-              <Text style={styles.adaptButtonText}>{t(language, 'home.adapt')}</Text>
-            </Pressable>
-          ) : null}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t(
-              language,
-              heroStartsSession
-                ? hasActiveSession
-                  ? 'home.a11y.resumeSession'
-                  : 'home.a11y.startSession'
-                : 'home.a11y.findProgram',
-            )}
-            onPress={pressHeroAction}
-            style={({ pressed }) => [styles.startButtonWrap, pressed && styles.cutPressed]}
-          >
-            {/* A big filled play button (user 2026-08-25): the outline version
-                below the list read as one row among many, and starting is the
-                one thing this screen exists for. The play mark sits in a ring
-                and a band of light sweeps the button as the screen arrives
-                (design "Aloita treeni CTA", 2026-08-26). */}
-            <CutSurface
-              size="lg"
-              fill={theme.accent}
-              stroke={theme.accent}
-              strokeWidth={1.5}
-              style={styles.startButton}
-            >
-              <CtaShimmer
-                tint="rgba(255,255,255,0.5)"
-                onSweep={(index) => {
-                  // Only the first couple of passes move the mark (user
-                  // 2026-08-26): a button that jumps every time the light
-                  // goes by is a button that never settles.
-                  if (index < 2) {
-                    bouncePlay();
-                  }
-                }}
-              />
-              <Animated.View style={[styles.startPlayRing, { transform: [{ scale: playBounce }] }]}>
-                {/* Centred on the triangle's centroid, not its bounding box:
-                    a play mark boxed by its extents sits visibly right of the
-                    circle it is in (user 2026-08-26). Base at x=8.5, apex at
-                    18.5 puts the centroid at 11.83 — the viewBox's middle. */}
-                <Svg width={16} height={16} viewBox="0 0 24 24">
-                  <Path d="M8.5 5.5v13l10-6.5z" fill={theme.onHighlight} />
-                </Svg>
-              </Animated.View>
-              <Text style={styles.startButtonText}>
-                {t(
-                  language,
-                  heroStartsSession
-                    ? hasActiveSession
-                      ? 'home.resumeWorkout'
-                      : 'home.startWorkout'
-                    : 'home.findProgram',
-                )}
-              </Text>
-            </CutSurface>
-          </Pressable>
-        </Animated.View>
+            {startCta}
 
-        {activePlan && nextPlanSession ? (
-          <>
-            {/* Today's session, flat on the surface (user 2026-08-23): the
-                three boxed accordions are gone. The lifts are the decision, so
-                they stand open with no tap and no card; warmup and recovery
-                are a second question, so they are rows that open in place. */}
+            {/* Today's session (user 2026-08-23): the lifts are the decision,
+                so they stand open with no tap; warmup and recovery are a
+                second question, so they are rows that open in place. */}
             <Animated.View style={[styles.heroList, rise(RISE_SEC_BASE)]}>
               <BlockRow
                 title={t(language, 'home.section.warmup')}
@@ -1203,6 +1281,7 @@ export function HomeScreen({
                 drills={warmup.drills}
                 open={openBlock === 'warmup'}
                 onToggle={() => setOpenBlock((current) => (current === 'warmup' ? null : 'warmup'))}
+                onSwapDrill={onSwapRoutineDrill ? openDrillSwap('warmup') : undefined}
                 language={language}
               />
               {/* The lifts still stand open by default — they are the
@@ -1210,6 +1289,8 @@ export function HomeScreen({
                   so the meta line doubles as the fold, matching the two rows
                   around it instead of being the one section that cannot
                   close. */}
+              <View style={[styles.sectCard, workoutListOpen && styles.sectCardOpen]}>
+              {workoutListOpen ? <View style={styles.sectStripe} /> : null}
               <Pressable
                 accessibilityRole="button"
                 accessibilityState={{ expanded: workoutListOpen }}
@@ -1219,7 +1300,7 @@ export function HomeScreen({
                   { title: t(language, 'home.section.workout') },
                 )}
                 onPress={() => setWorkoutListOpen((open) => !open)}
-                style={({ pressed }) => [styles.heroListMetaRow, pressed && styles.pressed]}
+                style={({ pressed }) => [styles.blockRow, pressed && styles.pressed]}
               >
                 {/* Named like its neighbours (user 2026-08-25): "Treeni"
                     between Lämmittely and Palautuminen, and laid out exactly
@@ -1227,8 +1308,10 @@ export function HomeScreen({
                     the chevron, the same seat Lämmittely's own meta sits in.
                     (Two other seats were tried the same evening; this row
                     reads as family only when it IS the family layout.) */}
-                <Text style={styles.heroListTitle}>{t(language, 'home.section.workout')}</Text>
-                <Text style={styles.heroListMeta} numberOfLines={1}>
+                <Text style={[styles.blockTitle, workoutListOpen && styles.sectTitleOpen]}>
+                  {t(language, 'home.section.workout')}
+                </Text>
+                <Text style={styles.blockMeta} numberOfLines={1}>
                   {t(language, 'home.section.workoutMeta', { count: totalExerciseCount, sets: totalSets })}
                 </Text>
                 <View style={{ transform: [{ rotate: workoutListOpen ? '180deg' : '0deg' }] }}>
@@ -1274,8 +1357,11 @@ export function HomeScreen({
                       <View style={styles.planExerciseSwap}>
                         <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
                           <Path
-                            d="M7 8h10M7 8l3-3M7 8l3 3M17 16H7m10 0-3-3m3 3-3 3"
-                            stroke={swapped ? theme.purple : theme.faint}
+                            d="M4 8h13l-3.5-3.5M20 16H7l3.5 3.5"
+                            // Orange, because it is pressable; violet only
+                            // once a swap is in force, because that is state
+                            // (the kit's colour rule, frame 03).
+                            stroke={swapped ? theme.purple : theme.highlight}
                             strokeWidth={2.2}
                             strokeLinecap="round"
                             strokeLinejoin="round"
@@ -1304,6 +1390,7 @@ export function HomeScreen({
                   </Pressable>
                 );
               })}
+              </View>
               <BlockRow
                 title={t(language, 'home.section.cooldown')}
                 meta={t(language, 'home.section.cooldownMeta', {
@@ -1313,14 +1400,17 @@ export function HomeScreen({
                 drills={cooldown.drills}
                 open={openBlock === 'cooldown'}
                 onToggle={() => setOpenBlock((current) => (current === 'cooldown' ? null : 'cooldown'))}
+                onSwapDrill={onSwapRoutineDrill ? openDrillSwap('cooldown') : undefined}
                 language={language}
               />
             </Animated.View>
-          </>
-        ) : null}
+          </View>
+        ) : (
+          startCta
+        )}
 
-        {/* The Start/Adapt row lived here, under the whole list — moved above
-            it (user report 2026-08-25). */}
+        {/* The start row lived here, under the whole list — moved above it
+            (user report 2026-08-25). */}
 
         {/* No promo carousel here any more (user 2026-08-23): Home is for
             running today's session, and the season/programme offers live on
@@ -1333,7 +1423,7 @@ export function HomeScreen({
             find out what week they are in. Programs is for finding a program;
             Home is for running one. Only one screen owns this now. */}
         {activePlan && activePlan.sessions.length > 0 ? (
-          <Animated.View style={rise(RISE_DIVIDER)}>
+          <Animated.View style={[styles.programSection, rise(RISE_DIVIDER)]}>
             <View style={styles.programHeadRow}>
               <Text style={styles.programEyebrow}>{t(language, 'programs.activeProgram')}</Text>
               <Text style={styles.programWeek}>{activePlan.weekLabel}</Text>
@@ -1343,106 +1433,84 @@ export function HomeScreen({
             <Text style={styles.programTitle} numberOfLines={2}>
               {activePlan.title}
             </Text>
-            <View style={styles.programDays}>
-              {activePlan.sessions.map((session, index) => {
-                // The schedule's projected date for this session — the same
-                // truth the calendar strip lights. Null when nothing is known,
-                // and the row simply draws no badge.
-                const dayStart = planSessionDayStarts[index] ?? null;
-                const weekday = dayStart !== null ? weekdayCodeForDate(new Date(dayStart)) : null;
-                // The outline still answers the plan — it is the row the hero
-                // is offering, and it is quiet. The word on the row answers a
-                // different question: was this one done this week.
-                const isNext = activePlan.nextSession?.id === session.id;
-                const isToday = dayStart !== null && dayStart === todayDayStart;
-                const doneThisWeek = doneThisWeekSessionIds.includes(session.id);
-                // The badge is the day, and only when the schedule really has
-                // one. Without a schedule it repeated the session number that
-                // the title already states, and cost the title the width it
-                // then truncated for.
-                const weekdayText = weekday ? weekdayLabel(weekday, language) : null;
-                // The badge already says which day this is; the ordinal in the
-                // name said it again and cost the focus the room to be read.
-                const sessionTitle = localizeSessionFocus(session.title, language);
-                return (
-                  <Pressable
-                    key={session.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${weekdayText ? `${weekdayText}: ` : ''}${sessionTitle}${
-                      doneThisWeek ? `, ${t(language, 'home.plan.doneThisWeek').toLowerCase()}` : ''
-                    }${isNext ? `, ${t(language, 'plan.upNext').toLowerCase()}` : ''}`}
-                    // The row opens its own day; the section title above still
-                    // opens the whole plan (user 2026-08-23).
-                    onPress={
-                      onOpenPlanSession ? () => onOpenPlanSession(session.id) : onOpenActivePlan
-                    }
-                    // A3: the row slides right under the thumb rather than
-                    // dimming — the speed line it carries points that way.
-                    style={({ pressed }) => [pressed && styles.rowPressed]}
-                  >
-                    <CutSurface
-                      size="lg"
-                      fill={theme.surface}
-                      stroke={isNext ? theme.purpleBright : undefined}
-                      speedLine={{ color: theme.purpleBright }}
-                      style={[styles.dayRow, styles.dayRowCut]}
+            {/* The programme week as a compact strip, not five cards
+                (design frame 15). The cards each carried a weekday badge, a
+                name, a duration and a chevron — a week of them was a screen
+                of furniture repeating what one row can say. The strip is the
+                same truth the calendar lights: each chip is a weekday, and a
+                training day wears the first letters of the session that
+                lands on it. The rows' tap targets went with the cards; the
+                one door into the plan is the button below. */}
+            {scheduleKnown ? (
+              <View
+                style={styles.programWeekStrip}
+                accessibilityLabel={activePlan.sessions
+                  .map((session, index) => {
+                    const dayStart = planSessionDayStarts[index] ?? null;
+                    const weekday = dayStart !== null ? weekdayCodeForDate(new Date(dayStart)) : null;
+                    return weekday
+                      ? `${weekdayLabel(weekday, language)}: ${localizeSessionFocus(session.title, language)}`
+                      : localizeSessionFocus(session.title, language);
+                  })
+                  .join(', ')}
+              >
+                {Array.from({ length: 7 }, (_, offset) => {
+                  // This calendar week, Monday first — the same walk the
+                  // month grid does, from the same schedule.
+                  const now = new Date();
+                  const monday = new Date(
+                    now.getFullYear(),
+                    now.getMonth(),
+                    now.getDate() - ((now.getDay() + 6) % 7) + offset,
+                  );
+                  const slot = sessionSlotOn(trainingSchedule, monday);
+                  const session =
+                    slot !== null && activePlan.sessions.length > 0
+                      ? activePlan.sessions[((slot % activePlan.sessions.length) + activePlan.sessions.length) % activePlan.sessions.length]
+                      : null;
+                  const code = session
+                    ? localizeSessionFocus(session.title, language)
+                        .replace(/[^\p{L}]/gu, '')
+                        .slice(0, 3)
+                        .toUpperCase()
+                    : null;
+                  const isToday = monday.getDate() === now.getDate() && monday.getMonth() === now.getMonth();
+                  // Reported, not predicted: a chip goes green only when its
+                  // session was actually trained this week — the same fact
+                  // the old rows carried as the "Tehty" pill.
+                  const done = session !== null && doneThisWeekSessionIds.includes(session.id);
+                  return (
+                    <View
+                      key={offset}
+                      style={[
+                        styles.programWeekDay,
+                        session === null && styles.programWeekDayOff,
+                        isToday && styles.programWeekDayToday,
+                        done && styles.programWeekDayDone,
+                      ]}
                     >
-                    {weekdayText ? (
-                      // Nesting is allowed when the inner element is off the
-                      // corner — the design names this badge as the example.
-                      <CutSurface
-                        size="chip"
-                        fill={isToday ? theme.purple : theme.bg}
-                        style={styles.dayBadge}
-                      >
-                        <Text style={[styles.dayBadgeText, isToday && styles.dayBadgeTextToday]}>{weekdayText}</Text>
-                      </CutSurface>
-                    ) : null}
-                    {/* Two lines, not one. On one line the title, the TODAY
-                        pill and the duration competed for the same width, and
-                        the title is the one that lost — "Päivä 1: Työntö ja
-                        kevyt juoksu" arrived as "Päivä 1: Työntö ja…". The
-                        title now owns the first line and the two labels that
-                        describe it sit under it. */}
-                    <View style={styles.dayCopy}>
-                      <Text style={styles.dayTitle} numberOfLines={2}>
-                        {sessionTitle}
+                      <Text style={styles.programWeekDayName}>
+                        {weekdayLabel(weekdayCodeForDate(monday), language)}
                       </Text>
-                      <View style={styles.dayMetaRow}>
-                        {/* One word, and only when it is a fact. Two chips that
-                            predict — one from the calendar, one from the
-                            rotation — landed on different rows on most days and
-                            argued with each other. */}
-                        {doneThisWeek ? (
-                          <CutSurface size="chip" fill={theme.green} style={styles.todayPill}>
-                            <Text style={[styles.todayPillText, styles.donePillText]}>
-                              {t(language, 'home.plan.doneThisWeek')}
-                            </Text>
-                          </CutSurface>
-                        ) : null}
-                        <Text style={styles.dayDuration}>{session.duration}</Text>
-                      </View>
+                      <Text
+                        style={[
+                          styles.programWeekDayCode,
+                          session === null && styles.programWeekDayCodeOff,
+                          done && styles.programWeekDayCodeDone,
+                        ]}
+                      >
+                        {code ?? '·'}
+                      </Text>
                     </View>
-                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                      <Path
-                        d="m9 6 6 6-6 6"
-                        stroke={theme.faint}
-                        strokeWidth={2.2}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </Svg>
-                    </CutSurface>
-                  </Pressable>
-                );
-              })}
-            </View>
-            {/* A3: the cut corner arrives on the pair the design mocks. */}
-            {/* Stacked, not side by side. Sharing a row, "Katso koko ohjelma"
-                and "Muokkaa päiviä" each got half the width and both clipped —
-                the Finnish labels are simply longer than the English ones the
-                row was measured against, and a flex ratio cannot fix a label
-                that needs the whole line. */}
+                  );
+                })}
+              </View>
+            ) : null}
+            {/* One action, not two (design: Sheets & Pickers, frame 04).
+                "Edit days" went: a day row opens that day, and the schedule
+                editor lives on the plan screen this button already opens —
+                Home offering it too was a second door onto the same decision,
+                the exact shape the Adapt sheet was removed for. */}
             <View style={styles.programActions}>
               <CutButton
                 size="lg"
@@ -1450,16 +1518,6 @@ export function HomeScreen({
                 label={t(language, 'programs.viewPlan')}
                 onPress={onOpenActivePlan}
               />
-              {onSetTrainingDays ? (
-                <CutButton
-                  size="lg"
-                  stretch
-                  variant="secondary"
-                  label={t(language, 'programs.editDays')}
-                  accessibilityLabel={t(language, 'programs.editDaysA11y')}
-                  onPress={onSetTrainingDays}
-                />
-              ) : null}
             </View>
           </Animated.View>
         ) : null}
@@ -1545,6 +1603,10 @@ export function HomeScreen({
         <Animated.View style={[styles.sectionDivider, rise(RISE_DIVIDER)]} />
 
         <Animated.View style={rise(RISE_EMPTY_ROW)}>
+          {/* Named, like every other section (design frame 15): two rows with
+              no heading read as leftovers under the plan rather than as the
+              other things this screen can log. */}
+          <Text style={styles.logElseTitle}>{t(language, 'home.logElse')}</Text>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t(language, 'home.a11y.startEmptyWorkout')}
@@ -1607,33 +1669,10 @@ export function HomeScreen({
           </Animated.View>
         ) : null}
 
-        {accountBackupPrompt ? (
-          <Animated.View style={[styles.widgetPromptCard, rise(RISE_EMPTY_ROW)]}>
-            <Text style={styles.widgetPromptTitle}>{t(language, 'account.prompt.title')}</Text>
-            <Text style={styles.widgetPromptBody}>{t(language, 'account.prompt.body')}</Text>
-            <View style={styles.widgetPromptActions}>
-              <Pressable
-                accessibilityRole="button"
-                onPress={accountBackupPrompt.onDismiss}
-                hitSlop={8}
-                style={({ pressed }) => [styles.widgetPromptGhost, pressed && styles.pressed]}
-              >
-                <Text style={styles.widgetPromptGhostText}>{t(language, 'account.prompt.dismiss')}</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                onPress={accountBackupPrompt.onSignIn}
-                style={({ pressed }) => [styles.widgetPromptCta, pressed && styles.pressed]}
-              >
-                <Text style={styles.widgetPromptCtaText}>{t(language, 'account.prompt.signIn')}</Text>
-              </Pressable>
-            </View>
-          </Animated.View>
-        ) : null}
-
         {onChangePinnedStatCardKeys ? (
           <Animated.View style={[styles.statCardsSection, rise(RISE_EMPTY_ROW)]}>
             <HomeStatCardsSection
+              bottomInset={insets.bottom}
               catalogCards={statCatalogCards}
               suggestedKeys={suggestedStatCardKeys}
               onDismissSuggestion={onDismissStatCardSuggestion}
@@ -1646,398 +1685,371 @@ export function HomeScreen({
           </Animated.View>
         ) : null}
 
-        {historyItems.length > 0 ? (
-          <Animated.View style={rise(RISE_EMPTY_ROW)}>
-            <View style={styles.historyHeaderRow}>
-              <Text style={styles.historySectionTitle}>{t(language, 'home.history.title')}</Text>
-              {onOpenHistory ? (
-                <Pressable onPress={onOpenHistory} hitSlop={8}>
-                  <Text style={styles.historySeeAll}>{t(language, 'home.history.seeAll')}</Text>
-                </Pressable>
-              ) : null}
-            </View>
-            {/* Full-bleed rows — no card container around History. */}
-            <View>
-              {historyItems.map((item, index) => (
-                <Pressable
-                  key={item.id}
-                  onPress={
-                    item.kind === 'strength' && onSelectHistorySession
-                      ? () => onSelectHistorySession(item.id)
-                      : undefined
-                  }
-                  style={({ pressed }) => [
-                    styles.historyRow,
-                    index > 0 && styles.historyRowDivider,
-                    pressed && item.kind === 'strength' && styles.pressed,
-                  ]}
-                >
-                  <View style={styles.historyIconTile}>
-                    {item.kind === 'cardio' && item.cardioIcon ? (
-                      <CardioIcon kind={item.cardioIcon} size={19} color={theme.purple} />
-                    ) : (
-                      <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
-                        <Path
-                          d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"
-                          stroke={theme.purple}
-                          strokeWidth={2.1}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </Svg>
-                    )}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.historyRowTitle} numberOfLines={1}>
-                      {item.title}
-                    </Text>
-                    <Text style={styles.historyRowMeta} numberOfLines={1}>
-                      {item.meta}
-                    </Text>
-                  </View>
-                  {item.kind === 'strength' ? (
-                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                      <Path d="M9 6l6 6-6 6" stroke={theme.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
-                    </Svg>
-                  ) : null}
-                </Pressable>
-              ))}
-            </View>
-          </Animated.View>
-        ) : null}
+        {/* History used to sit here. It is Progress’s job (user
+            2026-08-31): the same rows were on two screens, and Home is for
+            running today rather than reading back. */}
 
         <View style={styles.bottomSafeFade} />
       </ScrollView>
 
-      {/* Adapt = shorten today, and only that.
-          This was four rows, all four of which closed the sheet and did
-          nothing. Three of them were also in the wrong place: a taken rack and
-          a body with no strength in it are both discovered in the gym, and the
-          player answers both (swap the lift, dial the weight down set by set).
-          Time is the one thing you know before you leave the house, so it is
-          the one adaptation that belongs on Home — and it starts the session
-          rather than storing a mode, because "how is today going" has no
-          meaning tomorrow. */}
-      <ConfirmDialog
-        language={language}
-        visible={confirmingRemovePlan}
-        destructive
-        title={t(language, 'home.adaptSheet.remove.confirmTitle')}
-        message={t(language, 'home.adaptSheet.remove.confirmMessage')}
-        confirmLabel={t(language, 'home.adaptSheet.remove.title')}
-        cancelLabel={t(language, 'home.adaptSheet.cancel')}
-        onCancel={() => setConfirmingRemovePlan(false)}
-        onConfirm={() => {
-          setConfirmingRemovePlan(false);
-          onRemoveActivePlan?.();
-        }}
-      />
+      {/* Optional sign-in as its own moment (design frame 11): a centred
+          dialog, not a row in the feed. It earns the interruption by waiting
+          for the third logged session (lib/homePrompts) and by never coming
+          back once answered — "No thanks" is a real no. One clear action:
+          the Google button leads, the refusal stays a quiet link. */}
+      <Modal
+        visible={accountBackupPrompt !== null && signInPopupOpen}
+        transparent
+        animationType={reduceMotion ? 'none' : 'fade'}
+        onRequestClose={() => setSignInPopupOpen(false)}
+      >
+        <View style={styles.signInOverlay}>
+          {/* The scrim is "not now", not "no": the offer returns next launch,
+              only the button's own refusal is permanent. */}
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setSignInPopupOpen(false)}
+            accessibilityRole="button"
+          />
+          <View style={styles.signInCard}>
+            <View style={styles.signInKickerRow}>
+              <View style={styles.signInIcon}>
+                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M12 3l7 3v6c0 4-3 6.6-7 8-4-1.4-7-4-7-8V6z"
+                    stroke={theme.green}
+                    strokeWidth={1.8}
+                    strokeLinejoin="round"
+                  />
+                  <Path
+                    d="M9 12l2 2 4-4"
+                    stroke={theme.green}
+                    strokeWidth={1.8}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </Svg>
+              </View>
+              <Text style={styles.signInKicker}>{t(language, 'account.prompt.kicker')}</Text>
+            </View>
+            <Text style={styles.signInTitle}>{t(language, 'account.prompt.title')}</Text>
+            <Text style={styles.signInBody}>{t(language, 'account.prompt.body')}</Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                setSignInPopupOpen(false);
+                accountBackupPrompt?.onSignIn();
+              }}
+              style={({ pressed }) => [styles.signInGoogle, pressed && styles.pressed]}
+            >
+              <View style={styles.signInGoogleBadge}>
+                <Text style={styles.signInGoogleBadgeText}>G</Text>
+              </View>
+              <Text style={styles.signInGoogleText}>{t(language, 'account.prompt.google')}</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={() => {
+                setSignInPopupOpen(false);
+                accountBackupPrompt?.onDismiss();
+              }}
+              style={({ pressed }) => [styles.signInNo, pressed && styles.pressed]}
+            >
+              <Text style={styles.signInNoText}>{t(language, 'account.prompt.dismiss')}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       {/* Today's workout — the program's own sessions, and which one today is.
 
           Dated rather than sticky: the pick answers for today and the rotation
           answers again tomorrow, so nothing has to remember to undo it. The
           rename lives here too because this is the list where a reader reads
-          the names side by side and notices that one of them is wrong. */}
-      <Modal
-        visible={todaySheetVisible}
-        transparent
-        animationType={reduceMotion ? 'none' : 'slide'}
-        onRequestClose={() => setTodaySheetVisible(false)}
-      >
-        <View style={styles.adaptOverlay}>
-          <Pressable style={styles.adaptScrim} onPress={() => setTodaySheetVisible(false)} />
-          <View
-            style={[
-              styles.adaptSheet,
-              { paddingBottom: (keyboardInset > 0 ? keyboardInset : insets.bottom) + 26 },
+          the names side by side and notices that one of them is wrong.
+
+          On the sheet kit: tap picks, the bar rises with TODAY → the pick, and
+          only "Do this today" writes. The current day wears a violet TODAY tag
+          — state, not a choice — and one button, because nothing here is
+          permanent: tomorrow follows the programme again. */}
+      {/* Swap a warm-up or recovery drill (user 2026-08-31). One sheet for
+          both blocks — the pool differs, the question does not — and the
+          kit's contract holds: the tap selects, the bar writes. */}
+      <KitSheet
+        visible={drillSwap !== null}
+        onClose={closeDrillSwap}
+        title={t(language, 'drill.sheet.title')}
+        context={
+          drillSwap
+            ? t(language, drillSwap.kind === 'warmup' ? 'drill.sheet.warmup' : 'drill.sheet.cooldown')
+            : undefined
+        }
+        description={drillCurrent?.name}
+        bottomInset={insets.bottom}
+        barUp={drillPick !== null}
+        reduceMotion={reduceMotion}
+        bar={
+          <KitBar
+            visible={drillPick !== null}
+            from={drillCurrent?.name ?? ''}
+            to={drillOptions.find((option) => option.key === drillPick)?.name ?? ''}
+            buttons={[
+              {
+                label: t(language, 'drill.sheet.save'),
+                kind: 'p',
+                onPress: () => {
+                  if (drillSwap && drillPick) {
+                    onSwapRoutineDrill?.(
+                      routineDrillSlotKey(drillSwap.kind, focusKind, drillSwap.index),
+                      drillPick,
+                    );
+                  }
+                  closeDrillSwap();
+                },
+              },
             ]}
-          >
-            <View style={styles.adaptGrip} />
-            <Text style={styles.adaptTitle}>{t(language, 'home.today.title')}</Text>
-            <Text style={styles.adaptSub}>{t(language, 'home.today.caption')}</Text>
-
-            <ScrollView style={styles.todayList} keyboardShouldPersistTaps="handled">
-              {planSessions.map((session) => {
-                const isToday = session.id === nextPlanSession?.id;
-                const renaming = renamingSessionId === session.id;
-
-                if (renaming) {
-                  return (
-                    <View key={session.id} style={[styles.adaptOpt, styles.todayRowEditing]}>
-                      <TextInput
-                        value={renameDraft}
-                        onChangeText={setRenameDraft}
-                        autoFocus
-                        selectTextOnFocus
-                        placeholderTextColor={theme.faint}
-                        style={styles.todayRenameInput}
-                        onSubmitEditing={() => {
-                          onRenameSession?.(session.id, renameDraft);
-                          setRenamingSessionId(null);
-                        }}
-                      />
-                      <Pressable
-                        hitSlop={8}
-                        onPress={() => setRenamingSessionId(null)}
-                        style={({ pressed }) => [styles.todayRenameAction, pressed && styles.pressed]}
-                      >
-                        <Text style={styles.todayRenameCancel}>
-                          {t(language, 'home.today.renameCancel')}
-                        </Text>
-                      </Pressable>
-                      <Pressable
-                        hitSlop={8}
-                        onPress={() => {
-                          onRenameSession?.(session.id, renameDraft);
-                          setRenamingSessionId(null);
-                        }}
-                        style={({ pressed }) => [styles.todayRenameAction, pressed && styles.pressed]}
-                      >
-                        <Text style={styles.todayRenameSave}>{t(language, 'home.today.renameSave')}</Text>
-                      </Pressable>
-                    </View>
-                  );
-                }
-
-                return (
-                  <Pressable
-                    key={session.id}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: isToday }}
-                    onPress={() => {
-                      onPickTodaySession?.(session.id);
-                      setTodaySheetVisible(false);
-                    }}
-                    style={({ pressed }) => [
-                      styles.adaptOpt,
-                      isToday && styles.todayRowActive,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <View style={styles.adaptOptCopy}>
-                      <Text numberOfLines={1} style={styles.adaptOptionTitle}>
-                        {localizeSessionName(session.title, language)}
-                      </Text>
-                      <Text style={styles.adaptOptionSub}>
-                        {t(language, 'home.today.meta', {
-                          exercises: session.exercises.length,
-                          sets: session.totalSets ?? 0,
-                        })}
-                      </Text>
-                    </View>
-                    {isToday ? (
-                      <Text style={styles.todayBadge}>{t(language, 'home.today.picked')}</Text>
-                    ) : null}
-                    {onRenameSession ? (
-                      <Pressable
-                        hitSlop={10}
-                        accessibilityRole="button"
-                        accessibilityLabel={t(language, 'home.today.rename')}
-                        onPress={() => {
-                          setRenameDraft(localizeSessionName(session.title, language));
-                          setRenamingSessionId(session.id);
-                        }}
-                        style={({ pressed }) => [styles.todayRenameAction, pressed && styles.pressed]}
-                      >
-                        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                          <Path
-                            d="M4 20h4L20 8l-4-4L4 16v4z"
-                            stroke={theme.faint}
-                            strokeWidth={2}
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </Svg>
-                      </Pressable>
-                    ) : null}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={adaptSheetVisible}
-        transparent
-        animationType={reduceMotion ? 'none' : 'slide'}
-        onRequestClose={() => setAdaptSheetVisible(false)}
+            clearLabel={t(language, 'drill.sheet.pickAnother')}
+            onClear={() => setDrillPick(null)}
+            bottomInset={insets.bottom}
+            reduceMotion={reduceMotion}
+          />
+        }
       >
-        <View style={styles.adaptOverlay}>
-          <Pressable style={styles.adaptScrim} onPress={() => setAdaptSheetVisible(false)} />
-          <View style={[styles.adaptSheet, { paddingBottom: insets.bottom + 26 }]}>
-            <View style={styles.adaptGrip} />
-            <Text style={styles.adaptTitle}>{t(language, 'home.adaptSheet.title')}</Text>
+        <ScrollView
+          contentContainerStyle={styles.kitListPad}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {drillOptions.map((option) => (
+            <KitRow
+              key={option.key}
+              title={option.name}
+              meta={option.schemeLabel}
+              state={
+                option.key === drillPick
+                  ? 'sel'
+                  : option.key === drillCurrent?.key
+                    ? 'cur'
+                    : 'idle'
+              }
+              onPress={() => setDrillPick(option.key === drillCurrent?.key ? null : option.key)}
+            />
+          ))}
+        </ScrollView>
+      </KitSheet>
 
-            {/* Three things a reader might mean by "adapt", smallest commitment
-                first: this session, this programme, the whole plan. Each states
-                what it does NOT touch, because every one of them looks like it
-                might cost you your log. */}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t(language, 'home.adaptSheet.shorter.cta')}
-              onPress={() => {
-                setAdaptSheetVisible(false);
-                if (nextPlanSession) {
-                  onStartTrimmedSession?.(nextPlanSession.id);
+      <KitSheet
+        visible={todaySheetVisible}
+        onClose={closeTodaySheet}
+        title={t(language, 'home.today.title')}
+        description={t(language, 'home.today.caption')}
+        bottomInset={keyboardInset > 0 ? keyboardInset : insets.bottom}
+        barUp={todayPickDraft !== null}
+        reduceMotion={reduceMotion}
+        bar={
+          <KitBar
+            visible={todayPickDraft !== null}
+            from={t(language, 'kit.today')}
+            to={localizeSessionName(
+              planSessions.find((session) => session.id === todayPickDraft)?.title ?? '',
+              language,
+            )}
+            buttons={[
+              {
+                label: t(language, 'kit.doToday'),
+                kind: 'p',
+                onPress: () => {
+                  if (todayPickDraft) {
+                    onPickTodaySession?.(todayPickDraft);
+                  }
+                  closeTodaySheet();
+                },
+              },
+            ]}
+            clearLabel={t(language, 'kit.keepCurrent', {
+              name: localizeSessionName(nextPlanSession?.title ?? '', language),
+            })}
+            onClear={() => setTodayPickDraft(null)}
+            bottomInset={insets.bottom}
+            reduceMotion={reduceMotion}
+          />
+        }
+      >
+        <ScrollView
+          style={styles.todayList}
+          contentContainerStyle={styles.kitListPad}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {planSessions.map((session) => {
+            const isToday = session.id === nextPlanSession?.id;
+            const renaming = renamingSessionId === session.id;
+
+            if (renaming) {
+              return (
+                <View key={session.id} style={[styles.adaptOpt, styles.todayRowEditing]}>
+                  <TextInput
+                    value={renameDraft}
+                    onChangeText={setRenameDraft}
+                    autoFocus
+                    selectTextOnFocus
+                    placeholderTextColor={theme.faint}
+                    style={styles.todayRenameInput}
+                    onSubmitEditing={() => {
+                      onRenameSession?.(session.id, renameDraft);
+                      setRenamingSessionId(null);
+                    }}
+                  />
+                  <Pressable
+                    hitSlop={8}
+                    onPress={() => setRenamingSessionId(null)}
+                    style={({ pressed }) => [styles.todayRenameAction, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.todayRenameCancel}>
+                      {t(language, 'home.today.renameCancel')}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    hitSlop={8}
+                    onPress={() => {
+                      onRenameSession?.(session.id, renameDraft);
+                      setRenamingSessionId(null);
+                    }}
+                    style={({ pressed }) => [styles.todayRenameAction, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.todayRenameSave}>{t(language, 'home.today.renameSave')}</Text>
+                  </Pressable>
+                </View>
+              );
+            }
+
+            return (
+              <KitRow
+                key={session.id}
+                title={localizeSessionName(session.title, language)}
+                meta={t(language, 'home.today.meta', {
+                  exercises: session.exercises.length,
+                  sets: session.totalSets ?? 0,
+                })}
+                state={todayPickDraft === session.id ? 'sel' : isToday ? 'cur' : 'idle'}
+                tag={isToday ? t(language, 'kit.today') : null}
+                onPress={() =>
+                  setTodayPickDraft((current) =>
+                    current === session.id || isToday ? null : session.id,
+                  )
                 }
-              }}
-              style={({ pressed }) => [styles.adaptOption, pressed && styles.pressed]}
-            >
-              <Text style={styles.adaptOptionTitle}>{t(language, 'home.adaptSheet.shorter.cta')}</Text>
-              <Text style={styles.adaptOptionSub}>
-                {adaptTrim
-                  ? t(language, 'home.adaptSheet.shorter.explain', {
-                      sets: adaptTrim.droppedSets,
-                      before: planDurationMinutes,
-                      after: adaptTrim.minutes,
-                    })
-                  : t(language, 'home.adaptSheet.shorter.explainNoEstimate')}
-              </Text>
-            </Pressable>
-
-            {onRemoveActivePlan ? (
-              /* Red, and it asks. It sits between two harmless options, and a
-                 thumb that misses by a row should not cost someone the plan
-                 their week is built on. */
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t(language, 'home.adaptSheet.remove.title')}
-                onPress={() => {
-                  setAdaptSheetVisible(false);
-                  setConfirmingRemovePlan(true);
-                }}
-                style={({ pressed }) => [styles.adaptOption, styles.adaptOptionDanger, pressed && styles.pressed]}
-              >
-                <Text style={[styles.adaptOptionTitle, styles.adaptOptionTitleDanger]}>
-                  {t(language, 'home.adaptSheet.remove.title')}
-                </Text>
-                <Text style={styles.adaptOptionSub}>{t(language, 'home.adaptSheet.remove.sub')}</Text>
-              </Pressable>
-            ) : null}
-
-            {onRedoOnboarding ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t(language, 'home.adaptSheet.redo.title')}
-                onPress={() => {
-                  setAdaptSheetVisible(false);
-                  onRedoOnboarding();
-                }}
-                style={({ pressed }) => [styles.adaptOption, pressed && styles.pressed]}
-              >
-                <Text style={styles.adaptOptionTitle}>{t(language, 'home.adaptSheet.redo.title')}</Text>
-                <Text style={styles.adaptOptionSub}>{t(language, 'home.adaptSheet.redo.sub')}</Text>
-              </Pressable>
-            ) : null}
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setAdaptSheetVisible(false)}
-              hitSlop={8}
-              style={styles.adaptCancel}
-            >
-              <Text style={styles.adaptCancelText}>{t(language, 'home.adaptSheet.cancel')}</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+                onPen={
+                  onRenameSession
+                    ? () => {
+                        setRenameDraft(localizeSessionName(session.title, language));
+                        setRenamingSessionId(session.id);
+                      }
+                    : null
+                }
+                penLabel={t(language, 'home.today.rename')}
+              />
+            );
+          })}
+        </ScrollView>
+      </KitSheet>
 
       {/* Swap sheet for one row of today's plan — same pool and same ranking
-          as the player's, so the two surfaces cannot offer different lists. */}
-      <Modal
+          as the player's, so the two surfaces cannot offer different lists.
+
+          On the sheet kit: one tap target per row, and the scope question —
+          just this time, or for ever — is asked once, in the bar, after there
+          is something to answer it about. The per-row "Keep" button this
+          replaces was a second target hiding a second meaning. */}
+      <KitSheet
         visible={swapSlotId !== null}
-        transparent
-        animationType={reduceMotion ? 'none' : 'slide'}
-        onRequestClose={() => closeSwapSheet()}
+        onClose={closeSwapSheet}
+        title={t(language, 'kit.swapTitle')}
+        context={exerciseNameLabel(language, swapRow.currentName)}
+        bottomInset={insets.bottom}
+        barUp={swapPickName !== null}
+        reduceMotion={reduceMotion}
+        bar={
+          <KitBar
+            visible={swapPickName !== null}
+            from={exerciseNameLabel(language, swapRow.currentName)}
+            to={swapPickName ? exerciseNameLabel(language, swapPickName) : ''}
+            buttons={[
+              {
+                label: t(language, 'kit.justThisTime'),
+                kind: 'p',
+                onPress: () => {
+                  if (swapSlotId && swapPickName) {
+                    onSwapSessionExercise?.(swapSlotId, swapPickName);
+                  }
+                  closeSwapSheet();
+                },
+              },
+              ...(swapRow.exerciseId && onKeepSwapInProgram
+                ? [
+                    {
+                      label: t(language, 'kit.forEver'),
+                      kind: 'd' as const,
+                      onPress: () => {
+                        if (swapPickName) {
+                          onKeepSwapInProgram(swapRow.exerciseId as string, swapPickName);
+                        }
+                        closeSwapSheet();
+                      },
+                    },
+                  ]
+                : []),
+            ]}
+            clearLabel={t(language, 'kit.pickAnother')}
+            onClear={() => setSwapPickName(null)}
+            bottomInset={insets.bottom}
+            reduceMotion={reduceMotion}
+          />
+        }
       >
-        <View style={styles.adaptOverlay}>
-          <Pressable style={styles.adaptScrim} onPress={() => closeSwapSheet()} />
-          <View style={[styles.adaptSheet, { paddingBottom: insets.bottom + 26 }]}>
-            <View style={styles.adaptGrip} />
-            <Text style={styles.adaptTitle}>
-              {t(language, 'home.swapSheet.title', {
-                name: exerciseNameLabel(language, swapRow.currentName),
-              })}
-            </Text>
-            {/* A search, because the shortlist is deliberately six rows and the
-                pool behind it is not: a reader who knows what they want should
-                not have to be offered it (#bugs 2026-08-26). Typing widens the
-                search back over the whole pool. */}
-            <TextInput
-              value={swapQuery}
-              onChangeText={setSwapQuery}
-              placeholder={t(language, 'home.swapSheet.search')}
-              placeholderTextColor={theme.faint}
-              style={styles.adaptSearch}
-              autoCorrect={false}
-              accessibilityLabel={t(language, 'home.swapSheet.search')}
-            />
-            {/* The list scrolls; the actions below it do not. With nine rows
-                the sheet grew past the screen and "Poista ohjelmasta" could
-                not be reached at all (user 2026-08-26). */}
-            <ScrollView style={styles.adaptOptsScroll} showsVerticalScrollIndicator={false}>
-              {([
-                { key: 'home.swapSheet.variations' as const, rows: swapRow.shortlist.variations },
-                { key: 'home.swapSheet.related' as const, rows: swapRow.shortlist.related },
-              ]).map((section) =>
-                section.rows.length === 0 ? null : (
-                  <View key={section.key} style={styles.adaptOpts}>
-                    {/* Named only when both halves are there — one heading over
-                        the whole list labels nothing. */}
-                    {swapRow.shortlist.variations.length > 0 && swapRow.shortlist.related.length > 0 ? (
-                      <Text style={styles.adaptOptGroup}>{t(language, section.key)}</Text>
-                    ) : null}
-                    {section.rows.map((option) => (
-                      <View key={option.exerciseName} style={styles.adaptOptRow}>
-                        {/* The row is today's answer: the bigger target is the
-                            one you can undo. */}
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={exerciseNameLabel(language, option.exerciseName)}
-                          onPress={() => {
-                            if (swapSlotId) {
-                              onSwapSessionExercise?.(swapSlotId, option.exerciseName);
-                            }
-                            closeSwapSheet();
-                          }}
-                          style={({ pressed }) => [styles.adaptOpt, styles.adaptOptGrow, pressed && styles.pressed]}
-                        >
-                          <View style={styles.adaptOptCopy}>
-                            <Text style={styles.adaptOptTitle}>
-                              {exerciseNameLabel(language, option.exerciseName)}
-                            </Text>
-                          </View>
-                        </Pressable>
-                        {/* And the durable answer, on the row rather than
-                            behind a second visit to this sheet. Both are
-                            common — a machine taken today is not the same as a
-                            lift you never want again — so the choice belongs at
-                            the moment of choosing, not after it (user
-                            2026-08-26). */}
-                        {swapRow.exerciseId && onKeepSwapInProgram ? (
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel={t(language, 'home.swapSheet.keepOne', {
-                              name: exerciseNameLabel(language, option.exerciseName),
-                            })}
-                            hitSlop={8}
-                            onPress={() => {
-                              onKeepSwapInProgram(swapRow.exerciseId as string, option.exerciseName);
-                              closeSwapSheet();
-                            }}
-                            style={({ pressed }) => [styles.adaptOptKeep, pressed && styles.pressed]}
-                          >
-                            <Text style={styles.adaptOptKeepText}>{t(language, 'home.swapSheet.keepShort')}</Text>
-                          </Pressable>
-                        ) : null}
-                      </View>
-                    ))}
-                  </View>
-                ),
-              )}
-            </ScrollView>
+        {/* A search, because the shortlist is deliberately six rows and the
+            pool behind it is not: a reader who knows what they want should
+            not have to be offered it (#bugs 2026-08-26). Typing widens the
+            search back over the whole pool. */}
+        <KitSearch
+          value={swapQuery}
+          onChangeText={setSwapQuery}
+          placeholder={t(language, 'home.swapSheet.search')}
+        />
+        {/* The list scrolls; the actions below it do not. With nine rows
+            the sheet grew past the screen and "Poista ohjelmasta" could
+            not be reached at all (user 2026-08-26). */}
+        <ScrollView
+          style={styles.adaptOptsScroll}
+          contentContainerStyle={styles.kitListPad}
+          showsVerticalScrollIndicator={false}
+        >
+          {([
+            { key: 'home.swapSheet.variations' as const, rows: swapRow.shortlist.variations },
+            { key: 'home.swapSheet.related' as const, rows: swapRow.shortlist.related },
+          ]).map((section) =>
+            section.rows.length === 0 ? null : (
+              <View key={section.key}>
+                {/* Named only when both halves are there — one heading over
+                    the whole list labels nothing. */}
+                {swapRow.shortlist.variations.length > 0 && swapRow.shortlist.related.length > 0 ? (
+                  <KitGroupLabel>{t(language, section.key)}</KitGroupLabel>
+                ) : null}
+                {section.rows.map((option) => (
+                  <KitRow
+                    key={option.exerciseName}
+                    title={exerciseNameLabel(language, option.exerciseName)}
+                    state={swapPickName === option.exerciseName ? 'sel' : 'idle'}
+                    onPress={() =>
+                      setSwapPickName((current) =>
+                        current === option.exerciseName ? null : option.exerciseName,
+                      )
+                    }
+                  />
+                ))}
+              </View>
+            ),
+          )}
             {/* A swap made yesterday's answer today's. This turns it into the
                 programme's answer — offered here rather than as a mode above
                 the list, because before choosing there is nothing to keep. */}
@@ -2107,17 +2119,8 @@ export function HomeScreen({
                 <Text style={styles.adaptDropNote}>{t(language, 'home.swapSheet.removeNote')}</Text>
               </Pressable>
             ) : null}
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => closeSwapSheet()}
-              hitSlop={8}
-              style={styles.adaptCancel}
-            >
-              <Text style={styles.adaptCancelText}>{t(language, 'home.adaptSheet.cancel')}</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+        </ScrollView>
+      </KitSheet>
 
       {/* Paywall moment sheet: the plateau conclusion, on the user's own
           numbers. The comparison table lives on the full Pro page. */}
@@ -2450,9 +2453,31 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 16,
     fontWeight: '700',
   },
+  /**
+   * The session, as one object (user 2026-08-31).
+   *
+   * Name, start and the three phases were three loose things on the page. The
+   * box has no height of its own: the phases push it taller as they open,
+   * which is why this is a border and not a measured card.
+   */
+  sessionBox: {
+    marginTop: 18,
+    paddingHorizontal: 14,
+    paddingTop: 2,
+    paddingBottom: 16,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: 'rgba(255,255,255,0.022)',
+  },
   hero: {
-    marginTop: 24,
+    marginTop: 14,
     paddingHorizontal: 2,
+  },
+  // Room to breathe under the box (user 2026-08-31): the programme used to
+  // start where the session ended.
+  programSection: {
+    marginTop: 30,
   },
   heroTop: {
     flexDirection: 'row',
@@ -2497,57 +2522,65 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   heroList: {
     marginTop: 18,
   },
-  // The same anatomy as blockRow, so the three section rows read as one
-  // family: title takes the line, meta sits at the right edge, chevron last.
-  heroListMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 8,
-  },
-  heroListTitle: {
-    flex: 1,
-    color: theme.ink,
-    fontSize: 15,
-    lineHeight: 19,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-  },
-  heroListMeta: {
-    color: theme.faint,
-    fontSize: 13.5,
-    lineHeight: 17,
-    fontWeight: '700',
-  },
   // A row, not a card: same hairline the lift rows use, no fill, no radius.
+  /* The phase cards (design: Sheets & Pickers, frame 03). One anatomy for
+     warmup, workout and recovery; no hue per phase — a single violet marks
+     whichever card is open, and orange stays reserved for actions. */
+  sectCard: {
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 16,
+    paddingHorizontal: 15,
+    marginTop: 10,
+    overflow: 'hidden',
+  },
+  sectCardOpen: {
+    backgroundColor: 'rgba(155,109,255,0.07)',
+    borderColor: 'rgba(155,109,255,0.30)',
+  },
+  sectStripe: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 2,
+    backgroundColor: theme.purple,
+  },
+  sectTitleOpen: { color: theme.purpleBright },
+  // Shared by all three section headers — Warmup, Workout, Recovery — so
+  // they are the same height by construction, not by three numbers agreeing.
+  // Tall on purpose (user 2026-08-30): next to the hero these read as the
+  // session's three acts, not as footnotes. No top border: the row is always
+  // the first thing in its card, and a hairline there doubled the card edge.
   blockRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 13,
-    borderTopWidth: 1,
-    borderTopColor: theme.border,
+    paddingVertical: 24,
   },
   blockTitle: {
     flex: 1,
     color: theme.ink,
-    fontSize: 15,
-    lineHeight: 19,
+    fontSize: 17.5,
+    lineHeight: 22,
     fontWeight: '800',
     letterSpacing: -0.2,
   },
   blockMeta: {
     color: theme.faint,
-    fontSize: 12.5,
-    lineHeight: 16,
+    fontSize: 13.5,
+    lineHeight: 17,
     fontWeight: '700',
   },
   blockDrillRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 7,
+    paddingVertical: 13,
     paddingLeft: 2,
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
   },
   blockDrillName: {
     flex: 1,
@@ -2555,6 +2588,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 13.5,
     lineHeight: 18,
     fontWeight: '600',
+  },
+  drillSwapButton: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 2,
   },
   blockDrillScheme: {
     color: theme.faint,
@@ -2626,27 +2666,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 10,
     marginTop: 20,
   },
-  adaptButton: {
-    flex: 1,
-    height: 56,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: theme.border,
-    backgroundColor: theme.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: theme.purpleBright,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 2,
-  },
-  adaptButtonText: {
-    color: theme.ink,
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: '800',
-  },
   startButtonWrap: {
     flex: 1.3,
   },
@@ -2714,91 +2733,59 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     letterSpacing: -0.3,
     marginTop: 4,
   },
-  programDays: {
-    marginTop: 11,
-    gap: 8,
+  /* The programme week as chips (design frame 15). */
+  programWeekStrip: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 4,
   },
-  dayRow: {
-    // Twice the old 54: a session title is a sentence in Finnish, and the row
-    // has to hold it plus the two labels under it without either truncating.
-    minHeight: 108,
-    borderRadius: 13,
+  programWeekDay: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 16,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: theme.border,
-    backgroundColor: theme.surface,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 13,
-    paddingVertical: 14,
+    backgroundColor: 'rgba(255,255,255,0.03)',
   },
-  dayCopy: {
-    flex: 1,
-    gap: 8,
+  programWeekDayOff: {
+    backgroundColor: 'transparent',
   },
-  dayMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  programWeekDayToday: {
+    borderColor: 'rgba(155,109,255,0.45)',
+    backgroundColor: 'rgba(155,109,255,0.08)',
+  },
+  programWeekDayDone: {
+    borderColor: 'rgba(55,208,138,0.45)',
+  },
+  programWeekDayCodeDone: {
+    color: theme.green,
+  },
+  programWeekDayName: {
+    fontFamily: 'JetBrainsMono',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    color: theme.faint,
+  },
+  programWeekDayCode: {
+    fontFamily: 'JetBrainsMono',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    color: theme.purpleBright,
+  },
+  programWeekDayCodeOff: {
+    color: theme.faint,
   },
   dayRowToday: {
     borderColor: theme.purple,
     borderWidth: 1.5,
   },
-  dayBadge: {
-    width: 42,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayBadgeText: {
-    color: theme.muted,
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-  },
-  dayBadgeTextToday: {
-    color: '#FFFFFF',
-  },
-  dayTitle: {
-    color: theme.ink,
-    fontSize: 16,
-    lineHeight: 21,
-    fontWeight: '800',
-  },
-  todayPill: {
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  todayPillText: {
-    color: '#FFFFFF',
-    fontSize: 9.5,
-    lineHeight: 12,
-    fontWeight: '900',
-    letterSpacing: 0.8,
-  },
   // The quieter of the two: the row it sits on already carries the outline.
   nextPillText: {
     color: theme.purple,
-  },
-  dayDuration: {
-    color: theme.muted,
-    fontSize: 13,
-    lineHeight: 17,
-    fontWeight: '600',
-  },
-  dayRowCut: {
-    // The surface paints the background now, and the speed line needs room to
-    // the left of the badge.
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-    paddingLeft: 26,
-  },
-  rowPressed: {
-    transform: [{ translateX: 3 }],
   },
   programActions: {
     gap: 10,
@@ -2926,6 +2913,97 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.border,
     marginTop: 22,
   },
+  /* The optional sign-in dialog (design frame 11). */
+  signInOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(6,4,16,0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 22,
+  },
+  signInCard: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: 26,
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
+    paddingHorizontal: 22,
+    paddingTop: 20,
+    paddingBottom: 16,
+  },
+  signInKickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    marginBottom: 12,
+  },
+  signInIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    backgroundColor: theme.greenSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signInKicker: {
+    fontFamily: 'JetBrainsMono',
+    fontSize: 10.5,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: theme.faint,
+  },
+  signInTitle: {
+    fontSize: 21,
+    fontWeight: '800',
+    color: theme.ink,
+    letterSpacing: -0.4,
+    lineHeight: 27,
+  },
+  signInBody: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: theme.muted,
+    lineHeight: 20,
+    marginTop: 10,
+  },
+  signInGoogle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    height: 52,
+    borderRadius: 999,
+    backgroundColor: '#FFFFFF',
+    marginTop: 20,
+  },
+  signInGoogleBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    backgroundColor: '#F1F3F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signInGoogleBadgeText: { fontSize: 13, fontWeight: '800', color: '#4285F4' },
+  signInGoogleText: { fontSize: 15.5, fontWeight: '700', color: '#17131F' },
+  signInNo: {
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  signInNoText: { fontSize: 14.5, fontWeight: '600', color: theme.muted },
+  logElseTitle: {
+    fontFamily: 'JetBrainsMono',
+    fontSize: 10.5,
+    fontWeight: '700',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: theme.faint,
+    marginBottom: 10,
+  },
   emptyWorkoutRow: {
     minHeight: 54,
     borderRadius: 13,
@@ -2962,13 +3040,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     // went first, which is why "kävely" kept vanishing on narrow widths.
     flexShrink: 1,
     textAlign: 'right',
-  },
-  historyHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 26,
-    marginBottom: 12,
   },
   statCardsSection: {
     marginTop: 26,
@@ -3020,51 +3091,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 13.5,
     fontWeight: '800',
   },
-  historySectionTitle: {
-    color: theme.ink,
-    fontSize: 20,
-    lineHeight: 25,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-  },
-  historySeeAll: {
-    color: theme.highlight,
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: '800',
-  },
-  historyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 13,
-  },
-  historyRowDivider: {
-    borderTopWidth: 1,
-    borderTopColor: theme.border,
-  },
-  historyIconTile: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: theme.purpleSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  historyRowTitle: {
-    color: theme.ink,
-    fontSize: 15,
-    lineHeight: 19,
-    fontWeight: '800',
-  },
-  historyRowMeta: {
-    color: theme.muted,
-    fontSize: 12.5,
-    lineHeight: 16,
-    fontWeight: '600',
-    marginTop: 2,
-    fontVariant: ['tabular-nums'],
-  },
   bottomSafeFade: {
     height: 16,
   },
@@ -3075,9 +3101,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   adaptScrim: {
     ...StyleSheet.absoluteFillObject,
-  },
-  donePillText: {
-    color: '#FFFFFF',
   },
   // The kicker and the title stack; that stack shares the row with the session
   // counter. Put in the row directly, the kicker became a third column and
@@ -3091,9 +3114,23 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    // The row spans the hero so the chevron has a right edge to sit against.
+    // Without it the row hugged its contents and "far right" was wherever the
+    // title happened to end.
+    alignSelf: 'stretch',
   },
+  heroTitleChevron: {
+    marginLeft: 'auto',
+    // The glyph is 28px and the target should not be. Padding rather than a
+    // hitSlop: the press belongs to the whole title row, and this only has to
+    // stop the arrow sitting flush against the screen edge.
+    paddingLeft: 6,
+  },
+  // The kit's lists carry their own horizontal padding: the sheet shell pads
+  // only its header, so a full-bleed list can scroll under it.
+  kitListPad: { paddingHorizontal: 18, paddingBottom: 6 },
   todayList: {
-    marginTop: 18,
+    marginTop: 4,
     // Capped so a six-session program cannot push the list off the sheet and
     // take the last row with it.
     maxHeight: 380,
@@ -3131,25 +3168,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.2,
   },
-  adaptOption: {
-    borderWidth: 1.5,
-    borderColor: theme.border,
-    borderRadius: 16,
-    paddingVertical: 13,
-    paddingHorizontal: 15,
-    marginTop: 10,
-    gap: 3,
-  },
   // Was a fixed pink on a fixed cream — a white card sitting in a dark sheet.
   // The same class as the button that drew white on white: a colour copied in
   // rather than taken from the theme is only ever right for one of them.
-  adaptOptionDanger: {
-    borderColor: theme.dangerBorder,
-    backgroundColor: theme.dangerSoft,
-  },
-  adaptOptionTitleDanger: {
-    color: theme.danger,
-  },
   adaptOptionTitle: {
     color: theme.ink,
     fontSize: 15,

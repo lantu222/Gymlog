@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { CutButton } from './CutButton';
+import { KitBar, KitSheet } from './sheetKit';
 import { t } from '../lib/i18n';
 import { EMPHASIS_AREA_KEYS, EmphasisArea, summariseEmphasis } from '../lib/programEmphasis';
 import {
@@ -37,12 +36,27 @@ interface EmphasisSheetProps {
   exercises: EmphasisExercise[];
   onClose: () => void;
   onSave: (setsByExerciseIndex: number[]) => void;
+  /** Read on the SCREEN: inside a Modal this app measures the inset as zero. */
+  bottomInset: number;
 }
 
-export function EmphasisSheet({ visible, language, exercises, onClose, onSave }: EmphasisSheetProps) {
+export function EmphasisSheet({
+  visible,
+  language,
+  exercises,
+  onClose,
+  onSave,
+  bottomInset,
+}: EmphasisSheetProps) {
   const styles = useThemedStyles(makeStyles);
-  const insets = useSafeAreaInsets();
   const [working, setWorking] = useState<number[]>(() => exercises.map((exercise) => exercise.sets));
+  /**
+   * The last area the reader touched — the bar's right half. The commit bar
+   * prints the whole edit as one line ("74 SETS / WEEK -> GLUTES & LEGS
+   * 51 %"), and the area whose stepper moved last is the one that line is
+   * about.
+   */
+  const [touchedArea, setTouchedArea] = useState<EmphasisArea | null>(null);
 
   // Reopening starts from the programme as it is now, not from the last
   // unsaved fiddle — a sheet that remembers a discarded edit is lying about
@@ -56,6 +70,7 @@ export function EmphasisSheet({ visible, language, exercises, onClose, onSave }:
   useEffect(() => {
     if (visible && !wasVisible.current) {
       setWorking(exercises.map((exercise) => exercise.sets));
+      setTouchedArea(null);
     }
     wasVisible.current = visible;
   }, [visible, exercises]);
@@ -95,6 +110,7 @@ export function EmphasisSheet({ visible, language, exercises, onClose, onSave }:
     const result = adjustEmphasis(withWorkingSets, area, direction * EMPHASIS_STEP);
     if (result.moved !== 0) {
       setWorking(result.sets);
+      setTouchedArea(area);
     }
   };
 
@@ -103,97 +119,108 @@ export function EmphasisSheet({ visible, language, exercises, onClose, onSave }:
   const canShrink = (area: EmphasisArea) =>
     adjustEmphasis(withWorkingSets, area, -EMPHASIS_STEP).moved !== 0;
 
+  const baseTotal = exercises.reduce((sum, exercise) => sum + exercise.sets, 0);
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <Pressable style={styles.scrim} onPress={onClose} />
-        <View style={[styles.sheet, { paddingBottom: insets.bottom + 20 }]}>
-          <View style={styles.grip} />
-          <View style={styles.head}>
-            <Text style={styles.eyebrow}>{t(language, 'emphasis.sheet.title')}</Text>
-            <Text style={styles.total}>{t(language, 'emphasis.sheet.total', { sets: totalSets })}</Text>
-          </View>
-
-          <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-            <View style={styles.bar}>
-              {(preview?.slices ?? []).map((slice) => (
-                <View
-                  key={slice.area}
-                  style={[styles.barSegment, { flex: slice.sets, backgroundColor: EMPHASIS_RAMP[slice.area] }]}
-                />
-              ))}
-            </View>
-
-            <View style={styles.rows}>
-              {areas.map((area) => {
-                const current = setsInArea(area);
-                const delta = current - baseInArea(area);
-                return (
-                  <View key={area} style={styles.row}>
-                    <View style={[styles.dot, { backgroundColor: EMPHASIS_RAMP[area] }]} />
-                    <View style={styles.rowCopy}>
-                      <Text style={styles.rowName} numberOfLines={1}>
-                        {t(language, EMPHASIS_AREA_KEYS[area])}
-                      </Text>
-                      <Text style={styles.rowMeta}>
-                        {t(language, 'emphasis.sheet.sets', { sets: current })}
-                        {delta !== 0 ? (
-                          <Text style={styles.rowDelta}>{`  ${delta > 0 ? '+' : ''}${delta}`}</Text>
-                        ) : null}
-                      </Text>
-                    </View>
-                    <Text style={styles.rowPercent}>{percentByArea.get(area) ?? 0} %</Text>
-                    <Stepper
-                      styles={styles}
-                      label="−"
-                      enabled={canShrink(area)}
-                      accessibilityLabel={t(language, 'emphasis.sheet.less', {
-                        area: t(language, EMPHASIS_AREA_KEYS[area]),
-                      })}
-                      onPress={() => step(area, -1)}
-                    />
-                    <Stepper
-                      styles={styles}
-                      label="+"
-                      enabled={canGrow(area)}
-                      accessibilityLabel={t(language, 'emphasis.sheet.more', {
-                        area: t(language, EMPHASIS_AREA_KEYS[area]),
-                      })}
-                      onPress={() => step(area, 1)}
-                    />
-                  </View>
-                );
-              })}
-            </View>
-
-            <Text style={styles.note}>
-              {t(language, 'emphasis.sheet.note', {
-                step: EMPHASIS_STEP,
-                min: MIN_SETS_PER_EXERCISE,
-                max: MAX_SETS_PER_EXERCISE,
-              })}
-            </Text>
-          </ScrollView>
-
-          <View style={styles.dock}>
-            <CutButton
-              label={t(language, 'common.cancel')}
-              onPress={onClose}
-              variant="secondary"
-              size="lg"
-              stretch
+    <KitSheet
+      visible={visible}
+      onClose={onClose}
+      title={t(language, 'emphasis.sheet.title')}
+      context={t(language, 'emphasis.sheet.total', { sets: baseTotal })}
+      bottomInset={bottomInset}
+      barUp={touched}
+      bar={
+        <KitBar
+          visible={touched}
+          from={t(language, 'emphasis.sheet.total', { sets: baseTotal })}
+          to={
+            touchedArea
+              ? `${t(language, EMPHASIS_AREA_KEYS[touchedArea])} ${
+                  percentByArea.get(touchedArea) ?? 0
+                } %`
+              : ''
+          }
+          buttons={[
+            {
+              label: t(language, 'emphasis.sheet.save'),
+              kind: 'p',
+              onPress: () => onSave(working),
+            },
+          ]}
+          clearLabel={t(language, 'kit.undoChanges')}
+          onClear={() => {
+            setWorking(exercises.map((exercise) => exercise.sets));
+            setTouchedArea(null);
+          }}
+          bottomInset={bottomInset}
+        />
+      }
+    >
+      <ScrollView
+        style={styles.body}
+        contentContainerStyle={styles.bodyPad}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.bar}>
+          {(preview?.slices ?? []).map((slice) => (
+            <View
+              key={slice.area}
+              style={[styles.barSegment, { flex: slice.sets, backgroundColor: EMPHASIS_RAMP[slice.area] }]}
             />
-            <CutButton
-              label={t(language, 'emphasis.sheet.save')}
-              onPress={touched ? () => onSave(working) : undefined}
-              variant={touched ? 'primary' : 'disabled'}
-              size="lg"
-              stretch
-            />
-          </View>
+          ))}
         </View>
-      </View>
-    </Modal>
+
+        <View style={styles.rows}>
+          {areas.map((area) => {
+            const current = setsInArea(area);
+            const delta = current - baseInArea(area);
+            return (
+              <View key={area} style={styles.row}>
+                <View style={[styles.dot, { backgroundColor: EMPHASIS_RAMP[area] }]} />
+                <View style={styles.rowCopy}>
+                  <Text style={styles.rowName} numberOfLines={1}>
+                    {t(language, EMPHASIS_AREA_KEYS[area])}
+                  </Text>
+                  <Text style={styles.rowMeta}>
+                    {t(language, 'emphasis.sheet.sets', { sets: current })}
+                    {delta !== 0 ? (
+                      <Text style={styles.rowDelta}>{`  ${delta > 0 ? '+' : ''}${delta}`}</Text>
+                    ) : null}
+                  </Text>
+                </View>
+                <Text style={styles.rowPercent}>{percentByArea.get(area) ?? 0} %</Text>
+                <Stepper
+                  styles={styles}
+                  label="−"
+                  enabled={canShrink(area)}
+                  accessibilityLabel={t(language, 'emphasis.sheet.less', {
+                    area: t(language, EMPHASIS_AREA_KEYS[area]),
+                  })}
+                  onPress={() => step(area, -1)}
+                />
+                <Stepper
+                  styles={styles}
+                  label="+"
+                  enabled={canGrow(area)}
+                  accessibilityLabel={t(language, 'emphasis.sheet.more', {
+                    area: t(language, EMPHASIS_AREA_KEYS[area]),
+                  })}
+                  onPress={() => step(area, 1)}
+                />
+              </View>
+            );
+          })}
+        </View>
+
+        <Text style={styles.note}>
+          {t(language, 'emphasis.sheet.note', {
+            step: EMPHASIS_STEP,
+            min: MIN_SETS_PER_EXERCISE,
+            max: MAX_SETS_PER_EXERCISE,
+          })}
+        </Text>
+      </ScrollView>
+    </KitSheet>
   );
 }
 
@@ -226,49 +253,7 @@ function Stepper({
 }
 
 const makeStyles = (theme: Theme) => StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  scrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(30, 18, 70, 0.42)',
-  },
-  sheet: {
-    backgroundColor: theme.bg,
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    paddingHorizontal: spacing.lg,
-    maxHeight: '82%',
-  },
-  grip: {
-    alignSelf: 'center',
-    width: 38,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: theme.border,
-    marginTop: 10,
-    marginBottom: 14,
-  },
-  head: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  eyebrow: {
-    color: theme.faint,
-    fontSize: 11.5,
-    lineHeight: 15,
-    fontWeight: '800',
-    letterSpacing: 0.9,
-  },
-  total: {
-    color: theme.faint,
-    fontSize: 11.5,
-    lineHeight: 15,
-    fontWeight: '800',
-  },
+  bodyPad: { paddingHorizontal: 18, paddingBottom: 8 },
   body: {
     flexGrow: 0,
   },
@@ -357,10 +342,5 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '600',
     marginTop: 6,
     marginBottom: 4,
-  },
-  dock: {
-    flexDirection: 'row',
-    gap: 9,
-    paddingTop: 12,
   },
 });

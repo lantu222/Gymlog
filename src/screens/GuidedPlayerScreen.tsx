@@ -163,6 +163,14 @@ interface GuidedPlayerScreenProps {
   language?: AppLanguage;
   /** Equipment chips the user actually has; null when the setup never said. */
   availableEquipment?: string[] | null;
+  /**
+   * The reader's own warm-up / cool-down picks.
+   *
+   * Without these the player coached the drill they replaced: the swap showed
+   * on Home and in the day editor and never reached the one screen that
+   * actually runs it (found in review, 2026-08-31).
+   */
+  routineDrillOverrides?: Record<string, string>;
   /** Ranks the swap list the same way the list logger does. */
   tailoringPreferences?: TailoringPreferencesInput | null;
   exerciseLibrary: ExerciseLibraryItem[];
@@ -961,6 +969,7 @@ export function GuidedPlayerScreen({
   unitPreference,
   language = 'en',
   availableEquipment = null,
+  routineDrillOverrides = {},
   tailoringPreferences = null,
   exerciseLibrary,
   soundCuesEnabled,
@@ -1019,12 +1028,18 @@ export function GuidedPlayerScreen({
     [session?.exercises],
   );
   const warmupDrills = useMemo<GuidedDrill[]>(
-    () => buildGuidedDrillsFromBlock(getDefaultWarmup(focusKind, language, availableEquipment)),
-    [focusKind, language, availableEquipment],
+    () =>
+      buildGuidedDrillsFromBlock(
+        getDefaultWarmup(focusKind, language, availableEquipment, routineDrillOverrides),
+      ),
+    [focusKind, language, availableEquipment, routineDrillOverrides],
   );
   const cooldownDrills = useMemo<GuidedDrill[]>(
-    () => buildGuidedDrillsFromBlock(getDefaultCooldown(focusKind, language, availableEquipment)),
-    [focusKind, language, availableEquipment],
+    () =>
+      buildGuidedDrillsFromBlock(
+        getDefaultCooldown(focusKind, language, availableEquipment, routineDrillOverrides),
+      ),
+    [focusKind, language, availableEquipment, routineDrillOverrides],
   );
 
   const exercises = session?.exercises ?? [];

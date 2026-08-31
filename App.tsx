@@ -53,7 +53,6 @@ import { parseWidgetDeepLink } from './src/lib/widgetDeepLink';
 import { planSetupHandoff } from './src/lib/setupHandoff';
 import { SetupHandoffChoices, SetupHandoffScreen } from './src/screens/SetupHandoffScreen';
 import { useAccountBackup } from './src/features/account/useAccountBackup';
-import { hasLocalDataWorthKeeping } from './src/lib/accountBackup';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
 import {
@@ -93,7 +92,9 @@ import {
   detectPlateau,
   pickCompletionLift,
 } from './src/lib/proInsights';
+import { markCoachDemoMomentUsed, resolveDueCoachDemoMoment } from './src/lib/coachDemoMoments';
 import { buildHomePlanProgress } from './src/lib/homePlanProgress';
+import { resolveHomePrompt } from './src/lib/homePrompts';
 import { buildHomeStatCardCatalog, buildHomeStatCards, resolveHomeStatCardKeys } from './src/lib/homeStatCards';
 import { silencedSuggestionKinds } from './src/lib/coachSuggestions';
 import {
@@ -125,9 +126,10 @@ import { CoachChatMemory } from './src/lib/coachChatMemory';
 import type { ChatMessage } from './src/screens/AICoachChatScreen';
 import {
   applyProgramSessionEdit,
-  MoveDirection,
   ProgramPrescription,
 } from './src/lib/programSessionEdit';
+import { repointPlanEntrySessions } from './src/lib/planSessionOrder';
+import { reorderProgramSessions } from './src/lib/programSessionOrder';
 import { ProgramLimitReachedError } from './src/lib/programSlots';
 import {
   ProgramSeason,
@@ -162,6 +164,7 @@ import {
 import {
   planLabelsForProgramme,
   planLabelsFromWeekdays,
+  rotateLabelsForNextSession,
   weekdaysFromPlanLabels,
 } from './src/lib/trainingWeekSync';
 import { programCoverStyle } from './src/lib/programVisualIdentity';
@@ -202,7 +205,7 @@ import { decideRatingPrompt, recordRatingAsked, recordRatingCompleted } from './
  */
 const PLAY_LISTING_URL = 'https://play.google.com/store/apps/details?id=app.vinha';
 import { buildCustomSessionRuntimeTemplate, buildReadySessionRuntimeTemplate } from './src/lib/programDetails';
-import { applySessionAdaptation, previewSessionTrim } from './src/lib/sessionAdaptation';
+import { applySessionAdaptation } from './src/lib/sessionAdaptation';
 import { buildProgramInsightMap } from './src/lib/programInsights';
 import { buildTailoringPreferences } from './src/lib/tailoringFit';
 import { popRoute, pushRoute } from './src/navigation/routeHistory';
@@ -237,8 +240,6 @@ import { OnboardingReadyCatalogScreen } from './src/screens/OnboardingReadyCatal
 import { StartPathScreen } from './src/screens/StartPathScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { setNumberLanguage } from './src/lib/format';
-import { buildPremiumHeroChart } from './src/lib/premiumHeroChart';
-import { buildProChatHeroScript } from './src/lib/proChatHero';
 import { programTableToCsv } from './src/lib/programImageImport';
 import { pickProgramImage } from './src/utils/programImagePicker';
 import { VinhaSplashScreen } from './src/screens/VinhaSplashScreen';
@@ -542,6 +543,21 @@ function VinhaApp() {
       hasOpenedAppBefore: true,
     });
   }, [appHydrated, preferences.hasOpenedAppBefore, updatePreferences]);
+
+  /**
+   * The install date the coach demo moments count their 7 / 30 / 90 days from.
+   *
+   * Stamped separately from hasOpenedAppBefore rather than beside it, because
+   * an install that predates this field has already opened the app: it would
+   * never take that branch, and its moments would never fire. Keyed on the
+   * date being missing instead, so an upgrade starts the clock at the upgrade.
+   */
+  useEffect(() => {
+    if (!appHydrated || preferences.firstLaunchAt) {
+      return;
+    }
+    void updatePreferences({ firstLaunchAt: new Date().toISOString() });
+  }, [appHydrated, preferences.firstLaunchAt, updatePreferences]);
 
   useEffect(() => {
     const timeout = setTimeout(() => setMinimumSplashElapsed(true), 1200);
@@ -1020,28 +1036,6 @@ function VinhaApp() {
   const homeSummary = useMemo(() => getHomeSummary(database, unitPreference), [database, unitPreference]);
   const lifetimeSummary = useMemo(() => getLifetimeTrainingSummary(database), [database]);
   const progressTrainingRhythm = useMemo(() => getTrainingRhythm(database), [database]);
-  /**
-   * The Pro page's hero conversation, from this reader's own log.
-   *
-   * buildPremiumHeroChart came back for this: v3 had no chart and nothing
-   * called it, v4 needs the same series to say which lift the coach is talking
-   * about and what it has been doing. Null here is not a failure — the script
-   * falls back to sample figures and labels itself as one.
-   */
-  const premiumHeroChart = useMemo(
-    () => buildPremiumHeroChart(trackedProgress, unitPreference, preferences.appLanguage),
-    [preferences.appLanguage, trackedProgress, unitPreference],
-  );
-  const premiumChatScript = useMemo(
-    () =>
-      buildProChatHeroScript(
-        premiumHeroChart,
-        unitPreference,
-        preferences.setupDaysPerWeek,
-        t(preferences.appLanguage, 'pro.v4.example.lift'),
-      ),
-    [premiumHeroChart, preferences.appLanguage, preferences.setupDaysPerWeek, unitPreference],
-  );
   // The paywall-moments data layer: real lift histories → detections (free)
   // and deterministic conclusions (Pro / blurred). Pure, from logged sets.
   const proLiftHistories = useMemo(
@@ -1419,7 +1413,6 @@ function VinhaApp() {
     workoutTemplateId: string,
     sessionId: string,
     nextUnitPreference: UnitPreference,
-    trimSets = false,
   ) {
     const template = getWorkoutTemplateById(workoutTemplateId);
     if (!template) {
@@ -1434,7 +1427,7 @@ function VinhaApp() {
       void updatePreferences({ trainingFirstRunDismissed: true });
       const runtimeTemplate = applySessionAdaptation(
         buildReadySessionRuntimeTemplate(template, sessionId),
-        { swaps: sessionSwaps, drops: sessionDrops, trimSets },
+        { swaps: sessionSwaps, drops: sessionDrops },
       );
       workout.startCustomWorkout(runtimeTemplate, nextUnitPreference, {
         ...resolveProgressionOptions(preferences),
@@ -1448,8 +1441,8 @@ function VinhaApp() {
     });
   }
 
-  function handleStartReadyProgramSession(workoutTemplateId: string, sessionId: string, trimSets = false) {
-    startReadyProgramSessionWithUnit(workoutTemplateId, sessionId, unitPreference, trimSets);
+  function handleStartReadyProgramSession(workoutTemplateId: string, sessionId: string) {
+    startReadyProgramSessionWithUnit(workoutTemplateId, sessionId, unitPreference);
   }
 
   /**
@@ -1530,6 +1523,8 @@ function VinhaApp() {
     const dayLabels = planLabelsForProgramme(
       template.sessions.length,
       preferences.setupAvailableDays,
+      // Adopting is a moment, and the cycle starts from it.
+      new Date(),
     );
 
     const plan = buildProgramWorkoutPlan({
@@ -1596,7 +1591,16 @@ function VinhaApp() {
       return;
     }
     const ordered = [...plan.entries].sort((left, right) => left.orderIndex - right.orderIndex);
-    const entries = ordered.map((entry, index) => ({ ...entry, label: WEEKDAY_KEYS[dayIndexes[index]] }));
+    // The strip is a set of days, not a per-session assignment — it hands them
+    // back Monday-first however they were tapped. Which session lands on which
+    // of them is this app's answer, and it is the same one adoption gives:
+    // whatever comes next in the rotation takes the first day not yet gone.
+    const labels = rotateLabelsForNextSession(
+      dayIndexes.map((index) => WEEKDAY_KEYS[index]),
+      resolveNextPlanEntryIndex(ordered, getCanonicalCompletedSessions(database)),
+      new Date(),
+    );
+    const entries = ordered.map((entry, index) => ({ ...entry, label: labels[index] }));
     await upsertWorkoutPlan({
       ...plan,
       entries,
@@ -1653,9 +1657,19 @@ function VinhaApp() {
       // left alone rather than replaced by a week they did not choose.
       return;
     }
+    // Same rule as adoption and as the rhythm strip: the session that comes
+    // next takes the first training day that has not gone. Writing the spread
+    // straight through put session one on the earliest weekday, so a reader
+    // who moved a day mid-week was offered one session and shown another one's
+    // day beside it.
+    const placed = rotateLabelsForNextSession(
+      labels,
+      resolveNextPlanEntryIndex(ordered, getCanonicalCompletedSessions(database)),
+      new Date(),
+    );
     await upsertWorkoutPlan({
       ...plan,
-      entries: ordered.map((entry, index) => ({ ...entry, label: labels[index] })),
+      entries: ordered.map((entry, index) => ({ ...entry, label: placed[index] })),
       // Untouched on purpose: the plan record's own boundary is what the week
       // counter counts from, so moving days must not restart the block.
       updatedAt: plan.updatedAt,
@@ -1716,10 +1730,16 @@ function VinhaApp() {
    */
   const activeProgramTemplateIds = useMemo(() => {
     const byId = new Map(database.workoutPlans.map((plan) => [plan.id, plan]));
-    return preferences.activePlanIds
+    // The LEADER counts too. Several writers set `activePlanId` without
+    // adding it to `activePlanIds` (activating a held plan, the season
+    // paths), so the plan Home leads with could be missing from this set —
+    // and its own detail page then offered "Start this programme" for a
+    // programme that was already running (device, 2026-08-30).
+    return [...new Set([preferences.activePlanId, ...preferences.activePlanIds])]
+      .filter((planId): planId is string => Boolean(planId))
       .map((planId) => byId.get(planId)?.entries[0]?.workoutTemplateId ?? null)
       .filter((id): id is string => Boolean(id));
-  }, [database.workoutPlans, preferences.activePlanIds]);
+  }, [database.workoutPlans, preferences.activePlanId, preferences.activePlanIds]);
 
   /**
    * The programmes running alongside the one Home leads with.
@@ -1812,7 +1832,7 @@ function VinhaApp() {
     handleStartReadyProgramSession(workoutTemplateId, firstSessionId);
   }
 
-  function handleStartCustomProgramSession(workoutTemplateId: string, sessionId: string, trimSets = false) {
+  function handleStartCustomProgramSession(workoutTemplateId: string, sessionId: string) {
     const customTemplate = customWorkoutRuntimeMap[workoutTemplateId];
     if (!customTemplate) {
       return;
@@ -1833,7 +1853,7 @@ function VinhaApp() {
       void updatePreferences({ trainingFirstRunDismissed: true });
       const runtimeTemplate = applySessionAdaptation(
         buildCustomSessionRuntimeTemplate(customTemplate, sessionId),
-        { swaps: sessionSwaps, drops: sessionDrops, trimSets },
+        { swaps: sessionSwaps, drops: sessionDrops },
       );
       workout.startCustomWorkout(runtimeTemplate, unitPreference, {
         ...resolveProgressionOptions(preferences),
@@ -1917,6 +1937,68 @@ function VinhaApp() {
   }
 
   /**
+   * Move a whole day inside the programme (user 2026-08-31).
+   *
+   * The rotation reads the session list positionally, so this is the edit that
+   * decides which session lands on which weekday - the same list the day rows
+   * print in. Custom programmes only: reordering a catalog programme would
+   * mean copying it, and the reader has not asked for a copy by dragging.
+   */
+  async function handleReorderProgramSession(
+    workoutTemplateId: string,
+    sessionId: string,
+    toIndex: number,
+  ) {
+    await editWorkoutTemplateSessions(workoutTemplateId, (sessions) => {
+      const result = reorderProgramSessions(sessions, sessionId, toIndex);
+      if (result.kind === 'skip') {
+        return { kind: 'skip', reason: result.reason };
+      }
+      return {
+        kind: 'save',
+        // Position in this array is the stored order; every other field is
+        // copied because upsert replaces the record.
+        sessions: result.sessions.map((session) => ({
+          id: session.id,
+          name: session.name,
+          exercises: session.exercises.map((exercise) => ({
+            id: exercise.id,
+            name: exercise.name,
+            targetSets: exercise.targetSets,
+            repMin: exercise.repMin,
+            repMax: exercise.repMax,
+            restSeconds: exercise.restSeconds,
+            trackedDefault: exercise.trackedDefault,
+            libraryItemId: exercise.libraryItemId ?? null,
+          })),
+        })),
+      };
+    });
+
+    // The template is only half the record. Each plan entry pins a weekday to
+    // a session BY ID, and Home, the calendar and the rotation read the
+    // assignment from there — so a reorder that stopped at the template moved
+    // the list on one screen and changed nothing about what gets trained.
+    // Read the order back rather than trusting the draft: the repository is
+    // what decided it.
+    const plan = database.workoutPlans.find(
+      (item) => item.entries[0]?.workoutTemplateId === workoutTemplateId,
+    );
+    if (!plan) {
+      return;
+    }
+    const saved = await getWorkoutTemplateSessionsFresh(workoutTemplateId);
+    const repointed = repointPlanEntrySessions(
+      plan.entries,
+      saved.map((session) => session.id),
+    );
+    if (repointed.kind === 'skip') {
+      return;
+    }
+    await upsertWorkoutPlan({ ...plan, entries: repointed.entries, updatedAt: plan.updatedAt });
+  }
+
+  /**
    * Take one lift out of the programme for good, from wherever the reader is
    * looking at it.
    *
@@ -1966,7 +2048,7 @@ function VinhaApp() {
     | { kind: 'replace'; exerciseName: string }
     | { kind: 'add'; exerciseNames: string[] }
     | { kind: 'prescribe'; prescription: ProgramPrescription }
-    | { kind: 'move'; direction: MoveDirection };
+    | { kind: 'reorder'; toIndex: number };
 
   /**
    * The prescription a lift added from the library starts on.
@@ -2059,8 +2141,8 @@ function VinhaApp() {
                 }
               : edit.kind === 'prescribe'
                 ? { kind: 'prescribe', exerciseId, prescription: edit.prescription }
-                : edit.kind === 'move'
-                  ? { kind: 'move', exerciseId, direction: edit.direction }
+                : edit.kind === 'reorder'
+                  ? { kind: 'reorder', exerciseId, toIndex: edit.toIndex }
                   : { kind: 'add', exercises: added },
         ),
       );
@@ -2098,7 +2180,7 @@ function VinhaApp() {
     }
 
     /**
-     * A move with nowhere to go, checked before anything is written.
+     * A drop that changes nothing, checked before anything is written.
      *
      * Everything below this line copies the catalog programme into a custom
      * one — that is what editing a ready programme means. Pressing "up" on the
@@ -2106,11 +2188,13 @@ function VinhaApp() {
      * copy of the whole programme, and one fewer free slot, in exchange for a
      * list that looks exactly as it did.
      */
-    if (edit.kind === 'move') {
+    if (edit.kind === 'reorder') {
       const day = template.sessions.find((session) => session.id === sessionId);
       const from = day?.exercises.findIndex((exercise) => exercise.id === exerciseId) ?? -1;
-      const to = edit.direction === 'up' ? from - 1 : from + 1;
-      if (!day || from === -1 || to < 0 || to >= day.exercises.length) {
+      const to = day
+        ? Math.max(0, Math.min(day.exercises.length - 1, Math.round(edit.toIndex)))
+        : -1;
+      if (!day || from === -1 || to === from) {
         return;
       }
     }
@@ -2162,10 +2246,18 @@ function VinhaApp() {
             const name =
               target && edit.kind === 'replace' ? edit.exerciseName : exercise.exerciseName;
             // The catalog's dose unless this row is the one being re-dosed.
+            // Rest rides along on the same rule the custom path uses
+            // (applyProgramSessionEdit): a number overrides, null leaves the
+            // catalog's own value alone.
             const dose =
               target && edit.kind === 'prescribe'
                 ? edit.prescription
-                : { targetSets: exercise.sets, repMin: exercise.repsMin, repMax: exercise.repsMax };
+                : {
+                    targetSets: exercise.sets,
+                    repMin: exercise.repsMin,
+                    repMax: exercise.repsMax,
+                    restSeconds: null,
+                  };
             return {
               id: exercise.id,
               workoutTemplateId: template.id,
@@ -2174,7 +2266,11 @@ function VinhaApp() {
               targetSets: dose.targetSets,
               repMin: dose.repMin,
               repMax: dose.repMax,
-              restSeconds: exercise.restSecondsMin,
+              // Reading only the catalog value here dropped a rest-time edit
+              // in silence — and it had already cost the reader one of three
+              // custom-programme slots to make the copy (PR #33 review).
+              restSeconds:
+                typeof dose.restSeconds === 'number' ? dose.restSeconds : exercise.restSecondsMin,
               trackedDefault: false,
               orderIndex: exerciseIndex,
               libraryItemId: target && edit.kind === 'replace' ? resolveLibraryItemIdForName(name) : null,
@@ -2192,10 +2288,11 @@ function VinhaApp() {
             : []),
         ];
 
-        if (edit.kind === 'move' && session.id === sessionId) {
+        if (edit.kind === 'reorder' && session.id === sessionId) {
           const from = exercises.findIndex((exercise) => exercise.id === exerciseId);
+          const to = Math.max(0, Math.min(exercises.length - 1, Math.round(edit.toIndex)));
           const [moved] = exercises.splice(from, 1);
-          exercises.splice(edit.direction === 'up' ? from - 1 : from + 1, 0, moved);
+          exercises.splice(to, 0, moved);
         }
 
         return {
@@ -2236,7 +2333,7 @@ function VinhaApp() {
         workoutTemplateId,
         programName: formatWorkoutDisplayLabel(draft.name),
         sessionIds,
-        dayLabels: planLabelsForProgramme(sessionIds.length, preferences.setupAvailableDays),
+        dayLabels: planLabelsForProgramme(sessionIds.length, preferences.setupAvailableDays, new Date()),
         now: new Date().toISOString(),
       });
       await upsertWorkoutPlan(plan);
@@ -2346,7 +2443,7 @@ function VinhaApp() {
     // The program's own session count leads, exactly as it does for a ready
     // programme: an imported six-day week dealt across three chosen weekdays
     // would run every session twice and call itself a three-day programme.
-    const dayLabels = planLabelsForProgramme(sessionIds.length, preferences.setupAvailableDays);
+    const dayLabels = planLabelsForProgramme(sessionIds.length, preferences.setupAvailableDays, new Date());
 
     const plan = buildProgramWorkoutPlan({
       planId,
@@ -2819,6 +2916,38 @@ function VinhaApp() {
   );
   const proEntitlement = resolveProEntitlement(preferences);
   const coachProUnlocked = proEntitlement.unlocked;
+
+  /**
+   * The coach demo moment that came due with this session, if one has.
+   *
+   * Free readers get three real coach answers per install, at day 7, 30 and
+   * 90 — offered after a completed session so the log behind the answer is
+   * fresh. Null for Pro, and null until the day and the session count both
+   * come good. See lib/coachDemoMoments.
+   */
+  const coachDemoMoment = useMemo(
+    () =>
+      resolveDueCoachDemoMoment({
+        firstLaunchAt: preferences.firstLaunchAt,
+        usedMoments: preferences.coachDemoMomentsUsed,
+        proUnlocked: coachProUnlocked,
+        sessionCount: database.workoutSessions.length,
+        lifts: proLiftHistories,
+        fatigueSignal: proFatigue?.confident ? proFatigue.signal : null,
+      }),
+    [
+      coachProUnlocked,
+      database.workoutSessions.length,
+      preferences.coachDemoMomentsUsed,
+      preferences.firstLaunchAt,
+      proFatigue,
+      proLiftHistories,
+    ],
+  );
+  const coachDemoQuestion = coachDemoMoment
+    ? t(preferences.appLanguage, coachDemoMoment.questionKey, coachDemoMoment.vars)
+    : null;
+
   // Seven days out. There is no billing, so this is the demo story the paywall
   // already tells rather than a date anything will act on.
   const premiumTrialEndsAt = useMemo(() => {
@@ -2858,13 +2987,23 @@ function VinhaApp() {
   const routineBlockSeconds = useCallback(
     (focus: SessionFocusKind) => ({
       warmupSeconds: estimateRoutineBlockSeconds(
-        getDefaultWarmup(focus, preferences.appLanguage, availableEquipmentForDrills),
+        getDefaultWarmup(
+          focus,
+          preferences.appLanguage,
+          availableEquipmentForDrills,
+          preferences.routineDrillOverrides,
+        ),
       ),
       cooldownSeconds: estimateRoutineBlockSeconds(
-        getDefaultCooldown(focus, preferences.appLanguage, availableEquipmentForDrills),
+        getDefaultCooldown(
+          focus,
+          preferences.appLanguage,
+          availableEquipmentForDrills,
+          preferences.routineDrillOverrides,
+        ),
       ),
     }),
-    [preferences.appLanguage, availableEquipmentForDrills],
+    [preferences.appLanguage, availableEquipmentForDrills, preferences.routineDrillOverrides],
   );
   // Both used to depend on the whole preferences object, so a theme or sound
   // toggle handed them a new object and they rebuilt — and everything
@@ -3032,7 +3171,6 @@ function VinhaApp() {
           dayLabel: entryLabel,
           totalSets: session.exercises.reduce((sum, exercise) => sum + exercise.targetSets, 0),
           durationMinutes: estimatedDuration,
-          trim: previewSessionTrim(durationInputs, routineSeconds),
           focusKind,
           // The whole session, not the first five (user 2026-08-24: "saako
           // treeni osion näkyviin kokonaan"). Home decides what to show and
@@ -3185,6 +3323,23 @@ function VinhaApp() {
     () => resolveHomeStatCardKeys(preferences.homeStatCardKeys),
     [preferences.homeStatCardKeys],
   );
+  /**
+   * The ONE prompt card Home may show (design frame 15). The suggester and
+   * the sign-in offer used to render independently and stacked; the queue
+   * decides, and the props below go quiet for whichever card is not up.
+   */
+  const homeSuggestedStatCardKeys = suggestHomeStatCardKeys({
+    focusAreas: preferences.setupFocusAreas,
+    goals: [preferences.setupGoal, ...preferences.setupGoals],
+    pinnedKeys: homePinnedStatCardKeys,
+    dismissedKeys: preferences.dismissedCardSuggestionKeys,
+  });
+  const homePrompt = resolveHomePrompt({
+    signInAvailable: accountBackup.available && accountBackup.state.status === 'signed_out',
+    signInDismissed: preferences.accountBackupPromptDismissed,
+    loggedSessionCount: database.workoutSessions.length + database.cardioSessions.length,
+    suggestionKey: homeSuggestedStatCardKeys[0] ?? null,
+  });
   // Same equipment truth the composer filters exercises with, for the default
   // warmup/cooldown drills: null = setup never said, [] = no equipment at all.
   // Week-strip training dots from the days the user actually picked
@@ -3912,41 +4067,6 @@ function VinhaApp() {
         target: weekProgressBase.target,
       }
     : null;
-  // Home history section: strength + cardio merged, newest first.
-  const homeHistoryItems = useMemo(() => {
-    const language = preferences.appLanguage;
-    const strength = workoutSessions.map((session) => ({
-      id: session.id,
-      kind: 'strength' as const,
-      title: localizeSessionName(
-        formatWorkoutDisplayLabel(session.workoutNameSnapshot, t(language, 'history.workoutFallback')),
-        language,
-      ),
-      meta: [
-        formatShortDate(session.performedAt, language),
-        session.durationMinutes ? formatDurationMinutes(session.durationMinutes) : null,
-        session.totalVolumeKg ? formatVolume(session.totalVolumeKg, unitPreference) : null,
-      ]
-        .filter(Boolean)
-        .join(' · '),
-      performedAt: session.performedAt,
-    }));
-    const cardio = cardioSessions.map((session) => {
-      const activity = getCardioActivity(session.activityType);
-      return {
-        id: session.id,
-        kind: 'cardio' as const,
-        title: activity.name,
-        cardioIcon: activity.icon,
-        meta: `${formatShortDate(session.performedAt, language)} · ${buildCardioStatsLine(session.durationSec, session.distanceKm)}`,
-        performedAt: session.performedAt,
-      };
-    });
-    return [...strength, ...cardio]
-      .sort((left, right) => new Date(right.performedAt).getTime() - new Date(left.performedAt).getTime())
-      .slice(0, 5);
-  }, [workoutSessions, cardioSessions, unitPreference, preferences.appLanguage]);
-
   const guidedNextUp = useMemo(() => {
     const card = homeActivePlanCard;
     const templateSessionId = workout.activeSession?.templateSessionId;
@@ -4997,6 +5117,7 @@ function VinhaApp() {
     content = renderHomeScreens({
       route,
       navigate,
+      replaceRoute,
       navigateBack,
       preferences,
       updatePreferences,
@@ -5060,6 +5181,23 @@ function VinhaApp() {
             : null
         }
         onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
+        demoQuestion={coachDemoQuestion}
+        onSendDemoQuestion={() => {
+          if (!coachDemoMoment || !coachDemoQuestion) {
+            return;
+          }
+          // Spending it HERE was wrong, and the device found it: the chat
+          // will not send while the online disclosure is unacknowledged, so a
+          // reader who met that sheet for the first time and backed out lost
+          // one of three answers without ever getting one. The moment is now
+          // spent by the chat, at the moment it actually dispatches the send.
+          navigate({
+            tab: 'home',
+            screen: 'ai_chat',
+            demoQuestion: coachDemoQuestion,
+            demoMomentKey: coachDemoMoment.key,
+          });
+        }}
         onDone={(feel) => {
           // The verdict lands on the already-saved session; leaving does not
           // wait for the write (it goes through the same serial queue every
@@ -5122,6 +5260,7 @@ function VinhaApp() {
       handleStartCustomProgramSession,
       editProgramExercise: handleEditProgramExercise,
       handleSaveRhythm,
+      handleReorderProgramSession,
       handleSaveEmphasis,
       handleDeleteCustomWorkout,
       sessionSwaps,
@@ -5212,7 +5351,6 @@ function VinhaApp() {
       preferences,
       updatePreferences,
       coachProUnlocked,
-      premiumChatScript,
       proCoachSpecimen,
       proEntitlement,
       profilePlanSummary,
@@ -5276,13 +5414,16 @@ function VinhaApp() {
           }
         }}
         onRemoveOtherProgram={(planId) => void handleRemoveActiveProgram(planId)}
-        onRemoveActivePlan={
-          preferences.activePlanId
-            ? () => void handleRemoveActiveProgram(preferences.activePlanId as string)
-            : undefined
-        }
-        onRedoOnboarding={() => void handleRedoOnboarding()}
         availableEquipment={availableEquipmentForDrills}
+        routineDrillOverrides={preferences.routineDrillOverrides}
+        // Permanent by nature: the drills are generated from the session's
+        // focus, so the choice belongs to every day with that focus rather
+        // than to today. There is no "just this time" to offer.
+        onSwapRoutineDrill={(slotKey, drillKey) =>
+          void updatePreferences({
+            routineDrillOverrides: { ...preferences.routineDrillOverrides, [slotKey]: drillKey },
+          })
+        }
         widgetPrompt={
           homeWidgetState?.supported && !homeWidgetState.added && !preferences.homeWidgetPromptDismissed
             ? {
@@ -5292,13 +5433,11 @@ function VinhaApp() {
             : null
         }
         accountBackupPrompt={
-          // The one-time offer for installs that never see the hand-off card
-          // again. Signed out, never dismissed, and with logged work worth
-          // keeping — a fresh install gets the hand-off, not this.
-          accountBackup.available &&
-          accountBackup.state.status === 'signed_out' &&
-          !preferences.accountBackupPromptDismissed &&
-          hasLocalDataWorthKeeping(database)
+          // One prompt at a time, and this one waits for the third logged
+          // session (lib/homePrompts): a fresh install has nothing worth
+          // backing up, and the account ask is the one most likely to be
+          // both refused and remembered.
+          homePrompt === 'signIn'
             ? {
                 onSignIn: () => {
                   void handleAccountSignIn().then((kind) => {
@@ -5316,12 +5455,7 @@ function VinhaApp() {
         trainingSchedule={homeTrainingSchedule}
         doneThisWeekSessionIds={homeDoneThisWeekSessionIds}
         statCatalogCards={homeStatCatalogCards}
-        suggestedStatCardKeys={suggestHomeStatCardKeys({
-          focusAreas: preferences.setupFocusAreas,
-          goals: [preferences.setupGoal, ...preferences.setupGoals],
-          pinnedKeys: homePinnedStatCardKeys,
-          dismissedKeys: preferences.dismissedCardSuggestionKeys,
-        })}
+        suggestedStatCardKeys={homePrompt === 'suggestion' ? homeSuggestedStatCardKeys : []}
         onDismissStatCardSuggestion={(key) =>
           void updatePreferences({
             dismissedCardSuggestionKeys: [...preferences.dismissedCardSuggestionKeys, key],
@@ -5381,16 +5515,6 @@ function VinhaApp() {
           }
         }}
         tailoringPreferences={preferences}
-        onStartTrimmedSession={(sessionId) => {
-          if (!homeActivePlanCard) {
-            return;
-          }
-          if (homeActivePlanCard.programType === 'custom') {
-            handleStartCustomProgramSession(homeActivePlanCard.programId, sessionId, true);
-            return;
-          }
-          handleStartReadyProgramSession(homeActivePlanCard.programId, sessionId, true);
-        }}
         // Paused counts: it is still a session the button resumes.
         hasActiveSession={workout.activeSession !== null && workout.activeSession.status !== 'completed'}
         onPickTodaySession={(sessionId) => void handlePickTodaySession(sessionId)}
@@ -5421,8 +5545,6 @@ function VinhaApp() {
         onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
         plateau={proPlateau ? { headline: proPlateau.detection.headline, meta: proPlateau.detection.meta, locked: proPlateau.conclusion, moment: proPlateau.moment } : null}
         proUnlocked={coachProUnlocked}
-        historyItems={homeHistoryItems}
-        onOpenHistory={() => navigate({ tab: 'home', screen: 'history' })}
         onSetTrainingDays={() =>
           navigate({ tab: 'profile', screen: 'training_plan', editSchedule: true })
         }
@@ -5451,7 +5573,6 @@ function VinhaApp() {
             sessionId,
           });
         }}
-        onSelectHistorySession={(sessionId) => navigate({ tab: 'home', screen: 'session', sessionId })}
       />
     );
   }
@@ -5511,6 +5632,17 @@ function VinhaApp() {
       route.screen === 'promo' ||
       route.screen === 'subscription' ||
       route.screen === 'legal');
+  /**
+   * The Pro page commits to one dark treatment in BOTH themes (theme.ts,
+   * PRO_TIER): the tier's colour is the only thing telling Free from Pro from
+   * Lifetime, and repainting it per reader would make that signal mean
+   * something different for each of them.
+   *
+   * The shell has to be told, or only the page obeys. v4 painted itself
+   * theme.bg and matched by accident; v6 paints itself black, and under the
+   * light theme the safe-area bands above and below it stayed light — two
+   * pale strips framing a black page.
+   */
   const premiumActive = route.tab === 'profile' && route.screen === 'premium';
   const aiCoachActive = route.tab === 'home' && route.screen === 'ai';
   const historyActive = route.tab === 'home' && (route.screen === 'history' || route.screen === 'session' || route.screen === 'cardio');
@@ -5551,11 +5683,18 @@ function VinhaApp() {
       }
       // Only the gradient-hero screens want light icons; everything else takes
       // the shell's light default.
+      // The Pro page is black in both themes, so the bands the shell paints
+      // around it have to be too — see premiumActive.
+      shellBackgroundColor={premiumActive ? '#000000' : undefined}
       statusBarStyleOverride={
         // The workout summary is off this list since its hero turned gold: a
         // pale gold bar needs dark icons, and the shell already derives that
         // from the theme.
-        fullBleedReview ? fullBleedReview : historySessionActive ? 'light' : undefined
+        fullBleedReview
+          ? fullBleedReview
+          : historySessionActive || premiumActive
+            ? 'light'
+            : undefined
       }
       statusBarBackgroundColor={
         // The saved workout's hero scrolls, and under a transparent bar its
@@ -5564,9 +5703,11 @@ function VinhaApp() {
         // the screen moves.
         historySessionActive
           ? '#8B5CF6'
-          : workoutSummaryActive || welcomeActive || fullBleedReview !== null
-            ? 'transparent'
-            : undefined
+          : premiumActive
+            ? '#000000'
+            : workoutSummaryActive || welcomeActive || fullBleedReview !== null
+              ? 'transparent'
+              : undefined
       }
       statusBarTranslucent={
         welcomeActive || workoutSummaryActive || historySessionActive || fullBleedReview !== null

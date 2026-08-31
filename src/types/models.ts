@@ -412,10 +412,24 @@ export interface AppPreferences {
   /** Feature-request ids this device has upvoted (local demo board). */
   featureVotedIds: string[];
   /**
-   * Free coach-question counter for the current week (3/week — the Pro page
-   * table promises it, so it must be real). Null = nothing used yet.
+   * Pro's coach allowance for the current calendar month. Null = nothing
+   * used yet this month. Free has no counter at all: it asks nothing of its
+   * own accord, and its three sample answers are tracked by
+   * coachDemoMomentsUsed instead. See lib/aiCoachQuota.
    */
-  aiCoachFreeQuota: { weekStart: string; used: number } | null;
+  aiCoachProQuota: { monthStart: string; used: number } | null;
+  /**
+   * When this install first ran, which is what the coach demo moments
+   * count their 7 / 30 / 90 days from. Null only until the first load
+   * stamps it — an install that predates the field gets stamped then, so
+   * its moments start from the upgrade rather than never firing.
+   */
+  firstLaunchAt: string | null;
+  /**
+   * Which coach demo moments have been spent. Append-only and never reset:
+   * three per install, ever, which is what bounds the free tier cost.
+   */
+  coachDemoMomentsUsed: string[];
   adaptiveCoachPremiumUnlocked: boolean;
   /** Plan-review toggle: Vinha adjusts weekly load/progression automatically. */
   automatedProgressionEnabled: boolean;
@@ -495,6 +509,13 @@ export interface AppPreferences {
    * `[true, true, false]` is two on, one off. Null = plain weekdays.
    */
   trainingCycle: { pattern: boolean[]; anchorDayStart: number } | null;
+  /**
+   * Which drill the reader put in which warm-up / cool-down slot.
+   *
+   * Keyed `${'warmup' | 'cooldown'}:${focus}:${index}` — see
+   * routineDrillSlotKey. Empty until they swap one.
+   */
+  routineDrillOverrides: Record<string, string>;
   /**
    * Today's session, when the reader has picked one by hand.
    *

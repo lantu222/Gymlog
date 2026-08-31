@@ -9,6 +9,14 @@ export type AppRoute =
       /** The middle AI button. Always the chat — never a paywall. */
       tab: 'home';
       screen: 'ai_chat';
+      /**
+       * A question the app is asking on the reader's behalf, carried in from a
+       * coach demo moment. Present only on the hop out of the completion
+       * screen; the chat clears it as it sends.
+       */
+      demoQuestion?: string;
+      /** Which moment it is, so the chat can spend it when it truly sends. */
+      demoMomentKey?: string;
     }
   | {
       tab: 'home';

@@ -114,9 +114,20 @@ module.exports = [
       // depended on a gradient BEHIND the page.
       assert.doesNotMatch(programDetailSource, /styles\.headerTitle/);
       assert.doesNotMatch(programDetailSource, /styles\.planCard\b/);
-      // Four numbers, so the commitment is legible before the button.
+      // Three numbers answering one question — how much of a week is this?
+      // It used to run days / session / sessions, where the first and last
+      // were the same number wearing two labels (user 2026-08-31).
       assert.match(programDetailSource, /'detail\.stat\.daysPerWeek'/);
-      assert.match(programDetailSource, /'detail\.stat\.total'/);
+      assert.match(programDetailSource, /'detail\.stat\.minPerSession'/);
+      assert.match(programDetailSource, /'detail\.stat\.minPerWeek'/);
+      // And the day count comes from the RHYTHM, not the session count: a
+      // five-session programme on "4 on / 1 off" trains 5.6 days a week and
+      // the header used to keep saying five.
+      assert.doesNotMatch(programDetailSource, /value: `\$\{program\.sessions\.length\}`/);
+      assert.match(programDetailSource, /formatTrainingDays\(weekLoad\.daysPerWeek\)/);
+      // The cycle hint reads the same number from the same place; computing
+      // it twice is how two lines on one screen end up disagreeing.
+      assert.doesNotMatch(programDetailSource, /7 \* trainingCycle\.pattern\.filter/);
       // The week is seven named chips. A dot-and-word list said
       // "Treeni / Palautuminen" seven times and never named a session.
       assert.match(programDetailSource, /styles\.rhythmDay\b/);
@@ -303,8 +314,14 @@ module.exports = [
       );
       assert.match(programDaySource, /home\.swapSheet\.keep/);
       // The sheet's own padding was a fixed number, so its last row sat behind
-      // the phone's system buttons and could not be pressed.
-      assert.match(programDaySource, /paddingBottom: insets\.bottom \+ 28/);
+      // the phone's system buttons and could not be pressed. The inset travels
+      // through the kit's shell now — read on the screen, never in the Modal.
+      assert.match(programDaySource, /bottomInset=\{insets\.bottom\}/);
+      const kitSource = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'components', 'sheetKit.tsx'),
+        'utf8',
+      );
+      assert.match(kitSource, /\(barUp \? KIT_BAR_SPACE : 26\) \+ bottomInset/);
     },
   },
   {
@@ -332,7 +349,15 @@ module.exports = [
       // the session under it, which named the same day twice, differently.
       assert.match(day, /formatPlanSessionTitle\(session, dayNumber - 1, programTitle, language\)/);
       assert.doesNotMatch(day, /styles\.pageSession/);
-      assert.match(day, /styles\.pageStatValue/);
+      // The stat pair went too (design frame 05: title only at the top) —
+      // both counts already sit on the section headers the rows live under.
+      assert.doesNotMatch(day, /styles\.pageStatValue/);
+      // The role legend survives, but LAST on the screen: the reader meets
+      // ANCHOR on a row before being lectured about it.
+      assert.ok(
+        day.indexOf('styles.roleCard') > day.indexOf('detail.day.cooldown'),
+        'the role legend should render below the sections, not above them',
+      );
       // And the sections under it, untouched.
       assert.match(day, /detail\.day\.warmup/);
       assert.match(day, /detail\.day\.exercises/);
@@ -348,21 +373,124 @@ module.exports = [
      * to move one row one place, with the list you are ordering hidden behind
      * the sheet while you do it.
      */
-    name: 'the day page can be reordered from the rows themselves',
+    name: 'the day page is reordered by dragging, as one edit per drag',
     run() {
       const day = fs.readFileSync(
         path.join(__dirname, '..', '..', 'src', 'screens', 'ProgramDayScreen.tsx'),
         'utf8',
       );
-      assert.match(day, /const \[reorderMode, setReorderMode\] = useState\(false\)/);
-      assert.match(day, /'detail\.day\.reorder'/);
-      assert.match(day, /<MoveButton/);
+      // Drag replaced the Reorder mode and its arrows (design frame 05):
+      // grab the handle, the rows make room, and letting go writes ONE
+      // reorder with the destination.
+      assert.doesNotMatch(day, /reorderMode|<MoveButton/);
+      assert.match(day, /onReorderExercise\?\.\(exercise\.id, to\)/);
       // Only when there is an order to change.
-      assert.match(day, /onMoveExercise && session\.exercises\.length > 1/);
-      // The ends of the list refuse, rather than saving a move that cannot
-      // happen — a ready programme would otherwise be copied for nothing.
-      assert.match(day, /disabled=\{index === 0\}/);
-      assert.match(day, /disabled=\{index === session\.exercises\.length - 1\}/);
+      assert.match(day, /onReorderExercise && session\.exercises\.length > 1/);
+      // Two vertical gestures cannot share one finger: the screen's scroll
+      // freezes for the drag's duration.
+      assert.match(day, /scrollEnabled=\{dragIndex === null\}/);
+      // Heights are measured, never guessed — the preview shifts rows by the
+      // dragged row's real height.
+      assert.match(day, /rowHeights\.current\[index\] = event\.nativeEvent\.layout\.height/);
+    },
+  },
+  {
+    /**
+     * Order is the answer on this screen too.
+     *
+     * `planWeekdayIndexes` stopped sorting so that its POSITION carries which
+     * session owns which day. This screen re-sorted the array before pairing
+     * it with `program.sessions[order]`, so a Mon/Thu programme adopted on a
+     * Wednesday printed session 1 under MON while Home and the calendar ran
+     * it on THU (PR #33 review) — the same failure the sort removal fixed,
+     * relocated. The write path was never wrong: handleSaveRhythm re-derives
+     * the assignment from the rotation. Only the read lied.
+     */
+    name: 'the rhythm strip pairs sessions in the plan order, not the sorted one',
+    run() {
+      // The sorted view still exists — membership, counting and the toggle
+      // have no opinion about which session owns which day.
+      assert.match(
+        programDetailSource,
+        /const committedDays = useMemo\(\s*\(\) => \[\.\.\.orderedDays\]\.sort/,
+      );
+      // The pairing reads the order-carrying array instead.
+      assert.match(
+        programDetailSource,
+        /\(draftDays \?\? orderedDays\)\.forEach\(\(dayIndex, order\) => \{/,
+      );
+      assert.doesNotMatch(
+        programDetailSource,
+        /shownDays\.forEach\(\(dayIndex, order\)/,
+        'pairing from the sorted view is the bug this pins',
+      );
+    },
+  },
+  {
+    /**
+     * Editing a ready programme buys a copy, so the copy must carry the edit.
+     *
+     * The duplication branch built its dose from `edit.prescription` but then
+     * wrote `restSeconds: exercise.restSecondsMin` — the catalog's own value.
+     * Changing only the rest time therefore spent one of three custom-programme
+     * slots and dropped the change in silence (PR #33 review).
+     */
+    name: 'duplicating a ready programme carries the rest-time edit into the copy',
+    run() {
+      assert.match(
+        appSource,
+        /restSeconds:\s*typeof dose\.restSeconds === 'number' \? dose\.restSeconds : exercise\.restSecondsMin/,
+      );
+    },
+  },
+  {
+    /**
+     * A day is dragged exactly like a lift.
+     *
+     * The exercises inside a day have been draggable since frame 05; the days
+     * themselves were fixed in creation order (user 2026-08-31: "tee
+     * identtinen systeemi kun siellä missä treenejä voi vaihtaa"). Same
+     * contract, so the same three things are pinned: heights measured rather
+     * than guessed, the scroll frozen for the drag, and the drop written once
+     * with its destination.
+     */
+    name: 'the day rows are dragged with the same machinery the lifts use',
+    run() {
+      assert.match(programDetailSource, /rowHeights\.current\[index\] = event\.nativeEvent\.layout\.height/);
+      assert.match(programDetailSource, /scrollEnabled=\{dragIndex === null\}/);
+      assert.match(programDetailSource, /onReorderSession\?\.\(session\.id, to\)/);
+      // Only when there is an order to change, and only on a programme the
+      // reader owns — dragging must never buy them a copy.
+      assert.match(programDetailSource, /onReorderSession && program\.sessions\.length > 1/);
+      assert.match(appSource, /route\.programType === 'custom'[\s\S]{0,160}handleReorderProgramSession/);
+      // And the PLAN follows the template. Each entry pins a weekday to a
+      // session by id, and Home, the calendar and the rotation read the
+      // assignment from there — a reorder that stopped at the template moved
+      // the list on one screen and changed nothing about what gets trained
+      // (found in review, 2026-08-31).
+      assert.match(appSource, /repointPlanEntrySessions\(\s*plan\.entries/);
+      // Read back, not assumed: the repository decides the saved order.
+      assert.match(
+        appSource,
+        /getWorkoutTemplateSessionsFresh\(workoutTemplateId\)[\s\S]{0,400}repointPlanEntrySessions/,
+      );
+    },
+  },
+  {
+    /**
+     * The programme page stopped offering to start the workout.
+     *
+     * "Poistetaan ohjelman sisällä oleva start next workout — ei kuulu tänne"
+     * (user 2026-08-31). The adopt button stays for a programme the reader
+     * has NOT taken up: that is the one thing this page exists to offer.
+     */
+    name: 'the running programme offers no start button, and an unadopted one still does',
+    run() {
+      assert.match(programDetailSource, /\{activePlanSummary \? null : \(/);
+      assert.match(programDetailSource, /program\.primaryActionLabel/);
+      // The cycle's own sentence went with it — the chips draw the week and
+      // the header prints the rate.
+      assert.doesNotMatch(programDetailSource, /detail\.week\.cycleStatus/);
     },
   },
 ];

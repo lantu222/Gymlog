@@ -138,9 +138,12 @@ module.exports = [
       const day = read('src/screens/ProgramDayScreen.tsx');
 
       // With nine rows the sheet grew past the screen and "Poista ohjelmasta"
-      // could not be pressed at all.
+      // could not be pressed at all. The ceiling lives on the kit's shell now
+      // (a sheet never takes the whole screen) plus the sheet's own capped
+      // scroller — the actions scroll WITH the list, reachable at its end.
       assert.match(home, /adaptOptsScroll: \{\s*\n\s*maxHeight: 300,/);
-      assert.match(home, /<ScrollView style=\{styles\.adaptOptsScroll\}/);
+      assert.match(home, /style=\{styles\.adaptOptsScroll\}/);
+      assert.match(read('src/components/sheetKit.tsx'), /maxHeight: '86%'/);
       for (const source of [home, day]) {
         assert.match(source, /buildSwapShortlist\(/);
         // Headings only when both halves exist: one heading over the whole

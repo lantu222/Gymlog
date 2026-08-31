@@ -16,6 +16,7 @@ import { SESSION_FEEL_LABEL_KEY, SESSION_FEEL_SCALE, sessionFeelColor } from '..
 import { MuscleFocusRow } from '../lib/workoutCompleteView';
 import { WorkoutCompletionExerciseCard, WorkoutCompletionPrCard } from '../lib/workoutCompletionSummary';
 import { ProMomentContent } from '../lib/proInsights';
+import { CoachDemoSheet } from '../components/CoachDemoSheet';
 import { ProLockedCard } from '../components/ProLockedCard';
 import { ProMomentSheet } from '../components/ProMomentSheet';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
@@ -222,6 +223,19 @@ interface WorkoutCompletionScreenProps {
    */
   lockedInsight?: { teaser: string; body: string; moment: ProMomentContent } | null;
   onOpenPremium?: () => void;
+  /**
+   * A coach demo moment that came due with this session (lib/coachDemoMoments).
+   *
+   * Three of these exist per install, ever. The question is shown before it
+   * is sent and the reader is the one who sends it — the app asking on
+   * someone’s behalf without a tap would be putting words in their mouth.
+   *
+   * Declining costs nothing and needs no handler: the dialog closes and the
+   * offer comes back after the next session. Only sending has a consequence,
+   * so only sending has a callback.
+   */
+  demoQuestion?: string | null;
+  onSendDemoQuestion?: () => void;
 }
 
 function formatWhenLabel(performedAt: string, language: AppLanguage) {
@@ -278,6 +292,8 @@ export function WorkoutCompletionScreen({
   nextUp = null,
   onDone,
   lockedInsight = null,
+  demoQuestion = null,
+  onSendDemoQuestion,
   onOpenPremium,
 }: WorkoutCompletionScreenProps) {
   const theme = useTheme();
@@ -286,6 +302,22 @@ export function WorkoutCompletionScreen({
   const insets = useSafeAreaInsets();
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
   const [momentSheetVisible, setMomentSheetVisible] = useState(false);
+  /**
+   * The demo dialog opens on a beat rather than instantly.
+   *
+   * Landing on top of the summary the moment it renders steps on the one
+   * screen in the app whose job is to say well done. The delay is short
+   * enough that it still reads as part of finishing, long enough that the
+   * numbers register first.
+   */
+  const [demoSheetVisible, setDemoSheetVisible] = useState(false);
+  useEffect(() => {
+    if (!demoQuestion) {
+      return undefined;
+    }
+    const timer = setTimeout(() => setDemoSheetVisible(true), 900);
+    return () => clearTimeout(timer);
+  }, [demoQuestion]);
   /** The "miltä treeni tuntui" ask, shown when Done is pressed. */
   const [feelSheetVisible, setFeelSheetVisible] = useState(false);
   const pr = prCards[0] ?? null;
@@ -756,6 +788,24 @@ export function WorkoutCompletionScreen({
             setMomentSheetVisible(false);
             onOpenPremium?.();
           }}
+        />
+      ) : null}
+
+      {/* The demo moment interrupts, on purpose. As a row in the list above it
+          could be scrolled past, and three times per install is not something
+          a reader may miss by not scrolling. `insets.bottom` is read HERE and
+          passed down: inside a Modal this app measures it as zero. */}
+      {demoQuestion ? (
+        <CoachDemoSheet
+          visible={demoSheetVisible}
+          question={demoQuestion}
+          language={language}
+          bottomInset={insets.bottom}
+          onSend={() => {
+            setDemoSheetVisible(false);
+            onSendDemoQuestion?.();
+          }}
+          onDismiss={() => setDemoSheetVisible(false)}
         />
       ) : null}
     </View>

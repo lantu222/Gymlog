@@ -1,18 +1,26 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CutSurface } from '../components/CutSurface';
 import { ProgramPhotoSlot } from '../components/ProgramPhotoSlot';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { I18nKey, t } from '../lib/i18n';
+import { cycleSchedule, sessionSlotOn } from '../lib/trainingSchedule';
 import { ProgramDetailViewModel } from '../lib/programDetails';
 import { progressionRuleLabel } from '../lib/progressionRuleLabel';
 import { EQUIPMENT_CHIP_KEYS, missingEquipment } from '../lib/programEquipment';
 import { EmphasisSheet } from '../components/EmphasisSheet';
 import { EMPHASIS_AREA_KEYS, emphasisAreaForExercise, resolveProgramEmphasis } from '../lib/programEmphasis';
 import { WEEKDAY_KEYS } from '../lib/programTrainingDays';
+import { estimateSessionMinutes } from '../lib/sessionDuration';
+import {
+  buildTrainingWeekLoad,
+  formatTrainingDays,
+  formatTrainingMinutes,
+} from '../lib/trainingWeekLoad';
 import { EMPHASIS_RAMP } from '../lib/programVisualIdentity';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import {
@@ -68,12 +76,29 @@ interface ProgramDetailScreenProps {
   onStartSession: (sessionId: string) => void;
   /** The day row's destination — the day view (design screen 2). */
   onOpenSession?: (sessionId: string) => void;
+  /**
+   * Drop a day where the finger let go — the whole journey as ONE write.
+   *
+   * Undefined leaves the list fixed, which is what a catalog programme gets:
+   * reordering one would mean copying it, and nobody asks for a copy by
+   * dragging.
+   */
+  onReorderSession?: (sessionId: string, toIndex: number) => void;
   /** The catalog's declared block length. Null for a programme with none. */
   programBlockWeeks?: number | null;
   /** Monday-first indexes the plan currently trains on, when it names days. */
   trainingDayIndexes?: number[] | null;
   /** Commits a finished rhythm change. Absent = the strip is read-only. */
   onSaveRhythm?: (dayIndexes: number[]) => void;
+  /**
+   * The app's one training cycle, when one is running. A cycle and a weekday
+   * mask cannot be merged — one repeats every seven days and the other need
+   * not — so while a cycle is on, the week chips become a PREVIEW of the
+   * current calendar week and the presets are the way to change rhythm.
+   */
+  trainingCycle?: { pattern: boolean[]; anchorDayStart: number } | null;
+  /** Null hands the week back to the weekday chips. */
+  onChangeTrainingCycle?: (cycle: { pattern: boolean[]; anchorDayStart: number } | null) => void;
   /**
    * Writes new set counts (design screen 3). Present only for programmes whose
    * sets are the reader's to change — a catalog template is immutable at
@@ -145,9 +170,12 @@ export function ProgramDetailScreen({
   onStartSession,
   onPrimaryAction,
   onOpenSession,
+  onReorderSession,
   programBlockWeeks = null,
   trainingDayIndexes = null,
   onSaveRhythm,
+  trainingCycle = null,
+  onChangeTrainingCycle,
   onSaveEmphasis,
   onEdit,
   progressionRules = null,
@@ -163,9 +191,54 @@ export function ProgramDetailScreen({
   language = 'en',
 }: ProgramDetailScreenProps) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useThemedStyles(makeStyles);
   // The programme's own colour, the same one its browse cover wears.
   const [emphasisSheetVisible, setEmphasisSheetVisible] = useState(false);
+
+  /**
+   * Dragging a day, identical to dragging a lift (user 2026-08-31: "tee
+   * identtinen systeemi kun siellä missä treenejä voi vaihtaa").
+   *
+   * Raw responder handlers on the grip rather than a gesture library, heights
+   * measured with onLayout rather than guessed, and the ScrollView frozen for
+   * the drag's duration — two vertical gestures cannot share one finger.
+   */
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragTarget, setDragTarget] = useState<number | null>(null);
+  const dragY = useRef(new Animated.Value(0)).current;
+  const dragStartPageY = useRef(0);
+  const rowHeights = useRef<number[]>([]);
+
+  const dragTargetFor = (from: number, dy: number) => {
+    const heights = rowHeights.current;
+    let target = from;
+    let remaining = Math.abs(dy);
+    const step = dy > 0 ? 1 : -1;
+    for (let next = from + step; next >= 0 && next < program.sessions.length; next += step) {
+      const height = heights[next] ?? 0;
+      if (height === 0 || remaining < height / 2) {
+        break;
+      }
+      remaining -= height;
+      target = next;
+    }
+    return target;
+  };
+
+  const endDrag = (commit: boolean) => {
+    const from = dragIndex;
+    const to = dragTarget;
+    setDragIndex(null);
+    setDragTarget(null);
+    dragY.setValue(0);
+    if (commit && from !== null && to !== null && to !== from) {
+      const session = program.sessions[from];
+      if (session) {
+        onReorderSession?.(session.id, to);
+      }
+    }
+  };
   // Flat, in a fixed order: the sheet returns set counts by index, so this
   // list is the contract between the two.
   const emphasisRows = useMemo(
@@ -206,20 +279,40 @@ export function ProgramDetailScreen({
     const levelKey = ROLE_LEVEL_KEYS[(program.badges[1] ?? '').toLowerCase()];
     return levelKey ? t(language, levelKey) : null;
   }, [language, program.badges]);
-  const durationMinutes = parseMinutesFromBadges(program.badges);
+  /**
+   * Minutes of one session.
+   *
+   * A ready programme states it in a badge and its browse card repeats that
+   * number, so the badge wins where there is one. A programme the reader built
+   * has no badge — but it does have its sessions, and the same estimator the
+   * player runs on them. Without this the header answered "how long is this?"
+   * with an em dash on every programme the reader made (user 2026-08-31).
+   */
+  const durationMinutes = useMemo(() => {
+    const stated = parseMinutesFromBadges(program.badges);
+    if (stated > 0) {
+      return stated;
+    }
+    const estimates = program.sessions
+      .map((session) =>
+        estimateSessionMinutes({
+          exercises: session.exercises.map((exercise) => ({
+            sets: exercise.sets,
+            // The top of the range is what the session is planned for.
+            reps: exercise.repMax,
+            timed: exercise.timed,
+            restSeconds: exercise.restSeconds,
+          })),
+        }),
+      )
+      .filter((minutes) => minutes > 0);
+    if (estimates.length === 0) {
+      return 0;
+    }
+    return Math.round(estimates.reduce((sum, minutes) => sum + minutes, 0) / estimates.length);
+  }, [program.badges, program.sessions]);
   // Eight weeks is the catalog's default block; the strip states the same
   // number the total is derived from rather than two numbers that disagree.
-  /**
-   * How long the block runs — only when the programme actually declares it.
-   *
-   * This was a hardcoded 8, so a one-week, one-session programme advertised
-   * "8 VIIKKOA · 8 TREENIÄ". A programme the reader built has no declared
-   * length: it runs until they stop. The strip drops both numbers rather than
-   * inventing a commitment, which is the same rule the description and the
-   * duration already follow.
-   */
-  const blockWeeks = programBlockWeeks ?? null;
-  const totalSessions = blockWeeks === null ? null : program.sessions.length * blockWeeks;
   const progressPercent = activePlanSummary?.progressPercent ?? 1;
   const weekLabel = activePlanSummary?.weekLabel ?? t(language, 'detail.weekFallback');
   const sessionsPerWeek = activePlanSummary?.sessionsPerWeek ?? `${program.sessions.length}`;
@@ -231,13 +324,24 @@ export function ProgramDetailScreen({
   /**
    * The rhythm the strip shows: the plan's own days when it names them, the
    * derived spread otherwise.
+   *
+   * Two views of one week, and the difference is the whole bug below.
+   * `orderedDays` keeps the plan's order, which is where the session-to-day
+   * answer lives — `planWeekdayIndexes` returns [thu, mon] for a Mon/Thu
+   * programme adopted on a Wednesday. `committedDays` is the sorted view, for
+   * membership, counting and the toggle, none of which care which session
+   * owns which day.
    */
-  const committedDays = useMemo(() => {
+  const orderedDays = useMemo(() => {
     if (trainingDayIndexes && trainingDayIndexes.length > 0) {
-      return [...trainingDayIndexes].sort((left, right) => left - right);
+      return [...trainingDayIndexes];
     }
-    return [...getTrainingDayIndexes(program.sessions.length)].sort((left, right) => left - right);
+    return [...getTrainingDayIndexes(program.sessions.length)];
   }, [program.sessions.length, trainingDayIndexes]);
+  const committedDays = useMemo(
+    () => [...orderedDays].sort((left, right) => left - right),
+    [orderedDays],
+  );
 
   /**
    * A half-finished move is never written.
@@ -253,6 +357,28 @@ export function ProgramDetailScreen({
   useEffect(() => () => setDraftDays(null), []);
   const shownDays = draftDays ?? committedDays;
   const rhythmIncomplete = draftDays !== null && draftDays.length !== committedDays.length;
+
+  /**
+   * What the header promises, recomputed from the rhythm actually on screen.
+   *
+   * It read `program.sessions.length` — how many different sessions exist,
+   * which only equals "days per week" when the rhythm runs one of each every
+   * seven days. A five-session programme on "4 on · 1 off" trains six days
+   * some weeks and the header kept saying five (user 2026-08-31).
+   *
+   * `shownDays`, not the committed array, so the number moves under the
+   * reader's thumb while they are still toggling.
+   */
+  const weekLoad = useMemo(
+    () =>
+      buildTrainingWeekLoad({
+        cyclePattern: trainingCycle?.pattern ?? null,
+        weekdayCount: shownDays.length,
+        sessionCount: program.sessions.length,
+        minutesPerSession: durationMinutes,
+      }),
+    [durationMinutes, program.sessions.length, shownDays, trainingCycle],
+  );
 
   const toggleRhythmDay = (index: number) => {
     if (!onSaveRhythm) {
@@ -271,16 +397,105 @@ export function ProgramDetailScreen({
     setDraftDays(next);
   };
 
+  /**
+   * The rhythm presets (design frame 08, engine per the approved proposal
+   * 2026-08-30): one chip row, two engines. A preset whose period is seven
+   * fills the weekday mask; one whose period is NOT seven routes to the real
+   * cycle engine — a 7-day mask sold as "2 on · 1 off" would drift a day per
+   * week and lie by Thursday, which is the exact report the cycle engine was
+   * built from (2026-08-21).
+   *
+   * A cycle anchors to the day it was chosen — the same "starts today" rule
+   * adoption follows.
+   */
+  /**
+   * One family, not a catalogue (user 2026-08-30: "tee vain 1workout 1 rest,
+   * 2workout 1rest, 3workout 1rest — ei ruveta jokaista tekemään erikseen").
+   * Every preset is N on · 1 off, and every one is a REAL cycle: a 7-day
+   * mask sold as "2 on · 1 off" would drift a day per week and lie by
+   * Thursday. The weekday chips above stay the hand editor for anyone whose
+   * week does not fit the family.
+   */
+  const RHYTHM_PRESETS = [1, 2, 3, 4].map((on) => ({
+    key: `${on}-1`,
+    on,
+    off: 1,
+    pattern: [...Array.from({ length: on }, () => true), false],
+  }));
+  const activePresetKey = useMemo(() => {
+    if (!trainingCycle) {
+      return null;
+    }
+    const match = RHYTHM_PRESETS.find(
+      (preset) =>
+        preset.pattern.length === trainingCycle.pattern.length &&
+        preset.pattern.every((value, index) => value === trainingCycle.pattern[index]),
+    );
+    return match?.key ?? null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trainingCycle]);
+
+  const applyPreset = (preset: (typeof RHYTHM_PRESETS)[number]) => {
+    // Anchored to the day it was chosen — the same "starts today" rule
+    // adoption follows.
+    const now = new Date();
+    setDraftDays(null);
+    onChangeTrainingCycle?.({
+      pattern: preset.pattern,
+      anchorDayStart: new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(),
+    });
+  };
+
+  /**
+   * The current calendar week as the cycle walks it — a PREVIEW, not an
+   * editor. Codes come from the same sessionSlotOn every calendar asks.
+   */
+  const cycleWeek = useMemo(() => {
+    if (!trainingCycle) {
+      return null;
+    }
+    const schedule = cycleSchedule(trainingCycle.pattern, trainingCycle.anchorDayStart);
+    const now = new Date();
+    const count = program.sessions.length;
+    return Array.from({ length: 7 }, (_, offset) => {
+      const date = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() - ((now.getDay() + 6) % 7) + offset,
+      );
+      const slot = sessionSlotOn(schedule, date);
+      return {
+        isTraining: slot !== null,
+        session:
+          slot !== null && count > 0
+            ? program.sessions[((slot % count) + count) % count]?.name ?? null
+            : null,
+      };
+    });
+  }, [trainingCycle, program.sessions]);
+
+  /**
+   * Which session lands on which day — read from the plan's own order, never
+   * from the sorted view beside it. Sorting first printed session 1 under MON
+   * for a Wednesday-adopted Mon/Thu programme while Home and the calendar ran
+   * it on THU: the same "a sort discards which session owns which day"
+   * failure this app fixed once already, relocated to this screen
+   * (PR #33 review).
+   *
+   * A draft in flight has no committed answer yet — handleSaveRhythm
+   * re-derives one from the rotation on save — so it previews in the order
+   * the chips read.
+   */
   const trainingDaySessions = useMemo(() => {
     const map = new Map<number, string>();
-    shownDays.forEach((dayIndex, order) => {
+    (draftDays ?? orderedDays).forEach((dayIndex, order) => {
       const session = program.sessions[order];
       if (session) {
         map.set(dayIndex, session.name);
       }
     });
     return map;
-  }, [program.sessions, shownDays]);
+  }, [draftDays, orderedDays, program.sessions]);
 
   const scheduleSlots = useMemo(
     () =>
@@ -302,7 +517,11 @@ export function ProgramDetailScreen({
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        scrollEnabled={dragIndex === null}
+        showsVerticalScrollIndicator={false}
+      >
         {/*
           Title first, numbers under it, nothing painted.
 
@@ -362,20 +581,24 @@ export function ProgramDetailScreen({
           <Text style={styles.leadCopy}>{program.description}</Text>
         ) : null}
 
-        {/* Four numbers, so the commitment is legible before the button. */}
+        {/* Three numbers that answer one question — how much of a week is
+            this? — in the order a reader asks it (user 2026-08-31). It used
+            to run days, session, sessions, where the first and last were the
+            same number wearing two labels. */}
         <View style={styles.statStrip}>
           {[
-            { value: `${program.sessions.length}`, label: 'detail.stat.daysPerWeek' as I18nKey },
             {
-              value: durationMinutes > 0 ? `~${durationMinutes}` : '—',
-              label: 'detail.stat.session' as I18nKey,
+              value: formatTrainingDays(weekLoad.daysPerWeek),
+              label: 'detail.stat.daysPerWeek' as I18nKey,
             },
-            ...(blockWeeks !== null && totalSessions !== null
-              ? [
-                  { value: `${blockWeeks}`, label: 'detail.stat.weeks' as I18nKey },
-                  { value: `${totalSessions}`, label: 'detail.stat.total' as I18nKey },
-                ]
-              : [{ value: `${program.sessions.length}`, label: 'detail.stat.perWeek' as I18nKey }]),
+            {
+              value: formatTrainingMinutes(weekLoad.minutesPerSession),
+              label: 'detail.stat.minPerSession' as I18nKey,
+            },
+            {
+              value: formatTrainingMinutes(weekLoad.minutesPerWeek),
+              label: 'detail.stat.minPerWeek' as I18nKey,
+            },
           ].map((stat, index) => (
             <React.Fragment key={stat.label}>
               {index > 0 ? <View style={styles.statStripDivider} /> : null}
@@ -421,19 +644,35 @@ export function ProgramDetailScreen({
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{t(language, 'detail.rhythm')}</Text>
           <Text style={styles.sectionMeta}>
-            {t(language, 'detail.trainingDays', { count: program.sessions.length })}
+            {trainingCycle
+              ? // The honest number for a rhythm that ignores weekdays: the
+                // cycle's own shape, not the mask's day count.
+                t(language, 'detail.week.pattern', {
+                  on: trainingCycle.pattern.filter(Boolean).length,
+                  off: trainingCycle.pattern.filter((day) => !day).length,
+                })
+              : t(language, 'detail.trainingDays', { count: program.sessions.length })}
           </Text>
         </View>
         <View style={styles.rhythmRow}>
           {scheduleSlots.map((slot, index) => {
-            const session = slot.isTraining ? trainingDaySessions.get(index) : null;
+            // While a cycle runs, the chips PREVIEW the current calendar week
+            // as the cycle walks it - a weekday mask cannot express a period
+            // that is not seven, and drawing one would put the old week back.
+            const preview = cycleWeek?.[index] ?? null;
+            const isTraining = preview ? preview.isTraining : slot.isTraining;
+            const session = preview
+              ? preview.session
+              : slot.isTraining
+                ? trainingDaySessions.get(index)
+                : null;
             const chip = (
               <>
-                <Text style={[styles.rhythmDayName, slot.isTraining && styles.rhythmDayNameOn]}>
+                <Text style={[styles.rhythmDayName, isTraining && styles.rhythmDayNameOn]}>
                   {slot.day}
                 </Text>
                 <Text
-                  style={[styles.rhythmDayLabel, slot.isTraining && styles.rhythmDayLabelOn]}
+                  style={[styles.rhythmDayLabel, isTraining && styles.rhythmDayLabelOn]}
                   numberOfLines={1}
                 >
                   {session ? shortSessionLabel(session, language) : t(language, 'detail.rest')}
@@ -442,7 +681,7 @@ export function ProgramDetailScreen({
             );
             if (!onSaveRhythm) {
               return (
-                <View key={slot.dayKey} style={[styles.rhythmDay, slot.isTraining && styles.rhythmDayOn]}>
+                <View key={slot.dayKey} style={[styles.rhythmDay, isTraining && styles.rhythmDayOn]}>
                   {chip}
                 </View>
               );
@@ -451,10 +690,18 @@ export function ProgramDetailScreen({
               <Pressable
                 key={slot.dayKey}
                 accessibilityRole="button"
-                onPress={() => toggleRhythmDay(index)}
+                onPress={() => {
+                  // Tapping a day means Custom (design frame 08): the cycle
+                  // hands the week back to the mask, which then takes taps.
+                  if (cycleWeek) {
+                    onChangeTrainingCycle?.(null);
+                    return;
+                  }
+                  toggleRhythmDay(index);
+                }}
                 style={({ pressed }) => [
                   styles.rhythmDay,
-                  slot.isTraining && styles.rhythmDayOn,
+                  isTraining && styles.rhythmDayOn,
                   pressed && styles.rhythmDayPressed,
                 ]}
               >
@@ -463,9 +710,39 @@ export function ProgramDetailScreen({
             );
           })}
         </View>
+        {onSaveRhythm ? (
+          <View style={styles.patRow}>
+            {RHYTHM_PRESETS.map((preset) => ({
+              key: preset.key,
+              label: t(language, 'detail.week.pattern', { on: preset.on, off: preset.off }),
+              onPress: () => applyPreset(preset),
+            })).map((entry) => (
+              <Pressable
+                key={entry.key}
+                accessibilityRole="button"
+                accessibilityState={{ selected: activePresetKey === entry.key }}
+                onPress={entry.onPress}
+                style={({ pressed }) => [
+                  styles.patChip,
+                  activePresetKey === entry.key && styles.patChipOn,
+                  pressed && styles.rhythmDayPressed,
+                ]}
+              >
+                <Text
+                  style={[styles.patChipText, activePresetKey === entry.key && styles.patChipTextOn]}
+                >
+                  {entry.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+        {/* The cycle's own sentence used to sit here, restating a period the
+            chips above already draw and a rate the header already prints
+            (user 2026-08-31). */}
         {rhythmIncomplete ? (
           /* Both directions. The copy assumed a day had been removed, so
-             adding one first read "Valitse vielä -1 päivä". */
+             adding one first read "Valitse viela -1 paiva". */
           <Text style={styles.rhythmHint}>
             {t(
               language,
@@ -477,20 +754,27 @@ export function ProgramDetailScreen({
           </Text>
         ) : null}
 
-        {/* The one thing a reader comes to a programme page to do.
+        {/* The one thing a reader comes to an UNADOPTED programme page to do.
             It used to live in a footer pinned to the bottom of the screen,
             where the floating tab bar covered it completely: the button was
             rendered, and all you could see of it was a violet sliver above the
             nav pill. Here it sits in the flow, right after the week it
-            describes, and nothing can be painted on top of it. */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={program.primaryActionLabel}
-          onPress={onPrimaryAction}
-          style={({ pressed }) => [styles.adoptButton, pressed && { opacity: 0.9 }]}
-        >
-          <Text style={styles.adoptButtonText}>{program.primaryActionLabel}</Text>
-        </Pressable>
+            describes, and nothing can be painted on top of it.
+
+            On the programme already running it said "Start next workout", and
+            that does not belong here (user 2026-08-31): this page is what the
+            programme IS, Home is where today's session is started, and the day
+            rows below open the exact session a reader wants instead. */}
+        {activePlanSummary ? null : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={program.primaryActionLabel}
+            onPress={onPrimaryAction}
+            style={({ pressed }) => [styles.adoptButton, pressed && { opacity: 0.9 }]}
+          >
+            <Text style={styles.adoptButtonText}>{program.primaryActionLabel}</Text>
+          </Pressable>
+        )}
 
         {emphasis ? (
           <>
@@ -547,13 +831,69 @@ export function ProgramDetailScreen({
             its quick Aloita, because starting today's session is the most
             common thing done here. */}
         <View style={styles.workoutList}>
-          {program.sessions.map((session, index) => (
-            <Pressable
+          {program.sessions.map((session, index) => {
+            const dragging = dragIndex === index;
+            // While a row travels, the rows between it and its target make
+            // room by exactly its height — the drop is previewed, not
+            // imagined.
+            const shift =
+              dragIndex !== null && dragTarget !== null && !dragging
+                ? dragIndex < index && index <= dragTarget
+                  ? -(rowHeights.current[dragIndex] ?? 0)
+                  : dragTarget <= index && index < dragIndex
+                    ? (rowHeights.current[dragIndex] ?? 0)
+                    : 0
+                : 0;
+            return (
+            <Animated.View
               key={session.id}
+              onLayout={(event) => {
+                rowHeights.current[index] = event.nativeEvent.layout.height;
+              }}
+              style={[
+                shift !== 0 && { transform: [{ translateY: shift }] },
+                dragging && [styles.workoutCardLift, { transform: [{ translateY: dragY }] }],
+              ]}
+            >
+            <Pressable
               onPress={() => (onOpenSession ?? onStartSession)(session.id)}
               style={({ pressed }) => [styles.workoutCard, pressed && styles.workoutCardPressed]}
             >
               <View style={styles.workoutTopRow}>
+                {onReorderSession && program.sessions.length > 1 ? (
+                  <View
+                    accessibilityRole="button"
+                    accessibilityLabel={t(language, 'detail.day.dragHandle', {
+                      name: formatPlanSessionTitle(session, index, displayTitle, language),
+                    })}
+                    onStartShouldSetResponder={() => true}
+                    onResponderTerminationRequest={() => false}
+                    onResponderGrant={(event) => {
+                      dragStartPageY.current = event.nativeEvent.pageY;
+                      dragY.setValue(0);
+                      setDragIndex(index);
+                      setDragTarget(index);
+                    }}
+                    onResponderMove={(event) => {
+                      const dy = event.nativeEvent.pageY - dragStartPageY.current;
+                      dragY.setValue(dy);
+                      const target = dragTargetFor(index, dy);
+                      setDragTarget((current) => (current === target ? current : target));
+                    }}
+                    onResponderRelease={() => endDrag(true)}
+                    onResponderTerminate={() => endDrag(false)}
+                    style={styles.workoutDragHandle}
+                  >
+                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="M3 9h18M3 15h18"
+                        stroke={theme.faint}
+                        strokeWidth={2.2}
+                        strokeLinecap="round"
+                      />
+                    </Svg>
+                  </View>
+                ) : null}
                 {/* No index tile: the row's own title already says "Päivä 1",
                     so the big numeral was the same fact twice, at the size of
                     the more important one. */}
@@ -588,7 +928,9 @@ export function ProgramDetailScreen({
                 </Svg>
               </View>
             </Pressable>
-          ))}
+            </Animated.View>
+            );
+          })}
         </View>
 
         {/* "Tee tästä oma versio" stood here. It asked the reader to
@@ -687,6 +1029,7 @@ export function ProgramDetailScreen({
         <EmphasisSheet
           visible={emphasisSheetVisible}
           language={language}
+          bottomInset={insets.bottom}
           exercises={emphasisRows}
           onClose={() => setEmphasisSheetVisible(false)}
           onSave={(sets) => {
@@ -810,6 +1153,31 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     gap: 5,
   },
+  patRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+  },
+  patChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
+  },
+  patChipOn: {
+    borderColor: theme.purpleBright,
+    backgroundColor: theme.purpleLight,
+  },
+  patChipText: {
+    fontFamily: 'JetBrainsMono',
+    fontSize: 11,
+    fontWeight: '700',
+    color: theme.muted,
+  },
+  patChipTextOn: { color: theme.purpleBright },
   rhythmDay: {
     flex: 1,
     borderRadius: 13,
@@ -1001,6 +1369,21 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     padding: spacing.md,
     gap: spacing.sm,
   },
+  // Wide enough for a thumb, and the row's only place a drag may start —
+  // anywhere else on the card is the tap that opens the day.
+  workoutDragHandle: {
+    width: 34,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: -6,
+    marginRight: 2,
+  },
+  // The travelling row rides above the ones making room for it.
+  workoutCardLift: {
+    zIndex: 5,
+    elevation: 5,
+  },
   workoutCardPressed: {
     transform: [{ scale: 0.985 }],
   },
@@ -1109,10 +1492,15 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.danger,
+    // Outlined, not a filled slab (design frame 08): destructive keeps its
+    // colour, but a solid red block at the foot of every programme page made
+    // deletion look like a primary action.
+    borderWidth: 1.5,
+    borderColor: theme.danger,
+    backgroundColor: 'transparent',
   },
   destructiveButtonText: {
-    color: '#FFFFFF',
+    color: theme.danger,
     fontSize: 14,
     fontWeight: '900',
     letterSpacing: 0.2,

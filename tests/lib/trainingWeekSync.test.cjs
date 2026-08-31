@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const {
   planLabelsForProgramme,
   planLabelsFromWeekdays,
+  rotateLabelsForNextSession,
   weekdaysFromPlanLabels,
 } = require('../../.test-dist/lib/trainingWeekSync.js');
 
@@ -89,6 +90,99 @@ module.exports = [
       // Three open days cannot hold six sessions, so the programme's own week
       // wins rather than being halved in silence.
       assert.equal(planLabelsForProgramme(6, ['mon', 'wed', 'fri']).length, 6);
+    },
+  },
+  {
+    name: 'the cycle starts from the first session, on the first day not already gone',
+    run() {
+      // Reported mid-week 2026-08-26: adopting a Mon/Thu plan on a Wednesday
+      // put session one on Monday, a day already spent, so Home offered
+      // session TWO and the programme began in the middle of itself.
+      const wednesday = new Date(2026, 7, 26); // Wed 26 Aug 2026
+      const monday = new Date(2026, 7, 24);
+      const sunday = new Date(2026, 7, 30);
+
+      // Without a date, nothing moves — the raw pattern is still the default.
+      assert.deepEqual(planLabelsForProgramme(2, []), ['mon', 'thu']);
+
+      // On Wednesday the first upcoming day is Thursday, so session one goes
+      // there and Monday follows. The PATTERN is untouched; only which
+      // session lands on which of its days changes.
+      assert.deepEqual(planLabelsForProgramme(2, [], wednesday), ['thu', 'mon']);
+
+      // Adopt on a training day and it starts today.
+      assert.deepEqual(planLabelsForProgramme(2, [], monday), ['mon', 'thu']);
+
+      // Adopt on a rest day past the last one and the week wraps to the
+      // first day, which is what a week does.
+      assert.deepEqual(planLabelsForProgramme(2, [], sunday), ['mon', 'thu']);
+
+      // Days the reader chose are rotated the same way.
+      assert.deepEqual(
+        planLabelsForProgramme(3, ['mon', 'wed', 'fri'], new Date(2026, 7, 27)),
+        ['fri', 'mon', 'wed'],
+        'a Thursday adoption of a Mon/Wed/Fri plan opens on Friday',
+      );
+
+      // One session has nothing to rotate, and must not be reordered into
+      // something else by accident.
+      assert.deepEqual(planLabelsForProgramme(1, ['thu'], wednesday), ['thu']);
+    },
+  },
+  {
+    name: "moving a day keeps the next session on the next training day",
+    run() {
+      // Sunday 30 Aug 2026. The reader trains wed/fri/sun and has finished
+      // nothing, so session one is next and Sunday is the first day left.
+      const sunday = new Date(2026, 7, 30);
+      assert.deepEqual(
+        rotateLabelsForNextSession(["wed", "fri", "sun"], 0, sunday),
+        ["sun", "wed", "fri"],
+      );
+
+      // Two sessions done, so session THREE is next — and it, not session
+      // one, is what today gets. Writing the spread Monday-first instead is
+      // what let Home offer one session and print another one's day on it.
+      assert.deepEqual(
+        rotateLabelsForNextSession(["wed", "fri", "sun"], 2, sunday),
+        ["wed", "fri", "sun"],
+        "session three takes Sunday; the other two follow in programme order",
+      );
+
+      // Every training day of the week has gone: the week wraps to its own
+      // first day rather than refusing to place anything.
+      assert.deepEqual(
+        rotateLabelsForNextSession(["mon", "wed", "fri"], 0, sunday),
+        ["mon", "wed", "fri"],
+      );
+
+      // A one-session programme has nothing to rotate and must not be
+      // reordered into something else by accident.
+      assert.deepEqual(rotateLabelsForNextSession(["thu"], 0, sunday), ["thu"]);
+
+      // An out-of-range pointer is folded rather than throwing: it arrives
+      // from a rotation that is modulo the entry count anyway.
+      assert.deepEqual(
+        rotateLabelsForNextSession(["wed", "fri", "sun"], 3, sunday),
+        rotateLabelsForNextSession(["wed", "fri", "sun"], 0, sunday),
+      );
+
+      // Days in ANY order. "The first day that has not gone" is only findable
+      // against the week's own order, and reading it off the caller's order
+      // returns a confident wrong answer rather than an error: asked on a
+      // Wednesday, a raw scan of sun/wed/fri matches Sunday first (6 >= 2) and
+      // concludes there is nothing to move — on a day that is a training day.
+      const wednesday = new Date(2026, 7, 26);
+      assert.deepEqual(
+        rotateLabelsForNextSession(["sun", "wed", "fri"], 0, wednesday),
+        ["wed", "fri", "sun"],
+        "already-rotated days still open on today",
+      );
+      assert.deepEqual(
+        rotateLabelsForNextSession(["sun", "wed", "fri"], 0, sunday),
+        rotateLabelsForNextSession(["wed", "fri", "sun"], 0, sunday),
+        "the answer depends on the week, not on how the caller held it",
+      );
     },
   },
 ];

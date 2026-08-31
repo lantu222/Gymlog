@@ -83,30 +83,47 @@ module.exports = [
     name: 'the log stays uncapped, and the table says both things separately',
     run() {
       const premium = read('src', 'screens', 'PremiumScreen.tsx');
+      const tiers = read('src', 'lib', 'proTiers.ts');
       const i18n = read('src', 'lib', 'i18n.ts');
 
-      // The Pro page (v3) has no table, so the distinction the whole free tier
+      // The Pro page has no table, so the distinction the whole free tier
       // rests on has to survive in prose instead: the row that sells the
       // window says CHARTS AND RECORDS, and a separate trust line states that
       // the log itself is never capped in either tier. Losing either half
       // turns "3 months" into a claim that the app deletes training.
+      //
+      // v6 moved the row into lib/proTiers and put the window on the Free tab,
+      // where it reads as what the free tier gets rather than as what Pro
+      // withholds. The interpolation is the part that must not move.
       assert.match(
-        premium,
-        /titleKey: 'pro\.v3\.delta\.history\.t',[\s\S]{0,200}?vars: \{ months: FREE_TREND_MONTHS \}/,
+        tiers,
+        /titleKey: 'pro\.v6\.free\.history\.t',[\s\S]{0,200}?vars: \{ months: FREE_TREND_MONTHS \}/,
         'the history row must take its free window from FREE_TREND_MONTHS',
       );
-      const windowCopy = i18n.split('\n').filter((line) => line.includes("'pro.v3.delta.history.b':"));
+      const windowCopy = i18n.split('\n').filter((line) => line.includes("'pro.v6.free.history.t':"));
       assert.equal(windowCopy.length, 2, 'both languages');
 
-      const forever = i18n.split('\n').filter((line) => line.includes("'pro.v3.trust.forever':"));
+      // The "kept forever" promise used to be a standing line under the CTA on
+      // every tab. It was cut on 2026-08-29 with the rest of the footer prose,
+      // and the rule moved rather than went: the claim now lives on the Free
+      // tab's own row, which is where a reader worried about losing their log
+      // would actually look, and it is the tab a lapsing subscriber lands on.
+      const forever = i18n.split('\n').filter((line) => line.includes("'pro.v6.free.yours.b':"));
       assert.equal(forever.length, 2, 'the "kept forever" line must exist in both languages');
-      assert.match(premium, /'pro\.v3\.trust\.forever'/, 'the Pro page must still render it');
+      for (const line of forever) {
+        assert.match(line, /forever|ikuisesti/, 'the free tier must still promise the log is kept');
+      }
+      assert.match(premium, /rows\.map|row\.bodyKey/, 'the Pro page must render the tier rows');
 
       // Export is what makes "your log is yours" checkable rather than a
-      // promise, and the FAQ is where it is now stated — in the answer a
-      // reader who is about to cancel actually reads.
-      const faq = i18n.split('\n').filter((line) => line.includes("'pro.v3.faq.data.a':"));
-      assert.equal(faq.length, 2, 'both languages');
+      // promise. v4 stated it in an FAQ answer; v6 has no FAQ, so it moved to
+      // the Free tab's own row — which is read by more people than an answer
+      // three taps down ever was.
+      const exportCopy = i18n.split('\n').filter((line) => line.includes("'pro.v6.free.yours.b':"));
+      assert.equal(exportCopy.length, 2, 'both languages');
+      for (const line of exportCopy) {
+        assert.match(line, /CSV/, 'the export promise is what makes "yours" checkable');
+      }
 
       // History, exercise detail and the session analysis read the log, not a
       // trend window — none of them may start asking about entitlement.

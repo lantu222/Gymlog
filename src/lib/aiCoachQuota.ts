@@ -1,60 +1,71 @@
 /**
- * The free coach quota (design: Vinha Pro Page, table row "AI Coach — 3 / wk").
+ * Who may ask the coach, how often, and what happens when they may not.
  *
- * The Pro page promises free users three coach questions a week, so this makes
- * the promise true rather than letting the table lie. The week key is the local
- * Monday; the counter lives in preferences and resets by comparison, never by a
- * timer. Pure so the arithmetic is testable without a clock.
+ * The shape changed on 2026-08-29, and the reason is arithmetic rather than
+ * product taste. One coach question costs about $0.027 at the heaviest
+ * measured context (scripts/simulate-coach-cost.cjs, Sonnet 5). The free tier
+ * used to grant three a week — 13 a month, ~$0.35 per free user per month,
+ * which is roughly what a typical PAYING user costs. At any real install count
+ * that is not a conversion cost, it is the largest variable cost in the app,
+ * and it is spent on the people who are not paying for it.
+ *
+ * Worse, the ceiling is shared: the Anthropic Console spend limit is one
+ * number for the whole app, so free usage could exhaust the budget that
+ * paying users depend on. A non-payer being able to break a payer's product
+ * is the one failure this design will not accept.
+ *
+ * So:
+ *
+ * - FREE asks nothing of its own accord. What a free reader gets instead is
+ *   three coach answers at moments the app chooses (lib/coachDemoMoments),
+ *   each one costing a single question and landing when there is enough log
+ *   behind it to answer well. Three per install, ever — an acquisition cost,
+ *   not a running one.
+ * - PRO gets 25 a month. Not unlimited: lifetime buyers pay once and consume
+ *   forever, so the cap is what keeps that arithmetic from inverting.
+ *
+ * The window is a calendar month, compared rather than timed, so nothing here
+ * needs a clock and a phone that sleeps through midnight still resets.
  */
 
-export const FREE_COACH_QUESTIONS_PER_WEEK = 3;
+/** What a Pro membership includes each calendar month. */
+export const PRO_COACH_QUESTIONS_PER_MONTH = 25;
 
 export interface CoachQuotaState {
-  /** Local Monday of the counted week, YYYY-MM-DD. */
-  weekStart: string;
+  /** First day of the counted month, YYYY-MM. */
+  monthStart: string;
   used: number;
 }
 
-/** Local Monday of the week containing `now`, as YYYY-MM-DD. */
-export function coachQuotaWeekStart(now: Date = new Date()): string {
-  const local = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const day = local.getDay(); // 0 = Sunday
-  const sinceMonday = (day + 6) % 7;
-  local.setDate(local.getDate() - sinceMonday);
-  const month = String(local.getMonth() + 1).padStart(2, '0');
-  const date = String(local.getDate()).padStart(2, '0');
-  return `${local.getFullYear()}-${month}-${date}`;
+/** The month containing `now`, as YYYY-MM in local time. */
+export function coachQuotaMonthStart(now: Date = new Date()): string {
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  return `${now.getFullYear()}-${month}`;
 }
 
 /**
- * When the free questions come back, and how far away that is.
- *
- * The line under an empty quota used to say "your 3 free questions reset on
- * Monday" — the number you started with, and a weekday that could be tomorrow
- * or six days out. Neither is what someone out of questions wants to know
- * (user, 2026-08-25).
+ * When the allowance comes back, and how far away that is.
  *
  * Days are counted between local midnights, so a question asked at 23:55 on
- * Sunday still reports one day rather than none.
+ * the last day of the month still reports one day rather than none.
  */
 export function coachQuotaReset(now: Date = new Date()): { at: Date; inDays: number } {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const day = today.getDay(); // 0 = Sunday
-  const untilMonday = day === 1 ? 7 : (8 - day) % 7;
-  const at = new Date(today.getFullYear(), today.getMonth(), today.getDate() + untilMonday);
-  return { at, inDays: untilMonday };
+  const at = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const inDays = Math.max(1, Math.round((at.getTime() - today.getTime()) / 86_400_000));
+  return { at, inDays };
 }
 
 export function resolveCoachQuota(
   state: CoachQuotaState | null | undefined,
   now: Date = new Date(),
-): { weekStart: string; used: number; remaining: number } {
-  const weekStart = coachQuotaWeekStart(now);
-  const used = state && state.weekStart === weekStart ? Math.max(0, state.used) : 0;
+): { monthStart: string; used: number; remaining: number } {
+  const monthStart = coachQuotaMonthStart(now);
+  const used = state && state.monthStart === monthStart ? Math.max(0, state.used) : 0;
   return {
-    weekStart,
+    monthStart,
     used,
-    remaining: Math.max(0, FREE_COACH_QUESTIONS_PER_WEEK - used),
+    remaining: Math.max(0, PRO_COACH_QUESTIONS_PER_MONTH - used),
   };
 }
 
@@ -63,5 +74,5 @@ export function recordCoachQuestion(
   now: Date = new Date(),
 ): CoachQuotaState {
   const current = resolveCoachQuota(state, now);
-  return { weekStart: current.weekStart, used: current.used + 1 };
+  return { monthStart: current.monthStart, used: current.used + 1 };
 }

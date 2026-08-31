@@ -27,7 +27,7 @@ import {
   ExerciseEquipment,
   ExerciseLibraryItem,
 } from '../types/models';
-import { CutButton } from './CutButton';
+import { KitBar } from './sheetKit';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { radii, spacing } from '../theme';
 
@@ -645,24 +645,40 @@ export function AddExerciseSheet({
              * caller reads it there and hands it over.
              */
             <View style={[styles.footer, { paddingBottom: bottomInset + spacing.lg }]}>
-              <Text style={styles.footerSelectionText}>
-                {pendingSelectedIds.length === 0
-                  ? t(language, 'sheet.selectSome')
-                  : t(language, 'sheet.selectedCount', { count: pendingSelectedIds.length })}
-              </Text>
-              <CutButton
-                label={
-                  confirmActionLabel ??
-                  t(
-                    language,
-                    pendingSelectedIds.length === 1 ? 'sheet.addOne' : 'sheet.addCount',
-                    { count: pendingSelectedIds.length },
-                  )
+              {/* The kit's commit bar, in flow (design frame 07): it exists
+                  only once something is picked, prints the whole edit on one
+                  line — the day on the left, the pick on the right — and one
+                  orange button writes. The "valitse liikkeitä" placeholder
+                  row went with it: a bar that is not there says the same
+                  thing without saying anything. */}
+              <KitBar
+                floating={false}
+                visible={pendingSelectedIds.length > 0}
+                from={subtitle ?? sheetTitle}
+                to={
+                  pendingSelectedIds.length === 1
+                    ? exerciseNameLabel(
+                        language,
+                        items.find((item) => item.id === pendingSelectedIds[0])?.name ?? '',
+                      )
+                    : t(language, 'sheet.selectedCount', { count: pendingSelectedIds.length })
                 }
-                onPress={pendingSelectedIds.length === 0 ? undefined : handleConfirmSelection}
-                variant={pendingSelectedIds.length === 0 ? 'disabled' : 'primary'}
-                size="lg"
-                stretch
+                buttons={[
+                  {
+                    label:
+                      confirmActionLabel ??
+                      t(
+                        language,
+                        pendingSelectedIds.length === 1 ? 'sheet.addOne' : 'sheet.addCount',
+                        { count: pendingSelectedIds.length },
+                      ),
+                    kind: 'p',
+                    onPress: handleConfirmSelection,
+                  },
+                ]}
+                clearLabel={t(language, 'sheet.clear')}
+                onClear={() => setPendingSelectedIds([])}
+                bottomInset={0}
               />
             </View>
           ) : null}
@@ -1035,18 +1051,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '600',
   },
   footer: {
+    // The kit bar inside brings its own border, surface and horizontal
+    // padding; this only keeps the sheet's guarded safe-area padding.
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
     paddingBottom: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: theme.border,
-    backgroundColor: theme.surface,
-    gap: spacing.xs,
-  },
-  footerSelectionText: {
-    color: theme.muted,
-    fontSize: 12,
-    fontWeight: '700',
-    textAlign: 'center',
   },
 });

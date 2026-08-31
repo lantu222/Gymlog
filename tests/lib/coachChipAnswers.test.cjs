@@ -79,12 +79,16 @@ module.exports = [
       assert.equal(answer.unanswered, true);
 
       // The screen charges on answer, and skips the charge when the coach
-      // could only ask for a clearer question.
+      // could only ask for a clearer question — or when the reply fell back
+      // to preview text, which is not the product the counter meters.
       const screen = fs.readFileSync(
         path.join(__dirname, '..', '..', 'src', 'screens', 'AICoachChatScreen.tsx'),
         'utf8',
       );
-      assert.match(screen, /if \(!proUnlocked && !answer\.unanswered\) \{\s*onFreeQuestionUsed\(\);/);
+      assert.match(
+        screen,
+        /if \(proUnlocked && !answer\.unanswered && result\.source !== 'preview'\) \{\s*onQuestionUsed\(\);/,
+      );
     },
   },
   {

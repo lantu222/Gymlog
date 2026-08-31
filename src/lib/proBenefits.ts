@@ -1,5 +1,5 @@
 import { FREE_ACTIVE_PROGRAM_CAP, PRO_ACTIVE_PROGRAM_CAP } from './activeProgramSet';
-import { FREE_COACH_QUESTIONS_PER_WEEK } from './aiCoachQuota';
+import { PRO_COACH_QUESTIONS_PER_MONTH } from './aiCoachQuota';
 import { FREE_TREND_MONTHS } from './historyWindow';
 import { I18nKey } from './i18n';
 import { FREE_CUSTOM_PROGRAM_LIMIT } from './programSlots';
@@ -147,7 +147,8 @@ export const PRO_UNLOCK_CARDS: ProUnlockCard[] = [
  * a week". One map means the arrow can reverse but the numbers cannot disagree.
  */
 export const PRO_UNLOCK_LIMIT_VARS: Record<string, Record<string, string | number>> = {
-  'unlock.ai.was': { count: FREE_COACH_QUESTIONS_PER_WEEK },
+  'unlock.ai.now': { count: PRO_COACH_QUESTIONS_PER_MONTH },
+  'unlock.ai.b': { count: PRO_COACH_QUESTIONS_PER_MONTH },
   'unlock.history.was': { months: FREE_TREND_MONTHS },
   'unlock.programs.was': { active: FREE_ACTIVE_PROGRAM_CAP, own: FREE_CUSTOM_PROGRAM_LIMIT },
   'unlock.programs.now': { proActive: PRO_ACTIVE_PROGRAM_CAP },

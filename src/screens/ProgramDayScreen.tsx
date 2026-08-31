@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
   BackHandler,
   Modal,
   Pressable,
@@ -13,15 +14,22 @@ import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddExerciseSheet } from '../components/AddExerciseSheet';
+import { KitBar, KitGroupLabel, KitRow, KitSearch, KitSheet } from '../components/sheetKit';
 import { CutSurface } from '../components/CutSurface';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { buildExerciseSearchHaystack, exerciseMatchesQuery } from '../lib/exerciseSearch';
-import { getDefaultCooldown, getDefaultWarmup, classifySessionFocus } from '../lib/homeSessionHero';
+import {
+  classifySessionFocus,
+  getDefaultCooldown,
+  getDefaultWarmup,
+  listRoutineDrillOptions,
+  routineDrillSlotKey,
+  RoutineBlockKind,
+} from '../lib/homeSessionHero';
 import { I18nKey, t } from '../lib/i18n';
 import { ProgramDetailSessionItem } from '../lib/programDetails';
 import {
   canStepProgramPrescription,
-  MoveDirection,
   ProgramPrescription,
   stepProgramPrescription,
 } from '../lib/programSessionEdit';
@@ -53,6 +61,47 @@ const ROLE_LINE_KEYS: Record<string, I18nKey> = {
   accessory: 'detail.role.accessoryLine',
 };
 
+function PencilGlyph({ theme }: { theme: Theme }) {
+  return (
+    <Svg width={12} height={12} viewBox="0 0 24 24">
+      <Path
+        d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+        fill={theme.purple}
+      />
+    </Svg>
+  );
+}
+
+/** Swap this lift for another. Orange: this app's one word for "pressable". */
+function SwapGlyph({ theme }: { theme: Theme }) {
+  return (
+    <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 8h13l-3.5-3.5M20 16H7l3.5 3.5"
+        stroke={theme.highlight}
+        strokeWidth={2.1}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+/** Take it off the day. Red, because it is the row's one permanent action. */
+function TrashGlyph({ theme }: { theme: Theme }) {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 7h16M10 7V5h4v2M6 7l1 13h10l1-13M10 11v6M14 11v6"
+        stroke={theme.danger}
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 /** Same wash logic the detail screen's role tags use. */
 const roleTints = (theme: Theme): Record<string, { bg: string; ink: string }> =>
   theme === darkTheme
@@ -74,6 +123,10 @@ interface ProgramDayScreenProps {
   dayCount: number;
   language?: AppLanguage;
   availableEquipment?: string[] | null;
+  /** The reader's own warm-up / cool-down picks — see routineDrillSlotKey. */
+  routineDrillOverrides?: Record<string, string>;
+  /** Undefined leaves the drills read-only. */
+  onSwapRoutineDrill?: (slotKey: string, drillKey: string) => void;
   /** Slot id -> chosen lift, shared with the session this screen starts. */
   sessionSwaps?: Record<string, string>;
   onSwapExercise?: (slotId: string, exerciseName: string) => void;
@@ -114,11 +167,12 @@ interface ProgramDayScreenProps {
    */
   onPrescribe?: (exerciseId: string, prescription: ProgramPrescription) => void;
   /**
-   * One place up or down. Ordering is the programme's other real decision:
-   * what you do while fresh is what you get strongest at, so a reader who
-   * wants to squat first has changed their training, not their list.
+   * Dropped where the drag let go. Ordering is the programme's other real
+   * decision: what you do while fresh is what you get strongest at, so a
+   * reader who wants to squat first has changed their training, not their
+   * list. One call per drag, however far it travelled.
    */
-  onMoveExercise?: (exerciseId: string, direction: MoveDirection) => void;
+  onReorderExercise?: (exerciseId: string, toIndex: number) => void;
   tailoringPreferences?: Parameters<typeof buildSwapOptionsForSlot>[2];
   onBack: () => void;
 }
@@ -130,6 +184,8 @@ export function ProgramDayScreen({
   dayCount,
   language = 'en',
   availableEquipment = null,
+  routineDrillOverrides = {},
+  onSwapRoutineDrill,
   sessionSwaps = {},
   onSwapExercise,
   onAddExercises,
@@ -138,7 +194,7 @@ export function ProgramDayScreen({
   onRemoveExercise,
   onKeepSwap,
   onPrescribe,
-  onMoveExercise,
+  onReorderExercise,
   tailoringPreferences,
   onBack,
 }: ProgramDayScreenProps) {
@@ -167,26 +223,87 @@ export function ProgramDayScreen({
    * what it is adding to.
    */
   /**
-   * Reordering, as a mode rather than as a trip through a sheet.
+   * Reordering by drag (design frame 05): grab the handle, the row lifts,
+   * the others make room, and letting go writes ONE edit with the
+   * destination. This replaced a Reorder mode with per-row arrows, which
+   * was itself the replacement for a trip through a sheet ("voisi vaihtaa
+   * liikkeiden järjestästä helposti", 2026-08-27) — each step of that
+   * ladder kept the list visible and cut the taps; this one cuts them to
+   * zero.
    *
-   * Moving a lift lived inside the per-row edit sheet, which is three taps
-   * and a read to shift one row one place — and the list you are ordering is
-   * behind the sheet while you do it ("voisi vaihtaa liikkeiden järjestästä
-   * helposti", 2026-08-27). Here the arrows are on the rows, the whole day
-   * stays visible, and each tap moves and saves.
+   * Raw responder handlers on the HANDLE only, not a gesture library: the
+   * repo has none, and the handle is a small target with no competing
+   * gesture of its own. The ScrollView is frozen for the drag's duration —
+   * two vertical gestures cannot share one finger.
    */
-  const [reorderMode, setReorderMode] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragTarget, setDragTarget] = useState<number | null>(null);
+  const dragY = useRef(new Animated.Value(0)).current;
+  const dragStartPageY = useRef(0);
+  /** Measured per render; a drag needs real heights, not guesses. */
+  const rowHeights = useRef<number[]>([]);
+
+  const dragTargetFor = (from: number, dy: number) => {
+    const heights = rowHeights.current;
+    let target = from;
+    let remaining = Math.abs(dy);
+    const step = dy > 0 ? 1 : -1;
+    for (
+      let next = from + step;
+      next >= 0 && next < session.exercises.length;
+      next += step
+    ) {
+      const height = heights[next] ?? 0;
+      if (height === 0 || remaining < height / 2) {
+        break;
+      }
+      remaining -= height;
+      target = next;
+    }
+    return target;
+  };
+
+  const endDrag = (commit: boolean) => {
+    const from = dragIndex;
+    const to = dragTarget;
+    setDragIndex(null);
+    setDragTarget(null);
+    dragY.setValue(0);
+    if (commit && from !== null && to !== null && to !== from) {
+      const exercise = session.exercises[from];
+      if (exercise) {
+        onReorderExercise?.(exercise.id, to);
+      }
+    }
+  };
   const [tuneExerciseId, setTuneExerciseId] = useState<string | null>(null);
   const [tuneDraft, setTuneDraft] = useState<ProgramPrescription | null>(null);
+  /** The numbers as they were when the sheet opened — the bar's left half. */
+  const [tuneStart, setTuneStart] = useState<ProgramPrescription | null>(null);
+  const openTuneSheet = (exercise: ProgramDetailSessionItem['exercises'][number]) => {
+    const seed = {
+      targetSets: exercise.sets,
+      repMin: exercise.repMin,
+      repMax: exercise.repMax,
+      restSeconds: exercise.restSeconds ?? null,
+    };
+    setTuneExerciseId(exercise.id);
+    setTuneDraft(seed);
+    setTuneStart(seed);
+  };
   const closeTuneSheet = () => {
     setTuneExerciseId(null);
     setTuneDraft(null);
+    setTuneStart(null);
   };
   /** Narrows the pool. Cleared with the sheet, so it never opens pre-filtered. */
   const [swapQuery, setSwapQuery] = useState('');
+  /** The replacement picked but not committed — the scope question comes after. */
+  const [swapPickName, setSwapPickName] = useState<string | null>(null);
   const closeSwapSheet = () => {
     setSwapSlotId(null);
     setSwapQuery('');
+    setSwapPickName(null);
   };
 
   /**
@@ -210,6 +327,7 @@ export function ProgramDayScreen({
       setSwapQuery('');
       setTuneExerciseId(null);
       setTuneDraft(null);
+      setTuneStart(null);
       return true;
     });
     return () => handler.remove();
@@ -281,8 +399,38 @@ export function ProgramDayScreen({
     () => classifySessionFocus(session.exercises.map((exercise) => exercise.name)),
     [session.exercises],
   );
-  const warmup = getDefaultWarmup(focusKind, language, availableEquipment);
-  const cooldown = getDefaultCooldown(focusKind, language, availableEquipment);
+  const warmup = getDefaultWarmup(focusKind, language, availableEquipment, routineDrillOverrides);
+  const cooldown = getDefaultCooldown(focusKind, language, availableEquipment, routineDrillOverrides);
+
+  /**
+   * The drill swap, same shape as Home's (user 2026-08-31: the three sections
+   * are one anatomy, so a drill is swapped the same way on both screens).
+   */
+  const [drillSwap, setDrillSwap] = useState<{ kind: RoutineBlockKind; index: number } | null>(null);
+  const [drillPick, setDrillPick] = useState<string | null>(null);
+  const drillOptions = useMemo(() => {
+    if (!drillSwap) {
+      return [];
+    }
+    // Not the drills standing in the block's OTHER slots: picking one of those
+    // would put the same drill in the warm-up twice, count it twice in the
+    // block's minutes, and walk the reader through it twice in the player.
+    const taken = new Set(
+      (drillSwap.kind === 'warmup' ? warmup : cooldown).drills
+        .filter((_, index) => index !== drillSwap.index)
+        .map((drill) => drill.key as string),
+    );
+    return listRoutineDrillOptions(drillSwap.kind, language, availableEquipment).filter(
+      (option) => !taken.has(option.key as string),
+    );
+  }, [availableEquipment, cooldown, drillSwap, language, warmup]);
+  const drillCurrent = drillSwap
+    ? (drillSwap.kind === 'warmup' ? warmup : cooldown).drills[drillSwap.index] ?? null
+    : null;
+  const closeDrillSwap = () => {
+    setDrillSwap(null);
+    setDrillPick(null);
+  };
 
   const canAddExercises = Boolean(onAddExercises && exerciseLibrary && exerciseLibrary.length > 0);
 
@@ -305,7 +453,7 @@ export function ProgramDayScreen({
     return ['primary', 'secondary', 'accessory'].filter((role) => seen.has(role));
   }, [session.exercises]);
 
-  const canTune = Boolean(onPrescribe || onMoveExercise);
+  const canTune = Boolean(onPrescribe);
 
   /** The row the sheet is open on, plus where in the day it currently sits. */
   const tuneRow = useMemo(() => {
@@ -326,7 +474,15 @@ export function ProgramDayScreen({
     };
   }, [language, session.exercises, sessionSwaps, tuneDraft, tuneExerciseId]);
 
-  const stepTune = (field: 'sets' | 'reps', direction: 1 | -1) => {
+  /**
+   * Steps write the DRAFT, and the bar's "Save to this day" writes the
+   * programme. Every press used to save — the sheet-kit contract is the
+   * opposite: the commit bar wakes when a number actually changes, shows the
+   * whole edit on one line, and Undo puts the numbers back. A reader stepping
+   * 5 sets to 3 no longer has a programme that says 4 while their thumb is
+   * mid-thought.
+   */
+  const stepTune = (field: 'sets' | 'reps' | 'rest', direction: 1 | -1) => {
     if (!tuneDraft || !tuneRow || !onPrescribe) {
       return;
     }
@@ -335,12 +491,36 @@ export function ProgramDayScreen({
       return;
     }
     setTuneDraft(next);
-    onPrescribe(tuneRow.id, next);
   };
+
+  const formatRest = (seconds: number) =>
+    seconds < 120
+      ? `${seconds} s`
+      : `${Number.isInteger(seconds / 60) ? seconds / 60 : (seconds / 60).toFixed(1)} min`;
+  const formatDose = (dose: ProgramPrescription | null, timed: boolean) =>
+    dose
+      ? `${dose.targetSets} × ${
+          dose.repMin === dose.repMax ? dose.repMin : `${dose.repMin}–${dose.repMax}`
+        }${timed ? ' s' : ''}${dose.restSeconds !== null ? ` · ${formatRest(dose.restSeconds)}` : ''}`
+      : '';
+  const tuneChanged = Boolean(
+    tuneDraft &&
+      tuneStart &&
+      (tuneDraft.targetSets !== tuneStart.targetSets ||
+        tuneDraft.repMin !== tuneStart.repMin ||
+        tuneDraft.repMax !== tuneStart.repMax ||
+        tuneDraft.restSeconds !== tuneStart.restSeconds),
+  );
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        // Two vertical gestures cannot share one finger: the list holds
+        // still while a row is being dragged.
+        scrollEnabled={dragIndex === null}
+      >
         {/*
           The same treatment the programme page got: title first, numbers
           under it, nothing painted (#bugs 2026-08-27). Only the gradient
@@ -380,31 +560,6 @@ export function ProgramDayScreen({
         <Text style={styles.pageTitle} numberOfLines={2}>
           {formatPlanSessionTitle(session, dayNumber - 1, programTitle, language)}
         </Text>
-        <View style={styles.pageStats}>
-          <View>
-            <Text style={styles.pageStatValue}>{session.exerciseCount}</Text>
-            <Text style={styles.pageStatLabel}>{t(language, 'detail.day.exercisesStat')}</Text>
-          </View>
-          <View>
-            <Text style={styles.pageStatValue}>{session.totalSets}</Text>
-            <Text style={styles.pageStatLabel}>{t(language, 'detail.day.sets')}</Text>
-          </View>
-        </View>
-
-        {presentRoles.length > 0 ? (
-          <View style={styles.roleCard}>
-            {presentRoles.map((role, index) => (
-              <View key={role} style={[styles.roleRow, index > 0 && styles.roleRowDivider]}>
-                <View style={[styles.roleTag, { backgroundColor: tints[role].bg }]}>
-                  <Text style={[styles.roleTagText, { color: tints[role].ink }]}>
-                    {t(language, ROLE_TAG_KEYS[role])}
-                  </Text>
-                </View>
-                <Text style={styles.roleLine}>{t(language, ROLE_LINE_KEYS[role])}</Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
 
         {/* Three accordions in Home's shape: the warm-up used to be a plain
             paragraph card next to a list of exercise cards, which made the
@@ -426,6 +581,20 @@ export function ProgramDayScreen({
                 {drill.name}
               </Text>
               <Text style={styles.drillScheme}>{drill.schemeLabel}</Text>
+              {onSwapRoutineDrill ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'home.a11y.swapDrill', { name: drill.name })}
+                  hitSlop={8}
+                  onPress={() => {
+                    setDrillPick(null);
+                    setDrillSwap({ kind: 'warmup', index });
+                  }}
+                  style={({ pressed }) => [styles.rowAction, pressed && styles.swapOptionPressed]}
+                >
+                  <SwapGlyph theme={theme} />
+                </Pressable>
+              ) : null}
             </View>
           ))}
         </Section>
@@ -439,22 +608,67 @@ export function ProgramDayScreen({
           onToggle={() => setOpenSections((current) => ({ ...current, exercises: !current.exercises }))}
         >
         <View style={styles.exerciseList}>
-          {/* Offered only when there is an order to change: one lift cannot be
-              reordered, and a control that does nothing is furniture. */}
-          {onMoveExercise && session.exercises.length > 1 ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setReorderMode((current) => !current)}
-              style={({ pressed }) => [styles.reorderToggle, pressed && styles.swapOptionPressed]}
+          {session.exercises.map((exercise, index) => {
+            const dragging = dragIndex === index;
+            // While a row travels, the rows between it and its target make
+            // room by exactly its height — the drop is previewed, not
+            // imagined.
+            const shift =
+              dragIndex !== null && dragTarget !== null && !dragging
+                ? dragIndex < index && index <= dragTarget
+                  ? -(rowHeights.current[dragIndex] ?? 0)
+                  : dragTarget <= index && index < dragIndex
+                    ? (rowHeights.current[dragIndex] ?? 0)
+                    : 0
+                : 0;
+            return (
+            <Animated.View
+              key={exercise.id}
+              onLayout={(event) => {
+                rowHeights.current[index] = event.nativeEvent.layout.height;
+              }}
+              style={[
+                styles.exerciseCard,
+                index === 0 && styles.exerciseCardAnchor,
+                shift !== 0 && { transform: [{ translateY: shift }] },
+                dragging && [styles.exerciseCardLift, { transform: [{ translateY: dragY }] }],
+              ]}
             >
-              <Text style={[styles.reorderToggleText, reorderMode && { color: theme.accent }]}>
-                {t(language, reorderMode ? 'detail.day.reorderDone' : 'detail.day.reorder')}
-              </Text>
-            </Pressable>
-          ) : null}
-          {session.exercises.map((exercise, index) => (
-            <View key={exercise.id} style={[styles.exerciseCard, index === 0 && styles.exerciseCardAnchor]}>
               <View style={styles.exerciseTop}>
+                {onReorderExercise && session.exercises.length > 1 ? (
+                  <View
+                    accessibilityRole="button"
+                    accessibilityLabel={t(language, 'detail.day.dragHandle', {
+                      name: exerciseNameLabel(language, exercise.name),
+                    })}
+                    onStartShouldSetResponder={() => true}
+                    onResponderTerminationRequest={() => false}
+                    onResponderGrant={(event) => {
+                      dragStartPageY.current = event.nativeEvent.pageY;
+                      dragY.setValue(0);
+                      setDragIndex(index);
+                      setDragTarget(index);
+                    }}
+                    onResponderMove={(event) => {
+                      const dy = event.nativeEvent.pageY - dragStartPageY.current;
+                      dragY.setValue(dy);
+                      const target = dragTargetFor(index, dy);
+                      setDragTarget((current) => (current === target ? current : target));
+                    }}
+                    onResponderRelease={() => endDrag(true)}
+                    onResponderTerminate={() => endDrag(false)}
+                    style={styles.dragHandle}
+                  >
+                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="M3 9h18M3 15h18"
+                        stroke={theme.faint}
+                        strokeWidth={2.2}
+                        strokeLinecap="round"
+                      />
+                    </Svg>
+                  </View>
+                ) : null}
                 <View style={[styles.exerciseNum, index === 0 && styles.exerciseNumAnchor]}>
                   <Text style={[styles.exerciseNumText, index === 0 && styles.exerciseNumTextAnchor]}>
                     {index + 1}
@@ -471,75 +685,80 @@ export function ProgramDayScreen({
                     {t(language, ROLE_TAG_KEYS[exercise.role] ?? 'detail.role.accessory')}
                   </Text>
                 </View>
-              </View>
-              <View style={styles.exerciseBottom}>
-                {/* The dose is a button and the rest is not, because the rest
-                    is the only one of the three this sheet cannot change. A
-                    control that opens onto half of what it covers is how a
-                    reader learns to distrust the other half. */}
-                <View style={styles.exerciseDose}>
-                  {canTune ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      hitSlop={6}
-                      onPress={() => {
-                        setTuneExerciseId(exercise.id);
-                        setTuneDraft({
-                          targetSets: exercise.sets,
-                          repMin: exercise.repMin,
-                          repMax: exercise.repMax,
-                        });
-                      }}
-                      style={({ pressed }) => [styles.doseChip, pressed && styles.swapOptionPressed]}
-                    >
-                      <Text style={styles.doseChipText}>{exercise.prescription}</Text>
-                      <Svg width={12} height={12} viewBox="0 0 24 24">
-                        <Path
-                          d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
-                          fill={theme.purple}
-                        />
-                      </Svg>
-                    </Pressable>
-                  ) : (
-                    <Text style={styles.exerciseScheme}>{exercise.prescription}</Text>
-                  )}
-                  <Text style={styles.exerciseRest} numberOfLines={1}>
-                    {t(language, 'detail.day.rest', { range: exercise.restLabel })}
-                  </Text>
-                </View>
-                {reorderMode && onMoveExercise ? (
-                  // Same slot the swap button uses, so the row does not jump
-                  // sideways when the mode flips under the thumb.
-                  <View style={styles.moveRow}>
-                    <MoveButton
-                      direction="up"
-                      styles={styles}
-                      theme={theme}
-                      label={t(language, 'detail.day.moveUp')}
-                      disabled={index === 0}
-                      onPress={() => onMoveExercise(exercise.id, 'up')}
-                    />
-                    <MoveButton
-                      direction="down"
-                      styles={styles}
-                      theme={theme}
-                      label={t(language, 'detail.day.moveDown')}
-                      disabled={index === session.exercises.length - 1}
-                      onPress={() => onMoveExercise(exercise.id, 'down')}
-                    />
-                  </View>
-                ) : exercise.slotId && onSwapExercise ? (
+                {/* Swap and remove sit on the name line as icons (design
+                    2026-08-31): "Swap" was a word in a button on the line
+                    below, which put a verb in the same row as the numbers and
+                    left removal reachable only from inside the swap sheet. */}
+                {exercise.slotId && onSwapExercise ? (
                   <Pressable
-                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel={t(language, 'detail.day.a11y.swap', {
+                      name: exerciseNameLabel(language, exercise.name),
+                    })}
+                    hitSlop={8}
                     onPress={() => setSwapSlotId(exercise.slotId ?? null)}
-                    style={({ pressed }) => [styles.swapButton, pressed && styles.swapOptionPressed]}
+                    style={({ pressed }) => [styles.rowAction, pressed && styles.swapOptionPressed]}
                   >
-                    <Text style={styles.swapButtonText}>{t(language, 'home.swap')}</Text>
+                    <SwapGlyph theme={theme} />
+                  </Pressable>
+                ) : null}
+                {onRemoveExercise ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t(language, 'detail.day.a11y.remove', {
+                      name: exerciseNameLabel(language, exercise.name),
+                    })}
+                    hitSlop={8}
+                    onPress={() => onRemoveExercise(exercise.id)}
+                    style={({ pressed }) => [styles.rowAction, pressed && styles.swapOptionPressed]}
+                  >
+                    <TrashGlyph theme={theme} />
                   </Pressable>
                 ) : null}
               </View>
-            </View>
-          ))}
+              <View style={styles.exerciseBottom}>
+                {/* Two chips, one sheet (design frame 05): the dose and the
+                    rest both open the same steppers, because the rest became
+                    editable when the prescription grew a restSeconds. Both
+                    wear the pencil — a chip that edits and a chip that only
+                    states, side by side, taught the reader to distrust both. */}
+                <View style={styles.exerciseDose}>
+                  {canTune ? (
+                    <>
+                      <Pressable
+                        accessibilityRole="button"
+                        hitSlop={6}
+                        onPress={() => openTuneSheet(exercise)}
+                        style={({ pressed }) => [styles.doseChip, pressed && styles.swapOptionPressed]}
+                      >
+                        <Text style={styles.doseChipText}>{exercise.prescription}</Text>
+                        <PencilGlyph theme={theme} />
+                      </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        hitSlop={6}
+                        onPress={() => openTuneSheet(exercise)}
+                        style={({ pressed }) => [styles.doseChip, pressed && styles.swapOptionPressed]}
+                      >
+                        <Text style={styles.doseChipText} numberOfLines={1}>
+                          {t(language, 'detail.day.rest', { range: exercise.restLabel })}
+                        </Text>
+                        <PencilGlyph theme={theme} />
+                      </Pressable>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.exerciseScheme}>{exercise.prescription}</Text>
+                      <Text style={styles.exerciseRest} numberOfLines={1}>
+                        {t(language, 'detail.day.rest', { range: exercise.restLabel })}
+                      </Text>
+                    </>
+                  )}
+                </View>
+              </View>
+            </Animated.View>
+            );
+          })}
           {/* The end of the list is where "and one more" is felt. The library
               opens over this screen — see onAddExercises. */}
           {canAddExercises ? (
@@ -548,16 +767,14 @@ export function ProgramDayScreen({
               onPress={() => setAddSheetOpen(true)}
               style={({ pressed }) => [styles.addRow, pressed && styles.swapOptionPressed]}
             >
-              <View style={styles.addGlyph}>
-                <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                  <Path
-                    d="M12 5v14M5 12h14"
-                    stroke={theme.purple}
-                    strokeWidth={2.4}
-                    strokeLinecap="round"
-                  />
-                </Svg>
-              </View>
+              <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M12 5v14M5 12h14"
+                  stroke={theme.purple}
+                  strokeWidth={2.4}
+                  strokeLinecap="round"
+                />
+              </Svg>
               <Text style={styles.addRowText}>{t(language, 'editor.addExercise')}</Text>
             </Pressable>
           ) : null}
@@ -582,117 +799,206 @@ export function ProgramDayScreen({
                 {drill.name}
               </Text>
               <Text style={styles.drillScheme}>{drill.schemeLabel}</Text>
+              {onSwapRoutineDrill ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'home.a11y.swapDrill', { name: drill.name })}
+                  hitSlop={8}
+                  onPress={() => {
+                    setDrillPick(null);
+                    setDrillSwap({ kind: 'cooldown', index });
+                  }}
+                  style={({ pressed }) => [styles.rowAction, pressed && styles.swapOptionPressed]}
+                >
+                  <SwapGlyph theme={theme} />
+                </Pressable>
+              ) : null}
             </View>
           ))}
         </Section>
+        {/* The legend is last on the screen, not first (design frame 05):
+            the reader meets ANCHOR on a row before being lectured about it,
+            and the card answers the question at the moment it is asked. */}
+        {presentRoles.length > 0 ? (
+          <View style={styles.roleCard}>
+            {presentRoles.map((role, index) => (
+              <View key={role} style={[styles.roleRow, index > 0 && styles.roleRowDivider]}>
+                <View style={[styles.roleTag, { backgroundColor: tints[role].bg }]}>
+                  <Text style={[styles.roleTagText, { color: tints[role].ink }]}>
+                    {t(language, ROLE_TAG_KEYS[role])}
+                  </Text>
+                </View>
+                <Text style={styles.roleLine}>{t(language, ROLE_LINE_KEYS[role])}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
       </ScrollView>
 
       {/* The swap writes into the same map the session start reads, so what
-          you choose here is what you lift. */}
-      <Modal
-        visible={swapRow !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={() => closeSwapSheet()}
+          you choose here is what you lift.
+
+          On the sheet kit: one tap target per row, and the scope question —
+          just this time, or for ever — is asked once, in the bar, after there
+          is a pick to ask it about. */}
+      {/* One sheet for both blocks - the pool differs, the question does not. */}
+      <KitSheet
+        visible={drillSwap !== null}
+        onClose={closeDrillSwap}
+        title={t(language, 'drill.sheet.title')}
+        context={
+          drillSwap
+            ? t(language, drillSwap.kind === 'warmup' ? 'drill.sheet.warmup' : 'drill.sheet.cooldown')
+            : undefined
+        }
+        description={drillCurrent?.name}
+        bottomInset={insets.bottom}
+        barUp={drillPick !== null}
+        bar={
+          <KitBar
+            visible={drillPick !== null}
+            from={drillCurrent?.name ?? ''}
+            to={drillOptions.find((option) => option.key === drillPick)?.name ?? ''}
+            buttons={[
+              {
+                label: t(language, 'drill.sheet.save'),
+                kind: 'p',
+                onPress: () => {
+                  if (drillSwap && drillPick) {
+                    onSwapRoutineDrill?.(
+                      routineDrillSlotKey(drillSwap.kind, focusKind, drillSwap.index),
+                      drillPick,
+                    );
+                  }
+                  closeDrillSwap();
+                },
+              },
+            ]}
+            clearLabel={t(language, 'drill.sheet.pickAnother')}
+            onClear={() => setDrillPick(null)}
+            bottomInset={insets.bottom}
+          />
+        }
       >
-        <View style={styles.swapOverlay}>
-          <Pressable style={styles.swapScrim} onPress={() => closeSwapSheet()} />
-          {/* The sheet's own padding was a fixed 28, so on a phone with system
-              buttons the last row sat behind them and could not be pressed
-              (user 2026-08-26). The bar's height is only known at runtime. */}
-          <View style={[styles.swapSheet, { paddingBottom: insets.bottom + 28 }]}>
-            <View style={styles.swapGrip} />
-            <Text style={styles.swapTitle} numberOfLines={2}>
-              {t(language, 'home.swapSheet.title', {
-                name: exerciseNameLabel(language, swapRow?.currentName ?? ''),
-              })}
-            </Text>
-            {/* The shortlist is deliberately six rows and the pool behind it is
-                not: a reader who knows what they want should not have to be
-                offered it (#bugs 2026-08-26). */}
-            <TextInput
-              value={swapQuery}
-              onChangeText={setSwapQuery}
-              placeholder={t(language, 'home.swapSheet.search')}
-              placeholderTextColor={theme.faint}
-              style={styles.swapSearch}
-              autoCorrect={false}
-              accessibilityLabel={t(language, 'home.swapSheet.search')}
+        <ScrollView
+          contentContainerStyle={styles.kitListPad}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {drillOptions.map((option) => (
+            <KitRow
+              key={option.key}
+              title={option.name}
+              meta={option.schemeLabel}
+              state={option.key === drillPick ? 'sel' : option.key === drillCurrent?.key ? 'cur' : 'idle'}
+              onPress={() => setDrillPick(option.key === drillCurrent?.key ? null : option.key)}
             />
-            <ScrollView style={styles.swapList} showsVerticalScrollIndicator={false}>
-              {swapRow && swapRow.shortlist.total === 0 && swapLibraryMatches.length === 0 ? (
-                <Text style={styles.swapEmpty}>
-                  {t(language, swapQuery.trim() ? 'home.swapSheet.noMatches' : 'home.swapSheet.empty')}
-                </Text>
-              ) : (
-                ([
-                  { key: 'home.swapSheet.variations' as const, rows: swapRow?.shortlist.variations ?? [] },
-                  { key: 'home.swapSheet.related' as const, rows: swapRow?.shortlist.related ?? [] },
-                  {
-                    key: 'home.swapSheet.library' as const,
-                    rows: swapLibraryMatches.map((item) => ({
-                      exerciseName: item.name,
-                      reason: null,
-                      score: 0,
-                    })),
-                  },
-                ]).map((section) =>
-                  section.rows.length === 0 ? null : (
-                    <View key={section.key}>
-                      {/* Named only when there is more than one group — one
-                          heading over the whole list labels nothing. */}
-                      {[
-                        swapRow?.shortlist.variations.length ?? 0,
-                        swapRow?.shortlist.related.length ?? 0,
-                        swapLibraryMatches.length,
-                      ].filter((count) => count > 0).length > 1 ? (
-                        <Text style={styles.swapGroup}>{t(language, section.key)}</Text>
-                      ) : null}
-                      {section.rows.map((option) => (
-                        <View key={option.exerciseName} style={styles.swapOptionRow}>
-                          {/* The row is today's answer — the one you can undo. */}
-                          <Pressable
-                            onPress={() => {
-                              if (swapRow) {
-                                onSwapExercise?.(swapRow.slotId, option.exerciseName);
-                              }
-                              closeSwapSheet();
-                            }}
-                            style={({ pressed }) => [
-                              styles.swapOption,
-                              styles.swapOptionGrow,
-                              pressed && styles.swapOptionPressed,
-                            ]}
-                          >
-                            <Text style={styles.swapOptionName} numberOfLines={1}>
-                              {exerciseNameLabel(language, option.exerciseName)}
-                            </Text>
-                          </Pressable>
-                          {/* And the durable one, here rather than behind a
-                              second visit to this sheet. */}
-                          {swapRow?.exerciseId && onKeepSwap ? (
-                            <Pressable
-                              accessibilityRole="button"
-                              accessibilityLabel={t(language, 'home.swapSheet.keepOne', {
-                                name: exerciseNameLabel(language, option.exerciseName),
-                              })}
-                              hitSlop={8}
-                              onPress={() => {
-                                onKeepSwap(swapRow.exerciseId as string, option.exerciseName);
-                                closeSwapSheet();
-                              }}
-                              style={({ pressed }) => [styles.swapOptionKeep, pressed && styles.swapOptionPressed]}
-                            >
-                              <Text style={styles.swapOptionKeepText}>{t(language, 'home.swapSheet.keepShort')}</Text>
-                            </Pressable>
-                          ) : null}
-                        </View>
-                      ))}
-                    </View>
-                  ),
-                )
-              )}
-            </ScrollView>
+          ))}
+        </ScrollView>
+      </KitSheet>
+
+      <KitSheet
+        visible={swapRow !== null}
+        onClose={closeSwapSheet}
+        title={t(language, 'kit.swapTitle')}
+        context={exerciseNameLabel(language, swapRow?.currentName ?? '')}
+        bottomInset={insets.bottom}
+        barUp={swapPickName !== null}
+        bar={
+          <KitBar
+            visible={swapPickName !== null}
+            from={exerciseNameLabel(language, swapRow?.currentName ?? '')}
+            to={swapPickName ? exerciseNameLabel(language, swapPickName) : ''}
+            buttons={[
+              {
+                label: t(language, 'kit.justThisTime'),
+                kind: 'p',
+                onPress: () => {
+                  if (swapRow && swapPickName) {
+                    onSwapExercise?.(swapRow.slotId, swapPickName);
+                  }
+                  closeSwapSheet();
+                },
+              },
+              ...(swapRow?.exerciseId && onKeepSwap
+                ? [
+                    {
+                      label: t(language, 'kit.forEver'),
+                      kind: 'd' as const,
+                      onPress: () => {
+                        if (swapRow?.exerciseId && swapPickName) {
+                          onKeepSwap(swapRow.exerciseId, swapPickName);
+                        }
+                        closeSwapSheet();
+                      },
+                    },
+                  ]
+                : []),
+            ]}
+            clearLabel={t(language, 'kit.pickAnother')}
+            onClear={() => setSwapPickName(null)}
+            bottomInset={insets.bottom}
+          />
+        }
+      >
+        {/* The shortlist is deliberately six rows and the pool behind it is
+            not: a reader who knows what they want should not have to be
+            offered it (#bugs 2026-08-26). */}
+        <KitSearch
+          value={swapQuery}
+          onChangeText={setSwapQuery}
+          placeholder={t(language, 'home.swapSheet.search')}
+        />
+        <ScrollView
+          style={styles.swapList}
+          contentContainerStyle={styles.kitListPad}
+          showsVerticalScrollIndicator={false}
+        >
+          {swapRow && swapRow.shortlist.total === 0 && swapLibraryMatches.length === 0 ? (
+            <Text style={styles.swapEmpty}>
+              {t(language, swapQuery.trim() ? 'home.swapSheet.noMatches' : 'home.swapSheet.empty')}
+            </Text>
+          ) : (
+            ([
+              { key: 'home.swapSheet.variations' as const, rows: swapRow?.shortlist.variations ?? [] },
+              { key: 'home.swapSheet.related' as const, rows: swapRow?.shortlist.related ?? [] },
+              {
+                key: 'home.swapSheet.library' as const,
+                rows: swapLibraryMatches.map((item) => ({
+                  exerciseName: item.name,
+                  reason: null,
+                  score: 0,
+                })),
+              },
+            ]).map((section) =>
+              section.rows.length === 0 ? null : (
+                <View key={section.key}>
+                  {/* Named only when there is more than one group — one
+                      heading over the whole list labels nothing. */}
+                  {[
+                    swapRow?.shortlist.variations.length ?? 0,
+                    swapRow?.shortlist.related.length ?? 0,
+                    swapLibraryMatches.length,
+                  ].filter((count) => count > 0).length > 1 ? (
+                    <KitGroupLabel>{t(language, section.key)}</KitGroupLabel>
+                  ) : null}
+                  {section.rows.map((option) => (
+                    <KitRow
+                      key={option.exerciseName}
+                      title={exerciseNameLabel(language, option.exerciseName)}
+                      state={swapPickName === option.exerciseName ? 'sel' : 'idle'}
+                      onPress={() =>
+                        setSwapPickName((current) =>
+                          current === option.exerciseName ? null : option.exerciseName,
+                        )
+                      }
+                    />
+                  ))}
+                </View>
+              ),
+            )
+          )}
             {/* A swap answers today. This makes it the programme's answer —
                 offered only once there is a swap to keep. */}
             {swapRow?.exerciseId && sessionSwaps[swapRow.slotId] && onKeepSwap ? (
@@ -732,123 +1038,128 @@ export function ProgramDayScreen({
                 <Text style={styles.swapRemoveNote}>{t(language, 'home.swapSheet.removeNote')}</Text>
               </Pressable>
             ) : null}
-          </View>
-        </View>
-      </Modal>
+        </ScrollView>
+      </KitSheet>
 
       {/*
-        Sets, reps and the row's place in the day — the three numbers the
-        catalog decided and the reader could not answer back.
-
-        Every press writes. There is no save button because there is no draft
-        to lose: the reader who steps sets to four and puts the phone down has
-        a programme with four sets in it, not a sheet they forgot to confirm.
+        Sets and reps — the numbers the catalog decided and the reader could
+        not answer back. On the sheet kit: steppers write a draft, the commit
+        bar wakes when a number actually changes and shows the whole edit on
+        one line, and "Save to this day" is the only press that writes the
+        programme. (Order moved out of this sheet to the arrows on the rows —
+        one number per surface.)
       */}
-      <Modal
+      <KitSheet
         visible={tuneRow !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={() => closeTuneSheet()}
+        onClose={closeTuneSheet}
+        title={tuneRow?.name ?? ''}
+        context={t(language, 'detail.day.tuneEyebrow')}
+        bottomInset={insets.bottom}
+        barUp={tuneChanged}
+        bar={
+          <KitBar
+            visible={tuneChanged}
+            from={formatDose(tuneStart, tuneRow?.timed ?? false)}
+            to={formatDose(tuneDraft, tuneRow?.timed ?? false)}
+            buttons={[
+              {
+                label: t(language, 'kit.saveToDay'),
+                kind: 'p',
+                onPress: () => {
+                  if (tuneRow && tuneDraft && onPrescribe) {
+                    onPrescribe(tuneRow.id, tuneDraft);
+                  }
+                  closeTuneSheet();
+                },
+              },
+            ]}
+            clearLabel={t(language, 'kit.undoChanges')}
+            onClear={() => setTuneDraft(tuneStart)}
+            bottomInset={insets.bottom}
+          />
+        }
       >
-        <View style={styles.swapOverlay}>
-          <Pressable style={styles.swapScrim} onPress={() => closeTuneSheet()} />
-          <View style={[styles.swapSheet, { paddingBottom: insets.bottom + 28 }]}>
-            <View style={styles.swapGrip} />
-            <Text style={styles.tuneEyebrow}>{t(language, 'detail.day.tuneEyebrow')}</Text>
-            <Text style={styles.swapTitle} numberOfLines={2}>
-              {tuneRow?.name ?? ''}
-            </Text>
-
-            {tuneRow && tuneDraft && onPrescribe ? (
-              <>
-                <View style={styles.tuneRow}>
-                  <Text style={styles.tuneLabel}>{t(language, 'detail.day.setsLabel')}</Text>
-                  <View style={styles.tuneControls}>
-                    <RoundButton
-                      glyph="minus"
-                      styles={styles}
-                      theme={theme}
-                      disabled={!canStepProgramPrescription(tuneDraft, 'sets', -1)}
-                      onPress={() => stepTune('sets', -1)}
-                    />
-                    <Text style={styles.tuneValue}>{tuneDraft.targetSets}</Text>
-                    <RoundButton
-                      glyph="plus"
-                      styles={styles}
-                      theme={theme}
-                      disabled={!canStepProgramPrescription(tuneDraft, 'sets', 1)}
-                      onPress={() => stepTune('sets', 1)}
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.tuneRow}>
-                  <Text style={styles.tuneLabel}>{t(language, 'editor.reps')}</Text>
-                  <View style={styles.tuneControls}>
-                    <RoundButton
-                      glyph="minus"
-                      styles={styles}
-                      theme={theme}
-                      disabled={!canStepProgramPrescription(tuneDraft, 'reps', -1)}
-                      onPress={() => stepTune('reps', -1)}
-                    />
-                    {/* A range stays a range: "6–8" steps to "7–9" rather than
-                        collapsing to a single number the programme never wrote. */}
-                    <Text style={styles.tuneValue}>
-                      {tuneDraft.repMin === tuneDraft.repMax
-                        ? `${tuneDraft.repMin}`
-                        : `${tuneDraft.repMin}–${tuneDraft.repMax}`}
-                      {tuneRow.timed ? ' s' : ''}
-                    </Text>
-                    <RoundButton
-                      glyph="plus"
-                      styles={styles}
-                      theme={theme}
-                      disabled={!canStepProgramPrescription(tuneDraft, 'reps', 1)}
-                      onPress={() => stepTune('reps', 1)}
-                    />
-                  </View>
-                </View>
-              </>
-            ) : null}
-
-            {tuneRow && onMoveExercise ? (
-              <View style={[styles.tuneRow, styles.tuneRowLast]}>
-                <Text style={styles.tuneLabel}>{t(language, 'detail.day.orderLabel')}</Text>
+        <View style={styles.kitListPad}>
+          {tuneRow && tuneDraft && onPrescribe ? (
+            <>
+              <View style={styles.tuneRow}>
+                <Text style={styles.tuneLabel}>{t(language, 'detail.day.setsLabel')}</Text>
                 <View style={styles.tuneControls}>
                   <RoundButton
-                    glyph="up"
+                    glyph="minus"
                     styles={styles}
                     theme={theme}
-                    label={t(language, 'detail.day.moveUp')}
-                    disabled={tuneRow.index === 0}
-                    onPress={() => onMoveExercise(tuneRow.id, 'up')}
+                    disabled={!canStepProgramPrescription(tuneDraft, 'sets', -1)}
+                    onPress={() => stepTune('sets', -1)}
                   />
-                  <Text style={styles.tuneValue}>
-                    {tuneRow.index + 1} / {tuneRow.count}
-                  </Text>
+                  <Text style={styles.tuneValue}>{tuneDraft.targetSets}</Text>
                   <RoundButton
-                    glyph="down"
+                    glyph="plus"
                     styles={styles}
                     theme={theme}
-                    label={t(language, 'detail.day.moveDown')}
-                    disabled={tuneRow.index === tuneRow.count - 1}
-                    onPress={() => onMoveExercise(tuneRow.id, 'down')}
+                    disabled={!canStepProgramPrescription(tuneDraft, 'sets', 1)}
+                    onPress={() => stepTune('sets', 1)}
                   />
                 </View>
               </View>
-            ) : null}
 
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => closeTuneSheet()}
-              style={({ pressed }) => [styles.tuneDone, pressed && styles.swapOptionPressed]}
-            >
-              <Text style={styles.tuneDoneText}>{t(language, 'common.close')}</Text>
-            </Pressable>
-          </View>
+              <View style={styles.tuneRow}>
+                <Text style={styles.tuneLabel}>{t(language, 'editor.reps')}</Text>
+                <View style={styles.tuneControls}>
+                  <RoundButton
+                    glyph="minus"
+                    styles={styles}
+                    theme={theme}
+                    disabled={!canStepProgramPrescription(tuneDraft, 'reps', -1)}
+                    onPress={() => stepTune('reps', -1)}
+                  />
+                  {/* A range stays a range: "6–8" steps to "7–9" rather than
+                      collapsing to a single number the programme never wrote. */}
+                  <Text style={styles.tuneValue}>
+                    {tuneDraft.repMin === tuneDraft.repMax
+                      ? `${tuneDraft.repMin}`
+                      : `${tuneDraft.repMin}–${tuneDraft.repMax}`}
+                    {tuneRow.timed ? ' s' : ''}
+                  </Text>
+                  <RoundButton
+                    glyph="plus"
+                    styles={styles}
+                    theme={theme}
+                    disabled={!canStepProgramPrescription(tuneDraft, 'reps', 1)}
+                    onPress={() => stepTune('reps', 1)}
+                  />
+                </View>
+              </View>
+
+              {/* Rest joins the sheet (design frame 06) — the third number the
+                  catalog decided. Only when the stored draft has one: a
+                  stepper over a missing number would have to invent it. */}
+              {tuneDraft.restSeconds !== null ? (
+                <View style={[styles.tuneRow, styles.tuneRowLast]}>
+                  <Text style={styles.tuneLabel}>{t(language, 'detail.day.restLabel')}</Text>
+                  <View style={styles.tuneControls}>
+                    <RoundButton
+                      glyph="minus"
+                      styles={styles}
+                      theme={theme}
+                      disabled={!canStepProgramPrescription(tuneDraft, 'rest', -1)}
+                      onPress={() => stepTune('rest', -1)}
+                    />
+                    <Text style={styles.tuneValue}>{formatRest(tuneDraft.restSeconds)}</Text>
+                    <RoundButton
+                      glyph="plus"
+                      styles={styles}
+                      theme={theme}
+                      disabled={!canStepProgramPrescription(tuneDraft, 'rest', 1)}
+                      onPress={() => stepTune('rest', 1)}
+                    />
+                  </View>
+                </View>
+              ) : null}
+            </>
+          ) : null}
         </View>
-      </Modal>
+      </KitSheet>
 
       {/* The library, over the day it is adding to. Same component the editor
           uses, so search, body-part chips and the photos are the ones the
@@ -875,53 +1186,13 @@ export function ProgramDayScreen({
         />
       ) : null}
 
+
       {/* The "Start this workout" dock was removed on request. */}
     </View>
   );
 }
 
 /** One place up or down, on the row itself. */
-function MoveButton({
-  direction,
-  disabled,
-  onPress,
-  label,
-  styles,
-  theme,
-}: {
-  direction: 'up' | 'down';
-  disabled?: boolean;
-  onPress: () => void;
-  label: string;
-  styles: ReturnType<typeof makeStyles>;
-  theme: Theme;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled: Boolean(disabled) }}
-      disabled={disabled}
-      hitSlop={6}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.moveButton,
-        disabled && styles.moveButtonOff,
-        pressed && !disabled && styles.swapOptionPressed,
-      ]}
-    >
-      <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-        <Path
-          d={direction === 'up' ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'}
-          stroke={disabled ? theme.faint : theme.purple}
-          strokeWidth={2.6}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </Svg>
-    </Pressable>
-  );
-}
 
 const ROUND_GLYPHS = {
   minus: 'M6 12h12',
@@ -1031,6 +1302,9 @@ function Section({
 }
 
 const makeStyles = (theme: Theme) => StyleSheet.create({
+  // The kit's lists carry their own horizontal padding: the sheet shell pads
+  // only its header, so a full-bleed list can scroll under it.
+  kitListPad: { paddingHorizontal: 18, paddingBottom: 6 },
   screen: {
     flex: 1,
     backgroundColor: theme.bg,
@@ -1200,7 +1474,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 8,
+    paddingVertical: 15,
+    paddingHorizontal: 2,
     borderTopWidth: 1,
     borderTopColor: theme.border,
   },
@@ -1335,33 +1610,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
   },
   // Right-aligned above the rows: an action ON the list, not a row in it.
-  reorderToggle: {
-    alignSelf: 'flex-end',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    marginBottom: 2,
-  },
-  reorderToggleText: {
-    color: theme.purple,
-    fontSize: 12.5,
-    lineHeight: 16,
-    fontWeight: '800',
-    letterSpacing: 0.2,
-  },
-  moveRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  moveButton: {
-    width: 34,
-    height: 30,
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.surfaceSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   moveButtonOff: {
     opacity: 0.4,
   },
@@ -1512,18 +1760,24 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 19,
     fontWeight: '700',
   },
+  // No gap: the rows are separated by the hairline each one carries, the way
+  // a list is, rather than by air between cards (user 2026-08-31).
   exerciseList: {
-    gap: 9,
+    gap: 0,
   },
   // Same dashed affordance the empty workout already uses for "add a lift", so
   // the one gesture looks the same wherever a list can grow.
+  // The label in the middle with its plus beside it (user 2026-08-31): left
+  // -aligned under a list of left-aligned names, it read as a sixth exercise.
   addRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 10,
-    minHeight: 52,
+    minHeight: 62,
+    marginTop: 14,
     paddingHorizontal: 12,
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1.6,
     borderStyle: 'dashed',
     borderColor: theme.border,
@@ -1537,10 +1791,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.surfaceSoft,
   },
   addRowText: {
-    flex: 1,
     color: theme.purpleDark,
-    fontSize: 14,
-    lineHeight: 19,
+    fontSize: 16,
+    lineHeight: 21,
     fontWeight: '800',
   },
   addFixedBlock: {
@@ -1552,16 +1805,47 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 18,
     fontWeight: '600',
   },
-  exerciseCard: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.surface,
-    paddingHorizontal: 13,
-    paddingVertical: 12,
+  dragHandle: {
+    width: 28,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: -6,
   },
-  exerciseCardAnchor: {
-    borderColor: theme.purpleBright,
+  exerciseCardLift: {
+    backgroundColor: theme.purpleSoft,
+    borderRadius: 14,
+    shadowColor: theme.shadow,
+    shadowOpacity: 0.5,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
+    zIndex: 5,
+  },
+  /**
+   * A row, not a card (user 2026-08-31: "älä ympyröi treenejä vaan tee
+   * tuollaiset katkoviivat vain väliin").
+   *
+   * Five boxed cards made five objects out of one list, and the box's own
+   * padding was the room the swap and remove icons needed. The hairline does
+   * the separating and the space goes to the content.
+   */
+  exerciseCard: {
+    paddingHorizontal: 2,
+    paddingVertical: 15,
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+  },
+  // The anchor is marked by its number chip, which is filled while the rest
+  // are washed — a second marker on the row's edge said the same thing twice.
+  exerciseCardAnchor: {},
+  // One tap target for the two row icons, sized for a thumb rather than for
+  // the glyph inside it.
+  rowAction: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   exerciseTop: {
     flexDirection: 'row',
@@ -1590,8 +1874,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   exerciseName: {
     flex: 1,
     color: theme.ink,
-    fontSize: 14.5,
-    lineHeight: 19,
+    fontSize: 15.5,
+    lineHeight: 20,
     fontWeight: '800',
     letterSpacing: -0.1,
   },

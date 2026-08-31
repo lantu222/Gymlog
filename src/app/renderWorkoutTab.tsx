@@ -28,7 +28,7 @@ import { ExerciseDetailScreen } from '../screens/ExerciseDetailScreen';
 import { ExercisesScreen } from '../screens/ExercisesScreen';
 import { GuidedPlayerScreen } from '../screens/GuidedPlayerScreen';
 import { ProgramDayScreen } from '../screens/ProgramDayScreen';
-import { MoveDirection, ProgramPrescription } from '../lib/programSessionEdit';
+import { ProgramPrescription } from '../lib/programSessionEdit';
 import { ProgramDetailScreen } from '../screens/ProgramDetailScreen';
 import { ProgramsHomeScreen } from '../screens/ProgramsHomeScreen';
 import { SeasonScreen } from '../screens/SeasonScreen';
@@ -102,7 +102,12 @@ export interface WorkoutTabDeps {
       | { kind: 'replace'; exerciseName: string }
       | { kind: 'add'; exerciseNames: string[] }
       | { kind: 'prescribe'; prescription: ProgramPrescription }
-      | { kind: 'move'; direction: MoveDirection },
+      | { kind: 'reorder'; toIndex: number },
+  ) => Promise<void>;
+  handleReorderProgramSession: (
+    workoutTemplateId: string,
+    sessionId: string,
+    toIndex: number,
   ) => Promise<void>;
   handleSaveRhythm: (workoutTemplateId: string, dayIndexes: number[]) => Promise<void>;
   handleSaveEmphasis: (
@@ -186,6 +191,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     handleAdoptCustomProgram,
     handleStartCustomProgramSession,
     editProgramExercise,
+    handleReorderProgramSession,
     handleSaveRhythm,
     handleSaveEmphasis,
     handleDeleteCustomWorkout,
@@ -399,9 +405,25 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           database.workoutPlans.find((plan) => plan.entries[0]?.workoutTemplateId === route.workoutTemplateId)
             ?.entries ?? [],
         )}
+        // Custom only: reordering a catalog programme would mean copying it,
+        // and nobody asks for a copy by dragging.
+        onReorderSession={
+          route.programType === 'custom'
+            ? (sessionId, toIndex) =>
+                void handleReorderProgramSession(route.workoutTemplateId, sessionId, toIndex)
+            : undefined
+        }
         onSaveRhythm={
           database.workoutPlans.some((plan) => plan.entries[0]?.workoutTemplateId === route.workoutTemplateId)
             ? (dayIndexes) => void handleSaveRhythm(route.workoutTemplateId, dayIndexes)
+            : undefined
+        }
+        // The cycle is the app's one schedule, so it is offered exactly where
+        // the weekday rhythm is: on a programme that has a plan behind it.
+        trainingCycle={preferences.trainingCycle}
+        onChangeTrainingCycle={
+          database.workoutPlans.some((plan) => plan.entries[0]?.workoutTemplateId === route.workoutTemplateId)
+            ? (cycle) => void updatePreferences({ trainingCycle: cycle })
             : undefined
         }
         onSaveEmphasis={
@@ -465,6 +487,15 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         dayNumber={dayIndex + 1}
         dayCount={program.sessions.length}
         availableEquipment={availableEquipmentForDrills}
+        routineDrillOverrides={preferences.routineDrillOverrides}
+        // Permanent by nature: the drills are generated from the session
+        // focus, so a choice belongs to every day with that focus rather
+        // than to this one. There is no "just this time" to offer.
+        onSwapRoutineDrill={(slotKey: string, drillKey: string) =>
+          void updatePreferences({
+            routineDrillOverrides: { ...preferences.routineDrillOverrides, [slotKey]: drillKey },
+          })
+        }
         sessionSwaps={sessionSwaps}
         onSwapExercise={(slotId, exerciseName) =>
           setSessionSwaps((current) => ({ ...current, [slotId]: exerciseName }))
@@ -494,10 +525,10 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             prescription,
           })
         }
-        onMoveExercise={(exerciseId, direction) =>
+        onReorderExercise={(exerciseId, toIndex) =>
           void editProgramExercise(route.programType, route.workoutTemplateId, daySession.id, exerciseId, {
-            kind: 'move',
-            direction,
+            kind: 'reorder',
+            toIndex,
           })
         }
         tailoringPreferences={preferences}
@@ -618,6 +649,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         keepScreenAwake={preferences.keepScreenAwakeDuringWorkout}
         unitPreference={unitPreference}
         availableEquipment={availableEquipmentForDrills}
+        routineDrillOverrides={preferences.routineDrillOverrides}
         tailoringPreferences={tailoringPreferences}
         exerciseLibrary={exerciseLibrary}
         soundCuesEnabled={preferences.soundCuesEnabled}

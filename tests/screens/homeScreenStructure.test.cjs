@@ -144,7 +144,9 @@ module.exports = [
       // Home simplification round (2026-07-20): hero title bumped to 38.
       assert.match(homeScreenSource, /heroTitle:\s*\{[\s\S]*fontSize: 38/);
       assert.match(homeScreenSource, /t\(language, 'home\.hero\.sessionsProgress', \{ done: sessionsDone, total: sessionsTotal \}\)/);
-      assert.match(i18nSource, /'home\.hero\.sessionsProgress': '\{done\} of \{total\} sessions'/);
+      // Counts sessions plainly (design frame 15): "of 60" repeated the block
+      // total that the programme section's "Week 1 of 12" already carries.
+      assert.match(i18nSource, /'home\.hero\.sessionsProgress': '\{done\} sessions logged'/);
       assert.match(homeScreenSource, /heroProgTrack:\s*\{\s*width: 88,\s*height: 6/);
       assert.match(homeScreenSource, /heroProgFill:\s*\{[\s\S]*backgroundColor: theme.purple/);
       assert.match(homeScreenSource, /progressFillAnim\.interpolate\(\{ inputRange: \[0, 100\], outputRange: \['0%', '100%'\] \}\)/);
@@ -152,49 +154,73 @@ module.exports = [
       // title + plan progress — no meta grid, no equipment line.
       assert.doesNotMatch(homeScreenSource, /styles\.metaGrid/);
       assert.doesNotMatch(homeScreenSource, /— needed for today's session/);
-      // History section at the bottom: strength + cardio merged, See all link.
-      assert.match(homeScreenSource, /historyItems\.map\(/);
-      assert.match(homeScreenSource, /t\(language, 'home\.history\.seeAll'\)/);
-      assert.match(i18nSource, /'home\.history\.seeAll': 'See all'/);
-      assert.match(homeScreenSource, /item\.kind === 'cardio' && item\.cardioIcon \? \(/);
+      // History left Home (user 2026-08-31). Progress already lists the same
+      // rows, and Home is for running today rather than reading back — the
+      // props that fed the section went with it, not just its JSX.
+      assert.doesNotMatch(homeScreenSource, /historyItems|onOpenHistory|onSelectHistorySession/);
       // The three BOXED accordions are gone (user 2026-08-23) and the lifts
       // render flat with no tap to see them. Warmup and recovery came back a
       // few hours later, as rows rather than cards: the reader kept the flat
       // look but wanted the two blocks reachable from it.
       assert.doesNotMatch(homeScreenSource, /openSections|sectionAnims|renderSection|SectionKey/);
       assert.doesNotMatch(homeScreenSource, /styles\.secCard|styles\.secBtn|styles\.secBody/);
-      assert.match(homeScreenSource, /getDefaultWarmup\(focusKind, language, availableEquipment\)/);
-      assert.match(homeScreenSource, /getDefaultCooldown\(focusKind, language, availableEquipment\)/);
+      // The reader's own drill picks travel in with the block (user
+      // 2026-08-31: "myös warmupliikkeitä voi vaihtaa"). Built without them,
+      // a swap would render for one frame and vanish on the next rebuild.
+      assert.match(
+        homeScreenSource,
+        /getDefaultWarmup\(focusKind, language, availableEquipment, routineDrillOverrides\)/,
+      );
+      assert.match(
+        homeScreenSource,
+        /getDefaultCooldown\(focusKind, language, availableEquipment, routineDrillOverrides\)/,
+      );
+      // And the swap writes through a slot key, never through a drill's name.
+      assert.match(homeScreenSource, /routineDrillSlotKey\(drillSwap\.kind, focusKind, drillSwap\.index\)/);
       // One open at a time, and closed to start: the lifts are the decision.
       assert.match(homeScreenSource, /useState<'warmup' \| 'cooldown' \| null>\(null\)/);
-      // A row: hairline top border, no fill and no corner radius. A card here
-      // is the thing that was just removed.
+      // The header row inside a phase card: no fill and no radius of its
+      // own (the card carries those), and no top border — the row is always
+      // the card's first child, and a hairline there doubled the card edge.
+      // Tall on purpose (user 2026-08-30): next to the hero the three
+      // headers read as the session's acts, not as footnotes.
       // Bounded to the block's own braces — an unbounded [\s\S]*? runs past
       // the closing brace and reports whatever the next style happens to say.
       const blockRow = /blockRow:\s*\{([^}]*)\}/.exec(homeScreenSource);
       assert.ok(blockRow, 'blockRow style not found');
-      assert.match(blockRow[1], /borderTopWidth: 1/);
-      assert.doesNotMatch(blockRow[1], /borderRadius|backgroundColor/);
+      assert.doesNotMatch(blockRow[1], /borderTopWidth|borderRadius|backgroundColor/);
       assert.match(homeScreenSource, /styles\.heroList, rise\(RISE_SEC_BASE\)/);
+      // The workout header wears the SAME styles as Warmup and Recovery —
+      // equal height by shared anatomy, not by three numbers agreeing
+      // (user 2026-08-30: the three rows drifted apart in size).
       assert.match(
         homeScreenSource,
-        /styles\.heroListMeta[\s\S]{0,160}'home\.section\.workoutMeta', \{ count: totalExerciseCount, sets: totalSets \}/,
+        /styles\.blockMeta[\s\S]{0,160}'home\.section\.workoutMeta', \{ count: totalExerciseCount, sets: totalSets \}/,
       );
+      assert.doesNotMatch(homeScreenSource, /heroListMetaRow|heroListTitle|heroListMeta[^R]/);
       // The lifts' fold row is titled like its neighbours — "Treeni" between
       // Lämmittely and Palautuminen, counts beside it (user 2026-08-25).
+      // Since the phase cards (design frame 03) the title also turns violet
+      // while its card is open, so the style is an array now.
       assert.match(
         homeScreenSource,
-        /styles\.heroListTitle\}>\{t\(language, 'home\.section\.workout'\)\}/,
+        /styles\.blockTitle, workoutListOpen && styles\.sectTitleOpen\]/,
       );
+      // One anatomy for all three phases: warmup, workout and recovery share
+      // the card, and a single violet marks whichever one is open.
+      assert.match(homeScreenSource, /sectCard: \{/);
+      assert.match(homeScreenSource, /sectCardOpen: \{/);
       // And the promo carousel went with them: Home runs today's session, the
       // season and programme offers live on their own screens.
       assert.doesNotMatch(homeScreenSource, /HomePromoCarousel|promoSlides/);
       assert.match(homeScreenSource, /planExerciseNumberChip:\s*\{\s*width: 25,\s*height: 25/);
       assert.match(homeScreenSource, /planExerciseScheme:\s*\{[\s\S]*fontFamily: 'JetBrainsMono'/);
       assert.match(homeScreenSource, /exercise\.schemeLabel \?\? exercise\.setsLabel/);
-      // Inline Adapt + Start row (no floating bar) and the Adapt sheet, which
-      // is now one real action rather than four rows that closed it.
-      assert.match(homeScreenSource, /adaptButton:\s*\{\s*flex: 1,\s*height: 56,\s*borderRadius: 16,\s*borderWidth: 1\.5,\s*borderColor: theme.border/);
+      // Inline Start row, no floating bar. Adapt stood beside it until
+      // 2026-08-30 and is gone with its sheet: dropping the programme and
+      // rebuilding it already live in the programme's own screen, and the
+      // short version was answering a question the player answers set by set.
+      assert.doesNotMatch(homeScreenSource, /adaptButton|adaptSheetVisible|onStartTrimmedSession/);
       // Start workout is a FILLED play button now (user 2026-08-25, after a
       // tester tapped the first exercise to "check it off" — the outline
       // version below the list read as one row among many).
@@ -230,30 +256,18 @@ module.exports = [
       assert.match(i18nSource, /'home\.startWorkout': 'Start workout'/);
       assert.match(i18nSource, /'home\.findProgram': 'Find a program'/);
       assert.match(appSource, /onFindProgram=\{\(\) => navigateToTab\('workout'\)\}/);
-      assert.match(i18nSource, /'home\.adaptSheet\.shorter\.title': 'Shorter session'/);
-      // Minutes again, but only because there is now one formula. The sheet
-      // and the player used to disagree about the same session (~35 vs ~50)
-      // and the promise was the one the user read first, so the copy retreated
-      // to sets. Both numbers now come from previewSessionTrim, which runs the
-      // real trim plan through estimateSessionMinutes.
-      assert.match(homeScreenSource, /t\(language, 'home\.adaptSheet\.shorter\.explain', \{[\s\S]*after: adaptTrim\.minutes,/);
-      assert.match(homeScreenSource, /const adaptTrim = nextPlanSession\?\.trim \?\? null;/);
-      // Home sees only the first five exercises, so it must not compute the
-      // preview itself — App.tsx does it where the whole session is in hand.
+      // Adapt is gone, whole (user 2026-08-30). Of its three rows, dropping the
+      // programme and rebuilding it both already live in the programme's own
+      // screen — doing them from Home was a second door onto the same
+      // decision — and the short version was answering before you leave the
+      // house a question the player now answers set by set. The trim estimate
+      // that fed it went with it: it had exactly one reader.
+      assert.doesNotMatch(homeScreenSource, /adaptSheet\.|adaptTrim|onStartTrimmedSession|onRedoOnboarding|onRemoveActivePlan/);
+      assert.doesNotMatch(appSource, /previewSessionTrim|onStartTrimmedSession|onRedoOnboarding=/);
+      assert.doesNotMatch(i18nSource, /'home\.adapt'|'home\.adaptSheet\./);
+      // Home still must not compute a session preview for itself: it sees only
+      // the first five exercises, which is why the estimate lived in App.tsx.
       assert.doesNotMatch(homeScreenSource, /previewSessionTrim|getAdaptTrimEstimate/);
-      assert.match(appSource, /trim: previewSessionTrim\(durationInputs, routineSeconds\)/);
-
-      // The three options that used to sit beside it are gone, and must not
-      // come back here: a taken rack and a body with nothing in it are both
-      // discovered in the gym, and the player answers both. Only the trim is
-      // knowable before you leave the house.
-      assert.doesNotMatch(i18nSource, /'home\.adaptSheet\.(equipment|swap|energy)\./);
-      assert.doesNotMatch(homeScreenSource, /adaptSheet\.(equipment|swap|energy)/);
-
-      // And the trim actually starts a session instead of closing a sheet.
-      assert.match(homeScreenSource, /onStartTrimmedSession\?\.\(nextPlanSession\.id\)/);
-      assert.match(homeScreenSource, /adaptCancel/);
-      assert.match(homeScreenSource, /onRequestClose=\{\(\) => setAdaptSheetVisible\(false\)\}/);
       // Hero + accordions render only with an active plan.
       assert.match(homeScreenSource, /\{activePlan && nextPlanSession \? \(/);
       // The Home pro sheet is gone (GAINER Paywall Moments): the PRO pill
@@ -430,10 +444,13 @@ module.exports = [
       // program; Home is for running one, and only one screen owns it.
       assert.match(homeScreenSource, /onPress=\{onOpenActivePlan\}/);
       assert.match(homeScreenSource, /t\(language, 'programs\.activeProgram'\)/);
-      assert.match(homeScreenSource, /activePlan\.sessions\.map/);
-      // Two actions and nothing else: see the plan, edit the days.
+      // The sessions feed the strip's accessibility line now — the five day
+      // cards became a compact week strip (design frame 15).
+      assert.match(homeScreenSource, /activePlan\.sessions\s*\n?\s*\.map/);
+      // ONE action: see the plan. "Edit days" went with frame 04 — the
+      // schedule editor lives on the plan screen this button opens.
       assert.match(homeScreenSource, /t\(language, 'programs\.viewPlan'\)/);
-      assert.match(homeScreenSource, /onPress=\{onSetTrainingDays\}/);
+      assert.doesNotMatch(homeScreenSource, /programs\.editDays/);
       // The weekday rule is shared, not copied. Two screens with their own
       // opinion about the same week is the bug that rule exists to prevent.
       assert.match(homeScreenSource, /from '\.\.\/lib\/planWeekdays'/);
@@ -650,11 +667,12 @@ module.exports = [
       // which survive a switch to a cycle untouched and kept saying MON/THU
       // under a six-day rotation (user, 2026-08-25).
       assert.match(homeScreenSource, /upcomingSessionDayStarts\(trainingSchedule, planSessions\.length\)/);
-      assert.match(homeScreenSource, /const isToday = dayStart !== null && dayStart === todayDayStart/);
       assert.doesNotMatch(homeScreenSource, /resolveSessionWeekday|hasFixedWeekdays/);
-      assert.match(homeScreenSource, /const isNext = activePlan\.nextSession\?\.id === session\.id/);
-      // The outline is the plan's mark, the pill is the calendar's.
-      assert.match(homeScreenSource, /stroke=\{isNext \? theme\.purpleBright : undefined\}/);
+      // The five day cards became a compact strip (design frame 15), and the
+      // strip asks the SCHEDULE which session a date owns — the same walk the
+      // calendars do — never the plan's stored weekday labels.
+      assert.match(homeScreenSource, /styles\.programWeekStrip/);
+      assert.match(homeScreenSource, /sessionSlotOn\(trainingSchedule, monday\)/);
       assert.doesNotMatch(homeScreenSource, /const isToday = activePlan\.nextSession/);
     },
   },
@@ -672,7 +690,10 @@ module.exports = [
       // The title is the switch: a reader looking at the wrong workout reaches
       // for its name first.
       assert.match(homeScreenSource, /onPress=\{\(\) => setTodaySheetVisible\(true\)\}/);
-      assert.match(homeScreenSource, /onPickTodaySession\?\.\(session\.id\)/);
+      // On the sheet kit the tap picks a DRAFT and the commit bar writes:
+      // "Do this today" is the only press that calls the handler.
+      assert.match(homeScreenSource, /onPickTodaySession\?\.\(todayPickDraft\)/);
+      assert.match(homeScreenSource, /setTodayPickDraft\(\(current\)/);
       // One session is not a choice.
       assert.match(homeScreenSource, /planSessions\.length < 2/);
 
@@ -710,7 +731,10 @@ module.exports = [
     run() {
       assert.doesNotMatch(homeScreenSource, /'programs\.today'/);
       assert.doesNotMatch(homeScreenSource, /t\(language, 'plan\.upNext'\)\s*\}/);
+      // The strip still REPORTS: a chip goes green only when its session was
+      // trained this week — the "Tehty" pill's fact, one glyph smaller.
       assert.match(homeScreenSource, /doneThisWeekSessionIds\.includes\(session\.id\)/);
+      assert.match(homeScreenSource, /programWeekDayDone/);
       assert.match(i18nSource, /'home\.plan\.doneThisWeek': 'Tehty'/);
 
       // And the hero carries no label of its own: the answer to a name being

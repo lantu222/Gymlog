@@ -45,8 +45,12 @@ module.exports = [
     run() {
       // A pale gold bar needs dark icons, and the shell already derives that
       // from the theme — so the summary comes off the forced-light list.
-      assert.doesNotMatch(appSource, /workoutSummaryActive \|\| historySessionActive\s*\r?\n?\s*\? 'light'/);
-      assert.match(appSource, /historySessionActive \? 'light' : undefined/);
+      assert.doesNotMatch(appSource, /workoutSummaryActive[\s\S]{0,40}\? 'light'/);
+      // The saved-session hero still is, and the Pro page joined it: both are
+      // dark surfaces the bar sits directly on. Matched on the list rather
+      // than on one exact expression, so adding a screen to it is not a
+      // failure — dropping the saved session off it is.
+      assert.match(appSource, /historySessionActive \|\| premiumActive[\s\S]{0,30}\? 'light'/);
     },
   },
   {

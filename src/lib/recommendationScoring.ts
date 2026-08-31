@@ -124,6 +124,24 @@ function scorePreferenceFit(definition: RecommendationProgramDefinition, input: 
     score += 4;
   }
 
+  /**
+   * The age band, finally deciding something.
+   *
+   * Deliberately small, and deliberately one-directional. A reader in the top
+   * band gets joint-friendly programmes nudged UP; nobody gets anything pushed
+   * down for being young, because a joint-friendly programme is a good
+   * programme at any age and the opposite rule would be a judgement about the
+   * reader rather than about the training.
+   *
+   * Smaller than the mobility bonus above on purpose: what someone ASKED for
+   * has to outrank what was inferred about them. The two stack, so a reader
+   * over 41 who also asked for mobility gets both — which is the case where
+   * the inference and the request agree.
+   */
+  if (input.ageRange === '41_plus' && definition.jointFriendly) {
+    score += 3;
+  }
+
   if (input.secondaryOutcomes.includes('conditioning') && definition.styleTags.includes('conditioning')) {
     score += 4;
   }

@@ -36,5 +36,10 @@ export function buildRecommendationInput(selection: FirstRunSetupSelection): Rec
     weeklyMinutes: typeof selection.weeklyMinutes === 'number' ? selection.weeklyMinutes : null,
     preferredSessionMinutes,
     wantsConsistency: selection.secondaryOutcomes.includes('consistency'),
+    // 'unspecified' is a real answer meaning "I would rather not say", so it
+    // reaches the scorer as null rather than as a band. Skipping the question
+    // and declining it should decide the same thing: nothing.
+    ageRange:
+      selection.ageRange && selection.ageRange !== 'unspecified' ? selection.ageRange : null,
   };
 }

@@ -250,4 +250,53 @@ module.exports = [
       assert.equal(result.waterfall.rule, 'beginner_first');
     },
   },
+  {
+    name: 'the age band finally decides something, and only one thing',
+    run() {
+      // setupAgeRange has been collected since the first setup screen, stored,
+      // and shown back on the My data screen — and read by nothing. Asking a
+      // reader a question and then ignoring the answer is the quiet version of
+      // not asking.
+      const base = {
+        goal: 'strength',
+        level: 'beginner',
+        daysPerWeek: 3,
+        equipment: 'gym',
+        secondaryOutcomes: [],
+        focusAreas: [],
+        guidanceMode: 'guided_editable',
+        scheduleMode: 'app_managed',
+        weeklyMinutes: null,
+        availableDays: [],
+        gender: 'unspecified',
+        unitPreference: 'kg',
+      };
+
+      const scoreOf = (ageRange, programId) => {
+        const result = recommendPrograms(buildRecommendationInput({ ...base, ageRange }));
+        const found = result.scoredCandidates.find((entry) => entry.programId === programId);
+        return found ? found.score : null;
+      };
+
+      const joint = 'tpl_gainer_joint_friendly_v1';
+      const younger = scoreOf('26_30', joint);
+      const older = scoreOf('41_plus', joint);
+      assert.ok(younger !== null && older !== null, "the joint-friendly programme should be a candidate");
+      assert.ok(older > younger, "the top age band should lift a joint-friendly programme");
+
+      // One direction only. Nobody is pushed DOWN for being young: a
+      // joint-friendly programme is a good programme at any age, and the
+      // opposite rule would be a judgement about the reader.
+      assert.equal(scoreOf('19_25', joint), younger);
+      assert.equal(scoreOf(undefined, joint), younger);
+
+      // Declining the question decides the same as skipping it.
+      assert.equal(scoreOf('unspecified', joint), younger);
+
+      // And it touches nothing else. A programme with no joint-friendly flag
+      // scores the same at every age.
+      const plain = 'tpl_3_day_strength_base_v1';
+      assert.equal(scoreOf('41_plus', plain), scoreOf('26_30', plain));
+    },
+  },
 ];

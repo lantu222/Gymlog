@@ -17,14 +17,14 @@ module.exports = [
       assert.equal(t('en', 'welcome.continueGoogle'), 'Continue with Google');
       assert.equal(t('fi', 'common.cancel'), 'Peruuta');
       assert.notEqual(t('fi', 'brand.tagline'), t('en', 'brand.tagline'));
-      assert.notEqual(t('fi', 'home.adaptSheet.shorter.cta'), t('en', 'home.adaptSheet.shorter.cta'));
+      assert.notEqual(t('fi', 'home.startWorkout'), t('en', 'home.startWorkout'));
     },
   },
   {
     name: 'i18n: templates interpolate {name} vars in both languages',
     run() {
-      assert.equal(t('en', 'home.hero.sessionsProgress', { done: 2, total: 8 }), '2 of 8 sessions');
-      assert.equal(t('fi', 'home.hero.sessionsProgress', { done: 2, total: 8 }), '2/8 treeniä');
+      assert.equal(t('en', 'home.hero.sessionsProgress', { done: 2, total: 8 }), '2 sessions logged');
+      assert.equal(t('fi', 'home.hero.sessionsProgress', { done: 2, total: 8 }), '2 treeniä kirjattu');
       assert.equal(
         t('en', 'home.section.workoutMeta', { count: 4, sets: 11 }),
         '4 exercises · 11 sets',
@@ -37,7 +37,7 @@ module.exports = [
     name: 'i18n: unknown language falls back to English',
     run() {
       assert.equal(t('sv', 'common.cancel'), 'Cancel');
-      assert.equal(t('sv', 'home.adapt'), 'Adapt');
+      assert.equal(t('sv', 'home.startWorkout'), 'Start workout');
     },
   },
   {

@@ -67,6 +67,16 @@ export const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as
  * already records which days it runs — but a plan built before that, or the
  * demo's "Day 1", labels its entries by position. Those return nothing rather
  * than a guess, and the caller falls back to deriving placement.
+ *
+ * ENTRY ORDER IS THE ANSWER, not Monday-first order. This used to sort, and
+ * the sort silently threw away which session owns which day: the schedule
+ * built from this list answers "which session is today" with the day's
+ * POSITION in it (`trainingSchedule.sessionSlotOn`), so a plan whose sessions
+ * run sun/wed/fri was read back as wed/fri/sun and Sunday became session
+ * three. That is how a programme adopted on a Sunday could offer session one
+ * in the hero and print "WED" on that very session's row (device walkthrough,
+ * 2026-08-30). Every other caller either sorts for itself or asks `includes`,
+ * so order costs them nothing.
  */
 export function planWeekdayIndexes(entries: ReadonlyArray<{ label?: string | null }>): number[] {
   const indexes: number[] = [];
@@ -79,5 +89,5 @@ export function planWeekdayIndexes(entries: ReadonlyArray<{ label?: string | nul
       indexes.push(index);
     }
   }
-  return indexes.sort((left, right) => left - right);
+  return indexes;
 }

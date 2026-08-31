@@ -45,13 +45,18 @@ export interface ProgramSessionDayDraft {
   }>;
 }
 
-export type MoveDirection = 'up' | 'down';
-
-/** The two numbers on the row: "5 × 12". */
+/**
+ * The numbers on the row: "5 × 12", and the rest between sets.
+ *
+ * Rest is nullable because the stored draft's is: an exercise added before
+ * rest was recorded carries none, and a stepper cannot step a number that is
+ * not there. Null means "do not touch the stored value" on the way back in.
+ */
 export interface ProgramPrescription {
   targetSets: number;
   repMin: number;
   repMax: number;
+  restSeconds: number | null;
 }
 
 /**
@@ -65,6 +70,13 @@ export interface ProgramPrescription {
  */
 export const PROGRAM_SETS_RANGE = { min: 1, max: 12 } as const;
 export const PROGRAM_REPS_RANGE = { min: 1, max: 50 } as const;
+/**
+ * Steps of 15 s rather than the design's 30, because the catalogue's own
+ * rests are not multiples of 30 — 45 and 75 are everywhere — and a stepper
+ * whose first press snaps a stored value to a grid has edited more than the
+ * reader asked it to.
+ */
+export const PROGRAM_REST_RANGE = { min: 15, max: 480, step: 15 } as const;
 
 /**
  * One press of one stepper.
@@ -78,7 +90,7 @@ export const PROGRAM_REPS_RANGE = { min: 1, max: 50 } as const;
  */
 export function stepProgramPrescription(
   current: ProgramPrescription,
-  field: 'sets' | 'reps',
+  field: 'sets' | 'reps' | 'rest',
   direction: 1 | -1,
 ): ProgramPrescription {
   if (field === 'sets') {
@@ -87,6 +99,19 @@ export function stepProgramPrescription(
       return current;
     }
     return { ...current, targetSets };
+  }
+
+  if (field === 'rest') {
+    // A rest that was never recorded cannot be stepped: there is no number
+    // for the press to be relative to, and inventing one here would write it.
+    if (current.restSeconds === null) {
+      return current;
+    }
+    const restSeconds = current.restSeconds + direction * PROGRAM_REST_RANGE.step;
+    if (restSeconds < PROGRAM_REST_RANGE.min || restSeconds > PROGRAM_REST_RANGE.max) {
+      return current;
+    }
+    return { ...current, restSeconds };
   }
 
   const repMin = current.repMin + direction;
@@ -100,7 +125,7 @@ export function stepProgramPrescription(
 /** True while the stepper still has somewhere to go — what greys the button out. */
 export function canStepProgramPrescription(
   current: ProgramPrescription,
-  field: 'sets' | 'reps',
+  field: 'sets' | 'reps' | 'rest',
   direction: 1 | -1,
 ): boolean {
   const next = stepProgramPrescription(current, field, direction);
@@ -113,8 +138,15 @@ export type ProgramSessionEdit =
   | { kind: 'add'; exercises: ReadonlyArray<ProgramSessionExerciseSnapshot> }
   /** The dose: how many sets, how many reps. Everything else about the row stays. */
   | { kind: 'prescribe'; exerciseId: string; prescription: ProgramPrescription }
-  /** One place up or down inside its own day. */
-  | { kind: 'move'; exerciseId: string; direction: MoveDirection };
+  /**
+   * Dropped where the drag let go — the whole journey as ONE edit.
+   *
+   * This replaced per-step "move up/down": a drag of three places written as
+   * three moves is three reads and three writes through the queue, and on a
+   * ready programme the first step forks the copy while the other two race
+   * it. One edit carries the destination, and the fork happens once.
+   */
+  | { kind: 'reorder'; exerciseId: string; toIndex: number };
 
 export type ProgramSessionEditOutcome =
   | { kind: 'save'; sessions: ProgramSessionDayDraft[] }
@@ -159,16 +191,18 @@ export function applyProgramSessionEdit(
   sessionId: string,
   edit: ProgramSessionEdit,
 ): ProgramSessionEditOutcome {
-  // Answered before the programme is rebuilt: a move that cannot happen must
-  // not come back as a save, or the screen confirms an edit it did not make.
-  if (edit.kind === 'move') {
+  // Answered before the programme is rebuilt: a drop that changes nothing
+  // must not come back as a save, or the screen confirms an edit it did not
+  // make. The destination is clamped rather than refused — a finger that
+  // overshoots the list still means "last".
+  if (edit.kind === 'reorder') {
     const day = sessions.find((session) => session.id === sessionId);
     const from = day?.exercises.findIndex((exercise) => exercise.id === edit.exerciseId) ?? -1;
     if (!day || from === -1) {
       return { kind: 'skip', reason: 'exerciseMissing' };
     }
-    const to = edit.direction === 'up' ? from - 1 : from + 1;
-    if (to < 0 || to >= day.exercises.length) {
+    const to = Math.max(0, Math.min(day.exercises.length - 1, Math.round(edit.toIndex)));
+    if (to === from) {
       return { kind: 'skip', reason: 'alreadyAtEdge' };
     }
   }
@@ -193,21 +227,27 @@ export function applyProgramSessionEdit(
         }
         if (edit.kind === 'prescribe') {
           // The mirror image of a swap: the dose changes, the lift does not.
+          // Rest rides along only when the sheet had a number to step — null
+          // means the stored value, whatever it is, stays untouched.
           return {
             ...toDraftExercise(exercise),
             targetSets: edit.prescription.targetSets,
             repMin: edit.prescription.repMin,
             repMax: edit.prescription.repMax,
+            ...(typeof edit.prescription.restSeconds === 'number'
+              ? { restSeconds: edit.prescription.restSeconds }
+              : {}),
           };
         }
         return toDraftExercise(exercise);
       });
 
-    if (isTargetDay && edit.kind === 'move') {
+    if (isTargetDay && edit.kind === 'reorder') {
       const from = exercises.findIndex((exercise) => exercise.id === edit.exerciseId);
-      const to = edit.direction === 'up' ? from - 1 : from + 1;
-      // Lifted out and put back one place along, so the rows between it and
-      // its destination close up behind it rather than swapping identities.
+      const to = Math.max(0, Math.min(exercises.length - 1, Math.round(edit.toIndex)));
+      // Lifted out and put back where the drag let go, so the rows between it
+      // and its destination close up behind it rather than swapping
+      // identities.
       const [moved] = exercises.splice(from, 1);
       exercises.splice(to, 0, moved);
     }

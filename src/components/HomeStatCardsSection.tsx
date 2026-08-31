@@ -2,7 +2,14 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path, Polyline } from 'react-native-svg';
 
-import { formatHomeStatValue, HomeStatCard, HomeStatCardIcon } from '../lib/homeStatCards';
+import {
+  formatHomeStatRecency,
+  formatHomeStatTrend,
+  formatHomeStatValue,
+  HomeStatCard,
+  HomeStatCardIcon,
+} from '../lib/homeStatCards';
+import { KitBar, KitRow, KitSheet } from './sheetKit';
 import { I18nKey, t } from '../lib/i18n';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
@@ -19,6 +26,8 @@ const RED = '#C0392B';
 const SPARK_HEIGHT = 34;
 
 interface HomeStatCardsSectionProps {
+  /** Safe-area inset, read on the SCREEN — a Modal measures it as zero. */
+  bottomInset?: number;
   /** One computed card per catalog item, in Add-sheet display order. */
   catalogCards: HomeStatCard[];
   /**
@@ -157,6 +166,7 @@ const SUGGEST_TITLE_KEYS: Record<string, I18nKey> = {
 
 export function HomeStatCardsSection({
   catalogCards,
+  bottomInset = 0,
   suggestedKeys = [],
   onDismissSuggestion,
   pinnedKeys,
@@ -169,6 +179,12 @@ export function HomeStatCardsSection({
   const styles = useThemedStyles(makeStyles);
   const [editing, setEditing] = useState(false);
   const [addSheetVisible, setAddSheetVisible] = useState(false);
+  /** Picked in the add sheet but not committed — the kit bar writes. */
+  const [addPicks, setAddPicks] = useState<string[]>([]);
+  const closeAddSheet = () => {
+    setAddSheetVisible(false);
+    setAddPicks([]);
+  };
 
   const cardByKey = useMemo(() => new Map(catalogCards.map((card) => [card.key, card])), [catalogCards]);
   const pinnedCards = pinnedKeys.map((key) => cardByKey.get(key)).filter((card): card is HomeStatCard => Boolean(card));
@@ -260,6 +276,31 @@ export function HomeStatCardsSection({
           in weeks ago would be unpredictable rather than helpful. */}
       {suggestion ? (
         <View style={styles.suggestCard}>
+          {/* Where the suggestion came from, before what it wants (design
+              frame 14): a card that opens with its own provenance reads as
+              the app remembering, not the app selling. The X is the same
+              answer as "Not now" — two doors, one meaning. */}
+          <View style={styles.suggestKickerRow}>
+            <Text style={styles.suggestKicker} numberOfLines={1}>
+              {t(language, 'cards.suggest.from', { label: suggestion.label })}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(language, 'cards.suggest.no')}
+              hitSlop={8}
+              onPress={() => onDismissSuggestion?.(suggestion.key)}
+              style={({ pressed }) => [styles.suggestX, pressed && { opacity: 0.7 }]}
+            >
+              <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M6 6l12 12M18 6L6 18"
+                  stroke={theme.muted}
+                  strokeWidth={2.4}
+                  strokeLinecap="round"
+                />
+              </Svg>
+            </Pressable>
+          </View>
           <View style={styles.suggestCopy}>
             {/* One sentence per measurement, not one sentence with the label
                 dropped in: Finnish inflects, so "{label}" produced
@@ -343,6 +384,19 @@ export function HomeStatCardsSection({
                 </View>
               )}
               <Sparkline series={card.series} />
+              {/* One honest line of context (design frame 12): when the
+                  number was true, and where it is heading per week. The
+                  trend only appears once the window spans a real week —
+                  see weeklyTrendOf. */}
+              {card.recordedAt !== null ? (
+                <Text numberOfLines={1} style={styles.cardWhen}>
+                  {formatHomeStatRecency(card.recordedAt, language)}
+                  {card.weeklyTrend !== null ? ' · ' : ''}
+                  {card.weeklyTrend !== null ? (
+                    <Text style={styles.cardTrend}>{formatHomeStatTrend(card.weeklyTrend, language)}</Text>
+                  ) : null}
+                </Text>
+              ) : null}
             </Pressable>
             {editing ? (
               <Pressable
@@ -375,60 +429,71 @@ export function HomeStatCardsSection({
         </View>
       </View>
 
-      <Modal
+      {/* The add sheet on the kit (design frame 13): rows pick, the bar
+          counts what you picked, and one button writes them all. The per-row
+          plus that added instantly was a write on a tap — the one thing the
+          kit exists to prevent. */}
+      <KitSheet
         visible={addSheetVisible}
-        transparent
-        animationType={reduceMotion ? 'none' : 'slide'}
-        onRequestClose={() => setAddSheetVisible(false)}
+        onClose={closeAddSheet}
+        title={t(language, 'cards.addSheet.title')}
+        description={t(language, 'cards.addSheet.subtitle')}
+        bottomInset={bottomInset}
+        barUp={addPicks.length > 0}
+        reduceMotion={reduceMotion}
+        bar={
+          <KitBar
+            visible={addPicks.length > 0}
+            from={t(language, 'cards.title')}
+            to={
+              addPicks.length === 1
+                ? t(language, 'cards.addSheet.count.one')
+                : t(language, 'cards.addSheet.count', { count: addPicks.length })
+            }
+            buttons={[
+              {
+                label: t(language, 'cards.addSheet.confirm'),
+                kind: 'p',
+                onPress: () => {
+                  onChangePinnedKeys([...pinnedKeys, ...addPicks]);
+                  closeAddSheet();
+                },
+              },
+            ]}
+            clearLabel={t(language, 'cards.addSheet.clear')}
+            onClear={() => setAddPicks([])}
+            bottomInset={bottomInset}
+            reduceMotion={reduceMotion}
+          />
+        }
       >
-        <View style={styles.sheetScrim}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setAddSheetVisible(false)} />
-          <View style={styles.sheet}>
-            <View style={styles.sheetGrip} />
-            <Text style={styles.sheetTitle}>{t(language, 'cards.addSheet.title')}</Text>
-            <Text style={styles.sheetSubtitle}>{t(language, 'cards.addSheet.subtitle')}</Text>
-            <ScrollView style={styles.sheetList} showsVerticalScrollIndicator={false}>
-              {availableCards.length > 0 ? (
-                availableCards.map((card, index) => (
-                  <View key={card.key} style={[styles.sheetRow, index > 0 && styles.sheetRowDivider]}>
-                    <View style={styles.sheetIconTile}>
-                      <StatIcon icon={card.icon} />
-                    </View>
-                    <View style={styles.sheetRowCopy}>
-                      <Text numberOfLines={1} style={styles.sheetRowTitle}>
-                        {card.label}
-                      </Text>
-                      <Text numberOfLines={1} style={styles.sheetRowSub}>
-                        {addSheetSub(card)}
-                      </Text>
-                    </View>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={t(language, 'cards.a11y.add', { label: card.label })}
-                      onPress={() => addCard(card.key)}
-                      hitSlop={6}
-                      style={({ pressed }) => [styles.sheetAddButton, pressed && { opacity: 0.7 }]}
-                    >
-                      <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                        <Path d="M12 5v14M5 12h14" stroke="#FFFFFF" strokeWidth={2.6} strokeLinecap="round" />
-                      </Svg>
-                    </Pressable>
-                  </View>
-                ))
-              ) : (
-                <Text style={styles.sheetEmpty}>{t(language, 'cards.addSheet.empty')}</Text>
-              )}
-            </ScrollView>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setAddSheetVisible(false)}
-              style={({ pressed }) => [styles.sheetDone, pressed && { opacity: 0.7 }]}
-            >
-              <Text style={styles.sheetDoneText}>{t(language, 'cards.done')}</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+        <ScrollView
+          style={styles.sheetList}
+          contentContainerStyle={styles.sheetListPad}
+          showsVerticalScrollIndicator={false}
+        >
+          {availableCards.length > 0 ? (
+            availableCards.map((card) => (
+              <KitRow
+                key={card.key}
+                title={card.label}
+                meta={addSheetSub(card)}
+                state={addPicks.includes(card.key) ? 'sel' : 'idle'}
+                onPress={() =>
+                  setAddPicks((current) =>
+                    current.includes(card.key)
+                      ? current.filter((key) => key !== card.key)
+                      : [...current, card.key],
+                  )
+                }
+                accessibilityLabel={t(language, 'cards.a11y.add', { label: card.label })}
+              />
+            ))
+          ) : (
+            <Text style={styles.sheetEmpty}>{t(language, 'cards.addSheet.empty')}</Text>
+          )}
+        </ScrollView>
+      </KitSheet>
     </View>
   );
 }
@@ -458,6 +523,30 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     padding: 14,
     marginBottom: 12,
     gap: 12,
+  },
+  suggestKickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  suggestKicker: {
+    flex: 1,
+    fontFamily: 'JetBrainsMono',
+    fontSize: 10.5,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: theme.faint,
+  },
+  suggestX: {
+    width: 26,
+    height: 26,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: theme.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   suggestCopy: {
     gap: 8,
@@ -530,12 +619,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   suggestPrimary: {
     borderRadius: 10,
-    backgroundColor: theme.purpleBright,
+    // The kit's colour rule: orange is "anything pressable", and adding the
+    // card is the thing to do. Violet is for state.
+    backgroundColor: theme.highlight,
     paddingHorizontal: 16,
     paddingVertical: 9,
   },
   suggestPrimaryText: {
-    color: '#FFFFFF',
+    color: theme.onHighlight, // was '#FFFFFF',
     fontSize: 13,
     fontWeight: '800',
   },
@@ -560,9 +651,24 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     overflow: 'hidden',
   },
   cardLabel: {
-    color: theme.muted,
-    fontSize: 12,
+    fontFamily: 'JetBrainsMono',
+    fontSize: 10.5,
     fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: theme.faint,
+  },
+  cardWhen: {
+    marginTop: 7,
+    fontFamily: 'JetBrainsMono',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    color: theme.faint,
+  },
+  cardTrend: {
+    color: theme.green,
   },
   valueRow: {
     flexDirection: 'row',
@@ -699,6 +805,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  sheetListPad: { paddingHorizontal: 18, paddingBottom: 6 },
   sheetEmpty: {
     color: theme.faint,
     fontSize: 13.5,

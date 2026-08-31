@@ -66,3 +66,61 @@ export const shadows = {
     elevation: 8,
   },
 };
+
+/**
+ * The Pro page's three tier skins (design: "Vinha Pro v6 — kolme tasoa").
+ *
+ * Deliberately NOT themed, for the same reason `PW`'s sheet gradients and the
+ * `COACH` surface are not: the paywall commits to one dark treatment and the
+ * tier's own colour is the thing being read. A paywall that repaints with the
+ * reader's light/dark toggle would make the accent — which is the only signal
+ * telling Free from Pro from Lifetime — mean something different per reader.
+ *
+ * `sky` are the two stops of the hero's vertical gradient, which then runs to
+ * black: colour at the top, dark at the bottom. `neb` and `neb2` are the two
+ * radial washes over it, and `ring` is the hairline on anything the accent
+ * outlines. Values come straight from the design's own token block.
+ */
+export const PRO_TIER = {
+  free: {
+    accent: '#37D08A',
+    ring: 'rgba(55,208,138,0.55)',
+    glow: 'rgba(55,208,138,0.30)',
+    sky: ['#0A2A1D', '#07150F'] as const,
+    neb: 'rgba(55,208,138,0.30)',
+    neb2: 'rgba(90,255,190,0.13)',
+  },
+  pro: {
+    accent: '#A87BFF',
+    ring: 'rgba(168,123,255,0.6)',
+    glow: 'rgba(168,123,255,0.34)',
+    sky: ['#241748', '#0B0713'] as const,
+    neb: 'rgba(168,123,255,0.34)',
+    neb2: 'rgba(255,210,63,0.10)',
+  },
+  life: {
+    accent: '#FF8A3D',
+    ring: 'rgba(255,138,61,0.55)',
+    glow: 'rgba(255,138,61,0.30)',
+    sky: ['#3D1D06', '#100B14'] as const,
+    neb: 'rgba(255,138,61,0.28)',
+    neb2: 'rgba(168,123,255,0.16)',
+  },
+} as const;
+
+/** Ink and surfaces on the paywall's dark ground, from the same token block. */
+export const PRO_SURFACE = {
+  ink: '#FFFFFF',
+  inkDim: 'rgba(255,255,255,0.92)',
+  inkMuted: 'rgba(255,255,255,0.66)',
+  inkFaint: 'rgba(255,255,255,0.44)',
+  inkGhost: 'rgba(255,255,255,0.45)',
+  card: 'rgba(22,20,30,0.72)',
+  cardEdge: 'rgba(255,255,255,0.08)',
+  glass: 'rgba(255,255,255,0.11)',
+  glassEdge: 'rgba(255,255,255,0.13)',
+  tile: 'rgba(255,255,255,0.045)',
+  tileOn: 'rgba(255,255,255,0.085)',
+  ctaInk: '#0B0713',
+  badgeInk: '#1A1030',
+} as const;

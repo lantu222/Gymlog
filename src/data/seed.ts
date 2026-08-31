@@ -49,7 +49,9 @@ const DEFAULT_PREFERENCES = {
   mockSubscriptionPurchasedAt: null as string | null,
   cancelSurveyAnswer: null as import('../lib/cancelSurvey').CancelSurveyAnswer | null,
   featureVotedIds: [] as string[],
-  aiCoachFreeQuota: null as { weekStart: string; used: number } | null,
+  aiCoachProQuota: null as { monthStart: string; used: number } | null,
+  firstLaunchAt: null as string | null,
+  coachDemoMomentsUsed: [] as string[],
   adaptiveCoachPremiumUnlocked: false,
   automatedProgressionEnabled: true,
   aiSetupCompleted: false,
@@ -122,7 +124,8 @@ const DEFAULT_PREFERENCES = {
   activePlanIds: ['plan_push_pull_legs'],
   programsTabEnabled: true,
   strengthGoals: [],
-    seasonEnrolments: [],
+  seasonEnrolments: [],
+  routineDrillOverrides: {} as Record<string, string>,
 };
 
 function createLegacySeedExerciseLibrary(): ExerciseLibraryItem[] {

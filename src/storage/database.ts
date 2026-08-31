@@ -265,6 +265,26 @@ function boolOr(value: unknown, fallbackValue: boolean): boolean {
   return typeof value === 'boolean' ? value : fallbackValue;
 }
 
+/**
+ * A stored map of drill choices, kept only where both halves are strings.
+ *
+ * The values are i18n keys for drills this build may no longer ship; that is
+ * resolved where the block is built (homeSessionHero falls back to the slot's
+ * default), so the loader's job here is only to guarantee the SHAPE.
+ */
+function normalizeRoutineDrillOverrides(input: unknown): Record<string, string> {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return {};
+  }
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+    if (key.length > 0 && typeof value === 'string' && value.length > 0) {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
 export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppDatabase {
   // Defaults for missing fields only. The empty database is the right source:
   // the demo seed's fabricated plan id would otherwise become the fallback for
@@ -653,16 +673,28 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
             (id: unknown): id is string => typeof id === 'string' && id.length > 0,
           )
         : fallback.preferences.featureVotedIds,
-      aiCoachFreeQuota:
-        input?.preferences?.aiCoachFreeQuota &&
-        typeof input.preferences.aiCoachFreeQuota.weekStart === 'string' &&
-        typeof input.preferences.aiCoachFreeQuota.used === 'number' &&
-        Number.isFinite(input.preferences.aiCoachFreeQuota.used)
+      // The free weekly counter was removed 2026-08-29 along with the free
+      // tier it metered; a stored one is simply not read any more.
+      aiCoachProQuota:
+        input?.preferences?.aiCoachProQuota &&
+        typeof input.preferences.aiCoachProQuota.monthStart === 'string' &&
+        typeof input.preferences.aiCoachProQuota.used === 'number' &&
+        Number.isFinite(input.preferences.aiCoachProQuota.used)
           ? {
-              weekStart: input.preferences.aiCoachFreeQuota.weekStart,
-              used: Math.max(0, Math.round(input.preferences.aiCoachFreeQuota.used)),
+              monthStart: input.preferences.aiCoachProQuota.monthStart,
+              used: Math.max(0, Math.round(input.preferences.aiCoachProQuota.used)),
             }
-          : fallback.preferences.aiCoachFreeQuota,
+          : fallback.preferences.aiCoachProQuota,
+      firstLaunchAt:
+        typeof input?.preferences?.firstLaunchAt === 'string' &&
+        !Number.isNaN(Date.parse(input.preferences.firstLaunchAt))
+          ? input.preferences.firstLaunchAt
+          : fallback.preferences.firstLaunchAt,
+      coachDemoMomentsUsed: Array.isArray(input?.preferences?.coachDemoMomentsUsed)
+        ? input.preferences.coachDemoMomentsUsed.filter(
+            (key: unknown): key is string => typeof key === 'string' && key.length > 0,
+          )
+        : fallback.preferences.coachDemoMomentsUsed,
       adaptiveCoachPremiumUnlocked:
         typeof input?.preferences?.adaptiveCoachPremiumUnlocked === 'boolean'
           ? input.preferences.adaptiveCoachPremiumUnlocked
@@ -925,6 +957,7 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
             )
           : fallback.preferences.setupAvailableDays,
       trainingCycle: normalizeTrainingCycle(input?.preferences?.trainingCycle, fallback.preferences.trainingCycle),
+      routineDrillOverrides: normalizeRoutineDrillOverrides(input?.preferences?.routineDrillOverrides),
       ratingPrompt: normalizeRatingPrompt(input?.preferences?.ratingPrompt),
       todaySession: normalizeTodaySession(input?.preferences?.todaySession),
       setupTrainingFeel:

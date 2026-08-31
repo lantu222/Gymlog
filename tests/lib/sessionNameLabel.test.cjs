@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 
 const {
+  formatPlanSessionTitle,
   localizeSessionName,
   localizeWorkoutFocus,
 } = require('../../.test-dist/lib/sessionNameLabel');
@@ -117,6 +118,35 @@ module.exports = [
         }
       }
       assert.equal(leftovers.length, 0, `half-English: ${leftovers.slice(0, 5).join(' | ')}`);
+    },
+  },
+  {
+    /**
+     * The day number follows the row, not the name it was saved with.
+     *
+     * Days became draggable on 2026-08-31. A stored "Day 1: Upper (Heavy)"
+     * dropped into third place used to keep printing "Day 1", so a reordered
+     * programme read "Day 2, Day 3, Day 1" straight down the list.
+     */
+    name: 'a stored day number is replaced by the position the row now sits in',
+    run() {
+      assert.equal(
+        formatPlanSessionTitle({ name: 'Day 1: Upper (Heavy)' }, 2, 'Strong Calves Pro', 'en'),
+        'Day 3. Upper (Heavy)',
+      );
+      // Whichever separator it was saved with.
+      assert.equal(
+        formatPlanSessionTitle({ name: 'Day 5. Accessory Strength Day' }, 0, 'X', 'en'),
+        'Day 1. Accessory Strength Day',
+      );
+      // A name that is ONLY a number still says something.
+      assert.equal(formatPlanSessionTitle({ name: 'Day 4' }, 1, 'X', 'en'), 'Day 2');
+      // Names without a number are untouched apart from the prefix they
+      // always got.
+      assert.equal(
+        formatPlanSessionTitle({ name: 'Upper (Heavy)' }, 0, 'X', 'en'),
+        'Day 1. Upper (Heavy)',
+      );
     },
   },
 ];

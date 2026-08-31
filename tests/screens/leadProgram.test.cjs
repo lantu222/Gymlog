@@ -53,14 +53,14 @@ module.exports = [
     },
   },
   {
-    name: 'adapt sheet: the destructive card follows the theme',
+    name: 'home: no fixed pink card on a fixed cream, wherever it is drawn',
     run() {
-      // Was a fixed pink on a fixed cream: a white card sitting in a dark
-      // sheet. Same class as the button that drew white on white.
+      // The Adapt sheet's destructive row was a fixed pink on a fixed cream —
+      // a white card sitting in a dark sheet, the same class as the button
+      // that drew white on white. The sheet went on 2026-08-30; the rule it
+      // was written for is about Home, not about that row, so it stays.
       assert.doesNotMatch(homeSource, /borderColor: '#F3C8C2'/);
       assert.doesNotMatch(homeSource, /backgroundColor: '#FDF4F3'/);
-      assert.match(homeSource, /adaptOptionDanger: \{[\s\S]{0,80}theme\.dangerBorder/);
-      assert.match(homeSource, /adaptOptionTitleDanger: \{[\s\S]{0,40}theme\.danger/);
     },
   },
 ];

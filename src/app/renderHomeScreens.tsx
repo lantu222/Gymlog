@@ -2,6 +2,7 @@ import React from 'react';
 
 import { isAiCoachLiveConfigured, requestProgrammeComposition } from '../lib/aiCoachClient';
 import { recordCoachQuestion, resolveCoachQuota } from '../lib/aiCoachQuota';
+import { markCoachDemoMomentUsed } from '../lib/coachDemoMoments';
 import { buildProgrammeDraft, composeProgrammePreview, resolveLiveProposal } from '../lib/programmeBrief';
 import { recordSuggestionAccepted, recordSuggestionRejected } from '../lib/coachSuggestions';
 import { t } from '../lib/i18n';
@@ -35,6 +36,8 @@ type HistoryScreenProps = React.ComponentProps<typeof HistoryScreen>;
 export interface HomeScreensDeps {
   route: AppRoute;
   navigate: (route: AppRoute) => void;
+  /** Same screen, different params, no new history entry. */
+  replaceRoute: (route: AppRoute) => void;
   navigateBack: (fallback?: AppRoute | null) => void;
   preferences: AppPreferences;
   updatePreferences: (patch: Partial<AppPreferences>) => Promise<unknown>;
@@ -82,6 +85,7 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
   const {
     route,
     navigate,
+    replaceRoute,
     navigateBack,
     preferences,
     updatePreferences,
@@ -246,10 +250,35 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
         liveConfigured={isAiCoachLiveConfigured()}
         onlineNoticeAcknowledged={preferences.aiOnlineNoticeAcknowledged}
         onAcknowledgeOnlineNotice={() => void updatePreferences({ aiOnlineNoticeAcknowledged: true })}
-        freeQuestionsRemaining={resolveCoachQuota(preferences.aiCoachFreeQuota).remaining}
-        onFreeQuestionUsed={() =>
-          void updatePreferences({ aiCoachFreeQuota: recordCoachQuestion(preferences.aiCoachFreeQuota) })
+        questionsRemaining={resolveCoachQuota(preferences.aiCoachProQuota).remaining}
+        onQuestionUsed={() =>
+          void updatePreferences({ aiCoachProQuota: recordCoachQuestion(preferences.aiCoachProQuota) })
         }
+        demoQuestion={route.demoQuestion ?? null}
+        demoMomentKey={route.demoMomentKey ?? null}
+        onDemoQuestionSent={() => {
+          // Clears the hand-off and nothing else. The question is on the
+          // route, so leaving it there would let a remount fire it a second
+          // time; the chat keeps its own copy of the key for the answer.
+          //
+          // REPLACE, not navigate. pushRoute compares whole route objects, so
+          // the params make this a different route and it was pushed — the
+          // reader's next Back landed on the chat they were already looking
+          // at, question and all, which is both a dead press and a route
+          // still carrying a question a remount could re-send.
+          replaceRoute({ tab: 'home', screen: 'ai_chat' });
+        }}
+        onDemoQuestionAnswered={(key) => {
+          // Spending happens on the ANSWER, which is the promise. Spending on
+          // the send was two bugs deep: the completion screen spent it before
+          // the online disclosure could block it, and moving it to the
+          // dispatch still burned one of three whenever the phone was offline
+          // — in an app built to work offline — leaving the reader with two
+          // sample answers and no sample.
+          void updatePreferences({
+            coachDemoMomentsUsed: markCoachDemoMomentUsed(preferences.coachDemoMomentsUsed, key),
+          });
+        }}
         trainingContext={aiCoachTrainingContext}
         intro={coachChatIntro}
         sessionCount={database.workoutSessions.length}
