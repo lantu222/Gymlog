@@ -256,6 +256,59 @@ export function resolveHomeStatCardKeys(stored: string[] | null): string[] {
   return keys;
 }
 
+/**
+ * The add sheet, in named groups rather than one flat run.
+ *
+ * "Tee sinne tuollainen otsikointi systeemi, on paljon kivempi etsiä mitään
+ * vaikka siellä nyt ei ole montaa asiaa" (user 2026-08-31). The list is short
+ * today and long the moment a reader tracks a few lifts — nine tape
+ * measurements already outnumber everything else put together, and a heading
+ * is what stops them reading as the whole catalogue.
+ *
+ * Grouped by where the number COMES FROM, which is also where the reader goes
+ * to change it: the scale, the tape, or a set they lifted.
+ */
+export type HomeStatCardGroupKey = 'body' | 'measurements' | 'lifts';
+
+const GROUP_FOR_ICON: Record<HomeStatCardIcon, HomeStatCardGroupKey> = {
+  scale: 'body',
+  drop: 'body',
+  tape: 'measurements',
+  lift: 'lifts',
+};
+
+export interface HomeStatCardGroup<T extends HomeStatCardCatalogItem> {
+  key: HomeStatCardGroupKey;
+  labelKey: I18nKey;
+  items: T[];
+}
+
+/**
+ * Groups in a fixed order, and never an empty heading: a group with nothing
+ * under it is a promise the sheet cannot keep, and a reader who has logged no
+ * lifts should not be told there is a Lifts section.
+ */
+export function groupHomeStatCards<T extends HomeStatCardCatalogItem>(
+  items: ReadonlyArray<T>,
+): Array<HomeStatCardGroup<T>> {
+  const order: HomeStatCardGroupKey[] = ['body', 'measurements', 'lifts'];
+  const labels: Record<HomeStatCardGroupKey, I18nKey> = {
+    body: 'cards.group.body',
+    measurements: 'cards.group.measurements',
+    lifts: 'cards.group.lifts',
+  };
+
+  return order
+    .map((key) => ({
+      key,
+      labelKey: labels[key],
+      // The catalogue's own order inside each group — heaviest lift first,
+      // measurements in the order the measurement screen lists them.
+      items: items.filter((item) => GROUP_FOR_ICON[item.icon] === key),
+    }))
+    .filter((group) => group.items.length > 0);
+}
+
 export function formatHomeStatValue(value: number | null): string {
   if (value === null) {
     return '—';
