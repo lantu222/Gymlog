@@ -27,6 +27,7 @@ const FOCUS_MEASUREMENT: Partial<Record<SetupFocusArea, MeasurementKind>> = {
   hamstrings: 'thighs',
   calves: 'calves',
   chest: 'chest',
+  back: 'back',
   shoulders: 'shoulders',
   arms: 'arms',
   core: 'waist',

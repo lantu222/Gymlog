@@ -2629,7 +2629,7 @@ export function OnboardingScreen({
                           >
                             {/* Colour alone marked the chosen chips; a check
                                 says it outright (user 2026-08-23). */}
-                            {active ? <VinhaIcon name="check" size={12} color="#5B21B6" /> : null}
+                            {active ? <VinhaIcon name="check" size={12} color={C.primary} /> : null}
                             <Text style={[styles.equipmentChipText, active && styles.equipmentChipTextActive]}>{label}</Text>
                           </Pressable>
                         );
@@ -3137,7 +3137,7 @@ export function OnboardingScreen({
                   onPress={() => selectCyclePreset(option)}
                   style={[styles.daysCycleChip, active && styles.daysCycleChipActive]}
                 >
-                  {active ? <VinhaIcon name="check" size={12} color="#5B21B6" /> : null}
+                  {active ? <VinhaIcon name="check" size={12} color={C.primary} /> : null}
                   <Text style={[styles.daysCycleChipText, active && styles.daysCycleChipTextActive]}>
                     {t(language, option.labelKey)}
                   </Text>
@@ -4837,8 +4837,12 @@ const makeOnboardingStyles = (C: OnbPalette) => StyleSheet.create({
     lineHeight: 17,
     fontWeight: '700',
   },
+  // Was a hardcoded #5B21B6 — dark violet on cardActive, and in the dark
+  // theme cardActive IS dark violet (#2C2350), so the chosen preset read as
+  // a blank pill (user 2026-08-31: "on vaikea nähdä mitään tausta liian
+  // tumma"). The token knows which theme it is in; the literal did not.
   daysCycleChipTextActive: {
-    color: '#5B21B6',
+    color: C.primary,
     fontWeight: '800',
   },
   daysRecommendHint: {
@@ -6262,7 +6266,8 @@ const makeOnboardingStyles = (C: OnbPalette) => StyleSheet.create({
   planReadyDayWeekBadgeText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#5B21B6',
+    // Same pair as equipmentChipTextActive: a literal on C.cardActive.
+    color: C.primary,
   },
   planReadyDayMetaRow: {
     flexDirection: 'row',

@@ -68,6 +68,9 @@ module.exports = [
           'bodyfat',
           'shoulders',
           'chest',
+          // Back joined on 2026-08-31: onboarding let a reader pick it as a
+          // focus area and nothing downstream could act on the answer.
+          'back',
           // Arms and calves were missing from the model entirely, so the two
           // tape readings a growth trainee takes most often could not be
           // logged anywhere, let alone shown on Home.
@@ -80,7 +83,7 @@ module.exports = [
           'lift:penkki',
         ],
       );
-      assert.equal(catalog[9].label, 'Takakyykky');
+      assert.equal(catalog[10].label, 'Takakyykky');
     },
   },
   {
