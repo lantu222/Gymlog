@@ -154,11 +154,10 @@ module.exports = [
       // title + plan progress — no meta grid, no equipment line.
       assert.doesNotMatch(homeScreenSource, /styles\.metaGrid/);
       assert.doesNotMatch(homeScreenSource, /— needed for today's session/);
-      // History section at the bottom: strength + cardio merged, See all link.
-      assert.match(homeScreenSource, /historyItems\.map\(/);
-      assert.match(homeScreenSource, /t\(language, 'home\.history\.seeAll'\)/);
-      assert.match(i18nSource, /'home\.history\.seeAll': 'See all'/);
-      assert.match(homeScreenSource, /item\.kind === 'cardio' && item\.cardioIcon \? \(/);
+      // History left Home (user 2026-08-31). Progress already lists the same
+      // rows, and Home is for running today rather than reading back — the
+      // props that fed the section went with it, not just its JSX.
+      assert.doesNotMatch(homeScreenSource, /historyItems|onOpenHistory|onSelectHistorySession/);
       // The three BOXED accordions are gone (user 2026-08-23) and the lifts
       // render flat with no tap to see them. Warmup and recovery came back a
       // few hours later, as rows rather than cards: the reader kept the flat

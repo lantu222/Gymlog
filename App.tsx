@@ -3993,41 +3993,6 @@ function VinhaApp() {
         target: weekProgressBase.target,
       }
     : null;
-  // Home history section: strength + cardio merged, newest first.
-  const homeHistoryItems = useMemo(() => {
-    const language = preferences.appLanguage;
-    const strength = workoutSessions.map((session) => ({
-      id: session.id,
-      kind: 'strength' as const,
-      title: localizeSessionName(
-        formatWorkoutDisplayLabel(session.workoutNameSnapshot, t(language, 'history.workoutFallback')),
-        language,
-      ),
-      meta: [
-        formatShortDate(session.performedAt, language),
-        session.durationMinutes ? formatDurationMinutes(session.durationMinutes) : null,
-        session.totalVolumeKg ? formatVolume(session.totalVolumeKg, unitPreference) : null,
-      ]
-        .filter(Boolean)
-        .join(' · '),
-      performedAt: session.performedAt,
-    }));
-    const cardio = cardioSessions.map((session) => {
-      const activity = getCardioActivity(session.activityType);
-      return {
-        id: session.id,
-        kind: 'cardio' as const,
-        title: activity.name,
-        cardioIcon: activity.icon,
-        meta: `${formatShortDate(session.performedAt, language)} · ${buildCardioStatsLine(session.durationSec, session.distanceKm)}`,
-        performedAt: session.performedAt,
-      };
-    });
-    return [...strength, ...cardio]
-      .sort((left, right) => new Date(right.performedAt).getTime() - new Date(left.performedAt).getTime())
-      .slice(0, 5);
-  }, [workoutSessions, cardioSessions, unitPreference, preferences.appLanguage]);
-
   const guidedNextUp = useMemo(() => {
     const card = homeActivePlanCard;
     const templateSessionId = workout.activeSession?.templateSessionId;
@@ -5496,8 +5461,6 @@ function VinhaApp() {
         onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
         plateau={proPlateau ? { headline: proPlateau.detection.headline, meta: proPlateau.detection.meta, locked: proPlateau.conclusion, moment: proPlateau.moment } : null}
         proUnlocked={coachProUnlocked}
-        historyItems={homeHistoryItems}
-        onOpenHistory={() => navigate({ tab: 'home', screen: 'history' })}
         onSetTrainingDays={() =>
           navigate({ tab: 'profile', screen: 'training_plan', editSchedule: true })
         }
@@ -5526,7 +5489,6 @@ function VinhaApp() {
             sessionId,
           });
         }}
-        onSelectHistorySession={(sessionId) => navigate({ tab: 'home', screen: 'session', sessionId })}
       />
     );
   }

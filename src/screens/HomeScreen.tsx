@@ -133,14 +133,6 @@ function BlockRow({
   );
 }
 
-export interface HomeHistoryItem {
-  id: string;
-  kind: 'strength' | 'cardio';
-  title: string;
-  meta: string;
-  cardioIcon?: CardioIconKind;
-}
-
 export interface HomeRecentSessionItem {
   id: string;
   title: string;
@@ -264,8 +256,6 @@ interface HomeScreenProps {
     moment: ProMomentContent;
   } | null;
   proUnlocked?: boolean;
-  historyItems?: HomeHistoryItem[];
-  onOpenHistory?: () => void;
   /** Opens the training-plan screen so the week can stop being unknown. */
   onSetTrainingDays?: () => void;
   /** Opens the running program's full plan — "Katso koko ohjelma". */
@@ -276,7 +266,6 @@ interface HomeScreenProps {
    * (user 2026-08-23: "sen pitäisi mennä siihen mitä klikkasin").
    */
   onOpenPlanSession?: (sessionId: string) => void;
-  onSelectHistorySession?: (sessionId: string) => void;
   /** "Your cards": one computed card per catalog item, Add-sheet order. */
   statCatalogCards?: HomeStatCard[];
   suggestedStatCardKeys?: string[];
@@ -387,12 +376,9 @@ export function HomeScreen({
   onOpenSubscription,
   plateau = null,
   proUnlocked = false,
-  historyItems = [],
-  onOpenHistory,
   onSetTrainingDays,
   onOpenActivePlan,
   onOpenPlanSession,
-  onSelectHistorySession,
   availableEquipment = null,
   statCatalogCards = [],
   suggestedStatCardKeys = [],
@@ -756,6 +742,83 @@ export function HomeScreen({
   };
 
 
+  /**
+   * Start, ABOVE the session contents, and hoisted out of the tree.
+   *
+   * A tester tapped the first exercise to "check it off": the list
+   * rendered before any call to action, and the only start button sat
+   * below the fold (user report 2026-08-25). Deliberately NOT pinned over
+   * the bottom bar - Home is the tab root, so the floating bar cannot be
+   * hidden here, and a pinned CTA would stack a second floating layer.
+   *
+   * Adapt stood beside it until 2026-08-30 and is gone with its sheet.
+   *
+   * It is a const because the session is one box now (2026-08-31) and the
+   * box only exists when a plan is behind it - but this button still has
+   * to render without one, where it reads "find a programme".
+   */
+  const startCta = (
+  <Animated.View style={[styles.btnRow, rise(RISE_BTNROW)]}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={t(
+        language,
+        heroStartsSession
+          ? hasActiveSession
+            ? 'home.a11y.resumeSession'
+            : 'home.a11y.startSession'
+          : 'home.a11y.findProgram',
+      )}
+      onPress={pressHeroAction}
+      style={({ pressed }) => [styles.startButtonWrap, pressed && styles.cutPressed]}
+    >
+      {/* A big filled play button (user 2026-08-25): the outline version
+          below the list read as one row among many, and starting is the
+          one thing this screen exists for. The play mark sits in a ring
+          and a band of light sweeps the button as the screen arrives
+          (design "Aloita treeni CTA", 2026-08-26). */}
+      <CutSurface
+        size="lg"
+        fill={theme.accent}
+        stroke={theme.accent}
+        strokeWidth={1.5}
+        style={styles.startButton}
+      >
+        <CtaShimmer
+          tint="rgba(255,255,255,0.5)"
+          onSweep={(index) => {
+            // Only the first couple of passes move the mark (user
+            // 2026-08-26): a button that jumps every time the light
+            // goes by is a button that never settles.
+            if (index < 2) {
+              bouncePlay();
+            }
+          }}
+        />
+        <Animated.View style={[styles.startPlayRing, { transform: [{ scale: playBounce }] }]}>
+          {/* Centred on the triangle's centroid, not its bounding box:
+              a play mark boxed by its extents sits visibly right of the
+              circle it is in (user 2026-08-26). Base at x=8.5, apex at
+              18.5 puts the centroid at 11.83 — the viewBox's middle. */}
+          <Svg width={16} height={16} viewBox="0 0 24 24">
+            <Path d="M8.5 5.5v13l10-6.5z" fill={theme.onHighlight} />
+          </Svg>
+        </Animated.View>
+        <Text style={styles.startButtonText}>
+          {t(
+            language,
+            heroStartsSession
+              ? hasActiveSession
+                ? 'home.resumeWorkout'
+                : 'home.startWorkout'
+              : 'home.findProgram',
+          )}
+        </Text>
+      </CutSurface>
+    </Pressable>
+  </Animated.View>
+  );
+
   return (
     <View style={styles.screenBackground}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -1061,9 +1124,15 @@ export function HomeScreen({
           </CutSurface>
         ) : null}
 
-        {/* Session hero (Home v4) — renders only with an active plan */}
+        {/* Session hero (Home v4) — renders only with an active plan.
+
+            One box around the whole session (user 2026-08-31): the name, the
+            button and the three phases were three things floating loose on the
+            background and the reader had to infer they were one. The box has no
+            fixed height — it grows with whichever phase is open, which is the
+            point of drawing it rather than sizing it. */}
         {activePlan && nextPlanSession ? (
-          <>
+          <View style={styles.sessionBox}>
             <Animated.View style={[styles.hero, rise(RISE_HERO)]}>
               <View style={styles.heroTop}>
                 {/* 'line' mode: the anchor must stay on one line and shrink to
@@ -1121,86 +1190,12 @@ export function HomeScreen({
               </View>
 
             </Animated.View>
-          </>
-        ) : null}
 
-        {/* Start, ABOVE the session's contents. A tester tapped the first
-            exercise to "check it off": the list rendered before any call to
-            action, and the only start button sat below the fold (user report
-            2026-08-25). Deliberately NOT pinned over the bottom bar — Home is
-            the tab root, so the floating bar cannot be hidden here, and a
-            pinned CTA would stack a second floating layer on it.
+            {startCta}
 
-            Adapt stood beside it until 2026-08-30 and is gone with its sheet:
-            of its three rows, dropping the programme and rebuilding it both
-            already live in the programme's own screen, and the short version
-            was answering a question the player now answers set by set. */}
-        <Animated.View style={[styles.btnRow, rise(RISE_BTNROW)]}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t(
-              language,
-              heroStartsSession
-                ? hasActiveSession
-                  ? 'home.a11y.resumeSession'
-                  : 'home.a11y.startSession'
-                : 'home.a11y.findProgram',
-            )}
-            onPress={pressHeroAction}
-            style={({ pressed }) => [styles.startButtonWrap, pressed && styles.cutPressed]}
-          >
-            {/* A big filled play button (user 2026-08-25): the outline version
-                below the list read as one row among many, and starting is the
-                one thing this screen exists for. The play mark sits in a ring
-                and a band of light sweeps the button as the screen arrives
-                (design "Aloita treeni CTA", 2026-08-26). */}
-            <CutSurface
-              size="lg"
-              fill={theme.accent}
-              stroke={theme.accent}
-              strokeWidth={1.5}
-              style={styles.startButton}
-            >
-              <CtaShimmer
-                tint="rgba(255,255,255,0.5)"
-                onSweep={(index) => {
-                  // Only the first couple of passes move the mark (user
-                  // 2026-08-26): a button that jumps every time the light
-                  // goes by is a button that never settles.
-                  if (index < 2) {
-                    bouncePlay();
-                  }
-                }}
-              />
-              <Animated.View style={[styles.startPlayRing, { transform: [{ scale: playBounce }] }]}>
-                {/* Centred on the triangle's centroid, not its bounding box:
-                    a play mark boxed by its extents sits visibly right of the
-                    circle it is in (user 2026-08-26). Base at x=8.5, apex at
-                    18.5 puts the centroid at 11.83 — the viewBox's middle. */}
-                <Svg width={16} height={16} viewBox="0 0 24 24">
-                  <Path d="M8.5 5.5v13l10-6.5z" fill={theme.onHighlight} />
-                </Svg>
-              </Animated.View>
-              <Text style={styles.startButtonText}>
-                {t(
-                  language,
-                  heroStartsSession
-                    ? hasActiveSession
-                      ? 'home.resumeWorkout'
-                      : 'home.startWorkout'
-                    : 'home.findProgram',
-                )}
-              </Text>
-            </CutSurface>
-          </Pressable>
-        </Animated.View>
-
-        {activePlan && nextPlanSession ? (
-          <>
-            {/* Today's session, flat on the surface (user 2026-08-23): the
-                three boxed accordions are gone. The lifts are the decision, so
-                they stand open with no tap and no card; warmup and recovery
-                are a second question, so they are rows that open in place. */}
+            {/* Today's session (user 2026-08-23): the lifts are the decision,
+                so they stand open with no tap; warmup and recovery are a
+                second question, so they are rows that open in place. */}
             <Animated.View style={[styles.heroList, rise(RISE_SEC_BASE)]}>
               <BlockRow
                 title={t(language, 'home.section.warmup')}
@@ -1332,8 +1327,10 @@ export function HomeScreen({
                 language={language}
               />
             </Animated.View>
-          </>
-        ) : null}
+          </View>
+        ) : (
+          startCta
+        )}
 
         {/* The start row lived here, under the whole list — moved above it
             (user report 2026-08-25). */}
@@ -1349,7 +1346,7 @@ export function HomeScreen({
             find out what week they are in. Programs is for finding a program;
             Home is for running one. Only one screen owns this now. */}
         {activePlan && activePlan.sessions.length > 0 ? (
-          <Animated.View style={rise(RISE_DIVIDER)}>
+          <Animated.View style={[styles.programSection, rise(RISE_DIVIDER)]}>
             <View style={styles.programHeadRow}>
               <Text style={styles.programEyebrow}>{t(language, 'programs.activeProgram')}</Text>
               <Text style={styles.programWeek}>{activePlan.weekLabel}</Text>
@@ -1611,65 +1608,9 @@ export function HomeScreen({
           </Animated.View>
         ) : null}
 
-        {historyItems.length > 0 ? (
-          <Animated.View style={rise(RISE_EMPTY_ROW)}>
-            <View style={styles.historyHeaderRow}>
-              <Text style={styles.historySectionTitle}>{t(language, 'home.history.title')}</Text>
-              {onOpenHistory ? (
-                <Pressable onPress={onOpenHistory} hitSlop={8}>
-                  <Text style={styles.historySeeAll}>{t(language, 'home.history.seeAll')}</Text>
-                </Pressable>
-              ) : null}
-            </View>
-            {/* Full-bleed rows — no card container around History. */}
-            <View>
-              {historyItems.map((item, index) => (
-                <Pressable
-                  key={item.id}
-                  onPress={
-                    item.kind === 'strength' && onSelectHistorySession
-                      ? () => onSelectHistorySession(item.id)
-                      : undefined
-                  }
-                  style={({ pressed }) => [
-                    styles.historyRow,
-                    index > 0 && styles.historyRowDivider,
-                    pressed && item.kind === 'strength' && styles.pressed,
-                  ]}
-                >
-                  <View style={styles.historyIconTile}>
-                    {item.kind === 'cardio' && item.cardioIcon ? (
-                      <CardioIcon kind={item.cardioIcon} size={19} color={theme.purple} />
-                    ) : (
-                      <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
-                        <Path
-                          d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"
-                          stroke={theme.purple}
-                          strokeWidth={2.1}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </Svg>
-                    )}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.historyRowTitle} numberOfLines={1}>
-                      {item.title}
-                    </Text>
-                    <Text style={styles.historyRowMeta} numberOfLines={1}>
-                      {item.meta}
-                    </Text>
-                  </View>
-                  {item.kind === 'strength' ? (
-                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                      <Path d="M9 6l6 6-6 6" stroke={theme.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
-                    </Svg>
-                  ) : null}
-                </Pressable>
-              ))}
-            </View>
-          </Animated.View>
-        ) : null}
+        {/* History used to sit here. It is Progress’s job (user
+            2026-08-31): the same rows were on two screens, and Home is for
+            running today rather than reading back. */}
 
         <View style={styles.bottomSafeFade} />
       </ScrollView>
@@ -2369,9 +2310,31 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 16,
     fontWeight: '700',
   },
+  /**
+   * The session, as one object (user 2026-08-31).
+   *
+   * Name, start and the three phases were three loose things on the page. The
+   * box has no height of its own: the phases push it taller as they open,
+   * which is why this is a border and not a measured card.
+   */
+  sessionBox: {
+    marginTop: 18,
+    paddingHorizontal: 14,
+    paddingTop: 2,
+    paddingBottom: 16,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: 'rgba(255,255,255,0.022)',
+  },
   hero: {
-    marginTop: 24,
+    marginTop: 14,
     paddingHorizontal: 2,
+  },
+  // Room to breathe under the box (user 2026-08-31): the programme used to
+  // start where the session ended.
+  programSection: {
+    marginTop: 30,
   },
   heroTop: {
     flexDirection: 'row',
@@ -2471,8 +2434,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 7,
+    paddingVertical: 13,
     paddingLeft: 2,
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
   },
   blockDrillName: {
     flex: 1,
