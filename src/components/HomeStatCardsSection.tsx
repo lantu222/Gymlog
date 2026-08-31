@@ -6,10 +6,11 @@ import {
   formatHomeStatRecency,
   formatHomeStatTrend,
   formatHomeStatValue,
+  groupHomeStatCards,
   HomeStatCard,
   HomeStatCardIcon,
 } from '../lib/homeStatCards';
-import { KitBar, KitRow, KitSheet } from './sheetKit';
+import { KitBar, KitGroupLabel, KitRow, KitSheet } from './sheetKit';
 import { I18nKey, t } from '../lib/i18n';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
@@ -307,6 +308,12 @@ export function HomeStatCardsSection({
                 "Seurataanko Rinta alkunäytöllä?" — a nominative where the
                 partitive belongs. */}
             <Text style={styles.suggestTitle}>{t(language, SUGGEST_TITLE_KEYS[suggestion.key])}</Text>
+            {/* Sentence first, sample after (user 2026-08-31). The preview sat
+                between the title and the sentence explaining it, so the copy
+                arrived in two halves either side of a box. */}
+            <Text style={styles.suggestBody}>
+              {t(language, suggestion.value !== null ? 'cards.suggest.body' : 'cards.suggest.bodyEmpty')}
+            </Text>
             {/* The card itself, not a description of it. "Lisää kortti" was a
                 promise; this is the sample — including the honest empty state,
                 which is the answer to "what would I actually get". */}
@@ -323,9 +330,6 @@ export function HomeStatCardsSection({
                 <Text style={styles.suggestPreviewEmpty}>{t(language, 'cards.noData')}</Text>
               )}
             </View>
-            <Text style={styles.suggestBody}>
-              {t(language, suggestion.value !== null ? 'cards.suggest.body' : 'cards.suggest.bodyEmpty')}
-            </Text>
           </View>
           <View style={styles.suggestActions}>
             <Pressable
@@ -473,21 +477,30 @@ export function HomeStatCardsSection({
           showsVerticalScrollIndicator={false}
         >
           {availableCards.length > 0 ? (
-            availableCards.map((card) => (
-              <KitRow
-                key={card.key}
-                title={card.label}
-                meta={addSheetSub(card)}
-                state={addPicks.includes(card.key) ? 'sel' : 'idle'}
-                onPress={() =>
-                  setAddPicks((current) =>
-                    current.includes(card.key)
-                      ? current.filter((key) => key !== card.key)
-                      : [...current, card.key],
-                  )
-                }
-                accessibilityLabel={t(language, 'cards.a11y.add', { label: card.label })}
-              />
+            /* Named groups rather than one flat run (user 2026-08-31). Nine
+               tape measurements already outnumber everything else put
+               together, and a heading is what stops them reading as the whole
+               catalogue. Empty groups never appear — see groupHomeStatCards. */
+            groupHomeStatCards(availableCards).map((group) => (
+              <View key={group.key}>
+                <KitGroupLabel>{t(language, group.labelKey)}</KitGroupLabel>
+                {group.items.map((card) => (
+                  <KitRow
+                    key={card.key}
+                    title={card.label}
+                    meta={addSheetSub(card)}
+                    state={addPicks.includes(card.key) ? 'sel' : 'idle'}
+                    onPress={() =>
+                      setAddPicks((current) =>
+                        current.includes(card.key)
+                          ? current.filter((key) => key !== card.key)
+                          : [...current, card.key],
+                      )
+                    }
+                    accessibilityLabel={t(language, 'cards.a11y.add', { label: card.label })}
+                  />
+                ))}
+              </View>
             ))
           ) : (
             <Text style={styles.sheetEmpty}>{t(language, 'cards.addSheet.empty')}</Text>
@@ -498,6 +511,14 @@ export function HomeStatCardsSection({
   );
 }
 
+/**
+ * The height every tile in the grid takes.
+ *
+ * A floor, not a fixed size: the row still grows for a card that needs
+ * more, and `flex: 1` then hands that height to everything beside it.
+ */
+const TILE_MIN_HEIGHT = 124;
+
 const makeStyles = (theme: Theme) => StyleSheet.create({
   sectionHead: {
     flexDirection: 'row',
@@ -505,15 +526,25 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 12,
   },
+  // The section's own heading, at the size the other Home headings use
+  // (user 2026-08-31). At 16 it read as a label over the cards rather than a
+  // section of the screen.
   sectionTitle: {
     color: theme.ink,
-    fontSize: 16,
+    fontSize: 22,
+    lineHeight: 27,
     fontWeight: '800',
+    letterSpacing: -0.4,
   },
   sectionAction: {
     color: theme.highlight,
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '800',
+    // Padding rather than hitSlop alone: the word is the target, so it should
+    // look like one.
+    paddingVertical: 4,
+    paddingLeft: 12,
   },
   suggestCard: {
     borderRadius: 16,
@@ -608,26 +639,34 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'flex-end',
     gap: 8,
   },
+  // Both sized for a thumb (user 2026-08-31). They were 13pt text in nine
+  // points of padding, on a card whose whole job is to be answered.
   suggestGhost: {
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+    minHeight: 48,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   suggestGhostText: {
     color: theme.muted,
-    fontSize: 13,
+    fontSize: 15,
+    lineHeight: 20,
     fontWeight: '800',
   },
   suggestPrimary: {
-    borderRadius: 10,
+    minHeight: 48,
+    borderRadius: 14,
     // The kit's colour rule: orange is "anything pressable", and adding the
     // card is the thing to do. Violet is for state.
     backgroundColor: theme.highlight,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   suggestPrimaryText: {
-    color: theme.onHighlight, // was '#FFFFFF',
-    fontSize: 13,
+    color: theme.onHighlight,
+    fontSize: 15,
+    lineHeight: 20,
     fontWeight: '800',
   },
   grid: {
@@ -640,14 +679,26 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexGrow: 1,
     maxWidth: '48.6%',
   },
+  /**
+   * One tile size (user 2026-08-31: "add card ei ole tuplasti pienempi kuin
+   * bodyweight").
+   *
+   * A stat tile sized itself from its content, so a card with a sparkline
+   * stood taller than one without and the dashed add tile was shorter than
+   * both. `flex: 1` fills the cell, and the cells in a wrapped row already
+   * stretch to the tallest — so the row decides one height and everything in
+   * it takes it.
+   */
   card: {
+    flex: 1,
+    minHeight: TILE_MIN_HEIGHT,
     backgroundColor: theme.surface,
     borderWidth: 1,
     borderColor: theme.border,
     borderRadius: 16,
     paddingTop: 13,
     paddingHorizontal: 14,
-    paddingBottom: 9,
+    paddingBottom: 11,
     overflow: 'hidden',
   },
   cardLabel: {
@@ -711,7 +762,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
   },
   addCard: {
-    minHeight: 108,
+    flex: 1,
+    minHeight: TILE_MIN_HEIGHT,
     borderWidth: 1.5,
     borderStyle: 'dashed',
     borderColor: '#B4A9CC',
@@ -723,7 +775,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   addCardText: {
     color: theme.purpleBright,
-    fontSize: 13,
+    fontSize: 15,
+    lineHeight: 20,
     fontWeight: '800',
   },
   sheetScrim: {

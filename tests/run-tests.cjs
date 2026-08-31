@@ -106,6 +106,7 @@ const suites = [
   ...require('./lib/lifetimeSummary.test.cjs'),
   ...require('./lib/profileOverview.test.cjs'),
   ...require('./lib/homeStatCards.test.cjs'),
+  ...require('./lib/homeStatCardGroups.test.cjs'),
   ...require('./lib/homePrompts.test.cjs'),
   ...require('./lib/homeCardSuggestions.test.cjs'),
   ...require('./lib/ratingPrompt.test.cjs'),
