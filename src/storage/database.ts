@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { normalizeSeasonEnrolments } from '../lib/seasonEnrolment';
 import { normalizeStrengthGoals } from '../lib/strengthGoals';
 import { normalizeCancelSurveyAnswer } from '../lib/cancelSurvey';
+import { isMeasurementKind } from '../lib/measurementKinds';
 import { normalizeDefaultRestSeconds } from '../lib/restPreference';
 import { isSubscriptionTermKey } from '../lib/subscriptionView';
 import { createEmptyDatabase } from '../data/seed';
@@ -536,15 +537,11 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
     measurementEntries: Array.isArray(input?.measurementEntries)
       ? input.measurementEntries
           .map((entry: any) => {
-            const kind =
-              entry?.kind === 'bodyfat' ||
-              entry?.kind === 'shoulders' ||
-              entry?.kind === 'chest' ||
-              entry?.kind === 'waist' ||
-              entry?.kind === 'hips' ||
-              entry?.kind === 'thighs'
-                ? entry.kind
-                : null;
+            // One list, in src/lib/measurementKinds. This was a hand-written
+            // chain that had drifted: arms and calves reached the model and
+            // the measurement screen and never this line, so those entries
+            // were written, read back, and dropped in silence.
+            const kind = isMeasurementKind(entry?.kind) ? entry.kind : null;
             const unit = entry?.unit === 'cm' || entry?.unit === 'in' || entry?.unit === '%' ? entry.unit : null;
             const value = typeof entry?.value === 'number' && Number.isFinite(entry.value) ? entry.value : null;
             const recordedAt = typeof entry?.recordedAt === 'string' ? entry.recordedAt : null;

@@ -4582,7 +4582,10 @@ const makeOnboardingStyles = (C: OnbPalette) => StyleSheet.create({
     fontWeight: '700',
   },
   equipmentChipTextActive: {
-    color: '#5B21B6',
+    // On C.cardActive, which is dark in the dark theme — the same pair as
+    // daysCycleChipTextActive. The comment claiming this was fixed shipped
+    // before the fix did (PR #35 review).
+    color: C.primary,
     fontWeight: '800',
   },
   equipmentOrChooseLabel: {

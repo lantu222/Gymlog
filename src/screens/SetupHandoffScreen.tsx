@@ -2,6 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { CutButton } from '../components/CutButton';
 import { VinhaIcon } from '../components/VinhaIcon';
 import { t } from '../lib/i18n';
@@ -50,6 +52,7 @@ export function SetupHandoffScreen({
   onSkip,
 }: SetupHandoffScreenProps) {
   const styles = useThemedStyles(makeStyles);
+  const insets = useSafeAreaInsets();
   const [addWidget, setAddWidget] = useState(true);
   const [pinTrackingCard, setPinTrackingCard] = useState(true);
   // Off by default: the focus card is the one the questionnaire earned; this
@@ -77,7 +80,8 @@ export function SetupHandoffScreen({
   const titleKey = offerCount === 1 ? 'handoff.titleOne' : offerCount === 2 ? 'handoff.title' : 'handoff.titleMany';
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <View style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <Text style={styles.title}>{t(language, titleKey)}</Text>
 
       {plan.offerWidget ? (
@@ -123,24 +127,35 @@ export function SetupHandoffScreen({
         />
       ) : null}
 
-      {/* No "Not now" (user, 2026-08-19): every row is its own on/off, so
-          Done with everything off already is "not now", and a second exit under
-          the first was a choice that did not exist. */}
-      <CutButton
-        label={t(language, 'handoff.done')}
-        size="lg"
-        stretch
-        style={styles.done}
-        onPress={() =>
-          onDone({
-            addWidget: plan.offerWidget && addWidget,
-            pinTrackingCard: plan.tracking !== null && pinTrackingCard,
-            pinBodyweightCard: plan.offerBodyweight && pinBodyweightCard,
-            signInForBackup: plan.offerAccountBackup && signInForBackup,
-          })
-        }
-      />
-    </ScrollView>
+      </ScrollView>
+
+      {/* Out of the scroll and against the foot of the screen, where every
+          other done/proceed button in this app sits (user 2026-08-31). Inside
+          the list it followed the last row, so with two offers it stopped
+          halfway up the screen and the thumb had to go looking.
+
+          No "Not now" (user, 2026-08-19): every row is its own on/off, so
+          Done with everything off already is "not now", and a second exit
+          under the first was a choice that did not exist. */}
+      {/* The inset, read here rather than assumed: a footer pinned to the
+          bottom of the screen sits under the gesture bar without it, and the
+          button came out with its label sliced in half. */}
+      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
+        <CutButton
+          label={t(language, 'handoff.done')}
+          size="lg"
+          stretch
+          onPress={() =>
+            onDone({
+              addWidget: plan.offerWidget && addWidget,
+              pinTrackingCard: plan.tracking !== null && pinTrackingCard,
+              pinBodyweightCard: plan.offerBodyweight && pinBodyweightCard,
+              signInForBackup: plan.offerAccountBackup && signInForBackup,
+            })
+          }
+        />
+      </View>
+    </View>
   );
 }
 
@@ -236,6 +251,9 @@ const makeStyles = (theme: Theme) =>
       color: theme.muted,
       marginBottom: spacing.sm,
     },
+    // Each row is a decision, not a list item: the reader is meant to read
+    // it and answer it. At 15.5/13 in medium padding they read as settings
+    // someone had already dealt with (user 2026-08-31).
     row: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -244,14 +262,15 @@ const makeStyles = (theme: Theme) =>
       borderWidth: 1.5,
       borderColor: theme.border,
       backgroundColor: theme.surfaceSoft,
-      padding: spacing.md,
+      paddingHorizontal: 18,
+      paddingVertical: 20,
     },
     rowSelected: {
       borderColor: theme.accent,
     },
     rowIcon: {
-      width: 40,
-      height: 40,
+      width: 48,
+      height: 48,
       borderRadius: radii.md,
       alignItems: 'center',
       justifyContent: 'center',
@@ -262,18 +281,21 @@ const makeStyles = (theme: Theme) =>
       gap: 2,
     },
     rowTitle: {
-      fontSize: 15.5,
-      fontWeight: '700',
+      fontSize: 18,
+      lineHeight: 23,
+      fontWeight: '800',
       color: theme.ink,
+      letterSpacing: -0.2,
     },
     rowBody: {
-      fontSize: 13,
+      fontSize: 15,
+      lineHeight: 20,
       color: theme.muted,
     },
     check: {
-      width: 24,
-      height: 24,
-      borderRadius: 12,
+      width: 28,
+      height: 28,
+      borderRadius: 14,
       borderWidth: 1.5,
       borderColor: theme.border,
       alignItems: 'center',
@@ -283,8 +305,10 @@ const makeStyles = (theme: Theme) =>
       borderColor: theme.accent,
       backgroundColor: theme.accent,
     },
-    done: {
-      marginTop: spacing.md,
+    footer: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.sm,
+      backgroundColor: theme.surface,
     },
     skip: {
       alignSelf: 'center',
