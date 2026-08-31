@@ -902,13 +902,21 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
    */
   if (route.screen === 'list') {
     return (
+      /*
+       * No onAddToWorkout.
+       *
+       * The "+" on a library card opened the logger prefilled with that lift,
+       * so browsing the library was a way to start a workout. Removed on
+       * request (user 2026-08-31) — the routing only, with a replacement to
+       * come. The button renders only when it has an action, so the card is
+       * now a card rather than a dead orange circle.
+       */
       <ExercisesScreen
         language={preferences.appLanguage}
         onBack={() => navigateBack({ tab: 'workout', screen: 'programs_home' })}
         items={exerciseBrowserItems}
         trackedIds={preferences.trackedExerciseLibraryItemIds}
         onOpenExercise={(item) => navigate({ tab: 'workout', screen: 'detail', exerciseId: item.id })}
-        onAddToWorkout={(item) => navigate({ tab: 'workout', screen: 'editor', prefillName: item.name, prefillExerciseLibraryId: item.id })}
         onToggleTracked={(item) => {
           const trackedIds = preferences.trackedExerciseLibraryItemIds;
           const nextTrackedIds = trackedIds.includes(item.id)

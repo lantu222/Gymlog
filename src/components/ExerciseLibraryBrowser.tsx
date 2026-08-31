@@ -267,7 +267,9 @@ function ExCard({
           <Text numberOfLines={1} style={styles.cardMeta}>
             {libraryLabel(item.bodyPart, language)}
           </Text>
-          <AddButton onPress={onAdd} />
+          {/* No action, no button. It used to render `disabled`, which on a
+              filled accent circle reads as a live control that ignores you. */}
+          {onAdd ? <AddButton onPress={onAdd} /> : null}
         </View>
       </View>
     </Pressable>
@@ -304,7 +306,7 @@ function ExRow({
         </Text>
       </View>
       <FavoriteStar active={tracked} onPress={onToggleFavorite} />
-      <AddButton onPress={onAdd} />
+      {onAdd ? <AddButton onPress={onAdd} /> : null}
     </Pressable>
   );
 }
