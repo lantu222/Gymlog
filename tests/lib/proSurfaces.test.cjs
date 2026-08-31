@@ -641,4 +641,26 @@ module.exports = [
       assert.match(chat, /thread: \{[\s\S]*?justifyContent: 'flex-end'/);
     },
   },
+  {
+    /**
+     * The paywall spends the token, not the literal behind it.
+     *
+     * CLAUDE.md: "Use src/theme.ts colors and existing shared components in
+     * src/components/ before adding new styling." Two rules had drifted back
+     * to raw values identical to tokens the same stylesheet already used a
+     * few lines above (PR #33 review) — the way a surface stops being one
+     * surface is exactly this, one literal at a time.
+     */
+    name: 'the Pro surface reaches for its tokens rather than re-typing their values',
+    run() {
+      const theme = read('src', 'theme.ts');
+      // The tokens exist and still hold the values that were being retyped.
+      assert.match(theme, /glassEdge: 'rgba\(255,255,255,0\.13\)'/);
+      assert.match(theme, /ink: '#FFFFFF'/);
+
+      // And the paywall's own rules name them.
+      assert.match(premiumSource, /tierBadge: \{[\s\S]*?backgroundColor: PRO_SURFACE\.glassEdge/);
+      assert.match(premiumSource, /cta: \{[\s\S]*?backgroundColor: PRO_SURFACE\.ink/);
+    },
+  },
 ];

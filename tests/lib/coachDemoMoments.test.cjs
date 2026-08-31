@@ -231,6 +231,16 @@ module.exports = [
         /result\.source !== 'preview'[\s\S]{0,200}onDemoQuestionAnswered\?\./,
         'the spend must be gated on a real model answer, not a preview fallback',
       );
+      // ...and NOT on whether that answer was useful. The moment meters cost,
+      // and a reply that only asks for a clearer question still reached the
+      // model and still billed. Left unspent, the same moment re-offered
+      // after every completed session, past a cap whose word is "ever"
+      // (PR #33 review).
+      assert.doesNotMatch(
+        chat,
+        /if \(force && !answer\.unanswered/,
+        'an unanswered demo reply still spends the moment — it still cost a call',
+      );
     },
   },
   {

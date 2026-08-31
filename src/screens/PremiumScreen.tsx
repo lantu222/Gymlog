@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.13)',
+    backgroundColor: PRO_SURFACE.glassEdge,
     borderWidth: 1,
   },
   tierBadgeText: { fontSize: 15, fontWeight: '700', color: PRO_SURFACE.ink },
@@ -563,7 +563,7 @@ const styles = StyleSheet.create({
   cta: {
     height: 56,
     borderRadius: 999,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: PRO_SURFACE.ink,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 24,

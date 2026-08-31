@@ -2182,10 +2182,18 @@ function VinhaApp() {
             const name =
               target && edit.kind === 'replace' ? edit.exerciseName : exercise.exerciseName;
             // The catalog's dose unless this row is the one being re-dosed.
+            // Rest rides along on the same rule the custom path uses
+            // (applyProgramSessionEdit): a number overrides, null leaves the
+            // catalog's own value alone.
             const dose =
               target && edit.kind === 'prescribe'
                 ? edit.prescription
-                : { targetSets: exercise.sets, repMin: exercise.repsMin, repMax: exercise.repsMax };
+                : {
+                    targetSets: exercise.sets,
+                    repMin: exercise.repsMin,
+                    repMax: exercise.repsMax,
+                    restSeconds: null,
+                  };
             return {
               id: exercise.id,
               workoutTemplateId: template.id,
@@ -2194,7 +2202,11 @@ function VinhaApp() {
               targetSets: dose.targetSets,
               repMin: dose.repMin,
               repMax: dose.repMax,
-              restSeconds: exercise.restSecondsMin,
+              // Reading only the catalog value here dropped a rest-time edit
+              // in silence — and it had already cost the reader one of three
+              // custom-programme slots to make the copy (PR #33 review).
+              restSeconds:
+                typeof dose.restSeconds === 'number' ? dose.restSeconds : exercise.restSecondsMin,
               trackedDefault: false,
               orderIndex: exerciseIndex,
               libraryItemId: target && edit.kind === 'replace' ? resolveLibraryItemIdForName(name) : null,

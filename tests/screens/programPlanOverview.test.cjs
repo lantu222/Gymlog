@@ -383,4 +383,53 @@ module.exports = [
       assert.match(day, /rowHeights\.current\[index\] = event\.nativeEvent\.layout\.height/);
     },
   },
+  {
+    /**
+     * Order is the answer on this screen too.
+     *
+     * `planWeekdayIndexes` stopped sorting so that its POSITION carries which
+     * session owns which day. This screen re-sorted the array before pairing
+     * it with `program.sessions[order]`, so a Mon/Thu programme adopted on a
+     * Wednesday printed session 1 under MON while Home and the calendar ran
+     * it on THU (PR #33 review) — the same failure the sort removal fixed,
+     * relocated. The write path was never wrong: handleSaveRhythm re-derives
+     * the assignment from the rotation. Only the read lied.
+     */
+    name: 'the rhythm strip pairs sessions in the plan order, not the sorted one',
+    run() {
+      // The sorted view still exists — membership, counting and the toggle
+      // have no opinion about which session owns which day.
+      assert.match(
+        programDetailSource,
+        /const committedDays = useMemo\(\s*\(\) => \[\.\.\.orderedDays\]\.sort/,
+      );
+      // The pairing reads the order-carrying array instead.
+      assert.match(
+        programDetailSource,
+        /\(draftDays \?\? orderedDays\)\.forEach\(\(dayIndex, order\) => \{/,
+      );
+      assert.doesNotMatch(
+        programDetailSource,
+        /shownDays\.forEach\(\(dayIndex, order\)/,
+        'pairing from the sorted view is the bug this pins',
+      );
+    },
+  },
+  {
+    /**
+     * Editing a ready programme buys a copy, so the copy must carry the edit.
+     *
+     * The duplication branch built its dose from `edit.prescription` but then
+     * wrote `restSeconds: exercise.restSecondsMin` — the catalog's own value.
+     * Changing only the rest time therefore spent one of three custom-programme
+     * slots and dropped the change in silence (PR #33 review).
+     */
+    name: 'duplicating a ready programme carries the rest-time edit into the copy',
+    run() {
+      assert.match(
+        appSource,
+        /restSeconds:\s*typeof dose\.restSeconds === 'number' \? dose\.restSeconds : exercise\.restSecondsMin/,
+      );
+    },
+  },
 ];

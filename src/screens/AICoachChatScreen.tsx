@@ -749,12 +749,20 @@ export function AICoachChatScreen({
         if (proUnlocked && !answer.unanswered && result.source !== 'preview') {
           onQuestionUsed();
         }
-        // And the demo moment, on the same rule but stricter, because there
-        // are three of these per install and nothing gives one back. A
-        // preview-sourced reply does not count: that is the deterministic
-        // text a free reader already has, and spending one of three on it
-        // would make the offer a bluff at the one moment it is being tested.
-        if (force && !answer.unanswered && result.source !== 'preview' && demoMomentKeyRef.current) {
+        // And the demo moment, on a different rule, because it meters a
+        // different thing. The counter above meters VALUE, so a reply that
+        // could only ask for a clearer question is forgiven. The moment
+        // meters COST: aiCoachQuota promises three real model calls per
+        // install, ever, and a clarifying reply is a real model call. Left
+        // unspent it re-offered on every completed session after it, each
+        // acceptance billing again past a cap whose word is "ever"
+        // (PR #33 review).
+        //
+        // A preview-sourced reply still does not count: nothing reached the
+        // model, and spending one of three on the deterministic text a free
+        // reader already has would make the offer a bluff at the one moment
+        // it is being tested.
+        if (force && result.source !== 'preview' && demoMomentKeyRef.current) {
           onDemoQuestionAnswered?.(demoMomentKeyRef.current);
           demoMomentKeyRef.current = null;
         }

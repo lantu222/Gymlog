@@ -245,13 +245,24 @@ export function ProgramDetailScreen({
   /**
    * The rhythm the strip shows: the plan's own days when it names them, the
    * derived spread otherwise.
+   *
+   * Two views of one week, and the difference is the whole bug below.
+   * `orderedDays` keeps the plan's order, which is where the session-to-day
+   * answer lives — `planWeekdayIndexes` returns [thu, mon] for a Mon/Thu
+   * programme adopted on a Wednesday. `committedDays` is the sorted view, for
+   * membership, counting and the toggle, none of which care which session
+   * owns which day.
    */
-  const committedDays = useMemo(() => {
+  const orderedDays = useMemo(() => {
     if (trainingDayIndexes && trainingDayIndexes.length > 0) {
-      return [...trainingDayIndexes].sort((left, right) => left - right);
+      return [...trainingDayIndexes];
     }
-    return [...getTrainingDayIndexes(program.sessions.length)].sort((left, right) => left - right);
+    return [...getTrainingDayIndexes(program.sessions.length)];
   }, [program.sessions.length, trainingDayIndexes]);
+  const committedDays = useMemo(
+    () => [...orderedDays].sort((left, right) => left - right),
+    [orderedDays],
+  );
 
   /**
    * A half-finished move is never written.
@@ -362,16 +373,28 @@ export function ProgramDetailScreen({
     });
   }, [trainingCycle, program.sessions]);
 
+  /**
+   * Which session lands on which day — read from the plan's own order, never
+   * from the sorted view beside it. Sorting first printed session 1 under MON
+   * for a Wednesday-adopted Mon/Thu programme while Home and the calendar ran
+   * it on THU: the same "a sort discards which session owns which day"
+   * failure this app fixed once already, relocated to this screen
+   * (PR #33 review).
+   *
+   * A draft in flight has no committed answer yet — handleSaveRhythm
+   * re-derives one from the rotation on save — so it previews in the order
+   * the chips read.
+   */
   const trainingDaySessions = useMemo(() => {
     const map = new Map<number, string>();
-    shownDays.forEach((dayIndex, order) => {
+    (draftDays ?? orderedDays).forEach((dayIndex, order) => {
       const session = program.sessions[order];
       if (session) {
         map.set(dayIndex, session.name);
       }
     });
     return map;
-  }, [program.sessions, shownDays]);
+  }, [draftDays, orderedDays, program.sessions]);
 
   const scheduleSlots = useMemo(
     () =>
