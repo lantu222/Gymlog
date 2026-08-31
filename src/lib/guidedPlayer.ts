@@ -1252,3 +1252,54 @@ function groupIndexOfStep(step: GuidedStep | undefined): number | null {
   }
   return step.groupIndex;
 }
+
+export interface GuidedOpening {
+  /** Where the resume card and the pinned button point. */
+  resumeIndex: number;
+  /** The step the screen opens on. */
+  stepIndex: number;
+  /** Overview, or straight into the session. */
+  mode: 'entry' | 'player';
+  /**
+   * What the entry screen's pinned button does. It always said "start" and
+   * always jumped to step 0 — including for a session with half its sets
+   * logged, where it sat below the fold as the biggest thing on the screen
+   * while the real resume was a quiet card at the top (#bugs 2026-08-29).
+   */
+  primaryAction: 'resume' | 'start';
+}
+
+/**
+ * How the guided player opens: which step, which screen, which button.
+ *
+ * `autoResume` is the reader's own intent, carried in from whatever they
+ * pressed. Home's hero says "Jatka treeniä" and the screen behind it used to
+ * open on the overview, which is the app asking a question that was already
+ * answered — so an arrival that asked to continue skips the overview, and
+ * every other arrival still gets it.
+ */
+export function resolveGuidedOpening(input: {
+  steps: GuidedStep[];
+  storedIndex: number | null | undefined;
+  anchor?: GuidedResumeAnchor | null;
+  isSetCompleted: (slotId: string, setIndex: number) => boolean;
+  autoResume: boolean;
+}): GuidedOpening {
+  const resumeIndex = resolveGuidedResumeIndex(
+    input.steps,
+    input.storedIndex,
+    input.isSetCompleted,
+    input.anchor ?? null,
+  );
+  // Step 0 is not a resume, and neither is the finish screen — there is
+  // nothing left to continue to there.
+  const hasResume = resumeIndex > 0 && input.steps[resumeIndex]?.type !== 'finish';
+  const straightIn = input.autoResume && hasResume;
+
+  return {
+    resumeIndex,
+    stepIndex: straightIn ? resumeIndex : 0,
+    mode: straightIn ? 'player' : 'entry',
+    primaryAction: hasResume ? 'resume' : 'start',
+  };
+}

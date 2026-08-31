@@ -62,12 +62,58 @@ module.exports = [
     name: 'set panels: the set screen renders them instead of the bare photo',
     run() {
       assert.match(playerSource, /<SetPanels\b/);
-      // Slot history is the workout store's, and a skipped day is not a "last
-      // time" — it is a day the lift did not happen.
-      assert.match(playerSource, /workout\.history\.slotHistory\[slotId\]/);
-      assert.match(playerSource, /!entry\.skipped && entry\.sets\.length > 0/);
       // The best set is marked only when it actually beat the others.
       assert.match(playerSource, /last\.sets\.some\(\(other\) => other\.loadKg < heaviest\)/);
+    },
+  },
+  {
+    /**
+     * #bugs 2026-08-29: "Alla näkyy viimeksi tehty 27.8 mutta ei näy ylhäällä
+     * olevassa taulukossa mitään."
+     *
+     * The table read `slotHistory[slotId]` and stopped there; the weight badge
+     * under it came from the prefill, which falls through to the unscoped key
+     * and then to a name lookup. One screen, two readers of one fact — so what
+     * is guarded is that there is one reader, with the same inputs.
+     */
+    name: 'set panels: the table and the prefill resolve last time the same way',
+    run() {
+      assert.match(playerSource, /resolveLastTimeEntry\(\{/);
+      assert.doesNotMatch(playerSource, /workout\.history\.slotHistory\[slotId\]/);
+      // Every input the prefill uses: the unscoped key an older install wrote
+      // under, the loaded-lift rule, and the rep prescription that keeps a
+      // heavy day's weight off a 15-20 day.
+      assert.match(playerSource, /templateSlotId: instance\?\.templateSlotId/);
+      assert.match(playerSource, /requireLoaded: instance \? !isUnloadedTrackingMode/);
+      assert.match(playerSource, /repWindow: instance \? resolveInstanceBorrowRepWindow\(instance\)/);
+      // Borrowed sets are shown, and said to be borrowed.
+      assert.match(playerSource, /borrowed: resolved\?\.borrowed \?\? false/);
+      assert.match(
+        panelSource,
+        /history\.borrowed \? 'panels\.last\.titleBorrowed' : 'panels\.last\.title'/,
+      );
+    },
+  },
+  {
+    /**
+     * One selector for "the newest session that actually happened", used by
+     * the prefill and by the panel. A skipped day is not a last time — it is a
+     * day the lift did not happen.
+     */
+    name: 'set panels: a skipped day is not a last time, decided in one place',
+    run() {
+      const lookupSource = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'lib', 'exerciseHistoryLookup.ts'),
+        'utf8',
+      );
+      assert.match(lookupSource, /export function selectLatestUsableEntry/);
+      assert.match(lookupSource, /!entry!\.skipped && entry!\.sets\.length > 0/);
+
+      const stateSource = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'features', 'workout', 'workoutState.ts'),
+        'utf8',
+      );
+      assert.match(stateSource, /const latest = selectLatestUsableEntry\(entries\)/);
     },
   },
   {
@@ -75,6 +121,7 @@ module.exports = [
     run() {
       for (const key of [
         'panels.last.title',
+        'panels.last.titleBorrowed',
         'panels.last.colSet',
         'panels.last.colLoad',
         'panels.last.colReps',

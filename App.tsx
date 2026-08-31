@@ -732,9 +732,9 @@ function VinhaApp() {
    * identity, so no previous-session comparison and no progression. Offering
    * it for a programme day means giving it both, not adding a switch.
    */
-  function navigateToGuidedWorkout(workoutTemplateId: string) {
+  function navigateToGuidedWorkout(workoutTemplateId: string, options?: { resume?: boolean }) {
     workoutLogNavigationAllowedAtRef.current = Date.now();
-    navigate({ tab: 'workout', screen: 'guided', workoutTemplateId });
+    navigate({ tab: 'workout', screen: 'guided', workoutTemplateId, resume: options?.resume });
   }
 
   function navigateBack(fallback: AppRoute | null = null) {
@@ -1131,7 +1131,10 @@ function VinhaApp() {
     }
 
     workout.resumeWorkout();
-    navigateToGuidedWorkout(workout.activeSession.templateId);
+    // Every caller of this got here by pressing something that says "resume":
+    // Home's hero, the lock-screen card, a start that found a session already
+    // running. The player opens on the set, not on the overview.
+    navigateToGuidedWorkout(workout.activeSession.templateId, { resume: true });
     return true;
   }
 

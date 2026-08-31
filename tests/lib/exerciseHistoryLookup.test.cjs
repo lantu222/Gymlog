@@ -3,6 +3,9 @@ const assert = require('node:assert/strict');
 const {
   findLatestEntryForExerciseName,
   findHistoricalSetForIndex,
+  entryMatchesRepWindow,
+  selectLatestUsableEntry,
+  resolveLastTimeEntry,
 } = require('../../.test-dist/lib/exerciseHistoryLookup.js');
 
 function entry(overrides = {}) {
@@ -102,6 +105,166 @@ module.exports = [
       assert.equal(findHistoricalSetForIndex(source, 0).loadKg, 80);
       assert.equal(findHistoricalSetForIndex(source, 9), null);
       assert.equal(findHistoricalSetForIndex(null, 0), null);
+    },
+  },
+  {
+    /**
+     * #bugs 2026-08-29: "2 eri päivää tekee samaa liikettä, toinen avg 8
+     * toistoo isot painot, toinen 15-20 toistoo pienet painot, nyt
+     * automaattisesti laitetaan 10 kg joka on se maksimivoimatreeni."
+     *
+     * A weight is only an answer together with the reps it was lifted for.
+     */
+    name: 'a weight is not borrowed across a different rep prescription',
+    run() {
+      const heavy = {
+        'tpl:day_a:lat_raise': [
+          entry({
+            slotId: 'tpl:day_a:lat_raise',
+            exerciseName: 'Dumbbell Lateral Raise',
+            performedAt: '2026-08-27T09:00:00.000Z',
+            sets: [
+              { setIndex: 0, loadKg: 10, reps: 8, completedAt: '2026-08-27T09:05:00.000Z' },
+              { setIndex: 1, loadKg: 10, reps: 8, completedAt: '2026-08-27T09:10:00.000Z' },
+              { setIndex: 2, loadKg: 10, reps: 7, completedAt: '2026-08-27T09:15:00.000Z' },
+            ],
+          }),
+        ],
+      };
+
+      // The pump day asks for 15-20. The heavy day does not answer it.
+      assert.equal(
+        findLatestEntryForExerciseName(heavy, 'Dumbbell Lateral Raise', {
+          repWindow: { min: 15, max: 20 },
+        }),
+        null,
+      );
+
+      // Another heavy day does — and so does one two reps out, which is the
+      // same load written differently.
+      assert.equal(
+        findLatestEntryForExerciseName(heavy, 'Dumbbell Lateral Raise', {
+          repWindow: { min: 6, max: 8 },
+        }).sets[0].loadKg,
+        10,
+      );
+      assert.equal(
+        findLatestEntryForExerciseName(heavy, 'Dumbbell Lateral Raise', {
+          repWindow: { min: 9, max: 10 },
+        }).sets[0].loadKg,
+        10,
+      );
+
+      // No window at all is the old behaviour, still available.
+      assert.equal(
+        findLatestEntryForExerciseName(heavy, 'Dumbbell Lateral Raise').sets[0].loadKg,
+        10,
+      );
+    },
+  },
+  {
+    /**
+     * The median, not the span: a heavy day with one long back-off set would
+     * otherwise claim to cover everything between them.
+     */
+    name: 'the rep window reads the typical set of a session, not its extremes',
+    run() {
+      const backOff = entry({
+        sets: [
+          { setIndex: 0, loadKg: 100, reps: 5, completedAt: '2026-07-20T10:05:00.000Z' },
+          { setIndex: 1, loadKg: 100, reps: 5, completedAt: '2026-07-20T10:10:00.000Z' },
+          { setIndex: 2, loadKg: 60, reps: 15, completedAt: '2026-07-20T10:15:00.000Z' },
+        ],
+      });
+
+      assert.equal(entryMatchesRepWindow(backOff, { min: 4, max: 6 }), true);
+      assert.equal(entryMatchesRepWindow(backOff, { min: 15, max: 20 }), false);
+      // No window, or nothing to compare, is never a mismatch.
+      assert.equal(entryMatchesRepWindow(backOff, null), true);
+      assert.equal(entryMatchesRepWindow(entry({ sets: [] }), { min: 15, max: 20 }), true);
+    },
+  },
+  {
+    name: 'the latest usable entry skips skipped and empty sessions',
+    run() {
+      const entries = [
+        entry({ performedAt: '2026-08-01T10:00:00.000Z', skipped: true }),
+        entry({ performedAt: '2026-07-25T10:00:00.000Z', sets: [] }),
+        entry({ performedAt: '2026-07-20T10:00:00.000Z' }),
+      ];
+      assert.equal(selectLatestUsableEntry(entries).performedAt, '2026-07-20T10:00:00.000Z');
+      assert.equal(selectLatestUsableEntry([]), null);
+      assert.equal(selectLatestUsableEntry(undefined), null);
+    },
+  },
+  {
+    /**
+     * #bugs 2026-08-29: "Alla näkyy viimeksi tehty 27.8 mutta ei näy ylhäällä
+     * olevassa taulukossa mitään." The badge and the table asked the same
+     * question of two different sources. This is the one source.
+     */
+    name: 'last time resolves own slot first, then the unscoped key, then by name',
+    run() {
+      const own = entry({ slotId: 'tpl:day_b:squat', performedAt: '2026-08-20T10:00:00.000Z' });
+      const legacy = entry({ slotId: 'primary_squat', performedAt: '2026-08-10T10:00:00.000Z' });
+      const elsewhere = entry({ slotId: 'tpl:day_a:squat', performedAt: '2026-08-27T10:00:00.000Z' });
+
+      const query = (slotHistory) =>
+        resolveLastTimeEntry({
+          slotHistory,
+          slotId: 'tpl:day_b:squat',
+          templateSlotId: 'primary_squat',
+          exerciseName: 'Back Squat',
+          requireLoaded: true,
+        });
+
+      // Its own history wins even when a newer session sits in another slot.
+      const ownFirst = query({
+        'tpl:day_b:squat': [own],
+        primary_squat: [legacy],
+        'tpl:day_a:squat': [elsewhere],
+      });
+      assert.equal(ownFirst.borrowed, false);
+      assert.equal(ownFirst.performedAt ?? ownFirst.entry.performedAt, '2026-08-20T10:00:00.000Z');
+
+      // Nothing scoped: the unscoped key an older install wrote under.
+      const viaLegacy = query({ primary_squat: [legacy], 'tpl:day_a:squat': [elsewhere] });
+      assert.equal(viaLegacy.borrowed, false);
+      assert.equal(viaLegacy.entry.performedAt, '2026-08-10T10:00:00.000Z');
+
+      // Neither: the lift itself, from wherever it was last done — and said
+      // to be borrowed, so the screen can label it.
+      const borrowed = query({ 'tpl:day_a:squat': [elsewhere] });
+      assert.equal(borrowed.borrowed, true);
+      assert.equal(borrowed.entry.performedAt, '2026-08-27T10:00:00.000Z');
+
+      assert.equal(query({}), null);
+    },
+  },
+  {
+    name: 'the borrowed last time is gated on the same reps the prefill is',
+    run() {
+      const slotHistory = {
+        'tpl:day_a:lat_raise': [
+          entry({
+            slotId: 'tpl:day_a:lat_raise',
+            exerciseName: 'Dumbbell Lateral Raise',
+            sets: [{ setIndex: 0, loadKg: 10, reps: 8, completedAt: '2026-08-27T09:05:00.000Z' }],
+          }),
+        ],
+      };
+
+      const resolved = resolveLastTimeEntry({
+        slotHistory,
+        slotId: 'tpl:day_b:lat_raise',
+        exerciseName: 'Dumbbell Lateral Raise',
+        requireLoaded: true,
+        repWindow: { min: 15, max: 20 },
+      });
+
+      // Nothing to show and nothing to prefill — the table and the badge agree
+      // on saying nothing, which is the point.
+      assert.equal(resolved, null);
     },
   },
 ];

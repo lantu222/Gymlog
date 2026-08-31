@@ -440,7 +440,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             sessionId,
           })
         }
-        onEdit={route.programType === 'custom' ? () => navigate({ tab: 'workout', screen: 'template', workoutTemplateId: route.workoutTemplateId }) : undefined}
         destructiveActionLabel={
           route.programType === 'custom' ? t(preferences.appLanguage, 'detail.delete') : undefined
         }
@@ -662,6 +661,9 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         onEndSession={() => void handleDiscardWorkout()}
         onFinishSession={() => void handleConfirmFinishWorkout()}
         isSavingWorkout={finishSaveState.status === 'saving'}
+        // Set by navigateToActiveWorkout — the reader pressed "resume", so the
+        // player opens on the set instead of the session overview.
+        autoResume={route.resume === true}
         restAlerts={{
           // The master notifications switch silences these too — three lit
           // switches after "off" were the visual half of the same lie.
