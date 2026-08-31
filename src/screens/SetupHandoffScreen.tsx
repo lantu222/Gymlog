@@ -75,12 +75,10 @@ export function SetupHandoffScreen({
   // "Two things · both take one tap" was a promise the screen did not keep.
   const offerCount = countSetupHandoffOffers(plan);
   const titleKey = offerCount === 1 ? 'handoff.titleOne' : offerCount === 2 ? 'handoff.title' : 'handoff.titleMany';
-  const bodyKey = offerCount === 1 ? 'handoff.bodyOne' : offerCount === 2 ? 'handoff.body' : 'handoff.bodyMany';
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <Text style={styles.title}>{t(language, titleKey)}</Text>
-      <Text style={styles.body}>{t(language, bodyKey)}</Text>
 
       {plan.offerWidget ? (
         <OfferRow
