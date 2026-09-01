@@ -43,7 +43,11 @@ function reachableLibraryEntries() {
     if (index === null || index === undefined || index < 0) {
       continue;
     }
-    const item = GENERATED_EXERCISE_LIBRARY[index];
+    // FULL_LIBRARY, because that is the array LIBRARY_NAMES was built from.
+    // Indexing the generated half with an index that can land in the extras
+    // returned `undefined` and threw — latent since the extras existed, and
+    // only reached once a ready programme actually prescribed one of them.
+    const item = FULL_LIBRARY[index];
     // A handful of library entries carry no instructions at all. There is
     // nothing to translate there, and inventing steps would be worse.
     if ((item.instructions ?? []).length > 0) {

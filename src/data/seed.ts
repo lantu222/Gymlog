@@ -142,7 +142,13 @@ function createLegacySeedExerciseLibrary(): ExerciseLibraryItem[] {
     { id: 'lib_dips', name: 'Dipit', category: 'compound', bodyPart: 'triceps', equipment: 'bodyweight' },
     { id: 'lib_back_squat', name: 'Takakyykky', category: 'compound', bodyPart: 'legs', equipment: 'barbell' },
     { id: 'lib_deadlift', name: 'Maastaveto', category: 'compound', bodyPart: 'full body', equipment: 'barbell' },
-    { id: 'lib_rdl', name: 'Romanian deadlift', category: 'compound', bodyPart: 'glutes', equipment: 'barbell' },
+    // Finnish, like every one of its twenty siblings — and that is the fix,
+    // not a tidy-up. This row carried the only English name in the legacy set,
+    // and the name matcher is case-insensitive: "Romanian Deadlift", which four
+    // ready programmes prescribe, resolved HERE instead of to the generated
+    // entry that has five steps and a Finnish translation already written.
+    // A legacy row with no instructions was standing in front of the real one.
+    { id: 'lib_rdl', name: 'Romanialainen maastaveto', category: 'compound', bodyPart: 'glutes', equipment: 'barbell' },
     { id: 'lib_leg_press', name: 'Jalkaprässi', category: 'compound', bodyPart: 'legs', equipment: 'machine' },
     { id: 'lib_leg_extension', name: 'Reiden ojennus', category: 'isolation', bodyPart: 'legs', equipment: 'machine' },
     { id: 'lib_leg_curl', name: 'Takareisilaite', category: 'isolation', bodyPart: 'legs', equipment: 'machine' },
