@@ -14,7 +14,7 @@ import { buildProgramFingerprint } from '../lib/programFingerprint';
 import { getSeasonProgramId, ProgramSeason } from '../lib/programSeasons';
 import { planWeekdayIndexes } from '../lib/programTrainingDays';
 import {
-  findCollectionInProgress,
+  pickLibraryCollection,
   getExerciseCollection,
   getExerciseCollections,
   resolveCollectionProgress,
@@ -1058,18 +1058,19 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         items={exerciseBrowserItems}
         trackedIds={preferences.trackedExerciseLibraryItemIds}
         onOpenExercise={(item) => navigate({ tab: 'workout', screen: 'detail', exerciseId: item.id })}
-        collectionInProgress={(() => {
-          const started = findCollectionInProgress(
+        learnCollection={(() => {
+          const picked = pickLibraryCollection(
             getExerciseCollections(preferences.appLanguage),
             (name) => learnedExerciseNames.includes(name),
           );
-          return started
+          return picked
             ? {
-                id: started.collection.id,
-                title: started.collection.title,
-                done: started.progress.done,
-                total: started.progress.total,
-                percent: started.progress.percent,
+                id: picked.collection.id,
+                title: picked.collection.title,
+                done: picked.progress.done,
+                total: picked.progress.total,
+                percent: picked.progress.percent,
+                state: picked.state,
               }
             : null;
         })()}

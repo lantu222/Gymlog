@@ -16,6 +16,7 @@ import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { buildExerciseSearchHaystack, exerciseMatchesQuery } from '../lib/exerciseSearch';
 import { I18nKey, t } from '../lib/i18n';
+import type { LibraryCollectionState } from '../lib/exerciseCollections';
 import { libraryLabel } from '../lib/libraryLabel';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
@@ -38,7 +39,9 @@ interface ExerciseLibraryBrowserProps {
    * pointing at a course never opened would be an advertisement wearing the
    * words "pick up where you left off".
    */
-  collectionInProgress?: { id: string; title: string; done: number; total: number; percent: number } | null;
+  learnCollection?:
+    | { id: string; title: string; done: number; total: number; percent: number; state: LibraryCollectionState }
+    | null;
   onOpenCollection?: (collectionId: string) => void;
   onOpenLearnIndex?: () => void;
 }
@@ -373,7 +376,7 @@ export function ExerciseLibraryBrowser({
   language = 'en',
   onOpenItem,
   onToggleTracked,
-  collectionInProgress = null,
+  learnCollection = null,
   onOpenCollection,
   onOpenLearnIndex,
 }: ExerciseLibraryBrowserProps) {
@@ -636,35 +639,44 @@ export function ExerciseLibraryBrowser({
 
             {showDashboardSections ? (
               <>
-                {collectionInProgress && onOpenCollection ? (
+                {/* The card is the ONLY door into Learn, so it renders in all
+                    three states. Nested inside an in-progress check it was
+                    invisible on a fresh install — nothing learned, nothing
+                    rendered, and no other route to LearnIndexScreen anywhere
+                    in the app — and it closed again behind anyone who
+                    finished the course. Only the heading changes. */}
+                {learnCollection && onOpenCollection ? (
                   <View style={styles.dashboardSection}>
                     <SectionHead
-                      label={t(language, 'library.pickUp')}
+                      label={t(
+                        language,
+                        learnCollection.state === 'inProgress' ? 'library.pickUp' : 'learn.eyebrow',
+                      )}
                       action={onOpenLearnIndex ? t(language, 'library.learnAll') : undefined}
                       onAction={onOpenLearnIndex}
                     />
                     <Pressable
                       accessibilityRole="button"
-                      onPress={() => onOpenCollection(collectionInProgress.id)}
+                      onPress={() => onOpenCollection(learnCollection.id)}
                       style={({ pressed }) => [styles.pickUpCard, pressed && styles.pickUpCardPressed]}
                     >
                       <View style={{ flex: 1, minWidth: 0 }}>
                         <Text numberOfLines={1} style={styles.pickUpTitle}>
-                          {collectionInProgress.title}
+                          {learnCollection.title}
                         </Text>
                         <View style={styles.pickUpProgressRow}>
                           <View style={styles.pickUpTrack}>
                             <View
                               style={[
                                 styles.pickUpFill,
-                                { width: `${collectionInProgress.percent}%` },
+                                { width: `${learnCollection.percent}%` },
                               ]}
                             />
                           </View>
                           <Text style={styles.pickUpCount}>
                             {t(language, 'learn.progress', {
-                              done: collectionInProgress.done,
-                              total: collectionInProgress.total,
+                              done: learnCollection.done,
+                              total: learnCollection.total,
                             })}
                           </Text>
                         </View>

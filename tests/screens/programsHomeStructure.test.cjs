@@ -488,4 +488,47 @@ module.exports = [
       assert.match(bottomTabBarSource, /accessibilityLabel=\{t\(language, 'tabs\.aiCoach'\)\}/);
     },
   },
+  {
+    /**
+     * The target flow says it finished, AFTER it finished.
+     *
+     * `handleAcceptTargetProposal` adopted the programme and wrote the goal
+     * and then did nothing at all: no navigation, no toast, no state any
+     * screen reads. The tap left the reader on the same three steps with the
+     * same numbers, and 'goalFlow.created' sat translated in both dictionaries
+     * with no caller — written, never wired.
+     *
+     * [CLAUDE.md](CLAUDE.md): "A success state must follow the resolved write,
+     * never precede it." So the order is pinned, not just the presence: the
+     * toast must come after BOTH awaits, or it is claiming a finish that has
+     * not happened.
+     */
+    name: 'target flow: the success state follows the resolved write',
+    run() {
+      const app = read('App.tsx');
+      const start = app.indexOf('async function handleAcceptTargetProposal');
+      assert.ok(start > 0, 'handleAcceptTargetProposal was renamed — recheck by hand');
+      // The handler's OWN body: from its declaration to the next one at the
+      // same indentation. Sliced, because App.tsx is 5000 lines and every one
+      // of these four strings appears elsewhere in it — an unbounded search
+      // would pass on some other function's toast.
+      const after = app.slice(start);
+      const nextDeclaration = after.slice(1).search(/\n {2}(?:async )?function /);
+      const body = nextDeclaration > 0 ? after.slice(0, nextDeclaration) : after;
+
+      const adopt = body.indexOf('await handleAdoptReadyProgram');
+      const write = body.indexOf('await updatePreferences');
+      const toast = body.indexOf("showToast(t(preferences.appLanguage, 'goalFlow.created'))");
+      const leave = body.indexOf("navigate({ tab: 'workout', screen: 'programs_home' })");
+
+      assert.ok(adopt > 0, 'the programme is no longer adopted here');
+      assert.ok(write > 0, 'the target is no longer written here');
+      assert.ok(toast > 0, "the tap is silent again — 'goalFlow.created' has no caller");
+      assert.ok(leave > 0, 'nothing takes the reader to the programme it just adopted');
+
+      assert.ok(adopt < write, 'the target is written before the programme lands');
+      assert.ok(write < toast, 'the success state is claimed before the write resolves');
+      assert.ok(toast < leave, 'the screen leaves before the toast is raised');
+    },
+  },
 ];

@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { ExerciseLibraryBrowser } from '../components/ExerciseLibraryBrowser';
+import type { LibraryCollectionState } from '../lib/exerciseCollections';
 import { t } from '../lib/i18n';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage, ExerciseLibraryItem } from '../types/models';
@@ -14,7 +15,9 @@ interface ExercisesScreenProps {
   onBack?: () => void;
   onOpenExercise?: (item: ExerciseLibraryItem) => void;
   onToggleTracked?: (item: ExerciseLibraryItem) => void;
-  collectionInProgress?: { id: string; title: string; done: number; total: number; percent: number } | null;
+  learnCollection?:
+    | { id: string; title: string; done: number; total: number; percent: number; state: LibraryCollectionState }
+    | null;
   onOpenCollection?: (collectionId: string) => void;
   onOpenLearnIndex?: () => void;
 }
@@ -26,7 +29,7 @@ export function ExercisesScreen({
   onBack,
   onOpenExercise,
   onToggleTracked,
-  collectionInProgress = null,
+  learnCollection = null,
   onOpenCollection,
   onOpenLearnIndex,
 }: ExercisesScreenProps) {
@@ -63,7 +66,7 @@ export function ExercisesScreen({
         language={language}
         onOpenItem={onOpenExercise}
         onToggleTracked={onToggleTracked}
-        collectionInProgress={collectionInProgress}
+        learnCollection={learnCollection}
         onOpenCollection={onOpenCollection}
         onOpenLearnIndex={onOpenLearnIndex}
       />

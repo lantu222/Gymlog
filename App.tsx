@@ -4711,6 +4711,17 @@ function VinhaApp() {
         createdAt: new Date().toISOString(),
       }),
     });
+
+    // And say so. Both writes have resolved by here — the programme, then the
+    // target — which is the order CLAUDE.md asks for: a success state follows
+    // the write, never precedes it.
+    //
+    // Without this the tap did all its work in silence. The screen kept the
+    // same three steps with the same numbers in them, nothing navigated, and
+    // 'goalFlow.created' sat translated in both dictionaries with no reader.
+    // The copy names where the programme went, so the reader is sent there.
+    showToast(t(preferences.appLanguage, 'goalFlow.created'));
+    navigate({ tab: 'workout', screen: 'programs_home' });
   }
 
   /**

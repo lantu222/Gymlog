@@ -2966,6 +2966,11 @@ const EN = {
   'goalFlow.weeksAtRate': '≈ {weeks} weeks at your rate',
   'goalFlow.rateBody': 'You have added {kg} {unit} over {weeks} weeks across your last {sessions} sessions. This is arithmetic on your own log, not a promise.',
   'goalFlow.rateBodyNone': 'Log this lift a few times and the estimate appears — it is division on your own sets, and there is nothing to divide yet.',
+  // Reachable by typing a target UNDER your current best — isValidTarget
+  // accepts any positive number to 1000, so best 140 and a typed 100 lands
+  // here. The 07 review deleted this string believing no path reached it;
+  // t() then returned undefined and the card's title rendered blank.
+  'goalFlow.estimate.reached': 'You are already there',
   'goalFlow.estimate.noRate': 'No rate to work from yet',
   'goalFlow.estimate.noGain': 'Your log has not moved lately',
   'goalFlow.estimate.beyondHorizon': 'More than two years at this rate',
@@ -6200,6 +6205,7 @@ const FI: Record<I18nKey, string> = {
   'goalFlow.weeksAtRate': '≈ {weeks} viikkoa omalla tahdillasi',
   'goalFlow.rateBody': 'Olet lisännyt {kg} {unit} {weeks} viikossa viimeisen {sessions} treenin aikana. Tämä on laskutoimitus omasta lokistasi, ei lupaus.',
   'goalFlow.rateBodyNone': 'Kirjaa tämä liike muutaman kerran, niin arvio ilmestyy — se on jakolasku omista sarjoistasi, eikä jaettavaa ole vielä.',
+  'goalFlow.estimate.reached': 'Olet jo siellä',
   'goalFlow.estimate.noRate': 'Ei vielä tahtia mistä laskea',
   'goalFlow.estimate.noGain': 'Lokisi ei ole liikkunut viime aikoina',
   'goalFlow.estimate.beyondHorizon': 'Yli kaksi vuotta tällä tahdilla',

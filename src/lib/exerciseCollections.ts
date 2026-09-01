@@ -131,22 +131,50 @@ export function resolveCollectionProgress(
   return { done, total, nextExerciseName, percent: total > 0 ? Math.round((done / total) * 100) : 0 };
 }
 
+/** Which of the three a library card is showing. */
+export type LibraryCollectionState = 'inProgress' | 'notStarted' | 'done';
+
+export interface PickedLibraryCollection {
+  collection: ExerciseCollection;
+  progress: CollectionProgress;
+  state: LibraryCollectionState;
+}
+
 /**
- * The one to offer a way back into, from the library.
+ * The course the library offers, and which of the three states it is in.
  *
- * Started but not finished beats untouched: a course you have begun is the one
- * you meant to come back to. With nothing started there is nothing to pick up,
- * and the card does not appear rather than pointing at a course the reader has
- * never opened.
+ * This used to be `findCollectionInProgress`, which returned a collection only
+ * while `0 < done < total` — and the library nested the "All courses" link
+ * inside the block that rendered on it. So the only door into Learn was open
+ * exclusively to a reader already part-way through a course: not a fresh
+ * install, where nothing is learned and the whole feature was invisible, and
+ * not a reader who finished one, where the door closed again behind them.
+ *
+ * So a course always comes back when there is one, and the caller says
+ * different words over it. Started-but-unfinished still wins — that is the one
+ * you meant to come back to — then untouched, and a finished course last,
+ * because "learn this" beats "you already did".
  */
-export function findCollectionInProgress(
+export function pickLibraryCollection(
   collections: ExerciseCollection[],
   isLearned: (exerciseName: string) => boolean,
-): { collection: ExerciseCollection; progress: CollectionProgress } | null {
-  for (const collection of collections) {
+): PickedLibraryCollection | null {
+  const scored = collections.map((collection) => {
     const progress = resolveCollectionProgress(collection, isLearned);
-    if (progress.done > 0 && progress.done < progress.total) {
-      return { collection, progress };
+    const state: LibraryCollectionState =
+      progress.total > 0 && progress.done >= progress.total
+        ? 'done'
+        : progress.done > 0
+          ? 'inProgress'
+          : 'notStarted';
+    return { collection, progress, state };
+  });
+
+  const ORDER: LibraryCollectionState[] = ['inProgress', 'notStarted', 'done'];
+  for (const state of ORDER) {
+    const hit = scored.find((entry) => entry.state === state);
+    if (hit) {
+      return hit;
     }
   }
   return null;

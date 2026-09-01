@@ -4,7 +4,7 @@ const {
   getExerciseCollections,
   getExerciseCollection,
   resolveCollectionProgress,
-  findCollectionInProgress,
+  pickLibraryCollection,
   EXERCISE_COLLECTION_TABLES,
 } = require('../../.test-dist/lib/exerciseCollections.js');
 const { createSeedExerciseLibrary } = require('../../.test-dist/data/seed.js');
@@ -143,22 +143,76 @@ module.exports = [
   },
   {
     /**
-     * The library only offers a way back into a course that was actually
-     * begun. Pointing at one the reader has never opened would be an
-     * advertisement wearing the words "pick up where you left off".
+     * A course comes back in ALL THREE states, and this case exists because
+     * the old rule was the opposite.
+     *
+     * `findCollectionInProgress` returned null unless 0 < done < total, and
+     * this suite asserted that as correct — "nothing started" and "nothing
+     * left" both null. The library nested its only door into Learn inside the
+     * block that rendered on it, so the feature was invisible on a fresh
+     * install, where done is 0 for every course, and the door shut again
+     * behind anyone who finished one. The test was encoding the bug.
+     *
+     * The card names its own state now, so the heading can say different words
+     * over it rather than the card vanishing.
      */
-    name: 'collections: only a started, unfinished course is picked up',
+    name: 'collections: a course is offered whether or not it was begun',
     run() {
       const collections = getExerciseCollections('en');
 
-      assert.equal(findCollectionInProgress(collections, () => false), null, 'nothing started');
-      assert.equal(findCollectionInProgress(collections, () => true), null, 'nothing left');
+      const fresh = pickLibraryCollection(collections, () => false);
+      assert.ok(fresh, 'a fresh install had no way into Learn');
+      assert.equal(fresh.state, 'notStarted');
+      assert.equal(fresh.progress.done, 0);
+      assert.equal(fresh.progress.percent, 0);
 
-      const started = findCollectionInProgress(collections, (name) => name === 'Barbell Squat');
+      const finished = pickLibraryCollection(collections, () => true);
+      assert.ok(finished, 'finishing the course closed the door behind it');
+      assert.equal(finished.state, 'done');
+      assert.equal(finished.progress.done, finished.progress.total);
+
+      const started = pickLibraryCollection(collections, (name) => name === 'Barbell Squat');
       assert.ok(started);
+      assert.equal(started.state, 'inProgress');
       assert.equal(started.collection.id, 'six_lifts');
       assert.equal(started.progress.done, 1);
       assert.equal(started.progress.nextExerciseName, 'Barbell Deadlift');
+    },
+  },
+  {
+    /**
+     * Started-but-unfinished still wins, which is the half of the old rule
+     * worth keeping: it is the course you meant to come back to. Then
+     * untouched, and a finished one last — "learn this" beats "you already
+     * did". Built by hand because the app ships one course, so the ordering
+     * cannot be observed through the real table.
+     */
+    name: 'collections: an unfinished course outranks an untouched one',
+    run() {
+      const course = (id, names) => ({
+        id,
+        title: id,
+        blurb: '',
+        entries: names.map((exerciseName) => ({ exerciseName, lessonKey: null })),
+      });
+      const untouched = course('untouched', ['A', 'B']);
+      const started = course('started', ['C', 'D']);
+      const finished = course('finished', ['E']);
+      const learned = new Set(['C', 'E']);
+      const isLearned = (name) => learned.has(name);
+
+      // Order of the input must not decide it.
+      for (const order of [
+        [untouched, started, finished],
+        [finished, untouched, started],
+        [started, finished, untouched],
+      ]) {
+        assert.equal(pickLibraryCollection(order, isLearned).collection.id, 'started');
+      }
+
+      assert.equal(pickLibraryCollection([finished, untouched], isLearned).collection.id, 'untouched');
+      assert.equal(pickLibraryCollection([finished], isLearned).collection.id, 'finished');
+      assert.equal(pickLibraryCollection([], isLearned), null, 'no courses at all is null, not a crash');
     },
   },
   {

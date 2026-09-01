@@ -258,4 +258,94 @@ module.exports = [
       assert.ok(Number.isInteger(estimate.weeks) && estimate.weeks > 0);
     },
   },
+  {
+    /**
+     * Every estimate the library can return renders a sentence, in both
+     * languages.
+     *
+     * This exists because the same defect happened twice in a row, in opposite
+     * directions. First `goalFlow.estimate.reached` was written and no branch
+     * used it; then the 07 review read that as "a string no path can render"
+     * and DELETED it — but the path is reachable, by typing a target under
+     * your own best (isValidTarget takes any positive number to 1000, so a
+     * best of 140 and a typed 100 lands there). `t()` answers a missing key
+     * with undefined, and `<Text>{undefined}</Text>` is a blank line where the
+     * sentence should be. No crash, nothing in the logs.
+     *
+     * So the rule is driven, not grepped: run the real function into every
+     * kind it can produce, build the key the screen builds, and demand a
+     * non-empty string back.
+     *
+     * Both languages are read, but only the ENGLISH side is really held here:
+     * `t()` falls back to EN for a missing key, so dropping the Finnish one
+     * survives this case. `FI: Record<I18nKey, string>` is what catches that,
+     * at compile time — verified by deleting the Finnish key and watching
+     * TS2741. Nothing to duplicate; noted so the next reader does not trust
+     * this case for something it cannot see.
+     */
+    name: 'estimate: every kind the flow can reach renders a sentence',
+    run() {
+      const assert = require('node:assert/strict');
+      const { t } = require('../../.test-dist/lib/i18n.js');
+      const rate = { kgPerWeek: 1, gainKg: 6, spanWeeks: 6 };
+      const flat = { kgPerWeek: 0, gainKg: 0, spanWeeks: 6 };
+      const crawl = { kgPerWeek: 0.001, gainKg: 0.006, spanWeeks: 6 };
+
+      // best, target, rate -> the kind each is meant to produce.
+      const CASES = [
+        ['reached', [140, 100, rate]],
+        ['reached', [140, 140, rate]],
+        ['noRate', [100, 140, null]],
+        ['noGain', [100, 140, flat]],
+        ['beyondHorizon', [100, 140, crawl]],
+        ['weeks', [100, 140, rate]],
+      ];
+
+      const seen = new Set();
+      for (const [expected, args] of CASES) {
+        const estimate = estimateWeeksToTarget(...args);
+        assert.equal(estimate.kind, expected, `${args.join('/')} produced ${estimate.kind}`);
+        seen.add(estimate.kind);
+
+        for (const language of ['en', 'fi']) {
+          // The branch StrengthGoalFlowScreen takes for the card's title.
+          const title =
+            estimate.kind === 'weeks'
+              ? t(language, 'goalFlow.weeksAtRate', { weeks: estimate.weeks })
+              : t(language, `goalFlow.estimate.${estimate.kind}`);
+          assert.equal(
+            typeof title,
+            'string',
+            `${language}: ${estimate.kind} renders ${title} — the key is missing`,
+          );
+          assert.ok(title.trim().length > 0, `${language}: ${estimate.kind} renders blank`);
+          assert.doesNotMatch(title, /\{\w+\}/, `${language}: ${estimate.kind} left a placeholder unfilled`);
+        }
+      }
+
+      // And the list above must keep covering the union — a sixth kind added
+      // to WeeksToTarget with no case here would otherwise pass unnoticed.
+      const declared = io_kinds();
+      assert.deepEqual(
+        [...declared].sort(),
+        [...seen].sort(),
+        'estimateWeeksToTarget can return a kind this case never drives',
+      );
+    },
+  },
 ];
+
+/** The kinds declared on WeeksToTarget, read from the source of truth. */
+function io_kinds() {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'src', 'lib', 'strengthGoalPlan.ts'),
+    'utf8',
+  );
+  const union = source.slice(
+    source.indexOf('export type WeeksToTarget'),
+    source.indexOf('export function estimateWeeksToTarget'),
+  );
+  return new Set([...union.matchAll(/kind: '([a-zA-Z]+)'/g)].map((m) => m[1]));
+}
