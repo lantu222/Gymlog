@@ -13,6 +13,7 @@ import Svg, { Path } from 'react-native-svg';
 
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { t } from '../lib/i18n';
+import { isValidTarget } from '../lib/strengthGoals';
 import {
   describeStretch,
   estimateWeeksToTarget,
@@ -169,6 +170,15 @@ export function StrengthGoalFlowScreen({
   const [search, setSearch] = useState('');
   const [pickedName, setPickedName] = useState<string | null>(null);
   const [delta, setDelta] = useState<number>(TARGET_DELTAS_KG[1]);
+  /**
+   * The typed weight, for a lift with no best to add to.
+   *
+   * The deltas are deltas: +10 on a 92.5 kg bench is a target, and +10 on
+   * nothing is 10 kg, which is under the bar. A lift the reader has never
+   * logged has no number to add to, so they say the number — the flow does not
+   * invent a starting point to add to instead.
+   */
+  const [typedKg, setTypedKg] = useState('');
 
   /**
    * The footer sits above the keyboard, measured rather than inferred.
@@ -214,9 +224,11 @@ export function StrengthGoalFlowScreen({
    * a starting point.
    */
   const bestKg = picked?.bestKg ?? null;
-  const targetKg = (bestKg ?? 0) + delta;
-  const estimate = estimateWeeksToTarget(bestKg ?? 0, targetKg, picked?.rate ?? null);
-  const stretch = describeStretch(bestKg ?? 0, targetKg);
+  const typedTargetKg = Number.parseFloat(typedKg.replace(',', '.'));
+  const targetKg = bestKg === null ? typedTargetKg : bestKg + delta;
+  const targetUsable = bestKg === null ? isValidTarget(typedTargetKg) : true;
+  const estimate = estimateWeeksToTarget(bestKg ?? 0, targetUsable ? targetKg : 0, picked?.rate ?? null);
+  const stretch = describeStretch(bestKg ?? 0, targetUsable ? targetKg : 0);
   const proposal = picked ? getProposal(picked.exerciseName) : null;
 
   function goBack() {
@@ -349,31 +361,51 @@ export function StrengthGoalFlowScreen({
         />
         <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
           <View style={styles.numberCard}>
-            <View style={styles.numberLine}>
-              <Text style={styles.number}>{targetKg}</Text>
-              <Text style={styles.numberUnit}>{unitLabel}</Text>
-            </View>
-            <Text style={styles.numberDelta}>
-              {bestKg === null
-                ? t(language, 'goalFlow.deltaNoBest', { kg: delta, unit: unitLabel })
-                : t(language, 'goalFlow.deltaOnBest', { kg: delta, unit: unitLabel })}
-            </Text>
-            <View style={styles.deltaRow}>
-              {TARGET_DELTAS_KG.map((option) => {
-                const on = option === delta;
-                return (
-                  <Pressable
-                    key={option}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: on }}
-                    onPress={() => setDelta(option)}
-                    style={[styles.deltaChip, on && styles.deltaChipOn]}
-                  >
-                    <Text style={[styles.deltaChipText, on && styles.deltaChipTextOn]}>+{option}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            {bestKg === null ? (
+              <>
+                {/* Typed, not stepped. There is no best to add a delta to, and
+                    +10 on nothing is 10 kg — under the bar on most lifts. */}
+                <View style={styles.numberLine}>
+                  <TextInput
+                    value={typedKg}
+                    onChangeText={setTypedKg}
+                    keyboardType="numeric"
+                    placeholder="0"
+                    placeholderTextColor={theme.faint}
+                    style={styles.numberInput}
+                    accessibilityLabel={t(language, 'goalFlow.typeTarget')}
+                  />
+                  <Text style={styles.numberUnit}>{unitLabel}</Text>
+                </View>
+                <Text style={styles.numberDelta}>{t(language, 'goalFlow.typeTarget')}</Text>
+              </>
+            ) : (
+              <>
+                <View style={styles.numberLine}>
+                  <Text style={styles.number}>{targetKg}</Text>
+                  <Text style={styles.numberUnit}>{unitLabel}</Text>
+                </View>
+                <Text style={styles.numberDelta}>
+                  {t(language, 'goalFlow.deltaOnBest', { kg: delta, unit: unitLabel })}
+                </Text>
+                <View style={styles.deltaRow}>
+                  {TARGET_DELTAS_KG.map((option) => {
+                    const on = option === delta;
+                    return (
+                      <Pressable
+                        key={option}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: on }}
+                        onPress={() => setDelta(option)}
+                        style={[styles.deltaChip, on && styles.deltaChipOn]}
+                      >
+                        <Text style={[styles.deltaChipText, on && styles.deltaChipTextOn]}>+{option}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </>
+            )}
           </View>
 
           {/* The estimate, or the reason there is not one. Every branch is a
@@ -405,13 +437,22 @@ export function StrengthGoalFlowScreen({
             </View>
           ) : null}
         </ScrollView>
-        <View style={styles.footer}>
+        <View
+          style={[styles.footer, keyboardHeight > 0 && { paddingBottom: keyboardHeight + 12 }]}
+        >
           <Pressable
             accessibilityRole="button"
+            disabled={!targetUsable}
             onPress={() => setStep(3)}
-            style={({ pressed }) => [styles.cta, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.cta,
+              !targetUsable && styles.ctaDisabled,
+              pressed && targetUsable && styles.pressed,
+            ]}
           >
-            <Text style={styles.ctaText}>{t(language, 'goalFlow.buildWeeks')}</Text>
+            <Text style={[styles.ctaText, !targetUsable && styles.ctaTextDisabled]}>
+              {targetUsable ? t(language, 'goalFlow.buildWeeks') : t(language, 'goalFlow.typeTarget')}
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -719,6 +760,16 @@ const makeStyles = (theme: Theme) =>
       flexDirection: 'row',
       alignItems: 'baseline',
       gap: 6,
+    },
+    numberInput: {
+      minWidth: 120,
+      textAlign: 'center',
+      color: theme.ink,
+      fontSize: 58,
+      lineHeight: 66,
+      fontWeight: '800',
+      letterSpacing: -2,
+      paddingVertical: 0,
     },
     number: {
       color: theme.ink,
