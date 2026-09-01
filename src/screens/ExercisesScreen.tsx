@@ -10,11 +10,9 @@ import { AppLanguage, ExerciseLibraryItem } from '../types/models';
 
 interface ExercisesScreenProps {
   items: ExerciseLibraryItem[];
-  trackedIds?: string[];
   language?: AppLanguage;
   onBack?: () => void;
   onOpenExercise?: (item: ExerciseLibraryItem) => void;
-  onToggleTracked?: (item: ExerciseLibraryItem) => void;
   learnCollection?:
     | { id: string; title: string; done: number; total: number; percent: number; state: LibraryCollectionState }
     | null;
@@ -24,11 +22,9 @@ interface ExercisesScreenProps {
 
 export function ExercisesScreen({
   items,
-  trackedIds,
   language = 'en',
   onBack,
   onOpenExercise,
-  onToggleTracked,
   learnCollection = null,
   onOpenCollection,
   onOpenLearnIndex,
@@ -62,10 +58,8 @@ export function ExercisesScreen({
       ) : null}
       <ExerciseLibraryBrowser
         items={items}
-        trackedIds={trackedIds}
         language={language}
         onOpenItem={onOpenExercise}
-        onToggleTracked={onToggleTracked}
         learnCollection={learnCollection}
         onOpenCollection={onOpenCollection}
         onOpenLearnIndex={onOpenLearnIndex}

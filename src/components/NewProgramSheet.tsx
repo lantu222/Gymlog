@@ -61,6 +61,8 @@ interface NewProgramSheetProps {
    * reader's row as something they have not bought.
    */
   proUnlocked?: boolean;
+  /** Where the lock leads. Required for the row to lock at all. */
+  onOpenPaywall?: () => void;
   onImportProgram: (draft: WorkoutTemplateDraft) => Promise<void> | void;
   /**
    * A pasted Hevy export is HISTORY, not a programme — workouts already
@@ -141,6 +143,7 @@ export function NewProgramSheet({
   onBrowseCatalog,
   catalogCount = 0,
   proUnlocked = true,
+  onOpenPaywall,
   onImportProgram,
   onImportHistory,
   nameBook = [],
@@ -155,16 +158,20 @@ export function NewProgramSheet({
   const insets = useSafeAreaInsets();
   const [view, setView] = useState<'menu' | 'csv'>(initialView);
   /*
-   * The padlock is a LABEL, not a wall, and the difference is a free feature.
+   * A wall, not a label (user, 2026-09-01, reversing my own call of the same
+   * day). The row says what it costs and goes to the paywall.
    *
-   * Sending a locked reader to the paywall instead of the coach was measured
-   * to cut off something the chat gives away on purpose: any brief naming a
-   * days-per-week runs shouldOfferCatalogInstead first, and a matching ready
-   * programme comes back free — AICoachChatScreen checks it BEFORE its own Pro
-   * gate, and says so in a comment. So the row opens the coach either way, and
-   * the paywall stays where composing actually happens.
+   * The cost is real and was measured, so it is written down rather than
+   * discovered later: the coach answers a brief that names a days-per-week
+   * with a matching ready programme, free, checked before its own Pro gate.
+   * A free reader can no longer reach that answer THROUGH THIS ROW. They can
+   * still reach it — Home's "ask the coach" opens the same chat and is not
+   * gated — so what this closes is one door to it, not the answer.
+   *
+   * Locked only when there is somewhere to send them. A padlock in front of
+   * nothing is a row that does nothing, which is worse than the unlocked row.
    */
-  const aiLocked = !proUnlocked;
+  const aiLocked = !proUnlocked && Boolean(onOpenPaywall);
   const [csvText, setCsvText] = useState('');
   const defaultProgramName = t(language, 'csv.defaultName');
   const [programName, setProgramName] = useState(defaultProgramName);
@@ -337,6 +344,10 @@ export function NewProgramSheet({
                 accessibilityLabel={t(language, aiLocked ? 'csv.aiLockedA11y' : 'csv.aiA11y')}
                 onPress={() => {
                   handleClose();
+                  if (aiLocked) {
+                    onOpenPaywall?.();
+                    return;
+                  }
                   onAiAssisted();
                 }}
                 style={({ pressed }) => [styles.optionCard, pressed && styles.pressed]}
@@ -349,7 +360,13 @@ export function NewProgramSheet({
                     <Text style={styles.optionTitle}>{t(language, 'csv.ai')}</Text>
                     {aiLocked ? <ProPill /> : null}
                   </View>
+                  {/* The description stays: it is what makes the feature worth
+                      unlocking. The line under it says the price, so the
+                      padlock is not the only thing carrying that. */}
                   <Text style={styles.optionBody}>{t(language, 'csv.aiBody')}</Text>
+                  {aiLocked ? (
+                    <Text style={styles.optionUnlock}>{t(language, 'csv.aiUnlock')}</Text>
+                  ) : null}
                 </View>
                 {aiLocked ? <ProLockIcon color={theme.purple} size={18} /> : <Chevron />}
               </Pressable>
@@ -771,6 +788,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.ink,
     fontSize: 16,
     lineHeight: 20,
+    fontWeight: '800',
+  },
+  optionUnlock: {
+    marginTop: 4,
+    color: theme.purple,
+    fontSize: 12.5,
+    lineHeight: 17,
     fontWeight: '800',
   },
   optionBody: {

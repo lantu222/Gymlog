@@ -27,10 +27,8 @@ const CARD_IMAGE_WIDTH = 178;
 
 interface ExerciseLibraryBrowserProps {
   items: ExerciseLibraryItem[];
-  trackedIds?: string[];
   language?: AppLanguage;
   onOpenItem?: (item: ExerciseLibraryItem) => void;
-  onToggleTracked?: (item: ExerciseLibraryItem) => void;
   /**
    * The course this reader has begun and not finished, if there is one.
    *
@@ -137,21 +135,6 @@ function ListIcon({ color: colorProp, size = 14 }: { color?: string; size?: numb
   );
 }
 
-function StarGlyph({ active, size = 18 }: { active: boolean; size?: number }) {
-  const theme = useTheme();
-
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill={active ? theme.gold : 'none'}>
-      <Path
-        d="M12 3l2.6 5.5 6 .8-4.4 4.2 1.1 6L12 16.8 6.7 19.5l1.1-6L3.4 9.3l6-.8z"
-        stroke={active ? theme.gold : theme.faint}
-        strokeWidth={2}
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
 function DumbbellIcon({ color: colorProp, size = 22 }: { color?: string; size?: number }) {
   const theme = useTheme();
   const color = colorProp ?? theme.faint;
@@ -252,28 +235,14 @@ function LookButton({ label, onPress }: { label: string; onPress: () => void }) 
   );
 }
 
-function FavoriteStar({ active, onPress, framed }: { active: boolean; onPress?: () => void; framed?: boolean }) {
-  const styles = useThemedStyles(makeStyles);
-
-  return (
-    <Pressable onPress={onPress} disabled={!onPress} hitSlop={8} style={framed ? styles.starFrame : styles.starPlain}>
-      <StarGlyph active={active} size={framed ? 15 : 18} />
-    </Pressable>
-  );
-}
-
 function ExCard({
   item,
-  tracked,
   language,
   onOpen,
-  onToggleFavorite,
 }: {
   item: ExerciseLibraryItem;
-  tracked: boolean;
   language: AppLanguage;
   onOpen?: () => void;
-  onToggleFavorite?: () => void;
 }) {
   const styles = useThemedStyles(makeStyles);
 
@@ -282,7 +251,6 @@ function ExCard({
       <View style={styles.cardImageWrap}>
         <Thumb uri={getItemImage(item)} radius={0} width={CARD_IMAGE_WIDTH} height={104} />
         <View style={styles.cardStar}>
-          <FavoriteStar active={tracked} onPress={onToggleFavorite} framed />
         </View>
       </View>
       <View style={styles.cardBody}>
@@ -309,16 +277,12 @@ function ExCard({
 
 function ExRow({
   item,
-  tracked,
   language,
   onOpen,
-  onToggleFavorite,
 }: {
   item: ExerciseLibraryItem;
-  tracked: boolean;
   language: AppLanguage;
   onOpen?: () => void;
-  onToggleFavorite?: () => void;
 }) {
   const styles = useThemedStyles(makeStyles);
 
@@ -334,7 +298,6 @@ function ExRow({
           {libraryLabel(item.category, language)}
         </Text>
       </View>
-      <FavoriteStar active={tracked} onPress={onToggleFavorite} />
       {onOpen ? (
         <LookButton
           label={t(language, 'library.a11y.look', { name: exerciseNameLabel(language, item.name) })}
@@ -362,10 +325,8 @@ function SectionHead({ label, action, onAction }: { label: string; action?: stri
 
 export function ExerciseLibraryBrowser({
   items,
-  trackedIds = [],
   language = 'en',
   onOpenItem,
-  onToggleTracked,
   learnCollection = null,
   onOpenCollection,
   onOpenLearnIndex,
@@ -453,20 +414,14 @@ export function ExerciseLibraryBrowser({
 
   const activeFilterCount = (categoryFilter !== 'all' ? 1 : 0) + (equipmentFilter !== 'all' ? 1 : 0);
 
-  const trackedSet = useMemo(() => new Set(trackedIds), [trackedIds]);
-
   const popularItems = useMemo(
     () => orderedItems.filter((item) => commonOrder.has(item.id)).slice(0, 8),
     [commonOrder, orderedItems],
   );
-  const favoriteItems = useMemo(
-    () => orderedItems.filter((item) => trackedSet.has(item.id)).slice(0, 8),
-    [orderedItems, trackedSet],
-  );
   const suggestedItems = useMemo(() => {
-    const excluded = new Set([...popularItems.map((item) => item.id), ...favoriteItems.map((item) => item.id)]);
+    const excluded = new Set(popularItems.map((item) => item.id));
     return orderedItems.filter((item) => !excluded.has(item.id)).slice(0, 8);
-  }, [favoriteItems, orderedItems, popularItems]);
+  }, [orderedItems, popularItems]);
 
   const listItems = useMemo(
     () => orderedItems.slice(0, showDashboardSections ? 36 : undefined),
@@ -486,14 +441,6 @@ export function ExerciseLibraryBrowser({
     onOpenItem?.(item);
   }
 
-  function handleToggleFavorite(item: ExerciseLibraryItem) {
-    if (!onToggleTracked) {
-      return;
-    }
-    flash(trackedSet.has(item.id) ? 'Removed from tracked lifts' : 'Added to tracked lifts');
-    onToggleTracked(item);
-  }
-
   function renderRail(sectionItems: ExerciseLibraryItem[]) {
     return (
       <ScrollView
@@ -506,9 +453,7 @@ export function ExerciseLibraryBrowser({
           <ExCard language={language}
             key={item.id}
             item={item}
-            tracked={trackedSet.has(item.id)}
             onOpen={onOpenItem ? () => handleOpen(item) : undefined}
-            onToggleFavorite={onToggleTracked ? () => handleToggleFavorite(item) : undefined}
           />
         ))}
       </ScrollView>
@@ -697,20 +642,9 @@ export function ExerciseLibraryBrowser({
                   {renderRail(popularItems)}
                 </View>
 
-                <View style={styles.dashboardSection}>
-                  <SectionHead
-            label={t(language, 'library.favorites')}
-            action={favoriteItems.length ? t(language, 'programs.viewAll') : undefined}
-          />
-                  {favoriteItems.length ? (
-                    renderRail(favoriteItems)
-                  ) : (
-                    <View style={styles.emptyFavoriteCard}>
-                      <Text style={styles.emptyFavoriteTitle}>{t(language, 'library.noFavorites')}</Text>
-                      <Text style={styles.emptyFavoriteText}>{t(language, 'library.noFavoritesBody')}</Text>
-                    </View>
-                  )}
-                </View>
+                {/* The favourites rail went with the star (2026-09-01). It
+                    could only ever be empty until the reader found a control
+                    whose one effect was on a different tab entirely. */}
 
                 <View style={styles.dashboardSection}>
                   <SectionHead label={t(language, 'library.suggested')} action={t(language, 'programs.viewAll')} />
@@ -738,9 +672,7 @@ export function ExerciseLibraryBrowser({
         renderItem={({ item }) => (
           <ExRow language={language}
             item={item}
-            tracked={trackedSet.has(item.id)}
             onOpen={onOpenItem ? () => handleOpen(item) : undefined}
-            onToggleFavorite={onToggleTracked ? () => handleToggleFavorite(item) : undefined}
           />
         )}
         ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
@@ -958,25 +890,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingRight: 20,
     paddingVertical: 2,
   },
-  emptyFavoriteCard: {
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 16,
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-  },
-  emptyFavoriteTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: theme.ink,
-  },
-  emptyFavoriteText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: theme.muted,
-    marginTop: 4,
-  },
   card: {
     width: 180,
     backgroundColor: theme.surface,
@@ -1106,22 +1019,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
-  },
-  starFrame: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#140A28',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.18,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  starPlain: {
-    padding: 2,
   },
   summaryRow: {
     flexDirection: 'row',

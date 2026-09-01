@@ -564,7 +564,6 @@ export interface AppPreferences {
   lastInsightSessionId: string | null;
   lastInsightType: PostSessionInsightType | null;
   recommendedProgramId: string | null;
-  trackedExerciseLibraryItemIds: string[];
   /**
    * Lifts the reader has said they know, by library item id.
    *

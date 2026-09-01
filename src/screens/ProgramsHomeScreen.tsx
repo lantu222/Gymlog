@@ -220,6 +220,8 @@ interface ProgramsHomeScreenProps {
   catalogCount?: number;
   /** Whether AI-assisted composition is unlocked, or wears the padlock. */
   proUnlocked?: boolean;
+  /** Where the padlock leads. */
+  onOpenPaywall?: () => void;
   onImportProgram: (draft: WorkoutTemplateDraft) => Promise<void> | void;
   exerciseLibraryEntries: CsvLibraryEntry[];
   /** The reader's own lift names, for the CSV importer's matcher. */
@@ -758,6 +760,7 @@ export function ProgramsHomeScreen({
   onBrowseCatalog,
   catalogCount = 0,
   proUnlocked = true,
+  onOpenPaywall,
   onImportProgram,
   exerciseLibraryEntries,
   nameBook,
@@ -920,12 +923,46 @@ export function ProgramsHomeScreen({
           <View>
             <View style={styles.sectionHeadRow}>
               <Text style={styles.sectionEyebrow}>{t(language, 'programs.goals')}</Text>
-              <Pressable onPress={onOpenGoalPicker} hitSlop={8}>
-                <Text style={styles.sectionLink}>{t(language, 'programs.goals.add')}</Text>
-              </Pressable>
+              {/* Only when there IS one. Empty, the card below carries the
+                  same door as a button you cannot miss, and two of them beside
+                  each other is the duplicate this tab keeps growing. */}
+              {goals.length > 0 ? (
+                <Pressable onPress={onOpenGoalPicker} hitSlop={8}>
+                  <Text style={styles.sectionLink}>{t(language, 'programs.goals.add')}</Text>
+                </Pressable>
+              ) : null}
             </View>
             {goals.length === 0 ? (
-              <Text style={styles.seasonLead}>{t(language, 'programs.goals.empty')}</Text>
+              /* Was one line of grey prose under the heading, which read as a
+                 caption rather than as something to do. It is the same shape
+                 as a target now — same surface, same speed line — so the
+                 section looks like itself before there is anything in it. */
+              <CutSurface
+                size="lg"
+                fill={theme.surface}
+                stroke={theme.border}
+                strokeWidth={1}
+                speedLine={{ color: theme.purpleBright }}
+                style={styles.goalEmpty}
+              >
+                <Text style={styles.goalEmptyTitle}>{t(language, 'programs.goals.emptyTitle')}</Text>
+                <Text style={styles.goalEmptyBody}>{t(language, 'programs.goals.empty')}</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={onOpenGoalPicker}
+                  style={({ pressed }) => [styles.goalEmptyCta, pressed && styles.pressed]}
+                >
+                  <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M12 5v14M5 12h14"
+                      stroke={theme.onHighlight}
+                      strokeWidth={2.6}
+                      strokeLinecap="round"
+                    />
+                  </Svg>
+                  <Text style={styles.goalEmptyCtaText}>{t(language, 'programs.goals.add')}</Text>
+                </Pressable>
+              </CutSurface>
             ) : (
               <View style={styles.goalList}>
                 {goals.map((entry) => {
@@ -1375,6 +1412,7 @@ export function ProgramsHomeScreen({
         onBrowseCatalog={onBrowseCatalog}
         catalogCount={catalogCount}
         proUnlocked={proUnlocked}
+        onOpenPaywall={onOpenPaywall}
         onBuildYourself={onCreateProgram}
         onImportProgram={onImportProgram}
       />
@@ -1550,6 +1588,41 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingLeft: 24,
     paddingRight: 14,
   },
+  goalEmpty: {
+    paddingVertical: 16,
+    paddingLeft: 24,
+    paddingRight: 16,
+    gap: 8,
+  },
+  goalEmptyTitle: {
+    color: theme.ink,
+    fontSize: 16.5,
+    lineHeight: 21,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  goalEmptyBody: {
+    color: theme.muted,
+    fontSize: 12.5,
+    lineHeight: 17.5,
+    fontWeight: '600',
+  },
+  goalEmptyCta: {
+    marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: theme.highlight,
+  },
+  goalEmptyCtaText: {
+    color: theme.onHighlight,
+    fontSize: 14.5,
+    lineHeight: 19,
+    fontWeight: '800',
+  },
   goalRemove: {
     width: 26,
     height: 26,
@@ -1607,15 +1680,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
     lineHeight: 15,
     color: theme.purple,
-  },
-  seasonLead: {
-    marginTop: -4,
-    marginBottom: 10,
-    paddingHorizontal: 20,
-    fontSize: 12.5,
-    fontWeight: '600',
-    lineHeight: 18,
-    color: theme.muted,
   },
   // ── Rotating campaign hero ───────────────────────────────────────────
   campaignBlock: {

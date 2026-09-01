@@ -750,7 +750,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         item={exercise}
         history={getExerciseProgressForName(database, exercise.name)}
         unitPreference={unitPreference}
-        tracked={preferences.trackedExerciseLibraryItemIds.includes(exercise.id)}
         // Decides whether this lift's caution is for this reader.
         cautionFlags={preferences.setupCautionFlags}
         checkedStatements={preferences.exerciseTechniqueChecks[exercise.id] ?? []}
@@ -783,14 +782,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           }
         }}
         onBack={() => navigateBack(ROOT_ROUTES.workout)}
-        onToggleTracked={(item) => {
-          const trackedIds = preferences.trackedExerciseLibraryItemIds;
-          const nextTrackedIds = trackedIds.includes(item.id)
-            ? trackedIds.filter((id) => id !== item.id)
-            : [...trackedIds, item.id];
-
-          void updatePreferences({ trackedExerciseLibraryItemIds: nextTrackedIds });
-        }}
       />
     ) : (
       <View />
@@ -973,6 +964,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         onBrowseCatalog={() => navigate({ tab: 'workout', screen: 'catalog' })}
         catalogCount={programsCatalogItems.length}
         proUnlocked={proUnlocked}
+        onOpenPaywall={() => navigate({ tab: 'profile', screen: 'premium' })}
         onImportProgram={async (draft) => {
           const workoutTemplateId = await upsertWorkoutTemplate(draft);
           navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
@@ -1056,7 +1048,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         language={preferences.appLanguage}
         onBack={() => navigateBack({ tab: 'workout', screen: 'programs_home' })}
         items={exerciseBrowserItems}
-        trackedIds={preferences.trackedExerciseLibraryItemIds}
         onOpenExercise={(item) => navigate({ tab: 'workout', screen: 'detail', exerciseId: item.id })}
         learnCollection={(() => {
           const picked = pickLibraryCollection(
@@ -1078,14 +1069,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           navigate({ tab: 'workout', screen: 'collection', collectionId })
         }
         onOpenLearnIndex={() => navigate({ tab: 'workout', screen: 'learn' })}
-        onToggleTracked={(item) => {
-          const trackedIds = preferences.trackedExerciseLibraryItemIds;
-          const nextTrackedIds = trackedIds.includes(item.id)
-            ? trackedIds.filter((id) => id !== item.id)
-            : [...trackedIds, item.id];
-
-          void updatePreferences({ trackedExerciseLibraryItemIds: nextTrackedIds });
-        }}
       />
     );
   }

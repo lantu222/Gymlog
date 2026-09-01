@@ -107,6 +107,8 @@ interface TrainingPlanScreenProps {
   catalogCount?: number;
   /** Whether AI-assisted composition is unlocked, or wears the padlock. */
   proUnlocked?: boolean;
+  /** Where the padlock leads. */
+  onOpenPaywall?: () => void;
   onBuildYourself: () => void;
   onImportProgram: (draft: WorkoutTemplateDraft) => Promise<void> | void;
 }
@@ -150,6 +152,7 @@ export function TrainingPlanScreen({
   onBrowseCatalog,
   catalogCount = 0,
   proUnlocked = true,
+  onOpenPaywall,
   onBuildYourself,
   onImportProgram,
 }: TrainingPlanScreenProps) {
@@ -549,6 +552,7 @@ export function TrainingPlanScreen({
         }
         catalogCount={catalogCount}
         proUnlocked={proUnlocked}
+        onOpenPaywall={onOpenPaywall}
         onBuildYourself={() => {
           setCreateOpen(false);
           onBuildYourself();

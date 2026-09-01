@@ -7,13 +7,13 @@ function set(reps, weight, status) {
   return { orderIndex: 0, weight, reps, kind: 'working', outcome: null, status, effort: null, completedAt: null, skippedReason: null };
 }
 
-function db(logs) {
+function db(logs, strengthGoals = []) {
   return {
     exerciseTemplates: [],
     exerciseLibrary: [],
     workoutSessions: [{ id: 's1', performedAt: new Date(2026, 7, 6, 12).toISOString() }],
     exerciseLogs: logs,
-    preferences: { trackedExerciseLibraryItemIds: [] },
+    preferences: { strengthGoals },
   };
 }
 
@@ -75,6 +75,8 @@ module.exports = [
     },
   },
   {
+    // Nothing seeds this lift now that the library's star is gone: only a
+    // TARGET puts an unlogged lift on Progress, and there is none here.
     name: 'a lift that was only ever put on the board is not tracked at all',
     run() {
       const summaries = getTrackedExerciseProgress(
@@ -93,6 +95,51 @@ module.exports = [
         ]),
       );
       assert.deepEqual(summaries, [], 'it appeared in the list reading "0 kg x 0"');
+    },
+  },
+  {
+    /**
+     * A target puts its lift on Progress before the first session.
+     *
+     * This was the library's star, whose only effect was this line — a control
+     * on one tab that changed another, and which asked for nothing back. It is
+     * a target now, so the empty row arrives with a number to move towards
+     * (user, 2026-09-01).
+     */
+    name: 'a lift you have set a target on is tracked before you have logged it',
+    run() {
+      const withGoal = getTrackedExerciseProgress(
+        db([], [{ exerciseName: 'Barbell Squat', targetKg: 140, createdAt: '2026-09-01T00:00:00.000Z' }]),
+      );
+      assert.equal(withGoal.length, 1, 'a target did not put its lift on Progress');
+      assert.equal(withGoal[0].name, 'Barbell Squat');
+      assert.deepEqual(withGoal[0].logs, [], 'the row is there, with nothing logged yet');
+      assert.equal(withGoal[0].latestWeight, null, 'an unlogged lift must not read as 0 kg');
+
+      // And a target on a lift already logged does not double it.
+      const logged = getTrackedExerciseProgress(
+        db(
+          [
+            {
+              id: 'l1',
+              sessionId: 's1',
+              exerciseNameSnapshot: 'Barbell Squat',
+              weight: 100,
+              repsPerSet: [5],
+              sets: [set(5, 100, 'completed')],
+              tracked: true,
+              skipped: false,
+              status: 'completed',
+            },
+          ],
+          [{ exerciseName: 'Barbell Squat', targetKg: 140, createdAt: '2026-09-01T00:00:00.000Z' }],
+        ),
+      );
+      assert.equal(logged.length, 1, 'the target added a second row for a lift already there');
+      assert.equal(logged[0].logs.length, 1);
+
+      // No target, no logs, no row — the star used to be able to make one.
+      assert.deepEqual(getTrackedExerciseProgress(db([], [])), []);
     },
   },
 ];

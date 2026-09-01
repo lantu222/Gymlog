@@ -383,31 +383,32 @@ module.exports = [
 
       // AI-assisted wears the Pro lock (user, 2026-09-01, reversing the
       // earlier "the chat, for everyone" call).
-      assert.match(sheet, /const aiLocked = !proUnlocked;/);
+      assert.match(sheet, /const aiLocked = !proUnlocked && Boolean\(onOpenPaywall\);/);
       assert.match(sheet, /\{aiLocked \? <ProPill \/> : null\}/);
       assert.match(sheet, /aiLocked \? <ProLockIcon/);
-      // But it MARKS, it does not wall. Routing a locked reader to the paywall
-      // cut off something the coach gives away on purpose: any brief naming a
-      // days-per-week gets a matching ready programme back, free, checked
-      // before AICoachChatScreen's own Pro gate. The row opens the coach
-      // whether or not it wears the padlock, and composing is where the
-      // paywall lives.
-      assert.doesNotMatch(sheet, /onOpenPaywall/);
-      assert.match(
-        sheet,
-        /onPress=\{\(\) => \{\s+handleClose\(\);\s+onAiAssisted\(\);/,
-        'the AI row stopped opening the coach',
-      );
+
+      // And it WALLS (user, 2026-09-01, reversing my own call of the same
+      // day). The row says the price in words as well as with a padlock, and
+      // goes to the paywall instead of the coach.
+      assert.match(sheet, /t\(language, 'csv\.aiUnlock'\)/);
+      assert.match(i18nSource, /'csv\.aiUnlock':/);
+      assert.match(sheet, /if \(aiLocked\) \{\s+onOpenPaywall\?\.\(\);/);
+
+      // The cost of that is real and stays measured: the coach answers a brief
+      // naming a days-per-week with a matching ready programme, free, before
+      // its own Pro gate. This row no longer reaches it — Home's own "ask the
+      // coach" still does, and that is what keeps the free answer reachable.
       const chat = read('src', 'screens', 'AICoachChatScreen.tsx');
       const catalogFirst = chat.indexOf('shouldOfferCatalogInstead(signals)');
       const proGate = chat.indexOf('if (!proUnlocked) {');
       assert.ok(catalogFirst > 0 && proGate > 0, 'the compose handler was restructured — recheck by hand');
-      assert.ok(
-        catalogFirst < proGate,
-        'the free catalog answer no longer runs before the Pro gate, so the padlock now costs a free feature',
+      assert.ok(catalogFirst < proGate, 'the free catalog answer no longer runs before the Pro gate');
+      assert.match(
+        read('src', 'app', 'renderHomeScreens.tsx'),
+        /onAskCoach=\{\(\) => navigate\(\{ tab: 'home', screen: 'ai_chat' \}\)\}/,
+        'Home lost the ungated door to the coach, so the free answer has none',
       );
-      // Defaulting to unlocked, so a caller that forgets cannot mark a paying
-      // reader's row as something they have not bought.
+
       assert.match(sheet, /proUnlocked = true,/);
 
       // BOTH callers that open the menu are. The sheet is one component, so
@@ -424,6 +425,11 @@ module.exports = [
         // And the lock, for the same reason: one sheet must not mark the
         // composer Pro from one entry point and say nothing from the other.
         assert.match(source, /proUnlocked=\{proUnlocked\}/, `${tab} opens the sheet unmarked`);
+        assert.match(
+          source,
+          /onOpenPaywall=\{\(\) => navigate\(\{ tab: 'profile', screen: 'premium' \}\)\}/,
+          `${tab} locks the row with no paywall behind it`,
+        );
       }
       const workoutTab = read('src', 'app', 'renderWorkoutTab.tsx');
       assert.match(workoutTab, /<CatalogScreen/);
@@ -586,6 +592,18 @@ module.exports = [
       assert.match(home, /styles\.goalRemove/);
       assert.match(home, /stroke=\{theme\.danger\}/);
       assert.match(home, /onPress=\{\(\) => onRemoveGoal\(entry\.goal\.exerciseName\)\}/);
+
+      // With no target the section is a card, not a caption. One line of grey
+      // prose under a heading reads as an explanation of the heading; this has
+      // a title, the same surface and speed line a real target wears, and a
+      // filled button (user 2026-09-01).
+      assert.match(home, /styles\.goalEmptyCta/);
+      assert.match(home, /backgroundColor: theme\.highlight/);
+      assert.match(home, /t\(language, 'programs\.goals\.emptyTitle'\)/);
+      assert.match(i18nSource, /'programs\.goals\.emptyTitle':/);
+      // And the header link hides while the card is showing: two doors to the
+      // same picker, side by side, is the duplicate this tab keeps growing.
+      assert.match(home, /\{goals\.length > 0 \? \(/);
 
       // Every tier's footer reserves the same lines, so the button does not
       // move between tabs. Free has neither a plan sub-line nor recurring

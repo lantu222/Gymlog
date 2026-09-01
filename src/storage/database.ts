@@ -1105,12 +1105,6 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
         typeof input?.preferences?.recommendedProgramId === 'string' || input?.preferences?.recommendedProgramId === null
           ? input.preferences.recommendedProgramId
           : fallback.preferences.recommendedProgramId,
-      trackedExerciseLibraryItemIds:
-        Array.isArray(input?.preferences?.trackedExerciseLibraryItemIds)
-          ? input.preferences.trackedExerciseLibraryItemIds.filter(
-              (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0,
-            )
-          : fallback.preferences.trackedExerciseLibraryItemIds,
       // Both rules live in src/lib so a test can call them: this file reaches
       // AsyncStorage, and AsyncStorage reaches React Native.
       learnedExerciseLibraryItemIds: normalizeLearnedExerciseIds(

@@ -39,11 +39,9 @@ const DETAIL_LABEL_KEYS: Record<string, I18nKey> = {
 interface ExerciseDetailScreenProps {
   item: ExerciseLibraryItem;
   history?: ExerciseProgressSummary | null;
-  tracked?: boolean;
   unitPreference?: UnitPreference;
   language?: AppLanguage;
   onBack: () => void;
-  onToggleTracked?: (item: ExerciseLibraryItem) => void;
   /**
    * What the reader flagged in setup. Only used to decide whether this lift's
    * caution is for them — a warning everyone sees is furniture.
@@ -101,20 +99,6 @@ function ChevronLeftIcon() {
   );
 }
 
-function StarIcon({ active }: { active: boolean }) {
-  const theme = useTheme();
-
-  return (
-    <Svg width={19} height={19} viewBox="0 0 24 24" fill={active ? theme.gold : 'none'}>
-      <Path
-        d="M12 3l2.6 5.5 6 .8-4.4 4.2 1.1 6L12 16.8 6.7 19.5l1.1-6L3.4 9.3l6-.8z"
-        stroke={active ? theme.gold : theme.muted}
-        strokeWidth={2}
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
 
 function DumbbellIcon({ color: colorProp, size = 30 }: { color?: string; size?: number }) {
   const theme = useTheme();
@@ -225,11 +209,9 @@ function StatCard({ label, value, meta }: { label: string; value: string; meta?:
 export function ExerciseDetailScreen({
   item,
   history = null,
-  tracked = false,
   unitPreference = 'kg',
   language = 'en',
   onBack,
-  onToggleTracked,
   cautionFlags = [],
   onOpenExercise,
   checkedStatements = [],
@@ -269,14 +251,6 @@ export function ExerciseDetailScreen({
   const teaching = getExerciseTeaching(item.name, language);
   const caution = shouldShowTeachingCaution(teaching?.caution, cautionFlags) ? teaching?.caution : null;
   const remainingChecks = teaching ? countRemainingStatements(teaching.check.length, checkedStatements) : 0;
-
-  const handleToggleTracked = () => {
-    if (!onToggleTracked) {
-      return;
-    }
-    flash(t(language, tracked ? 'exDetail.untracked' : 'exDetail.tracked'));
-    onToggleTracked(item);
-  };
 
   const bodyPartLabel = toLabel(item.bodyPart, language) || t(language, 'facet.fullBody');
   const equipmentLabel =
@@ -323,14 +297,11 @@ export function ExerciseDetailScreen({
           <ChevronLeftIcon />
         </Pressable>
         <Text style={styles.topBarTitle}>{t(language, 'exDetail.title')}</Text>
-        <Pressable
-          onPress={handleToggleTracked}
-          disabled={!onToggleTracked}
-          hitSlop={8}
-          style={styles.iconButton}
-        >
-          <StarIcon active={tracked} />
-        </Pressable>
+        {/* The star was here too, and it went with the library's
+            (2026-09-01). Its one effect — putting the lift on Progress before
+            it had been logged — belongs to a target now, which names a number
+            with it. The spacer keeps the title centred. */}
+        <View style={styles.iconButton} />
       </View>
 
       <ScrollView
