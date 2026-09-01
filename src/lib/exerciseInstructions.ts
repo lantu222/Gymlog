@@ -85,6 +85,16 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
     'Rullaa tanko suoraan lantion päälle ja nojaa penkkiin niin, että lapaluut ovat sen yläreunan kohdalla.',
     'Työnnä jalkaterillä ja ojenna lantio ylös tangon läpi. Paino on lapaluilla ja jalkaterillä. Ojenna niin ylös kuin pystyt ja palaa hallitusti alas.',
   ],
+  'Burpee': [
+    'Seiso suorassa, laskeudu kyykkyyn ja aseta molemmat kämmenet lattiaan jalkaterien ulkopuolelle.',
+    'Hyppää tai kävele jalat taakse punnerrusasentoon, laske rintakehä lattiaan ja punnerra takaisin ylös.',
+    'Hyppää jalat takaisin käsien viereen ja nouse hyppyyn kädet ylhäällä. Laskeudu pehmeästi ja jatka suoraan seuraavaan toistoon.',
+  ],
+  'Kettlebell Swing': [
+    'Aseta kahvakuula lattialle noin jalan päähän eteesi, jalat hieman lantiota leveämmällä. Työnnä lantio taakse selkä suorana ja ota kahvasta molemmin käsin.',
+    'Heilauta kuula jalkojen välistä taakse ja ojenna lantio räjähtävästi eteen. Kädet vain ohjaavat — työn tekee lantio, ja kuula nousee itsestään rintakehän korkeudelle.',
+    'Anna kuulan pudota takaisin jalkojen väliin lantio taakse työntäen ja jatka suoraan seuraavaan toistoon. Selkä pysyy suorana ensimmäisestä toistosta viimeiseen.',
+  ],
   'Machine Hip Thrust': [
     'Asetu laitteeseen selkä tukea vasten ja lantiotyyny tai -tanko lantion päälle, aivan lonkkaluiden alapuolelle.',
     'Säädä istuin niin, että sääret ovat pystysuorassa liikkeen yläasennossa, ja työnnä kantapäillä lantio ylös.',

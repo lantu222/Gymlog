@@ -37,4 +37,48 @@ export const EXTRA_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
       'Squeeze the glutes at the top without arching your lower back, then lower under control until the weight is almost resting.',
     ],
   },
+  {
+    // The two-handed swing. Four ready programmes prescribe "Kettlebell Swing"
+    // and the only thing upstream carries is "One-Arm Kettlebell Swings" —
+    // which the matcher reached, and which ships with an EMPTY instruction
+    // list. So the reader was sent to a one-arm variation and then shown
+    // nothing at all about how to do it.
+    //
+    // Not an alias: one arm and two is a different hinge, a different load
+    // path and a different rep count, and the programmes ask for twenty.
+    id: 'extra_kettlebell_swing',
+    name: 'Kettlebell Swing',
+    category: 'compound',
+    bodyPart: 'full body',
+    // The upstream library maps all 45 of its kettlebell movements to
+    // 'dumbbell' and keeps "kettlebells" in sourceEquipment; the enum has no
+    // kettlebell. Matching that keeps the equipment filter honest.
+    equipment: 'dumbbell',
+    sourceEquipment: 'kettlebells',
+    primaryMuscles: ['glutes', 'hamstrings'],
+    secondaryMuscles: ['lower back', 'shoulders'],
+    instructions: [
+      'Stand with the kettlebell on the floor about a foot in front of you, feet a little wider than your hips. Hinge at the hips with a flat back and take the handle with both hands.',
+      'Hike the bell back between your legs, then snap the hips forward to swing it up. The arms only steer — the hips do the work, and the bell floats to chest height on its own.',
+      'Let it fall back between the legs as the hips hinge again, and go straight into the next rep. The back stays flat from the first rep to the last.',
+    ],
+  },
+  {
+    // Prescribed by three ready programmes and absent from the library
+    // entirely, so it resolved to nothing: no photo, no steps, no swap list.
+    // The upstream database has burpee variations under other names but no
+    // plain burpee, which is the one the programmes actually ask for.
+    id: 'extra_burpee',
+    name: 'Burpee',
+    category: 'compound',
+    bodyPart: 'full body',
+    equipment: 'bodyweight',
+    primaryMuscles: ['quadriceps', 'chest'],
+    secondaryMuscles: ['shoulders', 'abdominals'],
+    instructions: [
+      'From standing, drop into a squat and plant both hands on the floor just outside your feet.',
+      'Jump or step the feet back into a push-up position, lower the chest to the floor, then press back up.',
+      'Jump the feet back under you and stand up into a jump with the arms overhead. Land soft and go straight into the next rep.',
+    ],
+  },
 ];
