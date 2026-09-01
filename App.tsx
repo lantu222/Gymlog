@@ -4642,7 +4642,25 @@ function VinhaApp() {
         libraryNames,
         reader: { level: preferences.setupLevel, daysPerWeek: preferences.setupDaysPerWeek },
       });
-      const best = ranked.find((match) => match.primary);
+      /*
+       * A strength target wants a strength programme.
+       *
+       * rankProgrammesForLift orders by how central the lift is and then by
+       * how well the week fits the reader — which it should, it serves the
+       * browse surfaces too. It knows nothing about goalType, so "squat 140
+       * kg" came back as SHRED Elite: a five-day conditioning block that
+       * happens to squat on day one and happens to match a five-day reader.
+       * Six programmes were tied at one squat day and the fat-loss one won on
+       * calendar fit alone.
+       *
+       * Among the primary matches, the ones built for strength go first. Order
+       * within each group is the ranker's, so the reader's week still decides
+       * between two strength programmes.
+       */
+      const primary = ranked.filter((match) => match.primary);
+      const best =
+        primary.find((match) => getWorkoutTemplateById(match.id)?.goalType === 'strength') ??
+        primary[0];
       const template = best ? getWorkoutTemplateById(best.id) : null;
       if (!best || !template) {
         return null;

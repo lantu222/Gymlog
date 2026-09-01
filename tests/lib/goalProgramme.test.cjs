@@ -7,7 +7,10 @@ const {
   rankProgrammesForLift,
 } = require('../../.test-dist/lib/goalProgramme.js');
 const { STRENGTH_GOAL_PRESETS } = require('../../.test-dist/lib/strengthGoalPresets.js');
-const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog.js');
+const {
+  WORKOUT_TEMPLATES_V1,
+  getWorkoutTemplateById,
+} = require('../../.test-dist/features/workout/workoutCatalog.js');
 const library = Object.values(require('../../.test-dist/data/generatedExerciseLibrary.js'))[0];
 const libraryNames = library.map((item) => item.name);
 
@@ -61,6 +64,40 @@ module.exports = [
         ranked.map((match) => match.id),
         ['twiceB', 'twice', 'once', 'acc'],
       );
+    },
+  },
+  {
+    /**
+     * A strength target gets a strength programme where one exists.
+     *
+     * rankProgrammesForLift knows nothing about goalType — correctly, it
+     * serves the browse surfaces too — so "squat 140 kg" came back as SHRED
+     * Elite: a conditioning block that squats on day one and happened to match
+     * a five-day reader. Six programmes were tied at one squat day and the
+     * fat-loss one won on calendar fit alone. The flow re-sorts by goal before
+     * it picks.
+     */
+    name: 'a strength target is not answered with a conditioning block',
+    run() {
+      const reader = { level: 'pro', daysPerWeek: 5 };
+      for (const lift of ['Barbell Squat', 'Barbell Deadlift', 'Barbell Bench Press - Medium Grip']) {
+        const primary = rankProgrammesForLift(WORKOUT_TEMPLATES_V1, lift, {
+          libraryNames,
+          reader,
+        }).filter((match) => match.primary);
+        assert.ok(primary.length > 0, `${lift}: nothing trains it as a main lift`);
+
+        // The flow's own choice: strength first, the ranker's order within.
+        const chosen =
+          primary.find((match) => getWorkoutTemplateById(match.id)?.goalType === 'strength') ??
+          primary[0];
+        const template = getWorkoutTemplateById(chosen.id);
+        assert.equal(
+          template.goalType,
+          'strength',
+          `${lift}: the best answer is ${template.name}, a ${template.goalType} programme`,
+        );
+      }
     },
   },
   {
