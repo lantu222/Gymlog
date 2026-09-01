@@ -1217,13 +1217,70 @@ const EXERCISE_NAME_FI: Record<string, string> = {
   'Zottman Preacher Curl': 'Zottman-saarnaajakääntö',
 };
 
+/**
+ * What a lifter calls the lift, in English.
+ *
+ * The library ships from a public exercise database, and the database is
+ * pedantic where a gym is not: "Barbell Bench Press - Medium Grip" is the
+ * bench press, "Barbell Full Squat" is the squat, "Pullups" is a pull-up. The
+ * stored English name stays the id — everything matches, filters and swaps on
+ * it — and only the label moves, exactly as the Finnish table does.
+ *
+ * Every entry here is the SAME lift said plainly. That is the whole rule, and
+ * it is why this is hand-written rather than inverted out of
+ * GUIDED_LIBRARY_ALIASES: that table maps a catalog name onto the nearest
+ * library row it can train with, so inverting it would rename Hanging Leg
+ * Raise to "hanging knee raise" and Split Squats to "bulgarian split squat" —
+ * different exercises wearing each other's names.
+ *
+ * Covers the lifts a reader meets as a headline first — the ten target lifts
+ * and the common barbell and machine work — and grows from there, the same
+ * rule the instructions and the Finnish names already follow.
+ */
+const EXERCISE_NAME_EN: Record<string, string> = {
+  // ── The target lifts ─────────────────────────────────────────────────
+  // 'Barbell Squat' is already plain and stays as it is: relabelling it
+  // "Back Squat" would collide with this row, which is the same lift under
+  // a second database name.
+  'Barbell Full Squat': 'Back Squat',
+  'Front Barbell Squat': 'Front Squat',
+  'Barbell Bench Press - Medium Grip': 'Bench Press',
+  'Barbell Incline Bench Press - Medium Grip': 'Incline Bench Press',
+  'Barbell Deadlift': 'Deadlift',
+  'Barbell Hip Thrust': 'Hip Thrust',
+  'Bent Over Barbell Row': 'Barbell Row',
+
+  // ── The rest of the main-lift vocabulary ─────────────────────────────
+  'Standing Military Press': 'Overhead Press',
+  'Side Lateral Raise': 'Lateral Raise',
+  'Wide-Grip Lat Pulldown': 'Lat Pulldown',
+  Pullups: 'Pull-Up',
+  Pushups: 'Push-Up',
+  'Weighted Pull Ups': 'Weighted Pull-Up',
+  'Seated Cable Rows': 'Seated Cable Row',
+  'One-Arm Dumbbell Row': 'Single-Arm Dumbbell Row',
+  'Reverse Machine Flyes': 'Reverse Pec Deck',
+  'Barbell Glute Bridge': 'Glute Bridge',
+  'Triceps Pushdown - Rope Attachment': 'Rope Pushdown',
+  'Leverage Chest Press': 'Machine Chest Press',
+};
+
 /** The exercise name as the reader should see it; English is the stored id. */
 export function exerciseNameLabel(language: AppLanguage, name: string): string {
+  const key = name.trim();
   if (language !== 'fi') {
-    return name;
+    return EXERCISE_NAME_EN[key] ?? name;
   }
-  return EXERCISE_NAME_FI[name.trim()] ?? name;
+  return EXERCISE_NAME_FI[key] ?? name;
 }
 
 /** Exposed for the coverage test — every catalog lift should have an entry. */
 export const TRANSLATED_EXERCISE_NAMES = EXERCISE_NAME_FI;
+
+/**
+ * Exposed for the sweep that keeps every entry the same lift said plainly.
+ *
+ * A display name that resolves to a DIFFERENT library row is a rename, not a
+ * label, and it would show the reader one exercise under another's name.
+ */
+export const PLAIN_EXERCISE_NAMES = EXERCISE_NAME_EN;

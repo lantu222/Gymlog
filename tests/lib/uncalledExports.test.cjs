@@ -28,6 +28,7 @@ const LIB = path.join(ROOT, 'src', 'lib');
 const ALLOWED = {
   I18N_KEYS: 'The key list behind the I18nKey type: used by types, not by calls.',
   TRANSLATED_EXERCISE_NAMES: 'The translation table, exposed for the coverage test.',
+  PLAIN_EXERCISE_NAMES: 'The English display table, exposed for the sweep that keeps every entry the same lift.',
   EXERCISE_INSTRUCTIONS_FI_TABLE: 'The Finnish instruction table, exposed for the test that keeps it paired with the English library step for step.',
   EXERCISE_TEACHING_TABLES: 'Both teaching tables, exposed for the sweep that keeps every swap pointing at a real library lift and never at itself.',
   EXERCISE_COLLECTION_TABLES: 'Both collection tables, exposed for the sweep that keeps every course entry pointing at a lift the reader can open.',

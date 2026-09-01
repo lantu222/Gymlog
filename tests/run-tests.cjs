@@ -98,6 +98,7 @@ const suites = [
   ...require('./lib/programLadder.test.cjs'),
   ...require('./lib/programCatalogFilter.test.cjs'),
   ...require('./lib/strengthGoalPlan.test.cjs'),
+  ...require('./lib/plainExerciseNames.test.cjs'),
   ...require('./lib/sessionAdaptation.test.cjs'),
   ...require('./lib/sessionDuration.test.cjs'),
   ...require('./lib/holdTracking.test.cjs'),
