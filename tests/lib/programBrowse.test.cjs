@@ -3,7 +3,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { resolveProgramAffinity, AFFINITY_REASON_KEYS } = require('../../.test-dist/lib/programAffinity.js');
-const { buildProgramCampaigns } = require('../../.test-dist/lib/programCampaigns.js');
 const { PROGRAM_CATEGORIES } = require('../../.test-dist/lib/programCategories.js');
 const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog');
 const {
@@ -79,47 +78,6 @@ module.exports = [
       for (const key of Object.values(AFFINITY_REASON_KEYS)) {
         const hits = i18n.split('\n').filter((line) => line.trim().startsWith(`'${key}':`));
         assert.equal(hits.length, 2, `${key} is missing a language`);
-      }
-    },
-  },
-  {
-    name: 'every campaign slide opens something that exists',
-    run() {
-      const slides = buildProgramCampaigns({
-        season: 'winter',
-        seasonWeeks: 26,
-        strengthCount: 12,
-        exerciseCount: 873,
-      });
-      assert.equal(slides.length, 4);
-      assert.equal(slides[0].target.kind, 'season', 'the season leads — it knows what month it is');
-      assert.ok(slides.every((slide) => slide.count > 0));
-      // Four slides that turn into each other need four looks. Two of them
-      // shared a gradient and the carousel read as the same card returning.
-      const gradients = new Set(slides.map((slide) => slide.gradient.join('')));
-      assert.equal(gradients.size, slides.length, 'two slides share a gradient');
-
-      // A slide that would claim "0 programs" is worse than one fewer slide.
-      // The season is the exception: it is 26 weeks whether or not anything
-      // else in the catalog is populated, so its slide cannot go to zero.
-      const thin = buildProgramCampaigns({
-        season: 'summer',
-        seasonWeeks: 26,
-        strengthCount: 0,
-        exerciseCount: 873,
-      });
-      assert.deepEqual(thin.map((slide) => slide.key), ['season-summer', 'library', 'create']);
-
-      // And each one is a sentence in both languages.
-      const i18n = read('src', 'lib', 'i18n.ts');
-      for (const slide of slides) {
-        for (const key of [slide.kickerKey, slide.titleKey, slide.bodyKey, slide.ctaKey]) {
-          const hits = i18n.split('\n').filter((line) => line.trim().startsWith(`'${key}':`));
-          assert.equal(hits.length, 2, `${key} is missing a language`);
-        }
-        // The body states the count, so the number on the card is checkable.
-        const body = i18n.split('\n').find((line) => line.trim().startsWith(`'${slide.bodyKey}':`));
-        assert.match(body, /\{count\}/);
       }
     },
   },

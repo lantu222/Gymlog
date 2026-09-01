@@ -133,11 +133,9 @@ import { reorderProgramSessions } from './src/lib/programSessionOrder';
 import { ProgramLimitReachedError } from './src/lib/programSlots';
 import {
   ProgramSeason,
-  getSeasonForDate,
   getSeasonProgramTitleKey,
   getSeasonProgramId,
   getSeasonProgramIds,
-  orderSeasons,
 } from './src/lib/programSeasons';
 import {
   SEASON_COLORS,
@@ -151,7 +149,6 @@ import {
   seasonWeek,
   seasonWeeksLeft,
 } from './src/lib/season';
-import { buildProgramCampaigns } from './src/lib/programCampaigns';
 import { suggestHomeStatCardKeys } from './src/lib/homeCardSuggestions';
 import { isMeasurementCardKey } from './src/lib/homeStatCards';
 import { resolveNextPlanEntryIndex } from './src/lib/planRotation';
@@ -179,9 +176,7 @@ import { buildGoalPresetRows, STRENGTH_GOAL_PRESETS } from './src/lib/strengthGo
 import { describeGoalCoverage, GoalProgrammeSuggestionView, isSameLift, rankProgrammesForLift } from './src/lib/goalProgramme';
 import {
   addSeasonEnrolment,
-  daysUntil,
   isEnrolled,
-  isJoinWindowOpen,
 } from './src/lib/seasonEnrolment';
 import { exerciseNameLabel } from './src/lib/exerciseNameLabel';
 import { buildProgramFingerprint } from './src/lib/programFingerprint';
@@ -4316,40 +4311,6 @@ function VinhaApp() {
   );
   const dismissedTipIds = preferences.dismissedTipIds ?? [];
   /**
-   * The season rows.
-   *
-   * Same card shape as Explore, so a program looks the same wherever it is
-   * met — and built from the same templates rather than a parallel list, so a
-   * season cannot drift into offering something the catalog no longer has.
-   *
-   * Free, like every ready program. Seasonal content is the reason to open
-   * this app in November; a paywalled reason to come back brings nobody back.
-   */
-  const programsSeasonRows = useMemo(
-    () => {
-      const byId = new Map(workout.templates.map((template) => [template.id, template]));
-      return orderSeasons().map((season) => ({
-        season,
-        items: getSeasonProgramIds(season)
-          .map((id) => byId.get(id))
-          .filter((template): template is NonNullable<typeof template> => Boolean(template))
-          .map((template, index) => ({
-            id: template.id,
-            name: formatWorkoutDisplayLabel(template.name),
-            goal: formatGoalLabel(template.goalType, preferences.appLanguage),
-            blurb: getReadyProgramContent(template.id, preferences.appLanguage)?.summary ?? '',
-            days: template.daysPerWeek,
-            minutes: template.estimatedSessionDuration,
-            cover: programCoverStyle(template.id, template.name),
-            fingerprint: buildProgramFingerprint(template),
-            level: template.level,
-            weeks: getReadyProgramBlockWeeks(template),
-          })),
-      }));
-    },
-    [preferences.appLanguage, workout.templates],
-  );
-  /**
    * The full catalog as browse cards, plus the counts each category tile
    * shows.
    *
@@ -4593,67 +4554,6 @@ function VinhaApp() {
     [],
   );
   /**
-   * The two seasons the row shows: the one running and the one after it.
-   *
-   * Four tiles over two blocks treated a season as a filter. It is a dated
-   * commitment — it opens, runs 26 weeks and closes — so the card carries the
-   * dates and the countdown rather than a month range and a count.
-   */
-  const programsSeasonCards = useMemo(
-    () => {
-      const now = new Date();
-      const current = resolveSeasonWindow(now);
-      const next = nextSeasonWindow(now);
-      const label = (date: Date) =>
-        preferences.appLanguage === 'fi'
-          ? `${date.getDate()}.${date.getMonth() + 1}.`
-          : `${date.getDate()}/${date.getMonth() + 1}`;
-      const build = (window: typeof current, isCurrent: boolean) => ({
-        season: window.season,
-        labelKey: (window.season === 'winter' ? 'season.winter' : 'season.summer') as I18nKey,
-        year: window.year,
-        // These tiles sit under a year heading, so the range only spells a year
-        // out when the season crosses into the next one.
-        rangeLabel: formatSeasonDateRange(window, preferences.appLanguage, 'whenSpanning'),
-        startLabel: label(window.start),
-        weeksLeft: isCurrent ? seasonWeeksLeft(window, now) : SEASON_WEEKS,
-        progress: isCurrent ? seasonProgressRatio(window, now) : 0,
-        daysUntilStart: isCurrent
-          ? 0
-          : Math.max(0, Math.ceil((window.start.getTime() - now.getTime()) / 86_400_000)),
-        // The card names the season's ONE program rather than counting ten.
-        // A count was the right label when a season was a filter; it is the
-        // wrong one now that the season is a thing you join.
-        programName: (() => {
-          const templateId = getSeasonProgramId(window.season);
-          // The name the season's programme goes by, not its catalogue id:
-          // this card said "RUN" under a card headed "Kesäkausi", while the
-          // season screen one tap away called the same programme "Kesäkunto".
-          const titleKey = getSeasonProgramTitleKey(templateId);
-          if (titleKey) {
-            return t(preferences.appLanguage, titleKey);
-          }
-          const template = workout.templates.find((entry) => entry.id === templateId);
-          return template ? formatWorkoutDisplayLabel(template.name) : '';
-        })(),
-        programDays: workout.templates.find((entry) => entry.id === getSeasonProgramId(window.season))?.daysPerWeek ?? 0,
-        current: isCurrent,
-        enrolled: isEnrolled(preferences.seasonEnrolments, window.season, window.year),
-        gradient: SEASON_COLORS[window.season],
-      });
-      // The running season, and the next one only once sign-ups are open. A
-      // card counting down 148 days is a date nobody can act on, and when a
-      // season closes the calendar has already moved the other one into
-      // `current` — so the row swaps over on its own, both here and on Home.
-      const cards = [build(current, true)];
-      if (isJoinWindowOpen(daysUntil(next.start, now))) {
-        cards.push(build(next, false));
-      }
-      return cards;
-    },
-    [preferences.appLanguage, preferences.seasonEnrolments, workout.templates],
-  );
-  /**
    * The strip under "Aloita treeni".
    *
    * Every input is read from state that is true right now: the season window
@@ -4680,16 +4580,6 @@ function VinhaApp() {
     [preferences.seasonEnrolments, updatePreferences],
   );
 
-  const programsCampaigns = useMemo(
-    () =>
-      buildProgramCampaigns({
-        season: getSeasonForDate(),
-        seasonWeeks: SEASON_WEEKS,
-        strengthCount: programsCategoryCounts.strength ?? 0,
-        exerciseCount: exerciseBrowserItems.length,
-      }),
-    [exerciseBrowserItems.length, programsCategoryCounts, programsSeasonTileCounts],
-  );
   const libraryNames = useMemo(() => exerciseLibrary.map((item) => item.name), [exerciseLibrary]);
 
   /**
@@ -5367,15 +5257,12 @@ function VinhaApp() {
       trackedProgress,
       workoutSessions,
       handleEnrolSeason,
-      programsSeasonRows,
       programsCatalogItems,
       catalogScreenItems,
       programsCategoryCounts,
       programsCategoryMembers,
       programsTrendingItems,
       programsRecommendations,
-      programsCampaigns,
-      programsSeasonCards,
       programsGoals,
       programsCustomItems,
       exerciseNameBook,

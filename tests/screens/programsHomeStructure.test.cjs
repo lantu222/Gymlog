@@ -49,7 +49,7 @@ module.exports = [
     },
   },
   {
-    name: 'programs tab is browsing only: hero, tiles, seasons, trending, library',
+    name: 'programs tab: what you own first, then finding something new',
     run() {
       assert.match(programsHomeSource, /useThemedStyles\(makeStyles\)/);
       assert.doesNotMatch(programsHomeSource, /Your plan, and the programs behind it\./);
@@ -70,9 +70,11 @@ module.exports = [
       assert.doesNotMatch(programsHomeSource, /onAdjustSchedule/);
 
       // Exactly ONE way to start a new program on this page. There were two,
-      // one at the top and one at the bottom, and both were the same action.
-      assert.equal((programsHomeSource.match(/setCreateOpen\(true\)/g) ?? []).length, 2,
-        'one button plus the campaign slide, and nothing else, may open the sheet');
+      // one at the top and one at the bottom, and both were the same action —
+      // and for a while a third, the campaign slide, which went with the
+      // carousel.
+      assert.equal((programsHomeSource.match(/setCreateOpen\(true\)/g) ?? []).length, 1,
+        'one button, and nothing else, may open the sheet');
       assert.doesNotMatch(programsHomeSource, /t\(language, 'csv\.newProgram'\)/);
       assert.match(programsHomeSource, /<NewProgramSheet/);
 
@@ -131,10 +133,15 @@ module.exports = [
       // A filter left over from the last category would silently hide
       // programs in the next one.
       assert.match(programsHomeSource, /if \(!visible\) \{[\s\S]{0,40}setLevel\(null\)/);
-      // "Avaa kausi" opens the season's SCREEN. It opened the sheet — a bare
-      // list of that season's programs — which is what the button was for
-      // before the season had a screen of its own.
-      assert.match(programsHomeSource, /case 'season':[\s\S]{0,200}onOpenSeason\(target\.season\)/);
+      // The carousel is GONE (brief decision, 2026-08-31). It was the only
+      // thing on the page that knew nothing about the reader, and it was also
+      // the page's third door into the new-programme sheet. Its handler went
+      // with it — that switch was the last caller of onOpenSeason here, which
+      // is how the season section came off the tab in the same change.
+      assert.doesNotMatch(programsHomeSource, /<CampaignHero/);
+      assert.doesNotMatch(programsHomeSource, /function CampaignHero/);
+      assert.doesNotMatch(programsHomeSource, /handleCampaignTarget/);
+      assert.doesNotMatch(programsHomeSource, /CampaignTarget|ProgramCampaign/);
 
       // Nothing on this tab routes to the old plans list any more. "Näytä
       // kaikki" expands the tiles in place, trending's "Kaikki" opens the
@@ -146,17 +153,29 @@ module.exports = [
       assert.match(programsHomeSource, /setSheet\(\{ kind: 'all' \}\)/);
       assert.match(programsHomeSource, /\{level !== null \? \(/);
 
-      // The rotating hero, and the four season tiles.
-      assert.match(programsHomeSource, /function CampaignHero/);
-      assert.match(programsHomeSource, /setInterval\(/);
-      // Touching it stops the timer for good: a card that moves under your
-      // thumb while you read it is hostile.
-      assert.match(programsHomeSource, /onScrollBeginDrag=\{\(\) => setRunning\(false\)\}/);
-      assert.match(programsHomeSource, /seasonCards\.map\(\(card\) =>/);
-      // Every slide and tile goes somewhere real. The season CTA opens the
-      // season's sheet now rather than scrolling to a rail that no longer
-      // exists.
-      assert.match(programsHomeSource, /const handleCampaignTarget = \(target: CampaignTarget\)/);
+      // The order the brief asks for, and the reason for it: what the reader
+      // OWNS opens the tab, and finding something new sits under it. The page
+      // used to open on a rotating advert and put the reader's own programmes
+      // sixth.
+      const order = [
+        "'tabs.programs'",
+        "'programs.yourPrograms'",
+        "'programs.goals'",
+        "'programs.learn'",
+        "'programs.forYou'",
+        "'programs.browse'",
+        "'programs.library'",
+      ];
+      const at = order.map((key) => [key, programsHomeSource.indexOf(`t(language, ${key})`)]);
+      for (const [key, index] of at) {
+        assert.ok(index > 0, `${key} is not on the tab at all`);
+      }
+      for (let i = 1; i < at.length; i += 1) {
+        assert.ok(
+          at[i][1] > at[i - 1][1],
+          `${at[i][0]} is drawn before ${at[i - 1][0]}`,
+        );
+      }
       assert.doesNotMatch(programsHomeSource, /seasonOffset/);
 
       // "Jatka siitä mihin jäit" is gone. It listed programmes with logged
@@ -165,14 +184,21 @@ module.exports = [
       // answers to one question.
       assert.doesNotMatch(programsHomeSource, /'programs\.continue/);
 
-      // Cards come in three sizes now. A page where five sections draw the
-      // same 274×176 card has told the reader nothing about what matters.
-      const sizes = new Set(
-        [...programsHomeSource.matchAll(/width=\{(\d+)\}\s*\n\s*height=\{(\d+)\}/g)].map(
-          (match) => `${match[1]}x${match[2]}`,
-        ),
+      // Covers come in more than one size. A page where every section draws
+      // the same 274×176 card has told the reader nothing about what matters.
+      // Heights rather than width×height pairs: the Learn rail's cover is
+      // width="100%", so a pair regex sees only one of the two.
+      const coverHeights = new Set(
+        [...programsHomeSource.matchAll(/\bheight=\{(\d{2,})\}/g)].map((match) => match[1]),
       );
-      assert.ok(sizes.size >= 2, `covers still draw at one size: ${[...sizes].join(', ')}`);
+      assert.ok(
+        coverHeights.size >= 2,
+        `covers still draw at one height: ${[...coverHeights].join(', ')}`,
+      );
+      // The two the tab actually has: the "for you" card, and the course cover
+      // on the Learn rail.
+      assert.ok(coverHeights.has('104'), 'the "for you" cover is gone');
+      assert.ok(coverHeights.has('76'), 'the Learn rail cover is gone');
 
       // Trending has a way out of it, and a ranking that looks like one.
       assert.match(programsHomeSource, /'programs\.trending\.all'/);
@@ -248,14 +274,17 @@ module.exports = [
       assert.doesNotMatch(appSource, /coverIndex: programCoverIndex\(/);
       assert.match(appSource, /cover: programCoverStyle\(template\.id, template\.name\)/);
       assert.match(appSource, /const programsCustomItems = useMemo/);
-      // Continue is built from logged sessions, and never from the active
-      // program — that one already owns the hero and the whole week above.
-      // Campaign counts read the same catalog the tiles filter, so a slide
-      // cannot advertise a season with nothing in it.
-      // Weeks, not a programme count: a season has exactly ONE programme, so
-      // "10 ohjelmaa kevyempään työhön" advertised a shelf it does not have.
-      assert.match(appSource, /seasonWeeks: SEASON_WEEKS/);
-      assert.match(appSource, /exerciseCount: exerciseBrowserItems\.length/);
+      // The campaign counts were asserted here — the slides read the same
+      // catalog the tiles filter, so one could not advertise a season with
+      // nothing in it. The carousel is gone and so is lib/programCampaigns,
+      // which is what this now guards: an orphaned module kept alive by its
+      // own suite is how ProPaywallScreen survived the decision that killed it.
+      assert.doesNotMatch(appSource, /buildProgramCampaigns/);
+      assert.ok(
+        !fs.existsSync(path.join(__dirname, '..', '..', 'src', 'lib', 'programCampaigns.ts')),
+        'lib/programCampaigns is back with no caller',
+      );
+      assert.doesNotMatch(i18nSource, /'programs\.campaign/);
       // Handlers reuse existing navigation, nothing new invented.
       assert.match(appSource, /onOpenExploreProgram=\{handleOpenReadyProgramDetail\}/);
       assert.match(appSource, /onOpenCustomProgram=\{handleOpenCustomProgramDetail\}/);

@@ -75,51 +75,51 @@ module.exports = [
     },
   },
   {
-    name: 'the season rows are rendered, free, and built from the catalog',
+    /**
+     * Seasons are PARKED, not deleted (decision 2026-08-31).
+     *
+     * The distinction is the whole point of this test. Parked means the tab's
+     * entry point is gone and everything behind it still works, so bringing it
+     * back is putting a section back rather than rebuilding a feature. Half a
+     * removal — a screen nobody can reach and nobody remembers is parked —
+     * rots, and this repo has already lost a screen that way.
+     */
+    name: 'seasons are parked: off the tab, intact behind it',
     run() {
       const fs = require('node:fs');
       const path = require('node:path');
       const read = (...segments) => fs.readFileSync(path.join(__dirname, '..', '..', ...segments), 'utf8');
-      const screen = read('src', 'screens', 'ProgramsHomeScreen.tsx');
-      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
+      // Comments stripped first. The tab carries a note explaining that
+      // seasons are parked, and a guard that trips on its own explanation is
+      // a guard that teaches people to delete the explanation.
+      const stripComments = (source) =>
+        source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
+      const screen = stripComments(read('src', 'screens', 'ProgramsHomeScreen.tsx'));
+      const workoutTab = read('src', 'app', 'renderWorkoutTab.tsx');
 
-      // A lib with no consumer is dead code by the standard applied to the
-      // rest of this app, so the row has to be reachable on the screen.
-      //
-      // It is no longer two permanently open rails. "Kesäkausi" and
-      // "Talvikausi" both sat fully expanded under the four season tiles, in
-      // the same card size as every other row, which made the tiles above them
-      // decoration and gave the page two more identical rows. The tile is the
-      // filter now, and the rail is what a tap opens.
-      assert.doesNotMatch(screen, /seasonRows\.map\(\(row\) =>/);
-      assert.match(screen, /seasonRows\.find\(\(row\) => row\.season === sheet\.season\)/);
-      // A season is a dated window with a screen of its own now, not four
-      // tiles over two blocks that narrowed a list. The row shows exactly two
-      // cards — the season running and the one after it — and the card opens
-      // the season rather than filtering anything.
-      assert.doesNotMatch(screen, /orderSeasonTiles/);
-      assert.match(screen, /seasonCards\.map\(\(card\) =>/);
-      assert.match(screen, /onOpenSeason\(card\.season\)/);
-      assert.match(app, /navigate\(\{ tab: 'workout', screen: 'season', season \}\)/);
-      // At most two, never four: the season running, and the one after it
-      // only once sign-ups are open. Outside that window the coming season is
-      // a date nobody can act on, so the row carries one card.
-      assert.match(app, /const cards = \[build\(current, true\)\];/);
-      assert.match(app, /isJoinWindowOpen\(daysUntil\(next\.start, now\)\)/);
-      // "Poista suodatin" is gone with the rail it belonged to. With nothing
-      // selected the section had no rail at all, so the link read as "remove
-      // the seasons" — which is what the reader saw it do.
-      assert.doesNotMatch(screen, /programs\.cat\.clear/);
-      assert.match(app, /seasonRows=\{programsSeasonRows\}/);
+      // Off the tab: no cards, no rows, no sheet variant that opened one.
+      assert.doesNotMatch(screen, /seasonCards/, 'the season cards are back on the tab');
+      assert.doesNotMatch(screen, /seasonRows/, 'the tab reads season rows again');
+      assert.doesNotMatch(screen, /kind: 'season'/, 'the season sheet variant is back');
 
-      // Built from workout.templates rather than a parallel list, so a season
-      // cannot drift into offering a program the catalog no longer has.
-      assert.match(app, /getSeasonProgramIds\(season\)[\s\S]{0,120}byId\.get\(id\)/);
+      // Intact behind it: the route, the screen, and everything the screen
+      // needs to answer for itself.
+      assert.match(workoutTab, /route\.screen === 'season'/, 'the season route is gone, not parked');
+      assert.match(workoutTab, /<SeasonScreen/, 'SeasonScreen is no longer rendered anywhere');
+      assert.match(workoutTab, /resolveSeasonWindow\(\)/);
+      assert.match(workoutTab, /getSeasonProgramId\(seasonInView\)/);
 
-      // Free. Seasonal content is the reason to open the app in November, and
-      // no entitlement check may appear on this path.
-      const rows = app.slice(app.indexOf('const programsSeasonRows'), app.indexOf('const programsCustomItems'));
-      assert.doesNotMatch(rows, /proUnlocked|isProUnlocked|programSlots/);
+      // And the libraries the screen stands on still resolve. A parked feature
+      // whose data source rotted is not parked.
+      const { SEASON_PROGRAM_IDS } = require('../../.test-dist/lib/programSeasons.js');
+      assert.ok(SEASON_PROGRAM_IDS.summer && SEASON_PROGRAM_IDS.winter);
+
+      // Free, still: no entitlement check anywhere on the season path.
+      assert.doesNotMatch(
+        read('src', 'screens', 'SeasonScreen.tsx'),
+        /isProUnlocked|programSlots/,
+        'a Pro gate appeared on the season screen while it was parked',
+      );
     },
   },
   {

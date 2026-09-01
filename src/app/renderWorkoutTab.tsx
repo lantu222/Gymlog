@@ -17,6 +17,7 @@ import {
   findCollectionInProgress,
   getExerciseCollection,
   getExerciseCollections,
+  resolveCollectionProgress,
 } from '../lib/exerciseCollections';
 import { toggleTechniqueStatement } from '../lib/exerciseLearning';
 import { getExerciseProgressForName } from '../lib/progression';
@@ -158,7 +159,6 @@ export interface WorkoutTabDeps {
   trackedProgress: Array<{ logs: Array<{ weight: number; repsPerSet: number[]; performedAt: string }> }>;
   workoutSessions: Parameters<typeof computeSeasonProgress>[0];
   handleEnrolSeason: (season: ProgramSeason, year: number) => void;
-  programsSeasonRows: ProgramsHomeProps['seasonRows'];
   programsCatalogItems: ProgramsHomeProps['catalogItems'];
   /** The same programmes with their categories, for the catalog's goal chips. */
   catalogScreenItems: CatalogScreenItem[];
@@ -166,8 +166,6 @@ export interface WorkoutTabDeps {
   programsCategoryMembers: ProgramsHomeProps['categoryMembers'];
   programsTrendingItems: ProgramsHomeProps['trendingItems'];
   programsRecommendations: ProgramsHomeProps['recommendations'];
-  programsCampaigns: ProgramsHomeProps['campaigns'];
-  programsSeasonCards: ProgramsHomeProps['seasonCards'];
   programsGoals: ProgramsHomeProps['goals'];
   programsCustomItems: ProgramsHomeProps['customPrograms'];
   exerciseNameBook: ProgramsHomeProps['nameBook'];
@@ -240,15 +238,12 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     trackedProgress,
     workoutSessions,
     handleEnrolSeason,
-    programsSeasonRows,
     programsCatalogItems,
     catalogScreenItems,
     programsCategoryCounts,
     programsCategoryMembers,
     programsTrendingItems,
     programsRecommendations,
-    programsCampaigns,
-    programsSeasonCards,
     programsGoals,
     programsCustomItems,
     exerciseNameBook,
@@ -913,15 +908,32 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         // "advanced", so this goes through the shared map rather than across
         // as-is.
         readerLevel={catalogLevelForSetup(preferences.setupLevel) ?? null}
-        seasonRows={programsSeasonRows}
         catalogItems={programsCatalogItems}
         categoryCounts={programsCategoryCounts}
         categoryMembers={programsCategoryMembers}
         trendingItems={programsTrendingItems}
         recommendations={programsRecommendations}
-        campaigns={programsCampaigns}
-        seasonCards={programsSeasonCards}
-        onOpenSeason={(season) => navigate({ tab: 'workout', screen: 'season', season })}
+        // Learn, out of the library and onto the tab. Progress is resolved
+        // here because it needs the learned-exercise set; the screen only
+        // draws what it is handed.
+        learnRows={getExerciseCollections(preferences.appLanguage).map((collection) => {
+          const progress = resolveCollectionProgress(collection, (name) =>
+            learnedExerciseNames.includes(name),
+          );
+          return {
+            id: collection.id,
+            title: collection.title,
+            blurb: collection.blurb,
+            done: progress.done,
+            total: progress.total,
+            percent: progress.percent,
+            cover: collection.cover,
+          };
+        })}
+        onOpenCollection={(collectionId) =>
+          navigate({ tab: 'workout', screen: 'collection', collectionId })
+        }
+        onOpenLearnIndex={() => navigate({ tab: 'workout', screen: 'learn' })}
         goals={programsGoals}
         goalProgrammes={goalProgrammeSuggestions}
         onOpenGoalPicker={() => navigate({ tab: 'workout', screen: 'goalPicker' })}

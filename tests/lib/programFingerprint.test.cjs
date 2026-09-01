@@ -104,10 +104,11 @@ module.exports = [
       ]) {
         assert.match(source, /<ProgramLadderRow$/m, `${file} draws its own program row`);
       }
-      // Built from the template, not from a card field that could drift.
-      // Three rows build one now; the fourth went with "Jatka siitä mihin
-      // jäit", which answered the same question as "Omat ohjelmasi" below it.
-      assert.ok((app.match(/buildProgramFingerprint\(template\)/g) ?? []).length >= 3);
+      // Built from the template, not from a card field that could drift. Two
+      // rows build one: the catalog items every sheet and the catalog screen
+      // read, and the "for you" cards. It was three until the season rows were
+      // parked with their section.
+      assert.ok((app.match(/buildProgramFingerprint\(template\)/g) ?? []).length >= 2);
 
       // The bars scale with the cover. They were hard-coded to a 74px ceiling
       // against a 176px card; dropped onto a 92px continue cover unchanged

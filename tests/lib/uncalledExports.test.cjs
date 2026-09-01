@@ -44,6 +44,9 @@ const ALLOWED = {
   decideRatingPrompt: 'See emptyRatingPromptState.',
   recordRatingAsked: 'See emptyRatingPromptState.',
   recordRatingCompleted: 'See emptyRatingPromptState.',
+  orderSeasons:
+    'Parked with the season section on the Programs tab (2026-08-31). SeasonScreen and the season route still work and build their own numbers; this ordered the two cards the tab used to draw. Delete it only when seasons are decided against, not while they are parked.',
+  isJoinWindowOpen: 'See orderSeasons — it decided whether the coming season\'s card was worth drawing.',
   UNLISTED_READY_PROGRAMS:
     'A declaration, not a call: the programmes deliberately kept out of the browse collections, read only by the guard that fails when a template is in neither. Wiring it to a screen would give it behaviour it must not have — it exists so that "not browsable" is always a decision someone wrote down.',
 };
