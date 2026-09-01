@@ -86,4 +86,51 @@ module.exports = [
       assert.match(overview, /onLockedPress=\{onOpenPremium\}/);
     },
   },
+  {
+    /**
+     * Progress v2 · 02 — one segmented control, not three that resemble
+     * each other.
+     *
+     * Seg lived inside ProgressScreen and its own comment claimed "every
+     * selector in the app goes through this one component". Three did.
+     * RecordsScreen had a fourth, hand-built, with a different fill
+     * (purpleSoft against surfaceSoft) and its own inner surface — so the two
+     * halves of one tab shipped two widgets for one job.
+     */
+    name: 'progress: every selector on the tab is the shared Seg',
+    run() {
+      const seg = read('src', 'components', 'Seg.tsx');
+      const records = read('src', 'screens', 'RecordsScreen.tsx');
+
+      // It has a home of its own, and both screens come to it.
+      assert.match(seg, /export function Seg<T extends string>/);
+      assert.match(screen, /import \{ Seg \} from '\.\.\/components\/Seg';/);
+      assert.match(records, /import \{ Seg \} from '\.\.\/components\/Seg';/);
+
+      // Nobody re-declares it, and nobody hand-builds one beside it.
+      assert.doesNotMatch(screen, /function Seg</, 'ProgressScreen grew its own Seg back');
+      assert.doesNotMatch(records, /function Seg</, 'RecordsScreen grew its own Seg back');
+      for (const style of ['segment', 'segmentItem', 'segmentText', 'segmentTextOn']) {
+        assert.doesNotMatch(
+          records,
+          new RegExp(`styles\.${style}\b`),
+          `RecordsScreen is drawing its own ${style} again`,
+        );
+      }
+
+      // The records kind switch goes through it, with the same three kinds.
+      assert.match(records, /<Seg\s+options=\{KINDS\.map/);
+      assert.match(records, /value=\{kind\}/);
+      assert.match(records, /onChange=\{setKind\}/);
+
+      // Four selectors on the tab, one component: metric, trend range,
+      // measure range, records kind.
+      //
+      // Counted without a word boundary on purpose: a `` written through
+      // a heredoc arrives as a literal backspace, which made this read zero
+      // and look like a real failure. Third time in one session.
+      const usages = (screen.match(/<Seg/g) ?? []).length + (records.match(/<Seg/g) ?? []).length;
+      assert.equal(usages, 4, `expected four Seg call sites on the tab, found ${usages}`);
+    },
+  },
 ];

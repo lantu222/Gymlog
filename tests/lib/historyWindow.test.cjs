@@ -76,7 +76,14 @@ module.exports = [
       assert.match(progress, /lockedKeys=\{lockedTrendRanges\}/);
       assert.match(progress, /lockedKeys=\{lockedMeasureRanges\}/);
       assert.match(progress, /onLockedPress=\{onOpenPremium\}/);
-      assert.match(progress, /locked \? onLockedPress\?\.\(\) : onChange\(option\.key\)/);
+      // The control itself moved to components/Seg.tsx when RecordsScreen
+      // stopped hand-building a second one (Progress v2, piece 02). The rule
+      // it carries is the same: a locked option opens Pro instead of
+      // selecting, so it is a door rather than a broken chip.
+      assert.match(
+        read('src', 'components', 'Seg.tsx'),
+        /locked \? onLockedPress\?\.\(\) : onChange\(option\.key\)/,
+      );
     },
   },
   {
