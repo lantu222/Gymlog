@@ -2952,9 +2952,7 @@ const EN = {
   // build. Every number is measured from the reader's own log.
   'goalFlow.step': '{step} / {total}',
   'goalFlow.step1.title': 'What are you aiming at?',
-  'goalFlow.step1.sub': 'One lift. The number is measured from your own best set, so the ones you have logged come first.',
-  'goalFlow.searchPlaceholder': 'Search {count} exercises',
-  'goalFlow.noMatch': 'No lift by that name.',
+  'goalFlow.step1.sub': 'One lift — the ones people actually put a number on. It is measured from your own best set, so the ones you have logged come first.',
   'goalFlow.yourBest': 'Your best {kg} {unit}{ago}',
   'goalFlow.daysAgo': ' · {days} days ago',
   'goalFlow.neverLogged': 'Never logged — no rate to work from',
@@ -6190,9 +6188,7 @@ const FI: Record<I18nKey, string> = {
   // Jokainen luku on mitattu lukijan omasta lokista.
   'goalFlow.step': '{step} / {total}',
   'goalFlow.step1.title': 'Mitä kohti tähtäät?',
-  'goalFlow.step1.sub': 'Yksi liike. Luku mitataan omasta parhaasta sarjastasi, joten kirjaamasi liikkeet ovat ensin.',
-  'goalFlow.searchPlaceholder': 'Hae {count} liikkeestä',
-  'goalFlow.noMatch': 'Ei liikettä tuolla nimellä.',
+  'goalFlow.step1.sub': 'Yksi liike — ne joille ihmiset oikeasti asettavat luvun. Se mitataan omasta parhaasta sarjastasi, joten kirjaamasi ovat ensin.',
   'goalFlow.yourBest': 'Paras {kg} {unit}{ago}',
   'goalFlow.daysAgo': ' · {days} pv sitten',
   'goalFlow.neverLogged': 'Ei kirjattu kertaakaan — ei tahtia mistä laskea',

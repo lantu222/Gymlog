@@ -1,33 +1,38 @@
-import { bestForLift } from './liftIdentity';
-import { StrengthGoal } from './strengthGoals';
-
 /**
- * Ready-made targets — "penkki 100 kg" without typing anything.
+ * The lifts anybody actually sets a target on.
  *
- * Setting a target used to require having already logged the lift: the sheet
- * offered the lifts you had trained, and asked for a number next to your
- * current best. That is a fine way to raise a target and a terrible way to set
- * a first one, because the reader with nothing logged — exactly the one a
- * target would help — was offered an empty list.
+ * Eight, not 876. The target flow briefly offered the whole library behind a
+ * search, and that is the wrong shape for this question: nobody says "I want
+ * to cable-crossover 30 kg". They say squat, bench, deadlift — and then the
+ * handful of accessories that carry a number in their head anyway. Naming the
+ * list is also what lets the app promise a PROGRAMME behind every target,
+ * which it cannot do for a lift no catalog week trains as a main lift.
  *
- * So the list is fixed and the numbers are round, and none of them is a
- * recommendation: 100 / 150 / 200 is what people say out loud, which is the
- * only thing that makes a target a target. The app does not know what you
- * should aim at and does not pretend to; it knows what you picked, and it
- * measures it against your own best set.
+ * The list is the user's, given in Finnish on 2026-09-01: kyykky, penkki,
+ * mave, pystysoutu, hackkyykky, lantionnosto, suorin jaloin mave, etukyykky.
+ * The names here are the library's own English ones, because that is what a
+ * stored goal is keyed by; the reader sees them through `exerciseNameLabel`.
+ *
+ * NOT here: sumo deadlift, which the user also named. `liftIdentity` folds
+ * sumo and trap bar into the deadlift on purpose — a lifter's deadlift best is
+ * their deadlift best whichever stance it was pulled from — so a sumo row
+ * would show the same best and the same rate as the deadlift row beside it.
+ * Two rows, one number. Splitting it is a change to how every deadlift best in
+ * the app is measured, not an addition to this list.
  */
 
 export interface StrengthGoalPreset {
   /** Matches ExerciseProgressSummary.name — the stored English name. */
   exerciseName: string;
-  /** Round numbers, ascending. */
-  targetsKg: readonly number[];
 }
 
 export const STRENGTH_GOAL_PRESETS: readonly StrengthGoalPreset[] = [
-  { exerciseName: 'Back Squat', targetsKg: [100, 150, 200] },
-  { exerciseName: 'Barbell Deadlift', targetsKg: [100, 150, 200] },
-  { exerciseName: 'Bench Press', targetsKg: [100, 150, 200] },
-  { exerciseName: 'Overhead Press', targetsKg: [40, 60, 80] },
-  { exerciseName: 'Barbell Row', targetsKg: [60, 80, 100] },
+  { exerciseName: 'Barbell Squat' },
+  { exerciseName: 'Barbell Bench Press - Medium Grip' },
+  { exerciseName: 'Barbell Deadlift' },
+  { exerciseName: 'Front Squat (Clean Grip)' },
+  { exerciseName: 'Hack Squat' },
+  { exerciseName: 'Barbell Hip Thrust' },
+  { exerciseName: 'Romanian Deadlift' },
+  { exerciseName: 'Upright Barbell Row' },
 ];

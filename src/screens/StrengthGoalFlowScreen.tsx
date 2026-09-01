@@ -94,20 +94,6 @@ function ChevronLeftIcon({ color }: { color: string }) {
   );
 }
 
-function SearchIcon({ color }: { color: string }) {
-  return (
-    <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M11 4a7 7 0 100 14 7 7 0 000-14zm5 12l4 4"
-        stroke={color}
-        strokeWidth={2.2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
 function CheckIcon({ color, size = 13 }: { color: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -167,7 +153,6 @@ export function StrengthGoalFlowScreen({
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [search, setSearch] = useState('');
   const [pickedName, setPickedName] = useState<string | null>(null);
   const [delta, setDelta] = useState<number>(TARGET_DELTAS_KG[1]);
   /**
@@ -203,17 +188,12 @@ export function StrengthGoalFlowScreen({
     };
   }, []);
 
-  const ordered = useMemo(() => orderTargetLifts(lifts), [lifts]);
-  const shown = useMemo(() => {
-    const needle = search.toLowerCase().replace(/\s+/g, ' ').trim();
-    if (!needle) {
-      return ordered;
-    }
-    return ordered.filter((lift) =>
-      exerciseNameLabel(language, lift.exerciseName).toLowerCase().includes(needle) ||
-      lift.exerciseName.toLowerCase().includes(needle),
-    );
-  }, [language, ordered, search]);
+  /*
+   * Eight rows, so no search: a field over a list you can see all of is one
+   * more thing to dismiss. The ones with a log still come first — that is what
+   * the subtitle promises, and it is the order the question gets asked in.
+   */
+  const shown = useMemo(() => orderTargetLifts(lifts), [lifts]);
 
   const picked = pickedName ? (lifts.find((lift) => lift.exerciseName === pickedName) ?? null) : null;
 
@@ -249,28 +229,12 @@ export function StrengthGoalFlowScreen({
           title={t(language, 'goalFlow.step1.title')}
           sub={t(language, 'goalFlow.step1.sub')}
         />
-        <View style={styles.searchField}>
-          <SearchIcon color={theme.faint} />
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder={t(language, 'goalFlow.searchPlaceholder', { count: lifts.length })}
-            placeholderTextColor={theme.faint}
-            style={styles.searchInput}
-            autoCorrect={false}
-            returnKeyType="search"
-            accessibilityLabel={t(language, 'goalFlow.searchPlaceholder', { count: lifts.length })}
-          />
-        </View>
         <FlatList
           style={styles.list}
           contentContainerStyle={styles.listContent}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
           data={shown}
           keyExtractor={(lift) => lift.exerciseName}
           ItemSeparatorComponent={() => <View style={styles.rowGap} />}
-          ListEmptyComponent={<Text style={styles.empty}>{t(language, 'goalFlow.noMatch')}</Text>}
           renderItem={({ item }) => {
             const on = item.exerciseName === pickedName;
             return (
@@ -304,12 +268,7 @@ export function StrengthGoalFlowScreen({
             );
           }}
         />
-        <View
-          style={[
-            styles.footer,
-            keyboardHeight > 0 && { paddingBottom: keyboardHeight + 12 },
-          ]}
-        >
+        <View style={styles.footer}>
           {picked ? (
             <Pressable
               accessibilityRole="button"
@@ -410,7 +369,12 @@ export function StrengthGoalFlowScreen({
 
           {/* The estimate, or the reason there is not one. Every branch is a
               sentence rather than a blank, because "no rate yet" and "no gain"
-              are different things to tell someone. */}
+              are different things to tell someone.
+
+              Not until there is a target to estimate against, though: with the
+              field still empty the target is zero, and zero reads back as
+              "you are already there" over a weight nobody has named. */}
+          {targetUsable ? (
           <View style={styles.noteCard}>
             <Text style={styles.noteTitle}>
               {estimate.kind === 'weeks'
@@ -428,6 +392,7 @@ export function StrengthGoalFlowScreen({
                 : t(language, 'goalFlow.rateBodyNone')}
             </Text>
           </View>
+          ) : null}
 
           {stretch.stretch ? (
             <View style={styles.warnCard}>
@@ -625,27 +590,6 @@ const makeStyles = (theme: Theme) =>
       fontWeight: '600',
       marginTop: 8,
     },
-    searchField: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-      height: 44,
-      marginHorizontal: 20,
-      marginTop: 18,
-      paddingHorizontal: 14,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: theme.surface,
-    },
-    searchInput: {
-      flex: 1,
-      minWidth: 0,
-      color: theme.ink,
-      fontSize: 14,
-      fontWeight: '600',
-      paddingVertical: 0,
-    },
     list: {
       flex: 1,
     },
@@ -656,13 +600,6 @@ const makeStyles = (theme: Theme) =>
     },
     rowGap: {
       height: 9,
-    },
-    empty: {
-      color: theme.muted,
-      fontSize: 13.5,
-      lineHeight: 19,
-      fontWeight: '600',
-      paddingVertical: 18,
     },
     liftRow: {
       flexDirection: 'row',

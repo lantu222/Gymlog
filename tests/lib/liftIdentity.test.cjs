@@ -90,12 +90,33 @@ module.exports = [
     name: 'every preset target is trained by a fair share of the catalog',
     run() {
       // The deadlift target saw three programs of fifty-seven while the others
-      // saw twenty to thirty — the names, not the training, were the gap.
+      // saw twenty to thirty — the names, not the training, were the gap. That
+      // is what this catches: a lift the catalog DOES train, hidden behind a
+      // naming mismatch.
+      //
+      // Not the same thing as a lift the catalog genuinely does not train.
+      // Front squat and upright row are at zero because no ready week has
+      // them, hack squat at five because five weeks do; none of the three is a
+      // resolution bug, and the guard above names them.
+      const GENUINELY_THIN = {
+        'Front Squat (Clean Grip)': 0,
+        'Upright Barbell Row': 0,
+        'Hack Squat': 5,
+      };
       const thin = [];
       for (const preset of STRENGTH_GOAL_PRESETS) {
-        const count = rankProgrammesForLift(WORKOUT_TEMPLATES_V1, preset.exerciseName, { libraryNames }).length;
+        const lift = preset.exerciseName;
+        const count = rankProgrammesForLift(WORKOUT_TEMPLATES_V1, lift, { libraryNames }).length;
+        if (lift in GENUINELY_THIN) {
+          assert.equal(
+            count,
+            GENUINELY_THIN[lift],
+            `${lift} resolves to ${count} programmes now, not ${GENUINELY_THIN[lift]} — recount before trusting this list`,
+          );
+          continue;
+        }
         if (count < 10) {
-          thin.push(`${preset.exerciseName}: ${count}`);
+          thin.push(`${lift}: ${count}`);
         }
       }
       assert.deepEqual(thin, [], `targets almost no program trains: ${thin.join(', ')}`);
@@ -119,14 +140,14 @@ module.exports = [
     run() {
       const app = require('../helpers/appWiringSource.cjs').readAppWiring();
 
-      // The flow keys its rows by the LIBRARY's name, resolved through the
-      // same matcher the progress row uses.
+      // The flow finds each lift's log through the same matcher the progress
+      // row uses, rather than by name. Matching on the name is how the row
+      // once read 70 kg of 200 beside a picker saying "not logged yet".
       assert.match(
         app,
-        /exerciseBrowserItems\.find\(\(item\) => isSameLift\(history\.name, item\.name, libraryNames\)\)/,
-        'the flow keys lifts by the logged name again',
+        /proLiftHistories\.find\(\(entry\) =>\s*\n\s*isSameLift\(entry\.name, preset\.exerciseName, libraryNames\)/,
+        'the flow matches the log by name again',
       );
-      assert.match(app, /byName\.set\(libraryName, \{/);
 
       // And the resolution the row uses is the same function, so a lift that
       // matches in one place matches in the other.

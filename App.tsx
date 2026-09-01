@@ -4587,48 +4587,41 @@ function VinhaApp() {
   /**
    * The lifts the target flow can aim at, and what the log says about each.
    *
-   * Everything in the browsable library, so a reader can target a lift they
-   * are about to start — but the ones they actually train carry a best and a
-   * rate, and the flow puts those first. `orderTargetLifts` does the ordering;
-   * this only measures.
+   * The named eight, not the library. Nobody says "I want to cable-crossover
+   * 30 kg" — see STRENGTH_GOAL_PRESETS for the list and why sumo is not on it.
+   * Offering all 876 also broke the promise behind every target: step 3 shows
+   * the programme that trains the lift, and for most of the library there is
+   * none.
+   *
+   * The log is read through `isSameLift`, not by name, so a "Barbell Bench
+   * Press" in the log finds the row for "Barbell Bench Press - Medium Grip".
+   * Matching on the name is how the target row once read 70 kg of 200 while
+   * the picker behind it said "not logged yet" for the same lift.
    */
   const goalFlowLifts = useMemo<GoalFlowLift[]>(() => {
     const now = Date.now();
-    const byName = new Map<string, GoalFlowLift>();
-    for (const item of exerciseBrowserItems) {
-      byName.set(item.name, {
-        exerciseName: item.name,
-        bestKg: null,
-        rate: null,
-        lastLoggedAt: null,
-        daysSinceLogged: null,
-      });
-    }
-    for (const history of proLiftHistories) {
-      /*
-       * Resolved to the LIBRARY's name, not the logged one.
-       *
-       * A log says "Barbell Bench Press" and the library says "Barbell Bench
-       * Press - Medium Grip". Keyed by the logged name, the same lift lands in
-       * this list twice — once with a best and once saying "never logged" —
-       * and the target the reader sets is keyed differently from the row the
-       * tab draws for it. That exact disagreement showed on the phone once
-       * already: the row read 70 kg of 200 while the picker behind it said not
-       * logged yet.
-       */
-      const libraryName =
-        exerciseBrowserItems.find((item) => isSameLift(history.name, item.name, libraryNames))?.name ??
-        history.name;
-      byName.set(libraryName, {
-        exerciseName: libraryName,
-        bestKg: history.bestWeightKg > 0 ? history.bestWeightKg : null,
+    return STRENGTH_GOAL_PRESETS.map((preset) => {
+      const history = proLiftHistories.find((entry) =>
+        isSameLift(entry.name, preset.exerciseName, libraryNames),
+      );
+      if (!history || !(history.bestWeightKg > 0)) {
+        return {
+          exerciseName: preset.exerciseName,
+          bestKg: null,
+          rate: null,
+          lastLoggedAt: null,
+          daysSinceLogged: null,
+        };
+      }
+      return {
+        exerciseName: preset.exerciseName,
+        bestKg: history.bestWeightKg,
         rate: resolveObservedRate(history.points),
         lastLoggedAt: history.latest.time,
         daysSinceLogged: Math.max(0, Math.round((now - history.latest.time) / 86_400_000)),
-      });
-    }
-    return [...byName.values()];
-  }, [exerciseBrowserItems, libraryNames, proLiftHistories]);
+      };
+    });
+  }, [libraryNames, proLiftHistories]);
 
   /**
    * The programme the flow would put the reader on, for one lift.
