@@ -29,6 +29,7 @@ const ALLOWED = {
   I18N_KEYS: 'The key list behind the I18nKey type: used by types, not by calls.',
   TRANSLATED_EXERCISE_NAMES: 'The translation table, exposed for the coverage test.',
   EXERCISE_INSTRUCTIONS_FI_TABLE: 'The Finnish instruction table, exposed for the test that keeps it paired with the English library step for step.',
+  EXERCISE_TEACHING_TABLES: 'Both teaching tables, exposed for the sweep that keeps every swap pointing at a real library lift and never at itself.',
   HOLD_EXERCISE_NAME_LIST: 'The hold list, exposed for the test that keeps the catalog data and this list one truth in both directions.',
   EMPTY_SESSION_ADAPTATION: 'The empty value, pinned so its shape cannot drift.',
   fingerprintsMatch: 'Exposed for the test that keeps fingerprints distinct.',

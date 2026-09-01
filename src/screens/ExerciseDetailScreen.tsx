@@ -5,12 +5,17 @@ import Svg, { Path } from 'react-native-svg';
 import { SimpleLineChart } from '../components/SimpleLineChart';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { getExerciseInstructions } from '../lib/exerciseInstructions';
+import {
+  ExerciseTeaching,
+  getExerciseTeaching,
+  shouldShowTeachingCaution,
+} from '../lib/exerciseTeaching';
 import { convertWeightFromKg, formatShortDate, removeTrailingZeros } from '../lib/format';
 import { I18nKey, t } from '../lib/i18n';
 import { libraryLabel } from '../lib/libraryLabel';
 import { ExerciseProgressSummary } from '../lib/progression';
 import { Theme, useTheme, useThemedStyles } from '../theming';
-import { AppLanguage, ExerciseLibraryItem, UnitPreference } from '../types/models';
+import { AppLanguage, ExerciseLibraryItem, SetupCautionFlag, UnitPreference } from '../types/models';
 
 // Muscle and facet names are stored English and used for matching, so only
 // the label translates. Anything unmapped falls through to title case.
@@ -42,6 +47,13 @@ interface ExerciseDetailScreenProps {
   language?: AppLanguage;
   onBack: () => void;
   onToggleTracked?: (item: ExerciseLibraryItem) => void;
+  /**
+   * What the reader flagged in setup. Only used to decide whether this lift's
+   * caution is for them — a warning everyone sees is furniture.
+   */
+  cautionFlags?: SetupCautionFlag[];
+  /** Opens the easier/harder alternative on its own screen. */
+  onOpenExercise?: (exerciseName: string) => void;
 }
 
 function toLabel(value: string | null | undefined, language: AppLanguage) {
@@ -200,6 +212,8 @@ export function ExerciseDetailScreen({
   language = 'en',
   onBack,
   onToggleTracked,
+  cautionFlags = [],
+  onOpenExercise,
 }: ExerciseDetailScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -222,6 +236,16 @@ export function ExerciseDetailScreen({
     }
     toastTimer.current = setTimeout(() => setToast(null), 1700);
   };
+
+  /**
+   * What is written about this lift, beyond the order of the steps.
+   *
+   * Null for most of the library, and that is the designed state: the screen
+   * renders the sections it has content for and is simply shorter otherwise.
+   * An empty "THREE CUES" heading would be worse than no heading.
+   */
+  const teaching = getExerciseTeaching(item.name, language);
+  const caution = shouldShowTeachingCaution(teaching?.caution, cautionFlags) ? teaching?.caution : null;
 
   const handleToggleTracked = () => {
     if (!onToggleTracked) {
@@ -303,6 +327,63 @@ export function ExerciseDetailScreen({
           </View>
         </View>
 
+        {teaching ? (
+          <>
+            <View style={styles.section}>
+              <SectionLabel>{t(language, 'exDetail.cues')}</SectionLabel>
+              <View style={styles.teachCard}>
+                {teaching.cues.map((cue, index) => (
+                  <View
+                    key={`cue-${index}`}
+                    style={[styles.cueRow, index === teaching.cues.length - 1 && styles.cueRowLast]}
+                  >
+                    <Text style={styles.cueNumber}>{index + 1}</Text>
+                    <Text style={styles.cueText}>{cue}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.section}>
+              <SectionLabel>{t(language, 'exDetail.mistakes')}</SectionLabel>
+              <View style={styles.mistakeCard}>
+                {teaching.mistakes.map((entry, index) => (
+                  <View
+                    key={`mistake-${index}`}
+                    style={[styles.mistakeRow, index === teaching.mistakes.length - 1 && styles.mistakeRowLast]}
+                  >
+                    <Text style={styles.mistakeTitle}>
+                      {'×  '}
+                      {entry.mistake}
+                    </Text>
+                    <Text style={styles.mistakeFix}>{entry.fix}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.section}>
+              <SectionLabel>{t(language, 'exDetail.feel')}</SectionLabel>
+              <View style={styles.feelCard}>
+                <Text style={styles.feelText}>{teaching.feel}</Text>
+                <View style={styles.tempoRow}>
+                  {teaching.tempo.map((phrase) => (
+                    <View key={phrase} style={styles.tempoChip}>
+                      <Text style={styles.tempoChipText}>{phrase}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+              {/* Only for the reader who flagged this area in setup. */}
+              {caution ? (
+                <View style={styles.cautionCard}>
+                  <Text style={styles.cautionText}>{caution.text}</Text>
+                </View>
+              ) : null}
+            </View>
+          </>
+        ) : null}
+
         <View style={styles.section}>
           <SectionLabel>{t(language, 'exDetail.yourHistory')}</SectionLabel>
           {hasHistory ? (
@@ -372,6 +453,39 @@ export function ExerciseDetailScreen({
             ) : null}
           </View>
         </View>
+
+        {teaching && teaching.swaps.length > 0 ? (
+          <View style={styles.section}>
+            <SectionLabel>{t(language, 'exDetail.swaps')}</SectionLabel>
+            <View style={{ gap: 10 }}>
+              {teaching.swaps.map((swap) => (
+                <Pressable
+                  key={`${swap.direction}-${swap.exerciseName}`}
+                  accessibilityRole="button"
+                  disabled={!onOpenExercise}
+                  onPress={() => onOpenExercise?.(swap.exerciseName)}
+                  style={({ pressed }) => [styles.swapCard, pressed && styles.swapCardPressed]}
+                >
+                  {/* Green for easier, orange for harder: the direction is the
+                      first thing to read, before the name. */}
+                  <View
+                    style={[
+                      styles.swapRail,
+                      { backgroundColor: swap.direction === 'easier' ? theme.green : theme.highlight },
+                    ]}
+                  />
+                  <View style={styles.swapBody}>
+                    <Text style={styles.swapDirection}>
+                      {t(language, swap.direction === 'easier' ? 'exDetail.easier' : 'exDetail.harder')}
+                    </Text>
+                    <Text style={styles.swapName}>{exerciseNameLabel(language, swap.exerciseName)}</Text>
+                    <Text style={styles.swapWhy}>{swap.why}</Text>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         <View style={styles.section}>
           <SectionLabel>{t(language, 'exDetail.howTo')}</SectionLabel>
@@ -452,6 +566,154 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   scroll: {
     flex: 1,
+  },
+  teachCard: {
+    backgroundColor: theme.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: theme.border,
+    paddingHorizontal: 16,
+  },
+  cueRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border,
+  },
+  cueRowLast: {
+    borderBottomWidth: 0,
+  },
+  cueNumber: {
+    color: theme.purpleBright,
+    fontSize: 15,
+    fontWeight: '800',
+    lineHeight: 22,
+    minWidth: 12,
+    fontVariant: ['tabular-nums'],
+  },
+  cueText: {
+    flex: 1,
+    color: theme.ink,
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '700',
+  },
+  // Warm ground, not red: these are the ordinary ways a lift goes wrong, not
+  // an error state. Red is what the discard button owns.
+  mistakeCard: {
+    backgroundColor: theme.amberSoft,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: theme.amberBorder,
+    paddingHorizontal: 16,
+  },
+  mistakeRow: {
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.amberBorder,
+    gap: 4,
+  },
+  mistakeRowLast: {
+    borderBottomWidth: 0,
+  },
+  mistakeTitle: {
+    color: theme.amberInk,
+    fontSize: 14.5,
+    fontWeight: '800',
+    lineHeight: 20,
+  },
+  mistakeFix: {
+    color: theme.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
+  },
+  feelCard: {
+    backgroundColor: theme.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: theme.border,
+    padding: 16,
+    gap: 12,
+  },
+  feelText: {
+    color: theme.ink,
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '700',
+  },
+  tempoRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tempoChip: {
+    backgroundColor: theme.surfaceSoft,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: theme.border,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  tempoChipText: {
+    color: theme.muted,
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  cautionCard: {
+    marginTop: 10,
+    backgroundColor: theme.amberSoft,
+    borderRadius: 14,
+    borderLeftWidth: 3,
+    borderLeftColor: theme.amber,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  cautionText: {
+    color: theme.amberInk,
+    fontSize: 13.5,
+    lineHeight: 19,
+    fontWeight: '600',
+  },
+  swapCard: {
+    flexDirection: 'row',
+    backgroundColor: theme.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.border,
+    overflow: 'hidden',
+  },
+  swapCardPressed: {
+    opacity: 0.85,
+  },
+  swapRail: {
+    width: 4,
+  },
+  swapBody: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 3,
+  },
+  swapDirection: {
+    color: theme.faint,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+  },
+  swapName: {
+    color: theme.ink,
+    fontSize: 15.5,
+    fontWeight: '800',
+  },
+  swapWhy: {
+    color: theme.muted,
+    fontSize: 13.5,
+    lineHeight: 19,
+    fontWeight: '600',
   },
   scrollContent: {
     paddingHorizontal: 18,

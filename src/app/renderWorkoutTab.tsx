@@ -705,6 +705,18 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         history={getExerciseProgressForName(database, exercise.name)}
         unitPreference={unitPreference}
         tracked={preferences.trackedExerciseLibraryItemIds.includes(exercise.id)}
+        // Decides whether this lift's caution is for this reader.
+        cautionFlags={preferences.setupCautionFlags}
+        // An easier/harder row opens that lift's own screen. Resolved by name
+        // because the teaching content names lifts the way the library does;
+        // a name with no entry simply does not navigate rather than opening a
+        // blank screen.
+        onOpenExercise={(exerciseName) => {
+          const target = exerciseBrowserItems.find((candidate) => candidate.name === exerciseName);
+          if (target) {
+            navigate({ tab: 'workout', screen: 'detail', exerciseId: target.id });
+          }
+        }}
         onBack={() => navigateBack(ROOT_ROUTES.workout)}
         onToggleTracked={(item) => {
           const trackedIds = preferences.trackedExerciseLibraryItemIds;
