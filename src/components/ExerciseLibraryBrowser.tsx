@@ -137,21 +137,6 @@ function ListIcon({ color: colorProp, size = 14 }: { color?: string; size?: numb
   );
 }
 
-function EyeIcon({ color = '#FFFFFF', size = 17 }: { color?: string; size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Circle cx="12" cy="12" r="2.6" fill={color} />
-    </Svg>
-  );
-}
-
 function StarGlyph({ active, size = 18 }: { active: boolean; size?: number }) {
   const theme = useTheme();
 
@@ -256,8 +241,13 @@ function LookButton({ label, onPress }: { label: string; onPress: () => void }) 
       style={styles.lookButton}
     >
       {/* The ink the orange was paired with, not white: on the light theme's
-          orange a white glyph is the lower-contrast of the two. */}
-      <EyeIcon color={theme.onHighlight} />
+          orange a white glyph is the lower-contrast of the two.
+
+          The shared eye, not a local copy. This file already imports
+          VinhaIcon for the body-part glyphs, and it had a second almond with
+          a filled pupil sitting next to the set's stroked one — the eye this
+          card IS should be the eye the app draws everywhere else. */}
+      <VinhaIcon name="eye" color={theme.onHighlight} size={17} />
     </Pressable>
   );
 }

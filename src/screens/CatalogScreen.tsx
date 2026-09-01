@@ -218,14 +218,22 @@ export function CatalogScreen({
             <Text style={styles.emptyBody}>{t(language, 'programCatalog.emptyBody')}</Text>
             {/* Clears the chips and leaves the search alone: the button
                 names the filters, and a reader who typed "5x5" should not have
-                to type it again to widen the level. */}
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setQuery((current) => ({ ...current, level: null, goal: null }))}
-              style={({ pressed }) => [styles.emptyButton, pressed && { opacity: 0.7 }]}
-            >
-              <Text style={styles.emptyButtonText}>{t(language, 'programCatalog.clearFilters')}</Text>
-            </Pressable>
+                to type it again to widen the level.
+                
+                Which is exactly why it must not draw when no chip is set. With
+                both already null and the search alone emptying the list, the
+                tap wrote the values they already held and nothing moved — a
+                control that answers the empty state by doing nothing. The
+                search has its own × elsewhere on the screen. */}
+            {query.level !== null || query.goal !== null ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setQuery((current) => ({ ...current, level: null, goal: null }))}
+                style={({ pressed }) => [styles.emptyButton, pressed && { opacity: 0.7 }]}
+              >
+                <Text style={styles.emptyButtonText}>{t(language, 'programCatalog.clearFilters')}</Text>
+              </Pressable>
+            ) : null}
           </View>
         }
       />

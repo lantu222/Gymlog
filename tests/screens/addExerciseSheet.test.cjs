@@ -103,7 +103,13 @@ module.exports = [
       assert.doesNotMatch(browser, /lookButton: \{[\s\S]{0,200}theme\.green\b/);
       assert.match(browser, /backgroundColor: theme\.highlight/);
       // And the glyph takes the ink that orange was paired with, not white.
-      assert.match(browser, /<EyeIcon color=\{theme\.onHighlight\} \/>/);
+      assert.match(browser, /<VinhaIcon name="eye" color=\{theme\.onHighlight\} size=\{17\} \/>/);
+      // The SHARED eye. This file kept a local almond with a filled pupil next
+      // to the icon set's stroked one, in a file that already imports
+      // VinhaIcon for the body-part glyphs — flagged by the PR review on #40
+      // against CLAUDE.md's "use existing shared components before adding new
+      // styling". The eye this card IS should be the eye the app draws.
+      assert.doesNotMatch(browser, /function EyeIcon/);
 
       // It opens; it does not add. The prop that carried "add to workout" is
       // gone from the browser and from the screen that wraps it, so there is

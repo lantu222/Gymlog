@@ -93,6 +93,7 @@ const suites = [
   ...require('./lib/routineDrillSwap.test.cjs'),
   ...require('./lib/exerciseHistoryLookup.test.cjs'),
   ...require('./lib/prescribedInstructions.test.cjs'),
+  ...require('./lib/exerciseLearning.test.cjs'),
   ...require('./lib/exerciseTeaching.test.cjs'),
   ...require('./lib/exerciseCollections.test.cjs'),
   ...require('./lib/programLadder.test.cjs'),

@@ -22,16 +22,19 @@ const { createSeedExerciseLibrary } = require('../../.test-dist/data/seed.js');
  */
 
 const library = createSeedExerciseLibrary();
-const libraryNames = new Set(library.map((item) => item.name));
 
 /**
- * What a swap can actually open.
+ * What the screen can actually open — a swap target OR a teaching key.
  *
- * The screen resolves a swap through `exerciseBrowserItems`, which is the seed
- * library MINUS the legacy `lib_*` rows (App.tsx). Checking swaps against the
- * full library would pass for a target the browser filters out, and that swap
- * would render as a row that does nothing when tapped — the test proving less
+ * ExerciseDetailScreen resolves everything through `exerciseBrowserItems`,
+ * which is the seed library MINUS the legacy `lib_*` rows (App.tsx:525).
+ * Checking against the full library passes for a row the browser filters out,
+ * and that row renders as content nobody can reach — the test proving less
  * than the app needs.
+ *
+ * The swap case had this right and the key case below did not, which is the
+ * shape worth remembering: one guard in a file being stricter than its
+ * neighbour is a sign the neighbour was written first and never revisited.
  */
 const reachableNames = new Set(
   library.filter((item) => !item.id.startsWith('lib_')).map((item) => item.name),
@@ -45,12 +48,16 @@ function everyEntry() {
 
 module.exports = [
   {
-    name: 'teaching: every exercise written about exists in the library',
+    name: 'teaching: every exercise written about is one a reader can open',
     run() {
       const orphans = everyEntry()
-        .filter(({ name }) => !libraryNames.has(name))
+        .filter(({ name }) => !reachableNames.has(name))
         .map(({ language, name }) => `${language}:${name}`);
-      assert.deepEqual(orphans, [], `teaching keyed to lifts the library lacks: ${orphans.join(', ')}`);
+      assert.deepEqual(
+        orphans,
+        [],
+        `teaching keyed to lifts no reader can open: ${orphans.join(', ')}`,
+      );
     },
   },
   {

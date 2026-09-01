@@ -5,12 +5,6 @@ const path = require('node:path');
 const {
   EXERCISE_TEACHING_TABLES,
 } = require('../../.test-dist/lib/exerciseTeaching.js');
-const {
-  normalizeTechniqueChecks,
-  normalizeLearnedExerciseIds,
-  toggleTechniqueStatement,
-  countRemainingStatements,
-} = require('../../.test-dist/lib/exerciseLearning.js');
 
 const read = (rel) => fs.readFileSync(path.join(__dirname, '..', '..', rel), 'utf8');
 const screen = read('src/screens/ExerciseDetailScreen.tsx');
@@ -96,74 +90,20 @@ module.exports = [
   },
   {
     /**
-     * The loader normalises what it reads. A stored index that is negative,
-     * fractional or repeated would each draw a wrong "N left" counter — and
-     * the counter is the only thing the section says out loud.
+     * The loader normalises rather than trusting the blob.
      *
-     * The rule lives in src/lib rather than in the loader because
-     * `storage/database.ts` reaches AsyncStorage, which reaches React Native,
-     * which no test in this suite can import. The loader delegates.
+     * The rules themselves are executed in tests/lib/exerciseLearning.test.cjs
+     * — this is only the half that cannot be: `storage/database.ts` reaches
+     * AsyncStorage and so React Native, which no suite here can import, so
+     * the one thing left to check is that it delegates at all. A loader that
+     * stopped calling them would hand a negative or repeated index straight
+     * to the counter.
      */
-    name: 'learning: a corrupt stored value cannot draw a wrong counter',
+    name: 'learning: the loader delegates to the normalisers',
     run() {
-      const checks = normalizeTechniqueChecks({
-        good: [2, 0, 0, 1],
-        negative: [-1, 1],
-        fractional: [1.5, 2],
-        notAnArray: 3,
-        empty: [],
-        '': [1],
-      });
-
-      // Duplicates collapsed and sorted, so the same four boxes ticked in a
-      // different order compare equal between devices.
-      assert.deepEqual(checks.good, [0, 1, 2]);
-      assert.deepEqual(checks.negative, [1]);
-      assert.deepEqual(checks.fractional, [2]);
-      assert.equal(checks.notAnArray, undefined);
-      assert.equal(checks.empty, undefined);
-      assert.equal(checks[''], undefined);
-
-      assert.deepEqual(normalizeTechniqueChecks(null), {});
-      assert.deepEqual(normalizeTechniqueChecks([1, 2]), {});
-      assert.deepEqual(normalizeLearnedExerciseIds(['keep', '', '   ', 42, null, 'keep']), ['keep']);
-      assert.deepEqual(normalizeLearnedExerciseIds('nope'), []);
-
-      // And the loader must actually call them rather than trusting the blob.
       const loader = read('src/storage/database.ts');
       assert.match(loader, /exerciseTechniqueChecks: normalizeTechniqueChecks\(/);
       assert.match(loader, /learnedExerciseLibraryItemIds: normalizeLearnedExerciseIds\(/);
-    },
-  },
-  {
-    name: 'learning: ticking the last box off removes the lift rather than storing none',
-    run() {
-      const one = toggleTechniqueStatement({}, 'ex', 2);
-      assert.deepEqual(one, { ex: [2] });
-
-      const two = toggleTechniqueStatement(one, 'ex', 0);
-      assert.deepEqual(two, { ex: [0, 2] });
-
-      const back = toggleTechniqueStatement(toggleTechniqueStatement(two, 'ex', 0), 'ex', 2);
-      assert.deepEqual(back, {}, 'an emptied lift leaves no row behind');
-
-      // Other lifts are untouched, and the input is never mutated.
-      const seed = { other: [1] };
-      const next = toggleTechniqueStatement(seed, 'ex', 0);
-      assert.deepEqual(seed, { other: [1] });
-      assert.deepEqual(next, { other: [1], ex: [0] });
-    },
-  },
-  {
-    name: 'learning: the counter names what is left, and reaches zero',
-    run() {
-      assert.equal(countRemainingStatements(4, []), 4);
-      assert.equal(countRemainingStatements(4, [0, 2]), 2);
-      assert.equal(countRemainingStatements(4, [0, 1, 2, 3]), 0);
-      assert.equal(countRemainingStatements(4, null), 4);
-      // A stored index past the end is not a tick on anything, so it cannot
-      // talk the counter below what is really left.
-      assert.equal(countRemainingStatements(4, [9, 9, 9, 9]), 4);
     },
   },
 ];

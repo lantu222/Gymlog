@@ -438,6 +438,18 @@ module.exports = [
       // all 57 and re-render them on each keystroke.
       assert.match(catalog, /<FlatList/);
       assert.doesNotMatch(catalog, /shown\.map\(/, 'the results are mounted all at once again');
+
+      // "Clear the filters" only draws when there is a filter to clear.
+      // It resets the chips and deliberately leaves the search alone, so with
+      // both chips already null and the typed text alone emptying the list,
+      // the tap wrote the values they already held and the empty state stayed
+      // exactly as it was — the one control the empty state offers, doing
+      // nothing. Flagged by the PR review on #40.
+      assert.match(
+        catalog,
+        /\{query\.level !== null \|\| query\.goal !== null \? \(/,
+        'the clear-filters button can render with nothing to clear',
+      );
     },
   },
   {
