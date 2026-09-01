@@ -39,6 +39,7 @@ import { GuidedPlayerScreen } from '../screens/GuidedPlayerScreen';
 import { ProgramDayScreen } from '../screens/ProgramDayScreen';
 import { ProgramPrescription } from '../lib/programSessionEdit';
 import { ProgramDetailScreen } from '../screens/ProgramDetailScreen';
+import { CatalogScreen, CatalogScreenItem } from '../screens/CatalogScreen';
 import { ProgramsHomeScreen } from '../screens/ProgramsHomeScreen';
 import { SeasonScreen } from '../screens/SeasonScreen';
 import { StrengthGoalPickerScreen } from '../screens/StrengthGoalPickerScreen';
@@ -159,6 +160,8 @@ export interface WorkoutTabDeps {
   handleEnrolSeason: (season: ProgramSeason, year: number) => void;
   programsSeasonRows: ProgramsHomeProps['seasonRows'];
   programsCatalogItems: ProgramsHomeProps['catalogItems'];
+  /** The same programmes with their categories, for the catalog's goal chips. */
+  catalogScreenItems: CatalogScreenItem[];
   programsCategoryCounts: ProgramsHomeProps['categoryCounts'];
   programsCategoryMembers: ProgramsHomeProps['categoryMembers'];
   programsTrendingItems: ProgramsHomeProps['trendingItems'];
@@ -239,6 +242,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     handleEnrolSeason,
     programsSeasonRows,
     programsCatalogItems,
+    catalogScreenItems,
     programsCategoryCounts,
     programsCategoryMembers,
     programsTrendingItems,
@@ -760,6 +764,19 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     );
   }
 
+  if (route.screen === 'catalog') {
+    return (
+      <CatalogScreen
+        language={preferences.appLanguage}
+        items={catalogScreenItems}
+        onBack={() => navigateBack(workoutHomeRoute)}
+        onOpenProgram={(programId) =>
+          navigate({ tab: 'workout', screen: 'program', programType: 'ready', workoutTemplateId: programId })
+        }
+      />
+    );
+  }
+
   if (route.screen === 'goalPicker') {
     return (
       <StrengthGoalPickerScreen
@@ -920,6 +937,8 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         onTeachName={(wrote, exercise) => teachExerciseName(wrote, { name: exercise.name, libraryItemId: exercise.id })}
         onPickImage={handlePickProgramImage}
         onAiAssisted={() => navigate({ tab: 'home', screen: 'ai_chat' })}
+        onBrowseCatalog={() => navigate({ tab: 'workout', screen: 'catalog' })}
+        catalogCount={programsCatalogItems.length}
         onImportProgram={async (draft) => {
           const workoutTemplateId = await upsertWorkoutTemplate(draft);
           navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });

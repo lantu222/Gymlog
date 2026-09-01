@@ -41,6 +41,15 @@ interface NewProgramSheetProps {
   onClose: () => void;
   onAiAssisted: () => void;
   onBuildYourself: () => void;
+  /**
+   * The fourth way in. The 57 ready programmes had no door on this sheet at
+   * all — only the goal discs on the tab behind it, which are a taxonomy and
+   * cannot be narrowed. Optional so a caller without a catalog simply does not
+   * offer the row, rather than offering one that goes nowhere.
+   */
+  onBrowseCatalog?: () => void;
+  /** How many ready programmes the catalog row is promising. */
+  catalogCount?: number;
   onImportProgram: (draft: WorkoutTemplateDraft) => Promise<void> | void;
   /**
    * A pasted Hevy export is HISTORY, not a programme — workouts already
@@ -68,7 +77,7 @@ interface NewProgramSheetProps {
   onTeachName?: (wrote: string, exercise: CsvLibraryEntry) => Promise<void> | void;
 }
 
-function OptionIcon({ name }: { name: 'spark' | 'build' | 'table' }) {
+function OptionIcon({ name }: { name: 'spark' | 'build' | 'table' | 'layers' }) {
   const theme = useTheme();
 
   const stroke = name === 'spark' ? '#FFFFFF' : theme.purple;
@@ -87,6 +96,14 @@ function OptionIcon({ name }: { name: 'spark' | 'build' | 'table' }) {
       ) : null}
       {name === 'table' ? (
         <Path d="M4 5h16v14H4V5zm0 5h16M4 14h16M10 5v14" stroke={stroke} strokeWidth={1.8} strokeLinejoin="round" />
+      ) : null}
+      {name === 'layers' ? (
+        <Path
+          d="M12 3l9 5-9 5-9-5 9-5zm9 9l-9 5-9-5m18 4l-9 5-9-5"
+          stroke={stroke}
+          strokeWidth={1.9}
+          strokeLinejoin="round"
+        />
       ) : null}
     </Svg>
   );
@@ -110,6 +127,8 @@ export function NewProgramSheet({
   onClose,
   onAiAssisted,
   onBuildYourself,
+  onBrowseCatalog,
+  catalogCount = 0,
   onImportProgram,
   onImportHistory,
   nameBook = [],
@@ -282,6 +301,32 @@ export function NewProgramSheet({
           {view === 'menu' ? (
             <View style={styles.menu}>
               <Text style={styles.subtitle}>{t(language, 'csv.pickHow')}</Text>
+              {/* The catalog first. The brief drew it fourth and said so in its
+                  own notes — "probably the most-used door and it is currently
+                  last" — and the call on 2026-08-31 was to try it high. It
+                  only appears when a caller can actually open it. */}
+              {onBrowseCatalog ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'csv.catalogA11y')}
+                  onPress={() => {
+                    handleClose();
+                    onBrowseCatalog();
+                  }}
+                  style={({ pressed }) => [styles.optionCard, pressed && styles.pressed]}
+                >
+                  <View style={styles.optionIconTile}>
+                    <OptionIcon name="layers" />
+                  </View>
+                  <View style={styles.optionCopy}>
+                    <Text style={styles.optionTitle}>{t(language, 'csv.catalog')}</Text>
+                    <Text style={styles.optionBody}>
+                      {t(language, 'csv.catalogBody', { count: catalogCount })}
+                    </Text>
+                  </View>
+                  <Chevron />
+                </Pressable>
+              ) : null}
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t(language, 'csv.aiA11y')}

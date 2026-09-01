@@ -247,6 +247,7 @@ import { ExportablePlan } from './src/screens/ExportPlanScreen';
 import { NewProgramSheet } from './src/components/NewProgramSheet';
 import { buildCoachContextChips } from './src/lib/coachChat';
 import { requestProgramTableFromImage } from './src/lib/aiCoachClient';
+import type { CatalogScreenItem } from './src/screens/CatalogScreen';
 import { ProgramsExploreItem } from './src/screens/ProgramsHomeScreen';
 import { WorkoutCompletionScreen } from './src/screens/WorkoutCompletionScreen';
 import { WorkoutCelebrationScreen } from './src/screens/WorkoutCelebrationScreen';
@@ -4377,6 +4378,28 @@ function VinhaApp() {
     () => countByCategory(workout.templates),
     [workout.templates],
   );
+  /**
+   * The catalog screen's rows: the explore items plus every category each
+   * programme belongs to, because the goal chips narrow on that and a
+   * programme in two categories has to be findable under both.
+   */
+  const catalogScreenItems = useMemo<CatalogScreenItem[]>(() => {
+    const memberships = new Map<string, ProgramCategoryKey[]>();
+    for (const category of PROGRAM_CATEGORIES) {
+      for (const template of filterByCategory(workout.templates, category.key)) {
+        const keys = memberships.get(template.id);
+        if (keys) {
+          keys.push(category.key);
+        } else {
+          memberships.set(template.id, [category.key]);
+        }
+      }
+    }
+    return programsCatalogItems.map((item) => ({
+      ...item,
+      categories: memberships.get(item.id) ?? [],
+    }));
+  }, [programsCatalogItems, workout.templates]);
   const programsCategoryMembers = useMemo(
     () =>
       Object.fromEntries(
@@ -5346,6 +5369,7 @@ function VinhaApp() {
       handleEnrolSeason,
       programsSeasonRows,
       programsCatalogItems,
+      catalogScreenItems,
       programsCategoryCounts,
       programsCategoryMembers,
       programsTrendingItems,

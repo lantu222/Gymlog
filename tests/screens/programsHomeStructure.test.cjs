@@ -118,7 +118,16 @@ module.exports = [
       // reader, and no card on this screen carried it before.
       assert.match(programsHomeSource, /const LEVEL_FILTERS/);
       assert.match(programsHomeSource, /items\.filter\(\(item\) => item\.level === level\)/);
-      assert.match(programsHomeSource, /LEVEL_STYLES\[item\.level\]/);
+      // The badge itself moved into the shared row when the catalog screen
+      // became a second door onto the same programmes. It is still drawn from
+      // the item's own level — this follows it rather than asserting that a
+      // particular file holds it.
+      const rowSource = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'components', 'ProgramLadderRow.tsx'),
+        'utf8',
+      );
+      assert.match(rowSource, /PROGRAM_LEVEL_STYLES\[item\.level\]/);
+      assert.match(programsHomeSource, /levelFilter=\{level\}/);
       // A filter left over from the last category would silently hide
       // programs in the next one.
       assert.match(programsHomeSource, /if \(!visible\) \{[\s\S]{0,40}setLevel\(null\)/);
@@ -260,6 +269,41 @@ module.exports = [
       assert.match(library, /onPress=\{onBack\}/);
       // Status-bar/shell treatment matches the other light workout screens.
       assert.match(appSource, /const programsHomeActive = route\.tab === 'workout' && route\.screen === 'programs_home'/);
+    },
+  },
+  {
+    /**
+     * The fourth door, and where it sits.
+     *
+     * The brief drew "Browse the catalog" last of four and said so in its own
+     * notes — "probably the most-used door and it is currently last". The call
+     * on 2026-08-31 was to try it high, which is the kind of decision a later
+     * tidy-up reverses without noticing, so the ORDER is what this pins.
+     */
+    name: 'the new-program sheet offers the catalog, and offers it first',
+    run() {
+      const sheet = read('src', 'components', 'NewProgramSheet.tsx');
+
+      const catalogAt = sheet.indexOf("t(language, 'csv.catalog')");
+      const aiAt = sheet.indexOf("t(language, 'csv.ai')");
+      const buildAt = sheet.indexOf("t(language, 'csv.build')");
+      assert.ok(catalogAt > 0, 'the sheet has no catalog row');
+      assert.ok(aiAt > 0 && buildAt > 0, 'the sheet lost one of its original rows');
+      assert.ok(catalogAt < aiAt, 'the catalog row slipped below AI-assisted');
+      assert.ok(catalogAt < buildAt, 'the catalog row slipped below Build it yourself');
+
+      // The row only draws when a caller can open it — a door to nowhere is
+      // worse than no door.
+      assert.match(sheet, /\{onBrowseCatalog \? \(/);
+
+      // And the Programs tab is the caller that can.
+      const workoutTab = read('src', 'app', 'renderWorkoutTab.tsx');
+      assert.match(
+        workoutTab,
+        /onBrowseCatalog=\{\(\) => navigate\(\{ tab: 'workout', screen: 'catalog' \}\)\}/,
+      );
+      assert.match(workoutTab, /<CatalogScreen/);
+      assert.match(workoutTab, /route\.screen === 'catalog'/);
     },
   },
   {

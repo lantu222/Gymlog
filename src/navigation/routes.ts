@@ -65,6 +65,17 @@ export type AppRoute =
       screen: 'goalPicker';
     }
   | {
+      /**
+       * Every ready programme, narrowed by level, goal and free text.
+       *
+       * The goal discs on the tab are a taxonomy — nine doors onto fixed
+       * slices — so "a four-day muscle programme I can start as a beginner"
+       * had nowhere to be asked. Reached from the new-programme sheet.
+       */
+      tab: 'workout';
+      screen: 'catalog';
+    }
+  | {
       tab: 'workout';
       screen: 'list';
     }

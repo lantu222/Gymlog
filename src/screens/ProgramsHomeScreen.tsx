@@ -28,14 +28,13 @@ import { CutSurface } from '../components/CutSurface';
 import { LAYERS_MOTIF, ProgramCoverStyle, programCoverStyle } from '../lib/programVisualIdentity';
 import { SEASON_WEEKS } from '../lib/season';
 import { NewProgramSheet } from '../components/NewProgramSheet';
+import { ProgramLadderRow } from '../components/ProgramLadderRow';
 import { CsvLibraryEntry } from '../lib/csvProgramImport';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import {
   availableLadderSorts,
-  formatWeeklyLoad,
   partitionByReaderWeek,
   ProgramLadderSort,
-  shouldShowLevelBadge,
   sortProgramLadder,
 } from '../lib/programLadder';
 import { I18nKey, t } from '../lib/i18n';
@@ -280,6 +279,10 @@ interface ProgramsHomeScreenProps {
   onOpenCustomProgram: (programId: string, programType: 'ready' | 'custom') => void;
   onCreateProgram: () => void;
   onAiAssisted: () => void;
+  /** The fourth door on the new-programme sheet: all the ready programmes. */
+  onBrowseCatalog?: () => void;
+  /** How many ready programmes that door is promising. */
+  catalogCount?: number;
   onImportProgram: (draft: WorkoutTemplateDraft) => Promise<void> | void;
   exerciseLibraryEntries: CsvLibraryEntry[];
   /** The reader's own lift names, for the CSV importer's matcher. */
@@ -642,12 +645,6 @@ function CampaignHero({
  * says "5 days, ~70 min" without saying "Edistynyt" is describing the workload
  * and hiding the prerequisite.
  */
-const LEVEL_STYLES: Record<WorkoutLevel, { bg: string; ink: string; key: I18nKey }> = {
-  beginner: { bg: '#E8F7EE', ink: '#007633', key: 'programs.level.beginner' },
-  intermediate: { bg: '#EFE7FF', ink: '#5B21B6', key: 'programs.level.intermediate' },
-  advanced: { bg: '#FFE1DB', ink: '#A52A24', key: 'programs.level.advanced' },
-};
-
 /** The same three labels the filter row uses, keyed for a single card. */
 const LEVEL_LABEL_KEYS: Record<WorkoutLevel, I18nKey> = {
   beginner: 'programs.level.beginner',
@@ -670,39 +667,6 @@ const LEVEL_FILTERS: Array<{ level: WorkoutLevel | null; key: I18nKey }> = [
 ];
 
 /** The 74x74 cover on a sheet row: gradient plus the program's own week. */
-function RowCover({ style, fingerprint }: { style: ProgramCoverStyle; fingerprint: number[] }) {
-  const gid = `row-${style.cover[0]}`.replace(/[^a-zA-Z0-9]/g, '');
-  const size = 74;
-  return (
-    <Svg width={size} height={size}>
-      <Defs>
-        <SvgLinearGradient id={gid} x1="0.2" y1="0" x2="0.9" y2="1">
-          <Stop offset="0" stopColor={style.cover[0]} />
-          <Stop offset="1" stopColor={style.cover[1]} />
-        </SvgLinearGradient>
-      </Defs>
-      <Rect x="0" y="0" width={size} height={size} rx={14} fill={`url(#${gid})`} />
-      {fingerprint.map((ratio, index) => {
-        const slot = (size - 16) / Math.max(1, fingerprint.length);
-        const barWidth = Math.max(2, slot - 2.5);
-        const barHeight = Math.max(4, ratio * 42);
-        return (
-          <Rect
-            key={index}
-            x={8 + index * slot}
-            y={size - 9 - barHeight}
-            width={barWidth}
-            height={barHeight}
-            rx={1.5}
-            fill="#FFFFFF"
-            fillOpacity={0.85}
-          />
-        );
-      })}
-    </Svg>
-  );
-}
-
 /**
  * What a category tile opens.
  *
@@ -916,64 +880,15 @@ function ProgramSheet({
                   return <View key={entry.key} style={styles.sheetGroupRule} />;
                 }
                 const item = entry.item as ProgramsExploreItem;
-                const style = item.cover;
-                const levelStyle = LEVEL_STYLES[item.level];
                 return (
-                  <Pressable
+                  <ProgramLadderRow
                     key={item.id}
-                    accessibilityRole="button"
+                    item={item}
+                    language={language}
+                    levelFilter={level}
                     accessibilityLabel={t(language, 'programs.switchTo', { name: item.name })}
                     onPress={() => onPick(item)}
-                    style={({ pressed }) => [styles.sheetRow, pressed && styles.pressedRow]}
-                  >
-                    <RowCover style={style} fingerprint={item.fingerprint} />
-                    <View style={styles.sheetRowCopy}>
-                      <View style={styles.sheetRowTitleLine}>
-                        <Text style={styles.sheetRowName} numberOfLines={1}>
-                          {item.name}
-                        </Text>
-                        {/* Only when it says something the filter has not. */}
-                        {shouldShowLevelBadge(item.level, level) ? (
-                          <View style={[styles.levelBadge, { backgroundColor: levelStyle.bg }]}>
-                            <Text style={[styles.levelBadgeText, { color: levelStyle.ink }]}>
-                              {t(language, levelStyle.key).toUpperCase()}
-                            </Text>
-                          </View>
-                        ) : null}
-                      </View>
-                      {/* One line. Two lines of blurb on rows that differ by a
-                          single day pushed the number that actually differs
-                          below the fold. */}
-                      <Text style={styles.sheetRowBlurb} numberOfLines={1}>
-                        {item.blurb}
-                      </Text>
-                      <View style={styles.exploreMetaRow}>
-                        <Text style={styles.exploreMeta}>
-                          {formatWeeklyLoad(item.days, item.minutes, language)}
-                        </Text>
-                        {/* The two things the sorts sort by. Offering "Length"
-                            while no row says its length shuffles the list for
-                            no visible reason. */}
-                        {item.weeks > 0 ? (
-                          <>
-                            <View style={styles.metaDot} />
-                            <Text style={styles.exploreMeta}>
-                              {t(language, 'programs.weeksShort', { count: item.weeks })}
-                            </Text>
-                          </>
-                        ) : null}
-                      </View>
-                    </View>
-                    <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-                      <Path
-                        d="m9 6 6 6-6 6"
-                        stroke={theme.faint}
-                        strokeWidth={2.2}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </Svg>
-                  </Pressable>
+                  />
                 );
               })
             )}
@@ -1025,6 +940,8 @@ export function ProgramsHomeScreen({
   onOpenCustomProgram,
   onCreateProgram,
   onAiAssisted,
+  onBrowseCatalog,
+  catalogCount = 0,
   onImportProgram,
   exerciseLibraryEntries,
   nameBook,
@@ -1730,6 +1647,8 @@ export function ProgramsHomeScreen({
         onPickImage={onPickImage}
         onClose={() => setCreateOpen(false)}
         onAiAssisted={onAiAssisted}
+        onBrowseCatalog={onBrowseCatalog}
+        catalogCount={catalogCount}
         onBuildYourself={onCreateProgram}
         onImportProgram={onImportProgram}
       />
@@ -2551,16 +2470,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 24,
     textAlign: 'center',
   },
-  sheetRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 10,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.surface,
-  },
   sheetGroupHeader: {
     color: theme.highlight,
     fontSize: 11,
@@ -2579,41 +2488,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginVertical: 6,
     marginHorizontal: 4,
     backgroundColor: theme.border,
-  },
-  sheetRowCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  sheetRowTitleLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-  sheetRowName: {
-    flexShrink: 1,
-    color: theme.ink,
-    fontSize: 15,
-    lineHeight: 19,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-  },
-  levelBadge: {
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  levelBadgeText: {
-    fontSize: 9.5,
-    lineHeight: 12,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  sheetRowBlurb: {
-    color: theme.muted,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '600',
-    marginTop: 3,
   },
   catSheetCta: {
     position: 'absolute',

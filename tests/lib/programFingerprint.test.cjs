@@ -88,10 +88,22 @@ module.exports = [
       assert.ok(covers >= 1, `only ${covers} covers on the page`);
       const passes = (screen.match(/fingerprint=\{item\.fingerprint\}/g) ?? []).length;
       assert.ok(passes >= covers, `${covers} covers but only ${passes} fingerprints`);
-      // The sheet rows draw the same week at 74px. A row cover that skipped
-      // the fingerprint would be a flat gradient claiming to be a program.
-      assert.match(screen, /function RowCover/);
-      assert.match(screen, /<RowCover style=\{style\} fingerprint=\{item\.fingerprint\} \/>/);
+      // The sheet rows draw the same week at 74px, and so does the catalog:
+      // both go through the one shared row now, so this follows it there
+      // rather than pinning a component to the screen it started in. A row
+      // cover that skipped the fingerprint would be a flat gradient claiming
+      // to be a program.
+      const row = read('src', 'components', 'ProgramLadderRow.tsx');
+      assert.match(row, /export function ProgramRowCover/);
+      assert.match(row, /<ProgramRowCover style=\{item\.cover\} fingerprint=\{item\.fingerprint\} \/>/);
+      // And both doors reach the programme through it, or one of them draws
+      // its own row and the two drift apart.
+      for (const [file, source] of [
+        ['ProgramsHomeScreen.tsx', screen],
+        ['CatalogScreen.tsx', read('src', 'screens', 'CatalogScreen.tsx')],
+      ]) {
+        assert.match(source, /<ProgramLadderRow$/m, `${file} draws its own program row`);
+      }
       // Built from the template, not from a card field that could drift.
       // Three rows build one now; the fourth went with "Jatka siitä mihin
       // jäit", which answered the same question as "Omat ohjelmasi" below it.
