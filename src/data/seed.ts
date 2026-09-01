@@ -117,6 +117,8 @@ const DEFAULT_PREFERENCES = {
   lastInsightType: null,
   recommendedProgramId: null,
   trackedExerciseLibraryItemIds: [] as string[],
+  learnedExerciseLibraryItemIds: [] as string[],
+  exerciseTechniqueChecks: {} as Record<string, number[]>,
   dismissedTipIds: [] as string[],
   dismissedCompletionPlanIds: [] as string[],
   dismissedCardSuggestionKeys: [] as string[],

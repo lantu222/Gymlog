@@ -306,6 +306,8 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       aiCoachPlanGeneratedAt: null,
       recommendedProgramId: null,
       trackedExerciseLibraryItemIds: [],
+      learnedExerciseLibraryItemIds: [],
+      exerciseTechniqueChecks: {},
       strengthGoals: [],
     seasonEnrolments: [],
       dismissedTipIds: [],

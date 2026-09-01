@@ -566,6 +566,23 @@ export interface AppPreferences {
   recommendedProgramId: string | null;
   trackedExerciseLibraryItemIds: string[];
   /**
+   * Lifts the reader has said they know, by library item id.
+   *
+   * A declaration, not a score: nothing in the app computes it, and nothing
+   * takes it away. The Learn collections count it, and that is all it is for.
+   */
+  learnedExerciseLibraryItemIds: string[];
+  /**
+   * Which of a lift's technique-check statements the reader has ticked, by
+   * library item id → statement index.
+   *
+   * Kept separate from `learned` on purpose. The check is a self-audit — the
+   * statements you cannot tick are the ones to film — and ticking all four is
+   * not the same claim as saying you know the lift. Deriving one from the
+   * other would put words in the reader's mouth.
+   */
+  exerciseTechniqueChecks: Record<string, number[]>;
+  /**
    * "Bench 100 kg" targets. Empty until the user sets one — the onboarding
    * goal is a category ('strength'), not a number, and a progress bar needs
    * a number.

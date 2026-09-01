@@ -5,6 +5,7 @@ import Svg, { Path } from 'react-native-svg';
 import { SimpleLineChart } from '../components/SimpleLineChart';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { getExerciseInstructions } from '../lib/exerciseInstructions';
+import { countRemainingStatements } from '../lib/exerciseLearning';
 import { getExerciseTeaching, shouldShowTeachingCaution } from '../lib/exerciseTeaching';
 import { convertWeightFromKg, formatShortDate, removeTrailingZeros } from '../lib/format';
 import { I18nKey, t } from '../lib/i18n';
@@ -50,6 +51,11 @@ interface ExerciseDetailScreenProps {
   cautionFlags?: SetupCautionFlag[];
   /** Opens the easier/harder alternative on its own screen. */
   onOpenExercise?: (exerciseName: string) => void;
+  /** Statement indexes this reader has ticked for this lift. */
+  checkedStatements?: number[];
+  onToggleStatement?: (index: number) => void;
+  learned?: boolean;
+  onToggleLearned?: () => void;
 }
 
 function toLabel(value: string | null | undefined, language: AppLanguage) {
@@ -161,6 +167,22 @@ function HeroImage({ uri }: { uri?: string | null }) {
   );
 }
 
+function TickIcon({ color: colorProp }: { color?: string }) {
+  const theme = useTheme();
+
+  return (
+    <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4.5 12.5l5 5L19.5 7"
+        stroke={colorProp ?? theme.onHighlight}
+        strokeWidth={2.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 function Chip({ label, filled }: { label: string; filled?: boolean }) {
   const styles = useThemedStyles(makeStyles);
 
@@ -210,6 +232,10 @@ export function ExerciseDetailScreen({
   onToggleTracked,
   cautionFlags = [],
   onOpenExercise,
+  checkedStatements = [],
+  onToggleStatement,
+  learned = false,
+  onToggleLearned,
 }: ExerciseDetailScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -242,6 +268,7 @@ export function ExerciseDetailScreen({
    */
   const teaching = getExerciseTeaching(item.name, language);
   const caution = shouldShowTeachingCaution(teaching?.caution, cautionFlags) ? teaching?.caution : null;
+  const remainingChecks = teaching ? countRemainingStatements(teaching.check.length, checkedStatements) : 0;
 
   const handleToggleTracked = () => {
     if (!onToggleTracked) {
@@ -506,6 +533,63 @@ export function ExerciseDetailScreen({
           </View>
         </View>
 
+        {teaching && teaching.check.length > 0 ? (
+          <View style={styles.section}>
+            <SectionLabel>{t(language, 'exDetail.check')}</SectionLabel>
+            <View style={styles.checkCard}>
+              {teaching.check.map((statement, index) => {
+                const ticked = checkedStatements.includes(index);
+                return (
+                  <Pressable
+                    key={`check-${index}`}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: ticked }}
+                    accessibilityLabel={statement}
+                    disabled={!onToggleStatement}
+                    onPress={() => onToggleStatement?.(index)}
+                    style={({ pressed }) => [
+                      styles.checkRow,
+                      index === teaching.check.length - 1 && styles.checkRowLast,
+                      pressed && styles.checkRowPressed,
+                    ]}
+                  >
+                    <View style={[styles.checkBox, ticked && styles.checkBoxTicked]}>
+                      {ticked ? <TickIcon /> : null}
+                    </View>
+                    <Text style={[styles.checkText, ticked && styles.checkTextTicked]}>{statement}</Text>
+                  </Pressable>
+                );
+              })}
+              {/* Not a score. The statements you cannot tick are the ones
+                  worth filming — so the counter names what is left, and stops
+                  talking once nothing is. */}
+              {remainingChecks > 0 ? (
+                <Text style={styles.checkHint}>
+                  {t(language, 'exDetail.checkRemaining', { count: remainingChecks })}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
+
+        {onToggleLearned ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ selected: learned }}
+            onPress={onToggleLearned}
+            style={({ pressed }) => [
+              styles.learnedButton,
+              learned && styles.learnedButtonOn,
+              pressed && { opacity: 0.9 },
+            ]}
+          >
+            {learned ? <TickIcon color={theme.onHighlight} /> : null}
+            <Text style={[styles.learnedText, learned && styles.learnedTextOn]}>
+              {t(language, learned ? 'exDetail.learned' : 'exDetail.markLearned')}
+            </Text>
+          </Pressable>
+        ) : null}
+
         <Text style={styles.footnote}>{t(language, 'exDetail.footnote')}</Text>
       </ScrollView>
 
@@ -710,6 +794,83 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 13.5,
     lineHeight: 19,
     fontWeight: '600',
+  },
+  checkCard: {
+    backgroundColor: theme.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: theme.border,
+    paddingHorizontal: 16,
+    paddingBottom: 4,
+  },
+  checkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border,
+  },
+  checkRowLast: {
+    borderBottomWidth: 0,
+  },
+  checkRowPressed: {
+    opacity: 0.7,
+  },
+  checkBox: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    borderWidth: 1.8,
+    borderColor: theme.faint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkBoxTicked: {
+    backgroundColor: theme.highlight,
+    borderColor: theme.highlight,
+  },
+  checkText: {
+    flex: 1,
+    color: theme.ink,
+    fontSize: 14.5,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  checkTextTicked: {
+    color: theme.muted,
+  },
+  checkHint: {
+    color: theme.faint,
+    fontSize: 12.5,
+    lineHeight: 18,
+    fontWeight: '600',
+    paddingBottom: 12,
+  },
+  learnedButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+    height: 52,
+    marginHorizontal: 18,
+    marginTop: 22,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: theme.purpleDark,
+    backgroundColor: theme.surface,
+  },
+  learnedButtonOn: {
+    backgroundColor: theme.highlight,
+    borderColor: theme.highlight,
+  },
+  learnedText: {
+    color: theme.purpleBright,
+    fontSize: 15.5,
+    fontWeight: '800',
+  },
+  learnedTextOn: {
+    color: theme.onHighlight,
   },
   scrollContent: {
     paddingHorizontal: 18,

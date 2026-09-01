@@ -9,6 +9,10 @@ import { isSubscriptionTermKey } from '../lib/subscriptionView';
 import { createEmptyDatabase } from '../data/seed';
 import { resolveDeviceLanguage } from './deviceLocale';
 import { normalizeExerciseLog } from '../lib/exerciseLog';
+import {
+  normalizeLearnedExerciseIds,
+  normalizeTechniqueChecks,
+} from '../lib/exerciseLearning';
 import { intervalOffSeconds } from '../lib/intervalScheme';
 import { collapseRepRange } from '../lib/singleRepTarget';
 import { buildLegacyTemplateSessions, getLegacyTemplateSessionId } from '../lib/workoutTemplateSessions';
@@ -1094,6 +1098,12 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
               (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0,
             )
           : fallback.preferences.trackedExerciseLibraryItemIds,
+      // Both rules live in src/lib so a test can call them: this file reaches
+      // AsyncStorage, and AsyncStorage reaches React Native.
+      learnedExerciseLibraryItemIds: normalizeLearnedExerciseIds(
+        input?.preferences?.learnedExerciseLibraryItemIds,
+      ),
+      exerciseTechniqueChecks: normalizeTechniqueChecks(input?.preferences?.exerciseTechniqueChecks),
       // Hand-typed numbers in stored JSON: normalised rather than trusted,
       // so a corrupt entry cannot make a progress bar draw past its box.
       strengthGoals: normalizeStrengthGoals(input?.preferences?.strengthGoals),

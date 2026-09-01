@@ -222,6 +222,7 @@ const suites = [
   ...require('./screens/guidedPlayerSwap.test.cjs'),
   ...require('./screens/setPanels.test.cjs'),
   ...require('./screens/resumeIntent.test.cjs'),
+  ...require('./screens/teachingSections.test.cjs'),
   ...require('./screens/completionHero.test.cjs'),
   ...require('./screens/leadProgram.test.cjs'),
   ...require('./lib/homeVisuals.test.cjs'),

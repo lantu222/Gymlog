@@ -13,6 +13,7 @@ import { resolveProgramEquipment } from '../lib/programEquipment';
 import { buildProgramFingerprint } from '../lib/programFingerprint';
 import { getSeasonProgramId, ProgramSeason } from '../lib/programSeasons';
 import { planWeekdayIndexes } from '../lib/programTrainingDays';
+import { toggleTechniqueStatement } from '../lib/exerciseLearning';
 import { getExerciseProgressForName } from '../lib/progression';
 import { getReadyProgramContent } from '../lib/readyProgramContent';
 import { getReadyProgramBlockWeeks } from '../lib/readyProgramDuration';
@@ -707,6 +708,25 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         tracked={preferences.trackedExerciseLibraryItemIds.includes(exercise.id)}
         // Decides whether this lift's caution is for this reader.
         cautionFlags={preferences.setupCautionFlags}
+        checkedStatements={preferences.exerciseTechniqueChecks[exercise.id] ?? []}
+        onToggleStatement={(index) => {
+          void updatePreferences({
+            exerciseTechniqueChecks: toggleTechniqueStatement(
+              preferences.exerciseTechniqueChecks,
+              exercise.id,
+              index,
+            ),
+          });
+        }}
+        learned={preferences.learnedExerciseLibraryItemIds.includes(exercise.id)}
+        onToggleLearned={() => {
+          const current = preferences.learnedExerciseLibraryItemIds;
+          void updatePreferences({
+            learnedExerciseLibraryItemIds: current.includes(exercise.id)
+              ? current.filter((id) => id !== exercise.id)
+              : [...current, exercise.id],
+          });
+        }}
         // An easier/harder row opens that lift's own screen. Resolved by name
         // because the teaching content names lifts the way the library does;
         // a name with no entry simply does not navigate rather than opening a
