@@ -268,13 +268,13 @@ function ExCard({
   item: ExerciseLibraryItem;
   tracked: boolean;
   language: AppLanguage;
-  onOpen: () => void;
+  onOpen?: () => void;
   onToggleFavorite?: () => void;
 }) {
   const styles = useThemedStyles(makeStyles);
 
   return (
-    <Pressable onPress={onOpen} style={styles.card}>
+    <Pressable onPress={onOpen} disabled={!onOpen} style={styles.card}>
       <View style={styles.cardImageWrap}>
         <Thumb uri={getItemImage(item)} radius={0} width={CARD_IMAGE_WIDTH} height={104} />
         <View style={styles.cardStar}>
@@ -289,7 +289,14 @@ function ExCard({
           <Text numberOfLines={1} style={styles.cardMeta}>
             {libraryLabel(item.bodyPart, language)}
           </Text>
-          <LookButton label={t(language, 'library.a11y.look', { name: exerciseNameLabel(language, item.name) })} onPress={onOpen} />
+          {/* No action, no button — the rule #38 established. A filled accent
+              circle that ignores the tap reads as broken, not as absent. */}
+          {onOpen ? (
+            <LookButton
+              label={t(language, 'library.a11y.look', { name: exerciseNameLabel(language, item.name) })}
+              onPress={onOpen}
+            />
+          ) : null}
         </View>
       </View>
     </Pressable>
@@ -306,13 +313,13 @@ function ExRow({
   item: ExerciseLibraryItem;
   tracked: boolean;
   language: AppLanguage;
-  onOpen: () => void;
+  onOpen?: () => void;
   onToggleFavorite?: () => void;
 }) {
   const styles = useThemedStyles(makeStyles);
 
   return (
-    <Pressable onPress={onOpen} style={styles.row}>
+    <Pressable onPress={onOpen} disabled={!onOpen} style={styles.row}>
       <Thumb uri={getItemImage(item)} radius={11} width={52} height={52} />
       <View style={styles.rowCopy}>
         <Text numberOfLines={1} style={styles.rowTitle}>
@@ -324,7 +331,12 @@ function ExRow({
         </Text>
       </View>
       <FavoriteStar active={tracked} onPress={onToggleFavorite} />
-      <LookButton label={t(language, 'library.a11y.look', { name: exerciseNameLabel(language, item.name) })} onPress={onOpen} />
+      {onOpen ? (
+        <LookButton
+          label={t(language, 'library.a11y.look', { name: exerciseNameLabel(language, item.name) })}
+          onPress={onOpen}
+        />
+      ) : null}
     </Pressable>
   );
 }
@@ -471,7 +483,7 @@ export function ExerciseLibraryBrowser({
             key={item.id}
             item={item}
             tracked={trackedSet.has(item.id)}
-            onOpen={() => handleOpen(item)}
+            onOpen={onOpenItem ? () => handleOpen(item) : undefined}
             onToggleFavorite={onToggleTracked ? () => handleToggleFavorite(item) : undefined}
           />
         ))}
@@ -657,7 +669,7 @@ export function ExerciseLibraryBrowser({
           <ExRow language={language}
             item={item}
             tracked={trackedSet.has(item.id)}
-            onOpen={() => handleOpen(item)}
+            onOpen={onOpenItem ? () => handleOpen(item) : undefined}
             onToggleFavorite={onToggleTracked ? () => handleToggleFavorite(item) : undefined}
           />
         )}

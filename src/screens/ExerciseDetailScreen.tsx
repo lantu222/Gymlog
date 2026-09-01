@@ -5,11 +5,7 @@ import Svg, { Path } from 'react-native-svg';
 import { SimpleLineChart } from '../components/SimpleLineChart';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { getExerciseInstructions } from '../lib/exerciseInstructions';
-import {
-  ExerciseTeaching,
-  getExerciseTeaching,
-  shouldShowTeachingCaution,
-} from '../lib/exerciseTeaching';
+import { getExerciseTeaching, shouldShowTeachingCaution } from '../lib/exerciseTeaching';
 import { convertWeightFromKg, formatShortDate, removeTrailingZeros } from '../lib/format';
 import { I18nKey, t } from '../lib/i18n';
 import { libraryLabel } from '../lib/libraryLabel';

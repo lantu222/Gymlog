@@ -24,6 +24,19 @@ const { createSeedExerciseLibrary } = require('../../.test-dist/data/seed.js');
 const library = createSeedExerciseLibrary();
 const libraryNames = new Set(library.map((item) => item.name));
 
+/**
+ * What a swap can actually open.
+ *
+ * The screen resolves a swap through `exerciseBrowserItems`, which is the seed
+ * library MINUS the legacy `lib_*` rows (App.tsx). Checking swaps against the
+ * full library would pass for a target the browser filters out, and that swap
+ * would render as a row that does nothing when tapped — the test proving less
+ * than the app needs.
+ */
+const reachableNames = new Set(
+  library.filter((item) => !item.id.startsWith('lib_')).map((item) => item.name),
+);
+
 function everyEntry() {
   return Object.entries(EXERCISE_TEACHING_TABLES).flatMap(([language, table]) =>
     Object.entries(table).map(([name, teaching]) => ({ language, name, teaching })),
@@ -48,7 +61,7 @@ module.exports = [
 
       for (const { language, name, teaching } of everyEntry()) {
         for (const swap of teaching.swaps) {
-          if (!libraryNames.has(swap.exerciseName)) {
+          if (!reachableNames.has(swap.exerciseName)) {
             invented.push(`${language}:${name} → ${swap.exerciseName}`);
           }
           if (swap.exerciseName === name) {

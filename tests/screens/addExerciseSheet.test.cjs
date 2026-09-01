@@ -111,7 +111,22 @@ module.exports = [
       assert.doesNotMatch(browser, /onAddToWorkout/);
       assert.doesNotMatch(browser, /PlusIcon/);
       assert.doesNotMatch(read('src/screens/ExercisesScreen.tsx'), /onAddToWorkout/);
-      assert.match(browser, /<LookButton label=\{t\(language, 'library\.a11y\.look'/);
+      assert.match(browser, /library\.a11y\.look/);
+
+      // And it renders only when it has somewhere to go. A filled accent
+      // circle that ignores the tap reads as broken rather than as absent —
+      // the rule #38 established, and the one this change nearly undid by
+      // putting the circle back unconditionally.
+      assert.match(browser, /\{onOpen \? \(\s*\r?\n\s*<LookButton/);
+      // Both call sites, not "at least one": the rail and the list each pass
+      // onOpen, and asserting a single match lets one of them regress while
+      // the other keeps the test green.
+      assert.equal(
+        (browser.match(/onOpen=\{onOpenItem \? \(\) => handleOpen\(item\) : undefined\}/g) ?? []).length,
+        2,
+        'both the rail card and the list row must withhold onOpen when the browser has nowhere to send it',
+      );
+      assert.doesNotMatch(browser, /onOpen=\{\(\) => handleOpen\(item\)\}/);
     },
   },
 ];
