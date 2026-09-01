@@ -1,7 +1,7 @@
 /**
  * The lifts anybody actually sets a target on.
  *
- * Eight, not 876. The target flow briefly offered the whole library behind a
+ * Ten, not 876. The target flow briefly offered the whole library behind a
  * search, and that is the wrong shape for this question: nobody says "I want
  * to cable-crossover 30 kg". They say squat, bench, deadlift — and then the
  * handful of accessories that carry a number in their head anyway. Naming the
@@ -9,9 +9,11 @@
  * which it cannot do for a lift no catalog week trains as a main lift.
  *
  * The list is the user's, given in Finnish on 2026-09-01: kyykky, penkki,
- * mave, pystysoutu, hackkyykky, lantionnosto, suorin jaloin mave, etukyykky.
- * The names here are the library's own English ones, because that is what a
- * stored goal is keyed by; the reader sees them through `exerciseNameLabel`.
+ * mave, pystysoutu, hackkyykky, lantionnosto, suorin jaloin mave, etukyykky,
+ * and then kulmasoutu and yläpenkki. The names here are the library's own
+ * English ones, because that is what a stored goal is keyed by; the reader
+ * sees them through `exerciseNameLabel`. No two of them fold into each other
+ * under `isSameLift` — checked pairwise, not eyeballed.
  *
  * NOT here: sumo deadlift, which the user also named. `liftIdentity` folds
  * sumo and trap bar into the deadlift on purpose — a lifter's deadlift best is
@@ -35,4 +37,6 @@ export const STRENGTH_GOAL_PRESETS: readonly StrengthGoalPreset[] = [
   { exerciseName: 'Barbell Hip Thrust' },
   { exerciseName: 'Romanian Deadlift' },
   { exerciseName: 'Upright Barbell Row' },
+  { exerciseName: 'Bent Over Barbell Row' },
+  { exerciseName: 'Barbell Incline Bench Press - Medium Grip' },
 ];

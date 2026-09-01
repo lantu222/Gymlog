@@ -87,6 +87,53 @@ module.exports = [
     },
   },
   {
+    /**
+     * No two target lifts may be the same lift.
+     *
+     * The list is short and hand-written, so a plausible-looking addition can
+     * quietly duplicate one already on it. Sumo deadlift is the live example:
+     * liftIdentity folds sumo and trap bar into the deadlift on purpose, so a
+     * sumo row would carry the deadlift's best and the deadlift's rate — two
+     * rows showing one number, and two targets that move together. It is off
+     * the list for that reason and this is what keeps the reason enforced.
+     */
+    name: 'no two target lifts resolve to the same lift',
+    run() {
+      const folded = [];
+      for (let left = 0; left < STRENGTH_GOAL_PRESETS.length; left += 1) {
+        for (let right = left + 1; right < STRENGTH_GOAL_PRESETS.length; right += 1) {
+          const a = STRENGTH_GOAL_PRESETS[left].exerciseName;
+          const b = STRENGTH_GOAL_PRESETS[right].exerciseName;
+          if (isSameLift(a, b, libraryNames)) {
+            folded.push(`${a} == ${b}`);
+          }
+        }
+      }
+      assert.deepEqual(folded, [], `target lifts that are the same lift: ${folded.join(', ')}`);
+
+      // And the one deliberately kept off, still folding — if this stops being
+      // true, sumo can have its own row.
+      assert.equal(
+        isSameLift('Sumo Deadlift', 'Barbell Deadlift', libraryNames),
+        true,
+        'sumo no longer folds into the deadlift; it can be a target of its own now',
+      );
+
+      // Every name is one the library actually has, or the row opens nothing
+      // and the log can never match it.
+      const { createSeedExerciseLibrary } = require('../../.test-dist/data/seed.js');
+      const reachable = new Set(
+        createSeedExerciseLibrary()
+          .filter((item) => !item.id.startsWith('lib_'))
+          .map((item) => item.name),
+      );
+      const invented = STRENGTH_GOAL_PRESETS.map((preset) => preset.exerciseName).filter(
+        (name) => !reachable.has(name),
+      );
+      assert.deepEqual(invented, [], `target lifts the library does not have: ${invented.join(', ')}`);
+    },
+  },
+  {
     name: 'every preset target is trained by a fair share of the catalog',
     run() {
       // The deadlift target saw three programs of fifty-seven while the others
