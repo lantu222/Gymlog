@@ -30,7 +30,6 @@ interface ExerciseLibraryBrowserProps {
   language?: AppLanguage;
   onOpenItem?: (item: ExerciseLibraryItem) => void;
   onToggleTracked?: (item: ExerciseLibraryItem) => void;
-  onAddToWorkout?: (item: ExerciseLibraryItem) => void;
 }
 
 function formatCompactBodyPartLabel(raw: string, language: AppLanguage = 'en') {
@@ -124,10 +123,17 @@ function ListIcon({ color: colorProp, size = 14 }: { color?: string; size?: numb
   );
 }
 
-function PlusIcon({ color = '#FFFFFF', size = 16 }: { color?: string; size?: number }) {
+function EyeIcon({ color = '#FFFFFF', size = 17 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 5v14M5 12h14" stroke={color} strokeWidth={2.8} strokeLinecap="round" />
+      <Path
+        d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="12" cy="12" r="2.6" fill={color} />
     </Svg>
   );
 }
@@ -211,15 +217,33 @@ function Thumb({
   );
 }
 
-function AddButton({ onPress }: { onPress?: () => void }) {
+/**
+ * The circle is an eye, and it opens the exercise.
+ *
+ * It used to be a "+" that dropped the lift straight into a workout. A row
+ * here is a name and three words, so adding from it was adding blind, and the
+ * whole affordance came out (#38). What the library is actually for is looking
+ * something up — so the circle came back doing that, in the app's own
+ * "pressable" orange, and it marks the row as something that opens.
+ *
+ * It does the same thing as tapping the row, deliberately. Two controls that
+ * agree are a bigger target; two that disagreed is what the "+" was.
+ */
+function LookButton({ label, onPress }: { label: string; onPress: () => void }) {
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
 
   return (
-    <Pressable onPress={onPress} disabled={!onPress} hitSlop={6} style={styles.addButton}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      hitSlop={6}
+      style={styles.lookButton}
+    >
       {/* The ink the orange was paired with, not white: on the light theme's
           orange a white glyph is the lower-contrast of the two. */}
-      <PlusIcon color={theme.onHighlight} />
+      <EyeIcon color={theme.onHighlight} />
     </Pressable>
   );
 }
@@ -239,14 +263,12 @@ function ExCard({
   tracked,
   language,
   onOpen,
-  onAdd,
   onToggleFavorite,
 }: {
   item: ExerciseLibraryItem;
   tracked: boolean;
   language: AppLanguage;
   onOpen: () => void;
-  onAdd?: () => void;
   onToggleFavorite?: () => void;
 }) {
   const styles = useThemedStyles(makeStyles);
@@ -267,9 +289,7 @@ function ExCard({
           <Text numberOfLines={1} style={styles.cardMeta}>
             {libraryLabel(item.bodyPart, language)}
           </Text>
-          {/* No action, no button. It used to render `disabled`, which on a
-              filled accent circle reads as a live control that ignores you. */}
-          {onAdd ? <AddButton onPress={onAdd} /> : null}
+          <LookButton label={t(language, 'library.a11y.look', { name: exerciseNameLabel(language, item.name) })} onPress={onOpen} />
         </View>
       </View>
     </Pressable>
@@ -281,14 +301,12 @@ function ExRow({
   tracked,
   language,
   onOpen,
-  onAdd,
   onToggleFavorite,
 }: {
   item: ExerciseLibraryItem;
   tracked: boolean;
   language: AppLanguage;
   onOpen: () => void;
-  onAdd?: () => void;
   onToggleFavorite?: () => void;
 }) {
   const styles = useThemedStyles(makeStyles);
@@ -306,7 +324,7 @@ function ExRow({
         </Text>
       </View>
       <FavoriteStar active={tracked} onPress={onToggleFavorite} />
-      {onAdd ? <AddButton onPress={onAdd} /> : null}
+      <LookButton label={t(language, 'library.a11y.look', { name: exerciseNameLabel(language, item.name) })} onPress={onOpen} />
     </Pressable>
   );
 }
@@ -332,7 +350,6 @@ export function ExerciseLibraryBrowser({
   language = 'en',
   onOpenItem,
   onToggleTracked,
-  onAddToWorkout,
 }: ExerciseLibraryBrowserProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -433,10 +450,6 @@ export function ExerciseLibraryBrowser({
     onOpenItem?.(item);
   }
 
-  function handleAdd(item: ExerciseLibraryItem) {
-    onAddToWorkout?.(item);
-  }
-
   function handleToggleFavorite(item: ExerciseLibraryItem) {
     if (!onToggleTracked) {
       return;
@@ -459,7 +472,6 @@ export function ExerciseLibraryBrowser({
             item={item}
             tracked={trackedSet.has(item.id)}
             onOpen={() => handleOpen(item)}
-            onAdd={onAddToWorkout ? () => handleAdd(item) : undefined}
             onToggleFavorite={onToggleTracked ? () => handleToggleFavorite(item) : undefined}
           />
         ))}
@@ -646,7 +658,6 @@ export function ExerciseLibraryBrowser({
             item={item}
             tracked={trackedSet.has(item.id)}
             onOpen={() => handleOpen(item)}
-            onAdd={onAddToWorkout ? () => handleAdd(item) : undefined}
             onToggleFavorite={onToggleTracked ? () => handleToggleFavorite(item) : undefined}
           />
         )}
@@ -958,7 +969,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: theme.surfaceSoft,
   },
-  addButton: {
+  lookButton: {
     width: 32,
     height: 32,
     borderRadius: 999,

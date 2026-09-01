@@ -14,7 +14,6 @@ interface ExercisesScreenProps {
   onBack?: () => void;
   onOpenExercise?: (item: ExerciseLibraryItem) => void;
   onToggleTracked?: (item: ExerciseLibraryItem) => void;
-  onAddToWorkout?: (item: ExerciseLibraryItem) => void;
 }
 
 export function ExercisesScreen({
@@ -24,7 +23,6 @@ export function ExercisesScreen({
   onBack,
   onOpenExercise,
   onToggleTracked,
-  onAddToWorkout,
 }: ExercisesScreenProps) {
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
@@ -59,7 +57,6 @@ export function ExercisesScreen({
         language={language}
         onOpenItem={onOpenExercise}
         onToggleTracked={onToggleTracked}
-        onAddToWorkout={onAddToWorkout}
       />
     </View>
   );

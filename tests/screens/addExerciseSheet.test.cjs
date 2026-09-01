@@ -87,15 +87,31 @@ module.exports = [
     },
   },
   {
-    name: 'library browser: the add glyph speaks the app\'s own colour',
+    /**
+     * The circle keeps its colour and changes its job.
+     *
+     * It was a "+" that dropped the lift straight into a workout from a row
+     * that is a name and three words — adding blind — and it came out
+     * entirely (#38). It is back as an eye that opens the exercise, which is
+     * what the library is for (user 2026-08-31).
+     */
+    name: 'library browser: the circle is an eye, in the app\'s own pressable colour',
     run() {
       const browser = read('src/components/ExerciseLibraryBrowser.tsx');
       // A green circle in a purple-and-orange app was the loudest wrong note on
       // the page. Orange is the app's "you can press this".
-      assert.doesNotMatch(browser, /addButton: \{[\s\S]{0,200}theme\.green\b/);
+      assert.doesNotMatch(browser, /lookButton: \{[\s\S]{0,200}theme\.green\b/);
       assert.match(browser, /backgroundColor: theme\.highlight/);
       // And the glyph takes the ink that orange was paired with, not white.
-      assert.match(browser, /<PlusIcon color=\{theme\.onHighlight\} \/>/);
+      assert.match(browser, /<EyeIcon color=\{theme\.onHighlight\} \/>/);
+
+      // It opens; it does not add. The prop that carried "add to workout" is
+      // gone from the browser and from the screen that wraps it, so there is
+      // nothing left to wire it back to by accident.
+      assert.doesNotMatch(browser, /onAddToWorkout/);
+      assert.doesNotMatch(browser, /PlusIcon/);
+      assert.doesNotMatch(read('src/screens/ExercisesScreen.tsx'), /onAddToWorkout/);
+      assert.match(browser, /<LookButton label=\{t\(language, 'library\.a11y\.look'/);
     },
   },
 ];
