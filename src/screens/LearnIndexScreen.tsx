@@ -4,6 +4,7 @@ import Svg, { Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { ExerciseCollection, resolveCollectionProgress } from '../lib/exerciseCollections';
 import { t } from '../lib/i18n';
+import { layout } from '../theme';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
@@ -165,7 +166,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   content: {
     paddingHorizontal: 20,
     paddingTop: 18,
-    paddingBottom: 40,
+    // Same floating bar as the collection screen below it.
+    paddingBottom: layout.bottomTabBarReserve,
   },
   card: {
     flexDirection: 'row',

@@ -5,6 +5,7 @@ import Svg, { Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import { ExerciseCollection, resolveCollectionProgress } from '../lib/exerciseCollections';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { t } from '../lib/i18n';
+import { layout } from '../theme';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
@@ -180,7 +181,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingBottom: 40,
+    // The floating tab bar is shown on this screen, so the last row has to
+    // clear it — seen on device, where "Farmer's Walk" sat behind the bar.
+    paddingBottom: layout.bottomTabBarReserve,
   },
   cover: {
     height: 168,
