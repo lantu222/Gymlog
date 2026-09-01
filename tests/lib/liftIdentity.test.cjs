@@ -143,8 +143,13 @@ module.exports = [
       //
       // Not the same thing as a lift the catalog genuinely trains in few
       // weeks. These three are thin because few weeks have them, not because a
-      // name failed to resolve — and pinning the count means a drop back to
-      // zero fails here rather than showing the reader an empty step 3.
+      // name failed to resolve.
+      //
+      // A FLOOR, not the count. The regression worth catching is a drop toward
+      // zero, which shows the reader an empty step 3; growth is the fix, and
+      // an equality here would have turned red the day the upright row went
+      // from 0 to 2. The numbers are today's, so a floor still fails loudly if
+      // a rename takes one back to nothing.
       const GENUINELY_THIN = {
         'Front Barbell Squat': 8,
         'Upright Barbell Row': 2,
@@ -155,10 +160,9 @@ module.exports = [
         const lift = preset.exerciseName;
         const count = rankProgrammesForLift(WORKOUT_TEMPLATES_V1, lift, { libraryNames }).length;
         if (lift in GENUINELY_THIN) {
-          assert.equal(
-            count,
-            GENUINELY_THIN[lift],
-            `${lift} resolves to ${count} programmes now, not ${GENUINELY_THIN[lift]} — recount before trusting this list`,
+          assert.ok(
+            count >= GENUINELY_THIN[lift],
+            `${lift} resolves to ${count} programmes now, down from ${GENUINELY_THIN[lift]} — a name stopped resolving`,
           );
           continue;
         }

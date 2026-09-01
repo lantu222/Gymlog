@@ -54,14 +54,13 @@ interface NewProgramSheetProps {
   /**
    * Whether the reader has Pro.
    *
-   * AI-assisted composition is a paid feature. Locked, the row wears the PRO
-   * pill and the padlock and leads to the paywall; unlocked, it opens the chat
-   * exactly as before. Defaults to unlocked so a caller that forgets cannot
-   * lock a paying reader out of something they bought.
+   * Composing a programme is the paid part, and the row says so with the PRO
+   * pill and the padlock. It still opens the coach: the gate lives on the act
+   * of composing, in AICoachChatScreen, and everything before that act is
+   * free. Defaults to unlocked so a caller that forgets cannot mark a paying
+   * reader's row as something they have not bought.
    */
   proUnlocked?: boolean;
-  /** Where the padlock leads. Required only when the row can be locked. */
-  onOpenPaywall?: () => void;
   onImportProgram: (draft: WorkoutTemplateDraft) => Promise<void> | void;
   /**
    * A pasted Hevy export is HISTORY, not a programme — workouts already
@@ -142,7 +141,6 @@ export function NewProgramSheet({
   onBrowseCatalog,
   catalogCount = 0,
   proUnlocked = true,
-  onOpenPaywall,
   onImportProgram,
   onImportHistory,
   nameBook = [],
@@ -157,11 +155,16 @@ export function NewProgramSheet({
   const insets = useSafeAreaInsets();
   const [view, setView] = useState<'menu' | 'csv'>(initialView);
   /*
-   * Locked only when the reader lacks Pro AND there is somewhere to send them.
-   * A padlock with no paywall behind it is a row that does nothing, which is
-   * worse than the unlocked row it replaced.
+   * The padlock is a LABEL, not a wall, and the difference is a free feature.
+   *
+   * Sending a locked reader to the paywall instead of the coach was measured
+   * to cut off something the chat gives away on purpose: any brief naming a
+   * days-per-week runs shouldOfferCatalogInstead first, and a matching ready
+   * programme comes back free — AICoachChatScreen checks it BEFORE its own Pro
+   * gate, and says so in a comment. So the row opens the coach either way, and
+   * the paywall stays where composing actually happens.
    */
-  const aiLocked = !proUnlocked && Boolean(onOpenPaywall);
+  const aiLocked = !proUnlocked;
   const [csvText, setCsvText] = useState('');
   const defaultProgramName = t(language, 'csv.defaultName');
   const [programName, setProgramName] = useState(defaultProgramName);
@@ -352,10 +355,6 @@ export function NewProgramSheet({
                 accessibilityLabel={t(language, aiLocked ? 'csv.aiLockedA11y' : 'csv.aiA11y')}
                 onPress={() => {
                   handleClose();
-                  if (aiLocked) {
-                    onOpenPaywall?.();
-                    return;
-                  }
                   onAiAssisted();
                 }}
                 style={({ pressed }) => [styles.optionCard, pressed && styles.pressed]}

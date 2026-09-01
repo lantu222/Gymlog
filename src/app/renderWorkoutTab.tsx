@@ -973,7 +973,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         onBrowseCatalog={() => navigate({ tab: 'workout', screen: 'catalog' })}
         catalogCount={programsCatalogItems.length}
         proUnlocked={proUnlocked}
-        onOpenPaywall={() => navigate({ tab: 'profile', screen: 'premium' })}
         onImportProgram={async (draft) => {
           const workoutTemplateId = await upsertWorkoutTemplate(draft);
           navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });

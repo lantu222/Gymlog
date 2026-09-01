@@ -118,4 +118,36 @@ module.exports = [
       assert.deepEqual(clumsy, [], clumsy.join('; '));
     },
   },
+  {
+    /**
+     * The ten target lifts are checked by name above. This checks the other
+     * 265: every lift a ready week actually prescribes.
+     *
+     * The table cannot grow by itself, and the suite above only validates the
+     * entries that already exist — so a new catalog lift carrying a database
+     * suffix would ship green, which is the exact defect this file was written
+     * to end. Zero today, pinned at zero.
+     */
+    name: 'plain names: no lift a programme prescribes reads like a database entry',
+    run() {
+      const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog.js');
+      const prescribed = new Set();
+      JSON.stringify(WORKOUT_TEMPLATES_V1).replace(
+        /"exerciseName":"([^"]+)"/g,
+        (_, name) => {
+          prescribed.add(name);
+          return '';
+        },
+      );
+      assert.ok(prescribed.size > 200, `only ${prescribed.size} catalog names found — the scrape broke`);
+      const clumsy = [];
+      for (const name of prescribed) {
+        const shown = exerciseNameLabel('en', name);
+        if (shown.includes(' - ')) {
+          clumsy.push(`${name} reads "${shown}"`);
+        }
+      }
+      assert.deepEqual(clumsy, [], `catalog lifts still reading as database rows: ${clumsy.join('; ')}`);
+    },
+  },
 ];

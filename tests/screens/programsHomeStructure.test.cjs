@@ -249,9 +249,13 @@ module.exports = [
       // people and this device only knows what its owner did; the counts were
       // invented, getTrendingEntries returned null in every release build, and
       // the brief's tab does not have the section (2026-09-01). What is
-      // guarded now is that none of it comes back by halves.
-      assert.doesNotMatch(programsHomeSource, /trending/i);
-      assert.doesNotMatch(programsHomeSource, /const MEDALS|RankMedal/);
+      // guarded now is that none of it comes back by halves. Each PART is
+      // named rather than the word banned: a /trending/i sweep also forbids
+      // the comment explaining the removal, and it already cost this file one
+      // garbled sentence written around it.
+      assert.doesNotMatch(programsHomeSource, /trendingItems|const MEDALS|RankMedal/);
+      assert.doesNotMatch(programsHomeSource, /styles\.trending/);
+      assert.doesNotMatch(programsHomeSource, /t\(language, 'programs\.trending/);
       assert.doesNotMatch(i18nSource, /'programs\.trending/);
 
       // The tile rows bled 20px past the gutter, so the category and season
@@ -368,16 +372,33 @@ module.exports = [
       assert.match(sheet, /\{onBrowseCatalog \? \(/);
 
       // AI-assisted wears the Pro lock (user, 2026-09-01, reversing the
-      // earlier "the chat, for everyone" call). Locked only when there is a
-      // paywall to send them to, and unlocked it opens the chat exactly as
-      // before — a padlock with nothing behind it is a row that does nothing.
-      assert.match(sheet, /const aiLocked = !proUnlocked && Boolean\(onOpenPaywall\);/);
+      // earlier "the chat, for everyone" call).
+      assert.match(sheet, /const aiLocked = !proUnlocked;/);
       assert.match(sheet, /\{aiLocked \? <ProPill \/> : null\}/);
       assert.match(sheet, /aiLocked \? <ProLockIcon/);
-      assert.match(sheet, /if \(aiLocked\) \{\s+onOpenPaywall\?\.\(\);/);
-      // Defaulting to unlocked, so a caller that forgets cannot lock a paying
-      // reader out of something they bought.
-      assert.match(sheet, /^ {2}proUnlocked = true,$/m);
+      // But it MARKS, it does not wall. Routing a locked reader to the paywall
+      // cut off something the coach gives away on purpose: any brief naming a
+      // days-per-week gets a matching ready programme back, free, checked
+      // before AICoachChatScreen's own Pro gate. The row opens the coach
+      // whether or not it wears the padlock, and composing is where the
+      // paywall lives.
+      assert.doesNotMatch(sheet, /onOpenPaywall/);
+      assert.match(
+        sheet,
+        /onPress=\{\(\) => \{\s+handleClose\(\);\s+onAiAssisted\(\);/,
+        'the AI row stopped opening the coach',
+      );
+      const chat = read('src', 'screens', 'AICoachChatScreen.tsx');
+      const catalogFirst = chat.indexOf('shouldOfferCatalogInstead(signals)');
+      const proGate = chat.indexOf('if (!proUnlocked) {');
+      assert.ok(catalogFirst > 0 && proGate > 0, 'the compose handler was restructured — recheck by hand');
+      assert.ok(
+        catalogFirst < proGate,
+        'the free catalog answer no longer runs before the Pro gate, so the padlock now costs a free feature',
+      );
+      // Defaulting to unlocked, so a caller that forgets cannot mark a paying
+      // reader's row as something they have not bought.
+      assert.match(sheet, /proUnlocked = true,/);
 
       // BOTH callers that open the menu are. The sheet is one component, so
       // it must not offer four doors from the Programs tab and three from the
@@ -390,14 +411,9 @@ module.exports = [
           /onBrowseCatalog=\{\(\) => navigate\(\{ tab: 'workout', screen: 'catalog' \}\)\}/,
           `${tab} opens the sheet without the catalog door`,
         );
-        // And the lock, for the same reason: one sheet must not gate the
-        // composer from one entry point and hand it over from the other.
-        assert.match(source, /proUnlocked=\{proUnlocked\}/, `${tab} opens the sheet unlocked`);
-        assert.match(
-          source,
-          /onOpenPaywall=\{\(\) => navigate\(\{ tab: 'profile', screen: 'premium' \}\)\}/,
-          `${tab} passes a lock with no paywall behind it`,
-        );
+        // And the lock, for the same reason: one sheet must not mark the
+        // composer Pro from one entry point and say nothing from the other.
+        assert.match(source, /proUnlocked=\{proUnlocked\}/, `${tab} opens the sheet unmarked`);
       }
       const workoutTab = read('src', 'app', 'renderWorkoutTab.tsx');
       assert.match(workoutTab, /<CatalogScreen/);

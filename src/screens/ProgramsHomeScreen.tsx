@@ -64,15 +64,6 @@ const SEAM_RATIO = 0.82;
 // now, resolved in App.tsx and carried on the item.
 const SAVED_TILE: [string, string] = ['#00BAD1', '#0088A8'];
 
-/**
- * The tint the "all programmes" sheet wears.
- *
- * Was SEASON_SHEET_TINTS, a winter/summer pair, and the all-programmes sheet
- * quietly borrowed the summer half. With the season sheet gone that name
- * described nothing this screen still opens.
- */
-const ALL_PROGRAMS_SHEET_TINT = { bg: '#FFE5CD', border: '#F0D1B7', ink: '#A76D00' } as const;
-
 
 // Tall enough for a two-line title, two lines of body AND the pill under
 // them. At 186 the CTA was clipped by the card's own bottom edge.
@@ -229,8 +220,6 @@ interface ProgramsHomeScreenProps {
   catalogCount?: number;
   /** Whether AI-assisted composition is unlocked, or wears the padlock. */
   proUnlocked?: boolean;
-  /** Where the padlock leads. */
-  onOpenPaywall?: () => void;
   onImportProgram: (draft: WorkoutTemplateDraft) => Promise<void> | void;
   exerciseLibraryEntries: CsvLibraryEntry[];
   /** The reader's own lift names, for the CSV importer's matcher. */
@@ -769,7 +758,6 @@ export function ProgramsHomeScreen({
   onBrowseCatalog,
   catalogCount = 0,
   proUnlocked = true,
-  onOpenPaywall,
   onImportProgram,
   exerciseLibraryEntries,
   nameBook,
@@ -789,10 +777,10 @@ export function ProgramsHomeScreen({
    * suodatin" link that emptied the section rather than narrowing it. One
    * state, one sheet, one way to close it.
    */
-  // One variant left. 'all' had a single door, on the section that went with
-  // the invented start counts, and
-  // the catalog screen answers that question better than a sheet can: level,
-  // goal and a search over a windowed list.
+  // One variant left. The 'all' sheet's only door was the trending section's
+  // "Kaikki" link, and both went together: the catalog screen answers that
+  // question better than a drawer can, with level, goal and a search over a
+  // windowed list.
   const [sheet, setSheet] = useState<{ kind: 'category'; key: ProgramCategoryKey } | null>(null);
   // The goal sheet: which lift, and the number being typed.
   const [createOpen, setCreateOpen] = useState(false);
@@ -804,7 +792,13 @@ export function ProgramsHomeScreen({
   const pickedStyle = picked ? picked.cover : null;
 
   // The open sheet's contents, drawn from the same sources the tiles count.
-  const sheetCategory = sheet ? PROGRAM_CATEGORIES.find((entry) => entry.key === sheet.key) : null;
+  // Resolved once, with the fallback here rather than on four props. Every
+  // ProgramCategoryKey has a row, so the ?? branch is unreachable today and
+  // exists so a tenth key added without a row degrades to a real category
+  // instead of an untinted sheet with no icon.
+  const sheetCategory = sheet
+    ? PROGRAM_CATEGORIES.find((entry) => entry.key === sheet.key) ?? PROGRAM_CATEGORIES[0]
+    : null;
   const sheetItems = sheet
     ? catalogItems.filter((item) => categoryMembers[sheet.key]?.includes(item.id))
     : [];
@@ -1312,10 +1306,10 @@ export function ProgramsHomeScreen({
         visible={sheet !== null}
         onClose={() => setSheet(null)}
         language={language}
-        title={sheet === null ? '' : t(language, sheetCategory?.labelKey ?? 'programs.cat.strength')}
-        focus={sheet === null ? '' : t(language, sheetCategory?.focusKey ?? 'programs.catFocus.strength')}
-        tint={sheetCategory ? sheetCategory.tint : ALL_PROGRAMS_SHEET_TINT}
-        icon={sheetCategory ? sheetCategory.icon : LAYERS_MOTIF}
+        title={sheetCategory ? t(language, sheetCategory.labelKey) : ''}
+        focus={sheetCategory ? t(language, sheetCategory.focusKey) : ''}
+        tint={sheetCategory ? sheetCategory.tint : PROGRAM_CATEGORIES[0].tint}
+        icon={sheetCategory ? sheetCategory.icon : PROGRAM_CATEGORIES[0].icon}
         items={sheetItems}
         readerDaysPerWeek={readerDaysPerWeek}
         readerLevel={readerLevel}
@@ -1340,7 +1334,6 @@ export function ProgramsHomeScreen({
         onBrowseCatalog={onBrowseCatalog}
         catalogCount={catalogCount}
         proUnlocked={proUnlocked}
-        onOpenPaywall={onOpenPaywall}
         onBuildYourself={onCreateProgram}
         onImportProgram={onImportProgram}
       />

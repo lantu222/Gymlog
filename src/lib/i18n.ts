@@ -2808,9 +2808,9 @@ const EN = {
   'programs.goals.sheetTitle': 'Target for {name}',
   'programs.goals.sheetBody': 'Your best so far is {best} kg.',
   'programs.goals.save': 'Save target',
-  'programs.forYou': 'FOR YOU',
   // Not "AI picks": aiInfo.never.2 says the model never chooses a
   // programme, and it does not — this is recommendationScoring.
+  'programs.forYou': 'FOR YOU',
   'programs.cat.strength': 'Strength',
   'programs.cat.balanced': 'General fitness',
   'programs.cat.muscle': 'Muscle',
@@ -2939,7 +2939,7 @@ const EN = {
   'csv.catalog': 'Browse the catalog',
   'csv.catalogBody': 'All {count} ready programs, narrowed by goal, level and a search.',
   'csv.catalogA11y': 'Browse all ready programs',
-  'csv.aiLockedA11y': 'AI-assisted, a Pro feature — opens Pro',
+  'csv.aiLockedA11y': 'AI-assisted — the coach is free, building a program is Pro',
   // The Learn rail, moved out of the library and onto the tab: the library is
   // 876 rows, a course is an order.
   'programs.learn': 'LEARN',
@@ -6173,7 +6173,7 @@ const FI: Record<I18nKey, string> = {
   'csv.catalog': 'Selaa katalogia',
   'csv.catalogBody': 'Kaikki {count} valmista ohjelmaa, rajattuna tavoitteen, tason ja haun mukaan.',
   'csv.catalogA11y': 'Selaa kaikkia valmiita ohjelmia',
-  'csv.aiLockedA11y': 'Tekoälyavusteinen, Pro-ominaisuus — avaa Pron',
+  'csv.aiLockedA11y': 'Tekoälyavusteinen — valmentaja on ilmainen, ohjelman koostaminen on Pro',
   // Learn-kisko, siirretty kirjastosta välilehdelle: kirjasto on 876 riviä,
   // kurssi on järjestys.
   'programs.learn': 'OPETTELE',

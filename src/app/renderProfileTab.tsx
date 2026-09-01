@@ -256,7 +256,6 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
         onBrowseCatalog={() => navigate({ tab: 'workout', screen: 'catalog' })}
         catalogCount={readyProgramCount}
         proUnlocked={proUnlocked}
-        onOpenPaywall={() => navigate({ tab: 'profile', screen: 'premium' })}
         onBuildYourself={() =>
           programSlots.canCreate
             ? navigate({ tab: 'workout', screen: 'template' })
