@@ -75,6 +75,8 @@ export interface ProfileTabDeps {
   programSlots: { canCreate: boolean };
   setProgramLimitVisible: (visible: boolean) => void;
   upsertWorkoutTemplate: (draft: WorkoutTemplateDraft) => Promise<string>;
+  /** How many ready programmes the sheet's catalog door is promising. */
+  readyProgramCount: number;
   exportablePlans: React.ComponentProps<typeof ExportPlanScreen>['plans'];
   database: Pick<AppDatabase, 'workoutSessions' | 'exerciseLogs'>;
   settingsScrollOffsetRef: React.MutableRefObject<number>;
@@ -123,6 +125,7 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
     programSlots,
     setProgramLimitVisible,
     upsertWorkoutTemplate,
+    readyProgramCount,
     exportablePlans,
     database,
     settingsScrollOffsetRef,
@@ -247,6 +250,8 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
             : undefined
         }
         onAiAssisted={() => navigate({ tab: 'home', screen: 'ai_chat' })}
+        onBrowseCatalog={() => navigate({ tab: 'workout', screen: 'catalog' })}
+        catalogCount={readyProgramCount}
         onBuildYourself={() =>
           programSlots.canCreate
             ? navigate({ tab: 'workout', screen: 'template' })

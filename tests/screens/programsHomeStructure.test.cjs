@@ -296,14 +296,41 @@ module.exports = [
       // worse than no door.
       assert.match(sheet, /\{onBrowseCatalog \? \(/);
 
-      // And the Programs tab is the caller that can.
+      // BOTH callers that open the menu are. The sheet is one component, so
+      // it must not offer four doors from the Programs tab and three from the
+      // training plan — a reader who creates programmes from the other screen
+      // would be the one who never learns the catalog exists.
+      for (const tab of ['renderWorkoutTab.tsx', 'renderProfileTab.tsx']) {
+        const source = read('src', 'app', tab);
+        assert.match(
+          source,
+          /onBrowseCatalog=\{\(\) => navigate\(\{ tab: 'workout', screen: 'catalog' \}\)\}/,
+          `${tab} opens the sheet without the catalog door`,
+        );
+      }
       const workoutTab = read('src', 'app', 'renderWorkoutTab.tsx');
-      assert.match(
-        workoutTab,
-        /onBrowseCatalog=\{\(\) => navigate\(\{ tab: 'workout', screen: 'catalog' \}\)\}/,
-      );
       assert.match(workoutTab, /<CatalogScreen/);
       assert.match(workoutTab, /route\.screen === 'catalog'/);
+    },
+  },
+  {
+    /**
+     * "Type a search, tap the result" is what this screen is for, and React
+     * Native's default spends that tap closing the keyboard instead. Caught on
+     * the device: the first tap on a chip after typing did nothing.
+     */
+    name: 'the catalog survives a tap made while the keyboard is open',
+    run() {
+      const catalog = read('src', 'screens', 'CatalogScreen.tsx');
+      const scrollers = (catalog.match(/<(ScrollView|FlatList)\b/g) ?? []).length;
+      const persists = (catalog.match(/keyboardShouldPersistTaps="handled"/g) ?? []).length;
+      assert.ok(scrollers > 0, 'the catalog has no scrolling surface at all');
+      assert.equal(persists, scrollers, `${scrollers} scrollers but ${persists} keep their taps`);
+
+      // Windowed: every row draws an Svg, and a plain ScrollView would mount
+      // all 57 and re-render them on each keystroke.
+      assert.match(catalog, /<FlatList/);
+      assert.doesNotMatch(catalog, /shown\.map\(/, 'the results are mounted all at once again');
     },
   },
   {

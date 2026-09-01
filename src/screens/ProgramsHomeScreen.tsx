@@ -638,14 +638,11 @@ function CampaignHero({
 }
 
 /**
- * Level badges, from the category design.
+ * The same three labels the filter row uses, keyed for a single card.
  *
- * The level is the one fact that decides whether a program is for this reader
- * at all, and no browse card carried it anywhere on this screen. A row that
- * says "5 days, ~70 min" without saying "Edistynyt" is describing the workload
- * and hiding the prerequisite.
+ * The badge colours these used to sit beside moved into ProgramLadderRow when
+ * the catalog became a second door onto the same programmes.
  */
-/** The same three labels the filter row uses, keyed for a single card. */
 const LEVEL_LABEL_KEYS: Record<WorkoutLevel, I18nKey> = {
   beginner: 'programs.level.beginner',
   intermediate: 'programs.level.intermediate',
@@ -666,7 +663,6 @@ const LEVEL_FILTERS: Array<{ level: WorkoutLevel | null; key: I18nKey }> = [
   { level: 'advanced', key: 'programs.level.advanced' },
 ];
 
-/** The 74x74 cover on a sheet row: gradient plus the program's own week. */
 /**
  * What a category tile opens.
  *

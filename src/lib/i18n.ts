@@ -2965,9 +2965,10 @@ const EN = {
   'programs.sheet.fitsYourWeek': 'FITS YOUR {days} DAYS A WEEK',
   // The catalog: 57 ready programmes with level, goal and free text all
   // narrowing the same list. The goal discs are a taxonomy, not a filter.
-  'programCatalog.title': 'All programs',
+  'programCatalog.title': 'All ready programs',
   'programCatalog.searchPlaceholder': 'Search {count} programs',
   'programCatalog.clearSearch': 'Clear the search',
+  'programCatalog.openProgram': 'Open {name}',
   'programCatalog.anyGoal': 'Any goal',
   'programCatalog.countAll': '{total} PROGRAMS',
   'programCatalog.countNarrowed': '{shown} OF {total} PROGRAMS',
@@ -6190,9 +6191,10 @@ const FI: Record<I18nKey, string> = {
   'programs.sheet.fitsYourWeek': 'SOPII {days} PÄIVÄN VIIKKOOSI',
   // Katalogi: 57 valmista ohjelmaa, joita taso, tavoite ja vapaa teksti
   // rajaavat yhtä aikaa. Tavoitekiekot ovat taksonomia, eivät suodatin.
-  'programCatalog.title': 'Kaikki ohjelmat',
+  'programCatalog.title': 'Kaikki valmiit ohjelmat',
   'programCatalog.searchPlaceholder': 'Hae {count} ohjelmasta',
   'programCatalog.clearSearch': 'Tyhjennä haku',
+  'programCatalog.openProgram': 'Avaa {name}',
   'programCatalog.anyGoal': 'Mikä tahansa tavoite',
   'programCatalog.countAll': '{total} OHJELMAA',
   'programCatalog.countNarrowed': '{shown} / {total} OHJELMAA',

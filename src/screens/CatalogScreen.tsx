@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { ProgramLadderRow, ProgramRowItem } from '../components/ProgramLadderRow';
@@ -147,6 +147,7 @@ export function CatalogScreen({
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         style={styles.chipScroll}
         contentContainerStyle={styles.chipRow}
       >
@@ -163,6 +164,7 @@ export function CatalogScreen({
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         style={styles.chipScroll}
         contentContainerStyle={styles.chipRow}
       >
@@ -187,34 +189,46 @@ export function CatalogScreen({
           : t(language, 'programCatalog.countAll', { total: items.length })}
       </Text>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {shown.length === 0 ? (
+      {/* Windowed, not all at once: every row draws an Svg with a gradient
+          and a bar per training day, and a plain ScrollView would mount all 57
+          and re-render them on each keystroke. keyboardShouldPersistTaps is
+          what makes "type a search, tap the result" work — without it the
+          first tap is spent closing the keyboard. */}
+      <FlatList
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        data={shown}
+        keyExtractor={(item) => item.id}
+        ItemSeparatorComponent={() => <View style={styles.rowGap} />}
+        renderItem={({ item }) => (
+          <ProgramLadderRow
+            item={item}
+            language={language}
+            levelFilter={query.level}
+            accessibilityLabel={t(language, 'programCatalog.openProgram', { name: item.name })}
+            onPress={() => onOpenProgram(item.id)}
+          />
+        )}
+        ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyTitle}>{t(language, 'programCatalog.emptyTitle')}</Text>
             <Text style={styles.emptyBody}>{t(language, 'programCatalog.emptyBody')}</Text>
+            {/* Clears the chips and leaves the search alone: the button
+                names the filters, and a reader who typed "5x5" should not have
+                to type it again to widen the level. */}
             <Pressable
               accessibilityRole="button"
-              onPress={() => setQuery(EMPTY_CATALOG_QUERY)}
+              onPress={() => setQuery((current) => ({ ...current, level: null, goal: null }))}
               style={({ pressed }) => [styles.emptyButton, pressed && { opacity: 0.7 }]}
             >
               <Text style={styles.emptyButtonText}>{t(language, 'programCatalog.clearFilters')}</Text>
             </Pressable>
           </View>
-        ) : (
-          <View style={{ gap: 9 }}>
-            {shown.map((item) => (
-              <ProgramLadderRow
-                key={item.id}
-                item={item}
-                language={language}
-                levelFilter={query.level}
-                accessibilityLabel={t(language, 'programs.switchTo', { name: item.name })}
-                onPress={() => onOpenProgram(item.id)}
-              />
-            ))}
-          </View>
-        )}
-      </ScrollView>
+        }
+      />
     </View>
   );
 }
@@ -315,6 +329,9 @@ const makeStyles = (theme: Theme) =>
     },
     scroll: {
       flex: 1,
+    },
+    rowGap: {
+      height: 9,
     },
     content: {
       paddingHorizontal: 20,

@@ -5417,6 +5417,7 @@ function VinhaApp() {
     // sees it. Branch order inside the module mirrors the old chain exactly.
     content = renderProfileTab({
       route,
+      readyProgramCount: workout.templates.length,
       navigate,
       navigateBack,
       resetToRoute,
