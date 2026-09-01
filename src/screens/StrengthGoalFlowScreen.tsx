@@ -44,6 +44,15 @@ import { AppLanguage } from '../types/models';
 export interface GoalFlowLift {
   /** The stored English library name — what a goal is keyed by. */
   exerciseName: string;
+  /**
+   * The target already set for this lift, if there is one.
+   *
+   * Setting a second one replaces the first — upsertStrengthGoal is keyed by
+   * lift — so the row has to say so. The page this flow replaced showed the
+   * target already set; a flow that overwrites in silence is worse than the
+   * page it improved on.
+   */
+  targetKg: number | null;
   bestKg: number | null;
   rate: ObservedRate | null;
   lastLoggedAt: number | null;
@@ -100,6 +109,27 @@ function CheckIcon({ color, size = 13 }: { color: string; size?: number }) {
       <Path d="M4 12.5l5 5L20 6.5" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
+}
+
+/**
+ * How long ago, at the scale the reader thinks in.
+ *
+ * A raw day count is accurate and unreadable: "240 days ago" makes someone
+ * scanning ten rows do the conversion themselves. Days inside a fortnight,
+ * weeks inside a quarter, months after that — the same ladder the question is
+ * asked on.
+ */
+function describeRecency(language: AppLanguage, days: number | null): string {
+  if (days === null || !Number.isFinite(days) || days < 0) {
+    return '';
+  }
+  if (days <= 14) {
+    return ` ${t(language, 'goalFlow.agoDays', { days })}`;
+  }
+  if (days <= 90) {
+    return ` ${t(language, 'goalFlow.agoWeeks', { weeks: Math.round(days / 7) })}`;
+  }
+  return ` ${t(language, 'goalFlow.agoMonths', { months: Math.round(days / 30) })}`;
 }
 
 function FlowHead({
@@ -166,15 +196,33 @@ export function StrengthGoalFlowScreen({
   const [typedKg, setTypedKg] = useState('');
 
   /**
+   * Picking a different lift starts its number over.
+   *
+   * The delta and the typed weight belong to the lift they were chosen for.
+   * Kept, a reader who typed 140 for a front squat, went back, and picked the
+   * upright row met a card whose subtitle was about the row and whose number
+   * was about the squat.
+   */
+  function pickLift(exerciseName: string) {
+    setPickedName(exerciseName);
+    setDelta(TARGET_DELTAS_KG[1]);
+    setTypedKg('');
+  }
+
+  /**
    * The footer sits above the keyboard, measured rather than inferred.
    *
-   * Step 1 is a search over 876 lifts and its whole point is to end in the
+   * Step 2's number field is the reason, and its whole point is to end in the
    * button underneath — which the keyboard covered outright: the window is
    * adjustResize, but RN 0.83's edge-to-edge Android does not resize for it,
    * and KeyboardAvoidingView's padding under-lifts there. The chat screen hit
    * exactly this on 2026-08-25 and solved it the same way; the event reports
    * the keyboard's real height, so the padding cannot be wrong by
    * construction.
+   *
+   * (It was first found on step 1, which had a search over the whole library
+   * before the list became the ten lifts people actually put a number on. The
+   * field is gone; the keyboard is not.)
    */
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   useEffect(() => {
@@ -189,7 +237,7 @@ export function StrengthGoalFlowScreen({
   }, []);
 
   /*
-   * Eight rows, so no search: a field over a list you can see all of is one
+   * A short list, so no search: a field over a list you can see all of is one
    * more thing to dismiss. The ones with a log still come first — that is what
    * the subtitle promises, and it is the order the question gets asked in.
    */
@@ -206,10 +254,22 @@ export function StrengthGoalFlowScreen({
   const bestKg = picked?.bestKg ?? null;
   const typedTargetKg = Number.parseFloat(typedKg.replace(',', '.'));
   const targetKg = bestKg === null ? typedTargetKg : bestKg + delta;
-  const targetUsable = bestKg === null ? isValidTarget(typedTargetKg) : true;
+  /*
+   * The same ceiling on both branches. It guarded only the typed number, and
+   * a delta on a logged best can pass it too: a mistyped 999 kg in the log
+   * plus 30 is 1029, which the flow accepted, adopted a programme for, and
+   * stored — and which normalizeStrengthGoals then dropped on the next
+   * launch. A target that vanishes overnight is worse than one refused now.
+   */
+  const targetUsable = isValidTarget(targetKg);
   const estimate = estimateWeeksToTarget(bestKg ?? 0, targetUsable ? targetKg : 0, picked?.rate ?? null);
   const stretch = describeStretch(bestKg ?? 0, targetUsable ? targetKg : 0);
-  const proposal = picked ? getProposal(picked.exerciseName) : null;
+  /*
+   * Only where it is shown. Called unconditionally it ran rankProgrammesForLift
+   * over all 57 templates on every render of steps 1 and 2 — once per character
+   * typed into the number field — for a card only step 3 draws.
+   */
+  const proposal = step === 3 && picked ? getProposal(picked.exerciseName) : null;
 
   function goBack() {
     if (step === 1) {
@@ -219,7 +279,11 @@ export function StrengthGoalFlowScreen({
     setStep(step === 3 ? 2 : 1);
   }
 
-  if (step === 1) {
+  // Steps 2 and 3 are about a lift, so they are only entered with one. This
+  // used to be a `setStep(1)` in the render body relying on React's
+  // render-phase update to converge, which is an infinite loop the day it
+  // stops converging.
+  if (step === 1 || !picked) {
     return (
       <View style={styles.screen}>
         <FlowHead
@@ -241,7 +305,7 @@ export function StrengthGoalFlowScreen({
               <Pressable
                 accessibilityRole="radio"
                 accessibilityState={{ checked: on }}
-                onPress={() => setPickedName(item.exerciseName)}
+                onPress={() => pickLift(item.exerciseName)}
                 style={({ pressed }) => [styles.liftRow, on && styles.liftRowOn, pressed && styles.pressed]}
               >
                 <View style={{ flex: 1, minWidth: 0 }}>
@@ -254,12 +318,17 @@ export function StrengthGoalFlowScreen({
                       : t(language, 'goalFlow.yourBest', {
                           kg: item.bestKg,
                           unit: unitLabel,
-                          ago:
-                            item.daysSinceLogged === null
-                              ? ''
-                              : t(language, 'goalFlow.daysAgo', { days: item.daysSinceLogged }),
+                          ago: describeRecency(language, item.daysSinceLogged),
                         })}
                   </Text>
+                  {item.targetKg !== null ? (
+                    <Text style={styles.liftTarget}>
+                      {t(language, 'goalFlow.alreadyAiming', {
+                        kg: item.targetKg,
+                        unit: unitLabel,
+                      })}
+                    </Text>
+                  ) : null}
                 </View>
                 <View style={[styles.radio, on && styles.radioOn]}>
                   {on ? <CheckIcon color="#FFFFFF" /> : null}
@@ -289,13 +358,6 @@ export function StrengthGoalFlowScreen({
         </View>
       </View>
     );
-  }
-
-  if (!picked) {
-    // Only reachable if the lift list changed under a picked name; step 1 is
-    // the honest place to land rather than a step 2 about nothing.
-    setStep(1);
-    return <View style={styles.screen} />;
   }
 
   if (step === 2) {
@@ -623,6 +685,13 @@ const makeStyles = (theme: Theme) =>
       fontSize: 15.5,
       lineHeight: 20,
       fontWeight: '800',
+    },
+    liftTarget: {
+      color: theme.purple,
+      fontSize: 11.5,
+      lineHeight: 15,
+      fontWeight: '800',
+      marginTop: 3,
     },
     liftMeta: {
       color: theme.muted,

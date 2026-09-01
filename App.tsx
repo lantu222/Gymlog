@@ -4614,12 +4614,19 @@ function VinhaApp() {
   const goalFlowLifts = useMemo<GoalFlowLift[]>(() => {
     const now = Date.now();
     return STRENGTH_GOAL_PRESETS.map((preset) => {
+      // The target already set for this lift, so the flow can say so instead
+      // of replacing it in silence.
+      const targetKg =
+        preferences.strengthGoals.find((goal) =>
+          isSameLift(goal.exerciseName, preset.exerciseName, libraryNames),
+        )?.targetKg ?? null;
       const history = proLiftHistories.find((entry) =>
         isSameLift(entry.name, preset.exerciseName, libraryNames),
       );
       if (!history || !(history.bestWeightKg > 0)) {
         return {
           exerciseName: preset.exerciseName,
+          targetKg,
           bestKg: null,
           rate: null,
           lastLoggedAt: null,
@@ -4628,13 +4635,14 @@ function VinhaApp() {
       }
       return {
         exerciseName: preset.exerciseName,
+        targetKg,
         bestKg: history.bestWeightKg,
         rate: resolveObservedRate(history.points),
         lastLoggedAt: history.latest.time,
         daysSinceLogged: Math.max(0, Math.round((now - history.latest.time) / 86_400_000)),
       };
     });
-  }, [libraryNames, proLiftHistories]);
+  }, [libraryNames, preferences.strengthGoals, proLiftHistories]);
 
   /**
    * The programme the flow would put the reader on, for one lift.

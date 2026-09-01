@@ -88,6 +88,51 @@ module.exports = [
     },
   },
   {
+    /**
+     * The target flow's four quiet failures.
+     *
+     * None of these shows up as a crash or a red test — each one is a screen
+     * that keeps working while doing the wrong thing, which is why they are
+     * pinned rather than left to a reader noticing.
+     */
+    name: 'the target flow refuses, resets, asks once and says what is already set',
+    run() {
+      const flow = read('src', 'screens', 'StrengthGoalFlowScreen.tsx');
+
+      // The same ceiling on both branches. It guarded only the typed number,
+      // and a mistyped 999 kg best plus a delta cleared 1000 — a target the
+      // flow accepted and normalizeStrengthGoals then dropped on next launch.
+      assert.match(flow, /const targetUsable = isValidTarget\(targetKg\);/);
+      assert.doesNotMatch(
+        flow,
+        /targetUsable = bestKg === null \? isValidTarget/,
+        'the ceiling guards only the typed branch again',
+      );
+
+      // The proposal is built where it is shown. Unconditional, it ran the
+      // 57-template ranker on every render of steps 1 and 2 — once per
+      // character typed into the number field.
+      assert.match(flow, /step === 3 && picked \? getProposal\(/);
+
+      // A different lift starts its number over.
+      assert.match(flow, /function pickLift\(exerciseName: string\) \{/);
+      assert.match(flow, /onPress=\{\(\) => pickLift\(item\.exerciseName\)\}/);
+      assert.doesNotMatch(flow, /onPress=\{\(\) => setPickedName\(/);
+
+      // No setState while rendering. The old fallback called setStep(1) in the
+      // render body and leaned on React's render-phase update to converge,
+      // which is an infinite loop the day it stops.
+      assert.doesNotMatch(flow, /^\s*setStep\(1\);$/m);
+      assert.match(flow, /if \(step === 1 \|\| !picked\) \{/);
+
+      // And a lift that already has a target says so, because setting a
+      // second one replaces the first.
+      assert.match(flow, /goalFlow\.alreadyAiming/);
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
+      assert.match(app, /preferences\.strengthGoals\.find\(\(goal\) =>/);
+    },
+  },
+  {
     name: 'the row is wired, and targets are ready-made rather than typed',
     run() {
       const screen = read('src', 'screens', 'ProgramsHomeScreen.tsx');
