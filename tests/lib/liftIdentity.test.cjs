@@ -141,13 +141,13 @@ module.exports = [
       // is what this catches: a lift the catalog DOES train, hidden behind a
       // naming mismatch.
       //
-      // Not the same thing as a lift the catalog genuinely does not train.
-      // Front squat and upright row are at zero because no ready week has
-      // them, hack squat at five because five weeks do; none of the three is a
-      // resolution bug, and the guard above names them.
+      // Not the same thing as a lift the catalog genuinely trains in few
+      // weeks. These three are thin because few weeks have them, not because a
+      // name failed to resolve — and pinning the count means a drop back to
+      // zero fails here rather than showing the reader an empty step 3.
       const GENUINELY_THIN = {
-        'Front Squat (Clean Grip)': 0,
-        'Upright Barbell Row': 0,
+        'Front Barbell Squat': 8,
+        'Upright Barbell Row': 2,
         'Hack Squat': 5,
       };
       const thin = [];

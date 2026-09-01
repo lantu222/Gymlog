@@ -150,7 +150,12 @@ module.exports = [
       // already showing in full.
       assert.doesNotMatch(programsHomeSource, /onViewAllPrograms/);
       assert.match(programsHomeSource, /setAllCategories\(\(value\) => !value\)/);
-      assert.match(programsHomeSource, /setSheet\(\{ kind: 'all' \}\)/);
+      // The all-programmes SHEET is gone with trending, which was its only
+      // door. The catalog screen answers that question better than a drawer
+      // can — level, goal and a search over a windowed list — so the variant
+      // went with the link rather than sitting unreachable.
+      assert.doesNotMatch(programsHomeSource, /kind: 'all'/);
+      assert.match(read('src', 'app', 'renderWorkoutTab.tsx'), /<CatalogScreen/);
       assert.match(programsHomeSource, /\{level !== null \? \(/);
 
       // The order the brief asks for, and the reason for it: what the reader
@@ -240,17 +245,14 @@ module.exports = [
       assert.ok(coverHeights.has('104'), 'the "for you" cover is gone');
       assert.ok(coverHeights.has('76'), 'the Learn rail cover is gone');
 
-      // Trending has a way out of it, and a ranking that looks like one.
-      assert.match(programsHomeSource, /'programs\.trending\.all'/);
-      assert.match(programsHomeSource, /const MEDALS/);
-      assert.match(programsHomeSource, /<RankMedal index=\{index\} \/>/);
-      // Three metals, not four: a fourth would invent a rank that does not
-      // exist, so ranks 4 and up keep the plain tile.
-      assert.match(programsHomeSource, /const medal = MEDALS\[index\];[\s\S]{0,20}if \(!medal\)/);
-      // And the card is not inset twice. It carried marginHorizontal: 20
-      // INSIDE the page's own 20px gutter, so it drew 40px narrower than
-      // every other block on the screen.
-      assert.doesNotMatch(programsHomeSource, /trendingCard: \{[\s\S]{0,12}marginHorizontal/);
+      // Trending is gone, with the module behind it. Social proof needs other
+      // people and this device only knows what its owner did; the counts were
+      // invented, getTrendingEntries returned null in every release build, and
+      // the brief's tab does not have the section (2026-09-01). What is
+      // guarded now is that none of it comes back by halves.
+      assert.doesNotMatch(programsHomeSource, /trending/i);
+      assert.doesNotMatch(programsHomeSource, /const MEDALS|RankMedal/);
+      assert.doesNotMatch(i18nSource, /'programs\.trending/);
 
       // The tile rows bled 20px past the gutter, so the category and season
       // tiles started left of every heading and card around them.
@@ -365,6 +367,18 @@ module.exports = [
       // worse than no door.
       assert.match(sheet, /\{onBrowseCatalog \? \(/);
 
+      // AI-assisted wears the Pro lock (user, 2026-09-01, reversing the
+      // earlier "the chat, for everyone" call). Locked only when there is a
+      // paywall to send them to, and unlocked it opens the chat exactly as
+      // before — a padlock with nothing behind it is a row that does nothing.
+      assert.match(sheet, /const aiLocked = !proUnlocked && Boolean\(onOpenPaywall\);/);
+      assert.match(sheet, /\{aiLocked \? <ProPill \/> : null\}/);
+      assert.match(sheet, /aiLocked \? <ProLockIcon/);
+      assert.match(sheet, /if \(aiLocked\) \{\s+onOpenPaywall\?\.\(\);/);
+      // Defaulting to unlocked, so a caller that forgets cannot lock a paying
+      // reader out of something they bought.
+      assert.match(sheet, /^ {2}proUnlocked = true,$/m);
+
       // BOTH callers that open the menu are. The sheet is one component, so
       // it must not offer four doors from the Programs tab and three from the
       // training plan — a reader who creates programmes from the other screen
@@ -375,6 +389,14 @@ module.exports = [
           source,
           /onBrowseCatalog=\{\(\) => navigate\(\{ tab: 'workout', screen: 'catalog' \}\)\}/,
           `${tab} opens the sheet without the catalog door`,
+        );
+        // And the lock, for the same reason: one sheet must not gate the
+        // composer from one entry point and hand it over from the other.
+        assert.match(source, /proUnlocked=\{proUnlocked\}/, `${tab} opens the sheet unlocked`);
+        assert.match(
+          source,
+          /onOpenPaywall=\{\(\) => navigate\(\{ tab: 'profile', screen: 'premium' \}\)\}/,
+          `${tab} passes a lock with no paywall behind it`,
         );
       }
       const workoutTab = read('src', 'app', 'renderWorkoutTab.tsx');

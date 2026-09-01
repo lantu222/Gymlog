@@ -2811,8 +2811,6 @@ const EN = {
   'programs.forYou': 'FOR YOU',
   // Not "AI picks": aiInfo.never.2 says the model never chooses a
   // programme, and it does not — this is recommendationScoring.
-  'programs.trending': 'MOST STARTED THIS WEEK',
-  'programs.trending.meta': '{weeks} weeks · {starts} starts',
   'programs.cat.strength': 'Strength',
   'programs.cat.balanced': 'General fitness',
   'programs.cat.muscle': 'Muscle',
@@ -2829,8 +2827,6 @@ const EN = {
   'programs.switchTo': 'Switch to {name}',
   'programs.viewAll': 'View all',
   'programs.showLess': 'Show less',
-  'programs.allPrograms': 'All programs',
-  'programs.allProgramsFocus': 'the whole catalog, filterable by level',
   'programs.yourPrograms': 'YOUR PROGRAMS',
   'programs.activeTag': 'ACTIVE',
   'programs.activeSubtitle': 'The program you are training right now',
@@ -2943,6 +2939,7 @@ const EN = {
   'csv.catalog': 'Browse the catalog',
   'csv.catalogBody': 'All {count} ready programs, narrowed by goal, level and a search.',
   'csv.catalogA11y': 'Browse all ready programs',
+  'csv.aiLockedA11y': 'AI-assisted, a Pro feature — opens Pro',
   // The Learn rail, moved out of the library and onto the tab: the library is
   // 876 rows, a course is an order.
   'programs.learn': 'LEARN',
@@ -3029,7 +3026,6 @@ const EN = {
   'programs.seasonTile.summer': 'Summer',
   'programs.seasonTile.summerMonths': 'JUN–SEP',
   'programs.seasonTile.now': 'NOW',
-  'programs.trending.all': 'All',
   'programs.season.all': 'All',
   // The switch sheet. This shipped in English inside a Finnish screen.
   'programs.switchSheet.meta': '{days} days / week · ~{minutes} min · {goal}',
@@ -6067,8 +6063,6 @@ const FI: Record<I18nKey, string> = {
   'programs.goals.sheetBody': 'Paras tähän mennessä {best} kg.',
   'programs.goals.save': 'Tallenna tavoite',
   'programs.forYou': 'SINULLE',
-  'programs.trending': 'ALOITETUIMMAT TÄLLÄ VIIKOLLA',
-  'programs.trending.meta': '{weeks} viikkoa · {starts} aloitusta',
   'programs.cat.strength': 'Voima',
   'programs.cat.balanced': 'Yleiskunto',
   'programs.cat.muscle': 'Lihaskasvu',
@@ -6085,8 +6079,6 @@ const FI: Record<I18nKey, string> = {
   'programs.switchTo': 'Vaihda ohjelmaan {name}',
   'programs.viewAll': 'Näytä kaikki',
   'programs.showLess': 'Näytä vähemmän',
-  'programs.allPrograms': 'Kaikki ohjelmat',
-  'programs.allProgramsFocus': 'koko kirjasto, suodatettavissa tason mukaan',
   'programs.yourPrograms': 'OMAT OHJELMASI',
   'programs.activeTag': 'AKTIIVINEN',
   'programs.activeSubtitle': 'Ohjelma jota treenaat juuri nyt',
@@ -6181,6 +6173,7 @@ const FI: Record<I18nKey, string> = {
   'csv.catalog': 'Selaa katalogia',
   'csv.catalogBody': 'Kaikki {count} valmista ohjelmaa, rajattuna tavoitteen, tason ja haun mukaan.',
   'csv.catalogA11y': 'Selaa kaikkia valmiita ohjelmia',
+  'csv.aiLockedA11y': 'Tekoälyavusteinen, Pro-ominaisuus — avaa Pron',
   // Learn-kisko, siirretty kirjastosta välilehdelle: kirjasto on 876 riviä,
   // kurssi on järjestys.
   'programs.learn': 'OPETTELE',
@@ -6263,7 +6256,6 @@ const FI: Record<I18nKey, string> = {
   'programs.seasonTile.summer': 'Kesä',
   'programs.seasonTile.summerMonths': 'KESÄ–SYYS',
   'programs.seasonTile.now': 'NYT',
-  'programs.trending.all': 'Kaikki',
   'programs.season.all': 'Kaikki',
   'programs.switchSheet.meta': '{days} päivää / viikko · ~{minutes} min · {goal}',
   'programs.switchSheet.body': 'Vaihto aloittaa uuden jakson. Edistymisesi ohjelmassa {name} säilyy historiassa — voit palata siihen milloin vain.',

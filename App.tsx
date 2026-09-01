@@ -172,7 +172,6 @@ import {
   countSessionsSince,
   resolveCompletionCard,
 } from './src/lib/programCompletion';
-import { getTrendingEntries } from './src/lib/programTrendingDemo';
 import { backfillRecommendations } from './src/lib/recommendationBackfill';
 import { STRENGTH_GOAL_PRESETS } from './src/lib/strengthGoalPresets';
 import { describeGoalCoverage, GoalProgrammeSuggestionView, isSameLift, rankProgrammesForLift } from './src/lib/goalProgramme';
@@ -4387,42 +4386,6 @@ function VinhaApp() {
     [workout.templates],
   );
   /**
-   * Trending: demo only, and null the moment the build stops being one.
-   *
-   * The row is here so the layout can be judged. The numbers are invented,
-   * and getTrendingEntries returns null in a release build rather than
-   * falling back to something — there is no honest fallback for social proof
-   * on a device that only knows what one person did.
-   */
-  const programsTrendingItems = useMemo(
-    () => {
-      const entries = getTrendingEntries();
-      if (!entries) {
-        return null;
-      }
-      const byId = new Map(workout.templates.map((template) => [template.id, template]));
-      return entries
-        .map((entry) => {
-          const template = byId.get(entry.templateId);
-          return template
-            ? {
-                id: template.id,
-                name: formatWorkoutDisplayLabel(template.name),
-                weeks: getReadyProgramBlockWeeks(template),
-                starts: entry.starts.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' '),
-              }
-            : null;
-        })
-        .filter((item): item is NonNullable<typeof item> => Boolean(item));
-    },
-    // The language arrives with the hydrated database, AFTER the first
-    // render. Without it in the deps this memo keeps the English blurbs it
-    // computed against the seed default — which is exactly what shipped:
-    // the season rows read Finnish and this rail read English, from the
-    // same dictionary.
-    [preferences.appLanguage, workout.templates],
-  );
-  /**
    * "For you" — the programs the recommendation engine actually picked, each
    * with the reason it picked them.
    *
@@ -4898,22 +4861,13 @@ function VinhaApp() {
     }
 
     if (!route.workoutTemplateId) {
-      const prefillExercise = route.prefillExerciseLibraryId
-        ? exerciseBrowserItems.find((item) => item.id === route.prefillExerciseLibraryId) ?? null
-        : null;
-      const prefillExercises: ExerciseTemplateDraft[] = prefillExercise
-        ? [
-            {
-              name: prefillExercise.name,
-              libraryItemId: prefillExercise.id,
-              ...getExerciseTemplateDefaults(prefillExercise, preferences.defaultRestSeconds),
-            },
-          ]
-        : [];
-
+      // The editor could open pre-loaded with one exercise, from the library
+      // card's "add to workout". That door closed in #38 and nothing has set
+      // prefillExerciseLibraryId since, so the branch built an empty array by
+      // a longer route.
       return {
         name: route.prefillName ?? '',
-        sessions: [{ name: 'Session 1', exercises: prefillExercises }],
+        sessions: [{ name: 'Session 1', exercises: [] }],
       };
     }
 
@@ -5413,9 +5367,9 @@ function VinhaApp() {
       handleEnrolSeason,
       programsCatalogItems,
       catalogScreenItems,
+      proUnlocked: proEntitlement.unlocked,
       programsCategoryCounts,
       programsCategoryMembers,
-      programsTrendingItems,
       programsRecommendations,
       programsGoals,
       programsCustomItems,
@@ -5459,6 +5413,7 @@ function VinhaApp() {
     content = renderProfileTab({
       route,
       readyProgramCount: workout.templates.length,
+      proUnlocked: proEntitlement.unlocked,
       navigate,
       navigateBack,
       resetToRoute,
@@ -5856,10 +5811,11 @@ function VinhaApp() {
           teachExerciseName(wrote, { name: exercise.name, libraryItemId: exercise.id })
         }
         onClose={() => setSettingsImportVisible(false)}
-        // The chat, for everyone. The composer screen it used to open is gone,
-        // and the Pro gate moved onto the act of composing — sending a free
-        // reader to a paywall instead of to a chat they can use would have been
-        // gating the wrong thing.
+        // Settings' CSV sheet opens straight on the paste box, so this row is
+        // never drawn from here and the Pro lock the Programs tab passes does
+        // not apply. The lock itself was decided on 2026-09-01, reversing the
+        // earlier "the chat, for everyone" call: the gate had moved onto the
+        // act of composing, and the row went to the chat for anyone.
         onAiAssisted={() =>
           navigate({ tab: 'home', screen: 'ai_chat' })
         }

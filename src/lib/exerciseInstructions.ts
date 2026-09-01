@@ -810,6 +810,15 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
     'Pidä sekunti ääriasennossa ja palauta naru hitaasti ylös.',
     'Toista suositeltu määrä toistoja.',
   ],
+  // Pystysoutu. Käännetty kun liikkeestä tuli tavoiteliike ja se lisättiin
+  // kahdelle olkapääpäivälle (1.9.2026): valmisohjelman määräämä liike ei saa
+  // pudota englantiin.
+  'Upright Barbell Row': [
+    'Ota tangosta yliote hieman hartioita kapeammalta. Anna tangon levätä reisiä vasten kädet suorina ja kyynärpäissä kevyt koukistus. Pidä selkä suorana. Tämä on alkuasento.',
+    'Uloshengityksellä nosta tankoa olkapäiden sivuilla vetäen kyynärpäät ylös ja sivuille. Pidä tanko lähellä vartaloa koko nousun ajan ja jatka, kunnes se on lähes leuan tasolla. Kyynärpäät johtavat liikettä ja pysyvät koko ajan kyynärvarsia ylempänä. Pidä ylävartalo paikallaan ja tauota sekunti ääriasennossa.',
+    'Laske tanko hitaasti takaisin alkuasentoon. Hengitä sisään laskuvaiheessa.',
+    'Toista suositeltu määrä toistoja.',
+  ],
   'Weighted Pull Ups': [
     'Kiinnitä paino dippivyöhön ja aseta vyö vyötärölle. Ota leukatangosta yliote. Keskileveässä otteessa kädet ovat hartioiden leveydellä. Roiku suorilla käsillä.',
     'Kallista ylävartaloa noin 30 astetta taakse, alaselkä kevyessä notkossa ja rinta ulos.',

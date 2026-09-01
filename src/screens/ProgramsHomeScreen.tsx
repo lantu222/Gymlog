@@ -73,48 +73,6 @@ const SAVED_TILE: [string, string] = ['#00BAD1', '#0088A8'];
  */
 const ALL_PROGRAMS_SHEET_TINT = { bg: '#FFE5CD', border: '#F0D1B7', ink: '#A76D00' } as const;
 
-/**
- * Gold, silver, bronze — then plain numbers.
- *
- * A ranked list where every rank looks the same is a list with a number
- * column, not a ranking. Three metals is the one visual convention everyone
- * already reads without a legend, and it stops at three on purpose: a fourth
- * metal would be inventing a rank that does not exist.
- */
-const MEDALS: Array<{ stops: [string, string]; ink: string }> = [
-  { stops: ['#F8DA86', '#B8860B'], ink: '#4E3400' },
-  { stops: ['#E9EEF4', '#98A2AE'], ink: '#39414C' },
-  { stops: ['#EBB88E', '#A0662F'], ink: '#432408' },
-];
-
-function RankMedal({ index }: { index: number }) {
-  const styles = useThemedStyles(makeStyles);
-  const medal = MEDALS[index];
-  if (!medal) {
-    return (
-      <View style={styles.trendingRank}>
-        <Text style={styles.trendingRankText}>{index + 1}</Text>
-      </View>
-    );
-  }
-  const gid = `medal-${index}`;
-  return (
-    <View style={styles.trendingMedal}>
-      <Svg width={36} height={36}>
-        <Defs>
-          <SvgLinearGradient id={gid} x1="0.2" y1="0" x2="0.8" y2="1">
-            <Stop offset="0" stopColor={medal.stops[0]} />
-            <Stop offset="1" stopColor={medal.stops[1]} />
-          </SvgLinearGradient>
-        </Defs>
-        <Circle cx={18} cy={18} r={17} fill={`url(#${gid})`} />
-        {/* The rim: without it the disc reads as a flat coloured dot. */}
-        <Circle cx={18} cy={18} r={14} stroke="#FFFFFF" strokeOpacity={0.42} strokeWidth={1.2} fill="none" />
-      </Svg>
-      <Text style={[styles.trendingMedalText, { color: medal.ink }]}>{index + 1}</Text>
-    </View>
-  );
-}
 
 // Tall enough for a two-line title, two lines of body AND the pill under
 // them. At 186 the CTA was clipped by the card's own bottom edge.
@@ -218,15 +176,6 @@ interface ProgramsHomeScreenProps {
   categoryCounts: Record<ProgramCategoryKey, number>;
   categoryMembers: Record<ProgramCategoryKey, string[]>;
   /**
-   * Most-started programs — null when there is nothing honest to show.
-   *
-   * Social proof needs other people, and this device only knows what its own
-   * owner did. Until a server counts starts these numbers are invented, so
-   * they live behind the demo flag and this prop is null in a release build.
-   * The row disappears rather than falling back: there is no honest fallback.
-   */
-  trendingItems: Array<{ id: string; name: string; weeks: number; starts: string }> | null;
-  /**
    * The one or two programs the engine picked, each carrying its reason.
    *
    * Empty when the setup answers are missing — a recommendation with nothing
@@ -278,6 +227,10 @@ interface ProgramsHomeScreenProps {
   onBrowseCatalog?: () => void;
   /** How many ready programmes that door is promising. */
   catalogCount?: number;
+  /** Whether AI-assisted composition is unlocked, or wears the padlock. */
+  proUnlocked?: boolean;
+  /** Where the padlock leads. */
+  onOpenPaywall?: () => void;
   onImportProgram: (draft: WorkoutTemplateDraft) => Promise<void> | void;
   exerciseLibraryEntries: CsvLibraryEntry[];
   /** The reader's own lift names, for the CSV importer's matcher. */
@@ -799,7 +752,6 @@ export function ProgramsHomeScreen({
   catalogItems,
   categoryCounts,
   categoryMembers,
-  trendingItems,
   recommendations,
   goals,
   goalProgrammes,
@@ -816,6 +768,8 @@ export function ProgramsHomeScreen({
   onOpenLearnIndex,
   onBrowseCatalog,
   catalogCount = 0,
+  proUnlocked = true,
+  onOpenPaywall,
   onImportProgram,
   exerciseLibraryEntries,
   nameBook,
@@ -835,11 +789,11 @@ export function ProgramsHomeScreen({
    * suodatin" link that emptied the section rather than narrowing it. One
    * state, one sheet, one way to close it.
    */
-  const [sheet, setSheet] = useState<
-    | { kind: 'category'; key: ProgramCategoryKey }
-    | { kind: 'all' }
-    | null
-  >(null);
+  // One variant left. 'all' had a single door, on the section that went with
+  // the invented start counts, and
+  // the catalog screen answers that question better than a sheet can: level,
+  // goal and a search over a windowed list.
+  const [sheet, setSheet] = useState<{ kind: 'category'; key: ProgramCategoryKey } | null>(null);
   // The goal sheet: which lift, and the number being typed.
   const [createOpen, setCreateOpen] = useState(false);
   // The tile row scrolls to four and a half categories; this shows all nine.
@@ -850,13 +804,10 @@ export function ProgramsHomeScreen({
   const pickedStyle = picked ? picked.cover : null;
 
   // The open sheet's contents, drawn from the same sources the tiles count.
-  const sheetCategory = sheet?.kind === 'category' ? PROGRAM_CATEGORIES.find((entry) => entry.key === sheet.key) : null;
-  const sheetItems =
-    sheet === null
-      ? []
-      : sheet.kind === 'all'
-        ? catalogItems
-        : catalogItems.filter((item) => categoryMembers[sheet.key]?.includes(item.id));
+  const sheetCategory = sheet ? PROGRAM_CATEGORIES.find((entry) => entry.key === sheet.key) : null;
+  const sheetItems = sheet
+    ? catalogItems.filter((item) => categoryMembers[sheet.key]?.includes(item.id))
+    : [];
 
   return (
     <View style={styles.screenBackground}>
@@ -1197,63 +1148,6 @@ export function ProgramsHomeScreen({
             is gone because the tiles above now are the way in, and a rail that
             is always there makes a menu above it look decorative. */}
 
-        {/* Trending is not in the brief's tab, and it is still here.
-            Deliberately, and it is a decision waiting rather than a decision
-            made: the numbers are invented, so getTrendingEntries returns null
-            in a release build and nobody has ever seen this section. Dropping
-            it is a product call the brief did not make and neither did I, so
-            it sits between "for you" and the goal discs until someone does —
-            visible only in a dev build, which is where the argument for
-            keeping it (social proof, once the numbers are real) would be
-            tested anyway. */}
-
-        {trendingItems && trendingItems.length > 0 ? (
-          <View>
-            <View style={styles.sectionHeadRow}>
-              <Text style={styles.sectionEyebrow}>{t(language, 'programs.trending')}</Text>
-              <Pressable onPress={() => setSheet({ kind: 'all' })} hitSlop={8}>
-                <Text style={styles.sectionLink}>{t(language, 'programs.trending.all')}</Text>
-              </Pressable>
-            </View>
-            <CutSurface
-              size="lg"
-              fill={theme.surface}
-              stroke={theme.border}
-              strokeWidth={1}
-              style={styles.trendingCard}
-            >
-              {trendingItems.map((item, index) => (
-                <Pressable
-                  key={item.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={t(language, 'programs.switchTo', { name: item.name })}
-                  onPress={() => {
-                    const card = catalogItems.find((entry) => entry.id === item.id);
-                    if (card) {
-                      setPicked(card);
-                    }
-                  }}
-                  style={({ pressed }) => [
-                    styles.trendingRow,
-                    index > 0 && styles.trendingRowDivider,
-                    pressed && styles.pressedRow,
-                  ]}
-                >
-                  <RankMedal index={index} />
-                  <View style={styles.trendingCopy}>
-                    <Text style={styles.trendingTitle} numberOfLines={1}>
-                      {item.name}
-                    </Text>
-                    <Text style={styles.trendingMeta}>
-                      {t(language, 'programs.trending.meta', { weeks: item.weeks, starts: item.starts })}
-                    </Text>
-                  </View>
-                </Pressable>
-              ))}
-            </CutSurface>
-          </View>
-        ) : null}
-
         {/* The rail that used to live here is a sheet now. Nine categories
             sharing one horizontal rail gave every one of them the same
             eight-card shape, no way to narrow further, and nowhere to say what
@@ -1418,22 +1312,10 @@ export function ProgramsHomeScreen({
         visible={sheet !== null}
         onClose={() => setSheet(null)}
         language={language}
-        title={
-          sheet === null
-            ? ''
-            : sheet.kind === 'all'
-              ? t(language, 'programs.allPrograms')
-              : t(language, sheetCategory?.labelKey ?? 'programs.cat.strength')
-        }
-        focus={
-          sheet === null
-            ? ''
-            : sheet.kind === 'all'
-              ? t(language, 'programs.allProgramsFocus')
-              : t(language, sheetCategory?.focusKey ?? 'programs.catFocus.strength')
-        }
+        title={sheet === null ? '' : t(language, sheetCategory?.labelKey ?? 'programs.cat.strength')}
+        focus={sheet === null ? '' : t(language, sheetCategory?.focusKey ?? 'programs.catFocus.strength')}
         tint={sheetCategory ? sheetCategory.tint : ALL_PROGRAMS_SHEET_TINT}
-        icon={sheet?.kind === 'category' && sheetCategory ? sheetCategory.icon : LAYERS_MOTIF}
+        icon={sheetCategory ? sheetCategory.icon : LAYERS_MOTIF}
         items={sheetItems}
         readerDaysPerWeek={readerDaysPerWeek}
         readerLevel={readerLevel}
@@ -1457,6 +1339,8 @@ export function ProgramsHomeScreen({
         onAiAssisted={onAiAssisted}
         onBrowseCatalog={onBrowseCatalog}
         catalogCount={catalogCount}
+        proUnlocked={proUnlocked}
+        onOpenPaywall={onOpenPaywall}
         onBuildYourself={onCreateProgram}
         onImportProgram={onImportProgram}
       />
@@ -1677,61 +1561,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   goalProgrammeOpen: {
     color: theme.purple,
-  },
-  trendingCard: {
-    marginBottom: 4,
-    overflow: 'hidden',
-  },
-  trendingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 13,
-    paddingVertical: 13,
-    paddingHorizontal: 15,
-  },
-  trendingRowDivider: {
-    borderTopWidth: 1,
-    borderTopColor: theme.purpleLight,
-  },
-  trendingRank: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.purpleLight,
-  },
-  trendingMedal: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  trendingMedalText: {
-    position: 'absolute',
-    fontSize: 15,
-    lineHeight: 19,
-    fontWeight: '900',
-  },
-  trendingRankText: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: theme.purple,
-  },
-  trendingCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  trendingTitle: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: theme.ink,
-  },
-  trendingMeta: {
-    marginTop: 2,
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: theme.muted,
   },
   forYouWhy: {
     fontSize: 11.5,

@@ -170,11 +170,12 @@ export interface WorkoutTabDeps {
   workoutSessions: Parameters<typeof computeSeasonProgress>[0];
   handleEnrolSeason: (season: ProgramSeason, year: number) => void;
   programsCatalogItems: ProgramsHomeProps['catalogItems'];
+  /** Whether AI-assisted composition opens the chat or the paywall. */
+  proUnlocked: boolean;
   /** The same programmes with their categories, for the catalog's goal chips. */
   catalogScreenItems: CatalogScreenItem[];
   programsCategoryCounts: ProgramsHomeProps['categoryCounts'];
   programsCategoryMembers: ProgramsHomeProps['categoryMembers'];
-  programsTrendingItems: ProgramsHomeProps['trendingItems'];
   programsRecommendations: ProgramsHomeProps['recommendations'];
   programsGoals: ProgramsHomeProps['goals'];
   programsCustomItems: ProgramsHomeProps['customPrograms'];
@@ -252,9 +253,9 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     handleEnrolSeason,
     programsCatalogItems,
     catalogScreenItems,
+    proUnlocked,
     programsCategoryCounts,
     programsCategoryMembers,
-    programsTrendingItems,
     programsRecommendations,
     programsGoals,
     programsCustomItems,
@@ -661,7 +662,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     return (
       <WorkoutEditorScreen
         language={preferences.appLanguage}
-        key={`editor:${route.workoutTemplateId ?? 'new'}:${route.prefillName ?? ''}:${route.prefillExerciseLibraryId ?? ''}`}
+        key={`editor:${route.workoutTemplateId ?? 'new'}:${route.prefillName ?? ''}`}
         initialDraft={editorDraft}
         exerciseLibrary={exerciseBrowserItems}
         recentExerciseLibraryItems={recentExerciseBrowserItems}
@@ -734,7 +735,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         onStartReadyProgram={handleStartReadyProgram}
         onOpenCustomProgram={handleOpenCustomProgramDetail}
         onStartCustomWorkout={handleStartCustomProgram}
-        onEditCustomWorkout={(workoutTemplateId) => navigate({ tab: 'workout', screen: 'template', workoutTemplateId })}
         onDuplicateCustomWorkout={handleDuplicateCustomWorkout}
         onDeleteCustomWorkout={handleDeleteCustomWorkout}
         onCreateWorkout={() => navigate({ tab: 'workout', screen: 'template' })}
@@ -949,7 +949,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         catalogItems={programsCatalogItems}
         categoryCounts={programsCategoryCounts}
         categoryMembers={programsCategoryMembers}
-        trendingItems={programsTrendingItems}
         recommendations={programsRecommendations}
         learnRows={learnRows}
         onOpenCollection={(collectionId) =>
@@ -973,6 +972,8 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         onAiAssisted={() => navigate({ tab: 'home', screen: 'ai_chat' })}
         onBrowseCatalog={() => navigate({ tab: 'workout', screen: 'catalog' })}
         catalogCount={programsCatalogItems.length}
+        proUnlocked={proUnlocked}
+        onOpenPaywall={() => navigate({ tab: 'profile', screen: 'premium' })}
         onImportProgram={async (draft) => {
           const workoutTemplateId = await upsertWorkoutTemplate(draft);
           navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });

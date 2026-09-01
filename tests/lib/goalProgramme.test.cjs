@@ -102,31 +102,21 @@ module.exports = [
   },
   {
     /**
-     * "A target always has a programme" — measured, including where it does not.
+     * "A target always has a programme", with no exceptions.
      *
-     * Six of the eight are trained as a main lift by a large slice of the
-     * catalog. Two are trained by NOTHING: front squat and upright row, both
-     * at zero programmes out of 57 (measured 2026-09-01). They are on the list
-     * because the user named them, and the flow tells the truth about them
-     * rather than proposing a week that only brushes the lift — but they are
-     * listed here by name so that "zero" stays a decision someone made and not
-     * a gap nobody noticed. Adding a front-squat programme to the catalog is
-     * what closes it.
+     * There were two for a day. The front squat's was a naming gap, not a
+     * missing programme: the catalog prescribes "Front Squat" in eight weeks
+     * and the guided alias resolves that to "Front Barbell Squat", while the
+     * preset named "Front Squat (Clean Grip)" — a different library row.
+     * The upright row's was real, and it went onto two shoulder days
+     * (2026-09-01). Both are covered now, so the rule is unconditional again.
      */
-    name: 'every goal preset has a ready programme, or is named as one that does not',
+    name: 'every goal preset has a ready programme that trains its lift as a main lift',
     run() {
-      const NO_PROGRAMME = ['Front Squat (Clean Grip)', 'Upright Barbell Row'];
       const unexpected = [];
       for (const preset of STRENGTH_GOAL_PRESETS) {
         const lift = preset.exerciseName;
         const ranked = rankProgrammesForLift(WORKOUT_TEMPLATES_V1, lift, { libraryNames });
-        if (NO_PROGRAMME.includes(lift)) {
-          // Named as uncovered, so it must still BE uncovered: a catalog that
-          // grew one should take the lift off this list, not keep telling the
-          // reader there is nothing.
-          assert.equal(ranked.length, 0, `${lift} has a programme now — take it off NO_PROGRAMME`);
-          continue;
-        }
         if (ranked.length === 0 || !ranked[0].primary) {
           unexpected.push(`${lift}: ${ranked.length} programmes, primary=${ranked[0]?.primary ?? false}`);
         }

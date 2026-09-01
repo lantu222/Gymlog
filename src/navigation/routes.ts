@@ -116,7 +116,6 @@ export type AppRoute =
       screen: 'editor';
       workoutTemplateId?: string;
       prefillName?: string;
-      prefillExerciseLibraryId?: string;
     }
   | {
       tab: 'workout';

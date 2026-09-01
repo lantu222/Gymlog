@@ -15,6 +15,11 @@
  * sees them through `exerciseNameLabel`. No two of them fold into each other
  * under `isSameLift` — checked pairwise, not eyeballed.
  *
+ * The front squat is `Front Barbell Squat`, which is the entry the catalog's
+ * own "Front Squat" resolves to through the guided alias. Named as `Front
+ * Squat (Clean Grip)` — a different library row — it read as a lift no ready
+ * programme trains, when eight of them train it and six as a main lift.
+ *
  * NOT here: sumo deadlift, which the user also named. `liftIdentity` folds
  * sumo and trap bar into the deadlift on purpose — a lifter's deadlift best is
  * their deadlift best whichever stance it was pulled from — so a sumo row
@@ -32,7 +37,7 @@ export const STRENGTH_GOAL_PRESETS: readonly StrengthGoalPreset[] = [
   { exerciseName: 'Barbell Squat' },
   { exerciseName: 'Barbell Bench Press - Medium Grip' },
   { exerciseName: 'Barbell Deadlift' },
-  { exerciseName: 'Front Squat (Clean Grip)' },
+  { exerciseName: 'Front Barbell Squat' },
   { exerciseName: 'Hack Squat' },
   { exerciseName: 'Barbell Hip Thrust' },
   { exerciseName: 'Romanian Deadlift' },

@@ -7,6 +7,7 @@ import { buildDraftFromCsvPreview, CsvLibraryEntry, parseCsvProgram } from '../l
 import { countKnownNames } from '../lib/exerciseNameBook';
 import { HevyImportPreview, isHevyHistoryCsv, parseHevyCsv } from '../lib/hevyImport';
 import { I18nKey, t } from '../lib/i18n';
+import { ProLockIcon, ProPill } from './ProLockMarks';
 import type { AppLanguage, ExerciseNameBookEntry, WorkoutTemplateDraft } from '../types/models';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 
@@ -50,6 +51,17 @@ interface NewProgramSheetProps {
   onBrowseCatalog?: () => void;
   /** How many ready programmes the catalog row is promising. */
   catalogCount?: number;
+  /**
+   * Whether the reader has Pro.
+   *
+   * AI-assisted composition is a paid feature. Locked, the row wears the PRO
+   * pill and the padlock and leads to the paywall; unlocked, it opens the chat
+   * exactly as before. Defaults to unlocked so a caller that forgets cannot
+   * lock a paying reader out of something they bought.
+   */
+  proUnlocked?: boolean;
+  /** Where the padlock leads. Required only when the row can be locked. */
+  onOpenPaywall?: () => void;
   onImportProgram: (draft: WorkoutTemplateDraft) => Promise<void> | void;
   /**
    * A pasted Hevy export is HISTORY, not a programme — workouts already
@@ -129,6 +141,8 @@ export function NewProgramSheet({
   onBuildYourself,
   onBrowseCatalog,
   catalogCount = 0,
+  proUnlocked = true,
+  onOpenPaywall,
   onImportProgram,
   onImportHistory,
   nameBook = [],
@@ -142,6 +156,12 @@ export function NewProgramSheet({
   // option ("Tuo CSV") sat under the buttons.
   const insets = useSafeAreaInsets();
   const [view, setView] = useState<'menu' | 'csv'>(initialView);
+  /*
+   * Locked only when the reader lacks Pro AND there is somewhere to send them.
+   * A padlock with no paywall behind it is a row that does nothing, which is
+   * worse than the unlocked row it replaced.
+   */
+  const aiLocked = !proUnlocked && Boolean(onOpenPaywall);
   const [csvText, setCsvText] = useState('');
   const defaultProgramName = t(language, 'csv.defaultName');
   const [programName, setProgramName] = useState(defaultProgramName);
@@ -329,9 +349,13 @@ export function NewProgramSheet({
               ) : null}
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={t(language, 'csv.aiA11y')}
+                accessibilityLabel={t(language, aiLocked ? 'csv.aiLockedA11y' : 'csv.aiA11y')}
                 onPress={() => {
                   handleClose();
+                  if (aiLocked) {
+                    onOpenPaywall?.();
+                    return;
+                  }
                   onAiAssisted();
                 }}
                 style={({ pressed }) => [styles.optionCard, pressed && styles.pressed]}
@@ -340,10 +364,13 @@ export function NewProgramSheet({
                   <OptionIcon name="spark" />
                 </View>
                 <View style={styles.optionCopy}>
-                  <Text style={styles.optionTitle}>{t(language, 'csv.ai')}</Text>
+                  <View style={styles.optionTitleLine}>
+                    <Text style={styles.optionTitle}>{t(language, 'csv.ai')}</Text>
+                    {aiLocked ? <ProPill /> : null}
+                  </View>
                   <Text style={styles.optionBody}>{t(language, 'csv.aiBody')}</Text>
                 </View>
-                <Chevron />
+                {aiLocked ? <ProLockIcon color={theme.purple} size={18} /> : <Chevron />}
               </Pressable>
               <Pressable
                 accessibilityRole="button"
@@ -731,6 +758,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   optionCopy: {
     flex: 1,
     gap: 2,
+  },
+  optionTitleLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
   },
   optionTitle: {
     color: theme.ink,
