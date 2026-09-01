@@ -856,7 +856,18 @@ export function ProgramsHomeScreen({
                 {program.subtitle}
               </Text>
             </View>
-            <Text style={styles.customAction}>{t(language, 'programs.openShort')}</Text>
+            {/* A chevron, not the word "Open" (user 2026-09-01). Every row
+                on this list opens; the word was on all three saying the same
+                thing, and the arrow says it without taking a column. */}
+            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M9 5l7 7-7 7"
+                stroke={theme.faint}
+                strokeWidth={2.2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
             </CutSurface>
           </Pressable>
         ))}
@@ -869,16 +880,19 @@ export function ProgramsHomeScreen({
           onPress={() => setCreateOpen(true)}
           style={({ pressed }) => [pressed && styles.pressedRow]}
         >
+          {/* Filled and in the accent, not a dashed outline (user
+              2026-09-01). theme.highlight rather than a literal orange: it is
+              orange on the dark theme and violet on the light one, which is
+              what "the colour you press" means in each. */}
           <CutSurface
             size="lg"
-            fill="transparent"
+            fill={theme.surface}
             stroke={theme.border}
-            strokeWidth={1.5}
-            dashed
+            strokeWidth={1}
             style={styles.createRow}
           >
           <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-            <Path d="M12 5v14M5 12h14" stroke={theme.purple} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M12 5v14M5 12h14" stroke={theme.highlight} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
           <Text style={styles.createText}>{t(language, 'programs.create')}</Text>
           </CutSurface>
@@ -923,7 +937,11 @@ export function ProgramsHomeScreen({
                     <Pressable
                       key={entry.goal.exerciseName}
                       accessibilityRole="button"
-                      accessibilityLabel={t(language, 'programs.goals.remove', {
+                      // The card OPENS; the x removes. Its label used to say
+                      // "Remove the target", which is what a screen reader read
+                      // out for a tap that edits — and removing was a long
+                      // press, which nobody finds (user 2026-09-01).
+                      accessibilityLabel={t(language, 'programs.open', {
                         name: exerciseNameLabel(language, entry.goal.exerciseName),
                       })}
                       onPress={onOpenGoalPicker}
@@ -993,6 +1011,29 @@ export function ProgramsHomeScreen({
                             );
                           })()}
                         </View>
+                        {/* Red, and its own target rather than a corner of the
+                            card: this is the only destructive control in the
+                            section, and the one thing the reader could not do
+                            before. hitSlop because 22px is under the 44px
+                            minimum and the card behind it opens the picker. */}
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={t(language, 'programs.goals.remove', {
+                            name: exerciseNameLabel(language, entry.goal.exerciseName),
+                          })}
+                          onPress={() => onRemoveGoal(entry.goal.exerciseName)}
+                          hitSlop={12}
+                          style={({ pressed }) => [styles.goalRemove, pressed && styles.pressed]}
+                        >
+                          <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
+                            <Path
+                              d="M6 6l12 12M18 6L6 18"
+                              stroke={theme.danger}
+                              strokeWidth={2.4}
+                              strokeLinecap="round"
+                            />
+                          </Svg>
+                        </Pressable>
                       </CutSurface>
                     </Pressable>
                   );
@@ -1508,6 +1549,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 13,
     paddingLeft: 24,
     paddingRight: 14,
+  },
+  goalRemove: {
+    width: 26,
+    height: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   goalTile: {
     width: 44,
@@ -2038,7 +2085,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     height: 50,
   },
   createText: {
-    color: theme.purple,
+    color: theme.highlight,
     fontSize: 13.5,
     lineHeight: 18,
     fontWeight: '800',

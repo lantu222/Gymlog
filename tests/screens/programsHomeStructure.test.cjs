@@ -355,17 +355,27 @@ module.exports = [
      * on 2026-08-31 was to try it high, which is the kind of decision a later
      * tidy-up reverses without noticing, so the ORDER is what this pins.
      */
-    name: 'the new-program sheet offers the catalog, and offers it first',
+    name: 'the new-program sheet leads with AI-assisted, then building it yourself',
     run() {
       const sheet = read('src', 'components', 'NewProgramSheet.tsx');
 
-      const catalogAt = sheet.indexOf("t(language, 'csv.catalog')");
+      // Reversed on 2026-09-01. The catalog led since 2026-08-31 on the brief's
+      // note that it was "probably the most-used door and it is currently
+      // last" — tried high, and the call after seeing it on the device was
+      // that the catalog has a whole screen of its own and did not need this
+      // slot too. The ORDER is what this pins, either way, because it is the
+      // kind of decision a later tidy-up reverses without noticing.
       const aiAt = sheet.indexOf("t(language, 'csv.ai')");
       const buildAt = sheet.indexOf("t(language, 'csv.build')");
+      const pasteAt = sheet.indexOf("t(language, 'csv.paste')");
+      const catalogAt = sheet.indexOf("t(language, 'csv.catalog')");
       assert.ok(catalogAt > 0, 'the sheet has no catalog row');
       assert.ok(aiAt > 0 && buildAt > 0, 'the sheet lost one of its original rows');
-      assert.ok(catalogAt < aiAt, 'the catalog row slipped below AI-assisted');
-      assert.ok(catalogAt < buildAt, 'the catalog row slipped below Build it yourself');
+      assert.ok(aiAt < buildAt, 'AI-assisted no longer leads');
+      assert.ok(buildAt < catalogAt, 'Build it yourself slipped below the catalog');
+      if (pasteAt > 0) {
+        assert.ok(buildAt < pasteAt && pasteAt < catalogAt, 'Import CSV left its slot between them');
+      }
 
       // The row only draws when a caller can open it — a door to nowhere is
       // worse than no door.
@@ -541,6 +551,51 @@ module.exports = [
       assert.ok(adopt < write, 'the target is written before the programme lands');
       assert.ok(write < toast, 'the success state is claimed before the write resolves');
       assert.ok(toast < leave, 'the screen leaves before the toast is raised');
+    },
+  },
+  {
+    /**
+     * The device walkthrough of 2026-09-01, in one case.
+     *
+     * Four asks, all of them about a control saying less than it does or
+     * sitting where it is not looked for.
+     */
+    name: 'programs tab: the active programme leads, and a target can be removed',
+    run() {
+      const home = read('src', 'screens', 'ProgramsHomeScreen.tsx');
+      const app = read('App.tsx');
+
+      // The one you are training is first, authored or adopted. It used to
+      // keep its authoring position, so ACTIVE was a tag you had to read the
+      // list to find rather than a place in it.
+      assert.match(app, /const leadFirst = /);
+      assert.match(app, /\.\.\.rows\.filter\(\(row\) => row\.active\),/);
+      assert.match(app, /return leadFirst\(authored\);/);
+
+      // A chevron, not the word "Open" on every row.
+      assert.doesNotMatch(home, /styles\.customAction/);
+      assert.match(home, /d="M9 5l7 7-7 7"/);
+
+      // The create card is filled and wears the accent, not a dashed outline.
+      assert.doesNotMatch(home, /fill="transparent"[\s\S]{0,120}dashed/);
+      assert.match(home, /color: theme\.highlight/);
+
+      // Removing a target is a control you can see. It was a long press, and
+      // the card's own accessibility label announced "Remove the target" for a
+      // tap that opens the picker.
+      assert.match(home, /styles\.goalRemove/);
+      assert.match(home, /stroke=\{theme\.danger\}/);
+      assert.match(home, /onPress=\{\(\) => onRemoveGoal\(entry\.goal\.exerciseName\)\}/);
+
+      // Every tier's footer reserves the same lines, so the button does not
+      // move between tabs. Free has neither a plan sub-line nor recurring
+      // terms, and `foot` is bottom-anchored, so its CTA sat lower than the
+      // other two.
+      const premium = read('src', 'screens', 'PremiumScreen.tsx');
+      assert.match(premium, /\{entry\.subKey \? t\(language, entry\.subKey\) : ' '\}/);
+      assert.match(premium, /\{fineKey \? t\(language, fineKey\) : ' '\}/);
+      assert.doesNotMatch(premium, /\{fineKey \? <Text/);
+      assert.match(premium, /priceSub: \{ fontSize: 13, lineHeight: 17/);
     },
   },
 ];

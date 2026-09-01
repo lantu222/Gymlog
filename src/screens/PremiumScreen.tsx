@@ -397,9 +397,14 @@ export function PremiumScreen({
                       </Text>
                       <Text style={styles.priceUnit}>{t(language, entry.unitKey)}</Text>
                     </View>
-                    {entry.subKey ? (
-                      <Text style={styles.priceSub}>{t(language, entry.subKey)}</Text>
-                    ) : null}
+                    {/* Always drawn, blank when the plan has no second
+                        line. Free is the only tier whose plan carries none, so
+                        its price tile was a line shorter than Pro's and
+                        Lifetime's. Reserving the line rather than measuring
+                        it: the space stays right if the type ever changes. */}
+                    <Text style={styles.priceSub} numberOfLines={1}>
+                      {entry.subKey ? t(language, entry.subKey) : ' '}
+                    </Text>
                   </Pressable>
                 );
               })}
@@ -413,7 +418,14 @@ export function PremiumScreen({
               <Text style={styles.ctaText}>{t(language, ctaKey)}</Text>
             </Pressable>
 
-            {fineKey ? <Text style={styles.fine}>{t(language, fineKey)}</Text> : null}
+            {/* And the same for the fine print, which is what actually
+                moved the button: `foot` sits against the bottom edge, so a
+                tier missing this line does not get a shorter footer — it gets
+                its button pushed DOWN into the space the line would have
+                taken. Free has no recurring terms to state, so its "Continue
+                for free" landed lower than "Get Pro" and "Get Lifetime"
+                (user 2026-09-01). */}
+            <Text style={styles.fine}>{fineKey ? t(language, fineKey) : ' '}</Text>
           </View>
         )}
 
@@ -549,7 +561,9 @@ const styles = StyleSheet.create({
   price: { fontSize: 25, fontWeight: '800', letterSpacing: -1, color: 'rgba(255,255,255,0.55)' },
   priceOn: { color: PRO_SURFACE.ink },
   priceUnit: { fontSize: 13.5, fontWeight: '600', color: 'rgba(255,255,255,0.5)' },
-  priceSub: { fontSize: 13, fontWeight: '600', color: PRO_SURFACE.inkFaint, marginTop: 2 },
+  // lineHeight is explicit so the blank stand-in reserves exactly what the
+  // real line takes, on every device font scale.
+  priceSub: { fontSize: 13, lineHeight: 17, fontWeight: '600', color: PRO_SURFACE.inkFaint, marginTop: 2 },
 
   activeCard: { paddingBottom: 2 },
   activeText: {

@@ -328,28 +328,10 @@ export function NewProgramSheet({
                   own notes — "probably the most-used door and it is currently
                   last" — and the call on 2026-08-31 was to try it high. It
                   only appears when a caller can actually open it. */}
-              {onBrowseCatalog ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t(language, 'csv.catalogA11y')}
-                  onPress={() => {
-                    handleClose();
-                    onBrowseCatalog();
-                  }}
-                  style={({ pressed }) => [styles.optionCard, pressed && styles.pressed]}
-                >
-                  <View style={styles.optionIconTile}>
-                    <OptionIcon name="layers" />
-                  </View>
-                  <View style={styles.optionCopy}>
-                    <Text style={styles.optionTitle}>{t(language, 'csv.catalog')}</Text>
-                    <Text style={styles.optionBody}>
-                      {t(language, 'csv.catalogBody', { count: catalogCount })}
-                    </Text>
-                  </View>
-                  <Chevron />
-                </Pressable>
-              ) : null}
+              {/* AI-assisted leads, then building it yourself (user
+                  2026-09-01). The catalog moved to the bottom: it is the
+                  widest door and it has its own screen, so it was the one
+                  option here that did not need to be first. */}
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t(language, aiLocked ? 'csv.aiLockedA11y' : 'csv.aiA11y')}
@@ -404,6 +386,28 @@ export function NewProgramSheet({
                 </View>
                 <Chevron />
               </Pressable>
+              {onBrowseCatalog ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'csv.catalogA11y')}
+                  onPress={() => {
+                    handleClose();
+                    onBrowseCatalog();
+                  }}
+                  style={({ pressed }) => [styles.optionCard, pressed && styles.pressed]}
+                >
+                  <View style={styles.optionIconTile}>
+                    <OptionIcon name="layers" />
+                  </View>
+                  <View style={styles.optionCopy}>
+                    <Text style={styles.optionTitle}>{t(language, 'csv.catalog')}</Text>
+                    <Text style={styles.optionBody}>
+                      {t(language, 'csv.catalogBody', { count: catalogCount })}
+                    </Text>
+                  </View>
+                  <Chevron />
+                </Pressable>
+              ) : null}
             </View>
           ) : (
             <ScrollView contentContainerStyle={styles.csvContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">

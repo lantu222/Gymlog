@@ -4860,9 +4860,21 @@ function VinhaApp() {
     // a ready programme rather than one you wrote: onboarding's second button
     // adopts the catalog programme without authoring anything, so the reader
     // trained a programme that appeared nowhere under "your programmes".
+    // Active first, whether it was authored or adopted (user, 2026-09-01).
+    // An authored programme kept its authoring position, so the one you are
+    // training could sit third under two you are not — and ACTIVE is a tag you
+    // have to read the list to find rather than a place in it.
+    //
+    // Stable beyond that: the rest keep the order they were written in, so
+    // nothing else moves under the reader.
+    const leadFirst = <T extends { active: boolean }>(rows: T[]): T[] => [
+      ...rows.filter((row) => row.active),
+      ...rows.filter((row) => !row.active),
+    ];
+
     const activeIsAuthored = authored.some((item) => item.active);
     if (!homeActivePlanCard || activeIsAuthored) {
-      return authored;
+      return leadFirst(authored);
     }
     return [
       {
