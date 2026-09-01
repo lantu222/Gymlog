@@ -265,8 +265,13 @@ interface ProgramsHomeScreenProps {
    * The short courses. Learn was three taps deep inside the library, which is
    * not where a course belongs. Empty means the section does not draw at all,
    * rather than a heading over nothing.
+   *
+   * Required, unlike the sheet's optional catalog door: that one is a door a
+   * caller may genuinely have nowhere to open, this is part of the tab's
+   * shape. Optional, a caller that forgot it would render a tab with no Learn
+   * section and nothing would say so.
    */
-  learnRows?: ProgramsLearnRow[];
+  learnRows: ProgramsLearnRow[];
   onOpenCollection?: (collectionId: string) => void;
   onOpenLearnIndex?: () => void;
   /** The fourth door on the new-programme sheet: all the ready programmes. */
@@ -806,7 +811,7 @@ export function ProgramsHomeScreen({
   onOpenCustomProgram,
   onCreateProgram,
   onAiAssisted,
-  learnRows = [],
+  learnRows,
   onOpenCollection,
   onOpenLearnIndex,
   onBrowseCatalog,
@@ -934,13 +939,19 @@ export function ProgramsHomeScreen({
           </CutSurface>
         </Pressable>
 
-        {/* Seasons are PARKED, not deleted (decision 2026-08-31). The section
-            that drew the two cards is gone from this tab; `seasonRows`, the
-            'season' route and SeasonScreen are all still here and still work,
-            so bringing it back is putting a block of JSX back rather than
-            rebuilding a feature. The target card below took the slot, because
-            a dated commitment and a number to aim at answer the same question
-            and only one of them was real. */}
+        {/* Seasons are PARKED, not deleted (decision 2026-08-31).
+
+            Still here and still working: the 'season' route, SeasonScreen, and
+            every library under it — the screen resolves its own window and its
+            own programme, so it needs nothing from this tab. Gone with the
+            section: the two cards, this screen's seasonRows/seasonCards props
+            and the App memos behind them, because a prop nothing reads is a
+            lie in the interface. Un-parking is one commit: put the section
+            back and re-add those three.
+
+            The target card below took the slot, because a dated commitment and
+            a number to aim at answer the same question and only one of them
+            was real. */}
 
         {/* Always here. It used to appear only once a lift had been logged,
             which hid the targets section from the one reader a target would
@@ -1185,6 +1196,16 @@ export function ProgramsHomeScreen({
             catalog, always open, in the same card size as four other rows. It
             is gone because the tiles above now are the way in, and a rail that
             is always there makes a menu above it look decorative. */}
+
+        {/* Trending is not in the brief's tab, and it is still here.
+            Deliberately, and it is a decision waiting rather than a decision
+            made: the numbers are invented, so getTrendingEntries returns null
+            in a release build and nobody has ever seen this section. Dropping
+            it is a product call the brief did not make and neither did I, so
+            it sits between "for you" and the goal discs until someone does —
+            visible only in a dev build, which is where the argument for
+            keeping it (social proof, once the numbers are real) would be
+            tested anyway. */}
 
         {trendingItems && trendingItems.length > 0 ? (
           <View>

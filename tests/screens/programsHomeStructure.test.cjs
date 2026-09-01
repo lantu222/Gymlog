@@ -166,16 +166,56 @@ module.exports = [
         "'programs.browse'",
         "'programs.library'",
       ];
-      const at = order.map((key) => [key, programsHomeSource.indexOf(`t(language, ${key})`)]);
-      for (const [key, index] of at) {
-        assert.ok(index > 0, `${key} is not on the tab at all`);
-      }
+      // Each key exactly once, THEN compare positions. indexOf takes the
+      // first match, so a second use of one of these higher up the file would
+      // silently anchor the check to the wrong line and pass a reordered tab.
+      const at = order.map((key) => {
+        const uses = programsHomeSource.split(`t(language, ${key})`).length - 1;
+        assert.equal(uses, 1, `${key} appears ${uses} times; the order check needs exactly one`);
+        return [key, programsHomeSource.indexOf(`t(language, ${key})`)];
+      });
       for (let i = 1; i < at.length; i += 1) {
         assert.ok(
           at[i][1] > at[i - 1][1],
           `${at[i][0]} is drawn before ${at[i - 1][0]}`,
         );
       }
+
+      // And the Learn rail is actually FED. The heading above lives inside
+      // `learnRows.length > 0`, so it would still be in the source with
+      // nothing behind it — a section written and never wired, which is a
+      // shape this repo keeps rediscovering.
+      const workoutTab = read('src', 'app', 'renderWorkoutTab.tsx');
+      // Sliced to the tab's own element first. onOpenCollection is also passed
+      // to LearnIndexScreen further down, so asserting it against the whole
+      // file proves nothing about the rail — deleting the rail's copy left the
+      // guard green when this was mutation-tested.
+      const tabStart = workoutTab.indexOf('<ProgramsHomeScreen');
+      assert.ok(tabStart > 0, 'the tab element is not rendered at all');
+      // To the element's own closing `/>`, not to the next screen: three other
+      // screens in this file take an onOpenCollection, and two of them sit
+      // between the tab and the library.
+      const tabElement = workoutTab.slice(tabStart, workoutTab.indexOf('\n      />', tabStart));
+      assert.ok(tabElement.length > 500, 'could not find the end of the tab element');
+      const collectionProps = (tabElement.match(/onOpenCollection=/g) ?? []).length;
+      assert.equal(
+        collectionProps,
+        1,
+        collectionProps === 0
+          ? 'a course on the rail opens nothing'
+          : 'the slice caught more than the tab element',
+      );
+      assert.match(tabElement, /learnRows=\{learnRows\}/, 'the Learn rail is not fed');
+      assert.match(workoutTab, /resolveCollectionProgress\(collection,/);
+      assert.match(tabElement, /onOpenLearnIndex=\{\(\) => navigate\(\{ tab: 'workout', screen: 'learn' \}\)\}/);
+      assert.match(
+        tabElement,
+        /onOpenCollection=\{\(collectionId\) =>\s*\n\s*navigate\(\{ tab: 'workout', screen: 'collection', collectionId \}\)/,
+        'a course on the rail opens nothing',
+      );
+      // Required, not optional: an omitted prop must be a compile error rather
+      // than a tab that quietly has no Learn section.
+      assert.match(programsHomeSource, /\n  learnRows: ProgramsLearnRow\[\];/);
       assert.doesNotMatch(programsHomeSource, /seasonOffset/);
 
       // "Jatka siitä mihin jäit" is gone. It listed programmes with logged

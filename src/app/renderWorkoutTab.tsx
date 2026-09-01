@@ -48,6 +48,9 @@ import { WorkoutEditorFinishSummary, WorkoutEditorScreen } from '../screens/Work
 import { WorkoutsScreen } from '../screens/WorkoutsScreen';
 import { AppDatabase, AppPreferences, WorkoutTemplateDraft } from '../types/models';
 
+/** One empty array, so "nothing learned yet" is the same value every render. */
+const NOTHING_LEARNED: string[] = [];
+
 type ProgramDetailProps = React.ComponentProps<typeof ProgramDetailScreen>;
 type ProgramsHomeProps = React.ComponentProps<typeof ProgramsHomeScreen>;
 type WorkoutsProps = React.ComponentProps<typeof WorkoutsScreen>;
@@ -263,10 +266,20 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
    * a release bundle `const` becomes `var`, so that was not a ReferenceError
    * naming the variable but `undefined` reaching a callback, and the app died
    * two frames away in resolveCollectionProgress.
+   *
+   * Being above every branch means it runs for every workout screen, so it
+   * has to be cheap for the screens that never read it. The guided player is
+   * one of those and re-renders on every rest-timer tick; the naive version
+   * walked all 876 browser items calling `.includes` on an array for each,
+   * which is 876 × learned comparisons per tick. Nothing learned yet is the
+   * common case and costs nothing now, and the worst case is 876 hash
+   * lookups.
    */
-  const learnedExerciseNames = exerciseBrowserItems
-    .filter((item) => preferences.learnedExerciseLibraryItemIds.includes(item.id))
-    .map((item) => item.name);
+  const learnedIds = new Set(preferences.learnedExerciseLibraryItemIds);
+  const learnedExerciseNames =
+    learnedIds.size === 0
+      ? NOTHING_LEARNED
+      : exerciseBrowserItems.filter((item) => learnedIds.has(item.id)).map((item) => item.name);
 
   if (route.tab !== 'workout') {
     return null;
@@ -912,6 +925,28 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
   }
 
   if (route.screen === 'programs_home') {
+    /**
+     * Learn, out of the library and onto the tab.
+     *
+     * Progress is resolved here because it needs the learned-exercise set and
+     * the screen has no business reading it. Built once per render of this
+     * branch rather than inline in the JSX, where it minted a new array and
+     * six new row objects every time.
+     */
+    const learnedNames = new Set(learnedExerciseNames);
+    const learnRows = getExerciseCollections(preferences.appLanguage).map((collection) => {
+      const progress = resolveCollectionProgress(collection, (name) => learnedNames.has(name));
+      return {
+        id: collection.id,
+        title: collection.title,
+        blurb: collection.blurb,
+        done: progress.done,
+        total: progress.total,
+        percent: progress.percent,
+        cover: collection.cover,
+      };
+    });
+
     return (
       <ProgramsHomeScreen
         language={preferences.appLanguage}
@@ -929,23 +964,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         categoryMembers={programsCategoryMembers}
         trendingItems={programsTrendingItems}
         recommendations={programsRecommendations}
-        // Learn, out of the library and onto the tab. Progress is resolved
-        // here because it needs the learned-exercise set; the screen only
-        // draws what it is handed.
-        learnRows={getExerciseCollections(preferences.appLanguage).map((collection) => {
-          const progress = resolveCollectionProgress(collection, (name) =>
-            learnedExerciseNames.includes(name),
-          );
-          return {
-            id: collection.id,
-            title: collection.title,
-            blurb: collection.blurb,
-            done: progress.done,
-            total: progress.total,
-            percent: progress.percent,
-            cover: collection.cover,
-          };
-        })}
+        learnRows={learnRows}
         onOpenCollection={(collectionId) =>
           navigate({ tab: 'workout', screen: 'collection', collectionId })
         }
