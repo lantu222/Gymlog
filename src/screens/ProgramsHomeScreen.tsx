@@ -30,6 +30,14 @@ import { SEASON_WEEKS } from '../lib/season';
 import { NewProgramSheet } from '../components/NewProgramSheet';
 import { CsvLibraryEntry } from '../lib/csvProgramImport';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import {
+  availableLadderSorts,
+  formatWeeklyLoad,
+  pickRecommendedProgram,
+  ProgramLadderSort,
+  shouldShowLevelBadge,
+  sortProgramLadder,
+} from '../lib/programLadder';
 import { I18nKey, t } from '../lib/i18n';
 import type { CampaignTarget, ProgramCampaign } from '../lib/programCampaigns';
 import { PROGRAM_CATEGORIES, ProgramCategoryKey } from '../lib/programCategories';
@@ -165,6 +173,14 @@ export interface ProgramsCustomItem {
 interface ProgramsHomeScreenProps {
   /** The running program's name — the switch sheet says what you leave. */
   activeProgramTitle?: string | null;
+  /**
+   * The week the reader said they have, from setup.
+   *
+   * The only thing on the category sheet that knows anything about them, and
+   * the whole basis of the recommended row. Null when setup never said, which
+   * means no row is recommended rather than a guess wearing a badge.
+   */
+  readerDaysPerWeek?: number | null;
   /**
    * Winter and summer, current season first.
    *
@@ -629,6 +645,13 @@ const LEVEL_LABEL_KEYS: Record<WorkoutLevel, I18nKey> = {
   advanced: 'programs.level.advanced',
 };
 
+/** Sort first on a family this size: "which order" beats "which level". */
+const LADDER_SORTS: Array<{ sort: ProgramLadderSort; key: I18nKey }> = [
+  { sort: 'recommended', key: 'programs.sort.recommended' },
+  { sort: 'days', key: 'programs.sort.days' },
+  { sort: 'length', key: 'programs.sort.length' },
+];
+
 const LEVEL_FILTERS: Array<{ level: WorkoutLevel | null; key: I18nKey }> = [
   { level: null, key: 'programs.level.all' },
   { level: 'beginner', key: 'programs.level.beginner' },
@@ -694,6 +717,7 @@ function ProgramSheet({
   icon,
   items,
   onPick,
+  readerDaysPerWeek,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -704,11 +728,13 @@ function ProgramSheet({
   icon: string;
   items: ProgramsExploreItem[];
   onPick: (item: ProgramsExploreItem) => void;
+  readerDaysPerWeek: number | null;
 }) {
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
   const { height: windowHeight } = useWindowDimensions();
   const [level, setLevel] = useState<WorkoutLevel | null>(null);
+  const [sort, setSort] = useState<ProgramLadderSort>('recommended');
 
   // A filter left over from the last category would silently hide programs in
   // the next one, and the reader would have no idea why "Voima 8" opened three
@@ -716,10 +742,29 @@ function ProgramSheet({
   useEffect(() => {
     if (!visible) {
       setLevel(null);
+      setSort('recommended');
     }
   }, [visible]);
 
-  const shown = level === null ? items : items.filter((item) => item.level === level);
+  const filtered = level === null ? items : items.filter((item) => item.level === level);
+  /*
+   * Twenty-one rows one step apart are not a list you scan — they are a
+   * ladder, and "which order" beats "which level" on a family that size. The
+   * recommendation is computed from what is SHOWN, so filtering to a level
+   * the reader's week has no programme in simply leaves no recommendation
+   * rather than pointing at a hidden row.
+   */
+  const recommended = pickRecommendedProgram(filtered, readerDaysPerWeek);
+  /*
+   * Only the sorts that move rows here. Block length is 8 or 12 weeks and
+   * nothing else, so a "Length" chip is inert in half the sheet's views — and
+   * a level filter can strand the reader on a sort that has just gone flat,
+   * which is why the active one falls back rather than sticking.
+   */
+  const sorts = availableLadderSorts(filtered);
+  const activeSort = sorts.includes(sort) ? sort : 'recommended';
+  const shown = sortProgramLadder(filtered, activeSort, recommended);
+  const recommendedId = activeSort === 'recommended' ? recommended?.id ?? null : null;
 
   /**
    * A definite height, not a cap.
@@ -771,6 +816,29 @@ function ProgramSheet({
             contentContainerStyle={styles.levelRow}
             style={styles.levelScroll}
           >
+            {/* Sort first: on a family this size "which order" is the question
+                before "which level". */}
+            {/* A lone "Recommended" chip, permanently on, is a label wearing a
+                control's clothes — with nothing to switch to, show nothing. */}
+            {(sorts.length > 1 ? LADDER_SORTS.filter((entry) => sorts.includes(entry.sort)) : []).map((entry) => {
+              const on = activeSort === entry.sort;
+              return (
+                <Pressable
+                  key={entry.sort}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  onPress={() => setSort(entry.sort)}
+                  style={[styles.levelChip, on && { backgroundColor: tint.ink, borderColor: tint.ink }]}
+                >
+                  <Text style={[styles.levelChipText, on && styles.levelChipTextOn]}>
+                    {t(language, entry.key)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+            {/* Only a divider when there is something on both sides of it: a
+                single "Recommended" chip needs no separating from the levels. */}
+            {sorts.length > 1 ? <View style={styles.chipDivider} /> : null}
             {LEVEL_FILTERS.map((entry) => {
               const on = level === entry.level;
               return (
@@ -796,13 +864,18 @@ function ProgramSheet({
               shown.map((item) => {
                 const style = item.cover;
                 const levelStyle = LEVEL_STYLES[item.level];
+                const isRecommended = item.id === recommendedId;
                 return (
                   <Pressable
                     key={item.id}
                     accessibilityRole="button"
                     accessibilityLabel={t(language, 'programs.switchTo', { name: item.name })}
                     onPress={() => onPick(item)}
-                    style={({ pressed }) => [styles.sheetRow, pressed && styles.pressedRow]}
+                    style={({ pressed }) => [
+                      styles.sheetRow,
+                      isRecommended && styles.sheetRowRecommended,
+                      pressed && styles.pressedRow,
+                    ]}
                   >
                     <RowCover style={style} fingerprint={item.fingerprint} />
                     <View style={styles.sheetRowCopy}>
@@ -810,26 +883,38 @@ function ProgramSheet({
                         <Text style={styles.sheetRowName} numberOfLines={1}>
                           {item.name}
                         </Text>
-                        <View style={[styles.levelBadge, { backgroundColor: levelStyle.bg }]}>
-                          <Text style={[styles.levelBadgeText, { color: levelStyle.ink }]}>
-                            {t(language, levelStyle.key).toUpperCase()}
-                          </Text>
-                        </View>
+                        {/* Only when it says something the filter has not. */}
+                        {shouldShowLevelBadge(item.level, level) ? (
+                          <View style={[styles.levelBadge, { backgroundColor: levelStyle.bg }]}>
+                            <Text style={[styles.levelBadgeText, { color: levelStyle.ink }]}>
+                              {t(language, levelStyle.key).toUpperCase()}
+                            </Text>
+                          </View>
+                        ) : null}
                       </View>
-                      <Text style={styles.sheetRowBlurb} numberOfLines={2}>
+                      {isRecommended ? (
+                        <Text style={styles.sheetRowFits}>
+                          {t(language, 'programs.sheet.fitsYourWeek', { days: item.days })}
+                        </Text>
+                      ) : null}
+                      {/* One line. Two lines of blurb on rows that differ by a
+                          single day pushed the number that actually differs
+                          below the fold. */}
+                      <Text style={styles.sheetRowBlurb} numberOfLines={1}>
                         {item.blurb}
                       </Text>
                       <View style={styles.exploreMetaRow}>
                         <Text style={styles.exploreMeta}>
-                          {t(language, 'programs.card.days', { count: item.days })}
+                          {formatWeeklyLoad(item.days, item.minutes, language)}
                         </Text>
-                        <View style={styles.metaDot} />
-                        <Text style={styles.exploreMeta}>~{item.minutes} min</Text>
+                        {/* The two things the sorts sort by. Offering "Length"
+                            while no row says its length shuffles the list for
+                            no visible reason. */}
                         {item.weeks > 0 ? (
                           <>
                             <View style={styles.metaDot} />
                             <Text style={styles.exploreMeta}>
-                              {t(language, 'programs.weeks', { count: item.weeks })}
+                              {t(language, 'programs.weeksShort', { count: item.weeks })}
                             </Text>
                           </>
                         ) : null}
@@ -875,6 +960,7 @@ function ProgramSheet({
 
 export function ProgramsHomeScreen({
   activeProgramTitle = null,
+  readerDaysPerWeek = null,
   seasonRows,
   catalogItems,
   categoryCounts,
@@ -1579,6 +1665,7 @@ export function ProgramsHomeScreen({
         }
         icon={sheet?.kind === 'category' && sheetCategory ? sheetCategory.icon : LAYERS_MOTIF}
         items={sheetItems}
+        readerDaysPerWeek={readerDaysPerWeek}
         onPick={(item) => {
           // The row carries a chevron, which means "open". It opened the
           // switch-confirm sheet instead — the same mismatch the Sinulle
@@ -2427,6 +2514,24 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.border,
     backgroundColor: theme.surface,
+  },
+  sheetRowRecommended: {
+    backgroundColor: theme.surfaceSoft,
+    borderColor: theme.highlight,
+  },
+  sheetRowFits: {
+    color: theme.highlight,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    marginTop: 3,
+  },
+  chipDivider: {
+    width: 1,
+    alignSelf: 'stretch',
+    marginVertical: 6,
+    marginHorizontal: 4,
+    backgroundColor: theme.border,
   },
   sheetRowCopy: {
     flex: 1,

@@ -2959,6 +2959,10 @@ const EN = {
   // meant every category showed the same eight cards in the same shape, and
   // the level of a program — the thing that decides whether it is for you —
   // was not on the screen at all.
+  'programs.sort.recommended': 'Recommended',
+  'programs.sort.days': 'Days',
+  'programs.sort.length': 'Length',
+  'programs.sheet.fitsYourWeek': 'FITS YOUR {days} DAYS',
   'programs.sheet.close': 'Close',
   'programs.sheet.count': '{count} programs · {focus}',
   'programs.sheet.viewAll': 'View all {count} programs',
@@ -6167,6 +6171,10 @@ const FI: Record<I18nKey, string> = {
   'programs.campaign.play': 'Jatka karusellia',
   'programs.campaign.slide': 'Dia {index} / {total}',
   'programs.browse': 'SELAA TAVOITTEEN MUKAAN',
+  'programs.sort.recommended': 'Suositeltu',
+  'programs.sort.days': 'Päivät',
+  'programs.sort.length': 'Kesto',
+  'programs.sheet.fitsYourWeek': 'SOPII {days} PÄIVÄÄSI',
   'programs.sheet.close': 'Sulje',
   'programs.sheet.count': '{count} ohjelmaa · {focus}',
   'programs.sheet.viewAll': 'Näytä kaikki {count} ohjelmaa',

@@ -95,6 +95,7 @@ const suites = [
   ...require('./lib/prescribedInstructions.test.cjs'),
   ...require('./lib/exerciseTeaching.test.cjs'),
   ...require('./lib/exerciseCollections.test.cjs'),
+  ...require('./lib/programLadder.test.cjs'),
   ...require('./lib/sessionAdaptation.test.cjs'),
   ...require('./lib/sessionDuration.test.cjs'),
   ...require('./lib/holdTracking.test.cjs'),
