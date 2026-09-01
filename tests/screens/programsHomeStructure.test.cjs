@@ -363,6 +363,45 @@ module.exports = [
     },
   },
   {
+    /**
+     * Every value declared before the branch that reads it.
+     *
+     * renderWorkoutTab is a chain of early returns, so a `const` below a
+     * branch that reads it is not a compile error and not a runtime one
+     * either: TypeScript assumes an arrow function runs later, and a release
+     * bundle turns `const` into `var`, so the temporal dead zone hands the
+     * callback `undefined` instead of throwing a ReferenceError that names the
+     * variable. The Learn rail did exactly this — it read
+     * learnedExerciseNames 66 lines above its declaration, and the app died
+     * two frames away inside resolveCollectionProgress with "Cannot read
+     * property 'includes' of undefined". Typecheck and 1540 tests were green;
+     * the emulator was not.
+     */
+    name: 'renderWorkoutTab declares every value above the branch that reads it',
+    run() {
+      const source = read('src', 'app', 'renderWorkoutTab.tsx');
+      const body = source
+        .slice(source.indexOf('export function renderWorkoutTab'))
+        // Comments name variables all the time; only code counts.
+        .replace(/\/\*[\s\S]*?\*\//g, ' ')
+        .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
+
+      const readEarly = [];
+      for (const match of body.matchAll(/^ {2}const (\w+) =/gm)) {
+        const name = match[1];
+        if (new RegExp(`\\b${name}\\b`).test(body.slice(0, match.index))) {
+          readEarly.push(name);
+        }
+      }
+
+      assert.deepEqual(
+        readEarly,
+        [],
+        `read before declared in renderWorkoutTab: ${readEarly.join(', ')}`,
+      );
+    },
+  },
+  {
     name: 'bottom bar center action is the AI button with no text caption',
     run() {
       assert.doesNotMatch(bottomTabBarSource, /<Text[^>]*centerLabel[^>]*>Start<\/Text>/);

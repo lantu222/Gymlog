@@ -252,6 +252,22 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     coachProUnlocked,
   } = deps;
 
+  /**
+   * Learned is stored by library item id; a course lists library names. The
+   * lookup happens here rather than in the pure module, which has no business
+   * knowing about the library.
+   *
+   * Above every branch, because three of them read it — the Learn rail on the
+   * tab, the Learn index and the library. It used to sit beside the first of
+   * those readers, and adding the rail put a reader above the declaration: in
+   * a release bundle `const` becomes `var`, so that was not a ReferenceError
+   * naming the variable but `undefined` reaching a callback, and the app died
+   * two frames away in resolveCollectionProgress.
+   */
+  const learnedExerciseNames = exerciseBrowserItems
+    .filter((item) => preferences.learnedExerciseLibraryItemIds.includes(item.id))
+    .map((item) => item.name);
+
   if (route.tab !== 'workout') {
     return null;
   }
@@ -980,15 +996,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
    * destination. Anything else — including a summary whose guard state was
    * just cleared — returns null and falls to the dashboard safety net.
    */
-  /**
-   * Learned is stored by library item id; a course lists library names. The
-   * lookup happens here rather than in the pure module, which has no business
-   * knowing about the library.
-   */
-  const learnedExerciseNames = exerciseBrowserItems
-    .filter((item) => preferences.learnedExerciseLibraryItemIds.includes(item.id))
-    .map((item) => item.name);
-
   if (route.screen === 'learn') {
     return (
       <LearnIndexScreen
