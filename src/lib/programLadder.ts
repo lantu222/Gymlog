@@ -1,3 +1,4 @@
+import { formatDurationMinutes } from './format';
 import { AppLanguage } from '../types/models';
 
 /**
@@ -6,7 +7,7 @@ import { AppLanguage } from '../types/models';
  * Twenty-one rows that differ by one day and one lift each are not a list you
  * scan — they are steps, and the reader's question is "which step am I on".
  * Everything here serves that: an order they can change, a line saying what
- * each row costs per week, and one row that knows something about them.
+ * each row costs per week, and a group that fits the week they said they have.
  */
 
 export type ProgramLadderSort = 'recommended' | 'days' | 'length';
@@ -20,68 +21,73 @@ export interface ProgramLadderRow {
 }
 
 /**
- * What a week of this programme costs: "4 × 55 min = 3 h 40 / wk".
+ * What a week of this programme costs: "4 × 55 min ≈ 3 h 40 min / wk".
  *
  * The sheet used to print days, minutes and weeks as three separate facts,
  * two of which every row in a family shares. What differs between steps is the
  * total — and nobody multiplies in their head while browsing.
+ *
+ * The total goes through `formatDurationMinutes`, the same helper History,
+ * Progress, the celebration screen and the widget use, so a duration reads the
+ * same everywhere in the app. And it is "≈", not "=": the per-session number
+ * is an estimate, and the old row said as much with a tilde. Multiplying an
+ * estimate does not turn it into a measurement.
  */
 export function formatWeeklyLoad(days: number, minutes: number, language: AppLanguage = 'en'): string {
   const safeDays = Number.isFinite(days) && days > 0 ? Math.round(days) : 0;
   const safeMinutes = Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes) : 0;
-  const total = safeDays * safeMinutes;
-  const hours = Math.floor(total / 60);
-  const rest = total % 60;
-
   const perWeek = language === 'fi' ? '/ vk' : '/ wk';
-  // Under an hour a week reads as minutes; "0 h 45" is arithmetic, not an
-  // amount of training.
-  const amount = hours > 0 ? `${hours} h${rest ? ` ${rest}` : ''}` : `${rest} min`;
-  return `${safeDays} × ${safeMinutes} min = ${amount} ${perWeek}`;
+  return `${safeDays} × ${safeMinutes} min ≈ ${formatDurationMinutes(safeDays * safeMinutes)} ${perWeek}`;
+}
+
+export interface ProgramLadderGroups<T> {
+  /** Rows whose week is the reader's week, theirs-level first. */
+  fits: T[];
+  /** Everything else, in catalog order. */
+  rest: T[];
 }
 
 /**
- * The one row that knows the reader: it fits the week they said they have.
+ * The rows that fit the week the reader said they have — all of them.
  *
- * Exact match only. A four-day programme offered to someone who said three is
- * not a recommendation, it is a guess wearing a badge — and the badge is the
- * only thing on this sheet that claims to know anything about them. Returns
- * null rather than falling back to the first row, because "recommended"
- * pointing at whatever happened to sort first is worse than no recommendation.
+ * This started as `pickRecommendedProgram`, one row with a border and the word
+ * "recommended". Measuring the catalog killed that: in 17 of the sheet's
+ * category × day-count combinations two or more rows match the reader's week
+ * equally, up to twelve of them in Beginner at three days. Adding the reader's
+ * level does not rescue it — that leaves 47 of 87 reader situations with no
+ * recommendation at all, and still twelve with three or more tied. There is no
+ * best row in that data, so a highlight naming one is a claim the code cannot
+ * make.
+ *
+ * What the data does support is "these fit your week", which is true of every
+ * row it marks. The reader's level orders them rather than filtering them: a
+ * beginner sees the beginner four-day plan above the advanced one, and still
+ * sees the advanced one.
  */
-export function pickRecommendedProgram<T extends ProgramLadderRow>(
+export function partitionByReaderWeek<T extends ProgramLadderRow>(
   rows: readonly T[],
   daysPerWeek: number | null | undefined,
-): T | null {
+  readerLevel?: string | null,
+): ProgramLadderGroups<T> {
   if (!daysPerWeek || !Number.isFinite(daysPerWeek)) {
-    return null;
+    return { fits: [], rest: [...rows] };
   }
-  return rows.find((row) => row.days === daysPerWeek) ?? null;
-}
 
-/**
- * The ladder, in the order the reader asked for.
- *
- * 'recommended' keeps the catalog's own order and floats the fitting row to
- * the top — the catalog order IS the family's ladder, so re-sorting it by
- * anything is the reader overriding a recommendation, not correcting one.
- * Never mutates the input.
- */
-export function sortProgramLadder<T extends ProgramLadderRow>(
-  rows: readonly T[],
-  sort: ProgramLadderSort,
-  recommended: T | null,
-): T[] {
-  if (sort === 'days') {
-    return [...rows].sort((left, right) => left.days - right.days || left.id.localeCompare(right.id));
+  const fits: T[] = [];
+  const rest: T[] = [];
+  for (const row of rows) {
+    (row.days === daysPerWeek ? fits : rest).push(row);
   }
-  if (sort === 'length') {
-    return [...rows].sort((left, right) => left.weeks - right.weeks || left.id.localeCompare(right.id));
+
+  if (readerLevel) {
+    // Stable: catalog order holds inside each half, so the group is the ladder
+    // with the reader's own rung first.
+    const mine = fits.filter((row) => row.level === readerLevel);
+    if (mine.length > 0 && mine.length < fits.length) {
+      return { fits: [...mine, ...fits.filter((row) => row.level !== readerLevel)], rest };
+    }
   }
-  if (!recommended) {
-    return [...rows];
-  }
-  return [recommended, ...rows.filter((row) => row.id !== recommended.id)];
+  return { fits, rest };
 }
 
 /**
@@ -109,6 +115,26 @@ export function availableLadderSorts<T extends ProgramLadderRow>(
     sorts.push('length');
   }
   return sorts;
+}
+
+/**
+ * The ladder, in the order the reader asked for.
+ *
+ * 'recommended' is the catalog's own order — that order IS the family's
+ * ladder, and the fitting rows are lifted out of it by the caller as a group
+ * rather than re-sorted. Never mutates the input.
+ */
+export function sortProgramLadder<T extends ProgramLadderRow>(
+  rows: readonly T[],
+  sort: ProgramLadderSort,
+): T[] {
+  if (sort === 'days') {
+    return [...rows].sort((left, right) => left.days - right.days || left.id.localeCompare(right.id));
+  }
+  if (sort === 'length') {
+    return [...rows].sort((left, right) => left.weeks - right.weeks || left.id.localeCompare(right.id));
+  }
+  return [...rows];
 }
 
 /**

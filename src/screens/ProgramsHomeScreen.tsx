@@ -33,7 +33,7 @@ import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import {
   availableLadderSorts,
   formatWeeklyLoad,
-  pickRecommendedProgram,
+  partitionByReaderWeek,
   ProgramLadderSort,
   shouldShowLevelBadge,
   sortProgramLadder,
@@ -181,6 +181,16 @@ interface ProgramsHomeScreenProps {
    * means no row is recommended rather than a guess wearing a badge.
    */
   readerDaysPerWeek?: number | null;
+  /**
+   * The reader's level in the CATALOG's words, not setup's.
+   *
+   * Setup says beginner/advanced/pro and the catalog says
+   * beginner/intermediate/advanced, so the caller maps it through
+   * `catalogLevelForSetup`. It orders the fitting rows rather than filtering
+   * them: a beginner sees the beginner four-day plan first and the advanced
+   * one still on the list.
+   */
+  readerLevel?: string | null;
   /**
    * Winter and summer, current season first.
    *
@@ -718,6 +728,7 @@ function ProgramSheet({
   items,
   onPick,
   readerDaysPerWeek,
+  readerLevel,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -729,6 +740,7 @@ function ProgramSheet({
   items: ProgramsExploreItem[];
   onPick: (item: ProgramsExploreItem) => void;
   readerDaysPerWeek: number | null;
+  readerLevel: string | null;
 }) {
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
@@ -754,7 +766,6 @@ function ProgramSheet({
    * the reader's week has no programme in simply leaves no recommendation
    * rather than pointing at a hidden row.
    */
-  const recommended = pickRecommendedProgram(filtered, readerDaysPerWeek);
   /*
    * Only the sorts that move rows here. Block length is 8 or 12 weeks and
    * nothing else, so a "Length" chip is inert in half the sheet's views — and
@@ -763,8 +774,40 @@ function ProgramSheet({
    */
   const sorts = availableLadderSorts(filtered);
   const activeSort = sorts.includes(sort) ? sort : 'recommended';
-  const shown = sortProgramLadder(filtered, activeSort, recommended);
-  const recommendedId = activeSort === 'recommended' ? recommended?.id ?? null : null;
+  // A sort the current filter cannot honour is dropped rather than remembered:
+  // otherwise clearing the filter reorders the list with nothing tapped.
+  useEffect(() => {
+    if (!sorts.includes(sort)) {
+      setSort('recommended');
+    }
+  }, [sort, sorts]);
+
+  const { fits, rest } = partitionByReaderWeek(filtered, readerDaysPerWeek, readerLevel);
+  /*
+   * One header over the rows that fit, not a badge on each of them.
+   *
+   * Up to twelve rows in a category match the reader's week, so a chip per row
+   * marks the normal rather than the exception. The group is only lifted out
+   * when it is a part of the list: if every row fits, "fits your week" is not
+   * telling the reader which ones.
+   */
+  const grouped =
+    readerDaysPerWeek != null && activeSort === 'recommended' && fits.length > 0 && rest.length > 0;
+  const shown: Array<{
+    key: string;
+    header?: string;
+    rule?: true;
+    item?: ProgramsExploreItem;
+  }> = grouped
+    ? [
+        { key: 'fits-header', header: t(language, 'programs.sheet.fitsYourWeek', { days: readerDaysPerWeek }) },
+        ...fits.map((item) => ({ key: item.id, item })),
+        // Where the group ends, or the reader cannot tell which rows the
+        // header was talking about.
+        { key: 'fits-rule', rule: true as const },
+        ...rest.map((item) => ({ key: item.id, item })),
+      ]
+    : sortProgramLadder(filtered, activeSort).map((item) => ({ key: item.id, item }));
 
   /**
    * A definite height, not a cap.
@@ -861,21 +904,27 @@ function ProgramSheet({
             {shown.length === 0 ? (
               <Text style={styles.catSheetEmpty}>{t(language, 'programs.sheet.empty')}</Text>
             ) : (
-              shown.map((item) => {
+              shown.map((entry) => {
+                if (entry.header) {
+                  return (
+                    <Text key={entry.key} accessibilityRole="header" style={styles.sheetGroupHeader}>
+                      {entry.header}
+                    </Text>
+                  );
+                }
+                if (entry.rule) {
+                  return <View key={entry.key} style={styles.sheetGroupRule} />;
+                }
+                const item = entry.item as ProgramsExploreItem;
                 const style = item.cover;
                 const levelStyle = LEVEL_STYLES[item.level];
-                const isRecommended = item.id === recommendedId;
                 return (
                   <Pressable
                     key={item.id}
                     accessibilityRole="button"
                     accessibilityLabel={t(language, 'programs.switchTo', { name: item.name })}
                     onPress={() => onPick(item)}
-                    style={({ pressed }) => [
-                      styles.sheetRow,
-                      isRecommended && styles.sheetRowRecommended,
-                      pressed && styles.pressedRow,
-                    ]}
+                    style={({ pressed }) => [styles.sheetRow, pressed && styles.pressedRow]}
                   >
                     <RowCover style={style} fingerprint={item.fingerprint} />
                     <View style={styles.sheetRowCopy}>
@@ -892,11 +941,6 @@ function ProgramSheet({
                           </View>
                         ) : null}
                       </View>
-                      {isRecommended ? (
-                        <Text style={styles.sheetRowFits}>
-                          {t(language, 'programs.sheet.fitsYourWeek', { days: item.days })}
-                        </Text>
-                      ) : null}
                       {/* One line. Two lines of blurb on rows that differ by a
                           single day pushed the number that actually differs
                           below the fold. */}
@@ -961,6 +1005,7 @@ function ProgramSheet({
 export function ProgramsHomeScreen({
   activeProgramTitle = null,
   readerDaysPerWeek = null,
+  readerLevel = null,
   seasonRows,
   catalogItems,
   categoryCounts,
@@ -1666,6 +1711,7 @@ export function ProgramsHomeScreen({
         icon={sheet?.kind === 'category' && sheetCategory ? sheetCategory.icon : LAYERS_MOTIF}
         items={sheetItems}
         readerDaysPerWeek={readerDaysPerWeek}
+        readerLevel={readerLevel}
         onPick={(item) => {
           // The row carries a chevron, which means "open". It opened the
           // switch-confirm sheet instead — the same mismatch the Sinulle
@@ -2515,16 +2561,17 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderColor: theme.border,
     backgroundColor: theme.surface,
   },
-  sheetRowRecommended: {
-    backgroundColor: theme.surfaceSoft,
-    borderColor: theme.highlight,
-  },
-  sheetRowFits: {
+  sheetGroupHeader: {
     color: theme.highlight,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 0.8,
-    marginTop: 3,
+    letterSpacing: 0.9,
+    marginBottom: 2,
+  },
+  sheetGroupRule: {
+    height: 1,
+    backgroundColor: theme.border,
+    marginVertical: 6,
   },
   chipDivider: {
     width: 1,

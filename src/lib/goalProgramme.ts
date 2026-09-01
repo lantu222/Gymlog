@@ -50,6 +50,21 @@ const CATALOG_LEVEL_FOR_SETUP: Record<string, GoalProgrammeCandidate['level']> =
 };
 
 /**
+ * Setup's three tiers in the catalog's vocabulary.
+ *
+ * The two do not share words — setup says beginner/advanced/pro, the catalog
+ * says beginner/intermediate/advanced — so "advanced" means different things
+ * on either side of this line. Anywhere that compares a reader's level with a
+ * template's has to come through here, or `advanced === 'advanced'` quietly
+ * matches a Pro plan to an Amateur.
+ */
+export function catalogLevelForSetup(
+  level: string | null | undefined,
+): GoalProgrammeCandidate['level'] | undefined {
+  return level ? CATALOG_LEVEL_FOR_SETUP[level] : undefined;
+}
+
+/**
  * How badly a programme fits the reader — lower is better, 0 is a match.
  *
  * A target answers "which programme gets me there", and the honest answer has
@@ -62,7 +77,7 @@ function fitPenalty(candidate: GoalProgrammeCandidate, reader: GoalProgrammeRead
     return 0;
   }
   let penalty = 0;
-  const wanted = reader.level ? CATALOG_LEVEL_FOR_SETUP[reader.level] : undefined;
+  const wanted = catalogLevelForSetup(reader.level);
   if (wanted && candidate.level && candidate.level !== wanted) {
     // One tier away is a stretch; two is a different training life.
     const order: NonNullable<GoalProgrammeCandidate['level']>[] = ['beginner', 'intermediate', 'advanced'];

@@ -20,6 +20,7 @@ import {
 } from '../lib/exerciseCollections';
 import { toggleTechniqueStatement } from '../lib/exerciseLearning';
 import { getExerciseProgressForName } from '../lib/progression';
+import { catalogLevelForSetup } from '../lib/goalProgramme';
 import { getReadyProgramContent } from '../lib/readyProgramContent';
 import { getReadyProgramBlockWeeks } from '../lib/readyProgramDuration';
 import { nextSeasonWindow, resolveSeasonWindow } from '../lib/season';
@@ -891,6 +892,10 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         // for choosing a programme, so the week to match is the reader's own.
         // Null when setup never asked, and then no row is recommended.
         readerDaysPerWeek={preferences.setupDaysPerWeek}
+        // Setup's tier in the catalog's words. The two vocabularies collide on
+        // "advanced", so this goes through the shared map rather than across
+        // as-is.
+        readerLevel={catalogLevelForSetup(preferences.setupLevel) ?? null}
         seasonRows={programsSeasonRows}
         catalogItems={programsCatalogItems}
         categoryCounts={programsCategoryCounts}
