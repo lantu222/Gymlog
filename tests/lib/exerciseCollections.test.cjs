@@ -47,6 +47,37 @@ module.exports = [
     },
   },
   {
+    /**
+     * A course with no lifts in it is not a course, and it is also a division
+     * by zero: the progress bars take a percentage, and `width: 'NaN%'` is a
+     * style React Native cannot lay out. `resolveCollectionProgress` returns 0
+     * for the empty case as well — belt and braces, because this one would
+     * reach the screen looking like a rendering bug rather than a data one.
+     */
+    name: 'collections: a course has lifts in it, and its percentage is a number',
+    run() {
+      for (const [language, collections] of Object.entries(EXERCISE_COLLECTION_TABLES)) {
+        for (const collection of collections) {
+          assert.ok(
+            collection.entries.length > 0,
+            `${language}:${collection.id} is a title with no lessons in it`,
+          );
+        }
+      }
+
+      const empty = { id: 'empty', title: '', blurb: '', intro: '', entries: [], cover: ['#000', '#111'] };
+      const progress = resolveCollectionProgress(empty, () => false);
+      assert.equal(progress.percent, 0);
+      assert.ok(Number.isFinite(progress.percent));
+
+      const half = resolveCollectionProgress(
+        getExerciseCollection('six_lifts', 'en'),
+        (name) => name === 'Barbell Squat' || name === 'Barbell Deadlift' || name === "Farmer's Walk",
+      );
+      assert.equal(half.percent, 50);
+    },
+  },
+  {
     name: 'collections: no lift appears twice in one course',
     run() {
       for (const [language, collections] of Object.entries(EXERCISE_COLLECTION_TABLES)) {

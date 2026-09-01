@@ -105,7 +105,7 @@ export function LearnIndexScreen({
                       <View
                         style={[
                           styles.progressFill,
-                          { width: `${Math.round((progress.done / progress.total) * 100)}%` },
+                          { width: `${progress.percent}%` },
                         ]}
                       />
                     </View>

@@ -94,6 +94,15 @@ export interface CollectionProgress {
   total: number;
   /** The first entry not yet learned — what the screen marks NEXT. */
   nextExerciseName: string | null;
+  /**
+   * 0–100, for a progress bar's width.
+   *
+   * Computed here so no screen divides by `total` on its own: a course with
+   * no entries would make that NaN, and `width: 'NaN%'` is a style React
+   * Native cannot lay out. An empty course is also refused by the suite —
+   * this is the belt to that pair of braces.
+   */
+  percent: number;
 }
 
 /**
@@ -118,7 +127,8 @@ export function resolveCollectionProgress(
     }
   }
 
-  return { done, total: collection.entries.length, nextExerciseName };
+  const total = collection.entries.length;
+  return { done, total, nextExerciseName, percent: total > 0 ? Math.round((done / total) * 100) : 0 };
 }
 
 /**

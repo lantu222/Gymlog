@@ -14,7 +14,7 @@ interface ExercisesScreenProps {
   onBack?: () => void;
   onOpenExercise?: (item: ExerciseLibraryItem) => void;
   onToggleTracked?: (item: ExerciseLibraryItem) => void;
-  collectionInProgress?: { id: string; title: string; done: number; total: number } | null;
+  collectionInProgress?: { id: string; title: string; done: number; total: number; percent: number } | null;
   onOpenCollection?: (collectionId: string) => void;
   onOpenLearnIndex?: () => void;
 }

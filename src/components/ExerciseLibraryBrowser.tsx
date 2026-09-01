@@ -38,7 +38,7 @@ interface ExerciseLibraryBrowserProps {
    * pointing at a course never opened would be an advertisement wearing the
    * words "pick up where you left off".
    */
-  collectionInProgress?: { id: string; title: string; done: number; total: number } | null;
+  collectionInProgress?: { id: string; title: string; done: number; total: number; percent: number } | null;
   onOpenCollection?: (collectionId: string) => void;
   onOpenLearnIndex?: () => void;
 }
@@ -657,11 +657,7 @@ export function ExerciseLibraryBrowser({
                             <View
                               style={[
                                 styles.pickUpFill,
-                                {
-                                  width: `${Math.round(
-                                    (collectionInProgress.done / collectionInProgress.total) * 100,
-                                  )}%`,
-                                },
+                                { width: `${collectionInProgress.percent}%` },
                               ]}
                             />
                           </View>

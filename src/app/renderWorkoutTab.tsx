@@ -965,8 +965,10 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
 
   if (route.screen === 'collection') {
     const collection = getExerciseCollection(route.collectionId, preferences.appLanguage);
-    // An id with no course behind it goes back rather than rendering a blank
-    // screen with a title on it.
+    // An id with no course behind it renders nothing, which drops through to
+    // the caller's dashboard safety net — the same thing every unclaimed
+    // route in this file does. It does NOT navigate back, and saying so would
+    // be a comment describing behaviour the code has not got.
     if (!collection) {
       return null;
     }
@@ -1014,6 +1016,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
                 title: started.collection.title,
                 done: started.progress.done,
                 total: started.progress.total,
+                percent: started.progress.percent,
               }
             : null;
         })()}
