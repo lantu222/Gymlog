@@ -958,16 +958,6 @@ export function ProgressScreen({
   // ── overview data ──
 
   const prioritizedSummaries = useMemo(() => [...summaries].sort(compareProgressSummaries), [summaries]);
-  const heroSummary = prioritizedSummaries[0] ?? null;
-  const heroPoints = useMemo(
-    () => (heroSummary ? getSummaryChartPoints(heroSummary, unitPreference, language) : []),
-    [heroSummary, language, unitPreference],
-  );
-  const heroSignalDot = heroSummary ? SIGNAL_STYLES[getExerciseProgressSignal(heroSummary).kind].dot : theme.purple;
-  const heroLatest = heroPoints.length ? heroPoints[heroPoints.length - 1].value : null;
-  const heroStart = heroPoints.length ? heroPoints[0].value : null;
-  const heroDelta = heroLatest !== null && heroStart !== null && heroPoints.length > 1 ? heroLatest - heroStart : null;
-  const heroReps = heroSummary?.latestReps?.split(',')[0] ?? null;
 
   const calendarMonthLabel = useMemo(() => {
     const currentMonthDay = activityCalendar.weeks.flat().find((day) => day.inCurrentMonth);
@@ -1378,61 +1368,17 @@ export function ProgressScreen({
     return (
       <>
         {renderWeeklyRead()}
-        {heroSummary ? (
-          <View style={styles.heroBlock}>
-            <View style={styles.heroCard}>
-              <View style={styles.heroHead}>
-                <Text numberOfLines={1} style={styles.heroLabel}>
-                  {t(language, 'progress.workingWeight')} ·{' '}
-                  {formatLiftDisplayLabel(exerciseNameLabel(language, heroSummary.name))}
-                </Text>
-                <SignalBadge summary={heroSummary} language={language} />
-              </View>
-              <View style={styles.heroValueRow}>
-                <Text style={styles.heroValue}>{heroLatest !== null ? removeTrailingZeros(heroLatest) : '-'}</Text>
-                <Text style={styles.heroUnit}>
-                  {unitPreference}
-                  {heroReps ? ` × ${heroReps}` : ''}
-                </Text>
-              </View>
-              {heroDelta !== null ? (
-                <Text style={styles.heroSince}>
-                  {t(language, 'progress.heroSince', {
-                    delta: `${heroDelta >= 0 ? '+' : ''}${fmtDelta(heroDelta)} ${unitPreference}`,
-                    from: removeTrailingZeros(heroStart ?? 0),
-                    to: `${removeTrailingZeros(heroLatest ?? 0)} ${unitPreference}`,
-                  })}
-                </Text>
-              ) : (
-                <Text style={styles.heroSinceMuted}>{t(language, 'progress.trendStarts')}</Text>
-              )}
-            </View>
-            <SimpleLineChart
-              points={heroPoints}
-              unitLabel={unitPreference}
-              accent={heroSignalDot}
-              emptyLabel={t(language, 'progress.noEntries')}
-              tooltipFormatter={(point) => ({
-                title: point.label,
-                value: formatWeight(
-                  unitPreference === 'lb' ? convertWeightToKg(point.value, 'lb') : point.value,
-                  unitPreference,
-                ),
-              })}
-            />
-          </View>
-        ) : (
-          <View style={styles.emptyHeroCard}>
-            <Text style={styles.emptyTitle}>{t(language, 'progress.noTracked.title')}</Text>
-            <Text style={styles.emptyText}>{t(language, 'progress.noTracked.body')}</Text>
-          </View>
-        )}
+        {/* The trend chart, and now the first thing on the tab.
+            overviewChart, OVERVIEW_METRICS and OVERVIEW_RANGES were all built
+            and none of them rendered: the chart was computed into a const
+            nobody read, and the metric/range state had setters nobody called.
 
-        {/* The trend chart. overviewChart, OVERVIEW_METRICS and OVERVIEW_RANGES
-            were all built and none of them rendered: the chart was computed
-            into a const nobody read, and the metric/range state had setters
-            nobody called. So three metrics and four ranges existed in code and
-            no user could see any of them. */}
+            Above it sat a "Working weight · <lift>" card showing one lift's
+            last load — which for a bodyweight lift is 0, every time, as
+            progression.ts says in a comment on latestValue. It was
+            photographed on the device reading "0 kg × 15" over a flat line
+            from 0 to 0. Gone: the headline number belongs to the chart, and
+            the chart is what the tab is for (Progress v2, piece 01). */}
         <SectionLabel label={t(language, 'progress.section.trend')} />
         <View style={styles.card}>
           <View style={styles.trendMetricRow}>
@@ -2385,67 +2331,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderColor: theme.border,
     borderRadius: 18,
     padding: 16,
-  },
-  heroBlock: {
-    gap: 10,
-  },
-  heroCard: {
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 18,
-    padding: 18,
-  },
-  heroHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  heroLabel: {
-    flex: 1,
-    minWidth: 0,
-    color: theme.muted,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  heroValueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 10,
-    marginTop: 8,
-  },
-  heroValue: {
-    color: theme.ink,
-    fontSize: 46,
-    fontWeight: '800',
-    letterSpacing: -1,
-    lineHeight: 48,
-  },
-  heroUnit: {
-    color: theme.muted,
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  heroSince: {
-    color: '#157A3A',
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 7,
-  },
-  heroSinceMuted: {
-    color: theme.muted,
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 7,
-  },
-  emptyHeroCard: {
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 18,
-    paddingHorizontal: 18,
-    paddingVertical: 26,
   },
   signalBadge: {
     flexDirection: 'row',

@@ -406,7 +406,6 @@ const EN = {
   'progress.searchTracked': 'Search tracked lifts...',
   'progress.trendStarts': 'One more log and the trend starts here.',
   'progress.noTracked.title': 'No tracked lifts yet',
-  'progress.noTracked.body': 'Star a lift or track it while logging and your progress starts here.',
   'progress.noTrackedFilter.body': 'Star one exercise or track it while logging and it shows up here.',
   'progress.noMatch.title': 'Nothing here',
   'progress.noMatch.body': 'No lifts match this filter.',
@@ -3376,7 +3375,6 @@ const EN = {
   'coach.analysis.topSetNew': '{lift} top set {set} — a new best',
   // ── Activity calendar legend ──────────────────────────────────────────
   // ── Progress hero delta ───────────────────────────────────────────────
-  'progress.heroSince': '{delta} since you started · {from} → {to}',
   // ── Recent session rows ───────────────────────────────────────────────
   'recent.setCount': '{count} sets',
   'recent.exerciseCount': '{count} exercises',
@@ -3796,7 +3794,6 @@ const FI: Record<I18nKey, string> = {
   'progress.searchTracked': 'Hae seurattuja liikkeitä...',
   'progress.trendStarts': 'Yksi kirjaus lisää, niin trendi alkaa tästä.',
   'progress.noTracked.title': 'Ei vielä seurattuja liikkeitä',
-  'progress.noTracked.body': 'Merkitse liike tähdellä tai seuraa sitä kirjatessa, niin kehitys alkaa tästä.',
   'progress.noTrackedFilter.body': 'Merkitse yksi liike tähdellä tai seuraa sitä kirjatessa, niin se ilmestyy tänne.',
   'progress.noMatch.title': 'Ei mitään täällä',
   'progress.noMatch.body': 'Yksikään liike ei vastaa tätä suodatinta.',
@@ -6591,7 +6588,6 @@ const FI: Record<I18nKey, string> = {
   'coach.analysis.topSetNew': '{lift} raskain sarja {set} — uusi ennätys',
   // ── Activity calendar legend ──────────────────────────────────────────
   // ── Progress hero delta ───────────────────────────────────────────────
-  'progress.heroSince': '{delta} aloituksesta · {from} → {to}',
   // ── Recent session rows ───────────────────────────────────────────────
   'recent.setCount': '{count} sarjaa',
   'recent.exerciseCount': '{count} liikettä',
