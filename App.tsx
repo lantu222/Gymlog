@@ -48,7 +48,7 @@ import {
   refreshHomeWidget,
   requestPinHomeWidget,
 } from './modules/home-widget';
-import { buildHomeWidgetPayload, findHomeWidgetNextSession, HomeWidgetTarget } from './src/lib/widgetPayload';
+import { buildHomeWidgetPayload, HomeWidgetTarget, resolveHomeWidgetSessionTap } from './src/lib/widgetPayload';
 import { parseWidgetDeepLink } from './src/lib/widgetDeepLink';
 import { planSetupHandoff } from './src/lib/setupHandoff';
 import { SetupHandoffChoices, SetupHandoffScreen } from './src/screens/SetupHandoffScreen';
@@ -3925,15 +3925,25 @@ function VinhaApp() {
       return;
     }
 
-    const next = findHomeWidgetNextSession({
+    const tap = resolveHomeWidgetSessionTap({
+      hasActiveSession: workout.activeSession !== null,
+      hasActivePlan: homeActivePlanCard !== null,
       nowMs: Date.now(),
       schedule: homeTrainingSchedule,
       sessions: homeActivePlanCard?.sessions ?? [],
       completedWorkoutDayStarts: widgetCompletedWorkoutDayStarts,
     });
+
+    // A running workout wins. The tile means "my training", and a reader who
+    // stepped out to Home mid-set is asking for the set back, not for the
+    // schedule to be looked up again (device report 2026-09-01).
+    if (tap.kind === 'resume') {
+      navigateToActiveWorkout({ resume: true });
+      return;
+    }
     // No session to open any more — the plan changed while the widget was
     // showing the old one. Home is the honest landing, not an empty screen.
-    if (!next || !homeActivePlanCard) {
+    if (tap.kind === 'home' || !homeActivePlanCard) {
       resetToRoute(ROOT_ROUTES.home);
       return;
     }
@@ -3942,7 +3952,7 @@ function VinhaApp() {
       screen: 'programDay',
       programType: homeActivePlanCard.programType,
       workoutTemplateId: homeActivePlanCard.programId,
-      sessionId: next.session.id,
+      sessionId: tap.next.session.id,
     });
   }, [
     appHydrated,

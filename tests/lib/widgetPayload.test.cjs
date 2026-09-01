@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const {
   buildHomeWidgetPayload,
   findHomeWidgetNextSession,
+  resolveHomeWidgetSessionTap,
   HOME_WIDGET_PAYLOAD_VERSION,
   HOME_WIDGET_MONTH_ROWS,
 } = require('../../.test-dist/lib/widgetPayload.js');
@@ -544,6 +545,71 @@ module.exports = [
       assert.equal(parseWidgetDeepLink('vinha://widget/calendar?from=widget'), 'calendar');
       assert.equal(parseWidgetDeepLink('VINHA://WIDGET/CALENDAR'), 'calendar');
       assert.equal(parseWidgetDeepLink('  vinha://widget/home  '), 'home');
+    },
+  },
+  {
+    /**
+     * A running workout outranks the schedule.
+     *
+     * Reported from the device 2026-09-01: "minulla oli aktiivinen treeni ...
+     * painoin widgetista se vie suoraan homeen eika jatkamaan treenia". The
+     * tile resolved through findHomeWidgetNextSession alone, which answers
+     * "the next SCHEDULED session" — and skips today once today's workout is
+     * logged, so mid-session there could be nothing left for it to name and
+     * the tap fell through to Home. The reader got back in through Home's own
+     * continue button, which is the button this tile should have been.
+     */
+    name: 'widgetPayload: a running workout is what the session tile opens',
+    run() {
+      const base = {
+        hasActivePlan: true,
+        nowMs: at(2026, 7, 30),
+        schedule: weekdaySchedule([1, 2, 3]),
+        sessions: SESSIONS,
+      };
+
+      // Nothing running: unchanged, the next scheduled session.
+      const scheduled = resolveHomeWidgetSessionTap({ ...base, hasActiveSession: false });
+      assert.equal(scheduled.kind, 'open');
+      assert.equal(scheduled.next.offset, 0);
+
+      // Running: resume, and the schedule is not consulted at all.
+      assert.deepEqual(
+        resolveHomeWidgetSessionTap({ ...base, hasActiveSession: true }),
+        { kind: 'resume' },
+      );
+
+      // The reported case exactly: a session is open AND today is already
+      // marked done, so the scheduled lookup has nothing for today. Before the
+      // fix this pair is what produced Home.
+      const midSession = {
+        ...base,
+        hasActiveSession: true,
+        completedWorkoutDayStarts: [at(2026, 7, 30, 7)],
+      };
+      assert.equal(
+        findHomeWidgetNextSession(midSession).offset,
+        5,
+        'the scheduled lookup should still be pointing away from today',
+      );
+      assert.deepEqual(resolveHomeWidgetSessionTap(midSession), { kind: 'resume' });
+
+      // And with no plan behind it, resume still wins — the session is open
+      // whatever the plan says.
+      assert.deepEqual(
+        resolveHomeWidgetSessionTap({ ...base, hasActiveSession: true, hasActivePlan: false }),
+        { kind: 'resume' },
+      );
+
+      // Nothing running and nothing to open is Home, not a guess.
+      assert.deepEqual(
+        resolveHomeWidgetSessionTap({ ...base, hasActiveSession: false, hasActivePlan: false }),
+        { kind: 'home' },
+      );
+      assert.deepEqual(
+        resolveHomeWidgetSessionTap({ ...base, hasActiveSession: false, sessions: [] }),
+        { kind: 'home' },
+      );
     },
   },
 ];
