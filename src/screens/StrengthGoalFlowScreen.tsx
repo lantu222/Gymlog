@@ -1,5 +1,14 @@
-import React, { useMemo, useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  FlatList,
+  Keyboard,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
@@ -161,6 +170,29 @@ export function StrengthGoalFlowScreen({
   const [pickedName, setPickedName] = useState<string | null>(null);
   const [delta, setDelta] = useState<number>(TARGET_DELTAS_KG[1]);
 
+  /**
+   * The footer sits above the keyboard, measured rather than inferred.
+   *
+   * Step 1 is a search over 876 lifts and its whole point is to end in the
+   * button underneath — which the keyboard covered outright: the window is
+   * adjustResize, but RN 0.83's edge-to-edge Android does not resize for it,
+   * and KeyboardAvoidingView's padding under-lifts there. The chat screen hit
+   * exactly this on 2026-08-25 and solved it the same way; the event reports
+   * the keyboard's real height, so the padding cannot be wrong by
+   * construction.
+   */
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  useEffect(() => {
+    const shown = Keyboard.addListener('keyboardDidShow', (event) =>
+      setKeyboardHeight(event.endCoordinates?.height ?? 0),
+    );
+    const hidden = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0));
+    return () => {
+      shown.remove();
+      hidden.remove();
+    };
+  }, []);
+
   const ordered = useMemo(() => orderTargetLifts(lifts), [lifts]);
   const shown = useMemo(() => {
     const needle = search.toLowerCase().replace(/\s+/g, ' ').trim();
@@ -260,7 +292,12 @@ export function StrengthGoalFlowScreen({
             );
           }}
         />
-        <View style={styles.footer}>
+        <View
+          style={[
+            styles.footer,
+            keyboardHeight > 0 && { paddingBottom: keyboardHeight + 12 },
+          ]}
+        >
           {picked ? (
             <Pressable
               accessibilityRole="button"
