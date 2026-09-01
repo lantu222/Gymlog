@@ -21,12 +21,10 @@ const { createSeedExerciseLibrary } = require('../../.test-dist/data/seed.js');
  */
 
 // The set a row can actually open — the seed library minus the legacy `lib_*`
-// rows, which App.tsx filters out of the browser.
-const reachable = new Set(
-  createSeedExerciseLibrary()
-    .filter((item) => !item.id.startsWith('lib_'))
-    .map((item) => item.name),
-);
+// rows. Those stopped shipping on 2026-09-01, so the seeded library and the
+// browsable one are the same set now — kept as a named set because the phrase
+// is still what the case is about.
+const reachable = new Set(createSeedExerciseLibrary().map((item) => item.name));
 
 function everyEntry() {
   return Object.entries(EXERCISE_COLLECTION_TABLES).flatMap(([language, collections]) =>
@@ -221,6 +219,77 @@ module.exports = [
       assert.equal(getExerciseCollection('no_such_course', 'en'), null);
       assert.equal(getExerciseCollection('', 'fi'), null);
       assert.ok(getExerciseCollection('six_lifts', 'fi'));
+    },
+  },
+  {
+    /**
+     * One library, and a stored id from the old one still finds its row.
+     *
+     * The twenty hand-written `lib_*` entries were a second copy of rows the
+     * generated library already had, carrying Finnish names in the field that
+     * is an English id everywhere else. Six places filtered them back out, and
+     * two different "libraries" is what let a guard check the wrong set and
+     * pass green (PR #40 review).
+     *
+     * The filters are gone with the rows, so THIS is what keeps the two sets
+     * from drifting apart again: a bad row fails the suite instead of being
+     * quietly hidden from the reader.
+     */
+    name: 'library: the legacy lib_* tier is gone, and old ids still resolve',
+    run() {
+      const {
+        LEGACY_LIBRARY_ID_TARGETS,
+        buildRetiredLibraryIdRemap,
+      } = require('../../.test-dist/lib/legacyLibraryIds.js');
+      const library = createSeedExerciseLibrary();
+
+      const legacy = library.filter((item) => item.id.startsWith('lib_'));
+      assert.deepEqual(
+        legacy.map((item) => `${item.id} (${item.name})`),
+        [],
+        'the legacy tier is back — and nothing filters it out any more',
+      );
+
+      // Every retired id maps to a row that actually ships, or an old install
+      // silently loses that lift's picture, instructions and history match.
+      const remap = buildRetiredLibraryIdRemap(library);
+      const ids = Object.keys(LEGACY_LIBRARY_ID_TARGETS);
+      assert.equal(ids.length, 20, 'the retired table changed size');
+      const unmapped = ids.filter((id) => !remap[id]);
+      assert.deepEqual(unmapped, [], `retired ids with nothing to point at: ${unmapped.join(', ')}`);
+
+      // And they point at the right lift, not merely at something.
+      const byId = new Map(library.map((item) => [item.id, item.name]));
+      const wrong = ids
+        .filter((id) => byId.get(remap[id]) !== LEGACY_LIBRARY_ID_TARGETS[id])
+        .map((id) => `${id} -> ${byId.get(remap[id])}, wanted ${LEGACY_LIBRARY_ID_TARGETS[id]}`);
+      assert.deepEqual(wrong, [], wrong.join('; '));
+
+      // The two that mattered most, named so a silent re-point is visible.
+      assert.equal(byId.get(remap.lib_back_squat), 'Barbell Squat');
+      assert.equal(byId.get(remap.lib_deadlift), 'Barbell Deadlift');
+
+      // And the LOADER has to call it. Everything above proves the table is
+      // right; none of it proves anything reads the table, and a mutation that
+      // dropped the remap from database.ts stayed green until this was here.
+      //
+      // Read as source rather than executed: storage/database.ts reaches
+      // AsyncStorage and so React Native, which no suite here can import — the
+      // same split the technique-check normalisers use.
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const loader = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'storage', 'database.ts'),
+        'utf8',
+      );
+      assert.match(loader, /buildRetiredLibraryIdRemap\(fallback\.exerciseLibrary\)/);
+      assert.match(loader, /return retiredIds\[value\.trim\(\)\] \?\? value;/);
+      // Both stored id sites go through it, not just the one that was noticed.
+      assert.equal(
+        (loader.match(/libraryItemId: liveLibraryItemId\(/g) ?? []).length,
+        2,
+        'a stored libraryItemId is normalised somewhere that skips the remap',
+      );
     },
   },
 ];

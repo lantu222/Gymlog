@@ -521,10 +521,13 @@ function VinhaApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workout.hydrated]);
 
-  const exerciseBrowserItems = useMemo(
-    () => exerciseLibrary.filter((item) => !item.id.startsWith('lib_')),
-    [exerciseLibrary],
-  );
+  // Every seeded row is browsable now that the legacy `lib_*` tier is gone
+  // (2026-09-01), so this no longer filters. The name stays: ten call sites
+  // read it, and "the library the reader can open" is still what they mean.
+  // What keeps it true is a guard on the seed, not a filter here — a filter
+  // hides a bad row, and hiding is how the two sets drifted apart in the first
+  // place.
+  const exerciseBrowserItems = exerciseLibrary;
   const summaryExitRouteRef = useRef<AppRoute | null>(null);
   const summaryNavigationPendingRef = useRef(false);
   const workoutLogNavigationAllowedAtRef = useRef<number | null>(null);
@@ -2928,10 +2931,7 @@ function VinhaApp() {
       }),
     [database.exerciseLogs, database.exerciseTemplates, database.workoutSessions, exerciseLibrary],
   );
-  const recentExerciseBrowserItems = useMemo(
-    () => recentExerciseLibraryItems.filter((item) => !item.id.startsWith('lib_')),
-    [recentExerciseLibraryItems],
-  );
+  const recentExerciseBrowserItems = recentExerciseLibraryItems;
   const editorExerciseHistoryLookup = useMemo(
     () =>
       buildExerciseHistoryLookup({

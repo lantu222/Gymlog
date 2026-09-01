@@ -24,21 +24,15 @@ const { createSeedExerciseLibrary } = require('../../.test-dist/data/seed.js');
 const library = createSeedExerciseLibrary();
 
 /**
- * What the screen can actually open — a swap target OR a teaching key.
+ * What the screen can actually open.
  *
- * ExerciseDetailScreen resolves everything through `exerciseBrowserItems`,
- * which is the seed library MINUS the legacy `lib_*` rows (App.tsx:525).
- * Checking against the full library passes for a row the browser filters out,
- * and that row renders as content nobody can reach — the test proving less
- * than the app needs.
- *
- * The swap case had this right and the key case below did not, which is the
- * shape worth remembering: one guard in a file being stricter than its
- * neighbour is a sign the neighbour was written first and never revisited.
+ * This used to subtract the legacy `lib_*` rows, because the browser filtered
+ * them and content keyed to one could never render. Two different "libraries"
+ * is exactly what let the key check below pass against the wrong set, and the
+ * rows themselves went on 2026-09-01 — so there is one library again and this
+ * subtracts nothing. Kept named for what it means rather than inlined.
  */
-const reachableNames = new Set(
-  library.filter((item) => !item.id.startsWith('lib_')).map((item) => item.name),
-);
+const reachableNames = new Set(library.map((item) => item.name));
 
 function everyEntry() {
   return Object.entries(EXERCISE_TEACHING_TABLES).flatMap(([language, table]) =>

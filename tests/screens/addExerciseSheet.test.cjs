@@ -135,4 +135,52 @@ module.exports = [
       assert.doesNotMatch(browser, /onOpen=\{\(\) => handleOpen\(item\)\}/);
     },
   },
+  {
+    /**
+     * A filter you picked by accident comes off the way you put it on.
+     *
+     * Every row has an "All" chip, so there was always a way back — but the
+     * gesture a reader reaches for is tapping the lit chip again, and that set
+     * the value it already held. Nothing moved, so the filter read as stuck
+     * (user 2026-09-01, screenshot: two chips lit, badge showing 2).
+     *
+     * All three rows, not one: the body-part rail, TYPE and EQUIPMENT are the
+     * same control three times, and fixing the two inside the sheet while
+     * leaving the rail on top would be the harder half to notice.
+     */
+    name: 'library browser: tapping the chosen filter chip clears it',
+    run() {
+      const browser = read('src/components/ExerciseLibraryBrowser.tsx');
+
+      // The rule itself: back to 'all', which IS the cleared state here —
+      // every read is `!== 'all'`, so a null would have to be taught to all
+      // three.
+      assert.match(browser, /function toggleFilter\(current: string, option: string\): string \{/);
+      assert.match(
+        browser,
+        /return current === option \? 'all' : option;/,
+        'the chips no longer clear themselves',
+      );
+
+      // All three rows route through it, and none sets a raw option any more.
+      const esc = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      for (const setter of ['setBodyPartFilter', 'setCategoryFilter', 'setEquipmentFilter']) {
+        const filterName = setter.slice(3, 4).toLowerCase() + setter.slice(4);
+        assert.match(
+          browser,
+          new RegExp(esc(`onPress={() => ${setter}(toggleFilter(${filterName}, option))}`)),
+          `${setter} still sets the option without toggling`,
+        );
+        assert.doesNotMatch(
+          browser,
+          new RegExp(esc(`onPress={() => ${setter}(option)}`)),
+          `${setter} can still be set without a way off`,
+        );
+      }
+
+      // And 'all' stays the first chip in every row, so the explicit reset is
+      // still there for anyone who does not try the toggle.
+      assert.equal((browser.match(/\(\) => \['all', \.\.\.Array\.from/g) ?? []).length, 3);
+    },
+  },
 ];

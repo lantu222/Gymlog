@@ -122,11 +122,7 @@ module.exports = [
       // Every name is one the library actually has, or the row opens nothing
       // and the log can never match it.
       const { createSeedExerciseLibrary } = require('../../.test-dist/data/seed.js');
-      const reachable = new Set(
-        createSeedExerciseLibrary()
-          .filter((item) => !item.id.startsWith('lib_'))
-          .map((item) => item.name),
-      );
+      const reachable = new Set(createSeedExerciseLibrary().map((item) => item.name));
       const invented = STRENGTH_GOAL_PRESETS.map((preset) => preset.exerciseName).filter(
         (name) => !reachable.has(name),
       );

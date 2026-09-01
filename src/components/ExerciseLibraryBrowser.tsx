@@ -377,6 +377,23 @@ export function ExerciseLibraryBrowser({
   const [bodyPartFilter, setBodyPartFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [equipmentFilter, setEquipmentFilter] = useState<string>('all');
+  /**
+   * Tapping the chip you already picked clears it.
+   *
+   * Every row carries an "All" chip, so a way back always existed — but the
+   * gesture a reader reaches for first is tapping the highlighted chip again,
+   * and that set the same value it already held. Nothing moved, so the filter
+   * read as stuck: "jos vahingossa valitsee jotain filtteristä niitä ei saa
+   * pois valittua" (user, 2026-09-01, with two chips lit and the badge
+   * showing 2).
+   *
+   * 'all' IS the cleared state rather than a fourth value, which is why this
+   * toggles to it instead of to null — the three filters read `!== 'all'`
+   * everywhere, and a null would have to be taught to all of them.
+   */
+  function toggleFilter(current: string, option: string): string {
+    return current === option ? 'all' : option;
+  }
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRef = useRef<TextInput>(null);
@@ -570,7 +587,7 @@ export function ExerciseLibraryBrowser({
                 return (
                   <Pressable
                     key={option}
-                    onPress={() => setBodyPartFilter(option)}
+                    onPress={() => setBodyPartFilter(toggleFilter(bodyPartFilter, option))}
                     style={[styles.categoryChip, selected && styles.categoryChipActive]}
                   >
                     <CategoryIcon option={option} color={selected ? '#FFFFFF' : theme.muted} />
@@ -594,7 +611,7 @@ export function ExerciseLibraryBrowser({
                     return (
                       <Pressable
                         key={option}
-                        onPress={() => setCategoryFilter(option)}
+                        onPress={() => setCategoryFilter(toggleFilter(categoryFilter, option))}
                         style={[styles.filterChip, selected && styles.filterChipSelected]}
                       >
                         <Text style={[styles.filterChipText, selected && styles.filterChipTextSelected]}>
@@ -614,7 +631,7 @@ export function ExerciseLibraryBrowser({
                     return (
                       <Pressable
                         key={option}
-                        onPress={() => setEquipmentFilter(option)}
+                        onPress={() => setEquipmentFilter(toggleFilter(equipmentFilter, option))}
                         style={[styles.filterChip, selected && styles.filterChipSelected]}
                       >
                         <Text style={[styles.filterChipText, selected && styles.filterChipTextSelected]}>

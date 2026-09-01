@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { buildRetiredLibraryIdRemap } from '../lib/legacyLibraryIds';
 import { normalizeSeasonEnrolments } from '../lib/seasonEnrolment';
 import { normalizeStrengthGoals } from '../lib/strengthGoals';
 import { normalizeCancelSurveyAnswer } from '../lib/cancelSurvey';
@@ -296,6 +297,18 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
   // the demo seed's fabricated plan id would otherwise become the fallback for
   // a stored database that had no activePlanId of its own.
   const fallback = createEmptyDatabase();
+  /**
+   * The twenty hand-written `lib_*` rows stopped shipping on 2026-09-01. An
+   * install old enough to have logged against one keeps the link by having the
+   * id read as the row it was always a copy of — see lib/legacyLibraryIds.
+   */
+  const retiredIds = buildRetiredLibraryIdRemap(fallback.exerciseLibrary);
+  const liveLibraryItemId = (value: unknown): string | null => {
+    if (typeof value !== 'string') {
+      return null;
+    }
+    return retiredIds[value.trim()] ?? value;
+  };
 
   const rawExerciseTemplates: ExerciseTemplate[] = Array.isArray(input?.exerciseTemplates)
     ? input.exerciseTemplates.map((exercise: any) => {
@@ -324,7 +337,7 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
             offSeconds ?? (typeof exercise?.restSeconds === 'number' ? exercise.restSeconds : null),
           trackedDefault: typeof exercise?.trackedDefault === 'boolean' ? exercise.trackedDefault : true,
           orderIndex: typeof exercise?.orderIndex === 'number' ? exercise.orderIndex : 0,
-          libraryItemId: typeof exercise?.libraryItemId === 'string' || exercise?.libraryItemId === null ? exercise.libraryItemId : null,
+          libraryItemId: liveLibraryItemId(exercise?.libraryItemId),
           persistedExerciseTemplateId:
             typeof exercise?.persistedExerciseTemplateId === 'string' || exercise?.persistedExerciseTemplateId === null
               ? exercise.persistedExerciseTemplateId
@@ -533,7 +546,7 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
             alias: entry.alias,
             wrote: typeof entry?.wrote === 'string' && entry.wrote.trim() ? entry.wrote : entry.alias,
             exerciseName: entry.exerciseName,
-            libraryItemId: typeof entry?.libraryItemId === 'string' ? entry.libraryItemId : null,
+            libraryItemId: liveLibraryItemId(entry?.libraryItemId),
             learnedAt:
               typeof entry?.learnedAt === 'string' ? entry.learnedAt : new Date().toISOString(),
           }))
