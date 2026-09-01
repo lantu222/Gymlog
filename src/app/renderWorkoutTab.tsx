@@ -94,7 +94,8 @@ export interface WorkoutTabDeps {
   availableEquipmentForDrills: ProgramDetailProps['availableEquipment'];
   resolveNextSessionIdForTemplate: (workoutTemplateId: string) => string | null;
   handleStartReadyProgramSession: (workoutTemplateId: string, sessionId: string, trimSets?: boolean) => void;
-  handleAdoptReadyProgram: (workoutTemplateId: string, options?: { lead?: boolean }) => Promise<void>;
+  /** Resolves to whether the programme is running afterwards; the cap can refuse. */
+  handleAdoptReadyProgram: (workoutTemplateId: string, options?: { lead?: boolean }) => Promise<boolean>;
   handleStartCustomProgram: (workoutTemplateId: string) => void;
   handleAdoptCustomProgram: (workoutTemplateId: string, options?: { lead?: boolean }) => Promise<void>;
   handleStartCustomProgramSession: (workoutTemplateId: string, sessionId: string, trimSets?: boolean) => void;

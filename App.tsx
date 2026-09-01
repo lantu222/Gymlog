@@ -1499,10 +1499,21 @@ function VinhaApp() {
    * Before this existed, `activePlanId` was written by the two onboarding
    * finishes and nowhere else, so a season could be opened but never joined.
    */
-  async function handleAdoptReadyProgram(workoutTemplateId: string, options?: { lead?: boolean }) {
+  /**
+   * Returns whether the programme is running when this resolves.
+   *
+   * The target flow is the caller that needs to know: it stores a target only
+   * if the programme behind it actually landed, and the cap can refuse. Every
+   * other caller ignores the value, which is why this can be added without
+   * touching them.
+   */
+  async function handleAdoptReadyProgram(
+    workoutTemplateId: string,
+    options?: { lead?: boolean },
+  ): Promise<boolean> {
     const template = getWorkoutTemplateById(workoutTemplateId);
     if (!template) {
-      return;
+      return false;
     }
     trackEvent('plan_adopted');
 
@@ -1515,7 +1526,8 @@ function VinhaApp() {
       if (options?.lead) {
         await promoteHeldProgramToLead(workoutTemplateId);
       }
-      return;
+      // Already held is already running, which is what the caller asked for.
+      return true;
     }
 
     const planId = buildReadyProgramPlanId(workoutTemplateId);
@@ -1526,7 +1538,7 @@ function VinhaApp() {
     });
 
     if (decision.kind === 'already_active') {
-      return;
+      return true;
     }
 
     if (decision.kind === 'blocked') {
@@ -1534,10 +1546,10 @@ function VinhaApp() {
       // paying reader to the paywall would be selling them what they own.
       if (decision.canUpgrade) {
         navigate({ tab: 'profile', screen: 'premium', reason: 'program_cap' });
-        return;
+        return false;
       }
       showToast(t(preferences.appLanguage, 'programs.cap.full', { cap: decision.cap }));
-      return;
+      return false;
     }
 
     // The programme's own week leads. This read availability alone and fell
@@ -1569,6 +1581,7 @@ function VinhaApp() {
       // explicitly choosing a new lead, so the completion flow passes `lead`.
       activePlanId: options?.lead ? plan.id : preferences.activePlanId ?? plan.id,
     });
+    return true;
   }
 
   /**
@@ -4710,6 +4723,16 @@ function VinhaApp() {
     targetKg: number;
     templateId: string;
   }) {
+    // The programme FIRST, and the target only if it landed.
+    //
+    // Stored first, a refused adoption left the reader with exactly the thing
+    // this flow exists to end: a target and nothing going towards it. The cap
+    // refuses for real — three programmes on the free tier sends them to the
+    // paywall — and that is not a moment to have quietly written a goal.
+    const adopted = await handleAdoptReadyProgram(input.templateId, { lead: true });
+    if (!adopted) {
+      return;
+    }
     await updatePreferences({
       strengthGoals: upsertStrengthGoal(preferences.strengthGoals, {
         exerciseName: input.exerciseName,
@@ -4717,7 +4740,6 @@ function VinhaApp() {
         createdAt: new Date().toISOString(),
       }),
     });
-    await handleAdoptReadyProgram(input.templateId, { lead: true });
   }
 
   /**

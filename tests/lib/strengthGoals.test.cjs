@@ -114,11 +114,27 @@ module.exports = [
       assert.doesNotMatch(app, /screen: 'goalPicker'/);
       assert.match(screen, /onPress=\{onOpenGoalPicker\}/);
 
-      // Accepting stores the target AND takes the programme on. A target with
-      // no programme behind it is the thing feedback round 2 asked to end.
+      // Accepting takes the programme on AND stores the target — in that
+      // order. A target with no programme behind it is the thing feedback
+      // round 2 asked to end, and storing first left exactly that behind when
+      // the cap refused: three programmes on the free tier sends the reader to
+      // the paywall, and the goal had already been written.
       assert.match(app, /async function handleAcceptTargetProposal/);
-      assert.match(app, /strengthGoals: upsertStrengthGoal\(/);
-      assert.match(app, /await handleAdoptReadyProgram\(input\.templateId, \{ lead: true \}\)/);
+      // Sliced to the function's own closing brace: anchoring on whatever
+      // declaration follows it broke the moment the block moved.
+      const acceptStart = app.indexOf('async function handleAcceptTargetProposal');
+      const accept = app.slice(acceptStart, app.indexOf('\n  }\n', acceptStart));
+      const adoptAt = accept.indexOf('handleAdoptReadyProgram(input.templateId, { lead: true })');
+      const storeAt = accept.indexOf('strengthGoals: upsertStrengthGoal(');
+      assert.ok(adoptAt > 0 && storeAt > 0, 'the accept path lost one of its two halves');
+      assert.ok(adoptAt < storeAt, 'the target is stored before the programme is taken on');
+      assert.match(
+        accept,
+        /if \(!adopted\) \{\s+return;/,
+        'a refused adoption still writes the goal',
+      );
+      // And the adoption reports what happened rather than swallowing it.
+      assert.match(app, /\): Promise<boolean> \{\s+const template = getWorkoutTemplateById/);
 
       // The bar renders the resolved ratio, and "not started" has its own copy.
       assert.match(screen, /entry\.currentKg === null/);
