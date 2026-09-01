@@ -14,6 +14,9 @@ interface ExercisesScreenProps {
   onBack?: () => void;
   onOpenExercise?: (item: ExerciseLibraryItem) => void;
   onToggleTracked?: (item: ExerciseLibraryItem) => void;
+  collectionInProgress?: { id: string; title: string; done: number; total: number } | null;
+  onOpenCollection?: (collectionId: string) => void;
+  onOpenLearnIndex?: () => void;
 }
 
 export function ExercisesScreen({
@@ -23,6 +26,9 @@ export function ExercisesScreen({
   onBack,
   onOpenExercise,
   onToggleTracked,
+  collectionInProgress = null,
+  onOpenCollection,
+  onOpenLearnIndex,
 }: ExercisesScreenProps) {
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
@@ -57,6 +63,9 @@ export function ExercisesScreen({
         language={language}
         onOpenItem={onOpenExercise}
         onToggleTracked={onToggleTracked}
+        collectionInProgress={collectionInProgress}
+        onOpenCollection={onOpenCollection}
+        onOpenLearnIndex={onOpenLearnIndex}
       />
     </View>
   );

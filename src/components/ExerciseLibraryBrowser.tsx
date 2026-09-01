@@ -30,6 +30,17 @@ interface ExerciseLibraryBrowserProps {
   language?: AppLanguage;
   onOpenItem?: (item: ExerciseLibraryItem) => void;
   onToggleTracked?: (item: ExerciseLibraryItem) => void;
+  /**
+   * The course this reader has begun and not finished, if there is one.
+   *
+   * The library's own way back into it — a different thing from browsing them
+   * all, which lives on its own screen. Absent when nothing is started: a card
+   * pointing at a course never opened would be an advertisement wearing the
+   * words "pick up where you left off".
+   */
+  collectionInProgress?: { id: string; title: string; done: number; total: number } | null;
+  onOpenCollection?: (collectionId: string) => void;
+  onOpenLearnIndex?: () => void;
 }
 
 function formatCompactBodyPartLabel(raw: string, language: AppLanguage = 'en') {
@@ -362,6 +373,9 @@ export function ExerciseLibraryBrowser({
   language = 'en',
   onOpenItem,
   onToggleTracked,
+  collectionInProgress = null,
+  onOpenCollection,
+  onOpenLearnIndex,
 }: ExerciseLibraryBrowserProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -622,6 +636,47 @@ export function ExerciseLibraryBrowser({
 
             {showDashboardSections ? (
               <>
+                {collectionInProgress && onOpenCollection ? (
+                  <View style={styles.dashboardSection}>
+                    <SectionHead
+                      label={t(language, 'library.pickUp')}
+                      action={onOpenLearnIndex ? t(language, 'library.learnAll') : undefined}
+                      onAction={onOpenLearnIndex}
+                    />
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => onOpenCollection(collectionInProgress.id)}
+                      style={({ pressed }) => [styles.pickUpCard, pressed && styles.pickUpCardPressed]}
+                    >
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text numberOfLines={1} style={styles.pickUpTitle}>
+                          {collectionInProgress.title}
+                        </Text>
+                        <View style={styles.pickUpProgressRow}>
+                          <View style={styles.pickUpTrack}>
+                            <View
+                              style={[
+                                styles.pickUpFill,
+                                {
+                                  width: `${Math.round(
+                                    (collectionInProgress.done / collectionInProgress.total) * 100,
+                                  )}%`,
+                                },
+                              ]}
+                            />
+                          </View>
+                          <Text style={styles.pickUpCount}>
+                            {t(language, 'learn.progress', {
+                              done: collectionInProgress.done,
+                              total: collectionInProgress.total,
+                            })}
+                          </Text>
+                        </View>
+                      </View>
+                    </Pressable>
+                  </View>
+                ) : null}
+
                 <View style={styles.dashboardSection}>
                   <SectionHead label={t(language, 'library.popular')} action={t(language, 'programs.viewAll')} />
                   {renderRail(popularItems)}
@@ -980,6 +1035,50 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.surfaceSoft,
+  },
+  pickUpCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.surfaceSoft,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderLeftWidth: 3,
+    borderLeftColor: theme.purpleDark,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+  },
+  pickUpCardPressed: {
+    opacity: 0.85,
+  },
+  pickUpTitle: {
+    color: theme.ink,
+    fontSize: 14.5,
+    fontWeight: '800',
+  },
+  pickUpProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    marginTop: 7,
+  },
+  pickUpTrack: {
+    width: 96,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: theme.surface,
+    overflow: 'hidden',
+  },
+  pickUpFill: {
+    height: '100%',
+    backgroundColor: theme.purpleDark,
+    borderRadius: 999,
+  },
+  pickUpCount: {
+    color: theme.purpleBright,
+    fontSize: 11,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   lookButton: {
     width: 32,

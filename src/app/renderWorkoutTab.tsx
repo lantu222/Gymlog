@@ -13,6 +13,11 @@ import { resolveProgramEquipment } from '../lib/programEquipment';
 import { buildProgramFingerprint } from '../lib/programFingerprint';
 import { getSeasonProgramId, ProgramSeason } from '../lib/programSeasons';
 import { planWeekdayIndexes } from '../lib/programTrainingDays';
+import {
+  findCollectionInProgress,
+  getExerciseCollection,
+  getExerciseCollections,
+} from '../lib/exerciseCollections';
 import { toggleTechniqueStatement } from '../lib/exerciseLearning';
 import { getExerciseProgressForName } from '../lib/progression';
 import { getReadyProgramContent } from '../lib/readyProgramContent';
@@ -27,6 +32,8 @@ import { CreateTemplateScreen } from '../screens/CreateTemplateScreen';
 import { EmptyWorkoutScreen } from '../screens/EmptyWorkoutScreen';
 import { ExerciseDetailScreen } from '../screens/ExerciseDetailScreen';
 import { ExercisesScreen } from '../screens/ExercisesScreen';
+import { CollectionScreen } from '../screens/CollectionScreen';
+import { LearnIndexScreen } from '../screens/LearnIndexScreen';
 import { GuidedPlayerScreen } from '../screens/GuidedPlayerScreen';
 import { ProgramDayScreen } from '../screens/ProgramDayScreen';
 import { ProgramPrescription } from '../lib/programSessionEdit';
@@ -933,6 +940,52 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
    * destination. Anything else — including a summary whose guard state was
    * just cleared — returns null and falls to the dashboard safety net.
    */
+  /**
+   * Learned is stored by library item id; a course lists library names. The
+   * lookup happens here rather than in the pure module, which has no business
+   * knowing about the library.
+   */
+  const learnedExerciseNames = exerciseBrowserItems
+    .filter((item) => preferences.learnedExerciseLibraryItemIds.includes(item.id))
+    .map((item) => item.name);
+
+  if (route.screen === 'learn') {
+    return (
+      <LearnIndexScreen
+        language={preferences.appLanguage}
+        collections={getExerciseCollections(preferences.appLanguage)}
+        learnedExerciseNames={learnedExerciseNames}
+        onBack={() => navigateBack(ROOT_ROUTES.workout)}
+        onOpenCollection={(collectionId) =>
+          navigate({ tab: 'workout', screen: 'collection', collectionId })
+        }
+      />
+    );
+  }
+
+  if (route.screen === 'collection') {
+    const collection = getExerciseCollection(route.collectionId, preferences.appLanguage);
+    // An id with no course behind it goes back rather than rendering a blank
+    // screen with a title on it.
+    if (!collection) {
+      return null;
+    }
+    return (
+      <CollectionScreen
+        language={preferences.appLanguage}
+        collection={collection}
+        learnedExerciseNames={learnedExerciseNames}
+        onBack={() => navigateBack(ROOT_ROUTES.workout)}
+        onOpenExercise={(exerciseName) => {
+          const target = exerciseBrowserItems.find((candidate) => candidate.name === exerciseName);
+          if (target) {
+            navigate({ tab: 'workout', screen: 'detail', exerciseId: target.id });
+          }
+        }}
+      />
+    );
+  }
+
   if (route.screen === 'list') {
     return (
       /*
@@ -950,6 +1003,24 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         items={exerciseBrowserItems}
         trackedIds={preferences.trackedExerciseLibraryItemIds}
         onOpenExercise={(item) => navigate({ tab: 'workout', screen: 'detail', exerciseId: item.id })}
+        collectionInProgress={(() => {
+          const started = findCollectionInProgress(
+            getExerciseCollections(preferences.appLanguage),
+            (name) => learnedExerciseNames.includes(name),
+          );
+          return started
+            ? {
+                id: started.collection.id,
+                title: started.collection.title,
+                done: started.progress.done,
+                total: started.progress.total,
+              }
+            : null;
+        })()}
+        onOpenCollection={(collectionId) =>
+          navigate({ tab: 'workout', screen: 'collection', collectionId })
+        }
+        onOpenLearnIndex={() => navigate({ tab: 'workout', screen: 'learn' })}
         onToggleTracked={(item) => {
           const trackedIds = preferences.trackedExerciseLibraryItemIds;
           const nextTrackedIds = trackedIds.includes(item.id)

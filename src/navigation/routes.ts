@@ -106,6 +106,17 @@ export type AppRoute =
       screen: 'template';
       workoutTemplateId?: string;
     }
+  /** The short courses, listed. */
+  | {
+      tab: 'workout';
+      screen: 'learn';
+    }
+  /** One course: its lifts, in the order they are easiest to learn. */
+  | {
+      tab: 'workout';
+      screen: 'collection';
+      collectionId: string;
+    }
   | {
       tab: 'workout';
       screen: 'guided';
