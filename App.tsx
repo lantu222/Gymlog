@@ -5421,6 +5421,7 @@ function VinhaApp() {
       personalRecords,
       distinctRecordCount,
       recordSources,
+      targetLifts: goalFlowLifts,
       trackedProgress,
       bodyweightProgress,
       measurementEntries,

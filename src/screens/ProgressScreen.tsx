@@ -67,7 +67,6 @@ import {
 } from '../types/models';
 
 type ProgressSection = 'overview' | 'records' | 'tracked' | 'measures';
-type ProgressFilter = 'all' | 'new_best' | 'moving_up' | 'building' | 'below_last';
 type OverviewMetric = 'volume' | 'duration' | 'bodyweight';
 type OverviewRange = '7d' | '1m' | '3m' | '6m' | 'all';
 type MeasureKey =
@@ -87,6 +86,16 @@ type MeasureIconName = 'scale' | 'drop' | 'tape';
 interface ProgressScreenProps {
   language?: AppLanguage;
   summaries: ExerciseProgressSummary[];
+  /**
+   * The lifts a target can be set on, with the target if there is one.
+   *
+   * The same list the target flow offers — App.tsx builds it once as
+   * goalFlowLifts. The tracked section shows these and only these: "tracked
+   * sama kuin tavoite" (user, 2026-09-01). Every other logged lift is still
+   * in Records, which still opens its set log.
+   */
+  targetLifts?: Array<{ exerciseName: string; targetKg: number | null; bestKg: number | null }>;
+  onSetTarget?: (exerciseName: string) => void;
   bodyweightProgress: BodyweightProgressSummary;
   measurementEntries: MeasurementEntry[];
   workoutSessions: WorkoutSession[];
@@ -208,14 +217,6 @@ const PROGRESS_SECTIONS: Array<{ key: ProgressSection; labelKey: I18nKey; icon: 
     // A ruler edge, drawn open: a closed box fills in and goes solid at 22px.
     icon: 'M2.6 10.2h18.8M6.2 10.2v3.8M10.6 10.2v2.3M15 10.2v3.8M19.4 10.2v2.3',
   },
-];
-
-const PROGRESS_FILTERS: Array<{ key: ProgressFilter; labelKey: I18nKey }> = [
-  { key: 'all', labelKey: 'progress.filter.all' },
-  { key: 'new_best', labelKey: 'progress.filter.new' },
-  { key: 'moving_up', labelKey: 'progress.filter.up' },
-  { key: 'building', labelKey: 'progress.filter.building' },
-  { key: 'below_last', labelKey: 'progress.filter.below' },
 ];
 
 const OVERVIEW_METRICS: Array<{ key: OverviewMetric; labelKey: I18nKey }> = [
@@ -606,18 +607,6 @@ function fmtDelta(value: number) {
 
 // ── glyphs ──
 
-function SearchIcon({ color: colorProp, size = 17 }: { color?: string; size?: number }) {
-  const theme = useTheme();
-  const color = colorProp ?? theme.faint;
-
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth={2} />
-      <Path d="M21 21l-4-4" stroke={color} strokeWidth={2} strokeLinecap="round" />
-    </Svg>
-  );
-}
-
 function ChevronRight({ color }: { color: string }) {
   return (
     <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
@@ -742,6 +731,8 @@ function Sparkline({ values, color, width = 62, height = 28 }: { values: number[
 
 export function ProgressScreen({
   summaries,
+  targetLifts = [],
+  onSetTarget,
   bodyweightProgress,
   measurementEntries,
   workoutSessions,
@@ -780,8 +771,6 @@ export function ProgressScreen({
   const [readSheetVisible, setReadSheetVisible] = useState(false);
   const [progressSection, setProgressSection] = useState<ProgressSection>(initialSection ?? 'overview');
   const [setLogKey, setSetLogKey] = useState<string | null>(null);
-  const [progressQuery, setProgressQuery] = useState('');
-  const [progressFilter, setProgressFilter] = useState<ProgressFilter>('all');
   const [expandedKey, setExpandedKey] = useState<string | null>(selectedExerciseKey ?? null);
   const [overviewMetric, setOverviewMetric] = useState<OverviewMetric>('volume');
   // The week opens both charts (user 2026-08-25) — see TrendRange.
@@ -1077,29 +1066,26 @@ export function ProgressScreen({
 
   // ── tracked data ──
 
-  const filteredSummaries = useMemo(() => {
-    const normalizedQuery = progressQuery.trim().toLowerCase();
+  /**
+   * One row per lift a target can be set on, with its history if it has any.
+   *
+   * The section used to list every lift with a log in it. It is the targets
+   * now — "tracked sama kuin tavoite" (user, 2026-09-01) — so the list is
+   * fixed at ten, and a lift with no target still gets a row, because the
+   * question the section answers is "what could you aim at".
+   *
+   * Joined on the summary key, which is the trimmed lowercase name that
+   * getTrackedExerciseProgress groups by. A lift that HAS a target already has
+   * a summary even with nothing logged: the target seeds one.
+   */
+  const trackedRows = useMemo(() => {
+    const byKey = new Map(summaries.map((summary) => [summary.key, summary]));
+    return targetLifts.map((lift) => ({
+      lift,
+      summary: byKey.get(lift.exerciseName.trim().toLowerCase()) ?? null,
+    }));
+  }, [summaries, targetLifts]);
 
-    return prioritizedSummaries.filter((summary) => {
-      const signal = getExerciseProgressSignal(summary);
-      if (progressFilter !== 'all' && signal.kind !== progressFilter) {
-        return false;
-      }
-
-      if (!normalizedQuery) {
-        return true;
-      }
-
-      // Search both spellings: a Finnish user may type "kyykky", but the stored
-      // name is still the English one the library and the logs are keyed on.
-      return (
-        formatLiftDisplayLabel(exerciseNameLabel(language, summary.name))
-          .toLowerCase()
-          .includes(normalizedQuery) ||
-        formatLiftDisplayLabel(summary.name).toLowerCase().includes(normalizedQuery)
-      );
-    });
-  }, [language, prioritizedSummaries, progressFilter, progressQuery]);
 
   // ── measures data ──
 
@@ -1550,56 +1536,37 @@ export function ProgressScreen({
   function renderTracked() {
     return (
       <>
-        <View style={styles.searchShell}>
-          <SearchIcon />
-          <TextInput
-            value={progressQuery}
-            onChangeText={setProgressQuery}
-            placeholder={t(language, 'progress.searchTracked')}
-            placeholderTextColor={theme.faint}
-            style={styles.searchInput}
-          />
-        </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.filterRail}
-        >
-          {PROGRESS_FILTERS.map((filter) => {
-            const active = filter.key === progressFilter;
-            return (
-              <Pressable key={filter.key} onPress={() => setProgressFilter(filter.key)}>
-                <CutSurface
-                  size="chip"
-                  fill={active ? theme.purple : theme.surface}
-                  stroke={active ? theme.purple : theme.border}
-                  strokeWidth={1}
-                  style={styles.filterChip}
-                >
-                  <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
-                    {t(language, filter.labelKey)}
-                  </Text>
-                </CutSurface>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-
-        {summaries.length === 0 ? (
+        {trackedRows.length === 0 ? (
           <View style={styles.emptyBlock}>
             <Text style={styles.emptyTitle}>{t(language, 'progress.noTracked.title')}</Text>
-            <Text style={styles.emptyText}>{t(language, 'progress.noTrackedFilter.body')}</Text>
-          </View>
-        ) : filteredSummaries.length === 0 ? (
-          <View style={styles.emptyBlock}>
-            <Text style={styles.emptyTitle}>{t(language, 'progress.noMatch.title')}</Text>
-            <Text style={styles.emptyText}>{t(language, 'progress.noMatch.body')}</Text>
           </View>
         ) : (
           <View style={styles.trackedList}>
-            {filteredSummaries.map((summary) => {
+            {trackedRows.map(({ lift, summary }) => {
+              if (!summary) {
+                // Nothing aimed at and nothing logged. The row stays, because
+                // a lift you cannot see is one you cannot pick.
+                return (
+                  <Pressable
+                    key={lift.exerciseName}
+                    accessibilityRole="button"
+                    onPress={() => onSetTarget?.(lift.exerciseName)}
+                    style={({ pressed }) => [styles.trackedCard, pressed && { opacity: 0.85 }]}
+                  >
+                    <View style={styles.trackedHead}>
+                      <View style={styles.trackedCopy}>
+                        <Text numberOfLines={1} style={styles.trackedName}>
+                          {formatLiftDisplayLabel(exerciseNameLabel(language, lift.exerciseName))}
+                        </Text>
+                        <Text numberOfLines={1} style={styles.trackedMeta}>
+                          {t(language, 'progress.noTargetYet')}
+                        </Text>
+                      </View>
+                      <Text style={styles.trackedSetTarget}>{t(language, 'programs.goals.add')}</Text>
+                    </View>
+                  </Pressable>
+                );
+              }
               const isOpen = expandedKey === summary.key;
               const signalDot = SIGNAL_STYLES[getExerciseProgressSignal(summary).kind].dot;
               const points = getSummaryChartPoints(summary, unitPreference, language);
@@ -2451,45 +2418,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 4,
   },
-  searchShell: {
-    height: 44,
-    borderRadius: 13,
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 13,
-    marginBottom: 11,
-  },
-  searchInput: {
-    flex: 1,
-    color: theme.ink,
-    fontSize: 14,
-    fontWeight: '600',
-    paddingVertical: 0,
-  },
-  filterRail: {
-    gap: 8,
-    paddingBottom: 14,
-    paddingRight: 8,
-  },
-  filterChip: {
-    height: 32,
-    paddingHorizontal: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   filterChipActive: {
-  },
-  filterChipText: {
-    color: theme.ink,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  filterChipTextActive: {
-    color: '#FFFFFF',
   },
   trackedList: {
     gap: 10,
@@ -2509,6 +2438,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   trackedCopy: {
     flex: 1,
     minWidth: 0,
+  },
+  trackedSetTarget: {
+    color: theme.highlight,
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontWeight: '800',
   },
   trackedName: {
     color: theme.ink,

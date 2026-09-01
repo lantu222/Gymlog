@@ -21,6 +21,8 @@ export interface ProgressTabDeps {
   preferences: AppPreferences;
   updatePreferences: (patch: Partial<AppPreferences>) => Promise<unknown>;
   personalRecords: NonNullable<ProgressScreenProps['records']>;
+  /** The ten lifts a target can be set on — the same list the flow offers. */
+  targetLifts: NonNullable<ProgressScreenProps['targetLifts']>;
   distinctRecordCount: number;
   recordSources: NonNullable<ProgressScreenProps['setLogSources']>;
   trackedProgress: ProgressScreenProps['summaries'];
@@ -50,6 +52,7 @@ export function renderProgressTab(deps: ProgressTabDeps): React.ReactElement | n
     preferences,
     updatePreferences,
     personalRecords,
+    targetLifts,
     distinctRecordCount,
     recordSources,
     trackedProgress,
@@ -97,6 +100,8 @@ export function renderProgressTab(deps: ProgressTabDeps): React.ReactElement | n
       weeklyRead={proWeeklyRead}
       readMoment={proPlateauMoment}
       proUnlocked={coachProUnlocked}
+      targetLifts={targetLifts}
+      onSetTarget={() => navigate({ tab: 'workout', screen: 'goalFlow' })}
       onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
       language={preferences.appLanguage}
       selectedExerciseKey={route.screen === 'detail' ? route.exerciseKey : undefined}

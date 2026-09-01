@@ -113,7 +113,11 @@ module.exports = [
       for (const style of ['segment', 'segmentItem', 'segmentText', 'segmentTextOn']) {
         assert.doesNotMatch(
           records,
-          new RegExp(`styles\.${style}\b`),
+          // Double backslashes: inside a template literal a single `\b` is a
+          // backspace character, not a regex word boundary, so this pattern
+          // was searching for `styles.segment` followed by a control code and
+          // could never match. The sibling check above had it right.
+          new RegExp(`styles\\.${style}[,\\s\\]}]`),
           `RecordsScreen is drawing its own ${style} again`,
         );
       }
@@ -192,6 +196,48 @@ module.exports = [
         1,
         'the empty records card grew a second action',
       );
+    },
+  },
+  {
+    /**
+     * Tracked is the targets (user, 2026-09-01: "tracked sama kuin tavoite ja
+     * vaik ne liikkeet joita voi tavoitteeksi asettaa").
+     *
+     * The section listed every lift with a log in it, behind a search field
+     * and five filter chips. It is the ten a target can be set on now — the
+     * ones you aim at and the ones you could — fed by the SAME list the target
+     * flow offers, so the two cannot drift.
+     *
+     * Nothing became unreachable: Records still lists every logged lift and
+     * still opens its set log. That is the half worth guarding, because it is
+     * the half a narrowing usually breaks.
+     */
+    name: 'progress: the tracked section is the target lifts, and nothing else lost its page',
+    run() {
+      const app = read('App.tsx');
+      const tab = read('src', 'app', 'renderProgressTab.tsx');
+
+      // One source, shared with the flow.
+      assert.match(app, /targetLifts: goalFlowLifts,/);
+      assert.match(tab, /targetLifts=\{targetLifts\}/);
+      assert.match(screen, /const trackedRows = useMemo/);
+      assert.match(screen, /targetLifts\.map\(\(lift\) => \(\{/);
+
+      // A lift with no target still gets a row, and the row does something.
+      assert.match(screen, /onPress=\{\(\) => onSetTarget\?\.\(lift\.exerciseName\)\}/);
+      assert.match(tab, /onSetTarget=\{\(\) => navigate\(\{ tab: 'workout', screen: 'goalFlow' \}\)\}/);
+
+      // The long list's controls went with the long list: a search box over
+      // ten fixed rows, and five always-on chips for a list you can see at
+      // once, are controls for a problem the section no longer has.
+      for (const gone of ['progressQuery', 'PROGRESS_FILTERS', 'filteredSummaries', 'styles.searchShell']) {
+        assert.ok(!screen.includes(gone), `${gone} came back`);
+      }
+
+      // And the escape hatch. Records is where every other lift lives.
+      const records = read('src', 'screens', 'RecordsScreen.tsx');
+      assert.match(records, /onOpenExercise/);
+      assert.match(screen, /onOpenExercise=\{\(key\) => setSetLogKey\(key\)\}/);
     },
   },
 ];
