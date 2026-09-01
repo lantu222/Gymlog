@@ -3,7 +3,6 @@ const assert = require('node:assert/strict');
 const { isSameLiftByGroup, liftGroupOf, bestForLift } = require('../../.test-dist/lib/liftIdentity.js');
 const { isSameLift, rankProgrammesForLift } = require('../../.test-dist/lib/goalProgramme.js');
 const { resolveGoalProgress } = require('../../.test-dist/lib/strengthGoals.js');
-const { buildGoalPresetRows } = require('../../.test-dist/lib/strengthGoalPresets.js');
 const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog.js');
 const { STRENGTH_GOAL_PRESETS } = require('../../.test-dist/lib/strengthGoalPresets.js');
 const library = require('../../.test-dist/data/generatedExerciseLibrary.js');
@@ -104,29 +103,42 @@ module.exports = [
   },
 
   {
-    name: 'the target picker and the target row read the log the same way',
+    /**
+     * One lift, one row — and the row the tab draws has to agree with it.
+     *
+     * They disagreed on the phone once: the target row showed 70 kg of 200
+     * while the picker behind it said "not logged yet" for the same lift,
+     * because one resolved the lift and the other matched the name. The picker
+     * is gone and the three-step flow replaced it, but the shape survives: the
+     * flow merges logged lifts into the library list, and a log that says
+     * "Barbell Bench Press" against a library that says "Barbell Bench Press -
+     * Medium Grip" would put the lift in the list twice — once with a best and
+     * once saying never logged.
+     */
+    name: 'the target flow and the target row read the log the same way',
     run() {
-      // They disagreed on the phone: the row showed 70 kg of 200 while the
-      // picker behind it said "not logged yet" for the same lift, because one
-      // resolved the lift and the other matched the name.
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
+
+      // The flow keys its rows by the LIBRARY's name, resolved through the
+      // same matcher the progress row uses.
+      assert.match(
+        app,
+        /exerciseBrowserItems\.find\(\(item\) => isSameLift\(history\.name, item\.name, libraryNames\)\)/,
+        'the flow keys lifts by the logged name again',
+      );
+      assert.match(app, /byName\.set\(libraryName, \{/);
+
+      // And the resolution the row uses is the same function, so a lift that
+      // matches in one place matches in the other.
       const bests = new Map([['Barbell Bench Press', 70], ['Conventional Deadlift', 120]]);
       const matches = (logged, lift) => isSameLift(logged, lift, libraryNames);
-
-      const rows = buildGoalPresetRows(bests, [], matches);
-      const bench = rows.find((row) => row.exerciseName === 'Bench Press');
-      const deadlift = rows.find((row) => row.exerciseName === 'Barbell Deadlift');
-      assert.equal(bench.bestKg, 70);
-      assert.equal(deadlift.bestKg, 120);
-      assert.equal(deadlift.options.find((option) => option.targetKg === 100).alreadyReached, true);
-      assert.equal(deadlift.options.find((option) => option.targetKg === 150).alreadyReached, false);
-
-      // And the row for the same log agrees.
       const [progress] = resolveGoalProgress(
         [{ exerciseName: 'Barbell Deadlift', targetKg: 150, createdAt: '' }],
         bests,
         matches,
       );
-      assert.equal(progress.currentKg, deadlift.bestKg);
+      assert.equal(progress.currentKg, 120, 'the deadlift variant no longer resolves to the lift');
+      assert.equal(progress.reached, false);
     },
   },
 ];

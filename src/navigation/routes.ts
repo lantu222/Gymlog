@@ -57,12 +57,18 @@ export type AppRoute =
     }
   | {
       /**
-       * Ready-made targets. Its own screen rather than a sheet on the Programs
-       * tab, because "what am I aiming at" is a decision, and a decision that
-       * arrives as a drawer over the thing you were reading gets dismissed.
+       * Setting a target, in three steps: which lift, how much heavier, and
+       * the week that would be built for it.
+       *
+       * Its own screen rather than a sheet, because "what am I aiming at" is a
+       * decision, and a decision that arrives as a drawer over the thing you
+       * were reading gets dismissed. It replaced a page of ready-made numbers
+       * — five lifts at three round figures each — because a round figure is
+       * not a target: 100 kg means one thing to someone benching 95 and
+       * another to someone benching 60.
        */
       tab: 'workout';
-      screen: 'goalPicker';
+      screen: 'goalFlow';
     }
   | {
       /**

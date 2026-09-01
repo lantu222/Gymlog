@@ -94,20 +94,28 @@ module.exports = [
       const app = require('../helpers/appWiringSource.cjs').readAppWiring();
 
       // The old sheet could only offer lifts already logged, so the reader a
-      // first target would help most was shown an empty list. The picker
-      // offers a fixed set of round numbers instead, and folds the reader's
-      // own bests in on top.
+      // first target would help most was shown an empty list. The page of
+      // round numbers that replaced it had the opposite problem — 100 kg means
+      // one thing to someone benching 95 and another to someone benching 60 —
+      // and the flow that replaced THAT asks for a delta on the reader's own
+      // best, with every lift offered and the logged ones first.
       assert.doesNotMatch(app, /programsGoalCandidates/);
-      assert.match(app, /buildGoalPresetRows\(/);
-      // Measured against the user's own bests, from the same summaries the
-      // Progress tab draws.
-      assert.match(
-        app,
-        /new Map\(trackedProgress\.map\(\(summary\) => \[summary\.name, summary\.bestWeight \?\? null\]\)\)/,
-      );
-      // Its own screen, reachable from both places that mention a target.
-      assert.match(app, /screen: 'goalPicker'/);
+      assert.doesNotMatch(app, /buildGoalPresetRows\(/, 'the page of round numbers is back');
+      assert.match(app, /const goalFlowLifts = useMemo/);
+      assert.match(app, /rate: resolveObservedRate\(history\.points\)/);
+      // Measured against the user's own log, through the same histories the
+      // Pro insights read.
+      assert.match(app, /for \(const history of proLiftHistories\)/);
+      // Its own screen, reachable from the tab's target section.
+      assert.match(app, /screen: 'goalFlow'/);
+      assert.doesNotMatch(app, /screen: 'goalPicker'/);
       assert.match(screen, /onPress=\{onOpenGoalPicker\}/);
+
+      // Accepting stores the target AND takes the programme on. A target with
+      // no programme behind it is the thing feedback round 2 asked to end.
+      assert.match(app, /async function handleAcceptTargetProposal/);
+      assert.match(app, /strengthGoals: upsertStrengthGoal\(/);
+      assert.match(app, /await handleAdoptReadyProgram\(input\.templateId, \{ lead: true \}\)/);
 
       // The bar renders the resolved ratio, and "not started" has its own copy.
       assert.match(screen, /entry\.currentKg === null/);

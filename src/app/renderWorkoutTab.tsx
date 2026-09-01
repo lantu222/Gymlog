@@ -43,7 +43,7 @@ import { ProgramDetailScreen } from '../screens/ProgramDetailScreen';
 import { CatalogScreen, CatalogScreenItem } from '../screens/CatalogScreen';
 import { ProgramsHomeScreen } from '../screens/ProgramsHomeScreen';
 import { SeasonScreen } from '../screens/SeasonScreen';
-import { StrengthGoalPickerScreen } from '../screens/StrengthGoalPickerScreen';
+import { GoalFlowProposal, StrengthGoalFlowScreen } from '../screens/StrengthGoalFlowScreen';
 import { WorkoutEditorFinishSummary, WorkoutEditorScreen } from '../screens/WorkoutEditorScreen';
 import { WorkoutsScreen } from '../screens/WorkoutsScreen';
 import { AppDatabase, AppPreferences, WorkoutTemplateDraft } from '../types/models';
@@ -155,8 +155,14 @@ export interface WorkoutTabDeps {
   handleStartReadyProgram: WorkoutsProps['onStartReadyProgram'];
   handleOpenCustomProgramDetail: WorkoutsProps['onOpenCustomProgram'];
   handleDuplicateCustomWorkout: WorkoutsProps['onDuplicateCustomWorkout'];
-  goalPresetRows: React.ComponentProps<typeof StrengthGoalPickerScreen>['rows'];
-  goalProgrammeSuggestions: React.ComponentProps<typeof StrengthGoalPickerScreen>['suggestions'];
+  goalProgrammeSuggestions: ProgramsHomeProps['goalProgrammes'];
+  goalFlowLifts: React.ComponentProps<typeof StrengthGoalFlowScreen>['lifts'];
+  getGoalProposal: (exerciseName: string) => GoalFlowProposal | null;
+  handleAcceptTargetProposal: (input: {
+    exerciseName: string;
+    targetKg: number;
+    templateId: string;
+  }) => Promise<void>;
   programSlots: { canCreate: boolean };
   setProgramLimitVisible: (visible: boolean) => void;
   trackedProgress: Array<{ logs: Array<{ weight: number; repsPerSet: number[]; performedAt: string }> }>;
@@ -234,8 +240,10 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     handleStartReadyProgram,
     handleOpenCustomProgramDetail,
     handleDuplicateCustomWorkout,
-    goalPresetRows,
     goalProgrammeSuggestions,
+    goalFlowLifts,
+    getGoalProposal,
+    handleAcceptTargetProposal,
     programSlots,
     setProgramLimitVisible,
     trackedProgress,
@@ -801,40 +809,18 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     );
   }
 
-  if (route.screen === 'goalPicker') {
+  if (route.screen === 'goalFlow') {
     return (
-      <StrengthGoalPickerScreen
+      <StrengthGoalFlowScreen
         language={preferences.appLanguage}
-        rows={goalPresetRows}
+        lifts={goalFlowLifts}
         unitLabel={preferences.unitPreference}
-        suggestions={goalProgrammeSuggestions}
-        // Stays on the picker: the panel flips to "your current programme
-        // trains this" by itself once the adoption lands, and a blocked
-        // adoption (cap) routes to the paywall on its own.
-        onAdoptProgramme={(templateId) => void handleAdoptReadyProgram(templateId, { lead: true })}
-        onOpenProgramme={(templateId) =>
-          navigate({ tab: 'workout', screen: 'program', programType: 'ready', workoutTemplateId: templateId })
-        }
-        onBuildOwn={() =>
-          programSlots.canCreate
-            ? navigate({ tab: 'workout', screen: 'template' })
-            : setProgramLimitVisible(true)
-        }
+        getProposal={getGoalProposal}
         onBack={() => navigateBack(ROOT_ROUTES.workout)}
-        onPick={(exerciseName, targetKg) =>
-          void updatePreferences({
-            strengthGoals: upsertStrengthGoal(preferences.strengthGoals, {
-              exerciseName,
-              targetKg,
-              createdAt: new Date().toISOString(),
-            }),
-          })
-        }
-        onClear={(exerciseName) =>
-          void updatePreferences({
-            strengthGoals: removeStrengthGoal(preferences.strengthGoals, exerciseName),
-          })
-        }
+        // The cap is the adoption's business, not this screen's: full on the
+        // free tier routes to the paywall and full on Pro says so, both from
+        // inside handleAdoptReadyProgram.
+        onCreate={(input) => void handleAcceptTargetProposal(input)}
       />
     );
   }
@@ -971,7 +957,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         onOpenLearnIndex={() => navigate({ tab: 'workout', screen: 'learn' })}
         goals={programsGoals}
         goalProgrammes={goalProgrammeSuggestions}
-        onOpenGoalPicker={() => navigate({ tab: 'workout', screen: 'goalPicker' })}
+        onOpenGoalPicker={() => navigate({ tab: 'workout', screen: 'goalFlow' })}
         onRemoveGoal={(exerciseName) =>
           void updatePreferences({
             strengthGoals: removeStrengthGoal(preferences.strengthGoals, exerciseName),

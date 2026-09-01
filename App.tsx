@@ -122,6 +122,8 @@ import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNaviga
 import { buildExerciseHistoryLookup } from './src/lib/workoutEditorTable';
 import { buildExercisePrLookup } from './src/lib/workoutCompletionSummary';
 import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
+import { resolveObservedRate } from './src/lib/strengthGoalPlan';
+import type { GoalFlowLift, GoalFlowProposal } from './src/screens/StrengthGoalFlowScreen';
 import { CoachChatMemory } from './src/lib/coachChatMemory';
 import type { ChatMessage } from './src/screens/AICoachChatScreen';
 import {
@@ -172,7 +174,7 @@ import {
 } from './src/lib/programCompletion';
 import { getTrendingEntries } from './src/lib/programTrendingDemo';
 import { backfillRecommendations } from './src/lib/recommendationBackfill';
-import { buildGoalPresetRows, STRENGTH_GOAL_PRESETS } from './src/lib/strengthGoalPresets';
+import { STRENGTH_GOAL_PRESETS } from './src/lib/strengthGoalPresets';
 import { describeGoalCoverage, GoalProgrammeSuggestionView, isSameLift, rankProgrammesForLift } from './src/lib/goalProgramme';
 import {
   addSeasonEnrolment,
@@ -182,7 +184,7 @@ import { exerciseNameLabel } from './src/lib/exerciseNameLabel';
 import { buildProgramFingerprint } from './src/lib/programFingerprint';
 import { resolveRecords } from './src/lib/personalRecords';
 import { getComparableLogSets } from './src/lib/exerciseLog';
-import { resolveGoalProgress } from './src/lib/strengthGoals';
+import { resolveGoalProgress, upsertStrengthGoal } from './src/lib/strengthGoals';
 import {
   countByCategory,
   filterByCategory,
@@ -4583,6 +4585,131 @@ function VinhaApp() {
   const libraryNames = useMemo(() => exerciseLibrary.map((item) => item.name), [exerciseLibrary]);
 
   /**
+   * The lifts the target flow can aim at, and what the log says about each.
+   *
+   * Everything in the browsable library, so a reader can target a lift they
+   * are about to start — but the ones they actually train carry a best and a
+   * rate, and the flow puts those first. `orderTargetLifts` does the ordering;
+   * this only measures.
+   */
+  const goalFlowLifts = useMemo<GoalFlowLift[]>(() => {
+    const now = Date.now();
+    const byName = new Map<string, GoalFlowLift>();
+    for (const item of exerciseBrowserItems) {
+      byName.set(item.name, {
+        exerciseName: item.name,
+        bestKg: null,
+        rate: null,
+        lastLoggedAt: null,
+        daysSinceLogged: null,
+      });
+    }
+    for (const history of proLiftHistories) {
+      /*
+       * Resolved to the LIBRARY's name, not the logged one.
+       *
+       * A log says "Barbell Bench Press" and the library says "Barbell Bench
+       * Press - Medium Grip". Keyed by the logged name, the same lift lands in
+       * this list twice — once with a best and once saying "never logged" —
+       * and the target the reader sets is keyed differently from the row the
+       * tab draws for it. That exact disagreement showed on the phone once
+       * already: the row read 70 kg of 200 while the picker behind it said not
+       * logged yet.
+       */
+      const libraryName =
+        exerciseBrowserItems.find((item) => isSameLift(history.name, item.name, libraryNames))?.name ??
+        history.name;
+      byName.set(libraryName, {
+        exerciseName: libraryName,
+        bestKg: history.bestWeightKg > 0 ? history.bestWeightKg : null,
+        rate: resolveObservedRate(history.points),
+        lastLoggedAt: history.latest.time,
+        daysSinceLogged: Math.max(0, Math.round((now - history.latest.time) / 86_400_000)),
+      });
+    }
+    return [...byName.values()];
+  }, [exerciseBrowserItems, libraryNames, proLiftHistories]);
+
+  /**
+   * The programme the flow would put the reader on, for one lift.
+   *
+   * A real catalog programme, ranked by how central the lift is in it and how
+   * well it fits the reader's week — not a generated one. The composer that
+   * writes weeks from scratch has invented exercise names in this app before,
+   * and a target's programme is the last place that should happen.
+   *
+   * PRIMARY only. A programme that touches the lift as an accessory is not a
+   * programme that goes where the target goes, and offering one would be the
+   * "any answer beats no answer" failure the goal coverage layer already
+   * refuses.
+   */
+  const getGoalProposal = useCallback(
+    (exerciseName: string): GoalFlowProposal | null => {
+      const ranked = rankProgrammesForLift(WORKOUT_TEMPLATES_V1, exerciseName, {
+        libraryNames,
+        reader: { level: preferences.setupLevel, daysPerWeek: preferences.setupDaysPerWeek },
+      });
+      const best = ranked.find((match) => match.primary);
+      const template = best ? getWorkoutTemplateById(best.id) : null;
+      if (!best || !template) {
+        return null;
+      }
+
+      const days = template.sessions.map((session) => ({
+        sessionId: session.id,
+        name: formatWorkoutDisplayLabel(session.name),
+        // The first three lifts, which is what the reader is deciding on. The
+        // screen joins nothing: a card that composes its own sentence is a
+        // card that can compose one the programme does not contain.
+        lead: session.exercises
+          .slice(0, 3)
+          .map(
+            (exercise) =>
+              `${exerciseNameLabel(preferences.appLanguage, exercise.exerciseName)} ${exercise.sets}×${exercise.repsMin}`,
+          )
+          .join(' · '),
+        trainsTarget: session.exercises.some((exercise) =>
+          isSameLift(exercise.exerciseName, exerciseName, libraryNames),
+        ),
+      }));
+
+      return {
+        templateId: template.id,
+        programmeName: getReadyTemplatePresentation(template, preferences.appLanguage).title,
+        daysPerWeek: template.daysPerWeek,
+        minutes: template.estimatedSessionDuration,
+        blockWeeks: getReadyProgramBlockWeeks(template),
+        days,
+        targetDays: days.filter((day) => day.trainsTarget).length,
+      };
+    },
+    [libraryNames, preferences.appLanguage, preferences.setupDaysPerWeek, preferences.setupLevel],
+  );
+
+  /**
+   * Accepting the proposal: the target is stored and the programme is taken on.
+   *
+   * Both, in that order, and the adoption is what the reader watches for — a
+   * target with no programme behind it was the thing feedback round 2 asked to
+   * end. Adoption owns the cap: full on the free tier routes to the paywall,
+   * full on Pro says so, and neither is this screen's business.
+   */
+  async function handleAcceptTargetProposal(input: {
+    exerciseName: string;
+    targetKg: number;
+    templateId: string;
+  }) {
+    await updatePreferences({
+      strengthGoals: upsertStrengthGoal(preferences.strengthGoals, {
+        exerciseName: input.exerciseName,
+        targetKg: input.targetKg,
+        createdAt: new Date().toISOString(),
+      }),
+    });
+    await handleAdoptReadyProgram(input.templateId, { lead: true });
+  }
+
+  /**
    * Goals with a bar that can move.
    *
    * Measured against the user's own best set for that lift — never an
@@ -4597,22 +4724,6 @@ function VinhaApp() {
         new Map(trackedProgress.map((summary) => [summary.name, summary.bestWeight])),
         // Same rule the coverage row uses, so "your program trains this" and
         // "you have lifted this" can never disagree about what the lift is.
-        (loggedName, liftName) => isSameLift(loggedName, liftName, libraryNames),
-      ),
-    [libraryNames, preferences.strengthGoals, trackedProgress],
-  );
-  /**
-   * The ready-made targets, with the reader's own bests folded in.
-   *
-   * Every preset is always offered — unlike the old sheet, which could only
-   * list lifts already logged and therefore showed nothing at all to the one
-   * person a first target would help.
-   */
-  const goalPresetRows = useMemo(
-    () =>
-      buildGoalPresetRows(
-        new Map(trackedProgress.map((summary) => [summary.name, summary.bestWeight ?? null])),
-        preferences.strengthGoals,
         (loggedName, liftName) => isSameLift(loggedName, liftName, libraryNames),
       ),
     [libraryNames, preferences.strengthGoals, trackedProgress],
@@ -5250,8 +5361,10 @@ function VinhaApp() {
       handleStartReadyProgram,
       handleOpenCustomProgramDetail,
       handleDuplicateCustomWorkout: handleDuplicateCustomProgram,
-      goalPresetRows,
       goalProgrammeSuggestions,
+      goalFlowLifts,
+      getGoalProposal,
+      handleAcceptTargetProposal,
       programSlots,
       setProgramLimitVisible,
       trackedProgress,
