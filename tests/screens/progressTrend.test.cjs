@@ -126,11 +126,72 @@ module.exports = [
       // Four selectors on the tab, one component: metric, trend range,
       // measure range, records kind.
       //
-      // Counted without a word boundary on purpose: a `` written through
+      // Counted without a word boundary on purpose: a `` written through
       // a heredoc arrives as a literal backspace, which made this read zero
       // and look like a real failure. Third time in one session.
       const usages = (screen.match(/<Seg/g) ?? []).length + (records.match(/<Seg/g) ?? []).length;
       assert.equal(usages, 4, `expected four Seg call sites on the tab, found ${usages}`);
+    },
+  },
+  {
+    /**
+     * Progress v2 · 03 — two empty states, one grammar.
+     *
+     * The brief's rule: "Empty is a dashed box with one mono line — never a
+     * full-height card holding the words 'No entries'." A card the size of the
+     * thing that is missing advertises the hole.
+     *
+     * The records card is the deliberate exception and keeps its shape: violet
+     * icon, and ONE action in the accent. It is the only empty state on the
+     * tab with something for the reader to do.
+     */
+    name: 'progress: an empty chart is a dashed box, and the records card keeps its one action',
+    run() {
+      const box = read('src', 'components', 'EmptyBox.tsx');
+      const records = read('src', 'screens', 'RecordsScreen.tsx');
+
+      // Dashed, transparent, and mono — the three things the rule is about.
+      //
+      // Read from the CutSurface call, not the file: /dashed/ file-wide is
+      // satisfied by the doc comment that explains the rule, so deleting the
+      // prop left the guard green. Same shape as the onDone(null) count and
+      // the /trending/i sweep — a guard its own explanation can pass.
+      const surface = box.slice(box.indexOf('<CutSurface'), box.indexOf('>', box.indexOf('<CutSurface')));
+      assert.ok(surface.length > 40, 'EmptyBox no longer draws a CutSurface');
+      // A line of its own, checked without a regex: writing one through a
+      // heredoc keeps turning its escapes into real characters.
+      assert.ok(
+        surface.split('\n').some((line) => line.trim() === 'dashed'),
+        'the empty box is not dashed any more',
+      );
+      assert.match(surface, /fill="transparent"/);
+      assert.match(box, /fontFamily: 'JetBrainsMono'/);
+
+      // Both chart empties go through it, and the loose Text they used to be
+      // is gone with its style.
+      assert.equal(
+        (screen.match(/<EmptyBox label=/g) ?? []).length,
+        2,
+        'a chart is drawing its own empty state again',
+      );
+      assert.doesNotMatch(screen, /measureChartEmpty/, 'the old centred grey line is back');
+
+      // The records card: violet ornament, accent action, and its ink paired
+      // with the fill rather than hardcoded white — theme.highlight is orange
+      // on the dark theme, where white is the weaker of the two.
+      assert.match(records, /stroke=\{theme\.purple\}/, 'the empty icon lost its violet');
+      assert.match(records, /<CutSurface size="lg" fill=\{theme\.highlight\} style=\{styles\.emptyCta\}>/);
+      // Scoped to the CTA's own style block. File-wide this caught the NEW
+      // tag, which is white on theme.purple and correct — the brief keeps it
+      // as "the violet tag the sheets already use".
+      const cta = records.slice(records.indexOf('  emptyCtaText: {'));
+      assert.match(cta.slice(0, 400), /color: theme\.onHighlight,/);
+      assert.doesNotMatch(cta.slice(0, 400), /color: '#FFFFFF'/, 'the CTA ink is hardcoded again');
+      assert.equal(
+        (records.match(/styles\.emptyCta[,\s\]}]/g) ?? []).length,
+        1,
+        'the empty records card grew a second action',
+      );
     },
   },
 ];

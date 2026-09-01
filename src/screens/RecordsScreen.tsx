@@ -234,7 +234,10 @@ export function RecordsList({
             onPress={onStartWorkout}
             style={({ pressed }) => [pressed && styles.pressed]}
           >
-            <CutSurface size="lg" fill={theme.purple} style={styles.emptyCta}>
+            {/* The one orange thing on the empty screen. The icon above stays
+                violet — the brief keeps the accent for the action and the
+                brand colour for the ornament. */}
+            <CutSurface size="lg" fill={theme.highlight} style={styles.emptyCta}>
               <Text style={styles.emptyCtaText}>{t(language, 'pr.empty.cta')}</Text>
             </CutSurface>
           </Pressable>
@@ -508,7 +511,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
   },
   emptyCtaText: {
-    color: '#FFFFFF',
+    // The ink the fill was paired with, not white. theme.highlight is orange
+    // on the dark theme, and white on that orange is the lower-contrast of
+    // the two — the same pairing the library's eye button already uses.
+    color: theme.onHighlight,
     fontSize: 14.5,
     lineHeight: 19,
     fontWeight: '800',

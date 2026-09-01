@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import Svg, { Circle, Path, Polyline, Rect } from 'react-native-svg';
 
 import { VinhaIcon } from '../components/VinhaIcon';
+import { EmptyBox } from '../components/EmptyBox';
 import { Seg } from '../components/Seg';
 import { SimpleLineChart } from '../components/SimpleLineChart';
 import { WeightTrendChart } from '../components/WeightTrendChart';
@@ -1326,7 +1327,7 @@ export function ProgressScreen({
             overviewWeightWindow.some((day) => day.value !== null) ? (
               <WeightTrendChart days={overviewWeightWindow} />
             ) : (
-              <Text style={styles.measureChartEmpty}>{overviewChart.emptyLabel}</Text>
+              <EmptyBox label={overviewChart.emptyLabel} />
             )
           ) : (
             <SimpleLineChart
@@ -1762,7 +1763,7 @@ export function ProgressScreen({
             {selectedMeasureWindow.some((day) => day.value !== null) ? (
               <WeightTrendChart days={selectedMeasureWindow} />
             ) : (
-              <Text style={styles.measureChartEmpty}>{t(language, 'progress.noEntriesRange')}</Text>
+              <EmptyBox label={t(language, 'progress.noEntriesRange')} />
             )}
             <View style={styles.trendRangeRow}>
               <Seg
@@ -2617,13 +2618,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '600',
     marginTop: 6,
-  },
-  measureChartEmpty: {
-    marginTop: 16,
-    textAlign: 'center',
-    fontSize: 13,
-    fontWeight: '600',
-    color: theme.faint,
   },
   measureHeadActions: {
     flexDirection: 'row',
