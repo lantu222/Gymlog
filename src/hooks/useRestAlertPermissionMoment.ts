@@ -35,7 +35,11 @@ export function useRestAlertPermissionMoment(input: {
   onGranted?: () => void;
 }) {
   const { restRunning, restKey, asked, alertsWanted, onAnswered, onGranted } = input;
-  const [permission, setPermission] = useState<RestAlertPermission>('undetermined');
+  // null until the OS has answered: the guided player can mount straight
+  // onto a running rest (Continue after leaving mid-rest), and asking before
+  // the answer is in showed the sheet for a permission that was never
+  // undetermined (PR review).
+  const [permission, setPermission] = useState<RestAlertPermission | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [deniedBannerShown, setDeniedBannerShown] = useState(false);
 
@@ -43,8 +47,9 @@ export function useRestAlertPermissionMoment(input: {
     void getRestAlertPermission().then(setPermission);
   }, []);
 
+  const resolved = permission !== null;
   useEffect(() => {
-    if (!restRunning || restKey === null) {
+    if (!resolved || !restRunning || restKey === null) {
       return;
     }
     if (permission === 'undetermined' && !asked) {
@@ -56,9 +61,10 @@ export function useRestAlertPermissionMoment(input: {
       // a timer that silently cannot fire.
       setDeniedBannerShown(true);
     }
-    // Once per rest START, on purpose.
+    // Once per rest START, on purpose — and once more for the rest that was
+    // already running when the OS answer arrived.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [restKey]);
+  }, [restKey, resolved]);
 
   const allow = async () => {
     setSheetOpen(false);
@@ -76,7 +82,7 @@ export function useRestAlertPermissionMoment(input: {
   };
 
   return {
-    permission,
+    permission: permission ?? 'undetermined',
     sheetOpen,
     allow,
     later,

@@ -1293,22 +1293,23 @@ export function GuidedPlayerScreen({
   /** The lift whose final set was just logged — a one-second check-splash
       before the next exercise's walk-up screen. Null = no splash showing. */
   const [doneSplashName, setDoneSplashName] = useState<string | null>(null);
-  const frozen = paused || howtoOpen || exitOpen || pauseSheetOpen || swapOpen || ownBlock !== null;
   // The permission moment (rule 05): at the first rest, in context, once.
   // The rest step's index is the rest's identity — a new rest is a new step.
+  // Paused or not does not matter here: a paused rest is still that rest.
+  // No grant handler of its own — the sheet freezes the step (below), and
+  // unfreezing re-runs the step effect, which mirrors the rest through the
+  // same switch as every other rest.
   const restAsk = useRestAlertPermissionMoment({
-    restRunning: mode === 'player' && !frozen && step.type === 'rest',
+    restRunning: mode === 'player' && step.type === 'rest',
     restKey: step.type === 'rest' ? stepIndex : null,
     asked: restAlerts.asked,
     alertsWanted: restAlerts.alerts,
     onAnswered: onRestAlertsAnswered,
-    onGranted: () => {
-      // The rest that prompted this is still running: hand it to the OS now.
-      if (stepRef.current?.type === 'rest' && endsAtRef.current !== null) {
-        void syncRestEndAlert(endsAtRef.current, exerciseNameLabel(language, getGuidedNextName(steps, stepIndex) ?? ''));
-      }
-    },
   });
+  // The permission sheet freezes the step like every other sheet: a short
+  // rest expiring behind the ask would walk the reader onto a set screen
+  // they did not come back for (PR review).
+  const frozen = paused || howtoOpen || exitOpen || pauseSheetOpen || swapOpen || ownBlock !== null || restAsk.sheetOpen;
   // Seconds since the reader said they would do it themselves. Derived from
   // the session clock's tick so it needs no timer of its own.
   const ownElapsedSeconds = ownBlock ? Math.max(0, Math.floor((clockNowMs - ownBlock.startedAt) / 1000)) : 0;

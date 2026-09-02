@@ -25,6 +25,13 @@ module.exports = [
         assert.match(src, /<RestAlertsSheet\s+visible=\{restAsk\.sheetOpen\}/, `${name} does not render the sheet from it`);
         assert.match(src, /onAnswered: onRestAlertsAnswered,/, `${name} does not report the answer`);
       }
+      // And the hook asks only once the OS answer is in: a screen that mounts
+      // onto a running rest must not show the sheet for a permission that was
+      // never undetermined.
+      const hook = read('src', 'hooks', 'useRestAlertPermissionMoment.ts');
+      assert.match(hook, /useState<RestAlertPermission \| null>\(null\)/);
+      assert.match(hook, /if \(!resolved \|\| !restRunning \|\| restKey === null\)/);
+      assert.match(hook, /\}, \[restKey, resolved\]\);/);
       // The empty workout no longer keeps its own copy of the moment.
       assert.doesNotMatch(empty, /const \[permissionSheetOpen|const allowAlerts = async/);
     },
@@ -37,7 +44,10 @@ module.exports = [
       // has just landed.
       assert.match(guided, /syncRestEndAlert\(restAlerts\.alerts \? endsAtMs : null, nextName\)/);
       const rawCalls = (guided.match(/syncRestEndAlert\(/g) ?? []).length;
-      assert.equal(rawCalls, 2, 'the raw sync is called from the wrapper and the grant handler only');
+      assert.equal(rawCalls, 1, 'the raw sync is called from the wrapper only');
+      // The sheet freezes the step, so a short rest cannot expire behind the
+      // ask; unfreezing re-runs the step effect, which mirrors the rest.
+      assert.match(guided, /const frozen = paused \|\| howtoOpen \|\| exitOpen \|\| pauseSheetOpen \|\| swapOpen \|\| ownBlock !== null \|\| restAsk\.sheetOpen;/);
       assert.match(guided, /restAlerts\?: \{ alerts: boolean; warning: boolean; ongoing: boolean; asked: boolean \};/);
     },
   },
