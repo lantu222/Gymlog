@@ -466,6 +466,13 @@ const TRAINING_DAY_COUNT_OPTIONS: SetupDaysPerWeek[] = [2, 3, 4, 5, 6];
  * preferences.trainingCycle, which overrides the weekday list everywhere a
  * calendar day is marked training or rest.
  */
+/**
+ * How far the location-stage top pane steps down from the safe-area edge:
+ * the back chevron's row (10 above, 40 tall) minus the pane's own top padding
+ * doing the rest. Measured from the same edge the chevron is placed from.
+ */
+const LOCATION_PANE_TOP_GAP = 48;
+
 const CYCLE_PRESET_OPTIONS = [
   { id: 'on1off1', on: 1, off: 1, labelKey: 'onb.days.cycle.on1off1' },
   { id: 'on2off1', on: 2, off: 1, labelKey: 'onb.days.cycle.on2off1' },
@@ -2803,11 +2810,27 @@ export function OnboardingScreen({
         {/* The bar rides the back chevron's row (user 2026-08-23): on a short
             phone the old bar-below-button layout pushed the last option card
             off screen, and a row that only holds a 40px circle has the width
-            for it. */}
-        <View pointerEvents="none" style={styles.locationProgressBarWrap}>
+            for it.
+
+            The chevron's row is measured from the SAFE-AREA edge — the button
+            sits at insets.top + 10 — while this shell starts at the very top
+            of the screen (the scroll content has no top padding on these
+            stages; a panel-coloured strip covers the status bar instead). Both
+            the bar and the pane below used to step down by fixed amounts from
+            the shell's top, so the bar sat under the status-bar strip and the
+            pane's "STEP 2 OF 6" landed exactly on the chevron ("step teksti
+            menee back napin taakse", user 2026-09-02). They step down from
+            the same edge the chevron does now. */}
+        <View pointerEvents="none" style={[styles.locationProgressBarWrap, { top: insets.top + 10 }]}>
           <StepDots index={stageIndex} />
         </View>
-        <View style={[styles.locationTopPane, { height: fixedTopPaneHeight }, topPaneStyle]}>
+        <View
+          style={[
+            styles.locationTopPane,
+            { height: fixedTopPaneHeight, marginTop: insets.top + LOCATION_PANE_TOP_GAP },
+            topPaneStyle,
+          ]}
+        >
           <View style={styles.locationTopSlope} />
           <View style={[styles.locationTopCopy, topCopyStyle]}>
             <Text style={[styles.locationStepLabel, stepLabelStyle]}>{stepLabel}</Text>
@@ -4374,12 +4397,11 @@ const makeOnboardingStyles = (C: OnbPalette) => StyleSheet.create({
     gap: spacing.xs,
     width: '100%',
   },
-  // Level with the back chevron: the shell starts at the safe-area edge, the
-  // chevron circle is 40 tall at top 10, and the bar centers on that height
-  // to the chevron's right.
+  // Level with the back chevron: the circle is 40 tall at insets.top + 10
+  // (set inline, with the inset), and the bar centers on that height to the
+  // chevron's right.
   locationProgressBarWrap: {
     position: 'absolute',
-    top: 10,
     left: 70,
     right: spacing.lg,
     height: 40,
@@ -4422,8 +4444,8 @@ const makeOnboardingStyles = (C: OnbPalette) => StyleSheet.create({
     // The back chevron sits in the corner above this pane (40 tall + its gap).
     // Every stage's bar and title used to start level with it once the footer
     // "Takaisin" link moved up there; the whole pane steps down instead, so no
-    // stage needs its own offset.
-    marginTop: 48,
+    // stage needs its own offset. The step-down is set inline — it has to
+    // include the safe-area inset the chevron is placed under.
     justifyContent: 'flex-end',
     paddingHorizontal: spacing.lg * 2,
     paddingTop: spacing.xl + spacing.sm,
