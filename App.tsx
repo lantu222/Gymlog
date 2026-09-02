@@ -5725,8 +5725,20 @@ function VinhaApp() {
           ? ['left', 'right', 'bottom']
           : welcomeActive || workoutSummaryActive || fullBleedReview !== null
             ? ['left', 'right']
-            : onboardingActive
-              ? ['top', 'left', 'right']
+            : onboardingScreenActive
+              ? // Every onboarding screen pads for the status bar itself — the
+                // path fork, About you, the ready catalog, the questionnaire
+                // and its back chevron all read insets.top. With the shell
+                // padding the top edge too, each of them sat one status bar
+                // too low, and the questionnaire's chevron (insets.top + 10
+                // inside a root already below the bar) landed on "STEP 2 OF
+                // 6" ("step teksti menee back napin taakse", user
+                // 2026-09-02). Same edges as Welcome, for the same reason.
+                //
+                // onboardingScreenActive, not onboardingActive: the same
+                // questionnaire is the plan editor under Profile, and it
+                // reads the inset there too (PR review).
+                ['left', 'right']
               : ['top', 'left', 'right', 'bottom']
       }
       // Only the gradient-hero screens want light icons; everything else takes

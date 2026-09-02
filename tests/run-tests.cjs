@@ -267,6 +267,7 @@ const suites = [
   ...require('./screens/cardioPlayer.test.cjs'),
   ...require('./screens/emptyWorkoutRestBar.test.cjs'),
   ...require('./screens/emptyWorkoutHeader.test.cjs'),
+  ...require('./screens/onboardingShellInsets.test.cjs'),
   ...require('./screens/onboardingVisualPolish.test.cjs'),
   ...require('./screens/headerBackReachable.test.cjs'),
   ...require('./lib/workoutDiscovery.test.cjs'),

@@ -466,6 +466,13 @@ const TRAINING_DAY_COUNT_OPTIONS: SetupDaysPerWeek[] = [2, 3, 4, 5, 6];
  * preferences.trainingCycle, which overrides the weekday list everywhere a
  * calendar day is marked training or rest.
  */
+/**
+ * How far the location-stage top pane steps down from the safe-area edge:
+ * the back chevron's row (10 above, 40 tall) minus the pane's own top padding
+ * doing the rest. Measured from the same edge the chevron is placed from.
+ */
+const LOCATION_PANE_TOP_GAP = 48;
+
 const CYCLE_PRESET_OPTIONS = [
   { id: 'on1off1', on: 1, off: 1, labelKey: 'onb.days.cycle.on1off1' },
   { id: 'on2off1', on: 2, off: 1, labelKey: 'onb.days.cycle.on2off1' },
@@ -490,6 +497,8 @@ function cycleDaysPerWeek(on: number, off: number): SetupDaysPerWeek {
  * has to agree with how many there are, and the render clamps to it.
  */
 const BUILDING_PLAN_PHASE_COUNT = [0, 1, 2, 3] as const;
+/** When each caption fades in, as a fraction of the screen's total time. */
+const BUILDING_PLAN_CAPTION_AT = [0.05, 0.28, 0.5, 0.72] as const;
 
 function getRecommendedDaysForLevel(level: SetupLevel): SetupDaysPerWeek {
   return level === 'beginner' ? 3 : level === 'pro' ? 5 : 4;
@@ -1594,7 +1603,15 @@ export function OnboardingScreen({
   const setupSeed =
     initialSelection ?? (basicsSeed ? { ...DEFAULT_FIRST_RUN_SELECTION, ...basicsSeed } : DEFAULT_FIRST_RUN_SELECTION);
   const editMode = mode === 'edit';
-  const BUILDING_PLAN_TOTAL_MS = 10000;
+  /**
+   * How long "Building your plan" is on screen. Choreography, not work: the
+   * plan is composed before the screen opens, and nothing here waits on it.
+   * Ten seconds (April) measured as the one slow moment in onboarding — both
+   * Done buttons are under a second — and the reader was watching a
+   * percentage for half of it. Four is long enough for the four captions
+   * to read as stages (user decision 2026-09-02).
+   */
+  const BUILDING_PLAN_TOTAL_MS = 4000;
   const previousUnitPreferenceRef = useRef(initialUnitPreference);
   const onboardingScrollRef = useRef<ScrollView | null>(null);
   const [stageIndex, setStageIndex] = useState(() =>
@@ -2211,10 +2228,12 @@ export function OnboardingScreen({
       }).start();
     };
 
-    timeouts.push(setTimeout(() => fadeCaption(0), 200));
-    timeouts.push(setTimeout(() => fadeCaption(1), 2800));
-    timeouts.push(setTimeout(() => fadeCaption(2), 5400));
-    timeouts.push(setTimeout(() => fadeCaption(3), 8000));
+    // The captions are fractions of the total, not fixed milliseconds — the
+    // old 200 / 2800 / 5400 / 8000 assumed ten seconds, and at four the last
+    // two would never have been shown.
+    BUILDING_PLAN_CAPTION_AT.forEach((fraction, index) => {
+      timeouts.push(setTimeout(() => fadeCaption(index), Math.round(BUILDING_PLAN_TOTAL_MS * fraction)));
+    });
 
     timeouts.push(
       setTimeout(() => {
@@ -2223,7 +2242,7 @@ export function OnboardingScreen({
         setBuildingPlanPhaseIndex(buildingPlanPhases.length - 1);
         setBuildingPlanPercent(100);
         setBuildingPlanComplete(true);
-      }, BUILDING_PLAN_TOTAL_MS - 1500),
+      }, BUILDING_PLAN_TOTAL_MS - 800),
     );
 
     timeouts.push(
@@ -2803,11 +2822,27 @@ export function OnboardingScreen({
         {/* The bar rides the back chevron's row (user 2026-08-23): on a short
             phone the old bar-below-button layout pushed the last option card
             off screen, and a row that only holds a 40px circle has the width
-            for it. */}
-        <View pointerEvents="none" style={styles.locationProgressBarWrap}>
+            for it.
+
+            The chevron's row is measured from the SAFE-AREA edge — the button
+            sits at insets.top + 10 — while this shell starts at the very top
+            of the screen (the scroll content has no top padding on these
+            stages; a panel-coloured strip covers the status bar instead). Both
+            the bar and the pane below used to step down by fixed amounts from
+            the shell's top, so the bar sat under the status-bar strip and the
+            pane's "STEP 2 OF 6" landed exactly on the chevron ("step teksti
+            menee back napin taakse", user 2026-09-02). They step down from
+            the same edge the chevron does now. */}
+        <View pointerEvents="none" style={[styles.locationProgressBarWrap, { top: insets.top + 10 }]}>
           <StepDots index={stageIndex} />
         </View>
-        <View style={[styles.locationTopPane, { height: fixedTopPaneHeight }, topPaneStyle]}>
+        <View
+          style={[
+            styles.locationTopPane,
+            { height: fixedTopPaneHeight, marginTop: insets.top + LOCATION_PANE_TOP_GAP },
+            topPaneStyle,
+          ]}
+        >
           <View style={styles.locationTopSlope} />
           <View style={[styles.locationTopCopy, topCopyStyle]}>
             <Text style={[styles.locationStepLabel, stepLabelStyle]}>{stepLabel}</Text>
@@ -4068,6 +4103,15 @@ export function OnboardingScreen({
     stage === 'avoid' ||
     stage === 'planning';
   const standaloneProgressHidden = locationStageActive || stage === 'review';
+  /**
+   * Where the panel-coloured strip covers the status bar. The shell no
+   * longer pads the top edge for onboarding (every screen here reads the
+   * inset itself), so anything that scrolls needs the strip or its content
+   * slides across the clock. The location stages always had it; the
+   * plan-ready DAY view scrolls its exercise list and did not (PR review).
+   * The overview is the catalog picker, which paints its own band.
+   */
+  const statusBarStripActive = locationStageActive || (stage === 'review' && planReadyView === 'day');
   const footerPrimaryLabel =
     stage === 'review' && busy
       ? t(language, 'onb.cta.saving')
@@ -4153,7 +4197,7 @@ export function OnboardingScreen({
 
   return (
     <View style={[styles.root, styles.rootLight]}>
-      {locationStageActive ? <View pointerEvents="none" style={[styles.locationTopSafeArea, { height: insets.top }]} /> : null}
+      {statusBarStripActive ? <View pointerEvents="none" style={[styles.locationTopSafeArea, { height: insets.top }]} /> : null}
       <OnboardingBackButton language={language} onPress={goBack} disabled={busy} />
       <ScrollView
         key={stage}
@@ -4374,12 +4418,11 @@ const makeOnboardingStyles = (C: OnbPalette) => StyleSheet.create({
     gap: spacing.xs,
     width: '100%',
   },
-  // Level with the back chevron: the shell starts at the safe-area edge, the
-  // chevron circle is 40 tall at top 10, and the bar centers on that height
-  // to the chevron's right.
+  // Level with the back chevron: the circle is 40 tall at insets.top + 10
+  // (set inline, with the inset), and the bar centers on that height to the
+  // chevron's right.
   locationProgressBarWrap: {
     position: 'absolute',
-    top: 10,
     left: 70,
     right: spacing.lg,
     height: 40,
@@ -4422,8 +4465,8 @@ const makeOnboardingStyles = (C: OnbPalette) => StyleSheet.create({
     // The back chevron sits in the corner above this pane (40 tall + its gap).
     // Every stage's bar and title used to start level with it once the footer
     // "Takaisin" link moved up there; the whole pane steps down instead, so no
-    // stage needs its own offset.
-    marginTop: 48,
+    // stage needs its own offset. The step-down is set inline — it has to
+    // include the safe-area inset the chevron is placed under.
     justifyContent: 'flex-end',
     paddingHorizontal: spacing.lg * 2,
     paddingTop: spacing.xl + spacing.sm,
