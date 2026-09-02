@@ -32,6 +32,8 @@ const BASE_PREFS = {
   comebackNudge: true,
   sessionReminders: true,
   reminderTime: '17:30',
+  measurementReminderKind: null,
+  measurementReminderDay: 'sun',
 };
 
 function planWith(overrides = {}) {
@@ -78,6 +80,65 @@ module.exports = [
         weighedTomorrow.every((item) => item.fireAtMs !== at(2026, 7, 2, 7, 30)),
         'the day with a weigh-in on it gets no nudge',
       );
+    },
+  },
+  {
+    name: 'notificationPlan: the weekly measurement is off until a kind is chosen, then one morning a week, and skips a day already measured',
+    run() {
+      // #bugs 2026-08-29: "kerran viikossa esim lantion mittaus tai sen mitä
+      // itse haluaa". Off by default — nothing to measure is nothing to say.
+      assert.equal(planWith().filter((item) => item.category === 'measure').length, 0);
+
+      // Hips, Sunday mornings, at the weigh-in hour. Now is Wednesday
+      // 2026-07-01, so the first is Sunday the 5th; four Sundays fit in the
+      // 28-day horizon (5, 12, 19, 26 July) and the 2nd of August does not.
+      const hips = planWith({
+        prefs: { measurementReminderKind: 'hips', measurementReminderDay: 'sun', level: 'motivating' },
+      }).filter((item) => item.category === 'measure');
+      assert.deepEqual(
+        hips.map((item) => item.fireAtMs),
+        [at(2026, 7, 5, 7, 30), at(2026, 7, 12, 7, 30), at(2026, 7, 19, 7, 30), at(2026, 7, 26, 7, 30)],
+      );
+      assert.equal(hips[0].title, 'Tape measure: Hips');
+      assert.match(hips[0].key, /^measure-hips-2026-7-5$/);
+
+      // Wednesday today, 07:30 already gone: next Wednesday, not this one.
+      const wednesdays = planWith({
+        prefs: { measurementReminderKind: 'waist', measurementReminderDay: 'wed' },
+      }).filter((item) => item.category === 'measure');
+      assert.equal(wednesdays[0].fireAtMs, at(2026, 7, 8, 7, 30));
+
+      // Measured that morning already — the reminder for a thing done is
+      // dropped, and the following week is untouched.
+      const measured = planWith({
+        prefs: { measurementReminderKind: 'hips', measurementReminderDay: 'sun' },
+        lastMeasurementAtMs: at(2026, 7, 5, 6, 50),
+      }).filter((item) => item.category === 'measure');
+      assert.deepEqual(
+        measured.map((item) => item.fireAtMs),
+        [at(2026, 7, 12, 7, 30), at(2026, 7, 19, 7, 30), at(2026, 7, 26, 7, 30)],
+      );
+
+      // On a quiet day the weekly measurement outranks the session reminder
+      // AND the daily weigh-in on the same minute: the rarest message keeps
+      // the slot. With the weigh-in ranked first, a reader who turned both on
+      // got the weigh-in every Sunday and the measurement never (PR review).
+      const quiet = planWith({
+        prefs: {
+          measurementReminderKind: 'hips',
+          measurementReminderDay: 'sun',
+          weighInReminder: true,
+          level: 'quiet',
+        },
+        trainingDays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
+      }).filter((item) => item.fireAtMs >= at(2026, 7, 5, 0, 0) && item.fireAtMs < at(2026, 7, 6, 0, 0));
+      assert.equal(quiet.length, 1);
+      assert.equal(quiet[0].category, 'measure');
+      // And the weigh-in still owns the other six mornings.
+      const saturday = planWith({
+        prefs: { measurementReminderKind: 'hips', measurementReminderDay: 'sun', weighInReminder: true, level: 'quiet' },
+      }).filter((item) => item.fireAtMs >= at(2026, 7, 4, 0, 0) && item.fireAtMs < at(2026, 7, 5, 0, 0));
+      assert.deepEqual(saturday.map((item) => item.category), ['weighIn']);
     },
   },
   {

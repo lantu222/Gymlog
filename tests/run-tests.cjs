@@ -110,6 +110,7 @@ const suites = [
   ...require('./lib/homeStatCards.test.cjs'),
   ...require('./lib/homeStatCardGroups.test.cjs'),
   ...require('./storage/measurementKinds.test.cjs'),
+  ...require('./lib/measurementReminder.test.cjs'),
   ...require('./lib/homePrompts.test.cjs'),
   ...require('./lib/homeCardSuggestions.test.cjs'),
   ...require('./lib/ratingPrompt.test.cjs'),

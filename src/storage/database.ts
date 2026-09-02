@@ -4,6 +4,8 @@ import { normalizeSeasonEnrolments } from '../lib/seasonEnrolment';
 import { normalizeStrengthGoals } from '../lib/strengthGoals';
 import { normalizeCancelSurveyAnswer } from '../lib/cancelSurvey';
 import { isMeasurementKind } from '../lib/measurementKinds';
+import { normalizeMeasurementReminder } from '../lib/measurementReminder';
+import type { NotificationPrefs } from '../types/models';
 import { normalizeDefaultRestSeconds } from '../lib/restPreference';
 import { isSubscriptionTermKey } from '../lib/subscriptionView';
 import { createEmptyDatabase } from '../data/seed';
@@ -261,6 +263,23 @@ function normalizeTrainingCycle(
     return null;
   }
   return { pattern, anchorDayStart: raw.anchorDayStart };
+}
+
+/**
+ * The weekly measurement reminder's two fields, through the one rule that
+ * Node can test (src/lib/measurementReminder.ts). Spread into the prefs
+ * literal so the field names are written exactly once.
+ */
+function measurementReminderPrefs(
+  stored: unknown,
+  fallback: Pick<NotificationPrefs, 'measurementReminderKind' | 'measurementReminderDay'>,
+): Pick<NotificationPrefs, 'measurementReminderKind' | 'measurementReminderDay'> {
+  const raw = stored as { measurementReminderKind?: unknown; measurementReminderDay?: unknown } | null | undefined;
+  const value = normalizeMeasurementReminder(raw?.measurementReminderKind, raw?.measurementReminderDay, {
+    kind: fallback.measurementReminderKind,
+    day: fallback.measurementReminderDay,
+  });
+  return { measurementReminderKind: value.kind, measurementReminderDay: value.day };
 }
 
 function boolOr(value: unknown, fallbackValue: boolean): boolean {
@@ -635,6 +654,7 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
           input?.preferences?.notificationPrefs?.weighInReminder,
           fallback.preferences.notificationPrefs.weighInReminder,
         ),
+        ...measurementReminderPrefs(input?.preferences?.notificationPrefs, fallback.preferences.notificationPrefs),
         restAlerts: boolOr(input?.preferences?.notificationPrefs?.restAlerts, fallback.preferences.notificationPrefs.restAlerts),
         restWarning: boolOr(input?.preferences?.notificationPrefs?.restWarning, fallback.preferences.notificationPrefs.restWarning),
         sessionOngoing: boolOr(input?.preferences?.notificationPrefs?.sessionOngoing, fallback.preferences.notificationPrefs.sessionOngoing),
