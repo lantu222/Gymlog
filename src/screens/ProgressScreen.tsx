@@ -1958,7 +1958,10 @@ export function ProgressScreen({
         {/* A3: the selector carries the cut, and so does the selected tab —
             the design's VALITSIN. The inner tab sits inside the shell's
             padding, so the two cuts are not in the same corner. */}
-        <CutSurface size="md" fill={theme.surfaceSoft} style={styles.tabsRow}>
+        {/* Outlined, and the idle glyphs in ink: on the light theme the bar
+            read as a pale band with icons the reader could not make out
+            (user 2026-09-02, device build). */}
+        <CutSurface size="md" fill={theme.surfaceSoft} stroke={theme.border} strokeWidth={1} style={styles.tabsRow}>
           {PROGRESS_SECTIONS.map((section) => {
             const active = section.key === progressSection;
             return (
@@ -1990,8 +1993,8 @@ export function ProgressScreen({
                     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
                       <Path
                         d={section.icon}
-                        stroke={theme.muted}
-                        strokeWidth={2}
+                        stroke={theme.ink}
+                        strokeWidth={2.1}
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       />

@@ -508,24 +508,9 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
       trackedProgress={trackedProgress}
       exerciseLibrary={exerciseLibrary}
       unitPreference={unitPreference}
-      planName={profilePlanSummary.name}
-      planDaysPerWeek={profilePlanSummary.daysPerWeek}
-      planCycleCaption={
-        preferences.trainingCycle
-          ? t(preferences.appLanguage, 'plan.rhythm.summary', {
-              on: preferences.trainingCycle.pattern.filter(Boolean).length,
-              off: preferences.trainingCycle.pattern.filter((day) => !day).length,
-              length: preferences.trainingCycle.pattern.length,
-            })
-          : null
-      }
-      planWeekdayIndexes={homeTrainingDayIndexes}
-      planExerciseCount={profilePlanSummary.exerciseCount}
-      planSessionNames={profilePlanSummary.sessionNames}
       onOpenSettings={() => navigate({ tab: 'profile', screen: 'settings' })}
       recordCount={distinctRecordCount}
       onOpenRecords={() => navigate({ tab: 'progress', screen: 'list', section: 'records' })}
-      onManagePlan={() => navigate({ tab: 'profile', screen: 'training_plan' })}
       onEditProfile={() => navigate({ tab: 'profile', screen: 'edit_profile' })}
       onOpenRating={() => setRatingSheetVisible(true)}
     />
