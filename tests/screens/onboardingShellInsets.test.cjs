@@ -51,6 +51,15 @@ module.exports = [
         screen.indexOf('},', screen.indexOf('  locationProgressBarWrap: {')),
       );
       assert.doesNotMatch(wrap, /\btop:/);
+
+      // With the shell not padding the top, whatever scrolls under the status
+      // bar needs the strip: the location stages, and the plan-ready day view
+      // (PR review — its exercise list slid across the clock).
+      assert.match(
+        screen,
+        /const statusBarStripActive = locationStageActive \|\| \(stage === 'review' && planReadyView === 'day'\);/,
+      );
+      assert.match(screen, /\{statusBarStripActive \? <View pointerEvents="none" style=\{\[styles\.locationTopSafeArea/);
     },
   },
   {
@@ -61,8 +70,11 @@ module.exports = [
         app.indexOf('}', app.indexOf("['top', 'left', 'right', 'bottom']")),
       );
       assert.ok(rule.length > 0, 'safeAreaEdges rule not found');
-      assert.match(rule, /onboardingActive\s*\?[\s\S]{0,900}\['left', 'right'\]\s*:\s*\['top', 'left', 'right', 'bottom'\]/);
+      // onboardingScreenActive: first run AND the plan editor under Profile,
+      // which is the same questionnaire reading the same inset.
+      assert.match(rule, /onboardingScreenActive\s*\?[\s\S]{0,1200}\['left', 'right'\]\s*:\s*\['top', 'left', 'right', 'bottom'\]/);
       assert.doesNotMatch(rule, /onboardingActive\s*\?\s*\['top'/);
+      assert.doesNotMatch(rule, /onboardingScreenActive\s*\?\s*\['top'/);
       // The guard is only right while the screens do read the inset.
       for (const rel of ['StartPathScreen', 'AboutYouScreen', 'OnboardingReadyCatalogScreen']) {
         const src = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'screens', `${rel}.tsx`), 'utf8');

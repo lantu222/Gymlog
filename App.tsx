@@ -5725,7 +5725,7 @@ function VinhaApp() {
           ? ['left', 'right', 'bottom']
           : welcomeActive || workoutSummaryActive || fullBleedReview !== null
             ? ['left', 'right']
-            : onboardingActive
+            : onboardingScreenActive
               ? // Every onboarding screen pads for the status bar itself — the
                 // path fork, About you, the ready catalog, the questionnaire
                 // and its back chevron all read insets.top. With the shell
@@ -5734,6 +5734,10 @@ function VinhaApp() {
                 // inside a root already below the bar) landed on "STEP 2 OF
                 // 6" ("step teksti menee back napin taakse", user
                 // 2026-09-02). Same edges as Welcome, for the same reason.
+                //
+                // onboardingScreenActive, not onboardingActive: the same
+                // questionnaire is the plan editor under Profile, and it
+                // reads the inset there too (PR review).
                 ['left', 'right']
               : ['top', 'left', 'right', 'bottom']
       }

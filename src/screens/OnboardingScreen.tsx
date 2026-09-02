@@ -4091,6 +4091,15 @@ export function OnboardingScreen({
     stage === 'avoid' ||
     stage === 'planning';
   const standaloneProgressHidden = locationStageActive || stage === 'review';
+  /**
+   * Where the panel-coloured strip covers the status bar. The shell no
+   * longer pads the top edge for onboarding (every screen here reads the
+   * inset itself), so anything that scrolls needs the strip or its content
+   * slides across the clock. The location stages always had it; the
+   * plan-ready DAY view scrolls its exercise list and did not (PR review).
+   * The overview is the catalog picker, which paints its own band.
+   */
+  const statusBarStripActive = locationStageActive || (stage === 'review' && planReadyView === 'day');
   const footerPrimaryLabel =
     stage === 'review' && busy
       ? t(language, 'onb.cta.saving')
@@ -4176,7 +4185,7 @@ export function OnboardingScreen({
 
   return (
     <View style={[styles.root, styles.rootLight]}>
-      {locationStageActive ? <View pointerEvents="none" style={[styles.locationTopSafeArea, { height: insets.top }]} /> : null}
+      {statusBarStripActive ? <View pointerEvents="none" style={[styles.locationTopSafeArea, { height: insets.top }]} /> : null}
       <OnboardingBackButton language={language} onPress={goBack} disabled={busy} />
       <ScrollView
         key={stage}
