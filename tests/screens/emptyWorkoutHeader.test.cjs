@@ -17,29 +17,40 @@ const screen = fs.readFileSync(
  * type-checked and rendered; only the geometry was off, and the geometry is
  * these three styles.
  */
+/**
+ * The text between two markers, and a failure when either is missing.
+ *
+ * `source.slice(indexOf(a), indexOf(b))` with a marker gone yields '' — and
+ * every doesNotMatch below passes on '' (PR #42 review). A guard whose
+ * anchors can vanish without it noticing is not guarding the anchors.
+ */
+function between(source, start, end) {
+  const from = source.indexOf(start);
+  assert.ok(from >= 0, `marker not found: ${start}`);
+  const to = source.indexOf(end, from + start.length);
+  assert.ok(to > from, `end marker not found after ${start}: ${end}`);
+  return source.slice(from, to);
+}
+
 module.exports = [
   {
     name: 'empty workout header: both sides share one flexible width and the centre only takes its own',
     run() {
-      const header = screen.slice(
-        screen.indexOf('<View style={styles.header}>'),
-        screen.indexOf('{/* stat strip */}'),
-      );
-      assert.ok(header.length > 0, 'header block not found');
+      const header = between(screen, '<View style={styles.header}>', '{/* stat strip */}');
 
       // Two side slots, one of them the end-aligned variant, around one centre.
       assert.equal((header.match(/styles\.headerSide\b/g) ?? []).length, 2, 'expected exactly two side slots');
       assert.match(header, /\[styles\.headerSide, styles\.headerSideEnd\]/);
       assert.equal((header.match(/styles\.headerCenter/g) ?? []).length, 1);
 
-      const styles = screen.slice(screen.indexOf('headerSide: {'), screen.indexOf('headerTitle: {'));
+      const styles = between(screen, 'headerSide: {', 'headerTitle: {');
       // Equal flexible sides: grow from a zero basis, so "Lopeta" being wider
       // than the chevron changes nothing about where the middle lands.
       assert.match(styles, /headerSide: \{[^}]*flexGrow: 1,[^}]*flexBasis: 0,/s);
       assert.match(styles, /headerSideEnd: \{[^}]*alignItems: 'flex-end',/s);
       // And the centre is NOT the flexible one — that is the exact shape that
       // shipped off-centre.
-      const centre = styles.slice(styles.indexOf('headerCenter: {'), styles.indexOf('}', styles.indexOf('headerCenter: {')));
+      const centre = between(styles, 'headerCenter: {', '}');
       assert.doesNotMatch(centre, /flex: 1|flexGrow/);
 
       // Android clips a Pressable's hitSlop to its parent. The slots stretch
@@ -51,8 +62,7 @@ module.exports = [
       assert.match(styles, /headerSideEnd: \{[^}]*paddingRight: 16,/s);
       // The block only, up to its closing brace: a comment after it that
       // mentions padding must not be what satisfies (or fails) this.
-      const rowStart = screen.indexOf('  header: {');
-      const row = screen.slice(rowStart, screen.indexOf('},', rowStart));
+      const row = between(screen, '  header: {', '},');
       assert.doesNotMatch(row, /padding/);
     },
   },
