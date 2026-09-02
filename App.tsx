@@ -48,7 +48,7 @@ import {
   refreshHomeWidget,
   requestPinHomeWidget,
 } from './modules/home-widget';
-import { buildHomeWidgetPayload, findHomeWidgetNextSession, HomeWidgetTarget } from './src/lib/widgetPayload';
+import { buildHomeWidgetPayload, HomeWidgetTarget, resolveHomeWidgetSessionTap } from './src/lib/widgetPayload';
 import { parseWidgetDeepLink } from './src/lib/widgetDeepLink';
 import { planSetupHandoff } from './src/lib/setupHandoff';
 import { SetupHandoffChoices, SetupHandoffScreen } from './src/screens/SetupHandoffScreen';
@@ -122,6 +122,8 @@ import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNaviga
 import { buildExerciseHistoryLookup } from './src/lib/workoutEditorTable';
 import { buildExercisePrLookup } from './src/lib/workoutCompletionSummary';
 import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
+import { resolveObservedRate } from './src/lib/strengthGoalPlan';
+import type { GoalFlowLift, GoalFlowProposal } from './src/screens/StrengthGoalFlowScreen';
 import { CoachChatMemory } from './src/lib/coachChatMemory';
 import type { ChatMessage } from './src/screens/AICoachChatScreen';
 import {
@@ -133,11 +135,9 @@ import { reorderProgramSessions } from './src/lib/programSessionOrder';
 import { ProgramLimitReachedError } from './src/lib/programSlots';
 import {
   ProgramSeason,
-  getSeasonForDate,
   getSeasonProgramTitleKey,
   getSeasonProgramId,
   getSeasonProgramIds,
-  orderSeasons,
 } from './src/lib/programSeasons';
 import {
   SEASON_COLORS,
@@ -151,7 +151,6 @@ import {
   seasonWeek,
   seasonWeeksLeft,
 } from './src/lib/season';
-import { buildProgramCampaigns } from './src/lib/programCampaigns';
 import { suggestHomeStatCardKeys } from './src/lib/homeCardSuggestions';
 import { isMeasurementCardKey } from './src/lib/homeStatCards';
 import { resolveNextPlanEntryIndex } from './src/lib/planRotation';
@@ -173,21 +172,18 @@ import {
   countSessionsSince,
   resolveCompletionCard,
 } from './src/lib/programCompletion';
-import { getTrendingEntries } from './src/lib/programTrendingDemo';
 import { backfillRecommendations } from './src/lib/recommendationBackfill';
-import { buildGoalPresetRows, STRENGTH_GOAL_PRESETS } from './src/lib/strengthGoalPresets';
+import { STRENGTH_GOAL_PRESETS } from './src/lib/strengthGoalPresets';
 import { describeGoalCoverage, GoalProgrammeSuggestionView, isSameLift, rankProgrammesForLift } from './src/lib/goalProgramme';
 import {
   addSeasonEnrolment,
-  daysUntil,
   isEnrolled,
-  isJoinWindowOpen,
 } from './src/lib/seasonEnrolment';
 import { exerciseNameLabel } from './src/lib/exerciseNameLabel';
 import { buildProgramFingerprint } from './src/lib/programFingerprint';
 import { resolveRecords } from './src/lib/personalRecords';
 import { getComparableLogSets } from './src/lib/exerciseLog';
-import { resolveGoalProgress } from './src/lib/strengthGoals';
+import { resolveGoalProgress, upsertStrengthGoal } from './src/lib/strengthGoals';
 import {
   countByCategory,
   filterByCategory,
@@ -247,6 +243,7 @@ import { ExportablePlan } from './src/screens/ExportPlanScreen';
 import { NewProgramSheet } from './src/components/NewProgramSheet';
 import { buildCoachContextChips } from './src/lib/coachChat';
 import { requestProgramTableFromImage } from './src/lib/aiCoachClient';
+import type { CatalogScreenItem } from './src/screens/CatalogScreen';
 import { ProgramsExploreItem } from './src/screens/ProgramsHomeScreen';
 import { WorkoutCompletionScreen } from './src/screens/WorkoutCompletionScreen';
 import { WorkoutCelebrationScreen } from './src/screens/WorkoutCelebrationScreen';
@@ -524,10 +521,13 @@ function VinhaApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workout.hydrated]);
 
-  const exerciseBrowserItems = useMemo(
-    () => exerciseLibrary.filter((item) => !item.id.startsWith('lib_')),
-    [exerciseLibrary],
-  );
+  // Every seeded row is browsable now that the legacy `lib_*` tier is gone
+  // (2026-09-01), so this no longer filters. The name stays: ten call sites
+  // read it, and "the library the reader can open" is still what they mean.
+  // What keeps it true is a guard on the seed, not a filter here — a filter
+  // hides a bad row, and hiding is how the two sets drifted apart in the first
+  // place.
+  const exerciseBrowserItems = exerciseLibrary;
   const summaryExitRouteRef = useRef<AppRoute | null>(null);
   const summaryNavigationPendingRef = useRef(false);
   const workoutLogNavigationAllowedAtRef = useRef<number | null>(null);
@@ -1501,10 +1501,21 @@ function VinhaApp() {
    * Before this existed, `activePlanId` was written by the two onboarding
    * finishes and nowhere else, so a season could be opened but never joined.
    */
-  async function handleAdoptReadyProgram(workoutTemplateId: string, options?: { lead?: boolean }) {
+  /**
+   * Returns whether the programme is running when this resolves.
+   *
+   * The target flow is the caller that needs to know: it stores a target only
+   * if the programme behind it actually landed, and the cap can refuse. Every
+   * other caller ignores the value, which is why this can be added without
+   * touching them.
+   */
+  async function handleAdoptReadyProgram(
+    workoutTemplateId: string,
+    options?: { lead?: boolean },
+  ): Promise<boolean> {
     const template = getWorkoutTemplateById(workoutTemplateId);
     if (!template) {
-      return;
+      return false;
     }
     trackEvent('plan_adopted');
 
@@ -1517,7 +1528,8 @@ function VinhaApp() {
       if (options?.lead) {
         await promoteHeldProgramToLead(workoutTemplateId);
       }
-      return;
+      // Already held is already running, which is what the caller asked for.
+      return true;
     }
 
     const planId = buildReadyProgramPlanId(workoutTemplateId);
@@ -1528,7 +1540,7 @@ function VinhaApp() {
     });
 
     if (decision.kind === 'already_active') {
-      return;
+      return true;
     }
 
     if (decision.kind === 'blocked') {
@@ -1536,10 +1548,10 @@ function VinhaApp() {
       // paying reader to the paywall would be selling them what they own.
       if (decision.canUpgrade) {
         navigate({ tab: 'profile', screen: 'premium', reason: 'program_cap' });
-        return;
+        return false;
       }
       showToast(t(preferences.appLanguage, 'programs.cap.full', { cap: decision.cap }));
-      return;
+      return false;
     }
 
     // The programme's own week leads. This read availability alone and fell
@@ -1571,6 +1583,7 @@ function VinhaApp() {
       // explicitly choosing a new lead, so the completion flow passes `lead`.
       activePlanId: options?.lead ? plan.id : preferences.activePlanId ?? plan.id,
     });
+    return true;
   }
 
   /**
@@ -2918,10 +2931,7 @@ function VinhaApp() {
       }),
     [database.exerciseLogs, database.exerciseTemplates, database.workoutSessions, exerciseLibrary],
   );
-  const recentExerciseBrowserItems = useMemo(
-    () => recentExerciseLibraryItems.filter((item) => !item.id.startsWith('lib_')),
-    [recentExerciseLibraryItems],
-  );
+  const recentExerciseBrowserItems = recentExerciseLibraryItems;
   const editorExerciseHistoryLookup = useMemo(
     () =>
       buildExerciseHistoryLookup({
@@ -3915,15 +3925,25 @@ function VinhaApp() {
       return;
     }
 
-    const next = findHomeWidgetNextSession({
+    const tap = resolveHomeWidgetSessionTap({
+      hasActiveSession: workout.activeSession !== null,
+      hasActivePlan: homeActivePlanCard !== null,
       nowMs: Date.now(),
       schedule: homeTrainingSchedule,
       sessions: homeActivePlanCard?.sessions ?? [],
       completedWorkoutDayStarts: widgetCompletedWorkoutDayStarts,
     });
+
+    // A running workout wins. The tile means "my training", and a reader who
+    // stepped out to Home mid-set is asking for the set back, not for the
+    // schedule to be looked up again (device report 2026-09-01).
+    if (tap.kind === 'resume') {
+      navigateToActiveWorkout({ resume: true });
+      return;
+    }
     // No session to open any more — the plan changed while the widget was
     // showing the old one. Home is the honest landing, not an empty screen.
-    if (!next || !homeActivePlanCard) {
+    if (tap.kind === 'home' || !homeActivePlanCard) {
       resetToRoute(ROOT_ROUTES.home);
       return;
     }
@@ -3932,7 +3952,7 @@ function VinhaApp() {
       screen: 'programDay',
       programType: homeActivePlanCard.programType,
       workoutTemplateId: homeActivePlanCard.programId,
-      sessionId: next.session.id,
+      sessionId: tap.next.session.id,
     });
   }, [
     appHydrated,
@@ -4315,40 +4335,6 @@ function VinhaApp() {
   );
   const dismissedTipIds = preferences.dismissedTipIds ?? [];
   /**
-   * The season rows.
-   *
-   * Same card shape as Explore, so a program looks the same wherever it is
-   * met — and built from the same templates rather than a parallel list, so a
-   * season cannot drift into offering something the catalog no longer has.
-   *
-   * Free, like every ready program. Seasonal content is the reason to open
-   * this app in November; a paywalled reason to come back brings nobody back.
-   */
-  const programsSeasonRows = useMemo(
-    () => {
-      const byId = new Map(workout.templates.map((template) => [template.id, template]));
-      return orderSeasons().map((season) => ({
-        season,
-        items: getSeasonProgramIds(season)
-          .map((id) => byId.get(id))
-          .filter((template): template is NonNullable<typeof template> => Boolean(template))
-          .map((template, index) => ({
-            id: template.id,
-            name: formatWorkoutDisplayLabel(template.name),
-            goal: formatGoalLabel(template.goalType, preferences.appLanguage),
-            blurb: getReadyProgramContent(template.id, preferences.appLanguage)?.summary ?? '',
-            days: template.daysPerWeek,
-            minutes: template.estimatedSessionDuration,
-            cover: programCoverStyle(template.id, template.name),
-            fingerprint: buildProgramFingerprint(template),
-            level: template.level,
-            weeks: getReadyProgramBlockWeeks(template),
-          })),
-      }));
-    },
-    [preferences.appLanguage, workout.templates],
-  );
-  /**
    * The full catalog as browse cards, plus the counts each category tile
    * shows.
    *
@@ -4377,6 +4363,28 @@ function VinhaApp() {
     () => countByCategory(workout.templates),
     [workout.templates],
   );
+  /**
+   * The catalog screen's rows: the explore items plus every category each
+   * programme belongs to, because the goal chips narrow on that and a
+   * programme in two categories has to be findable under both.
+   */
+  const catalogScreenItems = useMemo<CatalogScreenItem[]>(() => {
+    const memberships = new Map<string, ProgramCategoryKey[]>();
+    for (const category of PROGRAM_CATEGORIES) {
+      for (const template of filterByCategory(workout.templates, category.key)) {
+        const keys = memberships.get(template.id);
+        if (keys) {
+          keys.push(category.key);
+        } else {
+          memberships.set(template.id, [category.key]);
+        }
+      }
+    }
+    return programsCatalogItems.map((item) => ({
+      ...item,
+      categories: memberships.get(item.id) ?? [],
+    }));
+  }, [programsCatalogItems, workout.templates]);
   const programsCategoryMembers = useMemo(
     () =>
       Object.fromEntries(
@@ -4386,42 +4394,6 @@ function VinhaApp() {
         ]),
       ) as Record<ProgramCategoryKey, string[]>,
     [workout.templates],
-  );
-  /**
-   * Trending: demo only, and null the moment the build stops being one.
-   *
-   * The row is here so the layout can be judged. The numbers are invented,
-   * and getTrendingEntries returns null in a release build rather than
-   * falling back to something — there is no honest fallback for social proof
-   * on a device that only knows what one person did.
-   */
-  const programsTrendingItems = useMemo(
-    () => {
-      const entries = getTrendingEntries();
-      if (!entries) {
-        return null;
-      }
-      const byId = new Map(workout.templates.map((template) => [template.id, template]));
-      return entries
-        .map((entry) => {
-          const template = byId.get(entry.templateId);
-          return template
-            ? {
-                id: template.id,
-                name: formatWorkoutDisplayLabel(template.name),
-                weeks: getReadyProgramBlockWeeks(template),
-                starts: entry.starts.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' '),
-              }
-            : null;
-        })
-        .filter((item): item is NonNullable<typeof item> => Boolean(item));
-    },
-    // The language arrives with the hydrated database, AFTER the first
-    // render. Without it in the deps this memo keeps the English blurbs it
-    // computed against the seed default — which is exactly what shipped:
-    // the season rows read Finnish and this rail read English, from the
-    // same dictionary.
-    [preferences.appLanguage, workout.templates],
   );
   /**
    * "For you" — the programs the recommendation engine actually picked, each
@@ -4570,67 +4542,6 @@ function VinhaApp() {
     [],
   );
   /**
-   * The two seasons the row shows: the one running and the one after it.
-   *
-   * Four tiles over two blocks treated a season as a filter. It is a dated
-   * commitment — it opens, runs 26 weeks and closes — so the card carries the
-   * dates and the countdown rather than a month range and a count.
-   */
-  const programsSeasonCards = useMemo(
-    () => {
-      const now = new Date();
-      const current = resolveSeasonWindow(now);
-      const next = nextSeasonWindow(now);
-      const label = (date: Date) =>
-        preferences.appLanguage === 'fi'
-          ? `${date.getDate()}.${date.getMonth() + 1}.`
-          : `${date.getDate()}/${date.getMonth() + 1}`;
-      const build = (window: typeof current, isCurrent: boolean) => ({
-        season: window.season,
-        labelKey: (window.season === 'winter' ? 'season.winter' : 'season.summer') as I18nKey,
-        year: window.year,
-        // These tiles sit under a year heading, so the range only spells a year
-        // out when the season crosses into the next one.
-        rangeLabel: formatSeasonDateRange(window, preferences.appLanguage, 'whenSpanning'),
-        startLabel: label(window.start),
-        weeksLeft: isCurrent ? seasonWeeksLeft(window, now) : SEASON_WEEKS,
-        progress: isCurrent ? seasonProgressRatio(window, now) : 0,
-        daysUntilStart: isCurrent
-          ? 0
-          : Math.max(0, Math.ceil((window.start.getTime() - now.getTime()) / 86_400_000)),
-        // The card names the season's ONE program rather than counting ten.
-        // A count was the right label when a season was a filter; it is the
-        // wrong one now that the season is a thing you join.
-        programName: (() => {
-          const templateId = getSeasonProgramId(window.season);
-          // The name the season's programme goes by, not its catalogue id:
-          // this card said "RUN" under a card headed "Kesäkausi", while the
-          // season screen one tap away called the same programme "Kesäkunto".
-          const titleKey = getSeasonProgramTitleKey(templateId);
-          if (titleKey) {
-            return t(preferences.appLanguage, titleKey);
-          }
-          const template = workout.templates.find((entry) => entry.id === templateId);
-          return template ? formatWorkoutDisplayLabel(template.name) : '';
-        })(),
-        programDays: workout.templates.find((entry) => entry.id === getSeasonProgramId(window.season))?.daysPerWeek ?? 0,
-        current: isCurrent,
-        enrolled: isEnrolled(preferences.seasonEnrolments, window.season, window.year),
-        gradient: SEASON_COLORS[window.season],
-      });
-      // The running season, and the next one only once sign-ups are open. A
-      // card counting down 148 days is a date nobody can act on, and when a
-      // season closes the calendar has already moved the other one into
-      // `current` — so the row swaps over on its own, both here and on Home.
-      const cards = [build(current, true)];
-      if (isJoinWindowOpen(daysUntil(next.start, now))) {
-        cards.push(build(next, false));
-      }
-      return cards;
-    },
-    [preferences.appLanguage, preferences.seasonEnrolments, workout.templates],
-  );
-  /**
    * The strip under "Aloita treeni".
    *
    * Every input is read from state that is true right now: the season window
@@ -4657,17 +4568,171 @@ function VinhaApp() {
     [preferences.seasonEnrolments, updatePreferences],
   );
 
-  const programsCampaigns = useMemo(
-    () =>
-      buildProgramCampaigns({
-        season: getSeasonForDate(),
-        seasonWeeks: SEASON_WEEKS,
-        strengthCount: programsCategoryCounts.strength ?? 0,
-        exerciseCount: exerciseBrowserItems.length,
-      }),
-    [exerciseBrowserItems.length, programsCategoryCounts, programsSeasonTileCounts],
-  );
   const libraryNames = useMemo(() => exerciseLibrary.map((item) => item.name), [exerciseLibrary]);
+
+  /**
+   * The lifts the target flow can aim at, and what the log says about each.
+   *
+   * The named eight, not the library. Nobody says "I want to cable-crossover
+   * 30 kg" — see STRENGTH_GOAL_PRESETS for the list and why sumo is not on it.
+   * Offering all 876 also broke the promise behind every target: step 3 shows
+   * the programme that trains the lift, and for most of the library there is
+   * none.
+   *
+   * The log is read through `isSameLift`, not by name, so a "Barbell Bench
+   * Press" in the log finds the row for "Barbell Bench Press - Medium Grip".
+   * Matching on the name is how the target row once read 70 kg of 200 while
+   * the picker behind it said "not logged yet" for the same lift.
+   */
+  const goalFlowLifts = useMemo<GoalFlowLift[]>(() => {
+    const now = Date.now();
+    return STRENGTH_GOAL_PRESETS.map((preset) => {
+      // The target already set for this lift, so the flow can say so instead
+      // of replacing it in silence.
+      const targetKg =
+        preferences.strengthGoals.find((goal) =>
+          isSameLift(goal.exerciseName, preset.exerciseName, libraryNames),
+        )?.targetKg ?? null;
+      const history = proLiftHistories.find((entry) =>
+        isSameLift(entry.name, preset.exerciseName, libraryNames),
+      );
+      if (!history || !(history.bestWeightKg > 0)) {
+        return {
+          exerciseName: preset.exerciseName,
+          targetKg,
+          bestKg: null,
+          rate: null,
+          lastLoggedAt: null,
+          daysSinceLogged: null,
+        };
+      }
+      return {
+        exerciseName: preset.exerciseName,
+        targetKg,
+        bestKg: history.bestWeightKg,
+        rate: resolveObservedRate(history.points),
+        lastLoggedAt: history.latest.time,
+        daysSinceLogged: Math.max(0, Math.round((now - history.latest.time) / 86_400_000)),
+      };
+    });
+  }, [libraryNames, preferences.strengthGoals, proLiftHistories]);
+
+  /**
+   * The programme the flow would put the reader on, for one lift.
+   *
+   * A real catalog programme, ranked by how central the lift is in it and how
+   * well it fits the reader's week — not a generated one. The composer that
+   * writes weeks from scratch has invented exercise names in this app before,
+   * and a target's programme is the last place that should happen.
+   *
+   * PRIMARY only. A programme that touches the lift as an accessory is not a
+   * programme that goes where the target goes, and offering one would be the
+   * "any answer beats no answer" failure the goal coverage layer already
+   * refuses.
+   */
+  const getGoalProposal = useCallback(
+    (exerciseName: string): GoalFlowProposal | null => {
+      const ranked = rankProgrammesForLift(WORKOUT_TEMPLATES_V1, exerciseName, {
+        libraryNames,
+        reader: { level: preferences.setupLevel, daysPerWeek: preferences.setupDaysPerWeek },
+      });
+      /*
+       * A strength target wants a strength programme.
+       *
+       * rankProgrammesForLift orders by how central the lift is and then by
+       * how well the week fits the reader — which it should, it serves the
+       * browse surfaces too. It knows nothing about goalType, so "squat 140
+       * kg" came back as SHRED Elite: a five-day conditioning block that
+       * happens to squat on day one and happens to match a five-day reader.
+       * Six programmes were tied at one squat day and the fat-loss one won on
+       * calendar fit alone.
+       *
+       * Among the primary matches, the ones built for strength go first. Order
+       * within each group is the ranker's, so the reader's week still decides
+       * between two strength programmes.
+       */
+      const primary = ranked.filter((match) => match.primary);
+      const best =
+        primary.find((match) => getWorkoutTemplateById(match.id)?.goalType === 'strength') ??
+        primary[0];
+      const template = best ? getWorkoutTemplateById(best.id) : null;
+      if (!best || !template) {
+        return null;
+      }
+
+      const days = template.sessions.map((session) => ({
+        sessionId: session.id,
+        name: formatWorkoutDisplayLabel(session.name),
+        // The first three lifts, which is what the reader is deciding on. The
+        // screen joins nothing: a card that composes its own sentence is a
+        // card that can compose one the programme does not contain.
+        lead: session.exercises
+          .slice(0, 3)
+          .map(
+            (exercise) =>
+              `${exerciseNameLabel(preferences.appLanguage, exercise.exerciseName)} ${exercise.sets}×${exercise.repsMin}`,
+          )
+          .join(' · '),
+        trainsTarget: session.exercises.some((exercise) =>
+          isSameLift(exercise.exerciseName, exerciseName, libraryNames),
+        ),
+      }));
+
+      return {
+        templateId: template.id,
+        programmeName: getReadyTemplatePresentation(template, preferences.appLanguage).title,
+        daysPerWeek: template.daysPerWeek,
+        minutes: template.estimatedSessionDuration,
+        blockWeeks: getReadyProgramBlockWeeks(template),
+        days,
+        targetDays: days.filter((day) => day.trainsTarget).length,
+      };
+    },
+    [libraryNames, preferences.appLanguage, preferences.setupDaysPerWeek, preferences.setupLevel],
+  );
+
+  /**
+   * Accepting the proposal: the target is stored and the programme is taken on.
+   *
+   * Both, in that order, and the adoption is what the reader watches for — a
+   * target with no programme behind it was the thing feedback round 2 asked to
+   * end. Adoption owns the cap: full on the free tier routes to the paywall,
+   * full on Pro says so, and neither is this screen's business.
+   */
+  async function handleAcceptTargetProposal(input: {
+    exerciseName: string;
+    targetKg: number;
+    templateId: string;
+  }) {
+    // The programme FIRST, and the target only if it landed.
+    //
+    // Stored first, a refused adoption left the reader with exactly the thing
+    // this flow exists to end: a target and nothing going towards it. The cap
+    // refuses for real — three programmes on the free tier sends them to the
+    // paywall — and that is not a moment to have quietly written a goal.
+    const adopted = await handleAdoptReadyProgram(input.templateId, { lead: true });
+    if (!adopted) {
+      return;
+    }
+    await updatePreferences({
+      strengthGoals: upsertStrengthGoal(preferences.strengthGoals, {
+        exerciseName: input.exerciseName,
+        targetKg: input.targetKg,
+        createdAt: new Date().toISOString(),
+      }),
+    });
+
+    // And say so. Both writes have resolved by here — the programme, then the
+    // target — which is the order CLAUDE.md asks for: a success state follows
+    // the write, never precedes it.
+    //
+    // Without this the tap did all its work in silence. The screen kept the
+    // same three steps with the same numbers in them, nothing navigated, and
+    // 'goalFlow.created' sat translated in both dictionaries with no reader.
+    // The copy names where the programme went, so the reader is sent there.
+    showToast(t(preferences.appLanguage, 'goalFlow.created'));
+    navigate({ tab: 'workout', screen: 'programs_home' });
+  }
 
   /**
    * Goals with a bar that can move.
@@ -4684,22 +4749,6 @@ function VinhaApp() {
         new Map(trackedProgress.map((summary) => [summary.name, summary.bestWeight])),
         // Same rule the coverage row uses, so "your program trains this" and
         // "you have lifted this" can never disagree about what the lift is.
-        (loggedName, liftName) => isSameLift(loggedName, liftName, libraryNames),
-      ),
-    [libraryNames, preferences.strengthGoals, trackedProgress],
-  );
-  /**
-   * The ready-made targets, with the reader's own bests folded in.
-   *
-   * Every preset is always offered — unlike the old sheet, which could only
-   * list lifts already logged and therefore showed nothing at all to the one
-   * person a first target would help.
-   */
-  const goalPresetRows = useMemo(
-    () =>
-      buildGoalPresetRows(
-        new Map(trackedProgress.map((summary) => [summary.name, summary.bestWeight ?? null])),
-        preferences.strengthGoals,
         (loggedName, liftName) => isSameLift(loggedName, liftName, libraryNames),
       ),
     [libraryNames, preferences.strengthGoals, trackedProgress],
@@ -4811,9 +4860,21 @@ function VinhaApp() {
     // a ready programme rather than one you wrote: onboarding's second button
     // adopts the catalog programme without authoring anything, so the reader
     // trained a programme that appeared nowhere under "your programmes".
+    // Active first, whether it was authored or adopted (user, 2026-09-01).
+    // An authored programme kept its authoring position, so the one you are
+    // training could sit third under two you are not — and ACTIVE is a tag you
+    // have to read the list to find rather than a place in it.
+    //
+    // Stable beyond that: the rest keep the order they were written in, so
+    // nothing else moves under the reader.
+    const leadFirst = <T extends { active: boolean }>(rows: T[]): T[] => [
+      ...rows.filter((row) => row.active),
+      ...rows.filter((row) => !row.active),
+    ];
+
     const activeIsAuthored = authored.some((item) => item.active);
     if (!homeActivePlanCard || activeIsAuthored) {
-      return authored;
+      return leadFirst(authored);
     }
     return [
       {
@@ -4833,22 +4894,13 @@ function VinhaApp() {
     }
 
     if (!route.workoutTemplateId) {
-      const prefillExercise = route.prefillExerciseLibraryId
-        ? exerciseBrowserItems.find((item) => item.id === route.prefillExerciseLibraryId) ?? null
-        : null;
-      const prefillExercises: ExerciseTemplateDraft[] = prefillExercise
-        ? [
-            {
-              name: prefillExercise.name,
-              libraryItemId: prefillExercise.id,
-              ...getExerciseTemplateDefaults(prefillExercise, preferences.defaultRestSeconds),
-            },
-          ]
-        : [];
-
+      // The editor could open pre-loaded with one exercise, from the library
+      // card's "add to workout". That door closed in #38 and nothing has set
+      // prefillExerciseLibraryId since, so the branch built an empty array by
+      // a longer route.
       return {
         name: route.prefillName ?? '',
-        sessions: [{ name: 'Session 1', exercises: prefillExercises }],
+        sessions: [{ name: 'Session 1', exercises: [] }],
       };
     }
 
@@ -5337,21 +5389,21 @@ function VinhaApp() {
       handleStartReadyProgram,
       handleOpenCustomProgramDetail,
       handleDuplicateCustomWorkout: handleDuplicateCustomProgram,
-      goalPresetRows,
       goalProgrammeSuggestions,
+      goalFlowLifts,
+      getGoalProposal,
+      handleAcceptTargetProposal,
       programSlots,
       setProgramLimitVisible,
       trackedProgress,
       workoutSessions,
       handleEnrolSeason,
-      programsSeasonRows,
       programsCatalogItems,
+      catalogScreenItems,
+      proUnlocked: proEntitlement.unlocked,
       programsCategoryCounts,
       programsCategoryMembers,
-      programsTrendingItems,
       programsRecommendations,
-      programsCampaigns,
-      programsSeasonCards,
       programsGoals,
       programsCustomItems,
       exerciseNameBook,
@@ -5369,6 +5421,7 @@ function VinhaApp() {
       personalRecords,
       distinctRecordCount,
       recordSources,
+      targetLifts: goalFlowLifts,
       trackedProgress,
       bodyweightProgress,
       measurementEntries,
@@ -5393,6 +5446,8 @@ function VinhaApp() {
     // sees it. Branch order inside the module mirrors the old chain exactly.
     content = renderProfileTab({
       route,
+      readyProgramCount: workout.templates.length,
+      proUnlocked: proEntitlement.unlocked,
       navigate,
       navigateBack,
       resetToRoute,
@@ -5802,10 +5857,11 @@ function VinhaApp() {
           teachExerciseName(wrote, { name: exercise.name, libraryItemId: exercise.id })
         }
         onClose={() => setSettingsImportVisible(false)}
-        // The chat, for everyone. The composer screen it used to open is gone,
-        // and the Pro gate moved onto the act of composing — sending a free
-        // reader to a paywall instead of to a chat they can use would have been
-        // gating the wrong thing.
+        // Settings' CSV sheet opens straight on the paste box, so this row is
+        // never drawn from here and the Pro lock the Programs tab passes does
+        // not apply. The lock itself was decided on 2026-09-01, reversing the
+        // earlier "the chat, for everyone" call: the gate had moved onto the
+        // act of composing, and the row went to the chat for anyone.
         onAiAssisted={() =>
           navigate({ tab: 'home', screen: 'ai_chat' })
         }

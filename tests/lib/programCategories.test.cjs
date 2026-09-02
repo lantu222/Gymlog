@@ -153,10 +153,13 @@ module.exports = [
       for (const key of ['programs.browse.lead', 'programs.forYou.lead', 'programs.season.winterLead']) {
         assert.doesNotMatch(i18n, new RegExp(`'${key.replace(/\./g, '\.')}':`), `${key} came back`);
       }
+      // Zero now, not one. The last of them was the targets empty state, which
+      // became a card with a title and a button on 2026-09-01 — a sentence
+      // under a heading read as a caption rather than as something to do.
       assert.equal(
         (screen.match(/styles\.seasonLead/g) ?? []).length,
-        1,
-        'the only body sentence left is the empty state for targets',
+        0,
+        'lead copy is back on this page',
       );
       assert.match(i18n, /'aiInfo\.never\.2': 'Never to pick your programme/);
     },

@@ -3,7 +3,6 @@ const assert = require('node:assert/strict');
 const { isSameLiftByGroup, liftGroupOf, bestForLift } = require('../../.test-dist/lib/liftIdentity.js');
 const { isSameLift, rankProgrammesForLift } = require('../../.test-dist/lib/goalProgramme.js');
 const { resolveGoalProgress } = require('../../.test-dist/lib/strengthGoals.js');
-const { buildGoalPresetRows } = require('../../.test-dist/lib/strengthGoalPresets.js');
 const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog.js');
 const { STRENGTH_GOAL_PRESETS } = require('../../.test-dist/lib/strengthGoalPresets.js');
 const library = require('../../.test-dist/data/generatedExerciseLibrary.js');
@@ -88,15 +87,83 @@ module.exports = [
     },
   },
   {
+    /**
+     * No two target lifts may be the same lift.
+     *
+     * The list is short and hand-written, so a plausible-looking addition can
+     * quietly duplicate one already on it. Sumo deadlift is the live example:
+     * liftIdentity folds sumo and trap bar into the deadlift on purpose, so a
+     * sumo row would carry the deadlift's best and the deadlift's rate — two
+     * rows showing one number, and two targets that move together. It is off
+     * the list for that reason and this is what keeps the reason enforced.
+     */
+    name: 'no two target lifts resolve to the same lift',
+    run() {
+      const folded = [];
+      for (let left = 0; left < STRENGTH_GOAL_PRESETS.length; left += 1) {
+        for (let right = left + 1; right < STRENGTH_GOAL_PRESETS.length; right += 1) {
+          const a = STRENGTH_GOAL_PRESETS[left].exerciseName;
+          const b = STRENGTH_GOAL_PRESETS[right].exerciseName;
+          if (isSameLift(a, b, libraryNames)) {
+            folded.push(`${a} == ${b}`);
+          }
+        }
+      }
+      assert.deepEqual(folded, [], `target lifts that are the same lift: ${folded.join(', ')}`);
+
+      // And the one deliberately kept off, still folding — if this stops being
+      // true, sumo can have its own row.
+      assert.equal(
+        isSameLift('Sumo Deadlift', 'Barbell Deadlift', libraryNames),
+        true,
+        'sumo no longer folds into the deadlift; it can be a target of its own now',
+      );
+
+      // Every name is one the library actually has, or the row opens nothing
+      // and the log can never match it.
+      const { createSeedExerciseLibrary } = require('../../.test-dist/data/seed.js');
+      const reachable = new Set(createSeedExerciseLibrary().map((item) => item.name));
+      const invented = STRENGTH_GOAL_PRESETS.map((preset) => preset.exerciseName).filter(
+        (name) => !reachable.has(name),
+      );
+      assert.deepEqual(invented, [], `target lifts the library does not have: ${invented.join(', ')}`);
+    },
+  },
+  {
     name: 'every preset target is trained by a fair share of the catalog',
     run() {
       // The deadlift target saw three programs of fifty-seven while the others
-      // saw twenty to thirty — the names, not the training, were the gap.
+      // saw twenty to thirty — the names, not the training, were the gap. That
+      // is what this catches: a lift the catalog DOES train, hidden behind a
+      // naming mismatch.
+      //
+      // Not the same thing as a lift the catalog genuinely trains in few
+      // weeks. These three are thin because few weeks have them, not because a
+      // name failed to resolve.
+      //
+      // A FLOOR, not the count. The regression worth catching is a drop toward
+      // zero, which shows the reader an empty step 3; growth is the fix, and
+      // an equality here would have turned red the day the upright row went
+      // from 0 to 2. The numbers are today's, so a floor still fails loudly if
+      // a rename takes one back to nothing.
+      const GENUINELY_THIN = {
+        'Front Barbell Squat': 8,
+        'Upright Barbell Row': 2,
+        'Hack Squat': 5,
+      };
       const thin = [];
       for (const preset of STRENGTH_GOAL_PRESETS) {
-        const count = rankProgrammesForLift(WORKOUT_TEMPLATES_V1, preset.exerciseName, { libraryNames }).length;
+        const lift = preset.exerciseName;
+        const count = rankProgrammesForLift(WORKOUT_TEMPLATES_V1, lift, { libraryNames }).length;
+        if (lift in GENUINELY_THIN) {
+          assert.ok(
+            count >= GENUINELY_THIN[lift],
+            `${lift} resolves to ${count} programmes now, down from ${GENUINELY_THIN[lift]} — a name stopped resolving`,
+          );
+          continue;
+        }
         if (count < 10) {
-          thin.push(`${preset.exerciseName}: ${count}`);
+          thin.push(`${lift}: ${count}`);
         }
       }
       assert.deepEqual(thin, [], `targets almost no program trains: ${thin.join(', ')}`);
@@ -104,29 +171,42 @@ module.exports = [
   },
 
   {
-    name: 'the target picker and the target row read the log the same way',
+    /**
+     * One lift, one row — and the row the tab draws has to agree with it.
+     *
+     * They disagreed on the phone once: the target row showed 70 kg of 200
+     * while the picker behind it said "not logged yet" for the same lift,
+     * because one resolved the lift and the other matched the name. The picker
+     * is gone and the three-step flow replaced it, but the shape survives: the
+     * flow merges logged lifts into the library list, and a log that says
+     * "Barbell Bench Press" against a library that says "Barbell Bench Press -
+     * Medium Grip" would put the lift in the list twice — once with a best and
+     * once saying never logged.
+     */
+    name: 'the target flow and the target row read the log the same way',
     run() {
-      // They disagreed on the phone: the row showed 70 kg of 200 while the
-      // picker behind it said "not logged yet" for the same lift, because one
-      // resolved the lift and the other matched the name.
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
+
+      // The flow finds each lift's log through the same matcher the progress
+      // row uses, rather than by name. Matching on the name is how the row
+      // once read 70 kg of 200 beside a picker saying "not logged yet".
+      assert.match(
+        app,
+        /proLiftHistories\.find\(\(entry\) =>\s*\n\s*isSameLift\(entry\.name, preset\.exerciseName, libraryNames\)/,
+        'the flow matches the log by name again',
+      );
+
+      // And the resolution the row uses is the same function, so a lift that
+      // matches in one place matches in the other.
       const bests = new Map([['Barbell Bench Press', 70], ['Conventional Deadlift', 120]]);
       const matches = (logged, lift) => isSameLift(logged, lift, libraryNames);
-
-      const rows = buildGoalPresetRows(bests, [], matches);
-      const bench = rows.find((row) => row.exerciseName === 'Bench Press');
-      const deadlift = rows.find((row) => row.exerciseName === 'Barbell Deadlift');
-      assert.equal(bench.bestKg, 70);
-      assert.equal(deadlift.bestKg, 120);
-      assert.equal(deadlift.options.find((option) => option.targetKg === 100).alreadyReached, true);
-      assert.equal(deadlift.options.find((option) => option.targetKg === 150).alreadyReached, false);
-
-      // And the row for the same log agrees.
       const [progress] = resolveGoalProgress(
         [{ exerciseName: 'Barbell Deadlift', targetKg: 150, createdAt: '' }],
         bests,
         matches,
       );
-      assert.equal(progress.currentKg, deadlift.bestKg);
+      assert.equal(progress.currentKg, 120, 'the deadlift variant no longer resolves to the lift');
+      assert.equal(progress.reached, false);
     },
   },
 ];

@@ -65,7 +65,7 @@ function databaseWith(logs) {
       performedAt: item.performedAt,
       startedAt: item.performedAt,
     })),
-    preferences: { trackedExerciseLibraryItemIds: [] },
+    preferences: { strengthGoals: [] },
   };
 }
 

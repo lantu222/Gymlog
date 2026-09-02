@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const ROOT = path.join(__dirname, '..');
 
 /**
  * Guards for the things that block a Play release and are invisible while
@@ -250,16 +251,15 @@ module.exports = [
       const demoBuild = readJson('app.json')?.expo?.extra?.demoBuild === true;
 
       // 1 · Trending. Social proof needs other people; this device only knows
-      //     what its owner did. The invented counts are gone entirely — being
-      //     unreachable in a RELEASE build was never the point, because the
-      //     demo build is the one the reader holds. getTrendingEntries returns
-      //     null until a server counts starts.
-      const trending = read('src/lib/programTrendingDemo.ts');
-      assert.doesNotMatch(
-        trending,
-        /starts:\s*\d/,
-        'a hard-coded start count is an invented number, demo build or not',
+      //     what its owner did. The invented counts went first, then the
+      //     module: it returned null in every release build, so the section
+      //     was never seen, and the brief's tab does not have it (2026-09-01).
+      //     The strongest form of the old rule is that the file is gone.
+      assert.ok(
+        !fs.existsSync(path.join(ROOT, 'src', 'lib', 'programTrendingDemo.ts')),
+        'the invented start counts are back',
       );
+      assert.doesNotMatch(read('src/lib/i18n.ts'), /'programs\.trending/);
 
       // 1b · The paywall's three hero figures went for the same reason:
       //      "1,9x faster to a new PR" is an efficacy claim nobody measured.

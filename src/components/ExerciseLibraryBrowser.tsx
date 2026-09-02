@@ -16,6 +16,7 @@ import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { buildExerciseSearchHaystack, exerciseMatchesQuery } from '../lib/exerciseSearch';
 import { I18nKey, t } from '../lib/i18n';
+import type { LibraryCollectionState } from '../lib/exerciseCollections';
 import { libraryLabel } from '../lib/libraryLabel';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
@@ -26,11 +27,21 @@ const CARD_IMAGE_WIDTH = 178;
 
 interface ExerciseLibraryBrowserProps {
   items: ExerciseLibraryItem[];
-  trackedIds?: string[];
   language?: AppLanguage;
   onOpenItem?: (item: ExerciseLibraryItem) => void;
-  onToggleTracked?: (item: ExerciseLibraryItem) => void;
-  onAddToWorkout?: (item: ExerciseLibraryItem) => void;
+  /**
+   * The course this reader has begun and not finished, if there is one.
+   *
+   * The library's own way back into it — a different thing from browsing them
+   * all, which lives on its own screen. Absent when nothing is started: a card
+   * pointing at a course never opened would be an advertisement wearing the
+   * words "pick up where you left off".
+   */
+  learnCollection?:
+    | { id: string; title: string; done: number; total: number; percent: number; state: LibraryCollectionState }
+    | null;
+  onOpenCollection?: (collectionId: string) => void;
+  onOpenLearnIndex?: () => void;
 }
 
 function formatCompactBodyPartLabel(raw: string, language: AppLanguage = 'en') {
@@ -124,29 +135,6 @@ function ListIcon({ color: colorProp, size = 14 }: { color?: string; size?: numb
   );
 }
 
-function PlusIcon({ color = '#FFFFFF', size = 16 }: { color?: string; size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 5v14M5 12h14" stroke={color} strokeWidth={2.8} strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function StarGlyph({ active, size = 18 }: { active: boolean; size?: number }) {
-  const theme = useTheme();
-
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill={active ? theme.gold : 'none'}>
-      <Path
-        d="M12 3l2.6 5.5 6 .8-4.4 4.2 1.1 6L12 16.8 6.7 19.5l1.1-6L3.4 9.3l6-.8z"
-        stroke={active ? theme.gold : theme.faint}
-        strokeWidth={2}
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
 function DumbbellIcon({ color: colorProp, size = 22 }: { color?: string; size?: number }) {
   const theme = useTheme();
   const color = colorProp ?? theme.faint;
@@ -211,52 +199,58 @@ function Thumb({
   );
 }
 
-function AddButton({ onPress }: { onPress?: () => void }) {
+/**
+ * The circle is an eye, and it opens the exercise.
+ *
+ * It used to be a "+" that dropped the lift straight into a workout. A row
+ * here is a name and three words, so adding from it was adding blind, and the
+ * whole affordance came out (#38). What the library is actually for is looking
+ * something up — so the circle came back doing that, in the app's own
+ * "pressable" orange, and it marks the row as something that opens.
+ *
+ * It does the same thing as tapping the row, deliberately. Two controls that
+ * agree are a bigger target; two that disagreed is what the "+" was.
+ */
+function LookButton({ label, onPress }: { label: string; onPress: () => void }) {
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
 
   return (
-    <Pressable onPress={onPress} disabled={!onPress} hitSlop={6} style={styles.addButton}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      hitSlop={6}
+      style={styles.lookButton}
+    >
       {/* The ink the orange was paired with, not white: on the light theme's
-          orange a white glyph is the lower-contrast of the two. */}
-      <PlusIcon color={theme.onHighlight} />
-    </Pressable>
-  );
-}
+          orange a white glyph is the lower-contrast of the two.
 
-function FavoriteStar({ active, onPress, framed }: { active: boolean; onPress?: () => void; framed?: boolean }) {
-  const styles = useThemedStyles(makeStyles);
-
-  return (
-    <Pressable onPress={onPress} disabled={!onPress} hitSlop={8} style={framed ? styles.starFrame : styles.starPlain}>
-      <StarGlyph active={active} size={framed ? 15 : 18} />
+          The shared eye, not a local copy. This file already imports
+          VinhaIcon for the body-part glyphs, and it had a second almond with
+          a filled pupil sitting next to the set's stroked one — the eye this
+          card IS should be the eye the app draws everywhere else. */}
+      <VinhaIcon name="eye" color={theme.onHighlight} size={17} />
     </Pressable>
   );
 }
 
 function ExCard({
   item,
-  tracked,
   language,
   onOpen,
-  onAdd,
-  onToggleFavorite,
 }: {
   item: ExerciseLibraryItem;
-  tracked: boolean;
   language: AppLanguage;
-  onOpen: () => void;
-  onAdd?: () => void;
-  onToggleFavorite?: () => void;
+  onOpen?: () => void;
 }) {
   const styles = useThemedStyles(makeStyles);
 
   return (
-    <Pressable onPress={onOpen} style={styles.card}>
+    <Pressable onPress={onOpen} disabled={!onOpen} style={styles.card}>
       <View style={styles.cardImageWrap}>
         <Thumb uri={getItemImage(item)} radius={0} width={CARD_IMAGE_WIDTH} height={104} />
         <View style={styles.cardStar}>
-          <FavoriteStar active={tracked} onPress={onToggleFavorite} framed />
         </View>
       </View>
       <View style={styles.cardBody}>
@@ -267,9 +261,14 @@ function ExCard({
           <Text numberOfLines={1} style={styles.cardMeta}>
             {libraryLabel(item.bodyPart, language)}
           </Text>
-          {/* No action, no button. It used to render `disabled`, which on a
-              filled accent circle reads as a live control that ignores you. */}
-          {onAdd ? <AddButton onPress={onAdd} /> : null}
+          {/* No action, no button — the rule #38 established. A filled accent
+              circle that ignores the tap reads as broken, not as absent. */}
+          {onOpen ? (
+            <LookButton
+              label={t(language, 'library.a11y.look', { name: exerciseNameLabel(language, item.name) })}
+              onPress={onOpen}
+            />
+          ) : null}
         </View>
       </View>
     </Pressable>
@@ -278,23 +277,17 @@ function ExCard({
 
 function ExRow({
   item,
-  tracked,
   language,
   onOpen,
-  onAdd,
-  onToggleFavorite,
 }: {
   item: ExerciseLibraryItem;
-  tracked: boolean;
   language: AppLanguage;
-  onOpen: () => void;
-  onAdd?: () => void;
-  onToggleFavorite?: () => void;
+  onOpen?: () => void;
 }) {
   const styles = useThemedStyles(makeStyles);
 
   return (
-    <Pressable onPress={onOpen} style={styles.row}>
+    <Pressable onPress={onOpen} disabled={!onOpen} style={styles.row}>
       <Thumb uri={getItemImage(item)} radius={11} width={52} height={52} />
       <View style={styles.rowCopy}>
         <Text numberOfLines={1} style={styles.rowTitle}>
@@ -305,8 +298,12 @@ function ExRow({
           {libraryLabel(item.category, language)}
         </Text>
       </View>
-      <FavoriteStar active={tracked} onPress={onToggleFavorite} />
-      {onAdd ? <AddButton onPress={onAdd} /> : null}
+      {onOpen ? (
+        <LookButton
+          label={t(language, 'library.a11y.look', { name: exerciseNameLabel(language, item.name) })}
+          onPress={onOpen}
+        />
+      ) : null}
     </Pressable>
   );
 }
@@ -328,11 +325,11 @@ function SectionHead({ label, action, onAction }: { label: string; action?: stri
 
 export function ExerciseLibraryBrowser({
   items,
-  trackedIds = [],
   language = 'en',
   onOpenItem,
-  onToggleTracked,
-  onAddToWorkout,
+  learnCollection = null,
+  onOpenCollection,
+  onOpenLearnIndex,
 }: ExerciseLibraryBrowserProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -341,6 +338,23 @@ export function ExerciseLibraryBrowser({
   const [bodyPartFilter, setBodyPartFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [equipmentFilter, setEquipmentFilter] = useState<string>('all');
+  /**
+   * Tapping the chip you already picked clears it.
+   *
+   * Every row carries an "All" chip, so a way back always existed — but the
+   * gesture a reader reaches for first is tapping the highlighted chip again,
+   * and that set the same value it already held. Nothing moved, so the filter
+   * read as stuck: "jos vahingossa valitsee jotain filtteristä niitä ei saa
+   * pois valittua" (user, 2026-09-01, with two chips lit and the badge
+   * showing 2).
+   *
+   * 'all' IS the cleared state rather than a fourth value, which is why this
+   * toggles to it instead of to null — the three filters read `!== 'all'`
+   * everywhere, and a null would have to be taught to all of them.
+   */
+  function toggleFilter(current: string, option: string): string {
+    return current === option ? 'all' : option;
+  }
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRef = useRef<TextInput>(null);
@@ -400,20 +414,14 @@ export function ExerciseLibraryBrowser({
 
   const activeFilterCount = (categoryFilter !== 'all' ? 1 : 0) + (equipmentFilter !== 'all' ? 1 : 0);
 
-  const trackedSet = useMemo(() => new Set(trackedIds), [trackedIds]);
-
   const popularItems = useMemo(
     () => orderedItems.filter((item) => commonOrder.has(item.id)).slice(0, 8),
     [commonOrder, orderedItems],
   );
-  const favoriteItems = useMemo(
-    () => orderedItems.filter((item) => trackedSet.has(item.id)).slice(0, 8),
-    [orderedItems, trackedSet],
-  );
   const suggestedItems = useMemo(() => {
-    const excluded = new Set([...popularItems.map((item) => item.id), ...favoriteItems.map((item) => item.id)]);
+    const excluded = new Set(popularItems.map((item) => item.id));
     return orderedItems.filter((item) => !excluded.has(item.id)).slice(0, 8);
-  }, [favoriteItems, orderedItems, popularItems]);
+  }, [orderedItems, popularItems]);
 
   const listItems = useMemo(
     () => orderedItems.slice(0, showDashboardSections ? 36 : undefined),
@@ -433,18 +441,6 @@ export function ExerciseLibraryBrowser({
     onOpenItem?.(item);
   }
 
-  function handleAdd(item: ExerciseLibraryItem) {
-    onAddToWorkout?.(item);
-  }
-
-  function handleToggleFavorite(item: ExerciseLibraryItem) {
-    if (!onToggleTracked) {
-      return;
-    }
-    flash(trackedSet.has(item.id) ? 'Removed from tracked lifts' : 'Added to tracked lifts');
-    onToggleTracked(item);
-  }
-
   function renderRail(sectionItems: ExerciseLibraryItem[]) {
     return (
       <ScrollView
@@ -457,10 +453,7 @@ export function ExerciseLibraryBrowser({
           <ExCard language={language}
             key={item.id}
             item={item}
-            tracked={trackedSet.has(item.id)}
-            onOpen={() => handleOpen(item)}
-            onAdd={onAddToWorkout ? () => handleAdd(item) : undefined}
-            onToggleFavorite={onToggleTracked ? () => handleToggleFavorite(item) : undefined}
+            onOpen={onOpenItem ? () => handleOpen(item) : undefined}
           />
         ))}
       </ScrollView>
@@ -539,7 +532,7 @@ export function ExerciseLibraryBrowser({
                 return (
                   <Pressable
                     key={option}
-                    onPress={() => setBodyPartFilter(option)}
+                    onPress={() => setBodyPartFilter(toggleFilter(bodyPartFilter, option))}
                     style={[styles.categoryChip, selected && styles.categoryChipActive]}
                   >
                     <CategoryIcon option={option} color={selected ? '#FFFFFF' : theme.muted} />
@@ -563,7 +556,7 @@ export function ExerciseLibraryBrowser({
                     return (
                       <Pressable
                         key={option}
-                        onPress={() => setCategoryFilter(option)}
+                        onPress={() => setCategoryFilter(toggleFilter(categoryFilter, option))}
                         style={[styles.filterChip, selected && styles.filterChipSelected]}
                       >
                         <Text style={[styles.filterChipText, selected && styles.filterChipTextSelected]}>
@@ -583,7 +576,7 @@ export function ExerciseLibraryBrowser({
                     return (
                       <Pressable
                         key={option}
-                        onPress={() => setEquipmentFilter(option)}
+                        onPress={() => setEquipmentFilter(toggleFilter(equipmentFilter, option))}
                         style={[styles.filterChip, selected && styles.filterChipSelected]}
                       >
                         <Text style={[styles.filterChipText, selected && styles.filterChipTextSelected]}>
@@ -598,25 +591,60 @@ export function ExerciseLibraryBrowser({
 
             {showDashboardSections ? (
               <>
+                {/* The card is the ONLY door into Learn, so it renders in all
+                    three states. Nested inside an in-progress check it was
+                    invisible on a fresh install — nothing learned, nothing
+                    rendered, and no other route to LearnIndexScreen anywhere
+                    in the app — and it closed again behind anyone who
+                    finished the course. Only the heading changes. */}
+                {learnCollection && onOpenCollection ? (
+                  <View style={styles.dashboardSection}>
+                    <SectionHead
+                      label={t(
+                        language,
+                        learnCollection.state === 'inProgress' ? 'library.pickUp' : 'learn.eyebrow',
+                      )}
+                      action={onOpenLearnIndex ? t(language, 'library.learnAll') : undefined}
+                      onAction={onOpenLearnIndex}
+                    />
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => onOpenCollection(learnCollection.id)}
+                      style={({ pressed }) => [styles.pickUpCard, pressed && styles.pickUpCardPressed]}
+                    >
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text numberOfLines={1} style={styles.pickUpTitle}>
+                          {learnCollection.title}
+                        </Text>
+                        <View style={styles.pickUpProgressRow}>
+                          <View style={styles.pickUpTrack}>
+                            <View
+                              style={[
+                                styles.pickUpFill,
+                                { width: `${learnCollection.percent}%` },
+                              ]}
+                            />
+                          </View>
+                          <Text style={styles.pickUpCount}>
+                            {t(language, 'learn.progress', {
+                              done: learnCollection.done,
+                              total: learnCollection.total,
+                            })}
+                          </Text>
+                        </View>
+                      </View>
+                    </Pressable>
+                  </View>
+                ) : null}
+
                 <View style={styles.dashboardSection}>
                   <SectionHead label={t(language, 'library.popular')} action={t(language, 'programs.viewAll')} />
                   {renderRail(popularItems)}
                 </View>
 
-                <View style={styles.dashboardSection}>
-                  <SectionHead
-            label={t(language, 'library.favorites')}
-            action={favoriteItems.length ? t(language, 'programs.viewAll') : undefined}
-          />
-                  {favoriteItems.length ? (
-                    renderRail(favoriteItems)
-                  ) : (
-                    <View style={styles.emptyFavoriteCard}>
-                      <Text style={styles.emptyFavoriteTitle}>{t(language, 'library.noFavorites')}</Text>
-                      <Text style={styles.emptyFavoriteText}>{t(language, 'library.noFavoritesBody')}</Text>
-                    </View>
-                  )}
-                </View>
+                {/* The favourites rail went with the star (2026-09-01). It
+                    could only ever be empty until the reader found a control
+                    whose one effect was on a different tab entirely. */}
 
                 <View style={styles.dashboardSection}>
                   <SectionHead label={t(language, 'library.suggested')} action={t(language, 'programs.viewAll')} />
@@ -644,10 +672,7 @@ export function ExerciseLibraryBrowser({
         renderItem={({ item }) => (
           <ExRow language={language}
             item={item}
-            tracked={trackedSet.has(item.id)}
-            onOpen={() => handleOpen(item)}
-            onAdd={onAddToWorkout ? () => handleAdd(item) : undefined}
-            onToggleFavorite={onToggleTracked ? () => handleToggleFavorite(item) : undefined}
+            onOpen={onOpenItem ? () => handleOpen(item) : undefined}
           />
         )}
         ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
@@ -865,25 +890,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingRight: 20,
     paddingVertical: 2,
   },
-  emptyFavoriteCard: {
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 16,
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-  },
-  emptyFavoriteTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: theme.ink,
-  },
-  emptyFavoriteText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: theme.muted,
-    marginTop: 4,
-  },
   card: {
     width: 180,
     backgroundColor: theme.surface,
@@ -958,7 +964,51 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: theme.surfaceSoft,
   },
-  addButton: {
+  pickUpCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.surfaceSoft,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderLeftWidth: 3,
+    borderLeftColor: theme.purpleDark,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+  },
+  pickUpCardPressed: {
+    opacity: 0.85,
+  },
+  pickUpTitle: {
+    color: theme.ink,
+    fontSize: 14.5,
+    fontWeight: '800',
+  },
+  pickUpProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    marginTop: 7,
+  },
+  pickUpTrack: {
+    width: 96,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: theme.surface,
+    overflow: 'hidden',
+  },
+  pickUpFill: {
+    height: '100%',
+    backgroundColor: theme.purpleDark,
+    borderRadius: 999,
+  },
+  pickUpCount: {
+    color: theme.purpleBright,
+    fontSize: 11,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
+  lookButton: {
     width: 32,
     height: 32,
     borderRadius: 999,
@@ -969,22 +1019,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
-  },
-  starFrame: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#140A28',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.18,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  starPlain: {
-    padding: 2,
   },
   summaryRow: {
     flexDirection: 'row',

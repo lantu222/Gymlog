@@ -118,7 +118,8 @@ const DEFAULT_PREFERENCES = {
   lastInsightSessionId: null,
   lastInsightType: null,
   recommendedProgramId: null,
-  trackedExerciseLibraryItemIds: [] as string[],
+  learnedExerciseLibraryItemIds: [] as string[],
+  exerciseTechniqueChecks: {} as Record<string, number[]>,
   dismissedTipIds: [] as string[],
   dismissedCompletionPlanIds: [] as string[],
   dismissedCardSuggestionKeys: [] as string[],
@@ -130,41 +131,29 @@ const DEFAULT_PREFERENCES = {
   routineDrillOverrides: {} as Record<string, string>,
 };
 
-function createLegacySeedExerciseLibrary(): ExerciseLibraryItem[] {
-  return [
-    { id: 'lib_bench_press', name: 'Penkki', category: 'compound', bodyPart: 'chest', equipment: 'barbell' },
-    { id: 'lib_incline_bench', name: 'Vinopenkki', category: 'compound', bodyPart: 'chest', equipment: 'dumbbell' },
-    { id: 'lib_barbell_row', name: 'Kulmasoutu', category: 'compound', bodyPart: 'back', equipment: 'barbell' },
-    { id: 'lib_ohp', name: 'Pystypunnerrus', category: 'compound', bodyPart: 'shoulders', equipment: 'barbell' },
-    { id: 'lib_lateral_raise', name: 'Vipunosto sivulle', category: 'isolation', bodyPart: 'shoulders', equipment: 'dumbbell' },
-    { id: 'lib_lat_pulldown', name: 'Ylätalja', category: 'compound', bodyPart: 'back', equipment: 'cable' },
-    { id: 'lib_pull_up', name: 'Leuanveto', category: 'compound', bodyPart: 'back', equipment: 'bodyweight' },
-    { id: 'lib_biceps_curl', name: 'Hauiskääntö', category: 'isolation', bodyPart: 'biceps', equipment: 'dumbbell' },
-    { id: 'lib_triceps_pushdown', name: 'Ojentajapunnerrus', category: 'isolation', bodyPart: 'triceps', equipment: 'cable' },
-    { id: 'lib_dips', name: 'Dipit', category: 'compound', bodyPart: 'triceps', equipment: 'bodyweight' },
-    { id: 'lib_back_squat', name: 'Takakyykky', category: 'compound', bodyPart: 'legs', equipment: 'barbell' },
-    { id: 'lib_deadlift', name: 'Maastaveto', category: 'compound', bodyPart: 'full body', equipment: 'barbell' },
-    // Finnish, like every one of its twenty siblings — and that is the fix,
-    // not a tidy-up. This row carried the only English name in the legacy set,
-    // and the name matcher is case-insensitive: "Romanian Deadlift", which four
-    // ready programmes prescribe, resolved HERE instead of to the generated
-    // entry that has five steps and a Finnish translation already written.
-    // A legacy row with no instructions was standing in front of the real one.
-    { id: 'lib_rdl', name: 'Romanialainen maastaveto', category: 'compound', bodyPart: 'glutes', equipment: 'barbell' },
-    { id: 'lib_leg_press', name: 'Jalkaprässi', category: 'compound', bodyPart: 'legs', equipment: 'machine' },
-    { id: 'lib_leg_extension', name: 'Reiden ojennus', category: 'isolation', bodyPart: 'legs', equipment: 'machine' },
-    { id: 'lib_leg_curl', name: 'Takareisilaite', category: 'isolation', bodyPart: 'legs', equipment: 'machine' },
-    { id: 'lib_calf_raise', name: 'Pohkeet', category: 'isolation', bodyPart: 'legs', equipment: 'machine' },
-    { id: 'lib_crunch', name: 'Rutistus', category: 'core', bodyPart: 'core', equipment: 'bodyweight' },
-    { id: 'lib_plank', name: 'Lankku', category: 'core', bodyPart: 'core', equipment: 'bodyweight' },
-    { id: 'lib_bike', name: 'Pyöräily', category: 'cardio', bodyPart: 'full body', equipment: 'bodyweight' },
-  ];
-}
+/*
+ * The twenty hand-written `lib_*` rows are gone (2026-09-01).
+ *
+ * They predated the generated library and every one was a second copy of a row
+ * it already has, carrying a FINNISH name in the field that is an English id
+ * everywhere else. Their Finnish names were never lost by removing them:
+ * `EXERCISE_NAME_FI` already answers "Takakyykky" for `Barbell Squat`.
+ *
+ * They were also actively harmful. `lib_rdl` shipped as "Romanian Deadlift"
+ * until someone noticed the case-insensitive matcher was resolving four ready
+ * programmes' RDL to a row with no instructions instead of to the generated
+ * entry — and the fix at the time was to rename that row to Finnish, which
+ * hid the class rather than ending it.
+ *
+ * A stored id from an old install is remapped on load — see
+ * lib/legacyLibraryIds, which carries the evidence that nothing else reached
+ * them and the table that keeps those logs linked.
+ */
 
 export function createSeedExerciseLibrary(): ExerciseLibraryItem[] {
   // The extras last: they exist because the generated library lacks them, so
   // they can never shadow it, and `exercise:sync` cannot wipe them.
-  return [...createLegacySeedExerciseLibrary(), ...GENERATED_EXERCISE_LIBRARY, ...EXTRA_EXERCISE_LIBRARY];
+  return [...GENERATED_EXERCISE_LIBRARY, ...EXTRA_EXERCISE_LIBRARY];
 }
 
 function sessionRecord(id: string, name: string, orderIndex: number, exerciseIds: string[]) {

@@ -399,6 +399,52 @@ function buildStats(language: AppLanguage, totals: HomeWidgetInput['monthTotals'
   ];
 }
 
+
+/**
+ * Where a tap on the widget's session tile actually goes.
+ *
+ * `resume` — a workout is running, so the tile is a way back into it. This
+ * outranks everything: the tile means "my training", and a reader who left a
+ * set half-logged to check something on Home is asking for the set, not for a
+ * schedule lookup.
+ *
+ * `open` — nothing running, so the next scheduled session, as before.
+ *
+ * `home` — nothing running and nothing scheduled to open.
+ *
+ * Reported from the device 2026-09-01: with a session in progress the tap
+ * landed on Home. findHomeWidgetNextSession answers "the next SCHEDULED
+ * session" and has no idea one is already open — and it skips today once
+ * today's workout is logged, so mid-session there can be nothing left for it
+ * to name and the tap fell through to Home. The reader got back in through
+ * Home's own "continue" button, which is the button this tile should have
+ * been.
+ */
+export type HomeWidgetSessionTap =
+  | { kind: 'resume' }
+  | { kind: 'open'; next: HomeWidgetNextSession }
+  | { kind: 'home' };
+
+export function resolveHomeWidgetSessionTap(input: {
+  /** Whether a workout is open right now, running or paused. */
+  hasActiveSession: boolean;
+  /** Whether there is a plan whose session could be opened. */
+  hasActivePlan: boolean;
+  nowMs: number;
+  schedule: TrainingSchedule;
+  sessions: HomeDaySessionSummary[];
+  completedWorkoutDayStarts?: number[];
+}): HomeWidgetSessionTap {
+  if (input.hasActiveSession) {
+    return { kind: 'resume' };
+  }
+  const next = findHomeWidgetNextSession(input);
+  if (!next || !input.hasActivePlan) {
+    return { kind: 'home' };
+  }
+  return { kind: 'open', next };
+}
+
 export function buildHomeWidgetPayload(input: HomeWidgetInput): HomeWidgetPayload {
   const { nowMs, language, theme, schedule, sessions } = input;
   const now = new Date(nowMs);

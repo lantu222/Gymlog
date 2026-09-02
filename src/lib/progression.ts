@@ -289,25 +289,29 @@ export function getTrackedExerciseProgress(database: AppDatabase): ExerciseProgr
     grouped.set(key, { name, logs: [attachedLog] });
   });
 
-  const exerciseLibraryById = Object.fromEntries(
-    database.exerciseLibrary.map((item) => [item.id, item] as const),
-  );
-
-  database.preferences.trackedExerciseLibraryItemIds.forEach((libraryItemId) => {
-    const libraryItem = exerciseLibraryById[libraryItemId];
-    if (!libraryItem) {
+  /**
+   * A lift you have set a TARGET on shows here before you have logged it.
+   *
+   * This used to be the library's star — "track this" — whose only job was
+   * exactly this line. Two ways to say "I care about this lift" is one too
+   * many, and the star was the one that asked for nothing back: it put an
+   * empty row on Progress and never said what it was for. A target names a
+   * number, so the row has something to move towards from the first session
+   * (user, 2026-09-01).
+   *
+   * Keyed by name rather than by library id, because that is what a goal
+   * carries and what the logs group on.
+   */
+  (database.preferences.strengthGoals ?? []).forEach((goal) => {
+    const name = goal.exerciseName.trim();
+    if (!name) {
       return;
     }
-
-    const key = normalizeExerciseKey(libraryItem.name);
+    const key = normalizeExerciseKey(name);
     if (grouped.has(key)) {
       return;
     }
-
-    grouped.set(key, {
-      name: libraryItem.name,
-      logs: [],
-    });
+    grouped.set(key, { name, logs: [] });
   });
 
   return Array.from(grouped.entries())

@@ -88,26 +88,98 @@ module.exports = [
     },
   },
   {
+    /**
+     * The target flow's four quiet failures.
+     *
+     * None of these shows up as a crash or a red test — each one is a screen
+     * that keeps working while doing the wrong thing, which is why they are
+     * pinned rather than left to a reader noticing.
+     */
+    name: 'the target flow refuses, resets, asks once and says what is already set',
+    run() {
+      const flow = read('src', 'screens', 'StrengthGoalFlowScreen.tsx');
+
+      // The same ceiling on both branches. It guarded only the typed number,
+      // and a mistyped 999 kg best plus a delta cleared 1000 — a target the
+      // flow accepted and normalizeStrengthGoals then dropped on next launch.
+      assert.match(flow, /const targetUsable = isValidTarget\(targetKg\);/);
+      assert.doesNotMatch(
+        flow,
+        /targetUsable = bestKg === null \? isValidTarget/,
+        'the ceiling guards only the typed branch again',
+      );
+
+      // The proposal is built where it is shown. Unconditional, it ran the
+      // 57-template ranker on every render of steps 1 and 2 — once per
+      // character typed into the number field.
+      assert.match(flow, /step === 3 && picked \? getProposal\(/);
+
+      // A different lift starts its number over.
+      assert.match(flow, /function pickLift\(exerciseName: string\) \{/);
+      assert.match(flow, /onPress=\{\(\) => pickLift\(item\.exerciseName\)\}/);
+      assert.doesNotMatch(flow, /onPress=\{\(\) => setPickedName\(/);
+
+      // No setState while rendering. The old fallback called setStep(1) in the
+      // render body and leaned on React's render-phase update to converge,
+      // which is an infinite loop the day it stops.
+      assert.doesNotMatch(flow, /^\s*setStep\(1\);$/m);
+      assert.match(flow, /if \(step === 1 \|\| !picked\) \{/);
+
+      // And a lift that already has a target says so, because setting a
+      // second one replaces the first.
+      assert.match(flow, /goalFlow\.alreadyAiming/);
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
+      assert.match(app, /preferences\.strengthGoals\.find\(\(goal\) =>/);
+    },
+  },
+  {
     name: 'the row is wired, and targets are ready-made rather than typed',
     run() {
       const screen = read('src', 'screens', 'ProgramsHomeScreen.tsx');
       const app = require('../helpers/appWiringSource.cjs').readAppWiring();
 
       // The old sheet could only offer lifts already logged, so the reader a
-      // first target would help most was shown an empty list. The picker
-      // offers a fixed set of round numbers instead, and folds the reader's
-      // own bests in on top.
+      // first target would help most was shown an empty list. The page of
+      // round numbers that replaced it had the opposite problem — 100 kg means
+      // one thing to someone benching 95 and another to someone benching 60 —
+      // and the flow that replaced THAT asks for a delta on the reader's own
+      // best, over the eight lifts people actually put a number on.
       assert.doesNotMatch(app, /programsGoalCandidates/);
-      assert.match(app, /buildGoalPresetRows\(/);
-      // Measured against the user's own bests, from the same summaries the
-      // Progress tab draws.
-      assert.match(
-        app,
-        /new Map\(trackedProgress\.map\(\(summary\) => \[summary\.name, summary\.bestWeight \?\? null\]\)\)/,
-      );
-      // Its own screen, reachable from both places that mention a target.
-      assert.match(app, /screen: 'goalPicker'/);
+      assert.doesNotMatch(app, /buildGoalPresetRows\(/, 'the page of round numbers is back');
+      assert.match(app, /const goalFlowLifts = useMemo/);
+      assert.match(app, /rate: resolveObservedRate\(history\.points\)/);
+      // The named eight, not the library: nobody puts a number on a cable
+      // crossover, and step 3 has no programme to show for most of the 876.
+      assert.match(app, /STRENGTH_GOAL_PRESETS\.map\(\(preset\) =>/);
+      // Measured against the user's own log, through the same histories the
+      // Pro insights read.
+      assert.match(app, /proLiftHistories\.find\(/);
+      // Its own screen, reachable from the tab's target section.
+      assert.match(app, /screen: 'goalFlow'/);
+      assert.doesNotMatch(app, /screen: 'goalPicker'/);
       assert.match(screen, /onPress=\{onOpenGoalPicker\}/);
+
+      // Accepting takes the programme on AND stores the target — in that
+      // order. A target with no programme behind it is the thing feedback
+      // round 2 asked to end, and storing first left exactly that behind when
+      // the cap refused: three programmes on the free tier sends the reader to
+      // the paywall, and the goal had already been written.
+      assert.match(app, /async function handleAcceptTargetProposal/);
+      // Sliced to the function's own closing brace: anchoring on whatever
+      // declaration follows it broke the moment the block moved.
+      const acceptStart = app.indexOf('async function handleAcceptTargetProposal');
+      const accept = app.slice(acceptStart, app.indexOf('\n  }\n', acceptStart));
+      const adoptAt = accept.indexOf('handleAdoptReadyProgram(input.templateId, { lead: true })');
+      const storeAt = accept.indexOf('strengthGoals: upsertStrengthGoal(');
+      assert.ok(adoptAt > 0 && storeAt > 0, 'the accept path lost one of its two halves');
+      assert.ok(adoptAt < storeAt, 'the target is stored before the programme is taken on');
+      assert.match(
+        accept,
+        /if \(!adopted\) \{\s+return;/,
+        'a refused adoption still writes the goal',
+      );
+      // And the adoption reports what happened rather than swallowing it.
+      assert.match(app, /\): Promise<boolean> \{\s+const template = getWorkoutTemplateById/);
 
       // The bar renders the resolved ratio, and "not started" has its own copy.
       assert.match(screen, /entry\.currentKg === null/);

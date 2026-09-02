@@ -14,7 +14,15 @@ import { resolveProgramEquipment } from '../lib/programEquipment';
 import { buildProgramFingerprint } from '../lib/programFingerprint';
 import { getSeasonProgramId, ProgramSeason } from '../lib/programSeasons';
 import { planWeekdayIndexes } from '../lib/programTrainingDays';
+import {
+  pickLibraryCollection,
+  getExerciseCollection,
+  getExerciseCollections,
+  resolveCollectionProgress,
+} from '../lib/exerciseCollections';
+import { toggleTechniqueStatement } from '../lib/exerciseLearning';
 import { getExerciseProgressForName } from '../lib/progression';
+import { catalogLevelForSetup } from '../lib/goalProgramme';
 import { getReadyProgramContent } from '../lib/readyProgramContent';
 import { getReadyProgramBlockWeeks } from '../lib/readyProgramDuration';
 import { nextSeasonWindow, resolveSeasonWindow } from '../lib/season';
@@ -27,16 +35,22 @@ import { CreateTemplateScreen } from '../screens/CreateTemplateScreen';
 import { EmptyWorkoutScreen } from '../screens/EmptyWorkoutScreen';
 import { ExerciseDetailScreen } from '../screens/ExerciseDetailScreen';
 import { ExercisesScreen } from '../screens/ExercisesScreen';
+import { CollectionScreen } from '../screens/CollectionScreen';
+import { LearnIndexScreen } from '../screens/LearnIndexScreen';
 import { GuidedPlayerScreen } from '../screens/GuidedPlayerScreen';
 import { ProgramDayScreen } from '../screens/ProgramDayScreen';
 import { ProgramPrescription } from '../lib/programSessionEdit';
 import { ProgramDetailScreen } from '../screens/ProgramDetailScreen';
+import { CatalogScreen, CatalogScreenItem } from '../screens/CatalogScreen';
 import { ProgramsHomeScreen } from '../screens/ProgramsHomeScreen';
 import { SeasonScreen } from '../screens/SeasonScreen';
-import { StrengthGoalPickerScreen } from '../screens/StrengthGoalPickerScreen';
+import { GoalFlowProposal, StrengthGoalFlowScreen } from '../screens/StrengthGoalFlowScreen';
 import { WorkoutEditorFinishSummary, WorkoutEditorScreen } from '../screens/WorkoutEditorScreen';
 import { WorkoutsScreen } from '../screens/WorkoutsScreen';
 import { AppDatabase, AppPreferences, WorkoutTemplateDraft } from '../types/models';
+
+/** One empty array, so "nothing learned yet" is the same value every render. */
+const NOTHING_LEARNED: string[] = [];
 
 type ProgramDetailProps = React.ComponentProps<typeof ProgramDetailScreen>;
 type ProgramsHomeProps = React.ComponentProps<typeof ProgramsHomeScreen>;
@@ -81,7 +95,8 @@ export interface WorkoutTabDeps {
   availableEquipmentForDrills: ProgramDetailProps['availableEquipment'];
   resolveNextSessionIdForTemplate: (workoutTemplateId: string) => string | null;
   handleStartReadyProgramSession: (workoutTemplateId: string, sessionId: string, trimSets?: boolean) => void;
-  handleAdoptReadyProgram: (workoutTemplateId: string, options?: { lead?: boolean }) => Promise<void>;
+  /** Resolves to whether the programme is running afterwards; the cap can refuse. */
+  handleAdoptReadyProgram: (workoutTemplateId: string, options?: { lead?: boolean }) => Promise<boolean>;
   handleStartCustomProgram: (workoutTemplateId: string) => void;
   handleAdoptCustomProgram: (workoutTemplateId: string, options?: { lead?: boolean }) => Promise<void>;
   handleStartCustomProgramSession: (workoutTemplateId: string, sessionId: string, trimSets?: boolean) => void;
@@ -142,21 +157,27 @@ export interface WorkoutTabDeps {
   handleStartReadyProgram: WorkoutsProps['onStartReadyProgram'];
   handleOpenCustomProgramDetail: WorkoutsProps['onOpenCustomProgram'];
   handleDuplicateCustomWorkout: WorkoutsProps['onDuplicateCustomWorkout'];
-  goalPresetRows: React.ComponentProps<typeof StrengthGoalPickerScreen>['rows'];
-  goalProgrammeSuggestions: React.ComponentProps<typeof StrengthGoalPickerScreen>['suggestions'];
+  goalProgrammeSuggestions: ProgramsHomeProps['goalProgrammes'];
+  goalFlowLifts: React.ComponentProps<typeof StrengthGoalFlowScreen>['lifts'];
+  getGoalProposal: (exerciseName: string) => GoalFlowProposal | null;
+  handleAcceptTargetProposal: (input: {
+    exerciseName: string;
+    targetKg: number;
+    templateId: string;
+  }) => Promise<void>;
   programSlots: { canCreate: boolean };
   setProgramLimitVisible: (visible: boolean) => void;
   trackedProgress: Array<{ logs: Array<{ weight: number; repsPerSet: number[]; performedAt: string }> }>;
   workoutSessions: Parameters<typeof computeSeasonProgress>[0];
   handleEnrolSeason: (season: ProgramSeason, year: number) => void;
-  programsSeasonRows: ProgramsHomeProps['seasonRows'];
   programsCatalogItems: ProgramsHomeProps['catalogItems'];
+  /** Whether AI-assisted composition opens the chat or the paywall. */
+  proUnlocked: boolean;
+  /** The same programmes with their categories, for the catalog's goal chips. */
+  catalogScreenItems: CatalogScreenItem[];
   programsCategoryCounts: ProgramsHomeProps['categoryCounts'];
   programsCategoryMembers: ProgramsHomeProps['categoryMembers'];
-  programsTrendingItems: ProgramsHomeProps['trendingItems'];
   programsRecommendations: ProgramsHomeProps['recommendations'];
-  programsCampaigns: ProgramsHomeProps['campaigns'];
-  programsSeasonCards: ProgramsHomeProps['seasonCards'];
   programsGoals: ProgramsHomeProps['goals'];
   programsCustomItems: ProgramsHomeProps['customPrograms'];
   exerciseNameBook: ProgramsHomeProps['nameBook'];
@@ -222,21 +243,21 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     handleStartReadyProgram,
     handleOpenCustomProgramDetail,
     handleDuplicateCustomWorkout,
-    goalPresetRows,
     goalProgrammeSuggestions,
+    goalFlowLifts,
+    getGoalProposal,
+    handleAcceptTargetProposal,
     programSlots,
     setProgramLimitVisible,
     trackedProgress,
     workoutSessions,
     handleEnrolSeason,
-    programsSeasonRows,
     programsCatalogItems,
+    catalogScreenItems,
+    proUnlocked,
     programsCategoryCounts,
     programsCategoryMembers,
-    programsTrendingItems,
     programsRecommendations,
-    programsCampaigns,
-    programsSeasonCards,
     programsGoals,
     programsCustomItems,
     exerciseNameBook,
@@ -244,6 +265,32 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     handlePickProgramImage,
     coachProUnlocked,
   } = deps;
+
+  /**
+   * Learned is stored by library item id; a course lists library names. The
+   * lookup happens here rather than in the pure module, which has no business
+   * knowing about the library.
+   *
+   * Above every branch, because three of them read it — the Learn rail on the
+   * tab, the Learn index and the library. It used to sit beside the first of
+   * those readers, and adding the rail put a reader above the declaration: in
+   * a release bundle `const` becomes `var`, so that was not a ReferenceError
+   * naming the variable but `undefined` reaching a callback, and the app died
+   * two frames away in resolveCollectionProgress.
+   *
+   * Being above every branch means it runs for every workout screen, so it
+   * has to be cheap for the screens that never read it. The guided player is
+   * one of those and re-renders on every rest-timer tick; the naive version
+   * walked all 876 browser items calling `.includes` on an array for each,
+   * which is 876 × learned comparisons per tick. Nothing learned yet is the
+   * common case and costs nothing now, and the worst case is 876 hash
+   * lookups.
+   */
+  const learnedIds = new Set(preferences.learnedExerciseLibraryItemIds);
+  const learnedExerciseNames =
+    learnedIds.size === 0
+      ? NOTHING_LEARNED
+      : exerciseBrowserItems.filter((item) => learnedIds.has(item.id)).map((item) => item.name);
 
   if (route.tab !== 'workout') {
     return null;
@@ -616,7 +663,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     return (
       <WorkoutEditorScreen
         language={preferences.appLanguage}
-        key={`editor:${route.workoutTemplateId ?? 'new'}:${route.prefillName ?? ''}:${route.prefillExerciseLibraryId ?? ''}`}
+        key={`editor:${route.workoutTemplateId ?? 'new'}:${route.prefillName ?? ''}`}
         initialDraft={editorDraft}
         exerciseLibrary={exerciseBrowserItems}
         recentExerciseLibraryItems={recentExerciseBrowserItems}
@@ -695,7 +742,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         onStartReadyProgram={handleStartReadyProgram}
         onOpenCustomProgram={handleOpenCustomProgramDetail}
         onStartCustomWorkout={handleStartCustomProgram}
-        onEditCustomWorkout={(workoutTemplateId) => navigate({ tab: 'workout', screen: 'template', workoutTemplateId })}
         onDuplicateCustomWorkout={handleDuplicateCustomWorkout}
         onDeleteCustomWorkout={handleDeleteCustomWorkout}
         onCreateWorkout={() => navigate({ tab: 'workout', screen: 'template' })}
@@ -711,56 +757,69 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         item={exercise}
         history={getExerciseProgressForName(database, exercise.name)}
         unitPreference={unitPreference}
-        tracked={preferences.trackedExerciseLibraryItemIds.includes(exercise.id)}
-        onBack={() => navigateBack(ROOT_ROUTES.workout)}
-        onToggleTracked={(item) => {
-          const trackedIds = preferences.trackedExerciseLibraryItemIds;
-          const nextTrackedIds = trackedIds.includes(item.id)
-            ? trackedIds.filter((id) => id !== item.id)
-            : [...trackedIds, item.id];
-
-          void updatePreferences({ trackedExerciseLibraryItemIds: nextTrackedIds });
+        // Decides whether this lift's caution is for this reader.
+        cautionFlags={preferences.setupCautionFlags}
+        checkedStatements={preferences.exerciseTechniqueChecks[exercise.id] ?? []}
+        onToggleStatement={(index) => {
+          void updatePreferences({
+            exerciseTechniqueChecks: toggleTechniqueStatement(
+              preferences.exerciseTechniqueChecks,
+              exercise.id,
+              index,
+            ),
+          });
         }}
+        learned={preferences.learnedExerciseLibraryItemIds.includes(exercise.id)}
+        onToggleLearned={() => {
+          const current = preferences.learnedExerciseLibraryItemIds;
+          void updatePreferences({
+            learnedExerciseLibraryItemIds: current.includes(exercise.id)
+              ? current.filter((id) => id !== exercise.id)
+              : [...current, exercise.id],
+          });
+        }}
+        // An easier/harder row opens that lift's own screen. Resolved by name
+        // because the teaching content names lifts the way the library does;
+        // a name with no entry simply does not navigate rather than opening a
+        // blank screen.
+        onOpenExercise={(exerciseName) => {
+          const target = exerciseBrowserItems.find((candidate) => candidate.name === exerciseName);
+          if (target) {
+            navigate({ tab: 'workout', screen: 'detail', exerciseId: target.id });
+          }
+        }}
+        onBack={() => navigateBack(ROOT_ROUTES.workout)}
       />
     ) : (
       <View />
     );
   }
 
-  if (route.screen === 'goalPicker') {
+  if (route.screen === 'catalog') {
     return (
-      <StrengthGoalPickerScreen
+      <CatalogScreen
         language={preferences.appLanguage}
-        rows={goalPresetRows}
+        items={catalogScreenItems}
+        onBack={() => navigateBack(workoutHomeRoute)}
+        onOpenProgram={(programId) =>
+          navigate({ tab: 'workout', screen: 'program', programType: 'ready', workoutTemplateId: programId })
+        }
+      />
+    );
+  }
+
+  if (route.screen === 'goalFlow') {
+    return (
+      <StrengthGoalFlowScreen
+        language={preferences.appLanguage}
+        lifts={goalFlowLifts}
         unitLabel={preferences.unitPreference}
-        suggestions={goalProgrammeSuggestions}
-        // Stays on the picker: the panel flips to "your current programme
-        // trains this" by itself once the adoption lands, and a blocked
-        // adoption (cap) routes to the paywall on its own.
-        onAdoptProgramme={(templateId) => void handleAdoptReadyProgram(templateId, { lead: true })}
-        onOpenProgramme={(templateId) =>
-          navigate({ tab: 'workout', screen: 'program', programType: 'ready', workoutTemplateId: templateId })
-        }
-        onBuildOwn={() =>
-          programSlots.canCreate
-            ? navigate({ tab: 'workout', screen: 'template' })
-            : setProgramLimitVisible(true)
-        }
+        getProposal={getGoalProposal}
         onBack={() => navigateBack(ROOT_ROUTES.workout)}
-        onPick={(exerciseName, targetKg) =>
-          void updatePreferences({
-            strengthGoals: upsertStrengthGoal(preferences.strengthGoals, {
-              exerciseName,
-              targetKg,
-              createdAt: new Date().toISOString(),
-            }),
-          })
-        }
-        onClear={(exerciseName) =>
-          void updatePreferences({
-            strengthGoals: removeStrengthGoal(preferences.strengthGoals, exerciseName),
-          })
-        }
+        // The cap is the adoption's business, not this screen's: full on the
+        // free tier routes to the paywall and full on Pro says so, both from
+        // inside handleAdoptReadyProgram.
+        onCreate={(input) => void handleAcceptTargetProposal(input)}
       />
     );
   }
@@ -851,22 +910,52 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
   }
 
   if (route.screen === 'programs_home') {
+    /**
+     * Learn, out of the library and onto the tab.
+     *
+     * Progress is resolved here because it needs the learned-exercise set and
+     * the screen has no business reading it. Built once per render of this
+     * branch rather than inline in the JSX, where it minted a new array and
+     * six new row objects every time.
+     */
+    const learnedNames = new Set(learnedExerciseNames);
+    const learnRows = getExerciseCollections(preferences.appLanguage).map((collection) => {
+      const progress = resolveCollectionProgress(collection, (name) => learnedNames.has(name));
+      return {
+        id: collection.id,
+        title: collection.title,
+        blurb: collection.blurb,
+        done: progress.done,
+        total: progress.total,
+        percent: progress.percent,
+        cover: collection.cover,
+      };
+    });
+
     return (
       <ProgramsHomeScreen
         language={preferences.appLanguage}
         activeProgramTitle={homeActivePlanCard?.title ?? null}
-        seasonRows={programsSeasonRows}
+        // What setup was told, not what the plan happens to run: the sheet is
+        // for choosing a programme, so the week to match is the reader's own.
+        // Null when setup never asked, and then no row is recommended.
+        readerDaysPerWeek={preferences.setupDaysPerWeek}
+        // Setup's tier in the catalog's words. The two vocabularies collide on
+        // "advanced", so this goes through the shared map rather than across
+        // as-is.
+        readerLevel={catalogLevelForSetup(preferences.setupLevel) ?? null}
         catalogItems={programsCatalogItems}
         categoryCounts={programsCategoryCounts}
         categoryMembers={programsCategoryMembers}
-        trendingItems={programsTrendingItems}
         recommendations={programsRecommendations}
-        campaigns={programsCampaigns}
-        seasonCards={programsSeasonCards}
-        onOpenSeason={(season) => navigate({ tab: 'workout', screen: 'season', season })}
+        learnRows={learnRows}
+        onOpenCollection={(collectionId) =>
+          navigate({ tab: 'workout', screen: 'collection', collectionId })
+        }
+        onOpenLearnIndex={() => navigate({ tab: 'workout', screen: 'learn' })}
         goals={programsGoals}
         goalProgrammes={goalProgrammeSuggestions}
-        onOpenGoalPicker={() => navigate({ tab: 'workout', screen: 'goalPicker' })}
+        onOpenGoalPicker={() => navigate({ tab: 'workout', screen: 'goalFlow' })}
         onRemoveGoal={(exerciseName) =>
           void updatePreferences({
             strengthGoals: removeStrengthGoal(preferences.strengthGoals, exerciseName),
@@ -879,6 +968,10 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         onTeachName={(wrote, exercise) => teachExerciseName(wrote, { name: exercise.name, libraryItemId: exercise.id })}
         onPickImage={handlePickProgramImage}
         onAiAssisted={() => navigate({ tab: 'home', screen: 'ai_chat' })}
+        onBrowseCatalog={() => navigate({ tab: 'workout', screen: 'catalog' })}
+        catalogCount={programsCatalogItems.length}
+        proUnlocked={proUnlocked}
+        onOpenPaywall={() => navigate({ tab: 'profile', screen: 'premium' })}
         onImportProgram={async (draft) => {
           const workoutTemplateId = await upsertWorkoutTemplate(draft);
           navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
@@ -908,6 +1001,45 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
    * destination. Anything else — including a summary whose guard state was
    * just cleared — returns null and falls to the dashboard safety net.
    */
+  if (route.screen === 'learn') {
+    return (
+      <LearnIndexScreen
+        language={preferences.appLanguage}
+        collections={getExerciseCollections(preferences.appLanguage)}
+        learnedExerciseNames={learnedExerciseNames}
+        onBack={() => navigateBack(ROOT_ROUTES.workout)}
+        onOpenCollection={(collectionId) =>
+          navigate({ tab: 'workout', screen: 'collection', collectionId })
+        }
+      />
+    );
+  }
+
+  if (route.screen === 'collection') {
+    const collection = getExerciseCollection(route.collectionId, preferences.appLanguage);
+    // An id with no course behind it renders nothing, which drops through to
+    // the caller's dashboard safety net — the same thing every unclaimed
+    // route in this file does. It does NOT navigate back, and saying so would
+    // be a comment describing behaviour the code has not got.
+    if (!collection) {
+      return null;
+    }
+    return (
+      <CollectionScreen
+        language={preferences.appLanguage}
+        collection={collection}
+        learnedExerciseNames={learnedExerciseNames}
+        onBack={() => navigateBack(ROOT_ROUTES.workout)}
+        onOpenExercise={(exerciseName) => {
+          const target = exerciseBrowserItems.find((candidate) => candidate.name === exerciseName);
+          if (target) {
+            navigate({ tab: 'workout', screen: 'detail', exerciseId: target.id });
+          }
+        }}
+      />
+    );
+  }
+
   if (route.screen === 'list') {
     return (
       /*
@@ -923,16 +1055,27 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         language={preferences.appLanguage}
         onBack={() => navigateBack({ tab: 'workout', screen: 'programs_home' })}
         items={exerciseBrowserItems}
-        trackedIds={preferences.trackedExerciseLibraryItemIds}
         onOpenExercise={(item) => navigate({ tab: 'workout', screen: 'detail', exerciseId: item.id })}
-        onToggleTracked={(item) => {
-          const trackedIds = preferences.trackedExerciseLibraryItemIds;
-          const nextTrackedIds = trackedIds.includes(item.id)
-            ? trackedIds.filter((id) => id !== item.id)
-            : [...trackedIds, item.id];
-
-          void updatePreferences({ trackedExerciseLibraryItemIds: nextTrackedIds });
-        }}
+        learnCollection={(() => {
+          const picked = pickLibraryCollection(
+            getExerciseCollections(preferences.appLanguage),
+            (name) => learnedExerciseNames.includes(name),
+          );
+          return picked
+            ? {
+                id: picked.collection.id,
+                title: picked.collection.title,
+                done: picked.progress.done,
+                total: picked.progress.total,
+                percent: picked.progress.percent,
+                state: picked.state,
+              }
+            : null;
+        })()}
+        onOpenCollection={(collectionId) =>
+          navigate({ tab: 'workout', screen: 'collection', collectionId })
+        }
+        onOpenLearnIndex={() => navigate({ tab: 'workout', screen: 'learn' })}
       />
     );
   }

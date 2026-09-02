@@ -3,12 +3,27 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import Svg, { Circle, Path, Polyline, Rect } from 'react-native-svg';
 
 import { VinhaIcon } from '../components/VinhaIcon';
+import { EmptyBox } from '../components/EmptyBox';
+import { KitRow, KitSheet } from '../components/sheetKit';
+import { Seg } from '../components/Seg';
+import {
+  formatOverviewVolumeTick,
+  getOverviewBodyweightTicks,
+  getOverviewDurationTicks,
+  getOverviewVolumeTicks,
+} from '../lib/progressChartTicks';
 import { SimpleLineChart } from '../components/SimpleLineChart';
 import { WeightTrendChart } from '../components/WeightTrendChart';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { BmiEditSheet, MeasureLogSheet, WeightLogSheet } from '../components/MeasureRulerSheet';
 import { WeightBmiCards } from '../components/WeightBmiCards';
-import { buildBodyweightCardStats, buildValueWindow, buildWeightWindow } from '../lib/bodyweightCard';
+import {
+  buildBodyweightCardStats,
+  buildValueWindow,
+  buildWeightWindow,
+  measureRangeDays,
+  measureWindowEnd,
+} from '../lib/bodyweightCard';
 import type { HomeRecentSessionItem } from './HomeScreen';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import {
@@ -18,6 +33,7 @@ import {
   formatDate,
   formatDurationMinutes,
   formatShortDate,
+  formatSessionDate,
   formatTime,
   formatVolume,
   formatWeight,
@@ -65,7 +81,6 @@ import {
 } from '../types/models';
 
 type ProgressSection = 'overview' | 'records' | 'tracked' | 'measures';
-type ProgressFilter = 'all' | 'new_best' | 'moving_up' | 'building' | 'below_last';
 type OverviewMetric = 'volume' | 'duration' | 'bodyweight';
 type OverviewRange = '7d' | '1m' | '3m' | '6m' | 'all';
 type MeasureKey =
@@ -85,6 +100,16 @@ type MeasureIconName = 'scale' | 'drop' | 'tape';
 interface ProgressScreenProps {
   language?: AppLanguage;
   summaries: ExerciseProgressSummary[];
+  /**
+   * The lifts a target can be set on, with the target if there is one.
+   *
+   * The same list the target flow offers — App.tsx builds it once as
+   * goalFlowLifts. The tracked section shows these and only these: "tracked
+   * sama kuin tavoite" (user, 2026-09-01). Every other logged lift is still
+   * in Records, which still opens its set log.
+   */
+  targetLifts?: Array<{ exerciseName: string; targetKg: number | null; bestKg: number | null }>;
+  onSetTarget?: (exerciseName: string) => void;
   bodyweightProgress: BodyweightProgressSummary;
   measurementEntries: MeasurementEntry[];
   workoutSessions: WorkoutSession[];
@@ -208,18 +233,13 @@ const PROGRESS_SECTIONS: Array<{ key: ProgressSection; labelKey: I18nKey; icon: 
   },
 ];
 
-const PROGRESS_FILTERS: Array<{ key: ProgressFilter; labelKey: I18nKey }> = [
-  { key: 'all', labelKey: 'progress.filter.all' },
-  { key: 'new_best', labelKey: 'progress.filter.new' },
-  { key: 'moving_up', labelKey: 'progress.filter.up' },
-  { key: 'building', labelKey: 'progress.filter.building' },
-  { key: 'below_last', labelKey: 'progress.filter.below' },
-];
-
+// Bodyweight first (user, 2026-09-02). It is the one a reader checks between
+// sessions rather than after one, and it is the only metric here that moves on
+// a day nothing was logged.
 const OVERVIEW_METRICS: Array<{ key: OverviewMetric; labelKey: I18nKey }> = [
+  { key: 'bodyweight', labelKey: 'progress.metric.bodyweight' },
   { key: 'volume', labelKey: 'progress.metric.volume' },
   { key: 'duration', labelKey: 'progress.metric.duration' },
-  { key: 'bodyweight', labelKey: 'progress.metric.bodyweight' },
 ];
 
 // Range chips are numerals with a unit letter — the same in both languages
@@ -435,88 +455,6 @@ function getOverviewFooterLabels(
   return [...new Set(labels)].map((label) => formatOverviewChartLabel(label, range, language));
 }
 
-function getOverviewDurationTicks(maxValue: number) {
-  const top = maxValue <= 15 ? 15 : maxValue <= 30 ? 30 : maxValue <= 45 ? 45 : maxValue <= 60 ? 60 : 90;
-  const step = top === 90 ? 30 : 15;
-  return Array.from({ length: top / step + 1 }, (_, index) => index * step);
-}
-
-/**
- * Volume ticks on round numbers.
- *
- * Without these the chart interpolated its own axis and printed things like
- * "1730.8 kg" and "496.7 kg" — a decimal on a number nobody lifts to a tenth
- * of a kilo, under a headline that already reads "2,2 t". The axis steps in
- * halves and thousands instead, and the labels use the same compact unit as
- * the headline so the two agree.
- */
-function getOverviewVolumeTicks(maxValue: number) {
-  if (maxValue <= 0) {
-    return [0, 250, 500];
-  }
-
-  // Step from a 1 / 2.5 / 5 ladder so every tick lands on a readable number.
-  const magnitude = Math.pow(10, Math.floor(Math.log10(maxValue / 3)));
-  const step = [1, 2.5, 5, 10].map((factor) => factor * magnitude).find((candidate) => maxValue / candidate <= 4)
-    ?? 10 * magnitude;
-  const top = Math.ceil(maxValue / step) * step;
-  const ticks: number[] = [];
-  for (let tick = 0; tick <= top + step / 2; tick += step) {
-    ticks.push(Number(tick.toFixed(2)));
-  }
-  return ticks;
-}
-
-function formatOverviewVolumeTick(value: number, ticks: number[]) {
-  const top = ticks.length ? ticks[ticks.length - 1] : 0;
-  if (top >= 1000) {
-    const tonnes = value / 1000;
-    return `${removeTrailingZeros(Number(tonnes.toFixed(tonnes >= 10 ? 0 : 1)))} t`;
-  }
-  return `${removeTrailingZeros(Math.round(value))} kg`;
-}
-
-function getOverviewBodyweightTicks(values: number[], unitPreference: UnitPreference) {
-  if (!values.length) {
-    return unitPreference === 'lb' ? [100, 102, 104, 106] : [50, 50.5, 51, 51.5];
-  }
-
-  const spread = Math.max(...values) - Math.min(...values);
-  const step =
-    unitPreference === 'lb'
-      ? spread <= 4
-        ? 1
-        : spread <= 10
-          ? 2
-          : spread <= 25
-            ? 5
-            : 10
-      : spread <= 2
-        ? 0.5
-        : spread <= 5
-          ? 1
-          : spread <= 10
-            ? 2
-            : spread <= 25
-              ? 5
-              : 10;
-
-  let minTick = Math.floor(Math.min(...values) / step) * step;
-  let maxTick = Math.ceil(Math.max(...values) / step) * step;
-
-  while (Math.round((maxTick - minTick) / step) + 1 < 4) {
-    minTick -= step;
-    maxTick += step;
-  }
-
-  const ticks: number[] = [];
-  for (let tick = minTick; tick <= maxTick + step / 2; tick += step) {
-    ticks.push(Number(tick.toFixed(2)));
-  }
-
-  return ticks;
-}
-
 function formatOverviewBodyweightTick(value: number, unitLabel: string) {
   return `${removeTrailingZeros(Number(value.toFixed(unitLabel === 'lb' ? 0 : 1)))} ${unitLabel}`;
 }
@@ -603,18 +541,6 @@ function fmtDelta(value: number) {
 }
 
 // ── glyphs ──
-
-function SearchIcon({ color: colorProp, size = 17 }: { color?: string; size?: number }) {
-  const theme = useTheme();
-  const color = colorProp ?? theme.faint;
-
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth={2} />
-      <Path d="M21 21l-4-4" stroke={color} strokeWidth={2} strokeLinecap="round" />
-    </Svg>
-  );
-}
 
 function ChevronRight({ color }: { color: string }) {
   return (
@@ -738,83 +664,10 @@ function Sparkline({ values, color, width = 62, height = 28 }: { values: number[
   );
 }
 
-function Seg<T extends string>({
-  options,
-  value,
-  onChange,
-  grow,
-  lockedKeys,
-  onLockedPress,
-}: {
-  options: Array<{ key: T; label: string }>;
-  value: T;
-  onChange: (next: T) => void;
-  grow?: boolean;
-  /**
-   * Options that exist but are not this reader's to pick.
-   *
-   * Shown with a lock rather than removed: hiding them would make the free
-   * tier look like the whole product, and a reader who never learns the long
-   * view exists cannot want it. Pressing one opens the Pro page instead of
-   * selecting — it is not a broken control, it is a door.
-   */
-  lockedKeys?: readonly T[];
-  onLockedPress?: () => void;
-}) {
-  const styles = useThemedStyles(makeStyles);
-  const theme = useTheme();
-
-  return (
-    // A3: the shell and the selected option both take the cut. Every selector
-    // in the app goes through this one component, so the shape lands on the
-    // metric switch, the trend range and the measure range at once.
-    <CutSurface size="sm" fill={theme.surfaceSoft} style={[styles.seg, grow && styles.segGrow]}>
-      {options.map((option) => {
-        const locked = lockedKeys?.includes(option.key) ?? false;
-        const active = !locked && option.key === value;
-        const inner = (
-          <>
-            {locked ? (
-              <Svg width={11} height={11} viewBox="0 0 24 24" fill="none">
-                <Rect x={5} y={11} width={14} height={9} rx={2.5} stroke={theme.faint} strokeWidth={2.4} />
-                <Path
-                  d="M8.5 11V8a3.5 3.5 0 017 0v3"
-                  stroke={theme.faint}
-                  strokeWidth={2.4}
-                  strokeLinecap="round"
-                />
-              </Svg>
-            ) : null}
-            <Text style={[styles.segText, active && styles.segTextActive, locked && styles.segTextLocked]}>
-              {option.label}
-            </Text>
-          </>
-        );
-
-        return (
-          <Pressable
-            key={option.key}
-            accessibilityRole="button"
-            accessibilityState={{ selected: active, disabled: false }}
-            onPress={() => (locked ? onLockedPress?.() : onChange(option.key))}
-            style={grow && styles.segItemGrow}
-          >
-            {active ? (
-              <CutSurface size="chip" fill={theme.surface} style={[styles.segItem, styles.segItemActive]}>
-                {inner}
-              </CutSurface>
-            ) : (
-              <View style={styles.segItem}>{inner}</View>
-            )}
-          </Pressable>
-        );
-      })}
-    </CutSurface>
-  );
-}
-
 export function ProgressScreen({
   summaries,
+  targetLifts = [],
+  onSetTarget,
   bodyweightProgress,
   measurementEntries,
   workoutSessions,
@@ -853,8 +706,6 @@ export function ProgressScreen({
   const [readSheetVisible, setReadSheetVisible] = useState(false);
   const [progressSection, setProgressSection] = useState<ProgressSection>(initialSection ?? 'overview');
   const [setLogKey, setSetLogKey] = useState<string | null>(null);
-  const [progressQuery, setProgressQuery] = useState('');
-  const [progressFilter, setProgressFilter] = useState<ProgressFilter>('all');
   const [expandedKey, setExpandedKey] = useState<string | null>(selectedExerciseKey ?? null);
   const [overviewMetric, setOverviewMetric] = useState<OverviewMetric>('volume');
   // The week opens both charts (user 2026-08-25) — see TrendRange.
@@ -879,14 +730,46 @@ export function ProgressScreen({
   const [measureSheetVisible, setMeasureSheetVisible] = useState(false);
   const [weightSheetVisible, setWeightSheetVisible] = useState(false);
   const [bmiSheetVisible, setBmiSheetVisible] = useState(false);
+  /**
+   * Whether the entries list is showing its deletes.
+   *
+   * The brief: "Entries get the History treatment: no × on a resting row." A
+   * delete sitting on every row of a list you are only reading is a mistake
+   * waiting for a mis-tap, and this list is three rows of numbers you scroll
+   * past on the way to the chart.
+   */
+  const [entriesEditing, setEntriesEditing] = useState(false);
+  /** The picker behind "Track another measure". */
+  const [measurePickerVisible, setMeasurePickerVisible] = useState(false);
   const bodyweightStats = useMemo(
     () => buildBodyweightCardStats(bodyweightProgress.entries),
     [bodyweightProgress.entries],
   );
-  const weightWindowDays = useMemo(
-    () => buildWeightWindow(bodyweightProgress.entries, Date.now()),
-    [bodyweightProgress.entries],
-  );
+  /**
+   * The weight chart's x-axis, and the one place the two window shapes meet.
+   *
+   * At 7D it stays CENTRED on today, which is the card's whole point: the
+   * first weigh-in a reader ever logs lands in the middle rather than pinned
+   * to an edge. That is why the card had no range chips at all — a centred
+   * three-month window would put half the chart in the future.
+   *
+   * The brief gives it chips anyway (piece 06), so the longer ranges take the
+   * trailing window every other chart on the tab uses. Centred is the week's
+   * shape, not the card's law.
+   */
+  const weightWindowDays = useMemo(() => {
+    const nowMs = Date.now();
+    if (resolvedMeasureRange === '7d') {
+      return buildWeightWindow(bodyweightProgress.entries, nowMs);
+    }
+    const entries = bodyweightProgress.entries.map((entry) => ({
+      recordedAt: entry.recordedAt,
+      value: entry.weight,
+    }));
+    const first = entries.length ? new Date(entries[0].recordedAt).getTime() : null;
+    const days = measureRangeDays(resolvedMeasureRange, first, nowMs);
+    return buildValueWindow(entries, nowMs, days, measureWindowEnd(first, nowMs, days));
+  }, [bodyweightProgress.entries, resolvedMeasureRange]);
   /**
    * What the rulers open on. Not a default the reader has to correct: their
    * last weigh-in, or the weight onboarding recorded, and only then a middle-
@@ -958,16 +841,6 @@ export function ProgressScreen({
   // ── overview data ──
 
   const prioritizedSummaries = useMemo(() => [...summaries].sort(compareProgressSummaries), [summaries]);
-  const heroSummary = prioritizedSummaries[0] ?? null;
-  const heroPoints = useMemo(
-    () => (heroSummary ? getSummaryChartPoints(heroSummary, unitPreference, language) : []),
-    [heroSummary, language, unitPreference],
-  );
-  const heroSignalDot = heroSummary ? SIGNAL_STYLES[getExerciseProgressSignal(heroSummary).kind].dot : theme.purple;
-  const heroLatest = heroPoints.length ? heroPoints[heroPoints.length - 1].value : null;
-  const heroStart = heroPoints.length ? heroPoints[0].value : null;
-  const heroDelta = heroLatest !== null && heroStart !== null && heroPoints.length > 1 ? heroLatest - heroStart : null;
-  const heroReps = heroSummary?.latestReps?.split(',')[0] ?? null;
 
   const calendarMonthLabel = useMemo(() => {
     const currentMonthDay = activityCalendar.weeks.flat().find((day) => day.inCurrentMonth);
@@ -1120,11 +993,21 @@ export function ProgressScreen({
       };
     }
 
+    // Days that lifted nothing are not zero-volume days, they are days with no
+    // volume reading — a bodyweight-only session, or one abandoned before a set
+    // landed. Plotted as 0 they pin the line to the axis and make the first
+    // real reading look like a jump out of nowhere (user, 2026-09-02, on a
+    // chart whose first point was 0 t).
+    //
+    // The same rule progression.ts already states for a lift that is never
+    // loaded: reading its weight gives 0 every time, so do not read it.
     const points = bucketOverviewPointsByRange(
-      rows.map((row) => ({
-        label: row.performedAt,
-        value: convertWeightFromKg(row.volume, unitPreference),
-      })),
+      rows
+        .filter((row) => row.volume > 0)
+        .map((row) => ({
+          label: row.performedAt,
+          value: convertWeightFromKg(row.volume, unitPreference),
+        })),
       resolvedOverviewRange,
       'sum',
     );
@@ -1160,29 +1043,26 @@ export function ProgressScreen({
 
   // ── tracked data ──
 
-  const filteredSummaries = useMemo(() => {
-    const normalizedQuery = progressQuery.trim().toLowerCase();
+  /**
+   * One row per lift a target can be set on, with its history if it has any.
+   *
+   * The section used to list every lift with a log in it. It is the targets
+   * now — "tracked sama kuin tavoite" (user, 2026-09-01) — so the list is
+   * fixed at ten, and a lift with no target still gets a row, because the
+   * question the section answers is "what could you aim at".
+   *
+   * Joined on the summary key, which is the trimmed lowercase name that
+   * getTrackedExerciseProgress groups by. A lift that HAS a target already has
+   * a summary even with nothing logged: the target seeds one.
+   */
+  const trackedRows = useMemo(() => {
+    const byKey = new Map(summaries.map((summary) => [summary.key, summary]));
+    return targetLifts.map((lift) => ({
+      lift,
+      summary: byKey.get(lift.exerciseName.trim().toLowerCase()) ?? null,
+    }));
+  }, [summaries, targetLifts]);
 
-    return prioritizedSummaries.filter((summary) => {
-      const signal = getExerciseProgressSignal(summary);
-      if (progressFilter !== 'all' && signal.kind !== progressFilter) {
-        return false;
-      }
-
-      if (!normalizedQuery) {
-        return true;
-      }
-
-      // Search both spellings: a Finnish user may type "kyykky", but the stored
-      // name is still the English one the library and the logs are keyed on.
-      return (
-        formatLiftDisplayLabel(exerciseNameLabel(language, summary.name))
-          .toLowerCase()
-          .includes(normalizedQuery) ||
-        formatLiftDisplayLabel(summary.name).toLowerCase().includes(normalizedQuery)
-      );
-    });
-  }, [language, prioritizedSummaries, progressFilter, progressQuery]);
 
   // ── measures data ──
 
@@ -1259,18 +1139,9 @@ export function ProgressScreen({
       value,
     }));
     const nowMs = Date.now();
-    let days: number;
-    if (resolvedMeasureRange === '7d') {
-      days = 7;
-    } else if (resolvedMeasureRange === '3m') {
-      days = 91;
-    } else if (resolvedMeasureRange === '1y') {
-      days = 365;
-    } else {
-      const first = entries.length ? new Date(entries[0].recordedAt).getTime() : nowMs;
-      days = Math.min(730, Math.max(14, Math.ceil((nowMs - first) / 86_400_000) + 1));
-    }
-    return buildValueWindow(entries, nowMs, days);
+    const first = entries.length ? new Date(entries[0].recordedAt).getTime() : null;
+    const days = measureRangeDays(resolvedMeasureRange, first, nowMs);
+    return buildValueWindow(entries, nowMs, days, measureWindowEnd(first, nowMs, days));
   }, [resolvedMeasureRange, selectedMeasureModel]);
 
   const selectedMeasureLatest = selectedMeasureModel.values.length
@@ -1378,61 +1249,17 @@ export function ProgressScreen({
     return (
       <>
         {renderWeeklyRead()}
-        {heroSummary ? (
-          <View style={styles.heroBlock}>
-            <View style={styles.heroCard}>
-              <View style={styles.heroHead}>
-                <Text numberOfLines={1} style={styles.heroLabel}>
-                  {t(language, 'progress.workingWeight')} ·{' '}
-                  {formatLiftDisplayLabel(exerciseNameLabel(language, heroSummary.name))}
-                </Text>
-                <SignalBadge summary={heroSummary} language={language} />
-              </View>
-              <View style={styles.heroValueRow}>
-                <Text style={styles.heroValue}>{heroLatest !== null ? removeTrailingZeros(heroLatest) : '-'}</Text>
-                <Text style={styles.heroUnit}>
-                  {unitPreference}
-                  {heroReps ? ` × ${heroReps}` : ''}
-                </Text>
-              </View>
-              {heroDelta !== null ? (
-                <Text style={styles.heroSince}>
-                  {t(language, 'progress.heroSince', {
-                    delta: `${heroDelta >= 0 ? '+' : ''}${fmtDelta(heroDelta)} ${unitPreference}`,
-                    from: removeTrailingZeros(heroStart ?? 0),
-                    to: `${removeTrailingZeros(heroLatest ?? 0)} ${unitPreference}`,
-                  })}
-                </Text>
-              ) : (
-                <Text style={styles.heroSinceMuted}>{t(language, 'progress.trendStarts')}</Text>
-              )}
-            </View>
-            <SimpleLineChart
-              points={heroPoints}
-              unitLabel={unitPreference}
-              accent={heroSignalDot}
-              emptyLabel={t(language, 'progress.noEntries')}
-              tooltipFormatter={(point) => ({
-                title: point.label,
-                value: formatWeight(
-                  unitPreference === 'lb' ? convertWeightToKg(point.value, 'lb') : point.value,
-                  unitPreference,
-                ),
-              })}
-            />
-          </View>
-        ) : (
-          <View style={styles.emptyHeroCard}>
-            <Text style={styles.emptyTitle}>{t(language, 'progress.noTracked.title')}</Text>
-            <Text style={styles.emptyText}>{t(language, 'progress.noTracked.body')}</Text>
-          </View>
-        )}
+        {/* The trend chart, and now the first thing on the tab.
+            overviewChart, OVERVIEW_METRICS and OVERVIEW_RANGES were all built
+            and none of them rendered: the chart was computed into a const
+            nobody read, and the metric/range state had setters nobody called.
 
-        {/* The trend chart. overviewChart, OVERVIEW_METRICS and OVERVIEW_RANGES
-            were all built and none of them rendered: the chart was computed
-            into a const nobody read, and the metric/range state had setters
-            nobody called. So three metrics and four ranges existed in code and
-            no user could see any of them. */}
+            Above it sat a "Working weight · <lift>" card showing one lift's
+            last load — which for a bodyweight lift is 0, every time, as
+            progression.ts says in a comment on latestValue. It was
+            photographed on the device reading "0 kg × 15" over a flat line
+            from 0 to 0. Gone: the headline number belongs to the chart, and
+            the chart is what the tab is for (Progress v2, piece 01). */}
         <SectionLabel label={t(language, 'progress.section.trend')} />
         <View style={styles.card}>
           <View style={styles.trendMetricRow}>
@@ -1454,7 +1281,7 @@ export function ProgressScreen({
             overviewWeightWindow.some((day) => day.value !== null) ? (
               <WeightTrendChart days={overviewWeightWindow} />
             ) : (
-              <Text style={styles.measureChartEmpty}>{overviewChart.emptyLabel}</Text>
+              <EmptyBox label={overviewChart.emptyLabel} />
             )
           ) : (
             <SimpleLineChart
@@ -1587,9 +1414,16 @@ export function ProgressScreen({
               }
 
               // One mark, one meaning (user 2026-08-25): a training day —
-              // trained, ahead, or behind — is the solid highlight, and
-              // everything else is quiet. No trained/planned split and no
-              // legend to explain it: orange means training day, full stop.
+              // trained, ahead, or behind — is the solid mark, and everything
+              // else is quiet. No trained/planned split and no legend to
+              // explain it: one colour means training day, full stop.
+              //
+              // That colour is VIOLET now, not the accent. The brief opens on
+              // it: "The calendar was a wall of orange. Logged days are violet
+              // — they are a record of what happened, not something to press."
+              // Twenty-five orange squares out of thirty read as a screen full
+              // of buttons, and not one of them does anything when tapped. The
+              // one-mark rule survives; only the ink changed.
               const training = status !== 'rest';
               return (
                 <View key={day.dayStart} style={styles.calendarCell}>
@@ -1677,56 +1511,37 @@ export function ProgressScreen({
   function renderTracked() {
     return (
       <>
-        <View style={styles.searchShell}>
-          <SearchIcon />
-          <TextInput
-            value={progressQuery}
-            onChangeText={setProgressQuery}
-            placeholder={t(language, 'progress.searchTracked')}
-            placeholderTextColor={theme.faint}
-            style={styles.searchInput}
-          />
-        </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.filterRail}
-        >
-          {PROGRESS_FILTERS.map((filter) => {
-            const active = filter.key === progressFilter;
-            return (
-              <Pressable key={filter.key} onPress={() => setProgressFilter(filter.key)}>
-                <CutSurface
-                  size="chip"
-                  fill={active ? theme.purple : theme.surface}
-                  stroke={active ? theme.purple : theme.border}
-                  strokeWidth={1}
-                  style={styles.filterChip}
-                >
-                  <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
-                    {t(language, filter.labelKey)}
-                  </Text>
-                </CutSurface>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-
-        {summaries.length === 0 ? (
+        {trackedRows.length === 0 ? (
           <View style={styles.emptyBlock}>
             <Text style={styles.emptyTitle}>{t(language, 'progress.noTracked.title')}</Text>
-            <Text style={styles.emptyText}>{t(language, 'progress.noTrackedFilter.body')}</Text>
-          </View>
-        ) : filteredSummaries.length === 0 ? (
-          <View style={styles.emptyBlock}>
-            <Text style={styles.emptyTitle}>{t(language, 'progress.noMatch.title')}</Text>
-            <Text style={styles.emptyText}>{t(language, 'progress.noMatch.body')}</Text>
           </View>
         ) : (
           <View style={styles.trackedList}>
-            {filteredSummaries.map((summary) => {
+            {trackedRows.map(({ lift, summary }) => {
+              if (!summary) {
+                // Nothing aimed at and nothing logged. The row stays, because
+                // a lift you cannot see is one you cannot pick.
+                return (
+                  <Pressable
+                    key={lift.exerciseName}
+                    accessibilityRole="button"
+                    onPress={() => onSetTarget?.(lift.exerciseName)}
+                    style={({ pressed }) => [styles.trackedCard, pressed && { opacity: 0.85 }]}
+                  >
+                    <View style={styles.trackedHead}>
+                      <View style={styles.trackedCopy}>
+                        <Text numberOfLines={1} style={styles.trackedName}>
+                          {formatLiftDisplayLabel(exerciseNameLabel(language, lift.exerciseName))}
+                        </Text>
+                        <Text numberOfLines={1} style={styles.trackedMeta}>
+                          {t(language, 'progress.noTargetYet')}
+                        </Text>
+                      </View>
+                      <Text style={styles.trackedSetTarget}>{t(language, 'programs.goals.add')}</Text>
+                    </View>
+                  </Pressable>
+                );
+              }
               const isOpen = expandedKey === summary.key;
               const signalDot = SIGNAL_STYLES[getExerciseProgressSignal(summary).kind].dot;
               const points = getSummaryChartPoints(summary, unitPreference, language);
@@ -1834,13 +1649,29 @@ export function ProgressScreen({
               chartDays={weightWindowDays}
               onLogWeight={() => setWeightSheetVisible(true)}
               onEditBmi={() => setBmiSheetVisible(true)}
+              /* The same chips every other chart on this tab has (Progress v2,
+                 piece 06). They were deliberately absent — the week is centred
+                 on today and a centred long window is half future — so the
+                 shape follows the range instead: centred at 7D, trailing
+                 beyond it. Handed to the card so they land under ITS chart:
+                 rendered after the component they went under BMI, two cards
+                 down, which is where the device showed them. */
+              rangeSlot={
+                <View style={styles.trendRangeRow}>
+                  <Seg
+                    options={MEASURE_RANGES.map((option) => ({
+                      key: option.key,
+                      label: option.label ?? t(language, option.labelKey ?? 'progress.range.all'),
+                    }))}
+                    value={resolvedMeasureRange}
+                    onChange={setMeasureRange}
+                    lockedKeys={lockedMeasureRanges}
+                    onLockedPress={onOpenPremium}
+                  />
+                </View>
+              }
             />
-            {/* No range selector here, on purpose. The weight curve is a fixed
-                week centred on today — a 3-month window would put the reader's
-                first weigh-in against the right-hand edge instead of in the
-                middle, which is the whole point of the card. The long view is
-                one tab over: Summary → Trend → Body weight, where the range
-                selector still applies. */}
+
           </View>
           {renderMeasureEntries()}
           {renderMeasureList()}
@@ -1877,11 +1708,15 @@ export function ProgressScreen({
               </Text>
               <Text style={styles.measureUnit}>{model.unit}</Text>
             </View>
-            <Text style={styles.measureCaption}>
-              {model.values.length
-                ? t(language, 'progress.ownBaseline')
-                : t(language, 'progress.addFirst')}
-            </Text>
+            {/* Only when there IS a baseline. With nothing logged this said
+                "No entries yet — add your first below", the dashed box below
+                said it again, and the row in the list said it a third time.
+                The brief counts: "an untracked measure says it once". The box
+                is the one that keeps it, because it is where the line will
+                appear. */}
+            {model.values.length ? (
+              <Text style={styles.measureCaption}>{t(language, 'progress.ownBaseline')}</Text>
+            ) : null}
 
             {/* Inside the card with the number it draws: the chart floated
                 below the box while the weight card kept its chart inside,
@@ -1890,7 +1725,13 @@ export function ProgressScreen({
             {selectedMeasureWindow.some((day) => day.value !== null) ? (
               <WeightTrendChart days={selectedMeasureWindow} />
             ) : (
-              <Text style={styles.measureChartEmpty}>{t(language, 'progress.noEntriesRange')}</Text>
+              /* Two different absences, and they are not the same sentence.
+                 Nothing ever logged is "no entries yet"; entries that all fall
+                 outside the chosen window is "none in this range" — and that
+                 one is a hint to widen the range rather than a hole. */
+              <EmptyBox
+                label={t(language, model.values.length ? 'progress.noEntriesRange' : 'progress.noEntriesYet')}
+              />
             )}
             <View style={styles.trendRangeRow}>
               <Seg
@@ -1936,23 +1777,48 @@ export function ProgressScreen({
 
     return (
       <>
-        <SectionLabel label={t(language, 'progress.entries')} />
+        {/* The label's own right slot, not a header built beside it. The
+            first version wrapped SectionLabel in a flex row with its own
+            Pressable — a third way to draw a section head in a file that
+            already had two. */}
+        <SectionLabel
+          label={t(language, 'progress.entries')}
+          right={
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: entriesEditing }}
+              onPress={() => setEntriesEditing((value) => !value)}
+              hitSlop={10}
+              style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+            >
+              <Text style={styles.entriesEditLink}>
+                {t(language, entriesEditing ? 'plan.done' : 'plan.edit')}
+              </Text>
+            </Pressable>
+          }
+        />
         <View style={styles.card}>
           {rows.map((row, index) => (
             <View key={row.id} style={[styles.entryRow, index > 0 && styles.entryRowDivided]}>
-              <Text style={styles.entryDate}>{formatShortDate(row.recordedAt, language)}</Text>
+              {/* The whole stamp, not "Sep 1". Two weigh-ins on one day are
+                  the ones you came to delete, and "Sep 1 / Sep 1" cannot tell
+                  them apart — the row has the width for it (user
+                  2026-09-02). */}
+              <Text style={styles.entryDate}>{formatSessionDate(row.recordedAt, language)}</Text>
               <Text style={styles.entryValue}>
                 {removeTrailingZeros(Number(row.value.toFixed(1)))} {model.unit}
               </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t(language, 'progress.entries.delete')}
-                hitSlop={10}
-                onPress={() => setPendingEntryDelete(row.id)}
-                style={({ pressed }) => [styles.entryDelete, pressed && { opacity: 0.6 }]}
-              >
-                <Text style={styles.entryDeleteGlyph}>×</Text>
-              </Pressable>
+              {entriesEditing ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'progress.entries.delete')}
+                  hitSlop={10}
+                  onPress={() => setPendingEntryDelete(row.id)}
+                  style={({ pressed }) => [styles.entryDelete, pressed && { opacity: 0.6 }]}
+                >
+                  <Text style={styles.entryDeleteGlyph}>×</Text>
+                </Pressable>
+              ) : null}
             </View>
           ))}
         </View>
@@ -1977,14 +1843,31 @@ export function ProgressScreen({
   }
 
   function renderMeasureList() {
+    /**
+     * What you actually track — not all ten.
+     *
+     * Ten rows, seven of them empty, was a wall you scrolled past: the brief
+     * calls it out and the earlier fix only re-sorted it so the empties came
+     * last. A measure is yours once you have logged it, and the one you are
+     * looking at right now is yours too — otherwise opening a fresh measure
+     * from the sheet would leave its card above a list that does not mention
+     * it.
+     *
+     * The rest are one row at the bottom, not seven.
+     */
+    const tracked = measureModels.filter(
+      (item) => item.values.length > 0 || item.key === selectedMeasure,
+    );
+    const untracked = measureModels.filter((item) => !tracked.includes(item));
+
     return (
       <>
-        <SectionLabel label={t(language, 'progress.section.allMeasures')} />
+        <SectionLabel label={t(language, 'progress.section.youTrack')} />
         <View style={styles.measureList}>
           {/* Measures with entries first, outlined (user 2026-08-23): the
               catalog order buried "Rinta · 93,5 cm" under three empty rows.
               The sort is stable, so within each half the catalog order holds. */}
-          {[...measureModels]
+          {[...tracked]
             .sort((left, right) => Number(right.values.length > 0) - Number(left.values.length > 0))
             .map((item) => {
             const active = item.key === selectedMeasure;
@@ -2021,7 +1904,47 @@ export function ProgressScreen({
               </Pressable>
             );
           })}
+          {/* One row for everything else. A measure you have never taken is
+              not a row you want to read past every time you open the tab — it
+              is a thing you might start, which is one line. */}
+          {untracked.length ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setMeasurePickerVisible(true)}
+              style={({ pressed }) => [styles.measureAddRow, pressed && { opacity: 0.8 }]}
+            >
+              <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M12 5v14M5 12h14"
+                  stroke={theme.highlight}
+                  strokeWidth={2.4}
+                  strokeLinecap="round"
+                />
+              </Svg>
+              <Text style={styles.measureAddText}>{t(language, 'progress.trackAnother')}</Text>
+            </Pressable>
+          ) : null}
         </View>
+
+        {/* The kit's own sheet, the same one Home adds a stat card with. */}
+        <KitSheet
+          visible={measurePickerVisible}
+          onClose={() => setMeasurePickerVisible(false)}
+          title={t(language, 'progress.trackAnother')}
+          bottomInset={0}
+        >
+          {untracked.map((item) => (
+            <KitRow
+              key={item.key}
+              title={t(language, item.labelKey)}
+              meta={item.unit}
+              onPress={() => {
+                setSelectedMeasure(item.key);
+                setMeasurePickerVisible(false);
+              }}
+            />
+          ))}
+        </KitSheet>
       </>
     );
   }
@@ -2386,67 +2309,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 18,
     padding: 16,
   },
-  heroBlock: {
-    gap: 10,
-  },
-  heroCard: {
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 18,
-    padding: 18,
-  },
-  heroHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  heroLabel: {
-    flex: 1,
-    minWidth: 0,
-    color: theme.muted,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  heroValueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 10,
-    marginTop: 8,
-  },
-  heroValue: {
-    color: theme.ink,
-    fontSize: 46,
-    fontWeight: '800',
-    letterSpacing: -1,
-    lineHeight: 48,
-  },
-  heroUnit: {
-    color: theme.muted,
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  heroSince: {
-    color: '#157A3A',
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 7,
-  },
-  heroSinceMuted: {
-    color: theme.muted,
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 7,
-  },
-  emptyHeroCard: {
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 18,
-    paddingHorizontal: 18,
-    paddingVertical: 26,
-  },
   signalBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2527,44 +2389,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 5,
     marginBottom: 6,
   },
-  seg: {
-    flexDirection: 'row',
-    padding: 3,
-    gap: 2,
-  },
-  segGrow: {
-    alignSelf: 'stretch',
-  },
-  segItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    paddingHorizontal: 11,
-    paddingVertical: 5,
-  },
-  segItemGrow: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  segItemActive: {
-    shadowColor: '#5028A0',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.14,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  segTextLocked: {
-    color: theme.faint,
-  },
-  segText: {
-    color: theme.muted,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  segTextActive: {
-    color: theme.purpleDark,
-  },
   calendarWeekdayRow: {
     flexDirection: 'row',
     gap: 6,
@@ -2598,11 +2422,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   // Any training day — trained, ahead, or behind — wears the same fill.
   calendarBubbleTraining: {
-    backgroundColor: theme.highlight,
+    backgroundColor: theme.purple,
   },
   calendarBubbleToday: {
     borderWidth: 1.5,
-    borderColor: theme.highlight,
+    borderColor: theme.purple,
     borderStyle: 'dashed',
   },
   calendarBubbleText: {
@@ -2611,10 +2435,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '700',
   },
   calendarBubbleTextTraining: {
-    color: theme.onHighlight,
+    // White, the way the NEW tag is white on the same fill. onHighlight is the
+    // ink for `highlight`, which is orange on the dark theme — the wrong pair
+    // for a violet square. The theme's own note says white works on violet.
+    color: '#FFFFFF',
   },
   calendarBubbleTextToday: {
-    color: theme.highlight,
+    color: theme.purple,
   },
   progressHistoryCard: {
     backgroundColor: theme.surface,
@@ -2677,45 +2504,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 4,
   },
-  searchShell: {
-    height: 44,
-    borderRadius: 13,
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 13,
-    marginBottom: 11,
-  },
-  searchInput: {
-    flex: 1,
-    color: theme.ink,
-    fontSize: 14,
-    fontWeight: '600',
-    paddingVertical: 0,
-  },
-  filterRail: {
-    gap: 8,
-    paddingBottom: 14,
-    paddingRight: 8,
-  },
-  filterChip: {
-    height: 32,
-    paddingHorizontal: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   filterChipActive: {
-  },
-  filterChipText: {
-    color: theme.ink,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  filterChipTextActive: {
-    color: '#FFFFFF',
   },
   trackedList: {
     gap: 10,
@@ -2735,6 +2524,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   trackedCopy: {
     flex: 1,
     minWidth: 0,
+  },
+  trackedSetTarget: {
+    color: theme.highlight,
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontWeight: '800',
   },
   trackedName: {
     color: theme.ink,
@@ -2845,13 +2640,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '600',
     marginTop: 6,
   },
-  measureChartEmpty: {
-    marginTop: 16,
-    textAlign: 'center',
-    fontSize: 13,
-    fontWeight: '600',
-    color: theme.faint,
-  },
   measureHeadActions: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2891,6 +2679,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 14.5,
     fontWeight: '800',
   },
+  entriesEditLink: {
+    color: theme.highlight,
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontWeight: '800',
+  },
   entryDelete: {
     width: 30,
     height: 30,
@@ -2902,6 +2696,19 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 21,
     lineHeight: 23,
     fontWeight: '600',
+  },
+  measureAddRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 48,
+  },
+  measureAddText: {
+    color: theme.highlight,
+    fontSize: 13.5,
+    lineHeight: 18,
+    fontWeight: '800',
   },
   measureList: {
     gap: 9,

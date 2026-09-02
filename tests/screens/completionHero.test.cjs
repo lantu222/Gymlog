@@ -63,4 +63,62 @@ module.exports = [
       assert.match(screenSource, /pr \? 'complete\.kicker\.record' : 'complete\.kicker\.done'/);
     },
   },
+  {
+    /**
+     * The feel sheet cannot be skipped by missing it.
+     *
+     * The backdrop called onDone(null) — byte for byte the write Skip makes,
+     * with none of the intent behind it. One answer per workout, thrown away
+     * by a thumb landing beside the sheet (user 2026-09-01).
+     *
+     * Two things are pinned. The backdrop must not write, and the refusal must
+     * be VISIBLE as well as felt: haptics are a user preference, so a bump
+     * alone turns "tap outside closes it" into "tap outside does nothing" for
+     * anyone who switched them off, which reads as a frozen screen.
+     *
+     * Skip stays one tap. Refusing to dismiss is not the same as trapping
+     * someone, and the difference is that leaving without answering is now
+     * chosen rather than slipped into.
+     */
+    name: 'complete: a tap beside the feel sheet refuses instead of skipping',
+    run() {
+      // Exactly one handler still writes the skip, and it is the Skip button.
+      // Matched as a HANDLER rather than as the bare call: the comment above
+      // the backdrop quotes `onDone(null)` to say what it stopped doing, and
+      // a substring count read that as a second caller. A guard that its own
+      // explanation can satisfy is the /trending/i shape.
+      const skipHandlers = screenSource.match(/onPress=\{\(\) => onDone\(null\)\}/g) ?? [];
+      assert.equal(skipHandlers.length, 1, 'the backdrop can throw the answer away again');
+
+      // And that one is the Skip button's, not the backdrop's: it sits after
+      // the sheet opens, inside the block styled feelSkip.
+      const handlerAt = screenSource.indexOf('onPress={() => onDone(null)}');
+      const skipStyleAt = screenSource.indexOf('styles.feelSkip');
+      assert.ok(handlerAt > 0 && skipStyleAt > handlerAt, 'the surviving skip is not the Skip button');
+
+      // The backdrop bumps, and moves the sheet so the refusal survives
+      // haptics being switched off.
+      //
+      // Anchored on the feel overlay itself. The first cut sliced from the
+      // first `StyleSheet.absoluteFill` in the file to the first
+      // `<Animated.View`, which is the hero 340 lines above this sheet — it
+      // was reading the wrong region and would have passed on whatever
+      // happened to be in it.
+      const overlayAt = screenSource.indexOf('styles.feelOverlay');
+      const titleAt = screenSource.indexOf('styles.feelTitle', overlayAt);
+      assert.ok(overlayAt > 0 && titleAt > overlayAt, 'the feel sheet was restructured — recheck by hand');
+      const backdrop = screenSource.slice(overlayAt, titleAt);
+      assert.match(backdrop, /haptics\.impactMedium\(\)/, 'the tap outside is silent');
+      assert.match(backdrop, /Animated\.sequence\(/, 'nothing moves when haptics are off');
+
+      // And the shake drives its OWN view. A node shared between two views
+      // took the app down in 85% of launches once.
+      assert.equal((screenSource.match(/feelShake\.interpolate/g) ?? []).length, 1);
+      assert.match(screenSource, /const feelShake = useRef\(new Animated\.Value\(0\)\)\.current;/);
+
+      // Skip is still there, still one tap.
+      assert.match(i18nSource, /'complete\.feel\.skip':/);
+      assert.match(screenSource, /styles\.feelSkip\b/);
+    },
+  },
 ];

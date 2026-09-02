@@ -320,6 +320,15 @@ export function WorkoutCompletionScreen({
   }, [demoQuestion]);
   /** The "miltä treeni tuntui" ask, shown when Done is pressed. */
   const [feelSheetVisible, setFeelSheetVisible] = useState(false);
+  /**
+   * The sheet's refusal when the backdrop is tapped.
+   *
+   * Its own node, driving its own View. The haptic alone would not do: haptics
+   * are a user preference, and with them off a tap outside would go from
+   * "closes the sheet" to "does nothing at all", which reads as a frozen
+   * screen rather than as a question still waiting.
+   */
+  const feelShake = useRef(new Animated.Value(0)).current;
   const pr = prCards[0] ?? null;
 
   // The workout is saved by the time this screen mounts — mark the moment.
@@ -737,8 +746,30 @@ export function WorkoutCompletionScreen({
           is written onto the saved session. */}
       {feelSheetVisible ? (
         <View style={styles.feelOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => onDone(null)} accessible={false} />
-          <View style={[styles.feelSheet, { paddingBottom: insets.bottom + 14 }]}>
+          {/* A tap outside used to call onDone(null) — the same write Skip
+              makes, with none of the intent. It is one answer per workout,
+              and a thumb landing beside the sheet was throwing it away
+              (user 2026-09-01). Now it says no and stays. */}
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => {
+              void haptics.impactMedium();
+              feelShake.setValue(0);
+              Animated.sequence([
+                Animated.timing(feelShake, { toValue: 1, duration: 55, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+                Animated.timing(feelShake, { toValue: -1, duration: 70, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+                Animated.timing(feelShake, { toValue: 0, duration: 90, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+              ]).start();
+            }}
+            accessible={false}
+          />
+          <Animated.View
+            style={[
+              styles.feelSheet,
+              { paddingBottom: insets.bottom + 14 },
+              { transform: [{ translateX: feelShake.interpolate({ inputRange: [-1, 1], outputRange: [-7, 7] }) }] },
+            ]}
+          >
             <Text style={styles.feelTitle}>{t(language, 'complete.feel.title')}</Text>
             {/* Built from the shared scale so the sheet that collects the
                 answer and the history that reads it back cannot drift — same
@@ -774,7 +805,7 @@ export function WorkoutCompletionScreen({
             >
               <Text style={styles.feelSkipText}>{t(language, 'complete.feel.skip')}</Text>
             </Pressable>
-          </View>
+          </Animated.View>
         </View>
       ) : null}
 

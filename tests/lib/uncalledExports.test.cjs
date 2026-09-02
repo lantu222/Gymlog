@@ -28,7 +28,11 @@ const LIB = path.join(ROOT, 'src', 'lib');
 const ALLOWED = {
   I18N_KEYS: 'The key list behind the I18nKey type: used by types, not by calls.',
   TRANSLATED_EXERCISE_NAMES: 'The translation table, exposed for the coverage test.',
+  PLAIN_EXERCISE_NAMES: 'The English display table, exposed for the sweep that keeps every entry the same lift.',
+  LEGACY_LIBRARY_ID_TARGETS: 'The retired lib_* ids, exposed for the sweep that keeps every one of them remappable.',
   EXERCISE_INSTRUCTIONS_FI_TABLE: 'The Finnish instruction table, exposed for the test that keeps it paired with the English library step for step.',
+  EXERCISE_TEACHING_TABLES: 'Both teaching tables, exposed for the sweep that keeps every swap pointing at a real library lift and never at itself.',
+  EXERCISE_COLLECTION_TABLES: 'Both collection tables, exposed for the sweep that keeps every course entry pointing at a lift the reader can open.',
   HOLD_EXERCISE_NAME_LIST: 'The hold list, exposed for the test that keeps the catalog data and this list one truth in both directions.',
   EMPTY_SESSION_ADAPTATION: 'The empty value, pinned so its shape cannot drift.',
   fingerprintsMatch: 'Exposed for the test that keeps fingerprints distinct.',
@@ -42,6 +46,9 @@ const ALLOWED = {
   decideRatingPrompt: 'See emptyRatingPromptState.',
   recordRatingAsked: 'See emptyRatingPromptState.',
   recordRatingCompleted: 'See emptyRatingPromptState.',
+  orderSeasons:
+    'Parked with the season section on the Programs tab (2026-08-31). SeasonScreen and the season route still work and build their own numbers; this ordered the two cards the tab used to draw. Delete it only when seasons are decided against, not while they are parked.',
+  isJoinWindowOpen: 'See orderSeasons — it decided whether the coming season\'s card was worth drawing.',
   UNLISTED_READY_PROGRAMS:
     'A declaration, not a call: the programmes deliberately kept out of the browse collections, read only by the guard that fails when a template is in neither. Wiring it to a screen would give it behaviour it must not have — it exists so that "not browsable" is always a decision someone wrote down.',
 };

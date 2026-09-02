@@ -57,12 +57,29 @@ export type AppRoute =
     }
   | {
       /**
-       * Ready-made targets. Its own screen rather than a sheet on the Programs
-       * tab, because "what am I aiming at" is a decision, and a decision that
-       * arrives as a drawer over the thing you were reading gets dismissed.
+       * Setting a target, in three steps: which lift, how much heavier, and
+       * the week that would be built for it.
+       *
+       * Its own screen rather than a sheet, because "what am I aiming at" is a
+       * decision, and a decision that arrives as a drawer over the thing you
+       * were reading gets dismissed. It replaced a page of ready-made numbers
+       * — five lifts at three round figures each — because a round figure is
+       * not a target: 100 kg means one thing to someone benching 95 and
+       * another to someone benching 60.
        */
       tab: 'workout';
-      screen: 'goalPicker';
+      screen: 'goalFlow';
+    }
+  | {
+      /**
+       * Every ready programme, narrowed by level, goal and free text.
+       *
+       * The goal discs on the tab are a taxonomy — nine doors onto fixed
+       * slices — so "a four-day muscle programme I can start as a beginner"
+       * had nowhere to be asked. Reached from the new-programme sheet.
+       */
+      tab: 'workout';
+      screen: 'catalog';
     }
   | {
       tab: 'workout';
@@ -99,12 +116,22 @@ export type AppRoute =
       screen: 'editor';
       workoutTemplateId?: string;
       prefillName?: string;
-      prefillExerciseLibraryId?: string;
     }
   | {
       tab: 'workout';
       screen: 'template';
       workoutTemplateId?: string;
+    }
+  /** The short courses, listed. */
+  | {
+      tab: 'workout';
+      screen: 'learn';
+    }
+  /** One course: its lifts, in the order they are easiest to learn. */
+  | {
+      tab: 'workout';
+      screen: 'collection';
+      collectionId: string;
     }
   | {
       tab: 'workout';

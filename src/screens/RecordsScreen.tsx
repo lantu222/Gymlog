@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { Seg } from '../components/Seg';
 import { FREE_RECORD_MONTHS, isRecordLocked } from '../lib/historyWindow';
 import { I18nKey, t } from '../lib/i18n';
 import { libraryLabel } from '../lib/libraryLabel';
@@ -197,35 +198,17 @@ export function RecordsList({
   return (
     <>
       <View style={styles.kindRow}>
-        {/* A3: same shape as every other selector in the app. Theme tokens,
-            not light literals — the hardcoded lilac-and-white pair glowed on
-            the dark theme (user 2026-08-23, "sama tausta ongelma"). */}
-        <CutSurface size="sm" fill={theme.purpleSoft} style={styles.segment}>
-          {KINDS.map((entry) => {
-            const on = kind === entry;
-            const label = (
-              <Text style={[styles.segmentText, on && styles.segmentTextOn]}>
-                {t(language, KIND_LABELS[entry])}
-              </Text>
-            );
-            return (
-              <Pressable
-                key={entry}
-                accessibilityRole="button"
-                accessibilityState={{ selected: on }}
-                onPress={() => setKind(entry)}
-              >
-                {on ? (
-                  <CutSurface size="chip" fill={theme.surface} style={styles.segmentItem}>
-                    {label}
-                  </CutSurface>
-                ) : (
-                  <View style={styles.segmentItem}>{label}</View>
-                )}
-              </Pressable>
-            );
-          })}
-        </CutSurface>
+        {/* The SAME control as the trend switch and the two range rows, not a
+            second one that looks nearly like it. This was hand-built here with
+            its own fill and its own inner surface, which is what the brief
+            means by "the tab has one widget instead of three". Theme tokens
+            either way — the hardcoded lilac-and-white pair glowed on the dark
+            theme (user 2026-08-23, "sama tausta ongelma"). */}
+        <Seg
+          options={KINDS.map((entry) => ({ key: entry, label: t(language, KIND_LABELS[entry]) }))}
+          value={kind}
+          onChange={setKind}
+        />
         {shown.length > 0 ? (
           <Text style={styles.liftCount}>{t(language, 'pr.liftCount', { count: shown.length })}</Text>
         ) : null}
@@ -251,7 +234,10 @@ export function RecordsList({
             onPress={onStartWorkout}
             style={({ pressed }) => [pressed && styles.pressed]}
           >
-            <CutSurface size="lg" fill={theme.purple} style={styles.emptyCta}>
+            {/* The one orange thing on the empty screen. The icon above stays
+                violet — the brief keeps the accent for the action and the
+                brand colour for the ornament. */}
+            <CutSurface size="lg" fill={theme.highlight} style={styles.emptyCta}>
               <Text style={styles.emptyCtaText}>{t(language, 'pr.empty.cta')}</Text>
             </CutSurface>
           </Pressable>
@@ -322,26 +308,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 16,
-  },
-  segment: {
-    flexDirection: 'row',
-    padding: 3,
-    gap: 2,
-  },
-  segmentItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 13,
-    paddingVertical: 6,
-  },
-  segmentText: {
-    color: theme.muted,
-    fontSize: 12,
-    lineHeight: 15,
-    fontWeight: '800',
-  },
-  segmentTextOn: {
-    color: theme.purpleBright,
   },
   liftCount: {
     color: theme.faint,
@@ -545,7 +511,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
   },
   emptyCtaText: {
-    color: '#FFFFFF',
+    // The ink the fill was paired with, not white. theme.highlight is orange
+    // on the dark theme, and white on that orange is the lower-contrast of
+    // the two — the same pairing the library's eye button already uses.
+    color: theme.onHighlight,
     fontSize: 14.5,
     lineHeight: 19,
     fontWeight: '800',

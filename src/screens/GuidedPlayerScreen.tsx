@@ -615,7 +615,9 @@ function ProgressRail({
                 {
                   marginLeft: 5 + phaseGap,
                   backgroundColor: dark ? 'rgba(155,109,255,0.25)' : theme.purpleLight,
-                  borderColor: dark ? GPD.purple : theme.purple,
+                  // Amber rims the pill because the pill IS the current
+                  // exercise — see the bar below for why (device 2026-09-01).
+                  borderColor: dark ? GPD.amber : theme.amber,
                 },
               ]}
             >
@@ -633,8 +635,8 @@ function ProgressRail({
                           : theme.purple
                         : dot === dotIndex
                           ? dark
-                            ? GPD.ink
-                            : theme.purple
+                            ? GPD.amber
+                            : theme.amber
                           : dark
                             ? 'rgba(255,255,255,0.25)'
                             : '#CFC3EA',
@@ -653,8 +655,26 @@ function ProgressRail({
               marginLeft: index === 0 ? 0 : 5 + phaseGap,
               height: isCurrent ? 7 : 5,
               borderRadius: 999,
-              backgroundColor:
-                done || isCurrent ? (dark ? GPD.purple : theme.purple) : dark ? 'rgba(255,255,255,0.14)' : '#E4DBF5',
+              // Where you ARE is amber; done and still-to-come keep the purple
+              // they had (user, 2026-09-01). Current used to take the same
+              // purple as done and was told apart only by being two pixels
+              // taller and twice as wide — a size difference on a 5px bar,
+              // read at arm's length mid-set.
+              //
+              // Only the current one changes. Marking the exception is the
+              // point; recolouring the whole rail would put the reader back to
+              // counting bars to find themselves.
+              backgroundColor: isCurrent
+                ? dark
+                  ? GPD.amber
+                  : theme.amber
+                : done
+                  ? dark
+                    ? GPD.purple
+                    : theme.purple
+                  : dark
+                    ? 'rgba(255,255,255,0.14)'
+                    : '#E4DBF5',
               opacity: done ? 0.85 : 1,
             }}
           />

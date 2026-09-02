@@ -97,6 +97,18 @@ interface TrainingPlanScreenProps {
   /** Present only for custom plans — ready programs are immutable. */
   onEditCustomPlan?: () => void;
   onAiAssisted: () => void;
+  /**
+   * The catalog door. The same sheet opens here and on the Programs tab, and
+   * a reader who creates programmes from this screen should not be the one
+   * who never learns the ready catalog exists.
+   */
+  onBrowseCatalog?: () => void;
+  /** How many ready programmes that door is promising. */
+  catalogCount?: number;
+  /** Whether AI-assisted composition is unlocked, or wears the padlock. */
+  proUnlocked?: boolean;
+  /** Where the padlock leads. */
+  onOpenPaywall?: () => void;
   onBuildYourself: () => void;
   onImportProgram: (draft: WorkoutTemplateDraft) => Promise<void> | void;
 }
@@ -137,6 +149,10 @@ export function TrainingPlanScreen({
   onChangeTrainingCycle,
   onEditCustomPlan,
   onAiAssisted,
+  onBrowseCatalog,
+  catalogCount = 0,
+  proUnlocked = true,
+  onOpenPaywall,
   onBuildYourself,
   onImportProgram,
 }: TrainingPlanScreenProps) {
@@ -526,6 +542,17 @@ export function TrainingPlanScreen({
           setCreateOpen(false);
           onAiAssisted();
         }}
+        onBrowseCatalog={
+          onBrowseCatalog
+            ? () => {
+                setCreateOpen(false);
+                onBrowseCatalog();
+              }
+            : undefined
+        }
+        catalogCount={catalogCount}
+        proUnlocked={proUnlocked}
+        onOpenPaywall={onOpenPaywall}
         onBuildYourself={() => {
           setCreateOpen(false);
           onBuildYourself();

@@ -22,6 +22,7 @@ import {
   HistorySessionViewModel,
 } from '../lib/historyView';
 import { SessionFeelSummary, sessionFeelColor, summariseSessionFeel } from '../lib/sessionFeel';
+import { groupByMonth } from '../lib/monthGroups';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { I18nKey, t } from '../lib/i18n';
 import { localizeSessionName } from '../lib/sessionNameLabel';
@@ -202,7 +203,13 @@ function SessionRow({
   unitPreference: UnitPreference;
   language: AppLanguage;
   onPress: () => void;
-  /** Absent means this row cannot be deleted, rather than an inert button. */
+  /**
+   * Absent means this row cannot be deleted, rather than an inert button.
+   *
+   * The screen withholds it unless Edit is on: a delete on every resting row
+   * is a delete waiting to happen, and this list is the one place a session
+   * can be lost from (Progress v2, piece 05).
+   */
   onDelete?: () => void;
 }) {
   const styles = useThemedStyles(makeStyles);
@@ -238,12 +245,17 @@ function SessionRow({
             onPress={onDelete}
             style={({ pressed }) => [styles.sessionDelete, pressed && styles.pressed]}
           >
+            {/* A bin, not an ×. The × read as "dismiss this row" on a list
+                you are only reading; a bin says what the tap costs before you
+                make it — the same mark the plan's list uses, so it is learned
+                once. */}
             <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
               <Path
-                d="M6 6l12 12M18 6L6 18"
+                d="M4.5 7h15M9.5 7V5.2A1.2 1.2 0 0 1 10.7 4h2.6a1.2 1.2 0 0 1 1.2 1.2V7M6.8 7l.9 12.1a1.4 1.4 0 0 0 1.4 1.3h5.8a1.4 1.4 0 0 0 1.4-1.3L17.2 7"
                 stroke={theme.danger}
-                strokeWidth={2.2}
+                strokeWidth={2}
                 strokeLinecap="round"
+                strokeLinejoin="round"
               />
             </Svg>
           </Pressable>
@@ -262,6 +274,19 @@ function SessionRow({
   );
 }
 
+/**
+ * Month names for the group headers.
+ *
+ * The app's language, not the device's — the same rule lib/format follows, so
+ * a Finnish reader on an English phone still reads "syyskuu".
+ */
+const HISTORY_MONTHS: Record<AppLanguage, string[]> = {
+  en: ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'],
+  fi: ['tammikuu', 'helmikuu', 'maaliskuu', 'huhtikuu', 'toukokuu', 'kesäkuu',
+    'heinäkuu', 'elokuu', 'syyskuu', 'lokakuu', 'marraskuu', 'joulukuu'],
+};
+
 export function HistoryScreen({
   sessions,
   cardioSessions = [],
@@ -278,6 +303,14 @@ export function HistoryScreen({
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
+  /**
+   * Whether the rows are showing their bins.
+   *
+   * Off on open, and it stays off: History is a list you read far more often
+   * than you prune, and the one destructive control on it should cost a
+   * deliberate tap to reveal.
+   */
+  const [editing, setEditing] = useState(false);
   // Held as the whole row, not an id: the dialog names the workout it is
   // about to delete, and an id cannot be read aloud.
   const [pendingDelete, setPendingDelete] = useState<HistorySessionViewModel | null>(null);
@@ -503,18 +536,60 @@ export function HistoryScreen({
             <FeelSummaryCard summary={feelSummary} language={language} />
 
             {filteredSessions.length ? (
-              <View style={styles.sessionList}>
-                {filteredSessions.map((session) => (
-                  <SessionRow
-                    key={session.sessionId}
-                    session={session}
-                    unitPreference={unitPreference}
-                    language={language}
-                    onPress={() => onSelectSession(session.sessionId)}
-                    onDelete={onDeleteSession ? () => setPendingDelete(session) : undefined}
-                  />
-                ))}
-              </View>
+              <>
+                {/* Grouped by the month they happened in, newest first — the
+                    same headers Records has, through the same helper, so the
+                    two cannot disagree about where a midnight session belongs.
+                    A flat list of everything you have ever done is a scroll,
+                    not a history (Progress v2, piece 04). */}
+                {groupByMonth(filteredSessions, (session) => session.performedAt).map(
+                  (group, groupIndex) => (
+                    <View key={`${group.year}-${group.month}`}>
+                      <View style={styles.monthHead}>
+                        <Text style={styles.monthLabel}>
+                          {`${HISTORY_MONTHS[language][group.month]} ${group.year}`}
+                        </Text>
+                        {groupIndex === 0 && onDeleteSession ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: editing }}
+                            onPress={() => setEditing((value) => !value)}
+                            hitSlop={10}
+                            style={({ pressed }) => [pressed && styles.pressed]}
+                          >
+                            <Text style={styles.monthAction}>
+                              {t(language, editing ? 'plan.done' : 'plan.edit')}
+                            </Text>
+                          </Pressable>
+                        ) : (
+                          <Text style={styles.monthCount}>
+                            {t(language, 'history.browse.meta', { sessions: group.items.length })}
+                          </Text>
+                        )}
+                      </View>
+                      <View style={styles.sessionList}>
+                        {group.items.map((session) => (
+                          <SessionRow
+                            key={session.sessionId}
+                            session={session}
+                            unitPreference={unitPreference}
+                            language={language}
+                            onPress={() => onSelectSession(session.sessionId)}
+                            onDelete={
+                              editing && onDeleteSession ? () => setPendingDelete(session) : undefined
+                            }
+                          />
+                        ))}
+                      </View>
+                    </View>
+                  ),
+                )}
+                {/* What deleting actually costs, said where the bins are and
+                    not in the confirm dialog alone. */}
+                {editing ? (
+                  <Text style={styles.editNote}>{t(language, 'history.editNote')}</Text>
+                ) : null}
+              </>
             ) : (
               <EmptyState
                 title={t(language, 'history.emptyFiltered.title')}
@@ -666,6 +741,40 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 16,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
+  },
+  monthHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 18,
+    marginBottom: 8,
+  },
+  monthLabel: {
+    color: theme.ink,
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  monthAction: {
+    color: theme.highlight,
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontWeight: '800',
+  },
+  monthCount: {
+    color: theme.faint,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '700',
+  },
+  editNote: {
+    marginTop: 12,
+    color: theme.muted,
+    fontSize: 12.5,
+    lineHeight: 17.5,
+    fontWeight: '600',
   },
   sessionList: {
     gap: 10,

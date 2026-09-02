@@ -48,7 +48,6 @@ interface WorkoutsScreenProps {
   onStartReadyProgram: (workoutTemplateId: string) => void;
   onOpenCustomProgram: (workoutTemplateId: string) => void;
   onStartCustomWorkout: (workoutTemplateId: string) => void;
-  onEditCustomWorkout: (workoutTemplateId: string) => void;
   onDuplicateCustomWorkout: (workoutTemplateId: string) => void;
   onDeleteCustomWorkout: (workoutTemplateId: string) => void;
   onCreateWorkout: () => void;
@@ -268,7 +267,6 @@ export function WorkoutsScreen({
   onStartReadyProgram,
   onOpenCustomProgram,
   onStartCustomWorkout,
-  onEditCustomWorkout,
   onDuplicateCustomWorkout,
   onDeleteCustomWorkout,
   onCreateWorkout,

@@ -749,7 +749,8 @@ export function buildAiCoachPlanSchema(preferences: AppPreferences, exerciseLibr
   const recovery = mapSetupRecovery(preferences);
   const sessionMinutes = mapSetupSessionMinutes(preferences, daysPerWeek);
   const allowedEquipment = resolveAllowedEquipment(equipment);
-  const importedLibrary = exerciseLibrary.filter((item) => !item.id.startsWith('lib_'));
+  // Was filtering the legacy `lib_*` tier, which stopped shipping 2026-09-01.
+  const importedLibrary = exerciseLibrary;
   const avoidTerms = splitList(preferences.aiPlannerAvoid).map(normalize);
   const mustIncludeTerms = uniqueStrings(splitList(preferences.aiPlannerMustInclude));
   const usedMustIncludeTerms = new Set<string>();

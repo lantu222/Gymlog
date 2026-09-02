@@ -3,28 +3,31 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { ExerciseLibraryBrowser } from '../components/ExerciseLibraryBrowser';
+import type { LibraryCollectionState } from '../lib/exerciseCollections';
 import { t } from '../lib/i18n';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage, ExerciseLibraryItem } from '../types/models';
 
 interface ExercisesScreenProps {
   items: ExerciseLibraryItem[];
-  trackedIds?: string[];
   language?: AppLanguage;
   onBack?: () => void;
   onOpenExercise?: (item: ExerciseLibraryItem) => void;
-  onToggleTracked?: (item: ExerciseLibraryItem) => void;
-  onAddToWorkout?: (item: ExerciseLibraryItem) => void;
+  learnCollection?:
+    | { id: string; title: string; done: number; total: number; percent: number; state: LibraryCollectionState }
+    | null;
+  onOpenCollection?: (collectionId: string) => void;
+  onOpenLearnIndex?: () => void;
 }
 
 export function ExercisesScreen({
   items,
-  trackedIds,
   language = 'en',
   onBack,
   onOpenExercise,
-  onToggleTracked,
-  onAddToWorkout,
+  learnCollection = null,
+  onOpenCollection,
+  onOpenLearnIndex,
 }: ExercisesScreenProps) {
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
@@ -55,11 +58,11 @@ export function ExercisesScreen({
       ) : null}
       <ExerciseLibraryBrowser
         items={items}
-        trackedIds={trackedIds}
         language={language}
         onOpenItem={onOpenExercise}
-        onToggleTracked={onToggleTracked}
-        onAddToWorkout={onAddToWorkout}
+        learnCollection={learnCollection}
+        onOpenCollection={onOpenCollection}
+        onOpenLearnIndex={onOpenLearnIndex}
       />
     </View>
   );

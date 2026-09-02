@@ -352,4 +352,68 @@ module.exports = [
       }
     },
   },
+  {
+    /**
+     * The window follows the data, not the clock.
+     *
+     * Asking for three months with two weigh-ins in the log put both of them
+     * against the right-hand edge and spent eleven weeks of chart width saying
+     * nothing had happened yet — "ihan tyhmää että se alkaa 4.6" (user,
+     * 2026-09-02, looking at a 3M chart whose only entries were 30.8 and 1.9).
+     *
+     * So a short history anchors the window: it starts at the first entry and
+     * runs forward. A long one trails, so the newest is always the right-hand
+     * edge. The two meet exactly where the history is as long as the range,
+     * which is why this can be one comparison and not a mode.
+     */
+    name: 'window: a short history anchors the chart, a long one trails it',
+    run() {
+      const assert = require('node:assert/strict');
+      const { measureWindowEnd, buildValueWindow } = require('../../.test-dist/lib/bodyweightCard.js');
+      const day = (y, m, d) => new Date(y, m - 1, d).getTime();
+      const now = day(2026, 9, 2);
+
+      // Two entries, three-month range: the window starts at the first one.
+      const firstRecent = day(2026, 8, 30);
+      const endRecent = measureWindowEnd(firstRecent, now, 91);
+      assert.equal(endRecent, day(2026, 11, 28), 'the window did not anchor to the first entry');
+
+      const window = buildValueWindow(
+        [
+          { recordedAt: new Date(day(2026, 8, 30)).toISOString(), value: 75 },
+          { recordedAt: new Date(day(2026, 9, 1)).toISOString(), value: 75.3 },
+        ],
+        now,
+        91,
+        endRecent,
+      );
+      assert.equal(window.length, 91);
+      assert.equal(window[0].dayStart, firstRecent, 'the chart still starts before the first entry');
+      assert.equal(window[0].value, 75, 'the first entry is not on the first day');
+      // Today is inside the window and still marked, even though it is not the
+      // right-hand edge any more.
+      assert.equal(window.filter((d) => d.isToday).length, 1);
+
+      // A history longer than the range trails: the newest day is the edge.
+      const firstOld = day(2026, 1, 5);
+      assert.equal(measureWindowEnd(firstOld, now, 91), now, 'a long history stopped trailing');
+      const trailing = buildValueWindow([], now, 91, measureWindowEnd(firstOld, now, 91));
+      assert.equal(trailing[trailing.length - 1].dayStart, now);
+
+      // The handover is exact: a history of precisely `days` ends today.
+      const firstExact = day(2026, 6, 4);
+      assert.equal(
+        Math.round((now - firstExact) / 86400000) + 1,
+        91,
+        'fixture drifted — that is not a 91-day history',
+      );
+      assert.equal(measureWindowEnd(firstExact, now, 91), now, 'the two cases do not meet');
+
+      // No entries at all: today, as before the anchor existed.
+      assert.equal(measureWindowEnd(null, now, 91), now);
+      // And the default end is still today, so every old caller is unchanged.
+      const legacy = buildValueWindow([], now, 7);
+      assert.equal(legacy[legacy.length - 1].dayStart, now);
+    },
+  },
 ];

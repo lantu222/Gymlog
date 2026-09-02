@@ -7,6 +7,7 @@ import { buildDraftFromCsvPreview, CsvLibraryEntry, parseCsvProgram } from '../l
 import { countKnownNames } from '../lib/exerciseNameBook';
 import { HevyImportPreview, isHevyHistoryCsv, parseHevyCsv } from '../lib/hevyImport';
 import { I18nKey, t } from '../lib/i18n';
+import { ProLockIcon, ProPill } from './ProLockMarks';
 import type { AppLanguage, ExerciseNameBookEntry, WorkoutTemplateDraft } from '../types/models';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 
@@ -41,6 +42,27 @@ interface NewProgramSheetProps {
   onClose: () => void;
   onAiAssisted: () => void;
   onBuildYourself: () => void;
+  /**
+   * The fourth way in. The 57 ready programmes had no door on this sheet at
+   * all — only the goal discs on the tab behind it, which are a taxonomy and
+   * cannot be narrowed. Optional so a caller without a catalog simply does not
+   * offer the row, rather than offering one that goes nowhere.
+   */
+  onBrowseCatalog?: () => void;
+  /** How many ready programmes the catalog row is promising. */
+  catalogCount?: number;
+  /**
+   * Whether the reader has Pro.
+   *
+   * Composing a programme is the paid part, and the row says so with the PRO
+   * pill and the padlock. It still opens the coach: the gate lives on the act
+   * of composing, in AICoachChatScreen, and everything before that act is
+   * free. Defaults to unlocked so a caller that forgets cannot mark a paying
+   * reader's row as something they have not bought.
+   */
+  proUnlocked?: boolean;
+  /** Where the lock leads. Required for the row to lock at all. */
+  onOpenPaywall?: () => void;
   onImportProgram: (draft: WorkoutTemplateDraft) => Promise<void> | void;
   /**
    * A pasted Hevy export is HISTORY, not a programme — workouts already
@@ -68,7 +90,7 @@ interface NewProgramSheetProps {
   onTeachName?: (wrote: string, exercise: CsvLibraryEntry) => Promise<void> | void;
 }
 
-function OptionIcon({ name }: { name: 'spark' | 'build' | 'table' }) {
+function OptionIcon({ name }: { name: 'spark' | 'build' | 'table' | 'layers' }) {
   const theme = useTheme();
 
   const stroke = name === 'spark' ? '#FFFFFF' : theme.purple;
@@ -87,6 +109,14 @@ function OptionIcon({ name }: { name: 'spark' | 'build' | 'table' }) {
       ) : null}
       {name === 'table' ? (
         <Path d="M4 5h16v14H4V5zm0 5h16M4 14h16M10 5v14" stroke={stroke} strokeWidth={1.8} strokeLinejoin="round" />
+      ) : null}
+      {name === 'layers' ? (
+        <Path
+          d="M12 3l9 5-9 5-9-5 9-5zm9 9l-9 5-9-5m18 4l-9 5-9-5"
+          stroke={stroke}
+          strokeWidth={1.9}
+          strokeLinejoin="round"
+        />
       ) : null}
     </Svg>
   );
@@ -110,6 +140,10 @@ export function NewProgramSheet({
   onClose,
   onAiAssisted,
   onBuildYourself,
+  onBrowseCatalog,
+  catalogCount = 0,
+  proUnlocked = true,
+  onOpenPaywall,
   onImportProgram,
   onImportHistory,
   nameBook = [],
@@ -123,6 +157,21 @@ export function NewProgramSheet({
   // option ("Tuo CSV") sat under the buttons.
   const insets = useSafeAreaInsets();
   const [view, setView] = useState<'menu' | 'csv'>(initialView);
+  /*
+   * A wall, not a label (user, 2026-09-01, reversing my own call of the same
+   * day). The row says what it costs and goes to the paywall.
+   *
+   * The cost is real and was measured, so it is written down rather than
+   * discovered later: the coach answers a brief that names a days-per-week
+   * with a matching ready programme, free, checked before its own Pro gate.
+   * A free reader can no longer reach that answer THROUGH THIS ROW. They can
+   * still reach it — Home's "ask the coach" opens the same chat and is not
+   * gated — so what this closes is one door to it, not the answer.
+   *
+   * Locked only when there is somewhere to send them. A padlock in front of
+   * nothing is a row that does nothing, which is worse than the unlocked row.
+   */
+  const aiLocked = !proUnlocked && Boolean(onOpenPaywall);
   const [csvText, setCsvText] = useState('');
   const defaultProgramName = t(language, 'csv.defaultName');
   const [programName, setProgramName] = useState(defaultProgramName);
@@ -282,11 +331,23 @@ export function NewProgramSheet({
           {view === 'menu' ? (
             <View style={styles.menu}>
               <Text style={styles.subtitle}>{t(language, 'csv.pickHow')}</Text>
+              {/* The catalog first. The brief drew it fourth and said so in its
+                  own notes — "probably the most-used door and it is currently
+                  last" — and the call on 2026-08-31 was to try it high. It
+                  only appears when a caller can actually open it. */}
+              {/* AI-assisted leads, then building it yourself (user
+                  2026-09-01). The catalog moved to the bottom: it is the
+                  widest door and it has its own screen, so it was the one
+                  option here that did not need to be first. */}
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={t(language, 'csv.aiA11y')}
+                accessibilityLabel={t(language, aiLocked ? 'csv.aiLockedA11y' : 'csv.aiA11y')}
                 onPress={() => {
                   handleClose();
+                  if (aiLocked) {
+                    onOpenPaywall?.();
+                    return;
+                  }
                   onAiAssisted();
                 }}
                 style={({ pressed }) => [styles.optionCard, pressed && styles.pressed]}
@@ -295,10 +356,19 @@ export function NewProgramSheet({
                   <OptionIcon name="spark" />
                 </View>
                 <View style={styles.optionCopy}>
-                  <Text style={styles.optionTitle}>{t(language, 'csv.ai')}</Text>
+                  <View style={styles.optionTitleLine}>
+                    <Text style={styles.optionTitle}>{t(language, 'csv.ai')}</Text>
+                    {aiLocked ? <ProPill /> : null}
+                  </View>
+                  {/* The description stays: it is what makes the feature worth
+                      unlocking. The line under it says the price, so the
+                      padlock is not the only thing carrying that. */}
                   <Text style={styles.optionBody}>{t(language, 'csv.aiBody')}</Text>
+                  {aiLocked ? (
+                    <Text style={styles.optionUnlock}>{t(language, 'csv.aiUnlock')}</Text>
+                  ) : null}
                 </View>
-                <Chevron />
+                {aiLocked ? <ProLockIcon color={theme.purple} size={18} /> : <Chevron />}
               </Pressable>
               <Pressable
                 accessibilityRole="button"
@@ -333,6 +403,28 @@ export function NewProgramSheet({
                 </View>
                 <Chevron />
               </Pressable>
+              {onBrowseCatalog ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'csv.catalogA11y')}
+                  onPress={() => {
+                    handleClose();
+                    onBrowseCatalog();
+                  }}
+                  style={({ pressed }) => [styles.optionCard, pressed && styles.pressed]}
+                >
+                  <View style={styles.optionIconTile}>
+                    <OptionIcon name="layers" />
+                  </View>
+                  <View style={styles.optionCopy}>
+                    <Text style={styles.optionTitle}>{t(language, 'csv.catalog')}</Text>
+                    <Text style={styles.optionBody}>
+                      {t(language, 'csv.catalogBody', { count: catalogCount })}
+                    </Text>
+                  </View>
+                  <Chevron />
+                </Pressable>
+              ) : null}
             </View>
           ) : (
             <ScrollView contentContainerStyle={styles.csvContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -687,10 +779,22 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flex: 1,
     gap: 2,
   },
+  optionTitleLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
   optionTitle: {
     color: theme.ink,
     fontSize: 16,
     lineHeight: 20,
+    fontWeight: '800',
+  },
+  optionUnlock: {
+    marginTop: 4,
+    color: theme.purple,
+    fontSize: 12.5,
+    lineHeight: 17,
     fontWeight: '800',
   },
   optionBody: {

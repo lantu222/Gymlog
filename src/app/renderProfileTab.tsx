@@ -75,6 +75,10 @@ export interface ProfileTabDeps {
   programSlots: { canCreate: boolean };
   setProgramLimitVisible: (visible: boolean) => void;
   upsertWorkoutTemplate: (draft: WorkoutTemplateDraft) => Promise<string>;
+  /** How many ready programmes the sheet's catalog door is promising. */
+  readyProgramCount: number;
+  /** Whether AI-assisted composition opens the chat or the paywall. */
+  proUnlocked: boolean;
   exportablePlans: React.ComponentProps<typeof ExportPlanScreen>['plans'];
   database: Pick<AppDatabase, 'workoutSessions' | 'exerciseLogs'>;
   settingsScrollOffsetRef: React.MutableRefObject<number>;
@@ -123,6 +127,8 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
     programSlots,
     setProgramLimitVisible,
     upsertWorkoutTemplate,
+    readyProgramCount,
+    proUnlocked,
     exportablePlans,
     database,
     settingsScrollOffsetRef,
@@ -247,6 +253,10 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
             : undefined
         }
         onAiAssisted={() => navigate({ tab: 'home', screen: 'ai_chat' })}
+        onBrowseCatalog={() => navigate({ tab: 'workout', screen: 'catalog' })}
+        catalogCount={readyProgramCount}
+        proUnlocked={proUnlocked}
+        onOpenPaywall={() => navigate({ tab: 'profile', screen: 'premium' })}
         onBuildYourself={() =>
           programSlots.canCreate
             ? navigate({ tab: 'workout', screen: 'template' })

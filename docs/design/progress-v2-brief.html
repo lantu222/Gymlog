@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="design_doc_mode" content="canvas">
+<title>GAINER · Progress &amp; History</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<style>/* cyrillic-ext */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("9831dd75-7521-486d-9526-c7147eb9feb0") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("e499a146-b17a-4042-ae9b-ca7f63bde15b") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("ae85a8ad-22b0-46cd-92e0-5246d954c60f") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("8d79c5af-0737-4544-8c0f-0602c50f7abe") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("ebd31ceb-9bfc-4af1-97ff-8025a81272c0") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("b8d39948-c122-4247-bfab-774b0bf02a4f") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("9831dd75-7521-486d-9526-c7147eb9feb0") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("e499a146-b17a-4042-ae9b-ca7f63bde15b") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("ae85a8ad-22b0-46cd-92e0-5246d954c60f") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("8d79c5af-0737-4544-8c0f-0602c50f7abe") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("ebd31ceb-9bfc-4af1-97ff-8025a81272c0") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("b8d39948-c122-4247-bfab-774b0bf02a4f") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("996b7474-9f31-4788-8779-b0d21d5d216d") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("da41c388-a9f3-4662-83bb-d12a90e42e15") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("ad4cfd41-569e-425e-b167-e14a73359701") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("2ff7d686-affb-450b-b8a5-f19ac9156b9c") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("baff4dbd-2bdd-4618-8077-4a778450cce4") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("bd3bbc75-c8aa-4fbf-9818-3392b01c1d60") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("996b7474-9f31-4788-8779-b0d21d5d216d") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("da41c388-a9f3-4662-83bb-d12a90e42e15") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("ad4cfd41-569e-425e-b167-e14a73359701") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("2ff7d686-affb-450b-b8a5-f19ac9156b9c") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("baff4dbd-2bdd-4618-8077-4a778450cce4") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("bd3bbc75-c8aa-4fbf-9818-3392b01c1d60") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("996b7474-9f31-4788-8779-b0d21d5d216d") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("da41c388-a9f3-4662-83bb-d12a90e42e15") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("ad4cfd41-569e-425e-b167-e14a73359701") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("2ff7d686-affb-450b-b8a5-f19ac9156b9c") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("baff4dbd-2bdd-4618-8077-4a778450cce4") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("bd3bbc75-c8aa-4fbf-9818-3392b01c1d60") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("996b7474-9f31-4788-8779-b0d21d5d216d") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("da41c388-a9f3-4662-83bb-d12a90e42e15") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("ad4cfd41-569e-425e-b167-e14a73359701") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("2ff7d686-affb-450b-b8a5-f19ac9156b9c") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("baff4dbd-2bdd-4618-8077-4a778450cce4") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("bd3bbc75-c8aa-4fbf-9818-3392b01c1d60") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("996b7474-9f31-4788-8779-b0d21d5d216d") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("da41c388-a9f3-4662-83bb-d12a90e42e15") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("ad4cfd41-569e-425e-b167-e14a73359701") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("2ff7d686-affb-450b-b8a5-f19ac9156b9c") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("baff4dbd-2bdd-4618-8077-4a778450cce4") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("bd3bbc75-c8aa-4fbf-9818-3392b01c1d60") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+</style>
+<style>/* GAINER · sheets & pickers kit — shared shell for every popup, menu and picker.
+   Add new pickers as frames; do not restate these values locally. */
+:root{--bg:#0D0A20;--surface:#191436;--soft:#201A42;--ink:#F4F1FF;--muted:#A79FC4;--faint:#8B83AE;--line:rgba(255,255,255,.09);--line2:rgba(255,255,255,.14);--purple:#9B6DFF;--pbright:#A78BFA;--plight:#2C2350;--acc:#FF8A4C;--onacc:#241203;--danger:#FF6B6B;--amber:#F0A44E;--green:#37D08A;--gold:#E4B14C;--blue:#4FA8FF}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{font-family:"Manrope",system-ui,sans-serif;background:#26232F}
+a{color:var(--pbright)}a:hover{color:var(--purple)}
+/* canvas furniture */
+.frame{position:absolute}
+.flabel{font-size:13px;font-weight:800;color:#EDE9F7;margin:0 0 3px 4px}
+.fnote{font-size:12px;font-weight:600;color:#9C95AE;margin:0 0 14px 4px;max-width:400px;line-height:1.45}
+.device{width:402px;height:844px;background:#07050E;border-radius:46px;padding:8px;box-shadow:0 40px 90px rgba(6,3,18,.6),inset 0 0 0 2px #221d2e}
+.screen{position:relative;width:100%;height:100%;border-radius:40px;overflow:hidden;background:var(--bg)}
+.camera{position:absolute;top:13px;left:50%;transform:translateX(-50%);width:13px;height:13px;border-radius:50%;background:#000;box-shadow:inset 0 0 0 2px #1d1a26;z-index:60}
+.hind{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:99px;background:rgba(255,255,255,.55);z-index:70}
+/* whatever the sheet sits on, scrimmed */
+.behind{position:absolute;inset:0;padding:52px 20px 0;overflow-y:auto;scrollbar-width:none}
+.behind::-webkit-scrollbar{display:none}
+.behind h1{margin:0;font-size:27px;font-weight:800;letter-spacing:-.025em;color:var(--ink);display:flex;align-items:center;gap:10px}
+/* the entry point into the day picker — orange, because it is pressable */
+.behind h1 svg{width:19px;height:19px;fill:none;stroke:var(--acc);stroke-width:2.8;stroke-linecap:round;stroke-linejoin:round}
+.behind .sub{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--faint);margin:6px 0 20px;letter-spacing:.02em}
+.ex{display:flex;align-items:center;gap:13px;padding:13px 0;border-top:1px solid var(--line)}
+.num{width:31px;height:31px;border-radius:9px;background:var(--plight);color:var(--pbright);font-size:13px;font-weight:800;display:grid;place-items:center;flex:none}
+.ex .en{font-size:15px;font-weight:700;color:var(--ink)}
+.ex .es{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:500;color:var(--muted);margin-top:3px}
+.ex .grow{flex:1}
+.ex.on .num{background:var(--acc);color:var(--onacc)}
+.swapicon{width:19px;height:19px;flex:none;fill:none;stroke:var(--faint);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.swapicon{stroke:var(--acc);opacity:.8}
+.ex.on .swapicon{opacity:1}
+.scrim{position:absolute;inset:0;background:rgba(6,4,16,.72);backdrop-filter:blur(2px)}
+/* sheet shell */
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line2);border-radius:26px 26px 0 0;box-shadow:0 -24px 60px rgba(0,0,0,.55);padding:9px 0 26px;display:flex;flex-direction:column}
+.sheet.picked{padding-bottom:174px}
+.grip{width:38px;height:4px;border-radius:99px;background:rgba(255,255,255,.2);margin:0 auto 12px}
+.pad{padding:0 18px}
+.shead{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
+.shead .t{flex:1;min-width:0}
+.shead h2{margin:0;font-size:19px;font-weight:800;letter-spacing:-.02em;color:var(--ink);line-height:1.25}
+.shead .cur{font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:var(--faint);letter-spacing:.06em;text-transform:uppercase;margin-top:5px}
+.x{width:32px;height:32px;flex:none;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.04);display:grid;place-items:center;cursor:pointer;padding:0}
+.x svg{width:14px;height:14px;fill:none;stroke:var(--muted);stroke-width:2.4;stroke-linecap:round}
+/* a sentence of instruction, when the list needs one */
+.sdesc{font-size:13px;font-weight:600;color:var(--muted);line-height:1.45;margin:8px 0 0;max-width:33ch}
+/* the option already in force — violet, because it is state, not an action */
+.row.cur{background:rgba(155,109,255,.09);border-color:rgba(155,109,255,.42)}
+.row .tag{font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.13em;color:var(--pbright);border:1px solid rgba(155,109,255,.4);border-radius:99px;padding:5px 9px;flex:none}
+/* rename: the one allowed second target on a row — quiet, and it says nothing else */
+.pen{width:30px;height:30px;flex:none;border-radius:9px;border:1px solid transparent;background:none;display:grid;place-items:center;cursor:pointer;padding:0}
+.pen:hover{background:rgba(255,255,255,.06);border-color:var(--line)}
+.pen svg{width:14px;height:14px;fill:none;stroke:var(--pbright);opacity:.85;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.pen:hover svg{opacity:1}
+/* search */
+.search{display:flex;align-items:center;gap:9px;background:var(--soft);border:1px solid var(--line2);border-radius:13px;padding:0 13px;height:44px}
+.search svg{width:15px;height:15px;flex:none;fill:none;stroke:var(--faint);stroke-width:2.2;stroke-linecap:round}
+.search input{flex:1;background:none;border:0;outline:none;font-family:inherit;font-size:14.5px;font-weight:600;color:var(--ink);min-width:0}
+.search input::placeholder{color:var(--faint);font-weight:600}
+.search:focus-within{border-color:rgba(155,109,255,.5);background:#241D49}
+/* list + rows */
+.list{overflow-y:auto;margin-top:4px;padding-bottom:6px;max-height:452px;transition:max-height .32s cubic-bezier(.4,0,.2,1);scrollbar-width:none}
+.sheet.picked .list{max-height:346px}
+.list::-webkit-scrollbar{display:none}
+.glabel{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:16px 0 8px}
+.row{width:100%;display:flex;align-items:center;gap:12px;text-align:left;background:rgba(255,255,255,.035);border:1px solid var(--line);border-radius:14px;padding:12px 14px;cursor:pointer;font-family:inherit;transition:background .16s,border-color .16s}
+.row+.row{margin-top:8px}
+.row:hover{background:rgba(255,255,255,.06)}
+.row .rn{font-size:15px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.row .rm{font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:500;color:var(--muted);margin-top:4px}
+.row .grow{flex:1;min-width:0}
+.tick{width:22px;height:22px;flex:none;border-radius:99px;border:1.5px solid var(--line2);display:grid;place-items:center;transition:background .16s,border-color .16s}
+.tick svg{width:12px;height:12px;fill:none;stroke:var(--onacc);stroke-width:3;stroke-linecap:round;stroke-linejoin:round;opacity:0;transform:scale(.6);transition:opacity .16s,transform .2s cubic-bezier(.3,1.6,.5,1)}
+.row.sel{background:rgba(255,138,76,.1);border-color:rgba(255,138,76,.5)}
+.row.sel .tick{background:var(--acc);border-color:var(--acc)}
+.row.sel .tick svg{opacity:1;transform:scale(1)}
+/* the bar that wakes up once something is picked */
+.bar{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(180deg,#1E1842,#181233);border-top:1px solid rgba(255,138,76,.28);border-radius:22px 22px 0 0;padding:15px 18px 30px;box-shadow:0 -18px 40px rgba(0,0,0,.5);transform:translateY(104%);transition:transform .34s cubic-bezier(.3,1.02,.4,1);z-index:20}
+.bar.up{transform:translateY(0)}
+.swapline{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;letter-spacing:.02em;color:var(--faint);margin:2px 0 15px}
+.swapline .to{color:var(--acc);text-align:right}
+.swapline svg{width:17px;height:17px;fill:none;stroke:var(--faint);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.btns{display:flex;gap:9px}
+.btn{flex:1;border-radius:15px;padding:15px 10px;font-family:inherit;font-size:14.5px;font-weight:800;letter-spacing:-.01em;cursor:pointer;border:1px solid transparent;text-align:center;transition:transform .12s}
+.btn:active{transform:scale(.97)}
+.btn.p{background:var(--acc);color:var(--onacc);box-shadow:0 8px 22px rgba(255,138,76,.28)}
+.btn.d{background:rgba(255,107,107,.13);border-color:rgba(255,107,107,.46);color:var(--danger)}
+.btn.g{background:rgba(155,109,255,.14);border-color:rgba(155,109,255,.42);color:var(--pbright)}
+.barx{display:block;width:100%;background:none;border:0;font-family:inherit;font-size:13px;font-weight:700;color:var(--faint);padding:12px 0 0;cursor:pointer}
+/* spec card (canvas only, never in-app) */
+.spec{width:402px;background:#15121F;border:1px solid rgba(255,255,255,.1);border-radius:24px;padding:22px 22px 24px;color:var(--ink)}
+.spec h3{margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-.02em}
+.spec p{margin:0 0 18px;font-size:12.5px;font-weight:600;color:#9C95AE;line-height:1.5}
+.spec h4{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0 0 9px}
+.spec .grp{border-top:1px solid var(--line);padding-top:14px;margin-top:14px}
+.sw{display:flex;flex-direction:column;gap:9px}
+.sw div{display:flex;align-items:center;gap:10px;font-size:12.5px;font-weight:700;color:#CFC8E2}
+.sw i{width:22px;height:22px;border-radius:7px;flex:none;font-style:normal}
+.sw span{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;color:var(--faint);margin-left:auto}
+.rules{margin:0;padding-left:16px;font-size:12.5px;font-weight:600;color:#B7B0C9;line-height:1.65}
+.rules li+li{margin-top:6px}
+
+/* ── Session phases (warmup / workout / recovery) ───────────────────────
+   One anatomy for all three. No hue per phase — a single violet marks the
+   open card, orange stays reserved for actions. */
+.sect{--ph:var(--purple);background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:16px;overflow:hidden;transition:border-color .2s,background .2s}
+.sect+.sect{margin-top:10px}
+.sect.warm,.sect.work,.sect.rec{--ph:var(--purple)}
+.sect.open{background:color-mix(in oklab,var(--ph) 7%,transparent);border-color:color-mix(in oklab,var(--ph) 30%,transparent);box-shadow:inset 2px 0 0 var(--ph)}
+.sect>header{display:flex;align-items:center;gap:12px;padding:14px 15px;cursor:pointer}
+.sect .pt{flex:1;font-size:15px;font-weight:800;letter-spacing:-.01em;color:var(--ink)}
+.sect.open .pt{color:var(--ph)}
+.sect .pm{font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:500;color:var(--muted)}
+.sect .chev{width:15px;height:15px;flex:none;fill:none;stroke:var(--faint);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;transition:transform .22s}
+.sect.open .chev{transform:rotate(180deg);stroke:var(--ph)}
+.sect .prows{display:none;padding:0 15px 6px}
+.sect.open .prows{display:block}
+.prow{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line)}
+.pnum{width:26px;height:26px;flex:none;border-radius:8px;display:grid;place-items:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;background:color-mix(in oklab,var(--ph) 20%,transparent);color:var(--ph)}
+.prow .pn{flex:1;font-size:14.5px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.prow .ps{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:500;color:var(--muted)}
+.prow .pw{width:17px;height:17px;flex:none;fill:none;stroke:var(--acc);opacity:.85;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;cursor:pointer}
+.prow .pw:hover{opacity:1}
+
+/* ── Active programme week (sits under Recovery) ────────────────────────
+   Same header vocabulary as the phase cards, one size up. */
+.phead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 0 13px}
+.phead .pk{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.phead h2{margin:5px 0 0;font-size:23px;font-weight:800;letter-spacing:-.025em;color:var(--ink)}
+.drow{position:relative;display:flex;align-items:center;gap:13px;padding:15px;background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:16px;overflow:hidden;cursor:pointer;transition:border-color .16s,background .16s}
+.drow+.drow{margin-top:10px}
+.drow:hover{background:rgba(255,255,255,.055)}
+.drow.today{border-color:rgba(155,109,255,.45);background:rgba(155,109,255,.08);box-shadow:inset 2px 0 0 var(--purple)}
+.drow .stripe{position:absolute;left:-4px;top:-8px;bottom:-8px;width:20px;background:rgba(155,109,255,.13);transform:skewX(-13deg)}
+.drow.today .stripe{background:rgba(155,109,255,.24)}
+.dchip{position:relative;width:48px;height:31px;flex:none;border-radius:9px;background:var(--soft);display:grid;place-items:center;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.1em;color:var(--muted)}
+.drow.today .dchip{background:rgba(155,109,255,.18);color:var(--pbright)}
+.drow .grow{flex:1;min-width:0}
+.dn{font-size:15px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.dm{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:500;color:var(--muted);margin-top:3px}
+.dgo{width:16px;height:16px;flex:none;fill:none;stroke:var(--faint);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.planbtn{display:block;width:100%;margin-top:14px;border:0;border-radius:16px;background:var(--purple);color:#150E28;font-family:inherit;font-size:15px;font-weight:800;letter-spacing:-.01em;padding:16px;cursor:pointer}
+.planbtn:active{transform:scale(.99)}
+
+/* ── Day editor ─────────────────────────────────────────────────────────
+   Same phase cards as the session view; rows gain the edit affordances. */
+.ehead{display:flex;align-items:center;gap:12px;margin:0 0 18px}
+.ehead h1{margin:0;font-size:24px;font-weight:800;letter-spacing:-.025em;color:var(--ink)}
+.back{width:34px;height:34px;flex:none;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.04);display:grid;place-items:center;cursor:pointer;padding:0}
+.back svg{width:15px;height:15px;fill:none;stroke:var(--muted);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.erow{display:flex;align-items:flex-start;gap:9px;padding:12px 0;border-top:1px solid var(--line)}
+.hnd{width:20px;height:26px;flex:none;display:flex;align-items:center;justify-content:center;cursor:grab}
+.hnd svg{display:block;width:16px;height:16px;fill:none;stroke:var(--faint);stroke-width:2.2;stroke-linecap:round}
+.erow .pnum{margin-top:0}
+.ebody{flex:1;min-width:0}
+.ename{font-size:14.5px;font-weight:700;color:var(--ink);letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.emeta{display:flex;align-items:center;gap:7px;flex-wrap:nowrap;margin-top:8px}
+.chip{display:inline-flex;align-items:center;gap:5px;flex:none;white-space:nowrap;background:var(--soft);border:1px solid var(--line2);border-radius:9px;padding:5px 8px;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:var(--ink);cursor:pointer}
+.chip svg{width:11px;height:11px;fill:none;stroke:var(--pbright);opacity:.9;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.chip:hover{border-color:rgba(155,109,255,.5)}
+.chip:hover svg{opacity:1}
+.eacts{display:flex;align-items:center;gap:0;flex:none;margin-right:-4px}
+.iconbtn{width:30px;height:30px;border-radius:9px;border:1px solid transparent;background:none;display:grid;place-items:center;cursor:pointer;padding:0}
+.iconbtn:hover{background:rgba(255,255,255,.06);border-color:var(--line)}
+.iconbtn svg{width:16px;height:16px;fill:none;stroke:var(--faint);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.iconbtn.sw svg{stroke:var(--acc);opacity:.85}
+.iconbtn.sw:hover svg{opacity:1}
+.iconbtn.rm svg{stroke:var(--danger);opacity:.75}
+.iconbtn.rm:hover svg{opacity:1}
+.addrow{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin:11px 0 4px;padding:12px;border:1px dashed rgba(255,255,255,.18);border-radius:13px;background:none;font-family:inherit;font-size:13.5px;font-weight:800;color:var(--pbright);cursor:pointer}
+.addrow:hover{border-color:rgba(155,109,255,.5);background:rgba(155,109,255,.07)}
+.addrow svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round}
+/* stepper rows (sets / reps / rest) */
+.step{display:flex;align-items:center;gap:12px;padding:15px 0;border-top:1px solid var(--line)}
+.step .sl{flex:1;font-size:14.5px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.step .sv{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:var(--ink);min-width:64px;text-align:center}
+.stepbtn{width:36px;height:36px;flex:none;border-radius:11px;border:1px solid var(--line2);background:var(--soft);color:var(--ink);font-family:inherit;font-size:17px;font-weight:800;cursor:pointer;display:grid;place-items:center;padding:0}
+.stepbtn:hover{border-color:rgba(155,109,255,.5);color:var(--pbright)}
+.rtag{font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.12em;color:var(--faint);flex:none;margin-left:8px}
+.enamerow{display:flex;align-items:baseline}
+.enamerow .ename{flex:1;min-width:0}
+/* the role legend — last on the screen, not first */
+.legend{margin:18px 0 0;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.025);padding:15px 16px 6px}
+.legend h4{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0 0 4px}
+.lrow{display:grid;grid-template-columns:62px 1fr;gap:12px;padding:11px 0;border-top:1px solid var(--line);margin-top:9px}
+.lrow:first-of-type{border-top:0;margin-top:0}
+.lrow .lr{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--pbright);padding-top:2px}
+.lrow .ld{font-size:12.5px;font-weight:600;color:var(--muted);line-height:1.5}
+/* all three numbers on one row */
+.steprow{display:flex;gap:10px;padding:18px 0 6px;border-top:1px solid var(--line)}
+.steprow .step{flex:1;display:grid;grid-template-columns:32px 1fr 32px;gap:10px 4px;justify-items:center;align-items:center;padding:0;border-top:0}
+.steprow .sl{grid-column:1/4;flex:none;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--faint)}
+.steprow .stepbtn{width:32px;height:32px;font-size:16px}
+.steprow .sv{min-width:0;font-size:15px}
+.erow.lift{background:rgba(155,109,255,.12);border-radius:12px;box-shadow:0 14px 32px rgba(0,0,0,.5);position:relative;z-index:5;cursor:grabbing}
+.erow.lift .hnd{cursor:grabbing}
+
+/* ── Programme detail (read-only) ───────────────────────────────────────*/
+.lede{font-size:13.5px;font-weight:600;color:var(--muted);line-height:1.55;margin:0 0 18px;text-wrap:pretty}
+.stats{display:flex;background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:16px;margin:0 0 22px}
+.stats div{flex:1;padding:14px 6px;text-align:center;border-left:1px solid var(--line)}
+.stats div:first-child{border-left:0}
+.stats b{display:block;font-size:19px;font-weight:800;color:var(--ink);letter-spacing:-.02em}
+.stats span{display:block;font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.12em;color:var(--faint);margin-top:5px}
+.secthead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:0 0 11px}
+.secthead .st{font-size:17px;font-weight:800;letter-spacing:-.02em;color:var(--ink)}
+.secthead .sk{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.link{background:none;border:0;font-family:inherit;font-size:12.5px;font-weight:800;color:var(--pbright);cursor:pointer;padding:0}
+.link:hover{color:var(--purple)}
+.week{display:flex;gap:5px;margin:0 0 8px}
+.wd{flex:1;border-radius:12px;padding:9px 2px;text-align:center;background:rgba(155,109,255,.16);border:1px solid rgba(155,109,255,.3)}
+.wd.off{background:rgba(255,255,255,.03);border-color:var(--line)}
+.wd i{display:block;font-style:normal;font-family:'JetBrains Mono',monospace;font-size:8.5px;font-weight:700;letter-spacing:.1em;color:var(--faint)}
+.wd b{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--pbright);margin-top:4px}
+.wd.off b{color:var(--faint)}
+.card{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:16px;padding:15px}
+.splitbar{display:flex;gap:2px;height:9px;border-radius:99px;overflow:hidden;margin:0 0 13px}
+.legend2{display:grid;grid-template-columns:1fr 1fr;gap:9px 14px}
+.legend2 div{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--muted);min-width:0}
+.legend2 i{width:8px;height:8px;border-radius:99px;flex:none}
+.legend2 b{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:var(--ink)}
+/* split editor rows */
+.srow{display:flex;align-items:center;gap:11px;padding:13px 0;border-top:1px solid var(--line)}
+.srow:first-child{border-top:0}
+.srow .dot{width:8px;height:8px;border-radius:99px;flex:none}
+.srow .sn{flex:1;min-width:0}
+.srow .snm{font-size:14px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.srow .sst{font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:500;color:var(--muted);margin-top:3px}
+.srow .sst em{font-style:normal;color:var(--pbright);margin-left:6px}
+.srow .spc{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--ink);min-width:42px;text-align:right}
+.note{font-size:12px;font-weight:600;color:var(--faint);line-height:1.5;margin:14px 0 0}
+/* ── The training week ─────────────────────────────────────────────────*/
+.pats{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding:2px 0 4px}
+.pats::-webkit-scrollbar{display:none}
+.pat{flex:none;white-space:nowrap;padding:9px 12px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.035);font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:var(--muted);cursor:pointer}
+.pat:hover{background:rgba(255,255,255,.07)}
+.pat.on{background:rgba(255,138,76,.12);border-color:rgba(255,138,76,.5);color:var(--acc)}
+.week.pick .wd{cursor:pointer;transition:background .15s,border-color .15s}
+.status{font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;letter-spacing:.04em;color:var(--muted);margin:15px 0 0}
+.status.warn{color:var(--amber)}
+/* ── Optional sign-in card ─────────────────────────────────────────────*/
+.safecard{background:linear-gradient(180deg,#1E1842,#181233);border:1px solid rgba(155,109,255,.28);border-radius:18px;padding:16px;box-shadow:0 16px 40px rgba(0,0,0,.4)}
+.sc-top{display:flex;align-items:center;gap:9px;margin-bottom:12px}
+.sc-ico{width:28px;height:28px;flex:none;border-radius:9px;background:rgba(155,109,255,.16);display:grid;place-items:center}
+.sc-ico svg{width:15px;height:15px;fill:none;stroke:var(--pbright);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.sc-k{font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.safecard h3{margin:0 0 6px;font-size:16.5px;font-weight:800;letter-spacing:-.02em;color:var(--ink)}
+.safecard p{margin:0 0 14px;font-size:13px;font-weight:600;color:var(--muted);line-height:1.5;text-wrap:pretty}
+.gbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;background:#F4F1FF;color:#17131F;border:0;border-radius:14px;padding:14px;font-family:inherit;font-size:14.5px;font-weight:800;letter-spacing:-.01em;cursor:pointer;transition:transform .12s}
+.gbtn:active{transform:scale(.98)}
+.gbadge{width:21px;height:21px;flex:none;border-radius:99px;background:#fff;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14);display:grid;place-items:center;font-size:12.5px;font-weight:800;color:#3C4043}
+.sc-no{display:block;width:100%;background:none;border:0;font-family:inherit;font-size:13px;font-weight:700;color:var(--faint);padding:12px 0 0;cursor:pointer}
+.sc-no:hover{color:var(--muted)}
+/* ── Your cards (home) ─────────────────────────────────────────────────*/
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mcard{background:rgba(255,255,255,.035);border:1px solid var(--line);border-radius:16px;padding:14px;min-height:108px;display:flex;flex-direction:column;cursor:pointer;transition:background .16s,border-color .16s}
+.mcard:hover{background:rgba(255,255,255,.06);border-color:var(--line2)}
+.mcard .ml{font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--faint)}
+.mcard .mv{font-size:27px;font-weight:800;letter-spacing:-.03em;color:var(--ink);margin-top:auto}
+.mcard .mv span{font-size:13px;font-weight:700;color:var(--muted);margin-left:4px}
+.mcard .ms{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;color:var(--faint);margin-top:7px}
+.mcard .ms em{font-style:normal;color:var(--green)}
+.mcard.empty .mv{color:var(--faint);font-size:19px}
+.addcard{border:1px dashed rgba(155,109,255,.42);background:rgba(155,109,255,.06);border-radius:16px;min-height:108px;display:grid;place-items:center;align-content:center;gap:7px;font-family:inherit;font-size:13.5px;font-weight:800;color:var(--pbright);cursor:pointer}
+.addcard:hover{background:rgba(155,109,255,.11);border-color:rgba(155,109,255,.6)}
+.addcard svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round}
+.row .plus{width:28px;height:28px;flex:none;border-radius:99px;background:rgba(155,109,255,.16);border:1px solid rgba(155,109,255,.4);display:grid;place-items:center}
+.row .plus svg{width:13px;height:13px;fill:none;stroke:var(--pbright);stroke-width:2.6;stroke-linecap:round}
+.row.sel .plus{background:var(--acc);border-color:var(--acc)}
+.row.sel .plus svg{stroke:var(--onacc);transform:rotate(45deg)}
+.sugbtns{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:15px}
+.btn.sm{flex:none;padding:11px 17px;font-size:13.5px;border-radius:12px}
+.preview{background:rgba(255,255,255,.04);border:1px dashed rgba(255,255,255,.16);border-radius:14px;padding:13px 14px;margin:0 0 13px}
+.preview .ml{font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--faint)}
+.preview .pv{display:block;font-size:17px;font-weight:800;color:var(--faint);margin-top:7px;letter-spacing:-.02em}
+/* ── Home screen shell ─────────────────────────────────────────────────*/
+.hhead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.hhead h1{margin:0;font-size:23px;font-weight:800;letter-spacing:-.03em;color:var(--ink)}
+.hhead h1 em{font-style:normal;color:var(--acc)}
+.pro{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.12em;color:#241203;background:var(--gold);border-radius:99px;padding:5px 11px;border:0;cursor:pointer}
+.hmeta{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:11px 0 6px}
+.hmeta span{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--faint)}
+.prog{height:3px;border-radius:99px;background:rgba(255,255,255,.09);overflow:hidden;margin:0 0 18px}
+.prog i{display:block;height:100%;width:4%;background:var(--purple)}
+.strip{display:flex;align-items:center;gap:4px;background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:16px;padding:9px 8px;margin:0 0 20px}
+.sday{flex:1;text-align:center;border-radius:11px;padding:7px 0}
+.sday b{display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--faint);margin-top:6px}
+.sday i{display:block;width:6px;height:6px;border-radius:99px;margin:0 auto;background:var(--acc)}
+.sday i.rest{background:var(--green)}
+.sday.now{background:var(--plight)}
+.sday.now b{color:var(--ink)}
+.stripchev{width:26px;display:grid;place-items:center;flex:none}
+.stripchev svg{width:15px;height:15px;fill:none;stroke:var(--faint);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.daytitle{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 16px;cursor:pointer}
+.daytitle h2{margin:0;font-size:26px;font-weight:800;letter-spacing:-.03em;color:var(--ink)}
+.daytitle svg{width:20px;height:20px;flex:none;fill:none;stroke:var(--acc);stroke-width:2.8;stroke-linecap:round;stroke-linejoin:round}
+.startbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;border:0;border-radius:18px;background:var(--acc);color:var(--onacc);font-family:inherit;font-size:16px;font-weight:800;letter-spacing:-.01em;padding:17px;cursor:pointer;box-shadow:0 10px 28px rgba(255,138,76,.3);margin:0 0 18px}
+.startbtn svg{width:20px;height:20px;fill:currentColor;stroke:none}
+.arow{display:flex;align-items:center;gap:12px;width:100%;background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:16px;padding:15px;font-family:inherit;cursor:pointer;text-align:left}
+.arow+.arow{margin-top:10px}
+.arow:hover{background:rgba(255,255,255,.06)}
+.arow .ai2{width:30px;height:30px;flex:none;border-radius:9px;background:rgba(255,138,76,.14);display:grid;place-items:center}
+.arow .ai2 svg{width:15px;height:15px;fill:none;stroke:var(--acc);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.arow .al2{flex:1;font-size:15px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.arow .am2{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--faint)}
+.nav{position:absolute;left:14px;right:14px;bottom:18px;height:62px;background:rgba(25,20,54,.94);border:1px solid var(--line2);border-radius:22px;display:flex;align-items:center;justify-content:space-around;z-index:40;box-shadow:0 14px 34px rgba(0,0,0,.5)}
+.nav span{width:38px;height:38px;border-radius:12px;display:grid;place-items:center}
+.nav span svg{width:19px;height:19px;fill:none;stroke:var(--faint);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.nav span.on{background:rgba(255,138,76,.16)}
+.nav span.on svg{stroke:var(--acc)}
+.nav span.ai{background:rgba(155,109,255,.18);border:1px solid rgba(155,109,255,.45);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--pbright)}
+[data-workouts] .dpen{display:none}
+[data-workouts].editing .dgo{display:none}
+[data-workouts].editing .dpen{display:block}
+.dpen{width:16px;height:16px;flex:none;fill:none;stroke:var(--pbright);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+[data-workouts].editing .drow{border-color:rgba(155,109,255,.35)}
+
+/* ── Pro screens (unlocked / membership / cancel) ───────────────────────
+   No new hues. Purple = the state you are in, orange = the one thing to
+   press, red = only the destructive line, and it never sits under a thumb. */
+.pkick{display:inline-flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--pbright);background:rgba(155,109,255,.13);border:1px solid rgba(155,109,255,.34);border-radius:99px;padding:6px 11px}
+.pkick svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.ptitle{margin:15px 0 9px;font-size:31px;font-weight:800;letter-spacing:-.035em;color:var(--ink);line-height:1.04}
+.plede{margin:0 0 6px;font-size:13.5px;font-weight:600;color:var(--muted);line-height:1.5;text-wrap:pretty}
+.chg{display:grid;grid-template-columns:auto 1fr;gap:0 12px;padding:15px 0;border-top:1px solid var(--line)}
+.chg.first{border-top:0}
+.cico{width:28px;height:28px;border-radius:9px;background:rgba(155,109,255,.16);display:grid;place-items:center;grid-row:span 3;align-self:start;margin-top:2px}
+.cico svg{width:14px;height:14px;fill:none;stroke:var(--pbright);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.chead{display:flex;align-items:baseline;gap:10px}
+.chead .cn{flex:1;min-width:0;font-size:15.5px;font-weight:800;letter-spacing:-.02em;color:var(--ink)}
+.chead .ck{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);flex:none}
+.cmove{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+.cmove svg{width:14px;height:14px;flex:none;fill:none;stroke:var(--faint);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.was{font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:500;color:var(--faint);text-decoration:line-through;text-decoration-color:rgba(167,159,196,.55)}
+.now{font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;letter-spacing:.02em;color:var(--pbright);background:rgba(155,109,255,.14);border:1px solid rgba(155,109,255,.38);border-radius:8px;padding:4px 9px}
+.now.gone{color:var(--faint);background:rgba(255,255,255,.04);border-color:var(--line)}
+.cwhy{font-size:12.5px;font-weight:600;color:var(--muted);line-height:1.5;margin-top:8px;max-width:38ch;text-wrap:pretty}
+.barline{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);text-align:center;margin:0 0 12px}
+.barline em{font-style:normal;color:var(--muted)}
+.barx.dz{color:rgba(255,107,107,.82)}
+.barx.dz:hover{color:var(--danger)}
+.tarea{width:100%;background:var(--soft);border:1px solid var(--line2);border-radius:14px;padding:13px 14px;min-height:84px;font-family:inherit;font-size:14px;font-weight:600;color:var(--ink);line-height:1.45;resize:none;outline:none}
+.tarea::placeholder{color:var(--faint)}
+.tarea:focus{border-color:rgba(255,138,76,.45);background:#241D49}
+/* ── Locked AI chat ─────────────────────────────────────────────────── */
+.chead2{display:flex;align-items:center;gap:11px;padding:12px 16px 13px;border-bottom:1px solid var(--line)}
+.cav{width:30px;height:30px;flex:none;border-radius:10px;background:rgba(155,109,255,.18);display:grid;place-items:center}
+.cav svg{width:15px;height:15px;fill:none;stroke:var(--pbright);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.chead2 .cnm{font-size:16px;font-weight:800;letter-spacing:-.02em;color:var(--ink)}
+.chead2 .con{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.12em;color:var(--green);border:1px solid rgba(55,208,138,.4);border-radius:99px;padding:4px 8px}
+.chead2 .csub{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.04em;color:var(--faint);margin-top:3px}
+.thread{padding:14px 16px 0;display:flex;flex-direction:column;gap:11px}
+.me{align-self:flex-end;max-width:78%;background:rgba(155,109,255,.16);border:1px solid rgba(155,109,255,.34);border-radius:16px 16px 5px 16px;padding:11px 14px;font-size:14.5px;font-weight:700;color:var(--ink)}
+.lock{border:1px dashed rgba(155,109,255,.42);background:rgba(155,109,255,.06);border-radius:16px 16px 16px 5px;padding:13px 14px}
+.lock .lt{display:flex;align-items:center;gap:8px}
+.lock .lt svg{width:13px;height:13px;flex:none;fill:none;stroke:var(--pbright);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.lock .lt b{flex:1;font-size:13.5px;font-weight:800;color:var(--pbright);letter-spacing:-.01em}
+.lock .pro2{font-family:'JetBrains Mono',monospace;font-size:8.5px;font-weight:700;letter-spacing:.13em;color:var(--pbright);background:rgba(155,109,255,.18);border-radius:99px;padding:4px 8px}
+.blur{margin:10px 0 12px;font-size:13.5px;font-weight:600;line-height:1.5;color:var(--muted);filter:blur(4.5px);user-select:none}
+.unl{display:inline-flex;align-items:center;gap:6px;background:none;border:0;padding:0;font-family:inherit;font-size:13.5px;font-weight:800;color:var(--acc);cursor:pointer}
+.unl svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.lockmini{display:flex;align-items:center;gap:9px;border:1px dashed rgba(155,109,255,.3);background:rgba(155,109,255,.04);border-radius:13px;padding:11px 13px;cursor:pointer}
+.lockmini svg.lk{width:12px;height:12px;flex:none;fill:none;stroke:var(--pbright);opacity:.8;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.lockmini span{flex:1;font-size:13px;font-weight:700;color:var(--muted)}
+.lockmini b{font-size:13px;font-weight:800;color:var(--acc)}
+.sugs{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding:14px 16px 10px}
+.sugs::-webkit-scrollbar{display:none}
+.sug{flex:none;white-space:nowrap;padding:10px 13px;border-radius:12px;border:1px solid rgba(255,138,76,.42);background:rgba(255,138,76,.1);font-family:inherit;font-size:13px;font-weight:800;color:var(--acc);cursor:pointer}
+.paybar{display:flex;align-items:center;gap:10px;margin:0 16px 14px;padding:15px 16px;border-radius:16px;background:var(--soft);border:1px solid rgba(255,138,76,.3);cursor:pointer;width:calc(100% - 32px);font-family:inherit;text-align:left}
+.paybar span{flex:1;font-size:14.5px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.paybar svg{width:17px;height:17px;flex:none;fill:none;stroke:var(--acc);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+/* ── Progress & history ─────────────────────────────────────────────────
+   One control vocabulary: icon tabs = where you are, segmented = what the
+   number means, mono chips = how far back. Orange only where you press. */
+.ptabs{display:flex;gap:5px;background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:16px;padding:5px;margin:0 0 20px}
+.ptab{flex:1;height:40px;border-radius:12px;display:grid;place-items:center;cursor:pointer;border:1px solid transparent;background:none;padding:0}
+.ptab svg{width:18px;height:18px;fill:none;stroke:var(--faint);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.ptab.on{background:rgba(155,109,255,.16);border-color:rgba(155,109,255,.4)}
+.ptab.on svg{stroke:var(--pbright)}
+.seg{display:flex;gap:4px;background:rgba(255,255,255,.035);border:1px solid var(--line);border-radius:13px;padding:4px}
+.seg button{flex:1;border:1px solid transparent;background:none;border-radius:10px;padding:9px 6px;font-family:inherit;font-size:13px;font-weight:800;letter-spacing:-.01em;color:var(--muted);cursor:pointer}
+.seg button.on{background:rgba(255,138,76,.12);border-color:rgba(255,138,76,.42);color:var(--acc)}
+.big{display:block;font-size:31px;font-weight:800;letter-spacing:-.03em;color:var(--ink);margin:15px 0 0}
+.big span{font-size:14px;font-weight:700;color:var(--muted);margin-left:5px}
+.bigsub{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:6px 0 0}
+.bigsub em{font-style:normal;color:var(--green)}
+.chart{height:150px;margin:14px 0 10px}
+.chart svg{display:block;width:100%;height:100%;overflow:visible}
+.chart .gl{stroke:rgba(255,255,255,.07);stroke-width:1}
+.chart .ln{fill:none;stroke:var(--purple);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.chart .ar{fill:rgba(155,109,255,.12);stroke:none}
+.chart .dt{fill:var(--surface);stroke:var(--purple);stroke-width:2.5}
+.xax{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.06em;color:var(--faint);margin:0 0 12px}
+.nodata{height:150px;border:1px dashed rgba(255,255,255,.14);border-radius:14px;display:grid;place-items:center;align-content:center;gap:7px;margin:14px 0 12px}
+.nodata b{font-size:13.5px;font-weight:700;color:var(--muted)}
+.nodata span{font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+.pat.lk{color:var(--faint)}
+.pat.lk svg{width:10px;height:10px;margin-right:5px;vertical-align:-1px;fill:none;stroke:var(--pbright);stroke-width:2.4}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.cal i{font-style:normal;font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.08em;color:var(--faint);text-align:center;padding-bottom:3px}
+.cd{aspect-ratio:1;border-radius:9px;display:grid;place-items:center;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--faint);background:rgba(255,255,255,.035)}
+.cd.on{background:rgba(155,109,255,.2);color:var(--pbright);box-shadow:inset 0 0 0 1px rgba(155,109,255,.34)}
+.cd.now{background:var(--purple);color:#150E28}
+.cd.nil{background:none}
+.rv{font-family:'JetBrains Mono',monospace;font-size:13.5px;font-weight:700;color:var(--ink);text-align:right;flex:none}
+.rv em{font-style:normal;font-size:11px;color:var(--muted);margin-left:3px}
+.estate{border:1px solid var(--line);background:rgba(255,255,255,.025);border-radius:18px;padding:34px 22px;text-align:center}
+.estate .eic{width:46px;height:46px;margin:0 auto 14px;border-radius:99px;background:rgba(155,109,255,.16);display:grid;place-items:center}
+.estate .eic svg{width:21px;height:21px;fill:none;stroke:var(--pbright);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.estate h3{margin:0 0 6px;font-size:17px;font-weight:800;letter-spacing:-.02em;color:var(--ink)}
+.estate p{margin:0 0 18px;font-size:13px;font-weight:600;color:var(--muted);line-height:1.5}
+.dtr{display:none;width:17px;height:17px;flex:none;fill:none;stroke:var(--danger);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+[data-hist].editing .dgo{display:none}
+[data-hist].editing .dtr{display:block}
+[data-hist].editing .drow{border-color:rgba(255,107,107,.3)}
+.cardhead{display:flex;align-items:center;gap:12px;margin:0 0 14px}
+.cardhead h3{flex:1;margin:0;font-size:18px;font-weight:800;letter-spacing:-.025em;color:var(--ink)}
+.pair{display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
+.pair .pv2{font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:var(--muted);text-align:right;line-height:1.7}
+.pair .pv2 b{color:var(--ink);margin-left:8px}
+.spark{width:56px;height:20px;flex:none}
+.spark polyline{fill:none;stroke:var(--green);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.delta{font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:var(--green);flex:none}
+.delta.dn2{color:var(--faint)}
+.scale{margin:16px 0 0}
+.strack{position:relative;height:6px;border-radius:99px;background:rgba(255,255,255,.09)}
+.strack i{position:absolute;top:0;bottom:0;left:26%;right:38%;border-radius:99px;background:rgba(155,109,255,.45)}
+.strack b{position:absolute;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:99px;background:var(--pbright);box-shadow:0 0 0 3px var(--surface)}
+.smarks{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.06em;color:var(--faint);margin-top:8px}
+.erow2{display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px solid var(--line)}
+.erow2:first-child{border-top:0}
+.erow2 .ed{flex:1;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--muted)}
+.erow2 .ev{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--ink)}
+.msico{width:30px;height:30px;flex:none;border-radius:9px;background:rgba(155,109,255,.16);display:grid;place-items:center}
+.msico svg{width:15px;height:15px;fill:none;stroke:var(--pbright);stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
+</style>
+
+</head>
+<body>
+
+<div class="frame" style="left:60px;top:56px">
+<p class="flabel">The pattern</p>
+<p class="fnote">Progress had four different control styles stacked on one screen and orange doing three different jobs. This is the vocabulary the whole tab now uses.</p>
+<div class="spec">
+  <h3>Controls &amp; colour</h3>
+  <p>Three control shapes, each with one meaning. Nothing on this tab is orange unless pressing it changes what you are looking at.</p>
+  <h4>Where you are</h4>
+  <div class="ptabs" style="margin-bottom:14px"><span class="ptab on"><svg viewBox="0 0 24 24"><path d="M4 18l6-7 4 3 6-8"></path></svg></span><span class="ptab"><svg viewBox="0 0 24 24"><path d="M7 4h10v5a5 5 0 01-10 0zM9 20h6M12 14v6"></path></svg></span><span class="ptab"><svg viewBox="0 0 24 24"><path d="M4 10v4M20 10v4M7 7v10M17 7v10M7 12h10"></path></svg></span><span class="ptab"><svg viewBox="0 0 24 24"><path d="M4 8h16M6 8v9M10 8v9M14 8v9M18 8v9"></path></svg></span></div>
+  <h4>What the number means</h4>
+  <div class="seg" style="margin-bottom:14px"><button class="on">Volume</button><button>Duration</button><button>Bodyweight</button></div>
+  <h4>How far back</h4>
+  <div class="pats" style="margin-bottom:4px"><span class="pat on">7D</span><span class="pat">1M</span><span class="pat">3M</span><span class="pat lk"><svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0110 0v3M6 11h12v9H6z"></path></svg>6M</span><span class="pat lk"><svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0110 0v3M6 11h12v9H6z"></path></svg>All</span></div>
+  <div class="grp">
+    <h4>Rules</h4>
+    <ul class="rules">
+      <li>The calendar was a wall of orange. Logged days are violet — they are a record of what happened, not something to press.</li>
+      <li>Chart lines are violet too. One orange thing per screen and it is the control you just touched.</li>
+      <li>Every metric switch is the same segmented control: Weight / Reps / Volume and Volume / Duration / Bodyweight are the same widget, not two.</li>
+      <li>Empty is a dashed box with one mono line — never a full-height card holding the words "No entries".</li>
+      <li>Delete never sits on a resting row. History is a list until you press Edit.</li>
+    </ul>
+  </div>
+</div>
+</div>
+
+<div class="frame" style="left:560px;top:56px">
+<p class="flabel">01 · Progress — trend</p>
+<p class="fnote">The dead "Working weight · 0 kg × 15" card is gone: the headline number now belongs to the chart, and the chart is what the tab is for. Metric switch on top, range chips under it, both in the kit's own controls. Locked ranges keep the violet lock rather than a second colour.</p>
+<div class="device"><div class="screen">
+  <div class="camera"></div>
+  <div class="behind" style="padding:52px 20px 100px">
+    <h1 style="font-size:29px">Progress</h1>
+    <div class="sub">THE TRAINING YOU'VE BUILT · HONEST AND YOURS</div>
+    <div class="ptabs"><span class="ptab on"><svg viewBox="0 0 24 24"><path d="M4 18l6-7 4 3 6-8"></path></svg></span><span class="ptab"><svg viewBox="0 0 24 24"><path d="M7 4h10v5a5 5 0 01-10 0zM9 20h6M12 14v6"></path></svg></span><span class="ptab"><svg viewBox="0 0 24 24"><path d="M4 10v4M20 10v4M7 7v10M17 7v10M7 12h10"></path></svg></span><span class="ptab"><svg viewBox="0 0 24 24"><path d="M4 8h16M6 8v9M10 8v9M14 8v9M18 8v9"></path></svg></span></div>
+    <div class="card" style="padding:15px 15px 12px">
+      <div class="seg"><button class="on">Volume</button><button>Duration</button><button>Bodyweight</button></div>
+      <b class="big">12 480<span>kg this week</span></b>
+      <p class="bigsub"><em>+8 %</em> on last week</p>
+      <div class="chart"><svg viewBox="0 0 300 150" preserveAspectRatio="none">
+        <path class="gl" d="M0 12h300M0 47h300M0 82h300M0 117h300"></path>
+        <path class="ar" d="M8 104L60 88L112 96L164 62L216 68L268 30V150H8Z"></path>
+        <polyline class="ln" points="8,104 60,88 112,96 164,62 216,68 268,30"></polyline>
+        <circle class="dt" cx="268" cy="30" r="4.5"></circle>
+      </svg></div>
+      <div class="xax"><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span></div>
+      <div class="pats"><span class="pat on">7D</span><span class="pat">1M</span><span class="pat">3M</span><span class="pat lk"><svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0110 0v3M6 11h12v9H6z"></path></svg>6M</span><span class="pat lk"><svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0110 0v3M6 11h12v9H6z"></path></svg>All</span></div>
+    </div>
+    <div style="height:22px"></div>
+    <div class="secthead"><span class="sk">This month</span><span class="sk" style="color:var(--muted)">September 2026</span></div>
+    <div class="stats" style="margin-bottom:22px"><div><b>11</b><span>SESSIONS</span></div><div><b>48.2k</b><span>KG LIFTED</span></div><div><b>52</b><span>MIN / SESSION</span></div></div>
+    <div class="secthead"><span class="sk">Activity</span><span class="sk" style="color:var(--muted)">3 weeks in a row</span></div>
+    <div class="card" style="margin-bottom:22px">
+      <div class="cal" style="margin-bottom:6px"><i>M</i><i>T</i><i>W</i><i>T</i><i>F</i><i>S</i><i>S</i></div>
+      <div class="cal">
+        <span class="cd nil"></span><span class="cd on">1</span><span class="cd">2</span><span class="cd on">3</span><span class="cd">4</span><span class="cd on">5</span><span class="cd">6</span>
+        <span class="cd on">7</span><span class="cd">8</span><span class="cd on">9</span><span class="cd">10</span><span class="cd on">11</span><span class="cd">12</span><span class="cd">13</span>
+        <span class="cd on">14</span><span class="cd">15</span><span class="cd on">16</span><span class="cd on">17</span><span class="cd">18</span><span class="cd">19</span><span class="cd">20</span>
+        <span class="cd on">21</span><span class="cd">22</span><span class="cd on">23</span><span class="cd">24</span><span class="cd now">25</span><span class="cd">26</span><span class="cd">27</span>
+        <span class="cd">28</span><span class="cd">29</span><span class="cd">30</span><span class="cd nil"></span><span class="cd nil"></span><span class="cd nil"></span><span class="cd nil"></span>
+      </div>
+    </div>
+    <div class="secthead"><span class="st">History</span><button class="link">See all</button></div>
+    <div class="drow"><span class="dchip">29.8</span><span class="grow"><span class="dn">Day 1: Full Body</span><div class="dm">4 exercises · 41 min · 4 120 kg</div></span><svg class="dgo" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"></path></svg></div>
+    <div class="drow"><span class="dchip">27.8</span><span class="grow"><span class="dn">Day 2: Full Body</span><div class="dm">5 exercises · 48 min · 5 260 kg</div></span><svg class="dgo" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"></path></svg></div>
+    <div class="drow"><span class="dchip">25.8</span><span class="grow"><span class="dn">Day 1: Full Body</span><div class="dm">4 exercises · 39 min · 3 980 kg</div></span><svg class="dgo" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"></path></svg></div>
+  </div>
+  <div class="nav"><span><svg viewBox="0 0 24 24"><path d="M4 11l8-6 8 6v8H4z"></path></svg></span><span><svg viewBox="0 0 24 24"><path d="M12 4l8 4-8 4-8-4z"></path><path d="M4 13l8 4 8-4"></path></svg></span><span class="ai">AI</span><span class="on"><svg viewBox="0 0 24 24"><path d="M4 17l5-6 4 3 7-8"></path></svg></span><span><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"></circle><path d="M5 20c1.5-3.6 4-5 7-5s5.5 1.4 7 5"></path></svg></span></div>
+  <div class="hind"></div>
+</div></div>
+</div>
+
+<div class="frame" style="left:1060px;top:56px">
+<p class="flabel">02 · Progress — records</p>
+<p class="fnote">Weight / Reps / Volume is the same segmented control as the trend switch, so the tab has one widget instead of three. Records are the kit's list rows: name, where it lands, value on the right in mono. NEW is the violet tag the sheets already use — a label, not a badge with its own colour.</p>
+<div class="device"><div class="screen">
+  <div class="camera"></div>
+  <div class="behind" style="padding:52px 20px 100px">
+    <h1 style="font-size:29px">Progress</h1>
+    <div class="sub">THE TRAINING YOU'VE BUILT · HONEST AND YOURS</div>
+    <div class="ptabs"><span class="ptab"><svg viewBox="0 0 24 24"><path d="M4 18l6-7 4 3 6-8"></path></svg></span><span class="ptab on"><svg viewBox="0 0 24 24"><path d="M7 4h10v5a5 5 0 01-10 0zM9 20h6M12 14v6"></path></svg></span><span class="ptab"><svg viewBox="0 0 24 24"><path d="M4 10v4M20 10v4M7 7v10M17 7v10M7 12h10"></path></svg></span><span class="ptab"><svg viewBox="0 0 24 24"><path d="M4 8h16M6 8v9M10 8v9M14 8v9M18 8v9"></path></svg></span></div>
+    <div class="seg" data-seg=""><button class="on">Weight</button><button>Reps</button><button>Volume</button></div>
+    <div class="secthead" style="margin:18px 0 10px"><span class="sk">September 2026</span><span class="sk" style="color:var(--muted)">8 exercises</span></div>
+    <div class="row"><span class="grow"><span class="rn">Alternate Hammer Curl</span><div class="rm">Biceps · 1 Sep</div></span><span class="tag">NEW</span><span class="rv">13.8<em>kg × 15</em></span></div>
+    <div class="row"><span class="grow"><span class="rn">Triceps Pushdown</span><div class="rm">Triceps · 1 Sep</div></span><span class="tag">NEW</span><span class="rv">13.8<em>kg × 15</em></span></div>
+    <div class="row"><span class="grow"><span class="rn">Barbell Bench Press</span><div class="rm">Chest · 29 Aug</div></span><span class="rv">72.5<em>kg × 5</em></span></div>
+    <div class="row"><span class="grow"><span class="rn">Back Squat</span><div class="rm">Legs · 27 Aug</div></span><span class="rv">100<em>kg × 5</em></span></div>
+    <div class="secthead" style="margin:22px 0 10px"><span class="sk">August 2026</span><span class="sk" style="color:var(--muted)">4 exercises</span></div>
+    <div class="row"><span class="grow"><span class="rn">Inverted Row</span><div class="rm">Back · 29 Aug</div></span><span class="rv">bodyweight<em>× 10</em></span></div>
+    <div class="row"><span class="grow"><span class="rn">Glute Bridge</span><div class="rm">Glutes · 29 Aug</div></span><span class="rv">bodyweight<em>× 15</em></span></div>
+    <div class="row"><span class="grow"><span class="rn">Incline Push-Up</span><div class="rm">Chest · 29 Aug</div></span><span class="rv">bodyweight<em>× 12</em></span></div>
+  </div>
+  <div class="nav"><span><svg viewBox="0 0 24 24"><path d="M4 11l8-6 8 6v8H4z"></path></svg></span><span><svg viewBox="0 0 24 24"><path d="M12 4l8 4-8 4-8-4z"></path><path d="M4 13l8 4 8-4"></path></svg></span><span class="ai">AI</span><span class="on"><svg viewBox="0 0 24 24"><path d="M4 17l5-6 4 3 7-8"></path></svg></span><span><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"></circle><path d="M5 20c1.5-3.6 4-5 7-5s5.5 1.4 7 5"></path></svg></span></div>
+  <div class="hind"></div>
+</div></div>
+</div>
+
+<div class="frame" style="left:1560px;top:56px">
+<p class="flabel">03 · Nothing logged yet</p>
+<p class="fnote">Two empty states, one grammar. The records card keeps the violet icon and one orange action; the trend card is a dashed box with a mono line, because a full-height card saying "No entries" only advertises the hole. The month row still shows zeros — they are true, and they fill in.</p>
+<div class="device"><div class="screen">
+  <div class="camera"></div>
+  <div class="behind" style="padding:52px 20px 100px">
+    <h1 style="font-size:29px">Progress</h1>
+    <div class="sub">THE TRAINING YOU'VE BUILT · HONEST AND YOURS</div>
+    <div class="ptabs"><span class="ptab"><svg viewBox="0 0 24 24"><path d="M4 18l6-7 4 3 6-8"></path></svg></span><span class="ptab on"><svg viewBox="0 0 24 24"><path d="M7 4h10v5a5 5 0 01-10 0zM9 20h6M12 14v6"></path></svg></span><span class="ptab"><svg viewBox="0 0 24 24"><path d="M4 10v4M20 10v4M7 7v10M17 7v10M7 12h10"></path></svg></span><span class="ptab"><svg viewBox="0 0 24 24"><path d="M4 8h16M6 8v9M10 8v9M14 8v9M18 8v9"></path></svg></span></div>
+    <div class="seg" data-seg=""><button class="on">Weight</button><button>Reps</button><button>Volume</button></div>
+    <div style="height:16px"></div>
+    <div class="estate">
+      <span class="eic"><svg viewBox="0 0 24 24"><path d="M7 4h10v5a5 5 0 01-10 0zM9 20h6M12 14v6M7 6H4v2a3 3 0 003 3M17 6h3v2a3 3 0 01-3 3"></path></svg></span>
+      <h3>No records yet</h3>
+      <p>A record starts with the first set you log — every lift gets one.</p>
+      <button class="btn p" style="max-width:220px;margin:0 auto">Start a workout</button>
+    </div>
+    <div style="height:24px"></div>
+    <div class="secthead"><span class="sk">Trend</span></div>
+    <div class="card" style="padding:15px">
+      <div class="seg"><button class="on">Volume</button><button>Duration</button><button>Bodyweight</button></div>
+      <div class="nodata"><b>Nothing to draw yet</b><span>Two sessions and the line starts</span></div>
+      <div class="pats"><span class="pat on">7D</span><span class="pat">1M</span><span class="pat">3M</span><span class="pat lk"><svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0110 0v3M6 11h12v9H6z"></path></svg>6M</span><span class="pat lk"><svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0110 0v3M6 11h12v9H6z"></path></svg>All</span></div>
+    </div>
+    <div style="height:22px"></div>
+    <div class="secthead"><span class="sk">This month</span><span class="sk" style="color:var(--muted)">September 2026</span></div>
+    <div class="stats"><div><b>0</b><span>SESSIONS</span></div><div><b>0</b><span>KG LIFTED</span></div><div><b>0</b><span>MIN / SESSION</span></div></div>
+  </div>
+  <div class="nav"><span><svg viewBox="0 0 24 24"><path d="M4 11l8-6 8 6v8H4z"></path></svg></span><span><svg viewBox="0 0 24 24"><path d="M12 4l8 4-8 4-8-4z"></path><path d="M4 13l8 4 8-4"></path></svg></span><span class="ai">AI</span><span class="on"><svg viewBox="0 0 24 24"><path d="M4 17l5-6 4 3 7-8"></path></svg></span><span><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"></circle><path d="M5 20c1.5-3.6 4-5 7-5s5.5 1.4 7 5"></path></svg></span></div>
+  <div class="hind"></div>
+</div></div>
+</div>
+
+<div class="frame" style="left:2060px;top:56px">
+<p class="flabel">04 · History</p>
+<p class="fnote">The important one. It is a pushed screen, so it gets the kit's back chevron and drops the tab bar — the red × on every resting row was a delete waiting to happen. Search is the kit's search field, sessions group by month, and each row is the same day row the plan uses: date chip, what it was, one mono line of what it cost. Tapping opens the session.</p>
+<div class="device"><div class="screen">
+  <div class="camera"></div>
+  <div class="behind" style="padding:52px 20px 0">
+    <div class="ehead" style="margin-bottom:6px"><button class="back"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"></path></svg></button><h1>History</h1></div>
+    <p class="plede" style="margin:0 0 16px 46px">Every session you have logged, newest first.</p>
+    <div class="search" style="margin-bottom:8px"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4.5 4.5"></path></svg><input placeholder="Search a workout or a lift"></div>
+    <div class="secthead" style="margin:16px 0 10px"><span class="sk">September 2026</span><button class="link" data-editmode="">Edit</button></div>
+    <div data-hist="">
+      <div class="drow"><span class="dchip">01.9</span><span class="grow"><span class="dn">Day 2: Full Body</span><div class="dm">5 exercises · 48 min · 5 260 kg</div></span><svg class="dgo" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"></path></svg><svg class="dtr" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"></path></svg></div>
+      <div class="drow"><span class="dchip">01.9</span><span class="grow"><span class="dn">Arms &amp; core</span><div class="dm">3 exercises · 26 min · 1 890 kg</div></span><svg class="dgo" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"></path></svg><svg class="dtr" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"></path></svg></div>
+      <div class="secthead" style="margin:22px 0 10px"><span class="sk">August 2026</span><span class="sk" style="color:var(--muted)">6 sessions</span></div>
+      <div class="drow"><span class="dchip">29.8</span><span class="grow"><span class="dn">Day 1: Full Body</span><div class="dm">4 exercises · 41 min · 4 120 kg</div></span><svg class="dgo" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"></path></svg><svg class="dtr" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"></path></svg></div>
+      <div class="drow"><span class="dchip">27.8</span><span class="grow"><span class="dn">Day 2: Full Body</span><div class="dm">5 exercises · 44 min · 4 870 kg</div></span><svg class="dgo" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"></path></svg><svg class="dtr" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"></path></svg></div>
+      <div class="drow"><span class="dchip">25.8</span><span class="grow"><span class="dn">Day 1: Full Body</span><div class="dm">4 exercises · 39 min · 3 980 kg</div></span><svg class="dgo" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"></path></svg><svg class="dtr" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"></path></svg></div>
+      <div class="drow"><span class="dchip">22.8</span><span class="grow"><span class="dn">Empty workout</span><div class="dm">2 exercises · 18 min · 1 240 kg</div></span><svg class="dgo" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"></path></svg><svg class="dtr" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"></path></svg></div>
+      <div class="drow"><span class="dchip">20.8</span><span class="grow"><span class="dn">Day 2: Full Body</span><div class="dm">5 exercises · 46 min · 5 010 kg</div></span><svg class="dgo" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"></path></svg><svg class="dtr" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"></path></svg></div>
+      <div class="drow"><span class="dchip">18.8</span><span class="grow"><span class="dn">Cardio · easy run</span><div class="dm">5.2 km · 31 min</div></span><svg class="dgo" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"></path></svg><svg class="dtr" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"></path></svg></div>
+    </div>
+    <p class="note" data-hnote="">8 sessions · 27 300 kg lifted since 18 August.</p>
+    <div style="height:26px"></div>
+  </div>
+  <div class="hind"></div>
+</div></div>
+</div>
+
+<div class="frame" style="left:2560px;top:56px">
+<p class="flabel">05 · History — editing</p>
+<p class="fnote">Press Edit and the chevrons become red bins; the rows say so with their border. Same mechanic as the plan's Workouts list, so deleting a session is learned once. Live — press Edit on either frame.</p>
+<div class="device"><div class="screen">
+  <div class="camera"></div>
+  <div class="behind" style="padding:52px 20px 0">
+    <div class="ehead" style="margin-bottom:6px"><button class="back"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"></path></svg></button><h1>History</h1></div>
+    <p class="plede" style="margin:0 0 16px 46px">Every session you have logged, newest first.</p>
+    <div class="search" style="margin-bottom:8px"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4.5 4.5"></path></svg><input placeholder="Search a workout or a lift"></div>
+    <div class="secthead" style="margin:16px 0 10px"><span class="sk">September 2026</span><button class="link" data-editmode="">Done</button></div>
+    <div data-hist="" class="editing">
+      <div class="drow"><span class="dchip">01.9</span><span class="grow"><span class="dn">Day 2: Full Body</span><div class="dm">5 exercises · 48 min · 5 260 kg</div></span><svg class="dgo" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"></path></svg><svg class="dtr" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"></path></svg></div>
+      <div class="drow"><span class="dchip">01.9</span><span class="grow"><span class="dn">Arms &amp; core</span><div class="dm">3 exercises · 26 min · 1 890 kg</div></span><svg class="dgo" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"></path></svg><svg class="dtr" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"></path></svg></div>
+      <div class="secthead" style="margin:22px 0 10px"><span class="sk">August 2026</span><span class="sk" style="color:var(--muted)">6 sessions</span></div>
+      <div class="drow"><span class="dchip">29.8</span><span class="grow"><span class="dn">Day 1: Full Body</span><div class="dm">4 exercises · 41 min · 4 120 kg</div></span><svg class="dgo" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"></path></svg><svg class="dtr" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"></path></svg></div>
+      <div class="drow"><span class="dchip">27.8</span><span class="grow"><span class="dn">Day 2: Full Body</span><div class="dm">5 exercises · 44 min · 4 870 kg</div></span><svg class="dgo" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"></path></svg><svg class="dtr" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"></path></svg></div>
+      <div class="drow"><span class="dchip">25.8</span><span class="grow"><span class="dn">Day 1: Full Body</span><div class="dm">4 exercises · 39 min · 3 980 kg</div></span><svg class="dgo" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"></path></svg><svg class="dtr" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"></path></svg></div>
+      <div class="drow"><span class="dchip">22.8</span><span class="grow"><span class="dn">Empty workout</span><div class="dm">2 exercises · 18 min · 1 240 kg</div></span><svg class="dgo" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"></path></svg><svg class="dtr" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"></path></svg></div>
+    </div>
+    <p class="note">Deleting a session takes its sets out of your records and charts too. Nothing else changes.</p>
+    <div style="height:26px"></div>
+  </div>
+  <div class="hind"></div>
+</div></div>
+</div>
+
+<div class="frame" style="left:3060px;top:56px">
+<p class="flabel">06 · Body — weight</p>
+<p class="fnote">Same tab, same controls. The chart line goes violet like every other chart, so the only orange thing on the screen is Log. BMI loses the seven-colour rainbow — one track, the healthy band marked once, your marker on it — and loses its Edit pill too: the height row already has a pencil, and two ways to do one thing is the thing the kit forbids. Entries get the History treatment: no × on a resting row.</p>
+<div class="device"><div class="screen">
+  <div class="camera"></div>
+  <div class="behind" style="padding:52px 20px 100px">
+    <h1 style="font-size:29px">Progress</h1>
+    <div class="sub">THE TRAINING YOU'VE BUILT · HONEST AND YOURS</div>
+    <div class="ptabs"><span class="ptab"><svg viewBox="0 0 24 24"><path d="M4 18l6-7 4 3 6-8"></path></svg></span><span class="ptab"><svg viewBox="0 0 24 24"><path d="M7 4h10v5a5 5 0 01-10 0zM9 20h6M12 14v6"></path></svg></span><span class="ptab"><svg viewBox="0 0 24 24"><path d="M4 10v4M20 10v4M7 7v10M17 7v10M7 12h10"></path></svg></span><span class="ptab on"><svg viewBox="0 0 24 24"><path d="M4 8h16M6 8v9M10 8v9M14 8v9M18 8v9"></path></svg></span></div>
+    <div class="card" style="padding:16px">
+      <div class="cardhead"><h3>Body weight</h3><button class="btn p sm" style="flex:none">Log</button></div>
+      <div class="pair">
+        <span><span class="bigsub" style="margin:0">Current</span><b class="big" style="margin:4px 0 0">75.3<span>kg</span></b></span>
+        <span class="pv2">Heaviest<b>75.3</b><br>Lightest<b>75.0</b></span>
+      </div>
+      <div class="chart" style="height:120px"><svg viewBox="0 0 300 120" preserveAspectRatio="none">
+        <path class="gl" d="M0 12h300M0 48h300M0 84h300"></path>
+        <polyline class="ln" points="60,86 130,80 200,44 268,30"></polyline>
+        <circle class="dt" cx="268" cy="30" r="4.5"></circle>
+      </svg></div>
+      <div class="xax"><span>29.8</span><span>30.8</span><span>31.8</span><span>1.9</span><span>2.9</span><span>3.9</span></div>
+      <div class="pats"><span class="pat on">7D</span><span class="pat">3M</span><span class="pat lk"><svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0110 0v3M6 11h12v9H6z"></path></svg>1Y</span><span class="pat lk"><svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0110 0v3M6 11h12v9H6z"></path></svg>All</span></div>
+    </div>
+    <div style="height:12px"></div>
+    <div class="card" style="padding:16px">
+      <div class="cardhead" style="margin-bottom:6px"><h3>BMI</h3><span class="delta" style="color:var(--muted)">HEALTHY RANGE</span></div>
+      <b class="big" style="margin:0">24.6</b>
+      <div class="scale"><div class="strack"><i></i><b style="left:57%"></b></div><div class="smarks"><span>15</span><span>18.5</span><span>25</span><span>30</span><span>40</span></div></div>
+      <div class="erow2" style="margin-top:14px;border-top:1px solid var(--line)"><span class="ed">HEIGHT</span><span class="ev">175 cm</span><button class="pen"><svg viewBox="0 0 24 24"><path d="M4 20h4l10-10-4-4L4 16v4zM14 6l4 4"></path></svg></button></div>
+    </div>
+    <div style="height:22px"></div>
+    <div class="secthead"><span class="sk">Entries</span><button class="link" data-editmode="">Edit</button></div>
+    <div class="card" style="padding:2px 15px" data-hist="">
+      <div class="erow2"><span class="ed">1 SEP</span><span class="ev">75.3 kg</span><svg class="dtr" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"></path></svg></div>
+      <div class="erow2"><span class="ed">30 AUG</span><span class="ev">75.0 kg</span><svg class="dtr" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"></path></svg></div>
+      <div class="erow2"><span class="ed">28 AUG</span><span class="ev">75.0 kg</span><svg class="dtr" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"></path></svg></div>
+    </div>
+  </div>
+  <div class="nav"><span><svg viewBox="0 0 24 24"><path d="M4 11l8-6 8 6v8H4z"></path></svg></span><span><svg viewBox="0 0 24 24"><path d="M12 4l8 4-8 4-8-4z"></path><path d="M4 13l8 4 8-4"></path></svg></span><span class="ai">AI</span><span class="on"><svg viewBox="0 0 24 24"><path d="M4 17l5-6 4 3 7-8"></path></svg></span><span><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"></circle><path d="M5 20c1.5-3.6 4-5 7-5s5.5 1.4 7 5"></path></svg></span></div>
+  <div class="hind"></div>
+</div></div>
+</div>
+
+<div class="frame" style="left:3560px;top:56px">
+<p class="flabel">07 · Body — measures</p>
+<p class="fnote">Ten identical violet-bordered cards were a wall. What you actually track sits up top as list rows with the number and its direction. The rest are not listed at all — one "Track another measure" row opens the kit's own add-a-card sheet. An untracked measure says it once ("No entries yet"), not three times, and the empty chart is the same dashed box as the trend tab.</p>
+<div class="device"><div class="screen">
+  <div class="camera"></div>
+  <div class="behind" style="padding:52px 20px 100px">
+    <h1 style="font-size:29px">Progress</h1>
+    <div class="sub">THE TRAINING YOU'VE BUILT · HONEST AND YOURS</div>
+    <div class="ptabs"><span class="ptab"><svg viewBox="0 0 24 24"><path d="M4 18l6-7 4 3 6-8"></path></svg></span><span class="ptab"><svg viewBox="0 0 24 24"><path d="M7 4h10v5a5 5 0 01-10 0zM9 20h6M12 14v6"></path></svg></span><span class="ptab"><svg viewBox="0 0 24 24"><path d="M4 10v4M20 10v4M7 7v10M17 7v10M7 12h10"></path></svg></span><span class="ptab on"><svg viewBox="0 0 24 24"><path d="M4 8h16M6 8v9M10 8v9M14 8v9M18 8v9"></path></svg></span></div>
+    <div class="card" style="padding:16px">
+      <div class="cardhead"><h3>Biceps</h3><button class="btn p sm" style="flex:none">Log</button></div>
+      <div class="nodata" style="height:120px;margin:4px 0 12px"><b>No entries yet</b><span>Log one and the line starts</span></div>
+      <div class="pats"><span class="pat on">7D</span><span class="pat">3M</span><span class="pat lk"><svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0110 0v3M6 11h12v9H6z"></path></svg>1Y</span><span class="pat lk"><svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0110 0v3M6 11h12v9H6z"></path></svg>All</span></div>
+    </div>
+    <div style="height:22px"></div>
+    <div class="secthead"><span class="sk">You track</span><button class="link">Edit</button></div>
+    <div class="row cur"><span class="msico"><svg viewBox="0 0 24 24"><path d="M12 3v18M7 8h10M7 16h10"></path></svg></span><span class="grow"><span class="rn">Body weight</span><div class="rm">75.3 kg · 1 Sep</div></span><svg class="spark" viewBox="0 0 56 20"><polyline points="2,15 16,14 30,9 44,5 54,4"></polyline></svg><span class="delta">+0.3</span></div>
+    <div class="row"><span class="msico"><svg viewBox="0 0 24 24"><path d="M12 4c3 4 5 6.5 5 9a5 5 0 01-10 0c0-2.5 2-5 5-9z"></path></svg></span><span class="grow"><span class="rn">Body fat</span><div class="rm">20 % · 28 Aug</div></span><span class="delta dn2">NO CHANGE</span></div>
+    <div class="row"><span class="msico"><svg viewBox="0 0 24 24"><path d="M3 9h18v6H3zM7 9v3M11 9v4M15 9v3M19 9v4"></path></svg></span><span class="grow"><span class="rn">Biceps</span><div class="rm">No entries yet</div></span><span class="rv" style="color:var(--faint)">—</span></div>
+    <button class="addrow" style="margin-top:14px"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></svg>Track another measure</button>
+  </div>
+  <div class="nav"><span><svg viewBox="0 0 24 24"><path d="M4 11l8-6 8 6v8H4z"></path></svg></span><span><svg viewBox="0 0 24 24"><path d="M12 4l8 4-8 4-8-4z"></path><path d="M4 13l8 4 8-4"></path></svg></span><span class="ai">AI</span><span class="on"><svg viewBox="0 0 24 24"><path d="M4 17l5-6 4 3 7-8"></path></svg></span><span><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"></circle><path d="M5 20c1.5-3.6 4-5 7-5s5.5 1.4 7 5"></path></svg></span></div>
+  <div class="hind"></div>
+</div></div>
+</div>
+
+<script>
+document.querySelectorAll('[data-seg],.seg').forEach(seg=>{
+  const bs=[...seg.querySelectorAll('button')];
+  bs.forEach(b=>b.addEventListener('click',()=>{bs.forEach(x=>x.classList.remove('on'));b.classList.add('on')}));
+});
+document.querySelectorAll('.pats').forEach(p=>{
+  const cs=[...p.querySelectorAll('.pat')];
+  cs.forEach(c=>c.addEventListener('click',()=>{if(c.classList.contains('lk'))return;cs.forEach(x=>x.classList.remove('on'));c.classList.add('on')}));
+});
+document.querySelectorAll('[data-editmode]').forEach(btn=>{
+  const scope=btn.closest('.behind'),list=scope.querySelector('[data-hist]');
+  if(!list)return;
+  btn.addEventListener('click',()=>{btn.textContent=list.classList.toggle('editing')?'Done':'Edit'});
+});
+</script>
+
+
+</body></html>

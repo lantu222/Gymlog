@@ -26,12 +26,17 @@ import Svg, {
 
 import { CutSurface } from '../components/CutSurface';
 import { LAYERS_MOTIF, ProgramCoverStyle, programCoverStyle } from '../lib/programVisualIdentity';
-import { SEASON_WEEKS } from '../lib/season';
 import { NewProgramSheet } from '../components/NewProgramSheet';
+import { ProgramLadderRow } from '../components/ProgramLadderRow';
 import { CsvLibraryEntry } from '../lib/csvProgramImport';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import {
+  availableLadderSorts,
+  partitionByReaderWeek,
+  ProgramLadderSort,
+  sortProgramLadder,
+} from '../lib/programLadder';
 import { I18nKey, t } from '../lib/i18n';
-import type { CampaignTarget, ProgramCampaign } from '../lib/programCampaigns';
 import { PROGRAM_CATEGORIES, ProgramCategoryKey } from '../lib/programCategories';
 import { GoalProgrammeSuggestionView } from '../lib/goalProgramme';
 import { StrengthGoalProgress } from '../lib/strengthGoals';
@@ -59,54 +64,6 @@ const SEAM_RATIO = 0.82;
 // now, resolved in App.tsx and carried on the item.
 const SAVED_TILE: [string, string] = ['#00BAD1', '#0088A8'];
 
-/** Seasons get the same header treatment as a category, in their own hue. */
-const SEASON_SHEET_TINTS = {
-  winter: { bg: '#DEEBFF', border: '#C9D7FA', ink: '#0086BE' },
-  summer: { bg: '#FFE5CD', border: '#F0D1B7', ink: '#A76D00' },
-} as const;
-
-/**
- * Gold, silver, bronze — then plain numbers.
- *
- * A ranked list where every rank looks the same is a list with a number
- * column, not a ranking. Three metals is the one visual convention everyone
- * already reads without a legend, and it stops at three on purpose: a fourth
- * metal would be inventing a rank that does not exist.
- */
-const MEDALS: Array<{ stops: [string, string]; ink: string }> = [
-  { stops: ['#F8DA86', '#B8860B'], ink: '#4E3400' },
-  { stops: ['#E9EEF4', '#98A2AE'], ink: '#39414C' },
-  { stops: ['#EBB88E', '#A0662F'], ink: '#432408' },
-];
-
-function RankMedal({ index }: { index: number }) {
-  const styles = useThemedStyles(makeStyles);
-  const medal = MEDALS[index];
-  if (!medal) {
-    return (
-      <View style={styles.trendingRank}>
-        <Text style={styles.trendingRankText}>{index + 1}</Text>
-      </View>
-    );
-  }
-  const gid = `medal-${index}`;
-  return (
-    <View style={styles.trendingMedal}>
-      <Svg width={36} height={36}>
-        <Defs>
-          <SvgLinearGradient id={gid} x1="0.2" y1="0" x2="0.8" y2="1">
-            <Stop offset="0" stopColor={medal.stops[0]} />
-            <Stop offset="1" stopColor={medal.stops[1]} />
-          </SvgLinearGradient>
-        </Defs>
-        <Circle cx={18} cy={18} r={17} fill={`url(#${gid})`} />
-        {/* The rim: without it the disc reads as a flat coloured dot. */}
-        <Circle cx={18} cy={18} r={14} stroke="#FFFFFF" strokeOpacity={0.42} strokeWidth={1.2} fill="none" />
-      </Svg>
-      <Text style={[styles.trendingMedalText, { color: medal.ink }]}>{index + 1}</Text>
-    </View>
-  );
-}
 
 // Tall enough for a two-line title, two lines of body AND the pill under
 // them. At 186 the CTA was clipped by the card's own bottom edge.
@@ -119,6 +76,23 @@ const SEASON_CARD_H = 216;
 
 const COVER_W = 274;
 const COVER_H = 176;
+
+/**
+ * One short course on the Learn rail, with the reader's progress in it.
+ *
+ * Computed by the caller rather than here: progress needs the learned-exercise
+ * set, and this screen has no business reading it.
+ */
+export interface ProgramsLearnRow {
+  id: string;
+  title: string;
+  blurb: string;
+  done: number;
+  total: number;
+  /** 0–100, already clamped — an empty course must not produce NaN%. */
+  percent: number;
+  cover: readonly [string, string];
+}
 
 export interface ProgramsExploreItem {
   id: string;
@@ -166,15 +140,23 @@ interface ProgramsHomeScreenProps {
   /** The running program's name — the switch sheet says what you leave. */
   activeProgramTitle?: string | null;
   /**
-   * Winter and summer, current season first.
+   * The week the reader said they have, from setup.
    *
-   * The one piece of this catalog a global competitor cannot copy per market:
-   * October to March in Finland the sun is gone and training moves indoors,
-   * and the reason to open a training app in November is not the reason in
-   * June. Free, like every ready program — a paywalled reason to come back
-   * brings nobody back.
+   * The only thing on the category sheet that knows anything about them, and
+   * the whole basis of the recommended row. Null when setup never said, which
+   * means no row is recommended rather than a guess wearing a badge.
    */
-  seasonRows: Array<{ season: ProgramSeason; items: ProgramsExploreItem[] }>;
+  readerDaysPerWeek?: number | null;
+  /**
+   * The reader's level in the CATALOG's words, not setup's.
+   *
+   * Setup says beginner/advanced/pro and the catalog says
+   * beginner/intermediate/advanced, so the caller maps it through
+   * `catalogLevelForSetup`. It orders the fitting rows rather than filtering
+   * them: a beginner sees the beginner four-day plan first and the advanced
+   * one still on the list.
+   */
+  readerLevel?: string | null;
   /**
    * The whole catalog as cards, not a curated eight.
    *
@@ -184,15 +166,6 @@ interface ProgramsHomeScreenProps {
   catalogItems: ProgramsExploreItem[];
   categoryCounts: Record<ProgramCategoryKey, number>;
   categoryMembers: Record<ProgramCategoryKey, string[]>;
-  /**
-   * Most-started programs — null when there is nothing honest to show.
-   *
-   * Social proof needs other people, and this device only knows what its own
-   * owner did. Until a server counts starts these numbers are invented, so
-   * they live behind the demo flag and this prop is null in a release build.
-   * The row disappears rather than falling back: there is no honest fallback.
-   */
-  trendingItems: Array<{ id: string; name: string; weeks: number; starts: string }> | null;
   /**
    * The one or two programs the engine picked, each carrying its reason.
    *
@@ -222,38 +195,33 @@ interface ProgramsHomeScreenProps {
       why: string;
     }
   >;
-  /** The rotating hero. Empty hides it — see lib/programCampaigns. */
-  campaigns: ProgramCampaign[];
-  /**
-   * The two seasons: the one running and the one after it, with their dates
-   * and program counts. See lib/season — a season is a window, not a filter.
-   */
-  seasonCards: Array<{
-    season: ProgramSeason;
-    labelKey: I18nKey;
-    year: number;
-    rangeLabel: string;
-    startLabel: string;
-    weeksLeft: number;
-    /** 0..1 — how much of the running season is behind us. */
-    progress: number;
-    /** Whole days until an upcoming season opens; 0 for the running one. */
-    daysUntilStart: number;
-    programName: string;
-    /** Training days a week the season programme prescribes. */
-    programDays: number;
-    current: boolean;
-    /** True once the reader has signed up for this season. */
-    enrolled: boolean;
-    gradient: readonly [string, string];
-  }>;
-  onOpenSeason: (season: ProgramSeason) => void;
   customPrograms: ProgramsCustomItem[];
   exerciseLibraryCount: number;
   onOpenExploreProgram: (programId: string) => void;
   onOpenCustomProgram: (programId: string, programType: 'ready' | 'custom') => void;
   onCreateProgram: () => void;
   onAiAssisted: () => void;
+  /**
+   * The short courses. Learn was three taps deep inside the library, which is
+   * not where a course belongs. Empty means the section does not draw at all,
+   * rather than a heading over nothing.
+   *
+   * Required, unlike the sheet's optional catalog door: that one is a door a
+   * caller may genuinely have nowhere to open, this is part of the tab's
+   * shape. Optional, a caller that forgot it would render a tab with no Learn
+   * section and nothing would say so.
+   */
+  learnRows: ProgramsLearnRow[];
+  onOpenCollection?: (collectionId: string) => void;
+  onOpenLearnIndex?: () => void;
+  /** The fourth door on the new-programme sheet: all the ready programmes. */
+  onBrowseCatalog?: () => void;
+  /** How many ready programmes that door is promising. */
+  catalogCount?: number;
+  /** Whether AI-assisted composition is unlocked, or wears the padlock. */
+  proUnlocked?: boolean;
+  /** Where the padlock leads. */
+  onOpenPaywall?: () => void;
   onImportProgram: (draft: WorkoutTemplateDraft) => Promise<void> | void;
   exerciseLibraryEntries: CsvLibraryEntry[];
   /** The reader's own lift names, for the CSV importer's matcher. */
@@ -474,160 +442,42 @@ function ScrollableOrGrid({
 }
 
 /**
- * The rotating campaign hero.
+ * The same three labels the filter row uses, keyed for a single card.
  *
- * Swipeable AND self-advancing: auto-rotation is what makes the top of the page
- * feel alive, but a card that moves under your thumb while you are reading it
- * is hostile, so touching it stops the timer for good. The pause control makes
- * that explicit rather than magic.
+ * The badge colours these used to sit beside moved into ProgramLadderRow when
+ * the catalog became a second door onto the same programmes.
  */
-function CampaignHero({
-  campaigns,
-  language,
-  onOpen,
-}: {
-  campaigns: ProgramCampaign[];
-  language: AppLanguage;
-  onOpen: (target: CampaignTarget) => void;
-}) {
-  const styles = useThemedStyles(makeStyles);
-  const theme = useTheme();
-  const { width: windowWidth } = useWindowDimensions();
-  // pagingEnabled snaps to the ScrollView's OWN width, so the slide must be
-  // exactly that: full-bleed slides inside a padded page drifted 40px per
-  // page and left the next card peeking in at an angle.
-  const slideWidth = Math.max(240, windowWidth - 40);
-  const scrollRef = useRef<ScrollView | null>(null);
-  const [index, setIndex] = useState(0);
-  const [running, setRunning] = useState(true);
-
-  useEffect(() => {
-    if (!running || campaigns.length < 2) {
-      return;
-    }
-    const timer = setInterval(() => {
-      setIndex((current) => {
-        const next = (current + 1) % campaigns.length;
-        scrollRef.current?.scrollTo({ x: next * slideWidth, animated: true });
-        return next;
-      });
-    }, 4200);
-    return () => clearInterval(timer);
-  }, [campaigns.length, running, slideWidth]);
-
-  if (campaigns.length === 0) {
-    return null;
-  }
-
-  const onMomentumEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const page = Math.round(event.nativeEvent.contentOffset.x / slideWidth);
-    setIndex(Math.max(0, Math.min(campaigns.length - 1, page)));
-  };
-
-  return (
-    <View style={styles.campaignBlock}>
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={onMomentumEnd}
-        onScrollBeginDrag={() => setRunning(false)}
-        style={styles.campaignScroll}
-      >
-        {campaigns.map((campaign) => {
-          const gid = `camp-${campaign.key}`.replace(/[^a-zA-Z0-9]/g, '');
-          return (
-            <Pressable
-              key={campaign.key}
-              accessibilityRole="button"
-              accessibilityLabel={t(language, campaign.ctaKey)}
-              onPress={() => onOpen(campaign.target)}
-              style={({ pressed }) => [styles.campaignSlide, { width: slideWidth }, pressed && styles.pressed]}
-            >
-              <Svg width={slideWidth} height={CAMPAIGN_H} style={StyleSheet.absoluteFill}>
-                <Defs>
-                  <SvgLinearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
-                    <Stop offset="0" stopColor={campaign.gradient[0]} />
-                    <Stop offset="1" stopColor={campaign.gradient[1]} />
-                  </SvgLinearGradient>
-                </Defs>
-                <Rect x="0" y="0" width={slideWidth} height={CAMPAIGN_H} rx={24} fill={`url(#${gid})`} />
-                <Svg x={slideWidth - 120} y={38} width={140} height={140} viewBox="0 0 24 24">
-                  <Path
-                    d={LAYERS_MOTIF}
-                    stroke="#FFFFFF"
-                    strokeOpacity={0.18}
-                    strokeWidth={1.3}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    fill="none"
-                  />
-                </Svg>
-              </Svg>
-              <Text style={styles.campaignKicker}>{t(language, campaign.kickerKey)}</Text>
-              <Text style={styles.campaignTitle} numberOfLines={2}>
-                {t(language, campaign.titleKey)}
-              </Text>
-              <Text style={styles.campaignBody} numberOfLines={3}>
-                {t(language, campaign.bodyKey, { count: campaign.count })}
-              </Text>
-              {/* The hero itself stays a rounded content card — the design
-                  keeps images and big cards out of the gesture. Its button
-                  does not. */}
-              <CutSurface size="sm" fill="rgba(255,255,255,0.94)" style={styles.campaignCta}>
-                <Text style={styles.campaignCtaText}>{t(language, campaign.ctaKey)}</Text>
-              </CutSurface>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-      <View style={styles.campaignFooter}>
-        <View style={styles.campaignDots}>
-          {campaigns.map((campaign, dot) => (
-            <View key={campaign.key} style={[styles.campaignDot, dot === index && styles.campaignDotOn]} />
-          ))}
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t(language, running ? 'programs.campaign.pause' : 'programs.campaign.play')}
-          onPress={() => setRunning((value) => !value)}
-          hitSlop={10}
-          style={styles.campaignPause}
-        >
-          <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-            {running ? (
-              <Path d="M9 5v14M15 5v14" stroke={theme.muted} strokeWidth={2.4} strokeLinecap="round" />
-            ) : (
-              <Path d="M7 4.5v15l13-7.5z" stroke={theme.muted} strokeWidth={2.2} strokeLinejoin="round" fill="none" />
-            )}
-          </Svg>
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
-/**
- * Level badges, from the category design.
- *
- * The level is the one fact that decides whether a program is for this reader
- * at all, and no browse card carried it anywhere on this screen. A row that
- * says "5 days, ~70 min" without saying "Edistynyt" is describing the workload
- * and hiding the prerequisite.
- */
-const LEVEL_STYLES: Record<WorkoutLevel, { bg: string; ink: string; key: I18nKey }> = {
-  beginner: { bg: '#E8F7EE', ink: '#007633', key: 'programs.level.beginner' },
-  intermediate: { bg: '#EFE7FF', ink: '#5B21B6', key: 'programs.level.intermediate' },
-  advanced: { bg: '#FFE1DB', ink: '#A52A24', key: 'programs.level.advanced' },
-};
-
-/** The same three labels the filter row uses, keyed for a single card. */
 const LEVEL_LABEL_KEYS: Record<WorkoutLevel, I18nKey> = {
   beginner: 'programs.level.beginner',
   intermediate: 'programs.level.intermediate',
   advanced: 'programs.level.advanced',
 };
+
+/**
+ * A course cover: the collection's own ramp, with the same diagonal hatch the
+ * programme covers wear so the two rails read as one family.
+ */
+function LearnCardCover({ cover }: { cover: readonly [string, string] }) {
+  const gid = `learn-${cover[0]}`.replace(/[^a-zA-Z0-9]/g, '');
+  return (
+    <Svg width="100%" height={76}>
+      <Defs>
+        <SvgLinearGradient id={gid} x1="0.15" y1="0" x2="0.9" y2="1">
+          <Stop offset="0" stopColor={cover[0]} />
+          <Stop offset="1" stopColor={cover[1]} />
+        </SvgLinearGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100%" height={76} fill={`url(#${gid})`} />
+    </Svg>
+  );
+}
+
+/** Sort first on a family this size: "which order" beats "which level". */
+const LADDER_SORTS: Array<{ sort: ProgramLadderSort; key: I18nKey }> = [
+  { sort: 'recommended', key: 'programs.sort.recommended' },
+  { sort: 'days', key: 'programs.sort.days' },
+  { sort: 'length', key: 'programs.sort.length' },
+];
 
 const LEVEL_FILTERS: Array<{ level: WorkoutLevel | null; key: I18nKey }> = [
   { level: null, key: 'programs.level.all' },
@@ -635,40 +485,6 @@ const LEVEL_FILTERS: Array<{ level: WorkoutLevel | null; key: I18nKey }> = [
   { level: 'intermediate', key: 'programs.level.intermediate' },
   { level: 'advanced', key: 'programs.level.advanced' },
 ];
-
-/** The 74x74 cover on a sheet row: gradient plus the program's own week. */
-function RowCover({ style, fingerprint }: { style: ProgramCoverStyle; fingerprint: number[] }) {
-  const gid = `row-${style.cover[0]}`.replace(/[^a-zA-Z0-9]/g, '');
-  const size = 74;
-  return (
-    <Svg width={size} height={size}>
-      <Defs>
-        <SvgLinearGradient id={gid} x1="0.2" y1="0" x2="0.9" y2="1">
-          <Stop offset="0" stopColor={style.cover[0]} />
-          <Stop offset="1" stopColor={style.cover[1]} />
-        </SvgLinearGradient>
-      </Defs>
-      <Rect x="0" y="0" width={size} height={size} rx={14} fill={`url(#${gid})`} />
-      {fingerprint.map((ratio, index) => {
-        const slot = (size - 16) / Math.max(1, fingerprint.length);
-        const barWidth = Math.max(2, slot - 2.5);
-        const barHeight = Math.max(4, ratio * 42);
-        return (
-          <Rect
-            key={index}
-            x={8 + index * slot}
-            y={size - 9 - barHeight}
-            width={barWidth}
-            height={barHeight}
-            rx={1.5}
-            fill="#FFFFFF"
-            fillOpacity={0.85}
-          />
-        );
-      })}
-    </Svg>
-  );
-}
 
 /**
  * What a category tile opens.
@@ -694,6 +510,8 @@ function ProgramSheet({
   icon,
   items,
   onPick,
+  readerDaysPerWeek,
+  readerLevel,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -704,11 +522,14 @@ function ProgramSheet({
   icon: string;
   items: ProgramsExploreItem[];
   onPick: (item: ProgramsExploreItem) => void;
+  readerDaysPerWeek: number | null;
+  readerLevel: string | null;
 }) {
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
   const { height: windowHeight } = useWindowDimensions();
   const [level, setLevel] = useState<WorkoutLevel | null>(null);
+  const [sort, setSort] = useState<ProgramLadderSort>('recommended');
 
   // A filter left over from the last category would silently hide programs in
   // the next one, and the reader would have no idea why "Voima 8" opened three
@@ -716,10 +537,60 @@ function ProgramSheet({
   useEffect(() => {
     if (!visible) {
       setLevel(null);
+      setSort('recommended');
     }
   }, [visible]);
 
-  const shown = level === null ? items : items.filter((item) => item.level === level);
+  const filtered = level === null ? items : items.filter((item) => item.level === level);
+  /*
+   * Twenty-one rows one step apart are not a list you scan — they are a
+   * ladder, and "which order" beats "which level" on a family that size. The
+   * recommendation is computed from what is SHOWN, so filtering to a level
+   * the reader's week has no programme in simply leaves no recommendation
+   * rather than pointing at a hidden row.
+   */
+  /*
+   * Only the sorts that move rows here. Block length is 8 or 12 weeks and
+   * nothing else, so a "Length" chip is inert in half the sheet's views — and
+   * a level filter can strand the reader on a sort that has just gone flat,
+   * which is why the active one falls back rather than sticking.
+   */
+  const sorts = availableLadderSorts(filtered);
+  const activeSort = sorts.includes(sort) ? sort : 'recommended';
+  // A sort the current filter cannot honour is dropped rather than remembered:
+  // otherwise clearing the filter reorders the list with nothing tapped.
+  useEffect(() => {
+    if (!sorts.includes(sort)) {
+      setSort('recommended');
+    }
+  }, [sort, sorts]);
+
+  const { fits, rest } = partitionByReaderWeek(filtered, readerDaysPerWeek, readerLevel);
+  /*
+   * One header over the rows that fit, not a badge on each of them.
+   *
+   * Up to twelve rows in a category match the reader's week, so a chip per row
+   * marks the normal rather than the exception. The group is only lifted out
+   * when it is a part of the list: if every row fits, "fits your week" is not
+   * telling the reader which ones.
+   */
+  const grouped =
+    readerDaysPerWeek != null && activeSort === 'recommended' && fits.length > 0 && rest.length > 0;
+  const shown: Array<{
+    key: string;
+    header?: string;
+    rule?: true;
+    item?: ProgramsExploreItem;
+  }> = grouped
+    ? [
+        { key: 'fits-header', header: t(language, 'programs.sheet.fitsYourWeek', { days: readerDaysPerWeek }) },
+        ...fits.map((item) => ({ key: item.id, item })),
+        // Where the group ends, or the reader cannot tell which rows the
+        // header was talking about.
+        { key: 'fits-rule', rule: true as const },
+        ...rest.map((item) => ({ key: item.id, item })),
+      ]
+    : sortProgramLadder(filtered, activeSort).map((item) => ({ key: item.id, item }));
 
   /**
    * A definite height, not a cap.
@@ -771,6 +642,29 @@ function ProgramSheet({
             contentContainerStyle={styles.levelRow}
             style={styles.levelScroll}
           >
+            {/* Sort first: on a family this size "which order" is the question
+                before "which level". */}
+            {/* A lone "Recommended" chip, permanently on, is a label wearing a
+                control's clothes — with nothing to switch to, show nothing. */}
+            {(sorts.length > 1 ? LADDER_SORTS.filter((entry) => sorts.includes(entry.sort)) : []).map((entry) => {
+              const on = activeSort === entry.sort;
+              return (
+                <Pressable
+                  key={entry.sort}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  onPress={() => setSort(entry.sort)}
+                  style={[styles.levelChip, on && { backgroundColor: tint.ink, borderColor: tint.ink }]}
+                >
+                  <Text style={[styles.levelChipText, on && styles.levelChipTextOn]}>
+                    {t(language, entry.key)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+            {/* Only a divider when there is something on both sides of it: a
+                single "Recommended" chip needs no separating from the levels. */}
+            {sorts.length > 1 ? <View style={styles.chipDivider} /> : null}
             {LEVEL_FILTERS.map((entry) => {
               const on = level === entry.level;
               return (
@@ -793,58 +687,27 @@ function ProgramSheet({
             {shown.length === 0 ? (
               <Text style={styles.catSheetEmpty}>{t(language, 'programs.sheet.empty')}</Text>
             ) : (
-              shown.map((item) => {
-                const style = item.cover;
-                const levelStyle = LEVEL_STYLES[item.level];
+              shown.map((entry) => {
+                if (entry.header) {
+                  return (
+                    <Text key={entry.key} accessibilityRole="header" style={styles.sheetGroupHeader}>
+                      {entry.header}
+                    </Text>
+                  );
+                }
+                if (entry.rule) {
+                  return <View key={entry.key} style={styles.sheetGroupRule} />;
+                }
+                const item = entry.item as ProgramsExploreItem;
                 return (
-                  <Pressable
+                  <ProgramLadderRow
                     key={item.id}
-                    accessibilityRole="button"
+                    item={item}
+                    language={language}
+                    levelFilter={level}
                     accessibilityLabel={t(language, 'programs.switchTo', { name: item.name })}
                     onPress={() => onPick(item)}
-                    style={({ pressed }) => [styles.sheetRow, pressed && styles.pressedRow]}
-                  >
-                    <RowCover style={style} fingerprint={item.fingerprint} />
-                    <View style={styles.sheetRowCopy}>
-                      <View style={styles.sheetRowTitleLine}>
-                        <Text style={styles.sheetRowName} numberOfLines={1}>
-                          {item.name}
-                        </Text>
-                        <View style={[styles.levelBadge, { backgroundColor: levelStyle.bg }]}>
-                          <Text style={[styles.levelBadgeText, { color: levelStyle.ink }]}>
-                            {t(language, levelStyle.key).toUpperCase()}
-                          </Text>
-                        </View>
-                      </View>
-                      <Text style={styles.sheetRowBlurb} numberOfLines={2}>
-                        {item.blurb}
-                      </Text>
-                      <View style={styles.exploreMetaRow}>
-                        <Text style={styles.exploreMeta}>
-                          {t(language, 'programs.card.days', { count: item.days })}
-                        </Text>
-                        <View style={styles.metaDot} />
-                        <Text style={styles.exploreMeta}>~{item.minutes} min</Text>
-                        {item.weeks > 0 ? (
-                          <>
-                            <View style={styles.metaDot} />
-                            <Text style={styles.exploreMeta}>
-                              {t(language, 'programs.weeks', { count: item.weeks })}
-                            </Text>
-                          </>
-                        ) : null}
-                      </View>
-                    </View>
-                    <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-                      <Path
-                        d="m9 6 6 6-6 6"
-                        stroke={theme.faint}
-                        strokeWidth={2.2}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </Svg>
-                  </Pressable>
+                  />
                 );
               })
             )}
@@ -875,15 +738,12 @@ function ProgramSheet({
 
 export function ProgramsHomeScreen({
   activeProgramTitle = null,
-  seasonRows,
+  readerDaysPerWeek = null,
+  readerLevel = null,
   catalogItems,
   categoryCounts,
   categoryMembers,
-  trendingItems,
   recommendations,
-  campaigns,
-  seasonCards,
-  onOpenSeason,
   goals,
   goalProgrammes,
   onOpenGoalPicker,
@@ -894,6 +754,13 @@ export function ProgramsHomeScreen({
   onOpenCustomProgram,
   onCreateProgram,
   onAiAssisted,
+  learnRows,
+  onOpenCollection,
+  onOpenLearnIndex,
+  onBrowseCatalog,
+  catalogCount = 0,
+  proUnlocked = true,
+  onOpenPaywall,
   onImportProgram,
   exerciseLibraryEntries,
   nameBook,
@@ -913,14 +780,11 @@ export function ProgramsHomeScreen({
    * suodatin" link that emptied the section rather than narrowing it. One
    * state, one sheet, one way to close it.
    */
-  const [sheet, setSheet] = useState<
-    | { kind: 'category'; key: ProgramCategoryKey }
-    // The tile's own label travels with the block, so tapping "Syksy" opens a
-    // sheet that says Syksy rather than one that says Talvi.
-    | { kind: 'season'; season: ProgramSeason; labelKey: I18nKey }
-    | { kind: 'all' }
-    | null
-  >(null);
+  // One variant left. The 'all' sheet's only door was the trending section's
+  // "Kaikki" link, and both went together: the catalog screen answers that
+  // question better than a drawer can, with level, goal and a search over a
+  // windowed list.
+  const [sheet, setSheet] = useState<{ kind: 'category'; key: ProgramCategoryKey } | null>(null);
   // The goal sheet: which lift, and the number being typed.
   const [createOpen, setCreateOpen] = useState(false);
   // The tile row scrolls to four and a half categories; this shows all nine.
@@ -928,45 +792,19 @@ export function ProgramsHomeScreen({
   // Where the season rows begin, measured rather than guessed — a hero CTA
   // that says "Open the season" has to actually arrive there.
 
-  /**
-   * Every campaign slide and season tile goes somewhere real.
-   *
-   * Handled here rather than in App: three of the four targets are this
-   * screen's own state, and routing them up only to have them come back as
-   * props would make the filter forget itself on every navigation.
-   */
-  const handleCampaignTarget = (target: CampaignTarget) => {
-    switch (target.kind) {
-      case 'category':
-        setSheet({ kind: 'category', key: target.category });
-        break;
-      case 'create':
-        setCreateOpen(true);
-        break;
-      case 'library':
-        onOpenLibrary();
-        break;
-      case 'season':
-        // The season has a screen of its own. This opened the sheet — a bare
-        // list of its programs — which is what the button used to be for and
-        // has not been since.
-        onOpenSeason(target.season);
-        break;
-    }
-  };
-
   const pickedStyle = picked ? picked.cover : null;
 
   // The open sheet's contents, drawn from the same sources the tiles count.
-  const sheetCategory = sheet?.kind === 'category' ? PROGRAM_CATEGORIES.find((entry) => entry.key === sheet.key) : null;
-  const sheetItems =
-    sheet === null
-      ? []
-      : sheet.kind === 'all'
-        ? catalogItems
-        : sheet.kind === 'category'
-          ? catalogItems.filter((item) => categoryMembers[sheet.key]?.includes(item.id))
-          : (seasonRows.find((row) => row.season === sheet.season)?.items ?? []);
+  // Resolved once, with the fallback here rather than on four props. Every
+  // ProgramCategoryKey has a row, so the ?? branch is unreachable today and
+  // exists so a tenth key added without a row degrades to a real category
+  // instead of an untinted sheet with no icon.
+  const sheetCategory = sheet
+    ? PROGRAM_CATEGORIES.find((entry) => entry.key === sheet.key) ?? PROGRAM_CATEGORIES[0]
+    : null;
+  const sheetItems = sheet
+    ? catalogItems.filter((item) => categoryMembers[sheet.key]?.includes(item.id))
+    : [];
 
   return (
     <View style={styles.screenBackground}>
@@ -980,85 +818,102 @@ export function ProgramsHomeScreen({
             Home now, where the reader already is when they wonder what today
             is. Keeping a copy here would have given the same week two owners,
             and this tab is for finding a program, not for running one. */}
-        {/* The rotating hero, at the top of browsing. I cut this from the first
-            build arguing the app has no campaigns; the argument was wrong,
-            because a campaign slot needs somewhere real to send you rather than
-            a marketing department. Every slide opens a set that exists and
-            states its size. */}
-        <CampaignHero campaigns={campaigns} language={language} onOpen={handleCampaignTarget} />
 
-        {/* Categories as tiles. The first build made these text chips, which
-            was a silent substitution rather than a decision: on a row you scan
-            instead of read, colour and shape land before a word does, and nine
-            identical grey pills are read one at a time. */}
-        <View style={styles.sectionHeadRow}>
-          <Text style={styles.sectionEyebrow}>{t(language, 'programs.browse')}</Text>
-          <Pressable onPress={() => setAllCategories((value) => !value)} hitSlop={8}>
-            <Text style={styles.sectionLink}>
-              {t(language, allCategories ? 'programs.showLess' : 'programs.viewAll')}
-            </Text>
-          </Pressable>
-        </View>
-        {/* Expanded in place rather than on another screen. "Näytä kaikki"
-            used to open the old plans list, which is a different thing
-            entirely — the tiles are the menu, so showing all nine of them is
-            the answer. */}
-        <ScrollableOrGrid expanded={allCategories} style={styles.tileRow}>
-          {PROGRAM_CATEGORIES.map((entry) => {
-            return (
-              <Pressable
-                key={entry.key}
-                accessibilityRole="button"
-                accessibilityLabel={`${t(language, entry.labelKey)}, ${categoryCounts[entry.key]}`}
-                onPress={() => setSheet({ kind: 'category', key: entry.key })}
-                style={({ pressed }) => [styles.catTileWrap, pressed && styles.pressed]}
-              >
-                {/* One container decision, and this is it: a solid disc in the
-                    category's own ink with the mark knocked out in white.
-                    Nine pastel tiles behind a near-black outline needed the
-                    outline to hold them apart at all — the colour was doing no
-                    work. Filled, the hue is the tile, and the badge can sit on
-                    the edge because a circle has no cut corner to slice a
-                    digit in half. */}
-                <View style={[styles.catTile, { backgroundColor: entry.tint.ink }]}>
-                  <Svg width={30} height={30} viewBox="0 0 24 24" fill="none">
-                    <Path
-                      d={entry.icon}
-                      stroke="#FFFFFF"
-                      // A hair heavier than the 1.9 hairline the pale tiles
-                      // used: knocked out of a colour, a stroke reads thinner
-                      // than the same stroke drawn on light.
-                      strokeWidth={2.05}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
-                  <View
-                    style={[
-                      styles.catTileCount,
-                      { backgroundColor: entry.tint.ink, borderColor: theme.surface },
-                    ]}
-                  >
-                    <Text style={styles.catTileCountText}>{categoryCounts[entry.key]}</Text>
-                  </View>
-                </View>
-                <Text style={styles.catTileLabel} numberOfLines={2}>
-                  {t(language, entry.labelKey)}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollableOrGrid>
-
-        {/* The rail that used to live here is a sheet now. Nine categories
-            sharing one horizontal rail gave every one of them the same
-            eight-card shape, no way to narrow further, and nowhere to say what
-            the category is FOR or what level its programs are. */}
+        {/* The tab says what it is. The screen opened on a rotating advert
+            and the reader had to infer where they were from a row of discs. */}
+        <Text style={styles.screenTitle}>{t(language, 'tabs.programs')}</Text>
 
         {/* "Jatka siitä mihin jäit" was here. It listed programmes with
             logged work as covers you could tap — which is what "Omat
             ohjelmasi" further down already is, and what the active programme
             on Home already is. Three answers to one question. */}
+
+        <Text style={styles.sectionEyebrowStandalone}>{t(language, 'programs.yourPrograms')}</Text>
+        {customPrograms.map((program) => (
+          <Pressable
+            key={program.id}
+            accessibilityRole="button"
+            accessibilityLabel={t(language, 'programs.open', { name: program.name })}
+            onPress={() => onOpenCustomProgram(program.id, program.programType ?? 'custom')}
+            style={({ pressed }) => [styles.customRowWrap, pressed && styles.rowPressed]}
+          >
+            <CutSurface
+              size="lg"
+              fill={theme.surface}
+              stroke={theme.border}
+              strokeWidth={1}
+              speedLine={{ color: theme.purpleBright }}
+              style={styles.customRow}
+            >
+            <GradientTile stops={SAVED_TILE} size={44} radius={12} />
+            <View style={styles.customCopy}>
+              <View style={styles.customTitleRow}>
+                <Text style={styles.customTitle} numberOfLines={1}>
+                  {program.name}
+                </Text>
+                {program.active ? (
+                  <Text style={styles.customActiveTag}>{t(language, 'programs.activeTag')}</Text>
+                ) : null}
+              </View>
+              <Text style={styles.customSubtitle} numberOfLines={1}>
+                {program.subtitle}
+              </Text>
+            </View>
+            {/* A chevron, not the word "Open" (user 2026-09-01). Every row
+                on this list opens; the word was on all three saying the same
+                thing, and the arrow says it without taking a column. */}
+            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M9 5l7 7-7 7"
+                stroke={theme.faint}
+                strokeWidth={2.2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+            </CutSurface>
+          </Pressable>
+        ))}
+        {/* The only "new program" entry on the page now. It opens the sheet
+            rather than the editor, so removing the duplicate button at the top
+            did not remove the AI and CSV routes with it. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t(language, 'programs.create')}
+          onPress={() => setCreateOpen(true)}
+          style={({ pressed }) => [pressed && styles.pressedRow]}
+        >
+          {/* Filled and in the accent, not a dashed outline (user
+              2026-09-01). theme.highlight rather than a literal orange: it is
+              orange on the dark theme and violet on the light one, which is
+              what "the colour you press" means in each. */}
+          <CutSurface
+            size="lg"
+            fill={theme.surface}
+            stroke={theme.border}
+            strokeWidth={1}
+            style={styles.createRow}
+          >
+          <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+            <Path d="M12 5v14M5 12h14" stroke={theme.highlight} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+          </Svg>
+          <Text style={styles.createText}>{t(language, 'programs.create')}</Text>
+          </CutSurface>
+        </Pressable>
+
+        {/* Seasons are PARKED, not deleted (decision 2026-08-31).
+
+            Still here and still working: the 'season' route, SeasonScreen, and
+            every library under it — the screen resolves its own window and its
+            own programme, so it needs nothing from this tab. Gone with the
+            section: the two cards, this screen's seasonRows/seasonCards props
+            and the App memos behind them, because a prop nothing reads is a
+            lie in the interface. Un-parking is one commit: put the section
+            back and re-add those three.
+
+            The target card below took the slot, because a dated commitment and
+            a number to aim at answer the same question and only one of them
+            was real. */}
 
         {/* Always here. It used to appear only once a lift had been logged,
             which hid the targets section from the one reader a target would
@@ -1068,12 +923,46 @@ export function ProgramsHomeScreen({
           <View>
             <View style={styles.sectionHeadRow}>
               <Text style={styles.sectionEyebrow}>{t(language, 'programs.goals')}</Text>
-              <Pressable onPress={onOpenGoalPicker} hitSlop={8}>
-                <Text style={styles.sectionLink}>{t(language, 'programs.goals.add')}</Text>
-              </Pressable>
+              {/* Only when there IS one. Empty, the card below carries the
+                  same door as a button you cannot miss, and two of them beside
+                  each other is the duplicate this tab keeps growing. */}
+              {goals.length > 0 ? (
+                <Pressable onPress={onOpenGoalPicker} hitSlop={8}>
+                  <Text style={styles.sectionLink}>{t(language, 'programs.goals.add')}</Text>
+                </Pressable>
+              ) : null}
             </View>
             {goals.length === 0 ? (
-              <Text style={styles.seasonLead}>{t(language, 'programs.goals.empty')}</Text>
+              /* Was one line of grey prose under the heading, which read as a
+                 caption rather than as something to do. It is the same shape
+                 as a target now — same surface, same speed line — so the
+                 section looks like itself before there is anything in it. */
+              <CutSurface
+                size="lg"
+                fill={theme.surface}
+                stroke={theme.border}
+                strokeWidth={1}
+                speedLine={{ color: theme.purpleBright }}
+                style={styles.goalEmpty}
+              >
+                <Text style={styles.goalEmptyTitle}>{t(language, 'programs.goals.emptyTitle')}</Text>
+                <Text style={styles.goalEmptyBody}>{t(language, 'programs.goals.empty')}</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={onOpenGoalPicker}
+                  style={({ pressed }) => [styles.goalEmptyCta, pressed && styles.pressed]}
+                >
+                  <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M12 5v14M5 12h14"
+                      stroke={theme.onHighlight}
+                      strokeWidth={2.6}
+                      strokeLinecap="round"
+                    />
+                  </Svg>
+                  <Text style={styles.goalEmptyCtaText}>{t(language, 'programs.goals.add')}</Text>
+                </Pressable>
+              </CutSurface>
             ) : (
               <View style={styles.goalList}>
                 {goals.map((entry) => {
@@ -1085,7 +974,11 @@ export function ProgramsHomeScreen({
                     <Pressable
                       key={entry.goal.exerciseName}
                       accessibilityRole="button"
-                      accessibilityLabel={t(language, 'programs.goals.remove', {
+                      // The card OPENS; the x removes. Its label used to say
+                      // "Remove the target", which is what a screen reader read
+                      // out for a tap that edits — and removing was a long
+                      // press, which nobody finds (user 2026-09-01).
+                      accessibilityLabel={t(language, 'programs.open', {
                         name: exerciseNameLabel(language, entry.goal.exerciseName),
                       })}
                       onPress={onOpenGoalPicker}
@@ -1155,6 +1048,29 @@ export function ProgramsHomeScreen({
                             );
                           })()}
                         </View>
+                        {/* Red, and its own target rather than a corner of the
+                            card: this is the only destructive control in the
+                            section, and the one thing the reader could not do
+                            before. hitSlop because 22px is under the 44px
+                            minimum and the card behind it opens the picker. */}
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={t(language, 'programs.goals.remove', {
+                            name: exerciseNameLabel(language, entry.goal.exerciseName),
+                          })}
+                          onPress={() => onRemoveGoal(entry.goal.exerciseName)}
+                          hitSlop={12}
+                          style={({ pressed }) => [styles.goalRemove, pressed && styles.pressed]}
+                        >
+                          <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
+                            <Path
+                              d="M6 6l12 12M18 6L6 18"
+                              stroke={theme.danger}
+                              strokeWidth={2.4}
+                              strokeLinecap="round"
+                            />
+                          </Svg>
+                        </Pressable>
                       </CutSurface>
                     </Pressable>
                   );
@@ -1164,101 +1080,60 @@ export function ProgramsHomeScreen({
           </View>
         ) : null}
 
-        {/* Two cards, not four tiles.
-            The tiles treated a season as a filter — four labels over two
-            blocks, and tapping one narrowed a list. A season is a dated
-            commitment: it opens, runs 26 weeks and closes, and the only two
-            that matter are the one running and the one after it. The card
-            carries the dates and the countdown, because that is the whole
-            reason the row exists. */}
-        <View style={styles.sectionHeadRow}>
-          <Text style={styles.sectionEyebrow}>{t(language, 'season.seasons')}</Text>
-          <Text style={styles.catTileLabel}>{seasonCards[0]?.year ?? ''}</Text>
-        </View>
-        <View style={styles.seasonGrid}>
-          {seasonCards.map((card) => {
-            const gid = `seasoncard-${card.season}`;
-            const cardW = seasonCards.length > 1 ? SEASON_CARD_W : SEASON_ROW_W;
-            return (
-              <Pressable
-                key={card.season}
-                accessibilityRole="button"
-                accessibilityLabel={t(language, card.labelKey)}
-                onPress={() => onOpenSeason(card.season)}
-                style={({ pressed }) => [styles.seasonCard, { width: cardW }, pressed && styles.pressed]}
-              >
-                <Svg width={cardW} height={SEASON_CARD_H} style={StyleSheet.absoluteFill}>
-                  <Defs>
-                    <SvgLinearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
-                      <Stop offset="0" stopColor={card.gradient[0]} />
-                      <Stop offset="1" stopColor={card.gradient[1]} />
-                    </SvgLinearGradient>
-                    {/* Android lets an svg child walk out of the parent's
-                        overflow:hidden, so the corner is cut here, not in CSS. */}
-                    <ClipPath id={`${gid}-c`}>
-                      <Rect x="0" y="0" width={cardW} height={SEASON_CARD_H} rx={22} ry={22} />
-                    </ClipPath>
-                  </Defs>
-                  <Rect x="0" y="0" width={cardW} height={SEASON_CARD_H} rx={22} fill={`url(#${gid})`} />
-                  <Rect
-                    x={cardW - 63}
-                    y={-20}
-                    width={88}
-                    height={88}
-                    rx={15}
-                    ry={15}
-                    fill="none"
-                    stroke="#FFFFFF"
-                    strokeOpacity={0.1}
-                    strokeWidth={8}
-                    origin={`${cardW - 19}, 24`}
-                    rotation={45}
-                    clipPath={`url(#${gid}-c)`}
-                  />
-                </Svg>
-                <View style={[styles.seasonPill, !card.current && !card.enrolled && styles.seasonPillMuted]}>
-                  <Text
-                    style={[styles.seasonPillText, !card.current && !card.enrolled && styles.seasonPillTextMuted]}
-                    numberOfLines={1}
-                  >
-                    {card.enrolled
-                      ? t(language, 'home.promo.season.in')
-                      : card.current
-                        ? t(language, 'season.now', { count: card.weeksLeft })
-                        : t(language, 'season.upcoming', { date: card.startLabel })}
-                  </Text>
-                </View>
-                <View style={styles.seasonCardBody}>
-                  <Text style={styles.seasonTileMonths}>{card.rangeLabel}</Text>
-                  <Text style={styles.seasonCardTitle}>{t(language, card.labelKey)}</Text>
-                  <Text style={styles.seasonTileCount} numberOfLines={1}>
-                    {card.programName}
-                  </Text>
-                  {/* What the season actually asks of you. The card carried
-                      the dates and the programme's name and nothing about the
-                      commitment, which is the part worth reading. */}
-                  <Text style={styles.seasonTileLead} numberOfLines={2}>
-                    {t(language, 'programs.season.commitment', {
-                      weeks: SEASON_WEEKS,
-                      days: card.programDays,
-                    })}
-                  </Text>
-                  {card.current ? (
-                    <View style={styles.seasonTrack}>
-                      <View
-                        style={[styles.seasonTrackFill, { width: `${Math.round(card.progress * 100)}%` }]}
-                      />
-                    </View>
-                  ) : (
-                    <Text style={styles.seasonDays}>
-                      {t(language, 'programs.season.daysUntil', { count: card.daysUntilStart })}
+        {/* Learn was three taps deep inside the library, which is not where a
+            course belongs: the library is 876 rows, a course is an order. Up
+            here it sits with the other thing on this page that is about the
+            reader rather than about the catalog. */}
+        {learnRows.length > 0 ? (
+          <View>
+            <View style={styles.sectionHeadRow}>
+              <Text style={styles.sectionEyebrow}>{t(language, 'programs.learn')}</Text>
+              {onOpenLearnIndex ? (
+                <Pressable onPress={onOpenLearnIndex} hitSlop={8}>
+                  <Text style={styles.sectionLink}>{t(language, 'programs.learn.all')}</Text>
+                </Pressable>
+              ) : null}
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.learnRailScroll}
+              contentContainerStyle={styles.learnRail}
+            >
+              {learnRows.map((row) => (
+                <Pressable
+                  key={row.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'learn.openCourse', {
+                    name: row.title,
+                    done: row.done,
+                    total: row.total,
+                  })}
+                  onPress={() => onOpenCollection?.(row.id)}
+                  style={({ pressed }) => [styles.learnCard, pressed && styles.pressed]}
+                >
+                  <LearnCardCover cover={row.cover} />
+                  <View style={styles.learnCardBody}>
+                    <Text style={styles.learnCardTitle} numberOfLines={1}>
+                      {row.title}
                     </Text>
-                  )}
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
+                    <Text style={styles.learnCardBlurb} numberOfLines={2}>
+                      {row.blurb}
+                    </Text>
+                    <View style={styles.learnProgressRow}>
+                      <View style={styles.learnTrack}>
+                        <View style={[styles.learnFill, { width: `${row.percent}%` }]} />
+                      </View>
+                      <Text style={[styles.learnCount, row.done > 0 && styles.learnCountOn]}>
+                        {row.done} / {row.total}
+                      </Text>
+                    </View>
+                  </View>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
 
         {/* "For you" leads the browse: it is the only row that knows who is
             reading it, and every card can say why it is there. */}
@@ -1345,111 +1220,73 @@ export function ProgramsHomeScreen({
             is gone because the tiles above now are the way in, and a rail that
             is always there makes a menu above it look decorative. */}
 
-        {trendingItems && trendingItems.length > 0 ? (
-          <View>
-            <View style={styles.sectionHeadRow}>
-              <Text style={styles.sectionEyebrow}>{t(language, 'programs.trending')}</Text>
-              <Pressable onPress={() => setSheet({ kind: 'all' })} hitSlop={8}>
-                <Text style={styles.sectionLink}>{t(language, 'programs.trending.all')}</Text>
-              </Pressable>
-            </View>
-            <CutSurface
-              size="lg"
-              fill={theme.surface}
-              stroke={theme.border}
-              strokeWidth={1}
-              style={styles.trendingCard}
-            >
-              {trendingItems.map((item, index) => (
-                <Pressable
-                  key={item.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={t(language, 'programs.switchTo', { name: item.name })}
-                  onPress={() => {
-                    const card = catalogItems.find((entry) => entry.id === item.id);
-                    if (card) {
-                      setPicked(card);
-                    }
-                  }}
-                  style={({ pressed }) => [
-                    styles.trendingRow,
-                    index > 0 && styles.trendingRowDivider,
-                    pressed && styles.pressedRow,
-                  ]}
-                >
-                  <RankMedal index={index} />
-                  <View style={styles.trendingCopy}>
-                    <Text style={styles.trendingTitle} numberOfLines={1}>
-                      {item.name}
-                    </Text>
-                    <Text style={styles.trendingMeta}>
-                      {t(language, 'programs.trending.meta', { weeks: item.weeks, starts: item.starts })}
-                    </Text>
-                  </View>
-                </Pressable>
-              ))}
-            </CutSurface>
-          </View>
-        ) : null}
+        {/* The rail that used to live here is a sheet now. Nine categories
+            sharing one horizontal rail gave every one of them the same
+            eight-card shape, no way to narrow further, and nowhere to say what
+            the category is FOR or what level its programs are. */}
 
-        <Text style={styles.sectionEyebrowStandalone}>{t(language, 'programs.yourPrograms')}</Text>
-        {customPrograms.map((program) => (
-          <Pressable
-            key={program.id}
-            accessibilityRole="button"
-            accessibilityLabel={t(language, 'programs.open', { name: program.name })}
-            onPress={() => onOpenCustomProgram(program.id, program.programType ?? 'custom')}
-            style={({ pressed }) => [styles.customRowWrap, pressed && styles.rowPressed]}
-          >
-            <CutSurface
-              size="lg"
-              fill={theme.surface}
-              stroke={theme.border}
-              strokeWidth={1}
-              speedLine={{ color: theme.purpleBright }}
-              style={styles.customRow}
-            >
-            <GradientTile stops={SAVED_TILE} size={44} radius={12} />
-            <View style={styles.customCopy}>
-              <View style={styles.customTitleRow}>
-                <Text style={styles.customTitle} numberOfLines={1}>
-                  {program.name}
-                </Text>
-                {program.active ? (
-                  <Text style={styles.customActiveTag}>{t(language, 'programs.activeTag')}</Text>
-                ) : null}
-              </View>
-              <Text style={styles.customSubtitle} numberOfLines={1}>
-                {program.subtitle}
-              </Text>
-            </View>
-            <Text style={styles.customAction}>{t(language, 'programs.openShort')}</Text>
-            </CutSurface>
+        {/* Categories as tiles. The first build made these text chips, which
+            was a silent substitution rather than a decision: on a row you scan
+            instead of read, colour and shape land before a word does, and nine
+            identical grey pills are read one at a time. */}
+        <View style={styles.sectionHeadRow}>
+          <Text style={styles.sectionEyebrow}>{t(language, 'programs.browse')}</Text>
+          <Pressable onPress={() => setAllCategories((value) => !value)} hitSlop={8}>
+            <Text style={styles.sectionLink}>
+              {t(language, allCategories ? 'programs.showLess' : 'programs.viewAll')}
+            </Text>
           </Pressable>
-        ))}
-        {/* The only "new program" entry on the page now. It opens the sheet
-            rather than the editor, so removing the duplicate button at the top
-            did not remove the AI and CSV routes with it. */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t(language, 'programs.create')}
-          onPress={() => setCreateOpen(true)}
-          style={({ pressed }) => [pressed && styles.pressedRow]}
-        >
-          <CutSurface
-            size="lg"
-            fill="transparent"
-            stroke={theme.border}
-            strokeWidth={1.5}
-            dashed
-            style={styles.createRow}
-          >
-          <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-            <Path d="M12 5v14M5 12h14" stroke={theme.purple} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-          <Text style={styles.createText}>{t(language, 'programs.create')}</Text>
-          </CutSurface>
-        </Pressable>
+        </View>
+        {/* Expanded in place rather than on another screen. "Näytä kaikki"
+            used to open the old plans list, which is a different thing
+            entirely — the tiles are the menu, so showing all nine of them is
+            the answer. */}
+        <ScrollableOrGrid expanded={allCategories} style={styles.tileRow}>
+          {PROGRAM_CATEGORIES.map((entry) => {
+            return (
+              <Pressable
+                key={entry.key}
+                accessibilityRole="button"
+                accessibilityLabel={`${t(language, entry.labelKey)}, ${categoryCounts[entry.key]}`}
+                onPress={() => setSheet({ kind: 'category', key: entry.key })}
+                style={({ pressed }) => [styles.catTileWrap, pressed && styles.pressed]}
+              >
+                {/* One container decision, and this is it: a solid disc in the
+                    category's own ink with the mark knocked out in white.
+                    Nine pastel tiles behind a near-black outline needed the
+                    outline to hold them apart at all — the colour was doing no
+                    work. Filled, the hue is the tile, and the badge can sit on
+                    the edge because a circle has no cut corner to slice a
+                    digit in half. */}
+                <View style={[styles.catTile, { backgroundColor: entry.tint.ink }]}>
+                  <Svg width={30} height={30} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d={entry.icon}
+                      stroke="#FFFFFF"
+                      // A hair heavier than the 1.9 hairline the pale tiles
+                      // used: knocked out of a colour, a stroke reads thinner
+                      // than the same stroke drawn on light.
+                      strokeWidth={2.05}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                  <View
+                    style={[
+                      styles.catTileCount,
+                      { backgroundColor: entry.tint.ink, borderColor: theme.surface },
+                    ]}
+                  >
+                    <Text style={styles.catTileCountText}>{categoryCounts[entry.key]}</Text>
+                  </View>
+                </View>
+                <Text style={styles.catTileLabel} numberOfLines={2}>
+                  {t(language, entry.labelKey)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollableOrGrid>
 
         <Text style={styles.sectionEyebrowStandalone}>{t(language, 'programs.library')}</Text>
         <Pressable
@@ -1547,38 +1384,13 @@ export function ProgramsHomeScreen({
         visible={sheet !== null}
         onClose={() => setSheet(null)}
         language={language}
-        title={
-          sheet === null
-            ? ''
-            : sheet.kind === 'all'
-              ? t(language, 'programs.allPrograms')
-              : sheet.kind === 'category'
-                ? t(language, sheetCategory?.labelKey ?? 'programs.cat.strength')
-                : t(language, sheet.labelKey)
-        }
-        focus={
-          sheet === null
-            ? ''
-            : sheet.kind === 'all'
-              ? t(language, 'programs.allProgramsFocus')
-              : sheet.kind === 'category'
-                ? t(language, sheetCategory?.focusKey ?? 'programs.catFocus.strength')
-                : t(
-                    language,
-                    sheet.season === 'winter'
-                      ? 'programs.seasonFocus.winter'
-                      : 'programs.seasonFocus.summer',
-                  )
-        }
-        tint={
-          sheet?.kind === 'category' && sheetCategory
-            ? sheetCategory.tint
-            : sheet?.kind === 'season' && sheet.season === 'winter'
-              ? SEASON_SHEET_TINTS.winter
-              : SEASON_SHEET_TINTS.summer
-        }
-        icon={sheet?.kind === 'category' && sheetCategory ? sheetCategory.icon : LAYERS_MOTIF}
+        title={sheetCategory ? t(language, sheetCategory.labelKey) : ''}
+        focus={sheetCategory ? t(language, sheetCategory.focusKey) : ''}
+        tint={sheetCategory ? sheetCategory.tint : PROGRAM_CATEGORIES[0].tint}
+        icon={sheetCategory ? sheetCategory.icon : PROGRAM_CATEGORIES[0].icon}
         items={sheetItems}
+        readerDaysPerWeek={readerDaysPerWeek}
+        readerLevel={readerLevel}
         onPick={(item) => {
           // The row carries a chevron, which means "open". It opened the
           // switch-confirm sheet instead — the same mismatch the Sinulle
@@ -1597,6 +1409,10 @@ export function ProgramsHomeScreen({
         onPickImage={onPickImage}
         onClose={() => setCreateOpen(false)}
         onAiAssisted={onAiAssisted}
+        onBrowseCatalog={onBrowseCatalog}
+        catalogCount={catalogCount}
+        proUnlocked={proUnlocked}
+        onOpenPaywall={onOpenPaywall}
         onBuildYourself={onCreateProgram}
         onImportProgram={onImportProgram}
       />
@@ -1623,6 +1439,78 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   pressedRow: {
     opacity: 0.7,
+  },
+  screenTitle: {
+    color: theme.ink,
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: '800',
+    letterSpacing: -0.75,
+    paddingTop: 6,
+    marginBottom: 4,
+  },
+  learnRailScroll: {
+    flexGrow: 0,
+    marginHorizontal: -20,
+  },
+  learnRail: {
+    flexDirection: 'row',
+    gap: 11,
+    paddingHorizontal: 20,
+    paddingBottom: 4,
+  },
+  learnCard: {
+    width: 214,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
+    overflow: 'hidden',
+  },
+  learnCardBody: {
+    padding: 13,
+    paddingLeft: 15,
+  },
+  learnCardTitle: {
+    color: theme.ink,
+    fontSize: 14.5,
+    lineHeight: 19,
+    fontWeight: '800',
+  },
+  learnCardBlurb: {
+    color: theme.muted,
+    fontSize: 11.5,
+    lineHeight: 15.5,
+    fontWeight: '600',
+    marginTop: 3,
+    height: 31,
+  },
+  learnProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 9,
+  },
+  learnTrack: {
+    flex: 1,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: theme.border,
+    overflow: 'hidden',
+  },
+  learnFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: theme.purple,
+  },
+  learnCount: {
+    color: theme.faint,
+    fontSize: 10.5,
+    lineHeight: 14,
+    fontWeight: '800',
+  },
+  learnCountOn: {
+    color: theme.purple,
   },
   sectionHeadRow: {
     flexDirection: 'row',
@@ -1700,6 +1588,47 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingLeft: 24,
     paddingRight: 14,
   },
+  goalEmpty: {
+    paddingVertical: 16,
+    paddingLeft: 24,
+    paddingRight: 16,
+    gap: 8,
+  },
+  goalEmptyTitle: {
+    color: theme.ink,
+    fontSize: 16.5,
+    lineHeight: 21,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  goalEmptyBody: {
+    color: theme.muted,
+    fontSize: 12.5,
+    lineHeight: 17.5,
+    fontWeight: '600',
+  },
+  goalEmptyCta: {
+    marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: theme.highlight,
+  },
+  goalEmptyCtaText: {
+    color: theme.onHighlight,
+    fontSize: 14.5,
+    lineHeight: 19,
+    fontWeight: '800',
+  },
+  goalRemove: {
+    width: 26,
+    height: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   goalTile: {
     width: 44,
     height: 44,
@@ -1746,75 +1675,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   goalProgrammeOpen: {
     color: theme.purple,
   },
-  trendingCard: {
-    marginBottom: 4,
-    overflow: 'hidden',
-  },
-  trendingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 13,
-    paddingVertical: 13,
-    paddingHorizontal: 15,
-  },
-  trendingRowDivider: {
-    borderTopWidth: 1,
-    borderTopColor: theme.purpleLight,
-  },
-  trendingRank: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.purpleLight,
-  },
-  trendingMedal: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  trendingMedalText: {
-    position: 'absolute',
-    fontSize: 15,
-    lineHeight: 19,
-    fontWeight: '900',
-  },
-  trendingRankText: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: theme.purple,
-  },
-  trendingCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  trendingTitle: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: theme.ink,
-  },
-  trendingMeta: {
-    marginTop: 2,
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: theme.muted,
-  },
   forYouWhy: {
     fontSize: 11.5,
     fontWeight: '800',
     lineHeight: 15,
     color: theme.purple,
-  },
-  seasonLead: {
-    marginTop: -4,
-    marginBottom: 10,
-    paddingHorizontal: 20,
-    fontSize: 12.5,
-    fontWeight: '600',
-    lineHeight: 18,
-    color: theme.muted,
   },
   // ── Rotating campaign hero ───────────────────────────────────────────
   campaignBlock: {
@@ -2284,7 +2149,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     height: 50,
   },
   createText: {
-    color: theme.purple,
+    color: theme.highlight,
     fontSize: 13.5,
     lineHeight: 18,
     fontWeight: '800',
@@ -2418,50 +2283,24 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 24,
     textAlign: 'center',
   },
-  sheetRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 10,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.surface,
-  },
-  sheetRowCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  sheetRowTitleLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-  sheetRowName: {
-    flexShrink: 1,
-    color: theme.ink,
-    fontSize: 15,
-    lineHeight: 19,
+  sheetGroupHeader: {
+    color: theme.highlight,
+    fontSize: 11,
     fontWeight: '800',
-    letterSpacing: -0.2,
+    letterSpacing: 0.9,
+    marginBottom: 2,
   },
-  levelBadge: {
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
+  sheetGroupRule: {
+    height: 1,
+    backgroundColor: theme.border,
+    marginVertical: 6,
   },
-  levelBadgeText: {
-    fontSize: 9.5,
-    lineHeight: 12,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  sheetRowBlurb: {
-    color: theme.muted,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '600',
-    marginTop: 3,
+  chipDivider: {
+    width: 1,
+    alignSelf: 'stretch',
+    marginVertical: 6,
+    marginHorizontal: 4,
+    backgroundColor: theme.border,
   },
   catSheetCta: {
     position: 'absolute',

@@ -40,6 +40,15 @@ interface WeightBmiCardsProps {
   chartDays: WeightWindowDay[];
   onLogWeight: () => void;
   onEditBmi: () => void;
+  /**
+   * The range chips, drawn under the weight chart.
+   *
+   * Passed in rather than built here because the ranges are the screen's
+   * state and shared with every other measure. Passed at all because this
+   * component renders TWO cards: appending the chips after it put them under
+   * BMI, which is where the device showed them.
+   */
+  rangeSlot?: React.ReactNode;
 }
 
 function EditPencil({ color }: { color: string }) {
@@ -57,13 +66,21 @@ function EditPencil({ color }: { color: string }) {
 }
 
 /**
- * The seven WHO bands as equal segments with a marker above the reader's
- * value. Equal segments, not to scale: 15–16 is one point wide and 18.5–25 is
- * six and a half, so a true-to-scale bar renders the two thinnest underweight
+ * The seven WHO bands, in their own colours, with a marker above your value.
+ *
+ * The brief cut this to one track with the healthy band marked, on the
+ * grounds that a rainbow asks the reader to decode a legend. Built that way,
+ * seen on the device, and reversed by the user the same day: the colours
+ * carry the reading, and a single violet band says "healthy" without saying
+ * how far the next one is.
+ *
+ * Equal segments rather than true to scale. 18.5–25 is six and a half points
+ * wide and 15–16 is one, so a true-to-scale bar renders the two underweight
  * bands as invisible slivers — a scale nobody can read is decoration.
  */
 function BmiGauge({ bmi, width }: { bmi: number; width: number }) {
   const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const barHeight = 12;
   const segment = width / BMI_BANDS.length;
   const markerX = bmiMarkerPosition(bmi) * width;
@@ -72,10 +89,12 @@ function BmiGauge({ bmi, width }: { bmi: number; width: number }) {
     <View>
       <Svg width={width} height={barHeight + 10}>
         {/* The marker sits ABOVE the bar, pointing down at it — over the bar it
-            would hide the very band it is naming. */}
+            would hide the very band it is naming. theme.ink rather than a dark
+            literal: the old #101828 was invisible on the dark theme's own
+            near-black card. */}
         <Polygon
           points={`${markerX - 5},0 ${markerX + 5},0 ${markerX},8`}
-          fill="#101828"
+          fill={theme.ink}
         />
         {BMI_BANDS.map((band, index) => (
           <Rect
@@ -113,6 +132,7 @@ export function WeightBmiCards({
   chartDays,
   onLogWeight,
   onEditBmi,
+  rangeSlot,
 }: WeightBmiCardsProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -175,17 +195,18 @@ export function WeightBmiCards({
         )}
       </View>
 
+      {/* Between the two cards, not inside either (user, 2026-09-02). It reads
+          as the axis both of them share rather than as a footer belonging to
+          the weight chart — and inside the card it sat on the card's own
+          surface, which made it look like part of the chart's chrome. */}
+      {rangeSlot}
+
       <View style={[styles.card, styles.cardFollowing]} onLayout={(event) => setGaugeWidth(event.nativeEvent.layout.width - 32)}>
         <View style={styles.sectionHead}>
           <Text style={styles.sectionTitle}>{t(language, 'bmi.title')}</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t(language, 'bmi.edit')}
-            onPress={onEditBmi}
-            style={({ pressed }) => [styles.actionPill, pressed && styles.pressed]}
-          >
-            <Text style={styles.actionPillText}>{t(language, 'bmi.edit')}</Text>
-          </Pressable>
+          {/* No Edit pill. The height row below carries a pencil and opens
+              the same sheet, and two ways to do one thing is what the kit
+              forbids — the brief names this one. */}
         </View>
         {bmi !== null && band ? (
           <>
@@ -215,6 +236,10 @@ export function WeightBmiCards({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t(language, 'bmi.height')}
+          // The only way in now that the Edit pill is gone, so it has to say
+          // that it edits. The label alone announced "Height" for a control
+          // that opens a sheet.
+          accessibilityHint={t(language, 'bmi.edit')}
           onPress={onEditBmi}
           style={({ pressed }) => [styles.heightRow, pressed && styles.pressed]}
         >

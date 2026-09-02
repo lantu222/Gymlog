@@ -87,15 +87,100 @@ module.exports = [
     },
   },
   {
-    name: 'library browser: the add glyph speaks the app\'s own colour',
+    /**
+     * The circle keeps its colour and changes its job.
+     *
+     * It was a "+" that dropped the lift straight into a workout from a row
+     * that is a name and three words — adding blind — and it came out
+     * entirely (#38). It is back as an eye that opens the exercise, which is
+     * what the library is for (user 2026-08-31).
+     */
+    name: 'library browser: the circle is an eye, in the app\'s own pressable colour',
     run() {
       const browser = read('src/components/ExerciseLibraryBrowser.tsx');
       // A green circle in a purple-and-orange app was the loudest wrong note on
       // the page. Orange is the app's "you can press this".
-      assert.doesNotMatch(browser, /addButton: \{[\s\S]{0,200}theme\.green\b/);
+      assert.doesNotMatch(browser, /lookButton: \{[\s\S]{0,200}theme\.green\b/);
       assert.match(browser, /backgroundColor: theme\.highlight/);
       // And the glyph takes the ink that orange was paired with, not white.
-      assert.match(browser, /<PlusIcon color=\{theme\.onHighlight\} \/>/);
+      assert.match(browser, /<VinhaIcon name="eye" color=\{theme\.onHighlight\} size=\{17\} \/>/);
+      // The SHARED eye. This file kept a local almond with a filled pupil next
+      // to the icon set's stroked one, in a file that already imports
+      // VinhaIcon for the body-part glyphs — flagged by the PR review on #40
+      // against CLAUDE.md's "use existing shared components before adding new
+      // styling". The eye this card IS should be the eye the app draws.
+      assert.doesNotMatch(browser, /function EyeIcon/);
+
+      // It opens; it does not add. The prop that carried "add to workout" is
+      // gone from the browser and from the screen that wraps it, so there is
+      // nothing left to wire it back to by accident.
+      assert.doesNotMatch(browser, /onAddToWorkout/);
+      assert.doesNotMatch(browser, /PlusIcon/);
+      assert.doesNotMatch(read('src/screens/ExercisesScreen.tsx'), /onAddToWorkout/);
+      assert.match(browser, /library\.a11y\.look/);
+
+      // And it renders only when it has somewhere to go. A filled accent
+      // circle that ignores the tap reads as broken rather than as absent —
+      // the rule #38 established, and the one this change nearly undid by
+      // putting the circle back unconditionally.
+      assert.match(browser, /\{onOpen \? \(\s*\r?\n\s*<LookButton/);
+      // Both call sites, not "at least one": the rail and the list each pass
+      // onOpen, and asserting a single match lets one of them regress while
+      // the other keeps the test green.
+      assert.equal(
+        (browser.match(/onOpen=\{onOpenItem \? \(\) => handleOpen\(item\) : undefined\}/g) ?? []).length,
+        2,
+        'both the rail card and the list row must withhold onOpen when the browser has nowhere to send it',
+      );
+      assert.doesNotMatch(browser, /onOpen=\{\(\) => handleOpen\(item\)\}/);
+    },
+  },
+  {
+    /**
+     * A filter you picked by accident comes off the way you put it on.
+     *
+     * Every row has an "All" chip, so there was always a way back — but the
+     * gesture a reader reaches for is tapping the lit chip again, and that set
+     * the value it already held. Nothing moved, so the filter read as stuck
+     * (user 2026-09-01, screenshot: two chips lit, badge showing 2).
+     *
+     * All three rows, not one: the body-part rail, TYPE and EQUIPMENT are the
+     * same control three times, and fixing the two inside the sheet while
+     * leaving the rail on top would be the harder half to notice.
+     */
+    name: 'library browser: tapping the chosen filter chip clears it',
+    run() {
+      const browser = read('src/components/ExerciseLibraryBrowser.tsx');
+
+      // The rule itself: back to 'all', which IS the cleared state here —
+      // every read is `!== 'all'`, so a null would have to be taught to all
+      // three.
+      assert.match(browser, /function toggleFilter\(current: string, option: string\): string \{/);
+      assert.match(
+        browser,
+        /return current === option \? 'all' : option;/,
+        'the chips no longer clear themselves',
+      );
+
+      // All three rows route through it, and none sets a raw option any more.
+      const esc = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      for (const setter of ['setBodyPartFilter', 'setCategoryFilter', 'setEquipmentFilter']) {
+        const filterName = setter.slice(3, 4).toLowerCase() + setter.slice(4);
+        assert.match(
+          browser,
+          new RegExp(esc(`onPress={() => ${setter}(toggleFilter(${filterName}, option))}`)),
+          `${setter} still sets the option without toggling`,
+        );
+        assert.doesNotMatch(
+          browser,
+          new RegExp(esc(`onPress={() => ${setter}(option)}`)),
+          `${setter} can still be set without a way off`,
+        );
+      }
+
+      // And 'all' stays the first chip in every row, so the explicit reset is
+      // still there for anyone who does not try the toggle.
+      assert.equal((browser.match(/\(\) => \['all', \.\.\.Array\.from/g) ?? []).length, 3);
     },
   },
 ];
