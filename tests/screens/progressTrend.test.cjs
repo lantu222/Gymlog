@@ -127,14 +127,16 @@ module.exports = [
       assert.match(records, /value=\{kind\}/);
       assert.match(records, /onChange=\{setKind\}/);
 
-      // Four selectors on the tab, one component: metric, trend range,
-      // measure range, records kind.
+      // Five selectors on the tab, one component: metric, trend range,
+      // measure range, records kind, and the body-weight range that piece 06
+      // added. The count is pinned so a sixth hand-built one fails rather than
+      // quietly appearing — it already caught this one.
       //
       // Counted without a word boundary on purpose: a `` written through
       // a heredoc arrives as a literal backspace, which made this read zero
       // and look like a real failure. Third time in one session.
       const usages = (screen.match(/<Seg/g) ?? []).length + (records.match(/<Seg/g) ?? []).length;
-      assert.equal(usages, 4, `expected four Seg call sites on the tab, found ${usages}`);
+      assert.equal(usages, 5, `expected five Seg call sites on the tab, found ${usages}`);
     },
   },
   {
@@ -238,6 +240,125 @@ module.exports = [
       const records = read('src', 'screens', 'RecordsScreen.tsx');
       assert.match(records, /onOpenExercise/);
       assert.match(screen, /onOpenExercise=\{\(key\) => setSetLogKey\(key\)\}/);
+    },
+  },
+  {
+    /**
+     * Progress v2 · 06 — the body-weight card.
+     *
+     * Four things: the chart line joins every other chart in violet so the
+     * only orange left is Log; the BMI rainbow becomes one track with the
+     * healthy band marked once; the BMI Edit pill goes because the height row
+     * already opens the same sheet; and the card gets the range chips it never
+     * had (reported from the device 1.9.).
+     */
+    name: 'progress: the weight card is violet, has ranges, and one way to edit BMI',
+    run() {
+      const chart = read('src', 'components', 'WeightTrendChart.tsx');
+      const cards = read('src', 'components', 'WeightBmiCards.tsx');
+
+      // The line is violet. It was theme.highlight, which is orange on the
+      // dark theme, so the screen had three orange things claiming emphasis.
+      //
+      // Checked against the CODE, with comments stripped: the file explains
+      // what it stopped using, and a file-wide doesNotMatch failed on its own
+      // explanation. Fifth time this session that prose and pattern collided.
+      const chartCode = chart.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*/g, '');
+      assert.doesNotMatch(chartCode, /theme\.highlight/, 'the weight line is orange again');
+      assert.match(chartCode, /stroke=\{theme\.purple\}/);
+
+      // The WHO bands keep their colours. The brief cut them to one track with
+      // the healthy band marked; built that way, seen on the device, and
+      // reversed by the user the same day (2026-09-02) — the colours carry the
+      // reading, and one violet band says "healthy" without saying how far the
+      // next one is.
+      assert.match(cards, /fill=\{band\.color\}/, 'the bands lost their colours again');
+      assert.match(cards, /backgroundColor: band\.color/, 'the dot and the bar disagree');
+      // What piece 06 kept: the marker takes a theme token, not the dark
+      // literal that was invisible on the dark theme's own near-black card.
+      //
+      // Only the positive check. A doesNotMatch on the old literal failed on
+      // the comment that explains why it went — the sixth time this session a
+      // guard and its own prose collided.
+      assert.match(cards, /fill=\{theme\.ink\}/);
+
+      // One way to edit. The pill went; the height row kept the pencil AND
+      // learned to say that it edits, which its label alone did not.
+      assert.equal(
+        (cards.match(/onPress=\{onEditBmi\}/g) ?? []).length,
+        1,
+        'BMI has two editors again',
+      );
+      assert.match(cards, /accessibilityHint=\{t\(language, 'bmi\.edit'\)\}/);
+
+      // The chips, and the reason they can exist now: 7D stays centred on
+      // today, everything longer takes the trailing window every other chart
+      // uses. A centred three-month window is half future, which is why the
+      // card had no chips at all.
+      const weightBranch = screen.slice(
+        screen.indexOf('const weightWindowDays = useMemo'),
+        screen.indexOf('const weightWindowDays = useMemo') + 1400,
+      );
+      assert.match(weightBranch, /if \(resolvedMeasureRange === '7d'\) \{/);
+      assert.match(weightBranch, /buildWeightWindow\(bodyweightProgress\.entries, nowMs\)/);
+      assert.match(weightBranch, /buildValueWindow\(entries, nowMs, measureRangeDays\(/);
+
+      // And the chips are actually ON the card. The <Seg count in the case
+      // above only proves five exist somewhere; a mutation that gutted this
+      // one's props left the tag behind and both checks stayed green.
+      const weightCard = screen.slice(
+        screen.indexOf('<WeightBmiCards'),
+        screen.indexOf('{renderMeasureEntries()}'),
+      );
+      assert.ok(weightCard.length > 200, 'the weight card branch moved — recheck by hand');
+      // Handed to the card, not rendered after it. WeightBmiCards draws TWO
+      // cards, so appending put the chips under BMI — which is where the
+      // device showed them.
+      assert.match(weightCard, /rangeSlot=\{/);
+      // BETWEEN the two cards, not inside either (user, 2026-09-02). Inside
+      // the weight card they sat on its surface and read as the chart's own
+      // chrome; between them they read as the axis both cards share.
+      const bmiCards = read('src', 'components', 'WeightBmiCards.tsx');
+      const slotAt = bmiCards.indexOf('{rangeSlot}');
+      const chartAt = bmiCards.indexOf('<WeightTrendChart days={chartDays} />');
+      const bmiCardAt = bmiCards.indexOf('<View style={[styles.card, styles.cardFollowing]}');
+      assert.ok(slotAt > 0 && chartAt > 0 && bmiCardAt > 0, 'the weight/BMI cards were restructured');
+      assert.ok(chartAt < slotAt, 'the chips moved above the weight chart');
+      assert.ok(slotAt < bmiCardAt, 'the chips fell below the BMI card again');
+      assert.match(weightCard, /options=\{MEASURE_RANGES\.map/);
+      assert.match(weightCard, /value=\{resolvedMeasureRange\}/);
+      assert.match(weightCard, /onChange=\{setMeasureRange\}/);
+      assert.match(weightCard, /lockedKeys=\{lockedMeasureRanges\}/);
+
+      // And the day counts are one rule, not two copies.
+      assert.match(
+        read('src', 'lib', 'bodyweightCard.ts'),
+        /export function measureRangeDays\(/,
+      );
+      assert.equal(
+        (screen.match(/measureRangeDays\(/g) ?? []).length,
+        2,
+        'the range-to-days rule was copied instead of shared',
+      );
+    },
+  },
+  {
+    /**
+     * Progress v2 · 06 — entries are a list until you press Edit.
+     *
+     * The brief: "Entries get the History treatment: no × on a resting row."
+     * Three rows of numbers you scroll past on the way to the chart, each
+     * carrying a delete, is a mis-tap waiting to happen.
+     */
+    name: 'progress: a weight entry cannot be deleted from a resting row',
+    run() {
+      assert.match(screen, /const \[entriesEditing, setEntriesEditing\] = useState\(false\);/);
+      assert.match(screen, /\{entriesEditing \? \(/, 'the delete draws on every row again');
+      assert.match(screen, /setEntriesEditing\(\(value\) => !value\)/);
+      // It opens closed: a list first, deletes on request.
+      assert.doesNotMatch(screen, /useState\(true\); \/\/ entriesEditing/);
+      // The toggle names both states rather than staying "Edit" while editing.
+      assert.match(screen, /entriesEditing \? 'plan\.done' : 'plan\.edit'/);
     },
   },
 ];

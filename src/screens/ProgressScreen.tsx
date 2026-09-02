@@ -10,7 +10,12 @@ import { WeightTrendChart } from '../components/WeightTrendChart';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { BmiEditSheet, MeasureLogSheet, WeightLogSheet } from '../components/MeasureRulerSheet';
 import { WeightBmiCards } from '../components/WeightBmiCards';
-import { buildBodyweightCardStats, buildValueWindow, buildWeightWindow } from '../lib/bodyweightCard';
+import {
+  buildBodyweightCardStats,
+  buildValueWindow,
+  buildWeightWindow,
+  measureRangeDays,
+} from '../lib/bodyweightCard';
 import type { HomeRecentSessionItem } from './HomeScreen';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import {
@@ -795,14 +800,43 @@ export function ProgressScreen({
   const [measureSheetVisible, setMeasureSheetVisible] = useState(false);
   const [weightSheetVisible, setWeightSheetVisible] = useState(false);
   const [bmiSheetVisible, setBmiSheetVisible] = useState(false);
+  /**
+   * Whether the entries list is showing its deletes.
+   *
+   * The brief: "Entries get the History treatment: no × on a resting row." A
+   * delete sitting on every row of a list you are only reading is a mistake
+   * waiting for a mis-tap, and this list is three rows of numbers you scroll
+   * past on the way to the chart.
+   */
+  const [entriesEditing, setEntriesEditing] = useState(false);
   const bodyweightStats = useMemo(
     () => buildBodyweightCardStats(bodyweightProgress.entries),
     [bodyweightProgress.entries],
   );
-  const weightWindowDays = useMemo(
-    () => buildWeightWindow(bodyweightProgress.entries, Date.now()),
-    [bodyweightProgress.entries],
-  );
+  /**
+   * The weight chart's x-axis, and the one place the two window shapes meet.
+   *
+   * At 7D it stays CENTRED on today, which is the card's whole point: the
+   * first weigh-in a reader ever logs lands in the middle rather than pinned
+   * to an edge. That is why the card had no range chips at all — a centred
+   * three-month window would put half the chart in the future.
+   *
+   * The brief gives it chips anyway (piece 06), so the longer ranges take the
+   * trailing window every other chart on the tab uses. Centred is the week's
+   * shape, not the card's law.
+   */
+  const weightWindowDays = useMemo(() => {
+    const nowMs = Date.now();
+    if (resolvedMeasureRange === '7d') {
+      return buildWeightWindow(bodyweightProgress.entries, nowMs);
+    }
+    const entries = bodyweightProgress.entries.map((entry) => ({
+      recordedAt: entry.recordedAt,
+      value: entry.weight,
+    }));
+    const first = entries.length ? new Date(entries[0].recordedAt).getTime() : null;
+    return buildValueWindow(entries, nowMs, measureRangeDays(resolvedMeasureRange, first, nowMs));
+  }, [bodyweightProgress.entries, resolvedMeasureRange]);
   /**
    * What the rulers open on. Not a default the reader has to correct: their
    * last weigh-in, or the weight onboarding recorded, and only then a middle-
@@ -1162,18 +1196,8 @@ export function ProgressScreen({
       value,
     }));
     const nowMs = Date.now();
-    let days: number;
-    if (resolvedMeasureRange === '7d') {
-      days = 7;
-    } else if (resolvedMeasureRange === '3m') {
-      days = 91;
-    } else if (resolvedMeasureRange === '1y') {
-      days = 365;
-    } else {
-      const first = entries.length ? new Date(entries[0].recordedAt).getTime() : nowMs;
-      days = Math.min(730, Math.max(14, Math.ceil((nowMs - first) / 86_400_000) + 1));
-    }
-    return buildValueWindow(entries, nowMs, days);
+    const first = entries.length ? new Date(entries[0].recordedAt).getTime() : null;
+    return buildValueWindow(entries, nowMs, measureRangeDays(resolvedMeasureRange, first, nowMs));
   }, [resolvedMeasureRange, selectedMeasureModel]);
 
   const selectedMeasureLatest = selectedMeasureModel.values.length
@@ -1674,13 +1698,29 @@ export function ProgressScreen({
               chartDays={weightWindowDays}
               onLogWeight={() => setWeightSheetVisible(true)}
               onEditBmi={() => setBmiSheetVisible(true)}
+              /* The same chips every other chart on this tab has (Progress v2,
+                 piece 06). They were deliberately absent — the week is centred
+                 on today and a centred long window is half future — so the
+                 shape follows the range instead: centred at 7D, trailing
+                 beyond it. Handed to the card so they land under ITS chart:
+                 rendered after the component they went under BMI, two cards
+                 down, which is where the device showed them. */
+              rangeSlot={
+                <View style={styles.trendRangeRow}>
+                  <Seg
+                    options={MEASURE_RANGES.map((option) => ({
+                      key: option.key,
+                      label: option.label ?? t(language, option.labelKey ?? 'progress.range.all'),
+                    }))}
+                    value={resolvedMeasureRange}
+                    onChange={setMeasureRange}
+                    lockedKeys={lockedMeasureRanges}
+                    onLockedPress={onOpenPremium}
+                  />
+                </View>
+              }
             />
-            {/* No range selector here, on purpose. The weight curve is a fixed
-                week centred on today — a 3-month window would put the reader's
-                first weigh-in against the right-hand edge instead of in the
-                middle, which is the whole point of the card. The long view is
-                one tab over: Summary → Trend → Body weight, where the range
-                selector still applies. */}
+
           </View>
           {renderMeasureEntries()}
           {renderMeasureList()}
@@ -1776,7 +1816,20 @@ export function ProgressScreen({
 
     return (
       <>
-        <SectionLabel label={t(language, 'progress.entries')} />
+        <View style={styles.entriesHead}>
+          <SectionLabel label={t(language, 'progress.entries')} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ selected: entriesEditing }}
+            onPress={() => setEntriesEditing((value) => !value)}
+            hitSlop={10}
+            style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+          >
+            <Text style={styles.entriesEditLink}>
+              {t(language, entriesEditing ? 'plan.done' : 'plan.edit')}
+            </Text>
+          </Pressable>
+        </View>
         <View style={styles.card}>
           {rows.map((row, index) => (
             <View key={row.id} style={[styles.entryRow, index > 0 && styles.entryRowDivided]}>
@@ -1784,15 +1837,17 @@ export function ProgressScreen({
               <Text style={styles.entryValue}>
                 {removeTrailingZeros(Number(row.value.toFixed(1)))} {model.unit}
               </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t(language, 'progress.entries.delete')}
-                hitSlop={10}
-                onPress={() => setPendingEntryDelete(row.id)}
-                style={({ pressed }) => [styles.entryDelete, pressed && { opacity: 0.6 }]}
-              >
-                <Text style={styles.entryDeleteGlyph}>×</Text>
-              </Pressable>
+              {entriesEditing ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'progress.entries.delete')}
+                  hitSlop={10}
+                  onPress={() => setPendingEntryDelete(row.id)}
+                  style={({ pressed }) => [styles.entryDelete, pressed && { opacity: 0.6 }]}
+                >
+                  <Text style={styles.entryDeleteGlyph}>×</Text>
+                </Pressable>
+              ) : null}
             </View>
           ))}
         </View>
@@ -2591,6 +2646,17 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   entryValue: {
     color: theme.ink,
     fontSize: 14.5,
+    fontWeight: '800',
+  },
+  entriesHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  entriesEditLink: {
+    color: theme.highlight,
+    fontSize: 12.5,
+    lineHeight: 16,
     fontWeight: '800',
   },
   entryDelete: {

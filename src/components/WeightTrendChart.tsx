@@ -1,3 +1,12 @@
+/*
+ * Violet, like every other chart on the tab.
+ *
+ * This line was theme.highlight, which is orange on the dark theme — so the
+ * body-weight screen had an orange curve, an orange Log button and an orange
+ * BMI band all claiming the same emphasis. The brief settles it: "The chart
+ * line goes violet like every other chart, so the only orange thing on the
+ * screen is Log."
+ */
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
@@ -146,7 +155,7 @@ export function WeightTrendChart({ days }: WeightTrendChartProps) {
               <Polyline
                 points={plotted.map((point) => `${point.x},${point.y}`).join(' ')}
                 fill="none"
-                stroke={theme.highlight}
+                stroke={theme.purple}
                 strokeWidth={2.5}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -164,7 +173,7 @@ export function WeightTrendChart({ days }: WeightTrendChartProps) {
                   r={landAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 5] })}
                   opacity={landAnim}
                   fill={theme.surface}
-                  stroke={theme.highlight}
+                  stroke={theme.purple}
                   strokeWidth={3}
                 />
               ) : markersFit ? (
@@ -174,7 +183,7 @@ export function WeightTrendChart({ days }: WeightTrendChartProps) {
                   cy={point.y}
                   r={5}
                   fill={theme.surface}
-                  stroke={theme.highlight}
+                  stroke={theme.purple}
                   strokeWidth={3}
                 />
               ) : null,
@@ -246,7 +255,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.faint,
   },
   footerLabelToday: {
-    color: theme.highlight,
+    color: theme.purple,
     fontWeight: '800',
   },
 });

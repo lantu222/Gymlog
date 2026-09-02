@@ -280,6 +280,36 @@ export function buildWeightWindow(
  * Backward-looking (ends today) rather than centred like the weight card's
  * week: a history over months is read as "how did I get here".
  */
+/**
+ * How many calendar days a range chip asks for.
+ *
+ * Lived inline in ProgressScreen and answered only for the measure charts.
+ * The body-weight card grew the same chips (Progress v2, piece 06) and has to
+ * agree with them exactly, so the rule is one function rather than two copies
+ * that drift.
+ *
+ * "All" is bounded at both ends: at least a fortnight so a single entry still
+ * has an axis to sit on, and at most two years so a reader with a long history
+ * gets a chart rather than a pixel per week.
+ */
+export function measureRangeDays(
+  range: '7d' | '3m' | '1y' | 'all',
+  firstEntryMs: number | null,
+  nowMs: number,
+): number {
+  if (range === '7d') {
+    return 7;
+  }
+  if (range === '3m') {
+    return 91;
+  }
+  if (range === '1y') {
+    return 365;
+  }
+  const first = firstEntryMs ?? nowMs;
+  return Math.min(730, Math.max(14, Math.ceil((nowMs - first) / 86_400_000) + 1));
+}
+
 export function buildValueWindow(
   entries: ReadonlyArray<{ recordedAt: string; value: number }>,
   nowMs: number,
