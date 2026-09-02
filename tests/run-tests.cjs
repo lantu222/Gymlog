@@ -282,6 +282,7 @@ const suites = [
   ...require('./screens/weekEditAndDayDoor.test.cjs'),
   ...require('./lib/profileMilestones.test.cjs'),
   ...require('./screens/profileMilestoneSection.test.cjs'),
+  ...require('./screens/proScreens34.test.cjs'),
   ...require('./lib/restAlertAnswer.test.cjs'),
   ...require('./screens/onboardingVisualPolish.test.cjs'),
   ...require('./screens/headerBackReachable.test.cjs'),

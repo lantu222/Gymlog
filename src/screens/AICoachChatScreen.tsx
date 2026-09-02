@@ -406,6 +406,13 @@ export function AICoachChatScreen({
   // costs nothing — plus three demo moments. The door stays open at a price
   // the free tier can carry.
   const canAsk = proUnlocked && questionsRemaining > 0;
+  /**
+   * Only the first locked answer keeps its full body — that is the one that
+   * sells. Every one after it collapses to a single line, so the thread reads
+   * like a conversation the reader is behind on rather than a wall of
+   * paywalls (design: GAINER Pro screens, 04).
+   */
+  const firstLockedId = useMemo(() => messages.find((message) => message.lockedBody)?.id ?? null, [messages]);
   // Recomputed on every render rather than memoized: it is a date read from
   // the clock, and a chat left open across midnight would otherwise keep
   // counting from yesterday.
@@ -1132,15 +1139,27 @@ export function AICoachChatScreen({
                 </View>
               </View>
             ) : message.lockedBody ? (
-              <View key={message.id} style={styles.lockWrap}>
-                <ProLockedCard
-                  language={language}
-                  teaser={t(language, 'coachChat.locked.teaser')}
-                  body={message.lockedBody}
-                  cta={t(language, 'coachChat.locked.cta')}
+              message.id === firstLockedId ? (
+                <View key={message.id} style={styles.lockWrap}>
+                  <ProLockedCard
+                    language={language}
+                    teaser={t(language, 'coachChat.locked.teaser')}
+                    body={message.lockedBody}
+                    cta={t(language, 'coachChat.locked.cta')}
+                    onPress={onOpenPremium}
+                  />
+                </View>
+              ) : (
+                <Pressable
+                  key={message.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'coachChat.locked.collapsed')}
                   onPress={onOpenPremium}
-                />
-              </View>
+                  style={({ pressed }) => [styles.lockWrap, styles.lockedCollapsed, pressed && styles.pressed]}
+                >
+                  <Text style={styles.lockedCollapsedText}>{t(language, 'coachChat.locked.collapsed')}</Text>
+                </Pressable>
+              )
             ) : (
               <View
                 key={message.id}
@@ -1240,6 +1259,20 @@ export function AICoachChatScreen({
             keyboardHeight > 0 && { paddingBottom: keyboardHeight + spacing.sm },
           ]}
         >
+          {/* Free: "The coach answers on Pro" plus a lock glyph was two ways
+              of saying the same thing. The sentence stays, the glyph goes, and
+              the whole row is the tap that opens the paywall (design: GAINER
+              Pro screens, 04). */}
+          {!proUnlocked ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(language, 'coachChat.placeholderFree')}
+              onPress={onOpenPremium}
+              style={({ pressed }) => [styles.composer, styles.composerSpent, styles.composerLocked, pressed && styles.pressed]}
+            >
+              <Text style={styles.composerLockedText}>{t(language, 'coachChat.placeholderFree')}</Text>
+            </Pressable>
+          ) : (
           <View style={[styles.composer, !canAsk && styles.composerSpent]}>
             <TextInput
               value={draft}
@@ -1277,12 +1310,16 @@ export function AICoachChatScreen({
                   <Path d="M5 12h14M13 6l6 6-6 6" stroke={theme.onHighlight} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
                 </Svg>
               ) : (
-                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                  <Path d="M6 11h12v9H6zM9 11V8a3 3 0 016 0v3" stroke={theme.onHighlight} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+                // Pro with the month's questions spent: the arrow stays, dimmed
+                // — the lock glyph belonged to the free row, which is now a
+                // sentence and a tap.
+                <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                  <Path d="M5 12h14M13 6l6 6-6 6" stroke={theme.onHighlight} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
                 </Svg>
               )}
             </Pressable>
           </View>
+          )}
         </View>
       </View>
     </View>
@@ -1683,6 +1720,27 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   lockWrap: {
     marginTop: 2,
+  },
+  // Every locked answer after the first: one line, the same violet as the
+  // card's CTA, no card around it.
+  lockedCollapsed: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  lockedCollapsedText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: theme.purple,
+  },
+  composerLocked: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  composerLockedText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: theme.muted,
+    paddingVertical: 15,
   },
   // A link, not a card: the row title only repeated the session name that the
   // context line already carries.
