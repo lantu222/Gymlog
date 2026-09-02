@@ -27,6 +27,7 @@ import { t } from './i18n';
 import { AppLanguage, NotificationLevel, NotificationPrefs, SetupWeekday } from '../types/models';
 import { exerciseNameLabel } from './exerciseNameLabel';
 import { MEASUREMENT_LABEL_KEYS } from './homeStatCards';
+import { isMeasurementReminderKind } from './measurementReminder';
 
 export type NotificationCategory = 'record' | 'comeback' | 'reminder' | 'weekly' | 'weighIn' | 'measure';
 
@@ -88,15 +89,18 @@ export const MAX_SCHEDULED = 48;
 
 const CATEGORY_PRIORITY: Record<NotificationCategory, number> = {
   record: 0,
-  // Second only to a record: this is the one message the reader asked for by
-  // name, so it does not lose its slot to a reminder that is on by default.
-  weighIn: 1,
-  // Asked for by name, like the weigh-in — and once a week, so it is never
-  // the one crowding a day.
+  // Asked for by name, like the weigh-in, and the rarer of the two: once a
+  // week against every morning. On the same minute of the same morning the
+  // rarer message keeps the slot — on the quiet level, with both on, the
+  // daily one used to win every Sunday inside its horizon and the weekly one
+  // never fired at all (PR review).
   measure: 1,
-  comeback: 2,
-  reminder: 3,
-  weekly: 4,
+  // Next: the other message the reader asked for by name, so it does not
+  // lose its slot to a reminder that is on by default.
+  weighIn: 2,
+  comeback: 3,
+  reminder: 4,
+  weekly: 5,
 };
 
 const JS_WEEKDAY: Record<SetupWeekday, number> = {
@@ -237,7 +241,9 @@ function buildWeighInReminders(input: NotificationPlanInput): PlannedNotificatio
 function buildMeasurementReminders(input: NotificationPlanInput): PlannedNotification[] {
   const { prefs, language, nowMs } = input;
   const kind = prefs.measurementReminderKind;
-  if (!kind) {
+  // A kind that is not a tape measurement (body fat) cannot be reminded as
+  // one; the loader rejects it, and this refuses it again on the way out.
+  if (!kind || !isMeasurementReminderKind(kind)) {
     return [];
   }
   const wantedWeekday = JS_WEEKDAY[prefs.measurementReminderDay];

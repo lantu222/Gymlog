@@ -119,14 +119,26 @@ module.exports = [
         [at(2026, 7, 12, 7, 30), at(2026, 7, 19, 7, 30), at(2026, 7, 26, 7, 30)],
       );
 
-      // A kind on a quiet day outranks the session reminder, like the weigh-in:
-      // it was asked for by name.
+      // On a quiet day the weekly measurement outranks the session reminder
+      // AND the daily weigh-in on the same minute: the rarest message keeps
+      // the slot. With the weigh-in ranked first, a reader who turned both on
+      // got the weigh-in every Sunday and the measurement never (PR review).
       const quiet = planWith({
-        prefs: { measurementReminderKind: 'hips', measurementReminderDay: 'sun', level: 'quiet' },
+        prefs: {
+          measurementReminderKind: 'hips',
+          measurementReminderDay: 'sun',
+          weighInReminder: true,
+          level: 'quiet',
+        },
         trainingDays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
       }).filter((item) => item.fireAtMs >= at(2026, 7, 5, 0, 0) && item.fireAtMs < at(2026, 7, 6, 0, 0));
       assert.equal(quiet.length, 1);
       assert.equal(quiet[0].category, 'measure');
+      // And the weigh-in still owns the other six mornings.
+      const saturday = planWith({
+        prefs: { measurementReminderKind: 'hips', measurementReminderDay: 'sun', weighInReminder: true, level: 'quiet' },
+      }).filter((item) => item.fireAtMs >= at(2026, 7, 4, 0, 0) && item.fireAtMs < at(2026, 7, 5, 0, 0));
+      assert.deepEqual(saturday.map((item) => item.category), ['weighIn']);
     },
   },
   {

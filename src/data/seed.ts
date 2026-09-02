@@ -34,7 +34,7 @@ const DEFAULT_PREFERENCES = {
     sessionReminders: false,
     reminderTime: '17:30',
     weighInReminder: false,
-    measurementReminderKind: null as import('../types/models').MeasurementKind | null,
+    measurementReminderKind: null as Exclude<import('../types/models').MeasurementKind, 'bodyfat'> | null,
     measurementReminderDay: 'sun' as const,
     restAlerts: true,
     restWarning: true,

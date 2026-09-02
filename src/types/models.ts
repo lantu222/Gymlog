@@ -75,7 +75,7 @@ export interface NotificationPrefs {
    * separate flag, because "on" with nothing to measure is a reminder that
    * cannot say what it is for.
    */
-  measurementReminderKind: MeasurementKind | null;
+  measurementReminderKind: Exclude<MeasurementKind, 'bodyfat'> | null;
   measurementReminderDay: SetupWeekday;
   /**
    * Rest & alerts (design: Background Timer). Defaults assume a noisy gym —

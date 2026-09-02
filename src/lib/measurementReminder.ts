@@ -1,4 +1,5 @@
-import { isMeasurementKind } from './measurementKinds';
+import { MEASUREMENT_KIND_ORDER } from './measurementKinds';
+import { WEEKDAY_KEYS } from './programTrainingDays';
 import { MeasurementKind, SetupWeekday } from '../types/models';
 
 /**
@@ -13,14 +14,27 @@ import { MeasurementKind, SetupWeekday } from '../types/models';
  * is on with no kind chosen is a reminder that cannot say what to measure.
  */
 export interface MeasurementReminderSetting {
-  kind: MeasurementKind | null;
+  kind: MeasurementReminderKind | null;
   day: SetupWeekday;
 }
 
-const WEEKDAYS: readonly SetupWeekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+/**
+ * What a tape can measure. Body fat is a measurement the app records, but
+ * not one a tape takes, and the reminder names its instrument — "Tape
+ * measure: Body fat" would be a reminder for the wrong tool (PR review).
+ */
+export type MeasurementReminderKind = Exclude<MeasurementKind, 'bodyfat'>;
+
+export const MEASUREMENT_REMINDER_KINDS: readonly MeasurementReminderKind[] = MEASUREMENT_KIND_ORDER.filter(
+  (kind): kind is MeasurementReminderKind => kind !== 'bodyfat',
+);
+
+export function isMeasurementReminderKind(value: unknown): value is MeasurementReminderKind {
+  return typeof value === 'string' && (MEASUREMENT_REMINDER_KINDS as readonly string[]).includes(value);
+}
 
 export function isSetupWeekday(value: unknown): value is SetupWeekday {
-  return typeof value === 'string' && (WEEKDAYS as readonly string[]).includes(value);
+  return typeof value === 'string' && (WEEKDAY_KEYS as readonly string[]).includes(value);
 }
 
 /**
@@ -28,9 +42,10 @@ export function isSetupWeekday(value: unknown): value is SetupWeekday {
  * than inline in database.ts so Node can call it: database.ts imports
  * AsyncStorage and cannot be required in a test.
  *
- * A kind the app does not know (a typo, a kind from a newer build) is off,
- * not a crash; a weekday it does not know is the fallback's day, because a
- * reminder on no day at all would be a setting that quietly does nothing.
+ * A kind the reminder cannot name (a typo, a kind from a newer build, body
+ * fat) is off, not a crash; a weekday it does not know is the fallback's day,
+ * because a reminder on no day at all would be a setting that quietly does
+ * nothing.
  */
 export function normalizeMeasurementReminder(
   kind: unknown,
@@ -38,7 +53,7 @@ export function normalizeMeasurementReminder(
   fallback: MeasurementReminderSetting,
 ): MeasurementReminderSetting {
   return {
-    kind: kind === null ? null : isMeasurementKind(kind) ? kind : fallback.kind,
+    kind: kind === null ? null : isMeasurementReminderKind(kind) ? kind : fallback.kind,
     day: isSetupWeekday(day) ? day : fallback.day,
   };
 }

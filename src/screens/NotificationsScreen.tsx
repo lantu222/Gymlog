@@ -6,7 +6,8 @@ import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW, SectionLabel, ToggleSwitch } from '../components/SettingsUi';
 import { MEASUREMENT_LABEL_KEYS } from '../lib/homeStatCards';
 import { I18nKey, t } from '../lib/i18n';
-import { MEASUREMENT_KIND_ORDER } from '../lib/measurementKinds';
+import { MEASUREMENT_REMINDER_KINDS } from '../lib/measurementReminder';
+import { WEEKDAY_KEYS } from '../lib/programTrainingDays';
 import { WEIGH_IN_HOUR, WEIGH_IN_MINUTE } from '../lib/notificationPlan';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
@@ -58,8 +59,6 @@ const TRAINING_TOGGLES: Array<{ key: keyof NotificationPrefs; titleKey: I18nKey;
   { key: 'weighInReminder', titleKey: 'notif.weighIn', subKey: 'notif.weighInSub' },
 ];
 
-/** Monday-first, the order every other weekday row in the app reads in. */
-const WEEKDAYS: SetupWeekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 /** Full weekday names live under the widget's keys, Monday = 0. */
 const WEEKDAY_NAME_KEYS: Record<SetupWeekday, I18nKey> = {
   mon: 'widget.weekday.0',
@@ -360,7 +359,7 @@ export function NotificationsScreen({
                   <>
                     <Text style={styles.pickerLabel}>{t(language, 'notif.measure.kind')}</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.timeStrip}>
-                      {MEASUREMENT_KIND_ORDER.map((kind) => {
+                      {MEASUREMENT_REMINDER_KINDS.map((kind) => {
                         const active = kind === measureKind;
                         return (
                           <Pressable
@@ -383,7 +382,7 @@ export function NotificationsScreen({
                     </ScrollView>
                     <Text style={styles.pickerLabel}>{t(language, 'notif.measure.day')}</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.timeStrip}>
-                      {WEEKDAYS.map((day) => {
+                      {WEEKDAY_KEYS.map((day) => {
                         const active = day === prefs.measurementReminderDay;
                         return (
                           <Pressable

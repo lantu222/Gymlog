@@ -3,6 +3,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const {
+  MEASUREMENT_REMINDER_KINDS,
+  isMeasurementReminderKind,
   isSetupWeekday,
   normalizeMeasurementReminder,
 } = require('../../.test-dist/lib/measurementReminder.js');
@@ -24,6 +26,12 @@ module.exports = [
       // A kind this build does not know (a typo, a newer build's kind) is
       // off rather than a crash on someone's old install; the day survives.
       assert.deepEqual(normalizeMeasurementReminder('neck', 'fri', FALLBACK), { kind: null, day: 'fri' });
+      // Body fat is a measurement, not a tape measurement: the reminder names
+      // its instrument, so it cannot be reminded as one.
+      assert.deepEqual(normalizeMeasurementReminder('bodyfat', 'fri', FALLBACK), { kind: null, day: 'fri' });
+      assert.equal(isMeasurementReminderKind('bodyfat'), false);
+      assert.equal(isMeasurementReminderKind('hips'), true);
+      assert.deepEqual([...MEASUREMENT_REMINDER_KINDS], ['shoulders', 'chest', 'back', 'arms', 'waist', 'hips', 'thighs', 'calves']);
       // A day it does not know is the fallback's day, because a reminder on
       // no day would be a setting that quietly does nothing.
       assert.deepEqual(normalizeMeasurementReminder('waist', 'someday', FALLBACK), { kind: 'waist', day: 'sun' });
