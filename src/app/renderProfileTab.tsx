@@ -198,6 +198,11 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
         coachSpecimen={proCoachSpecimen}
         onOpenAnalysis={() => navigate({ tab: 'progress', screen: 'list' })}
         onManageSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
+        onSeeEverything={() => navigate({ tab: 'profile', screen: 'premium' })}
+        // The badge names the moment only when there is a record of it. A
+        // promo went live when it was redeemed, not now — with no instant to
+        // show, the badge says "live" and leaves the time out.
+        liveSince={preferences.mockSubscriptionPurchasedAt ?? null}
         // Counted here, from the instant the purchase was recorded plus the
         // term's own length. One function, shared with the subscription screen.
         renewsAt={nextChargeAt(
@@ -347,7 +352,12 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
         // guess which of promo / demo switch is keeping Pro on.
         source={proEntitlement.source ?? 'none'}
         promoUntil={proEntitlement.promoUntil}
-        periodEndsAt={nextChargeAt(preferences.mockSubscriptionTerm, MOCK_BILLING.lastChargedAt)}
+        // Counted from the same instant the subscription screen counts from,
+        // or the two screens name different dates for the same period.
+        periodEndsAt={nextChargeAt(
+          preferences.mockSubscriptionTerm,
+          preferences.mockSubscriptionPurchasedAt ?? MOCK_BILLING.lastChargedAt,
+        )}
         onBack={() => navigateBack({ tab: 'profile', screen: 'subscription' })}
         onKeep={() => navigateBack({ tab: 'profile', screen: 'subscription' })}
         // Cancelling leaves Pro switched ON until the period ends — that is what

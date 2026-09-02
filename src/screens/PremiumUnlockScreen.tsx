@@ -2,13 +2,40 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { formatDate } from '../lib/format';
+import { formatDate, formatTime } from '../lib/format';
+import { countWord } from '../lib/countWord';
 import { CutSurface } from '../components/CutSurface';
 import { I18nKey, t } from '../lib/i18n';
 import { PRO_UNLOCK_CARDS, PRO_UNLOCK_LIMIT_VARS } from '../lib/proBenefits';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 import { queryReduceMotion } from '../utils/reduceMotion';
+
+const IC: Record<string, { path: string; filled?: boolean }> = {
+  'unlock.ai.t': { path: 'M12 2.5l2.1 5.6L19.5 10l-5.4 1.9L12 17.5l-2.1-5.6L4.5 10l5.4-1.9z', filled: true },
+  'unlock.progression.t': { path: 'M7 17L17 7M9 7h8v8' },
+  'unlock.reads.t': { path: 'M4 7h16M4 12h11M4 17h7' },
+  'unlock.history.t': { path: 'M12 7v5l3.5 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+  'unlock.programs.t': { path: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z' },
+};
+
+const RECEIPT: Record<string, { nameKey: I18nKey; priceKey: I18nKey; unitKey: I18nKey }> = {
+  monthly: {
+    nameKey: 'unlock.receipt.monthly',
+    priceKey: 'paywall.plan.monthly.price',
+    unitKey: 'pro.v3.unit.month',
+  },
+  yearly: {
+    nameKey: 'unlock.receipt.yearly',
+    priceKey: 'paywall.plan.yearly.price',
+    unitKey: 'pro.v3.unit.year',
+  },
+  lifetime: {
+    nameKey: 'unlock.receipt.lifetime',
+    priceKey: 'pro.page.perLifetime',
+    unitKey: 'pro.v3.unit.lifetime',
+  },
+};
 
 /**
  * What happens the moment Pro turns on (design: "Vinha Pro — oston jälkeen").
@@ -18,12 +45,13 @@ import { queryReduceMotion } from '../utils/reduceMotion';
  * the day before — and ended in two buttons that were the same navigation
  * wearing different clothes. The second listed what Pro has.
  *
- * This one states the *difference*. Every row strikes through the free limit
- * and puts what replaced it in yellow, which is the paywall's one "this is
- * Pro" colour. That is the only thing a reader who just paid is actually
- * asking, and unlike a feature list it is checkable: every struck-through
- * value is interpolated from the constant that enforced it, so the screen
- * cannot claim a limit the app never had.
+ * This one states the *difference*. Every row sets the free limit in grey and
+ * what replaced it in violet, which is the app's state colour (design
+ * 2026-09-02: no gold, no green — one filled action in the accent). That is
+ * the only thing a reader who just paid is actually asking, and unlike a
+ * feature list it is checkable: every old value is interpolated from the
+ * constant that enforced it, so the screen cannot claim a limit the app never
+ * had.
  *
  * The rows come from PRO_UNLOCK_CARDS, whose `gates` must partition
  * PRO_LIVE_BENEFITS exactly (proBenefits.test.cjs). That is what stops this
@@ -54,6 +82,14 @@ interface PremiumUnlockScreenProps {
   onOpenAnalysis?: () => void;
   /** Opens subscription management from the receipt. */
   onManageSubscription?: () => void;
+  /** The quiet link under the action: the full Pro page, for the curious. */
+  onSeeEverything?: () => void;
+  /**
+   * When Pro went live, ISO — the purchase instant when there is one. The
+   * state badge names the moment ("Pro · live since 18.52") because a state
+   * with a time is checkable; a bare "Pro on" is a claim.
+   */
+  liveSince?: string | null;
   /**
    * When this package renews, ISO — counted from the purchase instant plus the
    * term's length (lib/subscriptionView), never written. Null for lifetime,
@@ -72,50 +108,6 @@ interface PremiumUnlockScreenProps {
 const ROW_STAGGER_MS = 430;
 const ROW_IN_MS = 420;
 
-/** The yellow is the paywall's; on it, ink is fixed rather than themed. */
-const HIGHLIGHT_INK = '#241743';
-
-const IC: Record<string, { path: string; filled?: boolean }> = {
-  'unlock.ai.t': { path: 'M12 2.5l2.1 5.6L19.5 10l-5.4 1.9L12 17.5l-2.1-5.6L4.5 10l5.4-1.9z', filled: true },
-  'unlock.progression.t': { path: 'M7 17L17 7M9 7h8v8' },
-  'unlock.reads.t': { path: 'M4 7h16M4 12h11M4 17h7' },
-  'unlock.history.t': { path: 'M12 7v5l3.5 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
-  'unlock.programs.t': { path: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z' },
-};
-
-const RECEIPT: Record<string, { nameKey: I18nKey; priceKey: I18nKey; unitKey: I18nKey }> = {
-  monthly: {
-    nameKey: 'unlock.receipt.monthly',
-    priceKey: 'paywall.plan.monthly.price',
-    unitKey: 'pro.v3.unit.month',
-  },
-  yearly: {
-    nameKey: 'unlock.receipt.yearly',
-    priceKey: 'paywall.plan.yearly.price',
-    unitKey: 'pro.v3.unit.year',
-  },
-  lifetime: {
-    nameKey: 'unlock.receipt.lifetime',
-    priceKey: 'pro.page.perLifetime',
-    unitKey: 'pro.v3.unit.lifetime',
-  },
-};
-
-function CheckGlyph({ color, size = 14 }: { color: string; size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Path
-        d="M5 13l4 4L19 7"
-        stroke={color}
-        strokeWidth={3}
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
 export function PremiumUnlockScreen({
   language = 'en',
   onDone,
@@ -123,6 +115,8 @@ export function PremiumUnlockScreen({
   plan = 'yearly',
   onOpenAnalysis,
   onManageSubscription,
+  onSeeEverything,
+  liveSince = null,
   renewsAt = null,
 }: PremiumUnlockScreenProps) {
   const theme = useTheme();
@@ -190,16 +184,23 @@ export function PremiumUnlockScreen({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
+        {/* The violet state badge carries the fact (design: GAINER Pro
+            screens, 01) — a green pip said "on", which is a switch; this is
+            a moment, and it names when. Gold, green and filled red are out:
+            Pro is the same app with more of it. */}
         <Animated.View style={[styles.statusRow, ready && riseStyle(0)]}>
-          <View style={styles.statusDot}>
-            <CheckGlyph color={theme.bg} />
+          <View style={styles.stateBadge}>
+            <Text style={styles.stateBadgeText}>
+              {liveSince
+                ? t(language, 'unlock.state.liveSince', { time: formatTime(liveSince, language) })
+                : t(language, 'unlock.state.live')}
+            </Text>
           </View>
-          <Text style={styles.statusText}>{t(language, 'promo.proOn')}</Text>
         </Animated.View>
 
         <Animated.Text style={[styles.headline, ready && riseStyle(0)]}>
-          {/* Derived, not typed: a hardcoded "six" lies the day a row moves. */}
-          {t(language, 'unlock.headline', { count: PRO_UNLOCK_CARDS.length })}
+          {/* Derived, not typed: a hardcoded "five" lies the day a row moves. */}
+          {t(language, 'unlock.headline', { count: countWord(PRO_UNLOCK_CARDS.length, language) })}
         </Animated.Text>
         <Animated.Text style={[styles.lead, ready && riseStyle(0)]}>
           {t(language, 'unlock.body')}
@@ -301,6 +302,8 @@ export function PremiumUnlockScreen({
       </ScrollView>
 
       <View style={styles.footer}>
+        {/* One filled action, and it goes home — the screen is about what
+            changed, not about today. The whole list is a quiet link. */}
         <Pressable
           accessibilityRole="button"
           onPress={onDone}
@@ -308,6 +311,11 @@ export function PremiumUnlockScreen({
         >
           <Text style={styles.ctaText}>{t(language, 'unlock.cta')}</Text>
         </Pressable>
+        {onSeeEverything ? (
+          <Pressable accessibilityRole="button" onPress={onSeeEverything} hitSlop={8} style={styles.quietLink}>
+            <Text style={styles.quietLinkText}>{t(language, 'unlock.seeEverything')}</Text>
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
@@ -332,19 +340,19 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  statusDot: {
-    width: 24,
-    height: 24,
+  // State is violet — the same chip the rows use for "what is on".
+  stateBadge: {
+    backgroundColor: theme.purpleLight,
     borderRadius: 999,
-    backgroundColor: theme.green,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 11,
   },
-  statusText: {
+  stateBadgeText: {
     fontSize: 11.5,
     fontWeight: '800',
-    letterSpacing: 1.3,
-    color: theme.green,
+    letterSpacing: 0.9,
+    color: theme.purpleDark,
+    textTransform: 'uppercase',
   },
   headline: {
     fontSize: 27,
@@ -421,8 +429,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.faint,
     textDecorationLine: 'line-through',
   },
+  // Violet, not gold: the new value is a STATE — what is on, what is yours.
   nowChip: {
-    backgroundColor: theme.gold,
+    backgroundColor: theme.purpleLight,
     borderRadius: 6,
     paddingVertical: 3,
     paddingHorizontal: 8,
@@ -430,7 +439,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   nowChipText: {
     fontSize: 11.5,
     fontWeight: '800',
-    color: HIGHLIGHT_INK,
+    color: theme.purpleDark,
   },
   rowText: {
     fontSize: 12.5,
@@ -540,14 +549,24 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   cta: {
     height: 52,
     borderRadius: 16,
-    backgroundColor: theme.purple,
+    backgroundColor: theme.highlight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   ctaText: {
     fontSize: 16.5,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: theme.onHighlight,
+  },
+  quietLink: {
+    alignItems: 'center',
+    paddingTop: 12,
+    paddingBottom: 2,
+  },
+  quietLinkText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: theme.purple,
   },
   pressed: {
     opacity: 0.85,
