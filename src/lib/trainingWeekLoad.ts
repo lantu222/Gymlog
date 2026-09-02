@@ -12,7 +12,13 @@ import { removeTrailingZeros } from './format';
  * Three sources, in order of who knows better:
  *   1. a cycle, which states its own period and is not tied to weekdays;
  *   2. the days the plan names, which is the truth for a weekday rhythm;
- *   3. the session count, the only thing a programme nobody has adopted knows.
+ *   3. the programme's own stated days, for a programme nobody has adopted.
+ *
+ * The third used to be the SESSION count, which is a different number: a
+ * rolling programme spreads its sessions over its days, and Strength
+ * Foundations 5x5 runs two workouts across three days. Counting sessions drew
+ * it as a two-day programme under a catalog row that said "3 ×" (#bugs
+ * 2026-09-01).
  */
 export interface TrainingWeekLoad {
   /** Training days in an average week. 5.6 for "4 on · 1 off". */
@@ -28,8 +34,8 @@ export interface TrainingWeekLoadInput {
   cyclePattern: readonly boolean[] | null;
   /** How many weekdays the rhythm trains on, or null when nothing says. */
   weekdayCount: number | null;
-  /** Sessions the programme holds — the last resort. */
-  sessionCount: number;
+  /** Training days the programme itself states — the last resort. */
+  programDaysPerWeek: number;
   /** Estimated minutes of one session; 0 when unknown. */
   minutesPerSession: number;
 }
@@ -55,7 +61,7 @@ export function buildTrainingWeekLoad(input: TrainingWeekLoadInput): TrainingWee
     if (input.weekdayCount !== null && input.weekdayCount > 0) {
       return Math.min(7, Math.round(input.weekdayCount));
     }
-    return Math.max(0, Math.round(input.sessionCount));
+    return Math.min(7, Math.max(0, Math.round(input.programDaysPerWeek)));
   })();
 
   return {
