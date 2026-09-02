@@ -175,8 +175,10 @@ module.exports = [
 
       // Both chart empties go through it, and the loose Text they used to be
       // is gone with its style.
+      // Counted on the tag, not on `<EmptyBox label=`: one of the two grew a
+      // multi-line prop and the narrower pattern stopped seeing it.
       assert.equal(
-        (screen.match(/<EmptyBox label=/g) ?? []).length,
+        (screen.match(/<EmptyBox[\s/>]/g) ?? []).length,
         2,
         'a chart is drawing its own empty state again',
       );
@@ -401,6 +403,44 @@ module.exports = [
         /export function formatSessionDate[\s\S]{0,320}minute: '2-digit'/,
         'formatSessionDate stopped carrying a time',
       );
+    },
+  },
+  {
+    /**
+     * Progress v2 · 07 — what you track, and one row for the rest.
+     *
+     * Ten rows, seven of them empty, was a wall you scrolled past. A measure
+     * is yours once you have logged it — and the one you are looking at right
+     * now is yours too, or opening a fresh one from the sheet would leave its
+     * card above a list that does not mention it.
+     */
+    name: 'progress: the measure list is what you track, and the rest are one row',
+    run() {
+      // The split, and both halves of what "tracked" means.
+      assert.match(screen, /const tracked = measureModels\.filter\(/);
+      assert.match(screen, /item\.values\.length > 0 \|\| item\.key === selectedMeasure/);
+      assert.match(screen, /const untracked = measureModels\.filter\(\(item\) => !tracked\.includes\(item\)\)/);
+      // The list draws the tracked ones, not every model.
+      assert.match(screen, /\[\.\.\.tracked\][\s\S]{0,20}\.sort\(/);
+      assert.doesNotMatch(screen, /\[\.\.\.measureModels\]/, 'the wall of ten is back');
+
+      // One row for the rest, opening the kit's own sheet — the same one Home
+      // adds a stat card with, not a second picker.
+      assert.match(screen, /t\(language, 'progress\.trackAnother'\)/);
+      assert.match(screen, /import \{ KitRow, KitSheet \} from '\.\.\/components\/sheetKit';/);
+      assert.match(screen, /<KitSheet/);
+      assert.match(screen, /untracked\.length \? \(/, 'the add row draws with nothing left to add');
+
+      // And the absence is stated once. The caption went; the dashed box keeps
+      // it, because it is where the line will appear.
+      assert.doesNotMatch(screen, /'progress\.addFirst'/, 'the card says it twice again');
+      assert.doesNotMatch(i18n, /'progress\.addFirst':/);
+      assert.match(screen, /model\.values\.length \? 'progress\.noEntriesRange' : 'progress\.noEntriesYet'/);
+      assert.match(screen, /model\.values\.length \? \([\s\S]{0,20}<Text style=\{styles\.measureCaption\}/);
+
+      // The section is named for what it holds.
+      assert.match(i18n, /'progress\.section\.youTrack':/);
+      assert.doesNotMatch(i18n, /'progress\.section\.allMeasures':/);
     },
   },
 ];

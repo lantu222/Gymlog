@@ -4,6 +4,7 @@ import Svg, { Circle, Path, Polyline, Rect } from 'react-native-svg';
 
 import { VinhaIcon } from '../components/VinhaIcon';
 import { EmptyBox } from '../components/EmptyBox';
+import { KitRow, KitSheet } from '../components/sheetKit';
 import { Seg } from '../components/Seg';
 import {
   formatOverviewVolumeTick,
@@ -738,6 +739,8 @@ export function ProgressScreen({
    * past on the way to the chart.
    */
   const [entriesEditing, setEntriesEditing] = useState(false);
+  /** The picker behind "Track another measure". */
+  const [measurePickerVisible, setMeasurePickerVisible] = useState(false);
   const bodyweightStats = useMemo(
     () => buildBodyweightCardStats(bodyweightProgress.entries),
     [bodyweightProgress.entries],
@@ -1698,11 +1701,15 @@ export function ProgressScreen({
               </Text>
               <Text style={styles.measureUnit}>{model.unit}</Text>
             </View>
-            <Text style={styles.measureCaption}>
-              {model.values.length
-                ? t(language, 'progress.ownBaseline')
-                : t(language, 'progress.addFirst')}
-            </Text>
+            {/* Only when there IS a baseline. With nothing logged this said
+                "No entries yet — add your first below", the dashed box below
+                said it again, and the row in the list said it a third time.
+                The brief counts: "an untracked measure says it once". The box
+                is the one that keeps it, because it is where the line will
+                appear. */}
+            {model.values.length ? (
+              <Text style={styles.measureCaption}>{t(language, 'progress.ownBaseline')}</Text>
+            ) : null}
 
             {/* Inside the card with the number it draws: the chart floated
                 below the box while the weight card kept its chart inside,
@@ -1711,7 +1718,13 @@ export function ProgressScreen({
             {selectedMeasureWindow.some((day) => day.value !== null) ? (
               <WeightTrendChart days={selectedMeasureWindow} />
             ) : (
-              <EmptyBox label={t(language, 'progress.noEntriesRange')} />
+              /* Two different absences, and they are not the same sentence.
+                 Nothing ever logged is "no entries yet"; entries that all fall
+                 outside the chosen window is "none in this range" — and that
+                 one is a hint to widen the range rather than a hole. */
+              <EmptyBox
+                label={t(language, model.values.length ? 'progress.noEntriesRange' : 'progress.noEntriesYet')}
+              />
             )}
             <View style={styles.trendRangeRow}>
               <Seg
@@ -1817,14 +1830,31 @@ export function ProgressScreen({
   }
 
   function renderMeasureList() {
+    /**
+     * What you actually track — not all ten.
+     *
+     * Ten rows, seven of them empty, was a wall you scrolled past: the brief
+     * calls it out and the earlier fix only re-sorted it so the empties came
+     * last. A measure is yours once you have logged it, and the one you are
+     * looking at right now is yours too — otherwise opening a fresh measure
+     * from the sheet would leave its card above a list that does not mention
+     * it.
+     *
+     * The rest are one row at the bottom, not seven.
+     */
+    const tracked = measureModels.filter(
+      (item) => item.values.length > 0 || item.key === selectedMeasure,
+    );
+    const untracked = measureModels.filter((item) => !tracked.includes(item));
+
     return (
       <>
-        <SectionLabel label={t(language, 'progress.section.allMeasures')} />
+        <SectionLabel label={t(language, 'progress.section.youTrack')} />
         <View style={styles.measureList}>
           {/* Measures with entries first, outlined (user 2026-08-23): the
               catalog order buried "Rinta · 93,5 cm" under three empty rows.
               The sort is stable, so within each half the catalog order holds. */}
-          {[...measureModels]
+          {[...tracked]
             .sort((left, right) => Number(right.values.length > 0) - Number(left.values.length > 0))
             .map((item) => {
             const active = item.key === selectedMeasure;
@@ -1861,7 +1891,47 @@ export function ProgressScreen({
               </Pressable>
             );
           })}
+          {/* One row for everything else. A measure you have never taken is
+              not a row you want to read past every time you open the tab — it
+              is a thing you might start, which is one line. */}
+          {untracked.length ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setMeasurePickerVisible(true)}
+              style={({ pressed }) => [styles.measureAddRow, pressed && { opacity: 0.8 }]}
+            >
+              <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M12 5v14M5 12h14"
+                  stroke={theme.highlight}
+                  strokeWidth={2.4}
+                  strokeLinecap="round"
+                />
+              </Svg>
+              <Text style={styles.measureAddText}>{t(language, 'progress.trackAnother')}</Text>
+            </Pressable>
+          ) : null}
         </View>
+
+        {/* The kit's own sheet, the same one Home adds a stat card with. */}
+        <KitSheet
+          visible={measurePickerVisible}
+          onClose={() => setMeasurePickerVisible(false)}
+          title={t(language, 'progress.trackAnother')}
+          bottomInset={0}
+        >
+          {untracked.map((item) => (
+            <KitRow
+              key={item.key}
+              title={t(language, item.labelKey)}
+              meta={item.unit}
+              onPress={() => {
+                setSelectedMeasure(item.key);
+                setMeasurePickerVisible(false);
+              }}
+            />
+          ))}
+        </KitSheet>
       </>
     );
   }
@@ -2615,6 +2685,19 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 21,
     lineHeight: 23,
     fontWeight: '600',
+  },
+  measureAddRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 48,
+  },
+  measureAddText: {
+    color: theme.highlight,
+    fontSize: 13.5,
+    lineHeight: 18,
+    fontWeight: '800',
   },
   measureList: {
     gap: 9,
