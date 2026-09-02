@@ -15,6 +15,7 @@ import {
   buildValueWindow,
   buildWeightWindow,
   measureRangeDays,
+  measureWindowEnd,
 } from '../lib/bodyweightCard';
 import type { HomeRecentSessionItem } from './HomeScreen';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
@@ -25,6 +26,7 @@ import {
   formatDate,
   formatDurationMinutes,
   formatShortDate,
+  formatSessionDate,
   formatTime,
   formatVolume,
   formatWeight,
@@ -224,10 +226,13 @@ const PROGRESS_SECTIONS: Array<{ key: ProgressSection; labelKey: I18nKey; icon: 
   },
 ];
 
+// Bodyweight first (user, 2026-09-02). It is the one a reader checks between
+// sessions rather than after one, and it is the only metric here that moves on
+// a day nothing was logged.
 const OVERVIEW_METRICS: Array<{ key: OverviewMetric; labelKey: I18nKey }> = [
+  { key: 'bodyweight', labelKey: 'progress.metric.bodyweight' },
   { key: 'volume', labelKey: 'progress.metric.volume' },
   { key: 'duration', labelKey: 'progress.metric.duration' },
-  { key: 'bodyweight', labelKey: 'progress.metric.bodyweight' },
 ];
 
 // Range chips are numerals with a unit letter — the same in both languages
@@ -835,7 +840,8 @@ export function ProgressScreen({
       value: entry.weight,
     }));
     const first = entries.length ? new Date(entries[0].recordedAt).getTime() : null;
-    return buildValueWindow(entries, nowMs, measureRangeDays(resolvedMeasureRange, first, nowMs));
+    const days = measureRangeDays(resolvedMeasureRange, first, nowMs);
+    return buildValueWindow(entries, nowMs, days, measureWindowEnd(first, nowMs, days));
   }, [bodyweightProgress.entries, resolvedMeasureRange]);
   /**
    * What the rulers open on. Not a default the reader has to correct: their
@@ -1197,7 +1203,8 @@ export function ProgressScreen({
     }));
     const nowMs = Date.now();
     const first = entries.length ? new Date(entries[0].recordedAt).getTime() : null;
-    return buildValueWindow(entries, nowMs, measureRangeDays(resolvedMeasureRange, first, nowMs));
+    const days = measureRangeDays(resolvedMeasureRange, first, nowMs);
+    return buildValueWindow(entries, nowMs, days, measureWindowEnd(first, nowMs, days));
   }, [resolvedMeasureRange, selectedMeasureModel]);
 
   const selectedMeasureLatest = selectedMeasureModel.values.length
@@ -1833,7 +1840,11 @@ export function ProgressScreen({
         <View style={styles.card}>
           {rows.map((row, index) => (
             <View key={row.id} style={[styles.entryRow, index > 0 && styles.entryRowDivided]}>
-              <Text style={styles.entryDate}>{formatShortDate(row.recordedAt, language)}</Text>
+              {/* The whole stamp, not "Sep 1". Two weigh-ins on one day are
+                  the ones you came to delete, and "Sep 1 / Sep 1" cannot tell
+                  them apart — the row has the width for it (user
+                  2026-09-02). */}
+              <Text style={styles.entryDate}>{formatSessionDate(row.recordedAt, language)}</Text>
               <Text style={styles.entryValue}>
                 {removeTrailingZeros(Number(row.value.toFixed(1)))} {model.unit}
               </Text>

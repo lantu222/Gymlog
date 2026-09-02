@@ -301,7 +301,11 @@ module.exports = [
       );
       assert.match(weightBranch, /if \(resolvedMeasureRange === '7d'\) \{/);
       assert.match(weightBranch, /buildWeightWindow\(bodyweightProgress\.entries, nowMs\)/);
-      assert.match(weightBranch, /buildValueWindow\(entries, nowMs, measureRangeDays\(/);
+      assert.match(weightBranch, /buildValueWindow\(entries, nowMs, days, measureWindowEnd\(/);
+      // And the end follows the data: a history shorter than the range anchors
+      // the window at the first entry instead of leaving eleven empty weeks in
+      // front of it (user, 2026-09-02).
+      assert.match(weightBranch, /measureWindowEnd\(first, nowMs, days\)/);
 
       // And the chips are actually ON the card. The <Seg count in the case
       // above only proves five exist somewhere; a mutation that gutted this
@@ -359,6 +363,35 @@ module.exports = [
       assert.doesNotMatch(screen, /useState\(true\); \/\/ entriesEditing/);
       // The toggle names both states rather than staying "Edit" while editing.
       assert.match(screen, /entriesEditing \? 'plan\.done' : 'plan\.edit'/);
+    },
+  },
+  {
+    /**
+     * Two calls from the device walkthrough of 2026-09-02.
+     */
+    name: 'progress: bodyweight leads the metrics, and an entry says when in full',
+    run() {
+      // Bodyweight first. It is the metric a reader checks between sessions
+      // rather than after one, and the only one that moves on a day nothing
+      // was logged.
+      const metrics = screen.slice(
+        screen.indexOf('const OVERVIEW_METRICS'),
+        screen.indexOf('const OVERVIEW_RANGES'),
+      );
+      const at = (key) => metrics.indexOf(`key: '${key}'`);
+      assert.ok(at('bodyweight') > 0, 'the bodyweight metric is gone');
+      assert.ok(at('bodyweight') < at('volume'), 'bodyweight no longer leads');
+      assert.ok(at('volume') < at('duration'), 'volume and duration swapped');
+
+      // A weight entry carries its whole stamp. "Sep 1 / Sep 1" cannot tell
+      // two weigh-ins on one day apart, and those are the ones you came to
+      // delete.
+      assert.match(screen, /styles\.entryDate\}>\{formatSessionDate\(row\.recordedAt, language\)\}/);
+      assert.match(
+        read('src', 'lib', 'format.ts'),
+        /export function formatSessionDate[\s\S]{0,320}minute: '2-digit'/,
+        'formatSessionDate stopped carrying a time',
+      );
     },
   },
 ];

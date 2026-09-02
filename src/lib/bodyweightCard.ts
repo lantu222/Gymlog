@@ -310,13 +310,60 @@ export function measureRangeDays(
   return Math.min(730, Math.max(14, Math.ceil((nowMs - first) / 86_400_000) + 1));
 }
 
+/**
+ * The last day a range window shows.
+ *
+ * The window follows the DATA, not the clock. Asking for three months when you
+ * have logged twice puts both readings against the right-hand edge with eleven
+ * empty weeks in front of them — "ihan tyhmää että se alkaa 4.6" (user,
+ * 2026-09-02), and it is: the chart spends its whole width saying nothing
+ * happened before you started.
+ *
+ * So while the history is shorter than the range, the window starts at the
+ * first entry and runs forward from there. Once it is longer, the window ends
+ * today and trails, which is the other half of what was asked: "jos käyttäjä
+ * on kirjannut 3kk yhtäjaksoisesti niin ... näkee aina uusimman ajan".
+ *
+ * The two cases meet exactly when the history is `days` long, so there is no
+ * jump: whichever end is LATER is the end, and the moment first + days passes
+ * today the anchor hands over to the clock.
+ */
+export function measureWindowEnd(
+  firstEntryMs: number | null,
+  nowMs: number,
+  days: number,
+): number {
+  const now = new Date(nowMs);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  if (firstEntryMs === null || !Number.isFinite(firstEntryMs)) {
+    return today;
+  }
+  const first = new Date(firstEntryMs);
+  // Calendar arithmetic, not +86 400 000 ms — a DST change inside the span
+  // would slide the end by an hour and land it on the wrong day.
+  const anchored = new Date(
+    first.getFullYear(),
+    first.getMonth(),
+    first.getDate() + Math.max(1, Math.round(days)) - 1,
+  ).getTime();
+  return Math.max(today, anchored);
+}
+
 export function buildValueWindow(
   entries: ReadonlyArray<{ recordedAt: string; value: number }>,
   nowMs: number,
   days: number,
+  /**
+   * The last day the window shows. Defaults to today, which is the trailing
+   * window every caller wanted before the range chips existed; pass
+   * `measureWindowEnd` to let a short history anchor the window instead.
+   */
+  endMs?: number,
 ): WeightWindowDay[] {
   const now = new Date(nowMs);
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const endDate = new Date(endMs ?? today);
+  const end = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
   // Latest reading of each day wins, same rule as the weigh-ins.
   const byDay = new Map<number, number>();
   const byDayAt = new Map<number, number>();
@@ -342,7 +389,7 @@ export function buildValueWindow(
   const withMonth = span > 14;
   return Array.from({ length: span }, (_, index) => {
     // Calendar arithmetic, not +86 400 000 ms — DST would slide the slots.
-    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (span - 1) + index);
+    const date = new Date(end.getFullYear(), end.getMonth(), end.getDate() - (span - 1) + index);
     const dayStart = date.getTime();
     return {
       dayStart,
