@@ -443,4 +443,32 @@ module.exports = [
       assert.doesNotMatch(i18n, /'progress\.section\.allMeasures':/);
     },
   },
+  {
+    /**
+     * The brief's first rule: "The calendar was a wall of orange. Logged days
+     * are violet — they are a record of what happened, not something to
+     * press."
+     *
+     * Twenty-five orange squares out of thirty read as a screen full of
+     * buttons, and not one of them does anything when tapped. The one-mark
+     * rule from 2026-08-25 survives — a training day is still the only mark,
+     * with no trained/planned split and no legend — only the ink changed.
+     */
+    name: 'progress: the calendar is a record, not a wall of buttons',
+    run() {
+      const styles = screen.slice(screen.indexOf('  calendarBubbleTraining: {'));
+      const block = styles.slice(0, styles.indexOf('  progressHistoryCard: {'));
+      assert.ok(block.length > 80, 'the calendar styles moved — recheck by hand');
+
+      // Nothing in the calendar's own styles takes the pressable accent.
+      assert.doesNotMatch(block, /theme\.highlight/, 'the calendar is orange again');
+      assert.match(block, /calendarBubbleTraining: \{[^}]*backgroundColor: theme\.purple/);
+      assert.match(block, /calendarBubbleToday: \{[^}]*borderColor: theme\.purple/);
+
+      // And the ink follows the fill. onHighlight is the pair for the accent,
+      // which is orange on the dark theme — the wrong ink for a violet square.
+      assert.doesNotMatch(block, /theme\.onHighlight/);
+      assert.match(block, /calendarBubbleTextToday: \{[^}]*color: theme\.purple/);
+    },
+  },
 ];

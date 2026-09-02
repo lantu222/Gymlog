@@ -1414,9 +1414,16 @@ export function ProgressScreen({
               }
 
               // One mark, one meaning (user 2026-08-25): a training day —
-              // trained, ahead, or behind — is the solid highlight, and
-              // everything else is quiet. No trained/planned split and no
-              // legend to explain it: orange means training day, full stop.
+              // trained, ahead, or behind — is the solid mark, and everything
+              // else is quiet. No trained/planned split and no legend to
+              // explain it: one colour means training day, full stop.
+              //
+              // That colour is VIOLET now, not the accent. The brief opens on
+              // it: "The calendar was a wall of orange. Logged days are violet
+              // — they are a record of what happened, not something to press."
+              // Twenty-five orange squares out of thirty read as a screen full
+              // of buttons, and not one of them does anything when tapped. The
+              // one-mark rule survives; only the ink changed.
               const training = status !== 'rest';
               return (
                 <View key={day.dayStart} style={styles.calendarCell}>
@@ -2415,11 +2422,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   // Any training day — trained, ahead, or behind — wears the same fill.
   calendarBubbleTraining: {
-    backgroundColor: theme.highlight,
+    backgroundColor: theme.purple,
   },
   calendarBubbleToday: {
     borderWidth: 1.5,
-    borderColor: theme.highlight,
+    borderColor: theme.purple,
     borderStyle: 'dashed',
   },
   calendarBubbleText: {
@@ -2428,10 +2435,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '700',
   },
   calendarBubbleTextTraining: {
-    color: theme.onHighlight,
+    // White, the way the NEW tag is white on the same fill. onHighlight is the
+    // ink for `highlight`, which is orange on the dark theme — the wrong pair
+    // for a violet square. The theme's own note says white works on violet.
+    color: '#FFFFFF',
   },
   calendarBubbleTextToday: {
-    color: theme.highlight,
+    color: theme.purple,
   },
   progressHistoryCard: {
     backgroundColor: theme.surface,
