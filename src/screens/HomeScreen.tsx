@@ -1479,16 +1479,14 @@ export function HomeScreen({
                   // session was actually trained this week — the same fact
                   // the old rows carried as the "Tehty" pill.
                   const done = session !== null && doneThisWeekSessionIds.includes(session.id);
-                  return (
-                    <View
-                      key={offset}
-                      style={[
-                        styles.programWeekDay,
-                        session === null && styles.programWeekDayOff,
-                        isToday && styles.programWeekDayToday,
-                        done && styles.programWeekDayDone,
-                      ]}
-                    >
+                  const chipStyle = [
+                    styles.programWeekDay,
+                    session === null && styles.programWeekDayOff,
+                    isToday && styles.programWeekDayToday,
+                    done && styles.programWeekDayDone,
+                  ];
+                  const chip = (
+                    <>
                       <Text style={styles.programWeekDayName}>
                         {weekdayLabel(weekdayCodeForDate(monday), language)}
                       </Text>
@@ -1501,7 +1499,28 @@ export function HomeScreen({
                       >
                         {code ?? '·'}
                       </Text>
-                    </View>
+                    </>
+                  );
+                  // A training day opens its own day (user 2026-09-02: "painamalla
+                  // ensimmäistä se vie tähän ruutuun"). A rest day has nothing
+                  // to open and stays a label.
+                  if (session === null || !onOpenPlanSession) {
+                    return (
+                      <View key={offset} style={chipStyle}>
+                        {chip}
+                      </View>
+                    );
+                  }
+                  return (
+                    <Pressable
+                      key={offset}
+                      accessibilityRole="button"
+                      accessibilityLabel={localizeSessionFocus(session.title, language)}
+                      onPress={() => onOpenPlanSession(session.id)}
+                      style={({ pressed }) => [...chipStyle, pressed && styles.pressed]}
+                    >
+                      {chip}
+                    </Pressable>
                   );
                 })}
               </View>

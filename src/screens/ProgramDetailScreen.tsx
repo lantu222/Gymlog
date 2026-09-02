@@ -381,6 +381,13 @@ export function ProgramDetailScreen({
     [durationMinutes, program.daysPerWeek, shownDays, trainingCycle],
   );
 
+  /**
+   * The week's chips write the plan on a tap, and a tap is what a thumb does
+   * while scrolling: "päivien vaihto liian helppo" (user 2026-09-02). They
+   * take taps only behind an Edit control now; reading the week costs
+   * nothing, changing it costs one deliberate tap first.
+   */
+  const [rhythmEditing, setRhythmEditing] = useState(false);
   const toggleRhythmDay = (index: number) => {
     if (!onSaveRhythm) {
       return;
@@ -644,16 +651,31 @@ export function ProgramDetailScreen({
             never named a single session. */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{t(language, 'detail.rhythm')}</Text>
-          <Text style={styles.sectionMeta}>
-            {trainingCycle
-              ? // The honest number for a rhythm that ignores weekdays: the
-                // cycle's own shape, not the mask's day count.
-                t(language, 'detail.week.pattern', {
-                  on: trainingCycle.pattern.filter(Boolean).length,
-                  off: trainingCycle.pattern.filter((day) => !day).length,
-                })
-              : t(language, 'detail.trainingDays', { count: program.daysPerWeek })}
-          </Text>
+          <View style={styles.sectionHeaderEnd}>
+            <Text style={styles.sectionMeta}>
+              {trainingCycle
+                ? // The honest number for a rhythm that ignores weekdays: the
+                  // cycle's own shape, not the mask's day count.
+                  t(language, 'detail.week.pattern', {
+                    on: trainingCycle.pattern.filter(Boolean).length,
+                    off: trainingCycle.pattern.filter((day) => !day).length,
+                  })
+                : t(language, 'detail.trainingDays', { count: program.daysPerWeek })}
+            </Text>
+            {onSaveRhythm ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded: rhythmEditing }}
+                onPress={() => setRhythmEditing((open) => !open)}
+                hitSlop={8}
+                style={({ pressed }) => pressed && { opacity: 0.65 }}
+              >
+                <Text style={styles.sectionAction}>
+                  {t(language, rhythmEditing ? 'detail.rhythm.done' : 'detail.rhythm.edit')}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
         <View style={styles.rhythmRow}>
           {scheduleSlots.map((slot, index) => {
@@ -680,7 +702,7 @@ export function ProgramDetailScreen({
                 </Text>
               </>
             );
-            if (!onSaveRhythm) {
+            if (!onSaveRhythm || !rhythmEditing) {
               return (
                 <View key={slot.dayKey} style={[styles.rhythmDay, isTraining && styles.rhythmDayOn]}>
                   {chip}
@@ -711,7 +733,7 @@ export function ProgramDetailScreen({
             );
           })}
         </View>
-        {onSaveRhythm ? (
+        {onSaveRhythm && rhythmEditing ? (
           <View style={styles.patRow}>
             {RHYTHM_PRESETS.map((preset) => ({
               key: preset.key,
@@ -1355,9 +1377,19 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '900',
     letterSpacing: -0.3,
   },
+  sectionHeaderEnd: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
   sectionMeta: {
     color: theme.muted,
     fontSize: 12,
+    fontWeight: '800',
+  },
+  sectionAction: {
+    color: theme.purple,
+    fontSize: 13,
     fontWeight: '800',
   },
   workoutList: {

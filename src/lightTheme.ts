@@ -24,7 +24,9 @@ export const HG = {
   // read too washed-out on device).
   muted: '#5E5670',
   faint: '#8A82A0',
-  border: '#D8CBEE',
+  // Darkened again 2026-09-02 (user, on the device build: "ääriviivat ovat
+  // liian haaleita") — one step, not a redraw.
+  border: '#CDBEE6',
   shadow: '#D8C7FF',
   purple: '#6D28D9',
   /** The old HG.purple. Still the brighter accent on a few surfaces. */
@@ -97,10 +99,10 @@ export const PW = {
  * Workout screen now, the Active Workout v3 rebuild later.
  */
 export const AW3 = {
-  hair: '#EEEAF7',
+  hair: '#E6E0F2',
   ghost: '#C0B8D4',
   field: '#FAF8FF',
-  fieldBorder: '#E5DEF4',
+  fieldBorder: '#DCD3EC',
   ink2: '#3B3550',
   danger: '#D64545',
 } as const;
