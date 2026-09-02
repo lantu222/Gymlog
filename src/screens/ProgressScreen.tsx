@@ -5,6 +5,12 @@ import Svg, { Circle, Path, Polyline, Rect } from 'react-native-svg';
 import { VinhaIcon } from '../components/VinhaIcon';
 import { EmptyBox } from '../components/EmptyBox';
 import { Seg } from '../components/Seg';
+import {
+  formatOverviewVolumeTick,
+  getOverviewBodyweightTicks,
+  getOverviewDurationTicks,
+  getOverviewVolumeTicks,
+} from '../lib/progressChartTicks';
 import { SimpleLineChart } from '../components/SimpleLineChart';
 import { WeightTrendChart } from '../components/WeightTrendChart';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -446,88 +452,6 @@ function getOverviewFooterLabels(
   labels.push(points[points.length - 1].label);
 
   return [...new Set(labels)].map((label) => formatOverviewChartLabel(label, range, language));
-}
-
-function getOverviewDurationTicks(maxValue: number) {
-  const top = maxValue <= 15 ? 15 : maxValue <= 30 ? 30 : maxValue <= 45 ? 45 : maxValue <= 60 ? 60 : 90;
-  const step = top === 90 ? 30 : 15;
-  return Array.from({ length: top / step + 1 }, (_, index) => index * step);
-}
-
-/**
- * Volume ticks on round numbers.
- *
- * Without these the chart interpolated its own axis and printed things like
- * "1730.8 kg" and "496.7 kg" — a decimal on a number nobody lifts to a tenth
- * of a kilo, under a headline that already reads "2,2 t". The axis steps in
- * halves and thousands instead, and the labels use the same compact unit as
- * the headline so the two agree.
- */
-function getOverviewVolumeTicks(maxValue: number) {
-  if (maxValue <= 0) {
-    return [0, 250, 500];
-  }
-
-  // Step from a 1 / 2.5 / 5 ladder so every tick lands on a readable number.
-  const magnitude = Math.pow(10, Math.floor(Math.log10(maxValue / 3)));
-  const step = [1, 2.5, 5, 10].map((factor) => factor * magnitude).find((candidate) => maxValue / candidate <= 4)
-    ?? 10 * magnitude;
-  const top = Math.ceil(maxValue / step) * step;
-  const ticks: number[] = [];
-  for (let tick = 0; tick <= top + step / 2; tick += step) {
-    ticks.push(Number(tick.toFixed(2)));
-  }
-  return ticks;
-}
-
-function formatOverviewVolumeTick(value: number, ticks: number[]) {
-  const top = ticks.length ? ticks[ticks.length - 1] : 0;
-  if (top >= 1000) {
-    const tonnes = value / 1000;
-    return `${removeTrailingZeros(Number(tonnes.toFixed(tonnes >= 10 ? 0 : 1)))} t`;
-  }
-  return `${removeTrailingZeros(Math.round(value))} kg`;
-}
-
-function getOverviewBodyweightTicks(values: number[], unitPreference: UnitPreference) {
-  if (!values.length) {
-    return unitPreference === 'lb' ? [100, 102, 104, 106] : [50, 50.5, 51, 51.5];
-  }
-
-  const spread = Math.max(...values) - Math.min(...values);
-  const step =
-    unitPreference === 'lb'
-      ? spread <= 4
-        ? 1
-        : spread <= 10
-          ? 2
-          : spread <= 25
-            ? 5
-            : 10
-      : spread <= 2
-        ? 0.5
-        : spread <= 5
-          ? 1
-          : spread <= 10
-            ? 2
-            : spread <= 25
-              ? 5
-              : 10;
-
-  let minTick = Math.floor(Math.min(...values) / step) * step;
-  let maxTick = Math.ceil(Math.max(...values) / step) * step;
-
-  while (Math.round((maxTick - minTick) / step) + 1 < 4) {
-    minTick -= step;
-    maxTick += step;
-  }
-
-  const ticks: number[] = [];
-  for (let tick = minTick; tick <= maxTick + step / 2; tick += step) {
-    ticks.push(Number(tick.toFixed(2)));
-  }
-
-  return ticks;
 }
 
 function formatOverviewBodyweightTick(value: number, unitLabel: string) {
@@ -1066,11 +990,21 @@ export function ProgressScreen({
       };
     }
 
+    // Days that lifted nothing are not zero-volume days, they are days with no
+    // volume reading — a bodyweight-only session, or one abandoned before a set
+    // landed. Plotted as 0 they pin the line to the axis and make the first
+    // real reading look like a jump out of nowhere (user, 2026-09-02, on a
+    // chart whose first point was 0 t).
+    //
+    // The same rule progression.ts already states for a lift that is never
+    // loaded: reading its weight gives 0 every time, so do not read it.
     const points = bucketOverviewPointsByRange(
-      rows.map((row) => ({
-        label: row.performedAt,
-        value: convertWeightFromKg(row.volume, unitPreference),
-      })),
+      rows
+        .filter((row) => row.volume > 0)
+        .map((row) => ({
+          label: row.performedAt,
+          value: convertWeightFromKg(row.volume, unitPreference),
+        })),
       resolvedOverviewRange,
       'sum',
     );

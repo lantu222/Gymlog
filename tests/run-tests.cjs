@@ -268,6 +268,7 @@ const suites = [
   ...require('./lib/equipmentExerciseFilter.test.cjs'),
   ...require('./lib/onboardingStructure.test.cjs'),
   ...require('./screens/homeScreenStructure.test.cjs'),
+  ...require('./lib/progressChartTicks.test.cjs'),
   ...require('./screens/progressTrend.test.cjs'),
   ...require('./screens/programsHomeStructure.test.cjs'),
   ...require('./screens/programPlanOverview.test.cjs'),

@@ -387,6 +387,15 @@ module.exports = [
       // two weigh-ins on one day apart, and those are the ones you came to
       // delete.
       assert.match(screen, /styles\.entryDate\}>\{formatSessionDate\(row\.recordedAt, language\)\}/);
+
+      // A day that lifted nothing is not a zero-volume day, it is a day with
+      // no volume reading. Plotted as 0 it pinned the line to the axis and
+      // made the first real number look like a jump out of nowhere.
+      assert.match(
+        screen,
+        /\.filter\(\(row\) => row\.volume > 0\)/,
+        'a session that lifted nothing is a point on the volume chart again',
+      );
       assert.match(
         read('src', 'lib', 'format.ts'),
         /export function formatSessionDate[\s\S]{0,320}minute: '2-digit'/,
