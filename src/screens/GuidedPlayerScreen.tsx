@@ -92,7 +92,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
 import { elapsedSecondsOf } from '../features/workout/workoutState';
 import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
-import { buildExerciseSearchHaystack, exerciseMatchesQuery } from '../lib/exerciseSearch';
+import { exerciseMatchesQuery, rankExerciseMatches } from '../lib/exerciseSearch';
 import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { useKeepScreenAwake } from '../utils/keepAwake';
 import {
@@ -1706,9 +1706,10 @@ export function GuidedPlayerScreen({
         .sort((left, right) => (popular.get(left.id) ?? 1e6) - (popular.get(right.id) ?? 1e6))
         .slice(0, 25);
     }
-    return pool
-      .filter((item) => exerciseMatchesQuery(buildExerciseSearchHaystack(item, language), query))
-      .slice(0, 40);
+    // Best answer first, popularity breaking ties — the same rule as the
+    // pickers, so the swap sheet does not disagree with them.
+    const popular = getPopularExerciseLibraryOrder(exerciseLibrary);
+    return rankExerciseMatches(pool, query, language, (item) => popular.get(item.id)).slice(0, 40);
   }, [actionExercise, exerciseLibrary, language, swapOptions, swapQuery]);
 
   const applySwap = (exerciseName: string) => {

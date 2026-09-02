@@ -58,4 +58,18 @@ module.exports = [
       assert.doesNotMatch(source, /entry\?\.kind === '/);
     },
   },
+  {
+    name: 'every kind has a ruler default of its own, and none of them is the old 90',
+    run() {
+      // "hauiksen kirjauksen oletusarvo on 90 cm" (walkthrough 2026-08-28):
+      // one number served every kind. Each opens somewhere plausible now.
+      const { DEFAULT_MEASUREMENT_VALUE, MEASUREMENT_KIND_ORDER } = require('../../.test-dist/lib/measurementKinds.js');
+      for (const kind of MEASUREMENT_KIND_ORDER) {
+        assert.ok(Number.isFinite(DEFAULT_MEASUREMENT_VALUE[kind]) && DEFAULT_MEASUREMENT_VALUE[kind] > 0, kind);
+      }
+      assert.ok(DEFAULT_MEASUREMENT_VALUE.bodyfat < 50);
+      assert.ok(DEFAULT_MEASUREMENT_VALUE.arms < 45 && DEFAULT_MEASUREMENT_VALUE.calves < 45, 'limbs are not waists');
+      assert.ok(DEFAULT_MEASUREMENT_VALUE.shoulders > DEFAULT_MEASUREMENT_VALUE.waist);
+    },
+  },
 ];

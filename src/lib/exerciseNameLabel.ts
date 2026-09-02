@@ -92,7 +92,9 @@ const EXERCISE_NAME_FI: Record<string, string> = {
   Chinups: 'Myötäotteinen leuanveto',
   'Scapular Pull-Up': 'Lapaleuanveto',
   'Lat Pulldown': 'Ylätalja',
-  'Wide-Grip Lat Pulldown': 'Leveä ylätalja',
+  // Plain, like its English label 'Lat Pulldown': this is THE lat pulldown
+  // ("haluisin vain ylätalja", #bugs 2026-08-28), not one of its variants.
+  'Wide-Grip Lat Pulldown': 'Ylätalja',
   'Close-Grip Front Lat Pulldown': 'Kapea ylätalja',
 
   // ── Horizontal pull ──────────────────────────────────────────────────
@@ -288,7 +290,7 @@ const EXERCISE_NAME_FI: Record<string, string> = {
   'Standing Band Row': 'Seisten kuminauhasoutu',
   'Chest-Supported T-Bar Row': 'Rintatuettu T-tankosoutu',
   'Cable Pullover': 'Taljapullover',
-  'Lat Pulldown (Wide Grip)': 'Leveä ylätalja',
+  'Lat Pulldown (Wide Grip)': 'Ylätalja',
 
   // ── Chest isolation ──────────────────────────────────────────────────
   'Cable Crossover': 'Taljaristikkäisveto',

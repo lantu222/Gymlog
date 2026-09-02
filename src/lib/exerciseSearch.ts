@@ -35,3 +35,79 @@ export function exerciseMatchesQuery(haystack: string, query: string): boolean {
   const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
   return terms.every((term) => haystack.includes(term));
 }
+
+/**
+ * How well a match answers the query, lower is better.
+ *
+ * Matching alone is not enough: the empty workout listed its matches in the
+ * English name's alphabetical order, so "ylätal" put Kapea ylätalja and
+ * Soutu ylätaljasta korokkeelta first and the plain lat pulldown twelfth
+ * ("haluisin vain ylätalja — huonot suositukset", #bugs 2026-08-28). The
+ * name the reader is looking at is what they typed a piece of, so it is
+ * ranked first: the name as typed, then a name that begins with it, then a
+ * name with a word that begins with it, then a name that merely contains it,
+ * and last a row that matched on a facet only.
+ */
+export function rankExerciseMatch(
+  item: Pick<ExerciseLibraryItem, 'name' | 'bodyPart' | 'category' | 'equipment' | 'primaryMuscles' | 'secondaryMuscles'>,
+  query: string,
+  language: AppLanguage,
+): number {
+  const needle = query.trim().toLowerCase();
+  if (!needle) {
+    return 0;
+  }
+  const shown = exerciseNameLabel(language, item.name).toLowerCase();
+  const stored = item.name.toLowerCase();
+  if (shown === needle || stored === needle) {
+    return 0;
+  }
+  if (shown.startsWith(needle)) {
+    return 1;
+  }
+  if (shown.split(/[\s\-–(]+/).some((word) => word.startsWith(needle))) {
+    return 2;
+  }
+  if (shown.includes(needle) || stored.includes(needle)) {
+    return 3;
+  }
+  return 4;
+}
+
+/**
+ * The matches for a query, best answer first.
+ *
+ * Within a rank, a lift the app counts as popular comes before one it does
+ * not — "penkki" is asking for the bench press, not the bench dip that
+ * happens to be the shorter name — then a shorter name (the plainer version
+ * of the same lift), then the caller's order.
+ */
+export function rankExerciseMatches<
+  T extends Pick<ExerciseLibraryItem, 'name' | 'bodyPart' | 'category' | 'equipment' | 'primaryMuscles' | 'secondaryMuscles'>,
+>(
+  items: readonly T[],
+  query: string,
+  language: AppLanguage,
+  /** A lower number is more popular; undefined is "not on the list". */
+  popularity?: (item: T) => number | undefined,
+): T[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) {
+    return [...items];
+  }
+  const popular = (item: T) => popularity?.(item) ?? Number.POSITIVE_INFINITY;
+  return items
+    .map((item, index) => ({
+      item,
+      index,
+      rank: rankExerciseMatch(item, needle, language),
+      popular: popular(item),
+      length: exerciseNameLabel(language, item.name).length,
+    }))
+    .filter(({ item }) => exerciseMatchesQuery(buildExerciseSearchHaystack(item, language), needle))
+    .sort(
+      (left, right) =>
+        left.rank - right.rank || left.popular - right.popular || left.length - right.length || left.index - right.index,
+    )
+    .map(({ item }) => item);
+}

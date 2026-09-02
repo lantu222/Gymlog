@@ -17,7 +17,7 @@ import { AddExerciseSheet } from '../components/AddExerciseSheet';
 import { KitBar, KitGroupLabel, KitRow, KitSearch, KitSheet } from '../components/sheetKit';
 import { CutSurface } from '../components/CutSurface';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
-import { buildExerciseSearchHaystack, exerciseMatchesQuery } from '../lib/exerciseSearch';
+import { rankExerciseMatches } from '../lib/exerciseSearch';
 import {
   classifySessionFocus,
   getDefaultCooldown,
@@ -389,10 +389,13 @@ export function ProgramDayScreen({
       ...session.exercises.map((item) => (item.slotId ? sessionSwaps[item.slotId] : undefined) ?? item.name),
     ]);
 
-    return exerciseLibrary
-      .filter((item) => !alreadyOffered.has(item.name))
-      .filter((item) => exerciseMatchesQuery(buildExerciseSearchHaystack(item, language), query))
-      .slice(0, 12);
+    // Best answer first — twelve rows is not room for the lift itself to
+    // sit behind its variants.
+    return rankExerciseMatches(
+      exerciseLibrary.filter((item) => !alreadyOffered.has(item.name)),
+      query,
+      language,
+    ).slice(0, 12);
   }, [exerciseLibrary, language, session.exercises, sessionSwaps, swapQuery, swapRow]);
 
   const focusKind = useMemo(

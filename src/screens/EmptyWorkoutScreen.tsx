@@ -17,7 +17,7 @@ import { PlatePop } from '../components/PlatePop';
 import { REST_BAR_BOTTOM, RestBar } from '../components/RestBar';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
-import { buildExerciseSearchHaystack, exerciseMatchesQuery } from '../lib/exerciseSearch';
+import { rankExerciseMatches } from '../lib/exerciseSearch';
 import { orderExercisesBySelection } from '../lib/exerciseSelectionOrder';
 import { parseNumberInput, removeTrailingZeros } from '../lib/format';
 import {
@@ -34,7 +34,7 @@ import {
   freestyleVolumeKg,
   matchesMuscleFilter,
 } from '../lib/emptyWorkoutSession';
-import { getExerciseTemplateDefaults, getPopularExerciseLibraryItems } from '../lib/exerciseSuggestions';
+import { getExerciseTemplateDefaults, getPopularExerciseLibraryItems, getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { bodyPartLabel, I18nKey, t } from '../lib/i18n';
 import { createId } from '../lib/ids';
 import { ExercisePrLookup } from '../lib/workoutCompletionSummary';
@@ -279,14 +279,18 @@ function AddExerciseSheetHG({ visible, items, language, onClose, onAdd, bottomIn
     setSelectedIds((current) => (current.includes(id) ? current.filter((value) => value !== id) : [...current, id]));
 
   const normalizedQuery = query.trim().toLowerCase();
+  const popularOrder = useMemo(() => getPopularExerciseLibraryOrder(items), [items]);
+  // Best answer first: the plain lat pulldown before the twelve variants
+  // that also contain "ylätalja". See rankExerciseMatches.
   const matches = useMemo(
     () =>
-      items.filter(
-        (item) =>
-          matchesMuscleFilter(item.bodyPart, filter) &&
-          (!normalizedQuery || exerciseMatchesQuery(buildExerciseSearchHaystack(item, language), normalizedQuery)),
+      rankExerciseMatches(
+        items.filter((item) => matchesMuscleFilter(item.bodyPart, filter)),
+        normalizedQuery,
+        language,
+        (item) => popularOrder.get(item.id),
       ),
-    [filter, items, language, normalizedQuery],
+    [filter, items, language, normalizedQuery, popularOrder],
   );
 
   const popularItems = useMemo(() => {
@@ -297,13 +301,11 @@ function AddExerciseSheetHG({ visible, items, language, onClose, onAdd, bottomIn
   }, [items, matches]);
 
   const popularIds = useMemo(() => new Set(popularItems.map((item) => item.id)), [popularItems]);
-  const listItems = useMemo(
-    () =>
-      matches
-        .filter((item) => !popularIds.has(item.id))
-        .sort((left, right) => left.name.localeCompare(right.name)),
-    [matches, popularIds],
-  );
+  const listItems = useMemo(() => {
+    const rest = matches.filter((item) => !popularIds.has(item.id));
+    // Alphabet is for browsing; a query already put the best answer first.
+    return normalizedQuery ? rest : rest.sort((left, right) => left.name.localeCompare(right.name));
+  }, [matches, normalizedQuery, popularIds]);
 
   const confirm = () => {
     if (!selectedIds.length) {

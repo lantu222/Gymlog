@@ -44,4 +44,20 @@ module.exports = [
       assert.equal(order.has('axle_deadlift'), false);
     },
   },
+  {
+    name: 'a popular seed resolves to the lift it names, not the first row that contains the words',
+    run() {
+      // Against the real library. "Lat Pulldown" used to pick Close-Grip
+      // Front Lat Pulldown (Kapea ylätalja) and "Overhead Press" picked
+      // Alternating Cable Shoulder Press, because a keyword match takes the
+      // library's alphabet. The plain English label names the lift.
+      const real = Object.values(require('../../.test-dist/data/generatedExerciseLibrary.js'))[0];
+      const names = getPopularExerciseLibraryItems(real).map((item) => item.name);
+      assert.ok(names.includes('Wide-Grip Lat Pulldown'), names.join(', '));
+      assert.ok(names.includes('Standing Military Press'), names.join(', '));
+      assert.ok(!names.includes('Close-Grip Front Lat Pulldown'));
+      assert.ok(!names.includes('Alternating Cable Shoulder Press'));
+      assert.equal(names.length, 8);
+    },
+  },
 ];

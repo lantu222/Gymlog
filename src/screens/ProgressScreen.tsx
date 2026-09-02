@@ -12,6 +12,7 @@ import {
   getOverviewDurationTicks,
   getOverviewVolumeTicks,
 } from '../lib/progressChartTicks';
+import { DEFAULT_MEASUREMENT_VALUE } from '../lib/measurementKinds';
 import { SimpleLineChart } from '../components/SimpleLineChart';
 import { WeightTrendChart } from '../components/WeightTrendChart';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -2035,7 +2036,8 @@ export function ProgressScreen({
         hint={selectedMeasureModel.hintKey ? t(language, selectedMeasureModel.hintKey) : null}
         unit={selectedMeasureModel.unit}
         initialValue={
-          selectedMeasureLatest ?? (selectedMeasureModel.unit === '%' ? 20 : 90)
+          selectedMeasureLatest ??
+          (selectedMeasureModel.kind ? DEFAULT_MEASUREMENT_VALUE[selectedMeasureModel.kind] : 90)
         }
         dateIso={new Date().toISOString()}
         onCancel={() => setMeasureSheetVisible(false)}
