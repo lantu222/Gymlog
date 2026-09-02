@@ -22,13 +22,15 @@ import { queryReduceMotion } from '../utils/reduceMotion';
 // positioned so it floats low over the (light) app content — no light backdrop
 // strip. The active tab gets a circular purple highlight that slides between
 // tabs. Kept isolated in this file + its own commit so it reverts cleanly.
-// The pill is a designed dark surface and stays dark in both themes. The
-// accent and its wash come from the theme, so the active tab turns orange
-// alongside every other interactive thing when dark is on.
+// Two bars, one per theme (user 2026-09-02: the dark pill "ei oikein sovi
+// tähän vaaleaan teemaan"). The dark pill was the designed surface and stays
+// in dark; light gets a white pill with a hairline, the same card language as
+// the rest of the light screens. The accent and its wash come from the theme.
 const BAR = {
   pill: '#1E1B2C',
   pillBorder: 'rgba(255,255,255,0.09)',
   inactive: '#8B84A6',
+  lightPill: '#FFFFFF',
 };
 
 // Diameter of the sliding circular highlight behind the active tab's icon.
@@ -56,7 +58,10 @@ const sideTabs: { key: RootTabKey; labelKey: I18nKey }[] = [
 
 function TabIcon({ tab, active }: { tab: RootTabKey; active: boolean }) {
   const theme = useTheme();
-  const stroke = active ? theme.highlight : BAR.inactive;
+  const themeName = useThemeName();
+  // Inactive icons: the bar's own grey on the dark pill, the theme's faint
+  // ink on the white one — the grey was tuned for a dark ground.
+  const stroke = active ? theme.highlight : themeName === 'dark' ? BAR.inactive : theme.faint;
   const fill = active ? theme.highlight : 'none';
   const size = 26;
 
@@ -153,11 +158,11 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
   const themeName = useThemeName();
   const styles = useThemedStyles(makeStyles);
 
-  // The pill is a dark surface designed to float over LIGHT content. On the
-  // dark theme that reads as a smudge — #1E1B2C over a #141021 background is
-  // barely a shade apart — so there it has to lift off the background instead
-  // of sinking into it.
-  const pillBackground = themeName === 'dark' ? theme.surfaceSoft : BAR.pill;
+  // Dark: the pill lifts off the background as a soft surface (#1E1B2C over
+  // #141021 was a smudge). Light: a white card with a hairline, like every
+  // other card on the light screens.
+  const pillBackground = themeName === 'dark' ? theme.surfaceSoft : BAR.lightPill;
+  const pillStroke = themeName === 'dark' ? undefined : theme.border;
 
   // The AI button: a near-white orb with a violet label, which is the single
   // brightest thing on a dark screen. In dark it inverts to a dark orb with an
@@ -298,7 +303,7 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
           colours are untouched — only the silhouette changes, from a plain
           30px pill to the same shape the CTAs and day rows use. The fill stays
           on CutSurface so the dark-theme override still lands. */}
-      <CutSurface size="lg" fill={pillBackground} style={styles.pill}>
+      <CutSurface size="lg" fill={pillBackground} stroke={pillStroke} strokeWidth={1} style={styles.pill}>
         <View style={styles.row}>
           <Animated.View
             pointerEvents="none"
@@ -369,13 +374,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 18,
   },
   pill: {
-    // Overridden in dark — see the pill background note in the component.
+    // Fill and stroke are set in the component per theme.
     paddingHorizontal: 6,
     shadowColor: '#0B0714',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.32,
+    shadowOpacity: 0.18,
     shadowRadius: 22,
-    elevation: 12,
+    elevation: 10,
   },
   row: {
     flexDirection: 'row',

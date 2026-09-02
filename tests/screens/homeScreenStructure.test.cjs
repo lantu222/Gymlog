@@ -623,8 +623,12 @@ module.exports = [
       // The fill moved onto CutSurface when the bar took the A3 shape
       // (2026-08-11): left in the style it would paint a rectangle behind the
       // cut path. Same default, asserted where it now lives.
-      assert.match(bottomTabBarSource, /const pillBackground = themeName === 'dark' \? theme\.surfaceSoft : BAR\.pill/);
-      assert.match(bottomTabBarSource, /<CutSurface size="lg" fill=\{pillBackground\}/);
+      // Two bars, one per theme (user 2026-09-02): white with a hairline in
+      // light, the soft dark surface in dark.
+      assert.match(bottomTabBarSource, /const pillBackground = themeName === 'dark' \? theme\.surfaceSoft : BAR\.lightPill/);
+      assert.match(bottomTabBarSource, /const pillStroke = themeName === 'dark' \? undefined : theme\.border/);
+      assert.match(bottomTabBarSource, /lightPill: '#FFFFFF'/);
+      assert.match(bottomTabBarSource, /<CutSurface size="lg" fill=\{pillBackground\} stroke=\{pillStroke\} strokeWidth=\{1\}/);
       assert.match(bottomTabBarSource, /activeTab: RootTabKey \| null/);
       assert.match(bottomTabBarSource, /activeKey === tab\.key/);
       assert.match(appSource, /activeTab=\{route\.tab === 'workout' && route\.screen === 'plans' \? null : route\.tab\}/);
