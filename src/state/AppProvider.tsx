@@ -227,6 +227,8 @@ export function AppProvider({ children }: React.PropsWithChildren) {
         sessionReminders: false,
         reminderTime: '17:30',
         weighInReminder: false,
+        measurementReminderKind: null,
+        measurementReminderDay: 'sun',
         restAlerts: true,
         restWarning: true,
         sessionOngoing: true,
