@@ -39,9 +39,21 @@ module.exports = [
       assert.match(styles, /headerSideEnd: \{[^}]*alignItems: 'flex-end',/s);
       // And the centre is NOT the flexible one — that is the exact shape that
       // shipped off-centre.
-      const centre = styles.slice(styles.indexOf('headerCenter: {'));
-      assert.doesNotMatch(centre, /flex: 1/);
-      assert.match(centre, /flexShrink: 0/);
+      const centre = styles.slice(styles.indexOf('headerCenter: {'), styles.indexOf('}', styles.indexOf('headerCenter: {')));
+      assert.doesNotMatch(centre, /flex: 1|flexGrow/);
+
+      // Android clips a Pressable's hitSlop to its parent. The slots stretch
+      // to the row's height and carry the row's padding, so the chevron's
+      // 44dp target is not cut to its 24px glyph (PR review). The row itself
+      // must therefore hold no padding — put it back there and the slots
+      // shrink to their buttons again.
+      assert.match(styles, /headerSide: \{[^}]*alignSelf: 'stretch',[^}]*paddingLeft: 16,/s);
+      assert.match(styles, /headerSideEnd: \{[^}]*paddingRight: 16,/s);
+      // The block only, up to its closing brace: a comment after it that
+      // mentions padding must not be what satisfies (or fails) this.
+      const rowStart = screen.indexOf('  header: {');
+      const row = screen.slice(rowStart, screen.indexOf('},', rowStart));
+      assert.doesNotMatch(row, /padding/);
     },
   },
 ];
