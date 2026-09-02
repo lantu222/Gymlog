@@ -1,3 +1,5 @@
+import { groupByMonth } from './monthGroups';
+
 /**
  * Your bests, and when you set them.
  *
@@ -175,23 +177,11 @@ export function resolveRecords(
 export function groupRecordsByMonth(
   records: readonly PersonalRecord[],
 ): Array<{ year: number; month: number; records: PersonalRecord[] }> {
-  const groups = new Map<string, { year: number; month: number; records: PersonalRecord[] }>();
-
-  for (const record of records) {
-    const date = new Date(record.performedAt);
-    if (Number.isNaN(date.getTime())) {
-      continue;
-    }
-    const key = `${date.getFullYear()}-${date.getMonth()}`;
-    const group = groups.get(key);
-    if (group) {
-      group.records.push(record);
-    } else {
-      groups.set(key, { year: date.getFullYear(), month: date.getMonth(), records: [record] });
-    }
-  }
-
-  return [...groups.values()].sort((left, right) =>
-    right.year !== left.year ? right.year - left.year : right.month - left.month,
-  );
+  // Delegates, so Records and History cannot disagree about which month a
+  // midnight entry belongs to. The shape stays `records` for its callers.
+  return groupByMonth(records, (record) => record.performedAt).map((group) => ({
+    year: group.year,
+    month: group.month,
+    records: group.items,
+  }));
 }

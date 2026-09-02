@@ -1770,20 +1770,26 @@ export function ProgressScreen({
 
     return (
       <>
-        <View style={styles.entriesHead}>
-          <SectionLabel label={t(language, 'progress.entries')} />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ selected: entriesEditing }}
-            onPress={() => setEntriesEditing((value) => !value)}
-            hitSlop={10}
-            style={({ pressed }) => [pressed && { opacity: 0.7 }]}
-          >
-            <Text style={styles.entriesEditLink}>
-              {t(language, entriesEditing ? 'plan.done' : 'plan.edit')}
-            </Text>
-          </Pressable>
-        </View>
+        {/* The label's own right slot, not a header built beside it. The
+            first version wrapped SectionLabel in a flex row with its own
+            Pressable — a third way to draw a section head in a file that
+            already had two. */}
+        <SectionLabel
+          label={t(language, 'progress.entries')}
+          right={
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: entriesEditing }}
+              onPress={() => setEntriesEditing((value) => !value)}
+              hitSlop={10}
+              style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+            >
+              <Text style={styles.entriesEditLink}>
+                {t(language, entriesEditing ? 'plan.done' : 'plan.edit')}
+              </Text>
+            </Pressable>
+          }
+        />
         <View style={styles.card}>
           {rows.map((row, index) => (
             <View key={row.id} style={[styles.entryRow, index > 0 && styles.entryRowDivided]}>
@@ -2662,11 +2668,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.ink,
     fontSize: 14.5,
     fontWeight: '800',
-  },
-  entriesHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
   },
   entriesEditLink: {
     color: theme.highlight,

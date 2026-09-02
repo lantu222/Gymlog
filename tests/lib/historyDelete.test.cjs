@@ -9,6 +9,7 @@ const historySource = fs.readFileSync(
   'utf8',
 );
 const i18nSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'), 'utf8');
+const read = (...segments) => fs.readFileSync(path.join(__dirname, '..', '..', ...segments), 'utf8');
 
 function database() {
   return {
@@ -58,8 +59,16 @@ module.exports = [
       // The message names the consequence rather than only asking twice.
       assert.match(i18nSource, /'history\.delete\.body': 'Treeni ja sen sarjat poistuvat\./);
       assert.match(i18nSource, /Ennätykset ja käyrät lasketaan uudelleen ilman sitä/);
-      // Absent handler means no button at all, not an inert one.
-      assert.match(historySource, /onDelete=\{onDeleteSession \? \(\) => setPendingDelete\(session\) : undefined\}/);
+      // Absent handler means no button at all, not an inert one — and it is
+      // absent unless Edit is on. A bin on every resting row of the one list a
+      // session can be lost from is a delete waiting to happen (Progress v2,
+      // piece 05).
+      assert.match(
+        historySource,
+        /editing && onDeleteSession \? \(\) => setPendingDelete\(session\) : undefined/,
+      );
+      assert.match(historySource, /const \[editing, setEditing\] = useState\(false\);/,
+        'History opens with its bins showing');
     },
   },
   {
@@ -75,6 +84,45 @@ module.exports = [
           `history.badge.untracked missing for ${language}`,
         );
       }
+    },
+  },
+  {
+    /**
+     * Progress v2 · 04+05 — History groups by month, and the bins live behind
+     * Edit.
+     *
+     * "The important one... the red x on every resting row was a delete
+     * waiting to happen... sessions group by month... Press Edit and the
+     * chevrons become red bins. Same mechanic as the plan's Workouts list, so
+     * deleting a session is learned once."
+     */
+    name: 'history: months group the list, and Edit is what reveals a bin',
+    run() {
+      // One grouping rule for the whole app, not a second copy beside the one
+      // Records already had — two would disagree about which month a midnight
+      // session belongs to.
+      const groups = read('src', 'lib', 'monthGroups.ts');
+      assert.match(groups, /export function groupByMonth<T>/);
+      assert.match(historySource, /groupByMonth\(filteredSessions, \(session\) => session\.performedAt\)/);
+      assert.match(
+        read('src', 'lib', 'personalRecords.ts'),
+        /return groupByMonth\(records, \(record\) => record\.performedAt\)/,
+        'Records grew its own month grouping back',
+      );
+
+      // Local months, not UTC: a session logged at half past midnight belongs
+      // to the month the reader was in.
+      assert.match(groups, /date\.getMonth\(\)/);
+      assert.doesNotMatch(groups, /getUTCMonth/);
+
+      // The header carries Edit once, on the newest month, and the rest carry
+      // their count. Two Edit links for one mode would be two modes.
+      assert.match(historySource, /groupIndex === 0 && onDeleteSession \? \(/);
+      assert.match(historySource, /editing \? 'plan\.done' : 'plan\.edit'/);
+
+      // And the cost is stated where the bins are, not only in the dialog.
+      assert.match(historySource, /editing \? \(\s*<Text style=\{styles\.editNote\}/);
+      assert.match(i18nSource, /'history\.editNote':/);
     },
   },
 ];
