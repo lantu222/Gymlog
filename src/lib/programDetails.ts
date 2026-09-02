@@ -72,6 +72,19 @@ export interface ProgramDetailViewModel {
   primaryActionLabel: string;
   sessionActionLabel: string;
   sessions: ProgramDetailSessionItem[];
+  /**
+   * Training days in the programme's own week — the number the catalog row,
+   * the cover and the adoption sheet all state.
+   *
+   * Stated here rather than derived from `sessions.length` on the screen.
+   * The two are kept equal for every ready programme by a guard, because the
+   * plan engine pins one session to each training day; when Strength
+   * Foundations 5x5 carried daysPerWeek: 3 on two sessions, the page counted
+   * sessions and drew a two-day programme under a catalog row that said
+   * "3 ×" (#bugs 2026-09-01). One reader of one number, and a guard that
+   * keeps the number honest, is how the two stop disagreeing.
+   */
+  daysPerWeek: number;
 }
 
 function titleCase(value: string) {
@@ -239,6 +252,7 @@ export function buildReadyProgramDetail(
     ),
     sessionActionLabel: 'Start session',
     sessions: buildSessionItems(detailSessions, insights?.sessionStatusById, template),
+    daysPerWeek,
   };
 }
 
@@ -296,6 +310,9 @@ export function buildCustomProgramDetail(
     ),
     sessionActionLabel: t(language, hasExercises ? 'prog.custom.detail.startSession' : 'prog.custom.detail.openSession'),
     sessions: buildSessionItems(template.sessions, insights?.sessionStatusById),
+    // A custom programme names no day count of its own: one session per
+    // training day is the only shape the editor can build.
+    daysPerWeek: sessionCount,
   };
 }
 

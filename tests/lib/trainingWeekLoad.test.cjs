@@ -9,7 +9,7 @@ const {
 const base = {
   cyclePattern: null,
   weekdayCount: null,
-  sessionCount: 5,
+  programDaysPerWeek: 5,
   minutesPerSession: 55,
 };
 
@@ -40,11 +40,12 @@ module.exports = [
     },
   },
   {
-    name: 'a weekday rhythm answers with its own days, and outranks the session count',
+    name: 'a weekday rhythm answers with its own days, and outranks the programme',
     run() {
-      // Three sessions rotated across four training days is four days a week.
-      // The session count cannot see that, which is why it is last in line.
-      const load = buildTrainingWeekLoad({ ...base, sessionCount: 3, weekdayCount: 4 });
+      // A three-day programme the reader runs on four weekdays is four days a
+      // week. The programme's own number cannot see that, which is why it is
+      // last in line.
+      const load = buildTrainingWeekLoad({ ...base, programDaysPerWeek: 3, weekdayCount: 4 });
       assert.equal(load.daysPerWeek, 4);
       assert.equal(formatTrainingDays(load.daysPerWeek), '4');
 
@@ -59,11 +60,25 @@ module.exports = [
     },
   },
   {
-    name: 'nothing adopted: the session count is the last thing that knows',
+    name: 'nothing adopted: the programme states its own days, which is not its session count',
     run() {
       const load = buildTrainingWeekLoad(base);
       assert.equal(load.daysPerWeek, 5);
       assert.equal(load.minutesPerWeek, 275);
+
+      // Strength Foundations 5x5 (#bugs 2026-09-01): two workouts rotated
+      // across three days is three days a week and 150 minutes, not two and
+      // 100. The input is the programme's day count precisely so that a
+      // caller cannot hand this the session count by accident and get the
+      // old answer back.
+      const fiveByFive = buildTrainingWeekLoad({
+        ...base,
+        programDaysPerWeek: 3,
+        minutesPerSession: 50,
+      });
+      assert.equal(fiveByFive.daysPerWeek, 3);
+      assert.equal(fiveByFive.minutesPerWeek, 150);
+      assert.equal(buildTrainingWeekLoad({ ...base, programDaysPerWeek: 9 }).daysPerWeek, 7);
     },
   },
   {
