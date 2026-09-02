@@ -323,6 +323,9 @@ function CancelSurvey({
                 key={key}
                 accessibilityRole="button"
                 onPress={() => toggle(key)}
+                // The kit's own picker row: orange tick, tap again to unpick
+                // (design: GAINER Pro screens, 03). The state colour is the
+                // accent, because picking is the one thing the row does.
                 style={[styles.surveyRow, on && styles.surveyRowOn]}
               >
                 <Text style={styles.surveyRowText}>{t(language, key)}</Text>
@@ -346,7 +349,9 @@ function CancelSurvey({
           })}
         </View>
 
-        {picked.includes('subs.survey.r6') ? (
+        {/* The box appears once anything is picked, not only for "something
+            else": whichever reason it was, the words are worth having. */}
+        {any ? (
           <TextInput
             value={note}
             onChangeText={setNote}
@@ -363,9 +368,12 @@ function CancelSurvey({
         <Pressable
           accessibilityRole="button"
           onPress={() => onDone(picked, note.trim())}
+          // Send is the single orange action on the screen; Skip below is the
+          // quiet link the bar always uses. Nothing picked yet: Send is quiet
+          // too, so the screen never has two things asking to be pressed.
           style={({ pressed }) => [
             styles.keepButton,
-            !any && styles.surveySendQuiet,
+            any ? styles.surveySendOn : styles.surveySendQuiet,
             pressed && { opacity: 0.85 },
           ]}
         >
@@ -589,8 +597,8 @@ const makeStyles = (theme: Theme) =>
       borderColor: theme.border,
     },
     surveyRowOn: {
-      backgroundColor: theme.purpleSoft,
-      borderColor: theme.purple,
+      backgroundColor: theme.surfaceSoft,
+      borderColor: theme.highlight,
     },
     surveyRowText: {
       flex: 1,
@@ -603,7 +611,7 @@ const makeStyles = (theme: Theme) =>
       width: 24,
       height: 24,
       borderRadius: 12,
-      backgroundColor: theme.purple,
+      backgroundColor: theme.highlight,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -635,6 +643,9 @@ const makeStyles = (theme: Theme) =>
       fontWeight: '600',
       textAlign: 'center',
       lineHeight: 17,
+    },
+    surveySendOn: {
+      backgroundColor: theme.highlight,
     },
     surveySendQuiet: {
       backgroundColor: theme.surfaceSoft,
