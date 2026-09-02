@@ -4,6 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
+import { countWord } from '../lib/countWord';
 import { formatDate } from '../lib/format';
 import { I18nKey, t } from '../lib/i18n';
 import {
@@ -16,9 +17,6 @@ import { CANCEL_REASON_KEYS, CancelReasonKey } from '../lib/cancelSurvey';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 import { queryReduceMotion } from '../utils/reduceMotion';
-
-/** The destructive fill, identical in both themes — see `endButton`. */
-const DANGER_FILL = '#DC2626';
 
 interface MembershipEndScreenProps {
   source: MembershipSource;
@@ -117,10 +115,23 @@ export function MembershipEndScreen({
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
+        {/* The same change rows as the unlock screen, run backwards: what you
+            have (violet, a state) → what it becomes (grey, also a state —
+            losing a feature is not an alarm). Design: GAINER Pro screens, 02. */}
+        {endsAt ? (
+          <View style={styles.paidBadge}>
+            <Text style={styles.paidBadgeText}>
+              {t(language, 'subs.end.paidUntil', { date: formatDate(endsAt, language) })}
+            </Text>
+          </View>
+        ) : null}
         <Text style={styles.title}>{t(language, 'subs.end.title')}</Text>
         <Text style={styles.lead}>
           {endsAt
-            ? t(language, 'subs.end.lead', { date: formatDate(endsAt, language) })
+            ? t(language, 'subs.end.lead', {
+                date: formatDate(endsAt, language),
+                count: countWord(PRO_UNLOCK_CARDS.length, language, 'inline'),
+              })
             : t(language, 'membership.end.lead')}
         </Text>
 
@@ -132,7 +143,9 @@ export function MembershipEndScreen({
               </Text>
               <View style={styles.lossDelta}>
                 {/* Now → was. The unlock screen runs this pair the other way. */}
-                <Text style={styles.lossWas}>{t(language, card.nowKey, vars(card.nowKey))}</Text>
+                <View style={styles.haveChip}>
+                  <Text style={styles.haveChipText}>{t(language, card.nowKey, vars(card.nowKey))}</Text>
+                </View>
                 <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
                   <Path
                     d="M5 12h13M13 7l5 5-5 5"
@@ -142,7 +155,9 @@ export function MembershipEndScreen({
                     strokeLinejoin="round"
                   />
                 </Svg>
-                <Text style={styles.lossNow}>{t(language, card.wasKey, vars(card.wasKey))}</Text>
+                <View style={styles.becomesChip}>
+                  <Text style={styles.becomesChipText}>{t(language, card.wasKey, vars(card.wasKey))}</Text>
+                </View>
               </View>
             </View>
           ))}
@@ -152,16 +167,32 @@ export function MembershipEndScreen({
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+        {/* The safe choice is the only filled button. Ending is the small red
+            line beneath it, and it names the date so it cannot be mistaken for
+            "cancel this dialog" — the destructive choice never sits where the
+            thumb lands (design: GAINER Pro screens, 02). */}
+        <Pressable
+          accessibilityRole="button"
+          onPress={onKeep}
+          style={({ pressed }) => [styles.keepButton, pressed && { opacity: 0.85 }]}
+        >
+          <Text style={styles.keepButtonText}>{t(language, 'subs.end.keep')}</Text>
+        </Pressable>
         {plan.canEndNow ? (
           <Pressable
             accessibilityRole="button"
             onPress={() => setStep('splash')}
-            style={({ pressed }) => [styles.endButton, pressed && { opacity: 0.85 }]}
+            hitSlop={8}
+            style={({ pressed }) => [styles.endLink, pressed && { opacity: 0.75 }]}
           >
-            <Text style={styles.endButtonText}>{t(language, 'subs.end.cta')}</Text>
+            <Text style={styles.endLinkText}>
+              {endsAt
+                ? t(language, 'subs.end.ctaOn', { date: formatDate(endsAt, language) })
+                : t(language, 'subs.end.cta')}
+            </Text>
           </Pressable>
         ) : (
-          // No button, because there is no action. A greyed-out "Cancel" here
+          // No line, because there is no action. A greyed-out "Cancel" here
           // would read as something the app is refusing to let you do.
           <Text style={styles.noActionNote}>
             {plan.lapsesOn
@@ -171,13 +202,6 @@ export function MembershipEndScreen({
               : t(language, 'membership.end.noAction')}
           </Text>
         )}
-        <Pressable
-          accessibilityRole="button"
-          onPress={onKeep}
-          style={({ pressed }) => [styles.keepButton, pressed && { opacity: 0.85 }]}
-        >
-          <Text style={styles.keepButtonText}>{t(language, 'subs.end.keep')}</Text>
-        </Pressable>
       </View>
     </View>
   );
@@ -457,25 +481,55 @@ const makeStyles = (theme: Theme) =>
       marginTop: 8,
       flexWrap: 'wrap',
     },
-    lossWas: {
-      color: theme.faint,
-      fontSize: 14.5,
-      fontWeight: '700',
-      textDecorationLine: 'line-through',
+    // What you have: a violet state chip, the same one the unlock screen
+    // gives the new value. What it becomes: a grey chip, not red.
+    haveChip: {
+      backgroundColor: theme.purpleLight,
+      borderRadius: 6,
+      paddingVertical: 3,
+      paddingHorizontal: 8,
     },
-    /**
-     * Ink, not red.
-     *
-     * Six red values down the page turned the whole screen into a warning, and
-     * a page that shouts at every line is a page nobody reads to the bottom.
-     * The loss is already carried by structure — the old value struck through,
-     * an arrow, the new one — so the colour was saying a third time what the
-     * strikethrough had already said twice.
-     *
-     * Red is left to the one thing that is actually destructive: the button.
-     */
-    lossNow: {
-      color: theme.ink,
+    haveChipText: {
+      color: theme.purpleDark,
+      fontSize: 12.5,
+      fontWeight: '800',
+    },
+    becomesChip: {
+      backgroundColor: theme.surfaceSoft,
+      borderRadius: 6,
+      paddingVertical: 3,
+      paddingHorizontal: 8,
+    },
+    becomesChipText: {
+      color: theme.muted,
+      fontSize: 12.5,
+      fontWeight: '800',
+    },
+    paidBadge: {
+      alignSelf: 'flex-start',
+      backgroundColor: theme.purpleLight,
+      borderRadius: 999,
+      paddingVertical: 5,
+      paddingHorizontal: 11,
+      marginBottom: 14,
+    },
+    paidBadgeText: {
+      color: theme.purpleDark,
+      fontSize: 11.5,
+      fontWeight: '800',
+      letterSpacing: 0.9,
+      textTransform: 'uppercase',
+    },
+    endLink: {
+      height: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    endLinkText: {
+      // The theme's danger TEXT token, not a fixed red: this line is the only
+      // affordance for ending, and the old fixed fill-red as text on the dark
+      // surface falls under 4:1. theme.danger stays readable on both.
+      color: theme.danger,
       fontSize: 14.5,
       fontWeight: '800',
     },
@@ -494,37 +548,10 @@ const makeStyles = (theme: Theme) =>
       paddingTop: 13,
       gap: 10,
     },
-    /**
-     * Filled rather than outlined: this is the one destructive control on the
-     * screen, and it is now the only red on it.
-     *
-     * The fill is fixed rather than themed, which is the opposite of the rule
-     * everywhere else in this app — so it is worth saying why. `theme.danger`
-     * is a *text* colour: deep red in light, and a much lighter coral in dark
-     * so it stays readable ON a dark background. Used as a fill that inverts
-     * the problem — white on the dark theme's coral is about 2.6:1, under the
-     * floor even for large bold text.
-     *
-     * A destructive button should also not get friendlier in dark mode. One
-     * saturated red in both themes, white on top at 4.8:1, and it reads as the
-     * same warning wherever you meet it.
-     */
-    endButton: {
-      height: 54,
-      borderRadius: 16,
-      backgroundColor: DANGER_FILL,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    endButtonText: {
-      color: '#FFFFFF',
-      fontSize: 16.5,
-      fontWeight: '800',
-    },
     keepButton: {
       height: 54,
       borderRadius: 16,
-      backgroundColor: theme.purple,
+      backgroundColor: theme.highlight,
       alignItems: 'center',
       justifyContent: 'center',
     },
