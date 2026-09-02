@@ -41,14 +41,11 @@ import { ExercisePrLookup } from '../lib/workoutCompletionSummary';
 import { Theme, useTheme, useThemedStyles, aw3ForTheme, useAW3 } from '../theming';
 import { AppLanguage, ExerciseLibraryItem, WorkoutTemplateDraft } from '../types/models';
 import { subscribeRestActions, useRestEndAlert } from '../hooks/useRestEndAlert';
+import { useRestAlertPermissionMoment } from '../hooks/useRestAlertPermissionMoment';
+import { RestAlertAskOutcome } from '../lib/restAlertAnswer';
 import { RestAlertsSheet } from '../components/RestAlertsSheet';
 import { describeRest } from '../lib/restSchedule';
 import { useKeyboardReveal } from '../hooks/useKeyboardReveal';
-import {
-  RestAlertPermission,
-  getRestAlertPermission,
-  requestRestAlertPermission,
-} from '../utils/sessionNotifications';
 import { haptics } from '../utils/haptics';
 import { useKeepScreenAwake } from '../utils/keepAwake';
 import { sound } from '../utils/sound';
@@ -78,8 +75,12 @@ interface EmptyWorkoutScreenProps {
   onSave: (draft: WorkoutTemplateDraft, summary: FreestyleFinishSummary) => Promise<void> | void;
   /** Rest & alerts settings (design: Background Timer). */
   restAlerts?: { alerts: boolean; warning: boolean; ongoing: boolean; asked: boolean };
-  /** The in-app permission sheet was answered; remember so it is never shown twice. */
-  onRestAlertsAsked?: () => void;
+  /**
+   * The in-app permission sheet was answered. Recorded so it is never shown
+   * twice — and on "granted" the phone's notifications go on for the workout
+   * (see restAlertsAnswered).
+   */
+  onRestAlertsAnswered?: (outcome: RestAlertAskOutcome) => void;
   /** The denied banner's "Turn on" — opens system settings. */
   onOpenSystemSettings?: () => void;
 }
@@ -473,7 +474,7 @@ export function EmptyWorkoutScreen({
   onBack,
   onSave,
   restAlerts = { alerts: true, warning: true, ongoing: true, asked: false },
-  onRestAlertsAsked,
+  onRestAlertsAnswered,
   onOpenSystemSettings,
 }: EmptyWorkoutScreenProps) {
   const theme = useTheme();
@@ -586,45 +587,21 @@ export function EmptyWorkoutScreen({
   }, [restEndsAtMs, syncRestAlert]);
 
   // The permission moment (rule 05): at the first rest, in context, once.
-  const [alertPermission, setAlertPermission] = useState<RestAlertPermission>('undetermined');
-  const [permissionSheetOpen, setPermissionSheetOpen] = useState(false);
-  const [deniedBannerShown, setDeniedBannerShown] = useState(false);
-  useEffect(() => {
-    void getRestAlertPermission().then(setAlertPermission);
-  }, []);
-  useEffect(() => {
-    if (!rest || restStatus?.phase !== 'running') {
-      return;
-    }
-    if (alertPermission === 'undetermined' && !restAlerts.asked) {
-      setPermissionSheetOpen(true);
-    } else if (alertPermission !== 'granted' && restAlerts.alerts) {
-      // Anything that is not a granted permission after the ask — "Not now",
-      // or alerts switched off in system settings later — is a rest that will
-      // not reach the user. Rule 05: say so at the start of every rest rather
-      // than run a timer that silently cannot fire.
-      setDeniedBannerShown(true);
-    }
-    // Once per rest START, on purpose — keyed on startedAtMs rather than the
-    // deadline, so ±15s does not count as a new rest and re-open the sheet
-    // over a rest that is already running.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rest?.startedAtMs]);
-
-  const allowAlerts = async () => {
-    setPermissionSheetOpen(false);
-    onRestAlertsAsked?.();
-    const next = await requestRestAlertPermission();
-    setAlertPermission(next);
-    // The rest that prompted this is still running: hand it to the OS now.
-    if (next === 'granted' && rest && describeRest(rest.endsAtMs, Date.now()).phase === 'running') {
-      void syncRestAlert(rest.endsAtMs);
-    }
-  };
-  const laterAlerts = () => {
-    setPermissionSheetOpen(false);
-    onRestAlertsAsked?.();
-  };
+  // Shared with the guided player — see the hook.
+  const restAsk = useRestAlertPermissionMoment({
+    restRunning: Boolean(rest) && restStatus?.phase === 'running',
+    // The start, not the deadline: ±15 s does not make a new rest.
+    restKey: rest?.startedAtMs ?? null,
+    asked: restAlerts.asked,
+    alertsWanted: restAlerts.alerts,
+    onAnswered: onRestAlertsAnswered,
+    onGranted: () => {
+      // The rest that prompted this is still running: hand it to the OS now.
+      if (rest && describeRest(rest.endsAtMs, Date.now()).phase === 'running') {
+        void syncRestAlert(rest.endsAtMs);
+      }
+    },
+  });
 
   // Lock-screen actions land in App and come here over the bus.
   useEffect(
@@ -903,7 +880,7 @@ export function EmptyWorkoutScreen({
         >
           {/* Denied: say plainly what breaks, at the moment it matters — the
               start of a rest — with a route to fix it. Once per session. */}
-          {deniedBannerShown && alertPermission !== 'granted' ? (
+          {restAsk.deniedBannerShown ? (
             <View style={styles.deniedBanner}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.deniedTitle}>{t(language, 'rest.denied.title')}</Text>
@@ -912,7 +889,7 @@ export function EmptyWorkoutScreen({
               <Pressable
                 accessibilityRole="button"
                 onPress={() => {
-                  setDeniedBannerShown(false);
+                  restAsk.dismissDeniedBanner();
                   onOpenSystemSettings?.();
                 }}
                 hitSlop={8}
@@ -1061,10 +1038,10 @@ export function EmptyWorkoutScreen({
 
 
       <RestAlertsSheet
-        visible={permissionSheetOpen}
+        visible={restAsk.sheetOpen}
         language={language}
-        onAllow={() => void allowAlerts()}
-        onLater={laterAlerts}
+        onAllow={() => void restAsk.allow()}
+        onLater={restAsk.later}
       />
 
       <AddExerciseSheetHG

@@ -268,6 +268,8 @@ const suites = [
   ...require('./screens/emptyWorkoutRestBar.test.cjs'),
   ...require('./screens/emptyWorkoutHeader.test.cjs'),
   ...require('./screens/onboardingShellInsets.test.cjs'),
+  ...require('./screens/restAlertsAsk.test.cjs'),
+  ...require('./lib/restAlertAnswer.test.cjs'),
   ...require('./screens/onboardingVisualPolish.test.cjs'),
   ...require('./screens/headerBackReachable.test.cjs'),
   ...require('./lib/workoutDiscovery.test.cjs'),

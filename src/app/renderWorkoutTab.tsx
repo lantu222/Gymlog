@@ -3,6 +3,7 @@ import { Linking, View } from 'react-native';
 
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { buildFirstRunRecommendationReasons, FirstRunSetupSelection } from '../lib/firstRunSetup';
+import { restAlertsAnswered } from '../lib/restAlertAnswer';
 import { formatShortDate } from '../lib/format';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { t } from '../lib/i18n';
@@ -577,9 +578,9 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           ongoing: preferences.notificationPrefs.sessionOngoing,
           asked: preferences.notificationPrefs.restAlertsAsked,
         }}
-        onRestAlertsAsked={() =>
+        onRestAlertsAnswered={(outcome) =>
           void updatePreferences({
-            notificationPrefs: { ...preferences.notificationPrefs, restAlertsAsked: true },
+            notificationPrefs: restAlertsAnswered(preferences.notificationPrefs, outcome),
           })
         }
         onOpenSystemSettings={() => void Linking.openSettings()}
@@ -670,7 +671,13 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           alerts: preferences.notificationPrefs.pushEnabled && preferences.notificationPrefs.restAlerts,
           warning: preferences.notificationPrefs.restWarning,
           ongoing: preferences.notificationPrefs.sessionOngoing,
+          asked: preferences.notificationPrefs.restAlertsAsked,
         }}
+        onRestAlertsAnswered={(outcome) =>
+          void updatePreferences({
+            notificationPrefs: restAlertsAnswered(preferences.notificationPrefs, outcome),
+          })
+        }
       />
     );
   }

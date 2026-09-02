@@ -41,9 +41,10 @@ const LEVELS: Array<{ key: NotificationLevel; titleKey: I18nKey; subKey: I18nKey
 ];
 
 // Rest & alerts (design: Background Timer). The first section on the page:
-// the workout timer is the one notification every reader meets, and it is not
-// gated on the marketing-style "push" master switch below — a rest alert is
-// the app doing its job, not the app asking for attention.
+// the workout timer is the one notification every reader meets. It obeys the
+// master switch below like everything else (user 2026-08-22), which is why
+// the first-rest ask in a workout turns that switch on for the workout alerts
+// alone — see src/lib/restAlertAnswer.ts.
 const REST_TOGGLES: Array<{ key: keyof NotificationPrefs; titleKey: I18nKey; subKey: I18nKey }> = [
   { key: 'restAlerts', titleKey: 'notif.rest.alerts', subKey: 'notif.rest.alertsSub' },
   { key: 'restWarning', titleKey: 'notif.rest.warning', subKey: 'notif.rest.warningSub' },
