@@ -311,7 +311,9 @@ module.exports = [
       // is a sentence about the pool and was read as a sentence about the app
       // ("ei pysty hakemaan todellisuudessa mitään", #bugs 2026-08-26).
       assert.match(programDaySource, /swapLibraryMatches/);
-      assert.match(programDaySource, /exerciseMatchesQuery\(buildExerciseSearchHaystack\(item, language\), query\)/);
+      // The library search goes through the shared ranker (2026-09-02): the
+      // same match rule, best answer first.
+      assert.match(programDaySource, /rankExerciseMatches\(\s*exerciseLibrary\.filter/);
       assert.match(programDaySource, /home\.swapSheet\.library/);
       // And the pool-is-empty line only shows when nothing was searched for.
       assert.match(programDaySource, /swapQuery\.trim\(\) \? 'home\.swapSheet\.noMatches' : 'home\.swapSheet\.empty'/);
