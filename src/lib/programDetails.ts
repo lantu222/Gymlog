@@ -73,14 +73,16 @@ export interface ProgramDetailViewModel {
   sessionActionLabel: string;
   sessions: ProgramDetailSessionItem[];
   /**
-   * Training days in the programme's own week — what the catalog row, the
-   * cover and the adoption sheet all state.
+   * Training days in the programme's own week — the number the catalog row,
+   * the cover and the adoption sheet all state.
    *
-   * Not `sessions.length`. A rolling programme rotates its sessions across
-   * its training days, and the two only coincide when it holds one session
-   * per day: Strength Foundations 5x5 is three days a week on TWO workouts
-   * (A-B-A, B-A-B), and every reader that counted sessions drew it as a
-   * two-day programme while the row beside it said "3 ×" (#bugs 2026-09-01).
+   * Stated here rather than derived from `sessions.length` on the screen.
+   * The two are kept equal for every ready programme by a guard, because the
+   * plan engine pins one session to each training day; when Strength
+   * Foundations 5x5 carried daysPerWeek: 3 on two sessions, the page counted
+   * sessions and drew a two-day programme under a catalog row that said
+   * "3 ×" (#bugs 2026-09-01). One reader of one number, and a guard that
+   * keeps the number honest, is how the two stop disagreeing.
    */
   daysPerWeek: number;
 }

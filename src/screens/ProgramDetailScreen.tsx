@@ -14,7 +14,8 @@ import { progressionRuleLabel } from '../lib/progressionRuleLabel';
 import { EQUIPMENT_CHIP_KEYS, missingEquipment } from '../lib/programEquipment';
 import { EmphasisSheet } from '../components/EmphasisSheet';
 import { EMPHASIS_AREA_KEYS, emphasisAreaForExercise, resolveProgramEmphasis } from '../lib/programEmphasis';
-import { WEEKDAY_KEYS } from '../lib/programTrainingDays';
+import { WEEKDAY_INDEX, WEEKDAY_KEYS } from '../lib/programTrainingDays';
+import { DEFAULT_RHYTHM_BY_DAYS, isSetupDaysPerWeek } from '../lib/firstRunSetup';
 import { estimateSessionMinutes } from '../lib/sessionDuration';
 import {
   buildTrainingWeekLoad,
@@ -149,24 +150,20 @@ function parseMinutesFromBadges(badges: string[]) {
 }
 
 /**
- * A default spread for a programme's TRAINING DAYS — not its session count.
- * The two differ on a rolling programme (5x5: two workouts, three days), and
- * this used to be handed the session count, which drew Mon/Thu for a
- * programme the catalog row beside it called "3 ×" (#bugs 2026-09-01).
+ * A default spread for a programme nobody has adopted: the same weekday
+ * rhythm adoption will write (`planLabelsForProgramme` falls back to it), so
+ * the strip does not move under the reader when they tap Adopt. This screen
+ * used to keep a table of its own that disagreed at five days (Wed on, Thu
+ * off here; the reverse once adopted).
  */
 function getTrainingDayIndexes(dayCount: number) {
   if (dayCount <= 1) {
     return new Set([0]);
   }
-
-  const templates: Record<number, number[]> = {
-    2: [0, 3],
-    3: [0, 2, 4],
-    4: [0, 1, 3, 5],
-    5: [0, 1, 2, 4, 5],
-  };
-
-  return new Set(templates[dayCount] ?? [0, 1, 2, 3, 4, 5].slice(0, Math.min(dayCount, 6)));
+  if (isSetupDaysPerWeek(dayCount)) {
+    return new Set(DEFAULT_RHYTHM_BY_DAYS[dayCount].map((day) => WEEKDAY_INDEX[day]));
+  }
+  return new Set([0, 1, 2, 3, 4, 5, 6].slice(0, Math.min(dayCount, 7)));
 }
 
 export function ProgramDetailScreen({

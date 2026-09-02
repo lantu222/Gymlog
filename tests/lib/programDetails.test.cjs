@@ -274,30 +274,38 @@ module.exports = [
     },
   },
   {
-    name: 'a rolling programme states its days, and its sessions are not that number',
+    name: 'Strength Foundations 5x5 is three days on three sessions, A-B-A',
     run() {
-      // Strength Foundations 5x5 is the one catalog entry whose day count and
-      // session count differ: A-B-A / B-A-B, three days on two workouts. The
-      // detail page used to count sessions and draw it as a two-day programme
-      // under a catalog row that said "3 ×" (#bugs 2026-09-01). The view
-      // model carries the programme's own number so the screen never has to
-      // guess it from the session list.
+      // #bugs 2026-09-01: the one catalog entry whose day count (3) and
+      // session count (2) differed. The plan engine pins one session to each
+      // training day, so every reader that counted sessions — the detail
+      // page, adoption, the composer — drew a two-day programme under a
+      // catalog row that said "3 ×". The week is stated as data now: the
+      // third day is Workout A again, which is what classic 5x5 does.
       const template = getWorkoutTemplateById('tpl_gainer_strength_5x5_v1');
-      assert.equal(template.sessions.length, 2, 'the fixture assumes the classic two-workout 5x5');
       assert.equal(template.daysPerWeek, 3);
+      assert.equal(template.sessions.length, 3);
+      assert.deepEqual(
+        template.sessions.map((session) => session.name),
+        ['Workout A', 'Workout B', 'Workout A'],
+      );
+      // The repeat is the same prescription, not a paraphrase of it.
+      const lifts = (session) => session.exercises.map((exercise) => `${exercise.exerciseName} ${exercise.sets}x${exercise.repsMin}`);
+      assert.deepEqual(lifts(template.sessions[2]), lifts(template.sessions[0]));
+      // And every exercise id is still unique across the template, because
+      // the logger keys on them.
+      const ids = template.sessions.flatMap((session) => session.exercises.map((exercise) => exercise.id));
+      assert.equal(new Set(ids).size, ids.length);
+
       const detail = buildReadyProgramDetail(template);
       assert.equal(detail.daysPerWeek, 3);
-      assert.equal(detail.sessions.length, 2);
+      assert.equal(detail.sessions.length, 3);
       assert.match(detail.subtitle, /3 days \/ week/);
 
       // A custom programme has no number of its own: one session per day.
       const custom = buildCustomProgramDetail({
         id: 'tpl_custom_x',
         name: 'Mine',
-        goalType: 'general',
-        level: 'beginner',
-        splitType: 'full_body',
-        estimatedSessionDuration: 45,
         defaultScheduleMode: 'rolling_sequence',
         sessions: [
           { id: 'a', name: 'A', orderIndex: 1, exercises: [] },
@@ -308,28 +316,22 @@ module.exports = [
     },
   },
   {
-    name: 'every ready programme trains at least as many days as it has sessions, within a week',
+    name: 'every ready programme holds exactly one session per stated training day',
     run() {
-      // The guard for the next 5x5. A programme with MORE sessions than days
-      // would never reach some of them in a week; one claiming more than
-      // seven days is a typo. Either is data nobody can schedule, and nothing
-      // else in the app fails on it — the calendar just quietly draws the
-      // wrong week.
+      // The guard for the next 5x5. Adoption pins one session to each entry
+      // and every week-count on screen reads daysPerWeek, so a template whose
+      // two numbers differ is scheduled as one and described as the other —
+      // and nothing else in the app fails on it; the calendar just quietly
+      // draws the wrong week. A programme that genuinely rotates fewer
+      // sessions over more days is a plan-engine feature, not a data entry.
       const offenders = WORKOUT_TEMPLATES_V1.filter(
         (template) =>
           !Number.isInteger(template.daysPerWeek) ||
           template.daysPerWeek < 1 ||
           template.daysPerWeek > 7 ||
-          template.sessions.length > template.daysPerWeek,
+          template.sessions.length !== template.daysPerWeek,
       ).map((template) => `${template.id} days=${template.daysPerWeek} sessions=${template.sessions.length}`);
       assert.deepEqual(offenders, []);
-      // And the one deliberate exception is still the only one — if a second
-      // appears, it is a decision, not an accident.
-      const rolling = WORKOUT_TEMPLATES_V1.filter((template) => template.sessions.length !== template.daysPerWeek);
-      assert.deepEqual(
-        rolling.map((template) => template.id),
-        ['tpl_gainer_strength_5x5_v1'],
-      );
     },
   },
 ];

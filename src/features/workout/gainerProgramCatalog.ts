@@ -707,6 +707,19 @@ export const Vinha_WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
         { id: "workout_b_overhead_press", exerciseName: "Overhead Press", slotId: "secondary_gainer_arms_2", role: "secondary", progressionPriority: "medium", trackingMode: "load_and_reps", sets: 5, repsMin: 5, repsMax: 5, restSecondsMin: 120, restSecondsMax: 180, substitutionGroup: "vertical_press" },
         { id: "workout_b_deadlift", exerciseName: "Deadlift", slotId: "secondary_gainer_hinge_glute_3", role: "secondary", progressionPriority: "medium", trackingMode: "load_and_reps", sets: 1, repsMin: 5, repsMax: 5, restSecondsMin: 210, restSecondsMax: 270, substitutionGroup: "deadlift_pattern" },
       ] },
+      // The third day of the week is Workout A again. Classic 5x5 alternates
+      // two workouts over three days, and this was the one catalog entry with
+      // daysPerWeek: 3 on two sessions — a shape the plan engine cannot run:
+      // adoption pins one session to each entry, so the programme became a
+      // two-day programme the moment it was adopted while the catalog row
+      // beside it said "3 ×" (#bugs 2026-09-01). The week is A-B-A, stated
+      // as data; the guard in programDetails.test.cjs keeps every template's
+      // days and sessions equal from here on.
+      { id: "workout_a_again", name: "Workout A", orderIndex: 3, exercises: [
+        { id: "workout_a_again_back_squat", exerciseName: "Back Squat", slotId: "primary_gainer_core_1", role: "primary", progressionPriority: "high", trackingMode: "load_and_reps", sets: 5, repsMin: 5, repsMax: 5, restSecondsMin: 150, restSecondsMax: 210, substitutionGroup: "squat_pattern" },
+        { id: "workout_a_again_barbell_bench_press", exerciseName: "Barbell Bench Press", slotId: "secondary_gainer_arms_2", role: "secondary", progressionPriority: "medium", trackingMode: "load_and_reps", sets: 5, repsMin: 5, repsMax: 5, restSecondsMin: 120, restSecondsMax: 180, substitutionGroup: "horizontal_press" },
+        { id: "workout_a_again_barbell_row", exerciseName: "Barbell Row", slotId: "secondary_gainer_arms_3", role: "secondary", progressionPriority: "medium", trackingMode: "load_and_reps", sets: 5, repsMin: 5, repsMax: 5, restSecondsMin: 120, restSecondsMax: 180, substitutionGroup: "horizontal_pull" },
+      ] },
     ],
   },
   {

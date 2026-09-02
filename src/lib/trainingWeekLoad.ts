@@ -14,11 +14,12 @@ import { removeTrailingZeros } from './format';
  *   2. the days the plan names, which is the truth for a weekday rhythm;
  *   3. the programme's own stated days, for a programme nobody has adopted.
  *
- * The third used to be the SESSION count, which is a different number: a
- * rolling programme spreads its sessions over its days, and Strength
- * Foundations 5x5 runs two workouts across three days. Counting sessions drew
- * it as a two-day programme under a catalog row that said "3 ×" (#bugs
- * 2026-09-01).
+ * The third used to be the SESSION count. It is the same number for every
+ * ready programme today — a guard keeps it so — but it is the wrong question:
+ * "how many days" is what the programme states, and the one time the two
+ * drifted apart (Strength Foundations 5x5, daysPerWeek 3 on two sessions)
+ * this page drew a two-day programme under a catalog row that said "3 ×"
+ * (#bugs 2026-09-01).
  */
 export interface TrainingWeekLoad {
   /** Training days in an average week. 5.6 for "4 on · 1 off". */
