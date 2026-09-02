@@ -1,4 +1,5 @@
-﻿import { createId } from './ids';
+﻿import { exerciseNameLabel } from './exerciseNameLabel';
+import { createId } from './ids';
 import {
   ExerciseLibraryItem,
   ExerciseTemplate,
@@ -41,18 +42,29 @@ function normalizeName(value: string) {
   return value.trim().toLowerCase();
 }
 
-function findFirstKeywordMatch(items: ExerciseLibraryItem[], keywords: string[], picked: Set<string>) {
+/**
+ * The row a popular seed stands for.
+ *
+ * The lift whose plain English label IS the seed — "Lat Pulldown" is what the
+ * app calls Wide-Grip Lat Pulldown, "Overhead Press" what it calls Standing
+ * Military Press — and only then the first keyword match, shortest name
+ * first. Keyword-only picking took whatever came first in the library's
+ * alphabet: Close-Grip Front Lat Pulldown as THE lat pulldown, Alternating
+ * Cable Shoulder Press as THE overhead press — the "Suositut aloitukseen"
+ * card in the picker ("haluisin vain ylätalja", #bugs 2026-08-28).
+ */
+function findFirstKeywordMatch(items: ExerciseLibraryItem[], label: string, keywords: string[], picked: Set<string>) {
+  const wanted = normalizeName(label);
+  const byLabel = items.find(
+    (item) => !picked.has(item.id) && normalizeName(exerciseNameLabel('en', item.name)) === wanted,
+  );
+  if (byLabel) {
+    return byLabel;
+  }
   for (const keyword of keywords) {
-    const match = items.find((item) => {
-      if (picked.has(item.id)) {
-        return false;
-      }
-
-      return normalizeName(item.name).includes(keyword);
-    });
-
-    if (match) {
-      return match;
+    const candidates = items.filter((item) => !picked.has(item.id) && normalizeName(item.name).includes(keyword));
+    if (candidates.length) {
+      return candidates.reduce((best, item) => (item.name.length < best.name.length ? item : best));
     }
   }
 
@@ -173,7 +185,7 @@ export function getPopularExerciseLibraryItems(exerciseLibrary: ExerciseLibraryI
   const matches: ExerciseLibraryItem[] = [];
 
   for (const seed of POPULAR_EXERCISE_SEEDS) {
-    const match = findFirstKeywordMatch(exerciseLibrary, seed.keywords, picked);
+    const match = findFirstKeywordMatch(exerciseLibrary, seed.label, seed.keywords, picked);
 
     if (match) {
       picked.add(match.id);
