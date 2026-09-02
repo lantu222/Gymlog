@@ -14,7 +14,8 @@ import { progressionRuleLabel } from '../lib/progressionRuleLabel';
 import { EQUIPMENT_CHIP_KEYS, missingEquipment } from '../lib/programEquipment';
 import { EmphasisSheet } from '../components/EmphasisSheet';
 import { EMPHASIS_AREA_KEYS, emphasisAreaForExercise, resolveProgramEmphasis } from '../lib/programEmphasis';
-import { WEEKDAY_KEYS } from '../lib/programTrainingDays';
+import { WEEKDAY_INDEX, WEEKDAY_KEYS } from '../lib/programTrainingDays';
+import { DEFAULT_RHYTHM_BY_DAYS, isSetupDaysPerWeek } from '../lib/firstRunSetup';
 import { estimateSessionMinutes } from '../lib/sessionDuration';
 import {
   buildTrainingWeekLoad,
@@ -148,19 +149,21 @@ function parseMinutesFromBadges(badges: string[]) {
   return durationBadge ? Number.parseInt(durationBadge.replace(/\D/g, ''), 10) || 0 : 0;
 }
 
-function getTrainingDayIndexes(sessionCount: number) {
-  if (sessionCount <= 1) {
+/**
+ * A default spread for a programme nobody has adopted: the same weekday
+ * rhythm adoption will write (`planLabelsForProgramme` falls back to it), so
+ * the strip does not move under the reader when they tap Adopt. This screen
+ * used to keep a table of its own that disagreed at five days (Wed on, Thu
+ * off here; the reverse once adopted).
+ */
+function getTrainingDayIndexes(dayCount: number) {
+  if (dayCount <= 1) {
     return new Set([0]);
   }
-
-  const templates: Record<number, number[]> = {
-    2: [0, 3],
-    3: [0, 2, 4],
-    4: [0, 1, 3, 5],
-    5: [0, 1, 2, 4, 5],
-  };
-
-  return new Set(templates[sessionCount] ?? [0, 1, 2, 3, 4, 5].slice(0, Math.min(sessionCount, 6)));
+  if (isSetupDaysPerWeek(dayCount)) {
+    return new Set(DEFAULT_RHYTHM_BY_DAYS[dayCount].map((day) => WEEKDAY_INDEX[day]));
+  }
+  return new Set([0, 1, 2, 3, 4, 5, 6].slice(0, Math.min(dayCount, 7)));
 }
 
 export function ProgramDetailScreen({
@@ -313,11 +316,11 @@ export function ProgramDetailScreen({
   // number the total is derived from rather than two numbers that disagree.
   const progressPercent = activePlanSummary?.progressPercent ?? 1;
   const weekLabel = activePlanSummary?.weekLabel ?? t(language, 'detail.weekFallback');
-  const sessionsPerWeek = activePlanSummary?.sessionsPerWeek ?? `${program.sessions.length}`;
+  const sessionsPerWeek = activePlanSummary?.sessionsPerWeek ?? `${program.daysPerWeek}`;
   const weeklyMinutes =
     activePlanSummary?.weeklyMinutes ??
     (durationMinutes > 0
-      ? `~${durationMinutes * Math.max(1, program.sessions.length)} min`
+      ? `~${durationMinutes * Math.max(1, program.daysPerWeek)} min`
       : t(language, 'detail.workoutCount', { count: program.sessions.length }));
   /**
    * The rhythm the strip shows: the plan's own days when it names them, the
@@ -334,8 +337,8 @@ export function ProgramDetailScreen({
     if (trainingDayIndexes && trainingDayIndexes.length > 0) {
       return [...trainingDayIndexes];
     }
-    return [...getTrainingDayIndexes(program.sessions.length)];
-  }, [program.sessions.length, trainingDayIndexes]);
+    return [...getTrainingDayIndexes(program.daysPerWeek)];
+  }, [program.daysPerWeek, trainingDayIndexes]);
   const committedDays = useMemo(
     () => [...orderedDays].sort((left, right) => left - right),
     [orderedDays],
@@ -372,10 +375,10 @@ export function ProgramDetailScreen({
       buildTrainingWeekLoad({
         cyclePattern: trainingCycle?.pattern ?? null,
         weekdayCount: shownDays.length,
-        sessionCount: program.sessions.length,
+        programDaysPerWeek: program.daysPerWeek,
         minutesPerSession: durationMinutes,
       }),
-    [durationMinutes, program.sessions.length, shownDays, trainingCycle],
+    [durationMinutes, program.daysPerWeek, shownDays, trainingCycle],
   );
 
   const toggleRhythmDay = (index: number) => {
@@ -649,7 +652,7 @@ export function ProgramDetailScreen({
                   on: trainingCycle.pattern.filter(Boolean).length,
                   off: trainingCycle.pattern.filter((day) => !day).length,
                 })
-              : t(language, 'detail.trainingDays', { count: program.sessions.length })}
+              : t(language, 'detail.trainingDays', { count: program.daysPerWeek })}
           </Text>
         </View>
         <View style={styles.rhythmRow}>

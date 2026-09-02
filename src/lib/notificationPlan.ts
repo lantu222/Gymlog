@@ -26,8 +26,10 @@ import { formatCompactVolume, formatVolume } from './format';
 import { t } from './i18n';
 import { AppLanguage, NotificationLevel, NotificationPrefs, SetupWeekday } from '../types/models';
 import { exerciseNameLabel } from './exerciseNameLabel';
+import { MEASUREMENT_LABEL_KEYS } from './homeStatCards';
+import { isMeasurementReminderKind } from './measurementReminder';
 
-export type NotificationCategory = 'record' | 'comeback' | 'reminder' | 'weekly' | 'weighIn';
+export type NotificationCategory = 'record' | 'comeback' | 'reminder' | 'weekly' | 'weighIn' | 'measure';
 
 export interface PlannedNotification {
   /** Stable across re-plans, so an unchanged plan re-schedules identically. */
@@ -58,6 +60,8 @@ export interface NotificationPlanInput {
   onTrainingBreak: boolean;
   /** Last weigh-in, so today's nudge is skipped once it is already done. */
   lastBodyweightAtMs?: number | null;
+  /** Last measurement of the reminded kind, for the same reason. */
+  lastMeasurementAtMs?: number | null;
 }
 
 export const DAILY_CAP_BY_LEVEL: Record<NotificationLevel, number> = {
@@ -85,12 +89,18 @@ export const MAX_SCHEDULED = 48;
 
 const CATEGORY_PRIORITY: Record<NotificationCategory, number> = {
   record: 0,
-  // Second only to a record: this is the one message the reader asked for by
-  // name, so it does not lose its slot to a reminder that is on by default.
-  weighIn: 1,
-  comeback: 2,
-  reminder: 3,
-  weekly: 4,
+  // Asked for by name, like the weigh-in, and the rarer of the two: once a
+  // week against every morning. On the same minute of the same morning the
+  // rarer message keeps the slot — on the quiet level, with both on, the
+  // daily one used to win every Sunday inside its horizon and the weekly one
+  // never fired at all (PR review).
+  measure: 1,
+  // Next: the other message the reader asked for by name, so it does not
+  // lose its slot to a reminder that is on by default.
+  weighIn: 2,
+  comeback: 3,
+  reminder: 4,
+  weekly: 5,
 };
 
 const JS_WEEKDAY: Record<SetupWeekday, number> = {
@@ -213,6 +223,51 @@ function buildWeighInReminders(input: NotificationPlanInput): PlannedNotificatio
       category: 'weighIn',
       title: t(language, 'notif.msg.weighInTitle'),
       body: t(language, 'notif.msg.weighInBody'),
+      fireAtMs,
+    });
+  }
+  return reminders;
+}
+
+/**
+ * One tape measurement a week, on the morning the reader picked.
+ *
+ * Weekly, not daily: a circumference moves by millimetres a week, and a
+ * daily reading is the tape's own noise. The weigh-in hour, so it is taken
+ * under the same conditions a weight is. Skipped on a day that kind has
+ * already been measured — a reminder for something done is the sign that
+ * explains a sign.
+ */
+function buildMeasurementReminders(input: NotificationPlanInput): PlannedNotification[] {
+  const { prefs, language, nowMs } = input;
+  const kind = prefs.measurementReminderKind;
+  // A kind that is not a tape measurement (body fat) cannot be reminded as
+  // one; the loader rejects it, and this refuses it again on the way out.
+  if (!kind || !isMeasurementReminderKind(kind)) {
+    return [];
+  }
+  const wantedWeekday = JS_WEEKDAY[prefs.measurementReminderDay];
+  if (wantedWeekday === undefined) {
+    return [];
+  }
+
+  const now = new Date(nowMs);
+  const kindLabel = t(language, MEASUREMENT_LABEL_KEYS[kind]);
+  const reminders: PlannedNotification[] = [];
+  for (let offset = 0; offset <= REMINDER_HORIZON_DAYS; offset += 1) {
+    const fireAtMs = atLocalTime(now, offset, WEIGH_IN_HOUR, WEIGH_IN_MINUTE);
+    if (fireAtMs <= nowMs || new Date(fireAtMs).getDay() !== wantedWeekday) {
+      continue;
+    }
+    const measuredAt = input.lastMeasurementAtMs ?? null;
+    if (measuredAt !== null && isSameLocalDay(measuredAt, fireAtMs)) {
+      continue;
+    }
+    reminders.push({
+      key: `measure-${kind}-${localDayKey(fireAtMs)}`,
+      category: 'measure',
+      title: t(language, 'notif.msg.measureTitle', { kind: kindLabel }),
+      body: t(language, 'notif.msg.measureBody'),
       fireAtMs,
     });
   }
@@ -346,6 +401,7 @@ export function buildNotificationPlan(input: NotificationPlanInput): PlannedNoti
   const planned = [
     ...buildSessionReminders(input),
     ...buildWeighInReminders(input),
+    ...buildMeasurementReminders(input),
     buildComebackNudge(input),
     buildWeeklySummary(input),
     buildRecordNote(input),

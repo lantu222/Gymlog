@@ -744,28 +744,46 @@ export function EmptyWorkoutScreen({
   return (
     <View style={styles.screen}>
       {/* header */}
+      {/* The title and clock centre on the SCREEN, not on what the two
+          buttons leave over. A 24px chevron on the left and "Lopeta" on the
+          right left the middle slot ~35px off-centre, and a clock that is
+          almost centred reads as a clock that slipped ("kello vähän sivussa
+          ylhäällä", #bugs 2026-08-28). Both sides get the same flexible
+          width; the buttons keep their own size inside them, so the tap
+          targets do not grow into the empty space.
+
+          The header's padding lives on the three slots, not on the row.
+          Android clips a Pressable's hitSlop to its parent's bounds, and
+          with the padding on the row the side slots were exactly their
+          button's size — the chevron's 44dp target shrank to 24dp (PR
+          review). Padded slots stretched to the row's height give the slop
+          the same room the row used to. */}
       <View style={styles.header}>
-        <Pressable accessibilityRole="button" accessibilityLabel={t(language, 'emptyWorkout.a11y.back')} onPress={onBack} hitSlop={10} style={styles.headerBack}>
-          <Svg viewBox="0 0 24 24" width={24} height={24}>
-            <Path d="M15 6l-6 6 6 6" stroke={theme.ink} strokeWidth={2.2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-        </Pressable>
+        <View style={styles.headerSide}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t(language, 'emptyWorkout.a11y.back')} onPress={onBack} hitSlop={10} style={styles.headerBack}>
+            <Svg viewBox="0 0 24 24" width={24} height={24}>
+              <Path d="M15 6l-6 6 6 6" stroke={theme.ink} strokeWidth={2.2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </Pressable>
+        </View>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>{t(language, 'emptyWorkout.title')}</Text>
           <Text style={styles.headerClock}>{formatSessionClock(elapsedSeconds)}</Text>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t(language, 'emptyWorkout.finishWorkout')}
-          onPress={handleFinish}
-          disabled={!canFinish}
-          hitSlop={10}
-          style={styles.headerFinish}
-        >
-          <Text style={[styles.headerFinishText, !canFinish && styles.headerFinishTextDisabled]}>
-            {t(language, 'emptyWorkout.finish')}
-          </Text>
-        </Pressable>
+        <View style={[styles.headerSide, styles.headerSideEnd]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(language, 'emptyWorkout.finishWorkout')}
+            onPress={handleFinish}
+            disabled={!canFinish}
+            hitSlop={10}
+            style={styles.headerFinish}
+          >
+            <Text style={[styles.headerFinishText, !canFinish && styles.headerFinishTextDisabled]}>
+              {t(language, 'emptyWorkout.finish')}
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       {/* stat strip */}
@@ -1051,16 +1069,35 @@ const makeStyles = (theme: Theme) => {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  // Equal flexible sides that stretch to the row's height and carry the
+  // row's padding, so a button's hitSlop has room inside its slot. The
+  // centre wraps a long title rather than pushing the sides below the
+  // width a button needs. See the header comment.
+  headerSide: {
+    flexGrow: 1,
+    flexBasis: 0,
+    minWidth: 64,
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    alignItems: 'flex-start',
     paddingTop: 8,
     paddingBottom: 10,
-    paddingHorizontal: 16,
+    paddingLeft: 16,
+  },
+  headerSideEnd: {
+    alignItems: 'flex-end',
+    paddingLeft: 0,
+    paddingRight: 16,
   },
   headerBack: {
     flexShrink: 0,
   },
   headerCenter: {
-    flex: 1,
+    flexShrink: 1,
     alignItems: 'center',
+    paddingTop: 8,
+    paddingBottom: 10,
   },
   headerTitle: {
     fontSize: 15.5,

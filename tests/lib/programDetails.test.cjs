@@ -6,7 +6,7 @@ const {
   buildReadyProgramDetail,
   buildReadySessionRuntimeTemplate,
 } = require('../../.test-dist/lib/programDetails.js');
-const { getWorkoutTemplateById } = require('../../.test-dist/features/workout/workoutCatalog.js');
+const { getWorkoutTemplateById, WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog.js');
 
 module.exports = [
   {
@@ -271,6 +271,67 @@ module.exports = [
       assert.equal(runtime.sessions.length, 1);
       assert.equal(runtime.sessions[0].id, 'upper_b');
       assert.match(runtime.name, /Upper B/);
+    },
+  },
+  {
+    name: 'Strength Foundations 5x5 is three days on three sessions, A-B-A',
+    run() {
+      // #bugs 2026-09-01: the one catalog entry whose day count (3) and
+      // session count (2) differed. The plan engine pins one session to each
+      // training day, so every reader that counted sessions — the detail
+      // page, adoption, the composer — drew a two-day programme under a
+      // catalog row that said "3 ×". The week is stated as data now: the
+      // third day is Workout A again, which is what classic 5x5 does.
+      const template = getWorkoutTemplateById('tpl_gainer_strength_5x5_v1');
+      assert.equal(template.daysPerWeek, 3);
+      assert.equal(template.sessions.length, 3);
+      assert.deepEqual(
+        template.sessions.map((session) => session.name),
+        ['Workout A', 'Workout B', 'Workout A'],
+      );
+      // The repeat is the same prescription, not a paraphrase of it.
+      const lifts = (session) => session.exercises.map((exercise) => `${exercise.exerciseName} ${exercise.sets}x${exercise.repsMin}`);
+      assert.deepEqual(lifts(template.sessions[2]), lifts(template.sessions[0]));
+      // And every exercise id is still unique across the template, because
+      // the logger keys on them.
+      const ids = template.sessions.flatMap((session) => session.exercises.map((exercise) => exercise.id));
+      assert.equal(new Set(ids).size, ids.length);
+
+      const detail = buildReadyProgramDetail(template);
+      assert.equal(detail.daysPerWeek, 3);
+      assert.equal(detail.sessions.length, 3);
+      assert.match(detail.subtitle, /3 days \/ week/);
+
+      // A custom programme has no number of its own: one session per day.
+      const custom = buildCustomProgramDetail({
+        id: 'tpl_custom_x',
+        name: 'Mine',
+        defaultScheduleMode: 'rolling_sequence',
+        sessions: [
+          { id: 'a', name: 'A', orderIndex: 1, exercises: [] },
+          { id: 'b', name: 'B', orderIndex: 2, exercises: [] },
+        ],
+      });
+      assert.equal(custom.daysPerWeek, 2);
+    },
+  },
+  {
+    name: 'every ready programme holds exactly one session per stated training day',
+    run() {
+      // The guard for the next 5x5. Adoption pins one session to each entry
+      // and every week-count on screen reads daysPerWeek, so a template whose
+      // two numbers differ is scheduled as one and described as the other —
+      // and nothing else in the app fails on it; the calendar just quietly
+      // draws the wrong week. A programme that genuinely rotates fewer
+      // sessions over more days is a plan-engine feature, not a data entry.
+      const offenders = WORKOUT_TEMPLATES_V1.filter(
+        (template) =>
+          !Number.isInteger(template.daysPerWeek) ||
+          template.daysPerWeek < 1 ||
+          template.daysPerWeek > 7 ||
+          template.sessions.length !== template.daysPerWeek,
+      ).map((template) => `${template.id} days=${template.daysPerWeek} sessions=${template.sessions.length}`);
+      assert.deepEqual(offenders, []);
     },
   },
 ];

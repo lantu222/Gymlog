@@ -4,7 +4,11 @@ import Svg, { Path } from 'react-native-svg';
 
 import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW, SectionLabel, ToggleSwitch } from '../components/SettingsUi';
+import { MEASUREMENT_LABEL_KEYS } from '../lib/homeStatCards';
 import { I18nKey, t } from '../lib/i18n';
+import { MEASUREMENT_REMINDER_KINDS } from '../lib/measurementReminder';
+import { WEEKDAY_KEYS } from '../lib/programTrainingDays';
+import { WEIGH_IN_HOUR, WEIGH_IN_MINUTE } from '../lib/notificationPlan';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AppLanguage, NotificationLevel, NotificationPrefs, SetupWeekday } from '../types/models';
@@ -55,6 +59,20 @@ const TRAINING_TOGGLES: Array<{ key: keyof NotificationPrefs; titleKey: I18nKey;
   { key: 'sessionReminders', titleKey: 'notif.reminders', subKey: 'notif.remindersSub' },
   { key: 'weighInReminder', titleKey: 'notif.weighIn', subKey: 'notif.weighInSub' },
 ];
+
+/** Full weekday names live under the widget's keys, Monday = 0. */
+const WEEKDAY_NAME_KEYS: Record<SetupWeekday, I18nKey> = {
+  mon: 'widget.weekday.0',
+  tue: 'widget.weekday.1',
+  wed: 'widget.weekday.2',
+  thu: 'widget.weekday.3',
+  fri: 'widget.weekday.4',
+  sat: 'widget.weekday.5',
+  sun: 'widget.weekday.6',
+};
+/** The kind a fresh switch-on picks — the one the request named. */
+const DEFAULT_MEASUREMENT_KIND = 'hips' as const;
+const MEASURE_TIME = `${String(WEIGH_IN_HOUR).padStart(2, '0')}:${String(WEIGH_IN_MINUTE).padStart(2, '0')}`;
 
 function RadioDot({ on }: { on: boolean }) {
   const styles = useThemedStyles(makeStyles);
@@ -132,6 +150,7 @@ export function NotificationsScreen({
   };
 
   const remindersWithoutDays = prefs.sessionReminders && trainingDays.length === 0;
+  const measureKind = prefs.measurementReminderKind;
 
   return (
     <View style={styles.screen}>
@@ -225,10 +244,7 @@ export function NotificationsScreen({
                 {TRAINING_TOGGLES.map((item, index) => (
                   <View
                     key={item.key}
-                    style={[
-                      styles.row,
-                      (index !== TRAINING_TOGGLES.length - 1 || prefs.sessionReminders) && styles.rowDivider,
-                    ]}
+                    style={[styles.row, styles.rowDivider]}
                   >
                     <View style={styles.rowCopy}>
                       <Text style={styles.rowTitle}>{t(language, item.titleKey)}</Text>
@@ -250,11 +266,7 @@ export function NotificationsScreen({
                       accessibilityRole="button"
                       accessibilityLabel={t(language, 'notif.reminderTime')}
                       onPress={() => setTimePickerOpen((open) => !open)}
-                      style={({ pressed }) => [
-                        styles.row,
-                        remindersWithoutDays && styles.rowDivider,
-                        pressed && { opacity: 0.75 },
-                      ]}
+                      style={({ pressed }) => [styles.row, styles.rowDivider, pressed && { opacity: 0.75 }]}
                     >
                       <View style={styles.rowCopy}>
                         <Text style={styles.rowTitle}>{t(language, 'notif.reminderTime')}</Text>
@@ -298,7 +310,7 @@ export function NotificationsScreen({
                     {/* No days picked = nothing to fire on. Say so instead of
                         leaving a switch that quietly does nothing. */}
                     {remindersWithoutDays ? (
-                      <View style={styles.row}>
+                      <View style={[styles.row, styles.rowDivider]}>
                         <View style={styles.rowCopy}>
                           <Text style={styles.rowTitle}>{t(language, 'notif.noDaysTitle')}</Text>
                           <Text style={styles.rowSub}>{t(language, 'notif.noDaysBody')}</Text>
@@ -315,6 +327,83 @@ export function NotificationsScreen({
                         ) : null}
                       </View>
                     ) : null}
+                  </>
+                ) : null}
+
+                {/* The weekly measurement (user 2026-08-29: "kerran viikossa
+                    esim lantion mittaus tai sen mitä itse haluaa"). One
+                    switch; when it is on, the kind and the morning sit right
+                    under it, because a reminder that cannot say what to
+                    measure is not one. */}
+                <View style={[styles.row, measureKind && styles.rowDivider]}>
+                  <View style={styles.rowCopy}>
+                    <Text style={styles.rowTitle}>{t(language, 'notif.measure')}</Text>
+                    <Text style={styles.rowSub}>
+                      {measureKind
+                        ? `${t(language, MEASUREMENT_LABEL_KEYS[measureKind])} · ${t(
+                            language,
+                            WEEKDAY_NAME_KEYS[prefs.measurementReminderDay],
+                          )} ${MEASURE_TIME}`
+                        : t(language, 'notif.measureSub')}
+                    </Text>
+                  </View>
+                  <ToggleSwitch
+                    label={t(language, 'notif.measure')}
+                    value={effectiveEnabled && measureKind !== null}
+                    onChange={(next) =>
+                      onChange({ measurementReminderKind: next ? DEFAULT_MEASUREMENT_KIND : null })
+                    }
+                  />
+                </View>
+
+                {measureKind ? (
+                  <>
+                    <Text style={styles.pickerLabel}>{t(language, 'notif.measure.kind')}</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.timeStrip}>
+                      {MEASUREMENT_REMINDER_KINDS.map((kind) => {
+                        const active = kind === measureKind;
+                        return (
+                          <Pressable
+                            key={kind}
+                            accessibilityRole="radio"
+                            accessibilityState={{ selected: active }}
+                            onPress={() => onChange({ measurementReminderKind: kind })}
+                            style={({ pressed }) => [
+                              styles.timeChip,
+                              active && styles.timeChipActive,
+                              pressed && { opacity: 0.75 },
+                            ]}
+                          >
+                            <Text style={[styles.timeChipText, active && styles.timeChipTextActive]}>
+                              {t(language, MEASUREMENT_LABEL_KEYS[kind])}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+                    <Text style={styles.pickerLabel}>{t(language, 'notif.measure.day')}</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.timeStrip}>
+                      {WEEKDAY_KEYS.map((day) => {
+                        const active = day === prefs.measurementReminderDay;
+                        return (
+                          <Pressable
+                            key={day}
+                            accessibilityRole="radio"
+                            accessibilityState={{ selected: active }}
+                            onPress={() => onChange({ measurementReminderDay: day })}
+                            style={({ pressed }) => [
+                              styles.timeChip,
+                              active && styles.timeChipActive,
+                              pressed && { opacity: 0.75 },
+                            ]}
+                          >
+                            <Text style={[styles.timeChipText, active && styles.timeChipTextActive]}>
+                              {t(language, WEEKDAY_NAME_KEYS[day])}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
                   </>
                 ) : null}
               </View>
@@ -438,6 +527,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
+  },
+  pickerLabel: {
+    color: theme.muted,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
   timeStrip: {
     flexDirection: 'row',

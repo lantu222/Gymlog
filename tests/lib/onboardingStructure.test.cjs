@@ -601,17 +601,20 @@ module.exports = [
       assert.doesNotMatch(renderLocationBody, /benefits:/);
       assert.doesNotMatch(renderLocationBody, /subdued:/);
       assert.match(onboardingSource, /const fixedTopPaneHeight = Math\.min\(380, Math\.round\(locationStageHeight \* 0\.34\) \+ 34\)/);
-      assert.match(onboardingSource, /styles\.locationTopPane, \{ height: fixedTopPaneHeight \}, topPaneStyle/);
-      assert.match(onboardingSource, /<View pointerEvents="none" style=\{styles\.locationProgressBarWrap\}>[\s\S]*<StepDots index=\{stageIndex\} \/>/);
+      assert.match(onboardingSource, /styles\.locationTopPane,\s*\{ height: fixedTopPaneHeight, marginTop: insets\.top \+ LOCATION_PANE_TOP_GAP \},\s*topPaneStyle/);
+      assert.match(onboardingSource, /<View pointerEvents="none" style=\{\[styles\.locationProgressBarWrap, \{ top: insets\.top \+ 10 \}\]\}>[\s\S]*<StepDots index=\{stageIndex\} \/>/);
       // The progress bar shares the back chevron's row (user 2026-08-23): on a
       // short phone the bar-below-button layout pushed the last option card
       // off screen. The bar renders as the shell's child, not the pane's, and
-      // centers on the chevron's 40px height at top 10.
+      // centers on the chevron's 40px height — at insets.top + 10, the same
+      // edge the chevron is placed from (user 2026-09-02: a fixed top of 10
+      // put the bar under the status-bar strip and the step label on the
+      // chevron). See tests/screens/onboardingShellInsets.test.cjs.
       assert.match(
         onboardingSource,
-        /<View pointerEvents="none" style=\{styles\.locationProgressBarWrap\}>[\s\S]{0,400}<View style=\{\[styles\.locationTopPane/,
+        /<View pointerEvents="none" style=\{\[styles\.locationProgressBarWrap, \{ top: insets\.top \+ 10 \}\]\}>[\s\S]{0,1200}<View\s+style=\{\[\s*styles\.locationTopPane/,
       );
-      assert.match(onboardingSource, /locationProgressBarWrap:\s*\{[\s\S]*?top: 10,[\s\S]*?height: 40/);
+      assert.match(onboardingSource, /locationProgressBarWrap:\s*\{[\s\S]*?height: 40/);
       // And the 58px offsets that cleared the in-pane bar are gone with it.
       assert.match(onboardingSource, /focusAreaTopPane:\s*\{[\s\S]*?paddingTop: 36/);
       assert.doesNotMatch(onboardingSource, /paddingTop: 58/);

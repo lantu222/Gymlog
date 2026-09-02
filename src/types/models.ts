@@ -68,6 +68,16 @@ export interface NotificationPrefs {
    */
   weighInReminder: boolean;
   /**
+   * A weekly nudge to take one tape measurement — "kerran viikossa esim
+   * lantion mittaus tai sen mitä itse haluaa" (#bugs 2026-08-29). The kind
+   * the reader picks, on the morning they pick, at the weigh-in hour: a tape
+   * wants the same conditions a scale does. `null` is off; there is no
+   * separate flag, because "on" with nothing to measure is a reminder that
+   * cannot say what it is for.
+   */
+  measurementReminderKind: Exclude<MeasurementKind, 'bodyfat'> | null;
+  measurementReminderDay: SetupWeekday;
+  /**
    * Rest & alerts (design: Background Timer). Defaults assume a noisy gym —
    * each is defeatable here, none is a marketing push.
    */
