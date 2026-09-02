@@ -68,6 +68,13 @@ module.exports = [
       assert.equal(en[0].name, 'Wide-Grip Lat Pulldown');
       // The exact stored name wins outright, whatever the language.
       assert.equal(rankExerciseMatches(library, 'Barbell Full Squat', 'fi')[0].name, 'Barbell Full Squat');
+      // Within a rank, popularity breaks the tie before length: "penkki" is
+      // the bench press, not the bench dip that happens to be shorter.
+      const { getPopularExerciseLibraryOrder } = require('../../.test-dist/lib/exerciseSuggestions.js');
+      const order = getPopularExerciseLibraryOrder(library);
+      const penkki = rankExerciseMatches(library, 'penkki', 'fi', (item) => order.get(item.id));
+      assert.equal(exerciseNameLabel('fi', penkki[0].name), 'Penkkipunnerrus');
+      assert.equal(exerciseNameLabel('fi', rankExerciseMatches(library, 'penkki', 'fi')[0].name), 'Penkkidippi', 'without popularity the shorter name leads');
       // No query: the caller's order, untouched.
       assert.deepEqual(rankExerciseMatches(library.slice(0, 5), '  ', 'fi').map((i) => i.name), library.slice(0, 5).map((i) => i.name));
     },

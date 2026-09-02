@@ -42,6 +42,27 @@ type Exhaustive = [MeasurementKind] extends [ListedKind]
 const EXHAUSTIVE: Exhaustive = true;
 void EXHAUSTIVE;
 
+/**
+ * Where the ruler opens when a kind has never been measured.
+ *
+ * One number, 90 cm, used to serve every kind — a plausible waist and an
+ * absurd biceps ("hauiksen kirjauksen oletusarvo on 90 cm", found on the
+ * 2026-08-28 walkthrough). A default is not a claim about the reader, only
+ * where the scroll starts, so each is a common adult figure the ruler can be
+ * dragged from in a couple of moves either way.
+ */
+export const DEFAULT_MEASUREMENT_VALUE: Record<MeasurementKind, number> = {
+  bodyfat: 20,
+  shoulders: 110,
+  chest: 95,
+  back: 100,
+  arms: 33,
+  waist: 85,
+  hips: 97,
+  thighs: 55,
+  calves: 37,
+};
+
 export function isMeasurementKind(value: unknown): value is MeasurementKind {
   return (
     typeof value === 'string' && (MEASUREMENT_KIND_ORDER as readonly string[]).includes(value)

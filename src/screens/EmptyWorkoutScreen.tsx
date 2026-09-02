@@ -34,7 +34,7 @@ import {
   freestyleVolumeKg,
   matchesMuscleFilter,
 } from '../lib/emptyWorkoutSession';
-import { getExerciseTemplateDefaults, getPopularExerciseLibraryItems } from '../lib/exerciseSuggestions';
+import { getExerciseTemplateDefaults, getPopularExerciseLibraryItems, getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { bodyPartLabel, I18nKey, t } from '../lib/i18n';
 import { createId } from '../lib/ids';
 import { ExercisePrLookup } from '../lib/workoutCompletionSummary';
@@ -279,6 +279,7 @@ function AddExerciseSheetHG({ visible, items, language, onClose, onAdd, bottomIn
     setSelectedIds((current) => (current.includes(id) ? current.filter((value) => value !== id) : [...current, id]));
 
   const normalizedQuery = query.trim().toLowerCase();
+  const popularOrder = useMemo(() => getPopularExerciseLibraryOrder(items), [items]);
   // Best answer first: the plain lat pulldown before the twelve variants
   // that also contain "ylätalja". See rankExerciseMatches.
   const matches = useMemo(
@@ -287,8 +288,9 @@ function AddExerciseSheetHG({ visible, items, language, onClose, onAdd, bottomIn
         items.filter((item) => matchesMuscleFilter(item.bodyPart, filter)),
         normalizedQuery,
         language,
+        (item) => popularOrder.get(item.id),
       ),
-    [filter, items, language, normalizedQuery],
+    [filter, items, language, normalizedQuery, popularOrder],
   );
 
   const popularItems = useMemo(() => {

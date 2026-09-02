@@ -395,6 +395,7 @@ export function ExerciseLibraryBrowser({
   );
 
   const query = search.trim().toLowerCase();
+  const popularOrder = useMemo(() => getPopularExerciseLibraryOrder(items), [items]);
   const filteredItems = useMemo(() => {
     const filtered = items.filter((item) => {
       if (bodyPartFilter !== 'all' && item.bodyPart !== bodyPartFilter) {
@@ -409,8 +410,8 @@ export function ExerciseLibraryBrowser({
       return true;
     });
     // Best answer first under a query — see rankExerciseMatches.
-    return rankExerciseMatches(filtered, query, language);
-  }, [items, language, query, bodyPartFilter, categoryFilter, equipmentFilter]);
+    return rankExerciseMatches(filtered, query, language, (item) => popularOrder.get(item.id));
+  }, [items, language, query, popularOrder, bodyPartFilter, categoryFilter, equipmentFilter]);
 
   const { commonOrder, orderedItems } = useOrderedExercises(items, filteredItems, query.length > 0);
   const hasModalFilters = categoryFilter !== 'all' || equipmentFilter !== 'all';

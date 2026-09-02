@@ -75,21 +75,39 @@ export function rankExerciseMatch(
 }
 
 /**
- * The matches for a query, best answer first. Stable within a rank, so the
- * caller's order (popularity, alphabet) still decides between equals; a
- * shorter name outranks a longer one at the same rank because it is the
- * plainer version of the same lift.
+ * The matches for a query, best answer first.
+ *
+ * Within a rank, a lift the app counts as popular comes before one it does
+ * not — "penkki" is asking for the bench press, not the bench dip that
+ * happens to be the shorter name — then a shorter name (the plainer version
+ * of the same lift), then the caller's order.
  */
 export function rankExerciseMatches<
   T extends Pick<ExerciseLibraryItem, 'name' | 'bodyPart' | 'category' | 'equipment' | 'primaryMuscles' | 'secondaryMuscles'>,
->(items: readonly T[], query: string, language: AppLanguage): T[] {
+>(
+  items: readonly T[],
+  query: string,
+  language: AppLanguage,
+  /** A lower number is more popular; undefined is "not on the list". */
+  popularity?: (item: T) => number | undefined,
+): T[] {
   const needle = query.trim().toLowerCase();
   if (!needle) {
     return [...items];
   }
+  const popular = (item: T) => popularity?.(item) ?? Number.POSITIVE_INFINITY;
   return items
-    .map((item, index) => ({ item, index, rank: rankExerciseMatch(item, needle, language), length: exerciseNameLabel(language, item.name).length }))
+    .map((item, index) => ({
+      item,
+      index,
+      rank: rankExerciseMatch(item, needle, language),
+      popular: popular(item),
+      length: exerciseNameLabel(language, item.name).length,
+    }))
     .filter(({ item }) => exerciseMatchesQuery(buildExerciseSearchHaystack(item, language), needle))
-    .sort((left, right) => left.rank - right.rank || left.length - right.length || left.index - right.index)
+    .sort(
+      (left, right) =>
+        left.rank - right.rank || left.popular - right.popular || left.length - right.length || left.index - right.index,
+    )
     .map(({ item }) => item);
 }
