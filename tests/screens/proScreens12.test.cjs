@@ -53,10 +53,11 @@ module.exports = [
       const endLink = footer.indexOf('styles.endLink');
       assert.ok(keep > 0 && endLink > keep, 'Keep first, the end line under it');
       assert.match(footer, /'subs\.end\.ctaOn', \{ date: formatDate\(endsAt, language\) \}/);
-      assert.match(end, /endLinkText: \{[^}]*color: DANGER_FILL/s);
+      assert.match(end, /endLinkText: \{[^}]*color: theme\.danger/s);
       assert.match(end, /keepButton: \{[^}]*backgroundColor: theme\.highlight/s);
-      // No filled red anywhere: DANGER_FILL is text only.
-      assert.equal((end.match(/backgroundColor: DANGER_FILL/g) ?? []).length, 0);
+      // No filled red anywhere, and no fixed red: the danger token is themed
+      // text, so the line clears contrast on the dark surface too.
+      assert.doesNotMatch(end, /DANGER_FILL|backgroundColor: theme\.danger|#DC2626/i);
       // The lead names the count from the list, not a typed "five" — and
       // lower-case, because it sits mid-sentence ("these five go back").
       assert.match(end, /count: countWord\(PRO_UNLOCK_CARDS\.length, language, 'inline'\)/);

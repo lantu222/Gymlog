@@ -18,9 +18,6 @@ import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 import { queryReduceMotion } from '../utils/reduceMotion';
 
-/** The destructive fill, identical in both themes — see `endButton`. */
-const DANGER_FILL = '#DC2626';
-
 interface MembershipEndScreenProps {
   source: MembershipSource;
   /** ISO date a promo runs out on; null when Pro is not promo-based. */
@@ -529,7 +526,10 @@ const makeStyles = (theme: Theme) =>
       justifyContent: 'center',
     },
     endLinkText: {
-      color: DANGER_FILL,
+      // The theme's danger TEXT token, not a fixed red: this line is the only
+      // affordance for ending, and the old fixed fill-red as text on the dark
+      // surface falls under 4:1. theme.danger stays readable on both.
+      color: theme.danger,
       fontSize: 14.5,
       fontWeight: '800',
     },
