@@ -280,6 +280,8 @@ const suites = [
   ...require('./screens/onboardingShellInsets.test.cjs'),
   ...require('./screens/restAlertsAsk.test.cjs'),
   ...require('./screens/weekEditAndDayDoor.test.cjs'),
+  ...require('./lib/profileMilestones.test.cjs'),
+  ...require('./screens/profileMilestoneSection.test.cjs'),
   ...require('./lib/restAlertAnswer.test.cjs'),
   ...require('./screens/onboardingVisualPolish.test.cjs'),
   ...require('./screens/headerBackReachable.test.cjs'),

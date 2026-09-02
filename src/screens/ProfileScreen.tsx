@@ -9,24 +9,16 @@ import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import { formatCompactVolume, formatWeight } from '../lib/format';
 import { LifetimeTrainingSummary } from '../lib/lifetimeSummary';
-import { bodyPartLabel, I18nKey, t } from '../lib/i18n';
+import { buildProfileMilestoneRows } from '../lib/profileMilestoneRows';
+import { bodyPartLabel, t } from '../lib/i18n';
 import {
   formatRecordWhenLabel,
 } from '../lib/profileOverview';
 import { ExerciseProgressSummary } from '../lib/progression';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
-import { AppPreferences, ExerciseLibraryItem, SetupWeekday, UnitPreference } from '../types/models';
+import { AppPreferences, ExerciseLibraryItem, UnitPreference } from '../types/models';
 
-const WEEKDAY_CHIPS: Array<{ day: SetupWeekday; labelKey: I18nKey }> = [
-  { day: 'mon', labelKey: 'weekday.mon' },
-  { day: 'tue', labelKey: 'weekday.tue' },
-  { day: 'wed', labelKey: 'weekday.wed' },
-  { day: 'thu', labelKey: 'weekday.thu' },
-  { day: 'fri', labelKey: 'weekday.fri' },
-  { day: 'sat', labelKey: 'weekday.sat' },
-  { day: 'sun', labelKey: 'weekday.sun' },
-];
 
 interface ProfileScreenProps {
   preferences: AppPreferences;
@@ -34,30 +26,11 @@ interface ProfileScreenProps {
   trackedProgress: ExerciseProgressSummary[];
   exerciseLibrary: ExerciseLibraryItem[];
   unitPreference: UnitPreference;
-  planName?: string | null;
-  planDaysPerWeek?: number | null;
-  /**
-   * The active plan's rhythm as one line when it runs on a cycle ("2 on,
-   * 1 off — repeating every 3 days"). Null for weekday plans, which the
-   * chips below can express.
-   */
-  planCycleCaption?: string | null;
-  /** The plan's OWN training weekdays, Monday-first indexes 0–6. */
-  planWeekdayIndexes?: number[];
-  planExerciseCount?: number | null;
-  /**
-   * One entry per session, full names with the "Day N:" ordinal stripped —
-   * the card lists the days themselves instead of a deduplicated one-liner
-   * that truncated (#bugs 2026-08-25).
-   */
-  planSessionNames?: string[];
-  planIsAiBuilt?: boolean;
   onOpenSettings: () => void;
   /** Opens the Records tab on Progress, where the full list lives. */
   onOpenRecords: () => void;
   /** Lifts holding a record — the count the Records tab itself shows. */
   recordCount: number;
-  onManagePlan: () => void;
   /**
    * Opens the profile editor. The ready-programme path through onboarding
    * never asks for a name, so this screen is where an unnamed reader is
@@ -153,50 +126,6 @@ function TrophyIcon() {
   );
 }
 
-function SparkIcon() {
-  const theme = useTheme();
-
-  // Filled spark, prototype's AI badge glyph. `highlight` like the badge text
-  // around it: the plan card's data is accent-coded (user 2026-08-25), which
-  // reads orange in dark and violet in light.
-  return (
-    <Svg width={13} height={13} viewBox="0 0 24 24">
-      <Path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" fill={theme.highlight} />
-    </Svg>
-  );
-}
-
-function CalendarIcon() {
-  const theme = useTheme();
-
-  return (
-    <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M4 6h16v15H4zM4 10h16M8 3v4M16 3v4"
-        stroke={theme.highlight}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function DumbbellIcon() {
-  const theme = useTheme();
-
-  return (
-    <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"
-        stroke={theme.highlight}
-        strokeWidth={2}
-        strokeLinecap="round"
-      />
-    </Svg>
-  );
-}
-
 function Avatar({ initials }: { initials: string }) {
   const styles = useThemedStyles(makeStyles);
 
@@ -223,16 +152,6 @@ function Avatar({ initials }: { initials: string }) {
   );
 }
 
-function Badge({ icon, label }: { icon: React.ReactNode; label: string }) {
-  const styles = useThemedStyles(makeStyles);
-
-  return (
-    <View style={styles.badge}>
-      {icon}
-      <Text style={styles.badgeText}>{label}</Text>
-    </View>
-  );
-}
 
 export function ProfileScreen({
   preferences,
@@ -240,17 +159,9 @@ export function ProfileScreen({
   trackedProgress,
   exerciseLibrary,
   unitPreference,
-  planName,
-  planDaysPerWeek,
-  planCycleCaption = null,
-  planWeekdayIndexes = [],
-  planExerciseCount,
-  planSessionNames = [],
-  planIsAiBuilt = false,
   onOpenSettings,
   onOpenRecords,
   recordCount,
-  onManagePlan,
   onEditProfile,
   onOpenRating,
 }: ProfileScreenProps) {
@@ -286,6 +197,11 @@ export function ProfileScreen({
     { key: 'prs', value: `${recordCount}`, label: t(language, recordCount === 1 ? 'profile.stat.pr' : 'profile.stat.prs') },
   ];
 
+  const milestoneRows = useMemo(
+    () => buildProfileMilestoneRows({ lifetime, recordCount, unitPreference, language }),
+    [language, lifetime, recordCount, unitPreference],
+  );
+
   const lifetimeStats = [
     {
       label: t(language, 'profile.lifetime.sessions'),
@@ -309,7 +225,6 @@ export function ProfileScreen({
     },
   ];
 
-  const resolvedPlanName = planName?.trim() ? planName.trim() : null;
 
   const handleInvite = async () => {
     // OS share sheet only — the user picks the target and can edit the text.
@@ -438,86 +353,41 @@ export function ProfileScreen({
           </Pressable>
         ) : null}
 
-        {/* TRAINING PLAN */}
+        {/* NEXT MILESTONE — the reward surface. It replaced the plan card
+            (user 2026-09-02): programme management lives on the Programs tab,
+            and the Profile is for what the reader has done. The rows are
+            distances, never promises. */}
         <View style={settingsStyles.section}>
-          <SectionLabel
-            label={t(language, 'profile.section.trainingPlan')}
-            actionLabel={resolvedPlanName ? t(language, 'profile.manage') : undefined}
-            onAction={onManagePlan}
-          />
-          <Pressable onPress={onManagePlan} style={({ pressed }) => [pressed && styles.pressedRow]}>
-            <CutSurface
-              size="lg"
-              fill={theme.surface}
-              stroke={theme.border}
-              strokeWidth={1}
-              speedLine={{ color: theme.purpleBright }}
-              style={styles.planCard}
-            >
-            <View style={styles.planTop}>
-              <Text numberOfLines={1} style={styles.planName}>
-                {resolvedPlanName ?? t(language, 'profile.noPlan')}
-              </Text>
-              <ChevronIcon />
-            </View>
-            {resolvedPlanName ? (
-              <>
-                <View style={styles.badgeRow}>
-                  {/* Mock parity: AI badge always on — engine wiring comes
-                      later. All three badges wear the accent now: the card's
-                      data is what the user scans, so it carries the colour
-                      (user 2026-08-25). */}
-                  <Badge icon={<SparkIcon />} label="AI" />
-                  {planDaysPerWeek ? (
-                    <Badge icon={<CalendarIcon />} label={t(language, 'profile.badge.perWeek', { count: planDaysPerWeek })} />
-                  ) : null}
-                  {planExerciseCount ? (
-                    <Badge icon={<DumbbellIcon />} label={t(language, 'profile.badge.exercises', { count: planExerciseCount })} />
-                  ) : null}
+          <SectionLabel label={t(language, 'profile.section.nextMilestone')} />
+          <CutSurface
+            size="lg"
+            fill={theme.surface}
+            stroke={theme.border}
+            strokeWidth={1}
+            speedLine={{ color: theme.purpleBright }}
+            style={styles.milestoneCard}
+          >
+            {milestoneRows.map((row, index) => (
+              <View key={row.key} style={[styles.milestoneRow, index > 0 && styles.milestoneRowDivider]}>
+                <View style={styles.milestoneHead}>
+                  <Text style={styles.milestoneTitle}>{row.title}</Text>
+                  {row.remainder ? <Text style={styles.milestoneRemainder}>{row.remainder}</Text> : null}
                 </View>
-                {/* The plan's rhythm, not the questionnaire's openings: this
-                    used to light setupAvailableDays, so a 2-on-1-off cycle
-                    read as "mon wed thu" — availability is not a plan (user,
-                    2026-08-22). A cycle gets its own sentence, because seven
-                    weekday chips cannot express a 3-day loop. */}
-                {planCycleCaption ? (
-                  <Text style={styles.planCaption}>{planCycleCaption}</Text>
-                ) : planWeekdayIndexes.length > 0 ? (
-                  <View style={styles.weekdayRow}>
-                    {WEEKDAY_CHIPS.map((chip, index) => {
-                      const active = planWeekdayIndexes.includes(index);
-                      return (
-                        <View key={chip.day} style={[styles.weekdayChip, active && styles.weekdayChipActive]}>
-                          <Text style={[styles.weekdayChipText, active && styles.weekdayChipTextActive]}>
-                            {t(language, chip.labelKey)}
-                          </Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                ) : null}
-                {/* The days themselves, one full name per row ("venytä
-                    alemmaksi että ohjelman päivät näkyisivät tässä nopeasti"
-                    — user 2026-08-25). Replaces a deduplicated one-liner that
-                    truncated at "Koko keho + H...". */}
-                {planSessionNames.length > 0 ? (
-                  <View style={styles.planDayList}>
-                    {planSessionNames.map((name, index) => (
-                      <View key={`${index}-${name}`} style={styles.planDayRow}>
-                        <Text style={styles.planDayIndex}>{index + 1}</Text>
-                        <Text numberOfLines={2} style={styles.planDayName}>
-                          {name}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
-              </>
-            ) : (
-              <Text style={styles.planCaption}>{t(language, 'profile.noPlanCaption')}</Text>
-            )}
-            </CutSurface>
-          </Pressable>
+                <View style={styles.milestoneTrack}>
+                  <View
+                    style={[
+                      styles.milestoneFill,
+                      {
+                        width: `${row.fillPercent}%`,
+                        backgroundColor: index === 0 ? theme.highlight : theme.purpleBright,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.milestoneMeta}>{row.meta}</Text>
+              </View>
+            ))}
+          </CutSurface>
         </View>
 
         {/* PERSONAL RECORDS — one number and a way in.
@@ -701,59 +571,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     gap: 4,
   },
-  weekdayRow: {
-    flexDirection: 'row',
-    gap: 6,
-    marginTop: 14,
-  },
   // The inactive fill was hardcoded pale, so under the dark theme the rest
   // days lit up white while the training days (theme.purpleLight, a dark tint)
   // went quiet — the card read backwards.
-  weekdayChip: {
-    flex: 1,
-    paddingVertical: 7,
-    borderRadius: 9,
-    backgroundColor: theme.surfaceSoft,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  weekdayChipActive: {
-    backgroundColor: theme.purpleLight,
-    borderColor: theme.purple,
-  },
-  weekdayChipText: {
-    color: theme.faint,
-    fontSize: 11.5,
-    fontWeight: '800',
-  },
-  weekdayChipTextActive: {
-    color: theme.purpleDark,
-  },
-  planCard: {
-    paddingVertical: 15,
-    paddingRight: 15,
-    // Room for the speed line before the plan name starts.
-    paddingLeft: 26,
-  },
-  planTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  planName: {
-    flex: 1,
-    color: theme.ink,
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 7,
-    marginTop: 10,
-  },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -763,42 +583,51 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 999,
     backgroundColor: theme.highlightSoft,
   },
-  badgeText: {
+  milestoneCard: {
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+  },
+  milestoneRow: {
+    paddingVertical: 12,
+    gap: 7,
+  },
+  milestoneRowDivider: {
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+  },
+  milestoneHead: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  milestoneTitle: {
+    flex: 1,
+    color: theme.ink,
+    fontSize: 14.5,
+    fontWeight: '700',
+  },
+  milestoneRemainder: {
     color: theme.highlight,
     fontSize: 11.5,
     fontWeight: '800',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
-  planCaption: {
-    color: theme.muted,
-    fontSize: 12.5,
-    fontWeight: '700',
-    marginTop: 12,
-  },
-  planDayList: {
-    marginTop: 12,
-    gap: 8,
-  },
-  planDayRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  planDayIndex: {
-    width: 22,
-    height: 22,
-    borderRadius: 7,
+  milestoneTrack: {
+    height: 7,
+    borderRadius: 99,
     backgroundColor: theme.surfaceSoft,
-    color: theme.muted,
-    fontSize: 11.5,
-    fontWeight: '800',
-    textAlign: 'center',
-    lineHeight: 22,
+    overflow: 'hidden',
   },
-  planDayName: {
-    flex: 1,
-    color: theme.ink,
-    fontSize: 13.5,
-    fontWeight: '700',
+  milestoneFill: {
+    height: 7,
+    borderRadius: 99,
+  },
+  milestoneMeta: {
+    color: theme.faint,
+    fontSize: 12,
+    fontWeight: '500',
   },
   recordsLinkCard: {
     flexDirection: 'row',

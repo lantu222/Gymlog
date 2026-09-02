@@ -18,6 +18,12 @@ export interface LifetimeTrainingSummary {
   weeksSinceStart: number;
   /** Longest run of consecutive active weeks ever recorded. */
   bestWeekStreak: number;
+  /**
+   * The run that is still alive: consecutive active weeks ending this week
+   * or last week. Last week counts, because a streak is not broken on Monday
+   * morning by a week that has only just begun.
+   */
+  currentWeekStreak: number;
   /** ISO timestamp of the earliest completed session, or null when none exist. */
   firstSessionAt: string | null;
 }
@@ -47,6 +53,7 @@ export function getLifetimeTrainingSummary(
       weeksActive: 0,
       weeksSinceStart: 0,
       bestWeekStreak: 0,
+      currentWeekStreak: 0,
       firstSessionAt: null,
     };
   }
@@ -70,6 +77,16 @@ export function getLifetimeTrainingSummary(
 
   const firstWeekStart = activeWeekStarts[0];
   const currentWeekStart = getCalendarWeekStartTimestamp(now);
+
+  // Walk back from this week (or last week, if this one has not started)
+  // through consecutive active weeks.
+  const activeSet = new Set(activeWeekStarts);
+  let cursor = activeSet.has(currentWeekStart) ? currentWeekStart : getCalendarWeekStartBefore(currentWeekStart);
+  let currentWeekStreak = 0;
+  while (activeSet.has(cursor)) {
+    currentWeekStreak += 1;
+    cursor = getCalendarWeekStartBefore(cursor);
+  }
   // WEEK_MS survives here on purpose: a span of N weeks is N * 168 hours give or
   // take the one hour a clock change adds or removes, and Math.round absorbs
   // 1/168 of a week. It is a count of weeks elapsed, not a week start to look
@@ -86,6 +103,7 @@ export function getLifetimeTrainingSummary(
     weeksActive: activeWeekStarts.length,
     weeksSinceStart,
     bestWeekStreak,
+    currentWeekStreak,
     firstSessionAt,
   };
 }
