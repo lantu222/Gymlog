@@ -497,6 +497,8 @@ function cycleDaysPerWeek(on: number, off: number): SetupDaysPerWeek {
  * has to agree with how many there are, and the render clamps to it.
  */
 const BUILDING_PLAN_PHASE_COUNT = [0, 1, 2, 3] as const;
+/** When each caption fades in, as a fraction of the screen's total time. */
+const BUILDING_PLAN_CAPTION_AT = [0.05, 0.28, 0.5, 0.72] as const;
 
 function getRecommendedDaysForLevel(level: SetupLevel): SetupDaysPerWeek {
   return level === 'beginner' ? 3 : level === 'pro' ? 5 : 4;
@@ -1601,7 +1603,15 @@ export function OnboardingScreen({
   const setupSeed =
     initialSelection ?? (basicsSeed ? { ...DEFAULT_FIRST_RUN_SELECTION, ...basicsSeed } : DEFAULT_FIRST_RUN_SELECTION);
   const editMode = mode === 'edit';
-  const BUILDING_PLAN_TOTAL_MS = 10000;
+  /**
+   * How long "Building your plan" is on screen. Choreography, not work: the
+   * plan is composed before the screen opens, and nothing here waits on it.
+   * Ten seconds (April) measured as the one slow moment in onboarding — both
+   * Done buttons are under a second — and the reader was watching a
+   * percentage for half of it. Four is long enough for the four captions
+   * to read as stages (user decision 2026-09-02).
+   */
+  const BUILDING_PLAN_TOTAL_MS = 4000;
   const previousUnitPreferenceRef = useRef(initialUnitPreference);
   const onboardingScrollRef = useRef<ScrollView | null>(null);
   const [stageIndex, setStageIndex] = useState(() =>
@@ -2218,10 +2228,12 @@ export function OnboardingScreen({
       }).start();
     };
 
-    timeouts.push(setTimeout(() => fadeCaption(0), 200));
-    timeouts.push(setTimeout(() => fadeCaption(1), 2800));
-    timeouts.push(setTimeout(() => fadeCaption(2), 5400));
-    timeouts.push(setTimeout(() => fadeCaption(3), 8000));
+    // The captions are fractions of the total, not fixed milliseconds — the
+    // old 200 / 2800 / 5400 / 8000 assumed ten seconds, and at four the last
+    // two would never have been shown.
+    BUILDING_PLAN_CAPTION_AT.forEach((fraction, index) => {
+      timeouts.push(setTimeout(() => fadeCaption(index), Math.round(BUILDING_PLAN_TOTAL_MS * fraction)));
+    });
 
     timeouts.push(
       setTimeout(() => {
@@ -2230,7 +2242,7 @@ export function OnboardingScreen({
         setBuildingPlanPhaseIndex(buildingPlanPhases.length - 1);
         setBuildingPlanPercent(100);
         setBuildingPlanComplete(true);
-      }, BUILDING_PLAN_TOTAL_MS - 1500),
+      }, BUILDING_PLAN_TOTAL_MS - 800),
     );
 
     timeouts.push(

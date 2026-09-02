@@ -63,6 +63,25 @@ module.exports = [
     },
   },
   {
+    name: 'building your plan: four seconds, and every caption fits inside them',
+    run() {
+      // Measured 2026-09-02: both Done buttons are under a second; the ten
+      // seconds here was the one slow moment. Four, by decision.
+      assert.match(screen, /const BUILDING_PLAN_TOTAL_MS = 4000;/);
+      // The captions derive from the total. Fixed milliseconds were the
+      // shape that shipped, and shortening the total would have hidden the
+      // last two captions without a single test going red.
+      assert.match(screen, /const BUILDING_PLAN_CAPTION_AT = \[0\.05, 0\.28, 0\.5, 0\.72\] as const;/);
+      assert.match(screen, /BUILDING_PLAN_CAPTION_AT\.forEach\(\(fraction, index\) => \{\s*timeouts\.push\(setTimeout\(\(\) => fadeCaption\(index\), Math\.round\(BUILDING_PLAN_TOTAL_MS \* fraction\)\)\);/);
+      assert.doesNotMatch(screen, /fadeCaption\(\d\), \d{3,5}\)/);
+      // The last caption (0.72 × 4000 = 2880) lands before completion marks
+      // every phase done (4000 − 800 = 3200), and completion lands before
+      // the fade-out (4000 − 420).
+      assert.match(screen, /setBuildingPlanComplete\(true\);\s*\}, BUILDING_PLAN_TOTAL_MS - 800\)/);
+      assert.ok(0.72 * 4000 < 4000 - 800 && 4000 - 800 < 4000 - 420);
+    },
+  },
+  {
     name: 'app shell: onboarding screens pad for the status bar themselves, so the shell does not',
     run() {
       const rule = app.slice(
