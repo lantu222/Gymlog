@@ -49,7 +49,9 @@ module.exports = [
       // ±15s moves the deadline of the SAME rest. Keying once-per-rest work on
       // endsAtMs re-opened the permission sheet on top of a running rest.
       assert.match(screen, /startedAtMs: number/);
-      assert.match(screen, /\}, \[rest\?\.startedAtMs\]\)/);
+      // The permission moment keys on the same identity (it moved into the
+      // shared hook 2026-09-02; the rule is the same).
+      assert.match(screen, /restKey: rest\?\.startedAtMs \?\? null,/);
       // The end cue is the opposite case: it must re-arm when +15s revives a
       // rest that had already finished, so it keys on the deadline.
       assert.match(screen, /restDoneCuedRef\.current !== rest\.endsAtMs/);

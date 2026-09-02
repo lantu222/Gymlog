@@ -82,6 +82,9 @@ import { estimateSessionMinutes } from '../lib/sessionDuration';
 import { t } from '../lib/i18n';
 import { haptics } from '../utils/haptics';
 import { subscribeRestActions, useRestEndAlert } from '../hooks/useRestEndAlert';
+import { useRestAlertPermissionMoment } from '../hooks/useRestAlertPermissionMoment';
+import { RestAlertsSheet } from '../components/RestAlertsSheet';
+import { RestAlertAskOutcome } from '../lib/restAlertAnswer';
 import { sound, type CueSound } from '../utils/sound';
 import { readableOn, Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { AppLanguage, ExerciseLibraryItem, UnitPreference } from '../types/models';
@@ -223,7 +226,9 @@ interface GuidedPlayerScreenProps {
   onFinishSession: () => void;
   isSavingWorkout: boolean;
   /** Rest & alerts settings (design: Background Timer). */
-  restAlerts?: { alerts: boolean; warning: boolean; ongoing: boolean };
+  restAlerts?: { alerts: boolean; warning: boolean; ongoing: boolean; asked: boolean };
+  /** The first-rest permission sheet was answered — see restAlertsAnswered. */
+  onRestAlertsAnswered?: (outcome: RestAlertAskOutcome) => void;
   /**
    * The reader asked to CONTINUE, not to open the session.
    *
@@ -1027,7 +1032,8 @@ export function GuidedPlayerScreen({
   onEndSession,
   onFinishSession,
   isSavingWorkout,
-  restAlerts = { alerts: true, warning: true, ongoing: true },
+  restAlerts = { alerts: true, warning: true, ongoing: true, asked: false },
+  onRestAlertsAnswered,
   autoResume = false,
 }: GuidedPlayerScreenProps) {
   const theme = useTheme();
@@ -1214,11 +1220,23 @@ export function GuidedPlayerScreen({
       body: t(language, 'rest.notify.sessionBody', { done, total, time }),
     };
   }, [language, session, sessionTitle]);
-  const syncRestNotification = useRestEndAlert(language, {
+  const syncRestEndAlert = useRestEndAlert(language, {
     warning: restAlerts.warning,
     ongoing: restAlerts.ongoing,
     session: sessionCard,
   });
+  /**
+   * The OS mirror of a rest, behind the same switch the empty workout
+   * honours: the phone's master notifications switch silences rest alerts
+   * too (user 2026-08-22). This screen used to hand every rest to the OS
+   * regardless, which on a fresh install meant a ladder behind a permission
+   * nobody had been asked for — nothing fired, and nothing said so.
+   */
+  const syncRestNotification = useCallback(
+    (endsAtMs: number | null, nextName?: string | null) =>
+      syncRestEndAlert(restAlerts.alerts ? endsAtMs : null, nextName),
+    [restAlerts.alerts, syncRestEndAlert],
+  );
 
   // Lock-screen actions land in App and come here over the bus. The guided
   // rest is a timed step, so "+30 s" is the same move as the +15s button and
@@ -1276,6 +1294,21 @@ export function GuidedPlayerScreen({
       before the next exercise's walk-up screen. Null = no splash showing. */
   const [doneSplashName, setDoneSplashName] = useState<string | null>(null);
   const frozen = paused || howtoOpen || exitOpen || pauseSheetOpen || swapOpen || ownBlock !== null;
+  // The permission moment (rule 05): at the first rest, in context, once.
+  // The rest step's index is the rest's identity — a new rest is a new step.
+  const restAsk = useRestAlertPermissionMoment({
+    restRunning: mode === 'player' && !frozen && step.type === 'rest',
+    restKey: step.type === 'rest' ? stepIndex : null,
+    asked: restAlerts.asked,
+    alertsWanted: restAlerts.alerts,
+    onAnswered: onRestAlertsAnswered,
+    onGranted: () => {
+      // The rest that prompted this is still running: hand it to the OS now.
+      if (stepRef.current?.type === 'rest' && endsAtRef.current !== null) {
+        void syncRestEndAlert(endsAtRef.current, exerciseNameLabel(language, getGuidedNextName(steps, stepIndex) ?? ''));
+      }
+    },
+  });
   // Seconds since the reader said they would do it themselves. Derived from
   // the session clock's tick so it needs no timer of its own.
   const ownElapsedSeconds = ownBlock ? Math.max(0, Math.floor((clockNowMs - ownBlock.startedAt) / 1000)) : 0;
@@ -2820,6 +2853,13 @@ export function GuidedPlayerScreen({
           <Text style={styles.sheetFootnote}>{t(language, 'guided.swap.footnote')}</Text>
         </GPSheet>
       )}
+
+      <RestAlertsSheet
+        visible={restAsk.sheetOpen}
+        language={language}
+        onAllow={() => void restAsk.allow()}
+        onLater={restAsk.later}
+      />
     </View>
   );
 }
