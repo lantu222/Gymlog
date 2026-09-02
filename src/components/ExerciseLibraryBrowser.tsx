@@ -14,7 +14,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { VinhaIcon, VinhaIconName } from './VinhaIcon';
 import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
-import { buildExerciseSearchHaystack, exerciseMatchesQuery } from '../lib/exerciseSearch';
+import { rankExerciseMatches } from '../lib/exerciseSearch';
 import { I18nKey, t } from '../lib/i18n';
 import type { LibraryCollectionState } from '../lib/exerciseCollections';
 import { libraryLabel } from '../lib/libraryLabel';
@@ -76,10 +76,15 @@ function getItemImage(item: ExerciseLibraryItem) {
   return item.imageUrls?.[0] ?? null;
 }
 
-function useOrderedExercises(items: ExerciseLibraryItem[], filteredItems: ExerciseLibraryItem[]) {
+function useOrderedExercises(items: ExerciseLibraryItem[], filteredItems: ExerciseLibraryItem[], keepOrder = false) {
   const commonOrder = useMemo(() => getPopularExerciseLibraryOrder(items), [items]);
 
   const orderedItems = useMemo(() => {
+    if (keepOrder) {
+      // A query already ranked these best-answer-first; popularity and the
+      // alphabet would put the variants back above the lift itself.
+      return filteredItems;
+    }
     return [...filteredItems].sort((left, right) => {
       const leftCommon = commonOrder.get(left.id);
       const rightCommon = commonOrder.get(right.id);
@@ -96,7 +101,7 @@ function useOrderedExercises(items: ExerciseLibraryItem[], filteredItems: Exerci
 
       return left.name.localeCompare(right.name);
     });
-  }, [commonOrder, filteredItems]);
+  }, [commonOrder, filteredItems, keepOrder]);
 
   return { commonOrder, orderedItems };
 }
@@ -389,12 +394,9 @@ export function ExerciseLibraryBrowser({
     [items],
   );
 
+  const query = search.trim().toLowerCase();
   const filteredItems = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return items.filter((item) => {
-      if (query.length && !exerciseMatchesQuery(buildExerciseSearchHaystack(item, language), query)) {
-        return false;
-      }
+    const filtered = items.filter((item) => {
       if (bodyPartFilter !== 'all' && item.bodyPart !== bodyPartFilter) {
         return false;
       }
@@ -406,9 +408,11 @@ export function ExerciseLibraryBrowser({
       }
       return true;
     });
-  }, [items, language, search, bodyPartFilter, categoryFilter, equipmentFilter]);
+    // Best answer first under a query — see rankExerciseMatches.
+    return rankExerciseMatches(filtered, query, language);
+  }, [items, language, query, bodyPartFilter, categoryFilter, equipmentFilter]);
 
-  const { commonOrder, orderedItems } = useOrderedExercises(items, filteredItems);
+  const { commonOrder, orderedItems } = useOrderedExercises(items, filteredItems, query.length > 0);
   const hasModalFilters = categoryFilter !== 'all' || equipmentFilter !== 'all';
   const showDashboardSections = search.trim().length === 0 && bodyPartFilter === 'all' && !hasModalFilters;
 

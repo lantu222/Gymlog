@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 
-const { buildExerciseSearchHaystack, exerciseMatchesQuery } = require('../../.test-dist/lib/exerciseSearch.js');
+const { buildExerciseSearchHaystack, exerciseMatchesQuery, rankExerciseMatches } = require('../../.test-dist/lib/exerciseSearch.js');
+const { exerciseNameLabel } = require('../../.test-dist/lib/exerciseNameLabel.js');
 const library = Object.values(require('../../.test-dist/data/generatedExerciseLibrary.js'))[0];
 
 function search(query, language = 'fi') {
@@ -40,6 +41,35 @@ module.exports = [
       assert.ok(both.length > 0 && both.length < one.length, `${both.length} vs ${one.length}`);
       assert.equal(exerciseMatchesQuery('barbell full squat takakyykky', '  '), true);
       assert.equal(exerciseMatchesQuery('barbell full squat', 'kyykky'), false);
+    },
+  },
+  {
+    name: 'the lift itself comes before its variants: "ylätal" answers with Ylätalja',
+    run() {
+      // #bugs 2026-08-28, "haluisin vain ylätalja — huonot suositukset": the
+      // matches came in the English name's alphabetical order, so Kapea
+      // ylätalja and Soutu ylätaljasta korokkeelta led and the plain lat
+      // pulldown was twelfth of thirteen.
+      const ranked = rankExerciseMatches(library, 'ylätal', 'fi');
+      assert.ok(ranked.length >= 10, `found ${ranked.length}`);
+      assert.equal(ranked[0].name, 'Wide-Grip Lat Pulldown');
+      assert.equal(exerciseNameLabel('fi', ranked[0].name), 'Ylätalja');
+      // Names that BEGIN with the query outrank names that merely carry it
+      // in a later word — the biceps curl "Hauiskääntö ylätaljassa" is a
+      // real match, but it is not what "ylätal" is asking for.
+      const names = ranked.map((item) => exerciseNameLabel('fi', item.name));
+      const starts = names.filter((name) => name.toLowerCase().startsWith('ylätal'));
+      assert.ok(starts.length >= 3, `expected several names starting with the query, got ${starts.length}`);
+      assert.deepEqual(names.slice(0, starts.length), starts);
+      assert.ok(names.indexOf('Hauiskääntö ylätaljassa') > names.indexOf('Ylätalja V-kahvalla'));
+
+      // Same rule in English: "lat pull" answers with Lat Pulldown.
+      const en = rankExerciseMatches(library, 'lat pull', 'en');
+      assert.equal(en[0].name, 'Wide-Grip Lat Pulldown');
+      // The exact stored name wins outright, whatever the language.
+      assert.equal(rankExerciseMatches(library, 'Barbell Full Squat', 'fi')[0].name, 'Barbell Full Squat');
+      // No query: the caller's order, untouched.
+      assert.deepEqual(rankExerciseMatches(library.slice(0, 5), '  ', 'fi').map((i) => i.name), library.slice(0, 5).map((i) => i.name));
     },
   },
 ];
