@@ -18,7 +18,7 @@ import {
 } from '../lib/exerciseSuggestions';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { filterBrowsableExercises } from '../lib/exerciseBrowseFilter';
-import { buildExerciseSearchHaystack, exerciseMatchesQuery } from '../lib/exerciseSearch';
+import { rankExerciseMatches } from '../lib/exerciseSearch';
 import { orderExercisesBySelection } from '../lib/exerciseSelectionOrder';
 import { I18nKey, t } from '../lib/i18n';
 import {
@@ -267,10 +267,7 @@ export function AddExerciseSheet({
     // Stretches and cone drills are in the library but are not sets, and they
     // came back alongside the bench press whenever a body part was picked
     // (#bugs 2026-08-26). A typed query lifts the hiding: see the module.
-    return filterBrowsableExercises(items, { query }).filter((item) => {
-      if (query && !exerciseMatchesQuery(buildExerciseSearchHaystack(item, language), query)) {
-        return false;
-      }
+    const filtered = filterBrowsableExercises(items, { query }).filter((item) => {
       if (category !== 'all' && item.category !== category) {
         return false;
       }
@@ -282,6 +279,8 @@ export function AddExerciseSheet({
       }
       return true;
     });
+    // Best answer first under a query — the lift itself before its variants.
+    return rankExerciseMatches(filtered, query, language);
   }, [bodyPart, category, equipment, items, language, search]);
 
   const suggestedItems = useMemo(
