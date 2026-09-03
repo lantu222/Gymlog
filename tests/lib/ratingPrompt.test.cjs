@@ -166,11 +166,15 @@ module.exports = [
       assert.match(read('src/storage/database.ts'), /ratingPrompt: normalizeRatingPrompt\(/);
       assert.match(read('src/data/seed.ts'), /ratingPrompt: \{ lastAskedAt: null, askCount: 0, rated: false \}/);
 
-      // Settings offers it too, and hides once rated — the same flag that
+      // The Profile offers it too, and hides once rated — the same flag that
       // silences the sheet ("kerran kun suorittaa se lähtee kaikkialta").
-      const settingsSource = read('src/screens/SettingsScreen.tsx');
-      assert.match(settingsSource, /preferences\.ratingPrompt\.rated \? null : \(/);
-      assert.match(settingsSource, /onPress=\{onOpenRating\}/);
+      // It used to be a Settings row as well; the design moved that one out
+      // (2026-09-03) and Send feedback took its place, so the star is asked
+      // for in one place, where the reader has just seen what they did.
+      const profileSource = read('src/screens/ProfileScreen.tsx');
+      assert.match(profileSource, /!preferences\.ratingPrompt\.rated \? \(/);
+      assert.match(profileSource, /onPress=\{onOpenRating\}/);
+      assert.doesNotMatch(read('src/screens/SettingsScreen.tsx'), /onOpenRating|settings\.rate/);
       // Tapping it is not an interruption, so it skips the timing rules the
       // automatic ask has to obey.
       assert.match(appSource, /onOpenRating=\{\(\) => setRatingSheetVisible\(true\)\}/);

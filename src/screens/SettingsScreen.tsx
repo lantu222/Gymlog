@@ -1,10 +1,11 @@
 ﻿import React, { useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW, SectionLabel, ToggleSwitch } from '../components/SettingsUi';
+import { buildFeedbackMailto } from '../lib/feedbackLink';
 import { t } from '../lib/i18n';
 import { resolveProEntitlement } from '../lib/proEntitlement';
 import { Theme, useTheme, useThemedStyles } from '../theming';
@@ -38,8 +39,6 @@ interface SettingsScreenProps {
    */
   onOpenPremium: () => void;
   onOpenLegal: (document: 'privacy' | 'terms') => void;
-  /** Opens the same rating sheet the finish flow shows. */
-  onOpenRating: () => void;
   /**
    * Where the list was scrolled when a sub-screen was opened, so coming
    * back lands on the row that was tapped instead of the top (user,
@@ -235,7 +234,6 @@ export function SettingsScreen({
   onOpenSubscription,
   onOpenPremium,
   onOpenLegal,
-  onOpenRating,
   onResetAllData,
   account,
   initialScrollOffset = 0,
@@ -496,18 +494,18 @@ export function SettingsScreen({
             {/* The no-analytics fact moved into the privacy policy alone —
                 a row restating one sentence of it was a sign explaining a
                 sign (removed with the AI-info and support rows, 2026-08-22). */}
-            {/* Hidden once rated, like the sheet — the reader has done it,
-                and the app has nothing left to ask for (user 2026-08-24:
-                "kerran kun suorittaa se lähtee kaikkialta"). */}
-            {preferences.ratingPrompt.rated ? null : (
-              <Row
-                icon="star"
-                title={t(language, 'settings.rate')}
-                sub={t(language, 'settings.rate.sub')}
-                chevron
-                onPress={onOpenRating}
-              />
-            )}
+            {/* Rate Vinha left this card (design 2026-09-03) and Send feedback
+                took its place. The star is not gone: it lives on the Profile,
+                where the reader arrives having just seen what they have done.
+                Asking for a review from a settings list is asking at the one
+                moment nobody is pleased with anything. */}
+            <Row
+              icon="chat"
+              title={t(language, 'settings.feedback')}
+              sub={t(language, 'settings.feedback.sub')}
+              chevron
+              onPress={() => void Linking.openURL(buildFeedbackMailto(language, appInfo.version))}
+            />
             <Row
               icon="shield"
               title={t(language, 'settings.privacy')}
