@@ -156,7 +156,7 @@ export const PRO_UNLOCK_LIMIT_VARS: Record<string, Record<string, string | numbe
   'unlock.programs.b': { active: FREE_ACTIVE_PROGRAM_CAP, proActive: PRO_ACTIVE_PROGRAM_CAP },
 };
 
-export type MembershipSource = 'promo' | 'preview' | 'none';
+export type MembershipSource = 'promo' | 'purchase' | 'none';
 
 export interface MembershipEndPlan {
   /** True when the user can end Pro from inside the app, right now. */
@@ -165,15 +165,26 @@ export interface MembershipEndPlan {
   lapsesOn: string | null;
 }
 
+/**
+ * What ending a membership can actually do, per source.
+ *
+ * A promo runs to its own date and cannot be handed back early — there is
+ * nothing to cancel, only a code that expires. A purchase can be cancelled,
+ * and then it runs to the end of the period already paid for: `lapsesOn` is
+ * that date, which is what "You keep all of it until then" means. It used to
+ * say `canEndNow: true, lapsesOn: null` for the demo switch, which was honest
+ * about a light switch and would have been a lie about a purchase.
+ */
 export function resolveMembershipEndPlan(
   source: MembershipSource,
   promoUntil: string | null,
+  periodEndsAt: string | null = null,
 ): MembershipEndPlan {
   if (source === 'promo') {
     return { canEndNow: false, lapsesOn: promoUntil };
   }
-  if (source === 'preview') {
-    return { canEndNow: true, lapsesOn: null };
+  if (source === 'purchase') {
+    return { canEndNow: true, lapsesOn: periodEndsAt };
   }
   return { canEndNow: false, lapsesOn: null };
 }

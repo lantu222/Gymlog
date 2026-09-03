@@ -16,19 +16,29 @@ import { AppLanguage } from '../types/models';
 interface PromoCodeScreenProps {
   /** ISO date until which a promo already keeps Pro on; null = none active. */
   promoProUntil: string | null;
+  /**
+   * Whether that date is still live, decided by the entitlement rather than
+   * here. This screen used to compare it to the clock itself, which is a
+   * second copy of the one rule that says who has Pro.
+   */
+  promoActive: boolean;
   language?: AppLanguage;
   onBack: () => void;
   /** Called with the expiry date once a valid code is applied. */
   onRedeemed: (proUntilIso: string) => void;
 }
 
-export function PromoCodeScreen({ promoProUntil, language = 'en', onBack, onRedeemed }: PromoCodeScreenProps) {
+export function PromoCodeScreen({
+  promoProUntil,
+  promoActive,
+  language = 'en',
+  onBack,
+  onRedeemed,
+}: PromoCodeScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
-
-  const promoActive = promoProUntil !== null && new Date(promoProUntil).getTime() > Date.now();
 
   const handleApply = () => {
     if (code.trim().length === 0) {

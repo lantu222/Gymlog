@@ -70,7 +70,10 @@ export function MembershipEndScreen({
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
-  const plan = resolveMembershipEndPlan(source, promoUntil);
+  // The period the reader already paid for is what a cancelled purchase runs
+  // to, so the plan has to be told about it — otherwise "You keep all of it
+  // until then" names no day.
+  const plan = resolveMembershipEndPlan(source, promoUntil, periodEndsAt ?? null);
   const [step, setStep] = useState<'page' | 'splash' | 'survey'>('page');
 
   const endsAt = plan.lapsesOn ?? periodEndsAt;

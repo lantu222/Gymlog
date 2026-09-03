@@ -51,19 +51,30 @@ module.exports = [
         'src/lib/demoMode DEMO_BUILD and app.json extra.demoBuild disagree',
       );
 
-      // The Settings demo section was removed by user decision (2026-08-22);
-      // the one remaining preview-Pro switch lives on the Premium screen's
-      // active state, where it can also be turned back off.
+      // The Settings demo section was removed by user decision (2026-08-22).
       const settings = fs.readFileSync(
         path.join(root, 'src', 'screens', 'SettingsScreen.tsx'),
         'utf8',
       );
       assert.ok(!/isDemoBuild/.test(settings), 'the Settings demo section must stay removed');
+
+      // And the last preview-Pro switch went with it (user 2026-09-03). The
+      // Pro page sold a subscription and offered a button underneath to hand
+      // it back for free, which made Pro a light switch rather than a
+      // purchase. The page sells; the subscription screen cancels.
       const premium = fs.readFileSync(
         path.join(root, 'src', 'screens', 'PremiumScreen.tsx'),
         'utf8',
       );
-      assert.match(premium, /pro\.previewOff/);
+      assert.doesNotMatch(premium, /previewOff|previewUnlocked|onTogglePreview/);
+      assert.match(premium, /onPurchase: \(plan: PlanId\) => void;/);
+      for (const key of ['pro.previewOff']) {
+        assert.equal(
+          fs.readFileSync(path.join(root, 'src', 'lib', 'i18n.ts'), 'utf8').includes(`'${key}'`),
+          false,
+          `${key} is dead copy for a switch that no longer exists`,
+        );
+      }
     },
   },
 ];

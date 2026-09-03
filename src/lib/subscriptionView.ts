@@ -1,5 +1,6 @@
 import { I18nKey } from './i18n';
 import { ProEntitlement } from './proEntitlement';
+import { SubscriptionTermKey, currentPeriodEndAt } from './subscriptionTerm';
 
 /**
  * What the subscription screen may say, and where each sentence comes from.
@@ -25,7 +26,7 @@ import { ProEntitlement } from './proEntitlement';
  * and it goes where everyone else buys.
  */
 
-export type SubscriptionTermKey = 'monthly' | 'yearly' | 'lifetime';
+export type { SubscriptionTermKey } from './subscriptionTerm';
 
 /**
  * The three terms, and what each one implies about renewal.
@@ -88,9 +89,6 @@ export const SUBSCRIPTION_TERMS: Record<SubscriptionTermKey, SubscriptionTerm> =
 
 export const SUBSCRIPTION_TERM_ORDER: SubscriptionTermKey[] = ['yearly', 'monthly', 'lifetime'];
 
-export function isSubscriptionTermKey(value: unknown): value is SubscriptionTermKey {
-  return value === 'monthly' || value === 'yearly' || value === 'lifetime';
-}
 
 /**
  * ── MOCK BILLING ─────────────────────────────────────────────────────────────
@@ -147,47 +145,12 @@ export const MOCK_BILLING = {
 } as const;
 
 /**
- * The next charge date, counted rather than written.
- *
- * This is the shape billing will have to fill: a purchase instant plus a period
- * length, from which the date is *derived*. Writing "15.9.2026" into copy is
- * exactly the bug #bugs logged against the unlock receipt, and it is worth
- * making the mock have the right shape so the real thing slots in.
- *
- * Lifetime returns null, because it does not renew at all.
+ * The next charge date and the current period's end are counted, not written,
+ * and they live in subscriptionTerm: the entitlement needs them too, and this
+ * module hands ProEntitlement a type, so importing a value back would be a
+ * runtime cycle. Re-exported because every caller imports them from here.
  */
-export function nextChargeAt(term: SubscriptionTermKey, lastChargedAtIso: string): string | null {
-  if (!SUBSCRIPTION_TERMS[term].renews) {
-    return null;
-  }
-  const last = new Date(lastChargedAtIso);
-  if (Number.isNaN(last.getTime())) {
-    return null;
-  }
-  /**
-   * UTC arithmetic, not local.
-   *
-   * `setMonth`/`setFullYear` work in local time, so a period that crosses a
-   * daylight-saving boundary lands an hour off — a March purchase renewed into
-   * April came out 08:00 from an 09:00 purchase. An hour is invisible in a
-   * formatted date until the purchase sits near midnight, and then it is a
-   * whole day wrong.
-   */
-  const next = new Date(last.getTime());
-  const day = next.getUTCDate();
-  if (term === 'monthly') {
-    next.setUTCMonth(next.getUTCMonth() + 1);
-  } else {
-    next.setUTCFullYear(next.getUTCFullYear() + 1);
-  }
-  // Month-end overflow: the 31st plus a month is the 3rd of the month after,
-  // because JS rolls forward rather than clamping. A subscription bought on the
-  // 31st renews on the last day of a short month, so clamp back into it.
-  if (next.getUTCDate() !== day) {
-    next.setUTCDate(0);
-  }
-  return next.toISOString();
-}
+export { currentPeriodEndAt, isSubscriptionTermKey, nextChargeAt } from './subscriptionTerm';
 
 /** ── end mock billing ──────────────────────────────────────────────────────── */
 
@@ -240,7 +203,14 @@ export function resolveSubscriptionView(input: {
   lapsedPromoUntil?: string | null;
   now?: Date;
 }): SubscriptionView {
-  const { entitlement, mockTerm, mockCancelled, purchasedAt = null, lapsedPromoUntil = null } = input;
+  const {
+    entitlement,
+    mockTerm,
+    mockCancelled,
+    purchasedAt = null,
+    lapsedPromoUntil = null,
+    now = new Date(),
+  } = input;
   const chargedFrom = purchasedAt ?? MOCK_BILLING.lastChargedAt;
 
   if (entitlement.unlocked) {
@@ -258,7 +228,11 @@ export function resolveSubscriptionView(input: {
       };
     }
 
-    const charge = nextChargeAt(mockTerm, chargedFrom);
+    // The end of the CURRENT period, rolled forward through renewals. One
+    // period after the original purchase was months in the past for anyone
+    // who had renewed, and that was the date the End membership page printed
+    // as the day they keep it until.
+    const charge = currentPeriodEndAt(mockTerm, chargedFrom, now);
     return {
       state: 'active',
       term: mockTerm,

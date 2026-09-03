@@ -8,6 +8,7 @@ import { isMeasurementKind } from '../lib/measurementKinds';
 import { normalizeMeasurementReminder } from '../lib/measurementReminder';
 import type { NotificationPrefs } from '../types/models';
 import { normalizeDefaultRestSeconds } from '../lib/restPreference';
+import { normalizePurchaseRecord } from '../lib/purchaseRecord';
 import { isSubscriptionTermKey } from '../lib/subscriptionView';
 import { createEmptyDatabase } from '../data/seed';
 import { resolveDeviceLanguage } from './deviceLocale';
@@ -696,14 +697,12 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
       mockSubscriptionTerm: isSubscriptionTermKey(input?.preferences?.mockSubscriptionTerm)
         ? input.preferences.mockSubscriptionTerm
         : fallback.preferences.mockSubscriptionTerm,
-      mockSubscriptionCancelled:
-        typeof input?.preferences?.mockSubscriptionCancelled === 'boolean'
-          ? input.preferences.mockSubscriptionCancelled
-          : fallback.preferences.mockSubscriptionCancelled,
-      mockSubscriptionPurchasedAt:
-        typeof input?.preferences?.mockSubscriptionPurchasedAt === 'string'
-          ? input.preferences.mockSubscriptionPurchasedAt
-          : fallback.preferences.mockSubscriptionPurchasedAt,
+      // The purchase record, with its migration — see lib/purchaseRecord for
+      // why a purchase stored beside the old preview switch is not one.
+      ...normalizePurchaseRecord(input?.preferences as Record<string, unknown> | undefined, {
+        mockSubscriptionPurchasedAt: fallback.preferences.mockSubscriptionPurchasedAt,
+        mockSubscriptionCancelledAt: fallback.preferences.mockSubscriptionCancelledAt,
+      }),
       cancelSurveyAnswer: normalizeCancelSurveyAnswer(input?.preferences?.cancelSurveyAnswer),
       featureVotedIds: Array.isArray(input?.preferences?.featureVotedIds)
         ? input.preferences.featureVotedIds.filter(
@@ -732,10 +731,11 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
             (key: unknown): key is string => typeof key === 'string' && key.length > 0,
           )
         : fallback.preferences.coachDemoMomentsUsed,
-      adaptiveCoachPremiumUnlocked:
-        typeof input?.preferences?.adaptiveCoachPremiumUnlocked === 'boolean'
-          ? input.preferences.adaptiveCoachPremiumUnlocked
-          : fallback.preferences.adaptiveCoachPremiumUnlocked,
+      // adaptiveCoachPremiumUnlocked was the demo build's free Pro switch. It
+      // is not read any more and is not carried forward: an install that has
+      // it stored simply stops having Pro from it, which is the point (user
+      // 2026-09-03). Promo codes and purchases are unaffected — they live in
+      // their own fields.
       automatedProgressionEnabled:
         typeof input?.preferences?.automatedProgressionEnabled === 'boolean'
           ? input.preferences.automatedProgressionEnabled

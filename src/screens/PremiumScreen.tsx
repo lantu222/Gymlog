@@ -55,14 +55,17 @@ interface PremiumScreenProps {
    * random toll gate.
    */
   reason?: 'program_cap' | null;
-  /** State of the on-device preview switch, which is what the CTA toggles. */
-  previewUnlocked: boolean;
   /** Whether Pro is actually on — the preview switch or a live promo code. */
   proUnlocked: boolean;
   language?: AppLanguage;
   onBack: () => void;
   /** Receives the package the reader had selected when they pressed buy. */
-  onTogglePreview: (plan: PlanId) => void;
+  /**
+   * Buys Pro. One direction only — this page sells, it does not cancel.
+   * Ending a membership lives on the subscription screen, where the reader
+   * can see what they are giving up and when it stops.
+   */
+  onPurchase: (plan: PlanId) => void;
   /** Where an existing subscriber goes instead of the buy CTA. */
   onManageSubscription: () => void;
   onOpenLegal: (document: 'privacy' | 'terms') => void;
@@ -223,11 +226,10 @@ function CardFade({ width }: { width: number }) {
 
 export function PremiumScreen({
   reason = null,
-  previewUnlocked,
   proUnlocked,
   language = 'en',
   onBack,
-  onTogglePreview,
+  onPurchase,
   onManageSubscription,
   onOpenLegal,
 }: PremiumScreenProps) {
@@ -244,7 +246,6 @@ export function PremiumScreen({
 
   // A redeemed promo cannot be switched off from here, so that reader is sent
   // to subscription management instead of to a toggle that would do nothing.
-  const promoOnly = proUnlocked && !previewUnlocked;
 
   const pickTab = (next: ProTierKey) => {
     setTab(next);
@@ -262,7 +263,7 @@ export function PremiumScreen({
       onBack();
       return;
     }
-    onTogglePreview(activePlan.id as PlanId);
+    onPurchase(activePlan.id as PlanId);
   };
 
   return (
@@ -355,14 +356,16 @@ export function PremiumScreen({
         {proUnlocked ? (
           <View style={styles.activeCard}>
             <Text style={styles.activeText}>{t(language, 'promo.proOn')}</Text>
+            {/* One door while Pro is on, and it goes to management. The old
+                second branch here turned Pro OFF from the paywall — free, from
+                inside the app, as often as you liked. A page that sells a
+                subscription cannot also be the switch that cancels it. */}
             <Pressable
               accessibilityRole="button"
-              onPress={promoOnly ? onManageSubscription : () => onTogglePreview(activePlan.id as PlanId)}
+              onPress={onManageSubscription}
               style={({ pressed }) => [styles.cta, pressed && styles.pressed]}
             >
-              <Text style={styles.ctaText}>
-                {t(language, promoOnly ? 'subs.manageMembership' : 'pro.previewOff')}
-              </Text>
+              <Text style={styles.ctaText}>{t(language, 'subs.manageMembership')}</Text>
             </Pressable>
           </View>
         ) : (

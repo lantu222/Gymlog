@@ -2681,7 +2681,6 @@ function VinhaApp() {
       selectedSignInMethod: 'local',
       entryFlowCompleted: true,
       selectedAccessTier: 'free',
-      adaptiveCoachPremiumUnlocked: false,
     });
     // "Let's begin" opens the theme question (user 2026-08-23). It sits here
     // rather than anywhere later because the answer decides what the rest of

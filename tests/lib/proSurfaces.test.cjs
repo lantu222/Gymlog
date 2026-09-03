@@ -373,12 +373,13 @@ module.exports = [
       // A subscriber must not be shown a price to select, either — the plan
       // tiles live inside the not-yet-Pro branch, not above it.
       assert.match(premiumSource, /\) : \([\s\S]{0,200}?styles\.planRow/);
-      // A redeemed code cannot be turned off by the preview switch, so that
-      // case must route to subscription management instead of toggling.
-      assert.match(
-        premiumSource,
-        /promoOnly \? onManageSubscription : \(\) => onTogglePreview\(activePlan\.id as PlanId\)/,
-      );
+      // While Pro is on there is ONE door, and it goes to management. The old
+      // branch here handed a non-promo subscriber a button that turned Pro off
+      // for free — a paywall with its own off switch (user 2026-09-03).
+      assert.match(premiumSource, /onPress=\{onManageSubscription\}/);
+      assert.doesNotMatch(premiumSource, /promoOnly|onTogglePreview/);
+      // The buy button only ever buys.
+      assert.match(premiumSource, /onPurchase\(activePlan\.id as PlanId\)/);
       assert.match(appSource, /onManageSubscription=\{\(\) => navigate\(\{ tab: 'profile', screen: 'subscription' \}\)\}/);
 
       // The personal proof has moved three times: v3 took it off this page, v4
