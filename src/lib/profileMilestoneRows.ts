@@ -313,16 +313,37 @@ export function buildMilestoneLedgerRows(input: {
   return {
     summary: t(language, 'milestones.summary', { reached: ledger.reachedCount, total: ledger.totalCount }),
     reached: ledger.reached.map((item) => describeReached(item, unitPreference, language)),
-    // Before the first session the front row is the same single sentence the
-    // card shows: twelve zero rows, one of them claiming the reader "started
-    // this week", would be a page of things that have not begun.
-    upcoming:
-      ledger.reached.length === 0 && ledger.upcoming.every((item) => item.current <= 0)
-        ? firstSessionRow(language)
-        : ledger.upcoming.length > 0
-          ? ledger.upcoming.map((item) => describe(item, { lifetime, unitPreference, language }))
-          : allReachedRow(language),
+    // Before the reader has done anything the front row is the same single
+    // sentence the card shows: twelve zero rows, one of them claiming they
+    // "started this week", would be a page of things that have not begun.
+    upcoming: hasReaderProgress(ledger)
+      ? ledger.upcoming.length > 0
+        ? ledger.upcoming.map((item) => describe(item, { lifetime, unitPreference, language }))
+        : allReachedRow(language)
+      : firstSessionRow(language),
   };
+}
+
+/**
+ * Has the reader done anything themselves?
+ *
+ * Not "is any figure above zero": onboarding writes the first weigh-in FOR
+ * them — the setup screen's weight dial defaults to 75 kg and cannot be
+ * skipped, and App seeds an entry from it — so "one weigh-in and nothing
+ * else" is the state of every fresh install rather than an achievement. It
+ * reaches the first bodyweight rung, which would hide this empty state from
+ * essentially everyone. The second weigh-in is theirs, and so is anything in
+ * any other family.
+ *
+ * The reached list still names that first weigh-in: it did happen, and the
+ * page is a record. Only the question "has training begun" ignores it.
+ */
+function hasReaderProgress(ledger: MilestoneLedger): boolean {
+  const seededWeighIn = (family: MilestoneFamily, figure: number) => family === 'bodyweight' && figure <= 1;
+  return (
+    ledger.upcoming.some((item) => item.current > 0 && !seededWeighIn(item.family, item.current)) ||
+    ledger.reached.some((item) => !seededWeighIn(item.family, item.target))
+  );
 }
 
 function firstSessionRow(language: AppLanguage): ProfileMilestoneRow[] {

@@ -337,11 +337,10 @@ module.exports = [
       assert.deepEqual(ledger.reached.map((item) => `${item.family}-${item.target}`), ['bodyweight-1']);
       const rows = buildMilestoneLedgerRows({ ledger, lifetime, unitPreference: 'kg', language: 'en' });
       assert.equal(rows.reached[0].meta, 'Easy · Aug 1, 2026');
-      // A weigh-in IS progress, so the page lists real rungs rather than
-      // telling this reader to log a workout under the rung they just
-      // cleared (review 2026-09-03).
-      assert.equal(rows.upcoming.some((row) => row.key === 'first'), false);
-      assert.equal(rows.upcoming.some((row) => row.key === 'bodyweight-5'), true);
+      // ONE weigh-in is what onboarding writes for you, so it does not count
+      // as having started — see the seeded-weigh-in case below. The rung it
+      // reached is still on the record.
+      assert.deepEqual(rows.upcoming.map((row) => row.key), ['first']);
 
       // Truly nothing logged: the page is the card's one sentence.
       const nothing = { ...fixtureDatabase(), workoutSessions: [], exerciseLogs: [], cardioSessions: [], bodyweightEntries: [] };
@@ -355,6 +354,60 @@ module.exports = [
       assert.deepEqual(nothingRows.upcoming.map((row) => row.key), ['first']);
       assert.equal(nothingRows.upcoming[0].meta, 'Log a workout to start the count.');
       assert.deepEqual(nothingRows.reached, []);
+    },
+  },
+  {
+    name: 'milestoneLedger: the weigh-in onboarding writes for you does not count as having started',
+    run() {
+      // AboutYouScreen's weight dial defaults to 75 kg and cannot be skipped,
+      // and App seeds an entry from it — so every onboarded user reaches
+      // bodyweight-1 without doing anything, which used to hide the empty
+      // state from essentially everyone (review 2026-09-03).
+      const base = { ...fixtureDatabase(), workoutSessions: [], exerciseLogs: [], cardioSessions: [], bodyweightEntries: [] };
+      const rowsFor = (database) => {
+        const lifetime = getLifetimeTrainingSummary(database, NOW);
+        return buildMilestoneLedgerRows({
+          ledger: buildMilestoneLedger(getMilestoneFacts(database, lifetime, []), 'kg'),
+          lifetime,
+          unitPreference: 'kg',
+          language: 'en',
+        });
+      };
+
+      const seeded = rowsFor({
+        ...base,
+        bodyweightEntries: [{ id: 'b1', recordedAt: '2026-08-01T06:00:00.000Z', weight: 75 }],
+      });
+      assert.deepEqual(seeded.upcoming.map((row) => row.key), ['first']);
+      // The weigh-in still happened, so the record still names it.
+      assert.equal(seeded.reached.some((row) => row.key === 'bodyweight-1'), true);
+
+      // The SECOND weigh-in is the reader's own.
+      const twice = rowsFor({
+        ...base,
+        bodyweightEntries: [
+          { id: 'b1', recordedAt: '2026-08-01T06:00:00.000Z', weight: 75 },
+          { id: 'b2', recordedAt: '2026-08-08T06:00:00.000Z', weight: 74 },
+        ],
+      });
+      assert.equal(twice.upcoming.some((row) => row.key === 'first'), false);
+
+      // So is anything in another family.
+      const withRun = rowsFor({
+        ...base,
+        bodyweightEntries: [{ id: 'b1', recordedAt: '2026-08-01T06:00:00.000Z', weight: 75 }],
+        cardioSessions: [
+          {
+            id: 'c',
+            activityType: 'run',
+            startedAt: '2026-08-02T06:00:00.000Z',
+            performedAt: '2026-08-02T06:30:00.000Z',
+            durationSec: 1800,
+            distanceKm: 6,
+          },
+        ],
+      });
+      assert.equal(withRun.upcoming.some((row) => row.key === 'first'), false);
     },
   },
   {

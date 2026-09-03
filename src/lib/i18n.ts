@@ -4493,7 +4493,7 @@ const FI: Record<I18nKey, string> = {
   'profile.milestone.streak.meta': 'Paras putki tähän asti: {best} viikkoa',
   'profile.milestone.streak.metaOne': 'Paras putki tähän asti: yksi viikko',
   'profile.milestone.all.title': 'Kaikki virstanpylväät saavutettu',
-  'profile.milestone.all.meta': 'Nimettävää rungua ei ole enää jäljellä. Jatka silti.',
+  'profile.milestone.all.meta': 'Nimettävää virstanpylvästä ei ole enää jäljellä. Jatka silti.',
   'profile.milestone.records.title': '{target} ennätystä',
   'profile.milestone.records.meta': '{current} / {target} ennätystä',
   'profile.milestone.toGo': '{count} jäljellä',
