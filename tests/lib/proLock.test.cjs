@@ -157,6 +157,61 @@ module.exports = [
     },
   },
   {
+    name: 'proLock: a lapsed subscription cannot be resumed, and a plan change is a new purchase',
+    run() {
+      const { canResumePurchase } = require('../../.test-dist/lib/proEntitlement.js');
+      const NOW = new Date('2026-09-03T12:00:00.000Z');
+      const prefs = (overrides) => ({
+        promoProUntil: null,
+        mockSubscriptionPurchasedAt: null,
+        mockSubscriptionTerm: 'monthly',
+        mockSubscriptionCancelledAt: null,
+        ...overrides,
+      });
+
+      // Cancelled two days ago on a monthly bought two days before that: the
+      // period is still running, so resuming is a real thing to offer.
+      assert.equal(
+        canResumePurchase(
+          prefs({
+            mockSubscriptionPurchasedAt: '2026-09-01T00:00:00.000Z',
+            mockSubscriptionCancelledAt: '2026-09-02T00:00:00.000Z',
+          }),
+          NOW,
+        ),
+        true,
+      );
+
+      // Cancelled in January: that period is long gone. Clearing the
+      // cancellation would have handed out Pro permanently, so the screen has
+      // to send this reader to the page that sells one instead.
+      assert.equal(
+        canResumePurchase(
+          prefs({
+            mockSubscriptionPurchasedAt: '2026-01-01T00:00:00.000Z',
+            mockSubscriptionCancelledAt: '2026-01-02T00:00:00.000Z',
+          }),
+          NOW,
+        ),
+        false,
+      );
+      assert.equal(canResumePurchase(prefs({}), NOW), false);
+
+      // And that is what the wiring does.
+      const tab = read('src', 'app', 'renderProfileTab.tsx');
+      assert.match(tab, /if \(canResumePurchase\(preferences\)\) \{[\s\S]{0,140}mockSubscriptionCancelledAt: null/);
+      assert.match(tab, /navigate\(\{ tab: 'profile', screen: 'premium' \}\);\s*\}\}/);
+
+      // A plan change re-stamps the purchase, because the end date is counted
+      // from the term: switching a cancelled monthly to yearly would otherwise
+      // carry it eleven months forward for nothing.
+      assert.match(
+        tab,
+        /mockSubscriptionTerm: term,\s*mockSubscriptionPurchasedAt: new Date\(\)\.toISOString\(\),\s*mockSubscriptionCancelledAt: null,/,
+      );
+    },
+  },
+  {
     name: 'proLock: the purchase is simulated end to end, and the build says so',
     run() {
       const tab = read('src', 'app', 'renderProfileTab.tsx');

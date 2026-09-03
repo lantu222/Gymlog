@@ -6,6 +6,7 @@ import { buildCancelSurveyAnswer } from '../lib/cancelSurvey';
 import { isDemoBuild } from '../lib/demoMode';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { t } from '../lib/i18n';
+import { canResumePurchase } from '../lib/proEntitlement';
 import { localizeSessionFocus } from '../lib/sessionNameLabel';
 import { MOCK_BILLING, nextChargeAt } from '../lib/subscriptionView';
 import { AppRoute, ROOT_ROUTES } from '../navigation/routes';
@@ -353,12 +354,31 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
         mockTerm={preferences.mockSubscriptionTerm}
         mockCancelled={preferences.mockSubscriptionCancelledAt !== null}
         purchasedAt={preferences.mockSubscriptionPurchasedAt}
-        onChangeMockTerm={(term) => void updatePreferences({ mockSubscriptionTerm: term })}
-        onChangeMockCancelled={(cancelled) =>
+        onChangeMockTerm={(term) => {
+          // A plan change is a new subscription, and billing treats it as one.
+          // Writing the term alone let a cancelled monthly become a yearly and
+          // carry its end date eleven months forward — time nobody bought.
           void updatePreferences({
-            mockSubscriptionCancelledAt: cancelled ? new Date().toISOString() : null,
-          })
-        }
+            mockSubscriptionTerm: term,
+            mockSubscriptionPurchasedAt: new Date().toISOString(),
+            mockSubscriptionCancelledAt: null,
+          });
+        }}
+        onChangeMockCancelled={(cancelled) => {
+          if (cancelled) {
+            void updatePreferences({ mockSubscriptionCancelledAt: new Date().toISOString() });
+            return;
+          }
+          // Resuming is only a thing while the paid period is still running.
+          // After it lapses there is nothing to take back, and clearing the
+          // cancellation would hand out Pro for free — so that reader is sent
+          // to the one page that sells it.
+          if (canResumePurchase(preferences)) {
+            void updatePreferences({ mockSubscriptionCancelledAt: null });
+            return;
+          }
+          navigate({ tab: 'profile', screen: 'premium' });
+        }}
         demoBuild={isDemoBuild()}
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
         onManageMembership={() => navigate({ tab: 'profile', screen: 'membership_end' })}

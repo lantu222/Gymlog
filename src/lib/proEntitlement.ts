@@ -87,6 +87,22 @@ export function isProUnlocked(preferences: ProPreferences, now: Date = new Date(
   return resolveProEntitlement(preferences, now).unlocked;
 }
 
+/**
+ * May the reader take a cancelled subscription back?
+ *
+ * Only while the period they paid for is still running — which is what
+ * resuming means, and what real billing allows. Once it has lapsed there is
+ * nothing to resume: coming back is a purchase, and it has to go through the
+ * page that sells one.
+ *
+ * Without this, Resume was a free Pro button. It cleared the cancellation, and
+ * a purchase with no cancellation never ends, so a subscription that ran out
+ * months ago came back permanently.
+ */
+export function canResumePurchase(preferences: ProPreferences, now: Date = new Date()): boolean {
+  return resolveProEntitlement(preferences, now).source === 'purchase';
+}
+
 type ProgressionPreferences = ProPreferences &
   Pick<AppPreferences, 'automatedProgressionEnabled' | 'setupLevel'>;
 
