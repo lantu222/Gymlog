@@ -1,6 +1,6 @@
 import { I18nKey } from './i18n';
 import { ProEntitlement } from './proEntitlement';
-import { SubscriptionTermKey, nextChargeAt } from './subscriptionTerm';
+import { SubscriptionTermKey, currentPeriodEndAt } from './subscriptionTerm';
 
 /**
  * What the subscription screen may say, and where each sentence comes from.
@@ -203,7 +203,14 @@ export function resolveSubscriptionView(input: {
   lapsedPromoUntil?: string | null;
   now?: Date;
 }): SubscriptionView {
-  const { entitlement, mockTerm, mockCancelled, purchasedAt = null, lapsedPromoUntil = null } = input;
+  const {
+    entitlement,
+    mockTerm,
+    mockCancelled,
+    purchasedAt = null,
+    lapsedPromoUntil = null,
+    now = new Date(),
+  } = input;
   const chargedFrom = purchasedAt ?? MOCK_BILLING.lastChargedAt;
 
   if (entitlement.unlocked) {
@@ -221,7 +228,11 @@ export function resolveSubscriptionView(input: {
       };
     }
 
-    const charge = nextChargeAt(mockTerm, chargedFrom);
+    // The end of the CURRENT period, rolled forward through renewals. One
+    // period after the original purchase was months in the past for anyone
+    // who had renewed, and that was the date the End membership page printed
+    // as the day they keep it until.
+    const charge = currentPeriodEndAt(mockTerm, chargedFrom, now);
     return {
       state: 'active',
       term: mockTerm,

@@ -53,14 +53,21 @@ module.exports = [
     run() {
       // A boolean preference that meant "Pro is on" and could be written from
       // a screen. Nothing may bring it back under any name.
+      // Two files may NAME the key, only to recognise a store from before the
+      // switch was removed and drop what it wrote. Neither may write it.
+      const mayDetect = new Set(['src/storage/database.ts', 'src/lib/purchaseRecord.ts']);
       const offenders = [];
       for (const { rel, text } of sourceFiles()) {
-        if (rel === 'src/storage/database.ts') {
-          // Names it once in a comment saying an old stored value is dropped.
+        if (!/adaptiveCoachPremiumUnlocked/.test(text)) {
           continue;
         }
-        if (/adaptiveCoachPremiumUnlocked/.test(text)) {
-          offenders.push(rel);
+        if (!mayDetect.has(rel)) {
+          offenders.push(`${rel} names the switch`);
+          continue;
+        }
+        // Detection reads it; a write would be `key: value` or `.key =`.
+        if (/adaptiveCoachPremiumUnlocked\s*:\s*(true|false|[a-zA-Z])/.test(text) || /\.adaptiveCoachPremiumUnlocked\s*=[^=]/.test(text)) {
+          offenders.push(`${rel} writes the switch`);
         }
       }
       assert.deepEqual(offenders, [], 'the preview switch is back');
@@ -209,6 +216,101 @@ module.exports = [
         tab,
         /mockSubscriptionTerm: term,\s*mockSubscriptionPurchasedAt: new Date\(\)\.toISOString\(\),\s*mockSubscriptionCancelledAt: null,/,
       );
+    },
+  },
+  {
+    name: 'proLock: a period end is counted from the original purchase, so the month-end clamp cannot compound',
+    run() {
+      const { addPeriods, currentPeriodEndAt, nextChargeAt } = require('../../.test-dist/lib/subscriptionTerm.js');
+      // Bought on the 31st: February clamps to the 28th, and March must come
+      // back to the 31st. Chaining single steps left it on the 28th for good
+      // (review 2026-09-03), costing that subscriber days of every period.
+      const bought = '2026-01-31T12:00:00.000Z';
+      assert.equal(addPeriods('monthly', bought, 1), '2026-02-28T12:00:00.000Z');
+      assert.equal(addPeriods('monthly', bought, 2), '2026-03-31T12:00:00.000Z');
+      assert.equal(addPeriods('monthly', bought, 3), '2026-04-30T12:00:00.000Z');
+      assert.equal(nextChargeAt('monthly', bought), '2026-02-28T12:00:00.000Z');
+      // Mid-April, still subscribed: the current period ends on the 30th, not
+      // the 28th the compounding walk produced.
+      assert.equal(
+        currentPeriodEndAt('monthly', bought, new Date('2026-04-15T00:00:00.000Z')),
+        '2026-04-30T12:00:00.000Z',
+      );
+      // Yearly from a leap day lands on 28 Feb, and stays anchored to the 29th.
+      assert.equal(addPeriods('yearly', '2028-02-29T09:00:00.000Z', 1), '2029-02-28T09:00:00.000Z');
+      assert.equal(addPeriods('yearly', '2028-02-29T09:00:00.000Z', 4), '2032-02-29T09:00:00.000Z');
+      assert.equal(addPeriods('lifetime', bought, 1), null);
+    },
+  },
+  {
+    name: 'proLock: the upgrade path does not hand permanent Pro to every install that tried the old switch',
+    run() {
+      // The loader imports AsyncStorage and cannot run under Node, so the
+      // migration is a pure function it calls.
+      const { normalizePurchaseRecord } = require('../../.test-dist/lib/purchaseRecord.js');
+      const EMPTY = { mockSubscriptionPurchasedAt: null, mockSubscriptionCancelledAt: null };
+      const normalizeDatabase = ({ preferences }) => ({ preferences: normalizePurchaseRecord(preferences, EMPTY) });
+      const base = (preferences) => ({ preferences });
+
+      // A store written by the old code: it carries the switch's key (seeded
+      // false on every install) and a purchase instant that only the switch
+      // ever wrote. That instant is not a purchase.
+      const legacy = normalizeDatabase(
+        base({
+          adaptiveCoachPremiumUnlocked: false,
+          mockSubscriptionPurchasedAt: '2026-08-15T10:00:00.000Z',
+          mockSubscriptionTerm: 'yearly',
+        }),
+      );
+      assert.equal(legacy.preferences.mockSubscriptionPurchasedAt, null, 'the old switch became a purchase');
+      assert.equal(legacy.preferences.mockSubscriptionCancelledAt, null);
+
+      // Same store, switch ON at the time — the exact case the review named.
+      const legacyOn = normalizeDatabase(
+        base({
+          adaptiveCoachPremiumUnlocked: true,
+          mockSubscriptionPurchasedAt: '2026-08-15T10:00:00.000Z',
+          mockSubscriptionTerm: 'monthly',
+        }),
+      );
+      assert.equal(legacyOn.preferences.mockSubscriptionPurchasedAt, null);
+
+      // A store written by THIS code has no such key, and its purchase stands.
+      const current = normalizeDatabase(
+        base({
+          mockSubscriptionPurchasedAt: '2026-09-03T10:00:00.000Z',
+          mockSubscriptionTerm: 'yearly',
+          mockSubscriptionCancelledAt: null,
+        }),
+      );
+      assert.equal(current.preferences.mockSubscriptionPurchasedAt, '2026-09-03T10:00:00.000Z');
+      assert.equal(current.preferences.mockSubscriptionCancelledAt, null);
+
+      // The legacy boolean cancellation becomes an instant rather than being
+      // dropped, so a cancelled subscription cannot come back as never-ending.
+      const cancelledLegacy = normalizeDatabase(
+        base({
+          mockSubscriptionPurchasedAt: '2026-09-03T10:00:00.000Z',
+          mockSubscriptionTerm: 'monthly',
+          mockSubscriptionCancelled: true,
+        }),
+      );
+      assert.equal(typeof cancelledLegacy.preferences.mockSubscriptionCancelledAt, 'string');
+      assert.equal(Number.isFinite(Date.parse(cancelledLegacy.preferences.mockSubscriptionCancelledAt)), true);
+    },
+  },
+  {
+    name: 'proLock: the day a cancelled membership stops is the one the entitlement stops on',
+    run() {
+      // The End membership page and the subscription screen printed one period
+      // after the ORIGINAL purchase — months in the past for anyone who had
+      // renewed — while the entitlement rolled forward. Both read the current
+      // period's end now.
+      const tab = read('src', 'app', 'renderProfileTab.tsx');
+      assert.match(tab, /periodEndsAt=\{\s*proEntitlement\.purchaseEndsAt \?\?\s*currentPeriodEndAt\(/);
+      const view = read('src', 'lib', 'subscriptionView.ts');
+      assert.match(view, /const charge = currentPeriodEndAt\(mockTerm, chargedFrom, now\);/);
+      assert.doesNotMatch(view, /const charge = nextChargeAt\(/);
     },
   },
   {

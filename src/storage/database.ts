@@ -8,6 +8,7 @@ import { isMeasurementKind } from '../lib/measurementKinds';
 import { normalizeMeasurementReminder } from '../lib/measurementReminder';
 import type { NotificationPrefs } from '../types/models';
 import { normalizeDefaultRestSeconds } from '../lib/restPreference';
+import { normalizePurchaseRecord } from '../lib/purchaseRecord';
 import { isSubscriptionTermKey } from '../lib/subscriptionView';
 import { createEmptyDatabase } from '../data/seed';
 import { resolveDeviceLanguage } from './deviceLocale';
@@ -696,14 +697,12 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
       mockSubscriptionTerm: isSubscriptionTermKey(input?.preferences?.mockSubscriptionTerm)
         ? input.preferences.mockSubscriptionTerm
         : fallback.preferences.mockSubscriptionTerm,
-      mockSubscriptionCancelledAt:
-        typeof input?.preferences?.mockSubscriptionCancelledAt === 'string'
-          ? input.preferences.mockSubscriptionCancelledAt
-          : fallback.preferences.mockSubscriptionCancelledAt,
-      mockSubscriptionPurchasedAt:
-        typeof input?.preferences?.mockSubscriptionPurchasedAt === 'string'
-          ? input.preferences.mockSubscriptionPurchasedAt
-          : fallback.preferences.mockSubscriptionPurchasedAt,
+      // The purchase record, with its migration — see lib/purchaseRecord for
+      // why a purchase stored beside the old preview switch is not one.
+      ...normalizePurchaseRecord(input?.preferences as Record<string, unknown> | undefined, {
+        mockSubscriptionPurchasedAt: fallback.preferences.mockSubscriptionPurchasedAt,
+        mockSubscriptionCancelledAt: fallback.preferences.mockSubscriptionCancelledAt,
+      }),
       cancelSurveyAnswer: normalizeCancelSurveyAnswer(input?.preferences?.cancelSurveyAnswer),
       featureVotedIds: Array.isArray(input?.preferences?.featureVotedIds)
         ? input.preferences.featureVotedIds.filter(

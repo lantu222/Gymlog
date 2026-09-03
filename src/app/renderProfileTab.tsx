@@ -8,7 +8,7 @@ import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { t } from '../lib/i18n';
 import { canResumePurchase } from '../lib/proEntitlement';
 import { localizeSessionFocus } from '../lib/sessionNameLabel';
-import { MOCK_BILLING, nextChargeAt } from '../lib/subscriptionView';
+import { MOCK_BILLING, currentPeriodEndAt, nextChargeAt } from '../lib/subscriptionView';
 import { AppRoute, ROOT_ROUTES } from '../navigation/routes';
 import {
   getNotificationPermissionGranted,
@@ -397,10 +397,16 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
         promoUntil={proEntitlement.promoUntil}
         // Counted from the same instant the subscription screen counts from,
         // or the two screens name different dates for the same period.
-        periodEndsAt={nextChargeAt(
-          preferences.mockSubscriptionTerm,
-          preferences.mockSubscriptionPurchasedAt ?? MOCK_BILLING.lastChargedAt,
-        )}
+        // The date the entitlement itself will stop on: the end of the current
+        // period, rolled forward through renewals. One period after the purchase
+        // was months in the past for anyone who had renewed.
+        periodEndsAt={
+          proEntitlement.purchaseEndsAt ??
+          currentPeriodEndAt(
+            preferences.mockSubscriptionTerm,
+            preferences.mockSubscriptionPurchasedAt ?? MOCK_BILLING.lastChargedAt,
+          )
+        }
         onBack={() => navigateBack({ tab: 'profile', screen: 'subscription' })}
         onKeep={() => navigateBack({ tab: 'profile', screen: 'subscription' })}
         // Cancelling leaves Pro switched ON until the period ends — that is what

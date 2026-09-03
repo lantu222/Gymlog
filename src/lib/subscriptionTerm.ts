@@ -21,41 +21,45 @@ export function isSubscriptionTermKey(value: unknown): value is SubscriptionTerm
 }
 
 /**
- * One period on from a charge.
+ * N periods on from a date, clamped ONCE.
  *
- * Lifetime returns null, because it does not renew at all.
+ * The day of month is taken from the ORIGINAL date every time. Chaining
+ * single-period steps instead let a clamp compound: a 31 January purchase
+ * stepped to 28 February (right), then to 28 March (wrong: March has a 31st),
+ * and never recovered, so a subscriber who bought on the 31st lost up to three
+ * days of every period for the life of the subscription.
+ *
+ * UTC arithmetic, not local: setMonth/setFullYear work in local time, so a
+ * period crossing a daylight-saving boundary landed an hour off, which is a
+ * whole day wrong once the purchase sits near midnight.
  */
-export function nextChargeAt(term: SubscriptionTermKey, lastChargedAtIso: string): string | null {
+export function addPeriods(term: SubscriptionTermKey, fromIso: string, count: number): string | null {
   if (!TERM_RENEWS[term]) {
     return null;
   }
-  const last = new Date(lastChargedAtIso);
-  if (Number.isNaN(last.getTime())) {
+  const from = new Date(fromIso);
+  if (Number.isNaN(from.getTime())) {
     return null;
   }
-  /**
-   * UTC arithmetic, not local.
-   *
-   * `setMonth`/`setFullYear` work in local time, so a period that crosses a
-   * daylight-saving boundary lands an hour off — a March purchase renewed into
-   * April came out 08:00 from an 09:00 purchase. An hour is invisible in a
-   * formatted date until the purchase sits near midnight, and then it is a
-   * whole day wrong.
-   */
-  const next = new Date(last.getTime());
-  const day = next.getUTCDate();
+  const next = new Date(from.getTime());
+  const day = from.getUTCDate();
   if (term === 'monthly') {
-    next.setUTCMonth(next.getUTCMonth() + 1);
+    next.setUTCMonth(next.getUTCMonth() + count);
   } else {
-    next.setUTCFullYear(next.getUTCFullYear() + 1);
+    next.setUTCFullYear(next.getUTCFullYear() + count);
   }
   // Month-end overflow: the 31st plus a month is the 3rd of the month after,
-  // because JS rolls forward rather than clamping. A subscription bought on the
-  // 31st renews on the last day of a short month, so clamp back into it.
+  // because JS rolls forward rather than clamping. A subscription bought on
+  // the 31st renews on the last day of a short month, so clamp back into it.
   if (next.getUTCDate() !== day) {
     next.setUTCDate(0);
   }
   return next.toISOString();
+}
+
+/** One period on from a charge. Lifetime returns null: it does not renew. */
+export function nextChargeAt(term: SubscriptionTermKey, lastChargedAtIso: string): string | null {
+  return addPeriods(term, lastChargedAtIso, 1);
 }
 
 /** A subscription older than this many periods is not worth walking forward. */
@@ -65,10 +69,9 @@ const MAX_PERIODS = 400;
  * The end of the period the reader is currently inside.
  *
  * A purchase from three months ago on a monthly term has renewed twice since,
- * so its period does not end one month after the purchase — it ends one month
- * after the last renewal. Rolling forward is what makes "you keep it until
- * {date}" true for a cancellation at any point in the subscription's life,
- * rather than only during its first period.
+ * so its period does not end one month after the purchase; it ends one month
+ * after the last renewal. Every candidate is counted from the ORIGINAL
+ * purchase date (see addPeriods), so the month-end clamp cannot compound.
  *
  * Null for lifetime (no period ends) and for a date that cannot be read.
  */
@@ -80,16 +83,14 @@ export function currentPeriodEndAt(
   if (!TERM_RENEWS[term]) {
     return null;
   }
-  let cursor = purchasedAtIso;
-  for (let period = 0; period < MAX_PERIODS; period += 1) {
-    const next = nextChargeAt(term, cursor);
-    if (next === null) {
+  for (let period = 1; period <= MAX_PERIODS; period += 1) {
+    const end = addPeriods(term, purchasedAtIso, period);
+    if (end === null) {
       return null;
     }
-    if (new Date(next).getTime() > now.getTime()) {
-      return next;
+    if (new Date(end).getTime() > now.getTime()) {
+      return end;
     }
-    cursor = next;
   }
   return null;
 }
