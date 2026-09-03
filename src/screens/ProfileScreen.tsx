@@ -378,16 +378,10 @@ export function ProfileScreen({
             distances, never promises. */}
         <View style={settingsStyles.section}>
           <SectionLabel label={t(language, 'profile.section.nextMilestone')} />
-          {/* The card is the door to the milestones page: every reached rung
-              with its day, and every family's next one. The footer says how
-              many have fallen; the whole card presses. */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t(language, 'milestones.title')}
-            onPress={onOpenMilestones}
-            disabled={!onOpenMilestones}
-            style={({ pressed }) => (pressed && onOpenMilestones ? { opacity: 0.85 } : null)}
-          >
+          {/* The footer is the door to the milestones page: every reached
+              rung with its day, and every family's next one. Only the footer
+              presses — a Pressable around the whole card would fold the three
+              rows into one node for a screen reader. */}
           <CutSurface
             size="lg"
             fill={theme.surface}
@@ -417,15 +411,19 @@ export function ProfileScreen({
               </View>
             ))}
             {onOpenMilestones ? (
-              <View style={[styles.milestoneRowDivider, styles.milestoneFooter]}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t(language, 'milestones.title')}
+                onPress={onOpenMilestones}
+                style={({ pressed }) => [styles.milestoneRowDivider, styles.milestoneFooter, pressed && { opacity: 0.7 }]}
+              >
                 <Text style={styles.milestoneFooterText}>{milestoneCardFooter(reachedMilestoneCount, language)}</Text>
                 <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
                   <Path d="M9 5l7 7-7 7" stroke={theme.highlight} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
                 </Svg>
-              </View>
+              </Pressable>
             ) : null}
           </CutSurface>
-          </Pressable>
         </View>
 
         {/* PERSONAL RECORDS — one number and a way in.

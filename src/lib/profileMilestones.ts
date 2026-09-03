@@ -190,9 +190,18 @@ function milestone(
     progress: Math.min(1, safe / target),
     // Integer families count down in whole steps; hours and kilometres are
     // read to a tenth, so their distance is not rounded up to a whole unit.
-    remaining: hasFraction(family) ? Math.max(0.1, Math.ceil((target - safe) * 10) / 10) : Math.max(1, Math.ceil(target - safe)),
+    remaining: hasFraction(family) ? Math.max(0.1, ceilTenths(target - safe)) : Math.max(1, Math.ceil(target - safe)),
     tier: tierFor(family, target, unitPreference),
   };
+}
+
+/**
+ * Round up to a tenth without the float noise: (5 - 4.8) * 10 is
+ * 2.0000000000000018, and a bare ceil of that says 0.3 h to go. Rounding to
+ * thousandths first settles the noise before the ceil reads it.
+ */
+function ceilTenths(value: number): number {
+  return Math.ceil(Math.round(value * 1000) / 100) / 10;
 }
 
 /** Families whose figure is read to one decimal. */

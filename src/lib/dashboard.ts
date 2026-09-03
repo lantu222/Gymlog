@@ -265,7 +265,13 @@ function getHomeStreak(database: AppDatabase, now = new Date()): HomeStreakSumma
   };
 }
 
-function getSessionDurationMinutes(session: AppDatabase['workoutSessions'][number]) {
+/**
+ * A session's length in minutes: the stored figure, else the span from
+ * startedAt to performedAt for sessions saved before it was stored, else 0.
+ * Shared with the milestone ladder so Home's training time and the hours
+ * rung read the same sessions the same way.
+ */
+export function getSessionDurationMinutes(session: AppDatabase['workoutSessions'][number]) {
   if (typeof session.durationMinutes === 'number' && Number.isFinite(session.durationMinutes)) {
     return session.durationMinutes;
   }

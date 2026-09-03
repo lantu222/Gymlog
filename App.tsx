@@ -182,7 +182,7 @@ import {
 } from './src/lib/seasonEnrolment';
 import { exerciseNameLabel } from './src/lib/exerciseNameLabel';
 import { buildProgramFingerprint } from './src/lib/programFingerprint';
-import { resolveRecords } from './src/lib/personalRecords';
+import { firstRecordDates, resolveRecords } from './src/lib/personalRecords';
 import { getComparableLogSets } from './src/lib/exerciseLog';
 import { resolveGoalProgress, upsertStrengthGoal } from './src/lib/strengthGoals';
 import {
@@ -4535,24 +4535,15 @@ function VinhaApp() {
     [personalRecords],
   );
 
-  /**
-   * The day each lift first held a record, one date per lift — the milestone
-   * ladder counts the same lifts as distinctRecordCount and dates the rung by
-   * the earliest of a lift's three kinds.
-   */
-  const recordDates = useMemo(() => {
-    const firstByLift = new Map<string, string>();
-    for (const record of [...personalRecords.weight, ...personalRecords.reps, ...personalRecords.volume]) {
-      const known = firstByLift.get(record.key);
-      if (known === undefined || Date.parse(record.performedAt) < Date.parse(known)) {
-        firstByLift.set(record.key, record.performedAt);
-      }
-    }
-    return [...firstByLift.values()];
-  }, [personalRecords]);
+  /** The day each lift first held a record — the same lifts distinctRecordCount counts. */
+  const recordDates = useMemo(() => firstRecordDates(personalRecords), [personalRecords]);
+  // Keyed on the four tables the facts read, not the whole database: a theme
+  // or language toggle replaces the database object without touching a log,
+  // and this is a full pass over every set.
   const milestoneFacts = useMemo(
     () => getMilestoneFacts(database, lifetimeSummary, recordDates),
-    [database, lifetimeSummary, recordDates],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [database.workoutSessions, database.exerciseLogs, database.cardioSessions, database.bodyweightEntries, lifetimeSummary, recordDates],
   );
   const milestoneLedger = useMemo(() => buildMilestoneLedger(milestoneFacts, unitPreference), [milestoneFacts, unitPreference]);
 

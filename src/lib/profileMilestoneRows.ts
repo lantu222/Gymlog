@@ -65,15 +65,7 @@ export function buildProfileMilestoneRows(input: {
 }): ProfileMilestoneRow[] {
   const { lifetime, recordCount, unitPreference, language, totals } = input;
   if (!hasMilestoneData({ lifetime })) {
-    return [
-      {
-        key: 'first',
-        title: t(language, 'profile.milestone.first.title'),
-        remainder: '',
-        fillPercent: 0,
-        meta: t(language, 'profile.milestone.first.meta'),
-      },
-    ];
+    return firstSessionRow(language);
   }
 
   return buildProfileMilestones({ lifetime, recordCount, unitPreference, totals }).map((item) =>
@@ -282,8 +274,25 @@ export function buildMilestoneLedgerRows(input: {
   return {
     summary: t(language, 'milestones.summary', { reached: ledger.reachedCount, total: ledger.totalCount }),
     reached: ledger.reached.map((item) => describeReached(item, unitPreference, language)),
-    upcoming: ledger.upcoming.map((item) => describe(item, { lifetime, unitPreference, language })),
+    // Before the first session the front row is the same single sentence the
+    // card shows: twelve zero rows, one of them claiming the reader "started
+    // this week", would be a page of things that have not begun.
+    upcoming: hasMilestoneData({ lifetime })
+      ? ledger.upcoming.map((item) => describe(item, { lifetime, unitPreference, language }))
+      : firstSessionRow(language),
   };
+}
+
+function firstSessionRow(language: AppLanguage): ProfileMilestoneRow[] {
+  return [
+    {
+      key: 'first',
+      title: t(language, 'profile.milestone.first.title'),
+      remainder: '',
+      fillPercent: 0,
+      meta: t(language, 'profile.milestone.first.meta'),
+    },
+  ];
 }
 
 function describeReached(item: ReachedMilestone, unitPreference: UnitPreference, language: AppLanguage): ReachedMilestoneRow {
@@ -297,5 +306,8 @@ function describeReached(item: ReachedMilestone, unitPreference: UnitPreference,
 
 /** The card's footer: how many have fallen, and the way to the page. */
 export function milestoneCardFooter(reachedCount: number, language: AppLanguage): string {
+  if (reachedCount <= 0) {
+    return t(language, 'profile.milestone.footerNone');
+  }
   return t(language, reachedCount === 1 ? 'profile.milestone.footerOne' : 'profile.milestone.footer', { count: reachedCount });
 }

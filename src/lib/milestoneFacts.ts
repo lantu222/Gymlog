@@ -4,6 +4,7 @@ import {
   getCanonicalCardioSessions,
   getCanonicalCompletedSessions,
 } from './completedSessions';
+import { getSessionDurationMinutes } from './dashboard';
 import { getComparableLogSets } from './exerciseLog';
 import { LifetimeTrainingSummary } from './lifetimeSummary';
 import {
@@ -138,18 +139,26 @@ export function getMilestoneFacts(
     timelines.sets.push({ at, total: sets });
     timelines.exercises.push({ at, total: seenExercises.size });
 
-    minutes += typeof session.durationMinutes === 'number' && Number.isFinite(session.durationMinutes) ? Math.max(0, session.durationMinutes) : 0;
+    minutes += Math.max(0, getSessionDurationMinutes(session));
     timelines.hours.push({ at, total: minutes / 60 });
   });
 
   // Weeks with a session, and the run of consecutive ones — the same weeks
-  // the lifetime summary counts, so the card and the page agree.
-  const weekStarts = [...new Set(sessions.map((session) => getCalendarWeekStartTimestamp(session.performedAt)))].sort(
-    (left, right) => left - right,
-  );
+  // the lifetime summary counts, so the card and the page agree. A week's
+  // rung is dated by the first session in it, the workout that made the week
+  // count, not by its Monday. A session whose date does not parse has no
+  // week (the summary drops it the same way) and is left out here.
+  const firstSessionByWeek = new Map<number, string>();
+  for (const session of sessions) {
+    const weekStart = getCalendarWeekStartTimestamp(session.performedAt);
+    if (Number.isFinite(weekStart) && !firstSessionByWeek.has(weekStart)) {
+      firstSessionByWeek.set(weekStart, session.performedAt);
+    }
+  }
+  const weekStarts = [...firstSessionByWeek.keys()].sort((left, right) => left - right);
   let run = 0;
   weekStarts.forEach((weekStart, index) => {
-    const at = new Date(weekStart).toISOString();
+    const at = firstSessionByWeek.get(weekStart) as string;
     timelines.weeks.push({ at, total: index + 1 });
     run = index > 0 && getCalendarWeekStartBefore(weekStart) === weekStarts[index - 1] ? run + 1 : 1;
     timelines.streak.push({ at, total: run });
@@ -160,9 +169,13 @@ export function getMilestoneFacts(
     () => 1,
   );
 
+  // Weigh-ins are stored as written (the loader does not normalize them), so
+  // an entry without a readable date is not a point — the page would hand it
+  // to a date formatter that throws.
   timelines.bodyweight = accumulate(
-    [...(database.bodyweightEntries ?? [])]
+    (database.bodyweightEntries ?? [])
       .map((entry) => entry.recordedAt)
+      .filter((at): at is string => typeof at === 'string' && Number.isFinite(Date.parse(at)))
       .sort((left, right) => timestamp(left) - timestamp(right)),
     () => 1,
   );

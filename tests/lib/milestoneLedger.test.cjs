@@ -154,7 +154,10 @@ module.exports = [
       assert.equal(byKey.get('volume-1000').reachedAt, SESSION_DATES[2]);
       // The streak of two happened in week 2 even though it is over now, so
       // the next streak rung is 3 — measured from the run alive today (1).
+      // Week rungs are dated by the session that made the week count, not
+      // by its Monday.
       assert.equal(byKey.get('streak-2').tier, 'easy');
+      assert.equal(byKey.get('streak-2').reachedAt, SESSION_DATES[2]);
       assert.equal(byKey.has('streak-3'), false);
       const streak = ledger.upcoming.find((item) => item.family === 'streak');
       assert.equal(streak.target, 3);
@@ -241,9 +244,20 @@ module.exports = [
       assert.match(fi.reached.find((row) => row.key === 'sessions-1').meta, /^Helppo · /);
       assert.equal(fi.upcoming.find((row) => row.key === 'distance-10').remainder, '3,8 km jäljellä');
 
-      assert.equal(milestoneCardFooter(0, 'en'), '0 reached · See all');
+      assert.equal(milestoneCardFooter(0, 'en'), 'See all milestones');
       assert.equal(milestoneCardFooter(1, 'en'), '1 reached · See all');
       assert.equal(milestoneCardFooter(7, 'fi'), '7 saavutettu · Näytä kaikki');
+
+      // Fractions round up to a tenth without float noise: 4.8 of 5 h is 0.2
+      // to go, not 0.3.
+      const nearly = buildMilestoneLedgerRows({
+        ledger: { ...ledger, upcoming: buildUpcomingMilestones({ lifetime, recordCount: 0, unitPreference: 'kg', totals: { hours: 4.8, distance: 9.7 } }) },
+        lifetime,
+        unitPreference: 'kg',
+        language: 'en',
+      });
+      assert.equal(nearly.upcoming.find((row) => row.key === 'hours-5').remainder, '0.2 h to go');
+      assert.equal(nearly.upcoming.find((row) => row.key === 'distance-10').remainder, '0.3 km to go');
 
       // No projections anywhere in the copy.
       for (const row of [...en.reached, ...en.upcoming, ...fi.reached, ...fi.upcoming]) {
@@ -285,6 +299,32 @@ module.exports = [
         totals,
       }).find((row) => row.key === 'sessions-5');
       assert.equal(fiLastWeek.meta, '4 / 5 · aloitit viime viikolla');
+    },
+  },
+  {
+    name: 'milestoneLedger: before the first session the page shows one sentence, and stored data it cannot read is left out rather than thrown on',
+    run() {
+      const empty = {
+        ...fixtureDatabase(),
+        workoutSessions: [],
+        exerciseLogs: [],
+        cardioSessions: [],
+        // One onboarding weigh-in, one entry with no readable date.
+        bodyweightEntries: [
+          { id: 'b1', recordedAt: '2026-08-01T06:00:00.000Z', weight: 80 },
+          { id: 'b2', weight: 79 },
+          { id: 'b3', recordedAt: 'not a date', weight: 78 },
+        ],
+      };
+      const lifetime = getLifetimeTrainingSummary(empty, NOW);
+      const ledger = buildMilestoneLedger(getMilestoneFacts(empty, lifetime, []), 'kg');
+      // The weigh-in is a rung that fell; the unreadable entries are not points.
+      assert.deepEqual(ledger.reached.map((item) => `${item.family}-${item.target}`), ['bodyweight-1']);
+      const rows = buildMilestoneLedgerRows({ ledger, lifetime, unitPreference: 'kg', language: 'en' });
+      assert.equal(rows.reached[0].meta, 'Easy · Aug 1, 2026');
+      // No "0 of 1 · you started this week": the front row is the card's first sentence.
+      assert.deepEqual(rows.upcoming.map((row) => row.key), ['first']);
+      assert.equal(rows.upcoming[0].meta, 'Log a workout to start the count.');
     },
   },
 ];

@@ -5,6 +5,7 @@ const {
   groupRecordsByMonth,
   resolveRecord,
   resolveRecords,
+  firstRecordDates,
 } = require('../../.test-dist/lib/personalRecords.js');
 const { weeklyTrainingStreak } = require('../../.test-dist/lib/trainingCalendar.js');
 
@@ -41,6 +42,31 @@ module.exports = [
       assert.equal(record.previous, 80);
       assert.equal(record.companion, 3, 'the reps at the record set');
       assert.equal(new Date(record.performedAt).getMonth(), 6, 'the day it was set, not the latest day');
+      // The lift first held a record with its first set, and that day never
+      // moves — performedAt follows the standing best, firstAt does not.
+      assert.equal(new Date(record.firstAt).getMonth(), 5);
+    },
+  },
+  {
+    name: 'firstRecordDates: one fixed day per lift, the earliest of its kinds',
+    run() {
+      const bench = {
+        key: 'bench',
+        name: 'Penkkipunnerrus',
+        entries: [entry([2026, 6, 1], [{ weight: 80, reps: 5 }]), entry([2026, 8, 1], [{ weight: 90, reps: 8 }])],
+      };
+      const row = { key: 'row', name: 'Kulmasoutu', entries: [entry([2026, 7, 10], [{ weight: 60, reps: 8 }])] };
+      const records = {
+        weight: resolveRecords([bench, row], 'weight', NOW),
+        reps: resolveRecords([bench, row], 'reps', NOW),
+        volume: resolveRecords([bench, row], 'volume', NOW),
+      };
+      const dates = firstRecordDates(records).map((iso) => new Date(iso).getMonth()).sort();
+      // Two lifts, two dates: bench in June (its first set, though every
+      // current best was set in August), row in July.
+      assert.deepEqual(dates, [5, 6]);
+      assert.equal(records.weight.find((record) => record.key === 'bench').performedAt, records.volume.find((record) => record.key === 'bench').performedAt);
+      assert.equal(new Date(records.weight.find((record) => record.key === 'bench').performedAt).getMonth(), 7);
     },
   },
   {

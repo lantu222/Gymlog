@@ -41,11 +41,13 @@ module.exports = [
     run() {
       assert.match(app, /import \{ buildMilestoneLedger, getMilestoneFacts \} from '\.\/src\/lib\/milestoneFacts'/);
       assert.match(app, /const milestoneFacts = useMemo\(\s*\(\) => getMilestoneFacts\(database, lifetimeSummary, recordDates\)/);
+      // Keyed on the tables it reads, not the database object a preference
+      // toggle replaces.
+      const factsMemo = between(app, 'const milestoneFacts = useMemo', 'const milestoneLedger');
+      assert.match(factsMemo, /\[database\.workoutSessions, database\.exerciseLogs, database\.cardioSessions, database\.bodyweightEntries, lifetimeSummary, recordDates\]/);
       assert.match(app, /const milestoneLedger = useMemo\(\(\) => buildMilestoneLedger\(milestoneFacts, unitPreference\), \[milestoneFacts, unitPreference\]\)/);
-      // One date per lift, the earliest of its kinds — the same lifts distinctRecordCount counts.
-      const dates = between(app, 'const recordDates = useMemo', 'const milestoneFacts');
-      assert.match(dates, /personalRecords\.weight, \.\.\.personalRecords\.reps, \.\.\.personalRecords\.volume/);
-      assert.match(dates, /Date\.parse\(record\.performedAt\) < Date\.parse\(known\)/);
+      // The record dates are the lib's (firstAt, which never moves), not a walk in the shell.
+      assert.match(app, /const recordDates = useMemo\(\(\) => firstRecordDates\(personalRecords\), \[personalRecords\]\)/);
       // Both travel to the tab.
       const deps = between(app, 'lifetimeSummary,\n      milestoneFacts,', 'distinctRecordCount,\n    });');
       assert.match(deps, /milestoneLedger,/);
@@ -60,7 +62,10 @@ module.exports = [
       assert.match(tab, /reachedMilestoneCount=\{milestoneLedger\.reachedCount\}/);
       assert.match(tab, /onOpenMilestones=\{\(\) => navigate\(\{ tab: 'profile', screen: 'milestones' \}\)\}/);
       const block = between(profile, "t(language, 'profile.section.nextMilestone')", '{/* PERSONAL RECORDS');
+      // Only the footer presses: a Pressable around the card would fold the
+      // rows into one screen-reader node.
       assert.match(block, /<Pressable\s+accessibilityRole="button"\s+accessibilityLabel=\{t\(language, 'milestones\.title'\)\}\s+onPress=\{onOpenMilestones\}/);
+      assert.ok(block.indexOf('<Pressable') > block.indexOf('milestoneRows.map'), 'the Pressable is the footer, after the rows');
       assert.match(block, /milestoneCardFooter\(reachedMilestoneCount, language\)/);
       // The newer families' figures reach the card.
       assert.match(profile, /totals: milestoneFacts \? totalsFromFacts\(milestoneFacts\) : undefined/);
