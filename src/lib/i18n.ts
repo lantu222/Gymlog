@@ -1532,19 +1532,6 @@ const EN = {
   'guided.coach.topSub': 'Aim for {kg} kg × {reps} next time.',
   'guided.coach.logged': 'Session logged. Consistency is the win today.',
   // ── Contact us + feature requests ─────────────────────────────────────
-  'support.title': 'Contact us',
-  'support.there': 'there',
-  'support.greeting': 'Hi, {name}',
-  'support.help': 'How can we help?',
-  'support.cat.technical': 'Technical issue',
-  'support.cat.technicalSub': 'Something broke or looks wrong.',
-  'support.cat.billing': 'Subscription & billing',
-  'support.cat.billingSub': 'Plans, promo codes, payments.',
-  'support.cat.feedback': 'Feedback',
-  'support.cat.feedbackSub': 'An idea or something that bugs you.',
-  'support.cat.other': 'Other',
-  'support.cat.otherSub': 'Anything else on your mind.',
-  'support.footer': 'Opens your email app with the topic filled in. You usually get an answer right away — the founder jumps in when needed.',
   'requests.title': 'Feature requests',
   'requests.intro': 'Vote on what we build next. Votes are stored on this device for now.',
   'requests.voteFor': 'Vote for {name}',
@@ -1968,28 +1955,6 @@ const EN = {
   'settings.feedback.sub': 'A bug, an idea, or something that annoys you.',
 
   // ── Design demo (internal surface for unwired components) ─────────────
-  'designDemo.title': 'Design demo',
-  'designDemo.lead': 'Finished components with no caller yet. Nothing here writes to your data.',
-  'designDemo.blur.section': 'BLURRED PREVIEW',
-  'designDemo.blur.note':
-    'A real gaussian blur, drawn with SVG filters. No native module, no rebuild.',
-  'designDemo.blur.teaser': 'One fix, from your own 6 sessions',
-  'designDemo.blur.body':
-    'Your bench has stalled on recovery, not load: the reps in your later sets drop every '
-    + 'session. Hold 72.5 kg and cut one set for two weeks.',
-  'designDemo.blur.overlay': 'Your answer is ready',
-  'designDemo.bars.section': 'BLURRED CHART',
-  'designDemo.bars.teaser': 'Six weeks of squat volume',
-  'designDemo.bars.overlay': 'See the trend',
-  'designDemo.rating.section': 'RATING ASK',
-  'designDemo.rating.note':
-    'Every star opens the same link. Branching on the star would be rating gating, '
-    + 'which Google Play prohibits.',
-  'designDemo.rating.open': 'Open the rating sheet',
-  'designDemo.rating.openNudge': 'Open it with the 5-star nudge',
-  'designDemo.rating.picked': 'Picked {count}/5. A wired build opens the Play listing here.',
-  'designDemo.rating.gate': 'Gate: asked {asks}× · next verdict "{verdict}"',
-  'designDemo.rating.reset': 'Reset the gate',
 
   // ── Paywall moments (the finding is free, the conclusion is Pro) ──────
   'pro.locked.cta': 'See the recommendation',
@@ -4928,19 +4893,6 @@ const FI: Record<I18nKey, string> = {
   'guided.coach.topSub': 'Tavoittele ensi kerralla {kg} kg × {reps}.',
   'guided.coach.logged': 'Treeni kirjattu. Säännöllisyys ratkaisee tänään.',
   // ── Contact us + feature requests ─────────────────────────────────────
-  'support.title': 'Ota yhteyttä',
-  'support.there': 'sinä',
-  'support.greeting': 'Hei, {name}',
-  'support.help': 'Miten voimme auttaa?',
-  'support.cat.technical': 'Tekninen ongelma',
-  'support.cat.technicalSub': 'Jokin hajosi tai näyttää väärältä.',
-  'support.cat.billing': 'Tilaus ja laskutus',
-  'support.cat.billingSub': 'Tilaukset, kampanjakoodit, maksut.',
-  'support.cat.feedback': 'Palaute',
-  'support.cat.feedbackSub': 'Idea tai jokin, joka häiritsee.',
-  'support.cat.other': 'Muu',
-  'support.cat.otherSub': 'Mikä tahansa muu mielessäsi.',
-  'support.footer': 'Avaa sähköpostisovelluksesi aihe valmiiksi täytettynä. Vastaus tulee yleensä heti — perustaja hyppää mukaan tarvittaessa.',
   'requests.title': 'Ominaisuustoiveet',
   'requests.intro': 'Äänestä, mitä rakennamme seuraavaksi. Äänet tallennetaan toistaiseksi vain tälle laitteelle.',
   'requests.voteFor': 'Äänestä: {name}',
@@ -5346,28 +5298,6 @@ const FI: Record<I18nKey, string> = {
   'settings.feedback': 'Lähetä palautetta',
   'settings.feedback.sub': 'Bugi, idea tai jokin mikä ärsyttää.',
 
-  'designDemo.title': 'Design-demo',
-  'designDemo.lead': 'Valmiita osia joilla ei ole vielä kutsujaa. Mikään täällä ei kirjoita tietojasi.',
-  'designDemo.blur.section': 'SUMENNETTU ESIKATSELU',
-  'designDemo.blur.note':
-    'Aito gaussin sumennus SVG-suotimilla. Ei natiivimoduulia, ei uudelleenkäännöstä.',
-  'designDemo.blur.teaser': 'Yksi korjaus, omista 6 treenistäsi',
-  'designDemo.blur.body':
-    'Penkkisi on jumissa palautumisesta, ei kuormasta: loppusarjojesi toistot putoavat joka '
-    + 'treenissä. Pidä 72,5 kg ja pudota yksi sarja kahdeksi viikoksi.',
-  'designDemo.blur.overlay': 'Vastauksesi on valmis',
-  'designDemo.bars.section': 'SUMENNETTU KUVAAJA',
-  'designDemo.bars.teaser': 'Kuusi viikkoa kyykyn volyymia',
-  'designDemo.bars.overlay': 'Katso kehityssuunta',
-  'designDemo.rating.section': 'ARVIOPYYNTÖ',
-  'designDemo.rating.note':
-    'Jokainen tähti avaa saman linkin. Tähden mukaan haarautuminen olisi arvioiden '
-    + 'suodattamista, jonka Google Play kieltää.',
-  'designDemo.rating.open': 'Avaa arvioruutu',
-  'designDemo.rating.openNudge': 'Avaa 5 tähden ohjauksella',
-  'designDemo.rating.picked': 'Valittu {count}/5. Kytketty versio avaisi tästä Play-sivun.',
-  'designDemo.rating.gate': 'Portti: kysytty {asks}× · seuraava tuomio ”{verdict}”',
-  'designDemo.rating.reset': 'Nollaa portti',
 
   'pro.locked.cta': 'Katso suositus',
   'pro.plateau.eyebrow': 'TASANNE HAVAITTU',
