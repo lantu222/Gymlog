@@ -282,6 +282,8 @@ const suites = [
   ...require('./screens/weekEditAndDayDoor.test.cjs'),
   ...require('./lib/profileMilestones.test.cjs'),
   ...require('./lib/milestoneLedger.test.cjs'),
+  ...require('./lib/notificationGroups.test.cjs'),
+  ...require('./screens/notificationGroups.test.cjs'),
   ...require('./screens/profileMilestoneSection.test.cjs'),
   ...require('./screens/milestonesScreen.test.cjs'),
   ...require('./screens/proScreens34.test.cjs'),

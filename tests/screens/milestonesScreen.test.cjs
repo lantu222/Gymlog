@@ -2,7 +2,16 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8');
+/**
+ * Line endings normalised.
+ *
+ * Git checks these files out with CRLF on Windows while a tool that rewrites
+ * one leaves LF, so a multi-line anchor below matched or missed depending on
+ * which had touched the file last — the guard passed and failed on identical
+ * code.
+ */
+const read = (...parts) =>
+  fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8').split('\r\n').join('\n');
 const screen = read('src', 'screens', 'MilestonesScreen.tsx');
 const profile = read('src', 'screens', 'ProfileScreen.tsx');
 const tab = read('src', 'app', 'renderProfileTab.tsx');
