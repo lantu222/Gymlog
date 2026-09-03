@@ -86,6 +86,8 @@ module.exports = [
       assert.match(reachedBlock, /rows\.reached\.length === 0/);
       assert.match(reachedBlock, /'milestones\.emptyTitle'/);
       assert.match(reachedBlock, /rows\.reached\.map/);
+      // No speed line across the dates (user 2026-09-03).
+      assert.doesNotMatch(screen, /speedLine/);
       // Nothing on the page is greyed out, locked, or a badge.
       assert.doesNotMatch(screen, /locked|opacity: 0\.[0-4]|badge|trophy/i);
       // Same bar rule as the card: nearest in the accent, the rest violet.

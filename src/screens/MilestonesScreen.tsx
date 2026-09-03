@@ -63,14 +63,9 @@ export function MilestonesScreen({ language = 'en', lifetime, ledger, unitPrefer
 
         <View style={settingsStyles.section}>
           <SectionLabel label={t(language, 'milestones.section.reached')} />
-          <CutSurface
-            size="lg"
-            fill={theme.surface}
-            stroke={theme.border}
-            strokeWidth={1}
-            speedLine={{ color: theme.purpleBright }}
-            style={styles.card}
-          >
+          {/* No speed line: a list of dates is read, and the stripe crossed
+              the words (user 2026-09-03: "poista tuo korostusviiva"). */}
+          <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.card}>
             {rows.reached.length === 0 ? (
               <View style={styles.row}>
                 <Text style={styles.rowTitle}>{t(language, 'milestones.emptyTitle')}</Text>

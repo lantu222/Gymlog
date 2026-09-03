@@ -382,14 +382,7 @@ export function ProfileScreen({
               rung with its day, and every family's next one. Only the footer
               presses — a Pressable around the whole card would fold the three
               rows into one node for a screen reader. */}
-          <CutSurface
-            size="lg"
-            fill={theme.surface}
-            stroke={theme.border}
-            strokeWidth={1}
-            speedLine={{ color: theme.purpleBright }}
-            style={styles.milestoneCard}
-          >
+          <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.milestoneCard}>
             {milestoneRows.map((row, index) => (
               <View key={row.key} style={[styles.milestoneRow, index > 0 && styles.milestoneRowDivider]}>
                 <View style={styles.milestoneHead}>
