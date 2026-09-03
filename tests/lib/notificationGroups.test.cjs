@@ -124,7 +124,8 @@ module.exports = [
       const wins = group('wins');
       const before = prefs({ personalRecords: true, weeklySummary: false });
       const memo = rememberNotificationGroup(wins, before);
-      assert.deepEqual(memo, { personalRecords: true, weeklySummary: false });
+      assert.deepEqual(memo.on, { personalRecords: true, weeklySummary: false });
+      assert.deepEqual(memo.values, { personalRecords: true, weeklySummary: false });
 
       const off = toggleNotificationGroup(wins, false, null);
       assert.deepEqual(off, { personalRecords: false, weeklySummary: false });
@@ -139,9 +140,21 @@ module.exports = [
       // A memo where everything was off would do exactly that, so it is
       // treated as no memo at all.
       assert.deepEqual(
-        toggleNotificationGroup(wins, true, { personalRecords: false, weeklySummary: false }),
+        toggleNotificationGroup(wins, true, { on: { personalRecords: false, weeklySummary: false }, values: {} }),
         { personalRecords: true, weeklySummary: true },
       );
+
+      // The restore replays the STORED values, not "it was on": a boolean
+      // memo turned a reader's waist reminder into hips (review 2026-09-03).
+      const nudges = group('nudges');
+      const chosen = prefs({ measurementReminderKind: 'waist', measurementReminderDay: 'wed', comebackNudge: false });
+      const kindMemo = rememberNotificationGroup(nudges, chosen);
+      assert.equal(kindMemo.values.measurementReminderKind, 'waist');
+      assert.equal(kindMemo.values.measurementReminderDay, 'wed');
+      const restoredKind = toggleNotificationGroup(nudges, true, kindMemo);
+      assert.equal(restoredKind.measurementReminderKind, 'waist', 'the chosen kind was reset');
+      assert.equal(restoredKind.measurementReminderDay, 'wed');
+      assert.equal(restoredKind.comebackNudge, false, 'a switch the reader had off came back on');
 
       // The nudges group's defaults are the fresh install's, not "all on".
       assert.deepEqual(toggleNotificationGroup(group('nudges'), true, null), {

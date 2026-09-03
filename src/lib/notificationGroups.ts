@@ -32,6 +32,14 @@ export interface NotificationSwitch {
   restoreDefault: boolean;
   isOn: (prefs: NotificationPrefs) => boolean;
   patch: (next: boolean) => Partial<NotificationPrefs>;
+  /**
+   * The fields this switch owns, exactly as stored.
+   *
+   * `patch(true)` only knows "on", which for the measurement means the
+   * DEFAULT kind — so a group turned off and back on silently moved a
+   * reader's waist reminder to hips. A restore replays this instead.
+   */
+  capture: (prefs: NotificationPrefs) => Partial<NotificationPrefs>;
 }
 
 export interface NotificationGroup {
@@ -60,6 +68,7 @@ function boolSwitch(
     restoreDefault,
     isOn: (prefs) => Boolean(prefs[field]),
     patch: (next) => ({ [field]: next }) as Partial<NotificationPrefs>,
+    capture: (prefs) => ({ [field]: Boolean(prefs[field]) }) as Partial<NotificationPrefs>,
   };
 }
 
@@ -76,6 +85,12 @@ const measurementSwitch: NotificationSwitch = {
   restoreDefault: false,
   isOn: (prefs) => prefs.measurementReminderKind !== null,
   patch: (next) => ({ measurementReminderKind: next ? DEFAULT_MEASUREMENT_KIND : null }),
+  // The kind AND the morning: both are the reader's, and both are lost if a
+  // restore can only say "on".
+  capture: (prefs) => ({
+    measurementReminderKind: prefs.measurementReminderKind,
+    measurementReminderDay: prefs.measurementReminderDay,
+  }),
 };
 
 export const NOTIFICATION_GROUPS: readonly NotificationGroup[] = [
@@ -112,8 +127,17 @@ export const NOTIFICATION_GROUPS: readonly NotificationGroup[] = [
   },
 ];
 
-/** What each switch was set to — kept while a group is off, so it can come back. */
-export type NotificationGroupMemo = Record<string, boolean>;
+/**
+ * What a group held while it was off, so it can come back exactly.
+ *
+ * `on` answers "was anything on" — a memo of all-off would restore nothing
+ * and leave the group on with no switches. `values` is the replay: the
+ * stored fields themselves, so a chosen measurement kind survives.
+ */
+export interface NotificationGroupMemo {
+  on: Record<string, boolean>;
+  values: Partial<NotificationPrefs>;
+}
 
 export interface NotificationGroupReading {
   onCount: number;
@@ -136,10 +160,13 @@ export function readNotificationGroup(group: NotificationGroup, prefs: Notificat
 
 /** What the switches held, so turning the group back on can restore it. */
 export function rememberNotificationGroup(group: NotificationGroup, prefs: NotificationPrefs): NotificationGroupMemo {
-  return group.switches.reduce<NotificationGroupMemo>((memo, item) => {
-    memo[item.key] = item.isOn(prefs);
-    return memo;
-  }, {});
+  return {
+    on: group.switches.reduce<Record<string, boolean>>((flags, item) => {
+      flags[item.key] = item.isOn(prefs);
+      return flags;
+    }, {}),
+    values: Object.assign({}, ...group.switches.map((item) => item.capture(prefs))),
+  };
 }
 
 /**
@@ -157,11 +184,11 @@ export function toggleNotificationGroup(
   if (!next) {
     return Object.assign({}, ...group.switches.map((item) => item.patch(false)));
   }
-  const remembered = memo !== null && group.switches.some((item) => memo[item.key]);
-  return Object.assign(
-    {},
-    ...group.switches.map((item) => item.patch(remembered ? Boolean(memo?.[item.key]) : item.restoreDefault)),
-  );
+  if (memo !== null && group.switches.some((item) => memo.on[item.key])) {
+    // Replayed as stored, not re-derived from "on".
+    return { ...memo.values };
+  }
+  return Object.assign({}, ...group.switches.map((item) => item.patch(item.restoreDefault)));
 }
 
 /**
