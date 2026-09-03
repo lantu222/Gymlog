@@ -366,6 +366,36 @@ module.exports = [
      * edge. The two meet exactly where the history is as long as the range,
      * which is why this can be one comparison and not a mode.
      */
+    name: 'labels: today is always labelled, a week labels every day, and no stride label sits under today',
+    run() {
+      const assert = require('node:assert/strict');
+      const { weightLabelIndexes, WEIGHT_LABEL_WIDTH } = require('../../.test-dist/lib/bodyweightCard.js');
+
+      // A week: every day, whatever the width.
+      assert.deepEqual(weightLabelIndexes(7, 3, 300), [0, 1, 2, 3, 4, 5, 6]);
+
+      // Three months anchored at the first weigh-in two days ago: day 0 would
+      // be drawn over today's label (two slots ≈ 7 px apart on a 300 px plot,
+      // the ink is ~30 px wide), so it is dropped; 13 is eleven slots ≈ 36 px
+      // away and stays, which is the "3.9. … 14.9." the device already showed.
+      const anchored = weightLabelIndexes(91, 2, 300);
+      assert.equal(anchored[0], 2, 'today first');
+      assert.equal(anchored.includes(0), false, '1.9. under 3.9.');
+      assert.deepEqual(anchored.slice(0, 4), [2, 13, 26, 39]);
+
+      // Today mid-window: the two stride labels within 30 px of it (39 and 52,
+      // six and seven slots away) are dropped, the other five stay.
+      assert.deepEqual(weightLabelIndexes(91, 45, 300), [0, 13, 26, 45, 65, 78]);
+      // Today on a stride slot: labelled once, not twice.
+      assert.deepEqual(weightLabelIndexes(91, 13, 300).filter((index) => index === 13).length, 1);
+      // No today in the window (a future-anchored end past the clock): plain stride.
+      assert.deepEqual(weightLabelIndexes(91, -1, 300).slice(0, 3), [0, 13, 26]);
+      // An unmeasured plot (width 0) cannot judge overlap and keeps the stride.
+      assert.deepEqual(weightLabelIndexes(91, 2, 0).slice(0, 3), [0, 2, 13]);
+      assert.equal(WEIGHT_LABEL_WIDTH, 40);
+    },
+  },
+  {
     name: 'window: a short history anchors the chart, a long one trails it',
     run() {
       const assert = require('node:assert/strict');

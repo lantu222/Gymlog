@@ -308,6 +308,15 @@ module.exports = [
       // the window at the first entry instead of leaving eleven empty weeks in
       // front of it (user, 2026-09-02).
       assert.match(weightBranch, /measureWindowEnd\(first, nowMs, days\)/);
+      // The TREND section's bodyweight grid follows the same end: it opened
+      // on 5.6 while the weight card opened on the first weigh-in (user
+      // 2026-09-03).
+      const overviewBranch = screen.slice(
+        screen.indexOf('const overviewWeightWindow = useMemo'),
+        screen.indexOf('const overviewChart = useMemo'),
+      );
+      assert.ok(overviewBranch.length > 100, 'the overview window moved — recheck by hand');
+      assert.match(overviewBranch, /measureWindowEnd\(first, nowMs, days\),?\s*\)/);
 
       // And the chips are actually ON the card. The <Seg count in the case
       // above only proves five exist somewhere; a mutation that gutted this
