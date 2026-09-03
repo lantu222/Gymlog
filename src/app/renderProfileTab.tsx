@@ -100,7 +100,6 @@ export interface ProfileTabDeps {
   }) => void;
   workout: { clearCompletedWorkout: () => void };
   lifetimeSummary: React.ComponentProps<typeof ProfileScreen>['lifetime'];
-  milestoneFacts: React.ComponentProps<typeof ProfileScreen>['milestoneFacts'];
   milestoneLedger: React.ComponentProps<typeof MilestonesScreen>['ledger'];
   trackedProgress: React.ComponentProps<typeof ProfileScreen>['trackedProgress'];
   exerciseLibrary: React.ComponentProps<typeof ProfileScreen>['exerciseLibrary'];
@@ -148,7 +147,6 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
     setFinishSaveState,
     workout,
     lifetimeSummary,
-    milestoneFacts,
     milestoneLedger,
     trackedProgress,
     exerciseLibrary,
@@ -532,8 +530,7 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
       unitPreference={unitPreference}
       onOpenSettings={() => navigate({ tab: 'profile', screen: 'settings' })}
       recordCount={distinctRecordCount}
-      milestoneFacts={milestoneFacts}
-      reachedMilestoneCount={milestoneLedger.reachedCount}
+      milestoneLedger={milestoneLedger}
       onOpenMilestones={() => navigate({ tab: 'profile', screen: 'milestones' })}
       onOpenRecords={() => navigate({ tab: 'progress', screen: 'list', section: 'records' })}
       onEditProfile={() => navigate({ tab: 'profile', screen: 'edit_profile' })}

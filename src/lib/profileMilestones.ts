@@ -254,24 +254,7 @@ export function buildUpcomingMilestones(input: ProfileMilestoneInput): ProfileMi
     .map(({ item }) => item);
 }
 
-export function buildProfileMilestones(input: ProfileMilestoneInput): ProfileMilestone[] {
-  return buildUpcomingMilestones(input).slice(0, MAX_PROFILE_MILESTONES);
-}
-
-/** No sessions yet: one row, an empty bar, and a plain sentence. */
-export function hasMilestoneData(input: Pick<ProfileMilestoneInput, 'lifetime'>): boolean {
-  return input.lifetime.sessionCount > 0;
-}
-
-/**
- * Has ANY family moved?
- *
- * `hasMilestoneData` asks about strength sessions, which was the whole ladder
- * when there were four families. Now a reader can log a weigh-in or a run and
- * reach rungs with no strength session at all — and be told "Log a workout to
- * start the count" directly under the rungs they just cleared.
- */
-export function hasAnyMilestoneProgress(input: ProfileMilestoneInput): boolean {
-  const figures = currentFigures(input);
-  return MILESTONE_FAMILIES.some((family) => figures[family] > 0);
-}
+// buildProfileMilestones and hasMilestoneData lived here until the card
+// started reading the ladder's own front row (2026-09-03). Both existed to
+// serve a second path through the same log; the slice is now
+// milestoneCardRows and the "has anything happened" question is the ledger's.

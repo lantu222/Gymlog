@@ -9,7 +9,7 @@ const {
   buildUpcomingMilestones,
 } = require('../../.test-dist/lib/profileMilestones.js');
 const { buildMilestoneLedger, getMilestoneFacts, totalsFromFacts } = require('../../.test-dist/lib/milestoneFacts.js');
-const { buildMilestoneLedgerRows, buildProfileMilestoneRows, milestoneCardFooter } = require(
+const { buildMilestoneLedgerRows, milestoneCardFooter, milestoneCardRows } = require(
   '../../.test-dist/lib/profileMilestoneRows.js',
 );
 const { getLifetimeTrainingSummary } = require('../../.test-dist/lib/lifetimeSummary.js');
@@ -83,6 +83,21 @@ function facts() {
   const database = fixtureDatabase();
   const lifetime = getLifetimeTrainingSummary(database, NOW);
   return { database, lifetime, facts: getMilestoneFacts(database, lifetime, ['2026-08-05T12:00:00.000Z', '2026-08-11T12:00:00.000Z']) };
+}
+
+
+/**
+ * The Profile card's rows, built the way the app builds them: from the
+ * ledger. There is no second path any more, so the test takes the same one.
+ */
+function cardRows({ lifetime, recordCount = 0, unitPreference = 'kg', language = 'en', totals }) {
+  const upcoming = buildUpcomingMilestones({ lifetime, recordCount, unitPreference, totals });
+  return milestoneCardRows({
+    ledger: { reached: [], upcoming, reachedCount: 0, totalCount: 0 },
+    lifetime,
+    unitPreference,
+    language,
+  });
 }
 
 module.exports = [
@@ -270,7 +285,7 @@ module.exports = [
     run() {
       const { facts: f, lifetime } = facts();
       const totals = totalsFromFacts(f);
-      const rows = buildProfileMilestoneRows({ lifetime, recordCount: f.current.records, unitPreference: 'kg', language: 'en', totals });
+      const rows = cardRows({ lifetime, recordCount: f.current.records, unitPreference: 'kg', language: 'en', totals });
       assert.equal(rows.length, 3);
       // 4/5 sessions (80 %) and 3/5 lifts (60 %), 3/5 h (60 %), 1 600/2 500 kg (64 %) …
       // sessions is nearest; a family without a figure never makes the cut.
@@ -283,7 +298,7 @@ module.exports = [
 
       // "you started 1 weeks ago" was the previous card's grammar for the
       // second week; it now says last week.
-      const lastWeek = buildProfileMilestoneRows({
+      const lastWeek = cardRows({
         lifetime: { ...lifetime, weeksSinceStart: 2 },
         recordCount: 0,
         unitPreference: 'kg',
@@ -291,7 +306,7 @@ module.exports = [
         totals,
       }).find((row) => row.key === 'sessions-5');
       assert.equal(lastWeek.meta, '4 of 5 · you started last week');
-      const fiLastWeek = buildProfileMilestoneRows({
+      const fiLastWeek = cardRows({
         lifetime: { ...lifetime, weeksSinceStart: 2 },
         recordCount: 0,
         unitPreference: 'kg',
@@ -343,6 +358,50 @@ module.exports = [
     },
   },
   {
+    name: 'milestoneLedger: a reader who has never done a strength session is not told they started one',
+    run() {
+      // weeksSinceStart and bestWeekStreak are strength-only and read 0 for a
+      // cardio- or weigh-in-only reader, which used to print "0 of 1 · you
+      // started this week" and "Best run so far: 0 weeks" (review 2026-09-03).
+      const cardioOnly = {
+        ...fixtureDatabase(),
+        workoutSessions: [],
+        exerciseLogs: [],
+        bodyweightEntries: [],
+        cardioSessions: [
+          {
+            id: 'c',
+            activityType: 'run',
+            startedAt: '2026-08-20T06:00:00.000Z',
+            performedAt: '2026-08-20T06:40:00.000Z',
+            durationSec: 2400,
+            distanceKm: 8,
+          },
+        ],
+      };
+      const lifetime = getLifetimeTrainingSummary(cardioOnly, NOW);
+      assert.equal(lifetime.sessionCount, 0);
+      const rows = buildMilestoneLedgerRows({
+        ledger: buildMilestoneLedger(getMilestoneFacts(cardioOnly, lifetime, []), 'kg'),
+        lifetime,
+        unitPreference: 'kg',
+        language: 'en',
+      });
+      assert.equal(rows.upcoming.find((row) => row.key === 'sessions-1').meta, '0 of 1');
+      assert.equal(rows.upcoming.find((row) => row.key === 'streak-2').meta, 'No run to beat yet');
+      // The run they DID log is a rung that fell, and the card says so.
+      assert.equal(rows.reached.some((row) => row.key === 'cardio-1'), true);
+      const card = milestoneCardRows({
+        ledger: buildMilestoneLedger(getMilestoneFacts(cardioOnly, lifetime, []), 'kg'),
+        lifetime,
+        unitPreference: 'kg',
+        language: 'en',
+      });
+      assert.equal(card.length, 3);
+      assert.equal(card.some((row) => row.key === 'first'), false);
+    },
+  },
+  {
     name: 'milestoneLedger: a bar never reads full while the row still counts something down',
     run() {
       // 999.6 of 1 000 kg rounded to a 100 % bar beside "1 kg to go", and the
@@ -356,7 +415,7 @@ module.exports = [
         currentWeekStreak: 1,
         firstSessionAt: '2026-08-01T00:00:00.000Z',
       };
-      const row = buildProfileMilestoneRows({ lifetime, recordCount: 0, unitPreference: 'kg', language: 'en' }).find(
+      const row = cardRows({ lifetime, recordCount: 0, unitPreference: 'kg', language: 'en' }).find(
         (item) => item.key === 'volume-1000',
       );
       assert.equal(row.fillPercent, 99, 'the bar claimed the rung was reached');
@@ -364,7 +423,7 @@ module.exports = [
       assert.equal(row.meta, '999 kg of 1 000 kg');
 
       // Same class, integers: 199 of 200 sessions.
-      const sessions = buildProfileMilestoneRows({
+      const sessions = cardRows({
         lifetime: { ...lifetime, sessionCount: 199, totalVolumeKg: 0 },
         recordCount: 0,
         unitPreference: 'kg',
@@ -373,7 +432,7 @@ module.exports = [
       assert.equal(sessions.fillPercent, 99);
 
       // "Best run so far: 1 weeks" — every reader in their first active week.
-      const firstWeek = buildProfileMilestoneRows({
+      const firstWeek = cardRows({
         lifetime: { ...lifetime, bestWeekStreak: 1, currentWeekStreak: 1 },
         recordCount: 0,
         unitPreference: 'kg',

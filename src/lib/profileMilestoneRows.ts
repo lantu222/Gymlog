@@ -7,8 +7,7 @@ import {
   MilestoneTier,
   MilestoneTotals,
   ProfileMilestone,
-  buildProfileMilestones,
-  hasAnyMilestoneProgress,
+  MAX_PROFILE_MILESTONES,
   volumeInUnit,
 } from './profileMilestones';
 import { AppLanguage, UnitPreference } from '../types/models';
@@ -71,27 +70,22 @@ function fillPercent(progress: number): number {
   return Math.max(4, Math.min(progress >= 1 ? 100 : 99, percent));
 }
 
-export function buildProfileMilestoneRows(input: {
+/**
+ * The Profile card's rows: the ledger's front row, nearest first, capped.
+ *
+ * The card used to build its own rows from its own input model — lifetime +
+ * recordCount + totals — while the page built them from the facts. They read
+ * the same log through two paths and agreed by coincidence; a change to
+ * either could have shown "4 of 5" on one and "3 of 5" on the other for the
+ * same rung. Now there is one path and the card is its head.
+ */
+export function milestoneCardRows(input: {
+  ledger: MilestoneLedger;
   lifetime: LifetimeTrainingSummary;
-  recordCount: number;
   unitPreference: UnitPreference;
   language: AppLanguage;
-  totals?: Partial<MilestoneTotals>;
 }): ProfileMilestoneRow[] {
-  const { lifetime, recordCount, unitPreference, language, totals } = input;
-  // "Any family has moved", not "a strength session exists": a weigh-in or a
-  // run reaches rungs of its own, and telling that reader to log a workout to
-  // start the count contradicts the rungs listed above it.
-  if (!hasAnyMilestoneProgress({ lifetime, recordCount, unitPreference, totals })) {
-    return firstSessionRow(language);
-  }
-
-  const rows = buildProfileMilestones({ lifetime, recordCount, unitPreference, totals }).map((item) =>
-    describe(item, { lifetime, unitPreference, language }),
-  );
-  // Every rung of every family cleared: the card would otherwise be an empty
-  // bordered box under its own heading.
-  return rows.length > 0 ? rows : allReachedRow(language);
+  return buildMilestoneLedgerRows(input).upcoming.slice(0, MAX_PROFILE_MILESTONES);
 }
 
 function allReachedRow(language: AppLanguage): ProfileMilestoneRow[] {
@@ -181,14 +175,19 @@ function describe(
       };
     }
     case 'sessions': {
-      // "started N weeks ago": the weeks before this one.
+      // "started N weeks ago": the weeks before this one. weeksSinceStart is
+      // strength-only and reads 0 for a reader whose log is a weigh-in or a
+      // run — saying "you started this week" to someone who has never done a
+      // strength session is a claim about a week that did not happen.
       const weeksAgo = lifetime.weeksSinceStart - 1;
       const meta =
-        weeksAgo <= 0
-          ? t(language, 'profile.milestone.sessions.metaOneWeek', { current: item.current, target: item.target })
-          : weeksAgo === 1
-            ? t(language, 'profile.milestone.sessions.metaLastWeek', { current: item.current, target: item.target })
-            : t(language, 'profile.milestone.sessions.meta', { current: item.current, target: item.target, weeks: weeksAgo });
+        lifetime.weeksSinceStart <= 0
+          ? t(language, 'profile.milestone.sessions.metaPlain', { current: item.current, target: item.target })
+          : weeksAgo <= 0
+            ? t(language, 'profile.milestone.sessions.metaOneWeek', { current: item.current, target: item.target })
+            : weeksAgo === 1
+              ? t(language, 'profile.milestone.sessions.metaLastWeek', { current: item.current, target: item.target })
+              : t(language, 'profile.milestone.sessions.meta', { current: item.current, target: item.target, weeks: weeksAgo });
       return { key, title, remainder: countdown, fillPercent: fill, meta };
     }
     case 'streak':
@@ -197,11 +196,14 @@ function describe(
         title,
         remainder: countdown,
         fillPercent: fill,
-        meta: t(
-          language,
-          lifetime.bestWeekStreak === 1 ? 'profile.milestone.streak.metaOne' : 'profile.milestone.streak.meta',
-          { best: lifetime.bestWeekStreak },
-        ),
+        meta:
+          lifetime.bestWeekStreak <= 0
+            ? t(language, 'profile.milestone.streak.metaNone')
+            : t(
+                language,
+                lifetime.bestWeekStreak === 1 ? 'profile.milestone.streak.metaOne' : 'profile.milestone.streak.meta',
+                { best: lifetime.bestWeekStreak },
+              ),
       };
     case 'records':
       return {

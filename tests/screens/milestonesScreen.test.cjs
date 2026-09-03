@@ -59,27 +59,27 @@ module.exports = [
       assert.match(app, /const milestoneLedger = useMemo\(\(\) => buildMilestoneLedger\(milestoneFacts, unitPreference\), \[milestoneFacts, unitPreference\]\)/);
       // The record dates are the lib's (firstAt, which never moves), not a walk in the shell.
       assert.match(app, /const recordDates = useMemo\(\(\) => firstRecordDates\(personalRecords\), \[personalRecords\]\)/);
-      // Both travel to the tab.
-      const deps = between(app, 'lifetimeSummary,\n      milestoneFacts,', 'distinctRecordCount,\n    });');
-      assert.match(deps, /milestoneLedger,/);
-      assert.match(tab, /milestoneFacts: React\.ComponentProps<typeof ProfileScreen>\['milestoneFacts'\]/);
+      // The ledger travels to the tab; the facts stop at it, because the card
+      // no longer takes a second model of the same log.
+      const deps = between(app, 'lifetimeSummary,\n      milestoneLedger,', 'distinctRecordCount,\n    });');
+      assert.ok(deps.length > 10, 'the deps block moved — recheck by hand');
       assert.match(tab, /milestoneLedger: React\.ComponentProps<typeof MilestonesScreen>\['ledger'\]/);
+      assert.doesNotMatch(tab, /milestoneFacts/);
     },
   },
   {
     name: 'milestones: the Profile card presses through to the page and its footer counts the fallen rungs',
     run() {
-      assert.match(tab, /milestoneFacts=\{milestoneFacts\}/);
-      assert.match(tab, /reachedMilestoneCount=\{milestoneLedger\.reachedCount\}/);
+      assert.match(tab, /milestoneLedger=\{milestoneLedger\}/);
       assert.match(tab, /onOpenMilestones=\{\(\) => navigate\(\{ tab: 'profile', screen: 'milestones' \}\)\}/);
       const block = between(profile, "t(language, 'profile.section.nextMilestone')", '{/* PERSONAL RECORDS');
       // Only the footer presses: a Pressable around the card would fold the
       // rows into one screen-reader node.
       assert.match(block, /<Pressable\s+accessibilityRole="button"\s+accessibilityLabel=\{t\(language, 'milestones\.title'\)\}\s+onPress=\{onOpenMilestones\}/);
       assert.ok(block.indexOf('<Pressable') > block.indexOf('milestoneRows.map'), 'the Pressable is the footer, after the rows');
-      assert.match(block, /milestoneCardFooter\(reachedMilestoneCount, language\)/);
-      // The newer families' figures reach the card.
-      assert.match(profile, /totals: milestoneFacts \? totalsFromFacts\(milestoneFacts\) : undefined/);
+      assert.match(block, /milestoneCardFooter\(milestoneLedger\.reachedCount, language\)/);
+      // One reading of the log: the card slices the ledger's own front row.
+      assert.match(profile, /milestoneCardRows\(\{ ledger: milestoneLedger/);
       // The label keeps no right action: the card itself is the door.
       assert.match(profile, /<SectionLabel label=\{t\(language, 'profile\.section\.nextMilestone'\)\} \/>/);
     },

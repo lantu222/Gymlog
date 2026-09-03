@@ -15,6 +15,21 @@ const { rankExerciseMatches } = require('../../.test-dist/lib/exerciseSearch.js'
 const { exerciseNameLabel } = require('../../.test-dist/lib/exerciseNameLabel.js');
 
 /**
+ * Slices between two anchors, failing loudly when one is missing.
+ *
+ * `slice(start, indexOf(missing))` is `slice(start, -1)` — the rest of the
+ * file minus one character — so a stale end anchor silently widens the scope
+ * instead of failing, and the assertions inside stop meaning what they say.
+ */
+function between(source, from, to) {
+  const start = source.indexOf(from);
+  assert.ok(start >= 0, `anchor missing: ${from}`);
+  const end = source.indexOf(to, start + from.length);
+  assert.ok(end > start, `anchor missing after ${from}: ${to}`);
+  return source.slice(start, end);
+}
+
+/**
  * The ranking has to REACH the list.
  *
  * PR #46 taught four pickers to rank matches and shipped; the review pointed
@@ -29,10 +44,10 @@ module.exports = [
       // The alphabetical fallback belongs to a filtered-but-unsearched list.
       assert.match(sheet, /const hasQuery = search\.trim\(\)\.length > 0;/);
       assert.match(sheet, /const showSuggestedOrdering = !hasQuery && !hasCustomFilters;/);
-      const ordering = sheet.slice(sheet.indexOf('const orderedItems = useMemo'), sheet.indexOf('const suggestedIds'));
-      assert.ok(ordering.length > 100, 'the ordering memo moved — recheck by hand');
+      const ordering = between(sheet, 'const orderedItems = useMemo', 'const listTitle');
       assert.match(ordering, /if \(hasQuery\) \{\s*return base;/);
-      // And the memo actually re-runs when the query appears or goes.
+      // And the memo actually re-runs when the query appears or goes — this
+      // has to be scoped to the dependency array, not the rest of the file.
       assert.match(ordering, /hasQuery,/);
     },
   },

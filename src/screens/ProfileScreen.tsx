@@ -9,8 +9,8 @@ import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import { formatCompactVolume, formatWeight } from '../lib/format';
 import { LifetimeTrainingSummary } from '../lib/lifetimeSummary';
-import { MilestoneFacts, totalsFromFacts } from '../lib/milestoneFacts';
-import { buildProfileMilestoneRows, milestoneCardFooter } from '../lib/profileMilestoneRows';
+import { MilestoneLedger } from '../lib/milestoneFacts';
+import { milestoneCardFooter, milestoneCardRows } from '../lib/profileMilestoneRows';
 import { bodyPartLabel, t } from '../lib/i18n';
 import {
   formatRecordWhenLabel,
@@ -33,12 +33,10 @@ interface ProfileScreenProps {
   /** Lifts holding a record — the count the Records tab itself shows. */
   recordCount: number;
   /**
-   * The whole ladder's figures. Optional so the card still builds from the
-   * lifetime summary alone; without it the newer families sit at zero.
+   * The whole ladder. The card shows its front row; the page it opens shows
+   * the rest. One reading of the log, so the two cannot disagree.
    */
-  milestoneFacts?: MilestoneFacts;
-  /** How many rungs have fallen — the card's footer, and the door to the page. */
-  reachedMilestoneCount?: number;
+  milestoneLedger: MilestoneLedger;
   onOpenMilestones?: () => void;
   /**
    * Opens the profile editor. The ready-programme path through onboarding
@@ -171,8 +169,7 @@ export function ProfileScreen({
   onOpenSettings,
   onOpenRecords,
   recordCount,
-  milestoneFacts,
-  reachedMilestoneCount = 0,
+  milestoneLedger,
   onOpenMilestones,
   onEditProfile,
   onOpenRating,
@@ -210,15 +207,8 @@ export function ProfileScreen({
   ];
 
   const milestoneRows = useMemo(
-    () =>
-      buildProfileMilestoneRows({
-        lifetime,
-        recordCount,
-        unitPreference,
-        language,
-        totals: milestoneFacts ? totalsFromFacts(milestoneFacts) : undefined,
-      }),
-    [language, lifetime, milestoneFacts, recordCount, unitPreference],
+    () => milestoneCardRows({ ledger: milestoneLedger, lifetime, unitPreference, language }),
+    [language, lifetime, milestoneLedger, unitPreference],
   );
 
   const lifetimeStats = [
@@ -410,7 +400,7 @@ export function ProfileScreen({
                 onPress={onOpenMilestones}
                 style={({ pressed }) => [styles.milestoneRowDivider, styles.milestoneFooter, pressed && { opacity: 0.7 }]}
               >
-                <Text style={styles.milestoneFooterText}>{milestoneCardFooter(reachedMilestoneCount, language)}</Text>
+                <Text style={styles.milestoneFooterText}>{milestoneCardFooter(milestoneLedger.reachedCount, language)}</Text>
                 <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
                   <Path d="M9 5l7 7-7 7" stroke={theme.highlight} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
                 </Svg>

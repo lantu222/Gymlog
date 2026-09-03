@@ -1,5 +1,6 @@
 import { AppDatabase } from '../types/models';
 import {
+  getActiveWeekRuns,
   getCalendarWeekStartBefore,
   getCalendarWeekStartTimestamp,
   getCanonicalCompletedSessions,
@@ -64,16 +65,9 @@ export function getLifetimeTrainingSummary(
     ...new Set(sessions.map((session) => getCalendarWeekStartTimestamp(session.performedAt))),
   ].sort((left, right) => left - right);
 
-  let bestWeekStreak = 1;
-  let runLength = 1;
-  for (let index = 1; index < activeWeekStarts.length; index += 1) {
-    if (getCalendarWeekStartBefore(activeWeekStarts[index]) === activeWeekStarts[index - 1]) {
-      runLength += 1;
-    } else {
-      runLength = 1;
-    }
-    bestWeekStreak = Math.max(bestWeekStreak, runLength);
-  }
+  // The longest run of consecutive active weeks, from the shared walk the
+  // milestone ladder also reads.
+  const bestWeekStreak = Math.max(1, ...getActiveWeekRuns(activeWeekStarts));
 
   const firstWeekStart = activeWeekStarts[0];
   const currentWeekStart = getCalendarWeekStartTimestamp(now);

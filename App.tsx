@@ -5504,7 +5504,6 @@ function VinhaApp() {
       setFinishSaveState,
       workout,
       lifetimeSummary,
-      milestoneFacts,
       milestoneLedger,
       trackedProgress,
       exerciseLibrary,
