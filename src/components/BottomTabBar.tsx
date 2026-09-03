@@ -30,7 +30,6 @@ const BAR = {
   pill: '#1E1B2C',
   pillBorder: 'rgba(255,255,255,0.09)',
   inactive: '#8B84A6',
-  lightPill: '#FFFFFF',
 };
 
 // Diameter of the sliding circular highlight behind the active tab's icon.
@@ -161,7 +160,9 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
   // Dark: the pill lifts off the background as a soft surface (#1E1B2C over
   // #141021 was a smudge). Light: a white card with a hairline, like every
   // other card on the light screens.
-  const pillBackground = themeName === 'dark' ? theme.surfaceSoft : BAR.lightPill;
+  // theme.surface IS the light theme's white; a second hex for the same
+  // colour was one more thing to keep in step.
+  const pillBackground = themeName === 'dark' ? theme.surfaceSoft : theme.surface;
   const pillStroke = themeName === 'dark' ? undefined : theme.border;
 
   // The AI button. Light: a deep violet orb with a white label (user

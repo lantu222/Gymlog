@@ -666,7 +666,18 @@ export function ProgramDetailScreen({
               <Pressable
                 accessibilityRole="button"
                 accessibilityState={{ expanded: rhythmEditing }}
-                onPress={() => setRhythmEditing((open) => !open)}
+                onPress={() =>
+                  setRhythmEditing((open) => {
+                    // Closing discards an uncommitted draft. Without this the
+                    // chips went inert while the "pick another day" hint kept
+                    // showing — advice about controls that no longer take a
+                    // tap — and the week on screen stayed the unsaved one.
+                    if (open) {
+                      setDraftDays(null);
+                    }
+                    return !open;
+                  })
+                }
                 hitSlop={8}
                 style={({ pressed }) => pressed && { opacity: 0.65 }}
               >

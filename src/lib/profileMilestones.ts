@@ -262,3 +262,16 @@ export function buildProfileMilestones(input: ProfileMilestoneInput): ProfileMil
 export function hasMilestoneData(input: Pick<ProfileMilestoneInput, 'lifetime'>): boolean {
   return input.lifetime.sessionCount > 0;
 }
+
+/**
+ * Has ANY family moved?
+ *
+ * `hasMilestoneData` asks about strength sessions, which was the whole ladder
+ * when there were four families. Now a reader can log a weigh-in or a run and
+ * reach rungs with no strength session at all — and be told "Log a workout to
+ * start the count" directly under the rungs they just cleared.
+ */
+export function hasAnyMilestoneProgress(input: ProfileMilestoneInput): boolean {
+  const figures = currentFigures(input);
+  return MILESTONE_FAMILIES.some((family) => figures[family] > 0);
+}

@@ -75,7 +75,16 @@ module.exports = [
   {
     name: 'profileMilestones: no sessions yet is one row with an empty bar, never a hidden section',
     run() {
-      const empty = lifetime({ sessionCount: 0, totalVolumeKg: 0, currentWeekStreak: 0, weeksSinceStart: 0, bestWeekStreak: 0 });
+      // Nothing logged at all — weeksActive included, or the weeks family
+      // has progress and the card is right to show real rungs.
+      const empty = lifetime({
+        sessionCount: 0,
+        totalVolumeKg: 0,
+        weeksActive: 0,
+        currentWeekStreak: 0,
+        weeksSinceStart: 0,
+        bestWeekStreak: 0,
+      });
       assert.equal(hasMilestoneData({ lifetime: empty }), false);
       const rows = buildProfileMilestoneRows({ lifetime: empty, recordCount: 0, unitPreference: 'kg', language: 'en' });
       assert.equal(rows.length, 1);

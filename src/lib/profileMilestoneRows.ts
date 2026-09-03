@@ -8,7 +8,7 @@ import {
   MilestoneTotals,
   ProfileMilestone,
   buildProfileMilestones,
-  hasMilestoneData,
+  hasAnyMilestoneProgress,
   volumeInUnit,
 } from './profileMilestones';
 import { AppLanguage, UnitPreference } from '../types/models';
@@ -36,6 +36,14 @@ export function formatMilestoneVolume(value: number, unitPreference: UnitPrefere
   return `${groupThousands(Math.round(Math.max(0, value)))} ${unitPreference === 'lb' ? 'lb' : 'kg'}`;
 }
 
+/**
+ * The same, rounded DOWN — for the figure the reader has.
+ * Rounding it up printed "1 000 kg of 1 000 kg" beside "1 kg to go".
+ */
+export function formatMilestoneVolumeReached(value: number, unitPreference: UnitPreference): string {
+  return `${groupThousands(Math.floor(Math.max(0, value)))} ${unitPreference === 'lb' ? 'lb' : 'kg'}`;
+}
+
 /** "12 500" — a whole count, thousands grouped with a space. */
 export function formatMilestoneCount(value: number): string {
   return groupThousands(Math.round(Math.max(0, value)));
@@ -52,8 +60,15 @@ function groupThousands(whole: number): string {
   return String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
 
+/**
+ * 4–100. A rung that is not reached never draws a full bar: 999.6 of 1 000 kg
+ * rounds to 100 %, and the row then claimed the target was both reached and
+ * one kilo away. Only progress of exactly 1 fills it, and that never happens
+ * here — a reached rung has already advanced to the next one.
+ */
 function fillPercent(progress: number): number {
-  return Math.max(4, Math.min(100, Math.round(progress * 100)));
+  const percent = Math.round(progress * 100);
+  return Math.max(4, Math.min(progress >= 1 ? 100 : 99, percent));
 }
 
 export function buildProfileMilestoneRows(input: {
@@ -64,13 +79,31 @@ export function buildProfileMilestoneRows(input: {
   totals?: Partial<MilestoneTotals>;
 }): ProfileMilestoneRow[] {
   const { lifetime, recordCount, unitPreference, language, totals } = input;
-  if (!hasMilestoneData({ lifetime })) {
+  // "Any family has moved", not "a strength session exists": a weigh-in or a
+  // run reaches rungs of its own, and telling that reader to log a workout to
+  // start the count contradicts the rungs listed above it.
+  if (!hasAnyMilestoneProgress({ lifetime, recordCount, unitPreference, totals })) {
     return firstSessionRow(language);
   }
 
-  return buildProfileMilestones({ lifetime, recordCount, unitPreference, totals }).map((item) =>
+  const rows = buildProfileMilestones({ lifetime, recordCount, unitPreference, totals }).map((item) =>
     describe(item, { lifetime, unitPreference, language }),
   );
+  // Every rung of every family cleared: the card would otherwise be an empty
+  // bordered box under its own heading.
+  return rows.length > 0 ? rows : allReachedRow(language);
+}
+
+function allReachedRow(language: AppLanguage): ProfileMilestoneRow[] {
+  return [
+    {
+      key: 'all',
+      title: t(language, 'profile.milestone.all.title'),
+      remainder: '',
+      fillPercent: 100,
+      meta: t(language, 'profile.milestone.all.meta'),
+    },
+  ];
 }
 
 /** The rung's name — the same words on the card, the page and the reached list. */
@@ -142,7 +175,7 @@ function describe(
         }),
         fillPercent: fill,
         meta: t(language, 'profile.milestone.volume.meta', {
-          current: formatMilestoneVolume(current, unitPreference),
+          current: formatMilestoneVolumeReached(current, unitPreference),
           target: formatMilestoneVolume(item.target, unitPreference),
         }),
       };
@@ -164,7 +197,11 @@ function describe(
         title,
         remainder: countdown,
         fillPercent: fill,
-        meta: t(language, 'profile.milestone.streak.meta', { best: lifetime.bestWeekStreak }),
+        meta: t(
+          language,
+          lifetime.bestWeekStreak === 1 ? 'profile.milestone.streak.metaOne' : 'profile.milestone.streak.meta',
+          { best: lifetime.bestWeekStreak },
+        ),
       };
     case 'records':
       return {
@@ -277,9 +314,12 @@ export function buildMilestoneLedgerRows(input: {
     // Before the first session the front row is the same single sentence the
     // card shows: twelve zero rows, one of them claiming the reader "started
     // this week", would be a page of things that have not begun.
-    upcoming: hasMilestoneData({ lifetime })
-      ? ledger.upcoming.map((item) => describe(item, { lifetime, unitPreference, language }))
-      : firstSessionRow(language),
+    upcoming:
+      ledger.reached.length === 0 && ledger.upcoming.every((item) => item.current <= 0)
+        ? firstSessionRow(language)
+        : ledger.upcoming.length > 0
+          ? ledger.upcoming.map((item) => describe(item, { lifetime, unitPreference, language }))
+          : allReachedRow(language),
   };
 }
 

@@ -322,9 +322,69 @@ module.exports = [
       assert.deepEqual(ledger.reached.map((item) => `${item.family}-${item.target}`), ['bodyweight-1']);
       const rows = buildMilestoneLedgerRows({ ledger, lifetime, unitPreference: 'kg', language: 'en' });
       assert.equal(rows.reached[0].meta, 'Easy · Aug 1, 2026');
-      // No "0 of 1 · you started this week": the front row is the card's first sentence.
-      assert.deepEqual(rows.upcoming.map((row) => row.key), ['first']);
-      assert.equal(rows.upcoming[0].meta, 'Log a workout to start the count.');
+      // A weigh-in IS progress, so the page lists real rungs rather than
+      // telling this reader to log a workout under the rung they just
+      // cleared (review 2026-09-03).
+      assert.equal(rows.upcoming.some((row) => row.key === 'first'), false);
+      assert.equal(rows.upcoming.some((row) => row.key === 'bodyweight-5'), true);
+
+      // Truly nothing logged: the page is the card's one sentence.
+      const nothing = { ...fixtureDatabase(), workoutSessions: [], exerciseLogs: [], cardioSessions: [], bodyweightEntries: [] };
+      const nothingLifetime = getLifetimeTrainingSummary(nothing, NOW);
+      const nothingRows = buildMilestoneLedgerRows({
+        ledger: buildMilestoneLedger(getMilestoneFacts(nothing, nothingLifetime, []), 'kg'),
+        lifetime: nothingLifetime,
+        unitPreference: 'kg',
+        language: 'en',
+      });
+      assert.deepEqual(nothingRows.upcoming.map((row) => row.key), ['first']);
+      assert.equal(nothingRows.upcoming[0].meta, 'Log a workout to start the count.');
+      assert.deepEqual(nothingRows.reached, []);
+    },
+  },
+  {
+    name: 'milestoneLedger: a bar never reads full while the row still counts something down',
+    run() {
+      // 999.6 of 1 000 kg rounded to a 100 % bar beside "1 kg to go", and the
+      // meta rounded the current figure onto the target (review 2026-09-03).
+      const lifetime = {
+        sessionCount: 5,
+        totalVolumeKg: 999.6,
+        weeksActive: 2,
+        weeksSinceStart: 3,
+        bestWeekStreak: 1,
+        currentWeekStreak: 1,
+        firstSessionAt: '2026-08-01T00:00:00.000Z',
+      };
+      const row = buildProfileMilestoneRows({ lifetime, recordCount: 0, unitPreference: 'kg', language: 'en' }).find(
+        (item) => item.key === 'volume-1000',
+      );
+      assert.equal(row.fillPercent, 99, 'the bar claimed the rung was reached');
+      assert.equal(row.remainder, '1 kg to go');
+      assert.equal(row.meta, '999 kg of 1 000 kg');
+
+      // Same class, integers: 199 of 200 sessions.
+      const sessions = buildProfileMilestoneRows({
+        lifetime: { ...lifetime, sessionCount: 199, totalVolumeKg: 0 },
+        recordCount: 0,
+        unitPreference: 'kg',
+        language: 'en',
+      }).find((item) => item.key === 'sessions-200');
+      assert.equal(sessions.fillPercent, 99);
+
+      // "Best run so far: 1 weeks" — every reader in their first active week.
+      const firstWeek = buildProfileMilestoneRows({
+        lifetime: { ...lifetime, bestWeekStreak: 1, currentWeekStreak: 1 },
+        recordCount: 0,
+        unitPreference: 'kg',
+        language: 'en',
+      }).find((item) => item.family === 'streak' || item.key.startsWith('streak'));
+      if (firstWeek) {
+        assert.equal(firstWeek.meta, 'Best run so far: one week');
+      }
+      const { t } = require('../../.test-dist/lib/i18n.js');
+      assert.equal(t('en', 'profile.milestone.streak.metaOne'), 'Best run so far: one week');
+      assert.equal(t('fi', 'profile.milestone.streak.metaOne'), 'Paras putki tähän asti: yksi viikko');
     },
   },
 ];

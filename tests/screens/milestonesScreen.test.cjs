@@ -53,7 +53,9 @@ module.exports = [
       // Keyed on the tables it reads, not the database object a preference
       // toggle replaces.
       const factsMemo = between(app, 'const milestoneFacts = useMemo', 'const milestoneLedger');
-      assert.match(factsMemo, /\[database\.workoutSessions, database\.exerciseLogs, database\.cardioSessions, database\.bodyweightEntries, lifetimeSummary, recordDates\]/);
+      // The summary is itself keyed on the whole database, so depending on the
+      // object would undo the narrowing — only the field this reads counts.
+      assert.match(factsMemo, /database\.workoutSessions,\s*database\.exerciseLogs,\s*database\.cardioSessions,\s*database\.bodyweightEntries,\s*lifetimeSummary\.currentWeekStreak,\s*recordDates,/);
       assert.match(app, /const milestoneLedger = useMemo\(\(\) => buildMilestoneLedger\(milestoneFacts, unitPreference\), \[milestoneFacts, unitPreference\]\)/);
       // The record dates are the lib's (firstAt, which never moves), not a walk in the shell.
       assert.match(app, /const recordDates = useMemo\(\(\) => firstRecordDates\(personalRecords\), \[personalRecords\]\)/);
