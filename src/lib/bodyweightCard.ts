@@ -223,6 +223,52 @@ export function weightMarkersFit(pointCount: number, plotWidth: number): boolean
   return plotWidth / pointCount >= MARKER_PITCH;
 }
 
+/** Width of one x-axis label's box in the weight chart ("26.7." needs the room). */
+export const WEIGHT_LABEL_WIDTH = 40;
+/**
+ * How close two labels' centres may come before one is dropped: the ink of
+ * "14.9." is about 30 px wide inside its 40 px box, and the box's own padding
+ * is not overlap — "3.9." and "14.9." eleven slots apart read fine.
+ */
+export const WEIGHT_LABEL_CLEARANCE = 30;
+
+/**
+ * Which days of a window get an x-axis label.
+ *
+ * A week labels EVERY day; a three-month window cannot, so the stride is the
+ * count that fits — and at least a week long, or a seven-day window starts
+ * skipping days ("22 24 25 26 28", user 2026-08-25). Today is always labelled.
+ *
+ * A stride label that would sit under today's is dropped: when the window is
+ * anchored at the first weigh-in, day 0 and today are two slots apart on a
+ * three-month axis, and "1.9." was drawn straight over "3.9." (user
+ * 2026-09-03, "mahdotonta lukea"). The clearance is the label's own width in
+ * slots, so a wider window drops fewer neighbours.
+ */
+export function weightLabelIndexes(dayCount: number, todayIndex: number, plotWidth: number): number[] {
+  if (dayCount <= 0) {
+    return [];
+  }
+  const stride = Math.max(1, Math.ceil(dayCount / 7));
+  const slot = Number.isFinite(plotWidth) && plotWidth > 0 ? plotWidth / dayCount : Number.POSITIVE_INFINITY;
+  const clearance = Number.isFinite(slot) ? Math.ceil(WEIGHT_LABEL_CLEARANCE / slot) : 0;
+  const indexes: number[] = [];
+  for (let index = 0; index < dayCount; index += 1) {
+    if (index === todayIndex) {
+      indexes.push(index);
+      continue;
+    }
+    if (index % stride !== 0) {
+      continue;
+    }
+    if (todayIndex >= 0 && Math.abs(index - todayIndex) < clearance) {
+      continue;
+    }
+    indexes.push(index);
+  }
+  return indexes;
+}
+
 export interface WeightWindowDay {
   /** Local midnight. */
   dayStart: number;
@@ -328,6 +374,25 @@ export function measureRangeDays(
  * jump: whichever end is LATER is the end, and the moment first + days passes
  * today the anchor hands over to the clock.
  */
+/**
+ * The earliest entry's time, whatever order the entries arrive in.
+ *
+ * `entries[0]` was taken as the first weigh-in, but the progress summary
+ * sorts newest first, so the weight card anchored its window at the LATEST
+ * entry and the Trend grid at the earliest — the same weight, two different
+ * axes (user 2026-09-03). Null when there is nothing to anchor on.
+ */
+export function earliestEntryMs(recordedAts: ReadonlyArray<string>): number | null {
+  let earliest: number | null = null;
+  for (const recordedAt of recordedAts) {
+    const ms = new Date(recordedAt).getTime();
+    if (Number.isFinite(ms) && (earliest === null || ms < earliest)) {
+      earliest = ms;
+    }
+  }
+  return earliest;
+}
+
 export function measureWindowEnd(
   firstEntryMs: number | null,
   nowMs: number,

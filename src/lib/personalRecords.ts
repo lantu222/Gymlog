@@ -52,6 +52,13 @@ export interface PersonalRecord {
   companion: number | null;
   /** ISO date the record was set. */
   performedAt: string;
+  /**
+   * ISO date the lift first held a record of this kind — its first logged
+   * set, since the first figure is a record by definition. Unlike
+   * `performedAt` it never moves when the record is beaten, which is what a
+   * "reached on" date needs.
+   */
+  firstAt: string;
   /** The record that stood before this one, or null if this is the first. */
   previous: number | null;
   /** Set within the freshness window — drives the "UUSI" badge. */
@@ -149,6 +156,7 @@ export function resolveRecord(
     value: best.value,
     companion: best.companion,
     performedAt: best.performedAt,
+    firstAt: candidates[0].performedAt,
     previous,
     fresh: now.getTime() - best.stamp <= FRESH_RECORD_DAYS * 86_400_000,
   };
@@ -171,6 +179,23 @@ export function resolveRecords(
     .map((source) => resolveRecord(source, kind, now))
     .filter((record): record is PersonalRecord => record !== null)
     .sort((left, right) => Date.parse(right.performedAt) - Date.parse(left.performedAt));
+}
+
+/**
+ * The day each lift first held a record of any kind — one date per lift, the
+ * earliest `firstAt` across its kinds. The lifts are the ones the Records tab
+ * counts; the dates are fixed, so a milestone reached on one of them stays
+ * where it fell when the record is later beaten.
+ */
+export function firstRecordDates(records: Record<RecordKind, readonly PersonalRecord[]>): string[] {
+  const firstByLift = new Map<string, string>();
+  for (const record of [...records.weight, ...records.reps, ...records.volume]) {
+    const known = firstByLift.get(record.key);
+    if (known === undefined || Date.parse(record.firstAt) < Date.parse(known)) {
+      firstByLift.set(record.key, record.firstAt);
+    }
+  }
+  return [...firstByLift.values()];
 }
 
 /** Records grouped by the month they were set, newest month first. */

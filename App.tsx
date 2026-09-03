@@ -79,6 +79,7 @@ import {
   getRecentActivityStrip,
 } from './src/lib/completedSessions';
 import { getLifetimeTrainingSummary } from './src/lib/lifetimeSummary';
+import { buildMilestoneLedger, getMilestoneFacts } from './src/lib/milestoneFacts';
 import { getTrainingRhythm } from './src/lib/trainingRhythm';
 import { buildFatigueModel } from './src/lib/fatigueModel';
 import { buildLiftHistories } from './src/lib/trainingHistory';
@@ -181,7 +182,7 @@ import {
 } from './src/lib/seasonEnrolment';
 import { exerciseNameLabel } from './src/lib/exerciseNameLabel';
 import { buildProgramFingerprint } from './src/lib/programFingerprint';
-import { resolveRecords } from './src/lib/personalRecords';
+import { firstRecordDates, resolveRecords } from './src/lib/personalRecords';
 import { getComparableLogSets } from './src/lib/exerciseLog';
 import { resolveGoalProgress, upsertStrengthGoal } from './src/lib/strengthGoals';
 import {
@@ -4534,6 +4535,18 @@ function VinhaApp() {
     [personalRecords],
   );
 
+  /** The day each lift first held a record — the same lifts distinctRecordCount counts. */
+  const recordDates = useMemo(() => firstRecordDates(personalRecords), [personalRecords]);
+  // Keyed on the four tables the facts read, not the whole database: a theme
+  // or language toggle replaces the database object without touching a log,
+  // and this is a full pass over every set.
+  const milestoneFacts = useMemo(
+    () => getMilestoneFacts(database, lifetimeSummary, recordDates),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [database.workoutSessions, database.exerciseLogs, database.cardioSessions, database.bodyweightEntries, lifetimeSummary, recordDates],
+  );
+  const milestoneLedger = useMemo(() => buildMilestoneLedger(milestoneFacts, unitPreference), [milestoneFacts, unitPreference]);
+
   const programsSeasonTileCounts = useMemo(
     () => ({
       winter: getSeasonProgramIds('winter').length,
@@ -5482,6 +5495,8 @@ function VinhaApp() {
       setFinishSaveState,
       workout,
       lifetimeSummary,
+      milestoneFacts,
+      milestoneLedger,
       trackedProgress,
       exerciseLibrary,
       unitPreference,

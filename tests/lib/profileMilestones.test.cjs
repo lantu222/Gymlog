@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 
 const {
   buildProfileMilestones,
+  buildUpcomingMilestones,
   hasMilestoneData,
   MAX_PROFILE_MILESTONES,
   VOLUME_RUNGS_LB,
@@ -31,8 +32,10 @@ module.exports = [
 
       // Exactly on the rung: it is reached, so the next one is the target and
       // "0 to go" never appears.
-      const at1000 = buildProfileMilestones({ lifetime: lifetime({ totalVolumeKg: 1000 }), recordCount: 0, unitPreference: 'kg' });
-      assert.equal(at1000.find((item) => item.family === 'volume').target, 5000);
+      // (At 1 000 kg the volume family is 40 % along and no longer in the card's
+      // top three, so the whole front row is read.)
+      const at1000 = buildUpcomingMilestones({ lifetime: lifetime({ totalVolumeKg: 1000 }), recordCount: 0, unitPreference: 'kg' });
+      assert.equal(at1000.find((item) => item.family === 'volume').target, 2500);
       assert.ok(at1000.every((item) => item.remaining >= 1));
 
       // Fractions round up: 999.2 kg is 1 kg to go, not 0.8.
@@ -106,7 +109,8 @@ module.exports = [
         language: 'en',
       });
       assert.ok(sliver.every((row) => row.fillPercent >= 4 && row.fillPercent <= 100));
-      assert.equal(sliver.find((row) => row.key === 'sessions-5').meta, '1 of 5 · you started this week');
+      // One session in: the first rung (1) fell with it, and 3 is next.
+      assert.equal(sliver.find((row) => row.key === 'sessions-3').meta, '1 of 3 · you started this week');
       // No projections anywhere in the copy.
       for (const row of [...en, ...fi, ...sliver]) {
         assert.doesNotMatch(`${row.title} ${row.meta} ${row.remainder}`, /will|you'll|gain|saat|tulet/i);

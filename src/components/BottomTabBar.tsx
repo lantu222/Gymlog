@@ -164,14 +164,17 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
   const pillBackground = themeName === 'dark' ? theme.surfaceSoft : BAR.lightPill;
   const pillStroke = themeName === 'dark' ? undefined : theme.border;
 
-  // The AI button: a near-white orb with a violet label, which is the single
-  // brightest thing on a dark screen. In dark it inverts to a dark orb with an
-  // orange label (user decision 2026-08-01) — the violet halo stays, so the
-  // button keeps its brand glow without shouting.
+  // The AI button. Light: a deep violet orb with a white label (user
+  // 2026-09-03: the near-white orb with violet text was inverted — on the white
+  // pill it read as one more pale card). Dark: a dark orb with an orange label
+  // (user decision 2026-08-01). The violet halo stays in both, so the button
+  // keeps its brand glow without shouting.
   const aiDark = themeName === 'dark';
-  const aiFillStops = aiDark ? ['#2E2545', '#241C38', '#1B1530'] : ['#FFFFFF', '#F2ECFF', '#E3D4FF'];
-  const aiCircleBackground = aiDark ? '#1B1530' : '#FFFFFF';
-  const aiLabelColor = aiDark ? theme.highlight : '#6D28D9';
+  const aiFillStops = aiDark
+    ? ['#2E2545', '#241C38', '#1B1530']
+    : [theme.purpleBright, theme.purple, theme.purpleDark];
+  const aiCircleBackground = aiDark ? '#1B1530' : theme.purpleDark;
+  const aiLabelColor = aiDark ? theme.highlight : theme.onHighlight;
 
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
   // Entrance: the bar rises in at .24s and the FAB pops (scale .3 -> 1 with
@@ -438,10 +441,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    // Fill and label colour are set in the component per theme.
   },
   aiText: {
-    color: '#6D28D9',
     fontSize: 17,
     fontWeight: '800',
     letterSpacing: -0.2,

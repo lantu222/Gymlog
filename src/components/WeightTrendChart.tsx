@@ -11,7 +11,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 
-import { WeightWindowDay, buildWeightAxisTicks, weightMarkersFit } from '../lib/bodyweightCard';
+import { WEIGHT_LABEL_WIDTH, WeightWindowDay, buildWeightAxisTicks, weightLabelIndexes, weightMarkersFit } from '../lib/bodyweightCard';
 import { removeTrailingZeros } from '../lib/format';
 import { queryReduceMotion } from '../utils/reduceMotion';
 import { Theme, useTheme, useThemedStyles } from '../theming';
@@ -123,16 +123,16 @@ export function WeightTrendChart({ days }: WeightTrendChartProps) {
     .map((day, index) => (day.value === null ? null : { x: xFor(index), y: yFor(day.value) }))
     .filter((point): point is { x: number; y: number } => point !== null);
 
-  /**
-   * A week labels EVERY day; a three-month window cannot.
-   *
-   * The divisor is the count of labels that fit, and it has to be at least the
-   * length of a week or a seven-day window starts skipping days — which is
-   * exactly what shipped: "22 24 25 26 28", with the 23rd and the 27th missing
-   * and today's 25 breaking the stride (user, 2026-08-25).
-   */
-  const labelStride = Math.max(1, Math.ceil(days.length / 7));
-  const showLabel = (day: WeightWindowDay, index: number) => day.isToday || index % labelStride === 0;
+  // Which days are labelled — the stride, today, and no neighbour under
+  // today's label. The rule lives in the lib, where it is tested.
+  const labelIndexes = new Set(
+    weightLabelIndexes(
+      days.length,
+      days.findIndex((day) => day.isToday),
+      plotWidth,
+    ),
+  );
+  const showLabel = (_day: WeightWindowDay, index: number) => labelIndexes.has(index);
 
   return (
     <View style={styles.wrap} onLayout={onLayout}>
@@ -207,7 +207,7 @@ export function WeightTrendChart({ days }: WeightTrendChartProps) {
               showLabel(day, index) ? (
                 <Text
                   key={day.dayStart}
-                  style={[styles.footerLabel, day.isToday && styles.footerLabelToday, { left: xFor(index) - 20 }]}
+                  style={[styles.footerLabel, day.isToday && styles.footerLabelToday, { left: xFor(index) - WEIGHT_LABEL_WIDTH / 2 }]}
                 >
                   {day.label}
                 </Text>
@@ -248,7 +248,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     position: 'absolute',
     top: 0,
     // "26.7." needs more room than a bare day number did.
-    width: 40,
+    width: WEIGHT_LABEL_WIDTH,
     textAlign: 'center',
     fontSize: 11.5,
     fontWeight: '600',
