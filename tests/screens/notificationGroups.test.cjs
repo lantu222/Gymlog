@@ -46,8 +46,15 @@ module.exports = [
       // Details opens the same switches; the row toggle writes the switch's
       // own patch, not a group-level guess.
       assert.match(screen, /group\.switches\.map\(\(item, index\) =>/);
-      assert.match(screen, /onChange=\{\(next\) => onChange\(item\.patch\(next\)\)\}/);
+      assert.match(screen, /onChange=\{\(next\) => handleSwitchToggle\(group, item, next\)\}/);
+      assert.match(screen, /onChange\(item\.patch\(next\)\)/);
       assert.match(screen, /value=\{effectiveEnabled && item\.isOn\(prefs\)\}/);
+      // Turning off the last switch by hand empties the group, which closes
+      // the card — so it remembers first, or the next group-on would restore
+      // the defaults over the reader's own choices.
+      const emptying = between(screen, 'const handleSwitchToggle', 'const remindersWithoutDays');
+      assert.match(emptying, /readNotificationGroup\(group, prefs\)\.onCount === 1 && item\.isOn\(prefs\)/);
+      assert.match(emptying, /rememberNotificationGroup\(group, prefs\)/);
       assert.match(screen, /'notif\.group\.details'/);
       assert.match(screen, /'notif\.group\.hide'/);
       // The pickers that belong to a switch moved with it.

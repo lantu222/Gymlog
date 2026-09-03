@@ -167,6 +167,12 @@ module.exports = [
       assert.equal(DAILY_CAP_BY_LEVEL.normal, 2);
       assert.equal(DAILY_CAP_BY_LEVEL.motivating, 3);
       for (const language of ['en', 'fi']) {
+        // The rest-alert note follows this sentence on one line, so it has to
+        // end like a sentence — otherwise the card reads "max 1 a day Rest
+        // alerts are never counted".
+        for (const key of ['notif.level.quietSub', 'notif.level.normalSub', 'notif.level.motivatingSub']) {
+          assert.match(t(language, key), /\.$/, `${key} (${language}) does not end a sentence`);
+        }
         assert.match(t(language, 'notif.level.quietSub'), /1/);
         assert.match(t(language, 'notif.level.normalSub'), /2/);
         assert.match(t(language, 'notif.level.motivatingSub'), /3/);

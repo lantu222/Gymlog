@@ -161,6 +161,24 @@ export function NotificationsScreen({
     }
   };
 
+  /**
+   * One switch inside a group.
+   *
+   * Turning off the last one empties the group, which closes the card — and
+   * the reader's choices have to survive that, or tapping the group back on
+   * would restore the defaults and re-enable the very switches they just
+   * turned off. So the state BEFORE this change is remembered whenever the
+   * group is about to empty, exactly as the group toggle does.
+   */
+  const handleSwitchToggle = (group: NotificationGroup, item: NotificationSwitch, next: boolean) => {
+    const emptying = !next && readNotificationGroup(group, prefs).onCount === 1 && item.isOn(prefs);
+    if (emptying) {
+      setMemos((current) => ({ ...current, [group.key]: rememberNotificationGroup(group, prefs) }));
+      setOpenGroup((open) => (open === group.key ? null : open));
+    }
+    onChange(item.patch(next));
+  };
+
   const remindersWithoutDays = prefs.sessionReminders && trainingDays.length === 0;
   const measureKind = prefs.measurementReminderKind;
   const levelSub = LEVELS.find((level) => level.key === prefs.level)?.subKey ?? 'notif.level.normalSub';
@@ -364,7 +382,7 @@ export function NotificationsScreen({
                   <ToggleSwitch
                     label={t(language, item.titleKey)}
                     value={effectiveEnabled && item.isOn(prefs)}
-                    onChange={(next) => onChange(item.patch(next))}
+                    onChange={(next) => handleSwitchToggle(group, item, next)}
                   />
                 </View>
                 {renderSwitchExtras(item)}
