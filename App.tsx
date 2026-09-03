@@ -79,6 +79,7 @@ import {
   getRecentActivityStrip,
 } from './src/lib/completedSessions';
 import { getLifetimeTrainingSummary } from './src/lib/lifetimeSummary';
+import { buildMilestoneLedger, getMilestoneFacts } from './src/lib/milestoneFacts';
 import { getTrainingRhythm } from './src/lib/trainingRhythm';
 import { buildFatigueModel } from './src/lib/fatigueModel';
 import { buildLiftHistories } from './src/lib/trainingHistory';
@@ -4534,6 +4535,27 @@ function VinhaApp() {
     [personalRecords],
   );
 
+  /**
+   * The day each lift first held a record, one date per lift — the milestone
+   * ladder counts the same lifts as distinctRecordCount and dates the rung by
+   * the earliest of a lift's three kinds.
+   */
+  const recordDates = useMemo(() => {
+    const firstByLift = new Map<string, string>();
+    for (const record of [...personalRecords.weight, ...personalRecords.reps, ...personalRecords.volume]) {
+      const known = firstByLift.get(record.key);
+      if (known === undefined || Date.parse(record.performedAt) < Date.parse(known)) {
+        firstByLift.set(record.key, record.performedAt);
+      }
+    }
+    return [...firstByLift.values()];
+  }, [personalRecords]);
+  const milestoneFacts = useMemo(
+    () => getMilestoneFacts(database, lifetimeSummary, recordDates),
+    [database, lifetimeSummary, recordDates],
+  );
+  const milestoneLedger = useMemo(() => buildMilestoneLedger(milestoneFacts, unitPreference), [milestoneFacts, unitPreference]);
+
   const programsSeasonTileCounts = useMemo(
     () => ({
       winter: getSeasonProgramIds('winter').length,
@@ -5482,6 +5504,8 @@ function VinhaApp() {
       setFinishSaveState,
       workout,
       lifetimeSummary,
+      milestoneFacts,
+      milestoneLedger,
       trackedProgress,
       exerciseLibrary,
       unitPreference,

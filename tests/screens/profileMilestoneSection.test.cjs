@@ -43,7 +43,7 @@ module.exports = [
       assert.match(block, /index > 0 && styles\.milestoneRowDivider/);
       assert.match(block, /index === 0 \? theme\.highlight : theme\.purpleBright/);
       assert.match(block, /width: `\$\{row\.fillPercent\}%`/);
-      assert.match(profile, /buildProfileMilestoneRows\(\{ lifetime, recordCount, unitPreference, language \}\)/);
+      assert.match(profile, /buildProfileMilestoneRows\(\{\s*lifetime,\s*recordCount,\s*unitPreference,\s*language,\s*totals:/);
       // No right action on the label.
       assert.match(profile, /<SectionLabel label=\{t\(language, 'profile\.section\.nextMilestone'\)\} \/>/);
       // Routes untouched.

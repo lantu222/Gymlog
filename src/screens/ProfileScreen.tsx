@@ -9,7 +9,8 @@ import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import { formatCompactVolume, formatWeight } from '../lib/format';
 import { LifetimeTrainingSummary } from '../lib/lifetimeSummary';
-import { buildProfileMilestoneRows } from '../lib/profileMilestoneRows';
+import { MilestoneFacts, totalsFromFacts } from '../lib/milestoneFacts';
+import { buildProfileMilestoneRows, milestoneCardFooter } from '../lib/profileMilestoneRows';
 import { bodyPartLabel, t } from '../lib/i18n';
 import {
   formatRecordWhenLabel,
@@ -31,6 +32,14 @@ interface ProfileScreenProps {
   onOpenRecords: () => void;
   /** Lifts holding a record — the count the Records tab itself shows. */
   recordCount: number;
+  /**
+   * The whole ladder's figures. Optional so the card still builds from the
+   * lifetime summary alone; without it the newer families sit at zero.
+   */
+  milestoneFacts?: MilestoneFacts;
+  /** How many rungs have fallen — the card's footer, and the door to the page. */
+  reachedMilestoneCount?: number;
+  onOpenMilestones?: () => void;
   /**
    * Opens the profile editor. The ready-programme path through onboarding
    * never asks for a name, so this screen is where an unnamed reader is
@@ -162,6 +171,9 @@ export function ProfileScreen({
   onOpenSettings,
   onOpenRecords,
   recordCount,
+  milestoneFacts,
+  reachedMilestoneCount = 0,
+  onOpenMilestones,
   onEditProfile,
   onOpenRating,
 }: ProfileScreenProps) {
@@ -198,8 +210,15 @@ export function ProfileScreen({
   ];
 
   const milestoneRows = useMemo(
-    () => buildProfileMilestoneRows({ lifetime, recordCount, unitPreference, language }),
-    [language, lifetime, recordCount, unitPreference],
+    () =>
+      buildProfileMilestoneRows({
+        lifetime,
+        recordCount,
+        unitPreference,
+        language,
+        totals: milestoneFacts ? totalsFromFacts(milestoneFacts) : undefined,
+      }),
+    [language, lifetime, milestoneFacts, recordCount, unitPreference],
   );
 
   const lifetimeStats = [
@@ -359,6 +378,16 @@ export function ProfileScreen({
             distances, never promises. */}
         <View style={settingsStyles.section}>
           <SectionLabel label={t(language, 'profile.section.nextMilestone')} />
+          {/* The card is the door to the milestones page: every reached rung
+              with its day, and every family's next one. The footer says how
+              many have fallen; the whole card presses. */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(language, 'milestones.title')}
+            onPress={onOpenMilestones}
+            disabled={!onOpenMilestones}
+            style={({ pressed }) => (pressed && onOpenMilestones ? { opacity: 0.85 } : null)}
+          >
           <CutSurface
             size="lg"
             fill={theme.surface}
@@ -387,7 +416,16 @@ export function ProfileScreen({
                 <Text style={styles.milestoneMeta}>{row.meta}</Text>
               </View>
             ))}
+            {onOpenMilestones ? (
+              <View style={[styles.milestoneRowDivider, styles.milestoneFooter]}>
+                <Text style={styles.milestoneFooterText}>{milestoneCardFooter(reachedMilestoneCount, language)}</Text>
+                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                  <Path d="M9 5l7 7-7 7" stroke={theme.highlight} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              </View>
+            ) : null}
           </CutSurface>
+          </Pressable>
         </View>
 
         {/* PERSONAL RECORDS — one number and a way in.
@@ -628,6 +666,17 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.faint,
     fontSize: 12,
     fontWeight: '500',
+  },
+  milestoneFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 11,
+  },
+  milestoneFooterText: {
+    color: theme.highlight,
+    fontSize: 12.5,
+    fontWeight: '700',
   },
   recordsLinkCard: {
     flexDirection: 'row',

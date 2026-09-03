@@ -17,6 +17,7 @@ import { EditProfileScreen } from '../screens/EditProfileScreen';
 import { ExportPlanScreen } from '../screens/ExportPlanScreen';
 import { LegalDocumentScreen } from '../screens/LegalDocumentScreen';
 import { MembershipEndScreen } from '../screens/MembershipEndScreen';
+import { MilestonesScreen } from '../screens/MilestonesScreen';
 import { MyDataScreen } from '../screens/MyDataScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { PremiumScreen } from '../screens/PremiumScreen';
@@ -99,6 +100,8 @@ export interface ProfileTabDeps {
   }) => void;
   workout: { clearCompletedWorkout: () => void };
   lifetimeSummary: React.ComponentProps<typeof ProfileScreen>['lifetime'];
+  milestoneFacts: React.ComponentProps<typeof ProfileScreen>['milestoneFacts'];
+  milestoneLedger: React.ComponentProps<typeof MilestonesScreen>['ledger'];
   trackedProgress: React.ComponentProps<typeof ProfileScreen>['trackedProgress'];
   exerciseLibrary: React.ComponentProps<typeof ProfileScreen>['exerciseLibrary'];
   unitPreference: React.ComponentProps<typeof ProfileScreen>['unitPreference'];
@@ -145,6 +148,8 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
     setFinishSaveState,
     workout,
     lifetimeSummary,
+    milestoneFacts,
+    milestoneLedger,
     trackedProgress,
     exerciseLibrary,
     unitPreference,
@@ -303,6 +308,18 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
           void updatePreferences({ trainingBreak: { reason, note, startedAt: new Date().toISOString() } })
         }
         onEndBreak={() => void updatePreferences({ trainingBreak: null })}
+      />
+    );
+  }
+
+  if (route.screen === 'milestones') {
+    return (
+      <MilestonesScreen
+        language={preferences.appLanguage}
+        lifetime={lifetimeSummary}
+        ledger={milestoneLedger}
+        unitPreference={unitPreference}
+        onBack={() => navigateBack({ tab: 'profile', screen: 'list' })}
       />
     );
   }
@@ -520,6 +537,9 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
       unitPreference={unitPreference}
       onOpenSettings={() => navigate({ tab: 'profile', screen: 'settings' })}
       recordCount={distinctRecordCount}
+      milestoneFacts={milestoneFacts}
+      reachedMilestoneCount={milestoneLedger.reachedCount}
+      onOpenMilestones={() => navigate({ tab: 'profile', screen: 'milestones' })}
       onOpenRecords={() => navigate({ tab: 'progress', screen: 'list', section: 'records' })}
       onEditProfile={() => navigate({ tab: 'profile', screen: 'edit_profile' })}
       onOpenRating={() => setRatingSheetVisible(true)}

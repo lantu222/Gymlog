@@ -641,11 +641,17 @@ module.exports = [
       assert.doesNotMatch(bottomTabBarSource, /sideLabel/);
       assert.match(bottomTabBarSource, /const size = 26/);
       assert.match(bottomTabBarSource, /accessibilityLabel=\{label\}/);
-      // Center "AI" button (design_handoff_ai_button): near-white radial fill + "AI"
-      // label + purple halo/glow. Sized down from the 48px spec.
+      // Center "AI" button (design_handoff_ai_button): radial fill + "AI" label +
+      // purple halo/glow. Sized down from the 48px spec. In light the orb is deep
+      // violet with a white label (user 2026-09-03, inverted from near-white with
+      // violet text); dark keeps its dark orb with the orange label.
       assert.match(bottomTabBarSource, /const AI_SIZE = 46/);
       assert.match(bottomTabBarSource, />AI<\/Text>/);
       assert.match(bottomTabBarSource, /url\(#aiFill\)/);
+      assert.match(bottomTabBarSource, /: \[theme\.purpleBright, theme\.purple, theme\.purpleDark\]/);
+      assert.match(bottomTabBarSource, /const aiCircleBackground = aiDark \? '#1B1530' : theme\.purpleDark/);
+      assert.match(bottomTabBarSource, /const aiLabelColor = aiDark \? theme\.highlight : theme\.onHighlight/);
+      assert.doesNotMatch(bottomTabBarSource, /aiText:\s*\{[^}]*color:/);
       assert.match(bottomTabBarSource, /centerGlow:\s*\{[\s\S]*shadowColor: theme\.purpleBright/);
       assert.match(bottomTabBarSource, /aiCircle:\s*\{[\s\S]*width: AI_SIZE/);
       assert.match(bottomTabBarSource, /queryReduceMotion\(\)/);
