@@ -308,6 +308,10 @@ module.exports = [
       // the window at the first entry instead of leaving eleven empty weeks in
       // front of it (user, 2026-09-02).
       assert.match(weightBranch, /measureWindowEnd\(first, nowMs, days\)/);
+      // The anchor is the EARLIEST entry: the summary sorts newest first, so
+      // entries[0] anchored the card at the latest weigh-in (2026-09-03).
+      assert.match(weightBranch, /const first = earliestEntryMs\(/);
+      assert.doesNotMatch(screen, /new Date\(entries\[0\]\.recordedAt\)/);
       // The TREND section's bodyweight grid follows the same end: it opened
       // on 5.6 while the weight card opened on the first weigh-in (user
       // 2026-09-03).

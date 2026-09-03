@@ -374,6 +374,25 @@ export function measureRangeDays(
  * jump: whichever end is LATER is the end, and the moment first + days passes
  * today the anchor hands over to the clock.
  */
+/**
+ * The earliest entry's time, whatever order the entries arrive in.
+ *
+ * `entries[0]` was taken as the first weigh-in, but the progress summary
+ * sorts newest first, so the weight card anchored its window at the LATEST
+ * entry and the Trend grid at the earliest — the same weight, two different
+ * axes (user 2026-09-03). Null when there is nothing to anchor on.
+ */
+export function earliestEntryMs(recordedAts: ReadonlyArray<string>): number | null {
+  let earliest: number | null = null;
+  for (const recordedAt of recordedAts) {
+    const ms = new Date(recordedAt).getTime();
+    if (Number.isFinite(ms) && (earliest === null || ms < earliest)) {
+      earliest = ms;
+    }
+  }
+  return earliest;
+}
+
 export function measureWindowEnd(
   firstEntryMs: number | null,
   nowMs: number,

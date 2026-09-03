@@ -393,6 +393,17 @@ module.exports = [
       // An unmeasured plot (width 0) cannot judge overlap and keeps the stride.
       assert.deepEqual(weightLabelIndexes(91, 2, 0).slice(0, 3), [0, 2, 13]);
       assert.equal(WEIGHT_LABEL_WIDTH, 40);
+
+      // The anchor is the earliest entry whatever the order — the progress
+      // summary hands entries newest first, and entries[0] anchored the
+      // weight card at the latest weigh-in while the Trend grid used the
+      // earliest (user 2026-09-03: the two axes disagreed).
+      const { earliestEntryMs } = require('../../.test-dist/lib/bodyweightCard.js');
+      const newestFirst = ['2026-09-03T06:00:00Z', '2026-09-01T06:00:00Z', '2026-08-30T06:00:00Z'];
+      assert.equal(earliestEntryMs(newestFirst), Date.parse('2026-08-30T06:00:00Z'));
+      assert.equal(earliestEntryMs([...newestFirst].reverse()), Date.parse('2026-08-30T06:00:00Z'));
+      assert.equal(earliestEntryMs([]), null);
+      assert.equal(earliestEntryMs(['not a date']), null);
     },
   },
   {
