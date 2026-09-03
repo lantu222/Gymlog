@@ -1681,7 +1681,6 @@ const EN = {
   'account.prompt.google': 'Continue with Google',
   'account.prompt.signIn': 'Sign in',
   'account.prompt.dismiss': 'No thanks',
-  'pro.previewOff': 'Turn off Pro preview',
   'widget.prompt.title': 'Put your month on the home screen',
   'widget.prompt.body':
     'The widget shows the month you have trained and the days still ahead, without opening the app.',
@@ -5030,7 +5029,6 @@ const FI: Record<I18nKey, string> = {
   'account.prompt.google': 'Jatka Googlella',
   'account.prompt.signIn': 'Kirjaudu',
   'account.prompt.dismiss': 'Ei kiitos',
-  'pro.previewOff': 'Poista Pro-esikatselu',
   'widget.prompt.title': 'Ota kuukausi kotinäytölle',
   'widget.prompt.body':
     'Widget näyttää treenatun kuukauden ja edessä olevat päivät avaamatta sovellusta.',

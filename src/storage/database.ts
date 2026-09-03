@@ -696,10 +696,10 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
       mockSubscriptionTerm: isSubscriptionTermKey(input?.preferences?.mockSubscriptionTerm)
         ? input.preferences.mockSubscriptionTerm
         : fallback.preferences.mockSubscriptionTerm,
-      mockSubscriptionCancelled:
-        typeof input?.preferences?.mockSubscriptionCancelled === 'boolean'
-          ? input.preferences.mockSubscriptionCancelled
-          : fallback.preferences.mockSubscriptionCancelled,
+      mockSubscriptionCancelledAt:
+        typeof input?.preferences?.mockSubscriptionCancelledAt === 'string'
+          ? input.preferences.mockSubscriptionCancelledAt
+          : fallback.preferences.mockSubscriptionCancelledAt,
       mockSubscriptionPurchasedAt:
         typeof input?.preferences?.mockSubscriptionPurchasedAt === 'string'
           ? input.preferences.mockSubscriptionPurchasedAt
@@ -732,10 +732,11 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
             (key: unknown): key is string => typeof key === 'string' && key.length > 0,
           )
         : fallback.preferences.coachDemoMomentsUsed,
-      adaptiveCoachPremiumUnlocked:
-        typeof input?.preferences?.adaptiveCoachPremiumUnlocked === 'boolean'
-          ? input.preferences.adaptiveCoachPremiumUnlocked
-          : fallback.preferences.adaptiveCoachPremiumUnlocked,
+      // adaptiveCoachPremiumUnlocked was the demo build's free Pro switch. It
+      // is not read any more and is not carried forward: an install that has
+      // it stored simply stops having Pro from it, which is the point (user
+      // 2026-09-03). Promo codes and purchases are unaffected — they live in
+      // their own fields.
       automatedProgressionEnabled:
         typeof input?.preferences?.automatedProgressionEnabled === 'boolean'
           ? input.preferences.automatedProgressionEnabled

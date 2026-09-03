@@ -68,18 +68,20 @@ module.exports = [
       assert.equal(promo.canEndNow, false);
       assert.equal(promo.lapsesOn, '2026-09-01T00:00:00.000Z');
 
-      // The demo switch is the one source the app can turn off itself.
-      const preview = resolveMembershipEndPlan('preview', null);
-      assert.equal(preview.canEndNow, true);
-      assert.equal(preview.lapsesOn, null);
+      // A purchase can be cancelled, and then it runs to the end of the period
+      // already paid for — which is the date "You keep all of it until then"
+      // names. The demo switch this used to describe is gone (2026-09-03).
+      const purchase = resolveMembershipEndPlan('purchase', null, '2027-07-01T09:00:00.000Z');
+      assert.equal(purchase.canEndNow, true);
+      assert.equal(purchase.lapsesOn, '2027-07-01T09:00:00.000Z');
 
       // No Pro at all: no end button and no date to promise.
       const none = resolveMembershipEndPlan('none', null);
       assert.equal(none.canEndNow, false);
       assert.equal(none.lapsesOn, null);
 
-      // A promo still outranks the preview flag in resolveProEntitlement, so
-      // 'promo' must never be given the turn-off button by mistake.
+      // A promo outranks a purchase in resolveProEntitlement, so 'promo' must
+      // never be given the turn-off button by mistake.
       assert.equal(resolveMembershipEndPlan('promo', null).canEndNow, false);
     },
   },

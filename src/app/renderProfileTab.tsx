@@ -164,28 +164,32 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
       <PremiumScreen
         reason={route.reason ?? null}
         language={preferences.appLanguage}
-        previewUnlocked={preferences.adaptiveCoachPremiumUnlocked}
         proUnlocked={coachProUnlocked}
         onManageSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
-        onTogglePreview={(plan) => {
-          // The CTA sells a subscription the app cannot take money for (demo
-          // build). What it actually does is flip the preview switch — and if
-          // that turns Pro ON, the unlock moment follows, which is the point.
-          const turningOn = !preferences.adaptiveCoachPremiumUnlocked;
+        onPurchase={(plan) => {
+          /**
+           * The one purchase in the app.
+           *
+           * There is no billing account yet, so no money moves — but everything
+           * else is real: the instant and the term are recorded, every renewal
+           * date in the app is counted from them rather than written (the bug
+           * #bugs logged when the receipt shipped a hardcoded "15.9.2026"),
+           * cancelling runs it to the end of the period, and then the
+           * entitlement stops. Wiring billing replaces this one write and
+           * nothing else.
+           *
+           * It only ever turns Pro ON. The button that used to turn it back off
+           * from this page is gone: ending a membership is the subscription
+           * screen's job, and a paywall with an off switch is not a paywall.
+           */
           void updatePreferences({
-            adaptiveCoachPremiumUnlocked: turningOn,
-            // The purchase instant and the chosen term, stored together. Every
-            // renewal date in the app is counted from these rather than written
-            // — the requirement #bugs locked after the receipt shipped a
-            // hardcoded "15.9.2026". Billing replaces this one write.
-            ...(turningOn
-              ? { mockSubscriptionPurchasedAt: new Date().toISOString(), mockSubscriptionTerm: plan }
-              : {}),
+            mockSubscriptionPurchasedAt: new Date().toISOString(),
+            mockSubscriptionTerm: plan,
+            // A re-purchase after cancelling starts a fresh subscription.
+            mockSubscriptionCancelledAt: null,
           });
-          if (turningOn) {
-            navigate({ tab: 'profile', screen: 'premium_unlock', plan });
-          }
+          navigate({ tab: 'profile', screen: 'premium_unlock', plan });
         }}
         onOpenLegal={(document) => navigate({ tab: 'profile', screen: 'legal', document })}
       />
@@ -327,6 +331,8 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
       <PromoCodeScreen
         language={preferences.appLanguage}
         promoProUntil={preferences.promoProUntil}
+        // The one rule about who has Pro, not a second clock comparison.
+        promoActive={proEntitlement.source === 'promo'}
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
         // Only the promo date is stored. Flipping the preview switch here too
         // would make a 30-day code permanent Pro, because nothing ever turns
@@ -345,11 +351,13 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
         // resolveSubscriptionView reads it from the entitlement instead.
         lapsedPromoUntil={proEntitlement.unlocked ? null : preferences.promoProUntil}
         mockTerm={preferences.mockSubscriptionTerm}
-        mockCancelled={preferences.mockSubscriptionCancelled}
+        mockCancelled={preferences.mockSubscriptionCancelledAt !== null}
         purchasedAt={preferences.mockSubscriptionPurchasedAt}
         onChangeMockTerm={(term) => void updatePreferences({ mockSubscriptionTerm: term })}
         onChangeMockCancelled={(cancelled) =>
-          void updatePreferences({ mockSubscriptionCancelled: cancelled })
+          void updatePreferences({
+            mockSubscriptionCancelledAt: cancelled ? new Date().toISOString() : null,
+          })
         }
         demoBuild={isDemoBuild()}
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
@@ -378,7 +386,7 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
         // Cancelling leaves Pro switched ON until the period ends — that is what
         // the page promises two lines above the button, so ending it on the spot
         // would contradict the screen the reader is standing on.
-        onEndNow={() => void updatePreferences({ mockSubscriptionCancelled: true })}
+        onEndNow={() => void updatePreferences({ mockSubscriptionCancelledAt: new Date().toISOString() })}
         onSurveyDone={(reasons, note) => {
           const answer = buildCancelSurveyAnswer(reasons, note, new Date().toISOString());
           if (answer) {

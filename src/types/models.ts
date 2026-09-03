@@ -411,7 +411,14 @@ export interface AppPreferences {
    * it against, and they come out with MOCK_BILLING when billing lands.
    */
   mockSubscriptionTerm: SubscriptionTermKey;
-  mockSubscriptionCancelled: boolean;
+  /**
+   * When the reader cancelled, or null while it renews. An instant rather
+   * than a boolean because a cancelled subscription runs to the end of the
+   * period it was cancelled in — from a boolean alone that period keeps
+   * rolling forward, which is a subscription renewing itself after it was
+   * cancelled.
+   */
+  mockSubscriptionCancelledAt: string | null;
   /**
    * When Pro was turned on, ISO. The renewal date is COUNTED from this plus the
    * term's length — never written into copy, which is the requirement #bugs
@@ -448,7 +455,6 @@ export interface AppPreferences {
    * three per install, ever, which is what bounds the free tier cost.
    */
   coachDemoMomentsUsed: string[];
-  adaptiveCoachPremiumUnlocked: boolean;
   /** Plan-review toggle: Vinha adjusts weekly load/progression automatically. */
   automatedProgressionEnabled: boolean;
   aiSetupCompleted: boolean;

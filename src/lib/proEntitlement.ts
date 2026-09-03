@@ -1,20 +1,47 @@
+import { currentPeriodEndAt } from './subscriptionTerm';
 import { AppPreferences } from '../types/models';
 
 /**
- * One place decides whether the user has Pro. Two things can grant it today:
- * a redeemed promo that has not expired, and the premium preview switch that
- * Settings/Premium already exposes. Billing is not live, so those are the only
- * honest sources — this helper exists so no screen invents a third.
+ * One place decides whether the user has Pro, and it grants it from exactly
+ * two things: a redeemed promo code that has not expired, and a recorded
+ * purchase.
+ *
+ * There used to be a third — a "premium preview" switch the Pro page's CTA
+ * flipped, with a button underneath to flip it back. That is not a paywall,
+ * it is a light switch: Pro could be turned on and off for free, from inside
+ * the app, as often as you liked. It also never ended, so a cancelled
+ * membership kept every feature forever and a "monthly" purchase renewed
+ * itself for eternity. All three are gone (user 2026-09-03: "blokataan kaikki
+ * suunnat mistä pro-ominaisuudet saa kytkettyä päälle ilman ostoa").
+ *
+ * The purchase is simulated — there is no billing account to take money yet —
+ * but it is simulated the whole way: it records the instant and the term, it
+ * renews on its own, cancelling runs it to the end of the period the reader
+ * paid for, and then it stops. The only thing the demo build cannot do is
+ * charge, which is why extra.demoBuild gates the invented card and receipt
+ * (see subscriptionView.showsMockBilling) and releaseReadiness fails if that
+ * flag disappears while no billing library is installed.
  */
 export interface ProEntitlement {
   unlocked: boolean;
   /** Why it is unlocked, so a screen can be truthful about it. */
-  source: 'promo' | 'preview' | null;
+  source: 'promo' | 'purchase' | null;
   /** ISO date the promo runs out; null when Pro is not promo-based. */
   promoUntil: string | null;
+  /**
+   * ISO date a cancelled purchase stops working. Null while it is still
+   * renewing, for lifetime, and when Pro is not purchase-based — "End
+   * membership on {date}" is this value, not a date written into copy.
+   */
+  purchaseEndsAt: string | null;
 }
 
-type ProPreferences = Pick<AppPreferences, 'promoProUntil' | 'adaptiveCoachPremiumUnlocked'>;
+type ProPreferences = Pick<
+  AppPreferences,
+  'promoProUntil' | 'mockSubscriptionPurchasedAt' | 'mockSubscriptionTerm' | 'mockSubscriptionCancelledAt'
+>;
+
+const NOT_UNLOCKED: ProEntitlement = { unlocked: false, source: null, promoUntil: null, purchaseEndsAt: null };
 
 export function resolveProEntitlement(
   preferences: ProPreferences,
@@ -22,17 +49,38 @@ export function resolveProEntitlement(
 ): ProEntitlement {
   const promoUntil = preferences.promoProUntil;
   const promoTime = promoUntil ? new Date(promoUntil).getTime() : Number.NaN;
-  const promoActive = Number.isFinite(promoTime) && promoTime > now.getTime();
-
-  if (promoActive) {
-    return { unlocked: true, source: 'promo', promoUntil };
+  if (Number.isFinite(promoTime) && promoTime > now.getTime()) {
+    return { unlocked: true, source: 'promo', promoUntil, purchaseEndsAt: null };
   }
 
-  if (preferences.adaptiveCoachPremiumUnlocked) {
-    return { unlocked: true, source: 'preview', promoUntil: null };
+  const purchasedAt = preferences.mockSubscriptionPurchasedAt;
+  if (!purchasedAt || Number.isNaN(new Date(purchasedAt).getTime())) {
+    return NOT_UNLOCKED;
   }
 
-  return { unlocked: false, source: null, promoUntil: null };
+  const purchased = { unlocked: true, source: 'purchase' as const, promoUntil: null };
+  const cancelledAt = preferences.mockSubscriptionCancelledAt;
+  if (!cancelledAt || Number.isNaN(new Date(cancelledAt).getTime())) {
+    // Still renewing, so there is no end to name.
+    return { ...purchased, purchaseEndsAt: null };
+  }
+
+  // Cancelled. The period it runs to is the one it was cancelled IN —
+  // measured from the cancellation, not from now, or the subscription
+  // would keep renewing after it was cancelled. Lifetime has no period
+  // left to run, so cancelling one takes it away at once.
+  const endsAt = currentPeriodEndAt(
+    preferences.mockSubscriptionTerm,
+    purchasedAt,
+    new Date(cancelledAt),
+  );
+  if (endsAt === null) {
+    return NOT_UNLOCKED;
+  }
+  if (new Date(endsAt).getTime() <= now.getTime()) {
+    return NOT_UNLOCKED;
+  }
+  return { ...purchased, purchaseEndsAt: endsAt };
 }
 
 export function isProUnlocked(preferences: ProPreferences, now: Date = new Date()) {
