@@ -9,7 +9,7 @@ const {
   buildUpcomingMilestones,
 } = require('../../.test-dist/lib/profileMilestones.js');
 const { buildMilestoneLedger, getMilestoneFacts, totalsFromFacts } = require('../../.test-dist/lib/milestoneFacts.js');
-const { buildMilestoneLedgerRows, buildProfileMilestoneRows, milestoneCardFooter } = require(
+const { buildMilestoneLedgerRows, milestoneCardFooter, milestoneCardRows } = require(
   '../../.test-dist/lib/profileMilestoneRows.js',
 );
 const { getLifetimeTrainingSummary } = require('../../.test-dist/lib/lifetimeSummary.js');
@@ -83,6 +83,21 @@ function facts() {
   const database = fixtureDatabase();
   const lifetime = getLifetimeTrainingSummary(database, NOW);
   return { database, lifetime, facts: getMilestoneFacts(database, lifetime, ['2026-08-05T12:00:00.000Z', '2026-08-11T12:00:00.000Z']) };
+}
+
+
+/**
+ * The Profile card's rows, built the way the app builds them: from the
+ * ledger. There is no second path any more, so the test takes the same one.
+ */
+function cardRows({ lifetime, recordCount = 0, unitPreference = 'kg', language = 'en', totals }) {
+  const upcoming = buildUpcomingMilestones({ lifetime, recordCount, unitPreference, totals });
+  return milestoneCardRows({
+    ledger: { reached: [], upcoming, reachedCount: 0, totalCount: 0 },
+    lifetime,
+    unitPreference,
+    language,
+  });
 }
 
 module.exports = [
@@ -270,7 +285,7 @@ module.exports = [
     run() {
       const { facts: f, lifetime } = facts();
       const totals = totalsFromFacts(f);
-      const rows = buildProfileMilestoneRows({ lifetime, recordCount: f.current.records, unitPreference: 'kg', language: 'en', totals });
+      const rows = cardRows({ lifetime, recordCount: f.current.records, unitPreference: 'kg', language: 'en', totals });
       assert.equal(rows.length, 3);
       // 4/5 sessions (80 %) and 3/5 lifts (60 %), 3/5 h (60 %), 1 600/2 500 kg (64 %) …
       // sessions is nearest; a family without a figure never makes the cut.
@@ -283,7 +298,7 @@ module.exports = [
 
       // "you started 1 weeks ago" was the previous card's grammar for the
       // second week; it now says last week.
-      const lastWeek = buildProfileMilestoneRows({
+      const lastWeek = cardRows({
         lifetime: { ...lifetime, weeksSinceStart: 2 },
         recordCount: 0,
         unitPreference: 'kg',
@@ -291,7 +306,7 @@ module.exports = [
         totals,
       }).find((row) => row.key === 'sessions-5');
       assert.equal(lastWeek.meta, '4 of 5 · you started last week');
-      const fiLastWeek = buildProfileMilestoneRows({
+      const fiLastWeek = cardRows({
         lifetime: { ...lifetime, weeksSinceStart: 2 },
         recordCount: 0,
         unitPreference: 'kg',
@@ -322,9 +337,166 @@ module.exports = [
       assert.deepEqual(ledger.reached.map((item) => `${item.family}-${item.target}`), ['bodyweight-1']);
       const rows = buildMilestoneLedgerRows({ ledger, lifetime, unitPreference: 'kg', language: 'en' });
       assert.equal(rows.reached[0].meta, 'Easy · Aug 1, 2026');
-      // No "0 of 1 · you started this week": the front row is the card's first sentence.
+      // ONE weigh-in is what onboarding writes for you, so it does not count
+      // as having started — see the seeded-weigh-in case below. The rung it
+      // reached is still on the record.
       assert.deepEqual(rows.upcoming.map((row) => row.key), ['first']);
-      assert.equal(rows.upcoming[0].meta, 'Log a workout to start the count.');
+
+      // Truly nothing logged: the page is the card's one sentence.
+      const nothing = { ...fixtureDatabase(), workoutSessions: [], exerciseLogs: [], cardioSessions: [], bodyweightEntries: [] };
+      const nothingLifetime = getLifetimeTrainingSummary(nothing, NOW);
+      const nothingRows = buildMilestoneLedgerRows({
+        ledger: buildMilestoneLedger(getMilestoneFacts(nothing, nothingLifetime, []), 'kg'),
+        lifetime: nothingLifetime,
+        unitPreference: 'kg',
+        language: 'en',
+      });
+      assert.deepEqual(nothingRows.upcoming.map((row) => row.key), ['first']);
+      assert.equal(nothingRows.upcoming[0].meta, 'Log a workout to start the count.');
+      assert.deepEqual(nothingRows.reached, []);
+    },
+  },
+  {
+    name: 'milestoneLedger: the weigh-in onboarding writes for you does not count as having started',
+    run() {
+      // AboutYouScreen's weight dial defaults to 75 kg and cannot be skipped,
+      // and App seeds an entry from it — so every onboarded user reaches
+      // bodyweight-1 without doing anything, which used to hide the empty
+      // state from essentially everyone (review 2026-09-03).
+      const base = { ...fixtureDatabase(), workoutSessions: [], exerciseLogs: [], cardioSessions: [], bodyweightEntries: [] };
+      const rowsFor = (database) => {
+        const lifetime = getLifetimeTrainingSummary(database, NOW);
+        return buildMilestoneLedgerRows({
+          ledger: buildMilestoneLedger(getMilestoneFacts(database, lifetime, []), 'kg'),
+          lifetime,
+          unitPreference: 'kg',
+          language: 'en',
+        });
+      };
+
+      const seeded = rowsFor({
+        ...base,
+        bodyweightEntries: [{ id: 'b1', recordedAt: '2026-08-01T06:00:00.000Z', weight: 75 }],
+      });
+      assert.deepEqual(seeded.upcoming.map((row) => row.key), ['first']);
+      // The weigh-in still happened, so the record still names it.
+      assert.equal(seeded.reached.some((row) => row.key === 'bodyweight-1'), true);
+
+      // The SECOND weigh-in is the reader's own.
+      const twice = rowsFor({
+        ...base,
+        bodyweightEntries: [
+          { id: 'b1', recordedAt: '2026-08-01T06:00:00.000Z', weight: 75 },
+          { id: 'b2', recordedAt: '2026-08-08T06:00:00.000Z', weight: 74 },
+        ],
+      });
+      assert.equal(twice.upcoming.some((row) => row.key === 'first'), false);
+
+      // So is anything in another family.
+      const withRun = rowsFor({
+        ...base,
+        bodyweightEntries: [{ id: 'b1', recordedAt: '2026-08-01T06:00:00.000Z', weight: 75 }],
+        cardioSessions: [
+          {
+            id: 'c',
+            activityType: 'run',
+            startedAt: '2026-08-02T06:00:00.000Z',
+            performedAt: '2026-08-02T06:30:00.000Z',
+            durationSec: 1800,
+            distanceKm: 6,
+          },
+        ],
+      });
+      assert.equal(withRun.upcoming.some((row) => row.key === 'first'), false);
+    },
+  },
+  {
+    name: 'milestoneLedger: a reader who has never done a strength session is not told they started one',
+    run() {
+      // weeksSinceStart and bestWeekStreak are strength-only and read 0 for a
+      // cardio- or weigh-in-only reader, which used to print "0 of 1 · you
+      // started this week" and "Best run so far: 0 weeks" (review 2026-09-03).
+      const cardioOnly = {
+        ...fixtureDatabase(),
+        workoutSessions: [],
+        exerciseLogs: [],
+        bodyweightEntries: [],
+        cardioSessions: [
+          {
+            id: 'c',
+            activityType: 'run',
+            startedAt: '2026-08-20T06:00:00.000Z',
+            performedAt: '2026-08-20T06:40:00.000Z',
+            durationSec: 2400,
+            distanceKm: 8,
+          },
+        ],
+      };
+      const lifetime = getLifetimeTrainingSummary(cardioOnly, NOW);
+      assert.equal(lifetime.sessionCount, 0);
+      const rows = buildMilestoneLedgerRows({
+        ledger: buildMilestoneLedger(getMilestoneFacts(cardioOnly, lifetime, []), 'kg'),
+        lifetime,
+        unitPreference: 'kg',
+        language: 'en',
+      });
+      assert.equal(rows.upcoming.find((row) => row.key === 'sessions-1').meta, '0 of 1');
+      assert.equal(rows.upcoming.find((row) => row.key === 'streak-2').meta, 'No run to beat yet');
+      // The run they DID log is a rung that fell, and the card says so.
+      assert.equal(rows.reached.some((row) => row.key === 'cardio-1'), true);
+      const card = milestoneCardRows({
+        ledger: buildMilestoneLedger(getMilestoneFacts(cardioOnly, lifetime, []), 'kg'),
+        lifetime,
+        unitPreference: 'kg',
+        language: 'en',
+      });
+      assert.equal(card.length, 3);
+      assert.equal(card.some((row) => row.key === 'first'), false);
+    },
+  },
+  {
+    name: 'milestoneLedger: a bar never reads full while the row still counts something down',
+    run() {
+      // 999.6 of 1 000 kg rounded to a 100 % bar beside "1 kg to go", and the
+      // meta rounded the current figure onto the target (review 2026-09-03).
+      const lifetime = {
+        sessionCount: 5,
+        totalVolumeKg: 999.6,
+        weeksActive: 2,
+        weeksSinceStart: 3,
+        bestWeekStreak: 1,
+        currentWeekStreak: 1,
+        firstSessionAt: '2026-08-01T00:00:00.000Z',
+      };
+      const row = cardRows({ lifetime, recordCount: 0, unitPreference: 'kg', language: 'en' }).find(
+        (item) => item.key === 'volume-1000',
+      );
+      assert.equal(row.fillPercent, 99, 'the bar claimed the rung was reached');
+      assert.equal(row.remainder, '1 kg to go');
+      assert.equal(row.meta, '999 kg of 1 000 kg');
+
+      // Same class, integers: 199 of 200 sessions.
+      const sessions = cardRows({
+        lifetime: { ...lifetime, sessionCount: 199, totalVolumeKg: 0 },
+        recordCount: 0,
+        unitPreference: 'kg',
+        language: 'en',
+      }).find((item) => item.key === 'sessions-200');
+      assert.equal(sessions.fillPercent, 99);
+
+      // "Best run so far: 1 weeks" — every reader in their first active week.
+      const firstWeek = cardRows({
+        lifetime: { ...lifetime, bestWeekStreak: 1, currentWeekStreak: 1 },
+        recordCount: 0,
+        unitPreference: 'kg',
+        language: 'en',
+      }).find((item) => item.family === 'streak' || item.key.startsWith('streak'));
+      if (firstWeek) {
+        assert.equal(firstWeek.meta, 'Best run so far: one week');
+      }
+      const { t } = require('../../.test-dist/lib/i18n.js');
+      assert.equal(t('en', 'profile.milestone.streak.metaOne'), 'Best run so far: one week');
+      assert.equal(t('fi', 'profile.milestone.streak.metaOne'), 'Paras putki tähän asti: yksi viikko');
     },
   },
 ];

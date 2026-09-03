@@ -18,6 +18,7 @@ import { KitBar, KitGroupLabel, KitRow, KitSearch, KitSheet } from '../component
 import { CutSurface } from '../components/CutSurface';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { rankExerciseMatches } from '../lib/exerciseSearch';
+import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import {
   classifySessionFocus,
   getDefaultCooldown,
@@ -376,6 +377,7 @@ export function ProgramDayScreen({
    * is on offer — a named lift is the reader's decision, not a suggestion to
    * be ranked.
    */
+  const swapPopularOrder = useMemo(() => getPopularExerciseLibraryOrder(exerciseLibrary ?? []), [exerciseLibrary]);
   const swapLibraryMatches = useMemo(() => {
     const query = swapQuery.trim().toLowerCase();
     if (!query || !swapRow || !exerciseLibrary) {
@@ -390,13 +392,15 @@ export function ProgramDayScreen({
     ]);
 
     // Best answer first — twelve rows is not room for the lift itself to
-    // sit behind its variants.
+    // sit behind its variants. The popularity accessor is what breaks ties;
+    // without it "penkki" answers with Penkkidippi before Penkkipunnerrus.
     return rankExerciseMatches(
       exerciseLibrary.filter((item) => !alreadyOffered.has(item.name)),
       query,
       language,
+      (item) => swapPopularOrder.get(item.id),
     ).slice(0, 12);
-  }, [exerciseLibrary, language, session.exercises, sessionSwaps, swapQuery, swapRow]);
+  }, [exerciseLibrary, language, session.exercises, sessionSwaps, swapPopularOrder, swapQuery, swapRow]);
 
   const focusKind = useMemo(
     () => classifySessionFocus(session.exercises.map((exercise) => exercise.name)),

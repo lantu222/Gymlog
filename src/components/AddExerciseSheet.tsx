@@ -261,6 +261,8 @@ export function AddExerciseSheet({
     onConfirmSelection(selectedItems);
   }
 
+  const commonStarterOrder = useMemo(() => getPopularExerciseLibraryOrder(items), [items]);
+
   const filteredItems = useMemo(() => {
     const query = search.trim().toLowerCase();
 
@@ -280,8 +282,11 @@ export function AddExerciseSheet({
       return true;
     });
     // Best answer first under a query — the lift itself before its variants.
-    return rankExerciseMatches(filtered, query, language);
-  }, [bodyPart, category, equipment, items, language, search]);
+    // The popularity accessor is what breaks ties: without it "penkki"
+    // answers with Penkkidippi before Penkkipunnerrus, which is the very
+    // complaint the ranking was added for.
+    return rankExerciseMatches(filtered, query, language, (item) => commonStarterOrder.get(item.id));
+  }, [bodyPart, category, commonStarterOrder, equipment, items, language, search]);
 
   const suggestedItems = useMemo(
     () =>
@@ -294,15 +299,22 @@ export function AddExerciseSheet({
   );
 
   const commonStarterItems = useMemo(() => getPopularExerciseLibraryItems(items).slice(0, 8), [items]);
-  const commonStarterOrder = useMemo(() => getPopularExerciseLibraryOrder(items), [items]);
 
   const hasCustomFilters = category !== 'all' || bodyPart !== 'all' || equipment !== 'all';
-  const showSuggestedOrdering = search.trim().length === 0 && !hasCustomFilters;
+  const hasQuery = search.trim().length > 0;
+  const showSuggestedOrdering = !hasQuery && !hasCustomFilters;
 
   const orderedItems = useMemo(() => {
     const base = [...filteredItems];
 
     if (!showSuggestedOrdering) {
+      // A typed query arrives already ranked by relevance, and re-sorting it
+      // alphabetically here threw that away — the ranking never reached the
+      // list in the app's main picker. Only a filtered-but-unsearched list
+      // gets the alphabet.
+      if (hasQuery) {
+        return base;
+      }
       return base.sort((left, right) => sortName(left, language).localeCompare(sortName(right, language)));
     }
 
@@ -360,6 +372,7 @@ export function AddExerciseSheet({
     commonStarterOrder,
     currentItemIds.length,
     filteredItems,
+    hasQuery,
     recentItems,
     showSuggestedOrdering,
     suggestedItems,

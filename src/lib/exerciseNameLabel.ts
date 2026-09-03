@@ -290,7 +290,12 @@ const EXERCISE_NAME_FI: Record<string, string> = {
   'Standing Band Row': 'Seisten kuminauhasoutu',
   'Chest-Supported T-Bar Row': 'Rintatuettu T-tankosoutu',
   'Cable Pullover': 'Taljapullover',
-  'Lat Pulldown (Wide Grip)': 'Ylätalja',
+  // Keeps its own name. This is the catalog's wide-grip entry and it shares
+  // the vertical_pull substitution group with the catalog's plain
+  // 'Lat Pulldown' (= "Ylätalja"). Giving both the same Finnish label made
+  // the swap sheet offer an apparent no-op, and hid the library's
+  // 'Wide-Grip Lat Pulldown' row, which the player filters by label.
+  'Lat Pulldown (Wide Grip)': 'Leveä ylätalja',
 
   // ── Chest isolation ──────────────────────────────────────────────────
   'Cable Crossover': 'Taljaristikkäisveto',

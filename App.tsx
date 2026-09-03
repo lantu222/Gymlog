@@ -4539,11 +4539,20 @@ function VinhaApp() {
   const recordDates = useMemo(() => firstRecordDates(personalRecords), [personalRecords]);
   // Keyed on the four tables the facts read, not the whole database: a theme
   // or language toggle replaces the database object without touching a log,
-  // and this is a full pass over every set.
+  // and this is a full pass over every set. `lifetimeSummary` is itself keyed
+  // on the whole database, so depending on the object would have undone the
+  // narrowing — only the one field this reads is a dependency.
   const milestoneFacts = useMemo(
     () => getMilestoneFacts(database, lifetimeSummary, recordDates),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [database.workoutSessions, database.exerciseLogs, database.cardioSessions, database.bodyweightEntries, lifetimeSummary, recordDates],
+    [
+      database.workoutSessions,
+      database.exerciseLogs,
+      database.cardioSessions,
+      database.bodyweightEntries,
+      lifetimeSummary.currentWeekStreak,
+      recordDates,
+    ],
   );
   const milestoneLedger = useMemo(() => buildMilestoneLedger(milestoneFacts, unitPreference), [milestoneFacts, unitPreference]);
 
@@ -5495,7 +5504,6 @@ function VinhaApp() {
       setFinishSaveState,
       workout,
       lifetimeSummary,
-      milestoneFacts,
       milestoneLedger,
       trackedProgress,
       exerciseLibrary,

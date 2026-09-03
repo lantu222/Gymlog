@@ -235,6 +235,25 @@ export function getCalendarWeekStartBefore(weekStart: number, weeks = 1) {
  * The start of the calendar week `weeks` after `weekStart`. Same reasoning as
  * `getCalendarWeekStartBefore`, for loops that walk forwards.
  */
+/**
+ * How long the run of consecutive active weeks is AT each week.
+ *
+ * `weekStarts` must be the distinct active week starts, ascending. The
+ * lifetime summary takes the maximum of these (the best run ever) and the
+ * milestone ladder takes them one by one (the run as it stood that week) —
+ * they used to walk the same loop separately, so a change to what "consecutive"
+ * means could land in one and not the other.
+ */
+export function getActiveWeekRuns(weekStarts: readonly number[]): number[] {
+  const runs: number[] = [];
+  for (let index = 0; index < weekStarts.length; index += 1) {
+    const followsPrevious =
+      index > 0 && getCalendarWeekStartBefore(weekStarts[index]) === weekStarts[index - 1];
+    runs.push(followsPrevious ? runs[index - 1] + 1 : 1);
+  }
+  return runs;
+}
+
 export function getCalendarWeekStartAfter(weekStart: number, weeks = 1) {
   return addCalendarDays(weekStart, weeks * 7);
 }

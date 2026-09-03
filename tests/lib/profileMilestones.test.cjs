@@ -1,13 +1,11 @@
 const assert = require('node:assert/strict');
 
 const {
-  buildProfileMilestones,
   buildUpcomingMilestones,
-  hasMilestoneData,
   MAX_PROFILE_MILESTONES,
   VOLUME_RUNGS_LB,
 } = require('../../.test-dist/lib/profileMilestones.js');
-const { buildProfileMilestoneRows, formatMilestoneVolume } = require('../../.test-dist/lib/profileMilestoneRows.js');
+const { formatMilestoneVolume, milestoneCardRows } = require('../../.test-dist/lib/profileMilestoneRows.js');
 
 const lifetime = (overrides = {}) => ({
   sessionCount: 4,
@@ -20,11 +18,26 @@ const lifetime = (overrides = {}) => ({
   ...overrides,
 });
 
+
+/**
+ * The Profile card's rows, built the way the app builds them: from the
+ * ledger. There is no second path any more, so the test takes the same one.
+ */
+function cardRows({ lifetime, recordCount = 0, unitPreference = 'kg', language = 'en', totals }) {
+  const upcoming = buildUpcomingMilestones({ lifetime, recordCount, unitPreference, totals });
+  return milestoneCardRows({
+    ledger: { reached: [], upcoming, reachedCount: 0, totalCount: 0 },
+    lifetime,
+    unitPreference,
+    language,
+  });
+}
+
 module.exports = [
   {
     name: 'profileMilestones: a rung is the first one not reached, and a hit rung advances',
     run() {
-      const at994 = buildProfileMilestones({ lifetime: lifetime({ totalVolumeKg: 994 }), recordCount: 0, unitPreference: 'kg' });
+      const at994 = buildUpcomingMilestones({ lifetime: lifetime({ totalVolumeKg: 994 }), recordCount: 0, unitPreference: 'kg' });
       const volume = at994.find((item) => item.family === 'volume');
       assert.equal(volume.target, 1000);
       assert.equal(volume.remaining, 6);
@@ -39,7 +52,7 @@ module.exports = [
       assert.ok(at1000.every((item) => item.remaining >= 1));
 
       // Fractions round up: 999.2 kg is 1 kg to go, not 0.8.
-      const frac = buildProfileMilestones({ lifetime: lifetime({ totalVolumeKg: 999.2 }), recordCount: 0, unitPreference: 'kg' });
+      const frac = buildUpcomingMilestones({ lifetime: lifetime({ totalVolumeKg: 999.2 }), recordCount: 0, unitPreference: 'kg' });
       assert.equal(frac.find((item) => item.family === 'volume').remaining, 1);
     },
   },
@@ -47,11 +60,11 @@ module.exports = [
     name: 'profileMilestones: at most three rows, nearest first',
     run() {
       // 994/1000 kg (99 %), 4/5 sessions (80 %), 1/2 weeks (50 %), 8/10 PRs (80 %).
-      const rows = buildProfileMilestones({
+      const rows = buildUpcomingMilestones({
         lifetime: lifetime({ totalVolumeKg: 994, sessionCount: 4, currentWeekStreak: 1 }),
         recordCount: 8,
         unitPreference: 'kg',
-      });
+      }).slice(0, MAX_PROFILE_MILESTONES);
       assert.equal(rows.length, MAX_PROFILE_MILESTONES);
       assert.deepEqual(rows.map((item) => item.family), ['volume', 'sessions', 'records']);
       assert.ok(rows[0].progress >= rows[1].progress && rows[1].progress >= rows[2].progress);
@@ -63,7 +76,7 @@ module.exports = [
   {
     name: 'profileMilestones: imperial rungs are the round pounds, and the figure is converted',
     run() {
-      const rows = buildProfileMilestones({ lifetime: lifetime({ totalVolumeKg: 1000 }), recordCount: 0, unitPreference: 'lb' });
+      const rows = buildUpcomingMilestones({ lifetime: lifetime({ totalVolumeKg: 1000 }), recordCount: 0, unitPreference: 'lb' });
       const volume = rows.find((item) => item.family === 'volume');
       // 1 000 kg ≈ 2 204.6 lb: below the 2 500 rung, 296 lb to go.
       assert.equal(volume.target, VOLUME_RUNGS_LB[0]);
@@ -75,9 +88,17 @@ module.exports = [
   {
     name: 'profileMilestones: no sessions yet is one row with an empty bar, never a hidden section',
     run() {
-      const empty = lifetime({ sessionCount: 0, totalVolumeKg: 0, currentWeekStreak: 0, weeksSinceStart: 0, bestWeekStreak: 0 });
-      assert.equal(hasMilestoneData({ lifetime: empty }), false);
-      const rows = buildProfileMilestoneRows({ lifetime: empty, recordCount: 0, unitPreference: 'kg', language: 'en' });
+      // Nothing logged at all — weeksActive included, or the weeks family
+      // has progress and the card is right to show real rungs.
+      const empty = lifetime({
+        sessionCount: 0,
+        totalVolumeKg: 0,
+        weeksActive: 0,
+        currentWeekStreak: 0,
+        weeksSinceStart: 0,
+        bestWeekStreak: 0,
+      });
+      const rows = cardRows({ lifetime: empty, recordCount: 0, unitPreference: 'kg', language: 'en' });
       assert.equal(rows.length, 1);
       assert.equal(rows[0].title, 'First session logged');
       assert.equal(rows[0].remainder, '');
@@ -88,7 +109,7 @@ module.exports = [
   {
     name: 'profileMilestones: the rows say distances, in both languages, with a bar that is never invisible',
     run() {
-      const en = buildProfileMilestoneRows({ lifetime: lifetime(), recordCount: 8, unitPreference: 'kg', language: 'en' });
+      const en = cardRows({ lifetime: lifetime(), recordCount: 8, unitPreference: 'kg', language: 'en' });
       assert.equal(en[0].title, '1 000 kg lifted');
       assert.equal(en[0].remainder, '6 kg to go');
       assert.equal(en[0].meta, '994 kg of 1 000 kg');
@@ -97,12 +118,12 @@ module.exports = [
       assert.equal(sessions.meta, '4 of 5 · you started 2 weeks ago');
       assert.equal(sessions.remainder, '1 to go');
 
-      const fi = buildProfileMilestoneRows({ lifetime: lifetime(), recordCount: 8, unitPreference: 'kg', language: 'fi' });
+      const fi = cardRows({ lifetime: lifetime(), recordCount: 8, unitPreference: 'kg', language: 'fi' });
       assert.equal(fi[0].title, '1 000 kg nostettu');
       assert.equal(fi[0].remainder, '6 kg jäljellä');
 
       // A tiny fraction still draws a visible sliver.
-      const sliver = buildProfileMilestoneRows({
+      const sliver = cardRows({
         lifetime: lifetime({ totalVolumeKg: 10, sessionCount: 1, currentWeekStreak: 1, weeksSinceStart: 1 }),
         recordCount: 0,
         unitPreference: 'kg',

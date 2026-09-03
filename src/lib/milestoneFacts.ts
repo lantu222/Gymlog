@@ -1,5 +1,5 @@
 import {
-  getCalendarWeekStartBefore,
+  getActiveWeekRuns,
   getCalendarWeekStartTimestamp,
   getCanonicalCardioSessions,
   getCanonicalCompletedSessions,
@@ -156,12 +156,11 @@ export function getMilestoneFacts(
     }
   }
   const weekStarts = [...firstSessionByWeek.keys()].sort((left, right) => left - right);
-  let run = 0;
+  const runs = getActiveWeekRuns(weekStarts);
   weekStarts.forEach((weekStart, index) => {
     const at = firstSessionByWeek.get(weekStart) as string;
     timelines.weeks.push({ at, total: index + 1 });
-    run = index > 0 && getCalendarWeekStartBefore(weekStart) === weekStarts[index - 1] ? run + 1 : 1;
-    timelines.streak.push({ at, total: run });
+    timelines.streak.push({ at, total: runs[index] });
   });
 
   timelines.records = accumulate(

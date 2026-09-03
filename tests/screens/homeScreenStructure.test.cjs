@@ -625,9 +625,11 @@ module.exports = [
       // cut path. Same default, asserted where it now lives.
       // Two bars, one per theme (user 2026-09-02): white with a hairline in
       // light, the soft dark surface in dark.
-      assert.match(bottomTabBarSource, /const pillBackground = themeName === 'dark' \? theme\.surfaceSoft : BAR\.lightPill/);
+      // theme.surface IS the light theme's white; the second hex for the same
+      // colour came off (review 2026-09-03).
+      assert.match(bottomTabBarSource, /const pillBackground = themeName === 'dark' \? theme\.surfaceSoft : theme\.surface/);
       assert.match(bottomTabBarSource, /const pillStroke = themeName === 'dark' \? undefined : theme\.border/);
-      assert.match(bottomTabBarSource, /lightPill: '#FFFFFF'/);
+      assert.doesNotMatch(bottomTabBarSource, /lightPill/);
       assert.match(bottomTabBarSource, /<CutSurface size="lg" fill=\{pillBackground\} stroke=\{pillStroke\} strokeWidth=\{1\}/);
       assert.match(bottomTabBarSource, /activeTab: RootTabKey \| null/);
       assert.match(bottomTabBarSource, /activeKey === tab\.key/);

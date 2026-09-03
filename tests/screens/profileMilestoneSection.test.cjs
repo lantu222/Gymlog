@@ -45,7 +45,8 @@ module.exports = [
       assert.match(block, /index > 0 && styles\.milestoneRowDivider/);
       assert.match(block, /index === 0 \? theme\.highlight : theme\.purpleBright/);
       assert.match(block, /width: `\$\{row\.fillPercent\}%`/);
-      assert.match(profile, /buildProfileMilestoneRows\(\{\s*lifetime,\s*recordCount,\s*unitPreference,\s*language,\s*totals:/);
+      // The card is the ladder's front row, not a second reading of the log.
+      assert.match(profile, /milestoneCardRows\(\{ ledger: milestoneLedger, lifetime, unitPreference, language \}\)/);
       // No right action on the label.
       assert.match(profile, /<SectionLabel label=\{t\(language, 'profile\.section\.nextMilestone'\)\} \/>/);
       // Routes untouched.

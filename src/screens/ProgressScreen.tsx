@@ -53,7 +53,7 @@ import { SetLogSheet } from '../components/SetLogSheet';
 import { buildExerciseSetLog, ExerciseSetLog } from '../lib/exerciseSetLog';
 import { weeklyTrainingStreak } from '../lib/trainingCalendar';
 import { PW } from '../lightTheme';
-import { Theme, useTheme, useThemedStyles } from '../theming';
+import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import {
   isMeasureRangeLocked,
   isRecordLocked,
@@ -704,7 +704,23 @@ export function ProgressScreen({
   onOpenPremium,
 }: ProgressScreenProps) {
   const theme = useTheme();
+  const themeName = useThemeName();
   const styles = useThemedStyles(makeStyles);
+  /**
+   * The section tabs, per theme.
+   *
+   * Light was tuned on the device and keeps what it had: a white chip with a
+   * violet glyph, the idle ones in ink. Dark inherited those tokens and
+   * inverted the affordance — idle `ink` is near-white while the active
+   * glyph is a mid violet, and the active chip's `surface` fill is a shade
+   * off the bar's own `surfaceSoft`, so the selected tab read as the dimmest
+   * thing in the row. In dark the chip takes the violet wash and the idle
+   * glyphs step back to muted, which is the same grammar the tab bar uses.
+   */
+  const dark = themeName === 'dark';
+  const tabActiveFill = dark ? theme.purpleLight : theme.surface;
+  const tabActiveInk = dark ? theme.purpleBright : theme.purpleDark;
+  const tabIdleInk = dark ? theme.muted : theme.ink;
   const [readSheetVisible, setReadSheetVisible] = useState(false);
   const [progressSection, setProgressSection] = useState<ProgressSection>(initialSection ?? 'overview');
   const [setLogKey, setSetLogKey] = useState<string | null>(null);
@@ -1979,11 +1995,11 @@ export function ProgressScreen({
                 {/* Both states are the same height, or the selected one grows
                     the row and pushes itself out of the shell. */}
                 {active ? (
-                  <CutSurface size="sm" fill={theme.surface} style={[styles.tabInner, styles.tabActive]}>
+                  <CutSurface size="sm" fill={tabActiveFill} style={[styles.tabInner, styles.tabActive]}>
                     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
                       <Path
                         d={section.icon}
-                        stroke={theme.purpleDark}
+                        stroke={tabActiveInk}
                         strokeWidth={2}
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -1995,7 +2011,7 @@ export function ProgressScreen({
                     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
                       <Path
                         d={section.icon}
-                        stroke={theme.ink}
+                        stroke={tabIdleInk}
                         strokeWidth={2.1}
                         strokeLinecap="round"
                         strokeLinejoin="round"
