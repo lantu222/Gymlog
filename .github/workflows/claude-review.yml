@@ -24,9 +24,13 @@ on:
 jobs:
   review:
     runs-on: ubuntu-latest
-    # A review that has not finished in twenty minutes is not going to arrive
-    # inside any merge window this repo actually uses.
-    timeout-minutes: 20
+    # Was twenty, on the argument that a slower review misses the merge window.
+    # A real review of a large PR took eighteen minutes on 2026-09-03, which is
+    # close enough to the cap to lose one to the clock — and a review killed
+    # mid-run posts nothing at all, which is the failure this workflow exists
+    # to prevent. The window is now however long the review takes, because the
+    # PR waits for it.
+    timeout-minutes: 30
     permissions:
       contents: read
       pull-requests: read
@@ -69,10 +73,23 @@ jobs:
           # --comment puts the findings on the PR as inline comments. Without
           # it they go to the run log, where nobody reads them.
           prompt: "/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
-          # Keep this line even though the skill declares the same tool: the
-          # action only starts the inline-comment MCP server when --allowedTools
-          # names it here.
-          claude_args: '--allowedTools "mcp__github_inline_comment__create_inline_comment"'
+          # --allowedTools is an ALLOWLIST: anything missing from it is denied,
+          # and a denied tool in a non-interactive run is simply a dead turn.
+          # Naming only the comment tool cost a run 39 turns, 39 denials and
+          # $7.76 before it errored out — while still posting two findings, so
+          # the check went red on a review that had actually worked
+          # (2026-09-03). These are the tools a reviewer needs to read a diff:
+          # the repo is checked out read-only, the job's GITHUB_TOKEN has no
+          # write scope, and comments go through the MCP server, so nothing
+          # here can change the PR.
+          #
+          # The comment tool stays first for a second reason: the action only
+          # starts the inline-comment MCP server when it is named here.
+          # Task and Agent are the same subagent tool under two names across
+          # versions; an extra name in an allowlist costs nothing, a missing
+          # one costs the review.
+          claude_args: >-
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Read,Grep,Glob,Bash,Task,Agent,TodoWrite"
 
       # The action can exit green without reviewing anything — it did exactly
       # that the first time this workflow ran. Its own success is therefore not
@@ -88,3 +105,44 @@ jobs:
             exit 1
           fi
           echo "Review ran, execution log at $EXECUTION_FILE"
+
+      # Runs even when the action failed, because a red check that does not say
+      # WHICH red it is gets treated as noise. Two different failures produced
+      # the same silent red on 2026-09-03: a tool allowlist so narrow the
+      # reviewer spent every turn being denied, and a one-turn usage-limit
+      # error straight after an expensive run. The first had posted findings
+      # anyway; the second had posted nothing. Only the log could tell them
+      # apart, and nobody reads the log of a check they assume is flaky.
+      - name: Say which kind of red this is
+        if: always() && steps.claude.outputs.execution_file != ''
+        # Diagnostics must never be the reason a check is red — or green. This
+        # step only explains the result the steps above already decided.
+        continue-on-error: true
+        env:
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        run: |
+          if [ ! -s "$EXECUTION_FILE" ]; then
+            echo "No execution log to read."
+            exit 0
+          fi
+          summary=$(jq -s '[.[] | .. | objects | select(has("num_turns"))] | last // empty' "$EXECUTION_FILE" 2>/dev/null || true)
+          if [ -z "$summary" ]; then
+            echo "The execution log has no result record — the run did not reach the end of a turn."
+            exit 0
+          fi
+          turns=$(echo "$summary" | jq -r '.num_turns // "?"')
+          denials=$(echo "$summary" | jq -r '.permission_denials_count // 0')
+          failed=$(echo "$summary" | jq -r '.is_error // false')
+          cost=$(echo "$summary" | jq -r '.total_cost_usd // 0')
+          echo "turns=$turns denials=$denials is_error=$failed cost_usd=$cost"
+          if [ "$failed" != "true" ]; then
+            echo "The review completed. Findings, if any, are inline comments on the PR."
+            exit 0
+          fi
+          if [ "$denials" != "0" ] && [ "$denials" != "null" ]; then
+            echo "::warning::The review was denied $denials tool calls, which is a workflow problem, not a finding. It may still have posted comments — read them before assuming this red check means nothing. Widen --allowedTools in .github/workflows/claude-review.yml."
+          elif [ "$turns" = "1" ]; then
+            echo "::warning::The review errored on its first turn with no tool denials, so the model never got going: upstream refused the request. That is a usage limit OR a provider incident, and the two look identical from here — check status.anthropic.com before concluding anything about budget. Either way this PR has NOT been reviewed; re-run the job."
+          else
+            echo "::warning::The review errored after $turns turns. Read the step log above for what it was doing."
+          fi

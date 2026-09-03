@@ -193,6 +193,47 @@ recording as a wrong turn: a plausible number in a log is not a cause.
 - **Check red, "exited without reviewing this PR"** — usually the workflow-file
   case above. Otherwise read the action's step in the run log for the reason.
 - **Check red, action failure** — read the run log. A failed review is not a
-  clean review; re-run it or review the diff by hand before merging.
+  clean review; re-run it or review the diff by hand before merging. Since
+  2026-09-03 the run's last step names the case for you: tool denials, a
+  one-turn usage-limit error, or something else.
 - **No check at all** — the workflow file did not reach `main`, or Actions is
   disabled for the repository.
+
+## A red check can still be hiding findings (2026-09-03)
+
+Two different failures produced the same silent red the same afternoon, and
+one of them had reviewed the PR properly first.
+
+`--allowedTools` is an **allowlist**. The workflow named only the
+inline-comment tool, so every read the reviewer attempted — the diff, the
+files around it — was denied. One run spent 39 turns and $7.76 being refused,
+posted two real findings anyway, and then errored. The check went red on a
+review that had worked, and the findings sat unread on the PR. The allowlist
+now carries the tools a reviewer needs; nothing in it can write, because the
+checkout is read-only and comments go through the MCP server.
+
+The second was a one-turn error with zero denials straight after that
+expensive run. It had posted nothing.
+
+I read that as a usage limit, and it was not: Anthropic's status page had
+"elevated errors" open for three models at the time. **A one-turn error means
+the model never got going — upstream refused the request — and a usage limit
+and a provider incident look identical from inside the run.** Check
+<https://status.anthropic.com> before concluding anything about budget. The
+run's last step says the same thing now, because the wrong half of that guess
+sends you looking for a quota problem that does not exist.
+
+**So: a red review check is not evidence that nothing was found.** Read the
+comments before deciding. And read them from all three places — the check
+being red or green says nothing about where the bot put them:
+
+```bash
+gh api repos/lantu222/Gymlog/pulls/<n>/comments -q '.[] | .path + ":" + (.line|tostring) + "\n" + .body'
+gh api repos/lantu222/Gymlog/issues/<n>/comments -q '.[] | .body'
+gh api repos/lantu222/Gymlog/pulls/<n>/reviews  -q '.[] | .body'
+```
+
+This is not hypothetical. On 2026-09-03 the first of those commands turned up
+**15 unread findings across PRs #46–#51**, all merged. Eleven were still live
+bugs, including the one where a search-ranking fix never reached the app's
+main picker — the whole point of the PR that shipped it.
