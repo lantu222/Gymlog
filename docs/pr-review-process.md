@@ -213,8 +213,15 @@ now carries the tools a reviewer needs; nothing in it can write, because the
 checkout is read-only and comments go through the MCP server.
 
 The second was a one-turn error with zero denials straight after that
-expensive run, which is what a usage limit looks like from the outside. It had
-posted nothing.
+expensive run. It had posted nothing.
+
+I read that as a usage limit, and it was not: Anthropic's status page had
+"elevated errors" open for three models at the time. **A one-turn error means
+the model never got going — upstream refused the request — and a usage limit
+and a provider incident look identical from inside the run.** Check
+<https://status.anthropic.com> before concluding anything about budget. The
+run's last step says the same thing now, because the wrong half of that guess
+sends you looking for a quota problem that does not exist.
 
 **So: a red review check is not evidence that nothing was found.** Read the
 comments before deciding. And read them from all three places — the check

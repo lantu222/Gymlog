@@ -142,7 +142,7 @@ jobs:
           if [ "$denials" != "0" ] && [ "$denials" != "null" ]; then
             echo "::warning::The review was denied $denials tool calls, which is a workflow problem, not a finding. It may still have posted comments — read them before assuming this red check means nothing. Widen --allowedTools in .github/workflows/claude-review.yml."
           elif [ "$turns" = "1" ]; then
-            echo "::warning::The review errored on its first turn with no tool denials, which is what a usage limit looks like. Re-run the job; if it repeats, the account is out of review budget and this PR has NOT been reviewed."
+            echo "::warning::The review errored on its first turn with no tool denials, so the model never got going: upstream refused the request. That is a usage limit OR a provider incident, and the two look identical from here — check status.anthropic.com before concluding anything about budget. Either way this PR has NOT been reviewed; re-run the job."
           else
             echo "::warning::The review errored after $turns turns. Read the step log above for what it was doing."
           fi
