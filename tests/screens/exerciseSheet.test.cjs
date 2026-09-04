@@ -127,6 +127,53 @@ module.exports = [
     },
   },
   {
+    /**
+     * PR #57 review: `setPanelSource` opens with `if (step.type !== 'set')
+     * return null`, and the rest screen's delta pill and the walk-up screen's
+     * LAST card both read it while standing on a rest and a position step. So
+     * both were null for everybody, always — and on a device they read as
+     * "this lift has no history yet" rather than as a bug.
+     *
+     * A lift's history is a fact about the slot, not about which step is on
+     * screen.
+     */
+    name: 'last time is resolved per slot, not only on a set step',
+    run() {
+      assert.match(playerSource, /const resolveSlotHistory = useCallback\(/);
+      // The rest screen and the walk-up ask for their own slot.
+      assert.match(playerSource, /heaviestOf\(resolveSlotHistory\(step\.slotId, step\.exerciseName\)\)/);
+      assert.match(playerSource, /const last = resolveSlotHistory\(step\.slotId, step\.exerciseName\);/);
+      // And neither reaches for the set-step value any more.
+      assert.doesNotMatch(playerSource, /setPanelSource\?\.history/);
+    },
+  },
+  {
+    /**
+     * PR #57 review: the walk-up card showed `restSecondsMax` while
+     * `buildGuidedSteps` is handed `restSecondsMin` — so a 120-180 lift was
+     * promised 180 s and got a 2:00 ring thirty seconds later.
+     */
+    name: 'the walk-up card names the rest the timer actually runs',
+    run() {
+      assert.match(playerSource, /rest: instance\.restSecondsMin,/);
+      assert.doesNotMatch(playerSource, /rest: instance\.restSecondsMax,/);
+      // The one place the plan's rest reaches the step machine, unchanged.
+      assert.match(playerSource, /restSeconds: exercise\.restSecondsMin,/);
+    },
+  },
+  {
+    /**
+     * PR #57 review: the card guarded on the FIRST set's load and printed the
+     * heaviest. A session whose set 1 was logged at 0 kg — what the dial
+     * offers on a lift with no history — hid a real top set behind a dash.
+     */
+    name: 'the card decides and prints with the same number',
+    run() {
+      assert.doesNotMatch(playerSource, /panels\.history\.sets\[0\]/);
+      assert.match(playerSource, /heaviestOf\(panels\.history\) > 0/);
+    },
+  },
+  {
     name: 'every string of the card and the sheet reads in both languages',
     run() {
       for (const key of [

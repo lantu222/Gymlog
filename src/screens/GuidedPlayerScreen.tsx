@@ -277,6 +277,11 @@ interface GuidedPlayerScreenProps {
   autoResume?: boolean;
 }
 
+/** The heaviest load in a session's sets, or 0 when there is none to show. */
+function heaviestOf(history: LastTimeView | null | undefined): number {
+  return history && history.sets.length > 0 ? Math.max(...history.sets.map((set) => set.loadKg)) : 0;
+}
+
 /**
  * A set by its own index, not by where it sits in the array.
  *
@@ -1767,6 +1772,60 @@ export function GuidedPlayerScreen({
    * shows the same position), and because slot history is the workout store's,
    * not a component's.
    */
+  /**
+   * Last session's sets for one slot, however this screen happens to be asking.
+   *
+   * This was folded into `setPanelSource`, which opens with
+   * `if (step.type !== 'set') return null` — so the two screens that ask about
+   * a lift while standing on a different kind of step got null every time. The
+   * rest screen's "vs last session" pill and the walk-up screen's LAST card
+   * could not render for anybody, ever, and both read on a device as "this
+   * lift has no history yet" (review, PR #57). A lift's history is a fact
+   * about the slot, not about which step is on screen.
+   */
+  const resolveSlotHistory = useCallback(
+    (slotId: string, exerciseName: string): LastTimeView | null => {
+      const instance = exerciseBySlot.get(slotId) ?? null;
+      /*
+       * Through the same resolver the prefill uses, with the same inputs.
+       *
+       * This read `slotHistory[slotId]` and stopped there, while the prefill
+       * fell through to the slot's unscoped key and then to a name lookup — so
+       * the first time a lift came round in a new slot the table said "first
+       * time on this exercise" directly above a weight badged "LAST TIME ·
+       * 27.8." (#bugs 2026-08-29). Same question, one reader.
+       */
+      const resolved = resolveLastTimeEntry({
+        slotHistory: workout.history.slotHistory,
+        slotId,
+        templateSlotId: instance?.templateSlotId ?? null,
+        exerciseName,
+        requireLoaded: instance ? !isUnloadedTrackingMode(instance.trackingMode) : false,
+        repWindow: instance ? resolveInstanceBorrowRepWindow(instance) : null,
+      });
+      const last = resolved?.entry ?? null;
+      if (!last) {
+        return null;
+      }
+      const heaviest = Math.max(...last.sets.map((set) => set.loadKg));
+      return {
+        performedAt: last.performedAt,
+        // Said out loud rather than passed off as this slot's own record —
+        // it is a real number, lifted on a different day.
+        borrowed: resolved?.borrowed ?? false,
+        sets: last.sets.map((set) => ({
+          setIndex: set.setIndex + 1,
+          loadKg: set.loadKg,
+          reps: set.reps,
+          // Marked only when it beats the others — every set at the same
+          // weight would otherwise light the whole panel up.
+          isRecord: heaviest > 0 && set.loadKg === heaviest && last.sets.some((other) => other.loadKg < heaviest),
+        })),
+      };
+    },
+    [exerciseBySlot, workout.history.slotHistory],
+  );
+
   const setPanelSource = useMemo(() => {
     if (step.type !== 'set') {
       return null;
@@ -1775,51 +1834,14 @@ export function GuidedPlayerScreen({
     const lookupName = getDrillLibraryName(name) ?? name;
     const index = findGuidedLibraryIndex(lookupName, exerciseLibrary.map((item) => item.name));
     const match = index === null ? null : exerciseLibrary[index];
-    /*
-     * Through the same resolver the prefill uses, with the same inputs.
-     *
-     * This read `slotHistory[slotId]` and stopped there, while the prefill fell
-     * through to the slot's unscoped key and then to a name lookup — so the
-     * first time a lift came round in a new slot the table said "first time on
-     * this exercise" directly above a weight badged "LAST TIME · 27.8."
-     * (#bugs 2026-08-29). Same question, one reader.
-     */
-    const instance = exerciseBySlot.get(slotId) ?? null;
-    const resolved = resolveLastTimeEntry({
-      slotHistory: workout.history.slotHistory,
-      slotId,
-      templateSlotId: instance?.templateSlotId ?? null,
-      exerciseName: name,
-      requireLoaded: instance ? !isUnloadedTrackingMode(instance.trackingMode) : false,
-      repWindow: instance ? resolveInstanceBorrowRepWindow(instance) : null,
-    });
-    const last = resolved?.entry ?? null;
-    const heaviest = last ? Math.max(...last.sets.map((set) => set.loadKg)) : 0;
-
-    const history: LastTimeView | null = last
-      ? {
-          performedAt: last.performedAt,
-          // Said out loud rather than passed off as this slot's own record —
-          // it is a real number, lifted on a different day.
-          borrowed: resolved?.borrowed ?? false,
-          sets: last.sets.map((set) => ({
-            setIndex: set.setIndex + 1,
-            loadKg: set.loadKg,
-            reps: set.reps,
-            // Marked only when it beats the others — every set at the same
-            // weight would otherwise light the whole panel up.
-            isRecord: heaviest > 0 && set.loadKg === heaviest && last.sets.some((other) => other.loadKg < heaviest),
-          })),
-        }
-      : null;
 
     return {
-      history,
+      history: resolveSlotHistory(slotId, name),
       instructions: getExerciseInstructions(match?.name, match?.instructions, language),
       imageUrl: match?.imageUrls?.[0] ?? null,
       initials: exerciseNameLabel(language, name).slice(0, 2).toUpperCase(),
     };
-  }, [exerciseBySlot, exerciseLibrary, language, step, workout.history.slotHistory]);
+  }, [exerciseLibrary, language, resolveSlotHistory, step]);
 
   const swapOptions = useMemo(() => {
     if (!actionExercise) {
@@ -2198,9 +2220,11 @@ export function GuidedPlayerScreen({
     setRestEditOpen(false);
   }, [stepIndex]);
 
-  const restLastKg = setPanelSource?.history?.sets.length
-    ? Math.max(...setPanelSource.history.sets.map((set) => set.loadKg))
-    : null;
+  // Asked for the rest's own slot: `setPanelSource` is a set-step value and is
+  // null here (review, PR #57).
+  const restLastHeaviest =
+    step.type === 'rest' ? heaviestOf(resolveSlotHistory(step.slotId, step.exerciseName)) : 0;
+  const restLastKg = restLastHeaviest > 0 ? restLastHeaviest : null;
   const restChosenKg = restNextSet?.pickKg ?? 0;
   /** How the committed weight compares with the last session — "+2,5 kg". */
   const restTargetMove =
@@ -2262,8 +2286,9 @@ export function GuidedPlayerScreen({
     if (!instance || !target) {
       return null;
     }
-    const last = setPanelSource?.history ?? null;
-    const lastHeaviest = last?.sets.length ? Math.max(...last.sets.map((set) => set.loadKg)) : 0;
+    // The lift being walked TO, asked for by its own slot.
+    const last = resolveSlotHistory(step.slotId, step.exerciseName);
+    const lastHeaviest = heaviestOf(last);
     return {
       todayValue:
         target.loadKg != null && target.loadKg > 0
@@ -2274,9 +2299,16 @@ export function GuidedPlayerScreen({
       planLine: t(language, 'guided.walk.plan', {
         sets: instance.sets.length,
         reps: target.reps,
-        // The prescription's own upper bound, which is the number the rest
-        // timer actually runs.
-        rest: instance.restSecondsMax,
+        /*
+         * The LOWER bound — that is what the timer runs.
+         *
+         * `buildGuidedSteps` is handed `restSeconds: exercise.restSecondsMin`,
+         * so a Back Squat prescribed 120-180 rests for 120. This card said 180
+         * and the ring thirty seconds later said 2:00 (review, PR #57). The
+         * comment that used to sit here claimed the opposite, which is why the
+         * number went unchecked.
+         */
+        rest: instance.restSecondsMin,
       }),
       lastValue: lastHeaviest > 0 ? formatWeight(lastHeaviest, unitPreference) : null,
       lastReps: last?.sets.length ? last.sets.map((set) => set.reps).join(' · ') : null,
@@ -4022,8 +4054,13 @@ function SetStepView({
             <View style={styles.setExerciseLast}>
               <Text style={styles.setExerciseLastLabel}>{t(language, 'guided.card.lastTime')}</Text>
               <Text style={styles.setExerciseLastLoad}>
-                {panels.history.sets[0] && panels.history.sets[0].loadKg > 0
-                  ? `${removeTrailingZeros(Math.max(...panels.history.sets.map((set) => set.loadKg)))} kg`
+                {/* The same number decides and is shown. Guarding on the
+                    FIRST set while printing the heaviest hid a real top set
+                    behind a dash whenever set 1 was logged at 0 kg — which is
+                    what the dial offers on a lift with no history (review,
+                    PR #57). */}
+                {heaviestOf(panels.history) > 0
+                  ? `${removeTrailingZeros(heaviestOf(panels.history))} kg`
                   : '—'}
               </Text>
               <View style={styles.setExerciseLastPills}>
