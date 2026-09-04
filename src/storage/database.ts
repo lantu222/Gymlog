@@ -6,6 +6,7 @@ import { normalizeStrengthGoals } from '../lib/strengthGoals';
 import { normalizeCancelSurveyAnswer } from '../lib/cancelSurvey';
 import { isMeasurementKind } from '../lib/measurementKinds';
 import { normalizeMeasurementReminder } from '../lib/measurementReminder';
+import { normalizeOwnBlockStats } from '../lib/ownBlockHistory';
 import type { NotificationPrefs } from '../types/models';
 import { normalizeDefaultRestSeconds } from '../lib/restPreference';
 import { normalizePurchaseRecord } from '../lib/purchaseRecord';
@@ -631,6 +632,11 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
         typeof input?.preferences?.hapticsEnabled === 'boolean'
           ? input.preferences.hapticsEnabled
           : fallback.preferences.hapticsEnabled,
+      ownBlockStats: normalizeOwnBlockStats(input?.preferences?.ownBlockStats),
+      alwaysOwnWarmup:
+        typeof input?.preferences?.alwaysOwnWarmup === 'boolean'
+          ? input.preferences.alwaysOwnWarmup
+          : fallback.preferences.alwaysOwnWarmup,
       // null and [] are distinct: null = never customized, [] = cleared by the user.
       homeStatCardKeys: Array.isArray(input?.preferences?.homeStatCardKeys)
         ? input.preferences.homeStatCardKeys.filter(

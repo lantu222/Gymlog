@@ -8,6 +8,7 @@ import {
   SetupSecondaryOutcome,
   WorkoutPlan,
 } from '../types/models';
+import { OwnBlockStats } from '../lib/ownBlockHistory';
 import { GENERATED_EXERCISE_LIBRARY } from './generatedExerciseLibrary';
 import { EXTRA_EXERCISE_LIBRARY } from './extraExerciseLibrary';
 
@@ -24,6 +25,8 @@ const DEFAULT_PREFERENCES = {
   soundCuesEnabled: true,
   darkThemeEnabled: false,
   hapticsEnabled: true,
+  ownBlockStats: {} as OwnBlockStats,
+  alwaysOwnWarmup: false,
   homeStatCardKeys: null as string[] | null,
   notificationPrefs: {
     pushEnabled: false,

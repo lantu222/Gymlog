@@ -10,6 +10,7 @@ const HERO_GRADIENT_HEIGHT = 360;
 
 import { formatTime, formatWeight, removeTrailingZeros } from '../lib/format';
 import { bodyPartLabel, t } from '../lib/i18n';
+import { Movement, WhatMovedRow } from '../lib/sessionMovement';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { localizeSessionName } from '../lib/sessionNameLabel';
 import { SESSION_FEEL_LABEL_KEY, SESSION_FEEL_SCALE, sessionFeelColor } from '../lib/sessionFeel';
@@ -206,6 +207,17 @@ interface WorkoutCompletionScreenProps {
   muscles: MuscleFocusRow[];
   exerciseCards: WorkoutCompletionExerciseCard[];
   prCards: WorkoutCompletionPrCard[];
+  /**
+   * The lifts the session moved, heaviest jump first.
+   *
+   * The payoff, and the only part of this screen that is about next week
+   * rather than about the last hour. Empty hides the card — a session that
+   * held everything steady moved nothing, and saying so with an empty card
+   * would be worse than not saying it.
+   */
+  whatMoved?: WhatMovedRow[];
+  /** Per-lift comparison against last session, keyed by the card's id. */
+  movementById?: Record<string, Movement>;
   /** This week's completed/target — moved here from the guided finish step. */
   weekProgress?: { weekLabel: string; done: number; target: number } | null;
   /** The next planned session, same source the guided finish used. */
@@ -288,6 +300,8 @@ export function WorkoutCompletionScreen({
   exerciseCards,
   prCards,
   language = 'en',
+  whatMoved = [],
+  movementById = {},
   weekProgress = null,
   nextUp = null,
   onDone,
@@ -543,6 +557,31 @@ export function WorkoutCompletionScreen({
         </View>
 
         <View style={styles.body}>
+          {weekProgress ? (
+            /* Directly under the title (design: session flow, screen 10).
+               It sat below the exercise list, which put "2 of 5 done" — the
+               one line that says where this session lands in the week — at
+               the bottom of a screen most readers finish from the top. */
+            <Animated.View style={[styles.weekCard, styles.weekCardTop, rise(2)]}>
+              <View style={styles.weekHeadRow}>
+                <Text style={styles.weekKicker}>{weekProgress.weekLabel}</Text>
+                <Text style={styles.weekCount}>
+                  {weekProgress.done}/{weekProgress.target}
+                </Text>
+              </View>
+              <View style={styles.weekBarRow}>
+                {Array.from({ length: Math.max(weekProgress.target, weekProgress.done, 1) }).map(
+                  (_, index) => (
+                    <View
+                      key={index}
+                      style={[styles.weekBar, index < weekProgress.done && styles.weekBarDone]}
+                    />
+                  ),
+                )}
+              </View>
+            </Animated.View>
+          ) : null}
+
           {/* Only a PR earns a card here. A session with nothing special in it
               says nothing — the stats below already report what happened. */}
           {pr ? (
@@ -626,8 +665,29 @@ export function WorkoutCompletionScreen({
             </Animated.View>
           ) : null}
 
+          {/* The payoff. An accent-tinted card because it is the one thing on
+              this screen that is not a tally of what already happened. */}
+          {whatMoved.length > 0 ? (
+            <Animated.View style={rise(4)}>
+              <Text style={styles.sectionLabel}>{t(language, 'complete.moved.title')}</Text>
+              <View style={styles.movedCard}>
+                {whatMoved.map((row, index) => (
+                  <View key={row.exerciseName} style={index > 0 ? styles.movedRowDivided : undefined}>
+                    <View style={styles.movedHeadRow}>
+                      <Text style={styles.movedName} numberOfLines={1}>
+                        {exerciseNameLabel(language, row.exerciseName)}
+                      </Text>
+                      <Text style={styles.movedDelta}>{row.deltaLabel}</Text>
+                    </View>
+                    <Text style={styles.movedNudge}>{row.nudge}</Text>
+                  </View>
+                ))}
+              </View>
+            </Animated.View>
+          ) : null}
+
           <Animated.View style={rise(5)}>
-            <Text style={styles.sectionLabel}>{t(language, 'complete.section.exercises')}</Text>
+            <Text style={styles.sectionLabel}>{t(language, 'complete.moved.did')}</Text>
             <View style={[styles.sectionCard, styles.exercisesCard]}>
               {exerciseCards.map((exercise, index) => {
                 // A row with no logged set was skipped, and reads so. Every
@@ -665,7 +725,28 @@ export function WorkoutCompletionScreen({
                   {exercise.topSetLabel ? (
                     <View style={styles.exerciseTopSet}>
                       <Text style={styles.exerciseTopSetValue}>{exercise.topSetLabel}</Text>
-                      <Text style={styles.exerciseTopSetLabel}>{t(language, 'complete.topSet')}</Text>
+                      {/* The comparison, where the caption used to be. "Top
+                          set" named the number; this says what happened to
+                          it, which is the half the reader came for. */}
+                      {(() => {
+                        const movement = movementById[exercise.id] ?? null;
+                        if (!movement || movement.label === null) {
+                          return (
+                            <Text style={styles.exerciseTopSetLabel}>{t(language, 'complete.topSet')}</Text>
+                          );
+                        }
+                        return (
+                          <Text
+                            style={[
+                              styles.exerciseTopSetLabel,
+                              movement.kind === 'up' && { color: theme.greenInk },
+                              movement.kind === 'down' && { color: theme.muted },
+                            ]}
+                          >
+                            {movement.label}
+                          </Text>
+                        );
+                      })()}
                     </View>
                   ) : null}
                 </View>
@@ -695,26 +776,6 @@ export function WorkoutCompletionScreen({
               same duration/sets/volume/coach as this screen and then handed
               straight over to it. They are the two things it had that this one
               did not, so they came across and that screen became the save. */}
-          {weekProgress ? (
-            <Animated.View style={[styles.weekCard, rise(6)]}>
-              <View style={styles.weekHeadRow}>
-                <Text style={styles.weekKicker}>{weekProgress.weekLabel}</Text>
-                <Text style={styles.weekCount}>
-                  {weekProgress.done}/{weekProgress.target}
-                </Text>
-              </View>
-              <View style={styles.weekBarRow}>
-                {Array.from({ length: Math.max(weekProgress.target, weekProgress.done, 1) }).map(
-                  (_, index) => (
-                    <View
-                      key={index}
-                      style={[styles.weekBar, index < weekProgress.done && styles.weekBarDone]}
-                    />
-                  ),
-                )}
-              </View>
-            </Animated.View>
-          ) : null}
 
           {nextUp ? (
             <Animated.View style={[styles.nextCard, rise(6)]}>
@@ -997,6 +1058,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 14,
     marginBottom: 12,
   },
+  /** At the top of the body it needs no lead-in gap; below it did. */
+  weekCardTop: { marginTop: 0 },
   weekHeadRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1150,6 +1213,23 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 1,
     backgroundColor: HAIRLINE,
   },
+  movedCard: {
+    backgroundColor: theme.highlightSoft,
+    borderWidth: 1,
+    borderColor: theme.highlight,
+    borderRadius: 18,
+    padding: 14,
+  },
+  movedRowDivided: { borderTopWidth: 1, borderTopColor: theme.border, marginTop: 10, paddingTop: 10 },
+  movedHeadRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  movedName: { flex: 1, minWidth: 0, fontSize: 16, fontWeight: '800', color: theme.ink },
+  movedDelta: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: theme.highlight,
+    fontVariant: ['tabular-nums'],
+  },
+  movedNudge: { marginTop: 4, fontSize: 13.5, fontWeight: '600', color: theme.muted, lineHeight: 19 },
   sectionLabel: {
     marginTop: 20,
     marginBottom: 9,

@@ -1,0 +1,151 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const sheetSource = fs.readFileSync(
+  path.join(__dirname, '..', '..', 'src', 'components', 'ExerciseSheet.tsx'),
+  'utf8',
+);
+const playerSource = fs.readFileSync(
+  path.join(__dirname, '..', '..', 'src', 'screens', 'GuidedPlayerScreen.tsx'),
+  'utf8',
+);
+const i18nSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'), 'utf8');
+
+/**
+ * The set screen's exercise card, and the sheet it opens.
+ *
+ * This file guarded components/SetPanels.tsx until 2026-09-04 — three panels
+ * swiped sideways at the top of the set screen, from design "GAINER
+ * Sarjaruudun paneelit". The panels answered the right questions behind the
+ * wrong control: a swipe, above a screen whose whole job is a number you are
+ * about to type, and a camera glyph in the header that cost the sound toggle
+ * its slot.
+ *
+ * The card replaced them. It is always on screen, it carries last time's
+ * numbers without a tap, and it is the only door to the sheet. What survives
+ * from the old file is everything that was never really about the panels: one
+ * reader for "last time", and a skipped day not counting as one.
+ */
+module.exports = [
+  {
+    name: 'exercise card: always on screen, and the only way into the sheet',
+    run() {
+      // Not behind a toggle. The reader standing at the rack should not have
+      // to press anything to see what they lifted last time.
+      assert.doesNotMatch(playerSource, /\{panelsOpen \?/);
+      assert.match(playerSource, /onPress=\{onOpenSheet\}\s*\r?\n\s*style=\{styles\.setExerciseCard\}/);
+      assert.match(playerSource, /onOpenSheet=\{\(\) => setSetPanelsOpen\(true\)\}/);
+      // And the sheet it opens is the new one, not the retired carousel.
+      assert.match(playerSource, /<ExerciseSheet\b/);
+      assert.equal(
+        fs.existsSync(path.join(__dirname, '..', '..', 'src', 'components', 'SetPanels.tsx')),
+        false,
+        'the retired panels component is still on disk',
+      );
+    },
+  },
+  {
+    name: 'the top bar right slot is the sound toggle again, on every screen',
+    run() {
+      // It held the set screen's info button, which put the one control the
+      // design says lives in exactly one place in two. The info moved to the
+      // card; the slot went back to sound.
+      assert.doesNotMatch(playerSource, /video=\{\s*\r?\n?\s*step\.type === 'set'/);
+      assert.doesNotMatch(playerSource, /active: setPanelsOpen/);
+      // The card carries the info affordance instead.
+      assert.match(playerSource, /<GPIcon name="info"/);
+    },
+  },
+  {
+    name: 'the sheet is one sheet with three tabs, and says so when a tab is empty',
+    run() {
+      assert.match(sheetSource, /const TABS: ExerciseSheetTab\[\] = \['loop', 'howTo', 'history'\]/);
+      // A tab with nothing behind it says so rather than rendering blank.
+      assert.match(sheetSource, /guided\.sheet\.noInstructions/);
+      assert.match(sheetSource, /guided\.sheet\.noHistory/);
+      // Today's bar is the accent one; the rest are not.
+      assert.match(sheetSource, /bar\.isToday \? theme\.highlight : theme\.purpleLight/);
+      // The sheet clears the system bar — the bug the Pro sheet had.
+      assert.match(sheetSource, /paddingBottom: insets\.bottom/);
+    },
+  },
+  {
+    /**
+     * #bugs 2026-08-29: "Alla näkyy viimeksi tehty 27.8 mutta ei näy ylhäällä
+     * olevassa taulukossa mitään."
+     *
+     * The table read `slotHistory[slotId]` and stopped there; the weight badge
+     * under it came from the prefill, which falls through to the unscoped key
+     * and then to a name lookup. One screen, two readers of one fact — so what
+     * is guarded is that there is one reader, with the same inputs. The card
+     * inherited the table's half of it.
+     */
+    name: 'the card and the prefill resolve last time the same way',
+    run() {
+      assert.match(playerSource, /resolveLastTimeEntry\(\{/);
+      assert.doesNotMatch(playerSource, /workout\.history\.slotHistory\[slotId\]/);
+      // Every input the prefill uses: the unscoped key an older install wrote
+      // under, the loaded-lift rule, and the rep prescription that keeps a
+      // heavy day's weight off a 15-20 day.
+      assert.match(playerSource, /templateSlotId: instance\?\.templateSlotId/);
+      assert.match(playerSource, /requireLoaded: instance \? !isUnloadedTrackingMode/);
+      assert.match(playerSource, /repWindow: instance \? resolveInstanceBorrowRepWindow\(instance\)/);
+      // Borrowed sets are shown, and still marked as borrowed in the data.
+      assert.match(playerSource, /borrowed: resolved\?\.borrowed \?\? false/);
+      // The best set is marked only when it actually beat the others.
+      assert.match(playerSource, /last\.sets\.some\(\(other\) => other\.loadKg < heaviest\)/);
+    },
+  },
+  {
+    /**
+     * One selector for "the newest session that actually happened", used by
+     * the prefill and by the card. A skipped day is not a last time — it is a
+     * day the lift did not happen.
+     */
+    name: 'a skipped day is not a last time, decided in one place',
+    run() {
+      const lookupSource = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'lib', 'exerciseHistoryLookup.ts'),
+        'utf8',
+      );
+      assert.match(lookupSource, /export function selectLatestUsableEntry/);
+      assert.match(lookupSource, /!entry!\.skipped && entry!\.sets\.length > 0/);
+
+      const stateSource = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'features', 'workout', 'workoutState.ts'),
+        'utf8',
+      );
+      assert.match(stateSource, /const latest = selectLatestUsableEntry\(entries\)/);
+    },
+  },
+  {
+    name: 'every string of the card and the sheet reads in both languages',
+    run() {
+      for (const key of [
+        'guided.sheet.tab.loop',
+        'guided.sheet.tab.howTo',
+        'guided.sheet.tab.history',
+        'guided.sheet.today',
+        'guided.sheet.bestSet',
+        'guided.sheet.oneRepMax',
+        'guided.sheet.sessions',
+        'guided.sheet.topSets',
+        'guided.sheet.noHistory',
+        'guided.sheet.noInstructions',
+        'guided.sheet.watchFor',
+        'guided.sheet.pr',
+        'guided.sheet.setup',
+        'guided.card.hint',
+        'guided.card.lastTime',
+        'guided.card.firstTime',
+        'guided.logSetIndex',
+      ]) {
+        const occurrences = i18nSource.split(`'${key}':`).length - 1;
+        assert.equal(occurrences, 2, `${key} is missing one of its two languages`);
+      }
+      // The retired panels' own strings went with the component.
+      assert.doesNotMatch(i18nSource, /'panels\.last\.title'/);
+    },
+  },
+];

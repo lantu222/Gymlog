@@ -1,0 +1,354 @@
+import React, { useState } from 'react';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { ExerciseSheetHistory, SHEET_HISTORY_SESSIONS } from '../lib/exerciseSheetHistory';
+import { removeTrailingZeros } from '../lib/format';
+import { t } from '../lib/i18n';
+import { Theme, useThemedStyles, useTheme } from '../theming';
+import { AppLanguage } from '../types/models';
+
+/**
+ * Everything the set screen knows about the lift in front of you, in one sheet.
+ *
+ * It used to be three panels swiped sideways at the top of the set screen —
+ * which put the answer to "how much did I lift last time" behind a gesture,
+ * above a screen whose whole job is a number you are about to type. The sheet
+ * takes the same three things and gives them room: the photo and the setup,
+ * the written steps with the cautions that apply to YOU, and the history the
+ * panel could only show one session of.
+ *
+ * Three tabs rather than a scroll, because they answer three different
+ * questions and a reader mid-set has exactly one of them.
+ */
+export type ExerciseSheetTab = 'loop' | 'howTo' | 'history';
+
+export interface ExerciseSheetWatchFor {
+  text: string;
+  /** A caution the reader's own setup flags asked for — drawn amber. */
+  flagged: boolean;
+}
+
+interface ExerciseSheetProps {
+  visible: boolean;
+  language: AppLanguage;
+  /** Already localized. */
+  exerciseName: string;
+  imageUrl: string | null;
+  /** Two letters, when there is no photo. */
+  initials: string;
+  /** Already localized; empty means the tab says so rather than showing nothing. */
+  instructions: string[];
+  /** The first few steps, shown beside the photo on the Loop tab. */
+  setupSteps: string[];
+  watchFor: ExerciseSheetWatchFor[];
+  history: ExerciseSheetHistory;
+  initialTab?: ExerciseSheetTab;
+  onClose: () => void;
+}
+
+const TABS: ExerciseSheetTab[] = ['loop', 'howTo', 'history'];
+
+export function ExerciseSheet({
+  visible,
+  language,
+  exerciseName,
+  imageUrl,
+  initials,
+  instructions,
+  setupSteps,
+  watchFor,
+  history,
+  initialTab = 'loop',
+  onClose,
+}: ExerciseSheetProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const insets = useSafeAreaInsets();
+  const [tab, setTab] = useState<ExerciseSheetTab>(initialTab);
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.veil}>
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel={t(language, 'common.close')}
+        />
+        <View style={[styles.sheet, { paddingBottom: insets.bottom + 20 }]}>
+          <View style={styles.grip} />
+          <Text style={styles.title} numberOfLines={2}>
+            {exerciseName}
+          </Text>
+
+          <View style={styles.tabs}>
+            {TABS.map((key) => (
+              <Pressable
+                key={key}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: tab === key }}
+                onPress={() => setTab(key)}
+                style={[styles.tab, tab === key && styles.tabActive]}
+              >
+                <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>
+                  {t(language, `guided.sheet.tab.${key}` as 'guided.sheet.tab.loop')}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+            {tab === 'loop' ? (
+              <View style={{ gap: 14 }}>
+                <View style={styles.photo}>
+                  {imageUrl ? (
+                    <Image source={{ uri: imageUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                  ) : (
+                    <Text style={styles.photoInitials}>{initials}</Text>
+                  )}
+                </View>
+                {setupSteps.length > 0 ? (
+                  <View style={{ gap: 8 }}>
+                    <Text style={styles.sectionLabel}>{t(language, 'guided.sheet.setup')}</Text>
+                    {setupSteps.map((stepText, index) => (
+                      <View key={index} style={styles.stepRow}>
+                        <Text style={styles.stepIndex}>{index + 1}</Text>
+                        <Text style={styles.stepText}>{stepText}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+
+            {tab === 'howTo' ? (
+              <View style={{ gap: 14 }}>
+                {instructions.length > 0 ? (
+                  instructions.map((instruction, index) => (
+                    <View key={index} style={styles.stepRow}>
+                      <Text style={styles.stepIndex}>{index + 1}</Text>
+                      <Text style={styles.stepText}>{instruction}</Text>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.empty}>{t(language, 'guided.sheet.noInstructions')}</Text>
+                )}
+                {watchFor.length > 0 ? (
+                  <View style={{ gap: 8 }}>
+                    <Text style={styles.sectionLabel}>{t(language, 'guided.sheet.watchFor')}</Text>
+                    <View style={styles.chips}>
+                      {watchFor.map((item, index) => (
+                        <View
+                          key={index}
+                          style={[
+                            styles.chip,
+                            item.flagged && { backgroundColor: theme.amberSoft, borderColor: theme.amberBorder },
+                          ]}
+                        >
+                          <Text style={[styles.chipText, item.flagged && { color: theme.amberInk }]}>
+                            {item.text}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+
+            {tab === 'history' ? (
+              <View style={{ gap: 16 }}>
+                <View style={styles.statRow}>
+                  <View style={styles.stat}>
+                    <Text style={styles.sectionLabel}>{t(language, 'guided.sheet.bestSet')}</Text>
+                    <Text style={styles.statValue}>{history.bestSetLabel ?? '—'}</Text>
+                  </View>
+                  <View style={styles.stat}>
+                    <Text style={styles.sectionLabel}>{t(language, 'guided.sheet.oneRepMax')}</Text>
+                    <Text style={styles.statValue}>
+                      {history.estimatedOneRepMaxKg
+                        ? `${removeTrailingZeros(Math.round(history.estimatedOneRepMaxKg))} kg`
+                        : '—'}
+                    </Text>
+                  </View>
+                  <View style={styles.stat}>
+                    <Text style={styles.sectionLabel}>{t(language, 'guided.sheet.sessions')}</Text>
+                    <Text style={styles.statValue}>{history.sessionCount}</Text>
+                  </View>
+                </View>
+
+                {history.bars.length > 0 ? (
+                  <View style={{ gap: 8 }}>
+                    <Text style={styles.sectionLabel}>
+                      {t(language, 'guided.sheet.topSets', { count: SHEET_HISTORY_SESSIONS })}
+                    </Text>
+                    <View style={styles.chart}>
+                      {history.bars.map((bar, index) => (
+                        <View key={index} style={styles.chartCol}>
+                          <View
+                            style={[
+                              styles.chartBar,
+                              {
+                                height: `${Math.round(bar.ratio * 100)}%`,
+                                backgroundColor: bar.isToday ? theme.highlight : theme.purpleLight,
+                              },
+                            ]}
+                          />
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ) : null}
+
+                {history.rows.length > 0 ? (
+                  <View style={{ gap: 2 }}>
+                    {history.rows.map((row) => (
+                      <View key={row.key} style={styles.historyRow}>
+                        <Text style={[styles.historyDate, row.isToday && { color: theme.highlight }]}>
+                          {row.dateLabel}
+                        </Text>
+                        <Text style={styles.historyLoad}>{row.loadLabel ?? '—'}</Text>
+                        <View style={styles.historyPills}>
+                          {row.pills.map((pill, index) => (
+                            <View key={index} style={styles.historyPill}>
+                              <Text style={styles.historyPillText}>{pill}</Text>
+                            </View>
+                          ))}
+                        </View>
+                        {row.isPr ? (
+                          <View style={styles.prPill}>
+                            <Text style={styles.prPillText}>{t(language, 'guided.sheet.pr')}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={styles.empty}>{t(language, 'guided.sheet.noHistory')}</Text>
+                )}
+              </View>
+            ) : null}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const makeStyles = (theme: Theme) => StyleSheet.create({
+  veil: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: theme.bg,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    maxHeight: '86%',
+  },
+  grip: {
+    alignSelf: 'center',
+    width: 42,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: theme.border,
+    marginBottom: 14,
+  },
+  title: { fontSize: 21, fontWeight: '800', letterSpacing: -0.5, color: theme.ink },
+  tabs: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 14,
+    backgroundColor: theme.surfaceSoft,
+    borderRadius: 14,
+    padding: 4,
+  },
+  tab: { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 11 },
+  tabActive: { backgroundColor: theme.surface },
+  tabText: { fontSize: 13.5, fontWeight: '700', color: theme.muted },
+  tabTextActive: { color: theme.ink, fontWeight: '800' },
+  body: { marginTop: 16 },
+  photo: {
+    height: 190,
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: theme.surfaceSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoInitials: { fontSize: 46, fontWeight: '800', color: theme.faint },
+  sectionLabel: { fontSize: 10.5, fontWeight: '800', letterSpacing: 1.3, color: theme.faint },
+  stepRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  stepIndex: {
+    width: 20,
+    fontSize: 13,
+    fontWeight: '800',
+    color: theme.faint,
+    lineHeight: 21,
+    fontVariant: ['tabular-nums'],
+  },
+  stepText: { flex: 1, fontSize: 14.5, fontWeight: '600', color: theme.ink, lineHeight: 21 },
+  empty: { fontSize: 14, fontWeight: '600', color: theme.muted, lineHeight: 20 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  chip: {
+    backgroundColor: theme.surfaceSoft,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 999,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+  },
+  chipText: { fontSize: 12.5, fontWeight: '700', color: theme.ink },
+  statRow: { flexDirection: 'row', gap: 10 },
+  stat: {
+    flex: 1,
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 14,
+    padding: 12,
+    gap: 4,
+  },
+  statValue: { fontSize: 15, fontWeight: '800', color: theme.ink, fontVariant: ['tabular-nums'] },
+  chart: { flexDirection: 'row', alignItems: 'flex-end', gap: 6, height: 84 },
+  chartCol: { flex: 1, height: '100%', justifyContent: 'flex-end' },
+  chartBar: { borderRadius: 6, minHeight: 4 },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border,
+  },
+  historyDate: { width: 62, fontSize: 12.5, fontWeight: '700', color: theme.muted },
+  historyLoad: {
+    width: 66,
+    fontSize: 14,
+    fontWeight: '800',
+    color: theme.ink,
+    fontVariant: ['tabular-nums'],
+  },
+  historyPills: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  historyPill: {
+    minWidth: 24,
+    alignItems: 'center',
+    backgroundColor: theme.surfaceSoft,
+    borderRadius: 7,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  historyPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.muted,
+    fontVariant: ['tabular-nums'],
+  },
+  prPill: {
+    backgroundColor: theme.greenSoft,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  prPillText: { fontSize: 10.5, fontWeight: '800', letterSpacing: 0.6, color: theme.greenInk },
+});

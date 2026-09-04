@@ -222,6 +222,7 @@ import {
 } from './src/app/onboardingHandoff';
 import {
   buildCompletionCardsFromAdaptedSession,
+  buildSessionMovement,
   buildExerciseLogsForCompletedSession,
   CompletionSummaryState,
   getEndOfWeek,
@@ -1280,6 +1281,17 @@ function VinhaApp() {
         muscles: buildMuscleFocus(adaptedSession.exercises, exerciseLibrary),
         exerciseCards: completionCards.exerciseCards,
         prCards: completionCards.prCards,
+        // Read from the persisted logs. The builder excludes this session by
+        // id, so "last time" cannot mean today whether or not the save has
+        // already landed in the snapshot this closure holds.
+        ...buildSessionMovement({
+          exercises: adaptedSession.exercises,
+          exerciseLogs: database.exerciseLogs,
+          workoutSessions: database.workoutSessions,
+          sessionId: adaptedSession.sessionId,
+          language: preferences.appLanguage,
+          unitPreference,
+        }),
         insight,
       });
       summaryNavigationPendingRef.current = true;
@@ -5067,6 +5079,11 @@ function VinhaApp() {
         })),
         exerciseLibrary,
       ),
+      // A freestyle session has no plan identity, and the comparison this
+      // screen makes is "against the last time you trained this lift" — a
+      // claim the empty-workout flow does not gather the history for.
+      whatMoved: [],
+      movementById: {},
       insight: null,
     });
     summaryExitRouteRef.current = ROOT_ROUTES.home;
@@ -5289,6 +5306,8 @@ function VinhaApp() {
         exercisesLogged={completionSummary.exercisesLogged}
         muscles={completionSummary.muscles}
         exerciseCards={completionSummary.exerciseCards}
+        whatMoved={completionSummary.whatMoved}
+        movementById={completionSummary.movementById}
         prCards={completionSummary.prCards}
         // Moment 1 is for free users only — Pro gets the conclusions unlocked
         // at the surfaces where they live, not a lock on its own screen.

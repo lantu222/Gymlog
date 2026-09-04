@@ -91,6 +91,27 @@ export function formatVolume(value: number, _unitPreference: UnitPreference = 'k
   return `${removeTrailingZeros(value)} kg`;
 }
 
+/**
+ * One session's volume, grouped: "12 340 kg".
+ *
+ * `formatCompactVolume` folds four digits into "12.3 t", which is right for a
+ * lifetime total and wrong for a single session — a tonnage reads as a career,
+ * not as a Thursday. The separator is a non-breaking space so the number never
+ * wraps across a line break mid-thousand.
+ */
+export function formatGroupedVolume(totalKg: number, _unitPreference: UnitPreference = 'kg') {
+  const digits = String(Math.max(0, Math.round(totalKg)));
+  let grouped = '';
+  for (let index = 0; index < digits.length; index += 1) {
+    grouped += digits[index];
+    const remaining = digits.length - index - 1;
+    if (remaining > 0 && remaining % 3 === 0) {
+      grouped += ' ';
+    }
+  }
+  return `${grouped} kg`;
+}
+
 /** Compact lifetime/monthly volume: "412 kg", "4.5 t". */
 export function formatCompactVolume(totalKg: number, _unitPreference: UnitPreference = 'kg') {
   if (totalKg >= 1000) {

@@ -4,6 +4,7 @@ import { Linking, View } from 'react-native';
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { buildFirstRunRecommendationReasons, FirstRunSetupSelection } from '../lib/firstRunSetup';
 import { restAlertsAnswered } from '../lib/restAlertAnswer';
+import { recordOwnBlock } from '../lib/ownBlockHistory';
 import { formatShortDate } from '../lib/format';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { t } from '../lib/i18n';
@@ -703,6 +704,16 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         onToggleSoundCues={(next) => void updatePreferences({ soundCuesEnabled: next })}
         language={preferences.appLanguage}
         entryEyebrow={guidedEntryEyebrow}
+        cautionFlags={preferences.setupCautionFlags}
+        completedSessions={database.workoutSessions}
+        ownBlockStats={preferences.ownBlockStats}
+        alwaysOwnWarmup={preferences.alwaysOwnWarmup}
+        onRecordOwnBlock={(phase, seconds) =>
+          void updatePreferences({
+            ownBlockStats: recordOwnBlock(preferences.ownBlockStats, phase, seconds),
+          })
+        }
+        onSetAlwaysOwnWarmup={(next) => void updatePreferences({ alwaysOwnWarmup: next })}
         weekProgress={guidedWeekProgress}
         nextUp={guidedNextUp}
         onLeave={() => navigateBack(getWorkoutLoggerFallbackRoute())}

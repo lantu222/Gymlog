@@ -1,5 +1,13 @@
 import { AdaptedCompletedWorkoutExercise } from '../features/workout/workoutAppAdapter';
 import { PostSessionInsight } from '../lib/postSessionInsight';
+import {
+  buildPreviousTopSets,
+  buildWhatMoved,
+  Movement,
+  MovementRow,
+  resolveMovement,
+  WhatMovedRow,
+} from '../lib/sessionMovement';
 import { getTopSetLabel, MuscleFocusRow } from '../lib/workoutCompleteView';
 import {
   buildExercisePrLookup,
@@ -14,6 +22,7 @@ import {
   ExerciseLog,
   ExerciseLogDraft,
   ExerciseTemplate,
+  UnitPreference,
 } from '../types/models';
 
 /**
@@ -35,6 +44,10 @@ export interface CompletionSummaryState {
   muscles: MuscleFocusRow[];
   exerciseCards: WorkoutCompletionExerciseCard[];
   prCards: WorkoutCompletionPrCard[];
+  /** The lifts that went up, heaviest jump first (lib/sessionMovement). */
+  whatMoved: WhatMovedRow[];
+  /** Card id → how that lift compares with its last session. */
+  movementById: Record<string, Movement>;
   insight: PostSessionInsight | null;
 }
 
@@ -51,6 +64,71 @@ function isWorkoutCompletionPrCard(
   card: WorkoutCompletionPrCard | null,
 ): card is WorkoutCompletionPrCard {
   return card !== null;
+}
+
+/**
+ * How each lift compares with the last session it was trained in.
+ *
+ * Built from the persisted logs rather than from the live session, because
+ * "last time" has to mean the last time this lift happened — which may have
+ * been in another programme, or in an empty workout, and is never in the
+ * session that just ended.
+ */
+export function buildSessionMovement({
+  exercises,
+  exerciseLogs,
+  workoutSessions,
+  sessionId,
+  language,
+  unitPreference,
+}: {
+  exercises: AdaptedCompletedWorkoutExercise[];
+  exerciseLogs: ReadonlyArray<ExerciseLog>;
+  workoutSessions: ReadonlyArray<{ id: string; performedAt: string }>;
+  sessionId: string;
+  language: AppLanguage;
+  unitPreference: UnitPreference;
+}): { whatMoved: WhatMovedRow[]; movementById: Record<string, Movement> } {
+  const previousTops = buildPreviousTopSets({
+    logs: exerciseLogs,
+    performedAtBySessionId: Object.fromEntries(
+      workoutSessions.map((session) => [session.id, session.performedAt] as const),
+    ),
+    excludeSessionId: sessionId,
+  });
+
+  const rows: Array<{ id: string; row: MovementRow }> = exercises
+    .map((exercise): { id: string; row: MovementRow } | null => {
+      const best = exercise.sets.reduce<{ kg: number; reps: number } | null>((top, set) => {
+        if (set.status !== 'completed' || typeof set.weightKg !== 'number' || typeof set.reps !== 'number') {
+          return top;
+        }
+        if (!top || set.weightKg > top.kg || (set.weightKg === top.kg && set.reps > top.reps)) {
+          return { kg: set.weightKg, reps: set.reps };
+        }
+        return top;
+      }, null);
+      if (!best || best.kg <= 0) {
+        return null;
+      }
+      return {
+        id: exercise.slotId,
+        row: {
+          exerciseName: exercise.exerciseName,
+          todayTopKg: best.kg,
+          todayTopReps: best.reps,
+          previousTopKg: previousTops[exercise.exerciseName.trim().toLowerCase()] ?? null,
+        },
+      };
+    })
+    .filter((entry): entry is { id: string; row: MovementRow } => entry !== null);
+
+  return {
+    whatMoved: buildWhatMoved(rows.map((entry) => entry.row), language, unitPreference),
+    movementById: Object.fromEntries(
+      rows.map((entry) => [entry.id, resolveMovement(entry.row, language, unitPreference)] as const),
+    ),
+  };
 }
 
 export function buildCompletionCardsFromAdaptedSession({
