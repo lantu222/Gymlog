@@ -277,6 +277,24 @@ interface GuidedPlayerScreenProps {
   autoResume?: boolean;
 }
 
+/**
+ * A set by its own index, not by where it sits in the array.
+ *
+ * Today those are the same thing — sets are only ever appended and only ever
+ * removed from the end, so `setIndex` tracks position. The reducer looks sets
+ * up by the field anyway (`sets.find(item => item.setIndex === …)`), and two
+ * readers of one fact disagreeing quietly is exactly the class of bug this
+ * screen has already shipped once. So this one asks the same question the
+ * reducer does, and a "remove the middle set" that arrives later cannot make
+ * the rest screen show the wrong set's numbers.
+ */
+function findSetByIndex(
+  exercise: WorkoutExerciseInstance | null | undefined,
+  setIndex: number,
+): WorkoutExerciseInstance['sets'][number] | null {
+  return exercise?.sets.find((item) => item.setIndex === setIndex) ?? null;
+}
+
 /* ── icons ── */
 function GPIcon({ name, size = 22, color = '#fff', sw = 2.2 }: { name: string; size?: number; color?: string; sw?: number }) {
   const paths: Record<string, React.ReactNode> = {
@@ -2124,7 +2142,7 @@ export function GuidedPlayerScreen({
     if (step.type !== 'rest' || step.recoveryKind) {
       return null;
     }
-    const set = exerciseBySlot.get(step.slotId)?.sets[step.setIndex];
+    const set = findSetByIndex(exerciseBySlot.get(step.slotId), step.setIndex);
     if (!set || set.status !== 'completed') {
       return null;
     }
@@ -3389,8 +3407,8 @@ export function GuidedPlayerScreen({
           language={language}
           unitPreference={unitPreference}
           unloaded={isUnloadedTrackingMode(exerciseBySlot.get(step.slotId)?.trackingMode ?? 'load_and_reps')}
-          reps={exerciseBySlot.get(step.slotId)?.sets[step.setIndex]?.actualReps ?? 0}
-          loadKg={exerciseBySlot.get(step.slotId)?.sets[step.setIndex]?.actualLoadKg ?? 0}
+          reps={findSetByIndex(exerciseBySlot.get(step.slotId), step.setIndex)?.actualReps ?? 0}
+          loadKg={findSetByIndex(exerciseBySlot.get(step.slotId), step.setIndex)?.actualLoadKg ?? 0}
           onCancel={() => setRestEditOpen(false)}
           onSave={(reps, loadKg) => {
             workout.editLoggedSet(step.slotId, step.setIndex, reps, loadKg);
