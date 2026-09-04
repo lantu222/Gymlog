@@ -94,6 +94,9 @@ module.exports = [
       // And the camera claim died with the photo import, not with analytics —
       // but it dies here, checked.
       assert.doesNotMatch(legal, /No access to location, contacts, camera/);
+      // The switch (2026-09-04) is named where the reader would look for it.
+      assert.match(legal, /Settings → Usage statistics/);
+      assert.match(legal, /Asetukset → Käyttötilastot/);
     },
   },
   {

@@ -1,83 +1,107 @@
 # Käyttöehdot
 
-*Päivitetty 25.8.2026*
+*Päivitetty 4.9.2026*
 
-Vinhan käytön säännöt, terveysvaroitus ja miten Pro-laskutus toimii.
+Vinhan käytön säännöt: terveysvaroitus, miten Pro-laskutus toimii ja mitä lupaamme.
 
 ## Lyhyesti
 
-Vinha on treenisovellus. Se ehdottaa ohjelmia ja seuraa mitä nostat. Se ei ole lääkäri, fysioterapeutti eikä vieressä seisova personal trainer, eikä se näe tekniikkaasi tai sitä miltä sinusta tuntuu. Sinä päätät mikä on turvallista nostaa.
+Vinha on treenisovellus. Se ehdottaa ohjelmia, seuraa mitä nostat, ja siinä on valmentaja, joka lukee numeroitasi. Se ei ole lääkäri, fysioterapeutti eikä vieressä seisova personal trainer, eikä se näe tekniikkaasi tai sitä, miltä sinusta tänään tuntuu. Sinä päätät, mikä on turvallista nostaa.
 
-Käyttämällä sovellusta hyväksyt nämä ehdot.
+Asentamalla Vinhan tai käyttämällä sitä hyväksyt nämä ehdot. Jos et hyväksy niitä, älä käytä sovellusta.
 
 ## Kuka palvelun tarjoaa
 
-Vinhan tarjoaa Santeri Ylönen (Suomi). Yhteystieto: santeriylonen@gmail.com.
+Vinhan tarjoaa Santeri Ylönen (Suomi). Yhteystieto: santeriylonen@gmail.com. Se, miten käsittelemme tietojasi, kuvataan tietosuojaselosteessa, joka on osa näitä ehtoja.
+
+## Ikäraja
+
+Sinun on oltava vähintään 16-vuotias käyttääksesi Vinhaa. Sovellus on rakennettu aikuisten voimaharjoittelun ympärille, eikä sitä ole suunniteltu lapsille.
 
 ## Käyttöoikeutesi
 
-Saat henkilökohtaisen, ei-yksinomaisen ja siirtokelvottoman oikeuden käyttää Vinhaa omaan treenaamiseesi. Oikeus on voimassa niin kauan kuin noudatat näitä ehtoja.
+Saat henkilökohtaisen, ei-yksinomaisen ja siirtokelvottoman oikeuden käyttää Vinhaa omaan treenaamiseesi laitteilla, jotka ovat hallinnassasi. Oikeus on voimassa niin kauan kuin noudatat näitä ehtoja.
 
 ## Terveys ja turvallisuus — lue tämä
 
 Vinha antaa yleistä kuntoilutietoa. Se ei ole lääketieteellistä neuvontaa, eikä mikään siinä diagnosoi, hoida tai ehkäise mitään sairautta.
 
-Keskustele lääkärin kanssa ennen treeniohjelman aloittamista, erityisesti jos olet raskaana, toivut vammasta tai sairaudesta, sinulla on sydän-, nivel- tai verenpaineongelma, tai et ole treenannut pitkään aikaan.
+Keskustele lääkärin kanssa ennen treeniohjelman aloittamista, erityisesti jos olet raskaana, toivut vammasta tai sairaudesta, sinulla on sydän-, nivel- tai verenpaineongelma tai et ole treenannut pitkään aikaan.
 
-Lopeta heti jos tunnet kipua, huimausta, puristusta rinnassa tai hengenahdistusta, ja hakeudu lääkäriin.
+Lopeta heti, jos tunnet kipua, huimausta, puristusta rinnassa tai hengenahdistusta, ja hakeudu lääkäriin.
 
-Painot ovat vaarallisia. Vastaat itse tekniikastasi, lämmittelystäsi, käyttämistäsi välineistä ja valitsemastasi painosta. Sovelluksen ehdottama paino on ehdotus, joka perustuu kirjaamiisi numeroihin — se ei tiedä mitään siitä miten nukuit, mihin sattuu tänään, tai onko tanko ladattu oikein.
+Painot ovat vaarallisia. Vastaat itse tekniikastasi, lämmittelystäsi, käyttämistäsi välineistä ja valitsemastasi painosta. Sovelluksen ehdottama paino on ehdotus, joka perustuu kirjaamiisi numeroihin — se ei tiedä mitään siitä, miten nukuit, mihin sattuu tänään tai onko tanko ladattu oikein.
 
-AI-valmentaja lukee kirjaamiasi numeroita ja kirjoittaa niistä. Se ei ole terveydenhuollon ammattilainen eikä tunne sairaushistoriaasi. Suhtaudu siihen asiantuntevana treenikaverina, älä ammattilaisen lausuntona.
+Valmentaja lukee kummassakin tilassaan kirjaamiasi numeroita ja kirjoittaa niistä. Se ei ole terveydenhuollon ammattilainen, se ei tunne sairaushistoriaasi, ja — erityisesti verkkotilassa, jossa vastauksen kirjoittaa kielimalli — se voi olla varmalla äänellä väärässä. Suhtaudu siihen lukeneena treenikaverina, älä ammattilaisen lausuntona, ja tarkista kaikki, millä on merkitystä.
 
 Treenaat omalla vastuullasi.
 
 ## Sinun vastuusi
 
-- Syötä tietosi rehellisesti — suositukset ovat vain niin hyviä kuin se mitä kirjaat.
+- Syötä tietosi rehellisesti — suositukset ovat vain niin hyviä kuin se, mitä kirjaat.
 - Käytä sovellusta omaan henkilökohtaiseen, ei-kaupalliseen treenaamiseen.
 - Älä käytä sovellusta ainoana terveystiedon lähteenäsi.
-- Pidä laitteesi turvassa. Kuka tahansa joka saa puhelimesi auki näkee treenitietosi.
+- Pidä laitteesi turvassa. Kuka tahansa, joka saa puhelimesi auki, näkee treenitietosi.
+- Tuo sovellukseen — CSV:nä tai valokuvana — vain ohjelmia, joihin sinulla on käyttöoikeus. Tuomasi sisältö pysyy puhelimessasi, ja vastaat siitä itse.
 
-## Tietosi ovat laitteellasi
+## Tietosi ja varmuuskopiot
 
-Tiliä ei ole eikä treenihistoriastasi ole kopiota palvelimella. Tämä tarkoittaa ettemme voi palauttaa sitä sinulle jos hukkaat puhelimesi, poistat sovelluksen tai nollaat tietosi. Se on yksityisen sovelluksen hinta, ja se on reilua sanoa suoraan.
+Treenitietosi ovat puhelimessasi. Jos et kirjaudu sisään, niistä ei ole missään kopiota, johon me pääsisimme käsiksi — emme siis voi palauttaa niitä sinulle, jos hukkaat puhelimesi, poistat sovelluksen tai nollaat tietosi. Vie lokisi CSV-muodossa asetuksista aina, kun haluat oman kopion.
 
-## Pro-tilaus
+Jos kirjaudut Googlella, vapaaehtoinen pilvivarmuuskopio pitää yhden kopion palvelimellamme, jotta uusi puhelin voi palauttaa sen. Se on helpotus, ei takuu: pidä oma vientisi kaikesta, mitä et voi menettää. Varmuuskopion voi palauttaa vain kirjautumalla samalla Google-tilillä, joten pidä pääsy siihen tiliin tallessa.
 
-- Pro avaa ne ominaisuudet jotka on lueteltu sovelluksen Pro-sivulla tilaushetkellä. Ilmaisversioon jäävät kaikki ohjelmat, koko liikekirjasto ja rajaton kirjaus.
-- Maksu veloitetaan Google Playn kautta oston vahvistuksessa.
-- Tilaus uusiutuu automaattisesti, ellet peruuta sitä vähintään 24 tuntia ennen kauden päättymistä.
-- Hallitse tai peruuta tilaus Google Playssä, ei sovelluksessa. Peruutus lopettaa seuraavan uusiutumisen; kuluva kausi jatkuu loppuun.
-- Palautukset noudattavat Google Playn käytäntöä ja lakisääteisiä kuluttajaoikeuksiasi.
-- Kampanjakoodit voivat olla määrä- tai aikarajattuja ja ne voivat vanheta.
-- Jos hinta muuttuu, saat siitä tiedon etukäteen, eikä muutos koskaan koske jo maksamaasi kautta.
+Tietosi ovat sinun. Emme vaadi oikeuksia mihinkään, mitä kirjaat, rakennat tai tuot, emmekä käytä varmuuskopiota mihinkään muuhun kuin sen palauttamiseen sinulle.
+
+## Pro
+
+- Ilmaisversio on kokonainen sovellus: jokainen valmis ohjelma, koko liikekirjasto, rajaton kirjaus, kehityksesi ja vienti. Rakentamisella on rajat — kolme omaa ohjelmaa, kaksi käytössä kerrallaan — ja trendit ja ennätykset näytetään viimeisimmän kolmen kuukauden ajalta.
+- Pro avaa ne ominaisuudet, jotka on lueteltu sovelluksen Pro-sivulla ostohetkellä, mukaan lukien valmentajan verkkotilan sovelluksessa näytettyyn kuukausittaiseen kysymysmäärään asti. Pro voi olla kuukausitilaus, vuositilaus tai kertaostona elinikäinen.
+- Maksu veloitetaan Google Playn kautta siellä ostoa vahvistettaessa näkyvällä hinnalla. Emme käsittele maksuja itse.
+- Tilaus uusiutuu automaattisesti, ellet peruuta sitä vähintään 24 tuntia ennen kauden päättymistä. Peruuta Google Playssä — sovelluksen Lopeta jäsenyys -ruutu vie sinut sinne. Peruutus lopettaa seuraavan uusiutumisen; Pro pysyy päällä maksetun kauden loppuun.
+- Elinikäinen tarkoittaa palvelun käyttöä niin kauan kuin Vinhaa tarjotaan kaupallisesti ja sitä ylläpidetään. Jos palvelu lopetetaan pysyvästi, elinikäinen käyttöoikeus päättyy samalla. Se on kertamaksu, jossa ei ole mitään uusittavaa tai peruttavaa.
+- Kun Pro päättyy, mitään kirjaamaasi ei menetetä. Tietosi, ohjelmasi ja historiasi säilyvät; vain Pro-ominaisuudet menevät lukkoon, kunnes Pro on taas päällä.
+- Palautukset noudattavat Google Playn palautuskäytäntöä ja lakisääteisiä kuluttajaoikeuksiasi, mukaan lukien peruuttamisoikeus silloin, kun laki sen sinulle antaa. Pro alkaa heti, kun osto on vahvistettu, ja ottamalla sen heti käyttöön hyväksyt, että palvelu alkaa välittömästi.
+- Kampanjakoodit voivat olla aika- tai määrärajattuja, ne voivat vanheta, eikä niillä ole rahallista arvoa.
+- Jos hinta muuttuu, saat siitä tiedon etukäteen Google Playn kautta, eikä muutos koskaan koske jo maksamaasi kautta.
+
+## Toiminnot, jotka tarvitsevat palvelimemme
+
+Valmentajan verkkotila, ohjelmakoostaja, kuvatuonti ja pilvivarmuuskopio tarvitsevat palvelimemme, ja valmentaja tarvitsee lisäksi Anthropicin palvelua. Ne voivat olla hitaita, poissa käytöstä tai ne voidaan lopettaa, ja voimme vaihtaa niiden takana olevaa mallia tai palveluntarjoajaa. Kun palvelin ei voi vastata, sovellus palaa laitteella muodostettuihin vastauksiin tai kertoo, ettei se onnistunut.
+
+Jotta nämä toiminnot pysyvät kohtuuhintaisina kaikille, voimme rajoittaa niiden käyttötiheyttä — esimerkiksi valmentajan kysymysten kuukausimäärää, tuotavan kuvan kokoa tai sitä, montako varmuuskopiota tili voi lähettää lyhyessä ajassa.
+
+Valmentaja ei koskaan muuta ohjelmaasi itse. Jokainen muutos siihen, mitä treenaat, on sinun tekemäsi.
 
 ## Mitä lupaamme ja mitä emme
 
-Sovellus tarjotaan sellaisena kuin se on. Teemme työtä pitääksemme sen paikkansapitävänä ja saatavilla, mutta emme lupaa että se toimii keskeytyksettä tai virheettömästi, emmekä lupaa mitään tiettyä tulosta. Voima, painonpudotus ja lihaskasvu riippuvat paljon muustakin kuin sovelluksesta: unesta, ruoasta, säännöllisyydestä, perimästä, stressistä ja ajasta.
+Sovellus tarjotaan sellaisena kuin se on. Teemme työtä pitääksemme sen paikkansapitävänä ja saatavilla, mutta emme lupaa, että se toimii keskeytyksettä tai virheettömästi, emmekä lupaa mitään tiettyä tulosta. Voima, painonpudotus ja lihaskasvu riippuvat paljon muustakin kuin sovelluksesta: unesta, ruoasta, säännöllisyydestä, perimästä, stressistä ja ajasta.
 
-Siinä määrin kuin laki sallii, vastuumme sovellukseen liittyvistä vaatimuksista rajoittuu siihen mitä olet siitä maksanut vaatimusta edeltäneiden 12 kuukauden aikana. Mikään tässä ei rajoita vastuuta jota ei lain mukaan voi rajoittaa — mukaan lukien vastuu huolimattomuudesta aiheutuneesta kuolemasta tai henkilövahingosta, tai petoksesta.
+Siinä määrin kuin laki sallii, vastuumme sovellukseen liittyvistä vaatimuksista rajoittuu siihen, mitä olet siitä maksanut vaatimusta edeltäneiden 12 kuukauden aikana. Mikään tässä ei rajoita vastuuta, jota ei lain mukaan voi rajoittaa — mukaan lukien vastuu huolimattomuudesta aiheutuneesta kuolemasta tai henkilövahingosta, petoksesta tai pakottavista kuluttajaoikeuksistasi.
+
+Emme vastaa viivästyksistä tai palvelukatkoista, jotka johtuvat vaikutusmahdollisuuksiemme ulkopuolella olevista syistä, kuten sähkökatkoista, verkkohäiriöistä, palveluntarjoajien ongelmista tai viranomaistoimista.
 
 ## Kenelle mikäkin kuuluu
 
-Sovellus, sen ulkoasu, treeniohjelmat ja liikekirjasto kuuluvat meille ja ovat tekijänoikeuden suojaamia. Niitä ei saa kopioida, jälleenmyydä, levittää eikä purkaa takaisinmallinnuksella.
+Sovellus, sen ulkoasu, valmiit ohjelmat ja liikekirjasto kuuluvat meille ja ovat tekijänoikeuden suojaamia. Niitä ei saa kopioida, jälleenmyydä, levittää eikä purkaa takaisinmallinnuksella.
 
-Treenitietosi ovat sinun. Emme väitä omistavamme mitään mitä kirjaat.
+Treenitietosi, rakentamasi ohjelmat ja kirjoittamasi muistiinpanot ovat sinun. Emme väitä omistavamme mitään, mitä kirjaat.
 
 ## Mitä et saa tehdä
 
-- Takaisinmallintaa, purkaa tai muokata sovellusta.
-- Jälleenmyydä, julkaista uudelleen tai levittää treeniohjelmia tai liikesisältöä.
-- Käyttää automaattisia työkaluja sisällön poimimiseen sovelluksesta.
+- Takaisinmallintaa, purkaa tai muokata sovellusta tai kiertää Pro-lukkoa.
+- Jälleenmyydä, julkaista uudelleen tai levittää valmiita ohjelmia tai liikesisältöä.
+- Käyttää automaattisia työkaluja sisällön poimimiseen sovelluksesta tai palvelimemme kuormittamiseen.
+- Lähettää valmentajalle sisältöä, joka on lainvastaista tai kuuluu jollekulle muulle ilman tämän lupaa.
 - Käyttää sovellusta lainvastaisella tavalla.
 
 ## Muutokset ja päättyminen
 
-Voimme päivittää näitä ehtoja sovelluksen muuttuessa. Olennaiset muutokset näytetään sovelluksessa ennen voimaantuloa, ja käytön jatkaminen sen jälkeen tarkoittaa että hyväksyt ne.
+Voimme päivittää näitä ehtoja sovelluksen muuttuessa. Olennaiset muutokset näytetään sovelluksessa ennen voimaantuloa, ja käytön jatkaminen sen jälkeen tarkoittaa, että hyväksyt ne. Jos et hyväksy, lopeta sovelluksen käyttö — ja jos sinulla on voimassa oleva tilaus, peruuta se Google Playssä.
 
-Voit lopettaa milloin tahansa poistamalla sovelluksen. Voimme päättää käyttöoikeutesi jos rikot näitä ehtoja vakavasti.
+Voit lopettaa milloin tahansa poistamalla sovelluksen. Puhelimessa olevat tietosi lähtevät sen mukana; pilvivarmuuskopio säilyy, kunnes poistat sen asetuksista.
 
-## Sovellettava laki
+Voimme päättää pääsysi palvelintoimintoihin tai sovellukseen, jos rikot näitä ehtoja vakavasti. Voimme myös lopettaa Vinhan tai sen palvelintoiminnot; jos niin käy, kerromme siitä sovelluksessa etukäteen, ja tietosi säilyvät puhelimessasi ja vietävissä.
 
-Näihin ehtoihin sovelletaan Suomen lakia. Tämä ei poista asuinmaasi pakottavia kuluttajansuojaoikeuksia. Jos riitaa ei saada sovittua, Suomessa asuva kuluttaja voi viedä sen kuluttajariitalautakuntaan (kuluttajariita.fi) oltuaan ensin yhteydessä kuluttajaneuvontaan.
+## Sovellettava laki ja riidat
+
+Näihin ehtoihin sovelletaan Suomen lakia. Tämä ei poista asuinmaasi pakottavia kuluttajansuojaoikeuksia. Jos riitaa ei saada sovittua keskenämme, Suomessa asuva kuluttaja voi viedä sen kuluttajariitalautakuntaan (kuluttajariita.fi) oltuaan ensin yhteydessä kuluttajaneuvontaan (kkv.fi).

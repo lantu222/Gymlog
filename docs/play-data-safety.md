@@ -1,129 +1,76 @@
-# Google Play Data Safety Prep for Vinha
+# Google Play Data Safety — Vinha
 
-Last reviewed: 11 August 2026
-Version reviewed: 1.1.0
-Package: app.vinha
+Last reviewed: 4 September 2026 · app 1.1.0 · package `app.vinha`
 
-This file is a practical draft for the Google Play Data safety form based on the current codebase.
-It is not legal advice. You must verify the final declarations in Play Console.
+The working draft for the Play Console **Data safety** form. It is derived from
+the privacy policy (`src/lib/legalDocuments.ts`, the single source of truth) and
+the code that policy describes. Not legal advice — verify every answer in Play
+Console before submitting, and re-review whenever the policy's date changes.
 
-## 1. Current app behavior observed in code
-Vinha currently:
-- stores workout data locally via AsyncStorage
-- stores active workout session state locally via AsyncStorage
-- stores bodyweight entries locally via AsyncStorage
-- does not implement account signup or login
-- does not implement analytics or crash reporting SDKs
-- does not implement ads, subscriptions, or payments
-- does not implement camera, microphone, contacts, or location features
-  - `RECORD_AUDIO` used to reach the manifest anyway, merged in from expo-audio's
-    own library manifest even though Vinha only plays cue sounds. Removed on
-    2026-08-11 via `tools:node="remove"` plus `recordAudioAndroid: false` on the
-    plugin. Verify it is still absent from any APK you submit — a microphone
-    permission on the Play listing contradicts the answers below.
-- does not read Health Connect or any platform health store. The Health Connect
-  integration was removed entirely on 2026-08-11 (commit b41f1f1) along with its
-  permissions, so no health-data declaration is required for this release.
-- schedules local notifications (`POST_NOTIFICATIONS`) and offers a home-screen
-  widget; neither sends anything off-device
-- includes an optional Vinha AI backend path:
-  - preview mode when no endpoint is configured
-  - live mode when the app calls your own endpoint and that endpoint calls Anthropic (Claude)
-- uses bundled local assets for Home artwork instead of loading third-party remote media
+## 1. What actually leaves the device (verified in code, 2026-09-04)
 
-Relevant files reviewed:
-- <repo-root>\src\storage\database.ts
-- <repo-root>\src\features\workout\workoutPersistence.ts
-- <repo-root>\src\types\models.ts
-- <repo-root>\src\state\AppProvider.tsx
-- <repo-root>\App.tsx
-- <repo-root>\src\components\AppShell.tsx
-- <repo-root>\android\app\src\main\AndroidManifest.xml
-- <repo-root>\package.json
-- <repo-root>\src\lib\aiCoachClient.ts
-- <repo-root>\src\lib\aiCoachPreview.ts
-- <repo-root>\api\ai-coach.ts
+`src/` has exactly three outbound request sites; `tests/lib/legalDocuments.test.cjs`
+fails if a fourth appears. The policy names all three.
 
-## 2. Recommended declaration strategy
-Choose one declaration strategy based on how you launch Vinha AI.
+| Feature | Client → endpoint | Sent | Stored server-side | Processor |
+|---|---|---|---|---|
+| Cloud backup (optional, Google sign-in) | `src/features/account/backupApi.ts` → `api/backup.ts` | Google ID token + the whole app database (profile, log, body data, programmes, preferences) | The backup JSON, filed under HMAC(Google `sub`) in a **private** Vercel Blob store (EU region per `docs/account-backup.md`). No email, no name, no logs of payloads. | Vercel (function + storage), Google (token verification) |
+| AI coach online mode, programme composer, photo import | `src/lib/aiCoachClient.ts` → `api/ai-coach.ts` | Question + conversation history + training summary **including latest weight, measurements, height, age, gender, goals and setup answers**; the composer brief; the downscaled photo | Nothing, once the development transcript log is off (`src/lib/aiCoachDebug.ts` → `false`; `tests/releaseReadiness.test.cjs` blocks the release otherwise) | Vercel (function), Anthropic (model; deletes within 30 days, no training) |
+| Anonymous usage events | `src/features/analytics/analyticsClient.ts` → `api/events.ts` | Random install id + event names, timestamps, `step` / `path` | Batches as private blobs (Vercel, EU); deleted after 24 months by the monthly cron (`api/prune-events.ts`, `docs/usage-events.md`) | Vercel |
 
-### Option A: Preview-only Vinha AI
-Recommended answer:
-- No user data collected
-- No user data shared
+Everything else stays on the device: six AsyncStorage keys plus the home-screen
+widget's summary file. Android Auto Backup is on (`allowBackup` default), which
+is between the user and Google and is disclosed in the policy.
 
-Why this is defensible:
-- Workout logs, bodyweight, notes, active sessions, and preferences are stored locally.
-- No analytics SDK is present.
-- No account system is present.
-- Home artwork no longer depends on a third-party remote image host.
-- Vinha AI stays on preview mode when `EXPO_PUBLIC_AI_COACH_API_URL` is not configured.
+Not present, and must stay absent from the merged manifest: location, contacts,
+microphone (`RECORD_AUDIO` is stripped from expo-audio — verify in
+`android/app/build/intermediates/merged_manifests/release/.../AndroidManifest.xml`),
+camera, Health Connect, ads, third-party analytics or crash SDKs.
 
-### Option B: Live Vinha AI enabled
-Do not keep the `No user data collected` answer without re-review.
+## 2. Form answers
 
-If live Vinha AI is enabled, the app transmits at least:
-- the prompt the user types
-- limited training context such as active workout title, next exercise, recent workout names, tracked lift highlights, and recent training counts
+**Does your app collect or share any of the required user data types?** → **Yes.**
+"Collected" means transmitted off the device. Processing by a service provider
+on our behalf (Vercel, Anthropic) is *not* "sharing" under Play's definition.
 
-This likely affects at least:
-- Health and fitness
-- App activity or user-generated content
+| Category → data type | Collected | Shared | Optional for the user | Purpose | Notes |
+|---|---|---|---|---|---|
+| Personal info → User IDs | Yes | No | Yes (only with sign-in) | App functionality (backup) | Google account id, stored hashed on the server |
+| Personal info → Email address, Name | Transient | No | Yes | App functionality | Arrive inside the Google token, never stored server-side; kept on the device only. Play's ephemeral-processing exemption applies; declare if you prefer to be conservative |
+| Health and fitness → Fitness info, Health info | Yes | No | Yes | App functionality | Workout log, body weight, measurements — sent for the backup and the coach |
+| Photos and videos → Photos | Yes | No | Yes | App functionality | Programme import; not stored (ephemeral) |
+| Messages / Other user-generated content | Yes | No | Yes | App functionality | Coach questions and composer briefs; not stored by us, Anthropic ≤ 30 days |
+| App activity → App interactions | Yes | No | Yes | Analytics | The eight usage events. Settings → Usage statistics switches them off; off drops the queue |
+| Device or other IDs | Yes | No | Yes | Analytics | Random install id, reset on reinstall and discarded when the switch is off |
+| Financial info, Location, Contacts, Audio, Files and docs, Calendar, Web browsing, Installed apps | No | No | — | — | — |
 
-Because this data leaves the device and is sent through your endpoint to an AI provider, you must review the final Play answers carefully before release.
+**Security practices**
+- Data encrypted in transit: **Yes** (the app talks HTTPS to Vercel; Vercel talks HTTPS to Anthropic and Google).
+- Users can request data deletion: **Yes** — in the app (Settings → Delete cloud backup; Settings → Reset all data) and by email to the address in the policy.
+- Committed to the Play Families policy: No. Independent security review (MASA): No.
 
-## 3. Recommended Play Console answers
-### Does your app collect or share any of the required user data types?
-Recommended answer:
-- Preview-only Vinha AI launch: No
-- Live Vinha AI launch: re-evaluate before submitting
+**Account creation and deletion.** Google sign-in for the cloud backup counts as
+account creation → answer **Yes, optional**. Play requires an in-app deletion
+path (exists: Settings → Delete cloud backup, then Sign out) **and a public
+account-deletion URL** entered in the form. The URL can be a page on the legal
+site saying: sign in on any Android phone and press Delete cloud backup, or
+email us. This page does not exist yet.
 
-### Is all data encrypted in transit?
-Recommended answer:
-- Preview-only Vinha AI launch: Not applicable if you declare no data collected
-- Live Vinha AI launch: Yes, if your endpoint is HTTPS only
+**Is collection optional?** Yes, all of it. Backup, coach and photo import sit
+behind the user's own action, and usage events plus the install id can be
+switched off in Settings → Usage statistics (2026-09-04): off means the client
+sends nothing and discards its queue and install id, and nothing leaves before
+the stored preference has been read at startup.
 
-### Can users request deletion of their data?
-Recommended answer: Yes, via in-app local deletion / reset.
+## 3. True on the day of submission
 
-Notes:
-- There is no account-based deletion flow because there are no user accounts.
-- The app includes a local reset path.
-
-## 4. Data categories currently present in the app, but stored locally only
-These exist in the app's local database:
-- Health and fitness: workout logs, load, reps, sets, bodyweight entries, training notes
-- App activity / user-generated content: custom workout templates and optional exercise notes
-- App info / preferences: unit preference, timer preference, onboarding state, active plan choice
-
-Important:
-- Under Google's Data Safety guidance, data processed only on-device and not sent off-device does not need to be disclosed as collected.
-- If live Vinha AI is enabled, a limited subset of this context is sent off-device for Vinha AI responses and should be reviewed for disclosure.
-
-## 5. Data Safety form draft answers
-- Preview-only launch:
-  - Data collected: No
-  - Data shared: No
-  - Security practices: local storage only for user workout data
-  - Deletion request mechanism: Yes, in-app reset of local data
-- Live Vinha AI launch:
-  - Re-review Data Safety before submission
-  - Document Vinha AI prompt/context processing in the privacy policy
-  - Confirm HTTPS in transit and non-logging stance for prompts/context
-  - Deletion request mechanism: local reset for on-device data; clarify any server-side retention if you later add it
-- Privacy policy: required, must be published at a public URL and linked in Play Console and inside the app
-
-## 6. If Vinha AI Beta is launched live
-The Data Safety form and privacy policy must match that release before shipping any version that sends prompts or training context to a server or third-party AI provider.
-
-At that point you will likely need to reassess at least:
-- Health and fitness data
-- App activity or user-generated content
-- Whether data is collected optionally or required
-- Encryption in transit
-- Retention and deletion practices for server-side data
-
-## 7. Final recommendation
-For the first public Play launch:
-- if you want the simplest launch path, keep Vinha AI in preview mode and launch as a local-first strength logger
-- if you enable live Vinha AI Beta, update Play declarations and privacy text before release and keep the feature clearly marked as Beta
+- `AI_COACH_DEBUG_TRANSCRIPTS = false` in `src/lib/aiCoachDebug.ts`, the Vercel
+  variable and `TRANSCRIPT_READ_SECRET` unset, `api/transcripts.ts` deleted,
+  `transcripts/` emptied in the Blob store. (`releaseReadiness` enforces the
+  constant once `demoBuild` is cleared.)
+- `demoBuild` removed from `app.json`.
+- Vercel Blob store region confirmed **EU** in the Vercel dashboard — the policy
+  says so in both languages.
+- Privacy policy URL in Play Console points at the published policy, and the
+  in-app text is the same version (`LEGAL_LAST_UPDATED`).
+- The store listing's target audience matches the policy's "not for under 16".

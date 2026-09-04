@@ -10,6 +10,12 @@
  * cooperates and puts the batch back when it does not. Losing events to a
  * dead zone is acceptable; losing a workout save to analytics would not be,
  * which is why nothing here is awaited on any user path.
+ *
+ * The reader's switch (Settings → Usage statistics, 2026-09-04) reaches this
+ * module through setUsageStatisticsEnabled. Nothing is sent until the switch
+ * has been read from the stored preferences, so a reader who turned it off
+ * never has a batch slip out during startup; turning it off also forgets the
+ * queue and the install id, so re-enabling starts as a new install.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -34,6 +40,22 @@ interface StoredState {
 let memory: StoredState | null = null;
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 let flushing = false;
+/**
+ * null until App.tsx has read the preference: events raised before that are
+ * queued, and dropped if the answer turns out to be no. Only an explicit
+ * `true` lets a batch leave.
+ */
+let enabled: boolean | null = null;
+
+/**
+ * Read through a function on purpose: the compiler narrows a module-level
+ * `let` after an `if` and keeps the narrowing across an await, so a second
+ * direct comparison after the await is reported as impossible — and the
+ * whole point of the second check is that the switch may have moved.
+ */
+function switchedOff(): boolean {
+  return enabled === false;
+}
 
 function randomUuid(): string {
   // Math.random is enough: this id needs to be unique-ish, not secret.
@@ -42,29 +64,48 @@ function randomUuid(): string {
   return `${hex(8)}-${hex(4)}-4${hex(3)}-${((Math.random() * 4) | 8).toString(16)}${hex(3)}-${hex(12)}`;
 }
 
-async function loadState(): Promise<StoredState> {
+/**
+ * The stored state, or null once the switch is off. The switch is re-read
+ * after every await in this module: a call that started while the answer was
+ * unknown must not be the thing that writes the key back after the off path
+ * removed it.
+ */
+async function loadState(): Promise<StoredState | null> {
+  if (switchedOff()) {
+    return null;
+  }
   if (memory) {
     return memory;
   }
+  let loaded: StoredState | null = null;
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<StoredState>;
       if (typeof parsed.installId === 'string' && Array.isArray(parsed.queue)) {
-        memory = { installId: parsed.installId, queue: parsed.queue.filter(isValidEvent) };
-        return memory;
+        loaded = { installId: parsed.installId, queue: parsed.queue.filter(isValidEvent) };
       }
     }
   } catch {
     // A corrupt queue is not worth crashing over; start over.
   }
-  memory = { installId: randomUuid(), queue: [] };
-  await persist();
+  // The switch may have flipped during the read, and a second caller may
+  // have finished its own read first — either way this one yields.
+  if (switchedOff()) {
+    return null;
+  }
+  if (memory) {
+    return memory;
+  }
+  memory = loaded ?? { installId: randomUuid(), queue: [] };
+  if (!loaded) {
+    await persist();
+  }
   return memory;
 }
 
 async function persist(): Promise<void> {
-  if (!memory) {
+  if (!memory || switchedOff()) {
     return;
   }
   try {
@@ -75,11 +116,11 @@ async function persist(): Promise<void> {
 }
 
 async function flush(): Promise<void> {
-  if (flushing || !ANALYTICS_URL) {
+  if (flushing || !ANALYTICS_URL || enabled !== true) {
     return;
   }
   const state = await loadState();
-  if (state.queue.length === 0) {
+  if (!state || state.queue.length === 0) {
     return;
   }
   flushing = true;
@@ -118,15 +159,20 @@ function scheduleFlush(): void {
 /**
  * Record one event. Never awaited by callers, never throws into them, and a
  * build without the URL queues nothing at all — no ghost queue growing on
- * installs that will never send it.
+ * installs that will never send it. A reader who switched statistics off
+ * queues nothing either.
  */
 export function trackEvent(name: AnalyticsEventName, props?: { step?: number; path?: string }): void {
-  if (!ANALYTICS_URL) {
+  if (!ANALYTICS_URL || enabled === false) {
     return;
   }
   void (async () => {
     try {
       const state = await loadState();
+      // Null means the switch went off while the state was loading.
+      if (!state) {
+        return;
+      }
       const event: AnalyticsEvent = { name, at: new Date().toISOString(), ...(props ? { props } : {}) };
       if (!isValidEvent(event)) {
         return;
@@ -138,6 +184,34 @@ export function trackEvent(name: AnalyticsEventName, props?: { step?: number; pa
       // Analytics must never cost the user anything.
     }
   })();
+}
+
+/**
+ * Apply the reader's switch. Off clears the queue and forgets the install id,
+ * so nothing waits to be sent later and nothing ties a future yes to the
+ * past; on lets whatever queued while the answer was unknown go out.
+ */
+export function setUsageStatisticsEnabled(next: boolean): void {
+  enabled = next;
+  if (flushTimer) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+  if (!next) {
+    memory = null;
+    void AsyncStorage.removeItem(STORAGE_KEY).catch(() => undefined);
+    return;
+  }
+  if (!ANALYTICS_URL) {
+    return;
+  }
+  void loadState()
+    .then((state) => {
+      if (state && state.queue.length > 0) {
+        scheduleFlush();
+      }
+    })
+    .catch(() => undefined);
 }
 
 /** Whether this build reports usage at all — the settings screen states it. */

@@ -24,6 +24,7 @@ const DEFAULT_PREFERENCES = {
   keepScreenAwakeDuringWorkout: true,
   soundCuesEnabled: true,
   darkThemeEnabled: false,
+  usageStatisticsEnabled: true,
   hapticsEnabled: true,
   ownBlockStats: {} as OwnBlockStats,
   alwaysOwnWarmup: false,
