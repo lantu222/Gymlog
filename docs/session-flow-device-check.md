@@ -193,6 +193,30 @@ have:
 - `Finish` and the actions sheet's `Resume` are violet, against the app's own
   "orange is what you press" rule. Pre-existing, not from this change.
 
+## Light theme and Finnish, walked 2026-09-04
+
+Both were on the "still unwalked" list; both are walked now, and one real
+defect came out of it.
+
+**The rest ring never turned in the light theme.** It took RestRing's default
+stroke — the purple token — and in light the purple and highlight tokens are
+the same violet, so the ring the design turns accent at zero turned into
+itself. The resting ring is named neutral now, which is what the design asked
+for in the first place and makes the change visible in both themes.
+
+Otherwise light holds: the session chrome, the lift card, the dots (green
+logged, accent ring current), the single rest target, the READY state and its
+one CTA all read on the lilac ground. Finnish reads throughout, decimal comma
+included — `12,5 kg` on the dial, in the logged-set card and on the target.
+
+Note for anyone reading a screenshot: in light the CTA is **green**, because
+`accent` is green there and orange only in dark. That is the theme engine
+working, not a colour bug.
+
+**Still unwalked:** the amber caution rows and the WATCH FOR chips (needs a
+caution flag set in onboarding), and the "always start on your own" offer
+(needs three sessions warmed up that way).
+
 ## After the walkthrough
 
 Delete this file once every box is ticked — it is a to-do for one release, not
