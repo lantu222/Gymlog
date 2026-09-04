@@ -134,6 +134,7 @@ const suites = [
   ...require('./lib/seasonEnrolment.test.cjs'),
   ...require('./lib/deviceLanguage.test.cjs'),
   ...require('./lib/i18n.test.cjs'),
+  ...require('./lib/finnishTerms.test.cjs'),
   ...require('./lib/trainingRhythm.test.cjs'),
   ...require('./lib/progressionAnalyzer.test.cjs'),
   ...require('./lib/fatigueModel.test.cjs'),

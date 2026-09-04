@@ -58,14 +58,18 @@ module.exports = [
       // until the program screen started rendering the description. A test is
       // cheaper than noticing it on a device again.
       const { getReadyProgramContent } = require('../../.test-dist/lib/readyProgramContent');
+      const { FALLBACK_READY_PROGRAM_CONTENT_FI } = require('../../.test-dist/lib/readyProgramContentFi');
       const placeholder = [];
       for (const template of WORKOUT_TEMPLATES_V1) {
         for (const language of ['en', 'fi']) {
           const content = getReadyProgramContent(template.id, language);
           assert.ok(content, `${template.id} has no content in ${language}`);
+          // The English fallback is built inline and opens with this phrase.
+          // The Finnish one is an exported constant, so compare to it: a
+          // prefix check went blind the first time the wording was touched.
           if (
             content.summary.startsWith('A structured Vinha') ||
-            content.summary.startsWith('Rakenteinen Vinha')
+            content.summary === FALLBACK_READY_PROGRAM_CONTENT_FI.summary
           ) {
             placeholder.push(`${template.id}/${language}`);
           }

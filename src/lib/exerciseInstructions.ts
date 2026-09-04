@@ -730,7 +730,7 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
   Stairmaster: [
     'Astu porraslaitteeseen ja valitse haluamasi vaihtoehto valikosta. Voit valita manuaalisen asetuksen tai valmiin ohjelman. Yleensä voit syöttää ikäsi ja painosi, jolloin laite arvioi kulutetut kalorit.',
     'Pumppaa jalkoja tasaisessa rytmissä ja paina poljinta alas, mutta älä pohjaan asti. Pidä kiinni kahvoista, jotta et kompastu. Kahvoista voi myös seurata sykettä ja pitää tehon oikeana.',
-    'Porraslaite on kätevä ja kehittää kestävyyttä pienemmillä iskuilla kuin ulkona juoksu. Se on tavallisesti selvästi raskaampi kuin muut kuntolaitteet: 70-kiloinen polttaa yleensä yli 300 kaloria puolessa tunnissa, kun kävely polttaa noin 175.',
+    'Porraslaite on kätevä ja kehittää kestävyyttä pienemmillä iskuilla kuin ulkona juoksu. Se on tavallisesti selvästi raskaampi kuin muut cardiolaitteet: 70-kiloinen polttaa yleensä yli 300 kaloria puolessa tunnissa, kun kävely polttaa noin 175.',
   ],
   'Standing Calf Raises': [
     'Säädä pohjekonelaitteen pehmuste pituutesi mukaan.',
@@ -814,9 +814,9 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
   // kahdelle olkapääpäivälle (1.9.2026): valmisohjelman määräämä liike ei saa
   // pudota englantiin.
   'Upright Barbell Row': [
-    'Ota tangosta yliote hieman hartioita kapeammalta. Anna tangon levätä reisiä vasten kädet suorina ja kyynärpäissä kevyt koukistus. Pidä selkä suorana. Tämä on alkuasento.',
-    'Uloshengityksellä nosta tankoa olkapäiden sivuilla vetäen kyynärpäät ylös ja sivuille. Pidä tanko lähellä vartaloa koko nousun ajan ja jatka, kunnes se on lähes leuan tasolla. Kyynärpäät johtavat liikettä ja pysyvät koko ajan kyynärvarsia ylempänä. Pidä ylävartalo paikallaan ja tauota sekunti ääriasennossa.',
-    'Laske tanko hitaasti takaisin alkuasentoon. Hengitä sisään laskuvaiheessa.',
+    'Ota tangosta yliote hieman hartioita kapeammalta ja anna sen levätä reisiä vasten kädet suorina, kyynärpäissä kevyt koukku. Pidä selkä suorana.',
+    'Nosta tankoa vartalon myötäisesti vetäen kyynärpäät ylös ja sivuille. Pidä tanko lähellä vartaloa ja jatka, kunnes se on lähes leuan tasolla. Kyynärpäät johtavat liikettä ja pysyvät kyynärvarsia ylempänä. Ylävartalo pysyy paikallaan. Pidä sekunti ääriasennossa.',
+    'Laske tanko hitaasti takaisin alkuasentoon.',
     'Toista suositeltu määrä toistoja.',
   ],
   'Weighted Pull Ups': [

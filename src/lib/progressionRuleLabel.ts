@@ -20,37 +20,37 @@ const FI: Record<string, string> = {
   'Anchor lifts keep double progression so strength holds while conditioning volume climbs.':
     'Ankkuriliikkeissä pidetään tuplaprogressio, jotta voima säilyy kuntovolyymin noustessa.',
   'Anchor lifts run heavy double progression: add load only after every planned set lands at the top of the range with bar speed intact.':
-    'Ankkuriliikkeissä raskas tuplaprogressio: lisää painoa vasta kun jokainen suunniteltu sarja osuu toistoalueen yläpäähän tangon nopeuden säilyessä.',
+    'Ankkuriliikkeissä raskas tuplaprogressio: lisää painoa vasta kun jokainen suunniteltu sarja osuu toistohaarukan yläpäähän tangon nopeuden säilyessä.',
   'Anchor the first lift of each day through the full rep range before adding weight. At this frequency, load jumps must stay small.':
-    'Vie päivän ensimmäinen liike koko toistoalueen läpi ennen painon lisäystä. Tällä tiheydellä painonnousujen on pysyttävä pieninä.',
+    'Vie päivän ensimmäinen liike koko toistohaarukan läpi ennen painon lisäystä. Tällä tiheydellä painonnousujen on pysyttävä pieninä.',
   'Drive the main lift with lower-rep double progression. Add load only when all planned sets stay clean and inside the target range.':
-    'Vedä päänostoa matalan toistomäärän tuplaprogressiolla. Lisää painoa vasta kun kaikki suunnitellut sarjat pysyvät puhtaina ja toistoalueen sisällä.',
+    'Vedä ankkuriliikettä matalan toistomäärän tuplaprogressiolla. Lisää painoa vasta kun kaikki suunnitellut sarjat pysyvät puhtaina ja toistohaarukan sisällä.',
   'Drive the main lift with lower-rep double progression. Add load only when all planned sets stay crisp and inside the rep range.':
-    'Vedä päänostoa matalan toistomäärän tuplaprogressiolla. Lisää painoa vasta kun kaikki suunnitellut sarjat pysyvät terävinä ja toistoalueen sisällä.',
+    'Vedä ankkuriliikettä matalan toistomäärän tuplaprogressiolla. Lisää painoa vasta kun kaikki suunnitellut sarjat pysyvät terävinä ja toistohaarukan sisällä.',
   'Progress the first compound lift of each session through the rep range before adding load.':
-    'Vie treenin ensimmäinen moninivelliike toistoalueen läpi ennen painon lisäystä.',
+    'Vie treenin ensimmäinen moninivelliike toistohaarukan läpi ennen painon lisäystä.',
   'Progress the first exercise through the full rep range before adding weight. This is the highest-priority movement of the day.':
-    'Vie ensimmäinen liike koko toistoalueen läpi ennen painon lisäystä. Se on päivän tärkein liike.',
+    'Vie ensimmäinen liike koko toistohaarukan läpi ennen painon lisäystä. Se on päivän tärkein liike.',
   'Push the first compound lift on each day through the rep range before adding load.':
-    'Vie päivän ensimmäinen moninivelliike toistoalueen läpi ennen painon lisäystä.',
+    'Vie päivän ensimmäinen moninivelliike toistohaarukan läpi ennen painon lisäystä.',
   'Run double progression on the first two lifts each day; add load once the top of the range repeats cleanly.':
-    'Aja tuplaprogressiota päivän kahdessa ensimmäisessä liikkeessä; lisää painoa kun toistoalueen yläpää toistuu puhtaana.',
+    'Aja tuplaprogressiota päivän kahdessa ensimmäisessä liikkeessä; lisää painoa kun toistohaarukan yläpää toistuu puhtaana.',
   'Run the first lift of each day as the performance anchor. Add load after every set lands at the top of the target range with clean technique.':
-    'Aja päivän ensimmäinen liike suorituksen ankkurina. Lisää painoa kun jokainen sarja osuu tavoitealueen yläpäähän puhtaalla tekniikalla.',
+    'Aja päivän ensimmäinen liike suorituksen ankkurina. Lisää painoa kun jokainen sarja osuu toistohaarukan yläpäähän puhtaalla tekniikalla.',
   'Treat the first lift on each day as the performance slot and only add load once all work sets live at the top of the target range.':
-    'Kohtele päivän ensimmäistä liikettä suorituspaikkana ja lisää painoa vasta kun kaikki työsarjat asettuvat tavoitealueen yläpäähän.',
+    'Kohtele päivän ensimmäistä liikettä suorituspaikkana ja lisää painoa vasta kun kaikki työsarjat asettuvat toistohaarukan yläpäähän.',
   'Use double progression on anchor lifts. Add load after the top of the rep range is repeatable with clean form.':
-    'Käytä ankkuriliikkeissä tuplaprogressiota. Lisää painoa kun toistoalueen yläpää toistuu puhtaalla tekniikalla.',
+    'Käytä ankkuriliikkeissä tuplaprogressiota. Lisää painoa kun toistohaarukan yläpää toistuu puhtaalla tekniikalla.',
   'Use double progression on anchor lifts. When the last hard set reaches repsMax with clean form, increase load next time by the smallest practical increment.':
-    'Käytä ankkuriliikkeissä tuplaprogressiota. Kun viimeinen raskas sarja yltää toistoalueen yläpäähän puhtaana, nosta painoa ensi kerralla pienimmällä järkevällä askeleella.',
+    'Käytä ankkuriliikkeissä tuplaprogressiota. Kun viimeinen raskas sarja yltää toistohaarukan yläpäähän puhtaana, nosta painoa ensi kerralla pienimmällä järkevällä askeleella.',
   'Use double progression on the first two lifts each day and add load after the top of the rep range repeats with good form.':
-    'Käytä tuplaprogressiota päivän kahdessa ensimmäisessä liikkeessä ja lisää painoa kun toistoalueen yläpää toistuu hyvällä tekniikalla.',
+    'Käytä tuplaprogressiota päivän kahdessa ensimmäisessä liikkeessä ja lisää painoa kun toistohaarukan yläpää toistuu hyvällä tekniikalla.',
   'Add reps before load. When repsMax is repeatable, use a small load increase; otherwise repeat the same load.':
-    'Lisää toistoja ennen painoa. Kun toistoalueen yläpää toistuu, nosta painoa vähän; muuten toista sama paino.',
+    'Lisää toistoja ennen painoa. Kun toistohaarukan yläpää toistuu, nosta painoa vähän; muuten toista sama paino.',
   'Add reps inside the range before adding load. When the top of the range is clean on every set, add the smallest increment you have.':
-    'Lisää toistoja haarukan sisällä ennen kuin lisäät painoa. Kun haarukan yläpää menee puhtaasti joka sarjassa, lisää pienin korotus mikä sinulla on.',
+    'Lisää toistoja toistohaarukan sisällä ennen kuin lisäät painoa. Kun toistohaarukan yläpää menee puhtaasti joka sarjassa, lisää pienin korotus mikä sinulla on.',
   'Hold the load until the whole range is repeatable. A summer session should end with something left in you.':
-    'Pidä paino samana kunnes koko haarukka toistuu. Kesätreenin pitäisi loppua niin että jotain jää jäljelle.',
+    'Pidä paino samana kunnes koko toistohaarukka toistuu. Kesätreenin pitäisi loppua niin että jotain jää jäljelle.',
   'Run blocks progress by adding one block, never by running the same block harder. Add the block only when the last one felt easy.':
     'Juoksuosuus etenee lisäämällä yksi osuus, ei juoksemalla samaa osuutta kovempaa. Lisää osuus vasta kun edellinen tuntui helpolta.',
   'If repsMin is missed, repeat the same session next time. If the same target is missed twice in a row, drop a set rather than the programme.':
@@ -58,7 +58,7 @@ const FI: Record<string, string> = {
   'Same rule, slower. Twenty-six weeks is long enough that holding a load for three sessions costs you nothing.':
     'Sama sääntö, hitaammin. 26 viikkoa on niin pitkä aika, ettei painon pitäminen samana kolme treeniä maksa mitään.',
   'Add reps before load. The conditioning finisher is not progressed by load at all - keep the effort steady and let the leg work be the hard part.':
-    'Toistot ennen painoa. Loppuosuutta ei progressoida kuormalla lainkaan – pidä teho samana ja anna jalkatreenin olla se raskas osa.',
+    'Toistot ennen painoa. Kunto-osuutta ei progressoida kuormalla lainkaan – pidä teho samana ja anna jalkatreenin olla se raskas osa.',
   'Treat the run work as clean interval blocks and add total blocks only after pacing feels stable.':
     'Kohtele juoksuosuutta puhtaina intervalliblokkeina ja lisää blokkeja vasta kun vauhti tuntuu vakaalta.',
   'Keep the movement smooth and repeat the full range before adding more total rounds.':
@@ -68,13 +68,13 @@ const FI: Record<string, string> = {
 
   // ── Secondary ───────────────────────────────────────────────────────
   'Keep secondary lifts one step easier than the main lift so the week stays repeatable.':
-    'Pidä tukiliikkeet askeleen päänostoa kevyempinä, jotta viikko pysyy toistettavana.',
+    'Pidä tukiliikkeet askeleen ankkuriliikettä kevyempinä, jotta viikko pysyy toistettavana.',
   'Keep secondary lifts one step lighter than the main lift and progress more slowly than the anchors.':
-    'Pidä tukiliikkeet askeleen päänostoa kevyempinä ja etene niissä ankkureita hitaammin.',
+    'Pidä tukiliikkeet askeleen ankkuriliikettä kevyempinä ja etene niissä sitä hitaammin.',
   'Let the secondary compounds climb more slowly so session quality stays consistent across the week.':
     'Anna tukevien moninivelliikkeiden nousta hitaammin, jotta treenien laatu pysyy tasaisena läpi viikon.',
   'Progress secondary lifts by adding reps first, then load once the range is stable across working sets.':
-    'Etene tukiliikkeissä lisäämällä ensin toistoja, sitten painoa kun toistoalue on vakaa kaikissa työsarjoissa.',
+    'Etene tukiliikkeissä lisäämällä ensin toistoja, sitten painoa kun toistohaarukka on vakaa kaikissa työsarjoissa.',
   'Secondary compounds add pressure without matching anchor fatigue — climb them slower than the anchors.':
     'Tukevat moninivelliikkeet lisäävät painetta ilman ankkurin väsytystä — nosta niitä ankkureita hitaammin.',
   'Secondary compounds add volume, so let them rise more slowly than the anchor of the day.':
@@ -84,21 +84,21 @@ const FI: Record<string, string> = {
   'Secondary lifts add most of the weekly volume, so keep them technical and avoid forcing progress too aggressively.':
     'Tukiliikkeet tuovat suurimman osan viikon volyymista, joten pidä ne teknisinä äläkä pakota etenemistä.',
   'Secondary lifts complete the range before adding load; fatigue from finishers never excuses sloppy reps.':
-    'Tukiliikkeissä täytetään toistoalue ennen painon lisäystä; lopetusten väsymys ei koskaan oikeuta epäpuhtaita toistoja.',
+    'Tukiliikkeissä täytetään toistohaarukka ennen painon lisäystä; kunto-osuuksien väsymys ei koskaan oikeuta epäpuhtaita toistoja.',
   'Secondary work climbs slower — the goal is a repeatable hard week, not a maximal one.':
     'Tukityö nousee hitaammin — tavoite on toistettava kova viikko, ei maksimaalinen.',
   'Use secondary compounds to add quality volume without matching the fatigue of the main lift.':
-    'Käytä tukevia moninivelliikkeitä laadukkaan volyymin lisäämiseen ilman päänoston väsytystä.',
+    'Käytä tukevia moninivelliikkeitä laadukkaan volyymin lisäämiseen ilman ankkuriliikkeen väsytystä.',
   'Use secondary exercises to add volume to the target muscle without matching the fatigue of the primary lift.':
-    'Käytä tukiliikkeitä kohdelihaksen volyymin lisäämiseen ilman päänoston väsytystä.',
+    'Käytä tukiliikkeitä kohdelihaksen volyymin lisäämiseen ilman ankkuriliikkeen väsytystä.',
   'Use the second compound lift to build more total work without matching the fatigue of the anchor.':
     'Käytä toista moninivelliikettä kokonaistyön lisäämiseen ilman ankkurin väsytystä.',
   'Conditioning and trunk work progress by pace and reps, never at the cost of the main lifts.':
-    'Kunto- ja keskivartalotyö etenee vauhdilla ja toistoilla, ei koskaan päänostojen kustannuksella.',
+    'Kunto- ja keskivartalotyö etenee vauhdilla ja toistoilla, ei koskaan ankkuriliikkeiden kustannuksella.',
   'Conditioning finishers are effort-based: keep the work intervals honest and let pace, not load, be the progression.':
-    'Kuntolopetukset menevät tuntumalla: pidä työjaksot rehellisinä ja anna vauhdin, ei painon, olla progressio.',
+    'Kunto-osuudet menevät tuntumalla: pidä työjaksot rehellisinä ja anna vauhdin, ei painon, olla progressio.',
   'Finishers progress by pace and density — harder intervals, same honesty.':
-    'Lopetukset etenevät vauhdilla ja tiheydellä — kovempia intervalleja, sama rehellisyys.',
+    'Kunto-osuudet etenevät vauhdilla ja tiheydellä — kovempia intervalleja, sama rehellisyys.',
   'Treat secondary drills as clean support work, not something to grind through.':
     'Kohtele tukiharjoitteita puhtaana tukityönä, ei jauhettavana.',
   'Use secondary poses and resets to improve control, not to chase fatigue.':
@@ -140,11 +140,11 @@ const FI: Record<string, string> = {
   'A missed anchor set repeats the load. Two misses in a row drops load 5% and rebuilds the wave.':
     'Epäonnistunut ankkurisarja toistetaan samalla painolla. Kaksi peräkkäin pudottaa painoa 5 % ja aalto rakennetaan uudelleen.',
   'A missed range repeats the load once; two misses in a row drops load slightly and rebuilds.':
-    'Vajaaksi jäänyt toistoalue toistetaan kerran samalla painolla; kaksi peräkkäin pudottaa painoa hieman ja rakennetaan uudelleen.',
+    'Vajaaksi jäänyt toistohaarukka toistetaan kerran samalla painolla; kaksi peräkkäin pudottaa painoa hieman ja rakennetaan uudelleen.',
   'If a main lift misses repsMin, hold the same load next time. Two misses in a row means reduce load slightly and rebuild.':
-    'Jos päänostossa jää toistoalueen alaraja vajaaksi, pidä sama paino ensi kerralla. Kaksi peräkkäin tarkoittaa pientä painon pudotusta ja uudelleenrakentamista.',
+    'Jos ankkuriliikkeessä jää toistohaarukan alaraja vajaaksi, pidä sama paino ensi kerralla. Kaksi peräkkäin tarkoittaa pientä painon pudotusta ja uudelleenrakentamista.',
   'If a main lift misses repsMin, repeat it next time. Two misses in a row means reduce load slightly and rebuild the pattern.':
-    'Jos päänostossa jää toistoalueen alaraja vajaaksi, toista se ensi kerralla. Kaksi peräkkäin tarkoittaa pientä painon pudotusta ja liikkeen rakentamista uudelleen.',
+    'Jos ankkuriliikkeessä jää toistohaarukan alaraja vajaaksi, toista se ensi kerralla. Kaksi peräkkäin tarkoittaa pientä painon pudotusta ja liikkeen rakentamista uudelleen.',
   'If repsMin is missed on the anchor, repeat the load. Two misses means reduce by 5% and rebuild cleanly before attempting new weight.':
     'Jos ankkurissa jää alaraja vajaaksi, toista sama paino. Kaksi kertaa tarkoittaa 5 % pudotusta ja puhdasta uudelleenrakentamista ennen uutta painoa.',
   'If repsMin is missed, repeat the load next time. If it happens twice, reduce load 5-10% and rebuild.':
@@ -158,7 +158,7 @@ const FI: Record<string, string> = {
   'If the first work set misses repsMin, repeat the load next time. If it stalls twice, reduce load by 5% and rebuild with clean reps.':
     'Jos ensimmäisessä työsarjassa jää alaraja vajaaksi, toista sama paino ensi kerralla. Jos se jumittaa kahdesti, pudota painoa 5 % ja rakenna uudelleen puhtailla toistoilla.',
   'If the primary misses repsMin, repeat the same load. Two consecutive misses mean reduce load by 5% and build back up with clean technique.':
-    'Jos päänostossa jää alaraja vajaaksi, toista sama paino. Kaksi peräkkäistä tarkoittaa 5 % pudotusta ja nousua takaisin puhtaalla tekniikalla.',
+    'Jos ankkuriliikkeessä jää alaraja vajaaksi, toista sama paino. Kaksi peräkkäistä tarkoittaa 5 % pudotusta ja nousua takaisin puhtaalla tekniikalla.',
   'Miss repsMin on the anchor lift and you repeat the load. Miss it twice and back off slightly before rebuilding.':
     'Jos ankkuriliikkeen alaraja jää vajaaksi, toistat saman painon. Kahdesti vajaaksi tarkoittaa pientä perääntymistä ennen uudelleenrakentamista.',
   'Missed reps on the first hard set means hold the same load next time. Two misses in a row means reduce load slightly and rebuild the week cleanly.':
@@ -172,7 +172,7 @@ const FI: Record<string, string> = {
   'If the interval work feels too heavy, repeat the same number of blocks next time and keep the pace easier.':
     'Jos intervallityö tuntuu liian raskaalta, toista sama blokkimäärä ensi kerralla ja pidä vauhti kevyempänä.',
   'Use the same rule, but keep load stable longer if fatigue rises. Prefer completing the rep range before adding weight.':
-    'Käytä samaa sääntöä, mutta pidä paino pidempään vakiona jos väsymys nousee. Täytä mieluummin toistoalue ennen painon lisäystä.',
+    'Käytä samaa sääntöä, mutta pidä paino pidempään vakiona jos väsymys nousee. Täytä mieluummin toistohaarukka ennen painon lisäystä.',
 };
 
 /**

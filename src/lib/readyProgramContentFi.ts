@@ -43,13 +43,13 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
   },
   tpl_gainer_expert_powerbuilding_v1: {
     summary:
-      'Powerbuilding-ohjelma yhdistää voimanoston pääharjoitteet ja kehonrakennuksen lihaskasvutyön samaan kokonaisuuteen.',
+      'Powerbuilding-ohjelma yhdistää voimanoston kilpailuliikkeet ja kehonrakennuksen lihaskasvutyön samaan kokonaisuuteen.',
     audience:
       'Sopii kokeneille nostajille, jotka haluavat kasvattaa sekä maksimivoimaa että lihasmassaa ilman kompromisseja.',
     equipmentProfile:
       'Vaatii hyvin varustellun kuntosalin, kyykkytelineen, penkkipisteen, levytangot ja monipuoliset lisälaitteet.',
     whyItWorks:
-      'Raskaat pääliikkeet kehittävät voimaa, kun taas täydentävät hypertrofiasarjat lisäävät lihasmassaa ja tukevat pitkän aikavälin kehitystä.',
+      'Raskaat kilpailuliikkeet kehittävät voimaa, kun taas täydentävät hypertrofiasarjat lisäävät lihasmassaa ja tukevat pitkän aikavälin kehitystä.',
   },
   tpl_gainer_lean_shred_v1: {
     summary:
@@ -214,30 +214,30 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
 
   tpl_strong_elite_v1: {
     summary:
-      '12 viikon Pro-voimajakso: viiden sarjan ankkuriliikkeet, raskaat painepäivät ja apuliikkeet jotka suojaavat seuraavaa raskasta treeniä.',
+      '12 viikon Pro-voimajakso: viiden sarjan ankkuriliikkeet, raskaat ja kovat päivät sekä apuliikkeet, jotka suojaavat seuraavaa raskasta treeniä.',
     audience:
       'Kokeneille treenaajille, jotka palautuvat hyvin, osaavat perusliikkeet ulkoa ja haluavat maksimivoiman selkeäksi prioriteetiksi.',
     equipmentProfile: 'Vaatii täyden salin: tanko, teline, penkki, trap bar tai maastavetopaikka, laitteet ja taljat.',
     whyItWorks:
-      'Jokainen liikemalli saa viikossa yhden raskaan ja yhden painealtistuksen, joten teho nousee jakson aikana ilman että viikko romahtaa väsymykseen.',
+      'Jokainen liikemalli tehdään viikossa kerran raskaana ja kerran kovana päivänä, joten teho nousee jakson aikana ilman että viikko romahtaa väsymykseen.',
   },
   tpl_fit_elite_v1: {
     summary:
-      '12 viikon Pro-jakso, jossa voima-ankkurit pysyvät liikkeessä ja kuntopäätteet rakentavat oikeaa kestävyyttä neljänä päivänä viikossa.',
+      '12 viikon Pro-jakso, jossa voima-ankkurit pysyvät liikkeessä ja kunto-osuudet rakentavat oikeaa kestävyyttä neljänä päivänä viikossa.',
     audience:
       'Kokeneille yleisosaajille, jotka haluavat voiman, kunnon ja liikkuvuuden yhteen rehelliseen viikkorakenteeseen.',
-    equipmentProfile: 'Suositellaan täyttä salia: tanko, käsipainot, laitteet, kahvakuula ja kardiolaite päätteisiin.',
+    equipmentProfile: 'Suositellaan täyttä salia: tanko, käsipainot, laitteet, kahvakuula ja cardiolaite kunto-osuuksiin.',
     whyItWorks:
       'Tehopäivät painavat perusliikkeitä ja volyymipäivät lisäävät kuntotiheyttä, joten sekä voima että kestävyys etenevät varastamatta toisiltaan.',
   },
   tpl_shred_elite_v1: {
     summary:
-      '12 viikon Pro-rasvanpudotusjakso: viisi päivää, jotka pitävät voima-ankkurit paikallaan HIIT-päätteiden nostaessa energiankulutusta.',
+      '12 viikon Pro-rasvanpudotusjakso: viisi päivää, jotka pitävät voima-ankkurit paikallaan, kun HIIT-tyyppiset kunto-osuudet nostavat energiankulutusta.',
     audience:
       'Kokeneille treenaajille, jotka pudottavat rasvaa mutta kieltäytyvät menettämästä voimapohjaansa kuntovolyymin noustessa.',
     equipmentProfile: 'Suositellaan täyttä salia: tanko, laitteet, kahvakuula sekä juoksumatto tai pyörä intervalleihin.',
     whyItWorks:
-      'Joka treeni yhdistää yhden rehellisen voimaosion kuntopäätteeseen, joten vaje syntyy työstä jossa voi oikeasti edetä — ei turhasta volyymista.',
+      'Joka treeni yhdistää yhden rehellisen voimaosion kunto-osuuteen, joten vaje syntyy työstä jossa voi oikeasti edetä — ei turhasta volyymista.',
   },
   tpl_3_day_full_body_v1: {
     summary:
@@ -255,13 +255,13 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
       'Keskitason treenaajille, jotka pääsevät salille neljästi viikossa ja haluavat enemmän ylä/ala-volyymia kuin koko kehon treeni antaa.',
     equipmentProfile: 'Suositellaan täyttä salia, erityisesti tangot, käsipainot, laitteet, ylätalja ja soutupaikat.',
     whyItWorks:
-      'Jokainen liikemalli saa kaksi altistusta viikossa, mikä tekee palautumisesta ennakoitavaa ja tuottaa enemmän tuottavia kovia sarjoja ilman että jokaisesta päivästä tulee maraton.',
+      'Jokainen liikemalli tehdään kahdesti viikossa, mikä tekee palautumisesta ennakoitavaa ja tuottaa enemmän tuottavia kovia sarjoja ilman että jokaisesta päivästä tulee maraton.',
   },
   tpl_5_day_hybrid_v1: {
     summary:
       'Tiheämpi hybridijako, joka yhdistää ylä/ala-rakenteen omiin työntö- ja vetopäiviin tarkempaa erikoistumista varten.',
     audience:
-      'Keskitason treenaajille, jotka palautuvat hyvin, haluavat enemmän saliaikaa ja pitävät lihasryhmätunnusta menettämättä etenemisrakennetta.',
+      'Keskitason treenaajille, jotka palautuvat hyvin, haluavat enemmän saliaikaa ja pitävät lihasryhmäkohtaisista päivistä ilman että eteneminen katoaa.',
     equipmentProfile: 'Vaatii täyden salin. Pohja olettaa laajan välinevalikoiman: tanko, laitteet, käsipainot ja taljat.',
     whyItWorks:
       'Viikko avautuu raskaammalla moninivelrakenteella ja lisää sitten erilliset työntö- ja vetopäivät, joten ylimääräinen volyymi osuu sinne missä sillä on merkitystä paisuttamatta joka treeniä.',
@@ -277,10 +277,10 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
   },
   tpl_3_day_strength_base_v1: {
     summary:
-      'Yksinkertainen voima edellä -viikko kolmella raskaalla altistuksella, joten kyykky, punnerrus ja sarana etenevät kaikki toistettavilla raiteilla.',
+      'Yksinkertainen voima edellä -viikko kolmella raskaalla treenillä, joten kyykky, punnerrus ja sarana etenevät kaikki toistettavilla raiteilla.',
     audience:
       'Aloitteleville treenaajille, jotka haluavat oikean voimaohjelman hyppäämättä suoraan raskaaseen voimanostosetuppiin.',
-    equipmentProfile: 'Suositellaan täyttä salia, erityisesti tankopaikat, soutuvaihtoehto, ylätalja ja alavartalon perusliitteet.',
+    equipmentProfile: 'Suositellaan täyttä salia, erityisesti tankopaikat, soutuvaihtoehto, ylätalja ja alavartalon peruslaitteet.',
     whyItWorks:
       'Jokainen treeni alkaa yhdellä ankkuriliikkeellä matalilla toistoilla ja täyttää loppupäivän riittävällä tukityöllä rakentamatta palautumisvelkaa.',
   },
@@ -310,7 +310,7 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
       'Aloittelijoille, jotka haluavat koko kehon treeniä vaihtelevampaa mutta eivät ole vielä valmiita klassiseen nelipäiväiseen jakoon.',
     equipmentProfile: 'Tavallinen täysi sali toimii parhaiten, mutta treenin pituus ja liikemäärä pysyvät maltillisina.',
     whyItWorks:
-      'Jako antaa ylävartalolle kaksi altistusta ja alavartalolle yhden isomman päivän, joten sekä tekniikkaharjoittelu että palautuminen pysyvät helposti hallinnassa.',
+      'Jako antaa ylävartalolle kaksi treeniä ja alavartalolle yhden isomman päivän, joten sekä tekniikkaharjoittelu että palautuminen pysyvät helposti hallinnassa.',
   },
 
   tpl_3_day_push_pull_legs_v1: {
@@ -328,7 +328,7 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
       'Nelipäiväinen kasvupohja, joka pysyy lähestyttävänä aloitteleville mutta antaa silti riittävän kokonaisvolyymin kasvuun.',
     audience:
       'Aloittelijoille, jotka haluavat siirtyä koko kehon rakenteesta oikeaan ylä/ala-lihaskasvujakoon.',
-    equipmentProfile: 'Suositellaan täyttä salia, erityisesti laitteet, käsipainot ja alavartalon perusliitteet.',
+    equipmentProfile: 'Suositellaan täyttä salia, erityisesti laitteet, käsipainot ja alavartalon peruslaitteet.',
     whyItWorks:
       'Jako toistaa ylä- ja alavartalon kahdesti viikossa, mutta liikevalinnat pysyvät aloittelijaystävällisinä, joten kuorma kasvaa ennen monimutkaisuutta.',
   },
@@ -387,7 +387,7 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
     audience:
       'Talvikauteen osallistuville, jotka osaavat perusliikkeet jo ja haluavat että pimeä puolivuotinen jättää jotain käteen.',
     equipmentProfile:
-      'Vaatii täyden salin. Tanko, käsipainot, ylätalja ja reisikoukistuslaite sekä pyörä tai juoksumatto loppuosuuksiin.',
+      'Vaatii täyden salin. Tanko, käsipainot, ylätalja ja reisikoukistuslaite sekä pyörä tai juoksumatto kunto-osuuksiin.',
     whyItWorks:
       '26 viikkoa on tarpeeksi pitkä aika ajaa yksi raskas ankkuriliike per treeni ilman että sitä tarvitsee pakottaa, ja kaksi lyhyttä kunto-osuutta pitää kesällä rakennetun kunnon tallella maaliskuuhun asti.',
   },
@@ -399,7 +399,7 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
       'Keskitason treenaajille, jotka ovat kasvaneet ulos kolmen päivän PPL:stä mutta eivät ole valmiita täyteen kuuden päivän sitoumukseen.',
     equipmentProfile: 'Vaatii täyden salin. Pohja olettaa tangon, käsipainot, taljat, ylätaljan ja laitteet läpi viikon.',
     whyItWorks:
-      'Kun neljäs päivä on ylävartalon kirimispäivä eikä toinen jalkapäivä, jalat eivät ylikuormitu ja rinta, selkä ja kädet saavat merkityksellisen toisen altistuksen.',
+      'Kun neljäs päivä on ylävartalon kirimispäivä eikä toinen jalkapäivä, jalat eivät ylikuormitu ja rinta, selkä ja kädet saavat toisen kunnollisen treenikerran viikkoon.',
   },
 
   tpl_5_day_ppl_v1: {
@@ -409,7 +409,7 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
       'Keskitason ja edistyneille treenaajille, jotka treenaavat viitenä päivänä viikossa ja haluavat runsasvolyymisen työntö/veto-rakenteen.',
     equipmentProfile: 'Vaatii täyden salin kaikkina viitenä päivänä. Talja- ja laitepääsy on erityisen tärkeää toisilla työntö- ja vetotreeneillä.',
     whyItWorks:
-      'Työntö- ja vetomallien ajaminen kahdesti antaa ylävartalolle kaksinkertaisen altistuksen ilman toista raskasta jalkapäivää, joka veisi palautumisen.',
+      'Kun työntö ja veto tehdään kahdesti viikossa, ylävartalo saa kaksi treenikertaa ilman toista raskasta jalkapäivää, joka veisi palautumisen.',
   },
 
   tpl_5_day_upper_lower_full_v1: {
@@ -443,7 +443,7 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
   },
 
   tpl_focus_chest_v1: {
-    summary: 'Oma rintatreeni monikulmaisella punnerruksella ja liikkeillä, jotka maksimoivat rintavolyymin yhdellä käynnillä.',
+    summary: 'Oma rintatreeni: punnerrusta useasta kulmasta ja avaavia liikkeitä, joilla rinnan volyymi saadaan täyteen yhdellä salikäynnillä.',
     audience: 'Parhaiten lisäpäivänä, erikoistumisjaksona tai itsenäisenä rintatreeninä omassa viikkosuunnitelmassa.',
     equipmentProfile: 'Vaatii tasa- ja vinopenkin, käsipainot ja mielellään taljan tai pec deck -laitteen.',
     whyItWorks:
@@ -455,7 +455,7 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
     audience: 'Parhaiten itsenäisenä selkäpäivänä, täydentävänä vetotreeninä tai osana omaa tiheämpää viikkoa.',
     equipmentProfile: 'Vaatii leuanveto- tai ylätaljapaikan, tanko- tai taljasoutusetupin sekä pääsyn kasvoilleveto- tai takaolkapäälaitteelle.',
     whyItWorks:
-      'Pysty- ja vaakavetojen yhdistäminen takaolkapääpäätteeseen varmistaa, että kaikki kolme selän pääaluetta — leveä selkä, keskiselkä ja takaolkapää — treenataan yhdessä treenissä.',
+      'Pysty- ja vaakavetojen yhdistäminen takaolkapäätyöhön varmistaa, että kaikki kolme selän pääaluetta — leveä selkä, keskiselkä ja takaolkapää — treenataan yhdessä treenissä.',
   },
 
   tpl_focus_shoulders_v1: {
@@ -465,7 +465,7 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
       'Treenaajille, jotka haluavat lisää olkapäiden kehitystä nykyisen ohjelman päälle tai kohdennetun olkapääpäivän omaan jakoon.',
     equipmentProfile: 'Vaatii käsipainot, tanko- tai laitepunnerrusvaihtoehdon sekä talja- tai laitepääsyn takaolkapäätyöhön.',
     whyItWorks:
-      'Punnerruksen erottaminen eristyksestä antaa sivu- ja takaolkapäille suoraa työtä sen sijaan että ne luottaisivat rintapäivien sivuvaikutukseen.',
+      'Punnerruksen erottaminen eristyksestä antaa sivu- ja takaolkapäille suoraa työtä sen sijaan että ne jäisivät rintapäivien sivutuotteeksi.',
   },
 
   tpl_focus_arms_v1: {
@@ -494,16 +494,16 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
       'Treenaajille, jotka haluavat enemmän pakaravolyymia kuin tavalliset jalkapäivät antavat, tai kenelle tahansa pakaroiden erikoistumisjaksolla.',
     equipmentProfile: 'Vaatii lantionnostopenkin tai vakaan alustan, taljalaitteen ja mahdollisuuden romanialaiseen maastavetoon.',
     whyItWorks:
-      'Treeni priorisoi lonkan ojennusmalleja, jotka kuormittavat pakaroita pitkässä lihaspituudessa — tutkimusten mukaan se tuottaa enemmän kasvua kuin pelkkä moninivelliikkeiden sivuvaikutus.',
+      'Treeni priorisoi lonkan ojennusmalleja, jotka kuormittavat pakaroita pitkässä lihaspituudessa — tutkimusten mukaan se tuottaa enemmän kasvua kuin se, mitä moninivelliikkeistä tulee sivutuotteena.',
   },
 
   tpl_shred_v1: {
     summary:
-      'Kolme koko kehon treeniä, jotka yhdistävät moninivelnostot oikeisiin kuntopäätteisiin — rakennettu rasvanpudotukseen lihasta säilyttäen.',
+      'Kolme koko kehon treeniä, jotka yhdistävät moninivelnostot oikeisiin kunto-osuuksiin — rakennettu rasvanpudotukseen lihasta säilyttäen.',
     audience: 'Kenelle tahansa, jonka päätavoite on rasvanpudotus ja joka haluaa voimatyön ja kunnon samalle käynnille.',
-    equipmentProfile: 'Suositellaan täyttä salia: tanko, laitteet, kahvakuula sekä juoksumatto tai pyörä päätteisiin.',
+    equipmentProfile: 'Suositellaan täyttä salia: tanko, laitteet, kahvakuula sekä juoksumatto tai pyörä kunto-osuuksiin.',
     whyItWorks:
-      'Raskaat perusliikkeet suojaavat lihasta kalorivajeessa, ja joka treeni päättyy intervallipäätteeseen joka lisää oikeaa energiankulutusta — nimi toimii vain koska kunto on oikeasti mukana suunnitelmassa.',
+      'Raskaat perusliikkeet suojaavat lihasta kalorivajeessa, ja joka treeni päättyy kunto-osuuteen, joka lisää oikeaa energiankulutusta — nimi toimii vain koska kunto on oikeasti mukana suunnitelmassa.',
   },
 
   tpl_huge_starter_v1: {
@@ -562,11 +562,13 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
 /** Finnish text for programs generated outside the curated map. */
 export const FALLBACK_READY_PROGRAM_CONTENT_FI: ReadyProgramContent = {
   summary:
-    'Rakenteinen Vinha-ohjelma, jossa on selkeät treenit, liiketavoitteet ja etenemissäännöt valitulle treeniprofiilille.',
+    'Vinha-ohjelma, jossa on valmiit treenit, toistotavoitteet ja selvät etenemissäännöt.',
   audience:
-    'Käyttäjille, joiden onboarding-valinnat vastaavat tämän ohjelman tyyliä, viikkotiheyttä, kokemustasoa ja treenipainotusta.',
+    'Sinulle, jos alkukyselyn vastauksesi osuvat tämän ohjelman päiviin, tasoon ja painotukseen.',
   equipmentProfile:
-    'Välinetarpeet seuraavat valitun suunnitelman liikkeitä. Käy ensimmäinen viikko läpi ennen aloitusta, jos salisi valikoima on rajallinen.',
+    'Välineet määräytyvät ohjelman liikkeistä. Käy ensimmäinen viikko läpi ennen aloitusta, jos salisi valikoima on rajallinen.',
   whyItWorks:
-    'Suunnitelma ryhmittelee toisiinsa liittyvät treenipäivät toistettavaksi viikkorakenteeksi ja pitää sarjat, toistot ja lepotavoitteet näkyvissä, joten eteneminen on helppo seurata.',
+    'Ohjelma kokoaa treenipäivät toistettavaksi viikoksi ja pitää sarjat, toistot ja lepoajat näkyvissä, joten etenemistä on helppo seurata.',
 };
+
+
