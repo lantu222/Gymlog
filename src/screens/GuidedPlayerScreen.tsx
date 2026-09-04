@@ -3044,8 +3044,18 @@ export function GuidedPlayerScreen({
                     // say. An interval's easy half is a phase of the work, not
                     // a pause in it: green, the colour recovery wears
                     // everywhere else in the app.
+                    /*
+                     * Neutral while the wait is a wait, accent once it is over.
+                     *
+                     * The resting ring used to take RestRing's default, which
+                     * is `purple` — and in the light theme `purple` and
+                     * `highlight` are the same violet, so the ring the design
+                     * says should turn at zero did not turn at all (device
+                     * 2026-09-04). Naming the resting colour makes the change
+                     * a change in both themes.
+                     */
                     stroke={
-                      step.recoveryKind ? theme.green : restIsOver ? theme.highlight : undefined
+                      step.recoveryKind ? theme.green : restIsOver ? theme.highlight : theme.muted
                     }
                   >
                     <Text
