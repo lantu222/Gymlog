@@ -27,7 +27,6 @@ const DEFAULT_PREFERENCES = {
   usageStatisticsEnabled: true,
   hapticsEnabled: true,
   ownBlockStats: {} as OwnBlockStats,
-  alwaysOwnWarmup: false,
   homeStatCardKeys: null as string[] | null,
   notificationPrefs: {
     pushEnabled: false,

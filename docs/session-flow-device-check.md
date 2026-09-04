@@ -8,6 +8,12 @@ walked in one pass when the last change lands.
 Walk it in Finnish and in **both themes** — every change below is written
 against theme tokens, so a wrong token shows up in exactly one of them.
 
+**The boxes below are unticked, and that does not mean untested.** Two
+emulator walkthroughs covered most of them; what they found is written in prose
+under "Walked on an emulator" further down, not ticked here. The boxes are
+left empty on purpose: nobody has walked this list item by item on a real
+phone, and ticking them from a summary would turn a to-do into a claim.
+
 ## PR 1 · Session overview
 
 - [ ] The three step cards read **1 · 2 · 3**, and the numbers sit where the
@@ -20,10 +26,6 @@ against theme tokens, so a wrong token shows up in exactly one of them.
       row at all rather than `0 min`.
 - [ ] The `+2,5 kg tänään` pill and the last-time line fit on one line on a
       narrow phone (320 dp). The pill must not squash the line's numbers.
-- [ ] A flagged body part colours its row amber, with the one-line note under
-      it. Set a caution in onboarding first — `careful` on lower back, then
-      open a session with a deadlift or a row.
-- [ ] The warning triangle is announced by TalkBack.
 - [ ] Card outlines and the in-card hairline read correctly in **dark** — they
       were hardcoded light-theme lilac before this change.
 
@@ -53,23 +55,18 @@ against theme tokens, so a wrong token shows up in exactly one of them.
       liikkeet · kello käy kunnes olet valmis`) and reads as a peer of the CTA,
       not as a footnote.
 - [ ] The recovery gate says stretches, not drills, in its second line.
-- [ ] Free timer: eyebrow `LÄMMITTELET` in accent, title `Ota aikasi`, clock
-      smaller than before (44pt), `Viime kerralla käytit 4:20` under it — the
-      last line is absent the first time and appears from the second session.
+- [ ] Free timer: the clock and nothing above it. `Viime kerralla käytit 4:20`
+      under it — absent the first time, there from the second session.
 - [ ] `TÄMÄN TREENIN KUORMAT` card: area chips, then `ENSIMMÄINEN LIIKE` with
-      its weight. A flagged area gets an amber chip. **This card must never
-      name a drill** — that was removed on purpose (#bugs 2026-08-26).
-- [ ] The card scrolls when the session loads five areas plus a flag.
+      its weight. **This card must never name a drill** — that was removed on
+      purpose (#bugs 2026-08-26).
+- [ ] The card scrolls when the session loads five areas.
 - [ ] `Tee ohjatut liikkeet sittenkin` sits **above** the Done button, clear of
       the Android system bar.
-- [ ] Run three sessions with your own warm-up: on the third Done, the "always
-      start on your own" dialog appears. Answer yes, then start a fourth — it
-      must open the timer directly, with no gate. Press "Tee ohjatut liikkeet
-      sittenkin" there: the gate must come back for the fifth session too.
-- [ ] Press Done after two seconds: nothing is recorded, no offer, and the next
-      session still shows the previous "last time".
-- [ ] An install that predates this change loads without a crash (the two new
-      preference fields are normalized).
+- [ ] Press Done after two seconds: nothing is recorded, and the next session
+      still shows the previous "last time".
+- [ ] An install that predates this change loads without a crash (the new
+      preference field is normalized).
 
 ## PR 4 · Set screen
 
@@ -82,9 +79,9 @@ against theme tokens, so a wrong token shows up in exactly one of them.
 - [ ] The **sound toggle is back** in the top bar on set screens, and toggling
       it there still silences the cues.
 - [ ] Tapping the card opens the sheet. Three tabs. Check each:
-      - Kuva: photo + up to three setup steps
-      - Näin teet: numbered steps; `VARO NÄITÄ` chips appear only on the seven
-        lifts that have them, and a flagged body part's chip is amber
+      - Opettele: three cues, the technique self-audit and "Opittu" — only on
+        the three lifts that have teaching written; the tab is absent otherwise
+      - Näin teet: photo, numbered steps, `VARO NÄITÄ` chips
       - Historia: best set / 1RM / count, the bar chart with today's bar in
         accent, then rows newest first
 - [ ] Log a set with the sheet open behind you, reopen it: today's row grows a
@@ -104,10 +101,9 @@ against theme tokens, so a wrong token shows up in exactly one of them.
       `SARJA 1 KIRJATTU · Penkkipunnerrus · 62,5 kg × 7`, with `Muokkaa`.
       Press it: you land back on that set and can change it.
 - [ ] The ring is neutral while resting and reads `1:14` over `/ 2:00`.
-- [ ] `SEURAAVA · SARJA 2/4` card with the target and three weight buttons.
-      The middle one (the gate's pick) starts selected.
-- [ ] Pick a different weight, then start the set: **the dial opens on the
-      weight you picked**, not on the gate's.
+- [ ] `SEURAAVA · SARJA 2/4` card with the target and ONE weight — the gate's
+      pick, with its delta against last session beside it. The three-option
+      picker was removed on 2026-09-04.
 - [ ] **The rest does not advance by itself.** Let it run out: the ring turns
       accent, the label reads `VALMISTA`, and `+0:12 yli` counts up. Put the
       phone down for a minute and come back — the count keeps rising and you
@@ -169,13 +165,15 @@ have:
       profile is first-time, so there is no weight to show. Run the SAME
       session twice. (The mechanism is proven indirectly: LAST TIME's volume
       appeared the moment one session existed, from the same data path.)
-- [ ] Amber caution rows and the `WATCH FOR` chips: needs a caution flag set in
-      onboarding AND one of the seven lifts that has hand-written teaching.
-- [ ] The "always start on your own" offer: needs three sessions warmed up that
-      way.
+- [x] ~~Amber caution rows and the `WATCH FOR` chips~~ — the amber rows were
+      removed on 2026-09-04; the chips stay and are shown on the three lifts
+      that have teaching written.
+- [x] ~~The "always start on your own" offer~~ — removed on 2026-09-04. It was
+      the one item this list could never reach without three sessions run that
+      way, and it is gone rather than untested.
 - [ ] The recovery gate and its top-bar label on a device.
-- [ ] **The light theme.** Everything above was dark only.
-- [ ] **Finnish.** The emulator install is English.
+- [x] The light theme — walked 2026-09-04, one defect found (see below).
+- [x] Finnish — walked 2026-09-04.
 
 ## Design questions the walkthrough raised (not defects)
 
@@ -213,9 +211,9 @@ Note for anyone reading a screenshot: in light the CTA is **green**, because
 `accent` is green there and orange only in dark. That is the theme engine
 working, not a colour bug.
 
-**Still unwalked:** the amber caution rows and the WATCH FOR chips (needs a
-caution flag set in onboarding), and the "always start on your own" offer
-(needs three sessions warmed up that way).
+**Still unwalked:** nothing. The amber caution rows were removed on 2026-09-04,
+and so was the "always start on your own" offer — the one item this list could
+never reach without three sessions run that way.
 
 ## After the walkthrough
 

@@ -706,13 +706,11 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         entryEyebrow={guidedEntryEyebrow}
         completedSessions={database.workoutSessions}
         ownBlockStats={preferences.ownBlockStats}
-        alwaysOwnWarmup={preferences.alwaysOwnWarmup}
         onRecordOwnBlock={(phase, seconds) =>
           void updatePreferences({
             ownBlockStats: recordOwnBlock(preferences.ownBlockStats, phase, seconds),
           })
         }
-        onSetAlwaysOwnWarmup={(next) => void updatePreferences({ alwaysOwnWarmup: next })}
         learnedExerciseIds={preferences.learnedExerciseLibraryItemIds}
         techniqueChecks={preferences.exerciseTechniqueChecks}
         onToggleTechniqueStatement={(libraryItemId, index) =>
