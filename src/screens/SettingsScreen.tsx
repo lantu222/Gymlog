@@ -262,16 +262,11 @@ export function SettingsScreen({
           <Ic n="back" c={theme.ink} s={20} sw={2.4} />
         </Pressable>
         <ScreenHeaderTitle title={t(language, 'settings.title')} />
-        {proUnlocked ? (
-          <View style={styles.proBadge}>
-            <Svg width={12} height={12} viewBox="0 0 24 24">
-              <Path d={IC_PATHS.spark} fill={theme.highlight} />
-            </Svg>
-            <Text style={styles.proBadgeText}>PRO</Text>
-          </View>
-        ) : (
-          <View style={styles.headerSpacer} />
-        )}
+        {/* No PRO pill. It moved here from the profile chip on 2026-08-25 and
+            was still a badge that told the reader something they already know,
+            on the screen where they came to change a setting (user
+            2026-09-04). The subscription row below says what they have. */}
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView
@@ -649,20 +644,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
   },
   // Accent-coded and in the header's corner now (user 2026-08-25).
-  proBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    backgroundColor: theme.highlightSoft,
-  },
-  proBadgeText: {
-    color: theme.highlight,
-    fontSize: 11.5,
-    fontWeight: '800',
-  },
   section: {
     marginTop: 22,
   },
