@@ -3877,22 +3877,33 @@ function LoggedSetEditor({
               </View>
             )}
           </View>
+          {/* Two buttons of one size. BigBtn is 60 tall and GhostBtn 48, which
+              is right where one leads and the other follows — here they are a
+              pair, and a pair that does not match reads as a mistake (user
+              2026-09-04). */}
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
-            <View style={{ flex: 1 }}>
-              <GhostBtn label={t(language, 'common.cancel')} onPress={onCancel} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <BigBtn
-                icon="check"
-                label={t(language, 'guided.rest.editSave')}
-                color={valid ? theme.accent : theme.faint}
-                onPress={() => {
-                  if (valid) {
-                    onSave(nextReps, nextLoad);
-                  }
-                }}
-              />
-            </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={onCancel}
+              style={[styles.editBtn, styles.editBtnGhost]}
+            >
+              <Text style={styles.editBtnGhostText}>{t(language, 'common.cancel')}</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !valid }}
+              onPress={() => {
+                if (valid) {
+                  onSave(nextReps, nextLoad);
+                }
+              }}
+              style={[styles.editBtn, { backgroundColor: valid ? theme.accent : theme.faint }]}
+            >
+              <GPIcon name="check" size={17} color={theme.onHighlight} sw={2.6} />
+              <Text style={[styles.editBtnText, { color: theme.onHighlight }]}>
+                {t(language, 'guided.rest.editSave')}
+              </Text>
+            </Pressable>
           </View>
         </View>
       </View>
@@ -4530,7 +4541,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: '#E4DBF5',
+    borderColor: theme.border,
   },
   topBtnDark: {
     backgroundColor: 'rgba(255,255,255,0.09)',
@@ -4759,10 +4770,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 999,
     backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: '#E4DBF5',
+    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#28185A',
+    shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.07,
     shadowRadius: 12,
@@ -5065,7 +5076,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     height: 48,
     borderRadius: 15,
     borderWidth: 1.5,
-    borderColor: '#E4DBF5',
+    // Was a light-theme hex on both themes: a pale lilac outline drawn on the
+    // dark page, brighter than the text inside it.
+    borderColor: theme.border,
     backgroundColor: theme.surface,
     flexDirection: 'row',
     alignItems: 'center',
@@ -5181,6 +5194,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 14,
   },
   editTitle: { fontSize: 19, fontWeight: '800', color: theme.ink },
+  editBtn: {
+    flex: 1,
+    height: 54,
+    borderRadius: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  editBtnGhost: { borderWidth: 1.5, borderColor: theme.border, backgroundColor: theme.surface },
+  editBtnGhostText: { fontSize: 15.5, fontWeight: '800', color: theme.ink },
+  editBtnText: { fontSize: 15.5, fontWeight: '800' },
   editField: { flex: 1, gap: 6 },
   editLabel: { fontSize: 10.5, fontWeight: '800', letterSpacing: 1.2, color: theme.faint },
   editInput: {
@@ -5287,7 +5312,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     letterSpacing: 1.1,
     textTransform: 'uppercase',
   },
-  sheetHandle: { width: 40, height: 5, borderRadius: 3, backgroundColor: '#E4DBF5', alignSelf: 'center', marginBottom: 16 },
+  sheetHandle: { width: 40, height: 5, borderRadius: 3, backgroundColor: theme.border, alignSelf: 'center', marginBottom: 16 },
   sheetTitle: { fontSize: 20, fontWeight: '800', color: theme.ink, marginBottom: 16 },
   runRow: {
     flexDirection: 'row',
