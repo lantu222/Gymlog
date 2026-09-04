@@ -23,6 +23,7 @@ const DEFAULT_PREFERENCES = {
   keepScreenAwakeDuringWorkout: true,
   soundCuesEnabled: true,
   darkThemeEnabled: false,
+  usageStatisticsEnabled: true,
   hapticsEnabled: true,
   homeStatCardKeys: null as string[] | null,
   notificationPrefs: {

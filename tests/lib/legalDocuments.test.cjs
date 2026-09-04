@@ -167,22 +167,37 @@ module.exports = [
     },
   },
   {
-    name: 'the no-analytics fact lives in the policy, not as a settings row',
+    name: 'the usage-statistics switch is a real gate, and the policy says it exists',
     run() {
-      // The row restated one sentence of the privacy policy and was removed
-      // with the other explainer rows (user, 2026-08-22). If it comes back,
-      // it must come back as a statement — never as a switch, which would
-      // be untrue in both positions.
+      // The old analytics row was a useState(true) that sent nothing, and it
+      // was removed with the other explainer rows (user, 2026-07-29). Usage
+      // events became real on 2026-08-25, and the switch came back on
+      // 2026-09-04 as a real gate: Settings writes the preference, App.tsx
+      // hands it to the client, and the client sends nothing until told and
+      // drops its queue when told no. Each link is pinned here, because a
+      // switch that writes a preference nobody reads is the old bug again.
       const settings = read('src/screens/SettingsScreen.tsx');
-      assert.ok(
-        !settings.includes('settings.analytics'),
-        'the analytics settings row must stay removed — the policy carries the fact',
+      assert.ok(!settings.includes('settings.analytics'), 'the old inert analytics row must stay dead');
+      assert.match(settings, /usageStatisticsEnabled: next/, 'the usage-statistics switch must write the preference');
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
+      assert.match(
+        app,
+        /setUsageStatisticsEnabled\(preferences\.usageStatisticsEnabled\)/,
+        'App.tsx must hand the preference to the analytics client',
       );
-      // And the policy still carries it, in both languages.
+      const client = read('src/features/analytics/analyticsClient.ts');
+      assert.match(client, /export function setUsageStatisticsEnabled/);
+      // Sending is gated on an explicit yes, so nothing leaves before the
+      // stored preference has been read.
+      assert.match(client, /enabled !== true/, 'flush must refuse until the switch has been read');
+      assert.match(client, /enabled === false/, 'trackEvent must queue nothing once the switch is off');
+      // And the policy carries the fact and the switch, in both languages.
       const legal = read('src/lib/legalDocuments.ts');
-      assert.match(legal, /No third-party analytics and no crash-reporting SDKs/);
+      assert.match(legal, /No third-party analytics and no crash-reporting/);
       assert.match(legal, /Usage statistics/);
       assert.match(legal, /analytiikkaa/i);
+      assert.match(legal, /Settings → Usage statistics/);
+      assert.match(legal, /Asetukset → Käyttötilastot/);
     },
   },
   {
@@ -300,6 +315,135 @@ module.exports = [
           );
         }
       }
+    },
+  },
+  {
+    name: 'the online-coach notice and the policy disclose everything the context carries',
+    run() {
+      // The AI context grew the body record (weight, measurements) and the
+      // profile (height, age, gender) on 2026-08-23, and for twelve days the
+      // in-app notice and the policy went on saying "body measurements are
+      // not sent". This pins the disclosure to the call site: whatever
+      // App.tsx hands buildAiTrainingContext, the reader is told about, in
+      // the notice they read before the first question and in the policy.
+      //
+      // The call site is the source of truth, not two hand-picked regexes:
+      // every top-level key of the object App.tsx passes must be listed in
+      // DISCLOSED below, and every listed key that carries something personal
+      // must be named in both notices and both policies. A new input to the
+      // coach therefore fails here until someone has decided what the reader
+      // is told about it.
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
+      const callStart = app.indexOf('buildAiTrainingContext({');
+      assert.ok(callStart >= 0, 'App.tsx no longer builds the AI context — move this guard to wherever it went');
+      // The literal closes on the first line that dedents back to `})`.
+      const callEnd = app.indexOf('\n      })', callStart);
+      assert.ok(callEnd > callStart, 'could not find the end of the buildAiTrainingContext call');
+      const call = app.slice(callStart, callEnd);
+      // Top-level keys sit at exactly eight spaces; nested keys and comments do not.
+      const keys = [...call.matchAll(/^ {8}([a-zA-Z]+)[,:]/gm)].map((match) => match[1]);
+      assert.ok(keys.length >= 10, `expected the call site's keys, got: ${keys.join(', ')}`);
+
+      // What each input is, in the reader's words. null = nothing personal
+      // (a unit, a count, a title, the state of the Home screen).
+      const DISCLOSED = {
+        unitPreference: null,
+        activeWorkoutSummary: 'workouts',
+        homeSummary: 'workouts',
+        workoutSessions: 'workouts',
+        exerciseLogs: 'workouts',
+        trackedProgress: 'workouts',
+        readyProgramCount: null,
+        recommendedProgramId: null,
+        recommendedProgramTitle: 'programme',
+        customProgramTitle: 'programme',
+        programme: 'programme',
+        trainingDays: 'programme',
+        schedule: 'programme',
+        bodyweightEntries: 'weight',
+        measurementEntries: 'measurements',
+        coachGoals: 'goals',
+        primaryGoalId: 'goals',
+        bodyweightGoalKg: 'goals',
+        profile: 'profile',
+        homeState: null,
+        plannerSetup: 'setup',
+      };
+      const PHRASES = {
+        workouts: { en: /recent workouts/, fi: /viimeaikaiset treenisi/ },
+        programme: { en: /programme/, fi: /ohjelmasi/ },
+        weight: { en: /latest weight/, fi: /viimeisin painosi/ },
+        measurements: { en: /measurements/, fi: /mittasi/ },
+        goals: { en: /goals/, fi: /tavoitteesi/ },
+        profile: { en: /height, age and gender/, fi: /pituutesi, ikäsi ja sukupuolesi/ },
+        setup: { en: /setup answers/, fi: /käyttöönoton vastauksesi/ },
+      };
+      const unknown = keys.filter((key) => !(key in DISCLOSED));
+      assert.deepEqual(
+        unknown,
+        [],
+        `new input(s) reach the coach: ${unknown.join(', ')} — add each to DISCLOSED here, and to `
+          + 'coachChat.online.body and the privacy policy in both languages if it is personal',
+      );
+
+      // The notice value starts on the line after its key and ends where the
+      // next key begins: two spaces of indent and a quote.
+      const i18n = read('src/lib/i18n.ts');
+      const notices = i18n
+        .split("'coachChat.online.body':")
+        .slice(1)
+        .map((rest) => rest.split(/\n {2}'/)[0]);
+      assert.equal(notices.length, 2, 'expected an English and a Finnish online-coach notice');
+      const [noticeEn, noticeFi] = notices;
+      const policyEn = renderLegalDocumentMarkdown(buildLegalDocument('privacy', 'en'));
+      const policyFi = renderLegalDocumentMarkdown(buildLegalDocument('privacy', 'fi'));
+
+      const required = new Set(keys.map((key) => DISCLOSED[key]).filter(Boolean));
+      for (const item of required) {
+        const { en, fi } = PHRASES[item];
+        assert.match(noticeEn, en, `the English online notice must disclose ${item}`);
+        assert.match(noticeFi, fi, `the Finnish online notice must disclose ${item}`);
+        assert.match(policyEn, en, `the English privacy policy must disclose ${item}`);
+        assert.match(policyFi, fi, `the Finnish privacy policy must disclose ${item}`);
+      }
+      // And the sentence that was untrue for twelve days stays gone.
+      assert.doesNotMatch(noticeEn, /body measurements are not sent/, 'the old English notice is back');
+      assert.doesNotMatch(noticeFi, /kehonmittojasi ei lähetetä/, 'the old Finnish notice is back');
+    },
+  },
+  {
+    name: 'the policy names its processors in both languages',
+    run() {
+      // Three companies touch data on our behalf. A policy that loses one of
+      // them by accident is the kind of omission a regulator reads as hiding.
+      // Checked on the rendered document per language, not the source: the
+      // file's header comment names the same companies and must not count.
+      for (const language of LANGUAGES) {
+        const text = renderLegalDocumentMarkdown(buildLegalDocument('privacy', language));
+        for (const processor of ['Anthropic', 'Vercel', 'Google']) {
+          assert.ok(text.includes(processor), `${processor} is missing from the ${language} privacy policy`);
+        }
+      }
+    },
+  },
+  {
+    name: 'the terms quote the free limits the code enforces',
+    run() {
+      // The terms say what Free is in numbers, so a reader knows what they
+      // are buying out of. Each number is a constant in src/lib; change the
+      // constant and this points at the two sentences to change with it.
+      const { FREE_CUSTOM_PROGRAM_LIMIT } = require('../../.test-dist/lib/programSlots.js');
+      const { FREE_ACTIVE_PROGRAM_CAP } = require('../../.test-dist/lib/activeProgramSet.js');
+      const { FREE_TREND_MONTHS } = require('../../.test-dist/lib/historyWindow.js');
+      assert.equal(FREE_CUSTOM_PROGRAM_LIMIT, 3, 'the terms say "three programmes of your own" — update the Pro section in both languages');
+      assert.equal(FREE_ACTIVE_PROGRAM_CAP, 2, 'the terms say "two in use at a time" — update the Pro section in both languages');
+      assert.equal(FREE_TREND_MONTHS, 3, 'the terms say "the most recent three months" — update the Pro section in both languages');
+      const en = renderLegalDocumentMarkdown(buildLegalDocument('terms', 'en'));
+      const fi = renderLegalDocumentMarkdown(buildLegalDocument('terms', 'fi'));
+      assert.match(en, /three programmes of your own, two in use at a time/);
+      assert.match(en, /most recent three months/);
+      assert.match(fi, /kolme omaa ohjelmaa, kaksi käytössä kerrallaan/);
+      assert.match(fi, /viimeisimmän kolmen kuukauden/);
     },
   },
 ];

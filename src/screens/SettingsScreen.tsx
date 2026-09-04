@@ -457,6 +457,24 @@ export function SettingsScreen({
                 onPress={account.busy ? undefined : account.onBackupNow}
               />
             ) : null}
+            {/* The one thing the app sends on its own, and the reader's say
+                over it (user, 2026-09-04). A real gate, not a statement: the
+                preference reaches analyticsClient through App.tsx, and off
+                also drops the queue and the install id. The old analytics row
+                was a switch wired to nothing; tests/lib/legalDocuments.test.cjs
+                pins every link of this one. */}
+            <Row
+              icon="shield"
+              title={t(language, 'settings.usageStats')}
+              sub={t(language, 'settings.usageStats.sub')}
+              control={
+                <ToggleSwitch
+                  label={t(language, 'settings.usageStats')}
+                  value={preferences.usageStatisticsEnabled}
+                  onChange={(next) => onPreferencesChange({ usageStatisticsEnabled: next })}
+                />
+              }
+            />
             <Row
               icon="upload"
               title={t(language, 'settings.importCsv')}

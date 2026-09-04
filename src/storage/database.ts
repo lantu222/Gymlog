@@ -627,6 +627,10 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
         typeof input?.preferences?.darkThemeEnabled === 'boolean'
           ? input.preferences.darkThemeEnabled
           : fallback.preferences.darkThemeEnabled,
+      usageStatisticsEnabled:
+        typeof input?.preferences?.usageStatisticsEnabled === 'boolean'
+          ? input.preferences.usageStatisticsEnabled
+          : fallback.preferences.usageStatisticsEnabled,
       hapticsEnabled:
         typeof input?.preferences?.hapticsEnabled === 'boolean'
           ? input.preferences.hapticsEnabled

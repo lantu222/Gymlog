@@ -117,7 +117,7 @@ import { ThemeChoiceDialog } from './src/components/ThemeChoiceDialog';
 import { toProgressionFatigueSignal } from './src/lib/progressionGate';
 import { resolveThemeName } from './src/lib/themePreference';
 import { localizeSessionFocus, localizeSessionName } from './src/lib/sessionNameLabel';
-import { trackEvent } from './src/features/analytics/analyticsClient';
+import { setUsageStatisticsEnabled, trackEvent } from './src/features/analytics/analyticsClient';
 
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
 import { buildExerciseHistoryLookup } from './src/lib/workoutEditorTable';
@@ -427,6 +427,17 @@ function VinhaApp() {
   useEffect(() => {
     setHapticsEnabled(preferences.hapticsEnabled);
   }, [preferences.hapticsEnabled]);
+  // Usage statistics are the one thing the app sends on its own, so the
+  // switch has to reach the client before anything can leave: the client
+  // refuses to send until told, and it is only told once the stored
+  // preferences are in — the pre-hydration default is "on", and a reader who
+  // switched it off must never lose a batch to that default.
+  useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+    setUsageStatisticsEnabled(preferences.usageStatisticsEnabled);
+  }, [hydrated, preferences.usageStatisticsEnabled]);
 
   // Mirrors the notification preferences onto the OS clock: reminders, the
   // comeback nudge, the Sunday summary and the morning-after record note.
@@ -908,12 +919,18 @@ function VinhaApp() {
   // The funnel's spine: which onboarding stage was reached. If half of every
   // install stops at one stage, that stage is the finding — the question this
   // whole event pipe exists to answer (user, 2026-08-25).
+  //
+  // Gated on hydration: before the stored preferences are in,
+  // onboardingCompleted is the provider's default false, so every cold start
+  // of a long-finished install used to count as reaching step "path" —
+  // the funnel's first stage was inflated by every returning user
+  // (review finding, 2026-09-04).
   useEffect(() => {
-    if (onboardingActive) {
+    if (hydrated && onboardingActive) {
       trackEvent('onboarding_step', { path: onboardingStep });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onboardingActive, onboardingStep]);
+  }, [hydrated, onboardingActive, onboardingStep]);
   // Conversion's top of funnel: the paywall was on screen. Purchases will
   // come from Play's own reporting once billing exists.
   useEffect(() => {

@@ -380,6 +380,13 @@ export interface AppPreferences {
    */
   darkThemeEnabled: boolean;
   /**
+   * Whether the anonymous usage events may leave the phone. On by default and
+   * disclosed in the privacy policy; off means the analytics client sends
+   * nothing and forgets its queue and install id (2026-09-04, the user's
+   * decision so the Play Data Safety answer can be "optional").
+   */
+  usageStatisticsEnabled: boolean;
+  /**
    * Whether the store-rating sheet may be shown, and how often it already has.
    *
    * A preference rather than a derived value: "we already asked twice and they
