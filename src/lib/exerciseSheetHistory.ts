@@ -134,7 +134,15 @@ export function buildExerciseSheetHistory(
   const values = window.map((item) => barValueOf(topSetOf(item.session.sets)));
   const tallest = values.reduce((max, value) => Math.max(max, value), 0);
 
-  const bars: SheetHistoryBar[] = window.map((item, index) => ({
+  /*
+   * One bar is not a chart.
+   *
+   * A lift trained once drew a single column under the heading "top set, last
+   * 8 sessions" — which is a block of colour making a claim about a series
+   * that does not exist yet (user 2026-09-04). The rows below still list that
+   * one session, which is the honest way to show it.
+   */
+  const bars: SheetHistoryBar[] = window.length < 2 ? [] : window.map((item, index) => ({
     value: values[index],
     // A floor rather than a true zero: a bar with no height is a bar the
     // reader cannot see is there.

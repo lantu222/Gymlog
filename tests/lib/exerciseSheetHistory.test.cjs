@@ -71,9 +71,10 @@ module.exports = [
     name: 'today grows set by set rather than appearing whole',
     run() {
       const past = [session('2026-08-27T18:00:00.000Z', [[60, 8], [60, 7]])];
-      // Nothing logged yet: today is not in the series at all.
+      // Nothing logged yet: today is not in the series at all, and one past
+      // session is not a chart — the row is the honest way to show it.
       const before = buildExerciseSheetHistory(past, { performedAt: '2026-09-04T18:00:00.000Z', sets: [] }, 'en');
-      assert.equal(before.bars.length, 1);
+      assert.deepEqual(before.bars, []);
       assert.equal(before.rows.length, 1);
       // One set in: today is there, with one pill.
       const after = buildExerciseSheetHistory(past, session('2026-09-04T18:00:00.000Z', [[62.5, 7]]), 'en');
@@ -92,6 +93,19 @@ module.exports = [
       );
       assert.equal(view.bestSetLabel, '60 kg × 8');
       assert.ok(view.estimatedOneRepMaxKg > 60);
+      // A lift with one session draws no chart, and one with two does.
+      assert.deepEqual(
+        buildExerciseSheetHistory([session('2026-08-20T18:00:00.000Z', [[60, 8]])], null, 'en').bars,
+        [],
+      );
+      assert.equal(
+        buildExerciseSheetHistory(
+          [session('2026-08-20T18:00:00.000Z', [[60, 8]]), session('2026-08-27T18:00:00.000Z', [[62.5, 8]])],
+          null,
+          'en',
+        ).bars.length,
+        2,
+      );
       const empty = buildExerciseSheetHistory([], null, 'en');
       assert.equal(empty.bestSetLabel, null);
       assert.equal(empty.estimatedOneRepMaxKg, null);
