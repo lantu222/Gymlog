@@ -1,8 +1,10 @@
 /**
  * The cron that keeps the retention promise. The privacy policy says the
  * anonymous usage events are kept for up to ANALYTICS_RETENTION_MONTHS and
- * then deleted; vercel.json runs this once a month, and this deletes them.
- * The rule and the arithmetic live in src/lib/analyticsRetention.ts.
+ * then deleted; vercel.json runs this once a day, and this deletes them.
+ * Daily, not monthly: a monthly run let a batch live up to 25 months against
+ * that promise. The rule and the arithmetic live in
+ * src/lib/analyticsRetention.ts.
  *
  * Two ways in, and both have to prove themselves:
  *   - Vercel's cron, which sends `Authorization: Bearer <CRON_SECRET>`

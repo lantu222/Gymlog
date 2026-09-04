@@ -24,15 +24,17 @@ drops the queue and the install id; on again starts as a new install.
 ## Retention: 24 months, deleted automatically
 
 The policy says events are kept for up to 24 months and then deleted
-automatically. `vercel.json` runs `/api/prune-events` on the first of every
-month at 04:00 UTC (Hobby plan: once a day is the maximum frequency, and the
-run lands somewhere inside that hour). The endpoint lists `events/`, keeps
-every batch whose arrival day is inside the window, and deletes the rest in
-chunks of a hundred. It is idempotent, so a skipped or doubled run is harmless.
+automatically. `vercel.json` runs `/api/prune-events` every day at 04:00 UTC
+(Hobby plan: once a day is the maximum frequency, and the run lands somewhere
+inside that hour). Daily rather than monthly on purpose: a monthly run would
+let a batch live up to 25 months against a promise of "up to 24"; a daily one
+bounds the overshoot to under a day. The endpoint lists `events/`, keeps every
+batch whose arrival day is inside the window, and deletes the rest in chunks
+of a hundred. It is idempotent, so a skipped or doubled run is harmless.
 
 `tests/lib/analyticsRetention.test.cjs` pins the number in the policy to the
 constant, the cron path to an existing function, the schedule to a fixed
-monthly run, and `.vercelignore` to letting `vercel.json` through.
+daily run, and `.vercelignore` to letting `vercel.json` through.
 
 ### One-time setup in Vercel
 

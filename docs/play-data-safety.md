@@ -16,7 +16,7 @@ fails if a fourth appears. The policy names all three.
 |---|---|---|---|---|
 | Cloud backup (optional, Google sign-in) | `src/features/account/backupApi.ts` → `api/backup.ts` | Google ID token + the whole app database (profile, log, body data, programmes, preferences) | The backup JSON, filed under HMAC(Google `sub`) in a **private** Vercel Blob store (EU region per `docs/account-backup.md`). No email, no name, no logs of payloads. | Vercel (function + storage), Google (token verification) |
 | AI coach online mode, programme composer, photo import | `src/lib/aiCoachClient.ts` → `api/ai-coach.ts` | Question + conversation history + training summary **including latest weight, measurements, height, age, gender, goals and setup answers**; the composer brief; the downscaled photo | Nothing, once the development transcript log is off (`src/lib/aiCoachDebug.ts` → `false`; `tests/releaseReadiness.test.cjs` blocks the release otherwise) | Vercel (function), Anthropic (model; deletes within 30 days, no training) |
-| Anonymous usage events | `src/features/analytics/analyticsClient.ts` → `api/events.ts` | Random install id + event names, timestamps, `step` / `path` | Batches as private blobs (Vercel, EU); deleted after 24 months by the monthly cron (`api/prune-events.ts`, `docs/usage-events.md`) | Vercel |
+| Anonymous usage events | `src/features/analytics/analyticsClient.ts` → `api/events.ts` | Random install id + event names, timestamps, `step` / `path` | Batches as private blobs (Vercel, EU); deleted after 24 months by the daily cron (`api/prune-events.ts`, `docs/usage-events.md`) | Vercel |
 
 Everything else stays on the device: six AsyncStorage keys plus the home-screen
 widget's summary file. Android Auto Backup is on (`allowBackup` default), which
