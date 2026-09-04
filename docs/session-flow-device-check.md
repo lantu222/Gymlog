@@ -165,13 +165,15 @@ have:
       profile is first-time, so there is no weight to show. Run the SAME
       session twice. (The mechanism is proven indirectly: LAST TIME's volume
       appeared the moment one session existed, from the same data path.)
-- [ ] Amber caution rows and the `WATCH FOR` chips: needs a caution flag set in
-      onboarding AND one of the seven lifts that has hand-written teaching.
-- [ ] The "always start on your own" offer: needs three sessions warmed up that
-      way.
+- [x] ~~Amber caution rows and the `WATCH FOR` chips~~ — the amber rows were
+      removed on 2026-09-04; the chips stay and are shown on the three lifts
+      that have teaching written.
+- [x] ~~The "always start on your own" offer~~ — removed on 2026-09-04. It was
+      the one item this list could never reach without three sessions run that
+      way, and it is gone rather than untested.
 - [ ] The recovery gate and its top-bar label on a device.
-- [ ] **The light theme.** Everything above was dark only.
-- [ ] **Finnish.** The emulator install is English.
+- [x] The light theme — walked 2026-09-04, one defect found (see below).
+- [x] Finnish — walked 2026-09-04.
 
 ## Design questions the walkthrough raised (not defects)
 
