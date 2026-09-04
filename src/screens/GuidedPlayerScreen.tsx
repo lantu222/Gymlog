@@ -2050,7 +2050,8 @@ export function GuidedPlayerScreen({
     if (step.type !== 'set') {
       return [] as Array<{ text: string; flagged: boolean }>;
     }
-    const teaching = getExerciseTeaching(step.exerciseName, language);
+    // The library's name, for the same reason the Learn tab uses it.
+    const teaching = getExerciseTeaching(libraryFor(step.exerciseName)?.name ?? step.exerciseName, language);
     if (!teaching) {
       return [];
     }
@@ -2059,7 +2060,8 @@ export function GuidedPlayerScreen({
       chips.push({ text: teaching.caution.text, flagged: true });
     }
     return chips;
-  }, [cautionFlags, language, step]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cautionFlags, exerciseLibrary, language, step]);
 
   /**
    * The Learn tab's payload, or null when this lift has no teaching written.
@@ -2073,8 +2075,18 @@ export function GuidedPlayerScreen({
     if (step.type !== 'set') {
       return null;
     }
-    const teaching = getExerciseTeaching(step.exerciseName, language);
-    const libraryId = libraryFor(step.exerciseName)?.id ?? null;
+    /*
+     * Looked up by the LIBRARY's name for this lift, not the plan's.
+     *
+     * The teaching table is keyed the way the library names things — "Barbell
+     * Bench Press - Medium Grip" — while a programme calls the same lift
+     * "Bench Press". Asking with the plan's name found nothing for every lift
+     * that has teaching, which is every lift this tab exists for (device
+     * 2026-09-04).
+     */
+    const item = libraryFor(step.exerciseName);
+    const teaching = getExerciseTeaching(item?.name ?? step.exerciseName, language);
+    const libraryId = item?.id ?? null;
     if (!teaching || teaching.check.length === 0 || !libraryId || !onToggleTechniqueStatement) {
       return null;
     }
