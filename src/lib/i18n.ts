@@ -4895,7 +4895,10 @@ const FI: Record<I18nKey, string> = {
   'guided.walk.plan': '{sets} × {reps} · lepo {rest} s',
   'guided.walk.startFirst': 'Aloita sarja 1',
   'guided.walk.swap': 'Vaihda liike',
-  'guided.sheet.tab.learn': 'Opi',
+  // "Opettele", not "Opi": this tab is deliberate practice on one lift —
+  // three cues and a self-audit — while "Opi" is the name of the section that
+  // holds the courses (user 2026-09-04).
+  'guided.sheet.tab.learn': 'Opettele',
   'guided.sheet.tab.howTo': 'Näin teet',
   'guided.sheet.tab.history': 'Historia',
   'guided.sheet.today': 'Tänään',
