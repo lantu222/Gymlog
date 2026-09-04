@@ -75,8 +75,6 @@ import {
   buildProgressionPill,
   findLastTimeSession,
   LastTimeSessionLike,
-  OverviewCaution,
-  resolveOverviewCaution,
 } from '../lib/sessionOverviewRows';
 import {
   formatLastOwnBlock,
@@ -89,7 +87,7 @@ import { resolveMovement } from '../lib/sessionMovement';
 import { buildWarmupBrief } from '../lib/warmupBrief';
 import { commitDialWeight, stepDialWeight } from '../lib/weightDial';
 import { getExerciseInstructions } from '../lib/exerciseInstructions';
-import { getExerciseTeaching, shouldShowTeachingCaution } from '../lib/exerciseTeaching';
+import { getExerciseTeaching } from '../lib/exerciseTeaching';
 import { buildExerciseSheetHistory, LastTimeView } from '../lib/exerciseSheetHistory';
 import { ExerciseSheet } from '../components/ExerciseSheet';
 import { CtaShimmer } from '../components/CtaShimmer';
@@ -108,7 +106,7 @@ import { RestAlertsSheet } from '../components/RestAlertsSheet';
 import { RestAlertAskOutcome } from '../lib/restAlertAnswer';
 import { sound, type CueSound } from '../utils/sound';
 import { readableOn, Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
-import { AppLanguage, ExerciseLibraryItem, SetupCautionFlag, UnitPreference } from '../types/models';
+import { AppLanguage, ExerciseLibraryItem, UnitPreference } from '../types/models';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
 import { elapsedSecondsOf } from '../features/workout/workoutState';
@@ -242,12 +240,6 @@ interface GuidedPlayerScreenProps {
   onToggleSoundCues: (next: boolean) => void;
   entryEyebrow: string;
   /**
-   * The body areas the reader flagged in setup. The overview is the first
-   * screen of the session that can say "this one, careful" while there is
-   * still time to swap it — after this the warning arrives mid-set.
-   */
-  cautionFlags?: SetupCautionFlag[] | null;
-  /**
    * Every finished session, so the overview can find the last run of this same
    * day. Which one that is depends on the live session's template ids, which
    * this screen holds and the caller does not.
@@ -296,14 +288,6 @@ function GPIcon({ name, size = 22, color = '#fff', sw = 2.2 }: { name: string; s
     check: <Path d="M4.5 12.5l5 5L19.5 7" />,
     chevR: <Path d="M9 6l6 6-6 6" />,
     chevD: <Path d="M6 9l6 6 6-6" />,
-    // The caution triangle. Drawn, not an emoji: an emoji warning sign brings
-    // its own colour and would be yellow on a row the theme wants amber.
-    warn: (
-      <>
-        <Path d="M12 3.6L22 20H2z" />
-        <Path d="M12 9.5v5M12 17.2v.1" />
-      </>
-    ),
     sound: (
       <>
         <Path d="M4 9v6h4l5 4V5L8 9z" />
@@ -1119,7 +1103,6 @@ export function GuidedPlayerScreen({
   keepScreenAwake = false,
   onToggleSoundCues,
   entryEyebrow,
-  cautionFlags = null,
   completedSessions = [],
   ownBlockStats = {},
   alwaysOwnWarmup = false,
@@ -2030,21 +2013,19 @@ export function GuidedPlayerScreen({
           timed: isTimedTrackingMode(exercise.trackingMode),
           loadKg: resolveTarget(exercise.slotId, 0)?.loadKg ?? null,
         })),
-        cautionFlags,
         language,
         unitPreference,
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeExercises, cautionFlags, exerciseLibrary, language, resolveTarget, unitPreference],
+    [activeExercises, exerciseLibrary, language, resolveTarget, unitPreference],
   );
 
   /**
-   * The sheet's WATCH FOR chips: this lift's common mistakes, plus the one
-   * caution that belongs to a body part THIS reader flagged.
+   * The sheet's WATCH FOR chips: this lift's common mistakes.
    *
-   * Only seven lifts have hand-written teaching, so the chip row is often
-   * empty — and empty is the honest state. A generic "keep good form" chip on
-   * the other eight hundred would be furniture with an alarm on it.
+   * Three lifts have hand-written teaching, so the chip row is usually empty —
+   * and empty is the honest state. A generic "keep good form" chip on the
+   * other eight hundred would be furniture with an alarm on it.
    */
   const sheetWatchFor = useMemo(() => {
     if (step.type !== 'set') {
@@ -2055,13 +2036,9 @@ export function GuidedPlayerScreen({
     if (!teaching) {
       return [];
     }
-    const chips = teaching.mistakes.map((mistake) => ({ text: mistake.mistake, flagged: false }));
-    if (teaching.caution && shouldShowTeachingCaution(teaching.caution, cautionFlags)) {
-      chips.push({ text: teaching.caution.text, flagged: true });
-    }
-    return chips;
+    return teaching.mistakes.map((mistake) => ({ text: mistake.mistake, flagged: false }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cautionFlags, exerciseLibrary, language, step]);
+  }, [exerciseLibrary, language, step]);
 
   /**
    * The Learn tab's payload, or null when this lift has no teaching written.
@@ -2448,9 +2425,6 @@ export function GuidedPlayerScreen({
                           language,
                           unitPreference,
                         ),
-                        // The untranslated library name on purpose: the caution
-                        // matcher reads English patterns.
-                        caution: resolveOverviewCaution(exercise.exerciseName, cautionFlags, language),
                       })),
                     }
                   : null,
@@ -2470,7 +2444,7 @@ export function GuidedPlayerScreen({
                     key: string;
                     label: string;
                     sub: string;
-                    rows: Array<{ left: string; right: string; caution?: OverviewCaution | null }>;
+                    rows: Array<{ left: string; right: string }>;
                   } => item !== null,
                 )
                 .map((phase, phaseIndex) => {
@@ -2505,52 +2479,18 @@ export function GuidedPlayerScreen({
                       </Pressable>
                       {expanded && (
                         <View style={styles.phaseRows}>
-                          {phase.rows.map((row, rowIndex) => {
-                            const cautionColor = row.caution
-                              ? row.caution.level === 'avoid'
-                                ? theme.danger
-                                : theme.amber
-                              : null;
-                            return (
-                              <View key={rowIndex} style={styles.phaseRowGroup}>
-                                <View style={styles.phaseRow}>
-                                  {cautionColor ? (
-                                    <View
-                                      accessible
-                                      accessibilityRole="image"
-                                      accessibilityLabel={t(language, 'guided.entry.caution.a11y')}
-                                      style={{ marginRight: 7 }}
-                                    >
-                                      <GPIcon name="warn" size={15} color={cautionColor} sw={2.3} />
-                                    </View>
-                                  ) : null}
-                                  <Text
-                                    style={{
-                                      flex: 1,
-                                      fontSize: 14.5,
-                                      fontWeight: '700',
-                                      color: cautionColor ?? theme.ink,
-                                    }}
-                                    numberOfLines={1}
-                                  >
-                                    {row.left}
-                                  </Text>
-                                  <Text style={{ fontSize: 13.5, fontWeight: '600', color: theme.muted, fontVariant: ['tabular-nums'] }}>
-                                    {row.right}
-                                  </Text>
-                                </View>
-                                {/* One line, under the row it belongs to. A
-                                    flagged area is only useful here if it says
-                                    what to do about it — a coloured name is a
-                                    warning the reader cannot act on. */}
-                                {row.caution ? (
-                                  <Text style={[styles.phaseRowNote, { color: cautionColor ?? theme.muted }]}>
-                                    {row.caution.note}
-                                  </Text>
-                                ) : null}
+                          {phase.rows.map((row, rowIndex) => (
+                            <View key={rowIndex} style={styles.phaseRowGroup}>
+                              <View style={styles.phaseRow}>
+                                <Text style={{ flex: 1, fontSize: 14.5, fontWeight: '700', color: theme.ink }} numberOfLines={1}>
+                                  {row.left}
+                                </Text>
+                                <Text style={{ fontSize: 13.5, fontWeight: '600', color: theme.muted, fontVariant: ['tabular-nums'] }}>
+                                  {row.right}
+                                </Text>
                               </View>
-                            );
-                          })}
+                            </View>
+                          ))}
                         </View>
                       )}
                     </View>
@@ -3358,34 +3298,6 @@ export function GuidedPlayerScreen({
                         <Text style={styles.ownBriefChipText}>{area}</Text>
                       </View>
                     ))}
-                    {warmupBrief.cautions.map((caution) => (
-                      <View
-                        key={caution.area}
-                        style={[
-                          styles.ownBriefChip,
-                          {
-                            backgroundColor: theme.amberSoft,
-                            borderColor: caution.level === 'avoid' ? theme.danger : theme.amberBorder,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.ownBriefChipText,
-                            { color: caution.level === 'avoid' ? theme.danger : theme.amberInk },
-                          ]}
-                        >
-                          {t(language, `onb.area.${caution.area}` as 'onb.area.neck')}
-                          {' · '}
-                          {t(
-                            language,
-                            caution.level === 'avoid'
-                              ? 'guided.own.brief.avoid'
-                              : 'guided.own.brief.careful',
-                          )}
-                        </Text>
-                      </View>
-                    ))}
                   </View>
                 ) : null}
                 {warmupBrief.firstLift ? (
@@ -3476,7 +3388,7 @@ export function GuidedPlayerScreen({
       ) : null}
 
       {/* The lift's own sheet — photo and setup, the written steps with the
-          cautions that apply to this reader, and eight sessions of history.
+          what to watch for, and eight sessions of history.
           Opened from the card, which is the only door: the header's slot is
           the sound toggle's again. */}
       {setPanelsOpen && step.type === 'set' ? (
@@ -4487,13 +4399,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 12,
     paddingVertical: 8,
   },
-  phaseRowNote: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    lineHeight: 17,
-    paddingBottom: 8,
-    paddingRight: 8,
-  },
   // The step number's disc. Same size and place the play disc held, so the
   // header's rhythm is unchanged — only the thing inside it means something now.
   phaseStep: {
@@ -4849,7 +4754,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingLeft: 2,
   },
   setExerciseName: { flexShrink: 1, fontSize: 18, fontWeight: '800', letterSpacing: -0.5, color: theme.ink },
-  setExerciseHint: { marginTop: 3, fontSize: 12, fontWeight: '600', color: theme.faint },
+  // Bigger, and one claim rather than a list of three tab names the reader
+  // has to have opened the sheet once to understand (user 2026-09-04).
+  setExerciseHint: { marginTop: 4, fontSize: 14, fontWeight: '600', color: theme.muted },
   setExerciseLast: {
     flexDirection: 'row',
     alignItems: 'center',

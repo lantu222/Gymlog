@@ -14,7 +14,6 @@ const {
   buildOverviewScheme,
   buildProgressionPill,
   findLastTimeSession,
-  resolveOverviewCaution,
 } = require('../../.test-dist/lib/sessionOverviewRows.js');
 const { formatGroupedVolume } = require('../../.test-dist/lib/format.js');
 
@@ -39,45 +38,6 @@ module.exports = [
       assert.equal(buildOverviewScheme({ ...base, loadKg: 0 }, 'en'), '4 × 7');
       // A hold counts seconds and carries no weight even when one is stored.
       assert.equal(buildOverviewScheme({ ...base, timed: true, repsLabel: '45', loadKg: 20 }, 'en'), '4 × 45 s');
-    },
-  },
-  {
-    name: 'caution flags reach the row only at careful and above, avoid outranking careful',
-    run() {
-      const careful = [{ area: 'lower_back', level: 'careful', refinements: [] }];
-      const flagged = resolveOverviewCaution('Barbell Deadlift', careful, 'en');
-      assert.equal(flagged.area, 'lower_back');
-      assert.equal(flagged.level, 'careful');
-      assert.ok(flagged.note.includes('Lower back'));
-      assert.ok(flagged.note.includes('let the hips do the work'));
-
-      // A lift that does not touch the area is not flagged.
-      assert.equal(resolveOverviewCaution('Dumbbell Curl', careful, 'en'), null);
-      // `info` is the grey level — it is not a warning and must not colour a row.
-      assert.equal(
-        resolveOverviewCaution('Barbell Deadlift', [{ area: 'lower_back', level: 'info', refinements: [] }], 'en'),
-        null,
-      );
-      assert.equal(resolveOverviewCaution('Barbell Deadlift', [], 'en'), null);
-      assert.equal(resolveOverviewCaution('Barbell Deadlift', null, 'en'), null);
-
-      // Two flagged areas on one lift — a front squat is both knees and
-      // wrists. The stronger claim wins the single line.
-      const both = resolveOverviewCaution(
-        'Front Squat',
-        [
-          { area: 'knees', level: 'careful', refinements: [] },
-          { area: 'wrists', level: 'avoid', refinements: [] },
-        ],
-        'en',
-      );
-      assert.equal(both.level, 'avoid');
-      assert.equal(both.area, 'wrists');
-
-      // Finnish gets Finnish, not an English fallback.
-      const fi = resolveOverviewCaution('Barbell Deadlift', careful, 'fi');
-      assert.ok(fi.note.includes('Alaselkä'));
-      assert.ok(fi.note.includes('anna lonkkien tehdä työ'));
     },
   },
   {

@@ -3,29 +3,24 @@
  *
  * The overview listed what a session contains — names and set counts — which
  * is the one thing the reader already knows by the time they are standing in
- * the gym holding the phone. The two things that are actually new every week
- * were missing: what the app changed since last time, and which of today's
- * lifts touches a body part the reader flagged in setup.
+ * the gym holding the phone. What was missing is the thing that is actually
+ * new every week: what the app changed since last time.
  *
- * Both are decided here rather than in the player so they can be tested
- * without mounting a 4000-line screen. Nothing in this file reaches storage,
- * React or the clock.
+ * It also carried an amber warning on any lift touching a body part flagged in
+ * setup, until 2026-09-04. That warning fired on the same lift every session
+ * forever, which is furniture — and it was second-guessing a decision already
+ * taken: the programme composer removes `avoid` lifts outright and swaps
+ * `careful` ones for kinder variants before a session is ever built. What
+ * survives that is a lift the app has judged fine, and warning about it every
+ * week is the app disagreeing with itself.
+ *
+ * Decided here rather than in the player so it can be tested without mounting
+ * a 4000-line screen. Nothing in this file reaches storage, React or the clock.
  */
-import { exerciseHitsCautionArea } from './cautionExerciseFilter';
 import { getSessionDurationMinutes } from './dashboard';
 import { formatGroupedVolume, formatWeight } from './format';
 import { t } from './i18n';
-import { AppLanguage, SetupCautionArea, SetupCautionFlag, UnitPreference } from '../types/models';
-
-/** The levels that colour a row. `info` is grey by design — it is not a warning. */
-export type OverviewCautionLevel = 'careful' | 'avoid';
-
-export interface OverviewCaution {
-  area: SetupCautionArea;
-  level: OverviewCautionLevel;
-  /** Lead plus advice, one line: "Lower back flagged: be careful — keep the back flat…". */
-  note: string;
-}
+import { AppLanguage, UnitPreference } from '../types/models';
 
 export interface OverviewExerciseInput {
   /**
@@ -39,53 +34,6 @@ export interface OverviewExerciseInput {
   /** A hold logs seconds, so its scheme carries the unit and never a weight. */
   timed: boolean;
   loadKg: number | null;
-}
-
-/**
- * Which flag this lift trips, or null.
- *
- * `avoid` outranks `careful` when a lift hits two flagged areas: the stronger
- * claim is the one worth making, and the row has room for one line.
- */
-export function resolveOverviewCaution(
-  exerciseName: string,
-  flags: ReadonlyArray<SetupCautionFlag> | null | undefined,
-  language: AppLanguage,
-): OverviewCaution | null {
-  if (!flags || flags.length === 0) {
-    return null;
-  }
-
-  const hits = flags
-    .filter((flag) => flag.level === 'careful' || flag.level === 'avoid')
-    .filter((flag) => exerciseHitsCautionArea(exerciseName, flag.area));
-  if (hits.length === 0) {
-    return null;
-  }
-
-  const chosen = hits.find((flag) => flag.level === 'avoid') ?? hits[0];
-  const level: OverviewCautionLevel = chosen.level === 'avoid' ? 'avoid' : 'careful';
-  const areaLabel = t(language, `onb.area.${chosen.area}` as 'onb.area.neck');
-
-  return {
-    area: chosen.area,
-    level,
-    /*
-     * Area-level advice, not lift-level. The app has hand-written cautions for
-     * seven lifts (exerciseTeaching.ts) and a programme can hold thirty — a
-     * line that is specific for seven rows and absent for the rest reads as a
-     * bug. The specific text belongs on the how-to sheet, where there is room
-     * to be specific and a reason to be reading.
-     */
-    note: t(
-      language,
-      level === 'avoid' ? 'guided.entry.caution.avoid' : 'guided.entry.caution.careful',
-      {
-        area: areaLabel,
-        advice: t(language, `guided.entry.caution.note.${chosen.area}` as 'guided.entry.caution.note.neck'),
-      },
-    ),
-  };
 }
 
 /**

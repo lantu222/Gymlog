@@ -320,7 +320,16 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderTopRightRadius: 28,
     paddingHorizontal: 20,
     paddingTop: 10,
-    maxHeight: '86%',
+    /*
+     * One height, not "as tall as this tab happens to be".
+     *
+     * The sheet used to size itself to its content, so switching from the
+     * written steps to the history shrank it by two thirds and moved the tab
+     * row down under the reader's finger — and the steps themselves ran off
+     * the bottom rather than scrolling (user 2026-09-04). Fixed height, and
+     * the body scrolls inside it.
+     */
+    height: '78%',
   },
   grip: {
     alignSelf: 'center',
@@ -343,11 +352,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   tabActive: { backgroundColor: theme.surface },
   tabText: { fontSize: 13.5, fontWeight: '700', color: theme.muted },
   tabTextActive: { color: theme.ink, fontWeight: '800' },
-  body: { marginTop: 16 },
+  body: { flex: 1, marginTop: 16 },
   checkCard: {
     backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
+    borderWidth: 1.5,
+    borderColor: theme.purpleLight,
     borderRadius: 16,
     paddingHorizontal: 14,
   },
@@ -357,7 +366,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     height: 22,
     borderRadius: 7,
     borderWidth: 1.6,
-    borderColor: theme.border,
+    borderColor: theme.purple,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -369,7 +378,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     minHeight: 52,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: theme.border,
+    borderColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -380,6 +389,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     // Bigger: the shape was right, the box was not (user 2026-09-04).
     height: 250,
     borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: theme.purpleLight,
     overflow: 'hidden',
     backgroundColor: theme.surfaceSoft,
     alignItems: 'center',
@@ -401,8 +412,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   chip: {
     backgroundColor: theme.surfaceSoft,
-    borderWidth: 1,
-    borderColor: theme.border,
+    borderWidth: 1.5,
+    borderColor: theme.purpleLight,
     borderRadius: 999,
     paddingHorizontal: 11,
     paddingVertical: 6,
@@ -412,15 +423,23 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   stat: {
     flex: 1,
     backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
+    borderWidth: 1.5,
+    borderColor: theme.purpleLight,
     borderRadius: 14,
     padding: 12,
     gap: 4,
   },
   statValue: { fontSize: 15, fontWeight: '800', color: theme.ink, fontVariant: ['tabular-nums'] },
   chart: { flexDirection: 'row', alignItems: 'flex-end', gap: 6, height: 84 },
-  chartCol: { flex: 1, height: '100%', justifyContent: 'flex-end' },
+  /*
+   * A fixed width, not `flex: 1`.
+   *
+   * Flexed, a single session's bar took the whole row and the whole height —
+   * a solid block with no chart around it, which is what the history tab
+   * showed to anyone who had trained a lift once (user 2026-09-04). Eight of
+   * these still fit the sheet's width.
+   */
+  chartCol: { width: 30, height: '100%', justifyContent: 'flex-end' },
   chartBar: { borderRadius: 6, minHeight: 4 },
   historyRow: {
     flexDirection: 'row',
@@ -428,7 +447,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 10,
     paddingVertical: 9,
     borderBottomWidth: 1,
-    borderBottomColor: theme.border,
+    borderBottomColor: theme.purpleLight,
   },
   historyDate: { width: 62, fontSize: 12.5, fontWeight: '700', color: theme.muted },
   historyLoad: {

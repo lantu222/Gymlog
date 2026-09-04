@@ -10,8 +10,8 @@
  * rather than merely faster. It never names a drill.
  */
 import { libraryLabel } from './libraryLabel';
-import { buildOverviewScheme, OverviewCaution, resolveOverviewCaution } from './sessionOverviewRows';
-import { AppLanguage, SetupCautionFlag, UnitPreference } from '../types/models';
+import { buildOverviewScheme } from './sessionOverviewRows';
+import { AppLanguage, UnitPreference } from '../types/models';
 
 export interface WarmupBriefExercise {
   /** The library name, untranslated — the caution matcher reads English. */
@@ -34,22 +34,15 @@ export interface WarmupBriefFirstLift {
 export interface WarmupBrief {
   /** Localized body-part labels, deduped, in the order the session meets them. */
   areas: string[];
-  /**
-   * Flagged areas today's lifts actually touch — deduped by area, because the
-   * chip is about the body part and not about which lift found it.
-   */
-  cautions: OverviewCaution[];
   firstLift: WarmupBriefFirstLift | null;
 }
 
 export function buildWarmupBrief(
   exercises: ReadonlyArray<WarmupBriefExercise>,
-  cautionFlags: ReadonlyArray<SetupCautionFlag> | null | undefined,
   language: AppLanguage,
   unitPreference: UnitPreference = 'kg',
 ): WarmupBrief {
   const areas: string[] = [];
-  const cautions: OverviewCaution[] = [];
 
   exercises.forEach((exercise) => {
     if (exercise.bodyPart) {
@@ -58,18 +51,12 @@ export function buildWarmupBrief(
         areas.push(label);
       }
     }
-
-    const caution = resolveOverviewCaution(exercise.exerciseName, cautionFlags, language);
-    if (caution && !cautions.some((existing) => existing.area === caution.area)) {
-      cautions.push(caution);
-    }
   });
 
   const first = exercises[0] ?? null;
 
   return {
     areas,
-    cautions,
     firstLift: first
       ? {
           exerciseName: first.exerciseName,
