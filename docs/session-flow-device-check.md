@@ -55,9 +55,8 @@ phone, and ticking them from a summary would turn a to-do into a claim.
       liikkeet · kello käy kunnes olet valmis`) and reads as a peer of the CTA,
       not as a footnote.
 - [ ] The recovery gate says stretches, not drills, in its second line.
-- [ ] Free timer: eyebrow `LÄMMITTELET` in accent, title `Ota aikasi`, clock
-      smaller than before (44pt), `Viime kerralla käytit 4:20` under it — the
-      last line is absent the first time and appears from the second session.
+- [ ] Free timer: the clock and nothing above it. `Viime kerralla käytit 4:20`
+      under it — absent the first time, there from the second session.
 - [ ] `TÄMÄN TREENIN KUORMAT` card: area chips, then `ENSIMMÄINEN LIIKE` with
       its weight. **This card must never name a drill** — that was removed on
       purpose (#bugs 2026-08-26).

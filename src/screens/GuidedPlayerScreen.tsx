@@ -3289,18 +3289,14 @@ export function GuidedPlayerScreen({
             }}
             showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.ownBlockEyebrow}>
-              {t(
-                language,
-                ownBlock.phase === 'warmup' ? 'guided.own.state.warmup' : 'guided.own.state.cooldown',
-              )}
-            </Text>
-            <Text style={styles.splashTitle}>{t(language, 'guided.own.title')}</Text>
-            {/* Smaller than the drill countdowns on purpose: this clock is a
-                record of how long you have taken, not a number to beat. */}
+            {/* The clock, and what it is worth comparing against. Nothing else.
+                This carried an eyebrow ("LÄMMITTELET"), a title ("Ota aikasi")
+                and a line explaining that a running clock is running — three
+                pieces of copy that told the reader what they could already see
+                (user 2026-09-04). The top bar says which block this is; the
+                Done button says what to do. */}
             <Text style={styles.ownBlockClock}>{formatSessionClock(ownElapsedSeconds)}</Text>
             {ownLastTimeLine ? <Text style={styles.ownBlockHint}>{ownLastTimeLine}</Text> : null}
-            <Text style={styles.ownBlockHint}>{t(language, 'guided.own.hint')}</Text>
 
             {/* "Vinha olisi ehdottanut" and its three drills are gone and stay
                 gone: listing what the app would have picked is the app arguing
@@ -4566,18 +4562,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
 
   /* doing a block your own way */
   ownBlockSheet: { ...StyleSheet.absoluteFillObject, backgroundColor: theme.bg },
-  ownBlockEyebrow: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    letterSpacing: 2,
-    color: theme.highlight,
-    textAlign: 'center',
-  },
   // 62pt was the size of a target. This clock is a record of what you have
   // spent, and the drill countdowns are the numbers worth being that big.
   ownBlockClock: {
     textAlign: 'center',
-    fontSize: 44,
+    fontSize: 64,
     fontWeight: '800',
     letterSpacing: -1.4,
     color: theme.ink,
