@@ -76,13 +76,7 @@ import {
   findLastTimeSession,
   LastTimeSessionLike,
 } from '../lib/sessionOverviewRows';
-import {
-  formatLastOwnBlock,
-  OwnBlockPhase,
-  OwnBlockStats,
-  recordOwnBlock,
-  shouldOfferAlwaysOwn,
-} from '../lib/ownBlockHistory';
+import { formatLastOwnBlock, OwnBlockPhase, OwnBlockStats } from '../lib/ownBlockHistory';
 import { resolveMovement } from '../lib/sessionMovement';
 import { buildWarmupBrief } from '../lib/warmupBrief';
 import { commitDialWeight, stepDialWeight } from '../lib/weightDial';
@@ -247,11 +241,8 @@ interface GuidedPlayerScreenProps {
   completedSessions?: ReadonlyArray<LastTimeSessionLike>;
   /** How the reader's own warm-ups have gone — see lib/ownBlockHistory.ts. */
   ownBlockStats?: OwnBlockStats;
-  /** The standing "skip the drills" choice, if they have made one. */
-  alwaysOwnWarmup?: boolean;
   /** One finished self-run block, for the "last time you took" line. */
   onRecordOwnBlock?: (phase: OwnBlockPhase, seconds: number) => void;
-  onSetAlwaysOwnWarmup?: (next: boolean) => void;
   /** The Learn section's own two facts, so the sheet can show and change them. */
   learnedExerciseIds?: string[];
   techniqueChecks?: Record<string, number[]>;
@@ -1128,9 +1119,7 @@ export function GuidedPlayerScreen({
   entryEyebrow,
   completedSessions = [],
   ownBlockStats = {},
-  alwaysOwnWarmup = false,
   onRecordOwnBlock,
-  onSetAlwaysOwnWarmup,
   learnedExerciseIds = [],
   techniqueChecks = {},
   onToggleTechniqueStatement,
@@ -1390,8 +1379,6 @@ export function GuidedPlayerScreen({
   const [ownBlock, setOwnBlock] = useState<{ phase: 'warmup' | 'cooldown'; startedAt: number } | null>(
     null,
   );
-  /** The "always start with my own warm-up" offer, once it has been earned. */
-  const [alwaysOwnAsk, setAlwaysOwnAsk] = useState(false);
   /**
    * The set screen's exercise info (history, how-to, photo). It opens from the
    * header's right-hand button now, so the state lives beside the header
@@ -1719,37 +1706,10 @@ export function GuidedPlayerScreen({
       return;
     }
     if (completed) {
-      const seconds = Math.max(0, Math.floor((Date.now() - current.startedAt) / 1000));
-      onRecordOwnBlock?.(current.phase, seconds);
-      // Asked after the recorded third, so the count the offer reads includes
-      // the one just finished.
-      if (
-        current.phase === 'warmup'
-        && shouldOfferAlwaysOwn(recordOwnBlock(ownBlockStats, 'warmup', seconds), 'warmup', alwaysOwnWarmup)
-      ) {
-        setAlwaysOwnAsk(true);
-      }
+      onRecordOwnBlock?.(current.phase, Math.max(0, Math.floor((Date.now() - current.startedAt) / 1000)));
       skipPhase();
     }
   };
-
-  /**
-   * The standing choice, honoured.
-   *
-   * A reader who has said "always my own" should not meet the fork again — so
-   * the warm-up gate opens straight into the timer. The way back out is on
-   * that screen, and taking it clears the standing choice: the app assumed,
-   * the reader disagreed, so the assumption goes.
-   */
-  const gateIsWarmupSplash = step.type === 'splash' && step.phase === 'warmup';
-  useEffect(() => {
-    if (alwaysOwnWarmup && mode === 'player' && gateIsWarmupSplash && !ownBlock) {
-      setOwnBlock({ phase: 'warmup', startedAt: Date.now() });
-    }
-    // Only the arrival matters; re-running on every ownBlock change would
-    // reopen the timer the moment the reader closes it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [alwaysOwnWarmup, mode, gateIsWarmupSplash]);
 
 
   /* ── exercise-level actions ──────────────────────────────────────────────
@@ -3375,9 +3335,8 @@ export function GuidedPlayerScreen({
             ) : null}
           </ScrollView>
           <View style={{ paddingHorizontal: 24, paddingBottom: 18, gap: 12 }}>
-            {/* The way back into the drills, and the way out of the standing
-                assumption at the same time: a reader who wants them today is a
-                reader the app was wrong to skip them for.
+            {/* The way back into the drills, for the reader who opened the
+                timer and changed their mind.
 
                 ABOVE the button, not below it. This sheet pads 18px off the
                 bottom with no safe-area inset, and that strip is where Android
@@ -3387,12 +3346,7 @@ export function GuidedPlayerScreen({
             <Pressable
               accessibilityRole="button"
               hitSlop={10}
-              onPress={() => {
-                setOwnBlock(null);
-                if (alwaysOwnWarmup && ownBlock.phase === 'warmup') {
-                  onSetAlwaysOwnWarmup?.(false);
-                }
-              }}
+              onPress={() => setOwnBlock(null)}
               style={{ alignItems: 'center', paddingVertical: 6 }}
             >
               <Text style={styles.startOverText}>
@@ -3414,24 +3368,6 @@ export function GuidedPlayerScreen({
         </View>
       )}
 
-      {/* Asked once, on the third session run this way, and never again:
-          the reader has shown the app what they do, so the app can stop
-          putting the fork in front of them. */}
-      {alwaysOwnAsk ? (
-        <ConfirmDialog
-          visible
-          language={language}
-          title={t(language, 'guided.own.always.title')}
-          message={t(language, 'guided.own.always.body')}
-          confirmLabel={t(language, 'guided.own.always.confirm')}
-          cancelLabel={t(language, 'guided.own.always.cancel')}
-          onConfirm={() => {
-            setAlwaysOwnAsk(false);
-            onSetAlwaysOwnWarmup?.(true);
-          }}
-          onCancel={() => setAlwaysOwnAsk(false)}
-        />
-      ) : null}
 
       {/* Correcting the set that was just logged, on the screen that shows it. */}
       {restEditOpen && step.type === 'rest' ? (

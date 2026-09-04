@@ -1,14 +1,15 @@
 /**
  * What the app remembers about warming up your own way.
  *
- * The free timer counts up because the app does not know how long your warm-up
- * takes. It can know how long it took you last time, though, and that is the
- * only number that makes an open-ended clock readable: 2:14 means nothing on
- * its own and quite a lot next to "last time you took 4:20".
+ * One number: how long the last one took. The free timer counts up because the
+ * app does not know how long your warm-up takes, and that is the only figure
+ * which makes an open-ended clock readable — 2:14 means nothing on its own and
+ * quite a lot next to "last time you took 4:20".
  *
- * The count is here for the same reason. Someone who has now started three
- * sessions their own way is telling the app something, and the app can stop
- * asking — see `shouldOfferAlwaysOwn`.
+ * It also kept a count, which fed an offer to always skip the guided drills
+ * after the third session run that way. The offer was removed on 2026-09-04
+ * (user), and the count went with it: a stored number with no reader is the
+ * next person's puzzle.
  */
 import { t } from './i18n';
 import { AppLanguage } from '../types/models';
@@ -18,14 +19,9 @@ export type OwnBlockPhase = 'warmup' | 'cooldown';
 export interface OwnBlockStat {
   /** Seconds the last self-run block took. */
   lastSeconds: number;
-  /** How many have been run this way, ever. */
-  count: number;
 }
 
 export type OwnBlockStats = Partial<Record<OwnBlockPhase, OwnBlockStat>>;
-
-/** After this many, the app offers to stop asking. */
-export const OWN_BLOCK_OFFER_AFTER = 3;
 
 function normalizeStat(input: unknown): OwnBlockStat | null {
   if (!input || typeof input !== 'object') {
@@ -36,11 +32,9 @@ function normalizeStat(input: unknown): OwnBlockStat | null {
     typeof record.lastSeconds === 'number' && Number.isFinite(record.lastSeconds) && record.lastSeconds > 0
       ? Math.round(record.lastSeconds)
       : 0;
-  const count =
-    typeof record.count === 'number' && Number.isFinite(record.count) && record.count > 0
-      ? Math.round(record.count)
-      : 0;
-  return lastSeconds === 0 && count === 0 ? null : { lastSeconds, count };
+  // An install from before 2026-09-04 also stored a `count`; it is dropped
+  // rather than carried, which is what removing the offer means.
+  return lastSeconds === 0 ? null : { lastSeconds };
 }
 
 /**
@@ -67,38 +61,14 @@ export function normalizeOwnBlockStats(input: unknown): OwnBlockStats {
 /**
  * One finished self-run block, folded in.
  *
- * A block ended in under ten seconds is a mis-tap, not a warm-up: it neither
- * sets the "last time" mark nor counts towards the offer.
+ * A block ended in under ten seconds is a mis-tap, not a warm-up, and must not
+ * become the mark the next session is measured against.
  */
 export function recordOwnBlock(stats: OwnBlockStats, phase: OwnBlockPhase, seconds: number): OwnBlockStats {
   if (!Number.isFinite(seconds) || seconds < 10) {
     return stats;
   }
-  const previous = stats[phase];
-  return {
-    ...stats,
-    [phase]: {
-      lastSeconds: Math.round(seconds),
-      count: (previous?.count ?? 0) + 1,
-    },
-  };
-}
-
-/**
- * Whether to offer "always start with my own warm-up".
- *
- * Offered on the third, not the first: twice is a preference the reader has
- * not made yet, and an app that asks after one is an app that assumes.
- */
-export function shouldOfferAlwaysOwn(
-  stats: OwnBlockStats,
-  phase: OwnBlockPhase,
-  alreadyAlways: boolean,
-): boolean {
-  if (alreadyAlways) {
-    return false;
-  }
-  return (stats[phase]?.count ?? 0) >= OWN_BLOCK_OFFER_AFTER;
+  return { ...stats, [phase]: { lastSeconds: Math.round(seconds) } };
 }
 
 /** "Last time you took 4:20", or null the first time through. */

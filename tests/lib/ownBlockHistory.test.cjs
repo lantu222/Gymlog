@@ -1,11 +1,9 @@
 const assert = require('node:assert/strict');
 
 const {
-  OWN_BLOCK_OFFER_AFTER,
   formatLastOwnBlock,
   normalizeOwnBlockStats,
   recordOwnBlock,
-  shouldOfferAlwaysOwn,
 } = require('../../.test-dist/lib/ownBlockHistory.js');
 
 module.exports = [
@@ -19,55 +17,47 @@ module.exports = [
       assert.deepEqual(normalizeOwnBlockStats([]), {});
       // Junk inside a real shape drops out rather than reaching the screen.
       assert.deepEqual(
-        normalizeOwnBlockStats({ warmup: { lastSeconds: 'x', count: -3 }, cooldown: null, legs: { count: 9 } }),
+        normalizeOwnBlockStats({ warmup: { lastSeconds: 'x' }, cooldown: null, legs: { count: 9 } }),
         {},
       );
-      assert.deepEqual(normalizeOwnBlockStats({ warmup: { lastSeconds: 260.4, count: 2.2 } }), {
-        warmup: { lastSeconds: 260, count: 2 },
+      assert.deepEqual(normalizeOwnBlockStats({ warmup: { lastSeconds: 260.4 } }), {
+        warmup: { lastSeconds: 260 },
+      });
+      // An install from before the offer was removed also stored a count. It
+      // is dropped rather than carried forward.
+      assert.deepEqual(normalizeOwnBlockStats({ warmup: { lastSeconds: 260, count: 7 } }), {
+        warmup: { lastSeconds: 260 },
       });
     },
   },
   {
-    name: 'a recorded block sets the mark and counts, unless it was a mis-tap',
+    name: 'a recorded block sets the mark, unless it was a mis-tap',
     run() {
       const first = recordOwnBlock({}, 'warmup', 260);
-      assert.deepEqual(first, { warmup: { lastSeconds: 260, count: 1 } });
+      assert.deepEqual(first, { warmup: { lastSeconds: 260 } });
       const second = recordOwnBlock(first, 'warmup', 134);
-      assert.deepEqual(second, { warmup: { lastSeconds: 134, count: 2 } });
-      // The other phase keeps its own tally.
+      assert.deepEqual(second, { warmup: { lastSeconds: 134 } });
+      // The other phase keeps its own mark.
       const both = recordOwnBlock(second, 'cooldown', 90);
-      assert.deepEqual(both.warmup, { lastSeconds: 134, count: 2 });
-      assert.deepEqual(both.cooldown, { lastSeconds: 90, count: 1 });
-      // Four seconds is a mis-tap, not a warm-up: it neither moves the mark
-      // nor earns a step towards the offer.
+      assert.deepEqual(both.warmup, { lastSeconds: 134 });
+      assert.deepEqual(both.cooldown, { lastSeconds: 90 });
+      // Four seconds is a mis-tap, not a warm-up: it must not become the mark
+      // the next session is measured against.
       assert.deepEqual(recordOwnBlock(second, 'warmup', 4), second);
       assert.deepEqual(recordOwnBlock(second, 'warmup', Number.NaN), second);
       // And the input is not mutated.
-      assert.deepEqual(first, { warmup: { lastSeconds: 260, count: 1 } });
-    },
-  },
-  {
-    name: 'the standing offer waits for the third, and never comes back once taken',
-    run() {
-      assert.equal(OWN_BLOCK_OFFER_AFTER, 3);
-      assert.equal(shouldOfferAlwaysOwn({}, 'warmup', false), false);
-      assert.equal(shouldOfferAlwaysOwn({ warmup: { lastSeconds: 200, count: 2 } }, 'warmup', false), false);
-      assert.equal(shouldOfferAlwaysOwn({ warmup: { lastSeconds: 200, count: 3 } }, 'warmup', false), true);
-      // Already answered yes: not asked again.
-      assert.equal(shouldOfferAlwaysOwn({ warmup: { lastSeconds: 200, count: 9 } }, 'warmup', true), false);
-      // The cooldown's own count does not speak for the warm-up.
-      assert.equal(shouldOfferAlwaysOwn({ cooldown: { lastSeconds: 200, count: 5 } }, 'warmup', false), false);
+      assert.deepEqual(first, { warmup: { lastSeconds: 260 } });
     },
   },
   {
     name: 'the last-time line is a clock, and absent before there is one',
     run() {
-      assert.equal(formatLastOwnBlock({ warmup: { lastSeconds: 260, count: 1 } }, 'warmup', 'en'), 'Last time you took 4:20');
-      assert.equal(formatLastOwnBlock({ warmup: { lastSeconds: 260, count: 1 } }, 'warmup', 'fi'), 'Viime kerralla käytit 4:20');
+      assert.equal(formatLastOwnBlock({ warmup: { lastSeconds: 260 } }, 'warmup', 'en'), 'Last time you took 4:20');
+      assert.equal(formatLastOwnBlock({ warmup: { lastSeconds: 260 } }, 'warmup', 'fi'), 'Viime kerralla käytit 4:20');
       // Seconds pad, so 4:05 is never "4:5".
-      assert.equal(formatLastOwnBlock({ warmup: { lastSeconds: 245, count: 1 } }, 'warmup', 'en'), 'Last time you took 4:05');
+      assert.equal(formatLastOwnBlock({ warmup: { lastSeconds: 245 } }, 'warmup', 'en'), 'Last time you took 4:05');
       assert.equal(formatLastOwnBlock({}, 'warmup', 'en'), null);
-      assert.equal(formatLastOwnBlock({ cooldown: { lastSeconds: 90, count: 1 } }, 'warmup', 'en'), null);
+      assert.equal(formatLastOwnBlock({ cooldown: { lastSeconds: 90 } }, 'warmup', 'en'), null);
     },
   },
 ];

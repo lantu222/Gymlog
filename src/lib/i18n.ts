@@ -1499,11 +1499,6 @@ const EN = {
   'guided.own.brief.firstLift': 'FIRST LIFT',
   'guided.own.guided.warmup': 'Do the guided drills instead',
   'guided.own.guided.cooldown': 'Do the guided stretches instead',
-  'guided.own.always.title': 'Always start on your own?',
-  'guided.own.always.body':
-    'That is three sessions warmed up your way. Vinha can open the timer straight away and leave the drills out of it.',
-  'guided.own.always.confirm': 'Yes, always',
-  'guided.own.always.cancel': 'Keep asking',
   'guided.own.hint': 'The clock is running. Press done when you are ready.',
   'guided.own.done.warmup': 'Done — start the workout',
   'guided.own.done.cooldown': 'Done — finish the workout',
@@ -4927,11 +4922,6 @@ const FI: Record<I18nKey, string> = {
   'guided.own.brief.firstLift': 'ENSIMMÄINEN LIIKE',
   'guided.own.guided.warmup': 'Tee ohjatut liikkeet sittenkin',
   'guided.own.guided.cooldown': 'Tee ohjatut venytykset sittenkin',
-  'guided.own.always.title': 'Aloitetaanko aina omatoimisesti?',
-  'guided.own.always.body':
-    'Kolme treeniä lämmitelty omalla tavallasi. Vinha voi avata kellon suoraan eikä tarjoa liikkeitä lainkaan.',
-  'guided.own.always.confirm': 'Kyllä, aina',
-  'guided.own.always.cancel': 'Kysy jatkossakin',
   'guided.own.hint': 'Kello käy. Paina valmis kun olet valmis.',
   'guided.own.done.warmup': 'Valmis — aloita treeni',
   'guided.own.done.cooldown': 'Valmis — päätä treeni',

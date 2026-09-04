@@ -219,7 +219,6 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       ratingPrompt: { lastAskedAt: null, askCount: 0, rated: false },
       hapticsEnabled: true,
       ownBlockStats: {},
-      alwaysOwnWarmup: false,
       homeStatCardKeys: null,
       notificationPrefs: {
         pushEnabled: false,

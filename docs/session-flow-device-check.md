@@ -62,12 +62,8 @@ against theme tokens, so a wrong token shows up in exactly one of them.
 - [ ] The card scrolls when the session loads five areas plus a flag.
 - [ ] `Tee ohjatut liikkeet sittenkin` sits **above** the Done button, clear of
       the Android system bar.
-- [ ] Run three sessions with your own warm-up: on the third Done, the "always
-      start on your own" dialog appears. Answer yes, then start a fourth — it
-      must open the timer directly, with no gate. Press "Tee ohjatut liikkeet
-      sittenkin" there: the gate must come back for the fifth session too.
-- [ ] Press Done after two seconds: nothing is recorded, no offer, and the next
-      session still shows the previous "last time".
+- [ ] Press Done after two seconds: nothing is recorded, and the next session
+      still shows the previous "last time".
 - [ ] An install that predates this change loads without a crash (the two new
       preference fields are normalized).
 
@@ -213,9 +209,9 @@ Note for anyone reading a screenshot: in light the CTA is **green**, because
 `accent` is green there and orange only in dark. That is the theme engine
 working, not a colour bug.
 
-**Still unwalked:** the amber caution rows and the WATCH FOR chips (needs a
-caution flag set in onboarding), and the "always start on your own" offer
-(needs three sessions warmed up that way).
+**Still unwalked:** nothing. The amber caution rows were removed on 2026-09-04,
+and so was the "always start on your own" offer — the one item this list could
+never reach without three sessions run that way.
 
 ## After the walkthrough
 
