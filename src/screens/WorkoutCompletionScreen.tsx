@@ -671,8 +671,10 @@ export function WorkoutCompletionScreen({
             <Animated.View style={rise(4)}>
               <Text style={styles.sectionLabel}>{t(language, 'complete.moved.title')}</Text>
               <View style={styles.movedCard}>
+                {/* Keyed by position, not by name: a day can hold the same
+                    lift in two slots, and both of them can move. */}
                 {whatMoved.map((row, index) => (
-                  <View key={row.exerciseName} style={index > 0 ? styles.movedRowDivided : undefined}>
+                  <View key={`${row.exerciseName}-${index}`} style={index > 0 ? styles.movedRowDivided : undefined}>
                     <View style={styles.movedHeadRow}>
                       <Text style={styles.movedName} numberOfLines={1}>
                         {exerciseNameLabel(language, row.exerciseName)}

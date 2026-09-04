@@ -1506,12 +1506,24 @@ export function GuidedPlayerScreen({
     /** A rest waits for the reader; an interval's walk is part of the rhythm. */
     const restHoldsAtZero = step.type === 'rest' && !step.recoveryKind;
 
-    endsAtRef.current = Date.now() + Math.max(0, remainingRef.current);
+    /*
+     * The clamp is for a step that has not started, not for a rest that is
+     * already over.
+     *
+     * A rest counts on past zero, so its leftover is negative — and clamping
+     * that to 0 threw the overtime away every time anything froze the timer:
+     * open the exit dialog on a rest showing "+3:20 over", cancel it, and the
+     * count started again from zero. `restHoldsAtZero` is exactly the case
+     * where a negative remainder is a real number to keep.
+     */
+    endsAtRef.current =
+      Date.now() + (restHoldsAtZero ? remainingRef.current : Math.max(0, remainingRef.current));
 
     // A rest is the one wait long enough to put the phone down for, so its
     // deadline also goes to the OS — that alert is what reaches the user when
-    // Android has suspended us.
-    if (step.type === 'rest') {
+    // Android has suspended us. Not once it has already passed, though: a
+    // deadline in the past is an alert that fires the moment it is set.
+    if (step.type === 'rest' && endsAtRef.current > Date.now()) {
       void syncRestNotification(endsAtRef.current, exerciseNameLabel(language, getGuidedNextName(steps, stepIndex) ?? ''));
     }
 

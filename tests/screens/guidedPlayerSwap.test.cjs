@@ -79,6 +79,25 @@ module.exports = [
   },
   {
     /**
+     * A rest counts past zero, so its leftover is negative — and everything
+     * that freezes the timer (the exit dialog, a sheet, a swap) tears the
+     * effect down and rebuilds the deadline from that leftover. Clamped, the
+     * overtime the reader had actually stood there was thrown away and the
+     * count restarted at zero.
+     */
+    name: 'guided player: overtime survives whatever freezes the rest timer',
+    run() {
+      assert.match(
+        playerSource,
+        /Date\.now\(\) \+ \(restHoldsAtZero \? remainingRef\.current : Math\.max\(0, remainingRef\.current\)\)/,
+      );
+      // And a deadline already in the past is not handed to the OS: that is an
+      // alert that fires the instant it is scheduled.
+      assert.match(playerSource, /step\.type === 'rest' && endsAtRef\.current > Date\.now\(\)/);
+    },
+  },
+  {
+    /**
      * Where you are in the workout is a colour, not a size.
      *
      * The rail gave the current exercise the same purple as the finished ones
