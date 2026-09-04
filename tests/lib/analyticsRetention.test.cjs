@@ -71,7 +71,7 @@ module.exports = [
     },
   },
   {
-    name: 'retention: the monthly cron is wired end to end',
+    name: 'retention: the daily cron is wired end to end',
     run() {
       // A retention period in a policy is a promise; this is the chain that
       // keeps it without anyone remembering. Each link is checked because
@@ -80,10 +80,11 @@ module.exports = [
       const config = JSON.parse(read('vercel.json'));
       const cron = (config.crons ?? []).find((entry) => entry.path === '/api/prune-events');
       assert.ok(cron, 'vercel.json must schedule /api/prune-events');
-      // Minute, hour and day of month fixed; day of week must stay `*` when
-      // day of month is set (Vercel refuses both), and anything more frequent
-      // than daily fails deployment on the Hobby plan.
-      assert.match(cron.schedule, /^\d{1,2} \d{1,2} \d{1,2} \* \*$/, `schedule "${cron.schedule}" is not a fixed monthly run`);
+      // Once a day, every day: minute and hour fixed, the rest `*`. Daily is
+      // the most the Hobby plan allows, and it is also the least the policy
+      // can bear — a monthly run let a batch live up to 25 months against a
+      // promise of "up to 24" (review, PR #58).
+      assert.match(cron.schedule, /^\d{1,2} \d{1,2} \* \* \*$/, `schedule "${cron.schedule}" is not a fixed daily run`);
       assert.ok(fs.existsSync(path.join(root, 'api', 'prune-events.ts')), 'the cron path has no function behind it');
 
       // The deploy uploads only what .vercelignore allows; vercel.json is

@@ -459,7 +459,7 @@ export function SettingsScreen({
                 was a switch wired to nothing; tests/lib/legalDocuments.test.cjs
                 pins every link of this one. */}
             <Row
-              icon="shield"
+              icon="analytics"
               title={t(language, 'settings.usageStats')}
               sub={t(language, 'settings.usageStats.sub')}
               control={
