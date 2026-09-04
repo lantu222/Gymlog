@@ -1,0 +1,482 @@
+import React, { useState } from 'react';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { ExerciseSheetHistory, SHEET_HISTORY_SESSIONS } from '../lib/exerciseSheetHistory';
+import { removeTrailingZeros } from '../lib/format';
+import { t } from '../lib/i18n';
+import { Theme, useThemedStyles, useTheme } from '../theming';
+import { AppLanguage } from '../types/models';
+
+/**
+ * Everything the set screen knows about the lift in front of you, in one sheet.
+ *
+ * It used to be three panels swiped sideways at the top of the set screen —
+ * which put the answer to "how much did I lift last time" behind a gesture,
+ * above a screen whose whole job is a number you are about to type. The sheet
+ * takes the same three things and gives them room: the photo and the setup,
+ * the written steps with the cautions that apply to YOU, and the history the
+ * panel could only show one session of.
+ *
+ * Three tabs rather than a scroll, because they answer three different
+ * questions and a reader mid-set has exactly one of them.
+ */
+export type ExerciseSheetTab = 'learn' | 'howTo' | 'history';
+
+export interface ExerciseSheetLearn {
+  /** Three short cues — the ones worth remembering under the bar. */
+  cues: string[];
+  /**
+   * Four statements about the set just done. Not a quiz with a right answer:
+   * the ones the reader cannot tick honestly are the ones worth filming.
+   */
+  check: string[];
+  /** Which of them are ticked, by index. */
+  checked: number[];
+  /** The reader pressed the button that says they know this lift. */
+  learned: boolean;
+  onToggleStatement: (index: number) => void;
+  onToggleLearned: () => void;
+}
+
+export interface ExerciseSheetWatchFor {
+  text: string;
+  /** A caution the reader's own setup flags asked for — drawn amber. */
+  flagged: boolean;
+}
+
+interface ExerciseSheetProps {
+  visible: boolean;
+  language: AppLanguage;
+  /** Already localized. */
+  exerciseName: string;
+  imageUrl: string | null;
+  /** Two letters, when there is no photo. */
+  initials: string;
+  /** Already localized; empty means the tab says so rather than showing nothing. */
+  instructions: string[];
+  /**
+   * The teaching this lift has, or null.
+   *
+   * Null for most of the library, and that is the designed state: the sheet
+   * offers two tabs instead of three rather than a third with nothing in it.
+   * The photo lives on How to either way — it used to have a tab of its own
+   * whose other half was the same instructions the How-to tab already showed
+   * (user 2026-09-04, "loop ja how to on käytännössä samat kohdat").
+   */
+  learn: ExerciseSheetLearn | null;
+  watchFor: ExerciseSheetWatchFor[];
+  history: ExerciseSheetHistory;
+  initialTab?: ExerciseSheetTab;
+  onClose: () => void;
+}
+
+const ALL_TABS: ExerciseSheetTab[] = ['learn', 'howTo', 'history'];
+
+export function ExerciseSheet({
+  visible,
+  language,
+  exerciseName,
+  imageUrl,
+  initials,
+  instructions,
+  learn,
+  watchFor,
+  history,
+  initialTab,
+  onClose,
+}: ExerciseSheetProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const insets = useSafeAreaInsets();
+  // A lift with no teaching has no Learn tab, so it cannot open on one.
+  const tabs = learn ? ALL_TABS : ALL_TABS.filter((key) => key !== 'learn');
+  const [tab, setTab] = useState<ExerciseSheetTab>(initialTab ?? tabs[0]);
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.veil}>
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel={t(language, 'common.close')}
+        />
+        <View style={[styles.sheet, { paddingBottom: insets.bottom + 20 }]}>
+          <View style={styles.grip} />
+          <Text style={styles.title} numberOfLines={2}>
+            {exerciseName}
+          </Text>
+
+          <View style={styles.tabs}>
+            {tabs.map((key) => (
+              <Pressable
+                key={key}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: tab === key }}
+                onPress={() => setTab(key)}
+                style={[styles.tab, tab === key && styles.tabActive]}
+              >
+                <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>
+                  {t(language, `guided.sheet.tab.${key}` as 'guided.sheet.tab.learn')}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+            {tab === 'learn' && learn ? (
+              <View style={{ gap: 16 }}>
+                {learn.cues.length > 0 ? (
+                  <View style={{ gap: 8 }}>
+                    <Text style={styles.sectionLabel}>{t(language, 'guided.sheet.cues')}</Text>
+                    {learn.cues.map((cue, index) => (
+                      <View key={index} style={styles.stepRow}>
+                        <Text style={styles.stepIndex}>{index + 1}</Text>
+                        <Text style={styles.stepText}>{cue}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+
+                {/* The self-audit from the Learn section, where it is useful
+                    at the moment it is about: standing over the bar with the
+                    set just done (user 2026-09-04). Not a score — the counter
+                    names what is left and stops talking once nothing is. */}
+                <View style={{ gap: 8 }}>
+                  <Text style={styles.sectionLabel}>{t(language, 'exDetail.check')}</Text>
+                  <View style={styles.checkCard}>
+                    {learn.check.map((statement, index) => {
+                      const ticked = learn.checked.includes(index);
+                      return (
+                        <Pressable
+                          key={index}
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked: ticked }}
+                          accessibilityLabel={statement}
+                          onPress={() => learn.onToggleStatement(index)}
+                          style={styles.checkRow}
+                        >
+                          <View style={[styles.checkBox, ticked && styles.checkBoxOn]}>
+                            {ticked ? (
+                              <Text style={styles.checkTick}>✓</Text>
+                            ) : null}
+                          </View>
+                          <Text style={[styles.checkText, ticked && styles.checkTextOn]}>{statement}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  {learn.check.length - learn.checked.length > 0 ? (
+                    <Text style={styles.empty}>
+                      {t(language, 'exDetail.checkRemaining', {
+                        count: learn.check.length - learn.checked.length,
+                      })}
+                    </Text>
+                  ) : null}
+                </View>
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: learn.learned }}
+                  onPress={learn.onToggleLearned}
+                  style={[styles.learnedBtn, learn.learned && styles.learnedBtnOn]}
+                >
+                  <Text style={[styles.learnedText, learn.learned && styles.learnedTextOn]}>
+                    {t(language, learn.learned ? 'exDetail.learned' : 'exDetail.markLearned')}
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
+
+            {tab === 'howTo' ? (
+              <View style={{ gap: 14 }}>
+                {/* The photo lives here now. It had a tab of its own whose
+                    other half was these same instructions, three of them. */}
+                <View style={styles.photo}>
+                  {imageUrl ? (
+                    <Image source={{ uri: imageUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                  ) : (
+                    <Text style={styles.photoInitials}>{initials}</Text>
+                  )}
+                </View>
+                {instructions.length > 0 ? (
+                  instructions.map((instruction, index) => (
+                    <View key={index} style={styles.stepRow}>
+                      <Text style={styles.stepIndex}>{index + 1}</Text>
+                      <Text style={styles.stepText}>{instruction}</Text>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.empty}>{t(language, 'guided.sheet.noInstructions')}</Text>
+                )}
+                {watchFor.length > 0 ? (
+                  <View style={{ gap: 8 }}>
+                    <Text style={styles.sectionLabel}>{t(language, 'guided.sheet.watchFor')}</Text>
+                    <View style={styles.chips}>
+                      {watchFor.map((item, index) => (
+                        <View
+                          key={index}
+                          style={[
+                            styles.chip,
+                            item.flagged && { backgroundColor: theme.amberSoft, borderColor: theme.amberBorder },
+                          ]}
+                        >
+                          <Text style={[styles.chipText, item.flagged && { color: theme.amberInk }]}>
+                            {item.text}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+
+            {tab === 'history' ? (
+              <View style={{ gap: 16 }}>
+                <View style={styles.statRow}>
+                  <View style={styles.stat}>
+                    <Text style={styles.sectionLabel}>{t(language, 'guided.sheet.bestSet')}</Text>
+                    <Text style={styles.statValue}>{history.bestSetLabel ?? '—'}</Text>
+                  </View>
+                  <View style={styles.stat}>
+                    <Text style={styles.sectionLabel}>{t(language, 'guided.sheet.oneRepMax')}</Text>
+                    <Text style={styles.statValue}>
+                      {history.estimatedOneRepMaxKg
+                        ? `${removeTrailingZeros(Math.round(history.estimatedOneRepMaxKg))} kg`
+                        : '—'}
+                    </Text>
+                  </View>
+                  <View style={styles.stat}>
+                    <Text style={styles.sectionLabel}>{t(language, 'guided.sheet.sessions')}</Text>
+                    <Text style={styles.statValue}>{history.sessionCount}</Text>
+                  </View>
+                </View>
+
+                {history.bars.length > 0 ? (
+                  <View style={{ gap: 8 }}>
+                    <Text style={styles.sectionLabel}>
+                      {t(language, 'guided.sheet.topSets', { count: SHEET_HISTORY_SESSIONS })}
+                    </Text>
+                    <View style={styles.chart}>
+                      {history.bars.map((bar, index) => (
+                        <View key={index} style={styles.chartCol}>
+                          <View
+                            style={[
+                              styles.chartBar,
+                              {
+                                height: `${Math.round(bar.ratio * 100)}%`,
+                                backgroundColor: bar.isToday ? theme.highlight : theme.purpleLight,
+                              },
+                            ]}
+                          />
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ) : null}
+
+                {history.rows.length > 0 ? (
+                  <View style={{ gap: 2 }}>
+                    {history.rows.map((row) => (
+                      <View key={row.key} style={styles.historyRow}>
+                        <Text style={[styles.historyDate, row.isToday && { color: theme.highlight }]}>
+                          {row.dateLabel}
+                        </Text>
+                        <Text style={styles.historyLoad}>{row.loadLabel ?? '—'}</Text>
+                        <View style={styles.historyPills}>
+                          {row.pills.map((pill, index) => (
+                            <View key={index} style={styles.historyPill}>
+                              <Text style={styles.historyPillText}>{pill}</Text>
+                            </View>
+                          ))}
+                        </View>
+                        {row.isPr ? (
+                          <View style={styles.prPill}>
+                            <Text style={styles.prPillText}>{t(language, 'guided.sheet.pr')}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={styles.empty}>{t(language, 'guided.sheet.noHistory')}</Text>
+                )}
+              </View>
+            ) : null}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const makeStyles = (theme: Theme) => StyleSheet.create({
+  veil: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: theme.bg,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    /*
+     * One height, not "as tall as this tab happens to be".
+     *
+     * The sheet used to size itself to its content, so switching from the
+     * written steps to the history shrank it by two thirds and moved the tab
+     * row down under the reader's finger — and the steps themselves ran off
+     * the bottom rather than scrolling (user 2026-09-04). Fixed height, and
+     * the body scrolls inside it.
+     */
+    height: '78%',
+  },
+  grip: {
+    alignSelf: 'center',
+    width: 42,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: theme.border,
+    marginBottom: 14,
+  },
+  title: { fontSize: 21, fontWeight: '800', letterSpacing: -0.5, color: theme.ink },
+  tabs: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 14,
+    backgroundColor: theme.surfaceSoft,
+    borderRadius: 14,
+    padding: 4,
+  },
+  tab: { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 11 },
+  tabActive: { backgroundColor: theme.surface },
+  tabText: { fontSize: 13.5, fontWeight: '700', color: theme.muted },
+  tabTextActive: { color: theme.ink, fontWeight: '800' },
+  body: { flex: 1, marginTop: 16 },
+  checkCard: {
+    backgroundColor: theme.surface,
+    borderWidth: 1.5,
+    borderColor: theme.purpleLight,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+  },
+  checkRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
+  checkBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    borderWidth: 1.6,
+    borderColor: theme.purple,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkBoxOn: { backgroundColor: theme.green, borderColor: theme.green },
+  checkTick: { fontSize: 13, fontWeight: '800', color: theme.surface, lineHeight: 16 },
+  checkText: { flex: 1, fontSize: 14.5, fontWeight: '600', color: theme.ink, lineHeight: 20 },
+  checkTextOn: { color: theme.muted },
+  learnedBtn: {
+    minHeight: 52,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: theme.purpleLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  learnedBtnOn: { backgroundColor: theme.green, borderColor: theme.green },
+  learnedText: { fontSize: 15.5, fontWeight: '800', color: theme.ink },
+  learnedTextOn: { color: theme.surface },
+  photo: {
+    // Bigger: the shape was right, the box was not (user 2026-09-04).
+    height: 250,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: theme.purpleLight,
+    overflow: 'hidden',
+    backgroundColor: theme.surfaceSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoInitials: { fontSize: 46, fontWeight: '800', color: theme.faint },
+  sectionLabel: { fontSize: 10.5, fontWeight: '800', letterSpacing: 1.3, color: theme.faint },
+  stepRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  stepIndex: {
+    width: 20,
+    fontSize: 13,
+    fontWeight: '800',
+    color: theme.faint,
+    lineHeight: 21,
+    fontVariant: ['tabular-nums'],
+  },
+  stepText: { flex: 1, fontSize: 14.5, fontWeight: '600', color: theme.ink, lineHeight: 21 },
+  empty: { fontSize: 14, fontWeight: '600', color: theme.muted, lineHeight: 20 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  chip: {
+    backgroundColor: theme.surfaceSoft,
+    borderWidth: 1.5,
+    borderColor: theme.purpleLight,
+    borderRadius: 999,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+  },
+  chipText: { fontSize: 12.5, fontWeight: '700', color: theme.ink },
+  statRow: { flexDirection: 'row', gap: 10 },
+  stat: {
+    flex: 1,
+    backgroundColor: theme.surface,
+    borderWidth: 1.5,
+    borderColor: theme.purpleLight,
+    borderRadius: 14,
+    padding: 12,
+    gap: 4,
+  },
+  statValue: { fontSize: 15, fontWeight: '800', color: theme.ink, fontVariant: ['tabular-nums'] },
+  chart: { flexDirection: 'row', alignItems: 'flex-end', gap: 6, height: 84 },
+  /*
+   * A fixed width, not `flex: 1`.
+   *
+   * Flexed, a single session's bar took the whole row and the whole height —
+   * a solid block with no chart around it, which is what the history tab
+   * showed to anyone who had trained a lift once (user 2026-09-04). Eight of
+   * these still fit the sheet's width.
+   */
+  chartCol: { width: 30, height: '100%', justifyContent: 'flex-end' },
+  chartBar: { borderRadius: 6, minHeight: 4 },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.purpleLight,
+  },
+  historyDate: { width: 62, fontSize: 12.5, fontWeight: '700', color: theme.muted },
+  historyLoad: {
+    width: 66,
+    fontSize: 14,
+    fontWeight: '800',
+    color: theme.ink,
+    fontVariant: ['tabular-nums'],
+  },
+  historyPills: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  historyPill: {
+    minWidth: 24,
+    alignItems: 'center',
+    backgroundColor: theme.surfaceSoft,
+    borderRadius: 7,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  historyPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.muted,
+    fontVariant: ['tabular-nums'],
+  },
+  prPill: {
+    backgroundColor: theme.greenSoft,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  prPillText: { fontSize: 10.5, fontWeight: '800', letterSpacing: 0.6, color: theme.greenInk },
+});

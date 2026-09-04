@@ -22,6 +22,16 @@ import { AppLanguage } from '../types/models';
 export type GuidedPhase = 'warmup' | 'work' | 'cooldown';
 
 export const GUIDED_READY_SECONDS = 3;
+/**
+ * The walk-up step's nominal length.
+ *
+ * It stopped being a countdown on 2026-09-04 — walking to another machine is
+ * not time-bound, so that screen has no clock. The number stays because the
+ * step still carries a duration for the session-length estimate: a session
+ * with five exercises really does spend about a minute of itself walking
+ * between them, and dropping it to zero would make the app promise a workout
+ * shorter than any workout is.
+ */
 export const GUIDED_POSITION_SECONDS = 15;
 
 export interface GuidedDrill {
@@ -370,6 +380,49 @@ export function getGuidedStepPlanKey(exercises: GuidedExerciseInput[]): string {
   return exercises
     .map((exercise) => `${exercise.slotId}:${exercise.name}:${exercise.setCount}:${exercise.skipped ? 's' : ''}`)
     .join('|');
+}
+
+export interface GuidedPhaseRail {
+  groups: GuidedGroup[];
+  /** Where the reader is inside `groups`, not inside the whole session. */
+  current: number;
+}
+
+/**
+ * The progress bar's segments for the phase the reader is actually in.
+ *
+ * The rail used to draw the whole session as one strip — three warmup drills,
+ * five exercises and two stretches, ten segments of two different kinds of
+ * thing. A bar that mixes units answers no question: "two of ten" is not how
+ * anybody counts a workout, and the five that matter were squeezed to a third
+ * of the width by drills that take forty seconds each.
+ *
+ * One phase at a time, so the segment count is the thing it tracks: three
+ * during the warmup, five during the workout, two during the recovery. Which
+ * phase of the session that is stays readable — it is what the top bar says.
+ *
+ * The run is taken as a contiguous slice rather than by filtering on `phase`,
+ * so a plan that ever interleaves phases still draws the block the reader is
+ * standing in rather than every block that shares its name.
+ */
+export function getGuidedPhaseRail(groups: GuidedGroup[], currentGroupIndex: number): GuidedPhaseRail {
+  if (groups.length === 0) {
+    return { groups: [], current: 0 };
+  }
+
+  const index = Math.min(Math.max(currentGroupIndex, 0), groups.length - 1);
+  const phase = groups[index].phase;
+
+  let start = index;
+  while (start > 0 && groups[start - 1].phase === phase) {
+    start -= 1;
+  }
+  let end = index;
+  while (end < groups.length - 1 && groups[end + 1].phase === phase) {
+    end += 1;
+  }
+
+  return { groups: groups.slice(start, end + 1), current: index - start };
 }
 
 /** Index of the first step of a phase, or null when the phase has no steps. */

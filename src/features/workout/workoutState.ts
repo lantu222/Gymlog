@@ -58,6 +58,16 @@ export type WorkoutAction =
   | { type: 'exercise/collapse'; payload: { slotId: string } }
   | { type: 'set/updateDraft'; payload: { slotId: string; setIndex: number; patch: WorkoutSetDraftInput } }
   | { type: 'set/complete'; payload: { slotId: string; setIndex: number; nowMs: number; unitPreference: 'kg' | 'lb' } }
+  /**
+   * Change a set that is already logged.
+   *
+   * `set/complete` refuses a completed set on purpose — it is the transition
+   * from pending to logged, and running it twice would move the session's
+   * pointer a second time. Correcting a number is a different act: nothing
+   * about the session's position changes, only what the set says (the rest
+   * screen's Edit, 2026-09-04).
+   */
+  | { type: 'set/editLogged'; payload: { slotId: string; setIndex: number; reps: number; loadKg: number | null } }
   | { type: 'set/recordEffort'; payload: { slotId: string; setIndex: number; effort: WorkoutSetEffort } }
   | { type: 'set/repeatLast'; payload: { slotId: string; setIndex: number; nowMs: number; unitPreference: 'kg' | 'lb' } }
   | { type: 'set/undo'; payload: { slotId: string; setIndex: number } }
@@ -1009,6 +1019,41 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       return { ...state, activeSession: session, nowMs: action.payload.nowMs };
     }
 
+    case 'set/editLogged': {
+      if (!state.activeSession) {
+        return state;
+      }
+      const session = cloneSession(state.activeSession);
+      const exerciseIndex = findExerciseIndex(session, action.payload.slotId);
+      if (exerciseIndex < 0) {
+        return state;
+      }
+      const exercise = session.exercises[exerciseIndex];
+      const set = exercise.sets.find((item) => item.setIndex === action.payload.setIndex);
+      // Only a logged set can be corrected; a pending one is completed, not
+      // edited, and letting this write it would log a set nobody pressed.
+      if (!set || set.status !== 'completed') {
+        return state;
+      }
+      if (!Number.isFinite(action.payload.reps) || action.payload.reps <= 0) {
+        return state;
+      }
+      const unloaded = isUnloadedTrackingMode(exercise.trackingMode);
+      if (!unloaded && (action.payload.loadKg === null || !Number.isFinite(action.payload.loadKg))) {
+        return state;
+      }
+
+      set.actualReps = Math.round(action.payload.reps);
+      set.actualLoadKg = unloaded ? 0 : (action.payload.loadKg as number);
+      // The drafts follow, so reopening the set screen shows what the set now
+      // says rather than what it said when it was logged.
+      set.draftRepsText = String(set.actualReps);
+      set.draftLoadText = unloaded ? '' : formatWeightInputValue(set.actualLoadKg, 'kg');
+      set.edited = true;
+
+      session.updatedAt = new Date().toISOString();
+      return { ...state, activeSession: session };
+    }
     case 'set/recordEffort': {
       if (!state.activeSession) {
         return state;

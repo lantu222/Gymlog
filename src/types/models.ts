@@ -1,5 +1,6 @@
 import { CancelSurveyAnswer } from '../lib/cancelSurvey';
 import { CoachSuggestionState } from '../lib/coachSuggestions';
+import { OwnBlockStats } from '../lib/ownBlockHistory';
 import { SeasonEnrolment } from '../lib/seasonEnrolment';
 import { StrengthGoal } from '../lib/strengthGoals';
 import { SubscriptionTermKey } from '../lib/subscriptionView';
@@ -374,6 +375,19 @@ export interface AppPreferences {
   soundCuesEnabled: boolean;
   /** Vibration feedback for the same moments. */
   hapticsEnabled: boolean;
+  /**
+   * How the reader's own warm-ups and recoveries have gone: how long the last
+   * one took, and how many there have been. See lib/ownBlockHistory.ts.
+   */
+  ownBlockStats: OwnBlockStats;
+  /**
+   * Skip the guided warm-up drills and open the free timer instead.
+   *
+   * Offered on the gate after the third session started this way, and turned
+   * back off by pressing "do the guided drills instead" on the timer — the app
+   * assumed, the reader disagreed, so the assumption goes.
+   */
+  alwaysOwnWarmup: boolean;
   /**
    * The dark-theme choice, kept exactly as the user set it even when Pro
    * lapses — resolveThemeName decides what actually gets served.

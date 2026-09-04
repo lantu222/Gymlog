@@ -47,6 +47,8 @@ interface WorkoutContextValue {
   insertExerciseAfter: (afterSlotId: string, exercise: WorkoutExerciseInsertInput) => void;
   updateSetDraft: (slotId: string, setIndex: number, patch: { loadText?: string; repsText?: string }) => void;
   completeSet: (slotId: string, setIndex: number, unitPreference: UnitPreference) => void;
+  /** Correct a set that is already logged, without moving the session on. */
+  editLoggedSet: (slotId: string, setIndex: number, reps: number, loadKg: number | null) => void;
   repeatLastSet: (slotId: string, setIndex: number, unitPreference: UnitPreference) => void;
   undoSet: (slotId: string, setIndex: number) => void;
   addSet: (slotId: string) => void;
@@ -256,6 +258,9 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
       },
       completeSet(slotId, setIndex, unitPreference) {
         dispatch({ type: 'set/complete', payload: { slotId, setIndex, nowMs: Date.now(), unitPreference } });
+      },
+      editLoggedSet(slotId, setIndex, reps, loadKg) {
+        dispatch({ type: 'set/editLogged', payload: { slotId, setIndex, reps, loadKg } });
       },
       repeatLastSet(slotId, setIndex, unitPreference) {
         dispatch({ type: 'set/repeatLast', payload: { slotId, setIndex, nowMs: Date.now(), unitPreference } });

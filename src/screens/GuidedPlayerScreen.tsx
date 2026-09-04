@@ -46,6 +46,7 @@ import {
   buildGuidedSteps,
   getGuidedStepPlanKey,
   findGuidedLibraryIndex,
+  getGuidedPhaseRail,
   getGuidedPhaseSkipTargetIndex,
   findGuidedPhaseStart,
   findGuidedSessionPr,
@@ -68,16 +69,34 @@ import {
   resolveGuidedOpening,
   resolveGuidedSetTarget,
 } from '../lib/guidedPlayer';
+import {
+  buildLastTimeLine,
+  buildOverviewScheme,
+  buildProgressionPill,
+  findLastTimeSession,
+  LastTimeSessionLike,
+} from '../lib/sessionOverviewRows';
+import {
+  formatLastOwnBlock,
+  OwnBlockPhase,
+  OwnBlockStats,
+  recordOwnBlock,
+  shouldOfferAlwaysOwn,
+} from '../lib/ownBlockHistory';
+import { resolveMovement } from '../lib/sessionMovement';
+import { buildWarmupBrief } from '../lib/warmupBrief';
 import { commitDialWeight, stepDialWeight } from '../lib/weightDial';
 import { getExerciseInstructions } from '../lib/exerciseInstructions';
+import { getExerciseTeaching } from '../lib/exerciseTeaching';
+import { buildExerciseSheetHistory, LastTimeView } from '../lib/exerciseSheetHistory';
+import { ExerciseSheet } from '../components/ExerciseSheet';
 import { CtaShimmer } from '../components/CtaShimmer';
-import { SetPanelHistory, SetPanels } from '../components/SetPanels';
 import { getDrillLibraryName } from '../lib/drillMedia';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { libraryLabel } from '../lib/libraryLabel';
 import { localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { classifySessionFocus, getDefaultCooldown, getDefaultWarmup } from '../lib/homeSessionHero';
-import { formatShortDate, removeTrailingZeros } from '../lib/format';
+import { formatShortDate, formatWeight, parseNumberInput, removeTrailingZeros } from '../lib/format';
 import { estimateSessionMinutes } from '../lib/sessionDuration';
 import { t } from '../lib/i18n';
 import { haptics } from '../utils/haptics';
@@ -147,12 +166,13 @@ const GPD = {
   muted: '#A79FC4',
   faint: '#7C739E',
   line: 'rgba(255,255,255,0.12)',
-  purple: '#9B6DFF',
   green: '#37D08A',
-  amber: '#F5B93B',
 };
 
 const SPLASH_MS = 2300;
+
+/** How many set dots the row will draw before it stops counting in dots. */
+const SET_DOT_CAP = 9;
 
 /**
  * A phase splash that offers the "do it yourself" fork. Those wait for a
@@ -219,6 +239,24 @@ interface GuidedPlayerScreenProps {
   keepScreenAwake?: boolean;
   onToggleSoundCues: (next: boolean) => void;
   entryEyebrow: string;
+  /**
+   * Every finished session, so the overview can find the last run of this same
+   * day. Which one that is depends on the live session's template ids, which
+   * this screen holds and the caller does not.
+   */
+  completedSessions?: ReadonlyArray<LastTimeSessionLike>;
+  /** How the reader's own warm-ups have gone — see lib/ownBlockHistory.ts. */
+  ownBlockStats?: OwnBlockStats;
+  /** The standing "skip the drills" choice, if they have made one. */
+  alwaysOwnWarmup?: boolean;
+  /** One finished self-run block, for the "last time you took" line. */
+  onRecordOwnBlock?: (phase: OwnBlockPhase, seconds: number) => void;
+  onSetAlwaysOwnWarmup?: (next: boolean) => void;
+  /** The Learn section's own two facts, so the sheet can show and change them. */
+  learnedExerciseIds?: string[];
+  techniqueChecks?: Record<string, number[]>;
+  onToggleTechniqueStatement?: (libraryItemId: string, index: number) => void;
+  onToggleExerciseLearned?: (libraryItemId: string) => void;
   weekProgress: GuidedWeekProgress | null;
   nextUp: GuidedNextUp | null;
   onLeave: () => void;
@@ -237,6 +275,29 @@ interface GuidedPlayerScreenProps {
    * asking a question the reader has already answered.
    */
   autoResume?: boolean;
+}
+
+/** The heaviest load in a session's sets, or 0 when there is none to show. */
+function heaviestOf(history: LastTimeView | null | undefined): number {
+  return history && history.sets.length > 0 ? Math.max(...history.sets.map((set) => set.loadKg)) : 0;
+}
+
+/**
+ * A set by its own index, not by where it sits in the array.
+ *
+ * Today those are the same thing — sets are only ever appended and only ever
+ * removed from the end, so `setIndex` tracks position. The reducer looks sets
+ * up by the field anyway (`sets.find(item => item.setIndex === …)`), and two
+ * readers of one fact disagreeing quietly is exactly the class of bug this
+ * screen has already shipped once. So this one asks the same question the
+ * reducer does, and a "remove the middle set" that arrives later cannot make
+ * the rest screen show the wrong set's numbers.
+ */
+function findSetByIndex(
+  exercise: WorkoutExerciseInstance | null | undefined,
+  setIndex: number,
+): WorkoutExerciseInstance['sets'][number] | null {
+  return exercise?.sets.find((item) => item.setIndex === setIndex) ?? null;
 }
 
 /* ── icons ── */
@@ -286,6 +347,12 @@ function GPIcon({ name, size = 22, color = '#fff', sw = 2.2 }: { name: string; s
       </>
     ),
     shield: <Path d="M12 3l7 3v5.5c0 4.2-2.9 7.6-7 8.5-4.1-.9-7-4.3-7-8.5V6z" />,
+    info: (
+      <>
+        <Circle cx="12" cy="12" r="9" />
+        <Path d="M12 11v5.5M12 7.6v.1" />
+      </>
+    ),
   };
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
@@ -480,12 +547,24 @@ function RestRing({
   const strokeWidth = 10;
   const radius = (size - strokeWidth * 1.6) / 2;
   const circumference = 2 * Math.PI * radius;
-  const fraction = Math.max(0, Math.min(1, leftSeconds / total));
+  /*
+   * A drained ring is a full ring, not an empty one.
+   *
+   * The arc shrinks as the wait runs down, so at zero it had no length at all
+   * and the only thing left on screen was the track — which meant the rest
+   * screen's "the wait is over" state was drawn in the track's colour instead
+   * of the accent it asks for (device 2026-09-04). Now the arc closes back up
+   * at zero and takes the over-colour with it.
+   */
+  const over = leftSeconds <= 0;
+  const fraction = over ? 1 : Math.max(0, Math.min(1, leftSeconds / total));
 
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
-        <Circle cx={size / 2} cy={size / 2} r={radius} stroke="#E9E1FA" strokeWidth={strokeWidth} fill="none" />
+        {/* The track was a light-theme hex on both themes: a bright lilac ring
+            on a near-black page, brighter than the arc it was backing. */}
+        <Circle cx={size / 2} cy={size / 2} r={radius} stroke={theme.purpleLight} strokeWidth={strokeWidth} fill="none" />
         <Circle
           cx={size / 2}
           cy={size / 2}
@@ -509,6 +588,7 @@ function RestRing({
 function TopBar({
   dark,
   label,
+  clock,
   muted,
   onMute,
   onExit,
@@ -516,6 +596,13 @@ function TopBar({
 }: {
   dark: boolean;
   label: string;
+  /**
+   * Session elapsed, m:ss. The one clock in the session, and it belongs here:
+   * it is the only number that is true on every screen, so anywhere else it
+   * has to be drawn again — and it was, on the set screen, in a row that runs
+   * out of width the moment a lift has a long name.
+   */
+  clock: string | null;
   muted: boolean;
   onMute: () => void;
   onExit: () => void;
@@ -538,7 +625,7 @@ function TopBar({
         <GPIcon name="x" size={19} color={iconColor} />
       </Pressable>
       <Text style={[styles.topLabel, { color: dark ? GPD.muted : theme.muted }]} numberOfLines={1}>
-        {label}
+        {clock ? `${label} · ${clock}` : label}
       </Text>
       {video ? (
         <Pressable
@@ -573,15 +660,18 @@ function TopBar({
 function ProgressRail({
   groups,
   current,
-  dark,
   dotIndex,
   dotsDone,
   onPress,
   openLabel,
 }: {
+  /**
+   * One phase's groups, not the session's — three drills, five exercises, two
+   * stretches. Sliced by `getGuidedPhaseRail`; where in the session that phase
+   * sits is what the top bar says.
+   */
   groups: Array<{ phase: string; setCount?: number }>;
   current: number;
-  dark: boolean;
   dotIndex: number;
   dotsDone: number;
   onPress?: () => void;
@@ -605,7 +695,8 @@ function ProgressRail({
       {groups.map((group, index) => {
         const isCurrent = index === current;
         const done = index < current;
-        const phaseGap = index > 0 && group.phase !== groups[index - 1].phase ? 9 : 0;
+        // No phase gap any more: the rail holds one phase, so every segment
+        // in it is the same kind of thing and they space evenly.
         if (isCurrent && (group.setCount ?? 0) > 1) {
           return (
             <View
@@ -613,11 +704,15 @@ function ProgressRail({
               style={[
                 styles.railSetPill,
                 {
-                  marginLeft: 5 + phaseGap,
-                  backgroundColor: dark ? 'rgba(155,109,255,0.25)' : theme.purpleLight,
-                  // Amber rims the pill because the pill IS the current
-                  // exercise — see the bar below for why (device 2026-09-01).
-                  borderColor: dark ? GPD.amber : theme.amber,
+                  marginLeft: 5,
+                  backgroundColor: theme.highlightSoft,
+                  // The rim marks the current exercise; done and still-to-come
+                  // are flat bars. Amber held this job from 2026-09-01, when
+                  // the problem was that current and done were the same violet
+                  // told apart by two pixels of height. `highlight` solves that
+                  // as well as amber did and gives amber back to caution, which
+                  // the session now uses for a flagged body part.
+                  borderColor: theme.highlight,
                 },
               ]}
             >
@@ -630,17 +725,11 @@ function ProgressRail({
                     borderRadius: 999,
                     backgroundColor:
                       dot < dotsDone
-                        ? dark
-                          ? GPD.purple
-                          : theme.purple
+                        ? theme.green
                         : dot === dotIndex
-                          ? dark
-                            ? GPD.amber
-                            : theme.amber
-                          : dark
-                            ? 'rgba(255,255,255,0.25)'
-                            : '#CFC3EA',
-                    opacity: dot === dotIndex && dot >= dotsDone ? 0.9 : 1,
+                          ? theme.highlight
+                          : theme.faint,
+                    opacity: dot === dotIndex && dot >= dotsDone ? 0.9 : dot < dotsDone ? 1 : 0.45,
                   }}
                 />
               ))}
@@ -652,30 +741,21 @@ function ProgressRail({
             key={index}
             style={{
               flex: isCurrent ? 2 : 1,
-              marginLeft: index === 0 ? 0 : 5 + phaseGap,
+              marginLeft: index === 0 ? 0 : 5,
               height: isCurrent ? 7 : 5,
               borderRadius: 999,
-              // Where you ARE is amber; done and still-to-come keep the purple
-              // they had (user, 2026-09-01). Current used to take the same
-              // purple as done and was told apart only by being two pixels
-              // taller and twice as wide — a size difference on a 5px bar,
-              // read at arm's length mid-set.
+              // Three states, three meanings, and the same two colours the
+              // rest of the session uses: green is done, `highlight` is where
+              // you are, and what is still coming is neither.
               //
-              // Only the current one changes. Marking the exception is the
-              // point; recolouring the whole rail would put the reader back to
-              // counting bars to find themselves.
-              backgroundColor: isCurrent
-                ? dark
-                  ? GPD.amber
-                  : theme.amber
-                : done
-                  ? dark
-                    ? GPD.purple
-                    : theme.purple
-                  : dark
-                    ? 'rgba(255,255,255,0.14)'
-                    : '#E4DBF5',
-              opacity: done ? 0.85 : 1,
+              // Current was amber from 2026-09-01, which fixed the real
+              // problem — current and done were both violet, told apart by two
+              // pixels of height at arm's length — with the one colour the
+              // flow now needs for a flagged body part. `highlight` separates
+              // them just as far and means the same thing here it means on
+              // every button.
+              backgroundColor: isCurrent ? theme.highlight : done ? theme.green : theme.faint,
+              opacity: isCurrent ? 1 : done ? 0.85 : 0.35,
             }}
           />
         );
@@ -1046,6 +1126,15 @@ export function GuidedPlayerScreen({
   keepScreenAwake = false,
   onToggleSoundCues,
   entryEyebrow,
+  completedSessions = [],
+  ownBlockStats = {},
+  alwaysOwnWarmup = false,
+  onRecordOwnBlock,
+  onSetAlwaysOwnWarmup,
+  learnedExerciseIds = [],
+  techniqueChecks = {},
+  onToggleTechniqueStatement,
+  onToggleExerciseLearned,
   weekProgress,
   nextUp,
   onLeave,
@@ -1191,7 +1280,15 @@ export function GuidedPlayerScreen({
   }
   const openingStep = openingStepRef.current;
   const [mode, setMode] = useState<'entry' | 'player'>(openingStep > 0 ? 'player' : 'entry');
-  const [expandedPhases, setExpandedPhases] = useState<string[]>([]);
+  /*
+   * The workout opens; the warm-up and the recovery do not.
+   *
+   * All three used to start closed, which made the overview a screen of three
+   * closed doors — the reader had to open the one that holds the session to
+   * see the session. The block that carries the weights is the one they came
+   * to read.
+   */
+  const [expandedPhases, setExpandedPhases] = useState<string[]>(['work']);
   const [stepIndex, setStepIndex] = useState(openingStep);
   const step: GuidedStep = steps[Math.min(stepIndex, steps.length - 1)] ?? { type: 'finish' };
   const stepRef = useRef(step);
@@ -1293,6 +1390,8 @@ export function GuidedPlayerScreen({
   const [ownBlock, setOwnBlock] = useState<{ phase: 'warmup' | 'cooldown'; startedAt: number } | null>(
     null,
   );
+  /** The "always start with my own warm-up" offer, once it has been earned. */
+  const [alwaysOwnAsk, setAlwaysOwnAsk] = useState(false);
   /**
    * The set screen's exercise info (history, how-to, photo). It opens from the
    * header's right-hand button now, so the state lives beside the header
@@ -1312,7 +1411,6 @@ export function GuidedPlayerScreen({
   const [confirmingEnd, setConfirmingEnd] = useState(false);
   /** The lift whose final set was just logged — a one-second check-splash
       before the next exercise's walk-up screen. Null = no splash showing. */
-  const [doneSplashName, setDoneSplashName] = useState<string | null>(null);
   // The permission moment (rule 05): at the first rest, in context, once.
   // The rest step's index is the rest's identity — a new rest is a new step.
   // Paused or not does not matter here: a paused rest is still that rest.
@@ -1416,24 +1514,39 @@ export function GuidedPlayerScreen({
       endsAtRef.current = null;
       return;
     }
+    // Not `position` any more: walking to another machine is not time-bound,
+    // so that screen has no clock to run (user 2026-09-04).
     const timed =
       step.type === 'ready' ||
       step.type === 'drill' ||
       step.type === 'rest' ||
-      step.type === 'position' ||
       (step.type === 'splash' && !splashCarriesChoice(step)) ||
       (step.type === 'set' && step.interval !== undefined);
     if (!timed) {
       endsAtRef.current = null;
       return;
     }
+    /** A rest waits for the reader; an interval's walk is part of the rhythm. */
+    const restHoldsAtZero = step.type === 'rest' && !step.recoveryKind;
 
-    endsAtRef.current = Date.now() + Math.max(0, remainingRef.current);
+    /*
+     * The clamp is for a step that has not started, not for a rest that is
+     * already over.
+     *
+     * A rest counts on past zero, so its leftover is negative — and clamping
+     * that to 0 threw the overtime away every time anything froze the timer:
+     * open the exit dialog on a rest showing "+3:20 over", cancel it, and the
+     * count started again from zero. `restHoldsAtZero` is exactly the case
+     * where a negative remainder is a real number to keep.
+     */
+    endsAtRef.current =
+      Date.now() + (restHoldsAtZero ? remainingRef.current : Math.max(0, remainingRef.current));
 
     // A rest is the one wait long enough to put the phone down for, so its
     // deadline also goes to the OS — that alert is what reaches the user when
-    // Android has suspended us.
-    if (step.type === 'rest') {
+    // Android has suspended us. Not once it has already passed, though: a
+    // deadline in the past is an alert that fires the moment it is set.
+    if (step.type === 'rest' && endsAtRef.current > Date.now()) {
       void syncRestNotification(endsAtRef.current, exerciseNameLabel(language, getGuidedNextName(steps, stepIndex) ?? ''));
     }
 
@@ -1459,7 +1572,6 @@ export function GuidedPlayerScreen({
       if (next <= 0) {
         if (!firedRef.current) {
           firedRef.current = true;
-          clearInterval(interval);
           // Rest running out is the one transition the user may not be looking
           // at — but a cue fired minutes late (we were backgrounded when it
           // expired) is noise, so only sound it if we caught the moment.
@@ -1468,8 +1580,27 @@ export function GuidedPlayerScreen({
             // work bout, not a set you walk up to in your own time.
             cue(step.recoveryKind ? 'go' : 'rest');
           }
-          expireRef.current();
+          if (!restHoldsAtZero) {
+            clearInterval(interval);
+            expireRef.current();
+            return;
+          }
         }
+        /*
+         * An ordinary rest does not advance itself.
+         *
+         * Every other timed step here runs out into the next one, which is
+         * right for a drill and for an interval's walk — those are a rhythm
+         * you are standing in. A rest is a wait you end: the phone was in a
+         * pocket, the rack was busy, the set before it was harder than it
+         * looked. Advancing on the reader's behalf put them on a set screen
+         * they had not asked for and had not seen start.
+         *
+         * So the clock keeps running past zero and the screen says READY and
+         * how far over. Deciding to go is the reader's; the app's job is to
+         * have told them they can (design: session flow, screen 7).
+         */
+        setRemainingMs(next);
         return;
       }
       setRemainingMs(next);
@@ -1539,19 +1670,10 @@ export function GuidedPlayerScreen({
     });
     workout.completeSet(slotId, setIndex, unitPreference);
     cue('done');
-    // Logging the final set used to cut straight to the next lift's walk-up
-    // screen, which read as the app skipping a beat it should have spent on
-    // the finished lift (user 2026-08-23). One short check-splash, then NEXT
-    // UP comes in as before. Only between exercises: the last set of the whole
-    // block flows into the phase splash, which does its own acknowledging.
-    const current = steps[stepIndex];
-    if (
-      current?.type === 'set' &&
-      current.setIndex === current.setCount - 1 &&
-      steps[stepIndex + 1]?.type === 'position'
-    ) {
-      setDoneSplashName(current.exerciseName);
-    }
+    // The beat the finished lift is owed (user 2026-08-23) is on the walk-up
+    // screen itself now, as a green card the reader can look at for as long as
+    // they like — rather than a splash that covered that screen for three and
+    // a half seconds and then took itself away.
     advance();
   };
 
@@ -1582,6 +1704,54 @@ export function GuidedPlayerScreen({
   const skippablePhase =
     'phase' in step && (step.phase === 'warmup' || step.phase === 'cooldown') ? step.phase : null;
 
+  /**
+   * Leaving the free timer.
+   *
+   * The duration is recorded here rather than on every tick: a block abandoned
+   * by pressing "do the guided drills instead" is not a block that took four
+   * minutes, and the "last time you took" line has to be a time somebody
+   * actually spent.
+   */
+  const finishOwnBlock = (completed: boolean) => {
+    const current = ownBlock;
+    setOwnBlock(null);
+    if (!current) {
+      return;
+    }
+    if (completed) {
+      const seconds = Math.max(0, Math.floor((Date.now() - current.startedAt) / 1000));
+      onRecordOwnBlock?.(current.phase, seconds);
+      // Asked after the recorded third, so the count the offer reads includes
+      // the one just finished.
+      if (
+        current.phase === 'warmup'
+        && shouldOfferAlwaysOwn(recordOwnBlock(ownBlockStats, 'warmup', seconds), 'warmup', alwaysOwnWarmup)
+      ) {
+        setAlwaysOwnAsk(true);
+      }
+      skipPhase();
+    }
+  };
+
+  /**
+   * The standing choice, honoured.
+   *
+   * A reader who has said "always my own" should not meet the fork again — so
+   * the warm-up gate opens straight into the timer. The way back out is on
+   * that screen, and taking it clears the standing choice: the app assumed,
+   * the reader disagreed, so the assumption goes.
+   */
+  const gateIsWarmupSplash = step.type === 'splash' && step.phase === 'warmup';
+  useEffect(() => {
+    if (alwaysOwnWarmup && mode === 'player' && gateIsWarmupSplash && !ownBlock) {
+      setOwnBlock({ phase: 'warmup', startedAt: Date.now() });
+    }
+    // Only the arrival matters; re-running on every ownBlock change would
+    // reopen the timer the moment the reader closes it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [alwaysOwnWarmup, mode, gateIsWarmupSplash]);
+
+
   /* ── exercise-level actions ──────────────────────────────────────────────
      Swap, skip and add-set used to live only in the list logger, so the only
      way to do any of them was to leave the guided flow entirely — and all
@@ -1602,6 +1772,60 @@ export function GuidedPlayerScreen({
    * shows the same position), and because slot history is the workout store's,
    * not a component's.
    */
+  /**
+   * Last session's sets for one slot, however this screen happens to be asking.
+   *
+   * This was folded into `setPanelSource`, which opens with
+   * `if (step.type !== 'set') return null` — so the two screens that ask about
+   * a lift while standing on a different kind of step got null every time. The
+   * rest screen's "vs last session" pill and the walk-up screen's LAST card
+   * could not render for anybody, ever, and both read on a device as "this
+   * lift has no history yet" (review, PR #57). A lift's history is a fact
+   * about the slot, not about which step is on screen.
+   */
+  const resolveSlotHistory = useCallback(
+    (slotId: string, exerciseName: string): LastTimeView | null => {
+      const instance = exerciseBySlot.get(slotId) ?? null;
+      /*
+       * Through the same resolver the prefill uses, with the same inputs.
+       *
+       * This read `slotHistory[slotId]` and stopped there, while the prefill
+       * fell through to the slot's unscoped key and then to a name lookup — so
+       * the first time a lift came round in a new slot the table said "first
+       * time on this exercise" directly above a weight badged "LAST TIME ·
+       * 27.8." (#bugs 2026-08-29). Same question, one reader.
+       */
+      const resolved = resolveLastTimeEntry({
+        slotHistory: workout.history.slotHistory,
+        slotId,
+        templateSlotId: instance?.templateSlotId ?? null,
+        exerciseName,
+        requireLoaded: instance ? !isUnloadedTrackingMode(instance.trackingMode) : false,
+        repWindow: instance ? resolveInstanceBorrowRepWindow(instance) : null,
+      });
+      const last = resolved?.entry ?? null;
+      if (!last) {
+        return null;
+      }
+      const heaviest = Math.max(...last.sets.map((set) => set.loadKg));
+      return {
+        performedAt: last.performedAt,
+        // Said out loud rather than passed off as this slot's own record —
+        // it is a real number, lifted on a different day.
+        borrowed: resolved?.borrowed ?? false,
+        sets: last.sets.map((set) => ({
+          setIndex: set.setIndex + 1,
+          loadKg: set.loadKg,
+          reps: set.reps,
+          // Marked only when it beats the others — every set at the same
+          // weight would otherwise light the whole panel up.
+          isRecord: heaviest > 0 && set.loadKg === heaviest && last.sets.some((other) => other.loadKg < heaviest),
+        })),
+      };
+    },
+    [exerciseBySlot, workout.history.slotHistory],
+  );
+
   const setPanelSource = useMemo(() => {
     if (step.type !== 'set') {
       return null;
@@ -1610,51 +1834,14 @@ export function GuidedPlayerScreen({
     const lookupName = getDrillLibraryName(name) ?? name;
     const index = findGuidedLibraryIndex(lookupName, exerciseLibrary.map((item) => item.name));
     const match = index === null ? null : exerciseLibrary[index];
-    /*
-     * Through the same resolver the prefill uses, with the same inputs.
-     *
-     * This read `slotHistory[slotId]` and stopped there, while the prefill fell
-     * through to the slot's unscoped key and then to a name lookup — so the
-     * first time a lift came round in a new slot the table said "first time on
-     * this exercise" directly above a weight badged "LAST TIME · 27.8."
-     * (#bugs 2026-08-29). Same question, one reader.
-     */
-    const instance = exerciseBySlot.get(slotId) ?? null;
-    const resolved = resolveLastTimeEntry({
-      slotHistory: workout.history.slotHistory,
-      slotId,
-      templateSlotId: instance?.templateSlotId ?? null,
-      exerciseName: name,
-      requireLoaded: instance ? !isUnloadedTrackingMode(instance.trackingMode) : false,
-      repWindow: instance ? resolveInstanceBorrowRepWindow(instance) : null,
-    });
-    const last = resolved?.entry ?? null;
-    const heaviest = last ? Math.max(...last.sets.map((set) => set.loadKg)) : 0;
-
-    const history: SetPanelHistory | null = last
-      ? {
-          performedAt: last.performedAt,
-          // Said out loud rather than passed off as this slot's own record —
-          // it is a real number, lifted on a different day.
-          borrowed: resolved?.borrowed ?? false,
-          sets: last.sets.map((set) => ({
-            setIndex: set.setIndex + 1,
-            loadKg: set.loadKg,
-            reps: set.reps,
-            // Marked only when it beats the others — every set at the same
-            // weight would otherwise light the whole panel up.
-            isRecord: heaviest > 0 && set.loadKg === heaviest && last.sets.some((other) => other.loadKg < heaviest),
-          })),
-        }
-      : null;
 
     return {
-      history,
+      history: resolveSlotHistory(slotId, name),
       instructions: getExerciseInstructions(match?.name, match?.instructions, language),
       imageUrl: match?.imageUrls?.[0] ?? null,
       initials: exerciseNameLabel(language, name).slice(0, 2).toUpperCase(),
     };
-  }, [exerciseBySlot, exerciseLibrary, language, step, workout.history.slotHistory]);
+  }, [exerciseLibrary, language, resolveSlotHistory, step]);
 
   const swapOptions = useMemo(() => {
     if (!actionExercise) {
@@ -1834,6 +2021,341 @@ export function GuidedPlayerScreen({
 
   const secondsLeft = remainingMs / 1000;
 
+  /**
+   * The bar under the step: this phase's segments, and where in them we are.
+   * A step with no group of its own (a splash, the finish) keeps the phase it
+   * belongs to by falling back on group 0, which the rail then clamps.
+   */
+  /**
+   * The drills the gate is offering, with the body part each one is there for.
+   *
+   * The purpose line is derived from the drill's stand-in library row rather
+   * than written per drill: every drill has one, so the column is never half
+   * empty, and a hand-written reason for forty drills is forty strings to keep
+   * true in two languages.
+   */
+  const gateDrills = useMemo(() => {
+    if (!skippablePhase) {
+      return [] as Array<{ name: string; why: string | null; seconds: number }>;
+    }
+    const source = skippablePhase === 'warmup' ? warmupDrills : cooldownDrills;
+    return source.map((drill) => {
+      const item = libraryFor(getDrillLibraryName(drill.name) ?? drill.name);
+      return {
+        name: drill.name,
+        why: item?.bodyPart ? libraryLabel(item.bodyPart, language) : null,
+        seconds: drill.seconds,
+      };
+    });
+    // libraryFor closes over exerciseLibrary and is stable enough for this:
+    // the library is seeded once per load and does not change mid-session.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [skippablePhase, warmupDrills, cooldownDrills, exerciseLibrary, language]);
+
+  const ownLastTimeLine = ownBlock ? formatLastOwnBlock(ownBlockStats, ownBlock.phase, language) : null;
+  /** What the workout is about to load, for the reader warming up their own way. */
+  const warmupBrief = useMemo(
+    () =>
+      buildWarmupBrief(
+        activeExercises.map((exercise) => ({
+          exerciseName: exercise.exerciseName,
+          bodyPart: libraryFor(exercise.exerciseName)?.bodyPart ?? null,
+          setCount: exercise.sets.length,
+          repsLabel: formatRepRangeLabel(exercise.sets[0]),
+          timed: isTimedTrackingMode(exercise.trackingMode),
+          loadKg: resolveTarget(exercise.slotId, 0)?.loadKg ?? null,
+        })),
+        language,
+        unitPreference,
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeExercises, exerciseLibrary, language, resolveTarget, unitPreference],
+  );
+
+  /**
+   * The sheet's WATCH FOR chips: this lift's common mistakes.
+   *
+   * Three lifts have hand-written teaching, so the chip row is usually empty —
+   * and empty is the honest state. A generic "keep good form" chip on the
+   * other eight hundred would be furniture with an alarm on it.
+   */
+  const sheetWatchFor = useMemo(() => {
+    if (step.type !== 'set') {
+      return [] as Array<{ text: string; flagged: boolean }>;
+    }
+    // The library's name, for the same reason the Learn tab uses it.
+    const teaching = getExerciseTeaching(libraryFor(step.exerciseName)?.name ?? step.exerciseName, language);
+    if (!teaching) {
+      return [];
+    }
+    return teaching.mistakes.map((mistake) => ({ text: mistake.mistake, flagged: false }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exerciseLibrary, language, step]);
+
+  /**
+   * The Learn tab's payload, or null when this lift has no teaching written.
+   *
+   * The same self-audit the Learn section shows, at the moment it is actually
+   * about: the set is done and the reader is standing over the bar. Only for
+   * the lifts that have it — a third tab with nothing in it is worse than two
+   * tabs (user 2026-09-04).
+   */
+  const sheetLearn = useMemo(() => {
+    if (step.type !== 'set') {
+      return null;
+    }
+    /*
+     * Looked up by the LIBRARY's name for this lift, not the plan's.
+     *
+     * The teaching table is keyed the way the library names things — "Barbell
+     * Bench Press - Medium Grip" — while a programme calls the same lift
+     * "Bench Press". Asking with the plan's name found nothing for every lift
+     * that has teaching, which is every lift this tab exists for (device
+     * 2026-09-04).
+     */
+    const item = libraryFor(step.exerciseName);
+    const teaching = getExerciseTeaching(item?.name ?? step.exerciseName, language);
+    const libraryId = item?.id ?? null;
+    if (!teaching || teaching.check.length === 0 || !libraryId || !onToggleTechniqueStatement) {
+      return null;
+    }
+    return {
+      cues: teaching.cues,
+      check: teaching.check,
+      checked: techniqueChecks[libraryId] ?? [],
+      learned: learnedExerciseIds.includes(libraryId),
+      onToggleStatement: (index: number) => onToggleTechniqueStatement(libraryId, index),
+      onToggleLearned: () => onToggleExerciseLearned?.(libraryId),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    exerciseLibrary,
+    language,
+    learnedExerciseIds,
+    onToggleExerciseLearned,
+    onToggleTechniqueStatement,
+    step,
+    techniqueChecks,
+  ]);
+
+  /** Eight sessions of top sets, today's included and growing set by set. */
+  const sheetHistory = useMemo(() => {
+    const slotId = step.type === 'set' ? step.slotId : null;
+    const instance = slotId ? exerciseBySlot.get(slotId) ?? null : null;
+    const past = getHistoryEntriesForExercise(workout.history, instance).map((entry) => ({
+      performedAt: entry.performedAt,
+      sets: entry.sets.map((set) => ({ loadKg: set.loadKg, reps: set.reps })),
+    }));
+    const todaySets = (instance?.sets ?? [])
+      .filter((set) => set.status === 'completed')
+      .map((set) => ({ loadKg: set.actualLoadKg ?? 0, reps: set.actualReps ?? 0 }));
+    return buildExerciseSheetHistory(
+      past,
+      todaySets.length > 0 ? { performedAt: new Date().toISOString(), sets: todaySets } : null,
+      language,
+      instance?.trackingMode ?? 'load_and_reps',
+      unitPreference,
+    );
+  }, [exerciseBySlot, language, step, unitPreference, workout.history]);
+
+  /* ── rest screen ───────────────────────────────────────────────────────── */
+  /** The set that was just logged, as one line: "Penkkipunnerrus · 62,5 kg × 7". */
+  const restLogged = (() => {
+    if (step.type !== 'rest' || step.recoveryKind) {
+      return null;
+    }
+    const set = findSetByIndex(exerciseBySlot.get(step.slotId), step.setIndex);
+    if (!set || set.status !== 'completed') {
+      return null;
+    }
+    const reps = set.actualReps ?? 0;
+    const load = set.actualLoadKg ?? 0;
+    const name = exerciseNameLabel(language, step.exerciseName);
+    return load > 0
+      ? `${name} · ${formatWeight(load, unitPreference)} × ${reps}`
+      : `${name} · ${t(language, 'guided.target.reps', { reps })}`;
+  })();
+
+  /** What the rest is resting for: the next set of the same lift. */
+  const restNextSet = (() => {
+    if (step.type !== 'rest' || step.recoveryKind) {
+      return null;
+    }
+    const next = steps[stepIndex + 1];
+    if (!next || next.type !== 'set') {
+      return null;
+    }
+    const target = resolveTarget(next.slotId, next.setIndex);
+    return {
+      index: next.setIndex,
+      count: next.setCount,
+      reps: target?.reps ?? 0,
+      timed: target?.timed === true,
+      pickKg: target?.loadKg ?? null,
+      /** The jump the gate just made, so the options sit on its own grid. */
+      stepKg:
+        target?.autoProgressedFromKg != null && target.loadKg != null
+          ? Math.abs(target.loadKg - target.autoProgressedFromKg)
+          : undefined,
+      slotId: next.slotId,
+    };
+  })();
+
+  /**
+   * The weight the reader picked on the rest screen, when they picked one.
+   *
+   * Reset by the step change rather than held across rests: each rest is about
+   * one set, and a choice made three sets ago is not an answer to this one.
+   */
+  /**
+   * Correcting the set just logged, without leaving the rest.
+   *
+   * Edit used to walk back to the set screen — which showed a set that was
+   * already logged, and whose Log button the reducer refuses (a completed set
+   * cannot be completed twice). So the way back was a way to nowhere. The
+   * numbers are changed here instead, on the screen that is asking about them.
+   */
+  const [restEditOpen, setRestEditOpen] = useState(false);
+  useEffect(() => {
+    setRestEditOpen(false);
+  }, [stepIndex]);
+
+  // Asked for the rest's own slot: `setPanelSource` is a set-step value and is
+  // null here (review, PR #57).
+  const restLastHeaviest =
+    step.type === 'rest' ? heaviestOf(resolveSlotHistory(step.slotId, step.exerciseName)) : 0;
+  const restLastKg = restLastHeaviest > 0 ? restLastHeaviest : null;
+  const restChosenKg = restNextSet?.pickKg ?? 0;
+  /** How the committed weight compares with the last session — "+2,5 kg". */
+  const restTargetMove =
+    restNextSet && restChosenKg > 0
+      ? resolveMovement(
+          {
+            exerciseName: step.type === 'rest' ? step.exerciseName : '',
+            todayTopKg: restChosenKg,
+            todayTopReps: restNextSet.reps,
+            previousTopKg: restLastKg,
+          },
+          language,
+          unitPreference,
+        )
+      : null;
+  const restIsOver = step.type === 'rest' && !step.recoveryKind && secondsLeft <= 0;
+
+  /** Into the next set. The weight is the gate's, and the rest screen said so. */
+  const startRestNextSet = () => {
+    advance();
+  };
+
+  /* ── walking to the next machine ───────────────────────────────────────── */
+  /** The lift that just ended, when there is one behind this walk-up. */
+  const walkDone = (() => {
+    if (step.type !== 'position') {
+      return null;
+    }
+    const previous = steps
+      .slice(0, stepIndex)
+      .reverse()
+      .find((candidate) => candidate.type === 'set' || candidate.type === 'splash');
+    if (!previous || previous.type !== 'set') {
+      return null;
+    }
+    const instance = exerciseBySlot.get(previous.slotId);
+    const done = (instance?.sets ?? []).filter((set) => set.status === 'completed');
+    if (done.length === 0) {
+      return null;
+    }
+    const heaviest = Math.max(...done.map((set) => set.actualLoadKg ?? 0));
+    return {
+      label:
+        heaviest > 0
+          ? t(language, 'guided.walk.done', { weight: formatWeight(heaviest, unitPreference) })
+          : t(language, 'guided.walk.doneReps'),
+      name: exerciseNameLabel(language, previous.exerciseName),
+      pills: done.map((set) => `${set.actualReps ?? 0}`),
+    };
+  })();
+
+  /** Today's prescription for the lift being walked to, and last time's. */
+  const walkNext = (() => {
+    if (step.type !== 'position') {
+      return null;
+    }
+    const instance = exerciseBySlot.get(step.slotId);
+    const target = resolveTarget(step.slotId, 0);
+    if (!instance || !target) {
+      return null;
+    }
+    // The lift being walked TO, asked for by its own slot.
+    const last = resolveSlotHistory(step.slotId, step.exerciseName);
+    const lastHeaviest = heaviestOf(last);
+    return {
+      todayValue:
+        target.loadKg != null && target.loadKg > 0
+          ? formatWeight(target.loadKg, unitPreference)
+          : t(language, target.timed ? 'guided.target.seconds' : 'guided.target.reps', {
+              reps: target.reps,
+            }),
+      planLine: t(language, 'guided.walk.plan', {
+        sets: instance.sets.length,
+        reps: target.reps,
+        /*
+         * The LOWER bound — that is what the timer runs.
+         *
+         * `buildGuidedSteps` is handed `restSeconds: exercise.restSecondsMin`,
+         * so a Back Squat prescribed 120-180 rests for 120. This card said 180
+         * and the ring thirty seconds later said 2:00 (review, PR #57). The
+         * comment that used to sit here claimed the opposite, which is why the
+         * number went unchecked.
+         */
+        rest: instance.restSecondsMin,
+      }),
+      lastValue: lastHeaviest > 0 ? formatWeight(lastHeaviest, unitPreference) : null,
+      lastReps: last?.sets.length ? last.sets.map((set) => set.reps).join(' · ') : null,
+    };
+  })();
+
+  const railGroupIndex = step.type === 'finish' || step.type === 'splash' ? 0 : step.groupIndex;
+  const phaseRail = useMemo(() => getGuidedPhaseRail(groups, railGroupIndex), [groups, railGroupIndex]);
+
+  /*
+   * The overview's two new claims: what the last run of this same day cost,
+   * and whether the gate moved anything for today.
+   *
+   * Memoized because this screen re-renders ten times a second while a timer
+   * runs, and neither of these is a per-tick value — one scans the whole
+   * session history, the other walks every exercise. Both are read on the
+   * entry screen only, which has no running clock at all.
+   */
+  const lastTimeLine = useMemo(
+    () =>
+      buildLastTimeLine(
+        session
+          ? findLastTimeSession(completedSessions, session.templateId, session.templateSessionId)
+          : null,
+        language,
+        unitPreference,
+      ),
+    [completedSessions, language, session, unitPreference],
+  );
+  const progressionPill = useMemo(
+    () =>
+      buildProgressionPill(
+        activeExercises.map((exercise) => {
+          const target = resolveTarget(exercise.slotId, 0);
+          return {
+            loadKg: target?.loadKg ?? null,
+            autoProgressedFromKg: target?.autoProgressedFromKg ?? null,
+            reps: target?.reps ?? 0,
+            autoProgressedFromReps: target?.autoProgressedFromReps ?? null,
+          };
+        }),
+        language,
+        unitPreference,
+      ),
+    [activeExercises, language, resolveTarget, unitPreference],
+  );
+
   return (
     <View style={{ flex: 1, backgroundColor: dark ? GPD.bg2 : theme.bg }}>
       {/* `dark` is the finish step's own gradient, not the theme. Read as the
@@ -1879,6 +2401,32 @@ export function GuidedPlayerScreen({
                 t(language, 'guided.entry.duration', { min: durationMinutes }),
               ].join(' · ')}
             </Text>
+
+            {/* What the same session cost last time, and what the gate moved
+                for today. The pill is the whole reason the weights on the rows
+                below are worth reading — without it the overview showed a plan
+                and never said which part of it is new. */}
+            {lastTimeLine || progressionPill ? (
+              <View style={styles.entryLastRow}>
+                {lastTimeLine ? (
+                  <View style={{ flexShrink: 1 }}>
+                    <Text style={styles.entryLastLabel}>{t(language, 'guided.entry.lastTime')}</Text>
+                    <Text style={styles.entryLastValue} numberOfLines={1}>
+                      {lastTimeLine}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={{ flex: 1 }} />
+                )}
+                {progressionPill ? (
+                  <View style={styles.entryProgressPill}>
+                    <Text style={styles.entryProgressPillText} numberOfLines={1}>
+                      {progressionPill}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
 
             {/* Resume is the strongest action on this screen when it exists, so
                 it follows the same rule as the rest: pressable is `highlight`.
@@ -1928,9 +2476,17 @@ export function GuidedPlayerScreen({
                         // Squat" under a Finnish heading while the player
                         // itself said Takakyykky.
                         left: exerciseNameLabel(language, exercise.exerciseName),
-                        right: `${exercise.sets.length} × ${formatRepRangeLabel(exercise.sets[0])}${
-                          isTimedTrackingMode(exercise.trackingMode) ? ' s' : ''
-                        }`,
+                        right: buildOverviewScheme(
+                          {
+                            exerciseName: exercise.exerciseName,
+                            setCount: exercise.sets.length,
+                            repsLabel: formatRepRangeLabel(exercise.sets[0]),
+                            timed: isTimedTrackingMode(exercise.trackingMode),
+                            loadKg: resolveTarget(exercise.slotId, 0)?.loadKg ?? null,
+                          },
+                          language,
+                          unitPreference,
+                        ),
                       })),
                     }
                   : null,
@@ -1944,10 +2500,16 @@ export function GuidedPlayerScreen({
                   : null,
               ]
                 .filter(
-                  (item): item is { key: string; label: string; sub: string; rows: Array<{ left: string; right: string }> } =>
-                    item !== null,
+                  (
+                    item,
+                  ): item is {
+                    key: string;
+                    label: string;
+                    sub: string;
+                    rows: Array<{ left: string; right: string }>;
+                  } => item !== null,
                 )
-                .map((phase) => {
+                .map((phase, phaseIndex) => {
                   const expanded = expandedPhases.includes(phase.key);
                   return (
                     <View key={phase.key} style={styles.phaseCard}>
@@ -1961,8 +2523,13 @@ export function GuidedPlayerScreen({
                           )
                         }
                       >
-                        <View style={styles.phasePlay}>
-                          <GPIcon name="play" size={17} color={theme.highlight} sw={2.4} />
+                        {/* A number, not a play glyph. Three play triangles
+                            above a fourth on the CTA read as four ways to
+                            start the session; only one of them was. The
+                            numbers say the same thing the cards mean — this is
+                            the order they happen in. */}
+                        <View style={styles.phaseStep}>
+                          <Text style={styles.phaseStepText}>{phaseIndex + 1}</Text>
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={{ fontSize: 17.5, fontWeight: '800', color: theme.ink }}>{phase.label}</Text>
@@ -1975,13 +2542,15 @@ export function GuidedPlayerScreen({
                       {expanded && (
                         <View style={styles.phaseRows}>
                           {phase.rows.map((row, rowIndex) => (
-                            <View key={rowIndex} style={styles.phaseRow}>
-                              <Text style={{ flex: 1, fontSize: 14.5, fontWeight: '700', color: theme.ink }} numberOfLines={1}>
-                                {row.left}
-                              </Text>
-                              <Text style={{ fontSize: 13.5, fontWeight: '600', color: theme.muted, fontVariant: ['tabular-nums'] }}>
-                                {row.right}
-                              </Text>
+                            <View key={rowIndex} style={styles.phaseRowGroup}>
+                              <View style={styles.phaseRow}>
+                                <Text style={{ flex: 1, fontSize: 14.5, fontWeight: '700', color: theme.ink }} numberOfLines={1}>
+                                  {row.left}
+                                </Text>
+                                <Text style={{ fontSize: 13.5, fontWeight: '600', color: theme.muted, fontVariant: ['tabular-nums'] }}>
+                                  {row.right}
+                                </Text>
+                              </View>
                             </View>
                           ))}
                         </View>
@@ -2042,25 +2611,15 @@ export function GuidedPlayerScreen({
           <TopBar
             dark={dark}
             label={getGuidedPhaseLabel(step, language)}
+            clock={formatSessionClock(derivedElapsedSeconds)}
             muted={muted}
             onMute={() => onToggleSoundCues(!soundCuesEnabled)}
             onExit={() => setExitOpen(true)}
-            // v4: on a set the right slot teaches the movement; mute moves down.
-            video={
-              step.type === 'set'
-                ? {
-                    // Screen readers heard "Katso, miten Chest-Supported Row
-                    // tehdään" while the screen showed Rintatuettu soutu.
-                    // The set screen's info button. It opens the panels that
-                    // used to hang off a tab above the set counter — history,
-                    // how-to and the photo, all of which the written sheet
-                    // only half covered.
-                    label: t(language, 'guided.panelsToggle'),
-                    active: setPanelsOpen,
-                    onPress: () => setSetPanelsOpen((value) => !value),
-                  }
-                : null
-            }
+            // The right slot is the sound toggle again, on every screen of the
+            // session. It held the set screen's info button from 2026-08-26,
+            // which meant the one control the design says lives in exactly one
+            // place lived in two — and the info it opened is on the lift's own
+            // card now, where the reader is already looking.
           />
 
           {step.type === 'splash' && (
@@ -2093,12 +2652,37 @@ export function GuidedPlayerScreen({
                   </Text>
                   <Text style={styles.splashTitle}>{step.title}</Text>
                   <Text style={{ fontSize: 15, fontWeight: '600', color: theme.muted }}>{step.sub}</Text>
+                  {/* The list sits with the title rather than on top of the
+                      buttons: down there it left a hand's width of nothing
+                      under the heading and read as part of the footer (user
+                      2026-09-04). It is what the heading is describing.
+
+                      Capped and scrollable so five drills cannot push the
+                      title off a short screen — the cap is high enough that
+                      four fit without scrolling. */}
+                  {gateDrills.length > 0 ? (
+                    <ScrollView
+                      style={styles.gateCard}
+                      contentContainerStyle={{ paddingVertical: 4 }}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      {gateDrills.map((drill, index) => (
+                        <View key={`${drill.name}-${index}`} style={styles.gateRow}>
+                          <Text style={styles.gateRowIndex}>{index + 1}</Text>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={styles.gateRowName} numberOfLines={1}>
+                              {drill.name}
+                            </Text>
+                          </View>
+                          <Text style={styles.gateRowLength}>{formatDrillLength(drill.seconds)}</Text>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  ) : null}
                 </View>
                 {/* The block is a suggestion, not a gate — and leaving it is a
                     real choice, so it gets a real button rather than a muted
-                    line of text nobody found (user 2026-08-26). Orange on the
-                    one that continues, because orange means pressable
-                    everywhere else in this app. */}
+                    line of text nobody found (user 2026-08-26). */}
                 {skippablePhase ? (
                   <View style={{ alignSelf: 'stretch', gap: 12 }}>
                     <BigBtn
@@ -2108,20 +2692,22 @@ export function GuidedPlayerScreen({
                       label={t(language, `guided.own.start.${skippablePhase}` as 'guided.own.start.warmup')}
                       onPress={advance}
                     />
-                    <Text style={styles.splashChoiceHint}>
-                      {t(language, `guided.own.ask.${skippablePhase}` as 'guided.own.ask.warmup')}
-                    </Text>
-                    {/* The same button, twice. These are two ways to do the
-                        same block, not a choice and its footnote — so nothing
-                        about them differs except the words (user 2026-08-27,
-                        "identtisesti eli muuten ei eroa kuin teksti"). */}
-                    <BigBtn
-                      tall
-                      icon="play"
-                      color={theme.accent}
-                      label={t(language, `guided.own.${skippablePhase}` as 'guided.own.warmup')}
+                    {/* The second way to do the same block. It says what it
+                        does on its own second line rather than leaning on a
+                        hint above it, so the fork is two buttons and not two
+                        buttons plus a sentence explaining them. */}
+                    {/* One line. The second line explained what the words
+                        already say, and two of them made the button read as a
+                        paragraph with a border (user 2026-09-04). */}
+                    <Pressable
+                      accessibilityRole="button"
+                      style={styles.gateOwnBtn}
                       onPress={() => setOwnBlock({ phase: skippablePhase, startedAt: Date.now() })}
-                    />
+                    >
+                      <Text style={styles.gateOwnLabel}>
+                        {t(language, `guided.own.${skippablePhase}` as 'guided.own.warmup')}
+                      </Text>
+                    </Pressable>
                   </View>
                 ) : null}
               </Pressable>
@@ -2197,80 +2783,111 @@ export function GuidedPlayerScreen({
 
           {step.type === 'position' && (
             <StepIn stepKey={`position-${stepIndex}`}>
-              {/* Stripped to the four things you need while walking to the rack
-                  (user, 2026-08-02): what is next, how much of it, how long you
-                  have, and a way to stop the clock. The photo, the how-to link
-                  and the first-set breakdown all moved off this screen — you
-                  are not reading, you are walking. */}
-              {/* Three zones, not one centred clump (user 2026-08-26): what
-                  is coming sits at the top where a heading belongs, the clock
-                  owns the middle, and the button owns the bottom. The ring the
-                  Lepoajastin design put around the count is gone with it —
-                  the plain number was the version that read better on a
-                  treadmill, and the only part worth keeping was the room. */}
-              <View style={{ flex: 1, minHeight: 0 }}>
-                <View style={{ alignItems: 'center', gap: 8, paddingTop: 26, paddingHorizontal: 24 }}>
-                  <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: theme.purple }}>
+              {/* Changing exercises is not time-bound.
+                  This screen counted down fifteen seconds and offered a button
+                  to stop the clock, which is a wait the reader did not ask for
+                  plus a control to undo it. Walking to another machine takes
+                  as long as it takes — sometimes the rack is busy — so there
+                  is no clock here at all now (user 2026-09-04). What is left
+                  is what the walk is actually for: the lift you just finished,
+                  acknowledged, and the one you are walking to, with the
+                  numbers you will need when you get there.
+
+                  The two-zone shape from 2026-08-26 stands: what is coming at
+                  the top, the action at the bottom. */}
+              <ScrollView
+                style={{ flex: 1, minHeight: 0 }}
+                contentContainerStyle={{ paddingTop: 28, paddingHorizontal: 24, paddingBottom: 8, gap: 14 }}
+                showsVerticalScrollIndicator={false}
+              >
+                {/* The lift that just ended. It used to be a splash that
+                    covered this screen for three and a half seconds; the beat
+                    it was buying is bought better by being here, where the
+                    reader can look at it for as long as they like and the app
+                    does not have to guess how long that is. */}
+                {walkDone ? (
+                  <View style={styles.walkDoneCard}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <View style={styles.splashCheck}>
+                        <GPIcon name="check" size={14} color={theme.green} sw={2.8} />
+                      </View>
+                      <Text style={styles.walkDoneLabel}>{walkDone.label}</Text>
+                    </View>
+                    <Text style={styles.walkDoneName} numberOfLines={1}>
+                      {walkDone.name}
+                    </Text>
+                    <View style={styles.walkDonePills}>
+                      {walkDone.pills.map((pill, index) => (
+                        <View key={index} style={styles.walkDonePill}>
+                          <Text style={styles.walkDonePillText}>{pill}</Text>
+                        </View>
+                      ))}
+                      {/* "10 10" does not say ten of what (user 2026-09-04).
+                          Small, after the pills, because it is true of all of
+                          them and repeating it inside each one is furniture. */}
+                      <Text style={styles.walkDonePillUnit}>{t(language, 'guided.reps').toLowerCase()}</Text>
+                    </View>
+                  </View>
+                ) : null}
+
+                <View style={{ alignItems: 'center', gap: 8 }}>
+                  <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: theme.highlight }}>
                     {t(language, 'guided.nextUp')}
                   </Text>
                   <Text style={styles.positionName} numberOfLines={2}>
                     {exerciseNameLabel(language, step.exerciseName)}
                   </Text>
-                  {(() => {
-                    const exercise = exerciseBySlot.get(step.slotId);
-                    const target = resolveTarget(step.slotId, 0);
-                    if (!exercise || !target) {
-                      return null;
-                    }
-                    return (
-                      <Text style={styles.positionPlan}>
-                        {t(
-                          language,
-                          isTimedTrackingMode(exercise.trackingMode)
-                            ? 'guided.prescriptionHold'
-                            : 'guided.prescription',
-                          {
-                            sets: exercise.sets.length,
-                            reps: target.reps,
-                          },
-                        )}
-                      </Text>
-                    );
-                  })()}
                 </View>
 
-                <View style={{ flex: 1, minHeight: 0, alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                  <Text
-                    style={[
-                      styles.drillCountdown,
-                      { color: secondsLeft <= 3.05 ? theme.green : theme.ink },
-                    ]}
-                  >
-                    {formatGuidedCountdown(secondsLeft)}
-                  </Text>
-                  <Text style={{ fontSize: 12, fontWeight: '700', letterSpacing: 1.7, color: theme.muted }}>
-                    {t(language, paused ? 'guided.stopped' : 'guided.untilStart')}
-                  </Text>
+                {/* Bigger. The shape was right and the box was not (user
+                    2026-09-04) — and the screen has the room, having lost a
+                    countdown. */}
+                <MediaZone
+                  name={step.exerciseName}
+                  library={exerciseLibrary}
+                  height={230}
+                  mode="set"
+                  showActions={false}
+                  fit="cover"
+                  language={language}
+                />
+
+                {/* Two cards, one question each: what today asks of you, and
+                    what you did last time. The plan used to be one line of
+                    small print under the name. */}
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <View style={[styles.walkStat, { borderColor: theme.highlight }]}>
+                    <Text style={styles.walkStatLabel}>{t(language, 'guided.walk.today')}</Text>
+                    <Text style={[styles.walkStatValue, { color: theme.highlight }]}>
+                      {walkNext?.todayValue ?? '—'}
+                    </Text>
+                    {walkNext?.planLine ? (
+                      <Text style={styles.walkStatSub}>{walkNext.planLine}</Text>
+                    ) : null}
+                  </View>
+                  <View style={styles.walkStat}>
+                    <Text style={styles.walkStatLabel}>{t(language, 'guided.walk.last')}</Text>
+                    <Text style={styles.walkStatValue}>{walkNext?.lastValue ?? '—'}</Text>
+                    {walkNext?.lastReps ? (
+                      <Text style={styles.walkStatSub}>{walkNext.lastReps}</Text>
+                    ) : null}
+                  </View>
                 </View>
-              </View>
-              <View style={{ paddingHorizontal: 22, paddingBottom: 14 }}>
-                {/* One control, both jobs: stop the clock to take your time,
-                    and start the set when you are standing there. A separate
-                    "I'm ready" button on top of a stop button would be two
-                    ways to say the same thing. */}
+              </ScrollView>
+              <View style={{ paddingHorizontal: 22, paddingBottom: 14, gap: 10 }}>
+                <Pressable
+                  accessibilityRole="button"
+                  hitSlop={10}
+                  onPress={() => setSwapOpen(true)}
+                  style={{ alignItems: 'center', paddingVertical: 4 }}
+                >
+                  <Text style={styles.startOverText}>{t(language, 'guided.walk.swap')}</Text>
+                </Pressable>
                 <BigBtn
                   shimmer
-                  label={t(language, paused ? 'guided.imReady' : 'guided.stopClock')}
-                  icon={paused ? 'check' : 'pause'}
-                  color={paused ? undefined : theme.ink}
-                  onPress={() => {
-                    if (paused) {
-                      setPaused(false);
-                      advance();
-                      return;
-                    }
-                    setPaused(true);
-                  }}
+                  label={t(language, 'guided.walk.startFirst')}
+                  icon="play"
+                  onPress={advance}
                 />
               </View>
             </StepIn>
@@ -2349,9 +2966,7 @@ export function GuidedPlayerScreen({
               stepIndex={stepIndex}
               step={step}
               exercise={exerciseBySlot.get(step.slotId) ?? null}
-              library={exerciseLibrary}
               language={language}
-              elapsedSeconds={derivedElapsedSeconds}
               paused={paused}
               resolveTarget={resolveTarget}
               // Pause pauses, and nothing else. It used to open the actions
@@ -2393,7 +3008,7 @@ export function GuidedPlayerScreen({
                 })()
               }
               panels={setPanelSource}
-              panelsOpen={setPanelsOpen}
+              onOpenSheet={() => setSetPanelsOpen(true)}
               onConfirm={confirmSet}
             />
           )}
@@ -2401,15 +3016,49 @@ export function GuidedPlayerScreen({
           {step.type === 'rest' && (
             <StepIn stepKey={`rest-${stepIndex}`}>
               <View style={{ flex: 1, minHeight: 0 }}>
+                {/* What was just logged, and a way to fix it.
+                    Rest is when a mis-typed rep count is noticed, and until
+                    now the only way back was the hardware back button. */}
+                {restLogged ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    style={styles.restLoggedCard}
+                    onPress={() => setRestEditOpen(true)}
+                  >
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.restLoggedLabel}>
+                        {t(language, 'guided.rest.logged', { index: step.setIndex + 1 })}
+                      </Text>
+                      <Text style={styles.restLoggedValue} numberOfLines={1}>
+                        {restLogged}
+                      </Text>
+                    </View>
+                    <Text style={styles.restLoggedEdit}>{t(language, 'guided.rest.edit')}</Text>
+                  </Pressable>
+                ) : null}
                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                   <RestRing
                     stepKey={stepIndex}
-                    leftSeconds={secondsLeft}
+                    leftSeconds={Math.max(0, secondsLeft)}
                     plannedSeconds={step.seconds}
-                    // An interval's easy half is a phase of the work, not a
-                    // pause in it: green, the colour recovery wears everywhere
-                    // else in the app.
-                    stroke={step.recoveryKind ? theme.green : undefined}
+                    // Neutral while the wait is a wait; accent the moment it
+                    // is over, because that is when the ring has something to
+                    // say. An interval's easy half is a phase of the work, not
+                    // a pause in it: green, the colour recovery wears
+                    // everywhere else in the app.
+                    /*
+                     * Neutral while the wait is a wait, accent once it is over.
+                     *
+                     * The resting ring used to take RestRing's default, which
+                     * is `purple` — and in the light theme `purple` and
+                     * `highlight` are the same violet, so the ring the design
+                     * says should turn at zero did not turn at all (device
+                     * 2026-09-04). Naming the resting colour makes the change
+                     * a change in both themes.
+                     */
+                    stroke={
+                      step.recoveryKind ? theme.green : restIsOver ? theme.highlight : theme.muted
+                    }
                   >
                     <Text
                       style={[styles.restRingLabel, step.recoveryKind ? { color: theme.greenInk } : null]}
@@ -2423,13 +3072,83 @@ export function GuidedPlayerScreen({
                                 ? 'guided.interval.rest'
                                 : 'guided.interval.easy',
                           )
-                        : t(language, 'guided.rest')}
+                        : restIsOver
+                          ? t(language, 'guided.rest.ready')
+                          : t(language, 'guided.rest')}
                     </Text>
-                    <Text style={styles.restCountdown}>{formatGuidedCountdown(secondsLeft)}</Text>
+                    <Text style={styles.restCountdown}>
+                      {formatGuidedCountdown(Math.max(0, secondsLeft))}
+                    </Text>
+                    {/* How long the rest was, and — once it is over — how far
+                        past it you are. The reader who put the phone down
+                        comes back to a number that says how long they have
+                        been standing there rather than to a screen that has
+                        already moved on without them. */}
+                    <Text style={styles.restOfLabel}>
+                      {restIsOver
+                        ? t(language, 'guided.rest.over', {
+                            // m:ss, not the drill formatter's bare seconds:
+                            // "+6 over" does not say six of what (device
+                            // 2026-09-04).
+                            clock: formatSessionClock(Math.floor(Math.abs(secondsLeft))),
+                          })
+                        : t(language, 'guided.rest.of', {
+                            clock: formatGuidedCountdown(step.seconds),
+                          })}
+                    </Text>
                     {/* No "PAUSED" caption: the button below it has already
                         flipped to Jatka, and a ring frozen mid-sweep is not
                         ambiguous. Asked for 2026-08-21. */}
                   </RestRing>
+                  {/* The set that is coming, and the weight it will carry.
+                      Three options rather than a dial: the decision is made
+                      here, and the set screen still has the free stepper for
+                      the reader who wants a number off this grid. */}
+                  {!step.recoveryKind && restNextSet ? (
+                    <View style={styles.restNextCard}>
+                      <Text style={styles.restNextLabel}>
+                        {t(language, 'guided.rest.nextSet', {
+                          index: restNextSet.index + 1,
+                          count: restNextSet.count,
+                        })}
+                      </Text>
+                      <Text style={styles.restNextTarget}>
+                        {t(language, restNextSet.timed ? 'guided.rest.targetHold' : 'guided.rest.target', {
+                          reps: restNextSet.reps,
+                        })}
+                      </Text>
+                      {/* One weight, and the app stands behind it.
+                          Three options asked the reader to make a decision the
+                          progression engine had already made — and asking is
+                          the opposite of the promise (user 2026-09-04). The
+                          number is still theirs to change: the set screen's
+                          dial is two taps away and always was. */}
+                      {restChosenKg > 0 ? (
+                        <View style={styles.restTargetRow}>
+                          <Text style={styles.restTargetWeight}>
+                            {formatWeight(restChosenKg, unitPreference)}
+                          </Text>
+                          {restTargetMove?.label ? (
+                            <View
+                              style={[
+                                styles.restTargetDelta,
+                                restTargetMove.kind === 'up' && { backgroundColor: theme.greenSoft },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.restTargetDeltaText,
+                                  restTargetMove.kind === 'up' && { color: theme.greenInk },
+                                ]}
+                              >
+                                {restTargetMove.label}
+                              </Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      ) : null}
+                    </View>
+                  ) : null}
                 </View>
                 <View style={{ paddingHorizontal: 24, paddingBottom: 10, gap: 12 }}>
                   {/* What comes back after the easy half — the same forward
@@ -2439,7 +3158,11 @@ export function GuidedPlayerScreen({
                       {t(language, 'guided.interval.thenWork')}
                     </Text>
                   ) : null}
-                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                  {/* Once the wait is over the row goes with it: three
+                      controls for shortening a wait that has already ended are
+                      three controls that do nothing, above the one button that
+                      does (device 2026-09-04). */}
+                  <View style={{ flexDirection: 'row', gap: 10, display: restIsOver ? 'none' : 'flex' }}>
                     {/* No ±15 s on an interval: its two halves are the rhythm
                         the machine is set to, and stretching one desyncs the
                         reader from the belt they are standing on. */}
@@ -2480,10 +3203,36 @@ export function GuidedPlayerScreen({
                       And no "skip rest" on an interval's easy half: skipping
                       the walk is skipping half the exercise, not shortening a
                       wait (#bugs 2026-08-26). Pause stays on both. */}
-                  {step.recoveryKind ? null : (
-                    <Pressable style={styles.skipRestBtn} onPress={advance}>
-                      <GPIcon name="skip" size={18} color="#fff" />
-                      <Text style={{ fontSize: 15.5, fontWeight: '800', color: '#fff' }}>{t(language, 'guided.skipRest')}</Text>
+                  {step.recoveryKind ? null : restIsOver ? (
+                    /* The rest is over and the screen says so; this is the
+                       reader saying they are ready. Nothing advanced on its
+                       own, so this button is the only thing that does. */
+                    <Pressable
+                      accessibilityRole="button"
+                      style={styles.restStartBtn}
+                      onPress={() => {
+                        void haptics.select();
+                        startRestNextSet();
+                      }}
+                    >
+                      <GPIcon name="play" size={18} color={theme.onHighlight} sw={2.5} />
+                      <Text style={{ fontSize: 15.5, fontWeight: '800', color: theme.onHighlight }}>
+                        {restNextSet
+                          ? t(
+                              language,
+                              restChosenKg > 0 ? 'guided.rest.startSetWeight' : 'guided.rest.startSet',
+                              {
+                                index: restNextSet.index + 1,
+                                weight: formatWeight(restChosenKg, unitPreference),
+                              },
+                            )
+                          : t(language, 'guided.skipRest')}
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <Pressable style={styles.skipRestBtn} onPress={startRestNextSet}>
+                      <GPIcon name="skip" size={18} color={theme.ink} />
+                      <Text style={{ fontSize: 15.5, fontWeight: '800', color: theme.ink }}>{t(language, 'guided.skipRest')}</Text>
                     </Pressable>
                   )}
                   {/* Paused on the easy half: the same single way out as the
@@ -2504,9 +3253,8 @@ export function GuidedPlayerScreen({
                   )}
                 </View>
                 <ProgressRail
-                  groups={groups}
-                  current={step.groupIndex}
-                  dark={false}
+                  groups={phaseRail.groups}
+                  current={phaseRail.current}
                   dotIndex={step.setIndex}
                   dotsDone={exerciseBySlot.get(step.slotId)?.sets.filter((set) => set.status === 'completed').length ?? 0}
                   onPress={() => setRunSheetOpen(true)}
@@ -2518,9 +3266,8 @@ export function GuidedPlayerScreen({
 
           {(step.type === 'drill' || step.type === 'set' || step.type === 'ready' || step.type === 'position') && (
             <ProgressRail
-              groups={groups}
-              current={step.groupIndex}
-              dark={false}
+              groups={phaseRail.groups}
+              current={phaseRail.current}
               dotIndex={step.type === 'set' ? step.setIndex : 0}
               dotsDone={
                 step.type === 'set' || step.type === 'position'
@@ -2543,14 +3290,6 @@ export function GuidedPlayerScreen({
         />
       )}
 
-      {/* Covers the walk-up screen for its first second; a tap dismisses it. */}
-      {mode === 'player' && doneSplashName ? (
-        <ExerciseDoneSplash
-          label={t(language, 'guided.label.done')}
-          name={exerciseNameLabel(language, doneSplashName)}
-          onDone={() => setDoneSplashName(null)}
-        />
-      ) : null}
 
       {/* The waiting room for a block you are doing yourself. A clock that
           counts UP, because the app does not know how long your warmup takes
@@ -2558,37 +3297,176 @@ export function GuidedPlayerScreen({
           as a reminder rather than a list to obey. */}
       {ownBlock && (
         <View style={styles.ownBlockSheet}>
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, paddingHorizontal: 28 }}>
-            <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: theme.purple }}>
-              {t(language, 'guided.own.eyebrow')}
+          {/* The overlay covers the player, top bar included — so it draws its
+              own. Without it this was the one screen in the session with no
+              way out, no session clock and no sound toggle (device
+              2026-09-04). */}
+          <TopBar
+            dark={false}
+            label={t(
+              language,
+              ownBlock.phase === 'warmup' ? 'guided.label.warmup' : 'guided.label.cooldown',
+            )}
+            clock={formatSessionClock(derivedElapsedSeconds)}
+            muted={muted}
+            onMute={() => onToggleSoundCues(!soundCuesEnabled)}
+            onExit={() => setExitOpen(true)}
+          />
+          {/* Scrolls, because the loads card grows with the session: five
+              areas and a flagged one is a card, not a caption. */}
+          <ScrollView
+            style={{ flex: 1 }}
+            // Centred, like every other full-screen block in the player. Left
+            // ragged against a centred title it read as crooked (user
+            // 2026-09-04).
+            contentContainerStyle={{
+              flexGrow: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
+              paddingHorizontal: 28,
+              paddingVertical: 24,
+            }}
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={styles.ownBlockEyebrow}>
+              {t(
+                language,
+                ownBlock.phase === 'warmup' ? 'guided.own.state.warmup' : 'guided.own.state.cooldown',
+              )}
             </Text>
-            <Text style={styles.splashTitle}>
-              {t(language, ownBlock.phase === 'warmup' ? 'guided.phase.warmup' : 'guided.phase.cooldown')}
-            </Text>
+            <Text style={styles.splashTitle}>{t(language, 'guided.own.title')}</Text>
+            {/* Smaller than the drill countdowns on purpose: this clock is a
+                record of how long you have taken, not a number to beat. */}
             <Text style={styles.ownBlockClock}>{formatSessionClock(ownElapsedSeconds)}</Text>
+            {ownLastTimeLine ? <Text style={styles.ownBlockHint}>{ownLastTimeLine}</Text> : null}
             <Text style={styles.ownBlockHint}>{t(language, 'guided.own.hint')}</Text>
 
-            {/* "Vinha olisi ehdottanut" and its three lifts are gone. The
-                reader has just pressed "on my own": listing what the app would
-                have picked instead is the app arguing with a choice it offered
-                (#bugs 2026-08-26, reported on the warm-up and again on the
-                cooldown). The clock is what this screen is for. */}
-          </View>
-          <View style={{ paddingHorizontal: 24, paddingBottom: 18 }}>
+            {/* "Vinha olisi ehdottanut" and its three drills are gone and stay
+                gone: listing what the app would have picked is the app arguing
+                with a choice it offered (#bugs 2026-08-26).
+
+                What follows is the opposite claim — not the drills you skipped
+                but the work you are about to do. It is the only thing that
+                makes a self-run warm-up better rather than merely faster, and
+                it never names a drill. */}
+            {ownBlock.phase === 'warmup' && (warmupBrief.areas.length > 0 || warmupBrief.firstLift) ? (
+              <View style={styles.ownBriefCard}>
+                <Text style={styles.ownBriefLabel}>{t(language, 'guided.own.brief.label')}</Text>
+                {warmupBrief.areas.length > 0 ? (
+                  <View style={styles.ownBriefChips}>
+                    {warmupBrief.areas.map((area) => (
+                      <View key={area} style={styles.ownBriefChip}>
+                        <Text style={styles.ownBriefChipText}>{area}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+                {warmupBrief.firstLift ? (
+                  <View style={styles.ownBriefFirst}>
+                    <Text style={styles.ownBriefLabel}>{t(language, 'guided.own.brief.firstLift')}</Text>
+                    <Text style={styles.ownBriefFirstName} numberOfLines={1}>
+                      {exerciseNameLabel(language, warmupBrief.firstLift.exerciseName)}
+                    </Text>
+                    <Text style={styles.ownBriefFirstScheme}>{warmupBrief.firstLift.scheme}</Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+          </ScrollView>
+          <View style={{ paddingHorizontal: 24, paddingBottom: 18, gap: 12 }}>
+            {/* The way back into the drills, and the way out of the standing
+                assumption at the same time: a reader who wants them today is a
+                reader the app was wrong to skip them for.
+
+                ABOVE the button, not below it. This sheet pads 18px off the
+                bottom with no safe-area inset, and that strip is where Android
+                draws its own controls — a link put there is one the reader has
+                to fight the system bar for, which this app has shipped twice
+                already (#bugs 2026-08-28). */}
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={10}
+              onPress={() => {
+                setOwnBlock(null);
+                if (alwaysOwnWarmup && ownBlock.phase === 'warmup') {
+                  onSetAlwaysOwnWarmup?.(false);
+                }
+              }}
+              style={{ alignItems: 'center', paddingVertical: 6 }}
+            >
+              <Text style={styles.startOverText}>
+                {t(
+                  language,
+                  ownBlock.phase === 'warmup' ? 'guided.own.guided.warmup' : 'guided.own.guided.cooldown',
+                )}
+              </Text>
+            </Pressable>
             <BigBtn
               icon="check"
               label={t(
                 language,
                 ownBlock.phase === 'warmup' ? 'guided.own.done.warmup' : 'guided.own.done.cooldown',
               )}
-              onPress={() => {
-                setOwnBlock(null);
-                skipPhase();
-              }}
+              onPress={() => finishOwnBlock(true)}
             />
           </View>
         </View>
       )}
+
+      {/* Asked once, on the third session run this way, and never again:
+          the reader has shown the app what they do, so the app can stop
+          putting the fork in front of them. */}
+      {alwaysOwnAsk ? (
+        <ConfirmDialog
+          visible
+          language={language}
+          title={t(language, 'guided.own.always.title')}
+          message={t(language, 'guided.own.always.body')}
+          confirmLabel={t(language, 'guided.own.always.confirm')}
+          cancelLabel={t(language, 'guided.own.always.cancel')}
+          onConfirm={() => {
+            setAlwaysOwnAsk(false);
+            onSetAlwaysOwnWarmup?.(true);
+          }}
+          onCancel={() => setAlwaysOwnAsk(false)}
+        />
+      ) : null}
+
+      {/* Correcting the set that was just logged, on the screen that shows it. */}
+      {restEditOpen && step.type === 'rest' ? (
+        <LoggedSetEditor
+          language={language}
+          unitPreference={unitPreference}
+          unloaded={isUnloadedTrackingMode(exerciseBySlot.get(step.slotId)?.trackingMode ?? 'load_and_reps')}
+          reps={findSetByIndex(exerciseBySlot.get(step.slotId), step.setIndex)?.actualReps ?? 0}
+          loadKg={findSetByIndex(exerciseBySlot.get(step.slotId), step.setIndex)?.actualLoadKg ?? 0}
+          onCancel={() => setRestEditOpen(false)}
+          onSave={(reps, loadKg) => {
+            workout.editLoggedSet(step.slotId, step.setIndex, reps, loadKg);
+            setRestEditOpen(false);
+          }}
+        />
+      ) : null}
+
+      {/* The lift's own sheet — photo and setup, the written steps with the
+          what to watch for, and eight sessions of history.
+          Opened from the card, which is the only door: the header's slot is
+          the sound toggle's again. */}
+      {setPanelsOpen && step.type === 'set' ? (
+        <ExerciseSheet
+          visible
+          language={language}
+          exerciseName={exerciseNameLabel(language, step.exerciseName)}
+          imageUrl={setPanelSource?.imageUrl ?? null}
+          initials={setPanelSource?.initials ?? ''}
+          instructions={setPanelSource?.instructions ?? []}
+          learn={sheetLearn}
+          watchFor={sheetWatchFor}
+          history={sheetHistory}
+          onClose={() => setSetPanelsOpen(false)}
+        />
+      ) : null}
 
       {howtoOpen && (
         <HowToSheetView
@@ -2731,15 +3609,10 @@ export function GuidedPlayerScreen({
                 }}
               />
             ) : null}
-            {/* The set screen lost its speaker button when the controls went
-                down to pause + menu, so the toggle lives here now. It stays
-                open on press: a toggle you cannot see flip is a toggle you
-                press twice. */}
-            <GhostBtn
-              icon={muted ? 'sound' : 'mute'}
-              label={t(language, muted ? 'guided.action.soundOn' : 'guided.action.soundOff')}
-              onPress={() => onToggleSoundCues(!soundCuesEnabled)}
-            />
+            {/* No sound row. It lived here while the set screen's top-right
+                slot held the exercise info; the info moved to the lift's card
+                on 2026-09-04 and the speaker went back to the header, so this
+                was the same switch in two places (user 2026-09-04). */}
             {actionExercise ? (
               <>
                 {/* No name header: the exercise is already the biggest thing on
@@ -2923,13 +3796,110 @@ function formatSessionClock(totalSeconds: number): string {
 }
 
 /* ── strength set step v4 (owns the reps/kg steppers) ── */
+/**
+ * The two numbers of a logged set, and a way to change them.
+ *
+ * Deliberately not the set screen's dial cards: those are built for a set you
+ * are about to do, with a progression badge and a target underneath. This is a
+ * correction — two fields and a save — so it says nothing about what the app
+ * would have picked.
+ */
+function LoggedSetEditor({
+  language,
+  unitPreference,
+  unloaded,
+  reps,
+  loadKg,
+  onCancel,
+  onSave,
+}: {
+  language: AppLanguage;
+  unitPreference: UnitPreference;
+  unloaded: boolean;
+  reps: number;
+  loadKg: number;
+  onCancel: () => void;
+  onSave: (reps: number, loadKg: number | null) => void;
+}) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const insets = useSafeAreaInsets();
+  const [repsDraft, setRepsDraft] = useState(String(reps));
+  const [loadDraft, setLoadDraft] = useState(removeTrailingZeros(loadKg));
+
+  const nextReps = Math.round(parseNumberInput(repsDraft) ?? reps);
+  const nextLoad = unloaded ? null : parseNumberInput(loadDraft) ?? loadKg;
+  const valid = nextReps > 0 && (unloaded || (nextLoad !== null && nextLoad >= 0));
+
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onCancel}>
+      <View style={styles.editVeil}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onCancel} accessible={false} />
+        <View style={[styles.editSheet, { paddingBottom: insets.bottom + 20 }]}>
+          <Text style={styles.editTitle}>{t(language, 'guided.rest.editTitle')}</Text>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <View style={styles.editField}>
+              <Text style={styles.editLabel}>{t(language, 'guided.reps')}</Text>
+              <TextInput
+                value={repsDraft}
+                onChangeText={setRepsDraft}
+                keyboardType="number-pad"
+                selectTextOnFocus
+                style={styles.editInput}
+              />
+            </View>
+            {unloaded ? null : (
+              <View style={styles.editField}>
+                <Text style={styles.editLabel}>{t(language, 'guided.weight')}</Text>
+                <TextInput
+                  value={loadDraft}
+                  onChangeText={setLoadDraft}
+                  keyboardType="decimal-pad"
+                  selectTextOnFocus
+                  style={styles.editInput}
+                />
+              </View>
+            )}
+          </View>
+          {/* Two buttons of one size. BigBtn is 60 tall and GhostBtn 48, which
+              is right where one leads and the other follows — here they are a
+              pair, and a pair that does not match reads as a mistake (user
+              2026-09-04). */}
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={onCancel}
+              style={[styles.editBtn, styles.editBtnGhost]}
+            >
+              <Text style={styles.editBtnGhostText}>{t(language, 'common.cancel')}</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !valid }}
+              onPress={() => {
+                if (valid) {
+                  onSave(nextReps, nextLoad);
+                }
+              }}
+              style={[styles.editBtn, { backgroundColor: valid ? theme.accent : theme.faint }]}
+            >
+              <GPIcon name="check" size={17} color={theme.onHighlight} sw={2.6} />
+              <Text style={[styles.editBtnText, { color: theme.onHighlight }]}>
+                {t(language, 'guided.rest.editSave')}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 function SetStepView({
   stepIndex,
   step,
   exercise,
-  library,
   language,
-  elapsedSeconds,
   paused,
   resolveTarget,
   onPause,
@@ -2937,23 +3907,16 @@ function SetStepView({
   onAddSet,
   onRemoveSet,
   panels,
-  panelsOpen,
+  onOpenSheet,
   onConfirm,
 }: {
   stepIndex: number;
   step: Extract<GuidedStep, { type: 'set' }>;
   exercise: WorkoutExerciseInstance | null;
-  library: ExerciseLibraryItem[];
   language: AppLanguage;
-  elapsedSeconds: number;
   paused: boolean;
-  /**
-   * Owned by the player, not this view: the header's right-hand button is what
-   * opens the exercise info now, and the header is the parent's (user
-   * 2026-08-26). The tab that used to sit above the set counter is gone with
-   * the row it cost.
-   */
-  panelsOpen: boolean;
+  /** Opens the exercise sheet; the card is the only door to it. */
+  onOpenSheet: () => void;
   resolveTarget: (slotId: string, setIndex: number) => GuidedSetTarget | null;
   onPause: () => void;
   onOpenActions: () => void;
@@ -2962,7 +3925,7 @@ function SetStepView({
   onRemoveSet?: (() => void) | null;
   /** Resolved by the player; null falls back to the plain photo. */
   panels: {
-    history: SetPanelHistory | null;
+    history: LastTimeView | null;
     instructions: string[];
     imageUrl: string | null;
     initials: string;
@@ -3052,24 +4015,66 @@ function SetStepView({
         onPress={dial ? () => setDial(null) : undefined}
         accessible={false}
       >
-        {/* The panels open from the header's right-hand button now. They used
-            to ride behind a tab pinned above the set counter, which cost a
-            whole row on the tightest screen in the app for a label nobody
-            needed to read twice (user 2026-08-26). */}
-        {panelsOpen ? (
-          panels ? (
-            <SetPanels
-              height={220}
-              language={language}
-              history={panels.history}
-              instructions={panels.instructions}
-              imageUrl={panels.imageUrl}
-              initials={panels.initials}
-            />
+        {/* The lift, always on screen and always the way in.
+            The panels used to hang off the header's right-hand button, which
+            put the answer to "how much did I lift last time" behind a control
+            that looked like a camera — and cost the header the slot the sound
+            toggle belongs in. The card says the name, shows the photo, and
+            carries last time's numbers where they are read without a tap. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t(language, 'guided.panelsToggle')}
+          onPress={onOpenSheet}
+          style={styles.setExerciseCard}
+        >
+          <View style={styles.setExerciseTop}>
+            <View style={styles.setExerciseThumb}>
+              {panels?.imageUrl ? (
+                <Image source={{ uri: panels.imageUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+              ) : (
+                <Text style={styles.setExerciseInitials}>{panels?.initials ?? ''}</Text>
+              )}
+              <View style={styles.setExercisePlay}>
+                <GPIcon name="play" size={11} color={theme.onHighlight} sw={2.6} />
+              </View>
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.setExerciseName} numberOfLines={2}>
+                  {exerciseNameLabel(language, step.exerciseName)}
+                </Text>
+                <GPIcon name="info" size={16} color={theme.muted} sw={2.2} />
+              </View>
+              <Text style={styles.setExerciseHint} numberOfLines={1}>
+                {t(language, 'guided.card.hint')}
+              </Text>
+            </View>
+          </View>
+          {panels?.history ? (
+            <View style={styles.setExerciseLast}>
+              <Text style={styles.setExerciseLastLabel}>{t(language, 'guided.card.lastTime')}</Text>
+              <Text style={styles.setExerciseLastLoad}>
+                {/* The same number decides and is shown. Guarding on the
+                    FIRST set while printing the heaviest hid a real top set
+                    behind a dash whenever set 1 was logged at 0 kg — which is
+                    what the dial offers on a lift with no history (review,
+                    PR #57). */}
+                {heaviestOf(panels.history) > 0
+                  ? `${removeTrailingZeros(heaviestOf(panels.history))} kg`
+                  : '—'}
+              </Text>
+              <View style={styles.setExerciseLastPills}>
+                {panels.history.sets.map((set) => (
+                  <View key={set.setIndex} style={styles.setExerciseLastPill}>
+                    <Text style={styles.setExerciseLastPillText}>{set.reps}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
           ) : (
-            <MediaZone name={step.exerciseName} library={library} height={220} mode="set" showActions={false} fit="cover" language={language} />
-          )
-        ) : null}
+            <Text style={styles.setExerciseFirstTime}>{t(language, 'guided.card.firstTime')}</Text>
+          )}
+        </Pressable>
 
         {/* The set counter, its dots and the add button — and nothing else.
             The session clock used to share this row, and the dots grow with
@@ -3082,20 +4087,29 @@ function SetStepView({
             <Text style={styles.setCounter}>
               {t(language, 'guided.setOfCount', { index: step.setIndex + 1, count: step.setCount })}
             </Text>
+            {/* Capped at nine. The reader can add sets without limit and the
+                row cannot grow without limit — past nine the dots were thinner
+                than the gaps between them and the +/− were against the edge
+                (user 2026-09-04). Beyond the cap the counter above still says
+                the true number. */}
             <View style={styles.setDots}>
-              {Array.from({ length: step.setCount }).map((_, index) => {
+              {Array.from({ length: Math.min(step.setCount, SET_DOT_CAP) }).map((_, index) => {
                 const done = index < step.setIndex;
                 const current = index === step.setIndex;
                 return (
+                  // Green filled for logged, an accent ring for the one you
+                  // are on: the same two colours the rail under the screen
+                  // uses, so "done" means one thing everywhere in the session.
                   <View
                     key={index}
                     style={[
                       styles.setDot,
-                      { borderColor: done || current ? theme.purple : theme.faint },
-                      done && { backgroundColor: theme.purple },
+                      { borderColor: done ? theme.green : current ? theme.highlight : theme.faint },
+                      current && { borderWidth: 2.5 },
+                      done && { backgroundColor: theme.green },
                     ]}
                   >
-                    {done ? <GPIcon name="check" size={12} color="#FFFFFF" sw={3} /> : null}
+                    {done ? <GPIcon name="check" size={12} color={theme.surface} sw={3} /> : null}
                   </View>
                 );
               })}
@@ -3130,15 +4144,6 @@ function SetStepView({
           </View>
         </View>
 
-        <View style={styles.setNameRow}>
-          <Text style={styles.setName} numberOfLines={2}>
-            {exerciseNameLabel(language, step.exerciseName)}
-          </Text>
-          <View style={styles.setClock}>
-            <GPIcon name="clock" size={19} color={theme.muted} sw={2} />
-            <Text style={styles.setClockText}>{formatSessionClock(elapsedSeconds)}</Text>
-          </View>
-        </View>
 
         <View style={styles.setTargetArea}>
           {/* Two dials, side by side: what you did and what was on the bar.
@@ -3248,40 +4253,57 @@ function SetStepView({
         </View>
 
         <View style={{ paddingHorizontal: 22 }}>
+          {/* Which set it logs, on the button that logs it. "Kirjaa sarja"
+              was true of all four. */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={t(language, 'guided.logSet')}
+            accessibilityLabel={t(language, 'guided.logSetIndex', { index: step.setIndex + 1 })}
             onPress={() => {
               setDial(null);
               onConfirm(step.slotId, step.setIndex, reps, bodyweight ? null : kg);
             }}
             style={({ pressed }) => [styles.setLogButton, pressed && { opacity: 0.9 }]}
           >
-            <Text style={styles.setLogButtonText}>{t(language, 'guided.logSet')}</Text>
+            <GPIcon name="check" size={18} color={theme.onHighlight} sw={2.8} />
+            <Text style={styles.setLogButtonText}>
+              {t(language, 'guided.logSetIndex', { index: step.setIndex + 1 })}
+            </Text>
           </Pressable>
         </View>
 
         {/* Two buttons, no more (user 2026-08-23): pause, and the menu.
             Mute and swap moved behind the dots with the rest of the
             "something else" actions — a set screen's own controls are the
-            ones you use mid-set. */}
+            ones you use mid-set.
+
+            Labelled, though. A bare circle is a control the reader has to
+            press to find out what it does, and one of these two ends up
+            being pressed to find out. */}
         <View style={styles.setControls}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t(language, paused ? 'guided.resume' : 'guided.pause')}
-            onPress={onPause}
-            style={styles.setRoundBtn}
-          >
-            <GPIcon name={paused ? 'play' : 'pause'} size={24} color={theme.ink} sw={2.2} />
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t(language, 'guided.a11y.actions')}
-            onPress={onOpenActions}
-            style={styles.setRoundBtn}
-          >
-            <GPIcon name="dots" size={24} color={theme.ink} sw={2.2} />
-          </Pressable>
+          <View style={styles.setControl}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(language, paused ? 'guided.resume' : 'guided.pause')}
+              onPress={onPause}
+              style={styles.setRoundBtn}
+            >
+              <GPIcon name={paused ? 'play' : 'pause'} size={24} color={theme.ink} sw={2.2} />
+            </Pressable>
+            <Text style={styles.setControlLabel}>
+              {t(language, paused ? 'guided.resume' : 'guided.pause')}
+            </Text>
+          </View>
+          <View style={styles.setControl}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(language, 'guided.a11y.actions')}
+              onPress={onOpenActions}
+              style={styles.setRoundBtn}
+            >
+              <GPIcon name="dots" size={24} color={theme.ink} sw={2.2} />
+            </Pressable>
+            <Text style={styles.setControlLabel}>{t(language, 'guided.a11y.actions')}</Text>
+          </View>
         </View>
         {/* No "Seuraava · …" line here: on a set it named the same lift's next
             set, which the dots above already say. The drills keep theirs — a
@@ -3291,71 +4313,6 @@ function SetStepView({
   );
 }
 
-/**
- * A breath between the last set of one lift and the next lift's walk-up
- * screen: the finished name under a green check. About a second was too
- * quick to register on the gym floor — "kestää ehkä sekunnin ja sitten
- * siirtyy jo seuraavaan" (user, #bugs 2026-08-26) — so it holds for ~3.5 s
- * now, still on one animated value so the fade-out needs no second timer,
- * and a tap still ends it early. The parent unmounts it via onDone.
- */
-function ExerciseDoneSplash({ label, name, onDone }: { label: string; name: string; onDone: () => void }) {
-  const theme = useTheme();
-  const styles = useThemedStyles(makeStyles);
-  const anim = useRef(new Animated.Value(0)).current;
-  // The in and out stay as fast as before (~120 ms in, ~280 ms out); only
-  // the plateau between them grew.
-  const opacity = useRef(anim.interpolate({ inputRange: [0, 0.035, 0.92, 1], outputRange: [0, 1, 1, 0] })).current;
-  const scale = useRef(anim.interpolate({ inputRange: [0, 0.075, 1], outputRange: [0.84, 1, 1] })).current;
-  // The latest onDone without re-running the effect: the parent recreates the
-  // callback every render, and restarting the timing would hold the splash up
-  // for as long as the player keeps ticking.
-  const doneRef = useRef(onDone);
-  doneRef.current = onDone;
-  useEffect(() => {
-    Animated.timing(anim, {
-      toValue: 1,
-      duration: 3500,
-      easing: Easing.linear,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished) {
-        doneRef.current();
-      }
-    });
-    return () => anim.stopAnimation();
-  }, [anim]);
-  return (
-    <Animated.View style={[StyleSheet.absoluteFillObject, { backgroundColor: theme.bg, opacity }]}>
-      <Pressable style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }} onPress={() => doneRef.current()}>
-        <Animated.View style={{ transform: [{ scale }], alignItems: 'center', gap: 14 }}>
-          <View style={styles.doneSplashCheck}>
-            <GPIcon name="check" size={30} color={theme.green} sw={3} />
-          </View>
-          <Text style={styles.doneSplashLabel}>{label}</Text>
-          <Text style={styles.doneSplashName} numberOfLines={2}>
-            {name}
-          </Text>
-        </Animated.View>
-      </Pressable>
-    </Animated.View>
-  );
-}
-
-/* ── dark scrollable session summary ── */
-/**
- * The last step: the save, and nothing else.
- *
- * This used to be a summary — week bar, title, PR card, duration/sets/volume,
- * a coach line, next up — and then Workout Complete opened straight after it
- * with the same facts and more of them. Two finish screens, the first a
- * thinner version of the second, which is why it read as the poor relation.
- *
- * The week bar and the next session moved to Workout Complete; the PR, the
- * stats and the coach line were already there. What is left is the one thing
- * that belongs between the last set and the summary: saying the workout is
- * being written down, so a slow save is never a blank screen.
- */
 function FinishView({
   sessionTitle,
   isSaving,
@@ -3454,10 +4411,36 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 13,
     paddingHorizontal: 16,
   },
+  entryLastRow: {
+    marginTop: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  entryLastLabel: { fontSize: 10.5, fontWeight: '800', letterSpacing: 1.3, color: theme.faint },
+  entryLastValue: {
+    marginTop: 3,
+    fontSize: 15,
+    fontWeight: '700',
+    color: theme.ink,
+    fontVariant: ['tabular-nums'],
+  },
+  entryProgressPill: {
+    backgroundColor: theme.highlightSoft,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    flexShrink: 0,
+  },
+  entryProgressPillText: { fontSize: 12.5, fontWeight: '800', color: theme.highlight },
   phaseCard: {
     backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: '#E4DBF5',
+    // Was a light-theme hex on both themes: an opaque lilac hairline drawn on
+    // the dark page outlined every card in a colour the dark palette does not
+    // contain.
+    borderColor: theme.border,
     borderRadius: 18,
     paddingHorizontal: 15,
   },
@@ -3469,21 +4452,23 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   phaseRows: {
     borderTopWidth: 1,
-    borderTopColor: '#EFE9FB',
+    borderTopColor: theme.border,
     paddingVertical: 8,
     marginBottom: 6,
+  },
+  phaseRowGroup: {
+    paddingLeft: 57,
+    paddingRight: 4,
   },
   phaseRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     paddingVertical: 8,
-    paddingLeft: 57,
-    paddingRight: 4,
   },
-  // `highlight` is the "you can press this" colour — violet in light, orange in
-  // dark, where violet is left carrying brand and structure.
-  phasePlay: {
+  // The step number's disc. Same size and place the play disc held, so the
+  // header's rhythm is unchanged — only the thing inside it means something now.
+  phaseStep: {
     width: 44,
     height: 44,
     borderRadius: 999,
@@ -3491,6 +4476,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  phaseStepText: { fontSize: 17, fontWeight: '800', color: theme.highlight },
   // `accent`, not `green`: this is the "do the thing" button, the same one
   // Home's Start workout is, and in dark that action colour is orange while
   // green keeps meaning *done*. In light both tokens are the same green, so
@@ -3537,7 +4523,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: '#E4DBF5',
+    borderColor: theme.border,
   },
   topBtnDark: {
     backgroundColor: 'rgba(255,255,255,0.09)',
@@ -3633,7 +4619,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   splashChoiceRoot: {
     flex: 1,
     paddingHorizontal: 26,
-    paddingTop: 8,
+    paddingTop: 20,
     // Lifted off the bottom edge (user 2026-08-26, "vähän ylemmäs nappeja"):
     // the pair sat against the system bar, which on a tall phone is below
     // where a thumb rests rather than at it.
@@ -3641,31 +4627,107 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'space-between',
   },
   splashChoiceCopy: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
-  splashChoiceHint: {
-    fontSize: 13.5,
-    fontWeight: '600',
-    color: theme.muted,
-    textAlign: 'center',
-    marginTop: 2,
-  },
 
   /* doing a block your own way */
   ownBlockSheet: { ...StyleSheet.absoluteFillObject, backgroundColor: theme.bg },
-  ownBlockClock: {
-    fontSize: 62,
+  ownBlockEyebrow: {
+    fontSize: 12.5,
     fontWeight: '800',
-    letterSpacing: -2,
+    letterSpacing: 2,
+    color: theme.highlight,
+    textAlign: 'center',
+  },
+  // 62pt was the size of a target. This clock is a record of what you have
+  // spent, and the drill countdowns are the numbers worth being that big.
+  ownBlockClock: {
+    textAlign: 'center',
+    fontSize: 44,
+    fontWeight: '800',
+    letterSpacing: -1.4,
     color: theme.ink,
     fontVariant: ['tabular-nums'],
-    marginTop: 8,
+    marginTop: 4,
   },
   ownBlockHint: {
     fontSize: 14,
     fontWeight: '600',
     color: theme.muted,
     textAlign: 'center',
-    maxWidth: 280,
+    maxWidth: 300,
   },
+  ownBriefCard: {
+    marginTop: 18,
+    alignSelf: 'stretch',
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 18,
+    padding: 16,
+    gap: 10,
+  },
+  ownBriefLabel: { fontSize: 10.5, fontWeight: '800', letterSpacing: 1.3, color: theme.faint },
+  ownBriefChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  ownBriefChip: {
+    backgroundColor: theme.surfaceSoft,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 999,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+  },
+  ownBriefChipText: { fontSize: 12.5, fontWeight: '700', color: theme.ink },
+  ownBriefFirst: { borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 10, gap: 3 },
+  ownBriefFirstName: { fontSize: 15.5, fontWeight: '800', color: theme.ink },
+  ownBriefFirstScheme: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: theme.highlight,
+    fontVariant: ['tabular-nums'],
+  },
+  /* the warm-up / recovery gate */
+  gateCard: {
+    flexGrow: 0,
+    // Stretched, because the copy block that holds it centres its children —
+    // left to itself the card shrank to its content and the drill names came
+    // out as "…" (device 2026-09-04).
+    alignSelf: 'stretch',
+    marginTop: 18,
+    maxHeight: 260,
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+  },
+  gateRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+  gateRowIndex: {
+    width: 18,
+    fontSize: 13,
+    fontWeight: '800',
+    color: theme.faint,
+    fontVariant: ['tabular-nums'],
+  },
+  gateRowName: { fontSize: 15, fontWeight: '700', color: theme.ink },
+  gateRowWhy: { fontSize: 12.5, fontWeight: '600', color: theme.muted, marginTop: 1 },
+  gateRowLength: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: theme.muted,
+    fontVariant: ['tabular-nums'],
+  },
+  gateOwnBtn: {
+    minHeight: 62,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: theme.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 2,
+  },
+  gateOwnLabel: { fontSize: 16, fontWeight: '800', color: theme.ink },
+  gateOwnSub: { fontSize: 12.5, fontWeight: '600', color: theme.muted, textAlign: 'center' },
   readyDigit: { fontSize: 150, fontWeight: '800', letterSpacing: -7, color: theme.ink, lineHeight: 160, fontVariant: ['tabular-nums'] },
 
   /* drill / set */
@@ -3690,10 +4752,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 999,
     backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: '#E4DBF5',
+    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#28185A',
+    shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.07,
     shadowRadius: 12,
@@ -3721,18 +4783,85 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  setClock: { flexDirection: 'row', alignItems: 'center', gap: 7, flexShrink: 0 },
-  setClockText: { fontSize: 19, fontWeight: '800', color: theme.muted, letterSpacing: -0.2, fontVariant: ['tabular-nums'] },
-  setNameRow: {
-    paddingTop: 6,
-    paddingHorizontal: 24,
+  /* the lift's own card, at the top of the set screen */
+  setExerciseCard: {
+    marginHorizontal: 20,
+    // Clear of the header. At 4 it sat against the ✕ and the speaker (user
+    // 2026-09-04).
+    marginTop: 14,
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 18,
+    padding: 12,
+    gap: 10,
+  },
+  setExerciseTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  setExerciseThumb: {
+    width: 64,
+    height: 64,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: theme.surfaceSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  setExerciseInitials: { fontSize: 20, fontWeight: '800', color: theme.faint },
+  setExercisePlay: {
+    position: 'absolute',
+    right: 5,
+    bottom: 5,
+    width: 20,
+    height: 20,
+    borderRadius: 999,
+    backgroundColor: theme.highlight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // The triangle's own mass sits left of centre in a 24-box.
+    paddingLeft: 2,
+  },
+  setExerciseName: { flexShrink: 1, fontSize: 18, fontWeight: '800', letterSpacing: -0.5, color: theme.ink },
+  // Bigger, and one claim rather than a list of three tab names the reader
+  // has to have opened the sheet once to understand (user 2026-09-04).
+  setExerciseHint: { marginTop: 4, fontSize: 14, fontWeight: '600', color: theme.muted },
+  setExerciseLast: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+    paddingTop: 9,
   },
-  // The name yields to the clock rather than the other way round: the clock
-  // is four characters wide forever, and a long lift name has two lines.
-  setName: { flex: 1, minWidth: 0, fontSize: 21, fontWeight: '800', letterSpacing: -0.63, color: theme.ink, lineHeight: 24 },
+  setExerciseLastLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.1, color: theme.faint },
+  setExerciseLastLoad: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: theme.ink,
+    fontVariant: ['tabular-nums'],
+  },
+  setExerciseLastPills: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end', gap: 4 },
+  setExerciseLastPill: {
+    minWidth: 23,
+    alignItems: 'center',
+    backgroundColor: theme.surfaceSoft,
+    borderRadius: 7,
+    paddingHorizontal: 5,
+    paddingVertical: 3,
+  },
+  setExerciseLastPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.muted,
+    fontVariant: ['tabular-nums'],
+  },
+  setExerciseFirstTime: {
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+    paddingTop: 9,
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: theme.muted,
+  },
   setTargetArea: { flex: 1, minHeight: 0, justifyContent: 'center', paddingHorizontal: 22, gap: 10 },
   // Two dials of equal width. Each is a card, so the reps dial no longer
   // floats as a bare headline over a boxed weight — same shape, same weight.
@@ -3758,10 +4887,20 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   setDialLabel: { fontSize: 11.5, fontWeight: '800', letterSpacing: 1.1, color: theme.muted },
   // Same height open or closed — the number does not jump when the buttons
   // appear beside it.
-  setDialControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 42 },
+  setDialControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    minHeight: 42,
+    alignSelf: 'stretch',
+  },
+  // 40px each plus a 44px floor under the number came to more than half a
+  // 320dp screen: "1.25" was clipped to ".25" (user 2026-09-04). The buttons
+  // give the number the room instead of taking it.
   setDialBtn: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     borderRadius: 20,
     backgroundColor: theme.surface,
     borderWidth: 1.5,
@@ -3769,11 +4908,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  setDialBtnText: { fontSize: 22, fontWeight: '800', color: theme.purple, lineHeight: 26 },
+  setDialBtnText: { fontSize: 20, fontWeight: '800', color: theme.purple, lineHeight: 24 },
   // The value shrinks (flexShrink + adjustsFontSizeToFit on the number) rather
   // than pushing the buttons out of the card: "100 kg" is a real weight and
   // has to fit next to two 40dp buttons in half a screen.
-  setDialValue: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 2, flexShrink: 1, minWidth: 0 },
+  setDialValue: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+    gap: 2,
+    minWidth: 0,
+  },
   setDialNumber: {
     flexShrink: 1,
     fontSize: 38,
@@ -3783,7 +4929,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 42,
     fontVariant: ['tabular-nums'],
     textAlign: 'center',
-    minWidth: 44,
+    minWidth: 0,
   },
   // Open, the number shares the row with two buttons and is sized so that
   // "72.5" fits at this size outright — with the size auto-fitting, "72.5"
@@ -3850,17 +4996,24 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   setLogButton: {
     height: 52,
     borderRadius: 18,
-    backgroundColor: theme.purple,
+    // `accent`, the app's "do the thing" colour — the same one the session's
+    // own start button wears. It was `purple`, which in dark is the brand
+    // colour and not the pressable one.
+    backgroundColor: theme.accent,
+    flexDirection: 'row',
+    gap: 9,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: theme.purple,
+    shadowColor: theme.accent,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.22,
     shadowRadius: 18,
     elevation: 6,
   },
-  setLogButtonText: { fontSize: 17, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.17 },
-  setControls: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12, paddingTop: 14, paddingBottom: 10 },
+  setLogButtonText: { fontSize: 17, fontWeight: '800', color: theme.onHighlight, letterSpacing: -0.17 },
+  setControls: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-start', gap: 26, paddingTop: 14, paddingBottom: 10 },
+  setControl: { alignItems: 'center', gap: 5 },
+  setControlLabel: { fontSize: 11.5, fontWeight: '700', color: theme.muted },
   setAddBtn: {
     width: 26,
     height: 26,
@@ -3870,23 +5023,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.greenSoft,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  doneSplashCheck: {
-    width: 64,
-    height: 64,
-    borderRadius: 999,
-    backgroundColor: theme.greenSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  doneSplashLabel: { fontSize: 13, fontWeight: '800', letterSpacing: 2, color: theme.green },
-  doneSplashName: {
-    fontSize: 34,
-    fontWeight: '800',
-    letterSpacing: -0.9,
-    color: theme.ink,
-    textAlign: 'center',
-    paddingHorizontal: 24,
   },
   setRoundBtn: {
     width: 60,
@@ -3924,7 +5060,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     height: 48,
     borderRadius: 15,
     borderWidth: 1.5,
-    borderColor: '#E4DBF5',
+    // Was a light-theme hex on both themes: a pale lilac outline drawn on the
+    // dark page, brighter than the text inside it.
+    borderColor: theme.border,
     backgroundColor: theme.surface,
     flexDirection: 'row',
     alignItems: 'center',
@@ -3945,19 +5083,173 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 80,
     fontVariant: ['tabular-nums'],
   },
-  skipRestBtn: {
-    height: 56,
-    borderRadius: 17,
-    backgroundColor: theme.purple,
+  /* walking to the next machine */
+  walkDoneCard: {
+    backgroundColor: theme.greenSoft,
+    borderRadius: 16,
+    padding: 13,
+    gap: 6,
+  },
+  walkDoneLabel: { fontSize: 12, fontWeight: '800', letterSpacing: 1.1, color: theme.greenInk },
+  walkDoneName: { fontSize: 16, fontWeight: '800', color: theme.ink },
+  walkDonePills: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
+  walkDonePill: {
+    minWidth: 26,
+    alignItems: 'center',
+    backgroundColor: theme.surface,
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  walkDonePillUnit: {
+    alignSelf: 'center',
+    marginLeft: 2,
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: theme.greenInk,
+    opacity: 0.8,
+  },
+  walkDonePillText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: theme.greenInk,
+    fontVariant: ['tabular-nums'],
+  },
+  walkStat: {
+    flex: 1,
+    backgroundColor: theme.surface,
+    borderWidth: 1.5,
+    borderColor: theme.border,
+    borderRadius: 16,
+    padding: 13,
+    gap: 3,
+  },
+  walkStatLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.1, color: theme.faint },
+  walkStatValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.6,
+    color: theme.ink,
+    fontVariant: ['tabular-nums'],
+  },
+  walkStatSub: { fontSize: 12, fontWeight: '600', color: theme.muted, fontVariant: ['tabular-nums'] },
+  /* rest screen */
+  restLoggedCard: {
+    marginHorizontal: 20,
+    marginTop: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: theme.greenSoft,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  restLoggedLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.1, color: theme.greenInk },
+  restLoggedValue: { marginTop: 2, fontSize: 14.5, fontWeight: '700', color: theme.ink },
+  restLoggedEdit: { fontSize: 13.5, fontWeight: '800', color: theme.highlight },
+  restOfLabel: {
+    marginTop: 4,
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.muted,
+    fontVariant: ['tabular-nums'],
+  },
+  restNextCard: {
+    marginTop: 22,
+    alignSelf: 'stretch',
+    marginHorizontal: 24,
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 18,
+    padding: 14,
+    gap: 8,
+  },
+  restNextLabel: { fontSize: 10.5, fontWeight: '800', letterSpacing: 1.3, color: theme.faint },
+  restNextTarget: { fontSize: 15, fontWeight: '700', color: theme.ink },
+  editVeil: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  editSheet: {
+    backgroundColor: theme.bg,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    gap: 14,
+  },
+  editTitle: { fontSize: 19, fontWeight: '800', color: theme.ink },
+  editBtn: {
+    flex: 1,
+    height: 54,
+    borderRadius: 15,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: theme.purple,
+  },
+  editBtnGhost: { borderWidth: 1.5, borderColor: theme.border, backgroundColor: theme.surface },
+  editBtnGhostText: { fontSize: 15.5, fontWeight: '800', color: theme.ink },
+  editBtnText: { fontSize: 15.5, fontWeight: '800' },
+  editField: { flex: 1, gap: 6 },
+  editLabel: { fontSize: 10.5, fontWeight: '800', letterSpacing: 1.2, color: theme.faint },
+  editInput: {
+    height: 58,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
+    color: theme.ink,
+    fontSize: 24,
+    fontWeight: '800',
+    textAlign: 'center',
+    fontVariant: ['tabular-nums'],
+  },
+  restTargetRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 2 },
+  restTargetWeight: {
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.8,
+    color: theme.ink,
+    fontVariant: ['tabular-nums'],
+  },
+  restTargetDelta: {
+    backgroundColor: theme.surfaceSoft,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  restTargetDeltaText: { fontSize: 12.5, fontWeight: '800', color: theme.muted },
+  restStartBtn: {
+    height: 56,
+    borderRadius: 17,
+    backgroundColor: theme.accent,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    shadowColor: theme.accent,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.35,
     shadowRadius: 26,
     elevation: 6,
+  },
+  /*
+   * An outline, not a filled button.
+   *
+   * Skipping a rest is a shortcut past a wait, and it was the biggest, most
+   * saturated thing on the screen — while the button that actually starts the
+   * next set, once the wait is over, is filled. Two buttons in one slot cannot
+   * both be the loudest, and the loud one should be the one that goes forward.
+   */
+  skipRestBtn: {
+    height: 56,
+    borderRadius: 17,
+    borderWidth: 1.5,
+    borderColor: theme.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
 
   /* finish */
@@ -4004,7 +5296,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     letterSpacing: 1.1,
     textTransform: 'uppercase',
   },
-  sheetHandle: { width: 40, height: 5, borderRadius: 3, backgroundColor: '#E4DBF5', alignSelf: 'center', marginBottom: 16 },
+  sheetHandle: { width: 40, height: 5, borderRadius: 3, backgroundColor: theme.border, alignSelf: 'center', marginBottom: 16 },
   sheetTitle: { fontSize: 20, fontWeight: '800', color: theme.ink, marginBottom: 16 },
   runRow: {
     flexDirection: 'row',

@@ -79,16 +79,39 @@ module.exports = [
   },
   {
     /**
+     * A rest counts past zero, so its leftover is negative — and everything
+     * that freezes the timer (the exit dialog, a sheet, a swap) tears the
+     * effect down and rebuilds the deadline from that leftover. Clamped, the
+     * overtime the reader had actually stood there was thrown away and the
+     * count restarted at zero.
+     */
+    name: 'guided player: overtime survives whatever freezes the rest timer',
+    run() {
+      assert.match(
+        playerSource,
+        /Date\.now\(\) \+ \(restHoldsAtZero \? remainingRef\.current : Math\.max\(0, remainingRef\.current\)\)/,
+      );
+      // And a deadline already in the past is not handed to the OS: that is an
+      // alert that fires the instant it is scheduled.
+      assert.match(playerSource, /step\.type === 'rest' && endsAtRef\.current > Date\.now\(\)/);
+    },
+  },
+  {
+    /**
      * Where you are in the workout is a colour, not a size.
      *
      * The rail gave the current exercise the same purple as the finished ones
      * and told them apart by two pixels of height and twice the width — on a
      * 5px bar, read at arm's length between sets (user 2026-09-01).
      *
-     * Only the current one changes. Marking the exception is the whole point;
-     * recolouring the rail would put the reader back to counting bars.
+     * Amber carried that mark until 2026-09-04, when the session flow started
+     * using amber for a body part the reader flagged in setup. Two meanings
+     * for one colour in one flow is the problem the size difference was: the
+     * rail moved to `highlight` for here and `green` for done, which are the
+     * same two colours every other screen of the session uses, and amber is
+     * now caution and nothing else.
      */
-    name: 'guided player: the current exercise is the only amber mark on the rail',
+    name: 'guided player: the rail says here and done in the two colours the session uses',
     run() {
       // The bar no longer shares a branch with `done`.
       assert.doesNotMatch(
@@ -96,19 +119,22 @@ module.exports = [
         /done \|\| isCurrent \? \(dark \? GPD\.purple : theme\.purple\)/,
         'the current exercise is the same colour as a finished one again',
       );
-      assert.match(playerSource, /backgroundColor: isCurrent\s*\n\s*\? dark\s*\n\s*\? GPD\.amber\s*\n\s*: theme\.amber/);
-
-      // Done keeps purple and still-to-come keeps its pale track: the rail
-      // reads past / here / ahead, which one colour for everything cannot.
-      assert.match(playerSource, /: done\s*\n\s*\? dark\s*\n\s*\? GPD\.purple\s*\n\s*: theme\.purple/);
-      assert.match(playerSource, /'#E4DBF5'/);
+      // Here / done / ahead, three states in one expression.
+      assert.match(
+        playerSource,
+        /backgroundColor: isCurrent \? theme\.highlight : done \? theme\.green : theme\.faint/,
+      );
 
       // The multi-set pill is the current exercise too, so it wears the same
-      // mark: an amber rim, and amber on the set being worked.
-      assert.match(playerSource, /borderColor: dark \? GPD\.amber : theme\.amber/);
-      assert.match(playerSource, /dot === dotIndex\s*\n\s*\? dark\s*\n\s*\? GPD\.amber\s*\n\s*: theme\.amber/);
-      // Sets already done inside the pill stay purple — same rule as the rail.
-      assert.match(playerSource, /dot < dotsDone\s*\n\s*\? dark\s*\n\s*\? GPD\.purple/);
+      // mark: a `highlight` rim, `highlight` on the set being worked, and
+      // green on the sets already logged.
+      assert.match(playerSource, /borderColor: theme\.highlight/);
+      assert.match(playerSource, /dot === dotIndex\s+\? theme\.highlight/);
+      assert.match(playerSource, /dot < dotsDone\s+\? theme\.green/);
+
+      // And amber is gone from the rail entirely — including the dark
+      // gradient's own palette, which no longer carries one.
+      assert.doesNotMatch(playerSource, /GPD\.amber/, 'the rail palette still has an amber to reach for');
     },
   },
 ];

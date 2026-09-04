@@ -14,6 +14,7 @@ const {
   parseSchemeLabelSeconds,
   buildGuidedDrillsFromBlock,
   buildGuidedSteps,
+  getGuidedPhaseRail,
   getGuidedPhaseSkipTargetIndex,
   findGuidedPhaseStart,
   getGuidedPhaseLabel,
@@ -272,7 +273,7 @@ module.exports = [
       const setSteps = steps.filter((step) => step.type === 'set');
       assert.deepEqual(
         setSteps.map((step) => getGuidedPhaseLabel(step)),
-        ['WORKOUT · EXERCISE 3 OF 4', 'WORKOUT · EXERCISE 4 OF 4'],
+        ['WORKOUT · 3 OF 4', 'WORKOUT · 4 OF 4'],
       );
       // The work splash still counts what is left to do.
       assert.equal(steps[0].sub, '2 exercises · 2 sets');
@@ -303,9 +304,12 @@ module.exports = [
     run() {
       const { steps } = buildPlan();
       assert.equal(getGuidedPhaseLabel(steps[2]), 'WARM-UP · 1 OF 2');
-      assert.equal(getGuidedPhaseLabel(steps[6]), 'WORKOUT · EXERCISE 1 OF 2');
+      // No "EXERCISE": the session clock joined this label on 2026-09-04 and
+      // four dot-separated segments do not fit between the top bar's buttons.
+      assert.equal(getGuidedPhaseLabel(steps[6]), 'WORKOUT · 1 OF 2');
       assert.equal(getGuidedPhaseLabel(steps[8]), 'WORKOUT · REST');
-      assert.equal(getGuidedPhaseLabel(steps[18]), 'COOLDOWN · 1 OF 1');
+      // One name for the block: Recovery on the overview, on the gate and here.
+      assert.equal(getGuidedPhaseLabel(steps[18]), 'RECOVERY · 1 OF 1');
       assert.equal(getGuidedPhaseLabel(steps[19]), 'DONE');
       assert.equal(getGuidedStepLabel(steps[9]), 'Bench Press set 2');
       // Every label this module returns is localized, including the lift's
@@ -841,6 +845,8 @@ module.exports = [
       assert.equal(getGuidedSessionTitle('STRONG Elite - Day 1: Upper (Heavy)'), 'Upper (Heavy)');
       assert.equal(getGuidedSessionTitle('Push Day A'), 'Push Day A');
       assert.equal(getGuidedSessionTitle(''), 'Workout');
+      // The walk-up step keeps a nominal length for the duration estimate
+      // even though it no longer counts down (2026-09-04).
       assert.equal(GUIDED_POSITION_SECONDS, 15);
     },
   },
@@ -958,6 +964,55 @@ module.exports = [
 
       // And the resolver alone would have sent us to 0 — the bug this replaces.
       assert.equal(resolveGuidedResumeIndex(after, null, () => false), 0);
+    },
+  },
+
+  {
+    name: 'the progress rail shows the phase you are in, not the whole session',
+    run() {
+      // Three warmup drills, five exercises, two stretches: ten groups that
+      // used to be drawn as one ten-segment bar mixing two kinds of thing.
+      const groups = [
+        { phase: 'warmup' },
+        { phase: 'warmup' },
+        { phase: 'warmup' },
+        { phase: 'work', setCount: 4 },
+        { phase: 'work', setCount: 3 },
+        { phase: 'work', setCount: 3 },
+        { phase: 'work', setCount: 3 },
+        { phase: 'work', setCount: 2 },
+        { phase: 'cooldown' },
+        { phase: 'cooldown' },
+      ];
+
+      const warmup = getGuidedPhaseRail(groups, 1);
+      assert.equal(warmup.groups.length, 3);
+      assert.equal(warmup.current, 1);
+
+      // The second exercise is 2 of 5, not 5 of 10.
+      const work = getGuidedPhaseRail(groups, 4);
+      assert.equal(work.groups.length, 5);
+      assert.equal(work.current, 1);
+      assert.equal(work.groups[0].setCount, 4);
+
+      const cooldown = getGuidedPhaseRail(groups, 9);
+      assert.equal(cooldown.groups.length, 2);
+      assert.equal(cooldown.current, 1);
+
+      // A session with no warmup still starts its work rail at zero.
+      const workOnly = getGuidedPhaseRail([{ phase: 'work', setCount: 3 }, { phase: 'work', setCount: 3 }], 0);
+      assert.equal(workOnly.groups.length, 2);
+      assert.equal(workOnly.current, 0);
+
+      // Out-of-range and empty inputs clamp rather than throw — the rail is
+      // drawn on every step, including ones that have no group of their own.
+      assert.deepEqual(getGuidedPhaseRail([], 3), { groups: [], current: 0 });
+      const clamped = getGuidedPhaseRail(groups, 99);
+      assert.equal(clamped.groups.length, 2);
+      assert.equal(clamped.current, 1);
+      const negative = getGuidedPhaseRail(groups, -1);
+      assert.equal(negative.groups.length, 3);
+      assert.equal(negative.current, 0);
     },
   },
 ];
