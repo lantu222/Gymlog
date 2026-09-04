@@ -2166,7 +2166,6 @@ export function GuidedPlayerScreen({
    * Reset by the step change rather than held across rests: each rest is about
    * one set, and a choice made three sets ago is not an answer to this one.
    */
-  const [restPickedKg, setRestPickedKg] = useState<number | null>(null);
   /**
    * Correcting the set just logged, without leaving the rest.
    *
@@ -2177,14 +2176,13 @@ export function GuidedPlayerScreen({
    */
   const [restEditOpen, setRestEditOpen] = useState(false);
   useEffect(() => {
-    setRestPickedKg(null);
     setRestEditOpen(false);
   }, [stepIndex]);
 
   const restLastKg = setPanelSource?.history?.sets.length
     ? Math.max(...setPanelSource.history.sets.map((set) => set.loadKg))
     : null;
-  const restChosenKg = restPickedKg ?? restNextSet?.pickKg ?? 0;
+  const restChosenKg = restNextSet?.pickKg ?? 0;
   /** How the committed weight compares with the last session — "+2,5 kg". */
   const restTargetMove =
     restNextSet && restChosenKg > 0
@@ -2201,19 +2199,8 @@ export function GuidedPlayerScreen({
       : null;
   const restIsOver = step.type === 'rest' && !step.recoveryKind && secondsLeft <= 0;
 
-  /**
-   * Into the next set, carrying whatever weight the rest screen settled on.
-   *
-   * The draft is written before the step moves so the dial opens on the chosen
-   * number rather than on the gate's — the screen said 65 kg and the set would
-   * otherwise have opened on 62,5.
-   */
+  /** Into the next set. The weight is the gate's, and the rest screen said so. */
   const startRestNextSet = () => {
-    if (restNextSet && restPickedKg !== null && restPickedKg > 0) {
-      workout.updateSetDraft(restNextSet.slotId, restNextSet.index, {
-        loadText: removeTrailingZeros(restPickedKg),
-      });
-    }
     advance();
   };
 
