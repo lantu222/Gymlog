@@ -532,12 +532,24 @@ function RestRing({
   const strokeWidth = 10;
   const radius = (size - strokeWidth * 1.6) / 2;
   const circumference = 2 * Math.PI * radius;
-  const fraction = Math.max(0, Math.min(1, leftSeconds / total));
+  /*
+   * A drained ring is a full ring, not an empty one.
+   *
+   * The arc shrinks as the wait runs down, so at zero it had no length at all
+   * and the only thing left on screen was the track — which meant the rest
+   * screen's "the wait is over" state was drawn in the track's colour instead
+   * of the accent it asks for (device 2026-09-04). Now the arc closes back up
+   * at zero and takes the over-colour with it.
+   */
+  const over = leftSeconds <= 0;
+  const fraction = over ? 1 : Math.max(0, Math.min(1, leftSeconds / total));
 
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
-        <Circle cx={size / 2} cy={size / 2} r={radius} stroke="#E9E1FA" strokeWidth={strokeWidth} fill="none" />
+        {/* The track was a light-theme hex on both themes: a bright lilac ring
+            on a near-black page, brighter than the arc it was backing. */}
+        <Circle cx={size / 2} cy={size / 2} r={radius} stroke={theme.purpleLight} strokeWidth={strokeWidth} fill="none" />
         <Circle
           cx={size / 2}
           cy={size / 2}
@@ -2994,7 +3006,10 @@ export function GuidedPlayerScreen({
                     <Text style={styles.restOfLabel}>
                       {restIsOver
                         ? t(language, 'guided.rest.over', {
-                            clock: formatGuidedCountdown(Math.abs(secondsLeft)),
+                            // m:ss, not the drill formatter's bare seconds:
+                            // "+6 over" does not say six of what (device
+                            // 2026-09-04).
+                            clock: formatSessionClock(Math.floor(Math.abs(secondsLeft))),
                           })
                         : t(language, 'guided.rest.of', {
                             clock: formatGuidedCountdown(step.seconds),
@@ -3058,7 +3073,11 @@ export function GuidedPlayerScreen({
                       {t(language, 'guided.interval.thenWork')}
                     </Text>
                   ) : null}
-                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                  {/* Once the wait is over the row goes with it: three
+                      controls for shortening a wait that has already ended are
+                      three controls that do nothing, above the one button that
+                      does (device 2026-09-04). */}
+                  <View style={{ flexDirection: 'row', gap: 10, display: restIsOver ? 'none' : 'flex' }}>
                     {/* No ±15 s on an interval: its two halves are the rhythm
                         the machine is set to, and stretching one desyncs the
                         reader from the belt they are standing on. */}
@@ -3127,8 +3146,8 @@ export function GuidedPlayerScreen({
                     </Pressable>
                   ) : (
                     <Pressable style={styles.skipRestBtn} onPress={startRestNextSet}>
-                      <GPIcon name="skip" size={18} color="#fff" />
-                      <Text style={{ fontSize: 15.5, fontWeight: '800', color: '#fff' }}>{t(language, 'guided.skipRest')}</Text>
+                      <GPIcon name="skip" size={18} color={theme.ink} />
+                      <Text style={{ fontSize: 15.5, fontWeight: '800', color: theme.ink }}>{t(language, 'guided.skipRest')}</Text>
                     </Pressable>
                   )}
                   {/* Paused on the easy half: the same single way out as the
@@ -3193,6 +3212,21 @@ export function GuidedPlayerScreen({
           as a reminder rather than a list to obey. */}
       {ownBlock && (
         <View style={styles.ownBlockSheet}>
+          {/* The overlay covers the player, top bar included — so it draws its
+              own. Without it this was the one screen in the session with no
+              way out, no session clock and no sound toggle (device
+              2026-09-04). */}
+          <TopBar
+            dark={false}
+            label={t(
+              language,
+              ownBlock.phase === 'warmup' ? 'guided.label.warmup' : 'guided.label.cooldown',
+            )}
+            clock={formatSessionClock(derivedElapsedSeconds)}
+            muted={muted}
+            onMute={() => onToggleSoundCues(!soundCuesEnabled)}
+            onExit={() => setExitOpen(true)}
+          />
           {/* Scrolls, because the loads card grows with the session: five
               areas and a flagged one is a card, not a caption. */}
           <ScrollView
@@ -4945,19 +4979,23 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     shadowRadius: 26,
     elevation: 6,
   },
+  /*
+   * An outline, not a filled button.
+   *
+   * Skipping a rest is a shortcut past a wait, and it was the biggest, most
+   * saturated thing on the screen — while the button that actually starts the
+   * next set, once the wait is over, is filled. Two buttons in one slot cannot
+   * both be the loudest, and the loud one should be the one that goes forward.
+   */
   skipRestBtn: {
     height: 56,
     borderRadius: 17,
-    backgroundColor: theme.purple,
+    borderWidth: 1.5,
+    borderColor: theme.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: theme.purple,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.35,
-    shadowRadius: 26,
-    elevation: 6,
   },
 
   /* finish */
