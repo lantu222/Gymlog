@@ -85,7 +85,7 @@ import {
   recordOwnBlock,
   shouldOfferAlwaysOwn,
 } from '../lib/ownBlockHistory';
-import { buildRestWeightOptions } from '../lib/restWeightOptions';
+import { resolveMovement } from '../lib/sessionMovement';
 import { buildWarmupBrief } from '../lib/warmupBrief';
 import { commitDialWeight, stepDialWeight } from '../lib/weightDial';
 import { getExerciseInstructions } from '../lib/exerciseInstructions';
@@ -98,7 +98,7 @@ import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { libraryLabel } from '../lib/libraryLabel';
 import { localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { classifySessionFocus, getDefaultCooldown, getDefaultWarmup } from '../lib/homeSessionHero';
-import { formatShortDate, formatWeight, removeTrailingZeros } from '../lib/format';
+import { formatShortDate, formatWeight, parseNumberInput, removeTrailingZeros } from '../lib/format';
 import { estimateSessionMinutes } from '../lib/sessionDuration';
 import { t } from '../lib/i18n';
 import { haptics } from '../utils/haptics';
@@ -172,6 +172,9 @@ const GPD = {
 };
 
 const SPLASH_MS = 2300;
+
+/** How many set dots the row will draw before it stops counting in dots. */
+const SET_DOT_CAP = 9;
 
 /**
  * A phase splash that offers the "do it yourself" fork. Those wait for a
@@ -257,6 +260,11 @@ interface GuidedPlayerScreenProps {
   /** One finished self-run block, for the "last time you took" line. */
   onRecordOwnBlock?: (phase: OwnBlockPhase, seconds: number) => void;
   onSetAlwaysOwnWarmup?: (next: boolean) => void;
+  /** The Learn section's own two facts, so the sheet can show and change them. */
+  learnedExerciseIds?: string[];
+  techniqueChecks?: Record<string, number[]>;
+  onToggleTechniqueStatement?: (libraryItemId: string, index: number) => void;
+  onToggleExerciseLearned?: (libraryItemId: string) => void;
   weekProgress: GuidedWeekProgress | null;
   nextUp: GuidedNextUp | null;
   onLeave: () => void;
@@ -1117,6 +1125,10 @@ export function GuidedPlayerScreen({
   alwaysOwnWarmup = false,
   onRecordOwnBlock,
   onSetAlwaysOwnWarmup,
+  learnedExerciseIds = [],
+  techniqueChecks = {},
+  onToggleTechniqueStatement,
+  onToggleExerciseLearned,
   weekProgress,
   nextUp,
   onLeave,
@@ -2049,6 +2061,42 @@ export function GuidedPlayerScreen({
     return chips;
   }, [cautionFlags, language, step]);
 
+  /**
+   * The Learn tab's payload, or null when this lift has no teaching written.
+   *
+   * The same self-audit the Learn section shows, at the moment it is actually
+   * about: the set is done and the reader is standing over the bar. Only for
+   * the lifts that have it — a third tab with nothing in it is worse than two
+   * tabs (user 2026-09-04).
+   */
+  const sheetLearn = useMemo(() => {
+    if (step.type !== 'set') {
+      return null;
+    }
+    const teaching = getExerciseTeaching(step.exerciseName, language);
+    const libraryId = libraryFor(step.exerciseName)?.id ?? null;
+    if (!teaching || teaching.check.length === 0 || !libraryId || !onToggleTechniqueStatement) {
+      return null;
+    }
+    return {
+      cues: teaching.cues,
+      check: teaching.check,
+      checked: techniqueChecks[libraryId] ?? [],
+      learned: learnedExerciseIds.includes(libraryId),
+      onToggleStatement: (index: number) => onToggleTechniqueStatement(libraryId, index),
+      onToggleLearned: () => onToggleExerciseLearned?.(libraryId),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    exerciseLibrary,
+    language,
+    learnedExerciseIds,
+    onToggleExerciseLearned,
+    onToggleTechniqueStatement,
+    step,
+    techniqueChecks,
+  ]);
+
   /** Eight sessions of top sets, today's included and growing set by set. */
   const sheetHistory = useMemo(() => {
     const slotId = step.type === 'set' ? step.slotId : null;
@@ -2119,24 +2167,38 @@ export function GuidedPlayerScreen({
    * one set, and a choice made three sets ago is not an answer to this one.
    */
   const [restPickedKg, setRestPickedKg] = useState<number | null>(null);
+  /**
+   * Correcting the set just logged, without leaving the rest.
+   *
+   * Edit used to walk back to the set screen — which showed a set that was
+   * already logged, and whose Log button the reducer refuses (a completed set
+   * cannot be completed twice). So the way back was a way to nowhere. The
+   * numbers are changed here instead, on the screen that is asking about them.
+   */
+  const [restEditOpen, setRestEditOpen] = useState(false);
   useEffect(() => {
     setRestPickedKg(null);
+    setRestEditOpen(false);
   }, [stepIndex]);
 
-  const restWeightOptions = restNextSet
-    ? buildRestWeightOptions(
-        {
-          pickKg: restNextSet.pickKg,
-          lastKg: setPanelSource?.history?.sets.length
-            ? Math.max(...setPanelSource.history.sets.map((set) => set.loadKg))
-            : null,
-          stepKg: restNextSet.stepKg,
-        },
-        language,
-        unitPreference,
-      )
-    : [];
+  const restLastKg = setPanelSource?.history?.sets.length
+    ? Math.max(...setPanelSource.history.sets.map((set) => set.loadKg))
+    : null;
   const restChosenKg = restPickedKg ?? restNextSet?.pickKg ?? 0;
+  /** How the committed weight compares with the last session — "+2,5 kg". */
+  const restTargetMove =
+    restNextSet && restChosenKg > 0
+      ? resolveMovement(
+          {
+            exerciseName: step.type === 'rest' ? step.exerciseName : '',
+            todayTopKg: restChosenKg,
+            todayTopReps: restNextSet.reps,
+            previousTopKg: restLastKg,
+          },
+          language,
+          unitPreference,
+        )
+      : null;
   const restIsOver = step.type === 'rest' && !step.recoveryKind && secondsLeft <= 0;
 
   /**
@@ -2589,38 +2651,39 @@ export function GuidedPlayerScreen({
                   </Text>
                   <Text style={styles.splashTitle}>{step.title}</Text>
                   <Text style={{ fontSize: 15, fontWeight: '600', color: theme.muted }}>{step.sub}</Text>
+                  {/* The list sits with the title rather than on top of the
+                      buttons: down there it left a hand's width of nothing
+                      under the heading and read as part of the footer (user
+                      2026-09-04). It is what the heading is describing.
+
+                      Capped and scrollable so five drills cannot push the
+                      title off a short screen — the cap is high enough that
+                      four fit without scrolling. */}
+                  {gateDrills.length > 0 ? (
+                    <ScrollView
+                      style={styles.gateCard}
+                      contentContainerStyle={{ paddingVertical: 4 }}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      {gateDrills.map((drill, index) => (
+                        <View key={`${drill.name}-${index}`} style={styles.gateRow}>
+                          <Text style={styles.gateRowIndex}>{index + 1}</Text>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={styles.gateRowName} numberOfLines={1}>
+                              {drill.name}
+                            </Text>
+                          </View>
+                          <Text style={styles.gateRowLength}>{formatDrillLength(drill.seconds)}</Text>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  ) : null}
                 </View>
                 {/* The block is a suggestion, not a gate — and leaving it is a
                     real choice, so it gets a real button rather than a muted
                     line of text nobody found (user 2026-08-26). */}
                 {skippablePhase ? (
                   <View style={{ alignSelf: 'stretch', gap: 12 }}>
-                    {/* What the block actually is, before the choice about it.
-                        The gate used to be a title, a hint line and two
-                        buttons — a fork with nothing to decide it on. */}
-                    {gateDrills.length > 0 ? (
-                      // Capped and scrollable: the copy above it is flex, so an
-                      // uncapped list would push the title off a short screen
-                      // rather than shrink itself.
-                      <ScrollView style={styles.gateCard} contentContainerStyle={{ paddingVertical: 4 }}>
-                        {gateDrills.map((drill, index) => (
-                          <View key={`${drill.name}-${index}`} style={styles.gateRow}>
-                            <Text style={styles.gateRowIndex}>{index + 1}</Text>
-                            <View style={{ flex: 1, minWidth: 0 }}>
-                              <Text style={styles.gateRowName} numberOfLines={1}>
-                                {drill.name}
-                              </Text>
-                              {drill.why ? (
-                                <Text style={styles.gateRowWhy} numberOfLines={1}>
-                                  {drill.why}
-                                </Text>
-                              ) : null}
-                            </View>
-                            <Text style={styles.gateRowLength}>{formatDrillLength(drill.seconds)}</Text>
-                          </View>
-                        ))}
-                      </ScrollView>
-                    ) : null}
                     <BigBtn
                       tall
                       icon="play"
@@ -2632,6 +2695,9 @@ export function GuidedPlayerScreen({
                         does on its own second line rather than leaning on a
                         hint above it, so the fork is two buttons and not two
                         buttons plus a sentence explaining them. */}
+                    {/* One line. The second line explained what the words
+                        already say, and two of them made the button read as a
+                        paragraph with a border (user 2026-09-04). */}
                     <Pressable
                       accessibilityRole="button"
                       style={styles.gateOwnBtn}
@@ -2639,9 +2705,6 @@ export function GuidedPlayerScreen({
                     >
                       <Text style={styles.gateOwnLabel}>
                         {t(language, `guided.own.${skippablePhase}` as 'guided.own.warmup')}
-                      </Text>
-                      <Text style={styles.gateOwnSub}>
-                        {t(language, `guided.own.sub.${skippablePhase}` as 'guided.own.sub.warmup')}
                       </Text>
                     </Pressable>
                   </View>
@@ -2733,7 +2796,7 @@ export function GuidedPlayerScreen({
                   the top, the action at the bottom. */}
               <ScrollView
                 style={{ flex: 1, minHeight: 0 }}
-                contentContainerStyle={{ paddingTop: 18, paddingHorizontal: 24, paddingBottom: 8, gap: 14 }}
+                contentContainerStyle={{ paddingTop: 28, paddingHorizontal: 24, paddingBottom: 8, gap: 14 }}
                 showsVerticalScrollIndicator={false}
               >
                 {/* The lift that just ended. It used to be a splash that
@@ -2758,6 +2821,10 @@ export function GuidedPlayerScreen({
                           <Text style={styles.walkDonePillText}>{pill}</Text>
                         </View>
                       ))}
+                      {/* "10 10" does not say ten of what (user 2026-09-04).
+                          Small, after the pills, because it is true of all of
+                          them and repeating it inside each one is furniture. */}
+                      <Text style={styles.walkDonePillUnit}>{t(language, 'guided.reps').toLowerCase()}</Text>
                     </View>
                   </View>
                 ) : null}
@@ -2771,10 +2838,13 @@ export function GuidedPlayerScreen({
                   </Text>
                 </View>
 
+                {/* Bigger. The shape was right and the box was not (user
+                    2026-09-04) — and the screen has the room, having lost a
+                    countdown. */}
                 <MediaZone
                   name={step.exerciseName}
                   library={exerciseLibrary}
-                  height={150}
+                  height={230}
                   mode="set"
                   showActions={false}
                   fit="cover"
@@ -2952,7 +3022,7 @@ export function GuidedPlayerScreen({
                   <Pressable
                     accessibilityRole="button"
                     style={styles.restLoggedCard}
-                    onPress={() => goTo(getGuidedBackTargetIndex(steps, stepIndex))}
+                    onPress={() => setRestEditOpen(true)}
                   >
                     <View style={{ flex: 1, minWidth: 0 }}>
                       <Text style={styles.restLoggedLabel}>
@@ -3036,30 +3106,34 @@ export function GuidedPlayerScreen({
                           reps: restNextSet.reps,
                         })}
                       </Text>
-                      {restWeightOptions.length > 0 ? (
-                        <View style={styles.restWeightRow}>
-                          {restWeightOptions.map((option) => {
-                            const selected = Math.abs(option.loadKg - restChosenKg) < 0.001;
-                            return (
-                              <Pressable
-                                key={option.loadKg}
-                                accessibilityRole="button"
-                                accessibilityState={{ selected }}
-                                onPress={() => {
-                                  void haptics.select();
-                                  setRestPickedKg(option.loadKg);
-                                }}
-                                style={[styles.restWeightBtn, selected && styles.restWeightBtnOn]}
+                      {/* One weight, and the app stands behind it.
+                          Three options asked the reader to make a decision the
+                          progression engine had already made — and asking is
+                          the opposite of the promise (user 2026-09-04). The
+                          number is still theirs to change: the set screen's
+                          dial is two taps away and always was. */}
+                      {restChosenKg > 0 ? (
+                        <View style={styles.restTargetRow}>
+                          <Text style={styles.restTargetWeight}>
+                            {formatWeight(restChosenKg, unitPreference)}
+                          </Text>
+                          {restTargetMove?.label ? (
+                            <View
+                              style={[
+                                styles.restTargetDelta,
+                                restTargetMove.kind === 'up' && { backgroundColor: theme.greenSoft },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.restTargetDeltaText,
+                                  restTargetMove.kind === 'up' && { color: theme.greenInk },
+                                ]}
                               >
-                                <Text style={[styles.restWeightText, selected && styles.restWeightTextOn]}>
-                                  {option.label}
-                                </Text>
-                                {option.note ? (
-                                  <Text style={styles.restWeightNote}>{option.note}</Text>
-                                ) : null}
-                              </Pressable>
-                            );
-                          })}
+                                {restTargetMove.label}
+                              </Text>
+                            </View>
+                          ) : null}
                         </View>
                       ) : null}
                     </View>
@@ -3231,7 +3305,17 @@ export function GuidedPlayerScreen({
               areas and a flagged one is a card, not a caption. */}
           <ScrollView
             style={{ flex: 1 }}
-            contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', gap: 10, paddingHorizontal: 28, paddingVertical: 24 }}
+            // Centred, like every other full-screen block in the player. Left
+            // ragged against a centred title it read as crooked (user
+            // 2026-09-04).
+            contentContainerStyle={{
+              flexGrow: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
+              paddingHorizontal: 28,
+              paddingVertical: 24,
+            }}
             showsVerticalScrollIndicator={false}
           >
             <Text style={styles.ownBlockEyebrow}>
@@ -3366,6 +3450,22 @@ export function GuidedPlayerScreen({
         />
       ) : null}
 
+      {/* Correcting the set that was just logged, on the screen that shows it. */}
+      {restEditOpen && step.type === 'rest' ? (
+        <LoggedSetEditor
+          language={language}
+          unitPreference={unitPreference}
+          unloaded={isUnloadedTrackingMode(exerciseBySlot.get(step.slotId)?.trackingMode ?? 'load_and_reps')}
+          reps={exerciseBySlot.get(step.slotId)?.sets[step.setIndex]?.actualReps ?? 0}
+          loadKg={exerciseBySlot.get(step.slotId)?.sets[step.setIndex]?.actualLoadKg ?? 0}
+          onCancel={() => setRestEditOpen(false)}
+          onSave={(reps, loadKg) => {
+            workout.editLoggedSet(step.slotId, step.setIndex, reps, loadKg);
+            setRestEditOpen(false);
+          }}
+        />
+      ) : null}
+
       {/* The lift's own sheet — photo and setup, the written steps with the
           cautions that apply to this reader, and eight sessions of history.
           Opened from the card, which is the only door: the header's slot is
@@ -3378,7 +3478,7 @@ export function GuidedPlayerScreen({
           imageUrl={setPanelSource?.imageUrl ?? null}
           initials={setPanelSource?.initials ?? ''}
           instructions={setPanelSource?.instructions ?? []}
-          setupSteps={(setPanelSource?.instructions ?? []).slice(0, 3)}
+          learn={sheetLearn}
           watchFor={sheetWatchFor}
           history={sheetHistory}
           onClose={() => setSetPanelsOpen(false)}
@@ -3526,15 +3626,10 @@ export function GuidedPlayerScreen({
                 }}
               />
             ) : null}
-            {/* The set screen lost its speaker button when the controls went
-                down to pause + menu, so the toggle lives here now. It stays
-                open on press: a toggle you cannot see flip is a toggle you
-                press twice. */}
-            <GhostBtn
-              icon={muted ? 'sound' : 'mute'}
-              label={t(language, muted ? 'guided.action.soundOn' : 'guided.action.soundOff')}
-              onPress={() => onToggleSoundCues(!soundCuesEnabled)}
-            />
+            {/* No sound row. It lived here while the set screen's top-right
+                slot held the exercise info; the info moved to the lift's card
+                on 2026-09-04 and the speaker went back to the header, so this
+                was the same switch in two places (user 2026-09-04). */}
             {actionExercise ? (
               <>
                 {/* No name header: the exercise is already the biggest thing on
@@ -3718,6 +3813,94 @@ function formatSessionClock(totalSeconds: number): string {
 }
 
 /* ── strength set step v4 (owns the reps/kg steppers) ── */
+/**
+ * The two numbers of a logged set, and a way to change them.
+ *
+ * Deliberately not the set screen's dial cards: those are built for a set you
+ * are about to do, with a progression badge and a target underneath. This is a
+ * correction — two fields and a save — so it says nothing about what the app
+ * would have picked.
+ */
+function LoggedSetEditor({
+  language,
+  unitPreference,
+  unloaded,
+  reps,
+  loadKg,
+  onCancel,
+  onSave,
+}: {
+  language: AppLanguage;
+  unitPreference: UnitPreference;
+  unloaded: boolean;
+  reps: number;
+  loadKg: number;
+  onCancel: () => void;
+  onSave: (reps: number, loadKg: number | null) => void;
+}) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const insets = useSafeAreaInsets();
+  const [repsDraft, setRepsDraft] = useState(String(reps));
+  const [loadDraft, setLoadDraft] = useState(removeTrailingZeros(loadKg));
+
+  const nextReps = Math.round(parseNumberInput(repsDraft) ?? reps);
+  const nextLoad = unloaded ? null : parseNumberInput(loadDraft) ?? loadKg;
+  const valid = nextReps > 0 && (unloaded || (nextLoad !== null && nextLoad >= 0));
+
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onCancel}>
+      <View style={styles.editVeil}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onCancel} accessible={false} />
+        <View style={[styles.editSheet, { paddingBottom: insets.bottom + 20 }]}>
+          <Text style={styles.editTitle}>{t(language, 'guided.rest.editTitle')}</Text>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <View style={styles.editField}>
+              <Text style={styles.editLabel}>{t(language, 'guided.reps')}</Text>
+              <TextInput
+                value={repsDraft}
+                onChangeText={setRepsDraft}
+                keyboardType="number-pad"
+                selectTextOnFocus
+                style={styles.editInput}
+              />
+            </View>
+            {unloaded ? null : (
+              <View style={styles.editField}>
+                <Text style={styles.editLabel}>{t(language, 'guided.weight')}</Text>
+                <TextInput
+                  value={loadDraft}
+                  onChangeText={setLoadDraft}
+                  keyboardType="decimal-pad"
+                  selectTextOnFocus
+                  style={styles.editInput}
+                />
+              </View>
+            )}
+          </View>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+            <View style={{ flex: 1 }}>
+              <GhostBtn label={t(language, 'common.cancel')} onPress={onCancel} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <BigBtn
+                icon="check"
+                label={t(language, 'guided.rest.editSave')}
+                color={valid ? theme.accent : theme.faint}
+                onPress={() => {
+                  if (valid) {
+                    onSave(nextReps, nextLoad);
+                  }
+                }}
+              />
+            </View>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 function SetStepView({
   stepIndex,
   step,
@@ -3905,8 +4088,13 @@ function SetStepView({
             <Text style={styles.setCounter}>
               {t(language, 'guided.setOfCount', { index: step.setIndex + 1, count: step.setCount })}
             </Text>
+            {/* Capped at nine. The reader can add sets without limit and the
+                row cannot grow without limit — past nine the dots were thinner
+                than the gaps between them and the +/− were against the edge
+                (user 2026-09-04). Beyond the cap the counter above still says
+                the true number. */}
             <View style={styles.setDots}>
-              {Array.from({ length: step.setCount }).map((_, index) => {
+              {Array.from({ length: Math.min(step.setCount, SET_DOT_CAP) }).map((_, index) => {
                 const done = index < step.setIndex;
                 const current = index === step.setIndex;
                 return (
@@ -4439,7 +4627,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   splashChoiceRoot: {
     flex: 1,
     paddingHorizontal: 26,
-    paddingTop: 8,
+    paddingTop: 20,
     // Lifted off the bottom edge (user 2026-08-26, "vähän ylemmäs nappeja"):
     // the pair sat against the system bar, which on a tall phone is below
     // where a thumb rests rather than at it.
@@ -4450,10 +4638,17 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
 
   /* doing a block your own way */
   ownBlockSheet: { ...StyleSheet.absoluteFillObject, backgroundColor: theme.bg },
-  ownBlockEyebrow: { fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: theme.highlight },
+  ownBlockEyebrow: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    letterSpacing: 2,
+    color: theme.highlight,
+    textAlign: 'center',
+  },
   // 62pt was the size of a target. This clock is a record of what you have
   // spent, and the drill countdowns are the numbers worth being that big.
   ownBlockClock: {
+    textAlign: 'center',
     fontSize: 44,
     fontWeight: '800',
     letterSpacing: -1.4,
@@ -4465,6 +4660,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: theme.muted,
+    textAlign: 'center',
     maxWidth: 300,
   },
   ownBriefCard: {
@@ -4593,7 +4789,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   /* the lift's own card, at the top of the set screen */
   setExerciseCard: {
     marginHorizontal: 20,
-    marginTop: 4,
+    // Clear of the header. At 4 it sat against the ✕ and the speaker (user
+    // 2026-09-04).
+    marginTop: 14,
     backgroundColor: theme.surface,
     borderWidth: 1,
     borderColor: theme.border,
@@ -4690,10 +4888,20 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   setDialLabel: { fontSize: 11.5, fontWeight: '800', letterSpacing: 1.1, color: theme.muted },
   // Same height open or closed — the number does not jump when the buttons
   // appear beside it.
-  setDialControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 42 },
+  setDialControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    minHeight: 42,
+    alignSelf: 'stretch',
+  },
+  // 40px each plus a 44px floor under the number came to more than half a
+  // 320dp screen: "1.25" was clipped to ".25" (user 2026-09-04). The buttons
+  // give the number the room instead of taking it.
   setDialBtn: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     borderRadius: 20,
     backgroundColor: theme.surface,
     borderWidth: 1.5,
@@ -4701,11 +4909,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  setDialBtnText: { fontSize: 22, fontWeight: '800', color: theme.purple, lineHeight: 26 },
+  setDialBtnText: { fontSize: 20, fontWeight: '800', color: theme.purple, lineHeight: 24 },
   // The value shrinks (flexShrink + adjustsFontSizeToFit on the number) rather
   // than pushing the buttons out of the card: "100 kg" is a real weight and
   // has to fit next to two 40dp buttons in half a screen.
-  setDialValue: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 2, flexShrink: 1, minWidth: 0 },
+  setDialValue: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+    gap: 2,
+    minWidth: 0,
+  },
   setDialNumber: {
     flexShrink: 1,
     fontSize: 38,
@@ -4715,7 +4930,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 42,
     fontVariant: ['tabular-nums'],
     textAlign: 'center',
-    minWidth: 44,
+    minWidth: 0,
   },
   // Open, the number shares the row with two buttons and is sized so that
   // "72.5" fits at this size outright — with the size auto-fitting, "72.5"
@@ -4885,6 +5100,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 3,
   },
+  walkDonePillUnit: {
+    alignSelf: 'center',
+    marginLeft: 2,
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: theme.greenInk,
+    opacity: 0.8,
+  },
   walkDonePillText: {
     fontSize: 12.5,
     fontWeight: '700',
@@ -4912,7 +5135,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   /* rest screen */
   restLoggedCard: {
     marginHorizontal: 20,
-    marginTop: 4,
+    marginTop: 14,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -4944,27 +5167,45 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   restNextLabel: { fontSize: 10.5, fontWeight: '800', letterSpacing: 1.3, color: theme.faint },
   restNextTarget: { fontSize: 15, fontWeight: '700', color: theme.ink },
-  restWeightRow: { flexDirection: 'row', gap: 8, marginTop: 2 },
-  restWeightBtn: {
-    flex: 1,
-    minHeight: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 13,
+  editVeil: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  editSheet: {
+    backgroundColor: theme.bg,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    gap: 14,
+  },
+  editTitle: { fontSize: 19, fontWeight: '800', color: theme.ink },
+  editField: { flex: 1, gap: 6 },
+  editLabel: { fontSize: 10.5, fontWeight: '800', letterSpacing: 1.2, color: theme.faint },
+  editInput: {
+    height: 58,
+    borderRadius: 14,
     borderWidth: 1.5,
     borderColor: theme.border,
     backgroundColor: theme.surfaceSoft,
-    paddingHorizontal: 4,
-  },
-  restWeightBtnOn: { borderColor: theme.highlight, backgroundColor: theme.highlightSoft },
-  restWeightText: {
-    fontSize: 15,
+    color: theme.ink,
+    fontSize: 24,
     fontWeight: '800',
+    textAlign: 'center',
+    fontVariant: ['tabular-nums'],
+  },
+  restTargetRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 2 },
+  restTargetWeight: {
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.8,
     color: theme.ink,
     fontVariant: ['tabular-nums'],
   },
-  restWeightTextOn: { color: theme.highlight },
-  restWeightNote: { fontSize: 11, fontWeight: '600', color: theme.muted, marginTop: 1 },
+  restTargetDelta: {
+    backgroundColor: theme.surfaceSoft,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  restTargetDeltaText: { fontSize: 12.5, fontWeight: '800', color: theme.muted },
   restStartBtn: {
     height: 56,
     borderRadius: 17,

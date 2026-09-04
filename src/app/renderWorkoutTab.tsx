@@ -714,6 +714,25 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           })
         }
         onSetAlwaysOwnWarmup={(next) => void updatePreferences({ alwaysOwnWarmup: next })}
+        learnedExerciseIds={preferences.learnedExerciseLibraryItemIds}
+        techniqueChecks={preferences.exerciseTechniqueChecks}
+        onToggleTechniqueStatement={(libraryItemId, index) =>
+          void updatePreferences({
+            exerciseTechniqueChecks: toggleTechniqueStatement(
+              preferences.exerciseTechniqueChecks,
+              libraryItemId,
+              index,
+            ),
+          })
+        }
+        onToggleExerciseLearned={(libraryItemId) => {
+          const current = preferences.learnedExerciseLibraryItemIds;
+          void updatePreferences({
+            learnedExerciseLibraryItemIds: current.includes(libraryItemId)
+              ? current.filter((id) => id !== libraryItemId)
+              : [...current, libraryItemId],
+          });
+        }}
         weekProgress={guidedWeekProgress}
         nextUp={guidedNextUp}
         onLeave={() => navigateBack(getWorkoutLoggerFallbackRoute())}

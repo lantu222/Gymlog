@@ -58,9 +58,16 @@ module.exports = [
     },
   },
   {
-    name: 'the sheet is one sheet with three tabs, and says so when a tab is empty',
+    name: 'the sheet offers the tabs it has content for, and says so when one is empty',
     run() {
-      assert.match(sheetSource, /const TABS: ExerciseSheetTab\[\] = \['loop', 'howTo', 'history'\]/);
+      // Three when the lift has teaching written, two when it does not — a
+      // Learn tab with nothing in it is worse than no Learn tab (2026-09-04).
+      assert.match(sheetSource, /const ALL_TABS: ExerciseSheetTab\[\] = \['learn', 'howTo', 'history'\]/);
+      assert.match(sheetSource, /learn \? ALL_TABS : ALL_TABS\.filter\(\(key\) => key !== 'learn'\)/);
+      // The photo sits with the instructions rather than in a tab of its own
+      // whose other half was the same instructions.
+      assert.doesNotMatch(sheetSource, /tab === 'loop'/);
+      assert.match(sheetSource, /tab === 'howTo'[\s\S]{0,400}styles\.photo/);
       // A tab with nothing behind it says so rather than rendering blank.
       assert.match(sheetSource, /guided\.sheet\.noInstructions/);
       assert.match(sheetSource, /guided\.sheet\.noHistory/);
@@ -123,7 +130,7 @@ module.exports = [
     name: 'every string of the card and the sheet reads in both languages',
     run() {
       for (const key of [
-        'guided.sheet.tab.loop',
+        'guided.sheet.tab.learn',
         'guided.sheet.tab.howTo',
         'guided.sheet.tab.history',
         'guided.sheet.today',
@@ -135,11 +142,13 @@ module.exports = [
         'guided.sheet.noInstructions',
         'guided.sheet.watchFor',
         'guided.sheet.pr',
-        'guided.sheet.setup',
+        'guided.sheet.cues',
         'guided.card.hint',
         'guided.card.lastTime',
         'guided.card.firstTime',
         'guided.logSetIndex',
+        'guided.rest.editTitle',
+        'guided.rest.editSave',
       ]) {
         const occurrences = i18nSource.split(`'${key}':`).length - 1;
         assert.equal(occurrences, 2, `${key} is missing one of its two languages`);

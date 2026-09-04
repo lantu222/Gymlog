@@ -21,7 +21,23 @@ import { AppLanguage } from '../types/models';
  * Three tabs rather than a scroll, because they answer three different
  * questions and a reader mid-set has exactly one of them.
  */
-export type ExerciseSheetTab = 'loop' | 'howTo' | 'history';
+export type ExerciseSheetTab = 'learn' | 'howTo' | 'history';
+
+export interface ExerciseSheetLearn {
+  /** Three short cues — the ones worth remembering under the bar. */
+  cues: string[];
+  /**
+   * Four statements about the set just done. Not a quiz with a right answer:
+   * the ones the reader cannot tick honestly are the ones worth filming.
+   */
+  check: string[];
+  /** Which of them are ticked, by index. */
+  checked: number[];
+  /** The reader pressed the button that says they know this lift. */
+  learned: boolean;
+  onToggleStatement: (index: number) => void;
+  onToggleLearned: () => void;
+}
 
 export interface ExerciseSheetWatchFor {
   text: string;
@@ -39,15 +55,23 @@ interface ExerciseSheetProps {
   initials: string;
   /** Already localized; empty means the tab says so rather than showing nothing. */
   instructions: string[];
-  /** The first few steps, shown beside the photo on the Loop tab. */
-  setupSteps: string[];
+  /**
+   * The teaching this lift has, or null.
+   *
+   * Null for most of the library, and that is the designed state: the sheet
+   * offers two tabs instead of three rather than a third with nothing in it.
+   * The photo lives on How to either way — it used to have a tab of its own
+   * whose other half was the same instructions the How-to tab already showed
+   * (user 2026-09-04, "loop ja how to on käytännössä samat kohdat").
+   */
+  learn: ExerciseSheetLearn | null;
   watchFor: ExerciseSheetWatchFor[];
   history: ExerciseSheetHistory;
   initialTab?: ExerciseSheetTab;
   onClose: () => void;
 }
 
-const TABS: ExerciseSheetTab[] = ['loop', 'howTo', 'history'];
+const ALL_TABS: ExerciseSheetTab[] = ['learn', 'howTo', 'history'];
 
 export function ExerciseSheet({
   visible,
@@ -56,16 +80,18 @@ export function ExerciseSheet({
   imageUrl,
   initials,
   instructions,
-  setupSteps,
+  learn,
   watchFor,
   history,
-  initialTab = 'loop',
+  initialTab,
   onClose,
 }: ExerciseSheetProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
-  const [tab, setTab] = useState<ExerciseSheetTab>(initialTab);
+  // A lift with no teaching has no Learn tab, so it cannot open on one.
+  const tabs = learn ? ALL_TABS : ALL_TABS.filter((key) => key !== 'learn');
+  const [tab, setTab] = useState<ExerciseSheetTab>(initialTab ?? tabs[0]);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -83,7 +109,7 @@ export function ExerciseSheet({
           </Text>
 
           <View style={styles.tabs}>
-            {TABS.map((key) => (
+            {tabs.map((key) => (
               <Pressable
                 key={key}
                 accessibilityRole="tab"
@@ -92,15 +118,81 @@ export function ExerciseSheet({
                 style={[styles.tab, tab === key && styles.tabActive]}
               >
                 <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>
-                  {t(language, `guided.sheet.tab.${key}` as 'guided.sheet.tab.loop')}
+                  {t(language, `guided.sheet.tab.${key}` as 'guided.sheet.tab.learn')}
                 </Text>
               </Pressable>
             ))}
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-            {tab === 'loop' ? (
+            {tab === 'learn' && learn ? (
+              <View style={{ gap: 16 }}>
+                {learn.cues.length > 0 ? (
+                  <View style={{ gap: 8 }}>
+                    <Text style={styles.sectionLabel}>{t(language, 'guided.sheet.cues')}</Text>
+                    {learn.cues.map((cue, index) => (
+                      <View key={index} style={styles.stepRow}>
+                        <Text style={styles.stepIndex}>{index + 1}</Text>
+                        <Text style={styles.stepText}>{cue}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+
+                {/* The self-audit from the Learn section, where it is useful
+                    at the moment it is about: standing over the bar with the
+                    set just done (user 2026-09-04). Not a score — the counter
+                    names what is left and stops talking once nothing is. */}
+                <View style={{ gap: 8 }}>
+                  <Text style={styles.sectionLabel}>{t(language, 'exDetail.check')}</Text>
+                  <View style={styles.checkCard}>
+                    {learn.check.map((statement, index) => {
+                      const ticked = learn.checked.includes(index);
+                      return (
+                        <Pressable
+                          key={index}
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked: ticked }}
+                          accessibilityLabel={statement}
+                          onPress={() => learn.onToggleStatement(index)}
+                          style={styles.checkRow}
+                        >
+                          <View style={[styles.checkBox, ticked && styles.checkBoxOn]}>
+                            {ticked ? (
+                              <Text style={styles.checkTick}>✓</Text>
+                            ) : null}
+                          </View>
+                          <Text style={[styles.checkText, ticked && styles.checkTextOn]}>{statement}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  {learn.check.length - learn.checked.length > 0 ? (
+                    <Text style={styles.empty}>
+                      {t(language, 'exDetail.checkRemaining', {
+                        count: learn.check.length - learn.checked.length,
+                      })}
+                    </Text>
+                  ) : null}
+                </View>
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: learn.learned }}
+                  onPress={learn.onToggleLearned}
+                  style={[styles.learnedBtn, learn.learned && styles.learnedBtnOn]}
+                >
+                  <Text style={[styles.learnedText, learn.learned && styles.learnedTextOn]}>
+                    {t(language, learn.learned ? 'exDetail.learned' : 'exDetail.markLearned')}
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
+
+            {tab === 'howTo' ? (
               <View style={{ gap: 14 }}>
+                {/* The photo lives here now. It had a tab of its own whose
+                    other half was these same instructions, three of them. */}
                 <View style={styles.photo}>
                   {imageUrl ? (
                     <Image source={{ uri: imageUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
@@ -108,22 +200,6 @@ export function ExerciseSheet({
                     <Text style={styles.photoInitials}>{initials}</Text>
                   )}
                 </View>
-                {setupSteps.length > 0 ? (
-                  <View style={{ gap: 8 }}>
-                    <Text style={styles.sectionLabel}>{t(language, 'guided.sheet.setup')}</Text>
-                    {setupSteps.map((stepText, index) => (
-                      <View key={index} style={styles.stepRow}>
-                        <Text style={styles.stepIndex}>{index + 1}</Text>
-                        <Text style={styles.stepText}>{stepText}</Text>
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
-              </View>
-            ) : null}
-
-            {tab === 'howTo' ? (
-              <View style={{ gap: 14 }}>
                 {instructions.length > 0 ? (
                   instructions.map((instruction, index) => (
                     <View key={index} style={styles.stepRow}>
@@ -268,8 +344,41 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   tabText: { fontSize: 13.5, fontWeight: '700', color: theme.muted },
   tabTextActive: { color: theme.ink, fontWeight: '800' },
   body: { marginTop: 16 },
+  checkCard: {
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+  },
+  checkRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
+  checkBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    borderWidth: 1.6,
+    borderColor: theme.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkBoxOn: { backgroundColor: theme.green, borderColor: theme.green },
+  checkTick: { fontSize: 13, fontWeight: '800', color: theme.surface, lineHeight: 16 },
+  checkText: { flex: 1, fontSize: 14.5, fontWeight: '600', color: theme.ink, lineHeight: 20 },
+  checkTextOn: { color: theme.muted },
+  learnedBtn: {
+    minHeight: 52,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: theme.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  learnedBtnOn: { backgroundColor: theme.green, borderColor: theme.green },
+  learnedText: { fontSize: 15.5, fontWeight: '800', color: theme.ink },
+  learnedTextOn: { color: theme.surface },
   photo: {
-    height: 190,
+    // Bigger: the shape was right, the box was not (user 2026-09-04).
+    height: 250,
     borderRadius: 18,
     overflow: 'hidden',
     backgroundColor: theme.surfaceSoft,
