@@ -146,6 +146,53 @@ against theme tokens, so a wrong token shows up in exactly one of them.
       LIIKAHTI card and no crash.
 - [ ] The feel question on the way out is unchanged.
 
+## Walked on an emulator 2026-09-04 (Pixel 7, dark, English)
+
+Verified: the numbered steps and the open workout block; the session clock on
+every screen; the phase-only progress bar with green/accent; the gate's drill
+list and its two-line second button; the free timer's loads card; the set
+screen's card, its three-tab sheet and its dot colours; the rest screen's
+logged-set card, its three weights, and — the one that mattered — that it does
+NOT advance itself; the walk-up screen with no clock and its DONE card; the
+week bar under the finish screen's title; and no WHAT MOVED card on a session
+that moved nothing.
+
+Five defects found and fixed in `ff3a1ff`: the ring never turned accent at zero
+(and its track was a hardcoded light-theme colour), "+6 over" read as a bare
+number, the ±15 s row stayed after the wait ended, Skip rest was louder than
+the button that goes forward, and the free timer had no top bar at all.
+
+**Still unwalked**, and why — these need data this emulator profile does not
+have:
+
+- [ ] Loads on the overview rows, and the `+2,5 kg` pill: every lift in this
+      profile is first-time, so there is no weight to show. Run the SAME
+      session twice. (The mechanism is proven indirectly: LAST TIME's volume
+      appeared the moment one session existed, from the same data path.)
+- [ ] Amber caution rows and the `WATCH FOR` chips: needs a caution flag set in
+      onboarding AND one of the seven lifts that has hand-written teaching.
+- [ ] The "always start on your own" offer: needs three sessions warmed up that
+      way.
+- [ ] The recovery gate and its top-bar label on a device.
+- [ ] **The light theme.** Everything above was dark only.
+- [ ] **Finnish.** The emulator install is English.
+
+## Design questions the walkthrough raised (not defects)
+
+- The gate's per-drill purpose line read "Legs" three times on a leg day. An
+  always-on label is noise; it should mark the exception or go.
+- Loop and How to show the same text — Loop's SETUP is the first three of the
+  same instructions. Two tabs, one answer.
+- The sheet's height follows its tab, so switching from Loop to History shrinks
+  it and moves the tab bar down under the reader's finger.
+- Gate, walk-up, set screen and free timer all carry a lot of vertical dead
+  space on a tall phone.
+- `240 s rest` would read better as `4 min`.
+- The finish screen titles the session "Strong Calves Pro - Day 2: Lower
+  (Heavy)" where the overview says "Lower (Heavy)".
+- `Finish` and the actions sheet's `Resume` are violet, against the app's own
+  "orange is what you press" rule. Pre-existing, not from this change.
+
 ## After the walkthrough
 
 Delete this file once every box is ticked — it is a to-do for one release, not
