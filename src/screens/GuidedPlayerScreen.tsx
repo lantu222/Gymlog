@@ -4682,7 +4682,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   /* the warm-up / recovery gate */
   gateCard: {
     flexGrow: 0,
-    maxHeight: 210,
+    // Stretched, because the copy block that holds it centres its children —
+    // left to itself the card shrank to its content and the drill names came
+    // out as "…" (device 2026-09-04).
+    alignSelf: 'stretch',
+    marginTop: 18,
+    maxHeight: 260,
     backgroundColor: theme.surface,
     borderWidth: 1,
     borderColor: theme.border,
