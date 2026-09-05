@@ -542,9 +542,31 @@ module.exports = [
       assert.match(homeSource, /plateau\.locked\.body/);
       assert.match(homeSource, /proUnlocked \?/);
 
-      // Progress: statuses always free, and the footer says so.
+      // Progress: statuses always free. The footer that SAID so is gone —
+      // "statukset ovat ilmaisia poista" (#bugs 2026-09-05): a standing line
+      // announcing that nothing is locked, on a page where nothing is locked.
+      // The promise is pinned where it is kept instead: the readout renders
+      // for everyone, with no proUnlocked gate anywhere near it.
       const progress = read('src', 'screens', 'ProgressScreen.tsx');
-      assert.match(progress, /pro\.read\.footer/);
+      assert.doesNotMatch(progress, /pro\.read\.footer/);
+      const readout = progress.slice(
+        progress.indexOf('function renderWeeklyRead'),
+        progress.indexOf('function renderOverview'),
+      );
+      assert.ok(readout.length > 200, 'renderWeeklyRead was renamed — recheck by hand');
+      // The STATUS is free — the row, its meta and its bars are drawn before
+      // any gate is consulted. What Pro buys is the sentence about what to do
+      // next, which hangs off `row.locked` further down. So: exactly one gate
+      // in the whole readout, and it sits inside that branch.
+      assert.equal((readout.match(/proUnlocked/g) ?? []).length, 1, 'a second lock appeared');
+      assert.ok(
+        readout.indexOf('row.locked ? (') < readout.indexOf('proUnlocked'),
+        'the lock moved out of the conclusion and onto the status itself',
+      );
+      assert.ok(
+        readout.indexOf('styles.readBars') < readout.indexOf('row.locked ? ('),
+        'the bars are drawn after the gate — the status is no longer free',
+      );
 
       // Moment 4 (the logger's post-effort coach chip) went with the list
       // logger and the effort question it hung off.

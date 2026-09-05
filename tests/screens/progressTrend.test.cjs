@@ -444,8 +444,14 @@ module.exports = [
       assert.doesNotMatch(screen, /\[\.\.\.measureModels\]/, 'the wall of ten is back');
 
       // One row for the rest, opening the kit's own sheet — the same one Home
-      // adds a stat card with, not a second picker.
-      assert.match(screen, /t\(language, 'progress\.trackAnother'\)/);
+      // adds a stat card with, not a second picker. The row says "Lisää" and
+      // the sheet no longer repeats it as a title (#bugs 2026-09-05), and the
+      // sheet gets a REAL bottom inset: hardcoded to 0, its last row sat under
+      // the gesture bar.
+      assert.match(screen, /t\(language, 'progress\.addMeasure'\)/);
+      assert.doesNotMatch(screen, /progress\.trackAnother/);
+      assert.doesNotMatch(screen, /bottomInset=\{0\}/);
+      assert.match(screen, /bottomInset=\{insets\.bottom\}/);
       assert.match(screen, /import \{ KitRow, KitSheet \} from '\.\.\/components\/sheetKit';/);
       assert.match(screen, /<KitSheet/);
       assert.match(screen, /untracked\.length \? \(/, 'the add row draws with nothing left to add');

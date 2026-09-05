@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Circle, Path, Polyline, Rect } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { VinhaIcon } from '../components/VinhaIcon';
 import { EmptyBox } from '../components/EmptyBox';
@@ -705,6 +706,7 @@ export function ProgressScreen({
 }: ProgressScreenProps) {
   const theme = useTheme();
   const themeName = useThemeName();
+  const insets = useSafeAreaInsets();
   const styles = useThemedStyles(makeStyles);
   /**
    * The section tabs, per theme.
@@ -1256,7 +1258,6 @@ export function ProgressScreen({
             );
           })}
         </View>
-        <Text style={styles.readFooter}>{t(language, 'pro.read.footer')}</Text>
       </View>
     );
   }
@@ -1938,17 +1939,21 @@ export function ProgressScreen({
                   strokeLinecap="round"
                 />
               </Svg>
-              <Text style={styles.measureAddText}>{t(language, 'progress.trackAnother')}</Text>
+              <Text style={styles.measureAddText}>{t(language, 'progress.addMeasure')}</Text>
             </Pressable>
           ) : null}
         </View>
 
         {/* The kit's own sheet, the same one Home adds a stat card with. */}
+        {/* No title: it repeated the row that opened it, and the list names
+            itself. And a REAL bottom inset — this was hardcoded to 0, so the
+            last measurement sat under the gesture bar and the sheet read as
+            cut off ("nosta vähän ylemmäs", #bugs 2026-09-05). A Modal's own
+            safe-area inset is 0; the screen has to read it and pass it down. */}
         <KitSheet
           visible={measurePickerVisible}
           onClose={() => setMeasurePickerVisible(false)}
-          title={t(language, 'progress.trackAnother')}
-          bottomInset={0}
+          bottomInset={insets.bottom}
         >
           {untracked.map((item) => (
             <KitRow
@@ -1969,8 +1974,10 @@ export function ProgressScreen({
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
+        {/* No subtitle. It sat above all four sub-tabs and described none of
+            them — "ylhäällä sama treeni jonka olet rakentanut" on the records
+            page, the measures page and the trend (#bugs 2026-09-05). */}
         <Text style={styles.headerTitle}>{t(language, 'progress.title')}</Text>
-        <Text style={styles.headerSubtitle}>{t(language, 'progress.subtitle')}</Text>
         {/* A3: the selector carries the cut, and so does the selected tab —
             the design's VALITSIN. The inner tab sits inside the shell's
             padding, so the two cuts are not in the same corner. */}
@@ -2202,13 +2209,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.ink,
     lineHeight: 20,
   },
-  readFooter: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: theme.faint,
-    lineHeight: 18,
-    marginTop: 14,
-  },
   header: {
     paddingHorizontal: 20,
     paddingTop: 4,
@@ -2219,12 +2219,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 28,
     fontWeight: '800',
     letterSpacing: -0.5,
-  },
-  headerSubtitle: {
-    color: theme.muted,
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 2,
   },
   tabsRow: {
     flexDirection: 'row',

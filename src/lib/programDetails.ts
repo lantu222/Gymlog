@@ -290,7 +290,15 @@ export function buildCustomProgramDetail(
     source: 'custom',
     title: template.name,
     subtitle: `${t(language, 'prog.custom.badge')} | ${counts}`,
-    description: t(language, 'prog.custom.detail.description'),
+    /*
+     * No lead paragraph. It was one fixed sentence on every custom programme
+     * — "Rakennettu omista treeneistäsi ja sarjamääristäsi. Avaa muokataksesi
+     * tai aloita juuri se treeni, jonka haluat kirjata." — which described
+     * none of them and explained tapping a row to somebody already on the
+     * page (#bugs 2026-09-05). A ready programme keeps its real description,
+     * because a ready programme has one.
+     */
+    description: '',
     // badges[1] is read as a level slug by the detail screen; a custom program
     // has no level, so it stays a count and simply does not match.
     badges: [t(language, 'prog.custom.badge'), counts],

@@ -4916,15 +4916,16 @@ function VinhaApp() {
       }),
     });
 
-    // And say so. Both writes have resolved by here — the programme, then the
-    // target — which is the order CLAUDE.md asks for: a success state follows
-    // the write, never precedes it.
+    // And say so — by ARRIVING. Both writes have resolved by here, the
+    // programme then the target, which is the order CLAUDE.md asks for: a
+    // success state follows the write, never precedes it.
     //
-    // Without this the tap did all its work in silence. The screen kept the
-    // same three steps with the same numbers in them, nothing navigated, and
-    // 'goalFlow.created' sat translated in both dictionaries with no reader.
-    // The copy names where the programme went, so the reader is sent there.
-    showToast(t(preferences.appLanguage, 'goalFlow.created'));
+    // The success state used to be a toast as well. It was raised over the
+    // page that already showed both halves of what it announced — the
+    // programme at the top of Omat ohjelmasi, the target under Tavoitteesi —
+    // so it named nothing the reader could not see ("valkoinen ilmoitus
+    // poista", #bugs 2026-09-05). The navigation is the feedback; the toast
+    // was the same news a second time, in a white box over it.
     navigate({ tab: 'workout', screen: 'programs_home' });
   }
 
