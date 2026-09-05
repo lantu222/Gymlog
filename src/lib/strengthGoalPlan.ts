@@ -148,29 +148,6 @@ export function estimateWeeksToTarget(
   return { kind: 'weeks', weeks: Math.max(1, weeks), rate };
 }
 
-/**
- * The share of their own best the reader is proposing to add.
- *
- * 28% is the brief's line, and it is roughly where a target stops being this
- * block's business and becomes most of a year's. The flow does not block it —
- * it says what it is and lets them choose.
- */
-export const STRETCH_RATIO = 0.28;
-
-export interface StretchRead {
-  stretch: boolean;
-  /** Whole percent added on the reader's own best. */
-  percent: number;
-}
-
-export function describeStretch(bestKg: number, targetKg: number): StretchRead {
-  if (!Number.isFinite(bestKg) || bestKg <= 0 || !Number.isFinite(targetKg)) {
-    return { stretch: false, percent: 0 };
-  }
-  const ratio = (targetKg - bestKg) / bestKg;
-  return { stretch: ratio > STRETCH_RATIO, percent: Math.round(ratio * 100) };
-}
-
 export interface TargetLiftRow {
   /** The stored English library name — what a goal is keyed by. */
   exerciseName: string;

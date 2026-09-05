@@ -16,7 +16,6 @@ import { removeTrailingZeros } from '../lib/format';
 import { t } from '../lib/i18n';
 import { isValidTarget } from '../lib/strengthGoals';
 import {
-  describeStretch,
   estimateWeeksToTarget,
   ObservedRate,
   orderTargetLifts,
@@ -265,7 +264,6 @@ export function StrengthGoalFlowScreen({
    */
   const targetUsable = isValidTarget(targetKg);
   const estimate = estimateWeeksToTarget(bestKg ?? 0, targetUsable ? targetKg : 0, picked?.rate ?? null);
-  const stretch = describeStretch(bestKg ?? 0, targetUsable ? targetKg : 0);
   /*
    * Only where it is shown. Called unconditionally it ran rankProgrammesForLift
    * over all 57 templates on every render of steps 1 and 2 — once per character
@@ -457,13 +455,6 @@ export function StrengthGoalFlowScreen({
           </View>
           ) : null}
 
-          {stretch.stretch ? (
-            <View style={styles.warnCard}>
-              <Text style={styles.warnText}>
-                {t(language, 'goalFlow.stretch', { percent: stretch.percent })}
-              </Text>
-            </View>
-          ) : null}
         </ScrollView>
         <View
           style={[styles.footer, keyboardHeight > 0 && { paddingBottom: keyboardHeight + 12 }]}
@@ -849,20 +840,6 @@ const makeStyles = (theme: Theme) =>
       lineHeight: 19,
       fontWeight: '600',
       marginTop: 3,
-    },
-    warnCard: {
-      marginTop: 10,
-      padding: 16,
-      borderRadius: 15,
-      borderWidth: 1,
-      borderColor: theme.amberBorder,
-      backgroundColor: theme.amberSoft,
-    },
-    warnText: {
-      color: theme.amberInk,
-      fontSize: 12.5,
-      lineHeight: 19,
-      fontWeight: '700',
     },
     proposalCard: {
       padding: 18,
