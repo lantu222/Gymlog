@@ -113,12 +113,25 @@ module.exports = [
      */
     name: 'two answers from the same day expire on the same day',
     run() {
-      const sameDay = [entry('2026-08-14T00:30:00.000Z', 'aamulla'), entry('2026-08-14T23:30:00.000Z', 'illalla')];
-      // 14.8. is 22 days before 5.9., so both are past the 21-day window.
-      assert.deepEqual(activeCoachAdviceMemory(sameDay, NOW), []);
+      // Pinned to the timezone the app ships into, and written in local terms:
+      // Helsinki is UTC+3 in August, so an instant late on a UTC day is already
+      // the next day here. That is the whole point — a fixture written in UTC
+      // would be testing a different pair of days than the reader ever sees.
+      withHelsinkiClocks(() => {
+        // Local 14.8., which is 22 days before 5.9. — both past the window.
+        const sameDay = [
+          entry('2026-08-14T01:00:00.000Z', 'aamulla'), // 04:00 local
+          entry('2026-08-14T20:00:00.000Z', 'illalla'), // 23:00 local
+        ];
+        assert.deepEqual(activeCoachAdviceMemory(sameDay, NOW), []);
 
-      const dayLater = [entry('2026-08-15T00:30:00.000Z', 'aamulla'), entry('2026-08-15T23:30:00.000Z', 'illalla')];
-      assert.equal(activeCoachAdviceMemory(dayLater, NOW).length, 2, 'and the day inside the window keeps both');
+        // Local 15.8., 21 days out: inside the window, so both stay.
+        const dayLater = [
+          entry('2026-08-15T01:00:00.000Z', 'aamulla'),
+          entry('2026-08-15T20:00:00.000Z', 'illalla'),
+        ];
+        assert.equal(activeCoachAdviceMemory(dayLater, NOW).length, 2);
+      });
     },
   },
   {
