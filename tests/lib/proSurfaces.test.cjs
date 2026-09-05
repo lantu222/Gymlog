@@ -294,6 +294,42 @@ module.exports = [
     },
   },
   {
+    /**
+     * Two savings badges, one plan.
+     *
+     * The paywall's 'pro.page.save' and the subscription screen's
+     * 'subs.term.yearlyBadge' both advertise what the yearly plan saves
+     * against twelve monthly payments. They are read minutes apart by the same
+     * person, so they cannot disagree — and they did: a price change corrected
+     * one and left the other quoting the retired 50 % (PR #62 review).
+     *
+     * Compared as numbers rather than pinned to a value, so the guard survives
+     * the next price change instead of becoming the thing that has to be
+     * remembered.
+     */
+    name: 'both savings badges quote the same discount, in both languages',
+    run() {
+      const i18n = read('src', 'lib', 'i18n.ts');
+      const lines = i18n.split(String.fromCharCode(10));
+      const percents = (key) => {
+        const matches = lines.filter((row) => row.includes(`'${key}':`));
+        assert.equal(matches.length, 2, `${key} should exist in both languages`);
+        return matches.map((row) => {
+          const found = row.match(/(\d+)\s*%/);
+          assert.ok(found, `${key} must quote a percentage: ${row.trim()}`);
+          return found[1];
+        });
+      };
+      const paywall = percents('pro.page.save');
+      const subscription = percents('subs.term.yearlyBadge');
+      assert.deepEqual(
+        new Set([...paywall, ...subscription]).size,
+        1,
+        `the yearly saving is advertised as ${[...paywall, ...subscription].join(' / ')} on different screens`,
+      );
+    },
+  },
+  {
     name: 'one price set, and no price outside the dictionary',
     run() {
       const i18n = read('src', 'lib', 'i18n.ts');

@@ -57,8 +57,8 @@ const OUTPUT_TOKENS = modelTokens(350);
 const EUR_PER_USD = 0.92;
 const PLANS = {
   monthly: { label: 'Pro, kuukausi', eur: 9.9, perMonthEur: 9.9 },
-  yearly: { label: 'Pro, vuosi', eur: 59.9, perMonthEur: 59.9 / 12 },
-  lifetime: { label: 'Pro, elinikäinen', eur: 119.0, perMonthEur: null },
+  yearly: { label: 'Pro, vuosi', eur: 79.9, perMonthEur: 79.9 / 12 },
+  lifetime: { label: 'Pro, elinikäinen', eur: 179.0, perMonthEur: null },
 };
 
 /** A full memory: ten entries, each cut at the cap. */

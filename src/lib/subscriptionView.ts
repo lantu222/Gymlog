@@ -45,9 +45,10 @@ export interface SubscriptionTerm {
   perKey: I18nKey;
   renews: boolean;
   /**
-   * Yearly carries the 50% the paywall computes; lifetime carries its
-   * two-year payback. Both are arithmetic — a badge on this screen has to be
-   * something a reader could check.
+   * Yearly carries the same saving the paywall computes; lifetime carries its
+   * payback. Both are arithmetic — a badge on this screen has to be something
+   * a reader could check, and it has to agree with the paywall's own badge for
+   * the same plan: the two are read minutes apart (PR #62 review).
    */
   badgeKey?: I18nKey;
 }
