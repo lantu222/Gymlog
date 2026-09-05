@@ -294,18 +294,61 @@ module.exports = [
     },
   },
   {
+    /**
+     * Two savings badges, one plan.
+     *
+     * The paywall's 'pro.page.save' and the subscription screen's
+     * 'subs.term.yearlyBadge' both advertise what the yearly plan saves
+     * against twelve monthly payments. They are read minutes apart by the same
+     * person, so they cannot disagree — and they did: a price change corrected
+     * one and left the other quoting the retired 50 % (PR #62 review).
+     *
+     * Compared as numbers rather than pinned to a value, so the guard survives
+     * the next price change instead of becoming the thing that has to be
+     * remembered.
+     */
+    name: 'both savings badges quote the same discount, in both languages',
+    run() {
+      const i18n = read('src', 'lib', 'i18n.ts');
+      const lines = i18n.split(String.fromCharCode(10));
+      const percents = (key) => {
+        const matches = lines.filter((row) => row.includes(`'${key}':`));
+        assert.equal(matches.length, 2, `${key} should exist in both languages`);
+        return matches.map((row) => {
+          const found = row.match(/(\d+)\s*%/);
+          assert.ok(found, `${key} must quote a percentage: ${row.trim()}`);
+          return found[1];
+        });
+      };
+      const paywall = percents('pro.page.save');
+      const subscription = percents('subs.term.yearlyBadge');
+      assert.deepEqual(
+        new Set([...paywall, ...subscription]).size,
+        1,
+        `the yearly saving is advertised as ${[...paywall, ...subscription].join(' / ')} on different screens`,
+      );
+    },
+  },
+  {
     name: 'one price set, and no price outside the dictionary',
     run() {
       const i18n = read('src', 'lib', 'i18n.ts');
 
       // This guard existed and still let two coherent price sets ship in one
       // build. It failed twice over: it forbade 59,99 and 69,99 where the
-      // onboarding paywall actually said 59,90, and it pinned three keys while
+      // onboarding paywall actually said the live yearly price, and it pinned
+      // three keys while
       // the paywall's own keys were not among them.
       //
-      // The set is arithmetic, not a list of forbidden numbers: 59,90 / 12 =
-      // 4,99, / 52 = 1,15, and against 9,90 x 12 = 118,80 that is 50% off.
-      for (const shape of [/71[.,]99/, /69[.,]99/, /5[.,]99/, /9[.,]99/]) {
+      // The set is arithmetic, not a list of forbidden numbers: 79,90 / 12 =
+      // 6,66, and against 9,90 x 12 = 118,80 that is 33% off.
+      //
+      // Each retired price is anchored on a non-digit. Unanchored these are
+      // substring checks, so /9[.,]99/ rejects any price ending in 9,99 and
+      // /5[.,]99/ any price ending in 5,99 — a live price set was briefly
+      // written as 79,99 and this guard turned it down. A forbidden-price
+      // check has to mean a whole number, not any number ending in one.
+      for (const shape of [/(?<!\d)71[.,]99/, /(?<!\d)69[.,]99/, /(?<!\d)5[.,]99/, /(?<!\d)9[.,]99/]) {
         assert.doesNotMatch(i18n, shape, `${shape} belongs to the retired price set`);
       }
       // Every key here must be one a reader can actually reach.
@@ -318,8 +361,8 @@ module.exports = [
       // place). Each was pinning a price onto a surface that could not render
       // it — a guard line that stays green no matter what the live copy says.
       //
-      // The prices lost nothing: five other keys pin 59,90 and two pin 9,90,
-      // all from screens that exist.
+      // The prices lost nothing: five other keys pin the yearly price and two
+      // pin the monthly one, all from screens that exist.
       //
       // Three more paywall.* keys left the map on 2026-08-25 the same way the
       // first three did: ProPaywallScreen went unreachable when onboarding
@@ -327,15 +370,15 @@ module.exports = [
       // yearly.week rendered nowhere else. The two plan prices below survive
       // because PremiumScreen and PremiumUnlockScreen read them.
       const priced = {
-        'pro.page.billedYearly': /59,90/,
-        'coach.lock.fine': /59,90/,
-        'pro.v2.ctaSubYearly': /59,90/,
-        'paywall.plan.yearly.price': /59,90/,
-        'pro.page.perYearly': /4,99/,
+        'pro.page.billedYearly': /79,90/,
+        'coach.lock.fine': /79,90/,
+        'pro.v2.ctaSubYearly': /79,90/,
+        'paywall.plan.yearly.price': /79,90/,
+        'pro.page.perYearly': /6,66/,
         'pro.page.perMonthly': /9,90/,
         'paywall.plan.monthly.price': /9,90/,
-        'pro.page.perLifetime': /119,00/,
-        'pro.v2.ctaSubLifetime': /119,00/,
+        'pro.page.perLifetime': /179,00/,
+        'pro.v2.ctaSubLifetime': /179,00/,
       };
       const lines = i18n.split(String.fromCharCode(10));
       for (const [key, shape] of Object.entries(priced)) {

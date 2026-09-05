@@ -16,6 +16,7 @@ import {
 import { detectPlateaus } from './progressionAnalyzer';
 import { buildFatigueModel } from './fatigueModel';
 import { buildTrainingHistory, DEFAULT_HISTORY_WINDOW_DAYS } from './trainingHistory';
+import { CoachAdviceMemoryEntry, buildCoachAdviceLines, parseCoachAdviceLines } from './coachAdviceMemory';
 import type { TrainingSchedule } from './trainingSchedule';
 
 /**
@@ -77,6 +78,12 @@ export interface BuildAiTrainingContextInput {
   coachGoals?: CoachGoal[];
   /** Which of them leads; null falls back to the newest. */
   primaryGoalId?: string | null;
+  /**
+   * What the coach already told this reader, from
+   * storage/coachAdviceMemoryStore. Passed through rather than derived: it is
+   * the only part of the context the app itself did not observe.
+   */
+  coachMemory?: CoachAdviceMemoryEntry[];
   bodyweightGoalKg?: number | null;
   profile?: AICoachProfile | null;
   /** What Home already shows and what the coach must not offer right now. */
@@ -339,6 +346,7 @@ export function buildAiTrainingContext({
   coachGoals = [],
   primaryGoalId = null,
   bodyweightGoalKg = null,
+  coachMemory = [],
   profile = null,
   homeState = null,
   now = new Date(),
@@ -426,6 +434,10 @@ export function buildAiTrainingContext({
     goals: buildAiCoachGoals(coachGoals, bodyweightGoalKg, body, primaryGoalId),
     profile: profile && (profile.heightCm !== null || profile.age !== null || profile.gender !== null) ? profile : null,
     homeState,
+    // Dates resolved on the device: buildAiCoachSystemContext runs on the
+    // endpoint, where the timezone is the server's. Expiry runs here too — the
+    // file was last written when the reader's last question was answered.
+    coachMemory: buildCoachAdviceLines(coachMemory, now.toISOString()),
   };
 }
 
@@ -527,5 +539,9 @@ export function normalizeAiCoachTrainingContext(
     goals: withPrimaryGoal(array<AICoachGoal>(candidate.goals)),
     profile: candidate.profile && typeof candidate.profile === 'object' ? candidate.profile : null,
     homeState: candidate.homeState && typeof candidate.homeState === 'object' ? candidate.homeState : null,
+    // Re-parsed rather than trusted. This runs on the endpoint, where the
+    // payload is whatever was posted: the same bound the device applies has to
+    // hold for a request the device did not write.
+    coachMemory: parseCoachAdviceLines(candidate.coachMemory),
   };
 }

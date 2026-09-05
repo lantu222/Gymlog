@@ -161,7 +161,7 @@ module.exports = [
       assert.equal(resolveTierFineKey(pro, 'lifetime', false), pro.plans[0].fineKey);
 
       // While the trial is off the flat wording is the honest one; the "then
-      // 59,90 €" line only appears when there is a trial to be after.
+      // 79,90 €" line only appears when there is a trial to be after.
       const flat = resolveTierFineKey(pro, 'yearly', false);
       const trial = resolveTierFineKey(pro, 'yearly', true);
       assert.notEqual(flat, trial, 'the trial changes what the fine print promises');

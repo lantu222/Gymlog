@@ -1,6 +1,6 @@
 # Tietosuojaseloste
 
-*Päivitetty 4.9.2026*
+*Päivitetty 5.9.2026*
 
 Mitä Vinha tallentaa, mikä lähtee puhelimestasi ja mitä voit sille tehdä.
 
@@ -27,6 +27,7 @@ Kaikki alla oleva on joko sinun syöttämääsi tai sovelluksen laskemaa siitä,
 - Kehon tiedot, jotka itse lisäät: painomerkinnät ja mittanauhalla otetut mitat.
 - Ohjelmasi: ne, jotka rakennat, tuot CSV-tiedostosta tai valokuvasta, sekä liikenimet, jotka opetat sovellukselle.
 - Valmentajan kanssa asettamasi tavoitteet sekä virstanpylväät ja kaudet, jotka sovellus laskee lokistasi.
+- Mitä valmentaja on neuvonut sinulle viimeisten kolmen viikon aikana: kunkin vastauksen yhden lauseen tiivistelmä ja päivä, jona se annettiin, enintään kymmenen kappaletta. Se säilytetään, jottei valmentaja toista jo antamaansa neuvoa, se poistuu kolmea viikkoa vanhetessaan, ja se pysyy tässä puhelimessa — alla kuvattu pilvivarmuuskopio ei kanna sitä mukanaan.
 - Asetukset: kieli, yksiköt, teema, ilmoitus- ja ääniasetukset, oletuslepoaika, treenitauot.
 - Pro-tila: onko Pro päällä, milloin se ostettiin tai peruttiin, ja päivä, johon asti kampanjakoodi pitää sen päällä.
 - Pientä kirjanpitoa: onko arviointipyyntö tai verkkovalmentajan ilmoitus jo näytetty, tiivistelmätiedosto, jota kotinäytön widget lukee, jono lähetystä odottavia käyttötapahtumia, sekä kopio vaurioituneesta datatiedostosta, jos sovellus sellaisen joskus löytää — se siirretään sivuun eikä poisteta, jotta rikkoutunut tiedosto ei ole menetetty treeniloki.
@@ -55,7 +56,7 @@ Valmentajalla on kaksi tilaa. Laitetilassa, joka on oletus, vastaukset kootaan p
 
 Verkkotilassa, jonka sovelluksen versio kytkee päälle, sovellus näyttää sinulle ilmoituksen ennen ensimmäistä kysymystä, eikä mitään lähetetä ennen kuin olet lukenut sen. Sen jälkeen jokainen lähettämäsi kysymys kantaa mukanaan kolme asiaa: kysymyksen, saman keskustelun aiemmat viestit ja yhteenvedon treenistäsi.
 
-Yhteenvedossa ovat viimeaikaiset treenisi (liikkeiden nimet, sarjat, toistot, kilot, päivämäärät, kestot), nykyinen ohjelmasi ja sen viikko, tavoitteesi, käyttöönoton vastauksesi (tavoite, taso, treenipäivät viikossa, välineet, rajoitteet) sekä — jos olet kirjannut ne — viimeisin painosi, mittasi, pituutesi, ikäsi ja sukupuolesi.
+Yhteenvedossa ovat viimeaikaiset treenisi (liikkeiden nimet, sarjat, toistot, kilot, päivämäärät, kestot), nykyinen ohjelmasi ja sen viikko, tavoitteesi, käyttöönoton vastauksesi (tavoite, taso, treenipäivät viikossa, välineet, rajoitteet), valmentajan omat vastaukset viimeisiltä kolmelta viikolta yhtenä lauseena kukin, jottei se toista jo antamaansa neuvoa, sekä — jos olet kirjannut ne — viimeisin painosi, mittasi, pituutesi, ikäsi ja sukupuolesi.
 
 Siinä ei ole nimeäsi, sähköpostiasi, Google-tiliäsi eikä mitään puhelimesi tunnistetta. Kysymystä ei voi yhdistää sinuun. Palvelimemme näkee puhelimen internet-osoitteen, jota se pitää hetken muistissa rajoittaakseen, montako pyyntöä yksi yhteys voi tehdä; sitä ei tallenneta.
 

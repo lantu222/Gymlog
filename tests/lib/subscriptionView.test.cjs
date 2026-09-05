@@ -209,7 +209,8 @@ module.exports = [
       const root = path.join(__dirname, '..', '..');
       const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
 
-      // Lifetime earns a badge: 119,00 against 59,90 a year pays back in two.
+      // Lifetime earns a badge: 179,00 against 79,90 a year pays back in a
+      // little over two.
       assert.equal(SUBSCRIPTION_TERMS.lifetime.badgeKey, 'pro.page.bestValue');
       assert.equal(SUBSCRIPTION_TERMS.yearly.badgeKey, 'subs.term.yearlyBadge');
       // Monthly is the baseline the others are measured against, so it has

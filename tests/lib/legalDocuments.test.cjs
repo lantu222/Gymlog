@@ -151,6 +151,7 @@ module.exports = [
         [
           '@vinha/account/v1',
           '@vinha/analytics/v1',
+          '@vinha/coach/memory/v1',
           '@vinha/database/corrupt',
           '@vinha/database/v1',
           '@vinha/preferences/v1',
@@ -368,6 +369,7 @@ module.exports = [
         profile: 'profile',
         homeState: null,
         plannerSetup: 'setup',
+        coachMemory: 'pastAdvice',
       };
       const PHRASES = {
         workouts: { en: /recent workouts/, fi: /viimeaikaiset treenisi/ },
@@ -377,6 +379,10 @@ module.exports = [
         goals: { en: /goals/, fi: /tavoitteesi/ },
         profile: { en: /height, age and gender/, fi: /pituutesi, ikäsi ja sukupuolesi/ },
         setup: { en: /setup answers/, fi: /käyttöönoton vastauksesi/ },
+        pastAdvice: {
+          en: /answers from the last three weeks/,
+          fi: /vastaukset viimeisiltä kolmelta viikolta/,
+        },
       };
       const unknown = keys.filter((key) => !(key in DISCLOSED));
       assert.deepEqual(

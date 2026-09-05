@@ -175,6 +175,7 @@ const suites = [
   ...require('./lib/onboardingPlanSweep.test.cjs'),
   ...require('./lib/progressionGate.test.cjs'),
   ...require('./lib/coachChatMemory.test.cjs'),
+  ...require('./lib/coachAdviceMemory.test.cjs'),
   ...require('./lib/entryDeletion.test.cjs'),
   ...require('./lib/readyProgrammeCopy.test.cjs'),
   ...require('./lib/successToasts.test.cjs'),

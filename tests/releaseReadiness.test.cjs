@@ -232,7 +232,7 @@ module.exports = [
           'resolveTierCtaKey stopped gating the trial wording on the flag.',
         );
         // And the same for the line under the button, which is where the
-        // "then 59,90 €" promise actually lives.
+        // "then 79,90 €" promise actually lives.
         assert.match(
           read('src/screens/PremiumScreen.tsx'),
           /resolveTierFineKey\(tier, activePlan\.id, PRO_TRIAL_ENABLED\)/,

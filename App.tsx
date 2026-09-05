@@ -126,6 +126,8 @@ import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplic
 import { resolveObservedRate } from './src/lib/strengthGoalPlan';
 import type { GoalFlowLift, GoalFlowProposal } from './src/screens/StrengthGoalFlowScreen';
 import { CoachChatMemory } from './src/lib/coachChatMemory';
+import { CoachAdviceMemoryEntry, mergeCoachAdviceMemory, rememberCoachAdvice } from './src/lib/coachAdviceMemory';
+import { loadCoachAdviceMemory, saveCoachAdviceMemory } from './src/storage/coachAdviceMemoryStore';
 import type { ChatMessage } from './src/screens/AICoachChatScreen';
 import {
   applyProgramSessionEdit,
@@ -968,6 +970,16 @@ function VinhaApp() {
    * hours anyway.
    */
   const [coachChatMemory, setCoachChatMemory] = useState<CoachChatMemory<ChatMessage> | null>(null);
+  /**
+   * What the coach advised over the last three weeks — the memory that does
+   * outlive the thread above, and the app.
+   *
+   * Its own AsyncStorage key rather than a preference: see
+   * storage/coachAdviceMemoryStore for why it stays out of the cloud backup.
+   * Loaded once on mount; an empty list until it arrives, so the first
+   * question of a cold start is answered without it rather than delayed by it.
+   */
+  const [coachAdviceMemory, setCoachAdviceMemory] = useState<CoachAdviceMemoryEntry[]>([]);
   /**
    * Slots left out of today's session, chosen on Home beside the swaps and
    * spent at the same moment. Not a change to the programme — that is edited
@@ -3014,6 +3026,82 @@ function VinhaApp() {
     ? t(preferences.appLanguage, coachDemoMoment.questionKey, coachDemoMoment.vars)
     : null;
 
+  /**
+   * The coach's long memory, read once at startup.
+   *
+   * Failures are already swallowed by the store, so this cannot reject: the
+   * worst case is an empty list, which is exactly what a reader who has never
+   * asked a question has.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    loadCoachAdviceMemory().then((stored) => {
+      if (cancelled) {
+        return;
+      }
+      const at = new Date().toISOString();
+      setCoachAdviceMemory((current) => {
+        // Merged, not assigned. An answer recorded before this read resolves
+        // would otherwise be overwritten by the older stored list — and the
+        // list it overwrote would already have been written back over the
+        // stored one, losing both halves.
+        const merged = mergeCoachAdviceMemory(stored, current, at);
+        // Always written back, never gated on a length comparison.
+        //
+        // Two things need this write. Expiry runs on write, so a phone that has
+        // not asked the coach anything in a month still carries the whole file,
+        // and pruning it here is what makes "deleted as it ages past three
+        // weeks" true for a reader who stopped asking rather than kept asking.
+        // And the race above already overwrote the file with the single entry
+        // it recorded, so the merged list has to go back or the rest is lost.
+        //
+        // Comparing the merged list's length against the stored one looked
+        // like a cheap way to skip a no-op write and was wrong: merging
+        // changes content without changing length whenever the list is at the
+        // ten-entry cap, or one entry expires as another is added, or two
+        // takeaways dedupe. Each of those skipped the write that recovers the
+        // race, and the loss only appeared on the next cold start
+        // (PR #62 review).
+        void saveCoachAdviceMemory(merged);
+        return merged;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /**
+   * Remember one answer.
+   *
+   * State and disk are written from the same computed value rather than the
+   * write being derived from state again, so two answers in quick succession
+   * cannot store a list that skips the first. Pruning of expired lines happens
+   * inside rememberCoachAdvice, on every write.
+   */
+  /**
+   * Erase everything, the coach's memory included.
+   *
+   * resetDatabase clears the memory's key on disk, but this component is not
+   * remounted by a reset: without this the state would still hold every
+   * takeaway, hand them to the next question, and write them straight back.
+   */
+  const handleResetAllData = useCallback(async () => {
+    await resetAllData();
+    setCoachAdviceMemory([]);
+  }, [resetAllData]);
+
+  const handleCoachAdviceGiven = useCallback((takeaway: string) => {
+    // Stamped once, outside the updater: React may invoke an updater more than
+    // once, and a clock read inside it would make two invocations disagree.
+    const at = new Date().toISOString();
+    setCoachAdviceMemory((current) => {
+      const next = rememberCoachAdvice(current, takeaway, at);
+      void saveCoachAdviceMemory(next);
+      return next;
+    });
+  }, []);
+
   // Seven days out. There is no billing, so this is the demo story the paywall
   // already tells rather than a date anything will act on.
   const premiumTrialEndsAt = useMemo(() => {
@@ -3500,6 +3588,9 @@ function VinhaApp() {
         coachGoals: preferences.coachGoals,
         primaryGoalId: preferences.primaryGoalId,
         bodyweightGoalKg: preferences.bodyweightGoalKg,
+        // What the coach already said, so it stops repeating itself across
+        // conversations (lib/coachAdviceMemory).
+        coachMemory: coachAdviceMemory,
         profile: {
           heightCm: preferences.setupHeightCm,
           age: preferences.setupAge,
@@ -3547,6 +3638,7 @@ function VinhaApp() {
       database.measurementEntries,
       preferences.coachGoals,
       preferences.primaryGoalId,
+      coachAdviceMemory,
       homePinnedStatCardKeys,
       preferences.coachSuggestionState,
       preferences.notificationPrefs.weighInReminder,
@@ -5308,6 +5400,7 @@ function VinhaApp() {
       accountBackup,
       coachChatMemory,
       onCoachChatMemoryChange: setCoachChatMemory,
+      onCoachAdviceGiven: handleCoachAdviceGiven,
       sessionAnalysis,
     });
   } else if (route.tab === 'workout' && route.screen === 'summary' && completionSummary) {
@@ -5533,7 +5626,7 @@ function VinhaApp() {
       showToast,
       setSettingsImportVisible,
       setRatingSheetVisible,
-      resetAllData,
+      resetAllData: handleResetAllData,
       setCompletionSummary,
       setWorkoutCelebration,
       setFinishSaveState,

@@ -13,6 +13,7 @@ import { normalizePurchaseRecord } from '../lib/purchaseRecord';
 import { isSubscriptionTermKey } from '../lib/subscriptionView';
 import { createEmptyDatabase } from '../data/seed';
 import { resolveDeviceLanguage } from './deviceLocale';
+import { clearCoachAdviceMemory } from './coachAdviceMemoryStore';
 import { normalizeExerciseLog } from '../lib/exerciseLog';
 import {
   normalizeLearnedExerciseIds,
@@ -1274,5 +1275,9 @@ export async function resetDatabase() {
   // The preferences key outlives the blob otherwise, and a reset that leaves
   // the old language and theme behind is not the reset that was asked for.
   await AsyncStorage.removeItem(PREFERENCES_STORAGE_KEY);
+  // And the coach's memory, on its own key for backup reasons but erased by
+  // the same request: "delete my data" cannot leave behind what the coach was
+  // told to remember about the person asking.
+  await clearCoachAdviceMemory();
   return empty;
 }
