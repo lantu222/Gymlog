@@ -191,4 +191,111 @@ module.exports = [
       );
     },
   },
+  {
+    /**
+     * The week is a hard constraint; the LEVEL is not.
+     *
+     * Both used to be added into one penalty that outranked how often the
+     * programme trains the lift, so a squat target took a programme squatting
+     * once a week because its tier matched, over one squatting three times in
+     * the same three-day week. The reader is choosing a programme in order to
+     * move one lift — "tavoiteliike treenattava useammin" (user, 2026-09-05).
+     */
+    name: 'within a week the reader can run, more of the target lift wins over a tidier level',
+    run() {
+      const programmes = [
+        {
+          id: 'same_level_once',
+          level: 'beginner',
+          daysPerWeek: 3,
+          sessions: [
+            { exercises: [{ exerciseName: 'Back Squat', role: 'primary' }] },
+            { exercises: [{ exerciseName: 'Bench Press', role: 'primary' }] },
+            { exercises: [{ exerciseName: 'Deadlift', role: 'primary' }] },
+          ],
+        },
+        {
+          id: 'tier_up_thrice',
+          level: 'intermediate',
+          daysPerWeek: 3,
+          sessions: [
+            { exercises: [{ exerciseName: 'Back Squat', role: 'primary' }] },
+            { exercises: [{ exerciseName: 'Back Squat', role: 'primary' }] },
+            { exercises: [{ exerciseName: 'Back Squat', role: 'primary' }] },
+          ],
+        },
+      ];
+      const reader = { level: 'beginner', daysPerWeek: 3 };
+
+      assert.equal(
+        rankProgrammesForLift(programmes, 'Back Squat', { reader })[0].id,
+        'tier_up_thrice',
+        'the level still outranks the dose of the lift being targeted',
+      );
+
+      // But the WEEK is not traded away for dose. A six-day block that squats
+      // four times is still the wrong answer for someone with three days.
+      const wrongWeek = [
+        ...programmes,
+        {
+          id: 'six_day_four_squats',
+          level: 'beginner',
+          daysPerWeek: 6,
+          sessions: Array.from({ length: 4 }, () => ({
+            exercises: [{ exerciseName: 'Back Squat', role: 'primary' }],
+          })),
+        },
+      ];
+      assert.equal(
+        rankProgrammesForLift(wrongWeek, 'Back Squat', { reader })[0].id,
+        'tier_up_thrice',
+        'a week the reader does not have was traded for more squats',
+      );
+    },
+  },
+  {
+    /**
+     * And what that ordering can actually REACH, measured against the real
+     * catalog rather than assumed.
+     *
+     * Of the ten presets, exactly two have a programme that trains them more
+     * than once a week — the squat and the hip thrust. For the other eight the
+     * whole catalog trains the lift once, so the reordering above changes
+     * nothing for them: the ranking is not the limit, the catalog is. This
+     * test exists so that limit is a measured number somebody can watch move
+     * rather than a suspicion, and so the day a programme squats or pulls
+     * twice, it is visible that the ranking will pick it up.
+     */
+    name: 'the catalog can offer a heavier dose for two of the ten targets',
+    run() {
+      const reader = { level: 'beginner', daysPerWeek: 3 };
+      const bestFor = (lift) => {
+        const primary = rankProgrammesForLift(WORKOUT_TEMPLATES_V1, lift, { reader, libraryNames })
+          .filter((match) => match.primary);
+        // The screen's own preference: a strength target wants a strength
+        // programme, and falls back to any programme that trains the lift.
+        const strength = primary.filter((match) => getWorkoutTemplateById(match.id)?.goalType === 'strength');
+        return strength[0] ?? primary[0] ?? null;
+      };
+
+      const doses = new Map();
+      for (const preset of STRENGTH_GOAL_PRESETS) {
+        const best = bestFor(preset.exerciseName);
+        // Never nothing: the reader asked for the proposal to always exist
+        // (2026-09-05), and every preset does have a programme behind it.
+        assert.ok(best, `${preset.exerciseName}: nothing proposed at all`);
+        doses.set(preset.exerciseName, best.sessionCount);
+      }
+
+      const moreThanOnce = [...doses].filter(([, count]) => count > 1).sort();
+      assert.deepEqual(
+        moreThanOnce,
+        [
+          ['Barbell Hip Thrust', 2],
+          ['Barbell Squat', 3],
+        ],
+        'the dose the catalog can offer changed — recheck which programme each target gets',
+      );
+    },
+  },
 ];
