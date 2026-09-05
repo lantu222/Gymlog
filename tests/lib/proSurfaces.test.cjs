@@ -300,12 +300,18 @@ module.exports = [
 
       // This guard existed and still let two coherent price sets ship in one
       // build. It failed twice over: it forbade 59,99 and 69,99 where the
-      // onboarding paywall actually said 59,90, and it pinned three keys while
+      // onboarding paywall actually said the live yearly price, and it pinned
+      // three keys while
       // the paywall's own keys were not among them.
       //
-      // The set is arithmetic, not a list of forbidden numbers: 59,90 / 12 =
-      // 4,99, / 52 = 1,15, and against 9,90 x 12 = 118,80 that is 50% off.
-      for (const shape of [/71[.,]99/, /69[.,]99/, /5[.,]99/, /9[.,]99/]) {
+      // The set is arithmetic, not a list of forbidden numbers: 79,99 / 12 =
+      // 6,67, and against 9,90 x 12 = 118,80 that is 33% off.
+      //
+      // Each retired price is anchored on a non-digit. Unanchored, /9[.,]99/
+      // matched the tail of the live 79,99 and this guard rejected the price
+      // set it exists to protect — a forbidden-substring check has to mean a
+      // whole number, not any number ending in one.
+      for (const shape of [/(?<!\d)71[.,]99/, /(?<!\d)69[.,]99/, /(?<!\d)5[.,]99/, /(?<!\d)9[.,]99/]) {
         assert.doesNotMatch(i18n, shape, `${shape} belongs to the retired price set`);
       }
       // Every key here must be one a reader can actually reach.
@@ -318,8 +324,8 @@ module.exports = [
       // place). Each was pinning a price onto a surface that could not render
       // it — a guard line that stays green no matter what the live copy says.
       //
-      // The prices lost nothing: five other keys pin 59,90 and two pin 9,90,
-      // all from screens that exist.
+      // The prices lost nothing: five other keys pin the yearly price and two
+      // pin the monthly one, all from screens that exist.
       //
       // Three more paywall.* keys left the map on 2026-08-25 the same way the
       // first three did: ProPaywallScreen went unreachable when onboarding
@@ -327,15 +333,15 @@ module.exports = [
       // yearly.week rendered nowhere else. The two plan prices below survive
       // because PremiumScreen and PremiumUnlockScreen read them.
       const priced = {
-        'pro.page.billedYearly': /59,90/,
-        'coach.lock.fine': /59,90/,
-        'pro.v2.ctaSubYearly': /59,90/,
-        'paywall.plan.yearly.price': /59,90/,
-        'pro.page.perYearly': /4,99/,
+        'pro.page.billedYearly': /79,99/,
+        'coach.lock.fine': /79,99/,
+        'pro.v2.ctaSubYearly': /79,99/,
+        'paywall.plan.yearly.price': /79,99/,
+        'pro.page.perYearly': /6,67/,
         'pro.page.perMonthly': /9,90/,
         'paywall.plan.monthly.price': /9,90/,
-        'pro.page.perLifetime': /119,00/,
-        'pro.v2.ctaSubLifetime': /119,00/,
+        'pro.page.perLifetime': /179,00/,
+        'pro.v2.ctaSubLifetime': /179,00/,
       };
       const lines = i18n.split(String.fromCharCode(10));
       for (const [key, shape] of Object.entries(priced)) {
