@@ -151,7 +151,9 @@ export async function syncPlannedNotifications(plan: PlannedNotification[]): Pro
             data: {
               [PLAN_NOTIFICATION_MARKER]: true,
               signature,
+              // Read back by routeForNotification when the reader taps it.
               category: item.category,
+              measureKind: item.measureKind,
             },
           },
           trigger: {

@@ -50,6 +50,7 @@ import {
 } from './modules/home-widget';
 import { buildHomeWidgetPayload, HomeWidgetTarget, resolveHomeWidgetSessionTap } from './src/lib/widgetPayload';
 import { parseWidgetDeepLink } from './src/lib/widgetDeepLink';
+import { routeForNotification } from './src/lib/notificationRoute';
 import { planSetupHandoff } from './src/lib/setupHandoff';
 import { SetupHandoffChoices, SetupHandoffScreen } from './src/screens/SetupHandoffScreen';
 import { useAccountBackup } from './src/features/account/useAccountBackup';
@@ -4083,6 +4084,57 @@ function VinhaApp() {
     recommendedReadyTemplate,
     widgetCompletedWorkoutDayStarts,
   ]);
+
+  /**
+   * A scheduled notification's tap lands where the notification was about.
+   *
+   * A SECOND response listener, deliberately: the one near the top of this
+   * file answers the lock-screen rest actions and returns early for anything
+   * without the session marker, so the planner's notifications — records,
+   * reminders, the weekly summary — were tapped and then dropped. The reader
+   * tapped a personal record and arrived at the activity calendar, which was
+   * not a wrong destination but no destination: the app resumed the screen it
+   * had been left on (#bugs 2026-09-05). The two stay separate because they
+   * share nothing but the API — that one drives a running workout over the
+   * bus, this one sets a route — and each ignores the other's notifications by
+   * marker.
+   *
+   * Held until the database is loaded, exactly like the widget's target above:
+   * resetting the route into a half-built app lands somewhere that is about to
+   * re-render underneath it. `getLastNotificationResponseAsync` covers the
+   * cold start, where the tap is what launched the process and the listener is
+   * attached far too late to hear it.
+   */
+  const [pendingNotificationRoute, setPendingNotificationRoute] = useState<AppRoute | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const handle = (response: Notifications.NotificationResponse | null) => {
+      if (cancelled || !response) {
+        return;
+      }
+      const next = routeForNotification(response.notification.request.content.data);
+      if (next) {
+        setPendingNotificationRoute(next);
+      }
+    };
+
+    void Notifications.getLastNotificationResponseAsync().then(handle).catch(() => undefined);
+    const subscription = Notifications.addNotificationResponseReceivedListener(handle);
+    return () => {
+      cancelled = true;
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!appHydrated || !pendingNotificationRoute) {
+      return;
+    }
+    setPendingNotificationRoute(null);
+    resetToRoute(pendingNotificationRoute);
+  }, [appHydrated, pendingNotificationRoute]);
 
   // Settings → "Export plan (CSV)". The user's own plans, plus the ready
   // program they are actually running. The rest of the catalog is app content
