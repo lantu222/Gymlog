@@ -136,6 +136,30 @@ module.exports = [
     },
   },
   {
+    /**
+     * The caller validates three string fields and casts the rest, and this
+     * scrub runs BEFORE its template lookup — so it sees stored shapes the old
+     * code never reached, every custom-programme session among them. A throw
+     * here is not one bad session: the only catch is around the whole bundle,
+     * so it would take the slot history and the active cardio with it.
+     */
+    name: 'a half-written session does not take the whole bundle down with it',
+    run() {
+      const noExercises = { sessionId: 's1', templateId: 't', templateName: 'n' };
+      assert.equal(scrubImpossibleSessionLoads(noExercises), noExercises);
+
+      const noSets = runtimeSession([]);
+      noSets.exercises = [{ slotId: 'a', exerciseName: 'Sumo Deadlift' }];
+      assert.doesNotThrow(() => scrubImpossibleSessionLoads(noSets));
+
+      // And a set with no draft field at all: parseNumberInput calls .replace
+      // on whatever it is handed.
+      assert.equal(setCarriesImpossibleLoad({ setIndex: 0 }), false);
+      assert.equal(setCarriesImpossibleLoad({ setIndex: 0, plannedLoadKg: 5122.5 }), true);
+      assert.equal(setCarriesImpossibleLoad(null), false);
+    },
+  },
+  {
     name: 'a session with nothing wrong in it comes back untouched',
     run() {
       const session = runtimeSession([runtimeSet({ plannedLoadKg: 60 }), runtimeSet({ setIndex: 1, plannedLoadKg: 62.5 })]);

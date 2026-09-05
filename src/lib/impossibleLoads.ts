@@ -19,7 +19,13 @@ import type { WorkoutSessionRuntime, WorkoutSetInstance } from '../features/work
  * numeric fields can be clean while the text still says 5122,5.
  */
 export function setCarriesImpossibleLoad(set: WorkoutSetInstance): boolean {
-  const drafted = parseNumberInput(set.draftLoadText);
+  if (!set || typeof set !== 'object') {
+    return false;
+  }
+  // `parseNumberInput` calls `.replace` on what it is given, and the stored
+  // set is a cast rather than a validated shape — an older bundle without the
+  // draft field would throw here rather than read as "nothing typed".
+  const drafted = typeof set.draftLoadText === 'string' ? parseNumberInput(set.draftLoadText) : null;
 
   return (
     (set.plannedLoadKg !== undefined && !isLiftableWeight(set.plannedLoadKg)) ||
@@ -38,9 +44,26 @@ export function setCarriesImpossibleLoad(set: WorkoutSetInstance): boolean {
  * every resume, and rebuilding the whole board each time would remount it.
  */
 export function scrubImpossibleSessionLoads(session: WorkoutSessionRuntime): WorkoutSessionRuntime {
+  /*
+   * The caller validates three string fields and casts the rest, and this now
+   * runs BEFORE its template lookup — which means it runs on stored shapes the
+   * old code never reached, every custom-programme session among them (the
+   * lookup only searches the ready catalog, so those returned early). A
+   * truncated blob with no `exercises` would throw here, and the only catch
+   * above is around the whole bundle: one bad session would take the slot
+   * history and the active cardio with it (found in review, 2026-09-05).
+   */
+  if (!Array.isArray(session.exercises)) {
+    return session;
+  }
+
   let sessionChanged = false;
 
   const exercises = session.exercises.map((exercise) => {
+    if (!Array.isArray(exercise?.sets)) {
+      return exercise;
+    }
+
     let exerciseChanged = false;
 
     const sets = exercise.sets.map((set) => {

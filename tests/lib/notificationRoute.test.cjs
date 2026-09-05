@@ -101,8 +101,14 @@ module.exports = [
       // something only the planner's handler does.
       assert.match(appWiring, /routeForNotification\(response\.notification\.request\.content\.data\)/);
       // The cold start: the tap launched the process, and the listener is
-      // attached long after the response was delivered.
-      assert.match(appWiring, /getLastNotificationResponseAsync\(\)/);
+      // attached long after the response was delivered. Read once and then
+      // CLEARED — the stored response outlives the launch it belongs to, so
+      // reading without clearing answers every later cold start with the same
+      // tap and the app reopens on Records forever (found in review,
+      // 2026-09-05). The async pair is deprecated in expo-notifications 55.
+      assert.match(appWiring, /Notifications\.getLastNotificationResponse\(\)/);
+      assert.match(appWiring, /Notifications\.clearLastNotificationResponse\(\)/);
+      assert.doesNotMatch(appWiring, /getLastNotificationResponseAsync/);
       // Held until the store is loaded, like the widget's target — a route
       // reset into a half-built app lands somewhere about to re-render.
       assert.match(appWiring, /if \(!appHydrated \|\| !pendingNotificationRoute\)/);

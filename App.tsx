@@ -4101,9 +4101,9 @@ function VinhaApp() {
    *
    * Held until the database is loaded, exactly like the widget's target above:
    * resetting the route into a half-built app lands somewhere that is about to
-   * re-render underneath it. `getLastNotificationResponseAsync` covers the
-   * cold start, where the tap is what launched the process and the listener is
-   * attached far too late to hear it.
+   * re-render underneath it. The stored last response covers the cold start,
+   * where the tap is what launched the process and the listener is attached
+   * far too late to hear it.
    */
   const [pendingNotificationRoute, setPendingNotificationRoute] = useState<AppRoute | null>(null);
 
@@ -4120,7 +4120,27 @@ function VinhaApp() {
       }
     };
 
-    void Notifications.getLastNotificationResponseAsync().then(handle).catch(() => undefined);
+    /*
+     * The cold start, and then FORGETTING it.
+     *
+     * The stored last response outlives the launch it belongs to. Read without
+     * clearing, it answers every later cold start with the same tap: open the
+     * record notification once and the app lands on Records on every launch
+     * afterwards, including launches from the icon with nothing in the shade.
+     * expo-notifications names this case in `clearLastNotificationResponse`'s
+     * own documentation — "undesirable to continue selecting the route after
+     * the response has already been handled" (found in review, 2026-09-05).
+     *
+     * Cleared whether or not the route resolved: a response this build has no
+     * destination for is still a response that has been seen, and leaving it
+     * stored only means re-reading it on the next launch to ignore it again.
+     */
+    const cold = Notifications.getLastNotificationResponse();
+    if (cold) {
+      handle(cold);
+      Notifications.clearLastNotificationResponse();
+    }
+
     const subscription = Notifications.addNotificationResponseReceivedListener(handle);
     return () => {
       cancelled = true;
