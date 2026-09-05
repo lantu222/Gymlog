@@ -420,8 +420,30 @@ module.exports = [
     run() {
       const wiring = readAppWiring();
       assert.ok(
-        /mergeCoachAdviceMemory\(stored, current, at\)[\s\S]{0,600}saveCoachAdviceMemory\(merged\)/.test(wiring),
+        /mergeCoachAdviceMemory\(stored, current, at\)[\s\S]{0,1600}saveCoachAdviceMemory\(merged\)/.test(wiring),
         'the start-up load must write back what it pruned',
+      );
+    },
+  },
+  {
+    /**
+     * The write-back must not be gated on a length comparison.
+     *
+     * `merged.length !== stored.length` reads like a cheap way to skip a no-op
+     * write, and it is wrong: merging changes content without changing length
+     * whenever the list is at the cap, or one entry expires as another is
+     * added, or two takeaways dedupe. Each of those skips the write that
+     * recovers the load/record race — and because the race already overwrote
+     * the file with its single entry, the rest is then lost for good, visible
+     * only on the next cold start (PR #62 review).
+     */
+    name: 'the start-up write-back is unconditional, not gated on length',
+    run() {
+      const wiring = readAppWiring();
+      assert.doesNotMatch(
+        wiring,
+        /merged\.length\s*!==\s*stored\.length/,
+        'a length comparison cannot decide whether the merged memory is written back',
       );
     },
   },

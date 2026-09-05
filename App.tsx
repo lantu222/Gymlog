@@ -3046,13 +3046,23 @@ function VinhaApp() {
         // list it overwrote would already have been written back over the
         // stored one, losing both halves.
         const merged = mergeCoachAdviceMemory(stored, current, at);
-        // Expiry runs on write, so a phone that has not asked the coach
-        // anything in a month still carries the whole file. Pruning it here is
-        // what makes "deleted as it ages past three weeks" true for a reader
-        // who stopped asking rather than kept asking.
-        if (merged.length !== stored.length) {
-          void saveCoachAdviceMemory(merged);
-        }
+        // Always written back, never gated on a length comparison.
+        //
+        // Two things need this write. Expiry runs on write, so a phone that has
+        // not asked the coach anything in a month still carries the whole file,
+        // and pruning it here is what makes "deleted as it ages past three
+        // weeks" true for a reader who stopped asking rather than kept asking.
+        // And the race above already overwrote the file with the single entry
+        // it recorded, so the merged list has to go back or the rest is lost.
+        //
+        // Comparing the merged list's length against the stored one looked
+        // like a cheap way to skip a no-op write and was wrong: merging
+        // changes content without changing length whenever the list is at the
+        // ten-entry cap, or one entry expires as another is added, or two
+        // takeaways dedupe. Each of those skipped the write that recovers the
+        // race, and the loss only appeared on the next cold start
+        // (PR #62 review).
+        void saveCoachAdviceMemory(merged);
         return merged;
       });
     });
