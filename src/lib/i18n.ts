@@ -36,7 +36,7 @@ const EN = {
   // onboarding paywall was deleted 2026-08-25 after going unreachable, but
   // PremiumScreen, PremiumUnlockScreen and subscriptionView still read these,
   // and the price-set guard in proSurfaces pins both.
-  'paywall.plan.yearly.price': '79,99 €',
+  'paywall.plan.yearly.price': '79,90 €',
   'paywall.plan.monthly.price': '9,90 €',
   'home.a11y.swapExercise': 'Swap {name} for another exercise',
   'home.a11y.startSession': "Start today's workout",
@@ -2034,7 +2034,7 @@ const EN = {
   'pro.sheet.bullet.adaptive': 'Adaptive load after every set',
   'pro.sheet.bullet.plateau': 'Plateau and recovery warnings before they cost you weeks',
   'pro.sheet.cta': 'See what Pro does',
-  'pro.sheet.fine': 'Planned pricing 6,67 €/mo billed yearly. Billing is not live yet — nothing is charged.',
+  'pro.sheet.fine': 'Planned pricing 6,66 €/mo billed yearly. Billing is not live yet — nothing is charged.',
   'pro.sheet.notNow': 'Not now',
   'pro.read.title': "THIS WEEK'S READ",
   'pro.read.improving': 'Improving',
@@ -2158,9 +2158,9 @@ const EN = {
   'pro.v2.val.threeWeek': '3 / week',
 
   'pro.v2.cta.noTrial': 'Get Pro',
-  'pro.v2.ctaSubYearlyNoTrial': '79,99 € / year (6,67 €/mo). Cancel anytime.',
+  'pro.v2.ctaSubYearlyNoTrial': '79,90 € / year (6,66 €/mo). Cancel anytime.',
   'pro.v2.cta': 'Start 7-day free trial',
-  'pro.v2.ctaSubYearly': 'Then 79,99 € / year (6,67 €/mo). Cancel anytime.',
+  'pro.v2.ctaSubYearly': 'Then 79,90 € / year (6,66 €/mo). Cancel anytime.',
   'pro.v2.ctaSubMonthly': 'Then 9,90 € / month. Cancel anytime.',
   'pro.v2.ctaSubLifetime': 'One payment of 179,00 €. Yours from then on.',
   'pro.v2.footer': 'Cancel anytime — your logs and data stay yours, Premium or not.',
@@ -2215,7 +2215,7 @@ const EN = {
   'pro.v6.pro.setlog.b': 'Every set of one lift, session by session.',
   'pro.v6.pro.analysis.t': 'Written session analysis',
   'pro.v6.pro.analysis.b': 'A read of the session you just finished, from your own numbers.',
-  'pro.v6.sub.yearly': '6,67 € / month',
+  'pro.v6.sub.yearly': '6,66 € / month',
   'pro.v6.cta.pro': 'Get Pro',
 
   'pro.v6.life.head': 'Pay once, never again',
@@ -2310,20 +2310,20 @@ const EN = {
   // PremiumScreen's plan array, which is how two coherent price sets shipped
   // in one build: the guard reads this file, and the numbers it was meant to
   // guard were not in it.
-  'pro.page.perYearly': '6,67 €',
+  'pro.page.perYearly': '6,66 €',
   'pro.page.perMonthly': '9,90 €',
   'pro.page.perLifetime': '179,00 €',
   'pro.page.lifetime': 'Lifetime',
   'pro.page.billedLifetime': 'One payment, no subscription',
-  'pro.page.billedYearly': 'Billed 79,99 € / year',
+  'pro.page.billedYearly': 'Billed 79,90 € / year',
   'pro.page.billedMonthly': 'Billed monthly',
-  // 79,99 against 9,90 x 12 = 118,80 is 32.7% off. Recomputed with the price,
+  // 79,90 against 9,90 x 12 = 118,80 is 32.7% off. Recomputed with the price,
   // not carried over: a savings badge that outlives its arithmetic is a lie
   // the reader can do in their head.
   'pro.page.save': 'Save 33%',
   // Not "most popular": nothing has been sold yet, so that would be a claim
   // about other buyers who do not exist. This one is arithmetic — 179,00
-  // against 79,99 a year pays for itself in a little over two years and costs
+  // against 79,90 a year pays for itself in a little over two years and costs
   // nothing after.
   'pro.page.bestValue': 'Best value',
   'pro.page.restore': 'Restore purchase',
@@ -3448,7 +3448,7 @@ const EN = {
   // action is a navigation link; the only AI write path creates a new template
   // during setup. And there is no trial to start — billing is not live.
   'coach.lock.cta': 'See what Pro does',
-  'coach.lock.fine': 'Planned 79,99 € / year. Billing is not live yet.',
+  'coach.lock.fine': 'Planned 79,90 € / year. Billing is not live yet.',
   'tabs.aiCoach': 'Open Vinha Coach',
   // ── Coach precision wording ───────────────────────────────────────────
   'coach.dayOne': '{count} day',
@@ -3523,7 +3523,7 @@ const FI: Record<I18nKey, string> = {
   'home.a11y.expandSection': 'Laajenna {title}',
   'home.a11y.collapseSection': 'Pienennä {title}',
   // -- Suunnitelmien hinnat (ks. EN-lohkon huomautus) ----------------------
-  'paywall.plan.yearly.price': '79,99 €',
+  'paywall.plan.yearly.price': '79,90 €',
   'paywall.plan.monthly.price': '9,90 €',
   'home.a11y.swapExercise': 'Vaihda {name} toiseen liikkeeseen',
   'home.a11y.startSession': 'Aloita tämän päivän treeni',
@@ -5419,7 +5419,7 @@ const FI: Record<I18nKey, string> = {
   'pro.sheet.bullet.adaptive': 'Mukautuva kuorma jokaisen sarjan jälkeen',
   'pro.sheet.bullet.plateau': 'Tasanne- ja palautumisvaroitukset, ennen kuin ne maksavat viikkoja',
   'pro.sheet.cta': 'Katso, mitä Pro tekee',
-  'pro.sheet.fine': 'Suunniteltu hinta 6,67 €/kk vuosilaskutuksella. Laskutus ei ole vielä käytössä — mitään ei veloiteta.',
+  'pro.sheet.fine': 'Suunniteltu hinta 6,66 €/kk vuosilaskutuksella. Laskutus ei ole vielä käytössä — mitään ei veloiteta.',
   'pro.sheet.notNow': 'Ei nyt',
   'pro.read.title': 'TÄMÄN VIIKON LUENTA',
   'pro.read.improving': 'Kehittyy',
@@ -5531,9 +5531,9 @@ const FI: Record<I18nKey, string> = {
   'pro.v2.val.threeWeek': '3 / vk',
 
   'pro.v2.cta.noTrial': 'Hanki Pro',
-  'pro.v2.ctaSubYearlyNoTrial': '79,99 € / vuosi (6,67 €/kk). Peru milloin vain.',
+  'pro.v2.ctaSubYearlyNoTrial': '79,90 € / vuosi (6,66 €/kk). Peru milloin vain.',
   'pro.v2.cta': 'Aloita 7 päivän ilmainen kokeilu',
-  'pro.v2.ctaSubYearly': 'Sitten 79,99 € / vuosi (6,67 €/kk). Peru milloin vain.',
+  'pro.v2.ctaSubYearly': 'Sitten 79,90 € / vuosi (6,66 €/kk). Peru milloin vain.',
   'pro.v2.ctaSubMonthly': 'Sitten 9,90 € / kk. Peru milloin vain.',
   'pro.v2.ctaSubLifetime': 'Yksi maksu, 179,00 €. Sen jälkeen se on sinun.',
   'pro.v2.footer': 'Peru milloin vain — lokisi ja datasi ovat sinun, Premium tai ei.',
@@ -5581,7 +5581,7 @@ const FI: Record<I18nKey, string> = {
   'pro.v6.pro.setlog.b': 'Yhden liikkeen jokainen sarja, treeni treeniltä.',
   'pro.v6.pro.analysis.t': 'Kirjallinen treenianalyysi',
   'pro.v6.pro.analysis.b': 'Luenta juuri päättyneestä treenistä, omista luvuistasi.',
-  'pro.v6.sub.yearly': '6,67 € / kuukausi',
+  'pro.v6.sub.yearly': '6,66 € / kuukausi',
   'pro.v6.cta.pro': 'Hanki Pro',
 
   'pro.v6.life.head': 'Maksat kerran, et koskaan uudestaan',
@@ -5664,12 +5664,12 @@ const FI: Record<I18nKey, string> = {
   'pro.page.yearly': 'Vuosi',
   'pro.page.monthly': 'Kuukausi',
   'pro.page.perMonth': '/kk',
-  'pro.page.perYearly': '6,67 €',
+  'pro.page.perYearly': '6,66 €',
   'pro.page.perMonthly': '9,90 €',
   'pro.page.perLifetime': '179,00 €',
   'pro.page.lifetime': 'Elinikäinen',
   'pro.page.billedLifetime': 'Yksi maksu, ei tilausta',
-  'pro.page.billedYearly': 'Laskutus 79,99 € / vuosi',
+  'pro.page.billedYearly': 'Laskutus 79,90 € / vuosi',
   'pro.page.billedMonthly': 'Laskutetaan kuukausittain',
   'pro.page.save': 'Säästä 33 %',
   'pro.page.bestValue': 'Paras arvo',
@@ -6731,7 +6731,7 @@ const FI: Record<I18nKey, string> = {
   'coach.empty.body': 'Luen kirjaamiasi sarjoja, eikä niissä ole vielä tarpeeksi, jotta voisin sanoa mitään todenmukaista. Kirjaa pari treeniä, niin tämä täyttyy itsestään.',
   'coach.empty.note': 'Täällä ei ole esimerkkilukuja — kaikki näkemäsi on omista sarjoistasi.',
   'coach.lock.cta': 'Katso, mitä Pro tekee',
-  'coach.lock.fine': 'Suunniteltu hinta 79,99 €/v. Laskutus ei ole vielä käytössä.',
+  'coach.lock.fine': 'Suunniteltu hinta 79,90 €/v. Laskutus ei ole vielä käytössä.',
   'tabs.aiCoach': 'Avaa Vinha Coach',
   // ── Coach precision wording ───────────────────────────────────────────
   'coach.dayOne': '{count} päivässä',

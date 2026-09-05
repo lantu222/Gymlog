@@ -304,13 +304,14 @@ module.exports = [
       // three keys while
       // the paywall's own keys were not among them.
       //
-      // The set is arithmetic, not a list of forbidden numbers: 79,99 / 12 =
-      // 6,67, and against 9,90 x 12 = 118,80 that is 33% off.
+      // The set is arithmetic, not a list of forbidden numbers: 79,90 / 12 =
+      // 6,66, and against 9,90 x 12 = 118,80 that is 33% off.
       //
-      // Each retired price is anchored on a non-digit. Unanchored, /9[.,]99/
-      // matched the tail of the live 79,99 and this guard rejected the price
-      // set it exists to protect — a forbidden-substring check has to mean a
-      // whole number, not any number ending in one.
+      // Each retired price is anchored on a non-digit. Unanchored these are
+      // substring checks, so /9[.,]99/ rejects any price ending in 9,99 and
+      // /5[.,]99/ any price ending in 5,99 — a live price set was briefly
+      // written as 79,99 and this guard turned it down. A forbidden-price
+      // check has to mean a whole number, not any number ending in one.
       for (const shape of [/(?<!\d)71[.,]99/, /(?<!\d)69[.,]99/, /(?<!\d)5[.,]99/, /(?<!\d)9[.,]99/]) {
         assert.doesNotMatch(i18n, shape, `${shape} belongs to the retired price set`);
       }
@@ -333,11 +334,11 @@ module.exports = [
       // yearly.week rendered nowhere else. The two plan prices below survive
       // because PremiumScreen and PremiumUnlockScreen read them.
       const priced = {
-        'pro.page.billedYearly': /79,99/,
-        'coach.lock.fine': /79,99/,
-        'pro.v2.ctaSubYearly': /79,99/,
-        'paywall.plan.yearly.price': /79,99/,
-        'pro.page.perYearly': /6,67/,
+        'pro.page.billedYearly': /79,90/,
+        'coach.lock.fine': /79,90/,
+        'pro.v2.ctaSubYearly': /79,90/,
+        'paywall.plan.yearly.price': /79,90/,
+        'pro.page.perYearly': /6,66/,
         'pro.page.perMonthly': /9,90/,
         'paywall.plan.monthly.price': /9,90/,
         'pro.page.perLifetime': /179,00/,

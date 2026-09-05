@@ -132,7 +132,7 @@ export function resolveProgressionOptions(
  * moment, expiring on its own — rather than being a button that only navigates.
  * That is what makes "Start 7 days free" a true sentence: the seven days are
  * real and the features really unlock. What the screen still cannot deliver is
- * the sentence after it ("then 79,99 € / year"): there is no billing to charge
+ * the sentence after it ("then 79,90 € / year"): there is no billing to charge
  * anyone, which is why that copy lives behind the demo-build guard.
  */
 export const PRO_TRIAL_DAYS = 7;
