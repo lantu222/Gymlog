@@ -764,16 +764,15 @@ export function ProgressScreen({
     [bodyweightProgress.entries],
   );
   /**
-   * The weight chart's x-axis, and the one place the two window shapes meet.
+   * The weight chart's x-axis. Every range trails now, ending today.
    *
-   * At 7D it stays CENTRED on today, which is the card's whole point: the
-   * first weigh-in a reader ever logs lands in the middle rather than pinned
-   * to an edge. That is why the card had no range chips at all — a centred
-   * three-month window would put half the chart in the future.
-   *
-   * The brief gives it chips anyway (piece 06), so the longer ranges take the
-   * trailing window every other chart on the tab uses. Centred is the week's
-   * shape, not the card's law.
+   * 7D used to be CENTRED on today, so a reader's very first weigh-in landed
+   * in the middle of the card rather than pinned to an edge. It also meant the
+   * chip reached three days back and called it a week, which drew an empty
+   * chart for someone who had weighed in on Tuesday (#bugs 2026-09-05). The
+   * two window builders still differ — the week counts days, the longer ranges
+   * derive theirs from the first entry — but they now agree about which end
+   * today is on.
    */
   const weightWindowDays = useMemo(() => {
     const nowMs = Date.now();
@@ -1666,15 +1665,14 @@ export function ProgressScreen({
               lightestKg={bodyweightStats.lightestKg}
               heightCm={heightCm}
               chartDays={weightWindowDays}
+              hasLoggedWeight={bodyweightProgress.entries.length > 0}
               onLogWeight={() => setWeightSheetVisible(true)}
               onEditBmi={() => setBmiSheetVisible(true)}
               /* The same chips every other chart on this tab has (Progress v2,
-                 piece 06). They were deliberately absent — the week is centred
-                 on today and a centred long window is half future — so the
-                 shape follows the range instead: centred at 7D, trailing
-                 beyond it. Handed to the card so they land under ITS chart:
-                 rendered after the component they went under BMI, two cards
-                 down, which is where the device showed them. */
+                 piece 06), and now the same trailing shape behind all of them.
+                 Handed to the card so they land under ITS chart: rendered
+                 after the component they went under BMI, two cards down,
+                 which is where the device showed them. */
               rangeSlot={
                 <View style={styles.trendRangeRow}>
                   <Seg

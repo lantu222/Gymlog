@@ -359,6 +359,10 @@ const EN = {
   'weightCard.heaviest': 'Heaviest',
   'weightCard.lightest': 'Lightest',
   'weightCard.empty': 'Log your weight once and the curve starts here.',
+  /* Said to a reader who HAS a history, when the chosen range holds none
+     of it. The other line invites a first weigh-in and was printed at
+     people with months behind them (#bugs 2026-09-05). */
+  'weightCard.emptyRange': 'No weigh-ins in this range.',
   'weightLog.title': 'Weight',
   'bmi.title': 'BMI',
   'bmi.edit': 'Edit',
@@ -3828,6 +3832,7 @@ const FI: Record<I18nKey, string> = {
   'weightCard.heaviest': 'Raskain',
   'weightCard.lightest': 'Kevyin',
   'weightCard.empty': 'Kirjaa painosi kerran, niin käyrä alkaa tästä.',
+  'weightCard.emptyRange': 'Ei punnituksia tällä välillä.',
   'weightLog.title': 'Paino',
   'bmi.title': 'BMI',
   'bmi.edit': 'Muokkaa',

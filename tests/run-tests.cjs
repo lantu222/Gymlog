@@ -303,6 +303,7 @@ const suites = [
   ...require('./screens/onboardingVisualPolish.test.cjs'),
   ...require('./screens/headerBackReachable.test.cjs'),
   ...require('./lib/workoutDiscovery.test.cjs'),
+  ...require('./lib/impossibleLoads.test.cjs'),
   ...require('./lib/historyView.test.cjs'),
   ...require('./lib/programDetails.test.cjs'),
   ...require('./lib/customProgramDuplication.test.cjs'),

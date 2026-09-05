@@ -293,10 +293,16 @@ module.exports = [
       );
       assert.match(cards, /accessibilityHint=\{t\(language, 'bmi\.edit'\)\}/);
 
-      // The chips, and the reason they can exist now: 7D stays centred on
-      // today, everything longer takes the trailing window every other chart
-      // uses. A centred three-month window is half future, which is why the
-      // card had no chips at all.
+      // The empty line under the chart says which emptiness it is. One key
+      // invites a first weigh-in; printing it at a reader with months of
+      // history was the bug (#bugs 2026-09-05), and only the screen knows
+      // whether there is a history at all.
+      assert.match(cards, /hasLoggedWeight \? 'weightCard\.emptyRange' : 'weightCard\.empty'/);
+      assert.match(screen, /hasLoggedWeight=\{bodyweightProgress\.entries\.length > 0\}/);
+
+      // The chips, and the shape behind them: every range trails now, ending
+      // today. 7D was centred, which reached three days back and called it a
+      // week.
       const weightBranch = screen.slice(
         screen.indexOf('const weightWindowDays = useMemo'),
         screen.indexOf('const weightWindowDays = useMemo') + 1400,

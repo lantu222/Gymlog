@@ -280,7 +280,7 @@ export interface WeightWindowDay {
 }
 
 /**
- * The chart's x-axis: a fixed run of CALENDAR days with today in the middle.
+ * The chart's x-axis: a fixed run of CALENDAR days ending today.
  *
  * The axis is dates, not entries. Plotting entry-by-entry spaced them evenly
  * however far apart they actually were, so a weigh-in on Monday and the next
@@ -288,8 +288,15 @@ export interface WeightWindowDay {
  * day with no entry is a gap in the line and keeps its slot, which is the only
  * way the slope means anything.
  *
- * Today in the middle, not at the right edge, so the first weigh-in a reader
- * ever logs lands in the centre of the card rather than pinned to one end.
+ * It used to be CENTRED on today, so that the first weigh-in a reader ever
+ * logs landed in the middle of the card rather than pinned to one end. That
+ * cosmetic nicety cost more than it bought: a window centred on today reaches
+ * only three days back, so a chip labelled "7 PV" hid a weigh-in from four
+ * days ago and drew an empty chart for a reader with months of history
+ * (#bugs 2026-09-05). The label is a promise about the past, and every other
+ * range on the tab already keeps it by trailing. A brand-new reader's single
+ * entry now sits at the right edge, which is where today is on every other
+ * chart they will look at.
  */
 export function buildWeightWindow(
   entries: readonly BodyweightEntry[],
@@ -299,13 +306,12 @@ export function buildWeightWindow(
   const now = new Date(nowMs);
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const byDay = new Map(collapseToLatestPerDay(entries).map((entry) => [dayStartOf(entry.recordedAt), entry]));
-  const half = Math.floor(days / 2);
 
   return Array.from({ length: days }, (_, index) => {
     // Built by calendar arithmetic, not by adding 86 400 000 ms: a DST change
     // inside the window would otherwise slide every later day by an hour and
     // drop one of them onto the wrong slot.
-    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - half + index);
+    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (days - 1) + index);
     const dayStart = date.getTime();
     return {
       dayStart,
