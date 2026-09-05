@@ -12,10 +12,10 @@ import {
 import Svg, { Path } from 'react-native-svg';
 
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { removeTrailingZeros } from '../lib/format';
 import { t } from '../lib/i18n';
 import { isValidTarget } from '../lib/strengthGoals';
 import {
-  describeStretch,
   estimateWeeksToTarget,
   ObservedRate,
   orderTargetLifts,
@@ -141,7 +141,8 @@ function FlowHead({
 }: {
   step: 1 | 2 | 3;
   title: string;
-  sub: string;
+  /** Null draws no subtitle at all — see step 3. */
+  sub: string | null;
   onBack: () => void;
   language: AppLanguage;
 }) {
@@ -167,7 +168,7 @@ function FlowHead({
         <Text style={styles.stepCount}>{t(language, 'goalFlow.step', { step, total: 3 })}</Text>
       </View>
       <Text style={styles.title}>{title}</Text>
-      <Text style={styles.sub}>{sub}</Text>
+      {sub ? <Text style={styles.sub}>{sub}</Text> : null}
     </View>
   );
 }
@@ -263,7 +264,6 @@ export function StrengthGoalFlowScreen({
    */
   const targetUsable = isValidTarget(targetKg);
   const estimate = estimateWeeksToTarget(bestKg ?? 0, targetUsable ? targetKg : 0, picked?.rate ?? null);
-  const stretch = describeStretch(bestKg ?? 0, targetUsable ? targetKg : 0);
   /*
    * Only where it is shown. Called unconditionally it ran rankProgrammesForLift
    * over all 57 templates on every render of steps 1 and 2 — once per character
@@ -316,7 +316,7 @@ export function StrengthGoalFlowScreen({
                     {item.bestKg === null
                       ? t(language, 'goalFlow.neverLogged')
                       : t(language, 'goalFlow.yourBest', {
-                          kg: item.bestKg,
+                          kg: removeTrailingZeros(item.bestKg),
                           unit: unitLabel,
                           ago: describeRecency(language, item.daysSinceLogged),
                         })}
@@ -324,7 +324,7 @@ export function StrengthGoalFlowScreen({
                   {item.targetKg !== null ? (
                     <Text style={styles.liftTarget}>
                       {t(language, 'goalFlow.alreadyAiming', {
-                        kg: item.targetKg,
+                        kg: removeTrailingZeros(item.targetKg),
                         unit: unitLabel,
                       })}
                     </Text>
@@ -344,11 +344,10 @@ export function StrengthGoalFlowScreen({
               onPress={() => setStep(2)}
               style={({ pressed }) => [styles.cta, pressed && styles.pressed]}
             >
-              <Text style={styles.ctaText}>
-                {t(language, 'goalFlow.continueWith', {
-                  name: exerciseNameLabel(language, picked.exerciseName),
-                })}
-              </Text>
+              {/* Just "Jatka". The lift is ticked one row up, so naming it
+                  again made a button that changes width with the selection and
+                  wraps on the long names (#bugs 2026-09-05). */}
+              <Text style={styles.ctaText}>{t(language, 'goalFlow.continue')}</Text>
             </Pressable>
           ) : (
             <View style={styles.ctaIdle}>
@@ -375,7 +374,7 @@ export function StrengthGoalFlowScreen({
                 })
               : t(language, 'goalFlow.step2.sub', {
                   name: exerciseNameLabel(language, picked.exerciseName),
-                  kg: bestKg,
+                  kg: removeTrailingZeros(bestKg),
                   unit: unitLabel,
                 })
           }
@@ -407,7 +406,7 @@ export function StrengthGoalFlowScreen({
                   <Text style={styles.numberUnit}>{unitLabel}</Text>
                 </View>
                 <Text style={styles.numberDelta}>
-                  {t(language, 'goalFlow.deltaOnBest', { kg: delta, unit: unitLabel })}
+                  {t(language, 'goalFlow.deltaOnBest', { kg: removeTrailingZeros(delta), unit: unitLabel })}
                 </Text>
                 <View style={styles.deltaRow}>
                   {TARGET_DELTAS_KG.map((option) => {
@@ -446,7 +445,7 @@ export function StrengthGoalFlowScreen({
             <Text style={styles.noteBody}>
               {estimate.kind === 'weeks' || estimate.kind === 'noGain' || estimate.kind === 'beyondHorizon'
                 ? t(language, 'goalFlow.rateBody', {
-                    kg: Math.round(estimate.rate.gainKg * 10) / 10,
+                    kg: removeTrailingZeros(Math.round(estimate.rate.gainKg * 10) / 10),
                     weeks: Math.round(estimate.rate.spanWeeks),
                     sessions: estimate.rate.sessions,
                     unit: unitLabel,
@@ -456,13 +455,6 @@ export function StrengthGoalFlowScreen({
           </View>
           ) : null}
 
-          {stretch.stretch ? (
-            <View style={styles.warnCard}>
-              <Text style={styles.warnText}>
-                {t(language, 'goalFlow.stretch', { percent: stretch.percent })}
-              </Text>
-            </View>
-          ) : null}
         </ScrollView>
         <View
           style={[styles.footer, keyboardHeight > 0 && { paddingBottom: keyboardHeight + 12 }]}
@@ -493,14 +485,13 @@ export function StrengthGoalFlowScreen({
         language={language}
         onBack={goBack}
         title={t(language, 'goalFlow.step3.title')}
+        /* No subtitle when there IS a proposal: it restated the card directly
+           underneath — weeks, days a week, how many touch the lift — and the
+           card says all three in bigger type. The empty case keeps its line,
+           because there is nothing below it to read instead. */
         sub={
           proposal
-            ? t(language, 'goalFlow.step3.sub', {
-                weeks: proposal.blockWeeks,
-                days: proposal.daysPerWeek,
-                touching: proposal.targetDays,
-                name: exerciseNameLabel(language, picked.exerciseName),
-              })
+            ? null
             : t(language, 'goalFlow.step3.subNone', {
                 name: exerciseNameLabel(language, picked.exerciseName),
               })
@@ -513,9 +504,11 @@ export function StrengthGoalFlowScreen({
               <Text style={styles.proposalEyebrow}>{t(language, 'goalFlow.proposed')}</Text>
               <Text style={styles.proposalName}>{proposal.programmeName}</Text>
               <Text style={styles.proposalTowards}>
+                {/* The lift's name is the page's subject and was in the line
+                    above; repeating it inside the target read as a sentence
+                    with the noun stuck in the middle (#bugs 2026-09-05). */}
                 {t(language, 'goalFlow.towards', {
-                  name: exerciseNameLabel(language, picked.exerciseName),
-                  kg: targetKg,
+                  kg: removeTrailingZeros(targetKg),
                   unit: unitLabel,
                 })}
               </Text>
@@ -554,9 +547,6 @@ export function StrengthGoalFlowScreen({
               ))}
             </View>
 
-            <View style={styles.noteCard}>
-              <Text style={styles.noteBody}>{t(language, 'goalFlow.nothingYet')}</Text>
-            </View>
           </>
         ) : (
           <View style={styles.noteCard}>
@@ -719,7 +709,14 @@ const makeStyles = (theme: Theme) =>
     footer: {
       paddingHorizontal: 20,
       paddingTop: 12,
-      paddingBottom: layout.bottomTabBarReserve,
+      /*
+       * The BAR's height, not the scroll reserve. `bottomTabBarReserve` is 88
+       * plus a section of air, and its own comment says why: "scrolling
+       * content clears the bar with a section's air; a fixed foot does not."
+       * This foot is fixed, so the extra 32 was a gap under the button on all
+       * three steps — "laske alla olevaa nappia vähän" (#bugs 2026-09-05).
+       */
+      paddingBottom: layout.bottomTabBarHeight,
       borderTopWidth: 1,
       borderTopColor: theme.border,
       backgroundColor: theme.bg,
@@ -843,20 +840,6 @@ const makeStyles = (theme: Theme) =>
       lineHeight: 19,
       fontWeight: '600',
       marginTop: 3,
-    },
-    warnCard: {
-      marginTop: 10,
-      padding: 16,
-      borderRadius: 15,
-      borderWidth: 1,
-      borderColor: theme.amberBorder,
-      backgroundColor: theme.amberSoft,
-    },
-    warnText: {
-      color: theme.amberInk,
-      fontSize: 12.5,
-      lineHeight: 19,
-      fontWeight: '700',
     },
     proposalCard: {
       padding: 18,

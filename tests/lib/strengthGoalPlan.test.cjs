@@ -1,7 +1,6 @@
 const assert = require('node:assert/strict');
 
 const {
-  describeStretch,
   estimateWeeksToTarget,
   orderTargetLifts,
   RATE_HORIZON_WEEKS,
@@ -160,17 +159,37 @@ module.exports = [
     },
   },
   {
-    name: 'goal plan: the stretch read is a share of the reader own best',
+    /**
+     * The stretch warning is gone, and so is the arithmetic behind it.
+     *
+     * It read "that is a 40% jump, reachable but it will need most of a year"
+     * under a target of +5 kg on a 12,5 kg best (#bugs 2026-09-05). The
+     * percentage was right and the sentence was nonsense: a share of a small
+     * number says nothing about how long the number takes, and the wizard
+     * already prints the honest answer directly above it — the weeks estimate
+     * divided out of the reader's own log.
+     *
+     * Pinned as an absence because the module still exports the estimate this
+     * was sitting next to, and the two are easy to confuse when reading it
+     * back.
+     */
+    name: 'goal plan: nothing judges a target by what share of the best it adds',
     run() {
-      assert.deepEqual(describeStretch(100, 110), { stretch: false, percent: 10 });
-      assert.deepEqual(describeStretch(100, 128), { stretch: false, percent: 28 });
-      assert.deepEqual(describeStretch(100, 130), { stretch: true, percent: 30 });
-      // +30 on a 60 kg best is half again; +30 on a 200 kg best is not.
-      assert.equal(describeStretch(60, 90).stretch, true);
-      assert.equal(describeStretch(200, 230).stretch, false);
-      // Nothing logged: no percentage of zero.
-      assert.deepEqual(describeStretch(0, 100), { stretch: false, percent: 0 });
-      assert.deepEqual(describeStretch(NaN, 100), { stretch: false, percent: 0 });
+      const planModule = require('../../.test-dist/lib/strengthGoalPlan.js');
+      assert.equal(planModule.describeStretch, undefined);
+      assert.equal(planModule.STRETCH_RATIO, undefined);
+
+      // Required here rather than at the top, the way io_kinds() below does.
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const screen = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'screens', 'StrengthGoalFlowScreen.tsx'),
+        'utf8',
+      );
+      assert.doesNotMatch(screen, /describeStretch|goalFlow\.stretch/);
+      // The estimate it stood beside stays: that one is division on the
+      // reader's own sets rather than a percentage of one number.
+      assert.match(screen, /goalFlow\.weeksAtRate/);
     },
   },
   {

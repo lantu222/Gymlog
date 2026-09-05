@@ -101,6 +101,9 @@ module.exports = [
       );
       assert.equal(hips[0].title, 'Tape measure: Hips');
       assert.match(hips[0].key, /^measure-hips-2026-7-5$/);
+      // The kind travels, so the tap can open the measures list ON hips
+      // rather than on whatever was selected last (#bugs 2026-09-05).
+      assert.equal(hips[0].measureKind, 'hips');
 
       // Wednesday today, 07:30 already gone: next Wednesday, not this one.
       const wednesdays = planWith({

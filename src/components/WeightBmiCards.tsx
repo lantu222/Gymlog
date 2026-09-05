@@ -38,6 +38,16 @@ interface WeightBmiCardsProps {
   heightCm: number | null;
   /** The calendar window the curve is drawn over — see buildWeightWindow. */
   chartDays: WeightWindowDay[];
+  /**
+   * Has this reader ever logged a weight, anywhere in their history?
+   *
+   * Not derivable from `chartDays`, which only knows the selected range, and
+   * that was the bug: an empty window printed "log your weight once and the
+   * curve starts here" at a reader with months of weigh-ins behind them
+   * (#bugs 2026-09-05). "Nothing yet" and "nothing in this window" are
+   * different sentences and only the caller can tell them apart.
+   */
+  hasLoggedWeight: boolean;
   onLogWeight: () => void;
   onEditBmi: () => void;
   /**
@@ -130,6 +140,7 @@ export function WeightBmiCards({
   lightestKg,
   heightCm,
   chartDays,
+  hasLoggedWeight,
   onLogWeight,
   onEditBmi,
   rangeSlot,
@@ -191,7 +202,9 @@ export function WeightBmiCards({
         {chartDays.some((day) => day.value !== null) ? (
           <WeightTrendChart days={chartDays} />
         ) : (
-          <Text style={styles.emptyLine}>{t(language, 'weightCard.empty')}</Text>
+          <Text style={styles.emptyLine}>
+            {t(language, hasLoggedWeight ? 'weightCard.emptyRange' : 'weightCard.empty')}
+          </Text>
         )}
       </View>
 

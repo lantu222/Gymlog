@@ -1,4 +1,5 @@
 import { ExerciseLog, ExerciseLogDraft, ExerciseLogSet } from '../types/models';
+import { isLiftableWeight } from './weightLimits';
 
 function normalizeNumber(value: number | null | undefined, fallback = 0) {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
@@ -45,6 +46,14 @@ export function sortExerciseSets<T extends Pick<ExerciseLogSet, 'orderIndex'>>(s
 export function synthesizeSetsFromLegacy(weight: number | null | undefined, repsPerSet: number[] | null | undefined) {
   const normalizedWeight = normalizeNumber(weight, 0);
 
+  // The same rule as the set list below, because this is the other way in. A
+  // log whose rows were all dropped as impossible falls back to here, and
+  // rebuilding them from the legacy pair would hand back the very number that
+  // was just discarded.
+  if (!isLiftableWeight(normalizedWeight)) {
+    return [];
+  }
+
   return normalizeRepsPerSet(repsPerSet).map<ExerciseLogSet>((reps, orderIndex) => ({
     orderIndex,
     weight: normalizedWeight,
@@ -76,6 +85,26 @@ export function normalizeExerciseSets(
             completedAt: typeof set.completedAt === 'string' ? set.completedAt : null,
             skippedReason: typeof set.skippedReason === 'string' ? set.skippedReason : null,
           }))
+          /*
+           * A weight nobody could have lifted is not a set (#bugs 2026-09-05).
+           *
+           * The dial grew a 500 kg ceiling on 2026-08-27, but only on the way
+           * in. One install already held a sumo deadlift of 5122,5 kg — the
+           * +5000 kg stuck button from the morning before the fix — and every
+           * layer downstream believed it: 123 340 kg in records, 41 tonnes of
+           * volume, and a strength target the app then refused to accept
+           * because the only reachable numbers were all above its own 1000 kg
+           * limit. The button looked broken; the data was.
+           *
+           * The set goes rather than its weight. Clamping to 500 would mint a
+           * personal record that is just as false and far more believable, and
+           * zeroing it would write a bodyweight sumo deadlift into the history.
+           * We know the reps happened; we do not know what was on the bar, and
+           * an honest log says so by not carrying the row. When that empties a
+           * log, `logRecordedWork` already reads it as a session in which
+           * nothing was lifted, which is the state it deserves.
+           */
+          .filter((set) => isLiftableWeight(set.weight))
           .filter(
             (set) =>
               set.status !== 'completed' ||

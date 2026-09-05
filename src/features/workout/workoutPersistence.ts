@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { normalizeActiveCardioSession } from '../../lib/cardio';
+import { scrubImpossibleSessionLoads } from '../../lib/impossibleLoads';
 import { getWorkoutTemplateById } from './workoutCatalog';
 import { WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutSessionRuntime, WorkoutSessionSummary } from './workoutTypes';
 
@@ -49,7 +50,7 @@ function normalizeActiveSession(input: unknown): WorkoutSessionRuntime | null {
     return null;
   }
 
-  const session = input as unknown as WorkoutSessionRuntime;
+  const session = scrubImpossibleSessionLoads(input as unknown as WorkoutSessionRuntime);
   const template = getWorkoutTemplateById(session.templateId);
   if (!template) {
     return session;

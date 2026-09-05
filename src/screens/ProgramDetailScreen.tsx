@@ -17,6 +17,7 @@ import { EMPHASIS_AREA_KEYS, emphasisAreaForExercise, resolveProgramEmphasis } f
 import { WEEKDAY_INDEX, WEEKDAY_KEYS } from '../lib/programTrainingDays';
 import { DEFAULT_RHYTHM_BY_DAYS, isSetupDaysPerWeek } from '../lib/firstRunSetup';
 import { estimateSessionMinutes } from '../lib/sessionDuration';
+import { useDragHold } from '../hooks/useDragHold';
 import {
   buildTrainingWeekLoad,
   formatTrainingDays,
@@ -208,8 +209,10 @@ export function ProgramDetailScreen({
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragTarget, setDragTarget] = useState<number | null>(null);
   const dragY = useRef(new Animated.Value(0)).current;
-  const dragStartPageY = useRef(0);
   const rowHeights = useRef<number[]>([]);
+
+  /** The grip is held before it picks a day up — see useDragHold. */
+  const dragHold = useDragHold();
 
   const dragTargetFor = (from: number, dy: number) => {
     const heights = rowHeights.current;
@@ -228,11 +231,16 @@ export function ProgramDetailScreen({
   };
 
   const endDrag = (commit: boolean) => {
+    // A grip that was touched but never held moves nothing.
+    const wasHeld = dragHold.end();
     const from = dragIndex;
     const to = dragTarget;
     setDragIndex(null);
     setDragTarget(null);
     dragY.setValue(0);
+    if (!wasHeld) {
+      return;
+    }
     if (commit && from !== null && to !== null && to !== from) {
       const session = program.sessions[from];
       if (session) {
@@ -904,13 +912,17 @@ export function ProgramDetailScreen({
                     onStartShouldSetResponder={() => true}
                     onResponderTerminationRequest={() => false}
                     onResponderGrant={(event) => {
-                      dragStartPageY.current = event.nativeEvent.pageY;
                       dragY.setValue(0);
-                      setDragIndex(index);
-                      setDragTarget(index);
+                      dragHold.begin(event.nativeEvent.pageY, () => {
+                        setDragIndex(index);
+                        setDragTarget(index);
+                      });
                     }}
                     onResponderMove={(event) => {
-                      const dy = event.nativeEvent.pageY - dragStartPageY.current;
+                      const dy = dragHold.move(event.nativeEvent.pageY);
+                      if (dy === null) {
+                        return;
+                      }
                       dragY.setValue(dy);
                       const target = dragTargetFor(index, dy);
                       setDragTarget((current) => (current === target ? current : target));
@@ -933,7 +945,12 @@ export function ProgramDetailScreen({
                     so the big numeral was the same fact twice, at the size of
                     the more important one. */}
                 <View style={styles.workoutCopy}>
-                  <Text style={styles.workoutName} numberOfLines={1} adjustsFontSizeToFit>
+                  {/* One line, ellipsised — NOT adjustsFontSizeToFit, which
+                      re-measures on every re-layout and made the titles jump
+                      size while a day was being dragged past them (#bugs
+                      2026-09-05). A name too long for the row is truncated
+                      here exactly as it is in Historia and on Progress. */}
+                  <Text style={styles.workoutName} numberOfLines={1}>
                     {formatPlanSessionTitle(session, index, displayTitle, language)}
                   </Text>
                   <Text style={styles.workoutMeta}>

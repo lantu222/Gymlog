@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Circle, Path, Polyline, Rect } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { VinhaIcon } from '../components/VinhaIcon';
 import { EmptyBox } from '../components/EmptyBox';
@@ -705,6 +706,7 @@ export function ProgressScreen({
 }: ProgressScreenProps) {
   const theme = useTheme();
   const themeName = useThemeName();
+  const insets = useSafeAreaInsets();
   const styles = useThemedStyles(makeStyles);
   /**
    * The section tabs, per theme.
@@ -764,16 +766,15 @@ export function ProgressScreen({
     [bodyweightProgress.entries],
   );
   /**
-   * The weight chart's x-axis, and the one place the two window shapes meet.
+   * The weight chart's x-axis. Every range trails now, ending today.
    *
-   * At 7D it stays CENTRED on today, which is the card's whole point: the
-   * first weigh-in a reader ever logs lands in the middle rather than pinned
-   * to an edge. That is why the card had no range chips at all — a centred
-   * three-month window would put half the chart in the future.
-   *
-   * The brief gives it chips anyway (piece 06), so the longer ranges take the
-   * trailing window every other chart on the tab uses. Centred is the week's
-   * shape, not the card's law.
+   * 7D used to be CENTRED on today, so a reader's very first weigh-in landed
+   * in the middle of the card rather than pinned to an edge. It also meant the
+   * chip reached three days back and called it a week, which drew an empty
+   * chart for someone who had weighed in on Tuesday (#bugs 2026-09-05). The
+   * two window builders still differ — the week counts days, the longer ranges
+   * derive theirs from the first entry — but they now agree about which end
+   * today is on.
    */
   const weightWindowDays = useMemo(() => {
     const nowMs = Date.now();
@@ -1257,7 +1258,6 @@ export function ProgressScreen({
             );
           })}
         </View>
-        <Text style={styles.readFooter}>{t(language, 'pro.read.footer')}</Text>
       </View>
     );
   }
@@ -1666,15 +1666,14 @@ export function ProgressScreen({
               lightestKg={bodyweightStats.lightestKg}
               heightCm={heightCm}
               chartDays={weightWindowDays}
+              hasLoggedWeight={bodyweightProgress.entries.length > 0}
               onLogWeight={() => setWeightSheetVisible(true)}
               onEditBmi={() => setBmiSheetVisible(true)}
               /* The same chips every other chart on this tab has (Progress v2,
-                 piece 06). They were deliberately absent — the week is centred
-                 on today and a centred long window is half future — so the
-                 shape follows the range instead: centred at 7D, trailing
-                 beyond it. Handed to the card so they land under ITS chart:
-                 rendered after the component they went under BMI, two cards
-                 down, which is where the device showed them. */
+                 piece 06), and now the same trailing shape behind all of them.
+                 Handed to the card so they land under ITS chart: rendered
+                 after the component they went under BMI, two cards down,
+                 which is where the device showed them. */
               rangeSlot={
                 <View style={styles.trendRangeRow}>
                   <Seg
@@ -1940,17 +1939,21 @@ export function ProgressScreen({
                   strokeLinecap="round"
                 />
               </Svg>
-              <Text style={styles.measureAddText}>{t(language, 'progress.trackAnother')}</Text>
+              <Text style={styles.measureAddText}>{t(language, 'progress.addMeasure')}</Text>
             </Pressable>
           ) : null}
         </View>
 
         {/* The kit's own sheet, the same one Home adds a stat card with. */}
+        {/* No title: it repeated the row that opened it, and the list names
+            itself. And a REAL bottom inset — this was hardcoded to 0, so the
+            last measurement sat under the gesture bar and the sheet read as
+            cut off ("nosta vähän ylemmäs", #bugs 2026-09-05). A Modal's own
+            safe-area inset is 0; the screen has to read it and pass it down. */}
         <KitSheet
           visible={measurePickerVisible}
           onClose={() => setMeasurePickerVisible(false)}
-          title={t(language, 'progress.trackAnother')}
-          bottomInset={0}
+          bottomInset={insets.bottom}
         >
           {untracked.map((item) => (
             <KitRow
@@ -1971,8 +1974,10 @@ export function ProgressScreen({
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
+        {/* No subtitle. It sat above all four sub-tabs and described none of
+            them — "ylhäällä sama treeni jonka olet rakentanut" on the records
+            page, the measures page and the trend (#bugs 2026-09-05). */}
         <Text style={styles.headerTitle}>{t(language, 'progress.title')}</Text>
-        <Text style={styles.headerSubtitle}>{t(language, 'progress.subtitle')}</Text>
         {/* A3: the selector carries the cut, and so does the selected tab —
             the design's VALITSIN. The inner tab sits inside the shell's
             padding, so the two cuts are not in the same corner. */}
@@ -2204,13 +2209,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.ink,
     lineHeight: 20,
   },
-  readFooter: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: theme.faint,
-    lineHeight: 18,
-    marginTop: 14,
-  },
   header: {
     paddingHorizontal: 20,
     paddingTop: 4,
@@ -2221,12 +2219,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 28,
     fontWeight: '800',
     letterSpacing: -0.5,
-  },
-  headerSubtitle: {
-    color: theme.muted,
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 2,
   },
   tabsRow: {
     flexDirection: 'row',

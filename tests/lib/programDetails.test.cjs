@@ -163,7 +163,10 @@ module.exports = [
         'fi',
       );
       assert.ok(fi.badges.includes('Oma ohjelma'));
-      assert.match(fi.description, /omista treeneist/);
+      // No lead paragraph at all now: the one it used to return was fixed
+      // copy that described no programme in particular (#bugs 2026-09-05).
+      // A ready programme still gets its own, which the case above pins.
+      assert.equal(fi.description, '');
       assert.equal(fi.primaryActionLabel, 'Ota ohjelma käyttöön');
 
       // Already the plan Home reads: the button offers the next workout
