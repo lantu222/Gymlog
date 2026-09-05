@@ -1915,7 +1915,7 @@ const EN = {
   'coachChat.readout.today': 'Today',
   'coachChat.online.title': 'The coach is online',
   'coachChat.online.body':
-    'Your question, the earlier messages of this conversation and a summary of your training are sent over an encrypted connection to our server and on to Anthropic, which writes the answer. The summary holds your recent workouts (exercises, sets, reps, kilograms, dates), your programme, your goals and setup answers, and — if you have logged them — your latest weight, measurements, height, age and gender. Your name, email and any identifier of you or your phone are never sent. We keep no copy; Anthropic does not train on it and deletes it within 30 days.',
+    'Your question, the earlier messages of this conversation and a summary of your training are sent over an encrypted connection to our server and on to Anthropic, which writes the answer. The summary holds your recent workouts (exercises, sets, reps, kilograms, dates), your programme, your goals and setup answers, the coach’s own answers from the last three weeks so it does not repeat advice you have already had, and — if you have logged them — your latest weight, measurements, height, age and gender. Your name, email and any identifier of you or your phone are never sent. We keep no copy; Anthropic does not train on it and deletes it within 30 days.',
   'coachChat.online.ok': 'Got it',
   'coachChat.section.why': 'Why',
   'coachChat.section.next': 'Next',
@@ -5301,7 +5301,7 @@ const FI: Record<I18nKey, string> = {
   'coachChat.readout.today': 'Tänään',
   'coachChat.online.title': 'Valmentaja on verkossa',
   'coachChat.online.body':
-    'Kysymyksesi, tämän keskustelun aiemmat viestit ja yhteenveto treenistäsi lähetetään salattua yhteyttä pitkin palvelimellemme ja sieltä Anthropicille, joka kirjoittaa vastauksen. Yhteenvedossa ovat viimeaikaiset treenisi (liikkeet, sarjat, toistot, kilot, päivämäärät), ohjelmasi, tavoitteesi ja käyttöönoton vastauksesi sekä — jos olet kirjannut ne — viimeisin painosi, mittasi, pituutesi, ikäsi ja sukupuolesi. Nimeäsi, sähköpostiasi tai mitään sinun tai puhelimesi tunnistetta ei koskaan lähetetä. Emme säilytä kopiota; Anthropic ei opeta sillä mallejaan ja poistaa sen 30 päivän kuluessa.',
+    'Kysymyksesi, tämän keskustelun aiemmat viestit ja yhteenveto treenistäsi lähetetään salattua yhteyttä pitkin palvelimellemme ja sieltä Anthropicille, joka kirjoittaa vastauksen. Yhteenvedossa ovat viimeaikaiset treenisi (liikkeet, sarjat, toistot, kilot, päivämäärät), ohjelmasi, tavoitteesi ja käyttöönoton vastauksesi, valmentajan omat vastaukset viimeisiltä kolmelta viikolta jottei se toista jo antamaansa neuvoa, sekä — jos olet kirjannut ne — viimeisin painosi, mittasi, pituutesi, ikäsi ja sukupuolesi. Nimeäsi, sähköpostiasi tai mitään sinun tai puhelimesi tunnistetta ei koskaan lähetetä. Emme säilytä kopiota; Anthropic ei opeta sillä mallejaan ja poistaa sen 30 päivän kuluessa.',
   'coachChat.online.ok': 'Selvä',
   'coachChat.section.why': 'Miksi',
   'coachChat.section.next': 'Seuraavaksi',

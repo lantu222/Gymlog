@@ -78,6 +78,8 @@ export interface HomeScreensDeps {
   /** The coach thread, held above the screen so leaving it does not end it. */
   coachChatMemory: ChatScreenProps['memory'];
   onCoachChatMemoryChange: ChatScreenProps['onMemoryChange'];
+  /** The coach's own memory of what it advised — outlives the thread. */
+  onCoachAdviceGiven: ChatScreenProps['onAdviceGiven'];
   sessionAnalysis: React.ComponentProps<typeof SessionAnalysisScreen>['analysis'];
 }
 
@@ -121,6 +123,7 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
     accountBackup,
     coachChatMemory,
     onCoachChatMemoryChange,
+    onCoachAdviceGiven,
     sessionAnalysis,
   } = deps;
 
@@ -375,6 +378,7 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
         transcriptReporter={accountBackup.state.status === 'signed_in' ? accountBackup.state.email : null}
         memory={coachChatMemory}
         onMemoryChange={onCoachChatMemoryChange}
+        onAdviceGiven={onCoachAdviceGiven}
       />
     );
   }

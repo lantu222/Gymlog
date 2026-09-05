@@ -163,6 +163,13 @@ interface AICoachChatScreenProps {
    */
   memory: CoachChatMemory<ChatMessage> | null;
   onMemoryChange: (memory: CoachChatMemory<ChatMessage>) => void;
+  /**
+   * One answer's takeaway, for the memory that outlives this thread — see
+   * lib/coachAdviceMemory. Called only for answers that reached the model:
+   * remembering the offline preview text would teach the coach it had already
+   * said something it never said.
+   */
+  onAdviceGiven?: (takeaway: string) => void;
 }
 
 export interface ChatMessage {
@@ -283,6 +290,7 @@ export function AICoachChatScreen({
   transcriptReporter,
   memory,
   onMemoryChange,
+  onAdviceGiven,
 }: AICoachChatScreenProps) {
   const theme = useTheme();
   const themeName = useThemeName();
@@ -304,6 +312,29 @@ export function AICoachChatScreen({
    * in its dependency list would be one turn behind.
    */
   const conversation = useRef<AICoachConversationTurn[]>(resumed?.turns ?? []);
+  /**
+   * The coach's long memory as it stood when this thread opened, pinned.
+   *
+   * The endpoint puts a cache breakpoint on the training context (see the
+   * `system` array in api/ai-coach.ts), and a same-conversation follow-up is
+   * only cheap because it reads that entry back. Letting the answer just given
+   * into the context would change those bytes on every turn, so every
+   * follow-up would rewrite the whole prefix instead of reading it — the
+   * expensive half of the request, paid again for one added line.
+   *
+   * Nothing is lost by pinning: what the coach said a moment ago is already in
+   * `conversation` below, which is what an open conversation is for. This
+   * memory exists for the questions that come days later.
+   */
+  const pinnedCoachMemory = useRef(trainingContext.coachMemory ?? []).current;
+  /**
+   * The context as it is sent: everything the app knows now, with the memory
+   * held still. Rebuilt only when the rest of the context changes.
+   */
+  const sentTrainingContext = useMemo(
+    () => ({ ...trainingContext, coachMemory: pinnedCoachMemory }),
+    [trainingContext, pinnedCoachMemory],
+  );
 
   /**
    * Publish the thread upward whenever it changes.
@@ -728,7 +759,7 @@ export function AICoachChatScreen({
       try {
         const result = await requestAiCoachAdvice({
           prompt: trimmed,
-          context: trainingContext,
+          context: sentTrainingContext,
           language,
           // What was already said in this thread, so a follow-up resolves.
           history: conversation.current,
@@ -780,6 +811,16 @@ export function AICoachChatScreen({
           question: trimmed,
           takeaway: answer.takeaway,
         });
+        // And the long memory, on a narrower rule than the thread above. The
+        // thread keeps a clarifying question so the reader's reply has an
+        // antecedent; the memory keeps only advice, so an answer that asked
+        // for a clearer question is not stored as something the coach said.
+        // Preview text never counts: it is the canned offline answer, and
+        // recording it would have the coach believe it had advised something
+        // it never reached the model to say.
+        if (result.source !== 'preview' && !answer.unanswered) {
+          onAdviceGiven?.(answer.takeaway);
+        }
         // The whole answer, as sections: a takeaway, then the reasons, the
         // steps and the plan each on their own lines. One run-on paragraph
         // buried the dates and numbers (#bugs, 2026-08-23).
@@ -936,6 +977,8 @@ export function AICoachChatScreen({
       proUnlocked,
       sessionCount,
       trainingContext,
+      sentTrainingContext,
+      onAdviceGiven,
       weighInReminderEnabled,
     ],
   );

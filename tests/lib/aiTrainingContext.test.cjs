@@ -112,6 +112,7 @@ module.exports = [
       assert.deepEqual(Object.keys(context).sort(), [
         'activeSession',
         'body',
+        'coachMemory',
         'customProgramTitle',
         'fatigue',
         'goals',

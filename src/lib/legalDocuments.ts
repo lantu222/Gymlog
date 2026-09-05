@@ -60,7 +60,7 @@ function publisher(): string {
 }
 
 /** Bumped whenever the wording changes in a way a user should re-read. */
-export const LEGAL_LAST_UPDATED = '2026-09-04';
+export const LEGAL_LAST_UPDATED = '2026-09-05';
 
 export type LegalDocumentId = 'privacy' | 'terms';
 
@@ -108,6 +108,7 @@ const PRIVACY_EN: LegalSection[] = [
       'Body data you add yourself: weight entries and tape measurements.',
       'Your programmes: the ones you build, import from a CSV file or a photo, and the exercise names you teach the app.',
       'Goals you set with the coach, and the milestones and seasons the app counts from your log.',
+      'What the coach has advised you in the last three weeks: the one-sentence summary of each answer and the date it was given, at most ten of them. It is kept so the coach does not repeat advice you have already had, it is deleted as it ages past three weeks, and it stays on this phone — the cloud backup below does not carry it.',
       'Preferences: language, units, theme, notification and sound settings, default rest time, training breaks.',
       'Pro status: whether Pro is on, when it was bought or cancelled, and the date until which a promo code keeps it on.',
       'Small bookkeeping: whether the rating prompt or the online-coach notice has been shown, the summary file the home-screen widget reads, the queue of usage events waiting to be sent, and a copy of a damaged data file if the app ever finds one — it is set aside rather than deleted, so a broken file is not a lost training log.',
@@ -135,7 +136,7 @@ const PRIVACY_EN: LegalSection[] = [
     body: [
       'The coach has two modes. In on-device mode, the default, answers are put together on your phone from your own log, and nothing leaves the device — not the question, not the answer.',
       'In online mode, which a version of the app switches on, the app shows you a notice before your first question, and nothing is sent until you have read it. After that, each question you send carries three things: the question, the earlier messages of the same conversation, and a summary of your training.',
-      'The summary contains your recent workouts (exercise names, sets, reps, kilograms, dates, durations), your current programme and its week, your goals, your setup answers (goal, level, days per week, equipment, limitations) and — if you have logged them — your latest weight, tape measurements, height, age and gender.',
+      'The summary contains your recent workouts (exercise names, sets, reps, kilograms, dates, durations), your current programme and its week, your goals, your setup answers (goal, level, days per week, equipment, limitations), the coach’s own answers from the last three weeks in one sentence each, so it does not repeat advice you have already had, and — if you have logged them — your latest weight, tape measurements, height, age and gender.',
       'It does not contain your name, your email, your Google account or any identifier of your phone. The question cannot be tied to you. Our server sees the phone’s internet address, which it holds briefly in memory to limit how many requests one connection can make; it is not stored.',
       'Our server forwards the question to Anthropic, the company behind the Claude model, which writes the answer in the United States. Under Anthropic’s commercial terms the data is not used to train its models and is deleted within 30 days. We keep no copy of questions or answers.',
       'The programme composer works the same way: when you ask the app to build a programme from a written brief, the brief and the same summary are sent along the same route.',
@@ -311,6 +312,7 @@ const PRIVACY_FI: LegalSection[] = [
       'Kehon tiedot, jotka itse lisäät: painomerkinnät ja mittanauhalla otetut mitat.',
       'Ohjelmasi: ne, jotka rakennat, tuot CSV-tiedostosta tai valokuvasta, sekä liikenimet, jotka opetat sovellukselle.',
       'Valmentajan kanssa asettamasi tavoitteet sekä virstanpylväät ja kaudet, jotka sovellus laskee lokistasi.',
+      'Mitä valmentaja on neuvonut sinulle viimeisten kolmen viikon aikana: kunkin vastauksen yhden lauseen tiivistelmä ja päivä, jona se annettiin, enintään kymmenen kappaletta. Se säilytetään, jottei valmentaja toista jo antamaansa neuvoa, se poistuu kolmea viikkoa vanhetessaan, ja se pysyy tässä puhelimessa — alla kuvattu pilvivarmuuskopio ei kanna sitä mukanaan.',
       'Asetukset: kieli, yksiköt, teema, ilmoitus- ja ääniasetukset, oletuslepoaika, treenitauot.',
       'Pro-tila: onko Pro päällä, milloin se ostettiin tai peruttiin, ja päivä, johon asti kampanjakoodi pitää sen päällä.',
       'Pientä kirjanpitoa: onko arviointipyyntö tai verkkovalmentajan ilmoitus jo näytetty, tiivistelmätiedosto, jota kotinäytön widget lukee, jono lähetystä odottavia käyttötapahtumia, sekä kopio vaurioituneesta datatiedostosta, jos sovellus sellaisen joskus löytää — se siirretään sivuun eikä poisteta, jotta rikkoutunut tiedosto ei ole menetetty treeniloki.',
@@ -338,7 +340,7 @@ const PRIVACY_FI: LegalSection[] = [
     body: [
       'Valmentajalla on kaksi tilaa. Laitetilassa, joka on oletus, vastaukset kootaan puhelimessasi omasta lokistasi, eikä mitään lähde laitteelta — ei kysymys eikä vastaus.',
       'Verkkotilassa, jonka sovelluksen versio kytkee päälle, sovellus näyttää sinulle ilmoituksen ennen ensimmäistä kysymystä, eikä mitään lähetetä ennen kuin olet lukenut sen. Sen jälkeen jokainen lähettämäsi kysymys kantaa mukanaan kolme asiaa: kysymyksen, saman keskustelun aiemmat viestit ja yhteenvedon treenistäsi.',
-      'Yhteenvedossa ovat viimeaikaiset treenisi (liikkeiden nimet, sarjat, toistot, kilot, päivämäärät, kestot), nykyinen ohjelmasi ja sen viikko, tavoitteesi, käyttöönoton vastauksesi (tavoite, taso, treenipäivät viikossa, välineet, rajoitteet) sekä — jos olet kirjannut ne — viimeisin painosi, mittasi, pituutesi, ikäsi ja sukupuolesi.',
+      'Yhteenvedossa ovat viimeaikaiset treenisi (liikkeiden nimet, sarjat, toistot, kilot, päivämäärät, kestot), nykyinen ohjelmasi ja sen viikko, tavoitteesi, käyttöönoton vastauksesi (tavoite, taso, treenipäivät viikossa, välineet, rajoitteet), valmentajan omat vastaukset viimeisiltä kolmelta viikolta yhtenä lauseena kukin, jottei se toista jo antamaansa neuvoa, sekä — jos olet kirjannut ne — viimeisin painosi, mittasi, pituutesi, ikäsi ja sukupuolesi.',
       'Siinä ei ole nimeäsi, sähköpostiasi, Google-tiliäsi eikä mitään puhelimesi tunnistetta. Kysymystä ei voi yhdistää sinuun. Palvelimemme näkee puhelimen internet-osoitteen, jota se pitää hetken muistissa rajoittaakseen, montako pyyntöä yksi yhteys voi tehdä; sitä ei tallenneta.',
       'Palvelimemme välittää kysymyksen Anthropicille, Claude-mallin kehittäjälle, joka kirjoittaa vastauksen Yhdysvalloissa. Anthropicin kaupallisten ehtojen mukaan tietoja ei käytetä sen mallien opettamiseen, ja ne poistetaan 30 päivän kuluessa. Me emme säilytä kopiota kysymyksistä emmekä vastauksista.',
       'Ohjelmakoostaja toimii samalla tavalla: kun pyydät sovellusta rakentamaan ohjelman kirjoittamasi kuvauksen pohjalta, kuvaus ja sama yhteenveto lähetetään samaa reittiä.',

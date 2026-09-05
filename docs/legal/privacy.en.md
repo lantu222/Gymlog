@@ -1,6 +1,6 @@
 # Privacy policy
 
-*Updated 4 September 2026*
+*Updated 5 September 2026*
 
 What Vinha stores, what leaves your phone, and what you can do about it.
 
@@ -27,6 +27,7 @@ Everything below is either entered by you or worked out by the app from what you
 - Body data you add yourself: weight entries and tape measurements.
 - Your programmes: the ones you build, import from a CSV file or a photo, and the exercise names you teach the app.
 - Goals you set with the coach, and the milestones and seasons the app counts from your log.
+- What the coach has advised you in the last three weeks: the one-sentence summary of each answer and the date it was given, at most ten of them. It is kept so the coach does not repeat advice you have already had, it is deleted as it ages past three weeks, and it stays on this phone — the cloud backup below does not carry it.
 - Preferences: language, units, theme, notification and sound settings, default rest time, training breaks.
 - Pro status: whether Pro is on, when it was bought or cancelled, and the date until which a promo code keeps it on.
 - Small bookkeeping: whether the rating prompt or the online-coach notice has been shown, the summary file the home-screen widget reads, the queue of usage events waiting to be sent, and a copy of a damaged data file if the app ever finds one — it is set aside rather than deleted, so a broken file is not a lost training log.
@@ -55,7 +56,7 @@ The coach has two modes. In on-device mode, the default, answers are put togethe
 
 In online mode, which a version of the app switches on, the app shows you a notice before your first question, and nothing is sent until you have read it. After that, each question you send carries three things: the question, the earlier messages of the same conversation, and a summary of your training.
 
-The summary contains your recent workouts (exercise names, sets, reps, kilograms, dates, durations), your current programme and its week, your goals, your setup answers (goal, level, days per week, equipment, limitations) and — if you have logged them — your latest weight, tape measurements, height, age and gender.
+The summary contains your recent workouts (exercise names, sets, reps, kilograms, dates, durations), your current programme and its week, your goals, your setup answers (goal, level, days per week, equipment, limitations), the coach’s own answers from the last three weeks in one sentence each, so it does not repeat advice you have already had, and — if you have logged them — your latest weight, tape measurements, height, age and gender.
 
 It does not contain your name, your email, your Google account or any identifier of your phone. The question cannot be tied to you. Our server sees the phone’s internet address, which it holds briefly in memory to limit how many requests one connection can make; it is not stored.
 

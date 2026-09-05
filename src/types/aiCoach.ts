@@ -1,5 +1,6 @@
 import { SetupWeekday, UnitPreference } from './models';
 import { FatigueSignal } from '../lib/fatigueModel';
+import type { CoachAdviceMemoryLine } from '../lib/coachAdviceMemory';
 
 export interface AICoachLiftHighlight {
   key: string;
@@ -266,6 +267,12 @@ export interface AICoachTrainingContext {
   goals?: AICoachGoal[];
   profile?: AICoachProfile | null;
   homeState?: AICoachHomeState | null;
+  /**
+   * What the coach itself said in the last three weeks, oldest first — see
+   * lib/coachAdviceMemory. Optional: an older client sends none, and a reader
+   * who has never asked a question has none to send.
+   */
+  coachMemory?: CoachAdviceMemoryLine[];
 }
 
 export type AICoachActionKind =

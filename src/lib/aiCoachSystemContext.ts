@@ -270,5 +270,19 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
     if (setupBlock) blocks.push(setupBlock);
   }
 
+  // What the coach itself said before, so it stops repeating advice the reader
+  // has already had — see lib/coachAdviceMemory. Last, and headed the way it
+  // is, because the one thing that must not happen is the model reading these
+  // as facts about training that is happening now. They are dated on purpose:
+  // a cue from three weeks ago may already have been outgrown.
+  const memoryLines = (context.coachMemory ?? []).map(
+    (entry) => `- ${entry.day}: ${entry.takeaway}`,
+  );
+  const memoryBlock = section(
+    'Advice you have already given this reader (your own past answers, not current facts — do not repeat them, build on them, and say so when you change your mind)',
+    memoryLines,
+  );
+  if (memoryBlock) blocks.push(memoryBlock);
+
   return blocks.join('\n\n');
 }
