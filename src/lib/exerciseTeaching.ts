@@ -214,7 +214,7 @@ const TEACHING_FI: Record<string, ExerciseTeaching> = {
       {
         direction: 'easier',
         exerciseName: 'Dumbbell Bench Press',
-        why: 'Kumpikin käsi löytää oman ratansa — ystävällisempi olkapäälle.',
+        why: 'Kumpikin käsi löytää oman ratansa — hellävaraisempi olkapäille.',
       },
       {
         direction: 'harder',

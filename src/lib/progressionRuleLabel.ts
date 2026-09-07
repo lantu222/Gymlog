@@ -34,11 +34,11 @@ const FI: Record<string, string> = {
   'Push the first compound lift on each day through the rep range before adding load.':
     'Vie päivän ensimmäinen moninivelliike toistohaarukan läpi ennen painon lisäystä.',
   'Run double progression on the first two lifts each day; add load once the top of the range repeats cleanly.':
-    'Aja tuplaprogressiota päivän kahdessa ensimmäisessä liikkeessä; lisää painoa kun toistohaarukan yläpää toistuu puhtaana.',
+    'Käytä tuplaprogressiota päivän kahdessa ensimmäisessä liikkeessä; lisää painoa kun toistohaarukan yläpää toistuu puhtaana.',
   'Run the first lift of each day as the performance anchor. Add load after every set lands at the top of the target range with clean technique.':
-    'Aja päivän ensimmäinen liike suorituksen ankkurina. Lisää painoa kun jokainen sarja osuu toistohaarukan yläpäähän puhtaalla tekniikalla.',
+    'Päivän ensimmäinen liike on suorituksen ankkuri. Lisää painoa kun jokainen sarja osuu toistohaarukan yläpäähän puhtaalla tekniikalla.',
   'Treat the first lift on each day as the performance slot and only add load once all work sets live at the top of the target range.':
-    'Kohtele päivän ensimmäistä liikettä suorituspaikkana ja lisää painoa vasta kun kaikki työsarjat asettuvat toistohaarukan yläpäähän.',
+    'Päivän ensimmäinen liike on se, jossa eteneminen mitataan. Lisää painoa vasta kun kaikki työsarjat osuvat toistohaarukan yläpäähän.',
   'Use double progression on anchor lifts. Add load after the top of the rep range is repeatable with clean form.':
     'Käytä ankkuriliikkeissä tuplaprogressiota. Lisää painoa kun toistohaarukan yläpää toistuu puhtaalla tekniikalla.',
   'Use double progression on anchor lifts. When the last hard set reaches repsMax with clean form, increase load next time by the smallest practical increment.':
