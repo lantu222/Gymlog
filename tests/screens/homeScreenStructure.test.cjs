@@ -827,4 +827,33 @@ module.exports = [
       assert.match(homeScreenSource, /accessibilityState=\{\{ expanded: workoutListOpen \}\}/);
     },
   },
+  {
+    /**
+     * "Palautuminen" broke mid-word into "Palautuminen / n" beside its meta
+     * (user 2026-09-07). `flex: 1` on the title is a basis of ZERO, so it took
+     * only what the meta left over — and the meta had no shrink at all.
+     */
+    name: 'home: a section keeps its whole name and the meta gives way first',
+    run() {
+      const assert = require('node:assert/strict');
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const home = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'screens', 'HomeScreen.tsx'),
+        'utf8',
+      );
+
+      const title = home.slice(home.indexOf('  blockTitle: {'), home.indexOf('  blockMeta: {'));
+      assert.ok(title.length > 40, 'blockTitle moved - recheck by hand');
+      assert.doesNotMatch(title, /flex: 1,/, 'the section title is back to a zero basis');
+      assert.match(title, /flexBasis: 'auto',/);
+      assert.match(title, /flexShrink: 1,/);
+
+      const meta = home.slice(home.indexOf('  blockMeta: {'), home.indexOf('  blockDrillRow: {'));
+      assert.ok(meta.length > 40, 'blockMeta moved - recheck by hand');
+      assert.match(meta, /flexShrink: 3,/, 'the meta no longer gives way before the name');
+      // And it truncates rather than wrapping under the title it sits beside.
+      assert.match(home, /<Text style=\{styles\.blockMeta\} numberOfLines=\{1\}>/);
+    },
+  },
 ];

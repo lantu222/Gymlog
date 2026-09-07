@@ -73,7 +73,7 @@ module.exports = [
 
       // The button has to say what it does. "Start first session" on a program
       // that is about to become your plan is the label half of the same bug.
-      assert.match(programDetailsSource, /isActivePlan\s*\?\s*'detail\.startNext'/);
+      assert.match(programDetailsSource, /isActivePlan \|\| isHeldNotLeading\s*\?\s*'detail\.startNext'/);
       assert.match(programDetailsSource, /:\s*'detail\.adopt'/);
       assert.match(i18nSource, /'detail\.adopt': 'Ota ohjelma käyttöön'/);
     },
@@ -164,14 +164,20 @@ module.exports = [
       assert.match(i18nSource, /'detail\.adopt': 'Ota ohjelma käyttöön'/);
       // The label comes from the view model, so it is translated at the source
       // rather than hardcoded English that no screen ever showed — and it reads
-      // the state. Three answers, not two: adopt it, put it on Home when you
-      // already hold it but something else is leading, or start the next
-      // workout when it is the one leading. Without the middle one, the only
-      // way to change which programme Home leads with was to remove the other.
+      // the state. TWO answers now: adopt it, or start its next workout once
+      // it is running, whether or not it is the one Home leads with.
+      //
+      // The third — "Show this on Home" — is gone. It changed which programme
+      // led and could not turn any of them off, which is not the question a
+      // reader arrives with: "aktiivinen/eiaktiivinen nappia ei ole ... 'nayta
+      // kodissani' nappi on ihan turha vaan tee sen tilalle tuo" (2026-09-07).
+      // The Active switch answers it instead.
       assert.match(
         programDetailsSource,
-        /isActivePlan \? 'detail\.startNext' : isHeldNotLeading \? 'detail\.lead' : 'detail\.adopt'/,
+        /isActivePlan \|\| isHeldNotLeading\s*\?\s*'detail\.startNext'\s*:\s*'detail\.adopt'/,
       );
+      assert.doesNotMatch(programDetailsSource, /detail\.lead/, 'the lead button grew back');
+      assert.doesNotMatch(i18nSource, /'detail\.lead'/, 'the lead string outlived its button');
       assert.match(i18nSource, /'detail\.startNext': 'Aloita seuraava treeni'/);
       assert.match(programDetailSource, /formatPlanSessionTitle/);
       // The inline warmup/workout/cooldown listing left with the day view:
@@ -560,10 +566,62 @@ module.exports = [
      * (user 2026-08-31). The adopt button stays for a programme the reader
      * has NOT taken up: that is the one thing this page exists to offer.
      */
-    name: 'the running programme offers no start button, and an unadopted one still does',
+    name: 'the running programme offers a switch instead of a start button, and an unadopted one still gets the button',
     run() {
-      assert.match(programDetailSource, /\{activePlanSummary \? null : \(/);
+      // Running — leading or not — gets the Active switch. Only a programme
+      // the reader has not taken up gets the button, which is the one thing
+      // this page exists to offer.
+      assert.match(programDetailSource, /\{running && onSetRunning \? \(/);
+      assert.match(programDetailSource, /\) : activePlanSummary \? null : \(/);
       assert.match(programDetailSource, /program\.primaryActionLabel/);
+      // The switch is the shared one, not a second spelling of a toggle.
+      assert.match(programDetailSource, /import \{ ToggleSwitch \} from '\.\.\/components\/SettingsUi';/);
+      assert.match(programDetailSource, /t\(language, 'detail\.active'\)/);
+      // And turning it off stops the programme rather than merely unleading
+      // it: every plan pointing at the programme goes, because one programme
+      // can be held under more than one plan id.
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
+      const stopAt = app.indexOf('async function handleStopProgram(workoutTemplateId: string)');
+      assert.ok(stopAt > 0, 'handleStopProgram not found');
+      const stopBody = app.slice(stopAt, stopAt + 1400);
+      // The plan-matching rule lives in src/lib and is tested there; every
+      // plan pointing at the programme has to go, or the switch reads off
+      // while it still runs under the other id.
+      assert.match(stopBody, /planIdsForTemplate\(\{/);
+      assert.match(stopBody, /templateId: workoutTemplateId,/);
+      assert.doesNotMatch(
+        stopBody,
+        /filter\(\(planId\) => planId === preferences\.activePlanId\)/,
+        'stopping a programme leaves its other plan running',
+      );
+
+      // Removing "Show this on Home" removed the ONLY way to change which
+      // programme Home leads with — caught in review. Training a held one is
+      // what promotes it now, so the capability is not gone with the button.
+      assert.match(app, /async function leadOnTrain\(workoutTemplateId: string\)/);
+      assert.match(app, /await promoteHeldProgramToLead\(workoutTemplateId\);/);
+      // Promoted where the workout ACTUALLY starts, inside the cardio guard's
+      // callback — past every return that can leave without one: no template,
+      // another session already running (which navigates to that one instead),
+      // an empty custom session, and the reader declining the guard. Placed at
+      // the top of either handler, tapping a session while another workout was
+      // running would have moved Home to a programme that never started.
+      for (const start of ['startReadyProgramSessionWithUnit', 'handleStartCustomProgramSession']) {
+        const at = app.indexOf(`function ${start}`);
+        assert.ok(at > 0, `${start} not found`);
+        const body = app.slice(at, app.indexOf('\n  function ', at + 1));
+        assert.match(body, /void leadOnTrain\(workoutTemplateId\);/, `${start} never promotes`);
+        assert.ok(
+          body.indexOf('guardStrengthStartOverCardio') < body.indexOf('leadOnTrain'),
+          `${start} promotes before the workout can be refused`,
+        );
+        assert.ok(
+          body.indexOf('navigateToActiveWorkout') < body.indexOf('leadOnTrain'),
+          `${start} promotes before the resume check`,
+        );
+      }
+      assert.match(app, /onStopProgram: handleStopProgram,/);
+      assert.match(app, /running=\{programIsMine\}/);
       // The cycle's own sentence went with it — the chips draw the week and
       // the header prints the rate.
       assert.doesNotMatch(programDetailSource, /detail\.week\.cycleStatus/);

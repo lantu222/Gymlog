@@ -729,4 +729,45 @@ module.exports = [
       assert.match(premiumSource, /cta: \{[\s\S]*?backgroundColor: PRO_SURFACE\.ink/);
     },
   },
+  {
+    /**
+     * "tama on vahan keskenerainen ruutu ja lukossa" (user 2026-09-07).
+     *
+     * The locked set log drew grey blocks in the shape of a list, which reads
+     * as a screen nobody finished rather than as one the reader cannot see
+     * into. `BlurredPreview` exists for this and says so itself: "a skeleton
+     * says there is something here, a blur says there is THIS here."
+     */
+    name: 'set log: the lock blurs the reader own sets rather than drawing a skeleton of them',
+    run() {
+      const assert = require('node:assert/strict');
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const sheet = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'components', 'SetLogSheet.tsx'),
+        'utf8',
+      );
+
+      assert.match(sheet, /import \{ BlurredPreview \} from '\.\/BlurredPreview';/);
+      assert.match(sheet, /<BlurredPreview/);
+      // The CODE, not the prose: this file's comments explain the skeleton
+      // that was removed, and a looser pattern matched the explanation.
+      assert.doesNotMatch(sheet, /styles\.skeleton/, 'the skeleton grew back');
+
+      // Blurred from the REAL sets, in the same words the unlocked list uses.
+      // Inventing figures would be a lie the blur only hides.
+      assert.match(sheet, /const blurredSets = log\.sessions/);
+      assert.match(sheet, /set\.reps\} × \$\{decimal\(set\.weightKg, language\)/);
+      // And the preview is fed those lines, not a constant.
+      assert.match(sheet, /content=\{\{ kind: 'text', text: blurredSets/);
+
+      // The safety net stays: a device that ignores the SVG filter must get an
+      // unreadable block, never the figures in clear text.
+      const preview = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'components', 'BlurredPreview.tsx'),
+        'utf8',
+      );
+      assert.match(preview, /scrim/);
+    },
+  },
 ];

@@ -142,6 +142,7 @@ const suites = [
   ...require('./lib/proEntitlement.test.cjs'),
   ...require('./lib/proLock.test.cjs'),
   ...require('./lib/proTiers.test.cjs'),
+  ...require('./lib/runningProgrammes.test.cjs'),
   ...require('./lib/proSurfaces.test.cjs'),
   ...require('./lib/subscriptionView.test.cjs'),
   ...require('./lib/cancelSurvey.test.cjs'),

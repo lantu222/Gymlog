@@ -82,6 +82,7 @@ export interface WorkoutTabDeps {
   setupRecommendation: { featuredProgramId?: string | null; mismatchNote?: string | null } | null;
   tailoringPreferences: Parameters<typeof buildTailoringBadgeLabels>[0];
   activeProgramTemplateIds: string[];
+  onStopProgram: (workoutTemplateId: string) => Promise<void>;
   homeActivePlanCard: {
     programId: string;
     programType: 'ready' | 'custom';
@@ -164,7 +165,8 @@ export interface WorkoutTabDeps {
   handleAcceptTargetProposal: (input: {
     exerciseName: string;
     targetKg: number;
-    templateId: string;
+    /** Null sets the target alone and leaves the reader's programme alone. */
+    templateId: string | null;
   }) => Promise<void>;
   programSlots: { canCreate: boolean };
   setProgramLimitVisible: (visible: boolean) => void;
@@ -204,6 +206,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     setupRecommendation,
     tailoringPreferences,
     activeProgramTemplateIds,
+    onStopProgram,
     homeActivePlanCard,
     programInsightsByTemplateId,
     availableEquipmentForDrills,
@@ -396,6 +399,18 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             : null
         }
         onBack={() => navigateBack(workoutHomeRoute)}
+        // Running at all, not "the one Home leads with". A programme can run
+        // without leading, and this switch is the only way to stop either.
+        running={programIsMine}
+        // Off only. The switch renders solely when the programme is running,
+        // so its value is always true and the only change it can report is
+        // false — turning one ON is the adopt button's job, on the other side
+        // of this same slot.
+        onSetRunning={(next) => {
+          if (!next) {
+            void onStopProgram(route.workoutTemplateId);
+          }
+        }}
         onPrimaryAction={() => {
           if (readyProgramIsMine) {
             // Already the reader's. Adoption returns early for a programme it

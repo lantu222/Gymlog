@@ -92,7 +92,7 @@ interface StrengthGoalFlowScreenProps {
    * disabled button here would be this screen guessing at an answer it does
    * not have.
    */
-  onCreate: (input: { exerciseName: string; targetKg: number; templateId: string }) => void;
+  onCreate: (input: { exerciseName: string; targetKg: number; templateId: string | null }) => void;
 }
 
 function ChevronLeftIcon({ color }: { color: string }) {
@@ -556,29 +556,46 @@ export function StrengthGoalFlowScreen({
         )}
       </ScrollView>
       <View style={styles.footer}>
+        {/* Two ways out, because a target and a programme are two decisions.
+            The flow used to make them one: the only button changed the whole
+            week, and a reader who wanted a number to aim at had to accept a
+            new programme to get it — "en aina halua etta se vaikuttaa koko
+            ohjelmaan, voisi olla myos vain normaali tavoite" (2026-09-07).
+
+            It also could not be finished at all when the catalog had no
+            programme for the lift: the note said so and the only button was
+            disabled, so the answer to "nothing trains this" was that you may
+            not set the target either. */}
+        {proposal ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() =>
+              onCreate({
+                exerciseName: picked.exerciseName,
+                targetKg,
+                templateId: proposal.templateId,
+              })
+            }
+            style={({ pressed }) => [styles.cta, pressed && styles.pressed]}
+          >
+            <Text style={styles.ctaText}>{t(language, 'goalFlow.create')}</Text>
+          </Pressable>
+        ) : null}
         <Pressable
           accessibilityRole="button"
-          onPress={() => {
-            if (!proposal) {
-              return;
-            }
-            onCreate({
-              exerciseName: picked.exerciseName,
-              targetKg,
-              templateId: proposal.templateId,
-            });
-          }}
-          disabled={!proposal}
+          onPress={() =>
+            onCreate({ exerciseName: picked.exerciseName, targetKg, templateId: null })
+          }
           style={({ pressed }) => [
-            styles.cta,
-            !proposal && styles.ctaDisabled,
-            pressed && proposal && styles.pressed,
+            proposal ? styles.ctaQuiet : styles.cta,
+            pressed && styles.pressed,
           ]}
         >
-          <Text style={[styles.ctaText, !proposal && styles.ctaTextDisabled]}>
-            {t(language, 'goalFlow.create')}
+          <Text style={proposal ? styles.ctaQuietText : styles.ctaText}>
+            {t(language, 'goalFlow.goalOnly')}
           </Text>
         </Pressable>
+        <Text style={styles.ctaHint}>{t(language, 'goalFlow.goalOnlyHint')}</Text>
       </View>
     </View>
   );
@@ -730,6 +747,31 @@ const makeStyles = (theme: Theme) =>
     },
     ctaDisabled: {
       backgroundColor: theme.surface,
+    },
+    // The second way out. Quiet, because setting only the target is the
+    // smaller of the two decisions, not the lesser one.
+    ctaQuiet: {
+      height: 54,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 10,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+    },
+    ctaQuietText: {
+      color: theme.ink,
+      fontSize: 15,
+      fontWeight: '800',
+    },
+    ctaHint: {
+      marginTop: 8,
+      color: theme.muted,
+      fontSize: 12.5,
+      lineHeight: 17,
+      fontWeight: '600',
+      textAlign: 'center',
     },
     ctaText: {
       color: theme.onHighlight,

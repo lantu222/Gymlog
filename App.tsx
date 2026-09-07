@@ -61,6 +61,7 @@ import {
   evaluateProgramAdoption,
   removeActiveProgram,
 } from './src/lib/activeProgramSet';
+import { listRunningProgrammes, planIdsForTemplate } from './src/lib/runningProgrammes';
 import {
   buildReadyProgramPlanId,
   buildCustomProgramPlanId,
@@ -1493,6 +1494,11 @@ function VinhaApp() {
     }
 
     guardStrengthStartOverCardio(() => {
+      // Here, and not at the top: three things above can return without a
+      // workout starting — no template, another session already running (which
+      // navigates to THAT one), and the reader declining the cardio guard. A
+      // promotion before them would move Home for a workout that never began.
+      void leadOnTrain(workoutTemplateId);
       void updatePreferences({ trainingFirstRunDismissed: true });
       const runtimeTemplate = applySessionAdaptation(
         buildReadySessionRuntimeTemplate(template, sessionId),
@@ -1824,6 +1830,34 @@ function VinhaApp() {
   }, [database.workoutPlans, preferences.activePlanId, preferences.activePlanIds]);
 
   /**
+   * What a RUNNING programme is called, wherever it is listed.
+   *
+   * A season programme goes by the season's name, not the template's: the
+   * reader joined "Kesakunto" and the template is called "RUN". Everything
+   * else goes by its presentation title, and a plan whose template is gone
+   * falls back to the plan's own name.
+   *
+   * One function because the comment that used to sit inside Home's copy was
+   * right: computing this per screen is what put three different names on one
+   * programme. The Programs tab now lists the same programmes Home does, so
+   * it had to reach the same answer.
+   */
+  const runningProgrammeTitle = useCallback(
+    (templateId: string | null, planName: string | null | undefined, days: number): string => {
+      const seasonTitleKey = templateId ? getSeasonProgramTitleKey(templateId) : null;
+      if (seasonTitleKey) {
+        return t(preferences.appLanguage, seasonTitleKey);
+      }
+      const template = templateId ? getWorkoutTemplateById(templateId) : null;
+      if (template) {
+        return getReadyTemplatePresentation(template, preferences.appLanguage, days).title;
+      }
+      return formatWorkoutDisplayLabel(planName || '');
+    },
+    [preferences.appLanguage],
+  );
+
+  /**
    * The programmes running alongside the one Home leads with.
    *
    * Home's hero still belongs to a single plan; these are the rest, listed
@@ -1847,15 +1881,9 @@ function VinhaApp() {
         // One helper decides that for every surface, because computing it
         // separately per screen is what put three different names on one
         // programme today.
-        const seasonTitleKey = templateId ? getSeasonProgramTitleKey(templateId) : null;
-        const title = seasonTitleKey
-          ? t(preferences.appLanguage, seasonTitleKey)
-          : template
-            ? getReadyTemplatePresentation(template, preferences.appLanguage, days).title
-            : formatWorkoutDisplayLabel(plan.name || '');
         return {
           planId,
-          title,
+          title: runningProgrammeTitle(templateId, plan.name, days),
           meta: t(preferences.appLanguage, 'programs.card.days', { count: days }),
         };
       })
@@ -1894,6 +1922,37 @@ function VinhaApp() {
     await updatePreferences({ activePlanId: plan.id });
   }
 
+  /**
+   * Stop a programme from its own page, by programme rather than by plan.
+   *
+   * The detail screen knows a template id; `handleRemoveActiveProgram` wants a
+   * plan id, and one programme can be held under more than one — onboarding
+   * writes `onboarding_plan_<id>` and adoption writes `ready_plan_<id>`. Every
+   * plan pointing at this programme goes, or the switch would read off while
+   * the programme was still running under the other id.
+   */
+  async function handleStopProgram(workoutTemplateId: string) {
+    const planIds = planIdsForTemplate({
+      activePlanId: preferences.activePlanId,
+      activePlanIds: preferences.activePlanIds,
+      plans: database.workoutPlans,
+      templateId: workoutTemplateId,
+    });
+    if (planIds.length === 0) {
+      return;
+    }
+    const remaining = planIds.reduce(
+      (ids, planId) => removeActiveProgram(ids, planId),
+      preferences.activePlanIds,
+    );
+    await updatePreferences({
+      activePlanIds: remaining,
+      activePlanId: planIds.includes(preferences.activePlanId ?? '')
+        ? remaining[0] ?? null
+        : preferences.activePlanId,
+    });
+  }
+
   async function handleRemoveActiveProgram(planId: string) {
     await updatePreferences({
       activePlanIds: removeActiveProgram(preferences.activePlanIds, planId),
@@ -1902,6 +1961,23 @@ function VinhaApp() {
           ? removeActiveProgram(preferences.activePlanIds, planId)[0] ?? null
           : preferences.activePlanId,
     });
+  }
+
+  /**
+   * Training a held programme is what makes Home lead with it.
+   *
+   * "Show this on Home" was the only way to change the lead, and it went with
+   * the Active switch (user 2026-09-07: it changed which programme led and
+   * could not turn any of them off, which was not the question being asked).
+   * Removing it removed the capability too — caught in review — so the signal
+   * moved to the honest one: the plan you are actually training is the plan
+   * you are actually training. Nothing to press, and nothing to explain.
+   */
+  async function leadOnTrain(workoutTemplateId: string) {
+    if (!activeProgramTemplateIds.includes(workoutTemplateId)) {
+      return;
+    }
+    await promoteHeldProgramToLead(workoutTemplateId);
   }
 
   function handleStartReadyProgram(workoutTemplateId: string) {
@@ -1933,6 +2009,9 @@ function VinhaApp() {
     }
 
     guardStrengthStartOverCardio(() => {
+      // Same place as the ready path: past every return that can leave without
+      // a workout, so Home follows what actually started.
+      void leadOnTrain(workoutTemplateId);
       void updatePreferences({ trainingFirstRunDismissed: true });
       const runtimeTemplate = applySessionAdaptation(
         buildCustomSessionRuntimeTemplate(customTemplate, sessionId),
@@ -4916,7 +4995,16 @@ function VinhaApp() {
   async function handleAcceptTargetProposal(input: {
     exerciseName: string;
     targetKg: number;
-    templateId: string;
+    /**
+     * The programme to take up alongside the target, or null for the target
+     * alone.
+     *
+     * A target and a programme are two decisions, and this flow used to make
+     * them one: the only way to aim at a number was to accept a new week
+     * ("en aina halua etta se vaikuttaa koko ohjelmaan", 2026-09-07). Null
+     * writes the target and leaves the reader's programme untouched.
+     */
+    templateId: string | null;
   }) {
     // The programme FIRST, and the target only if it landed.
     //
@@ -4924,9 +5012,11 @@ function VinhaApp() {
     // this flow exists to end: a target and nothing going towards it. The cap
     // refuses for real — three programmes on the free tier sends them to the
     // paywall — and that is not a moment to have quietly written a goal.
-    const adopted = await handleAdoptReadyProgram(input.templateId, { lead: true });
-    if (!adopted) {
-      return;
+    if (input.templateId !== null) {
+      const adopted = await handleAdoptReadyProgram(input.templateId, { lead: true });
+      if (!adopted) {
+        return;
+      }
     }
     await updatePreferences({
       strengthGoals: upsertStrengthGoal(preferences.strengthGoals, {
@@ -5087,21 +5177,67 @@ function VinhaApp() {
       ...rows.filter((row) => !row.active),
     ];
 
-    const activeIsAuthored = authored.some((item) => item.active);
-    if (!homeActivePlanCard || activeIsAuthored) {
-      return leadFirst(authored);
-    }
-    return [
-      {
-        id: homeActivePlanCard.programId,
-        name: formatWorkoutDisplayLabel(homeActivePlanCard.title),
-        subtitle: t(preferences.appLanguage, 'programs.activeSubtitle'),
-        active: true,
-        programType: homeActivePlanCard.programType,
-      },
-      ...authored,
-    ];
-  }, [customWorkouts, homeActivePlanCard, preferences.appLanguage]);
+    // Every RUNNING programme belongs here, not only the one Home leads with.
+    //
+    // An adopted ready programme has no row of its own in `workoutTemplates`
+    // — adoption points a plan at the catalog rather than copying it — so it
+    // was listed only while it was the leader. Making a second programme lead
+    // dropped it out of the one list called "your programmes" while it kept
+    // running and kept holding a slot against the programme cap: a reader at
+    // the cap could be blocked by a programme this screen would not show them
+    // (user 2026-09-07, "laitoin advanced glutes nayta kodissa niin tama
+    // strong ohjelma katosi kokonaan").
+    //
+    // Home already listed them under its hero, and its own removal copy says
+    // "it stays in Programs" — a promise this list could not keep.
+    const authoredIds = authored.map((item) => item.id);
+    const runningRows = listRunningProgrammes({
+      activePlanId: preferences.activePlanId,
+      activePlanIds: preferences.activePlanIds,
+      plans: database.workoutPlans,
+      authoredTemplateIds: authoredIds,
+    })
+      .map((row) => {
+        // Only what the catalog can actually open. A plan pointing at a custom
+        // template the reader has since deleted is neither authored nor ready,
+        // and a row for it would navigate to a programme that is not there.
+        const template = getWorkoutTemplateById(row.templateId);
+        if (!template) {
+          return null;
+        }
+        // The SAME question the authored rows ask, so one list cannot hold two
+        // notions of "active" and mark a row by each.
+        const active = homeActivePlanCard?.programId === row.templateId;
+        return {
+          id: row.templateId,
+          name: runningProgrammeTitle(row.templateId, row.planName, template.daysPerWeek),
+          /**
+           * "The programme you are training right now" is a claim about ONE
+           * row, and this list can now hold several running programmes. Said
+           * on every one of them it contradicted the ACTIVE tag beside it,
+           * which only the leader carries (review, 2026-09-07). A programme
+           * that runs without leading gets the neutral line the same
+           * programmes already carry under Home's hero.
+           */
+          subtitle: active
+            ? t(preferences.appLanguage, 'programs.activeSubtitle')
+            : t(preferences.appLanguage, 'programs.card.days', { count: template.daysPerWeek }),
+          active,
+          programType: 'ready' as const,
+        };
+      })
+      .filter((row): row is NonNullable<typeof row> => row !== null);
+
+    return leadFirst([...runningRows, ...authored]);
+  }, [
+    customWorkouts,
+    database.workoutPlans,
+    homeActivePlanCard,
+    preferences.activePlanId,
+    preferences.activePlanIds,
+    preferences.appLanguage,
+    runningProgrammeTitle,
+  ]);
 
   const editorDraft = useMemo<WorkoutTemplateDraft>(() => {
     if (route.tab !== 'workout' || route.screen !== 'editor') {
@@ -5557,6 +5693,7 @@ function VinhaApp() {
     // state was just cleared the module returns null here and the dashboard
     // fallback below catches it — the same drop-through the old chain had.
     content = renderWorkoutTab({
+      onStopProgram: handleStopProgram,
       route,
       navigate,
       navigateBack,
