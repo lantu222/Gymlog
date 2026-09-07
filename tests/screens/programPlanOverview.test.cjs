@@ -600,19 +600,26 @@ module.exports = [
       // what promotes it now, so the capability is not gone with the button.
       assert.match(app, /async function leadOnTrain\(workoutTemplateId: string\)/);
       assert.match(app, /await promoteHeldProgramToLead\(workoutTemplateId\);/);
-      const readyStart = app.indexOf('function handleStartReadyProgramSession');
-      assert.ok(readyStart > 0, 'handleStartReadyProgramSession not found');
-      assert.match(app.slice(readyStart, readyStart + 400), /void leadOnTrain\(workoutTemplateId\);/);
-      const customStart = app.indexOf('function handleStartCustomProgramSession');
-      assert.ok(customStart > 0, 'handleStartCustomProgramSession not found');
-      const customBody = app.slice(customStart, customStart + 1200);
-      assert.match(customBody, /void leadOnTrain\(workoutTemplateId\);/);
-      // After the empty-session guard, never before it: a workout that cannot
-      // start is not the programme you are training.
-      assert.ok(
-        customBody.indexOf('toast.addExercisesSession') < customBody.indexOf('leadOnTrain'),
-        'a session that cannot start still moves Home',
-      );
+      // Promoted where the workout ACTUALLY starts, inside the cardio guard's
+      // callback — past every return that can leave without one: no template,
+      // another session already running (which navigates to that one instead),
+      // an empty custom session, and the reader declining the guard. Placed at
+      // the top of either handler, tapping a session while another workout was
+      // running would have moved Home to a programme that never started.
+      for (const start of ['startReadyProgramSessionWithUnit', 'handleStartCustomProgramSession']) {
+        const at = app.indexOf(`function ${start}`);
+        assert.ok(at > 0, `${start} not found`);
+        const body = app.slice(at, app.indexOf('\n  function ', at + 1));
+        assert.match(body, /void leadOnTrain\(workoutTemplateId\);/, `${start} never promotes`);
+        assert.ok(
+          body.indexOf('guardStrengthStartOverCardio') < body.indexOf('leadOnTrain'),
+          `${start} promotes before the workout can be refused`,
+        );
+        assert.ok(
+          body.indexOf('navigateToActiveWorkout') < body.indexOf('leadOnTrain'),
+          `${start} promotes before the resume check`,
+        );
+      }
       assert.match(app, /onStopProgram: handleStopProgram,/);
       assert.match(app, /running=\{programIsMine\}/);
       // The cycle's own sentence went with it — the chips draw the week and

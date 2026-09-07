@@ -1494,6 +1494,11 @@ function VinhaApp() {
     }
 
     guardStrengthStartOverCardio(() => {
+      // Here, and not at the top: three things above can return without a
+      // workout starting — no template, another session already running (which
+      // navigates to THAT one), and the reader declining the cardio guard. A
+      // promotion before them would move Home for a workout that never began.
+      void leadOnTrain(workoutTemplateId);
       void updatePreferences({ trainingFirstRunDismissed: true });
       const runtimeTemplate = applySessionAdaptation(
         buildReadySessionRuntimeTemplate(template, sessionId),
@@ -1512,8 +1517,6 @@ function VinhaApp() {
   }
 
   function handleStartReadyProgramSession(workoutTemplateId: string, sessionId: string) {
-    // Training it is what makes Home lead with it. See `leadOnTrain`.
-    void leadOnTrain(workoutTemplateId);
     startReadyProgramSessionWithUnit(workoutTemplateId, sessionId, unitPreference);
   }
 
@@ -2000,17 +2003,15 @@ function VinhaApp() {
       return;
     }
 
-    // After the guard above, not before it: a session that cannot start is not
-    // the programme you are training, and promoting on the way to an error
-    // toast would move Home for a workout that never began.
-    void leadOnTrain(workoutTemplateId);
-
     // Same rule as the ready-programme start above.
     if (navigateToActiveWorkout({ resume: isActiveSessionFor(workoutTemplateId, sessionId) })) {
       return;
     }
 
     guardStrengthStartOverCardio(() => {
+      // Same place as the ready path: past every return that can leave without
+      // a workout, so Home follows what actually started.
+      void leadOnTrain(workoutTemplateId);
       void updatePreferences({ trainingFirstRunDismissed: true });
       const runtimeTemplate = applySessionAdaptation(
         buildCustomSessionRuntimeTemplate(customTemplate, sessionId),
