@@ -25,15 +25,22 @@ module.exports = [
       assert.match(unlock, /nowChip: \{[^}]*backgroundColor: theme\.purpleLight/s);
       // The headline's count is derived and spelled: "Five caps just came off".
       assert.match(unlock, /'unlock\.headline', \{ count: countWord\(PRO_UNLOCK_CARDS\.length, language\) \}/);
-      // One filled action in the accent, then the quiet link to the whole list.
+      // ONE action, and nothing under it. The quiet link sold the Pro page to
+      // a reader who had just bought it, standing beneath a list of what they
+      // now have: "poista ala nappi katso kaikki mita pro tekee" (user
+      // 2026-09-07).
       assert.match(unlock, /cta: \{[^}]*backgroundColor: theme\.highlight/s);
       assert.equal((unlock.match(/styles\.cta,/g) ?? []).length, 1, 'one filled button');
-      assert.match(unlock, /onPress=\{onSeeEverything\}[\s\S]{0,200}'unlock\.seeEverything'/);
-      assert.match(tab, /onSeeEverything=\{\(\) => navigate\(\{ tab: 'profile', screen: 'premium' \}\)\}/);
+      assert.doesNotMatch(unlock, /unlock\.seeEverything/, 'the quiet link grew back');
+      assert.doesNotMatch(i18n, /'unlock\.seeEverything'/, 'the string outlived its link');
+
+      // And the page thanks the reader before it lists anything.
+      assert.match(i18n, /'unlock\.headline': 'Thank you — \{count\} caps just came off'/);
+      assert.match(i18n, /'unlock\.headline': 'Kiitos — \{count\} kattoa irtosi juuri'/);
       // No purchase record, no invented time: the badge drops to a bare "live".
       assert.match(tab, /liveSince=\{preferences\.mockSubscriptionPurchasedAt \?\? null\}/);
       assert.doesNotMatch(tab, /liveSince=\{[^}]*new Date\(\)/);
-      for (const key of ['unlock.state.liveSince', 'unlock.seeEverything', 'unlock.headline']) {
+      for (const key of ['unlock.state.liveSince', 'unlock.headline']) {
         assert.equal(i18n.split(`'${key}': '`).length - 1, 2, `${key} in EN and FI`);
       }
       assert.ok(i18n.includes("'unlock.cta': 'Back to the app'"));

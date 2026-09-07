@@ -311,11 +311,6 @@ export function PremiumUnlockScreen({
         >
           <Text style={styles.ctaText}>{t(language, 'unlock.cta')}</Text>
         </Pressable>
-        {onSeeEverything ? (
-          <Pressable accessibilityRole="button" onPress={onSeeEverything} hitSlop={8} style={styles.quietLink}>
-            <Text style={styles.quietLinkText}>{t(language, 'unlock.seeEverything')}</Text>
-          </Pressable>
-        ) : null}
       </View>
     </View>
   );
