@@ -1040,7 +1040,7 @@ function DialCard({
       ]}
     >
       <View style={styles.setDialLabelRow}>
-        <Text style={[styles.setDialLabel, open && { color: theme.purple }]}>{label}</Text>
+        <Text style={[styles.setDialLabel, open && { color: theme.highlight }]}>{label}</Text>
         {!open ? <GPIcon name="edit" size={13} color={theme.faint} sw={2.2} /> : null}
       </View>
       {open ? (
@@ -4695,7 +4695,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 24,
   },
   setMetaLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 },
-  setCounter: { fontSize: 19, fontWeight: '800', letterSpacing: -0.4, color: theme.purple, fontVariant: ['tabular-nums'] },
+  // `highlight`, not `purple`. The player's own rule two hundred lines up is
+  // "anything pressable is orange, violet carries brand", and the set counter,
+  // the open dial's border, its label and its +/- buttons were all still
+  // violet — the one cluster on the screen that had not been told (user
+  // 2026-09-07, "otetaan vahan tuota purppuraa pois"). `highlight` is orange
+  // in dark and the same violet in light, so this repaints the theme that was
+  // complained about and leaves the other one exactly as it is.
+  setCounter: { fontSize: 19, fontWeight: '800', letterSpacing: -0.4, color: theme.highlight, fontVariant: ['tabular-nums'] },
   // The dots are the one part of this row that grows without a bound — one
   // per set, and a reader can keep adding sets. They give way first, and the
   // counter beside them still says how many there are.
@@ -4807,7 +4814,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   // A bodyweight lift has one dial; it takes the row rather than half of it.
   setDialCardWide: { flex: 1 },
   // Open: the border says which card the buttons belong to.
-  setDialCardOpen: { borderColor: theme.purple, backgroundColor: theme.surface },
+  setDialCardOpen: { borderColor: theme.highlight, backgroundColor: theme.surface },
   setDialLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   setDialLabel: { fontSize: 11.5, fontWeight: '800', letterSpacing: 1.1, color: theme.muted },
   // Same height open or closed — the number does not jump when the buttons
@@ -4829,11 +4836,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 20,
     backgroundColor: theme.surface,
     borderWidth: 1.5,
-    borderColor: theme.purple,
+    borderColor: theme.highlight,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  setDialBtnText: { fontSize: 20, fontWeight: '800', color: theme.purple, lineHeight: 24 },
+  setDialBtnText: { fontSize: 20, fontWeight: '800', color: theme.highlight, lineHeight: 24 },
   // The value shrinks (flexShrink + adjustsFontSizeToFit on the number) rather
   // than pushing the buttons out of the card: "100 kg" is a real weight and
   // has to fit next to two 40dp buttons in half a screen.

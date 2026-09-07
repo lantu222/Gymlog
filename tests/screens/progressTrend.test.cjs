@@ -309,11 +309,18 @@ module.exports = [
       );
       assert.match(weightBranch, /if \(resolvedMeasureRange === '7d'\) \{/);
       assert.match(weightBranch, /buildWeightWindow\(bodyweightProgress\.entries, nowMs\)/);
-      assert.match(weightBranch, /buildValueWindow\(entries, nowMs, days, measureWindowEnd\(/);
-      // And the end follows the data: a history shorter than the range anchors
-      // the window at the first entry instead of leaving eleven empty weeks in
-      // front of it (user, 2026-09-02).
-      assert.match(weightBranch, /measureWindowEnd\(first, nowMs, days\)/);
+      assert.match(weightBranch, /buildValueWindow\(entries, nowMs, days\)/);
+      // The window ends TODAY, always. The eleven empty weeks in front of a
+      // short history (user, 2026-09-02) were answered by anchoring the window
+      // at the first entry and running it FORWARD, which drew ten empty weeks
+      // after today instead — a 3M axis reaching 19.11. on the 7th of
+      // September (user, 2026-09-07). The width now comes from
+      // `measureRangeDays`, which caps at the chip and floors at the history.
+      assert.doesNotMatch(
+        screen,
+        /measureWindowEnd/,
+        'the window can end after today again',
+      );
       // The anchor is the EARLIEST entry: the summary sorts newest first, so
       // entries[0] anchored the card at the latest weigh-in (2026-09-03).
       assert.match(weightBranch, /const first = earliestEntryMs\(/);
@@ -326,7 +333,24 @@ module.exports = [
         screen.indexOf('const overviewChart = useMemo'),
       );
       assert.ok(overviewBranch.length > 100, 'the overview window moved — recheck by hand');
-      assert.match(overviewBranch, /measureWindowEnd\(first, nowMs, days\),?\s*\)/);
+      assert.match(overviewBranch, /nowMs,\s*days,\s*\);/);
+      // And its width goes through the SHARED cap, not a raw chip number. This
+      // card's chips are its own, but only the "All" fallback used to be
+      // bounded by the history — every other chip took its ceiling raw, which
+      // is why this was the card photographed drawing an axis into November
+      // (user 2026-09-07).
+      assert.match(
+        overviewBranch,
+        /capRangeDays\(ceilingByRange\[resolvedOverviewRange\] \?\? 730, first, nowMs\)/,
+        'the trend card went back to taking its range in days raw',
+      );
+      // The expression, not the prose: the comment above the fix names the
+      // inlined form it replaced, and a looser pattern matched that instead.
+      assert.doesNotMatch(
+        overviewBranch,
+        /Math\.min\(730, Math\.max\(/,
+        'the cap rule was inlined here again',
+      );
 
       // And the chips are actually ON the card. The <Seg count in the case
       // above only proves five exist somewhere; a mutation that gutted this
@@ -365,6 +389,13 @@ module.exports = [
         2,
         'the range-to-days rule was copied instead of shared',
       );
+      // Three windows, one rule: the two measure charts through
+      // `measureRangeDays` and the trend chart through the cap underneath it.
+      assert.match(
+        read('src', 'lib', 'bodyweightCard.ts'),
+        /export function capRangeDays\(/,
+      );
+      assert.equal((screen.match(/capRangeDays\(/g) ?? []).length, 1, 'the cap is used somewhere new');
     },
   },
   {
@@ -494,6 +525,73 @@ module.exports = [
       // which is orange on the dark theme — the wrong ink for a violet square.
       assert.doesNotMatch(block, /theme\.onHighlight/);
       assert.match(block, /calendarBubbleTextToday: \{[^}]*color: theme\.purple/);
+    },
+  },
+  {
+    /**
+     * A3 nesting: "allowed when the inner element is clear of the corner".
+     *
+     * The shell and the selected pill both carried the cut, and at 3px of
+     * padding the first option's diagonal sat 3px inside the shell's own —
+     * two parallel edges — while selecting any later option left the shell's
+     * diagonal standing beside a square pill ("ääriviivat outoja", user
+     * 2026-09-07). One selector, one cut.
+     */
+    name: 'progress: the selector shell carries the cut and the moving pill does not',
+    run() {
+      const seg = read('src', 'components', 'Seg.tsx');
+
+      // The shell is still the A3 shape.
+      assert.match(seg, /<CutSurface size="sm" fill=\{theme\.surfaceSoft\}/);
+
+      // And it is the ONLY one in the file: the selected option is a plain
+      // View wearing the chip radius, not a second cut surface.
+      assert.equal(
+        (seg.match(/<CutSurface/g) ?? []).length,
+        1,
+        'the selected option took the cut back',
+      );
+      assert.doesNotMatch(seg, /size="chip"/, 'the pill is a cut surface again');
+      assert.match(seg, /<View style=\{\[styles\.segItem, active && styles\.segItemActive\]\}/);
+
+      // Both states are the same box, so the row cannot change height when the
+      // selection moves — the bug the third A3 round already fixed once.
+      assert.match(seg, /segItemActive: \{[^}]*backgroundColor: theme\.surface/);
+      assert.match(seg, /segItemActive: \{[^}]*borderRadius: 7/);
+    },
+  },
+  {
+    /**
+     * "Anything pressable is orange, violet carries brand" is the player's own
+     * rule, written two hundred lines above the styles that ignored it.
+     */
+    name: 'player: the set counter and the open dial follow the pressable accent, not brand violet',
+    run() {
+      const player = read('src', 'screens', 'GuidedPlayerScreen.tsx');
+
+      for (const [name, style] of [
+        ['the set counter', /setCounter: \{[^}]*color: theme\.highlight/],
+        ['the open dial card', /setDialCardOpen: \{ borderColor: theme\.highlight/],
+        ['the dial buttons', /setDialBtnText: \{[^}]*color: theme\.highlight/],
+      ]) {
+        assert.match(player, style, `${name} went back to brand violet`);
+      }
+
+      // The +/- ring, which is the style block just above its text.
+      const btn = player.slice(player.indexOf('  setDialBtn: {'), player.indexOf('  setDialBtnText:'));
+      assert.ok(btn.length > 50, 'setDialBtn moved — recheck by hand');
+      assert.match(btn, /borderColor: theme\.highlight/);
+      assert.doesNotMatch(btn, /theme\.purple/);
+
+      // The dial's label follows the card it labels.
+      assert.match(player, /styles\.setDialLabel, open && \{ color: theme\.highlight \}/);
+
+      // `highlight` and not `accent`: accent is GREEN in the light theme, and
+      // green already means "logged" on this screen.
+      const light = read('src', 'lightTheme.ts');
+      assert.match(light, /accent: '#16A34A'/, 'the light accent moved — recheck this swap');
+      assert.match(light, /highlight: '#6D28D9'/, 'the light theme stopped being unchanged by this');
+      assert.match(read('src', 'darkTheme.ts'), /highlight: '#FF8A4C'/, 'the dark highlight is not orange');
     },
   },
 ];

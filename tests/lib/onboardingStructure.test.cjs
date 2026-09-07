@@ -26,6 +26,10 @@ const iconSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'components', 'VinhaIcon.tsx'),
   'utf8',
 );
+const pickSource = fs.readFileSync(
+  path.join(__dirname, '..', '..', 'src', 'screens', 'ProgramPickScreen.tsx'),
+  'utf8',
+);
 const i18nSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'),
   'utf8',
@@ -46,27 +50,29 @@ module.exports = [
     name: 'onboarding review step uses the light plan-ready flow',
     run() {
       const reviewBody = getFunctionBody('renderReview');
-      const dayBody = getFunctionBody('renderPlanReadyDay');
 
-      // Plan-ready is a TWO-view flow: the programme pick (08b) and the day
-      // preview behind it. There used to be a third — the Pro paywall as the
-      // closing step — removed on 2026-08-24 because the reader had just been
-      // handed a programme and the next thing the app did was ask for money.
-      // The paywall screen went unreachable with this change and was deleted
-      // on 2026-08-25; the guard below keeps onboarding from re-growing one.
-      assert.match(onboardingSource, /const \[planReadyView, setPlanReadyView\] = useState<'overview' \| 'day'>\('overview'\)/);
+      // Plan-ready is ONE view: the programme pick (08b). It had two more.
+      // The Pro paywall went on 2026-08-24 (the reader had just been handed a
+      // programme and the next thing the app did was ask for money) and the
+      // day preview on 2026-09-07, its content moved onto the card and into
+      // the empty half the reader was looking at while a link pointed
+      // somewhere else.
+      assert.doesNotMatch(
+        onboardingSource,
+        /planReadyView|planReadyWorkoutPage|renderPlanReadyDay/,
+        'the plan-ready day route grew back',
+      );
       assert.doesNotMatch(onboardingSource, /renderProgramPick|ProgramPickCard/);
       assert.doesNotMatch(onboardingSource, /renderPlanReadyPro|ProPaywallScreen|onStartProTrial/);
       // The picker's own CTA is what finishes onboarding now.
       assert.match(reviewBody, /onContinue=\{[\s\S]{0,400}?onCompleteToTraining\(selection, activeRecommendedProgramId\)/);
-      assert.match(reviewBody, /if \(planReadyView === 'day'\) \{\s*return renderPlanReadyDay\(\);/);
 
       // One plan-ready screen, from design 08b variant D: two programs either
       // side of a diagonal seam, the choice made where the programs are. It
       // replaced BOTH the announce-then-ask pair — an overview that hid the
       // alternative behind "Vaihda", and a second screen with the same title
       // that asked again on two stacked cards.
-      assert.match(onboardingSource, /setPlanReadyView\('overview'\);\s*\r?\n\s*setStageIndex\(getStageIndex\('review'\)\)/);
+      assert.match(onboardingSource, /setStageIndex\(getStageIndex\('review'\)\)/);
       assert.match(reviewBody, /<ProgramPickScreen/);
       assert.match(reviewBody, /selectedId=\{activeRecommendedProgramId\}/);
       assert.match(reviewBody, /setSelectedRecommendationProgramId\(id\)/);
@@ -84,37 +90,40 @@ module.exports = [
       assert.match(onboardingSource, /buildProgramFocusSplit\(week\.sessions\)/);
       assert.doesNotMatch(onboardingSource, /days: template\.daysPerWeek/);
 
-      // The week preview survived the redesign as a link on the chosen card:
-      // it is the only place the composed week is visible, and the design that
-      // replaced this screen did not have a slot for it.
-      assert.match(reviewBody, /onOpenWeek=\{/);
-      assert.match(reviewBody, /setPlanReadyView\('day'\)/);
-
-      // Day view: read-only preview — day title is the session name (one
-      // source of truth, localised), no A-F switcher, no letter badges,
-      // numbered exercise list. Headers speak i18n, not template literals
-      // (2026-08-23: the Finnish run showed "Day 1 · Week 1 of 4").
-      assert.match(dayBody, /t\(language, 'onb\.day\.kicker', \{ index: selectedIndex \+ 1, count: dayCount \}\)/);
-      assert.match(dayBody, /localizeSessionName\(selectedSession\.name, language\)/);
-      assert.match(dayBody, /t\(language, 'onb\.day\.week', \{ weeks: planReadyWeeks \}\)/);
-      assert.doesNotMatch(dayBody, /planReadyDayTab/);
-      assert.doesNotMatch(dayBody, /setPlanReadyWorkoutPage\(tab\.index\)/);
-      assert.match(dayBody, /'onb\.day\.exerciseOne' : 'onb\.day\.exerciseMany'/);
-      assert.match(dayBody, /String\(index \+ 1\)\.padStart\(2, '0'\)/);
-      assert.match(dayBody, /exercise\.setsLabel/);
-      assert.match(dayBody, /exercise\.repsLabel/);
-
-      // The day view browses: the footer walks forward through the days and
-      // the chevron walks back, out to the plan from day one — never out of
-      // the review into the questionnaire (2026-08-23, "iso virhe").
-      assert.match(
-        onboardingSource,
-        /if \(planReadyView === 'day'\) \{[\s\S]{0,600}setPlanReadyWorkoutPage\(\(current\) => current - 1\)[\s\S]{0,200}setPlanReadyView\('overview'\)/,
+      // The composed week is ON the card. It is the only place the reader can
+      // see which days they actually get, and it used to be a link to a screen
+      // of its own while the card's own lower half sat empty.
+      assert.match(reviewBody, /week=\{projectedSessions\.map/);
+      assert.match(reviewBody, /weekLabel=\{t\(language, 'onb\.planReady\.yourWeek'\)\}/);
+      assert.doesNotMatch(reviewBody, /onOpenWeek|weekLinkLabel/);
+      // The FOCUS, not the full name: the row prints a weekday of its own, so
+      // "Day 1: Squat & Bench" beside "Mon" said which day it was twice (user
+      // 2026-09-07). `localizeSessionFocus` is the function Home already uses
+      // next to its weekday badge, written for this exact repetition — and it
+      // still localises, so the Finnish run cannot go back to printing "Day 1"
+      // (2026-08-23).
+      assert.match(reviewBody, /title: localizeSessionFocus\(session\.name, language\)/);
+      assert.doesNotMatch(
+        reviewBody,
+        /title: localizeSessionName\(/,
+        'the week rows print the day ordinal beside the weekday again',
       );
-      assert.match(
-        onboardingSource,
-        /planReadyWorkoutPage < projectedSessions\.length - 1[\s\S]{0,120}\? t\(language, 'common\.next'\)/,
-      );
+      // The weekday column is what makes the ordinal redundant, so it has to
+      // be there for the line above to be the right call.
+      assert.match(reviewBody, /weekday: session\.weekdayLabel,/);
+      // The count is the WHOLE day, not the five the card preview keeps:
+      // `exercises` is sliced to five and `detailExercises` is not, so a day
+      // with six lifts would have said five.
+      assert.match(reviewBody, /session\.detailExercises\.length === 1 \? 'onb\.day\.exerciseOne' : 'onb\.day\.exerciseMany'/);
+      assert.match(reviewBody, /count: session\.detailExercises\.length/);
+
+      // And the picker RENDERS it rather than dropping the prop, which is
+      // exactly what happened to `subtitle`.
+      assert.match(pickSource, /week\.map\(\(day\) =>/);
+      assert.match(pickSource, /\{day\.weekday\}/);
+      assert.match(pickSource, /\{day\.title\}/);
+      assert.match(pickSource, /\{day\.meta\}/);
+      assert.doesNotMatch(pickSource, /onOpenWeek|weekLinkText/);
 
       // The automated-progression toggle screen is gone from onboarding — the
       // paywall took its slot. The PREFERENCE is untouched: it still ships from
@@ -127,23 +136,13 @@ module.exports = [
       assert.doesNotMatch(onboardingSource, /Save your plan/);
       assert.doesNotMatch(onboardingSource, /renderPlanReadyAccount/);
 
-      // Overview continues to the progression screen; the day view's footer
-      // steps through the days and returns to the plan only from the last
-      // one; progression completes onboarding.
-      assert.match(onboardingSource, /setPlanReadyWorkoutPage\(0\);\s*setPlanReadyView\('day'\)/);
-      assert.match(
-        onboardingSource,
-        /if \(planReadyView === 'day'\) \{\s*if \(planReadyWorkoutPage < projectedSessions\.length - 1\) \{\s*setPlanReadyWorkoutPage\(\(current\) => current \+ 1\);/,
-      );
+      // The picker's CTA completes onboarding; nothing steps through days.
       assert.match(onboardingSource, /onCompleteToTraining\(selection, activeRecommendedProgramId\)/);
       assert.doesNotMatch(onboardingSource, /: 'See day 1'/);
       // The shared footer stands down for the picker, which is full-bleed and
-      // brings its own pinned CTA. The day view keeps it — that is what walks
-      // the days forward.
-      assert.match(
-        onboardingSource,
-        /const footerVisible = !\(stage === 'review' && planReadyView === 'overview'\)/,
-      );
+      // brings its own pinned CTA. Nothing else in the review stage wants it
+      // now that the day view is gone, so the condition is the stage alone.
+      assert.match(onboardingSource, /const footerVisible = stage !== 'review';/);
 
       // The ready-catalog pick ADOPTS the programme, it does not merely
       // remember it. This wrote `activePlanId: null` next to a
@@ -770,7 +769,6 @@ module.exports = [
     name: 'plan-ready summary derives its numbers from the recommendation payload',
     run() {
       const reviewBody = getFunctionBody('renderReview');
-      const dayBody = getFunctionBody('renderPlanReadyDay');
 
       // Weeks / per-week / total workouts come from the payload with safe fallbacks.
       // The fallback is the catalog's floor, not a four-week answer of the
@@ -795,15 +793,6 @@ module.exports = [
       assert.match(reviewBody, /recommendation\.waterfall/);
       assert.match(reviewBody, /whyFor\(option\.id\) \?\? option\.presentation\.subtitle/);
 
-      // Day view derives its focus and muscle groups from real session content.
-      assert.match(dayBody, /const focusOf = \(name: string, index: number\)/);
-      assert.match(dayBody, /normalized\.includes\('full'\)/);
-      assert.match(dayBody, /const groupOf = \(name: string\)/);
-      assert.match(dayBody, /projectedSessions/);
-      assert.match(dayBody, /selectedSession\?\.guidance\?\.estimatedDuration/);
-      assert.match(onboardingSource, /const \[planReadyWorkoutPage, setPlanReadyWorkoutPage\] = useState\(0\)/);
-      assert.match(onboardingSource, /buildRecommendationPlanReadyPayload/);
-      assert.match(iconSource, /\| 'eye'/);
     },
   },
 ];

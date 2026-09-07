@@ -53,6 +53,16 @@ export interface ProgramPickOption {
   focus: ProgramFocusSegment[];
 }
 
+/** One training day of the composed week, as the card lists it. */
+export interface ProgramPickWeekDay {
+  id: string;
+  /** The weekday it lands on — never a date; the plan has no start day yet. */
+  weekday: string;
+  title: string;
+  /** Exercise count and duration, already formatted. */
+  meta: string;
+}
+
 export interface ProgramPickScreenProps {
   language?: AppLanguage;
   title: string;
@@ -63,13 +73,18 @@ export interface ProgramPickScreenProps {
   ctaLabel: string;
   onContinue: () => void;
   /**
-   * The composed-week preview. Not in the design — the design replaced a screen
-   * that had it, and losing the one place the user can see which days they
-   * actually get would be a silent subtraction. It rides as a text link under
-   * the selected card, in the same treatment as "tap to choose".
+   * The composed week, listed INSIDE the selected card.
+   *
+   * It used to be a text link to a full screen of its own. The card is a
+   * top-anchored box in a fixed half, so everything under the focus bar was
+   * empty purple — the reader was looking at a void and a link to somewhere
+   * else, when the void was exactly the size of the thing the link pointed at
+   * (user 2026-09-07). One screen fewer, and the week is on the screen that
+   * asks you to commit to it.
    */
-  onOpenWeek?: () => void;
-  weekLinkLabel?: string;
+  week?: ProgramPickWeekDay[];
+  /** Section label above the week, e.g. "YOUR WEEK". */
+  weekLabel?: string;
   /**
    * Which way the top of the screen is painted, so the shell can pick
    * status-bar icons that are visible against it.
@@ -165,8 +180,8 @@ export function ProgramPickScreen({
   onSelect,
   ctaLabel,
   onContinue,
-  onOpenWeek,
-  weekLinkLabel,
+  week,
+  weekLabel,
   onTopToneChange,
   busy = false,
 }: ProgramPickScreenProps) {
@@ -282,6 +297,22 @@ export function ProgramPickScreen({
               <View style={styles.splitWrap}>
                 <FocusBar focus={option.focus} light language={language} />
               </View>
+              {week && week.length ? (
+                <View style={styles.week}>
+                  {weekLabel ? <Text style={styles.weekLabel}>{weekLabel}</Text> : null}
+                  {week.map((day) => (
+                    <View key={day.id} style={styles.weekRow}>
+                      <Text style={styles.weekDay}>{day.weekday}</Text>
+                      <Text style={styles.weekTitle} numberOfLines={1}>
+                        {day.title}
+                      </Text>
+                      <Text style={styles.weekMeta} numberOfLines={1}>
+                        {day.meta}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
             </>
           ) : (
             <Text style={styles.compactStats}>
@@ -294,14 +325,6 @@ export function ProgramPickScreen({
             </Text>
           )}
         </View>
-        {selected && onOpenWeek && weekLinkLabel ? (
-          <Pressable accessibilityRole="button" hitSlop={8} onPress={onOpenWeek} style={styles.weekLink}>
-            <Text style={styles.weekLinkText}>{weekLinkLabel}</Text>
-            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-              <Path d="M5 12h13M12 5l7 7-7 7" />
-            </Svg>
-          </Pressable>
-        ) : null}
       </View>
     );
   };
@@ -500,8 +523,17 @@ const makePickStyles = (C: PickPalette) => StyleSheet.create({
   splitPct: { fontWeight: '800', color: C.ink },
   splitPctLight: { color: '#FFFFFF' },
 
-  weekLink: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14 },
-  weekLinkText: { fontSize: 11.5, fontWeight: '800', letterSpacing: 0.9, color: '#FFFFFF', textTransform: 'uppercase' },
+  // The week fills the card's own empty half. Rows are deliberately compact:
+  // a six-day programme has to fit the same box a three-day one leaves mostly
+  // empty, so the row height is what six of them can afford.
+  week: { marginTop: 16, paddingTop: 13, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.24)' },
+  weekLabel: { fontSize: 9.5, fontWeight: '800', letterSpacing: 1.15, color: 'rgba(255,255,255,0.7)', marginBottom: 8 },
+  weekRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 5 },
+  // Fixed width so the names start on one line down the list rather than
+  // stepping in and out with "MON" against "WED".
+  weekDay: { width: 34, fontSize: 11, fontWeight: '800', letterSpacing: 0.6, color: 'rgba(255,255,255,0.72)' },
+  weekTitle: { flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.2 },
+  weekMeta: { flexShrink: 0, fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.66)' },
 
   compactStats: { fontSize: 12.5, fontWeight: '700', color: C.muted, marginTop: 12 },
 

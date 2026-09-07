@@ -1404,6 +1404,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   roleTag: {
     minWidth: 64,
+    // The pill sits beside a `flex: 1` sibling (the exercise name, the role
+    // line), so a long name shrank it back to `minWidth` and "ANCHOR" wrapped
+    // to "ANCHO / R" — while the LONGER "SUPPORT" survived on rows whose name
+    // left slack (user 2026-09-07). `minWidth` is the floor the three pills
+    // line up on; this is what stops it also being the ceiling.
+    flexShrink: 0,
     alignItems: 'center',
     borderRadius: 6,
     paddingHorizontal: 6,

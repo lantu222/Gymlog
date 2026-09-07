@@ -333,6 +333,17 @@ export function buildWeightWindow(
  * week: a history over months is read as "how did I get here".
  */
 /**
+ * The shortest axis any range chip may collapse to.
+ *
+ * A single entry still needs days either side of it or the chart is one dot
+ * against a blank card; a fortnight is the width "All" already used for the
+ * same reason.
+ */
+export const MIN_RANGE_DAYS = 14;
+
+const DAY_MS = 86_400_000;
+
+/**
  * How many calendar days a range chip asks for.
  *
  * Lived inline in ProgressScreen and answered only for the measure charts.
@@ -340,46 +351,64 @@ export function buildWeightWindow(
  * agree with them exactly, so the rule is one function rather than two copies
  * that drift.
  *
- * "All" is bounded at both ends: at least a fortnight so a single entry still
- * has an axis to sit on, and at most two years so a reader with a long history
- * gets a chart rather than a pixel per week.
+ * Every range is bounded at both ends the way "All" always was: the chip's own
+ * length is a CEILING, and the history is what actually sets the width. Asking
+ * for three months five days after the first weigh-in used to hand the axis
+ * 91 days and let the window slide forward to fill them — an axis running to
+ * 19.11. on the 7th of September (user 2026-09-07), where nothing can ever be
+ * plotted because the days have not happened. The chip is a request for "up to
+ * this much", not a promise that the card will draw empty time to reach it.
  */
+/**
+ * Calendar days from one instant to another, both ends counted.
+ *
+ * NOT `(to - from) / DAY_MS`. That divides raw timestamps, so it counts the
+ * time of day as well as the dates — a first weigh-in at 07:00 and a `now` of
+ * 21:00 thirty-one days later came back as thirty-two — and it miscounts any
+ * span crossing a Helsinki clock change, where a 23- or 25-hour day makes the
+ * quotient land off a whole number (CLAUDE.md's own rule; caught in review
+ * 2026-09-07).
+ *
+ * Both ends collapse to LOCAL midnight first. What is left between two local
+ * midnights is a whole number of days give or take the hour a DST change adds
+ * or removes, and rounding lands on the calendar count.
+ */
+function calendarDaysInclusive(fromMs: number, toMs: number): number {
+  const from = new Date(fromMs);
+  const to = new Date(toMs);
+  const fromMidnight = new Date(from.getFullYear(), from.getMonth(), from.getDate()).getTime();
+  const toMidnight = new Date(to.getFullYear(), to.getMonth(), to.getDate()).getTime();
+  return Math.round((toMidnight - fromMidnight) / DAY_MS) + 1;
+}
+
+export function capRangeDays(
+  ceilingDays: number,
+  firstEntryMs: number | null,
+  nowMs: number,
+): number {
+  const first = firstEntryMs ?? nowMs;
+  // The floor never exceeds the ceiling, so "7D" stays exactly a week.
+  const floor = Math.min(ceilingDays, MIN_RANGE_DAYS);
+  const history = calendarDaysInclusive(first, nowMs);
+  return Math.min(ceilingDays, Math.max(floor, history));
+}
+
+/** The measure tab's four chips, in days. */
+const MEASURE_CEILING: Record<'7d' | '3m' | '1y' | 'all', number> = {
+  '7d': 7,
+  '3m': 91,
+  '1y': 365,
+  all: 730,
+};
+
 export function measureRangeDays(
   range: '7d' | '3m' | '1y' | 'all',
   firstEntryMs: number | null,
   nowMs: number,
 ): number {
-  if (range === '7d') {
-    return 7;
-  }
-  if (range === '3m') {
-    return 91;
-  }
-  if (range === '1y') {
-    return 365;
-  }
-  const first = firstEntryMs ?? nowMs;
-  return Math.min(730, Math.max(14, Math.ceil((nowMs - first) / 86_400_000) + 1));
+  return capRangeDays(MEASURE_CEILING[range], firstEntryMs, nowMs);
 }
 
-/**
- * The last day a range window shows.
- *
- * The window follows the DATA, not the clock. Asking for three months when you
- * have logged twice puts both readings against the right-hand edge with eleven
- * empty weeks in front of them — "ihan tyhmää että se alkaa 4.6" (user,
- * 2026-09-02), and it is: the chart spends its whole width saying nothing
- * happened before you started.
- *
- * So while the history is shorter than the range, the window starts at the
- * first entry and runs forward from there. Once it is longer, the window ends
- * today and trails, which is the other half of what was asked: "jos käyttäjä
- * on kirjannut 3kk yhtäjaksoisesti niin ... näkee aina uusimman ajan".
- *
- * The two cases meet exactly when the history is `days` long, so there is no
- * jump: whichever end is LATER is the end, and the moment first + days passes
- * today the anchor hands over to the clock.
- */
 /**
  * The earliest entry's time, whatever order the entries arrive in.
  *
@@ -399,42 +428,17 @@ export function earliestEntryMs(recordedAts: ReadonlyArray<string>): number | nu
   return earliest;
 }
 
-export function measureWindowEnd(
-  firstEntryMs: number | null,
-  nowMs: number,
-  days: number,
-): number {
-  const now = new Date(nowMs);
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  if (firstEntryMs === null || !Number.isFinite(firstEntryMs)) {
-    return today;
-  }
-  const first = new Date(firstEntryMs);
-  // Calendar arithmetic, not +86 400 000 ms — a DST change inside the span
-  // would slide the end by an hour and land it on the wrong day.
-  const anchored = new Date(
-    first.getFullYear(),
-    first.getMonth(),
-    first.getDate() + Math.max(1, Math.round(days)) - 1,
-  ).getTime();
-  return Math.max(today, anchored);
-}
-
 export function buildValueWindow(
   entries: ReadonlyArray<{ recordedAt: string; value: number }>,
   nowMs: number,
   days: number,
-  /**
-   * The last day the window shows. Defaults to today, which is the trailing
-   * window every caller wanted before the range chips existed; pass
-   * `measureWindowEnd` to let a short history anchor the window instead.
-   */
-  endMs?: number,
 ): WeightWindowDay[] {
   const now = new Date(nowMs);
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const endDate = new Date(endMs ?? today);
-  const end = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+  // The window always ends today. It briefly ended later — anchored at the
+  // first entry and running forward when the history was shorter than the
+  // range — which drew days that have not happened yet.
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   // Latest reading of each day wins, same rule as the weigh-ins.
   const byDay = new Map<number, number>();
   const byDayAt = new Map<number, number>();

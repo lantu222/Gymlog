@@ -83,7 +83,7 @@ import { buildTailoringBadgeLabels, TailoringPreferencesInput } from '../lib/tai
 import { getReadyTemplatePresentation } from '../lib/templatePresentation';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
 import { patternFromOnOff } from '../lib/trainingSchedule';
-import { localizeSessionName } from '../lib/sessionNameLabel';
+import { localizeSessionFocus } from '../lib/sessionNameLabel';
 import { colors, radii, spacing } from '../theme';
 import { haptics } from '../utils/haptics';
 import {
@@ -1660,8 +1660,6 @@ export function OnboardingScreen({
     ),
   ).current;
   const buildingPlanRingSpin = useRef(new Animated.Value(0)).current;
-  const planReadyCardTranslateX = useRef(new Animated.Value(0)).current;
-  const planReadyCardOpacity = useRef(new Animated.Value(1)).current;
   const [profileName] = useState(setupSeed.profileName ?? '');
   const [gender, setGender] = useState<SetupGender>(setupSeed.gender);
   const [age, setAge] = useState(() =>
@@ -1743,16 +1741,6 @@ export function OnboardingScreen({
   const [activeRecommendationRefinement, setActiveRecommendationRefinement] =
     useState<RecommendationRefinementPanel>(null);
   const [selectedRecommendationProgramId, setSelectedRecommendationProgramId] = useState<string | null>(null);
-  const [planReadyWorkoutPage, setPlanReadyWorkoutPage] = useState(0);
-  /**
-   * The plan-ready screen has two views, not three.
-   *
-   * A 'pro' one used to close onboarding with the paywall — user decision
-   * 2026-08-24 to take it out: the reader has just been handed a programme
-   * and the next thing the app did was ask for money. The paywall itself is
-   * unchanged and still reachable from Profile.
-   */
-  const [planReadyView, setPlanReadyView] = useState<'overview' | 'day'>('overview');
   /**
    * The recommendation is the answer until the user gives another one.
    *
@@ -1777,12 +1765,9 @@ export function OnboardingScreen({
       onFullBleedReviewChange?.(null);
       return;
     }
-    if (planReadyView !== 'overview') {
-      onFullBleedReviewChange?.(null);
-    }
     // The picker reports its own tone: its top half flips white when the
     // second program is chosen, and white icons would vanish into it.
-  }, [onFullBleedReviewChange, planReadyView, stageIndex]);
+  }, [onFullBleedReviewChange, stageIndex]);
   const [automatedProgressionEnabled, setAutomatedProgressionEnabled] = useState(
     setupSeed.automatedProgression ?? true,
   );
@@ -2101,10 +2086,6 @@ export function OnboardingScreen({
   }, [recommendationOptionIds, selectedRecommendationProgramId]);
 
   useEffect(() => {
-    setPlanReadyWorkoutPage(0);
-  }, [activeRecommendedProgramId]);
-
-  useEffect(() => {
     const previousUnit = previousUnitPreferenceRef.current;
     if (previousUnit === unitPreference) {
       return;
@@ -2267,7 +2248,6 @@ export function OnboardingScreen({
           // said the program was ready — and then said it again one screen
           // later. The alternative is still there, behind "Vaihda", as an
           // escape hatch rather than an equal option.
-          setPlanReadyView('overview');
           setStageIndex(getStageIndex('review'));
         });
       }, BUILDING_PLAN_TOTAL_MS - 420),
@@ -2319,27 +2299,6 @@ export function OnboardingScreen({
     buildingPlanTopTranslate,
     isBuildingPlan,
   ]);
-
-  useEffect(() => {
-    if (stage !== 'review') {
-      return;
-    }
-
-    planReadyCardTranslateX.setValue(18);
-    planReadyCardOpacity.setValue(0.78);
-    Animated.parallel([
-      Animated.timing(planReadyCardTranslateX, {
-        toValue: 0,
-        duration: 180,
-        useNativeDriver: true,
-      }),
-      Animated.timing(planReadyCardOpacity, {
-        toValue: 1,
-        duration: 180,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [activeRecommendedProgramId, planReadyCardOpacity, planReadyCardTranslateX, stage]);
 
   function openHelper(prefill?: string) {
     setHelperDraft(prefill ?? helperPrompt);
@@ -3393,10 +3352,6 @@ export function OnboardingScreen({
    * where the programs are, once, and the CTA never moves.
    */
   function renderReview() {
-    if (planReadyView === 'day') {
-      return renderPlanReadyDay();
-    }
-
     const planReadyWeeks = planReadyPayload.blockLengthWeeks > 0 ? planReadyPayload.blockLengthWeeks : READY_PROGRAM_MIN_BLOCK_WEEKS;
     // Composed-week day count wins; the raw template's own count is only a
     // fallback (days-per-week truth).
@@ -3453,6 +3408,30 @@ export function OnboardingScreen({
           void haptics.select();
           setSelectedRecommendationProgramId(id);
         }}
+        /* The composed week, inside the card rather than behind a link to a
+           screen of its own. The card is top-anchored in a fixed half, so
+           everything under the focus bar was empty purple — and the void was
+           the size of the thing the link pointed at (user 2026-09-07). */
+        week={projectedSessions.map((session) => ({
+          id: session.id,
+          weekday: session.weekdayLabel,
+          // `localizeSessionFocus`, not `localizeSessionName`: the row has a
+          // weekday column of its own, so the name's "Day 1:" said it twice
+          // (user 2026-09-07). This is the function Home already uses beside
+          // its weekday badge, written for this exact repetition.
+          title: localizeSessionFocus(session.name, language),
+          meta: [
+            t(
+              language,
+              session.detailExercises.length === 1 ? 'onb.day.exerciseOne' : 'onb.day.exerciseMany',
+              { count: session.detailExercises.length },
+            ),
+            session.guidance?.estimatedDuration,
+          ]
+            .filter(Boolean)
+            .join('  ·  '),
+        }))}
+        weekLabel={t(language, 'onb.planReady.yourWeek')}
         ctaLabel={t(language, 'onb.cta.startTraining')}
         // Straight into the app. This used to open the paywall — the reader
         // had just been handed a programme and the next thing the app did was
@@ -3462,117 +3441,12 @@ export function OnboardingScreen({
           void haptics.success();
           void runAction(() => onCompleteToTraining(selection, activeRecommendedProgramId));
         }}
-        onOpenWeek={() => {
-          setPlanReadyWorkoutPage(0);
-          setPlanReadyView('day');
-        }}
-        weekLinkLabel={t(language, 'onb.planReady.viewWeek')}
         onTopToneChange={onFullBleedReviewChange}
         busy={busy}
       />
     );
   }
 
-  function renderPlanReadyDay() {
-    const days = projectedSessions;
-    const dayCount = Math.max(days.length, 1);
-    const selectedIndex = Math.min(Math.max(planReadyWorkoutPage, 0), dayCount - 1);
-    const selectedSession = days[selectedIndex] ?? null;
-    const planReadyWeeks = planReadyPayload.blockLengthWeeks > 0 ? planReadyPayload.blockLengthWeeks : READY_PROGRAM_MIN_BLOCK_WEEKS;
-    const focusOf = (name: string, index: number) => {
-      const normalized = (name ?? '').toLowerCase();
-      if (normalized.includes('full')) return 'Full Body';
-      if (normalized.includes('lower')) return 'Lower';
-      if (normalized.includes('upper')) return 'Upper';
-      return index % 3 === 2 ? 'Full Body' : index % 3 === 1 ? 'Lower' : 'Upper';
-    };
-    const groupOf = (name: string) => {
-      const normalized = (name ?? '').toLowerCase();
-      if (normalized.includes('squat') || normalized.includes('lunge') || normalized.includes('leg')) return 'LEGS';
-      if (normalized.includes('curl') || normalized.includes('tricep')) return 'ARMS';
-      if (normalized.includes('row') || normalized.includes('pull')) return 'BACK';
-      if (normalized.includes('push') || normalized.includes('press') || normalized.includes('chest')) {
-        return normalized.includes('shoulder') || normalized.includes('overhead') ? 'SHOULDERS' : 'CHEST';
-      }
-      if (normalized.includes('plank') || normalized.includes('core') || normalized.includes('abs')) return 'CORE';
-      return focusOf(selectedSession?.name ?? '', selectedIndex).toUpperCase();
-    };
-    const dayTitle = selectedSession
-      ? localizeSessionName(selectedSession.name, language)
-      : `Day ${selectedIndex + 1}`;
-    const dayDuration = selectedSession?.guidance?.estimatedDuration ?? null;
-    const dayExercises = selectedSession?.exercises ?? [];
-
-    return (
-      <Animated.View
-        style={[
-          styles.planReadyDayStage,
-          {
-            paddingTop: insets.top + spacing.lg,
-            opacity: planReadyCardOpacity,
-            transform: [{ translateX: planReadyCardTranslateX }],
-          },
-        ]}
-      >
-        <View style={styles.planReadyDayHeader}>
-          <View style={styles.planReadyDayHeaderCopy}>
-            {/* The weekday the reader picked, alongside "Day 2 of 3" — the
-                split showed which session it was but never which day it
-                lands on (user 2026-08-24). A weekday, not a date: the plan
-                has no start date yet here, and a date would be invented. */}
-            <Text style={styles.planReadyDayKicker}>
-              {[
-                t(language, 'onb.day.kicker', { index: selectedIndex + 1, count: dayCount }),
-                selectedSession?.weekdayLabel,
-              ]
-                .filter(Boolean)
-                .join('  ·  ')}
-            </Text>
-            <Text style={styles.planReadyDayTitle}>{dayTitle}</Text>
-          </View>
-          <View style={styles.planReadyDayWeekBadge}>
-            <Text style={styles.planReadyDayWeekBadgeText}>
-              {t(language, 'onb.day.week', { weeks: planReadyWeeks })}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.planReadyDayMetaRow}>
-          {dayDuration ? (
-            <View style={styles.planReadyDayMetaItem}>
-              <VinhaIcon name="tempo" color={C.textSoft} size={15} />
-              <Text style={styles.planReadyDayMetaText}>{dayDuration}</Text>
-            </View>
-          ) : null}
-          <View style={styles.planReadyDayMetaItem}>
-            <VinhaIcon name="progress" color={C.textSoft} size={15} />
-            <Text style={styles.planReadyDayMetaText}>{levelLabel}</Text>
-          </View>
-        </View>
-
-        <Text style={styles.planReadyDayExercisesLabel}>
-          {t(language, dayExercises.length === 1 ? 'onb.day.exerciseOne' : 'onb.day.exerciseMany', {
-            count: dayExercises.length,
-          })}
-        </Text>
-        <View style={styles.planReadyDayExerciseList}>
-          {dayExercises.map((exercise, index) => (
-            <View key={exercise.id} style={styles.planReadyDayExerciseRow}>
-              <Text style={styles.planReadyDayExerciseNumber}>{String(index + 1).padStart(2, '0')}</Text>
-              <View style={styles.planReadyDayExerciseCopy}>
-                <Text style={styles.planReadyDayExerciseName} numberOfLines={1}>{exerciseNameLabel(language, exercise.name)}</Text>
-                <Text style={styles.planReadyDayExerciseGroup}>{groupOf(exercise.name)}</Text>
-              </View>
-              <View style={styles.planReadyDayExerciseRight}>
-                <Text style={styles.planReadyDayExerciseSets}>{exercise.setsLabel}</Text>
-                <Text style={styles.planReadyDayExerciseReps}>{exercise.repsLabel}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
-      </Animated.View>
-    );
-  }
 
   /**
    * The last step of onboarding is the Pro paywall (design: "GAINER Paywall
@@ -4111,20 +3985,14 @@ export function OnboardingScreen({
    * plan-ready DAY view scrolls its exercise list and did not (PR review).
    * The overview is the catalog picker, which paints its own band.
    */
-  const statusBarStripActive = locationStageActive || (stage === 'review' && planReadyView === 'day');
+  const statusBarStripActive = locationStageActive;
   const footerPrimaryLabel =
     stage === 'review' && busy
       ? t(language, 'onb.cta.saving')
       : stage === 'review'
-      ? planReadyView === 'day'
-        ? // "Seuraava" walks the days forward; the chevron walks them back
-          // (user 2026-08-23). Only the last day's button returns to the plan.
-          planReadyWorkoutPage < projectedSessions.length - 1
-          ? t(language, 'common.next')
-          : t(language, 'onb.cta.backToPlan')
-        : // The overview's button is the last one in onboarding now that the
-          // paywall no longer follows it, so it says what it does.
-          t(language, 'onb.cta.startTraining')
+      ? // The last button in onboarding now that neither the paywall nor the
+        // day view follows it, so it says what it does.
+        t(language, 'onb.cta.startTraining')
       : stage === 'planning'
       ? t(language, 'onb.cta.buildPlan')
       : stage === 'avoid'
@@ -4133,9 +4001,8 @@ export function OnboardingScreen({
         : t(language, 'onb.cta.skip')
       : t(language, 'common.continue');
   // The programme picker is full-bleed and carries its own pinned CTA, so the
-  // shared footer would stack a second pair of buttons under it. The day view
-  // does use the shared footer, which is what walks through the days.
-  const footerVisible = !(stage === 'review' && planReadyView === 'overview');
+  // shared footer would stack a second pair of buttons under it.
+  const footerVisible = stage !== 'review';
   const scrollLockedStage = stage === 'level' || stage === 'days';
   // Steps 1-2 (location/goal) scroll so an expanded benefits panel or a
   // wrapped chip row stays reachable above the footer, but they should not
@@ -4160,7 +4027,7 @@ export function OnboardingScreen({
   // pinned CTA, so it cannot live inside the onboarding's ScrollView: a flex:1
   // child of a scroll container collapses to content height, and the footer
   // anchored to it ends up somewhere down the page instead of on the screen.
-  const fullBleedReview = stage === 'review' && planReadyView === 'overview';
+  const fullBleedReview = stage === 'review';
   if (fullBleedReview) {
     return renderReview();
   }
@@ -4168,22 +4035,6 @@ export function OnboardingScreen({
   // One back control, top-left, like every other screen — the footer link it
   // replaces is below. Where it goes is the same decision the link made.
   const goBack = () => {
-    if (stage === 'review') {
-      if (planReadyView === 'day') {
-        // Backward through the days, then out to the plan. This used to fall
-        // through to the questionnaire: one tap on the chevron from a day
-        // view landed on the focus step and the review had to be rebuilt
-        // (user 2026-08-23, "iso virhe").
-        if (planReadyWorkoutPage > 0) {
-          setPlanReadyWorkoutPage((current) => current - 1);
-          return;
-        }
-        setPlanReadyView('overview');
-        return;
-      }
-      setStageIndex(getStageIndex('planning'));
-      return;
-    }
     if (stage === 'location') {
       if (editMode) {
         void runAction(() => onCancel?.());
@@ -4222,7 +4073,6 @@ export function OnboardingScreen({
         {stage === 'days' ? renderDays() : null}
         {stage === 'avoid' ? renderAvoid() : null}
         {stage === 'planning' ? renderPlanning() : null}
-        {stage === 'review' ? renderReview() : null}
       </ScrollView>
 
       {footerVisible ? (
@@ -4231,21 +4081,13 @@ export function OnboardingScreen({
             styles.footer,
             styles.footerLight,
             locationStageActive && styles.locationFooter,
-            stage === 'review' && styles.planReadyFixedFooter,
             {
               // Every questionnaire step carries a "Takaisin" link under the
               // CTA, and at spacing.xs it sat a few pixels above the system
               // navigation bar — reachable, but a thumb aiming for it hits the
-              // bar instead. The review stage has no link under its button and
-              // keeps the tight value.
-              //
-              // locationStageActive is ALL SIX questionnaire steps, not just
-              // the location one: it is the shell they share. Raising the
-              // OTHER branch, as the first attempt did, changed nothing at all
-              // because no stage reaches it.
-              paddingBottom: stage === 'review'
-                ? insets.bottom + spacing.xs
-                : insets.bottom + spacing.lg,
+              // bar instead. The review stage used to keep the tight value; it
+              // returns before this footer exists, so there is one value now.
+              paddingBottom: insets.bottom + spacing.lg,
             },
           ]}
         >
@@ -4275,22 +4117,6 @@ export function OnboardingScreen({
                   return;
                 }
 
-                if (stage === 'review') {
-                  void haptics.success();
-                  if (planReadyView === 'day') {
-                    if (planReadyWorkoutPage < projectedSessions.length - 1) {
-                      setPlanReadyWorkoutPage((current) => current + 1);
-                      return;
-                    }
-                    setPlanReadyView('overview');
-                    return;
-                  }
-                  // The overview IS the end of onboarding now: the paywall
-                  // that used to sit between it and the app is gone (user
-                  // 2026-08-24).
-                  void runAction(() => onCompleteToTraining(selection, activeRecommendedProgramId));
-                  return;
-                }
 
                 setStageIndex((current) => Math.min(current + 1, STAGES.length - 1));
               }}
@@ -6274,128 +6100,6 @@ const makeOnboardingStyles = (C: OnbPalette) => StyleSheet.create({
     gap: 16,
     borderTopWidth: 0,
     borderTopColor: 'transparent',
-  },
-  planReadyDayStage: {
-    paddingBottom: spacing.lg,
-  },
-  planReadyDayHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  planReadyDayHeaderCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  planReadyDayKicker: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-    color: C.primary,
-  },
-  planReadyDayTitle: {
-    marginTop: 4,
-    fontSize: 25,
-    fontWeight: '800',
-    letterSpacing: -0.25,
-    color: C.text,
-  },
-  planReadyDayWeekBadge: {
-    backgroundColor: C.cardActive,
-    borderRadius: 999,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
-  },
-  planReadyDayWeekBadgeText: {
-    fontSize: 12,
-    fontWeight: '800',
-    // Same pair as equipmentChipTextActive: a literal on C.cardActive.
-    color: C.primary,
-  },
-  planReadyDayMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    marginTop: 8,
-  },
-  planReadyDayMetaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  planReadyDayMetaText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: C.textSoft,
-  },
-  planReadyDayExercisesLabel: {
-    marginTop: 18,
-    marginBottom: 10,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.3,
-    color: C.textSoft,
-  },
-  planReadyDayExerciseList: {
-    gap: 8,
-  },
-  planReadyDayExerciseRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 13,
-    backgroundColor: C.card,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 14,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-  },
-  planReadyDayExerciseNumber: {
-    width: 20,
-    fontSize: 13,
-    fontWeight: '800',
-    color: C.primary,
-  },
-  planReadyDayExerciseCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  planReadyDayExerciseName: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: C.text,
-  },
-  planReadyDayExerciseGroup: {
-    marginTop: 2,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.66,
-    color: C.textSoft,
-    textTransform: 'uppercase',
-  },
-  planReadyDayExerciseRight: {
-    alignItems: 'flex-end',
-  },
-  planReadyDayExerciseSets: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: C.text,
-  },
-  planReadyDayExerciseReps: {
-    marginTop: 1,
-    fontSize: 12,
-    fontWeight: '700',
-    color: C.textSoft,
-  },
-  planReadyFixedFooter: {
-    backgroundColor: C.panel,
-    borderTopWidth: 0,
-    borderTopColor: 'transparent',
-    paddingHorizontal: 18,
-    paddingTop: 32,
-    alignItems: 'center',
-    gap: 16,
   },
   onboardingPrimaryCTA: {
     width: '100%',

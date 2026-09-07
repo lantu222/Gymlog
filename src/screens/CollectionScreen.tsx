@@ -160,11 +160,13 @@ export function CollectionScreen({
             })}
           </View>
 
-          {/* What finishing means, said honestly. */}
+          {/* What finishing means, said honestly — and once. The line under
+              the title spent half its length on what does NOT happen ("no
+              badge, no unlock") and the other half restating the title (user
+              2026-09-07). The eyebrow says when, the title says what. */}
           <Text style={styles.sectionLabel}>{t(language, 'learn.whenAllTicked')}</Text>
           <View style={styles.outcomeCard}>
             <Text style={styles.outcomeTitle}>{t(language, 'learn.outcomeTitle')}</Text>
-            <Text style={styles.outcomeBody}>{t(language, 'learn.outcomeBody')}</Text>
           </View>
         </View>
       </ScrollView>
@@ -345,11 +347,5 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.ink,
     fontSize: 14.5,
     fontWeight: '800',
-  },
-  outcomeBody: {
-    color: theme.muted,
-    fontSize: 12.5,
-    lineHeight: 18,
-    fontWeight: '600',
   },
 });

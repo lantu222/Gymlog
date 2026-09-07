@@ -415,17 +415,65 @@ module.exports = [
     },
   },
   {
-    name: 'window: a short history anchors the chart, a long one trails it',
+    /**
+     * CLAUDE.md's own rule: "Date arithmetic that steps by DAY_MS. Helsinki
+     * changes clocks twice a year, and a 23- or 25-hour day makes fixed-
+     * millisecond stepping land off local midnight. Step by calendar date."
+     *
+     * `capRangeDays` divided raw timestamps, so it counted the time of day
+     * along with the dates and miscounted every span crossing a clock change.
+     * Both numbers below were measured against the broken version in review
+     * (2026-09-07).
+     */
+    name: 'window: the history is counted in calendar days, not milliseconds',
     run() {
       const assert = require('node:assert/strict');
-      const { measureWindowEnd, buildValueWindow } = require('../../.test-dist/lib/bodyweightCard.js');
+      const { capRangeDays } = require('../../.test-dist/lib/bodyweightCard.js');
+      const at = (y, m, d, h) => new Date(y, m - 1, d, h).getTime();
+
+      // Time of day must not add a day. 8.8. 07:00 to 7.9. 21:00 is a 31-day
+      // inclusive calendar span; the raw division returned 32.
+      assert.equal(capRangeDays(365, at(2026, 8, 8, 7), at(2026, 9, 7, 21)), 31);
+
+      // The same dates, whatever hour they carry.
+      assert.equal(capRangeDays(365, at(2026, 8, 8, 23), at(2026, 9, 7, 0)), 31);
+      assert.equal(capRangeDays(365, at(2026, 8, 8, 0), at(2026, 9, 7, 23)), 31);
+
+      // A span across Helsinki's autumn clock change is the same length as an
+      // equal one that crosses nothing. The 25-hour day returned 33 against 32.
+      const acrossDst = capRangeDays(365, at(2026, 10, 10, 12), at(2026, 11, 10, 12));
+      const noDst = capRangeDays(365, at(2026, 8, 10, 12), at(2026, 9, 10, 12));
+      assert.equal(acrossDst, noDst, 'a clock change changed the day count');
+      assert.equal(acrossDst, 32);
+
+      // And spring forward, the 23-hour day.
+      assert.equal(capRangeDays(365, at(2026, 3, 15, 12), at(2026, 4, 15, 12)), 32);
+
+      // Same day, both ends. The count itself is 1, which the floor then
+      // raises — a single entry still needs an axis to sit on — so what is
+      // observable here is that seventeen hours do not become a second day.
+      assert.equal(capRangeDays(365, at(2026, 9, 7, 6), at(2026, 9, 7, 23)), 14);
+      assert.equal(capRangeDays(365, at(2026, 9, 6, 23), at(2026, 9, 7, 0)), 14);
+      // One hour apart across midnight IS two days, and the pair above proves
+      // the difference is the date and not the elapsed time: seventeen hours
+      // inside one day counts once, one hour across two counts twice.
+      assert.equal(capRangeDays(2, at(2026, 9, 6, 23), at(2026, 9, 7, 0)), 2);
+      assert.equal(capRangeDays(2, at(2026, 9, 7, 6), at(2026, 9, 7, 23)), 2);
+    },
+  },
+  {
+    name: 'window: the range chip is a ceiling, the history sets the width, and today is always the edge',
+    run() {
+      const assert = require('node:assert/strict');
+      const { measureRangeDays, buildValueWindow, MIN_RANGE_DAYS } = require('../../.test-dist/lib/bodyweightCard.js');
       const day = (y, m, d) => new Date(y, m - 1, d).getTime();
       const now = day(2026, 9, 2);
 
-      // Two entries, three-month range: the window starts at the first one.
+      // A three-day history asked to fill three months: the chip caps the
+      // width, it does not manufacture it. The window used to slide FORWARD to
+      // reach 91 days, drawing an axis that ran into December.
       const firstRecent = day(2026, 8, 30);
-      const endRecent = measureWindowEnd(firstRecent, now, 91);
-      assert.equal(endRecent, day(2026, 11, 28), 'the window did not anchor to the first entry');
+      assert.equal(measureRangeDays('3m', firstRecent, now), MIN_RANGE_DAYS);
 
       const window = buildValueWindow(
         [
@@ -433,36 +481,52 @@ module.exports = [
           { recordedAt: new Date(day(2026, 9, 1)).toISOString(), value: 75.3 },
         ],
         now,
-        91,
-        endRecent,
+        measureRangeDays('3m', firstRecent, now),
       );
-      assert.equal(window.length, 91);
-      assert.equal(window[0].dayStart, firstRecent, 'the chart still starts before the first entry');
-      assert.equal(window[0].value, 75, 'the first entry is not on the first day');
-      // Today is inside the window and still marked, even though it is not the
-      // right-hand edge any more.
+      assert.equal(window.length, MIN_RANGE_DAYS);
+      assert.equal(
+        window[window.length - 1].dayStart,
+        now,
+        'the chart drew days that have not happened yet',
+      );
+      assert.ok(
+        window.every((d) => d.dayStart <= now),
+        'a day after today reached the axis',
+      );
       assert.equal(window.filter((d) => d.isToday).length, 1);
+      assert.equal(window[window.length - 1].isToday, true, 'today is not the right-hand edge');
 
-      // A history longer than the range trails: the newest day is the edge.
+      // A history longer than the chip gets the chip's full width, trailing.
       const firstOld = day(2026, 1, 5);
-      assert.equal(measureWindowEnd(firstOld, now, 91), now, 'a long history stopped trailing');
-      const trailing = buildValueWindow([], now, 91, measureWindowEnd(firstOld, now, 91));
+      assert.equal(measureRangeDays('3m', firstOld, now), 91);
+      const trailing = buildValueWindow([], now, measureRangeDays('3m', firstOld, now));
+      assert.equal(trailing.length, 91);
       assert.equal(trailing[trailing.length - 1].dayStart, now);
 
-      // The handover is exact: a history of precisely `days` ends today.
+      // The handover is exact: a history of precisely the chip's length is the
+      // first one to get it, and nothing jumps on either side of that day.
       const firstExact = day(2026, 6, 4);
       assert.equal(
         Math.round((now - firstExact) / 86400000) + 1,
         91,
         'fixture drifted — that is not a 91-day history',
       );
-      assert.equal(measureWindowEnd(firstExact, now, 91), now, 'the two cases do not meet');
+      assert.equal(measureRangeDays('3m', firstExact, now), 91);
+      assert.equal(measureRangeDays('3m', firstExact + 86400000, now), 90);
 
-      // No entries at all: today, as before the anchor existed.
-      assert.equal(measureWindowEnd(null, now, 91), now);
-      // And the default end is still today, so every old caller is unchanged.
-      const legacy = buildValueWindow([], now, 7);
-      assert.equal(legacy[legacy.length - 1].dayStart, now);
+      // "7D" is a week whatever the history, because the floor never rises
+      // above the ceiling.
+      assert.equal(measureRangeDays('7d', now, now), 7);
+      assert.equal(measureRangeDays('7d', firstOld, now), 7);
+
+      // "All" is unchanged: a fortnight at least, two years at most.
+      assert.equal(measureRangeDays('all', null, now), MIN_RANGE_DAYS);
+      assert.equal(measureRangeDays('all', day(2020, 1, 1), now), 730);
+
+      // No entries at all: the floor, ending today.
+      const empty = buildValueWindow([], now, measureRangeDays('3m', null, now));
+      assert.equal(empty.length, MIN_RANGE_DAYS);
+      assert.equal(empty[empty.length - 1].dayStart, now);
     },
   },
 ];

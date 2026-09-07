@@ -46,10 +46,16 @@ export function Seg<T extends string>({
   const theme = useTheme();
 
   return (
-    // A3: the shell and the selected option both take the cut. Every selector
-    // on the Progress tab goes through this one component, so the shape lands
-    // on the metric switch, the trend range, the measure range and the records
-    // kind at once.
+    // A3: the SHELL takes the cut, the selected option does not. The design's
+    // nesting rule is "allowed when the inner element is clear of the corner",
+    // and the selected pill is not clear of it: at 3px of padding the first
+    // option's cut sat 3px inside the shell's own, drawing two parallel
+    // diagonals, and once the selection moved the shell's diagonal was left
+    // standing beside a square pill ("ääriviivat outoja", user 2026-09-07).
+    // The shell is the selector; the pill is a highlight travelling inside it.
+    // Every selector on the Progress tab goes through this one component, so
+    // the shape lands on the metric switch, the trend range, the measure range
+    // and the records kind at once.
     <CutSurface size="sm" fill={theme.surfaceSoft} style={[styles.seg, grow && styles.segGrow]}>
       {options.map((option) => {
         const locked = lockedKeys?.includes(option.key) ?? false;
@@ -81,13 +87,7 @@ export function Seg<T extends string>({
             onPress={() => (locked ? onLockedPress?.() : onChange(option.key))}
             style={grow && styles.segItemGrow}
           >
-            {active ? (
-              <CutSurface size="chip" fill={theme.surface} style={[styles.segItem, styles.segItemActive]}>
-                {inner}
-              </CutSurface>
-            ) : (
-              <View style={styles.segItem}>{inner}</View>
-            )}
+            <View style={[styles.segItem, active && styles.segItemActive]}>{inner}</View>
           </Pressable>
         );
       })}
@@ -117,6 +117,10 @@ const makeSegStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
   },
   segItemActive: {
+    backgroundColor: theme.surface,
+    // The chip cut's own radius (`CUT_BY_SIZE.chip`), so the highlight is the
+    // same size of corner the shape family uses — just without the cut.
+    borderRadius: 7,
     shadowColor: '#5028A0',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.14,
