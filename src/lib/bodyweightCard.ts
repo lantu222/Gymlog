@@ -359,6 +359,28 @@ const DAY_MS = 86_400_000;
  * plotted because the days have not happened. The chip is a request for "up to
  * this much", not a promise that the card will draw empty time to reach it.
  */
+/**
+ * Calendar days from one instant to another, both ends counted.
+ *
+ * NOT `(to - from) / DAY_MS`. That divides raw timestamps, so it counts the
+ * time of day as well as the dates — a first weigh-in at 07:00 and a `now` of
+ * 21:00 thirty-one days later came back as thirty-two — and it miscounts any
+ * span crossing a Helsinki clock change, where a 23- or 25-hour day makes the
+ * quotient land off a whole number (CLAUDE.md's own rule; caught in review
+ * 2026-09-07).
+ *
+ * Both ends collapse to LOCAL midnight first. What is left between two local
+ * midnights is a whole number of days give or take the hour a DST change adds
+ * or removes, and rounding lands on the calendar count.
+ */
+function calendarDaysInclusive(fromMs: number, toMs: number): number {
+  const from = new Date(fromMs);
+  const to = new Date(toMs);
+  const fromMidnight = new Date(from.getFullYear(), from.getMonth(), from.getDate()).getTime();
+  const toMidnight = new Date(to.getFullYear(), to.getMonth(), to.getDate()).getTime();
+  return Math.round((toMidnight - fromMidnight) / DAY_MS) + 1;
+}
+
 export function capRangeDays(
   ceilingDays: number,
   firstEntryMs: number | null,
@@ -367,7 +389,7 @@ export function capRangeDays(
   const first = firstEntryMs ?? nowMs;
   // The floor never exceeds the ceiling, so "7D" stays exactly a week.
   const floor = Math.min(ceilingDays, MIN_RANGE_DAYS);
-  const history = Math.ceil((nowMs - first) / DAY_MS) + 1;
+  const history = calendarDaysInclusive(first, nowMs);
   return Math.min(ceilingDays, Math.max(floor, history));
 }
 

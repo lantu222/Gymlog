@@ -119,7 +119,6 @@ export function PremiumUnlockScreen({
   liveSince = null,
   renewsAt = null,
 }: PremiumUnlockScreenProps) {
-  const [footerHeight, setFooterHeight] = useState(0);
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
@@ -183,7 +182,7 @@ export function PremiumUnlockScreen({
     <View style={styles.screen}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.content, { paddingBottom: footerHeight + 24 }]}
+        contentContainerStyle={styles.content}
       >
         {/* The violet state badge carries the fact (design: GAINER Pro
             screens, 01) — a green pip said "on", which is a switch; this is
@@ -302,7 +301,7 @@ export function PremiumUnlockScreen({
         </Animated.View>
       </ScrollView>
 
-      <View style={styles.footer} onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}>
+      <View style={styles.footer}>
         {/* One filled action, and it goes home — the screen is about what
             changed, not about today. The whole list is a quiet link. */}
         <Pressable
@@ -334,16 +333,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     // bar — and useSafeAreaInsets reports the full window inset regardless. The
     // same double count as the Pro footer (895c196), pointing the other way.
     paddingTop: 10,
-    /**
-     * Replaced at runtime by the footer's measured height plus this much.
-     *
-     * The footer is a sibling of the ScrollView, so it floats over the end of
-     * the content, and a flat 24 reserved room for none of it: the receipt row
-     * — the last thing on the page and the one carrying the price — sat
-     * permanently behind the CTA (user 2026-09-07). Measured rather than
-     * guessed, because the quiet link under the CTA wraps in Finnish and grows
-     * again at a larger font scale.
-     */
     paddingBottom: 24,
   },
   statusRow: {
