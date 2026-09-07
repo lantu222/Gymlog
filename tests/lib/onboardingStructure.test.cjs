@@ -787,11 +787,31 @@ module.exports = [
         /'onb\.planReady\.weekPlan', \{ count: planReadyWeeks \}[\s\S]{0,60}goalLabel,\s*locationLabel/,
       );
 
-      // Why THIS program still comes from the waterfall. The design's card has
-      // a blurb slot; the waterfall's reason is the better sentence for it, so
-      // the recommendation does not stop explaining itself.
-      assert.match(reviewBody, /recommendation\.waterfall/);
-      assert.match(reviewBody, /whyFor\(option\.id\) \?\? option\.presentation\.subtitle/);
+      // The card computes no "why" sentence, because it never rendered one.
+      // The blurb slot was resolved from the waterfall into a `subtitle` prop
+      // that `ProgramPickScreen` declared and never printed, from the day the
+      // description line came off this card (user 2026-08-23).
+      assert.doesNotMatch(
+        reviewBody,
+        /whyFor|recommendation\.waterfall/,
+        'the plan-ready card computes a reason it does not show again',
+      );
+      const pick = pickSource;
+      assert.doesNotMatch(pick, /subtitle/, 'the picker grew a prop it does not render again');
+
+      // But the reason itself is LIVE, and this is the assertion that keeps
+      // the deletion above honest: App.tsx feeds the same waterfall keys into
+      // the backfill, and the Programs tab prints them on the programme's own
+      // screen. A first sweep for `whyPrimary` searched `src/` only, missed
+      // App.tsx, and concluded 44 `wf.*` strings were unreachable — they are
+      // not (ref-grep-scope-app-tsx, hit again 2026-09-07).
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
+      assert.match(app, /whyKey: waterfall\.whyPrimary/);
+      assert.match(app, /whyKey: waterfall\.whyAlternative/);
+      assert.match(app, /t\(preferences\.appLanguage, slot\.whyKey/);
+      // And the strings they name are still shipped.
+      assert.match(i18nSource, /'wf\.strength\.primary':/);
+      assert.match(i18nSource, /'wf\.home_equipment\.primary':/);
 
     },
   },

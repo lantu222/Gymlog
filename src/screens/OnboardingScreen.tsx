@@ -3361,24 +3361,17 @@ export function OnboardingScreen({
       || planReadyPayload.requestedDaysPerWeek
       || 3;
     const planReadyTotalWorkouts = planReadyWeeks * planReadyPerWeek;
-    // Why THIS program for THIS user. The design's card carries a blurb; the
-    // waterfall's reason is the better sentence for the same slot, so it wins
-    // when there is one. Dropping it would have been the recommendation
-    // quietly stopping explaining itself.
-    const planReadyWaterfall = recommendation.waterfall;
-    const whyKey = (key: I18nKey | null) => (key ? t(language, key) : null);
-    const whyFor = (programId: string): string | null => {
-      if (!planReadyWaterfall) {
-        return null;
-      }
-      if (programId === planReadyWaterfall.primaryProgramId) {
-        return whyKey(planReadyWaterfall.whyPrimary);
-      }
-      if (programId === planReadyWaterfall.alternativeProgramId) {
-        return whyKey(planReadyWaterfall.whyAlternative);
-      }
-      return null;
-    };
+    // No "why" sentence is computed here any more.
+    //
+    // The card had a blurb slot, the waterfall's reason was resolved into it,
+    // and `ProgramPickScreen` never rendered it — the sentence was built and
+    // dropped on every render from the day the description line came off this
+    // card (user 2026-08-23, "tyhmää geneeristä ai tekstiä").
+    //
+    // The reason itself is NOT dead and is not what went: `App.tsx` feeds the
+    // same `waterfall.whyPrimary` / `whyAlternative` into `backfillRecommendations`,
+    // and the Programs tab prints it on the programme's own screen, where it
+    // has room to be a sentence rather than a fragment under a name.
     const planReadyMeta = [
       t(language, 'onb.planReady.weekPlan', { count: planReadyWeeks }),
       goalLabel,
@@ -3395,7 +3388,6 @@ export function OnboardingScreen({
         options={programPickOptions.map((option) => ({
           id: option.id,
           title: option.presentation.title,
-          subtitle: whyFor(option.id) ?? option.presentation.subtitle,
           days: option.days,
           mins: option.mins,
           weeks: option.weeks,
