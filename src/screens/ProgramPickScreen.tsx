@@ -44,7 +44,6 @@ const CTA_ROOM = 140;
 export interface ProgramPickOption {
   id: string;
   title: string;
-  subtitle: string;
   days: number;
   mins: number;
   weeks: number;
