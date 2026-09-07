@@ -13,203 +13,203 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
   // ── Vinha programs, written against what each one actually contains ──
   tpl_gainer_dream_body_man_v1: {
     summary:
-      'Viisipäiväinen lihaskasvuohjelma, joka rakentaa tasapainoista ja näyttävää fysiikkaa yhdistämällä raskaat perusliikkeet sekä kohdennetut eristävät harjoitteet.',
+      'Viisi salipäivää viikossa, jokaisella oma alue: rinta ja ojentajat, selkä ja hauikset, jalat, olkapäät ja vatsa sekä kädet. Päivä alkaa raskaalla perusliikkeellä ja jatkuu eristävillä.',
     audience:
-      'Sopii keskitason harjoittelijoille, jotka hallitsevat perusliikkeet ja haluavat kasvattaa lihasmassaa sekä kehittää koko kehoa tasapainoisesti.',
+      'Keskitason treenaajille, jotka osaavat penkin, kyykyn ja leuanvedon ja haluavat kasvattaa lihasta koko kehoon viitenä päivänä viikossa.',
     equipmentProfile:
-      'Vaatii monipuolisesti varustellun kuntosalin levytankoineen, käsipainoineen, taljoineen ja laitteineen.',
+      'Täysi sali: tanko, käsipainot, taljat, laitteet sekä dippi- ja leuanvetotanko.',
     whyItWorks:
-      'Korkea viikoittainen harjoitusmäärä, tehokkaat perusliikkeet ja riittävä lihaskohtainen harjoitustiheys tukevat tasaista lihaskasvua ja voimakehitystä.',
+      'Jokainen lihasryhmä saa oman päivänsä ja seitsemän liikettä, ja ankkuriliike nousee vasta kun toistohaarukan yläpää täyttyy joka sarjassa.',
   },
   tpl_gainer_beginner_bro_split_v1: {
     summary:
-      'Perinteinen nelijakoinen lihaskasvuohjelma, jossa jokainen lihasryhmä saa oman harjoituspäivänsä. Selkeä rakenne tekee harjoittelusta helppoa aloittelijalle.',
+      'Neljä salipäivää, yksi lihasryhmä kerrallaan: rinta, selkä, jalat sekä olkapäät ja kädet. Viisi tai kuusi liikettä päivässä, joten päivän oppii nopeasti.',
     audience:
-      'Suunniteltu aloittelijoille, jotka haluavat opetella kuntosaliharjoittelun perusteet ja kasvattaa lihasmassaa hallitulla etenemisellä.',
+      'Aloittelijalle, joka haluaa oppia salin perusliikkeet yksi lihasryhmä kerrallaan ja treenata neljänä päivänä viikossa.',
     equipmentProfile:
-      'Vaatii tavallisen kuntosalin perusvälineet, kuten levytangot, käsipainot, taljat ja harjoituslaitteet.',
+      'Tavallinen sali: tanko, käsipainot, taljat ja laitteet.',
     whyItWorks:
-      'Yksi lihasryhmä kerrallaan mahdollistaa hyvän keskittymisen tekniikkaan, riittävän harjoitusvolyymin ja palautumisen harjoitusten välillä.',
+      'Kun päivässä on vain yksi lihasryhmä, tekniikkaan ehtii keskittyä ja lihas saa viikon palautua ennen seuraavaa kertaa. Paino nousee, kun toistohaarukan yläpää täyttyy.',
   },
   tpl_gainer_advanced_ppl_v1: {
     summary:
-      'Kuusipäiväinen Push Pull Legs -ohjelma kokeneille harjoittelijoille. Kaksi erilaista kierrosta viikossa kehittää sekä lihasmassaa että suorituskykyä.',
+      'Kuusi salipäivää: työntö, veto ja jalat kahdesti viikossa, kummallakin kierroksella eri painotus. Ensimmäinen kierros painottaa rintaa, selän leveyttä ja etureisiä, toinen olkapäitä, selän paksuutta ja takaketjua.',
     audience:
-      'Tarkoitettu edistyneille harjoittelijoille, jotka palautuvat hyvin suuresta harjoitusmäärästä ja tavoittelevat maksimaalista lihaskasvua.',
+      'Edistyneille treenaajille, jotka palautuvat kuudesta salipäivästä ja seitsemästä liikkeestä päivässä ja haluavat mahdollisimman paljon lihasta.',
     equipmentProfile:
-      'Vaatii täysin varustellun kuntosalin sekä mahdollisuuden tehdä raskaita vapaita liikkeitä turvallisesti.',
+      'Täysi sali: tanko ja teline raskaisiin kyykkyihin ja maastavetoihin, käsipainot, taljat ja laitteet.',
     whyItWorks:
-      'Korkea harjoitustiheys, suuri viikoittainen volyymi ja erilaiset painotukset varmistavat monipuolisen lihasärsykkeen koko keholle.',
+      'Jokainen lihasryhmä treenataan kahdesti viikossa kahdesta eri kulmasta, joten viikkovolyymi on suuri ilman että yksikään treeni venyy.',
   },
   tpl_gainer_expert_powerbuilding_v1: {
     summary:
-      'Powerbuilding-ohjelma yhdistää voimanoston kilpailuliikkeet ja kehonrakennuksen lihaskasvutyön samaan kokonaisuuteen.',
+      'Viisi salipäivää voimanoston kilpailuliikkeiden ympärillä: penkki-, kyykky- ja maastavetopäivä viiden sarjan ankkuriliikkeellä, vetopäivä sekä punnerrus- ja pumppipäivä.',
     audience:
-      'Sopii kokeneille nostajille, jotka haluavat kasvattaa sekä maksimivoimaa että lihasmassaa ilman kompromisseja.',
+      'Kokeneille nostajille, jotka haluavat kilpailuliikkeisiin lisää kiloja ja samaan viikkoon kehonrakennustyötä.',
     equipmentProfile:
-      'Vaatii hyvin varustellun kuntosalin, kyykkytelineen, penkkipisteen, levytangot ja monipuoliset lisälaitteet.',
+      'Hyvin varustettu sali: kyykkyteline, penkkipaikka, tanko ja levyt, käsipainot, taljat ja laitteet.',
     whyItWorks:
-      'Raskaat kilpailuliikkeet kehittävät voimaa, kun taas täydentävät hypertrofiasarjat lisäävät lihasmassaa ja tukevat pitkän aikavälin kehitystä.',
+      'Kilpailuliike tehdään ensin tuoreena viidellä sarjalla, sen jälkeen sen variaatio ja lopuksi kehonrakennusliikkeet, joten voima nousee ja lihas kasvaa samassa treenissä.',
   },
   tpl_gainer_lean_shred_v1: {
     summary:
-      'Viisipäiväinen ohjelma yhdistää voimaharjoittelun, HIIT-harjoitukset ja koko kehon treenit rasvanpolton sekä lihasmassan säilyttämisen tueksi.',
+      'Viisi päivää viikossa: kolme nostopäivää, jotka päättyvät intervalleihin matolla, pyörällä tai soutulaitteella, yksi koko kehon kiertoharjoittelu ja yksi kunto- ja keskivartalopäivä.',
     audience:
-      'Sopii keskitason harjoittelijoille, jotka haluavat pudottaa rasvaprosenttia ilman että lihasvoima tai lihasmassa kärsii.',
+      'Keskitason treenaajille, jotka pudottavat rasvaa ja haluavat pitää penkin, kyykyn ja leuanvedon painot rasvanpolton ajan.',
     equipmentProfile:
-      'Vaatii tavallisen kuntosalin sekä mahdollisuuden tehdä HIIT-harjoittelua esimerkiksi juoksumatolla, pyörällä tai soutulaitteella.',
+      'Tavallinen sali sekä juoksumatto, kuntopyörä tai soutulaite intervalleihin.',
     whyItWorks:
-      'Voimaharjoittelu auttaa säilyttämään lihasmassan, kun taas HIIT lisää energiankulutusta ja kehittää samanaikaisesti kestävyyttä.',
+      'Raskaat perusliikkeet pitävät lihaksen kalorivajeessa, ja intervallit lisäävät kulutusta samalla salikäynnillä, joten kunto ei jää tekemättä.',
   },
   tpl_gainer_dream_body_female_v1: {
     summary:
-      'Viisipäiväinen lihaskasvuohjelma, joka painottaa pakaroita, alavartaloa ja ylävartalon linjakasta kehittämistä tasapainoisen fysiikan rakentamiseksi.',
+      'Viisi salipäivää: pakarat ja takareidet, ylävartalo, etureidet ja cardio, selkä ja keskivartalo sekä koko kehon päivä. Pakarat ja ylävartalo treenataan kumpikin kahdesti viikossa.',
     audience:
-      'Suunniteltu keskitason harjoittelijoille, jotka haluavat kehittää erityisesti pakaroita ja alavartaloa kuitenkaan unohtamatta ylävartalon voimaa.',
+      'Keskitason treenaajille, jotka haluavat kasvattaa pakaroita ja jalkoja ja pitää ylävartalon vahvana viidellä salipäivällä viikossa.',
     equipmentProfile:
-      'Vaatii monipuolisesti varustellun kuntosalin levytankoineen, käsipainoineen, taljoineen ja harjoituslaitteineen.',
+      'Täysi sali: tanko lantionnostoon, käsipainot, taljat, laitteet ja porraslaite.',
     whyItWorks:
-      'Pakaroita harjoitetaan useita kertoja viikossa eri kuormituksilla, mikä tukee lihaskasvua, samalla kun koko keho kehittyy tasapainoisesti.',
+      'Lantionnosto ja romanialainen maastaveto kuormittavat pakaroita raskaasti kerran viikossa, ja lantionnosto toistuu kevyempänä koko kehon päivässä, joten pakaroiden ärsyke tulee kahdesti ilman että jalat ovat koko ajan kipeät.',
   },
   tpl_gainer_glute_foundations_v1: {
     summary:
-      'Kolmipäiväinen aloittelijan ohjelma, joka opettaa pakaralihasten tehokkaan aktivoinnin ja rakentaa vahvan perustan turvalliselle kehitykselle.',
+      'Kolme päivää viikossa: aktivointipäivä kuminauhalla, alavartalon voimapäivä ja pakaroiden kasvupäivä. Painot ovat kevyitä, ja liikkeet opitaan ennen kuormaa.',
     audience:
-      'Sopii aloittelijoille tai harjoitteluun palaaville, jotka haluavat kehittää pakaroiden voimaa, lihaskasvua ja liiketekniikkaa.',
+      'Aloittelijalle tai tauolta palaavalle, joka haluaa oppia käyttämään pakaroita ja saada kyykyn, saranan ja lantionnoston tekniikan kuntoon.',
     equipmentProfile:
-      'Vaatii peruskuntosalin välineet sekä mahdollisuuden käyttää vastuskuminauhoja ja kevyitä vapaita painoja.',
+      'Peruskuntosalin välineet: kuminauha, käsipainot tai kahvakuula, talja ja kevyt tanko.',
     whyItWorks:
-      'Harjoitukset etenevät aktivoinnista voimaharjoitteluun, mikä auttaa kehittämään oikeaa liikemallia ja tehokasta pakaralihasten käyttöä.',
+      'Ensin opitaan tuntemaan pakarat kuminauhalla, sitten kuorma tulee kyykkyyn ja saranaan ja vasta kolmantena päivänä lantionnostoon, joten voima rakentuu oikean liikemallin päälle.',
   },
   tpl_gainer_advanced_glutes_v1: {
     summary:
-      'Edistynyt viisijakoinen ohjelma, jossa pakaroita harjoitetaan useilla erilaisilla ärsykkeillä maksimaalisen lihaskasvun saavuttamiseksi.',
+      'Viisi päivää viikossa, joista kolme on pakarapäiviä: raskas päivä tangolla, volyymipäivä kuminauhalla ja taljalla sekä yhden jalan päivä. Lisäksi yksi etu- ja takareisipäivä ja yksi ylävartalopäivä.',
     audience:
-      'Suunniteltu kokeneille harjoittelijoille, jotka haluavat nostaa pakaratreeninsä uudelle tasolle suurella harjoitusmäärällä.',
+      'Kokeneille treenaajille, joille pakarat ovat seuraavan jakson ykkösprioriteetti ja jotka palautuvat kolmesta pakarapäivästä viikossa.',
     equipmentProfile:
-      'Vaatii täysin varustellun kuntosalin, jossa on vapaat painot, taljat, laitteet ja mahdollisuus raskaisiin hip thrust -harjoituksiin.',
+      'Täysi sali: tanko ja lantionnostopaikka, taljat, laitteet, kuminauhat ja käänteinen selkäpenkki.',
     whyItWorks:
-      'Voima-, volyymi- ja pumppiharjoittelu yhdistyvät optimaaliseen harjoitusärsykkeeseen, joka kehittää sekä lihasmassaa että suorituskykyä.',
+      'Raskas viiden sarjan lantionnosto, kevyt kahdenkymmenen toiston pumppi ja yhden jalan työ antavat pakaroille kolme erilaista ärsykettä viikossa, ja ylävartalo- ja reisipäivät pitävät muun kehon mukana.',
   },
   tpl_gainer_hourglass_shape_v1: {
     summary:
-      'Nelipäiväinen ohjelma, joka painottaa pakaroita, hartioita ja keskivartaloa korostaakseen tasapainoista ja näyttävää kehonmuotoa.',
+      'Neljä salipäivää: pakarat ja jalat, olkapäät ja selän leveys, pakarat ja keskivartalo sekä ylävartalon kiinteytys. Pakarat kahdesti, olkapäät kahdesti.',
     audience:
-      'Sopii keskitason harjoittelijoille, jotka haluavat kehittää pakaroita, hartialeveyttä ja keskivartalon hallintaa.',
+      'Keskitason treenaajille, jotka haluavat leveämmät hartiat, isommat pakarat ja tiukan keskivartalon neljällä salipäivällä.',
     equipmentProfile:
-      'Vaatii tavallisen kuntosalin vapaine painoineen, taljoineen ja harjoituslaitteineen.',
+      'Tavallinen sali: tanko lantionnostoon, käsipainot, taljat, laitteet ja kuminauha.',
     whyItWorks:
-      'Pakaroiden ja hartioiden riittävä harjoitusvolyymi yhdistettynä keskivartalon harjoitteluun rakentaa tasapainoista fysiikkaa.',
+      'Hartioiden leveys tulee sivunostoista ja leveästä ylätaljasta, pakaroiden muoto lantionnostosta ja saranasta, ja keskivartalo pidetään tiukkana staattisilla liikkeillä. Kaksi kertaa viikossa kumpaakin riittää kasvuun.',
   },
   tpl_gainer_fat_burn_hiit_v1: {
     summary:
-      'Nelipäiväinen HIIT-ohjelma, joka yhdistää koko kehon intervalliharjoittelun tehokkaaseen rasvanpolttoon ja kunnon kehittämiseen.',
+      'Neljä päivää intervalleja: ylävartalo, alavartalo, koko keho ja tabata. Liikkeet ovat enimmäkseen kehonpainoliikkeitä ja kevyitä käsipaino- ja kahvakuulaliikkeitä, sarjat lyhyitä ja tauot lyhyempiä.',
     audience:
-      'Suunniteltu aloittelijoille, jotka haluavat kehittää peruskuntoa, lisätä energiankulutusta ja oppia tehokasta intervalliharjoittelua.',
+      'Aloittelijalle, joka haluaa kuntoa ja kulutusta neljällä lyhyellä intervallitreenillä viikossa.',
     equipmentProfile:
-      'Vaatii käsipainot ja kahvakuulan. Muut harjoitteet tehdään kehonpainolla.',
+      'Käsipainot ja kahvakuula, koko kehon päivänä myös laatikko ja köydet. Muut liikkeet tehdään kehonpainolla.',
     whyItWorks:
-      'Lyhyet mutta intensiiviset työjaksot nostavat sykettä tehokkaasti ja kehittävät sekä aerobista että anaerobista suorituskykyä.',
+      'Lyhyet kovat työjaksot nostavat sykkeen nopeasti, ja kun päivät jakautuvat ylä- ja alavartaloon, koko kehoon ja tabataan, sama liike ei toistu joka päivä.',
   },
   tpl_gainer_mobility_flow_v1: {
     summary:
-      'Viisipäiväinen liikkuvuusohjelma, joka parantaa nivelten liikelaajuutta, vähentää jäykkyyttä ja tukee palautumista päivittäisillä harjoituksilla.',
+      'Viisi lyhyttä liikkuvuustreeniä viikossa: aamun koko kehon avaus, lonkat, olkapäät, selkäranka ja palauttava venyttely. Pidot ovat 30 sekunnista puoleentoista minuuttiin, ja viimeisen päivän päättävä lepoasento kestää 3–5 minuuttia.',
     audience:
-      'Sopii aloittelijoille sekä aktiiviliikkujille, jotka haluavat parantaa liikkuvuuttaan, ehkäistä jäykkyyttä ja tukea muuta harjoittelua.',
+      'Aloittelijalle ja kenelle tahansa, joka on jäykkä muun treenin tai istumisen jäljiltä ja haluaa liikkuvuuden kuntoon lyhyillä päivittäisillä treeneillä.',
     equipmentProfile:
-      'Ei vaadi kuntosalilaitteita. Kuminauha ja jumppamatto riittävät.',
+      'Ei kuntosalilaitteita. Kuminauha ja jumppamatto riittävät.',
     whyItWorks:
-      'Säännöllinen liikkuvuusharjoittelu ylläpitää nivelten toimintaa, parantaa liikkeiden hallintaa ja voi vähentää harjoittelun aiheuttamaa jäykkyyttä.',
+      'Jokainen alue saa oman päivänsä ja pidot ovat pitkiä, joten liikelaajuus kasvaa siellä, missä se on jumissa, eikä yksikään treeni vie tuntia.',
   },
   tpl_gainer_at_home_beginner_v1: {
     summary:
-      'Kolmipäiväinen koko kehon ohjelma, joka kehittää voimaa ja lihaskuntoa ilman kuntosalilaitteita käyttäen pääasiassa kehonpainoharjoitteita.',
+      'Kolme kehonpainotreeniä viikossa kotona: ylävartalo, alavartalo ja koko kehon kierto. Punnerruksia, kyykkyjä, askelkyykkyjä ja lankkuja, pöytä soutuun ja tuoli dippeihin.',
     audience:
-      'Suunniteltu aloittelijoille tai kotona harjoitteleville, jotka haluavat aloittaa säännöllisen voimaharjoittelun ilman kuntosalia.',
+      'Aloittelijalle, joka haluaa aloittaa voimatreenin kotona ilman välineitä kolmella treenillä viikossa.',
     equipmentProfile:
-      'Ei vaadi välineitä. Kaikki harjoitukset voidaan tehdä kehonpainolla kotona.',
+      'Ei välineitä. Tukeva pöytä soutuun ja tuoli dippeihin riittävät.',
     whyItWorks:
-      'Perusliikkeet kehittävät koko kehon voimaa, lihaskestävyyttä ja liikehallintaa ilman monimutkaista välineistöä.',
+      'Kyykky, punnerrus, veto ja lankku toistuvat joka viikko, ja eteneminen tulee toistoista, joten voima ja kunto kasvavat ilman kilon painoja.',
   },
   tpl_gainer_calisthenics_mastery_v1: {
     summary:
-      'Edistynyt kehonpainoharjoitteluohjelma, joka kehittää voimaa, kehonhallintaa ja taitoliikkeitä kuten muscle-upia, handstandia ja planchea.',
+      'Neljä päivää viikossa taitoliikkeiden ympärillä: käsinseisonta ja planche, muscle-up ja front lever, pistoolikyykky ja hypyt sekä taito- ja keskivartalopäivä.',
     audience:
-      'Sopii kokeneille harjoittelijoille, jotka hallitsevat kehonpainoliikkeiden perusteet ja haluavat edetä vaativampiin taitoihin.',
+      'Kokeneille kehonpainotreenaajille, jotka tekevät leuanvedot ja dipit jo lisäpainolla ja haluavat seuraavaksi taidot.',
     equipmentProfile:
-      'Vaatii leuanvetotangon sekä mahdollisuuksien mukaan voimistelurenkaat tai vastaavat harjoitteluvälineet.',
+      'Leuanvetotanko ja dippitangot, seinä käsinseisontaan ja mielellään renkaat.',
     whyItWorks:
-      'Taitoharjoittelu, progressiiviset etenemismallit ja kehonpainovoima kehittävät samanaikaisesti voimaa, tasapainoa ja liikkeiden hallintaa.',
+      'Viikossa on pitkiä pitoja, räjähtäviä liikkeitä ja voimaliikkeitä lisäpainolla, joten taito, voima ja kehonhallinta kehittyvät rinnakkain.',
   },
   tpl_gainer_strength_5x5_v1: {
     summary:
-      'Kolmipäiväinen 5x5-voimaohjelma, joka keskittyy suuriin perusliikkeisiin ja järjestelmälliseen kuormituksen lisäämiseen.',
+      'Kolme treeniä viikossa vuorotellen A ja B: kyykky joka kerta, A-päivänä penkki ja kulmasoutu, B-päivänä pystypunnerrus ja maastaveto. Viisi viiden toiston sarjaa, maastavedossa yksi.',
     audience:
-      'Erinomainen aloittelijoille, jotka haluavat rakentaa vahvan voimapohjan turvallisesti ja mitattavasti.',
+      'Aloittelijalle, joka haluaa oppia viisi tankoliikettä ja nähdä painon nousevan joka viikko.',
     equipmentProfile:
-      'Vaatii kuntosalin, jossa on levytanko, levypainot, kyykkyteline ja penkkipunnerrusmahdollisuus.',
+      'Tanko, levyt, kyykkyteline ja penkki.',
     whyItWorks:
-      'Matala liikemäärä ja selkeä progressiomalli mahdollistavat tekniikan kehittämisen sekä tasaisen voimakehityksen viikosta toiseen.',
+      'Kolme liikettä ja sama paino kaikissa sarjoissa on helppo kirjata ja toistaa, ja kun viisi kertaa viisi menee puhtaasti, tankoon lisätään pienin levy.',
   },
   tpl_gainer_athlete_conditioning_v1: {
     summary:
-      'Viisipäiväinen suorituskykyohjelma, joka yhdistää räjähtävän voiman, nopeuden, ketteryyden ja kestävyyden urheilullisen suorituskyvyn kehittämiseksi.',
+      'Viisi päivää viikossa: räjähtävä alavartalo, urheilullinen ylävartalo, nopeus ja ketteryys, voimakierto sekä kestävyys. Rinnallevetoja, hyppyjä, sprinttejä, soutuintervalleja ja kelkantyöntöä.',
     audience:
-      'Suunniteltu edistyneille harjoittelijoille ja urheilijoille, jotka haluavat kehittää monipuolista suorituskykyä pelkän lihaskasvun sijaan.',
+      'Kokeneille treenaajille ja urheilijoille, jotka haluavat tehoa, nopeutta ja kestävyyttä pelkän lihasmassan sijaan.',
     equipmentProfile:
-      'Vaatii hyvin varustellun kuntosalin sekä tilaa sprintti-, ketteryys- ja kuntopiiriharjoitteluun.',
+      'Hyvin varustettu sali sekä tilaa sprinteille ja ketteryysradoille: tanko, kelkka, laatikko, kuntopallo, köydet, soutulaite ja kuntopyörä.',
     whyItWorks:
-      'Voima-, nopeus- ja kestävyysharjoittelu täydentävät toisiaan, jolloin ohjelma kehittää kokonaisvaltaista urheilullista suorituskykyä.',
+      'Voima, nopeus ja kestävyys ovat omilla päivillään, joten jokaista voi treenata tuoreena, ja viikon aikana kaikki kolme kehittyvät.',
   },
   tpl_gainer_strong_lean_female_v1: {
     summary:
-      'Nelipäiväinen voimapainotteinen ohjelma, joka rakentaa vahvaa ja urheilullista fysiikkaa yhdistämällä raskaat perusliikkeet sekä koko kehon lihaskasvua tukevat harjoitteet.',
+      'Neljä salipäivää: ylävartalon voima, alavartalon voima, työntö ja keskivartalo sekä veto ja kunto. Penkki, kyykky, vinopenkin käsipainopunnerrus ja kulmasoutu ovat päivien ankkuriliikkeet.',
     audience:
-      'Suunniteltu keskitason harjoittelijoille, jotka haluavat kasvattaa voimaa, kehittää lihaksia ja parantaa suorituskykyä koko kehossa.',
+      'Keskitason treenaajille, jotka haluavat lisää voimaa perusliikkeisiin ja kiinteän, urheilullisen kehon neljällä salipäivällä.',
     equipmentProfile:
-      'Vaatii tavallisen kuntosalin, jossa on levytangot, käsipainot, taljat ja perusharjoituslaitteet.',
+      'Tavallinen sali: tanko, käsipainot, taljat, laitteet ja kahvakuula.',
     whyItWorks:
-      'Raskaat moninivelliikkeet rakentavat voimaa, kun taas täydentävät harjoitteet kehittävät lihastasapainoa ja tukevat pitkäjänteistä kehitystä.',
+      'Ylä- ja alavartalo treenataan kahdesti viikossa, ensin raskaasti tangolla ja toisella kerralla kevyemmin käsipainoilla ja taljoilla, joten voima ja lihas kehittyvät ilman että viikko käy raskaaksi.',
   },
   tpl_gainer_joint_friendly_v1: {
     summary:
-      'Kolmipäiväinen nivelystävällinen ohjelma, joka kehittää voimaa turvallisilla liikkeillä ja hallitulla kuormituksella.',
+      'Kolme päivää viikossa laitteilla, taljoilla ja kuminauhalla: tuettu alavartalo, tuettu ylävartalo sekä koko kehon ja tasapainon päivä. Toistoja on pääosin 12–20, ja liikkeet tehdään hallitusti.',
     audience:
-      'Sopii aloittelijoille, harjoitteluun palaaville tai henkilöille, jotka haluavat vähentää nivelten kuormitusta harjoittelun aikana.',
+      'Aloittelijalle, tauolta palaavalle tai kenelle tahansa, jonka nivelet eivät kestä raskasta vapaata painoa mutta joka haluaa lisää voimaa.',
     equipmentProfile:
-      'Hyödyntää pääasiassa kuntosalilaitteita sekä kevyitä vapaita painoja vakaiden ja turvallisten liikkeiden tueksi.',
+      'Salin laitteet ja taljat, kuminauha ja tuoli.',
     whyItWorks:
-      'Tuetut liikkeet vähentävät nivelkuormitusta samalla, kun ne kehittävät lihasvoimaa, tasapainoa ja toimintakykyä.',
+      'Laite tukee liikeradan, joten kuorma osuu lihakseen eikä niveleen, ja korkeat toistot rakentavat voimaa kevyillä painoilla.',
   },
   tpl_gainer_prenatal_fitness_v1: {
     summary:
-      'Kolmipäiväinen raskausajan harjoitusohjelma, joka tukee voimaa, liikkuvuutta ja kehon hallintaa turvallisella harjoittelulla.',
+      'Kolme kevyttä treeniä viikossa raskausajalle: hellävarainen voima, liikkuvuus ja lantionpohja sekä kevyt cardio ja tasapaino.',
     audience:
-      'Suunniteltu odottaville äideille, jotka ovat saaneet luvan liikuntaan terveydenhuollon ammattilaiselta.',
+      'Odottaville, jotka ovat saaneet terveydenhuollon ammattilaiselta luvan liikkua ja haluavat pitää voiman ja liikkuvuuden yllä.',
     equipmentProfile:
-      'Vaatii käsipainot, kuminauhan, jumppamaton sekä taljan ja kuntopyörän kaltaiset salivälineet.',
+      'Käsipainot, kuminauha ja jumppamatto sekä salilta talja soutuun ja kuntopyörä.',
     whyItWorks:
-      'Kevyt voimaharjoittelu, liikkuvuus ja lantionpohjan huomioiminen tukevat toimintakykyä ja hyvinvointia raskauden aikana.',
+      'Kevyet painot, lantionpohjan aktivointi ja rauhallinen pyöräily pitävät toimintakyvyn yllä ilman hyppyjä tai raskaita nostoja.',
   },
   tpl_gainer_postpartum_recovery_v1: {
     summary:
-      'Kolmipäiväinen palautumisohjelma synnytyksen jälkeen, joka keskittyy keskivartalon hallinnan palauttamiseen ja voiman asteittaiseen rakentamiseen.',
+      'Kolme lyhyttä treeniä viikossa synnytyksen jälkeen: keskivartalon herättely hengityksestä ja lantionpohjasta alkaen, kevyt koko kehon päivä ja voiman palautus kevyillä käsipainoilla.',
     audience:
-      'Sopii synnytyksen jälkeen harjoitteluun palaaville henkilöille lääkärin tai terveydenhuollon ammattilaisen ohjeiden mukaisesti.',
+      'Synnytyksestä toipuville, jotka ovat saaneet lääkäriltä tai terveydenhuollon ammattilaiselta luvan aloittaa treenin.',
     equipmentProfile:
-      'Vaatii kevyet käsipainot, kuminauhan sekä hieman avointa tilaa turvalliseen harjoitteluun.',
+      'Kevyet käsipainot, kuminauha ja lattiatilaa.',
     whyItWorks:
-      'Ohjelma etenee hengityksen ja keskivartalon hallinnan palauttamisesta asteittain kohti koko kehon voimaharjoittelua.',
+      'Ensin opetellaan hengitys ja syvien vatsalihasten aktivointi, sitten kevyet perusliikkeet ja vasta lopuksi kuorma, joten keskivartalo palautuu ennen kuin sitä kuormitetaan.',
   },
   tpl_gainer_runners_strength_v1: {
     summary:
-      'Kolmipäiväinen voimaharjoitteluohjelma juoksijoille, joka kehittää alavartalon voimaa, tasapainoa ja keskivartalon hallintaa tukemaan juoksusuoritusta.',
+      'Kolme salipäivää juoksijalle: takaketju ja teho, yhden jalan tasapaino sekä keskivartalo ja liikkuvuus. Romanialainen maastaveto, lantionnosto, askelkyykyt ja hypyt.',
     audience:
-      'Sopii keskitason juoksijoille, jotka haluavat parantaa suorituskykyä, ehkäistä rasitusvammoja ja täydentää juoksuharjoitteluaan.',
+      'Keskitason juoksijoille, jotka haluavat vahvemmat takareidet, pakarat ja pohkeet, pysyä ehjinä ja juosta taloudellisemmin.',
     equipmentProfile:
-      'Vaatii kuntosalin perusvälineet, kuten levytangon, käsipainot sekä tilaa liikkuvuus- ja tasapainoharjoitteluun.',
+      'Salin perusvälineet: tanko tai käsipainot, laatikko hyppyihin, leuanvetotanko jalannostoihin ja tilaa liikkuvuudelle.',
     whyItWorks:
-      'Yksijalkaiset liikkeet, takaketjun vahvistaminen ja keskivartalon harjoittelu parantavat juoksun taloudellisuutta ja tukevat vammojen ehkäisyä.',
+      'Yhden jalan liikkeet ja takaketjun vahvistaminen osuvat siihen, mitä juoksu vaatii, ja hypyt opettavat jalan tuottamaan voimaa nopeasti, joten askel kevenee ja rasitusvammat vähenevät.',
   },
 
   tpl_strong_elite_v1: {
