@@ -3985,7 +3985,7 @@ const FI: Record<I18nKey, string> = {
   'catalog.collection.starter.recommendedFor': 'Uusille treenaajille, paluuvaiheisiin ja kaikille, jotka haluavat matalan kynnyksen rakenteen.',
   'catalog.collection.strength.label': 'Rakenna voimaa',
   'catalog.collection.strength.description': 'Ohjelmia, jotka rakentuvat raskaampien ankkuriliikkeiden ja selkeämpien suoritustavoitteiden ympärille.',
-  'catalog.collection.strength.recommendedFor': 'Treenaajille, joille kyykyn, penkin ja maastavedon luvut merkitsevät eniten.',
+  'catalog.collection.strength.recommendedFor': 'Treenaajille, joille kyykyn, punnerrusten ja saranaliikkeiden luvut merkitsevät eniten.',
   'catalog.collection.muscle.label': 'Kasvata lihasta',
   'catalog.collection.muscle.description': 'Enemmän viikkovolyymia ja erikoistumista, mutta eteneminen pysyy selkeänä.',
   'catalog.collection.muscle.recommendedFor': 'Kasvuun keskittyville treenaajille, jotka haluavat ylä/ala- tai hybridijaon.',

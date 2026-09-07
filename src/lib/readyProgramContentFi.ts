@@ -268,7 +268,7 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
   },
   tpl_2_day_minimal_full_body_v1: {
     summary:
-      'Kevyt kahden päivän kehonpaino-ohjelma viikoille, joina et pääse salille mutta haluat silti treenata koko kehon.',
+      'Kevyt kahden päivän kehonpaino-ohjelma viikoille, joina haluat treenata koko kehon ilman salia.',
     audience:
       'Aloittelijoille, kiireisiin viikkoihin, kotitreeneihin tai kenelle tahansa treeniin palaavalle, joka haluaa silti rakenteen ja etenemisen.',
     equipmentProfile: 'Koti- ja kehonpainoystävällinen. Lattiatila ja tukeva soutupaikka riittävät ohjelman ytimeen.',
