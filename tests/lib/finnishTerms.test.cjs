@@ -22,12 +22,15 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..', '..');
 
-/** Retired word → the one that replaced it. Matched as substrings, case-sensitively. */
+/**
+ * Retired word → the one that replaced it. Matched as substrings against the
+ * lower-cased text, so a retired term opening a sentence ("Toistoalueen
+ * yläpää…") or standing as a label is caught too — the first version compared
+ * case-sensitively and let exactly that through.
+ */
 const RETIRED = [
   ['luenta', 'analyysi'],
-  ['Luenta', 'analyysi'],
   ['luennat', 'analyysi'],
-  ['Luennat', 'analyysi'],
   ['pääliike', 'ankkuriliike'],
   ['pääliikk', 'ankkuriliike'],
   ['päänosto', 'ankkuriliike'],
@@ -36,20 +39,16 @@ const RETIRED = [
   ['tavoitealue', 'toistohaarukka'],
   ['kuntopääte', 'kunto-osuus'],
   ['kuntopäätte', 'kunto-osuus'],
-  ['HIIT-pääte', 'kunto-osuus'],
+  ['hiit-pääte', 'kunto-osuus'],
   ['intervallipääte', 'kunto-osuus'],
   ['kuntolopetu', 'kunto-osuus'],
-  ['Kuntolopetu', 'kunto-osuus'],
   ['loppuosuu', 'kunto-osuus'],
-  ['Loppuosuu', 'kunto-osuus'],
   ['altistu', 'kerta'],
-  ['Ilmaisversio', 'Ilmainen'],
-  ['ilmaisversio', 'ilmainen'],
-  ['Premium', 'Pro'],
-  ['Lifetime', 'Elinikäinen'],
-  ['Kardio', 'Cardio'],
+  ['ilmaisversio', 'Ilmainen'],
+  ['premium', 'Pro'],
+  ['lifetime', 'Elinikäinen'],
   ['kardio', 'cardio'],
-  ['Vinha Coach', 'Vinha-valmentaja'],
+  ['vinha coach', 'Vinha-valmentaja'],
 ];
 
 function read(file) {
@@ -101,14 +100,17 @@ module.exports = [
     run() {
       const hits = [];
       for (const [file, text] of finnishSlices()) {
+        // Lower-casing keeps every index: the letters involved map one code
+        // unit to one code unit, so a hit in `hay` slices `text` correctly.
+        const hay = text.toLowerCase();
         for (const [retired, replacement] of RETIRED) {
-          let at = text.indexOf(retired);
+          let at = hay.indexOf(retired);
           while (at >= 0) {
             const lineStart = text.lastIndexOf('\n', at) + 1;
             const lineEnd = text.indexOf('\n', at);
             const line = text.slice(lineStart, lineEnd < 0 ? undefined : lineEnd).trim();
             hits.push(`${file}: "${retired}" (use "${replacement}") in: ${line.slice(0, 100)}`);
-            at = text.indexOf(retired, at + retired.length);
+            at = hay.indexOf(retired, at + retired.length);
           }
         }
       }
