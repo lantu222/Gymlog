@@ -23,6 +23,7 @@ import {
   buildBodyweightCardStats,
   buildValueWindow,
   buildWeightWindow,
+  capRangeDays,
   earliestEntryMs,
   measureRangeDays,
 } from '../lib/bodyweightCard';
@@ -906,9 +907,14 @@ export function ProgressScreen({
    */
   const overviewWeightWindow = useMemo(() => {
     const nowMs = Date.now();
-    const daysByRange: Record<string, number> = { '7d': 7, '1m': 31, '3m': 91, '6m': 183 };
+    // This card's chips are its own (7D · 1M · 3M · 6M · All), so the ceilings
+    // live here — but the rule that turns a ceiling into a width is the shared
+    // one. It used to be inlined, and the copy was a `Math.min(730, ...)` that
+    // only ever ran for "All": every other chip took its number raw, which is
+    // why THIS card was the one photographed drawing an axis into November.
+    const ceilingByRange: Record<string, number> = { '7d': 7, '1m': 31, '3m': 91, '6m': 183 };
     const first = earliestEntryMs(bodyweightProgress.entries.map((entry) => entry.recordedAt));
-    const days = daysByRange[resolvedOverviewRange] ?? Math.min(730, Math.max(14, Math.ceil((nowMs - (first ?? nowMs)) / 86_400_000) + 1));
+    const days = capRangeDays(ceilingByRange[resolvedOverviewRange] ?? 730, first, nowMs);
     // The window follows the data, as the weight card's does: the range chip
     // caps the width and the history sets it, so a short history is a short
     // axis rather than eleven empty weeks before the first entry (user

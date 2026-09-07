@@ -334,6 +334,23 @@ module.exports = [
       );
       assert.ok(overviewBranch.length > 100, 'the overview window moved — recheck by hand');
       assert.match(overviewBranch, /nowMs,\s*days,\s*\);/);
+      // And its width goes through the SHARED cap, not a raw chip number. This
+      // card's chips are its own, but only the "All" fallback used to be
+      // bounded by the history — every other chip took its ceiling raw, which
+      // is why this was the card photographed drawing an axis into November
+      // (user 2026-09-07).
+      assert.match(
+        overviewBranch,
+        /capRangeDays\(ceilingByRange\[resolvedOverviewRange\] \?\? 730, first, nowMs\)/,
+        'the trend card went back to taking its range in days raw',
+      );
+      // The expression, not the prose: the comment above the fix names the
+      // inlined form it replaced, and a looser pattern matched that instead.
+      assert.doesNotMatch(
+        overviewBranch,
+        /Math\.min\(730, Math\.max\(/,
+        'the cap rule was inlined here again',
+      );
 
       // And the chips are actually ON the card. The <Seg count in the case
       // above only proves five exist somewhere; a mutation that gutted this
@@ -372,6 +389,13 @@ module.exports = [
         2,
         'the range-to-days rule was copied instead of shared',
       );
+      // Three windows, one rule: the two measure charts through
+      // `measureRangeDays` and the trend chart through the cap underneath it.
+      assert.match(
+        read('src', 'lib', 'bodyweightCard.ts'),
+        /export function capRangeDays\(/,
+      );
+      assert.equal((screen.match(/capRangeDays\(/g) ?? []).length, 1, 'the cap is used somewhere new');
     },
   },
   {

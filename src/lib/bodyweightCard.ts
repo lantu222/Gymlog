@@ -359,17 +359,32 @@ const DAY_MS = 86_400_000;
  * plotted because the days have not happened. The chip is a request for "up to
  * this much", not a promise that the card will draw empty time to reach it.
  */
+export function capRangeDays(
+  ceilingDays: number,
+  firstEntryMs: number | null,
+  nowMs: number,
+): number {
+  const first = firstEntryMs ?? nowMs;
+  // The floor never exceeds the ceiling, so "7D" stays exactly a week.
+  const floor = Math.min(ceilingDays, MIN_RANGE_DAYS);
+  const history = Math.ceil((nowMs - first) / DAY_MS) + 1;
+  return Math.min(ceilingDays, Math.max(floor, history));
+}
+
+/** The measure tab's four chips, in days. */
+const MEASURE_CEILING: Record<'7d' | '3m' | '1y' | 'all', number> = {
+  '7d': 7,
+  '3m': 91,
+  '1y': 365,
+  all: 730,
+};
+
 export function measureRangeDays(
   range: '7d' | '3m' | '1y' | 'all',
   firstEntryMs: number | null,
   nowMs: number,
 ): number {
-  const ceiling = range === '7d' ? 7 : range === '3m' ? 91 : range === '1y' ? 365 : 730;
-  const first = firstEntryMs ?? nowMs;
-  // The floor never exceeds the ceiling, so "7D" stays exactly a week.
-  const floor = Math.min(ceiling, MIN_RANGE_DAYS);
-  const history = Math.ceil((nowMs - first) / DAY_MS) + 1;
-  return Math.min(ceiling, Math.max(floor, history));
+  return capRangeDays(MEASURE_CEILING[range], firstEntryMs, nowMs);
 }
 
 /**
