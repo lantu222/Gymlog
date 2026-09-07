@@ -6,6 +6,7 @@ import { ExerciseSetLog, SET_LOG_SESSIONS } from '../lib/exerciseSetLog';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { FREE_RECORD_MONTHS } from '../lib/historyWindow';
 import { I18nKey, t } from '../lib/i18n';
+import { BlurredPreview } from './BlurredPreview';
 import { CutSurface } from './CutSurface';
 import { libraryLabel } from '../lib/libraryLabel';
 import { PersonalRecord } from '../lib/personalRecords';
@@ -20,11 +21,12 @@ import { removeTrailingZeros } from '../lib/format';
  * you open this to find out what the line is made of, and closing it should
  * put you back where you were looking.
  *
- * Locked, it shows the SHAPE of what is there — one skeleton per session, one
- * block per set — and none of the figures. Fading the real rows was the first
- * attempt and they stayed readable, which makes a lock decorative; inventing
- * sets would have been worse, because what is behind this lock is the reader's
- * own training.
+ * Locked, it BLURS the reader's own sets. Fading the real rows was the first
+ * attempt and they stayed readable, which makes a lock decorative; drawing
+ * grey blocks in their shape was the second, and it read as a screen nobody
+ * had finished rather than one you cannot see into. Inventing sets would have
+ * been worse than either, because what is behind this lock is the reader's own
+ * training.
  */
 
 interface SetLogSheetProps {
@@ -197,6 +199,15 @@ export function SetLogSheet({
   const title = exerciseNameLabel(language, log.name);
   const part = log.bodyPart ? libraryLabel(log.bodyPart, language) : null;
   const empty = log.sessions.length === 0;
+  /**
+   * The lines the locked preview blurs — the reader's real sets, in the same
+   * words the unlocked list uses. Nothing invented: a made-up figure is a lie
+   * the blur would only be hiding.
+   */
+  const blurredSets = log.sessions
+    .slice(0, 3)
+    .map((session) => session.sets.map((set) => `${set.reps} × ${decimal(set.weightKg, language)}`).join('   '))
+    .join('\n');
   // "5 most recent" is a lie when there are three. Say what is shown.
   const shownLabel = empty
     ? null
@@ -309,25 +320,26 @@ export function SetLogSheet({
           </View>
         ) : locked ? (
           <View style={styles.lockedBlock}>
-            {/* The shape of what is there, not the figures. Dimming the real
-                rows was the first attempt and they stayed readable, which
-                makes a lock decorative; drawing invented sets would be worse.
-                A skeleton says "three sessions, three sets each" and claims
-                nothing else. */}
+            {/* The reader's OWN sets, blurred — not a skeleton of them.
+
+                A skeleton was the second attempt (the first, dimming the real
+                rows, left them readable). It claimed nothing false, but it
+                claimed nothing at all: grey blocks in the shape of a list read
+                as a screen somebody had not finished building, which is what
+                the reader called it — "tama on vahan keskeneräinen ruutu ja
+                lukossa" (2026-09-07).
+
+                `BlurredPreview` was written for exactly this and its own
+                comment says why: "a skeleton says there is something here, a
+                blur says there is THIS here, and you cannot read it." It is a
+                real gaussian blur through react-native-svg, with a scrim over
+                it so a device that ignores the filter degrades to an
+                unreadable block rather than leaking the figures. */}
             <View style={styles.lockedRows} pointerEvents="none">
-              {log.sessions.slice(0, 3).map((session) => (
-                <View key={session.performedAt} style={styles.skeletonSession}>
-                  <View style={styles.skeletonHeadRow}>
-                    <View style={[styles.skeletonBar, { width: 92 }]} />
-                    <View style={[styles.skeletonBar, { width: 52 }]} />
-                  </View>
-                  <View style={styles.skeletonChipRow}>
-                    {session.sets.slice(0, 4).map((unused, index) => (
-                      <View key={index} style={styles.skeletonChip} />
-                    ))}
-                  </View>
-                </View>
-              ))}
+              <BlurredPreview
+                content={{ kind: 'text', text: blurredSets, fontSize: 15, lineHeight: 26 }}
+                height={Math.min(3, Math.max(1, log.sessions.length)) * 52}
+              />
             </View>
 
             <View style={styles.lockedCopy}>
@@ -640,28 +652,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   lockedRows: {
     gap: 15,
-  },
-  skeletonSession: {
-    gap: 9,
-  },
-  skeletonHeadRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  skeletonBar: {
-    height: 11,
-    borderRadius: 6,
-    backgroundColor: '#F1ECFB',
-  },
-  skeletonChipRow: {
-    flexDirection: 'row',
-    gap: 7,
-  },
-  skeletonChip: {
-    width: 62,
-    height: 31,
-    borderRadius: 10,
-    backgroundColor: '#F1ECFB',
   },
   lockedCopy: {
     marginTop: -34,
