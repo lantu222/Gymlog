@@ -69,7 +69,7 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
     equipmentProfile:
       'Täysi sali: tanko lantionnostoon, käsipainot, taljat, laitteet ja porraslaite.',
     whyItWorks:
-      'Lantionnosto ja romanialainen maastaveto kuormittavat pakaroita raskaasti kerran viikossa, ja toinen kerta tulee kevyempänä koko kehon päivässä, joten ärsyke tulee kahdesti ilman että jalat ovat koko ajan kipeät.',
+      'Lantionnosto ja romanialainen maastaveto kuormittavat pakaroita raskaasti kerran viikossa, ja lantionnosto toistuu kevyempänä koko kehon päivässä, joten pakaroiden ärsyke tulee kahdesti ilman että jalat ovat koko ajan kipeät.',
   },
   tpl_gainer_glute_foundations_v1: {
     summary:
@@ -103,17 +103,17 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
   },
   tpl_gainer_fat_burn_hiit_v1: {
     summary:
-      'Neljä päivää intervalleja: ylävartalo, alavartalo, koko keho ja tabata. Liikkeet ovat kehonpainoliikkeitä ja kevyitä käsipaino- ja kahvakuulaliikkeitä, sarjat lyhyitä ja tauot lyhyempiä.',
+      'Neljä päivää intervalleja: ylävartalo, alavartalo, koko keho ja tabata. Liikkeet ovat enimmäkseen kehonpainoliikkeitä ja kevyitä käsipaino- ja kahvakuulaliikkeitä, sarjat lyhyitä ja tauot lyhyempiä.',
     audience:
-      'Aloittelijalle, joka haluaa kuntoa ja kulutusta ilman salia ja oppia intervalliharjoittelun neljällä lyhyellä treenillä viikossa.',
+      'Aloittelijalle, joka haluaa kuntoa ja kulutusta neljällä lyhyellä intervallitreenillä viikossa.',
     equipmentProfile:
-      'Käsipainot ja kahvakuula. Muut liikkeet tehdään kehonpainolla.',
+      'Käsipainot ja kahvakuula, koko kehon päivänä myös laatikko ja köydet. Muut liikkeet tehdään kehonpainolla.',
     whyItWorks:
       'Lyhyet kovat työjaksot nostavat sykkeen nopeasti, ja kun päivät jakautuvat ylä- ja alavartaloon, koko kehoon ja tabataan, sama liike ei toistu joka päivä.',
   },
   tpl_gainer_mobility_flow_v1: {
     summary:
-      'Viisi lyhyttä liikkuvuustreeniä viikossa: aamun koko kehon avaus, lonkat, olkapäät, selkäranka ja palauttava venyttely. Pidot ovat 30 sekunnista puoleentoista minuuttiin.',
+      'Viisi lyhyttä liikkuvuustreeniä viikossa: aamun koko kehon avaus, lonkat, olkapäät, selkäranka ja palauttava venyttely. Pidot ovat 30 sekunnista puoleentoista minuuttiin, ja viimeisen päivän päättävä lepoasento kestää 3–5 minuuttia.',
     audience:
       'Aloittelijalle ja kenelle tahansa, joka on jäykkä muun treenin tai istumisen jäljiltä ja haluaa liikkuvuuden kuntoon lyhyillä päivittäisillä treeneillä.',
     equipmentProfile:
@@ -139,7 +139,7 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
     equipmentProfile:
       'Leuanvetotanko ja dippitangot, seinä käsinseisontaan ja mielellään renkaat.',
     whyItWorks:
-      'Joka päivässä on pitoja, räjähtäviä liikkeitä ja voimaliikkeitä lisäpainolla, joten taito, voima ja kehonhallinta kehittyvät samassa treenissä.',
+      'Viikossa on pitkiä pitoja, räjähtäviä liikkeitä ja voimaliikkeitä lisäpainolla, joten taito, voima ja kehonhallinta kehittyvät rinnakkain.',
   },
   tpl_gainer_strength_5x5_v1: {
     summary:
@@ -163,7 +163,7 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
   },
   tpl_gainer_strong_lean_female_v1: {
     summary:
-      'Neljä salipäivää: ylävartalon voima, alavartalon voima, työntö ja keskivartalo sekä veto ja kunto. Penkki, kyykky, romanialainen maastaveto ja kulmasoutu ovat päivien ankkuriliikkeet.',
+      'Neljä salipäivää: ylävartalon voima, alavartalon voima, työntö ja keskivartalo sekä veto ja kunto. Penkki, kyykky, vinopenkin käsipainopunnerrus ja kulmasoutu ovat päivien ankkuriliikkeet.',
     audience:
       'Keskitason treenaajille, jotka haluavat lisää voimaa perusliikkeisiin ja kiinteän, urheilullisen kehon neljällä salipäivällä.',
     equipmentProfile:
@@ -173,11 +173,11 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
   },
   tpl_gainer_joint_friendly_v1: {
     summary:
-      'Kolme päivää viikossa laitteilla ja kevyillä painoilla: tuettu alavartalo, tuettu ylävartalo sekä koko kehon ja tasapainon päivä. Toistoja on 12–20, ja liikkeet tehdään hallitusti.',
+      'Kolme päivää viikossa laitteilla, taljoilla ja kuminauhalla: tuettu alavartalo, tuettu ylävartalo sekä koko kehon ja tasapainon päivä. Toistoja on pääosin 12–20, ja liikkeet tehdään hallitusti.',
     audience:
       'Aloittelijalle, tauolta palaavalle tai kenelle tahansa, jonka nivelet eivät kestä raskasta vapaata painoa mutta joka haluaa lisää voimaa.',
     equipmentProfile:
-      'Salin laitteet ja taljat, kevyet käsipainot, kuminauha ja tuoli.',
+      'Salin laitteet ja taljat, kuminauha ja tuoli.',
     whyItWorks:
       'Laite tukee liikeradan, joten kuorma osuu lihakseen eikä niveleen, ja korkeat toistot rakentavat voimaa kevyillä painoilla.',
   },
