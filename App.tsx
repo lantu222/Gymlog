@@ -1824,6 +1824,34 @@ function VinhaApp() {
   }, [database.workoutPlans, preferences.activePlanId, preferences.activePlanIds]);
 
   /**
+   * What a RUNNING programme is called, wherever it is listed.
+   *
+   * A season programme goes by the season's name, not the template's: the
+   * reader joined "Kesakunto" and the template is called "RUN". Everything
+   * else goes by its presentation title, and a plan whose template is gone
+   * falls back to the plan's own name.
+   *
+   * One function because the comment that used to sit inside Home's copy was
+   * right: computing this per screen is what put three different names on one
+   * programme. The Programs tab now lists the same programmes Home does, so
+   * it had to reach the same answer.
+   */
+  const runningProgrammeTitle = useCallback(
+    (templateId: string | null, planName: string | null | undefined, days: number): string => {
+      const seasonTitleKey = templateId ? getSeasonProgramTitleKey(templateId) : null;
+      if (seasonTitleKey) {
+        return t(preferences.appLanguage, seasonTitleKey);
+      }
+      const template = templateId ? getWorkoutTemplateById(templateId) : null;
+      if (template) {
+        return getReadyTemplatePresentation(template, preferences.appLanguage, days).title;
+      }
+      return formatWorkoutDisplayLabel(planName || '');
+    },
+    [preferences.appLanguage],
+  );
+
+  /**
    * The programmes running alongside the one Home leads with.
    *
    * Home's hero still belongs to a single plan; these are the rest, listed
@@ -1847,15 +1875,9 @@ function VinhaApp() {
         // One helper decides that for every surface, because computing it
         // separately per screen is what put three different names on one
         // programme today.
-        const seasonTitleKey = templateId ? getSeasonProgramTitleKey(templateId) : null;
-        const title = seasonTitleKey
-          ? t(preferences.appLanguage, seasonTitleKey)
-          : template
-            ? getReadyTemplatePresentation(template, preferences.appLanguage, days).title
-            : formatWorkoutDisplayLabel(plan.name || '');
         return {
           planId,
-          title,
+          title: runningProgrammeTitle(templateId, plan.name, days),
           meta: t(preferences.appLanguage, 'programs.card.days', { count: days }),
         };
       })
@@ -5087,21 +5109,51 @@ function VinhaApp() {
       ...rows.filter((row) => !row.active),
     ];
 
-    const activeIsAuthored = authored.some((item) => item.active);
-    if (!homeActivePlanCard || activeIsAuthored) {
-      return leadFirst(authored);
-    }
-    return [
-      {
-        id: homeActivePlanCard.programId,
-        name: formatWorkoutDisplayLabel(homeActivePlanCard.title),
-        subtitle: t(preferences.appLanguage, 'programs.activeSubtitle'),
-        active: true,
-        programType: homeActivePlanCard.programType,
-      },
-      ...authored,
-    ];
-  }, [customWorkouts, homeActivePlanCard, preferences.appLanguage]);
+    // Every RUNNING programme belongs here, not only the one Home leads with.
+    //
+    // An adopted ready programme has no row of its own in `workoutTemplates`
+    // — adoption points a plan at the catalog rather than copying it — so it
+    // was listed only while it was the leader. Making a second programme lead
+    // dropped it out of the one list called "your programmes" while it kept
+    // running and kept holding a slot against the programme cap: a reader at
+    // the cap could be blocked by a programme this screen would not show them
+    // (user 2026-09-07, "laitoin advanced glutes nayta kodissa niin tama
+    // strong ohjelma katosi kokonaan").
+    //
+    // Home already listed them under its hero, and its own removal copy says
+    // "it stays in Programs" — a promise this list could not keep.
+    const authoredIds = new Set(authored.map((item) => item.id));
+    const planById = new Map(database.workoutPlans.map((plan) => [plan.id, plan]));
+    const runningRows = [...new Set([preferences.activePlanId, ...preferences.activePlanIds])]
+      .filter((planId): planId is string => Boolean(planId))
+      .map((planId) => {
+        const plan = planById.get(planId);
+        const templateId = plan?.entries[0]?.workoutTemplateId ?? null;
+        if (!plan || !templateId || authoredIds.has(templateId)) {
+          return null;
+        }
+        const template = getWorkoutTemplateById(templateId);
+        const days = template?.daysPerWeek ?? plan.entries.length;
+        return {
+          id: templateId,
+          name: runningProgrammeTitle(templateId, plan.name, days),
+          subtitle: t(preferences.appLanguage, 'programs.activeSubtitle'),
+          active: planId === preferences.activePlanId,
+          programType: 'ready' as const,
+        };
+      })
+      .filter((row): row is NonNullable<typeof row> => row !== null);
+
+    return leadFirst([...runningRows, ...authored]);
+  }, [
+    customWorkouts,
+    database.workoutPlans,
+    homeActivePlanCard,
+    preferences.activePlanId,
+    preferences.activePlanIds,
+    preferences.appLanguage,
+    runningProgrammeTitle,
+  ]);
 
   const editorDraft = useMemo<WorkoutTemplateDraft>(() => {
     if (route.tab !== 'workout' || route.screen !== 'editor') {

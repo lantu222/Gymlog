@@ -582,7 +582,27 @@ module.exports = [
       // list to find rather than a place in it.
       assert.match(app, /const leadFirst = /);
       assert.match(app, /\.\.\.rows\.filter\(\(row\) => row\.active\),/);
-      assert.match(app, /return leadFirst\(authored\);/);
+      assert.match(app, /return leadFirst\(\[\.\.\.runningRows, \.\.\.authored\]\);/);
+
+      // And EVERY running programme is on the list, not only the leader. An
+      // adopted ready programme has no row in `workoutTemplates`, so it was
+      // listed only while it led: making a second programme lead dropped it
+      // out of the one list called "your programmes" while it kept running
+      // and kept holding a slot against the programme cap (user 2026-09-07).
+      assert.match(app, /const runningRows = \[\.\.\.new Set\(\[preferences\.activePlanId, \.\.\.preferences\.activePlanIds\]\)\]/);
+      assert.match(app, /authoredIds\.has\(templateId\)/, 'an authored programme is listed twice');
+      assert.match(app, /active: planId === preferences\.activePlanId,/);
+
+      // One name for one programme. Home resolved season titles and ready
+      // presentations inline; the Programs tab now lists the same programmes,
+      // so both go through the same resolver rather than growing a third
+      // spelling of the rule.
+      assert.match(app, /const runningProgrammeTitle = useCallback\(/);
+      assert.equal(
+        (app.match(/runningProgrammeTitle\(/g) ?? []).length,
+        2,
+        'the running-programme title rule was copied instead of shared',
+      );
 
       // A chevron, not the word "Open" on every row.
       assert.doesNotMatch(home, /styles\.customAction/);
