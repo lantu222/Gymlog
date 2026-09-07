@@ -1916,6 +1916,35 @@ function VinhaApp() {
     await updatePreferences({ activePlanId: plan.id });
   }
 
+  /**
+   * Stop a programme from its own page, by programme rather than by plan.
+   *
+   * The detail screen knows a template id; `handleRemoveActiveProgram` wants a
+   * plan id, and one programme can be held under more than one — onboarding
+   * writes `onboarding_plan_<id>` and adoption writes `ready_plan_<id>`. Every
+   * plan pointing at this programme goes, or the switch would read off while
+   * the programme was still running under the other id.
+   */
+  async function handleStopProgram(workoutTemplateId: string) {
+    const byId = new Map(database.workoutPlans.map((plan) => [plan.id, plan]));
+    const planIds = [...new Set([preferences.activePlanId, ...preferences.activePlanIds])]
+      .filter((planId): planId is string => Boolean(planId))
+      .filter((planId) => byId.get(planId)?.entries[0]?.workoutTemplateId === workoutTemplateId);
+    if (planIds.length === 0) {
+      return;
+    }
+    const remaining = planIds.reduce(
+      (ids, planId) => removeActiveProgram(ids, planId),
+      preferences.activePlanIds,
+    );
+    await updatePreferences({
+      activePlanIds: remaining,
+      activePlanId: planIds.includes(preferences.activePlanId ?? '')
+        ? remaining[0] ?? null
+        : preferences.activePlanId,
+    });
+  }
+
   async function handleRemoveActiveProgram(planId: string) {
     await updatePreferences({
       activePlanIds: removeActiveProgram(preferences.activePlanIds, planId),
@@ -5626,6 +5655,7 @@ function VinhaApp() {
     // state was just cleared the module returns null here and the dashboard
     // fallback below catches it — the same drop-through the old chain had.
     content = renderWorkoutTab({
+      onStopProgram: handleStopProgram,
       route,
       navigate,
       navigateBack,

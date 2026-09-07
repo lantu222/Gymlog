@@ -82,6 +82,7 @@ export interface WorkoutTabDeps {
   setupRecommendation: { featuredProgramId?: string | null; mismatchNote?: string | null } | null;
   tailoringPreferences: Parameters<typeof buildTailoringBadgeLabels>[0];
   activeProgramTemplateIds: string[];
+  onStopProgram: (workoutTemplateId: string) => Promise<void>;
   homeActivePlanCard: {
     programId: string;
     programType: 'ready' | 'custom';
@@ -204,6 +205,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     setupRecommendation,
     tailoringPreferences,
     activeProgramTemplateIds,
+    onStopProgram,
     homeActivePlanCard,
     programInsightsByTemplateId,
     availableEquipmentForDrills,
@@ -396,6 +398,14 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             : null
         }
         onBack={() => navigateBack(workoutHomeRoute)}
+        // Running at all, not "the one Home leads with". A programme can run
+        // without leading, and this switch is the only way to stop either.
+        running={programIsMine}
+        onSetRunning={(next) => {
+          if (!next) {
+            void onStopProgram(route.workoutTemplateId);
+          }
+        }}
         onPrimaryAction={() => {
           if (readyProgramIsMine) {
             // Already the reader's. Adoption returns early for a programme it

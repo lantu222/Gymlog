@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CutSurface } from '../components/CutSurface';
 import { ProgramPhotoSlot } from '../components/ProgramPhotoSlot';
+import { ToggleSwitch } from '../components/SettingsUi';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { I18nKey, t } from '../lib/i18n';
 import { cycleSchedule, sessionSlotOn } from '../lib/trainingSchedule';
@@ -75,6 +76,18 @@ interface ProgramDetailScreenProps {
   program: ProgramDetailViewModel;
   onBack: () => void;
   onPrimaryAction: () => void;
+  /**
+   * Is this programme running at all?
+   *
+   * Separate from `activePlanSummary`, which is only the programme Home LEADS
+   * with. A programme can run without leading, and there was no way to stop
+   * one from its own page: the only control was "Show this on Home", which
+   * changed which one led and could not turn any of them off (user
+   * 2026-09-07, "aktiivinen/eiaktiivinen nappia ei ole").
+   */
+  running?: boolean;
+  /** Absent leaves the switch out entirely — a catalog preview has none. */
+  onSetRunning?: (next: boolean) => void;
   onStartSession: (sessionId: string) => void;
   /** The day row's destination — the day view (design screen 2). */
   onOpenSession?: (sessionId: string) => void;
@@ -172,6 +185,8 @@ export function ProgramDetailScreen({
   onBack,
   onStartSession,
   onPrimaryAction,
+  running = false,
+  onSetRunning,
   onOpenSession,
   onReorderSession,
   programBlockWeeks = null,
@@ -807,7 +822,19 @@ export function ProgramDetailScreen({
             that does not belong here (user 2026-08-31): this page is what the
             programme IS, Home is where today's session is started, and the day
             rows below open the exact session a reader wants instead. */}
-        {activePlanSummary ? null : (
+        {running && onSetRunning ? (
+          <View style={styles.activeRow}>
+            <View style={styles.activeCopy}>
+              <Text style={styles.activeLabel}>{t(language, 'detail.active')}</Text>
+              <Text style={styles.activeHint}>{t(language, 'detail.activeHint')}</Text>
+            </View>
+            <ToggleSwitch
+              value
+              onChange={(next) => onSetRunning(next)}
+              label={t(language, 'detail.active')}
+            />
+          </View>
+        ) : activePlanSummary ? null : (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={program.primaryActionLabel}
@@ -1567,6 +1594,23 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0.2,
   },
+  // The Active switch stands where the adopt button does, because it answers
+  // the same question at the other end of the programme's life.
+  activeRow: {
+    marginTop: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
+  },
+  activeCopy: { flex: 1, minWidth: 0 },
+  activeLabel: { color: theme.ink, fontSize: 16, fontWeight: '800' },
+  activeHint: { color: theme.muted, fontSize: 12.5, lineHeight: 17, fontWeight: '600', marginTop: 2 },
   adoptButton: {
     marginTop: 22,
     minHeight: 62,

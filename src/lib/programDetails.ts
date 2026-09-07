@@ -246,9 +246,13 @@ export function buildReadyProgramDetail(
     progressionSummary: [programmeSummary, template.progressionRules.primary].filter(Boolean).join(' '),
     // Was the hardcoded English "Start first session" — and it never reached a
     // screen, so nothing showed it was untranslated.
+    // No "show this on Home" state. A running programme carries the Active
+     // switch instead, and the one thing that button did — promoting a held
+     // programme to the lead — now follows from training it (user 2026-09-07,
+     // "'nayta kodissani' nappi on ihan turha").
     primaryActionLabel: t(
       language,
-      isActivePlan ? 'detail.startNext' : isHeldNotLeading ? 'detail.lead' : 'detail.adopt',
+      isActivePlan || isHeldNotLeading ? 'detail.startNext' : 'detail.adopt',
     ),
     sessionActionLabel: 'Start session',
     sessions: buildSessionItems(detailSessions, insights?.sessionStatusById, template),
@@ -310,11 +314,9 @@ export function buildCustomProgramDetail(
       language,
       !hasExercises
         ? 'prog.custom.detail.editTemplate'
-        : isActivePlan
+        : isActivePlan || isHeldNotLeading
           ? 'detail.startNext'
-          : isHeldNotLeading
-            ? 'detail.lead'
-            : 'detail.adopt',
+          : 'detail.adopt',
     ),
     sessionActionLabel: t(language, hasExercises ? 'prog.custom.detail.startSession' : 'prog.custom.detail.openSession'),
     sessions: buildSessionItems(template.sessions, insights?.sessionStatusById),
