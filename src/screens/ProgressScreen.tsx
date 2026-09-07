@@ -25,7 +25,6 @@ import {
   buildWeightWindow,
   earliestEntryMs,
   measureRangeDays,
-  measureWindowEnd,
 } from '../lib/bodyweightCard';
 import type { HomeRecentSessionItem } from './HomeScreen';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
@@ -788,7 +787,7 @@ export function ProgressScreen({
     // The summary sorts newest first; the anchor is the earliest weigh-in.
     const first = earliestEntryMs(entries.map((entry) => entry.recordedAt));
     const days = measureRangeDays(resolvedMeasureRange, first, nowMs);
-    return buildValueWindow(entries, nowMs, days, measureWindowEnd(first, nowMs, days));
+    return buildValueWindow(entries, nowMs, days);
   }, [bodyweightProgress.entries, resolvedMeasureRange]);
   /**
    * What the rulers open on. Not a default the reader has to correct: their
@@ -910,15 +909,14 @@ export function ProgressScreen({
     const daysByRange: Record<string, number> = { '7d': 7, '1m': 31, '3m': 91, '6m': 183 };
     const first = earliestEntryMs(bodyweightProgress.entries.map((entry) => entry.recordedAt));
     const days = daysByRange[resolvedOverviewRange] ?? Math.min(730, Math.max(14, Math.ceil((nowMs - (first ?? nowMs)) / 86_400_000) + 1));
-    // The window follows the data, as the weight card's does: a short history
-    // starts at the first weigh-in and runs forward, a long one trails today.
-    // The two grids were asked to match (2026-08-25) and this one still opened
-    // eleven empty weeks before the first entry (user 2026-09-03).
+    // The window follows the data, as the weight card's does: the range chip
+    // caps the width and the history sets it, so a short history is a short
+    // axis rather than eleven empty weeks before the first entry (user
+    // 2026-09-03) or ten empty weeks after today (user 2026-09-07).
     return buildValueWindow(
       bodyweightProgress.entries.map((entry) => ({ recordedAt: entry.recordedAt, value: entry.weight })),
       nowMs,
       days,
-      measureWindowEnd(first, nowMs, days),
     );
   }, [bodyweightProgress.entries, resolvedOverviewRange]);
 
@@ -1161,7 +1159,7 @@ export function ProgressScreen({
     const nowMs = Date.now();
     const first = earliestEntryMs(entries.map((entry) => entry.recordedAt));
     const days = measureRangeDays(resolvedMeasureRange, first, nowMs);
-    return buildValueWindow(entries, nowMs, days, measureWindowEnd(first, nowMs, days));
+    return buildValueWindow(entries, nowMs, days);
   }, [resolvedMeasureRange, selectedMeasureModel]);
 
   const selectedMeasureLatest = selectedMeasureModel.values.length

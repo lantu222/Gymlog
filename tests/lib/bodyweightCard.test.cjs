@@ -415,17 +415,18 @@ module.exports = [
     },
   },
   {
-    name: 'window: a short history anchors the chart, a long one trails it',
+    name: 'window: the range chip is a ceiling, the history sets the width, and today is always the edge',
     run() {
       const assert = require('node:assert/strict');
-      const { measureWindowEnd, buildValueWindow } = require('../../.test-dist/lib/bodyweightCard.js');
+      const { measureRangeDays, buildValueWindow, MIN_RANGE_DAYS } = require('../../.test-dist/lib/bodyweightCard.js');
       const day = (y, m, d) => new Date(y, m - 1, d).getTime();
       const now = day(2026, 9, 2);
 
-      // Two entries, three-month range: the window starts at the first one.
+      // A three-day history asked to fill three months: the chip caps the
+      // width, it does not manufacture it. The window used to slide FORWARD to
+      // reach 91 days, drawing an axis that ran into December.
       const firstRecent = day(2026, 8, 30);
-      const endRecent = measureWindowEnd(firstRecent, now, 91);
-      assert.equal(endRecent, day(2026, 11, 28), 'the window did not anchor to the first entry');
+      assert.equal(measureRangeDays('3m', firstRecent, now), MIN_RANGE_DAYS);
 
       const window = buildValueWindow(
         [
@@ -433,36 +434,52 @@ module.exports = [
           { recordedAt: new Date(day(2026, 9, 1)).toISOString(), value: 75.3 },
         ],
         now,
-        91,
-        endRecent,
+        measureRangeDays('3m', firstRecent, now),
       );
-      assert.equal(window.length, 91);
-      assert.equal(window[0].dayStart, firstRecent, 'the chart still starts before the first entry');
-      assert.equal(window[0].value, 75, 'the first entry is not on the first day');
-      // Today is inside the window and still marked, even though it is not the
-      // right-hand edge any more.
+      assert.equal(window.length, MIN_RANGE_DAYS);
+      assert.equal(
+        window[window.length - 1].dayStart,
+        now,
+        'the chart drew days that have not happened yet',
+      );
+      assert.ok(
+        window.every((d) => d.dayStart <= now),
+        'a day after today reached the axis',
+      );
       assert.equal(window.filter((d) => d.isToday).length, 1);
+      assert.equal(window[window.length - 1].isToday, true, 'today is not the right-hand edge');
 
-      // A history longer than the range trails: the newest day is the edge.
+      // A history longer than the chip gets the chip's full width, trailing.
       const firstOld = day(2026, 1, 5);
-      assert.equal(measureWindowEnd(firstOld, now, 91), now, 'a long history stopped trailing');
-      const trailing = buildValueWindow([], now, 91, measureWindowEnd(firstOld, now, 91));
+      assert.equal(measureRangeDays('3m', firstOld, now), 91);
+      const trailing = buildValueWindow([], now, measureRangeDays('3m', firstOld, now));
+      assert.equal(trailing.length, 91);
       assert.equal(trailing[trailing.length - 1].dayStart, now);
 
-      // The handover is exact: a history of precisely `days` ends today.
+      // The handover is exact: a history of precisely the chip's length is the
+      // first one to get it, and nothing jumps on either side of that day.
       const firstExact = day(2026, 6, 4);
       assert.equal(
         Math.round((now - firstExact) / 86400000) + 1,
         91,
         'fixture drifted — that is not a 91-day history',
       );
-      assert.equal(measureWindowEnd(firstExact, now, 91), now, 'the two cases do not meet');
+      assert.equal(measureRangeDays('3m', firstExact, now), 91);
+      assert.equal(measureRangeDays('3m', firstExact + 86400000, now), 90);
 
-      // No entries at all: today, as before the anchor existed.
-      assert.equal(measureWindowEnd(null, now, 91), now);
-      // And the default end is still today, so every old caller is unchanged.
-      const legacy = buildValueWindow([], now, 7);
-      assert.equal(legacy[legacy.length - 1].dayStart, now);
+      // "7D" is a week whatever the history, because the floor never rises
+      // above the ceiling.
+      assert.equal(measureRangeDays('7d', now, now), 7);
+      assert.equal(measureRangeDays('7d', firstOld, now), 7);
+
+      // "All" is unchanged: a fortnight at least, two years at most.
+      assert.equal(measureRangeDays('all', null, now), MIN_RANGE_DAYS);
+      assert.equal(measureRangeDays('all', day(2020, 1, 1), now), 730);
+
+      // No entries at all: the floor, ending today.
+      const empty = buildValueWindow([], now, measureRangeDays('3m', null, now));
+      assert.equal(empty.length, MIN_RANGE_DAYS);
+      assert.equal(empty[empty.length - 1].dayStart, now);
     },
   },
 ];
