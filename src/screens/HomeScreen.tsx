@@ -120,7 +120,9 @@ function BlockRow({
         style={({ pressed }) => [styles.blockRow, pressed && styles.pressed]}
       >
         <Text style={[styles.blockTitle, open && styles.sectTitleOpen]}>{title}</Text>
-        <Text style={styles.blockMeta}>{meta}</Text>
+        <Text style={styles.blockMeta} numberOfLines={1}>
+          {meta}
+        </Text>
         <View style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }}>
           <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
             <Path
@@ -2569,8 +2571,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 10,
     paddingVertical: 24,
   },
+  // `flex: 1` gave the title a basis of ZERO, so it took only what the meta
+  // left over — and the meta does not shrink. In Finnish that meant
+  // "Palautuminen" broke mid-word into "Palautuminen / n" beside
+  // "2 venytysta - 3 min" (user 2026-09-07). The title's basis is its own
+  // content now, and the meta gives way first: losing the tail of "3 drills -
+  // 5 min" costs a reader nothing, losing half of the section's name costs
+  // them the name.
   blockTitle: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 'auto',
+    minWidth: 0,
     color: theme.ink,
     fontSize: 17.5,
     lineHeight: 22,
@@ -2578,6 +2590,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     letterSpacing: -0.2,
   },
   blockMeta: {
+    flexShrink: 3,
+    minWidth: 0,
     color: theme.faint,
     fontSize: 13.5,
     lineHeight: 17,
