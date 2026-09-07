@@ -74,4 +74,40 @@ module.exports = [
       }
     },
   },
+  {
+    /**
+     * The footer floats over the end of the list, so the reserve under the
+     * content has to be the footer's own height. A flat 24 left the receipt
+     * row — the last thing on the page, and the one carrying the price —
+     * behind the CTA (user 2026-09-07).
+     */
+    name: 'unlock: the scroll reserves the footer it scrolls under, measured not guessed',
+    run() {
+      const assert = require('node:assert/strict');
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const unlock = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'screens', 'PremiumUnlockScreen.tsx'),
+        'utf8',
+      );
+
+      // The footer is measured...
+      assert.match(
+        unlock,
+        /<View style=\{styles\.footer\} onLayout=\{\(e\) => setFooterHeight\(e\.nativeEvent\.layout\.height\)\}>/,
+        'the footer stopped reporting its height',
+      );
+      // ...and that measurement is what the content reserves.
+      assert.match(
+        unlock,
+        /contentContainerStyle=\{\[styles\.content, \{ paddingBottom: footerHeight \+ 24 \}\]\}/,
+        'the scroll went back to a flat reserve',
+      );
+      // The footer is still a sibling of the scroll, which is why any of this
+      // is needed — if it ever moves inside, this guard should be deleted.
+      const scrollEnd = unlock.indexOf('</ScrollView>');
+      const footerAt = unlock.indexOf('<View style={styles.footer}');
+      assert.ok(scrollEnd > 0 && footerAt > scrollEnd, 'the footer moved inside the scroll');
+    },
+  },
 ];
