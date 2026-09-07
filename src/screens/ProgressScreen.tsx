@@ -1207,9 +1207,22 @@ export function ProgressScreen({
                 : row.tone === 'amber'
                   ? { dot: PW.amber, soft: PW.amberSoft }
                   : { dot: PW.red, soft: PW.redSoft };
+            // The row is a door when there is something behind it. The lift's
+            // set log opens from the screen's root, so this does not change
+            // section — the reader stays on the read and the lift comes to
+            // them. Before, tapping a lift here did nothing at all and the
+            // only way in was the records tab, then the list, then the lift
+            // (user 2026-09-07).
+            const openable = setLogSources.some((entry) => entry.key === row.key);
             return (
               <View key={row.key} style={styles.readRow}>
-                <View style={styles.readRowHead}>
+                <Pressable
+                  accessibilityRole={openable ? 'button' : undefined}
+                  accessibilityLabel={openable ? row.name : undefined}
+                  disabled={!openable}
+                  onPress={() => setSetLogKey(row.key)}
+                  style={({ pressed }) => [styles.readRowHead, pressed && openable && styles.readRowPressed]}
+                >
                   <View style={[styles.readDotRing, { backgroundColor: tone.soft }]}>
                     <View style={[styles.readDot, { backgroundColor: tone.dot }]} />
                   </View>
@@ -1233,7 +1246,7 @@ export function ProgressScreen({
                       />
                     ))}
                   </View>
-                </View>
+                </Pressable>
                 {row.locked ? (
                   <View style={styles.readLock}>
                     {proUnlocked ? (
@@ -2155,6 +2168,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 16,
   },
+  readRowPressed: { opacity: 0.7 },
   readRowHead: {
     flexDirection: 'row',
     alignItems: 'center',

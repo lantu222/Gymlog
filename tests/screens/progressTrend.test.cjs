@@ -594,4 +594,33 @@ module.exports = [
       assert.match(read('src', 'darkTheme.ts'), /highlight: '#FF8A4C'/, 'the dark highlight is not orange');
     },
   },
+  {
+    /**
+     * "klikkaamalla lantionnosto se ei vie mihinkaan voisiko se vieda?" and
+     * "yksittaisia ennatyksia ei paase lukemaan kun vasta painamalla kaikki ja
+     * sielta klikkaamalla" (user 2026-09-07). One row, two reports: the lift
+     * named on the weekly read was not a door, and the only way to a lift's
+     * log was the records tab, then its list, then the lift.
+     */
+    name: 'progress: a lift on the weekly read opens its own set log',
+    run() {
+      // The head is the pressable part, so the locked card below it keeps its
+      // own button.
+      assert.match(screen, /const openable = setLogSources\.some\(\(entry\) => entry\.key === row\.key\);/);
+      assert.match(screen, /disabled=\{!openable\}/);
+      assert.match(screen, /onPress=\{\(\) => setSetLogKey\(row\.key\)\}/);
+
+      // Only where there is something behind it: a row with no source would
+      // open a sheet that resolves to null and shows nothing.
+      assert.match(screen, /accessibilityRole=\{openable \? 'button' : undefined\}/);
+
+      // And it does NOT change section. The sheet renders from the screen's
+      // root, so the reader stays on the read they were looking at.
+      const readStart = screen.indexOf('function renderWeeklyRead');
+      const readBlock = screen.slice(readStart, screen.indexOf('\n  function ', readStart + 1));
+      assert.ok(readBlock.length > 200, 'renderWeeklyRead moved - recheck by hand');
+      assert.doesNotMatch(readBlock, /switchSection/, 'the read jumps the reader to another tab');
+      assert.match(screen, /visible=\{setLogKey !== null\}/);
+    },
+  },
 ];
