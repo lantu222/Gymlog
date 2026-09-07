@@ -53,12 +53,11 @@ module.exports = [
       assert.doesNotMatch(wrap, /\btop:/);
 
       // With the shell not padding the top, whatever scrolls under the status
-      // bar needs the strip: the location stages, and the plan-ready day view
-      // (PR review — its exercise list slid across the clock).
-      assert.match(
-        screen,
-        /const statusBarStripActive = locationStageActive \|\| \(stage === 'review' && planReadyView === 'day'\);/,
-      );
+      // bar needs the strip. That was the location stages plus the plan-ready
+      // day view, whose exercise list slid across the clock (PR review); the
+      // day view is gone (2026-09-07) and the picker paints its own band, so
+      // the location stages are the whole list again.
+      assert.match(screen, /const statusBarStripActive = locationStageActive;/);
       assert.match(screen, /\{statusBarStripActive \? <View pointerEvents="none" style=\{\[styles\.locationTopSafeArea/);
     },
   },

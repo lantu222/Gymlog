@@ -43,20 +43,18 @@ module.exports = [
       assert.match(appSource, /onFullBleedReviewChange=\{setFullBleedReview\}/);
       assert.doesNotMatch(appSource, /#1D1C35/);
 
-      // Plan-ready views animate on one shared card. The shared footer is
-      // hidden on the programme picker, which is full-bleed and pins its own
-      // CTA; the day view uses it, and that is what walks the days. The Pro
-      // paywall used to be the other exception — it left the flow entirely on
-      // 2026-08-24.
-      assert.match(
+      // The shared footer is hidden on the programme picker, which is
+      // full-bleed and pins its own CTA. Two other things used to make this
+      // condition compound and both are gone: the Pro paywall (2026-08-24) and
+      // the day view (2026-09-07), whose slide-in animation went with it.
+      assert.match(onboardingSource, /const footerVisible = stage !== 'review';/);
+      assert.doesNotMatch(
         onboardingSource,
-        /const footerVisible = !\(stage === 'review' && planReadyView === 'overview'\)/,
+        /planReadyCardTranslateX|planReadyCardOpacity/,
+        'the day card animation outlived the day card',
       );
-      assert.match(onboardingSource, /Animated\.timing\(planReadyCardTranslateX/);
-      assert.match(onboardingSource, /planReadyCardOpacity/);
 
-      // CTA labels are sentence case in the light redesign. "See day 1" is gone —
-      // the day view is a read-only preview whose footer returns "Back to plan".
+      // CTA labels are sentence case in the light redesign. "See day 1" is gone.
       assert.match(onboardingSource, /t\(language, 'onb\.cta\.startTraining'\)/);
       assert.doesNotMatch(onboardingSource, /: 'See day 1'/);
       assert.match(onboardingSource, /\? t\(language, 'onb\.cta\.buildPlan'\)/);
@@ -195,7 +193,18 @@ module.exports = [
       // Carried from the schedule the reader chose rather than re-derived.
       assert.match(composerSource, /weekdayLabel: day\.weekdayLabel,/);
       assert.match(onboardingSource, /weekdayLabel: session\.weekdayLabel,/);
-      assert.match(onboardingSource, /selectedSession\?\.weekdayLabel,/);
+      // And it reaches the card. The day view that used to print it is gone;
+      // the week list on the plan-ready card is where a reader now learns
+      // which day each session lands on, so the invariant moved with it.
+      assert.match(onboardingSource, /weekday: session\.weekdayLabel,/);
+
+      // A weekday, never a date: the plan has no start day on this screen, so
+      // any date would be one the app invented.
+      const pickSource = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'screens', 'ProgramPickScreen.tsx'),
+        'utf8',
+      );
+      assert.doesNotMatch(pickSource, /toLocaleDateString|formatDate\(/);
     },
   },
 ];
