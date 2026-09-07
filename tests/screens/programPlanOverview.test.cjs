@@ -584,14 +584,34 @@ module.exports = [
       const stopAt = app.indexOf('async function handleStopProgram(workoutTemplateId: string)');
       assert.ok(stopAt > 0, 'handleStopProgram not found');
       const stopBody = app.slice(stopAt, stopAt + 1400);
-      // Scoped to the handler: the same expression appears elsewhere in the
-      // file, so a file-wide match stayed green against a mutation that
-      // stopped only the LEADING plan.
-      assert.match(stopBody, /\.entries\[0\]\?\.workoutTemplateId === workoutTemplateId/);
+      // The plan-matching rule lives in src/lib and is tested there; every
+      // plan pointing at the programme has to go, or the switch reads off
+      // while it still runs under the other id.
+      assert.match(stopBody, /planIdsForTemplate\(\{/);
+      assert.match(stopBody, /templateId: workoutTemplateId,/);
       assert.doesNotMatch(
         stopBody,
         /filter\(\(planId\) => planId === preferences\.activePlanId\)/,
         'stopping a programme leaves its other plan running',
+      );
+
+      // Removing "Show this on Home" removed the ONLY way to change which
+      // programme Home leads with — caught in review. Training a held one is
+      // what promotes it now, so the capability is not gone with the button.
+      assert.match(app, /async function leadOnTrain\(workoutTemplateId: string\)/);
+      assert.match(app, /await promoteHeldProgramToLead\(workoutTemplateId\);/);
+      const readyStart = app.indexOf('function handleStartReadyProgramSession');
+      assert.ok(readyStart > 0, 'handleStartReadyProgramSession not found');
+      assert.match(app.slice(readyStart, readyStart + 400), /void leadOnTrain\(workoutTemplateId\);/);
+      const customStart = app.indexOf('function handleStartCustomProgramSession');
+      assert.ok(customStart > 0, 'handleStartCustomProgramSession not found');
+      const customBody = app.slice(customStart, customStart + 1200);
+      assert.match(customBody, /void leadOnTrain\(workoutTemplateId\);/);
+      // After the empty-session guard, never before it: a workout that cannot
+      // start is not the programme you are training.
+      assert.ok(
+        customBody.indexOf('toast.addExercisesSession') < customBody.indexOf('leadOnTrain'),
+        'a session that cannot start still moves Home',
       );
       assert.match(app, /onStopProgram: handleStopProgram,/);
       assert.match(app, /running=\{programIsMine\}/);

@@ -589,21 +589,32 @@ module.exports = [
       // listed only while it led: making a second programme lead dropped it
       // out of the one list called "your programmes" while it kept running
       // and kept holding a slot against the programme cap (user 2026-09-07).
-      assert.match(app, /for \(const planId of \[preferences\.activePlanId, \.\.\.preferences\.activePlanIds\]\)/);
-      // Deduped by TEMPLATE, not by plan: onboarding and adoption write
-      // different plan ids for one programme, so a row per plan would list it
-      // twice under one React key.
-      assert.match(app, /const seenTemplateIds = new Set\(authoredIds\);/);
-      assert.match(app, /seenTemplateIds\.has\(templateId\)/, 'a programme can be listed twice');
-      assert.match(app, /seenTemplateIds\.add\(templateId\);/);
+      // The rule itself lives in src/lib and is tested there. What this pins
+      // is that App.tsx asks it, with the reader's own templates excluded so a
+      // programme cannot appear both as authored and as running.
+      assert.match(app, /const runningRows = listRunningProgrammes\(\{/);
+      assert.match(app, /authoredTemplateIds: authoredIds,/);
+      assert.doesNotMatch(
+        app,
+        /const seenTemplateIds = new Set/,
+        'the dedup loop moved back into App.tsx',
+      );
+
+      // "The programme you are training right now" is a claim about ONE row,
+      // and this list can hold several running programmes. Said on every one
+      // it contradicted the ACTIVE tag beside it, which only the leader
+      // carries (review, 2026-09-07).
+      assert.match(app, /subtitle: active\s*\r?\n?\s*\? t\(preferences\.appLanguage, 'programs\.activeSubtitle'\)/);
+      assert.match(app, /: t\(preferences\.appLanguage, 'programs\.card\.days', \{ count: template\.daysPerWeek \}\),/);
       // Only what the catalog can open — a plan pointing at a deleted custom
       // template is neither authored nor ready, and its row would navigate
       // nowhere.
-      assert.match(app, /const template = getWorkoutTemplateById\(templateId\);/);
-      assert.match(app, /if \(!template\) \{[\s\S]{0,40}?continue;/);
+      assert.match(app, /const template = getWorkoutTemplateById\(row\.templateId\);/);
+      assert.match(app, /if \(!template\) \{[\s\S]{0,40}?return null;/);
       // One notion of "active" for the whole list, the same one the authored
       // rows ask, so two rows cannot both be marked by different rules.
-      assert.match(app, /active: homeActivePlanCard\?\.programId === templateId,/);
+      assert.match(app, /const active = homeActivePlanCard\?\.programId === row\.templateId;/);
+      assert.match(app, /^\s+active,$/m);
 
       // One name for one programme. Home resolved season titles and ready
       // presentations inline; the Programs tab now lists the same programmes,

@@ -61,6 +61,7 @@ import {
   evaluateProgramAdoption,
   removeActiveProgram,
 } from './src/lib/activeProgramSet';
+import { listRunningProgrammes, planIdsForTemplate } from './src/lib/runningProgrammes';
 import {
   buildReadyProgramPlanId,
   buildCustomProgramPlanId,
@@ -1511,6 +1512,8 @@ function VinhaApp() {
   }
 
   function handleStartReadyProgramSession(workoutTemplateId: string, sessionId: string) {
+    // Training it is what makes Home lead with it. See `leadOnTrain`.
+    void leadOnTrain(workoutTemplateId);
     startReadyProgramSessionWithUnit(workoutTemplateId, sessionId, unitPreference);
   }
 
@@ -1926,10 +1929,12 @@ function VinhaApp() {
    * the programme was still running under the other id.
    */
   async function handleStopProgram(workoutTemplateId: string) {
-    const byId = new Map(database.workoutPlans.map((plan) => [plan.id, plan]));
-    const planIds = [...new Set([preferences.activePlanId, ...preferences.activePlanIds])]
-      .filter((planId): planId is string => Boolean(planId))
-      .filter((planId) => byId.get(planId)?.entries[0]?.workoutTemplateId === workoutTemplateId);
+    const planIds = planIdsForTemplate({
+      activePlanId: preferences.activePlanId,
+      activePlanIds: preferences.activePlanIds,
+      plans: database.workoutPlans,
+      templateId: workoutTemplateId,
+    });
     if (planIds.length === 0) {
       return;
     }
@@ -1955,6 +1960,23 @@ function VinhaApp() {
     });
   }
 
+  /**
+   * Training a held programme is what makes Home lead with it.
+   *
+   * "Show this on Home" was the only way to change the lead, and it went with
+   * the Active switch (user 2026-09-07: it changed which programme led and
+   * could not turn any of them off, which was not the question being asked).
+   * Removing it removed the capability too — caught in review — so the signal
+   * moved to the honest one: the plan you are actually training is the plan
+   * you are actually training. Nothing to press, and nothing to explain.
+   */
+  async function leadOnTrain(workoutTemplateId: string) {
+    if (!activeProgramTemplateIds.includes(workoutTemplateId)) {
+      return;
+    }
+    await promoteHeldProgramToLead(workoutTemplateId);
+  }
+
   function handleStartReadyProgram(workoutTemplateId: string) {
     const template = getWorkoutTemplateById(workoutTemplateId);
     const firstSessionId = template?.sessions[0]?.id;
@@ -1977,6 +1999,11 @@ function VinhaApp() {
       navigate({ tab: 'workout', screen: 'template', workoutTemplateId });
       return;
     }
+
+    // After the guard above, not before it: a session that cannot start is not
+    // the programme you are training, and promoting on the way to an error
+    // toast would move Home for a workout that never began.
+    void leadOnTrain(workoutTemplateId);
 
     // Same rule as the ready-programme start above.
     if (navigateToActiveWorkout({ resume: isActiveSessionFor(workoutTemplateId, sessionId) })) {
@@ -5162,44 +5189,43 @@ function VinhaApp() {
     //
     // Home already listed them under its hero, and its own removal copy says
     // "it stays in Programs" — a promise this list could not keep.
-    const authoredIds = new Set(authored.map((item) => item.id));
-    const planById = new Map(database.workoutPlans.map((plan) => [plan.id, plan]));
-    // Deduped by TEMPLATE, not by plan. Two plan ids can point at one
-    // programme — onboarding writes `onboarding_plan_<id>` and adoption writes
-    // `ready_plan_<id>`, which is the reason `activeProgramTemplateIds` exists
-    // — and a row per plan would list the same programme twice under one key.
-    const seenTemplateIds = new Set(authoredIds);
-    const runningRows: Array<{
-      id: string;
-      name: string;
-      subtitle: string;
-      active: boolean;
-      programType: 'ready' | 'custom';
-    }> = [];
-    for (const planId of [preferences.activePlanId, ...preferences.activePlanIds]) {
-      const plan = planId ? planById.get(planId) : null;
-      const templateId = plan?.entries[0]?.workoutTemplateId ?? null;
-      if (!plan || !templateId || seenTemplateIds.has(templateId)) {
-        continue;
-      }
-      // Only what the catalog can actually open. A plan pointing at a custom
-      // template the reader has since deleted is neither authored nor ready,
-      // and a row for it would navigate to a programme that is not there.
-      const template = getWorkoutTemplateById(templateId);
-      if (!template) {
-        continue;
-      }
-      seenTemplateIds.add(templateId);
-      runningRows.push({
-        id: templateId,
-        name: runningProgrammeTitle(templateId, plan.name, template.daysPerWeek),
-        subtitle: t(preferences.appLanguage, 'programs.activeSubtitle'),
+    const authoredIds = authored.map((item) => item.id);
+    const runningRows = listRunningProgrammes({
+      activePlanId: preferences.activePlanId,
+      activePlanIds: preferences.activePlanIds,
+      plans: database.workoutPlans,
+      authoredTemplateIds: authoredIds,
+    })
+      .map((row) => {
+        // Only what the catalog can actually open. A plan pointing at a custom
+        // template the reader has since deleted is neither authored nor ready,
+        // and a row for it would navigate to a programme that is not there.
+        const template = getWorkoutTemplateById(row.templateId);
+        if (!template) {
+          return null;
+        }
         // The SAME question the authored rows ask, so one list cannot hold two
         // notions of "active" and mark a row by each.
-        active: homeActivePlanCard?.programId === templateId,
-        programType: 'ready' as const,
-      });
-    }
+        const active = homeActivePlanCard?.programId === row.templateId;
+        return {
+          id: row.templateId,
+          name: runningProgrammeTitle(row.templateId, row.planName, template.daysPerWeek),
+          /**
+           * "The programme you are training right now" is a claim about ONE
+           * row, and this list can now hold several running programmes. Said
+           * on every one of them it contradicted the ACTIVE tag beside it,
+           * which only the leader carries (review, 2026-09-07). A programme
+           * that runs without leading gets the neutral line the same
+           * programmes already carry under Home's hero.
+           */
+          subtitle: active
+            ? t(preferences.appLanguage, 'programs.activeSubtitle')
+            : t(preferences.appLanguage, 'programs.card.days', { count: template.daysPerWeek }),
+          active,
+          programType: 'ready' as const,
+        };
+      })
+      .filter((row): row is NonNullable<typeof row> => row !== null);
 
     return leadFirst([...runningRows, ...authored]);
   }, [
