@@ -218,14 +218,21 @@ module.exports = [
     },
   },
   {
-    name: 'the window is seven calendar days with today in the middle',
+    /**
+     * Trailing, not centred. A window centred on today reached three days back
+     * and still called itself a week, so a Tuesday weigh-in read on Saturday
+     * as "no weigh-ins" (#bugs 2026-09-05). The chip's label is a promise
+     * about the past.
+     */
+    name: 'the window is the seven calendar days ending today',
     run() {
       const now = new Date(2026, 7, 13, 12, 0, 0).getTime();
       const days = buildWeightWindow([], now);
       assert.equal(days.length, 7);
-      assert.deepEqual(days.map((day) => day.label), ['10', '11', '12', '13', '14', '15', '16']);
-      assert.equal(days[3].isToday, true);
+      assert.deepEqual(days.map((day) => day.label), ['7', '8', '9', '10', '11', '12', '13']);
+      assert.equal(days[6].isToday, true, 'today is the right edge');
       assert.equal(days.filter((day) => day.isToday).length, 1);
+      assert.equal(days.filter((day) => day.dayStart > days[6].dayStart).length, 0, 'no day is in the future');
     },
   },
   {
@@ -239,7 +246,7 @@ module.exports = [
         ],
         now,
       );
-      assert.deepEqual(days.map((day) => day.value), [null, 76, null, 75.5, null, null, null]);
+      assert.deepEqual(days.map((day) => day.value), [null, null, null, null, 76, null, 75.5]);
     },
   },
   {
@@ -251,8 +258,9 @@ module.exports = [
         now,
       );
       assert.equal(days.filter((day) => day.value !== null).length, 1);
-      // And it is the middle slot, so the first entry ever logged is centred.
-      assert.equal(days[3].value, 75.5);
+      // Today's slot, which is now the right edge — where today sits on every
+      // other chart on the tab.
+      assert.equal(days[6].value, 75.5);
     },
   },
   {

@@ -18,19 +18,17 @@
  */
 
 import { parseNumberInput } from './format';
+import { WEIGHT_DIAL_MAX_KG } from './weightLimits';
 
 /** The smallest real plate pair. */
 export const WEIGHT_DIAL_STEP_KG = 1.25;
 
 /**
- * The heaviest single set the app will hold.
- *
- * Not a guess at anybody's strength: the all-time raw deadlift record is a bit
- * over 500 kg, so this cannot stand between a reader and a lift they actually
- * did. It exists so a stuck button, a fat finger or a typo cannot write a
- * number that breaks every chart it reaches.
+ * The ceiling now lives in `weightLimits`, because the loader has to apply the
+ * same rule to what is already stored and cannot import this file. Re-exported
+ * so the dial still reads as the place that owns its own bounds.
  */
-export const WEIGHT_DIAL_MAX_KG = 500;
+export { WEIGHT_DIAL_MAX_KG };
 
 interface DialBounds {
   step?: number;

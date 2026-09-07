@@ -282,9 +282,15 @@ module.exports = [
       assert.match(homeScreenSource, /<ProLockedCard/);
       assert.match(homeScreenSource, /<ProMomentSheet/);
       assert.match(homeScreenSource, /t\(language, 'home\.emptyWorkout\.title'\)/);
-      assert.match(homeScreenSource, /t\(language, 'home\.emptyWorkout\.meta'\)/);
       assert.match(i18nSource, /'home\.emptyWorkout\.title': 'Empty workout'/);
-      assert.match(i18nSource, /'home\.emptyWorkout\.meta': 'Log freestyle'/);
+      // The row's title and its icon, and nothing else. The right-hand caption
+      // ("Log freestyle" beside "Empty workout") and the section heading over
+      // the pair both went — "jätä vain +Tyhjä treeni ja Cardio + ikonit"
+      // (#bugs 2026-09-05).
+      assert.doesNotMatch(homeScreenSource, /home\.emptyWorkout\.meta/);
+      assert.doesNotMatch(homeScreenSource, /home\.cardio\.meta/);
+      assert.doesNotMatch(homeScreenSource, /home\.logElse/);
+      assert.doesNotMatch(i18nSource, /'home\.emptyWorkout\.meta'/);
       assert.match(homeScreenSource, /emptyWorkoutRow/);
       assert.match(homeScreenSource, /emptyWorkoutRow:\s*\{[\s\S]*backgroundColor: theme.surface/);
       assert.match(homeScreenSource, /name="plus" color=\{theme.highlight\} size=\{20\}/);

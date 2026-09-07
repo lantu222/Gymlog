@@ -50,6 +50,7 @@ import {
 } from './modules/home-widget';
 import { buildHomeWidgetPayload, HomeWidgetTarget, resolveHomeWidgetSessionTap } from './src/lib/widgetPayload';
 import { parseWidgetDeepLink } from './src/lib/widgetDeepLink';
+import { routeForNotification } from './src/lib/notificationRoute';
 import { planSetupHandoff } from './src/lib/setupHandoff';
 import { SetupHandoffChoices, SetupHandoffScreen } from './src/screens/SetupHandoffScreen';
 import { useAccountBackup } from './src/features/account/useAccountBackup';
@@ -4084,6 +4085,77 @@ function VinhaApp() {
     widgetCompletedWorkoutDayStarts,
   ]);
 
+  /**
+   * A scheduled notification's tap lands where the notification was about.
+   *
+   * A SECOND response listener, deliberately: the one near the top of this
+   * file answers the lock-screen rest actions and returns early for anything
+   * without the session marker, so the planner's notifications — records,
+   * reminders, the weekly summary — were tapped and then dropped. The reader
+   * tapped a personal record and arrived at the activity calendar, which was
+   * not a wrong destination but no destination: the app resumed the screen it
+   * had been left on (#bugs 2026-09-05). The two stay separate because they
+   * share nothing but the API — that one drives a running workout over the
+   * bus, this one sets a route — and each ignores the other's notifications by
+   * marker.
+   *
+   * Held until the database is loaded, exactly like the widget's target above:
+   * resetting the route into a half-built app lands somewhere that is about to
+   * re-render underneath it. The stored last response covers the cold start,
+   * where the tap is what launched the process and the listener is attached
+   * far too late to hear it.
+   */
+  const [pendingNotificationRoute, setPendingNotificationRoute] = useState<AppRoute | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const handle = (response: Notifications.NotificationResponse | null) => {
+      if (cancelled || !response) {
+        return;
+      }
+      const next = routeForNotification(response.notification.request.content.data);
+      if (next) {
+        setPendingNotificationRoute(next);
+      }
+    };
+
+    /*
+     * The cold start, and then FORGETTING it.
+     *
+     * The stored last response outlives the launch it belongs to. Read without
+     * clearing, it answers every later cold start with the same tap: open the
+     * record notification once and the app lands on Records on every launch
+     * afterwards, including launches from the icon with nothing in the shade.
+     * expo-notifications names this case in `clearLastNotificationResponse`'s
+     * own documentation — "undesirable to continue selecting the route after
+     * the response has already been handled" (found in review, 2026-09-05).
+     *
+     * Cleared whether or not the route resolved: a response this build has no
+     * destination for is still a response that has been seen, and leaving it
+     * stored only means re-reading it on the next launch to ignore it again.
+     */
+    const cold = Notifications.getLastNotificationResponse();
+    if (cold) {
+      handle(cold);
+      Notifications.clearLastNotificationResponse();
+    }
+
+    const subscription = Notifications.addNotificationResponseReceivedListener(handle);
+    return () => {
+      cancelled = true;
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!appHydrated || !pendingNotificationRoute) {
+      return;
+    }
+    setPendingNotificationRoute(null);
+    resetToRoute(pendingNotificationRoute);
+  }, [appHydrated, pendingNotificationRoute]);
+
   // Settings → "Export plan (CSV)". The user's own plans, plus the ready
   // program they are actually running. The rest of the catalog is app content
   // that never leaves the app, so there is nothing to carry out for it.
@@ -4864,15 +4936,16 @@ function VinhaApp() {
       }),
     });
 
-    // And say so. Both writes have resolved by here — the programme, then the
-    // target — which is the order CLAUDE.md asks for: a success state follows
-    // the write, never precedes it.
+    // And say so — by ARRIVING. Both writes have resolved by here, the
+    // programme then the target, which is the order CLAUDE.md asks for: a
+    // success state follows the write, never precedes it.
     //
-    // Without this the tap did all its work in silence. The screen kept the
-    // same three steps with the same numbers in them, nothing navigated, and
-    // 'goalFlow.created' sat translated in both dictionaries with no reader.
-    // The copy names where the programme went, so the reader is sent there.
-    showToast(t(preferences.appLanguage, 'goalFlow.created'));
+    // The success state used to be a toast as well. It was raised over the
+    // page that already showed both halves of what it announced — the
+    // programme at the top of Omat ohjelmasi, the target under Tavoitteesi —
+    // so it named nothing the reader could not see ("valkoinen ilmoitus
+    // poista", #bugs 2026-09-05). The navigation is the feedback; the toast
+    // was the same news a second time, in a white box over it.
     navigate({ tab: 'workout', screen: 'programs_home' });
   }
 

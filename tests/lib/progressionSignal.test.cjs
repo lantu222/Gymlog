@@ -178,15 +178,19 @@ module.exports = [
   {
     /**
      * A lift with one session has nothing behind it, so it reads as a
-     * baseline — whatever the numbers were. This is what the sumo deadlift
-     * was doing, and it was right: 5121 kg is a first, not an improvement.
+     * baseline — whatever the numbers were. This was written against the
+     * sumo deadlift's 5121,25 kg, and the reading was right: a first is not
+     * an improvement. The weight had to change all the same, because the
+     * loader now drops a set nobody could have lifted (#bugs 2026-09-05) and
+     * the old fixture no longer reaches this function at all. A heavy but
+     * possible pull makes the same point.
      */
     name: 'a lift with one session is a baseline however heavy it was',
     run() {
       const [summary] = getTrackedExerciseProgress(
-        databaseWith([log('a', '2026-08-26T10:00:00.000Z', [{ weight: 5121.25, reps: 8 }])]),
+        databaseWith([log('a', '2026-08-26T10:00:00.000Z', [{ weight: 280, reps: 8 }])]),
       );
-      assert.equal(summary.latestValue, 5121.25);
+      assert.equal(summary.latestValue, 280);
       assert.equal(summary.bestValueBefore, null);
       assert.equal(getExerciseProgressSignal(summary).kind, 'starting');
     },

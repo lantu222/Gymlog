@@ -523,13 +523,15 @@ module.exports = [
      * `handleAcceptTargetProposal` adopted the programme and wrote the goal
      * and then did nothing at all: no navigation, no toast, no state any
      * screen reads. The tap left the reader on the same three steps with the
-     * same numbers, and 'goalFlow.created' sat translated in both dictionaries
-     * with no caller — written, never wired.
+     * same numbers — written, never wired.
      *
-     * [CLAUDE.md](CLAUDE.md): "A success state must follow the resolved write,
-     * never precede it." So the order is pinned, not just the presence: the
-     * toast must come after BOTH awaits, or it is claiming a finish that has
-     * not happened.
+     * The success state is the ARRIVAL. A toast was raised alongside it and
+     * has since gone: it appeared over the page that already showed both
+     * halves of what it announced (#bugs 2026-09-05). The rule it was pinned
+     * against is unchanged — [CLAUDE.md](CLAUDE.md): "A success state must
+     * follow the resolved write, never precede it" — so the order is still
+     * pinned, now on the navigation, which must come after BOTH awaits or it
+     * is showing a finish that has not happened.
      */
     name: 'target flow: the success state follows the resolved write',
     run() {
@@ -546,17 +548,21 @@ module.exports = [
 
       const adopt = body.indexOf('await handleAdoptReadyProgram');
       const write = body.indexOf('await updatePreferences');
-      const toast = body.indexOf("showToast(t(preferences.appLanguage, 'goalFlow.created'))");
       const leave = body.indexOf("navigate({ tab: 'workout', screen: 'programs_home' })");
 
       assert.ok(adopt > 0, 'the programme is no longer adopted here');
       assert.ok(write > 0, 'the target is no longer written here');
-      assert.ok(toast > 0, "the tap is silent again — 'goalFlow.created' has no caller");
-      assert.ok(leave > 0, 'nothing takes the reader to the programme it just adopted');
+      assert.ok(leave > 0, 'the tap is silent again — nothing takes the reader to what it built');
 
       assert.ok(adopt < write, 'the target is written before the programme lands');
-      assert.ok(write < toast, 'the success state is claimed before the write resolves');
-      assert.ok(toast < leave, 'the screen leaves before the toast is raised');
+      assert.ok(write < leave, 'the reader arrives before the write that put it there resolves');
+
+      // The toast that used to sit between them is gone, key and all. Not
+      // `doesNotMatch(body, /showToast\(/)`: the slice above runs past this
+      // handler — the next declaration is a const, not a function — so it
+      // reaches other handlers that legitimately raise one.
+      assert.equal(body.indexOf('goalFlow.created'), -1, 'the toast is back in this handler');
+      assert.doesNotMatch(read('src', 'lib', 'i18n.ts'), /'goalFlow\.created'/);
     },
   },
   {

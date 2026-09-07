@@ -493,6 +493,67 @@ module.exports = [
   },
   {
     /**
+     * Both grips have to be HELD, and they hold identically.
+     *
+     * They armed on touch, so a finger that landed on one while scrolling
+     * reordered the list: "liian helppo vaihtaa päivien järjestystä, tein sen
+     * vahingossa" (#bugs 2026-09-05). The hold lives in one hook rather than
+     * twice in two screens, because the day list was built to be identical to
+     * the lift list and a second copy is how they stop being.
+     */
+    name: 'a day and a lift are both picked up by holding, never by touching',
+    run() {
+      const dayScreen = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'screens', 'ProgramDayScreen.tsx'),
+        'utf8',
+      );
+      const hook = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'hooks', 'useDragHold.ts'),
+        'utf8',
+      );
+
+      for (const [label, source] of [['days', programDetailSource], ['lifts', dayScreen]]) {
+        assert.match(source, /const dragHold = useDragHold\(\)/, `${label}: no hold`);
+        assert.match(source, /dragHold\.begin\(event\.nativeEvent\.pageY/, `${label}: pickup not deferred`);
+        // The pickup happens in the hold's callback, never straight from the
+        // touch — that IS the bug, and it reads almost the same either way.
+        assert.match(
+          source,
+          /dragHold\.begin\([\s\S]{0,80}setDragIndex\(index\);\s*setDragTarget\(index\);\s*\}\)/,
+          `${label}: index set outside the hold`,
+        );
+        assert.doesNotMatch(source, /dragStartPageY/, `${label}: still tracking its own start`);
+        // A touch that never became a hold commits nothing.
+        assert.match(source, /const wasHeld = dragHold\.end\(\);/, `${label}: end does not check the hold`);
+        assert.match(source, /if \(!wasHeld\) \{\s*return;/, `${label}: an unheld grip still writes`);
+      }
+
+      assert.match(hook, /DRAG_HOLD_MS = 250/);
+      assert.match(hook, /haptics\.impactLight\(\)/, 'the pickup is not felt');
+      // Travelling before the hold lands is a scroll, so the gesture dies.
+      assert.match(hook, /Math\.abs\(dy\) > DRAG_HOLD_SLOP/);
+    },
+  },
+  {
+    /**
+     * The day title stopped resizing itself.
+     *
+     * `adjustsFontSizeToFit` re-measures on every re-layout, and dragging a
+     * day translates its neighbours — so the titles visibly changed size while
+     * a day was being moved past them (#bugs 2026-09-05). One line, ellipsised,
+     * the way Historia and Progress already truncate a long name.
+     */
+    name: 'a day title is truncated, not shrunk',
+    run() {
+      // Comments stripped first: the note explaining the removal names the
+      // prop, and a guard its own comment can satisfy proves nothing.
+      const code = programDetailSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+      assert.doesNotMatch(code, /adjustsFontSizeToFit/);
+      assert.match(code, /<Text style=\{styles\.workoutName\} numberOfLines=\{1\}>/);
+    },
+  },
+  {
+    /**
      * The programme page stopped offering to start the workout.
      *
      * "Poistetaan ohjelman sisällä oleva start next workout — ei kuulu tänne"

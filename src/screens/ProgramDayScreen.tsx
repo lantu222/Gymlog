@@ -28,6 +28,7 @@ import {
   RoutineBlockKind,
 } from '../lib/homeSessionHero';
 import { I18nKey, t } from '../lib/i18n';
+import { useDragHold } from '../hooks/useDragHold';
 import { ProgramDetailSessionItem } from '../lib/programDetails';
 import {
   canStepProgramPrescription,
@@ -240,9 +241,10 @@ export function ProgramDayScreen({
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragTarget, setDragTarget] = useState<number | null>(null);
   const dragY = useRef(new Animated.Value(0)).current;
-  const dragStartPageY = useRef(0);
   /** Measured per render; a drag needs real heights, not guesses. */
   const rowHeights = useRef<number[]>([]);
+  /** The grip is held before it picks a lift up — see useDragHold. */
+  const dragHold = useDragHold();
 
   const dragTargetFor = (from: number, dy: number) => {
     const heights = rowHeights.current;
@@ -265,11 +267,16 @@ export function ProgramDayScreen({
   };
 
   const endDrag = (commit: boolean) => {
+    // A grip that was touched but never held moves nothing.
+    const wasHeld = dragHold.end();
     const from = dragIndex;
     const to = dragTarget;
     setDragIndex(null);
     setDragTarget(null);
     dragY.setValue(0);
+    if (!wasHeld) {
+      return;
+    }
     if (commit && from !== null && to !== null && to !== from) {
       const exercise = session.exercises[from];
       if (exercise) {
@@ -651,13 +658,17 @@ export function ProgramDayScreen({
                     onStartShouldSetResponder={() => true}
                     onResponderTerminationRequest={() => false}
                     onResponderGrant={(event) => {
-                      dragStartPageY.current = event.nativeEvent.pageY;
                       dragY.setValue(0);
-                      setDragIndex(index);
-                      setDragTarget(index);
+                      dragHold.begin(event.nativeEvent.pageY, () => {
+                        setDragIndex(index);
+                        setDragTarget(index);
+                      });
                     }}
                     onResponderMove={(event) => {
-                      const dy = event.nativeEvent.pageY - dragStartPageY.current;
+                      const dy = dragHold.move(event.nativeEvent.pageY);
+                      if (dy === null) {
+                        return;
+                      }
                       dragY.setValue(dy);
                       const target = dragTargetFor(index, dy);
                       setDragTarget((current) => (current === target ? current : target));

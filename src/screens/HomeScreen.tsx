@@ -1622,10 +1622,12 @@ export function HomeScreen({
         <Animated.View style={[styles.sectionDivider, rise(RISE_DIVIDER)]} />
 
         <Animated.View style={rise(RISE_EMPTY_ROW)}>
-          {/* Named, like every other section (design frame 15): two rows with
-              no heading read as leftovers under the plan rather than as the
-              other things this screen can log. */}
-          <Text style={styles.logElseTitle}>{t(language, 'home.logElse')}</Text>
+          {/* No heading and no right-hand captions. The section was named on
+              the grounds that two unlabelled rows read as leftovers; the
+              reader's verdict was the opposite — "jätä vain +Tyhjä treeni ja
+              Cardio + ikonit" (#bugs 2026-09-05). A plus and a runner say
+              what these are, and "Kirjaa vapaasti" beside "Tyhjä treeni"
+              said it twice. */}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t(language, 'home.a11y.startEmptyWorkout')}
@@ -1636,7 +1638,6 @@ export function HomeScreen({
               <VinhaIcon name="plus" color={theme.highlight} size={20} />
             </View>
             <Text style={styles.emptyWorkoutTitle}>{t(language, 'home.emptyWorkout.title')}</Text>
-            <Text style={styles.emptyWorkoutMeta}>{t(language, 'home.emptyWorkout.meta')}</Text>
           </Pressable>
           {onOpenCardio ? (
             <Pressable
@@ -1654,12 +1655,6 @@ export function HomeScreen({
                 </Svg>
               </View>
               <Text style={styles.emptyWorkoutTitle}>{t(language, 'home.cardio.title')}</Text>
-              {/* One line always: at a large system font scale the list
-                  wrapped and "kävely" fell off its row (#bugs 2026-08-26).
-                  The label shrinks a hair instead of dropping a word. */}
-              <Text style={styles.emptyWorkoutMeta} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
-                {t(language, 'home.cardio.meta')}
-              </Text>
             </Pressable>
           ) : null}
         </Animated.View>
@@ -1886,10 +1881,6 @@ export function HomeScreen({
                 },
               },
             ]}
-            clearLabel={t(language, 'kit.keepCurrent', {
-              name: localizeSessionName(nextPlanSession?.title ?? '', language),
-            })}
-            onClear={() => setTodayPickDraft(null)}
             bottomInset={insets.bottom}
             reduceMotion={reduceMotion}
           />
@@ -3014,15 +3005,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 4,
   },
   signInNoText: { fontSize: 14.5, fontWeight: '600', color: theme.muted },
-  logElseTitle: {
-    fontFamily: 'JetBrainsMono',
-    fontSize: 10.5,
-    fontWeight: '700',
-    letterSpacing: 1.4,
-    textTransform: 'uppercase',
-    color: theme.faint,
-    marginBottom: 10,
-  },
   emptyWorkoutRow: {
     minHeight: 54,
     borderRadius: 13,
@@ -3048,17 +3030,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 15.5,
     lineHeight: 20,
     fontWeight: '800',
-  },
-  emptyWorkoutMeta: {
-    color: theme.muted,
-    fontSize: 13,
-    lineHeight: 17,
-    fontWeight: '600',
-    // Text in a row does not shrink by default, so "Juoksu, pyöräily ja
-    // kävely" ran past the card's edge and the card clipped it — the last word
-    // went first, which is why "kävely" kept vanishing on narrow widths.
-    flexShrink: 1,
-    textAlign: 'right',
   },
   statCardsSection: {
     marginTop: 26,

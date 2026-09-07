@@ -65,28 +65,40 @@ export function catalogLevelForSetup(
 }
 
 /**
- * How badly a programme fits the reader — lower is better, 0 is a match.
+ * How badly a programme fits the reader's WEEK — lower is better, 0 is a match.
  *
  * A target answers "which programme gets me there", and the honest answer has
  * to be a programme they can actually run. Ranking on deadlift sessions alone
  * offered a six-day advanced split to someone training three days as a
  * beginner: more of the lift, in a week that is not theirs.
+ *
+ * This half is the hard one and stays ahead of everything except how central
+ * the lift is. A week the reader does not have is not a programme.
  */
-function fitPenalty(candidate: GoalProgrammeCandidate, reader: GoalProgrammeReader | undefined): number {
-  if (!reader) {
+function weekPenalty(candidate: GoalProgrammeCandidate, reader: GoalProgrammeReader | undefined): number {
+  if (!reader?.daysPerWeek || !candidate.daysPerWeek) {
     return 0;
   }
-  let penalty = 0;
-  const wanted = catalogLevelForSetup(reader.level);
-  if (wanted && candidate.level && candidate.level !== wanted) {
-    // One tier away is a stretch; two is a different training life.
-    const order: NonNullable<GoalProgrammeCandidate['level']>[] = ['beginner', 'intermediate', 'advanced'];
-    penalty += Math.abs(order.indexOf(candidate.level) - order.indexOf(wanted)) * 2;
+  return Math.abs(candidate.daysPerWeek - reader.daysPerWeek);
+}
+
+/**
+ * How far the programme's level is from the reader's — the SOFT half.
+ *
+ * It used to be added to the week's distance and ranked ahead of how often the
+ * programme trains the lift, which is backwards for a target: the reader is
+ * choosing a programme in order to move one lift, and "a tier up" is a
+ * description of the whole programme while "trains your lift three times a
+ * week instead of once" is the thing they asked for (user, 2026-09-05).
+ */
+function levelPenalty(candidate: GoalProgrammeCandidate, reader: GoalProgrammeReader | undefined): number {
+  const wanted = catalogLevelForSetup(reader?.level);
+  if (!wanted || !candidate.level || candidate.level === wanted) {
+    return 0;
   }
-  if (reader.daysPerWeek && candidate.daysPerWeek) {
-    penalty += Math.abs(candidate.daysPerWeek - reader.daysPerWeek);
-  }
-  return penalty;
+  // One tier away is a stretch; two is a different training life.
+  const order: NonNullable<GoalProgrammeCandidate['level']>[] = ['beginner', 'intermediate', 'advanced'];
+  return Math.abs(order.indexOf(candidate.level) - order.indexOf(wanted)) * 2;
 }
 
 export interface GoalProgrammeMatch {
@@ -198,11 +210,18 @@ export function matchProgrammeToLift(
 /**
  * The programmes that train the lift, best fit first.
  *
- * Order: the lift as a primary lift beats it as an accessory; then how well
- * the programme fits the reader's level and week, because a programme they
- * cannot run is not an answer; then more sessions of the lift beat fewer; ties
- * fall back to `preferredOrder` — the caller's own ranking — and then to
- * catalog order, so the result is stable.
+ * Order: the lift as a primary lift beats it as an accessory; then the week,
+ * because a programme they cannot run is not an answer; then MORE SESSIONS of
+ * the lift beat fewer; then level; ties fall back to `preferredOrder` — the
+ * caller's own ranking — and then to catalog order, so the result is stable.
+ *
+ * Frequency used to sit behind level as well as the week, so a squat target
+ * took a one-squat-a-week programme that matched the reader's tier over the
+ * 5x5 that squats three times (user, 2026-09-05: the target lift has to be
+ * trained more often). Measured against the catalog afterwards: this changes
+ * the answer for the back squat and for nothing else, because for six of the
+ * seven preset lifts every strength programme trains them exactly once. The
+ * ordering is right either way; the catalog is the reason it is not enough.
  */
 export function rankProgrammesForLift(
   programmes: readonly GoalProgrammeCandidate[],
@@ -215,7 +234,8 @@ export function rankProgrammesForLift(
 ): GoalProgrammeMatch[] {
   const preference = new Map((options.preferredOrder ?? []).map((id, index) => [id, index]));
   const catalogIndex = new Map(programmes.map((programme, index) => [programme.id, index]));
-  const fit = new Map(programmes.map((programme) => [programme.id, fitPenalty(programme, options.reader)]));
+  const week = new Map(programmes.map((programme) => [programme.id, weekPenalty(programme, options.reader)]));
+  const level = new Map(programmes.map((programme) => [programme.id, levelPenalty(programme, options.reader)]));
   const matches: GoalProgrammeMatch[] = [];
   for (const programme of programmes) {
     const match = matchProgrammeToLift(programme, liftName, options.libraryNames);
@@ -227,13 +247,18 @@ export function rankProgrammesForLift(
     if (left.primary !== right.primary) {
       return left.primary ? -1 : 1;
     }
-    const leftFit = fit.get(left.id) ?? 0;
-    const rightFit = fit.get(right.id) ?? 0;
-    if (leftFit !== rightFit) {
-      return leftFit - rightFit;
+    const leftWeek = week.get(left.id) ?? 0;
+    const rightWeek = week.get(right.id) ?? 0;
+    if (leftWeek !== rightWeek) {
+      return leftWeek - rightWeek;
     }
     if (left.sessionCount !== right.sessionCount) {
       return right.sessionCount - left.sessionCount;
+    }
+    const leftLevel = level.get(left.id) ?? 0;
+    const rightLevel = level.get(right.id) ?? 0;
+    if (leftLevel !== rightLevel) {
+      return leftLevel - rightLevel;
     }
     const leftPref = preference.get(left.id) ?? Number.MAX_SAFE_INTEGER;
     const rightPref = preference.get(right.id) ?? Number.MAX_SAFE_INTEGER;

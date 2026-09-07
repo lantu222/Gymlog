@@ -45,8 +45,12 @@ const MONO = 'JetBrainsMono';
 interface KitSheetProps {
   visible: boolean;
   onClose: () => void;
-  /** The action, e.g. "Swap this lift". */
-  title: string;
+  /**
+   * The action, e.g. "Swap this lift". Optional: a sheet whose title only
+   * repeats the row that opened it is a line the reader has already read
+   * (#bugs 2026-09-05). Without one the head row keeps its close button.
+   */
+  title?: string;
   /** What it acts on — mono, uppercase: "Back Squat · 4 × 5". */
   context?: string | null;
   /** A sentence of instruction, when the list needs one. Excludes `context`. */
@@ -92,9 +96,11 @@ export function KitSheet({
           <View style={styles.grip} />
           <View style={styles.head}>
             <View style={styles.headText}>
-              <Text style={styles.title} numberOfLines={2}>
-                {title}
-              </Text>
+              {title ? (
+                <Text style={styles.title} numberOfLines={2}>
+                  {title}
+                </Text>
+              ) : null}
               {context ? <Text style={styles.context}>{context.toUpperCase()}</Text> : null}
               {!context && description ? <Text style={styles.desc}>{description}</Text> : null}
             </View>
@@ -255,8 +261,14 @@ interface KitBarProps {
   from: string;
   to: string;
   buttons: KitBarButton[];
-  clearLabel: string;
-  onClear: () => void;
+  /**
+   * The bar's secondary way out. Optional as a pair: a bar whose "cancel" says
+   * only what closing the sheet already does is a line of noise — "Pidä
+   * Pakaralopetus" under a picker whose whole purpose is to pick something
+   * else (#bugs 2026-09-05). Omit both to render no clear at all.
+   */
+  clearLabel?: string;
+  onClear?: () => void;
   bottomInset: number;
   reduceMotion?: boolean | null;
   /**
@@ -358,9 +370,11 @@ export function KitBar({
           </Pressable>
         ))}
       </View>
-      <Pressable accessibilityRole="button" onPress={onClear} hitSlop={8}>
-        <Text style={styles.barClear}>{clearLabel}</Text>
-      </Pressable>
+      {clearLabel && onClear ? (
+        <Pressable accessibilityRole="button" onPress={onClear} hitSlop={8}>
+          <Text style={styles.barClear}>{clearLabel}</Text>
+        </Pressable>
+      ) : null}
     </Animated.View>
   );
 }

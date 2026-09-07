@@ -38,6 +38,12 @@ export interface PlannedNotification {
   title: string;
   body: string;
   fireAtMs: number;
+  /**
+   * Which measurement a 'measure' reminder names, so its tap can open the
+   * measures list ON that kind instead of on whatever was selected last.
+   * Undefined on every other category.
+   */
+  measureKind?: string;
 }
 
 export interface LatestPrSignal {
@@ -269,6 +275,7 @@ function buildMeasurementReminders(input: NotificationPlanInput): PlannedNotific
       title: t(language, 'notif.msg.measureTitle', { kind: kindLabel }),
       body: t(language, 'notif.msg.measureBody'),
       fireAtMs,
+      measureKind: kind,
     });
   }
   return reminders;
