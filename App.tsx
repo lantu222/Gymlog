@@ -4967,7 +4967,16 @@ function VinhaApp() {
   async function handleAcceptTargetProposal(input: {
     exerciseName: string;
     targetKg: number;
-    templateId: string;
+    /**
+     * The programme to take up alongside the target, or null for the target
+     * alone.
+     *
+     * A target and a programme are two decisions, and this flow used to make
+     * them one: the only way to aim at a number was to accept a new week
+     * ("en aina halua etta se vaikuttaa koko ohjelmaan", 2026-09-07). Null
+     * writes the target and leaves the reader's programme untouched.
+     */
+    templateId: string | null;
   }) {
     // The programme FIRST, and the target only if it landed.
     //
@@ -4975,9 +4984,11 @@ function VinhaApp() {
     // this flow exists to end: a target and nothing going towards it. The cap
     // refuses for real — three programmes on the free tier sends them to the
     // paywall — and that is not a moment to have quietly written a goal.
-    const adopted = await handleAdoptReadyProgram(input.templateId, { lead: true });
-    if (!adopted) {
-      return;
+    if (input.templateId !== null) {
+      const adopted = await handleAdoptReadyProgram(input.templateId, { lead: true });
+      if (!adopted) {
+        return;
+      }
     }
     await updatePreferences({
       strengthGoals: upsertStrengthGoal(preferences.strengthGoals, {

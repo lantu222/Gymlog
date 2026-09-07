@@ -352,6 +352,52 @@ module.exports = [
       );
     },
   },
+  {
+    /**
+     * A target and a programme are two decisions. The flow made them one: the
+     * only button changed the whole week, and a lift the catalog does not
+     * train as a main lift could not be targeted at all - the note said so and
+     * the button was disabled ("en aina halua etta se vaikuttaa koko
+     * ohjelmaan, voisi olla myos vain normaali tavoite", user 2026-09-07).
+     */
+    name: 'goal flow: the target can be set without taking up a programme',
+    run() {
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const flowSource = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'screens', 'StrengthGoalFlowScreen.tsx'),
+        'utf8',
+      );
+      const appSource = require('../helpers/appWiringSource.cjs').readAppWiring();
+      const i18nSource = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'),
+        'utf8',
+      );
+
+      // The screen offers the second way out, and it is never disabled.
+      assert.match(flowSource, /templateId: string \| null/);
+      assert.match(flowSource, /templateId: null \}\)/);
+      assert.match(flowSource, /'goalFlow\.goalOnly'/);
+      assert.doesNotMatch(flowSource, /disabled=\{!proposal\}/, 'the flow can dead-end again');
+
+      // The programme half only runs when a programme was chosen. Without the
+      // guard a null id would reach adoption and the target would be dropped.
+      const at = appSource.indexOf('async function handleAcceptTargetProposal');
+      assert.ok(at > 0, 'handleAcceptTargetProposal not found');
+      const body = appSource.slice(at, at + 2200);
+      assert.match(body, /if \(input\.templateId !== null\) \{/);
+      assert.match(body, /handleAdoptReadyProgram\(input\.templateId, \{ lead: true \}\)/);
+      // And the target is still written after the programme, never before.
+      assert.ok(
+        body.indexOf('handleAdoptReadyProgram') < body.indexOf('upsertStrengthGoal'),
+        'the target is written before the programme it depends on',
+      );
+
+      for (const key of ['goalFlow.goalOnly', 'goalFlow.goalOnlyHint']) {
+        assert.equal(i18nSource.split(`'${key}': '`).length - 1, 2, `${key} in EN and FI`);
+      }
+    },
+  },
 ];
 
 /** The kinds declared on WeeksToTarget, read from the source of truth. */

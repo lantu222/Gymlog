@@ -165,7 +165,8 @@ export interface WorkoutTabDeps {
   handleAcceptTargetProposal: (input: {
     exerciseName: string;
     targetKg: number;
-    templateId: string;
+    /** Null sets the target alone and leaves the reader's programme alone. */
+    templateId: string | null;
   }) => Promise<void>;
   programSlots: { canCreate: boolean };
   setProgramLimitVisible: (visible: boolean) => void;
