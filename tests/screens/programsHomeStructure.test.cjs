@@ -589,9 +589,21 @@ module.exports = [
       // listed only while it led: making a second programme lead dropped it
       // out of the one list called "your programmes" while it kept running
       // and kept holding a slot against the programme cap (user 2026-09-07).
-      assert.match(app, /const runningRows = \[\.\.\.new Set\(\[preferences\.activePlanId, \.\.\.preferences\.activePlanIds\]\)\]/);
-      assert.match(app, /authoredIds\.has\(templateId\)/, 'an authored programme is listed twice');
-      assert.match(app, /active: planId === preferences\.activePlanId,/);
+      assert.match(app, /for \(const planId of \[preferences\.activePlanId, \.\.\.preferences\.activePlanIds\]\)/);
+      // Deduped by TEMPLATE, not by plan: onboarding and adoption write
+      // different plan ids for one programme, so a row per plan would list it
+      // twice under one React key.
+      assert.match(app, /const seenTemplateIds = new Set\(authoredIds\);/);
+      assert.match(app, /seenTemplateIds\.has\(templateId\)/, 'a programme can be listed twice');
+      assert.match(app, /seenTemplateIds\.add\(templateId\);/);
+      // Only what the catalog can open — a plan pointing at a deleted custom
+      // template is neither authored nor ready, and its row would navigate
+      // nowhere.
+      assert.match(app, /const template = getWorkoutTemplateById\(templateId\);/);
+      assert.match(app, /if \(!template\) \{[\s\S]{0,40}?continue;/);
+      // One notion of "active" for the whole list, the same one the authored
+      // rows ask, so two rows cannot both be marked by different rules.
+      assert.match(app, /active: homeActivePlanCard\?\.programId === templateId,/);
 
       // One name for one programme. Home resolved season titles and ready
       // presentations inline; the Programs tab now lists the same programmes,

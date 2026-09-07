@@ -5124,25 +5124,42 @@ function VinhaApp() {
     // "it stays in Programs" — a promise this list could not keep.
     const authoredIds = new Set(authored.map((item) => item.id));
     const planById = new Map(database.workoutPlans.map((plan) => [plan.id, plan]));
-    const runningRows = [...new Set([preferences.activePlanId, ...preferences.activePlanIds])]
-      .filter((planId): planId is string => Boolean(planId))
-      .map((planId) => {
-        const plan = planById.get(planId);
-        const templateId = plan?.entries[0]?.workoutTemplateId ?? null;
-        if (!plan || !templateId || authoredIds.has(templateId)) {
-          return null;
-        }
-        const template = getWorkoutTemplateById(templateId);
-        const days = template?.daysPerWeek ?? plan.entries.length;
-        return {
-          id: templateId,
-          name: runningProgrammeTitle(templateId, plan.name, days),
-          subtitle: t(preferences.appLanguage, 'programs.activeSubtitle'),
-          active: planId === preferences.activePlanId,
-          programType: 'ready' as const,
-        };
-      })
-      .filter((row): row is NonNullable<typeof row> => row !== null);
+    // Deduped by TEMPLATE, not by plan. Two plan ids can point at one
+    // programme — onboarding writes `onboarding_plan_<id>` and adoption writes
+    // `ready_plan_<id>`, which is the reason `activeProgramTemplateIds` exists
+    // — and a row per plan would list the same programme twice under one key.
+    const seenTemplateIds = new Set(authoredIds);
+    const runningRows: Array<{
+      id: string;
+      name: string;
+      subtitle: string;
+      active: boolean;
+      programType: 'ready' | 'custom';
+    }> = [];
+    for (const planId of [preferences.activePlanId, ...preferences.activePlanIds]) {
+      const plan = planId ? planById.get(planId) : null;
+      const templateId = plan?.entries[0]?.workoutTemplateId ?? null;
+      if (!plan || !templateId || seenTemplateIds.has(templateId)) {
+        continue;
+      }
+      // Only what the catalog can actually open. A plan pointing at a custom
+      // template the reader has since deleted is neither authored nor ready,
+      // and a row for it would navigate to a programme that is not there.
+      const template = getWorkoutTemplateById(templateId);
+      if (!template) {
+        continue;
+      }
+      seenTemplateIds.add(templateId);
+      runningRows.push({
+        id: templateId,
+        name: runningProgrammeTitle(templateId, plan.name, template.daysPerWeek),
+        subtitle: t(preferences.appLanguage, 'programs.activeSubtitle'),
+        // The SAME question the authored rows ask, so one list cannot hold two
+        // notions of "active" and mark a row by each.
+        active: homeActivePlanCard?.programId === templateId,
+        programType: 'ready' as const,
+      });
+    }
 
     return leadFirst([...runningRows, ...authored]);
   }, [
