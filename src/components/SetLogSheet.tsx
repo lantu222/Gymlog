@@ -29,6 +29,9 @@ import { removeTrailingZeros } from '../lib/format';
  * training.
  */
 
+/** One blurred line per session, and the box is sized from it. */
+const BLURRED_LINE_HEIGHT = 30;
+
 interface SetLogSheetProps {
   visible: boolean;
   log: ExerciseSetLog | null;
@@ -336,9 +339,13 @@ export function SetLogSheet({
                 it so a device that ignores the filter degrades to an
                 unreadable block rather than leaking the figures. */}
             <View style={styles.lockedRows} pointerEvents="none">
+              {/* Height from the LINES, not from a number chosen to look like
+                  the skeleton it replaces: one row per session, at the line
+                  height below, plus the room the lock badge is pulled up into
+                  by `lockedCopy`'s negative margin. */}
               <BlurredPreview
-                content={{ kind: 'text', text: blurredSets, fontSize: 15, lineHeight: 26 }}
-                height={Math.min(3, Math.max(1, log.sessions.length)) * 52}
+                content={{ kind: 'text', text: blurredSets, fontSize: 15, lineHeight: BLURRED_LINE_HEIGHT }}
+                height={Math.min(3, Math.max(1, log.sessions.length)) * BLURRED_LINE_HEIGHT + 48}
               />
             </View>
 
