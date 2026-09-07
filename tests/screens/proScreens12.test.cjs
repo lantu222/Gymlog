@@ -36,7 +36,8 @@ module.exports = [
 
       // And the page thanks the reader before it lists anything.
       assert.match(i18n, /'unlock\.headline': 'Thank you — \{count\} caps just came off'/);
-      assert.match(i18n, /'unlock\.headline': 'Kiitos\. Pro on päällä, ja \{count\} rajaa poistui\.'/);
+      // The spelled count is capitalised, so it must open its own sentence.
+      assert.match(i18n, /'unlock\.headline': 'Kiitos\. \{count\} rajaa poistui, ja Pro on päällä\.'/);
       // No purchase record, no invented time: the badge drops to a bare "live".
       assert.match(tab, /liveSince=\{preferences\.mockSubscriptionPurchasedAt \?\? null\}/);
       assert.doesNotMatch(tab, /liveSince=\{[^}]*new Date\(\)/);

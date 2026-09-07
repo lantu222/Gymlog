@@ -5618,7 +5618,10 @@ const FI: Record<I18nKey, string> = {
   'unlock.history.now': 'Koko historia',
   'unlock.programs.was': '{active} aktiivista · {own} omaa',
   'unlock.programs.now': '{proActive} aktiivista · rajattomasti omia',
-  'unlock.headline': 'Kiitos. Pro on päällä, ja {count} rajaa poistui.',
+  // The count is spelled with a capital (countWord's 'start' position), so it
+  // has to open its own sentence: "Kiitos. Viisi rajaa poistui, ja Pro on
+  // päällä." Mid-sentence it rendered as "ja Viisi rajaa" on the emulator.
+  'unlock.headline': 'Kiitos. {count} rajaa poistui, ja Pro on päällä.',
   'unlock.state.live': 'Pro · käytössä',
   'unlock.state.liveSince': 'Pro · käytössä klo {time} alkaen',
   'unlock.body': 'Vinhan tekee yksi ihminen, ja sinä teit juuri seuraavan pätkän mahdolliseksi. Mitään ei tarvitse kytkeä päälle — tässä on se, mikä muuttui.',
