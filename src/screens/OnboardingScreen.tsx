@@ -83,7 +83,7 @@ import { buildTailoringBadgeLabels, TailoringPreferencesInput } from '../lib/tai
 import { getReadyTemplatePresentation } from '../lib/templatePresentation';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
 import { patternFromOnOff } from '../lib/trainingSchedule';
-import { localizeSessionName } from '../lib/sessionNameLabel';
+import { localizeSessionFocus } from '../lib/sessionNameLabel';
 import { colors, radii, spacing } from '../theme';
 import { haptics } from '../utils/haptics';
 import {
@@ -3415,7 +3415,11 @@ export function OnboardingScreen({
         week={projectedSessions.map((session) => ({
           id: session.id,
           weekday: session.weekdayLabel,
-          title: localizeSessionName(session.name, language),
+          // `localizeSessionFocus`, not `localizeSessionName`: the row has a
+          // weekday column of its own, so the name's "Day 1:" said it twice
+          // (user 2026-09-07). This is the function Home already uses beside
+          // its weekday badge, written for this exact repetition.
+          title: localizeSessionFocus(session.name, language),
           meta: [
             t(
               language,

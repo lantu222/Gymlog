@@ -96,9 +96,21 @@ module.exports = [
       assert.match(reviewBody, /week=\{projectedSessions\.map/);
       assert.match(reviewBody, /weekLabel=\{t\(language, 'onb\.planReady\.yourWeek'\)\}/);
       assert.doesNotMatch(reviewBody, /onOpenWeek|weekLinkLabel/);
-      // Localised session name, one source of truth, never a template literal
-      // (2026-08-23: the Finnish run showed "Day 1 / Week 1 of 4").
-      assert.match(reviewBody, /title: localizeSessionName\(session\.name, language\)/);
+      // The FOCUS, not the full name: the row prints a weekday of its own, so
+      // "Day 1: Squat & Bench" beside "Mon" said which day it was twice (user
+      // 2026-09-07). `localizeSessionFocus` is the function Home already uses
+      // next to its weekday badge, written for this exact repetition — and it
+      // still localises, so the Finnish run cannot go back to printing "Day 1"
+      // (2026-08-23).
+      assert.match(reviewBody, /title: localizeSessionFocus\(session\.name, language\)/);
+      assert.doesNotMatch(
+        reviewBody,
+        /title: localizeSessionName\(/,
+        'the week rows print the day ordinal beside the weekday again',
+      );
+      // The weekday column is what makes the ordinal redundant, so it has to
+      // be there for the line above to be the right call.
+      assert.match(reviewBody, /weekday: session\.weekdayLabel,/);
       // The count is the WHOLE day, not the five the card preview keeps:
       // `exercises` is sliced to five and `detailExercises` is not, so a day
       // with six lifts would have said five.
