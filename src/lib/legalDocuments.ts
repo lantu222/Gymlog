@@ -658,14 +658,14 @@ const TERMS_FI: LegalSection[] = [
     heading: 'Tietosi ja varmuuskopiot',
     body: [
       'Treenitietosi ovat puhelimessasi. Jos et kirjaudu sisään, niistä ei ole missään kopiota, johon me pääsisimme käsiksi — emme siis voi palauttaa niitä sinulle, jos hukkaat puhelimesi, poistat sovelluksen tai nollaat tietosi. Vie lokisi CSV-muodossa asetuksista aina, kun haluat oman kopion.',
-      'Jos kirjaudut Googlella, vapaaehtoinen pilvivarmuuskopio pitää yhden kopion palvelimellamme, jotta uusi puhelin voi palauttaa sen. Se on helpotus, ei takuu: pidä oma vientisi kaikesta, mitä et voi menettää. Varmuuskopion voi palauttaa vain kirjautumalla samalla Google-tilillä, joten pidä pääsy siihen tiliin tallessa.',
+      'Jos kirjaudut Googlella, vapaaehtoinen pilvivarmuuskopio pitää yhden kopion palvelimellamme, jotta uusi puhelin voi palauttaa sen. Se on apu, ei takuu: pidä oma vientisi kaikesta, mitä et voi menettää. Varmuuskopion voi palauttaa vain kirjautumalla samalla Google-tilillä, joten pidä pääsy siihen tiliin tallessa.',
       'Tietosi ovat sinun. Emme vaadi oikeuksia mihinkään, mitä kirjaat, rakennat tai tuot, emmekä käytä varmuuskopiota mihinkään muuhun kuin sen palauttamiseen sinulle.',
     ],
   },
   {
     heading: 'Pro',
     bullets: [
-      'Ilmaisversio on kokonainen sovellus: jokainen valmis ohjelma, koko liikekirjasto, rajaton kirjaus, kehityksesi ja vienti. Rakentamisella on rajat — kolme omaa ohjelmaa, kaksi käytössä kerrallaan — ja trendit ja ennätykset näytetään viimeisimmän kolmen kuukauden ajalta.',
+      'Ilmainen versio on kokonainen sovellus: jokainen valmis ohjelma, koko liikekirjasto, rajaton kirjaus, kehityksesi ja vienti. Rakentamisella on rajat — kolme omaa ohjelmaa, kaksi käytössä kerrallaan — ja trendit ja ennätykset näytetään viimeisimmän kolmen kuukauden ajalta.',
       'Pro avaa ne ominaisuudet, jotka on lueteltu sovelluksen Pro-sivulla ostohetkellä, mukaan lukien valmentajan verkkotilan sovelluksessa näytettyyn kuukausittaiseen kysymysmäärään asti. Pro voi olla kuukausitilaus, vuositilaus tai kertaostona elinikäinen.',
       'Maksu veloitetaan Google Playn kautta siellä ostoa vahvistettaessa näkyvällä hinnalla. Emme käsittele maksuja itse.',
       'Tilaus uusiutuu automaattisesti, ellet peruuta sitä vähintään 24 tuntia ennen kauden päättymistä. Peruuta Google Playssä — sovelluksen Lopeta jäsenyys -ruutu vie sinut sinne. Peruutus lopettaa seuraavan uusiutumisen; Pro pysyy päällä maksetun kauden loppuun.',

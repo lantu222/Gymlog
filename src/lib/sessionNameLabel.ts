@@ -89,7 +89,7 @@ const FOCUS_FI: Record<string, string> = {
   'squat day': 'Kyykkypäivä',
   'strength circuit': 'Voimakierros',
   'strength rebuild': 'Voiman palautus',
-  'tabata finisher': 'Tabata-lopetus',
+  'tabata finisher': 'Tabata-treeni',
   'total body hiit': 'Koko kehon HIIT',
   'upper body bodyweight': 'Ylävartalo kehonpainolla',
   'upper body hiit': 'Ylävartalon HIIT',
