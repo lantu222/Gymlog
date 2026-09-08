@@ -336,7 +336,16 @@ export function ProgramDetailScreen({
     const trimmed = nameDraft.trim();
     // Blank is a cancel, not an erasure: a programme with no name at all is a
     // row the reader cannot tell from any other. The provider refuses it too.
-    if (trimmed && trimmed !== program.title) {
+    //
+    // Compared against `displayTitle`, NOT the stored `program.title`, because
+    // that is what the field was seeded with — and the two differ more often
+    // than they look. `formatWorkoutDisplayLabel` collapses whitespace, rewrites
+    // a copy suffix, and swaps in the English fallback for anything under two
+    // characters. Comparing against the stored name made opening the pen and
+    // pressing Save without typing a write: a programme called "A" would have
+    // been renamed to "Workout plan", permanently — the exact kind of name this
+    // whole change exists to let the reader escape (review, PR #85).
+    if (trimmed && trimmed !== displayTitle) {
       onRenameProgram?.(trimmed);
     }
     setNameDraft(null);
@@ -603,6 +612,12 @@ export function ProgramDetailScreen({
         contentContainerStyle={styles.content}
         scrollEnabled={dragIndex === null}
         showsVerticalScrollIndicator={false}
+        // The rename field autofocuses, so the keyboard is always up when its
+        // Save and Cancel are on screen. At React Native's default of "never"
+        // the first tap on either only dismisses the keyboard, and the reader
+        // has to tap twice — every time (review, PR #85). Every other
+        // scrollable in this app that holds a TextInput already says this.
+        keyboardShouldPersistTaps="handled"
       >
         {/*
           Title first, numbers under it, nothing painted.

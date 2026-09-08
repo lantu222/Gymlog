@@ -480,7 +480,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         // gets a custom copy the moment they change a lift in it.
         onRenameProgram={
           route.programType === 'custom'
-            ? (name) => handleRenameCustomProgram(route.workoutTemplateId, name)
+            ? (name) => void handleRenameCustomProgram(route.workoutTemplateId, name)
             : undefined
         }
         // Custom only: reordering a catalog programme would mean copying it,

@@ -2129,14 +2129,6 @@ function VinhaApp() {
   }
 
   /**
-   * Move a whole day inside the programme (user 2026-08-31).
-   *
-   * The rotation reads the session list positionally, so this is the edit that
-   * decides which session lands on which weekday - the same list the day rows
-   * print in. Custom programmes only: reordering a catalog programme would
-   * mean copying it, and the reader has not asked for a copy by dragging.
-   */
-  /**
    * A custom programme's own name, from the page that shows it.
    *
    * The provider has done the work all along — trim, refuse a blank, commit —
@@ -2149,6 +2141,14 @@ function VinhaApp() {
     await renameWorkoutTemplate(workoutTemplateId, name);
   }
 
+  /**
+   * Move a whole day inside the programme (user 2026-08-31).
+   *
+   * The rotation reads the session list positionally, so this is the edit that
+   * decides which session lands on which weekday - the same list the day rows
+   * print in. Custom programmes only: reordering a catalog programme would
+   * mean copying it, and the reader has not asked for a copy by dragging.
+   */
   async function handleReorderProgramSession(
     workoutTemplateId: string,
     sessionId: string,

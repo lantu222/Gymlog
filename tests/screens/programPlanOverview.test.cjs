@@ -240,8 +240,19 @@ module.exports = [
       assert.match(programDetailSource, /onRenameProgram\?: \(name: string\) => void;/);
       assert.match(programDetailSource, /accessibilityLabel=\{t\(language, 'plan\.rename'\)\}/);
       assert.match(programDetailSource, /onPress=\{\(\) => setNameDraft\(displayTitle\)\}/);
-      // Blank is a cancel, and an unchanged name is not a write.
-      assert.match(programDetailSource, /if \(trimmed && trimmed !== program\.title\)/);
+      // Blank is a cancel, and an unchanged name is not a write — compared
+      // against the value the field was SEEDED with, not the stored one. They
+      // differ whenever formatWorkoutDisplayLabel had anything to do (a short
+      // name becomes "Workout plan"), and comparing the stored name turned
+      // "open the pen, press Save" into a rename (review, PR #85).
+      assert.match(programDetailSource, /if \(trimmed && trimmed !== displayTitle\)/);
+      assert.doesNotMatch(programDetailSource, /trimmed !== program\.title/);
+      // And the field autofocuses inside a ScrollView, so one tap on Save has
+      // to BE one tap rather than a keyboard dismissal.
+      assert.match(
+        programDetailSource,
+        /<ScrollView[\s\S]{0,600}keyboardShouldPersistTaps="handled"[\s\S]{0,40}>/,
+      );
       // Ready programmes keep the catalog's name: the prop is custom-gated.
       // appSource already spans App.tsx and every src/app module.
       assert.match(
