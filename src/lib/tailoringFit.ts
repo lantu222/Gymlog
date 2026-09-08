@@ -1,6 +1,6 @@
 import { getWorkoutTemplateById, WORKOUT_SUBSTITUTION_GROUPS } from '../features/workout/workoutCatalog';
 import { WorkoutTemplateV1 } from '../features/workout/workoutTypes';
-import { getReadyProgramContent } from './readyProgramContent';
+import { resolveProgramEquipmentBucket } from './programEquipment';
 import {
   AppPreferences,
   ExerciseModalityPreference,
@@ -10,7 +10,6 @@ import {
 } from '../types/models';
 
 type ExerciseModalityCategory = 'free_weights' | 'machines' | 'bodyweight';
-type ReadyEquipmentBucket = 'full_gym' | 'low_equipment';
 
 interface ExercisePreferenceMetadata {
   modality: ExerciseModalityCategory;
@@ -43,24 +42,19 @@ export interface TailoredSwapOption {
   score: number;
 }
 
+/**
+ * Only the template is read. The content used to come with it, because the
+ * equipment bucket was parsed out of the English equipment sentence; it is
+ * derived from the exercises now, so the copy is no longer an input to a score.
+ */
 interface TailorableReadyDiscoveryItem {
   template: WorkoutTemplateV1;
-  content: {
-    equipmentProfile?: string | null;
-  } | null;
 }
 
 interface JointBiasPreferenceEntry {
   bias: JointSwapBias;
   preference: JointSwapPreference;
 }
-
-const LOW_EQUIPMENT_TEMPLATE_IDS = new Set([
-  'tpl_2_day_minimal_full_body_v1',
-  'tpl_2_day_mobility_reset_v1',
-  'tpl_2_day_yoga_recovery_v1',
-  'tpl_3_day_run_mobility_v1',
-]);
 
 const PROGRAM_METADATA: Record<string, ProgramPreferenceMetadata> = {
   tpl_2_day_minimal_full_body_v1: {
@@ -408,19 +402,6 @@ function getModalityPreferenceForMetadata(
   return preferences.setupFreeWeightsPreference;
 }
 
-function getReadyEquipmentBucket(template: WorkoutTemplateV1, equipmentProfile: string | null | undefined): ReadyEquipmentBucket {
-  if (LOW_EQUIPMENT_TEMPLATE_IDS.has(template.id)) {
-    return 'low_equipment';
-  }
-
-  const profile = normalize(equipmentProfile ?? '');
-  if (profile.includes('minimal setup') || profile.includes('bodyweight') || profile.includes('no heavy equipment')) {
-    return 'low_equipment';
-  }
-
-  return 'full_gym';
-}
-
 function scoreExerciseNameForTailoring(exerciseName: string, preferences: TailoringPreferencesInput) {
   const metadata = inferMetadata(exerciseName);
   let score = getPreferenceWeight(getModalityPreferenceForMetadata(metadata, preferences));
@@ -447,9 +428,8 @@ function scoreExerciseNameForTailoring(exerciseName: string, preferences: Tailor
 }
 
 function scoreProgramForTailoring(template: WorkoutTemplateV1, preferences: TailoringPreferencesInput) {
-  const content = getReadyProgramContent(template.id);
-  const equipmentBucket = getReadyEquipmentBucket(template, content?.equipmentProfile);
   const exerciseNames = template.sessions.flatMap((session) => session.exercises.map((exercise) => exercise.exerciseName));
+  const equipmentBucket = resolveProgramEquipmentBucket(exerciseNames);
   const totalExerciseScore =
     exerciseNames.reduce((sum, exerciseName) => sum + scoreExerciseNameForTailoring(exerciseName, preferences), 0) /
     Math.max(1, exerciseNames.length);
