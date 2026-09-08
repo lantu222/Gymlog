@@ -227,6 +227,35 @@ module.exports = [
       assert.doesNotMatch(programDetailSource, /'plan\.edit'/);
       assert.doesNotMatch(appSource, /onEdit=\{route\.programType === 'custom'/);
 
+      /**
+       * The one thing on this page that DOES change the programme, and why it
+       * is not the door that was removed (user 2026-09-08).
+       *
+       * A name is the only thing about a programme the day view cannot touch,
+       * and a copy carries "(kopio)" for ever because the name is written once
+       * at creation and never re-derived. So the title takes a pen — and only
+       * a pen. It must not grow into a second editor: no route out of here,
+       * and the field it opens replaces the title in place.
+       */
+      assert.match(programDetailSource, /onRenameProgram\?: \(name: string\) => void;/);
+      assert.match(programDetailSource, /accessibilityLabel=\{t\(language, 'plan\.rename'\)\}/);
+      assert.match(programDetailSource, /onPress=\{\(\) => setNameDraft\(displayTitle\)\}/);
+      // Blank is a cancel, and an unchanged name is not a write.
+      assert.match(programDetailSource, /if \(trimmed && trimmed !== program\.title\)/);
+      // Ready programmes keep the catalog's name: the prop is custom-gated.
+      // appSource already spans App.tsx and every src/app module.
+      assert.match(
+        appSource,
+        /onRenameProgram=\{\s*route\.programType === 'custom'[\s\S]{0,160}: undefined,?\s*\}/,
+      );
+      // The pen opens a field, never a screen.
+      const penBlock = programDetailSource.slice(
+        programDetailSource.indexOf("accessibilityLabel={t(language, 'plan.rename')}"),
+        programDetailSource.indexOf('titleActions'),
+      );
+      assert.ok(penBlock.length > 80, 'the rename block moved - recheck by hand');
+      assert.doesNotMatch(penBlock, /navigate\(|onOpen[A-Z]|screen: '/, 'the pen is not a door');
+
       assert.doesNotMatch(programDetailSource, /WorkoutSceneGraphic/);
       assert.doesNotMatch(programDetailSource, /Session flow/);
       assert.doesNotMatch(programDetailSource, /heroFlow/);

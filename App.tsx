@@ -327,6 +327,7 @@ function VinhaApp() {
     updatePreferences,
     completeOnboarding,
     upsertWorkoutTemplate,
+    renameWorkoutTemplate,
     editWorkoutTemplateSessions,
     findWorkoutTemplateIdBySource,
     getWorkoutTemplateSessionsFresh,
@@ -2135,6 +2136,19 @@ function VinhaApp() {
    * print in. Custom programmes only: reordering a catalog programme would
    * mean copying it, and the reader has not asked for a copy by dragging.
    */
+  /**
+   * A custom programme's own name, from the page that shows it.
+   *
+   * The provider has done the work all along — trim, refuse a blank, commit —
+   * and nothing called it. What made it worth wiring up: a copy's name is
+   * written once at creation and never re-derived, so "(kopio 2)" outlives
+   * every later change to the naming rules. The only cure is a reader who can
+   * type over it (user 2026-09-08).
+   */
+  async function handleRenameCustomProgram(workoutTemplateId: string, name: string) {
+    await renameWorkoutTemplate(workoutTemplateId, name);
+  }
+
   async function handleReorderProgramSession(
     workoutTemplateId: string,
     sessionId: string,
@@ -5799,6 +5813,7 @@ function VinhaApp() {
       handleStartCustomProgramSession,
       editProgramExercise: handleEditProgramExercise,
       handleSaveRhythm,
+      handleRenameCustomProgram,
       handleReorderProgramSession,
       handleSaveEmphasis,
       handleDeleteCustomWorkout,
