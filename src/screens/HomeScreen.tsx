@@ -2483,7 +2483,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.022)',
   },
   hero: {
-    marginTop: 14,
+    marginTop: 12,
     paddingHorizontal: 2,
   },
   // Room to breathe under the box (user 2026-08-31): the programme used to
@@ -2502,10 +2502,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     // claim the whole row and push the chevron out the way the counter went.
     flexShrink: 1,
     color: theme.ink,
-    fontSize: 38,
-    lineHeight: 43,
+    fontSize: 32,
+    lineHeight: 37,
     fontWeight: '800',
-    letterSpacing: -1,
+    letterSpacing: -0.8,
   },
   heroProg: {
     alignItems: 'flex-end',
@@ -2532,7 +2532,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   // The hero's lifts, flat on the surface — no card, no accordion.
   heroList: {
-    marginTop: 18,
+    marginTop: 14,
   },
   // A row, not a card: same hairline the lift rows use, no fill, no radius.
   /* The phase cards (design: Sheets & Pickers, frame 03). One anatomy for
@@ -2569,7 +2569,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 24,
+    paddingVertical: 16,
   },
   // `flex: 1` gave the title a basis of ZERO, so it took only what the meta
   // left over — and the meta does not shrink. In Finnish that meant
@@ -2688,7 +2688,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   btnRow: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 20,
+    marginTop: 16,
   },
   startButtonWrap: {
     flex: 1.3,
@@ -2707,7 +2707,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
   },
   startButton: {
-    height: 56,
+    height: 52,
     // The sweep is an absolutely-positioned child, and without this it would
     // run past the button's cut edges.
     overflow: 'hidden',

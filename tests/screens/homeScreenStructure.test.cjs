@@ -141,8 +141,11 @@ module.exports = [
       assert.match(homeScreenSource, /nextPlanSession/);
       assert.match(homeScreenSource, /onStartActivePlanSession\(nextPlanSession\.id\)/);
       assert.match(homeScreenSource, /const focusTitle = getSessionFocusTitle\(nextPlanSession\?\.title, activePlan\?\.title\)/);
-      // Home simplification round (2026-07-20): hero title bumped to 38.
-      assert.match(homeScreenSource, /heroTitle:\s*\{[\s\S]*fontSize: 38/);
+      // Home simplification round (2026-07-20): hero title bumped to 38. Down
+      // to 32 on 2026-09-08 — one step back, so the two lines inside the block
+      // rows get the space the padding was holding. Still the biggest thing on
+      // this screen by a clear margin; the next-largest heading here is 22.
+      assert.match(homeScreenSource, /heroTitle:\s*\{[\s\S]*fontSize: 32/);
       assert.match(homeScreenSource, /t\(language, 'home\.hero\.sessionsProgress', \{ done: sessionsDone, total: sessionsTotal \}\)/);
       // Counts sessions plainly (design frame 15): "of 60" repeated the block
       // total that the programme section's "Week 1 of 12" already carries.
@@ -224,7 +227,7 @@ module.exports = [
       // Start workout is a FILLED play button now (user 2026-08-25, after a
       // tester tapped the first exercise to "check it off" — the outline
       // version below the list read as one row among many).
-      assert.match(homeScreenSource, /startButton:\s*\{\s*height: 56/);
+      assert.match(homeScreenSource, /startButton:\s*\{\s*height: 52/);
       assert.match(homeScreenSource, /fill=\{theme\.accent\}[\s\S]{0,160}style=\{styles\.startButton\}/);
       // The play mark sits in a ring since the CTA design (2026-08-26): a
       // mark with an edge reads as a target, and the shimmer needs something
