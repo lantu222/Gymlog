@@ -36,7 +36,7 @@ import { PrimaryCTAButton } from '../components/PrimaryCTAButton';
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { getFitnessPhotoVariant } from '../assets/fitnessPhotos';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
-import { convertWeightToKg, formatWeight, formatWeightInputValue, parseNumberInput } from '../lib/format';
+import { convertWeightToKg, formatPercent, formatWeight, formatWeightInputValue, parseNumberInput } from '../lib/format';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { OnboardingBackButton } from '../components/OnboardingBackButton';
 import { equipmentItemLabel, I18nKey, t } from '../lib/i18n';
@@ -3893,7 +3893,7 @@ export function OnboardingScreen({
                 <View style={styles.buildingPlanProgressTrack}>
                   <View style={[styles.buildingPlanProgressFill, { width: `${buildingPlanPercent}%` }]} />
                 </View>
-                <Text style={styles.buildingPlanPercentText}>{`${buildingPlanPercent}%`}</Text>
+                <Text style={styles.buildingPlanPercentText}>{formatPercent(buildingPlanPercent, language)}</Text>
               </View>
 
               <View style={styles.buildingPlanStepList}>

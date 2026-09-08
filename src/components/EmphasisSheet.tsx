@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { KitBar, KitSheet } from './sheetKit';
 import { t } from '../lib/i18n';
+import { formatPercent } from '../lib/format';
 import { EMPHASIS_AREA_KEYS, EmphasisArea, summariseEmphasis } from '../lib/programEmphasis';
 import {
   adjustEmphasis,
@@ -135,9 +136,10 @@ export function EmphasisSheet({
           from={t(language, 'emphasis.sheet.total', { sets: baseTotal })}
           to={
             touchedArea
-              ? `${t(language, EMPHASIS_AREA_KEYS[touchedArea])} ${
-                  percentByArea.get(touchedArea) ?? 0
-                } %`
+              ? `${t(language, EMPHASIS_AREA_KEYS[touchedArea])} ${formatPercent(
+                  percentByArea.get(touchedArea) ?? 0,
+                  language,
+                )}`
               : ''
           }
           buttons={[
@@ -188,7 +190,7 @@ export function EmphasisSheet({
                     ) : null}
                   </Text>
                 </View>
-                <Text style={styles.rowPercent}>{percentByArea.get(area) ?? 0} %</Text>
+                <Text style={styles.rowPercent}>{formatPercent(percentByArea.get(area) ?? 0, language)}</Text>
                 <Stepper
                   styles={styles}
                   label="−"
