@@ -291,6 +291,7 @@ const suites = [
   ...require('./screens/emptyWorkoutRestBar.test.cjs'),
   ...require('./screens/emptyWorkoutHeader.test.cjs'),
   ...require('./screens/onboardingShellInsets.test.cjs'),
+  ...require('./screens/startPathChoices.test.cjs'),
   ...require('./screens/restAlertsAsk.test.cjs'),
   ...require('./screens/weekEditAndDayDoor.test.cjs'),
   ...require('./lib/profileMilestones.test.cjs'),

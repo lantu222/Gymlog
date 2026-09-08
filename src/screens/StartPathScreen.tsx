@@ -59,7 +59,7 @@ const PATH_DARK: PathPalette = {
 
 const paletteFor = (theme: Theme): PathPalette => (theme === darkTheme ? PATH_DARK : PATH_LIGHT);
 
-type StartPath = 'build' | 'ready';
+type StartPath = 'build' | 'ready' | 'empty';
 
 interface StartPathScreenProps {
   language?: AppLanguage;
@@ -75,9 +75,19 @@ interface StartPathScreenProps {
   onBack: () => void;
 }
 
-function PathIcon({ name, color }: { name: 'sparkle' | 'grid'; color: string }) {
+function PathIcon({ name, color }: { name: 'sparkle' | 'grid' | 'blank'; color: string }) {
   return (
     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      {/* An empty sheet: the third answer is starting with nothing on Home. */}
+      {name === 'blank' ? (
+        <Path
+          d="M6 3h8l4 4v14H6V3zm8 0v4h4"
+          stroke={color}
+          strokeWidth={1.8}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      ) : null}
       {name === 'sparkle' ? (
         <Path
           d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3zM19 16l.9 2.1L22 19l-2.1.9L19 22l-.9-2.1L16 19l2.1-.9L19 16z"
@@ -115,7 +125,7 @@ function CheckCircle({ selected }: { selected: boolean }) {
 }
 
 interface PathCardProps {
-  icon: 'sparkle' | 'grid';
+  icon: 'sparkle' | 'grid' | 'blank';
   title: string;
   body: string;
   recommendedLabel?: string | null;
@@ -209,25 +219,29 @@ export function StartPathScreen({
           accessibilityLabel={t(language, 'startPath.ready.a11y')}
           onPress={() => setSelected('ready')}
         />
-      </View>
+        {/* The way out (user 2026-08-31). A reader who wants to look around
+            before committing to anything had to answer a questionnaire or
+            adopt a programme first — the app's front door had no handle for
+            "not yet".
 
-      {/* The way out (user 2026-08-31). A reader who wants to look around
-          before committing to anything had to answer a questionnaire or adopt
-          a programme first — the app's front door had no handle for "not yet".
-          Quieter than the two cards because it IS the lesser answer, and it
-          says what it costs rather than pretending it costs nothing: no
-          programme on Home, and where to get one when you want it. */}
-      {onStartEmpty ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t(language, 'startPath.empty.a11y')}
-          onPress={onStartEmpty}
-          style={({ pressed }) => [styles.emptyRow, pressed && styles.emptyRowPressed]}
-        >
-          <Text style={[styles.emptyTitle, { fontFamily }]}>{t(language, 'startPath.empty.title')}</Text>
-          <Text style={[styles.emptyBody, { fontFamily }]}>{t(language, 'startPath.empty.body')}</Text>
-        </Pressable>
-      ) : null}
+            It was a dashed note below the stack, quieter than the two cards
+            because it was the lesser answer, and it fired the moment it was
+            touched while the two above it waited for Continue. Two shapes and
+            two rules on one screen: the user asked for one of each
+            (2026-09-08). It is the third card now, and Continue answers for
+            it like the others. */}
+        {onStartEmpty ? (
+          <PathCard
+            icon="blank"
+            title={t(language, 'startPath.empty.title')}
+            body={t(language, 'startPath.empty.body')}
+            selected={selected === 'empty'}
+            fontFamily={fontFamily}
+            accessibilityLabel={t(language, 'startPath.empty.a11y')}
+            onPress={() => setSelected('empty')}
+          />
+        ) : null}
+      </View>
 
       <View style={styles.footer}>
         <Pressable
@@ -236,9 +250,15 @@ export function StartPathScreen({
           onPress={() => {
             if (selected === 'build') {
               onGuidedOnboarding();
-            } else {
-              onBrowsePrograms();
+              return;
             }
+            if (selected === 'empty') {
+              // Only reachable when the card is on screen, which is the same
+              // condition that renders it.
+              onStartEmpty?.();
+              return;
+            }
+            onBrowsePrograms();
           }}
           style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
         >
@@ -276,33 +296,6 @@ const makeStyles = (theme: Theme) => {
     lineHeight: 22,
     fontWeight: '800',
     letterSpacing: 1.6,
-  },
-  // Not a card: a card here would be a third thing of equal weight, and this
-  // is the answer for someone who does not want to answer.
-  emptyRow: {
-    marginTop: 18,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: C.border,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    gap: 5,
-  },
-  emptyRowPressed: {
-    opacity: 0.75,
-  },
-  emptyTitle: {
-    color: C.ink,
-    fontSize: 16,
-    lineHeight: 21,
-    fontWeight: '800',
-  },
-  emptyBody: {
-    color: C.soft,
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '600',
   },
   heading: {
     color: C.ink,
