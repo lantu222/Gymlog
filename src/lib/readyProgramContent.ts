@@ -30,7 +30,7 @@ const READY_PROGRAM_CONTENT: Record<string, ReadyProgramContent> = {
   // ── Vinha programs, written against what each one actually contains ──
   tpl_gainer_dream_body_man_v1: {
     summary:
-      'Five gym days a week, each with its own territory: chest and triceps, back and biceps, legs, shoulders and abs, then arms. Every day opens with a heavy compound lift and works down to isolation moves.',
+      'Five gym days a week, each with its own territory: chest and triceps, back and biceps, legs, shoulders and abs, then arms. Four of the days open with a heavy compound lift and work down to isolation moves, and the arms day is isolation from the first set.',
     audience:
       'Intermediate lifters who already bench, squat and do pull-ups and want to add muscle over the whole body on five days a week.',
     equipmentProfile:
@@ -126,7 +126,7 @@ const READY_PROGRAM_CONTENT: Record<string, ReadyProgramContent> = {
     equipmentProfile:
       'Dumbbells and a kettlebell, plus a box and battle ropes on the total-body day. Everything else is bodyweight.',
     whyItWorks:
-      'Short, hard work intervals push the heart rate up fast, and with the days split into upper body, lower body, total body and tabata, the same move never repeats day after day.',
+      'Short, hard work intervals push the heart rate up fast, and with the days split into upper body, lower body, total body and tabata, no two sessions are the same.',
   },
   tpl_gainer_mobility_flow_v1: {
     summary:
@@ -186,7 +186,7 @@ const READY_PROGRAM_CONTENT: Record<string, ReadyProgramContent> = {
     equipmentProfile:
       'A standard gym: barbell, dumbbells, cables, machines and a kettlebell.',
     whyItWorks:
-      'Upper and lower body are each trained twice a week, first heavy with the barbell and then lighter with dumbbells and cables, so strength and muscle both progress without the week turning into a grind.',
+      'The upper body is trained three times, once heavy with the barbell and twice lighter with dumbbells and cables, and the lower body once heavy plus hip thrusts and swings on the pull day, so strength and muscle both progress without the week turning into a grind.',
   },
   tpl_gainer_joint_friendly_v1: {
     summary:
