@@ -65,19 +65,22 @@ module.exports = [
   },
   {
     /**
-     * A shield makes every imperative in the copy a lie: nothing on the page
-     * can be tapped while a beat is up. The three Home beats used to open
-     * with one ("Napauta viikkoriviä...", "Tap to see today's exercises"),
-     * so they say what is there instead of what to do.
+     * A shield makes an instruction to tap the page a lie: nothing under the
+     * layer can be pressed while a beat is up. Beats have opened with one
+     * twice now — round 1's "Napauta viikkoriviä…", and again in the copy
+     * the reader handed over on 2026-09-08 — so this reads every beat's
+     * sentence in both languages rather than the two that were wrong.
      */
     name: 'first-run tour: no beat tells the reader to tap something the shield refuses',
     run() {
       const dict = read('src/lib/i18n.ts');
-      const lines = dict.split('\n').filter((line) => /'tour\.home\.(week|hero|cards|program)':/.test(line));
-      assert.equal(lines.length, 8, 'four Home beats in two dictionaries, one line each');
+      const lines = dict.split('\n').filter((line) => /'tour\.(home|progress|profile)\.[a-zA-Z]+':/.test(line));
+      assert.equal(lines.length, 16, 'eight section beats in two dictionaries, one line each');
       for (const line of lines) {
-        assert.doesNotMatch(line, /: ['"](Napauta|Tap )/, line.trim());
-        assert.doesNotMatch(line, /(Lisää kortti mistä|Add a card for)/, line.trim());
+        // Verbs that ask for a press. "Painamalla X voit…" describes what a
+        // button does and is fine; "Paina X" is an order the shield refuses.
+        assert.doesNotMatch(line, /\b(Napauta|Napsauta|Klikkaa|Tap|Click)\b/, line.trim());
+        assert.doesNotMatch(line, /: ['"]?(Paina|Press) /, line.trim());
       }
       // The way out is still one tap, and it is on every beat — a guided tour
       // that could not be left would be a trap.
