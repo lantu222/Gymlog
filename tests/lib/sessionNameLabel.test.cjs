@@ -59,9 +59,46 @@ module.exports = [
   {
     name: 'focus decomposes on the separators the catalogs use',
     run() {
-      assert.equal(localizeWorkoutFocus('Chest & Triceps', 'fi'), 'Rinta & Ojentajat');
+      // Finnish spells the conjunction, and the second noun is not a title:
+      // the whole-phrase entries in the table have always written "Pakarat ja
+      // takareidet", while decomposition produced "Rinta & Ojentajat" — one
+      // file, two spellings of the same word, decided by which branch answered.
+      assert.equal(localizeWorkoutFocus('Chest & Triceps', 'fi'), 'Rinta ja ojentajat');
+      assert.equal(localizeWorkoutFocus('Squat & Bench', 'fi'), 'Kyykky ja penkki');
+      assert.equal(localizeWorkoutFocus('Glutes & Legs', 'fi'), 'Pakarat ja jalat');
+      // English keeps the catalog's own ampersand.
+      assert.equal(localizeWorkoutFocus('Chest & Triceps', 'en'), 'Chest & Triceps');
+
+      // "+" is not a conjunction here — it reads as "and then", and the
+      // whole-phrase entries keep it in Finnish too.
       assert.equal(localizeWorkoutFocus('Full Body + HIIT', 'fi'), 'Koko keho + HIIT');
-      assert.equal(localizeWorkoutFocus('Squat & Bench', 'fi'), 'Kyykky & Penkki');
+
+      // An acronym must survive the lowering that "ja" applies to an ordinary
+      // capitalized noun.
+      assert.equal(localizeWorkoutFocus('Core & HIIT', 'fi'), 'Keskivartalo ja HIIT');
+
+      // The slash was added to the split but not to the separator test, so it
+      // fell through to the word translator — which trims — and the editor's
+      // own body-part presets came back welded together.
+      assert.equal(localizeWorkoutFocus('Chest / Triceps', 'fi'), 'Rinta / Ojentajat');
+      assert.equal(localizeWorkoutFocus('Legs / Glutes', 'fi'), 'Jalat / Pakarat');
+    },
+  },
+  {
+    name: 'no catalog session name reaches a Finnish reader with an ampersand in it',
+    run() {
+      const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog.js');
+      const { localizeSessionFocus } = require('../../.test-dist/lib/sessionNameLabel.js');
+      const left = [];
+      for (const template of WORKOUT_TEMPLATES_V1) {
+        for (const session of template.sessions) {
+          const finnish = localizeSessionFocus(session.name, 'fi');
+          if (finnish.includes('&')) {
+            left.push(`${session.name} -> ${finnish}`);
+          }
+        }
+      }
+      assert.deepEqual(left, [], `English conjunctions left in Finnish session names:\n  ${left.join('\n  ')}`);
     },
   },
   {

@@ -190,9 +190,13 @@ module.exports = [
         path.join(__dirname, '..', '..', 'src', 'lib', 'programDayComposer.ts'),
         'utf8',
       );
-      // Carried from the schedule the reader chose rather than re-derived.
+      // Carried from the schedule the reader chose rather than re-derived —
+      // both the English label the coach brief reads and the weekday itself,
+      // which is what the screen turns into a word. Printing the label was how
+      // a Finnish reader's finished week came out as "Mon / Wed / Fri".
       assert.match(composerSource, /weekdayLabel: day\.weekdayLabel,/);
-      assert.match(onboardingSource, /weekdayLabel: session\.weekdayLabel,/);
+      assert.match(composerSource, /weekday: day\.weekday,/);
+      assert.match(onboardingSource, /getWeekdayShortLabel\(session\.weekday, language\)/);
       // And it reaches the card. The day view that used to print it is gone;
       // the week list on the plan-ready card is where a reader now learns
       // which day each session lands on, so the invariant moved with it.

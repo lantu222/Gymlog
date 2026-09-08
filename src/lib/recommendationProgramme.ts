@@ -625,7 +625,7 @@ function buildSupplementalDay(
   selection: FirstRunSetupSelection,
   programId: string,
   index: number,
-): Omit<RecommendationPlanReadyScheduleDay, 'id' | 'weekdayLabel'> {
+): Omit<RecommendationPlanReadyScheduleDay, 'id' | 'weekday' | 'weekdayLabel'> {
   if (selection.goal === 'strength') {
     return {
       name: index === 0 ? 'Accessory Strength Day' : 'Recovery Strength Day',
@@ -672,11 +672,16 @@ function buildPlanReadyWeeklySchedule(selection: FirstRunSetupSelection, program
   }
 
   const plannedDaysPerWeek = selection.daysPerWeek;
-  const rhythm = resolveProjectedTrainingDays(selection, plannedDaysPerWeek).map((day) => getWeekdayShortLabel(day));
+  // The weekday itself travels beside its English label: the label is part of
+  // the brief the coach reads, and the screen needs the day in the reader's
+  // own language rather than a word it cannot translate back.
+  const rhythmDays = resolveProjectedTrainingDays(selection, plannedDaysPerWeek);
+  const rhythm = rhythmDays.map((day) => getWeekdayShortLabel(day));
   const templateDays = [...template.sessions]
     .sort((left, right) => left.orderIndex - right.orderIndex)
     .map((session, index): RecommendationPlanReadyScheduleDay => ({
       id: session.id,
+      weekday: rhythmDays[index] ?? null,
       weekdayLabel: rhythm[index] ?? `Day ${index + 1}`,
       name: session.name,
       meta: `${template.estimatedSessionDuration} min - ${pluralize(session.exercises.length, 'exercise')}`,
@@ -691,6 +696,7 @@ function buildPlanReadyWeeklySchedule(selection: FirstRunSetupSelection, program
 
     return {
       id: `${template.id}-suggested-${index + 1}`,
+      weekday: rhythmDays[dayIndex] ?? null,
       weekdayLabel: rhythm[dayIndex] ?? `Day ${dayIndex + 1}`,
       ...supplemental,
     };

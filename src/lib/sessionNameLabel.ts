@@ -197,9 +197,31 @@ export function localizeWorkoutFocus(focus: string, language: AppLanguage = 'en'
   // things, and "/" was missing: the editor's body-part presets are all
   // "Chest / Triceps", "Legs / Glutes", so every one of them survived
   // untranslated even though both halves were in the dictionary.
-  const translatedHead = head
-    .split(/(\s*[&+/]\s*)/)
-    .map((part) => (/^\s*[&+]\s*$/.test(part) ? part : translateWord(part, dictionary)))
+  //
+  // Two things the first version of that got wrong. The slash was added to the
+  // split but not to the test below it, so it fell through to translateWord,
+  // which trims — "Chest / Triceps" came back as "Rinta/Ojentajat". And in
+  // Finnish the ampersand is not a word: every whole-phrase entry in the table
+  // above writes "Pakarat ja takareidet", while the decomposed names came back
+  // as "Pakarat & Jalat", so the same file spelled the same conjunction two
+  // ways depending on which branch answered.
+  const segments = head.split(/(\s*[&+/]\s*)/);
+  const translatedHead = segments
+    .map((segment, index) => {
+      if (/^\s*[&+/]\s*$/.test(segment)) {
+        return language === 'fi' && segment.includes('&') ? ' ja ' : segment;
+      }
+      const translated = translateWord(segment, dictionary);
+      // "Kyykky ja penkki", not "Kyykky ja Penkki": the words are stored
+      // capitalized because each can open a name. Only a word that looks like
+      // an ordinary capitalized noun is lowered — an acronym the dictionary
+      // returns as "HIIT" must survive as it is.
+      const followsFinnishAnd = language === 'fi' && (segments[index - 1] ?? '').includes('&');
+      if (followsFinnishAnd && /^[A-ZÄÖÅ][a-zäöå]/.test(translated)) {
+        return translated[0].toLowerCase() + translated.slice(1);
+      }
+      return translated;
+    })
     .join('');
 
   if (!qualifier) {

@@ -1,4 +1,4 @@
-import type { SetupAgeRange, SetupFocusArea, SetupGoal, SetupLevel, SetupSecondaryOutcome, SetupEquipment, SetupGender } from './models';
+import type { SetupAgeRange, SetupFocusArea, SetupGoal, SetupLevel, SetupSecondaryOutcome, SetupEquipment, SetupGender, SetupWeekday } from './models';
 import type { RecommendationProfile } from '../lib/recommendationProfile';
 import type { I18nKey } from '../lib/i18n';
 
@@ -134,6 +134,17 @@ export type RecommendationPlanReadyScheduleDaySource = 'template' | 'suggested';
 
 export interface RecommendationPlanReadyScheduleDay {
   id: string;
+  /**
+   * The weekday itself, for a screen to name in the reader's language.
+   *
+   * `weekdayLabel` below is English and stays English: this payload is also
+   * the programme brief the coach is given, where "Mon" is data. The plan-ready
+   * card printed that label straight onto the screen, so a Finnish reader was
+   * handed their finished week as "Mon / Wed / Fri".
+   *
+   * Null when the schedule ran out of weekdays and the day is numbered instead.
+   */
+  weekday: SetupWeekday | null;
   weekdayLabel: string;
   name: string;
   meta: string;
