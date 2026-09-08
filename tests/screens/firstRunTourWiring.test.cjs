@@ -87,6 +87,21 @@ module.exports = [
     },
   },
   {
+    name: 'first-run tour: leaving counts as seen only once a callout has been on screen',
+    run() {
+      // PR #83 review: unmounting during the start delay marked the surface
+      // seen with nothing shown, so flicking through the tabs on a first open
+      // burned all three tours. The unmount path is gated on a shown flag
+      // that the enter effect sets.
+      const layer = stripComments(tourSource);
+      const unmount = layer.slice(layer.indexOf('const shownRef = useRef(false);'), layer.indexOf('// Reduced motion decides'));
+      assert.match(unmount, /if \(shownRef\.current\) \{\s*finishRef\.current\(\);\s*\}/);
+      assert.doesNotMatch(unmount, /\(\) => \(\) => finishRef\.current\(\)/, 'no unconditional finish on unmount');
+      const enter = layer.slice(layer.indexOf('pendingShowRef.current = null;'), layer.indexOf('Animated.parallel([', layer.indexOf('pendingShowRef.current = null;')));
+      assert.match(enter, /shownRef\.current = true;/);
+    },
+  },
+  {
     name: 'first-run tour: Home registers its four targets and its scroller',
     run() {
       const home = stripComments(homeSource);

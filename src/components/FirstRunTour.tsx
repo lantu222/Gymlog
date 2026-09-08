@@ -133,11 +133,23 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
     onFinish(surface);
   }, [onFinish, onSweep, surface]);
 
-  // Leaving mid-tour — a tab press, a workout started — still counts as seen.
-  // Through a ref, so a re-created callback can never fire this early.
+  // Leaving mid-tour — a tab press, a workout started — still counts as seen,
+  // but only once a callout has actually been on screen. Leaving during the
+  // start delay or the first scroll (PR #83 review) showed nothing, and a
+  // reader who flicks through the tabs on their first open would otherwise
+  // burn all three tours without seeing one. Through refs, so a re-created
+  // callback can never fire this early.
+  const shownRef = useRef(false);
   const finishRef = useRef(finish);
   finishRef.current = finish;
-  useEffect(() => () => finishRef.current(), []);
+  useEffect(
+    () => () => {
+      if (shownRef.current) {
+        finishRef.current();
+      }
+    },
+    [],
+  );
 
   // Reduced motion decides the start delay; the query always answers.
   useEffect(() => {
@@ -270,6 +282,7 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
     }
     const animated = pendingShowRef.current;
     pendingShowRef.current = null;
+    shownRef.current = true;
     if (!animated) {
       calloutAnim.setValue(1);
       ringAnim.setValue(1);
