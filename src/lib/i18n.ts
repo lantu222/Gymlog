@@ -2834,6 +2834,9 @@ const EN = {
   'detail.rule.secondary': 'Support lifts.',
   'detail.rule.failure': 'When the reps do not come.',
   'detail.forWhom': 'WHO IT IS FOR',
+  // The one card on the programme page whose text is written rather than
+  // computed, so the one that says where it came from.
+  'detail.aiGenerated': 'AI GENERATED',
   'detail.weekFallback': 'Week 1 of 8',
   'detail.workoutCount': '{count} workouts',
   'detail.sessions': 'Sessions',
@@ -5718,6 +5721,7 @@ const FI: Record<I18nKey, string> = {
   'detail.rule.secondary': 'Tukiliikkeet.',
   'detail.rule.failure': 'Kun toistot eivät tule.',
   'detail.forWhom': 'KENELLE',
+  'detail.aiGenerated': 'TEKOÄLYN KIRJOITTAMA',
   'detail.weekFallback': 'Viikko 1 / 8',
   'detail.workoutCount': '{count} treeniä',
   'detail.sessions': 'Treenit',

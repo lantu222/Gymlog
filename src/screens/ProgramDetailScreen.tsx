@@ -138,6 +138,15 @@ interface ProgramDetailScreenProps {
   } | null;
   /** Who the program is for, already in the reader's language. */
   audience?: string | null;
+  /**
+   * Why the week is shaped the way it is, already in the reader's language.
+   *
+   * The page shows what the programme does — the days, the gear, where the
+   * volume goes, how the weight moves — and this is the one thing it cannot
+   * show: why those choices were made together. It was written for all 55
+   * programmes and rendered by nothing.
+   */
+  whyItWorks?: string | null;
   /** Gear the program needs, derived from its exercises. */
   equipment?: string[];
   /** Gear the reader has; null when the setup never said. */
@@ -197,6 +206,7 @@ export function ProgramDetailScreen({
   onSaveEmphasis,
   progressionRules = null,
   audience = null,
+  whyItWorks = null,
   equipment = [],
   availableEquipment = null,
   fitReason = null,
@@ -537,6 +547,14 @@ export function ProgramDetailScreen({
       })),
     [language, shownDays],
   );
+  /**
+   * Who it is for and why the week works, as one piece of prose.
+   *
+   * They were drafted as two fields and shown as two headed cards, which read
+   * as two answers to nearly the same question. Together they are one short
+   * paragraph: who should run this, and what makes it work for them.
+   */
+  const aboutCopy = [audience, whyItWorks].filter((part) => Boolean(part && part.trim())).join(' ');
   const hasDestructiveAction = Boolean(
     destructiveActionLabel && destructiveActionTitle && destructiveActionMessage && onDestructiveAction,
   );
@@ -650,7 +668,7 @@ export function ProgramDetailScreen({
 
             It still carries the one thing that can make it the wrong pick: a
             week that does not have room for it. */}
-        {audience ? (
+        {aboutCopy ? (
           <>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>{t(language, 'detail.forWhom')}</Text>
@@ -664,7 +682,16 @@ export function ProgramDetailScreen({
                 A warning nobody can act on is furniture with an alarm on it.
                 The day count is stated plainly in the Rytmi section below. */}
             <View style={styles.ruleCard}>
-              <Text style={styles.audienceText}>{audience}</Text>
+              {/* Said once, on the one card whose text is written rather than
+                  derived. Every other card on this page states something the
+                  app computed from the programme — the week, the gear, the
+                  volume, the progression rule — and needs no such mark. */}
+              <View style={styles.aiTagRow}>
+                <View style={styles.aiTag}>
+                  <Text style={styles.aiTagText}>{t(language, 'detail.aiGenerated')}</Text>
+                </View>
+              </View>
+              <Text style={styles.audienceText}>{aboutCopy}</Text>
             </View>
           </>
         ) : null}
@@ -1401,6 +1428,31 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     fontWeight: '600',
+  },
+  /**
+   * The mark sits on its own row above the copy rather than floating over it.
+   * Absolutely positioned in the corner, it would have the first line of text
+   * running underneath it at any width that wraps.
+   */
+  aiTagRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 8,
+  },
+  aiTag: {
+    borderRadius: 999,
+    backgroundColor: theme.surfaceSoft,
+    borderWidth: 1,
+    borderColor: theme.border,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  aiTagText: {
+    color: theme.muted,
+    fontSize: 9,
+    lineHeight: 12,
+    fontWeight: '800',
+    letterSpacing: 0.6,
   },
   roleTag: {
     borderRadius: 6,
