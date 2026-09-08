@@ -2513,10 +2513,6 @@ function VinhaApp() {
       }),
       workoutTemplates.map((item) => item.name),
       preferences.appLanguage,
-      // Its own name, not "(kopio)". The reader asked to change a lift, not to
-      // make a second programme — and there is no second programme: the catalog
-      // original is untouched and comes back whole if they take it up again.
-      { keepName: true },
     );
     // The link the next edit will look for.
     draft.sourceTemplateId = programId;
@@ -2678,30 +2674,6 @@ function VinhaApp() {
     handleStartCustomProgramSession(workoutTemplateId, firstSessionId);
   }
 
-
-  function handleDuplicateCustomProgram(workoutTemplateId: string) {
-    const template = workoutTemplates.find((item) => item.id === workoutTemplateId);
-    if (!template) {
-      return;
-    }
-
-    const draft = buildDuplicatedCustomProgramDraft(
-      template.name,
-      getWorkoutTemplateSessions(template.id),
-      workoutTemplates.map((item) => item.name),
-      preferences.appLanguage,
-    );
-
-    Promise.resolve(upsertWorkoutTemplate(draft))
-      .then((nextWorkoutTemplateId) => {
-        void haptics.success();
-        navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId: nextWorkoutTemplateId });
-      })
-      .catch((error) => {
-        console.error('Failed to duplicate custom program', error);
-        showToast(t(preferences.appLanguage, 'toast.workoutDuplicateFailed'));
-      });
-  }
 
   async function handleDeleteCustomWorkout(workoutTemplateId: string) {
     await deleteWorkoutTemplate(workoutTemplateId);
@@ -5842,7 +5814,6 @@ function VinhaApp() {
       handleOpenReadyProgramDetail,
       handleStartReadyProgram,
       handleOpenCustomProgramDetail,
-      handleDuplicateCustomWorkout: handleDuplicateCustomProgram,
       goalProgrammeSuggestions,
       goalFlowLifts,
       getGoalProposal,

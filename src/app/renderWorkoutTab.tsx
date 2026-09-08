@@ -160,7 +160,6 @@ export interface WorkoutTabDeps {
   handleOpenReadyProgramDetail: (workoutTemplateId: string) => void;
   handleStartReadyProgram: WorkoutsProps['onStartReadyProgram'];
   handleOpenCustomProgramDetail: WorkoutsProps['onOpenCustomProgram'];
-  handleDuplicateCustomWorkout: WorkoutsProps['onDuplicateCustomWorkout'];
   goalProgrammeSuggestions: ProgramsHomeProps['goalProgrammes'];
   goalFlowLifts: React.ComponentProps<typeof StrengthGoalFlowScreen>['lifts'];
   getGoalProposal: (exerciseName: string) => GoalFlowProposal | null;
@@ -249,7 +248,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     handleOpenReadyProgramDetail,
     handleStartReadyProgram,
     handleOpenCustomProgramDetail,
-    handleDuplicateCustomWorkout,
     goalProgrammeSuggestions,
     goalFlowLifts,
     getGoalProposal,
@@ -800,7 +798,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         onStartReadyProgram={handleStartReadyProgram}
         onOpenCustomProgram={handleOpenCustomProgramDetail}
         onStartCustomWorkout={handleStartCustomProgram}
-        onDuplicateCustomWorkout={handleDuplicateCustomWorkout}
         onDeleteCustomWorkout={handleDeleteCustomWorkout}
         onCreateWorkout={() => navigate({ tab: 'workout', screen: 'template' })}
       />

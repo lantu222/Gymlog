@@ -426,7 +426,6 @@ const EN = {
   // because "Make my own copy" does.
   'toast.programCopyFailed': 'Could not copy the program',
   'toast.lastExerciseInDay': 'That is the last exercise of the day — delete the day in the editor instead',
-  'toast.workoutDuplicateFailed': 'Could not duplicate workout',
   // Was an English literal inside App.tsx, shown in a Finnish app.
   'toast.cardioSaveFailed': 'Could not save cardio session',
   // AI assisted, rebuilt as one text field. The reader says it; the app
@@ -3494,7 +3493,6 @@ const FI: Record<I18nKey, string> = {
   'toast.addExercisesTemplate': 'Lisää liikkeitä ennen tämän pohjan aloittamista',
   'toast.programCopyFailed': 'Ohjelmaa ei voitu kopioida',
   'toast.lastExerciseInDay': 'Tämä on päivän viimeinen liike — poista koko päivä muokkaimessa',
-  'toast.workoutDuplicateFailed': 'Treeniä ei voitu kopioida',
   'toast.cardioSaveFailed': 'Cardio-treeniä ei voitu tallentaa',
   'aiCompose.read': 'Luettu ohjeestasi',
   'aiCompose.read.days': '{count} päivää',

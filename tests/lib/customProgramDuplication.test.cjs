@@ -1,6 +1,12 @@
 const assert = require('node:assert/strict');
 
+const fs = require('node:fs');
+const path = require('node:path');
+
 const { buildDuplicatedCustomProgramDraft } = require('../../.test-dist/lib/customProgramDuplication.js');
+
+const ROOT = path.join(__dirname, '..', '..');
+const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8').replace(/\r\n/g, '\n');
 
 module.exports = [
   {
@@ -28,7 +34,7 @@ module.exports = [
         },
       ], []);
 
-      assert.equal(draft.name, 'Upper Lower (copy)');
+      assert.equal(draft.name, 'Upper Lower', 'a copy keeps its own name');
       assert.equal(draft.sessions.length, 2);
       assert.equal(draft.sessions[0].name, 'Upper');
       assert.deepEqual(draft.sessions[0].exercises.map((exercise) => exercise.name), ['Bench Press', 'Row']);
@@ -36,10 +42,36 @@ module.exports = [
     },
   },
   {
-    name: 'custom program duplication generates a unique copy name',
+    /**
+     * A copy keeps its own name. The reader changed a lift in a ready
+     * programme; they did not ask for a second programme, and there is no
+     * second programme — the catalog original is untouched behind them (user
+     * 2026-09-08, "ei ole tarkoitus olla kopiota").
+     */
+    name: 'a copy keeps the programme\'s own name',
     run() {
-      const draft = buildDuplicatedCustomProgramDraft('Upper Lower', [], ['Upper Lower Copy']);
-      assert.equal(draft.name, 'Upper Lower (copy 2)');
+      const draft = buildDuplicatedCustomProgramDraft('Upper Lower', [], ['Something Else']);
+      assert.equal(draft.name, 'Upper Lower');
+      // Whitespace is not a different name.
+      assert.equal(buildDuplicatedCustomProgramDraft('  Upper Lower  ', [], ['Upper Lower']).name.startsWith('Upper Lower ('), true);
+    },
+  },
+  {
+    /**
+     * The suffix survives for one case, and it is not a feature: the plain
+     * name is already taken. Two rows reading the same is worse than one
+     * reading "(copy)" — and either can be typed over on the programme page.
+     */
+    name: 'only a name already taken falls back to a suffix, and it counts up',
+    run() {
+      assert.equal(
+        buildDuplicatedCustomProgramDraft('Upper Lower', [], ['Upper Lower']).name,
+        'Upper Lower (copy)',
+      );
+      assert.equal(
+        buildDuplicatedCustomProgramDraft('Upper Lower', [], ['Upper Lower', 'Upper Lower (copy)']).name,
+        'Upper Lower (copy 2)',
+      );
     },
   },
   {
@@ -59,7 +91,7 @@ module.exports = [
         'fi',
       );
 
-      assert.equal(draft.name, 'Rintavoima (kopio)');
+      assert.equal(draft.name, 'Rintavoima');
       assert.equal(draft.sessions[0].name, 'Päivä 1: Ylävartalo (raskas)');
       assert.equal(draft.sessions[1].name, 'Päivä 4: Alavartalo (kasvu)');
 
@@ -72,6 +104,37 @@ module.exports = [
         'en',
       );
       assert.equal(en.sessions[0].name, 'Day 1: Upper (Heavy)');
+
+      // And when the fallback does fire, the suffix is the reader's language.
+      const clash = buildDuplicatedCustomProgramDraft('Rintavoima', [], ['Rintavoima'], 'fi');
+      assert.equal(clash.name, 'Rintavoima (kopio)');
+    },
+  },
+  {
+    /**
+     * There is no "duplicate this programme" action, and there was never
+     * meant to be one (user 2026-09-08). The idea was only ever that editing
+     * a programme you were given must not touch the original — so the app
+     * makes you your own copy, silently, and the catalog keeps its own.
+     *
+     * A handler for a real duplicate existed anyway, threaded through three
+     * files and called from nowhere, quietly adding "(kopio)" if anything had
+     * ever reached it. It is gone. This guard is what stops it coming back by
+     * accident, because nothing on screen would have shown it was there.
+     */
+    name: 'nothing offers to duplicate a programme',
+    run() {
+      for (const file of ['App.tsx', 'src/app/renderWorkoutTab.tsx', 'src/screens/WorkoutsScreen.tsx']) {
+        const source = read(file);
+        assert.doesNotMatch(source, /handleDuplicateCustomProgram|DuplicateCustomWorkout/, file);
+      }
+      // And the one caller left asks for no naming option at all: keeping the
+      // name is the rule now, not a flag one call site happens to pass.
+      const lib = read('src/lib/customProgramDuplication.ts');
+      assert.doesNotMatch(lib, /keepName|DuplicateNamingOptions/);
+      assert.match(lib, /name: taken \? buildDisplayCopyName\(name, language, existingNames\) : name,/);
+      // The toast only that handler raised went with it.
+      assert.doesNotMatch(read('src/lib/i18n.ts'), /workoutDuplicateFailed/);
     },
   },
 ];
