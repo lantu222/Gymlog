@@ -1,6 +1,5 @@
 import React from 'react';
 import { TourTargetRegistry } from '../features/tour/tourTargets';
-import { resetToursSeen } from '../lib/firstRunTour';
 import { Alert } from 'react-native';
 
 import { AccountBackupApi } from '../features/account/useAccountBackup';
@@ -486,7 +485,8 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
         }}
         onOpenMyData={() => navigate({ tab: 'profile', screen: 'my_data' })}
         onReplayTour={() => {
-          void deps.updatePreferences({ firstRunToursSeen: resetToursSeen() });
+          // Every surface gets its first time back.
+          void deps.updatePreferences({ firstRunToursSeen: [] });
           deps.resetToRoute(ROOT_ROUTES.home);
         }}
         onImportPlan={() => setSettingsImportVisible(true)}

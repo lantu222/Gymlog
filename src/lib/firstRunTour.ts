@@ -17,6 +17,8 @@
  * mock got wrong (the ring measured mid-scroll), so it is testable here.
  */
 
+import type { I18nKey } from './i18n';
+
 export type TourSurface = 'home' | 'progress' | 'profile';
 
 export const TOUR_SURFACES: readonly TourSurface[] = ['home', 'progress', 'profile'];
@@ -49,7 +51,7 @@ export interface TourSectionBeat {
   /** Which side of the target the callout prefers; the band decides. */
   place: 'above' | 'below';
   /** The dictionary key for the callout's one sentence. */
-  copyKey: string;
+  copyKey: I18nKey;
 }
 
 export interface TourBarBeat {
@@ -94,7 +96,7 @@ export function resolveTourBeats(surface: TourSurface, options: { hasProgram: bo
   }
 }
 
-export const TOUR_BAR_STOP_COPY_KEY: Record<TourBarStop, string> = {
+export const TOUR_BAR_STOP_COPY_KEY: Record<TourBarStop, I18nKey> = {
   home: 'tour.bar.home',
   programs: 'tour.bar.programs',
   ai: 'tour.bar.ai',
@@ -183,12 +185,16 @@ export function placeCallout(input: PlaceCalloutInput): CalloutPlacement {
   const fitsAbove = above >= CALLOUT_TOP_MIN;
 
   let isAbove: boolean;
-  if (prefer === 'above' ? fitsAbove : fitsBelow) {
+  if (fitsAbove !== fitsBelow) {
+    // Only one side has room.
+    isAbove = fitsAbove;
+  } else if (fitsAbove) {
+    // Both fit: the beat's preference decides.
     isAbove = prefer === 'above';
-  } else if (prefer === 'above' ? fitsBelow : fitsAbove) {
-    isAbove = prefer !== 'above';
   } else {
-    // Neither side fits cleanly; take the one that overlaps the target less.
+    // Neither fits; the clamp below will overlap the target either way. Go
+    // above unless that would push the callout up past the status band by
+    // more than a row's worth (40), in which case below hides less.
     isAbove = above >= CALLOUT_TOP_MIN - 40;
   }
   const raw = isAbove ? above : below;
@@ -266,11 +272,6 @@ export function isTourDue(seen: readonly TourSurface[], surface: TourSurface): b
 
 export function markTourSeen(seen: readonly TourSurface[], surface: TourSurface): TourSurface[] {
   return seen.includes(surface) ? [...seen] : [...seen, surface];
-}
-
-/** Profile's "show it again": every surface gets its first time back. */
-export function resetToursSeen(): TourSurface[] {
-  return [];
 }
 
 /**

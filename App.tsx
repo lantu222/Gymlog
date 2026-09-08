@@ -3590,12 +3590,6 @@ function VinhaApp() {
     pinnedKeys: homePinnedStatCardKeys,
     dismissedKeys: preferences.dismissedCardSuggestionKeys,
   });
-  const homePrompt = resolveHomePrompt({
-    signInAvailable: accountBackup.available && accountBackup.state.status === 'signed_out',
-    signInDismissed: preferences.accountBackupPromptDismissed,
-    loggedSessionCount: database.workoutSessions.length + database.cardioSessions.length,
-    suggestionKey: homeSuggestedStatCardKeys[0] ?? null,
-  });
   // Same equipment truth the composer filters exercises with, for the default
   // warmup/cooldown drills: null = setup never said, [] = no equipment at all.
   // Week-strip training dots from the days the user actually picked
@@ -3902,6 +3896,15 @@ function VinhaApp() {
     tourSurface !== null &&
     isTourDue(preferences.firstRunToursSeen, tourSurface);
   const homeTourActive = tourActive && tourSurface === 'home';
+  // The queue decides with the tour in it, so it is computed here, after
+  // the tour, rather than up with the suggester.
+  const homePrompt = resolveHomePrompt({
+    signInAvailable: accountBackup.available && accountBackup.state.status === 'signed_out',
+    signInDismissed: preferences.accountBackupPromptDismissed,
+    loggedSessionCount: database.workoutSessions.length + database.cardioSessions.length,
+    suggestionKey: homeSuggestedStatCardKeys[0] ?? null,
+    tourActive: homeTourActive,
+  });
   const tourHasProgram = Boolean(homeActivePlanCard && homeActivePlanCard.sessions.length > 0);
   const tourBeats = useMemo(
     () => (tourSurface ? resolveTourBeats(tourSurface, { hasProgram: tourHasProgram }) : []),
@@ -3909,13 +3912,18 @@ function VinhaApp() {
   );
   const firstRunToursSeenRef = useRef(preferences.firstRunToursSeen);
   firstRunToursSeenRef.current = preferences.firstRunToursSeen;
-  const handleTourFinish = (surface: TourSurface) => {
-    const seen = firstRunToursSeenRef.current;
-    if (!isTourDue(seen, surface)) {
-      return;
-    }
-    void updatePreferences({ firstRunToursSeen: markTourSeen(seen, surface) });
-  };
+  // Stable: the layer calls this from its unmount, and a fresh closure per
+  // render would be a fresh reason to fire it.
+  const handleTourFinish = useCallback(
+    (surface: TourSurface) => {
+      const seen = firstRunToursSeenRef.current;
+      if (!isTourDue(seen, surface)) {
+        return;
+      }
+      void updatePreferences({ firstRunToursSeen: markTourSeen(seen, surface) });
+    },
+    [updatePreferences],
+  );
   const tourElement =
     tourActive && tourSurface ? (
       <FirstRunTour
@@ -3925,7 +3933,7 @@ function VinhaApp() {
         registry={tourRegistry}
         language={preferences.appLanguage}
         onSweep={setTourSweep}
-        onFinish={() => handleTourFinish(tourSurface)}
+        onFinish={handleTourFinish}
       />
     ) : null;
 
@@ -5967,7 +5975,7 @@ function VinhaApp() {
           // session (lib/homePrompts): a fresh install has nothing worth
           // backing up, and the account ask is the one most likely to be
           // both refused and remembered.
-          homePrompt === 'signIn' && !homeTourActive
+          homePrompt === 'signIn'
             ? {
                 onSignIn: () => {
                   void handleAccountSignIn().then((kind) => {
@@ -5985,7 +5993,7 @@ function VinhaApp() {
         trainingSchedule={homeTrainingSchedule}
         doneThisWeekSessionIds={homeDoneThisWeekSessionIds}
         statCatalogCards={homeStatCatalogCards}
-        suggestedStatCardKeys={homePrompt === 'suggestion' && !homeTourActive ? homeSuggestedStatCardKeys : []}
+        suggestedStatCardKeys={homePrompt === 'suggestion' ? homeSuggestedStatCardKeys : []}
         onDismissStatCardSuggestion={(key) =>
           void updatePreferences({
             dismissedCardSuggestionKeys: [...preferences.dismissedCardSuggestionKeys, key],

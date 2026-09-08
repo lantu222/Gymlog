@@ -3,7 +3,8 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import Svg, { Circle, Path, Polyline, Rect } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { TourTargetRegistry, viewportOf } from '../features/tour/tourTargets';
+import { TourTargetRegistry } from '../features/tour/tourTargets';
+import { useTourScroller } from '../features/tour/useTourScroller';
 
 import { VinhaIcon } from '../components/VinhaIcon';
 import { EmptyBox } from '../components/EmptyBox';
@@ -802,19 +803,10 @@ export function ProgressScreen({
    */
   const rulerWeightKg = bodyweightStats.currentKg ?? 75;
   const rulerHeightCm = heightCm ?? 175;
-  const scrollRef = useRef<ScrollView>(null);
-  const tourScrollOffset = useRef(0);
-  useEffect(() => {
-    if (!tourTargets) {
-      return;
-    }
-    tourTargets.registerScroller('progress', {
-      viewport: viewportOf(scrollRef),
-      getOffset: () => tourScrollOffset.current,
-      scrollToOffset: (offset, animated) => scrollRef.current?.scrollTo({ y: offset, animated }),
-    });
-    return () => tourTargets.registerScroller('progress', null);
-  }, [tourTargets]);
+  // One ref for the list: the widget's calendar jump and the tour's scroll
+  // both drive it through here.
+  const tourScroller = useTourScroller('progress', tourTargets);
+  const scrollRef = tourScroller.ref;
 
   const trainingStreak = useMemo(() => weeklyTrainingStreak(workoutSessions), [workoutSessions]);
 
@@ -2069,11 +2061,8 @@ export function ProgressScreen({
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}
-        onScroll={(event) => {
-          tourScrollOffset.current = event.nativeEvent.contentOffset.y;
-          tourTargets?.notifyScroll();
-        }}
-        scrollEventThrottle={32}
+        onScroll={tourScroller.onScroll}
+        scrollEventThrottle={tourScroller.scrollEventThrottle}
       >
         {progressSection === 'overview' ? renderOverview() : null}
         {progressSection === 'records' ? renderRecords() : null}

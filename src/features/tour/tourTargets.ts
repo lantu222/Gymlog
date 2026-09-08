@@ -34,7 +34,7 @@ export interface TourTargetRegistry {
    * that can measure itself is kept.
    */
   register: (id: TourTargetId, node: unknown) => void;
-  has: (id: TourTargetId) => boolean;
+  /** Null when the target is not on screen — the beat is skipped, not hung on. */
   measure: (id: TourTargetId) => Promise<TourRect | null>;
   registerScroller: (surface: TourSurface, scroller: TourScroller | null) => void;
   /**
@@ -62,7 +62,11 @@ function isMeasurable(node: unknown): node is TourMeasurable {
   );
 }
 
-function measureNode(node: TourMeasurable | null | undefined): Promise<TourRect | null> {
+/**
+ * One view's window rectangle, or null: for a missing node, a node that
+ * never answers (a view mid-detach can), a throw, or a NaN in the answer.
+ */
+export function measureNode(node: TourMeasurable | null | undefined): Promise<TourRect | null> {
   return new Promise((resolve) => {
     if (!node) {
       resolve(null);
@@ -75,7 +79,6 @@ function measureNode(node: TourMeasurable | null | undefined): Promise<TourRect 
         resolve(rect);
       }
     };
-    // A detached view never answers; the tour must not hang on it.
     const timer = setTimeout(() => finish(null), 300);
     try {
       node.measureInWindow((x, y, width, height) => {
@@ -120,9 +123,6 @@ export function createTourTargetRegistry(): TourTargetRegistry {
       } else {
         nodes.delete(id);
       }
-    },
-    has(id) {
-      return nodes.has(id);
     },
     measure(id) {
       return measureNode(nodes.get(id));

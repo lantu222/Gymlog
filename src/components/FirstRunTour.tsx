@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, G, Path } from 'react-native-svg';
 
-import { TourTargetRegistry } from '../features/tour/tourTargets';
+import { measureNode, TourTargetRegistry } from '../features/tour/tourTargets';
 import { cutCornerPath } from '../lib/cutCorner';
 import {
   BAR_SWEEP_STOP_MS,
@@ -15,17 +15,18 @@ import {
   ringBox,
   TOUR_BAR_STOP_COPY_KEY,
   TourBarStop,
-  TourBeat,
   TourRect,
   TourSurface,
-  TourTargetId,
+  TourBeat,
   tourStartDelayMs,
 } from '../lib/firstRunTour';
 import { I18nKey, t } from '../lib/i18n';
-import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
+import { useTheme, useThemeName } from '../theming';
 import { AppLanguage } from '../types/models';
 import { queryReduceMotion } from '../utils/reduceMotion';
+import { CutButton } from './CutButton';
 import { CutSurface } from './CutSurface';
+import { EASE_RISE } from './vinhaMotion';
 
 /**
  * The first-run tour's guidance layer: a ring around one thing and a callout
@@ -44,17 +45,8 @@ import { CutSurface } from './CutSurface';
  * still steps it by hand, and under reduced motion the sweep is a list.
  */
 
-const RISE_EASING = Easing.bezier(0.22, 1, 0.36, 1);
 /** Brand mark on the bar, not copy: the button itself says "AI". */
 const AI_MARK = 'AI';
-
-const STOP_TARGET: Record<TourBarStop, TourTargetId> = {
-  home: 'bar.home',
-  programs: 'bar.programs',
-  ai: 'bar.ai',
-  progress: 'bar.progress',
-  profile: 'bar.profile',
-};
 
 const STOP_TITLE_KEY: Record<Exclude<TourBarStop, 'ai'>, I18nKey> = {
   home: 'tabs.home',
@@ -65,6 +57,7 @@ const STOP_TITLE_KEY: Record<Exclude<TourBarStop, 'ai'>, I18nKey> = {
 
 interface FirstRunTourProps {
   surface: TourSurface;
+  /** Memoised by the parent: effects here key on the index, not the array. */
   beats: TourBeat[];
   registry: TourTargetRegistry;
   language: AppLanguage;
@@ -74,7 +67,7 @@ interface FirstRunTourProps {
    * Done, skipped, or left mid-way: the surface is marked seen either way.
    * Leaving early is not failure, and the app gets out of the way.
    */
-  onFinish: () => void;
+  onFinish: (surface: TourSurface) => void;
 }
 
 interface Origin {
@@ -85,7 +78,6 @@ interface Origin {
 export function FirstRunTour({ surface, beats, registry, language, onSweep, onFinish }: FirstRunTourProps) {
   const theme = useTheme();
   const themeName = useThemeName();
-  const styles = useThemedStyles(makeStyles);
 
   const rootRef = useRef<View>(null);
   const originRef = useRef<Origin>({ x: 0, y: 0 });
@@ -98,10 +90,8 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
   const [barTop, setBarTop] = useState<number | null>(null);
   const [calloutHeight, setCalloutHeight] = useState(0);
   const finishedRef = useRef(false);
-  const onFinishRef = useRef(onFinish);
-  const onSweepRef = useRef(onSweep);
-  onFinishRef.current = onFinish;
-  onSweepRef.current = onSweep;
+  /** Set when a beat's rect lands; the enter animation starts once it is drawn. */
+  const pendingShowRef = useRef<boolean | null>(null);
 
   // One node per animated view, interpolated once (ref-animated-node-one-view).
   const calloutAnim = useRef(new Animated.Value(0)).current;
@@ -118,58 +108,36 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
     transform: [{ scale: ringAnim.interpolate({ inputRange: [0, 1], outputRange: [1.05, 1] }) }],
   }).current;
 
-  const beat = beats[index] ?? null;
-  // Effects key on these primitives, not on `beat`: the beats array is
-  // rebuilt by the parent now and then, and an object dependency would
-  // restart the sweep's timer on every one of those renders.
-  const beatKind = beat ? beat.kind : null;
-  const beatTarget = beat && beat.kind === 'section' ? beat.target : null;
-  const stopCount = beat && beat.kind === 'bar' ? beat.stops.length : 0;
-  const currentStop: TourBarStop | null = beat && beat.kind === 'bar' ? beat.stops[stopIndex] ?? null : null;
+  const measureOrigin = useCallback(async (): Promise<Origin> => {
+    const measured = await measureNode(rootRef.current);
+    if (measured) {
+      originRef.current = { x: measured.x, y: measured.y };
+    }
+    return originRef.current;
+  }, []);
 
-  const measureOrigin = useCallback(
-    () =>
-      new Promise<Origin>((resolve) => {
-        const node = rootRef.current;
-        if (!node) {
-          resolve(originRef.current);
-          return;
-        }
-        let settled = false;
-        const timer = setTimeout(() => {
-          if (!settled) {
-            settled = true;
-            resolve(originRef.current);
-          }
-        }, 300);
-        node.measureInWindow((x, y) => {
-          clearTimeout(timer);
-          if (!settled) {
-            settled = true;
-            originRef.current = { x, y };
-            resolve(originRef.current);
-          }
-        });
-      }),
-    [],
-  );
-
-  const toLocal = useCallback((window: TourRect, origin: Origin): TourRect => ({
+  const toLocal = (window: TourRect, origin: Origin): TourRect => ({
     x: window.x - origin.x,
     y: window.y - origin.y,
     width: window.width,
     height: window.height,
-  }), []);
+  });
 
   const finish = useCallback(() => {
     if (finishedRef.current) {
       return;
     }
     finishedRef.current = true;
-    onSweepRef.current(null);
+    onSweep(null);
     setPhase('done');
-    onFinishRef.current();
-  }, []);
+    onFinish(surface);
+  }, [onFinish, onSweep, surface]);
+
+  // Leaving mid-tour — a tab press, a workout started — still counts as seen.
+  // Through a ref, so a re-created callback can never fire this early.
+  const finishRef = useRef(finish);
+  finishRef.current = finish;
+  useEffect(() => () => finishRef.current(), []);
 
   // Reduced motion decides the start delay; the query always answers.
   useEffect(() => {
@@ -192,35 +160,6 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
     return () => clearTimeout(timer);
   }, [phase, reduceMotion]);
 
-  // Leaving mid-tour — a tab press, a workout started — still counts as seen.
-  useEffect(
-    () => () => {
-      onSweepRef.current(null);
-      if (!finishedRef.current) {
-        finishedRef.current = true;
-        onFinishRef.current();
-      }
-    },
-    [],
-  );
-
-  const showCallout = useCallback(
-    (animated: boolean) => {
-      if (!animated) {
-        calloutAnim.setValue(1);
-        ringAnim.setValue(1);
-        return;
-      }
-      calloutAnim.setValue(0);
-      ringAnim.setValue(0);
-      Animated.parallel([
-        Animated.timing(calloutAnim, { toValue: 1, duration: CALLOUT_ENTER_MS, easing: RISE_EASING, useNativeDriver: true }),
-        Animated.timing(ringAnim, { toValue: 1, duration: RING_ENTER_MS, easing: RISE_EASING, useNativeDriver: true }),
-      ]).start();
-    },
-    [calloutAnim, ringAnim],
-  );
-
   const stepTo = useCallback(
     (next: number) => {
       if (next >= beats.length) {
@@ -228,43 +167,35 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
         return;
       }
       setRect(null);
+      setStopIndex(0);
       setIndex(next);
     },
     [beats.length, finish],
   );
 
-  // A beat starts: bring its target into the band, measure it, show the ring.
+  // A section beat: bring the target into the band, measure it once the
+  // scroll has settled, then show. A target this install does not have
+  // (no cards pinned, say) is skipped rather than pointed at.
   useEffect(() => {
     if (phase !== 'beat' || reduceMotion === null) {
       return;
     }
+    const beat = beats[index];
     if (!beat) {
       finish();
       return;
     }
+    if (beat.kind !== 'section') {
+      return;
+    }
     let cancelled = false;
-    const animated = !reduceMotion;
-
     void (async () => {
-      let targetRect: TourRect | null = null;
-      if (beat.kind === 'section') {
-        if (!registry.has(beat.target)) {
-          // The section is not on this install's screen; the beat has nothing
-          // to point at, so it is skipped rather than shown pointing at air.
-          if (!cancelled) {
-            stepTo(index + 1);
-          }
-          return;
-        }
-        await registry.scrollIntoView(surface, beat.target, beat.place, animated);
-        targetRect = await registry.measure(beat.target);
-      } else {
-        setStopIndex(0);
-        onSweepRef.current(beat.stops[0]);
-        targetRect = await registry.measure(STOP_TARGET[beat.stops[0]]);
-      }
-      const origin = await measureOrigin();
-      const pill = await registry.measure('bar.pill');
+      await registry.scrollIntoView(surface, beat.target, beat.place, !reduceMotion);
+      const [targetRect, origin, pill] = await Promise.all([
+        registry.measure(beat.target),
+        measureOrigin(),
+        registry.measure('bar.pill'),
+      ]);
       if (cancelled) {
         return;
       }
@@ -273,51 +204,95 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
         return;
       }
       setBarTop(pill ? pill.y - origin.y : null);
+      pendingShowRef.current = !reduceMotion;
       setRect(toLocal(targetRect, origin));
-      showCallout(animated);
     })();
-
     return () => {
       cancelled = true;
     };
-    // `beat` is derived from index; the effect keys on the index itself.
+    // `beats` is memoised by the parent; the effect keys on the index.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, index, reduceMotion]);
 
-  // The bar sweep: the highlight travels on a timer; the button can step it too.
+  // The bar beat: one sweep. Each stop lights the bar's own highlight, moves
+  // the ring, and — unless motion is reduced or this is the last stop —
+  // schedules the next. The button steps it by hand as well.
   useEffect(() => {
-    if (phase !== 'beat' || beatKind !== 'bar' || reduceMotion !== false) {
+    if (phase !== 'beat' || reduceMotion === null) {
       return;
     }
-    if (stopIndex >= stopCount - 1) {
+    const beat = beats[index];
+    if (!beat || beat.kind !== 'bar') {
       return;
     }
-    const timer = setTimeout(() => setStopIndex((current) => current + 1), BAR_SWEEP_STOP_MS);
-    return () => clearTimeout(timer);
-  }, [beatKind, phase, reduceMotion, stopCount, stopIndex]);
-
-  useEffect(() => {
-    if (phase !== 'beat' || beatKind !== 'bar' || stopIndex === 0 || !currentStop) {
+    const stop = beat.stops[stopIndex];
+    if (!stop) {
       return;
     }
     let cancelled = false;
-    onSweepRef.current(currentStop);
+    onSweep(stop);
     void (async () => {
-      const [targetRect, origin] = await Promise.all([registry.measure(STOP_TARGET[currentStop]), measureOrigin()]);
-      if (!cancelled && targetRect) {
-        setRect(toLocal(targetRect, origin));
+      const [targetRect, origin, pill] = await Promise.all([
+        registry.measure(`bar.${stop}`),
+        measureOrigin(),
+        registry.measure('bar.pill'),
+      ]);
+      if (cancelled) {
+        return;
       }
+      if (!targetRect) {
+        stepTo(index + 1);
+        return;
+      }
+      setBarTop(pill ? pill.y - origin.y : null);
+      if (stopIndex === 0) {
+        pendingShowRef.current = !reduceMotion;
+      }
+      setRect(toLocal(targetRect, origin));
     })();
+    const last = stopIndex >= beat.stops.length - 1;
+    const timer = reduceMotion || last ? null : setTimeout(() => setStopIndex((current) => current + 1), BAR_SWEEP_STOP_MS);
     return () => {
       cancelled = true;
+      if (timer) {
+        clearTimeout(timer);
+      }
     };
-  }, [beatKind, currentStop, measureOrigin, phase, registry, stopIndex, toLocal]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, index, stopIndex, reduceMotion]);
+
+  // The enter animation starts after the callout is on screen, never before:
+  // a native-driver timing started on a value no view is attached to yet is
+  // the kind of thing that works on one renderer and not the other.
+  useEffect(() => {
+    if (!rect || pendingShowRef.current === null) {
+      return;
+    }
+    const animated = pendingShowRef.current;
+    pendingShowRef.current = null;
+    if (!animated) {
+      calloutAnim.setValue(1);
+      ringAnim.setValue(1);
+      return;
+    }
+    calloutAnim.setValue(0);
+    ringAnim.setValue(0);
+    Animated.parallel([
+      Animated.timing(calloutAnim, { toValue: 1, duration: CALLOUT_ENTER_MS, easing: EASE_RISE, useNativeDriver: true }),
+      Animated.timing(ringAnim, { toValue: 1, duration: RING_ENTER_MS, easing: EASE_RISE, useNativeDriver: true }),
+    ]).start();
+  }, [calloutAnim, rect, ringAnim]);
 
   // The page under the tour stays scrollable; the ring follows its target.
   useEffect(() => {
-    if (phase !== 'beat' || !beatTarget) {
+    if (phase !== 'beat') {
       return;
     }
+    const beat = beats[index];
+    if (!beat || beat.kind !== 'section') {
+      return;
+    }
+    const target = beat.target;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let cancelled = false;
     const unsubscribe = registry.subscribeScroll(() => {
@@ -326,7 +301,7 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
       }
       timer = setTimeout(() => {
         void (async () => {
-          const [targetRect, origin] = await Promise.all([registry.measure(beatTarget), measureOrigin()]);
+          const [targetRect, origin] = await Promise.all([registry.measure(target), measureOrigin()]);
           if (!cancelled && targetRect) {
             setRect(toLocal(targetRect, origin));
           }
@@ -340,10 +315,15 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
       }
       unsubscribe();
     };
-  }, [beatTarget, measureOrigin, phase, registry, toLocal]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, index, registry, measureOrigin]);
 
   const advance = useCallback(() => {
-    if (phase !== 'beat' || !beat) {
+    if (phase !== 'beat') {
+      return;
+    }
+    const beat = beats[index];
+    if (!beat) {
       return;
     }
     if (beat.kind === 'bar' && reduceMotion === false && stopIndex < beat.stops.length - 1) {
@@ -363,7 +343,7 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
         stepTo(next);
       }
     });
-  }, [beat, calloutAnim, index, phase, reduceMotion, ringAnim, stepTo, stopIndex]);
+  }, [beats, calloutAnim, index, phase, reduceMotion, ringAnim, stepTo, stopIndex]);
 
   const onRootLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -373,37 +353,36 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
     void measureOrigin();
   };
 
+  const beat = beats[index] ?? null;
   if (phase !== 'beat' || !beat || !rect || size.width === 0) {
     return <View ref={rootRef} pointerEvents="box-none" style={StyleSheet.absoluteFill} onLayout={onRootLayout} />;
   }
 
   const isBar = beat.kind === 'bar';
-  const stop = isBar ? beat.stops[stopIndex] ?? beat.stops[0] : null;
+  const stop = isBar ? beat.stops[stopIndex] ?? null : null;
   const shape = isBar ? (stop === 'ai' ? 'bar-ai' : 'bar') : 'section';
   const ring = ringBox(rect, shape);
+  const anchor = isBar ? ring : rect;
   const calloutWidth = size.width - CALLOUT_SIDE_INSET * 2;
   const placement = placeCallout({
-    target: isBar ? ring : rect,
+    target: anchor,
     calloutHeight: calloutHeight || 120,
     screenHeight: size.height,
     barTop,
     prefer: isBar ? 'above' : beat.place,
   });
-  const notchX = notchOffset(isBar ? ring : rect, CALLOUT_SIDE_INSET, calloutWidth);
+  const notchX = notchOffset(anchor, CALLOUT_SIDE_INSET, calloutWidth);
   const listAllStops = isBar && reduceMotion === true;
   const isLast = index + 1 >= beats.length && (!isBar || listAllStops || stopIndex >= beat.stops.length - 1);
 
+  // In light, the callout is the app's own dark-violet layer — the Pro sheets'
+  // and the coach's — with the ink those sheets use on it. In dark it lifts.
   const co = themeName === 'dark'
     ? { surface: theme.purpleLight, ink: theme.ink, muted: theme.muted }
-    : { surface: theme.proSheetTop, ink: '#F4F1FF', muted: '#B7ABDA' };
+    : { surface: theme.proSheetTop, ink: '#FFFFFF', muted: 'rgba(255,255,255,0.72)' };
   const accent = theme.highlight;
-  const accentInk = theme.onHighlight;
-  const title = isBar && stop ? (stop === 'ai' ? AI_MARK : t(language, STOP_TITLE_KEY[stop])) : null;
-  const body = isBar
-    ? stop
-      ? t(language, TOUR_BAR_STOP_COPY_KEY[stop] as I18nKey)
-      : ''
-    : t(language, beat.copyKey as I18nKey);
+  const title = stop ? (stop === 'ai' ? AI_MARK : t(language, STOP_TITLE_KEY[stop])) : null;
+  const body = isBar ? (stop ? t(language, TOUR_BAR_STOP_COPY_KEY[stop]) : '') : t(language, beat.copyKey);
 
   return (
     <View ref={rootRef} pointerEvents="box-none" style={StyleSheet.absoluteFill} onLayout={onRootLayout}>
@@ -416,17 +395,18 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
         ]}
       >
         <Svg width={ring.width + 16} height={ring.height + 16}>
-          {shape === 'section' ? (
-            <>
-              <Path d={cutCornerPath(ring.width, ring.height, 20)} x={8} y={8} fill="none" stroke={theme.highlightSoft} strokeWidth={7} />
-              <Path d={cutCornerPath(ring.width, ring.height, 20)} x={8} y={8} fill="none" stroke={accent} strokeWidth={2} />
-            </>
-          ) : (
-            <>
-              <Circle cx={ring.width / 2 + 8} cy={ring.height / 2 + 8} r={ring.width / 2 - 1} fill="none" stroke={theme.highlightSoft} strokeWidth={7} />
-              <Circle cx={ring.width / 2 + 8} cy={ring.height / 2 + 8} r={ring.width / 2 - 1} fill="none" stroke={accent} strokeWidth={2} />
-            </>
-          )}
+          <G transform="translate(8 8)">
+            {shape === 'section' ? (
+              <>
+                <Path d={cutCornerPath(ring.width, ring.height, 20)} fill="none" stroke={theme.highlightSoft} strokeWidth={7} />
+                <Path d={cutCornerPath(ring.width, ring.height, 20)} fill="none" stroke={accent} strokeWidth={2} />
+              </>
+            ) : (
+              // The bar's own highlight is already under this item; the ring
+              // is the line only, not a second halo.
+              <Circle cx={ring.width / 2} cy={ring.height / 2} r={ring.width / 2 - 1} fill="none" stroke={accent} strokeWidth={2} />
+            )}
+          </G>
         </Svg>
       </Animated.View>
 
@@ -455,7 +435,7 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
                 <Text key={item} style={[styles.body, { color: co.ink }]}>
                   <Text style={styles.title}>{item === 'ai' ? AI_MARK : t(language, STOP_TITLE_KEY[item])}</Text>
                   {'  '}
-                  {t(language, TOUR_BAR_STOP_COPY_KEY[item] as I18nKey)}
+                  {t(language, TOUR_BAR_STOP_COPY_KEY[item])}
                 </Text>
               ))}
             </View>
@@ -471,16 +451,7 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
             >
               <Text style={[styles.skipText, { color: co.muted }]}>{t(language, 'tour.skip')}</Text>
             </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={advance}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-              style={({ pressed }) => [pressed && styles.pressed]}
-            >
-              <CutSurface size="sm" fill={accent} style={styles.nextButton}>
-                <Text style={[styles.nextText, { color: accentInk }]}>{t(language, isLast ? 'tour.done' : 'tour.next')}</Text>
-              </CutSurface>
-            </Pressable>
+            <CutButton size="md" variant="accent" label={t(language, isLast ? 'tour.done' : 'tour.next')} onPress={advance} />
           </View>
         </CutSurface>
         <View
@@ -496,7 +467,7 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
   );
 }
 
-const makeStyles = (theme: Theme) => StyleSheet.create({
+const styles = StyleSheet.create({
   ring: {
     position: 'absolute',
   },
@@ -558,17 +529,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '700',
     textDecorationLine: 'underline',
   },
-  nextButton: {
-    height: 36,
-    minWidth: 92,
-    paddingHorizontal: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  nextText: {
-    fontSize: 12.5,
-    fontWeight: '800',
-  },
   pressed: {
     opacity: 0.8,
   },
@@ -585,8 +545,5 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   notchDown: {
     bottom: -5,
-  },
-  unused: {
-    color: theme.ink,
   },
 });

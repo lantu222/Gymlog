@@ -21,7 +21,8 @@ import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from
 import { CardioIcon } from '../components/CardioIcon';
 import { CtaShimmer } from '../components/CtaShimmer';
 import { HomeStatCardsSection } from '../components/HomeStatCardsSection';
-import { TourTargetRegistry, viewportOf } from '../features/tour/tourTargets';
+import { TourTargetRegistry } from '../features/tour/tourTargets';
+import { useTourScroller } from '../features/tour/useTourScroller';
 import { CardioIconKind } from '../lib/cardio';
 import { HomeStatCard } from '../lib/homeStatCards';
 import { VinhaIcon } from '../components/VinhaIcon';
@@ -456,19 +457,7 @@ export function HomeScreen({
   const [plateauSheetVisible, setPlateauSheetVisible] = useState(false);
   const insets = useSafeAreaInsets();
   // The tour's scroller: where the list is, and how to move it.
-  const tourScrollRef = useRef<ScrollView>(null);
-  const tourScrollOffset = useRef(0);
-  useEffect(() => {
-    if (!tourTargets) {
-      return;
-    }
-    tourTargets.registerScroller('home', {
-      viewport: viewportOf(tourScrollRef),
-      getOffset: () => tourScrollOffset.current,
-      scrollToOffset: (offset, animated) => tourScrollRef.current?.scrollTo({ y: offset, animated }),
-    });
-    return () => tourTargets.registerScroller('home', null);
-  }, [tourTargets]);
+  const tourScroller = useTourScroller('home', tourTargets);
   const [todaySheetVisible, setTodaySheetVisible] = useState(false);
   /**
    * The sign-in dialog, open while the offer is due. Scrim and back close it
@@ -925,15 +914,12 @@ export function HomeScreen({
   return (
     <View style={styles.screenBackground}>
       <ScrollView
-        ref={tourScrollRef}
+        ref={tourScroller.ref}
         style={styles.scrollView}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        onScroll={(event) => {
-          tourScrollOffset.current = event.nativeEvent.contentOffset.y;
-          tourTargets?.notifyScroll();
-        }}
-        scrollEventThrottle={32}
+        onScroll={tourScroller.onScroll}
+        scrollEventThrottle={tourScroller.scrollEventThrottle}
       >
         {/*
           1C: mark, rule, greeting, week — plus the PRO pill, which is back.

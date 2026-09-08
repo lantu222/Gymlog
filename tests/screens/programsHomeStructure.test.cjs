@@ -46,7 +46,7 @@ module.exports = [
   {
     name: 'programs tab is labelled Programs with a layers icon (internal key unchanged)',
     run() {
-      assert.match(bottomTabBarSource, /\{ key: 'workout', labelKey: 'tabs\.programs' \}/);
+      assert.match(bottomTabBarSource, /\{ key: 'workout', labelKey: 'tabs\.programs', stop: 'programs' \}/);
       assert.doesNotMatch(bottomTabBarSource, /label: 'Exercises'/);
       // Layers glyph replaces the dumbbell rects for the workout tab.
       assert.match(bottomTabBarSource, /Programs = a stacked-layers glyph/);

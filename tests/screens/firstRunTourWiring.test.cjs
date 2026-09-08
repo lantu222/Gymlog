@@ -8,7 +8,8 @@ const path = require('node:path');
  * so a comment cannot satisfy its own guard (feedback-guards-that-pass-themselves).
  */
 const ROOT = path.join(__dirname, '..', '..');
-const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
+// Working copies are CRLF on Windows (core.autocrlf); the markers below are LF.
+const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8').replace(/\r\n/g, '\n');
 const stripComments = (source) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
 const tourSource = read('src/components/FirstRunTour.tsx');
@@ -24,7 +25,7 @@ const databaseSource = read('src/storage/database.ts');
 /** The JSX the layer returns while a beat is showing. */
 function tourRender() {
   const start = tourSource.indexOf('  return (\n    <View ref={rootRef}');
-  const end = tourSource.indexOf('const makeStyles', start);
+  const end = tourSource.indexOf('const styles = StyleSheet.create', start);
   assert.ok(start > 0 && end > start, 'tour render block not found');
   return stripComments(tourSource.slice(start, end));
 }
@@ -58,7 +59,12 @@ module.exports = [
     run() {
       const body = stripComments(tourSource);
       assert.match(body, /const accent = theme\.highlight;/);
-      assert.match(body, /const accentInk = theme\.onHighlight;/);
+      // The button is the shared cut button in its accent variant, which
+      // pairs theme.highlight with theme.onHighlight in one place.
+      assert.match(tourRender(), /<CutButton size="md" variant="accent"/);
+      const cutButton = stripComments(read('src/components/CutButton.tsx'));
+      assert.match(cutButton, /variant === 'accent'\s*\?\s*theme\.highlight/);
+      assert.match(cutButton, /variant === 'accent'\s*\?\s*theme\.onHighlight/);
       // The light callout is the app's own dark-violet layer; dark lifts.
       assert.match(body, /theme\.proSheetTop/);
       assert.match(body, /theme\.purpleLight/);
@@ -69,15 +75,15 @@ module.exports = [
     name: 'first-run tour: the bar sweep runs on the bar\'s own highlight and hands it back when done',
     run() {
       const bar = stripComments(barSource);
-      assert.match(bar, /const activeKey = sweep \? SWEEP_TAB\[sweep\] : routeKey;/);
+      assert.match(bar, /const activeKey = sweep \? sideTabs\.find\(\(tab\) => tab\.stop === sweep\)\?\.key \?\? null : routeKey;/);
       assert.match(bar, /const aiLit = aiActive \|\| sweep === 'ai';/);
       for (const id of ['bar.pill', 'bar.ai']) {
         assert.match(bar, new RegExp(`tourTargets\\?\\.register\\('${id.replace('.', '\\.')}', node\\)`), id);
       }
-      assert.match(bar, /onRef=\{\(node\) => tourTargets\?\.register\(TAB_TARGET\[tab\.key\], node\)\}/);
+      assert.match(bar, /onRef=\{\(node\) => tourTargets\?\.register\(`bar\.\$\{tab\.stop\}`, node\)\}/);
       // The layer tells the bar to let go on every exit.
       const layer = stripComments(tourSource);
-      assert.match(layer, /onSweepRef\.current\(null\);\s*setPhase\('done'\)/);
+      assert.match(layer, /onSweep\(null\);\s*setPhase\('done'\)/);
     },
   },
   {
@@ -89,8 +95,8 @@ module.exports = [
       }
       // Without a plan the start row is the hero; with one, the session box is.
       assert.match(home, /ref=\{heroStartsSession \? undefined : \(node\) => tourTargets\?\.register\('home\.hero', node\)\}/);
-      assert.match(home, /registerScroller\('home', \{/);
-      assert.match(home, /tourTargets\?\.notifyScroll\(\)/);
+      assert.match(home, /useTourScroller\('home', tourTargets\)/);
+      assert.match(home, /onScroll=\{tourScroller\.onScroll\}/);
     },
   },
   {
@@ -99,11 +105,17 @@ module.exports = [
       const progress = stripComments(progressSource);
       assert.match(progress, /register\('progress\.chart', node\)/);
       assert.match(progress, /register\('progress\.calendar', node\)/);
-      assert.match(progress, /registerScroller\('progress', \{/);
+      assert.match(progress, /useTourScroller\('progress', tourTargets\)/);
+      assert.match(progress, /onScroll=\{tourScroller\.onScroll\}/);
       const profile = stripComments(profileSource);
       assert.match(profile, /register\('profile\.milestone', node\)/);
       assert.match(profile, /register\('profile\.settings', node\)/);
-      assert.match(profile, /registerScroller\('profile', \{/);
+      assert.match(profile, /useTourScroller\('profile', tourTargets\)/);
+      assert.match(profile, /onScroll=\{tourScroller\.onScroll\}/);
+      // The one hook is where the scroller is registered and the offset kept.
+      const hook = stripComments(read('src/features/tour/useTourScroller.ts'));
+      assert.match(hook, /tourTargets\.registerScroller\(surface, \{/);
+      assert.match(hook, /offsetRef\.current = event\.nativeEvent\.contentOffset\.y;\s*tourTargets\?\.notifyScroll\(\);/);
     },
   },
   {
@@ -118,12 +130,15 @@ module.exports = [
       assert.match(trigger, /!onboardingActive/);
       assert.match(trigger, /!setupHandoffActive/);
       assert.match(trigger, /isTourDue\(preferences\.firstRunToursSeen, tourSurface\)/);
-      // The three Home cards wait for the tour.
-      const homeJsx = app.slice(app.indexOf('<HomeScreen'), app.indexOf('</HomeScreen') > 0 ? app.indexOf('</HomeScreen') : app.indexOf('<NewProgramSheet'));
+      // The three Home cards wait for the tour: the two queued ones through
+      // the queue itself (lib/homePrompts), the widget card at its own gate.
+      const queue = app.slice(app.indexOf('const homePrompt = resolveHomePrompt('), app.indexOf('});', app.indexOf('const homePrompt = resolveHomePrompt(')));
+      assert.match(queue, /tourActive: homeTourActive/);
+      const homeJsx = app.slice(app.indexOf('<HomeScreen'), app.indexOf('<NewProgramSheet'));
       assert.match(homeJsx, /!homeTourActive && homeWidgetState\?\.supported/);
-      assert.match(homeJsx, /homePrompt === 'signIn' && !homeTourActive/);
-      assert.match(homeJsx, /homePrompt === 'suggestion' && !homeTourActive/);
       assert.match(homeJsx, /tourTargets=\{tourRegistry\}/);
+      const prompts = stripComments(read('src/lib/homePrompts.ts'));
+      assert.match(prompts, /if \(input\.tourActive\) \{\s*return null;\s*\}/);
     },
   },
   {

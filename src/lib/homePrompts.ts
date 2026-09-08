@@ -31,11 +31,19 @@ export interface HomePromptInput {
   loggedSessionCount: number;
   /** The suggester's top pick, or null when it has nothing to offer. */
   suggestionKey: string | null;
+  /**
+   * The first-run tour is on this screen. It is a third asker, and it goes
+   * first: both cards wait until the surface is marked seen.
+   */
+  tourActive?: boolean;
 }
 
 export type HomePrompt = 'signIn' | 'suggestion' | null;
 
 export function resolveHomePrompt(input: HomePromptInput): HomePrompt {
+  if (input.tourActive) {
+    return null;
+  }
   const signInDue =
     input.signInAvailable &&
     !input.signInDismissed &&

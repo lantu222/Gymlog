@@ -13,7 +13,7 @@ import {
 import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 import { TourTargetRegistry } from '../features/tour/tourTargets';
-import { TourBarStop, TourTargetId } from '../lib/firstRunTour';
+import { TourBarStop } from '../lib/firstRunTour';
 import { RootTabKey } from '../navigation/routes';
 import { I18nKey, t } from '../lib/i18n';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
@@ -56,28 +56,15 @@ interface BottomTabBarProps {
   tourTargets?: TourTargetRegistry;
 }
 
-const SWEEP_TAB: Record<TourBarStop, RootTabKey | null> = {
-  home: 'home',
-  programs: 'workout',
-  ai: null,
-  progress: 'progress',
-  profile: 'profile',
-};
-
-const TAB_TARGET: Record<RootTabKey, TourTargetId> = {
-  home: 'bar.home',
-  workout: 'bar.programs',
-  progress: 'bar.progress',
-  profile: 'bar.profile',
-};
-
-const sideTabs: { key: RootTabKey; labelKey: I18nKey }[] = [
-  { key: 'home', labelKey: 'tabs.home' },
+// `stop` is the item's name in the first-run tour's sweep and its target id
+// (`bar.<stop>`); the tab key and the stop differ only for Programs.
+const sideTabs: { key: RootTabKey; labelKey: I18nKey; stop: TourBarStop }[] = [
+  { key: 'home', labelKey: 'tabs.home', stop: 'home' },
   // Internal key stays 'workout' (routes/analytics unchanged); only the
   // user-facing label and icon move to Programs.
-  { key: 'workout', labelKey: 'tabs.programs' },
-  { key: 'progress', labelKey: 'tabs.progress' },
-  { key: 'profile', labelKey: 'tabs.profile' },
+  { key: 'workout', labelKey: 'tabs.programs', stop: 'programs' },
+  { key: 'progress', labelKey: 'tabs.progress', stop: 'progress' },
+  { key: 'profile', labelKey: 'tabs.profile', stop: 'profile' },
 ];
 
 function TabIcon({ tab, active }: { tab: RootTabKey; active: boolean }) {
@@ -156,7 +143,7 @@ function SideTab({
   onMeasure,
   onRef,
 }: {
-  tab: { key: RootTabKey; labelKey: I18nKey };
+  tab: { key: RootTabKey; labelKey: I18nKey; stop: TourBarStop };
   active: boolean;
   label: string;
   onPress: () => void;
@@ -222,7 +209,7 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
   const routeKey = !aiActive && activeTab !== null && sideTabs.some((tab) => tab.key === activeTab) ? activeTab : null;
   // During the tour's sweep the highlight belongs to the sweep, not the route;
   // on the AI stop it steps aside and the orb's own glow takes the turn.
-  const activeKey = sweep ? SWEEP_TAB[sweep] : routeKey;
+  const activeKey = sweep ? sideTabs.find((tab) => tab.stop === sweep)?.key ?? null : routeKey;
   const aiLit = aiActive || sweep === 'ai';
   const indicatorX = useRef(new Animated.Value(0)).current;
   const indicatorOpacity = useRef(new Animated.Value(0)).current;
@@ -357,7 +344,7 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
               active={activeKey === tab.key}
               onPress={() => onTabPress(tab.key)}
               onMeasure={handleMeasure}
-              onRef={(node) => tourTargets?.register(TAB_TARGET[tab.key], node)}
+              onRef={(node) => tourTargets?.register(`bar.${tab.stop}`, node)}
             />
           ))}
 
@@ -393,7 +380,7 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
               active={activeKey === tab.key}
               onPress={() => onTabPress(tab.key)}
               onMeasure={handleMeasure}
-              onRef={(node) => tourTargets?.register(TAB_TARGET[tab.key], node)}
+              onRef={(node) => tourTargets?.register(`bar.${tab.stop}`, node)}
             />
           ))}
         </View>

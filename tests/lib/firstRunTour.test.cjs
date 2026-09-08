@@ -154,7 +154,6 @@ module.exports = [
       assert.deepEqual(tour.markTourSeen(seen, 'home'), ['home']);
       assert.equal(tour.isTourDue(seen, 'home'), false);
       assert.equal(tour.isTourDue(seen, 'progress'), true);
-      assert.deepEqual(tour.resetToursSeen(), []);
     },
   },
   {
