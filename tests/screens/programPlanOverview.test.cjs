@@ -627,4 +627,51 @@ module.exports = [
       assert.doesNotMatch(programDetailSource, /detail\.week\.cycleStatus/);
     },
   },
+  {
+    /**
+     * What you can press is the action accent, not the brand violet.
+     *
+     * The dark theme collapses the two accent families on purpose — "anything
+     * pressable is orange, violet carries brand and structure" (darkTheme.ts,
+     * user decision 2026-08-01) — and every other screen adopted it. This one
+     * painted sixteen things with `theme.purple`, including its primary
+     * button, so the whole page stayed violet under a dark theme whose own tab
+     * bar was orange.
+     */
+    name: 'the programme page paints what you can press with the action accent',
+    run() {
+      // The primary action, and the ink that goes on it: white on the dark
+      // theme's orange is about 2:1, which is why onHighlight exists.
+      assert.match(
+        programDetailSource,
+        /adoptButton: \{[\s\S]{0,240}backgroundColor: theme\.highlight,\s*\r?\n\s*shadowColor: theme\.highlight,/,
+      );
+      assert.match(programDetailSource, /adoptButtonText: \{\s*\r?\n\s*color: theme\.onHighlight,/);
+
+      // The week's training days are the other filled surface on the page.
+      assert.match(
+        programDetailSource,
+        /rhythmDayOn: \{\s*\r?\n\s*backgroundColor: theme\.highlight,\s*\r?\n\s*borderColor: theme\.highlight,/,
+      );
+      assert.match(programDetailSource, /rhythmDayLabelOn: \{\s*\r?\n\s*color: theme\.onHighlight,/);
+
+      // Text actions travel with it.
+      for (const style of ['sectionAction', 'emphasisEdit', 'rhythmHint', 'workoutActionText']) {
+        assert.match(
+          programDetailSource,
+          new RegExp(`${style}: \\{[\\s\\S]{0,60}color: theme\\.highlight,`),
+          `${style} is not on the action accent`,
+        );
+      }
+
+      // Violet is left with the two things that are not actions: the numbered
+      // marker in the progression rules, and the star on the "why it fits"
+      // card. If either of those grows, decide which family it belongs to.
+      assert.equal(
+        (programDetailSource.match(/theme\.purple\b/g) ?? []).length,
+        2,
+        'a new violet appeared on this page — is it brand, or is it pressable?',
+      );
+    },
+  },
 ];
