@@ -359,6 +359,11 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             ? getReadyProgramContent(readyTemplate.id, preferences.appLanguage)?.audience ?? null
             : null
         }
+        whyItWorks={
+          readyTemplate
+            ? getReadyProgramContent(readyTemplate.id, preferences.appLanguage)?.whyItWorks ?? null
+            : null
+        }
         equipment={
           readyTemplate
             ? resolveProgramEquipment(
