@@ -64,6 +64,11 @@ export const EASE_SETTLE = Easing.bezier(0.16, 0.9, 0.2, 1);
  * one curve accelerates out and the other decelerates in.
  */
 export const EASE_LEAVE = Easing.bezier(0.5, 0, 0.75, 1);
+/**
+ * Home's entrance stagger and everything that rides on it: the sections'
+ * 16 px rise, and the first-run tour's callout, which lands on that page.
+ */
+export const EASE_RISE = Easing.bezier(0.22, 1, 0.36, 1);
 
 export interface MotionBar {
   y: number;

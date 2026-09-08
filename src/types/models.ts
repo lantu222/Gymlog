@@ -1,3 +1,4 @@
+import type { TourSurface } from '../lib/firstRunTour';
 import { CancelSurveyAnswer } from '../lib/cancelSurvey';
 import { CoachSuggestionState } from '../lib/coachSuggestions';
 import { OwnBlockStats } from '../lib/ownBlockHistory';
@@ -506,6 +507,12 @@ export interface AppPreferences {
    * already been asked.
    */
   setupHandoffCompleted: boolean;
+  /**
+   * Which surfaces have run their first-run tour. Home, Progress and Profile
+   * each get exactly one first time; Settings can hand them all back.
+   * See lib/firstRunTour.ts.
+   */
+  firstRunToursSeen: TourSurface[];
   entryFlowCompleted: boolean;
   trainingFirstRunDismissed: boolean;
   selectedSignInMethod: SignInMethod | null;

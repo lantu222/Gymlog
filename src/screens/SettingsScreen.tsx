@@ -29,6 +29,8 @@ interface SettingsScreenProps {
   homeWidget?: { added: boolean; onAdd: () => void } | null;
   onOpenNotifications: () => void;
   onOpenTrainingBreak: () => void;
+  /** Hands Home, Progress and Profile their first-run tour back, and goes Home. */
+  onReplayTour: () => void;
   onOpenPromo: () => void;
   onOpenSubscription: () => void;
   /**
@@ -230,6 +232,7 @@ export function SettingsScreen({
   homeWidget = null,
   onOpenNotifications,
   onOpenTrainingBreak,
+  onReplayTour,
   onOpenPromo,
   onOpenSubscription,
   onOpenPremium,
@@ -357,6 +360,15 @@ export function SettingsScreen({
                   onChange={(next) => onPreferencesChange({ keepScreenAwakeDuringWorkout: next })}
                 />
               }
+            />
+            {/* The way back to the first-run tour. Saying it exists is what
+                makes skipping the tour safe (design brief, the bar's pass). */}
+            <Row
+              icon="spark"
+              title={t(language, 'settings.replayTour')}
+              sub={t(language, 'settings.replayTour.sub')}
+              chevron
+              onPress={onReplayTour}
             />
             <Row
               icon="chat"

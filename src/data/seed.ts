@@ -1,3 +1,4 @@
+import type { TourSurface } from '../lib/firstRunTour';
 import {
   AppDatabase,
   AppLanguage,
@@ -67,6 +68,7 @@ const DEFAULT_PREFERENCES = {
   primaryGoalId: null,
   coachSuggestionState: {},
   setupHandoffCompleted: false,
+  firstRunToursSeen: [] as TourSurface[],
   entryFlowCompleted: false,
   trainingFirstRunDismissed: false,
   selectedSignInMethod: null,

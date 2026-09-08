@@ -7,6 +7,7 @@ import { normalizeCancelSurveyAnswer } from '../lib/cancelSurvey';
 import { isMeasurementKind } from '../lib/measurementKinds';
 import { normalizeMeasurementReminder } from '../lib/measurementReminder';
 import { normalizeOwnBlockStats } from '../lib/ownBlockHistory';
+import { normalizeFirstRunToursSeen } from '../lib/firstRunTour';
 import type { NotificationPrefs } from '../types/models';
 import { normalizeDefaultRestSeconds } from '../lib/restPreference';
 import { normalizePurchaseRecord } from '../lib/purchaseRecord';
@@ -763,6 +764,9 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
         typeof input?.preferences?.accountBackupPromptDismissed === 'boolean'
           ? input.preferences.accountBackupPromptDismissed
           : fallback.preferences.accountBackupPromptDismissed,
+      // The rule lives in lib (which surfaces exist, no duplicates); the
+      // loader only hands over whatever was stored.
+      firstRunToursSeen: normalizeFirstRunToursSeen(input?.preferences?.firstRunToursSeen),
       aiOnlineNoticeAcknowledged:
         typeof input?.preferences?.aiOnlineNoticeAcknowledged === 'boolean'
           ? input.preferences.aiOnlineNoticeAcknowledged

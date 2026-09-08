@@ -125,6 +125,8 @@ const suites = [
   ...require('./storage/measurementKinds.test.cjs'),
   ...require('./lib/measurementReminder.test.cjs'),
   ...require('./lib/homePrompts.test.cjs'),
+  ...require('./lib/firstRunTour.test.cjs'),
+  ...require('./screens/firstRunTourWiring.test.cjs'),
   ...require('./lib/homeCardSuggestions.test.cjs'),
   ...require('./lib/ratingPrompt.test.cjs'),
   ...require('./lib/blurredPreviewText.test.cjs'),

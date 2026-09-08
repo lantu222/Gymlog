@@ -48,4 +48,20 @@ module.exports = [
       );
     },
   },
+  {
+    name: 'home: the first-run tour goes first, and both cards wait behind it',
+    run() {
+      const due = {
+        signInAvailable: true,
+        signInDismissed: false,
+        loggedSessionCount: SIGN_IN_AFTER_SESSIONS,
+        suggestionKey: 'calves',
+      };
+      // With the tour on screen neither the sign-in nor the suggestion shows,
+      // however due they are; the same input is 'signIn' once the tour is done.
+      assert.equal(resolveHomePrompt({ ...due, tourActive: true }), null);
+      assert.equal(resolveHomePrompt({ ...due, tourActive: false }), 'signIn');
+      assert.equal(resolveHomePrompt(due), 'signIn');
+    },
+  },
 ];

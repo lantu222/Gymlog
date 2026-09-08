@@ -4,6 +4,8 @@ import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg'
 
 import { AnimatedGreeting } from '../components/AnimatedGreeting';
 import { CutSurface } from '../components/CutSurface';
+import { TourTargetRegistry } from '../features/tour/tourTargets';
+import { useTourScroller } from '../features/tour/useTourScroller';
 import { CARD_SHADOW, SectionLabel, makeSettingsStyles } from '../components/SettingsUi';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
@@ -28,6 +30,8 @@ interface ProfileScreenProps {
   exerciseLibrary: ExerciseLibraryItem[];
   unitPreference: UnitPreference;
   onOpenSettings: () => void;
+  /** The first-run tour's two targets here: the milestone card and the settings door. */
+  tourTargets?: TourTargetRegistry;
   /** Opens the Records tab on Progress, where the full list lives. */
   onOpenRecords: () => void;
   /** Lifts holding a record — the count the Records tab itself shows. */
@@ -167,6 +171,7 @@ export function ProfileScreen({
   exerciseLibrary,
   unitPreference,
   onOpenSettings,
+  tourTargets,
   onOpenRecords,
   recordCount,
   milestoneLedger,
@@ -205,6 +210,8 @@ export function ProfileScreen({
     },
     { key: 'prs', value: `${recordCount}`, label: t(language, recordCount === 1 ? 'profile.stat.pr' : 'profile.stat.prs') },
   ];
+
+  const tourScroller = useTourScroller('profile', tourTargets);
 
   const milestoneRows = useMemo(
     () => milestoneCardRows({ ledger: milestoneLedger, lifetime, unitPreference, language }),
@@ -253,6 +260,7 @@ export function ProfileScreen({
       <View style={styles.topBar}>
         <Text style={styles.topTitle}>{t(language, 'profile.title')}</Text>
         <Pressable
+          ref={(node) => tourTargets?.register('profile.settings', node)}
           accessibilityRole="button"
           accessibilityLabel={t(language, 'profile.a11y.settings')}
           onPress={onOpenSettings}
@@ -270,7 +278,13 @@ export function ProfileScreen({
         </Pressable>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
+      <ScrollView
+        ref={tourScroller.ref}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.body}
+        onScroll={tourScroller.onScroll}
+        scrollEventThrottle={tourScroller.scrollEventThrottle}
+      >
         {/* IDENTITY */}
         <View style={styles.identityRow}>
           <Avatar initials={getInitials(identityName)} />
@@ -366,7 +380,7 @@ export function ProfileScreen({
             (user 2026-09-02): programme management lives on the Programs tab,
             and the Profile is for what the reader has done. The rows are
             distances, never promises. */}
-        <View style={settingsStyles.section}>
+        <View ref={(node) => tourTargets?.register('profile.milestone', node)} style={settingsStyles.section}>
           <SectionLabel label={t(language, 'profile.section.nextMilestone')} />
           {/* The footer is the door to the milestones page: every reached
               rung with its day, and every family's next one. Only the footer

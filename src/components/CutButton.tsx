@@ -23,7 +23,9 @@ export type CutButtonVariant =
   | 'ghost'
   | 'disabled'
   | 'done'
-  | 'warn';
+  | 'warn'
+  /** The theme's pressable accent: violet in light, orange in dark. */
+  | 'accent';
 
 /** Sheen geometry per size: how far in it starts, and how wide it is. */
 const SHEEN: Record<CutSize, { left: number; width: number }> = {
@@ -69,6 +71,8 @@ export function CutButton({
   const fill =
     variant === 'primary'
       ? theme.purpleBright
+      : variant === 'accent'
+        ? theme.highlight
       : variant === 'done'
         ? theme.green
         : variant === 'warn'
@@ -80,7 +84,9 @@ export function CutButton({
               : 'transparent';
 
   const textColor =
-    variant === 'primary' || variant === 'done'
+    variant === 'accent'
+      ? theme.onHighlight
+      : variant === 'primary' || variant === 'done'
       ? // White on the app violet and on both greens. Not a token: it is what
         // goes on THIS fill, and the fill is the same weight in both themes.
         '#FFFFFF'

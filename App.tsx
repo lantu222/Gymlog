@@ -53,6 +53,16 @@ import { parseWidgetDeepLink } from './src/lib/widgetDeepLink';
 import { routeForNotification } from './src/lib/notificationRoute';
 import { planSetupHandoff } from './src/lib/setupHandoff';
 import { SetupHandoffChoices, SetupHandoffScreen } from './src/screens/SetupHandoffScreen';
+import { FirstRunTour } from './src/components/FirstRunTour';
+import { createTourTargetRegistry } from './src/features/tour/tourTargets';
+import {
+  isTourDue,
+  markTourSeen,
+  resolveTourBeats,
+  resolveTourSurface,
+  TourBarStop,
+  TourSurface,
+} from './src/lib/firstRunTour';
 import { useAccountBackup } from './src/features/account/useAccountBackup';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
@@ -422,6 +432,10 @@ function VinhaApp() {
   // handed over. It is skipped entirely until the app is ready, so it never
   // becomes the thing hiding a slow start.
   const [brandSplashDone, setBrandSplashDone] = useState(false);
+  // The first-run tour's wiring: where its targets are, and which bar item
+  // its sweep is resting on. The registry is one object for the app's life.
+  const tourRegistry = useRef(createTourTargetRegistry()).current;
+  const [tourSweep, setTourSweep] = useState<TourBarStop | null>(null);
   const [fontsLoaded, setFontsLoaded] = useState(false);
 
   // Keep the cue utilities in sync with the user's preferences, so every call
@@ -3576,12 +3590,6 @@ function VinhaApp() {
     pinnedKeys: homePinnedStatCardKeys,
     dismissedKeys: preferences.dismissedCardSuggestionKeys,
   });
-  const homePrompt = resolveHomePrompt({
-    signInAvailable: accountBackup.available && accountBackup.state.status === 'signed_out',
-    signInDismissed: preferences.accountBackupPromptDismissed,
-    loggedSessionCount: database.workoutSessions.length + database.cardioSessions.length,
-    suggestionKey: homeSuggestedStatCardKeys[0] ?? null,
-  });
   // Same equipment truth the composer filters exercises with, for the default
   // warmup/cooldown drills: null = setup never said, [] = no equipment at all.
   // Week-strip training dots from the days the user actually picked
@@ -3873,6 +3881,61 @@ function VinhaApp() {
     [accountBackup.available, accountBackup.state.status, homePinnedStatCardKeys, homeWidgetState, preferences.setupFocusAreas, setupHandoffReady],
   );
   const setupHandoffActive = setupHandoffPlan?.shouldShow ?? false;
+
+  /**
+   * The first-run tour: once per surface, only on a tab's root, only after
+   * onboarding and its hand-off have finished. It goes in front of Home's
+   * one-card prompt queue — the widget offer and the card suggestion wait
+   * until the surface is marked seen. See lib/firstRunTour.ts.
+   */
+  const tourSurface = resolveTourSurface(route);
+  const tourActive =
+    brandSplashDone &&
+    !onboardingActive &&
+    !setupHandoffActive &&
+    tourSurface !== null &&
+    isTourDue(preferences.firstRunToursSeen, tourSurface);
+  const homeTourActive = tourActive && tourSurface === 'home';
+  // The queue decides with the tour in it, so it is computed here, after
+  // the tour, rather than up with the suggester.
+  const homePrompt = resolveHomePrompt({
+    signInAvailable: accountBackup.available && accountBackup.state.status === 'signed_out',
+    signInDismissed: preferences.accountBackupPromptDismissed,
+    loggedSessionCount: database.workoutSessions.length + database.cardioSessions.length,
+    suggestionKey: homeSuggestedStatCardKeys[0] ?? null,
+    tourActive: homeTourActive,
+  });
+  const tourHasProgram = Boolean(homeActivePlanCard && homeActivePlanCard.sessions.length > 0);
+  const tourBeats = useMemo(
+    () => (tourSurface ? resolveTourBeats(tourSurface, { hasProgram: tourHasProgram }) : []),
+    [tourHasProgram, tourSurface],
+  );
+  const firstRunToursSeenRef = useRef(preferences.firstRunToursSeen);
+  firstRunToursSeenRef.current = preferences.firstRunToursSeen;
+  // Stable: the layer calls this from its unmount, and a fresh closure per
+  // render would be a fresh reason to fire it.
+  const handleTourFinish = useCallback(
+    (surface: TourSurface) => {
+      const seen = firstRunToursSeenRef.current;
+      if (!isTourDue(seen, surface)) {
+        return;
+      }
+      void updatePreferences({ firstRunToursSeen: markTourSeen(seen, surface) });
+    },
+    [updatePreferences],
+  );
+  const tourElement =
+    tourActive && tourSurface ? (
+      <FirstRunTour
+        key={tourSurface}
+        surface={tourSurface}
+        beats={tourBeats}
+        registry={tourRegistry}
+        language={preferences.appLanguage}
+        onSweep={setTourSweep}
+        onFinish={handleTourFinish}
+      />
+    ) : null;
 
   // Nothing left to offer — a reader running onboarding a second time. Close the
   // door rather than leave it to open on some later launch.
@@ -5784,6 +5847,7 @@ function VinhaApp() {
       route,
       navigate,
       resetToRoute,
+      tourTargets: tourRegistry,
       preferences,
       updatePreferences,
       personalRecords,
@@ -5814,6 +5878,7 @@ function VinhaApp() {
     // sees it. Branch order inside the module mirrors the old chain exactly.
     content = renderProfileTab({
       route,
+      tourTargets: tourRegistry,
       readyProgramCount: workout.templates.length,
       proUnlocked: proEntitlement.unlocked,
       navigate,
@@ -5867,6 +5932,7 @@ function VinhaApp() {
     content = (
       <HomeScreen
         language={preferences.appLanguage}
+        tourTargets={tourRegistry}
         onOpenSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
         activePlan={homeActivePlanCard}
         onCompletionStartNext={(planId, templateId) => void handleCompletionStartNext(planId, templateId)}
@@ -5897,7 +5963,7 @@ function VinhaApp() {
           })
         }
         widgetPrompt={
-          homeWidgetState?.supported && !homeWidgetState.added && !preferences.homeWidgetPromptDismissed
+          !homeTourActive && homeWidgetState?.supported && !homeWidgetState.added && !preferences.homeWidgetPromptDismissed
             ? {
                 onAdd: () => void handleAddHomeWidget(),
                 onDismiss: () => void updatePreferences({ homeWidgetPromptDismissed: true }),
@@ -6215,9 +6281,12 @@ function VinhaApp() {
             // everyone, always. It used to open a paywall-shaped sheet — the
             // app's most valuable placement spent on an advert.
             onAiPress={() => navigate({ tab: 'home', screen: 'ai_chat' })}
+            sweep={tourSweep}
+            tourTargets={tourRegistry}
           />
         ) : undefined
       }
+      overlay={tourElement}
     >
       {content}
       <NewProgramSheet

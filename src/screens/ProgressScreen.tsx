@@ -3,6 +3,9 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import Svg, { Circle, Path, Polyline, Rect } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { TourTargetRegistry } from '../features/tour/tourTargets';
+import { useTourScroller } from '../features/tour/useTourScroller';
+
 import { VinhaIcon } from '../components/VinhaIcon';
 import { EmptyBox } from '../components/EmptyBox';
 import { KitRow, KitSheet } from '../components/sheetKit';
@@ -121,6 +124,8 @@ interface ProgressScreenProps {
    * widget mark their calendars from, so all three agree on which day trains.
    */
   trainingSchedule?: TrainingSchedule;
+  /** The first-run tour's two targets here: the trend card and the calendar. */
+  tourTargets?: TourTargetRegistry;
   activityCalendar: {
     monthLabel: string;
     weekdayLabels: string[];
@@ -675,6 +680,7 @@ export function ProgressScreen({
   measurementEntries,
   workoutSessions,
   activityCalendar,
+  tourTargets,
   trainingSchedule,
   rhythm,
   weeklyTargetSessions = null,
@@ -797,7 +803,10 @@ export function ProgressScreen({
    */
   const rulerWeightKg = bodyweightStats.currentKg ?? 75;
   const rulerHeightCm = heightCm ?? 175;
-  const scrollRef = useRef<ScrollView>(null);
+  // One ref for the list: the widget's calendar jump and the tour's scroll
+  // both drive it through here.
+  const tourScroller = useTourScroller('progress', tourTargets);
+  const scrollRef = tourScroller.ref;
 
   const trainingStreak = useMemo(() => weeklyTrainingStreak(workoutSessions), [workoutSessions]);
 
@@ -1297,7 +1306,7 @@ export function ProgressScreen({
             from 0 to 0. Gone: the headline number belongs to the chart, and
             the chart is what the tab is for (Progress v2, piece 01). */}
         <SectionLabel label={t(language, 'progress.section.trend')} />
-        <View style={styles.card}>
+        <View ref={(node) => tourTargets?.register('progress.chart', node)} style={styles.card}>
           <View style={styles.trendMetricRow}>
             <Seg
               options={OVERVIEW_METRICS.map((option) => ({
@@ -1413,7 +1422,7 @@ export function ProgressScreen({
             right={calendarMonthLabel}
           />
         </View>
-        <View style={styles.card}>
+        <View ref={(node) => tourTargets?.register('progress.calendar', node)} style={styles.card}>
           {/* The streak the calendar is really about, above the grid it is
               counted from. The current week never breaks it — see
               weeklyTrainingStreak. */}
@@ -2052,6 +2061,8 @@ export function ProgressScreen({
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}
+        onScroll={tourScroller.onScroll}
+        scrollEventThrottle={tourScroller.scrollEventThrottle}
       >
         {progressSection === 'overview' ? renderOverview() : null}
         {progressSection === 'records' ? renderRecords() : null}
