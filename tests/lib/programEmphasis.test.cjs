@@ -4,7 +4,9 @@ const { resolveProgramEmphasis } = require('../../.test-dist/lib/programEmphasis
 const {
   programCoverIndex,
   PROGRAM_COVER_STYLES,
+  EMPHASIS_RAMP,
 } = require('../../.test-dist/lib/programVisualIdentity.js');
+const { EMPHASIS_AREA_KEYS } = require('../../.test-dist/lib/programEmphasis.js');
 const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog.js');
 
 function toEmphasisSessions(template) {
@@ -123,6 +125,40 @@ module.exports = [
       // bug this replaces, reintroduced through the back door.
       const used = new Set(WORKOUT_TEMPLATES_V1.map((template) => programCoverIndex(template.id)));
       assert.ok(used.size >= 4, `only ${used.size} of ${PROGRAM_COVER_STYLES.length} styles in use`);
+    },
+  },
+  {
+    /**
+     * Every area of the week is told apart by hue, not by tint.
+     *
+     * The ramp was four shades of one violet plus two outliers, and at
+     * legend-dot size the difference between two tints of the same hue is a
+     * guess — so matching a slice to its label was guesswork on the three
+     * biggest slices of most programmes.
+     */
+    name: 'the emphasis bar gives every area its own colour, and none of them the action accent',
+    run() {
+      const areas = Object.keys(EMPHASIS_AREA_KEYS);
+      const colours = areas.map((area) => EMPHASIS_RAMP[area]);
+
+      for (const [index, colour] of colours.entries()) {
+        assert.ok(colour, `${areas[index]} has no colour in the ramp`);
+        assert.match(colour, /^#[0-9A-F]{6}$/, `${areas[index]}: ${colour} is not a plain hex`);
+      }
+      assert.equal(
+        new Set(colours).size,
+        areas.length,
+        `two areas share a colour: ${areas.map((area, index) => `${area} ${colours[index]}`).join(', ')}`,
+      );
+
+      // Orange means "you can press this" on the screen this bar lives on
+      // (darkTheme.ts, user decision 2026-08-01). A slice of a chart cannot be
+      // pressed, so the action accent stays out of the ramp.
+      assert.ok(!colours.includes('#FF8A4C'), 'the action accent is in the emphasis ramp');
+
+      // And the ramp answers for exactly the areas that exist: a colour with
+      // no area is dead, an area with no colour renders a transparent slice.
+      assert.deepEqual(Object.keys(EMPHASIS_RAMP).slice().sort(), areas.slice().sort());
     },
   },
 ];

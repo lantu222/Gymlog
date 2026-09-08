@@ -96,23 +96,35 @@ export function programCoverStyle(templateId: string, name?: string | null): Pro
 }
 
 /**
- * The emphasis bar's fixed violet ramp (design: GAINER Hourglass Shape).
+ * One hue per area of the week (design: GAINER Hourglass Shape).
  *
  * Deliberately NOT the programme's identity hue: the bar is data tied to its
- * own legend, and four shades of one violet stay readable next to any hero
- * colour. Darkest goes to the largest slice. Shared because the detail card
- * and the sheet that edits it must paint the same bar.
+ * own legend, and a fixed scale stays readable next to any hero colour. Shared
+ * because the detail card and the sheet that edits it must paint the same bar.
+ *
+ * This was four shades of one violet with two outliers, and the shades were
+ * the problem: at legend-dot size the difference between #A98BF0 and #CDBBF8
+ * is a guess, so a reader matching a slice to its label was matching light
+ * violet to lighter violet. The BMI gauge has the same job — a small number of
+ * fixed bands read at a glance — and answers it with distinct hues rather than
+ * one hue's tints, so this follows it.
+ *
+ * The action accent is left out on purpose. On the programme page orange means
+ * "you can press this" (see darkTheme.ts), and a slice of a chart cannot.
+ * Amber is far enough from #FF8A4C to read as data.
  */
 export const EMPHASIS_RAMP: Record<string, string> = {
   glutesLegs: '#7C3AED',
-  shouldersBack: '#A98BF0',
-  chestArms: '#CDBBF8',
-  core: '#E6DBFB',
+  shouldersBack: '#3B82F6',
+  chestArms: '#EC4899',
+  core: '#FBBF24',
   // Conditioning and mobility are their own work, not a lighter shade of
-  // lifting, so they step out of the violet ramp. Half of every "other" slice
-  // in the catalog was running and intervals; a programme whose week is
-  // genuinely cardio deserves to be told so, not shown a grey bar.
-  conditioning: '#2E9E7B',
-  mobility: '#4FA8D8',
+  // lifting. Half of every "other" slice in the catalog was running and
+  // intervals; a programme whose week is genuinely cardio deserves to be told
+  // so, not shown a grey bar.
+  conditioning: '#2DD4BF',
+  mobility: '#84CC16',
+  // "Other" stays neutral: it is the absence of a category, and giving it a
+  // hue of its own would make an unclassified slice look like a decision.
   other: '#C9C3D6',
 };
