@@ -228,7 +228,12 @@ module.exports = [
       assert.doesNotMatch(screen, /CutButton/, 'the A3 cut button is back on the last onboarding screen');
 
       // Filled with the action accent, so the ink is the token written for it.
-      assert.match(screen, /backgroundColor: theme\.accent,/);
+      //
+      // Scoped to the button's own block. Unscoped, this matched the check
+      // circle's fill further down the same file — so it passed on the source
+      // it was written to guard, and would have kept passing if the button
+      // went back to violet (review, #78).
+      assert.match(screen, /done: \{[^}]*backgroundColor: theme\.accent,/);
       assert.match(screen, /doneText: \{\s*\r?\n\s*color: theme\.onHighlight,/);
     },
   },
