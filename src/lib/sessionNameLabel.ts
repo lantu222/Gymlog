@@ -211,16 +211,24 @@ export function localizeWorkoutFocus(focus: string, language: AppLanguage = 'en'
       if (/^\s*[&+/]\s*$/.test(segment)) {
         return language === 'fi' && segment.includes('&') ? ' ja ' : segment;
       }
-      const translated = translateWord(segment, dictionary);
+      // The dictionary's own answer, or null when it has none. Which of the
+      // two it is decides whether the word may be lowered below, so the miss
+      // has to stay visible here rather than behind translateWord's fallback.
+      const translated = dictionary[segment.trim().toLowerCase()] ?? null;
+      const text = translated ?? segment.trim();
       // "Kyykky ja penkki", not "Kyykky ja Penkki": the words are stored
-      // capitalized because each can open a name. Only a word that looks like
-      // an ordinary capitalized noun is lowered — an acronym the dictionary
-      // returns as "HIIT" must survive as it is.
+      // capitalized because each can open a name.
+      //
+      // Only a word the dictionary answered for is lowered. A name the reader
+      // typed passes through untranslated, and lowering its first letter alone
+      // gave back half of it: "Deadlift & Overhead Press" came out as
+      // "Maastaveto ja overhead Press". An acronym the dictionary does return,
+      // like "HIIT", is left alone by the shape test.
       const followsFinnishAnd = language === 'fi' && (segments[index - 1] ?? '').includes('&');
-      if (followsFinnishAnd && /^[A-ZÄÖÅ][a-zäöå]/.test(translated)) {
-        return translated[0].toLowerCase() + translated.slice(1);
+      if (followsFinnishAnd && translated && /^[A-ZÄÖÅ][a-zäöå]/.test(text)) {
+        return text[0].toLowerCase() + text.slice(1);
       }
-      return translated;
+      return text;
     })
     .join('');
 

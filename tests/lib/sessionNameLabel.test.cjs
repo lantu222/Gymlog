@@ -77,6 +77,19 @@ module.exports = [
       // capitalized noun.
       assert.equal(localizeWorkoutFocus('Core & HIIT', 'fi'), 'Keskivartalo ja HIIT');
 
+      // And so must a name the reader typed. Only a word the dictionary
+      // answered for may be lowered: lowering an untranslated phrase touches
+      // its first letter and leaves the rest, which is worse than either
+      // ending — "Maastaveto ja overhead Press".
+      assert.equal(
+        localizeWorkoutFocus('Deadlift & Overhead Press', 'fi'),
+        'Maastaveto ja Overhead Press',
+      );
+      assert.equal(
+        localizeWorkoutFocus('Squat & Sandbag Carries', 'fi'),
+        'Kyykky ja Sandbag Carries',
+      );
+
       // The slash was added to the split but not to the separator test, so it
       // fell through to the word translator — which trims — and the editor's
       // own body-part presets came back welded together.
