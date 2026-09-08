@@ -7,6 +7,7 @@ import { applyEquipmentToExercises, resolveAvailableEquipment } from './equipmen
 import { buildFocusEmphasisAdditions, FocusEmphasisAddition } from './focusEmphasis';
 import { getCatalogTrackingMode } from './catalogExercisePools';
 import type { FirstRunSetupSelection } from './firstRunSetup';
+import type { SetupWeekday } from '../types/models';
 
 /**
  * Days-per-week truth (onboarding truth plan P1).
@@ -30,6 +31,12 @@ export interface ComposedProgramSession {
    * this screen, so any date printed here would be one the app made up.
    */
   weekdayLabel: string;
+  /**
+   * The same day as a code the screen can translate. `weekdayLabel` is the
+   * English one the brief carries; printing it is what put "Mon / Wed / Fri"
+   * on a Finnish reader's finished week.
+   */
+  weekday: SetupWeekday | null;
   orderIndex: number;
   source: 'template' | 'suggested';
   exercises: WorkoutTemplateExercise[];
@@ -140,6 +147,7 @@ export function composeProgramWeekForSelection(
       id: sessionId,
       name: day.name,
       weekdayLabel: day.weekdayLabel,
+      weekday: day.weekday,
       orderIndex: dayIndex,
       source: sourceSession ? 'template' : 'suggested',
       exercises,

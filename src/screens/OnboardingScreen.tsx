@@ -2039,7 +2039,12 @@ export function OnboardingScreen({
             .map((session) => ({
               id: session.id,
               name: session.name,
-              weekdayLabel: session.weekdayLabel,
+              // The composed week carries an English label for the coach brief
+              // and the weekday itself for the reader. Printing the label put
+              // "Mon / Wed / Fri" on the finished-plan card in a Finnish app.
+              weekdayLabel: session.weekday
+                ? getWeekdayShortLabel(session.weekday, language)
+                : session.weekdayLabel,
               guidance: buildSessionGuidance(recommendedProgram, session),
               hiddenExerciseCount: Math.max(0, session.exercises.length - 5),
               exercises: session.exercises.slice(0, 5).map((exercise) => ({
@@ -2062,7 +2067,7 @@ export function OnboardingScreen({
                   .join(', ') || `${session.exercises.length} exercises`,
             }))
         : [],
-    [recommendedProgram],
+    [recommendedProgram, composedActiveWeek, language],
   );
   const tailoringBadgeLabels = useMemo(
     () => buildTailoringBadgeLabels(recommendationTailoringPreferences).slice(0, 3),

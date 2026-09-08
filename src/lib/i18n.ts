@@ -2033,7 +2033,11 @@ const EN = {
   'home.proPill.get': 'Get Vinha Pro',
   'home.proPill.manage': 'Your Pro membership',
 
-  'unlock.ai.was': 'three sample answers',
+  // Every other before/after chip on this screen opens with a capital
+  // ("Off" → "On", "Locked" → "Open"), and they sit in one column: this one
+  // was the only lower-case word in the row, which reads as a typo rather
+  // than as a style.
+  'unlock.ai.was': 'Three sample answers',
   'unlock.ai.now': '{count} questions / month',
   'unlock.progression.was': 'Off',
   'unlock.progression.now': 'On',
@@ -4974,7 +4978,7 @@ const FI: Record<I18nKey, string> = {
   'home.proPill.get': 'Hanki Vinha Pro',
   'home.proPill.manage': 'Pro-jäsenyytesi',
 
-  'unlock.ai.was': 'kolme näytevastausta',
+  'unlock.ai.was': 'Kolme näytevastausta',
   'unlock.ai.now': '{count} kysymystä / kk',
   'unlock.progression.was': 'Pois päältä',
   'unlock.progression.now': 'Päällä',

@@ -197,9 +197,39 @@ export function localizeWorkoutFocus(focus: string, language: AppLanguage = 'en'
   // things, and "/" was missing: the editor's body-part presets are all
   // "Chest / Triceps", "Legs / Glutes", so every one of them survived
   // untranslated even though both halves were in the dictionary.
-  const translatedHead = head
-    .split(/(\s*[&+/]\s*)/)
-    .map((part) => (/^\s*[&+]\s*$/.test(part) ? part : translateWord(part, dictionary)))
+  //
+  // Two things the first version of that got wrong. The slash was added to the
+  // split but not to the test below it, so it fell through to translateWord,
+  // which trims — "Chest / Triceps" came back as "Rinta/Ojentajat". And in
+  // Finnish the ampersand is not a word: every whole-phrase entry in the table
+  // above writes "Pakarat ja takareidet", while the decomposed names came back
+  // as "Pakarat & Jalat", so the same file spelled the same conjunction two
+  // ways depending on which branch answered.
+  const segments = head.split(/(\s*[&+/]\s*)/);
+  const translatedHead = segments
+    .map((segment, index) => {
+      if (/^\s*[&+/]\s*$/.test(segment)) {
+        return language === 'fi' && segment.includes('&') ? ' ja ' : segment;
+      }
+      // The dictionary's own answer, or null when it has none. Which of the
+      // two it is decides whether the word may be lowered below, so the miss
+      // has to stay visible here rather than behind translateWord's fallback.
+      const translated = dictionary[segment.trim().toLowerCase()] ?? null;
+      const text = translated ?? segment.trim();
+      // "Kyykky ja penkki", not "Kyykky ja Penkki": the words are stored
+      // capitalized because each can open a name.
+      //
+      // Only a word the dictionary answered for is lowered. A name the reader
+      // typed passes through untranslated, and lowering its first letter alone
+      // gave back half of it: "Deadlift & Overhead Press" came out as
+      // "Maastaveto ja overhead Press". An acronym the dictionary does return,
+      // like "HIIT", is left alone by the shape test.
+      const followsFinnishAnd = language === 'fi' && (segments[index - 1] ?? '').includes('&');
+      if (followsFinnishAnd && translated && /^[A-ZÄÖÅ][a-zäöå]/.test(text)) {
+        return text[0].toLowerCase() + text.slice(1);
+      }
+      return text;
+    })
     .join('');
 
   if (!qualifier) {

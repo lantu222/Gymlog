@@ -1,5 +1,6 @@
 import { WorkoutGoalType, WorkoutLevel, WorkoutTemplateV1 } from '../features/workout/workoutTypes';
 import { TailoringPreferencesInput, getPreferredReadyEquipmentFilter, sortReadyDiscoveryItemsByTailoring } from './tailoringFit';
+import { resolveProgramEquipmentBucket } from './programEquipment';
 import { ReadyProgramContent } from './readyProgramContent';
 
 export type ReadyTimeFilter = 'all' | 'short' | 'balanced' | 'long';
@@ -18,13 +19,6 @@ export interface ReadyDiscoveryItem {
   template: WorkoutTemplateV1;
   content: ReadyProgramContent | null;
 }
-
-const LOW_EQUIPMENT_TEMPLATE_IDS = new Set([
-  'tpl_2_day_minimal_full_body_v1',
-  'tpl_2_day_mobility_reset_v1',
-  'tpl_2_day_yoga_recovery_v1',
-  'tpl_3_day_run_mobility_v1',
-]);
 
 const READY_PROGRAM_TRADEOFFS: Record<string, string> = {
   tpl_3_day_full_body_v1: 'Tradeoff: less body-part specialization than an upper/lower or hybrid split.',
@@ -60,16 +54,9 @@ export function getReadyProgramTimeBucket(durationMinutes: number): Exclude<Read
 }
 
 export function getReadyProgramEquipmentBucket(item: ReadyDiscoveryItem): Exclude<ReadyEquipmentFilter, 'all'> {
-  if (LOW_EQUIPMENT_TEMPLATE_IDS.has(item.template.id)) {
-    return 'low_equipment';
-  }
-
-  const profile = normalizeText(item.content?.equipmentProfile ?? '');
-  if (profile.includes('minimal setup') || profile.includes('bodyweight') || profile.includes('no heavy equipment')) {
-    return 'low_equipment';
-  }
-
-  return 'full_gym';
+  return resolveProgramEquipmentBucket(
+    item.template.sessions.flatMap((session) => session.exercises.map((exercise) => exercise.exerciseName)),
+  );
 }
 
 export function getReadyProgramTradeoff(templateId: string) {

@@ -140,7 +140,9 @@ module.exports = [
       const rows = buildCoachContextReadout(context, 'fi');
       const last = rows.find((row) => row.key === 'lastSession');
       assert.ok(last);
-      assert.match(last.value, /Päivä 2: Maastaveto & Pystypunnerrus/);
+      // "ja", not "&": Finnish spells the conjunction out, and the session
+      // names decomposed on the ampersand used to keep it.
+      assert.match(last.value, /Päivä 2: Maastaveto ja pystypunnerrus/);
       assert.doesNotMatch(last.value, /Deadlift/);
       // English stays English.
       assert.match(buildCoachContextReadout(context, 'en')[0].value, /Day 2: Deadlift & Press/);

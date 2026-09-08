@@ -82,6 +82,44 @@ export function resolveProgramEquipment(exerciseNames: readonly string[]): Equip
   return CHIP_ORDER.filter((chip) => needed.has(chip));
 }
 
+/** Whether a program can be run outside a gym. */
+export type ProgramEquipmentBucket = 'full_gym' | 'low_equipment';
+
+/**
+ * The chips a reader can own without a gym membership. A doorway pull-up bar,
+ * a pair of dumbbells and a band are a corner of a room; a squat rack, a cable
+ * station and a leg press are a building.
+ */
+const HOME_EQUIPMENT_CHIPS = new Set<EquipmentChip>([
+  'Dumbbells',
+  'Kettlebells',
+  'Resistance bands',
+  'Yoga mat',
+  'Pull-up bar',
+]);
+
+/**
+ * Which bucket a program falls in, from the gear its exercises need.
+ *
+ * This used to be read out of the English equipment sentence: a program was
+ * low-equipment if that prose contained "bodyweight", "minimal setup" or
+ * "no heavy equipment", with four template ids hardcoded beside it (twice —
+ * `tailoringFit` and `workoutDiscovery` each kept their own copy of the list).
+ *
+ * So the recommendation score and the catalog's equipment filter turned on a
+ * marketing sentence, and rewriting that sentence silently moved programs
+ * between buckets. Mobility Flow needs a band and a mat and said so in words
+ * the rule did not know, so it was scored as a full-gym program and lost
+ * points for readers who train at home. The exercises are the fact; the
+ * sentence is a description of it.
+ */
+export function resolveProgramEquipmentBucket(
+  exerciseNames: readonly string[],
+): ProgramEquipmentBucket {
+  const needed = resolveProgramEquipment(exerciseNames);
+  return needed.every((chip) => HOME_EQUIPMENT_CHIPS.has(chip)) ? 'low_equipment' : 'full_gym';
+}
+
 /**
  * Chips the program needs that the reader's gym does not have.
  *
