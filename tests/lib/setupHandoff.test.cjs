@@ -192,4 +192,44 @@ module.exports = [
       assert.doesNotMatch(screen, /handoff\.notNow|handoff\.skip/);
     },
   },
+  {
+    /**
+     * The last screen of onboarding ends on the same button as the five before
+     * it, clear of the gesture bar.
+     *
+     * It was the A3 cut button at 50dp — a cut corner and a diagonal sheen
+     * where every other footer in the flow is a plain rounded rectangle at
+     * 56–62dp — and its clearance was a bare `insets.bottom`, which on this
+     * screen comes back 0. Measured on the emulator (2026-09-08): the button
+     * ended at y=2368 of 2400 with 31px under it, and the gesture pill is drawn
+     * at y=2364..2372 — on the button's bottom edge. It has 164px now.
+     */
+    name: 'the handoff footer clears the gesture bar and wears the same button as the rest of the flow',
+    run() {
+      const screen = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'screens', 'SetupHandoffScreen.tsx'),
+        'utf8',
+      );
+
+      // A floor under the inset, not the inset alone: an inset that can be
+      // zero is not a clearance.
+      assert.match(screen, /paddingBottom: Math\.max\(insets\.bottom, GESTURE_BAR_FLOOR\) \+ spacing\.md/);
+      assert.match(screen, /const GESTURE_BAR_FLOOR = 24;/);
+      assert.doesNotMatch(
+        screen,
+        /paddingBottom: insets\.bottom \+ spacing/,
+        'the bare inset is back, and on this screen it is 0',
+      );
+
+      // The shape the rest of the flow ends on: OnboardingScreen's primary
+      // button is minHeight 62 / radius 18, StartPathScreen's is height 56 /
+      // radius 18. The cut button is neither.
+      assert.match(screen, /done: \{\s*\r?\n\s*minHeight: 62,\s*\r?\n\s*borderRadius: 18,/);
+      assert.doesNotMatch(screen, /CutButton/, 'the A3 cut button is back on the last onboarding screen');
+
+      // Filled with the action accent, so the ink is the token written for it.
+      assert.match(screen, /backgroundColor: theme\.accent,/);
+      assert.match(screen, /doneText: \{\s*\r?\n\s*color: theme\.onHighlight,/);
+    },
+  },
 ];

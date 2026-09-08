@@ -4,7 +4,6 @@ import Svg, { Path } from 'react-native-svg';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { CutButton } from '../components/CutButton';
 import { VinhaIcon } from '../components/VinhaIcon';
 import { t } from '../lib/i18n';
 import { countSetupHandoffOffers, type SetupHandoffPlan } from '../lib/setupHandoff';
@@ -139,12 +138,22 @@ export function SetupHandoffScreen({
           under the first was a choice that did not exist. */}
       {/* The inset, read here rather than assumed: a footer pinned to the
           bottom of the screen sits under the gesture bar without it, and the
-          button came out with its label sliced in half. */}
-      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-        <CutButton
-          label={t(language, 'handoff.done')}
-          size="lg"
-          stretch
+          button came out with its label sliced in half.
+
+          With a floor under it, because reading it is not the same as getting
+          it: on this screen it comes back 0, and the gesture pill was drawn
+          on its bottom edge. Measured on the emulator 2026-09-08: the button
+          ended at y=2368 of 2400 with 31px under it, and the pill is drawn at
+          y=2364..2372. An inset that can be zero is not a clearance, so the
+          larger of the two wins — 164px under the button now. */}
+      <View
+        style={[
+          styles.footer,
+          { paddingBottom: Math.max(insets.bottom, GESTURE_BAR_FLOOR) + spacing.md },
+        ]}
+      >
+        <Pressable
+          accessibilityRole="button"
           onPress={() =>
             onDone({
               addWidget: plan.offerWidget && addWidget,
@@ -153,7 +162,10 @@ export function SetupHandoffScreen({
               signInForBackup: plan.offerAccountBackup && signInForBackup,
             })
           }
-        />
+          style={({ pressed }) => [styles.done, pressed && styles.pressed]}
+        >
+          <Text style={styles.doneText}>{t(language, 'handoff.done')}</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -223,6 +235,15 @@ function OfferRow({
     </Pressable>
   );
 }
+
+/**
+ * What the gesture bar needs when the inset says nothing.
+ *
+ * Android reports 24dp for the gesture area on the devices that have one, and
+ * this screen gets 0 — so the floor is that 24, not a number picked to make a
+ * screenshot look right.
+ */
+const GESTURE_BAR_FLOOR = 24;
 
 const makeStyles = (theme: Theme) =>
   StyleSheet.create({
@@ -309,6 +330,31 @@ const makeStyles = (theme: Theme) =>
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.sm,
       backgroundColor: theme.surface,
+    },
+    /**
+     * The shape every other screen in this flow ends on.
+     *
+     * This one was the A3 cut button at 50dp — a cut corner and a diagonal
+     * sheen, on the last screen of a flow whose five previous footers are all
+     * plain rounded rectangles at 56–62dp. It read as a different app arriving
+     * for the final step (user 2026-09-08, "eri mallinen kuin muualla").
+     *
+     * The colour is the action accent rather than the brand violet, because
+     * this screen already marks its chosen rows with it, and the screen the
+     * button leads to starts its workouts with it.
+     */
+    done: {
+      minHeight: 62,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.accent,
+    },
+    doneText: {
+      color: theme.onHighlight,
+      fontSize: 19,
+      fontWeight: '900',
+      letterSpacing: -0.3,
     },
     skip: {
       alignSelf: 'center',
