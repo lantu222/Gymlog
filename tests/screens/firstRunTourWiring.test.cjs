@@ -73,14 +73,19 @@ module.exports = [
      */
     name: 'first-run tour: no beat tells the reader to tap something the shield refuses',
     run() {
+      // Matched as entries, not as lines. A long sentence is wrapped onto a
+      // continuation line, and a line-based scan then reads the key and misses
+      // every word of the copy — two of these are wrapped today, so the scan
+      // that shipped an hour ago was checking fourteen beats out of sixteen.
       const dict = read('src/lib/i18n.ts');
-      const lines = dict.split('\n').filter((line) => /'tour\.(home|progress|profile)\.[a-zA-Z]+':/.test(line));
-      assert.equal(lines.length, 16, 'eight section beats in two dictionaries, one line each');
-      for (const line of lines) {
+      const entries = [...dict.matchAll(/'(tour\.(?:home|progress|profile)\.[a-zA-Z]+)':\s*(['"])([\s\S]*?)\2,/g)];
+      assert.equal(entries.length, 16, 'eight section beats in two dictionaries');
+      for (const [, key, , text] of entries) {
+        assert.ok(text.length > 20, `${key} is suspiciously short, did the match stop early: ${text}`);
         // Verbs that ask for a press. "Painamalla X voit…" describes what a
         // button does and is fine; "Paina X" is an order the shield refuses.
-        assert.doesNotMatch(line, /\b(Napauta|Napsauta|Klikkaa|Tap|Click)\b/, line.trim());
-        assert.doesNotMatch(line, /: ['"]?(Paina|Press) /, line.trim());
+        assert.doesNotMatch(text, /\b(Napauta|Napsauta|Klikkaa|Tap|Click)\b/, `${key}: ${text}`);
+        assert.doesNotMatch(text, /^(Paina|Press) /, `${key}: ${text}`);
       }
       // The way out is still one tap, and it is on every beat — a guided tour
       // that could not be left would be a trap.
