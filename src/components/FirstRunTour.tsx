@@ -42,20 +42,24 @@ import { EASE_RISE } from './vinhaMotion';
 
 /**
  * The first-run tour's guidance layer: a ring around one thing, everything
- * else dimmed behind it, and a callout beside it, once per surface.
+ * else dimmed and sealed behind it, and a callout beside it, once per surface.
  *
- * What it deliberately is not: a scrim. The dim is a picture — `pointerEvents`
- * is "none" on it and the root is `box-none` — so every touch that is not on
- * the callout reaches the page underneath. The hero stays pressable on the
- * week strip's beat, the bar still switches tabs, the page still scrolls. The
- * design build shipped an advance surface cut into four strips around the
- * ring; that blocked the one thing the brief said must never block, and it is
- * gone. Dimming without blocking is the whole trick.
+ * It is guided, and that is a reversal. Round 1 shipped a layer that pointed
+ * without ever blocking, and the reader's walk on the phone showed what that
+ * costs: the page moves under a beat for reasons the layer cannot see — a
+ * month panel opening into the week card, a workout list folding taller than
+ * the whole band — and the ring spends the tour chasing it. The list case has
+ * no good answer at all, because a block taller than the band leaves the
+ * callout nowhere to stand. So the dim doubles as a shield: it takes every
+ * touch that is not the callout's own two buttons, the page cannot change
+ * under a beat, and the ring is always where it belongs (user 2026-09-08).
  *
- * The page under it is live, so the beat keeps measuring (TOUR_REMEASURE_MS):
- * the week row opens a month panel into itself, the day block folds its list
- * open and shut, and none of that arrives as a scroll event. The ring and the
- * callout follow whatever the target does (user 2026-09-08, three reports).
+ * The way out stays one tap, on every beat. Nothing here traps a reader who
+ * wants to start training instead.
+ *
+ * The beat still re-measures on a tick (TOUR_REMEASURE_MS). Not for the
+ * reader now — for the tour's own doing: the scroll it runs itself, and the
+ * fold Home closes when it is told which beat is up.
  *
  * Tap-to-advance, always: the callout's own button steps the tour. The bar
  * is a single beat whose highlight sweeps the five items on a timer, because
@@ -427,10 +431,11 @@ export function FirstRunTour({
   /**
    * A section beat follows its target for as long as it lasts.
    *
-   * Scroll events are only half of it: the week row opens a month panel into
-   * itself and the day block folds its list, and both change the target's
-   * rectangle without the page scrolling at all. So the beat re-measures on a
-   * tick as well, and writes state only when the answer actually moved.
+   * The shield means the reader can no longer move it, but the tour still
+   * can: it scrolls the page itself, and Home folds its day block shut when
+   * it is told the hero beat is up. Neither arrives as a scroll event the
+   * layer can wait on, so the beat re-measures on a tick and writes state
+   * only when the answer actually moved.
    */
   useEffect(() => {
     if (phase !== 'beat') {
@@ -614,11 +619,18 @@ export function FirstRunTour({
 
   return (
     <View ref={rootRef} pointerEvents="box-none" style={StyleSheet.absoluteFill} onLayout={onRootLayout}>
-      {/* The rest of the page goes quiet for the callout's moment. A dim, not
-          a blur: expo-blur cannot be given a hole on Android, and dimming is
-          what the ask actually needs. It takes no touches — the page under it
-          stays live, which is the tour's whole promise. */}
-      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, dimStyle]}>
+      {/* The rest of the page goes quiet, and stays still. A dim, not a blur:
+          expo-blur cannot be given a hole on Android, and dimming is what the
+          ask needs. It is also the shield — `onStartShouldSetResponder` makes
+          it the responder for any touch that reaches it, so nothing under it
+          moves while a beat is up. Not a Pressable: this is not a control and
+          should not be announced as one. It sits below the callout in the
+          tree, so the callout's own buttons are still the reader's. */}
+      <Animated.View
+        pointerEvents="auto"
+        onStartShouldSetResponder={() => true}
+        style={[StyleSheet.absoluteFill, dimStyle]}
+      >
         <Svg width={size.width} height={size.height}>
           <G transform={`translate(${ring.x} ${ring.y})`}>
             <Path d={dimCutoutPath(size, ring, spot.shape)} fill={dimFill} fillRule="evenodd" />

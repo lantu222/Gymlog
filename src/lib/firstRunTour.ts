@@ -6,8 +6,12 @@
  * 2026-09-08, build reviewed the same day). Three things the review sent
  * back, and this module is where they are settled rather than in the UI:
  *
- * - The tour never blocks. There is no scrim, so nothing here models a
- *   "tap outside" surface. The callout advances itself; the page stays live.
+ * - The tour is guided: while a beat is up, the page underneath takes no
+ *   touches. Round 1 pointed without blocking, and the reader's walk showed
+ *   the cost — the page moved under every beat (a month panel opening into
+ *   the week card, a list folding taller than the band) and the ring spent
+ *   its life chasing it. A page that cannot change is a ring that is always
+ *   where it belongs. The way out is on every beat, and it is one tap.
  * - The bar is ONE beat: a sweep across the five items with the highlight
  *   travelling, not five stops with five taps.
  * - Beats point at sections that exist on a fresh install. What is inside

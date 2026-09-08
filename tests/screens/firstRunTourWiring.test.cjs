@@ -32,28 +32,56 @@ function tourRender() {
 
 module.exports = [
   {
-    name: 'first-run tour: the layer dims the page without blocking it',
+    /**
+     * This guard used to assert the opposite, and the reversal is the point.
+     * Round 1's layer never blocked; round 2's walk on the phone showed what
+     * that costs, because the page moves under a beat for reasons the layer
+     * cannot see, and a day block folded open is taller than the whole band —
+     * there is nowhere for its callout to stand. The reader chose a tour that
+     * simply runs (2026-09-08). So the dim doubles as a shield.
+     */
+    name: 'first-run tour: the layer is guided — it dims the page and takes its touches',
     run() {
       const render = tourRender();
       assert.match(render, /<View ref=\{rootRef\} pointerEvents="box-none" style=\{StyleSheet\.absoluteFill\}/);
-      // Only the callout takes touches; the ring is inert.
-      assert.match(render, /pointerEvents="none"[\s\S]{0,200}styles\.ring/);
-      // The reader asked for the rest of the page to go quiet (2026-09-08).
-      // It is a picture over the page, not a surface in front of it: full
-      // screen, no touches, and the ring's shape cut out of it.
+      // The shield: full screen, the responder for anything that reaches it,
+      // and the ring's shape cut out so the beat's subject still shows.
       assert.match(
         render,
-        /pointerEvents="none"[\s\S]{0,120}StyleSheet\.absoluteFill, dimStyle\][\s\S]{0,400}dimCutoutPath\(size, ring, spot\.shape\)/,
+        /pointerEvents="auto"\s*onStartShouldSetResponder=\{\(\) => true\}\s*style=\{\[StyleSheet\.absoluteFill, dimStyle\]\}/,
       );
+      assert.match(render, /dimCutoutPath\(size, ring, spot\.shape\)/);
       assert.match(render, /fillRule="evenodd"/);
-      // Nothing in the render fills the screen with something pressable, and
-      // no scrim came back with the dim.
+      // Not a Pressable: a shield is not a control and must not be announced
+      // as one, nor take a press the reader meant for the page.
       assert.doesNotMatch(render, /<Pressable[^>]*StyleSheet\.absoluteFill/);
-      assert.doesNotMatch(render, /Scrim|AdvanceScrim/);
+      // The ring is inert; the shield beneath it is what blocks.
+      assert.match(render, /pointerEvents="none"[\s\S]{0,200}styles\.ring/);
       // Two views reading one value through two style objects — never one
       // interpolated node handed to two views (ref-animated-node-one-view).
       const body = stripComments(tourSource);
       assert.match(body, /const dimStyle = useRef\(\{ opacity: ringAnim \}\)\.current;/);
+    },
+  },
+  {
+    /**
+     * A shield makes every imperative in the copy a lie: nothing on the page
+     * can be tapped while a beat is up. The three Home beats used to open
+     * with one ("Napauta viikkoriviä...", "Tap to see today's exercises"),
+     * so they say what is there instead of what to do.
+     */
+    name: 'first-run tour: no beat tells the reader to tap something the shield refuses',
+    run() {
+      const dict = read('src/lib/i18n.ts');
+      const lines = dict.split('\n').filter((line) => /'tour\.home\.(week|hero|cards|program)':/.test(line));
+      assert.equal(lines.length, 8, 'four Home beats in two dictionaries, one line each');
+      for (const line of lines) {
+        assert.doesNotMatch(line, /: ['"](Napauta|Tap )/, line.trim());
+        assert.doesNotMatch(line, /(Lisää kortti mistä|Add a card for)/, line.trim());
+      }
+      // The way out is still one tap, and it is on every beat — a guided tour
+      // that could not be left would be a trap.
+      assert.match(tourRender(), /onPress=\{finish\}[\s\S]{0,400}'tour\.skip'/);
     },
   },
   {
