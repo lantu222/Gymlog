@@ -13,7 +13,7 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
   // ── Vinha programs, written against what each one actually contains ──
   tpl_gainer_dream_body_man_v1: {
     summary:
-      'Viisi salipäivää viikossa, jokaisella oma alue: rinta ja ojentajat, selkä ja hauikset, jalat, olkapäät ja vatsa sekä kädet. Päivä alkaa raskaalla perusliikkeellä ja jatkuu eristävillä.',
+      'Viisi salipäivää viikossa, jokaisella oma alue: rinta ja ojentajat, selkä ja hauikset, jalat, olkapäät ja vatsa sekä kädet. Neljä päivää alkaa raskaalla perusliikkeellä ja jatkuu eristävillä, käsipäivä on eristäviä alusta asti.',
     audience:
       'Keskitason treenaajille, jotka osaavat penkin, kyykyn ja leuanvedon ja haluavat kasvattaa lihasta koko kehoon viitenä päivänä viikossa.',
     equipmentProfile:
@@ -109,7 +109,7 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
     equipmentProfile:
       'Käsipainot ja kahvakuula, koko kehon päivänä myös laatikko ja köydet. Muut liikkeet tehdään kehonpainolla.',
     whyItWorks:
-      'Lyhyet kovat työjaksot nostavat sykkeen nopeasti, ja kun päivät jakautuvat ylä- ja alavartaloon, koko kehoon ja tabataan, sama liike ei toistu joka päivä.',
+      'Lyhyet kovat työjaksot nostavat sykkeen nopeasti, ja kun päivät jakautuvat ylä- ja alavartaloon, koko kehoon ja tabataan, yksikään treeni ei toista edellistä.',
   },
   tpl_gainer_mobility_flow_v1: {
     summary:
@@ -117,7 +117,7 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
     audience:
       'Aloittelijalle ja kenelle tahansa, joka on jäykkä muun treenin tai istumisen jäljiltä ja haluaa liikkuvuuden kuntoon lyhyillä päivittäisillä treeneillä.',
     equipmentProfile:
-      'Ei kuntosalilaitteita. Kuminauha ja jumppamatto riittävät.',
+      'Ei kuntosalilaitteita. Kuminauha ja jumppamatto riittävät lähes kaikkeen, ja yhteen selkäliikkeeseen tarvitaan putkirulla.',
     whyItWorks:
       'Jokainen alue saa oman päivänsä ja pidot ovat pitkiä, joten liikelaajuus kasvaa siellä, missä se on jumissa, eikä yksikään treeni vie tuntia.',
   },
@@ -169,7 +169,7 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
     equipmentProfile:
       'Tavallinen sali: tanko, käsipainot, taljat, laitteet ja kahvakuula.',
     whyItWorks:
-      'Ylä- ja alavartalo treenataan kahdesti viikossa, ensin raskaasti tangolla ja toisella kerralla kevyemmin käsipainoilla ja taljoilla, joten voima ja lihas kehittyvät ilman että viikko käy raskaaksi.',
+      'Ylävartalo treenataan kolmesti, kerran raskaasti tangolla ja kahdesti kevyemmin käsipainoilla ja taljoilla, alavartalo kerran raskaasti ja lisäksi lantionnostoilla ja heilautuksilla vetopäivänä, joten voima ja lihas kehittyvät ilman että viikko käy raskaaksi.',
   },
   tpl_gainer_joint_friendly_v1: {
     summary:
