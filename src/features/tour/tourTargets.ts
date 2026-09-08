@@ -25,6 +25,12 @@ export interface TourScroller {
   viewport: TourMeasurable | null;
   getOffset: () => number;
   scrollToOffset: (offset: number, animated: boolean) => void;
+  /**
+   * The bottom of the list. A last section cannot be lifted by an offset —
+   * there is no content under it to scroll into — so the only way to show
+   * all of it is to ask the list how far it goes.
+   */
+  scrollToEnd: (animated: boolean) => void;
 }
 
 export interface TourTargetRegistry {
@@ -48,6 +54,7 @@ export interface TourTargetRegistry {
     id: TourTargetId,
     prefer: 'above' | 'below',
     animated: boolean,
+    mode?: 'target' | 'end',
   ) => Promise<void>;
   /** Screens call this from onScroll; the overlay re-measures after it. */
   notifyScroll: () => void;
@@ -134,10 +141,15 @@ export function createTourTargetRegistry(): TourTargetRegistry {
         scrollers.delete(surface);
       }
     },
-    async scrollIntoView(surface, id, prefer, animated) {
+    async scrollIntoView(surface, id, prefer, animated, mode = 'target') {
       const scroller = scrollers.get(surface);
       const target = nodes.get(id);
       if (!scroller || !target) {
+        return;
+      }
+      if (mode === 'end') {
+        scroller.scrollToEnd(animated);
+        await new Promise<void>((resolve) => setTimeout(resolve, animated ? SCROLL_SETTLE_MS : 32));
         return;
       }
       const [targetRect, viewportRect] = await Promise.all([measureNode(target), measureNode(scroller.viewport)]);

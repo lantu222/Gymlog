@@ -32,15 +32,104 @@ function tourRender() {
 
 module.exports = [
   {
-    name: 'first-run tour: the layer never blocks — box-none root, no scrim, no full-screen pressable',
+    name: 'first-run tour: the layer dims the page without blocking it',
     run() {
       const render = tourRender();
       assert.match(render, /<View ref=\{rootRef\} pointerEvents="box-none" style=\{StyleSheet\.absoluteFill\}/);
       // Only the callout takes touches; the ring is inert.
       assert.match(render, /pointerEvents="none"[\s\S]{0,200}styles\.ring/);
-      assert.doesNotMatch(render, /scrim|Scrim|dim=|AdvanceScrim/);
-      // Nothing in the render fills the screen with something pressable.
+      // The reader asked for the rest of the page to go quiet (2026-09-08).
+      // It is a picture over the page, not a surface in front of it: full
+      // screen, no touches, and the ring's shape cut out of it.
+      assert.match(
+        render,
+        /pointerEvents="none"[\s\S]{0,120}StyleSheet\.absoluteFill, dimStyle\][\s\S]{0,400}dimCutoutPath\(size, ring, spot\.shape\)/,
+      );
+      assert.match(render, /fillRule="evenodd"/);
+      // Nothing in the render fills the screen with something pressable, and
+      // no scrim came back with the dim.
       assert.doesNotMatch(render, /<Pressable[^>]*StyleSheet\.absoluteFill/);
+      assert.doesNotMatch(render, /Scrim|AdvanceScrim/);
+      // Two views reading one value through two style objects — never one
+      // interpolated node handed to two views (ref-animated-node-one-view).
+      const body = stripComments(tourSource);
+      assert.match(body, /const dimStyle = useRef\(\{ opacity: ringAnim \}\)\.current;/);
+    },
+  },
+  {
+    /**
+     * Three of the reader's five reports were the same bug: the page moved
+     * under a beat — a month panel opening into the week card, a workout list
+     * folding — and the ring stayed where it was first measured. Scroll events
+     * do not report any of that, so the beat re-measures on a tick.
+     */
+    name: 'first-run tour: a section beat keeps measuring its target, and only writes when it moved',
+    run() {
+      const layer = stripComments(tourSource);
+      const follow = layer.slice(layer.indexOf('const sync = () => {'), layer.indexOf('clearInterval(timer);'));
+      assert.ok(follow.length > 80, 'the follow effect moved - recheck by hand');
+      assert.match(follow, /setInterval\(sync, TOUR_REMEASURE_MS\)/);
+      assert.match(follow, /readSpot\(beat, \{ fallback: false \}\)/);
+      // And not before the beat's own opening scroll has landed its first
+      // reading: a ring measured mid-scroll sits across two sections.
+      assert.match(follow, /if \(cancelled \|\| inFlight \|\| !beatReadyRef\.current\)/);
+      // The tick is the only measurement clock: measuring on the scroll event
+      // as well re-rendered a full-screen path thirty times a second. The
+      // subscription is there to note when the reader last touched the page.
+      assert.match(follow, /registry\.subscribeScroll\(\(\) => \{\s*lastScrollAtRef\.current = Date\.now\(\);\s*\}\);/);
+      assert.match(follow, /sameSpot\(current, next\) \? current : next/, 'an unchanged rect is not a re-render');
+
+      // And what a measurement is: the ring's target, the callout's anchor,
+      // with the anchor standing in when the fine target is not on screen.
+      const read = layer.slice(layer.indexOf('const readSpot = useCallback('), layer.indexOf('const finish = useCallback('));
+      assert.match(read, /registry\.measure\(beat\.target\)/);
+      assert.match(read, /registry\.measure\(beat\.anchor as TourTargetId\)/);
+      assert.match(read, /const ringWindow = targetRect \?\? anchorRect;/);
+      // ...but only when a beat opens. A ref re-attaching mid-render answers
+      // nothing for a frame, and a partial reading on the tick would make the
+      // ring flit between the chevron and the whole block.
+      assert.match(
+        read,
+        /if \(!options\.fallback && \(!targetRect \|\| \(wantsAnchor && !anchorRect\)\)\) \{\s*return null;/,
+      );
+      assert.match(read, /sectionRingShape\(beat, targetRect !== null\)/);
+
+      // A callout clamped back over its target buys exactly one more scroll.
+      const rescroll = layer.slice(layer.indexOf('if (!calloutCoversTarget('), layer.indexOf('const ringShape = spot?.shape'));
+      assert.match(rescroll, /rescrolledForRef\.current === spot\.anchor\.height/);
+      assert.match(rescroll, /Date\.now\(\) - lastScrollAtRef\.current < TOUR_RESCROLL_QUIET_MS/);
+    },
+  },
+  {
+    /**
+     * The hero beat rings the workout row's fold and asks to be tapped, so the
+     * ring breathes — and the block is shut before the beat starts, through a
+     * prop rather than the layer reaching into a screen's state.
+     */
+    name: 'first-run tour: the hero beat rings the workout fold, which pulses, on a block the screen has shut',
+    run() {
+      const home = stripComments(homeSource);
+      assert.match(home, /register\('home\.workoutChevron', node\)/);
+      const fold = home.slice(home.indexOf("if (tourFocus !== 'home.hero') {"), home.indexOf('}, [tourFocus]);'));
+      assert.ok(fold.length > 40, "Home's tour fold moved - recheck by hand");
+      assert.match(fold, /setWorkoutListOpen\(false\);/);
+      assert.match(fold, /setOpenBlock\(null\);/);
+
+      const app = stripComments(appSource);
+      assert.match(app, /onBeatChange=\{setTourFocus\}/);
+      assert.match(app, /tourFocus=\{tourFocus\}/);
+
+      const layer = stripComments(tourSource);
+      const pulse = layer.slice(layer.indexOf('const ringShape = spot?.shape ?? null;'), layer.indexOf('const advance = useCallback('));
+      assert.ok(pulse.length > 80, 'the pulse effect moved - recheck by hand');
+      assert.match(pulse, /ringShape !== 'chevron'/);
+      assert.match(pulse, /reduceMotion !== false/, 'no loop under reduced motion');
+      assert.match(pulse, /Animated\.loop\(/);
+      assert.match(pulse, /loop\.stop\(\);/, 'the loop is stopped when the beat leaves');
+      // Its own value, on the ring's own view, resting at 0 so the transform
+      // is never conditional (ref-animated-node-one-view).
+      assert.match(layer, /const pulseAnim = useRef\(new Animated\.Value\(0\)\)\.current;/);
+      assert.match(layer, /outputRange: \[1, RING_PULSE_SCALE\]/);
     },
   },
   {
@@ -81,9 +170,11 @@ module.exports = [
         assert.match(bar, new RegExp(`tourTargets\\?\\.register\\('${id.replace('.', '\\.')}', node\\)`), id);
       }
       assert.match(bar, /onRef=\{\(node\) => tourTargets\?\.register\(`bar\.\$\{tab\.stop\}`, node\)\}/);
-      // The layer tells the bar to let go on every exit.
+      // The layer hands back everything it borrowed on every exit: the
+      // bar's highlight, and the screen's knowledge of which beat is on.
       const layer = stripComments(tourSource);
-      assert.match(layer, /onSweep\(null\);\s*setPhase\('done'\)/);
+      assert.match(layer, /onSweep\(null\);\s*onBeatChange\?\.\(null\);\s*setPhase\('done'\)/);
+      assert.match(layer, /useEffect\(\(\) => \(\) => beatChangeRef\.current\?\.\(null\), \[\]\);/);
     },
   },
   {
@@ -112,6 +203,12 @@ module.exports = [
       assert.match(home, /ref=\{heroStartsSession \? undefined : \(node\) => tourTargets\?\.register\('home\.hero', node\)\}/);
       assert.match(home, /useTourScroller\('home', tourTargets\)/);
       assert.match(home, /onScroll=\{tourScroller\.onScroll\}/);
+      // The last section has nothing under it to be lifted against, so the
+      // scroller can also just go to the end of the list.
+      const hook = stripComments(read('src/features/tour/useTourScroller.ts'));
+      assert.match(hook, /scrollToEnd: \(animated\) => ref\.current\?\.scrollToEnd\(\{ animated \}\)/);
+      const registry = stripComments(read('src/features/tour/tourTargets.ts'));
+      assert.match(registry, /if \(mode === 'end'\) \{\s*scroller\.scrollToEnd\(animated\);/);
     },
   },
   {

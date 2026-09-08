@@ -22,6 +22,7 @@ import { CardioIcon } from '../components/CardioIcon';
 import { CtaShimmer } from '../components/CtaShimmer';
 import { HomeStatCardsSection } from '../components/HomeStatCardsSection';
 import { TourTargetRegistry } from '../features/tour/tourTargets';
+import { TourTargetId } from '../lib/firstRunTour';
 import { useTourScroller } from '../features/tour/useTourScroller';
 import { CardioIconKind } from '../lib/cardio';
 import { HomeStatCard } from '../lib/homeStatCards';
@@ -121,7 +122,9 @@ function BlockRow({
         onPress={onToggle}
         style={({ pressed }) => [styles.blockRow, pressed && styles.pressed]}
       >
-        <Text style={[styles.blockTitle, open && styles.sectTitleOpen]}>{title}</Text>
+        <Text style={[styles.blockTitle, open && styles.sectTitleOpen]} numberOfLines={1}>
+          {title}
+        </Text>
         <Text style={styles.blockMeta} numberOfLines={1}>
           {meta}
         </Text>
@@ -317,6 +320,11 @@ interface HomeScreenProps {
    */
   tourTargets?: TourTargetRegistry;
   /**
+   * Which section the first-run tour is on. The screen puts itself in the
+   * state the beat describes rather than the tour reaching in from outside.
+   */
+  tourFocus?: TourTargetId | null;
+  /**
    * Which days train. Unknown → the strip shows no training dots rather than
    * an invented rhythm.
    *
@@ -441,6 +449,7 @@ export function HomeScreen({
   accountBackupPrompt = null,
   widgetPrompt = null,
   tourTargets,
+  tourFocus,
   sessionSwaps = {},
   onSwapSessionExercise,
   sessionDrops = [],
@@ -518,6 +527,22 @@ export function HomeScreen({
   // is for. The fold exists so a long day can be got out of the way, not so
   // the session starts hidden.
   const [workoutListOpen, setWorkoutListOpen] = useState(true);
+  /**
+   * The tour's hero beat is about the day block as a whole, and it rings the
+   * workout row's fold. Everything in the block shuts for it, so the reader
+   * meets three closed rows and is then invited to open one — and the ring
+   * lands on a chevron that is where it will stay (user 2026-09-08: with the
+   * list open the outline ran off the bottom, and folding it left the outline
+   * behind). Nothing reopens them afterwards: what the reader does with the
+   * block from here is theirs.
+   */
+  useEffect(() => {
+    if (tourFocus !== 'home.hero') {
+      return;
+    }
+    setWorkoutListOpen(false);
+    setOpenBlock(null);
+  }, [tourFocus]);
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
 
   const topCalendarDays = getHomeMiniCalendarDays(new Date(), language).slice(0, 6);
@@ -1332,22 +1357,26 @@ export function HomeScreen({
                     the chevron, the same seat Lämmittely's own meta sits in.
                     (Two other seats were tried the same evening; this row
                     reads as family only when it IS the family layout.) */}
-                <Text style={[styles.blockTitle, workoutListOpen && styles.sectTitleOpen]}>
+                <Text style={[styles.blockTitle, workoutListOpen && styles.sectTitleOpen]} numberOfLines={1}>
                   {t(language, 'home.section.workout')}
                 </Text>
                 <Text style={styles.blockMeta} numberOfLines={1}>
                   {t(language, 'home.section.workoutMeta', { count: totalExerciseCount, sets: totalSets })}
                 </Text>
-                <View style={{ transform: [{ rotate: workoutListOpen ? '180deg' : '0deg' }] }}>
-                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                    <Path
-                      d="m6 9 6 6 6-6"
-                      stroke={theme.faint}
-                      strokeWidth={2.4}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
+                {/* The tour rings this glyph, so it needs a view of its own
+                    that does not rotate under the measurement. */}
+                <View ref={(node) => tourTargets?.register('home.workoutChevron', node)}>
+                  <View style={{ transform: [{ rotate: workoutListOpen ? '180deg' : '0deg' }] }}>
+                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="m6 9 6 6 6-6"
+                        stroke={theme.faint}
+                        strokeWidth={2.4}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </Svg>
+                  </View>
                 </View>
               </Pressable>
               {(workoutListOpen ? nextPlanSession.exercises : []).map((exercise, index) => {
@@ -2606,8 +2635,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexBasis: 'auto',
     minWidth: 0,
     color: theme.ink,
-    fontSize: 17.5,
-    lineHeight: 22,
+    // "Palautuminen" still broke onto a second line beside its meta at 17.5
+    // (user 2026-09-08). Shrinking the pair is the fix the reader asked for —
+    // zoom out rather than truncate — and `numberOfLines={1}` on the title
+    // now caps the row's height whatever the language does to the words.
+    fontSize: 16,
+    lineHeight: 20,
     fontWeight: '800',
     letterSpacing: -0.2,
   },
@@ -2615,7 +2648,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexShrink: 3,
     minWidth: 0,
     color: theme.faint,
-    fontSize: 13.5,
+    fontSize: 12.5,
     lineHeight: 17,
     fontWeight: '700',
   },

@@ -61,6 +61,7 @@ import {
   resolveTourBeats,
   resolveTourSurface,
   TourBarStop,
+  TourTargetId,
   TourSurface,
 } from './src/lib/firstRunTour';
 import { useAccountBackup } from './src/features/account/useAccountBackup';
@@ -436,6 +437,12 @@ function VinhaApp() {
   // its sweep is resting on. The registry is one object for the app's life.
   const tourRegistry = useRef(createTourTargetRegistry()).current;
   const [tourSweep, setTourSweep] = useState<TourBarStop | null>(null);
+  /**
+   * Which section the tour is pointing at. Home reads it to shut its folds
+   * before the beat that rings one — the layer cannot reach into a screen's
+   * state, and should not, so it says where it is and the screen decides.
+   */
+  const [tourFocus, setTourFocus] = useState<TourTargetId | null>(null);
   const [fontsLoaded, setFontsLoaded] = useState(false);
 
   // Keep the cue utilities in sync with the user's preferences, so every call
@@ -3933,6 +3940,7 @@ function VinhaApp() {
         registry={tourRegistry}
         language={preferences.appLanguage}
         onSweep={setTourSweep}
+        onBeatChange={setTourFocus}
         onFinish={handleTourFinish}
       />
     ) : null;
@@ -5933,6 +5941,7 @@ function VinhaApp() {
       <HomeScreen
         language={preferences.appLanguage}
         tourTargets={tourRegistry}
+        tourFocus={tourFocus}
         onOpenSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
         activePlan={homeActivePlanCard}
         onCompletionStartNext={(planId, templateId) => void handleCompletionStartNext(planId, templateId)}
