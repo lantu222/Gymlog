@@ -667,8 +667,14 @@ module.exports = [
       // Violet is left with the two things that are not actions: the numbered
       // marker in the progression rules, and the star on the "why it fits"
       // card. If either of those grows, decide which family it belongs to.
+      //
+      // The whole violet family, not bare `theme.purple`: there is no word
+      // boundary between "purple" and "Bright", so `theme.purple\b` misses
+      // purpleBright, purpleDark, purpleLight and purpleSoft — which are
+      // exactly the four this page carried on its pressable styles, and the
+      // four a reintroduction would most likely come back as.
       assert.equal(
-        (programDetailSource.match(/theme\.purple\b/g) ?? []).length,
+        (programDetailSource.match(/theme\.purple[A-Za-z]*/g) ?? []).length,
         2,
         'a new violet appeared on this page — is it brand, or is it pressable?',
       );
