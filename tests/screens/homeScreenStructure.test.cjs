@@ -255,7 +255,12 @@ module.exports = [
       assert.match(homeScreenSource, /if \(!nextPlanSession && onFindProgram\)/);
       assert.match(i18nSource, /'home\.startWorkout': 'Start workout'/);
       assert.match(i18nSource, /'home\.findProgram': 'Find a program'/);
-      assert.match(appSource, /onFindProgram=\{\(\) => navigateToTab\('workout'\)\}/);
+      // It PUSHES. navigateToTab resets history, which is right for the bar —
+      // a tab is where you start — and wrong for a button inside a screen: it
+      // left the reader on Programs with nothing behind them, so the next Back
+      // closed the app instead of returning Home.
+      assert.match(appSource, /onFindProgram=\{\(\) => navigate\(resolveTabRoute\('workout'\)\)\}/);
+      assert.doesNotMatch(appSource, /onFindProgram=\{\(\) => navigateToTab/);
       // Adapt is gone, whole (user 2026-08-30). Of its three rows, dropping the
       // programme and rebuilding it both already live in the programme's own
       // screen — doing them from Home was a second door onto the same

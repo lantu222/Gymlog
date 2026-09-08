@@ -35,8 +35,12 @@ module.exports = [
       // Dedicated route, not the legacy list.
       assert.match(routesSource, /tab: 'workout';\s*screen: 'programs_home';/);
       // Tab press honours the flag; default (off) keeps the legacy behaviour.
+      // Where the tab LANDS and what it does to history are two decisions:
+      // resolveTabRoute answers the first for both the bar and the buttons
+      // that cross into the tab, and only the bar resets.
       assert.match(appSource, /if \(tab === 'workout' && preferences\.programsTabEnabled\)/);
-      assert.match(appSource, /resetToRoute\(\{ tab: 'workout', screen: 'programs_home' \}\)/);
+      assert.match(appSource, /return \{ tab: 'workout', screen: 'programs_home' \};/);
+      assert.match(appSource, /function navigateToTab\(tab: RootTabKey\) \{\s*\r?\n\s*resetToRoute\(resolveTabRoute\(tab\)\);/);
     },
   },
   {
