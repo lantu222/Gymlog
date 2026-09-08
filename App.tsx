@@ -722,14 +722,22 @@ function VinhaApp() {
     void updatePreferences({ ratingPrompt: recordRatingAsked(preferences.ratingPrompt, Date.now()) });
   }
 
-  function navigateToTab(tab: RootTabKey) {
-    // Programs-tab redesign (flagged): the workout tab lands on the Programs
-    // home instead of the legacy exercise list.
+  /**
+   * Where a tab lands. Programs-tab redesign (flagged): the workout tab lands
+   * on the Programs home instead of the legacy exercise list.
+   *
+   * Separate from `navigateToTab` because the destination and the history are
+   * two decisions. The bar resets; a button inside a screen must not.
+   */
+  function resolveTabRoute(tab: RootTabKey): AppRoute {
     if (tab === 'workout' && preferences.programsTabEnabled) {
-      resetToRoute({ tab: 'workout', screen: 'programs_home' });
-      return;
+      return { tab: 'workout', screen: 'programs_home' };
     }
-    resetToRoute(ROOT_ROUTES[tab]);
+    return ROOT_ROUTES[tab];
+  }
+
+  function navigateToTab(tab: RootTabKey) {
+    resetToRoute(resolveTabRoute(tab));
   }
 
   /**
@@ -6004,7 +6012,12 @@ function VinhaApp() {
         onCreateWorkoutFromExercises={() => navigate({ tab: 'workout', screen: 'empty' })}
         // No programme to start: the hero button goes to the catalog instead of
         // offering an empty session the "empty workout" row already offers.
-        onFindProgram={() => navigateToTab('workout')}
+        //
+        // `navigate`, not `navigateToTab`: the bar resets history because a tab
+        // is where you START, but this is a button inside a screen, and it left
+        // the reader on Programs with nothing behind them — the next Back
+        // closed the app.
+        onFindProgram={() => navigate(resolveTabRoute('workout'))}
         onOpenCardio={() => navigate({ tab: 'home', screen: 'cardio' })}
         onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
         plateau={proPlateau ? { headline: proPlateau.detection.headline, meta: proPlateau.detection.meta, locked: proPlateau.conclusion, moment: proPlateau.moment } : null}
