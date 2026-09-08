@@ -369,13 +369,20 @@ module.exports = [
       // stopped ending on it and was deleted, and cta.footYear / yearly.note /
       // yearly.week rendered nowhere else. The two plan prices below survive
       // because PremiumScreen and PremiumUnlockScreen read them.
+      //
+      // A fourth round on 2026-09-08 took 'pro.page.billedYearly',
+      // 'pro.page.perYearly', 'pro.page.perMonthly' and 'coach.lock.fine' out
+      // of this map together with the keys themselves: the v4 Pro page and the
+      // locked-chat footer that rendered them are gone, and a price pinned to a
+      // surface nobody sees is the hollow guard the first paragraph describes.
+      // The per-month figure of the yearly plan is pinned through the two lines
+      // that do render it — the v6 plan card's sub line and the Pro moment
+      // sheet's fine print.
       const priced = {
-        'pro.page.billedYearly': /79,90/,
-        'coach.lock.fine': /79,90/,
         'pro.v2.ctaSubYearly': /79,90/,
         'paywall.plan.yearly.price': /79,90/,
-        'pro.page.perYearly': /6,66/,
-        'pro.page.perMonthly': /9,90/,
+        'pro.v6.sub.yearly': /6,66/,
+        'pro.sheet.fine': /6,66/,
         'paywall.plan.monthly.price': /9,90/,
         'pro.page.perLifetime': /179,00/,
         'pro.v2.ctaSubLifetime': /179,00/,

@@ -750,10 +750,11 @@ module.exports = [
       assert.doesNotMatch(homeScreenSource, /'programs\.today'/);
       assert.doesNotMatch(homeScreenSource, /t\(language, 'plan\.upNext'\)\s*\}/);
       // The strip still REPORTS: a chip goes green only when its session was
-      // trained this week — the "Tehty" pill's fact, one glyph smaller.
+      // trained this week — the fact the old "Tehty" pill stated, one glyph
+      // smaller. (The pill's own key rendered nowhere once the chip replaced
+      // it and left the dictionary on 2026-09-08.)
       assert.match(homeScreenSource, /doneThisWeekSessionIds\.includes\(session\.id\)/);
       assert.match(homeScreenSource, /programWeekDayDone/);
-      assert.match(i18nSource, /'home\.plan\.doneThisWeek': 'Tehty'/);
 
       // And the hero carries no label of its own: the answer to a name being
       // misread turned out to be fewer words, not better ones.

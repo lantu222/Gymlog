@@ -4678,10 +4678,10 @@ function VinhaApp() {
    * refused to ship — and it still holds at six (user asked for more cards,
    * #bugs 2026-08-25): the row grows only as far as reasoned matches exist.
    *
-   * NOT labelled AI, deliberately. aiInfo.never.2 states that the model is
-   * "never used to pick your programme — that is a scored, testable decision",
-   * and it is: recommendationScoring plus a waterfall, covered by tests. An AI
-   * badge here would contradict the app's own privacy page.
+   * NOT labelled AI, deliberately. The model is never used to pick a
+   * programme — that is a scored, testable decision: recommendationScoring
+   * plus a waterfall, covered by tests. An AI badge here would claim
+   * otherwise.
    */
   /**
    * "Sinulle" — and nothing in it is something you already run.

@@ -140,9 +140,11 @@ module.exports = [
       assert.match(app, /limit: 6/);
       assert.match(screen, /recommendations\.length > 0 \? \(/);
 
-      // Never labelled AI. aiInfo.never.2 states the model is never used to
-      // pick a programme — it is recommendationScoring plus a waterfall, and
-      // an AI badge here would contradict the app's own privacy page.
+      // Never labelled AI. The model is never used to pick a programme — it
+      // is recommendationScoring plus a waterfall. The AI info page that once
+      // said so in copy (aiInfo.never.2) is gone, and its keys went with it on
+      // 2026-09-08, so this check and the code comments are where the rule
+      // lives now.
       const forYou = screen.slice(screen.indexOf("'programs.forYou'"), screen.indexOf(String.raw`The old "Vaihda ohjelmaa" rail lived here`));
       assert.ok(forYou.length > 200 && forYou.length < 4000, `the row span went wrong: ${forYou.length} chars`);
       assert.doesNotMatch(forYou, /AI/, 'the recommendation row must not claim to be AI');
@@ -161,7 +163,6 @@ module.exports = [
         0,
         'lead copy is back on this page',
       );
-      assert.match(i18n, /'aiInfo\.never\.2': 'Never to pick your programme/);
     },
   },
 ];
