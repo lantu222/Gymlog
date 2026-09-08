@@ -315,6 +315,7 @@ const suites = [
   ...require('./lib/historyView.test.cjs'),
   ...require('./lib/programDetails.test.cjs'),
   ...require('./lib/customProgramDuplication.test.cjs'),
+  ...require('./lib/programRename.test.cjs'),
   ...require('./lib/programInsights.test.cjs'),
   ...require('./lib/readyProgramCatalog.test.cjs'),
   ...require('./lib/readyProgramCollections.test.cjs'),

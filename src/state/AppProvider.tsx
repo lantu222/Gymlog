@@ -12,6 +12,7 @@ import {
   resolveProgramSlots,
 } from '../lib/programSlots';
 import { rememberName } from '../lib/exerciseNameBook';
+import { plansChanged, renamePlansForTemplate } from '../lib/programRename';
 import { createSerialTaskQueue, RunExclusive } from '../lib/serialTaskQueue';
 import { buildWorkoutTemplateSessions } from '../lib/workoutTemplateSessions';
 import { persistCompletedWorkoutSessionToDatabase, PersistCompletedWorkoutInput, SessionSaveSummary } from './completedWorkoutPersistence';
@@ -628,12 +629,22 @@ export function AppProvider({ children }: React.PropsWithChildren) {
         return;
       }
 
+      const now = new Date().toISOString();
+      const withTemplate = workoutTemplateRepository.upsert(current, {
+        ...template,
+        name: trimmedName,
+        updatedAt: now,
+      });
+      // A plan keeps its own copy of the programme's name, taken when it was
+      // made, and Home reads that copy first. Renaming the template alone
+      // changed the programme page and left Home on the old name (user
+      // 2026-09-08). Both records move together, in one commit, so no screen
+      // can disagree with another about what was just typed.
+      const nextPlans = renamePlansForTemplate(withTemplate.workoutPlans, workoutTemplateId, trimmedName, now);
       await commit(
-        workoutTemplateRepository.upsert(current, {
-          ...template,
-          name: trimmedName,
-          updatedAt: new Date().toISOString(),
-        }),
+        plansChanged(withTemplate.workoutPlans, nextPlans)
+          ? { ...withTemplate, workoutPlans: nextPlans }
+          : withTemplate,
       );
     });
   }
