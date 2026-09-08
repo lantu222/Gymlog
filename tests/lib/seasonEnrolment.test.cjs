@@ -3,7 +3,6 @@ const assert = require('node:assert/strict');
 const {
   SEASON_JOIN_WINDOW_DAYS,
   addSeasonEnrolment,
-  daysUntil,
   isEnrolled,
   isJoinWindowOpen,
   normalizeSeasonEnrolments,
@@ -47,17 +46,6 @@ module.exports = [
       assert.equal(isJoinWindowOpen(1), true);
       assert.equal(isJoinWindowOpen(0), true);
       assert.equal(isJoinWindowOpen(-1), false);
-    },
-  },
-  {
-    name: 'days until the start round up, and never go negative',
-    run() {
-      const now = new Date('2026-08-12T12:00:00.000Z');
-      assert.equal(daysUntil(new Date('2026-08-12T12:00:00.000Z'), now), 0);
-      assert.equal(daysUntil(new Date('2026-08-13T00:00:00.000Z'), now), 1);
-      assert.equal(daysUntil(new Date('2026-08-13T12:00:00.000Z'), now), 1);
-      assert.equal(daysUntil(new Date('2026-10-01T00:00:00.000Z'), now), 50);
-      assert.equal(daysUntil(new Date('2026-01-01T00:00:00.000Z'), now), 0);
     },
   },
   {

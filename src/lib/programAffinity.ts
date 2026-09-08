@@ -17,8 +17,8 @@ import { I18nKey } from './i18n';
  * written per program by hand. A recommendation that cannot say why it is here
  * does not belong in the row.
  *
- * Deliberately NOT labelled AI. `aiInfo.never.2` says the model is never used
- * to pick a programme, and it is not: this is four comparisons and a sort.
+ * Deliberately NOT labelled AI. The model is never used to pick a programme,
+ * and it is not: this is four comparisons and a sort.
  */
 
 export type AffinityReason =

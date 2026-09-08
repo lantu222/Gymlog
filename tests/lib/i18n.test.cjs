@@ -14,7 +14,7 @@ module.exports = [
       }
 
       // Spot checks: translations are real, not copies of the English text.
-      assert.equal(t('en', 'welcome.continueGoogle'), 'Continue with Google');
+      assert.equal(t('en', 'common.cancel'), 'Cancel');
       assert.equal(t('fi', 'common.cancel'), 'Peruuta');
       assert.notEqual(t('fi', 'brand.tagline'), t('en', 'brand.tagline'));
       assert.notEqual(t('fi', 'home.startWorkout'), t('en', 'home.startWorkout'));

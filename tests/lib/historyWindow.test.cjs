@@ -140,15 +140,15 @@ module.exports = [
       }
 
       // And the free-tier promise stops implying the charts go back forever
-      // while staying exact about what does. (pro.v2.free.body no longer
-      // renders on the Pro page — it is still the copy the free tier is
-      // described with elsewhere, so the wording still has to hold.)
-      const body = i18n.split(String.fromCharCode(10)).filter((line) => line.includes("'pro.v2.free.body':"));
-      assert.equal(body.length, 2, 'both languages');
-      assert.doesNotMatch(body[0], /full history, forever/);
-      assert.doesNotMatch(body[1], /koko historiasi, ikuisesti/);
-      assert.match(body[0], /exportable forever/);
-      assert.match(body[1], /vietävissä ikuisesti/);
+      // while staying exact about what does. The v2 free-tier paragraph that
+      // used to carry this went on 2026-09-08 with the rest of the dead v2
+      // copy — it rendered nowhere — so the line that makes the promise now,
+      // the Free tab's "yours" row, is the one held to it.
+      for (const line of forever) {
+        assert.doesNotMatch(line, /full history, forever|koko historiasi, ikuisesti/);
+      }
+      assert.match(forever[0], /Exportable as CSV, forever/);
+      assert.match(forever[1], /Vietävissä CSV:nä, ikuisesti/);
     },
   },
 ];

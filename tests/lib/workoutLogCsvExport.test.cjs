@@ -148,14 +148,23 @@ module.exports = [
       // legalDocuments.test.cjs, which walks the whole tree rather than two
       // directories. Asserting it twice, less well, would only drift.
 
+      // The claims moved with the Pro page. v6 states them on the Free tab's
+      // own rows, which lib/proTiers reads; the v4 'pro.page.stand.*' lines
+      // this guard used to check were removed with that page on 2026-09-08 —
+      // a claim pinned to copy nobody sees guards nothing.
       const i18n = read('src', 'lib', 'i18n.ts');
-      for (const key of ['pro.page.stand.noSocial', 'pro.page.stand.offline', 'pro.page.stand.yours']) {
+      for (const key of ['pro.v6.free.offline.b', 'pro.v6.free.yours.b']) {
         const lines = i18n.split(String.fromCharCode(10)).filter((line) => line.includes(`'${key}':`));
         assert.equal(lines.length, 2, `${key} in both languages`);
       }
+      // No social graph and the export promise sit on the same row.
+      const yours = i18n.split(String.fromCharCode(10)).filter((l) => l.includes("'pro.v6.free.yours.b':"));
+      assert.match(yours[0], /No feed, no followers/);
+      assert.match(yours[0], /CSV/);
+      assert.match(yours[1], /Ei syötettä, ei seuraajia/);
       // The offline claim names its own exception rather than overclaiming.
-      const offline = i18n.split(String.fromCharCode(10)).filter((l) => l.includes("'pro.page.stand.offline':"));
-      assert.match(offline[0], /AI coach needs one/);
+      const offline = i18n.split(String.fromCharCode(10)).filter((l) => l.includes("'pro.v6.free.offline.b':"));
+      assert.match(offline[0], /only the AI coach needs a connection/);
       assert.match(offline[1], /AI-valmentaja tarvitsee/);
     },
   },

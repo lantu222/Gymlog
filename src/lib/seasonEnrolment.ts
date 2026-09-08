@@ -37,8 +37,6 @@ export interface SeasonEnrolment {
  */
 export const SEASON_JOIN_WINDOW_DAYS = 40;
 
-const DAY = 86_400_000;
-
 export function normalizeSeasonEnrolments(value: unknown): SeasonEnrolment[] {
   if (!Array.isArray(value)) {
     return [];
@@ -99,9 +97,4 @@ export function addSeasonEnrolment(
  */
 export function isJoinWindowOpen(daysUntilStart: number): boolean {
   return daysUntilStart >= 0 && daysUntilStart <= SEASON_JOIN_WINDOW_DAYS;
-}
-
-/** Whole days from `now` to `start`, rounded up; 0 once it has begun. */
-export function daysUntil(start: Date, now: Date): number {
-  return Math.max(0, Math.ceil((start.getTime() - now.getTime()) / DAY));
 }

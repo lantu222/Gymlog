@@ -170,8 +170,8 @@ interface ProgramsHomeScreenProps {
    * The one or two programs the engine picked, each carrying its reason.
    *
    * Empty when the setup answers are missing — a recommendation with nothing
-   * behind it is worse than no row. Never labelled AI: aiInfo.never.2 says
-   * the model is never used to pick a programme, and it is not.
+   * behind it is worse than no row. Never labelled AI: the model is never
+   * used to pick a programme, and it is not.
    */
   /**
    * Strength targets with their progress. Empty until the reader sets one —
