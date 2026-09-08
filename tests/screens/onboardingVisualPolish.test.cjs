@@ -136,7 +136,10 @@ module.exports = [
       // Slim determinate progress bar + percent readout (calm, not a hype ring).
       assert.match(loaderBody, /styles\.buildingPlanProgressTrack/);
       assert.match(loaderBody, /styles\.buildingPlanProgressFill, \{ width: `\$\{buildingPlanPercent\}%` \}/);
-      assert.match(loaderBody, /<Text style=\{styles\.buildingPlanPercentText\}>\{`\$\{buildingPlanPercent\}%`\}<\/Text>/);
+      // The figure is still printed beside the bar; only who spaces the sign
+      // moved. Finnish writes "97 %" and English "97%", and this screen wrote
+      // the English form to both.
+      assert.match(loaderBody, /<Text style=\{styles\.buildingPlanPercentText\}>\{formatPercent\(buildingPlanPercent, language\)\}<\/Text>/);
 
       // Vertical step list with an active-row highlight and a done check.
       assert.match(loaderBody, /styles\.buildingPlanStepList/);

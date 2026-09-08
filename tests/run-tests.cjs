@@ -198,6 +198,7 @@ const suites = [
   ...require('./lib/authoredProgramCount.test.cjs'),
   ...require('./lib/uncalledExports.test.cjs'),
   ...require('./lib/cutCorner.test.cjs'),
+  ...require('./lib/formatPercent.test.cjs'),
   ...require('./lib/programEquipment.test.cjs'),
   ...require('./lib/programEquipmentBucket.test.cjs'),
   ...require('./lib/progressionRuleLabel.test.cjs'),

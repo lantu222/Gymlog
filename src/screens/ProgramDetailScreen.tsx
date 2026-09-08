@@ -8,6 +8,7 @@ import { CutSurface } from '../components/CutSurface';
 import { ProgramPhotoSlot } from '../components/ProgramPhotoSlot';
 import { ToggleSwitch } from '../components/SettingsUi';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
+import { formatPercent } from '../lib/format';
 import { I18nKey, t } from '../lib/i18n';
 import { cycleSchedule, sessionSlotOn } from '../lib/trainingSchedule';
 import { ProgramDetailViewModel } from '../lib/programDetails';
@@ -900,7 +901,7 @@ export function ProgramDetailScreen({
                     <View style={[styles.emphasisDot, { backgroundColor: EMPHASIS_RAMP[slice.area] }]} />
                     <Text style={styles.emphasisLegendText}>
                       {t(language, EMPHASIS_AREA_KEYS[slice.area])}{' '}
-                      <Text style={styles.emphasisLegendPercent}>{slice.percent} %</Text>
+                      <Text style={styles.emphasisLegendPercent}>{formatPercent(slice.percent, language)}</Text>
                     </Text>
                   </View>
                 ))}

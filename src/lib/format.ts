@@ -265,3 +265,19 @@ export function removeTrailingZeros(value: number) {
 export function pluralize(count: number, singular: string, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
+
+/**
+ * A percentage, spaced the way the reader's language spaces it.
+ *
+ * Finnish puts a space before the sign and English does not, and the app had
+ * five places writing one by hand with two opinions between them: the
+ * programme page and the emphasis sheet wrote "36 %", the plan-ready card and
+ * the building screen wrote "97%". Every one of them was therefore wrong in
+ * one of the two languages the app ships.
+ *
+ * The Finnish space is non-breaking. The number and its sign are one word, and
+ * a plain space lets a narrow legend row wrap between them.
+ */
+export function formatPercent(value: number, language: AppLanguage = 'en') {
+  return language === 'fi' ? `${value} %` : `${value}%`;
+}

@@ -9,6 +9,7 @@ import { darkTheme, Theme, useTheme, useThemeName } from '../theming';
 import { PROGRAM_FOCUS_COLORS, ProgramFocusSegment,
   getProgramFocusQualityLabel,
 } from '../lib/programFocusSplit';
+import { formatPercent } from '../lib/format';
 import { t } from '../lib/i18n';
 import { AppLanguage } from '../types/models';
 
@@ -119,7 +120,7 @@ function FocusBar({ focus, light, language }: { focus: ProgramFocusSegment[]; li
                   quality is an English identifier, and printing it put
                   "Strength 97% · Conditioning 3%" on the plan-ready screen. */}
               {getProgramFocusQualityLabel(segment.quality, language)}{' '}
-              <Text style={[styles.splitPct, light && styles.splitPctLight]}>{segment.pct}%</Text>
+              <Text style={[styles.splitPct, light && styles.splitPctLight]}>{formatPercent(segment.pct, language)}</Text>
             </Text>
           </View>
         ))}
