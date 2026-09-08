@@ -117,7 +117,7 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
     audience:
       'Aloittelijalle ja kenelle tahansa, joka on jäykkä muun treenin tai istumisen jäljiltä ja haluaa liikkuvuuden kuntoon lyhyillä päivittäisillä treeneillä.',
     equipmentProfile:
-      'Ei kuntosalilaitteita. Kuminauha ja jumppamatto riittävät.',
+      'Ei kuntosalilaitteita. Kuminauha ja jumppamatto riittävät lähes kaikkeen, ja yhteen selkäliikkeeseen tarvitaan putkirulla.',
     whyItWorks:
       'Jokainen alue saa oman päivänsä ja pidot ovat pitkiä, joten liikelaajuus kasvaa siellä, missä se on jumissa, eikä yksikään treeni vie tuntia.',
   },

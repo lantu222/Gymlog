@@ -30,203 +30,203 @@ const READY_PROGRAM_CONTENT: Record<string, ReadyProgramContent> = {
   // ── Vinha programs, written against what each one actually contains ──
   tpl_gainer_dream_body_man_v1: {
     summary:
-      'A five-day hypertrophy program designed to build a balanced, muscular physique through heavy compound lifts and targeted accessory work.',
+      'Five gym days a week, each with its own territory: chest and triceps, back and biceps, legs, shoulders and abs, then arms. Every day opens with a heavy compound lift and works down to isolation moves.',
     audience:
-      'Designed for intermediate lifters who are comfortable with the main compound lifts and want to build muscle across the entire body.',
+      'Intermediate lifters who already bench, squat and do pull-ups and want to add muscle over the whole body on five days a week.',
     equipmentProfile:
-      'Requires access to a fully equipped gym with barbells, dumbbells, cable stations, and machines.',
+      'A full gym: barbell, dumbbells, cables, machines, plus a dip station and a pull-up bar.',
     whyItWorks:
-      'A combination of progressive overload, high-quality training volume, and balanced weekly frequency promotes consistent muscle growth and strength gains.',
+      'Each muscle group gets a day of its own and seven exercises, and the anchor lift only goes up once the top of the rep range is hit in every set.',
   },
   tpl_gainer_beginner_bro_split_v1: {
     summary:
-      'A classic four-day bodybuilding split where each major muscle group has its own training day, making workouts simple and easy to follow.',
+      'Four gym days, one muscle group at a time: chest, back, legs, then shoulders and arms. Five or six exercises a day, so each session is quick to learn.',
     audience:
-      'Built for beginners who want to learn the fundamentals of resistance training while building muscle with a structured routine.',
+      'Beginners who want to learn the basic gym lifts one muscle group at a time, training four days a week.',
     equipmentProfile:
-      'Requires standard gym equipment including barbells, dumbbells, cable stations, and resistance machines.',
+      'A standard gym: barbell, dumbbells, cables and machines.',
     whyItWorks:
-      'Training one muscle group at a time allows beginners to focus on technique while providing enough volume and recovery for steady progress.',
+      'With one muscle group per day there is room to concentrate on technique, and each muscle gets a week to recover before its next session. The weight goes up when the top of the rep range is reached.',
   },
   tpl_gainer_advanced_ppl_v1: {
     summary:
-      'An advanced six-day Push Pull Legs program featuring two weekly rotations to maximize muscle growth and overall performance.',
+      'Six gym days: push, pull and legs twice a week, with a different emphasis on each pass. The first round leads with chest, back width and quads, the second with shoulders, back thickness and the posterior chain.',
     audience:
-      'Designed for advanced lifters who can recover from high training volume and want to maximize hypertrophy.',
+      'Advanced lifters who can recover from six gym days of seven exercises each and want to build as much muscle as possible.',
     equipmentProfile:
-      'Requires a fully equipped gym with free weights, cable stations, machines, and space for heavy compound lifts.',
+      'A full gym: a barbell and rack for heavy squats and deadlifts, dumbbells, cables and machines.',
     whyItWorks:
-      'High weekly frequency, substantial training volume, and varied movement emphasis create a powerful stimulus for whole-body muscle growth.',
+      'Every muscle group is trained twice a week from two different angles, so weekly volume is high without any single session running long.',
   },
   tpl_gainer_expert_powerbuilding_v1: {
     summary:
-      'A powerbuilding program that combines competition-style powerlifting with bodybuilding-focused accessory training.',
+      'Five gym days built around the powerlifting competition lifts: a bench day, a squat day and a deadlift day that each open with five sets of the competition lift, plus a pull day and a press-and-pump day.',
     audience:
-      'Built for experienced lifters who want to increase both maximal strength and muscular size.',
+      'Experienced lifters who want more kilos on the competition lifts and bodybuilding work in the same week.',
     equipmentProfile:
-      'Requires a well-equipped gym with power racks, barbells, benches, and a full range of accessory equipment.',
+      'A well-equipped gym: squat rack, bench station, barbell and plates, dumbbells, cables and machines.',
     whyItWorks:
-      'Heavy competition lifts build strength while targeted hypertrophy work increases muscle mass and supports long-term performance.',
+      'The competition lift comes first, fresh, for five sets, then a variation of it, then the bodybuilding work, so strength climbs and muscle grows in the same session.',
   },
   tpl_gainer_lean_shred_v1: {
     summary:
-      'A five-day program combining resistance training, HIIT, and full-body workouts to support fat loss while preserving muscle.',
+      'Five days a week: three lifting days that finish with intervals on the treadmill, bike or rower, one full-body circuit and one conditioning-and-core day.',
     audience:
-      'Designed for intermediate trainees looking to reduce body fat while maintaining strength and lean muscle mass.',
+      'Intermediate lifters cutting fat who want to keep their bench, squat and pull-up numbers while they do it.',
     equipmentProfile:
-      'Requires access to a standard gym along with equipment suitable for high-intensity interval training.',
+      'A standard gym plus a treadmill, bike or rower for the intervals.',
     whyItWorks:
-      'Strength training helps preserve muscle while HIIT increases calorie expenditure and improves cardiovascular fitness.',
+      'Heavy compound lifts hold on to muscle in a calorie deficit, and the intervals add expenditure in the same gym visit, so the conditioning never gets skipped.',
   },
   tpl_gainer_dream_body_female_v1: {
     summary:
-      'A five-day hypertrophy program focused on building strong glutes, sculpted legs, and a balanced upper body for a well-rounded physique.',
+      'Five gym days: glutes and hamstrings, upper body, quads and cardio, back and core, and a full-body day. Glutes and upper body each get trained twice a week.',
     audience:
-      'Designed for intermediate lifters who want to prioritize glute and lower-body development while building upper-body strength and definition.',
+      'Intermediate lifters who want to grow their glutes and legs and keep the upper body strong on five gym days a week.',
     equipmentProfile:
-      'Requires a fully equipped gym with barbells, dumbbells, cable stations, and resistance machines.',
+      'A full gym: a barbell for hip thrusts, dumbbells, cables, machines and a stair climber.',
     whyItWorks:
-      'Frequent glute-focused training with varied loading stimulates muscle growth while maintaining balanced full-body development.',
+      'Hip thrusts and Romanian deadlifts load the glutes heavily once a week, and the hip thrust comes back lighter on the full-body day, so the glutes get two stimuli a week without the legs being sore all the time.',
   },
   tpl_gainer_glute_foundations_v1: {
     summary:
-      'A three-day beginner program that teaches proper glute activation and builds a strong foundation for long-term progress.',
+      'Three days a week: an activation day with a band, a lower-body strength day and a glute growth day. The weights are light, and the movements are learned before they are loaded.',
     audience:
-      'Ideal for beginners or those returning to training who want to improve glute strength, muscle growth, and exercise technique.',
+      'Beginners, or anyone coming back from a break, who want to learn to use their glutes and get the squat, hinge and hip thrust technically right.',
     equipmentProfile:
-      'Requires basic gym equipment along with resistance bands and light free weights.',
+      'Basic gym equipment: a resistance band, dumbbells or a kettlebell, a cable station and a light barbell.',
     whyItWorks:
-      'The program progresses from activation to strength work, reinforcing proper movement patterns and effective glute engagement.',
+      'First the band teaches you to feel the glutes, then load arrives in the squat and the hinge, and only on the third day in the hip thrust, so strength is built on top of the right movement pattern.',
   },
   tpl_gainer_advanced_glutes_v1: {
     summary:
-      'An advanced five-day program using multiple training styles to maximize glute development and lower-body strength.',
+      'Five days a week, three of them glute days: a heavy day with the barbell, a volume day with bands and cables, and a single-leg day. The other two cover quads and hamstrings, and the upper body.',
     audience:
-      'Designed for experienced lifters seeking maximum glute growth through higher training volume and varied exercise selection.',
+      'Experienced lifters whose glutes are the top priority of the next block and who can recover from three glute days a week.',
     equipmentProfile:
-      'Requires a fully equipped gym with free weights, cable stations, machines, and equipment for heavy hip thrusts.',
+      'A full gym: a barbell and somewhere to hip thrust, cables, machines, bands and a reverse hyperextension bench.',
     whyItWorks:
-      'Combining strength, volume, and pump-focused sessions creates a comprehensive stimulus for glute growth and performance.',
+      'A heavy five-set hip thrust, a light twenty-rep pump and single-leg work give the glutes three different stimuli a week, while the upper-body and thigh days keep the rest of the body in step.',
   },
   tpl_gainer_hourglass_shape_v1: {
     summary:
-      'A four-day program emphasizing glutes, shoulders, and core to build a balanced and well-defined physique.',
+      'Four gym days: glutes and legs, shoulders and back width, glutes and core, and an upper-body toning day. Glutes twice, shoulders twice.',
     audience:
-      'Designed for intermediate lifters looking to develop stronger glutes, broader shoulders, and improved core stability.',
+      'Intermediate lifters who want wider shoulders, bigger glutes and a tight core on four gym days.',
     equipmentProfile:
-      'Requires access to a standard gym with free weights, cable stations, and resistance machines.',
+      'A standard gym: a barbell for hip thrusts, dumbbells, cables, machines and a band.',
     whyItWorks:
-      'Strategic training volume for the glutes and shoulders, combined with core work, supports balanced physique development.',
+      'Shoulder width comes from lateral raises and wide-grip pulldowns, glute shape from hip thrusts and hinges, and the core stays tight through static holds. Twice a week for each is enough to grow.',
   },
   tpl_gainer_fat_burn_hiit_v1: {
     summary:
-      'A four-day HIIT program combining full-body interval training to improve fitness and support fat loss.',
+      'Four interval days: upper body, lower body, total body and a tabata. The moves are mostly bodyweight with some light dumbbell and kettlebell work, the sets are short and the rests shorter.',
     audience:
-      'Built for beginners who want to improve cardiovascular fitness, increase calorie burn, and learn effective interval training.',
+      'Beginners who want fitness and calorie burn from four short interval sessions a week.',
     equipmentProfile:
-      'Requires dumbbells and a kettlebell. The remaining exercises are done with bodyweight.',
+      'Dumbbells and a kettlebell, plus a box and battle ropes on the total-body day. Everything else is bodyweight.',
     whyItWorks:
-      'Short, high-intensity work intervals elevate heart rate efficiently while improving both aerobic and anaerobic fitness.',
+      'Short, hard work intervals push the heart rate up fast, and with the days split into upper body, lower body, total body and tabata, the same move never repeats day after day.',
   },
   tpl_gainer_mobility_flow_v1: {
     summary:
-      'A five-day mobility program designed to improve joint range of motion, reduce stiffness, and support recovery through daily movement.',
+      'Five short mobility sessions a week: a full-body morning opener, hips, shoulders, spine and a recovery stretch. Holds run from 30 seconds to a minute and a half, and the resting pose that closes the last day lasts 3–5 minutes.',
     audience:
-      'Ideal for beginners and active individuals looking to improve mobility, reduce stiffness, and complement their regular training.',
+      'Beginners, and anyone stiff from training or sitting who wants their mobility back through short daily sessions.',
     equipmentProfile:
-      'No gym machines needed. A resistance band and an exercise mat are enough.',
+      'No gym machines. A resistance band and an exercise mat cover nearly everything, and one spine drill uses a foam roller.',
     whyItWorks:
-      'Consistent mobility work helps maintain joint function, improve movement quality, and reduce post-training stiffness.',
+      'Each area gets a day of its own and the holds are long, so range grows where it is stuck, and no session takes an hour.',
   },
   tpl_gainer_at_home_beginner_v1: {
     summary:
-      'A three-day full-body program that builds strength and muscular endurance using primarily bodyweight exercises at home.',
+      'Three bodyweight sessions a week at home: upper body, lower body and a full-body circuit. Push-ups, squats, lunges and planks, with a table for rows and a chair for dips.',
     audience:
-      'Designed for beginners and home exercisers who want to start strength training without access to a gym.',
+      'Beginners who want to start strength training at home with no equipment, three sessions a week.',
     equipmentProfile:
-      'No equipment required. Every workout can be completed using bodyweight alone.',
+      'No equipment: everything is bodyweight. A sturdy table for rows and a chair for dips are all it takes.',
     whyItWorks:
-      'Fundamental movement patterns improve total-body strength, muscular endurance, and movement control without specialized equipment.',
+      'Squat, push, pull and plank come back every week and progress comes from reps, so strength and fitness build without a kilo of iron.',
   },
   tpl_gainer_calisthenics_mastery_v1: {
     summary:
-      'An advanced calisthenics program focused on building strength, body control, and skills such as the muscle-up, handstand, and planche.',
+      'Four days a week built around skills: handstand and planche, muscle-up and front lever, pistol squats and jumps, plus a skills-and-core day.',
     audience:
-      'Designed for experienced athletes who have mastered the basics of bodyweight training and want to progress to advanced skills.',
+      'Experienced bodyweight athletes who already do weighted pull-ups and dips and want the skills next.',
     equipmentProfile:
-      'Requires a pull-up bar, with gymnastics rings or similar equipment recommended for optimal progression.',
+      'A pull-up bar and dip bars, a wall for handstands, and ideally rings.',
     whyItWorks:
-      'Skill progressions combined with progressive bodyweight strength training develop strength, balance, and movement control simultaneously.',
+      'The week mixes long holds, explosive reps and weighted strength work, so skill, strength and body control develop side by side.',
   },
   tpl_gainer_strength_5x5_v1: {
     summary:
-      'A three-day 5x5 strength program centered around the major compound lifts and consistent progressive overload.',
+      'Three sessions a week alternating A and B: squat every time, bench and barbell row on A days, overhead press and deadlift on B days. Five sets of five, one set for the deadlift.',
     audience:
-      'Perfect for beginners who want to build a solid strength foundation through simple and measurable progression.',
+      'Beginners who want to learn five barbell lifts and watch the weight go up every week.',
     equipmentProfile:
-      'Requires a gym equipped with a barbell, weight plates, a squat rack, and a bench press station.',
+      'A barbell, plates, a squat rack and a bench.',
     whyItWorks:
-      'A small selection of compound lifts combined with straightforward progression promotes rapid technique improvements and steady strength gains.',
+      'Three lifts at the same weight across all sets are easy to log and repeat, and when five sets of five go up clean, the smallest plate goes on the bar.',
   },
   tpl_gainer_athlete_conditioning_v1: {
     summary:
-      'A five-day athletic performance program combining explosive power, speed, agility, and endurance training.',
+      'Five days a week: explosive lower body, athletic upper body, speed and agility, a strength circuit, and endurance. Power cleans, jumps, sprints, rowing intervals and sled pushes.',
     audience:
-      'Designed for advanced trainees and athletes seeking to improve overall athletic performance rather than focusing solely on muscle growth.',
+      'Experienced trainees and athletes who want power, speed and endurance rather than muscle alone.',
     equipmentProfile:
-      'Requires a well-equipped gym along with space for sprinting, agility drills, and conditioning work.',
+      'A well-equipped gym and room for sprints and agility drills: barbell, sled, box, medicine ball, battle ropes, rower and air bike.',
     whyItWorks:
-      'Integrating strength, speed, and conditioning creates a well-rounded program that improves athletic performance across multiple physical qualities.',
+      'Strength, speed and endurance each get their own day, so each can be trained fresh, and over the week all three move forward.',
   },
   tpl_gainer_strong_lean_female_v1: {
     summary:
-      'A four-day strength-focused program designed to build a strong, athletic physique through compound lifts and balanced hypertrophy training.',
+      'Four gym days: upper-body strength, lower-body strength, push and core, and pull and conditioning. Bench press, back squat, incline dumbbell press and barbell row anchor the four days.',
     audience:
-      'Designed for intermediate lifters who want to increase strength, build lean muscle, and improve full-body performance.',
+      'Intermediate lifters who want more strength in the basic lifts and a lean, athletic build on four gym days.',
     equipmentProfile:
-      'Requires a standard gym with barbells, dumbbells, cable stations, and resistance machines.',
+      'A standard gym: barbell, dumbbells, cables, machines and a kettlebell.',
     whyItWorks:
-      'Heavy compound lifts build strength while accessory exercises improve muscular balance and support long-term progress.',
+      'Upper and lower body are each trained twice a week, first heavy with the barbell and then lighter with dumbbells and cables, so strength and muscle both progress without the week turning into a grind.',
   },
   tpl_gainer_joint_friendly_v1: {
     summary:
-      'A three-day joint-friendly strength program that emphasizes controlled movements and safe resistance training.',
+      'Three days a week on machines, cables and a band: supported lower body, supported upper body, and a full-body and balance day. Reps mostly run 12–20, and every movement is controlled.',
     audience:
-      'Ideal for beginners, returning exercisers, or anyone looking to reduce joint stress while building strength.',
+      'Beginners, people returning from a break, or anyone whose joints do not tolerate heavy free weights but who still wants to get stronger.',
     equipmentProfile:
-      'Primarily uses resistance machines along with light free weights for stable and controlled movement patterns.',
+      'Gym machines and cables, a resistance band and a chair.',
     whyItWorks:
-      'Supported exercises reduce joint stress while improving strength, balance, and overall functional fitness.',
+      'The machine guides the path, so the load lands on the muscle rather than the joint, and the high reps build strength with light weights.',
   },
   tpl_gainer_prenatal_fitness_v1: {
     summary:
-      'A three-day prenatal fitness program designed to support strength, mobility, and body control through safe exercise.',
+      'Three light sessions a week for pregnancy: gentle strength, mobility and pelvic floor, and low-impact cardio and balance.',
     audience:
-      'Designed for expectant mothers who have been cleared for exercise by a qualified healthcare professional.',
+      'Expectant mothers cleared to exercise by a healthcare professional who want to keep their strength and mobility up.',
     equipmentProfile:
-      'Requires dumbbells, a resistance band, an exercise mat, and gym equipment such as a cable station and a stationary bike.',
+      'Dumbbells, a resistance band and an exercise mat, plus a cable station for rows and a stationary bike at the gym.',
     whyItWorks:
-      'Gentle strength work, mobility training, and pelvic floor awareness help maintain function and comfort throughout pregnancy.',
+      'Light weights, pelvic floor activation and easy cycling keep you functional without jumps or heavy lifting.',
   },
   tpl_gainer_postpartum_recovery_v1: {
     summary:
-      'A three-day postpartum recovery program focused on rebuilding core function and gradually restoring full-body strength.',
+      'Three short sessions a week after childbirth: core reconnection starting from breathing and the pelvic floor, a gentle full-body day, and a strength rebuild with light dumbbells.',
     audience:
-      'Designed for individuals returning to exercise after childbirth with approval from a healthcare professional.',
+      'Anyone recovering from childbirth who has a doctor\'s or healthcare professional\'s go-ahead to start training.',
     equipmentProfile:
-      'Requires light dumbbells, a resistance band, and open space for controlled movement.',
+      'Light dumbbells, a resistance band and some floor space.',
     whyItWorks:
-      'The program progresses from breathing and core reconnection toward gradually rebuilding total-body strength.',
+      'Breathing and deep-core activation come first, then light basic movements, and only at the end any load, so the core recovers before it is asked to carry anything.',
   },
   tpl_gainer_runners_strength_v1: {
     summary:
-      'A three-day strength program for runners that develops lower-body power, stability, and core strength to support running performance.',
+      'Three gym days for a runner: posterior chain and power, single-leg stability, and core and mobility. Romanian deadlifts, hip thrusts, split squats and jumps.',
     audience:
-      'Designed for intermediate runners who want to improve performance, reduce injury risk, and complement their running routine.',
+      'Intermediate runners who want stronger hamstrings, glutes and calves, fewer injuries and a more economical stride.',
     equipmentProfile:
-      'Requires standard gym equipment including barbells, dumbbells, and space for mobility and stability exercises.',
+      'Basic gym gear: a barbell or dumbbells, a box for jumps, a pull-up bar for hanging leg raises and room for mobility work.',
     whyItWorks:
-      'Single-leg strength, posterior chain development, and core training improve running efficiency while helping reduce injury risk.',
+      'Single-leg work and a stronger posterior chain target exactly what running asks for, and the jumps teach the leg to produce force fast, so the stride gets lighter and overuse injuries rarer.',
   },
 
   tpl_strong_elite_v1: {
