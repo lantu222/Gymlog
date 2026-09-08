@@ -1024,13 +1024,13 @@ export function ProgramDetailScreen({
                 <Svg viewBox="0 0 24 24" width={19} height={19}>
                   <Path
                     d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6z"
-                    stroke={theme.purple}
+                    stroke={theme.highlight}
                     strokeWidth={1.9}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     fill="none"
                   />
-                  <Circle cx={12} cy={12} r={2.6} stroke={theme.purple} strokeWidth={1.9} fill="none" />
+                  <Circle cx={12} cy={12} r={2.6} stroke={theme.highlight} strokeWidth={1.9} fill="none" />
                 </Svg>
               </View>
             </Pressable>
@@ -1274,8 +1274,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.surfaceSoft,
   },
   patChipOn: {
-    borderColor: theme.purpleBright,
-    backgroundColor: theme.purpleLight,
+    borderColor: theme.highlight,
+    backgroundColor: theme.highlightSoft,
   },
   patChipText: {
     fontFamily: 'JetBrainsMono',
@@ -1283,7 +1283,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '700',
     color: theme.muted,
   },
-  patChipTextOn: { color: theme.purpleBright },
+  patChipTextOn: { color: theme.highlight },
   rhythmDay: {
     flex: 1,
     borderRadius: 13,
@@ -1294,14 +1294,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
   },
   rhythmDayOn: {
-    backgroundColor: theme.purpleDark,
-    borderColor: theme.purpleDark,
+    backgroundColor: theme.highlight,
+    borderColor: theme.highlight,
   },
   rhythmDayPressed: {
     opacity: 0.7,
   },
   rhythmHint: {
-    color: theme.purple,
+    color: theme.highlight,
     fontSize: 12.5,
     lineHeight: 17,
     fontWeight: '700',
@@ -1315,7 +1315,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     letterSpacing: 0.4,
   },
   rhythmDayNameOn: {
-    color: 'rgba(255,255,255,0.66)',
+    color: theme.onHighlight,
+    opacity: 0.7,
   },
   rhythmDayLabel: {
     color: theme.muted,
@@ -1325,7 +1326,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 6,
   },
   rhythmDayLabelOn: {
-    color: '#FFFFFF',
+    color: theme.onHighlight,
   },
   reasonCard: {
     flexDirection: 'row',
@@ -1495,7 +1496,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
   },
   sectionAction: {
-    color: theme.purple,
+    color: theme.highlight,
     fontSize: 13,
     fontWeight: '800',
   },
@@ -1529,7 +1530,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     transform: [{ scale: 0.985 }],
   },
   emphasisEdit: {
-    color: theme.purple,
+    color: theme.highlight,
     fontSize: 12.5,
     lineHeight: 16,
     fontWeight: '800',
@@ -1609,11 +1610,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderRadius: radii.pill,
     justifyContent: 'center',
-    // Actions wear the app purple; green here stays for recovery days only.
-    backgroundColor: theme.purpleSoft,
+    // Actions wear the action accent; green here stays for recovery days only.
+    backgroundColor: theme.highlightSoft,
   },
   workoutActionText: {
-    color: theme.purple,
+    color: theme.highlight,
     fontSize: 13,
     fontWeight: '900',
   },
@@ -1670,15 +1671,15 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
-    backgroundColor: theme.purple,
-    shadowColor: theme.purple,
+    backgroundColor: theme.highlight,
+    shadowColor: theme.highlight,
     shadowOpacity: 0.3,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },
     elevation: 7,
   },
   adoptButtonText: {
-    color: '#FFFFFF',
+    color: theme.onHighlight,
     fontSize: 17,
     lineHeight: 22,
     fontWeight: '800',
