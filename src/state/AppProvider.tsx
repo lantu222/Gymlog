@@ -257,6 +257,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       primaryGoalId: null,
       coachSuggestionState: {},
       setupHandoffCompleted: false,
+      firstRunToursSeen: [],
       entryFlowCompleted: false,
       trainingFirstRunDismissed: false,
       selectedSignInMethod: null,

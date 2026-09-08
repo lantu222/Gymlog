@@ -1,4 +1,5 @@
 import React from 'react';
+import { TourTargetRegistry } from '../features/tour/tourTargets';
 
 import { AppRoute, ROOT_ROUTES } from '../navigation/routes';
 import { ProgressScreen } from '../screens/ProgressScreen';
@@ -20,6 +21,7 @@ export interface ProgressTabDeps {
   resetToRoute: (route: AppRoute) => void;
   preferences: AppPreferences;
   updatePreferences: (patch: Partial<AppPreferences>) => Promise<unknown>;
+  tourTargets: TourTargetRegistry;
   personalRecords: NonNullable<ProgressScreenProps['records']>;
   /** The ten lifts a target can be set on — the same list the flow offers. */
   targetLifts: NonNullable<ProgressScreenProps['targetLifts']>;
@@ -90,6 +92,7 @@ export function renderProgressTab(deps: ProgressTabDeps): React.ReactElement | n
       measurementEntries={measurementEntries}
       workoutSessions={workoutSessions}
       activityCalendar={activityCalendar}
+      tourTargets={deps.tourTargets}
       // The same resolved rhythm Home and the widget mark their calendars
       // from — cycle or weekdays — so a 2-on-1-off reader sees the same
       // training days on every calendar in the app.

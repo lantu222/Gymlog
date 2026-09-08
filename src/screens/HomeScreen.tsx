@@ -21,6 +21,7 @@ import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from
 import { CardioIcon } from '../components/CardioIcon';
 import { CtaShimmer } from '../components/CtaShimmer';
 import { HomeStatCardsSection } from '../components/HomeStatCardsSection';
+import { TourTargetRegistry, viewportOf } from '../features/tour/tourTargets';
 import { CardioIconKind } from '../lib/cardio';
 import { HomeStatCard } from '../lib/homeStatCards';
 import { VinhaIcon } from '../components/VinhaIcon';
@@ -309,6 +310,12 @@ interface HomeScreenProps {
   onChangePinnedStatCardKeys?: (next: string[]) => void;
   onOpenStatCard?: (key: string) => void;
   /**
+   * The first-run tour points at four things here — the week strip, the
+   * session box, the active programme and the cards — and scrolls this
+   * screen to reach them. Registered as refs; the tour draws over the page.
+   */
+  tourTargets?: TourTargetRegistry;
+  /**
    * Which days train. Unknown → the strip shows no training dots rather than
    * an invented rhythm.
    *
@@ -432,6 +439,7 @@ export function HomeScreen({
   language = 'en',
   accountBackupPrompt = null,
   widgetPrompt = null,
+  tourTargets,
   sessionSwaps = {},
   onSwapSessionExercise,
   sessionDrops = [],
@@ -447,6 +455,20 @@ export function HomeScreen({
   const scheduleKnown = isScheduleKnown(trainingSchedule);
   const [plateauSheetVisible, setPlateauSheetVisible] = useState(false);
   const insets = useSafeAreaInsets();
+  // The tour's scroller: where the list is, and how to move it.
+  const tourScrollRef = useRef<ScrollView>(null);
+  const tourScrollOffset = useRef(0);
+  useEffect(() => {
+    if (!tourTargets) {
+      return;
+    }
+    tourTargets.registerScroller('home', {
+      viewport: viewportOf(tourScrollRef),
+      getOffset: () => tourScrollOffset.current,
+      scrollToOffset: (offset, animated) => tourScrollRef.current?.scrollTo({ y: offset, animated }),
+    });
+    return () => tourTargets.registerScroller('home', null);
+  }, [tourTargets]);
   const [todaySheetVisible, setTodaySheetVisible] = useState(false);
   /**
    * The sign-in dialog, open while the offer is due. Scrim and back close it
@@ -835,7 +857,11 @@ export function HomeScreen({
    * to render without one, where it reads "find a programme".
    */
   const startCta = (
-  <Animated.View style={[styles.btnRow, rise(RISE_BTNROW)]}>
+  <Animated.View
+    // Without a plan there is no session box, and this row IS the hero.
+    ref={heroStartsSession ? undefined : (node) => tourTargets?.register('home.hero', node)}
+    style={[styles.btnRow, rise(RISE_BTNROW)]}
+  >
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={t(
@@ -898,7 +924,17 @@ export function HomeScreen({
 
   return (
     <View style={styles.screenBackground}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={tourScrollRef}
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        onScroll={(event) => {
+          tourScrollOffset.current = event.nativeEvent.contentOffset.y;
+          tourTargets?.notifyScroll();
+        }}
+        scrollEventThrottle={32}
+      >
         {/*
           1C: mark, rule, greeting, week — plus the PRO pill, which is back.
           It was removed for advertising a subscription to people who already
@@ -956,7 +992,7 @@ export function HomeScreen({
           </View>
         </Animated.View>
 
-        <Animated.View style={[styles.weekCard, rise(RISE_WEEK)]}>
+        <Animated.View ref={(node) => tourTargets?.register('home.week', node)} style={[styles.weekCard, rise(RISE_WEEK)]}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t(language, calendarExpanded ? 'home.a11y.collapseCalendar' : 'home.a11y.expandCalendar')}
@@ -1209,7 +1245,7 @@ export function HomeScreen({
             fixed height — it grows with whichever phase is open, which is the
             point of drawing it rather than sizing it. */}
         {activePlan && nextPlanSession ? (
-          <View style={styles.sessionBox}>
+          <View ref={(node) => tourTargets?.register('home.hero', node)} style={styles.sessionBox}>
             <Animated.View style={[styles.hero, rise(RISE_HERO)]}>
               <View style={styles.heroTop}>
                 {/* 'line' mode: the anchor must stay on one line and shrink to
@@ -1425,7 +1461,7 @@ export function HomeScreen({
             find out what week they are in. Programs is for finding a program;
             Home is for running one. Only one screen owns this now. */}
         {activePlan && activePlan.sessions.length > 0 ? (
-          <Animated.View style={[styles.programSection, rise(RISE_DIVIDER)]}>
+          <Animated.View ref={(node) => tourTargets?.register('home.program', node)} style={[styles.programSection, rise(RISE_DIVIDER)]}>
             <View style={styles.programHeadRow}>
               <Text style={styles.programEyebrow}>{t(language, 'programs.activeProgram')}</Text>
               <Text style={styles.programWeek}>{activePlan.weekLabel}</Text>
@@ -1686,7 +1722,7 @@ export function HomeScreen({
         ) : null}
 
         {onChangePinnedStatCardKeys ? (
-          <Animated.View style={[styles.statCardsSection, rise(RISE_EMPTY_ROW)]}>
+          <Animated.View ref={(node) => tourTargets?.register('home.cards', node)} style={[styles.statCardsSection, rise(RISE_EMPTY_ROW)]}>
             <HomeStatCardsSection
               bottomInset={insets.bottom}
               catalogCards={statCatalogCards}

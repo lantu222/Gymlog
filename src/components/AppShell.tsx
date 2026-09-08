@@ -9,6 +9,12 @@ import { radii, spacing } from '../theme';
 interface AppShellProps {
   children: React.ReactNode;
   tabBar?: React.ReactNode;
+  /**
+   * Drawn after the bar, so it can point at the bar. The first-run tour is
+   * the one thing here; it is `box-none`, so it never takes a touch the page
+   * or the bar was going to get.
+   */
+  overlay?: React.ReactNode;
   toastMessage?: string | null;
   safeAreaEdges?: Edge[];
   statusBarStyleOverride?: 'light' | 'dark';
@@ -20,6 +26,7 @@ interface AppShellProps {
 export function AppShell({
   children,
   tabBar,
+  overlay,
   toastMessage,
   safeAreaEdges = ['top', 'left', 'right', 'bottom'],
   statusBarStyleOverride,
@@ -60,6 +67,7 @@ export function AppShell({
             </View>
           ) : null}
           {tabBar}
+          {overlay}
         </KeyboardAvoidingView>
       </SafeAreaView>
     </SafeAreaProvider>

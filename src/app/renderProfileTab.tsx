@@ -1,4 +1,6 @@
 import React from 'react';
+import { TourTargetRegistry } from '../features/tour/tourTargets';
+import { resetToursSeen } from '../lib/firstRunTour';
 import { Alert } from 'react-native';
 
 import { AccountBackupApi } from '../features/account/useAccountBackup';
@@ -86,6 +88,7 @@ export interface ProfileTabDeps {
   settingsScrollOffsetRef: React.MutableRefObject<number>;
   homeWidgetState: { supported: boolean; added: boolean } | null;
   handleAddHomeWidget: () => Promise<void>;
+  tourTargets: TourTargetRegistry;
   accountBackup: AccountBackupApi;
   handleAccountSignIn: () => Promise<unknown>;
   showToast: (message: string) => void;
@@ -482,6 +485,10 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
           await updatePreferences(patch);
         }}
         onOpenMyData={() => navigate({ tab: 'profile', screen: 'my_data' })}
+        onReplayTour={() => {
+          void deps.updatePreferences({ firstRunToursSeen: resetToursSeen() });
+          deps.resetToRoute(ROOT_ROUTES.home);
+        }}
         onImportPlan={() => setSettingsImportVisible(true)}
         onExportPlan={() => navigate({ tab: 'profile', screen: 'export_plan' })}
         homeWidget={
@@ -563,6 +570,7 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
       exerciseLibrary={exerciseLibrary}
       unitPreference={unitPreference}
       onOpenSettings={() => navigate({ tab: 'profile', screen: 'settings' })}
+      tourTargets={deps.tourTargets}
       recordCount={distinctRecordCount}
       milestoneLedger={milestoneLedger}
       onOpenMilestones={() => navigate({ tab: 'profile', screen: 'milestones' })}

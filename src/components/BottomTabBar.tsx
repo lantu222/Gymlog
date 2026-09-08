@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
+import { TourTargetRegistry } from '../features/tour/tourTargets';
+import { TourBarStop, TourTargetId } from '../lib/firstRunTour';
 import { RootTabKey } from '../navigation/routes';
 import { I18nKey, t } from '../lib/i18n';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
@@ -44,7 +46,30 @@ interface BottomTabBarProps {
   onTabPress: (tab: RootTabKey) => void;
   onAiPress: () => void;
   language?: AppLanguage;
+  /**
+   * The first-run tour's sweep: while set, the highlight sits on this item
+   * instead of the route's tab, and the AI orb glows for its turn. Null
+   * hands the bar back to the route.
+   */
+  sweep?: TourBarStop | null;
+  /** Where the tour rings each item; registered per tab and for the pill. */
+  tourTargets?: TourTargetRegistry;
 }
+
+const SWEEP_TAB: Record<TourBarStop, RootTabKey | null> = {
+  home: 'home',
+  programs: 'workout',
+  ai: null,
+  progress: 'progress',
+  profile: 'profile',
+};
+
+const TAB_TARGET: Record<RootTabKey, TourTargetId> = {
+  home: 'bar.home',
+  workout: 'bar.programs',
+  progress: 'bar.progress',
+  profile: 'bar.profile',
+};
 
 const sideTabs: { key: RootTabKey; labelKey: I18nKey }[] = [
   { key: 'home', labelKey: 'tabs.home' },
@@ -129,17 +154,20 @@ function SideTab({
   label,
   onPress,
   onMeasure,
+  onRef,
 }: {
   tab: { key: RootTabKey; labelKey: I18nKey };
   active: boolean;
   label: string;
   onPress: () => void;
   onMeasure: (key: RootTabKey, event: LayoutChangeEvent) => void;
+  onRef?: (node: View | null) => void;
 }) {
   const styles = useThemedStyles(makeStyles);
 
   return (
     <Pressable
+      ref={onRef}
       onPress={onPress}
       onLayout={(event) => onMeasure(tab.key, event)}
       accessibilityRole="button"
@@ -152,7 +180,7 @@ function SideTab({
   );
 }
 
-export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPress, language = 'en' }: BottomTabBarProps) {
+export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPress, language = 'en', sweep = null, tourTargets }: BottomTabBarProps) {
   const theme = useTheme();
   const themeName = useThemeName();
   const styles = useThemedStyles(makeStyles);
@@ -191,7 +219,11 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
 
   // Sliding circular highlight: we measure each side tab's centre and animate a
   // single circle's translateX to the active tab (spring => it "slides" in).
-  const activeKey = !aiActive && activeTab !== null && sideTabs.some((tab) => tab.key === activeTab) ? activeTab : null;
+  const routeKey = !aiActive && activeTab !== null && sideTabs.some((tab) => tab.key === activeTab) ? activeTab : null;
+  // During the tour's sweep the highlight belongs to the sweep, not the route;
+  // on the AI stop it steps aside and the orb's own glow takes the turn.
+  const activeKey = sweep ? SWEEP_TAB[sweep] : routeKey;
+  const aiLit = aiActive || sweep === 'ai';
   const indicatorX = useRef(new Animated.Value(0)).current;
   const indicatorOpacity = useRef(new Animated.Value(0)).current;
   const centers = useRef<Partial<Record<RootTabKey, number>>>({});
@@ -308,7 +340,7 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
           30px pill to the same shape the CTAs and day rows use. The fill stays
           on CutSurface so the dark-theme override still lands. */}
       <CutSurface size="lg" fill={pillBackground} stroke={pillStroke} strokeWidth={1} style={styles.pill}>
-        <View style={styles.row}>
+        <View ref={(node) => tourTargets?.register('bar.pill', node)} style={styles.row}>
           <Animated.View
             pointerEvents="none"
             style={[
@@ -325,16 +357,18 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
               active={activeKey === tab.key}
               onPress={() => onTabPress(tab.key)}
               onMeasure={handleMeasure}
+              onRef={(node) => tourTargets?.register(TAB_TARGET[tab.key], node)}
             />
           ))}
 
           <Pressable
+            ref={(node) => tourTargets?.register('bar.ai', node)}
             onPress={onAiPress}
             accessibilityRole="button"
             accessibilityLabel={t(language, 'tabs.aiCoach')}
             style={({ pressed }) => [styles.centerTab, pressed && styles.pressed]}
           >
-            <Animated.View style={[styles.centerGlow, aiActive && styles.centerGlowActive, { transform: [{ scale: fabPop }] }]}>
+            <Animated.View style={[styles.centerGlow, aiLit && styles.centerGlowActive, { transform: [{ scale: fabPop }] }]}>
               <View style={[styles.aiCircle, { backgroundColor: aiCircleBackground }]}>
                 <Svg style={StyleSheet.absoluteFill} width={AI_SIZE} height={AI_SIZE}>
                   <Defs>
@@ -359,6 +393,7 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
               active={activeKey === tab.key}
               onPress={() => onTabPress(tab.key)}
               onMeasure={handleMeasure}
+              onRef={(node) => tourTargets?.register(TAB_TARGET[tab.key], node)}
             />
           ))}
         </View>
