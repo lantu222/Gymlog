@@ -69,3 +69,17 @@ export function commitDialWeight(
   }
   return toDialPrecision(Math.min(max, Math.max(0, parsed)));
 }
+
+/**
+ * What typed reps become. The reps card types too now (user 2026-09-09, with
+ * a sketch: number above, buttons below, "tap to type" under both). Whole
+ * numbers; a hold's dial is in seconds and steps by five, so its floor is
+ * five. Unparseable input keeps what was there, as with the weight.
+ */
+export function commitDialReps(text: string, previous: number, { min = 1 }: { min?: number } = {}): number {
+  const parsed = parseNumberInput(text);
+  if (parsed === null) {
+    return Math.max(min, previous);
+  }
+  return Math.max(min, Math.round(parsed));
+}

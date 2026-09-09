@@ -5,6 +5,7 @@ const {
   stepDialWeight,
   WEIGHT_DIAL_MAX_KG,
   WEIGHT_DIAL_STEP_KG,
+  commitDialReps,
 } = require('../../.test-dist/lib/weightDial');
 const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
@@ -92,6 +93,22 @@ module.exports = [
       // And the wiring lives on a screen, not in the shell — this only checks
       // the shell has not grown its own copy of the rule.
       assert.doesNotMatch(readAppWiring(), /current \+ direction \* 1\.25/);
+    },
+  },
+  {
+    /**
+     * The reps card types too (user 2026-09-09, with a sketch). Reps are whole;
+     * a hold counts seconds in fives, so its floor is five.
+     */
+    name: 'typed reps are whole numbers with a floor, and nonsense keeps the number',
+    run() {
+      assert.equal(commitDialReps('12', 8), 12);
+      assert.equal(commitDialReps('12,7', 8), 13);
+      assert.equal(commitDialReps('', 8), 8);
+      assert.equal(commitDialReps('abc', 8), 8);
+      assert.equal(commitDialReps('0', 8), 1);
+      assert.equal(commitDialReps('3', 20, { min: 5 }), 5);
+      assert.equal(commitDialReps('45', 20, { min: 5 }), 45);
     },
   },
 ];

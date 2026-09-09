@@ -79,7 +79,7 @@ import {
 import { formatLastOwnBlock, OwnBlockPhase, OwnBlockStats } from '../lib/ownBlockHistory';
 import { resolveMovement } from '../lib/sessionMovement';
 import { buildWarmupBrief } from '../lib/warmupBrief';
-import { commitDialWeight, stepDialWeight } from '../lib/weightDial';
+import { commitDialReps, commitDialWeight, stepDialWeight } from '../lib/weightDial';
 import { getExerciseInstructions } from '../lib/exerciseInstructions';
 import { getExerciseTeaching } from '../lib/exerciseTeaching';
 import { buildExerciseSheetHistory, LastTimeView } from '../lib/exerciseSheetHistory';
@@ -882,6 +882,7 @@ function GhostBtn({
   icon,
   dark,
   danger,
+  tint: tintProp,
 }: {
   label: string;
   onPress: () => void;
@@ -889,11 +890,13 @@ function GhostBtn({
   dark?: boolean;
   /** Throws work away. Named for what it does, not for the colour it takes. */
   danger?: boolean;
+  /** Outline and text in one colour, for a label that means a direction. */
+  tint?: string;
 }) {
   const theme = useTheme();
 
   const styles = useThemedStyles(makeStyles);
-  const tint = danger ? theme.danger : dark ? GPD.ink : theme.ink;
+  const tint = tintProp ?? (danger ? theme.danger : dark ? GPD.ink : theme.ink);
 
   return (
     <Pressable
@@ -901,7 +904,7 @@ function GhostBtn({
       style={[
         styles.ghostBtn,
         dark ? { borderColor: GPD.line, backgroundColor: 'rgba(255,255,255,0.06)' } : null,
-        danger ? { borderColor: theme.danger } : null,
+        danger || tintProp ? { borderColor: tint } : null,
       ]}
     >
       {icon ? <GPIcon name={icon} size={17} color={tint} /> : null}
@@ -970,9 +973,11 @@ function DialButton({
 }
 
 /**
- * One dial: a label, a number, and −/+ that only exist while the card is
- * open. Closed, the whole card is one tap target that opens it; open, the
- * number sits between two buttons and the card reads as active.
+ * One dial: a label, the number, −/+ under it, and one line saying the
+ * number can be typed. Tapping the number opens it as a text field; the
+ * buttons are always live. The reader's own sketch (2026-09-09): "16,25" had
+ * shared its row with two buttons and lost the ",25", and reps were squeezed
+ * the same way. Buttons under the number give the number the card's width.
  */
 function DialCard({
   label,
@@ -984,6 +989,7 @@ function DialCard({
   downLabel,
   upLabel,
   editHint,
+  hint,
   wide,
   faint,
   onCommit,
@@ -991,96 +997,97 @@ function DialCard({
   label: string;
   value: string;
   unit: string | null;
+  /** Typing: the number is a text field until the card is closed. */
   open: boolean;
   onToggle: () => void;
   onStep: (direction: -1 | 1) => void;
   downLabel: string;
   upLabel: string;
-  /** Screen-reader hint on the closed card. */
+  /** Screen-reader hint on the number. */
   editHint: string;
+  /** The visible line under the buttons: what tapping the number does. */
+  hint: string;
   wide: boolean;
   faint: boolean;
-  /**
-   * Commit a typed value. Given, the open card lets the number be written
-   * instead of only stepped — which is what the pencil on the closed card has
-   * been promising all along (#bugs 2026-08-27, "ei voi valita tasan 12 kg").
-   */
-  onCommit?: (text: string) => void;
+  /** Commit a typed value; the lib rule decides what the text becomes. */
+  onCommit: (text: string) => void;
 }) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const [draft, setDraft] = useState<string | null>(null);
 
-  const number = (
-    <View style={styles.setDialValue}>
-      <Text
-        style={[styles.setDialNumber, open && styles.setDialNumberOpen, faint && { color: theme.faint }]}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.6}
-      >
-        {value}
-      </Text>
-      {unit ? <Text style={styles.setDialUnit}>{unit}</Text> : null}
-    </View>
-  );
+  const commit = () => {
+    if (draft !== null) {
+      onCommit(draft);
+      setDraft(null);
+    }
+  };
+
+  // Closing the card by tapping elsewhere unmounts the field, and on Android
+  // that is not a blur — a number half-typed was a number thrown away. The
+  // close commits whatever was in the field.
+  const draftRef = useRef<string | null>(null);
+  draftRef.current = draft;
+  const onCommitRef = useRef(onCommit);
+  onCommitRef.current = onCommit;
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+    return () => {
+      if (draftRef.current !== null) {
+        onCommitRef.current(draftRef.current);
+        setDraft(null);
+      }
+    };
+  }, [open]);
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${label} ${value}${unit ? ` ${unit}` : ''}`}
-      accessibilityHint={editHint}
-      accessibilityState={{ expanded: open }}
-      onPress={onToggle}
-      style={({ pressed }) => [
-        styles.setDialCard,
-        wide && styles.setDialCardWide,
-        open && styles.setDialCardOpen,
-        pressed && !open && { opacity: 0.85 },
-      ]}
-    >
-      <View style={styles.setDialLabelRow}>
-        <Text style={[styles.setDialLabel, open && { color: theme.highlight }]}>{label}</Text>
-        {!open ? <GPIcon name="edit" size={13} color={theme.faint} sw={2.2} /> : null}
+    <View style={[styles.setDialCard, wide && styles.setDialCardWide, open && styles.setDialCardOpen]}>
+      <Text style={[styles.setDialLabel, open && { color: theme.highlight }]}>{label}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${label} ${value}${unit ? ` ${unit}` : ''}`}
+        accessibilityHint={editHint}
+        accessibilityState={{ expanded: open }}
+        onPress={open ? undefined : onToggle}
+        style={({ pressed }) => [styles.setDialValue, pressed && !open && { opacity: 0.7 }]}
+      >
+        {open ? (
+          <TextInput
+            value={draft ?? value}
+            onChangeText={setDraft}
+            onFocus={() => setDraft(value)}
+            onBlur={commit}
+            onSubmitEditing={() => {
+              commit();
+              onToggle();
+            }}
+            autoFocus
+            keyboardType={unit ? 'decimal-pad' : 'number-pad'}
+            returnKeyType="done"
+            selectTextOnFocus
+            accessibilityLabel={label}
+            style={[styles.setDialNumber, faint && { color: theme.faint }]}
+          />
+        ) : (
+          <Text
+            style={[styles.setDialNumber, faint && { color: theme.faint }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.6}
+          >
+            {value}
+          </Text>
+        )}
+        {unit ? <Text style={styles.setDialUnit}>{unit}</Text> : null}
+      </Pressable>
+      <View style={styles.setDialControls}>
+        <DialButton glyph="−" accessibilityLabel={downLabel} onStep={() => onStep(-1)} />
+        <DialButton glyph="+" accessibilityLabel={upLabel} onStep={() => onStep(1)} />
       </View>
-      {open ? (
-        <View style={styles.setDialControls}>
-          <DialButton glyph="−" accessibilityLabel={downLabel} onStep={() => onStep(-1)} />
-          {onCommit ? (
-            <View style={styles.setDialValue}>
-              <TextInput
-                value={draft ?? value}
-                onChangeText={setDraft}
-                onFocus={() => setDraft(value)}
-                onBlur={() => {
-                  if (draft !== null) {
-                    onCommit(draft);
-                    setDraft(null);
-                  }
-                }}
-                onSubmitEditing={() => {
-                  if (draft !== null) {
-                    onCommit(draft);
-                    setDraft(null);
-                  }
-                }}
-                keyboardType="decimal-pad"
-                returnKeyType="done"
-                selectTextOnFocus
-                accessibilityLabel={label}
-                style={[styles.setDialNumber, styles.setDialNumberOpen, faint && { color: theme.faint }]}
-              />
-              {unit ? <Text style={styles.setDialUnit}>{unit}</Text> : null}
-            </View>
-          ) : (
-            number
-          )}
-          <DialButton glyph="+" accessibilityLabel={upLabel} onStep={() => onStep(1)} />
-        </View>
-      ) : (
-        <View style={styles.setDialControls}>{number}</View>
-      )}
-    </Pressable>
+      <Text style={styles.setDialHint}>{hint}</Text>
+    </View>
   );
 }
 
@@ -1513,21 +1520,7 @@ export function GuidedPlayerScreen({
       endsAtRef.current = null;
       return;
     }
-    /** A rest waits for the reader; an interval's walk is part of the rhythm. */
-    const restHoldsAtZero = step.type === 'rest' && !step.recoveryKind;
-
-    /*
-     * The clamp is for a step that has not started, not for a rest that is
-     * already over.
-     *
-     * A rest counts on past zero, so its leftover is negative — and clamping
-     * that to 0 threw the overtime away every time anything froze the timer:
-     * open the exit dialog on a rest showing "+3:20 over", cancel it, and the
-     * count started again from zero. `restHoldsAtZero` is exactly the case
-     * where a negative remainder is a real number to keep.
-     */
-    endsAtRef.current =
-      Date.now() + (restHoldsAtZero ? remainingRef.current : Math.max(0, remainingRef.current));
+    endsAtRef.current = Date.now() + Math.max(0, remainingRef.current);
 
     // A rest is the one wait long enough to put the phone down for, so its
     // deadline also goes to the OS — that alert is what reaches the user when
@@ -1567,27 +1560,14 @@ export function GuidedPlayerScreen({
             // work bout, not a set you walk up to in your own time.
             cue(step.recoveryKind ? 'go' : 'rest');
           }
-          if (!restHoldsAtZero) {
-            clearInterval(interval);
-            expireRef.current();
-            return;
-          }
+          // A rest runs out into the set like every other timed step (user
+          // 2026-09-09, from the gym: "sarja 2 pitäis alkaa nyt itsestään").
+          // It held at zero and said READY until then, on the theory that a
+          // set screen nobody asked for was worse than a wait that overran;
+          // the reader watching the ring reach zero disagreed.
+          clearInterval(interval);
+          expireRef.current();
         }
-        /*
-         * An ordinary rest does not advance itself.
-         *
-         * Every other timed step here runs out into the next one, which is
-         * right for a drill and for an interval's walk — those are a rhythm
-         * you are standing in. A rest is a wait you end: the phone was in a
-         * pocket, the rack was busy, the set before it was harder than it
-         * looked. Advancing on the reader's behalf put them on a set screen
-         * they had not asked for and had not seen start.
-         *
-         * So the clock keeps running past zero and the screen says READY and
-         * how far over. Deciding to go is the reader's; the app's job is to
-         * have told them they can (design: session flow, screen 7).
-         */
-        setRemainingMs(next);
         return;
       }
       setRemainingMs(next);
@@ -2200,7 +2180,6 @@ export function GuidedPlayerScreen({
           unitPreference,
         )
       : null;
-  const restIsOver = step.type === 'rest' && !step.recoveryKind && secondsLeft <= 0;
 
   /** Into the next set. The weight is the gate's, and the rest screen said so. */
   const startRestNextSet = () => {
@@ -3006,24 +2985,10 @@ export function GuidedPlayerScreen({
                     stepKey={stepIndex}
                     leftSeconds={Math.max(0, secondsLeft)}
                     plannedSeconds={step.seconds}
-                    // Neutral while the wait is a wait; accent the moment it
-                    // is over, because that is when the ring has something to
-                    // say. An interval's easy half is a phase of the work, not
-                    // a pause in it: green, the colour recovery wears
-                    // everywhere else in the app.
-                    /*
-                     * Neutral while the wait is a wait, accent once it is over.
-                     *
-                     * The resting ring used to take RestRing's default, which
-                     * is `purple` — and in the light theme `purple` and
-                     * `highlight` are the same violet, so the ring the design
-                     * says should turn at zero did not turn at all (device
-                     * 2026-09-04). Naming the resting colour makes the change
-                     * a change in both themes.
-                     */
-                    stroke={
-                      step.recoveryKind ? theme.green : restIsOver ? theme.highlight : theme.muted
-                    }
+                    // Neutral: the wait is a wait. An interval's easy half is a
+                    // phase of the work, not a pause in it: green, the colour
+                    // recovery wears everywhere else in the app.
+                    stroke={step.recoveryKind ? theme.green : theme.muted}
                   >
                     <Text
                       style={[styles.restRingLabel, step.recoveryKind ? { color: theme.greenInk } : null]}
@@ -3037,29 +3002,10 @@ export function GuidedPlayerScreen({
                                 ? 'guided.interval.rest'
                                 : 'guided.interval.easy',
                           )
-                        : restIsOver
-                          ? t(language, 'guided.rest.ready')
-                          : t(language, 'guided.rest')}
+                        : t(language, 'guided.rest')}
                     </Text>
                     <Text style={styles.restCountdown}>
                       {formatGuidedCountdown(Math.max(0, secondsLeft))}
-                    </Text>
-                    {/* How long the rest was, and — once it is over — how far
-                        past it you are. The reader who put the phone down
-                        comes back to a number that says how long they have
-                        been standing there rather than to a screen that has
-                        already moved on without them. */}
-                    <Text style={styles.restOfLabel}>
-                      {restIsOver
-                        ? t(language, 'guided.rest.over', {
-                            // m:ss, not the drill formatter's bare seconds:
-                            // "+6 over" does not say six of what (device
-                            // 2026-09-04).
-                            clock: formatSessionClock(Math.floor(Math.abs(secondsLeft))),
-                          })
-                        : t(language, 'guided.rest.of', {
-                            clock: formatGuidedCountdown(step.seconds),
-                          })}
                     </Text>
                     {/* No "PAUSED" caption: the button below it has already
                         flipped to Jatka, and a ring frozen mid-sweep is not
@@ -3123,11 +3069,10 @@ export function GuidedPlayerScreen({
                       {t(language, 'guided.interval.thenWork')}
                     </Text>
                   ) : null}
-                  {/* Once the wait is over the row goes with it: three
-                      controls for shortening a wait that has already ended are
-                      three controls that do nothing, above the one button that
-                      does (device 2026-09-04). */}
-                  <View style={{ flexDirection: 'row', gap: 10, display: restIsOver ? 'none' : 'flex' }}>
+                  {/* Red takes time away, green adds it, amber holds — told
+                      apart at arm's length without reading (user 2026-09-09,
+                      light theme). */}
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
                     {/* No ±15 s on an interval: its two halves are the rhythm
                         the machine is set to, and stretching one desyncs the
                         reader from the belt they are standing on. */}
@@ -3135,6 +3080,7 @@ export function GuidedPlayerScreen({
                     <View style={{ flex: 1 }}>
                       <GhostBtn
                         label="−15s"
+                        tint={theme.danger}
                         onPress={() => {
                           // The rest ring is the one control you use without
                           // looking at it.
@@ -3148,6 +3094,7 @@ export function GuidedPlayerScreen({
                     <View style={{ flex: 1 }}>
                       <GhostBtn
                         label="+15s"
+                        tint={theme.green}
                         onPress={() => {
                           void haptics.select();
                           adjustRemaining(15000);
@@ -3158,6 +3105,7 @@ export function GuidedPlayerScreen({
                     <View style={{ flex: 1 }}>
                       <GhostBtn
                         icon={paused ? 'play' : 'pause'}
+                        tint={theme.amber}
                         label={t(language, paused ? 'guided.resume' : 'guided.pause')}
                         onPress={() => setPaused((value) => !value)}
                       />
@@ -3168,33 +3116,7 @@ export function GuidedPlayerScreen({
                       And no "skip rest" on an interval's easy half: skipping
                       the walk is skipping half the exercise, not shortening a
                       wait (#bugs 2026-08-26). Pause stays on both. */}
-                  {step.recoveryKind ? null : restIsOver ? (
-                    /* The rest is over and the screen says so; this is the
-                       reader saying they are ready. Nothing advanced on its
-                       own, so this button is the only thing that does. */
-                    <Pressable
-                      accessibilityRole="button"
-                      style={styles.restStartBtn}
-                      onPress={() => {
-                        void haptics.select();
-                        startRestNextSet();
-                      }}
-                    >
-                      <GPIcon name="play" size={18} color={theme.onHighlight} sw={2.5} />
-                      <Text style={{ fontSize: 15.5, fontWeight: '800', color: theme.onHighlight }}>
-                        {restNextSet
-                          ? t(
-                              language,
-                              restChosenKg > 0 ? 'guided.rest.startSetWeight' : 'guided.rest.startSet',
-                              {
-                                index: restNextSet.index + 1,
-                                weight: formatWeight(restChosenKg, unitPreference),
-                              },
-                            )
-                          : t(language, 'guided.skipRest')}
-                      </Text>
-                    </Pressable>
-                  ) : (
+                  {step.recoveryKind ? null : (
                     <Pressable style={styles.skipRestBtn} onPress={startRestNextSet}>
                       <GPIcon name="skip" size={18} color={theme.ink} />
                       <Text style={{ fontSize: 15.5, fontWeight: '800', color: theme.ink }}>{t(language, 'guided.skipRest')}</Text>
@@ -4088,15 +4010,12 @@ function SetStepView({
 
         <View style={styles.setTargetArea}>
           {/* Two dials, side by side: what you did and what was on the bar.
-              This used to be a "1 SARJA 6 TOISTOA" headline (the set number
-              repeating the "Sarja 1/3" above it) that opened a stepper on tap
-              — and that stepper, built for a row, was squeezed to nothing in
-              the column and drew its buttons over the number.
-
-              The dials are locked until tapped: with the −/+ always live, a
-              thumb resting on the screen between sets changed the number
-              without anyone meaning it to. Tap a card to open it, tap again
-              or log the set to close it. Hold a button to run. */}
+              Number above, −/+ below and always live, "tap to type" under
+              them — the reader's sketch (2026-09-09), after "16,25" lost its
+              ",25" sharing a row with the buttons. The cards used to lock the
+              buttons behind a tap because a resting thumb once changed a
+              number; under the number, the buttons are no longer where a
+              thumb rests. Hold a button to run. */}
           <View style={styles.setDialRow}>
             <DialCard
               label={t(language, timed ? 'guided.seconds' : 'guided.reps')}
@@ -4105,9 +4024,11 @@ function SetStepView({
               open={dial === 'reps'}
               onToggle={() => setDial((current) => (current === 'reps' ? null : 'reps'))}
               onStep={(direction) => setReps((current) => Math.max(timed ? 5 : 1, current + direction * (timed ? 5 : 1)))}
+              onCommit={(text) => setReps((current) => commitDialReps(text, current, { min: timed ? 5 : 1 }))}
               downLabel={t(language, timed ? 'guided.a11y.secondsDown' : 'guided.a11y.repsDown')}
               upLabel={t(language, timed ? 'guided.a11y.secondsUp' : 'guided.a11y.repsUp')}
               editHint={t(language, 'guided.a11y.tapToEdit')}
+              hint={t(language, 'guided.dial.tapToType')}
               wide={bodyweight}
               faint={false}
             />
@@ -4131,6 +4052,7 @@ function SetStepView({
                 downLabel={t(language, 'guided.a11y.weightDown')}
                 upLabel={t(language, 'guided.a11y.weightUp')}
                 editHint={t(language, 'guided.a11y.tapToEdit')}
+                hint={t(language, 'guided.dial.tapToType')}
                 wide={false}
                 faint={kg <= 0}
               />
@@ -4824,42 +4746,31 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   setDialCardWide: { flex: 1 },
   // Open: the border says which card the buttons belong to.
   setDialCardOpen: { borderColor: theme.highlight, backgroundColor: theme.surface },
-  setDialLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   setDialLabel: { fontSize: 11.5, fontWeight: '800', letterSpacing: 1.1, color: theme.muted },
-  // Same height open or closed — the number does not jump when the buttons
-  // appear beside it.
-  setDialControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    minHeight: 42,
-    alignSelf: 'stretch',
-  },
-  // 40px each plus a 44px floor under the number came to more than half a
-  // 320dp screen: "1.25" was clipped to ".25" (user 2026-09-04). The buttons
-  // give the number the room instead of taking it.
+  // Under the number, always there. 52 wide so a gym thumb finds them; the
+  // number above has the card's whole width to itself.
+  setDialControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   setDialBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 20,
+    width: 52,
+    height: 40,
+    borderRadius: 14,
     backgroundColor: theme.surface,
     borderWidth: 1.5,
     borderColor: theme.highlight,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  setDialBtnText: { fontSize: 20, fontWeight: '800', color: theme.highlight, lineHeight: 24 },
-  // The value shrinks (flexShrink + adjustsFontSizeToFit on the number) rather
-  // than pushing the buttons out of the card: "100 kg" is a real weight and
-  // has to fit next to two 40dp buttons in half a screen.
+  setDialBtnText: { fontSize: 22, fontWeight: '800', color: theme.highlight, lineHeight: 26 },
+  // The number's own row: nothing beside it but its unit, so "16,25 kg" fits
+  // at one size. The auto-fit on the number is a net for "102,5", no more.
   setDialValue: {
-    flex: 1,
+    alignSelf: 'stretch',
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'center',
-    gap: 2,
+    gap: 3,
     minWidth: 0,
+    paddingVertical: 2,
   },
   setDialNumber: {
     flexShrink: 1,
@@ -4871,13 +4782,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontVariant: ['tabular-nums'],
     textAlign: 'center',
     minWidth: 0,
+    padding: 0,
   },
-  // Open, the number shares the row with two buttons and is sized so that
-  // "72.5" fits at this size outright — with the size auto-fitting, "72.5"
-  // shrank and "75" did not, and the number jumped on every other tap. One
-  // size for every value up to four characters; the auto-fit stays only as a
-  // safety net for "102.5".
-  setDialNumberOpen: { fontSize: 28, lineHeight: 32, letterSpacing: -1 },
+  setDialHint: { fontSize: 11, fontWeight: '700', color: theme.faint },
   setDialUnit: { fontSize: 14, fontWeight: '800', color: theme.faint },
   setBadgeRow: { alignItems: 'center', minHeight: 27 },
   setAutoBadge: {
@@ -5089,13 +4996,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   restLoggedLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.1, color: theme.greenInk },
   restLoggedValue: { marginTop: 2, fontSize: 14.5, fontWeight: '700', color: theme.ink },
   restLoggedEdit: { fontSize: 13.5, fontWeight: '800', color: theme.highlight },
-  restOfLabel: {
-    marginTop: 4,
-    fontSize: 13,
-    fontWeight: '700',
-    color: theme.muted,
-    fontVariant: ['tabular-nums'],
-  },
   restNextCard: {
     marginTop: 22,
     alignSelf: 'stretch',
@@ -5160,28 +5060,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 4,
   },
   restTargetDeltaText: { fontSize: 12.5, fontWeight: '800', color: theme.muted },
-  restStartBtn: {
-    height: 56,
-    borderRadius: 17,
-    backgroundColor: theme.accent,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    shadowColor: theme.accent,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.35,
-    shadowRadius: 26,
-    elevation: 6,
-  },
-  /*
-   * An outline, not a filled button.
-   *
-   * Skipping a rest is a shortcut past a wait, and it was the biggest, most
-   * saturated thing on the screen — while the button that actually starts the
-   * next set, once the wait is over, is filled. Two buttons in one slot cannot
-   * both be the loudest, and the loud one should be the one that goes forward.
-   */
+  // An outline, not a filled button: skipping a rest is a shortcut past a
+  // wait, and the loudest thing on the screen should not be a shortcut.
   skipRestBtn: {
     height: 56,
     borderRadius: 17,

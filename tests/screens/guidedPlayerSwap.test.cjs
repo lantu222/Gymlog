@@ -79,21 +79,70 @@ module.exports = [
   },
   {
     /**
-     * A rest counts past zero, so its leftover is negative — and everything
-     * that freezes the timer (the exit dialog, a sheet, a swap) tears the
-     * effect down and rebuilds the deadline from that leftover. Clamped, the
-     * overtime the reader had actually stood there was thrown away and the
-     * count restarted at zero.
+     * The rest runs out into the set.
+     *
+     * It used to hold at zero, say READY and count how far over you were, and
+     * the reader had to press "Aloita sarja" — on the theory that a set screen
+     * nobody asked for is worse than an overrun. From the gym, watching the
+     * ring reach zero: "sarja 2 pitäis alkaa nyt itsestään mutta ei ala vain
+     * tuli valmista ruutu ja tämä on väärin" (user 2026-09-09). So a rest
+     * expires like a drill does, the ring says only what is left, and the
+     * READY state, the "/ 2:00" total and the start button went with their copy.
      */
-    name: 'guided player: overtime survives whatever freezes the rest timer',
+    name: 'guided rest: the wait runs out into the set, and says only what is left',
     run() {
+      assert.doesNotMatch(playerSource, /restHoldsAtZero|restIsOver/);
+      // Expiry advances — the branch every timed step takes.
+      assert.match(playerSource, /if \(next <= 0\) \{[\s\S]{0,1200}?expireRef\.current\(\);/);
+      // A deadline already in the past is still not handed to the OS.
+      assert.match(playerSource, /step\.type === 'rest' && endsAtRef\.current > Date\.now\(\)/);
+      for (const key of [
+        'guided.rest.of',
+        'guided.rest.ready',
+        'guided.rest.over',
+        'guided.rest.startSet',
+        'guided.rest.startSetWeight',
+      ]) {
+        assert.equal(i18nSource.includes(`'${key}'`), false, `${key} outlived its screen`);
+        assert.equal(playerSource.includes(`'${key}'`), false, `${key} is still rendered`);
+      }
+    },
+  },
+  {
+    /**
+     * −15 s takes time away, +15 s adds it, Tauko holds: three same-shaped
+     * outlines the reader told apart by reading, mid-set, at arm's length.
+     * Colour does it without reading (user 2026-09-09, light theme).
+     */
+    name: 'guided rest: the three timer controls are red, green and amber',
+    run() {
+      assert.match(playerSource, /label="−15s"\s+tint=\{theme\.danger\}/);
+      assert.match(playerSource, /label="\+15s"\s+tint=\{theme\.green\}/);
+      assert.match(playerSource, /icon=\{paused \? 'play' : 'pause'\}\s+tint=\{theme\.amber\}/);
+    },
+  },
+  {
+    /**
+     * "16,25" had to share its row with two buttons and lost the ",25"; the
+     * reps number was squeezed the same way. The reader's sketch (2026-09-09):
+     * the number on its own line, −/+ under it, always there, and "tap to
+     * type" under those. Both cards type now, not only the weight.
+     */
+    name: 'guided dial: number above, buttons always below, both cards type',
+    run() {
+      // The buttons render unconditionally, under the number, above the hint.
       assert.match(
         playerSource,
-        /Date\.now\(\) \+ \(restHoldsAtZero \? remainingRef\.current : Math\.max\(0, remainingRef\.current\)\)/,
+        /<\/Pressable>\s*<View style=\{styles\.setDialControls\}>\s*<DialButton glyph="−"[^\n]*\n\s*<DialButton glyph="\+"[^\n]*\n\s*<\/View>\s*<Text style=\{styles\.setDialHint\}>\{hint\}<\/Text>/,
       );
-      // And a deadline already in the past is not handed to the OS: that is an
-      // alert that fires the instant it is scheduled.
-      assert.match(playerSource, /step\.type === 'rest' && endsAtRef\.current > Date\.now\(\)/);
+      assert.doesNotMatch(playerSource, /open \? \(\s*<View style=\{styles\.setDialControls\}>/);
+      // The reps card commits typed input through the lib rule, as the weight card does.
+      assert.match(
+        playerSource,
+        /onCommit=\{\(text\) => setReps\(\(current\) => commitDialReps\(text, current, \{ min: timed \? 5 : 1 \}\)\)\}/,
+      );
+      // The visible hint exists in both languages.
+      assert.equal((i18nSource.match(/'guided\.dial\.tapToType': '[^']+'/g) ?? []).length, 2);
     },
   },
   {
