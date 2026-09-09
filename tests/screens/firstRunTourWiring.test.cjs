@@ -79,7 +79,7 @@ module.exports = [
       // that shipped an hour ago was checking fourteen beats out of sixteen.
       const dict = read('src/lib/i18n.ts');
       const entries = [...dict.matchAll(/'(tour\.(?:home|progress|profile)\.[a-zA-Z]+)':\s*(['"])([\s\S]*?)\2,/g)];
-      assert.equal(entries.length, 16, 'eight section beats in two dictionaries');
+      assert.equal(entries.length, 18, 'nine section beats in two dictionaries');
       for (const [, key, , text] of entries) {
         assert.ok(text.length > 20, `${key} is suspiciously short, did the match stop early: ${text}`);
         // Verbs that ask for a press. "Painamalla X voit…" describes what a
@@ -146,6 +146,10 @@ module.exports = [
     run() {
       const home = stripComments(homeSource);
       assert.match(home, /register\('home\.workoutChevron', node\)/);
+      // The start button answers to two names: its own beat when there is a
+      // plan, and the hero itself when there is not — with no plan the day
+      // block does not exist and that row IS the block.
+      assert.match(home, /register\(heroStartsSession \? 'home\.startCta' : 'home\.hero', node\)/);
       const fold = home.slice(home.indexOf("if (tourFocus !== 'home.hero') {"), home.indexOf('}, [tourFocus]);'));
       assert.ok(fold.length > 40, "Home's tour fold moved - recheck by hand");
       assert.match(fold, /setWorkoutListOpen\(false\);/);
@@ -166,6 +170,31 @@ module.exports = [
       // is never conditional (ref-animated-node-one-view).
       assert.match(layer, /const pulseAnim = useRef\(new Animated\.Value\(0\)\)\.current;/);
       assert.match(layer, /outputRange: \[1, RING_PULSE_SCALE\]/);
+    },
+  },
+  {
+    /**
+     * The bar sweep used to walk itself. 1800 ms per stop was too fast, 2600
+     * was still too fast, and a reader who needed longer had no way to ask
+     * (user 2026-09-09) — so the timer is gone rather than retuned again, and
+     * nothing on this screen advances on its own.
+     */
+    name: 'first-run tour: the bar sweep waits for the reader',
+    run() {
+      const layer = stripComments(tourSource);
+      // Sliced on code, not on a comment: stripComments has already removed
+      // the comments this used to bound itself with, and an unbounded slice
+      // reaches other effects' timers and passes for the wrong reason.
+      const barStart = layer.indexOf("if (!beat || beat.kind !== 'bar')");
+      const barBeat = layer.slice(barStart, layer.indexOf('pendingShowRef.current === null', barStart));
+      assert.ok(barBeat.length > 200, 'the bar effect moved - recheck by hand');
+      assert.doesNotMatch(barBeat, /setTimeout|setInterval|BAR_SWEEP/, 'no timer drives the sweep');
+      assert.doesNotMatch(layer, /BAR_SWEEP_STOP_MS/);
+      // The button is what moves it, one stop at a time.
+      assert.match(
+        layer,
+        /beat\.kind === 'bar' && reduceMotion === false && stopIndex < beat\.stops\.length - 1\) \{\s*setStopIndex\(stopIndex \+ 1\);/,
+      );
     },
   },
   {
@@ -229,14 +258,14 @@ module.exports = [
     },
   },
   {
-    name: 'first-run tour: Home registers its four targets and its scroller',
+    name: 'first-run tour: Home registers its five targets and its scroller',
     run() {
       const home = stripComments(homeSource);
-      for (const id of ['home.week', 'home.hero', 'home.program', 'home.cards']) {
+      for (const id of ['home.week', 'home.program', 'home.cards']) {
         assert.match(home, new RegExp(`register\\('${id.replace('.', '\\.')}', node\\)`), id);
       }
-      // Without a plan the start row is the hero; with one, the session box is.
-      assert.match(home, /ref=\{heroStartsSession \? undefined : \(node\) => tourTargets\?\.register\('home\.hero', node\)\}/);
+      // The session box is the hero when a plan exists.
+      assert.match(home, /register\('home\.hero', node\)/);
       assert.match(home, /useTourScroller\('home', tourTargets\)/);
       assert.match(home, /onScroll=\{tourScroller\.onScroll\}/);
       // The last section has nothing under it to be lifted against, so the

@@ -5,7 +5,6 @@ import Svg, { Circle, G, Path } from 'react-native-svg';
 import { measureNode, TourTargetRegistry } from '../features/tour/tourTargets';
 import { cutCornerPath } from '../lib/cutCorner';
 import {
-  BAR_SWEEP_STOP_MS,
   calloutCoversTarget,
   CALLOUT_ENTER_MS,
   CALLOUT_LEAVE_MS,
@@ -357,9 +356,10 @@ export function FirstRunTour({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, index, reduceMotion]);
 
-  // The bar beat: one sweep. Each stop lights the bar's own highlight, moves
-  // the ring, and — unless motion is reduced or this is the last stop —
-  // schedules the next. The button steps it by hand as well.
+  // The bar beat: one sweep, hand-cranked. Each stop lights the bar's own
+  // highlight and moves the ring; "Seuraava" moves to the next. It used to
+  // walk itself on a timer, and no timer was slow enough — a reader who
+  // needed longer had no way to ask for it (user 2026-09-09).
   useEffect(() => {
     if (phase !== 'beat' || reduceMotion === null) {
       return;
@@ -394,13 +394,8 @@ export function FirstRunTour({
       const local = toLocal(targetRect, origin);
       setSpot({ ring: local, anchor: local, shape: stop === 'ai' ? 'bar-ai' : 'bar' });
     })();
-    const last = stopIndex >= beat.stops.length - 1;
-    const timer = reduceMotion || last ? null : setTimeout(() => setStopIndex((current) => current + 1), BAR_SWEEP_STOP_MS);
     return () => {
       cancelled = true;
-      if (timer) {
-        clearTimeout(timer);
-      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, index, stopIndex, reduceMotion]);

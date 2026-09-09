@@ -32,6 +32,7 @@ export const TOUR_SURFACES: readonly TourSurface[] = ['home', 'progress', 'profi
 export type TourTargetId =
   | 'home.week'
   | 'home.hero'
+  | 'home.startCta'
   | 'home.workoutChevron'
   | 'home.program'
   | 'home.cards'
@@ -74,6 +75,15 @@ export interface TourSectionBeat {
   copyKey: I18nKey;
 }
 
+/**
+ * The bar, as one beat that visits five items.
+ *
+ * It used to walk itself on a timer. Even at 2600 ms per stop it read the
+ * five names faster than a reader could follow, and a reader who wanted
+ * longer had no way to ask (user 2026-09-09). So the sweep is hand-cranked:
+ * "Seuraava" moves it, exactly like every other beat, and nothing on this
+ * screen moves on its own.
+ */
 export interface TourBarBeat {
   kind: 'bar';
   stops: readonly TourBarStop[];
@@ -92,19 +102,25 @@ export function resolveTourBeats(surface: TourSurface, options: { hasProgram: bo
     case 'home': {
       const beats: TourBeat[] = [
         { kind: 'section', target: 'home.week', place: 'below', copyKey: 'tour.home.week' },
-        // With a plan, the day block is a box of foldable rows and the beat's
-        // subject is the fold itself: the ring goes on the workout row's
-        // chevron, the callout stays with the block. Without one, the block is
-        // a single start button and there is nothing finer to point at.
-        options.hasProgram
-          ? {
-              kind: 'section',
-              target: 'home.workoutChevron',
-              anchor: 'home.hero',
-              place: 'below',
-              copyKey: 'tour.home.hero',
-            }
-          : { kind: 'section', target: 'home.hero', place: 'below', copyKey: 'tour.home.hero' },
+        // With a plan the day block gets TWO beats, in the order a reader
+        // uses it (user 2026-09-09): first the button that starts today, then
+        // the fold that shows what is in it and lets a lift be swapped. One
+        // beat had to carry both, and the second half went unread.
+        //
+        // Without a plan the block IS a single start button — there is nothing
+        // finer to point at and nothing to swap, so it stays one beat.
+        ...(options.hasProgram
+          ? ([
+              { kind: 'section', target: 'home.startCta', place: 'below', copyKey: 'tour.home.start' },
+              {
+                kind: 'section',
+                target: 'home.workoutChevron',
+                anchor: 'home.hero',
+                place: 'below',
+                copyKey: 'tour.home.hero',
+              },
+            ] as TourBeat[])
+          : ([{ kind: 'section', target: 'home.hero', place: 'below', copyKey: 'tour.home.hero' }] as TourBeat[])),
       ];
       if (options.hasProgram) {
         beats.push({ kind: 'section', target: 'home.program', place: 'below', copyKey: 'tour.home.program' });
@@ -152,11 +168,6 @@ export const TOUR_START_REDUCED_MS = 30;
 export const CALLOUT_ENTER_MS = 260;
 export const CALLOUT_LEAVE_MS = 160;
 export const RING_ENTER_MS = 300;
-/**
- * How long the bar sweep rests on each item before moving on. 1800 read the
- * five names faster than a first-time reader could (user 2026-09-08).
- */
-export const BAR_SWEEP_STOP_MS = 2600;
 /** After a programmatic scroll, the target is measured once this has passed. */
 export const SCROLL_SETTLE_MS = 450;
 /**
