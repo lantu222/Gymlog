@@ -872,8 +872,9 @@ export function HomeScreen({
    */
   const startCta = (
   <Animated.View
-    // Without a plan there is no session box, and this row IS the hero.
-    ref={heroStartsSession ? undefined : (node) => tourTargets?.register('home.hero', node)}
+    // Two names for one row: with a plan it is the tour's start beat, and
+    // without one there is no session box at all, so this row IS the hero.
+    ref={(node) => tourTargets?.register(heroStartsSession ? 'home.startCta' : 'home.hero', node)}
     style={[styles.btnRow, rise(RISE_BTNROW)]}
   >
     <Pressable

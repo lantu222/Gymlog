@@ -11,12 +11,14 @@ const tour = require('../../.test-dist/lib/firstRunTour');
  */
 module.exports = [
   {
-    name: 'firstRunTour: Home has four section beats and one bar beat, three without a programme',
+    name: 'firstRunTour: Home walks the day block in the order a reader uses it',
     run() {
+      // Start first, then what is in it. One beat carried both and the second
+      // half went unread (user 2026-09-09).
       const withProgram = tour.resolveTourBeats('home', { hasProgram: true });
       assert.deepEqual(
         withProgram.map((beat) => (beat.kind === 'section' ? beat.target : 'bar')),
-        ['home.week', 'home.workoutChevron', 'home.program', 'home.cards', 'bar'],
+        ['home.week', 'home.startCta', 'home.workoutChevron', 'home.program', 'home.cards', 'bar'],
       );
       const withoutProgram = tour.resolveTourBeats('home', { hasProgram: false });
       assert.deepEqual(
@@ -40,15 +42,28 @@ module.exports = [
      */
     name: 'firstRunTour: with a plan the hero beat rings the workout fold and anchors to the whole block',
     run() {
-      const hero = tour.resolveTourBeats('home', { hasProgram: true })[1];
+      const beats = tour.resolveTourBeats('home', { hasProgram: true });
+
+      // The start button is its own beat, and rings what it points at, so it
+      // needs no anchor of its own.
+      const start = beats[1];
+      assert.equal(start.target, 'home.startCta');
+      assert.equal(start.anchor, undefined);
+      assert.equal(start.copyKey, 'tour.home.start');
+
+      const hero = beats[2];
       assert.equal(hero.target, 'home.workoutChevron');
       assert.equal(hero.anchor, 'home.hero');
       assert.equal(hero.place, 'below');
       assert.equal(hero.copyKey, 'tour.home.hero');
 
       // Without a plan the block IS one button: there is nothing finer to
-      // ring, so the beat is its old self and carries no anchor.
-      const plain = tour.resolveTourBeats('home', { hasProgram: false })[1];
+      // ring and nothing to swap, so it stays a single beat with no anchor.
+      const without = tour.resolveTourBeats('home', { hasProgram: false });
+      // Two beats fewer: the block is one button, and there is no programme
+      // card to point at either.
+      assert.equal(without.length, 4);
+      const plain = without[1];
       assert.equal(plain.target, 'home.hero');
       assert.equal(plain.anchor, undefined);
 
@@ -116,15 +131,14 @@ module.exports = [
   },
   {
     /**
-     * 1800 ms per bar item read the five names faster than a first-time
-     * reader could follow (user 2026-09-08). The numbers are bounded rather
-     * than nailed: what matters is that a stop is long enough to read and
-     * short enough not to feel stuck.
+     * The bar sweep walked itself on a timer. 1800 ms per stop was too fast,
+     * 2600 was still too fast, and a reader who needed longer had no way to
+     * ask — so the timer is gone and "Seuraava" moves it (user 2026-09-09).
+     * Nothing on this screen advances on its own any more.
      */
-    name: 'firstRunTour: a bar stop lasts long enough to read, and the beat keeps re-measuring while it does',
+    name: 'firstRunTour: nothing advances on a timer, and the beat keeps re-measuring',
     run() {
-      assert.ok(tour.BAR_SWEEP_STOP_MS >= 2000, 'a first-time reader needs more than a glance');
-      assert.ok(tour.BAR_SWEEP_STOP_MS <= 4000, 'not so long the sweep feels stuck');
+      assert.equal(tour.BAR_SWEEP_STOP_MS, undefined, 'the sweep timer is gone, not merely longer');
       // Fast enough that a panel opening under the ring is caught, slow
       // enough that it is not a measurement per frame.
       assert.ok(tour.TOUR_REMEASURE_MS >= 100 && tour.TOUR_REMEASURE_MS <= 500);
@@ -161,9 +175,12 @@ module.exports = [
   {
     name: 'firstRunTour: the ring is a circle on one control only when that control was found',
     run() {
-      const hero = tour.resolveTourBeats('home', { hasProgram: true })[1];
+      const hero = tour.resolveTourBeats('home', { hasProgram: true })[2];
       assert.equal(tour.sectionRingShape(hero, true), 'chevron');
       assert.equal(tour.sectionRingShape(hero, false), 'section', 'no chevron on this install: ring the section');
+      // The start beat rings itself, so it is an outline and not a glyph.
+      const start = tour.resolveTourBeats('home', { hasProgram: true })[1];
+      assert.equal(tour.sectionRingShape(start, true), 'section');
       const week = tour.resolveTourBeats('home', { hasProgram: true })[0];
       assert.equal(tour.sectionRingShape(week, true), 'section');
       // A chevron's ring is the tap target around a 16 dp glyph, not a box.

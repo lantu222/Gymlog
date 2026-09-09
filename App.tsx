@@ -1906,6 +1906,13 @@ function VinhaApp() {
           return null;
         }
         const days = template?.daysPerWeek ?? plan.entries.length;
+        // The reader's own programme is named by its template, for the same
+        // reason the hero above is: the plan's copy of the name can be older
+        // than the last rename. A ready one is not in this map at all, so it
+        // still goes through runningProgrammeTitle's season rules.
+        const ownTemplate = templateId
+          ? workoutTemplates.find((entry) => entry.id === templateId) ?? null
+          : null;
         // A season programme goes by the season's name, not the template's:
         // the reader joined "Kesäkunto" and the template is called "RUN".
         // One helper decides that for every surface, because computing it
@@ -1913,12 +1920,19 @@ function VinhaApp() {
         // programme today.
         return {
           planId,
-          title: runningProgrammeTitle(templateId, plan.name, days),
+          title: runningProgrammeTitle(templateId, ownTemplate?.name || plan.name, days),
           meta: t(preferences.appLanguage, 'programs.card.days', { count: days }),
         };
       })
       .filter((row): row is { planId: string; title: string; meta: string } => row !== null);
-  }, [database.workoutPlans, preferences.activePlanIds, preferences.activePlanId, preferences.appLanguage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    database.workoutPlans,
+    preferences.activePlanIds,
+    preferences.activePlanId,
+    preferences.appLanguage,
+    workoutTemplates,
+  ]);
 
   /**
    * Start the questionnaire again, keeping everything already logged.
@@ -3497,7 +3511,23 @@ function VinhaApp() {
           planTemplateIds: [...planTemplateIds],
           eyebrow: `${sortedEntries.length} day custom plan`,
           goalLabel: formatGoalLabel(preferences.aiPlannerGoal || preferences.setupGoal || 'general'),
-          title: formatWorkoutDisplayLabel(activeWorkoutPlan.name || activeTemplate.name, 'Workout plan'),
+          // For a CUSTOM programme the template's name wins, and the plan's
+          // copy is only the fallback. Both records hold the name — the plan
+          // took its copy the day it was made — and renaming keeps them in
+          // step, but that only helps renames made after the fix existed. A
+          // reader who renamed on an earlier build was left with the old name
+          // on Home for ever, with the programme page showing the new one
+          // (user 2026-09-09, "ei vaihtunut kodissa nimi"). Reading the
+          // template first heals that, and makes the whole class impossible.
+          //
+          // A READY programme keeps the plan's name first: there the plan may
+          // carry a season's name, which is not the template's at all.
+          title: formatWorkoutDisplayLabel(
+            activePlanProgramType === 'custom'
+              ? activeTemplate.name || activeWorkoutPlan.name
+              : activeWorkoutPlan.name || activeTemplate.name,
+            'Workout plan',
+          ),
           subtitle: `${sortedEntries.length} workouts in rotation.`,
           weekLabel: planProgress.weekLabel,
           progressPercent: planProgress.progressPercent,
