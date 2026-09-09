@@ -99,17 +99,24 @@ module.exports = [
     },
   },
   {
-    name: 'progress: the selected section tab is the brightest one in both themes',
+    name: 'progress: the section tabs are the same selector as the metric bar, bright in both themes',
     run() {
       const progress = read('src', 'screens', 'ProgressScreen.tsx');
-      // Dark inherited the light theme's tokens and inverted the affordance:
-      // idle `ink` is near-white, the active glyph a mid violet on a chip a
-      // shade off the bar's own fill.
-      assert.match(progress, /const tabActiveFill = dark \? theme\.purpleLight : theme\.surface;/);
-      assert.match(progress, /const tabActiveInk = dark \? theme\.purpleBright : theme\.purpleDark;/);
-      assert.match(progress, /const tabIdleInk = dark \? theme\.muted : theme\.ink;/);
-      assert.match(progress, /stroke=\{tabActiveInk\}/);
-      assert.match(progress, /stroke=\{tabIdleInk\}/);
+      const seg = read('src', 'components', 'Seg.tsx');
+      // The tabs go through Seg with their glyphs. The hand-built shell — a
+      // second cut surface inside the selected tab, its outline showing under
+      // the row on the phone — is gone from the screen with its per-theme inks
+      // ("leikkaus on jotenkin outo", user 2026-09-09, asking for the metric
+      // bar's look).
+      assert.match(progress, /<Seg\s+grow\s+options=\{PROGRESS_SECTIONS\.map\(\(section\) => \(\{[\s\S]*?icon: section\.icon,/);
+      assert.doesNotMatch(progress, /tabActiveFill|tabActiveInk|tabIdleInk|<CutSurface/);
+      // The dark-theme fix moved into Seg, where the metric bar gets it too:
+      // dark inherited light's tokens and made the selected option the dimmest
+      // thing in the row.
+      assert.match(seg, /const dark = useThemeName\(\) === 'dark';/);
+      assert.match(seg, /const activeInk = dark \? theme\.purpleBright : theme\.purpleDark;/);
+      assert.match(seg, /segItemActiveDark: \{[^}]*backgroundColor: theme\.purpleLight/);
+      assert.match(seg, /segTextActiveDark: \{[^}]*color: theme\.purpleBright/);
     },
   },
 ];

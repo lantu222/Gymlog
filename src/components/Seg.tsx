@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 
 import { CutSurface } from './CutSurface';
-import { Theme, useTheme, useThemedStyles } from '../theming';
+import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 
 /**
  * The one segmented control.
@@ -18,6 +18,14 @@ import { Theme, useTheme, useThemedStyles } from '../theming';
  *
  * Moved here rather than imported across screens, so the claim in the comment
  * is something a file can keep.
+ *
+ * Two things joined on 2026-09-09. Options may carry a glyph (an SVG path in
+ * a 24-box) instead of a word, which is how the Progress tab's section tabs
+ * came through here — they had a hand-built shell with a second cut surface
+ * inside the selected tab, and on the phone its outline showed under the row
+ * ("leikkaus on jotenkin outo"). And the dark theme's pill: dark inherited
+ * light's tokens and made the selected option the dimmest thing in the row,
+ * a fix the tabs had and the metric bar did not. Both have it now.
  */
 export function Seg<T extends string>({
   options,
@@ -27,7 +35,8 @@ export function Seg<T extends string>({
   lockedKeys,
   onLockedPress,
 }: {
-  options: Array<{ key: T; label: string }>;
+  /** `icon` is an SVG path drawn in a 24-box; given, the label is its spoken name. */
+  options: Array<{ key: T; label: string; icon?: string }>;
   value: T;
   onChange: (next: T) => void;
   grow?: boolean;
@@ -44,6 +53,8 @@ export function Seg<T extends string>({
 }) {
   const styles = useThemedStyles(makeSegStyles);
   const theme = useTheme();
+  const dark = useThemeName() === 'dark';
+  const activeInk = dark ? theme.purpleBright : theme.purpleDark;
 
   return (
     // A3: the SHELL takes the cut, the selected option does not. The design's
@@ -73,9 +84,28 @@ export function Seg<T extends string>({
                 />
               </Svg>
             ) : null}
-            <Text style={[styles.segText, active && styles.segTextActive, locked && styles.segTextLocked]}>
-              {option.label}
-            </Text>
+            {option.icon ? (
+              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d={option.icon}
+                  stroke={locked ? theme.faint : active ? activeInk : theme.muted}
+                  strokeWidth={2.1}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            ) : (
+              <Text
+                style={[
+                  styles.segText,
+                  active && styles.segTextActive,
+                  active && dark && styles.segTextActiveDark,
+                  locked && styles.segTextLocked,
+                ]}
+              >
+                {option.label}
+              </Text>
+            )}
           </>
         );
 
@@ -84,10 +114,13 @@ export function Seg<T extends string>({
             key={option.key}
             accessibilityRole="button"
             accessibilityState={{ selected: active, disabled: false }}
+            accessibilityLabel={option.label}
             onPress={() => (locked ? onLockedPress?.() : onChange(option.key))}
             style={grow && styles.segItemGrow}
           >
-            <View style={[styles.segItem, active && styles.segItemActive]}>{inner}</View>
+            <View style={[styles.segItem, active && styles.segItemActive, active && dark && styles.segItemActiveDark]}>
+              {inner}
+            </View>
           </Pressable>
         );
       })}
@@ -127,6 +160,12 @@ const makeSegStyles = (theme: Theme) => StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  // Dark: `surface` sits a shade off the shell's own `surfaceSoft`, so the
+  // selected option read as the dimmest thing in the row. The violet wash
+  // and the bright ink are what the section tabs had already tuned on a device.
+  segItemActiveDark: {
+    backgroundColor: theme.purpleLight,
+  },
   segTextLocked: {
     color: theme.faint,
   },
@@ -137,5 +176,8 @@ const makeSegStyles = (theme: Theme) => StyleSheet.create({
   },
   segTextActive: {
     color: theme.purpleDark,
+  },
+  segTextActiveDark: {
+    color: theme.purpleBright,
   },
 });
