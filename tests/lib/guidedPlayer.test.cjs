@@ -40,6 +40,7 @@ const {
   findGuidedStepIndexByAnchor,
   dialHoldIntervalMs,
   buildGuidedRunSheet,
+  formatLoggedSetsLine,
   GUIDED_POSITION_SECONDS,
 } = require('../../.test-dist/lib/guidedPlayer.js');
 
@@ -81,6 +82,34 @@ module.exports = [
         sheet.map((item) => item.phase),
         ['warmup', 'warmup', 'work', 'work', 'cooldown'],
       );
+      // A lift carries its slot, so the sheet can say what was logged in it.
+      assert.deepEqual(
+        sheet.map((item) => item.slotId),
+        [null, null, 'a', 'b', null],
+      );
+    },
+  },
+  {
+    /**
+     * The sheet listed the session's shape and nothing of what had happened in
+     * it; the reader wanted "kaiken mitä on kirjattu, mitä on tulossa" in one
+     * place (user 2026-09-09).
+     */
+    name: 'the run sheet prints the sets logged in a lift, and nothing for one not started',
+    run() {
+      const sets = [
+        { setIndex: 0, status: 'completed', actualLoadKg: 60, actualReps: 8 },
+        { setIndex: 1, status: 'completed', actualLoadKg: 62.5, actualReps: 7 },
+        { setIndex: 2, status: 'pending' },
+      ];
+      assert.equal(formatLoggedSetsLine(sets), '60 × 8 · 62.5 × 7');
+      // Bodyweight: reps alone.
+      assert.equal(formatLoggedSetsLine([{ status: 'completed', actualLoadKg: 0, actualReps: 12 }]), '12');
+      assert.equal(formatLoggedSetsLine([{ status: 'pending' }]), '');
+      // A hold logs seconds in the reps field: "45" beside "60 × 8" would read as
+      // forty-five reps, and "20 × 45" as twenty kilos for forty-five (PR #90 review).
+      assert.equal(formatLoggedSetsLine([{ status: 'completed', actualLoadKg: 0, actualReps: 45 }], true), '45 s');
+      assert.equal(formatLoggedSetsLine([{ status: 'completed', actualLoadKg: 20, actualReps: 45 }], true), '20 × 45 s');
     },
   },
   {

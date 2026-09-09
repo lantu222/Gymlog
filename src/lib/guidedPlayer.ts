@@ -1270,7 +1270,35 @@ export interface GuidedRunItem {
   name: string;
   /** Sets, for a lift. Null for a drill, which is measured in seconds. */
   setCount: number | null;
+  /** The lift's slot, so the sheet can say what was logged in it. Null for a drill. */
+  slotId: string | null;
   status: 'done' | 'current' | 'upcoming';
+}
+
+/**
+ * "60 × 8 · 60 × 8 · 62,5 × 7": the sets logged so far in one lift, for the run
+ * sheet. Bodyweight sets are their reps alone. Empty when nothing is logged.
+ * The sheet used to list the session's shape and nothing of what had happened
+ * in it; the reader wanted "kaiken mitä on kirjattu, mitä on tulossa" in one
+ * place (user 2026-09-09).
+ *
+ * A hold logs seconds in the reps field, so `timed` puts the unit on them:
+ * a 45-second plank as "45" beside "60 × 8" reads as forty-five reps, and a
+ * weighted one as "20 × 45" reads as twenty kilos for forty-five (bot review,
+ * PR #90 — the same class of bug `formatSetScheme` guards against).
+ */
+export function formatLoggedSetsLine(
+  sets: ReadonlyArray<{ status: string; actualLoadKg?: number; actualReps?: number }>,
+  timed = false,
+): string {
+  return sets
+    .filter((set) => set.status === 'completed')
+    .map((set) => {
+      const count = timed ? `${set.actualReps ?? 0} s` : `${set.actualReps ?? 0}`;
+      const load = set.actualLoadKg ?? 0;
+      return load > 0 ? `${removeTrailingZeros(load)} × ${count}` : count;
+    })
+    .join(' · ');
 }
 
 /**
@@ -1309,6 +1337,7 @@ export function buildGuidedRunSheet(plan: GuidedStepPlan, stepIndex: number): Gu
       phase: step.phase,
       name,
       setCount: plan.groups[groupIndex]?.setCount ?? null,
+      slotId: step.type === 'ready' || step.type === 'drill' ? null : step.slotId,
       status:
         currentGroup === null || groupIndex > currentGroup
           ? 'upcoming'

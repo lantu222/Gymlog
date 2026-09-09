@@ -252,9 +252,15 @@ module.exports = [
       for (const key of ['guided.rest.nextSet', 'guided.rest.target', 'guided.rest.targetHold']) {
         assert.equal(i18nSource.includes(`'${key}'`), false, `${key} outlived its card`);
       }
-      // The logged card: the name may take two lines, the numbers follow it.
-      assert.match(playerSource, /<Text style=\{styles\.restLoggedName\} numberOfLines=\{2\}>\s*\{restLogged\.name\}/);
-      assert.match(playerSource, /<Text style=\{styles\.restLoggedValue\}>\{restLogged\.detail\}<\/Text>/);
+      // The logged card is gone too ("sarja 1 kirjattu osion voi poistaa ja
+      // tuodaan se tähän tämä treenin sisälle"): the sheet says what was
+      // logged, and Muokkaa moved into it, on the current lift while resting.
+      assert.doesNotMatch(playerSource, /restLoggedCard|restLogged\b|guided\.rest\.logged'/);
+      assert.equal(i18nSource.includes("'guided.rest.logged'"), false);
+      assert.match(
+        playerSource,
+        /item\.status === 'current' && logged && step\.type === 'rest' && !step\.recoveryKind \? \([\s\S]*?setRunSheetOpen\(false\);\s*setRestEditOpen\(true\);/,
+      );
       // One NextLine left in the file: the drills'. The rest screen's is gone.
       assert.equal((playerSource.match(/<NextLine /g) ?? []).length, 1);
     },
@@ -286,7 +292,9 @@ module.exports = [
      */
     name: 'guided splash: the recovery splash drops the done row, the eyebrow and the length',
     run() {
-      assert.match(playerSource, /\{step\.doneLabel && step\.phase !== 'cooldown' \? \(/);
+      // The done row ("Lämmittely valmis" between warm-up and workout) is
+      // gone from every splash, not only the recovery one (user 2026-09-09).
+      assert.doesNotMatch(playerSource, /step\.doneLabel/);
       assert.match(playerSource, /\{step\.phase !== 'cooldown' \? \(\s*<Text[^\n]*\n\s*\{t\(language, 'guided\.upNext'\)\}/);
       assert.match(playerSource, /\{step\.phase !== 'cooldown' \? \(\s*<Text[^\n]*\{step\.sub\}<\/Text>\s*\) : null\}/);
     },
@@ -305,6 +313,70 @@ module.exports = [
       for (const key of ['guided.finish.title', 'guided.finish.saving', 'guided.finish.continue']) {
         assert.equal(i18nSource.includes(`'${key}'`), false, `${key} outlived its screen`);
       }
+    },
+  },
+  {
+    /**
+     * The entry screen, on the way to the rack: the plan, not last week's
+     * receipt, and the plan as columns. "VIIME KERRALLA · 44 min · 1 040 kg"
+     * is gone; each lift's row is name (wide, two lines), sets, reps, kg or
+     * time — in the same place on every row, with a header once for the lifts
+     * (user 2026-09-09, "liikaa dataa", "pomppii", "nimeä saa vasemmalle").
+     */
+    name: 'guided entry: the plan as columns, without last time',
+    run() {
+      assert.doesNotMatch(playerSource, /guided\.entry\.lastTime'|lastTimeLine|entryLastLabel|buildOverviewScheme/);
+      assert.equal(i18nSource.includes("'guided.entry.lastTime'"), false);
+      assert.match(playerSource, /\.\.\.buildOverviewColumns\(/);
+      // No line cap on the name ("on pakko olla koko tekstit"), and a drill
+      // row spends nothing on the two columns it has no numbers for.
+      assert.match(playerSource, /<Text style=\{styles\.phaseRowName\}>\s*\{row\.name\}/);
+      assert.doesNotMatch(playerSource, /styles\.phaseRowName\} numberOfLines/);
+      assert.match(playerSource, /\{row\.sets \|\| row\.reps \? \(/);
+      for (const col of ['Sets', 'Reps', 'Load']) {
+        assert.match(playerSource, new RegExp(`styles\\.phaseCol, styles\\.phaseCol${col}\\]`), `${col} column`);
+      }
+      assert.match(playerSource, /phaseRowGroup: \{\s*paddingLeft: 16,/);
+      // The header row exists once, for the lifts.
+      assert.equal((playerSource.match(/styles\.phaseColHead/g) ?? []).length, 3);
+      assert.match(playerSource, /\{phase\.key === 'work' \? \(/);
+    },
+  },
+  {
+    /**
+     * The paused sheet is two things, both about the lift. "Jatka" was a
+     * third, and closing the sheet already resumes (user 2026-09-09).
+     */
+    name: 'guided pause sheet: swap and skip, no resume button',
+    run() {
+      assert.doesNotMatch(playerSource, /label=\{t\(language, 'guided\.resume'\)\}\s*color=\{theme\.purple\}/);
+      assert.match(playerSource, /label=\{t\(language, 'guided\.action\.swap'\)\}/);
+      assert.match(playerSource, /label=\{t\(language, 'guided\.action\.skipExercise'\)\}/);
+      // And the third door to the whole session, for the set screen that had none.
+      assert.match(
+        playerSource,
+        /label=\{t\(language, 'guided\.runSheet\.title'\)\}\s*onPress=\{\(\) => \{\s*setPauseSheetOpen\(false\);\s*setPaused\(false\);\s*setRunSheetOpen\(true\);/,
+      );
+    },
+  },
+  {
+    /**
+     * The whole session, one tap from what was just logged: the run sheet the
+     * dot rail opens, opened from a strip under the rest screen's logged card —
+     * where the reader asked for it — and saying what has been logged in each
+     * lift, not only the session's shape (user 2026-09-09, "paras idea").
+     */
+    name: 'guided rest: the whole session is one tap from what was just logged, and says what was',
+    run() {
+      assert.match(playerSource, /style=\{styles\.restRunStrip\}\s*onPress=\{\(\) => setRunSheetOpen\(true\)\}/);
+      assert.match(playerSource, /'guided\.runSheet\.progress', \{ done: completedSetCount, count: totalSets \}/);
+      // With the lift's tracking mode, so a hold's seconds carry their unit.
+      assert.match(
+        playerSource,
+        /const logged = lift \? formatLoggedSetsLine\(lift\.sets, isTimedTrackingMode\(lift\.trackingMode\)\) : '';/,
+      );
+      assert.match(playerSource, /\{logged \? <Text style=\{styles\.runLogged\}>\{logged\}<\/Text> : null\}/);
+      assert.equal((i18nSource.match(/'guided\.runSheet\.progress': '[^']+'/g) ?? []).length, 2);
     },
   },
 ];

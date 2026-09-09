@@ -17,8 +17,7 @@
  * Decided here rather than in the player so it can be tested without mounting
  * a 4000-line screen. Nothing in this file reaches storage, React or the clock.
  */
-import { getSessionDurationMinutes } from './dashboard';
-import { formatGroupedVolume, formatWeight } from './format';
+import { formatWeight } from './format';
 import { t } from './i18n';
 import { AppLanguage, UnitPreference } from '../types/models';
 
@@ -55,80 +54,33 @@ export function buildOverviewScheme(
   return `${plan} · ${formatWeight(input.loadKg, unitPreference)}`;
 }
 
-export interface LastTimeSessionLike {
-  performedAt: string;
-  workoutTemplateId: string;
-  workoutTemplateSessionId?: string | null;
-  durationMinutes?: number;
-  startedAt?: string;
-  totalVolumeKg?: number;
+export interface OverviewColumns {
+  /** The set count as text; '' for a drill, which has none. */
+  sets: string;
+  /** Reps; '' for a drill, and for a hold, whose seconds sit under `load`. */
+  reps: string;
+  /** The weight, or the seconds of a hold, or '' when there is nothing to lift. */
+  load: string;
 }
 
 /**
- * The newest finished run of this same session, or null.
- *
- * Matched on the template's session id when the caller knows it, so a push day
- * compares against push days rather than against whatever was trained last.
- * Falls back to the programme when the session id is absent — an older save,
- * or a programme with one session.
+ * The same facts as `buildOverviewScheme`, in columns. "4 × 7 · 62,5 kg" as
+ * one string put the weight wherever the reps ended, and on a lift with no
+ * weight two words earlier; the reader called the numbers "pomppii" and asked
+ * for name, sets, reps and kg/time in the same place on every row (user
+ * 2026-09-09). Empty is honest: a cell with nothing to lift stays blank rather
+ * than wearing a dash.
  */
-export function findLastTimeSession<T extends LastTimeSessionLike>(
-  sessions: ReadonlyArray<T>,
-  workoutTemplateId: string,
-  workoutTemplateSessionId: string | null,
-): T | null {
-  const sameProgram = sessions.filter((session) => session.workoutTemplateId === workoutTemplateId);
-  const scoped = workoutTemplateSessionId
-    ? sameProgram.filter((session) => session.workoutTemplateSessionId === workoutTemplateSessionId)
-    : sameProgram;
-  const candidates = scoped.length > 0 ? scoped : sameProgram;
-
-  let newest: T | null = null;
-  let newestAt = Number.NEGATIVE_INFINITY;
-  candidates.forEach((session) => {
-    const at = new Date(session.performedAt).getTime();
-    if (!Number.isFinite(at)) {
-      return;
-    }
-    if (at > newestAt) {
-      newest = session;
-      newestAt = at;
-    }
-  });
-
-  return newest;
-}
-
-/**
- * "48 min · 12 340 kg", or the half that is known, or null.
- *
- * A session saved before durations were stored has neither number; printing
- * "0 min" for it would be the screen inventing a fact.
- */
-export function buildLastTimeLine(
-  session: LastTimeSessionLike | null,
-  language: AppLanguage,
+export function buildOverviewColumns(
+  input: OverviewExerciseInput,
   unitPreference: UnitPreference = 'kg',
-): string | null {
-  if (!session) {
-    return null;
-  }
-
-  const minutes = getSessionDurationMinutes(session as Parameters<typeof getSessionDurationMinutes>[0]);
-  const volumeKg =
-    typeof session.totalVolumeKg === 'number' && Number.isFinite(session.totalVolumeKg)
-      ? session.totalVolumeKg
-      : 0;
-
-  const parts: string[] = [];
-  if (minutes > 0) {
-    parts.push(t(language, 'guided.entry.lastTime.minutes', { count: minutes }));
-  }
-  if (volumeKg > 0) {
-    parts.push(formatGroupedVolume(volumeKg, unitPreference));
-  }
-
-  return parts.length > 0 ? parts.join(' · ') : null;
+): OverviewColumns {
+  const hasLoad = input.loadKg !== null && Number.isFinite(input.loadKg) && input.loadKg > 0;
+  return {
+    sets: String(input.setCount),
+    reps: input.timed ? '' : input.repsLabel,
+    load: input.timed ? `${input.repsLabel} s` : hasLoad ? formatWeight(input.loadKg as number, unitPreference) : '',
+  };
 }
 
 export interface ProgressionMove {

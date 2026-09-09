@@ -1299,8 +1299,8 @@ const EN = {
   'guided.entry.startOver': 'Start from the beginning',
   // -- Session overview, screen 1 of the session flow (2026-09-04). What the
   // app changed since last time, and which lifts touch a flagged body part.
-  'guided.entry.lastTime': 'LAST TIME',
-  'guided.entry.lastTime.minutes': '{count} min',
+  'guided.entry.col.sets': 'SETS',
+  'guided.entry.col.load': 'KG/TIME',
   'guided.entry.progressed.one': '+{delta} today',
   'guided.entry.progressed.many': '+{delta} today · {count} lifts',
   'guided.entry.progressed.repOne': '+1 rep today',
@@ -1361,7 +1361,6 @@ const EN = {
   'guided.own.cooldown': 'Recover your own way',
   // -- The set screen's exercise sheet: one sheet, three tabs.
   // -- Rest (session flow, screen 7).
-  'guided.rest.logged': 'SET {index} LOGGED',
   'guided.rest.edit': 'Edit',
   'guided.rest.editTitle': 'Fix the set you just logged',
   'guided.rest.editSave': 'Save',
@@ -1407,6 +1406,7 @@ const EN = {
   'guided.runSheet.open': 'Show what is in this session',
   'guided.runSheet.sets': '{count} sets',
   'guided.runSheet.here': 'You are here',
+  'guided.runSheet.progress': '{done}/{count} sets',
   'guided.action.addSet': 'Add a set',
   'guided.action.removeSet': 'Remove set',
   'guided.action.swap': 'Swap this exercise',
@@ -4325,8 +4325,8 @@ const FI: Record<I18nKey, string> = {
   'guided.entry.resume': 'Jatka treeniä',
   'guided.entry.start': 'Aloita treeni',
   'guided.entry.startOver': 'Aloita alusta',
-  'guided.entry.lastTime': 'VIIME KERRALLA',
-  'guided.entry.lastTime.minutes': '{count} min',
+  'guided.entry.col.sets': 'SARJAT',
+  'guided.entry.col.load': 'KG/AIKA',
   'guided.entry.progressed.one': '+{delta} tänään',
   'guided.entry.progressed.many': '+{delta} tänään · {count} liikettä',
   'guided.entry.progressed.repOne': '+1 toisto tänään',
@@ -4372,7 +4372,6 @@ const FI: Record<I18nKey, string> = {
   'guided.own.start.cooldown': 'Aloita palautuminen',
   'guided.own.warmup': 'Lämmittele omatoimisesti',
   'guided.own.cooldown': 'Palaudu omatoimisesti',
-  'guided.rest.logged': 'SARJA {index} KIRJATTU',
   'guided.rest.edit': 'Muokkaa',
   'guided.rest.editTitle': 'Korjaa juuri kirjattu sarja',
   'guided.rest.editSave': 'Tallenna',
@@ -4418,6 +4417,7 @@ const FI: Record<I18nKey, string> = {
   'guided.runSheet.open': 'Näytä treenin sisältö',
   'guided.runSheet.sets': '{count} sarjaa',
   'guided.runSheet.here': 'Olet tässä',
+  'guided.runSheet.progress': '{done}/{count} sarjaa',
   'guided.action.addSet': 'Lisää sarja',
   'guided.action.removeSet': 'Poista sarja',
   'guided.action.swap': 'Vaihda tämä liike',
