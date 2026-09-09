@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -90,6 +90,21 @@ interface ProgramDetailScreenProps {
   /** Absent leaves the switch out entirely — a catalog preview has none. */
   onSetRunning?: (next: boolean) => void;
   onStartSession: (sessionId: string) => void;
+  /**
+   * Rename the programme. Absent for a ready one, whose name is catalog data.
+   *
+   * This is not the editing door that was taken off this page on 2026-08-31
+   * (project-one-programme-editor): that one opened the template editor, a
+   * second place to change sets, reps and order, which the day view already
+   * owns. A name is the one thing about a programme the day view cannot
+   * touch, and until now nothing could: `renameWorkoutTemplate` has been
+   * implemented in the provider all along with nothing calling it.
+   *
+   * The reader asked for it because a copy carries "(kopio)" for ever — the
+   * name is stored at creation, never re-derived, so no later change to the
+   * naming rules ever cleans one up (user 2026-09-08).
+   */
+  onRenameProgram?: (name: string) => void;
   /** The day row's destination — the day view (design screen 2). */
   onOpenSession?: (sessionId: string) => void;
   /**
@@ -194,6 +209,7 @@ export function ProgramDetailScreen({
   program,
   onBack,
   onStartSession,
+  onRenameProgram,
   onPrimaryAction,
   running = false,
   onSetRunning,
@@ -309,6 +325,31 @@ export function ProgramDetailScreen({
     [availableEquipment, equipment],
   );
   const displayTitle = formatWorkoutDisplayLabel(program.title, 'Workout plan');
+  // The name being typed, or null when the title is just a title. Seeded from
+  // what is on screen rather than the raw stored string, so a reader editing
+  // an unnamed programme starts from the words they can see.
+  const [nameDraft, setNameDraft] = useState<string | null>(null);
+  const commitRename = () => {
+    if (nameDraft === null) {
+      return;
+    }
+    const trimmed = nameDraft.trim();
+    // Blank is a cancel, not an erasure: a programme with no name at all is a
+    // row the reader cannot tell from any other. The provider refuses it too.
+    //
+    // Compared against `displayTitle`, NOT the stored `program.title`, because
+    // that is what the field was seeded with — and the two differ more often
+    // than they look. `formatWorkoutDisplayLabel` collapses whitespace, rewrites
+    // a copy suffix, and swaps in the English fallback for anything under two
+    // characters. Comparing against the stored name made opening the pen and
+    // pressing Save without typing a write: a programme called "A" would have
+    // been renamed to "Workout plan", permanently — the exact kind of name this
+    // whole change exists to let the reader escape (review, PR #85).
+    if (trimmed && trimmed !== displayTitle) {
+      onRenameProgram?.(trimmed);
+    }
+    setNameDraft(null);
+  };
   /** Goal and level, both translated — badges[0..1] are English. */
   const levelLabel = useMemo(() => {
     const levelKey = ROLE_LEVEL_KEYS[(program.badges[1] ?? '').toLowerCase()];
@@ -571,6 +612,12 @@ export function ProgramDetailScreen({
         contentContainerStyle={styles.content}
         scrollEnabled={dragIndex === null}
         showsVerticalScrollIndicator={false}
+        // The rename field autofocuses, so the keyboard is always up when its
+        // Save and Cancel are on screen. At React Native's default of "never"
+        // the first tap on either only dismisses the keyboard, and the reader
+        // has to tap twice — every time (review, PR #85). Every other
+        // scrollable in this app that holds a TextInput already says this.
+        keyboardShouldPersistTaps="handled"
       >
         {/*
           Title first, numbers under it, nothing painted.
@@ -608,9 +655,66 @@ export function ProgramDetailScreen({
             </View>
           ) : null}
         </View>
-        <Text style={styles.pageTitle} numberOfLines={3}>
-          {displayTitle}
-        </Text>
+        {nameDraft === null ? (
+          <View style={styles.titleRow}>
+            <Text style={styles.pageTitle} numberOfLines={3}>
+              {displayTitle}
+            </Text>
+            {/* A programme's own name, on the page that shows the programme.
+                Only its own — a ready programme has no rename prop, because
+                that name is the catalog's. */}
+            {onRenameProgram ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t(language, 'plan.rename')}
+                hitSlop={12}
+                onPress={() => setNameDraft(displayTitle)}
+                style={({ pressed }) => [styles.titlePen, pressed && { opacity: 0.6 }]}
+              >
+                <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3z"
+                    stroke={theme.faint}
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </Svg>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : (
+          <View>
+            <TextInput
+              value={nameDraft}
+              onChangeText={setNameDraft}
+              autoFocus
+              selectTextOnFocus
+              maxLength={60}
+              placeholderTextColor={theme.faint}
+              style={styles.titleInput}
+              onSubmitEditing={commitRename}
+            />
+            <View style={styles.titleActions}>
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={10}
+                onPress={() => setNameDraft(null)}
+                style={({ pressed }) => [styles.titleAction, pressed && { opacity: 0.6 }]}
+              >
+                <Text style={styles.titleActionCancel}>{t(language, 'common.cancel')}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={10}
+                onPress={commitRename}
+                style={({ pressed }) => [styles.titleAction, pressed && { opacity: 0.6 }]}
+              >
+                <Text style={styles.titleActionSave}>{t(language, 'common.save')}</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
 
         {fitReason ? (
           <View style={styles.reasonCard}>
@@ -1215,6 +1319,50 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.9,
     marginTop: 2,
+    // Takes the row's leftover width so a long name wraps to its three lines
+    // instead of shoving the pen off the edge.
+    flexShrink: 1,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  // Nudged onto the first line's baseline rather than the block's top.
+  titlePen: {
+    paddingTop: 9,
+  },
+  // The field wears the title's own type, so renaming looks like editing the
+  // title and not like filling in a form.
+  titleInput: {
+    color: theme.ink,
+    fontSize: 30,
+    lineHeight: 34,
+    fontWeight: '800',
+    letterSpacing: -0.9,
+    marginTop: 2,
+    paddingVertical: 2,
+    borderBottomWidth: 2,
+    borderBottomColor: theme.highlight,
+  },
+  titleActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 18,
+    marginTop: 8,
+  },
+  titleAction: {
+    paddingVertical: 6,
+  },
+  titleActionCancel: {
+    color: theme.faint,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  titleActionSave: {
+    color: theme.highlight,
+    fontSize: 14,
+    fontWeight: '800',
   },
   leadCopy: {
     color: theme.ink,

@@ -122,6 +122,8 @@ export interface WorkoutTabDeps {
       | { kind: 'prescribe'; prescription: ProgramPrescription }
       | { kind: 'reorder'; toIndex: number },
   ) => Promise<void>;
+  /** A custom programme's own name. Ready ones keep the catalog's. */
+  handleRenameCustomProgram: (workoutTemplateId: string, name: string) => void;
   handleReorderProgramSession: (
     workoutTemplateId: string,
     sessionId: string,
@@ -158,7 +160,6 @@ export interface WorkoutTabDeps {
   handleOpenReadyProgramDetail: (workoutTemplateId: string) => void;
   handleStartReadyProgram: WorkoutsProps['onStartReadyProgram'];
   handleOpenCustomProgramDetail: WorkoutsProps['onOpenCustomProgram'];
-  handleDuplicateCustomWorkout: WorkoutsProps['onDuplicateCustomWorkout'];
   goalProgrammeSuggestions: ProgramsHomeProps['goalProgrammes'];
   goalFlowLifts: React.ComponentProps<typeof StrengthGoalFlowScreen>['lifts'];
   getGoalProposal: (exerciseName: string) => GoalFlowProposal | null;
@@ -217,6 +218,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     handleAdoptCustomProgram,
     handleStartCustomProgramSession,
     editProgramExercise,
+    handleRenameCustomProgram,
     handleReorderProgramSession,
     handleSaveRhythm,
     handleSaveEmphasis,
@@ -246,7 +248,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     handleOpenReadyProgramDetail,
     handleStartReadyProgram,
     handleOpenCustomProgramDetail,
-    handleDuplicateCustomWorkout,
     goalProgrammeSuggestions,
     goalFlowLifts,
     getGoalProposal,
@@ -474,6 +475,14 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           database.workoutPlans.find((plan) => plan.entries[0]?.workoutTemplateId === route.workoutTemplateId)
             ?.entries ?? [],
         )}
+        // Custom only, like every other edit here: a ready programme's name
+        // is catalog data, and a reader who wants their own version of one
+        // gets a custom copy the moment they change a lift in it.
+        onRenameProgram={
+          route.programType === 'custom'
+            ? (name) => void handleRenameCustomProgram(route.workoutTemplateId, name)
+            : undefined
+        }
         // Custom only: reordering a catalog programme would mean copying it,
         // and nobody asks for a copy by dragging.
         onReorderSession={
@@ -789,7 +798,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         onStartReadyProgram={handleStartReadyProgram}
         onOpenCustomProgram={handleOpenCustomProgramDetail}
         onStartCustomWorkout={handleStartCustomProgram}
-        onDuplicateCustomWorkout={handleDuplicateCustomWorkout}
         onDeleteCustomWorkout={handleDeleteCustomWorkout}
         onCreateWorkout={() => navigate({ tab: 'workout', screen: 'template' })}
       />

@@ -327,6 +327,7 @@ function VinhaApp() {
     updatePreferences,
     completeOnboarding,
     upsertWorkoutTemplate,
+    renameWorkoutTemplate,
     editWorkoutTemplateSessions,
     findWorkoutTemplateIdBySource,
     getWorkoutTemplateSessionsFresh,
@@ -2128,6 +2129,19 @@ function VinhaApp() {
   }
 
   /**
+   * A custom programme's own name, from the page that shows it.
+   *
+   * The provider has done the work all along — trim, refuse a blank, commit —
+   * and nothing called it. What made it worth wiring up: a copy's name is
+   * written once at creation and never re-derived, so "(kopio 2)" outlives
+   * every later change to the naming rules. The only cure is a reader who can
+   * type over it (user 2026-09-08).
+   */
+  async function handleRenameCustomProgram(workoutTemplateId: string, name: string) {
+    await renameWorkoutTemplate(workoutTemplateId, name);
+  }
+
+  /**
    * Move a whole day inside the programme (user 2026-08-31).
    *
    * The rotation reads the session list positionally, so this is the edit that
@@ -2499,10 +2513,6 @@ function VinhaApp() {
       }),
       workoutTemplates.map((item) => item.name),
       preferences.appLanguage,
-      // Its own name, not "(kopio)". The reader asked to change a lift, not to
-      // make a second programme — and there is no second programme: the catalog
-      // original is untouched and comes back whole if they take it up again.
-      { keepName: true },
     );
     // The link the next edit will look for.
     draft.sourceTemplateId = programId;
@@ -2664,30 +2674,6 @@ function VinhaApp() {
     handleStartCustomProgramSession(workoutTemplateId, firstSessionId);
   }
 
-
-  function handleDuplicateCustomProgram(workoutTemplateId: string) {
-    const template = workoutTemplates.find((item) => item.id === workoutTemplateId);
-    if (!template) {
-      return;
-    }
-
-    const draft = buildDuplicatedCustomProgramDraft(
-      template.name,
-      getWorkoutTemplateSessions(template.id),
-      workoutTemplates.map((item) => item.name),
-      preferences.appLanguage,
-    );
-
-    Promise.resolve(upsertWorkoutTemplate(draft))
-      .then((nextWorkoutTemplateId) => {
-        void haptics.success();
-        navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId: nextWorkoutTemplateId });
-      })
-      .catch((error) => {
-        console.error('Failed to duplicate custom program', error);
-        showToast(t(preferences.appLanguage, 'toast.workoutDuplicateFailed'));
-      });
-  }
 
   async function handleDeleteCustomWorkout(workoutTemplateId: string) {
     await deleteWorkoutTemplate(workoutTemplateId);
@@ -5799,6 +5785,7 @@ function VinhaApp() {
       handleStartCustomProgramSession,
       editProgramExercise: handleEditProgramExercise,
       handleSaveRhythm,
+      handleRenameCustomProgram,
       handleReorderProgramSession,
       handleSaveEmphasis,
       handleDeleteCustomWorkout,
@@ -5827,7 +5814,6 @@ function VinhaApp() {
       handleOpenReadyProgramDetail,
       handleStartReadyProgram,
       handleOpenCustomProgramDetail,
-      handleDuplicateCustomWorkout: handleDuplicateCustomProgram,
       goalProgrammeSuggestions,
       goalFlowLifts,
       getGoalProposal,

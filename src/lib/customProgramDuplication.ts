@@ -12,35 +12,31 @@ import { localizeSessionName } from './sessionNameLabel';
  * through in the template editor — the one screen that must display the stored
  * name verbatim, since that is the name it will save.
  */
-export interface DuplicateNamingOptions {
-  /**
-   * Keep the programme's own name instead of marking it a copy.
-   *
-   * For the copy that REPLACES a ready programme when one of its lifts is
-   * changed. There the reader never asked for a duplicate — they asked to drop
-   * an exercise — and handing back "Pakarakunto · Pro (kopio)" tells them a
-   * second thing exists when it does not: the original is untouched in the
-   * catalog and comes back whole if they ever take it up again (user
-   * 2026-08-26, "onko tämä pakollinen eikö se voi vain mennä tämän ohjelman
-   * päälle").
-   *
-   * A real duplicate — two of the reader's own, side by side — still gets the
-   * suffix, and so does this one if the plain name is already taken, because
-   * two rows reading the same is worse than one reading "(kopio)".
-   */
-  keepName?: boolean;
-}
-
+/**
+ * A copy keeps the programme's own name.
+ *
+ * There is only one way to get here now: the reader changed a lift in a ready
+ * programme, so the app made them their own version of it. They never asked
+ * for a duplicate — they asked to change an exercise — and the whole point is
+ * that the catalog original stays untouched behind them and comes back whole
+ * if they take it up again (user 2026-08-26 and again 2026-09-08: "ei ole
+ * tarkoitus olla kopiota ... alkuperäiset säilyy koskemattomina mutta tätä
+ * sinun omaa ohjelmaasi voit muokata miten haluat").
+ *
+ * The "(kopio)" suffix survives for one case only, and it is not a feature:
+ * when the plain name is already taken. Two rows reading the same is worse
+ * than one reading "(kopio)" — and the reader can now type over either
+ * (ProgramDetailScreen's rename).
+ */
 export function buildDuplicatedCustomProgramDraft(
   name: string,
   sessions: WorkoutTemplateSessionWithExercises[],
   existingNames: string[] = [],
   language: AppLanguage = 'en',
-  { keepName = false }: DuplicateNamingOptions = {},
 ): WorkoutTemplateDraft {
   const taken = existingNames.some((existing) => existing.trim() === name.trim());
   return {
-    name: keepName && !taken ? name : buildDisplayCopyName(name, language, existingNames),
+    name: taken ? buildDisplayCopyName(name, language, existingNames) : name,
     sessions: sessions
       .slice()
       .sort((left, right) => left.orderIndex - right.orderIndex)
