@@ -21,6 +21,7 @@ import { filterBrowsableExercises } from '../lib/exerciseBrowseFilter';
 import { rankExerciseMatches } from '../lib/exerciseSearch';
 import { orderExercisesBySelection } from '../lib/exerciseSelectionOrder';
 import { I18nKey, t } from '../lib/i18n';
+import { displayEquipmentValue } from '../lib/libraryLabel';
 import {
   AppLanguage,
   ExerciseBodyPart,
@@ -83,10 +84,21 @@ const bodyPartOptions: Array<'all' | ExerciseBodyPart> = [
   'glutes',
   'full body',
 ];
-const equipmentOptions: Array<'all' | ExerciseEquipment> = [
+/**
+ * `kettlebells` is not an `ExerciseEquipment` — the library files kettlebells
+ * under `dumbbell` — but it is what `displayEquipmentValue` prints on the row,
+ * and a chip set that cannot select what the rows say is a filter that argues
+ * with its own list. Widened here rather than in the union, because the union
+ * is the storage and planning vocabulary and a sixth value there would have to
+ * be threaded through the coach's allowed-equipment sets too.
+ */
+type SheetEquipmentOption = 'all' | ExerciseEquipment | 'kettlebells';
+
+const equipmentOptions: SheetEquipmentOption[] = [
   'all',
   'barbell',
   'dumbbell',
+  'kettlebells',
   'machine',
   'cable',
   'bodyweight',
@@ -113,6 +125,10 @@ const FACET_KEYS: Record<string, I18nKey> = {
   machine: 'facet.machine',
   cable: 'facet.cable',
   bodyweight: 'facet.bodyweight',
+  // Not a bucket the library normalises to — `displayEquipmentValue` hands it
+  // over so a kettlebell row stops calling itself a dumbbell. Borrowed from the
+  // library dictionary rather than added as a fifth copy of the word.
+  kettlebells: 'lib.equipment.kettlebells',
 };
 
 function toLabel(value: string, language: AppLanguage) {
@@ -194,7 +210,7 @@ export function AddExerciseSheet({
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<'all' | ExerciseCategory>('all');
   const [bodyPart, setBodyPart] = useState<'all' | ExerciseBodyPart>('all');
-  const [equipment, setEquipment] = useState<'all' | ExerciseEquipment>('all');
+  const [equipment, setEquipment] = useState<SheetEquipmentOption>('all');
   const [pendingSelectedIds, setPendingSelectedIds] = useState<string[]>(selectedIds);
 
   useEffect(() => {
@@ -276,7 +292,7 @@ export function AddExerciseSheet({
       if (bodyPart !== 'all' && item.bodyPart !== bodyPart) {
         return false;
       }
-      if (equipment !== 'all' && item.equipment !== equipment) {
+      if (equipment !== 'all' && displayEquipmentValue(item) !== equipment) {
         return false;
       }
       return true;
@@ -552,7 +568,7 @@ export function AddExerciseSheet({
                                 {toLabel(item.bodyPart, language)}
                               </Text>
                               <Text numberOfLines={2} style={styles.gridCardMeta}>
-                                {toLabel(item.category, language)} · {toLabel(item.equipment, language)}
+                                {toLabel(item.category, language)} · {toLabel(displayEquipmentValue(item), language)}
                               </Text>
                               {!multiSelect ? (
                                 <View style={[styles.gridActionPill, selected && styles.gridActionPillSelected]}>
@@ -621,7 +637,7 @@ export function AddExerciseSheet({
                                 {toLabel(item.bodyPart, language)}
                               </Text>
                     <Text numberOfLines={2} style={styles.gridCardMeta}>
-                      {toLabel(item.category, language)} · {toLabel(item.equipment, language)}
+                      {toLabel(item.category, language)} · {toLabel(displayEquipmentValue(item), language)}
                     </Text>
                     {!multiSelect ? (
                       <View style={[styles.gridActionPill, selected && styles.gridActionPillSelected]}>

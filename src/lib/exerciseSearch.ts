@@ -10,14 +10,25 @@
  * data's English and the label the screen prints.
  */
 import { exerciseNameLabel } from './exerciseNameLabel';
-import { libraryLabel } from './libraryLabel';
+import { displayEquipmentValue, libraryLabel } from './libraryLabel';
 import { AppLanguage, ExerciseLibraryItem } from '../types/models';
 
 export function buildExerciseSearchHaystack(
-  item: Pick<ExerciseLibraryItem, 'name' | 'bodyPart' | 'category' | 'equipment' | 'primaryMuscles' | 'secondaryMuscles'>,
+  item: Pick<
+    ExerciseLibraryItem,
+    'name' | 'bodyPart' | 'category' | 'equipment' | 'sourceEquipment' | 'primaryMuscles' | 'secondaryMuscles'
+  >,
   language: AppLanguage,
 ): string {
-  const facets: string[] = [item.bodyPart, item.category, item.equipment].filter((value) => Boolean(value));
+  // Both the bucket and the word the row prints. They differ for the 54
+  // kettlebell exercises, which are filed under `dumbbell` but say
+  // "Kahvakuula" on screen — and a haystack that carries only the bucket
+  // makes 15 of them unfindable by the word the reader is looking at, Goblet
+  // Squat among them. A Set because they are the same value for everything
+  // else, and a duplicated facet would be a duplicated label too.
+  const facets: string[] = [
+    ...new Set([item.bodyPart, item.category, item.equipment, displayEquipmentValue(item)]),
+  ].filter((value) => Boolean(value));
   return [
     item.name,
     exerciseNameLabel(language, item.name),
