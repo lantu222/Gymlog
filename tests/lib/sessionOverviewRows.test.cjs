@@ -10,12 +10,10 @@ const { setNumberLanguage } = require('../../.test-dist/lib/format.js');
 setNumberLanguage('en');
 
 const {
-  buildLastTimeLine,
   buildOverviewScheme,
+  buildOverviewColumns,
   buildProgressionPill,
-  findLastTimeSession,
 } = require('../../.test-dist/lib/sessionOverviewRows.js');
-const { formatGroupedVolume } = require('../../.test-dist/lib/format.js');
 
 const move = (loadKg, fromKg, reps = 8, fromReps = null) => ({
   loadKg,
@@ -41,75 +39,21 @@ module.exports = [
     },
   },
   {
-    name: 'last time finds the same day of the same programme, newest first',
+    name: 'overview columns put sets, reps and kg or time in the same place on every row',
     run() {
-      const sessions = [
-        { performedAt: '2026-08-20T18:00:00.000Z', workoutTemplateId: 'p1', workoutTemplateSessionId: 'push' },
-        { performedAt: '2026-08-27T18:00:00.000Z', workoutTemplateId: 'p1', workoutTemplateSessionId: 'push' },
-        { performedAt: '2026-08-29T18:00:00.000Z', workoutTemplateId: 'p1', workoutTemplateSessionId: 'pull' },
-        { performedAt: '2026-08-30T18:00:00.000Z', workoutTemplateId: 'p2', workoutTemplateSessionId: 'push' },
-      ];
-      // Not the newest session — the newest PUSH of THIS programme.
-      assert.equal(findLastTimeSession(sessions, 'p1', 'push').performedAt, '2026-08-27T18:00:00.000Z');
-      // A programme with no run of that day at all falls back to the programme,
-      // which is still a truer comparison than nothing.
-      assert.equal(findLastTimeSession(sessions, 'p1', 'legs').performedAt, '2026-08-29T18:00:00.000Z');
-      assert.equal(findLastTimeSession(sessions, 'p3', 'push'), null);
-      // An unparseable date cannot win by being "greater than" everything.
-      assert.equal(
-        findLastTimeSession(
-          [{ performedAt: 'not a date', workoutTemplateId: 'p1', workoutTemplateSessionId: 'push' }],
-          'p1',
-          'push',
-        ),
-        null,
+      const base = { exerciseName: 'Bench Press', setCount: 4, repsLabel: '7', timed: false, loadKg: 62.5 };
+      const loaded = buildOverviewColumns(base);
+      assert.equal(loaded.sets, '4');
+      assert.equal(loaded.reps, '7');
+      assert.match(loaded.load, /^62[.,]5 kg$/);
+      // Nothing to lift: the cell is blank, not a dash and not "0 kg".
+      assert.deepEqual(buildOverviewColumns({ ...base, loadKg: null }), { sets: '4', reps: '7', load: '' });
+      assert.deepEqual(buildOverviewColumns({ ...base, loadKg: 0 }), { sets: '4', reps: '7', load: '' });
+      // A hold: its seconds are the time column, and it has no reps.
+      assert.deepEqual(
+        buildOverviewColumns({ ...base, timed: true, repsLabel: '45', loadKg: 20 }),
+        { sets: '4', reps: '', load: '45 s' },
       );
-    },
-  },
-  {
-    name: 'the last-time line prints only the halves it actually knows',
-    run() {
-      assert.equal(
-        buildLastTimeLine(
-          { performedAt: '2026-08-27T18:00:00.000Z', workoutTemplateId: 'p1', durationMinutes: 48, totalVolumeKg: 12340 },
-          'en',
-        ),
-        `48 min · ${formatGroupedVolume(12340)}`,
-      );
-      // Duration alone, volume alone, and a session that has neither.
-      assert.equal(
-        buildLastTimeLine({ performedAt: '2026-08-27T18:00:00.000Z', workoutTemplateId: 'p1', durationMinutes: 48 }, 'en'),
-        '48 min',
-      );
-      assert.equal(
-        buildLastTimeLine({ performedAt: '2026-08-27T18:00:00.000Z', workoutTemplateId: 'p1', totalVolumeKg: 900 }, 'en'),
-        '900 kg',
-      );
-      assert.equal(buildLastTimeLine({ performedAt: '2026-08-27T18:00:00.000Z', workoutTemplateId: 'p1' }, 'en'), null);
-      assert.equal(buildLastTimeLine(null, 'en'), null);
-      // A save from before durations were stored still has its own span.
-      assert.equal(
-        buildLastTimeLine(
-          {
-            performedAt: '2026-08-27T18:50:00.000Z',
-            startedAt: '2026-08-27T18:00:00.000Z',
-            workoutTemplateId: 'p1',
-          },
-          'en',
-        ),
-        '50 min',
-      );
-    },
-  },
-  {
-    name: 'volume grouping breaks thousands and never wraps mid-number',
-    run() {
-      assert.equal(formatGroupedVolume(940), '940 kg');
-      assert.equal(formatGroupedVolume(12340), '12 340 kg');
-      assert.equal(formatGroupedVolume(1234567), '1 234 567 kg');
-      assert.equal(formatGroupedVolume(0), '0 kg');
-      // Negative volume is not a thing; it must not print a stray sign.
-      assert.equal(formatGroupedVolume(-5), '0 kg');
     },
   },
   {

@@ -733,7 +733,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         onToggleSoundCues={(next) => void updatePreferences({ soundCuesEnabled: next })}
         language={preferences.appLanguage}
         entryEyebrow={guidedEntryEyebrow}
-        completedSessions={database.workoutSessions}
         ownBlockStats={preferences.ownBlockStats}
         onRecordOwnBlock={(phase, seconds) =>
           void updatePreferences({

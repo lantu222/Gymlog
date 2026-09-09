@@ -57,6 +57,7 @@ import {
   getGuidedBackTargetIndex,
   getGuidedInitials,
   buildGuidedRunSheet,
+  formatLoggedSetsLine,
   getGuidedNextName,
   getGuidedNextPreview,
   getGuidedPhaseLabel,
@@ -69,11 +70,8 @@ import {
   resolveGuidedSetTarget,
 } from '../lib/guidedPlayer';
 import {
-  buildLastTimeLine,
-  buildOverviewScheme,
+  buildOverviewColumns,
   buildProgressionPill,
-  findLastTimeSession,
-  LastTimeSessionLike,
 } from '../lib/sessionOverviewRows';
 import { formatLastOwnBlock, OwnBlockPhase, OwnBlockStats } from '../lib/ownBlockHistory';
 import { buildWarmupBrief } from '../lib/warmupBrief';
@@ -236,7 +234,6 @@ interface GuidedPlayerScreenProps {
    * day. Which one that is depends on the live session's template ids, which
    * this screen holds and the caller does not.
    */
-  completedSessions?: ReadonlyArray<LastTimeSessionLike>;
   /** How the reader's own warm-ups have gone — see lib/ownBlockHistory.ts. */
   ownBlockStats?: OwnBlockStats;
   /** One finished self-run block, for the "last time you took" line. */
@@ -1104,7 +1101,6 @@ export function GuidedPlayerScreen({
   keepScreenAwake = false,
   onToggleSoundCues,
   entryEyebrow,
-  completedSessions = [],
   ownBlockStats = {},
   onRecordOwnBlock,
   learnedExerciseIds = [],
@@ -2199,17 +2195,6 @@ export function GuidedPlayerScreen({
    * session history, the other walks every exercise. Both are read on the
    * entry screen only, which has no running clock at all.
    */
-  const lastTimeLine = useMemo(
-    () =>
-      buildLastTimeLine(
-        session
-          ? findLastTimeSession(completedSessions, session.templateId, session.templateSessionId)
-          : null,
-        language,
-        unitPreference,
-      ),
-    [completedSessions, language, session, unitPreference],
-  );
   const progressionPill = useMemo(
     () =>
       buildProgressionPill(
@@ -2278,25 +2263,18 @@ export function GuidedPlayerScreen({
                 for today. The pill is the whole reason the weights on the rows
                 below are worth reading — without it the overview showed a plan
                 and never said which part of it is new. */}
-            {lastTimeLine || progressionPill ? (
+            {/* No "VIIME KERRALLA · 44 min · 1 040 kg" any more: on the way to
+                the rack the reader wanted the plan, not last week's receipt
+                (user 2026-09-09, "liikaa dataa"). The pill stays — it is the
+                one line that says what is new today. */}
+            {progressionPill ? (
               <View style={styles.entryLastRow}>
-                {lastTimeLine ? (
-                  <View style={{ flexShrink: 1 }}>
-                    <Text style={styles.entryLastLabel}>{t(language, 'guided.entry.lastTime')}</Text>
-                    <Text style={styles.entryLastValue} numberOfLines={1}>
-                      {lastTimeLine}
-                    </Text>
-                  </View>
-                ) : (
-                  <View style={{ flex: 1 }} />
-                )}
-                {progressionPill ? (
-                  <View style={styles.entryProgressPill}>
-                    <Text style={styles.entryProgressPillText} numberOfLines={1}>
-                      {progressionPill}
-                    </Text>
-                  </View>
-                ) : null}
+                <View style={{ flex: 1 }} />
+                <View style={styles.entryProgressPill}>
+                  <Text style={styles.entryProgressPillText} numberOfLines={1}>
+                    {progressionPill}
+                  </Text>
+                </View>
               </View>
             ) : null}
 
@@ -2330,7 +2308,7 @@ export function GuidedPlayerScreen({
                       key: 'warmup',
                       label: t(language, 'guided.phase.warmup'),
                       sub: `${t(language, 'guided.count.timedDrills', { count: warmupDrills.length })} · ${t(language, 'guided.entry.duration', { min: Math.max(1, Math.round(warmupSecondsTotal / 60)) })}`,
-                      rows: warmupDrills.map((drill) => ({ left: drill.name, right: formatDrillLength(drill.seconds) })),
+                      rows: warmupDrills.map((drill) => ({ name: drill.name, sets: '', reps: '', load: formatDrillLength(drill.seconds) })),
                     }
                   : null,
                 workStart !== null
@@ -2347,8 +2325,8 @@ export function GuidedPlayerScreen({
                         // this screen goes through — this row listed "Back
                         // Squat" under a Finnish heading while the player
                         // itself said Takakyykky.
-                        left: exerciseNameLabel(language, exercise.exerciseName),
-                        right: buildOverviewScheme(
+                        name: exerciseNameLabel(language, exercise.exerciseName),
+                        ...buildOverviewColumns(
                           {
                             exerciseName: exercise.exerciseName,
                             setCount: exercise.sets.length,
@@ -2356,7 +2334,6 @@ export function GuidedPlayerScreen({
                             timed: isTimedTrackingMode(exercise.trackingMode),
                             loadKg: resolveTarget(exercise.slotId, 0)?.loadKg ?? null,
                           },
-                          language,
                           unitPreference,
                         ),
                       })),
@@ -2367,7 +2344,7 @@ export function GuidedPlayerScreen({
                       key: 'cooldown',
                       label: t(language, 'guided.phase.cooldown'),
                       sub: `${t(language, 'guided.count.stretchMany', { count: cooldownDrills.length })} · ${cooldownSecondsTotal < 90 ? `~${t(language, 'logger.secondsValue', { count: Math.round(cooldownSecondsTotal / 5) * 5 })}` : t(language, 'guided.entry.duration', { min: Math.round(cooldownSecondsTotal / 60) })}`,
-                      rows: cooldownDrills.map((drill) => ({ left: drill.name, right: formatDrillLength(drill.seconds) })),
+                      rows: cooldownDrills.map((drill) => ({ name: drill.name, sets: '', reps: '', load: formatDrillLength(drill.seconds) })),
                     }
                   : null,
               ]
@@ -2378,7 +2355,7 @@ export function GuidedPlayerScreen({
                     key: string;
                     label: string;
                     sub: string;
-                    rows: Array<{ left: string; right: string }>;
+                    rows: Array<{ name: string; sets: string; reps: string; load: string }>;
                   } => item !== null,
                 )
                 .map((phase, phaseIndex) => {
@@ -2413,15 +2390,32 @@ export function GuidedPlayerScreen({
                       </Pressable>
                       {expanded && (
                         <View style={styles.phaseRows}>
+                          {/* Columns, not a sentence. "4 × 7 · 62,5 kg" put the
+                              weight wherever the reps ended, and on a lift with
+                              no weight two words earlier; nine names in ten were
+                              cut at one line behind a 57px indent (user
+                              2026-09-09). Name first and wide, then sets, reps,
+                              kg or time — each in its own place on every row.
+                              The lifts get a header once; drills have only a time. */}
+                          {phase.key === 'work' ? (
+                            <View style={styles.phaseRowGroup}>
+                              <View style={[styles.phaseRow, { paddingVertical: 2 }]}>
+                                <View style={{ flex: 1 }} />
+                                <Text style={[styles.phaseColHead, styles.phaseColSets]}>{t(language, 'guided.entry.col.sets')}</Text>
+                                <Text style={[styles.phaseColHead, styles.phaseColReps]}>{t(language, 'guided.reps')}</Text>
+                                <Text style={[styles.phaseColHead, styles.phaseColLoad]}>{t(language, 'guided.entry.col.load')}</Text>
+                              </View>
+                            </View>
+                          ) : null}
                           {phase.rows.map((row, rowIndex) => (
                             <View key={rowIndex} style={styles.phaseRowGroup}>
                               <View style={styles.phaseRow}>
-                                <Text style={{ flex: 1, fontSize: 14.5, fontWeight: '700', color: theme.ink }} numberOfLines={1}>
-                                  {row.left}
+                                <Text style={styles.phaseRowName} numberOfLines={2}>
+                                  {row.name}
                                 </Text>
-                                <Text style={{ fontSize: 13.5, fontWeight: '600', color: theme.muted, fontVariant: ['tabular-nums'] }}>
-                                  {row.right}
-                                </Text>
+                                <Text style={[styles.phaseCol, styles.phaseColSets]}>{row.sets}</Text>
+                                <Text style={[styles.phaseCol, styles.phaseColReps]}>{row.reps}</Text>
+                                <Text style={[styles.phaseCol, styles.phaseColLoad]}>{row.load}</Text>
                               </View>
                             </View>
                           ))}
@@ -2509,16 +2503,9 @@ export function GuidedPlayerScreen({
                 {/* The block name owns the upper half; the decision sits down
                     where a thumb already is (user 2026-08-26). */}
                 <View style={skippablePhase ? styles.splashChoiceCopy : styles.splashCopy}>
-                  {step.doneLabel && step.phase !== 'cooldown' ? (
-                    <PopIn popKey={stepIndex}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 18 }}>
-                        <View style={styles.splashCheck}>
-                          <GPIcon name="check" size={16} color={theme.green} sw={2.8} />
-                        </View>
-                        <Text style={{ fontSize: 14.5, fontWeight: '800', color: theme.green }}>{step.doneLabel}</Text>
-                      </View>
-                    </PopIn>
-                  ) : null}
+                  {/* No "Lämmittely valmis" row: a check and a sentence about
+                      the block just left, above the name of the one being
+                      entered (user 2026-09-09). */}
                   {/* The recovery splash is the title and the list, nothing
                       else: "Treeni valmis", "SEURAAVAKSI" and "2 venytystä ·
                       ~4 min" were three lines about a screen that shows its
@@ -2927,6 +2914,20 @@ export function GuidedPlayerScreen({
                     <Text style={styles.restLoggedEdit}>{t(language, 'guided.rest.edit')}</Text>
                   </Pressable>
                 ) : null}
+                {/* The whole session, one tap from what was just logged — the
+                    same sheet the dot rail opens, put where the reader asked for
+                    it (user 2026-09-09, "paras idea"): logged, here, to come. */}
+                <Pressable
+                  accessibilityRole="button"
+                  style={styles.restRunStrip}
+                  onPress={() => setRunSheetOpen(true)}
+                >
+                  <Text style={styles.restRunStripText}>{t(language, 'guided.runSheet.title')}</Text>
+                  <Text style={styles.restRunStripMeta}>
+                    {t(language, 'guided.runSheet.progress', { done: completedSetCount, count: totalSets })}
+                  </Text>
+                  <GPIcon name="chevR" size={16} color={theme.faint} />
+                </Pressable>
                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                   <RestRing
                     stepKey={stepIndex}
@@ -3285,7 +3286,9 @@ export function GuidedPlayerScreen({
         <GPSheet onClose={() => setRunSheetOpen(false)}>
           <Text style={styles.sheetTitle}>{t(language, 'guided.runSheet.title')}</Text>
           <ScrollView style={{ flexGrow: 0, flexShrink: 1 }} showsVerticalScrollIndicator={false}>
-            {buildGuidedRunSheet(stepPlan, stepIndex).map((item) => (
+            {buildGuidedRunSheet(stepPlan, stepIndex).map((item) => {
+              const logged = item.slotId ? formatLoggedSetsLine(exerciseBySlot.get(item.slotId)?.sets ?? []) : '';
+              return (
               <View key={item.groupIndex} style={styles.runRow}>
                 {/* Done / here / to come, as a mark rather than as a colour:
                     the dark theme flattens the accents into each other. */}
@@ -3312,6 +3315,10 @@ export function GuidedPlayerScreen({
                   {item.status === 'current' ? (
                     <Text style={styles.runHere}>{t(language, 'guided.runSheet.here')}</Text>
                   ) : null}
+                  {/* What has been logged in this lift so far: the sheet listed
+                      the session's shape and nothing of what had happened in it
+                      (user 2026-09-09). */}
+                  {logged ? <Text style={styles.runLogged}>{logged}</Text> : null}
                 </View>
                 {item.setCount ? (
                   <Text style={styles.runMeta}>
@@ -3319,7 +3326,8 @@ export function GuidedPlayerScreen({
                   </Text>
                 ) : null}
               </View>
-            ))}
+              );
+            })}
           </ScrollView>
         </GPSheet>
       )}
@@ -3333,14 +3341,9 @@ export function GuidedPlayerScreen({
         >
           <Text style={styles.sheetTitle}>{t(language, 'guided.pauseSheet.title')}</Text>
           <View style={{ gap: 10 }}>
-            <BigBtn
-              label={t(language, 'guided.resume')}
-              color={theme.purple}
-              onPress={() => {
-                setPauseSheetOpen(false);
-                setPaused(false);
-              }}
-            />
+            {/* No "Jatka": closing the sheet is resuming, and the scrim and
+                the back button both close it. What is left is about the lift
+                (user 2026-09-09, "jätä vain nuo kaksi"). */}
             {/* "One back" and "skip this" are gone. Two skips a thumb's width
                 apart — one for the set, one for the exercise — is a pair you
                 pick between by reading, on a sheet you opened mid-set; and
@@ -4157,14 +4160,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
-  entryLastLabel: { fontSize: 10.5, fontWeight: '800', letterSpacing: 1.3, color: theme.faint },
-  entryLastValue: {
-    marginTop: 3,
-    fontSize: 15,
-    fontWeight: '700',
-    color: theme.ink,
-    fontVariant: ['tabular-nums'],
-  },
   entryProgressPill: {
     backgroundColor: theme.highlightSoft,
     borderRadius: 999,
@@ -4196,15 +4191,29 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginBottom: 6,
   },
   phaseRowGroup: {
-    paddingLeft: 57,
+    paddingLeft: 16,
     paddingRight: 4,
   },
   phaseRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 8,
+    gap: 6,
+    paddingVertical: 7,
   },
+  // Name first and wide, wrapping to two lines; the three number columns are
+  // fixed so a value sits in the same place on every row, blank or not.
+  phaseRowName: { flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: '700', color: theme.ink },
+  phaseCol: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: theme.muted,
+    fontVariant: ['tabular-nums'],
+    textAlign: 'right',
+  },
+  phaseColHead: { fontSize: 9.5, fontWeight: '800', letterSpacing: 1, color: theme.faint, textAlign: 'right' },
+  phaseColSets: { width: 34 },
+  phaseColReps: { width: 48 },
+  phaseColLoad: { width: 66 },
   // The step number's disc. Same size and place the play disc held, so the
   // header's rhythm is unchanged — only the thing inside it means something now.
   phaseStep: {
@@ -4878,6 +4887,21 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   restLoggedName: { marginTop: 3, fontSize: 17, fontWeight: '800', color: theme.ink },
   restLoggedValue: { marginTop: 1, fontSize: 15, fontWeight: '700', color: theme.ink, fontVariant: ['tabular-nums'] },
   restLoggedEdit: { fontSize: 13.5, fontWeight: '800', color: theme.highlight },
+  restRunStrip: {
+    marginHorizontal: 20,
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
+  },
+  restRunStripText: { flex: 1, fontSize: 13.5, fontWeight: '800', color: theme.ink },
+  restRunStripMeta: { fontSize: 13, fontWeight: '700', color: theme.muted, fontVariant: ['tabular-nums'] },
   editVeil: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   editSheet: {
     backgroundColor: theme.bg,
@@ -4995,6 +5019,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 20,
     fontWeight: '700',
     color: theme.ink,
+  },
+  runLogged: {
+    marginTop: 2,
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: theme.greenInk,
+    fontVariant: ['tabular-nums'],
   },
   runHere: {
     fontSize: 11.5,
