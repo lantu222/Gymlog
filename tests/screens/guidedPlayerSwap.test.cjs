@@ -136,7 +136,7 @@ module.exports = [
       // The buttons render unconditionally, under the number, above the hint.
       assert.match(
         playerSource,
-        /<\/Pressable>\s*<View style=\{styles\.setDialControls\}>\s*<DialButton glyph="−"[^\n]*\n\s*<DialButton glyph="\+"[^\n]*\n\s*<\/View>\s*<Text style=\{styles\.setDialHint\}>\{hint\}<\/Text>/,
+        /<\/Pressable>\s*<View style=\{styles\.setDialControls\}>\s*<DialButton glyph="−"[^\n]*\n\s*<DialButton glyph="\+"[^\n]*\n\s*<\/View>/,
       );
       assert.doesNotMatch(playerSource, /open \? \(\s*<View style=\{styles\.setDialControls\}>/);
       // The reps card steps and commits through the lib rule, inside the same
@@ -150,8 +150,10 @@ module.exports = [
         playerSource,
         /onCommit=\{\(text\) => setReps\(\(current\) => commitDialReps\(text, current, timed \? HOLD_DIAL : REPS_DIAL\)\)\}/,
       );
-      // The visible hint exists in both languages.
-      assert.equal((i18nSource.match(/'guided\.dial\.tapToType': '[^']+'/g) ?? []).length, 2);
+      // No "tap to type" line under the buttons: it was in the sketch and
+      // struck out on the phone the same day ("napauta ja kirjoita poista nämä").
+      assert.doesNotMatch(playerSource, /setDialHint|guided\.dial\.tapToType/);
+      assert.equal(i18nSource.includes("'guided.dial.tapToType'"), false);
       // Typing commits on every keystroke: the log button reads the number in
       // the same tick it closes the card, and a commit deferred to blur, to
       // the done key or to an unmount was a typed weight logged as the old one.
@@ -234,6 +236,75 @@ module.exports = [
       assert.match(i18nSource, /'guided\.card\.lastTimeBorrowed': 'VIIME KERRALLA\\n[^']+'/);
       assert.match(i18nSource, /'guided\.walk\.lastBorrowed': 'LAST\\n[^']+'/);
       assert.match(i18nSource, /'guided\.walk\.lastBorrowed': 'VIIMEKSI\\n[^']+'/);
+    },
+  },
+  {
+    /**
+     * The rest screen, from the gym: "vähän liikaa kaikkea". The next set's
+     * card and the "Seuraava · …" line under the buttons said what the ring
+     * already implied, three ways; the logged card cut its own text at one
+     * line. What is left: what was logged (name, then numbers), how long is
+     * left, three controls, skip (user 2026-09-09).
+     */
+    name: 'guided rest: what was logged and how long is left, nothing about the set to come',
+    run() {
+      assert.doesNotMatch(playerSource, /restNextCard|restTargetRow|restChosenKg|restTargetMove/);
+      for (const key of ['guided.rest.nextSet', 'guided.rest.target', 'guided.rest.targetHold']) {
+        assert.equal(i18nSource.includes(`'${key}'`), false, `${key} outlived its card`);
+      }
+      // The logged card: the name may take two lines, the numbers follow it.
+      assert.match(playerSource, /<Text style=\{styles\.restLoggedName\} numberOfLines=\{2\}>\s*\{restLogged\.name\}/);
+      assert.match(playerSource, /<Text style=\{styles\.restLoggedValue\}>\{restLogged\.detail\}<\/Text>/);
+      // One NextLine left in the file: the drills'. The rest screen's is gone.
+      assert.equal((playerSource.match(/<NextLine /g) ?? []).length, 1);
+    },
+  },
+  {
+    /**
+     * The walk-up's finished-lift card is two lines — check and name, then
+     * weight and reps — so the screen after a lift fits without scrolling
+     * (user 2026-09-09, "max 2 riviä valmis osiolle että ei tarvitse
+     * skrollata").
+     */
+    name: 'guided walk-up: the finished lift is a check, its name, and one row of numbers',
+    run() {
+      assert.doesNotMatch(playerSource, /walkDoneLabel|guided\.walk\.done/);
+      assert.match(
+        playerSource,
+        /<GPIcon name="check"[^\n]*\n\s*<\/View>\s*<Text style=\{\[styles\.walkDoneName, \{ flex: 1, minWidth: 0 \}\]\} numberOfLines=\{1\}>/,
+      );
+      assert.match(playerSource, /\{walkDone\.weight \? <Text style=\{styles\.walkDoneWeight\}>\{walkDone\.weight\}<\/Text> : null\}/);
+      assert.equal(i18nSource.includes("'guided.walk.done'"), false);
+    },
+  },
+  {
+    /**
+     * The recovery splash is its title and its list. "Treeni valmis",
+     * "SEURAAVAKSI" and "2 venytystä · ~4 min" were three lines about a
+     * screen that shows its own contents (user 2026-09-09). The warm-up and
+     * workout splashes keep theirs until asked.
+     */
+    name: 'guided splash: the recovery splash drops the done row, the eyebrow and the length',
+    run() {
+      assert.match(playerSource, /\{step\.doneLabel && step\.phase !== 'cooldown' \? \(/);
+      assert.match(playerSource, /\{step\.phase !== 'cooldown' \? \(\s*<Text[^\n]*\n\s*\{t\(language, 'guided\.upNext'\)\}/);
+      assert.match(playerSource, /\{step\.phase !== 'cooldown' \? \(\s*<Text[^\n]*\{step\.sub\}<\/Text>\s*\) : null\}/);
+    },
+  },
+  {
+    /**
+     * Nothing flashes between the last set and the summary. "{title} — valmis"
+     * and a spinner were on screen for the length of the save (user
+     * 2026-09-09, "tämä valmis ja treeni valmis osion väliin ei saa jäädä
+     * mitään mikä välähtää").
+     */
+    name: 'guided finish: the step that exists for the length of a save says nothing',
+    run() {
+      assert.match(playerSource, /<StepIn stepKey="finish">\s*<View style=\{\{ flex: 1 \}\} \/>\s*<\/StepIn>/);
+      assert.doesNotMatch(playerSource, /finishTitle|ActivityIndicator|guided\.finish\.title|guided\.finish\.saving/);
+      for (const key of ['guided.finish.title', 'guided.finish.saving', 'guided.finish.continue']) {
+        assert.equal(i18nSource.includes(`'${key}'`), false, `${key} outlived its screen`);
+      }
     },
   },
 ];

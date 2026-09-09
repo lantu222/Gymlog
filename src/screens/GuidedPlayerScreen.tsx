@@ -9,7 +9,6 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Animated,
   AppState,
   BackHandler,
@@ -77,7 +76,6 @@ import {
   LastTimeSessionLike,
 } from '../lib/sessionOverviewRows';
 import { formatLastOwnBlock, OwnBlockPhase, OwnBlockStats } from '../lib/ownBlockHistory';
-import { resolveMovement } from '../lib/sessionMovement';
 import { buildWarmupBrief } from '../lib/warmupBrief';
 import { HOLD_DIAL, REPS_DIAL, commitDialReps, commitDialWeight, stepDialReps, stepDialWeight } from '../lib/weightDial';
 import { getExerciseInstructions } from '../lib/exerciseInstructions';
@@ -973,11 +971,12 @@ function DialButton({
 }
 
 /**
- * One dial: a label, the number, −/+ under it, and one line saying the
- * number can be typed. Tapping the number opens it as a text field; the
- * buttons are always live. The reader's own sketch (2026-09-09): "16,25" had
- * shared its row with two buttons and lost the ",25", and reps were squeezed
- * the same way. Buttons under the number give the number the card's width.
+ * One dial: a label, the number, −/+ under it. Tapping the number opens it
+ * as a text field; the buttons are always live. The reader's own sketch
+ * (2026-09-09): "16,25" had shared its row with two buttons and lost the
+ * ",25", and reps were squeezed the same way. Buttons under the number give
+ * the number the card's width. No "tap to type" line under them: it was in
+ * the sketch and struck out on the phone the same day.
  */
 function DialCard({
   label,
@@ -989,7 +988,6 @@ function DialCard({
   downLabel,
   upLabel,
   editHint,
-  hint,
   wide,
   faint,
   onCommit,
@@ -1005,8 +1003,6 @@ function DialCard({
   upLabel: string;
   /** Screen-reader hint on the number. */
   editHint: string;
-  /** The visible line under the buttons: what tapping the number does. */
-  hint: string;
   wide: boolean;
   faint: boolean;
   /** Commit a typed value; the lib rule decides what the text becomes. */
@@ -1071,7 +1067,6 @@ function DialCard({
         <DialButton glyph="−" accessibilityLabel={downLabel} onStep={() => onStep(-1)} />
         <DialButton glyph="+" accessibilityLabel={upLabel} onStep={() => onStep(1)} />
       </View>
-      <Text style={styles.setDialHint}>{hint}</Text>
     </View>
   );
 }
@@ -2101,43 +2096,12 @@ export function GuidedPlayerScreen({
     }
     const reps = set.actualReps ?? 0;
     const load = set.actualLoadKg ?? 0;
-    const name = exerciseNameLabel(language, step.exerciseName);
-    return load > 0
-      ? `${name} · ${formatWeight(load, unitPreference)} × ${reps}`
-      : `${name} · ${t(language, 'guided.target.reps', { reps })}`;
-  })();
-
-  /** What the rest is resting for: the next set of the same lift. */
-  const restNextSet = (() => {
-    if (step.type !== 'rest' || step.recoveryKind) {
-      return null;
-    }
-    const next = steps[stepIndex + 1];
-    if (!next || next.type !== 'set') {
-      return null;
-    }
-    const target = resolveTarget(next.slotId, next.setIndex);
     return {
-      index: next.setIndex,
-      count: next.setCount,
-      reps: target?.reps ?? 0,
-      timed: target?.timed === true,
-      pickKg: target?.loadKg ?? null,
-      /** The jump the gate just made, so the options sit on its own grid. */
-      stepKg:
-        target?.autoProgressedFromKg != null && target.loadKg != null
-          ? Math.abs(target.loadKg - target.autoProgressedFromKg)
-          : undefined,
-      slotId: next.slotId,
+      name: exerciseNameLabel(language, step.exerciseName),
+      detail: load > 0 ? `${formatWeight(load, unitPreference)} × ${reps}` : t(language, 'guided.target.reps', { reps }),
     };
   })();
 
-  /**
-   * The weight the reader picked on the rest screen, when they picked one.
-   *
-   * Reset by the step change rather than held across rests: each rest is about
-   * one set, and a choice made three sets ago is not an answer to this one.
-   */
   /**
    * Correcting the set just logged, without leaving the rest.
    *
@@ -2150,28 +2114,7 @@ export function GuidedPlayerScreen({
     setRestEditOpen(false);
   }, [stepIndex]);
 
-  // Asked for the rest's own slot: `setPanelSource` is a set-step value and is
-  // null here (review, PR #57).
-  const restLastHeaviest =
-    step.type === 'rest' ? heaviestOf(resolveSlotHistory(step.slotId, step.exerciseName)) : 0;
-  const restLastKg = restLastHeaviest > 0 ? restLastHeaviest : null;
-  const restChosenKg = restNextSet?.pickKg ?? 0;
-  /** How the committed weight compares with the last session — "+2,5 kg". */
-  const restTargetMove =
-    restNextSet && restChosenKg > 0
-      ? resolveMovement(
-          {
-            exerciseName: step.type === 'rest' ? step.exerciseName : '',
-            todayTopKg: restChosenKg,
-            todayTopReps: restNextSet.reps,
-            previousTopKg: restLastKg,
-          },
-          language,
-          unitPreference,
-        )
-      : null;
-
-  /** Into the next set. The weight is the gate's, and the rest screen said so. */
+  /** Into the next set before the clock gets there. */
   const startRestNextSet = () => {
     advance();
   };
@@ -2196,11 +2139,8 @@ export function GuidedPlayerScreen({
     }
     const heaviest = Math.max(...done.map((set) => set.actualLoadKg ?? 0));
     return {
-      label:
-        heaviest > 0
-          ? t(language, 'guided.walk.done', { weight: formatWeight(heaviest, unitPreference) })
-          : t(language, 'guided.walk.doneReps'),
       name: exerciseNameLabel(language, previous.exerciseName),
+      weight: heaviest > 0 ? formatWeight(heaviest, unitPreference) : null,
       pills: done.map((set) => `${set.actualReps ?? 0}`),
     };
   })();
@@ -2569,7 +2509,7 @@ export function GuidedPlayerScreen({
                 {/* The block name owns the upper half; the decision sits down
                     where a thumb already is (user 2026-08-26). */}
                 <View style={skippablePhase ? styles.splashChoiceCopy : styles.splashCopy}>
-                  {step.doneLabel ? (
+                  {step.doneLabel && step.phase !== 'cooldown' ? (
                     <PopIn popKey={stepIndex}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 18 }}>
                         <View style={styles.splashCheck}>
@@ -2579,11 +2519,20 @@ export function GuidedPlayerScreen({
                       </View>
                     </PopIn>
                   ) : null}
-                  <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: theme.muted }}>
-                    {t(language, 'guided.upNext')}
-                  </Text>
+                  {/* The recovery splash is the title and the list, nothing
+                      else: "Treeni valmis", "SEURAAVAKSI" and "2 venytystä ·
+                      ~4 min" were three lines about a screen that shows its
+                      own contents (user 2026-09-09, from the gym). The other
+                      two splashes keep theirs until asked. */}
+                  {step.phase !== 'cooldown' ? (
+                    <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: theme.muted }}>
+                      {t(language, 'guided.upNext')}
+                    </Text>
+                  ) : null}
                   <Text style={styles.splashTitle}>{step.title}</Text>
-                  <Text style={{ fontSize: 15, fontWeight: '600', color: theme.muted }}>{step.sub}</Text>
+                  {step.phase !== 'cooldown' ? (
+                    <Text style={{ fontSize: 15, fontWeight: '600', color: theme.muted }}>{step.sub}</Text>
+                  ) : null}
                   {/* The list sits with the title rather than on top of the
                       buttons: down there it left a hand's width of nothing
                       under the heading and read as part of the footer (user
@@ -2739,16 +2688,20 @@ export function GuidedPlayerScreen({
                     does not have to guess how long that is. */}
                 {walkDone ? (
                   <View style={styles.walkDoneCard}>
+                    {/* Two lines: the check and the name, then the numbers.
+                        A "VALMIS · 16,25 kg" eyebrow, the name and the pills
+                        were three, and pushed this screen into a scroll (user
+                        2026-09-09, "max 2 riviä valmis osiolle"). */}
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                       <View style={styles.splashCheck}>
                         <GPIcon name="check" size={14} color={theme.green} sw={2.8} />
                       </View>
-                      <Text style={styles.walkDoneLabel}>{walkDone.label}</Text>
+                      <Text style={[styles.walkDoneName, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
+                        {walkDone.name}
+                      </Text>
                     </View>
-                    <Text style={styles.walkDoneName} numberOfLines={1}>
-                      {walkDone.name}
-                    </Text>
                     <View style={styles.walkDonePills}>
+                      {walkDone.weight ? <Text style={styles.walkDoneWeight}>{walkDone.weight}</Text> : null}
                       {walkDone.pills.map((pill, index) => (
                         <View key={index} style={styles.walkDonePill}>
                           <Text style={styles.walkDonePillText}>{pill}</Text>
@@ -2963,9 +2916,13 @@ export function GuidedPlayerScreen({
                       <Text style={styles.restLoggedLabel}>
                         {t(language, 'guided.rest.logged', { index: step.setIndex + 1 })}
                       </Text>
-                      <Text style={styles.restLoggedValue} numberOfLines={1}>
-                        {restLogged}
+                      {/* The name on its own line, the numbers on theirs: one
+                          line at 14.5 cut "Lantionnosto laitteessa · 16,2…"
+                          before the weight (user 2026-09-09, from the gym). */}
+                      <Text style={styles.restLoggedName} numberOfLines={2}>
+                        {restLogged.name}
                       </Text>
+                      <Text style={styles.restLoggedValue}>{restLogged.detail}</Text>
                     </View>
                     <Text style={styles.restLoggedEdit}>{t(language, 'guided.rest.edit')}</Text>
                   </Pressable>
@@ -3001,55 +2958,12 @@ export function GuidedPlayerScreen({
                         flipped to Jatka, and a ring frozen mid-sweep is not
                         ambiguous. Asked for 2026-08-21. */}
                   </RestRing>
-                  {/* The set that is coming, and the weight it will carry.
-                      Three options rather than a dial: the decision is made
-                      here, and the set screen still has the free stepper for
-                      the reader who wants a number off this grid. */}
-                  {!step.recoveryKind && restNextSet ? (
-                    <View style={styles.restNextCard}>
-                      <Text style={styles.restNextLabel}>
-                        {t(language, 'guided.rest.nextSet', {
-                          index: restNextSet.index + 1,
-                          count: restNextSet.count,
-                        })}
-                      </Text>
-                      <Text style={styles.restNextTarget}>
-                        {t(language, restNextSet.timed ? 'guided.rest.targetHold' : 'guided.rest.target', {
-                          reps: restNextSet.reps,
-                        })}
-                      </Text>
-                      {/* One weight, and the app stands behind it.
-                          Three options asked the reader to make a decision the
-                          progression engine had already made — and asking is
-                          the opposite of the promise (user 2026-09-04). The
-                          number is still theirs to change: the set screen's
-                          dial is two taps away and always was. */}
-                      {restChosenKg > 0 ? (
-                        <View style={styles.restTargetRow}>
-                          <Text style={styles.restTargetWeight}>
-                            {formatWeight(restChosenKg, unitPreference)}
-                          </Text>
-                          {restTargetMove?.label ? (
-                            <View
-                              style={[
-                                styles.restTargetDelta,
-                                restTargetMove.kind === 'up' && { backgroundColor: theme.greenSoft },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.restTargetDeltaText,
-                                  restTargetMove.kind === 'up' && { color: theme.greenInk },
-                                ]}
-                              >
-                                {restTargetMove.label}
-                              </Text>
-                            </View>
-                          ) : null}
-                        </View>
-                      ) : null}
-                    </View>
-                  ) : null}
+                  {/* Nothing under the ring. The next set's card ("SEURAAVA ·
+                      SARJA 3/5", target, weight, delta) and the "Seuraava · …"
+                      line below the buttons said the same thing three ways on
+                      a screen the reader called "vähän liikaa kaikkea" (user
+                      2026-09-09, from the gym). What was logged, how long is
+                      left, three controls, skip. */}
                 </View>
                 <View style={{ paddingHorizontal: 24, paddingBottom: 10, gap: 12 }}>
                   {/* What comes back after the easy half — the same forward
@@ -3121,13 +3035,6 @@ export function GuidedPlayerScreen({
                       onPress={handleSkipExercise}
                     />
                   ) : null}
-                  {/* What the rest is for. The line already existed and was
-                      drawn on warm-up drills only, so the half of the session
-                      you actually wait through was the half that never said
-                      what was coming. */}
-                  {step.recoveryKind ? null : (
-                    <NextLine text={nextPreview?.line ?? null} dark={false} language={language} />
-                  )}
                 </View>
                 <ProgressRail
                   groups={phaseRail.groups}
@@ -3159,12 +3066,7 @@ export function GuidedPlayerScreen({
       )}
 
       {mode === 'player' && step.type === 'finish' && (
-        <FinishView
-          sessionTitle={sessionTitle}
-          isSaving={isSavingWorkout}
-          language={language}
-          onFinish={onFinishSession}
-        />
+        <FinishView onFinish={onFinishSession} />
       )}
 
 
@@ -4000,8 +3902,8 @@ function SetStepView({
 
         <View style={styles.setTargetArea}>
           {/* Two dials, side by side: what you did and what was on the bar.
-              Number above, −/+ below and always live, "tap to type" under
-              them — the reader's sketch (2026-09-09), after "16,25" lost its
+              Number above, −/+ below and always live — the reader's sketch
+              (2026-09-09), after "16,25" lost its
               ",25" sharing a row with the buttons. The cards used to lock the
               buttons behind a tap because a resting thumb once changed a
               number; under the number, the buttons are no longer where a
@@ -4018,7 +3920,6 @@ function SetStepView({
               downLabel={t(language, timed ? 'guided.a11y.secondsDown' : 'guided.a11y.repsDown')}
               upLabel={t(language, timed ? 'guided.a11y.secondsUp' : 'guided.a11y.repsUp')}
               editHint={t(language, 'guided.a11y.tapToEdit')}
-              hint={t(language, 'guided.dial.tapToType')}
               wide={bodyweight}
               faint={false}
             />
@@ -4042,7 +3943,6 @@ function SetStepView({
                 downLabel={t(language, 'guided.a11y.weightDown')}
                 upLabel={t(language, 'guided.a11y.weightUp')}
                 editHint={t(language, 'guided.a11y.tapToEdit')}
-                hint={t(language, 'guided.dial.tapToType')}
                 wide={false}
                 faint={kg <= 0}
               />
@@ -4166,18 +4066,7 @@ function SetStepView({
   );
 }
 
-function FinishView({
-  sessionTitle,
-  isSaving,
-  language,
-  onFinish,
-}: {
-  sessionTitle: string;
-  isSaving: boolean;
-  language: AppLanguage;
-  onFinish: () => void;
-}) {
-  const styles = useThemedStyles(makeStyles);
+function FinishView({ onFinish }: { onFinish: () => void }) {
   const firedRef = useRef(false);
 
   // Fires once on arrival: the summary is the destination now, so there is
@@ -4190,15 +4079,12 @@ function FinishView({
     onFinish();
   }, [onFinish]);
 
+  // Nothing to read here, on purpose. "{title} — valmis" and a spinner
+  // flashed between the last set and the summary, and a screen that exists for
+  // the length of a save should not say anything (user 2026-09-09).
   return (
     <StepIn stepKey="finish">
-      <View style={{ flex: 1, minHeight: 0, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-        <Text style={styles.finishTitle}>{t(language, 'guided.finish.title', { title: sessionTitle })}</Text>
-        <ActivityIndicator size="large" color={GPD.green} />
-        <Text style={{ fontSize: 13.5, fontWeight: '700', color: GPD.muted }}>
-          {t(language, isSaving ? 'guided.finish.saving' : 'guided.finish.continue')}
-        </Text>
-      </View>
+      <View style={{ flex: 1 }} />
     </StepIn>
   );
 }
@@ -4774,7 +4660,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     minWidth: 0,
     padding: 0,
   },
-  setDialHint: { fontSize: 11, fontWeight: '700', color: theme.faint },
   setDialUnit: { fontSize: 14, fontWeight: '800', color: theme.faint },
   setBadgeRow: { alignItems: 'center', minHeight: 27 },
   setAutoBadge: {
@@ -4928,9 +4813,15 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     padding: 13,
     gap: 6,
   },
-  walkDoneLabel: { fontSize: 12, fontWeight: '800', letterSpacing: 1.1, color: theme.greenInk },
   walkDoneName: { fontSize: 16, fontWeight: '800', color: theme.ink },
-  walkDonePills: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
+  walkDonePills: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 5 },
+  walkDoneWeight: {
+    marginRight: 4,
+    fontSize: 13,
+    fontWeight: '800',
+    color: theme.greenInk,
+    fontVariant: ['tabular-nums'],
+  },
   walkDonePill: {
     minWidth: 26,
     alignItems: 'center',
@@ -4981,24 +4872,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.greenSoft,
     borderRadius: 16,
     paddingHorizontal: 14,
-    paddingVertical: 11,
+    paddingVertical: 13,
   },
   restLoggedLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.1, color: theme.greenInk },
-  restLoggedValue: { marginTop: 2, fontSize: 14.5, fontWeight: '700', color: theme.ink },
+  restLoggedName: { marginTop: 3, fontSize: 17, fontWeight: '800', color: theme.ink },
+  restLoggedValue: { marginTop: 1, fontSize: 15, fontWeight: '700', color: theme.ink, fontVariant: ['tabular-nums'] },
   restLoggedEdit: { fontSize: 13.5, fontWeight: '800', color: theme.highlight },
-  restNextCard: {
-    marginTop: 22,
-    alignSelf: 'stretch',
-    marginHorizontal: 24,
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 18,
-    padding: 14,
-    gap: 8,
-  },
-  restNextLabel: { fontSize: 10.5, fontWeight: '800', letterSpacing: 1.3, color: theme.faint },
-  restNextTarget: { fontSize: 15, fontWeight: '700', color: theme.ink },
   editVeil: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   editSheet: {
     backgroundColor: theme.bg,
@@ -5035,21 +4914,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     textAlign: 'center',
     fontVariant: ['tabular-nums'],
   },
-  restTargetRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 2 },
-  restTargetWeight: {
-    fontSize: 26,
-    fontWeight: '800',
-    letterSpacing: -0.8,
-    color: theme.ink,
-    fontVariant: ['tabular-nums'],
-  },
-  restTargetDelta: {
-    backgroundColor: theme.surfaceSoft,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  restTargetDeltaText: { fontSize: 12.5, fontWeight: '800', color: theme.muted },
   // An outline, not a filled button: skipping a rest is a shortcut past a
   // wait, and the loudest thing on the screen should not be a shortcut.
   skipRestBtn: {
@@ -5064,7 +4928,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
 
   /* finish */
-  finishTitle: { marginTop: 6, marginHorizontal: 2, fontSize: 30, fontWeight: '800', letterSpacing: -0.6, color: GPD.ink },
 
   /* sheets */
   sheetScrim: {

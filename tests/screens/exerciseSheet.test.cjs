@@ -140,8 +140,9 @@ module.exports = [
     name: 'last time is resolved per slot, not only on a set step',
     run() {
       assert.match(playerSource, /const resolveSlotHistory = useCallback\(/);
-      // The rest screen and the walk-up ask for their own slot.
-      assert.match(playerSource, /heaviestOf\(resolveSlotHistory\(step\.slotId, step\.exerciseName\)\)/);
+      // The walk-up asks for its own slot. (The rest screen's delta pill, the
+      // other reader this guarded, went with the rest screen's next-set card on
+      // 2026-09-09 — see guidedPlayerSwap.test.cjs.)
       assert.match(playerSource, /const last = resolveSlotHistory\(step\.slotId, step\.exerciseName\);/);
       // And neither reaches for the set-step value any more.
       assert.doesNotMatch(playerSource, /setPanelSource\?\.history/);
