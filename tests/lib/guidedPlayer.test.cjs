@@ -364,17 +364,18 @@ module.exports = [
     },
   },
   {
-    name: 'resolveGuidedSetTarget prefers draft prefill, then plan, then previous set',
+    name: 'resolveGuidedSetTarget: own prefill, then plan, then the previous set, while the previous set stayed on plan',
     run() {
       const sets = [
         {
           setIndex: 0,
           status: 'completed',
+          plannedLoadKg: 60,
           plannedRepsMin: 6,
           plannedRepsMax: 8,
           draftLoadText: '60',
           draftRepsText: '',
-          actualLoadKg: 62.5,
+          actualLoadKg: 60,
           actualReps: 7,
         },
         {
@@ -394,7 +395,8 @@ module.exports = [
           draftRepsText: '',
         },
       ];
-      // Draft (comma decimal) wins; reps follow the previous completed set.
+      // Set 1 was lifted as planned, so set 2's own draft (comma decimal)
+      // stands; reps follow the previous completed set.
       assert.deepEqual(resolveGuidedSetTarget(sets, 1, 'load_and_reps'), {
         reps: 7,
         loadKg: 62.5,
@@ -403,10 +405,10 @@ module.exports = [
         heldForFatigue: false,
         autoProgressedFromReps: null,
       });
-      // No draft, no plan → previous actual load.
+      // No draft, no plan: the previous set's actual load.
       assert.deepEqual(resolveGuidedSetTarget(sets, 2, 'load_and_reps'), {
         reps: 7,
-        loadKg: 62.5,
+        loadKg: 60,
         autoProgressedFromKg: null,
         prefilledFromPerformedAt: null,
         heldForFatigue: false,
@@ -436,6 +438,99 @@ module.exports = [
       assert.equal(resolveGuidedSetTarget(sets, 9, 'load_and_reps'), null);
       assert.equal(formatGuidedTarget({ reps: 8, loadKg: 62.5 }), '8 × 62.5 kg');
       assert.equal(formatGuidedTarget({ reps: 12, loadKg: null }), '12 reps');
+    },
+  },
+  {
+    /**
+     * #bugs 2026-09-09, from the gym: "Paino ei päivity", "Tavoite paino osio
+     * ei muutu ainoastaan toisto". Every set had been prefilled from history,
+     * the reader logged set 1 heavier, and set 2 still opened on the prefill:
+     * reps followed the logged set, the weight did not. The rule that fixes
+     * it has to leave a ramp alone — sets prefilled 60/70/80 from last time
+     * are three different plans, and lifting the 60 is no reason to flatten
+     * the 70.
+     */
+    name: 'a set logged off its plan carries its load to the next set; logged on plan, the next set keeps its own prefill',
+    run() {
+      const ramp = (firstSet = {}) => [
+        {
+          setIndex: 0,
+          status: 'completed',
+          plannedLoadKg: 60,
+          plannedRepsMin: 8,
+          plannedRepsMax: 10,
+          draftLoadText: '60',
+          draftRepsText: '',
+          actualLoadKg: 60,
+          actualReps: 10,
+          ...firstSet,
+        },
+        {
+          setIndex: 1,
+          status: 'pending',
+          plannedLoadKg: 70,
+          autoProgressedFromKg: 67.5,
+          prefilledFromPerformedAt: '2026-08-27T09:00:00.000Z',
+          plannedRepsMin: 8,
+          plannedRepsMax: 10,
+          draftLoadText: '70',
+          draftRepsText: '',
+        },
+        {
+          setIndex: 2,
+          status: 'pending',
+          plannedLoadKg: 80,
+          plannedRepsMin: 8,
+          plannedRepsMax: 10,
+          draftLoadText: '80',
+          draftRepsText: '',
+        },
+      ];
+
+      // On plan: the ramp stands, and the prefill's badges with it.
+      const onPlan = resolveGuidedSetTarget(ramp(), 1, 'load_and_reps');
+      assert.equal(onPlan.loadKg, 70);
+      assert.equal(onPlan.autoProgressedFromKg, 67.5);
+      assert.equal(onPlan.prefilledFromPerformedAt, '2026-08-27T09:00:00.000Z');
+
+      // Off plan: the change follows, and no badge may claim a weight the
+      // reader chose. The set's own record is not rewritten to get there.
+      const offPlan = ramp({ actualLoadKg: 65 });
+      const carried = resolveGuidedSetTarget(offPlan, 1, 'load_and_reps');
+      assert.equal(carried.loadKg, 65);
+      assert.equal(carried.autoProgressedFromKg, null);
+      assert.equal(carried.prefilledFromPerformedAt, null);
+      assert.equal(offPlan[1].draftLoadText, '70');
+      assert.equal(offPlan[1].plannedLoadKg, 70);
+
+      // The carry chains while the reader keeps departing from the plan...
+      const chained = ramp({ actualLoadKg: 65 });
+      chained[1] = { ...chained[1], status: 'completed', actualLoadKg: 65, actualReps: 10 };
+      assert.equal(resolveGuidedSetTarget(chained, 2, 'load_and_reps').loadKg, 65);
+
+      // ...and stops the moment they are back on it.
+      const backOnPlan = ramp({ actualLoadKg: 65 });
+      backOnPlan[1] = { ...backOnPlan[1], status: 'completed', actualLoadKg: 70, actualReps: 10 };
+      assert.equal(resolveGuidedSetTarget(backOnPlan, 2, 'load_and_reps').loadKg, 80);
+
+      // A slot with no plan at all: any logged load is the reader's call.
+      const fresh = [
+        {
+          setIndex: 0,
+          status: 'completed',
+          plannedRepsMin: 8,
+          plannedRepsMax: 10,
+          draftLoadText: '',
+          draftRepsText: '',
+          actualLoadKg: 40,
+          actualReps: 10,
+        },
+        { setIndex: 1, status: 'pending', plannedRepsMin: 8, plannedRepsMax: 10, draftLoadText: '', draftRepsText: '' },
+      ];
+      assert.equal(resolveGuidedSetTarget(fresh, 1, 'load_and_reps').loadKg, 40);
+
+      // The swap fence still holds: a set logged as another lift carries nothing.
+      assert.equal(resolveGuidedSetTarget(ramp({ actualLoadKg: 65 }), 1, 'load_and_reps', 0).loadKg, 70);
     },
   },
   {

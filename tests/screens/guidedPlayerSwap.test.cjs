@@ -137,4 +137,40 @@ module.exports = [
       assert.doesNotMatch(playerSource, /GPD\.amber/, 'the rail palette still has an amber to reach for');
     },
   },
+  {
+    /**
+     * A borrowed "last time" is a different claim from this slot's own.
+     *
+     * `LastTimeView.borrowed` has existed since 2026-08-29 with a comment
+     * asking for it to be said out loud, and `resolveSlotHistory` set it on
+     * every view — but neither heading that shows the number read it. So the
+     * first time a pump day came round, the heavy day's weight for the same
+     * lift sat under "VIIME KERRALLA" as this day's own record, and under
+     * "VIIMEKSI" on the walk-up card one step before (#bugs 2026-09-09,
+     * "3x20 10kg ei pidä paikkansa ... eri päivä"). The number stays; both
+     * headings say where it came from.
+     */
+    name: 'guided player: a borrowed last time says so on the set card and on the walk-up card',
+    run() {
+      // The view carries the flag...
+      assert.match(playerSource, /borrowed: resolved\?\.borrowed \?\? false,/);
+      // ...and both surfaces that print its number choose their heading by it.
+      assert.match(
+        playerSource,
+        /panels\.history\.borrowed\s*\?\s*'guided\.card\.lastTimeBorrowed'\s*:\s*'guided\.card\.lastTime'/,
+      );
+      assert.match(playerSource, /last\?\.borrowed\s*\?\s*'guided\.walk\.lastBorrowed'\s*:\s*'guided\.walk\.last'/);
+      // Both claims exist in both dictionaries, and each visibly differs from
+      // the plain heading — a borrowed heading identical to the plain one
+      // would be the bug wearing a new key. The qualifier sits on a second
+      // line: the set card's row has no room for a longer first one.
+      const borrowedHeadings =
+        i18nSource.match(/'guided\.(?:card\.lastTimeBorrowed|walk\.lastBorrowed)': '[^']+'/g) ?? [];
+      assert.equal(borrowedHeadings.length, 4, 'two borrowed headings, each in EN and FI');
+      assert.match(i18nSource, /'guided\.card\.lastTimeBorrowed': 'LAST TIME\\n[^']+'/);
+      assert.match(i18nSource, /'guided\.card\.lastTimeBorrowed': 'VIIME KERRALLA\\n[^']+'/);
+      assert.match(i18nSource, /'guided\.walk\.lastBorrowed': 'LAST\\n[^']+'/);
+      assert.match(i18nSource, /'guided\.walk\.lastBorrowed': 'VIIMEKSI\\n[^']+'/);
+    },
+  },
 ];

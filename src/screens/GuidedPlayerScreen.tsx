@@ -2270,6 +2270,9 @@ export function GuidedPlayerScreen({
          */
         rest: instance.restSecondsMin,
       }),
+      // The set card's heading makes the same distinction one step later;
+      // the number must not change its story between the two screens.
+      lastLabel: t(language, last?.borrowed ? 'guided.walk.lastBorrowed' : 'guided.walk.last'),
       lastValue: lastHeaviest > 0 ? formatWeight(lastHeaviest, unitPreference) : null,
       lastReps: last?.sets.length ? last.sets.map((set) => set.reps).join(' · ') : null,
     };
@@ -2826,7 +2829,9 @@ export function GuidedPlayerScreen({
                     ) : null}
                   </View>
                   <View style={styles.walkStat}>
-                    <Text style={styles.walkStatLabel}>{t(language, 'guided.walk.last')}</Text>
+                    <Text style={styles.walkStatLabel}>
+                      {walkNext?.lastLabel ?? t(language, 'guided.walk.last')}
+                    </Text>
                     <Text style={styles.walkStatValue}>{walkNext?.lastValue ?? '—'}</Text>
                     {walkNext?.lastReps ? (
                       <Text style={styles.walkStatSub}>{walkNext.lastReps}</Text>
@@ -3984,7 +3989,11 @@ function SetStepView({
           </View>
           {panels?.history ? (
             <View style={styles.setExerciseLast}>
-              <Text style={styles.setExerciseLastLabel}>{t(language, 'guided.card.lastTime')}</Text>
+              {/* Borrowed history is a different claim from this slot's own,
+                  so it gets a different heading (#bugs 2026-09-09). */}
+              <Text style={styles.setExerciseLastLabel}>
+                {t(language, panels.history.borrowed ? 'guided.card.lastTimeBorrowed' : 'guided.card.lastTime')}
+              </Text>
               <Text style={styles.setExerciseLastLoad}>
                 {/* The same number decides and is shown. Guarding on the
                     FIRST set while printing the heaviest hid a real top set

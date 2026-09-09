@@ -986,15 +986,11 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       const nextTarget = findNextPendingTarget(session, exerciseIndex, action.payload.setIndex);
       if (nextTarget) {
         updateActiveExercise(session, nextTarget.exerciseIndex, nextTarget.setIndex);
-        // Carry the weight just used forward to the next set in the SAME
-        // exercise (if it has no weight yet), so the user usually only types
-        // reps for the following sets.
-        if (nextTarget.exerciseIndex === exerciseIndex) {
-          const nextSet = exercise.sets.find((item) => item.setIndex === nextTarget.setIndex);
-          if (nextSet && !nextSet.draftLoadText.trim()) {
-            nextSet.draftLoadText = formatWeightInputValue(set.actualLoadKg ?? 0, action.payload.unitPreference);
-          }
-        }
+        // The weight just lifted reaches the next set through
+        // `resolveGuidedSetTarget`, which reads this completed set directly.
+        // Nothing is written into the next set's draft here: a draft written
+        // here was a second author of that decision, and the two disagreed
+        // (it only fired into an empty draft, and materialisation leaves none).
       } else {
         session.ui.activeSlotId = exercise.slotId;
         session.ui.activeSetIndex = action.payload.setIndex;

@@ -6,6 +6,7 @@ const {
 } = require('../../../.test-dist/features/workout/workoutState');
 const { resolveLastTimeEntry } = require('../../../.test-dist/lib/exerciseHistoryLookup');
 const { isUnloadedTrackingMode } = require('../../../.test-dist/features/workout/workoutTypes');
+const { resolveGuidedSetTarget } = require('../../../.test-dist/lib/guidedPlayer');
 
 /**
  * Two days of one programme doing the same lift, differently.
@@ -77,20 +78,31 @@ function afterHeavyDay() {
   let state = startDay(EMPTY, 'day_a', 'Heavy day', 6, 8, 0);
   const slotId = state.activeSession.exercises[0].slotId;
   for (let index = 0; index < 3; index += 1) {
-    state = workoutReducer(state, {
-      type: 'set/updateDraft',
-      payload: { slotId, setIndex: index, patch: { loadText: '10', repsText: '8' } },
-    });
-    state = workoutReducer(state, {
-      type: 'set/complete',
-      payload: { slotId, setIndex: index, nowMs: Date.parse(HEAVY_DAY_AT), unitPreference: 'kg' },
-    });
+    state = logSet(state, slotId, index, '10', '8', HEAVY_DAY_AT);
   }
   state = workoutReducer(state, {
     type: 'session/finishWorkout',
     payload: { performedAt: HEAVY_DAY_AT },
   });
   return workoutReducer(state, { type: 'session/clearCompletedSession' });
+}
+
+/** What `confirmSet` dispatches: the dial's numbers, then the completion. */
+function logSet(state, slotId, setIndex, loadText, repsText, atIso) {
+  const drafted = workoutReducer(state, {
+    type: 'set/updateDraft',
+    payload: { slotId, setIndex, patch: { loadText, repsText } },
+  });
+  return workoutReducer(drafted, {
+    type: 'set/complete',
+    payload: { slotId, setIndex, nowMs: Date.parse(atIso), unitPreference: 'kg' },
+  });
+}
+
+/** Exactly what the set screen's dial opens on, same inputs. */
+function openingTarget(state, setIndex) {
+  const instance = state.activeSession.exercises[0];
+  return resolveGuidedSetTarget(instance.sets, setIndex, instance.trackingMode, instance.swappedAfterSetIndex);
 }
 
 /** Exactly what the set screen's "Last time" panel resolves, same inputs. */
@@ -247,6 +259,50 @@ module.exports = [
       const shown = panelLastTime(next, instance);
       assert.equal(shown.borrowed, false);
       assert.equal(shown.entry.performedAt, at);
+    },
+  },
+  {
+    /**
+     * #bugs 2026-09-09, from the gym: "Paino ei päivity", "Tavoite paino osio
+     * ei muutu ainoastaan toisto". The pump day borrowed the heavy day's 10 kg
+     * for every set at once, the reader logged set 1 at 12.5, and set 2 still
+     * opened on 10 — the set screen read the prefill first and the logged set
+     * last. This is that day end to end: real materialisation, real borrow,
+     * and the same resolver the dial reads.
+     */
+    name: 'a set logged off its borrowed prefill opens the next set on the weight just lifted',
+    run() {
+      let state = startDay(afterHeavyDay(), 'day_b', 'Pump day', 6, 8, 1);
+      const slotId = state.activeSession.exercises[0].slotId;
+      // Every set arrived prefilled from the heavy day, badge and all.
+      const before = openingTarget(state, 1);
+      assert.equal(before.loadKg, 10);
+      assert.equal(before.prefilledFromPerformedAt, HEAVY_DAY_AT);
+
+      state = logSet(state, slotId, 0, '12.5', '18', '2026-09-09T07:05:00.000Z');
+      const after = openingTarget(state, 1);
+      // The weight just lifted, and no badge claiming another day chose it.
+      assert.equal(after.loadKg, 12.5);
+      assert.equal(after.prefilledFromPerformedAt, null);
+      // The set's own record was not rewritten to get there.
+      const secondSet = state.activeSession.exercises[0].sets[1];
+      assert.equal(secondSet.draftLoadText, '10');
+      assert.equal(secondSet.plannedLoadKg, 10);
+
+      // And it chains: set 2 logged at 12.5, off ITS plan of 10, carries on.
+      state = logSet(state, slotId, 1, '12.5', '17', '2026-09-09T07:08:00.000Z');
+      assert.equal(openingTarget(state, 2).loadKg, 12.5);
+    },
+  },
+  {
+    name: 'a set logged on its borrowed prefill leaves the next set on the prefill, badge intact',
+    run() {
+      let state = startDay(afterHeavyDay(), 'day_b', 'Pump day', 6, 8, 1);
+      const slotId = state.activeSession.exercises[0].slotId;
+      state = logSet(state, slotId, 0, '10', '8', '2026-09-09T07:05:00.000Z');
+      const next = openingTarget(state, 1);
+      assert.equal(next.loadKg, 10);
+      assert.equal(next.prefilledFromPerformedAt, HEAVY_DAY_AT);
     },
   },
 ];
