@@ -79,7 +79,7 @@ import {
 import { formatLastOwnBlock, OwnBlockPhase, OwnBlockStats } from '../lib/ownBlockHistory';
 import { resolveMovement } from '../lib/sessionMovement';
 import { buildWarmupBrief } from '../lib/warmupBrief';
-import { commitDialReps, commitDialWeight, stepDialWeight } from '../lib/weightDial';
+import { HOLD_DIAL, REPS_DIAL, commitDialReps, commitDialWeight, stepDialReps, stepDialWeight } from '../lib/weightDial';
 import { getExerciseInstructions } from '../lib/exerciseInstructions';
 import { getExerciseTeaching } from '../lib/exerciseTeaching';
 import { buildExerciseSheetHistory, LastTimeView } from '../lib/exerciseSheetHistory';
@@ -1386,6 +1386,9 @@ export function GuidedPlayerScreen({
   const [runSheetOpen, setRunSheetOpen] = useState(false);
   const [confirmingSkipExercise, setConfirmingSkipExercise] = useState(false);
   const [swapOpen, setSwapOpen] = useState(false);
+  // The rest screen's "fix the set you just logged" sheet. Declared here,
+  // with the other overlays, because `frozen` below has to see it.
+  const [restEditOpen, setRestEditOpen] = useState(false);
   const [swapQuery, setSwapQuery] = useState('');
   const [confirmingEnd, setConfirmingEnd] = useState(false);
   /** The lift whose final set was just logged — a one-second check-splash
@@ -1406,7 +1409,10 @@ export function GuidedPlayerScreen({
   // The permission sheet freezes the step like every other sheet: a short
   // rest expiring behind the ask would walk the reader onto a set screen
   // they did not come back for (PR review).
-  const frozen = paused || howtoOpen || exitOpen || pauseSheetOpen || swapOpen || ownBlock !== null || restAsk.sheetOpen;
+  // `restEditOpen` joined when the rest started running out into the set
+  // (review, PR #88): its edits commit on Save only, and a rest that expired
+  // behind the sheet would have unmounted a correction half-made.
+  const frozen = paused || howtoOpen || exitOpen || pauseSheetOpen || swapOpen || restEditOpen || ownBlock !== null || restAsk.sheetOpen;
   // Seconds since the reader said they would do it themselves. Derived from
   // the session clock's tick so it needs no timer of its own.
   const ownElapsedSeconds = ownBlock ? Math.max(0, Math.floor((clockNowMs - ownBlock.startedAt) / 1000)) : 0;
@@ -2140,7 +2146,6 @@ export function GuidedPlayerScreen({
    * cannot be completed twice). So the way back was a way to nowhere. The
    * numbers are changed here instead, on the screen that is asking about them.
    */
-  const [restEditOpen, setRestEditOpen] = useState(false);
   useEffect(() => {
     setRestEditOpen(false);
   }, [stepIndex]);
@@ -4008,8 +4013,8 @@ function SetStepView({
               unit={null}
               open={dial === 'reps'}
               onToggle={() => setDial((current) => (current === 'reps' ? null : 'reps'))}
-              onStep={(direction) => setReps((current) => Math.max(timed ? 5 : 1, current + direction * (timed ? 5 : 1)))}
-              onCommit={(text) => setReps((current) => commitDialReps(text, current, { min: timed ? 5 : 1 }))}
+              onStep={(direction) => setReps((current) => stepDialReps(current, direction, timed ? HOLD_DIAL : REPS_DIAL))}
+              onCommit={(text) => setReps((current) => commitDialReps(text, current, timed ? HOLD_DIAL : REPS_DIAL))}
               downLabel={t(language, timed ? 'guided.a11y.secondsDown' : 'guided.a11y.repsDown')}
               upLabel={t(language, timed ? 'guided.a11y.secondsUp' : 'guided.a11y.repsUp')}
               editHint={t(language, 'guided.a11y.tapToEdit')}

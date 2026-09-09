@@ -96,6 +96,9 @@ module.exports = [
       assert.match(playerSource, /if \(next <= 0\) \{[\s\S]{0,1200}?expireRef\.current\(\);/);
       // A deadline already in the past is still not handed to the OS.
       assert.match(playerSource, /step\.type === 'rest' && endsAtRef\.current > Date\.now\(\)/);
+      // And a rest that now runs out on its own must not run out behind the
+      // "fix the set you just logged" sheet, whose edits commit on Save only.
+      assert.match(playerSource, /const frozen =[^;]*\|\| restEditOpen[^;]*;/);
       for (const key of [
         'guided.rest.of',
         'guided.rest.ready',
@@ -136,10 +139,16 @@ module.exports = [
         /<\/Pressable>\s*<View style=\{styles\.setDialControls\}>\s*<DialButton glyph="−"[^\n]*\n\s*<DialButton glyph="\+"[^\n]*\n\s*<\/View>\s*<Text style=\{styles\.setDialHint\}>\{hint\}<\/Text>/,
       );
       assert.doesNotMatch(playerSource, /open \? \(\s*<View style=\{styles\.setDialControls\}>/);
-      // The reps card commits typed input through the lib rule, as the weight card does.
+      // The reps card steps and commits through the lib rule, inside the same
+      // bounds, as the weight card does — a stepper without a ceiling and a
+      // field with one would disagree about the same number.
       assert.match(
         playerSource,
-        /onCommit=\{\(text\) => setReps\(\(current\) => commitDialReps\(text, current, \{ min: timed \? 5 : 1 \}\)\)\}/,
+        /onStep=\{\(direction\) => setReps\(\(current\) => stepDialReps\(current, direction, timed \? HOLD_DIAL : REPS_DIAL\)\)\}/,
+      );
+      assert.match(
+        playerSource,
+        /onCommit=\{\(text\) => setReps\(\(current\) => commitDialReps\(text, current, timed \? HOLD_DIAL : REPS_DIAL\)\)\}/,
       );
       // The visible hint exists in both languages.
       assert.equal((i18nSource.match(/'guided\.dial\.tapToType': '[^']+'/g) ?? []).length, 2);

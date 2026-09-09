@@ -47,7 +47,10 @@ module.exports = [
       assert.equal(rawCalls, 1, 'the raw sync is called from the wrapper only');
       // The sheet freezes the step, so a short rest cannot expire behind the
       // ask; unfreezing re-runs the step effect, which mirrors the rest.
-      assert.match(guided, /const frozen = paused \|\| howtoOpen \|\| exitOpen \|\| pauseSheetOpen \|\| swapOpen \|\| ownBlock !== null \|\| restAsk\.sheetOpen;/);
+      assert.match(
+        guided,
+        /const frozen =\s*paused\s*\|\| howtoOpen\s*\|\| exitOpen\s*\|\| pauseSheetOpen\s*\|\| swapOpen\s*\|\| restEditOpen\s*\|\| ownBlock !== null\s*\|\| restAsk\.sheetOpen;/,
+      );
       assert.match(guided, /restAlerts\?: \{ alerts: boolean; warning: boolean; ongoing: boolean; asked: boolean \};/);
     },
   },

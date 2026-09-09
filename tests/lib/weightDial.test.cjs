@@ -6,6 +6,9 @@ const {
   WEIGHT_DIAL_MAX_KG,
   WEIGHT_DIAL_STEP_KG,
   commitDialReps,
+  stepDialReps,
+  REPS_DIAL,
+  HOLD_DIAL,
 } = require('../../.test-dist/lib/weightDial');
 const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
@@ -98,17 +101,28 @@ module.exports = [
   {
     /**
      * The reps card types too (user 2026-09-09, with a sketch). Reps are whole;
-     * a hold counts seconds in fives, so its floor is five.
+     * a hold counts seconds in fives, so its floor is five. And both have a
+     * ceiling, for the reason the weight has one (review, PR #88): 99999 typed
+     * or held into the log poisons every chart that reads it.
      */
-    name: 'typed reps are whole numbers with a floor, and nonsense keeps the number',
+    name: 'typed and stepped reps stay whole and inside the dial, and nonsense keeps the number',
     run() {
-      assert.equal(commitDialReps('12', 8), 12);
-      assert.equal(commitDialReps('12,7', 8), 13);
-      assert.equal(commitDialReps('', 8), 8);
-      assert.equal(commitDialReps('abc', 8), 8);
-      assert.equal(commitDialReps('0', 8), 1);
-      assert.equal(commitDialReps('3', 20, { min: 5 }), 5);
-      assert.equal(commitDialReps('45', 20, { min: 5 }), 45);
+      assert.equal(commitDialReps('12', 8, REPS_DIAL), 12);
+      assert.equal(commitDialReps('12,7', 8, REPS_DIAL), 13);
+      assert.equal(commitDialReps('', 8, REPS_DIAL), 8);
+      assert.equal(commitDialReps('abc', 8, REPS_DIAL), 8);
+      assert.equal(commitDialReps('0', 8, REPS_DIAL), 1);
+      assert.equal(commitDialReps('99999', 8, REPS_DIAL), REPS_DIAL.max);
+      assert.equal(commitDialReps('3', 20, HOLD_DIAL), 5);
+      assert.equal(commitDialReps('45', 20, HOLD_DIAL), 45);
+      assert.equal(commitDialReps('5000', 20, HOLD_DIAL), HOLD_DIAL.max);
+
+      assert.equal(stepDialReps(8, 1, REPS_DIAL), 9);
+      assert.equal(stepDialReps(1, -1, REPS_DIAL), 1);
+      assert.equal(stepDialReps(REPS_DIAL.max, 1, REPS_DIAL), REPS_DIAL.max);
+      assert.equal(stepDialReps(20, 1, HOLD_DIAL), 25);
+      assert.equal(stepDialReps(5, -1, HOLD_DIAL), 5);
+      assert.equal(stepDialReps(HOLD_DIAL.max, 1, HOLD_DIAL), HOLD_DIAL.max);
     },
   },
 ];
