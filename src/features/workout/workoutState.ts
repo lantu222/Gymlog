@@ -986,25 +986,11 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       const nextTarget = findNextPendingTarget(session, exerciseIndex, action.payload.setIndex);
       if (nextTarget) {
         updateActiveExercise(session, nextTarget.exerciseIndex, nextTarget.setIndex);
-        // Carry the weight just used forward to the next set in the SAME
-        // exercise, so the user usually only types reps for the following sets.
-        //
-        // Guarded on `edited`, not on the draft being empty. Materialisation
-        // prefills EVERY set's draft from history, so with any history at all
-        // the draft was never empty and this never fired — set 2 opened on the
-        // borrowed or last-week weight while set 1 had just been logged at
-        // something else, ninety seconds earlier (#bugs 2026-09-09, "Paino ei
-        // päivity", "Tavoite paino osio ei muutu ainoastaan toisto"). A set the
-        // reader has typed into keeps what they typed; a prefill is a guess and
-        // the set just logged is a fact. The plan moves with it so the badges
-        // judge the shown weight against today's plan, not last week's.
-        if (nextTarget.exerciseIndex === exerciseIndex) {
-          const nextSet = exercise.sets.find((item) => item.setIndex === nextTarget.setIndex);
-          if (nextSet && !nextSet.edited) {
-            nextSet.draftLoadText = formatWeightInputValue(set.actualLoadKg ?? 0, action.payload.unitPreference);
-            nextSet.plannedLoadKg = set.actualLoadKg ?? 0;
-          }
-        }
+        // The weight just lifted reaches the next set through
+        // `resolveGuidedSetTarget`, which reads this completed set directly.
+        // Nothing is written into the next set's draft here: a draft written
+        // here was a second author of that decision, and the two disagreed
+        // (it only fired into an empty draft, and materialisation leaves none).
       } else {
         session.ui.activeSlotId = exercise.slotId;
         session.ui.activeSetIndex = action.payload.setIndex;

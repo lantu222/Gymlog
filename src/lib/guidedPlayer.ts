@@ -627,9 +627,25 @@ export function getGuidedNextName(
 }
 
 /**
- * Default target the set screen opens with. Weight: the draft prefill (last
- * time / carry-forward) wins, then the planned load, then the previous
- * completed set. Reps: previous completed set's actual, else the planned max.
+ * A completed set was the reader's own call when its load is not the one
+ * materialisation planned for it. No plan at all (a fresh slot, a scrubbed
+ * draft) makes any logged load their call.
+ */
+function loggedOffPlan(set: { plannedLoadKg?: number; actualLoadKg?: number }): boolean {
+  if (typeof set.actualLoadKg !== 'number') {
+    return false;
+  }
+  if (typeof set.plannedLoadKg !== 'number') {
+    return true;
+  }
+  return Math.abs(set.actualLoadKg - set.plannedLoadKg) >= 0.001;
+}
+
+/**
+ * Default target the set screen opens with. Weight: the previous completed
+ * set's actual when the reader logged it off its plan; else the set's own
+ * draft prefill, then the planned load, then the previous set. Reps: previous
+ * completed set's actual, else the planned max.
  */
 export function resolveGuidedSetTarget(
   sets: Array<{
@@ -697,7 +713,13 @@ export function resolveGuidedSetTarget(
 
   const reps = previous?.actualReps ?? set.plannedRepsMax;
   const draftLoad = parseNumberInput(set.draftLoadText);
-  const loadKg = draftLoad ?? set.plannedLoadKg ?? previous?.actualLoadKg ?? null;
+  // Lift what was planned and the plan stands for the next set — a ramp
+  // prefilled set by set (60/70/80) stays a ramp. Change the weight and the
+  // change follows: set 2 opens on what set 1 actually lifted, not on a
+  // prefill from last week or another day (#bugs 2026-09-09, "Paino ei
+  // päivity"). Reps have worked this way all along, one line up.
+  const carriedLoadKg = previous && loggedOffPlan(previous) ? previous.actualLoadKg ?? null : null;
+  const loadKg = carriedLoadKg ?? draftLoad ?? set.plannedLoadKg ?? previous?.actualLoadKg ?? null;
   // Both badges follow the number, not the set: once the shown load drifts off
   // the plan (user edit, carry-forward from a set they logged heavier), it is
   // no longer the weight the app put there, and neither badge may claim it.

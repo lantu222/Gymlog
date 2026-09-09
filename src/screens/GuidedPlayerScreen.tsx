@@ -2270,6 +2270,9 @@ export function GuidedPlayerScreen({
          */
         rest: instance.restSecondsMin,
       }),
+      // The set card's heading makes the same distinction one step later;
+      // the number must not change its story between the two screens.
+      lastLabel: t(language, last?.borrowed ? 'guided.walk.lastBorrowed' : 'guided.walk.last'),
       lastValue: lastHeaviest > 0 ? formatWeight(lastHeaviest, unitPreference) : null,
       lastReps: last?.sets.length ? last.sets.map((set) => set.reps).join(' · ') : null,
     };
@@ -2826,7 +2829,9 @@ export function GuidedPlayerScreen({
                     ) : null}
                   </View>
                   <View style={styles.walkStat}>
-                    <Text style={styles.walkStatLabel}>{t(language, 'guided.walk.last')}</Text>
+                    <Text style={styles.walkStatLabel}>
+                      {walkNext?.lastLabel ?? t(language, 'guided.walk.last')}
+                    </Text>
                     <Text style={styles.walkStatValue}>{walkNext?.lastValue ?? '—'}</Text>
                     {walkNext?.lastReps ? (
                       <Text style={styles.walkStatSub}>{walkNext.lastReps}</Text>
@@ -3984,13 +3989,8 @@ function SetStepView({
           </View>
           {panels?.history ? (
             <View style={styles.setExerciseLast}>
-              {/* The view has said whether this is this slot's own record or a
-                  weight lifted on a different day since 2026-08-29 (`borrowed`,
-                  with a comment asking for it to be "said out loud") — and the
-                  label never read it. So a pump day's first outing printed the
-                  heavy day's 10 kg under the same heading as its own history
-                  (#bugs 2026-09-09, "3x20 10kg ei pidä paikkansa ... eri päivä").
-                  Same number, honest heading. */}
+              {/* Borrowed history is a different claim from this slot's own,
+                  so it gets a different heading (#bugs 2026-09-09). */}
               <Text style={styles.setExerciseLastLabel}>
                 {t(language, panels.history.borrowed ? 'guided.card.lastTimeBorrowed' : 'guided.card.lastTime')}
               </Text>

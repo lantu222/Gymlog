@@ -143,28 +143,34 @@ module.exports = [
      *
      * `LastTimeView.borrowed` has existed since 2026-08-29 with a comment
      * asking for it to be said out loud, and `resolveSlotHistory` set it on
-     * every view — but the card's heading never read it. So the first time a
-     * pump day came round, the heavy day's weight for the same lift sat under
-     * "VIIME KERRALLA" as if it were this day's own record (#bugs 2026-09-09,
-     * "3x20 10kg ei pidä paikkansa ... eri päivä"). The number stays; the
-     * heading tells the truth about where it came from.
+     * every view — but neither heading that shows the number read it. So the
+     * first time a pump day came round, the heavy day's weight for the same
+     * lift sat under "VIIME KERRALLA" as this day's own record, and under
+     * "VIIMEKSI" on the walk-up card one step before (#bugs 2026-09-09,
+     * "3x20 10kg ei pidä paikkansa ... eri päivä"). The number stays; both
+     * headings say where it came from.
      */
-    name: 'guided card: a borrowed last time says so in its heading',
+    name: 'guided player: a borrowed last time says so on the set card and on the walk-up card',
     run() {
       // The view carries the flag...
       assert.match(playerSource, /borrowed: resolved\?\.borrowed \?\? false,/);
-      // ...and the heading reads it, choosing between two keys.
+      // ...and both surfaces that print its number choose their heading by it.
       assert.match(
         playerSource,
-        /t\(language, panels\.history\.borrowed \? 'guided\.card\.lastTimeBorrowed' : 'guided\.card\.lastTime'\)/,
+        /panels\.history\.borrowed\s*\?\s*'guided\.card\.lastTimeBorrowed'\s*:\s*'guided\.card\.lastTime'/,
       );
-      // Both dictionaries carry the second claim, and it visibly differs from
-      // the first — a borrowed heading identical to the plain one would be the
-      // bug wearing a new key.
-      const en = i18nSource.match(/'guided\.card\.lastTimeBorrowed': '([^']+)'/g) ?? [];
-      assert.equal(en.length, 2, 'the borrowed heading exists in EN and FI');
-      assert.match(i18nSource, /'guided\.card\.lastTimeBorrowed': 'LAST TIME · [^']+'/);
-      assert.match(i18nSource, /'guided\.card\.lastTimeBorrowed': 'VIIME KERRALLA · [^']+'/);
+      assert.match(playerSource, /last\?\.borrowed\s*\?\s*'guided\.walk\.lastBorrowed'\s*:\s*'guided\.walk\.last'/);
+      // Both claims exist in both dictionaries, and each visibly differs from
+      // the plain heading — a borrowed heading identical to the plain one
+      // would be the bug wearing a new key. The qualifier sits on a second
+      // line: the set card's row has no room for a longer first one.
+      const borrowedHeadings =
+        i18nSource.match(/'guided\.(?:card\.lastTimeBorrowed|walk\.lastBorrowed)': '[^']+'/g) ?? [];
+      assert.equal(borrowedHeadings.length, 4, 'two borrowed headings, each in EN and FI');
+      assert.match(i18nSource, /'guided\.card\.lastTimeBorrowed': 'LAST TIME\\n[^']+'/);
+      assert.match(i18nSource, /'guided\.card\.lastTimeBorrowed': 'VIIME KERRALLA\\n[^']+'/);
+      assert.match(i18nSource, /'guided\.walk\.lastBorrowed': 'LAST\\n[^']+'/);
+      assert.match(i18nSource, /'guided\.walk\.lastBorrowed': 'VIIMEKSI\\n[^']+'/);
     },
   },
 ];
