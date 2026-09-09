@@ -3984,7 +3984,16 @@ function SetStepView({
           </View>
           {panels?.history ? (
             <View style={styles.setExerciseLast}>
-              <Text style={styles.setExerciseLastLabel}>{t(language, 'guided.card.lastTime')}</Text>
+              {/* The view has said whether this is this slot's own record or a
+                  weight lifted on a different day since 2026-08-29 (`borrowed`,
+                  with a comment asking for it to be "said out loud") — and the
+                  label never read it. So a pump day's first outing printed the
+                  heavy day's 10 kg under the same heading as its own history
+                  (#bugs 2026-09-09, "3x20 10kg ei pidä paikkansa ... eri päivä").
+                  Same number, honest heading. */}
+              <Text style={styles.setExerciseLastLabel}>
+                {t(language, panels.history.borrowed ? 'guided.card.lastTimeBorrowed' : 'guided.card.lastTime')}
+              </Text>
               <Text style={styles.setExerciseLastLoad}>
                 {/* The same number decides and is shown. Guarding on the
                     FIRST set while printing the heaviest hid a real top set

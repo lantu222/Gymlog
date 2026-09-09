@@ -137,4 +137,34 @@ module.exports = [
       assert.doesNotMatch(playerSource, /GPD\.amber/, 'the rail palette still has an amber to reach for');
     },
   },
+  {
+    /**
+     * A borrowed "last time" is a different claim from this slot's own.
+     *
+     * `LastTimeView.borrowed` has existed since 2026-08-29 with a comment
+     * asking for it to be said out loud, and `resolveSlotHistory` set it on
+     * every view — but the card's heading never read it. So the first time a
+     * pump day came round, the heavy day's weight for the same lift sat under
+     * "VIIME KERRALLA" as if it were this day's own record (#bugs 2026-09-09,
+     * "3x20 10kg ei pidä paikkansa ... eri päivä"). The number stays; the
+     * heading tells the truth about where it came from.
+     */
+    name: 'guided card: a borrowed last time says so in its heading',
+    run() {
+      // The view carries the flag...
+      assert.match(playerSource, /borrowed: resolved\?\.borrowed \?\? false,/);
+      // ...and the heading reads it, choosing between two keys.
+      assert.match(
+        playerSource,
+        /t\(language, panels\.history\.borrowed \? 'guided\.card\.lastTimeBorrowed' : 'guided\.card\.lastTime'\)/,
+      );
+      // Both dictionaries carry the second claim, and it visibly differs from
+      // the first — a borrowed heading identical to the plain one would be the
+      // bug wearing a new key.
+      const en = i18nSource.match(/'guided\.card\.lastTimeBorrowed': '([^']+)'/g) ?? [];
+      assert.equal(en.length, 2, 'the borrowed heading exists in EN and FI');
+      assert.match(i18nSource, /'guided\.card\.lastTimeBorrowed': 'LAST TIME · [^']+'/);
+      assert.match(i18nSource, /'guided\.card\.lastTimeBorrowed': 'VIIME KERRALLA · [^']+'/);
+    },
+  },
 ];
