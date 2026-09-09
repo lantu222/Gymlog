@@ -249,4 +249,63 @@ module.exports = [
       assert.equal(shown.entry.performedAt, at);
     },
   },
+  {
+    /**
+     * #bugs 2026-09-09, from the gym: "Paino ei päivity", "Tavoite paino osio
+     * ei muutu ainoastaan toisto". The pump day borrowed the heavy day's 10 kg
+     * for every set at once (materialisation prefills them all), the reader
+     * logged set 1 at 12.5, and set 2 still opened on 10 — because the
+     * carry-forward only fired into an EMPTY draft, and no draft was empty.
+     * Reps followed the logged set; the weight did not.
+     */
+    name: 'a logged set carries its weight to the next set even when history had prefilled it',
+    run() {
+      // Heavy day logged at 10 kg. The second day asks the SAME reps, so the
+      // borrow fires and prefills every set (suite above) - the reader's two
+      // days were both twenties, which is exactly why the heavy weight showed.
+      let state = startDay(afterHeavyDay(), 'day_b', 'Pump day', 6, 8, 1);
+      const slotId = state.activeSession.exercises[0].slotId;
+      const before = state.activeSession.exercises[0].sets;
+      // Every set arrived prefilled from history — that is the precondition
+      // that hid the bug.
+      assert.equal(before[1].draftLoadText, '10');
+      assert.equal(before[1].edited, false);
+
+      // Set 1: the reader changes the weight and logs it.
+      state = workoutReducer(state, {
+        type: 'set/updateDraft',
+        payload: { slotId, setIndex: 0, patch: { loadText: '12.5', repsText: '18' } },
+      });
+      state = workoutReducer(state, {
+        type: 'set/complete',
+        payload: { slotId, setIndex: 0, nowMs: Date.parse('2026-09-09T07:05:00.000Z'), unitPreference: 'kg' },
+      });
+      const after = state.activeSession.exercises[0].sets;
+
+      // Set 2 opens on the weight just lifted, and its plan moved with it so
+      // the badges judge against today, not against last week.
+      // The draft is a string in the reader's decimal convention, and that
+      // convention is environmental - the runner and a standalone node differ
+      // on it. The number is the claim; the separator is not.
+      assert.match(after[1].draftLoadText, /^12[.,]5$/);
+      assert.equal(after[1].plannedLoadKg, 12.5);
+      // Set 3 is untouched by the carry (it is not the next set)...
+      assert.equal(after[2].draftLoadText, '10');
+
+      // ...but a set the reader has ALREADY typed into is theirs and stays.
+      state = workoutReducer(state, {
+        type: 'set/updateDraft',
+        payload: { slotId, setIndex: 2, patch: { loadText: '9' } },
+      });
+      state = workoutReducer(state, {
+        type: 'set/updateDraft',
+        payload: { slotId, setIndex: 1, patch: { repsText: '17' } },
+      });
+      state = workoutReducer(state, {
+        type: 'set/complete',
+        payload: { slotId, setIndex: 1, nowMs: Date.parse('2026-09-09T07:08:00.000Z'), unitPreference: 'kg' },
+      });
+      assert.equal(state.activeSession.exercises[0].sets[2].draftLoadText, '9', 'a typed weight is never overwritten');
+    },
+  },
 ];

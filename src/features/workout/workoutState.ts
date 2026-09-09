@@ -987,12 +987,22 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       if (nextTarget) {
         updateActiveExercise(session, nextTarget.exerciseIndex, nextTarget.setIndex);
         // Carry the weight just used forward to the next set in the SAME
-        // exercise (if it has no weight yet), so the user usually only types
-        // reps for the following sets.
+        // exercise, so the user usually only types reps for the following sets.
+        //
+        // Guarded on `edited`, not on the draft being empty. Materialisation
+        // prefills EVERY set's draft from history, so with any history at all
+        // the draft was never empty and this never fired — set 2 opened on the
+        // borrowed or last-week weight while set 1 had just been logged at
+        // something else, ninety seconds earlier (#bugs 2026-09-09, "Paino ei
+        // päivity", "Tavoite paino osio ei muutu ainoastaan toisto"). A set the
+        // reader has typed into keeps what they typed; a prefill is a guess and
+        // the set just logged is a fact. The plan moves with it so the badges
+        // judge the shown weight against today's plan, not last week's.
         if (nextTarget.exerciseIndex === exerciseIndex) {
           const nextSet = exercise.sets.find((item) => item.setIndex === nextTarget.setIndex);
-          if (nextSet && !nextSet.draftLoadText.trim()) {
+          if (nextSet && !nextSet.edited) {
             nextSet.draftLoadText = formatWeightInputValue(set.actualLoadKg ?? 0, action.payload.unitPreference);
+            nextSet.plannedLoadKg = set.actualLoadKg ?? 0;
           }
         }
       } else {
