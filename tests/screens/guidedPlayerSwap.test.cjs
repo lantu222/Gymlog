@@ -79,21 +79,86 @@ module.exports = [
   },
   {
     /**
-     * A rest counts past zero, so its leftover is negative — and everything
-     * that freezes the timer (the exit dialog, a sheet, a swap) tears the
-     * effect down and rebuilds the deadline from that leftover. Clamped, the
-     * overtime the reader had actually stood there was thrown away and the
-     * count restarted at zero.
+     * The rest runs out into the set.
+     *
+     * It used to hold at zero, say READY and count how far over you were, and
+     * the reader had to press "Aloita sarja" — on the theory that a set screen
+     * nobody asked for is worse than an overrun. From the gym, watching the
+     * ring reach zero: "sarja 2 pitäis alkaa nyt itsestään mutta ei ala vain
+     * tuli valmista ruutu ja tämä on väärin" (user 2026-09-09). So a rest
+     * expires like a drill does, the ring says only what is left, and the
+     * READY state, the "/ 2:00" total and the start button went with their copy.
      */
-    name: 'guided player: overtime survives whatever freezes the rest timer',
+    name: 'guided rest: the wait runs out into the set, and says only what is left',
     run() {
+      assert.doesNotMatch(playerSource, /restHoldsAtZero|restIsOver/);
+      // Expiry advances — the branch every timed step takes.
+      assert.match(playerSource, /if \(next <= 0\) \{[\s\S]{0,1200}?expireRef\.current\(\);/);
+      // A deadline already in the past is still not handed to the OS.
+      assert.match(playerSource, /step\.type === 'rest' && endsAtRef\.current > Date\.now\(\)/);
+      // And a rest that now runs out on its own must not run out behind the
+      // "fix the set you just logged" sheet, whose edits commit on Save only.
+      assert.match(playerSource, /const frozen =[^;]*\|\| restEditOpen[^;]*;/);
+      for (const key of [
+        'guided.rest.of',
+        'guided.rest.ready',
+        'guided.rest.over',
+        'guided.rest.startSet',
+        'guided.rest.startSetWeight',
+      ]) {
+        assert.equal(i18nSource.includes(`'${key}'`), false, `${key} outlived its screen`);
+        assert.equal(playerSource.includes(`'${key}'`), false, `${key} is still rendered`);
+      }
+    },
+  },
+  {
+    /**
+     * −15 s takes time away, +15 s adds it, Tauko holds: three same-shaped
+     * outlines the reader told apart by reading, mid-set, at arm's length.
+     * Colour does it without reading (user 2026-09-09, light theme).
+     */
+    name: 'guided rest: the three timer controls are red, green and amber',
+    run() {
+      assert.match(playerSource, /label="−15s"\s+tint=\{theme\.danger\}/);
+      assert.match(playerSource, /label="\+15s"\s+tint=\{theme\.green\}/);
+      assert.match(playerSource, /icon=\{paused \? 'play' : 'pause'\}\s+tint=\{theme\.amber\}/);
+    },
+  },
+  {
+    /**
+     * "16,25" had to share its row with two buttons and lost the ",25"; the
+     * reps number was squeezed the same way. The reader's sketch (2026-09-09):
+     * the number on its own line, −/+ under it, always there, and "tap to
+     * type" under those. Both cards type now, not only the weight.
+     */
+    name: 'guided dial: number above, buttons always below, both cards type',
+    run() {
+      // The buttons render unconditionally, under the number, above the hint.
       assert.match(
         playerSource,
-        /Date\.now\(\) \+ \(restHoldsAtZero \? remainingRef\.current : Math\.max\(0, remainingRef\.current\)\)/,
+        /<\/Pressable>\s*<View style=\{styles\.setDialControls\}>\s*<DialButton glyph="−"[^\n]*\n\s*<DialButton glyph="\+"[^\n]*\n\s*<\/View>/,
       );
-      // And a deadline already in the past is not handed to the OS: that is an
-      // alert that fires the instant it is scheduled.
-      assert.match(playerSource, /step\.type === 'rest' && endsAtRef\.current > Date\.now\(\)/);
+      assert.doesNotMatch(playerSource, /open \? \(\s*<View style=\{styles\.setDialControls\}>/);
+      // The reps card steps and commits through the lib rule, inside the same
+      // bounds, as the weight card does — a stepper without a ceiling and a
+      // field with one would disagree about the same number.
+      assert.match(
+        playerSource,
+        /onStep=\{\(direction\) => setReps\(\(current\) => stepDialReps\(current, direction, timed \? HOLD_DIAL : REPS_DIAL\)\)\}/,
+      );
+      assert.match(
+        playerSource,
+        /onCommit=\{\(text\) => setReps\(\(current\) => commitDialReps\(text, current, timed \? HOLD_DIAL : REPS_DIAL\)\)\}/,
+      );
+      // No "tap to type" line under the buttons: it was in the sketch and
+      // struck out on the phone the same day ("napauta ja kirjoita poista nämä").
+      assert.doesNotMatch(playerSource, /setDialHint|guided\.dial\.tapToType/);
+      assert.equal(i18nSource.includes("'guided.dial.tapToType'"), false);
+      // Typing commits on every keystroke: the log button reads the number in
+      // the same tick it closes the card, and a commit deferred to blur, to
+      // the done key or to an unmount was a typed weight logged as the old one.
+      assert.match(playerSource, /onChangeText=\{\(text\) => \{\s*setDraft\(text\);\s*onCommit\(text\);\s*\}\}/);
+      assert.doesNotMatch(playerSource, /draftRef|onCommitRef/);
     },
   },
   {
@@ -171,6 +236,75 @@ module.exports = [
       assert.match(i18nSource, /'guided\.card\.lastTimeBorrowed': 'VIIME KERRALLA\\n[^']+'/);
       assert.match(i18nSource, /'guided\.walk\.lastBorrowed': 'LAST\\n[^']+'/);
       assert.match(i18nSource, /'guided\.walk\.lastBorrowed': 'VIIMEKSI\\n[^']+'/);
+    },
+  },
+  {
+    /**
+     * The rest screen, from the gym: "vähän liikaa kaikkea". The next set's
+     * card and the "Seuraava · …" line under the buttons said what the ring
+     * already implied, three ways; the logged card cut its own text at one
+     * line. What is left: what was logged (name, then numbers), how long is
+     * left, three controls, skip (user 2026-09-09).
+     */
+    name: 'guided rest: what was logged and how long is left, nothing about the set to come',
+    run() {
+      assert.doesNotMatch(playerSource, /restNextCard|restTargetRow|restChosenKg|restTargetMove/);
+      for (const key of ['guided.rest.nextSet', 'guided.rest.target', 'guided.rest.targetHold']) {
+        assert.equal(i18nSource.includes(`'${key}'`), false, `${key} outlived its card`);
+      }
+      // The logged card: the name may take two lines, the numbers follow it.
+      assert.match(playerSource, /<Text style=\{styles\.restLoggedName\} numberOfLines=\{2\}>\s*\{restLogged\.name\}/);
+      assert.match(playerSource, /<Text style=\{styles\.restLoggedValue\}>\{restLogged\.detail\}<\/Text>/);
+      // One NextLine left in the file: the drills'. The rest screen's is gone.
+      assert.equal((playerSource.match(/<NextLine /g) ?? []).length, 1);
+    },
+  },
+  {
+    /**
+     * The walk-up's finished-lift card is two lines — check and name, then
+     * weight and reps — so the screen after a lift fits without scrolling
+     * (user 2026-09-09, "max 2 riviä valmis osiolle että ei tarvitse
+     * skrollata").
+     */
+    name: 'guided walk-up: the finished lift is a check, its name, and one row of numbers',
+    run() {
+      assert.doesNotMatch(playerSource, /walkDoneLabel|guided\.walk\.done/);
+      assert.match(
+        playerSource,
+        /<GPIcon name="check"[^\n]*\n\s*<\/View>\s*<Text style=\{\[styles\.walkDoneName, \{ flex: 1, minWidth: 0 \}\]\} numberOfLines=\{1\}>/,
+      );
+      assert.match(playerSource, /\{walkDone\.weight \? <Text style=\{styles\.walkDoneWeight\}>\{walkDone\.weight\}<\/Text> : null\}/);
+      assert.equal(i18nSource.includes("'guided.walk.done'"), false);
+    },
+  },
+  {
+    /**
+     * The recovery splash is its title and its list. "Treeni valmis",
+     * "SEURAAVAKSI" and "2 venytystä · ~4 min" were three lines about a
+     * screen that shows its own contents (user 2026-09-09). The warm-up and
+     * workout splashes keep theirs until asked.
+     */
+    name: 'guided splash: the recovery splash drops the done row, the eyebrow and the length',
+    run() {
+      assert.match(playerSource, /\{step\.doneLabel && step\.phase !== 'cooldown' \? \(/);
+      assert.match(playerSource, /\{step\.phase !== 'cooldown' \? \(\s*<Text[^\n]*\n\s*\{t\(language, 'guided\.upNext'\)\}/);
+      assert.match(playerSource, /\{step\.phase !== 'cooldown' \? \(\s*<Text[^\n]*\{step\.sub\}<\/Text>\s*\) : null\}/);
+    },
+  },
+  {
+    /**
+     * Nothing flashes between the last set and the summary. "{title} — valmis"
+     * and a spinner were on screen for the length of the save (user
+     * 2026-09-09, "tämä valmis ja treeni valmis osion väliin ei saa jäädä
+     * mitään mikä välähtää").
+     */
+    name: 'guided finish: the step that exists for the length of a save says nothing',
+    run() {
+      assert.match(playerSource, /<StepIn stepKey="finish">\s*<View style=\{\{ flex: 1 \}\} \/>\s*<\/StepIn>/);
+      assert.doesNotMatch(playerSource, /finishTitle|ActivityIndicator|guided\.finish\.title|guided\.finish\.saving/);
+      for (const key of ['guided.finish.title', 'guided.finish.saving', 'guided.finish.continue']) {
+        assert.equal(i18nSource.includes(`'${key}'`), false, `${key} outlived its screen`);
+      }
     },
   },
 ];

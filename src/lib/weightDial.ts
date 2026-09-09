@@ -69,3 +69,36 @@ export function commitDialWeight(
   }
   return toDialPrecision(Math.min(max, Math.max(0, parsed)));
 }
+
+/** The reps dial: whole numbers. 300 is past any set anyone logs on purpose. */
+export const REPS_DIAL = { min: 1, step: 1, max: 300 } as const;
+/** A hold's dial counts seconds in fives; half an hour is past any hold. */
+export const HOLD_DIAL = { min: 5, step: 5, max: 1800 } as const;
+
+interface RepsDialBounds {
+  min: number;
+  step?: number;
+  max: number;
+}
+
+/** One press, or one tick of a held button — and a held button stops. */
+export function stepDialReps(current: number, direction: -1 | 1, { min, step = 1, max }: RepsDialBounds): number {
+  const next = (Number.isFinite(current) ? current : min) + direction * step;
+  return Math.min(max, Math.max(min, next));
+}
+
+/**
+ * What typed reps become. The reps card types too now (user 2026-09-09, with
+ * a sketch: number above, buttons below, "tap to type" under both). Whole
+ * numbers inside the dial's bounds — a ceiling for the same reason the weight
+ * has one (review, PR #88): a fat-fingered 99999 would land in the log and in
+ * every chart that reads it. Unparseable input keeps what was there.
+ */
+export function commitDialReps(text: string, previous: number, { min, max }: RepsDialBounds): number {
+  const clamp = (value: number) => Math.min(max, Math.max(min, value));
+  const parsed = parseNumberInput(text);
+  if (parsed === null) {
+    return clamp(previous);
+  }
+  return clamp(Math.round(parsed));
+}
