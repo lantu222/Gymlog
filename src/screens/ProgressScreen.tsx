@@ -51,13 +51,12 @@ import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { I18nKey, t } from '../lib/i18n';
 import { ProMomentContent, WeeklyReadRow } from '../lib/proInsights';
 import { ProLockedCard } from '../components/ProLockedCard';
-import { CutSurface } from '../components/CutSurface';
 import { ProMomentSheet } from '../components/ProMomentSheet';
 import { SetLogSheet } from '../components/SetLogSheet';
 import { buildExerciseSetLog, ExerciseSetLog } from '../lib/exerciseSetLog';
 import { weeklyTrainingStreak } from '../lib/trainingCalendar';
 import { PW } from '../lightTheme';
-import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import {
   isMeasureRangeLocked,
   isRecordLocked,
@@ -711,24 +710,8 @@ export function ProgressScreen({
   onOpenPremium,
 }: ProgressScreenProps) {
   const theme = useTheme();
-  const themeName = useThemeName();
   const insets = useSafeAreaInsets();
   const styles = useThemedStyles(makeStyles);
-  /**
-   * The section tabs, per theme.
-   *
-   * Light was tuned on the device and keeps what it had: a white chip with a
-   * violet glyph, the idle ones in ink. Dark inherited those tokens and
-   * inverted the affordance — idle `ink` is near-white while the active
-   * glyph is a mid violet, and the active chip's `surface` fill is a shade
-   * off the bar's own `surfaceSoft`, so the selected tab read as the dimmest
-   * thing in the row. In dark the chip takes the violet wash and the idle
-   * glyphs step back to muted, which is the same grammar the tab bar uses.
-   */
-  const dark = themeName === 'dark';
-  const tabActiveFill = dark ? theme.purpleLight : theme.surface;
-  const tabActiveInk = dark ? theme.purpleBright : theme.purpleDark;
-  const tabIdleInk = dark ? theme.muted : theme.ink;
   const [readSheetVisible, setReadSheetVisible] = useState(false);
   const [progressSection, setProgressSection] = useState<ProgressSection>(initialSection ?? 'overview');
   const [setLogKey, setSetLogKey] = useState<string | null>(null);
@@ -2004,56 +1987,24 @@ export function ProgressScreen({
             them — "ylhäällä sama treeni jonka olet rakentanut" on the records
             page, the measures page and the trend (#bugs 2026-09-05). */}
         <Text style={styles.headerTitle}>{t(language, 'progress.title')}</Text>
-        {/* A3: the selector carries the cut, and so does the selected tab —
-            the design's VALITSIN. The inner tab sits inside the shell's
-            padding, so the two cuts are not in the same corner. */}
-        {/* Outlined, and the idle glyphs in ink: on the light theme the bar
-            read as a pale band with icons the reader could not make out
-            (user 2026-09-02, device build). */}
-        <CutSurface size="md" fill={theme.surfaceSoft} stroke={theme.border} strokeWidth={1} style={styles.tabsRow}>
-          {PROGRESS_SECTIONS.map((section) => {
-            const active = section.key === progressSection;
-            return (
-              <Pressable
-                key={section.key}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: active }}
-                // The word moved out of the tab, so it has to live here.
-                accessibilityLabel={t(language, section.labelKey)}
-                onPress={() => switchSection(section.key)}
-                style={styles.tab}
-              >
-                {/* Both states are the same height, or the selected one grows
-                    the row and pushes itself out of the shell. */}
-                {active ? (
-                  <CutSurface size="sm" fill={tabActiveFill} style={[styles.tabInner, styles.tabActive]}>
-                    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-                      <Path
-                        d={section.icon}
-                        stroke={tabActiveInk}
-                        strokeWidth={2}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </Svg>
-                  </CutSurface>
-                ) : (
-                  <View style={styles.tabInner}>
-                    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-                      <Path
-                        d={section.icon}
-                        stroke={tabIdleInk}
-                        strokeWidth={2.1}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </Svg>
-                  </View>
-                )}
-              </Pressable>
-            );
-          })}
-        </CutSurface>
+        {/* The same control as every selector below it. This was a hand-built
+            shell with a second cut surface inside the selected tab — the two
+            parallel diagonals Seg took out of the others on 2026-09-07 — and on
+            the phone the shell's outline showed under the row ("leikkaus on
+            jotenkin outo", user 2026-09-09, asking for the metric bar's look).
+            The per-theme inks it carried moved into Seg with it. */}
+        <View style={styles.tabsRow}>
+          <Seg
+            grow
+            options={PROGRESS_SECTIONS.map((section) => ({
+              key: section.key,
+              label: t(language, section.labelKey),
+              icon: section.icon,
+            }))}
+            value={progressSection}
+            onChange={switchSection}
+          />
+        </View>
       </View>
 
       <ScrollView
@@ -2250,32 +2201,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     letterSpacing: -0.5,
   },
   tabsRow: {
-    flexDirection: 'row',
-    padding: 3,
     marginTop: 14,
-  },
-  tab: {
-    flex: 1,
-  },
-  tabInner: {
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tabActive: {
-    shadowColor: '#5028A0',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.16,
-    shadowRadius: 5,
-    elevation: 2,
-  },
-  tabText: {
-    color: theme.muted,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  tabTextActive: {
-    color: theme.purpleDark,
   },
   content: {
     paddingHorizontal: 20,

@@ -127,16 +127,17 @@ module.exports = [
       assert.match(records, /value=\{kind\}/);
       assert.match(records, /onChange=\{setKind\}/);
 
-      // Five selectors on the tab, one component: metric, trend range,
-      // measure range, records kind, and the body-weight range that piece 06
-      // added. The count is pinned so a sixth hand-built one fails rather than
-      // quietly appearing — it already caught this one.
+      // Six selectors on the tab, one component: metric, trend range,
+      // measure range, records kind, the body-weight range that piece 06
+      // added, and the section tabs themselves (2026-09-09). The count is
+      // pinned so a seventh hand-built one fails rather than quietly
+      // appearing — it already caught this one, twice.
       //
       // Counted without a word boundary on purpose: a `` written through
       // a heredoc arrives as a literal backspace, which made this read zero
       // and look like a real failure. Third time in one session.
       const usages = (screen.match(/<Seg/g) ?? []).length + (records.match(/<Seg/g) ?? []).length;
-      assert.equal(usages, 5, `expected five Seg call sites on the tab, found ${usages}`);
+      assert.equal(usages, 6, `expected six Seg call sites on the tab, found ${usages}`);
     },
   },
   {
@@ -552,7 +553,10 @@ module.exports = [
         'the selected option took the cut back',
       );
       assert.doesNotMatch(seg, /size="chip"/, 'the pill is a cut surface again');
-      assert.match(seg, /<View style=\{\[styles\.segItem, active && styles\.segItemActive\]\}/);
+      assert.match(
+        seg,
+        /<View style=\{\[styles\.segItem, active && styles\.segItemActive, active && dark && styles\.segItemActiveDark\]\}/,
+      );
 
       // Both states are the same box, so the row cannot change height when the
       // selection moves — the bug the third A3 round already fixed once.
