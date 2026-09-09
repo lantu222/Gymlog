@@ -115,6 +115,10 @@ module.exports = [
       // thing in the row.
       assert.match(seg, /const dark = useThemeName\(\) === 'dark';/);
       assert.match(seg, /const activeInk = dark \? theme\.purpleBright : theme\.purpleDark;/);
+      // And the idle glyphs stay in ink on light — the 2026-09-02 legibility
+      // fix the move here briefly lost (bot review, PR #89).
+      assert.match(seg, /const idleInk = dark \? theme\.muted : theme\.ink;/);
+      assert.match(seg, /stroke=\{locked \? theme\.faint : active \? activeInk : idleInk\}/);
       assert.match(seg, /segItemActiveDark: \{[^}]*backgroundColor: theme\.purpleLight/);
       assert.match(seg, /segTextActiveDark: \{[^}]*color: theme\.purpleBright/);
     },

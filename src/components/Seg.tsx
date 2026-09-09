@@ -55,6 +55,11 @@ export function Seg<T extends string>({
   const theme = useTheme();
   const dark = useThemeName() === 'dark';
   const activeInk = dark ? theme.purpleBright : theme.purpleDark;
+  // Idle glyphs in ink on light: in muted the bar read as a pale band with
+  // icons the reader could not make out (user 2026-09-02, device build; the
+  // bot caught the regression when the tabs moved here, PR #89). Text options
+  // stay muted — a bold word carries where a 2px stroke does not.
+  const idleInk = dark ? theme.muted : theme.ink;
 
   return (
     // A3: the SHELL takes the cut, the selected option does not. The design's
@@ -88,7 +93,7 @@ export function Seg<T extends string>({
               <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
                 <Path
                   d={option.icon}
-                  stroke={locked ? theme.faint : active ? activeInk : theme.muted}
+                  stroke={locked ? theme.faint : active ? activeInk : idleInk}
                   strokeWidth={2.1}
                   strokeLinecap="round"
                   strokeLinejoin="round"
