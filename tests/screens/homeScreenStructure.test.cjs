@@ -858,11 +858,25 @@ module.exports = [
       assert.match(title, /flexBasis: 'auto',/);
       assert.match(title, /flexShrink: 1,/);
 
+      // Shrinking alone was not enough: at 17.5 the name still wrapped
+      // (user 2026-09-08), so the pair stepped back a size and the title now
+      // caps its own height. The row's height is a constant again.
+      assert.match(title, /fontSize: 16,/);
+      assert.match(title, /lineHeight: 20,/);
+
       const meta = home.slice(home.indexOf('  blockMeta: {'), home.indexOf('  blockDrillRow: {'));
       assert.ok(meta.length > 40, 'blockMeta moved - recheck by hand');
       assert.match(meta, /flexShrink: 3,/, 'the meta no longer gives way before the name');
+      assert.match(meta, /fontSize: 12\.5,/);
       // And it truncates rather than wrapping under the title it sits beside.
       assert.match(home, /<Text style=\{styles\.blockMeta\} numberOfLines=\{1\}>/);
+      // Both section headers - the shared warmup/recovery one and the
+      // workout row - hold their name to one line.
+      assert.equal(
+        (home.match(/styles\.blockTitle, [a-zA-Z]+ && styles\.sectTitleOpen\]\} numberOfLines=\{1\}/g) || []).length,
+        2,
+        'every section header caps its title at one line',
+      );
     },
   },
 ];

@@ -6,17 +6,29 @@ import { measureNode, TourTargetRegistry } from '../features/tour/tourTargets';
 import { cutCornerPath } from '../lib/cutCorner';
 import {
   BAR_SWEEP_STOP_MS,
+  calloutCoversTarget,
   CALLOUT_ENTER_MS,
   CALLOUT_LEAVE_MS,
   CALLOUT_SIDE_INSET,
+  dimCutoutPath,
   notchOffset,
   placeCallout,
+  rectChanged,
+  RING_CUT,
   RING_ENTER_MS,
+  RING_PULSE_MS,
+  RING_PULSE_SCALE,
   ringBox,
+  sectionRingShape,
   TOUR_BAR_STOP_COPY_KEY,
+  TOUR_REMEASURE_MS,
+  TOUR_RESCROLL_QUIET_MS,
   TourBarStop,
   TourRect,
+  TourRingShape,
+  TourSectionBeat,
   TourSurface,
+  TourTargetId,
   TourBeat,
   tourStartDelayMs,
 } from '../lib/firstRunTour';
@@ -29,15 +41,25 @@ import { CutSurface } from './CutSurface';
 import { EASE_RISE } from './vinhaMotion';
 
 /**
- * The first-run tour's guidance layer: a ring around one thing and a callout
- * beside it, once per surface.
+ * The first-run tour's guidance layer: a ring around one thing, everything
+ * else dimmed and sealed behind it, and a callout beside it, once per surface.
  *
- * What it deliberately is not: a scrim. The layer is `box-none`, so every
- * touch that is not on the callout reaches the page underneath — the hero
- * stays pressable on the week strip's beat, the bar still switches tabs, the
- * page still scrolls (and the ring follows). The design build shipped an
- * advance surface cut into four strips around the ring; that blocked the
- * one thing the brief said must never block, and it is gone.
+ * It is guided, and that is a reversal. Round 1 shipped a layer that pointed
+ * without ever blocking, and the reader's walk on the phone showed what that
+ * costs: the page moves under a beat for reasons the layer cannot see — a
+ * month panel opening into the week card, a workout list folding taller than
+ * the whole band — and the ring spends the tour chasing it. The list case has
+ * no good answer at all, because a block taller than the band leaves the
+ * callout nowhere to stand. So the dim doubles as a shield: it takes every
+ * touch that is not the callout's own two buttons, the page cannot change
+ * under a beat, and the ring is always where it belongs (user 2026-09-08).
+ *
+ * The way out stays one tap, on every beat. Nothing here traps a reader who
+ * wants to start training instead.
+ *
+ * The beat still re-measures on a tick (TOUR_REMEASURE_MS). Not for the
+ * reader now — for the tour's own doing: the scroll it runs itself, and the
+ * fold Home closes when it is told which beat is up.
  *
  * Tap-to-advance, always: the callout's own button steps the tour. The bar
  * is a single beat whose highlight sweeps the five items on a timer, because
@@ -64,6 +86,12 @@ interface FirstRunTourProps {
   /** The bar's highlight follows the sweep; null hands it back to the route. */
   onSweep: (stop: TourBarStop | null) => void;
   /**
+   * Which section the tour is on, so a screen can put itself in the state the
+   * beat describes — Home shuts its folds before the hero beat, so the ring
+   * lands on a chevron that is where it will stay. Null when the tour is done.
+   */
+  onBeatChange?: (target: TourTargetId | null) => void;
+  /**
    * Done, skipped, or left mid-way: the surface is marked seen either way.
    * Leaving early is not failure, and the app gets out of the way.
    */
@@ -75,7 +103,34 @@ interface Origin {
   y: number;
 }
 
-export function FirstRunTour({ surface, beats, registry, language, onSweep, onFinish }: FirstRunTourProps) {
+/** Where a beat is, in the overlay's own coordinates. */
+interface TourSpot {
+  /** What the ring goes around. */
+  ring: TourRect;
+  /** What the callout is placed against — the whole section, often. */
+  anchor: TourRect;
+  shape: TourRingShape;
+}
+
+const toLocal = (window: TourRect, origin: Origin): TourRect => ({
+  x: window.x - origin.x,
+  y: window.y - origin.y,
+  width: window.width,
+  height: window.height,
+});
+
+const sameSpot = (a: TourSpot | null, b: TourSpot): boolean =>
+  a !== null && a.shape === b.shape && !rectChanged(a.ring, b.ring) && !rectChanged(a.anchor, b.anchor);
+
+export function FirstRunTour({
+  surface,
+  beats,
+  registry,
+  language,
+  onSweep,
+  onBeatChange,
+  onFinish,
+}: FirstRunTourProps) {
   const theme = useTheme();
   const themeName = useThemeName();
 
@@ -86,16 +141,28 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
   const [phase, setPhase] = useState<'waiting' | 'beat' | 'done'>('waiting');
   const [index, setIndex] = useState(0);
   const [stopIndex, setStopIndex] = useState(0);
-  const [rect, setRect] = useState<TourRect | null>(null);
+  const [spot, setSpot] = useState<TourSpot | null>(null);
   const [barTop, setBarTop] = useState<number | null>(null);
   const [calloutHeight, setCalloutHeight] = useState(0);
   const finishedRef = useRef(false);
   /** Set when a beat's rect lands; the enter animation starts once it is drawn. */
   const pendingShowRef = useRef<boolean | null>(null);
+  /** When the page last moved under the reader's own finger. */
+  const lastScrollAtRef = useRef(0);
+  /** The anchor height a corrective scroll was already spent on — once each. */
+  const rescrolledForRef = useRef<number | null>(null);
+  /**
+   * Whether this beat has its first reading yet. The follow tick must not run
+   * during the beat's own opening scroll: SCROLL_SETTLE_MS exists because a
+   * ring measured mid-scroll lands across two sections, and a tick that
+   * ignored it would put that reading on screen before the real one arrived.
+   */
+  const beatReadyRef = useRef(false);
 
   // One node per animated view, interpolated once (ref-animated-node-one-view).
   const calloutAnim = useRef(new Animated.Value(0)).current;
   const ringAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(0)).current;
   const calloutStyle = useRef({
     opacity: calloutAnim,
     transform: [
@@ -105,8 +172,17 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
   }).current;
   const ringStyle = useRef({
     opacity: ringAnim,
-    transform: [{ scale: ringAnim.interpolate({ inputRange: [0, 1], outputRange: [1.05, 1] }) }],
+    transform: [
+      { scale: ringAnim.interpolate({ inputRange: [0, 1], outputRange: [1.05, 1] }) },
+      // Resting at 0 = scale 1, so this rides along on every beat and only
+      // the loop below decides whether it moves. A transform that appears and
+      // disappears with the beat would be a node changing views mid-flight.
+      { scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, RING_PULSE_SCALE] }) },
+    ],
   }).current;
+  // Its own style object, so the dim and the ring are two views with two
+  // props-nodes reading one value — never one node handed to two views.
+  const dimStyle = useRef({ opacity: ringAnim }).current;
 
   const measureOrigin = useCallback(async (): Promise<Origin> => {
     const measured = await measureNode(rootRef.current);
@@ -116,12 +192,40 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
     return originRef.current;
   }, []);
 
-  const toLocal = (window: TourRect, origin: Origin): TourRect => ({
-    x: window.x - origin.x,
-    y: window.y - origin.y,
-    width: window.width,
-    height: window.height,
-  });
+  /**
+   * A section beat's geometry, right now.
+   *
+   * `fallback` is what a beat opening with a missing fine target does: it
+   * rings the section instead, because the sentence is about the section
+   * either way. On the follow tick it is off, and a partial reading is thrown
+   * away instead — a screen re-attaches its inline ref callbacks on every
+   * render, so a node that is very much on screen can answer nothing for one
+   * frame, and letting that through would make the ring flit between the
+   * chevron and the whole block four times a second.
+   */
+  const readSpot = useCallback(
+    async (beat: TourSectionBeat, options: { fallback: boolean }): Promise<TourSpot | null> => {
+      const wantsAnchor = beat.anchor !== undefined && beat.anchor !== beat.target;
+      const [targetRect, anchorRect, origin] = await Promise.all([
+        registry.measure(beat.target),
+        wantsAnchor ? registry.measure(beat.anchor as TourTargetId) : Promise.resolve(null),
+        measureOrigin(),
+      ]);
+      if (!options.fallback && (!targetRect || (wantsAnchor && !anchorRect))) {
+        return null;
+      }
+      const ringWindow = targetRect ?? anchorRect;
+      if (!ringWindow) {
+        return null;
+      }
+      return {
+        ring: toLocal(ringWindow, origin),
+        anchor: toLocal(anchorRect ?? ringWindow, origin),
+        shape: sectionRingShape(beat, targetRect !== null),
+      };
+    },
+    [measureOrigin, registry],
+  );
 
   const finish = useCallback(() => {
     if (finishedRef.current) {
@@ -129,9 +233,10 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
     }
     finishedRef.current = true;
     onSweep(null);
+    onBeatChange?.(null);
     setPhase('done');
     onFinish(surface);
-  }, [onFinish, onSweep, surface]);
+  }, [onBeatChange, onFinish, onSweep, surface]);
 
   // Leaving mid-tour — a tab press, a workout started — still counts as seen,
   // but only once a callout has actually been on screen. Leaving during the
@@ -174,20 +279,36 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
 
   const stepTo = useCallback(
     (next: number) => {
+      rescrolledForRef.current = null;
+      beatReadyRef.current = false;
       if (next >= beats.length) {
         finish();
         return;
       }
-      setRect(null);
+      setSpot(null);
       setStopIndex(0);
       setIndex(next);
     },
     [beats.length, finish],
   );
 
+  // Declared before the effect that measures, so the screen has already been
+  // told to fold its lists shut by the time the first measurement is taken.
+  const beatChangeRef = useRef(onBeatChange);
+  beatChangeRef.current = onBeatChange;
+  useEffect(() => {
+    if (phase !== 'beat') {
+      return;
+    }
+    const beat = beats[index];
+    beatChangeRef.current?.(beat && beat.kind === 'section' ? beat.anchor ?? beat.target : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, index]);
+  useEffect(() => () => beatChangeRef.current?.(null), []);
+
   // A section beat: bring the target into the band, measure it once the
-  // scroll has settled, then show. A target this install does not have
-  // (no cards pinned, say) is skipped rather than pointed at.
+  // scroll has settled, then show. A beat whose section is not on this
+  // install at all is skipped rather than pointed at.
   useEffect(() => {
     if (phase !== 'beat' || reduceMotion === null) {
       return;
@@ -202,22 +323,32 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
     }
     let cancelled = false;
     void (async () => {
-      await registry.scrollIntoView(surface, beat.target, beat.place, !reduceMotion);
-      const [targetRect, origin, pill] = await Promise.all([
-        registry.measure(beat.target),
-        measureOrigin(),
-        registry.measure('bar.pill'),
-      ]);
+      // The scroll serves the callout, and the callout is placed against the
+      // anchor — so it is the anchor that has to end up with room, not the
+      // glyph inside it.
+      await registry.scrollIntoView(
+        surface,
+        beat.anchor ?? beat.target,
+        beat.place,
+        !reduceMotion,
+        beat.scroll ?? 'target',
+      );
+      const next = await readSpot(beat, { fallback: true });
       if (cancelled) {
         return;
       }
-      if (!targetRect) {
+      if (!next) {
         stepTo(index + 1);
         return;
       }
-      setBarTop(pill ? pill.y - origin.y : null);
+      const pill = await registry.measure('bar.pill');
+      if (cancelled) {
+        return;
+      }
+      setBarTop(pill ? pill.y - originRef.current.y : null);
       pendingShowRef.current = !reduceMotion;
-      setRect(toLocal(targetRect, origin));
+      beatReadyRef.current = true;
+      setSpot(next);
     })();
     return () => {
       cancelled = true;
@@ -260,7 +391,8 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
       if (stopIndex === 0) {
         pendingShowRef.current = !reduceMotion;
       }
-      setRect(toLocal(targetRect, origin));
+      const local = toLocal(targetRect, origin);
+      setSpot({ ring: local, anchor: local, shape: stop === 'ai' ? 'bar-ai' : 'bar' });
     })();
     const last = stopIndex >= beat.stops.length - 1;
     const timer = reduceMotion || last ? null : setTimeout(() => setStopIndex((current) => current + 1), BAR_SWEEP_STOP_MS);
@@ -277,7 +409,7 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
   // a native-driver timing started on a value no view is attached to yet is
   // the kind of thing that works on one renderer and not the other.
   useEffect(() => {
-    if (!rect || pendingShowRef.current === null) {
+    if (!spot || pendingShowRef.current === null) {
       return;
     }
     const animated = pendingShowRef.current;
@@ -294,9 +426,17 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
       Animated.timing(calloutAnim, { toValue: 1, duration: CALLOUT_ENTER_MS, easing: EASE_RISE, useNativeDriver: true }),
       Animated.timing(ringAnim, { toValue: 1, duration: RING_ENTER_MS, easing: EASE_RISE, useNativeDriver: true }),
     ]).start();
-  }, [calloutAnim, rect, ringAnim]);
+  }, [calloutAnim, spot, ringAnim]);
 
-  // The page under the tour stays scrollable; the ring follows its target.
+  /**
+   * A section beat follows its target for as long as it lasts.
+   *
+   * The shield means the reader can no longer move it, but the tour still
+   * can: it scrolls the page itself, and Home folds its day block shut when
+   * it is told the hero beat is up. Neither arrives as a scroll event the
+   * layer can wait on, so the beat re-measures on a tick and writes state
+   * only when the answer actually moved.
+   */
   useEffect(() => {
     if (phase !== 'beat') {
       return;
@@ -305,31 +445,108 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
     if (!beat || beat.kind !== 'section') {
       return;
     }
-    const target = beat.target;
-    let timer: ReturnType<typeof setTimeout> | null = null;
     let cancelled = false;
-    const unsubscribe = registry.subscribeScroll(() => {
-      if (timer) {
-        clearTimeout(timer);
+    let inFlight = false;
+    const sync = () => {
+      if (cancelled || inFlight || !beatReadyRef.current) {
+        return;
       }
-      timer = setTimeout(() => {
-        void (async () => {
-          const [targetRect, origin] = await Promise.all([registry.measure(target), measureOrigin()]);
-          if (!cancelled && targetRect) {
-            setRect(toLocal(targetRect, origin));
-          }
-        })();
-      }, 120);
+      inFlight = true;
+      void (async () => {
+        const next = await readSpot(beat, { fallback: false });
+        inFlight = false;
+        if (cancelled || !next) {
+          return;
+        }
+        setSpot((current) => (sameSpot(current, next) ? current : next));
+      })();
+    };
+    // One clock, deliberately. Measuring on the scroll event itself meant a
+    // full-screen path and the whole callout re-rendering thirty times a
+    // second on a mid-range phone; the tick catches a drag within 300 ms and
+    // costs nothing at all while a beat sits still, because an unchanged
+    // rectangle never reaches state. The scroll only notes when the reader
+    // last touched the page, so the corrective scroll below can keep off it.
+    const timer = setInterval(sync, TOUR_REMEASURE_MS);
+    const unsubscribe = registry.subscribeScroll(() => {
+      lastScrollAtRef.current = Date.now();
     });
     return () => {
       cancelled = true;
-      if (timer) {
-        clearTimeout(timer);
-      }
+      clearInterval(timer);
       unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, index, registry, measureOrigin]);
+  }, [phase, index, readSpot, registry]);
+
+  /**
+   * A target that grew taller than the band leaves over pushes its own callout
+   * back across itself. One corrective scroll fixes that; a loop of them would
+   * fight the reader, so it is spent once per anchor height, and only after
+   * the page has been still — every movement re-arms the wait.
+   */
+  useEffect(() => {
+    if (phase !== 'beat' || !spot || calloutHeight === 0 || size.width === 0) {
+      return;
+    }
+    const beat = beats[index];
+    if (!beat || beat.kind !== 'section') {
+      return;
+    }
+    const placement = placeCallout({
+      target: spot.anchor,
+      calloutHeight,
+      screenHeight: size.height,
+      barTop,
+      prefer: beat.place,
+    });
+    if (!calloutCoversTarget(placement, spot.anchor, calloutHeight)) {
+      return;
+    }
+    if (rescrolledForRef.current === spot.anchor.height) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      if (Date.now() - lastScrollAtRef.current < TOUR_RESCROLL_QUIET_MS) {
+        return;
+      }
+      rescrolledForRef.current = spot.anchor.height;
+      void registry.scrollIntoView(
+        surface,
+        beat.anchor ?? beat.target,
+        beat.place,
+        true,
+        beat.scroll ?? 'target',
+      );
+    }, TOUR_RESCROLL_QUIET_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, index, spot, calloutHeight, barTop, size.height, size.width, registry, surface]);
+
+  /**
+   * A ring drawn on one control breathes, so the glyph under it reads as
+   * something to press. Keyed on the shape rather than on the spot, so a
+   * re-measure four times a second does not restart the loop.
+   */
+  const ringShape = spot?.shape ?? null;
+  useEffect(() => {
+    if (phase !== 'beat' || reduceMotion !== false || ringShape !== 'chevron') {
+      pulseAnim.setValue(0);
+      return;
+    }
+    const half = RING_PULSE_MS / 2;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1, duration: half, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 0, duration: half, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => {
+      loop.stop();
+      pulseAnim.setValue(0);
+    };
+  }, [phase, pulseAnim, reduceMotion, ringShape]);
 
   const advance = useCallback(() => {
     if (phase !== 'beat') {
@@ -367,26 +584,26 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
   };
 
   const beat = beats[index] ?? null;
-  if (phase !== 'beat' || !beat || !rect || size.width === 0) {
+  if (phase !== 'beat' || !beat || !spot || size.width === 0) {
     return <View ref={rootRef} pointerEvents="box-none" style={StyleSheet.absoluteFill} onLayout={onRootLayout} />;
   }
 
   const isBar = beat.kind === 'bar';
   const stop = isBar ? beat.stops[stopIndex] ?? null : null;
-  const shape = isBar ? (stop === 'ai' ? 'bar-ai' : 'bar') : 'section';
-  const ring = ringBox(rect, shape);
-  const anchor = isBar ? ring : rect;
+  const ring = ringBox(spot.ring, spot.shape);
+  const calloutTarget = isBar ? ring : spot.anchor;
   const calloutWidth = size.width - CALLOUT_SIDE_INSET * 2;
   const placement = placeCallout({
-    target: anchor,
+    target: calloutTarget,
     calloutHeight: calloutHeight || 120,
     screenHeight: size.height,
     barTop,
     prefer: isBar ? 'above' : beat.place,
   });
-  const notchX = notchOffset(anchor, CALLOUT_SIDE_INSET, calloutWidth);
+  const notchX = notchOffset(calloutTarget, CALLOUT_SIDE_INSET, calloutWidth);
   const listAllStops = isBar && reduceMotion === true;
   const isLast = index + 1 >= beats.length && (!isBar || listAllStops || stopIndex >= beat.stops.length - 1);
+  const outlined = spot.shape === 'section' || spot.shape === 'chevron';
 
   // In light, the callout is the app's own dark-violet layer — the Pro sheets'
   // and the coach's — with the ink those sheets use on it. In dark it lifts.
@@ -394,11 +611,33 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
     ? { surface: theme.purpleLight, ink: theme.ink, muted: theme.muted }
     : { surface: theme.proSheetTop, ink: '#FFFFFF', muted: 'rgba(255,255,255,0.72)' };
   const accent = theme.highlight;
+  // Lighter than the sheet scrim (0.72): the page has to stay readable behind
+  // it and the accent still has to read as the accent.
+  const dimFill = themeName === 'dark' ? 'rgba(0,0,0,0.5)' : 'rgba(6,4,16,0.35)';
   const title = stop ? (stop === 'ai' ? AI_MARK : t(language, STOP_TITLE_KEY[stop])) : null;
   const body = isBar ? (stop ? t(language, TOUR_BAR_STOP_COPY_KEY[stop]) : '') : t(language, beat.copyKey);
 
   return (
     <View ref={rootRef} pointerEvents="box-none" style={StyleSheet.absoluteFill} onLayout={onRootLayout}>
+      {/* The rest of the page goes quiet, and stays still. A dim, not a blur:
+          expo-blur cannot be given a hole on Android, and dimming is what the
+          ask needs. It is also the shield — `onStartShouldSetResponder` makes
+          it the responder for any touch that reaches it, so nothing under it
+          moves while a beat is up. Not a Pressable: this is not a control and
+          should not be announced as one. It sits below the callout in the
+          tree, so the callout's own buttons are still the reader's. */}
+      <Animated.View
+        pointerEvents="auto"
+        onStartShouldSetResponder={() => true}
+        style={[StyleSheet.absoluteFill, dimStyle]}
+      >
+        <Svg width={size.width} height={size.height}>
+          <G transform={`translate(${ring.x} ${ring.y})`}>
+            <Path d={dimCutoutPath(size, ring, spot.shape)} fill={dimFill} fillRule="evenodd" />
+          </G>
+        </Svg>
+      </Animated.View>
+
       <Animated.View
         pointerEvents="none"
         style={[
@@ -409,15 +648,28 @@ export function FirstRunTour({ surface, beats, registry, language, onSweep, onFi
       >
         <Svg width={ring.width + 16} height={ring.height + 16}>
           <G transform="translate(8 8)">
-            {shape === 'section' ? (
+            {spot.shape === 'section' ? (
               <>
-                <Path d={cutCornerPath(ring.width, ring.height, 20)} fill="none" stroke={theme.highlightSoft} strokeWidth={7} />
-                <Path d={cutCornerPath(ring.width, ring.height, 20)} fill="none" stroke={accent} strokeWidth={2} />
+                <Path d={cutCornerPath(ring.width, ring.height, RING_CUT)} fill="none" stroke={theme.highlightSoft} strokeWidth={7} />
+                <Path d={cutCornerPath(ring.width, ring.height, RING_CUT)} fill="none" stroke={accent} strokeWidth={2} />
               </>
             ) : (
-              // The bar's own highlight is already under this item; the ring
-              // is the line only, not a second halo.
-              <Circle cx={ring.width / 2} cy={ring.height / 2} r={ring.width / 2 - 1} fill="none" stroke={accent} strokeWidth={2} />
+              <>
+                {/* On the bar, the bar's own highlight is already under the
+                    item and a halo would be a second one. On a chevron there
+                    is nothing underneath, so the ring carries its own. */}
+                {outlined ? (
+                  <Circle
+                    cx={ring.width / 2}
+                    cy={ring.height / 2}
+                    r={ring.width / 2 - 3.5}
+                    fill="none"
+                    stroke={theme.highlightSoft}
+                    strokeWidth={7}
+                  />
+                ) : null}
+                <Circle cx={ring.width / 2} cy={ring.height / 2} r={ring.width / 2 - 1} fill="none" stroke={accent} strokeWidth={2} />
+              </>
             )}
           </G>
         </Svg>

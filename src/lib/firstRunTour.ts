@@ -6,8 +6,12 @@
  * 2026-09-08, build reviewed the same day). Three things the review sent
  * back, and this module is where they are settled rather than in the UI:
  *
- * - The tour never blocks. There is no scrim, so nothing here models a
- *   "tap outside" surface. The callout advances itself; the page stays live.
+ * - The tour is guided: while a beat is up, the page underneath takes no
+ *   touches. Round 1 pointed without blocking, and the reader's walk showed
+ *   the cost — the page moved under every beat (a month panel opening into
+ *   the week card, a list folding taller than the band) and the ring spent
+ *   its life chasing it. A page that cannot change is a ring that is always
+ *   where it belongs. The way out is on every beat, and it is one tap.
  * - The bar is ONE beat: a sweep across the five items with the highlight
  *   travelling, not five stops with five taps.
  * - Beats point at sections that exist on a fresh install. What is inside
@@ -17,6 +21,7 @@
  * mock got wrong (the ring measured mid-scroll), so it is testable here.
  */
 
+import { cutCornerPath } from './cutCorner';
 import type { I18nKey } from './i18n';
 
 export type TourSurface = 'home' | 'progress' | 'profile';
@@ -27,6 +32,7 @@ export const TOUR_SURFACES: readonly TourSurface[] = ['home', 'progress', 'profi
 export type TourTargetId =
   | 'home.week'
   | 'home.hero'
+  | 'home.workoutChevron'
   | 'home.program'
   | 'home.cards'
   | 'progress.chart'
@@ -48,8 +54,22 @@ export const TOUR_BAR_STOPS: readonly TourBarStop[] = ['home', 'programs', 'ai',
 export interface TourSectionBeat {
   kind: 'section';
   target: TourTargetId;
+  /**
+   * What the callout is placed against, when that is not the ring's target.
+   * The hero beat rings one chevron but belongs to the whole day block, so
+   * the callout sits under the block and follows it as the list opens and
+   * closes. Defaults to `target`.
+   */
+  anchor?: TourTargetId;
   /** Which side of the target the callout prefers; the band decides. */
   place: 'above' | 'below';
+  /**
+   * How the scroller brings the target into the band. The last section on a
+   * page has nothing under it to lift itself against, so it asks for the end
+   * of the list instead of an offset (user 2026-09-08: the cards beat stopped
+   * short and drew half a section).
+   */
+  scroll?: 'target' | 'end';
   /** The dictionary key for the callout's one sentence. */
   copyKey: I18nKey;
 }
@@ -72,12 +92,24 @@ export function resolveTourBeats(surface: TourSurface, options: { hasProgram: bo
     case 'home': {
       const beats: TourBeat[] = [
         { kind: 'section', target: 'home.week', place: 'below', copyKey: 'tour.home.week' },
-        { kind: 'section', target: 'home.hero', place: 'below', copyKey: 'tour.home.hero' },
+        // With a plan, the day block is a box of foldable rows and the beat's
+        // subject is the fold itself: the ring goes on the workout row's
+        // chevron, the callout stays with the block. Without one, the block is
+        // a single start button and there is nothing finer to point at.
+        options.hasProgram
+          ? {
+              kind: 'section',
+              target: 'home.workoutChevron',
+              anchor: 'home.hero',
+              place: 'below',
+              copyKey: 'tour.home.hero',
+            }
+          : { kind: 'section', target: 'home.hero', place: 'below', copyKey: 'tour.home.hero' },
       ];
       if (options.hasProgram) {
         beats.push({ kind: 'section', target: 'home.program', place: 'below', copyKey: 'tour.home.program' });
       }
-      beats.push({ kind: 'section', target: 'home.cards', place: 'above', copyKey: 'tour.home.cards' });
+      beats.push({ kind: 'section', target: 'home.cards', place: 'above', scroll: 'end', copyKey: 'tour.home.cards' });
       beats.push({ kind: 'bar', stops: TOUR_BAR_STOPS });
       return beats;
     }
@@ -120,10 +152,28 @@ export const TOUR_START_REDUCED_MS = 30;
 export const CALLOUT_ENTER_MS = 260;
 export const CALLOUT_LEAVE_MS = 160;
 export const RING_ENTER_MS = 300;
-/** How long the bar sweep rests on each item before moving on. */
-export const BAR_SWEEP_STOP_MS = 1800;
+/**
+ * How long the bar sweep rests on each item before moving on. 1800 read the
+ * five names faster than a first-time reader could (user 2026-09-08).
+ */
+export const BAR_SWEEP_STOP_MS = 2600;
 /** After a programmatic scroll, the target is measured once this has passed. */
 export const SCROLL_SETTLE_MS = 450;
+/**
+ * The page under the tour is live, so a beat's target moves for reasons no
+ * scroll event reports: the week row opens a month panel into itself, the
+ * workout list folds. The beat re-measures on this tick and moves the ring
+ * and the callout when the answer changed.
+ */
+export const TOUR_REMEASURE_MS = 300;
+/**
+ * After the reader's own scroll, the beat leaves the page alone this long
+ * before it may scroll again. Chasing a target the reader is dragging is the
+ * one thing worse than a callout slightly out of place.
+ */
+export const TOUR_RESCROLL_QUIET_MS = 600;
+/** Sub-pixel measurement jitter is not a move. */
+export const RECT_EPSILON = 0.5;
 
 export function tourStartDelayMs(reduceMotion: boolean): number {
   return reduceMotion ? TOUR_START_REDUCED_MS : TOUR_START_AFTER_UNFOLD_MS;
@@ -148,6 +198,15 @@ export const CALLOUT_SIDE_INSET = 20;
 export const RING_PAD = 7;
 export const RING_BAR_DIAMETER = 62;
 export const RING_BAR_AI_DIAMETER = 74;
+/** A row's chevron is a 16 dp glyph; the ring is the tap target around it. */
+export const RING_CHEVRON_DIAMETER = 44;
+/** A ring on one control breathes, so the glyph under it reads as pressable. */
+export const RING_PULSE_SCALE = 1.12;
+export const RING_PULSE_MS = 900;
+/** The cut on the section ring's top-left corner, matching the app's shape. */
+export const RING_CUT = 20;
+
+export type TourRingShape = 'section' | 'bar' | 'bar-ai' | 'chevron';
 
 export interface PlaceCalloutInput {
   target: TourRect;
@@ -209,8 +268,18 @@ export function notchOffset(target: TourRect, calloutLeft: number, calloutWidth:
   return Math.max(min, Math.min(max, centre));
 }
 
-/** The ring's box: padded around a section, a fixed circle on a bar item. */
-export function ringBox(target: TourRect, shape: 'section' | 'bar' | 'bar-ai'): TourRect {
+/**
+ * Which shape a section beat's ring takes: a circle on one control when the
+ * beat rings something inside its anchor and that control was actually found,
+ * the padded outline otherwise — including when the fine target is not on
+ * this install and the anchor stood in for it.
+ */
+export function sectionRingShape(beat: TourSectionBeat, foundTarget: boolean): TourRingShape {
+  return foundTarget && beat.anchor !== undefined && beat.anchor !== beat.target ? 'chevron' : 'section';
+}
+
+/** The ring's box: padded around a section, a fixed circle on a glyph. */
+export function ringBox(target: TourRect, shape: TourRingShape): TourRect {
   if (shape === 'section') {
     return {
       x: target.x - RING_PAD,
@@ -219,13 +288,75 @@ export function ringBox(target: TourRect, shape: 'section' | 'bar' | 'bar-ai'): 
       height: target.height + RING_PAD * 2,
     };
   }
-  const d = shape === 'bar-ai' ? RING_BAR_AI_DIAMETER : RING_BAR_DIAMETER;
+  const d =
+    shape === 'bar-ai' ? RING_BAR_AI_DIAMETER : shape === 'chevron' ? RING_CHEVRON_DIAMETER : RING_BAR_DIAMETER;
   return {
     x: target.x + target.width / 2 - d / 2,
     y: target.y + target.height / 2 - d / 2,
     width: d,
     height: d,
   };
+}
+
+/**
+ * Did the target actually move? The beat re-measures four times a second, and
+ * setting state on an unchanged rectangle re-renders the layer for nothing.
+ */
+export function rectChanged(previous: TourRect | null, next: TourRect | null): boolean {
+  if (previous === next) {
+    return false;
+  }
+  if (!previous || !next) {
+    return true;
+  }
+  return (
+    Math.abs(previous.x - next.x) > RECT_EPSILON ||
+    Math.abs(previous.y - next.y) > RECT_EPSILON ||
+    Math.abs(previous.width - next.width) > RECT_EPSILON ||
+    Math.abs(previous.height - next.height) > RECT_EPSILON
+  );
+}
+
+/**
+ * Does the callout, where it landed, sit on top of what it points at?
+ *
+ * `placeCallout` clamps into the band, so a target that has grown past what
+ * the band leaves over — the day block with its list open — gets its own
+ * callout pushed back across it. That is the signal to scroll the page again,
+ * not to move the callout somewhere it does not belong.
+ */
+export function calloutCoversTarget(
+  placement: CalloutPlacement,
+  target: TourRect,
+  calloutHeight: number,
+): boolean {
+  return placement.top + calloutHeight > target.y && placement.top < target.y + target.height;
+}
+
+/** A closed circle as path data, so a cut-out can hold it and its frame in one `d`. */
+function circlePath(cx: number, cy: number, r: number): string {
+  return `M ${cx - r} ${cy} A ${r} ${r} 0 1 0 ${cx + r} ${cy} A ${r} ${r} 0 1 0 ${cx - r} ${cy} Z`;
+}
+
+/**
+ * The dim layer's one path: the whole overlay with the ring's shape punched
+ * out of it, drawn with `fillRule="evenodd"`.
+ *
+ * Both subpaths must live in ONE `<Path>` for even-odd to cut a hole rather
+ * than paint a second shape, so they share the hole's frame — the caller
+ * draws this inside `translate(hole.x hole.y)`, the way the ring already is.
+ */
+export function dimCutoutPath(
+  overlay: { width: number; height: number },
+  hole: TourRect,
+  shape: TourRingShape,
+): string {
+  const outer = `M ${-hole.x} ${-hole.y} H ${overlay.width - hole.x} V ${overlay.height - hole.y} H ${-hole.x} Z`;
+  const inner =
+    shape === 'section'
+      ? cutCornerPath(hole.width, hole.height, RING_CUT)
+      : circlePath(hole.width / 2, hole.height / 2, hole.width / 2);
+  return `${outer} ${inner}`;
 }
 
 /**

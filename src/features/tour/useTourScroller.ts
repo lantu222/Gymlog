@@ -24,6 +24,7 @@ export function useTourScroller(surface: TourSurface, tourTargets: TourTargetReg
       viewport: viewportOf(ref),
       getOffset: () => offsetRef.current,
       scrollToOffset: (offset, animated) => ref.current?.scrollTo({ y: offset, animated }),
+      scrollToEnd: (animated) => ref.current?.scrollToEnd({ animated }),
     });
     return () => tourTargets.registerScroller(surface, null);
   }, [surface, tourTargets]);
