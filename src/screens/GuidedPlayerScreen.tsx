@@ -1016,30 +1016,15 @@ function DialCard({
   const styles = useThemedStyles(makeStyles);
   const [draft, setDraft] = useState<string | null>(null);
 
-  const commit = () => {
-    if (draft !== null) {
-      onCommit(draft);
-      setDraft(null);
-    }
-  };
-
-  // Closing the card by tapping elsewhere unmounts the field, and on Android
-  // that is not a blur — a number half-typed was a number thrown away. The
-  // close commits whatever was in the field.
-  const draftRef = useRef<string | null>(null);
-  draftRef.current = draft;
-  const onCommitRef = useRef(onCommit);
-  onCommitRef.current = onCommit;
+  // Every keystroke commits. The field shows what is being typed (`draft`)
+  // while the parent's number follows it through the lib rule, so nothing is
+  // pending when the card closes — by the keyboard's done key, by a tap
+  // elsewhere (which unmounts the field without a blur on Android), or by the
+  // log button, which reads `kg` in the very tick it closes the card.
   useEffect(() => {
     if (!open) {
-      return undefined;
+      setDraft(null);
     }
-    return () => {
-      if (draftRef.current !== null) {
-        onCommitRef.current(draftRef.current);
-        setDraft(null);
-      }
-    };
   }, [open]);
 
   return (
@@ -1056,13 +1041,13 @@ function DialCard({
         {open ? (
           <TextInput
             value={draft ?? value}
-            onChangeText={setDraft}
-            onFocus={() => setDraft(value)}
-            onBlur={commit}
-            onSubmitEditing={() => {
-              commit();
-              onToggle();
+            onChangeText={(text) => {
+              setDraft(text);
+              onCommit(text);
             }}
+            onFocus={() => setDraft(value)}
+            onBlur={() => setDraft(null)}
+            onSubmitEditing={onToggle}
             autoFocus
             keyboardType={unit ? 'decimal-pad' : 'number-pad'}
             returnKeyType="done"

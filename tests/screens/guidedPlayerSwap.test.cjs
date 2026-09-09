@@ -143,6 +143,11 @@ module.exports = [
       );
       // The visible hint exists in both languages.
       assert.equal((i18nSource.match(/'guided\.dial\.tapToType': '[^']+'/g) ?? []).length, 2);
+      // Typing commits on every keystroke: the log button reads the number in
+      // the same tick it closes the card, and a commit deferred to blur, to
+      // the done key or to an unmount was a typed weight logged as the old one.
+      assert.match(playerSource, /onChangeText=\{\(text\) => \{\s*setDraft\(text\);\s*onCommit\(text\);\s*\}\}/);
+      assert.doesNotMatch(playerSource, /draftRef|onCommitRef/);
     },
   },
   {
