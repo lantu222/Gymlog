@@ -2081,23 +2081,6 @@ export function GuidedPlayerScreen({
   }, [exerciseBySlot, language, step, unitPreference, workout.history]);
 
   /* ── rest screen ───────────────────────────────────────────────────────── */
-  /** The set that was just logged, as one line: "Penkkipunnerrus · 62,5 kg × 7". */
-  const restLogged = (() => {
-    if (step.type !== 'rest' || step.recoveryKind) {
-      return null;
-    }
-    const set = findSetByIndex(exerciseBySlot.get(step.slotId), step.setIndex);
-    if (!set || set.status !== 'completed') {
-      return null;
-    }
-    const reps = set.actualReps ?? 0;
-    const load = set.actualLoadKg ?? 0;
-    return {
-      name: exerciseNameLabel(language, step.exerciseName),
-      detail: load > 0 ? `${formatWeight(load, unitPreference)} × ${reps}` : t(language, 'guided.target.reps', { reps }),
-    };
-  })();
-
   /**
    * Correcting the set just logged, without leaving the rest.
    *
@@ -2381,8 +2364,8 @@ export function GuidedPlayerScreen({
                           <Text style={styles.phaseStepText}>{phaseIndex + 1}</Text>
                         </View>
                         <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 17.5, fontWeight: '800', color: theme.ink }}>{phase.label}</Text>
-                          <Text style={{ fontSize: 13.5, fontWeight: '600', color: theme.muted, marginTop: 3 }}>{phase.sub}</Text>
+                          <Text style={{ fontSize: 16.5, fontWeight: '800', color: theme.ink }}>{phase.label}</Text>
+                          <Text style={{ fontSize: 13, fontWeight: '600', color: theme.muted, marginTop: 3 }}>{phase.sub}</Text>
                         </View>
                         <View style={{ transform: [{ rotate: expanded ? '90deg' : '0deg' }] }}>
                           <GPIcon name="chevR" size={18} color={theme.faint} />
@@ -2396,25 +2379,43 @@ export function GuidedPlayerScreen({
                               cut at one line behind a 57px indent (user
                               2026-09-09). Name first and wide, then sets, reps,
                               kg or time — each in its own place on every row.
-                              The lifts get a header once; drills have only a time. */}
+
+                              Smaller than the first cut, on the phone's own
+                              evidence: "SARJ/AT" broke across two lines and
+                              "Lantionnostopit/o" mid-word. The name has no line
+                              cap — a stretch called "Lonkankoukistajan venytys"
+                              is unreadable as "Lonkankoukistajan venyt…" ("on pakko
+                              olla koko tekstit") — and a drill row, which has no
+                              sets or reps, does not spend two empty columns'
+                              width on them. The lifts get a header once. */}
                           {phase.key === 'work' ? (
                             <View style={styles.phaseRowGroup}>
                               <View style={[styles.phaseRow, { paddingVertical: 2 }]}>
                                 <View style={{ flex: 1 }} />
-                                <Text style={[styles.phaseColHead, styles.phaseColSets]}>{t(language, 'guided.entry.col.sets')}</Text>
-                                <Text style={[styles.phaseColHead, styles.phaseColReps]}>{t(language, 'guided.reps')}</Text>
-                                <Text style={[styles.phaseColHead, styles.phaseColLoad]}>{t(language, 'guided.entry.col.load')}</Text>
+                                <Text style={[styles.phaseColHead, styles.phaseColSets]} numberOfLines={1}>
+                                  {t(language, 'guided.entry.col.sets')}
+                                </Text>
+                                <Text style={[styles.phaseColHead, styles.phaseColReps]} numberOfLines={1}>
+                                  {t(language, 'guided.reps')}
+                                </Text>
+                                <Text style={[styles.phaseColHead, styles.phaseColLoad]} numberOfLines={1}>
+                                  {t(language, 'guided.entry.col.load')}
+                                </Text>
                               </View>
                             </View>
                           ) : null}
                           {phase.rows.map((row, rowIndex) => (
                             <View key={rowIndex} style={styles.phaseRowGroup}>
                               <View style={styles.phaseRow}>
-                                <Text style={styles.phaseRowName} numberOfLines={2}>
+                                <Text style={styles.phaseRowName}>
                                   {row.name}
                                 </Text>
-                                <Text style={[styles.phaseCol, styles.phaseColSets]}>{row.sets}</Text>
-                                <Text style={[styles.phaseCol, styles.phaseColReps]}>{row.reps}</Text>
+                                {row.sets || row.reps ? (
+                                  <>
+                                    <Text style={[styles.phaseCol, styles.phaseColSets]}>{row.sets}</Text>
+                                    <Text style={[styles.phaseCol, styles.phaseColReps]}>{row.reps}</Text>
+                                  </>
+                                ) : null}
                                 <Text style={[styles.phaseCol, styles.phaseColLoad]}>{row.load}</Text>
                               </View>
                             </View>
@@ -2893,30 +2894,12 @@ export function GuidedPlayerScreen({
                 {/* What was just logged, and a way to fix it.
                     Rest is when a mis-typed rep count is noticed, and until
                     now the only way back was the hardware back button. */}
-                {restLogged ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    style={styles.restLoggedCard}
-                    onPress={() => setRestEditOpen(true)}
-                  >
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={styles.restLoggedLabel}>
-                        {t(language, 'guided.rest.logged', { index: step.setIndex + 1 })}
-                      </Text>
-                      {/* The name on its own line, the numbers on theirs: one
-                          line at 14.5 cut "Lantionnosto laitteessa · 16,2…"
-                          before the weight (user 2026-09-09, from the gym). */}
-                      <Text style={styles.restLoggedName} numberOfLines={2}>
-                        {restLogged.name}
-                      </Text>
-                      <Text style={styles.restLoggedValue}>{restLogged.detail}</Text>
-                    </View>
-                    <Text style={styles.restLoggedEdit}>{t(language, 'guided.rest.edit')}</Text>
-                  </Pressable>
-                ) : null}
-                {/* The whole session, one tap from what was just logged — the
-                    same sheet the dot rail opens, put where the reader asked for
-                    it (user 2026-09-09, "paras idea"): logged, here, to come. */}
+                {/* The whole session, at the top of the rest — the same sheet the
+                    dot rail opens, put where the reader asked for it (user
+                    2026-09-09, "paras idea"): logged, here, to come. The "SARJA 2
+                    KIRJATTU" card that sat here went into the sheet the same
+                    day, Muokkaa with it: the sheet already said what was
+                    logged, and the card said it again above it. */}
                 <Pressable
                   accessibilityRole="button"
                   style={styles.restRunStrip}
@@ -3287,7 +3270,8 @@ export function GuidedPlayerScreen({
           <Text style={styles.sheetTitle}>{t(language, 'guided.runSheet.title')}</Text>
           <ScrollView style={{ flexGrow: 0, flexShrink: 1 }} showsVerticalScrollIndicator={false}>
             {buildGuidedRunSheet(stepPlan, stepIndex).map((item) => {
-              const logged = item.slotId ? formatLoggedSetsLine(exerciseBySlot.get(item.slotId)?.sets ?? []) : '';
+              const lift = item.slotId ? exerciseBySlot.get(item.slotId) : undefined;
+              const logged = lift ? formatLoggedSetsLine(lift.sets, isTimedTrackingMode(lift.trackingMode)) : '';
               return (
               <View key={item.groupIndex} style={styles.runRow}>
                 {/* Done / here / to come, as a mark rather than as a colour:
@@ -3319,6 +3303,23 @@ export function GuidedPlayerScreen({
                       the session's shape and nothing of what had happened in it
                       (user 2026-09-09). */}
                   {logged ? <Text style={styles.runLogged}>{logged}</Text> : null}
+                  {/* Correcting the set just logged, from the sheet that shows
+                      it: the rest screen's own card carried this link until the
+                      card went. Only while resting — that is the one step
+                      whose "just logged" set is unambiguous. */}
+                  {item.status === 'current' && logged && step.type === 'rest' && !step.recoveryKind ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      hitSlop={8}
+                      onPress={() => {
+                        setRunSheetOpen(false);
+                        setRestEditOpen(true);
+                      }}
+                      style={{ alignSelf: 'flex-start', paddingVertical: 2 }}
+                    >
+                      <Text style={styles.runEdit}>{t(language, 'guided.rest.edit')}</Text>
+                    </Pressable>
+                  ) : null}
                 </View>
                 {item.setCount ? (
                   <Text style={styles.runMeta}>
@@ -3344,6 +3345,17 @@ export function GuidedPlayerScreen({
             {/* No "Jatka": closing the sheet is resuming, and the scrim and
                 the back button both close it. What is left is about the lift
                 (user 2026-09-09, "jätä vain nuo kaksi"). */}
+            {/* The whole session, from mid-set. The rest has its strip and the
+                rail its dots; a set screen had neither, so this is the third
+                door, where the reader asked for it (user 2026-09-09). */}
+            <GhostBtn
+              label={t(language, 'guided.runSheet.title')}
+              onPress={() => {
+                setPauseSheetOpen(false);
+                setPaused(false);
+                setRunSheetOpen(true);
+              }}
+            />
             {/* "One back" and "skip this" are gone. Two skips a thumb's width
                 apart — one for the set, one for the exercise — is a pair you
                 pick between by reading, on a sheet you opened mid-set; and
@@ -4200,20 +4212,21 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 6,
     paddingVertical: 7,
   },
-  // Name first and wide, wrapping to two lines; the three number columns are
-  // fixed so a value sits in the same place on every row, blank or not.
-  phaseRowName: { flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: '700', color: theme.ink },
+  // Name first and wide, wrapping as far as it needs; the three number
+  // columns are fixed so a value sits in the same place on every row, blank
+  // or not. Sized so "SARJAT" and "TOISTOT" fit their heads on one line.
+  phaseRowName: { flex: 1, minWidth: 0, fontSize: 13, lineHeight: 17, fontWeight: '700', color: theme.ink },
   phaseCol: {
-    fontSize: 13.5,
+    fontSize: 12.5,
     fontWeight: '600',
     color: theme.muted,
     fontVariant: ['tabular-nums'],
     textAlign: 'right',
   },
-  phaseColHead: { fontSize: 9.5, fontWeight: '800', letterSpacing: 1, color: theme.faint, textAlign: 'right' },
-  phaseColSets: { width: 34 },
-  phaseColReps: { width: 48 },
-  phaseColLoad: { width: 66 },
+  phaseColHead: { fontSize: 8.5, fontWeight: '800', letterSpacing: 0.3, color: theme.faint, textAlign: 'right' },
+  phaseColSets: { width: 38 },
+  phaseColReps: { width: 46 },
+  phaseColLoad: { width: 60 },
   // The step number's disc. Same size and place the play disc held, so the
   // header's rhythm is unchanged — only the thing inside it means something now.
   phaseStep: {
@@ -4872,21 +4885,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   walkStatSub: { fontSize: 12, fontWeight: '600', color: theme.muted, fontVariant: ['tabular-nums'] },
   /* rest screen */
-  restLoggedCard: {
-    marginHorizontal: 20,
-    marginTop: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: theme.greenSoft,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-  },
-  restLoggedLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.1, color: theme.greenInk },
-  restLoggedName: { marginTop: 3, fontSize: 17, fontWeight: '800', color: theme.ink },
-  restLoggedValue: { marginTop: 1, fontSize: 15, fontWeight: '700', color: theme.ink, fontVariant: ['tabular-nums'] },
-  restLoggedEdit: { fontSize: 13.5, fontWeight: '800', color: theme.highlight },
   restRunStrip: {
     marginHorizontal: 20,
     marginTop: 8,
@@ -5020,6 +5018,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '700',
     color: theme.ink,
   },
+  runEdit: { marginTop: 2, fontSize: 13, fontWeight: '800', color: theme.highlight },
   runLogged: {
     marginTop: 2,
     fontSize: 12.5,

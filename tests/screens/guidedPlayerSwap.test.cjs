@@ -252,9 +252,15 @@ module.exports = [
       for (const key of ['guided.rest.nextSet', 'guided.rest.target', 'guided.rest.targetHold']) {
         assert.equal(i18nSource.includes(`'${key}'`), false, `${key} outlived its card`);
       }
-      // The logged card: the name may take two lines, the numbers follow it.
-      assert.match(playerSource, /<Text style=\{styles\.restLoggedName\} numberOfLines=\{2\}>\s*\{restLogged\.name\}/);
-      assert.match(playerSource, /<Text style=\{styles\.restLoggedValue\}>\{restLogged\.detail\}<\/Text>/);
+      // The logged card is gone too ("sarja 1 kirjattu osion voi poistaa ja
+      // tuodaan se tähän tämä treenin sisälle"): the sheet says what was
+      // logged, and Muokkaa moved into it, on the current lift while resting.
+      assert.doesNotMatch(playerSource, /restLoggedCard|restLogged\b|guided\.rest\.logged'/);
+      assert.equal(i18nSource.includes("'guided.rest.logged'"), false);
+      assert.match(
+        playerSource,
+        /item\.status === 'current' && logged && step\.type === 'rest' && !step\.recoveryKind \? \([\s\S]*?setRunSheetOpen\(false\);\s*setRestEditOpen\(true\);/,
+      );
       // One NextLine left in the file: the drills'. The rest screen's is gone.
       assert.equal((playerSource.match(/<NextLine /g) ?? []).length, 1);
     },
@@ -322,7 +328,11 @@ module.exports = [
       assert.doesNotMatch(playerSource, /guided\.entry\.lastTime'|lastTimeLine|entryLastLabel|buildOverviewScheme/);
       assert.equal(i18nSource.includes("'guided.entry.lastTime'"), false);
       assert.match(playerSource, /\.\.\.buildOverviewColumns\(/);
-      assert.match(playerSource, /<Text style=\{styles\.phaseRowName\} numberOfLines=\{2\}>/);
+      // No line cap on the name ("on pakko olla koko tekstit"), and a drill
+      // row spends nothing on the two columns it has no numbers for.
+      assert.match(playerSource, /<Text style=\{styles\.phaseRowName\}>\s*\{row\.name\}/);
+      assert.doesNotMatch(playerSource, /styles\.phaseRowName\} numberOfLines/);
+      assert.match(playerSource, /\{row\.sets \|\| row\.reps \? \(/);
       for (const col of ['Sets', 'Reps', 'Load']) {
         assert.match(playerSource, new RegExp(`styles\\.phaseCol, styles\\.phaseCol${col}\\]`), `${col} column`);
       }
@@ -342,6 +352,11 @@ module.exports = [
       assert.doesNotMatch(playerSource, /label=\{t\(language, 'guided\.resume'\)\}\s*color=\{theme\.purple\}/);
       assert.match(playerSource, /label=\{t\(language, 'guided\.action\.swap'\)\}/);
       assert.match(playerSource, /label=\{t\(language, 'guided\.action\.skipExercise'\)\}/);
+      // And the third door to the whole session, for the set screen that had none.
+      assert.match(
+        playerSource,
+        /label=\{t\(language, 'guided\.runSheet\.title'\)\}\s*onPress=\{\(\) => \{\s*setPauseSheetOpen\(false\);\s*setPaused\(false\);\s*setRunSheetOpen\(true\);/,
+      );
     },
   },
   {
@@ -355,7 +370,11 @@ module.exports = [
     run() {
       assert.match(playerSource, /style=\{styles\.restRunStrip\}\s*onPress=\{\(\) => setRunSheetOpen\(true\)\}/);
       assert.match(playerSource, /'guided\.runSheet\.progress', \{ done: completedSetCount, count: totalSets \}/);
-      assert.match(playerSource, /const logged = item\.slotId \? formatLoggedSetsLine\(exerciseBySlot\.get\(item\.slotId\)\?\.sets \?\? \[\]\) : '';/);
+      // With the lift's tracking mode, so a hold's seconds carry their unit.
+      assert.match(
+        playerSource,
+        /const logged = lift \? formatLoggedSetsLine\(lift\.sets, isTimedTrackingMode\(lift\.trackingMode\)\) : '';/,
+      );
       assert.match(playerSource, /\{logged \? <Text style=\{styles\.runLogged\}>\{logged\}<\/Text> : null\}/);
       assert.equal((i18nSource.match(/'guided\.runSheet\.progress': '[^']+'/g) ?? []).length, 2);
     },

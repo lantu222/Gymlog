@@ -1361,7 +1361,6 @@ const EN = {
   'guided.own.cooldown': 'Recover your own way',
   // -- The set screen's exercise sheet: one sheet, three tabs.
   // -- Rest (session flow, screen 7).
-  'guided.rest.logged': 'SET {index} LOGGED',
   'guided.rest.edit': 'Edit',
   'guided.rest.editTitle': 'Fix the set you just logged',
   'guided.rest.editSave': 'Save',
@@ -4373,7 +4372,6 @@ const FI: Record<I18nKey, string> = {
   'guided.own.start.cooldown': 'Aloita palautuminen',
   'guided.own.warmup': 'Lämmittele omatoimisesti',
   'guided.own.cooldown': 'Palaudu omatoimisesti',
-  'guided.rest.logged': 'SARJA {index} KIRJATTU',
   'guided.rest.edit': 'Muokkaa',
   'guided.rest.editTitle': 'Korjaa juuri kirjattu sarja',
   'guided.rest.editSave': 'Tallenna',

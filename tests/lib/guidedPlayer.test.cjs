@@ -106,6 +106,10 @@ module.exports = [
       // Bodyweight: reps alone.
       assert.equal(formatLoggedSetsLine([{ status: 'completed', actualLoadKg: 0, actualReps: 12 }]), '12');
       assert.equal(formatLoggedSetsLine([{ status: 'pending' }]), '');
+      // A hold logs seconds in the reps field: "45" beside "60 × 8" would read as
+      // forty-five reps, and "20 × 45" as twenty kilos for forty-five (PR #90 review).
+      assert.equal(formatLoggedSetsLine([{ status: 'completed', actualLoadKg: 0, actualReps: 45 }], true), '45 s');
+      assert.equal(formatLoggedSetsLine([{ status: 'completed', actualLoadKg: 20, actualReps: 45 }], true), '20 × 45 s');
     },
   },
   {
