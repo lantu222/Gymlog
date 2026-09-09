@@ -640,7 +640,10 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       // changed the programme page and left Home on the old name (user
       // 2026-09-08). Both records move together, in one commit, so no screen
       // can disagree with another about what was just typed.
-      const nextPlans = renamePlansForTemplate(withTemplate.workoutPlans, workoutTemplateId, trimmedName, now);
+      //
+      // The plan's own `updatedAt` stays where it is: on a plan that field is
+      // the block boundary Home counts the week from, not a modification time.
+      const nextPlans = renamePlansForTemplate(withTemplate.workoutPlans, workoutTemplateId, trimmedName);
       await commit(
         plansChanged(withTemplate.workoutPlans, nextPlans)
           ? { ...withTemplate, workoutPlans: nextPlans }

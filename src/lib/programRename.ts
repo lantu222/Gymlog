@@ -19,19 +19,28 @@ import { WorkoutPlan } from '../types/models';
  * A plan belongs to the template when any of its entries points at it. Plans
  * that do not are returned untouched, and so is the array itself when nothing
  * matched — the provider commits only when something actually changed.
+ *
+ * `updatedAt` is deliberately NOT touched. On a plan it is not a modification
+ * timestamp: it is the block boundary. Home counts the week from it —
+ * `countSessionsSince(completedPlanSessions, planTemplateIds, plan.updatedAt)`
+ * — because plan records are written only at onboarding, adoption and restart,
+ * which is also what makes "Uusi kierros" possible at all. Stamping it here
+ * would have reset a reader's week and session count to zero for typing a new
+ * name, with every completed session still in the database and nothing on
+ * screen to explain it (review, PR #85). Moving days already refuses to touch
+ * it for the same reason; so does a rename.
  */
 export function renamePlansForTemplate(
   plans: readonly WorkoutPlan[],
   workoutTemplateId: string,
   nextName: string,
-  updatedAt: string,
 ): WorkoutPlan[] {
   return plans.map((plan) => {
     const belongs = plan.entries.some((entry) => entry.workoutTemplateId === workoutTemplateId);
     if (!belongs || plan.name === nextName) {
       return plan;
     }
-    return { ...plan, name: nextName, updatedAt };
+    return { ...plan, name: nextName };
   });
 }
 
