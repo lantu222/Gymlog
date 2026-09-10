@@ -214,6 +214,14 @@ ovat nyt tuotannossa ja mitattu verkosta, ei tiedostosta.
 3. **Tukholman alue.** Ks. yllä oleva luku: ratkaisu ei ollut `vercel.json`
    vaan projektin asetus.
 
+**Auki: epäonnistunutta poistoa ei yritetä uudelleen.** Jos peruutushetkellä
+ei ole verkkoa tai palvelin vastaa 429, kytkin sammuu puhelimessa mutta kopiot
+jäävät palvelimelle. Mitään ei ole menetetty, koska `aiLogId` jää talteen ja
+poisto onnistuu kun kytkintä seuraavan kerran koskee — mutta itsestään se ei
+tapahdu. Korjaus olisi käynnistyksessä ajettava tarkistus: jos kaikki kolme
+lupaa ovat pois mutta tunniste on tallessa, yritä poistoa ja nollaa tunniste
+vasta onnistumisesta.
+
 Yksi ansa maksoi kolme deployta: muutokset elävät worktreessä committoimatta,
 joten päähakemistosta ajettu `vercel --prod` lähetti vanhat tiedostot ja
 onnistui. Deploy siitä hakemistosta missä muutokset ovat:
