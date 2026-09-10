@@ -414,7 +414,38 @@ export interface AppPreferences {
   /** Active training break, or null when training normally. */
   trainingBreak: TrainingBreak | null;
   /** ISO date until which a redeemed promo keeps Pro unlocked; null = none. */
+  /**
+   * Permission to KEEP a copy of what the coach was asked, one thing at a time.
+   *
+   * Not permission to send it — sending is what the online coach is, and the
+   * notice above these says so. This is the separate question of whether the
+   * server may write the text down afterwards, and the answer is no until the
+   * reader says otherwise. Three of them rather than one, because "keep my
+   * conversations" and "keep the photos I import" are not the same offer.
+   */
+  /**
+   * A random label the kept copies carry, so they can be deleted again.
+   *
+   * The uncomfortable part of a delete promise: to remove what is yours, the
+   * store has to be able to recognise it as yours. Without an id the log is
+   * more anonymous and less withdrawable, and a promise of withdrawal beats a
+   * shade of anonymity in a store the reader chose to allow. Minted the first
+   * time a line is switched on, never sent to Anthropic, and tied to nothing —
+   * not the account, not the phone, not the analytics install id.
+   */
+  aiLogId: string | null;
+  aiLogChatConsent: boolean;
+  aiLogComposerConsent: boolean;
+  aiLogPhotoConsent: boolean;
   promoProUntil: string | null;
+  /**
+   * When the Pro trial runs out, separate from a promo code's grant.
+   *
+   * Both unlock Pro for a stretch of days, but only one of them is a trial:
+   * warning "your trial ends soon" to somebody who redeemed a code would name
+   * a thing they never started.
+   */
+  proTrialUntil: string | null;
   /**
    * Demo-build only: which term the subscription screen pretends the reader is
    * on, and whether they have pretended to cancel it.

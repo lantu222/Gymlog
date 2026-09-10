@@ -237,4 +237,46 @@ module.exports = [
       assert.match(screen, /doneText: \{\s*\r?\n\s*color: theme\.onHighlight,/);
     },
   },
+  {
+    name: 'the Pro row is offered to everyone who has not bought it, and to nobody who has',
+    run() {
+      const base = {
+        canOfferWidget: false,
+        pinnedCardKeys: ['bodyweight', 'chest'],
+        focusAreas: ['chest'],
+        canOfferAccountBackup: false,
+      };
+
+      // Nothing else to offer, and Pro alone is enough to show the step: it is
+      // the last screen before the app, which is where the page belongs.
+      const withPro = planSetupHandoff({ ...base, canOfferPro: true });
+      assert.equal(withPro.offerPro, true);
+      assert.equal(withPro.shouldShow, true);
+      assert.equal(countSetupHandoffOffers(withPro), 1);
+
+      // A reader who already bought it is not sold it again, and with nothing
+      // else left the step does not appear at all.
+      const bought = planSetupHandoff({ ...base, canOfferPro: false });
+      assert.equal(bought.offerPro, false);
+      assert.equal(bought.shouldShow, false);
+      assert.equal(countSetupHandoffOffers(bought), 0);
+
+      // Same three-valued trap the account offer had: an older stored call
+      // carries no field, and `undefined` must not leak into shouldShow.
+      const older = planSetupHandoff(base);
+      assert.equal(older.offerPro, false);
+      assert.equal(older.shouldShow, false);
+
+      // And it counts alongside the others rather than replacing one.
+      const everything = planSetupHandoff({
+        canOfferWidget: true,
+        pinnedCardKeys: [],
+        focusAreas: ['chest'],
+        canOfferAccountBackup: true,
+        canOfferPro: true,
+      });
+      // Widget, the focus card, bodyweight, the account and Pro: five, not four.
+      assert.equal(countSetupHandoffOffers(everything), 5);
+    },
+  },
 ];

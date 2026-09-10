@@ -50,6 +50,29 @@ export interface SetupTrackingOffer {
  * The first focus area with a tape measurement wins — onboarding lets several be
  * picked, and offering three cards at the door is not an offer, it is a form.
  */
+/**
+ * Every measured site the reader's own focus answers point at, in the order
+ * they picked them and without repeats.
+ *
+ * The hand-off used to offer one of these — the first match — and the reader
+ * never saw the others. The dialog offers the whole set they asked for, which
+ * is a shorter and better list than all nine sites: somebody who said "chest
+ * and arms" is not looking for calves (user, 2026-09-10).
+ *
+ * Empty when the reader named no focus area that maps to a tape measure. The
+ * caller decides what to show then; this says nothing rather than guessing.
+ */
+export function resolveFocusMeasurementSites(focusAreas: SetupFocusArea[]): MeasurementKind[] {
+  const sites: MeasurementKind[] = [];
+  for (const focus of focusAreas) {
+    const kind = FOCUS_MEASUREMENT[focus];
+    if (kind && !sites.includes(kind)) {
+      sites.push(kind);
+    }
+  }
+  return sites;
+}
+
 export function resolveSetupTrackingOffer(focusAreas: SetupFocusArea[]): SetupTrackingOffer {
   for (const focus of focusAreas) {
     const cardKey = FOCUS_MEASUREMENT[focus];
@@ -74,6 +97,14 @@ export interface SetupHandoffInput {
    * (2026-08-22): sign-in never blocks the door, it stands beside it.
    */
   canOfferAccountBackup: boolean;
+  /**
+   * False when the reader already has Pro. Offering the page to somebody who
+   * bought it is the sign that explains a sign.
+   *
+   * The offer is a row like the others, not a paywall: it opens the Pro page
+   * after the rest of the hand-off lands, and declining costs nothing.
+   */
+  canOfferPro: boolean;
 }
 
 export interface SetupHandoffPlan {
@@ -90,6 +121,14 @@ export interface SetupHandoffPlan {
   offerBodyweight: boolean;
   /** Sign in with Google and keep the data past this phone. Free and Pro alike. */
   offerAccountBackup: boolean;
+  /** Open the Pro page once the hand-off is done. Never for a reader who has it. */
+  offerPro: boolean;
+  /**
+   * The measured sites to offer on the tracking page, from the reader's own
+   * focus answers. Empty when they named nothing measurable, and the dialog
+   * falls back to every site.
+   */
+  trackedSiteOptions: MeasurementKind[];
 }
 
 /**
@@ -111,13 +150,17 @@ export function planSetupHandoff(input: SetupHandoffInput): SetupHandoffPlan {
   // carry the field at all, and `undefined` leaking into shouldShow turned a
   // boolean contract into a three-valued one.
   const offerAccountBackup = input.canOfferAccountBackup === true;
+  const offerPro = input.canOfferPro === true;
 
   return {
-    shouldShow: input.canOfferWidget || tracking !== null || offerBodyweight || offerAccountBackup,
+    shouldShow:
+      input.canOfferWidget || tracking !== null || offerBodyweight || offerAccountBackup || offerPro,
     offerWidget: input.canOfferWidget,
     tracking,
     offerBodyweight,
     offerAccountBackup,
+    offerPro,
+    trackedSiteOptions: resolveFocusMeasurementSites(input.focusAreas),
   };
 }
 
@@ -128,12 +171,16 @@ export function planSetupHandoff(input: SetupHandoffInput): SetupHandoffPlan {
  * phone that has had the app before is the usual case.
  */
 export function countSetupHandoffOffers(
-  plan: Pick<SetupHandoffPlan, 'offerWidget' | 'tracking' | 'offerBodyweight' | 'offerAccountBackup'>,
+  plan: Pick<
+    SetupHandoffPlan,
+    'offerWidget' | 'tracking' | 'offerBodyweight' | 'offerAccountBackup' | 'offerPro'
+  >,
 ): number {
   return (
     (plan.offerWidget ? 1 : 0) +
     (plan.tracking ? 1 : 0) +
     (plan.offerBodyweight ? 1 : 0) +
-    (plan.offerAccountBackup ? 1 : 0)
+    (plan.offerAccountBackup ? 1 : 0) +
+    (plan.offerPro ? 1 : 0)
   );
 }

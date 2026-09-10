@@ -113,8 +113,7 @@ function BlockRow({
   }
 
   return (
-    <View style={[styles.sectCard, open && styles.sectCardOpen]}>
-      {open ? <View style={styles.sectStripe} /> : null}
+    <View style={styles.sectCard}>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
@@ -1339,8 +1338,7 @@ export function HomeScreen({
                   so the meta line doubles as the fold, matching the two rows
                   around it instead of being the one section that cannot
                   close. */}
-              <View style={[styles.sectCard, workoutListOpen && styles.sectCardOpen]}>
-              {workoutListOpen ? <View style={styles.sectStripe} /> : null}
+              <View style={styles.sectCard}>
               <Pressable
                 accessibilityRole="button"
                 accessibilityState={{ expanded: workoutListOpen }}
@@ -2524,15 +2522,21 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
    * box has no height of its own: the phases push it taller as they open,
    * which is why this is a border and not a measured card.
    */
+  /**
+   * The day, flat on the page (user, 2026-09-09).
+   *
+   * The border, the fill and the radius went together: with the phase cards
+   * already gone, the last box was drawing a frame around content that the
+   * hairlines inside it had already organised. The horizontal rules stay —
+   * they are what separates the three phases now.
+   */
   sessionBox: {
     marginTop: 18,
-    paddingHorizontal: 14,
+    // No side padding: it existed to hold the content off the card's border,
+    // and with the border gone it was an indent with nothing to explain it.
+    // The rules now span the same width as the week strip above them.
     paddingTop: 2,
     paddingBottom: 16,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: 'rgba(255,255,255,0.022)',
   },
   hero: {
     marginTop: 12,
@@ -2587,30 +2591,24 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 14,
   },
   // A row, not a card: same hairline the lift rows use, no fill, no radius.
-  /* The phase cards (design: Sheets & Pickers, frame 03). One anatomy for
-     warmup, workout and recovery; no hue per phase — a single violet marks
-     whichever card is open, and orange stays reserved for actions. */
+  /* The three phases of the session — warmup, workout, recovery.
+     No longer cards (user, 2026-09-09). They sat as bordered, filled,
+     rounded boxes inside the day's own bordered card, and the rows inside
+     them were separated by hairlines already: three edges saying one thing.
+     What is left is a hairline above each phase and the phase's own rows
+     below it, so the day card is the only box on the screen.
+     Open is still marked, just not by a border: the violet title and the
+     left stripe say it, and orange stays reserved for actions. */
   sectCard: {
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 16,
-    paddingHorizontal: 15,
-    marginTop: 10,
+    paddingHorizontal: 0,
+    // Nothing draws the phases apart any more — not a card, not a rule (user,
+    // 2026-09-09). Their own titles do it: three big words down the page, with
+    // room between them. Space separates as well as a line does, and it does
+    // not add an edge.
+    marginTop: 6,
     overflow: 'hidden',
   },
-  sectCardOpen: {
-    backgroundColor: 'rgba(155,109,255,0.07)',
-    borderColor: 'rgba(155,109,255,0.30)',
-  },
-  sectStripe: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 2,
-    backgroundColor: theme.purple,
-  },
+
   sectTitleOpen: { color: theme.purpleBright },
   // Shared by all three section headers — Warmup, Workout, Recovery — so
   // they are the same height by construction, not by three numbers agreeing.
@@ -2636,12 +2634,17 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexBasis: 'auto',
     minWidth: 0,
     color: theme.ink,
+    // Big, because the rules that used to separate the phases are gone and the
+    // titles carry the structure now. Stopped at 20 rather than going larger:
+    // "Palautuminen" beside "2 venytystä · 3 min" is the tightest pair the
+    // screen has, and the meta shrinks before the name does (flexShrink 3
+    // against 1), so the name survives — but only while it fits at all.
     // "Palautuminen" still broke onto a second line beside its meta at 17.5
     // (user 2026-09-08). Shrinking the pair is the fix the reader asked for —
     // zoom out rather than truncate — and `numberOfLines={1}` on the title
     // now caps the row's height whatever the language does to the words.
-    fontSize: 16,
-    lineHeight: 20,
+    fontSize: 20,
+    lineHeight: 26,
     fontWeight: '800',
     letterSpacing: -0.2,
   },

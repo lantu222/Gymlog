@@ -211,7 +211,13 @@ export interface AICoachHomeState {
 
 export interface AICoachProfile {
   heightCm: number | null;
+  /**
+   * A year, only for readers whose install predates 2026-09-09. Onboarding
+   * asks a band now, so this is null for everyone who set up after it.
+   */
   age: number | null;
+  /** The band the reader picked. Sent instead of a year, never as well as one. */
+  ageRange?: string | null;
   gender: string | null;
 }
 
@@ -364,6 +370,21 @@ export interface AICoachConversationTurn {
 
 export interface AICoachAdviceRequest {
   prompt: string;
+  /**
+   * Permission for the server to keep a copy of this question and its answer.
+   *
+   * Carried on every request rather than remembered server-side: the answer
+   * lives on the reader's phone and can be withdrawn between two questions, so
+   * a remembered yes would outlive the yes. Optional, and absent means no —
+   * an older client that has never seen the consent sheet sends nothing.
+   */
+  keepConsent?: boolean;
+  /**
+   * The random label a kept copy is filed under, so withdrawing can find it
+   * again. Sent only when `keepConsent` is true — there is nothing to label
+   * when nothing is being written.
+   */
+  logId?: string;
   context: AICoachTrainingContext;
   /** Oldest first. The server keeps the most recent few and drops the rest. */
   history?: AICoachConversationTurn[];

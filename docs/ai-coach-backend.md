@@ -151,3 +151,74 @@ If you enable it for public Play release, update:
   the processor when the endpoint goes live)
 - Data Safety declarations
 - any user-facing Beta disclosures
+
+## Function region: Stockholm, and where it is actually set
+
+Measured 2026-09-10. Every endpoint answered with
+
+```
+x-vercel-id: arn1::iad1::<id>
+```
+
+The first segment is the edge that received the request. **The second is where
+the function actually ran**, and `iad1` is Washington DC. The Blob store was
+already in the EU, so the privacy policy's "storage is in the European Union"
+was true — and it only ever claimed the storage. The processing was in the
+United States, which is a different sentence and one the policy did not make.
+
+**`vercel.json` is not the lever on this plan.** `regions: ["arn1"]` sat in the
+file through two production deploys and every function still built in `iad1`,
+silently. Asking for the same single region from the command line says why:
+
+```
+$ vercel --prod --regions arn1
+Error: Regions for Hobby projects are limited to 1. Upgrade to Pro.
+```
+
+The key was removed rather than left in place ignored. The region lives in the
+Vercel dashboard instead, under Settings → Functions → Function Region, which
+a Hobby project can set to exactly one region. Set to Stockholm on 2026-09-10;
+it applies to new deployments only, so it takes a redeploy to move.
+
+Verify from the network rather than from the file. A value in a config is not a
+region; a running function is:
+
+```bash
+curl -s -o /dev/null -D - -X GET "$EXPO_PUBLIC_AI_COACH_API_URL" | grep -i x-vercel-id
+```
+
+Both segments now read `arn1`, and `vercel inspect <deployment>` lists every
+function as `[arn1]`. If a future deploy reads `iad1` again, the dashboard
+setting is the thing to look at — nothing in this repository decides it.
+
+Anthropic still answers from the United States either way. Moving the function
+moves our own processing, not the model's.
+
+## Deployattu ja todennettu 10.9.2026
+
+Kolme palvelinmuutosta olivat pitkään koodissa mutta eivät ajossa. Kaikki kolme
+ovat nyt tuotannossa ja mitattu verkosta, ei tiedostosta.
+
+1. **Keskustelujen poisto.** `api/ai-coach.ts` sai `mode: 'forget'` -reitin,
+   joka poistaa yhden tunnisteen alle arkistoidut keskustelut. Reitti ohittaa
+   kaikki muut portit paitsi pyyntörajoituksen: tiliä ei ole, ja jokainen kutsu
+   listaa koko `transcripts/`-polun ennen kuin poistaa mitään, joten
+   rajoittamaton reitti myisi täyden listauksen arvatulla tunnisteella. Puhelin
+   luopuu tunnisteesta vasta kun poisto on onnistunut — epäonnistuneen kutsun
+   jälkeen tunniste jää talteen, koska se on ainoa lanka kopioihin. Todennettu:
+   tuntemattomalla tunnisteella vastaus on `{"ok":true,"removed":0}`.
+2. **Siivous kattamaan keskustelut.** Cron osasi vain `events/`-polun. Nyt se
+   lukee `RETAINED_PREFIXES`-listan, jossa on myös `transcripts/`. Samassa
+   nipussa poistoreitin kanssa, eli ajossa senkin todennuksen nojalla; cronia
+   itseään ei voi kutsua ilman `CRON_SECRET`-salaisuutta.
+3. **Tukholman alue.** Ks. yllä oleva luku: ratkaisu ei ollut `vercel.json`
+   vaan projektin asetus.
+
+Yksi ansa maksoi kolme deployta: muutokset elävät worktreessä committoimatta,
+joten päähakemistosta ajettu `vercel --prod` lähetti vanhat tiedostot ja
+onnistui. Deploy siitä hakemistosta missä muutokset ovat:
+
+```bash
+npx vercel --prod --cwd "<worktreen polku>"
+```
+

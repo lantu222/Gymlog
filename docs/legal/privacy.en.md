@@ -29,7 +29,7 @@ Everything below is either entered by you or worked out by the app from what you
 - Goals you set with the coach, and the milestones and seasons the app counts from your log.
 - What the coach has advised you in the last three weeks: the one-sentence summary of each answer and the date it was given, at most ten of them. It is kept so the coach does not repeat advice you have already had, it is deleted as it ages past three weeks, and it stays on this phone — the cloud backup below does not carry it.
 - Preferences: language, units, theme, notification and sound settings, default rest time, training breaks.
-- Pro status: whether Pro is on, when it was bought or cancelled, and the date until which a promo code keeps it on.
+- Pro status: whether Pro is on, when it was bought or cancelled, and the dates until which a promo code or a free trial keeps it on.
 - Small bookkeeping: whether the rating prompt or the online-coach notice has been shown, the summary file the home-screen widget reads, the queue of usage events waiting to be sent, and a copy of a damaged data file if the app ever finds one — it is set aside rather than deleted, so a broken file is not a lost training log.
 
 ## Android backup
@@ -60,7 +60,11 @@ The summary contains your recent workouts (exercise names, sets, reps, kilograms
 
 It does not contain your name, your email, your Google account or any identifier of your phone. The question cannot be tied to you. Our server sees the phone’s internet address, which it holds briefly in memory to limit how many requests one connection can make; it is not stored.
 
-Our server forwards the question to Anthropic, the company behind the Claude model, which writes the answer in the United States. Under Anthropic’s commercial terms the data is not used to train its models and is deleted within 30 days. We keep no copy of questions or answers.
+Our server forwards the question to Anthropic, the company behind the Claude model, which writes the answer in the United States. Under Anthropic’s commercial terms the data is not used to train its models and is deleted within 30 days.
+
+We keep no copy of our own unless you have said we may. The coach asks once, before your first question, in three separate lines: your questions and answers, the programmes you ask it to build, and the photos you import one from. Every line starts as no, each is its own answer, and none of them changes the answer you get. What you allow is kept for up to 24 months and then deleted automatically, and it is used for one thing: making the coach better at writing programmes.
+
+You can take it back at any time in Settings, and taking it back deletes what was already kept. Turn a line off and the copies made under it are removed from our server, not just stopped from growing.
 
 The programme composer works the same way: when you ask the app to build a programme from a written brief, the brief and the same summary are sent along the same route.
 
@@ -115,6 +119,7 @@ The GDPR requires a lawful basis for each kind of processing. These are ours.
 - No advertising profile. The app does tailor programmes and suggestions from your answers and your log, but that happens on your phone, and nothing is decided about you automatically in a way that has legal or similar effects.
 - No selling, renting or sharing of your data with anyone, beyond the three providers named above who work for us.
 - No account needed. Sign-in exists only to key the optional cloud backup.
+- No cookies. The app is not a web page and does not open one inside itself, so none are set and none are read.
 
 ## Permissions the app asks for
 
@@ -138,6 +143,8 @@ If you buy Pro, the payment is handled entirely by Google Play. We never see you
 
 A promo code is checked on your phone, and the app stores only the date until which it keeps Pro on. Nothing about it is sent anywhere.
 
+The free trial works the same way and costs nothing: starting it writes one date on your phone, Pro runs until that date and then stops on its own. Nothing is charged when it ends, nothing is sent anywhere, and no card is asked for. If you have notifications on, the app reminds you two days before it runs out; that reminder is written and shown by your phone, not by us.
+
 ## Feedback, rating and sharing
 
 Send feedback opens your own mail app with our address and the app version filled in. You decide what to write. We then see your email address and your message, and keep them only as long as it takes to handle the feedback.
@@ -157,7 +164,7 @@ On your phone, the app’s data is protected by the phone’s own lock and the s
 - On your phone: until you reset the app’s data or uninstall it.
 - Android backup: as long as your Google account keeps it — that is Google’s setting, not ours.
 - Cloud backup: until you delete it in Settings, or ask us to.
-- Coach questions, briefs and photos: not kept by us at all. Anthropic deletes them within 30 days.
+- Coach questions, briefs and photos: not kept by us unless you allowed it, and then for up to 24 months or until you take the permission back, whichever comes first. Anthropic deletes its own copy within 30 days either way.
 - Usage statistics: up to 24 months, then deleted automatically.
 - Feedback emails: as long as it takes to handle them.
 
@@ -172,7 +179,7 @@ Most of these you exercise yourself, inside the app, without asking anyone. For 
 - Delete it: Settings → Reset all data clears the phone, and Settings → Delete cloud backup clears the server. Uninstalling the app removes the phone copy too. Usage statistics cannot be traced back to you, so there is nothing of yours to find in them.
 - Take it with you: Settings → Export plan (CSV) sends your programme, or every logged set, as CSV text to any app you choose.
 - Withdraw consent or object: delete the cloud backup and sign out; stop sending questions to the coach; switch usage statistics off in Settings.
-- Complain: write to santeriylonen@gmail.com first, so we can put it right. You also have the right to complain to the data protection authority — in Finland, the Office of the Data Protection Ombudsman (tietosuoja.fi).
+- Complain: write to santeriylonen@gmail.com first, so we can put it right. You also have the right to complain to the data protection authority — in Finland, the Office of the Data Protection Ombudsman, tietosuoja.fi or tietosuoja@om.fi.
 
 ## Children
 

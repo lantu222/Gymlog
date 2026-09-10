@@ -93,36 +93,47 @@ module.exports = [
       // The composed week is ON the card. It is the only place the reader can
       // see which days they actually get, and it used to be a link to a screen
       // of its own while the card's own lower half sat empty.
-      assert.match(reviewBody, /week=\{projectedSessions\.map/);
-      assert.match(reviewBody, /weekLabel=\{t\(language, 'onb\.planReady\.yourWeek'\)\}/);
+      //
+      // Seven cells since 2026-09-09, not one row per training day: the list
+      // grew with the programme and a five-day week pushed its own first rows
+      // out of the card. Every weekday is drawn, and the sessions only decide
+      // which ones are filled.
+      assert.match(reviewBody, /WEEKDAY_OPTIONS\.map\(\(day\) => \(\{/);
+      assert.doesNotMatch(reviewBody, /week=\{projectedSessions\.map/);
+      // A rolling rhythm has no weekdays, so the strip stops pretending it has
+      // (user, 2026-09-10). `resolveProjectedTrainingDays` has never known
+      // about a cycle: a 3-on-1-off answer was rounded to "5 days a week" and
+      // laid out on Mon/Tue/Thu/Fri/Sat, so the card showed five weekdays for
+      // a four-day rhythm. With a cycle the strip walks the next seven days
+      // from today and says out loud that it repeats on its own length.
+      assert.ok(reviewBody.includes('cyclePattern'), 'the review must branch on the cycle');
+      assert.match(reviewBody, /cyclePattern\[offset % cyclePattern\.length\]/);
+      assert.match(reviewBody, /weekNote=\{/);
+      // Stepped by calendar date, never by a fixed number of milliseconds:
+      // Helsinki has 23- and 25-hour days twice a year.
+      assert.match(reviewBody, /date\.setDate\(date\.getDate\(\) \+ offset\)/);
+      assert.doesNotMatch(reviewBody, /DAY_MS|86400000/);
+      // The label follows the strip: a cycle is not somebody's week.
+      assert.match(reviewBody, /weekLabel=\{t\(language, cyclePattern \? 'onb\.days\.cycleWeek' : 'onb\.planReady\.yourWeek'\)\}/);
       assert.doesNotMatch(reviewBody, /onOpenWeek|weekLinkLabel/);
-      // The FOCUS, not the full name: the row prints a weekday of its own, so
-      // "Day 1: Squat & Bench" beside "Mon" said which day it was twice (user
-      // 2026-09-07). `localizeSessionFocus` is the function Home already uses
-      // next to its weekday badge, written for this exact repetition — and it
-      // still localises, so the Finnish run cannot go back to printing "Day 1"
-      // (2026-08-23).
-      assert.match(reviewBody, /title: localizeSessionFocus\(session\.name, language\)/);
-      assert.doesNotMatch(
-        reviewBody,
-        /title: localizeSessionName\(/,
-        'the week rows print the day ordinal beside the weekday again',
-      );
-      // The weekday column is what makes the ordinal redundant, so it has to
-      // be there for the line above to be the right call.
-      assert.match(reviewBody, /weekday: session\.weekdayLabel,/);
-      // The count is the WHOLE day, not the five the card preview keeps:
-      // `exercises` is sliced to five and `detailExercises` is not, so a day
-      // with six lifts would have said five.
-      assert.match(reviewBody, /session\.detailExercises\.length === 1 \? 'onb\.day\.exerciseOne' : 'onb\.day\.exerciseMany'/);
-      assert.match(reviewBody, /count: session\.detailExercises\.length/);
+      // The strip carries no session names at all now, so the two traps the
+      // row list had cannot come back: no day ordinal printed beside its own
+      // weekday, and no exercise count taken from the five-item preview
+      // instead of the whole day.
+      assert.doesNotMatch(reviewBody, /localizeSessionName\(|localizeSessionFocus\(/);
+      assert.doesNotMatch(reviewBody, /onb\.day\.exerciseOne/);
+      // The weekday word still comes from the reader's language.
+      assert.match(reviewBody, /weekday: getWeekdayShortLabel\(day, language\)/);
 
       // And the picker RENDERS it rather than dropping the prop, which is
       // exactly what happened to `subtitle`.
       assert.match(pickSource, /week\.map\(\(day\) =>/);
       assert.match(pickSource, /\{day\.weekday\}/);
-      assert.match(pickSource, /\{day\.title\}/);
-      assert.match(pickSource, /\{day\.meta\}/);
+      // A cell per weekday, filled or hollow. The title and the meta went with
+      // the row list: seven cells that never grow beat a list that pushed its
+      // own head off the card.
+      assert.match(pickSource, /day\.training && styles\.weekCellOn/);
+      assert.doesNotMatch(pickSource, /\{day\.title\}|\{day\.meta\}/);
       assert.doesNotMatch(pickSource, /onOpenWeek|weekLinkText/);
 
       // The automated-progression toggle screen is gone from onboarding — the
@@ -332,9 +343,14 @@ module.exports = [
   {
     name: 'onboarding no longer asks gender or goal weight mid-questionnaire',
     run() {
-      // Name/gender/age/height/weight arrive from the About-you screen (01e)
-      // via basicsSeed; the old Training profile gender block and the whole
+      // Gender/age-band/weight arrive from the About-you screen (01e) via
+      // basicsSeed; the old Training profile gender block and the whole
       // bodyweight-goal stage are gone from the stage machine.
+      //
+      // The band, not a year: the About form stopped asking for a birth year
+      // on 2026-09-09 because scorePreferenceFit reads one thing from the age,
+      // whether the reader is 41 or over. A questionnaire that still emitted
+      // an `age` would carry a number nothing asked for.
       assert.doesNotMatch(onboardingSource, /stage === 'profile'/);
       assert.doesNotMatch(onboardingSource, /stage === 'about'/);
       assert.doesNotMatch(onboardingSource, /function renderProfile\(/);
@@ -345,7 +361,8 @@ module.exports = [
       assert.doesNotMatch(onboardingSource, /profileGenderSelected/);
       // The seeded values still flow into the selection unchanged.
       assert.match(onboardingSource, /basicsSeed/);
-      assert.match(onboardingSource, /gender,\r?\n\s*age,/);
+      assert.match(onboardingSource, /gender,\r?\n\s*ageRange,/);
+      assert.doesNotMatch(onboardingSource, /\bage,\r?\n/);
       assert.match(onboardingSource, /currentWeightKg: currentWeightValue === null \? null : convertWeightToKg\(currentWeightValue, unitPreference\)/);
       assert.match(onboardingSource, /targetWeightKg: targetWeightValue === null \? null : convertWeightToKg\(targetWeightValue, unitPreference\)/);
       assert.match(onboardingSource, /scrollEnabled=\{!scrollLockedStage\}/);
@@ -358,7 +375,10 @@ module.exports = [
       const goalBody = getFunctionBody('renderGoal');
 
       assert.match(goalBody, /stepLabel: getQuestionnaireStepLabel\('goal', language\)/);
-      assert.match(goalBody, /titleLines: \[t\(language, 'onb\.stage\.goal\.title1'\), t\(language, 'onb\.stage\.goal\.title2'\)\]/);
+      // One line since 2026-09-09: the question is short in both languages,
+      // and split across two it took a third of the screen from the cards.
+      assert.match(goalBody, /titleLines: \[t\(language, 'onb\.stage\.goal\.title1'\)\]/);
+      assert.doesNotMatch(goalBody, /onb\.stage\.goal\.title2/);
       assert.match(goalBody, /subtitle: t\(language, 'onb\.stage\.goal\.sub'\)/);
       assert.match(i18nSource, /'onb\.stage\.goal\.sub': "We'll build your training around this\."/);
       assert.match(goalBody, /renderSplitSelectionStage\(\{/);
@@ -367,8 +387,18 @@ module.exports = [
       assert.match(goalBody, /optionsContainerStyle: styles\.locationStepTwoOptionsShift/);
       assert.match(goalBody, /topPaneStyleOverride: styles\.locationEquipmentTopPane/);
       assert.match(goalBody, /titleStyleOverride: styles\.locationEquipmentHeadline/);
-      assert.match(goalBody, /active: goal === option\.id/);
-      assert.doesNotMatch(goalBody, /goals\.includes\(option\.id\)/);
+      // The highlight and the Continue gate read the SAME thing (user,
+      // 2026-09-09). `goal` carries the schema's default, so highlighting from
+      // it lit a card nobody had tapped while `canContinue` read `goals` and
+      // let the reader through — a goal shipped that nobody chose, and the
+      // programme built from it. `goals` is empty until the first tap.
+      assert.match(goalBody, /active: goals\.includes\(option\.id\)/);
+      assert.doesNotMatch(goalBody, /active: goal === option\.id/);
+      assert.match(onboardingSource, /const canContinue[\s\S]{0,200}stage === 'goal'\s*\r?\n?\s*\? goals\.length > 0/);
+      assert.match(
+        onboardingSource,
+        /initialSelection \|\| editMode \? \(setupSeed\.goals\?\.length \? setupSeed\.goals : \[setupSeed\.goal\]\) : \[\]/,
+      );
       assert.match(onboardingSource, /titleKey: 'onb\.goal\.strength\.title'/);
       assert.match(onboardingSource, /goal: 'lean_athletic'/);
       assert.match(onboardingSource, /goal: 'general_fitness'/);
@@ -633,10 +663,27 @@ module.exports = [
   {
     name: 'days step offers the repeating cycle splits and persists them',
     run() {
-      // The four splits asked for on 2026-08-23: 1+1, 2+1, 3+1, 1+2.
-      for (const preset of ['on1off1', 'on2off1', 'on3off1', 'on1off2']) {
-        assert.match(onboardingSource, new RegExp(`id: '${preset}'`));
-        const key = `onb.days.cycle.${preset}`;
+      // Four fixed splits until 2026-09-09 (1+1, 2+1, 3+1, 1+2), and two dials
+      // since. The chips could not express 4+1 or 5+2, and none of them said
+      // what the rhythm came to in a week — the reader did that arithmetic.
+      // The dials cover every split the chips did and the ones they did not.
+      assert.doesNotMatch(onboardingSource, /id: 'on\d+off\d+'/);
+      assert.match(onboardingSource, /const CYCLE_ON_LIMITS = \{ min: 1, max: 6 \}/);
+      assert.match(onboardingSource, /const CYCLE_OFF_LIMITS = \{ min: 1, max: 4 \}/);
+      // Both dials read off the pattern, so a cycle built on the plan screen
+      // shows here as itself instead of as "none of the four".
+      assert.match(onboardingSource, /cycleOnDays = cyclePattern \? cyclePattern\.filter\(Boolean\)\.length/);
+      assert.match(onboardingSource, /cycleOffDays = cyclePattern \? cyclePattern\.length - cycleOnDays/);
+      // The dials step from the pattern that IS, not from the numbers this
+      // render read. Absolute steps meant two quick taps both read the same
+      // render and the second discarded the first: rest+ then training+ from
+      // 2+1 landed on 3+1 and lost the rest day (user, 2026-09-09).
+      assert.match(onboardingSource, /setCyclePattern\(\(current\) => \{/);
+      assert.match(onboardingSource, /function stepCycle\(deltaOn: number, deltaOff: number\)/);
+      assert.doesNotMatch(onboardingSource, /stepCycle\(cycleOnDays/);
+      assert.doesNotMatch(onboardingSource, /setCycle\(cycleOnDays/);
+      // And the sentence that was the point of the change.
+      for (const key of ['onb.days.cycleFrequency', 'onb.days.cycleOnLabel', 'onb.days.cycleOffLabel']) {
         const occurrences = i18nSource.split(`'${key}':`).length - 1;
         assert.equal(occurrences, 2, `${key} is missing one of its two languages`);
       }
@@ -670,15 +717,14 @@ module.exports = [
       );
       assert.ok(
         daysRender.indexOf('style={styles.daysWeekRow}') <
-          daysRender.indexOf('style={styles.daysCycleRow}'),
-        'the week stays above the cycle chips, so choosing one does not move it',
+          daysRender.indexOf('style={styles.daysCycleHead}'),
+        'the week stays above the rhythm dials, so changing one does not move it',
       );
       // Read-only while a cycle owns it: tapping a day would be the weekday
       // picker again, and the two cannot both be the answer.
       assert.match(daysRender, /return cycleActive \? \(/);
       // Choosing weekdays or a count still clears the cycle.
-      // Three clears: the count chips, the weekday toggles, and tapping the
-      // active preset itself.
+      // Three clears: the count chips, the weekday toggles, and Remove.
       const countBody = onboardingSource.slice(
         onboardingSource.indexOf('function selectTrainingDaysCount'),
         onboardingSource.indexOf('function renderDays'),

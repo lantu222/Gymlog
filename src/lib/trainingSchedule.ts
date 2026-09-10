@@ -177,3 +177,20 @@ export function upcomingSessionDayStarts(
 
   return result;
 }
+
+/**
+ * How many training days a seven-day window holds, on average, for a rolling
+ * cycle of `onDays` training and `offDays` rest.
+ *
+ * The number the reader actually wants when they dial a rhythm: "2 on, 1 off"
+ * is 4.67 sessions a week, and until the screen said so they had to work it
+ * out (user, 2026-09-09). Not rounded here — `cycleDaysPerWeek` rounds to the
+ * questionnaire's 2..6 answer, and that is a different question. This one is
+ * for reading, so it keeps the fraction and lets the caller decide the
+ * decimals.
+ */
+export function cycleSessionsPerWeek(onDays: number, offDays: number): number {
+  const on = Math.max(1, Math.round(onDays));
+  const off = Math.max(0, Math.round(offDays));
+  return (7 * on) / (on + off);
+}

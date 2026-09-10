@@ -60,6 +60,39 @@ function isErrorResponse(value: unknown): value is AICoachAdviceError {
   return Boolean(value) && typeof value === 'object' && (value as AICoachAdviceError).ok === false;
 }
 
+/**
+ * Take back permission: ask the server to delete every copy under this label.
+ *
+ * Fire-and-report rather than fire-and-forget — the caller turns the switch off
+ * on the phone whatever this returns, because a reader who said stop has said
+ * stop. What the answer decides is whether we can also claim the old copies are
+ * gone. Preview builds have no server and nothing was ever kept, so there is
+ * nothing to delete and saying so is not a failure.
+ */
+export async function forgetAiCoachLog(logId: string): Promise<{ ok: boolean; removed: number }> {
+  if (!AI_COACH_API_URL) {
+    return { ok: true, removed: 0 };
+  }
+  const { signal, cleanup } = getAbortSignal(REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(AI_COACH_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'forget', logId }),
+      signal,
+    });
+    const payload = (await response.json()) as { ok?: boolean; removed?: number };
+    return {
+      ok: response.ok && payload.ok === true,
+      removed: typeof payload.removed === 'number' ? payload.removed : 0,
+    };
+  } catch {
+    return { ok: false, removed: 0 };
+  } finally {
+    cleanup();
+  }
+}
+
 export async function requestAiCoachAdvice(input: AICoachAdviceRequest, upstreamSignal?: AbortSignal): Promise<RequestAiCoachAdviceResult> {
   if (!AI_COACH_API_URL) {
     return {

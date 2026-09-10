@@ -210,9 +210,19 @@ module.exports = [
         /styles\.blockTitle, workoutListOpen && styles\.sectTitleOpen\]/,
       );
       // One anatomy for all three phases: warmup, workout and recovery share
-      // the card, and a single violet marks whichever one is open.
-      assert.match(homeScreenSource, /sectCard: \{/);
-      assert.match(homeScreenSource, /sectCardOpen: \{/);
+      // it, and the violet title marks whichever one is open.
+      //
+      // Not cards any more (user, 2026-09-09). They were bordered, filled,
+      // rounded boxes inside the day's own bordered box, and the rows inside
+      // them were already separated by hairlines. The day's box went too. What
+      // is left is a hairline above each phase, so the guard is that the phase
+      // grows no rule, fill, border or radius of its own: space separates them.
+      assert.doesNotMatch(homeScreenSource, /sectCard: \{[^}]*(borderRadius|backgroundColor|border[A-Za-z]*Width)/);
+      // The titles carry the structure instead, so they are big.
+      assert.match(homeScreenSource, /fontSize: 20,\s+lineHeight: 26,/);
+      assert.doesNotMatch(homeScreenSource, /sectCardOpen|sectStripe/);
+      // And the day is flat on the page: padding and margin, no frame.
+      assert.doesNotMatch(homeScreenSource, /sessionBox: \{[^}]*(borderWidth|borderRadius|backgroundColor)/);
       // And the promo carousel went with them: Home runs today's session, the
       // season and programme offers live on their own screens.
       assert.doesNotMatch(homeScreenSource, /HomePromoCarousel|promoSlides/);
@@ -859,10 +869,16 @@ module.exports = [
       assert.match(title, /flexShrink: 1,/);
 
       // Shrinking alone was not enough: at 17.5 the name still wrapped
-      // (user 2026-09-08), so the pair stepped back a size and the title now
-      // caps its own height. The row's height is a constant again.
-      assert.match(title, /fontSize: 16,/);
-      assert.match(title, /lineHeight: 20,/);
+      // (user 2026-09-08), so the title caps its own height with
+      // numberOfLines={1} and the row's height is a constant again.
+      //
+      // Bigger again on 2026-09-09, at the user's request: the rules that
+      // separated the three phases are gone, and the titles carry the
+      // structure in their place. The wrap that 17.5 caused cannot come back
+      // — the title is capped to one line — but the meta can now be clipped
+      // instead, which is the trade the shrink order below was chosen for.
+      assert.match(title, /fontSize: 20,/);
+      assert.match(title, /lineHeight: 26,/);
 
       const meta = home.slice(home.indexOf('  blockMeta: {'), home.indexOf('  blockDrillRow: {'));
       assert.ok(meta.length > 40, 'blockMeta moved - recheck by hand');

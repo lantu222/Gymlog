@@ -12,6 +12,7 @@ import { removeTrailingZeros } from '../lib/format';
 import {
   AppLanguage,
   AppPreferences,
+  SetupAgeRange,
   SetupCautionArea,
   SetupCautionFlag,
   SetupGender,
@@ -42,7 +43,9 @@ const CAUTION_AREA_KEYS: Record<SetupCautionArea, I18nKey> = {
   ankles: 'onb.area.ankles',
 };
 
-const AGE_RANGE_KEYS: Record<string, I18nKey> = {
+/** Every band the picker offers, in the order it offers them. 'unspecified' is
+ *  not one of them: it is what a reader who never answered has, not a choice. */
+const AGE_RANGE_KEYS: Record<Exclude<SetupAgeRange, 'unspecified'>, I18nKey> = {
   '18': 'myData.age.under19',
   '19_25': 'myData.age.19to25',
   '26_30': 'myData.age.26to30',
@@ -174,6 +177,7 @@ export function MyDataScreen({
   const [editing, setEditing] = useState<BasicField | null>(null);
   const [draftValue, setDraftValue] = useState('');
   const [draftGender, setDraftGender] = useState<SetupGender>('unspecified');
+  const [draftAgeRange, setDraftAgeRange] = useState<SetupAgeRange>('19_25');
 
   const basics: Array<{ field: BasicField; label: string; value: string | null }> = [
     { field: 'gender', label: t(language, 'myData.gender'), value: genderLabel(preferences, language) },
@@ -219,7 +223,11 @@ export function MyDataScreen({
     if (field === 'gender') {
       setDraftGender(preferences.setupGender ?? 'unspecified');
     } else if (field === 'age') {
-      setDraftValue(preferences.setupAge !== null ? `${preferences.setupAge}` : '');
+      setDraftAgeRange(
+        preferences.setupAgeRange && preferences.setupAgeRange !== 'unspecified'
+          ? preferences.setupAgeRange
+          : '19_25',
+      );
     } else if (field === 'height') {
       setDraftValue(preferences.setupHeightCm !== null ? `${preferences.setupHeightCm}` : '');
     } else {
@@ -229,7 +237,7 @@ export function MyDataScreen({
   };
 
   const numericDraftValid = (() => {
-    if (editing === null || editing === 'gender') {
+    if (editing === null || editing === 'gender' || editing === 'age') {
       return true;
     }
     const meta = BASIC_FIELD_META[editing];
@@ -243,14 +251,17 @@ export function MyDataScreen({
     }
     if (editing === 'gender') {
       onSaveBasics({ setupGender: draftGender });
+    } else if (editing === 'age') {
+      // The band replaces the year rather than sitting beside it: `ageLabel`
+      // prefers a stored year, so leaving one behind would show the old number
+      // over the band the reader just chose.
+      onSaveBasics({ setupAgeRange: draftAgeRange, setupAge: null });
     } else {
       const parsed = Number(draftValue.replace(',', '.'));
       if (!numericDraftValid) {
         return;
       }
-      if (editing === 'age') {
-        onSaveBasics({ setupAge: Math.round(parsed) });
-      } else if (editing === 'height') {
+      if (editing === 'height') {
         onSaveBasics({ setupHeightCm: Math.round(parsed) });
       } else {
         onSaveBasics({ setupCurrentWeightKg: Math.round(parsed * 10) / 10 });
@@ -368,12 +379,33 @@ export function MyDataScreen({
             <Text style={styles.sheetTitle}>
               {editing === 'gender'
                 ? t(language, 'myData.gender')
+                : editing === 'age'
+                  ? t(language, 'myData.ageField')
                 : editing !== null
                   ? t(language, BASIC_FIELD_META[editing].titleKey)
                   : ''}
             </Text>
 
-            {editing === 'gender' ? (
+            {editing === 'age' ? (
+              <View style={styles.genderRow}>
+                {(Object.keys(AGE_RANGE_KEYS) as Exclude<SetupAgeRange, 'unspecified'>[]).map((option) => {
+                  const active = draftAgeRange === option;
+                  return (
+                    <Pressable
+                      key={option}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      onPress={() => setDraftAgeRange(option)}
+                      style={[styles.genderChip, active && styles.genderChipActive]}
+                    >
+                      <Text style={[styles.genderChipText, active && styles.genderChipTextActive]}>
+                        {t(language, AGE_RANGE_KEYS[option])}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : editing === 'gender' ? (
               <View style={styles.genderRow}>
                 {(
                   [
@@ -411,7 +443,7 @@ export function MyDataScreen({
               </View>
             ) : null}
 
-            {editing !== null && editing !== 'gender' && draftValue.length > 0 && !numericDraftValid ? (
+            {editing !== null && editing !== 'gender' && editing !== 'age' && draftValue.length > 0 && !numericDraftValid ? (
               <Text style={styles.sheetError}>
                 {BASIC_FIELD_META[editing].min}–{BASIC_FIELD_META[editing].max}{' '}
                 {t(language, BASIC_FIELD_META[editing].unitKey)}

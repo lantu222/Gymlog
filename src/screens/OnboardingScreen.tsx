@@ -36,7 +36,7 @@ import { PrimaryCTAButton } from '../components/PrimaryCTAButton';
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { getFitnessPhotoVariant } from '../assets/fitnessPhotos';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
-import { convertWeightToKg, formatPercent, formatWeight, formatWeightInputValue, parseNumberInput } from '../lib/format';
+import { applyDecimalSeparator, convertWeightToKg, formatPercent, formatWeight, formatWeightInputValue, parseNumberInput } from '../lib/format';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { OnboardingBackButton } from '../components/OnboardingBackButton';
 import { equipmentItemLabel, I18nKey, t } from '../lib/i18n';
@@ -82,7 +82,8 @@ import { buildCautionSummaryLabel, CAUTION_TO_FOCUS_AREAS } from '../lib/caution
 import { buildTailoringBadgeLabels, TailoringPreferencesInput } from '../lib/tailoringFit';
 import { getReadyTemplatePresentation } from '../lib/templatePresentation';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
-import { patternFromOnOff } from '../lib/trainingSchedule';
+import { trackEvent } from '../features/analytics/analyticsClient';
+import { cycleSessionsPerWeek, patternFromOnOff } from '../lib/trainingSchedule';
 import { localizeSessionFocus } from '../lib/sessionNameLabel';
 import { colors, radii, spacing } from '../theme';
 import { haptics } from '../utils/haptics';
@@ -473,13 +474,70 @@ const TRAINING_DAY_COUNT_OPTIONS: SetupDaysPerWeek[] = [2, 3, 4, 5, 6];
  */
 const LOCATION_PANE_TOP_GAP = 48;
 
-const CYCLE_PRESET_OPTIONS = [
-  { id: 'on1off1', on: 1, off: 1, labelKey: 'onb.days.cycle.on1off1' },
-  { id: 'on2off1', on: 2, off: 1, labelKey: 'onb.days.cycle.on2off1' },
-  { id: 'on3off1', on: 3, off: 1, labelKey: 'onb.days.cycle.on3off1' },
-  { id: 'on1off2', on: 1, off: 2, labelKey: 'onb.days.cycle.on1off2' },
-] as const;
-type CyclePresetId = (typeof CYCLE_PRESET_OPTIONS)[number]['id'];
+/**
+ * What the two dials may reach.
+ *
+ * One training day is the floor because a rhythm with none is not a rhythm,
+ * and one rest day is the floor because a cycle with no rest is training every
+ * day — which the weekday list above already says, better.
+ */
+/**
+ * One dial: a label, a number, and a step either side of it.
+ *
+ * Takes the screen's styles rather than calling the palette hook itself — this
+ * renders twice inside one step, and two more hook calls for two more buttons
+ * is a cost with nothing behind it.
+ */
+function CycleDial({
+  label,
+  value,
+  minusLabel,
+  plusLabel,
+  onMinus,
+  onPlus,
+  styles,
+}: {
+  label: string;
+  value: number;
+  minusLabel: string;
+  plusLabel: string;
+  onMinus: () => void;
+  onPlus: () => void;
+  styles: ReturnType<typeof useOnboardingPalette>['styles'];
+}) {
+  return (
+    <View style={styles.daysCycleDial}>
+      <Text style={styles.daysCycleDialLabel}>{label}</Text>
+      <View style={styles.daysCycleDialRow}>
+        <Pressable accessibilityRole="button" accessibilityLabel={minusLabel} onPress={onMinus} hitSlop={6}>
+          <Text style={styles.daysCycleDialStep}>−</Text>
+        </Pressable>
+        <Text style={styles.daysCycleDialValue}>{value}</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel={plusLabel} onPress={onPlus} hitSlop={6}>
+          <Text style={styles.daysCycleDialStep}>+</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+/**
+ * One decimal, with the language's own mark. "4.7" in Finnish reads as a bug.
+ *
+ * The rounding is this caller's — `removeTrailingZeros` keeps two decimals for
+ * the weight dial's 1.25 kg step, and 4.67 sessions a week does not need that
+ * precision — so only the separator comes from format.ts, which is the one
+ * thing that knows which mark is in play.
+ */
+function formatSessionsPerWeek(value: number): string {
+  const rounded = Math.round(value * 10) / 10;
+  return applyDecimalSeparator(Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1));
+}
+
+const CYCLE_ON_LIMITS = { min: 1, max: 6 };
+const CYCLE_OFF_LIMITS = { min: 1, max: 4 };
+/** What the dials open on when a reader adds a rhythm: the old default chip. */
+const CYCLE_DEFAULT = { on: 2, off: 1 };
 
 /**
  * What a cycle means in the questionnaire's own unit. The recommender picks a
@@ -1242,23 +1300,6 @@ function clampSetupAge(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
-function getAgeFromRange(ageRange?: SetupAgeRange | null) {
-  switch (ageRange) {
-    case '18':
-      return 18;
-    case '26_30':
-      return 28;
-    case '31_40':
-      return 35;
-    case '41_plus':
-      return 45;
-    case '19_25':
-    case 'unspecified':
-    default:
-      return 25;
-  }
-}
-
 function getAgeRangeFromAge(age: number): SetupAgeRange {
   if (age <= 18) {
     return '18';
@@ -1662,14 +1703,36 @@ export function OnboardingScreen({
   const buildingPlanRingSpin = useRef(new Animated.Value(0)).current;
   const [profileName] = useState(setupSeed.profileName ?? '');
   const [gender, setGender] = useState<SetupGender>(setupSeed.gender);
-  const [age, setAge] = useState(() =>
-    typeof setupSeed.age === 'number' && Number.isFinite(setupSeed.age)
-      ? clampSetupAge(setupSeed.age)
-      : getAgeFromRange(setupSeed.ageRange),
-  );
-  const ageRange = useMemo(() => getAgeRangeFromAge(age), [age]);
+  /**
+   * The band is the answer now, not a year rounded into one (2026-09-09).
+   *
+   * `scorePreferenceFit` reads exactly one thing from the age: whether the
+   * reader is 41 or over, and only when the programme is joint-friendly. The
+   * About form asks the band directly, so nothing here has to invent a year to
+   * derive it from. A reader whose install predates the change may still have a
+   * stored year and no band; that is what the second branch is for.
+   */
+  const [ageRange] = useState<SetupAgeRange>(() => {
+    if (setupSeed.ageRange && setupSeed.ageRange !== 'unspecified') {
+      return setupSeed.ageRange;
+    }
+    return typeof setupSeed.age === 'number' && Number.isFinite(setupSeed.age)
+      ? getAgeRangeFromAge(clampSetupAge(setupSeed.age))
+      : '19_25';
+  });
   const [goal, setGoal] = useState<SetupGoal>(setupSeed.goal);
-  const [goals, setGoals] = useState<SetupGoal[]>(setupSeed.goals?.length ? setupSeed.goals : [setupSeed.goal]);
+  /**
+   * Empty on a first run, so nothing is answered before the reader answers it
+   * (user, 2026-09-09). The list used to open as `[setupSeed.goal]`, which is
+   * the schema's default rather than anybody's choice — one card arrived
+   * highlighted and Continue was live, so tapping straight through shipped a
+   * goal nobody picked and built the programme from it. `goal` keeps the
+   * default because the recommender needs a value; this is what the screen
+   * shows and what the gate reads.
+   */
+  const [goals, setGoals] = useState<SetupGoal[]>(
+    initialSelection || editMode ? (setupSeed.goals?.length ? setupSeed.goals : [setupSeed.goal]) : [],
+  );
   const [level, setLevel] = useState<SetupLevel>(setupSeed.level);
   const [daysPerWeek, setDaysPerWeek] = useState<SetupDaysPerWeek>(setupSeed.daysPerWeek);
   const [profileLevelSelected, setProfileLevelSelected] = useState(() => Boolean(initialSelection || editMode));
@@ -1726,10 +1789,11 @@ export function OnboardingScreen({
   // chips do not offer) survives a re-run of the questionnaire untouched.
   // Availability (the weekday list) stays as its own answer either way.
   const [cyclePattern, setCyclePattern] = useState<boolean[] | null>(setupSeed.trainingCyclePattern ?? null);
-  const cyclePresetId: CyclePresetId | null =
-    CYCLE_PRESET_OPTIONS.find(
-      (option) => cyclePattern !== null && patternFromOnOff(option.on, option.off).join(',') === cyclePattern.join(','),
-    )?.id ?? null;
+  // The dials read straight off the pattern, so a cycle built elsewhere (the
+  // plan screen's own steppers) shows here as itself rather than as "none of
+  // the four".
+  const cycleOnDays = cyclePattern ? cyclePattern.filter(Boolean).length : CYCLE_DEFAULT.on;
+  const cycleOffDays = cyclePattern ? cyclePattern.length - cycleOnDays : CYCLE_DEFAULT.off;
   const [unitPreference, setUnitPreference] = useState<UnitPreference>(initialUnitPreference);
   const [currentWeightDraft, setCurrentWeightDraft] = useState(
     formatWeightInputValue(setupSeed.currentWeightKg, initialUnitPreference),
@@ -1760,6 +1824,30 @@ export function OnboardingScreen({
 
   // Told from an effect, never during render: the parent turns it into shell
   // state, and setting parent state while rendering a child is a loop.
+  /**
+   * Which question the reader actually reached.
+   *
+   * The shell already sends `onboarding_step`, but only for its own four steps
+   * — the whole six-question questionnaire arrived as the single value
+   * "questionnaire". The comment on that effect says what the pipe is for:
+   * "if half of every install stops at one stage, that stage is the finding".
+   * It could not see a stage. Now it can (user, 2026-09-10).
+   *
+   * First run only. The same screen is the editor on Profile → Setup, and a
+   * reader changing their equipment months later is not a funnel step.
+   *
+   * Still the same event and the same field: a stage name in `path`, which the
+   * allowlist already carries. No new event, no new property, nothing about
+   * this reader — the vocabulary in lib/analytics.ts is unchanged.
+   */
+  useEffect(() => {
+    if (editMode) {
+      return;
+    }
+    trackEvent('onboarding_step', { path: STAGES[stageIndex] });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stageIndex]);
+
   useEffect(() => {
     if (STAGES[stageIndex] !== 'review') {
       onFullBleedReviewChange?.(null);
@@ -1804,7 +1892,6 @@ export function OnboardingScreen({
     () => ({
       profileName: formatProfileName(profileName).trim() ? formatProfileName(profileName).trim().slice(0, 32) : null,
       gender,
-      age,
       ageRange,
       heightCm: setupSeed.heightCm ?? null,
       goal,
@@ -1831,7 +1918,6 @@ export function OnboardingScreen({
       automatedProgressionEnabled,
       availableDays,
       cyclePattern,
-      age,
       ageRange,
       cautionFlags,
       currentWeightValue,
@@ -2826,14 +2912,17 @@ export function OnboardingScreen({
   function renderGoal() {
     return renderSplitSelectionStage({
       stepLabel: getQuestionnaireStepLabel('goal', language),
-      titleLines: [t(language, 'onb.stage.goal.title1'), t(language, 'onb.stage.goal.title2')],
+      // One line: the question is short enough in both languages, and split
+      // over two it took a third of the screen from the cards (user,
+      // 2026-09-09).
+      titleLines: [t(language, 'onb.stage.goal.title1')],
       subtitle: t(language, 'onb.stage.goal.sub'),
       options: GOAL_SELECTION_OPTIONS.map((option) => ({
         id: option.id,
         label: t(language, option.labelKey),
         subtitle: t(language, option.subtitleKey),
         icon: option.icon,
-        active: goal === option.id,
+        active: goals.includes(option.id),
         onPress: () => {
           void haptics.select();
           toggleGoal(option.id);
@@ -2998,17 +3087,66 @@ export function OnboardingScreen({
     setProfileFrequencySelected(true);
   }
 
-  function selectCyclePreset(option: (typeof CYCLE_PRESET_OPTIONS)[number]) {
+  /**
+   * The rhythm, dialled rather than picked from four (user, 2026-09-09).
+   *
+   * The chips offered 1+1, 2+1, 3+1 and 1+2 and nothing else, and each of them
+   * asked the reader to do the arithmetic themselves: nothing on the screen
+   * said what "2 training, 1 rest" came to in a week. Two dials cover every
+   * rhythm the four chips did and the ones they did not, and the line under
+   * them does the arithmetic out loud.
+   */
+  /**
+   * Step one dial, from whatever the pattern IS rather than from what this
+   * render read.
+   *
+   * The first version took absolute numbers and the buttons passed
+   * `cycleOnDays ± 1` — values computed during the render the tap belonged to.
+   * Two taps close together both read that same render, so the second one
+   * overwrote the first: rest+ then training+ from 2+1 landed on 3+1 and the
+   * rest day the reader had just added was gone. Reported as "I'm fairly sure
+   * I set 2 training 2 rest" (user, 2026-09-09), with 3+1 on the screen.
+   */
+  function stepCycle(deltaOn: number, deltaOff: number) {
     void haptics.select();
-    // Tapping the active preset steps back to plain weekdays.
-    if (cyclePresetId === option.id) {
-      setCyclePattern(null);
-      return;
-    }
-    setCyclePattern(patternFromOnOff(option.on, option.off));
-    setDaysPerWeek(cycleDaysPerWeek(option.on, option.off));
     setScheduleMode('app_managed');
     setProfileFrequencySelected(true);
+    setCyclePattern((current) => {
+      const on = current ? current.filter(Boolean).length : CYCLE_DEFAULT.on;
+      const off = current ? current.length - on : CYCLE_DEFAULT.off;
+      return patternFromOnOff(
+        Math.min(CYCLE_ON_LIMITS.max, Math.max(CYCLE_ON_LIMITS.min, on + deltaOn)),
+        Math.min(CYCLE_OFF_LIMITS.max, Math.max(CYCLE_OFF_LIMITS.min, off + deltaOff)),
+      );
+    });
+  }
+
+  /** Adding a rhythm opens on the split the four chips used to default to. */
+  function startCycle() {
+    void haptics.select();
+    setScheduleMode('app_managed');
+    setProfileFrequencySelected(true);
+    setCyclePattern(patternFromOnOff(CYCLE_DEFAULT.on, CYCLE_DEFAULT.off));
+  }
+
+  /**
+   * Days-per-week follows the rhythm, and follows the pattern that actually
+   * landed. Setting it inside the tap handler meant it could disagree with the
+   * pattern for exactly the reason the pattern itself used to go wrong.
+   */
+  useEffect(() => {
+    if (!cyclePattern) {
+      return;
+    }
+    const on = cyclePattern.filter(Boolean).length;
+    setDaysPerWeek(cycleDaysPerWeek(on, cyclePattern.length - on));
+  }, [cyclePattern]);
+
+  /** Back to plain weekdays: the list above becomes the answer again. */
+  function clearCycle() {
+    void haptics.select();
+    setCyclePattern(null);
+    setScheduleMode('self_managed');
   }
 
   function renderDays() {
@@ -3160,26 +3298,53 @@ export function OnboardingScreen({
 
           {/* Cycle splits (user 2026-08-23): the rhythms that do not fit
               inside a week. */}
-          <Text style={styles.daysCycleLabel}>{t(language, 'onb.days.cycleLabel')}</Text>
-          <View style={styles.daysCycleRow}>
-            {CYCLE_PRESET_OPTIONS.map((option) => {
-              const active = cyclePresetId === option.id;
-              return (
-                <Pressable
-                  key={option.id}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                  onPress={() => selectCyclePreset(option)}
-                  style={[styles.daysCycleChip, active && styles.daysCycleChipActive]}
-                >
-                  {active ? <VinhaIcon name="check" size={12} color={C.primary} /> : null}
-                  <Text style={[styles.daysCycleChipText, active && styles.daysCycleChipTextActive]}>
-                    {t(language, option.labelKey)}
-                  </Text>
-                </Pressable>
-              );
-            })}
+          <View style={styles.daysCycleHead}>
+            <Text style={styles.daysCycleLabel}>{t(language, 'onb.days.cycleLabel')}</Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => (cycleActive ? clearCycle() : startCycle())}
+              hitSlop={8}
+            >
+              <Text style={styles.daysCycleToggle}>
+                {t(language, cycleActive ? 'onb.days.cycleRemove' : 'onb.days.cycleAdd')}
+              </Text>
+            </Pressable>
           </View>
+
+          {cycleActive ? (
+            <>
+              <View style={styles.daysCycleDials}>
+                <CycleDial
+                  label={t(language, 'onb.days.cycleOnLabel')}
+                  value={cycleOnDays}
+                  minusLabel={t(language, 'onb.days.a11y.lessTraining')}
+                  plusLabel={t(language, 'onb.days.a11y.moreTraining')}
+                  onMinus={() => stepCycle(-1, 0)}
+                  onPlus={() => stepCycle(1, 0)}
+                  styles={styles}
+                />
+                <CycleDial
+                  label={t(language, 'onb.days.cycleOffLabel')}
+                  value={cycleOffDays}
+                  minusLabel={t(language, 'onb.days.a11y.lessRest')}
+                  plusLabel={t(language, 'onb.days.a11y.moreRest')}
+                  onMinus={() => stepCycle(0, -1)}
+                  onPlus={() => stepCycle(0, 1)}
+                  styles={styles}
+                />
+              </View>
+              {/* The arithmetic, said out loud. This is the sentence the four
+                  chips never had: a rhythm is only a promise about the week
+                  once someone divides it. */}
+              <Text style={styles.daysCycleFrequency}>
+                {t(language, 'onb.days.cycleFrequency', {
+                  on: cycleOnDays,
+                  len: cycleOnDays + cycleOffDays,
+                  perWeek: formatSessionsPerWeek(cycleSessionsPerWeek(cycleOnDays, cycleOffDays)),
+                })}
+              </Text>
+            </>
+          ) : null}
         </View>
       ),
     });
@@ -3409,26 +3574,46 @@ export function OnboardingScreen({
            screen of its own. The card is top-anchored in a fixed half, so
            everything under the focus bar was empty purple — and the void was
            the size of the thing the link pointed at (user 2026-09-07). */
-        week={projectedSessions.map((session) => ({
-          id: session.id,
-          weekday: session.weekdayLabel,
-          // `localizeSessionFocus`, not `localizeSessionName`: the row has a
-          // weekday column of its own, so the name's "Day 1:" said it twice
-          // (user 2026-09-07). This is the function Home already uses beside
-          // its weekday badge, written for this exact repetition.
-          title: localizeSessionFocus(session.name, language),
-          meta: [
-            t(
-              language,
-              session.detailExercises.length === 1 ? 'onb.day.exerciseOne' : 'onb.day.exerciseMany',
-              { count: session.detailExercises.length },
-            ),
-            session.guidance?.estimatedDuration,
-          ]
-            .filter(Boolean)
-            .join('  ·  '),
-        }))}
-        weekLabel={t(language, 'onb.planReady.yourWeek')}
+        /* Seven cells, not one row per training day. The list grew with the
+           programme and a five-day week pushed its own first rows out of the
+           card (user 2026-09-09); this is the same height whatever the
+           programme is. Which days, not which exercises — the exercises are
+           on Home the moment the reader gets there. */
+        week={
+          cyclePattern
+            ? // A rolling rhythm has no weekdays, so the strip shows the next
+              // seven days from today instead of a Monday-to-Sunday week.
+              //
+              // It used to draw the week either way, and the week was a
+              // fabrication: `resolveProjectedTrainingDays` has never known
+              // about a cycle, so a 3-on-1-off answer was rounded to "5 days a
+              // week" and laid out on Mon/Tue/Thu/Fri/Sat. The reader picked a
+              // four-day rhythm and the card showed them five weekdays
+              // (user, 2026-09-10).
+              //
+              // Stepped by calendar date rather than by milliseconds: Helsinki
+              // has 23- and 25-hour days twice a year, and a fixed step lands
+              // off local midnight.
+              Array.from({ length: 7 }, (_, offset) => {
+                const date = new Date();
+                date.setDate(date.getDate() + offset);
+                const weekday = WEEKDAY_OPTIONS[(date.getDay() + 6) % 7];
+                return {
+                  id: `cycle-${offset}`,
+                  weekday: getWeekdayShortLabel(weekday, language),
+                  training: Boolean(cyclePattern[offset % cyclePattern.length]),
+                };
+              })
+            : WEEKDAY_OPTIONS.map((day) => ({
+                id: day,
+                weekday: getWeekdayShortLabel(day, language),
+                training: composedActiveWeek?.sessions.some((session) => session.weekday === day) ?? false,
+              }))
+        }
+        weekNote={
+          cyclePattern ? t(language, 'onb.days.cycleSummary', { len: cyclePattern.length }) : undefined
+        }
+        weekLabel={t(language, cyclePattern ? 'onb.days.cycleWeek' : 'onb.planReady.yourWeek')}
         ctaLabel={t(language, 'onb.cta.startTraining')}
         // Straight into the app. This used to open the paywall — the reader
         // had just been handed a programme and the next thing the app did was
@@ -4669,48 +4854,76 @@ const makeOnboardingStyles = (C: OnbPalette) => StyleSheet.create({
     textAlign: 'center',
     marginTop: 16,
   },
+  daysCycleHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 24,
+    marginBottom: 10,
+  },
   daysCycleLabel: {
     color: C.text,
     fontSize: 12.5,
     lineHeight: 16,
     fontWeight: '800',
     letterSpacing: 1,
-    marginTop: 24,
-    marginBottom: 10,
   },
-  daysCycleRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+  /** The only way back to plain weekdays, so it says so in the accent colour. */
+  daysCycleToggle: {
+    color: C.primary,
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '800',
   },
-  daysCycleChip: {
+  daysCycleDials: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    borderRadius: 999,
+    gap: 10,
+  },
+  daysCycleDial: {
+    flex: 1,
+    borderRadius: 16,
     borderWidth: 1.5,
     borderColor: C.border,
     backgroundColor: C.card,
-    paddingVertical: 9,
-    paddingHorizontal: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 4,
   },
-  daysCycleChipActive: {
-    borderColor: C.borderActive,
-    backgroundColor: C.cardActive,
+  daysCycleDialLabel: {
+    color: C.textSoft,
+    fontSize: 11.5,
+    lineHeight: 15,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    textAlign: 'center',
   },
-  daysCycleChipText: {
+  daysCycleDialRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  // The step glyphs carry the same weight as the number so the trio reads as
+  // one control rather than a digit with two decorations beside it.
+  daysCycleDialStep: {
+    color: C.primary,
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '800',
+    paddingHorizontal: 10,
+  },
+  daysCycleDialValue: {
+    color: C.text,
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '800',
+  },
+  daysCycleFrequency: {
     color: C.textSoft,
     fontSize: 13,
-    lineHeight: 17,
+    lineHeight: 18,
     fontWeight: '700',
-  },
-  // Was a hardcoded #5B21B6 — dark violet on cardActive, and in the dark
-  // theme cardActive IS dark violet (#2C2350), so the chosen preset read as
-  // a blank pill (user 2026-08-31: "on vaikea nähdä mitään tausta liian
-  // tumma"). The token knows which theme it is in; the literal did not.
-  daysCycleChipTextActive: {
-    color: C.primary,
-    fontWeight: '800',
+    textAlign: 'center',
+    marginTop: 10,
   },
   daysRecommendHint: {
     color: C.primary,

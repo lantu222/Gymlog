@@ -29,7 +29,15 @@ import { exerciseNameLabel } from './exerciseNameLabel';
 import { MEASUREMENT_LABEL_KEYS } from './homeStatCards';
 import { isMeasurementReminderKind } from './measurementReminder';
 
-export type NotificationCategory = 'record' | 'comeback' | 'reminder' | 'weekly' | 'weighIn' | 'measure';
+export type NotificationCategory =
+  | 'record'
+  | 'comeback'
+  | 'reminder'
+  | 'weekly'
+  | 'weighIn'
+  | 'measure'
+  /** The Pro trial is nearly over. Promised in words on the hand-off row. */
+  | 'trial';
 
 export interface PlannedNotification {
   /** Stable across re-plans, so an unchanged plan re-schedules identically. */
@@ -68,6 +76,13 @@ export interface NotificationPlanInput {
   lastBodyweightAtMs?: number | null;
   /** Last measurement of the reminded kind, for the same reason. */
   lastMeasurementAtMs?: number | null;
+  /**
+   * When the Pro trial runs out, or null when there is no trial running.
+   *
+   * The hand-off row says "we tell you when two days are left", so this is a
+   * promise the app made rather than a nudge it invented.
+   */
+  proTrialEndsAtMs?: number | null;
 }
 
 export const DAILY_CAP_BY_LEVEL: Record<NotificationLevel, number> = {
@@ -94,6 +109,10 @@ export const RECORD_HOUR = 9;
 export const MAX_SCHEDULED = 48;
 
 const CATEGORY_PRIORITY: Record<NotificationCategory, number> = {
+  // Top of the list. Everything else in here is a nudge the app decided to
+  // send; this one is a warning the app promised in writing, and it names a
+  // deadline the reader cannot get back once it passes.
+  trial: -1,
   record: 0,
   // Asked for by name, like the weigh-in, and the rarer of the two: once a
   // week against every morning. On the same minute of the same morning the
@@ -396,16 +415,59 @@ function applyDailyCap(planned: PlannedNotification[], level: NotificationLevel)
   return kept.sort((left, right) => left.fireAtMs - right.fireAtMs);
 }
 
+/** How long before the trial's last moment the warning goes out. */
+const TRIAL_WARNING_DAYS = 2;
+/**
+ * Fixed milliseconds, and deliberately so.
+ *
+ * The repo's rule is to step calendar dates by date rather than by DAY_MS,
+ * because Helsinki's 23- and 25-hour days push a fixed step off local
+ * midnight. This is not a calendar step: the trial ends at an instant, and the
+ * warning is 48 hours before that instant. A clock change moves the wall-clock
+ * time of the notice by an hour and changes nothing about when the trial ends.
+ */
+const TRIAL_DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Two days before the trial ends, once.
+ *
+ * Not a training nudge, which is why it survives a training break below: the
+ * reader is on holiday, and the trial runs out anyway. It is still subject to
+ * `pushEnabled` — an app that promised a warning cannot deliver one to
+ * somebody who turned notifications off, and pretending otherwise would be the
+ * lie, not the silence.
+ */
+function buildTrialEndingNote(input: NotificationPlanInput): PlannedNotification | null {
+  const endsAt = input.proTrialEndsAtMs;
+  if (!endsAt || !Number.isFinite(endsAt)) {
+    return null;
+  }
+  const fireAtMs = endsAt - TRIAL_WARNING_DAYS * TRIAL_DAY_MS;
+  if (fireAtMs <= input.nowMs) {
+    return null;
+  }
+  return {
+    key: `trial:${endsAt}`,
+    category: 'trial',
+    title: t(input.language, 'notif.trial.title'),
+    body: t(input.language, 'notif.trial.body', { days: TRIAL_WARNING_DAYS }),
+    fireAtMs,
+  };
+}
+
 export function buildNotificationPlan(input: NotificationPlanInput): PlannedNotification[] {
   if (!input.prefs.pushEnabled) {
     return [];
   }
-  // Injured, on holiday, or otherwise out: silence until the break ends.
+  const trialNote = buildTrialEndingNote(input);
+  // Injured, on holiday, or otherwise out: silence until the break ends. The
+  // trial notice is not training, so it goes out regardless.
   if (input.onTrainingBreak) {
-    return [];
+    return trialNote ? [trialNote] : [];
   }
 
   const planned = [
+    trialNote,
     ...buildSessionReminders(input),
     ...buildWeighInReminders(input),
     ...buildMeasurementReminders(input),

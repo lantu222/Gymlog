@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 
 const {
   cycleSchedule,
+  cycleSessionsPerWeek,
   isScheduleKnown,
   patternFromOnOff,
   sessionSlotOn,
@@ -214,6 +215,40 @@ module.exports = [
         starts.map((start) => new Date(start).getDate()),
         [30, 2, 4],
       );
+    },
+  },
+  {
+    name: 'a cycle states its own weekly frequency, fraction and all',
+    run() {
+      // The number the rhythm dial prints under itself. Two on, one off is the
+      // preset the questionnaire offered as a chip, and nothing on the screen
+      // ever said what it came to.
+      assert.equal(cycleSessionsPerWeek(2, 1), 14 / 3);
+      assert.ok(Math.abs(cycleSessionsPerWeek(2, 1) - 4.6667) < 0.001);
+
+      // The two rhythms that land on whole weeks land on whole numbers.
+      assert.equal(cycleSessionsPerWeek(1, 1), 3.5);
+      assert.equal(cycleSessionsPerWeek(6, 1), 6);
+      assert.equal(cycleSessionsPerWeek(1, 6), 1);
+
+      // No rest at all is training every day, and that is seven, not Infinity.
+      assert.equal(cycleSessionsPerWeek(1, 0), 7);
+      assert.equal(cycleSessionsPerWeek(3, 0), 7);
+
+      // Nonsense is clamped rather than propagated: a zero or negative count
+      // of training days would divide the reader's week by nothing.
+      assert.equal(cycleSessionsPerWeek(0, 1), 3.5);
+      assert.equal(cycleSessionsPerWeek(-2, 1), 3.5);
+      assert.equal(cycleSessionsPerWeek(2, -1), 7);
+
+      // Fractional input is a dial that slipped, not a new kind of rhythm.
+      assert.equal(cycleSessionsPerWeek(2.4, 1), 14 / 3);
+
+      // It agrees with the pattern the same numbers build: the pattern's true
+      // entries over its length is the same ratio.
+      const pattern = patternFromOnOff(3, 2);
+      const ratio = (pattern.filter(Boolean).length / pattern.length) * 7;
+      assert.equal(cycleSessionsPerWeek(3, 2), ratio);
     },
   },
 ];

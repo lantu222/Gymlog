@@ -42,6 +42,12 @@ interface SettingsScreenProps {
   onOpenPremium: () => void;
   onOpenLegal: (document: 'privacy' | 'terms') => void;
   /**
+   * Turn one of the coach's keep-a-copy lines on or off. Off also deletes
+   * what was already kept, which is why this is a callback rather than a
+   * preference write the row could do itself.
+   */
+  onWithdrawCoachLog?: (line: 'chat' | 'composer' | 'photo', next: boolean) => void | Promise<void>;
+  /**
    * Where the list was scrolled when a sub-screen was opened, so coming
    * back lands on the row that was tapped instead of the top (user,
    * 2026-08-22). The parent owns the value because this screen unmounts.
@@ -237,6 +243,7 @@ export function SettingsScreen({
   onOpenSubscription,
   onOpenPremium,
   onOpenLegal,
+  onWithdrawCoachLog,
   onResetAllData,
   account,
   initialScrollOffset = 0,
@@ -482,6 +489,50 @@ export function SettingsScreen({
                 />
               }
             />
+            {/* Taking back what the coach was allowed to keep (user,
+                2026-09-10). Three lines, the same three the coach asked for,
+                and switching one off does two things rather than one: it stops
+                the next copy and deletes the ones already made. A withdrawal
+                that only stopped the growth would leave the reader's own words
+                on our server for two more years. */}
+            {onWithdrawCoachLog ? (
+              <>
+                <Row
+                  icon="brain"
+                  title={t(language, 'settings.coachLog.chat')}
+                  sub={t(language, 'settings.coachLog.sub')}
+                  control={
+                    <ToggleSwitch
+                      label={t(language, 'settings.coachLog.chat')}
+                      value={preferences.aiLogChatConsent}
+                      onChange={(next) => void onWithdrawCoachLog('chat', next)}
+                    />
+                  }
+                />
+                <Row
+                  icon="file"
+                  title={t(language, 'settings.coachLog.composer')}
+                  control={
+                    <ToggleSwitch
+                      label={t(language, 'settings.coachLog.composer')}
+                      value={preferences.aiLogComposerConsent}
+                      onChange={(next) => void onWithdrawCoachLog('composer', next)}
+                    />
+                  }
+                />
+                <Row
+                  icon="eye"
+                  title={t(language, 'settings.coachLog.photo')}
+                  control={
+                    <ToggleSwitch
+                      label={t(language, 'settings.coachLog.photo')}
+                      value={preferences.aiLogPhotoConsent}
+                      onChange={(next) => void onWithdrawCoachLog('photo', next)}
+                    />
+                  }
+                />
+              </>
+            ) : null}
             <Row
               icon="upload"
               title={t(language, 'settings.importCsv')}
