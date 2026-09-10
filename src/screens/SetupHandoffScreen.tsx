@@ -7,15 +7,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { VinhaIcon } from '../components/VinhaIcon';
 import { TrackChangeDialog } from '../components/TrackChangeDialog';
 import { t } from '../lib/i18n';
-import { countSetupHandoffOffers, type SetupHandoffPlan } from '../lib/setupHandoff';
+import { type SetupHandoffPlan } from '../lib/setupHandoff';
 import { radii, spacing } from '../theme';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import type { AppLanguage, MeasurementKind } from '../types/models';
 
 export interface SetupHandoffChoices {
   addWidget: boolean;
-  pinTrackingCard: boolean;
-  pinBodyweightCard: boolean;
   /** Start Google sign-in after the other choices land. Free and Pro alike. */
   signInForBackup: boolean;
   /**
@@ -100,8 +98,16 @@ export function SetupHandoffScreen({
   // The heading counts what is on the screen. With the widget already placed
   // (any phone that has had the app before) only the card is offered, and
   // "Two things · both take one tap" was a promise the screen did not keep.
-  const offerCount = countSetupHandoffOffers(plan);
-  const titleKey = offerCount === 1 ? 'handoff.titleOne' : offerCount === 2 ? 'handoff.title' : 'handoff.titleMany';
+  /*
+   * One, always, because this page holds one row.
+   *
+   * The heading used to count the plan's offers, which stopped being what the
+   * page showed the moment sign-in, Pro and the sites moved to pages of their
+   * own: four offers, one switch, and a title claiming the other three
+   * (2026-09-10). This page renders only when the widget can be pinned, and
+   * the widget is the only thing on it.
+   */
+  const titleKey = 'handoff.titleOne' as const;
 
   /**
    * Three pages where there used to be one list (user, 2026-09-10).
@@ -130,8 +136,6 @@ export function SetupHandoffScreen({
   const finish = () =>
     onDone({
       addWidget: plan.offerWidget && addWidget,
-      pinTrackingCard: false,
-      pinBodyweightCard: false,
       trackedSites,
       signInForBackup: plan.offerAccountBackup && signInForBackup,
       showPro: plan.offerPro,
@@ -169,16 +173,7 @@ export function SetupHandoffScreen({
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, GESTURE_BAR_FLOOR) + spacing.md }]}>
           {/* The one page in onboarding where an account is asked for, so the
               terms live here rather than under a list of switches. */}
-          <Text style={styles.legalLine}>{t(language, 'handoff.legal')}</Text>
-          <View style={styles.legalLinks}>
-            <Pressable accessibilityRole="link" onPress={() => onOpenLegal('terms')}>
-              <Text style={styles.legalLink}>{t(language, 'settings.terms')}</Text>
-            </Pressable>
-            <Text style={styles.legalDot}>·</Text>
-            <Pressable accessibilityRole="link" onPress={() => onOpenLegal('privacy')}>
-              <Text style={styles.legalLink}>{t(language, 'settings.privacy')}</Text>
-            </Pressable>
-          </View>
+          <LegalFootnote language={language} onOpenLegal={onOpenLegal} />
           <Pressable
             accessibilityRole="button"
             onPress={() => {
@@ -258,24 +253,7 @@ export function SetupHandoffScreen({
             line, not a checkbox — nothing here is consented to by tapping
             Done, and the two features that do need a yes ask for it in their
             own moment. */}
-        <Text style={styles.legalLine}>{t(language, 'handoff.legal')}</Text>
-        <View style={styles.legalLinks}>
-          <Pressable
-            accessibilityRole="link"
-            onPress={() => onOpenLegal('terms')}
-            style={({ pressed }) => pressed && styles.pressed}
-          >
-            <Text style={styles.legalLink}>{t(language, 'settings.terms')}</Text>
-          </Pressable>
-          <Text style={styles.legalDot}>·</Text>
-          <Pressable
-            accessibilityRole="link"
-            onPress={() => onOpenLegal('privacy')}
-            style={({ pressed }) => pressed && styles.pressed}
-          >
-            <Text style={styles.legalLink}>{t(language, 'settings.privacy')}</Text>
-          </Pressable>
-        </View>
+        <LegalFootnote language={language} onOpenLegal={onOpenLegal} />
         <Pressable
           accessibilityRole="button"
           onPress={finish}
@@ -312,6 +290,45 @@ function GoogleGlyph({ size = 20 }: { size?: number }) {
   );
 }
 
+/**
+ * The sentence naming the two documents, and the two links under it.
+ *
+ * One copy rather than two: it appears on the sign-in page and again in the
+ * footer of the last page, and the two hand-written versions had already
+ * drifted — one of them had a pressed state and the other did not.
+ */
+function LegalFootnote({
+  language,
+  onOpenLegal,
+}: {
+  language: AppLanguage;
+  onOpenLegal: (document: 'privacy' | 'terms') => void;
+}) {
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <>
+      <Text style={styles.legalLine}>{t(language, 'handoff.legal')}</Text>
+      <View style={styles.legalLinks}>
+        <Pressable
+          accessibilityRole="link"
+          onPress={() => onOpenLegal('terms')}
+          style={({ pressed }) => pressed && styles.pressed}
+        >
+          <Text style={styles.legalLink}>{t(language, 'settings.terms')}</Text>
+        </Pressable>
+        <Text style={styles.legalDot}>·</Text>
+        <Pressable
+          accessibilityRole="link"
+          onPress={() => onOpenLegal('privacy')}
+          style={({ pressed }) => pressed && styles.pressed}
+        >
+          <Text style={styles.legalLink}>{t(language, 'settings.privacy')}</Text>
+        </Pressable>
+      </View>
+    </>
+  );
+}
+
 function OfferRow({
   icon,
   title,
@@ -319,7 +336,7 @@ function OfferRow({
   selected,
   onToggle,
 }: {
-  icon: 'clock' | 'progress' | 'scale' | 'google' | 'lightning';
+  icon: 'clock' | 'progress' | 'scale' | 'google';
   title: string;
   body: string;
   selected: boolean;
@@ -469,13 +486,6 @@ const makeStyles = (theme: Theme) =>
       borderWidth: 1,
       borderColor: theme.border,
     },
-    pageTitle: {
-      color: theme.ink,
-      fontSize: 26,
-      lineHeight: 32,
-      fontWeight: '800',
-      letterSpacing: -0.4,
-    },
     pageText: {
       color: theme.muted,
       fontSize: 15,
@@ -485,9 +495,6 @@ const makeStyles = (theme: Theme) =>
     /** The sign-in page centres on its mark: one logo, one promise under it. */
     pageBodyCentred: {
       alignItems: 'center',
-    },
-    pageTitleCentred: {
-      textAlign: 'center',
     },
     pageTextCentred: {
       textAlign: 'center',

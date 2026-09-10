@@ -413,7 +413,6 @@ export interface AppPreferences {
   notificationPrefs: NotificationPrefs;
   /** Active training break, or null when training normally. */
   trainingBreak: TrainingBreak | null;
-  /** ISO date until which a redeemed promo keeps Pro unlocked; null = none. */
   /**
    * Permission to KEEP a copy of what the coach was asked, one thing at a time.
    *
@@ -437,6 +436,7 @@ export interface AppPreferences {
   aiLogChatConsent: boolean;
   aiLogComposerConsent: boolean;
   aiLogPhotoConsent: boolean;
+  /** ISO date until which a redeemed promo keeps Pro unlocked; null = none. */
   promoProUntil: string | null;
   /**
    * When the Pro trial runs out, separate from a promo code's grant.

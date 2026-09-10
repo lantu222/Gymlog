@@ -1557,9 +1557,7 @@ const EN = {
   // The hand-off step: what onboarding offers before it lets go of the reader.
   // Names are interpolated only after a "·" separator, never inside a sentence —
   // Finnish would need the partitive there and a title string cannot be inflected.
-  'handoff.title': 'Two more things',
   'handoff.titleOne': 'One more thing',
-  'handoff.titleMany': 'Before you start',
   'handoff.widget.title': 'The calendar on your home screen',
   'handoff.widget.body': 'See your month without opening the app.',
   'handoff.track.title': 'Watch it change',
@@ -4558,9 +4556,7 @@ const FI: Record<I18nKey, string> = {
   'widget.suggested': 'Suositus sinulle',
   'widget.noDays': 'Valitse treenipäivät',
   'widget.noSessions': 'Avaa sovellus ja aloita ohjelma',
-  'handoff.title': 'Kaksi asiaa vielä',
   'handoff.titleOne': 'Yksi asia vielä',
-  'handoff.titleMany': 'Ennen kuin aloitat',
   'handoff.widget.title': 'Kalenteri kotivalikkoon',
   'handoff.widget.body': 'Näet kuukautesi avaamatta appia.',
   'handoff.track.title': 'Seuraa muutosta',

@@ -83,7 +83,7 @@ import { buildTailoringBadgeLabels, TailoringPreferencesInput } from '../lib/tai
 import { getReadyTemplatePresentation } from '../lib/templatePresentation';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
 import { trackEvent } from '../features/analytics/analyticsClient';
-import { cycleSessionsPerWeek, patternFromOnOff } from '../lib/trainingSchedule';
+import { cycleSchedule, cycleSessionsPerWeek, patternFromOnOff, trainsOn } from '../lib/trainingSchedule';
 import { localizeSessionFocus } from '../lib/sessionNameLabel';
 import { colors, radii, spacing } from '../theme';
 import { haptics } from '../utils/haptics';
@@ -1792,6 +1792,10 @@ export function OnboardingScreen({
   // The dials read straight off the pattern, so a cycle built elsewhere (the
   // plan screen's own steppers) shows here as itself rather than as "none of
   // the four".
+  // Anchored on today, which is what onboarding stamps when it writes the
+  // cycle, and read through the shared resolver so the strip cannot drift from
+  // what Home will draw.
+  const previewCycleSchedule = cycleSchedule(cyclePattern ?? [], new Date());
   const cycleOnDays = cyclePattern ? cyclePattern.filter(Boolean).length : CYCLE_DEFAULT.on;
   const cycleOffDays = cyclePattern ? cyclePattern.length - cycleOnDays : CYCLE_DEFAULT.off;
   const [unitPreference, setUnitPreference] = useState<UnitPreference>(initialUnitPreference);
@@ -3601,7 +3605,14 @@ export function OnboardingScreen({
                 return {
                   id: `cycle-${offset}`,
                   weekday: getWeekdayShortLabel(weekday, language),
-                  training: Boolean(cyclePattern[offset % cyclePattern.length]),
+                  // Through the same function Home reads the cycle with,
+                  // rather than indexing the pattern by the offset from today.
+                  // The two agree only while the anchor IS today, and the one
+                  // written at the end of onboarding is stamped then, not now
+                  // — a reader who reads this page at five to midnight and
+                  // taps through at five past would have been shown a week
+                  // one day out of phase with the one they get.
+                  training: trainsOn(previewCycleSchedule, date),
                 };
               })
             : WEEKDAY_OPTIONS.map((day) => ({

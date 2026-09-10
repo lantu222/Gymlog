@@ -92,14 +92,21 @@ module.exports = [
       assert.doesNotMatch(endpoint, /keepConsent: Boolean\(/);
       assert.doesNotMatch(endpoint, /candidate\.keepConsent \?\?/);
 
-      // Three locks on the write, and the reader's is first in the condition so
-      // it cannot be lost behind a switch somebody flips later. The label joined them on 2026-09-10: a copy nobody
-      // can name is a copy nobody can delete, so a write without one is
-      // refused rather than filed anonymously.
-      assert.match(
-        endpoint,
-        /if \(input\.keepConsent && input\.logId && AI_COACH_DEBUG_TRANSCRIPTS && process\.env\.AI_COACH_DEBUG_TRANSCRIPTS === '1'\)/,
-      );
+      // Two locks, both the reader's: permission and a label. A copy nobody can
+      // name is a copy nobody can delete, so a write without one is refused
+      // rather than filed anonymously.
+      assert.match(endpoint, /if \(!keepConsent \|\| !logId\) \{/);
+
+      // And the development switch is NOT a third one. It was, until
+      // 2026-09-10, which meant a yes bought nothing in production: consent,
+      // label, retention and a delete route all built around a folder that
+      // nothing ever wrote to. That flag says whether OUR debug log exists;
+      // it has no business deciding what the reader allowed.
+      const writerAt = endpoint.indexOf('async function keepTranscript(');
+      assert.ok(writerAt > 0, 'there is no single writer any more');
+      const writer = endpoint.slice(writerAt, endpoint.indexOf('\n}', writerAt));
+      assert.doesNotMatch(writer, /AI_COACH_DEBUG_TRANSCRIPTS/);
+
       // Exactly one place writes a transcript, so there is one condition to
       // keep true rather than a set of them that can drift apart. Counting the
       // word alone stopped working when the forget route arrived and listed
@@ -107,12 +114,22 @@ module.exports = [
       assert.equal(endpoint.split('`transcripts/${day}').length - 1, 1);
       // The label leads the filename, which is what lets withdrawing find every
       // copy by name instead of opening each one to look inside.
-      assert.match(endpoint, /`transcripts\/\$\{day\}\/\$\{input\.logId\}--/);
+      assert.match(endpoint, /`transcripts\/\$\{day\}\/\$\{logId\}--/);
 
-      // And the app sends it from the switch as it stands, not from something
-      // remembered when the screen mounted.
+      // All three routes reach it. Two of them used to be switches that wrote
+      // nothing: the reader ticked "Luodut ohjelmat" or "Valokuvat" and
+      // neither the client nor the server did anything differently.
+      assert.equal(endpoint.split('await keepTranscript(').length - 1, 3);
+      for (const kind of ['chat', 'composer', 'photo']) {
+        assert.match(endpoint, new RegExp(`kind: '${kind}'`), `no route keeps a ${kind} copy`);
+      }
+
+      // And each app-side caller sends its own line of the sheet, as it stands
+      // now rather than as it stood when the screen mounted.
       const chat = read('src', 'screens', 'AICoachChatScreen.tsx');
       assert.match(chat, /keepConsent: logConsent\.chat/);
+      assert.match(read('src', 'app', 'renderHomeScreens.tsx'), /keepConsent: preferences\.aiLogComposerConsent/);
+      assert.match(read('App.tsx'), /keepConsent: preferences\.aiLogPhotoConsent/);
     },
   },
   {

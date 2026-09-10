@@ -141,6 +141,9 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
       brief,
       context: aiCoachTrainingContext,
       language: preferences.appLanguage,
+      // The composer line of the consent sheet, read as it stands now.
+      keepConsent: preferences.aiLogComposerConsent,
+      logId: preferences.aiLogId,
     });
     if (live) {
       return resolveLiveProposal(live, brief, exerciseLibrary, preferences.defaultRestSeconds);

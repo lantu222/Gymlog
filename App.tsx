@@ -127,7 +127,7 @@ import { buildMuscleFocus, getVolumeDeltaVsPrevious } from './src/lib/workoutCom
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { I18nKey, t } from './src/lib/i18n';
 import { buildCoachModules } from './src/lib/aiCoachModules';
-import { isProUnlocked, resolveProEntitlement, resolveProgressionOptions, resolveTrialProUntil } from './src/lib/proEntitlement';
+import { isProUnlocked, resolveProEntitlement, resolveProgressionOptions } from './src/lib/proEntitlement';
 import { ThemeChoiceDialog } from './src/components/ThemeChoiceDialog';
 import { toProgressionFatigueSignal } from './src/lib/progressionGate';
 import { resolveThemeName } from './src/lib/themePreference';
@@ -2838,7 +2838,13 @@ function VinhaApp() {
     if (picked.status !== 'picked') {
       return null;
     }
-    const rows = await requestProgramTableFromImage(picked.image);
+    const rows = await requestProgramTableFromImage({
+      ...picked.image,
+      // The photo line of the consent sheet, read at the moment the photo is
+      // sent rather than remembered from when the screen opened.
+      keepConsent: preferences.aiLogPhotoConsent,
+      logId: preferences.aiLogId,
+    });
     return rows && rows.length > 0 ? programTableToCsv(rows) : null;
   }
 
@@ -3912,6 +3918,9 @@ function VinhaApp() {
   // available or make one that is not.
   const setupHandoffReady =
     preferences.onboardingCompleted && !preferences.setupHandoffCompleted && homeWidgetState !== null;
+  // Read once and depended on by value: the whole preferences object as a
+  // dependency made a fresh plan on every unrelated write.
+  const proUnlockedForHandoff = resolveProEntitlement(preferences).unlocked;
   const setupHandoffPlan = useMemo(
     () =>
       setupHandoffReady
@@ -3922,10 +3931,18 @@ function VinhaApp() {
             canOfferAccountBackup: accountBackup.available && accountBackup.state.status === 'signed_out',
             // A reader who already bought Pro is not offered the page that
             // sells it.
-            canOfferPro: !resolveProEntitlement(preferences).unlocked,
+            canOfferPro: !proUnlockedForHandoff,
           })
         : null,
-    [accountBackup.available, accountBackup.state.status, homePinnedStatCardKeys, homeWidgetState, preferences, setupHandoffReady],
+    [
+      accountBackup.available,
+      accountBackup.state.status,
+      homePinnedStatCardKeys,
+      homeWidgetState,
+      preferences.setupFocusAreas,
+      proUnlockedForHandoff,
+      setupHandoffReady,
+    ],
   );
   const setupHandoffActive = setupHandoffPlan?.shouldShow ?? false;
 
@@ -5665,18 +5682,11 @@ function VinhaApp() {
         />
       );
     }
-  } else if (setupHandoffActive && setupHandoffPlan && handoffLegalDocument) {
-    content = (
-      <LegalDocumentScreen
-        document={handoffLegalDocument}
-        language={preferences.appLanguage}
-        onBack={() => setHandoffLegalDocument(null)}
-      />
-    );
   } else if (setupHandoffActive && setupHandoffPlan) {
     // Between the last question and the app. The route behind this is already
     // the one onboarding chose, so finishing here just uncovers it.
     content = (
+      <>
       <SetupHandoffScreen
         language={preferences.appLanguage}
         plan={setupHandoffPlan}
@@ -5689,8 +5699,6 @@ function VinhaApp() {
         onSkip={() =>
           void handleSetupHandoffDone({
             addWidget: false,
-            pinTrackingCard: false,
-            pinBodyweightCard: false,
             signInForBackup: false,
             showPro: false,
             trackedSites: [],
@@ -5698,6 +5706,21 @@ function VinhaApp() {
         }
         onOpenLegal={(document) => setHandoffLegalDocument(document)}
       />
+      {/* Over the hand-off, never instead of it (2026-09-10). The screen owns
+          the reader's answers in local state — which page they are on, which
+          sites they picked, whether they asked for the widget — so swapping it
+          out to show a document threw all of that away and put them back on
+          page one. Reading the policy is not a decision to unmake. */}
+      {handoffLegalDocument ? (
+        <View style={LEGAL_OVER_HANDOFF}>
+          <LegalDocumentScreen
+            document={handoffLegalDocument}
+            language={preferences.appLanguage}
+            onBack={() => setHandoffLegalDocument(null)}
+          />
+        </View>
+      ) : null}
+      </>
     );
   } else if (route.tab === 'profile' && route.screen === 'setup') {
     content = (
@@ -6535,6 +6558,14 @@ export default function App() {
 
 
 /** Stored weekday codes → the display keys the rest of the app uses. */
+/**
+ * The legal document, laid over the hand-off rather than swapped in for it.
+ *
+ * Its own background is opaque, so nothing of the screen underneath shows
+ * through; what survives is that screen's state, which is the whole point.
+ */
+const LEGAL_OVER_HANDOFF = { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 } as const;
+
 const WEEKDAY_LABEL_KEYS: Record<string, I18nKey> = {
   MON: 'setup.day.mon',
   TUE: 'setup.day.tue',

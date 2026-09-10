@@ -194,7 +194,14 @@ function isProposalPayload(value: unknown): value is { ok: true; proposal: LiveP
  * needing the network here is acceptable in a way it is not for logging a set.
  */
 export async function requestProgramTableFromImage(
-  input: { dataBase64: string; mediaType: ProgramImageMediaType },
+  input: {
+    dataBase64: string;
+    mediaType: ProgramImageMediaType;
+    /** The photo line of the consent sheet. Absent or false keeps nothing. */
+    keepConsent?: boolean;
+    /** The label a kept photo is filed under, so it can be deleted again. */
+    logId?: string | null;
+  },
   upstreamSignal?: AbortSignal,
 ): Promise<ProgramTableRow[] | null> {
   if (!AI_COACH_API_URL) {
@@ -205,7 +212,16 @@ export async function requestProgramTableFromImage(
     const response = await fetch(AI_COACH_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: 'table', mediaType: input.mediaType, dataBase64: input.dataBase64 }),
+      body: JSON.stringify({
+        mode: 'table',
+        mediaType: input.mediaType,
+        dataBase64: input.dataBase64,
+        // Sent every time from the switch as it stands, and paired with the
+        // label: the server refuses to keep anything without one, which
+        // closes the window between the first yes and the id landing.
+        keepConsent: input.keepConsent === true,
+        ...(input.keepConsent && input.logId ? { logId: input.logId } : {}),
+      }),
       signal,
     });
     if (!response.ok) {
@@ -224,7 +240,15 @@ export async function requestProgramTableFromImage(
 }
 
 export async function requestProgrammeComposition(
-  input: { brief: string; context: AICoachAdviceRequest['context']; language?: 'fi' | 'en' },
+  input: {
+    brief: string;
+    context: AICoachAdviceRequest['context'];
+    language?: 'fi' | 'en';
+    /** The composer line of the consent sheet. Absent or false keeps nothing. */
+    keepConsent?: boolean;
+    /** The label a kept programme is filed under, so it can be deleted again. */
+    logId?: string | null;
+  },
   upstreamSignal?: AbortSignal,
 ): Promise<LiveProgrammeProposalPayload | null> {
   if (!AI_COACH_API_URL) {
@@ -235,7 +259,14 @@ export async function requestProgrammeComposition(
     const response = await fetch(AI_COACH_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: 'compose', prompt: input.brief, context: input.context, language: input.language }),
+      body: JSON.stringify({
+        mode: 'compose',
+        prompt: input.brief,
+        context: input.context,
+        language: input.language,
+        keepConsent: input.keepConsent === true,
+        ...(input.keepConsent && input.logId ? { logId: input.logId } : {}),
+      }),
       signal,
     });
     const payload = (await response.json()) as unknown;

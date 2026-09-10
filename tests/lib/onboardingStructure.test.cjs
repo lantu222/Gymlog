@@ -107,7 +107,12 @@ module.exports = [
       // a four-day rhythm. With a cycle the strip walks the next seven days
       // from today and says out loud that it repeats on its own length.
       assert.ok(reviewBody.includes('cyclePattern'), 'the review must branch on the cycle');
-      assert.match(reviewBody, /cyclePattern\[offset % cyclePattern\.length\]/);
+      // Read through the same resolver Home reads the cycle with, rather than
+      // by indexing the pattern from today. Those agree only while the anchor
+      // is today, and the anchor is stamped when onboarding finishes, not when
+      // this page is drawn (2026-09-10).
+      assert.match(reviewBody, /training: trainsOn\(previewCycleSchedule, date\)/);
+      assert.doesNotMatch(reviewBody, /cyclePattern\[offset/);
       assert.match(reviewBody, /weekNote=\{/);
       // Stepped by calendar date, never by a fixed number of milliseconds:
       // Helsinki has 23- and 25-hour days twice a year.

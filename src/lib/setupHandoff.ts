@@ -47,10 +47,6 @@ export interface SetupTrackingOffer {
 /**
  * Which tracking card to offer, given what the reader said they were training.
  *
- * The first focus area with a tape measurement wins — onboarding lets several be
- * picked, and offering three cards at the door is not an offer, it is a form.
- */
-/**
  * Every measured site the reader's own focus answers point at, in the order
  * they picked them and without repeats.
  *
@@ -73,6 +69,13 @@ export function resolveFocusMeasurementSites(focusAreas: SetupFocusArea[]): Meas
   return sites;
 }
 
+/**
+ * The one card the hand-off used to pin, and the focus label it still shows.
+ *
+ * The first focus area with a tape measurement wins. It no longer decides what
+ * the reader is offered — the dialog above does that, from the whole set — but
+ * it is still what names the focus on the page.
+ */
 export function resolveSetupTrackingOffer(focusAreas: SetupFocusArea[]): SetupTrackingOffer {
   for (const focus of focusAreas) {
     const cardKey = FOCUS_MEASUREMENT[focus];
@@ -114,11 +117,15 @@ export interface SetupHandoffPlan {
   /** Null when the card this reader would be offered is already on Home. */
   tracking: SetupTrackingOffer | null;
   /**
-   * The bodyweight card as a second offer, when the focus card is not already
-   * bodyweight and bodyweight is not already on Home. One number every reader
-   * has; asked for by the user (2026-08-19) as the obvious second card.
+   * Whether the tracking dialog has anything left to ask.
+   *
+   * This was `offerBodyweight` until 2026-09-10, when the bodyweight row and
+   * every other row but the widget became a page of their own. Nothing
+   * rendered the old flag any more while it still decided whether the step
+   * appeared, so a reader could be shown the hand-off on account of an offer
+   * that was not in it. The question the page really asks is this one.
    */
-  offerBodyweight: boolean;
+  offerTrackedSites: boolean;
   /** Sign in with Google and keep the data past this phone. Free and Pro alike. */
   offerAccountBackup: boolean;
   /** Open the Pro page once the hand-off is done. Never for a reader who has it. */
@@ -143,8 +150,13 @@ export function planSetupHandoff(input: SetupHandoffInput): SetupHandoffPlan {
   const offer = resolveSetupTrackingOffer(input.focusAreas);
   const tracking = input.pinnedCardKeys.includes(offer.cardKey) ? null : offer;
 
-  const offerBodyweight =
-    offer.cardKey !== 'bodyweight' && !input.pinnedCardKeys.includes('bodyweight');
+  // Something left to ask: a site the reader's own answers point at that is
+  // not already on Home. No named sites falls back to all nine in the dialog,
+  // so there is always something to offer then.
+  const trackedSiteOptions = resolveFocusMeasurementSites(input.focusAreas);
+  const offerTrackedSites =
+    trackedSiteOptions.length === 0
+    || trackedSiteOptions.some((site) => !input.pinnedCardKeys.includes(site));
 
   // `=== true` rather than truthiness: stored plans and older callers may not
   // carry the field at all, and `undefined` leaking into shouldShow turned a
@@ -154,33 +166,22 @@ export function planSetupHandoff(input: SetupHandoffInput): SetupHandoffPlan {
 
   return {
     shouldShow:
-      input.canOfferWidget || tracking !== null || offerBodyweight || offerAccountBackup || offerPro,
+      input.canOfferWidget || tracking !== null || offerTrackedSites || offerAccountBackup || offerPro,
     offerWidget: input.canOfferWidget,
     tracking,
-    offerBodyweight,
+    offerTrackedSites,
     offerAccountBackup,
     offerPro,
-    trackedSiteOptions: resolveFocusMeasurementSites(input.focusAreas),
+    trackedSiteOptions,
   };
 }
 
-/**
- * How many offers the step actually shows — what the heading has to agree
- * with. It read "Two things before you start · Both take one tap" over a
- * single card whenever the widget was already on the home screen, which on a
- * phone that has had the app before is the usual case.
+/*
+ * `countSetupHandoffOffers` lived here until 2026-09-10.
+ *
+ * It counted the rows a one-page list showed, and the heading read the count.
+ * Once sign-in, Pro and the sites each became their own page, the list held
+ * exactly one row — the widget — while the count still said four, so the
+ * heading claimed things the page did not have. A number that cannot be right
+ * is not worth keeping accurate.
  */
-export function countSetupHandoffOffers(
-  plan: Pick<
-    SetupHandoffPlan,
-    'offerWidget' | 'tracking' | 'offerBodyweight' | 'offerAccountBackup' | 'offerPro'
-  >,
-): number {
-  return (
-    (plan.offerWidget ? 1 : 0) +
-    (plan.tracking ? 1 : 0) +
-    (plan.offerBodyweight ? 1 : 0) +
-    (plan.offerAccountBackup ? 1 : 0) +
-    (plan.offerPro ? 1 : 0)
-  );
-}
