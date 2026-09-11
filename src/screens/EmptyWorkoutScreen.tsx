@@ -15,7 +15,14 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 import { PlatePop } from '../components/PlatePop';
 import { REST_BAR_BOTTOM, RestBar } from '../components/RestBar';
-import { isSupersetLinked, setSupersetLink, supersetPositions } from '../lib/supersetGrouping';
+import {
+  buildSupersetRuns,
+  isSupersetLinked,
+  normalizeSupersetGroups,
+  setSupersetLink,
+  supersetPositions,
+} from '../lib/supersetGrouping';
+import { SupersetBorder } from '../components/SupersetBorder';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { rankExerciseMatches } from '../lib/exerciseSearch';
@@ -495,9 +502,13 @@ export function EmptyWorkoutScreen({
    */
   const [restBarHeight, setRestBarHeight] = useState(0);
 
-  // 'A1', 'A2' on the lifts that run together, null on the ones that do not —
-  // index for index with the list below.
-  const supersetBadges = useMemo(() => supersetPositions(exercises), [exercises]);
+  // Which rows run into the next one, index for index with the list below.
+  const supersetRows = useMemo(() => supersetPositions(exercises), [exercises]);
+  /** The list as runs, so a pair is drawn inside one box. */
+  const supersetRuns = useMemo(
+    () => buildSupersetRuns(normalizeSupersetGroups(exercises)),
+    [exercises],
+  );
   const [sheetVisible, setSheetVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -765,6 +776,148 @@ export function EmptyWorkoutScreen({
     }
   };
 
+  /**
+   * One lift's block, drawn the same whether it stands alone or sits inside
+   * a superset — the box around a pair is the only thing that says they go
+   * together, so the block itself does not change.
+   */
+  const renderExerciseBlock = (exercise: FreestyleExerciseState, exerciseIndex: number) => {
+            const activeIndex = exercise.sets.findIndex((set) => !set.done);
+            const superset = supersetRows[exerciseIndex] ?? null;
+            const linkedToNext = superset?.hasNextInGroup === true;
+            return (
+              <View key={exercise.localKey} style={[styles.exerciseBlock, exerciseIndex > 0 && styles.exerciseBlockDivided]}>
+                <View style={styles.exerciseHead}>
+                  <Tile initials={exercise.initials} size={40} radius={11} />
+                  <View style={styles.exerciseHeadCopy}>
+                    <Text numberOfLines={1} style={styles.exerciseName}>
+                      {exerciseNameLabel(language, exercise.displayName)}
+                    </Text>
+                    <Text numberOfLines={1} style={styles.exerciseMeta}>
+                      {/* The superset note goes first, so it is the half that
+                          survives when a long line is cut — the body part and
+                          the equipment are true of this lift every day, and
+                          running into the next one is true only now. */}
+                      {linkedToNext
+                        ? `${t(language, 'detail.day.supersetNext')} · ${exercise.metaLabel}`
+                        : exercise.metaLabel}
+                    </Text>
+                  </View>
+                  {/* The last lift in the list has nothing below it to run
+                      into, so it gets no chain rather than a dead one. */}
+                  {exerciseIndex < exercises.length - 1 ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: linkedToNext }}
+                      accessibilityLabel={t(
+                        language,
+                        linkedToNext ? 'detail.day.a11y.supersetUnlink' : 'detail.day.a11y.supersetLink',
+                        { name: exercise.displayName },
+                      )}
+                      hitSlop={8}
+                      onPress={() => toggleSupersetLink(exercise.localKey)}
+                      style={styles.exerciseRemove}
+                    >
+                      <Svg viewBox="0 0 24 24" width={18} height={18} fill="none">
+                        <Path
+                          d="M9.5 14.5l5-5"
+                          stroke={linkedToNext ? theme.highlight : theme.faint}
+                          strokeWidth={2.1}
+                          strokeLinecap="round"
+                        />
+                        <Path
+                          d="M13.5 6.5l1.5-1.5a3.5 3.5 0 014.95 4.95L18.5 11.5M10.5 17.5L9 19a3.5 3.5 0 01-4.95-4.95L5.5 12.5"
+                          stroke={linkedToNext ? theme.highlight : theme.faint}
+                          strokeWidth={2.1}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        {linkedToNext ? null : (
+                          <Path d="M4 20L20 4" stroke={theme.faint} strokeWidth={1.8} strokeLinecap="round" />
+                        )}
+                      </Svg>
+                    </Pressable>
+                  ) : null}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t(language, 'emptyWorkout.a11y.remove', { name: exercise.displayName })}
+                    onPress={() => removeExercise(exercise.localKey)}
+                    style={styles.exerciseRemove}
+                  >
+                    <Svg viewBox="0 0 24 24" width={18} height={18}>
+                      <Path d="M6 6l12 12M18 6L6 18" stroke={theme.faint} strokeWidth={2.2} fill="none" strokeLinecap="round" />
+                    </Svg>
+                  </Pressable>
+                </View>
+
+                <View style={styles.setGridHeader}>
+                  <Text style={[styles.setGridHeaderText, styles.setColIndex]}>#</Text>
+                  <Text style={[styles.setGridHeaderText, styles.setColField, styles.setGridHeaderCenter]}>KG</Text>
+                  <Text style={[styles.setGridHeaderText, styles.setColField, styles.setGridHeaderCenter]}>
+                    {t(language, 'emptyWorkout.col.reps')}
+                  </Text>
+                  <View style={styles.setColCheck} />
+                </View>
+
+                <View style={styles.setList}>
+                  {exercise.sets.map((set, setIndex) => (
+                    <View key={set.localKey}>
+                      <View style={[styles.setRow, set.done && styles.setRowDone]}>
+                        <Text style={[styles.setIndex, styles.setColIndex, setIndex === activeIndex && styles.setIndexActive]}>
+                          {setIndex + 1}
+                        </Text>
+                        <TextInput
+                          {...keyboard.field(`${set.localKey}:kg`)}
+                          value={set.kg}
+                          onChangeText={(value) => patchSet(exercise.localKey, set.localKey, { kg: value })}
+                          placeholder="0"
+                          placeholderTextColor={AW3.ghost}
+                          selectionColor={theme.purple}
+                          keyboardType="decimal-pad"
+                          style={[styles.setInput, styles.setColField]}
+                        />
+                        <TextInput
+                          {...keyboard.field(`${set.localKey}:reps`)}
+                          value={set.reps}
+                          onChangeText={(value) => patchSet(exercise.localKey, set.localKey, { reps: value })}
+                          placeholder="0"
+                          placeholderTextColor={AW3.ghost}
+                          selectionColor={theme.purple}
+                          keyboardType="number-pad"
+                          style={[styles.setInput, styles.setColField]}
+                        />
+                        <View style={[styles.setColCheck, styles.setCheckCell]}>
+                          <SetCheckButton
+                            done={set.done}
+                            label={t(language, set.done ? 'emptyWorkout.a11y.setNotDone' : 'emptyWorkout.a11y.setDone')}
+                            onPress={() => toggleSetDone(exercise.localKey, set.localKey)}
+                          />
+                        </View>
+                      </View>
+                      {/* The strip only exists once there is a weight to break
+                          into plates — an empty panel taught nobody anything. */}
+                      {exercise.isBarbell && setIndex === activeIndex && parseNumberInput(set.kg) ? (
+                        <FadeInView style={styles.plateStrip}>
+                          <PlatePop kg={set.kg} language={language} />
+                        </FadeInView>
+                      ) : null}
+                    </View>
+                  ))}
+                </View>
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'emptyWorkout.a11y.addSetTo', { name: exercise.displayName })}
+                  onPress={() => addSet(exercise.localKey)}
+                  style={styles.addSetButton}
+                >
+                  <PlusIcon size={15} color={theme.purpleDark} strokeWidth={2.6} />
+                  <Text style={styles.addSetText}>{t(language, 'emptyWorkout.addSet')}</Text>
+                </Pressable>
+              </View>
+            );
+  };
+
   return (
     <View style={styles.screen}>
       {/* header */}
@@ -922,144 +1075,22 @@ export function EmptyWorkoutScreen({
               </Pressable>
             </View>
           ) : null}
-          {exercises.map((exercise, exerciseIndex) => {
-            const activeIndex = exercise.sets.findIndex((set) => !set.done);
-            const superset = supersetBadges[exerciseIndex] ?? null;
-            const linkedToNext = superset?.hasNextInGroup === true;
+          {supersetRuns.map((run) => {
+            const rows = run.indexes.map((index) => renderExerciseBlock(exercises[index], index));
+            if (run.groupId === null || run.indexes.length < 2) {
+              return rows;
+            }
+            // Two lifts done back to back are one box with one label on it,
+            // the same boundary the session and the programme draw.
             return (
-              <View key={exercise.localKey} style={[styles.exerciseBlock, exerciseIndex > 0 && styles.exerciseBlockDivided]}>
-                <View style={styles.exerciseHead}>
-                  <Tile initials={exercise.initials} size={40} radius={11} />
-                  <View style={styles.exerciseHeadCopy}>
-                    <Text numberOfLines={1} style={styles.exerciseName}>
-                      {superset?.label ? (
-                        <Text style={styles.supersetBadge}>{`${superset.label}  `}</Text>
-                      ) : null}
-                      {exerciseNameLabel(language, exercise.displayName)}
-                    </Text>
-                    <Text numberOfLines={1} style={styles.exerciseMeta}>
-                      {/* The superset note goes first, so it is the half that
-                          survives when a long line is cut — the body part and
-                          the equipment are true of this lift every day, and
-                          running into the next one is true only now. */}
-                      {linkedToNext
-                        ? `${t(language, 'detail.day.supersetNext', {
-                            label: supersetBadges[exerciseIndex + 1]?.label ?? '',
-                          })} · ${exercise.metaLabel}`
-                        : exercise.metaLabel}
-                    </Text>
-                  </View>
-                  {/* The last lift in the list has nothing below it to run
-                      into, so it gets no chain rather than a dead one. */}
-                  {exerciseIndex < exercises.length - 1 ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: linkedToNext }}
-                      accessibilityLabel={t(
-                        language,
-                        linkedToNext ? 'detail.day.a11y.supersetUnlink' : 'detail.day.a11y.supersetLink',
-                        { name: exercise.displayName },
-                      )}
-                      hitSlop={8}
-                      onPress={() => toggleSupersetLink(exercise.localKey)}
-                      style={styles.exerciseRemove}
-                    >
-                      <Svg viewBox="0 0 24 24" width={18} height={18} fill="none">
-                        <Path
-                          d="M9.5 14.5l5-5"
-                          stroke={linkedToNext ? theme.highlight : theme.faint}
-                          strokeWidth={2.1}
-                          strokeLinecap="round"
-                        />
-                        <Path
-                          d="M13.5 6.5l1.5-1.5a3.5 3.5 0 014.95 4.95L18.5 11.5M10.5 17.5L9 19a3.5 3.5 0 01-4.95-4.95L5.5 12.5"
-                          stroke={linkedToNext ? theme.highlight : theme.faint}
-                          strokeWidth={2.1}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        {linkedToNext ? null : (
-                          <Path d="M4 20L20 4" stroke={theme.faint} strokeWidth={1.8} strokeLinecap="round" />
-                        )}
-                      </Svg>
-                    </Pressable>
-                  ) : null}
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t(language, 'emptyWorkout.a11y.remove', { name: exercise.displayName })}
-                    onPress={() => removeExercise(exercise.localKey)}
-                    style={styles.exerciseRemove}
-                  >
-                    <Svg viewBox="0 0 24 24" width={18} height={18}>
-                      <Path d="M6 6l12 12M18 6L6 18" stroke={theme.faint} strokeWidth={2.2} fill="none" strokeLinecap="round" />
-                    </Svg>
-                  </Pressable>
-                </View>
-
-                <View style={styles.setGridHeader}>
-                  <Text style={[styles.setGridHeaderText, styles.setColIndex]}>#</Text>
-                  <Text style={[styles.setGridHeaderText, styles.setColField, styles.setGridHeaderCenter]}>KG</Text>
-                  <Text style={[styles.setGridHeaderText, styles.setColField, styles.setGridHeaderCenter]}>
-                    {t(language, 'emptyWorkout.col.reps')}
+              <View key={run.groupId} style={styles.supersetGroup}>
+                <SupersetBorder radius={16} />
+                <View style={styles.supersetGroupPill}>
+                  <Text style={styles.supersetGroupPillText}>
+                    {t(language, 'guided.superset.pill')}
                   </Text>
-                  <View style={styles.setColCheck} />
                 </View>
-
-                <View style={styles.setList}>
-                  {exercise.sets.map((set, setIndex) => (
-                    <View key={set.localKey}>
-                      <View style={[styles.setRow, set.done && styles.setRowDone]}>
-                        <Text style={[styles.setIndex, styles.setColIndex, setIndex === activeIndex && styles.setIndexActive]}>
-                          {setIndex + 1}
-                        </Text>
-                        <TextInput
-                          {...keyboard.field(`${set.localKey}:kg`)}
-                          value={set.kg}
-                          onChangeText={(value) => patchSet(exercise.localKey, set.localKey, { kg: value })}
-                          placeholder="0"
-                          placeholderTextColor={AW3.ghost}
-                          selectionColor={theme.purple}
-                          keyboardType="decimal-pad"
-                          style={[styles.setInput, styles.setColField]}
-                        />
-                        <TextInput
-                          {...keyboard.field(`${set.localKey}:reps`)}
-                          value={set.reps}
-                          onChangeText={(value) => patchSet(exercise.localKey, set.localKey, { reps: value })}
-                          placeholder="0"
-                          placeholderTextColor={AW3.ghost}
-                          selectionColor={theme.purple}
-                          keyboardType="number-pad"
-                          style={[styles.setInput, styles.setColField]}
-                        />
-                        <View style={[styles.setColCheck, styles.setCheckCell]}>
-                          <SetCheckButton
-                            done={set.done}
-                            label={t(language, set.done ? 'emptyWorkout.a11y.setNotDone' : 'emptyWorkout.a11y.setDone')}
-                            onPress={() => toggleSetDone(exercise.localKey, set.localKey)}
-                          />
-                        </View>
-                      </View>
-                      {/* The strip only exists once there is a weight to break
-                          into plates — an empty panel taught nobody anything. */}
-                      {exercise.isBarbell && setIndex === activeIndex && parseNumberInput(set.kg) ? (
-                        <FadeInView style={styles.plateStrip}>
-                          <PlatePop kg={set.kg} language={language} />
-                        </FadeInView>
-                      ) : null}
-                    </View>
-                  ))}
-                </View>
-
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t(language, 'emptyWorkout.a11y.addSetTo', { name: exercise.displayName })}
-                  onPress={() => addSet(exercise.localKey)}
-                  style={styles.addSetButton}
-                >
-                  <PlusIcon size={15} color={theme.purpleDark} strokeWidth={2.6} />
-                  <Text style={styles.addSetText}>{t(language, 'emptyWorkout.addSet')}</Text>
-                </Pressable>
+                {rows}
               </View>
             );
           })}
@@ -1381,12 +1412,26 @@ const makeStyles = (theme: Theme) => {
     color: theme.ink,
     letterSpacing: -0.16,
   },
-  // Inline with the name rather than a pill beside it: the head row already
-  // holds a tile, two lines of text and two icons, and one more box in it is
-  // what pushes a long lift name to an ellipsis.
-  supersetBadge: {
+  // The box two paired lifts share, and the label straddling its top line.
+  supersetGroup: {
+    borderRadius: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginVertical: 8,
+  },
+  supersetGroupPill: {
+    position: 'absolute',
+    top: -7,
+    left: 18,
+    backgroundColor: theme.surface,
+    paddingHorizontal: 6,
+  },
+  supersetGroupPillText: {
     color: theme.purple,
+    fontSize: 9.5,
+    lineHeight: 13,
     fontWeight: '900',
+    letterSpacing: 1.1,
   },
   exerciseMeta: {
     fontSize: 12,

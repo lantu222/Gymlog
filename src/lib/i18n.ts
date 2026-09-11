@@ -1289,7 +1289,7 @@ const EN = {
   'guided.count.exerciseMany': '{count} exercises',
   'guided.count.sets': '{count} sets',
   // The badge on a superset set: which lift of the pair, and which round.
-  'guided.superset.round': '{label} · round {round}/{rounds}',
+  'guided.superset.round': 'round {round}/{rounds}',
   // The one word the box and the set screen both wear. Capitalised at the
   // point of use, so the dictionary carries the word and not a style.
   'guided.superset.pill': 'SUPERSET',
@@ -1381,7 +1381,7 @@ const EN = {
   // The walk-up card for the first lift of a superset. It must not quote a
   // rest: what follows this lift is the next one, and the rest comes after
   // the round.
-  'guided.walk.planSuperset': '{sets} × {reps} · straight to {label}',
+  'guided.walk.planSuperset': '{sets} × {reps} · straight into {name}',
   'guided.walk.startFirst': 'Start set 1',
   'guided.walk.swap': 'Swap exercise',
   'guided.sheet.tab.learn': 'Learn',
@@ -2830,7 +2830,9 @@ const EN = {
   'detail.day.a11y.remove': 'Remove {name} from this day',
   // A superset row says what follows it INSTEAD of a rest, because a rest
   // range on a lift you run straight out of is a number that never happens.
-  'detail.day.supersetNext': 'straight to {label}',
+  // No label to point at any more: the box around the two lifts says which
+  // ones, so the chip only has to say that nothing comes between them.
+  'detail.day.supersetNext': 'no rest',
   'detail.day.a11y.supersetLink': 'Run {name} straight into the next exercise',
   'detail.day.a11y.supersetUnlink': 'Rest after {name} again',
   'detail.role.anchorLine': 'The lift progress is measured by. Done fresh, longest rests, weight moves first.',
@@ -4336,7 +4338,7 @@ const FI: Record<I18nKey, string> = {
   'guided.count.exerciseOne': '1 liike',
   'guided.count.exerciseMany': '{count} liikettä',
   'guided.count.sets': '{count} sarjaa',
-  'guided.superset.round': '{label} · kierros {round}/{rounds}',
+  'guided.superset.round': 'kierros {round}/{rounds}',
   'guided.superset.pill': 'SUPERSARJA',
   'guided.superset.thenRest': 'sitten lepo',
   'guided.superset.next': 'Ei taukoa — suoraan: {name}',
@@ -4403,7 +4405,7 @@ const FI: Record<I18nKey, string> = {
   'guided.walk.last': 'VIIMEKSI',
   'guided.walk.lastBorrowed': 'VIIMEKSI\nERI PÄIVÄ',
   'guided.walk.plan': '{sets} × {reps} · lepo {rest} s',
-  'guided.walk.planSuperset': '{sets} × {reps} · suoraan {label}',
+  'guided.walk.planSuperset': '{sets} × {reps} · suoraan: {name}',
   'guided.walk.startFirst': 'Aloita sarja 1',
   'guided.walk.swap': 'Vaihda liike',
   // "Opettele", not "Opi": this tab is deliberate practice on one lift —
@@ -5739,7 +5741,7 @@ const FI: Record<I18nKey, string> = {
   'detail.day.dragHandle': 'Järjestä raahaamalla: {name}',
   'detail.day.a11y.swap': 'Vaihda {name}',
   'detail.day.a11y.remove': 'Poista {name} tästä päivästä',
-  'detail.day.supersetNext': 'suoraan {label}',
+  'detail.day.supersetNext': 'ei taukoa',
   'detail.day.a11y.supersetLink': 'Yhdistä supersarjaksi seuraavan liikkeen kanssa: {name}',
   'detail.day.a11y.supersetUnlink': 'Pura supersarja: {name}',
   'detail.role.anchorLine': 'Se liike, josta kehitys mitataan. Tehdään tuoreena, pisimmät tauot, paino nousee ensimmäisenä.',

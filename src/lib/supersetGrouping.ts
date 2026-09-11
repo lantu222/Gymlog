@@ -41,17 +41,18 @@ export interface SupersetRun {
   indexes: number[];
 }
 
-/** Where one exercise sits in its group, for the badge on its row. */
+/**
+ * Where one exercise sits in its group.
+ *
+ * No letter and no 'A1': the screens draw a superset as one box with one label
+ * on it, so a badge per row would state the same fact once per line. That was
+ * the first shape this shipped in, and the reader asked for the box instead
+ * (2026-09-11).
+ */
 export interface SupersetPosition {
   groupId: string | null;
-  /** 'A', 'B', 'C'… by order of appearance. Null when the row is not in a group. */
-  letter: string | null;
-  /** 1-based position within the group. Null when the row is not in a group. */
-  order: number | null;
   /** How many exercises the group holds. 1 when the row is not in a group. */
   size: number;
-  /** 'A1', 'A2'… — what the row shows. Null when the row is not in a group. */
-  label: string | null;
   /** True for every member but the last: what follows is the next lift, not a rest. */
   hasNextInGroup: boolean;
 }
@@ -145,62 +146,30 @@ export function normalizeSupersetGroups<T extends SupersetMember>(
   );
 }
 
-const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-
 /**
- * 0 → 'A', 25 → 'Z', 26 → 'AA'. Nobody will build twenty-seven supersets in
- * one session, but a label that runs out of alphabet would render as
- * `undefined` on a row, and that is a worse day than the arithmetic.
- */
-function groupLetter(groupIndex: number): string {
-  let remaining = groupIndex;
-  let letter = '';
-
-  do {
-    letter = LETTERS[remaining % LETTERS.length] + letter;
-    remaining = Math.floor(remaining / LETTERS.length) - 1;
-  } while (remaining >= 0);
-
-  return letter;
-}
-
-/**
- * A badge for every row, aligned with the input list index for index.
+ * Where each row stands, aligned with the input list index for index.
  *
- * Letters count only the groups, so a day of "squat, bench+row, deadlift,
- * curl+pushdown" labels the pairs A and B rather than B and D — the reader
- * counts supersets, not rows.
+ * What a row needs to know about its own pairing is whether it HAS one and
+ * whether a lift follows it inside it — the first decides whether the row is
+ * drawn inside a box, the second whether a rest follows the row or the next
+ * lift does.
  */
 export function supersetPositions(members: readonly SupersetMember[]): SupersetPosition[] {
   const runs = buildSupersetRuns(normalizeSupersetGroups(members));
   const positions: SupersetPosition[] = new Array(members.length);
-  let groupCount = 0;
 
   runs.forEach((run) => {
     if (run.groupId === null || run.indexes.length < 2) {
       run.indexes.forEach((index) => {
-        positions[index] = {
-          groupId: null,
-          letter: null,
-          order: null,
-          size: 1,
-          label: null,
-          hasNextInGroup: false,
-        };
+        positions[index] = { groupId: null, size: 1, hasNextInGroup: false };
       });
       return;
     }
 
-    const letter = groupLetter(groupCount);
-    groupCount += 1;
-
     run.indexes.forEach((index, orderIndex) => {
       positions[index] = {
         groupId: run.groupId,
-        letter,
-        order: orderIndex + 1,
         size: run.indexes.length,
-        label: `${letter}${orderIndex + 1}`,
         hasNextInGroup: orderIndex < run.indexes.length - 1,
       };
     });
@@ -312,6 +281,42 @@ function runEnd(members: readonly SupersetMember[], index: number): number {
  * offers the pair one dose — but when they do, the longer lift simply
  * continues alone once the shorter one runs out, which is what a person does.
  */
+/**
+ * The set count every lift in a superset should carry: the first lift's.
+ *
+ * A superset is counted in ROUNDS, so two lifts inside one that disagree about
+ * how many sets they do leave the block four rounds of which one lift does
+ * three — and every screen that states the block then has to explain itself.
+ * Asked for from the gym floor: "miten romanialainen mave voi olla 3 × 10 ja
+ * takakyykky 4 × 8 jos on superset?" (2026-09-11). It cannot, so linking makes
+ * it so.
+ *
+ * The FIRST lift decides, because it is the one the block is built on — the
+ * heavier of the pair by convention, and the one whose dose the reader chose
+ * before pairing anything. Returned as index → sets rather than applied, so
+ * the caller keeps whatever shape its rows are in.
+ */
+export function supersetSetTargets(
+  members: readonly SupersetMember[],
+  setsOf: (index: number) => number,
+): Map<number, number> {
+  const targets = new Map<number, number>();
+
+  buildSupersetRuns(normalizeSupersetGroups(members)).forEach((run) => {
+    if (run.groupId === null || run.indexes.length < 2) {
+      return;
+    }
+    const anchor = setsOf(run.indexes[0]);
+    run.indexes.forEach((index) => {
+      if (setsOf(index) !== anchor) {
+        targets.set(index, anchor);
+      }
+    });
+  });
+
+  return targets;
+}
+
 /** One set of one lift, addressed the way both loggers address it. */
 export interface SupersetPlaySlot {
   exerciseIndex: number;

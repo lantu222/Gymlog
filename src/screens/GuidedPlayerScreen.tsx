@@ -1941,17 +1941,23 @@ export function GuidedPlayerScreen({
     isGuidedExerciseOut(exercise) ? { ...exercise, supersetGroup: null } : exercise,
   );
   const entrySupersets = supersetPositions(plannedExercises);
-  /** The same badges, reachable by slot — which is how every step names a lift. */
-  const supersetBySlot = new Map<string, { label: string; nextLabel: string | null }>();
+  /** The entry table's rows in runs, so a pair is one box there too. */
+  const entrySupersetRuns = buildSupersetRuns(plannedExercises);
+  /**
+   * The lift this one runs straight into, by slot — which is how every step
+   * names a lift. Null when nothing follows inside the block, and absent
+   * entirely for a lift done on its own.
+   */
+  const supersetNextBySlot = new Map<string, string | null>();
   activeExercises.forEach((exercise, index) => {
     const position = entrySupersets[index];
-    if (!position?.label) {
+    if (!position?.groupId) {
       return;
     }
-    supersetBySlot.set(exercise.slotId, {
-      label: position.label,
-      nextLabel: position.hasNextInGroup ? entrySupersets[index + 1]?.label ?? null : null,
-    });
+    supersetNextBySlot.set(
+      exercise.slotId,
+      position.hasNextInGroup ? activeExercises[index + 1]?.exerciseName ?? null : null,
+    );
   });
   /**
    * The whole group a lift belongs to, in the order it is performed — what the
@@ -2195,14 +2201,14 @@ export function GuidedPlayerScreen({
               reps: target.reps,
             }),
       // A lift that runs into the next one has no rest after it, so the card
-      // says what does follow. Quoting the lift's own rest here would be the
+      // names what does follow. Quoting the lift's own rest here would be the
       // same promise the day view stopped making — and worse on this screen,
-      // which is the last thing read before the set.
-      planLine: supersetBySlot.get(step.slotId)?.nextLabel
+      // which is the last thing read before walking to the rack.
+      planLine: supersetNextBySlot.get(step.slotId)
         ? t(language, 'guided.walk.planSuperset', {
             sets: instance.sets.length,
             reps: target.reps,
-            label: supersetBySlot.get(step.slotId)?.nextLabel ?? '',
+            name: exerciseNameLabel(language, supersetNextBySlot.get(step.slotId) ?? ''),
           })
         : t(language, 'guided.walk.plan', {
             sets: instance.sets.length,
@@ -2351,7 +2357,11 @@ export function GuidedPlayerScreen({
                       key: 'warmup',
                       label: t(language, 'guided.phase.warmup'),
                       sub: `${t(language, 'guided.count.timedDrills', { count: warmupDrills.length })} · ${t(language, 'guided.entry.duration', { min: Math.max(1, Math.round(warmupSecondsTotal / 60)) })}`,
-                      rows: warmupDrills.map((drill) => ({ name: drill.name, sets: '', reps: '', load: formatDrillLength(drill.seconds) })),
+                      groups: warmupDrills.map((drill, index) => ({
+                        key: `warmup_${index}`,
+                        superset: false,
+                        rows: [{ name: drill.name, sets: '', reps: '', load: formatDrillLength(drill.seconds) }],
+                      })),
                     }
                   : null,
                 workStart !== null
@@ -2363,29 +2373,33 @@ export function GuidedPlayerScreen({
                           ? t(language, 'guided.count.exerciseOne')
                           : t(language, 'guided.count.exerciseMany', { count: activeExercises.length })
                       } · ${t(language, 'guided.count.sets', { count: totalSets })}`,
-                      rows: activeExercises.map((exercise, exerciseIndex) => ({
-                        // Through the same translation every other name on
-                        // this screen goes through — this row listed "Back
-                        // Squat" under a Finnish heading while the player
-                        // itself said Takakyykky. A superset row carries its
-                        // badge in front of the name: the entry screen is read
-                        // before the session starts, which is when knowing two
-                        // lifts run together still changes what you set up.
-                        name: `${
-                          entrySupersets[exerciseIndex]?.label
-                            ? `${entrySupersets[exerciseIndex].label}  `
-                            : ''
-                        }${exerciseNameLabel(language, exercise.exerciseName)}`,
-                        ...buildOverviewColumns(
-                          {
-                            exerciseName: exercise.exerciseName,
-                            setCount: exercise.sets.length,
-                            repsLabel: formatRepRangeLabel(exercise.sets[0]),
-                            timed: isTimedTrackingMode(exercise.trackingMode),
-                            loadKg: resolveTarget(exercise.slotId, 0)?.loadKg ?? null,
-                          },
-                          unitPreference,
-                        ),
+                      // In runs, so a superset is one box on this table too.
+                      // Two lifts that will be done back to back are read
+                      // before the session starts, which is when knowing it
+                      // still changes what you set up.
+                      groups: entrySupersetRuns.map((run) => ({
+                        key: run.groupId ?? `solo_${run.indexes[0]}`,
+                        superset: run.groupId !== null && run.indexes.length > 1,
+                        rows: run.indexes.map((exerciseIndex) => {
+                          const exercise = activeExercises[exerciseIndex];
+                          return {
+                            // Through the same translation every other name on
+                            // this screen goes through — this row listed "Back
+                            // Squat" under a Finnish heading while the player
+                            // itself said Takakyykky.
+                            name: exerciseNameLabel(language, exercise.exerciseName),
+                            ...buildOverviewColumns(
+                              {
+                                exerciseName: exercise.exerciseName,
+                                setCount: exercise.sets.length,
+                                repsLabel: formatRepRangeLabel(exercise.sets[0]),
+                                timed: isTimedTrackingMode(exercise.trackingMode),
+                                loadKg: resolveTarget(exercise.slotId, 0)?.loadKg ?? null,
+                              },
+                              unitPreference,
+                            ),
+                          };
+                        }),
                       })),
                     }
                   : null,
@@ -2394,7 +2408,11 @@ export function GuidedPlayerScreen({
                       key: 'cooldown',
                       label: t(language, 'guided.phase.cooldown'),
                       sub: `${t(language, 'guided.count.stretchMany', { count: cooldownDrills.length })} · ${cooldownSecondsTotal < 90 ? `~${t(language, 'logger.secondsValue', { count: Math.round(cooldownSecondsTotal / 5) * 5 })}` : t(language, 'guided.entry.duration', { min: Math.round(cooldownSecondsTotal / 60) })}`,
-                      rows: cooldownDrills.map((drill) => ({ name: drill.name, sets: '', reps: '', load: formatDrillLength(drill.seconds) })),
+                      groups: cooldownDrills.map((drill, index) => ({
+                        key: `cooldown_${index}`,
+                        superset: false,
+                        rows: [{ name: drill.name, sets: '', reps: '', load: formatDrillLength(drill.seconds) }],
+                      })),
                     }
                   : null,
               ]
@@ -2405,7 +2423,11 @@ export function GuidedPlayerScreen({
                     key: string;
                     label: string;
                     sub: string;
-                    rows: Array<{ name: string; sets: string; reps: string; load: string }>;
+                    groups: Array<{
+                      key: string;
+                      superset: boolean;
+                      rows: Array<{ name: string; sets: string; reps: string; load: string }>;
+                    }>;
                   } => item !== null,
                 )
                 .map((phase, phaseIndex) => {
@@ -2471,20 +2493,37 @@ export function GuidedPlayerScreen({
                               </View>
                             </View>
                           ) : null}
-                          {phase.rows.map((row, rowIndex) => (
-                            <View key={rowIndex} style={styles.phaseRowGroup}>
-                              <View style={styles.phaseRow}>
-                                <Text style={styles.phaseRowName}>
-                                  {row.name}
-                                </Text>
-                                {row.sets || row.reps ? (
-                                  <>
-                                    <Text style={[styles.phaseCol, styles.phaseColSets]}>{row.sets}</Text>
-                                    <Text style={[styles.phaseCol, styles.phaseColReps]}>{row.reps}</Text>
-                                  </>
-                                ) : null}
-                                <Text style={[styles.phaseCol, styles.phaseColLoad]}>{row.load}</Text>
-                              </View>
+                          {phase.groups.map((group) => (
+                            <View
+                              key={group.key}
+                              style={group.superset ? styles.phaseSupersetGroup : undefined}
+                            >
+                              {group.superset ? (
+                                <>
+                                  <SupersetBorder radius={12} />
+                                  <View style={styles.phaseSupersetPill}>
+                                    <Text style={styles.phaseSupersetPillText}>
+                                      {t(language, 'guided.superset.pill')}
+                                    </Text>
+                                  </View>
+                                </>
+                              ) : null}
+                              {group.rows.map((row, rowIndex) => (
+                                <View key={rowIndex} style={styles.phaseRowGroup}>
+                                  <View style={styles.phaseRow}>
+                                    <Text style={styles.phaseRowName}>
+                                      {row.name}
+                                    </Text>
+                                    {row.sets || row.reps ? (
+                                      <>
+                                        <Text style={[styles.phaseCol, styles.phaseColSets]}>{row.sets}</Text>
+                                        <Text style={[styles.phaseCol, styles.phaseColReps]}>{row.reps}</Text>
+                                      </>
+                                    ) : null}
+                                    <Text style={[styles.phaseCol, styles.phaseColLoad]}>{row.load}</Text>
+                                  </View>
+                                </View>
+                              ))}
                             </View>
                           ))}
                         </View>
@@ -4358,6 +4397,28 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderTopColor: theme.border,
     paddingVertical: 8,
     marginBottom: 6,
+  },
+  // The box a paired row lives in on the entry table, and the label that
+  // straddles its top line.
+  phaseSupersetGroup: {
+    borderRadius: 12,
+    paddingTop: 8,
+    paddingBottom: 2,
+    marginVertical: 6,
+  },
+  phaseSupersetPill: {
+    position: 'absolute',
+    top: -7,
+    left: 20,
+    backgroundColor: theme.surface,
+    paddingHorizontal: 6,
+  },
+  phaseSupersetPillText: {
+    color: theme.purple,
+    fontSize: 9,
+    lineHeight: 12,
+    fontWeight: '900',
+    letterSpacing: 1.1,
   },
   phaseRowGroup: {
     paddingLeft: 16,

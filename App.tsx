@@ -136,7 +136,7 @@ import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNaviga
 import { buildExerciseHistoryLookup } from './src/lib/workoutEditorTable';
 import { buildExercisePrLookup } from './src/lib/workoutCompletionSummary';
 import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
-import { isSupersetLinked, setSupersetLink } from './src/lib/supersetGrouping';
+import { isSupersetLinked, setSupersetLink, supersetSetTargets } from './src/lib/supersetGrouping';
 import { resolveObservedRate } from './src/lib/strengthGoalPlan';
 import type { GoalFlowLift, GoalFlowProposal } from './src/screens/StrengthGoalFlowScreen';
 import { CoachChatMemory } from './src/lib/coachChatMemory';
@@ -2544,6 +2544,15 @@ function VinhaApp() {
           const index = exercises.findIndex((exercise) => exercise.id === exerciseId);
           if (index !== -1) {
             exercises.splice(0, exercises.length, ...setSupersetLink(exercises, index, edit.linked));
+            // Same rule the custom path applies: a block counted in rounds
+            // cannot hold two lifts that disagree about how many sets they do.
+            if (edit.linked) {
+              supersetSetTargets(exercises, (position) => exercises[position].targetSets).forEach(
+                (targetSets, position) => {
+                  exercises[position] = { ...exercises[position], targetSets };
+                },
+              );
+            }
           }
         }
 

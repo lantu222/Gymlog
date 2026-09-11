@@ -94,12 +94,11 @@ export type GuidedStep =
        */
       interval?: IntervalScheme;
       /**
-       * 'A1', 'A2'… when this set belongs to a superset. The screen shows it,
-       * and its presence is also what tells the reader why no rest ring came
+       * Which round of the superset this set belongs to, and how many there
+       * are. Present only inside a superset, so it doubles as the answer to
+       * "is this one" — which is what tells the reader why no rest ring came
        * up after the set they just logged.
        */
-      supersetLabel?: string;
-      /** Which round of the superset this is, and how many there are. */
       supersetRound?: { round: number; rounds: number };
     }
   | {
@@ -233,18 +232,6 @@ function formatBlockLength(totalSeconds: number): string {
   return `~${Math.round(totalSeconds / 60)} min`;
 }
 
-/**
- * 'A' for the first superset of the session, 'B' for the second.
- *
- * Counted over the groups already built rather than over the exercises, so the
- * letters skip the lifts done on their own — the reader counts supersets, not
- * rows. The group being labelled is already on the list, hence the -1.
- */
-function supersetLetter(groups: GuidedGroup[]): string {
-  const index = groups.filter((group) => (group.supersetSize ?? 1) > 1).length - 1;
-  return String.fromCharCode(65 + (index % 26));
-}
-
 export function buildGuidedSteps(
   input: {
     warmup: GuidedDrill[];
@@ -351,12 +338,7 @@ export function buildGuidedSteps(
           exerciseIndex: roster.indexOf(exercise),
           exerciseCount: roster.length,
           ...(interval ? { interval } : {}),
-          ...(members.length > 1
-            ? {
-                supersetLabel: `${supersetLetter(groups)}${entry.memberIndex + 1}`,
-                supersetRound: { round: entry.setIndex + 1, rounds },
-              }
-            : {}),
+          ...(members.length > 1 ? { supersetRound: { round: entry.setIndex + 1, rounds } } : {}),
         });
 
         const next = order[orderIndex + 1];
@@ -524,11 +506,10 @@ export function getGuidedPhaseLabel(step: GuidedStep, language: AppLanguage = 'e
     case 'set':
       // Inside a superset the reader moves between two lifts and back again,
       // so "EXERCISE 2 OF 6" then "3 OF 6" then "2 OF 6" is a counter going
-      // backwards. The block says which half of the pair and which round,
-      // which is the question a superset actually raises.
-      return step.supersetLabel && step.supersetRound
+      // backwards. The block counts rounds instead, which is the question a
+      // superset actually raises — and the label under it names both lifts.
+      return step.supersetRound
         ? t(language, 'guided.superset.round', {
-            label: step.supersetLabel,
             round: step.supersetRound.round,
             rounds: step.supersetRound.rounds,
           })
@@ -675,7 +656,7 @@ export function getGuidedNextPreview(
       const runsStraightOn =
         !restsBetween &&
         current?.type === 'set' &&
-        Boolean(current.supersetLabel) &&
+        Boolean(current.supersetRound) &&
         current.groupIndex === step.groupIndex;
       const headline = runsStraightOn ? t(language, 'guided.superset.next', { name }) : name;
       return {

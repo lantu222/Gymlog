@@ -7,6 +7,7 @@ const {
   setSupersetLink,
   supersetPositions,
   supersetRoundOrder,
+  supersetSetTargets,
 } = require('../../.test-dist/lib/supersetGrouping');
 
 /** Deterministic ids, so a test can say which group a row ended up in. */
@@ -81,13 +82,19 @@ module.exports = [
     },
   },
   {
-    name: 'badges count supersets, not rows',
+    /**
+     * What a row needs to know about its own pairing: whether it has one, and
+     * whether a lift follows it inside it. No letter and no 'A1' — the screens
+     * draw a superset as one box with one label, so a badge per row would say
+     * the same thing once per line (user 2026-09-11).
+     */
+    name: 'a row knows whether it is in a group and whether a lift follows it',
     run() {
       // squat · bench+row · deadlift · curl+pushdown
       const positions = supersetPositions(rows(null, 'a', 'a', null, 'b', 'b'));
       assert.deepEqual(
-        positions.map((position) => position.label),
-        [null, 'A1', 'A2', null, 'B1', 'B2'],
+        positions.map((position) => position.groupId),
+        [null, 'a', 'a', null, 'b', 'b'],
       );
       assert.deepEqual(
         positions.map((position) => position.hasNextInGroup),
@@ -100,26 +107,17 @@ module.exports = [
     },
   },
   {
-    name: 'a group of three is labelled A1 A2 A3',
+    name: 'only the last lift of a group has a rest after it',
     run() {
       const positions = supersetPositions(rows('a', 'a', 'a'));
       assert.deepEqual(
-        positions.map((position) => position.label),
-        ['A1', 'A2', 'A3'],
+        positions.map((position) => position.hasNextInGroup),
+        [true, true, false],
       );
-    },
-  },
-  {
-    name: 'badges run past Z rather than off the end of the alphabet',
-    run() {
-      const list = [];
-      for (let group = 0; group < 27; group += 1) {
-        list.push({ supersetGroup: `g${group}` }, { supersetGroup: `g${group}` });
-      }
-      const positions = supersetPositions(list);
-      assert.equal(positions[0].letter, 'A');
-      assert.equal(positions[50].letter, 'Z');
-      assert.equal(positions[52].letter, 'AA');
+      assert.deepEqual(
+        positions.map((position) => position.size),
+        [3, 3, 3],
+      );
     },
   },
   {
@@ -174,6 +172,33 @@ module.exports = [
       const list = rows(null, null);
       assert.equal(setSupersetLink(list, 1, true, idFactory()), list);
       assert.equal(isSupersetLinked(list, 1), false);
+    },
+  },
+  {
+    /**
+     * A block counted in rounds cannot hold two lifts that disagree about how
+     * many sets they do — "miten romanialainen mave voi olla 3 × 10 ja
+     * takakyykky 4 × 8 jos on superset?" (user 2026-09-11). The first lift
+     * decides, because it is the one the block is built on.
+     */
+    name: 'the first lift of a group decides how many sets the block runs',
+    run() {
+      const targets = supersetSetTargets(rows('a', 'a', null), (index) => [4, 3, 5][index]);
+      assert.deepEqual([...targets], [[1, 4]]);
+    },
+  },
+  {
+    name: 'a group that already agrees is left alone',
+    run() {
+      const targets = supersetSetTargets(rows('a', 'a'), () => 3);
+      assert.equal(targets.size, 0);
+    },
+  },
+  {
+    name: 'lifts outside a group keep their own set count',
+    run() {
+      const targets = supersetSetTargets(rows(null, null), (index) => [4, 2][index]);
+      assert.equal(targets.size, 0);
     },
   },
   {

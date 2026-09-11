@@ -11,7 +11,7 @@
  * edits in a row compose instead of replacing each other.
  */
 
-import { normalizeSupersetGroups, setSupersetLink } from './supersetGrouping';
+import { normalizeSupersetGroups, setSupersetLink, supersetSetTargets } from './supersetGrouping';
 
 /** Only the fields an edit reads. The stored row carries more. */
 export interface ProgramSessionExerciseSnapshot {
@@ -281,6 +281,18 @@ export function applyProgramSessionEdit(
       if (index !== -1) {
         const linked = setSupersetLink(exercises, index, edit.linked, makeId);
         exercises.splice(0, exercises.length, ...linked);
+        // Linking makes one block out of two lifts, and a block is counted in
+        // rounds — so the lifts in it stop disagreeing about how many sets
+        // they do. Only on link: unlinking gives each lift back its own
+        // dose decision, and changing it then would be an edit nobody asked
+        // for.
+        if (edit.linked) {
+          supersetSetTargets(exercises, (position) => exercises[position].targetSets).forEach(
+            (targetSets, position) => {
+              exercises[position] = { ...exercises[position], targetSets };
+            },
+          );
+        }
       }
     }
 

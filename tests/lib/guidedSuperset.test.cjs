@@ -49,13 +49,11 @@ module.exports = [
     },
   },
   {
-    name: 'the lifts of a superset are badged A1 and A2',
+    name: 'every set of a superset says which round it belongs to',
     run() {
       const sets = pairPlan().steps.filter((step) => step.type === 'set');
-      assert.deepEqual(
-        sets.map((step) => step.supersetLabel),
-        ['A1', 'A2', 'A1', 'A2'],
-      );
+      // Both lifts of one round report the same round: that is what a round
+      // is. No A1/A2 — the screens draw the block as one box with one label.
       assert.deepEqual(
         sets.map((step) => `${step.supersetRound.round}/${step.supersetRound.rounds}`),
         ['1/2', '1/2', '2/2', '2/2'],
@@ -63,7 +61,7 @@ module.exports = [
     },
   },
   {
-    name: 'a lift done on its own carries no superset badge',
+    name: 'a lift done on its own belongs to no round',
     run() {
       const plan = buildGuidedSteps({
         warmup: [],
@@ -71,7 +69,7 @@ module.exports = [
         exercises: [lift('a', 'Bench Press', { setCount: 2 })],
       });
       assert.deepEqual(
-        plan.steps.filter((step) => step.type === 'set').map((step) => step.supersetLabel),
+        plan.steps.filter((step) => step.type === 'set').map((step) => step.supersetRound),
         [undefined, undefined],
       );
     },
@@ -182,7 +180,7 @@ module.exports = [
     },
   },
   {
-    name: 'the second superset of a session is B',
+    name: 'each superset of a session counts its own rounds',
     run() {
       const plan = buildGuidedSteps({
         warmup: [],
@@ -196,8 +194,10 @@ module.exports = [
         ],
       });
       assert.deepEqual(
-        plan.steps.filter((step) => step.type === 'set').map((step) => step.supersetLabel ?? null),
-        ['A1', 'A2', null, 'B1', 'B2'],
+        plan.steps
+          .filter((step) => step.type === 'set')
+          .map((step) => (step.supersetRound ? `${step.supersetRound.round}/${step.supersetRound.rounds}` : null)),
+        ['1/1', '1/1', null, '1/1', '1/1'],
       );
     },
   },

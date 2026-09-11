@@ -8,6 +8,8 @@ const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 const borderSource = read('src/components/SupersetBorder.tsx');
 const playerSource = read('src/screens/GuidedPlayerScreen.tsx');
 const i18nSource = read('src/lib/i18n.ts');
+const daySource = read('src/screens/ProgramDayScreen.tsx');
+const freestyleSource = read('src/screens/EmptyWorkoutScreen.tsx');
 
 module.exports = [
   {
@@ -71,9 +73,11 @@ module.exports = [
      * and the same one word — the box in the contents sheet, and the screen
      * asking for the set.
      */
-    name: 'superset outline: the sheet box and the set screen both wear it',
+    name: 'superset outline: every surface that lists a superset wears it',
     run() {
-      assert.equal((playerSource.match(/<SupersetBorder /g) ?? []).length, 2);
+      // The contents sheet, the entry table and the set screen — and the day
+      // view and the free workout have their own, asserted below.
+      assert.equal((playerSource.match(/<SupersetBorder /g) ?? []).length, 3);
       // Painted first in both, so the label can break the line it sits on.
       assert.match(playerSource, /<SupersetBorder radius=\{14\} \/>\s*<View style=\{styles\.runSupersetPill\}>/);
       assert.match(
@@ -83,6 +87,17 @@ module.exports = [
       // One word, both dictionaries.
       assert.equal((i18nSource.match(/'guided\.superset\.pill': '[^']+'/g) ?? []).length, 2);
       assert.equal((i18nSource.match(/'guided\.superset\.thenRest': '[^']+'/g) ?? []).length, 2);
+      // The programme's day view and the free workout draw the same box, with
+      // the same one word on it — a superset that looked different in each
+      // place would be three features wearing one name.
+      for (const screen of [daySource, freestyleSource]) {
+        assert.match(screen, /<SupersetBorder radius=\{16\} \/>/);
+        assert.match(screen, /'guided\.superset\.pill'/);
+      }
+      // And nowhere draws an A1/A2 badge any more.
+      for (const screen of [playerSource, daySource, freestyleSource]) {
+        assert.doesNotMatch(screen, /supersetTag|supersetBadge|supersetLabel/);
+      }
     },
   },
   {

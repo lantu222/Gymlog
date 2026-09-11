@@ -412,7 +412,7 @@ module.exports = [
      */
     name: 'guided walk-up: a lift that runs into the next one quotes no rest',
     run() {
-      assert.match(playerSource, /supersetBySlot\.get\(step\.slotId\)\?\.nextLabel\s*\?\s*t\(language, 'guided\.walk\.planSuperset'/);
+      assert.match(playerSource, /supersetNextBySlot\.get\(step\.slotId\)\s*\?\s*t\(language, 'guided\.walk\.planSuperset'/);
       // Both dictionaries carry it, and neither version mentions a rest.
       const lines = i18nSource.match(/'guided\.walk\.planSuperset': '[^']+'/g) ?? [];
       assert.equal(lines.length, 2);
