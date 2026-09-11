@@ -89,7 +89,7 @@ import { localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { classifySessionFocus, getDefaultCooldown, getDefaultWarmup } from '../lib/homeSessionHero';
 import { formatSetScheme, formatShortDate, formatWeight, parseNumberInput, removeTrailingZeros } from '../lib/format';
 import { estimateSessionMinutes } from '../lib/sessionDuration';
-import { buildSupersetRuns, supersetPositions } from '../lib/supersetGrouping';
+import { buildSupersetRuns, normalizeSupersetGroups, supersetPositions } from '../lib/supersetGrouping';
 import { t } from '../lib/i18n';
 import { haptics } from '../utils/haptics';
 import { subscribeRestActions, useRestEndAlert } from '../hooks/useRestEndAlert';
@@ -1941,8 +1941,12 @@ export function GuidedPlayerScreen({
     isGuidedExerciseOut(exercise) ? { ...exercise, supersetGroup: null } : exercise,
   );
   const entrySupersets = supersetPositions(plannedExercises);
-  /** The entry table's rows in runs, so a pair is one box there too. */
-  const entrySupersetRuns = buildSupersetRuns(plannedExercises);
+  /**
+   * The entry table's rows in runs, so a pair is one box there too. Through
+   * the same normalizer the badges use: the run's group id is a React key
+   * here, and one id on two runs would be two rows claiming one key.
+   */
+  const entrySupersetRuns = buildSupersetRuns(normalizeSupersetGroups(plannedExercises));
   /**
    * The lift this one runs straight into, by slot — which is how every step
    * names a lift. Null when nothing follows inside the block, and absent

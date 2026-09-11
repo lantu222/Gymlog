@@ -630,7 +630,13 @@ function updateActiveExercise(session: WorkoutSessionRuntime, nextIndex: number,
  */
 function blockIndexes(session: WorkoutSessionRuntime, exerciseIndex: number) {
   return supersetGroupIndexes(
-    session.exercises.map((exercise) => ({ supersetGroup: exercise.supersetGroup ?? null })),
+    session.exercises.map((exercise) => ({
+      // A skipped lift is out of the session, so it is out of the block too.
+      // Without this, adding a set to the half still being trained gave the
+      // skipped half a PENDING set — and the next-set search routes by
+      // pending, so the lift the reader had just skipped came back.
+      supersetGroup: exercise.status === 'skipped' ? null : exercise.supersetGroup ?? null,
+    })),
     exerciseIndex,
   );
 }

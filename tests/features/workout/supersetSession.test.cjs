@@ -149,6 +149,28 @@ module.exports = [
     },
   },
   {
+    /**
+     * A skipped lift is out of the session, so it is out of the block. It used
+     * to gain a PENDING set when its partner gained one, and the next-set
+     * search routes by pending — so the lift the reader had just skipped came
+     * back into the session.
+     */
+    name: 'adding a set does not resurrect a skipped partner',
+    run() {
+      let state = workoutReducer(start('g1'), { type: 'exercise/skip', payload: { slotId: 'b' } });
+      state = workoutReducer(state, { type: 'exercise/addSet', payload: { slotId: 'a' } });
+      assert.deepEqual(
+        state.activeSession.exercises.map((exercise) => exercise.sets.length),
+        [3, 2],
+      );
+      assert.equal(state.activeSession.exercises[1].status, 'skipped');
+      assert.ok(
+        state.activeSession.exercises[1].sets.every((set) => set.status !== 'pending'),
+        'a skipped lift must not come back holding a pending set',
+      );
+    },
+  },
+  {
     name: 'the last set of the last lift ends the session without a rest',
     run() {
       let state = start('g1');
