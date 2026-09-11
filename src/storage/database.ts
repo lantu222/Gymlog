@@ -437,13 +437,22 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
       }
     });
 
-    const repaired = new Map<string, ExerciseTemplate>();
+    // Keyed by the row object, not by its id. An id is normalized to
+    // `String(exercise?.id ?? '')` above, so every stored row that lost its id
+    // collapses to the same empty string — and two of those, from different
+    // days, would have overwritten each other here, substituting one day's
+    // exercise into another's list (PR #93 review). Object identity cannot
+    // collide, and this map is only ever read with the very objects that
+    // built it.
+    const repaired = new Map<ExerciseTemplate, ExerciseTemplate>();
     byDay.forEach((day) => {
       const ordered = day.slice().sort((left, right) => left.orderIndex - right.orderIndex);
-      normalizeSupersetGroups(ordered).forEach((exercise) => repaired.set(exercise.id, exercise));
+      normalizeSupersetGroups(ordered).forEach((exercise, position) => {
+        repaired.set(ordered[position], exercise);
+      });
     });
 
-    return normalizedExerciseTemplates.map((exercise) => repaired.get(exercise.id) ?? exercise);
+    return normalizedExerciseTemplates.map((exercise) => repaired.get(exercise) ?? exercise);
   })();
 
   const normalizedTemplates = rawTemplates.map((template) => {

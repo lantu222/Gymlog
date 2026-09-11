@@ -89,7 +89,7 @@ import { localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { classifySessionFocus, getDefaultCooldown, getDefaultWarmup } from '../lib/homeSessionHero';
 import { formatSetScheme, formatShortDate, formatWeight, parseNumberInput, removeTrailingZeros } from '../lib/format';
 import { estimateSessionMinutes } from '../lib/sessionDuration';
-import { buildSupersetRuns, normalizeSupersetGroups, supersetPositions } from '../lib/supersetGrouping';
+import { buildSupersetRuns, normalizeSupersetGroups, supersetGroupIndexes, supersetPositions } from '../lib/supersetGrouping';
 import { t } from '../lib/i18n';
 import { haptics } from '../utils/haptics';
 import { subscribeRestActions, useRestEndAlert } from '../hooks/useRestEndAlert';
@@ -2973,18 +2973,35 @@ export function GuidedPlayerScreen({
                 workout.addSet(step.slotId);
               }}
               /**
-               * Only when there is a set to take: more than one, and the last
-               * one still pending. A control that refuses on press is a
-               * control the reader tries twice; the reducer refuses too, so
-               * this decides what is DRAWN, not what is allowed.
+               * Only when there is a round to take: every lift in the block
+               * has more than one set and its last one is still pending. A
+               * control that refuses on press is a control the reader tries
+               * twice — and inside a superset the reducer takes the round off
+               * BOTH lifts or neither, so asking only about this one drew a
+               * live button that did nothing (PR #93 review): after A1×2 and
+               * A2×1 of a two-round block, A2 looked removable and A1 was not.
+               *
+               * For a lift on its own the block is that lift, so this reads
+               * exactly as it did before.
                */
               onRemoveSet={
                 (() => {
-                  const exercise = workout.activeSession?.exercises.find(
-                    (candidate) => candidate.slotId === step.slotId,
+                  const exercises = workout.activeSession?.exercises ?? [];
+                  const index = exercises.findIndex((candidate) => candidate.slotId === step.slotId);
+                  if (index === -1) {
+                    return null;
+                  }
+                  const block = supersetGroupIndexes(
+                    exercises.map((candidate) => ({
+                      supersetGroup: isGuidedExerciseOut(candidate) ? null : candidate.supersetGroup ?? null,
+                    })),
+                    index,
                   );
-                  const sets = exercise?.sets ?? [];
-                  if (sets.length <= 1 || sets[sets.length - 1]?.status !== 'pending') {
+                  const removable = block.every((position) => {
+                    const sets = exercises[position]?.sets ?? [];
+                    return sets.length > 1 && sets[sets.length - 1]?.status === 'pending';
+                  });
+                  if (!removable) {
                     return null;
                   }
                   return () => {

@@ -292,6 +292,13 @@ export function applyProgramSessionEdit(
           exercises[position] = {
             ...exercises[position],
             targetSets: edit.prescription.targetSets,
+            // Rest travels with the sets. The block rests once per round, as
+            // long as its most demanding lift asks for, so a rest written to
+            // one lift and not the other is a number the session would never
+            // use (PR #93 review).
+            ...(typeof edit.prescription.restSeconds === 'number'
+              ? { restSeconds: edit.prescription.restSeconds }
+              : {}),
           };
         });
       }

@@ -8,6 +8,7 @@ import {
 } from '../../lib/cardio';
 import { CardioActivityType } from '../../types/models';
 import { isUnloadedTrackingMode } from './workoutTypes';
+import { isGuidedExerciseOut } from '../../lib/guidedPlayer';
 import { buildSupersetPlayOrder, supersetGroupIndexes } from '../../lib/supersetGrouping';
 import { GuidedResumeAnchor, WorkoutTrackingMode, WorkoutTemplateExercise, WorkoutExerciseInsertInput, WorkoutExerciseInstance, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRestTimerState, WorkoutRuntimeTemplate, WorkoutSessionMaterializeOptions, WorkoutSessionRuntime, WorkoutSessionSummary, WorkoutSetDraftInput, WorkoutSetEffort, WorkoutSetInstance, WorkoutSlotHistoryEntry, WorkoutSlotHistorySet, WorkoutStatus, WorkoutUiState, WorkoutExerciseStatus } from './workoutTypes';
 import { getWorkoutTemplateById } from './workoutCatalog';
@@ -631,11 +632,13 @@ function updateActiveExercise(session: WorkoutSessionRuntime, nextIndex: number,
 function blockIndexes(session: WorkoutSessionRuntime, exerciseIndex: number) {
   return supersetGroupIndexes(
     session.exercises.map((exercise) => ({
-      // A skipped lift is out of the session, so it is out of the block too.
-      // Without this, adding a set to the half still being trained gave the
-      // skipped half a PENDING set — and the next-set search routes by
-      // pending, so the lift the reader had just skipped came back.
-      supersetGroup: exercise.status === 'skipped' ? null : exercise.supersetGroup ?? null,
+      // A lift the reader walked away from is out of the block, the same way
+      // it is out of the plan. Through `isGuidedExerciseOut` rather than a
+      // `status === 'skipped'` test of its own: a lift with one logged set and
+      // the rest skipped derives to *completed*, so the narrow test let it
+      // stay in the block — and adding a round then gave it a PENDING set,
+      // reviving the lift the reader had just skipped (PR #93 review).
+      supersetGroup: isGuidedExerciseOut(exercise) ? null : exercise.supersetGroup ?? null,
     })),
     exerciseIndex,
   );
@@ -704,13 +707,15 @@ function restBelongsAfter(
  */
 function restSecondsFor(session: WorkoutSessionRuntime, exerciseIndex: number) {
   const exercise = session.exercises[exerciseIndex];
-  const group = exercise?.supersetGroup ?? null;
-  if (!group) {
-    return exercise.restSecondsMin;
-  }
-  return session.exercises
-    .filter((item) => (item.supersetGroup ?? null) === group)
-    .reduce((longest, item) => Math.max(longest, item.restSecondsMin), exercise.restSecondsMin);
+  // Through `blockIndexes`, so the lifts this rest is the longest OF are the
+  // same ones the block is made of. Matching on the raw group id instead let
+  // a skipped squat keep setting the rest for the curl still being trained,
+  // and the player — which filters the skipped lift out before it builds its
+  // steps — then disagreed with the reducer about the same session.
+  return blockIndexes(session, exerciseIndex).reduce(
+    (longest, index) => Math.max(longest, session.exercises[index].restSecondsMin),
+    exercise.restSecondsMin,
+  );
 }
 
 function updateSessionTimestamp(session: WorkoutSessionRuntime, nowIso = new Date().toISOString()) {
@@ -1280,8 +1285,12 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
             edited: false,
           },
         ];
+        // Derived per member, not set on the tapped row alone. A partner that
+        // had finished keeps `completed` otherwise, while holding an unlogged
+        // set — and `findNextIncompleteIndex` skips a completed lift, so the
+        // round just added to it would never be asked for (PR #93 review).
+        member.status = finalizeExerciseStatus(member);
       });
-      exercise.status = 'active';
       updateActiveExercise(session, exerciseIndex, nextSetIndex);
       session.restTimer = createInitialTimer();
       session.updatedAt = new Date().toISOString();

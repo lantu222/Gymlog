@@ -138,7 +138,7 @@ import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNaviga
 import { buildExerciseHistoryLookup } from './src/lib/workoutEditorTable';
 import { buildExercisePrLookup } from './src/lib/workoutCompletionSummary';
 import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
-import { isSupersetLinked, setSupersetLink, supersetSetTargets } from './src/lib/supersetGrouping';
+import { isSupersetLinked, setSupersetLink, supersetGroupIndexes, supersetSetTargets } from './src/lib/supersetGrouping';
 import { resolveObservedRate } from './src/lib/strengthGoalPlan';
 import type { GoalFlowLift, GoalFlowProposal } from './src/screens/StrengthGoalFlowScreen';
 import { CoachChatMemory } from './src/lib/coachChatMemory';
@@ -2523,9 +2523,9 @@ function VinhaApp() {
               trackedDefault: false,
               orderIndex: exerciseIndex,
               libraryItemId: target && edit.kind === 'replace' ? resolveLibraryItemIdForName(name) : null,
-              // Whatever the catalog says about pairing — nothing, today. The
-              // field is carried anyway so a catalog that ever prescribes a
-              // superset does not lose it the first time somebody edits a day.
+              // The catalog's own pairing, which since 2026-09-11 is 83 real
+              // supersets rather than none. It has to survive the copy: this
+              // is the fork a reader's first edit to a ready programme takes.
               supersetGroup: exercise.supersetGroup ?? null,
             };
           }),
@@ -2546,6 +2546,27 @@ function VinhaApp() {
           const to = Math.max(0, Math.min(exercises.length - 1, Math.round(edit.toIndex)));
           const [moved] = exercises.splice(from, 1);
           exercises.splice(to, 0, moved);
+        }
+
+        // A block's set count is one number here too. This fork runs on the
+        // FIRST edit of a ready programme, before a custom copy exists — so
+        // without this, re-dosing one half of a catalog superset wrote the
+        // copy with the two halves disagreeing, and nothing downstream repairs
+        // that (PR #93 review). The custom path does the same a few files
+        // over, in applyProgramSessionEdit.
+        if (edit.kind === 'prescribe' && session.id === sessionId) {
+          const index = exercises.findIndex((item) => item.id === exerciseId);
+          if (index !== -1) {
+            supersetGroupIndexes(exercises, index).forEach((position) => {
+              exercises[position] = {
+                ...exercises[position],
+                targetSets: edit.prescription.targetSets,
+                ...(typeof edit.prescription.restSeconds === 'number'
+                  ? { restSeconds: edit.prescription.restSeconds }
+                  : {}),
+              };
+            });
+          }
         }
 
         if (edit.kind === 'supersetLink' && session.id === sessionId) {

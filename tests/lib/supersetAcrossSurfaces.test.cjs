@@ -185,6 +185,58 @@ module.exports = [
     },
   },
   {
+    /**
+     * Rest travels with the sets. A block rests once per round, as long as its
+     * most demanding lift asks for, so a rest written to one lift and not the
+     * other is a number the session would never use.
+     */
+    name: 're-dosing a superset carries the rest across the block',
+    run() {
+      const result = applyProgramSessionEdit(
+        day(
+          lift('e1', 'Bench Press', { restSeconds: 120, supersetGroup: 'a' }),
+          lift('e2', 'Barbell Row', { restSeconds: 45, supersetGroup: 'a' }),
+          lift('e3', 'Curl', { restSeconds: 60 }),
+        ),
+        'day_1',
+        {
+          kind: 'prescribe',
+          exerciseId: 'e1',
+          prescription: { targetSets: 3, repMin: 8, repMax: 12, restSeconds: 90 },
+        },
+        idFactory(),
+      );
+      assert.equal(result.kind, 'save');
+      assert.deepEqual(
+        result.sessions[0].exercises.map((exercise) => exercise.restSeconds),
+        [90, 90, 60],
+      );
+    },
+  },
+  {
+    name: 'a rest left untouched by the sheet stays where it was',
+    run() {
+      const result = applyProgramSessionEdit(
+        day(
+          lift('e1', 'Bench Press', { restSeconds: 120, supersetGroup: 'a' }),
+          lift('e2', 'Barbell Row', { restSeconds: 45, supersetGroup: 'a' }),
+        ),
+        'day_1',
+        {
+          kind: 'prescribe',
+          exerciseId: 'e1',
+          prescription: { targetSets: 3, repMin: 8, repMax: 12, restSeconds: null },
+        },
+        idFactory(),
+      );
+      assert.equal(result.kind, 'save');
+      assert.deepEqual(
+        result.sessions[0].exercises.map((exercise) => exercise.restSeconds),
+        [120, 45],
+      );
+    },
+  },
+  {
     name: 'a superset rests once per round, not once per lift',
     run() {
       const paired = estimateSessionSeconds({

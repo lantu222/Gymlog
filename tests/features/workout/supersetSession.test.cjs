@@ -171,6 +171,68 @@ module.exports = [
     },
   },
   {
+    /**
+     * The narrow `status === 'skipped'` test missed the commonest shape of a
+     * skip: a lift with one set logged before the rest were skipped derives to
+     * COMPLETED, so it stayed in the block and a new round revived it.
+     */
+    name: 'a partly skipped partner is out of the block too',
+    run() {
+      let state = logSet(start('g1'), 'a', 0);
+      state = logSet(state, 'b', 0);
+      state = workoutReducer(state, { type: 'exercise/skip', payload: { slotId: 'b' } });
+      assert.equal(state.activeSession.exercises[1].status, 'completed');
+      state = workoutReducer(state, { type: 'exercise/addSet', payload: { slotId: 'a' } });
+      assert.deepEqual(
+        state.activeSession.exercises.map((exercise) => exercise.sets.length),
+        [3, 2],
+      );
+      assert.ok(
+        state.activeSession.exercises[1].sets.every((set) => set.status !== 'pending'),
+        'a lift the reader skipped must not come back holding a pending set',
+      );
+    },
+  },
+  {
+    /**
+     * Every member's status is derived after it gains a set. A partner left
+     * on a stale `completed` holds an unlogged set that the next-set search
+     * walks straight past.
+     */
+    name: 'a round added to a finished block reopens both lifts',
+    run() {
+      let state = start('g1');
+      state = logSet(state, 'a', 0);
+      state = logSet(state, 'b', 0);
+      state = logSet(state, 'a', 1);
+      state = logSet(state, 'b', 1);
+      assert.deepEqual(
+        state.activeSession.exercises.map((exercise) => exercise.status),
+        ['completed', 'completed'],
+      );
+      state = workoutReducer(state, { type: 'exercise/addSet', payload: { slotId: 'a' } });
+      assert.deepEqual(
+        state.activeSession.exercises.map((exercise) => exercise.status),
+        ['active', 'active'],
+      );
+    },
+  },
+  {
+    /**
+     * The rest is the longest of the lifts the block is actually made of. A
+     * skipped squat kept setting the rest for the curl still being trained,
+     * and the player — which drops it before building steps — disagreed with
+     * the reducer about the same session.
+     */
+    name: 'a skipped lift no longer sets the rest for the one still being trained',
+    run() {
+      let state = workoutReducer(start('g1'), { type: 'exercise/skip', payload: { slotId: 'a' } });
+      state = logSet(state, 'b', 0);
+      // 45 from the row, not 120 from the bench nobody is doing.
+      assert.equal(state.activeSession.restTimer.durationSeconds, 45);
+    },
+  },
+  {
     name: 'the last set of the last lift ends the session without a rest',
     run() {
       let state = start('g1');

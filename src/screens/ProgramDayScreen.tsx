@@ -151,6 +151,13 @@ const roleTints = (theme: Theme): Record<string, { bg: string; ink: string }> =>
         accessory: { bg: '#F2F1F5', ink: '#7A7387' },
       };
 
+/**
+ * What one edge of a superset box adds above or below the rows inside it:
+ * `supersetGroup`'s marginVertical plus its paddingVertical. The drag charges
+ * it per boundary crossed, because no row's onLayout reports it.
+ */
+const SUPERSET_BOX_EDGE = 12;
+
 interface ProgramDayScreenProps {
   programTitle: string;
   session: ProgramDetailSessionItem;
@@ -302,7 +309,11 @@ export function ProgramDayScreen({
       if (height === 0 || remaining < height / 2) {
         break;
       }
-      remaining -= height;
+      // A superset box costs vertical space that no row's onLayout reports,
+      // so a walk that only summed row heights committed the reorder before
+      // the card had reached the row it was aimed at, drifting further with
+      // every block crossed (PR #93 review).
+      remaining -= height + supersetBoundarySpacing(next - step, next);
       target = next;
     }
     return target;
@@ -514,11 +525,48 @@ export function ProgramDayScreen({
   // A badge per row, aligned index for index with the day's exercises: 'A1',
   // 'A2' on the lifts that run together, null on the ones that do not.
   const supersets = useMemo(() => supersetPositions(session.exercises), [session.exercises]);
+  /**
+   * The space a superset box puts between two rows on top of their own
+   * heights: its margin above and below, and its padding inside. Charged once
+   * per boundary the drag crosses — leaving a block, entering one, or both at
+   * once between two adjacent blocks.
+   */
+  const supersetBoundarySpacing = (fromIndex: number, toIndex: number) => {
+    const before = supersets[fromIndex]?.groupId ?? null;
+    const after = supersets[toIndex]?.groupId ?? null;
+    if (before === after) {
+      return 0;
+    }
+    return (before === null ? 0 : SUPERSET_BOX_EDGE) + (after === null ? 0 : SUPERSET_BOX_EDGE);
+  };
+
   /** The day as runs, so two lifts done together are drawn inside one box. */
   const supersetRuns = useMemo(
     () => buildSupersetRuns(normalizeSupersetGroups(session.exercises)),
     [session.exercises],
   );
+  /**
+   * The rest each row should STATE, by index.
+   *
+   * A block rests as long as its most demanding lift asks for — that is the
+   * rule every consumer uses, from the player's step list to the session
+   * estimate. The last lift of a pair was stating its own rest instead, so a
+   * curl paired under a squat read "tauko 45–75 s" while the round actually
+   * rested two minutes (PR #93 review).
+   */
+  const blockRestLabels = useMemo(() => {
+    const labels = new Map<number, string>();
+    supersetRuns.forEach((run) => {
+      if (run.groupId === null || run.indexes.length < 2) {
+        return;
+      }
+      const longest = run.indexes.reduce((best, index) =>
+        session.exercises[index].restSeconds > session.exercises[best].restSeconds ? index : best,
+      );
+      run.indexes.forEach((index) => labels.set(index, session.exercises[longest].restLabel));
+    });
+    return labels;
+  }, [session.exercises, supersetRuns]);
 
   /**
    * Whether the row the sheet is open on runs straight into the one below it.
@@ -593,10 +641,10 @@ export function ProgramDayScreen({
    *
    * Lifted out of the list so the list can group: two lifts done back to
    * back are drawn inside one boundary with one label instead of an A1 and
-   * an A2 on every line (user 2026-09-11). The row still takes its own
-   * index, so the drag that reorders the day is unaffected by the
-   * grouping — it measures and moves rows, and there are still exactly as
-   * many of them.
+   * an A2 on every line (user 2026-09-11). The row still takes its own index,
+   * so the drag still measures and moves the same rows — but the box around a
+   * pair adds space no row reports, and `dragTargetFor` charges that per
+   * boundary it crosses. See SUPERSET_BOX_EDGE.
    */
   const renderExerciseRow = (exercise: ProgramDetailSessionItem['exercises'][number], index: number) => {
             const dragging = dragIndex === index;
@@ -747,7 +795,9 @@ export function ProgramDayScreen({
                           style={({ pressed }) => [styles.doseChip, pressed && styles.swapOptionPressed]}
                         >
                           <Text style={styles.doseChipText} numberOfLines={1}>
-                            {t(language, 'detail.day.rest', { range: exercise.restLabel })}
+                            {t(language, 'detail.day.rest', {
+                              range: blockRestLabels.get(index) ?? exercise.restLabel,
+                            })}
                           </Text>
                           <PencilGlyph theme={theme} />
                         </Pressable>
@@ -759,7 +809,9 @@ export function ProgramDayScreen({
                       <Text style={styles.exerciseRest} numberOfLines={1}>
                         {linkedToNext
                           ? t(language, 'detail.day.supersetNext')
-                          : t(language, 'detail.day.rest', { range: exercise.restLabel })}
+                          : t(language, 'detail.day.rest', {
+                              range: blockRestLabels.get(index) ?? exercise.restLabel,
+                            })}
                       </Text>
                     </>
                   )}
@@ -1554,6 +1606,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   // The box two paired lifts share. Its own padding keeps the outline off the
   // text, and the rows inside it are unchanged — the boundary is the only
   // thing saying they go together.
+  //
+  // The vertical numbers here are SUPERSET_BOX_EDGE, which the drag reads:
+  // change one and change the other, or the drop lands where the box used to
+  // put it.
   supersetGroup: {
     borderRadius: 16,
     paddingHorizontal: 10,
