@@ -799,6 +799,11 @@ export function EmptyWorkoutScreen({
             const activeIndex = exercise.sets.findIndex((set) => !set.done);
             const superset = supersetRows[exerciseIndex] ?? null;
             const linkedToNext = superset?.hasNextInGroup === true;
+            const inBlock = superset?.groupId != null;
+            // The block's controls belong to the block, so they are drawn once
+            // — on the row that opens it, beside the chain that made it.
+            const opensBlock =
+              inBlock && supersetRows[exerciseIndex - 1]?.groupId !== superset?.groupId;
             return (
               <View key={exercise.localKey} style={[styles.exerciseBlock, exerciseIndex > 0 && styles.exerciseBlockDivided]}>
                 <View style={styles.exerciseHead}>
@@ -817,6 +822,21 @@ export function EmptyWorkoutScreen({
                         : exercise.metaLabel}
                     </Text>
                   </View>
+                  {/* One round for the whole block, where the block begins.
+                      The per-lift buttons inside a superset are gone: a set
+                      count that is one number should not be offered twice
+                      (user 2026-09-11). Green, because this one adds. */}
+                  {opensBlock ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={t(language, 'emptyWorkout.a11y.addSetToBlock')}
+                      hitSlop={8}
+                      onPress={() => addSet(exercise.localKey)}
+                      style={styles.blockAddSet}
+                    >
+                      <PlusIcon size={17} color={theme.onHighlight} strokeWidth={3} />
+                    </Pressable>
+                  ) : null}
                   {/* The last lift in the list has nothing below it to run
                       into, so it gets no chain rather than a dead one. */}
                   {exerciseIndex < exercises.length - 1 ? (
@@ -919,15 +939,17 @@ export function EmptyWorkoutScreen({
                   ))}
                 </View>
 
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t(language, 'emptyWorkout.a11y.addSetTo', { name: exercise.displayName })}
-                  onPress={() => addSet(exercise.localKey)}
-                  style={styles.addSetButton}
-                >
-                  <PlusIcon size={15} color={theme.purpleDark} strokeWidth={2.6} />
-                  <Text style={styles.addSetText}>{t(language, 'emptyWorkout.addSet')}</Text>
-                </Pressable>
+                {inBlock ? null : (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t(language, 'emptyWorkout.a11y.addSetTo', { name: exercise.displayName })}
+                    onPress={() => addSet(exercise.localKey)}
+                    style={styles.addSetButton}
+                  >
+                    <PlusIcon size={15} color={theme.purpleDark} strokeWidth={2.6} />
+                    <Text style={styles.addSetText}>{t(language, 'emptyWorkout.addSet')}</Text>
+                  </Pressable>
+                )}
               </View>
             );
   };
@@ -1544,6 +1566,16 @@ const makeStyles = (theme: Theme) => {
     paddingHorizontal: 12,
     borderRadius: 12,
     backgroundColor: theme.purpleLight,
+  },
+  // Round and filled, so it reads as the one thing in the head row that ADDS
+  // rather than one more outline among the icons.
+  blockAddSet: {
+    width: 30,
+    height: 30,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.green,
   },
   addSetButton: {
     height: 36,

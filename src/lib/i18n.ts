@@ -1178,6 +1178,9 @@ const EN = {
   'emptyWorkout.a11y.setNotDone': 'Mark set not done',
   'emptyWorkout.a11y.remove': 'Remove {name}',
   'emptyWorkout.a11y.addSetTo': 'Add set to {name}',
+  // One round for the whole superset, so the label says the block rather than
+  // a lift: the button moves both.
+  'emptyWorkout.a11y.addSetToBlock': 'Add a round to this superset',
   'emptyWorkout.a11y.addSelected': 'Add selected exercises',
 
   // ── Workout complete ───────────────────────────────────────────────────
@@ -4240,6 +4243,7 @@ const FI: Record<I18nKey, string> = {
   'emptyWorkout.a11y.setNotDone': 'Poista sarjan merkintä',
   'emptyWorkout.a11y.remove': 'Poista {name}',
   'emptyWorkout.a11y.addSetTo': 'Lisää sarja liikkeeseen {name}',
+  'emptyWorkout.a11y.addSetToBlock': 'Lisää kierros tähän supersarjaan',
   'emptyWorkout.a11y.addSelected': 'Lisää valitut liikkeet',
 
   // ── Workout complete ───────────────────────────────────────────────────
