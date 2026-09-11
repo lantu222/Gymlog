@@ -504,4 +504,50 @@ module.exports = [
       assert.equal(plan[0].fireAtMs, at(2026, 7, 1, 17, 30));
     },
   },
+  {
+    name: 'the trial warning fires two days out, survives a break, and is never invented',
+    run() {
+      const DAY = 24 * 60 * 60 * 1000;
+      const now = at(2026, 7, 1, 12, 0);
+      const trialOf = (plan) => plan.filter((item) => item.category === 'trial');
+
+      // No trial running, no notice. This is a promise the app made, not a
+      // nudge it decided to send.
+      assert.equal(trialOf(planWith()).length, 0);
+      assert.equal(trialOf(planWith({ proTrialEndsAtMs: null })).length, 0);
+      assert.equal(trialOf(planWith({ proTrialEndsAtMs: Number.NaN })).length, 0);
+
+      // Fourteen days out: one notice, two days before the end.
+      const endsAt = now + 14 * DAY;
+      const notices = trialOf(planWith({ proTrialEndsAtMs: endsAt }));
+      assert.equal(notices.length, 1);
+      assert.equal(notices[0].fireAtMs, endsAt - 2 * DAY);
+      assert.ok(notices[0].title.length > 0 && notices[0].body.length > 0);
+      // Keyed on the end, so re-planning an unchanged trial schedules the same
+      // alarm rather than a second one.
+      assert.equal(notices[0].key, `trial:${endsAt}`);
+      assert.equal(trialOf(planWith({ proTrialEndsAtMs: endsAt }))[0].key, notices[0].key);
+
+      // Inside the last two days there is nothing left to warn about: the
+      // moment has passed, and an alarm in the past would fire at once.
+      assert.equal(trialOf(planWith({ proTrialEndsAtMs: now + DAY })).length, 0);
+      assert.equal(trialOf(planWith({ proTrialEndsAtMs: now - DAY })).length, 0);
+      // Exactly on the boundary is also past: fireAtMs === now is not future.
+      assert.equal(trialOf(planWith({ proTrialEndsAtMs: now + 2 * DAY })).length, 0);
+
+      // A training break silences training. The trial runs out regardless, so
+      // the notice goes anyway — and it is the only thing left in the plan.
+      const onBreak = planWith({ proTrialEndsAtMs: endsAt, onTrainingBreak: true });
+      assert.equal(onBreak.length, 1);
+      assert.equal(onBreak[0].category, 'trial');
+
+      // Push off is the one thing that stops it: the app cannot deliver a
+      // warning to somebody who turned notifications off, and pretending
+      // otherwise would be the lie.
+      assert.equal(
+        trialOf(planWith({ proTrialEndsAtMs: endsAt, prefs: { pushEnabled: false } })).length,
+        0,
+      );
+    },
+  },
 ];

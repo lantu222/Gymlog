@@ -224,7 +224,14 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
     const p = context.profile;
     const profileParts: string[] = [];
     if (p.gender) profileParts.push(p.gender);
-    if (p.age !== null) profileParts.push(`${p.age} y`);
+    // A year when an older install recorded one, otherwise the band the reader
+    // picked, written as a range so the model reads it as one: "31-40 y", never
+    // a single number the reader never gave.
+    if (p.age !== null && p.age !== undefined) {
+      profileParts.push(`${p.age} y`);
+    } else if (p.ageRange && p.ageRange !== 'unspecified') {
+      profileParts.push(`${p.ageRange.replace('_plus', '+').replace('_', '-')} y`);
+    }
     if (p.heightCm !== null) profileParts.push(`${p.heightCm} cm`);
     if (profileParts.length > 0) blocks.push(section('Profile', [profileParts.join(' | ')])!);
   }

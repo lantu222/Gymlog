@@ -432,7 +432,14 @@ export function buildAiTrainingContext({
     ...(plannerSetup !== undefined ? { plannerSetup } : {}),
     body,
     goals: buildAiCoachGoals(coachGoals, bodyweightGoalKg, body, primaryGoalId),
-    profile: profile && (profile.heightCm !== null || profile.age !== null || profile.gender !== null) ? profile : null,
+    profile:
+      profile
+      && (profile.heightCm !== null
+        || profile.age !== null
+        || (profile.ageRange !== null && profile.ageRange !== undefined)
+        || profile.gender !== null)
+        ? profile
+        : null,
     homeState,
     // Dates resolved on the device: buildAiCoachSystemContext runs on the
     // endpoint, where the timezone is the server's. Expiry runs here too — the

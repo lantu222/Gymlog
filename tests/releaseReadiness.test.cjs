@@ -190,11 +190,12 @@ module.exports = [
     },
   },
   {
-    name: 'release: the 7-day trial is back on before the app ships',
+    name: 'release: the free trial is back on before the app ships',
     run() {
       // The trial was switched off on purpose (2026-08-06) so the free tier
       // could be walked end to end — with it on, every new account is a Pro
-      // account for a week and nobody ever sees a lock.
+      // account for the length of PRO_TRIAL_DAYS (a week then, fourteen days
+      // since 2026-09-09) and nobody ever sees a lock.
       //
       // Shipping it that way would mean selling something no new user has
       // felt. Like the guard above, this one stays green on the demo and turns
@@ -382,10 +383,12 @@ module.exports = [
   {
     name: 'release: the development transcript log is off before Play',
     run() {
-      // The policy says prompts are not logged. During development the
-      // endpoint may log them behind src/lib/aiCoachDebug.ts so the real
-      // conversations can be reviewed — and this is what stops that switch
-      // from shipping by being forgotten.
+      // Two different things write to transcripts/ and only one of them is
+      // this guard's business (2026-09-10). A reader who ticked "keep a copy"
+      // has a copy kept, with a 24-month sweep and a delete route behind it —
+      // that is a shipped feature and it stays. This flag is the OTHER one:
+      // the development log that keeps conversations nobody consented to, so
+      // that real answers can be reviewed while the coach is being built.
       const fs = require('node:fs');
       const debugPath = path.join(root, 'src', 'lib', 'aiCoachDebug.ts');
       if (!fs.existsSync(debugPath)) {
@@ -402,9 +405,10 @@ module.exports = [
       assert.equal(
         match[1],
         'false',
-        'AI_COACH_DEBUG_TRANSCRIPTS is still true: the coach endpoint logs conversations. '
-          + 'Flip it to false (or delete src/lib/aiCoachDebug.ts), unset AI_COACH_DEBUG_TRANSCRIPTS and TRANSCRIPT_READ_SECRET in Vercel, '
-          + 'delete api/transcripts.ts and scripts/coach-transcripts.cjs, and empty transcripts/ in the Blob store before release.',
+        'AI_COACH_DEBUG_TRANSCRIPTS is still true: the coach endpoint logs the reporter and the effort override '
+          + 'on conversations nobody consented to. Flip it to false (or delete src/lib/aiCoachDebug.ts) and unset '
+          + 'AI_COACH_DEBUG_TRANSCRIPTS in Vercel. Leave the consented copies alone: they are what the reader allowed, '
+          + 'the 24-month cron sweeps them, and the Settings switch deletes them.',
       );
     },
   },

@@ -1,6 +1,7 @@
 import React from 'react';
 
-import { isAiCoachLiveConfigured, requestProgrammeComposition } from '../lib/aiCoachClient';
+import { forgetAiCoachLog, isAiCoachLiveConfigured, requestProgrammeComposition } from '../lib/aiCoachClient';
+import { randomLogId } from '../lib/aiCoachLogId';
 import { recordCoachQuestion, resolveCoachQuota } from '../lib/aiCoachQuota';
 import { markCoachDemoMomentUsed } from '../lib/coachDemoMoments';
 import { buildProgrammeDraft, composeProgrammePreview, resolveLiveProposal } from '../lib/programmeBrief';
@@ -140,6 +141,9 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
       brief,
       context: aiCoachTrainingContext,
       language: preferences.appLanguage,
+      // The composer line of the consent sheet, read as it stands now.
+      keepConsent: preferences.aiLogComposerConsent,
+      logId: preferences.aiLogId,
     });
     if (live) {
       return resolveLiveProposal(live, brief, exerciseLibrary, preferences.defaultRestSeconds);
@@ -254,6 +258,27 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
         liveConfigured={isAiCoachLiveConfigured()}
         onlineNoticeAcknowledged={preferences.aiOnlineNoticeAcknowledged}
         onAcknowledgeOnlineNotice={() => void updatePreferences({ aiOnlineNoticeAcknowledged: true })}
+        logConsent={{
+          chat: preferences.aiLogChatConsent,
+          composer: preferences.aiLogComposerConsent,
+          photo: preferences.aiLogPhotoConsent,
+        }}
+        logId={preferences.aiLogId}
+        onChangeLogConsent={(next) => {
+          const patch = {
+            ...(next.chat === undefined ? {} : { aiLogChatConsent: next.chat }),
+            ...(next.composer === undefined ? {} : { aiLogComposerConsent: next.composer }),
+            ...(next.photo === undefined ? {} : { aiLogPhotoConsent: next.photo }),
+          };
+          // The label is minted on the first yes and not before: a reader who
+          // never allows anything never gets one, so there is nothing to
+          // identify them by.
+          const turningSomethingOn = Object.values(next).some((value) => value === true);
+          void updatePreferences({
+            ...patch,
+            ...(turningSomethingOn && !preferences.aiLogId ? { aiLogId: randomLogId() } : {}),
+          });
+        }}
         questionsRemaining={resolveCoachQuota(preferences.aiCoachProQuota).remaining}
         onQuestionUsed={() =>
           void updatePreferences({ aiCoachProQuota: recordCoachQuestion(preferences.aiCoachProQuota) })

@@ -25,7 +25,7 @@ import { AppPreferences } from '../types/models';
 export interface ProEntitlement {
   unlocked: boolean;
   /** Why it is unlocked, so a screen can be truthful about it. */
-  source: 'promo' | 'purchase' | null;
+  source: 'promo' | 'trial' | 'purchase' | null;
   /** ISO date the promo runs out; null when Pro is not promo-based. */
   promoUntil: string | null;
   /**
@@ -38,7 +38,11 @@ export interface ProEntitlement {
 
 type ProPreferences = Pick<
   AppPreferences,
-  'promoProUntil' | 'mockSubscriptionPurchasedAt' | 'mockSubscriptionTerm' | 'mockSubscriptionCancelledAt'
+  | 'promoProUntil'
+  | 'proTrialUntil'
+  | 'mockSubscriptionPurchasedAt'
+  | 'mockSubscriptionTerm'
+  | 'mockSubscriptionCancelledAt'
 >;
 
 const NOT_UNLOCKED: ProEntitlement = { unlocked: false, source: null, promoUntil: null, purchaseEndsAt: null };
@@ -51,6 +55,15 @@ export function resolveProEntitlement(
   const promoTime = promoUntil ? new Date(promoUntil).getTime() : Number.NaN;
   if (Number.isFinite(promoTime) && promoTime > now.getTime()) {
     return { unlocked: true, source: 'promo', promoUntil, purchaseEndsAt: null };
+  }
+
+  // The trial, which unlocks exactly like a promo and expires on its own. Kept
+  // as its own field so a warning about a trial ending is never sent to
+  // somebody who redeemed a code.
+  const trialUntil = preferences.proTrialUntil;
+  const trialTime = trialUntil ? new Date(trialUntil).getTime() : Number.NaN;
+  if (Number.isFinite(trialTime) && trialTime > now.getTime()) {
+    return { unlocked: true, source: 'trial', promoUntil: trialUntil, purchaseEndsAt: null };
   }
 
   const purchasedAt = preferences.mockSubscriptionPurchasedAt;
@@ -135,27 +148,26 @@ export function resolveProgressionOptions(
  * the sentence after it ("then 79,90 € / year"): there is no billing to charge
  * anyone, which is why that copy lives behind the demo-build guard.
  */
-export const PRO_TRIAL_DAYS = 7;
+export const PRO_TRIAL_DAYS = 14;
 
 /**
- * OFF, deliberately and temporarily.
+ * ON since 2026-09-09, at the user's decision, and at fourteen days.
  *
- * The trial made every new account a Pro account for its first week, which is
- * the correct thing to ship — you cannot sell what nobody has felt — but it
- * also meant nobody could see the free tier. Not the team, not the designer,
- * not the person deciding whether the locks land where they should. So it is
- * switched off while the free tier is walked end to end.
+ * It was off while the free tier was walked end to end: a trial makes every
+ * new account a Pro account, and nobody could see the locks. That walk is
+ * done, and the hand-off screen now offers the trial in words ("14 days free,
+ * and we tell you when two days are left"), so the days have to be real.
  *
- * It goes back on before release. `tests/releaseReadiness` fails the moment
- * app.json stops declaring extra.demoBuild while this is still false, so the
- * switch cannot reach a store by being forgotten.
+ * What this flag does NOT buy is the sentence after it. There is no billing,
+ * so nothing charges anyone when the fourteen days run out — Pro simply
+ * lapses. Any copy that promises a charge stays behind the demo-build guard
+ * until Play Billing exists.
  *
- * Turning it off is not enough on its own: a CTA that says "Start 7 days
- * free" while granting nothing is worse than no button, so the Pro page reads
- * this flag and sells the year instead. (The onboarding paywall used to read
- * it too, until that screen was deleted 2026-08-25.)
+ * The consequence to keep in mind: a fresh install no longer sees the free
+ * tier for two weeks. That is the point of a trial, and it is also why this
+ * was off.
  */
-export const PRO_TRIAL_ENABLED = false;
+export const PRO_TRIAL_ENABLED = true;
 
 /** The date Pro should run until, or null when the trial is switched off. */
 export function resolveTrialProUntil(now: Date = new Date()): string | null {

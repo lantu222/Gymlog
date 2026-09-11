@@ -53,6 +53,8 @@ import { parseWidgetDeepLink } from './src/lib/widgetDeepLink';
 import { routeForNotification } from './src/lib/notificationRoute';
 import { planSetupHandoff } from './src/lib/setupHandoff';
 import { SetupHandoffChoices, SetupHandoffScreen } from './src/screens/SetupHandoffScreen';
+import { LegalDocumentScreen } from './src/screens/LegalDocumentScreen';
+import type { LegalDocumentId } from './src/lib/legalDocuments';
 import { FirstRunTour } from './src/components/FirstRunTour';
 import { createTourTargetRegistry } from './src/features/tour/tourTargets';
 import {
@@ -125,7 +127,7 @@ import { buildMuscleFocus, getVolumeDeltaVsPrevious } from './src/lib/workoutCom
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { I18nKey, t } from './src/lib/i18n';
 import { buildCoachModules } from './src/lib/aiCoachModules';
-import { isProUnlocked, resolveProEntitlement, resolveProgressionOptions, resolveTrialProUntil } from './src/lib/proEntitlement';
+import { isProUnlocked, resolveProEntitlement, resolveProgressionOptions } from './src/lib/proEntitlement';
 import { ThemeChoiceDialog } from './src/components/ThemeChoiceDialog';
 import { toProgressionFatigueSignal } from './src/lib/progressionGate';
 import { resolveThemeName } from './src/lib/themePreference';
@@ -987,6 +989,12 @@ function VinhaApp() {
     }
   }, [preferences.entryFlowCompleted, preferences.onboardingCompleted]);
   const [aboutYouValues, setAboutYouValues] = useState<AboutYouValues | null>(null);
+  /**
+   * The document the hand-off screen has open, if any. Kept here rather than
+   * routed: the legal screen belongs to the Profile tab, and navigating to it
+   * mid-onboarding would end onboarding. Null puts the hand-off back.
+   */
+  const [handoffLegalDocument, setHandoffLegalDocument] = useState<LegalDocumentId | null>(null);
   /**
    * Today's swaps for the next session, slot id → exercise name, chosen on Home
    * before the session exists. Deliberately not persisted: it is an answer to
@@ -2740,6 +2748,12 @@ function VinhaApp() {
         adoptedPlanId = plan.id;
       }
 
+      // Finished, by the catalogue rather than by the questionnaire (fixed
+      // 2026-09-10). Four paths complete onboarding and only one of them used
+      // to say so, so the funnel's last row read 0 % while people plainly got
+      // through it — plans adopted and workouts logged under a step nobody had
+      // reached. `path` is what tells the four apart.
+      trackEvent('onboarding_completed', { path: 'ready_catalog' });
       // The ready path skips the About form, so every basic here is normally
       // null — that is fine and deliberate. Guided onboarding is the path that
       // fills them. No questionnaire ran either, so setup stays incomplete.
@@ -2747,9 +2761,8 @@ function VinhaApp() {
         onboardingCompleted: true,
         setupCompleted: false,
         trainingFirstRunDismissed: false,
-        profileName: aboutYouValues?.name ?? null,
         setupGender: aboutYouValues?.gender ?? null,
-        setupHeightCm: aboutYouValues?.heightCm ?? null,
+        setupAgeRange: aboutYouValues?.ageRange ?? null,
         setupCurrentWeightKg: aboutYouValues?.weightKg ?? null,
         // Kept as well as the plan: the recommendation is what the catalog
         // highlights on a later visit, the plan is what Home trains from.
@@ -2772,6 +2785,9 @@ function VinhaApp() {
   }
 
   async function handleOnboardingSkip(destination: 'home' | 'programs' = 'home') {
+    // Skipping is finishing: the reader is in the app with no programme, which
+    // is a real outcome and one worth being able to count.
+    trackEvent('onboarding_completed', { path: 'skip' });
     await completeOnboarding({
       onboardingCompleted: true,
       setupCompleted: false,
@@ -2822,7 +2838,13 @@ function VinhaApp() {
     if (picked.status !== 'picked') {
       return null;
     }
-    const rows = await requestProgramTableFromImage(picked.image);
+    const rows = await requestProgramTableFromImage({
+      ...picked.image,
+      // The photo line of the consent sheet, read at the moment the photo is
+      // sent rather than remembered from when the screen opened.
+      keepConsent: preferences.aiLogPhotoConsent,
+      logId: preferences.aiLogId,
+    });
     return rows && rows.length > 0 ? programTableToCsv(rows) : null;
   }
 
@@ -3712,7 +3734,12 @@ function VinhaApp() {
         coachMemory: coachAdviceMemory,
         profile: {
           heightCm: preferences.setupHeightCm,
+          // Both, because they are not the same claim: `setupAge` is a year an
+          // older install actually recorded, `setupAgeRange` is the band this
+          // one asks for. Whichever exists is true; neither is derived from the
+          // other, so the coach is never told an age nobody gave.
           age: preferences.setupAge,
+          ageRange: preferences.setupAgeRange,
           gender: preferences.setupGender,
         },
         // What Home already carries, and what the coach must not bring up:
@@ -3891,6 +3918,9 @@ function VinhaApp() {
   // available or make one that is not.
   const setupHandoffReady =
     preferences.onboardingCompleted && !preferences.setupHandoffCompleted && homeWidgetState !== null;
+  // Read once and depended on by value: the whole preferences object as a
+  // dependency made a fresh plan on every unrelated write.
+  const proUnlockedForHandoff = resolveProEntitlement(preferences).unlocked;
   const setupHandoffPlan = useMemo(
     () =>
       setupHandoffReady
@@ -3899,9 +3929,20 @@ function VinhaApp() {
             pinnedCardKeys: homePinnedStatCardKeys,
             focusAreas: preferences.setupFocusAreas,
             canOfferAccountBackup: accountBackup.available && accountBackup.state.status === 'signed_out',
+            // A reader who already bought Pro is not offered the page that
+            // sells it.
+            canOfferPro: !proUnlockedForHandoff,
           })
         : null,
-    [accountBackup.available, accountBackup.state.status, homePinnedStatCardKeys, homeWidgetState, preferences.setupFocusAreas, setupHandoffReady],
+    [
+      accountBackup.available,
+      accountBackup.state.status,
+      homePinnedStatCardKeys,
+      homeWidgetState,
+      preferences.setupFocusAreas,
+      proUnlockedForHandoff,
+      setupHandoffReady,
+    ],
   );
   const setupHandoffActive = setupHandoffPlan?.shouldShow ?? false;
 
@@ -3968,6 +4009,23 @@ function VinhaApp() {
       void updatePreferences({ setupHandoffCompleted: true });
     }
   }, [setupHandoffPlan, setupHandoffReady, updatePreferences]);
+
+  /**
+   * The name comes from Google, so the About form stopped asking for one
+   * (2026-09-09).
+   *
+   * An effect rather than a line inside the sign-in handler, because it has to
+   * cover the reader who signed in before this shipped as well as the one
+   * signing in now. Adopted once and never overwritten: a name typed in Profile
+   * is the reader's own answer and outranks the account's.
+   */
+  useEffect(() => {
+    const googleName = accountBackup.state.name?.trim();
+    if (!googleName || preferences.profileName?.trim()) {
+      return;
+    }
+    void updatePreferences({ profileName: googleName.slice(0, 32) });
+  }, [accountBackup.state.name, preferences.profileName, updatePreferences]);
 
   /**
    * The whole sign-in conversation: outcome toasts, and the one dialog that
@@ -4048,11 +4106,13 @@ function VinhaApp() {
       patch.homeWidgetPromptDismissed = true;
     }
     const pinned = [...homePinnedStatCardKeys];
-    if (choices.pinTrackingCard && setupHandoffPlan?.tracking) {
-      pinned.push(setupHandoffPlan.tracking.cardKey);
-    }
-    if (choices.pinBodyweightCard && setupHandoffPlan?.offerBodyweight && !pinned.includes('bodyweight')) {
-      pinned.push('bodyweight');
+    // The site's name IS its card key, so the dialog's answer goes straight to
+    // Home. Only what is not already there: pinning a card twice would draw it
+    // twice.
+    for (const site of choices.trackedSites) {
+      if (!pinned.includes(site)) {
+        pinned.push(site);
+      }
     }
     if (pinned.length !== homePinnedStatCardKeys.length) {
       patch.homeStatCardKeys = pinned;
@@ -4066,6 +4126,11 @@ function VinhaApp() {
     // it — a cancel there is a change of mind, not an error.
     if (choices.signInForBackup) {
       await handleAccountSignIn();
+    }
+    // Pro last, and only if it was asked for. It is a page, not a sheet: it
+    // takes the screen, so anything that had to happen first has happened.
+    if (choices.showPro) {
+      navigate({ tab: 'profile', screen: 'premium' });
     }
   };
 
@@ -5542,6 +5607,7 @@ function VinhaApp() {
            * than a plan nobody chose.
            */
           onStartEmpty={() => {
+            trackEvent('onboarding_completed', { path: 'empty' });
             void completeOnboarding({
               onboardingCompleted: true,
               setupCompleted: false,
@@ -5600,10 +5666,8 @@ function VinhaApp() {
           basicsSeed={
             aboutYouValues
               ? {
-                  profileName: aboutYouValues.name,
                   gender: aboutYouValues.gender ?? 'unspecified',
-                  age: aboutYouValues.age,
-                  heightCm: aboutYouValues.heightCm,
+                  ageRange: aboutYouValues.ageRange,
                   currentWeightKg: aboutYouValues.weightKg,
                 }
               : null
@@ -5622,6 +5686,7 @@ function VinhaApp() {
     // Between the last question and the app. The route behind this is already
     // the one onboarding chose, so finishing here just uncovers it.
     content = (
+      <>
       <SetupHandoffScreen
         language={preferences.appLanguage}
         plan={setupHandoffPlan}
@@ -5631,8 +5696,31 @@ function VinhaApp() {
             : null
         }
         onDone={(choices) => void handleSetupHandoffDone(choices)}
-        onSkip={() => void handleSetupHandoffDone({ addWidget: false, pinTrackingCard: false, pinBodyweightCard: false, signInForBackup: false })}
+        onSkip={() =>
+          void handleSetupHandoffDone({
+            addWidget: false,
+            signInForBackup: false,
+            showPro: false,
+            trackedSites: [],
+          })
+        }
+        onOpenLegal={(document) => setHandoffLegalDocument(document)}
       />
+      {/* Over the hand-off, never instead of it (2026-09-10). The screen owns
+          the reader's answers in local state — which page they are on, which
+          sites they picked, whether they asked for the widget — so swapping it
+          out to show a document threw all of that away and put them back on
+          page one. Reading the policy is not a decision to unmake. */}
+      {handoffLegalDocument ? (
+        <View style={LEGAL_OVER_HANDOFF}>
+          <LegalDocumentScreen
+            document={handoffLegalDocument}
+            language={preferences.appLanguage}
+            onBack={() => setHandoffLegalDocument(null)}
+          />
+        </View>
+      ) : null}
+      </>
     );
   } else if (route.tab === 'profile' && route.screen === 'setup') {
     content = (
@@ -6470,6 +6558,14 @@ export default function App() {
 
 
 /** Stored weekday codes → the display keys the rest of the app uses. */
+/**
+ * The legal document, laid over the hand-off rather than swapped in for it.
+ *
+ * Its own background is opaque, so nothing of the screen underneath shows
+ * through; what survives is that screen's state, which is the whole point.
+ */
+const LEGAL_OVER_HANDOFF = { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 } as const;
+
 const WEEKDAY_LABEL_KEYS: Record<string, I18nKey> = {
   MON: 'setup.day.mon',
   TUE: 'setup.day.tue',

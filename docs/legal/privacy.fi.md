@@ -29,7 +29,7 @@ Kaikki alla oleva on joko sinun syöttämääsi tai sovelluksen laskemaa siitä,
 - Valmentajan kanssa asettamasi tavoitteet sekä virstanpylväät ja kaudet, jotka sovellus laskee lokistasi.
 - Mitä valmentaja on neuvonut sinulle viimeisten kolmen viikon aikana: kunkin vastauksen yhden lauseen tiivistelmä ja päivä, jona se annettiin, enintään kymmenen kappaletta. Se säilytetään, jottei valmentaja toista jo antamaansa neuvoa, se poistuu kolmea viikkoa vanhetessaan, ja se pysyy tässä puhelimessa — alla kuvattu pilvivarmuuskopio ei kanna sitä mukanaan.
 - Asetukset: kieli, yksiköt, teema, ilmoitus- ja ääniasetukset, oletuslepoaika, treenitauot.
-- Pro-tila: onko Pro päällä, milloin se ostettiin tai peruttiin, ja päivä, johon asti kampanjakoodi pitää sen päällä.
+- Pro-tila: onko Pro päällä, milloin se ostettiin tai peruttiin, ja päivät, joihin asti kampanjakoodi tai ilmainen kokeilu pitää sen päällä.
 - Pientä kirjanpitoa: onko arviointipyyntö tai verkkovalmentajan ilmoitus jo näytetty, tiivistelmätiedosto, jota kotinäytön widget lukee, jono lähetystä odottavia käyttötapahtumia, sekä kopio vaurioituneesta datatiedostosta, jos sovellus sellaisen joskus löytää — se siirretään sivuun eikä poisteta, jotta rikkoutunut tiedosto ei ole menetetty treeniloki.
 
 ## Androidin oma varmuuskopio
@@ -60,7 +60,11 @@ Yhteenvedossa ovat viimeaikaiset treenisi (liikkeiden nimet, sarjat, toistot, ki
 
 Siinä ei ole nimeäsi, sähköpostiasi, Google-tiliäsi eikä mitään puhelimesi tunnistetta. Kysymystä ei voi yhdistää sinuun. Palvelimemme näkee puhelimen internet-osoitteen, jota se pitää hetken muistissa rajoittaakseen, montako pyyntöä yksi yhteys voi tehdä; sitä ei tallenneta.
 
-Palvelimemme välittää kysymyksen Anthropicille, Claude-mallin kehittäjälle, joka kirjoittaa vastauksen Yhdysvalloissa. Anthropicin kaupallisten ehtojen mukaan tietoja ei käytetä sen mallien opettamiseen, ja ne poistetaan 30 päivän kuluessa. Me emme säilytä kopiota kysymyksistä emmekä vastauksista.
+Palvelimemme välittää kysymyksen Anthropicille, Claude-mallin kehittäjälle, joka kirjoittaa vastauksen Yhdysvalloissa. Anthropicin kaupallisten ehtojen mukaan tietoja ei käytetä sen mallien opettamiseen, ja ne poistetaan 30 päivän kuluessa.
+
+Me emme säilytä omaa kopiotamme, ellet ole antanut siihen lupaa. Valmentaja kysyy sen kerran, ennen ensimmäistä kysymystäsi, kolmena erillisenä rivinä: kysymyksesi ja vastaukset, ohjelmat joita pyydät sen rakentamaan, ja valokuvat joista tuot ohjelman. Jokainen rivi alkaa ei-vastauksesta, jokainen on oma vastauksensa, eikä mikään niistä muuta sitä vastausta jonka saat. Sallimasi säilytetään enintään 24 kuukautta ja poistetaan sitten automaattisesti, ja sitä käytetään yhteen asiaan: valmentajan parantamiseen ohjelmien kirjoittajana.
+
+Voit peruuttaa luvan milloin tahansa asetuksista, ja peruutus poistaa myös jo säilytetyn. Kun kytket rivin pois, sen nojalla tehdyt kopiot poistetaan palvelimeltamme eikä niiden kertyminen vain lopu.
 
 Ohjelmakoostaja toimii samalla tavalla: kun pyydät sovellusta rakentamaan ohjelman kirjoittamasi kuvauksen pohjalta, kuvaus ja sama yhteenveto lähetetään samaa reittiä.
 
@@ -115,6 +119,7 @@ Tietosuoja-asetus (GDPR) vaatii jokaiselle käsittelylle laillisen perusteen. Me
 - Ei mainosprofiilia. Sovellus kyllä räätälöi ohjelmia ja ehdotuksia vastaustesi ja lokisi perusteella, mutta se tapahtuu puhelimessasi, eikä sinusta päätetä automaattisesti mitään, millä olisi oikeudellisia tai vastaavia vaikutuksia.
 - Ei tietojesi myyntiä, vuokrausta eikä jakamista kenellekään — lukuun ottamatta kolmea yllä nimettyä palveluntarjoajaa, jotka työskentelevät meille.
 - Ei tilipakkoa. Kirjautuminen on olemassa vain vapaaehtoista pilvivarmuuskopiota varten.
+- Ei evästeitä. Sovellus ei ole verkkosivu eikä avaa sellaista sisäänsä, joten evästeitä ei aseteta eikä lueta.
 
 ## Luvat, joita sovellus pyytää
 
@@ -138,6 +143,8 @@ Jos ostat Pron, maksun hoitaa kokonaan Google Play. Emme koskaan näe korttinume
 
 Kampanjakoodi tarkistetaan puhelimessasi, ja sovellus tallentaa vain päivän, johon asti se pitää Pron päällä. Siitä ei lähetetä mitään mihinkään.
 
+Ilmainen kokeilu toimii samoin eikä maksa mitään: sen aloittaminen kirjoittaa puhelimeesi yhden päivämäärän, Pro on voimassa siihen asti ja päättyy sitten itsestään. Päättyminen ei veloita mitään, mitään ei lähetetä minnekään, eikä korttia kysytä. Jos ilmoitukset ovat päällä, sovellus muistuttaa kaksi päivää ennen loppua; sen muistutuksen kirjoittaa ja näyttää puhelimesi, emme me.
+
 ## Palaute, arviointi ja jakaminen
 
 Lähetä palautetta avaa oman sähköpostisovelluksesi, johon on valmiiksi täytetty osoitteemme ja sovelluksen versio. Sinä päätät, mitä kirjoitat. Me näemme sitten sähköpostiosoitteesi ja viestisi, ja säilytämme ne vain niin kauan kuin palautteen käsittely vaatii.
@@ -157,7 +164,7 @@ Puhelimessasi sovelluksen tietoja suojaavat puhelimen oma lukitus ja Androidin s
 - Puhelimessasi: kunnes nollaat sovelluksen tiedot tai poistat sovelluksen.
 - Android-varmuuskopio: niin kauan kuin Google-tilisi sitä säilyttää — se on Googlen asetus, ei meidän.
 - Pilvivarmuuskopio: kunnes poistat sen asetuksista tai pyydät meitä poistamaan sen.
-- Valmentajan kysymykset, kuvaukset ja kuvat: me emme säilytä niitä lainkaan. Anthropic poistaa ne 30 päivän kuluessa.
+- Valmentajan kysymykset, kuvaukset ja kuvat: emme säilytä niitä, ellet ole antanut lupaa. Luvan kanssa enintään 24 kuukautta tai siihen asti kun peruutat luvan, kumpi tulee ensin. Anthropic poistaa oman kopionsa 30 päivän kuluessa joka tapauksessa.
 - Käyttötilastot: enintään 24 kuukautta, sen jälkeen automaattinen poisto.
 - Palautesähköpostit: niin kauan kuin niiden käsittely vaatii.
 
@@ -172,7 +179,7 @@ Suurimman osan näistä teet itse sovelluksessa keneltäkään kysymättä. Muis
 - Poista ne: Asetukset → Nollaa kaikki tiedot tyhjentää puhelimen, ja Asetukset → Poista pilvivarmuuskopio tyhjentää palvelimen. Sovelluksen poistaminen poistaa myös puhelimen kopion. Käyttötilastoja ei voi jäljittää sinuun, joten niistä ei löydy mitään sinun.
 - Ota ne mukaasi: Asetukset → Vie ohjelma (CSV) lähettää ohjelmasi tai jokaisen kirjatun sarjan CSV-tekstinä valitsemaasi sovellukseen.
 - Peruuta suostumus tai vastusta: poista pilvivarmuuskopio ja kirjaudu ulos; lakkaa lähettämästä kysymyksiä valmentajalle; kytke käyttötilastot pois asetuksista.
-- Valita: kirjoita ensin osoitteeseen santeriylonen@gmail.com, jotta voimme korjata asian. Sinulla on myös oikeus tehdä valitus tietosuojaviranomaiselle — Suomessa tietosuojavaltuutetun toimistolle (tietosuoja.fi).
+- Valita: kirjoita ensin osoitteeseen santeriylonen@gmail.com, jotta voimme korjata asian. Sinulla on myös oikeus tehdä valitus tietosuojaviranomaiselle — Suomessa tietosuojavaltuutetun toimistolle, tietosuoja.fi tai tietosuoja@om.fi.
 
 ## Lapset
 

@@ -10,8 +10,25 @@
 
 export const ANALYTICS_RETENTION_MONTHS = 24;
 
-/** `events/YYYY-MM-DD/<batch>.json` — the day is the batch's arrival day, UTC. */
-const EVENT_BLOB_PATTERN = /^events\/(\d{4}-\d{2}-\d{2})\//;
+/**
+ * The prefixes the cron may delete from, and the shape of a day inside them.
+ *
+ * `events/YYYY-MM-DD/<batch>.json` — anonymous usage events.
+ * `transcripts/YYYY-MM-DD/<time>.json` — coach questions and answers, written
+ * only for a reader who consented to it (2026-09-10). Same window and same
+ * cron: a promise of 24 months that covered one prefix and not the other was
+ * two promises wearing one number.
+ *
+ * The day in both is the arrival day in UTC, which is what the writer names
+ * the folder after.
+ */
+export const RETAINED_PREFIXES = ['events', 'transcripts'] as const;
+const EVENT_BLOB_PATTERN = new RegExp(
+  // Doubled, because this is a template literal and not a regex literal:
+  // `\d` in a string is the letter d, and the pattern quietly became
+  // "dddd-dd-dd" — matching nothing, so the cron would have deleted nothing.
+  `^(?:${RETAINED_PREFIXES.join('|')})/(\\d{4}-\\d{2}-\\d{2})/`,
+);
 
 /**
  * The first day still inside the retention window at `now`, as a UTC
@@ -28,16 +45,23 @@ export function analyticsRetentionCutoffDay(now: Date, months: number = ANALYTIC
   return cutoff.toISOString().slice(0, 10);
 }
 
-/** The arrival day of a stored batch, or null for anything that is not one. */
+/**
+ * The arrival day of a stored blob the cron owns, or null for anything else.
+ *
+ * Named for events because that is all it used to match. It answers for both
+ * prefixes now, and the name stayed rather than rippling through the endpoint
+ * and its tests for no gain.
+ */
 export function eventBlobDay(pathname: string): string | null {
   const match = EVENT_BLOB_PATTERN.exec(pathname);
   return match ? match[1] : null;
 }
 
 /**
- * Which of the stored batches are older than the window at `now`. Anything
- * that is not an event batch — an index, a stray file, another prefix — is
- * left alone: this deletes usage events and nothing else.
+ * Which of the stored blobs are older than the window at `now`. Anything under
+ * another prefix — an index, a stray file, the cloud backups — is left alone:
+ * this deletes what it was given a retention promise for and nothing else.
+ * A backup is kept until its owner deletes it, which is a different promise.
  */
 export function selectExpiredEventBlobs(
   pathnames: readonly string[],

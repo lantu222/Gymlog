@@ -45,17 +45,30 @@ module.exports = [
     },
   },
   {
-    name: 'retention: only event batches are candidates, never another prefix or a stray file',
+    name: 'retention covers the two prefixes it promised, and nothing else',
     run() {
       const now = new Date('2028-09-04T04:00:00Z');
       assert.equal(eventBlobDay('events/2026-01-01/x.json'), '2026-01-01');
-      assert.equal(eventBlobDay('transcripts/2020-01-01/x.json'), null);
+      // Transcripts joined the window on 2026-09-10, when the coach log became
+      // something a reader can consent to. The 24 months were one number for
+      // one prefix until then, which made it two promises wearing one number.
+      assert.equal(eventBlobDay('transcripts/2020-01-01/x.json'), '2020-01-01');
+      // Backups are not on this clock: they are kept until their owner deletes
+      // them, which is a different promise and must not be swept by this cron.
       assert.equal(eventBlobDay('backups/abc.json'), null);
       assert.equal(eventBlobDay('events/index.json'), null);
+      assert.equal(eventBlobDay('transcripts/index.json'), null);
+      // A prefix that merely starts with a covered one is not covered.
+      assert.equal(eventBlobDay('events-archive/2020-01-01/x.json'), null);
       assert.deepEqual(
-        selectExpiredEventBlobs(['transcripts/2020-01-01/x.json', 'backups/abc.json', 'events/index.json'], now),
+        selectExpiredEventBlobs(['backups/abc.json', 'events/index.json', 'events-archive/2020-01-01/x.json'], now),
         [],
       );
+      assert.deepEqual(selectExpiredEventBlobs(['transcripts/2020-01-01/x.json'], now), [
+        'transcripts/2020-01-01/x.json',
+      ]);
+      // And a transcript inside the window survives, same as an event does.
+      assert.deepEqual(selectExpiredEventBlobs(['transcripts/2028-09-01/x.json'], now), []);
     },
   },
   {
@@ -99,7 +112,12 @@ module.exports = [
       assert.match(endpoint, /from '\.\.\/src\/lib\/analyticsRetention'/, 'the endpoint must use the shared retention rule');
       assert.match(endpoint, /CRON_SECRET/, 'the endpoint must verify the cron secret');
       assert.match(endpoint, /timingSafeEqual/, 'secrets are compared in constant time');
-      assert.match(endpoint, /prefix: 'events\/'/, 'the prune must be scoped to the events prefix');
+      // Both prefixes, listed from the same constant the matcher uses. A cron
+      // that swept one folder while the rule named two would have deleted the
+      // events and kept the transcripts forever.
+      assert.match(endpoint, /for \(const prefix of RETAINED_PREFIXES\)/, 'the prune must sweep every retained prefix');
+      assert.match(endpoint, /prefix: `\$\{prefix\}\/`/, 'the prune must scope its listing to that prefix');
+      assert.doesNotMatch(endpoint, /prefix: 'events\/'/, 'the prune is hardcoded to one prefix again');
       assert.doesNotMatch(endpoint, /console\.log/, 'the prune logs counts only, never a batch');
     },
   },

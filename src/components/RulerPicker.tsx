@@ -59,6 +59,16 @@ interface RulerPickerProps {
   onChange: (value: number) => void;
   /** Label under a major tick. Defaults to the rounded number. */
   formatMajor?: (value: number) => string;
+  /**
+   * What the ruler is standing on.
+   *
+   * 'surface' is the sheets' own ground, where grey ticks on white read fine.
+   * 'inverse' is for a coloured panel — onboarding puts the dial on the brand
+   * violet, and there the grey ticks all but vanished (user, 2026-09-09). The
+   * marks separate by opacity instead of by hue, which is what works on a
+   * saturated ground.
+   */
+  tone?: 'surface' | 'inverse';
 }
 
 export function RulerPicker({
@@ -68,6 +78,7 @@ export function RulerPicker({
   majorEvery,
   value,
   onChange,
+  tone = 'surface',
   formatMajor,
 }: RulerPickerProps) {
   const theme = useTheme();
@@ -162,7 +173,14 @@ export function RulerPicker({
           {
             left: index * TICK_GAP - TICK_WIDTH / 2,
             height: isMajor ? MAJOR_HEIGHT : MINOR_HEIGHT,
-            backgroundColor: isMajor ? theme.muted : theme.border,
+            backgroundColor:
+              tone === 'inverse'
+                ? isMajor
+                  ? 'rgba(255,255,255,0.92)'
+                  : 'rgba(255,255,255,0.42)'
+                : isMajor
+                  ? theme.muted
+                  : theme.border,
           },
         ]}
       />,
@@ -181,7 +199,11 @@ export function RulerPicker({
     labels.push(
       <Text
         key={major}
-        style={[styles.majorLabel, { width: labelWidth, left: index * TICK_GAP - labelWidth / 2 }]}
+        style={[
+          styles.majorLabel,
+          { width: labelWidth, left: index * TICK_GAP - labelWidth / 2 },
+          tone === 'inverse' && styles.majorLabelInverse,
+        ]}
       >
         {formatMajor ? formatMajor(valueFor(index)) : String(Math.round(valueFor(index)))}
       </Text>,
@@ -214,7 +236,7 @@ export function RulerPicker({
       {/* The needle. Fixed, centred, drawn over the scroll view — the value is
           whatever is under it, which is what makes the thing read as a dial
           rather than as a slider with a handle. */}
-      <View style={styles.needle} pointerEvents="none" />
+      <View style={[styles.needle, tone === 'inverse' && styles.needleInverse]} pointerEvents="none" />
     </View>
   );
 }
@@ -242,6 +264,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     top: LABEL_HEIGHT,
     width: TICK_WIDTH,
     borderRadius: 1,
+  },
+  majorLabelInverse: {
+    color: '#FFFFFF',
+  },
+  /** Solid white against ticks that are not: the needle wins on opacity. */
+  needleInverse: {
+    backgroundColor: '#FFFFFF',
   },
   needle: {
     position: 'absolute',

@@ -74,6 +74,17 @@ interface AICoachChatScreenProps {
   liveConfigured: boolean;
   onlineNoticeAcknowledged: boolean;
   onAcknowledgeOnlineNotice: () => void;
+  /**
+   * What the reader has allowed the server to KEEP, and the setter for it.
+   *
+   * Separate from the notice above it: the notice is what the online coach
+   * unavoidably does, these are three optional yeses that change nothing about
+   * the answer the reader gets. All start false and each is its own decision.
+   */
+  logConsent: { chat: boolean; composer: boolean; photo: boolean };
+  onChangeLogConsent: (next: Partial<{ chat: boolean; composer: boolean; photo: boolean }>) => void;
+  /** The label the kept copies are filed under, or null before the first yes. */
+  logId: string | null;
   /** Questions left in this month. Meaningful only while proUnlocked. */
   questionsRemaining: number;
   onQuestionUsed: () => void;
@@ -263,6 +274,9 @@ export function AICoachChatScreen({
   liveConfigured,
   onlineNoticeAcknowledged,
   onAcknowledgeOnlineNotice,
+  logConsent,
+  onChangeLogConsent,
+  logId,
   questionsRemaining,
   onQuestionUsed,
   demoQuestion = null,
@@ -763,6 +777,13 @@ export function AICoachChatScreen({
           language,
           // What was already said in this thread, so a follow-up resolves.
           history: conversation.current,
+          // Sent every time, from the switch as it stands right now. A reader
+          // who turns it off between two questions has turned it off for the
+          // second one.
+          keepConsent: logConsent.chat,
+          // No label, nothing kept: the server refuses the write without one,
+          // which closes the window between the first yes and the id landing.
+          ...(logConsent.chat && logId ? { logId } : {}),
           ...(AI_COACH_DEBUG_TRANSCRIPTS && transcriptReporter ? { reporter: transcriptReporter } : {}),
         });
         if (token !== askToken.current) {
@@ -1062,6 +1083,42 @@ export function AICoachChatScreen({
             <View style={styles.onlineCard}>
               <Text style={styles.onlineTitle}>{t(language, 'coachChat.online.title')}</Text>
               <Text style={styles.onlineBody}>{t(language, 'coachChat.online.body')}</Text>
+              <Text style={styles.onlineBody}>{t(language, 'coachChat.online.body2')}</Text>
+
+              {/* The three optional yeses, under the notice and clearly not part
+                  of it. The notice says what the coach does; these say what the
+                  server may write down afterwards, and the coach answers the
+                  same either way. Off until tapped, one at a time — a single
+                  switch for three different things would be one answer put in
+                  the reader's mouth three times. */}
+              <View style={styles.keepBlock}>
+                <Text style={styles.keepTitle}>{t(language, 'coachChat.keep.title')}</Text>
+                <Text style={styles.keepBody}>{t(language, 'coachChat.keep.body')}</Text>
+                {([
+                  ['chat', 'coachChat.keep.chat'],
+                  ['composer', 'coachChat.keep.composer'],
+                  ['photo', 'coachChat.keep.photo'],
+                ] as const).map(([key, labelKey]) => {
+                  const on = logConsent[key];
+                  return (
+                    <Pressable
+                      key={key}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: on }}
+                      accessibilityLabel={t(language, labelKey)}
+                      onPress={() => onChangeLogConsent({ [key]: !on })}
+                      style={({ pressed }) => [styles.keepRow, pressed && styles.pressed]}
+                    >
+                      <View style={[styles.keepBox, on && styles.keepBoxOn]}>
+                        {on ? <Text style={styles.keepTick}>✓</Text> : null}
+                      </View>
+                      <Text style={styles.keepLabel}>{t(language, labelKey)}</Text>
+                    </Pressable>
+                  );
+                })}
+                <Text style={styles.keepNote}>{t(language, 'coachChat.keep.note')}</Text>
+              </View>
+
               <Pressable
                 accessibilityRole="button"
                 onPress={onAcknowledgeOnlineNotice}
@@ -1072,6 +1129,12 @@ export function AICoachChatScreen({
             </View>
           ) : null}
 
+          {/* Nothing else while the notice is up (user, 2026-09-10). The chips,
+              the readout and the "log a workout" line all sat under it, and a
+              screen that offers three other things while asking one question
+              is asking the reader to skip the question. */}
+          {mustAcknowledgeOnline ? null : (
+          <>
           {showReadout ? (
             <CoachReadoutTicker
               rows={openingRows}
@@ -1262,8 +1325,14 @@ export function AICoachChatScreen({
               </Text>
             </View>
           ) : null}
+          </>
+          )}
         </ScrollView>
 
+        {/* The suggestion rail lives outside the thread's scroll view, so it
+            needs its own gate: it sat under the notice as three more things to
+            tap instead of reading. */}
+        {mustAcknowledgeOnline ? null : (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -1282,6 +1351,7 @@ export function AICoachChatScreen({
             </Pressable>
           ))}
         </ScrollView>
+        )}
 
         {proUnlocked && !canAsk ? (
           <Text style={styles.resetNote}>
@@ -1510,6 +1580,67 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     gap: 8,
+  },
+  /**
+   * A block inside the card, separated by a rule rather than by a second card.
+   * The notice and the three yeses belong to one moment; two boxes would say
+   * they are two decisions when only the second one is a decision at all.
+   */
+  keepBlock: {
+    marginTop: 4,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+    gap: 8,
+  },
+  keepTitle: {
+    color: theme.ink,
+    fontSize: 14.5,
+    fontWeight: '800',
+  },
+  keepBody: {
+    color: theme.muted,
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: '600',
+  },
+  keepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 6,
+  },
+  keepBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: theme.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  keepBoxOn: {
+    backgroundColor: theme.highlight,
+    borderColor: theme.highlight,
+  },
+  keepTick: {
+    color: theme.onHighlight,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  keepLabel: {
+    flex: 1,
+    minWidth: 0,
+    color: theme.ink,
+    fontSize: 13.5,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  keepNote: {
+    color: theme.faint,
+    fontSize: 11.5,
+    lineHeight: 16,
+    fontWeight: '600',
   },
   onlineTitle: {
     color: theme.ink,

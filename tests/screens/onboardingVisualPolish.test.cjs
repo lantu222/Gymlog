@@ -200,10 +200,15 @@ module.exports = [
       assert.match(composerSource, /weekdayLabel: day\.weekdayLabel,/);
       assert.match(composerSource, /weekday: day\.weekday,/);
       assert.match(onboardingSource, /getWeekdayShortLabel\(session\.weekday, language\)/);
-      // And it reaches the card. The day view that used to print it is gone;
-      // the week list on the plan-ready card is where a reader now learns
-      // which day each session lands on, so the invariant moved with it.
-      assert.match(onboardingSource, /weekday: session\.weekdayLabel,/);
+      // And it reaches the card. Since 2026-09-09 the card draws the whole
+      // week as seven cells rather than a row per training day — a five-day
+      // programme used to push its own first rows out of the card — so the
+      // label is looked up per weekday and the session only decides whether
+      // that day is filled. Still a word from the reader's language, never
+      // the composer's English one.
+      assert.match(onboardingSource, /weekday: getWeekdayShortLabel\(day, language\)/);
+      assert.match(onboardingSource, /training: composedActiveWeek\?\.sessions\.some/);
+      assert.doesNotMatch(onboardingSource, /weekday: session\.weekdayLabel,/);
 
       // A weekday, never a date: the plan has no start day on this screen, so
       // any date would be one the app invented.

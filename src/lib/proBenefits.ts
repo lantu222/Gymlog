@@ -156,7 +156,7 @@ export const PRO_UNLOCK_LIMIT_VARS: Record<string, Record<string, string | numbe
   'unlock.programs.b': { active: FREE_ACTIVE_PROGRAM_CAP, proActive: PRO_ACTIVE_PROGRAM_CAP },
 };
 
-export type MembershipSource = 'promo' | 'purchase' | 'none';
+export type MembershipSource = 'promo' | 'trial' | 'purchase' | 'none';
 
 export interface MembershipEndPlan {
   /** True when the user can end Pro from inside the app, right now. */
@@ -180,7 +180,9 @@ export function resolveMembershipEndPlan(
   promoUntil: string | null,
   periodEndsAt: string | null = null,
 ): MembershipEndPlan {
-  if (source === 'promo') {
+  // A trial is a promo with a different name on it: a stretch of days that
+  // runs out on its own, with nothing to cancel and nothing to hand back.
+  if (source === 'promo' || source === 'trial') {
     return { canEndNow: false, lapsesOn: promoUntil };
   }
   if (source === 'purchase') {

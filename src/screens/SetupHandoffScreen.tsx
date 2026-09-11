@@ -5,18 +5,36 @@ import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { VinhaIcon } from '../components/VinhaIcon';
+import { TrackChangeDialog } from '../components/TrackChangeDialog';
 import { t } from '../lib/i18n';
-import { countSetupHandoffOffers, type SetupHandoffPlan } from '../lib/setupHandoff';
+import { type SetupHandoffPlan } from '../lib/setupHandoff';
 import { radii, spacing } from '../theme';
 import { Theme, useTheme, useThemedStyles } from '../theming';
-import type { AppLanguage } from '../types/models';
+import type { AppLanguage, MeasurementKind } from '../types/models';
 
 export interface SetupHandoffChoices {
   addWidget: boolean;
-  pinTrackingCard: boolean;
-  pinBodyweightCard: boolean;
   /** Start Google sign-in after the other choices land. Free and Pro alike. */
   signInForBackup: boolean;
+  /**
+   * Open the Pro page once everything else has landed.
+   *
+   * Not a row and not a page of its own any more (user, 2026-09-10). A page in
+   * the middle of onboarding that described Pro was a summary of the page that
+   * describes Pro; the reader now simply arrives at the real one, once, on the
+   * way to Home. False for anybody who already has Pro.
+   */
+  showPro: boolean;
+  /**
+   * The measured sites the reader wants on Home, at most four.
+   *
+   * Replaces the two card rows (user, 2026-09-10): "track your chest" and
+   * "track your weight" were two switches out of nine possible sites, chosen
+   * for the reader by the questionnaire. The dialog asks the question once and
+   * lets them answer it themselves — the card key IS the site's name, so this
+   * list goes straight to Home's pinned keys.
+   */
+  trackedSites: MeasurementKind[];
 }
 
 interface SetupHandoffScreenProps {
@@ -30,6 +48,12 @@ interface SetupHandoffScreenProps {
   focusLabel: string | null;
   onDone: (choices: SetupHandoffChoices) => void;
   onSkip: () => void;
+  /**
+   * Opens one of the two documents without leaving onboarding. The legal screen
+   * lives on the Profile tab, and navigating there mid-flow would end the flow;
+   * the shell renders it over this screen instead and comes back here.
+   */
+  onOpenLegal: (document: 'privacy' | 'terms') => void;
 }
 
 /**
@@ -49,14 +73,13 @@ export function SetupHandoffScreen({
   focusLabel,
   onDone,
   onSkip,
+  onOpenLegal,
 }: SetupHandoffScreenProps) {
   const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [addWidget, setAddWidget] = useState(true);
-  const [pinTrackingCard, setPinTrackingCard] = useState(true);
-  // Off by default: the focus card is the one the questionnaire earned; this
-  // one is offered, not assumed.
-  const [pinBodyweightCard, setPinBodyweightCard] = useState(false);
+  const [trackedSites, setTrackedSites] = useState<MeasurementKind[]>([]);
   // Also off by default, and for a stronger reason: an account is a bigger
   // ask than a widget, and the decision (2026-08-22) is that sign-in stands
   // beside the door, never in it.
@@ -75,11 +98,114 @@ export function SetupHandoffScreen({
   // The heading counts what is on the screen. With the widget already placed
   // (any phone that has had the app before) only the card is offered, and
   // "Two things · both take one tap" was a promise the screen did not keep.
-  const offerCount = countSetupHandoffOffers(plan);
-  const titleKey = offerCount === 1 ? 'handoff.titleOne' : offerCount === 2 ? 'handoff.title' : 'handoff.titleMany';
+  /*
+   * One, always, because this page holds one row.
+   *
+   * The heading used to count the plan's offers, which stopped being what the
+   * page showed the moment sign-in, Pro and the sites moved to pages of their
+   * own: four offers, one switch, and a title claiming the other three
+   * (2026-09-10). This page renders only when the widget can be pinned, and
+   * the widget is the only thing on it.
+   */
+  const titleKey = 'handoff.titleOne' as const;
+
+  /**
+   * Three pages where there used to be one list (user, 2026-09-10).
+   *
+   * Sign-in and Pro were rows among five, and both are decisions rather than
+   * switches: one asks for an account, the other opens a price list. A row in
+   * a list is the wrong shape for either, so each got the screen it needs and
+   * the remaining switches keep the list.
+   *
+   * Built from the plan rather than fixed, so a reader who is already signed
+   * in never sees a sign-in page and a reader who bought Pro never sees a Pro
+   * page — the same rule the rows already followed.
+   */
+  const pages = [
+    ...(plan.offerAccountBackup ? (['signin'] as const) : []),
+    'tracking' as const,
+    // Only when it has something on it. With sign-in, Pro and the sites all
+    // moved to pages of their own, the widget is the last row left — and on a
+    // launcher that cannot pin one, the reader met a page with a title, a
+    // terms line and nothing between them (user, 2026-09-10).
+    ...(plan.offerWidget ? (['offers'] as const) : []),
+  ];
+  const [pageIndex, setPageIndex] = useState(0);
+  const page = pages[Math.min(pageIndex, pages.length - 1)];
+
+  const finish = () =>
+    onDone({
+      addWidget: plan.offerWidget && addWidget,
+      trackedSites,
+      signInForBackup: plan.offerAccountBackup && signInForBackup,
+      showPro: plan.offerPro,
+    });
+
+  /**
+   * Next page, or out — and the second half is the point.
+   *
+   * `advance` used to clamp to the last index, so on the last page it moved to
+   * the page it was already on and nothing happened. With the widget row gone
+   * from most phones, the tracking dialog IS the last page, and its Done
+   * button was dead: tapped, nothing, no way forward (user, 2026-09-10).
+   */
+  const advance = () => {
+    if (pageIndex >= pages.length - 1) {
+      finish();
+      return;
+    }
+    setPageIndex((current) => current + 1);
+  };
+
+  if (page === 'signin') {
+    return (
+      <View style={styles.screen}>
+        <View style={[styles.pageBody, styles.pageBodyCentred]}>
+          <View style={styles.pageGlyph}>
+            <GoogleGlyph size={34} />
+          </View>
+          {/* No heading (user, 2026-09-10). The G says which sign-in this is
+              and the sentence says what it buys; a title between them was a
+              third way of saying the same thing. */}
+          <Text style={[styles.pageText, styles.pageTextCentred]}>{t(language, 'handoff.signin.body')}</Text>
+        </View>
+
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, GESTURE_BAR_FLOOR) + spacing.md }]}>
+          {/* The one page in onboarding where an account is asked for, so the
+              terms live here rather than under a list of switches. */}
+          <LegalFootnote language={language} onOpenLegal={onOpenLegal} />
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              setSignInForBackup(true);
+              advance();
+            }}
+            style={({ pressed }) => [styles.googleCta, pressed && styles.pressed]}
+          >
+            <GoogleGlyph size={18} />
+            <Text style={styles.googleCtaText}>{t(language, 'handoff.signin.cta')}</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={advance} style={({ pressed }) => pressed && styles.pressed}>
+            <Text style={styles.pageSkip}>{t(language, 'handoff.signin.skip')}</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.screen}>
+      {/* Over the page rather than instead of it, which is how the reader met
+          this shape on the way in: the theme question is a dialog on top of
+          the screen behind it. */}
+      <TrackChangeDialog
+        visible={page === 'tracking'}
+        language={language}
+        selected={trackedSites}
+        offered={plan.trackedSiteOptions}
+        onChange={setTrackedSites}
+        onDone={advance}
+      />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <Text style={styles.title}>{t(language, titleKey)}</Text>
 
@@ -93,38 +219,6 @@ export function SetupHandoffScreen({
         />
       ) : null}
 
-      {plan.tracking ? (
-        <OfferRow
-          icon="progress"
-          title={t(language, 'handoff.track.title')}
-          body={trackingBody}
-          selected={pinTrackingCard}
-          onToggle={() => setPinTrackingCard((current) => !current)}
-        />
-      ) : null}
-
-      {plan.offerBodyweight ? (
-        <OfferRow
-          icon="scale"
-          title={t(language, 'handoff.weight.title')}
-          body={t(language, 'handoff.track.bodyweight')}
-          selected={pinBodyweightCard}
-          onToggle={() => setPinBodyweightCard((current) => !current)}
-        />
-      ) : null}
-
-      {plan.offerAccountBackup ? (
-        <OfferRow
-          // The row says "sign in with Google", so it wears the G
-          // (user 2026-08-23) — a generic person icon promised less than
-          // the sentence next to it.
-          icon="google"
-          title={t(language, 'handoff.account.title')}
-          body={t(language, 'handoff.account.body')}
-          selected={signInForBackup}
-          onToggle={() => setSignInForBackup((current) => !current)}
-        />
-      ) : null}
 
       </ScrollView>
 
@@ -152,16 +246,17 @@ export function SetupHandoffScreen({
           { paddingBottom: Math.max(insets.bottom, GESTURE_BAR_FLOOR) + spacing.md },
         ]}
       >
+        {/* The one place onboarding names the documents. It sits here, on the
+            last screen, for the same reason a shop puts the terms at the till
+            rather than the door: this is the step where the reader can start
+            the backup, which is the first thing that would leave the phone. A
+            line, not a checkbox — nothing here is consented to by tapping
+            Done, and the two features that do need a yes ask for it in their
+            own moment. */}
+        <LegalFootnote language={language} onOpenLegal={onOpenLegal} />
         <Pressable
           accessibilityRole="button"
-          onPress={() =>
-            onDone({
-              addWidget: plan.offerWidget && addWidget,
-              pinTrackingCard: plan.tracking !== null && pinTrackingCard,
-              pinBodyweightCard: plan.offerBodyweight && pinBodyweightCard,
-              signInForBackup: plan.offerAccountBackup && signInForBackup,
-            })
-          }
+          onPress={finish}
           style={({ pressed }) => [styles.done, pressed && styles.pressed]}
         >
           <Text style={styles.doneText}>{t(language, 'handoff.done')}</Text>
@@ -192,6 +287,45 @@ function GoogleGlyph({ size = 20 }: { size?: number }) {
         d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
       />
     </Svg>
+  );
+}
+
+/**
+ * The sentence naming the two documents, and the two links under it.
+ *
+ * One copy rather than two: it appears on the sign-in page and again in the
+ * footer of the last page, and the two hand-written versions had already
+ * drifted — one of them had a pressed state and the other did not.
+ */
+function LegalFootnote({
+  language,
+  onOpenLegal,
+}: {
+  language: AppLanguage;
+  onOpenLegal: (document: 'privacy' | 'terms') => void;
+}) {
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <>
+      <Text style={styles.legalLine}>{t(language, 'handoff.legal')}</Text>
+      <View style={styles.legalLinks}>
+        <Pressable
+          accessibilityRole="link"
+          onPress={() => onOpenLegal('terms')}
+          style={({ pressed }) => pressed && styles.pressed}
+        >
+          <Text style={styles.legalLink}>{t(language, 'settings.terms')}</Text>
+        </Pressable>
+        <Text style={styles.legalDot}>·</Text>
+        <Pressable
+          accessibilityRole="link"
+          onPress={() => onOpenLegal('privacy')}
+          style={({ pressed }) => pressed && styles.pressed}
+        >
+          <Text style={styles.legalLink}>{t(language, 'settings.privacy')}</Text>
+        </Pressable>
+      </View>
+    </>
   );
 }
 
@@ -330,6 +464,89 @@ const makeStyles = (theme: Theme) =>
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.sm,
       backgroundColor: theme.surface,
+    },
+    /**
+     * A page, not a row: one idea centred in the space a list would have used.
+     * Both new pages share it, so the sign-in and the Pro page are the same
+     * shape and only their words differ.
+     */
+    pageBody: {
+      flex: 1,
+      justifyContent: 'center',
+      paddingHorizontal: spacing.lg,
+      gap: spacing.md,
+    },
+    pageGlyph: {
+      width: 64,
+      height: 64,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.surfaceSoft,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    pageText: {
+      color: theme.muted,
+      fontSize: 15,
+      lineHeight: 22,
+      fontWeight: '600',
+    },
+    /** The sign-in page centres on its mark: one logo, one promise under it. */
+    pageBodyCentred: {
+      alignItems: 'center',
+    },
+    pageTextCentred: {
+      textAlign: 'center',
+    },
+    /** The way past a page without taking what it offers. */
+    pageSkip: {
+      color: theme.muted,
+      fontSize: 14,
+      fontWeight: '700',
+      textAlign: 'center',
+      paddingVertical: spacing.sm,
+    },
+    googleCta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      height: 54,
+      borderRadius: 16,
+      backgroundColor: theme.surface,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+    },
+    googleCtaText: {
+      color: theme.ink,
+      fontSize: 16,
+      fontWeight: '800',
+    },
+    legalLine: {
+      color: theme.muted,
+      fontSize: 12,
+      lineHeight: 17,
+      textAlign: 'center',
+    },
+    legalLinks: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 2,
+      marginBottom: spacing.sm,
+    },
+    legalLink: {
+      color: theme.purple,
+      fontSize: 12,
+      fontWeight: '700',
+      // The tap target the 12pt label does not give on its own.
+      paddingVertical: 6,
+    },
+    legalDot: {
+      color: theme.faint,
+      fontSize: 12,
     },
     /**
      * The shape every other screen in this flow ends on.

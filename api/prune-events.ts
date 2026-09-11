@@ -24,6 +24,7 @@ import { del, list } from '@vercel/blob';
 
 import {
   ANALYTICS_RETENTION_MONTHS,
+  RETAINED_PREFIXES,
   analyticsRetentionCutoffDay,
   selectExpiredEventBlobs,
 } from '../src/lib/analyticsRetention';
@@ -84,15 +85,22 @@ export default async function handler(req: RequestLike, res: ResponseLike): Prom
   try {
     const now = new Date();
     const cutoffDay = analyticsRetentionCutoffDay(now);
+    // Both prefixes the retention promise covers, listed from the same source
+    // of truth as the matcher — a cron that swept one folder while the rule
+    // named two would have deleted the events and kept the transcripts forever
+    // (2026-09-10). Backups are under neither and are not touched: they are
+    // kept until their owner deletes them, which is a different promise.
     const pathnames: string[] = [];
-    let cursor: string | undefined;
-    do {
-      const page = await list({ prefix: 'events/', cursor, limit: 1000 });
-      for (const blob of page.blobs) {
-        pathnames.push(blob.pathname);
-      }
-      cursor = page.hasMore ? page.cursor : undefined;
-    } while (cursor);
+    for (const prefix of RETAINED_PREFIXES) {
+      let cursor: string | undefined;
+      do {
+        const page = await list({ prefix: `${prefix}/`, cursor, limit: 1000 });
+        for (const blob of page.blobs) {
+          pathnames.push(blob.pathname);
+        }
+        cursor = page.hasMore ? page.cursor : undefined;
+      } while (cursor);
+    }
 
     const expired = selectExpiredEventBlobs(pathnames, now);
     const dry = queryValue(req, 'dry') === '1';
