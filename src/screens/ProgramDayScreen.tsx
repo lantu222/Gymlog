@@ -755,13 +755,6 @@ export function ProgramDayScreen({
                     (exercise.slotId ? sessionSwaps[exercise.slotId] : undefined) ?? exercise.name,
                   )}
                 </Text>
-                {/* Only a paired row carries this. A label on every row would
-                    be a column of letters saying that nothing is paired. */}
-                {superset?.label ? (
-                  <View style={styles.supersetTag}>
-                    <Text style={styles.supersetTagText}>{superset.label}</Text>
-                  </View>
-                ) : null}
                 <View style={[styles.roleTag, { backgroundColor: tints[exercise.role]?.bg ?? theme.surfaceSoft }]}>
                   <Text style={[styles.roleTagText, { color: tints[exercise.role]?.ink ?? theme.muted }]}>
                     {t(language, ROLE_TAG_KEYS[exercise.role] ?? 'detail.role.accessory')}
@@ -771,24 +764,6 @@ export function ProgramDayScreen({
                     2026-08-31): "Swap" was a word in a button on the line
                     below, which put a verb in the same row as the numbers and
                     left removal reachable only from inside the swap sheet. */}
-                {/* The bottom row of the day has nothing below it to run into,
-                    so it gets no chain rather than a chain that does nothing. */}
-                {onSupersetLink && index < session.exercises.length - 1 ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: linkedToNext }}
-                    accessibilityLabel={t(
-                      language,
-                      linkedToNext ? 'detail.day.a11y.supersetUnlink' : 'detail.day.a11y.supersetLink',
-                      { name: exerciseNameLabel(language, exercise.name) },
-                    )}
-                    hitSlop={8}
-                    onPress={() => onSupersetLink(exercise.id, !linkedToNext)}
-                    style={({ pressed }) => [styles.rowAction, pressed && styles.swapOptionPressed]}
-                  >
-                    <ChainGlyph theme={theme} linked={linkedToNext} />
-                  </Pressable>
-                ) : null}
                 {exercise.slotId && onSwapExercise ? (
                   <Pressable
                     accessibilityRole="button"
@@ -823,6 +798,16 @@ export function ProgramDayScreen({
                     wear the pencil — a chip that edits and a chip that only
                     states, side by side, taught the reader to distrust both. */}
                 <View style={styles.exerciseDose}>
+                  {/* The badge sits with the numbers rather than on the name
+                      line. The name line already carries a number, a role tag
+                      and two icons, and a fifth thing there cut "Takakyykky"
+                      to "Tak ak…" — the row would have been telling the reader
+                      about a superset while hiding which lift it was. */}
+                  {superset?.label ? (
+                    <View style={styles.supersetTag}>
+                      <Text style={styles.supersetTagText}>{superset.label}</Text>
+                    </View>
+                  ) : null}
                   {canTune ? (
                     <>
                       <Pressable
@@ -872,6 +857,26 @@ export function ProgramDayScreen({
                     </>
                   )}
                 </View>
+                {/* The chain governs the gap to the row below, so it sits at
+                    the end of the line closest to that gap. The bottom row of
+                    the day has nothing below it to run into, and gets no chain
+                    rather than one that does nothing. */}
+                {onSupersetLink && index < session.exercises.length - 1 ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: linkedToNext }}
+                    accessibilityLabel={t(
+                      language,
+                      linkedToNext ? 'detail.day.a11y.supersetUnlink' : 'detail.day.a11y.supersetLink',
+                      { name: exerciseNameLabel(language, exercise.name) },
+                    )}
+                    hitSlop={10}
+                    onPress={() => onSupersetLink(exercise.id, !linkedToNext)}
+                    style={({ pressed }) => [styles.rowAction, pressed && styles.swapOptionPressed]}
+                  >
+                    <ChainGlyph theme={theme} linked={linkedToNext} />
+                  </Pressable>
+                ) : null}
               </View>
             </Animated.View>
             );

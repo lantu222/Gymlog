@@ -1935,6 +1935,18 @@ export function GuidedPlayerScreen({
       isGuidedExerciseOut(exercise) ? { ...exercise, supersetGroup: null } : exercise,
     ),
   );
+  /** The same badges, reachable by slot — which is how every step names a lift. */
+  const supersetBySlot = new Map<string, { label: string; nextLabel: string | null }>();
+  activeExercises.forEach((exercise, index) => {
+    const position = entrySupersets[index];
+    if (!position?.label) {
+      return;
+    }
+    supersetBySlot.set(exercise.slotId, {
+      label: position.label,
+      nextLabel: position.hasNextInGroup ? entrySupersets[index + 1]?.label ?? null : null,
+    });
+  });
   // The named constant, not a literal 3 — this is the same ready-countdown
   // estimateRoutineBlockSeconds adds for Home, and the two have to move together.
   const warmupSecondsTotal = warmupDrills.reduce((sum, drill) => sum + drill.seconds + GUIDED_READY_SECONDS, 0);
@@ -2160,20 +2172,30 @@ export function GuidedPlayerScreen({
           : t(language, target.timed ? 'guided.target.seconds' : 'guided.target.reps', {
               reps: target.reps,
             }),
-      planLine: t(language, 'guided.walk.plan', {
-        sets: instance.sets.length,
-        reps: target.reps,
-        /*
-         * The LOWER bound — that is what the timer runs.
-         *
-         * `buildGuidedSteps` is handed `restSeconds: exercise.restSecondsMin`,
-         * so a Back Squat prescribed 120-180 rests for 120. This card said 180
-         * and the ring thirty seconds later said 2:00 (review, PR #57). The
-         * comment that used to sit here claimed the opposite, which is why the
-         * number went unchecked.
-         */
-        rest: instance.restSecondsMin,
-      }),
+      // A lift that runs into the next one has no rest after it, so the card
+      // says what does follow. Quoting the lift's own rest here would be the
+      // same promise the day view stopped making — and worse on this screen,
+      // which is the last thing read before the set.
+      planLine: supersetBySlot.get(step.slotId)?.nextLabel
+        ? t(language, 'guided.walk.planSuperset', {
+            sets: instance.sets.length,
+            reps: target.reps,
+            label: supersetBySlot.get(step.slotId)?.nextLabel ?? '',
+          })
+        : t(language, 'guided.walk.plan', {
+            sets: instance.sets.length,
+            reps: target.reps,
+            /*
+             * The LOWER bound — that is what the timer runs.
+             *
+             * `buildGuidedSteps` is handed `restSeconds: exercise.restSecondsMin`,
+             * so a Back Squat prescribed 120-180 rests for 120. This card said 180
+             * and the ring thirty seconds later said 2:00 (review, PR #57). The
+             * comment that used to sit here claimed the opposite, which is why the
+             * number went unchecked.
+             */
+            rest: instance.restSecondsMin,
+          }),
       // The set card's heading makes the same distinction one step later;
       // the number must not change its story between the two screens.
       lastLabel: t(language, last?.borrowed ? 'guided.walk.lastBorrowed' : 'guided.walk.last'),

@@ -387,6 +387,36 @@ module.exports = [
       // names one of the two lifts it is about to ask for.
       assert.match(playerSource, /\{item\.members\.map\(\(member\) => \{/);
       assert.equal((i18nSource.match(/'guided\.runSheet\.progress': '[^']+'/g) ?? []).length, 2);
+      // A superset's block is counted in rounds, and the row says so: three
+      // rounds of A1 + A2 under the word "sets" would state neither number.
+      assert.match(
+        playerSource,
+        /item\.members\.length > 1 \? 'guided\.runSheet\.rounds' : 'guided\.runSheet\.sets'/,
+      );
+      assert.equal((i18nSource.match(/'guided\.runSheet\.rounds': '[^']+'/g) ?? []).length, 2);
+    },
+  },
+  {
+    /**
+     * The walk-up card is the last thing read before the first set of a block,
+     * and for a superset it used to quote the lift's own rest — a pause that
+     * never happens, because what follows A1 is A2. It says what does follow.
+     */
+    name: 'guided walk-up: a lift that runs into the next one quotes no rest',
+    run() {
+      assert.match(playerSource, /supersetBySlot\.get\(step\.slotId\)\?\.nextLabel\s*\?\s*t\(language, 'guided\.walk\.planSuperset'/);
+      // Both dictionaries carry it, and neither version mentions a rest.
+      const lines = i18nSource.match(/'guided\.walk\.planSuperset': '[^']+'/g) ?? [];
+      assert.equal(lines.length, 2);
+      for (const line of lines) {
+        assert.doesNotMatch(line, /rest|lepo/i, line);
+      }
+      // The badges the card reads from are the ones the step list agrees with:
+      // a lift that is out of the plan is unpaired before any of them is built.
+      assert.match(
+        playerSource,
+        /isGuidedExerciseOut\(exercise\) \? \{ \.\.\.exercise, supersetGroup: null \} : exercise/,
+      );
     },
   },
 ];

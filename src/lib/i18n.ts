@@ -1372,6 +1372,10 @@ const EN = {
   'guided.walk.last': 'LAST',
   'guided.walk.lastBorrowed': 'LAST\nANOTHER DAY',
   'guided.walk.plan': '{sets} × {reps} · {rest} s rest',
+  // The walk-up card for the first lift of a superset. It must not quote a
+  // rest: what follows this lift is the next one, and the rest comes after
+  // the round.
+  'guided.walk.planSuperset': '{sets} × {reps} · straight to {label}',
   'guided.walk.startFirst': 'Start set 1',
   'guided.walk.swap': 'Swap exercise',
   'guided.sheet.tab.learn': 'Learn',
@@ -4392,6 +4396,7 @@ const FI: Record<I18nKey, string> = {
   'guided.walk.last': 'VIIMEKSI',
   'guided.walk.lastBorrowed': 'VIIMEKSI\nERI PÄIVÄ',
   'guided.walk.plan': '{sets} × {reps} · lepo {rest} s',
+  'guided.walk.planSuperset': '{sets} × {reps} · suoraan {label}',
   'guided.walk.startFirst': 'Aloita sarja 1',
   'guided.walk.swap': 'Vaihda liike',
   // "Opettele", not "Opi": this tab is deliberate practice on one lift —
