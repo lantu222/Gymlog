@@ -1417,7 +1417,6 @@ const EN = {
   'guided.nextUp': 'NEXT UP',
   'guided.runSheet.title': 'Workout contents',
   'guided.runSheet.open': 'Show what is in this session',
-  'guided.runSheet.sets': '{count} sets',
   // A superset's block is counted in rounds: three rounds of A1 + A2 is six
   // sets, and a row saying "3 sets" over two lifts states neither number.
   'guided.runSheet.rounds': '{count} rounds',
@@ -4441,7 +4440,6 @@ const FI: Record<I18nKey, string> = {
   'guided.nextUp': 'SEURAAVAKSI',
   'guided.runSheet.title': 'Treenin sisältö',
   'guided.runSheet.open': 'Näytä treenin sisältö',
-  'guided.runSheet.sets': '{count} sarjaa',
   'guided.runSheet.rounds': '{count} kierrosta',
   'guided.runSheet.here': 'Olet tässä',
   'guided.runSheet.progress': '{done}/{count} sarjaa',

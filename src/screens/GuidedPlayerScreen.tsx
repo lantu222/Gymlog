@@ -87,7 +87,7 @@ import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { libraryLabel } from '../lib/libraryLabel';
 import { localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { classifySessionFocus, getDefaultCooldown, getDefaultWarmup } from '../lib/homeSessionHero';
-import { formatShortDate, formatWeight, parseNumberInput, removeTrailingZeros } from '../lib/format';
+import { formatSetScheme, formatShortDate, formatWeight, parseNumberInput, removeTrailingZeros } from '../lib/format';
 import { estimateSessionMinutes } from '../lib/sessionDuration';
 import { buildSupersetRuns, supersetPositions } from '../lib/supersetGrouping';
 import { t } from '../lib/i18n';
@@ -3385,8 +3385,19 @@ export function GuidedPlayerScreen({
                       asked for. An ordinary lift is a row of exactly one. */}
                   {item.members.map((member) => {
                     const lift = member.slotId ? exerciseBySlot.get(member.slotId) : undefined;
-                    const memberLogged = lift
-                      ? formatLoggedSetsLine(lift.sets, isTimedTrackingMode(lift.trackingMode))
+                    // What is still to do, not what was lifted. The line under
+                    // each name carried the logged weights until 2026-09-11,
+                    // when the reader asked for "pelkät tulevat sarjat ja
+                    // toistot" — a sheet read mid-session is read to find out
+                    // what is coming, and the weight you just used is on the
+                    // screen behind it.
+                    const memberPlan = lift?.sets[0]
+                      ? formatSetScheme(
+                          lift.sets.length,
+                          lift.sets[0].plannedRepsMin,
+                          lift.sets[0].plannedRepsMax,
+                          lift.trackingMode,
+                        )
                       : '';
                     return (
                       <View key={member.slotId ?? member.name}>
@@ -3400,10 +3411,7 @@ export function GuidedPlayerScreen({
                         >
                           {exerciseNameLabel(language, member.name)}
                         </Text>
-                        {/* What has been logged in this lift so far: the sheet
-                            listed the session's shape and nothing of what had
-                            happened in it (user 2026-09-09). */}
-                        {memberLogged ? <Text style={styles.runLogged}>{memberLogged}</Text> : null}
+                        {memberPlan ? <Text style={styles.runPlan}>{memberPlan}</Text> : null}
                       </View>
                     );
                   })}
@@ -3428,13 +3436,9 @@ export function GuidedPlayerScreen({
                     </Pressable>
                   ) : null}
                 </View>
-                {item.setCount ? (
+                {item.setCount && item.members.length > 1 ? (
                   <Text style={styles.runMeta}>
-                    {t(
-                      language,
-                      item.members.length > 1 ? 'guided.runSheet.rounds' : 'guided.runSheet.sets',
-                      { count: item.setCount },
-                    )}
+                    {t(language, 'guided.runSheet.rounds', { count: item.setCount })}
                   </Text>
                 ) : null}
               </View>
@@ -5227,11 +5231,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.ink,
   },
   runEdit: { marginTop: 2, fontSize: 13, fontWeight: '800', color: theme.highlight },
-  runLogged: {
+  runPlan: {
     marginTop: 2,
     fontSize: 12.5,
     fontWeight: '700',
-    color: theme.greenInk,
+    color: theme.muted,
     fontVariant: ['tabular-nums'],
   },
   runHere: {

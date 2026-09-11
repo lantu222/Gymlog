@@ -368,32 +368,37 @@ module.exports = [
      * where the reader asked for it — and saying what has been logged in each
      * lift, not only the session's shape (user 2026-09-09, "paras idea").
      */
-    name: 'guided rest: the whole session is one tap from what was just logged, and says what was',
+    name: 'guided contents: one tap from the rest, and it says what is still to do',
     run() {
       assert.match(playerSource, /style=\{styles\.restRunStrip\}\s*onPress=\{\(\) => setRunSheetOpen\(true\)\}/);
       assert.match(playerSource, /'guided\.runSheet\.progress', \{ done: completedSetCount, count: totalSets \}/);
-      // With the lift's tracking mode, so a hold's seconds carry their unit.
-      // Per member of the row, not per row: a superset row holds several lifts
-      // and each one's logged sets are its own.
+      // The line under each name is the PLAN, not the log. It carried logged
+      // weights from 2026-09-09 until 2026-09-11, when the reader asked for
+      // "pelkät tulevat sarjat ja toistot": a sheet opened mid-session is
+      // opened to find out what is coming.
+      assert.doesNotMatch(playerSource, /const memberLogged/);
+      assert.match(playerSource, /const memberPlan = lift\?\.sets\[0\]/);
+      // Through the shared formatter, so a hold's numbers keep their unit —
+      // "45" beside "60 × 8" reads as forty-five reps.
+      assert.match(playerSource, /\? formatSetScheme\(\s*lift\.sets\.length,/);
       assert.match(
         playerSource,
-        /const memberLogged = lift\s*\? formatLoggedSetsLine\(lift\.sets, isTimedTrackingMode\(lift\.trackingMode\)\)\s*: '';/,
+        /\{memberPlan \? <Text style=\{styles\.runPlan\}>\{memberPlan\}<\/Text> : null\}/,
       );
-      assert.match(
-        playerSource,
-        /\{memberLogged \? <Text style=\{styles\.runLogged\}>\{memberLogged\}<\/Text> : null\}/,
-      );
+      // The right-hand column is down to the one number the rows cannot carry:
+      // how many rounds a superset runs. A set count beside "3 × 12" was the
+      // same number twice.
+      assert.match(playerSource, /\{item\.setCount && item\.members\.length > 1 \? \(/);
       // And every lift in the row is drawn, or a superset would be a row that
       // names one of the two lifts it is about to ask for.
       assert.match(playerSource, /\{item\.members\.map\(\(member\) => \{/);
       assert.equal((i18nSource.match(/'guided\.runSheet\.progress': '[^']+'/g) ?? []).length, 2);
-      // A superset's block is counted in rounds, and the row says so: three
-      // rounds of A1 + A2 under the word "sets" would state neither number.
-      assert.match(
-        playerSource,
-        /item\.members\.length > 1 \? 'guided\.runSheet\.rounds' : 'guided\.runSheet\.sets'/,
-      );
+      // A superset's block is counted in rounds — three rounds of A1 + A2
+      // under the word "sets" would state neither number — and rounds are now
+      // the only thing that column carries, so the set-count key is gone.
+      assert.match(playerSource, /t\(language, 'guided\.runSheet\.rounds', \{ count: item\.setCount \}\)/);
       assert.equal((i18nSource.match(/'guided\.runSheet\.rounds': '[^']+'/g) ?? []).length, 2);
+      assert.equal(i18nSource.includes("'guided.runSheet.sets'"), false);
     },
   },
   {
