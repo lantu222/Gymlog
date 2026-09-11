@@ -47,8 +47,34 @@ export interface SetupTrackingOffer {
 /**
  * Which tracking card to offer, given what the reader said they were training.
  *
- * The first focus area with a tape measurement wins — onboarding lets several be
- * picked, and offering three cards at the door is not an offer, it is a form.
+ * Every measured site the reader's own focus answers point at, in the order
+ * they picked them and without repeats.
+ *
+ * The hand-off used to offer one of these — the first match — and the reader
+ * never saw the others. The dialog offers the whole set they asked for, which
+ * is a shorter and better list than all nine sites: somebody who said "chest
+ * and arms" is not looking for calves (user, 2026-09-10).
+ *
+ * Empty when the reader named no focus area that maps to a tape measure. The
+ * caller decides what to show then; this says nothing rather than guessing.
+ */
+export function resolveFocusMeasurementSites(focusAreas: SetupFocusArea[]): MeasurementKind[] {
+  const sites: MeasurementKind[] = [];
+  for (const focus of focusAreas) {
+    const kind = FOCUS_MEASUREMENT[focus];
+    if (kind && !sites.includes(kind)) {
+      sites.push(kind);
+    }
+  }
+  return sites;
+}
+
+/**
+ * The one card the hand-off used to pin, and the focus label it still shows.
+ *
+ * The first focus area with a tape measurement wins. It no longer decides what
+ * the reader is offered — the dialog above does that, from the whole set — but
+ * it is still what names the focus on the page.
  */
 export function resolveSetupTrackingOffer(focusAreas: SetupFocusArea[]): SetupTrackingOffer {
   for (const focus of focusAreas) {
@@ -74,6 +100,14 @@ export interface SetupHandoffInput {
    * (2026-08-22): sign-in never blocks the door, it stands beside it.
    */
   canOfferAccountBackup: boolean;
+  /**
+   * False when the reader already has Pro. Offering the page to somebody who
+   * bought it is the sign that explains a sign.
+   *
+   * The offer is a row like the others, not a paywall: it opens the Pro page
+   * after the rest of the hand-off lands, and declining costs nothing.
+   */
+  canOfferPro: boolean;
 }
 
 export interface SetupHandoffPlan {
@@ -83,13 +117,25 @@ export interface SetupHandoffPlan {
   /** Null when the card this reader would be offered is already on Home. */
   tracking: SetupTrackingOffer | null;
   /**
-   * The bodyweight card as a second offer, when the focus card is not already
-   * bodyweight and bodyweight is not already on Home. One number every reader
-   * has; asked for by the user (2026-08-19) as the obvious second card.
+   * Whether the tracking dialog has anything left to ask.
+   *
+   * This was `offerBodyweight` until 2026-09-10, when the bodyweight row and
+   * every other row but the widget became a page of their own. Nothing
+   * rendered the old flag any more while it still decided whether the step
+   * appeared, so a reader could be shown the hand-off on account of an offer
+   * that was not in it. The question the page really asks is this one.
    */
-  offerBodyweight: boolean;
+  offerTrackedSites: boolean;
   /** Sign in with Google and keep the data past this phone. Free and Pro alike. */
   offerAccountBackup: boolean;
+  /** Open the Pro page once the hand-off is done. Never for a reader who has it. */
+  offerPro: boolean;
+  /**
+   * The measured sites to offer on the tracking page, from the reader's own
+   * focus answers. Empty when they named nothing measurable, and the dialog
+   * falls back to every site.
+   */
+  trackedSiteOptions: MeasurementKind[];
 }
 
 /**
@@ -104,36 +150,38 @@ export function planSetupHandoff(input: SetupHandoffInput): SetupHandoffPlan {
   const offer = resolveSetupTrackingOffer(input.focusAreas);
   const tracking = input.pinnedCardKeys.includes(offer.cardKey) ? null : offer;
 
-  const offerBodyweight =
-    offer.cardKey !== 'bodyweight' && !input.pinnedCardKeys.includes('bodyweight');
+  // Something left to ask: a site the reader's own answers point at that is
+  // not already on Home. No named sites falls back to all nine in the dialog,
+  // so there is always something to offer then.
+  const trackedSiteOptions = resolveFocusMeasurementSites(input.focusAreas);
+  const offerTrackedSites =
+    trackedSiteOptions.length === 0
+    || trackedSiteOptions.some((site) => !input.pinnedCardKeys.includes(site));
 
   // `=== true` rather than truthiness: stored plans and older callers may not
   // carry the field at all, and `undefined` leaking into shouldShow turned a
   // boolean contract into a three-valued one.
   const offerAccountBackup = input.canOfferAccountBackup === true;
+  const offerPro = input.canOfferPro === true;
 
   return {
-    shouldShow: input.canOfferWidget || tracking !== null || offerBodyweight || offerAccountBackup,
+    shouldShow:
+      input.canOfferWidget || tracking !== null || offerTrackedSites || offerAccountBackup || offerPro,
     offerWidget: input.canOfferWidget,
     tracking,
-    offerBodyweight,
+    offerTrackedSites,
     offerAccountBackup,
+    offerPro,
+    trackedSiteOptions,
   };
 }
 
-/**
- * How many offers the step actually shows — what the heading has to agree
- * with. It read "Two things before you start · Both take one tap" over a
- * single card whenever the widget was already on the home screen, which on a
- * phone that has had the app before is the usual case.
+/*
+ * `countSetupHandoffOffers` lived here until 2026-09-10.
+ *
+ * It counted the rows a one-page list showed, and the heading read the count.
+ * Once sign-in, Pro and the sites each became their own page, the list held
+ * exactly one row — the widget — while the count still said four, so the
+ * heading claimed things the page did not have. A number that cannot be right
+ * is not worth keeping accurate.
  */
-export function countSetupHandoffOffers(
-  plan: Pick<SetupHandoffPlan, 'offerWidget' | 'tracking' | 'offerBodyweight' | 'offerAccountBackup'>,
-): number {
-  return (
-    (plan.offerWidget ? 1 : 0) +
-    (plan.tracking ? 1 : 0) +
-    (plan.offerBodyweight ? 1 : 0) +
-    (plan.offerAccountBackup ? 1 : 0)
-  );
-}

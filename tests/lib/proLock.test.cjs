@@ -34,17 +34,29 @@ function sourceFiles() {
  */
 module.exports = [
   {
-    name: 'proLock: the entitlement grants from exactly two things, and names them',
+    name: 'proLock: the entitlement grants from exactly three things, and names them',
     run() {
       const entitlement = read('src', 'lib', 'proEntitlement.ts');
-      // The fields it is allowed to read at all.
-      assert.match(
-        entitlement,
-        /'promoProUntil' \| 'mockSubscriptionPurchasedAt' \| 'mockSubscriptionTerm' \| 'mockSubscriptionCancelledAt'/,
-      );
-      // Two sources, no third.
-      assert.match(entitlement, /source: 'promo' \| 'purchase' \| null;/);
+      // The fields it is allowed to read at all. `proTrialUntil` joined them
+      // on 2026-09-09, when the 14-day trial was switched on and actually
+      // granted — before that `resolveTrialProUntil` was imported into App.tsx
+      // and called from nowhere, so the flag could be flipped and nobody got a
+      // day of anything.
+      for (const field of [
+        "'promoProUntil'",
+        "'proTrialUntil'",
+        "'mockSubscriptionPurchasedAt'",
+        "'mockSubscriptionTerm'",
+        "'mockSubscriptionCancelledAt'",
+      ]) {
+        assert.match(entitlement, new RegExp(`\| ${field}`), `${field} is not in the pick`);
+      }
+      // Three sources, no fourth. The trial is its own source rather than a
+      // promo wearing a different label: only one of them may trigger "your
+      // trial ends soon".
+      assert.match(entitlement, /source: 'promo' \| 'trial' \| 'purchase' \| null;/);
       assert.match(entitlement, /source: 'promo'/);
+      assert.match(entitlement, /source: 'trial'/);
       assert.match(entitlement, /source: 'purchase' as const/);
     },
   },

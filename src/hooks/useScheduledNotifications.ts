@@ -89,6 +89,15 @@ export function useScheduledNotifications(database: AppDatabase) {
     ? `${signals.latestPr.exerciseName}|${signals.latestPr.weightKg}|${signals.latestPr.reps}|${signals.latestPr.achievedAtMs}`
     : '';
 
+  const trialEndsAtMs = useMemo(() => {
+    const until = database.preferences.proTrialUntil;
+    if (!until) {
+      return null;
+    }
+    const parsed = new Date(until).getTime();
+    return Number.isFinite(parsed) ? parsed : null;
+  }, [database.preferences.proTrialUntil]);
+
   useEffect(() => {
     const plan = buildNotificationPlan({
       nowMs: Date.now(),
@@ -102,6 +111,10 @@ export function useScheduledNotifications(database: AppDatabase) {
       latestPr: signals.latestPr,
       lastBodyweightAtMs: signals.lastBodyweightAtMs,
       lastMeasurementAtMs,
+      // The warning the hand-off row promised. Read from the trial's own field
+      // rather than from the promo grant, so a redeemed code never triggers a
+      // notice about a trial nobody started.
+      proTrialEndsAtMs: trialEndsAtMs,
     });
 
     queueRef.current = queueRef.current
@@ -122,6 +135,7 @@ export function useScheduledNotifications(database: AppDatabase) {
     notificationPrefs.measurementReminderKind,
     notificationPrefs.measurementReminderDay,
     lastMeasurementAtMs,
+    trialEndsAtMs,
     appLanguage,
     trainingDaysKey,
     onTrainingBreak,

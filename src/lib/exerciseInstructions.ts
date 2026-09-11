@@ -16,6 +16,20 @@ import { AppLanguage } from '../types/models';
  * a blank: an honest English instruction beats a missing one, and it is the
  * same rule the name layer follows.
  *
+ * ONE EXCEPTION TO THE BREATHING RULE, ON PURPOSE. Power Clean keeps its
+ * "vedä henkeä" and "pidätä hengitystä" steps (user decision, 2026-09-08): in a
+ * 24-step technical lift the breath marks where one phase ends and the next
+ * begins, which is the opposite of narration. Stomach Vacuum keeps its for the
+ * plainer reason that the breath IS the exercise. Do not sweep either out.
+ *
+ * AND SOMETIMES NOT THE SAME THING. Two cardio entries — the stationary bike
+ * and the Stairmaster — describe the machine's menu upstream: manual mode, your
+ * age and weight, the calorie estimate. That is not an instruction, and a
+ * faithful translation of it is a Finnish reader opening a panel mid-session
+ * and getting nothing. Those steps say something useful instead (2026-09-08,
+ * user decision). The English still says what it says; this file is an overlay
+ * for the Finnish reader, not a mirror.
+ *
  * STEP FOR STEP. A Finnish entry has exactly as many steps as the English one.
  * A translation that merges two steps into one loses a number the reader is
  * counting along with, and a test enforces the pairing. The wording is not
@@ -62,7 +76,7 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
   ],
   'Barbell Deadlift': [
     'Asetu seisomaan ladatun tangon taakse.',
-    'Pidä selkä suorana, koukista polvet ja taivuta lantiosta eteen. Ota tangosta hartioiden levyinen yliote. Jos ote ei kestä, käytä vastaotetta tai rannelenkkejä.',
+    'Pidä selkä suorana, koukista polvet ja taivuta lantiosta eteen. Ota tangosta hartioiden levyinen yliote. Jos ote ei kestä, käytä sekaotetta tai rannelenkkejä.',
     'Aloita nosto työntämällä jaloilla ja suorista vartalo pystyyn. Ylhäällä rinta ulos ja lavat yhteen.',
     'Palaa alas koukistamalla polvia ja taivuttamalla lantiosta selkä suorana. Kun levyt koskettavat lattiaa, olet valmis seuraavaan toistoon.',
     'Tee ohjelman mukainen määrä toistoja.',
@@ -144,7 +158,7 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
   ],
   'Box Squat': [
     'Laatikkokyykyssä voit kyykätä haluamaasi syvyyteen ja kehittää räjähtävää voimaa. Asetu telineeseen laatikko takanasi sopivalla korkeudella. Tavallisesti laatikko on sellainen, että kyykky tulee vaakatasoon, mutta voit harjoitella myös korkeammalta tai matalammalta.',
-    'Astu tangon alle ja aseta se yläselän päälle. Purista lavat yhteen ja kierrä kyynärpäät eteen, ikään kuin taivuttaisit tankoa hartioidesi päällä. Nosta tanko telineestä, jännitä alaselkä ja astu taakse. Leveämpi asento painottaa selkää, pakaroita ja takareisiä, kapeampi etureisiä. Katse eteenpäin.',
+    'Astu tangon alle ja aseta se yläselän päälle. Purista lavat yhteen ja kierrä kyynärpäät eteen, ikään kuin taivuttaisit tankoa hartioidesi päällä. Nosta tanko telineestä, jännitä alaselkä notkolle ja astu taakse. Leveämpi asento painottaa selkää, pakaroita ja takareisiä, kapeampi etureisiä. Katse eteenpäin.',
     'Pidä selkä, hartiat ja keskivartalo tiukkana ja työnnä polvia ja lantiota ulospäin laskeutuessasi. Istu lantio edellä alas laatikolle. Sääret ovat mieluiten kohtisuorassa lattiaan nähden. Pysähdy laatikolle ja rentouta lonkankoukistajat. Älä koskaan pompi laatikolta.',
     'Pidä paino kantapäillä, työnnä jalkateriä ja polvia ulos ja nouse laatikolta pää edellä. Jatka ylös pitäen koko keho tiukkana.',
   ],
@@ -205,7 +219,7 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
     'Kun istut kantapäillä, tuo kädet jalkojen viereen ja rentoudu. Hengitä selkään ja lepuuta otsaa lattiaa vasten. Vältä asentoa, jos polvesi eivät kestä sitä.',
   ],
   'Chin-Up': [
-    'Ota leukatangosta myötäote hartioita kapeammalta, kämmenet itseäsi kohti.',
+    'Ota leukatangosta alaote hartioita kapeammalta, kämmenet itseäsi kohti.',
     'Roiku suorilla käsillä ylävartalo mahdollisimman suorana, alaselkä kevyessä notkossa ja rinta ulos. Suora ylävartalo painottaa hauista ja rajaa selän työtä.',
     'Vedä itsesi ylös, kunnes pää on tangon tasolla. Keskity vetämään hauiksilla ja pidä kyynärpäät lähellä vartaloa. Vain kädet tekevät työn.',
     'Purista hauikset sekunnin ajan ja laskeudu hitaasti takaisin suorille käsille.',
@@ -234,8 +248,8 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
     'Palauta tanko telineeseen sarjan päätteeksi.',
   ],
   'Deficit Deadlift': [
-    'Ota koroke tai levyt, joiden päällä seisot — tavallisesti 3–8 senttimetriä. Asetu tangon taakse niin, että se on jalkaterien keskikohdan päällä, jalat lantion leveydellä. Taivuta lantiosta ja ota tangosta hartioiden levyinen ote. Käytä yliotetta tai raskaissa sarjoissa vastaotetta.',
-    'Kun jalat ja ote ovat paikallaan, vedä henkeä, laske lantiota ja koukista polvia, kunnes sääret koskettavat tankoa. Katse eteen, rinta ylös ja selkä jännitettynä. Työnnä kantapäillä ja aloita nosto. Kun tanko ohittaa polvet, vedä lavat yhteen ja työnnä lantio tankoa vasten.',
+    'Ota koroke tai levyt, joiden päällä seisot — tavallisesti 3–8 senttimetriä. Asetu tangon taakse niin, että se on jalkaterien keskikohdan päällä, jalat lantion leveydellä. Taivuta lantiosta ja ota tangosta hartioiden levyinen ote. Käytä yliotetta tai raskaissa sarjoissa sekaotetta.',
+    'Kun jalat ja ote ovat paikallaan, vedä henkeä, laske lantiota ja koukista polvia, kunnes sääret koskettavat tankoa. Katse eteen, rinta ylös ja selkä kevyessä notkossa. Työnnä kantapäillä ja aloita nosto. Kun tanko ohittaa polvet, vedä lavat yhteen ja työnnä lantio tankoa vasten.',
     'Laske tanko alas taivuttamalla lantiosta ja ohjaa se hallitusti lattiaan.',
   ],
   'Dumbbell Bench Press': [
@@ -326,17 +340,17 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
   ],
   'Glute Ham Raise': [
     'Säädä laite mittoihisi. Asetu vatsalleen jalat tukilevyä vasten rullien väliin. Polvet jäävät juuri pehmusteen taakse.',
-    'Aloita alhaalta. Pidä selkä jännitettynä ja koukista polvia työntäen samalla varpailla tukilevyä. Pidä ylävartalo suorana ja jatka, kunnes olet pystyasennossa.',
+    'Aloita alhaalta. Pidä selkä kevyessä notkossa ja koukista polvia työntäen samalla varpailla tukilevyä. Pidä ylävartalo suorana ja jatka, kunnes olet pystyasennossa.',
     'Palaa alkuasentoon hallitusti.',
   ],
   'Goblet Squat': [
-    'Seiso kevyt kahvakuula sarvista kiinni rintaa vasten.',
+    'Seiso kevyt kahvakuula sarvista tai käsipaino pystyssä rintaa vasten.',
     'Kyykkää alas jalkojen väliin niin syvälle kuin liikkuvuutesi sallii. Pidä rinta ja katse ylhäällä ja selkä suorana.',
     'Pysähdy alhaalla ja työnnä kyynärpäillä polvia ulospäin. Nouse ylös ja toista 10–20 toistoa.',
   ],
   'Good Morning': [
     'Aseta tanko telineeseen hartioiden korkeudelle. Aseta se yläselän päälle kuten kyykyssä, ei niskan päälle. Pidä selkä jännitettynä, lavat yhdessä ja polvet kevyesti koukussa. Astu telineestä taakse.',
-    'Taivuta lantiosta ja työnnä sitä taakse, kunnes ylävartalo on lähes vaakatasossa. Pidä selkä jännitettynä ja niska selkärangan jatkeena.',
+    'Taivuta lantiosta ja työnnä sitä taakse, kunnes ylävartalo on lähes vaakatasossa. Pidä selkä kevyessä notkossa ja niska selkärangan jatkeena.',
     'Palaa ylös ojentamalla lantio pakaroilla ja takareisillä. Jatka, kunnes olet takaisin pystyasennossa.',
   ],
   'Hack Squat': [
@@ -500,7 +514,7 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
   'Monster Walk': [
     'Aseta kuminauha nilkkojen ympärille ja toinen polvien ympärille. Nauhojen tulee olla kireällä, kun jalat ovat hartioiden leveydellä.',
     'Ota lyhyitä askelia eteenpäin vuorotellen vasemmalla ja oikealla jalalla.',
-    'Kävele muutaman askeleen jälkeen samalla tavalla takaperin takaisin lähtöpisteeseen.',
+    'Kävele muutaman askeleen jälkeen takaperin takaisin lähtöpisteeseen.',
   ],
   'Mountain Climbers': [
     'Asetu punnerrusasentoon käsien ja varpaiden varaan. Koukista toista polvea ja lantiota ja tuo polvi suunnilleen lantion alle.',
@@ -575,7 +589,7 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
     'Aloita alusta ja toista suositeltu määrä toistoja.',
   ],
   'Preacher Curl': [
-    'Tarvitset saarnaajapenkin ja kaarretangon. Ota tangosta kiinni sisemmistä kahvoista. Kämmenet osoittavat eteenpäin ja kääntyvät tangon muodon mukaan hieman sisäänpäin.',
+    'Tarvitset saarnaajapenkin ja EZ-tangon. Ota tangosta kiinni sisemmistä kahvoista. Kämmenet osoittavat eteenpäin ja kääntyvät tangon muodon mukaan hieman sisäänpäin.',
     'Aseta olkavarret pehmustetta vasten ja rinta tukea vasten. Pidä tankoa suorilla käsillä.',
     'Laske tankoa hitaasti, kunnes olkavarsi on ojentunut ja hauis täysin venynyt.',
     'Käännä paino ylös hauiksilla, kunnes hauikset ovat täysin supistuneet ja tanko on hartioiden korkeudella. Purista hauikset ja pidä asento sekunnin ajan.',
@@ -606,7 +620,7 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
     'Pidä lyhyt tauko ylhäällä ja toista ohjelman mukainen määrä toistoja.',
   ],
   Pushups: [
-    'Asetu vatsalleen lattialle kädet noin 90 senttimetrin päässä toisistaan ja työnnä vartalo ylös suorille käsille.',
+    'Asetu vatsalleen lattialle kädet hieman hartioita leveämmällä ja työnnä vartalo ylös suorille käsille.',
     'Laskeudu alas, kunnes rinta lähes koskettaa lattiaa.',
     'Työnnä ylävartalo takaisin ylös ja purista rintalihakset.',
     'Pidä lyhyt tauko ylhäällä ja laskeudu uudelleen. Toista tarvittava määrä toistoja.',
@@ -629,7 +643,7 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
   'Reverse Hyperextension': [
     'Aseta sopiva vastus ja pujota jalat pehmusteiden väliin. Asetu vatsalleen ylätuen päälle niin, että lantio jää tuen reunan yli, ja ota kahvoista kiinni.',
     'Aloita liike koukistamalla lantiota ja vedä jalat eteen.',
-    'Käännä liike ojentamalla lantio ja potkaise jalat taakse. Älä yliojenna lantiota — pysähdy ennen liikeradan ääriasentoa.',
+    'Palaa ojentamalla lantio ja potkaise jalat taakse. Älä yliojenna lantiota — pysähdy ennen liikeradan ääriasentoa.',
     'Palaa koukistamalla lantiota ja vedä kelkka eteen niin pitkälle kuin pystyt.',
     'Toista haluttu määrä toistoja.',
   ],
@@ -642,7 +656,7 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
   'Romanian Deadlift': [
     'Aseta tanko lattialle eteesi ja ota siitä yliote hieman hartioita leveämmältä. Painon mukaan voit tarvita rannelenkkejä ja korokkeen, joka sallii pidemmän liikeradan.',
     'Koukista polvia hieman, pidä sääret pystyssä, lantio taakse ja selkä suorana.',
-    'Pidä selkä ja kädet täysin suorina ja nosta tanko lantiolla. Liike ei ole nopea vaan tasainen ja hallittu.',
+    'Pidä selkä ja kädet täysin suorina ja nosta tanko ojentamalla lantio. Liike ei ole nopea vaan tasainen ja hallittu.',
     'Kun olet täysin pystyssä, laske tanko työntämällä lantiota taakse ja koukistamalla polvia vain hieman — toisin kuin kyykyssä. Vedä henkeä liikkeen alussa ja pidä rinta ylhäällä.',
     'Toista suositeltu määrä toistoja.',
   ],
@@ -725,15 +739,15 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
   ],
   'Split Squats': [
     'Aloita seisoma-asennosta. Hyppää käyntiasentoon toinen jalka edessä ja toinen takana, koukista polvia ja laske lantiota hieman.',
-    'Käännä liike heti laskeutumisen jälkeen: nouse ylös ja hyppää vaihtaen jalkojen paikkaa. Toista 5–10 kertaa kummallakin jalalla.',
+    'Vaihda suuntaa heti laskeutumisen jälkeen: nouse ylös ja hyppää vaihtaen jalkojen paikkaa. Toista 5–10 kertaa kummallakin jalalla.',
   ],
   Stairmaster: [
     'Astu porraslaitteeseen ja valitse haluamasi vaihtoehto valikosta. Voit valita manuaalisen asetuksen tai valmiin ohjelman. Yleensä voit syöttää ikäsi ja painosi, jolloin laite arvioi kulutetut kalorit.',
-    'Pumppaa jalkoja tasaisessa rytmissä ja paina poljinta alas, mutta älä pohjaan asti. Pidä kiinni kahvoista, jotta et kompastu. Kahvoista voi myös seurata sykettä ja pitää tehon oikeana.',
-    'Porraslaite on kätevä ja kehittää kestävyyttä pienemmillä iskuilla kuin ulkona juoksu. Se on tavallisesti selvästi raskaampi kuin muut cardiolaitteet: 70-kiloinen polttaa yleensä yli 300 kaloria puolessa tunnissa, kun kävely polttaa noin 175.',
+    'Pumppaa jalkoja tasaisessa rytmissä ja paina poljinta alas, mutta älä pohjaan asti. Pidä kiinni kahvoista, jotta et putoa. Kahvoista voi myös seurata sykettä ja pitää tehon oikeana.',
+    'Älä nojaa kahvojen varaan. Kahvat ovat tasapainoa varten — jos joudut roikkumaan niissä pysyäksesi mukana, laske vauhtia.',
   ],
   'Standing Calf Raises': [
-    'Säädä pohjekonelaitteen pehmuste pituutesi mukaan.',
+    'Säädä pohjelaitteen pehmuste pituutesi mukaan.',
     'Aseta hartiat pehmusteiden alle ja varpaat suoraan eteenpäin. Päkiät ovat askelman päällä ja kantapäät sen reunan yli. Työnnä vipu ylös ojentamalla lantio ja polvet, kunnes olet pystyasennossa. Pidä polvissa kevyt koukku — älä koskaan lukitse niitä.',
     'Nosta kantapäät niin ylös kuin pystyt ojentamalla nilkat ja purista pohkeet. Polvi pysyy paikallaan koko ajan. Pidä sekunti ääriasennossa ennen kuin lasket alas.',
     'Palaa hitaasti alkuasentoon laskemalla kantapäät alas, kunnes pohkeet ovat venyneet.',
@@ -779,7 +793,7 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
     'Pidä sekunti alkuasennossa ja toista ohjelman mukainen määrä toistoja.',
   ],
   'Sumo Deadlift': [
-    'Asetu ladatun tangon taakse niin, että tanko on jalkaterien keskikohdan päällä. Jalat ovat hyvin leveällä lähellä levyjä. Taivuta lantiosta ja ota tangosta kiinni. Kädet ovat suoraan olkapäiden alla jalkojen sisäpuolella. Käytä yliotetta, vastaotetta tai koukkuotetta. Rentouta hartiat, jolloin kädet pitenevät.',
+    'Asetu ladatun tangon taakse niin, että tanko on jalkaterien keskikohdan päällä. Jalat ovat hyvin leveällä lähellä levyjä. Taivuta lantiosta ja ota tangosta kiinni. Kädet ovat suoraan olkapäiden alla jalkojen sisäpuolella. Käytä yliotetta, sekaotetta tai koukkuotetta. Rentouta hartiat, jolloin kädet pitenevät.',
     'Vedä henkeä ja laske lantiota, katse eteen ja rinta ylhäällä. Työnnä lattiaa vasten ja levitä jalkoja ulospäin paino jalkaterien takaosalla. Ojenna lantio ja polvet.',
     'Kun tanko ohittaa polvet, nojaa taakse ja työnnä lantio tankoa vasten vetäen lavat yhteen.',
     'Laske paino takaisin lattiaan taivuttamalla lantiosta ja hallitse liike koko matkan.',
@@ -797,7 +811,7 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
     'Toista ohjelman mukainen määrä toistoja.',
   ],
   'Triceps Pushdown': [
-    'Kiinnitä suora tai kaarretanko ylätaljaan ja ota siitä yliote hartioiden leveydeltä.',
+    'Kiinnitä suora tai EZ-tanko ylätaljaan ja ota siitä yliote hartioiden leveydeltä.',
     'Seiso ryhdikkäästi hyvin kevyesti eteen nojaten. Pidä olkavarret lähellä vartaloa ja kohtisuorassa lattiaan nähden, kyynärvarret ylöspäin kohti taljaa.',
     'Työnnä tanko alas ojentajilla, kunnes se koskettaa reisiä ja kädet ovat suorina. Olkavarret pysyvät paikallaan vartalon vieressä — vain kyynärvarret liikkuvat.',
     'Pidä sekunti ääriasennossa ja palauta tanko hitaasti ylös.',
@@ -826,7 +840,7 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
     'Pidä hetki ylhäällä ja laskeudu hitaasti takaisin suorille käsille, jolloin leveät selkälihakset venyvät täysin.',
   ],
   'Weighted Sissy Squat': [
-    'Seiso ryhdikkäästi jalat hartioiden leveydellä ja varpaat koholla. Ota toisella kädellä kiinni kyykkytelineen pystytolpasta ja pidä toisella levyä rintaa vasten.',
+    'Seiso ryhdikkäästi jalat hartioiden leveydellä ja kantapäät koholla. Ota toisella kädellä kiinni kyykkytelineen pystytolpasta ja pidä toisella levyä rintaa vasten.',
     'Pidä kiinni tolpasta, koukista polvia ja laske ylävartaloa hitaasti kohti lattiaa viemällä lantiota ja polvia eteen. Pysähdy, kun reiden ja säären väliin jää lähes 90 asteen kulma. Pidä venytys sekunnin ajan.',
     'Nouse takaisin alkuasentoon etureisillä.',
     'Toista suositeltu määrä toistoja.',
@@ -834,7 +848,7 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
   'Wide-Grip Lat Pulldown': [
     'Istu ylätaljalaitteeseen, jossa on leveä tanko. Säädä polvituki pituutesi mukaan, jotta paino ei nosta sinua ylös.',
     'Ota tangosta yliote ohjelman mukaisella otteella. Leveä ote on hartioita leveämpi, keskileveä hartioiden levyinen ja kapea hartioita kapeampi.',
-    'Roiku kädet suorina ja kallista ylävartaloa noin 30 astetta taakse. Alaselkä kevyessä notkossa ja rinta ulos.',
+    'Ojenna kädet suoriksi ja kallista ylävartaloa noin 30 astetta taakse. Alaselkä kevyessä notkossa ja rinta ulos.',
     'Vedä tanko alas, kunnes se koskettaa ylärintaa. Vedä hartiat ja olkavarret alas ja taakse. Purista selkälihakset ääriasennossa. Ylävartalo pysyy paikallaan ja vain kädet liikkuvat — kyynärvarsi vain pitää tangosta kiinni.',
     'Pidä sekunti lapaluut yhdessä ja palauta tanko hitaasti ylös, kunnes kädet ovat suorina ja leveät selkälihakset venyneet.',
     'Toista ohjelman mukainen määrä toistoja.',
@@ -865,8 +879,8 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
     'Toista suositeltu määrä toistoja.',
   ],
   'Bicycling, Stationary': [
-    'Istu pyörään ja säädä satula pituutesi mukaan.',
-    'Valitse haluamasi vaihtoehto valikosta. Laite voi käynnistyä vasta kun alat polkea. Voit käyttää manuaalista asetusta tai valmista ohjelmaa. Yleensä voit syöttää ikäsi ja painosi, jolloin laite arvioi kulutetut kalorit. Vastusta voi muuttaa treenin aikana, ja kahvoista voi seurata sykettä ja pitää tehon oikeana.',
+    'Istu pyörään ja säädä satula niin, että polvi jää alimmassa kohdassa kevyeen koukkuun.',
+    'Valitse vastus, jolla pystyt pitämään tasaista 70–90 kierroksen kadenssia. Pidä ylävartalo rentona ja ote kahvoista kevyenä — jalat tekevät työn.',
   ],
   'Dumbbell Side Bend': [
     'Seiso ryhdikkäästi käsipaino vasemmassa kädessä kämmen vartaloa kohti ja oikea käsi lantiolla. Jalat ovat hartioiden leveydellä.',
@@ -888,7 +902,7 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
     'Toista suositeltu määrä toistoja.',
   ],
   'Muscle Up': [
-    'Ota renkaista väärä ote niin, että kämmenten tyvi on renkaiden päällä. Aloita leuanveto vetämällä kyynärpäät alas kylkiin.',
+    'Ota renkaista valeote (false grip) niin, että kämmenten tyvi on renkaiden päällä. Aloita leuanveto vetämällä kyynärpäät alas kylkiin.',
     'Kun saavutat leuanvedon yläasennon, vedä renkaat kainaloihin ja rullaa hartiat eteen niin, että kyynärpäät pääsevät suoraan taakse. Tästä asennosta jatkat dippiin.',
     'Pidä liike hallittuna ja vakaana ja ojenna kyynärpäät suoriksi.',
     'Laskeudu alas varovasti.',
@@ -910,7 +924,7 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
     'Palautusvaiheessa ojennat kädet, koukistat polvet ja tuot vartalon takaisin eteen ensimmäiseen vaiheeseen.',
   ],
   'Standing Biceps Cable Curl': [
-    'Seiso ryhdikkäästi ja pidä alataljaan kiinnitetystä kaarretangosta kiinni hartioiden levyisellä alaotteella kämmenet ylöspäin. Kyynärpäät ovat lähellä vartaloa.',
+    'Seiso ryhdikkäästi ja pidä alataljaan kiinnitetystä EZ-tangosta kiinni hartioiden levyisellä alaotteella kämmenet ylöspäin. Kyynärpäät ovat lähellä vartaloa.',
     'Pidä olkavarret paikallaan ja käännä tanko ylös hauiksilla. Vain kyynärvarret liikkuvat. Jatka, kunnes hauikset ovat täysin supistuneet ja tanko on hartioiden korkeudella. Purista sekunnin ajan.',
     'Laske tanko hitaasti takaisin alkuasentoon.',
     'Toista suositeltu määrä toistoja.',

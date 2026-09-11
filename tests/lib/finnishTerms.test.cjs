@@ -49,6 +49,15 @@ const RETIRED = [
   ['lifetime', 'Elinikäinen'],
   ['kardio', 'cardio'],
   ['vinha coach', 'Vinha-valmentaja'],
+  // Retired from the instruction overlay on 2026-09-08, after reading all 617
+  // Finnish steps beside their English. Each was one word for a thing that
+  // already had one: the supinated grip is `alaote` (`yliote`'s pair, used 15
+  // times), the EZ bar is `EZ-tanko`, and `pohjekonelaite` was pohje + kone +
+  // laite for a machine that is a `pohjelaite`. Prefixes, not whole words, so
+  // an inflected form cannot slip back in.
+  ['myötäot', 'alaote'],
+  ['kaarretan', 'EZ-tanko'],
+  ['pohjekone', 'pohjelaite'],
 ];
 
 function read(file) {

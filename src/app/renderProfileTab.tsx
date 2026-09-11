@@ -7,7 +7,13 @@ import { buildCancelSurveyAnswer } from '../lib/cancelSurvey';
 import { isDemoBuild } from '../lib/demoMode';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { t } from '../lib/i18n';
-import { canResumePurchase } from '../lib/proEntitlement';
+import {
+  PRO_TRIAL_ENABLED,
+  canResumePurchase,
+  resolveTrialProUntil,
+} from '../lib/proEntitlement';
+import { forgetAiCoachLog } from '../lib/aiCoachClient';
+import { randomLogId } from '../lib/aiCoachLogId';
 import { localizeSessionFocus } from '../lib/sessionNameLabel';
 import { MOCK_BILLING, currentPeriodEndAt, nextChargeAt } from '../lib/subscriptionView';
 import { AppRoute, ROOT_ROUTES } from '../navigation/routes';
@@ -186,6 +192,30 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
            * from this page is gone: ending a membership is the subscription
            * screen's job, and a paywall with an off switch is not a paywall.
            */
+          /**
+           * While the trial is on, the button that says "start the trial"
+           * starts the trial (2026-09-09).
+           *
+           * `resolveTrialProUntil` was written months ago, imported into
+           * App.tsx, and called from nowhere — the flag could be flipped and
+           * nobody would get a day of anything. So the CTA and the write now
+           * agree: a dated grant that expires on its own, exactly the shape a
+           * promo code already has, rather than a subscription the reader was
+           * never told they were starting.
+           *
+           * Lifetime is untouched: it has no trial CTA, so its button still
+           * means what it says.
+           */
+          const trialUntil = PRO_TRIAL_ENABLED && plan !== 'lifetime' ? resolveTrialProUntil() : null;
+          if (trialUntil) {
+            void updatePreferences({ proTrialUntil: trialUntil });
+            // The hand-off row promised a warning two days out, and a promise
+            // that needs a permission has to ask for it. Declining costs the
+            // reminder, not the trial.
+            void requestNotificationPermission();
+            navigate({ tab: 'profile', screen: 'premium_unlock', plan });
+            return;
+          }
           void updatePreferences({
             mockSubscriptionPurchasedAt: new Date().toISOString(),
             mockSubscriptionTerm: plan,
@@ -544,6 +574,48 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
             : null
         }
         onOpenLegal={(document) => navigate({ tab: 'profile', screen: 'legal', document })}
+        /**
+         * Withdrawing, and meaning it.
+         *
+         * The switch on the phone goes off whatever the server says — a reader
+         * who said stop has said stop, and a failed network call must not leave
+         * the app still allowed to send copies. The delete is attempted after,
+         * and the label is cleared only once every line is off: a new yes then
+         * mints a new label, so two stretches of consent cannot be joined into
+         * one history.
+         */
+        onWithdrawCoachLog={async (line, next) => {
+          const patch =
+            line === 'chat'
+              ? { aiLogChatConsent: next }
+              : line === 'composer'
+                ? { aiLogComposerConsent: next }
+                : { aiLogPhotoConsent: next };
+          const remaining = {
+            chat: line === 'chat' ? next : preferences.aiLogChatConsent,
+            composer: line === 'composer' ? next : preferences.aiLogComposerConsent,
+            photo: line === 'photo' ? next : preferences.aiLogPhotoConsent,
+          };
+          const allOff = !remaining.chat && !remaining.composer && !remaining.photo;
+          const logId = preferences.aiLogId;
+          await updatePreferences({
+            ...patch,
+            ...(next && !logId ? { aiLogId: randomLogId() } : {}),
+          });
+          if (next || !logId) {
+            return;
+          }
+          const forgotten = await forgetAiCoachLog(logId);
+          // The label is dropped only once the copies under it are actually
+          // gone. It is the one thread back to them: cleared after a delete
+          // that failed — offline, rate limited, server down — the copies stay
+          // filed under a name nothing can look up again, and only the 24-month
+          // sweep would ever reach them. Kept, the switch is still off, nothing
+          // new is written, and the next time this runs the delete can land.
+          if (allOff && forgotten.ok) {
+            await updatePreferences({ aiLogId: null });
+          }
+        }}
         onResetAllData={async () => {
           // Sign out BEFORE wiping: reset while signed in would let the
           // auto-backup push the freshly emptied database over the cloud

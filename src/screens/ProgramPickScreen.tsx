@@ -53,14 +53,20 @@ export interface ProgramPickOption {
   focus: ProgramFocusSegment[];
 }
 
-/** One training day of the composed week, as the card lists it. */
+/**
+ * One cell of the week strip: a weekday and whether it trains.
+ *
+ * Replaced a row per training day (user, 2026-09-09). The list grew with the
+ * programme, so a five- or six-day week pushed its own first rows out of the
+ * card and the reader watched the text vanish upward. Seven cells are seven
+ * cells whatever the programme does, and the question the card is answering
+ * here is which days, not which exercises — those are one tap away on Home.
+ */
 export interface ProgramPickWeekDay {
   id: string;
-  /** The weekday it lands on — never a date; the plan has no start day yet. */
+  /** Already localised and already short: "Ma", "Mon". */
   weekday: string;
-  title: string;
-  /** Exercise count and duration, already formatted. */
-  meta: string;
+  training: boolean;
 }
 
 export interface ProgramPickScreenProps {
@@ -85,6 +91,12 @@ export interface ProgramPickScreenProps {
   week?: ProgramPickWeekDay[];
   /** Section label above the week, e.g. "YOUR WEEK". */
   weekLabel?: string;
+  /**
+   * A line under the strip. Carries the one thing a rolling rhythm has to say
+   * and a weekday plan does not: that it repeats on its own length and is not
+   * tied to weekdays.
+   */
+  weekNote?: string;
   /**
    * Which way the top of the screen is painted, so the shell can pick
    * status-bar icons that are visible against it.
@@ -182,6 +194,7 @@ export function ProgramPickScreen({
   onContinue,
   week,
   weekLabel,
+  weekNote,
   onTopToneChange,
   busy = false,
 }: ProgramPickScreenProps) {
@@ -300,17 +313,22 @@ export function ProgramPickScreen({
               {week && week.length ? (
                 <View style={styles.week}>
                   {weekLabel ? <Text style={styles.weekLabel}>{weekLabel}</Text> : null}
-                  {week.map((day) => (
-                    <View key={day.id} style={styles.weekRow}>
-                      <Text style={styles.weekDay}>{day.weekday}</Text>
-                      <Text style={styles.weekTitle} numberOfLines={1}>
-                        {day.title}
-                      </Text>
-                      <Text style={styles.weekMeta} numberOfLines={1}>
-                        {day.meta}
-                      </Text>
-                    </View>
-                  ))}
+                  <View style={styles.weekStrip}>
+                    {week.map((day) => (
+                      <View
+                        key={day.id}
+                        style={[styles.weekCell, day.training && styles.weekCellOn]}
+                        accessible
+                        accessibilityLabel={day.weekday}
+                      >
+                        <Text style={[styles.weekCellDay, day.training && styles.weekCellDayOn]}>
+                          {day.weekday}
+                        </Text>
+                        <View style={[styles.weekDot, day.training && styles.weekDotOn]} />
+                      </View>
+                    ))}
+                  </View>
+                  {weekNote ? <Text style={styles.weekNote}>{weekNote}</Text> : null}
                 </View>
               ) : null}
             </>
@@ -528,12 +546,38 @@ const makePickStyles = (C: PickPalette) => StyleSheet.create({
   // empty, so the row height is what six of them can afford.
   week: { marginTop: 16, paddingTop: 13, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.24)' },
   weekLabel: { fontSize: 9.5, fontWeight: '800', letterSpacing: 1.15, color: 'rgba(255,255,255,0.7)', marginBottom: 8 },
-  weekRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 5 },
-  // Fixed width so the names start on one line down the list rather than
-  // stepping in and out with "MON" against "WED".
-  weekDay: { width: 34, fontSize: 11, fontWeight: '800', letterSpacing: 0.6, color: 'rgba(255,255,255,0.72)' },
-  weekTitle: { flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.2 },
-  weekMeta: { flexShrink: 0, fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.66)' },
+  weekStrip: { flexDirection: 'row', gap: 6 },
+  // Every cell the same width, so the strip is the same height and shape for a
+  // two-day programme and a six-day one.
+  weekCell: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.20)',
+  },
+  weekCellOn: { backgroundColor: 'rgba(255,255,255,0.16)', borderColor: 'rgba(255,255,255,0.40)' },
+  weekCellDay: { fontSize: 11, fontWeight: '800', letterSpacing: 0.4, color: 'rgba(255,255,255,0.60)' },
+  weekCellDayOn: { color: '#FFFFFF' },
+  // Filled for training, hollow for rest: the difference a reader can see at
+  // arm's length, where a colour difference alone would not carry.
+  weekDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.45)',
+  },
+  weekDotOn: { backgroundColor: '#FFFFFF', borderColor: '#FFFFFF' },
+  weekNote: {
+    marginTop: 10,
+    fontSize: 11.5,
+    lineHeight: 16,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.66)',
+  },
 
   compactStats: { fontSize: 12.5, fontWeight: '700', color: C.muted, marginTop: 12 },
 

@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFonts } from 'expo-font';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
 
 import { OnboardingBackButton } from '../components/OnboardingBackButton';
-import { t } from '../lib/i18n';
-import { darkTheme, Theme, useTheme, useThemedStyles } from '../theming';
+import { RulerPicker } from '../components/RulerPicker';
+import { removeTrailingZeros } from '../lib/format';
+import { I18nKey, t } from '../lib/i18n';
+import { darkTheme, Theme, useThemedStyles } from '../theming';
 import { HG_DARK } from '../darkTheme';
-import { AppLanguage } from '../types/models';
+import { AppLanguage, SetupAgeRange } from '../types/models';
 
 /**
  * This screen's own tokens, in two — the fourth onboarding screen to get
@@ -54,11 +55,24 @@ const paletteFor = (theme: Theme): AboutPalette => (theme === darkTheme ? ABOUT_
 
 export type AboutYouGender = 'male' | 'female' | null;
 
+/**
+ * Three answers, and each one is read by something.
+ *
+ * The name and the exact height are gone (2026-09-09). Neither reached the
+ * recommendation: `buildRecommendationInput` never passes a height, and the
+ * name only ever filled a greeting. The height now belongs to the weight card,
+ * which already draws a dash without one and already collects it through the
+ * measuring sheet; the name arrives from Google for readers who sign in for
+ * backup, and Profile has a field for everyone else.
+ *
+ * The age is a band rather than a year for the same reason, not a smaller one:
+ * `scorePreferenceFit` reads one thing from it — whether the reader is 41 or
+ * over, and only when the programme is joint-friendly. A birth year answers a
+ * question nobody asks.
+ */
 export interface AboutYouValues {
-  name: string | null;
   gender: AboutYouGender;
-  age: number;
-  heightCm: number;
+  ageRange: SetupAgeRange;
   weightKg: number;
 }
 
@@ -69,67 +83,28 @@ interface AboutYouScreenProps {
   onBack: () => void;
 }
 
-const AGE_LIMITS = { min: 13, max: 100 };
-const HEIGHT_LIMITS = { min: 120, max: 230 };
+/**
+ * Oldest first would read as a ladder to decline; youngest first is the form's order.
+ *
+ * The lowest band starts at 16, not at "under 19" (user, 2026-09-09). The old
+ * label covered thirteen-year-olds, and sixteen is the age at which no EU
+ * member state asks for a guardian's consent — so the band the reader picks is
+ * also the sentence the app is making about who it is for. The id stays '18':
+ * renaming it would orphan every answer already stored.
+ */
+const AGE_RANGES: { id: SetupAgeRange; labelKey: I18nKey }[] = [
+  { id: '18', labelKey: 'myData.age.under19' },
+  { id: '19_25', labelKey: 'myData.age.19to25' },
+  { id: '26_30', labelKey: 'myData.age.26to30' },
+  { id: '31_40', labelKey: 'myData.age.31to40' },
+  { id: '41_plus', labelKey: 'myData.age.41plus' },
+];
+
 const WEIGHT_LIMITS = { min: 35, max: 220 };
 
+/** The ruler moves in tenths, so the seed is held to a tenth rather than rounded. */
 function clamp(value: number, limits: { min: number; max: number }) {
-  return Math.min(Math.max(Math.round(value), limits.min), limits.max);
-}
-
-function getInitials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) {
-    return '';
-  }
-  const first = parts[0].charAt(0);
-  const second = parts.length > 1 ? parts[parts.length - 1].charAt(0) : '';
-  return (first + second).toUpperCase();
-}
-
-function Stepper({
-  value,
-  unit,
-  onDecrement,
-  onIncrement,
-  fontFamily,
-  decrementLabel,
-  incrementLabel,
-}: {
-  value: number;
-  unit: string;
-  onDecrement: () => void;
-  onIncrement: () => void;
-  fontFamily?: string;
-  decrementLabel: string;
-  incrementLabel: string;
-}) {
-  const styles = useThemedStyles(makeStyles);
-
-  return (
-    <View style={styles.stepperRow}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={decrementLabel}
-        onPress={onDecrement}
-        style={({ pressed }) => [styles.stepperButton, pressed && styles.stepperButtonPressed]}
-      >
-        <Text style={[styles.stepperButtonText, { fontFamily }]}>−</Text>
-      </Pressable>
-      <View style={styles.stepperValueWrap}>
-        <Text style={[styles.stepperValue, { fontFamily }]}>{value}</Text>
-        <Text style={[styles.stepperUnit, { fontFamily }]}>{unit}</Text>
-      </View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={incrementLabel}
-        onPress={onIncrement}
-        style={({ pressed }) => [styles.stepperButton, pressed && styles.stepperButtonPressed]}
-      >
-        <Text style={[styles.stepperButtonText, { fontFamily }]}>+</Text>
-      </Pressable>
-    </View>
-  );
+  return Math.min(Math.max(Math.round(value * 10) / 10, limits.min), limits.max);
 }
 
 export function AboutYouScreen({
@@ -139,29 +114,40 @@ export function AboutYouScreen({
   onBack,
 }: AboutYouScreenProps) {
   const styles = useThemedStyles(makeStyles);
-  const C = paletteFor(useTheme());
   const insets = useSafeAreaInsets();
   const [manropeLoaded] = useFonts({ Manrope: require('../../assets/fonts/Manrope.ttf') });
   const fontFamily = manropeLoaded ? 'Manrope' : undefined;
 
-  const [name, setName] = useState(initialValues?.name ?? '');
+  /**
+   * Nothing is answered until the reader answers it (user, 2026-09-09).
+   *
+   * Every field used to open on a value — 19-25 highlighted, 75 kg on the
+   * stepper — and Continue was live from the first frame. A reader who tapped
+   * straight through shipped three answers they never gave, and the programme
+   * was built from them. A pre-selected chip is not a default, it is an answer
+   * put in someone's mouth.
+   */
   const [gender, setGender] = useState<AboutYouGender>(initialValues?.gender ?? null);
-  const [age, setAge] = useState(() => clamp(initialValues?.age ?? 25, AGE_LIMITS));
-  const [heightCm, setHeightCm] = useState(() => clamp(initialValues?.heightCm ?? 175, HEIGHT_LIMITS));
-  const [weightKg, setWeightKg] = useState(() => clamp(initialValues?.weightKg ?? 75, WEIGHT_LIMITS));
+  const [ageRange, setAgeRange] = useState<SetupAgeRange | null>(initialValues?.ageRange ?? null);
+  const [weightKg, setWeightKg] = useState<number | null>(
+    typeof initialValues?.weightKg === 'number' ? clamp(initialValues.weightKg, WEIGHT_LIMITS) : null,
+  );
+  /**
+   * Where the ruler sits before it has been touched.
+   *
+   * The ruler has to be somewhere, so it cannot express "unanswered" the way an
+   * unselected chip can. The readout above it does that instead: a dash until
+   * the first drag, and the number after it.
+   */
+  const [rulerKg, setRulerKg] = useState(() => clamp(initialValues?.weightKg ?? 75, WEIGHT_LIMITS));
 
-  const initials = getInitials(name);
-  const hasName = initials.length > 0;
+  const answered = gender !== null && ageRange !== null && weightKg !== null;
 
   function handleContinue() {
-    const trimmed = name.trim();
-    onContinue({
-      name: trimmed.length > 0 ? trimmed.slice(0, 32) : null,
-      gender,
-      age,
-      heightCm,
-      weightKg,
-    });
+    if (!answered) {
+      return;
+    }
+    onContinue({ gender, ageRange, weightKg });
   }
 
   return (
@@ -181,25 +167,7 @@ export function AboutYouScreen({
             reader has typed a letter is a receipt for nothing; the step is a
             form, and the form is enough. */}
 
-        <View style={styles.identityCard}>
-          <View>
-            <Text style={[styles.fieldLabel, { fontFamily }]}>{t(language, 'aboutYou.label.name')}</Text>
-            <TextInput
-              value={name}
-              onChangeText={setName}
-              placeholder={t(language, 'aboutYou.namePlaceholder')}
-              placeholderTextColor={C.faint}
-              maxLength={32}
-              autoCapitalize="words"
-              autoCorrect={false}
-              style={[styles.nameInput, { fontFamily }]}
-              accessibilityLabel={t(language, 'aboutYou.namePlaceholder')}
-            />
-          </View>
-        </View>
-
-
-        <View style={styles.fieldCard}>
+        <View style={styles.section}>
           <Text style={[styles.fieldLabel, { fontFamily }]}>{t(language, 'aboutYou.label.gender')}</Text>
           <View style={styles.genderRow}>
             {(['male', 'female'] as const).map((option) => {
@@ -227,43 +195,64 @@ export function AboutYouScreen({
           </View>
         </View>
 
-        <View style={styles.fieldCard}>
+        <View style={styles.section}>
           <Text style={[styles.fieldLabel, { fontFamily }]}>{t(language, 'aboutYou.label.age')}</Text>
-          <Stepper
-            value={age}
-            unit={t(language, 'aboutYou.unit.years')}
-            fontFamily={fontFamily}
-            decrementLabel={t(language, 'aboutYou.a11y.decreaseAge')}
-            incrementLabel={t(language, 'aboutYou.a11y.increaseAge')}
-            onDecrement={() => setAge((current) => clamp(current - 1, AGE_LIMITS))}
-            onIncrement={() => setAge((current) => clamp(current + 1, AGE_LIMITS))}
-          />
+          <View style={styles.ageRow}>
+            {AGE_RANGES.map((range) => {
+              const selected = ageRange === range.id;
+              const label = t(language, range.labelKey);
+              return (
+                <Pressable
+                  key={range.id}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={label}
+                  onPress={() => setAgeRange(range.id)}
+                  style={({ pressed }) => [
+                    styles.ageTile,
+                    selected && styles.genderTileSelected,
+                    pressed && styles.genderTilePressed,
+                  ]}
+                >
+                  <Text style={[styles.genderTileText, selected && styles.genderTileTextSelected, { fontFamily }]}>
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
 
-        <View style={styles.fieldCard}>
-          <Text style={[styles.fieldLabel, { fontFamily }]}>{t(language, 'aboutYou.label.height')}</Text>
-          <Stepper
-            value={heightCm}
-            unit="cm"
-            fontFamily={fontFamily}
-            decrementLabel={t(language, 'aboutYou.a11y.decreaseHeight')}
-            incrementLabel={t(language, 'aboutYou.a11y.increaseHeight')}
-            onDecrement={() => setHeightCm((current) => clamp(current - 1, HEIGHT_LIMITS))}
-            onIncrement={() => setHeightCm((current) => clamp(current + 1, HEIGHT_LIMITS))}
-          />
-        </View>
-
-        <View style={styles.fieldCard}>
+        <View style={styles.section}>
           <Text style={[styles.fieldLabel, { fontFamily }]}>{t(language, 'aboutYou.label.weight')}</Text>
-          <Stepper
-            value={weightKg}
-            unit="kg"
-            fontFamily={fontFamily}
-            decrementLabel={t(language, 'aboutYou.a11y.decreaseWeight')}
-            incrementLabel={t(language, 'aboutYou.a11y.increaseWeight')}
-            onDecrement={() => setWeightKg((current) => clamp(current - 1, WEIGHT_LIMITS))}
-            onIncrement={() => setWeightKg((current) => clamp(current + 1, WEIGHT_LIMITS))}
-          />
+          {/* The same dialled ruler the weight card and the measures use, not a
+              stepper. Two instruments for one number taught the reader two
+              habits, and the ruler is the one the rest of the app already
+              teaches (user, 2026-09-09). */}
+          {/* Number and dial on one violet panel. On the page's pale ground
+              the grey ticks were nearly invisible (user, 2026-09-09), and a
+              panel fixes that without turning the ticks into a second accent
+              colour: white marks on brand violet separate by opacity. */}
+          <View style={styles.weightPanel}>
+            <View style={styles.weightValueRow}>
+              <Text style={[styles.weightValue, weightKg === null && styles.weightValueEmpty, { fontFamily }]}>
+                {weightKg === null ? '—' : removeTrailingZeros(weightKg)}
+              </Text>
+              <Text style={[styles.weightUnit, { fontFamily }]}>kg</Text>
+            </View>
+            <RulerPicker
+              min={WEIGHT_LIMITS.min}
+              max={WEIGHT_LIMITS.max}
+              step={0.1}
+              majorEvery={10}
+              value={rulerKg}
+              tone="inverse"
+              onChange={(next) => {
+                setRulerKg(next);
+                setWeightKg(next);
+              }}
+            />
+          </View>
         </View>
 
         <Text style={[styles.footNote, { fontFamily }]}>{t(language, 'aboutYou.footNote')}</Text>
@@ -273,10 +262,14 @@ export function AboutYouScreen({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t(language, 'common.continue')}
+          accessibilityState={{ disabled: !answered }}
+          disabled={!answered}
           onPress={handleContinue}
-          style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
+          style={({ pressed }) => [styles.cta, !answered && styles.ctaDisabled, pressed && answered && styles.ctaPressed]}
         >
-          <Text style={[styles.ctaLabel, { fontFamily }]}>{t(language, 'common.continue')}</Text>
+          <Text style={[styles.ctaLabel, !answered && styles.ctaLabelDisabled, { fontFamily }]}>
+            {t(language, 'common.continue')}
+          </Text>
         </Pressable>
       </View>
       <OnboardingBackButton language={language} onPress={onBack} />
@@ -311,14 +304,6 @@ const makeStyles = (theme: Theme) => {
     lineHeight: 20,
     fontWeight: '700',
     marginTop: 6,
-  },
-  identityCard: {
-    backgroundColor: C.surface,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    borderRadius: 18,
-    padding: 18,
-    marginTop: 24,
   },
   profileTopRow: {
     flexDirection: 'row',
@@ -398,27 +383,72 @@ const makeStyles = (theme: Theme) => {
     fontWeight: '800',
     letterSpacing: 1,
   },
-  nameInput: {
-    color: C.ink,
-    fontSize: 17,
-    fontWeight: '700',
-    paddingVertical: 8,
-    paddingHorizontal: 0,
-    borderBottomWidth: 1.5,
-    borderBottomColor: '#C9B6FF',
-  },
-  fieldCard: {
-    backgroundColor: C.surface,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    borderRadius: 18,
-    padding: 18,
-    marginTop: 14,
+  /**
+   * A label and its controls, on the page's own ground.
+   *
+   * Each group used to sit in a bordered card, and the tiles inside it were
+   * bordered too — a box drawn inside a box, three times down one screen
+   * (user, 2026-09-09). The label already separates the groups; the card was
+   * saying the same thing a second time, in ink.
+   */
+  section: {
+    marginTop: 26,
     gap: 12,
+  },
+  weightPanel: {
+    backgroundColor: C.purple,
+    borderRadius: 20,
+    paddingTop: 14,
+    paddingBottom: 8,
+    overflow: 'hidden',
+  },
+  weightValueRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  weightValue: {
+    color: '#FFFFFF',
+    fontSize: 40,
+    lineHeight: 46,
+    fontWeight: '800',
+    letterSpacing: -1,
+  },
+  weightUnit: {
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 16,
+    fontWeight: '800',
+    paddingBottom: 7,
+  },
+  /** The dash before the first drag, dimmer than an answered number. */
+  weightValueEmpty: {
+    color: 'rgba(255,255,255,0.55)',
   },
   genderRow: {
     flexDirection: 'row',
     gap: 10,
+  },
+  /**
+   * Five bands, wrapped rather than squeezed. `flex: 1` across five tiles in
+   * one row gives "41+" the same width as "19-25" and clips the longer label;
+   * a wrap lets each tile be its own label's width and puts the overflow on a
+   * second line, which is what a chip group is for.
+   */
+  ageRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  ageTile: {
+    height: 48,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#C9B6FF',
+    backgroundColor: C.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   genderTile: {
     flex: 1,
@@ -446,46 +476,6 @@ const makeStyles = (theme: Theme) => {
     color: '#FFFFFF',
     fontWeight: '800',
   },
-  stepperRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  stepperButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 999,
-    backgroundColor: C.purpleLight,
-    borderWidth: 1.5,
-    borderColor: '#C9B6FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepperButtonPressed: {
-    opacity: 0.7,
-  },
-  stepperButtonText: {
-    color: C.purple,
-    fontSize: 22,
-    fontWeight: '800',
-    lineHeight: 26,
-  },
-  stepperValueWrap: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 6,
-  },
-  stepperValue: {
-    color: C.ink,
-    fontSize: 26,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-  },
-  stepperUnit: {
-    color: C.muted,
-    fontSize: 13.5,
-    fontWeight: '600',
-  },
   footNote: {
     color: C.faint,
     fontSize: 12.5,
@@ -512,6 +502,19 @@ const makeStyles = (theme: Theme) => {
   ctaPressed: {
     opacity: 0.92,
     transform: [{ scale: 0.98 }],
+  },
+  /**
+   * Flat and pale, and the glow goes with it. A button that keeps its shadow
+   * while refusing the tap still looks like the way forward.
+   */
+  ctaDisabled: {
+    backgroundColor: C.purpleLight,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  /** White on the pale ground would be a label nobody can read. */
+  ctaLabelDisabled: {
+    color: C.faint,
   },
   ctaLabel: {
     color: '#FFFFFF',

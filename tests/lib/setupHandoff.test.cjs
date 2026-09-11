@@ -4,7 +4,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const {
-  countSetupHandoffOffers,
   planSetupHandoff,
   resolveSetupTrackingOffer,
 } = require('../../.test-dist/lib/setupHandoff.js');
@@ -123,25 +122,29 @@ module.exports = [
     },
   },
   {
-    name: 'the heading counts the offers actually on the screen',
+    name: 'the heading names one thing, because the page holds one row',
     run() {
-      // Seen on a phone with the widget already placed: "Kaksi asiaa ennen
-      // kuin aloitat · Molemmat vievät yhden napautuksen" over one card. The
-      // screen picks its heading from this count.
-      const cardOnly = planSetupHandoff({ canOfferWidget: false, pinnedCardKeys: ['bodyweight'], focusAreas: ['glutes'] });
-      const both = planSetupHandoff({ canOfferWidget: true, pinnedCardKeys: [], focusAreas: ['glutes'] });
-      const widgetOnly = planSetupHandoff({ canOfferWidget: true, pinnedCardKeys: ['hips'], focusAreas: ['glutes'] });
-      // The bodyweight card joined as a second card (user, 2026-08-19), offered
-      // whenever the focus card is not bodyweight and bodyweight is not pinned.
-      assert.equal(countSetupHandoffOffers(cardOnly), 1);   // bodyweight pinned, so only the focus card
-      assert.equal(countSetupHandoffOffers(widgetOnly), 2); // widget + bodyweight
-      assert.equal(countSetupHandoffOffers(both), 3);       // widget + focus card + bodyweight
-      assert.equal(both.offerBodyweight, true);
-      assert.equal(cardOnly.offerBodyweight, false);
-      // And the copy exists in both languages for the single case.
+      // It used to count the plan's offers, and that count stopped being what
+      // the page showed when sign-in, Pro and the sites each became a page of
+      // their own (2026-09-10): four offers, one switch, and a heading
+      // claiming the other three. The list page renders only when the widget
+      // can be pinned, and the widget is the only row on it.
+      const screen = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'screens', 'SetupHandoffScreen.tsx'),
+        'utf8',
+      );
+      assert.match(screen, /const titleKey = 'handoff\.titleOne' as const;/);
+      // No count reaches the heading any more, by either name.
+      assert.doesNotMatch(screen, /countSetupHandoffOffers/);
+      assert.doesNotMatch(screen, /handoff\.titleMany/);
+
+      // And the copy exists in both languages, while the two headings that
+      // could only ever be wrong are gone from both.
       const i18n = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'), 'utf8');
       assert.match(i18n, /'handoff\.titleOne': 'One more thing'/);
       assert.match(i18n, /'handoff\.titleOne': 'Yksi asia vielä'/);
+      assert.doesNotMatch(i18n, /'handoff\.titleMany':/);
+      assert.doesNotMatch(i18n, /'handoff\.title':/);
     },
   },
   {
@@ -160,7 +163,9 @@ module.exports = [
       // Even when every other offer is exhausted, the sign-in card alone
       // keeps the step alive...
       assert.equal(offered.shouldShow, true);
-      assert.equal(countSetupHandoffOffers(offered), 1);
+      // Every site this reader's answers point at is already on Home, so the
+      // tracking page has nothing to ask and the account is genuinely alone.
+      assert.equal(offered.offerTrackedSites, false);
 
       // ...and without it, the same exhausted plan hides the step entirely —
       // a signed-in reader re-running onboarding sees no dead card.
@@ -235,6 +240,50 @@ module.exports = [
       // went back to violet (review, #78).
       assert.match(screen, /done: \{[^}]*backgroundColor: theme\.accent,/);
       assert.match(screen, /doneText: \{\s*\r?\n\s*color: theme\.onHighlight,/);
+    },
+  },
+  {
+    name: 'the Pro row is offered to everyone who has not bought it, and to nobody who has',
+    run() {
+      const base = {
+        canOfferWidget: false,
+        pinnedCardKeys: ['bodyweight', 'chest'],
+        focusAreas: ['chest'],
+        canOfferAccountBackup: false,
+      };
+
+      // Nothing else to offer, and Pro alone is enough to show the step: it is
+      // the last screen before the app, which is where the page belongs.
+      const withPro = planSetupHandoff({ ...base, canOfferPro: true });
+      assert.equal(withPro.offerPro, true);
+      assert.equal(withPro.shouldShow, true);
+      assert.equal(withPro.offerTrackedSites, false);
+
+      // A reader who already bought it is not sold it again, and with nothing
+      // else left the step does not appear at all.
+      const bought = planSetupHandoff({ ...base, canOfferPro: false });
+      assert.equal(bought.offerPro, false);
+      assert.equal(bought.shouldShow, false);
+
+      // Same three-valued trap the account offer had: an older stored call
+      // carries no field, and `undefined` must not leak into shouldShow.
+      const older = planSetupHandoff(base);
+      assert.equal(older.offerPro, false);
+      assert.equal(older.shouldShow, false);
+
+      // And it stands alongside the others rather than replacing one.
+      const everything = planSetupHandoff({
+        canOfferWidget: true,
+        pinnedCardKeys: [],
+        focusAreas: ['chest'],
+        canOfferAccountBackup: true,
+        canOfferPro: true,
+      });
+      assert.equal(everything.offerWidget, true);
+      assert.equal(everything.offerAccountBackup, true);
+      assert.equal(everything.offerPro, true);
+      assert.equal(everything.offerTrackedSites, true);
+      assert.deepEqual(everything.trackedSiteOptions, ['chest']);
     },
   },
 ];

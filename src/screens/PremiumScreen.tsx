@@ -4,7 +4,7 @@ import Svg, { Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'rea
 
 import { FREE_ACTIVE_PROGRAM_CAP } from '../lib/activeProgramSet';
 import { t } from '../lib/i18n';
-import { PRO_TRIAL_ENABLED } from '../lib/proEntitlement';
+import { PRO_TRIAL_DAYS, PRO_TRIAL_ENABLED } from '../lib/proEntitlement';
 import {
   PRO_TIER_ORDER,
   PRO_TIERS,
@@ -418,7 +418,11 @@ export function PremiumScreen({
               onPress={buy}
               style={({ pressed }) => [styles.cta, pressed && styles.pressed]}
             >
-              <Text style={styles.ctaText}>{t(language, ctaKey)}</Text>
+              {/* The number comes from the constant, not from the string:
+                  the copy said "7 päivän" while PRO_TRIAL_DAYS said 14, and
+                  a promise in a translation file drifts from the code that
+                  keeps it. */}
+              <Text style={styles.ctaText}>{t(language, ctaKey, { days: PRO_TRIAL_DAYS })}</Text>
             </Pressable>
 
             {/* And the same for the fine print, which is what actually

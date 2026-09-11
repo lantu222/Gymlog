@@ -730,10 +730,23 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
               startedAt: input.preferences.trainingBreak.startedAt,
             }
           : fallback.preferences.trainingBreak,
+      // Consent is `true` or it is not consent. A stored string, a null or a
+      // missing field all mean no — the one direction it is safe to be wrong in.
+      aiLogId:
+        typeof input?.preferences?.aiLogId === 'string' && input.preferences.aiLogId
+          ? input.preferences.aiLogId
+          : fallback.preferences.aiLogId,
+      aiLogChatConsent: input?.preferences?.aiLogChatConsent === true,
+      aiLogComposerConsent: input?.preferences?.aiLogComposerConsent === true,
+      aiLogPhotoConsent: input?.preferences?.aiLogPhotoConsent === true,
       promoProUntil:
         typeof input?.preferences?.promoProUntil === 'string'
           ? input.preferences.promoProUntil
           : fallback.preferences.promoProUntil,
+      proTrialUntil:
+        typeof input?.preferences?.proTrialUntil === 'string'
+          ? input.preferences.proTrialUntil
+          : fallback.preferences.proTrialUntil,
       mockSubscriptionTerm: isSubscriptionTermKey(input?.preferences?.mockSubscriptionTerm)
         ? input.preferences.mockSubscriptionTerm
         : fallback.preferences.mockSubscriptionTerm,

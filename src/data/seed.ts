@@ -47,7 +47,12 @@ const DEFAULT_PREFERENCES = {
     restAlertsAsked: false,
   },
   trainingBreak: null as import('../types/models').TrainingBreak | null,
+  aiLogId: null as string | null,
+  aiLogChatConsent: false,
+  aiLogComposerConsent: false,
+  aiLogPhotoConsent: false,
   promoProUntil: null as string | null,
+  proTrialUntil: null as string | null,
   // Demo-build only; see AppPreferences. Yearly is the paywall's own default,
   // so the management screen opens describing the package most readers pick.
   mockSubscriptionTerm: 'yearly' as import('../lib/subscriptionView').SubscriptionTermKey,

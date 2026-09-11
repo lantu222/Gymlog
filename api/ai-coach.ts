@@ -1,4 +1,4 @@
-import { put } from '@vercel/blob';
+import { del, list, put } from '@vercel/blob';
 import { buildAiCoachPreviewAnswer } from '../src/lib/aiCoachPreview';
 import { buildAiCoachSystemContext } from '../src/lib/aiCoachSystemContext';
 import { normalizeAiCoachTrainingContext } from '../src/lib/aiTrainingContext';
@@ -354,10 +354,24 @@ type ParsedBody = AICoachAdviceRequest & { mode: 'advice' | 'compose' };
  * the key, the budget and the rate limit: no prompt, no training context, just
  * a picture of a spreadsheet.
  */
+/**
+ * The shape a label may take.
+ *
+ * It ends up in a filename, so anything with a slash or a dot in it would be
+ * a path the caller chose rather than a label. Declared once and read by all
+ * four places that accept one — the advice body, the image body, the forget
+ * route and the client that mints them.
+ */
+const LOG_ID_PATTERN = /^[a-f0-9-]{8,64}$/;
+
 interface ParsedImageBody {
   mode: 'table';
   mediaType: ProgramImageMediaType;
   dataBase64: string;
+  /** The photo line of the consent sheet, as it stood when this was sent. */
+  keepConsent: boolean;
+  /** The label a kept photo is filed under. Absent means nothing is kept. */
+  logId?: string;
 }
 
 function parseImageBody(body: unknown): ParsedImageBody | null {
@@ -378,7 +392,16 @@ function parseImageBody(body: unknown): ParsedImageBody | null {
   ) {
     return null;
   }
-  return { mode: 'table', mediaType: candidate.mediaType, dataBase64: candidate.dataBase64 };
+  const consented = parsed as { keepConsent?: unknown; logId?: unknown };
+  return {
+    mode: 'table',
+    mediaType: candidate.mediaType,
+    dataBase64: candidate.dataBase64,
+    // Absent means no, the same reading the advice path gives it: an older
+    // client that has never seen the consent sheet says nothing.
+    keepConsent: consented.keepConsent === true,
+    logId: typeof consented.logId === 'string' && LOG_ID_PATTERN.test(consented.logId) ? consented.logId : undefined,
+  };
 }
 
 /**
@@ -438,6 +461,23 @@ function parseBody(body: unknown): ParsedBody | null {
     language: candidate.language === 'fi' || candidate.language === 'en' ? candidate.language : undefined,
     mode: candidate.mode === 'compose' ? 'compose' : 'advice',
     reporter: typeof candidate.reporter === 'string' && candidate.reporter.length <= 200 ? candidate.reporter : undefined,
+    /**
+     * Whether this reader has said the server may keep a copy of the text.
+     *
+     * Sent per request rather than remembered, because the answer lives on the
+     * phone and can be withdrawn there between two questions. Absent means no:
+     * an older client that has never seen the consent sheet says nothing, and
+     * silence has to read as a refusal or the sheet is decoration.
+     */
+    keepConsent: candidate.keepConsent === true,
+    // Bounded and narrowed: this ends up in a filename, so anything with a
+    // slash or a dot in it would be a path the caller chose rather than a
+    // label. A value that fails the shape is simply absent, and an absent
+    // label means nothing is written.
+    logId:
+      typeof candidate.logId === 'string' && LOG_ID_PATTERN.test(candidate.logId)
+        ? candidate.logId
+        : undefined,
     effortOverride:
       AI_COACH_DEBUG_TRANSCRIPTS
       && process.env.AI_COACH_DEBUG_TRANSCRIPTS === '1'
@@ -979,6 +1019,93 @@ async function requestClaudeTable(input: ParsedImageBody): Promise<TableResult> 
   }
 }
 
+/**
+ * Keep a copy, if and only if the reader said to.
+ *
+ * One function for all three routes, because "keep what I send the coach" is
+ * one promise made three times, and a second copy of this condition is a
+ * second chance to get it wrong.
+ *
+ * The development switch is deliberately NOT part of it any more (2026-09-10).
+ * That flag says whether OUR debug log exists in this build; hanging the
+ * reader's own permission on it meant a yes bought nothing in production —
+ * consent, label, retention and a delete route all built around a folder
+ * nothing ever wrote to. What the reader allows, the server keeps; what the
+ * reader has not allowed is still refused here and nowhere else.
+ *
+ * The label leads the filename so withdrawing can find every copy by name
+ * without opening one to look inside, and the day leads the path so the
+ * 24-month cron can sweep it by prefix.
+ */
+async function keepTranscript(
+  // Undefined is a real caller: an older client sends no answer at all, and
+  // the absence has to read as a no here as well as at the parser.
+  keepConsent: boolean | undefined,
+  logId: string | undefined,
+  record: Record<string, unknown>,
+): Promise<void> {
+  if (!keepConsent || !logId) {
+    return;
+  }
+  const at = new Date();
+  const day = at.toISOString().slice(0, 10);
+  const pathname = `transcripts/${day}/${logId}--${at.toISOString().replace(/[:.]/g, '-')}.json`;
+  try {
+    await put(pathname, JSON.stringify({ at: at.toISOString(), ...record }), {
+      access: 'private',
+      contentType: 'application/json',
+      addRandomSuffix: false,
+    });
+  } catch (error) {
+    // Keeping a copy must never cost the reader an answer.
+    console.warn('transcript store failed', error instanceof Error ? error.message : error);
+  }
+}
+
+/** The label to forget, or null when this is not a forget request. */
+function readForgetLogId(body: unknown): string | null {
+  try {
+    const parsed = typeof body === 'string' ? JSON.parse(body) : body;
+    const candidate = parsed as { mode?: unknown; logId?: unknown } | null;
+    if (!candidate || candidate.mode !== 'forget') {
+      return null;
+    }
+    return typeof candidate.logId === 'string' && LOG_ID_PATTERN.test(candidate.logId)
+      ? candidate.logId
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Every transcript filed under one label, gone.
+ *
+ * Listed by prefix and matched by filename rather than by opening each blob:
+ * the label leads the name for exactly this reason. Paging matters — a reader
+ * who used the coach for a year has more copies than one page holds, and
+ * stopping at the first page would leave the rest behind while reporting
+ * success.
+ */
+async function forgetTranscripts(logId: string): Promise<number> {
+  const doomed: string[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await list({ prefix: 'transcripts/', cursor, limit: 1000 });
+    for (const blob of page.blobs) {
+      if (blob.pathname.includes(`/${logId}--`)) {
+        doomed.push(blob.pathname);
+      }
+    }
+    cursor = page.hasMore ? page.cursor : undefined;
+  } while (cursor);
+
+  for (let index = 0; index < doomed.length; index += 100) {
+    await del(doomed.slice(index, index + 100));
+  }
+  return doomed.length;
+}
+
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   setCors(res);
 
@@ -989,6 +1116,39 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   if (req.method !== 'POST') {
     res.status(405).json(createError({ code: 'METHOD_NOT_ALLOWED', message: 'Use POST.' }, undefined, undefined, 'preview'));
+    return;
+  }
+
+  /**
+   * Withdrawing: delete every copy filed under this label.
+   *
+   * First, before anything else is parsed, and free of every gate but one. It
+   * carries no prompt and no context, it costs no model call, and it must work
+   * whatever the log switch is set to — a reader taking back permission cannot
+   * be told to wait for a build. Deleting nothing is a success: a reader who
+   * allowed nothing has nothing to remove, and saying so is the honest answer.
+   *
+   * The one gate it does keep is the rate limit, and it needs it more than the
+   * other paths do. There is no account here, so the route is open, and every
+   * call lists the whole transcripts prefix before it deletes anything —
+   * unlimited, a stranger sending guessed labels would make the function pay
+   * for a full listing per request. Nobody withdraws consent sixty times in
+   * ten minutes, so the existing limit costs a real reader nothing.
+   */
+  const forgetLogId = readForgetLogId(req.body);
+  if (forgetLogId) {
+    if (checkRateLimit(getIpAddress(req)).limited) {
+      res.status(429).json({ ok: false, error: 'RATE_LIMIT' });
+      return;
+    }
+    try {
+      const removed = await forgetTranscripts(forgetLogId);
+      res.status(200).json({ ok: true, removed });
+    } catch {
+      // The switch stays off on the phone either way, so nothing more is
+      // written; this only means the copies already there survived the call.
+      res.status(502).json({ ok: false, error: 'FORGET_FAILED' });
+    }
     return;
   }
 
@@ -1006,7 +1166,22 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       res.status(429).json(createError({ code: 'RATE_LIMIT', message: 'Too many requests. Try again shortly.' }));
       return;
     }
+    const imageStartedAt = Date.now();
     const table = await requestClaudeTable(imageInput);
+    // The line the reader ticked says "Valokuvat", so the photo itself is what
+    // is kept, together with what was read out of it — the pair is what makes
+    // a misread importable page fixable later. Same folder and same naming as
+    // the other two, so one withdrawal reaches all three and the 24-month cron
+    // sweeps them together.
+    await keepTranscript(imageInput.keepConsent, imageInput.logId, {
+      kind: 'photo',
+      model: CLAUDE_MODEL,
+      durationMs: Date.now() - imageStartedAt,
+      mediaType: imageInput.mediaType,
+      dataBase64: imageInput.dataBase64,
+      source: table.ok === true ? 'live' : `error:${table.error.code}`,
+      rows: table.ok === true ? table.rows : null,
+    });
     if (table.ok === true) {
       res.status(200).json(table);
       return;
@@ -1050,7 +1225,19 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   if (input.mode === 'compose') {
+    const composeStartedAt = Date.now();
     const composed = await requestClaudeProgramme(input);
+    // "Luodut ohjelmat": the brief and the week that came back, on the
+    // composer's own line of the consent sheet.
+    await keepTranscript(input.keepConsent, input.logId, {
+      kind: 'composer',
+      language: input.language,
+      model: CLAUDE_MODEL,
+      durationMs: Date.now() - composeStartedAt,
+      prompt: input.prompt,
+      source: composed.ok === true ? 'live' : `error:${composed.error.code}`,
+      proposal: composed.ok === true ? composed.proposal : null,
+    });
     if (composed.ok === true) {
       res.status(200).json(composed);
       return;
@@ -1066,34 +1253,18 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   const startedAt = Date.now();
   const result = await requestClaude(input);
-  // TEMPORARY transcript log — see src/lib/aiCoachDebug.ts. Question and
-  // answer only; the training context is never logged. Stored in the same
-  // private Blob store as the backups and read back by
-  // scripts/coach-transcripts.cjs through api/transcripts.ts.
-  if (AI_COACH_DEBUG_TRANSCRIPTS && process.env.AI_COACH_DEBUG_TRANSCRIPTS === '1') {
-    const at = new Date();
-    const day = at.toISOString().slice(0, 10);
-    const pathname = `transcripts/${day}/${at.toISOString().replace(/[:.]/g, '-')}-${Math.random().toString(36).slice(2, 8)}.json`;
-    try {
-      await put(
-        pathname,
-        JSON.stringify({
-          at: at.toISOString(),
-          reporter: input.reporter ?? null,
-          language: input.language,
-          model: CLAUDE_MODEL,
-          durationMs: Date.now() - startedAt,
-          prompt: input.prompt,
-          source: result.ok ? result.source : `error:${result.error.code}`,
-          answer: result.ok ? result.answer : result.fallback ?? null,
-        }),
-        { access: 'private', contentType: 'application/json', addRandomSuffix: false },
-      );
-    } catch (error) {
-      // The log must never cost the reader an answer.
-      console.warn('transcript store failed', error instanceof Error ? error.message : error);
-    }
-  }
+  // The question and its answer, kept only for a reader who allowed it. The
+  // training context is never written down on any of these paths.
+  await keepTranscript(input.keepConsent, input.logId, {
+    kind: 'chat',
+    reporter: input.reporter ?? null,
+    language: input.language,
+    model: CLAUDE_MODEL,
+    durationMs: Date.now() - startedAt,
+    prompt: input.prompt,
+    source: result.ok ? result.source : `error:${result.error.code}`,
+    answer: result.ok ? result.answer : result.fallback ?? null,
+  });
   if (result.ok) {
     res.status(200).json(result);
     return;
