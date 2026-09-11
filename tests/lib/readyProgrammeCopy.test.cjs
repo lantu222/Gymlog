@@ -135,7 +135,9 @@ module.exports = [
     run() {
       const wiring = readAppWiring();
       const start = wiring.indexOf('const draft = buildDuplicatedCustomProgramDraft(');
-      const body = wiring.slice(start, start + 4600);
+      // The window has to reach past the copy builder itself, which grows
+      // whenever a field is added to what a copied row carries.
+      const body = wiring.slice(start, start + 5600);
       assert.match(body, /await getWorkoutTemplateSessionsFresh\(workoutTemplateId\)/);
       assert.ok(
         !/const copiedSessions = getWorkoutTemplateSessions\(/.test(body),

@@ -15,6 +15,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 import { PlatePop } from '../components/PlatePop';
 import { REST_BAR_BOTTOM, RestBar } from '../components/RestBar';
+import { isSupersetLinked, setSupersetLink, supersetPositions } from '../lib/supersetGrouping';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { rankExerciseMatches } from '../lib/exerciseSearch';
@@ -493,6 +494,10 @@ export function EmptyWorkoutScreen({
    * scale, the constant did not, and it went back to covering "Lopeta treeni".
    */
   const [restBarHeight, setRestBarHeight] = useState(0);
+
+  // 'A1', 'A2' on the lifts that run together, null on the ones that do not —
+  // index for index with the list below.
+  const supersetBadges = useMemo(() => supersetPositions(exercises), [exercises]);
   const [sheetVisible, setSheetVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -682,7 +687,7 @@ export function EmptyWorkoutScreen({
     // already waiting", which in a logger where you add the next set AFTER
     // ticking this one meant almost never — see freestyleRestSecondsForTick,
     // which also owns the un-tick case and refuses a duration it cannot count.
-    const duration = freestyleRestSecondsForTick(exercise, set, defaultRestSeconds);
+    const duration = freestyleRestSecondsForTick(exercise, set, defaultRestSeconds, exercises);
     if (duration !== null) {
       const now = Date.now();
       setNowMs(now);
@@ -702,6 +707,23 @@ export function EmptyWorkoutScreen({
           : entry,
       ),
     );
+  };
+
+  /**
+   * Run this lift straight into the one below it, or stop doing so.
+   *
+   * The same gap-shaped toggle the programme day offers, over the same pure
+   * rule — a free workout that had its own idea of what a superset is would be
+   * the second idea this feature exists to avoid.
+   */
+  const toggleSupersetLink = (exerciseKey: string) => {
+    setExercises((current) => {
+      const index = current.findIndex((entry) => entry.localKey === exerciseKey);
+      if (index === -1 || index >= current.length - 1) {
+        return current;
+      }
+      return setSupersetLink(current, index, !isSupersetLinked(current, index));
+    });
   };
 
   const adjustRest = (deltaSeconds: number) =>
@@ -902,18 +924,62 @@ export function EmptyWorkoutScreen({
           ) : null}
           {exercises.map((exercise, exerciseIndex) => {
             const activeIndex = exercise.sets.findIndex((set) => !set.done);
+            const superset = supersetBadges[exerciseIndex] ?? null;
+            const linkedToNext = superset?.hasNextInGroup === true;
             return (
               <View key={exercise.localKey} style={[styles.exerciseBlock, exerciseIndex > 0 && styles.exerciseBlockDivided]}>
                 <View style={styles.exerciseHead}>
                   <Tile initials={exercise.initials} size={40} radius={11} />
                   <View style={styles.exerciseHeadCopy}>
                     <Text numberOfLines={1} style={styles.exerciseName}>
+                      {superset?.label ? (
+                        <Text style={styles.supersetBadge}>{`${superset.label}  `}</Text>
+                      ) : null}
                       {exerciseNameLabel(language, exercise.displayName)}
                     </Text>
                     <Text numberOfLines={1} style={styles.exerciseMeta}>
-                      {exercise.metaLabel}
+                      {linkedToNext
+                        ? t(language, 'detail.day.supersetNext', {
+                            label: supersetBadges[exerciseIndex + 1]?.label ?? '',
+                          })
+                        : exercise.metaLabel}
                     </Text>
                   </View>
+                  {/* The last lift in the list has nothing below it to run
+                      into, so it gets no chain rather than a dead one. */}
+                  {exerciseIndex < exercises.length - 1 ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: linkedToNext }}
+                      accessibilityLabel={t(
+                        language,
+                        linkedToNext ? 'detail.day.a11y.supersetUnlink' : 'detail.day.a11y.supersetLink',
+                        { name: exercise.displayName },
+                      )}
+                      hitSlop={8}
+                      onPress={() => toggleSupersetLink(exercise.localKey)}
+                      style={styles.exerciseRemove}
+                    >
+                      <Svg viewBox="0 0 24 24" width={18} height={18} fill="none">
+                        <Path
+                          d="M9.5 14.5l5-5"
+                          stroke={linkedToNext ? theme.highlight : theme.faint}
+                          strokeWidth={2.1}
+                          strokeLinecap="round"
+                        />
+                        <Path
+                          d="M13.5 6.5l1.5-1.5a3.5 3.5 0 014.95 4.95L18.5 11.5M10.5 17.5L9 19a3.5 3.5 0 01-4.95-4.95L5.5 12.5"
+                          stroke={linkedToNext ? theme.highlight : theme.faint}
+                          strokeWidth={2.1}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        {linkedToNext ? null : (
+                          <Path d="M4 20L20 4" stroke={theme.faint} strokeWidth={1.8} strokeLinecap="round" />
+                        )}
+                      </Svg>
+                    </Pressable>
+                  ) : null}
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={t(language, 'emptyWorkout.a11y.remove', { name: exercise.displayName })}
@@ -1310,6 +1376,13 @@ const makeStyles = (theme: Theme) => {
     fontWeight: '800',
     color: theme.ink,
     letterSpacing: -0.16,
+  },
+  // Inline with the name rather than a pill beside it: the head row already
+  // holds a tile, two lines of text and two icons, and one more box in it is
+  // what pushes a long lift name to an ellipsis.
+  supersetBadge: {
+    color: theme.purple,
+    fontWeight: '900',
   },
   exerciseMeta: {
     fontSize: 12,

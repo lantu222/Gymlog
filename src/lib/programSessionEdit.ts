@@ -11,6 +11,8 @@
  * edits in a row compose instead of replacing each other.
  */
 
+import { normalizeSupersetGroups, setSupersetLink } from './supersetGrouping';
+
 /** Only the fields an edit reads. The stored row carries more. */
 export interface ProgramSessionExerciseSnapshot {
   id: string;
@@ -21,6 +23,8 @@ export interface ProgramSessionExerciseSnapshot {
   restSeconds: number | null;
   trackedDefault: boolean;
   libraryItemId?: string | null;
+  /** The superset this lift is part of — see src/lib/supersetGrouping.ts. */
+  supersetGroup?: string | null;
 }
 
 export interface ProgramSessionSnapshot {
@@ -42,6 +46,7 @@ export interface ProgramSessionDayDraft {
     restSeconds: number | null;
     trackedDefault: boolean;
     libraryItemId: string | null;
+    supersetGroup: string | null;
   }>;
 }
 
@@ -146,7 +151,18 @@ export type ProgramSessionEdit =
    * ready programme the first step forks the copy while the other two race
    * it. One edit carries the destination, and the fork happens once.
    */
-  | { kind: 'reorder'; exerciseId: string; toIndex: number };
+  | { kind: 'reorder'; exerciseId: string; toIndex: number }
+  /**
+   * Run this lift straight into the one below it, or stop doing so.
+   *
+   * The edit names the GAP between two rows rather than a pairing of two
+   * lifts, because that is the only question with two answers: these two run
+   * together, or they do not. "Pair this with something" needs a second
+   * question the moment a superset holds three. Linking the bottom of an
+   * existing pair to the row under it therefore grows that superset to three
+   * rather than starting a second one.
+   */
+  | { kind: 'supersetLink'; exerciseId: string; linked: boolean };
 
 export type ProgramSessionEditOutcome =
   | { kind: 'save'; sessions: ProgramSessionDayDraft[] }
@@ -162,7 +178,9 @@ export type ProgramSessionEditOutcome =
    * confirmation for an edit that never happened.
    */
   | { kind: 'skip'; reason: 'alreadyAtEdge' }
-  | { kind: 'skip'; reason: 'exerciseMissing' };
+  | { kind: 'skip'; reason: 'exerciseMissing' }
+  /** The last lift of a day has no lift below it to run into. */
+  | { kind: 'skip'; reason: 'noRowBelow' };
 
 function toDraftExercise(
   exercise: ProgramSessionExerciseSnapshot,
@@ -176,6 +194,7 @@ function toDraftExercise(
     restSeconds: exercise.restSeconds,
     trackedDefault: exercise.trackedDefault,
     libraryItemId: exercise.libraryItemId ?? null,
+    supersetGroup: exercise.supersetGroup ?? null,
   };
 }
 
@@ -190,6 +209,7 @@ export function applyProgramSessionEdit(
   sessions: ReadonlyArray<ProgramSessionSnapshot>,
   sessionId: string,
   edit: ProgramSessionEdit,
+  makeId?: () => string,
 ): ProgramSessionEditOutcome {
   // Answered before the programme is rebuilt: a drop that changes nothing
   // must not come back as a save, or the screen confirms an edit it did not
@@ -204,6 +224,20 @@ export function applyProgramSessionEdit(
     const to = Math.max(0, Math.min(day.exercises.length - 1, Math.round(edit.toIndex)));
     if (to === from) {
       return { kind: 'skip', reason: 'alreadyAtEdge' };
+    }
+  }
+
+  // A link is a statement about a gap, and the bottom row of a day has no gap
+  // under it. Refused here rather than clamped: there is no nearby boundary
+  // that would have been what the reader meant.
+  if (edit.kind === 'supersetLink') {
+    const day = sessions.find((session) => session.id === sessionId);
+    const from = day?.exercises.findIndex((exercise) => exercise.id === edit.exerciseId) ?? -1;
+    if (!day || from === -1) {
+      return { kind: 'skip', reason: 'exerciseMissing' };
+    }
+    if (from >= day.exercises.length - 1) {
+      return { kind: 'skip', reason: 'noRowBelow' };
     }
   }
 
@@ -242,6 +276,14 @@ export function applyProgramSessionEdit(
         return toDraftExercise(exercise);
       });
 
+    if (isTargetDay && edit.kind === 'supersetLink') {
+      const index = exercises.findIndex((exercise) => exercise.id === edit.exerciseId);
+      if (index !== -1) {
+        const linked = setSupersetLink(exercises, index, edit.linked, makeId);
+        exercises.splice(0, exercises.length, ...linked);
+      }
+    }
+
     if (isTargetDay && edit.kind === 'reorder') {
       const from = exercises.findIndex((exercise) => exercise.id === edit.exerciseId);
       const to = Math.max(0, Math.min(exercises.length - 1, Math.round(edit.toIndex)));
@@ -255,11 +297,17 @@ export function applyProgramSessionEdit(
     return {
       id: session.id,
       name: session.name,
-      exercises:
+      // Every edit runs through the adjacency rule, not just the one that
+      // names a superset: removing a lift, dropping one between a pair or
+      // dragging one half away all end that pair, and the reader should not
+      // have to unpair by hand what the app can see is no longer paired.
+      exercises: normalizeSupersetGroups(
         isTargetDay && edit.kind === 'add'
           ? // Added at the end of the day it was added from, and nowhere else.
             [...exercises, ...edit.exercises.map(toDraftExercise)]
           : exercises,
+        makeId,
+      ),
     };
   });
 

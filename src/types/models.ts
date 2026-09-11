@@ -218,6 +218,13 @@ export interface ExerciseTemplate {
   orderIndex: number;
   libraryItemId?: string | null;
   persistedExerciseTemplateId?: string | null;
+  /**
+   * Shared by the adjacent exercises done back to back as one superset, and
+   * null for a lift done on its own. See src/lib/supersetGrouping.ts for the
+   * rule; `normalizeDatabase` applies it on load, because an install written
+   * before this field existed knows nothing about it.
+   */
+  supersetGroup?: string | null;
 }
 
 export interface WorkoutTemplateSessionWithExercises extends WorkoutTemplateSessionRecord {
@@ -749,6 +756,8 @@ export interface ExerciseTemplateDraft {
   restSeconds: number | null;
   trackedDefault: boolean;
   libraryItemId?: string | null;
+  /** Carried through the save so a superset survives an edit to the day. */
+  supersetGroup?: string | null;
 }
 
 export interface ExerciseLogDraft {

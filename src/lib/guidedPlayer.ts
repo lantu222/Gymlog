@@ -16,6 +16,7 @@ import { parseNumberInput, removeTrailingZeros } from './format';
 import type { SessionRoutineBlock } from './homeSessionHero';
 import { t } from './i18n';
 import { IntervalRecoveryKind, IntervalScheme, parseIntervalScheme } from './intervalScheme';
+import { buildSupersetRuns, normalizeSupersetGroups, supersetRoundOrder } from './supersetGrouping';
 import type { GuidedResumeAnchor } from '../features/workout/workoutTypes';
 import { AppLanguage } from '../types/models';
 
@@ -45,6 +46,12 @@ export interface GuidedExerciseInput {
   restSeconds: number;
   setCount: number;
   skipped: boolean;
+  /**
+   * The superset this lift is part of. Adjacent lifts sharing one id are
+   * performed as one block — see src/lib/supersetGrouping.ts — and the step
+   * list below is where that becomes an order of play rather than a label.
+   */
+  supersetGroup?: string | null;
 }
 
 export type GuidedStep =
@@ -86,6 +93,14 @@ export type GuidedStep =
        * nobody taps a phone mid-sprint.
        */
       interval?: IntervalScheme;
+      /**
+       * 'A1', 'A2'… when this set belongs to a superset. The screen shows it,
+       * and its presence is also what tells the reader why no rest ring came
+       * up after the set they just logged.
+       */
+      supersetLabel?: string;
+      /** Which round of the superset this is, and how many there are. */
+      supersetRound?: { round: number; rounds: number };
     }
   | {
       type: 'rest';
@@ -102,7 +117,15 @@ export type GuidedStep =
 
 export interface GuidedGroup {
   phase: GuidedPhase;
+  /**
+   * Sets for a lift; ROUNDS for a superset, which is the unit a superset is
+   * counted in — three rounds of A1 + A2 is three, not six. The rail draws one
+   * dot per entry here, and a rail that counted six would be counting halves
+   * of a thing nobody calls a set.
+   */
   setCount?: number;
+  /** How many lifts share this block. 1 for an ordinary exercise. */
+  supersetSize?: number;
 }
 
 export interface GuidedStepPlan {
@@ -210,6 +233,18 @@ function formatBlockLength(totalSeconds: number): string {
   return `~${Math.round(totalSeconds / 60)} min`;
 }
 
+/**
+ * 'A' for the first superset of the session, 'B' for the second.
+ *
+ * Counted over the groups already built rather than over the exercises, so the
+ * letters skip the lifts done on their own — the reader counts supersets, not
+ * rows. The group being labelled is already on the list, hence the -1.
+ */
+function supersetLetter(groups: GuidedGroup[]): string {
+  const index = groups.filter((group) => (group.supersetSize ?? 1) > 1).length - 1;
+  return String.fromCharCode(65 + (index % 26));
+}
+
 export function buildGuidedSteps(
   input: {
     warmup: GuidedDrill[];
@@ -270,60 +305,88 @@ export function buildGuidedSteps(
       sub: `${exerciseCount} · ${t(language, 'guided.count.sets', { count: totalSets })}`,
       doneLabel: input.warmup.length > 0 ? t(language, 'guided.done.warmup') : null,
     });
-    exercises.forEach((exercise, activeIndex) => {
+    // A superset is one block of work, so the runs — not the exercises — are
+    // what the work phase is made of. A lift on its own is a run of one, and
+    // everything below then reads the same for both cases.
+    buildSupersetRuns(normalizeSupersetGroups(exercises)).forEach((run) => {
+      const members = run.indexes.map((index) => exercises[index]);
       const groupIndex = groups.length;
-      // Position in the full roster, not among the survivors.
-      const exerciseIndex = roster.indexOf(exercise);
-      groups.push({ phase: 'work', setCount: exercise.setCount });
+      const rounds = Math.max(...members.map((member) => member.setCount));
+      groups.push({
+        phase: 'work',
+        setCount: rounds,
+        ...(members.length > 1 ? { supersetSize: members.length } : {}),
+      });
+      // Where the block starts, named for the lift you walk up to first. The
+      // lifts inside a superset get no countdown between them — not having one
+      // is the whole point of pairing them.
       steps.push({
         type: 'position',
         phase: 'work',
-        slotId: exercise.slotId,
-        exerciseName: exercise.name,
+        slotId: members[0].slotId,
+        exerciseName: members[0].name,
         seconds: GUIDED_POSITION_SECONDS,
         groupIndex,
-        exerciseIndex,
+        // Position in the full roster, not among the survivors.
+        exerciseIndex: roster.indexOf(members[0]),
         exerciseCount: roster.length,
       });
-      // An interval states its own two halves; everything else is a set with a
-      // number to dial in and a rest after it.
-      const interval = parseIntervalScheme(exercise.name);
-      for (let setIndex = 0; setIndex < exercise.setCount; setIndex += 1) {
+      // One set of every lift, then the next set of every lift. The rest goes
+      // after the round, which is the one thing that makes this a superset and
+      // not two exercises listed next to each other.
+      const order = supersetRoundOrder(members.map((member) => member.setCount));
+      order.forEach((entry, orderIndex) => {
+        const exercise = members[entry.memberIndex];
+        // An interval states its own two halves; everything else is a set with
+        // a number to dial in and a rest after it.
+        const interval = parseIntervalScheme(exercise.name);
         steps.push({
           type: 'set',
           phase: 'work',
           slotId: exercise.slotId,
           exerciseName: exercise.name,
-          setIndex,
+          setIndex: entry.setIndex,
           setCount: exercise.setCount,
           groupIndex,
-          exerciseIndex,
+          exerciseIndex: roster.indexOf(exercise),
           exerciseCount: roster.length,
           ...(interval ? { interval } : {}),
+          ...(members.length > 1
+            ? {
+                supersetLabel: `${supersetLetter(groups)}${entry.memberIndex + 1}`,
+                supersetRound: { round: entry.setIndex + 1, rounds },
+              }
+            : {}),
         });
-        // No rest after an exercise's last set. What follows is the next
-        // exercise, and the player already gives that its own "get into
-        // position" countdown — so a rest ring here was a timer counting down
-        // to a screen that was going to change anyway. Reported 2026-08-21:
-        // "vikan sarjan jälkeen tulee rest vaikka pitäisi tulla siirtymä
-        // seuraavaan liikkeeseen".
-        const isFinalSetOfExercise = setIndex === exercise.setCount - 1;
-        if (!isFinalSetOfExercise) {
-          steps.push({
-            type: 'rest',
-            phase: 'work',
-            slotId: exercise.slotId,
-            exerciseName: exercise.name,
-            setIndex,
-            // An interval's recovery is exactly what its name says — including
-            // a tabata's ten seconds, which the fifteen-second floor for
-            // ordinary rests would have stretched to fifteen.
-            seconds: interval ? interval.recoverySeconds : Math.max(15, exercise.restSeconds),
-            groupIndex,
-            ...(interval ? { recoveryKind: interval.recoveryKind } : {}),
-          });
+
+        const next = order[orderIndex + 1];
+        // Rest when the round is over and another round follows. Not between
+        // the lifts of one round, and not after the last one: what follows
+        // there is the next block, which gets its own countdown — a rest ring
+        // in front of a screen that was going to change anyway was reported
+        // 2026-08-21 ("vikan sarjan jälkeen tulee rest").
+        const roundEnds = !next || next.setIndex !== entry.setIndex;
+        if (!next || !roundEnds) {
+          return;
         }
-      }
+        steps.push({
+          type: 'rest',
+          phase: 'work',
+          slotId: exercise.slotId,
+          exerciseName: exercise.name,
+          setIndex: entry.setIndex,
+          // An interval's recovery is exactly what its name says — including a
+          // tabata's ten seconds, which the fifteen-second floor for ordinary
+          // rests would have stretched to fifteen. A superset rests as long as
+          // the most demanding lift in it asks for: a squat paired with a curl
+          // is still a squat.
+          seconds: interval
+            ? interval.recoverySeconds
+            : Math.max(15, ...members.map((member) => member.restSeconds)),
+          groupIndex,
+          ...(interval ? { recoveryKind: interval.recoveryKind } : {}),
+        });
+      });
     });
   }
 
@@ -378,7 +441,13 @@ export function buildGuidedSteps(
  */
 export function getGuidedStepPlanKey(exercises: GuidedExerciseInput[]): string {
   return exercises
-    .map((exercise) => `${exercise.slotId}:${exercise.name}:${exercise.setCount}:${exercise.skipped ? 's' : ''}`)
+    .map(
+      (exercise) =>
+        // The pairing is in the key for the same reason the name is: the steps
+        // bake it in, so a superset made or broken without it in here would
+        // leave the player running yesterday's order of play.
+        `${exercise.slotId}:${exercise.name}:${exercise.setCount}:${exercise.skipped ? 's' : ''}:${exercise.supersetGroup ?? ''}`,
+    )
     .join('|');
 }
 
@@ -452,8 +521,22 @@ export function getGuidedPhaseLabel(step: GuidedStep, language: AppLanguage = 'e
         count: step.drillCount,
       });
     }
-    case 'position':
     case 'set':
+      // Inside a superset the reader moves between two lifts and back again,
+      // so "EXERCISE 2 OF 6" then "3 OF 6" then "2 OF 6" is a counter going
+      // backwards. The block says which half of the pair and which round,
+      // which is the question a superset actually raises.
+      return step.supersetLabel && step.supersetRound
+        ? t(language, 'guided.superset.round', {
+            label: step.supersetLabel,
+            round: step.supersetRound.round,
+            rounds: step.supersetRound.rounds,
+          })
+        : t(language, 'guided.label.exercise', {
+            index: step.exerciseIndex + 1,
+            count: step.exerciseCount,
+          });
+    case 'position':
       return t(language, 'guided.label.exercise', {
         index: step.exerciseIndex + 1,
         count: step.exerciseCount,
@@ -575,6 +658,15 @@ export function getGuidedNextPreview(
       const target = resolveTarget(step.slotId, step.setIndex);
       const targetLabel = target ? formatGuidedTarget(target, language) : null;
       const name = exerciseNameLabel(language, step.exerciseName);
+      // Running straight into the next lift is the one thing about a superset
+      // the reader has to know BEFORE they finish the set — it is the
+      // difference between racking the bar and walking to the next station.
+      const current = steps[index];
+      const runsStraightOn =
+        current?.type === 'set' &&
+        Boolean(current.supersetLabel) &&
+        current.groupIndex === step.groupIndex;
+      const headline = runsStraightOn ? t(language, 'guided.superset.next', { name }) : name;
       return {
         title: t(language, 'guided.next.setTitle', {
           name,
@@ -582,7 +674,7 @@ export function getGuidedNextPreview(
           count: step.setCount,
         }),
         sub: targetLabel ?? '',
-        line: targetLabel ? `${name} · ${targetLabel}` : name,
+        line: targetLabel ? `${headline} · ${targetLabel}` : headline,
       };
     }
     if (step.type === 'splash') {
@@ -1264,14 +1356,35 @@ export function getGuidedInitials(name: string): string {
 }
 
 /** One line of the run sheet: a warm-up drill, a lift, or a cool-down drill. */
+/** One lift inside a run-sheet row. A superset row has several. */
+export interface GuidedRunMember {
+  name: string;
+  /** The lift's slot, so the sheet can say what was logged in it. Null for a drill. */
+  slotId: string | null;
+  /** 'A1', 'A2'… when the row is a superset; null when it holds one lift. */
+  supersetLabel: string | null;
+}
+
 export interface GuidedRunItem {
   groupIndex: number;
   phase: GuidedPhase;
   name: string;
-  /** Sets, for a lift. Null for a drill, which is measured in seconds. */
+  /**
+   * Sets, for a lift; rounds, for a superset. Null for a drill, which is
+   * measured in seconds.
+   */
   setCount: number | null;
   /** The lift's slot, so the sheet can say what was logged in it. Null for a drill. */
   slotId: string | null;
+  /**
+   * Every lift in this row, in the order it is performed.
+   *
+   * One entry for an ordinary lift or a drill, where it repeats `name` and
+   * `slotId`. Two or more for a superset — and the sheet has to list them all,
+   * because a superset drawn as its first lift is a row that hides the lift
+   * the reader is about to be asked for.
+   */
+  members: GuidedRunMember[];
   status: 'done' | 'current' | 'upcoming';
 }
 
@@ -1319,33 +1432,71 @@ export function formatLoggedSetsLine(
 export function buildGuidedRunSheet(plan: GuidedStepPlan, stepIndex: number): GuidedRunItem[] {
   const currentGroup = groupIndexOfStep(plan.steps[stepIndex]);
   const items: GuidedRunItem[] = [];
-  const seen = new Set<number>();
+  const byGroup = new Map<number, GuidedRunItem>();
 
   for (const step of plan.steps) {
     const groupIndex = groupIndexOfStep(step);
-    if (groupIndex === null || seen.has(groupIndex)) {
+    if (groupIndex === null || step.type === 'splash' || step.type === 'finish') {
       continue;
     }
-    if (step.type === 'splash' || step.type === 'finish') {
+    const isDrill = step.type === 'ready' || step.type === 'drill';
+    const name = isDrill ? step.drillName : step.exerciseName;
+    const slotId = isDrill ? null : step.slotId;
+    const existing = byGroup.get(groupIndex);
+
+    if (existing) {
+      // A superset comes back through here once per lift. Its members are
+      // collected in the order their first step appears, which is the order
+      // they will be performed in.
+      if (!existing.members.some((member) => member.name === name && member.slotId === slotId)) {
+        existing.members.push({
+          name,
+          slotId,
+          supersetLabel: step.type === 'set' ? step.supersetLabel ?? null : null,
+        });
+      }
       continue;
     }
-    const name =
-      step.type === 'ready' || step.type === 'drill' ? step.drillName : step.exerciseName;
-    seen.add(groupIndex);
-    items.push({
+
+    const item: GuidedRunItem = {
       groupIndex,
       phase: step.phase,
       name,
       setCount: plan.groups[groupIndex]?.setCount ?? null,
-      slotId: step.type === 'ready' || step.type === 'drill' ? null : step.slotId,
+      slotId,
+      members: [
+        {
+          name,
+          slotId,
+          supersetLabel: step.type === 'set' ? step.supersetLabel ?? null : null,
+        },
+      ],
       status:
         currentGroup === null || groupIndex > currentGroup
           ? 'upcoming'
           : groupIndex === currentGroup
             ? 'current'
             : 'done',
-    });
+    };
+    byGroup.set(groupIndex, item);
+    items.push(item);
   }
+
+  // The first step of a superset is its position countdown, which names only
+  // the lift you walk up to first and so carries no badge. The badge arrives
+  // with that lift's first set; copy it back onto the member the position step
+  // created, or A1 would be the one row of the pair without a label.
+  items.forEach((item) => {
+    if (item.members.length > 1 && item.members[0].supersetLabel === null) {
+      const labelled = plan.steps.find(
+        (step) =>
+          step.type === 'set' && step.groupIndex === item.groupIndex && step.slotId === item.members[0].slotId,
+      );
+      if (labelled && labelled.type === 'set' && labelled.supersetLabel) {
+        item.members[0].supersetLabel = labelled.supersetLabel;
+      }
+    }
+  });
 
   return items;
 }

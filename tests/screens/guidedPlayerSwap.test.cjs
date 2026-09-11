@@ -257,9 +257,11 @@ module.exports = [
       // logged, and Muokkaa moved into it, on the current lift while resting.
       assert.doesNotMatch(playerSource, /restLoggedCard|restLogged\b|guided\.rest\.logged'/);
       assert.equal(i18nSource.includes("'guided.rest.logged'"), false);
+      // `restingLogged` is the lift the CURRENT rest belongs to, which since
+      // supersets is not necessarily the first lift named in the row.
       assert.match(
         playerSource,
-        /item\.status === 'current' && logged && step\.type === 'rest' && !step\.recoveryKind \? \([\s\S]*?setRunSheetOpen\(false\);\s*setRestEditOpen\(true\);/,
+        /item\.status === 'current' && restingLogged && step\.type === 'rest' && !step\.recoveryKind \? \([\s\S]*?setRunSheetOpen\(false\);\s*setRestEditOpen\(true\);/,
       );
       // One NextLine left in the file: the drills'. The rest screen's is gone.
       assert.equal((playerSource.match(/<NextLine /g) ?? []).length, 1);
@@ -371,11 +373,19 @@ module.exports = [
       assert.match(playerSource, /style=\{styles\.restRunStrip\}\s*onPress=\{\(\) => setRunSheetOpen\(true\)\}/);
       assert.match(playerSource, /'guided\.runSheet\.progress', \{ done: completedSetCount, count: totalSets \}/);
       // With the lift's tracking mode, so a hold's seconds carry their unit.
+      // Per member of the row, not per row: a superset row holds several lifts
+      // and each one's logged sets are its own.
       assert.match(
         playerSource,
-        /const logged = lift \? formatLoggedSetsLine\(lift\.sets, isTimedTrackingMode\(lift\.trackingMode\)\) : '';/,
+        /const memberLogged = lift\s*\? formatLoggedSetsLine\(lift\.sets, isTimedTrackingMode\(lift\.trackingMode\)\)\s*: '';/,
       );
-      assert.match(playerSource, /\{logged \? <Text style=\{styles\.runLogged\}>\{logged\}<\/Text> : null\}/);
+      assert.match(
+        playerSource,
+        /\{memberLogged \? <Text style=\{styles\.runLogged\}>\{memberLogged\}<\/Text> : null\}/,
+      );
+      // And every lift in the row is drawn, or a superset would be a row that
+      // names one of the two lifts it is about to ask for.
+      assert.match(playerSource, /\{item\.members\.map\(\(member\) => \{/);
       assert.equal((i18nSource.match(/'guided\.runSheet\.progress': '[^']+'/g) ?? []).length, 2);
     },
   },

@@ -12,6 +12,7 @@ import {
   resolveProgramSlots,
 } from '../lib/programSlots';
 import { rememberName } from '../lib/exerciseNameBook';
+import { normalizeSupersetGroups } from '../lib/supersetGrouping';
 import { plansChanged, renamePlansForTemplate } from '../lib/programRename';
 import { createSerialTaskQueue, RunExclusive } from '../lib/serialTaskQueue';
 import { buildWorkoutTemplateSessions } from '../lib/workoutTemplateSessions';
@@ -493,19 +494,26 @@ export function AppProvider({ children }: React.PropsWithChildren) {
 
     const sessions = draftSessions.map((session, sessionIndex) => {
       const workoutTemplateSessionId = session.id ?? createId('workout_template_session');
-      const exercises = session.exercises.map((exercise, exerciseIndex) => ({
-        id: exercise.id ?? createId('exercise'),
-        workoutTemplateId,
-        workoutTemplateSessionId,
-        name: exercise.name.trim() || `Exercise ${exerciseIndex + 1}`,
-        targetSets: Math.max(1, exercise.targetSets),
-        repMin: Math.max(1, exercise.repMin),
-        repMax: Math.max(Math.max(1, exercise.repMin), exercise.repMax),
-        restSeconds: exercise.restSeconds && exercise.restSeconds > 0 ? exercise.restSeconds : null,
-        trackedDefault: exercise.trackedDefault,
-        orderIndex: exerciseIndex,
-        libraryItemId: exercise.libraryItemId ?? null,
-      }));
+      // The superset ids ride along exactly as written, and are then run
+      // through the adjacency rule: a save that moved one half of a pair away
+      // from the other has ended that pair, whether or not the screen that
+      // made the edit knew supersets existed.
+      const exercises = normalizeSupersetGroups(
+        session.exercises.map((exercise, exerciseIndex) => ({
+          id: exercise.id ?? createId('exercise'),
+          workoutTemplateId,
+          workoutTemplateSessionId,
+          name: exercise.name.trim() || `Exercise ${exerciseIndex + 1}`,
+          targetSets: Math.max(1, exercise.targetSets),
+          repMin: Math.max(1, exercise.repMin),
+          repMax: Math.max(Math.max(1, exercise.repMin), exercise.repMax),
+          restSeconds: exercise.restSeconds && exercise.restSeconds > 0 ? exercise.restSeconds : null,
+          trackedDefault: exercise.trackedDefault,
+          orderIndex: exerciseIndex,
+          libraryItemId: exercise.libraryItemId ?? null,
+          supersetGroup: exercise.supersetGroup ?? null,
+        })),
+      );
 
       return {
         id: workoutTemplateSessionId,

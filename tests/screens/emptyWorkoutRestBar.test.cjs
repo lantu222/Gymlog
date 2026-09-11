@@ -31,8 +31,10 @@ module.exports = [
       );
       assert.ok(handler.length > 0, 'toggleSetDone not found');
 
-      // The rest duration comes from the lib, which owns the whole rule.
-      assert.match(handler, /freestyleRestSecondsForTick\(exercise, set, defaultRestSeconds\)/);
+      // The rest duration comes from the lib, which owns the whole rule —
+      // including whether this lift runs straight into the next one, which is
+      // why the whole list goes with it.
+      assert.match(handler, /freestyleRestSecondsForTick\(exercise, set, defaultRestSeconds, exercises\)/);
 
       // And nothing between the tick and setRest asks what else is pending.
       // This is the exact shape that shipped: `if (freestyleHasSetAfter(...))`

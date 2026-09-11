@@ -147,6 +147,9 @@ module.exports = [
         restSeconds: 120,
         trackedDefault: true,
         libraryItemId: 'ex_squat',
+        // Nothing was paired in this session, and the saved template says so
+        // rather than saying nothing.
+        supersetGroup: null,
       });
 
       // Summary: mirrors the editor finish math.

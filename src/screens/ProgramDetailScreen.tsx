@@ -378,6 +378,7 @@ export function ProgramDetailScreen({
             reps: exercise.repMax,
             timed: exercise.timed,
             restSeconds: exercise.restSeconds,
+            supersetGroup: exercise.supersetGroup ?? null,
           })),
         }),
       )

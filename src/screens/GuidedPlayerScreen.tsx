@@ -88,6 +88,7 @@ import { localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { classifySessionFocus, getDefaultCooldown, getDefaultWarmup } from '../lib/homeSessionHero';
 import { formatShortDate, formatWeight, parseNumberInput, removeTrailingZeros } from '../lib/format';
 import { estimateSessionMinutes } from '../lib/sessionDuration';
+import { supersetPositions } from '../lib/supersetGrouping';
 import { t } from '../lib/i18n';
 import { haptics } from '../utils/haptics';
 import { subscribeRestActions, useRestEndAlert } from '../hooks/useRestEndAlert';
@@ -1185,6 +1186,7 @@ export function GuidedPlayerScreen({
     // skipped is `completed` for saving (the set counts) but still out of the
     // plan (nothing left to do). See isGuidedExerciseOut.
     skipped: isGuidedExerciseOut(exercise),
+    supersetGroup: exercise.supersetGroup ?? null,
   }));
   const stepPlan = useMemo(
     () =>
@@ -1923,6 +1925,10 @@ export function GuidedPlayerScreen({
   const cooldownStart = findGuidedPhaseStart(steps, 'cooldown');
   const activeExercises = exercises.filter((exercise) => exercise.status !== 'skipped' && exercise.sets.length > 0);
   const totalSets = activeExercises.reduce((sum, exercise) => sum + exercise.sets.length, 0);
+  // Badges for the entry screen's list, over the lifts it actually shows: a
+  // pair whose other half was skipped is no longer a pair, and the list would
+  // otherwise carry an A1 with no A2 under it.
+  const entrySupersets = supersetPositions(activeExercises);
   // The named constant, not a literal 3 — this is the same ready-countdown
   // estimateRoutineBlockSeconds adds for Home, and the two have to move together.
   const warmupSecondsTotal = warmupDrills.reduce((sum, drill) => sum + drill.seconds + GUIDED_READY_SECONDS, 0);
@@ -1936,6 +1942,10 @@ export function GuidedPlayerScreen({
       reps: exercise.sets[0]?.plannedRepsMax ?? 8,
       timed: isTimedTrackingMode(exercise.trackingMode),
       restSeconds: exercise.restSecondsMin,
+      // A superset rests once per round, not once per lift — see
+      // estimateSessionSeconds. Without this the entry screen quotes a session
+      // several minutes longer than the one it is about to run.
+      supersetGroup: exercise.supersetGroup ?? null,
     })),
     warmupSeconds: warmupSecondsTotal,
     cooldownSeconds: cooldownSecondsTotal,
@@ -2303,12 +2313,19 @@ export function GuidedPlayerScreen({
                           ? t(language, 'guided.count.exerciseOne')
                           : t(language, 'guided.count.exerciseMany', { count: activeExercises.length })
                       } · ${t(language, 'guided.count.sets', { count: totalSets })}`,
-                      rows: activeExercises.map((exercise) => ({
+                      rows: activeExercises.map((exercise, exerciseIndex) => ({
                         // Through the same translation every other name on
                         // this screen goes through — this row listed "Back
                         // Squat" under a Finnish heading while the player
-                        // itself said Takakyykky.
-                        name: exerciseNameLabel(language, exercise.exerciseName),
+                        // itself said Takakyykky. A superset row carries its
+                        // badge in front of the name: the entry screen is read
+                        // before the session starts, which is when knowing two
+                        // lifts run together still changes what you set up.
+                        name: `${
+                          entrySupersets[exerciseIndex]?.label
+                            ? `${entrySupersets[exerciseIndex].label}  `
+                            : ''
+                        }${exerciseNameLabel(language, exercise.exerciseName)}`,
                         ...buildOverviewColumns(
                           {
                             exerciseName: exercise.exerciseName,
@@ -3270,8 +3287,14 @@ export function GuidedPlayerScreen({
           <Text style={styles.sheetTitle}>{t(language, 'guided.runSheet.title')}</Text>
           <ScrollView style={{ flexGrow: 0, flexShrink: 1 }} showsVerticalScrollIndicator={false}>
             {buildGuidedRunSheet(stepPlan, stepIndex).map((item) => {
-              const lift = item.slotId ? exerciseBySlot.get(item.slotId) : undefined;
-              const logged = lift ? formatLoggedSetsLine(lift.sets, isTimedTrackingMode(lift.trackingMode)) : '';
+              // Whether the lift this rest belongs to has anything logged in
+              // it. Read off the step rather than off the row: a superset row
+              // holds several lifts, and the set you may want to correct is
+              // the one you just did, not the first one in the block.
+              const restingLift = step.type === 'rest' ? exerciseBySlot.get(step.slotId) : undefined;
+              const restingLogged = restingLift
+                ? formatLoggedSetsLine(restingLift.sets, isTimedTrackingMode(restingLift.trackingMode))
+                : '';
               return (
               <View key={item.groupIndex} style={styles.runRow}>
                 {/* Done / here / to come, as a mark rather than as a colour:
@@ -3286,28 +3309,43 @@ export function GuidedPlayerScreen({
                   {item.status === 'done' ? <GPIcon name="check" size={11} color="#fff" /> : null}
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text
-                    style={[
-                      styles.runName,
-                      item.status === 'current' && { color: theme.purple },
-                      item.status === 'done' && { color: theme.muted },
-                    ]}
-                    numberOfLines={2}
-                  >
-                    {exerciseNameLabel(language, item.name)}
-                  </Text>
+                  {/* A superset is several lifts in one row of the sheet, and
+                      each of them gets its name and its logged sets — a pair
+                      drawn as its first lift hides the one you are about to be
+                      asked for. An ordinary lift is a row of exactly one. */}
+                  {item.members.map((member) => {
+                    const lift = member.slotId ? exerciseBySlot.get(member.slotId) : undefined;
+                    const memberLogged = lift
+                      ? formatLoggedSetsLine(lift.sets, isTimedTrackingMode(lift.trackingMode))
+                      : '';
+                    return (
+                      <View key={member.slotId ?? member.name}>
+                        <Text
+                          style={[
+                            styles.runName,
+                            item.status === 'current' && { color: theme.purple },
+                            item.status === 'done' && { color: theme.muted },
+                          ]}
+                          numberOfLines={2}
+                        >
+                          {member.supersetLabel ? `${member.supersetLabel}  ` : ''}
+                          {exerciseNameLabel(language, member.name)}
+                        </Text>
+                        {/* What has been logged in this lift so far: the sheet
+                            listed the session's shape and nothing of what had
+                            happened in it (user 2026-09-09). */}
+                        {memberLogged ? <Text style={styles.runLogged}>{memberLogged}</Text> : null}
+                      </View>
+                    );
+                  })}
                   {item.status === 'current' ? (
                     <Text style={styles.runHere}>{t(language, 'guided.runSheet.here')}</Text>
                   ) : null}
-                  {/* What has been logged in this lift so far: the sheet listed
-                      the session's shape and nothing of what had happened in it
-                      (user 2026-09-09). */}
-                  {logged ? <Text style={styles.runLogged}>{logged}</Text> : null}
                   {/* Correcting the set just logged, from the sheet that shows
                       it: the rest screen's own card carried this link until the
                       card went. Only while resting — that is the one step
                       whose "just logged" set is unambiguous. */}
-                  {item.status === 'current' && logged && step.type === 'rest' && !step.recoveryKind ? (
+                  {item.status === 'current' && restingLogged && step.type === 'rest' && !step.recoveryKind ? (
                     <Pressable
                       accessibilityRole="button"
                       hitSlop={8}

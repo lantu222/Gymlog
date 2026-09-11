@@ -21,6 +21,7 @@ import {
   normalizeTechniqueChecks,
 } from '../lib/exerciseLearning';
 import { intervalOffSeconds } from '../lib/intervalScheme';
+import { normalizeSupersetGroups } from '../lib/supersetGrouping';
 import { collapseRepRange } from '../lib/singleRepTarget';
 import { buildLegacyTemplateSessions, getLegacyTemplateSessionId } from '../lib/workoutTemplateSessions';
 import {
@@ -365,6 +366,10 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
             typeof exercise?.persistedExerciseTemplateId === 'string' || exercise?.persistedExerciseTemplateId === null
               ? exercise.persistedExerciseTemplateId
               : undefined,
+          supersetGroup:
+            typeof exercise?.supersetGroup === 'string' && exercise.supersetGroup.trim().length
+              ? exercise.supersetGroup.trim()
+              : null,
         };
       })
     : [];
@@ -414,8 +419,35 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
     };
   });
 
+  // A superset is a run of ADJACENT lifts, and nothing in the stored shape
+  // enforces that: the rows are a flat list with an orderIndex, and an edit
+  // made before this field existed — or by any code that does not know about
+  // it — can leave one half of a pair alone or move the two apart. The rule
+  // is applied here, per day, so no screen has to ask whether what it is
+  // holding is still a superset. See src/lib/supersetGrouping.ts.
+  const supersetNormalizedExerciseTemplates = (() => {
+    const byDay = new Map<string, ExerciseTemplate[]>();
+    normalizedExerciseTemplates.forEach((exercise) => {
+      const key = `${exercise.workoutTemplateId}::${exercise.workoutTemplateSessionId}`;
+      const day = byDay.get(key);
+      if (day) {
+        day.push(exercise);
+      } else {
+        byDay.set(key, [exercise]);
+      }
+    });
+
+    const repaired = new Map<string, ExerciseTemplate>();
+    byDay.forEach((day) => {
+      const ordered = day.slice().sort((left, right) => left.orderIndex - right.orderIndex);
+      normalizeSupersetGroups(ordered).forEach((exercise) => repaired.set(exercise.id, exercise));
+    });
+
+    return normalizedExerciseTemplates.map((exercise) => repaired.get(exercise.id) ?? exercise);
+  })();
+
   const normalizedTemplates = rawTemplates.map((template) => {
-    const templateExercises = normalizedExerciseTemplates.filter((exercise) => exercise.workoutTemplateId === template.id);
+    const templateExercises = supersetNormalizedExerciseTemplates.filter((exercise) => exercise.workoutTemplateId === template.id);
     const sessions = template.sessions.map((session) => ({
       ...session,
       exerciseIds: templateExercises
@@ -433,7 +465,7 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
 
   return {
     workoutTemplates: normalizedTemplates,
-    exerciseTemplates: normalizedExerciseTemplates,
+    exerciseTemplates: supersetNormalizedExerciseTemplates,
     workoutPlans: Array.isArray(input?.workoutPlans)
       ? input.workoutPlans.map((plan: any) => ({
           ...plan,

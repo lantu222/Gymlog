@@ -30,6 +30,7 @@ import {
 import { I18nKey, t } from '../lib/i18n';
 import { useDragHold } from '../hooks/useDragHold';
 import { ProgramDetailSessionItem } from '../lib/programDetails';
+import { supersetPositions } from '../lib/supersetGrouping';
 import {
   canStepProgramPrescription,
   ProgramPrescription,
@@ -85,6 +86,37 @@ function SwapGlyph({ theme }: { theme: Theme }) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </Svg>
+  );
+}
+
+/**
+ * Run this lift straight into the next one, or stop doing so.
+ *
+ * A chain, whole when the two are linked and broken when they are not — the
+ * same glyph in both states, because the button is a toggle and a reader who
+ * has to compare two different drawings to find out which one they are looking
+ * at is reading, not tapping. Orange, like every other pressable here.
+ */
+function ChainGlyph({ theme, linked }: { theme: Theme; linked: boolean }) {
+  return (
+    <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9.5 14.5l5-5"
+        stroke={linked ? theme.highlight : theme.faint}
+        strokeWidth={2.1}
+        strokeLinecap="round"
+      />
+      <Path
+        d="M13.5 6.5l1.5-1.5a3.5 3.5 0 014.95 4.95L18.5 11.5M10.5 17.5L9 19a3.5 3.5 0 01-4.95-4.95L5.5 12.5"
+        stroke={linked ? theme.highlight : theme.muted}
+        strokeWidth={2.1}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {linked ? null : (
+        <Path d="M4 20L20 4" stroke={theme.muted} strokeWidth={1.8} strokeLinecap="round" />
+      )}
     </Svg>
   );
 }
@@ -175,6 +207,14 @@ interface ProgramDayScreenProps {
    * list. One call per drag, however far it travelled.
    */
   onReorderExercise?: (exerciseId: string, toIndex: number) => void;
+  /**
+   * Run this lift straight into the one below it, or stop doing so.
+   *
+   * The day view is where a superset has to be made, not the live session:
+   * the programme is what the reader trains from, and a pairing that existed
+   * only inside one session would be gone the next time the day came round.
+   */
+  onSupersetLink?: (exerciseId: string, linked: boolean) => void;
   tailoringPreferences?: Parameters<typeof buildSwapOptionsForSlot>[2];
   onBack: () => void;
 }
@@ -197,6 +237,7 @@ export function ProgramDayScreen({
   onKeepSwap,
   onPrescribe,
   onReorderExercise,
+  onSupersetLink,
   tailoringPreferences,
   onBack,
 }: ProgramDayScreenProps) {
@@ -469,6 +510,20 @@ export function ProgramDayScreen({
 
   const canTune = Boolean(onPrescribe);
 
+  // A badge per row, aligned index for index with the day's exercises: 'A1',
+  // 'A2' on the lifts that run together, null on the ones that do not.
+  const supersets = useMemo(() => supersetPositions(session.exercises), [session.exercises]);
+
+  /**
+   * Whether the row the sheet is open on runs straight into the one below it.
+   * Read from the same badges the list draws, so the sheet and the row behind
+   * it cannot disagree about whether a rest follows.
+   */
+  const tuneRowLinkedToNext = useMemo(() => {
+    const index = session.exercises.findIndex((exercise) => exercise.id === tuneExerciseId);
+    return index !== -1 && supersets[index]?.hasNextInGroup === true;
+  }, [session.exercises, supersets, tuneExerciseId]);
+
   /** The row the sheet is open on, plus where in the day it currently sits. */
   const tuneRow = useMemo(() => {
     const index = session.exercises.findIndex((exercise) => exercise.id === tuneExerciseId);
@@ -635,6 +690,8 @@ export function ProgramDayScreen({
                     ? (rowHeights.current[dragIndex] ?? 0)
                     : 0
                 : 0;
+            const superset = supersets[index] ?? null;
+            const linkedToNext = superset?.hasNextInGroup === true;
             return (
             <Animated.View
               key={exercise.id}
@@ -698,6 +755,13 @@ export function ProgramDayScreen({
                     (exercise.slotId ? sessionSwaps[exercise.slotId] : undefined) ?? exercise.name,
                   )}
                 </Text>
+                {/* Only a paired row carries this. A label on every row would
+                    be a column of letters saying that nothing is paired. */}
+                {superset?.label ? (
+                  <View style={styles.supersetTag}>
+                    <Text style={styles.supersetTagText}>{superset.label}</Text>
+                  </View>
+                ) : null}
                 <View style={[styles.roleTag, { backgroundColor: tints[exercise.role]?.bg ?? theme.surfaceSoft }]}>
                   <Text style={[styles.roleTagText, { color: tints[exercise.role]?.ink ?? theme.muted }]}>
                     {t(language, ROLE_TAG_KEYS[exercise.role] ?? 'detail.role.accessory')}
@@ -707,6 +771,24 @@ export function ProgramDayScreen({
                     2026-08-31): "Swap" was a word in a button on the line
                     below, which put a verb in the same row as the numbers and
                     left removal reachable only from inside the swap sheet. */}
+                {/* The bottom row of the day has nothing below it to run into,
+                    so it gets no chain rather than a chain that does nothing. */}
+                {onSupersetLink && index < session.exercises.length - 1 ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: linkedToNext }}
+                    accessibilityLabel={t(
+                      language,
+                      linkedToNext ? 'detail.day.a11y.supersetUnlink' : 'detail.day.a11y.supersetLink',
+                      { name: exerciseNameLabel(language, exercise.name) },
+                    )}
+                    hitSlop={8}
+                    onPress={() => onSupersetLink(exercise.id, !linkedToNext)}
+                    style={({ pressed }) => [styles.rowAction, pressed && styles.swapOptionPressed]}
+                  >
+                    <ChainGlyph theme={theme} linked={linkedToNext} />
+                  </Pressable>
+                ) : null}
                 {exercise.slotId && onSwapExercise ? (
                   <Pressable
                     accessibilityRole="button"
@@ -752,23 +834,40 @@ export function ProgramDayScreen({
                         <Text style={styles.doseChipText}>{exercise.prescription}</Text>
                         <PencilGlyph theme={theme} />
                       </Pressable>
-                      <Pressable
-                        accessibilityRole="button"
-                        hitSlop={6}
-                        onPress={() => openTuneSheet(exercise)}
-                        style={({ pressed }) => [styles.doseChip, pressed && styles.swapOptionPressed]}
-                      >
-                        <Text style={styles.doseChipText} numberOfLines={1}>
-                          {t(language, 'detail.day.rest', { range: exercise.restLabel })}
-                        </Text>
-                        <PencilGlyph theme={theme} />
-                      </Pressable>
+                      {/* No rest follows a lift you run straight out of, so the
+                          chip says what does. Showing the stored rest range here
+                          would be the app stating a pause that never happens. */}
+                      {linkedToNext ? (
+                        <View style={styles.supersetNextChip}>
+                          <Text style={styles.supersetNextChipText} numberOfLines={1}>
+                            {t(language, 'detail.day.supersetNext', {
+                              label: supersets[index + 1]?.label ?? '',
+                            })}
+                          </Text>
+                        </View>
+                      ) : (
+                        <Pressable
+                          accessibilityRole="button"
+                          hitSlop={6}
+                          onPress={() => openTuneSheet(exercise)}
+                          style={({ pressed }) => [styles.doseChip, pressed && styles.swapOptionPressed]}
+                        >
+                          <Text style={styles.doseChipText} numberOfLines={1}>
+                            {t(language, 'detail.day.rest', { range: exercise.restLabel })}
+                          </Text>
+                          <PencilGlyph theme={theme} />
+                        </Pressable>
+                      )}
                     </>
                   ) : (
                     <>
                       <Text style={styles.exerciseScheme}>{exercise.prescription}</Text>
                       <Text style={styles.exerciseRest} numberOfLines={1}>
-                        {t(language, 'detail.day.rest', { range: exercise.restLabel })}
+                        {linkedToNext
+                          ? t(language, 'detail.day.supersetNext', {
+                              label: supersets[index + 1]?.label ?? '',
+                            })
+                          : t(language, 'detail.day.rest', { range: exercise.restLabel })}
                       </Text>
                     </>
                   )}
@@ -1151,8 +1250,11 @@ export function ProgramDayScreen({
 
               {/* Rest joins the sheet (design frame 06) — the third number the
                   catalog decided. Only when the stored draft has one: a
-                  stepper over a missing number would have to invent it. */}
-              {tuneDraft.restSeconds !== null ? (
+                  stepper over a missing number would have to invent it.
+                  And not on a lift that runs straight into the next: a
+                  stepper over a pause that never happens is the same lie the
+                  row's own chip stopped telling. Unlink and it comes back. */}
+              {tuneDraft.restSeconds !== null && !tuneRowLinkedToNext ? (
                 <View style={[styles.tuneRow, styles.tuneRowLast]}>
                   <Text style={styles.tuneLabel}>{t(language, 'detail.day.restLabel')}</Text>
                   <View style={styles.tuneControls}>
@@ -1420,6 +1522,39 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 12,
     fontWeight: '800',
     letterSpacing: 0.6,
+  },
+  // Violet, the brand's own colour, because the badge states what this lift
+  // IS rather than offering something to press — orange is this app's one
+  // word for pressable, and the chain beside it is already wearing it.
+  supersetTag: {
+    flexShrink: 0,
+    alignItems: 'center',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: theme.purple,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  supersetTagText: {
+    color: theme.purple,
+    fontSize: 10,
+    lineHeight: 13,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+  },
+  // Where the rest chip would be, and deliberately not shaped like it: there
+  // is nothing to edit here, and a chip that looks editable and is not is the
+  // thing the two dose chips were changed to stop doing.
+  supersetNextChip: {
+    flexShrink: 1,
+    justifyContent: 'center',
+    paddingVertical: 5,
+  },
+  supersetNextChipText: {
+    color: theme.purple,
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: '700',
   },
   roleLine: {
     flex: 1,
