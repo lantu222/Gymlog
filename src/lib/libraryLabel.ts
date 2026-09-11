@@ -71,6 +71,33 @@ const LIBRARY_LABEL_KEYS: Record<string, I18nKey> = {
   expert: 'myData.level.pro',
 };
 
+/**
+ * The equipment value a library row should show — not the label, because two
+ * surfaces label it from two different dictionaries (`lib.equipment.*` here,
+ * `facet.*` in AddExerciseSheet) and unifying those would silently reword four
+ * existing chips. One rule, each caller's own words.
+ *
+ * The generated library has no kettlebell bucket: `mapEquipment` in
+ * scripts/generate_free_exercise_library.mjs files all 53 kettlebell exercises
+ * under `dumbbell`, because the five buckets are what the filter chips are made
+ * of. As a filing decision that is fine. As a sentence it is not — a row that
+ * reads "Käsipainot" under an exercise whose every step says kahvakuula tells
+ * the reader something untrue about what to pick up off the rack.
+ *
+ * So this reads the source field for that one case and only that one. A general
+ * `sourceEquipment ?? equipment` is worse, not better: it turns 199 bodyweight
+ * rows into "Other" and "Body only". The detail card does prefer the source
+ * field, deliberately — it has room to be specific, a list row does not — so
+ * the two rules are different on purpose and should not be merged.
+ */
+export function displayEquipmentValue(item: {
+  equipment: string;
+  sourceEquipment?: string | null;
+}): string {
+  const source = item.sourceEquipment?.trim().toLowerCase();
+  return source === 'kettlebells' ? source : item.equipment;
+}
+
 export function libraryLabel(raw: string, language: AppLanguage = 'en'): string {
   const key = LIBRARY_LABEL_KEYS[raw.trim().toLowerCase()];
   if (key) {

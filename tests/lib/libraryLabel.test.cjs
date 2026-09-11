@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 
-const { libraryLabel } = require('../../.test-dist/lib/libraryLabel.js');
+const { displayEquipmentValue, libraryLabel } = require('../../.test-dist/lib/libraryLabel.js');
+const { createSeedExerciseLibrary } = require('../../.test-dist/data/seed.js');
 const library = Object.values(require('../../.test-dist/data/generatedExerciseLibrary.js'))[0];
 
 /** Every distinct value a library field takes, so the test tracks the data. */
@@ -60,6 +61,43 @@ module.exports = [
       assert.equal(libraryLabel('intermediate', 'fi'), 'Advanced');
       assert.equal(libraryLabel('expert', 'fi'), 'Pro');
       assert.deepEqual(distinct('sourceLevel').sort(), ['beginner', 'expert', 'intermediate']);
+    },
+  },
+  {
+    /**
+     * The sync folds all 53 kettlebell exercises into the `dumbbell` bucket,
+     * because the five buckets are what the filter chips are made of. The
+     * bucket is a filing decision; the row's subtitle is a sentence, and it
+     * used to tell a Finnish reader "Käsipainot" under an exercise whose every
+     * step says kahvakuula.
+     *
+     * Checked against the seeded library, not the generated file, so the three
+     * hand-written extras (Kettlebell Swing among them) are covered too.
+     */
+    name: 'a kettlebell exercise never introduces itself as a dumbbell',
+    run() {
+      const seeded = createSeedExerciseLibrary();
+      const kettlebells = seeded.filter(
+        (item) => (item.sourceEquipment ?? '').trim().toLowerCase() === 'kettlebells',
+      );
+      assert.ok(kettlebells.length >= 50, `expected the source's kettlebells, got ${kettlebells.length}`);
+
+      const mislabelled = kettlebells
+        .filter((item) =>
+          ['fi', 'en'].some((language) => {
+            const label = libraryLabel(displayEquipmentValue(item), language);
+            return label === libraryLabel('dumbbell', language);
+          }),
+        )
+        .map((item) => item.name);
+      assert.deepEqual(mislabelled, [], `still reads as a dumbbell: ${mislabelled.join(', ')}`);
+
+      assert.equal(libraryLabel(displayEquipmentValue(kettlebells[0]), 'fi'), 'Kahvakuula');
+      // Everything else keeps its bucket: the rule is one case, not a general
+      // preference for the raw source field (199 bodyweight rows would become
+      // "Other" and "Body only").
+      const foamRoll = seeded.find((item) => (item.sourceEquipment ?? '') === 'foam roll');
+      assert.equal(displayEquipmentValue(foamRoll), 'bodyweight');
     },
   },
   {

@@ -17,7 +17,7 @@ import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { rankExerciseMatches } from '../lib/exerciseSearch';
 import { I18nKey, t } from '../lib/i18n';
 import type { LibraryCollectionState } from '../lib/exerciseCollections';
-import { libraryLabel } from '../lib/libraryLabel';
+import { displayEquipmentValue, libraryLabel } from '../lib/libraryLabel';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AppLanguage, ExerciseBodyPart, ExerciseLibraryItem } from '../types/models';
@@ -299,7 +299,7 @@ function ExRow({
           {exerciseNameLabel(language, item.name)}
         </Text>
         <Text numberOfLines={1} style={styles.rowMeta}>
-          {libraryLabel(item.bodyPart, language)} · {libraryLabel(item.equipment, language)} ·{' '}
+          {libraryLabel(item.bodyPart, language)} · {libraryLabel(displayEquipmentValue(item), language)} ·{' '}
           {libraryLabel(item.category, language)}
         </Text>
       </View>
@@ -389,8 +389,15 @@ export function ExerciseLibraryBrowser({
     () => ['all', ...Array.from(new Set(items.map((item) => item.category))).sort((a, b) => a.localeCompare(b))],
     [items],
   );
+  // Built from the value the rows print, not the stored bucket: a chip that
+  // says "Käsipainot" must not return 54 rows that say "Kahvakuula", and there
+  // has to be a chip that selects them. The options are derived from the data,
+  // so the kettlebell chip appears on its own once the value does.
   const equipmentOptions = useMemo(
-    () => ['all', ...Array.from(new Set(items.map((item) => item.equipment))).sort((a, b) => a.localeCompare(b))],
+    // Kept on one line with its two neighbours: the guard in
+    // tests/screens/addExerciseSheet.test.cjs counts all three option lists to
+    // prove 'all' is still the first chip in every row.
+    () => ['all', ...Array.from(new Set(items.map((item) => displayEquipmentValue(item)))).sort((a, b) => a.localeCompare(b))],
     [items],
   );
 
@@ -404,7 +411,7 @@ export function ExerciseLibraryBrowser({
       if (categoryFilter !== 'all' && item.category !== categoryFilter) {
         return false;
       }
-      if (equipmentFilter !== 'all' && item.equipment !== equipmentFilter) {
+      if (equipmentFilter !== 'all' && displayEquipmentValue(item) !== equipmentFilter) {
         return false;
       }
       return true;
