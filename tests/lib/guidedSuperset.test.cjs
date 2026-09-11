@@ -8,6 +8,7 @@ const {
   buildGuidedRunSheet,
   buildGuidedSteps,
   getGuidedNextName,
+  getGuidedNextPreview,
   getGuidedStepPlanKey,
 } = require('../../.test-dist/lib/guidedPlayer');
 
@@ -231,6 +232,25 @@ module.exports = [
       const plan = pairPlan();
       const firstSet = plan.steps.findIndex((step) => step.type === 'set');
       assert.equal(getGuidedNextName(plan.steps, firstSet), 'Barbell Row');
+    },
+  },
+  {
+    name: 'the no-rest line is only shown when no rest is actually coming',
+    run() {
+      const plan = pairPlan();
+      const sets = plan.steps
+        .map((step, index) => ({ step, index }))
+        .filter((entry) => entry.step.type === 'set');
+      const resolve = () => null;
+      // On A1, the row after it is A2 with nothing between them.
+      const fromA1 = getGuidedNextPreview(plan.steps, sets[0].index, resolve, 'en');
+      assert.match(fromA1.line, /No rest/);
+      // On A2, the next set is the top of the NEXT round, and a rest stands in
+      // front of it. Saying "no rest" there is the app promising something the
+      // step list itself contradicts two steps later.
+      const fromA2 = getGuidedNextPreview(plan.steps, sets[1].index, resolve, 'en');
+      assert.doesNotMatch(fromA2.line, /No rest/);
+      assert.equal(fromA2.line, 'Bench Press');
     },
   },
   {

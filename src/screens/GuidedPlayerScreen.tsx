@@ -1925,10 +1925,16 @@ export function GuidedPlayerScreen({
   const cooldownStart = findGuidedPhaseStart(steps, 'cooldown');
   const activeExercises = exercises.filter((exercise) => exercise.status !== 'skipped' && exercise.sets.length > 0);
   const totalSets = activeExercises.reduce((sum, exercise) => sum + exercise.sets.length, 0);
-  // Badges for the entry screen's list, over the lifts it actually shows: a
-  // pair whose other half was skipped is no longer a pair, and the list would
-  // otherwise carry an A1 with no A2 under it.
-  const entrySupersets = supersetPositions(activeExercises);
+  // Badges for the entry screen's list, over the lifts it actually shows. A
+  // lift that is OUT of the plan — skipped, or finished early with the rest of
+  // its sets skipped — is unpaired first, on exactly the predicate the step
+  // list uses: the entry screen must not promise an A2 the player will not
+  // ask for.
+  const entrySupersets = supersetPositions(
+    activeExercises.map((exercise) =>
+      isGuidedExerciseOut(exercise) ? { ...exercise, supersetGroup: null } : exercise,
+    ),
+  );
   // The named constant, not a literal 3 — this is the same ready-countdown
   // estimateRoutineBlockSeconds adds for Home, and the two have to move together.
   const warmupSecondsTotal = warmupDrills.reduce((sum, drill) => sum + drill.seconds + GUIDED_READY_SECONDS, 0);
@@ -3361,7 +3367,11 @@ export function GuidedPlayerScreen({
                 </View>
                 {item.setCount ? (
                   <Text style={styles.runMeta}>
-                    {t(language, 'guided.runSheet.sets', { count: item.setCount })}
+                    {t(
+                      language,
+                      item.members.length > 1 ? 'guided.runSheet.rounds' : 'guided.runSheet.sets',
+                      { count: item.setCount },
+                    )}
                   </Text>
                 ) : null}
               </View>

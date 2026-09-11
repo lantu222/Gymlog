@@ -645,8 +645,18 @@ export function getGuidedNextPreview(
   resolveTarget: (slotId: string, setIndex: number) => GuidedSetTarget | null,
   language: AppLanguage = 'en',
 ): GuidedNextPreview | null {
+  // Whether a rest stands between here and the step this preview describes.
+  // The scan below walks over rests to find the next thing WORTH previewing,
+  // which is right — but the superset line claims no rest is coming, and
+  // between two rounds of the same superset one is.
+  let restsBetween = false;
+
   for (let cursor = index + 1; cursor < steps.length; cursor += 1) {
     const step = steps[cursor];
+    if (step.type === 'rest') {
+      restsBetween = true;
+      continue;
+    }
     if (step.type === 'drill') {
       return {
         title: step.drillName,
@@ -663,6 +673,7 @@ export function getGuidedNextPreview(
       // difference between racking the bar and walking to the next station.
       const current = steps[index];
       const runsStraightOn =
+        !restsBetween &&
         current?.type === 'set' &&
         Boolean(current.supersetLabel) &&
         current.groupIndex === step.groupIndex;

@@ -938,10 +938,14 @@ export function EmptyWorkoutScreen({
                       {exerciseNameLabel(language, exercise.displayName)}
                     </Text>
                     <Text numberOfLines={1} style={styles.exerciseMeta}>
+                      {/* The superset note goes first, so it is the half that
+                          survives when a long line is cut — the body part and
+                          the equipment are true of this lift every day, and
+                          running into the next one is true only now. */}
                       {linkedToNext
-                        ? t(language, 'detail.day.supersetNext', {
+                        ? `${t(language, 'detail.day.supersetNext', {
                             label: supersetBadges[exerciseIndex + 1]?.label ?? '',
-                          })
+                          })} · ${exercise.metaLabel}`
                         : exercise.metaLabel}
                     </Text>
                   </View>
