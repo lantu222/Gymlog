@@ -202,13 +202,15 @@ module.exports = [
     },
   },
   {
-    name: 'the run sheet lists both lifts of a superset, badged',
+    name: 'the run sheet lists both lifts of a superset, in the order they are done',
     run() {
       const sheet = buildGuidedRunSheet(pairPlan(), 0);
       assert.equal(sheet.length, 1);
+      // One row, both lifts, no badges: the row is drawn as one labelled box,
+      // so an A1 and an A2 inside it would say the same thing twice.
       assert.deepEqual(
-        sheet[0].members.map((member) => `${member.supersetLabel} ${member.name}`),
-        ['A1 Bench Press', 'A2 Barbell Row'],
+        sheet[0].members.map((member) => member.name),
+        ['Bench Press', 'Barbell Row'],
       );
       // Rounds, not halves of rounds.
       assert.equal(sheet[0].setCount, 2);
@@ -223,7 +225,7 @@ module.exports = [
         exercises: [lift('a', 'Bench Press', { setCount: 2 })],
       });
       const sheet = buildGuidedRunSheet(plan, 0);
-      assert.deepEqual(sheet[0].members, [{ name: 'Bench Press', slotId: 'a', supersetLabel: null }]);
+      assert.deepEqual(sheet[0].members, [{ name: 'Bench Press', slotId: 'a' }]);
     },
   },
   {

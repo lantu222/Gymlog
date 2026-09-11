@@ -1367,13 +1367,18 @@ export function getGuidedInitials(name: string): string {
 }
 
 /** One line of the run sheet: a warm-up drill, a lift, or a cool-down drill. */
-/** One lift inside a run-sheet row. A superset row has several. */
+/**
+ * One lift inside a run-sheet row. A superset row has several.
+ *
+ * No badge here: the row itself is drawn as one framed box labelled once, so
+ * an A1 and an A2 inside it would state the same fact a second time. The
+ * badges live where the lifts are listed WITHOUT a box around them — the
+ * programme's day view.
+ */
 export interface GuidedRunMember {
   name: string;
   /** The lift's slot, so the sheet can say what was logged in it. Null for a drill. */
   slotId: string | null;
-  /** 'A1', 'A2'… when the row is a superset; null when it holds one lift. */
-  supersetLabel: string | null;
 }
 
 export interface GuidedRunItem {
@@ -1460,11 +1465,7 @@ export function buildGuidedRunSheet(plan: GuidedStepPlan, stepIndex: number): Gu
       // collected in the order their first step appears, which is the order
       // they will be performed in.
       if (!existing.members.some((member) => member.name === name && member.slotId === slotId)) {
-        existing.members.push({
-          name,
-          slotId,
-          supersetLabel: step.type === 'set' ? step.supersetLabel ?? null : null,
-        });
+        existing.members.push({ name, slotId });
       }
       continue;
     }
@@ -1475,13 +1476,7 @@ export function buildGuidedRunSheet(plan: GuidedStepPlan, stepIndex: number): Gu
       name,
       setCount: plan.groups[groupIndex]?.setCount ?? null,
       slotId,
-      members: [
-        {
-          name,
-          slotId,
-          supersetLabel: step.type === 'set' ? step.supersetLabel ?? null : null,
-        },
-      ],
+      members: [{ name, slotId }],
       status:
         currentGroup === null || groupIndex > currentGroup
           ? 'upcoming'
@@ -1492,22 +1487,6 @@ export function buildGuidedRunSheet(plan: GuidedStepPlan, stepIndex: number): Gu
     byGroup.set(groupIndex, item);
     items.push(item);
   }
-
-  // The first step of a superset is its position countdown, which names only
-  // the lift you walk up to first and so carries no badge. The badge arrives
-  // with that lift's first set; copy it back onto the member the position step
-  // created, or A1 would be the one row of the pair without a label.
-  items.forEach((item) => {
-    if (item.members.length > 1 && item.members[0].supersetLabel === null) {
-      const labelled = plan.steps.find(
-        (step) =>
-          step.type === 'set' && step.groupIndex === item.groupIndex && step.slotId === item.members[0].slotId,
-      );
-      if (labelled && labelled.type === 'set' && labelled.supersetLabel) {
-        item.members[0].supersetLabel = labelled.supersetLabel;
-      }
-    }
-  });
 
   return items;
 }

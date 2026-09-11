@@ -81,6 +81,7 @@ import { getExerciseTeaching } from '../lib/exerciseTeaching';
 import { buildExerciseSheetHistory, LastTimeView } from '../lib/exerciseSheetHistory';
 import { ExerciseSheet } from '../components/ExerciseSheet';
 import { CtaShimmer } from '../components/CtaShimmer';
+import { SupersetBorder } from '../components/SupersetBorder';
 import { getDrillLibraryName } from '../lib/drillMedia';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { libraryLabel } from '../lib/libraryLabel';
@@ -88,7 +89,7 @@ import { localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { classifySessionFocus, getDefaultCooldown, getDefaultWarmup } from '../lib/homeSessionHero';
 import { formatShortDate, formatWeight, parseNumberInput, removeTrailingZeros } from '../lib/format';
 import { estimateSessionMinutes } from '../lib/sessionDuration';
-import { supersetPositions } from '../lib/supersetGrouping';
+import { buildSupersetRuns, supersetPositions } from '../lib/supersetGrouping';
 import { t } from '../lib/i18n';
 import { haptics } from '../utils/haptics';
 import { subscribeRestActions, useRestEndAlert } from '../hooks/useRestEndAlert';
@@ -1930,11 +1931,16 @@ export function GuidedPlayerScreen({
   // its sets skipped — is unpaired first, on exactly the predicate the step
   // list uses: the entry screen must not promise an A2 the player will not
   // ask for.
-  const entrySupersets = supersetPositions(
-    activeExercises.map((exercise) =>
-      isGuidedExerciseOut(exercise) ? { ...exercise, supersetGroup: null } : exercise,
-    ),
+  /**
+   * The lifts the plan will actually ask for, with anything out of it — skipped,
+   * or finished early with the rest of its sets skipped — unpaired first. The
+   * entry list, the walk-up card and the set screen all read from this one
+   * list, so none of them can promise a partner the step list will not ask for.
+   */
+  const plannedExercises = activeExercises.map((exercise) =>
+    isGuidedExerciseOut(exercise) ? { ...exercise, supersetGroup: null } : exercise,
   );
+  const entrySupersets = supersetPositions(plannedExercises);
   /** The same badges, reachable by slot — which is how every step names a lift. */
   const supersetBySlot = new Map<string, { label: string; nextLabel: string | null }>();
   activeExercises.forEach((exercise, index) => {
@@ -1946,6 +1952,22 @@ export function GuidedPlayerScreen({
       label: position.label,
       nextLabel: position.hasNextInGroup ? entrySupersets[index + 1]?.label ?? null : null,
     });
+  });
+  /**
+   * The whole group a lift belongs to, in the order it is performed — what the
+   * set screen needs to say "this one, then that one, then rest" without the
+   * reader opening anything.
+   */
+  const supersetGroupBySlot = new Map<string, { members: Array<{ slotId: string; name: string }> }>();
+  buildSupersetRuns(plannedExercises).forEach((run) => {
+    if (run.indexes.length < 2) {
+      return;
+    }
+    const members = run.indexes.map((index) => ({
+      slotId: plannedExercises[index].slotId,
+      name: plannedExercises[index].exerciseName,
+    }));
+    members.forEach((member) => supersetGroupBySlot.set(member.slotId, { members }));
   });
   // The named constant, not a literal 3 — this is the same ready-countdown
   // estimateRoutineBlockSeconds adds for Home, and the two have to move together.
@@ -2886,6 +2908,7 @@ export function GuidedPlayerScreen({
               stepIndex={stepIndex}
               step={step}
               exercise={exerciseBySlot.get(step.slotId) ?? null}
+              superset={supersetGroupBySlot.get(step.slotId) ?? null}
               language={language}
               paused={paused}
               resolveTarget={resolveTarget}
@@ -3323,8 +3346,27 @@ export function GuidedPlayerScreen({
               const restingLogged = restingLift
                 ? formatLoggedSetsLine(restingLift.sets, isTimedTrackingMode(restingLift.trackingMode))
                 : '';
+              const isSuperset = item.members.length > 1;
               return (
-              <View key={item.groupIndex} style={styles.runRow}>
+              <View
+                key={item.groupIndex}
+                style={[styles.runRow, isSuperset && styles.runRowSuperset]}
+              >
+                {/* Two lights running the outline, in opposite directions:
+                    one boundary, two lifts inside it, no rest between them.
+                    The label sits inside that boundary rather than on each
+                    row, because the box is what says "these go together" —
+                    A1/A2 on every line was the same fact stated twice. */}
+                {isSuperset ? (
+                  <>
+                    <SupersetBorder radius={14} />
+                    <View style={styles.runSupersetPill}>
+                      <Text style={styles.runSupersetPillText}>
+                        {t(language, 'guided.superset.pill')}
+                      </Text>
+                    </View>
+                  </>
+                ) : null}
                 {/* Done / here / to come, as a mark rather than as a colour:
                     the dark theme flattens the accents into each other. */}
                 <View
@@ -3356,7 +3398,6 @@ export function GuidedPlayerScreen({
                           ]}
                           numberOfLines={2}
                         >
-                          {member.supersetLabel ? `${member.supersetLabel}  ` : ''}
                           {exerciseNameLabel(language, member.name)}
                         </Text>
                         {/* What has been logged in this lift so far: the sheet
@@ -3735,6 +3776,7 @@ function SetStepView({
   stepIndex,
   step,
   exercise,
+  superset,
   language,
   paused,
   resolveTarget,
@@ -3749,6 +3791,8 @@ function SetStepView({
   stepIndex: number;
   step: Extract<GuidedStep, { type: 'set' }>;
   exercise: WorkoutExerciseInstance | null;
+  /** The whole superset this set belongs to, in order. Null for a lift on its own. */
+  superset: { members: Array<{ slotId: string; name: string }> } | null;
   language: AppLanguage;
   paused: boolean;
   /** Opens the exercise sheet; the card is the only door to it. */
@@ -3851,6 +3895,38 @@ function SetStepView({
         onPress={dial ? () => setDial(null) : undefined}
         accessible={false}
       >
+        {/* First child, so the line is painted under everything: that is what
+            lets the label break it where it sits, the way a fieldset legend
+            breaks its own frame. It fills the screen, takes no taps, and
+            moves no layout. */}
+        {superset ? <SupersetBorder radius={22} inset={8} /> : null}
+        {/* "This is a superset" has to arrive before the set does, not after
+            the rest fails to appear. The lifts are named in the order they
+            are performed, the one you are on is the dark one, and the rest at
+            the end of the round is the third thing on the line. */}
+        {superset ? (
+          <>
+            {/* The label straddles the top line and carries the ground colour,
+                so the line stops at one edge of the word and starts at the
+                other — a frame with its own legend. */}
+            <View style={styles.setSupersetPill}>
+              <Text style={styles.setSupersetPillText}>{t(language, 'guided.superset.pill')}</Text>
+            </View>
+            {/* And the order of play sits under the line, not on it. */}
+            <Text style={styles.setSupersetFlow} numberOfLines={2}>
+              {superset.members.map((member, index) => (
+                <Text
+                  key={member.slotId}
+                  style={member.slotId === step.slotId ? styles.setSupersetFlowNow : undefined}
+                >
+                  {exerciseNameLabel(language, member.name)}
+                  {index < superset.members.length - 1 ? '  ·  ' : ''}
+                </Text>
+              ))}
+              {`  ·  ${t(language, 'guided.superset.thenRest')}`}
+            </Text>
+          </>
+        ) : null}
         {/* The lift, always on screen and always the way in.
             The panels used to hang off the header's right-hand button, which
             put the answer to "how much did I lift last time" behind a control
@@ -4606,6 +4682,43 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   // per set, and a reader can keep adding sets. They give way first, and the
   // counter beside them still says how many there are.
   setDots: { flexDirection: 'row', gap: 5, flexShrink: 1, overflow: 'hidden' },
+  // Above the lift, because it changes what the next tap means: log this and
+  // you are walking to the other station, not starting a rest.
+  setSupersetPill: {
+    // Centred on the frame's top line, which runs 8 in from the edge.
+    position: 'absolute',
+    top: -2,
+    left: 26,
+    borderRadius: 999,
+    borderWidth: 1.4,
+    borderColor: theme.purple,
+    // Filled with the screen's own ground, which is what breaks the line
+    // behind it instead of letting it run across the word.
+    backgroundColor: theme.bg,
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+  },
+  setSupersetPillText: {
+    fontSize: 9.5,
+    lineHeight: 13,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+    color: theme.purple,
+  },
+  setSupersetFlow: {
+    marginTop: 24,
+    marginBottom: 12,
+    paddingHorizontal: 22,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '700',
+    color: theme.faint,
+  },
+  /** The lift the screen is asking for, among the ones it names. */
+  setSupersetFlowNow: {
+    color: theme.ink,
+    fontWeight: '900',
+  },
   setDot: {
     width: 19,
     height: 19,
@@ -5071,6 +5184,31 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 11,
     borderBottomWidth: 1,
     borderBottomColor: theme.border,
+  },
+  // A superset is one box holding several lifts: the row keeps its shape and
+  // gains room for the outline to run without touching the text.
+  runRowSuperset: {
+    borderBottomWidth: 0,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    marginVertical: 4,
+    borderRadius: 14,
+  },
+  // Inside the boundary, not on it — the line has to be able to pass behind
+  // nothing.
+  runSupersetPill: {
+    position: 'absolute',
+    top: -7,
+    left: 14,
+    backgroundColor: theme.surface,
+    paddingHorizontal: 6,
+  },
+  runSupersetPillText: {
+    fontSize: 9.5,
+    lineHeight: 13,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+    color: theme.purple,
   },
   // Hollow until reached, filled when it is where you are, ticked when done.
   runDot: {

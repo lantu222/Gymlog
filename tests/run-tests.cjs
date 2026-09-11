@@ -87,6 +87,7 @@ const suites = [
   ...require('./utils/haptics.test.cjs'),
   ...require('./utils/reduceMotion.test.cjs'),
   ...require('./components/primaryCTAButton.test.cjs'),
+  ...require('./components/supersetBorder.test.cjs'),
   ...require('./integration/liveWorkoutSavePipeline.test.cjs'),
   ...require('./lib/workoutInput.test.cjs'),
   ...require('./lib/workoutContentFit.test.cjs'),
