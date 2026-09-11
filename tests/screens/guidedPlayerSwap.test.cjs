@@ -377,7 +377,10 @@ module.exports = [
       // "pelkät tulevat sarjat ja toistot": a sheet opened mid-session is
       // opened to find out what is coming.
       assert.doesNotMatch(playerSource, /const memberLogged/);
-      assert.match(playerSource, /const memberPlan = lift\?\.sets\[0\]/);
+      // Not inside a superset: a set count per lift there asks the reader to
+      // reconcile "4 × 8" with "3 × 10" inside one box whose real unit is
+      // rounds (user 2026-09-11).
+      assert.match(playerSource, /const memberPlan =\s*!isSuperset && lift\?\.sets\[0\]/);
       // Through the shared formatter, so a hold's numbers keep their unit —
       // "45" beside "60 × 8" reads as forty-five reps.
       assert.match(playerSource, /\? formatSetScheme\(\s*lift\.sets\.length,/);

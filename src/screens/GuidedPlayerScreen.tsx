@@ -3385,20 +3385,27 @@ export function GuidedPlayerScreen({
                       asked for. An ordinary lift is a row of exactly one. */}
                   {item.members.map((member) => {
                     const lift = member.slotId ? exerciseBySlot.get(member.slotId) : undefined;
-                    // What is still to do, not what was lifted. The line under
-                    // each name carried the logged weights until 2026-09-11,
-                    // when the reader asked for "pelkät tulevat sarjat ja
-                    // toistot" — a sheet read mid-session is read to find out
-                    // what is coming, and the weight you just used is on the
-                    // screen behind it.
-                    const memberPlan = lift?.sets[0]
-                      ? formatSetScheme(
-                          lift.sets.length,
-                          lift.sets[0].plannedRepsMin,
-                          lift.sets[0].plannedRepsMax,
-                          lift.trackingMode,
-                        )
-                      : '';
+                    // What is still to do, not what was lifted. The line under each name
+                    // carried the logged weights until 2026-09-11, when the reader
+                    // asked for "pelkät tulevat sarjat ja toistot" — a sheet read
+                    // mid-session is read to find out what is coming, and the weight
+                    // you just used is on the screen behind it.
+                    //
+                    // Not inside a superset, though. A set count per lift asks the
+                    // reader to reconcile "4 × 8" with "3 × 10" inside one box, and
+                    // the answer is that the box is four ROUNDS — which the box
+                    // already says, once, on the right (user 2026-09-11: "ehkä
+                    // poistetaan sittenkin molemmat tilastot supersetistä ja se on
+                    // vain 4 kierrosta").
+                    const memberPlan =
+                      !isSuperset && lift?.sets[0]
+                        ? formatSetScheme(
+                            lift.sets.length,
+                            lift.sets[0].plannedRepsMin,
+                            lift.sets[0].plannedRepsMax,
+                            lift.trackingMode,
+                          )
+                        : '';
                     return (
                       <View key={member.slotId ?? member.name}>
                         <Text
