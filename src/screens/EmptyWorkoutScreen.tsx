@@ -20,6 +20,7 @@ import {
   isSupersetLinked,
   normalizeSupersetGroups,
   setSupersetLink,
+  supersetGroupIndexes,
   supersetPositions,
 } from '../lib/supersetGrouping';
 import { SupersetBorder } from '../components/SupersetBorder';
@@ -673,14 +674,27 @@ export function EmptyWorkoutScreen({
       ),
     );
 
+  /**
+   * One more set — of every lift in the block, when the lift is in one.
+   *
+   * A superset's set count is one number: the block is counted in rounds, so
+   * a button that added a set to one half of it would put the pair straight
+   * back into the state linking exists to prevent (user 2026-09-11, "yksi
+   * sarjan lisäys tarkoittaa että molemmat nousee yhden").
+   */
   const addSet = (exerciseKey: string) =>
-    setExercises((current) =>
-      current.map((exercise) =>
-        exercise.localKey === exerciseKey
+    setExercises((current) => {
+      const index = current.findIndex((exercise) => exercise.localKey === exerciseKey);
+      if (index === -1) {
+        return current;
+      }
+      const block = new Set(supersetGroupIndexes(current, index));
+      return current.map((exercise, position) =>
+        block.has(position)
           ? { ...exercise, sets: [...exercise.sets, createSet(carryForwardFreestyleSet(exercise.sets))] }
           : exercise,
-      ),
-    );
+      );
+    });
 
   const toggleSetDone = (exerciseKey: string, setKey: string) => {
     const exercise = exercises.find((entry) => entry.localKey === exerciseKey);

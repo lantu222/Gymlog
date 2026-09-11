@@ -8,7 +8,7 @@ import {
 } from '../../lib/cardio';
 import { CardioActivityType } from '../../types/models';
 import { isUnloadedTrackingMode } from './workoutTypes';
-import { buildSupersetPlayOrder } from '../../lib/supersetGrouping';
+import { buildSupersetPlayOrder, supersetGroupIndexes } from '../../lib/supersetGrouping';
 import { GuidedResumeAnchor, WorkoutTrackingMode, WorkoutTemplateExercise, WorkoutExerciseInsertInput, WorkoutExerciseInstance, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRestTimerState, WorkoutRuntimeTemplate, WorkoutSessionMaterializeOptions, WorkoutSessionRuntime, WorkoutSessionSummary, WorkoutSetDraftInput, WorkoutSetEffort, WorkoutSetInstance, WorkoutSlotHistoryEntry, WorkoutSlotHistorySet, WorkoutStatus, WorkoutUiState, WorkoutExerciseStatus } from './workoutTypes';
 import { getWorkoutTemplateById } from './workoutCatalog';
 import { resolveProgressedLoadKg, resolveProgressedReps } from '../../lib/progressionGate';
@@ -624,6 +624,17 @@ function updateActiveExercise(session: WorkoutSessionRuntime, nextIndex: number,
  * is exactly how the app would end up with two different ideas of what a
  * superset is.
  */
+/**
+ * The exercises that move together when one of them does: the superset this
+ * one belongs to, or just itself.
+ */
+function blockIndexes(session: WorkoutSessionRuntime, exerciseIndex: number) {
+  return supersetGroupIndexes(
+    session.exercises.map((exercise) => ({ supersetGroup: exercise.supersetGroup ?? null })),
+    exerciseIndex,
+  );
+}
+
 function sessionPlayOrder(session: WorkoutSessionRuntime) {
   return buildSupersetPlayOrder(
     session.exercises.map((exercise) => ({
@@ -1236,24 +1247,34 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
         return state;
       }
 
+      // One more set of every lift in the block. A superset is counted in
+      // rounds, so adding a round to one half of it and not the other is the
+      // state the linking rule exists to prevent.
       const exercise = session.exercises[exerciseIndex];
-      const sourceSet = exercise.sets[exercise.sets.length - 1];
-      const nextSetIndex = exercise.sets.reduce((maxValue, set) => Math.max(maxValue, set.setIndex), -1) + 1;
-
-      exercise.sets = [
-        ...exercise.sets,
-        {
-          setIndex: nextSetIndex,
-          plannedLoadKg: sourceSet?.actualLoadKg ?? sourceSet?.plannedLoadKg,
-          plannedRepsMin: sourceSet?.plannedRepsMin ?? exercise.sets[0]?.plannedRepsMin ?? 1,
-          plannedRepsMax: sourceSet?.plannedRepsMax ?? exercise.sets[0]?.plannedRepsMax ?? 1,
-          draftLoadText: '',
-          draftRepsText: '',
-          status: 'pending',
-          effort: null,
-          edited: false,
-        },
-      ];
+      let nextSetIndex = 0;
+      blockIndexes(session, exerciseIndex).forEach((position) => {
+        const member = session.exercises[position];
+        const sourceSet = member.sets[member.sets.length - 1];
+        const memberNextIndex =
+          member.sets.reduce((maxValue, set) => Math.max(maxValue, set.setIndex), -1) + 1;
+        if (position === exerciseIndex) {
+          nextSetIndex = memberNextIndex;
+        }
+        member.sets = [
+          ...member.sets,
+          {
+            setIndex: memberNextIndex,
+            plannedLoadKg: sourceSet?.actualLoadKg ?? sourceSet?.plannedLoadKg,
+            plannedRepsMin: sourceSet?.plannedRepsMin ?? member.sets[0]?.plannedRepsMin ?? 1,
+            plannedRepsMax: sourceSet?.plannedRepsMax ?? member.sets[0]?.plannedRepsMax ?? 1,
+            draftLoadText: '',
+            draftRepsText: '',
+            status: 'pending',
+            effort: null,
+            edited: false,
+          },
+        ];
+      });
       exercise.status = 'active';
       updateActiveExercise(session, exerciseIndex, nextSetIndex);
       session.restTimer = createInitialTimer();
@@ -1328,17 +1349,24 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
         return state;
       }
 
+      // All or none: the block's set count is one number, so a round comes off
+      // every lift in it or off none. If any member's last set is already
+      // logged, taking the round back would either lose that set or leave the
+      // two halves disagreeing again.
+      const block = blockIndexes(session, exerciseIndex);
+      const removable = block.every((position) => {
+        const member = session.exercises[position];
+        return member.sets.length > 1 && member.sets[member.sets.length - 1].status === 'pending';
+      });
+      if (!removable) {
+        return state;
+      }
+
+      block.forEach((position) => {
+        const member = session.exercises[position];
+        member.sets = member.sets.slice(0, -1);
+      });
       const exercise = session.exercises[exerciseIndex];
-      if (exercise.sets.length <= 1) {
-        return state;
-      }
-
-      const last = exercise.sets[exercise.sets.length - 1];
-      if (last.status !== 'pending') {
-        return state;
-      }
-
-      exercise.sets = exercise.sets.slice(0, -1);
       const nextIndex = exercise.sets[exercise.sets.length - 1]?.setIndex ?? 0;
       updateActiveExercise(session, exerciseIndex, nextIndex);
       session.updatedAt = new Date().toISOString();

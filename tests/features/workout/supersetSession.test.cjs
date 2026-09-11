@@ -97,6 +97,58 @@ module.exports = [
     },
   },
   {
+    /**
+     * A block is counted in rounds, so a round is added to every lift in it —
+     * "yksi sarjan lisäys tarkoittaa että molemmat nousee yhden" (user
+     * 2026-09-11). Adding to one half would put the pair back into the state
+     * linking exists to prevent.
+     */
+    name: 'adding a set to a superset adds a round to every lift in it',
+    run() {
+      const after = workoutReducer(start('g1'), { type: 'exercise/addSet', payload: { slotId: 'a' } });
+      assert.deepEqual(
+        after.activeSession.exercises.map((exercise) => exercise.sets.length),
+        [3, 3],
+      );
+    },
+  },
+  {
+    name: 'an unpaired lift still gains a set on its own',
+    run() {
+      const after = workoutReducer(start(null), { type: 'exercise/addSet', payload: { slotId: 'a' } });
+      assert.deepEqual(
+        after.activeSession.exercises.map((exercise) => exercise.sets.length),
+        [3, 2],
+      );
+    },
+  },
+  {
+    name: 'taking a set back takes it off every lift in the block',
+    run() {
+      const after = workoutReducer(start('g1'), { type: 'exercise/removeSet', payload: { slotId: 'a' } });
+      assert.deepEqual(
+        after.activeSession.exercises.map((exercise) => exercise.sets.length),
+        [1, 1],
+      );
+    },
+  },
+  {
+    name: 'a block whose other half has a logged last set keeps its rounds',
+    run() {
+      // All or none: taking the round back here would either lose the logged
+      // set or leave the two halves disagreeing again.
+      let state = logSet(start('g1'), 'a', 0);
+      state = logSet(state, 'b', 0);
+      state = logSet(state, 'a', 1);
+      state = logSet(state, 'b', 1);
+      const after = workoutReducer(state, { type: 'exercise/removeSet', payload: { slotId: 'a' } });
+      assert.deepEqual(
+        after.activeSession.exercises.map((exercise) => exercise.sets.length),
+        [2, 2],
+      );
+    },
+  },
+  {
     name: 'the last set of the last lift ends the session without a rest',
     run() {
       let state = start('g1');

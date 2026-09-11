@@ -118,6 +118,73 @@ module.exports = [
     },
   },
   {
+    /**
+     * Linking makes one block of two lifts, and a block has one set count.
+     * The first lift decides, because it is the one the block is built on.
+     */
+    name: 'linking gives both lifts the first one’s set count',
+    run() {
+      const result = applyProgramSessionEdit(
+        day(lift('e1', 'Bench Press', { targetSets: 4 }), lift('e2', 'Barbell Row', { targetSets: 3 })),
+        'day_1',
+        { kind: 'supersetLink', exerciseId: 'e1', linked: true },
+        idFactory(),
+      );
+      assert.equal(result.kind, 'save');
+      assert.deepEqual(
+        result.sessions[0].exercises.map((exercise) => exercise.targetSets),
+        [4, 4],
+      );
+    },
+  },
+  {
+    name: 'unlinking leaves both doses exactly where they were',
+    run() {
+      const result = applyProgramSessionEdit(
+        day(
+          lift('e1', 'Bench Press', { targetSets: 4, supersetGroup: 'a' }),
+          lift('e2', 'Barbell Row', { targetSets: 4, supersetGroup: 'a' }),
+        ),
+        'day_1',
+        { kind: 'supersetLink', exerciseId: 'e1', linked: false },
+        idFactory(),
+      );
+      assert.equal(result.kind, 'save');
+      assert.deepEqual(
+        result.sessions[0].exercises.map((exercise) => exercise.targetSets),
+        [4, 4],
+      );
+    },
+  },
+  {
+    name: 're-dosing one lift of a superset re-doses the block',
+    run() {
+      // And the EDITED row is the anchor: overwriting it with the other
+      // lift's count would undo the edit the reader is watching.
+      const result = applyProgramSessionEdit(
+        day(
+          lift('e1', 'Bench Press', { targetSets: 4, supersetGroup: 'a' }),
+          lift('e2', 'Barbell Row', { targetSets: 4, supersetGroup: 'a' }),
+          lift('e3', 'Curl', { targetSets: 2 }),
+        ),
+        'day_1',
+        { kind: 'prescribe', exerciseId: 'e2', prescription: { targetSets: 5, repMin: 10, repMax: 10, restSeconds: null } },
+        idFactory(),
+      );
+      assert.equal(result.kind, 'save');
+      assert.deepEqual(
+        result.sessions[0].exercises.map((exercise) => exercise.targetSets),
+        [5, 5, 2],
+      );
+      // Reps stay the edited lift's own: two lifts in one block do the same
+      // number of rounds, not the same number of reps.
+      assert.deepEqual(
+        result.sessions[0].exercises.map((exercise) => exercise.repMax),
+        [12, 10, 12],
+      );
+    },
+  },
+  {
     name: 'a superset rests once per round, not once per lift',
     run() {
       const paired = estimateSessionSeconds({

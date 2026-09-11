@@ -317,6 +317,26 @@ export function supersetSetTargets(
   return targets;
 }
 
+/**
+ * Every member of the group the row at `index` belongs to, itself included —
+ * or just that row, when it is not in one.
+ *
+ * The shape every "do this to the whole block" action needs: a superset's set
+ * count is ONE number, so adding a set adds it to both lifts and taking one
+ * back takes both. A button that moved one half would put the block straight
+ * back into the state the linking rule exists to prevent.
+ */
+export function supersetGroupIndexes(members: readonly SupersetMember[], index: number): number[] {
+  if (index < 0 || index >= members.length) {
+    return [];
+  }
+
+  const run = buildSupersetRuns(normalizeSupersetGroups(members)).find((candidate) =>
+    candidate.indexes.includes(index),
+  );
+  return run && run.groupId !== null && run.indexes.length > 1 ? run.indexes : [index];
+}
+
 /** One set of one lift, addressed the way both loggers address it. */
 export interface SupersetPlaySlot {
   exerciseIndex: number;

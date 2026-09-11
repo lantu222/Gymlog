@@ -11,7 +11,12 @@
  * edits in a row compose instead of replacing each other.
  */
 
-import { normalizeSupersetGroups, setSupersetLink, supersetSetTargets } from './supersetGrouping';
+import {
+  normalizeSupersetGroups,
+  setSupersetLink,
+  supersetGroupIndexes,
+  supersetSetTargets,
+} from './supersetGrouping';
 
 /** Only the fields an edit reads. The stored row carries more. */
 export interface ProgramSessionExerciseSnapshot {
@@ -275,6 +280,22 @@ export function applyProgramSessionEdit(
         }
         return toDraftExercise(exercise);
       });
+
+    // A block's set count is one number, so re-dosing one lift inside a
+    // superset re-doses the block. The EDITED row is the anchor here rather
+    // than the first one: the reader just chose this number, and overwriting
+    // it with the other lift's would undo the edit they are watching.
+    if (isTargetDay && edit.kind === 'prescribe') {
+      const index = exercises.findIndex((exercise) => exercise.id === edit.exerciseId);
+      if (index !== -1) {
+        supersetGroupIndexes(exercises, index).forEach((position) => {
+          exercises[position] = {
+            ...exercises[position],
+            targetSets: edit.prescription.targetSets,
+          };
+        });
+      }
+    }
 
     if (isTargetDay && edit.kind === 'supersetLink') {
       const index = exercises.findIndex((exercise) => exercise.id === edit.exerciseId);
