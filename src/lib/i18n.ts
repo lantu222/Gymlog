@@ -1178,6 +1178,9 @@ const EN = {
   'emptyWorkout.a11y.setNotDone': 'Mark set not done',
   'emptyWorkout.a11y.remove': 'Remove {name}',
   'emptyWorkout.a11y.addSetTo': 'Add set to {name}',
+  // One round for the whole superset, so the label says the block rather than
+  // a lift: the button moves both.
+  'emptyWorkout.a11y.addSetToBlock': 'Add a round to this superset',
   'emptyWorkout.a11y.addSelected': 'Add selected exercises',
 
   // ── Workout complete ───────────────────────────────────────────────────
@@ -1288,6 +1291,15 @@ const EN = {
   'guided.count.exerciseOne': '1 exercise',
   'guided.count.exerciseMany': '{count} exercises',
   'guided.count.sets': '{count} sets',
+  // The badge on a superset set: which lift of the pair, and which round.
+  'guided.superset.round': 'round {round}/{rounds}',
+  // The one word the box and the set screen both wear. Capitalised at the
+  // point of use, so the dictionary carries the word and not a style.
+  'guided.superset.pill': 'SUPERSET',
+  // What is left of this superset, read left to right: the lift you are on,
+  // what follows it with no rest, and the rest at the end of the round.
+  'guided.superset.thenRest': 'then rest',
+  'guided.superset.next': 'No rest — straight to {name}',
   'guided.count.drillOne': '1 drill',
   'guided.count.drillMany': '{count} drills',
   'guided.count.timedDrills': '{count} timed drills',
@@ -1369,6 +1381,10 @@ const EN = {
   'guided.walk.last': 'LAST',
   'guided.walk.lastBorrowed': 'LAST\nANOTHER DAY',
   'guided.walk.plan': '{sets} × {reps} · {rest} s rest',
+  // The walk-up card for the first lift of a superset. It must not quote a
+  // rest: what follows this lift is the next one, and the rest comes after
+  // the round.
+  'guided.walk.planSuperset': '{sets} × {reps} · straight into {name}',
   'guided.walk.startFirst': 'Start set 1',
   'guided.walk.swap': 'Swap exercise',
   'guided.sheet.tab.learn': 'Learn',
@@ -1402,9 +1418,11 @@ const EN = {
   'guided.reps': 'REPS',
   'guided.seconds': 'SECONDS',
   'guided.nextUp': 'NEXT UP',
-  'guided.runSheet.title': 'This session',
+  'guided.runSheet.title': 'Workout contents',
   'guided.runSheet.open': 'Show what is in this session',
-  'guided.runSheet.sets': '{count} sets',
+  // A superset's block is counted in rounds: three rounds of A1 + A2 is six
+  // sets, and a row saying "3 sets" over two lifts states neither number.
+  'guided.runSheet.rounds': '{count} rounds',
   'guided.runSheet.here': 'You are here',
   'guided.runSheet.progress': '{done}/{count} sets',
   'guided.action.addSet': 'Add a set',
@@ -2830,6 +2848,13 @@ const EN = {
   'detail.day.dragHandle': 'Drag to reorder {name}',
   'detail.day.a11y.swap': 'Swap {name}',
   'detail.day.a11y.remove': 'Remove {name} from this day',
+  // A superset row says what follows it INSTEAD of a rest, because a rest
+  // range on a lift you run straight out of is a number that never happens.
+  // No label to point at any more: the box around the two lifts says which
+  // ones, so the chip only has to say that nothing comes between them.
+  'detail.day.supersetNext': 'no rest',
+  'detail.day.a11y.supersetLink': 'Run {name} straight into the next exercise',
+  'detail.day.a11y.supersetUnlink': 'Rest after {name} again',
   'detail.role.anchorLine': 'The lift progress is measured by. Done fresh, longest rests, weight moves first.',
   'detail.role.supportLine': 'Backs the anchor up from another angle. This is where most of the volume comes from, and it climbs slower so it never eats the next day.',
   'detail.role.accessoryLine': 'The finish. Light load, high reps — measured in reps, not weight.',
@@ -4235,6 +4260,7 @@ const FI: Record<I18nKey, string> = {
   'emptyWorkout.a11y.setNotDone': 'Poista sarjan merkintä',
   'emptyWorkout.a11y.remove': 'Poista {name}',
   'emptyWorkout.a11y.addSetTo': 'Lisää sarja liikkeeseen {name}',
+  'emptyWorkout.a11y.addSetToBlock': 'Lisää kierros tähän supersarjaan',
   'emptyWorkout.a11y.addSelected': 'Lisää valitut liikkeet',
 
   // ── Workout complete ───────────────────────────────────────────────────
@@ -4333,6 +4359,10 @@ const FI: Record<I18nKey, string> = {
   'guided.count.exerciseOne': '1 liike',
   'guided.count.exerciseMany': '{count} liikettä',
   'guided.count.sets': '{count} sarjaa',
+  'guided.superset.round': 'kierros {round}/{rounds}',
+  'guided.superset.pill': 'SUPERSARJA',
+  'guided.superset.thenRest': 'sitten lepo',
+  'guided.superset.next': 'Ei taukoa — suoraan: {name}',
   'guided.count.drillOne': '1 liike',
   'guided.count.drillMany': '{count} liikettä',
   'guided.count.timedDrills': '{count} ajastettua liikettä',
@@ -4396,6 +4426,7 @@ const FI: Record<I18nKey, string> = {
   'guided.walk.last': 'VIIMEKSI',
   'guided.walk.lastBorrowed': 'VIIMEKSI\nERI PÄIVÄ',
   'guided.walk.plan': '{sets} × {reps} · lepo {rest} s',
+  'guided.walk.planSuperset': '{sets} × {reps} · suoraan: {name}',
   'guided.walk.startFirst': 'Aloita sarja 1',
   'guided.walk.swap': 'Vaihda liike',
   // "Opettele", not "Opi": this tab is deliberate practice on one lift —
@@ -4430,9 +4461,9 @@ const FI: Record<I18nKey, string> = {
   'guided.reps': 'TOISTOT',
   'guided.seconds': 'SEKUNNIT',
   'guided.nextUp': 'SEURAAVAKSI',
-  'guided.runSheet.title': 'Tämä treeni',
+  'guided.runSheet.title': 'Treenin sisältö',
   'guided.runSheet.open': 'Näytä treenin sisältö',
-  'guided.runSheet.sets': '{count} sarjaa',
+  'guided.runSheet.rounds': '{count} kierrosta',
   'guided.runSheet.here': 'Olet tässä',
   'guided.runSheet.progress': '{done}/{count} sarjaa',
   'guided.action.addSet': 'Lisää sarja',
@@ -5748,6 +5779,9 @@ const FI: Record<I18nKey, string> = {
   'detail.day.dragHandle': 'Järjestä raahaamalla: {name}',
   'detail.day.a11y.swap': 'Vaihda {name}',
   'detail.day.a11y.remove': 'Poista {name} tästä päivästä',
+  'detail.day.supersetNext': 'ei taukoa',
+  'detail.day.a11y.supersetLink': 'Yhdistä supersarjaksi seuraavan liikkeen kanssa: {name}',
+  'detail.day.a11y.supersetUnlink': 'Pura supersarja: {name}',
   'detail.role.anchorLine': 'Se liike, josta kehitys mitataan. Tehdään tuoreena, pisimmät tauot, paino nousee ensimmäisenä.',
   'detail.role.supportLine': 'Tukee ankkuria toisesta kulmasta. Tästä tulee suurin osa volyymista, ja se nousee hitaammin ettei syö seuraavaa päivää.', 
   'detail.role.accessoryLine': 'Viimeistely. Kevyt kuorma, isot toistomäärät — mitataan toistoina, ei painona.',

@@ -24,6 +24,8 @@
  * different estimate on the next screen.
  */
 
+import { buildSupersetRuns, normalizeSupersetGroups } from './supersetGrouping';
+
 /** A controlled working rep, eccentric included. */
 export const SECONDS_PER_REP = 3.5;
 /** Unracking, breathing, getting set — per working set. */
@@ -46,6 +48,16 @@ export interface DurationExerciseInput {
   restSeconds: number;
   /** Skipped exercises cost nothing. */
   skipped?: boolean;
+  /**
+   * The superset this lift is done as part of.
+   *
+   * It changes the arithmetic, not just the label: a pair of three-set lifts
+   * with ninety seconds' rest rests twice, not four times, because the rest
+   * belongs to the round rather than to each lift. Counting it per lift made
+   * the estimate for a superset session roughly three minutes long per pair
+   * that nobody would ever spend.
+   */
+  supersetGroup?: string | null;
 }
 
 export interface SessionDurationInput {
@@ -63,15 +75,28 @@ export function estimateWorkingSetSeconds(reps: number, timed = false): number {
 }
 
 export function estimateSessionSeconds(input: SessionDurationInput): number {
-  const working = input.exercises.reduce((total, exercise) => {
-    if (exercise.skipped || exercise.sets <= 0) {
-      return total;
-    }
-    const setSeconds = estimateWorkingSetSeconds(exercise.reps, exercise.timed) * exercise.sets;
-    // No rest is counted after the final set of an exercise: what follows is
-    // the walk to the next one, which the setup cost already pays for.
-    const restSeconds = Math.max(0, exercise.sets - 1) * Math.max(0, exercise.restSeconds);
-    return total + EXERCISE_SETUP_SECONDS + setSeconds + restSeconds;
+  // Skipped lifts cost nothing, and a skipped half of a pair leaves the other
+  // half resting on its own — so they come out before the runs are read, the
+  // same way the player drops them before it builds its steps.
+  const doing = input.exercises.filter((exercise) => !exercise.skipped && exercise.sets > 0);
+
+  const working = buildSupersetRuns(normalizeSupersetGroups(doing)).reduce((total, run) => {
+    const members = run.indexes.map((index) => doing[index]);
+    const setSeconds = members.reduce(
+      (sum, exercise) => sum + estimateWorkingSetSeconds(exercise.reps, exercise.timed) * exercise.sets,
+      0,
+    );
+    // Walking over and loading the bar is paid per lift even in a superset:
+    // two stations is two walks, whatever order they are done in.
+    const setupSeconds = EXERCISE_SETUP_SECONDS * members.length;
+    // One rest per round but the last — the round being the whole group, and
+    // as long as its most demanding lift asks for. No rest is counted after
+    // the final round: what follows is the walk to the next block, which the
+    // setup cost already pays for.
+    const rounds = Math.max(...members.map((exercise) => exercise.sets));
+    const restEach = Math.max(0, ...members.map((exercise) => Math.max(0, exercise.restSeconds)));
+    const restSeconds = Math.max(0, rounds - 1) * restEach;
+    return total + setupSeconds + setSeconds + restSeconds;
   }, 0);
 
   return working + Math.max(0, input.warmupSeconds ?? 0) + Math.max(0, input.cooldownSeconds ?? 0);

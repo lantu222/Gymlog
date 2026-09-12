@@ -120,6 +120,7 @@ function adaptExercise(
     restSecondsMin: exercise.restSeconds && exercise.restSeconds > 0 ? exercise.restSeconds : defaultRestSeconds,
     restSecondsMax: exercise.restSeconds && exercise.restSeconds > 0 ? exercise.restSeconds : defaultRestSeconds,
     substitutionGroup: resolveSubstitutionGroup(exercise.name, exercise.id),
+    supersetGroup: exercise.supersetGroup ?? null,
   };
 }
 

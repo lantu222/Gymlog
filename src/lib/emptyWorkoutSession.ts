@@ -15,6 +15,7 @@ import {
   resolvePreviousExercisePr,
 } from './workoutCompletionSummary';
 import { buildPersistedSessionNames } from './workoutEditorNaming';
+import { buildSupersetRuns, isSupersetLinked, normalizeSupersetGroups } from './supersetGrouping';
 import { ExerciseBodyPart, ExerciseLogDraft, WorkoutTemplateDraft } from '../types/models';
 
 // ── add-sheet muscle filter ──────────────────────────────────────────────
@@ -92,6 +93,12 @@ export interface FreestyleExerciseDraft {
   restSeconds: number;
   trackedDefault: boolean;
   sets: FreestyleSetDraft[];
+  /**
+   * The superset this lift is part of — shared with the row below it when the
+   * two are done back to back. Same field, same rule and same helpers as a
+   * programme's day: see src/lib/supersetGrouping.ts.
+   */
+  supersetGroup?: string | null;
 }
 
 export interface FreestyleFinishInput {
@@ -165,6 +172,12 @@ export function freestyleRestSecondsForTick(
   exercise: FreestyleExerciseDraft,
   set: FreestyleSetDraft,
   defaultRestSeconds: number,
+  /**
+   * The whole list, so this can see whether the lift runs into the next one.
+   * Optional because the rule below it — un-ticking, and an uncountable rest —
+   * needs nothing but the lift itself.
+   */
+  exercises: ReadonlyArray<FreestyleExerciseDraft> = [],
 ): number | null {
   // Un-ticking corrects a mistake; it is not the end of a set. The caller
   // hands over the PRE-toggle set, so this is the one rule about which way
@@ -173,13 +186,40 @@ export function freestyleRestSecondsForTick(
     return null;
   }
 
+  const index = exercises.findIndex((entry) => entry.localKey === exercise.localKey);
+  const group = index === -1 ? [] : supersetGroupMembers(exercises, index);
+
+  // A superset's whole point: A1 runs straight into A2, so ticking A1 starts
+  // nothing. The rest belongs after the last lift of the group.
+  if (group.length > 1 && index < exercises.length - 1 && isSupersetLinked(exercises, index)) {
+    return null;
+  }
+
   // Nothing below a second is a rest. Both numbers can arrive unusable — a
   // stored preference reaches getExerciseTemplateDefaults unbounded, and NaN
   // survives every arithmetic step to produce a bar frozen at 0:00 that never
   // ends. A rest that cannot be counted is not started.
-  const own = Math.round(exercise.restSeconds);
+  //
+  // A superset rests as long as its most demanding lift asks for: a squat
+  // paired with a curl is still a squat.
+  const own = Math.round(
+    group.length > 1
+      ? group.reduce((longest, member) => Math.max(longest, member.restSeconds), 0)
+      : exercise.restSeconds,
+  );
   const seconds = own > 0 ? own : Math.round(defaultRestSeconds);
   return Number.isFinite(seconds) && seconds > 0 ? seconds : null;
+}
+
+/** The lifts performed as one superset with the one at `index`, itself included. */
+function supersetGroupMembers(
+  exercises: ReadonlyArray<FreestyleExerciseDraft>,
+  index: number,
+): FreestyleExerciseDraft[] {
+  const run = buildSupersetRuns(normalizeSupersetGroups(exercises)).find((candidate) =>
+    candidate.indexes.includes(index),
+  );
+  return run ? run.indexes.map((member) => exercises[member]) : [];
 }
 
 /** Done-set count across the session, for the stat strip. */
@@ -361,6 +401,10 @@ export function buildFreestyleFinish({
             restSeconds: exercise.restSeconds > 0 ? Math.round(exercise.restSeconds) : null,
             trackedDefault: exercise.trackedDefault,
             libraryItemId: exercise.libraryItemId,
+            // A free workout is saved as a template, and a superset performed
+            // in it is part of how that workout was done — dropping it here
+            // would make the saved copy a different session.
+            supersetGroup: exercise.supersetGroup ?? null,
           })),
         },
       ],

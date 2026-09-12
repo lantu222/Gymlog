@@ -120,7 +120,8 @@ export interface WorkoutTabDeps {
       | { kind: 'replace'; exerciseName: string }
       | { kind: 'add'; exerciseNames: string[] }
       | { kind: 'prescribe'; prescription: ProgramPrescription }
-      | { kind: 'reorder'; toIndex: number },
+      | { kind: 'reorder'; toIndex: number }
+      | { kind: 'supersetLink'; linked: boolean },
   ) => Promise<void>;
   /** A custom programme's own name. Ready ones keep the catalog's. */
   handleRenameCustomProgram: (workoutTemplateId: string, name: string) => void;
@@ -606,6 +607,12 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           void editProgramExercise(route.programType, route.workoutTemplateId, daySession.id, exerciseId, {
             kind: 'reorder',
             toIndex,
+          })
+        }
+        onSupersetLink={(exerciseId, linked) =>
+          void editProgramExercise(route.programType, route.workoutTemplateId, daySession.id, exerciseId, {
+            kind: 'supersetLink',
+            linked,
           })
         }
         tailoringPreferences={preferences}

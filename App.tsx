@@ -138,6 +138,7 @@ import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNaviga
 import { buildExerciseHistoryLookup } from './src/lib/workoutEditorTable';
 import { buildExercisePrLookup } from './src/lib/workoutCompletionSummary';
 import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
+import { isSupersetLinked, setSupersetLink, supersetGroupIndexes, supersetSetTargets } from './src/lib/supersetGrouping';
 import { resolveObservedRate } from './src/lib/strengthGoalPlan';
 import type { GoalFlowLift, GoalFlowProposal } from './src/screens/StrengthGoalFlowScreen';
 import { CoachChatMemory } from './src/lib/coachChatMemory';
@@ -2275,7 +2276,8 @@ function VinhaApp() {
     | { kind: 'replace'; exerciseName: string }
     | { kind: 'add'; exerciseNames: string[] }
     | { kind: 'prescribe'; prescription: ProgramPrescription }
-    | { kind: 'reorder'; toIndex: number };
+    | { kind: 'reorder'; toIndex: number }
+    | { kind: 'supersetLink'; linked: boolean };
 
   /**
    * The prescription a lift added from the library starts on.
@@ -2296,6 +2298,10 @@ function VinhaApp() {
         name,
         libraryItemId,
         ...defaults,
+        // A lift added from the library starts unpaired. Stated rather than
+        // left off, so every row in a day carries the same fields and the
+        // adjacency rule has something to read on all of them.
+        supersetGroup: null as string | null,
       };
     });
   }
@@ -2370,7 +2376,9 @@ function VinhaApp() {
                 ? { kind: 'prescribe', exerciseId, prescription: edit.prescription }
                 : edit.kind === 'reorder'
                   ? { kind: 'reorder', exerciseId, toIndex: edit.toIndex }
-                  : { kind: 'add', exercises: added },
+                  : edit.kind === 'supersetLink'
+                    ? { kind: 'supersetLink', exerciseId, linked: edit.linked }
+                    : { kind: 'add', exercises: added },
         ),
       );
       if (result.reason === 'lastExerciseInDay') {
@@ -2422,6 +2430,20 @@ function VinhaApp() {
         ? Math.max(0, Math.min(day.exercises.length - 1, Math.round(edit.toIndex)))
         : -1;
       if (!day || from === -1 || to === from) {
+        return;
+      }
+    }
+
+    // Same argument for the chain: the bottom row has nothing to run into, and
+    // a link already in the state being asked for is not an edit. Either would
+    // otherwise buy the reader a whole copy of the programme.
+    if (edit.kind === 'supersetLink') {
+      const day = template.sessions.find((session) => session.id === sessionId);
+      const from = day?.exercises.findIndex((exercise) => exercise.id === exerciseId) ?? -1;
+      if (!day || from === -1 || from >= day.exercises.length - 1) {
+        return;
+      }
+      if (isSupersetLinked(day.exercises, from) === edit.linked) {
         return;
       }
     }
@@ -2501,6 +2523,10 @@ function VinhaApp() {
               trackedDefault: false,
               orderIndex: exerciseIndex,
               libraryItemId: target && edit.kind === 'replace' ? resolveLibraryItemIdForName(name) : null,
+              // The catalog's own pairing, which since 2026-09-11 is 83 real
+              // supersets rather than none. It has to survive the copy: this
+              // is the fork a reader's first edit to a ready programme takes.
+              supersetGroup: exercise.supersetGroup ?? null,
             };
           }),
           // A ready programme is copied to be edited, so adding to one of its
@@ -2520,6 +2546,43 @@ function VinhaApp() {
           const to = Math.max(0, Math.min(exercises.length - 1, Math.round(edit.toIndex)));
           const [moved] = exercises.splice(from, 1);
           exercises.splice(to, 0, moved);
+        }
+
+        // A block's set count is one number here too. This fork runs on the
+        // FIRST edit of a ready programme, before a custom copy exists — so
+        // without this, re-dosing one half of a catalog superset wrote the
+        // copy with the two halves disagreeing, and nothing downstream repairs
+        // that (PR #93 review). The custom path does the same a few files
+        // over, in applyProgramSessionEdit.
+        if (edit.kind === 'prescribe' && session.id === sessionId) {
+          const index = exercises.findIndex((item) => item.id === exerciseId);
+          if (index !== -1) {
+            supersetGroupIndexes(exercises, index).forEach((position) => {
+              exercises[position] = {
+                ...exercises[position],
+                targetSets: edit.prescription.targetSets,
+                ...(typeof edit.prescription.restSeconds === 'number'
+                  ? { restSeconds: edit.prescription.restSeconds }
+                  : {}),
+              };
+            });
+          }
+        }
+
+        if (edit.kind === 'supersetLink' && session.id === sessionId) {
+          const index = exercises.findIndex((exercise) => exercise.id === exerciseId);
+          if (index !== -1) {
+            exercises.splice(0, exercises.length, ...setSupersetLink(exercises, index, edit.linked));
+            // Same rule the custom path applies: a block counted in rounds
+            // cannot hold two lifts that disagree about how many sets they do.
+            if (edit.linked) {
+              supersetSetTargets(exercises, (position) => exercises[position].targetSets).forEach(
+                (targetSets, position) => {
+                  exercises[position] = { ...exercises[position], targetSets };
+                },
+              );
+            }
+          }
         }
 
         return {
@@ -3436,6 +3499,9 @@ function VinhaApp() {
           reps: exercise.repMax,
           timed: isTimedTrackingMode(activeRuntimeExercises.get(exercise.id)?.trackingMode ?? 'reps_first'),
           restSeconds: activeRuntimeExercises.get(exercise.id)?.restSecondsMin ?? 90,
+          // Home quotes the same number the entry screen does, so it has to
+          // know the same thing about rests: a superset rests once per round.
+          supersetGroup: activeRuntimeExercises.get(exercise.id)?.supersetGroup ?? null,
         }));
         // Classified here, where the whole session is still in hand — Home
         // receives only the first five exercises below.
@@ -5489,6 +5555,10 @@ function VinhaApp() {
           restSeconds: exercise.restSeconds,
           trackedDefault: exercise.trackedDefault,
           libraryItemId: exercise.libraryItemId ?? null,
+          // Carried rather than shown: the editor has no superset controls, and
+          // a draft that dropped the field would quietly unpair every superset
+          // in the programme the first time somebody renamed a day here.
+          supersetGroup: exercise.supersetGroup ?? null,
         })),
       })),
     };

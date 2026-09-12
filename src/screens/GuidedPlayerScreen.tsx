@@ -81,13 +81,15 @@ import { getExerciseTeaching } from '../lib/exerciseTeaching';
 import { buildExerciseSheetHistory, LastTimeView } from '../lib/exerciseSheetHistory';
 import { ExerciseSheet } from '../components/ExerciseSheet';
 import { CtaShimmer } from '../components/CtaShimmer';
+import { SupersetBorder } from '../components/SupersetBorder';
 import { getDrillLibraryName } from '../lib/drillMedia';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { libraryLabel } from '../lib/libraryLabel';
 import { localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { classifySessionFocus, getDefaultCooldown, getDefaultWarmup } from '../lib/homeSessionHero';
-import { formatShortDate, formatWeight, parseNumberInput, removeTrailingZeros } from '../lib/format';
+import { formatSetScheme, formatShortDate, formatWeight, parseNumberInput, removeTrailingZeros } from '../lib/format';
 import { estimateSessionMinutes } from '../lib/sessionDuration';
+import { buildSupersetRuns, normalizeSupersetGroups, supersetGroupIndexes, supersetPositions } from '../lib/supersetGrouping';
 import { t } from '../lib/i18n';
 import { haptics } from '../utils/haptics';
 import { subscribeRestActions, useRestEndAlert } from '../hooks/useRestEndAlert';
@@ -1185,6 +1187,7 @@ export function GuidedPlayerScreen({
     // skipped is `completed` for saving (the set counts) but still out of the
     // plan (nothing left to do). See isGuidedExerciseOut.
     skipped: isGuidedExerciseOut(exercise),
+    supersetGroup: exercise.supersetGroup ?? null,
   }));
   const stepPlan = useMemo(
     () =>
@@ -1923,6 +1926,59 @@ export function GuidedPlayerScreen({
   const cooldownStart = findGuidedPhaseStart(steps, 'cooldown');
   const activeExercises = exercises.filter((exercise) => exercise.status !== 'skipped' && exercise.sets.length > 0);
   const totalSets = activeExercises.reduce((sum, exercise) => sum + exercise.sets.length, 0);
+  // Badges for the entry screen's list, over the lifts it actually shows. A
+  // lift that is OUT of the plan — skipped, or finished early with the rest of
+  // its sets skipped — is unpaired first, on exactly the predicate the step
+  // list uses: the entry screen must not promise an A2 the player will not
+  // ask for.
+  /**
+   * The lifts the plan will actually ask for, with anything out of it — skipped,
+   * or finished early with the rest of its sets skipped — unpaired first. The
+   * entry list, the walk-up card and the set screen all read from this one
+   * list, so none of them can promise a partner the step list will not ask for.
+   */
+  const plannedExercises = activeExercises.map((exercise) =>
+    isGuidedExerciseOut(exercise) ? { ...exercise, supersetGroup: null } : exercise,
+  );
+  const entrySupersets = supersetPositions(plannedExercises);
+  /**
+   * The entry table's rows in runs, so a pair is one box there too. Through
+   * the same normalizer the badges use: the run's group id is a React key
+   * here, and one id on two runs would be two rows claiming one key.
+   */
+  const entrySupersetRuns = buildSupersetRuns(normalizeSupersetGroups(plannedExercises));
+  /**
+   * The lift this one runs straight into, by slot — which is how every step
+   * names a lift. Null when nothing follows inside the block, and absent
+   * entirely for a lift done on its own.
+   */
+  const supersetNextBySlot = new Map<string, string | null>();
+  activeExercises.forEach((exercise, index) => {
+    const position = entrySupersets[index];
+    if (!position?.groupId) {
+      return;
+    }
+    supersetNextBySlot.set(
+      exercise.slotId,
+      position.hasNextInGroup ? activeExercises[index + 1]?.exerciseName ?? null : null,
+    );
+  });
+  /**
+   * The whole group a lift belongs to, in the order it is performed — what the
+   * set screen needs to say "this one, then that one, then rest" without the
+   * reader opening anything.
+   */
+  const supersetGroupBySlot = new Map<string, { members: Array<{ slotId: string; name: string }> }>();
+  buildSupersetRuns(plannedExercises).forEach((run) => {
+    if (run.indexes.length < 2) {
+      return;
+    }
+    const members = run.indexes.map((index) => ({
+      slotId: plannedExercises[index].slotId,
+      name: plannedExercises[index].exerciseName,
+    }));
+    members.forEach((member) => supersetGroupBySlot.set(member.slotId, { members }));
+  });
   // The named constant, not a literal 3 — this is the same ready-countdown
   // estimateRoutineBlockSeconds adds for Home, and the two have to move together.
   const warmupSecondsTotal = warmupDrills.reduce((sum, drill) => sum + drill.seconds + GUIDED_READY_SECONDS, 0);
@@ -1936,6 +1992,10 @@ export function GuidedPlayerScreen({
       reps: exercise.sets[0]?.plannedRepsMax ?? 8,
       timed: isTimedTrackingMode(exercise.trackingMode),
       restSeconds: exercise.restSecondsMin,
+      // A superset rests once per round, not once per lift — see
+      // estimateSessionSeconds. Without this the entry screen quotes a session
+      // several minutes longer than the one it is about to run.
+      supersetGroup: exercise.supersetGroup ?? null,
     })),
     warmupSeconds: warmupSecondsTotal,
     cooldownSeconds: cooldownSecondsTotal,
@@ -2144,20 +2204,30 @@ export function GuidedPlayerScreen({
           : t(language, target.timed ? 'guided.target.seconds' : 'guided.target.reps', {
               reps: target.reps,
             }),
-      planLine: t(language, 'guided.walk.plan', {
-        sets: instance.sets.length,
-        reps: target.reps,
-        /*
-         * The LOWER bound — that is what the timer runs.
-         *
-         * `buildGuidedSteps` is handed `restSeconds: exercise.restSecondsMin`,
-         * so a Back Squat prescribed 120-180 rests for 120. This card said 180
-         * and the ring thirty seconds later said 2:00 (review, PR #57). The
-         * comment that used to sit here claimed the opposite, which is why the
-         * number went unchecked.
-         */
-        rest: instance.restSecondsMin,
-      }),
+      // A lift that runs into the next one has no rest after it, so the card
+      // names what does follow. Quoting the lift's own rest here would be the
+      // same promise the day view stopped making — and worse on this screen,
+      // which is the last thing read before walking to the rack.
+      planLine: supersetNextBySlot.get(step.slotId)
+        ? t(language, 'guided.walk.planSuperset', {
+            sets: instance.sets.length,
+            reps: target.reps,
+            name: exerciseNameLabel(language, supersetNextBySlot.get(step.slotId) ?? ''),
+          })
+        : t(language, 'guided.walk.plan', {
+            sets: instance.sets.length,
+            reps: target.reps,
+            /*
+             * The LOWER bound — that is what the timer runs.
+             *
+             * `buildGuidedSteps` is handed `restSeconds: exercise.restSecondsMin`,
+             * so a Back Squat prescribed 120-180 rests for 120. This card said 180
+             * and the ring thirty seconds later said 2:00 (review, PR #57). The
+             * comment that used to sit here claimed the opposite, which is why the
+             * number went unchecked.
+             */
+            rest: instance.restSecondsMin,
+          }),
       // The set card's heading makes the same distinction one step later;
       // the number must not change its story between the two screens.
       lastLabel: t(language, last?.borrowed ? 'guided.walk.lastBorrowed' : 'guided.walk.last'),
@@ -2291,7 +2361,11 @@ export function GuidedPlayerScreen({
                       key: 'warmup',
                       label: t(language, 'guided.phase.warmup'),
                       sub: `${t(language, 'guided.count.timedDrills', { count: warmupDrills.length })} · ${t(language, 'guided.entry.duration', { min: Math.max(1, Math.round(warmupSecondsTotal / 60)) })}`,
-                      rows: warmupDrills.map((drill) => ({ name: drill.name, sets: '', reps: '', load: formatDrillLength(drill.seconds) })),
+                      groups: warmupDrills.map((drill, index) => ({
+                        key: `warmup_${index}`,
+                        superset: false,
+                        rows: [{ name: drill.name, sets: '', reps: '', load: formatDrillLength(drill.seconds) }],
+                      })),
                     }
                   : null,
                 workStart !== null
@@ -2303,22 +2377,33 @@ export function GuidedPlayerScreen({
                           ? t(language, 'guided.count.exerciseOne')
                           : t(language, 'guided.count.exerciseMany', { count: activeExercises.length })
                       } · ${t(language, 'guided.count.sets', { count: totalSets })}`,
-                      rows: activeExercises.map((exercise) => ({
-                        // Through the same translation every other name on
-                        // this screen goes through — this row listed "Back
-                        // Squat" under a Finnish heading while the player
-                        // itself said Takakyykky.
-                        name: exerciseNameLabel(language, exercise.exerciseName),
-                        ...buildOverviewColumns(
-                          {
-                            exerciseName: exercise.exerciseName,
-                            setCount: exercise.sets.length,
-                            repsLabel: formatRepRangeLabel(exercise.sets[0]),
-                            timed: isTimedTrackingMode(exercise.trackingMode),
-                            loadKg: resolveTarget(exercise.slotId, 0)?.loadKg ?? null,
-                          },
-                          unitPreference,
-                        ),
+                      // In runs, so a superset is one box on this table too.
+                      // Two lifts that will be done back to back are read
+                      // before the session starts, which is when knowing it
+                      // still changes what you set up.
+                      groups: entrySupersetRuns.map((run) => ({
+                        key: run.groupId ?? `solo_${run.indexes[0]}`,
+                        superset: run.groupId !== null && run.indexes.length > 1,
+                        rows: run.indexes.map((exerciseIndex) => {
+                          const exercise = activeExercises[exerciseIndex];
+                          return {
+                            // Through the same translation every other name on
+                            // this screen goes through — this row listed "Back
+                            // Squat" under a Finnish heading while the player
+                            // itself said Takakyykky.
+                            name: exerciseNameLabel(language, exercise.exerciseName),
+                            ...buildOverviewColumns(
+                              {
+                                exerciseName: exercise.exerciseName,
+                                setCount: exercise.sets.length,
+                                repsLabel: formatRepRangeLabel(exercise.sets[0]),
+                                timed: isTimedTrackingMode(exercise.trackingMode),
+                                loadKg: resolveTarget(exercise.slotId, 0)?.loadKg ?? null,
+                              },
+                              unitPreference,
+                            ),
+                          };
+                        }),
                       })),
                     }
                   : null,
@@ -2327,7 +2412,11 @@ export function GuidedPlayerScreen({
                       key: 'cooldown',
                       label: t(language, 'guided.phase.cooldown'),
                       sub: `${t(language, 'guided.count.stretchMany', { count: cooldownDrills.length })} · ${cooldownSecondsTotal < 90 ? `~${t(language, 'logger.secondsValue', { count: Math.round(cooldownSecondsTotal / 5) * 5 })}` : t(language, 'guided.entry.duration', { min: Math.round(cooldownSecondsTotal / 60) })}`,
-                      rows: cooldownDrills.map((drill) => ({ name: drill.name, sets: '', reps: '', load: formatDrillLength(drill.seconds) })),
+                      groups: cooldownDrills.map((drill, index) => ({
+                        key: `cooldown_${index}`,
+                        superset: false,
+                        rows: [{ name: drill.name, sets: '', reps: '', load: formatDrillLength(drill.seconds) }],
+                      })),
                     }
                   : null,
               ]
@@ -2338,7 +2427,11 @@ export function GuidedPlayerScreen({
                     key: string;
                     label: string;
                     sub: string;
-                    rows: Array<{ name: string; sets: string; reps: string; load: string }>;
+                    groups: Array<{
+                      key: string;
+                      superset: boolean;
+                      rows: Array<{ name: string; sets: string; reps: string; load: string }>;
+                    }>;
                   } => item !== null,
                 )
                 .map((phase, phaseIndex) => {
@@ -2404,20 +2497,37 @@ export function GuidedPlayerScreen({
                               </View>
                             </View>
                           ) : null}
-                          {phase.rows.map((row, rowIndex) => (
-                            <View key={rowIndex} style={styles.phaseRowGroup}>
-                              <View style={styles.phaseRow}>
-                                <Text style={styles.phaseRowName}>
-                                  {row.name}
-                                </Text>
-                                {row.sets || row.reps ? (
-                                  <>
-                                    <Text style={[styles.phaseCol, styles.phaseColSets]}>{row.sets}</Text>
-                                    <Text style={[styles.phaseCol, styles.phaseColReps]}>{row.reps}</Text>
-                                  </>
-                                ) : null}
-                                <Text style={[styles.phaseCol, styles.phaseColLoad]}>{row.load}</Text>
-                              </View>
+                          {phase.groups.map((group) => (
+                            <View
+                              key={group.key}
+                              style={group.superset ? styles.phaseSupersetGroup : undefined}
+                            >
+                              {group.superset ? (
+                                <>
+                                  <SupersetBorder radius={12} />
+                                  <View style={styles.phaseSupersetPill}>
+                                    <Text style={styles.phaseSupersetPillText}>
+                                      {t(language, 'guided.superset.pill')}
+                                    </Text>
+                                  </View>
+                                </>
+                              ) : null}
+                              {group.rows.map((row, rowIndex) => (
+                                <View key={rowIndex} style={styles.phaseRowGroup}>
+                                  <View style={styles.phaseRow}>
+                                    <Text style={styles.phaseRowName}>
+                                      {row.name}
+                                    </Text>
+                                    {row.sets || row.reps ? (
+                                      <>
+                                        <Text style={[styles.phaseCol, styles.phaseColSets]}>{row.sets}</Text>
+                                        <Text style={[styles.phaseCol, styles.phaseColReps]}>{row.reps}</Text>
+                                      </>
+                                    ) : null}
+                                    <Text style={[styles.phaseCol, styles.phaseColLoad]}>{row.load}</Text>
+                                  </View>
+                                </View>
+                              ))}
                             </View>
                           ))}
                         </View>
@@ -2841,6 +2951,7 @@ export function GuidedPlayerScreen({
               stepIndex={stepIndex}
               step={step}
               exercise={exerciseBySlot.get(step.slotId) ?? null}
+              superset={supersetGroupBySlot.get(step.slotId) ?? null}
               language={language}
               paused={paused}
               resolveTarget={resolveTarget}
@@ -2862,18 +2973,35 @@ export function GuidedPlayerScreen({
                 workout.addSet(step.slotId);
               }}
               /**
-               * Only when there is a set to take: more than one, and the last
-               * one still pending. A control that refuses on press is a
-               * control the reader tries twice; the reducer refuses too, so
-               * this decides what is DRAWN, not what is allowed.
+               * Only when there is a round to take: every lift in the block
+               * has more than one set and its last one is still pending. A
+               * control that refuses on press is a control the reader tries
+               * twice — and inside a superset the reducer takes the round off
+               * BOTH lifts or neither, so asking only about this one drew a
+               * live button that did nothing (PR #93 review): after A1×2 and
+               * A2×1 of a two-round block, A2 looked removable and A1 was not.
+               *
+               * For a lift on its own the block is that lift, so this reads
+               * exactly as it did before.
                */
               onRemoveSet={
                 (() => {
-                  const exercise = workout.activeSession?.exercises.find(
-                    (candidate) => candidate.slotId === step.slotId,
+                  const exercises = workout.activeSession?.exercises ?? [];
+                  const index = exercises.findIndex((candidate) => candidate.slotId === step.slotId);
+                  if (index === -1) {
+                    return null;
+                  }
+                  const block = supersetGroupIndexes(
+                    exercises.map((candidate) => ({
+                      supersetGroup: isGuidedExerciseOut(candidate) ? null : candidate.supersetGroup ?? null,
+                    })),
+                    index,
                   );
-                  const sets = exercise?.sets ?? [];
-                  if (sets.length <= 1 || sets[sets.length - 1]?.status !== 'pending') {
+                  const removable = block.every((position) => {
+                    const sets = exercises[position]?.sets ?? [];
+                    return sets.length > 1 && sets[sets.length - 1]?.status === 'pending';
+                  });
+                  if (!removable) {
                     return null;
                   }
                   return () => {
@@ -3270,10 +3398,35 @@ export function GuidedPlayerScreen({
           <Text style={styles.sheetTitle}>{t(language, 'guided.runSheet.title')}</Text>
           <ScrollView style={{ flexGrow: 0, flexShrink: 1 }} showsVerticalScrollIndicator={false}>
             {buildGuidedRunSheet(stepPlan, stepIndex).map((item) => {
-              const lift = item.slotId ? exerciseBySlot.get(item.slotId) : undefined;
-              const logged = lift ? formatLoggedSetsLine(lift.sets, isTimedTrackingMode(lift.trackingMode)) : '';
+              // Whether the lift this rest belongs to has anything logged in
+              // it. Read off the step rather than off the row: a superset row
+              // holds several lifts, and the set you may want to correct is
+              // the one you just did, not the first one in the block.
+              const restingLift = step.type === 'rest' ? exerciseBySlot.get(step.slotId) : undefined;
+              const restingLogged = restingLift
+                ? formatLoggedSetsLine(restingLift.sets, isTimedTrackingMode(restingLift.trackingMode))
+                : '';
+              const isSuperset = item.members.length > 1;
               return (
-              <View key={item.groupIndex} style={styles.runRow}>
+              <View
+                key={item.groupIndex}
+                style={[styles.runRow, isSuperset && styles.runRowSuperset]}
+              >
+                {/* Two lights running the outline, in opposite directions:
+                    one boundary, two lifts inside it, no rest between them.
+                    The label sits inside that boundary rather than on each
+                    row, because the box is what says "these go together" —
+                    A1/A2 on every line was the same fact stated twice. */}
+                {isSuperset ? (
+                  <>
+                    <SupersetBorder radius={14} />
+                    <View style={styles.runSupersetPill}>
+                      <Text style={styles.runSupersetPillText}>
+                        {t(language, 'guided.superset.pill')}
+                      </Text>
+                    </View>
+                  </>
+                ) : null}
                 {/* Done / here / to come, as a mark rather than as a colour:
                     the dark theme flattens the accents into each other. */}
                 <View
@@ -3286,28 +3439,57 @@ export function GuidedPlayerScreen({
                   {item.status === 'done' ? <GPIcon name="check" size={11} color="#fff" /> : null}
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text
-                    style={[
-                      styles.runName,
-                      item.status === 'current' && { color: theme.purple },
-                      item.status === 'done' && { color: theme.muted },
-                    ]}
-                    numberOfLines={2}
-                  >
-                    {exerciseNameLabel(language, item.name)}
-                  </Text>
+                  {/* A superset is several lifts in one row of the sheet, and
+                      each of them gets its name and its logged sets — a pair
+                      drawn as its first lift hides the one you are about to be
+                      asked for. An ordinary lift is a row of exactly one. */}
+                  {item.members.map((member) => {
+                    const lift = member.slotId ? exerciseBySlot.get(member.slotId) : undefined;
+                    // What is still to do, not what was lifted. The line under each name
+                    // carried the logged weights until 2026-09-11, when the reader
+                    // asked for "pelkät tulevat sarjat ja toistot" — a sheet read
+                    // mid-session is read to find out what is coming, and the weight
+                    // you just used is on the screen behind it.
+                    //
+                    // Not inside a superset, though. A set count per lift asks the
+                    // reader to reconcile "4 × 8" with "3 × 10" inside one box, and
+                    // the answer is that the box is four ROUNDS — which the box
+                    // already says, once, on the right (user 2026-09-11: "ehkä
+                    // poistetaan sittenkin molemmat tilastot supersetistä ja se on
+                    // vain 4 kierrosta").
+                    const memberPlan =
+                      !isSuperset && lift?.sets[0]
+                        ? formatSetScheme(
+                            lift.sets.length,
+                            lift.sets[0].plannedRepsMin,
+                            lift.sets[0].plannedRepsMax,
+                            lift.trackingMode,
+                          )
+                        : '';
+                    return (
+                      <View key={member.slotId ?? member.name}>
+                        <Text
+                          style={[
+                            styles.runName,
+                            item.status === 'current' && { color: theme.purple },
+                            item.status === 'done' && { color: theme.muted },
+                          ]}
+                          numberOfLines={2}
+                        >
+                          {exerciseNameLabel(language, member.name)}
+                        </Text>
+                        {memberPlan ? <Text style={styles.runPlan}>{memberPlan}</Text> : null}
+                      </View>
+                    );
+                  })}
                   {item.status === 'current' ? (
                     <Text style={styles.runHere}>{t(language, 'guided.runSheet.here')}</Text>
                   ) : null}
-                  {/* What has been logged in this lift so far: the sheet listed
-                      the session's shape and nothing of what had happened in it
-                      (user 2026-09-09). */}
-                  {logged ? <Text style={styles.runLogged}>{logged}</Text> : null}
                   {/* Correcting the set just logged, from the sheet that shows
                       it: the rest screen's own card carried this link until the
                       card went. Only while resting — that is the one step
                       whose "just logged" set is unambiguous. */}
-                  {item.status === 'current' && logged && step.type === 'rest' && !step.recoveryKind ? (
+                  {item.status === 'current' && restingLogged && step.type === 'rest' && !step.recoveryKind ? (
                     <Pressable
                       accessibilityRole="button"
                       hitSlop={8}
@@ -3321,9 +3503,9 @@ export function GuidedPlayerScreen({
                     </Pressable>
                   ) : null}
                 </View>
-                {item.setCount ? (
+                {item.setCount && item.members.length > 1 ? (
                   <Text style={styles.runMeta}>
-                    {t(language, 'guided.runSheet.sets', { count: item.setCount })}
+                    {t(language, 'guided.runSheet.rounds', { count: item.setCount })}
                   </Text>
                 ) : null}
               </View>
@@ -3665,6 +3847,7 @@ function SetStepView({
   stepIndex,
   step,
   exercise,
+  superset,
   language,
   paused,
   resolveTarget,
@@ -3679,6 +3862,8 @@ function SetStepView({
   stepIndex: number;
   step: Extract<GuidedStep, { type: 'set' }>;
   exercise: WorkoutExerciseInstance | null;
+  /** The whole superset this set belongs to, in order. Null for a lift on its own. */
+  superset: { members: Array<{ slotId: string; name: string }> } | null;
   language: AppLanguage;
   paused: boolean;
   /** Opens the exercise sheet; the card is the only door to it. */
@@ -3781,6 +3966,38 @@ function SetStepView({
         onPress={dial ? () => setDial(null) : undefined}
         accessible={false}
       >
+        {/* First child, so the line is painted under everything: that is what
+            lets the label break it where it sits, the way a fieldset legend
+            breaks its own frame. It fills the screen, takes no taps, and
+            moves no layout. */}
+        {superset ? <SupersetBorder radius={22} inset={8} /> : null}
+        {/* "This is a superset" has to arrive before the set does, not after
+            the rest fails to appear. The lifts are named in the order they
+            are performed, the one you are on is the dark one, and the rest at
+            the end of the round is the third thing on the line. */}
+        {superset ? (
+          <>
+            {/* The label straddles the top line and carries the ground colour,
+                so the line stops at one edge of the word and starts at the
+                other — a frame with its own legend. */}
+            <View style={styles.setSupersetPill}>
+              <Text style={styles.setSupersetPillText}>{t(language, 'guided.superset.pill')}</Text>
+            </View>
+            {/* And the order of play sits under the line, not on it. */}
+            <Text style={styles.setSupersetFlow} numberOfLines={2}>
+              {superset.members.map((member, index) => (
+                <Text
+                  key={member.slotId}
+                  style={member.slotId === step.slotId ? styles.setSupersetFlowNow : undefined}
+                >
+                  {exerciseNameLabel(language, member.name)}
+                  {index < superset.members.length - 1 ? '  ·  ' : ''}
+                </Text>
+              ))}
+              {`  ·  ${t(language, 'guided.superset.thenRest')}`}
+            </Text>
+          </>
+        ) : null}
         {/* The lift, always on screen and always the way in.
             The panels used to hang off the header's right-hand button, which
             put the answer to "how much did I lift last time" behind a control
@@ -4202,6 +4419,28 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 8,
     marginBottom: 6,
   },
+  // The box a paired row lives in on the entry table, and the label that
+  // straddles its top line.
+  phaseSupersetGroup: {
+    borderRadius: 12,
+    paddingTop: 8,
+    paddingBottom: 2,
+    marginVertical: 6,
+  },
+  phaseSupersetPill: {
+    position: 'absolute',
+    top: -7,
+    left: 20,
+    backgroundColor: theme.surface,
+    paddingHorizontal: 6,
+  },
+  phaseSupersetPillText: {
+    color: theme.purple,
+    fontSize: 9,
+    lineHeight: 12,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+  },
   phaseRowGroup: {
     paddingLeft: 16,
     paddingRight: 4,
@@ -4536,6 +4775,43 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   // per set, and a reader can keep adding sets. They give way first, and the
   // counter beside them still says how many there are.
   setDots: { flexDirection: 'row', gap: 5, flexShrink: 1, overflow: 'hidden' },
+  // Above the lift, because it changes what the next tap means: log this and
+  // you are walking to the other station, not starting a rest.
+  setSupersetPill: {
+    // Centred on the frame's top line, which runs 8 in from the edge.
+    position: 'absolute',
+    top: -2,
+    left: 26,
+    borderRadius: 999,
+    borderWidth: 1.4,
+    borderColor: theme.purple,
+    // Filled with the screen's own ground, which is what breaks the line
+    // behind it instead of letting it run across the word.
+    backgroundColor: theme.bg,
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+  },
+  setSupersetPillText: {
+    fontSize: 9.5,
+    lineHeight: 13,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+    color: theme.purple,
+  },
+  setSupersetFlow: {
+    marginTop: 24,
+    marginBottom: 12,
+    paddingHorizontal: 22,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '700',
+    color: theme.faint,
+  },
+  /** The lift the screen is asking for, among the ones it names. */
+  setSupersetFlowNow: {
+    color: theme.ink,
+    fontWeight: '900',
+  },
   setDot: {
     width: 19,
     height: 19,
@@ -5002,6 +5278,31 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.border,
   },
+  // A superset is one box holding several lifts: the row keeps its shape and
+  // gains room for the outline to run without touching the text.
+  runRowSuperset: {
+    borderBottomWidth: 0,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    marginVertical: 4,
+    borderRadius: 14,
+  },
+  // Inside the boundary, not on it — the line has to be able to pass behind
+  // nothing.
+  runSupersetPill: {
+    position: 'absolute',
+    top: -7,
+    left: 14,
+    backgroundColor: theme.surface,
+    paddingHorizontal: 6,
+  },
+  runSupersetPillText: {
+    fontSize: 9.5,
+    lineHeight: 13,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+    color: theme.purple,
+  },
   // Hollow until reached, filled when it is where you are, ticked when done.
   runDot: {
     width: 20,
@@ -5019,11 +5320,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.ink,
   },
   runEdit: { marginTop: 2, fontSize: 13, fontWeight: '800', color: theme.highlight },
-  runLogged: {
+  runPlan: {
     marginTop: 2,
     fontSize: 12.5,
     fontWeight: '700',
-    color: theme.greenInk,
+    color: theme.muted,
     fontVariant: ['tabular-nums'],
   },
   runHere: {

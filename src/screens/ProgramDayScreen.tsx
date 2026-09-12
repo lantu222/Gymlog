@@ -30,6 +30,8 @@ import {
 import { I18nKey, t } from '../lib/i18n';
 import { useDragHold } from '../hooks/useDragHold';
 import { ProgramDetailSessionItem } from '../lib/programDetails';
+import { buildSupersetRuns, normalizeSupersetGroups, supersetPositions } from '../lib/supersetGrouping';
+import { SupersetBorder } from '../components/SupersetBorder';
 import {
   canStepProgramPrescription,
   ProgramPrescription,
@@ -89,6 +91,37 @@ function SwapGlyph({ theme }: { theme: Theme }) {
   );
 }
 
+/**
+ * Run this lift straight into the next one, or stop doing so.
+ *
+ * A chain, whole when the two are linked and broken when they are not — the
+ * same glyph in both states, because the button is a toggle and a reader who
+ * has to compare two different drawings to find out which one they are looking
+ * at is reading, not tapping. Orange, like every other pressable here.
+ */
+function ChainGlyph({ theme, linked }: { theme: Theme; linked: boolean }) {
+  return (
+    <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9.5 14.5l5-5"
+        stroke={linked ? theme.highlight : theme.faint}
+        strokeWidth={2.1}
+        strokeLinecap="round"
+      />
+      <Path
+        d="M13.5 6.5l1.5-1.5a3.5 3.5 0 014.95 4.95L18.5 11.5M10.5 17.5L9 19a3.5 3.5 0 01-4.95-4.95L5.5 12.5"
+        stroke={linked ? theme.highlight : theme.muted}
+        strokeWidth={2.1}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {linked ? null : (
+        <Path d="M4 20L20 4" stroke={theme.muted} strokeWidth={1.8} strokeLinecap="round" />
+      )}
+    </Svg>
+  );
+}
+
 /** Take it off the day. Red, because it is the row's one permanent action. */
 function TrashGlyph({ theme }: { theme: Theme }) {
   return (
@@ -117,6 +150,13 @@ const roleTints = (theme: Theme): Record<string, { bg: string; ink: string }> =>
         secondary: { bg: '#E4EEFF', ink: '#2C4E9A' },
         accessory: { bg: '#F2F1F5', ink: '#7A7387' },
       };
+
+/**
+ * What one edge of a superset box adds above or below the rows inside it:
+ * `supersetGroup`'s marginVertical plus its paddingVertical. The drag charges
+ * it per boundary crossed, because no row's onLayout reports it.
+ */
+const SUPERSET_BOX_EDGE = 12;
 
 interface ProgramDayScreenProps {
   programTitle: string;
@@ -175,6 +215,14 @@ interface ProgramDayScreenProps {
    * list. One call per drag, however far it travelled.
    */
   onReorderExercise?: (exerciseId: string, toIndex: number) => void;
+  /**
+   * Run this lift straight into the one below it, or stop doing so.
+   *
+   * The day view is where a superset has to be made, not the live session:
+   * the programme is what the reader trains from, and a pairing that existed
+   * only inside one session would be gone the next time the day came round.
+   */
+  onSupersetLink?: (exerciseId: string, linked: boolean) => void;
   tailoringPreferences?: Parameters<typeof buildSwapOptionsForSlot>[2];
   onBack: () => void;
 }
@@ -197,6 +245,7 @@ export function ProgramDayScreen({
   onKeepSwap,
   onPrescribe,
   onReorderExercise,
+  onSupersetLink,
   tailoringPreferences,
   onBack,
 }: ProgramDayScreenProps) {
@@ -260,7 +309,11 @@ export function ProgramDayScreen({
       if (height === 0 || remaining < height / 2) {
         break;
       }
-      remaining -= height;
+      // A superset box costs vertical space that no row's onLayout reports,
+      // so a walk that only summed row heights committed the reorder before
+      // the card had reached the row it was aimed at, drifting further with
+      // every block crossed (PR #93 review).
+      remaining -= height + supersetBoundarySpacing(next - step, next);
       target = next;
     }
     return target;
@@ -469,6 +522,62 @@ export function ProgramDayScreen({
 
   const canTune = Boolean(onPrescribe);
 
+  // A badge per row, aligned index for index with the day's exercises: 'A1',
+  // 'A2' on the lifts that run together, null on the ones that do not.
+  const supersets = useMemo(() => supersetPositions(session.exercises), [session.exercises]);
+  /**
+   * The space a superset box puts between two rows on top of their own
+   * heights: its margin above and below, and its padding inside. Charged once
+   * per boundary the drag crosses — leaving a block, entering one, or both at
+   * once between two adjacent blocks.
+   */
+  const supersetBoundarySpacing = (fromIndex: number, toIndex: number) => {
+    const before = supersets[fromIndex]?.groupId ?? null;
+    const after = supersets[toIndex]?.groupId ?? null;
+    if (before === after) {
+      return 0;
+    }
+    return (before === null ? 0 : SUPERSET_BOX_EDGE) + (after === null ? 0 : SUPERSET_BOX_EDGE);
+  };
+
+  /** The day as runs, so two lifts done together are drawn inside one box. */
+  const supersetRuns = useMemo(
+    () => buildSupersetRuns(normalizeSupersetGroups(session.exercises)),
+    [session.exercises],
+  );
+  /**
+   * The rest each row should STATE, by index.
+   *
+   * A block rests as long as its most demanding lift asks for — that is the
+   * rule every consumer uses, from the player's step list to the session
+   * estimate. The last lift of a pair was stating its own rest instead, so a
+   * curl paired under a squat read "tauko 45–75 s" while the round actually
+   * rested two minutes (PR #93 review).
+   */
+  const blockRestLabels = useMemo(() => {
+    const labels = new Map<number, string>();
+    supersetRuns.forEach((run) => {
+      if (run.groupId === null || run.indexes.length < 2) {
+        return;
+      }
+      const longest = run.indexes.reduce((best, index) =>
+        session.exercises[index].restSeconds > session.exercises[best].restSeconds ? index : best,
+      );
+      run.indexes.forEach((index) => labels.set(index, session.exercises[longest].restLabel));
+    });
+    return labels;
+  }, [session.exercises, supersetRuns]);
+
+  /**
+   * Whether the row the sheet is open on runs straight into the one below it.
+   * Read from the same badges the list draws, so the sheet and the row behind
+   * it cannot disagree about whether a rest follows.
+   */
+  const tuneRowLinkedToNext = useMemo(() => {
+    const index = session.exercises.findIndex((exercise) => exercise.id === tuneExerciseId);
+    return index !== -1 && supersets[index]?.hasNextInGroup === true;
+  }, [session.exercises, supersets, tuneExerciseId]);
+
   /** The row the sheet is open on, plus where in the day it currently sits. */
   const tuneRow = useMemo(() => {
     const index = session.exercises.findIndex((exercise) => exercise.id === tuneExerciseId);
@@ -526,103 +635,18 @@ export function ProgramDayScreen({
         tuneDraft.restSeconds !== tuneStart.restSeconds),
   );
 
-  return (
-    <View style={styles.screen}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        // Two vertical gestures cannot share one finger: the list holds
-        // still while a row is being dragged.
-        scrollEnabled={dragIndex === null}
-      >
-        {/*
-          The same treatment the programme page got: title first, numbers
-          under it, nothing painted (#bugs 2026-08-27). Only the gradient
-          went — the day's name and its two numbers are what the block was
-          carrying, and they stay, as does everything under it.
-        */}
-        <View style={styles.headerRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t(language, 'common.back')}
-            hitSlop={10}
-            onPress={onBack}
-            style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.6 }]}
-          >
-            <Svg viewBox="0 0 24 24" width={18} height={18}>
-              <Path
-                d="M15 6l-6 6 6 6"
-                stroke={theme.ink}
-                strokeWidth={2.4}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-            </Svg>
-          </Pressable>
-        </View>
-        {/*
-          The day, named exactly as the row you tapped named it.
-
-          This said the PROGRAMME's name in the big type with the session
-          underneath, so the list said "Päivä 1. Rinta" and the page it opened
-          said "Chest Day / Rinta" — the same day under two names, one of them
-          new to the reader ("nyt tähän pelkästään se mitä on klikannut",
-          2026-08-27). The programme's name is on the page you came from and
-          is not repeated here.
-        */}
-        <Text style={styles.pageTitle} numberOfLines={2}>
-          {formatPlanSessionTitle(session, dayNumber - 1, programTitle, language)}
-        </Text>
-
-        {/* Three accordions in Home's shape: the warm-up used to be a plain
-            paragraph card next to a list of exercise cards, which made the
-            same session look like two different screens. */}
-        <Section
-          styles={styles}
-          theme={theme}
-          title={t(language, 'detail.day.warmup')}
-          count={t(language, 'detail.day.warmupMeta')}
-          open={openSections.warmup}
-          onToggle={() => setOpenSections((current) => ({ ...current, warmup: !current.warmup }))}
-        >
-          {warmup.drills.map((drill, index) => (
-            <View key={drill.name} style={styles.drillRow}>
-              <View style={styles.drillChip}>
-                <Text style={styles.drillChipText}>{index + 1}</Text>
-              </View>
-              <Text style={styles.drillName} numberOfLines={2}>
-                {drill.name}
-              </Text>
-              <Text style={styles.drillScheme}>{drill.schemeLabel}</Text>
-              {onSwapRoutineDrill ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t(language, 'home.a11y.swapDrill', { name: drill.name })}
-                  hitSlop={8}
-                  onPress={() => {
-                    setDrillPick(null);
-                    setDrillSwap({ kind: 'warmup', index });
-                  }}
-                  style={({ pressed }) => [styles.rowAction, pressed && styles.swapOptionPressed]}
-                >
-                  <SwapGlyph theme={theme} />
-                </Pressable>
-              ) : null}
-            </View>
-          ))}
-        </Section>
-
-        <Section
-          styles={styles}
-          theme={theme}
-          title={t(language, 'detail.day.exercises')}
-          count={`${session.totalSets} ${t(language, 'detail.day.sets').toLowerCase()}`}
-          open={openSections.exercises}
-          onToggle={() => setOpenSections((current) => ({ ...current, exercises: !current.exercises }))}
-        >
-        <View style={styles.exerciseList}>
-          {session.exercises.map((exercise, index) => {
+  /**
+   * One row of the day, drawn the same whether it stands alone or sits
+   * inside a superset.
+   *
+   * Lifted out of the list so the list can group: two lifts done back to
+   * back are drawn inside one boundary with one label instead of an A1 and
+   * an A2 on every line (user 2026-09-11). The row still takes its own index,
+   * so the drag still measures and moves the same rows — but the box around a
+   * pair adds space no row reports, and `dragTargetFor` charges that per
+   * boundary it crosses. See SUPERSET_BOX_EDGE.
+   */
+  const renderExerciseRow = (exercise: ProgramDetailSessionItem['exercises'][number], index: number) => {
             const dragging = dragIndex === index;
             // While a row travels, the rows between it and its target make
             // room by exactly its height — the drop is previewed, not
@@ -635,6 +659,8 @@ export function ProgramDayScreen({
                     ? (rowHeights.current[dragIndex] ?? 0)
                     : 0
                 : 0;
+            const superset = supersets[index] ?? null;
+            const linkedToNext = superset?.hasNextInGroup === true;
             return (
             <Animated.View
               key={exercise.id}
@@ -752,29 +778,182 @@ export function ProgramDayScreen({
                         <Text style={styles.doseChipText}>{exercise.prescription}</Text>
                         <PencilGlyph theme={theme} />
                       </Pressable>
-                      <Pressable
-                        accessibilityRole="button"
-                        hitSlop={6}
-                        onPress={() => openTuneSheet(exercise)}
-                        style={({ pressed }) => [styles.doseChip, pressed && styles.swapOptionPressed]}
-                      >
-                        <Text style={styles.doseChipText} numberOfLines={1}>
-                          {t(language, 'detail.day.rest', { range: exercise.restLabel })}
-                        </Text>
-                        <PencilGlyph theme={theme} />
-                      </Pressable>
+                      {/* No rest follows a lift you run straight out of, so the
+                          chip says what does. Showing the stored rest range here
+                          would be the app stating a pause that never happens. */}
+                      {linkedToNext ? (
+                        <View style={styles.supersetNextChip}>
+                          <Text style={styles.supersetNextChipText} numberOfLines={1}>
+                            {t(language, 'detail.day.supersetNext')}
+                          </Text>
+                        </View>
+                      ) : (
+                        <Pressable
+                          accessibilityRole="button"
+                          hitSlop={6}
+                          onPress={() => openTuneSheet(exercise)}
+                          style={({ pressed }) => [styles.doseChip, pressed && styles.swapOptionPressed]}
+                        >
+                          <Text style={styles.doseChipText} numberOfLines={1}>
+                            {t(language, 'detail.day.rest', {
+                              range: blockRestLabels.get(index) ?? exercise.restLabel,
+                            })}
+                          </Text>
+                          <PencilGlyph theme={theme} />
+                        </Pressable>
+                      )}
                     </>
                   ) : (
                     <>
                       <Text style={styles.exerciseScheme}>{exercise.prescription}</Text>
                       <Text style={styles.exerciseRest} numberOfLines={1}>
-                        {t(language, 'detail.day.rest', { range: exercise.restLabel })}
+                        {linkedToNext
+                          ? t(language, 'detail.day.supersetNext')
+                          : t(language, 'detail.day.rest', {
+                              range: blockRestLabels.get(index) ?? exercise.restLabel,
+                            })}
                       </Text>
                     </>
                   )}
                 </View>
+                {/* The chain governs the gap to the row below, so it sits at
+                    the end of the line closest to that gap. The bottom row of
+                    the day has nothing below it to run into, and gets no chain
+                    rather than one that does nothing. */}
+                {onSupersetLink && index < session.exercises.length - 1 ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: linkedToNext }}
+                    accessibilityLabel={t(
+                      language,
+                      linkedToNext ? 'detail.day.a11y.supersetUnlink' : 'detail.day.a11y.supersetLink',
+                      { name: exerciseNameLabel(language, exercise.name) },
+                    )}
+                    hitSlop={10}
+                    onPress={() => onSupersetLink(exercise.id, !linkedToNext)}
+                    style={({ pressed }) => [styles.rowAction, pressed && styles.swapOptionPressed]}
+                  >
+                    <ChainGlyph theme={theme} linked={linkedToNext} />
+                  </Pressable>
+                ) : null}
               </View>
             </Animated.View>
+            );
+  };
+
+  return (
+    <View style={styles.screen}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        // Two vertical gestures cannot share one finger: the list holds
+        // still while a row is being dragged.
+        scrollEnabled={dragIndex === null}
+      >
+        {/*
+          The same treatment the programme page got: title first, numbers
+          under it, nothing painted (#bugs 2026-08-27). Only the gradient
+          went — the day's name and its two numbers are what the block was
+          carrying, and they stay, as does everything under it.
+        */}
+        <View style={styles.headerRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(language, 'common.back')}
+            hitSlop={10}
+            onPress={onBack}
+            style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.6 }]}
+          >
+            <Svg viewBox="0 0 24 24" width={18} height={18}>
+              <Path
+                d="M15 6l-6 6 6 6"
+                stroke={theme.ink}
+                strokeWidth={2.4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
+            </Svg>
+          </Pressable>
+        </View>
+        {/*
+          The day, named exactly as the row you tapped named it.
+
+          This said the PROGRAMME's name in the big type with the session
+          underneath, so the list said "Päivä 1. Rinta" and the page it opened
+          said "Chest Day / Rinta" — the same day under two names, one of them
+          new to the reader ("nyt tähän pelkästään se mitä on klikannut",
+          2026-08-27). The programme's name is on the page you came from and
+          is not repeated here.
+        */}
+        <Text style={styles.pageTitle} numberOfLines={2}>
+          {formatPlanSessionTitle(session, dayNumber - 1, programTitle, language)}
+        </Text>
+
+        {/* Three accordions in Home's shape: the warm-up used to be a plain
+            paragraph card next to a list of exercise cards, which made the
+            same session look like two different screens. */}
+        <Section
+          styles={styles}
+          theme={theme}
+          title={t(language, 'detail.day.warmup')}
+          count={t(language, 'detail.day.warmupMeta')}
+          open={openSections.warmup}
+          onToggle={() => setOpenSections((current) => ({ ...current, warmup: !current.warmup }))}
+        >
+          {warmup.drills.map((drill, index) => (
+            <View key={drill.name} style={styles.drillRow}>
+              <View style={styles.drillChip}>
+                <Text style={styles.drillChipText}>{index + 1}</Text>
+              </View>
+              <Text style={styles.drillName} numberOfLines={2}>
+                {drill.name}
+              </Text>
+              <Text style={styles.drillScheme}>{drill.schemeLabel}</Text>
+              {onSwapRoutineDrill ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'home.a11y.swapDrill', { name: drill.name })}
+                  hitSlop={8}
+                  onPress={() => {
+                    setDrillPick(null);
+                    setDrillSwap({ kind: 'warmup', index });
+                  }}
+                  style={({ pressed }) => [styles.rowAction, pressed && styles.swapOptionPressed]}
+                >
+                  <SwapGlyph theme={theme} />
+                </Pressable>
+              ) : null}
+            </View>
+          ))}
+        </Section>
+
+        <Section
+          styles={styles}
+          theme={theme}
+          title={t(language, 'detail.day.exercises')}
+          count={`${session.totalSets} ${t(language, 'detail.day.sets').toLowerCase()}`}
+          open={openSections.exercises}
+          onToggle={() => setOpenSections((current) => ({ ...current, exercises: !current.exercises }))}
+        >
+        <View style={styles.exerciseList}>
+          {/* Rows in runs rather than one flat list: a superset is one box
+              with one label on it. */}
+          {supersetRuns.map((run) => {
+            const rows = run.indexes.map((index) => renderExerciseRow(session.exercises[index], index));
+            if (run.groupId === null || run.indexes.length < 2) {
+              return rows;
+            }
+            return (
+              <View key={run.groupId} style={styles.supersetGroup}>
+                <SupersetBorder radius={16} />
+                <View style={styles.supersetGroupPill}>
+                  <Text style={styles.supersetGroupPillText}>
+                    {t(language, 'guided.superset.pill')}
+                  </Text>
+                </View>
+                {rows}
+              </View>
             );
           })}
           {/* The end of the list is where "and one more" is felt. The library
@@ -1151,8 +1330,11 @@ export function ProgramDayScreen({
 
               {/* Rest joins the sheet (design frame 06) — the third number the
                   catalog decided. Only when the stored draft has one: a
-                  stepper over a missing number would have to invent it. */}
-              {tuneDraft.restSeconds !== null ? (
+                  stepper over a missing number would have to invent it.
+                  And not on a lift that runs straight into the next: a
+                  stepper over a pause that never happens is the same lie the
+                  row's own chip stopped telling. Unlink and it comes back. */}
+              {tuneDraft.restSeconds !== null && !tuneRowLinkedToNext ? (
                 <View style={[styles.tuneRow, styles.tuneRowLast]}>
                   <Text style={styles.tuneLabel}>{t(language, 'detail.day.restLabel')}</Text>
                   <View style={styles.tuneControls}>
@@ -1420,6 +1602,49 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 12,
     fontWeight: '800',
     letterSpacing: 0.6,
+  },
+  // The box two paired lifts share. Its own padding keeps the outline off the
+  // text, and the rows inside it are unchanged — the boundary is the only
+  // thing saying they go together.
+  //
+  // The vertical numbers here are SUPERSET_BOX_EDGE, which the drag reads:
+  // change one and change the other, or the drop lands where the box used to
+  // put it.
+  supersetGroup: {
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginVertical: 8,
+  },
+  // Straddles the top line and carries the card's own ground, so the line
+  // stops at one edge of the word and starts at the other.
+  supersetGroupPill: {
+    position: 'absolute',
+    top: -7,
+    left: 18,
+    backgroundColor: theme.surface,
+    paddingHorizontal: 6,
+  },
+  supersetGroupPillText: {
+    color: theme.purple,
+    fontSize: 9.5,
+    lineHeight: 13,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+  },
+  // Where the rest chip would be, and deliberately not shaped like it: there
+  // is nothing to edit here, and a chip that looks editable and is not is the
+  // thing the two dose chips were changed to stop doing.
+  supersetNextChip: {
+    flexShrink: 1,
+    justifyContent: 'center',
+    paddingVertical: 5,
+  },
+  supersetNextChipText: {
+    color: theme.purple,
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: '700',
   },
   roleLine: {
     flex: 1,

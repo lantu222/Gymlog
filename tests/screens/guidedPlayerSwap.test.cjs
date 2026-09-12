@@ -257,9 +257,11 @@ module.exports = [
       // logged, and Muokkaa moved into it, on the current lift while resting.
       assert.doesNotMatch(playerSource, /restLoggedCard|restLogged\b|guided\.rest\.logged'/);
       assert.equal(i18nSource.includes("'guided.rest.logged'"), false);
+      // `restingLogged` is the lift the CURRENT rest belongs to, which since
+      // supersets is not necessarily the first lift named in the row.
       assert.match(
         playerSource,
-        /item\.status === 'current' && logged && step\.type === 'rest' && !step\.recoveryKind \? \([\s\S]*?setRunSheetOpen\(false\);\s*setRestEditOpen\(true\);/,
+        /item\.status === 'current' && restingLogged && step\.type === 'rest' && !step\.recoveryKind \? \([\s\S]*?setRunSheetOpen\(false\);\s*setRestEditOpen\(true\);/,
       );
       // One NextLine left in the file: the drills'. The rest screen's is gone.
       assert.equal((playerSource.match(/<NextLine /g) ?? []).length, 1);
@@ -366,17 +368,63 @@ module.exports = [
      * where the reader asked for it — and saying what has been logged in each
      * lift, not only the session's shape (user 2026-09-09, "paras idea").
      */
-    name: 'guided rest: the whole session is one tap from what was just logged, and says what was',
+    name: 'guided contents: one tap from the rest, and it says what is still to do',
     run() {
       assert.match(playerSource, /style=\{styles\.restRunStrip\}\s*onPress=\{\(\) => setRunSheetOpen\(true\)\}/);
       assert.match(playerSource, /'guided\.runSheet\.progress', \{ done: completedSetCount, count: totalSets \}/);
-      // With the lift's tracking mode, so a hold's seconds carry their unit.
+      // The line under each name is the PLAN, not the log. It carried logged
+      // weights from 2026-09-09 until 2026-09-11, when the reader asked for
+      // "pelkät tulevat sarjat ja toistot": a sheet opened mid-session is
+      // opened to find out what is coming.
+      assert.doesNotMatch(playerSource, /const memberLogged/);
+      // Not inside a superset: a set count per lift there asks the reader to
+      // reconcile "4 × 8" with "3 × 10" inside one box whose real unit is
+      // rounds (user 2026-09-11).
+      assert.match(playerSource, /const memberPlan =\s*!isSuperset && lift\?\.sets\[0\]/);
+      // Through the shared formatter, so a hold's numbers keep their unit —
+      // "45" beside "60 × 8" reads as forty-five reps.
+      assert.match(playerSource, /\? formatSetScheme\(\s*lift\.sets\.length,/);
       assert.match(
         playerSource,
-        /const logged = lift \? formatLoggedSetsLine\(lift\.sets, isTimedTrackingMode\(lift\.trackingMode\)\) : '';/,
+        /\{memberPlan \? <Text style=\{styles\.runPlan\}>\{memberPlan\}<\/Text> : null\}/,
       );
-      assert.match(playerSource, /\{logged \? <Text style=\{styles\.runLogged\}>\{logged\}<\/Text> : null\}/);
+      // The right-hand column is down to the one number the rows cannot carry:
+      // how many rounds a superset runs. A set count beside "3 × 12" was the
+      // same number twice.
+      assert.match(playerSource, /\{item\.setCount && item\.members\.length > 1 \? \(/);
+      // And every lift in the row is drawn, or a superset would be a row that
+      // names one of the two lifts it is about to ask for.
+      assert.match(playerSource, /\{item\.members\.map\(\(member\) => \{/);
       assert.equal((i18nSource.match(/'guided\.runSheet\.progress': '[^']+'/g) ?? []).length, 2);
+      // A superset's block is counted in rounds — three rounds of A1 + A2
+      // under the word "sets" would state neither number — and rounds are now
+      // the only thing that column carries, so the set-count key is gone.
+      assert.match(playerSource, /t\(language, 'guided\.runSheet\.rounds', \{ count: item\.setCount \}\)/);
+      assert.equal((i18nSource.match(/'guided\.runSheet\.rounds': '[^']+'/g) ?? []).length, 2);
+      assert.equal(i18nSource.includes("'guided.runSheet.sets'"), false);
+    },
+  },
+  {
+    /**
+     * The walk-up card is the last thing read before the first set of a block,
+     * and for a superset it used to quote the lift's own rest — a pause that
+     * never happens, because what follows A1 is A2. It says what does follow.
+     */
+    name: 'guided walk-up: a lift that runs into the next one quotes no rest',
+    run() {
+      assert.match(playerSource, /supersetNextBySlot\.get\(step\.slotId\)\s*\?\s*t\(language, 'guided\.walk\.planSuperset'/);
+      // Both dictionaries carry it, and neither version mentions a rest.
+      const lines = i18nSource.match(/'guided\.walk\.planSuperset': '[^']+'/g) ?? [];
+      assert.equal(lines.length, 2);
+      for (const line of lines) {
+        assert.doesNotMatch(line, /rest|lepo/i, line);
+      }
+      // The badges the card reads from are the ones the step list agrees with:
+      // a lift that is out of the plan is unpaired before any of them is built.
+      assert.match(
+        playerSource,
+        /isGuidedExerciseOut\(exercise\) \? \{ \.\.\.exercise, supersetGroup: null \} : exercise/,
+      );
     },
   },
 ];

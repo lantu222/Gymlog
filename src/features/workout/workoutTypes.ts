@@ -61,6 +61,15 @@ export interface WorkoutTemplateExercise {
   restSecondsMin: number;
   restSecondsMax: number;
   substitutionGroup: string;
+  /**
+   * Shared by adjacent exercises performed as one superset — A1 straight into
+   * A2, rest only after the last of them. Null, or absent, for a lift done on
+   * its own, which is every catalog exercise today.
+   *
+   * Not to be confused with `substitutionGroup`, which says what this lift can
+   * be SWAPPED for. This one says what it is performed WITH.
+   */
+  supersetGroup?: string | null;
 }
 
 export interface WorkoutTemplateSession {
@@ -178,6 +187,8 @@ export interface WorkoutExerciseInstance {
   restSecondsMin: number;
   restSecondsMax: number;
   substitutionGroup: string;
+  /** The superset this lift belongs to in the live session — see WorkoutTemplateExercise. */
+  supersetGroup?: string | null;
   orderIndex: number;
   sets: WorkoutSetInstance[];
   status: WorkoutExerciseStatus;

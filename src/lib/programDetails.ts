@@ -44,6 +44,11 @@ export interface ProgramDetailExerciseItem {
   /** Carried so the day view can offer the same swap the session honours. */
   slotId?: string;
   substitutionGroup?: string;
+  /**
+   * The superset this lift belongs to, so the day view can badge it and say
+   * that no rest follows it. The rule is in src/lib/supersetGrouping.ts.
+   */
+  supersetGroup?: string | null;
 }
 
 export interface ProgramDetailSessionItem {
@@ -167,6 +172,7 @@ function buildSessionItems(
         restSeconds: exercise.restSecondsMin,
         slotId: exercise.slotId,
         substitutionGroup: exercise.substitutionGroup,
+        supersetGroup: exercise.supersetGroup ?? null,
       })),
     }));
 }

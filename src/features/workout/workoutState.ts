@@ -8,6 +8,8 @@ import {
 } from '../../lib/cardio';
 import { CardioActivityType } from '../../types/models';
 import { isUnloadedTrackingMode } from './workoutTypes';
+import { isGuidedExerciseOut } from '../../lib/guidedPlayer';
+import { buildSupersetPlayOrder, supersetGroupIndexes } from '../../lib/supersetGrouping';
 import { GuidedResumeAnchor, WorkoutTrackingMode, WorkoutTemplateExercise, WorkoutExerciseInsertInput, WorkoutExerciseInstance, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRestTimerState, WorkoutRuntimeTemplate, WorkoutSessionMaterializeOptions, WorkoutSessionRuntime, WorkoutSessionSummary, WorkoutSetDraftInput, WorkoutSetEffort, WorkoutSetInstance, WorkoutSlotHistoryEntry, WorkoutSlotHistorySet, WorkoutStatus, WorkoutUiState, WorkoutExerciseStatus } from './workoutTypes';
 import { getWorkoutTemplateById } from './workoutCatalog';
 import { resolveProgressedLoadKg, resolveProgressedReps } from '../../lib/progressionGate';
@@ -474,6 +476,7 @@ function materializeExercise(
     restSecondsMin: exercise.restSecondsMin,
     restSecondsMax: exercise.restSecondsMax,
     substitutionGroup: exercise.substitutionGroup,
+    supersetGroup: exercise.supersetGroup ?? null,
     orderIndex,
     sets,
     status: 'pending',
@@ -613,29 +616,106 @@ function updateActiveExercise(session: WorkoutSessionRuntime, nextIndex: number,
   }));
 }
 
-function findNextPendingTarget(session: WorkoutSessionRuntime, exerciseIndex: number, setIndex: number) {
-  for (let currentExerciseIndex = exerciseIndex; currentExerciseIndex < session.exercises.length; currentExerciseIndex += 1) {
-    const exercise = session.exercises[currentExerciseIndex];
-    const startSetIndex = currentExerciseIndex === exerciseIndex ? setIndex + 1 : 0;
+/**
+ * The session as one ordered list of sets — every lift's sets in turn, except
+ * inside a superset, where the lifts interleave a round at a time.
+ *
+ * The order lives in src/lib/supersetGrouping.ts because the guided player
+ * builds its steps from the same function. Two answers to "what comes next"
+ * is exactly how the app would end up with two different ideas of what a
+ * superset is.
+ */
+/**
+ * The exercises that move together when one of them does: the superset this
+ * one belongs to, or just itself.
+ */
+function blockIndexes(session: WorkoutSessionRuntime, exerciseIndex: number) {
+  return supersetGroupIndexes(
+    session.exercises.map((exercise) => ({
+      // A lift the reader walked away from is out of the block, the same way
+      // it is out of the plan. Through `isGuidedExerciseOut` rather than a
+      // `status === 'skipped'` test of its own: a lift with one logged set and
+      // the rest skipped derives to *completed*, so the narrow test let it
+      // stay in the block — and adding a round then gave it a PENDING set,
+      // reviving the lift the reader had just skipped (PR #93 review).
+      supersetGroup: isGuidedExerciseOut(exercise) ? null : exercise.supersetGroup ?? null,
+    })),
+    exerciseIndex,
+  );
+}
 
-    for (let currentSetIndex = startSetIndex; currentSetIndex < exercise.sets.length; currentSetIndex += 1) {
-      if (exercise.sets[currentSetIndex]?.status === 'pending') {
-        return { exerciseIndex: currentExerciseIndex, setIndex: currentSetIndex };
-      }
+function sessionPlayOrder(session: WorkoutSessionRuntime) {
+  return buildSupersetPlayOrder(
+    session.exercises.map((exercise) => ({
+      supersetGroup: exercise.supersetGroup ?? null,
+      setCount: exercise.sets.length,
+    })),
+  );
+}
+
+function findNextPendingTarget(session: WorkoutSessionRuntime, exerciseIndex: number, setIndex: number) {
+  const order = sessionPlayOrder(session);
+  const at = order.findIndex((slot) => slot.exerciseIndex === exerciseIndex && slot.setIndex === setIndex);
+  const isPending = (slot: { exerciseIndex: number; setIndex: number }) =>
+    session.exercises[slot.exerciseIndex]?.sets[slot.setIndex]?.status === 'pending';
+
+  // Forward from here, then round to the start: a set skipped earlier and come
+  // back to is still the next thing to do once the tail is done. Both halves
+  // were here before supersets; only the order they walk has changed.
+  for (let cursor = at + 1; cursor < order.length; cursor += 1) {
+    if (isPending(order[cursor])) {
+      return order[cursor];
     }
   }
 
-  for (let currentExerciseIndex = 0; currentExerciseIndex < exerciseIndex; currentExerciseIndex += 1) {
-    const exercise = session.exercises[currentExerciseIndex];
-
-    for (let currentSetIndex = 0; currentSetIndex < exercise.sets.length; currentSetIndex += 1) {
-      if (exercise.sets[currentSetIndex]?.status === 'pending') {
-        return { exerciseIndex: currentExerciseIndex, setIndex: currentSetIndex };
-      }
+  for (let cursor = 0; cursor <= at && cursor < order.length; cursor += 1) {
+    if (isPending(order[cursor])) {
+      return order[cursor];
     }
   }
 
   return null;
+}
+
+/**
+ * Whether a rest belongs between the set just logged and the one coming.
+ *
+ * Inside a superset it does not: A1 runs straight into A2, and that is the
+ * whole of what pairing them means. The round is what separates rests, so the
+ * two sets have to belong to the same one — after the last lift of round one
+ * comes round two, and that gap IS a rest.
+ */
+function restBelongsAfter(
+  session: WorkoutSessionRuntime,
+  exerciseIndex: number,
+  setIndex: number,
+  next: { exerciseIndex: number; setIndex: number },
+) {
+  const done = session.exercises[exerciseIndex];
+  const upcoming = session.exercises[next.exerciseIndex];
+  const group = done?.supersetGroup ?? null;
+  if (!group || upcoming?.supersetGroup !== group) {
+    return true;
+  }
+  return next.setIndex !== setIndex;
+}
+
+/**
+ * How long that rest runs. A superset rests as long as the most demanding lift
+ * in it asks for — a squat paired with a curl is still a squat — which is the
+ * same rule the guided player's step list uses.
+ */
+function restSecondsFor(session: WorkoutSessionRuntime, exerciseIndex: number) {
+  const exercise = session.exercises[exerciseIndex];
+  // Through `blockIndexes`, so the lifts this rest is the longest OF are the
+  // same ones the block is made of. Matching on the raw group id instead let
+  // a skipped squat keep setting the rest for the curl still being trained,
+  // and the player — which filters the skipped lift out before it builds its
+  // steps — then disagreed with the reducer about the same session.
+  return blockIndexes(session, exerciseIndex).reduce(
+    (longest, index) => Math.max(longest, session.exercises[index].restSecondsMin),
+    exercise.restSecondsMin,
+  );
 }
 
 function updateSessionTimestamp(session: WorkoutSessionRuntime, nowIso = new Date().toISOString()) {
@@ -998,17 +1078,20 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       // Rest is the gap before the next set. `nextTarget` is null only when
       // nothing anywhere in the session is still pending, and starting a timer
       // there counts down to a set that does not exist — while the floating bar
-      // sits over the finish button.
-      session.restTimer = nextTarget
-        ? {
-            status: 'running',
-            exerciseSlotId: exercise.slotId,
-            setIndex: action.payload.setIndex,
-            startedAtMs: action.payload.nowMs,
-            endsAtMs: action.payload.nowMs + exercise.restSecondsMin * 1000,
-            durationSeconds: exercise.restSecondsMin,
-          }
-        : createInitialTimer();
+      // sits over the finish button. Inside a superset there is no gap at all,
+      // which is the one thing pairing two lifts means.
+      const restSeconds = restSecondsFor(session, exerciseIndex);
+      session.restTimer =
+        nextTarget && restBelongsAfter(session, exerciseIndex, action.payload.setIndex, nextTarget)
+          ? {
+              status: 'running',
+              exerciseSlotId: exercise.slotId,
+              setIndex: action.payload.setIndex,
+              startedAtMs: action.payload.nowMs,
+              endsAtMs: action.payload.nowMs + restSeconds * 1000,
+              durationSeconds: restSeconds,
+            }
+          : createInitialTimer();
       session.ui.focusedField = null;
       session.updatedAt = new Date(action.payload.nowMs).toISOString();
 
@@ -1175,25 +1258,39 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
         return state;
       }
 
+      // One more set of every lift in the block. A superset is counted in
+      // rounds, so adding a round to one half of it and not the other is the
+      // state the linking rule exists to prevent.
       const exercise = session.exercises[exerciseIndex];
-      const sourceSet = exercise.sets[exercise.sets.length - 1];
-      const nextSetIndex = exercise.sets.reduce((maxValue, set) => Math.max(maxValue, set.setIndex), -1) + 1;
-
-      exercise.sets = [
-        ...exercise.sets,
-        {
-          setIndex: nextSetIndex,
-          plannedLoadKg: sourceSet?.actualLoadKg ?? sourceSet?.plannedLoadKg,
-          plannedRepsMin: sourceSet?.plannedRepsMin ?? exercise.sets[0]?.plannedRepsMin ?? 1,
-          plannedRepsMax: sourceSet?.plannedRepsMax ?? exercise.sets[0]?.plannedRepsMax ?? 1,
-          draftLoadText: '',
-          draftRepsText: '',
-          status: 'pending',
-          effort: null,
-          edited: false,
-        },
-      ];
-      exercise.status = 'active';
+      let nextSetIndex = 0;
+      blockIndexes(session, exerciseIndex).forEach((position) => {
+        const member = session.exercises[position];
+        const sourceSet = member.sets[member.sets.length - 1];
+        const memberNextIndex =
+          member.sets.reduce((maxValue, set) => Math.max(maxValue, set.setIndex), -1) + 1;
+        if (position === exerciseIndex) {
+          nextSetIndex = memberNextIndex;
+        }
+        member.sets = [
+          ...member.sets,
+          {
+            setIndex: memberNextIndex,
+            plannedLoadKg: sourceSet?.actualLoadKg ?? sourceSet?.plannedLoadKg,
+            plannedRepsMin: sourceSet?.plannedRepsMin ?? member.sets[0]?.plannedRepsMin ?? 1,
+            plannedRepsMax: sourceSet?.plannedRepsMax ?? member.sets[0]?.plannedRepsMax ?? 1,
+            draftLoadText: '',
+            draftRepsText: '',
+            status: 'pending',
+            effort: null,
+            edited: false,
+          },
+        ];
+        // Derived per member, not set on the tapped row alone. A partner that
+        // had finished keeps `completed` otherwise, while holding an unlogged
+        // set — and `findNextIncompleteIndex` skips a completed lift, so the
+        // round just added to it would never be asked for (PR #93 review).
+        member.status = finalizeExerciseStatus(member);
+      });
       updateActiveExercise(session, exerciseIndex, nextSetIndex);
       session.restTimer = createInitialTimer();
       session.updatedAt = new Date().toISOString();
@@ -1267,17 +1364,24 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
         return state;
       }
 
+      // All or none: the block's set count is one number, so a round comes off
+      // every lift in it or off none. If any member's last set is already
+      // logged, taking the round back would either lose that set or leave the
+      // two halves disagreeing again.
+      const block = blockIndexes(session, exerciseIndex);
+      const removable = block.every((position) => {
+        const member = session.exercises[position];
+        return member.sets.length > 1 && member.sets[member.sets.length - 1].status === 'pending';
+      });
+      if (!removable) {
+        return state;
+      }
+
+      block.forEach((position) => {
+        const member = session.exercises[position];
+        member.sets = member.sets.slice(0, -1);
+      });
       const exercise = session.exercises[exerciseIndex];
-      if (exercise.sets.length <= 1) {
-        return state;
-      }
-
-      const last = exercise.sets[exercise.sets.length - 1];
-      if (last.status !== 'pending') {
-        return state;
-      }
-
-      exercise.sets = exercise.sets.slice(0, -1);
       const nextIndex = exercise.sets[exercise.sets.length - 1]?.setIndex ?? 0;
       updateActiveExercise(session, exerciseIndex, nextIndex);
       session.updatedAt = new Date().toISOString();
