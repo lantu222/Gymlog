@@ -37,8 +37,23 @@ function tint(hex: string, alpha: number) {
   return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`;
 }
 
+/** The trend as a fill — the observation squares — where the raw accents read on either ground. */
 function toneColor(theme: Theme, trend: SessionTrend) {
   return trend === 'up' ? theme.green : trend === 'down' ? theme.amber : goldText(theme);
+}
+
+/**
+ * The trend as small type.
+ *
+ * The same swap as gold, for the same reason: green and amber are ~2.7:1 on the
+ * light page at 10–12px (PR review). Light reads their inks; flat goes quiet
+ * rather than sharing the amber ink with "down". Dark keeps the accents.
+ */
+function toneInk(theme: Theme, trend: SessionTrend) {
+  if (theme === darkTheme) {
+    return toneColor(theme, trend);
+  }
+  return trend === 'up' ? theme.greenInk : trend === 'down' ? theme.amberInk : theme.muted;
 }
 
 function toneMark(trend: SessionTrend) {
@@ -209,11 +224,11 @@ export function SessionAnalysisScreen({
                   {row.trend && row.trendLabel ? (
                     <View style={styles.trendPill}>
                       {toneMark(row.trend) ? (
-                        <Text style={[styles.trendMark, { color: toneColor(theme, row.trend) }]}>
+                        <Text style={[styles.trendMark, { color: toneInk(theme, row.trend) }]}>
                           {toneMark(row.trend)}
                         </Text>
                       ) : null}
-                      <Text style={[styles.trendText, { color: toneColor(theme, row.trend) }]}>
+                      <Text style={[styles.trendText, { color: toneInk(theme, row.trend) }]}>
                         {row.trendLabel}
                       </Text>
                     </View>
@@ -473,12 +488,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.surfaceSoft,
   },
   changePillText: {
-    color: theme.green,
+    color: toneInk(theme, 'up'),
     fontFamily: 'JetBrainsMono',
     fontSize: 12,
   },
   changePillTextDown: {
-    color: theme.amber,
+    color: toneInk(theme, 'down'),
   },
   changePillTextFlat: {
     color: theme.muted,

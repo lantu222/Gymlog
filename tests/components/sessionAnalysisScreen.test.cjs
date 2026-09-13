@@ -57,4 +57,23 @@ module.exports = [
       assert.match(between(source, '  askButtonText: {', '},'), /color: theme\.onHighlight/);
     },
   },
+  {
+    name: 'the full-analysis trend words read their inks in light, where the raw accents are ~2.7:1',
+    run() {
+      // PR #94 review: green and amber as 10-12px type on the light page fail
+      // AA. Light reads greenInk / amberInk, and flat goes quiet so it does not
+      // share the amber ink with "down"; dark keeps the accents it had.
+      const toneInk = between(source, 'function toneInk(', '\n}\n');
+      assert.match(toneInk, /theme === darkTheme\)\s*\{\s*return toneColor\(theme, trend\);/);
+      assert.match(toneInk, /trend === 'up' \? theme\.greenInk : trend === 'down' \? theme\.amberInk : theme\.muted/);
+
+      // Every trend word goes through it: the row's mark and label, and the
+      // volume change badge. Only the observation squares — fills — keep the raw tone.
+      assert.equal((source.match(/styles\.trend(Mark|Text), \{ color: toneInk\(theme, row\.trend\) \}/g) ?? []).length, 2);
+      assert.match(between(source, '  changePillText: {', '},'), /color: toneInk\(theme, 'up'\)/);
+      assert.match(between(source, '  changePillTextDown: {', '},'), /color: toneInk\(theme, 'down'\)/);
+      assert.match(source, /styles\.observationSquare, \{ backgroundColor: toneColor\(theme, entry\.trend\) \}/);
+      assert.doesNotMatch(source, /color: toneColor\(/, 'no trend text on the raw accent');
+    },
+  },
 ];
