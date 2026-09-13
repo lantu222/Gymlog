@@ -5,8 +5,8 @@ import Svg, { Path } from 'react-native-svg';
 import { CoachHighlightedText } from '../components/CoachHighlightedText';
 import { t } from '../lib/i18n';
 import { SessionAnalysis, SessionTrend, describeVolumeChange } from '../lib/sessionAnalysis';
-import { COACH } from '../lightTheme';
 import { layout } from '../theme';
+import { Theme, aw3ForTheme, darkTheme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
 interface SessionAnalysisScreenProps {
@@ -18,8 +18,27 @@ interface SessionAnalysisScreenProps {
 
 const BAR_HEIGHT = 96;
 
-function toneColor(trend: SessionTrend) {
-  return trend === 'up' ? COACH.good : trend === 'down' ? COACH.warn : COACH.gold;
+/**
+ * Gold as text.
+ *
+ * The screen used to wear the fixed dark coach palette in both themes, so under
+ * the light theme a dark page sat above a light tab bar, reached from a coach
+ * screen that had already gone light (user 2026-09-13: "outo"). Gold as a fill
+ * reads on either ground; gold as small type on the pale light page does not,
+ * so light sets its labels in the palette's deep gold ink instead.
+ */
+function goldText(theme: Theme) {
+  return theme === darkTheme ? theme.gold : theme.amberInk;
+}
+
+/** A palette colour as a wash, so tints move with the theme they come from. */
+function tint(hex: string, alpha: number) {
+  const value = parseInt(hex.slice(1), 16);
+  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`;
+}
+
+function toneColor(theme: Theme, trend: SessionTrend) {
+  return trend === 'up' ? theme.green : trend === 'down' ? theme.amber : goldText(theme);
 }
 
 function toneMark(trend: SessionTrend) {
@@ -34,6 +53,8 @@ export function SessionAnalysisScreen({
   onBack,
   onAskCoach,
 }: SessionAnalysisScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const bars = analysis?.volumeBars ?? [];
   const volumeChange = describeVolumeChange(analysis?.volumeChangePercent ?? null, language);
   // Scale from just under the smallest bar rather than zero: on real training
@@ -57,7 +78,7 @@ export function SessionAnalysisScreen({
           <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
             <Path
               d="M15 5l-7 7 7 7"
-              stroke={COACH.text}
+              stroke={theme.ink}
               strokeWidth={2.4}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -188,11 +209,11 @@ export function SessionAnalysisScreen({
                   {row.trend && row.trendLabel ? (
                     <View style={styles.trendPill}>
                       {toneMark(row.trend) ? (
-                        <Text style={[styles.trendMark, { color: toneColor(row.trend) }]}>
+                        <Text style={[styles.trendMark, { color: toneColor(theme, row.trend) }]}>
                           {toneMark(row.trend)}
                         </Text>
                       ) : null}
-                      <Text style={[styles.trendText, { color: toneColor(row.trend) }]}>
+                      <Text style={[styles.trendText, { color: toneColor(theme, row.trend) }]}>
                         {row.trendLabel}
                       </Text>
                     </View>
@@ -210,7 +231,7 @@ export function SessionAnalysisScreen({
               <Text style={styles.sectionLabel}>{t(language, 'analysis.noticed')}</Text>
               {analysis.observations.map((entry, index) => (
                 <View key={`${entry.trend}:${index}`} style={styles.observationRow}>
-                  <View style={[styles.observationSquare, { backgroundColor: toneColor(entry.trend) }]} />
+                  <View style={[styles.observationSquare, { backgroundColor: toneColor(theme, entry.trend) }]} />
                   <CoachHighlightedText
                     text={entry.body.text}
                     highlights={entry.body.highlights}
@@ -233,7 +254,7 @@ export function SessionAnalysisScreen({
                       <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
                         <Path
                           d="M5 12l5 5L19 7"
-                          stroke={COACH.gold}
+                          stroke={goldText(theme)}
                           strokeWidth={3}
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -257,7 +278,7 @@ export function SessionAnalysisScreen({
             <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
               <Path
                 d="M20 13.5A8 8 0 0 1 10.5 4 8 8 0 1 0 20 13.5z"
-                stroke={COACH.purple}
+                stroke={theme.purple}
                 strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -281,10 +302,10 @@ export function SessionAnalysisScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: COACH.bg,
+    backgroundColor: theme.bg,
   },
   header: {
     height: 56,
@@ -296,14 +317,14 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: theme.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     flex: 1,
     textAlign: 'center',
-    color: COACH.text,
+    color: theme.ink,
     fontSize: 16,
     fontWeight: '800',
   },
@@ -317,7 +338,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   emptyText: {
-    color: COACH.muted,
+    color: theme.muted,
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
@@ -328,21 +349,21 @@ const styles = StyleSheet.create({
     paddingBottom: layout.bottomTabBarReserve,
   },
   eyebrow: {
-    color: COACH.gold,
+    color: goldText(theme),
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.3,
     marginTop: 4,
   },
   title: {
-    color: COACH.text,
+    color: theme.ink,
     fontSize: 30,
     fontWeight: '800',
     letterSpacing: -0.6,
     marginTop: 6,
   },
   meta: {
-    color: COACH.muted,
+    color: theme.muted,
     fontFamily: 'JetBrainsMono',
     fontSize: 12.5,
     marginTop: 8,
@@ -351,8 +372,8 @@ const styles = StyleSheet.create({
     marginTop: 18,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: COACH.focusBorder,
-    backgroundColor: COACH.focusTop,
+    borderColor: theme.amberBorder,
+    backgroundColor: theme.purpleSoft,
     padding: 16,
   },
   verdictTagRow: {
@@ -362,33 +383,33 @@ const styles = StyleSheet.create({
     marginBottom: 9,
   },
   verdictSparkle: {
-    color: COACH.gold,
+    color: goldText(theme),
     fontSize: 12,
   },
   verdictTag: {
-    color: COACH.gold,
+    color: goldText(theme),
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.2,
   },
   verdictBody: {
-    color: COACH.text,
+    color: theme.ink,
     fontSize: 14.5,
     fontWeight: '700',
     lineHeight: 22,
   },
   gold: {
-    color: COACH.gold,
+    color: goldText(theme),
     fontWeight: '800',
   },
   goldMono: {
-    color: COACH.gold,
+    color: goldText(theme),
     fontFamily: 'JetBrainsMono',
   },
   section: {
     marginTop: 22,
     borderTopWidth: 1,
-    borderTopColor: COACH.hairline,
+    borderTopColor: aw3ForTheme(theme).hair,
     paddingTop: 18,
   },
   sectionHeadRow: {
@@ -397,13 +418,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   sectionLabel: {
-    color: COACH.gold,
+    color: goldText(theme),
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.2,
   },
   sectionNote: {
-    color: COACH.faint,
+    color: theme.faint,
     fontSize: 12,
     fontWeight: '600',
     marginTop: 12,
@@ -415,52 +436,52 @@ const styles = StyleSheet.create({
   },
   metricCell: {
     flex: 1,
-    backgroundColor: COACH.surface,
+    backgroundColor: theme.surface,
     borderRadius: 15,
     padding: 13,
   },
   metricKey: {
-    color: COACH.faint,
+    color: theme.faint,
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.9,
   },
   metricValue: {
-    color: COACH.text,
+    color: theme.ink,
     fontFamily: 'JetBrainsMono',
     fontSize: 17,
     marginTop: 6,
   },
   metricSub: {
-    color: COACH.muted,
+    color: theme.muted,
     fontSize: 11,
     fontWeight: '700',
     marginTop: 4,
   },
   changePill: {
-    backgroundColor: 'rgba(55,208,138,0.14)',
+    backgroundColor: theme.greenSoft,
     borderRadius: 999,
     paddingHorizontal: 9,
     paddingVertical: 3,
   },
   changePillDown: {
-    backgroundColor: 'rgba(224,146,47,0.14)',
+    backgroundColor: theme.amberSoft,
   },
   // Nothing changed, so nothing is claimed: the badge goes quiet rather than
   // wearing the green that promises growth.
   changePillFlat: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: theme.surfaceSoft,
   },
   changePillText: {
-    color: COACH.good,
+    color: theme.green,
     fontFamily: 'JetBrainsMono',
     fontSize: 12,
   },
   changePillTextDown: {
-    color: COACH.warn,
+    color: theme.amber,
   },
   changePillTextFlat: {
-    color: COACH.muted,
+    color: theme.muted,
   },
   barRow: {
     flexDirection: 'row',
@@ -478,18 +499,18 @@ const styles = StyleSheet.create({
   bar: {
     width: '100%',
     borderRadius: 6,
-    backgroundColor: 'rgba(155,109,255,0.35)',
+    backgroundColor: tint(theme.purple, theme === darkTheme ? 0.35 : 0.2),
   },
   barCurrent: {
-    backgroundColor: COACH.gold,
+    backgroundColor: theme.gold,
   },
   barLabel: {
-    color: COACH.faint,
+    color: theme.faint,
     fontFamily: 'JetBrainsMono',
     fontSize: 10,
   },
   barLabelCurrent: {
-    color: COACH.gold,
+    color: goldText(theme),
   },
   exerciseRow: {
     flexDirection: 'row',
@@ -497,19 +518,19 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 13,
     borderBottomWidth: 1,
-    borderBottomColor: COACH.hairline,
+    borderBottomColor: aw3ForTheme(theme).hair,
   },
   exerciseCopy: {
     flex: 1,
     minWidth: 0,
   },
   exerciseName: {
-    color: COACH.text,
+    color: theme.ink,
     fontSize: 15,
     fontWeight: '800',
   },
   exerciseDetail: {
-    color: COACH.muted,
+    color: theme.muted,
     fontFamily: 'JetBrainsMono',
     fontSize: 12,
     marginTop: 5,
@@ -528,7 +549,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   trendAbsent: {
-    color: COACH.faint,
+    color: theme.faint,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -546,17 +567,17 @@ const styles = StyleSheet.create({
   },
   observationText: {
     flex: 1,
-    color: COACH.muted,
+    color: theme.muted,
     fontSize: 13.5,
     fontWeight: '600',
     lineHeight: 20,
   },
   observationStrong: {
-    color: COACH.text,
+    color: theme.ink,
     fontWeight: '800',
   },
   nextCard: {
-    backgroundColor: COACH.surface,
+    backgroundColor: theme.surface,
     borderRadius: 16,
     padding: 15,
     marginTop: 12,
@@ -571,13 +592,13 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 8,
-    backgroundColor: 'rgba(228,177,76,0.16)',
+    backgroundColor: tint(theme.gold, 0.16),
     alignItems: 'center',
     justifyContent: 'center',
   },
   nextText: {
     flex: 1,
-    color: COACH.text,
+    color: theme.ink,
     fontSize: 13.5,
     fontWeight: '600',
     lineHeight: 20,
@@ -586,32 +607,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 11,
-    backgroundColor: COACH.surfaceSoft,
+    backgroundColor: theme.surfaceSoft,
     borderRadius: 16,
     padding: 15,
     marginTop: 22,
   },
   recoveryText: {
     flex: 1,
-    color: COACH.muted,
+    color: theme.muted,
     fontSize: 13,
     fontWeight: '600',
     lineHeight: 20,
   },
+  // Pressable, so it wears the theme's action colour like every other button.
   askButton: {
-    backgroundColor: COACH.gold,
+    backgroundColor: theme.highlight,
     borderRadius: 14,
     paddingVertical: 15,
     alignItems: 'center',
     marginTop: 22,
   },
   askButtonText: {
-    color: COACH.goldInk,
+    color: theme.onHighlight,
     fontSize: 15,
     fontWeight: '800',
   },
   footnote: {
-    color: COACH.faint,
+    color: theme.faint,
     fontSize: 11.5,
     fontWeight: '600',
     textAlign: 'center',
