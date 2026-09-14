@@ -399,8 +399,10 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     const previous = databaseRef.current;
     databaseRef.current = nextDatabase;
     setDatabase(nextDatabase);
+    let blobWritten = false;
     try {
       await saveDatabase(nextDatabase);
+      blobWritten = true;
       // Loading reads the preferences key OVER the blob (loadStoredPreferences),
       // so a commit that changed a preference and wrote only the blob was undone
       // by the next launch. Onboarding's result is such a commit: finish the
@@ -413,6 +415,18 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     } catch (error) {
       databaseRef.current = previous;
       setDatabase(previous);
+      if (blobWritten) {
+        // The blob landed and the preferences key did not: disk would hold a
+        // database memory has just given up on, and the next launch would lay
+        // the old key over it. Best effort to bring the blob back with memory;
+        // a disk that refuses this too leaves the same split the old
+        // forward-only commit always left.
+        try {
+          await saveDatabase(previous);
+        } catch {
+          // Reported below as the original failure.
+        }
+      }
       throw error;
     }
   }

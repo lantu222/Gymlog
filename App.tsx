@@ -6562,15 +6562,15 @@ function VinhaApp() {
           navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
         }}
         onImportHistory={async (preview) => {
-          // Said out loud when the write fails: the sheet's spinner just
-          // stopped, and nothing had been imported.
+          // Said out loud when the write fails, and thrown on so the sheet
+          // keeps the pasted export for a retry instead of closing on it.
           let result;
           try {
             result = await importWorkoutHistory(preview.workouts);
           } catch (error) {
             console.error('Failed to import workout history', error);
             showToast(t(preferences.appLanguage, 'hevy.failed'));
-            return;
+            throw error;
           }
           setSettingsImportVisible(false);
           showToast(

@@ -274,6 +274,9 @@ export function NewProgramSheet({
     try {
       await onImportHistory(hevyPreview);
       handleClose();
+    } catch {
+      // The caller has said what happened. The pasted export stays on screen
+      // so the retry is one tap, not a re-export and a re-paste.
     } finally {
       setImporting(false);
     }

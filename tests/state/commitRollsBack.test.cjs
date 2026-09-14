@@ -45,9 +45,14 @@ module.exports = [
       assert.ok(commit.indexOf('await savePreferences(nextDatabase.preferences);') > tryAt, 'the preferences write is outside the try');
       assert.match(
         commit,
-        /catch \(error\) \{\s*databaseRef\.current = previous;\s*setDatabase\(previous\);\s*throw error;\s*\}/,
+        /catch \(error\) \{\s*databaseRef\.current = previous;\s*setDatabase\(previous\);[\s\S]*?throw error;\s*\}/,
         'a failed write leaves the new state in memory, or is swallowed',
       );
+      // Two writes, not one transaction: a blob that landed before the
+      // preferences key failed is brought back to the snapshot memory returned
+      // to, or the next launch reads a database memory gave up on.
+      assert.match(commit, /await saveDatabase\(nextDatabase\);\s*blobWritten = true;/);
+      assert.match(commit, /if \(blobWritten\) \{\s*try \{\s*await saveDatabase\(previous\);/);
     },
   },
   {
@@ -61,12 +66,16 @@ module.exports = [
     },
   },
   {
-    name: 'commitRollsBack: a Hevy import whose write fails says so and keeps the sheet open',
+    name: 'commitRollsBack: a Hevy import whose write fails says so and keeps the pasted export on screen',
     run() {
       const app = read('App.tsx');
       const handler = app.slice(app.indexOf('onImportHistory={async (preview) => {'), app.indexOf('onImportHistory={async (preview) => {') + 900);
-      assert.match(handler, /try \{\s*result = await importWorkoutHistory\(preview\.workouts\);\s*\} catch \(error\) \{[\s\S]*?showToast\(t\(preferences\.appLanguage, 'hevy\.failed'\)\);\s*return;/);
-      assert.ok(handler.indexOf('setSettingsImportVisible(false)') > handler.indexOf('return;'), 'the sheet closes on a failed import');
+      // The toast, then the throw: a handler that returned normally resolved
+      // the sheet's await, and the sheet closed and cleared the export.
+      assert.match(handler, /try \{\s*result = await importWorkoutHistory\(preview\.workouts\);\s*\} catch \(error\) \{[\s\S]*?showToast\(t\(preferences\.appLanguage, 'hevy\.failed'\)\);\s*throw error;/);
+      const sheet = read('src', 'components', 'NewProgramSheet.tsx');
+      const importHistory = sheet.slice(sheet.indexOf('async function handleImportHistory'), sheet.indexOf('async function handleImport()'));
+      assert.match(importHistory, /await onImportHistory\(hevyPreview\);\s*handleClose\(\);\s*\}\s*catch \{/, 'the sheet closes, or crashes, on a rejected import');
       assert.equal(t('fi', 'hevy.failed'), 'Tuotuja treenejä ei voitu tallentaa — mitään ei tuotu');
       assert.match(t('en', 'hevy.failed'), /nothing was imported/);
     },
