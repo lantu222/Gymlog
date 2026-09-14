@@ -78,6 +78,19 @@ module.exports = [
       assert.equal(blocks.length, 2, 'both adoption paths (ready and custom) show the sheet');
       assert.match(app, /kind="running"[\s\S]{0,400}navigate\(\{ tab: 'profile', screen: 'premium', reason: 'program_cap' \}\)/);
 
+      // The programme page's "take it on" goes Home only once it is running.
+      // It navigated first, so at the limit the sheet opened over a Home still
+      // leading with the old programme (seen on the emulator, 2026-09-14).
+      const workoutTab = read('src', 'app', 'renderWorkoutTab.tsx');
+      for (const adopt of ['handleAdoptReadyProgram', 'handleAdoptCustomProgram']) {
+        assert.match(
+          workoutTab,
+          new RegExp(`void ${adopt}\\(route\\.workoutTemplateId, \\{ lead: true \\}\\)\\.then\\(\\(adopted\\) => \\{\\s*if \\(adopted\\) \\{\\s*navigate\\(ROOT_ROUTES\\.home\\);`),
+          `${adopt} navigates Home whether or not the programme was taken on`,
+        );
+      }
+      assert.match(body(app, 'async function handleAdoptCustomProgram'), /return false;\s*\}\s*showToast\(t\(preferences\.appLanguage, 'programs\.cap\.full'/);
+
       const programs = read('src', 'screens', 'ProgramsHomeScreen.tsx');
       assert.match(programs, /\{ownProgramsLine \? <Text style=\{styles\.ownProgramsLine\}>\{ownProgramsLine\}<\/Text> : null\}/);
       const tab = read('src', 'app', 'renderWorkoutTab.tsx');

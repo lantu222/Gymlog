@@ -102,7 +102,7 @@ export interface WorkoutTabDeps {
   /** Resolves to whether the programme is running afterwards; the cap can refuse. */
   handleAdoptReadyProgram: (workoutTemplateId: string, options?: { lead?: boolean }) => Promise<boolean>;
   handleStartCustomProgram: (workoutTemplateId: string) => void;
-  handleAdoptCustomProgram: (workoutTemplateId: string, options?: { lead?: boolean }) => Promise<void>;
+  handleAdoptCustomProgram: (workoutTemplateId: string, options?: { lead?: boolean }) => Promise<boolean>;
   handleStartCustomProgramSession: (workoutTemplateId: string, sessionId: string, trimSets?: boolean) => void;
   /**
    * Change what a programme's day holds, for good — drop a lift, keep a swap,
@@ -445,8 +445,14 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             // trained one workout and then found Home still running whatever
             // it ran before. handleAdoptReadyProgram existed the whole time
             // and was wired only to the season screen.
-            void handleAdoptReadyProgram(route.workoutTemplateId, { lead: true });
-            navigate(ROOT_ROUTES.home);
+            // Home once it is running, and not before: at the free limit the
+            // sheet opens here, on the programme the reader asked for, rather
+            // than on a Home still leading with the old one.
+            void handleAdoptReadyProgram(route.workoutTemplateId, { lead: true }).then((adopted) => {
+              if (adopted) {
+                navigate(ROOT_ROUTES.home);
+              }
+            });
             return;
           }
 
@@ -465,8 +471,11 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
 
           // Held but not leading, or not held at all — both are answered by
           // adoption, which now promotes rather than returning early.
-          void handleAdoptCustomProgram(route.workoutTemplateId, { lead: true });
-          navigate(ROOT_ROUTES.home);
+          void handleAdoptCustomProgram(route.workoutTemplateId, { lead: true }).then((adopted) => {
+            if (adopted) {
+              navigate(ROOT_ROUTES.home);
+            }
+          });
         }}
         onStartSession={(sessionId) => {
           if (route.programType === 'ready') {

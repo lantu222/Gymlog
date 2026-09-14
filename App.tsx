@@ -2672,7 +2672,8 @@ function VinhaApp() {
     }
   }
 
-  async function handleAdoptCustomProgram(workoutTemplateId: string, options?: { lead?: boolean }) {
+  /** Resolves true once the programme is running, false when it was not taken on. */
+  async function handleAdoptCustomProgram(workoutTemplateId: string, options?: { lead?: boolean }): Promise<boolean> {
     const template = customWorkoutRuntimeMap[workoutTemplateId];
     // An empty program is not a plan. Home would draw a card with no session
     // behind it, so the editor is the honest destination.
@@ -2682,14 +2683,14 @@ function VinhaApp() {
     if (sessionIds.length === 0) {
       showToast(t(preferences.appLanguage, 'toast.addExercisesTemplate'));
       navigate({ tab: 'workout', screen: 'template', workoutTemplateId });
-      return;
+      return false;
     }
 
     if (activeProgramTemplateIds.includes(workoutTemplateId)) {
       if (options?.lead) {
         await promoteHeldProgramToLead(workoutTemplateId);
       }
-      return;
+      return true;
     }
 
     const planId = buildCustomProgramPlanId(workoutTemplateId);
@@ -2700,16 +2701,16 @@ function VinhaApp() {
     });
 
     if (decision.kind === 'already_active') {
-      return;
+      return true;
     }
 
     if (decision.kind === 'blocked') {
       if (decision.canUpgrade) {
         setRunningCapSheet({ visible: true, used: decision.used, cap: decision.cap });
-        return;
+        return false;
       }
       showToast(t(preferences.appLanguage, 'programs.cap.full', { cap: decision.cap }));
-      return;
+      return false;
     }
 
     // The program's own session count leads, exactly as it does for a ready
@@ -2731,6 +2732,7 @@ function VinhaApp() {
       activePlanIds: addActiveProgram(preferences.activePlanIds, plan.id),
       activePlanId: options?.lead ? plan.id : preferences.activePlanId ?? plan.id,
     });
+    return true;
   }
 
   function handleStartCustomProgram(workoutTemplateId: string) {
