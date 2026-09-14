@@ -356,7 +356,10 @@ export function formatPlanSessionTitle(
   // into any order they like — so a name that carries its own numeral will
   // disagree with where the row actually sits the first time one is moved.
   // Passing it through unchanged printed "Day 2, Day 3, Day 1" down the list.
-  const storedDayPrefix = /^day\s+\d+\s*[.:–-]?\s*/i;
+  // "Päivä 3" too, since new days are named in the reader's language: matching
+  // only "day" let a Finnish default through to the index branch below, and
+  // every new Finnish programme listed "Päivä 1. Päivä 1".
+  const storedDayPrefix = /^(?:day|päivä)\s+\d+\s*[.:–-]?\s*/i;
   if (storedDayPrefix.test(sessionName)) {
     const rest = sessionName.replace(storedDayPrefix, '').trim();
     const label = t(language, 'detail.day', { index: index + 1 });

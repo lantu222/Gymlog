@@ -52,6 +52,23 @@ module.exports = [
     },
   },
   {
+    // Caught by the PR review: once the builder names new days "Päivä N", every
+    // detector that knew only "day" let the Finnish default through — the plan
+    // list read "Päivä 1. Päivä 1" and Home's week strip "PÄI", "PÄI", "PÄI".
+    name: 'appWrittenNames: a Finnish default day name is still recognised as a placeholder',
+    run() {
+      const { formatPlanSessionTitle } = require('../../.test-dist/lib/sessionNameLabel.js');
+      assert.equal(formatPlanSessionTitle({ name: 'Päivä 1' }, 0, 'Oma ohjelma', 'fi'), 'Päivä 1');
+      assert.equal(formatPlanSessionTitle({ name: 'Päivä 1' }, 2, 'Oma ohjelma', 'fi'), 'Päivä 3', 'the number is the position');
+      assert.equal(formatPlanSessionTitle({ name: 'Day 1' }, 0, 'Oma ohjelma', 'fi'), 'Päivä 1');
+
+      assert.equal(formatHomeSessionTitle('Päivä 2', [{ name: 'Back Squat' }]), 'Lower Focus');
+      assert.equal(localizeSessionName('Päivä 3', 'fi'), 'Päivä 3');
+      // A word that merely starts with "päivä" is a name, not a placeholder.
+      assert.equal(formatHomeSessionTitle('Päiväkirja', [{ name: 'Back Squat' }]), 'Päiväkirja');
+    },
+  },
+  {
     name: 'appWrittenNames: the workout summary buckets unknown lifts as "Muut"',
     run() {
       assert.equal(bodyPartLabel('fi', 'Other'), 'Muut');
