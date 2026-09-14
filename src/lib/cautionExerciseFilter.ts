@@ -1,5 +1,6 @@
 import { WorkoutTemplateExercise } from '../features/workout/workoutTypes';
 import { AppLanguage, SetupCautionArea, SetupCautionFlag, SetupFocusArea } from '../types/models';
+import { isHoldExerciseName } from './holdExercises';
 import { t } from './i18n';
 
 /**
@@ -93,6 +94,9 @@ const AREA_CAREFUL_SWAPS: Record<SetupCautionArea, Array<[string, string]>> = {
     ['kettlebell swing', 'Glute Bridge'],
   ],
   knees: [
+    // A hold is a stretch held for seconds; its supported version is the
+    // careful one. Listed before 'squat', which would turn it into a lift.
+    ['deep squat hold', 'Supported Deep Squat Hold'],
     ['bulgarian split squat', 'Box Squat'],
     ['squat', 'Box Squat'],
     ['lunge', 'Glute Bridge'],
@@ -138,6 +142,7 @@ const AREA_BODYWEIGHT_SWAPS: Record<SetupCautionArea, Array<[string, string]>> =
     ['kettlebell swing', 'Glute Bridge'],
   ],
   knees: [
+    ['deep squat hold', 'Supported Deep Squat Hold'],
     ['squat', 'Bodyweight Squat'],
     ['lunge', 'Bodyweight Walking Lunge'],
     ['leg press', 'Bodyweight Squat'],
@@ -233,8 +238,16 @@ export function applyCautionFlagsToExercises(
           (focusOverlap ? findSwap(exercise.exerciseName, AREA_BODYWEIGHT_SWAPS[flag.area]) : null) ??
           findSwap(exercise.exerciseName, AREA_CAREFUL_SWAPS[flag.area]);
 
-        // Never swap into something another flag bans outright.
-        if (replacement && !isBannedByAnyAvoid(replacement, seriousFlags)) {
+        // Never swap into something another flag bans outright. And never
+        // swap a hold into a lift: its dose is seconds, and "60–90" carried
+        // onto Box Squat read as 90 squats (2026-09-14). A hold with no hold
+        // to go to keeps its place, the same as any unmatched movement.
+        const holdIntoLift =
+          replacement !== null &&
+          (exercise.trackingMode === 'hold' || isHoldExerciseName(exercise.exerciseName)) &&
+          !isHoldExerciseName(replacement);
+        const sameLift = replacement !== null && normalize(replacement) === normalize(exercise.exerciseName);
+        if (replacement && !holdIntoLift && !sameLift && !isBannedByAnyAvoid(replacement, seriousFlags)) {
           swapped.push({ from: exercise.exerciseName, to: replacement, area: flag.area });
           return {
             ...exercise,
