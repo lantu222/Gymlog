@@ -144,23 +144,29 @@ export function activateOnboardingPlan(
  * answered for stayed in "your programmes" — three runs filled the free
  * limit with near-copies nobody built (user decision 2026-09-14: replace it).
  * Only the running programme onboarding itself wrote qualifies, and only while
- * nobody has changed it since: a template's `updatedAt` moves with every save
- * and rename, so equal timestamps mean the reader never touched it. An edited
- * one is the reader's work now; it stays, and the new run is a new programme
- * that counts like any other. The lead is asked first.
+ * the reader has done nothing with it: a template's `updatedAt` moves with
+ * every save and rename, so equal timestamps mean it was never edited — and
+ * no completed session may name it, because writing over a trained programme
+ * regenerates its exercise rows under new ids, and every "last time" weight,
+ * progression lookup and record check for it would then find nothing (PR
+ * review, 2026-09-14). An edited or trained one is the reader's; it stays, and
+ * the new run is a new programme that counts like any other. The lead is asked
+ * first.
  */
 export function findReplaceableOnboardingTemplateId(input: {
   activePlanId: string | null;
   activePlanIds: readonly string[];
   templates: ReadonlyArray<{ id: string; createdAt: string; updatedAt: string }>;
+  sessions: ReadonlyArray<{ workoutTemplateId: string }>;
 }): string | null {
   const running = [input.activePlanId, ...input.activePlanIds].filter(
     (planId): planId is string => typeof planId === 'string' && planId.startsWith(ONBOARDING_PLAN_PREFIX),
   );
+  const trained = new Set(input.sessions.map((session) => session.workoutTemplateId));
   for (const planId of running) {
     const templateId = planId.slice(ONBOARDING_PLAN_PREFIX.length);
     const template = input.templates.find((candidate) => candidate.id === templateId);
-    if (template && template.createdAt === template.updatedAt) {
+    if (template && template.createdAt === template.updatedAt && !trained.has(templateId)) {
       return templateId;
     }
   }

@@ -118,8 +118,31 @@ module.exports = [
       const lead = `${ONBOARDING_PLAN_PREFIX}tpl_old`;
       const at = '2026-09-01T10:00:00.000Z';
 
+      const untrained = [];
       assert.equal(
-        findReplaceableOnboardingTemplateId({ activePlanId: lead, activePlanIds: [lead], templates: [template('tpl_old', at)] }),
+        findReplaceableOnboardingTemplateId({ activePlanId: lead, activePlanIds: [lead], templates: [template('tpl_old', at)], sessions: untrained }),
+        'tpl_old',
+      );
+      // Trained, never edited: writing over it would regenerate its exercise
+      // rows under new ids and cut every "last time" and record lookup off
+      // from the sessions logged against the old ones. It stays.
+      assert.equal(
+        findReplaceableOnboardingTemplateId({
+          activePlanId: lead,
+          activePlanIds: [lead],
+          templates: [template('tpl_old', at)],
+          sessions: [{ workoutTemplateId: 'tpl_old' }],
+        }),
+        null,
+      );
+      // A session logged against some other programme does not protect this one.
+      assert.equal(
+        findReplaceableOnboardingTemplateId({
+          activePlanId: lead,
+          activePlanIds: [lead],
+          templates: [template('tpl_old', at)],
+          sessions: [{ workoutTemplateId: 'tpl_other' }],
+        }),
         'tpl_old',
       );
       // Edited since: the reader's work, kept, and the new run is a new programme.
@@ -128,6 +151,7 @@ module.exports = [
           activePlanId: lead,
           activePlanIds: [lead],
           templates: [template('tpl_old', at, '2026-09-05T08:00:00.000Z')],
+          sessions: untrained,
         }),
         null,
       );
@@ -140,16 +164,17 @@ module.exports = [
           activePlanId: handAdopted,
           activePlanIds: [handAdopted],
           templates: [template('tpl_mine', at)],
+          sessions: untrained,
         }),
         null,
       );
       // Not running: the last run's programme was already set aside by the reader.
       assert.equal(
-        findReplaceableOnboardingTemplateId({ activePlanId: null, activePlanIds: [], templates: [template('tpl_old', at)] }),
+        findReplaceableOnboardingTemplateId({ activePlanId: null, activePlanIds: [], templates: [template('tpl_old', at)], sessions: untrained }),
         null,
       );
       // Its template is gone.
-      assert.equal(findReplaceableOnboardingTemplateId({ activePlanId: lead, activePlanIds: [lead], templates: [] }), null);
+      assert.equal(findReplaceableOnboardingTemplateId({ activePlanId: lead, activePlanIds: [lead], templates: [], sessions: untrained }), null);
       // The lead is asked first; an edited lead lets an untouched one behind it go.
       const second = `${ONBOARDING_PLAN_PREFIX}tpl_second`;
       assert.equal(
@@ -157,6 +182,7 @@ module.exports = [
           activePlanId: lead,
           activePlanIds: [second, lead],
           templates: [template('tpl_old', at, '2026-09-05T08:00:00.000Z'), template('tpl_second', at)],
+          sessions: untrained,
         }),
         'tpl_second',
       );
@@ -171,7 +197,7 @@ module.exports = [
       }
       assert.match(
         body(app, 'function withReplaceableOnboardingId'),
-        /findReplaceableOnboardingTemplateId\(\{[\s\S]*templates: database\.workoutTemplates/,
+        /findReplaceableOnboardingTemplateId\(\{[\s\S]*templates: database\.workoutTemplates,\s*sessions: database\.workoutSessions,/,
       );
 
       // An in-place write keeps createdAt and moves updatedAt, which would read

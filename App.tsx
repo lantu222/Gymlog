@@ -2951,6 +2951,7 @@ function VinhaApp() {
       activePlanId: preferences.activePlanId,
       activePlanIds: preferences.activePlanIds,
       templates: database.workoutTemplates,
+      sessions: database.workoutSessions,
     });
     return replaceableId ? { ...draft, id: replaceableId } : draft;
   }
