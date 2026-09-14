@@ -777,8 +777,8 @@ export function ProgressScreen({
     // The summary sorts newest first; the anchor is the earliest weigh-in.
     const first = earliestEntryMs(entries.map((entry) => entry.recordedAt));
     const days = measureRangeDays(resolvedMeasureRange, first, nowMs);
-    return buildValueWindow(entries, nowMs, days);
-  }, [bodyweightProgress.entries, resolvedMeasureRange]);
+    return buildValueWindow(entries, nowMs, days, language);
+  }, [bodyweightProgress.entries, resolvedMeasureRange, language]);
   /**
    * What the rulers open on. Not a default the reader has to correct: their
    * last weigh-in, or the weight onboarding recorded, and only then a middle-
@@ -915,8 +915,9 @@ export function ProgressScreen({
       bodyweightProgress.entries.map((entry) => ({ recordedAt: entry.recordedAt, value: entry.weight })),
       nowMs,
       days,
+      language,
     );
-  }, [bodyweightProgress.entries, resolvedOverviewRange]);
+  }, [bodyweightProgress.entries, resolvedOverviewRange, language]);
 
   const overviewChart = useMemo(() => {
     const start = getOverviewRangeStart(resolvedOverviewRange);
@@ -1157,8 +1158,8 @@ export function ProgressScreen({
     const nowMs = Date.now();
     const first = earliestEntryMs(entries.map((entry) => entry.recordedAt));
     const days = measureRangeDays(resolvedMeasureRange, first, nowMs);
-    return buildValueWindow(entries, nowMs, days);
-  }, [resolvedMeasureRange, selectedMeasureModel]);
+    return buildValueWindow(entries, nowMs, days, language);
+  }, [resolvedMeasureRange, selectedMeasureModel, language]);
 
   const selectedMeasureLatest = selectedMeasureModel.values.length
     ? selectedMeasureModel.values[selectedMeasureModel.values.length - 1]

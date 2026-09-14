@@ -11,7 +11,7 @@ import { CutSurface } from '../components/CutSurface';
 import { groupRecordsByMonth, PersonalRecord, RecordKind } from '../lib/personalRecords';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import type { AppLanguage } from '../types/models';
-import { removeTrailingZeros } from '../lib/format';
+import { formatDateNumeric, removeTrailingZeros } from '../lib/format';
 
 /**
  * Your bests, in three kinds.
@@ -58,9 +58,7 @@ function formatDay(iso: string, language: AppLanguage) {
   if (Number.isNaN(date.getTime())) {
     return '';
   }
-  return language === 'fi'
-    ? `${date.getDate()}.${date.getMonth() + 1}.${date.getFullYear()}`
-    : `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+  return formatDateNumeric(date, language);
 }
 
 function recordValue(record: PersonalRecord, language: AppLanguage) {

@@ -1,4 +1,5 @@
-import { BodyweightEntry } from '../types/models';
+import { AppLanguage, BodyweightEntry } from '../types/models';
+import { formatDayMonthNumeric } from './format';
 import { I18nKey } from './i18n';
 
 /**
@@ -432,6 +433,7 @@ export function buildValueWindow(
   entries: ReadonlyArray<{ recordedAt: string; value: number }>,
   nowMs: number,
   days: number,
+  language: AppLanguage,
 ): WeightWindowDay[] {
   const now = new Date(nowMs);
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -468,7 +470,7 @@ export function buildValueWindow(
     const dayStart = date.getTime();
     return {
       dayStart,
-      label: withMonth ? `${date.getDate()}.${date.getMonth() + 1}.` : String(date.getDate()),
+      label: withMonth ? formatDayMonthNumeric(date, language) : String(date.getDate()),
       value: byDay.get(dayStart) ?? null,
       isToday: dayStart === today,
     };
