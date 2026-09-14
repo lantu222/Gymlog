@@ -235,6 +235,7 @@ const suites = [
   ...require('./lib/aiCoachBody.test.cjs'),
   ...require('./lib/aiCoachEval.test.cjs'),
   ...require('./api/aiCoachEndpoint.test.cjs'),
+  ...require('./lib/coachKeyHealth.test.cjs'),
   ...require('./lib/aiCoachModules.test.cjs'),
   ...require('./lib/sessionAnalysis.test.cjs'),
   ...require('./lib/coachHighlight.test.cjs'),
