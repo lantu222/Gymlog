@@ -155,8 +155,17 @@ const SIZES = {
     logo: 15,
   },
   // 4×2 — the month, and this month's figures beside it.
+  //
+  // The month is what the card is for, so it takes the larger share (13:7, was
+  // 3:2) and the figures a step down (14sp, was 17). User 2026-09-14, from a
+  // store image: the left edge "jää tosi tiiviiksi" — the grid ran to 11dp from
+  // the card's edge while three short figures kept a wide column to themselves.
+  // The sides get their own, wider padding. 14sp is sized so the longest figure
+  // the card prints ("12 h 30 min") still fits the narrower column on a 4×2 of
+  // ~270dp without its end-ellipsis.
   stats: {
     pad: 11,
+    padHorizontal: 16,
     month: 12,
     axis: 8.5,
     date: 9.5,
@@ -165,9 +174,12 @@ const SIZES = {
     axisGap: 6,
     gridGap: 3,
     logo: 14,
-    statValue: 17,
+    monthShare: 13,
+    figureShare: 7,
+    figureGap: 10,
+    statValue: 14,
     statLabel: 8.5,
-    statGap: 8,
+    statGap: 7,
   },
   // 2×1 — one number, or one line.
   // routinePad is tighter than the streak card's: that one draws one line,
@@ -778,7 +790,7 @@ function statsLayout(theme, { preview = null } = {}) {
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="3"
+                android:layout_weight="${size.monthShare}"
                 android:orientation="vertical">
 ${indentBlock(parts.month, '                ')}
 ${indentBlock(parts.axis, '                ')}
@@ -787,8 +799,8 @@ ${indentBlock(parts.grid, '                ')}
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="2"
-                android:layout_marginStart="12dp"
+                android:layout_weight="${size.figureShare}"
+                android:layout_marginStart="${size.figureGap}dp"
                 android:orientation="vertical">
 ${logoView(size.logo, { indent: '                ', gravity: 'end' })}
                 <LinearLayout
@@ -802,7 +814,11 @@ ${stats}
             </LinearLayout>
         </LinearLayout>`;
 
-  return root(theme, { padding: size.pad, children: `${promptView(theme, { size: 14 })}\n${body}` });
+  return root(theme, {
+    padding: size.pad,
+    paddingHorizontal: size.padHorizontal,
+    children: `${promptView(theme, { size: 14 })}\n${body}`,
+  });
 }
 
 /** 2×1. One number: the weeks in a row the app itself counts. */
