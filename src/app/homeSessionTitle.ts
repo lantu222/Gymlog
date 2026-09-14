@@ -42,7 +42,10 @@ function getExerciseFocusName(name: string) {
 
 export function formatHomeSessionTitle(name: string, exercises: Array<{ name?: string; exerciseName?: string }>) {
   const displayName = formatWorkoutDisplayLabel(name, 'Workout');
-  if (!/^(minimal\s+[abc]|workout\s+[abc]|day\s+\d+|session\s+\d+)$/i.test(displayName.trim())) {
+  // "Päivä N" is the same placeholder in Finnish: the builder names new days in
+  // the reader's language, and an English-only pattern left a new Finnish
+  // programme's week strip reading "PÄI", "PÄI", "PÄI".
+  if (!/^(minimal\s+[abc]|workout\s+[abc]|(?:day|päivä)\s+\d+|session\s+\d+)$/i.test(displayName.trim())) {
     // The full name, never sliced. A 20-character cap with hand-appended dots
     // lived here and cut "Day 1: Full Body + H|IIT" at exactly the H — and
     // because every surface builds its titles from this one card, the cut

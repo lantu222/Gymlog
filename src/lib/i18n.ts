@@ -917,6 +917,7 @@ const EN = {
   'bodyPart.triceps': 'Triceps',
   'bodyPart.core': 'Core',
   'bodyPart.fullBody': 'Full body',
+  'bodyPart.other': 'Other',
 
   // ── Weekday chips (two-letter, Monday-first) ───────────────────────────
   'weekday.mon': 'Mo',
@@ -4012,6 +4013,7 @@ const FI: Record<I18nKey, string> = {
   'bodyPart.triceps': 'Ojentajat',
   'bodyPart.core': 'Keskivartalo',
   'bodyPart.fullBody': 'Koko keho',
+  'bodyPart.other': 'Muut',
 
   // ── Weekday chips ──────────────────────────────────────────────────────
   'weekday.mon': 'Ma',
@@ -6082,6 +6084,8 @@ const BODY_PART_KEYS: Record<string, I18nKey> = {
   triceps: 'bodyPart.triceps',
   core: 'bodyPart.core',
   'full body': 'bodyPart.fullBody',
+  // The workout summary's bucket for lifts with no body part (workoutCompleteView).
+  other: 'bodyPart.other',
 };
 
 /** Display label for a library bodyPart value; unknown values just capitalize. */

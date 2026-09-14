@@ -102,6 +102,29 @@ const FOCUS_FI: Record<string, string> = {
   'workout b': 'Treeni B',
 
   'full body': 'Koko keho',
+
+  // ── Names the app writes itself ──────────────────────────────────────
+  // Not catalogue data: onboarding appends these days to a shorter programme
+  // (recommendationProgramme.buildSupplementalDay), and Home titles a session
+  // named only "Day 2" or "Workout A" by its first lift
+  // (app/homeSessionTitle.ts). Both reached a Finnish reader in English —
+  // "Accessory Strength Day", "Palautuminen + Mobility Day", "Lower Focus"
+  // (2026-09-14). Translated here, at display time, so installs that already
+  // saved these names read them in Finnish too.
+  'accessory strength day': 'Tukiliikkeiden voimapäivä',
+  'recovery strength day': 'Kevyt voimapäivä',
+  'easy run add-on': 'Lisäpäivä: kevyt juoksu',
+  'long run add-on': 'Lisäpäivä: pitkä juoksu',
+  'bodyweight volume day': 'Kehonpainon volyymipäivä',
+  'conditioning + mobility day': 'Kunto ja liikkuvuus',
+  'recovery + mobility day': 'Palautuminen ja liikkuvuus',
+  'easy conditioning day': 'Kevyt kuntopäivä',
+  'lower focus': 'Alavartalo',
+  'posterior focus': 'Takaketju',
+  'push focus': 'Työntö',
+  'pull focus': 'Veto',
+  'conditioning focus': 'Kunto',
+  'full body focus': 'Koko keho',
   'upper body': 'Ylävartalo',
   'lower body': 'Alavartalo',
   upper: 'Ylävartalo',
@@ -333,7 +356,10 @@ export function formatPlanSessionTitle(
   // into any order they like — so a name that carries its own numeral will
   // disagree with where the row actually sits the first time one is moved.
   // Passing it through unchanged printed "Day 2, Day 3, Day 1" down the list.
-  const storedDayPrefix = /^day\s+\d+\s*[.:–-]?\s*/i;
+  // "Päivä 3" too, since new days are named in the reader's language: matching
+  // only "day" let a Finnish default through to the index branch below, and
+  // every new Finnish programme listed "Päivä 1. Päivä 1".
+  const storedDayPrefix = /^(?:day|päivä)\s+\d+\s*[.:–-]?\s*/i;
   if (storedDayPrefix.test(sessionName)) {
     const rest = sessionName.replace(storedDayPrefix, '').trim();
     const label = t(language, 'detail.day', { index: index + 1 });
