@@ -89,6 +89,7 @@ import { resolveAvailableEquipment } from './src/lib/equipmentExerciseFilter';
 import { getReadyProgramBlockWeeks } from './src/lib/readyProgramDuration';
 import { getReadyProgramContent } from './src/lib/readyProgramContent';
 import {
+  calendarDaysBetween,
   getCalendarDayStartTimestamp,
   getCanonicalCompletedSessions,
   getRecentActivityStrip,
@@ -5131,7 +5132,7 @@ function VinhaApp() {
         bestKg: history.bestWeightKg,
         rate: resolveObservedRate(history.points),
         lastLoggedAt: history.latest.time,
-        daysSinceLogged: Math.max(0, Math.round((now - history.latest.time) / 86_400_000)),
+        daysSinceLogged: Math.max(0, calendarDaysBetween(history.latest.time, now)),
       };
     });
   }, [libraryNames, preferences.strengthGoals, proLiftHistories]);

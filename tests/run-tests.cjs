@@ -357,6 +357,7 @@ const suites = [
   ...require('./lib/homeCalendarPaging.test.cjs'),
   ...require('./lib/drillMedia.test.cjs'),
   ...require('./lib/userFitnessProfile.test.cjs'),
+  ...require('./lib/calendarDayCounts.test.cjs'),
 ];
 
 (async () => {

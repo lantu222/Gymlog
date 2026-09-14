@@ -37,6 +37,25 @@ export function getCalendarDayStartTimestamp(dateInput: string | Date) {
   return toDayStart(dateInput).getTime();
 }
 
+/**
+ * "2026-09-14" for the day the reader lived it, in the device's timezone.
+ *
+ * Not `toISOString().slice(0, 10)`, and not a stored ISO string's first ten
+ * characters: both are UTC, and in Helsinki a session between midnight and
+ * 02:00 or 03:00 is still yesterday there — a late session merged into the
+ * previous day's chart point and exported under the wrong date. Empty for a
+ * value that is not a date.
+ */
+export function localDateKey(value: string | number | Date): string {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) {
+    return '';
+  }
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 export function getCalendarWeekStartTimestamp(dateInput: string | Date) {
   const date = toDayStart(dateInput);
   const weekday = date.getDay();

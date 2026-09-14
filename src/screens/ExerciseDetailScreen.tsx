@@ -7,6 +7,7 @@ import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { getExerciseInstructions } from '../lib/exerciseInstructions';
 import { countRemainingStatements } from '../lib/exerciseLearning';
 import { getExerciseTeaching, shouldShowTeachingCaution } from '../lib/exerciseTeaching';
+import { calendarDaysBetween } from '../lib/completedSessions';
 import { convertWeightFromKg, formatShortDate, removeTrailingZeros } from '../lib/format';
 import { I18nKey, t } from '../lib/i18n';
 import { libraryLabel } from '../lib/libraryLabel';
@@ -73,7 +74,9 @@ function toLabel(value: string | null | undefined, language: AppLanguage) {
 }
 
 function formatLastDone(iso: string, language: AppLanguage) {
-  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  // Calendar days, not 24-hour spans: done at 21:00 yesterday is "yesterday"
+  // at 09:00 today, not "today".
+  const days = calendarDaysBetween(iso, Date.now());
   if (days <= 0) {
     return t(language, 'common.today');
   }

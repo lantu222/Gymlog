@@ -47,6 +47,7 @@ import {
   parseNumberInput,
   removeTrailingZeros,
 } from '../lib/format';
+import { localDateKey } from '../lib/completedSessions';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { I18nKey, t } from '../lib/i18n';
 import { ProMomentContent, WeeklyReadRow } from '../lib/proInsights';
@@ -354,11 +355,14 @@ function getOverviewRangeStart(range: OverviewRange) {
 }
 
 function getOverviewBucketKey(dateString: string, range: OverviewRange) {
+  // Local days and months: the labels are stored UTC instants, and their first
+  // characters name the UTC day.
+  const dayKey = localDateKey(dateString);
   if (range === '6m' || range === 'all') {
-    return new Date(dateString).toISOString().slice(0, 7);
+    return dayKey.slice(0, 7);
   }
 
-  return dateString.slice(0, 10);
+  return dayKey;
 }
 
 function bucketOverviewPointsByRange(
@@ -968,7 +972,7 @@ export function ProgressScreen({
         continue;
       }
 
-      const key = performedAt.toISOString().slice(0, 10);
+      const key = localDateKey(performedAt);
       const bucket = grouped.get(key) ?? {
         performedAt: session.performedAt,
         duration: 0,

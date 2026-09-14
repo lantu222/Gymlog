@@ -1,4 +1,5 @@
 import { ExerciseLog, WorkoutSession } from '../types/models';
+import { localDateKey } from './completedSessions';
 
 /**
  * Every set you have ever logged, as text you can take away.
@@ -37,8 +38,7 @@ function csvField(value: string | number | null | undefined): string {
 }
 
 function isoDate(value: string): string {
-  const parsed = new Date(value);
-  return Number.isFinite(parsed.getTime()) ? parsed.toISOString().slice(0, 10) : '';
+  return localDateKey(value);
 }
 
 export interface WorkoutLogCsvInput {
