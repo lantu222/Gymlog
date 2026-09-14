@@ -4,7 +4,7 @@ import { trackEvent } from '../analytics/analyticsClient';
 import { CardioActivityType, UnitPreference } from '../../types/models';
 import { ActiveCardioSession } from '../../lib/cardio';
 import { CORE_WORKOUT_TEMPLATE_ID, WORKOUT_TEMPLATES_V1, getWorkoutTemplateById, getWorkoutTemplateSessions } from './workoutCatalog';
-import { loadWorkoutBundle, normalizeWorkoutBundle, saveWorkoutBundle } from './workoutPersistence';
+import { clearWorkoutBundle, loadWorkoutBundle, normalizeWorkoutBundle, saveWorkoutBundle } from './workoutPersistence';
 import { GuidedResumeAnchor, WorkoutExerciseInsertInput, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRuntimeTemplate, WorkoutSessionRuntime, WorkoutSetEffort } from './workoutTypes';
 import {
   WorkoutFeatureState,
@@ -38,6 +38,8 @@ interface WorkoutContextValue {
   finishWorkout: (performedAt?: string) => void;
   discardWorkout: () => void;
   clearCompletedWorkout: () => void;
+  /** Erase the whole training record this provider holds: session, cardio and per-slot history. */
+  resetWorkoutData: () => Promise<void>;
   clearRestTimer: () => void;
   pauseRestTimer: () => void;
   resumeRestTimer: () => void;
@@ -231,6 +233,12 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
       },
       clearCompletedWorkout() {
         dispatch({ type: 'session/clearCompletedSession' });
+      },
+      async resetWorkoutData() {
+        // The stored bundle goes first, the legacy key with it; the empty state
+        // is then written back by the persistence effect like any other change.
+        await clearWorkoutBundle();
+        dispatch({ type: 'session/resetAll', payload: { nowMs: Date.now() } });
       },
       clearRestTimer() {
         dispatch({ type: 'timer/clear' });
