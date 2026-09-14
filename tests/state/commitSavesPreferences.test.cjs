@@ -43,12 +43,12 @@ module.exports = [
     run() {
       const provider = read('src', 'state', 'AppProvider.tsx');
       const commit = functionBody(provider, 'async function commit(nextDatabase: AppDatabase) {', '  ');
-      const previousAt = commit.indexOf('const previousPreferences = databaseRef.current.preferences;');
+      const previousAt = commit.indexOf('const previous = databaseRef.current;');
       const swapAt = commit.indexOf('databaseRef.current = nextDatabase;');
       assert.ok(previousAt >= 0 && previousAt < swapAt, 'the previous preferences are read before the swap');
       assert.match(
         commit,
-        /if \(nextDatabase\.preferences !== previousPreferences\) \{\s*await savePreferences\(nextDatabase\.preferences\);/,
+        /if \(nextDatabase\.preferences !== previous\.preferences\) \{\s*await savePreferences\(nextDatabase\.preferences\);/,
       );
       assert.ok(
         commit.indexOf('await saveDatabase(nextDatabase);') < commit.indexOf('await savePreferences('),
