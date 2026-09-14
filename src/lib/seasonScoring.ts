@@ -74,8 +74,6 @@ export interface SeasonProgress {
   thisWeekTarget: number;
 }
 
-const DAY = 86_400_000;
-
 /** 7/6/7/6 — the same split seasonBlockIndex draws. */
 const BLOCK_LENGTHS = [7, 6, 7, 6];
 
@@ -118,7 +116,7 @@ export function computeSeasonProgress(
     if (!Number.isFinite(stamp) || stamp < window.start.getTime() || stamp >= window.end.getTime()) {
       continue;
     }
-    const week = Math.min(SEASON_WEEKS, Math.floor((stamp - window.start.getTime()) / (7 * DAY)) + 1);
+    const week = seasonWeek(window, new Date(stamp));
     perWeek.set(week, (perWeek.get(week) ?? 0) + 1);
     workouts += 1;
   }
@@ -265,11 +263,7 @@ export function countSeasonRecords(
       // Only a record set INSIDE the window scores. Beating a weight from two
       // years ago is progress; the weight from two years ago is not.
       if (log.stamp >= window.start.getTime() && log.stamp < window.end.getTime()) {
-        const week = Math.min(
-          SEASON_WEEKS,
-          Math.floor((log.stamp - window.start.getTime()) / (7 * DAY)) + 1,
-        );
-        blocksHit.add(seasonBlockIndex(week));
+        blocksHit.add(seasonBlockIndex(seasonWeek(window, new Date(log.stamp))));
       }
     }
 

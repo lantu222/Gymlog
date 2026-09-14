@@ -29,6 +29,11 @@ Androidin sovelluskohtaiseen hiekkalaatikkoon.
 | `@vinha/account/v1` | Google-tunniste (`sub`), **sähköpostiosoite**, nimi, viimeisimmän varmuuskopion aika |
 | `@vinha/database/corrupt` | Karanteeni: viimeisin lukukelvoton tietokanta, jotta se voidaan palauttaa tukipyynnöllä |
 
+Pitkä historia ei mahdu Androidilla yhteen riviin (lukuraja 2 Mt), joten lähellä
+rajaa `@vinha/database/v1`, `@vinha/workout/v1` ja karanteeni tallennetaan osiin
+`<avain>#0`, `<avain>#1`, … ja itse avain kertoo osien määrän. Sisältö on sama;
+"Poista kaikki tiedot" poistaa myös osat.
+
 Sähköposti ja Google-tunniste ovat tarkoituksella oma avaimensa eivätkä osa
 tietokantaa, koska tietokanta on se, mikä varmuuskopioidaan.
 

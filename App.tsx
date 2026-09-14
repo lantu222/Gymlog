@@ -91,6 +91,7 @@ import { resolveAvailableEquipment } from './src/lib/equipmentExerciseFilter';
 import { getReadyProgramBlockWeeks } from './src/lib/readyProgramDuration';
 import { getReadyProgramContent } from './src/lib/readyProgramContent';
 import {
+  calendarDaysBetween,
   getCalendarDayStartTimestamp,
   getCanonicalCompletedSessions,
   getRecentActivityStrip,
@@ -150,6 +151,7 @@ import type { ChatMessage } from './src/screens/AICoachChatScreen';
 import {
   applyProgramSessionEdit,
   ProgramPrescription,
+  toDraftExercise,
 } from './src/lib/programSessionEdit';
 import { repointPlanEntrySessions } from './src/lib/planSessionOrder';
 import { reorderProgramSessions } from './src/lib/programSessionOrder';
@@ -195,15 +197,22 @@ import {
 } from './src/lib/programCompletion';
 import { backfillRecommendations } from './src/lib/recommendationBackfill';
 import { STRENGTH_GOAL_PRESETS } from './src/lib/strengthGoalPresets';
-import { describeGoalCoverage, GoalProgrammeSuggestionView, isSameLift, rankProgrammesForLift } from './src/lib/goalProgramme';
+import {
+  describeGoalCoverage,
+  GoalProgrammeSuggestionView,
+  isSameLift,
+  isSameLiftAsLibraryRow,
+  rankProgrammesForLift,
+} from './src/lib/goalProgramme';
 import {
   addSeasonEnrolment,
   isEnrolled,
 } from './src/lib/seasonEnrolment';
 import { exerciseNameLabel } from './src/lib/exerciseNameLabel';
 import { buildProgramFingerprint } from './src/lib/programFingerprint';
-import { firstRecordDates, resolveRecords } from './src/lib/personalRecords';
+import { firstRecordDates, RecordSource, resolveRecords } from './src/lib/personalRecords';
 import { getComparableLogSets } from './src/lib/exerciseLog';
+import { ExerciseProgressSummary, getLiftProgress, SameLiftMatcher } from './src/lib/progression';
 import { resolveGoalProgress, upsertStrengthGoal } from './src/lib/strengthGoals';
 import {
   countByCategory,
@@ -1819,14 +1828,8 @@ function VinhaApp() {
         id: session.id,
         name: session.name,
         exercises: session.exercises.map((exercise) => ({
-          id: exercise.id,
-          name: exercise.name,
+          ...toDraftExercise(exercise),
           targetSets: setsByExerciseId.get(exercise.id) ?? exercise.targetSets,
-          repMin: exercise.repMin,
-          repMax: exercise.repMax,
-          restSeconds: exercise.restSeconds,
-          trackedDefault: exercise.trackedDefault,
-          libraryItemId: exercise.libraryItemId ?? null,
         })),
       })),
     }));
@@ -2130,16 +2133,7 @@ function VinhaApp() {
         // Every other field is copied because upsert replaces the record; only
         // the one session the reader named changes.
         name: session.id === sessionId ? trimmed : session.name,
-        exercises: session.exercises.map((exercise) => ({
-          id: exercise.id,
-          name: exercise.name,
-          targetSets: exercise.targetSets,
-          repMin: exercise.repMin,
-          repMax: exercise.repMax,
-          restSeconds: exercise.restSeconds,
-          trackedDefault: exercise.trackedDefault,
-          libraryItemId: exercise.libraryItemId ?? null,
-        })),
+        exercises: session.exercises.map(toDraftExercise),
       })),
     }));
   }
@@ -2182,16 +2176,7 @@ function VinhaApp() {
         sessions: result.sessions.map((session) => ({
           id: session.id,
           name: session.name,
-          exercises: session.exercises.map((exercise) => ({
-            id: exercise.id,
-            name: exercise.name,
-            targetSets: exercise.targetSets,
-            repMin: exercise.repMin,
-            repMax: exercise.repMax,
-            restSeconds: exercise.restSeconds,
-            trackedDefault: exercise.trackedDefault,
-            libraryItemId: exercise.libraryItemId ?? null,
-          })),
+          exercises: session.exercises.map(toDraftExercise),
         })),
       };
     });
@@ -4990,22 +4975,23 @@ function VinhaApp() {
    * number the app derives from a set — a second reader would drift the first
    * time the legacy shape came up.
    */
+  const toSetLogSource = useMemo(() => {
+    const bodyPartByName = new Map(
+      exerciseBrowserItems.map((item) => [item.name.trim().toLowerCase(), item.bodyPart]),
+    );
+    return (summary: ExerciseProgressSummary): RecordSource => ({
+      key: summary.key,
+      name: summary.name,
+      bodyPart: bodyPartByName.get(summary.name.trim().toLowerCase()) ?? null,
+      entries: summary.logs.map((log) => ({
+        performedAt: log.performedAt,
+        sets: getComparableLogSets(log).map((set) => ({ weight: set.weight, reps: set.reps })),
+      })),
+    });
+  }, [exerciseBrowserItems]);
   const recordSources = useMemo(
-    () => {
-      const bodyPartByName = new Map(
-        exerciseBrowserItems.map((item) => [item.name.trim().toLowerCase(), item.bodyPart]),
-      );
-      return trackedProgress.map((summary) => ({
-        key: summary.key,
-        name: summary.name,
-        bodyPart: bodyPartByName.get(summary.name.trim().toLowerCase()) ?? null,
-        entries: summary.logs.map((log) => ({
-          performedAt: log.performedAt,
-          sets: getComparableLogSets(log).map((set) => ({ weight: set.weight, reps: set.reps })),
-        })),
-      }));
-    },
-    [exerciseBrowserItems, trackedProgress],
+    () => trackedProgress.map(toSetLogSource),
+    [toSetLogSource, trackedProgress],
   );
   const personalRecords = useMemo(
     () => ({
@@ -5083,6 +5069,25 @@ function VinhaApp() {
   );
 
   const libraryNames = useMemo(() => exerciseLibrary.map((item) => item.name), [exerciseLibrary]);
+  /**
+   * "Is this log that lift?" — bound to the library once, for every lookup
+   * that asks it about a target: the target bars and the Progress target rows.
+   * The rows used to compare names instead, so the flow quoted a 110 kg squat
+   * best while the squat's own row said nothing was logged.
+   */
+  const sameLift = useCallback<SameLiftMatcher>(
+    (loggedName, liftName) => isSameLift(loggedName, liftName, libraryNames),
+    [libraryNames],
+  );
+  /**
+   * The same question about one library row, for the exercise page's history.
+   * Narrower than a target on purpose — see isSameLiftAsLibraryRow: the sumo
+   * deadlift's page is not the deadlift target.
+   */
+  const sameLibraryRow = useCallback<SameLiftMatcher>(
+    (loggedName, rowName) => isSameLiftAsLibraryRow(loggedName, rowName, libraryNames),
+    [libraryNames],
+  );
 
   /**
    * The lifts the target flow can aim at, and what the log says about each.
@@ -5126,10 +5131,36 @@ function VinhaApp() {
         bestKg: history.bestWeightKg,
         rate: resolveObservedRate(history.points),
         lastLoggedAt: history.latest.time,
-        daysSinceLogged: Math.max(0, Math.round((now - history.latest.time) / 86_400_000)),
+        daysSinceLogged: Math.max(0, calendarDaysBetween(history.latest.time, now)),
       };
     });
   }, [libraryNames, preferences.strengthGoals, proLiftHistories]);
+
+  /**
+   * The Progress tab's target rows: each target lift under every name it was
+   * logged as.
+   *
+   * The rows used to join the tracked summaries on the lift's own name. A
+   * target on "Barbell Squat" seeds an empty summary under that name, and the
+   * squats an onboarding programme logs are "Back Squat" — so the row read
+   * "Alkuvaihe –" and opened "No logged sets" beside a flow that had just
+   * quoted the 110 kg best.
+   *
+   * The sheet a row opens is built from the same merged summary, and kept
+   * apart from the Records sources: a record is one spelling's best, and
+   * tapping it must not open a sheet whose best disagrees with it.
+   */
+  const targetLiftProgress = useMemo(
+    () =>
+      goalFlowLifts
+        .map((lift) => getLiftProgress(lift.exerciseName, trackedProgress, sameLift))
+        .filter((summary): summary is ExerciseProgressSummary => summary !== null),
+    [goalFlowLifts, sameLift, trackedProgress],
+  );
+  const targetLiftSources = useMemo(
+    () => targetLiftProgress.map(toSetLogSource),
+    [targetLiftProgress, toSetLogSource],
+  );
 
   /**
    * The programme the flow would put the reader on, for one lift.
@@ -5275,9 +5306,9 @@ function VinhaApp() {
         new Map(trackedProgress.map((summary) => [summary.name, summary.bestWeight])),
         // Same rule the coverage row uses, so "your program trains this" and
         // "you have lifted this" can never disagree about what the lift is.
-        (loggedName, liftName) => isSameLift(loggedName, liftName, libraryNames),
+        sameLift,
       ),
-    [libraryNames, preferences.strengthGoals, trackedProgress],
+    [preferences.strengthGoals, sameLift, trackedProgress],
   );
   /**
    * The programme behind each goal lift (feedback round 2, #1: a target always
@@ -5984,6 +6015,7 @@ function VinhaApp() {
       editorDraft,
       editorExerciseHistoryLookup,
       exerciseLibrary,
+      sameLibraryRow,
       guidedEntryEyebrow,
       guidedWeekProgress,
       guidedNextUp,
@@ -6031,7 +6063,8 @@ function VinhaApp() {
       distinctRecordCount,
       recordSources,
       targetLifts: goalFlowLifts,
-      trackedProgress,
+      targetLiftProgress,
+      targetLiftSources,
       bodyweightProgress,
       measurementEntries,
       workoutSessions,

@@ -165,6 +165,10 @@ export function buildSavedOnboardingPlan(
         repMax: exercise.repsMax,
         restSeconds: exercise.restSecondsMax,
         trackedDefault: true,
+        // The composed week pairs lifts the way the catalogue prescribes
+        // them; the saved programme dropped the id, so a programme built by
+        // onboarding — most programmes — never ran a superset (2026-09-14).
+        supersetGroup: exercise.supersetGroup ?? null,
       })),
     })),
   };

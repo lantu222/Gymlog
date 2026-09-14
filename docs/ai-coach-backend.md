@@ -143,6 +143,34 @@ needs your accounts; none can be done from the repo.
 Rollback is step 4 in reverse: unset the URL and rebuild, and every install is
 back on preview. The endpoint can stay up; nothing calls it.
 
+## Daily key check
+
+On 2026-09-13 the production key had been refused by Anthropic (401, "API key is
+invalid") for an unknown stretch. Every answer was the on-device fallback, and
+the free tier keeps function logs for about an hour, so nothing recorded when it
+started. `api/coach-health.ts` now runs once a day from `vercel.json`
+(05:00 UTC, ±59 min on Hobby):
+
+- It calls `GET https://api.anthropic.com/v1/models` with the key — a call that
+  needs a valid key and spends no tokens.
+- A missing key, 401 or 403 posts one line to Slack `#bugs`, naming the status
+  and the fix. A timeout, 429 or 5xx does not: the next run asks again. The rule
+  and its tests are `src/lib/coachKeyHealth.ts` / `tests/lib/coachKeyHealth.test.cjs`.
+- It posts again every day until the key works, so a note that gets missed once
+  comes back.
+- The key is never logged, returned or posted.
+
+Needs, in the Production environment: `CRON_SECRET` (already set for
+`prune-events`) and **`SLACK_WEBHOOK_BUGS`** — the `#bugs` incoming webhook from
+`docs/slack-workflow.md`. Without the webhook the check still runs and answers
+`"notified": "no-webhook"`. Both take effect on the next deploy.
+
+Run it by hand, without posting:
+
+```bash
+curl -s -H "x-analytics-secret: $ANALYTICS_READ_SECRET" "https://vinha-azure.vercel.app/api/coach-health?notify=0"
+```
+
 ## Important
 This is a minimal Beta backend path.
 If you enable it for public Play release, update:

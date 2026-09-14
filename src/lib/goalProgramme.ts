@@ -1,5 +1,6 @@
-import { findGuidedLibraryIndex } from './guidedPlayer';
-import { isSameLiftByGroup, liftGroupOf } from './liftIdentity';
+import { PLAIN_EXERCISE_NAMES } from './exerciseNameLabel';
+import { findFiledLibraryIndex, findGuidedLibraryIndex } from './guidedPlayer';
+import { isSameLiftByGroup, liftGroupNames, liftGroupOf } from './liftIdentity';
 import { StrengthGoal } from './strengthGoals';
 
 /**
@@ -133,14 +134,27 @@ function normalize(name: string): string {
  * resolution of a name against a given library never changes, so it is looked
  * up once and kept for as long as that library array lives.
  */
-const resolverCache = new WeakMap<readonly string[], { names: string[]; byName: Map<string, number | null> }>();
+const resolverCache = new WeakMap<
+  readonly string[],
+  {
+    names: string[];
+    byName: Map<string, number | null>;
+    filedByName: Map<string, number | null>;
+    rowsNamedByGroup: Map<number, number>;
+  }
+>();
 
-function resolveLibraryIndex(name: string, libraryNames: readonly string[]): number | null {
+function resolverEntry(libraryNames: readonly string[]) {
   let entry = resolverCache.get(libraryNames);
   if (!entry) {
-    entry = { names: [...libraryNames], byName: new Map() };
+    entry = { names: [...libraryNames], byName: new Map(), filedByName: new Map(), rowsNamedByGroup: new Map() };
     resolverCache.set(libraryNames, entry);
   }
+  return entry;
+}
+
+function resolveLibraryIndex(name: string, libraryNames: readonly string[]): number | null {
+  const entry = resolverEntry(libraryNames);
   const key = normalize(name);
   const cached = entry.byName.get(key);
   if (cached !== undefined) {
@@ -149,6 +163,48 @@ function resolveLibraryIndex(name: string, libraryNames: readonly string[]): num
   const index = findGuidedLibraryIndex(name, entry.names);
   entry.byName.set(key, index);
   return index;
+}
+
+function resolveFiledLibraryIndex(name: string, libraryNames: readonly string[]): number | null {
+  const entry = resolverEntry(libraryNames);
+  const key = normalize(name);
+  const cached = entry.filedByName.get(key);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const index = findFiledLibraryIndex(name, entry.names);
+  entry.filedByName.set(key, index);
+  return index;
+}
+
+/** Library name → the same lift said plainly, keyed lower-case. */
+const PLAIN_NAME_BY_LOWER = new Map(
+  Object.entries(PLAIN_EXERCISE_NAMES).map(([name, plain]) => [normalize(name), plain] as const),
+);
+
+/**
+ * The spelling a name is grouped under: its own when a same-lift group has it,
+ * otherwise — for a library row, when the library is given — the plain name
+ * the row is read as.
+ *
+ * The groups are written in the catalogue's words, and the library's pedantic
+ * rows are not in them: "Barbell Bench Press - Medium Grip" is in no group, so
+ * the catalogue's "Barbell Bench Press" — which is — could only reach it by a
+ * substring, and the substring found "Decline Barbell Bench Press" instead.
+ * `PLAIN_EXERCISE_NAMES` is the hand-written "same lift, said plainly" table,
+ * so a row joins the group its plain name is in. No alias is added by this.
+ * Without a library the caller is not naming library rows, and only the
+ * catalogue's own spellings count, as before.
+ */
+function groupSpelling(name: string, withLibrary: boolean): string {
+  if (!withLibrary || liftGroupOf(name) !== null) {
+    return name;
+  }
+  return PLAIN_NAME_BY_LOWER.get(normalize(name)) ?? name;
+}
+
+function liftGroupOfName(name: string, withLibrary: boolean): number | null {
+  return liftGroupOf(groupSpelling(name, withLibrary));
 }
 
 export function isSameLift(left: string, right: string, libraryNames?: readonly string[]): boolean {
@@ -160,17 +216,18 @@ export function isSameLift(left: string, right: string, libraryNames?: readonly 
   if (a === b) {
     return true;
   }
+  const withLibrary = Boolean(libraryNames && libraryNames.length > 0);
   // Spelled differently, same lift. Checked before the library because the
   // library resolves "Conventional Deadlift" and "Barbell Deadlift" to two
   // different entries — correctly, for a browser; wrongly, for a target.
-  if (isSameLiftByGroup(left, right)) {
+  if (isSameLiftByGroup(groupSpelling(left, withLibrary), groupSpelling(right, withLibrary))) {
     return true;
   }
+  const leftGroup = liftGroupOfName(left, withLibrary);
+  const rightGroup = liftGroupOfName(right, withLibrary);
   // ...and the reverse: two names in DIFFERENT groups are different lifts, so
   // the library must not merge them. A Romanian deadlift resolving near a
   // deadlift would otherwise fill a deadlift target.
-  const leftGroup = liftGroupOf(left);
-  const rightGroup = liftGroupOf(right);
   if (leftGroup !== null && rightGroup !== null && leftGroup !== rightGroup) {
     return false;
   }
@@ -180,6 +237,76 @@ export function isSameLift(left: string, right: string, libraryNames?: readonly 
   const leftIndex = resolveLibraryIndex(left, libraryNames);
   const rightIndex = resolveLibraryIndex(right, libraryNames);
   return leftIndex !== null && leftIndex === rightIndex;
+}
+
+/** How many rows of this library a group names by their exact library name. */
+function libraryRowsNamedByGroup(group: number, libraryNames: readonly string[]): number {
+  const entry = resolverEntry(libraryNames);
+  const cached = entry.rowsNamedByGroup.get(group);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const lowerNames = new Set(entry.names.map(normalize));
+  const count = liftGroupNames(group).filter((name) => lowerNames.has(name)).length;
+  entry.rowsNamedByGroup.set(group, count);
+  return count;
+}
+
+/**
+ * Whether a logged exercise is the history of one LIBRARY ROW.
+ *
+ * `isSameLift` answers for a target, and a target folds variations in on
+ * purpose: a trap-bar pull fills a deadlift target. A library page is one row,
+ * and "Sumo Deadlift", "Trap Bar Deadlift" and "Barbell Deadlift" are three of
+ * them — so the sumo page must not list conventional pulls and quote their
+ * best. Nothing here matches by substring either: "Pull Up" is inside
+ * "Weighted Pull Ups", and that page is not a pull-up's.
+ *
+ * A log is this row's history when it is:
+ * 1. the row's own name, or the plain name the page is titled with;
+ * 2. filed on this row by name or by the alias table (`findFiledLibraryIndex`);
+ * 3. or, for a row in a same-lift group, any other spelling of that lift that
+ *    is not filed on a row outside the group — but only when the group names
+ *    at most one library row. The deadlift group names four, so "Deadlift" is
+ *    the Barbell Deadlift's only by its alias, and "Rack Pull" is none of
+ *    theirs. The squat group names one, "Barbell Squat", so "Back Squat" —
+ *    filed on "Barbell Full Squat", which is in the group by its plain name —
+ *    is history on both.
+ *
+ * And never when `isSameLift` says it is a different lift: this only narrows.
+ */
+export function isSameLiftAsLibraryRow(
+  loggedName: string,
+  libraryRowName: string,
+  libraryNames: readonly string[],
+): boolean {
+  const logged = normalize(loggedName);
+  const row = normalize(libraryRowName);
+  if (!logged || !row) {
+    return false;
+  }
+  if (logged === row) {
+    return true;
+  }
+  if (!isSameLift(loggedName, libraryRowName, libraryNames)) {
+    return false;
+  }
+  if (logged === normalize(PLAIN_NAME_BY_LOWER.get(row) ?? '')) {
+    return true;
+  }
+  const filedIndex = resolveFiledLibraryIndex(loggedName, libraryNames);
+  const filed = filedIndex === null ? null : normalize(libraryNames[filedIndex]);
+  if (filed === row) {
+    return true;
+  }
+  const group = liftGroupOfName(libraryRowName, true);
+  if (group === null || liftGroupOfName(loggedName, true) !== group) {
+    return false;
+  }
+  if (filed !== null && liftGroupOfName(filed, true) !== group) {
+    return false;
+  }
+  return libraryRowsNamedByGroup(group, libraryNames) <= 1;
 }
 
 /** How a programme relates to a lift, or null when it never trains it. */

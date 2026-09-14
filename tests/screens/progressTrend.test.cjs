@@ -242,7 +242,9 @@ module.exports = [
       // And the escape hatch. Records is where every other lift lives.
       const records = read('src', 'screens', 'RecordsScreen.tsx');
       assert.match(records, /onOpenExercise/);
-      assert.match(screen, /onOpenExercise=\{\(key\) => setSetLogKey\(key\)\}/);
+      // From the records' own sources: a record is one spelling's best, and its
+      // sheet must not be the merged target row's.
+      assert.match(screen, /onOpenExercise=\{\(key\) => setSetLogTarget\(\{ key, fromLift: false \}\)\}/);
     },
   },
   {
@@ -613,7 +615,7 @@ module.exports = [
       // own button.
       assert.match(screen, /const openable = setLogSources\.some\(\(entry\) => entry\.key === row\.key\);/);
       assert.match(screen, /disabled=\{!openable\}/);
-      assert.match(screen, /onPress=\{\(\) => setSetLogKey\(row\.key\)\}/);
+      assert.match(screen, /onPress=\{\(\) => setSetLogTarget\(\{ key: row\.key, fromLift: false \}\)\}/);
 
       // Only where there is something behind it: a row with no source would
       // open a sheet that resolves to null and shows nothing.
@@ -625,7 +627,7 @@ module.exports = [
       const readBlock = screen.slice(readStart, screen.indexOf('\n  function ', readStart + 1));
       assert.ok(readBlock.length > 200, 'renderWeeklyRead moved - recheck by hand');
       assert.doesNotMatch(readBlock, /switchSection/, 'the read jumps the reader to another tab');
-      assert.match(screen, /visible=\{setLogKey !== null\}/);
+      assert.match(screen, /visible=\{setLogTarget !== null\}/);
     },
   },
 ];

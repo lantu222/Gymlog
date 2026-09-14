@@ -164,6 +164,8 @@ No test framework — only `node:assert/strict`. Tests import compiled output fr
 
 `src/storage/database.ts` normalizes all fields on load, providing safe defaults for missing or malformed stored values.
 
+Both keys go through `src/storage/largeItem.ts`, never bare `AsyncStorage.getItem`/`setItem`: Android cannot read back a row over 2 MB, so a value near that size is split into `<key>#0`, `<key>#1`, … behind a manifest. The history grows about 8 KB per session with no trimming, so a direct read or write of either key breaks for long histories.
+
 ### AI Coach
 
 The app works fully offline. AI Coach has two modes:

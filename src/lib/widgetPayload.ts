@@ -26,6 +26,7 @@
  * marks that nobody could date, and the one number it anchored on ("2/3") said
  * less than a month of green does.
  */
+import { localDateKey } from './completedSessions';
 import { formatCompactVolume, formatDurationMinutes } from './format';
 import { getHomeDayView, getHomeMonthCalendar, getMondayFirstWeekdayLabels, HomeDaySessionSummary } from './homeCalendar';
 import { localizeSessionName } from './sessionNameLabel';
@@ -235,9 +236,7 @@ function toDayStartMs(date: Date) {
  * same midnight.
  */
 function toDateKey(date: Date) {
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${date.getFullYear()}-${month}-${day}`;
+  return localDateKey(date);
 }
 
 /**

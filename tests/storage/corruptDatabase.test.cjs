@@ -28,7 +28,9 @@ module.exports = [
       // The catch that recovers from a failed parse, up to the point where it
       // writes: the quarantine has to happen inside it, before saveDatabase.
       const branch = code.slice(code.indexOf('normalizeDatabase(JSON.parse(raw)'));
-      const quarantine = branch.indexOf('setItem(CORRUPT_STORAGE_KEY, raw)');
+      // Through the splitting writer: a corrupt blob can be as long as the
+      // history it held, and a copy too big to read back is no copy.
+      const quarantine = branch.indexOf('setLargeItem(CORRUPT_STORAGE_KEY, raw)');
       const overwrite = branch.indexOf('await saveDatabase(empty)');
 
       assert.ok(quarantine > 0, 'the corrupt blob is not kept anywhere — the overwrite is final');
@@ -42,7 +44,7 @@ module.exports = [
       // Somebody asking for their data to be deleted is not asking for a copy
       // of it to survive under another key.
       const reset = code.slice(code.indexOf('export async function resetDatabase'));
-      assert.match(reset, /removeItem\(CORRUPT_STORAGE_KEY\)/);
+      assert.match(reset, /removeLargeItem\(CORRUPT_STORAGE_KEY\)/);
     },
   },
 ];

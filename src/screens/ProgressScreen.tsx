@@ -47,6 +47,7 @@ import {
   parseNumberInput,
   removeTrailingZeros,
 } from '../lib/format';
+import { localDateKey } from '../lib/completedSessions';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { I18nKey, t } from '../lib/i18n';
 import { ProMomentContent, WeeklyReadRow } from '../lib/proInsights';
@@ -104,6 +105,11 @@ type MeasureIconName = 'scale' | 'drop' | 'tape';
 
 interface ProgressScreenProps {
   language?: AppLanguage;
+  /**
+   * One summary per target lift, holding every session logged under any name
+   * for that lift and keyed by the lift's own name (App.tsx builds them with
+   * getLiftProgress). Absent for a lift nothing was logged or aimed at.
+   */
   summaries: ExerciseProgressSummary[];
   /**
    * The lifts a target can be set on, with the target if there is one.
@@ -162,6 +168,14 @@ interface ProgressScreenProps {
   records?: Record<RecordKind, PersonalRecord[]>;
   /** One entry per tracked lift, for the set log behind each curve. */
   setLogSources?: RecordSource[];
+  /**
+   * The set logs the target rows open, one per entry of `summaries`.
+   *
+   * Separate from `setLogSources` because the two can share a key and not a
+   * best: a record is one spelling's best, a target row is the lift under
+   * every spelling. Each sheet has to agree with the row it was opened from.
+   */
+  liftSetLogSources?: RecordSource[];
   onStartWorkout?: () => void;
   showBodyweightDetail?: boolean;
   onAddBodyweight: (weightKg: number) => void;
@@ -354,11 +368,14 @@ function getOverviewRangeStart(range: OverviewRange) {
 }
 
 function getOverviewBucketKey(dateString: string, range: OverviewRange) {
+  // Local days and months: the labels are stored UTC instants, and their first
+  // characters name the UTC day.
+  const dayKey = localDateKey(dateString);
   if (range === '6m' || range === 'all') {
-    return new Date(dateString).toISOString().slice(0, 7);
+    return dayKey.slice(0, 7);
   }
 
-  return dateString.slice(0, 10);
+  return dayKey;
 }
 
 function bucketOverviewPointsByRange(
@@ -693,6 +710,7 @@ export function ProgressScreen({
   recordCount = 0,
   records = { weight: [], reps: [], volume: [] },
   setLogSources = [],
+  liftSetLogSources = [],
   onStartWorkout,
   showBodyweightDetail,
   onAddBodyweight,
@@ -714,7 +732,9 @@ export function ProgressScreen({
   const styles = useThemedStyles(makeStyles);
   const [readSheetVisible, setReadSheetVisible] = useState(false);
   const [progressSection, setProgressSection] = useState<ProgressSection>(initialSection ?? 'overview');
-  const [setLogKey, setSetLogKey] = useState<string | null>(null);
+  // Which set log is open, and whether a target row opened it — see
+  // liftSetLogSources for why the two lists are not one.
+  const [setLogTarget, setSetLogTarget] = useState<{ key: string; fromLift: boolean } | null>(null);
   const [expandedKey, setExpandedKey] = useState<string | null>(selectedExerciseKey ?? null);
   const [overviewMetric, setOverviewMetric] = useState<OverviewMetric>('volume');
   // The week opens both charts (user 2026-08-25) — see TrendRange.
@@ -794,12 +814,13 @@ export function ProgressScreen({
   const trainingStreak = useMemo(() => weeklyTrainingStreak(workoutSessions), [workoutSessions]);
 
   const openSetLog: ExerciseSetLog | null = useMemo(() => {
-    if (setLogKey === null) {
+    if (setLogTarget === null) {
       return null;
     }
-    const source = setLogSources.find((entry) => entry.key === setLogKey);
+    const pool = setLogTarget.fromLift ? liftSetLogSources : setLogSources;
+    const source = pool.find((entry) => entry.key === setLogTarget.key);
     return source ? buildExerciseSetLog(source) : null;
-  }, [setLogKey, setLogSources]);
+  }, [liftSetLogSources, setLogTarget, setLogSources]);
 
   useEffect(() => {
     if (initialSection) {
@@ -968,7 +989,7 @@ export function ProgressScreen({
         continue;
       }
 
-      const key = performedAt.toISOString().slice(0, 10);
+      const key = localDateKey(performedAt);
       const bucket = grouped.get(key) ?? {
         performedAt: session.performedAt,
         duration: 0,
@@ -1068,9 +1089,10 @@ export function ProgressScreen({
    * fixed at ten, and a lift with no target still gets a row, because the
    * question the section answers is "what could you aim at".
    *
-   * Joined on the summary key, which is the trimmed lowercase name that
-   * getTrackedExerciseProgress groups by. A lift that HAS a target already has
-   * a summary even with nothing logged: the target seeds one.
+   * Joined on the summary key, which for these summaries is the target lift's
+   * own trimmed lowercase name — each one already holds the lift under every
+   * name it was logged as (getLiftProgress). A lift that HAS a target has a
+   * summary even with nothing logged: the target seeds one.
    */
   const trackedRows = useMemo(() => {
     const byKey = new Map(summaries.map((summary) => [summary.key, summary]));
@@ -1213,7 +1235,7 @@ export function ProgressScreen({
                   accessibilityRole={openable ? 'button' : undefined}
                   accessibilityLabel={openable ? row.name : undefined}
                   disabled={!openable}
-                  onPress={() => setSetLogKey(row.key)}
+                  onPress={() => setSetLogTarget({ key: row.key, fromLift: false })}
                   style={({ pressed }) => [styles.readRowHead, pressed && openable && styles.readRowPressed]}
                 >
                   <View style={[styles.readDotRing, { backgroundColor: tone.soft }]}>
@@ -1532,7 +1554,7 @@ export function ProgressScreen({
         proUnlocked={proUnlocked}
         onOpenPro={() => onOpenPremium?.()}
         onStartWorkout={() => onStartWorkout?.()}
-        onOpenExercise={(key) => setSetLogKey(key)}
+        onOpenExercise={(key) => setSetLogTarget({ key, fromLift: false })}
       />
     );
   }
@@ -1584,7 +1606,7 @@ export function ProgressScreen({
                       going through the sheet. */}
                   <Pressable
                     accessibilityRole="button"
-                    onPress={() => setSetLogKey(summary.key)}
+                    onPress={() => setSetLogTarget({ key: summary.key, fromLift: true })}
                     style={styles.trackedHead}
                   >
                     <View style={styles.trackedCopy}>
@@ -1641,7 +1663,7 @@ export function ProgressScreen({
                           decorative. */}
                       <Pressable
                         accessibilityRole="button"
-                        onPress={() => setSetLogKey(summary.key)}
+                        onPress={() => setSetLogTarget({ key: summary.key, fromLift: true })}
                         style={({ pressed }) => [styles.trackedLogLink, pressed && { opacity: 0.85 }]}
                       >
                         <Text style={styles.trackedLogLinkText}>{t(language, 'setlog.open')}</Text>
@@ -2072,21 +2094,21 @@ export function ProgressScreen({
 
       {/* One lift's sets, over the curve they belong to. */}
       <SetLogSheet
-        visible={setLogKey !== null}
+        visible={setLogTarget !== null}
         log={openSetLog}
         language={language}
         locked={isSetLogLocked(proUnlocked)}
-        onClose={() => setSetLogKey(null)}
+        onClose={() => setSetLogTarget(null)}
         onStartWorkout={
           onStartWorkout
             ? () => {
-                setSetLogKey(null);
+                setSetLogTarget(null);
                 onStartWorkout();
               }
             : undefined
         }
         onOpenPro={() => {
-          setSetLogKey(null);
+          setSetLogTarget(null);
           onOpenPremium?.();
         }}
       />

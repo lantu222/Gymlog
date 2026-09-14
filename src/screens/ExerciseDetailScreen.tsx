@@ -7,6 +7,7 @@ import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { getExerciseInstructions } from '../lib/exerciseInstructions';
 import { countRemainingStatements } from '../lib/exerciseLearning';
 import { getExerciseTeaching, shouldShowTeachingCaution } from '../lib/exerciseTeaching';
+import { calendarDaysBetween } from '../lib/completedSessions';
 import { convertWeightFromKg, formatShortDate, removeTrailingZeros } from '../lib/format';
 import { I18nKey, t } from '../lib/i18n';
 import { libraryLabel } from '../lib/libraryLabel';
@@ -73,7 +74,9 @@ function toLabel(value: string | null | undefined, language: AppLanguage) {
 }
 
 function formatLastDone(iso: string, language: AppLanguage) {
-  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  // Calendar days, not 24-hour spans: done at 21:00 yesterday is "yesterday"
+  // at 09:00 today, not "today".
+  const days = calendarDaysBetween(iso, Date.now());
   if (days <= 0) {
     return t(language, 'common.today');
   }
@@ -300,8 +303,10 @@ export function ExerciseDetailScreen({
         {/* The star was here too, and it went with the library's
             (2026-09-01). Its one effect — putting the lift on Progress before
             it had been logged — belongs to a target now, which names a number
-            with it. The spacer keeps the title centred. */}
-        <View style={styles.iconButton} />
+            with it. The spacer keeps the title centred, and is only a width:
+            it used to keep the button's surface and border too, and drew an
+            empty square where the star had been. */}
+        <View style={styles.iconSpacer} />
       </View>
 
       <ScrollView
@@ -608,6 +613,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  iconSpacer: {
+    width: 38,
+    height: 38,
   },
   topBarTitle: {
     fontSize: 13,

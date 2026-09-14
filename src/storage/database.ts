@@ -15,6 +15,7 @@ import { isSubscriptionTermKey } from '../lib/subscriptionView';
 import { createEmptyDatabase } from '../data/seed';
 import { resolveDeviceLanguage } from './deviceLocale';
 import { clearCoachAdviceMemory } from './coachAdviceMemoryStore';
+import { getLargeItem, MissingPartsError, removeLargeItem, setLargeItem } from './largeItem';
 import { normalizeExerciseLog } from '../lib/exerciseLog';
 import {
   normalizeLearnedExerciseIds,
@@ -1243,7 +1244,7 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
  * fixture for tests and demos; it must never reach a real install.
  */
 export async function loadDatabase() {
-  const raw = (await AsyncStorage.getItem(STORAGE_KEY)) ?? (await AsyncStorage.getItem(LEGACY_STORAGE_KEY));
+  const raw = await readStoredDatabase();
 
   if (!raw) {
     // Nothing stored means nobody has chosen a language yet, so the phone
@@ -1270,7 +1271,7 @@ export async function loadDatabase() {
     // read afterwards. Set the key aside and the loss is recoverable by hand;
     // the app still opens either way, which is what the overwrite was for.
     try {
-      await AsyncStorage.setItem(CORRUPT_STORAGE_KEY, raw);
+      await setLargeItem(CORRUPT_STORAGE_KEY, raw);
     } catch {
       // Out of space, most likely — the same condition that truncated the
       // write in the first place. Opening the app still matters more.
@@ -1278,6 +1279,26 @@ export async function loadDatabase() {
     const empty = normalizeDatabase(createEmptyDatabase(resolveDeviceLanguage()));
     await saveDatabase(empty);
     return empty;
+  }
+}
+
+/**
+ * The stored blob, or what is left of it.
+ *
+ * A split blob with a part missing is the same corrupt install as one that
+ * will not parse, and gets the same treatment: its remains start with the
+ * manifest line, so the parse below fails and they are set aside. Thrown
+ * instead, the provider opened on an empty database in memory, and its first
+ * save swept the parts that were left with no copy kept.
+ */
+async function readStoredDatabase(): Promise<string | null> {
+  try {
+    return (await getLargeItem(STORAGE_KEY)) ?? (await AsyncStorage.getItem(LEGACY_STORAGE_KEY));
+  } catch (error) {
+    if (error instanceof MissingPartsError) {
+      return error.readable;
+    }
+    throw error;
   }
 }
 
@@ -1316,7 +1337,9 @@ export async function savePreferences(preferences: AppPreferences) {
 }
 
 export async function saveDatabase(database: AppDatabase) {
-  await AsyncStorage.setItem(
+  // Through the splitting writer: the blob grows with every logged session and
+  // Android cannot read back a row past 2 MB (see lib/storageChunks).
+  await setLargeItem(
     STORAGE_KEY,
     JSON.stringify({
       ...database,
@@ -1333,7 +1356,7 @@ export async function resetDatabase() {
   // goes for a second reason — somebody who asks for their data to be erased is
   // not asking for a copy of it to survive under another name.
   await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
-  await AsyncStorage.removeItem(CORRUPT_STORAGE_KEY);
+  await removeLargeItem(CORRUPT_STORAGE_KEY);
   // The preferences key outlives the blob otherwise, and a reset that leaves
   // the old language and theme behind is not the reset that was asked for.
   await AsyncStorage.removeItem(PREFERENCES_STORAGE_KEY);

@@ -6,6 +6,7 @@ import { applyCautionFlagsToExercises, CautionExerciseSwap } from './cautionExer
 import { applyEquipmentToExercises, resolveAvailableEquipment } from './equipmentExerciseFilter';
 import { buildFocusEmphasisAdditions, FocusEmphasisAddition } from './focusEmphasis';
 import { getCatalogTrackingMode } from './catalogExercisePools';
+import { collapseRepRange } from './singleRepTarget';
 import type { FirstRunSetupSelection } from './firstRunSetup';
 import type { SetupWeekday } from '../types/models';
 
@@ -73,6 +74,11 @@ export function buildComposedFallbackExercise(
   exerciseIndex: number,
 ): WorkoutTemplateExercise {
   const role = exerciseIndex === 0 ? 'primary' : exerciseIndex < 3 ? 'secondary' : 'accessory';
+  // One rep number, decided by the loader's own rule — a plank's 20–40 is
+  // seconds and stays a bracket. See buildEmphasisExercise for what a range
+  // written here did to the saved programme.
+  const plank = name.toLowerCase().includes('plank');
+  const reps = collapseRepRange({ name, repMin: plank ? 20 : 10, repMax: plank ? 40 : 15 });
 
   return {
     id: `${sessionId}_exercise_${exerciseIndex + 1}`,
@@ -82,8 +88,8 @@ export function buildComposedFallbackExercise(
     progressionPriority: exerciseIndex === 0 ? 'high' : exerciseIndex < 3 ? 'medium' : 'low',
     trackingMode: getFallbackTrackingMode(name),
     sets: exerciseIndex === 0 ? 3 : 2,
-    repsMin: name.toLowerCase().includes('plank') ? 20 : 10,
-    repsMax: name.toLowerCase().includes('plank') ? 40 : 15,
+    repsMin: reps.repMin,
+    repsMax: reps.repMax,
     restSecondsMin: exerciseIndex === 0 ? 75 : 45,
     restSecondsMax: exerciseIndex === 0 ? 120 : 75,
     substitutionGroup: resolveSubstitutionGroup(name, role, exerciseIndex),

@@ -187,7 +187,15 @@ export type ProgramSessionEditOutcome =
   /** The last lift of a day has no lift below it to run into. */
   | { kind: 'skip'; reason: 'noRowBelow' };
 
-function toDraftExercise(
+/**
+ * One stored lift as the template writer takes it back, every field included.
+ *
+ * Exported because the writer replaces the record: a save that copies the
+ * fields by hand and forgets one erases it. Three App.tsx saves (emphasis,
+ * renaming a day, reordering days) had forgotten `supersetGroup` and unpaired
+ * every superset in the programme (2026-09-14).
+ */
+export function toDraftExercise(
   exercise: ProgramSessionExerciseSnapshot,
 ): ProgramSessionDayDraft['exercises'][number] {
   return {

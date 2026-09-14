@@ -62,6 +62,20 @@ function normalizeExerciseKey(name: string) {
   return name.trim().toLowerCase();
 }
 
+/**
+ * Whether a logged exercise name is the lift being asked about.
+ *
+ * The answer lives in the programme layer — `isSameLift` for a target,
+ * `isSameLiftAsLibraryRow` (the same rule, narrowed to one library row) for an
+ * exercise page — and is passed in rather than imported so this module stays
+ * below that layer, the same way `resolveGoalProgress` takes its matcher.
+ */
+export type SameLiftMatcher = (loggedName: string, liftName: string) => boolean;
+
+function isSameName(loggedName: string, liftName: string) {
+  return normalizeExerciseKey(loggedName) === normalizeExerciseKey(liftName);
+}
+
 function resolveCanonicalExerciseName(log: ExerciseLog, exercisesById: Record<string, ExerciseTemplate>) {
   if (log.exerciseTemplateId) {
     const template = exercisesById[log.exerciseTemplateId];
@@ -227,10 +241,16 @@ function finalizeExerciseSummary(
  * Build a progress summary for a single exercise by name, regardless of whether
  * the user has tracked it. Used by the Exercise Detail screen to show this lift's
  * real history. Returns an empty-logs summary when nothing has been logged yet.
+ *
+ * `sameLift` decides which logs are this lift. Without it only the exact name
+ * counts — and the library's row is "Barbell Bench Press - Medium Grip" while
+ * a programme built by onboarding logs "Bench Press", so six bench sessions
+ * read "No history yet" on the bench press's own page (emulator, 2026-09-13).
  */
 export function getExerciseProgressForName(
   database: AppDatabase,
   exerciseName: string,
+  sameLift: SameLiftMatcher = isSameName,
 ): ExerciseProgressSummary {
   const exercisesById = Object.fromEntries(
     database.exerciseTemplates.map((exercise) => [exercise.id, exercise] as const),
@@ -239,6 +259,9 @@ export function getExerciseProgressForName(
     database.workoutSessions.map((session) => [session.id, session] as const),
   );
   const normalizedName = normalizeExerciseKey(exerciseName);
+  // A log is asked about once per spelling, not once per log: a long history
+  // is the same handful of names repeated.
+  const verdicts = new Map<string, boolean>();
 
   const logs = database.exerciseLogs
     .filter((log) => {
@@ -246,12 +269,55 @@ export function getExerciseProgressForName(
         return false;
       }
 
-      return normalizeExerciseKey(resolveCanonicalExerciseName(log, exercisesById)) === normalizedName;
+      const name = resolveCanonicalExerciseName(log, exercisesById);
+      const key = normalizeExerciseKey(name);
+      let verdict = verdicts.get(key);
+      if (verdict === undefined) {
+        verdict = sameLift(name, exerciseName);
+        verdicts.set(key, verdict);
+      }
+      return verdict;
     })
     .map((log) => attachSession(log, sessionsById))
     .filter((log): log is ExerciseLogWithSession => Boolean(log));
 
   return finalizeExerciseSummary(normalizedName, exerciseName.trim(), logs);
+}
+
+/**
+ * One lift's progress under every name it was logged as, from the tracked
+ * summaries.
+ *
+ * The tracked summaries group by the logged name, which is right for Records
+ * and for a Home card pinned to that name. A target lift is not a logged name:
+ * the target row for "Barbell Squat" joined on its own name found the empty
+ * summary its target seeds, while every squat sat under "Back Squat" — so the
+ * row read "Alkuvaihe –" and its sheet "No logged sets" beside a goal flow
+ * quoting a 110 kg best (emulator, 2026-09-14).
+ *
+ * Keyed and named by the lift asked about, so the row and its sheet keep the
+ * lift's identity. Null when no summary is this lift: nothing logged under any
+ * spelling, and no target seeding one.
+ */
+export function getLiftProgress(
+  liftName: string,
+  summaries: readonly ExerciseProgressSummary[],
+  sameLift: SameLiftMatcher,
+): ExerciseProgressSummary | null {
+  const name = liftName.trim();
+  if (!name) {
+    return null;
+  }
+  const matching = summaries.filter((summary) => sameLift(summary.name, name));
+  if (matching.length === 0) {
+    return null;
+  }
+  // Each log sits in exactly one tracked summary, so the union has no repeats.
+  return finalizeExerciseSummary(
+    normalizeExerciseKey(name),
+    name,
+    matching.flatMap((summary) => summary.logs),
+  );
 }
 
 export function getTrackedExerciseProgress(database: AppDatabase): ExerciseProgressSummary[] {
