@@ -627,7 +627,8 @@ export function HistoryScreen({
                         </View>
                         <View style={{ flex: 1, minWidth: 0 }}>
                           <Text style={styles.liftName} numberOfLines={1}>
-                            {activity.name}
+                            {/* The activity table's name is English; the cardio screen translates it, and so does History now. */}
+                            {t(language, `cardio.activity.${session.activityType}` as I18nKey)}
                           </Text>
                           <Text style={styles.liftMeta}>
                             {formatShortDate(session.performedAt, language)} {'·'}{' '}

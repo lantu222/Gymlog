@@ -59,10 +59,6 @@ interface CreateTemplateScreenProps {
 
 const DAY_OPTIONS: TemplateDayCount[] = [1, 2, 3, 4, 5];
 
-// Stored as the template's name when the user leaves the field blank, so it is
-// data rather than UI copy and stays in one language.
-const DEFAULT_TEMPLATE_NAME = 'New template';
-
 const SPLIT_PRESETS: Record<TemplateDayCount, SplitPreset[]> = {
   1: [
     {
@@ -196,7 +192,7 @@ function mapDraftToSessions(draft: WorkoutTemplateDraft, language: AppLanguage):
     return draft.sessions.map((session, index) => ({
       localKey: session.id ?? createId('template_session'),
       id: session.id,
-      name: session.name.trim() || `Day ${index + 1}`,
+      name: session.name.trim() || `${t(language, 'tpl.dayWord')} ${index + 1}`,
       exercises: (session.exercises ?? []).map((exercise) => ({
         localKey: exercise.id ?? createId('template_exercise'),
         ...exercise,
@@ -211,13 +207,16 @@ function buildTemplateDraft(
   name: string,
   sessions: TemplateSessionState[],
   initialDraft: WorkoutTemplateDraft,
+  language: AppLanguage,
 ): WorkoutTemplateDraft {
   return {
     id: initialDraft.id,
-    name: name.trim() || DEFAULT_TEMPLATE_NAME,
+    // A name left blank takes the placeholder the reader saw in the field. It
+    // was "New template", stored in English on a Finnish programme (2026-09-14).
+    name: name.trim() || t(language, 'tpl.namePlaceholder'),
     sessions: sessions.map((session, index) => ({
       id: session.id,
-      name: session.name.trim() || `Day ${index + 1}`,
+      name: session.name.trim() || `${t(language, 'tpl.dayWord')} ${index + 1}`,
       exercises: session.exercises.map(({ localKey: _localKey, ...exercise }) => exercise),
     })),
   };
@@ -394,7 +393,7 @@ export function CreateTemplateScreen({
       return;
     }
 
-    await onSave(buildTemplateDraft(templateName, sessions, initialDraft));
+    await onSave(buildTemplateDraft(templateName, sessions, initialDraft, language));
   }
 
   return (

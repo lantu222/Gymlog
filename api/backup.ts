@@ -17,7 +17,8 @@
  * - Blob auth: connecting the store adds BLOB_STORE_ID and the SDK uses the
  *   function's OIDC identity — there is no BLOB_READ_WRITE_TOKEN in this flow
  * - BACKUP_PATH_SECRET     — any long random string; changing it orphans stored backups
- * - BACKUP_MAX_BYTES       — optional payload cap, default 2 MB
+ * - BACKUP_MAX_BYTES       — optional payload cap, default 4 MB (Vercel refuses
+ *   request and response bodies over 4.5 MB whatever this says)
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { del, get, put } from '@vercel/blob';
@@ -42,7 +43,11 @@ const MAX_BYTES = (() => {
   const parsed = Number(process.env.BACKUP_MAX_BYTES);
   // A zero, negative or unparseable value falls back rather than opening the
   // tap — same rule as the coach budget.
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 2 * 1024 * 1024;
+  // 4 MB, not the 2 MB it was: a plain-JSON history stopped fitting at about
+  // 250 sessions and every backup after that failed. Large backups now arrive
+  // gzipped (lib/accountBackup), and this is the headroom under the platform's
+  // own 4.5 MB body limit, which the GET response has to fit as well.
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 4 * 1024 * 1024;
 })();
 
 // Same per-IP speed bump as the coach endpoint, and with the same honesty

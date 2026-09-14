@@ -30,6 +30,7 @@
     "expo-notifications": "~55.0.25",
     "expo-splash-screen": "~55.0.19",
     "expo-status-bar": "~55.0.4",
+    "fflate": "^0.8.3",
     "phosphor-react-native": "^3.0.4",
     "react": "19.2.0",
     "react-native": "0.83.2",

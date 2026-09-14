@@ -5532,25 +5532,22 @@ function VinhaApp() {
     };
   }, [exerciseBrowserItems, getWorkoutTemplateSessions, preferences.defaultRestSeconds, route, workoutTemplates]);
   const templateBuilderDraft = useMemo<WorkoutTemplateDraft>(() => {
+    // In the reader's language: the builder keeps any non-empty name it is
+    // given, so "Day 1" here skipped its own Finnish default and was saved as
+    // the day's name (2026-09-14).
+    const dayWord = t(preferences.appLanguage, 'tpl.dayWord');
+    const blankBuilderDays = [1, 2, 3].map((day) => ({ name: `${dayWord} ${day}`, exercises: [] }));
     if (route.tab !== 'workout' || route.screen !== 'template') {
       return {
         name: '',
-        sessions: [
-          { name: 'Day 1', exercises: [] },
-          { name: 'Day 2', exercises: [] },
-          { name: 'Day 3', exercises: [] },
-        ],
+        sessions: blankBuilderDays,
       };
     }
 
     if (!route.workoutTemplateId) {
       return {
         name: '',
-        sessions: [
-          { name: 'Day 1', exercises: [] },
-          { name: 'Day 2', exercises: [] },
-          { name: 'Day 3', exercises: [] },
-        ],
+        sessions: blankBuilderDays,
       };
     }
 
@@ -5558,11 +5555,7 @@ function VinhaApp() {
     if (!template) {
       return {
         name: '',
-        sessions: [
-          { name: 'Day 1', exercises: [] },
-          { name: 'Day 2', exercises: [] },
-          { name: 'Day 3', exercises: [] },
-        ],
+        sessions: blankBuilderDays,
       };
     }
 
@@ -5588,7 +5581,7 @@ function VinhaApp() {
         })),
       })),
     };
-  }, [getWorkoutTemplateSessions, route, workoutTemplates]);
+  }, [getWorkoutTemplateSessions, preferences.appLanguage, route, workoutTemplates]);
 
   if (!nativeSplashHidden || !hydrated || !workout.hydrated) {
     return <LaunchScreen />;
