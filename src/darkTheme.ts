@@ -4,9 +4,9 @@
  * It is not a mechanical inversion of `HG`. The app already had a dark visual
  * language before it had a dark theme — the AI Coach surface, the paywall
  * sheets, the exercise-info panel — and all of them are dark *violet*, not
- * neutral grey. `COACH` in particular has been on screen since 2026-07-19 and
- * the user has approved how it reads. So the values below start from COACH's
- * text and accent colours and build the missing surfaces around them, which
+ * neutral grey. The coach palette in particular had been on screen since
+ * 2026-07-19 and the user had approved how it reads. So the values below start
+ * from its text and accent colours and build the missing surfaces around them, which
  * means switching to dark makes the rest of the app look like the parts that
  * were already dark rather than like a different product.
  *
@@ -21,7 +21,7 @@
  *                     text. Inverting them to dark tints keeps that role; a
  *                     literal lightening would have made unreadable surfaces.
  *
- * `gold` is unchanged: it is already a dark-surface colour in COACH and reads
+ * `gold` is unchanged: it was already a dark-surface colour in the coach and reads
  * correctly on both backgrounds. The Pro sheet gradient stops are unchanged for
  * the same reason — they were always dark.
  *
@@ -37,7 +37,7 @@ export const HG_DARK = {
   bg: '#0D0A20',
   surface: '#191436',
   surfaceSoft: '#201A42',
-  // COACH's own text ramp, unchanged.
+  // The coach palette's text ramp, unchanged.
   ink: '#F4F1FF',
   muted: '#A79FC4',
   faint: '#8B83AE',

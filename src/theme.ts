@@ -70,8 +70,8 @@ export const shadows = {
 /**
  * The Pro page's three tier skins (design: "Vinha Pro v6 — kolme tasoa").
  *
- * Deliberately NOT themed, for the same reason `PW`'s sheet gradients and the
- * `COACH` surface are not: the paywall commits to one dark treatment and the
+ * Deliberately NOT themed, for the same reason `PW`'s sheet gradients are not:
+ * the paywall commits to one dark treatment and the
  * tier's own colour is the thing being read. A paywall that repaints with the
  * reader's light/dark toggle would make the accent — which is the only signal
  * telling Free from Pro from Lifetime — mean something different per reader.

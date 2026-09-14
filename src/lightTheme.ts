@@ -11,9 +11,11 @@
  * higher-contrast values won (user decision 2026-07-31): it was the newer,
  * deliberate direction and it dresses the most-looked-at screen.
  *
- * Deliberately NOT themed: `COACH` and the `PW` sheet gradients are designed
- * dark surfaces, not light-theme variants — the contrast is what marks the
- * paid features. They stay fixed in both modes.
+ * Deliberately NOT themed: the `PW` sheet gradients are designed dark surfaces,
+ * not light-theme variants — the contrast is what marks the paid features. They
+ * stay fixed in both modes. The AI Coach once had a fixed dark palette of its
+ * own; its chat followed the theme first, and the full-analysis screen, the
+ * last to wear it, followed on 2026-09-13.
  */
 export const HG = {
   bg: '#EFEAF9',
@@ -111,27 +113,3 @@ export type AW3Token = keyof typeof AW3;
 
 /** The same keys, widened — a themed palette fills them with its own values. */
 export type AW3Palette = { readonly [K in AW3Token]: string };
-
-
-/**
- * The AI Coach surface (design_handoff_ai_coach). Deliberately dark and gold
- * against the otherwise light app — the contrast is what marks it as the paid
- * feature. Shared with the full-analysis screen so the two cannot drift.
- */
-export const COACH = {
-  bg: '#17122A',
-  surface: '#221A3D',
-  surfaceSoft: '#1C1636',
-  hairline: 'rgba(255,255,255,0.09)',
-  text: '#F4F1FF',
-  muted: '#A79FC4',
-  faint: '#7C739E',
-  gold: '#E4B14C',
-  goldInk: '#2A1B05',
-  purple: '#9B6DFF',
-  good: '#37D08A',
-  warn: '#E0922F',
-  focusTop: '#2A1E4E',
-  focusBottom: '#3A2A16',
-  focusBorder: 'rgba(228,177,76,0.32)',
-} as const;
