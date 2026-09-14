@@ -213,6 +213,7 @@ const suites = [
   ...require('./lib/programEquipmentBucket.test.cjs'),
   ...require('./lib/progressionRuleLabel.test.cjs'),
   ...require('./lib/singleRepTarget.test.cjs'),
+  ...require('./lib/onboardingRepTarget.test.cjs'),
   ...require('./lib/intervalScheme.test.cjs'),
   ...require('./lib/todaySessionPick.test.cjs'),
   ...require('./lib/programBrowse.test.cjs'),
