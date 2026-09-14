@@ -11,10 +11,36 @@
  * an older app version is handled the way an older local database is — with
  * defaults, not a crash.
  */
+import { gunzipSync, gzipSync, strFromU8, strToU8 } from 'fflate';
+
 import type { AppDatabase } from '../types/models';
 import type { WorkoutHistoryStore } from '../features/workout/workoutTypes';
+import { base64ToBytes, bytesToBase64 } from './base64';
 
 export const ACCOUNT_BACKUP_VERSION = 1;
+
+/**
+ * Above this many characters of JSON, the upload is compressed.
+ *
+ * The endpoint caps a request body (4 MB, under Vercel's 4.5 MB), and the
+ * history grows about 8 KB a session with nothing trimmed — plain JSON stopped
+ * fitting at roughly 250 sessions under the old 2 MB cap, after which every
+ * backup failed. Training logs are the same keys over and over and gzip to a
+ * tenth of their size or less, so a compressed backup fits thousands of
+ * sessions.
+ *
+ * Below the threshold the body stays plain JSON, exactly as before: every
+ * build that can restore a backup today can still restore those.
+ */
+export const ACCOUNT_BACKUP_COMPRESS_ABOVE_CHARS = 1_000_000;
+
+/** The one encoding a compressed backup uses. */
+export const ACCOUNT_BACKUP_ENCODING = 'gzip-base64';
+
+interface CompressedAccountBackup {
+  encoding: typeof ACCOUNT_BACKUP_ENCODING;
+  data: string;
+}
 
 export interface AccountBackupPayload {
   version: typeof ACCOUNT_BACKUP_VERSION;
@@ -69,6 +95,45 @@ export function parseAccountBackupPayload(raw: unknown): AccountBackupPayload | 
     return null;
   }
   return candidate as AccountBackupPayload;
+}
+
+/** The request body for an upload: plain JSON, or its compressed envelope once it is large. */
+export function encodeAccountBackupBody(payload: AccountBackupPayload): string {
+  const json = JSON.stringify(payload);
+  if (json.length <= ACCOUNT_BACKUP_COMPRESS_ABOVE_CHARS) {
+    return json;
+  }
+  const envelope: CompressedAccountBackup = {
+    encoding: ACCOUNT_BACKUP_ENCODING,
+    data: bytesToBase64(gzipSync(strToU8(json), { level: 6 })),
+  };
+  return JSON.stringify(envelope);
+}
+
+/**
+ * What the server handed back, unwrapped when it is a compressed envelope.
+ *
+ * Anything else passes through untouched for `parseAccountBackupPayload` to
+ * judge. An envelope that does not decompress to JSON comes back as null, so
+ * it is refused like any other wrong-shaped download rather than thrown.
+ */
+export function decodeAccountBackupBody(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object' || (raw as { encoding?: unknown }).encoding !== ACCOUNT_BACKUP_ENCODING) {
+    return raw;
+  }
+  const data = (raw as { data?: unknown }).data;
+  if (typeof data !== 'string') {
+    return null;
+  }
+  const bytes = base64ToBytes(data);
+  if (!bytes) {
+    return null;
+  }
+  try {
+    return JSON.parse(strFromU8(gunzipSync(bytes)));
+  } catch {
+    return null;
+  }
 }
 
 export function describeAccountBackup(payload: AccountBackupPayload): AccountBackupSummary {

@@ -42,7 +42,8 @@ tietokantaa, koska tietokanta on se, mikä varmuuskopioidaan.
 
 **Varmuuskopio** on koko `@vinha/database/v1` liikekirjastoa lukuun ottamatta, plus
 treenihistoria. Se sisältää siis myös nimen, iän, sukupuolen, pituuden, painot ja
-varovaisuusalueet. Kesken olevaa treeniä ei kopioida. Katto on 2 Mt. Identiteetti
+varovaisuusalueet. Kesken olevaa treeniä ei kopioida. Yli 1 Mt:n varmuuskopio pakataan
+(gzip) ennen lähetystä; sisältö on sama. Katto on 4 Mt pakattuna. Identiteetti
 todennetaan jokaisella pyynnöllä Googlen tokeninfo-rajapintaa vasten, eikä palvelin
 pidä istuntoa. Sähköpostia tai nimeä ei tallenneta palvelimelle; polku on tiiviste
 Google-tunnisteesta.

@@ -5,7 +5,7 @@
  * feature is absent, same rule as the coach URL.
  */
 import type { AccountBackupPayload } from '../../lib/accountBackup';
-import { parseAccountBackupPayload } from '../../lib/accountBackup';
+import { decodeAccountBackupBody, encodeAccountBackupBody, parseAccountBackupPayload } from '../../lib/accountBackup';
 
 const BACKUP_API_URL = (process.env.EXPO_PUBLIC_BACKUP_API_URL ?? '').trim();
 const REQUEST_TIMEOUT_MS = 20000;
@@ -37,7 +37,8 @@ export async function uploadBackup(idToken: string, payload: AccountBackupPayloa
         'content-type': 'application/json',
         authorization: `Bearer ${idToken}`,
       },
-      body: JSON.stringify(payload),
+      // Compressed once the history is large; see ACCOUNT_BACKUP_COMPRESS_ABOVE_CHARS.
+      body: encodeAccountBackupBody(payload),
       signal,
     });
     const body = (await response.json()) as { ok?: boolean; savedAt?: string; error?: string };
@@ -68,7 +69,7 @@ export async function downloadBackup(idToken: string): Promise<BackupDownloadRes
       return { ok: false, error: 'NO_BACKUP' };
     }
     if (response.ok && body.ok) {
-      const parsed = parseAccountBackupPayload(body.payload);
+      const parsed = parseAccountBackupPayload(decodeAccountBackupBody(body.payload));
       if (parsed) {
         return { ok: true, payload: parsed };
       }

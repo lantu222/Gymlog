@@ -229,6 +229,7 @@ const suites = [
   ...require('./lib/aiCoachLiveGate.test.cjs'),
   ...require('./lib/aiLogConsent.test.cjs'),
   ...require('./lib/accountBackup.test.cjs'),
+  ...require('./lib/accountBackupCompression.test.cjs'),
   ...require('./lib/hevyImport.test.cjs'),
   ...require('./lib/measurementIntent.test.cjs'),
   ...require('./lib/goalIntent.test.cjs'),
