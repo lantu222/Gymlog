@@ -3630,8 +3630,10 @@ export function OnboardingScreen({
         // had just been handed a programme and the next thing the app did was
         // ask for money (user decision 2026-08-24). The paywall is unchanged
         // and still reachable from Profile.
+        // No success buzz here: this press starts the save, and the buzz used to
+        // land before it — including the times the save was refused. The
+        // finish handler buzzes once the programme is actually written.
         onContinue={() => {
-          void haptics.success();
           void runAction(() => onCompleteToTraining(selection, activeRecommendedProgramId));
         }}
         onTopToneChange={onFullBleedReviewChange}

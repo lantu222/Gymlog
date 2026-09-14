@@ -59,6 +59,34 @@ module.exports = [
     },
   },
   {
+    // Setup can be answered again from Profile, and each run writes a new
+    // programme of the reader's own. At the free limit the provider refuses it
+    // with ProgramLimitReachedError — which nothing caught, so the button came
+    // back and nothing happened.
+    name: 'program cap wiring: a refused onboarding save shows the limit sheet and goes nowhere',
+    run() {
+      const helper = body(app, 'async function saveOnboardingOrExplain');
+      assert.match(helper, /catch \(error\) \{\s*if \(error instanceof ProgramLimitReachedError\) \{\s*setProgramLimitVisible\(true\);\s*return false;/);
+      assert.match(helper, /showToast\(t\(preferences\.appLanguage, 'toast\.planSaveFailed'\)\)/);
+
+      for (const signature of ['async function handleOnboardingCompleteToTraining', 'async function handleSetupCompleteToTraining']) {
+        const finish = body(app, signature);
+        assert.doesNotMatch(finish, /await saveOnboardingResult\(/, `${signature} saves around the explanation`);
+        const guard = finish.search(/if \(!saved\) \{\s*return;/);
+        assert.ok(guard > 0, `${signature} carries on after a refused save`);
+        for (const after of ['addBodyweightEntry(', 'haptics.success()', 'resetToRoute(ROOT_ROUTES.home)']) {
+          assert.ok(finish.indexOf(after) > guard, `${signature}: ${after} can run before the save is known to have landed`);
+        }
+      }
+
+      // The review button no longer buzzes success before the save starts.
+      const onboarding = strip(fs.readFileSync(path.join(root, 'src', 'screens', 'OnboardingScreen.tsx'), 'utf8'));
+      const cta = onboarding.slice(onboarding.indexOf("ctaLabel={t(language, 'onb.cta.startTraining')}"));
+      const onContinue = cta.slice(cta.indexOf('onContinue='), cta.indexOf('onTopToneChange='));
+      assert.doesNotMatch(onContinue, /haptics\.success/);
+    },
+  },
+  {
     name: 'program cap wiring: onboarding activation reads the preferences inside the lock',
     run() {
       assert.match(body(provider, 'function saveOnboardingResult'), /input\.activate\(plan\.id, withPlan\.preferences\)/);
