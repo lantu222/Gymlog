@@ -344,6 +344,7 @@ const suites = [
   ...require('./lib/programEmphasis.test.cjs'),
   ...require('./lib/programEmphasisAdjust.test.cjs'),
   ...require('./lib/activeProgramSet.test.cjs'),
+  ...require('./lib/programCapWiring.test.cjs'),
   ...require('./lib/emptyWorkoutSession.test.cjs'),
   ...require('./lib/exerciseSelectionOrder.test.cjs'),
   ...require('./lib/restPreference.test.cjs'),

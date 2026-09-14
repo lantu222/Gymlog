@@ -1,4 +1,6 @@
 const {
+  ONBOARDING_PLAN_PREFIX,
+  activateOnboardingPlan,
   FREE_ACTIVE_PROGRAM_CAP,
   PRO_ACTIVE_PROGRAM_CAP,
   addActiveProgram,
@@ -125,6 +127,38 @@ module.exports = [
     run() {
       const assert = require('node:assert/strict');
       assert.deepEqual(removeActiveProgram(['a', 'b'], 'zzz'), ['a', 'b']);
+    },
+  },
+  {
+    // Guided onboarding used to set the lead only, outside the set the cap
+    // counts: a free reader then adopted two ready programmes and ran three.
+    name: 'the programme onboarding hands over counts against the cap',
+    run() {
+      const assert = require('node:assert/strict');
+      const plan = `${ONBOARDING_PLAN_PREFIX}workout_abc`;
+      const afterOnboarding = activateOnboardingPlan({ activePlanIds: [] }, plan);
+      assert.deepEqual(afterOnboarding, { activePlanId: plan, activePlanIds: [plan] });
+
+      const withOneReady = addActiveProgram(afterOnboarding.activePlanIds, 'ready_plan_run');
+      assert.equal(
+        evaluateProgramAdoption({ activePlanIds: withOneReady, targetPlanId: 'ready_plan_strong', proUnlocked: false }).kind,
+        'blocked',
+        'a free reader can run a third programme on top of the one onboarding gave them',
+      );
+    },
+  },
+  {
+    name: 'answering onboarding again replaces its programme and keeps the ones adopted by hand',
+    run() {
+      const assert = require('node:assert/strict');
+      const old = `${ONBOARDING_PLAN_PREFIX}workout_old`;
+      const next = `${ONBOARDING_PLAN_PREFIX}workout_new`;
+      const result = activateOnboardingPlan({ activePlanIds: [old, 'season_plan_summer', 'ready_plan_run'] }, next);
+
+      assert.equal(result.activePlanId, next);
+      assert.deepEqual(result.activePlanIds, ['season_plan_summer', 'ready_plan_run', next]);
+      // Saved twice in a row, the same plan is not counted twice.
+      assert.deepEqual(activateOnboardingPlan(result, next).activePlanIds, result.activePlanIds);
     },
   },
 ];

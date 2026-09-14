@@ -627,7 +627,7 @@ module.exports = [
       // The plan-matching rule lives in src/lib and is tested there; every
       // plan pointing at the programme has to go, or the switch reads off
       // while it still runs under the other id.
-      assert.match(stopBody, /planIdsForTemplate\(\{/);
+      assert.match(stopBody, /stopProgramme\(\{/);
       assert.match(stopBody, /templateId: workoutTemplateId,/);
       assert.doesNotMatch(
         stopBody,

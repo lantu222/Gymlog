@@ -1,3 +1,4 @@
+import { ONBOARDING_PLAN_PREFIX } from '../lib/activeProgramSet';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import {
   buildFirstRunCustomProgramName,
@@ -187,7 +188,7 @@ export function buildSavedOnboardingWorkoutPlan(
     ? selection.availableDays
     : DEFAULT_RHYTHM_BY_DAYS[selection.daysPerWeek] ?? DEFAULT_RHYTHM_BY_DAYS[3];
   const timestamp = new Date().toISOString();
-  const planId = `onboarding_plan_${workoutTemplateId}`;
+  const planId = `${ONBOARDING_PLAN_PREFIX}${workoutTemplateId}`;
 
   return {
     id: planId,

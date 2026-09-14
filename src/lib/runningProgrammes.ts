@@ -93,3 +93,27 @@ export function planIdsForTemplate(input: {
     .filter((planId): planId is string => Boolean(planId))
     .filter((planId) => planById.get(planId)?.entries[0]?.workoutTemplateId === input.templateId);
 }
+
+/**
+ * The running set once one programme stops, under every plan id it was held by.
+ *
+ * The lead passes to the next programme still running, or to nobody. Null when
+ * the programme was not running, so a caller can skip a write that would
+ * change nothing.
+ */
+export function stopProgramme(input: {
+  activePlanId: string | null;
+  activePlanIds: readonly string[];
+  plans: readonly RunningPlan[];
+  templateId: string;
+}): { activePlanId: string | null; activePlanIds: string[] } | null {
+  const planIds = planIdsForTemplate(input);
+  if (planIds.length === 0) {
+    return null;
+  }
+  const activePlanIds = [...new Set(input.activePlanIds)].filter((planId) => !planIds.includes(planId));
+  return {
+    activePlanIds,
+    activePlanId: planIds.includes(input.activePlanId ?? '') ? activePlanIds[0] ?? null : input.activePlanId,
+  };
+}

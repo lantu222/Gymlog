@@ -199,7 +199,7 @@ module.exports = [
       // inside that lock from the id the template upsert generates.
       assert.match(
         appSource,
-        /handleOnboardingCompleteToTraining[\s\S]*saveOnboardingResult\(\{[\s\S]*onboardingCompleted: true[\s\S]*templateDraft: savedPlan\.draft[\s\S]*buildPlan:[\s\S]*buildSavedOnboardingWorkoutPlan[\s\S]*activate: \(planId\) => \(\{ activePlanId: planId \}\)[\s\S]*resetToRoute\(ROOT_ROUTES\.home\)/,
+        /handleOnboardingCompleteToTraining[\s\S]*saveOnboardingResult\(\{[\s\S]*onboardingCompleted: true[\s\S]*templateDraft: savedPlan\.draft[\s\S]*buildPlan:[\s\S]*buildSavedOnboardingWorkoutPlan[\s\S]*activate: \(planId, current\) => activateOnboardingPlan\(current, planId\)[\s\S]*resetToRoute\(ROOT_ROUTES\.home\)/,
       );
       // And the four-call chain must not come back.
       assert.doesNotMatch(appSource, /await upsertWorkoutTemplate\(savedPlan\.draft\)/);

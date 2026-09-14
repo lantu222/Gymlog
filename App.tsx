@@ -70,11 +70,12 @@ import { useAccountBackup } from './src/features/account/useAccountBackup';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
 import {
+  activateOnboardingPlan,
   addActiveProgram,
   evaluateProgramAdoption,
   removeActiveProgram,
 } from './src/lib/activeProgramSet';
-import { listRunningProgrammes, planIdsForTemplate } from './src/lib/runningProgrammes';
+import { listRunningProgrammes, stopProgramme } from './src/lib/runningProgrammes';
 import {
   buildReadyProgramPlanId,
   buildCustomProgramPlanId,
@@ -1985,25 +1986,16 @@ function VinhaApp() {
    * the programme was still running under the other id.
    */
   async function handleStopProgram(workoutTemplateId: string) {
-    const planIds = planIdsForTemplate({
+    const stopped = stopProgramme({
       activePlanId: preferences.activePlanId,
       activePlanIds: preferences.activePlanIds,
       plans: database.workoutPlans,
       templateId: workoutTemplateId,
     });
-    if (planIds.length === 0) {
+    if (!stopped) {
       return;
     }
-    const remaining = planIds.reduce(
-      (ids, planId) => removeActiveProgram(ids, planId),
-      preferences.activePlanIds,
-    );
-    await updatePreferences({
-      activePlanIds: remaining,
-      activePlanId: planIds.includes(preferences.activePlanId ?? '')
-        ? remaining[0] ?? null
-        : preferences.activePlanId,
-    });
+    await updatePreferences(stopped);
   }
 
   async function handleRemoveActiveProgram(planId: string) {
@@ -2973,7 +2965,7 @@ function VinhaApp() {
           sessionIds,
           preferences.appLanguage,
         ),
-      activate: (planId) => ({ activePlanId: planId }),
+      activate: (planId, current) => activateOnboardingPlan(current, planId),
     });
     if (
       typeof selection.currentWeightKg === 'number' &&
@@ -3049,7 +3041,7 @@ function VinhaApp() {
           sessionIds,
           preferences.appLanguage,
         ),
-      activate: (planId) => ({ activePlanId: planId }),
+      activate: (planId, current) => activateOnboardingPlan(current, planId),
     });
     if (
       typeof selection.currentWeightKg === 'number' &&

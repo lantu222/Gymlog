@@ -75,3 +75,26 @@ export function addActiveProgram(activePlanIds: readonly string[], planId: strin
 export function removeActiveProgram(activePlanIds: readonly string[], planId: string): string[] {
   return Array.from(new Set(activePlanIds)).filter((id) => id !== planId);
 }
+
+/** Every plan onboarding writes is named this, followed by its template id. */
+export const ONBOARDING_PLAN_PREFIX = 'onboarding_plan_';
+
+/**
+ * The running set once onboarding hands the reader a programme.
+ *
+ * The new plan leads, and it joins the set like every other programme. It used
+ * to become the lead only, outside the set the cap counts: a free reader
+ * finished onboarding, adopted two ready programmes on top, and ran three
+ * against a cap of two while the cap notice read 2 of 2.
+ *
+ * A plan onboarding wrote before is replaced, not kept beside the new one:
+ * running the questionnaire again is answering it again. Anything the reader
+ * adopted themselves — a ready programme, a season — stays.
+ */
+export function activateOnboardingPlan(
+  current: { activePlanIds: readonly string[] },
+  planId: string,
+): { activePlanId: string; activePlanIds: string[] } {
+  const kept = current.activePlanIds.filter((id) => !id.startsWith(ONBOARDING_PLAN_PREFIX) || id === planId);
+  return { activePlanId: planId, activePlanIds: addActiveProgram(kept, planId) };
+}
