@@ -190,6 +190,7 @@ const suites = [
   ...require('./lib/supersetGrouping.test.cjs'),
   ...require('./lib/guidedSuperset.test.cjs'),
   ...require('./lib/supersetAcrossSurfaces.test.cjs'),
+  ...require('./lib/supersetsSurviveSaves.test.cjs'),
   ...require('./lib/catalogSupersets.test.cjs'),
   ...require('./lib/programSessionOrder.test.cjs'),
   ...require('./lib/planSessionOrder.test.cjs'),

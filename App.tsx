@@ -148,6 +148,7 @@ import type { ChatMessage } from './src/screens/AICoachChatScreen';
 import {
   applyProgramSessionEdit,
   ProgramPrescription,
+  toDraftExercise,
 } from './src/lib/programSessionEdit';
 import { repointPlanEntrySessions } from './src/lib/planSessionOrder';
 import { reorderProgramSessions } from './src/lib/programSessionOrder';
@@ -1817,14 +1818,8 @@ function VinhaApp() {
         id: session.id,
         name: session.name,
         exercises: session.exercises.map((exercise) => ({
-          id: exercise.id,
-          name: exercise.name,
+          ...toDraftExercise(exercise),
           targetSets: setsByExerciseId.get(exercise.id) ?? exercise.targetSets,
-          repMin: exercise.repMin,
-          repMax: exercise.repMax,
-          restSeconds: exercise.restSeconds,
-          trackedDefault: exercise.trackedDefault,
-          libraryItemId: exercise.libraryItemId ?? null,
         })),
       })),
     }));
@@ -2137,16 +2132,7 @@ function VinhaApp() {
         // Every other field is copied because upsert replaces the record; only
         // the one session the reader named changes.
         name: session.id === sessionId ? trimmed : session.name,
-        exercises: session.exercises.map((exercise) => ({
-          id: exercise.id,
-          name: exercise.name,
-          targetSets: exercise.targetSets,
-          repMin: exercise.repMin,
-          repMax: exercise.repMax,
-          restSeconds: exercise.restSeconds,
-          trackedDefault: exercise.trackedDefault,
-          libraryItemId: exercise.libraryItemId ?? null,
-        })),
+        exercises: session.exercises.map(toDraftExercise),
       })),
     }));
   }
@@ -2189,16 +2175,7 @@ function VinhaApp() {
         sessions: result.sessions.map((session) => ({
           id: session.id,
           name: session.name,
-          exercises: session.exercises.map((exercise) => ({
-            id: exercise.id,
-            name: exercise.name,
-            targetSets: exercise.targetSets,
-            repMin: exercise.repMin,
-            repMax: exercise.repMax,
-            restSeconds: exercise.restSeconds,
-            trackedDefault: exercise.trackedDefault,
-            libraryItemId: exercise.libraryItemId ?? null,
-          })),
+          exercises: session.exercises.map(toDraftExercise),
         })),
       };
     });
