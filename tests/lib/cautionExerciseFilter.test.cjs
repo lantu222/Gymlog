@@ -145,6 +145,76 @@ module.exports = [
     },
   },
   {
+    name: 'cautionExerciseFilter: a careful knee never turns a timed hold into a lift',
+    run() {
+      // "Deep Squat Hold" 60–90 s became Box Squat (or Bodyweight Squat) with
+      // the same 60–90 — ninety squats (2026-09-14). A hold goes to its
+      // supported hold, or stays; its seconds never become reps.
+      const careful = [{ area: 'knees', level: 'careful', refinements: [] }];
+      const hold = exercise('Deep Squat Hold', { trackingMode: 'hold', repsMin: 60, repsMax: 90 });
+      const supported = exercise('Supported Deep Squat Hold', { trackingMode: 'hold', repsMin: 20, repsMax: 40 });
+
+      for (const focusAreas of [[], ['quads']]) {
+        const result = applyCautionFlagsToExercises([hold, supported], careful, focusAreas);
+        const [first, second] = result.exercises;
+        assert.equal(first.exerciseName, 'Supported Deep Squat Hold', `focus ${focusAreas}`);
+        assert.equal(first.trackingMode, 'hold');
+        assert.equal(first.repsMax, 90, 'the hold keeps its seconds');
+        // Already the supported version: nothing to swap to, nothing recorded.
+        assert.equal(second.exerciseName, 'Supported Deep Squat Hold');
+        assert.deepEqual(result.swapped.map((swap) => swap.from), ['Deep Squat Hold']);
+      }
+
+      // A hold with no hold to swap to keeps its place rather than becoming a lift.
+      const wallSit = exercise('Wall Sit Squat Hold', { trackingMode: 'hold', repsMin: 30, repsMax: 45 });
+      const kept = applyCautionFlagsToExercises([wallSit], careful, []);
+      assert.equal(kept.exercises[0].exerciseName, 'Wall Sit Squat Hold');
+      assert.deepEqual(kept.swapped, []);
+
+      // A loaded squat still swaps as before.
+      assert.equal(applyCautionFlagsToExercises([exercise('Back Squat')], careful, []).exercises[0].exerciseName, 'Box Squat');
+    },
+  },
+  {
+    name: 'cautionExerciseFilter: no composed week swaps a hold into a lift',
+    run() {
+      const holdNames = new Set();
+      for (const template of WORKOUT_TEMPLATES_V1) {
+        for (const session of template.sessions) {
+          for (const item of session.exercises) {
+            if (item.trackingMode === 'hold') holdNames.add(item.exerciseName);
+          }
+        }
+      }
+      const offenders = [];
+      let composed = 0;
+      for (const template of WORKOUT_TEMPLATES_V1) {
+        for (const area of ['knees', 'hips', 'lower_back', 'shoulders', 'wrists', 'ankles']) {
+          const selection = {
+            ...DEFAULT_FIRST_RUN_SELECTION,
+            cautionFlags: [{ area, level: 'careful', refinements: [] }],
+          };
+          let week;
+          try {
+            week = composeProgramWeekForSelection(selection, template.id);
+          } catch (error) {
+            // Seasons and other programmes onboarding never recommends.
+            if (/Unknown recommendation programme/.test(String(error && error.message))) continue;
+            throw error;
+          }
+          composed += 1;
+          for (const swap of week?.cautionSwapped ?? []) {
+            if (holdNames.has(swap.from) && !holdNames.has(swap.to)) {
+              offenders.push(`${template.id}: ${swap.from} -> ${swap.to} (${area})`);
+            }
+          }
+        }
+      }
+      assert.ok(composed > 100, `the sweep composed only ${composed} weeks`);
+      assert.deepEqual(offenders, []);
+    },
+  },
+  {
     name: 'cautionExerciseFilter: summary label lists serious flags only',
     run() {
       assert.equal(
