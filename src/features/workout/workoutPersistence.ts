@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { normalizeActiveCardioSession } from '../../lib/cardio';
 import { scrubImpossibleSessionLoads } from '../../lib/impossibleLoads';
+import { getLargeItem, removeLargeItem, setLargeItem } from '../../storage/largeItem';
 import { getWorkoutTemplateById } from './workoutCatalog';
 import { WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutSessionRuntime, WorkoutSessionSummary } from './workoutTypes';
 
@@ -137,7 +138,7 @@ export function normalizeWorkoutBundle(input: unknown): WorkoutPersistenceBundle
 }
 
 export async function loadWorkoutBundle() {
-  const raw = (await AsyncStorage.getItem(STORAGE_KEY)) ?? (await AsyncStorage.getItem(LEGACY_STORAGE_KEY));
+  const raw = (await getLargeItem(STORAGE_KEY)) ?? (await AsyncStorage.getItem(LEGACY_STORAGE_KEY));
   if (!raw) {
     return { activeSession: null, history: createEmptyWorkoutHistory(), activeCardio: null } satisfies WorkoutPersistenceBundle;
   }
@@ -150,10 +151,12 @@ export async function loadWorkoutBundle() {
 }
 
 export async function saveWorkoutBundle(bundle: WorkoutPersistenceBundle) {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(bundle));
+  // Slot history keeps ten entries per slot but gains slots with every
+  // programme, so this value has no ceiling either (see lib/storageChunks).
+  await setLargeItem(STORAGE_KEY, JSON.stringify(bundle));
 }
 
 export async function clearWorkoutBundle() {
-  await AsyncStorage.removeItem(STORAGE_KEY);
+  await removeLargeItem(STORAGE_KEY);
   await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
 }
