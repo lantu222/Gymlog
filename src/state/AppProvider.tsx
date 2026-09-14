@@ -377,9 +377,19 @@ export function AppProvider({ children }: React.PropsWithChildren) {
   }, []);
 
   async function commit(nextDatabase: AppDatabase) {
+    const previousPreferences = databaseRef.current.preferences;
     databaseRef.current = nextDatabase;
     setDatabase(nextDatabase);
     await saveDatabase(nextDatabase);
+    // Loading reads the preferences key OVER the blob (loadStoredPreferences),
+    // so a commit that changed a preference and wrote only the blob was undone
+    // by the next launch. Onboarding's result is such a commit: finish the
+    // questions, close the app before touching anything that writes the key,
+    // and onboarding started again with the answers gone (2026-09-14). The
+    // backup restore had patched this for itself; every commit needs it.
+    if (nextDatabase.preferences !== previousPreferences) {
+      await savePreferences(nextDatabase.preferences);
+    }
   }
 
   /**
@@ -1031,10 +1041,9 @@ export function AppProvider({ children }: React.PropsWithChildren) {
   function restoreDatabaseFromBackup(input: Partial<AppDatabase>) {
     return runExclusive(async () => {
       const restored = normalizeDatabase(input);
+      // commit writes the preferences key too: the split-key would otherwise
+      // override the restored preferences on the next load.
       await commit(restored);
-      // The preferences split-key would otherwise override the restored ones
-      // on the next load — the exact stale-copy bug the split invites.
-      await savePreferences(restored.preferences);
     });
   }
 

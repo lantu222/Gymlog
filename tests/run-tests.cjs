@@ -85,6 +85,7 @@ const suites = [
   ...require('./features/workout/borrowedPrefill.test.cjs'),
   ...require('./features/workout/resetClearsHistory.test.cjs'),
   ...require('./state/completedWorkoutPersistence.test.cjs'),
+  ...require('./state/commitSavesPreferences.test.cjs'),
   ...require('./utils/haptics.test.cjs'),
   ...require('./utils/reduceMotion.test.cjs'),
   ...require('./components/primaryCTAButton.test.cjs'),
