@@ -61,7 +61,9 @@ backed up.
    - `GOOGLE_WEB_CLIENT_ID` — the web client id from step 1
    - `BACKUP_PATH_SECRET` — any long random string (e.g. `openssl rand -hex 32`).
      Changing it later orphans every stored backup.
-   - `BACKUP_MAX_BYTES` — optional, default 2 MB
+   - `BACKUP_MAX_BYTES` — optional, default 4 MB. Leave it unset: Vercel refuses
+     bodies over 4.5 MB anyway, and the app gzips a backup whose JSON passes
+     1 MB (`ACCOUNT_BACKUP_COMPRESS_ABOVE_CHARS`), so the cap is compressed bytes.
 3. Deploy (`npx vercel`). Smoke test:
    `curl -X PUT https://vinha-azure.vercel.app/api/backup -H 'authorization: Bearer nonsense' -d '{}'`
    must answer `401 INVALID_TOKEN` — not 500 (500 = missing env).
