@@ -1,4 +1,4 @@
-import { calendarDaysBetween, getRollingWindowStart } from './completedSessions';
+import { calendarDaysBetween, getRollingWindowStart, localDateKey } from './completedSessions';
 import { HomeSummary } from './dashboard';
 import { ExerciseProgressSummary } from './progression';
 import { BodyweightEntry, CoachGoal, ExerciseLog, MeasurementEntry, SetupWeekday, UnitPreference, WorkoutSession } from '../types/models';
@@ -294,6 +294,7 @@ function buildHistoryBlock(
     sessionId: entry.sessionId,
     name: entry.name,
     performedAt: entry.performedAt,
+    day: localDateKey(entry.performedAt),
     durationMinutes: entry.durationMinutes,
     volumeKg: entry.volumeKg === null ? null : Math.round(entry.volumeKg),
     setCount: entry.setCount,
@@ -359,6 +360,8 @@ export function buildAiTrainingContext({
       sessionId: session.id,
       title: session.workoutNameSnapshot.trim(),
       performedAt: session.performedAt,
+      // Dated here, on the phone: see AICoachRecentCompletedSession.day.
+      day: localDateKey(session.performedAt),
       durationMinutes: session.durationMinutes ?? null,
       setsCompleted: session.setsCompleted ?? null,
       swappedExercises: session.exercisesSwapped ?? 0,

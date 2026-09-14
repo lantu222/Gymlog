@@ -20,6 +20,12 @@ export interface AICoachRecentCompletedSession {
   sessionId: string;
   title: string;
   performedAt: string;
+  /**
+   * The local calendar date, YYYY-MM-DD, resolved on the phone. The context is
+   * rendered on the endpoint, whose clock is UTC, and a session after midnight
+   * in Helsinki is still yesterday there. Absent from older clients.
+   */
+  day?: string;
   durationMinutes: number | null;
   setsCompleted: number | null;
   swappedExercises: number;
@@ -74,6 +80,12 @@ export interface AICoachHistorySession {
   /** Session name as stored, in English — an identifier, not a label. */
   name: string;
   performedAt: string;
+  /**
+   * The local calendar date, YYYY-MM-DD, resolved on the phone. The context is
+   * rendered on the endpoint, whose clock is UTC, and a session after midnight
+   * in Helsinki is still yesterday there. Absent from older clients.
+   */
+  day?: string;
   durationMinutes: number | null;
   volumeKg: number | null;
   setCount: number;
