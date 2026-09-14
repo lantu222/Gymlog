@@ -2926,6 +2926,31 @@ function VinhaApp() {
     });
   }
 
+  /**
+   * Onboarding's save, with both ways it can fail said out loud.
+   *
+   * Setup can be answered again from Profile at any time, and every run writes
+   * a new programme of the reader's own. A free reader who already keeps three
+   * had the provider refuse the fourth — and nothing caught the refusal: the
+   * button came back, nothing happened, and no reason was given. The limit
+   * sheet is the reason, the same one shown everywhere else a programme is
+   * made. Anything else is a failed save, and says so.
+   */
+  async function saveOnboardingOrExplain(input: Parameters<typeof saveOnboardingResult>[0]): Promise<boolean> {
+    try {
+      await saveOnboardingResult(input);
+      return true;
+    } catch (error) {
+      if (error instanceof ProgramLimitReachedError) {
+        setProgramLimitVisible(true);
+        return false;
+      }
+      console.error('Failed to save the onboarding result', error);
+      showToast(t(preferences.appLanguage, 'toast.planSaveFailed'));
+      return false;
+    }
+  }
+
   async function handleOnboardingCompleteToTraining(
     selection: FirstRunSetupSelection,
     recommendedProgramId: string,
@@ -2945,7 +2970,7 @@ function VinhaApp() {
     // database through the same queue — at the end of onboarding, where the wait
     // is least affordable. The plan is built inside that single lock because it
     // needs the id the template upsert generates.
-    await saveOnboardingResult({
+    const saved = await saveOnboardingOrExplain({
       preferences: {
         onboardingCompleted: true,
         ...buildSetupPreferencePatch(selection, recommendedProgramId, preferences.trainingCycle),
@@ -2963,6 +2988,9 @@ function VinhaApp() {
       activate: (planId, current) =>
         activateOnboardingPlan(current, planId, resolveActiveProgramCap(resolveProEntitlement(current).unlocked)),
     });
+    if (!saved) {
+      return;
+    }
     if (
       typeof selection.currentWeightKg === 'number' &&
       selection.currentWeightKg > 0 &&
@@ -2978,6 +3006,9 @@ function VinhaApp() {
     // has just been handed a programme, and asking for money in the same
     // breath is the wrong moment. Both orphaned screens were deleted on
     // 2026-08-25; the Pro page in Profile is where the sale lives.
+    // The success buzz, now that there is a success: the review screen's
+    // button used to buzz on press, before the save had even started.
+    void haptics.success();
     resetToRoute(ROOT_ROUTES.home);
   }
 
@@ -3022,7 +3053,7 @@ function VinhaApp() {
     // database through the same queue — at the end of onboarding, where the wait
     // is least affordable. The plan is built inside that single lock because it
     // needs the id the template upsert generates.
-    await saveOnboardingResult({
+    const saved = await saveOnboardingOrExplain({
       preferences: {
         onboardingCompleted: true,
         ...buildSetupPreferencePatch(selection, recommendedProgramId, preferences.trainingCycle),
@@ -3040,6 +3071,9 @@ function VinhaApp() {
       activate: (planId, current) =>
         activateOnboardingPlan(current, planId, resolveActiveProgramCap(resolveProEntitlement(current).unlocked)),
     });
+    if (!saved) {
+      return;
+    }
     if (
       typeof selection.currentWeightKg === 'number' &&
       selection.currentWeightKg > 0 &&
