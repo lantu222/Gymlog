@@ -1292,7 +1292,7 @@ const EN = {
   'guided.count.exerciseMany': '{count} exercises',
   'guided.count.sets': '{count} sets',
   // The badge on a superset set: which lift of the pair, and which round.
-  'guided.superset.round': 'round {round}/{rounds}',
+  'guided.superset.round': 'WORKOUT · ROUND {round}/{rounds}',
   // The one word the box and the set screen both wear. Capitalised at the
   // point of use, so the dictionary carries the word and not a style.
   'guided.superset.pill': 'SUPERSET',
@@ -4359,7 +4359,7 @@ const FI: Record<I18nKey, string> = {
   'guided.count.exerciseOne': '1 liike',
   'guided.count.exerciseMany': '{count} liikettä',
   'guided.count.sets': '{count} sarjaa',
-  'guided.superset.round': 'kierros {round}/{rounds}',
+  'guided.superset.round': 'TREENI · KIERROS {round}/{rounds}',
   'guided.superset.pill': 'SUPERSARJA',
   'guided.superset.thenRest': 'sitten lepo',
   'guided.superset.next': 'Ei taukoa — suoraan: {name}',
