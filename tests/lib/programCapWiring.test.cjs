@@ -33,7 +33,7 @@ module.exports = [
       for (const signature of ['async function handleOnboardingCompleteToTraining', 'async function handleSetupCompleteToTraining']) {
         assert.match(
           body(app, signature),
-          /activate: \(planId, current\) => activateOnboardingPlan\(current, planId\)/,
+          /activate: \(planId, current\) =>\s*activateOnboardingPlan\(current, planId, resolveActiveProgramCap\(resolveProEntitlement\(current\)\.unlocked\)\)/,
           `${signature} leads with its plan without counting it against the cap`,
         );
       }
@@ -44,7 +44,7 @@ module.exports = [
     name: 'program cap wiring: the catalogue onboarding finish follows the same rule',
     run() {
       const pick = body(app, 'async function handleOnboardingPickReadyProgram');
-      assert.match(pick, /activateOnboardingPlan\(preferences, adoptedPlanId\)/);
+      assert.match(pick, /activateOnboardingPlan\(\s*preferences,\s*adoptedPlanId,\s*resolveActiveProgramCap\(resolveProEntitlement\(preferences\)\.unlocked\),?\s*\)/);
       assert.doesNotMatch(pick, /activePlanIds: adoptedPlanId \? \[adoptedPlanId\] : \[\]/, 're-running onboarding stops a season');
     },
   },

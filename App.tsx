@@ -75,6 +75,7 @@ import {
   evaluateProgramAdoption,
   ONBOARDING_PLAN_PREFIX,
   removeActiveProgram,
+  resolveActiveProgramCap,
 } from './src/lib/activeProgramSet';
 import { listRunningProgrammes, stopProgramme } from './src/lib/runningProgrammes';
 import {
@@ -2812,7 +2813,13 @@ function VinhaApp() {
         // The same rule as the guided finishes: onboarding's earlier plan is
         // replaced, and a season or a programme adopted by hand keeps running.
         // No template, no plan — and nothing that was running is stopped.
-        ...(adoptedPlanId ? activateOnboardingPlan(preferences, adoptedPlanId) : {}),
+        ...(adoptedPlanId
+          ? activateOnboardingPlan(
+              preferences,
+              adoptedPlanId,
+              resolveActiveProgramCap(resolveProEntitlement(preferences).unlocked),
+            )
+          : {}),
       });
       if (
         typeof aboutYouValues?.weightKg === 'number' &&
@@ -2953,7 +2960,8 @@ function VinhaApp() {
           sessionIds,
           preferences.appLanguage,
         ),
-      activate: (planId, current) => activateOnboardingPlan(current, planId),
+      activate: (planId, current) =>
+        activateOnboardingPlan(current, planId, resolveActiveProgramCap(resolveProEntitlement(current).unlocked)),
     });
     if (
       typeof selection.currentWeightKg === 'number' &&
@@ -3029,7 +3037,8 @@ function VinhaApp() {
           sessionIds,
           preferences.appLanguage,
         ),
-      activate: (planId, current) => activateOnboardingPlan(current, planId),
+      activate: (planId, current) =>
+        activateOnboardingPlan(current, planId, resolveActiveProgramCap(resolveProEntitlement(current).unlocked)),
     });
     if (
       typeof selection.currentWeightKg === 'number' &&
