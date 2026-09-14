@@ -383,7 +383,8 @@ module.exports = [
         const shares = [...xml.matchAll(/android:layout_weight="(\d+)"/g)].map((m) => Number(m[1])).filter((w) => w > 1);
         assert.equal(shares.length, 2, `${entry}: one share for the month, one for the figures`);
         const [month, figures] = shares;
-        assert.ok(month / (month + figures) >= 0.6, `${entry}: the month takes at least 60% (${month}:${figures})`);
+        // Strictly more than the old 3:2, which is exactly 0.6 (PR review).
+        assert.ok(month / (month + figures) > 0.6, `${entry}: the month takes more than the old 60% (${month}:${figures})`);
 
         const dp = (attr) => Number(xml.match(new RegExp(`android:${attr}="(\\d+)dp"`))[1]);
         assert.ok(dp('paddingStart') > dp('paddingTop'), `${entry}: the sides breathe more than top and bottom`);
