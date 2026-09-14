@@ -125,7 +125,9 @@ export type WorkoutAction =
   | { type: 'session/openFinishSummary' }
   | { type: 'session/finishWorkout'; payload?: { performedAt?: string } }
   | { type: 'session/discardWorkout' }
-  | { type: 'session/clearCompletedSession' };
+  | { type: 'session/clearCompletedSession' }
+  /** "Reset all data": nothing of the training record survives, not even the per-slot history. */
+  | { type: 'session/resetAll'; payload: { nowMs: number } };
 
 function createInitialTimer(): WorkoutRestTimerState {
   return {
@@ -1694,6 +1696,18 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
         ...state,
         activeSession: null,
         completionSummary: null,
+      };
+
+    // The reset used to end at clearCompletedSession, which keeps `history`:
+    // every set's weight and reps stayed in @vinha/workout/v1, the next session
+    // opened on pre-reset loads and "last time" still showed them, after a
+    // dialog promising workouts and sessions were cleared (2026-09-14).
+    case 'session/resetAll':
+      return {
+        ...workoutInitialState,
+        hydrated: true,
+        isRestoring: false,
+        nowMs: action.payload.nowMs,
       };
 
     default:

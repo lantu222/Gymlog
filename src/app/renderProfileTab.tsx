@@ -107,7 +107,7 @@ export interface ProfileTabDeps {
     sessionId: string | null;
     message: string | null;
   }) => void;
-  workout: { clearCompletedWorkout: () => void };
+  workout: { resetWorkoutData: () => Promise<void> };
   lifetimeSummary: React.ComponentProps<typeof ProfileScreen>['lifetime'];
   milestoneLedger: React.ComponentProps<typeof MilestonesScreen>['ledger'];
   trackedProgress: React.ComponentProps<typeof ProfileScreen>['trackedProgress'];
@@ -627,7 +627,7 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
           setCompletionSummary(null);
           setWorkoutCelebration(null);
           setFinishSaveState({ status: 'idle', sessionId: null, message: null });
-          workout.clearCompletedWorkout();
+          await workout.resetWorkoutData();
           resetToRoute(ROOT_ROUTES.home);
         }}
       />
