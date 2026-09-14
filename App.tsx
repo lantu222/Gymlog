@@ -70,11 +70,14 @@ import { useAccountBackup } from './src/features/account/useAccountBackup';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
 import {
+  activateOnboardingPlan,
   addActiveProgram,
   evaluateProgramAdoption,
+  ONBOARDING_PLAN_PREFIX,
   removeActiveProgram,
+  resolveActiveProgramCap,
 } from './src/lib/activeProgramSet';
-import { listRunningProgrammes, planIdsForTemplate } from './src/lib/runningProgrammes';
+import { listRunningProgrammes, stopProgramme } from './src/lib/runningProgrammes';
 import {
   buildReadyProgramPlanId,
   buildCustomProgramPlanId,
@@ -1988,25 +1991,16 @@ function VinhaApp() {
    * the programme was still running under the other id.
    */
   async function handleStopProgram(workoutTemplateId: string) {
-    const planIds = planIdsForTemplate({
+    const stopped = stopProgramme({
       activePlanId: preferences.activePlanId,
       activePlanIds: preferences.activePlanIds,
       plans: database.workoutPlans,
       templateId: workoutTemplateId,
     });
-    if (planIds.length === 0) {
+    if (!stopped) {
       return;
     }
-    const remaining = planIds.reduce(
-      (ids, planId) => removeActiveProgram(ids, planId),
-      preferences.activePlanIds,
-    );
-    await updatePreferences({
-      activePlanIds: remaining,
-      activePlanId: planIds.includes(preferences.activePlanId ?? '')
-        ? remaining[0] ?? null
-        : preferences.activePlanId,
-    });
+    await updatePreferences(stopped);
   }
 
   async function handleRemoveActiveProgram(planId: string) {
@@ -2816,8 +2810,16 @@ function VinhaApp() {
         // highlights on a later visit, the plan is what Home trains from.
         recommendedProgramId: programId,
         setupDaysPerWeek: templateDaysPerWeek,
-        activePlanId: adoptedPlanId,
-        activePlanIds: adoptedPlanId ? [adoptedPlanId] : [],
+        // The same rule as the guided finishes: onboarding's earlier plan is
+        // replaced, and a season or a programme adopted by hand keeps running.
+        // No template, no plan — and nothing that was running is stopped.
+        ...(adoptedPlanId
+          ? activateOnboardingPlan(
+              preferences,
+              adoptedPlanId,
+              resolveActiveProgramCap(resolveProEntitlement(preferences).unlocked),
+            )
+          : {}),
       });
       if (
         typeof aboutYouValues?.weightKg === 'number' &&
@@ -2958,7 +2960,8 @@ function VinhaApp() {
           sessionIds,
           preferences.appLanguage,
         ),
-      activate: (planId) => ({ activePlanId: planId }),
+      activate: (planId, current) =>
+        activateOnboardingPlan(current, planId, resolveActiveProgramCap(resolveProEntitlement(current).unlocked)),
     });
     if (
       typeof selection.currentWeightKg === 'number' &&
@@ -3034,7 +3037,8 @@ function VinhaApp() {
           sessionIds,
           preferences.appLanguage,
         ),
-      activate: (planId) => ({ activePlanId: planId }),
+      activate: (planId, current) =>
+        activateOnboardingPlan(current, planId, resolveActiveProgramCap(resolveProEntitlement(current).unlocked)),
     });
     if (
       typeof selection.currentWeightKg === 'number' &&
@@ -3562,7 +3566,7 @@ function VinhaApp() {
         // plan") — the Home hero must count the same total, not the generic
         // 8-week default.
         const onboardingBlockWeeks =
-          activeWorkoutPlan.id.startsWith('onboarding_plan_') && setupSelection && preferences.recommendedProgramId
+          activeWorkoutPlan.id.startsWith(ONBOARDING_PLAN_PREFIX) && setupSelection && preferences.recommendedProgramId
             ? composeProgramWeekForSelection(setupSelection, preferences.recommendedProgramId)?.weeks
             : undefined;
         // The demo tester's block is one week by construction — see

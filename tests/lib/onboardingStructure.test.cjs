@@ -173,8 +173,9 @@ module.exports = [
       assert.ok(readyPick, 'handleOnboardingPickReadyProgram not found');
       assert.match(readyPick[0], /buildProgramWorkoutPlan\(/);
       assert.match(readyPick[0], /await upsertWorkoutPlan\(plan\)/);
-      assert.match(readyPick[0], /activePlanId: adoptedPlanId/);
-      assert.match(readyPick[0], /activePlanIds: adoptedPlanId \? \[adoptedPlanId\] : \[\]/);
+      // The plan leads and joins the running set by the same rule the guided
+      // finishes use (programCapWiring pins the rule itself).
+      assert.match(readyPick[0], /activateOnboardingPlan\(\s*preferences,\s*adoptedPlanId,/);
       // Comments stripped first: the code block explains the old bug by quoting
       // it, and a naive search would match the explanation instead of a relapse.
       const readyPickCode = readyPick[0].replace(/^\s*\/\/.*$/gm, '');
@@ -199,7 +200,7 @@ module.exports = [
       // inside that lock from the id the template upsert generates.
       assert.match(
         appSource,
-        /handleOnboardingCompleteToTraining[\s\S]*saveOnboardingResult\(\{[\s\S]*onboardingCompleted: true[\s\S]*templateDraft: savedPlan\.draft[\s\S]*buildPlan:[\s\S]*buildSavedOnboardingWorkoutPlan[\s\S]*activate: \(planId\) => \(\{ activePlanId: planId \}\)[\s\S]*resetToRoute\(ROOT_ROUTES\.home\)/,
+        /handleOnboardingCompleteToTraining[\s\S]*saveOnboardingResult\(\{[\s\S]*onboardingCompleted: true[\s\S]*templateDraft: savedPlan\.draft[\s\S]*buildPlan:[\s\S]*buildSavedOnboardingWorkoutPlan[\s\S]*activate: \(planId, current\) =>\s*activateOnboardingPlan\(current, planId, resolveActiveProgramCap\(resolveProEntitlement\(current\)\.unlocked\)\)[\s\S]*resetToRoute\(ROOT_ROUTES\.home\)/,
       );
       // And the four-call chain must not come back.
       assert.doesNotMatch(appSource, /await upsertWorkoutTemplate\(savedPlan\.draft\)/);

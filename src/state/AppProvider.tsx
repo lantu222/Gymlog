@@ -18,6 +18,7 @@ import { createSerialTaskQueue, RunExclusive } from '../lib/serialTaskQueue';
 import { buildWorkoutTemplateSessions } from '../lib/workoutTemplateSessions';
 import { persistCompletedWorkoutSessionToDatabase, PersistCompletedWorkoutInput, SessionSaveSummary } from './completedWorkoutPersistence';
 import type { HevyImportedWorkout } from '../lib/hevyImport';
+import { stopProgramme } from '../lib/runningProgrammes';
 import {
   getBodyweightProgress,
   getLatestLogForTemplateExercise,
@@ -111,7 +112,8 @@ interface AppContextValue {
     preferences: Partial<AppPreferences>;
     templateDraft: WorkoutTemplateDraft;
     buildPlan: (workoutTemplateId: string, sessionIds: string[]) => WorkoutPlan;
-    activate: (planId: string) => Partial<AppPreferences>;
+    /** Given the preferences as they stand inside the lock, not as the caller last saw them. */
+    activate: (planId: string, current: AppPreferences) => Partial<AppPreferences>;
   }) => Promise<{ workoutTemplateId: string; planId: string }>;
   renameWorkoutTemplate: (workoutTemplateId: string, nextName: string) => Promise<void>;
   /**
@@ -592,7 +594,8 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     preferences: Partial<AppPreferences>;
     templateDraft: WorkoutTemplateDraft;
     buildPlan: (workoutTemplateId: string, sessionIds: string[]) => WorkoutPlan;
-    activate: (planId: string) => Partial<AppPreferences>;
+    /** Given the preferences as they stand inside the lock, not as the caller last saw them. */
+    activate: (planId: string, current: AppPreferences) => Partial<AppPreferences>;
   }) {
     return runExclusive(async () => {
       const built = buildTemplateUpsert(input.templateDraft);
@@ -614,7 +617,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
         preferences: {
           ...withPlan.preferences,
           ...input.preferences,
-          ...input.activate(plan.id),
+          ...input.activate(plan.id, withPlan.preferences),
         },
       });
       return { workoutTemplateId: built.workoutTemplateId, planId: plan.id };
@@ -765,15 +768,26 @@ export function AppProvider({ children }: React.PropsWithChildren) {
   function deleteWorkoutTemplate(workoutTemplateId: string) {
     return runExclusive(async () => {
       const current = databaseRef.current;
+      // A deleted programme stops running first, while its plans still name
+      // it. Removing the template empties those plans, and an empty plan left
+      // in the running set held a slot against the cap for a programme that no
+      // longer existed.
+      const stopped = stopProgramme({
+        activePlanId: current.preferences.activePlanId,
+        activePlanIds: current.preferences.activePlanIds,
+        plans: current.workoutPlans,
+        templateId: workoutTemplateId,
+      });
       const nextDatabase = workoutTemplateRepository.remove(current, workoutTemplateId);
-      const nextActivePlanId = nextDatabase.preferences.activePlanId
-        ? workoutPlanRepository.findById(nextDatabase, nextDatabase.preferences.activePlanId)?.id ?? null
+      const preferences = stopped ? { ...nextDatabase.preferences, ...stopped } : nextDatabase.preferences;
+      const nextActivePlanId = preferences.activePlanId
+        ? workoutPlanRepository.findById(nextDatabase, preferences.activePlanId)?.id ?? null
         : null;
 
       await commit({
         ...nextDatabase,
         preferences: {
-          ...nextDatabase.preferences,
+          ...preferences,
           activePlanId: nextActivePlanId,
         },
       });

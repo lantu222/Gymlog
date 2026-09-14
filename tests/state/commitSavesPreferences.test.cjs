@@ -28,7 +28,10 @@ module.exports = [
       // The premise of the fix. If this ever stops being true, the key write in
       // commit is dead weight and should go with it.
       const database = read('src', 'storage', 'database.ts');
-      assert.match(database, /preferences: await loadStoredPreferences\(database\.preferences\)/);
+      // The key's copy is what loadDatabase returns (after the running-set
+      // repair, which reads the overlay rather than replacing it).
+      assert.match(database, /const preferences = await loadStoredPreferences\(database\.preferences\)/);
+      assert.match(database, /preferences: includeLeadInRunningSet\(preferences, database\.workoutPlans\)/);
       assert.match(
         functionBody(database, 'async function loadStoredPreferences(', ''),
         /\{ \.\.\.fallback, \.\.\.parsed \}/,

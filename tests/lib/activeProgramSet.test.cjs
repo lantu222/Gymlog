@@ -1,4 +1,7 @@
 const {
+  ONBOARDING_PLAN_PREFIX,
+  activateOnboardingPlan,
+  includeLeadInRunningSet,
   FREE_ACTIVE_PROGRAM_CAP,
   PRO_ACTIVE_PROGRAM_CAP,
   addActiveProgram,
@@ -125,6 +128,126 @@ module.exports = [
     run() {
       const assert = require('node:assert/strict');
       assert.deepEqual(removeActiveProgram(['a', 'b'], 'zzz'), ['a', 'b']);
+    },
+  },
+  {
+    // Guided onboarding used to set the lead only, outside the set the cap
+    // counts: a free reader then adopted two ready programmes and ran three.
+    name: 'the programme onboarding hands over counts against the cap',
+    run() {
+      const assert = require('node:assert/strict');
+      const plan = `${ONBOARDING_PLAN_PREFIX}workout_abc`;
+      const afterOnboarding = activateOnboardingPlan({ activePlanId: null, activePlanIds: [] }, plan, FREE_ACTIVE_PROGRAM_CAP);
+      assert.deepEqual(afterOnboarding, { activePlanId: plan, activePlanIds: [plan] });
+
+      const withOneReady = addActiveProgram(afterOnboarding.activePlanIds, 'ready_plan_run');
+      assert.equal(
+        evaluateProgramAdoption({ activePlanIds: withOneReady, targetPlanId: 'ready_plan_strong', proUnlocked: false }).kind,
+        'blocked',
+        'a free reader can run a third programme on top of the one onboarding gave them',
+      );
+    },
+  },
+  {
+    name: 'answering onboarding again replaces its programme and keeps the ones adopted by hand',
+    run() {
+      const assert = require('node:assert/strict');
+      const old = `${ONBOARDING_PLAN_PREFIX}workout_old`;
+      const next = `${ONBOARDING_PLAN_PREFIX}workout_new`;
+      const result = activateOnboardingPlan(
+        { activePlanId: old, activePlanIds: [old, 'season_plan_summer', 'ready_plan_run'] },
+        next,
+        PRO_ACTIVE_PROGRAM_CAP,
+      );
+
+      assert.equal(result.activePlanId, next);
+      assert.deepEqual(result.activePlanIds, ['season_plan_summer', 'ready_plan_run', next]);
+      // Saved twice in a row, the same plan is not counted twice.
+      assert.deepEqual(activateOnboardingPlan(result, next, PRO_ACTIVE_PROGRAM_CAP).activePlanIds, result.activePlanIds);
+    },
+  },
+  {
+    // PR review: setup can be run again from Profile at any time, and a free
+    // reader already running two programmes they adopted themselves came out
+    // of it with three.
+    name: 'answering onboarding again at the cap puts the new programme in the lead\'s place, not a third slot',
+    run() {
+      const assert = require('node:assert/strict');
+      const next = `${ONBOARDING_PLAN_PREFIX}workout_new`;
+      const atCap = activateOnboardingPlan(
+        { activePlanId: 'ready_plan_run', activePlanIds: ['ready_plan_run', 'season_plan_summer'] },
+        next,
+        FREE_ACTIVE_PROGRAM_CAP,
+      );
+      assert.deepEqual(atCap, { activePlanId: next, activePlanIds: ['season_plan_summer', next] });
+
+      // Room left: nothing is dropped.
+      const withRoom = activateOnboardingPlan(
+        { activePlanId: 'ready_plan_run', activePlanIds: ['ready_plan_run'] },
+        next,
+        FREE_ACTIVE_PROGRAM_CAP,
+      );
+      assert.deepEqual(withRoom.activePlanIds, ['ready_plan_run', next]);
+
+      // Pro has room for it.
+      const pro = activateOnboardingPlan(
+        { activePlanId: 'ready_plan_run', activePlanIds: ['ready_plan_run', 'season_plan_summer'] },
+        next,
+        PRO_ACTIVE_PROGRAM_CAP,
+      );
+      assert.deepEqual(pro.activePlanIds, ['ready_plan_run', 'season_plan_summer', next]);
+
+      // An earlier onboarding plan in the lead is replaced by the usual rule, so
+      // nothing adopted by hand is dropped to make room.
+      const old = `${ONBOARDING_PLAN_PREFIX}workout_old`;
+      const replacingOld = activateOnboardingPlan(
+        { activePlanId: old, activePlanIds: [old, 'season_plan_summer'] },
+        next,
+        FREE_ACTIVE_PROGRAM_CAP,
+      );
+      assert.deepEqual(replacingOld.activePlanIds, ['season_plan_summer', next]);
+
+      // Saving the same plan twice never evicts the lead it already is.
+      assert.deepEqual(activateOnboardingPlan(atCap, next, FREE_ACTIVE_PROGRAM_CAP).activePlanIds, atCap.activePlanIds);
+    },
+  },
+  {
+    // Installs that onboarded before the fix: the lead is stored outside the
+    // set, and nothing but the loader will ever put it back.
+    name: 'a stored lead missing from the running set is counted again on load',
+    run() {
+      const assert = require('node:assert/strict');
+      const plans = [
+        { id: 'onboarding_plan_x', entries: [{}] },
+        { id: 'ready_plan_run', entries: [{}] },
+        { id: 'custom_plan_deleted', entries: [] },
+      ];
+
+      const repaired = includeLeadInRunningSet(
+        { activePlanId: 'onboarding_plan_x', activePlanIds: ['ready_plan_run'], appLanguage: 'fi' },
+        plans,
+      );
+      assert.deepEqual(repaired.activePlanIds, ['ready_plan_run', 'onboarding_plan_x']);
+      assert.equal(repaired.appLanguage, 'fi', 'the rest of the preferences did not survive');
+      assert.equal(
+        evaluateProgramAdoption({ activePlanIds: repaired.activePlanIds, targetPlanId: 'ready_plan_b', proUnlocked: false }).kind,
+        'blocked',
+      );
+
+      // Nothing to repair, or nothing real to count.
+      const already = { activePlanId: 'ready_plan_run', activePlanIds: ['ready_plan_run'] };
+      assert.equal(includeLeadInRunningSet(already, plans), already);
+      assert.deepEqual(includeLeadInRunningSet({ activePlanId: null, activePlanIds: [] }, plans).activePlanIds, []);
+      assert.deepEqual(
+        includeLeadInRunningSet({ activePlanId: 'plan_gone', activePlanIds: [] }, plans).activePlanIds,
+        [],
+        'a lead whose plan no longer exists takes a slot',
+      );
+      assert.deepEqual(
+        includeLeadInRunningSet({ activePlanId: 'custom_plan_deleted', activePlanIds: [] }, plans).activePlanIds,
+        [],
+        'a lead whose programme was deleted takes a slot',
+      );
     },
   },
 ];

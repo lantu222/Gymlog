@@ -75,3 +75,64 @@ export function addActiveProgram(activePlanIds: readonly string[], planId: strin
 export function removeActiveProgram(activePlanIds: readonly string[], planId: string): string[] {
   return Array.from(new Set(activePlanIds)).filter((id) => id !== planId);
 }
+
+/** Every plan onboarding writes is named this, followed by its template id. */
+export const ONBOARDING_PLAN_PREFIX = 'onboarding_plan_';
+
+/**
+ * The lead counted in the running set, for installs whose set left it out.
+ *
+ * Every install that finished guided onboarding before activateOnboardingPlan
+ * existed has its programme as the lead and nowhere in the set, and nothing
+ * rewrites stored preferences on its own, so the cap would keep undercounting
+ * there by one. Applied on load. A lead whose plan is gone, or has no days
+ * left, is not a programme anyone is running and is not given a slot.
+ */
+export function includeLeadInRunningSet<T extends { activePlanId: string | null; activePlanIds: string[] }>(
+  preferences: T,
+  plans: ReadonlyArray<{ id: string; entries: ReadonlyArray<unknown> }>,
+): T {
+  const lead = preferences.activePlanId;
+  if (!lead || preferences.activePlanIds.includes(lead)) {
+    return preferences;
+  }
+  const plan = plans.find((candidate) => candidate.id === lead);
+  if (!plan || plan.entries.length === 0) {
+    return preferences;
+  }
+  return { ...preferences, activePlanIds: addActiveProgram(preferences.activePlanIds, lead) };
+}
+
+/**
+ * The running set once onboarding hands the reader a programme.
+ *
+ * The new plan leads, and it joins the set like every other programme. It used
+ * to become the lead only, outside the set the cap counts: a free reader
+ * finished onboarding, adopted two ready programmes on top, and ran three
+ * against a cap of two while the cap notice read 2 of 2.
+ *
+ * A plan onboarding wrote before is replaced, not kept beside the new one:
+ * running the questionnaire again is answering it again. Anything the reader
+ * adopted themselves — a ready programme, a season — stays.
+ *
+ * Unless there is no room. Setup can be run again from Profile at any time,
+ * and a free reader already running two programmes they adopted by hand would
+ * otherwise come out of it with three (PR review, 2026-09-14). The answers are
+ * a new version of the programme the reader leads with, so at the cap the new
+ * plan takes the lead's place instead of a slot of its own. No paywall at the
+ * end of a questionnaire — that seam had one removed on purpose.
+ */
+export function activateOnboardingPlan(
+  current: { activePlanId: string | null; activePlanIds: readonly string[] },
+  planId: string,
+  cap: number,
+): { activePlanId: string; activePlanIds: string[] } {
+  let kept = Array.from(new Set(current.activePlanIds)).filter(
+    (id) => !id.startsWith(ONBOARDING_PLAN_PREFIX) || id === planId,
+  );
+  const lead = current.activePlanId;
+  if (!kept.includes(planId) && kept.length >= cap && lead && kept.includes(lead)) {
+    kept = kept.filter((id) => id !== lead);
+  }
+  return { activePlanId: planId, activePlanIds: addActiveProgram(kept, planId) };
+}

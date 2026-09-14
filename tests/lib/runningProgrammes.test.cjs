@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const {
   listRunningProgrammes,
   planIdsForTemplate,
+  stopProgramme,
 } = require('../../.test-dist/lib/runningProgrammes.js');
 
 const plan = (id, templateId, name = id) => ({
@@ -131,6 +132,49 @@ module.exports = [
         }),
         [],
         'a programme that is not running has no plans to stop',
+      );
+    },
+  },
+  {
+    name: 'running programmes: stopping one takes every plan it is held under and passes the lead on',
+    run() {
+      const plans = [
+        plan('onboarding_plan_tpl_mine', 'tpl_mine'),
+        plan('custom_plan_tpl_mine', 'tpl_mine'),
+        plan('ready_plan_run', 'tpl_run'),
+      ];
+
+      assert.deepEqual(
+        stopProgramme({
+          activePlanId: 'onboarding_plan_tpl_mine',
+          activePlanIds: ['onboarding_plan_tpl_mine', 'ready_plan_run', 'custom_plan_tpl_mine'],
+          plans,
+          templateId: 'tpl_mine',
+        }),
+        { activePlanId: 'ready_plan_run', activePlanIds: ['ready_plan_run'] },
+      );
+
+      // Not the lead: the lead stays where it is.
+      assert.deepEqual(
+        stopProgramme({
+          activePlanId: 'ready_plan_run',
+          activePlanIds: ['ready_plan_run', 'custom_plan_tpl_mine'],
+          plans,
+          templateId: 'tpl_mine',
+        }),
+        { activePlanId: 'ready_plan_run', activePlanIds: ['ready_plan_run'] },
+      );
+
+      // The last one: nobody leads.
+      assert.deepEqual(
+        stopProgramme({ activePlanId: 'ready_plan_run', activePlanIds: ['ready_plan_run'], plans, templateId: 'tpl_run' }),
+        { activePlanId: null, activePlanIds: [] },
+      );
+
+      assert.equal(
+        stopProgramme({ activePlanId: 'ready_plan_run', activePlanIds: ['ready_plan_run'], plans, templateId: 'tpl_other' }),
+        null,
+        'a programme that was not running reports a change',
       );
     },
   },
