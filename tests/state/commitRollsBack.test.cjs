@@ -70,12 +70,19 @@ module.exports = [
     run() {
       const app = read('App.tsx');
       const handler = app.slice(app.indexOf('onImportHistory={async (preview) => {'), app.indexOf('onImportHistory={async (preview) => {') + 900);
-      // The toast, then the throw: a handler that returned normally resolved
-      // the sheet's await, and the sheet closed and cleared the export.
-      assert.match(handler, /try \{\s*result = await importWorkoutHistory\(preview\.workouts\);\s*\} catch \(error\) \{[\s\S]*?showToast\(t\(preferences\.appLanguage, 'hevy\.failed'\)\);\s*throw error;/);
+      // The throw: a handler that returned normally resolved the sheet's
+      // await, and the sheet closed and cleared the export. No toast from
+      // here — it would draw behind the sheet's modal.
+      assert.match(handler, /try \{\s*result = await importWorkoutHistory\(preview\.workouts\);\s*\} catch \(error\) \{[\s\S]*?throw error;/);
+      assert.doesNotMatch(handler, /showToast/);
       const sheet = read('src', 'components', 'NewProgramSheet.tsx');
       const importHistory = sheet.slice(sheet.indexOf('async function handleImportHistory'), sheet.indexOf('async function handleImport()'));
-      assert.match(importHistory, /await onImportHistory\(hevyPreview\);\s*handleClose\(\);\s*\}\s*catch \{/, 'the sheet closes, or crashes, on a rejected import');
+      assert.match(
+        importHistory,
+        /await onImportHistory\(hevyPreview\);\s*handleClose\(\);\s*\}\s*catch \{\s*setImportError\(t\(language, 'hevy\.failed'\)\);/,
+        'the sheet closes, crashes, or stays silent on a rejected import',
+      );
+      assert.match(sheet, /\{importError \? <Text style=\{styles\.errorNote\}>\{importError\}<\/Text> : null\}/, 'the reason is held but never drawn');
       assert.equal(t('fi', 'hevy.failed'), 'Tuotuja treenejä ei voitu tallentaa — mitään ei tuotu');
       assert.match(t('en', 'hevy.failed'), /nothing was imported/);
     },
