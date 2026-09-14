@@ -12,7 +12,7 @@ import { libraryLabel } from '../lib/libraryLabel';
 import { PersonalRecord } from '../lib/personalRecords';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import type { AppLanguage } from '../types/models';
-import { removeTrailingZeros } from '../lib/format';
+import { formatDateNumeric, removeTrailingZeros } from '../lib/format';
 
 /**
  * One lift's set log, on a sheet over the exercise it belongs to.
@@ -58,9 +58,7 @@ function formatDay(iso: string, language: AppLanguage) {
   if (Number.isNaN(date.getTime())) {
     return '';
   }
-  return language === 'fi'
-    ? `${date.getDate()}.${date.getMonth() + 1}.${date.getFullYear()}`
-    : `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+  return formatDateNumeric(date, language);
 }
 
 const WEEKDAY_KEYS: I18nKey[] = [

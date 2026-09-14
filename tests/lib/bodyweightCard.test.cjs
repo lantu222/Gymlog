@@ -43,9 +43,16 @@ module.exports = [
       // Past a fortnight the month has to be said, or the axis reads
       // "26 30 3 7 11" — a number sequence rather than a calendar (both
       // verdicts from the user, 2026-08-25).
-      const long = buildValueWindow([], now, 40);
+      const long = buildValueWindow([], now, 40, 'fi');
       assert.equal(long[long.length - 1].label, '25.8.');
       assert.equal(long[0].label, '17.7.');
+      // In the reader's language: English wrote the Finnish "25.8." too
+      // (2026-09-14). en-US, month first, as the session analysis already does.
+      const longEn = buildValueWindow([], now, 40, 'en');
+      assert.equal(longEn[longEn.length - 1].label, '8/25');
+      assert.equal(longEn[0].label, '7/17');
+      // Inside a fortnight the bare day stays the same in both.
+      assert.equal(buildValueWindow([], now, 7, 'en')[6].label, '25');
       // The reading keeps its own day; the empty days between keep theirs.
       assert.equal(window[1].value, 96.5);
       assert.equal(window[3].value, null);

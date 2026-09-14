@@ -310,7 +310,8 @@ module.exports = [
       );
       assert.match(weightBranch, /if \(resolvedMeasureRange === '7d'\) \{/);
       assert.match(weightBranch, /buildWeightWindow\(bodyweightProgress\.entries, nowMs\)/);
-      assert.match(weightBranch, /buildValueWindow\(entries, nowMs, days\)/);
+      // The language rides along so the axis dates follow it (2026-09-14).
+      assert.match(weightBranch, /buildValueWindow\(entries, nowMs, days, language\)/);
       // The window ends TODAY, always. The eleven empty weeks in front of a
       // short history (user, 2026-09-02) were answered by anchoring the window
       // at the first entry and running it FORWARD, which drew ten empty weeks
@@ -334,7 +335,7 @@ module.exports = [
         screen.indexOf('const overviewChart = useMemo'),
       );
       assert.ok(overviewBranch.length > 100, 'the overview window moved — recheck by hand');
-      assert.match(overviewBranch, /nowMs,\s*days,\s*\);/);
+      assert.match(overviewBranch, /nowMs,\s*days,\s*language,\s*\);/);
       // And its width goes through the SHARED cap, not a raw chip number. This
       // card's chips are its own, but only the "All" fallback used to be
       // bounded by the history — every other chip took its ceiling raw, which

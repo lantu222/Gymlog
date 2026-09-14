@@ -31,6 +31,30 @@ export function localeFor(language?: AppLanguage) {
   return undefined;
 }
 
+/**
+ * A day and month in figures, in the app's language: "25.8." in Finnish, "8/25"
+ * in English — en-US, as `localeFor` has it, and as the session analysis already
+ * wrote its bars. Chart axes built the Finnish form for both languages, so an
+ * English reader got "19.7. 28.7." under their weight (2026-09-14).
+ *
+ * Written out rather than through Intl so a test can pin the exact string.
+ */
+export function formatDayMonthNumeric(date: Date, language: AppLanguage) {
+  const day = date.getDate();
+  const month = date.getMonth() + 1;
+  return language === 'fi' ? `${day}.${month}.` : `${month}/${day}`;
+}
+
+/**
+ * The same with its year: "12.9.2026" / "9/12/2026". English used to put the
+ * day first ("12/9/2026"), which an en-US reader takes for December 9th.
+ */
+export function formatDateNumeric(date: Date, language: AppLanguage) {
+  return language === 'fi'
+    ? `${formatDayMonthNumeric(date, language)}${date.getFullYear()}`
+    : `${formatDayMonthNumeric(date, language)}/${date.getFullYear()}`;
+}
+
 export function formatShortDate(dateString: string, language?: AppLanguage) {
   return new Intl.DateTimeFormat(localeFor(language), {
     day: 'numeric',
