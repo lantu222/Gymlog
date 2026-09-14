@@ -11,6 +11,7 @@ const {
   parseAccountBackupPayload,
 } = require('../../.test-dist/lib/accountBackup.js');
 const { base64ToBytes, bytesToBase64 } = require('../../.test-dist/lib/base64.js');
+const { utf8Encode, utf8EncodeFallback } = require('../../.test-dist/lib/utf8.js');
 
 /**
  * A long history still backs up.
@@ -106,6 +107,19 @@ module.exports = [
     },
   },
   {
+    name: 'backup compression: text becomes the same UTF-8 bytes with or without TextEncoder',
+    run() {
+      for (const text of ['', 'kyykky', 'Hyvä päivä', '€ 100', '💪', 'a💪b🏋️‍♀️c', '\u{10FFFF}', 'x'.repeat(5000) + 'ö']) {
+        const expected = Buffer.from(text, 'utf8');
+        assert.deepEqual(Buffer.from(utf8EncodeFallback(text)), expected, JSON.stringify(text));
+        assert.deepEqual(Buffer.from(utf8Encode(text)), expected, JSON.stringify(text));
+      }
+      // A lone surrogate is U+FFFD, the way TextEncoder writes it.
+      assert.deepEqual(Buffer.from(utf8EncodeFallback('a\ud83db')), Buffer.from(new TextEncoder().encode('a\ud83db')));
+      assert.deepEqual(Buffer.from(utf8EncodeFallback('\udc00')), Buffer.from(new TextEncoder().encode('\udc00')));
+    },
+  },
+  {
     name: 'backup compression: a small backup is the same plain JSON every existing build restores',
     run() {
       const payload = buildAccountBackupPayload(databaseWithSessions(20), HISTORY, '2026-09-14T10:00:00.000Z');
@@ -138,6 +152,45 @@ module.exports = [
     },
   },
   {
+    // Node resolves fflate's `node` build; Metro bundles the `require` one
+    // (lib/browser.cjs), and Hermes may have no TextDecoder. Load that build
+    // with the text codecs gone, so the fallback the phone may use is the one
+    // proven here. This is the test that found fflate's own encoder fallback
+    // turning 💪 into 𝢪, which is why the text goes through lib/utf8.
+    name: 'backup compression: the build Metro bundles round-trips Finnish and emoji without TextEncoder or TextDecoder',
+    run() {
+      const packageDir = path.dirname(require.resolve('fflate/package.json'));
+      const browserBuild = path.join(packageDir, 'lib', 'browser.cjs');
+      assert.equal(
+        require(path.join(packageDir, 'package.json')).exports['.'].require.default,
+        './lib/browser.cjs',
+        'fflate changed which file a bundler gets',
+      );
+
+      const saved = { TextEncoder: globalThis.TextEncoder, TextDecoder: globalThis.TextDecoder };
+      delete require.cache[browserBuild];
+      delete globalThis.TextEncoder;
+      delete globalThis.TextDecoder;
+      let fflate;
+      try {
+        fflate = require(browserBuild);
+      } finally {
+        globalThis.TextEncoder = saved.TextEncoder;
+        globalThis.TextDecoder = saved.TextDecoder;
+        delete require.cache[browserBuild];
+      }
+
+      const text = JSON.stringify(databaseWithSessions(200));
+      const packed = bytesToBase64(fflate.gzipSync(utf8EncodeFallback(text), { level: 6 }));
+      const unpacked = fflate.strFromU8(fflate.gunzipSync(base64ToBytes(packed)));
+      assert.equal(unpacked, text);
+      assert.ok(unpacked.includes('Hyvä päivä 💪'));
+      // And what one build packs, the other unpacks.
+      const { gunzipSync, strFromU8 } = require('fflate');
+      assert.equal(strFromU8(gunzipSync(base64ToBytes(packed))), text);
+    },
+  },
+  {
     name: 'backup compression: a broken envelope is refused like any wrong-shaped download',
     run() {
       assert.equal(decodeAccountBackupBody({ encoding: ACCOUNT_BACKUP_ENCODING, data: 'not base64!' }), null);
@@ -155,6 +208,12 @@ module.exports = [
       assert.match(client, /body: encodeAccountBackupBody\(payload\)/);
       assert.match(client, /parseAccountBackupPayload\(decodeAccountBackupBody\(body\.payload\)\)/);
       assert.doesNotMatch(client, /body: JSON\.stringify\(payload\)/);
+
+      // fflate's own strToU8 mangles emoji when TextEncoder is missing, and Node
+      // always has one, so a slip back to it would pass every test above.
+      const codec = read('src', 'lib', 'accountBackup.ts').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+      assert.doesNotMatch(codec, /strToU8/);
+      assert.match(codec, /gzipSync\(utf8Encode\(json\)/);
 
       const server = read('api', 'backup.ts').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
       assert.match(server, /parsed > 0 \? parsed : 4 \* 1024 \* 1024/);

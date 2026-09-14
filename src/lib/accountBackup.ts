@@ -11,11 +11,12 @@
  * an older app version is handled the way an older local database is — with
  * defaults, not a crash.
  */
-import { gunzipSync, gzipSync, strFromU8, strToU8 } from 'fflate';
+import { gunzipSync, gzipSync, strFromU8 } from 'fflate';
 
 import type { AppDatabase } from '../types/models';
 import type { WorkoutHistoryStore } from '../features/workout/workoutTypes';
 import { base64ToBytes, bytesToBase64 } from './base64';
+import { utf8Encode } from './utf8';
 
 export const ACCOUNT_BACKUP_VERSION = 1;
 
@@ -105,7 +106,8 @@ export function encodeAccountBackupBody(payload: AccountBackupPayload): string {
   }
   const envelope: CompressedAccountBackup = {
     encoding: ACCOUNT_BACKUP_ENCODING,
-    data: bytesToBase64(gzipSync(strToU8(json), { level: 6 })),
+    // Not fflate's strToU8: its no-TextEncoder fallback mangles emoji (lib/utf8).
+    data: bytesToBase64(gzipSync(utf8Encode(json), { level: 6 })),
   };
   return JSON.stringify(envelope);
 }
