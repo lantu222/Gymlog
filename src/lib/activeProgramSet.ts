@@ -136,3 +136,33 @@ export function activateOnboardingPlan(
   }
   return { activePlanId: planId, activePlanIds: addActiveProgram(kept, planId) };
 }
+
+/**
+ * The programme a new run of onboarding writes over, or null to write a new one.
+ *
+ * Answering setup again used to add a programme every time, and the one it
+ * answered for stayed in "your programmes" — three runs filled the free
+ * limit with near-copies nobody built (user decision 2026-09-14: replace it).
+ * Only the running programme onboarding itself wrote qualifies, and only while
+ * nobody has changed it since: a template's `updatedAt` moves with every save
+ * and rename, so equal timestamps mean the reader never touched it. An edited
+ * one is the reader's work now; it stays, and the new run is a new programme
+ * that counts like any other. The lead is asked first.
+ */
+export function findReplaceableOnboardingTemplateId(input: {
+  activePlanId: string | null;
+  activePlanIds: readonly string[];
+  templates: ReadonlyArray<{ id: string; createdAt: string; updatedAt: string }>;
+}): string | null {
+  const running = [input.activePlanId, ...input.activePlanIds].filter(
+    (planId): planId is string => typeof planId === 'string' && planId.startsWith(ONBOARDING_PLAN_PREFIX),
+  );
+  for (const planId of running) {
+    const templateId = planId.slice(ONBOARDING_PLAN_PREFIX.length);
+    const template = input.templates.find((candidate) => candidate.id === templateId);
+    if (template && template.createdAt === template.updatedAt) {
+      return templateId;
+    }
+  }
+  return null;
+}

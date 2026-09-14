@@ -8,6 +8,8 @@ import { recordOwnBlock } from '../lib/ownBlockHistory';
 import { formatShortDate } from '../lib/format';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { t } from '../lib/i18n';
+import { ProgramSlots, programSlotsLineKey } from '../lib/programSlots';
+import { createUnlessAtLimit } from './programLimitGuard';
 import { AFFINITY_REASON_KEYS, resolveProgramAffinity } from '../lib/programAffinity';
 import { composeProgramWeekForSelection } from '../lib/programDayComposer';
 import { buildCustomProgramDetail, buildReadyProgramDetail } from '../lib/programDetails';
@@ -172,7 +174,7 @@ export interface WorkoutTabDeps {
     /** Null sets the target alone and leaves the reader's programme alone. */
     templateId: string | null;
   }) => Promise<void>;
-  programSlots: { canCreate: boolean };
+  programSlots: ProgramSlots;
   setProgramLimitVisible: (visible: boolean) => void;
   trackedProgress: Array<{ logs: Array<{ weight: number; repsPerSet: number[]; performedAt: string }> }>;
   workoutSessions: Parameters<typeof computeSeasonProgress>[0];
@@ -1030,6 +1032,12 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           })
         }
         customPrograms={programsCustomItems}
+        ownProgramsLine={(() => {
+          const key = programSlotsLineKey(programSlots);
+          return key
+            ? t(preferences.appLanguage, `programLimit.${key}`, { used: programSlots.used, limit: programSlots.limit ?? 0 })
+            : null;
+        })()}
         exerciseLibraryCount={exerciseBrowserItems.length}
         exerciseLibraryEntries={exerciseBrowserItems}
         nameBook={exerciseNameBook}
@@ -1041,8 +1049,13 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         proUnlocked={proUnlocked}
         onOpenPaywall={() => navigate({ tab: 'profile', screen: 'premium' })}
         onImportProgram={async (draft) => {
-          const workoutTemplateId = await upsertWorkoutTemplate(draft);
-          navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+          const workoutTemplateId = await createUnlessAtLimit(
+            () => upsertWorkoutTemplate(draft),
+            () => setProgramLimitVisible(true),
+          );
+          if (workoutTemplateId) {
+            navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+          }
         }}
         onOpenExploreProgram={handleOpenReadyProgramDetail}
         onOpenCustomProgram={handleOpenCustomProgramDetail}

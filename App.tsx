@@ -72,6 +72,7 @@ import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
 import {
   activateOnboardingPlan,
   addActiveProgram,
+  findReplaceableOnboardingTemplateId,
   evaluateProgramAdoption,
   ONBOARDING_PLAN_PREFIX,
   removeActiveProgram,
@@ -157,6 +158,7 @@ import {
 import { repointPlanEntrySessions } from './src/lib/planSessionOrder';
 import { reorderProgramSessions } from './src/lib/programSessionOrder';
 import { ProgramLimitReachedError } from './src/lib/programSlots';
+import { createUnlessAtLimit } from './src/app/programLimitGuard';
 import {
   ProgramSeason,
   getSeasonProgramTitleKey,
@@ -1043,6 +1045,9 @@ function VinhaApp() {
   // route: the user was in the middle of something, and a screen change
   // would lose the thing they were doing to a wall they may dismiss.
   const [programLimitVisible, setProgramLimitVisible] = useState(false);
+  // The running-programme wall on the free tier. The numbers outlive `visible`
+  // so the title does not read 0/0 while the sheet fades out.
+  const [runningCapSheet, setRunningCapSheet] = useState({ visible: false, used: 0, cap: 0 });
   /**
    * The onboarding's last two steps are full-bleed: the program picker's
    * diagonal and the paywall's hero both run to the top edge. The shell
@@ -1647,7 +1652,9 @@ function VinhaApp() {
       // Full on the free tier is a sale; full on Pro is not, and sending a
       // paying reader to the paywall would be selling them what they own.
       if (decision.canUpgrade) {
-        navigate({ tab: 'profile', screen: 'premium', reason: 'program_cap' });
+        // The wall first, on this screen, then Pro only if the reader asks —
+        // it used to jump straight to the paywall (user 2026-09-14).
+        setRunningCapSheet({ visible: true, used: decision.used, cap: decision.cap });
         return false;
       }
       showToast(t(preferences.appLanguage, 'programs.cap.full', { cap: decision.cap }));
@@ -2698,7 +2705,7 @@ function VinhaApp() {
 
     if (decision.kind === 'blocked') {
       if (decision.canUpgrade) {
-        navigate({ tab: 'profile', screen: 'premium', reason: 'program_cap' });
+        setRunningCapSheet({ visible: true, used: decision.used, cap: decision.cap });
         return;
       }
       showToast(t(preferences.appLanguage, 'programs.cap.full', { cap: decision.cap }));
@@ -2936,6 +2943,16 @@ function VinhaApp() {
    * sheet is the reason, the same one shown everywhere else a programme is
    * made. Anything else is a failed save, and says so.
    */
+  /** The draft, carrying the id of the untouched onboarding programme it replaces, if any. */
+  function withReplaceableOnboardingId(draft: WorkoutTemplateDraft): WorkoutTemplateDraft {
+    const replaceableId = findReplaceableOnboardingTemplateId({
+      activePlanId: preferences.activePlanId,
+      activePlanIds: preferences.activePlanIds,
+      templates: database.workoutTemplates,
+    });
+    return replaceableId ? { ...draft, id: replaceableId } : draft;
+  }
+
   async function saveOnboardingOrExplain(input: Parameters<typeof saveOnboardingResult>[0]): Promise<boolean> {
     try {
       await saveOnboardingResult(input);
@@ -2975,7 +2992,9 @@ function VinhaApp() {
         onboardingCompleted: true,
         ...buildSetupPreferencePatch(selection, recommendedProgramId, preferences.trainingCycle),
       },
-      templateDraft: savedPlan.draft,
+      // A new run of the questionnaire writes over the programme the last run
+      // made, unless the reader has changed it since.
+      templateDraft: withReplaceableOnboardingId(savedPlan.draft),
       // Session ids come from the template that was actually written, not from
       // the in-memory draft it was built from.
       buildPlan: (workoutTemplateId, sessionIds) =>
@@ -3058,7 +3077,9 @@ function VinhaApp() {
         onboardingCompleted: true,
         ...buildSetupPreferencePatch(selection, recommendedProgramId, preferences.trainingCycle),
       },
-      templateDraft: savedPlan.draft,
+      // A new run of the questionnaire writes over the programme the last run
+      // made, unless the reader has changed it since.
+      templateDraft: withReplaceableOnboardingId(savedPlan.draft),
       // Session ids come from the template that was actually written, not from
       // the in-memory draft it was built from.
       buildPlan: (workoutTemplateId, sessionIds) =>
@@ -6557,9 +6578,14 @@ function VinhaApp() {
         }
         onBuildYourself={() => navigate({ tab: 'workout', screen: 'template' })}
         onImportProgram={async (draft) => {
-          const workoutTemplateId = await upsertWorkoutTemplate(draft);
+          const workoutTemplateId = await createUnlessAtLimit(
+            () => upsertWorkoutTemplate(draft),
+            () => setProgramLimitVisible(true),
+          );
           setSettingsImportVisible(false);
-          navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+          if (workoutTemplateId) {
+            navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+          }
         }}
         onImportHistory={async (preview) => {
           const result = await importWorkoutHistory(preview.workouts);
@@ -6575,12 +6601,26 @@ function VinhaApp() {
       />
       <ProgramLimitSheet
         visible={programLimitVisible}
-        slots={programSlots}
+        kind="own"
+        used={programSlots.used}
+        limit={programSlots.limit ?? programSlots.used}
         language={preferences.appLanguage}
         onClose={() => setProgramLimitVisible(false)}
         onSeePro={() => {
           setProgramLimitVisible(false);
           navigate({ tab: 'profile', screen: 'premium' });
+        }}
+      />
+      <ProgramLimitSheet
+        visible={runningCapSheet.visible}
+        kind="running"
+        used={runningCapSheet.used}
+        limit={runningCapSheet.cap}
+        language={preferences.appLanguage}
+        onClose={() => setRunningCapSheet((current) => ({ ...current, visible: false }))}
+        onSeePro={() => {
+          setRunningCapSheet((current) => ({ ...current, visible: false }));
+          navigate({ tab: 'profile', screen: 'premium', reason: 'program_cap' });
         }}
       />
       <ThemeChoiceDialog

@@ -4,7 +4,6 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CutButton } from './CutButton';
 import { CutSurface } from './CutSurface';
 import { t } from '../lib/i18n';
-import { ProgramSlots } from '../lib/programSlots';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
@@ -13,27 +12,36 @@ import { AppLanguage } from '../types/models';
  *
  * Not a route. They were part-way into making something, and navigating away
  * would lose that to a limit they may well dismiss — which is also why the
- * secondary action is a plain "not now" rather than a back arrow.
+ * secondary action is a plain "got it" rather than a back arrow.
  *
- * The copy names what the cap does NOT touch. "Three programs" on its own
- * reads as a limit on training, and this app has spent a lot of effort not
- * being the kind that holds your log hostage: every ready program stays open,
- * every logged set stays yours, and what is capped is how many of your own you
- * keep at once.
+ * The copy says three things in this order (user 2026-09-14): the wall and its
+ * count in the title, the two ways past it (delete one, or Pro), and what the
+ * limit never touches — ready-made programmes and the training history. On
+ * its own "three programmes" reads as a limit on training, and this app does
+ * not hold a log hostage.
  *
- * A3: the card is the cut surface, the count is the cut chip, the CTA is the
- * cut button — the same three shapes Home is built from, so the paywall
- * moment reads as part of the app and not as a dialog dropped on top of it.
+ * A3: the card is the cut surface and the CTA is the cut button, the same
+ * shapes Home is built from, so the paywall moment reads as part of the app
+ * and not as a dialog dropped on top of it.
  */
 export function ProgramLimitSheet({
   visible,
-  slots,
+  kind = 'own',
+  used,
+  limit,
   language,
   onClose,
   onSeePro,
 }: {
   visible: boolean;
-  slots: ProgramSlots;
+  /**
+   * Which of the two free limits was met: programmes of your own (three,
+   * built), or programmes running at once (two). Same sheet, same two
+   * buttons, so the reader meets one wall rather than two dialects of it.
+   */
+  kind?: 'own' | 'running';
+  used: number;
+  limit: number;
   language: AppLanguage;
   onClose: () => void;
   onSeePro: () => void;
@@ -47,16 +55,14 @@ export function ProgramLimitSheet({
         {/* Stops a tap inside the card from closing it. */}
         <Pressable style={styles.cardWrap} onPress={() => {}}>
           <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.card}>
-            <Text style={styles.title}>{t(language, 'programLimit.title')}</Text>
-            <Text style={styles.body}>{t(language, 'programLimit.body')}</Text>
-            <CutSurface size="chip" fill={theme.purpleLight} style={styles.countPill}>
-              <Text style={styles.countText}>
-                {t(language, 'programLimit.count', {
-                  used: slots.used,
-                  limit: slots.limit ?? slots.used,
-                })}
-              </Text>
-            </CutSurface>
+            {/* The count sits in the title ("· 3/3"). It used to be a pill of
+                its own under the body, the same number said twice. */}
+            <Text style={styles.title}>
+              {t(language, kind === 'running' ? 'programLimit.running.title' : 'programLimit.title', { used, limit })}
+            </Text>
+            <Text style={styles.body}>
+              {t(language, kind === 'running' ? 'programLimit.running.body' : 'programLimit.body', { limit })}
+            </Text>
             <View style={styles.actions}>
               <CutButton size="lg" label={t(language, 'programLimit.cta')} onPress={onSeePro} />
               <Pressable accessibilityRole="button" onPress={onClose} hitSlop={8} style={styles.later}>
@@ -98,18 +104,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '600',
     lineHeight: 20,
     color: theme.muted,
-  },
-  countPill: {
-    alignSelf: 'flex-start',
-    marginTop: 14,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
-  countText: {
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.3,
-    color: theme.purple,
   },
   actions: {
     marginTop: 20,
