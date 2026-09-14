@@ -1,3 +1,4 @@
+import { calendarDaysBetween } from './completedSessions';
 import { ProgramSeason } from './programSeasons';
 
 /**
@@ -65,8 +66,6 @@ export function nextSeasonWindow(date: Date = new Date()): SeasonWindow {
   return resolveSeasonWindow(new Date(current.end.getTime() + 86_400_000));
 }
 
-const DAY = 86_400_000;
-
 /**
  * Which week of the season `date` falls in, 1-based and clamped.
  *
@@ -75,11 +74,16 @@ const DAY = 86_400_000;
  * "week 27 / 26" is worse than one that holds at 26 for the last two days.
  */
 export function seasonWeek(window: SeasonWindow, date: Date = new Date()): number {
-  const elapsed = date.getTime() - window.start.getTime();
-  if (elapsed < 0) {
+  if (date.getTime() < window.start.getTime()) {
     return 0;
   }
-  return Math.min(SEASON_WEEKS, Math.floor(elapsed / (7 * DAY)) + 1);
+  // Counted in calendar days, not in milliseconds. The winter season opens on
+  // 1 October in summer time and the clocks go back three weeks later, so from
+  // then until the spring change every local midnight sits an hour past a whole
+  // number of 24-hour days. Divided as milliseconds, a session between 23:00
+  // and midnight on the last day of a week landed in the next one — its week
+  // lost the full-week points and the streak broke.
+  return Math.min(SEASON_WEEKS, Math.floor(calendarDaysBetween(window.start, date) / 7) + 1);
 }
 
 /** Whole weeks left, floored, never negative. */
