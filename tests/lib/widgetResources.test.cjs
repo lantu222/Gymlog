@@ -373,6 +373,31 @@ module.exports = [
     },
   },
   {
+    name: 'widgetResources: the 4×2 gives the month the room, and its edges some air',
+    run() {
+      // User 2026-09-14: the grid ran to 11dp from the card's left edge while
+      // three short figures kept 40% of the width. The month is what the card is
+      // for; the figures get the smaller share and a step-down size.
+      for (const entry of ['res/layout/home_widget_stats.xml', 'res/layout/home_widget_stats_preview.xml']) {
+        const xml = FILES[entry];
+        const shares = [...xml.matchAll(/android:layout_weight="(\d+)"/g)].map((m) => Number(m[1])).filter((w) => w > 1);
+        assert.equal(shares.length, 2, `${entry}: one share for the month, one for the figures`);
+        const [month, figures] = shares;
+        assert.ok(month / (month + figures) >= 0.6, `${entry}: the month takes at least 60% (${month}:${figures})`);
+
+        const dp = (attr) => Number(xml.match(new RegExp(`android:${attr}="(\\d+)dp"`))[1]);
+        assert.ok(dp('paddingStart') > dp('paddingTop'), `${entry}: the sides breathe more than top and bottom`);
+        assert.equal(dp('paddingStart'), dp('paddingEnd'), `${entry}: both sides alike`);
+
+        // Small enough that "12 h 30 min" fits the narrower column unellipsized.
+        const value = Number(xml.slice(xml.indexOf('widget_stat_value_0"')).match(/android:textSize="([\d.]+)sp"/)[1]);
+        assert.ok(value <= 14, `${entry}: figures at most 14sp (${value})`);
+      }
+      // The 2×2 has no figures to make room for and keeps its even padding.
+      assert.match(FILES['res/layout/home_widget_calendar.xml'], /android:padding="12dp"/);
+    },
+  },
+  {
     name: 'widgetResources: every layout carries the ids the provider always touches',
     run() {
       // The background, the body and the line that replaces it before the app
