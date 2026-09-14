@@ -4,6 +4,10 @@
     {
       "path": "/api/prune-events",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/coach-health",
+      "schedule": "0 5 * * *"
     }
   ]
 }
