@@ -114,21 +114,16 @@ module.exports = [
           refinements: [],
         })),
       ];
-      // An open bug, pinned so the sweep can still cover caution swaps rather
-      // than leave them out: applyCautionFlagsToExercises reads "squat" inside
-      // "Deep Squat Hold" and swaps the 60-90 s hold for a squat that keeps
-      // the seconds — 90 squats after the next load. What that row should
-      // prescribe is a content decision, not this change's. Once the swap is
-      // fixed the pin stops matching and the last assertion says to delete it.
-      const KNOWN_CAUTION_SWAP_ROWS = new Set([
-        'tpl_gainer_mobility_flow_v1 Box Squat 60-90',
-        'tpl_gainer_mobility_flow_v1 Bodyweight Squat 60-90',
-      ]);
+      // Caution swaps are in the sweep with no exceptions. Deep Squat Hold used
+      // to swap into a squat that kept its 60-90 s — 90 squats after the next
+      // load — and was pinned here as a known row until #100 made a careful
+      // knee take the supported hold instead. That swap is now the proof the
+      // careful half of the sweep composed anything swapped at all.
 
       const failures = [];
       let focusRows = 0;
       let suggestedRows = 0;
-      let knownCautionSwapRows = 0;
+      let cautionSwapRows = 0;
       for (const { programId } of RECOMMENDATION_PROGRAMS) {
         for (const daysPerWeek of DAYS) {
           for (const [trainingEnvironment, equipment] of ENVIRONMENTS) {
@@ -147,17 +142,13 @@ module.exports = [
                 for (const exercise of draft.sessions.flatMap((session) => session.exercises)) {
                   focusRows += isFocusRow(exercise) ? 1 : 0;
                   suggestedRows += isSuggestedRow(exercise) ? 1 : 0;
+                  cautionSwapRows += cautionFlags.length > 0 && exercise.name === 'Supported Deep Squat Hold' ? 1 : 0;
                   const loaded = collapseRepRange({
                     name: exercise.name,
                     repMin: exercise.repMin,
                     repMax: exercise.repMax,
                   });
                   if (loaded.repMin === exercise.repMin && loaded.repMax === exercise.repMax) {
-                    continue;
-                  }
-                  const row = `${programId} ${exercise.name} ${exercise.repMin}-${exercise.repMax}`;
-                  if (cautionFlags.length > 0 && KNOWN_CAUTION_SWAP_ROWS.has(row)) {
-                    knownCautionSwapRows += 1;
                     continue;
                   }
                   failures.push(
@@ -173,11 +164,8 @@ module.exports = [
       // Both invented doses have to be in the sweep, or it proves nothing.
       assert.ok(focusRows > 0, 'the sweep composed no focus accessories');
       assert.ok(suggestedRows > 0, 'the sweep composed no suggested-day lifts');
+      assert.ok(cautionSwapRows > 0, 'the careful selections swapped nothing, so caution swaps are not in the sweep');
       assert.deepEqual(failures.slice(0, 10), [], `${failures.length} saved rows change on the next load`);
-      assert.ok(
-        knownCautionSwapRows > 0,
-        'Deep Squat Hold no longer swaps into a squat that keeps its seconds — delete KNOWN_CAUTION_SWAP_ROWS',
-      );
     },
   },
 ];
