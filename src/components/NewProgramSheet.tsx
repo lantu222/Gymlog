@@ -176,6 +176,9 @@ export function NewProgramSheet({
   const defaultProgramName = t(language, 'csv.defaultName');
   const [programName, setProgramName] = useState(defaultProgramName);
   const [importing, setImporting] = useState(false);
+  // Why the last history import failed, shown under its button. A toast is
+  // painted behind this modal, so the sheet has to say it itself.
+  const [importError, setImportError] = useState<string | null>(null);
   /**
    * Which unmatched name the reader is currently explaining, and what they
    * have typed to find it. Null = nobody is being asked anything.
@@ -259,6 +262,7 @@ export function NewProgramSheet({
     setCsvText('');
     setProgramName(defaultProgramName);
     setImporting(false);
+    setImportError(null);
   }
 
   function handleClose() {
@@ -271,9 +275,15 @@ export function NewProgramSheet({
       return;
     }
     setImporting(true);
+    setImportError(null);
     try {
       await onImportHistory(hevyPreview);
       handleClose();
+    } catch {
+      // The pasted export stays on screen so the retry is one tap, not a
+      // re-export and a re-paste — and the reason is said here, where it can
+      // be seen: an app-level toast draws behind this modal.
+      setImportError(t(language, 'hevy.failed'));
     } finally {
       setImporting(false);
     }
@@ -499,6 +509,7 @@ export function NewProgramSheet({
                       </Text>
                     </Pressable>
                   ) : null}
+                  {importError ? <Text style={styles.errorNote}>{importError}</Text> : null}
                   {hevyPreview.workouts.length > 0 && !onImportHistory ? (
                     <Text style={styles.errorNote}>{t(language, 'hevy.useSettings')}</Text>
                   ) : null}

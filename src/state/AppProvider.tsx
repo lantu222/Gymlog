@@ -378,19 +378,56 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     };
   }, []);
 
+  /**
+   * The one write. Memory moves first so the screen answers at once, and
+   * moves back if the disk refuses.
+   *
+   * It used to move only forward: a save that failed (storage full, most
+   * likely) left the new state in memory with nothing behind it. The finish
+   * screen then showed its error, the reader pressed Finish again, and the
+   * retry found the session already "saved" in memory — a duplicate id — so
+   * it reported success and wrote nothing. The workout survived only if some
+   * later full save happened to go through. The same shape lost a Hevy
+   * import ("0 imported · N already existed") and let onboarding walk into
+   * Home on a save that had not landed. Rolling back makes the retry a real
+   * retry, and every caller's error state truthful.
+   *
+   * Every caller holds the serial queue, so nothing else has moved the ref in
+   * between and putting the previous snapshot back cannot undo a newer write.
+   */
   async function commit(nextDatabase: AppDatabase) {
-    const previousPreferences = databaseRef.current.preferences;
+    const previous = databaseRef.current;
     databaseRef.current = nextDatabase;
     setDatabase(nextDatabase);
-    await saveDatabase(nextDatabase);
-    // Loading reads the preferences key OVER the blob (loadStoredPreferences),
-    // so a commit that changed a preference and wrote only the blob was undone
-    // by the next launch. Onboarding's result is such a commit: finish the
-    // questions, close the app before touching anything that writes the key,
-    // and onboarding started again with the answers gone (2026-09-14). The
-    // backup restore had patched this for itself; every commit needs it.
-    if (nextDatabase.preferences !== previousPreferences) {
-      await savePreferences(nextDatabase.preferences);
+    let blobWritten = false;
+    try {
+      await saveDatabase(nextDatabase);
+      blobWritten = true;
+      // Loading reads the preferences key OVER the blob (loadStoredPreferences),
+      // so a commit that changed a preference and wrote only the blob was undone
+      // by the next launch. Onboarding's result is such a commit: finish the
+      // questions, close the app before touching anything that writes the key,
+      // and onboarding started again with the answers gone (2026-09-14). The
+      // backup restore had patched this for itself; every commit needs it.
+      if (nextDatabase.preferences !== previous.preferences) {
+        await savePreferences(nextDatabase.preferences);
+      }
+    } catch (error) {
+      databaseRef.current = previous;
+      setDatabase(previous);
+      if (blobWritten) {
+        // The blob landed and the preferences key did not: disk would hold a
+        // database memory has just given up on, and the next launch would lay
+        // the old key over it. Best effort to bring the blob back with memory;
+        // a disk that refuses this too leaves the same split the old
+        // forward-only commit always left.
+        try {
+          await saveDatabase(previous);
+        } catch {
+          // Reported below as the original failure.
+        }
+      }
+      throw error;
     }
   }
 
@@ -434,7 +471,14 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       };
       databaseRef.current = next;
       setDatabase(next);
-      await savePreferences(next.preferences);
+      try {
+        await savePreferences(next.preferences);
+      } catch (error) {
+        // Same rule as commit: a toggle the disk refused is not on.
+        databaseRef.current = current;
+        setDatabase(current);
+        throw error;
+      }
     });
   }
 

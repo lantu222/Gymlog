@@ -6591,7 +6591,16 @@ function VinhaApp() {
           }
         }}
         onImportHistory={async (preview) => {
-          const result = await importWorkoutHistory(preview.workouts);
+          // Thrown on when the write fails: the sheet keeps the pasted export
+          // for a retry and says why itself. A toast from here would draw
+          // behind its modal.
+          let result;
+          try {
+            result = await importWorkoutHistory(preview.workouts);
+          } catch (error) {
+            console.error('Failed to import workout history', error);
+            throw error;
+          }
           setSettingsImportVisible(false);
           showToast(
             t(
