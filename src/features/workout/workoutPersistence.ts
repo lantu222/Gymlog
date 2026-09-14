@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { normalizeActiveCardioSession } from '../../lib/cardio';
 import { scrubImpossibleSessionLoads } from '../../lib/impossibleLoads';
+import { getLargeItem, MissingPartsError, removeLargeItem, setLargeItem } from '../../storage/largeItem';
 import { getWorkoutTemplateById } from './workoutCatalog';
 import { WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutSessionRuntime, WorkoutSessionSummary } from './workoutTypes';
 
@@ -136,8 +137,22 @@ export function normalizeWorkoutBundle(input: unknown): WorkoutPersistenceBundle
   };
 }
 
+async function readStoredBundle(): Promise<string | null> {
+  try {
+    return (await getLargeItem(STORAGE_KEY)) ?? (await AsyncStorage.getItem(LEGACY_STORAGE_KEY));
+  } catch (error) {
+    // A split bundle with a part missing is as unreadable as one that will
+    // not parse, and falls to the same empty bundle below. Thrown, it left
+    // the provider restoring forever.
+    if (error instanceof MissingPartsError) {
+      return error.readable;
+    }
+    throw error;
+  }
+}
+
 export async function loadWorkoutBundle() {
-  const raw = (await AsyncStorage.getItem(STORAGE_KEY)) ?? (await AsyncStorage.getItem(LEGACY_STORAGE_KEY));
+  const raw = await readStoredBundle();
   if (!raw) {
     return { activeSession: null, history: createEmptyWorkoutHistory(), activeCardio: null } satisfies WorkoutPersistenceBundle;
   }
@@ -150,10 +165,12 @@ export async function loadWorkoutBundle() {
 }
 
 export async function saveWorkoutBundle(bundle: WorkoutPersistenceBundle) {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(bundle));
+  // Slot history keeps ten entries per slot but gains slots with every
+  // programme, so this value has no ceiling either (see lib/storageChunks).
+  await setLargeItem(STORAGE_KEY, JSON.stringify(bundle));
 }
 
 export async function clearWorkoutBundle() {
-  await AsyncStorage.removeItem(STORAGE_KEY);
+  await removeLargeItem(STORAGE_KEY);
   await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
 }
