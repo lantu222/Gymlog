@@ -6,6 +6,7 @@ import {
   pickPoolVariant,
   sessionFocusAffinity,
 } from './catalogExercisePools';
+import { collapseRepRange } from './singleRepTarget';
 
 /**
  * Focus areas add real training emphasis (onboarding truth plan P3):
@@ -27,6 +28,12 @@ export function getFocusEmphasisCount(area: SetupFocusArea): number {
 }
 
 function buildEmphasisExercise(name: string, sessionId: string, index: number): WorkoutTemplateExercise {
+  // Saved programmes prescribe one rep number, and the loader collapses any
+  // range it finds (lib/singleRepTarget). Writing "10–15" here meant onboarding
+  // showed a range the next launch read as 15, and the stored row changed at
+  // the first full save — finishing a workout (emulator, 2026-09-13). The same
+  // function decides here, so what is saved is what every later load reads.
+  const reps = collapseRepRange({ name, repMin: 10, repMax: 15 });
   return {
     id: `${sessionId}_focus_${index + 1}`,
     exerciseName: name,
@@ -35,8 +42,8 @@ function buildEmphasisExercise(name: string, sessionId: string, index: number): 
     progressionPriority: 'low',
     trackingMode: getCatalogTrackingMode(name),
     sets: 2,
-    repsMin: 10,
-    repsMax: 15,
+    repsMin: reps.repMin,
+    repsMax: reps.repMax,
     restSecondsMin: 45,
     restSecondsMax: 75,
     substitutionGroup: `focus_${name.replace(/\W+/g, '_').toLowerCase()}`,
