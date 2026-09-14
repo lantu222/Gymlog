@@ -73,8 +73,9 @@ module.exports = [
       // The throw: a handler that returned normally resolved the sheet's
       // await, and the sheet closed and cleared the export. No toast from
       // here — it would draw behind the sheet's modal.
+      const failurePath = handler.slice(handler.indexOf('} catch (error) {'), handler.indexOf('throw error;'));
       assert.match(handler, /try \{\s*result = await importWorkoutHistory\(preview\.workouts\);\s*\} catch \(error\) \{[\s\S]*?throw error;/);
-      assert.doesNotMatch(handler, /showToast/);
+      assert.doesNotMatch(failurePath, /showToast/, 'a toast on the failure path draws behind the open sheet');
       const sheet = read('src', 'components', 'NewProgramSheet.tsx');
       const importHistory = sheet.slice(sheet.indexOf('async function handleImportHistory'), sheet.indexOf('async function handleImport()'));
       assert.match(
