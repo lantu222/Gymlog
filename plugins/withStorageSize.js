@@ -1,5 +1,7 @@
 const { withGradleProperties } = require('@expo/config-plugins');
 
+const { setGradleProperty } = require('./gradleProperty');
+
 /**
  * How big the AsyncStorage database may grow on Android.
  *
@@ -21,16 +23,7 @@ const DATABASE_SIZE_MB = 64;
 const KEY = 'AsyncStorage_db_size_in_MB';
 
 function applyStorageSize(properties) {
-  const value = String(DATABASE_SIZE_MB);
-  const existing = properties.find((item) => item.type === 'property' && item.key === KEY);
-
-  if (existing) {
-    existing.value = value;
-    return properties;
-  }
-
-  properties.push({ type: 'property', key: KEY, value });
-  return properties;
+  return setGradleProperty(properties, KEY, String(DATABASE_SIZE_MB));
 }
 
 module.exports = function withStorageSize(config) {

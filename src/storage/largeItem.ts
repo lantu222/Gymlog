@@ -1,9 +1,9 @@
 /**
  * AsyncStorage reads and writes for values that can outgrow one row.
  *
- * Android cannot read a row bigger than its 2 MB cursor window, so a value is
- * split across `${key}#0`, `${key}#1`, … once it is long enough, and the base
- * key holds a manifest naming the parts. Small values are written exactly as
+ * Android cannot read a row bigger than its 2 MB cursor window, so a value
+ * near that size is split across `${key}#0`, `${key}#1`, … and the base key
+ * holds a manifest naming the parts. Anything smaller is written exactly as
  * before, and a value stored before this existed reads back unchanged. The why
  * and the measurements are in `lib/storageChunks`.
  */
@@ -13,6 +13,7 @@ import { createSerialTaskQueue, RunExclusive } from '../lib/serialTaskQueue';
 import {
   chunkIndexOf,
   chunkKey,
+  describeIncompleteChunks,
   encodeChunkManifest,
   joinStoredChunks,
   readChunkManifest,
@@ -39,6 +40,33 @@ function inTurn<T>(key: string, task: () => Promise<T>): Promise<T> {
   return runExclusive(task);
 }
 
+/**
+ * For each key, a part index nothing at or past is on disk.
+ *
+ * The workout bundle is saved once a second during a session, and a sweep is a
+ * `getAllKeys` round trip. Knowing the bound lets a write skip the sweep when
+ * it cannot have left anything behind: a write of at least that many parts
+ * has just overwritten every one there was. Absent means unknown — the first
+ * write after launch — and unknown always sweeps.
+ */
+const partCounts = new Map<string, number>();
+
+/**
+ * A split value came back without every part.
+ *
+ * `readable` is what is left, in a form no JSON parser accepts, so a loader
+ * can set it aside the same way it sets aside a blob that will not parse.
+ */
+export class MissingPartsError extends Error {
+  readonly readable: string;
+
+  constructor(key: string, readable: string) {
+    super(`Stored value ${key} is missing parts`);
+    this.name = 'MissingPartsError';
+    this.readable = readable;
+  }
+}
+
 export function getLargeItem(key: string): Promise<string | null> {
   return inTurn(key, () => readLargeItem(key));
 }
@@ -61,7 +89,7 @@ async function readLargeItem(key: string): Promise<string | null> {
   }
   const joined = joinStoredChunks(manifest, parts);
   if (joined === null) {
-    throw new Error(`Stored value ${key} is missing parts`);
+    throw new MissingPartsError(key, describeIncompleteChunks(head, parts));
   }
   return joined;
 }
@@ -81,7 +109,15 @@ export function setLargeItem(key: string, value: string): Promise<void> {
         ...parts.map((part, index) => [chunkKey(key, index), part] as const),
       ]);
     }
-    await sweepParts(key, parts.length === 1 ? 0 : parts.length);
+
+    const count = parts.length === 1 ? 0 : parts.length;
+    const before = partCounts.get(key);
+    if (before !== undefined && before <= count) {
+      // Every part the last write left has just been overwritten.
+      partCounts.set(key, count);
+      return;
+    }
+    await sweepParts(key, count);
   });
 }
 
@@ -97,7 +133,8 @@ export function removeLargeItem(key: string): Promise<void> {
  *
  * Leftovers are unreachable — the manifest does not name them — so a sweep
  * that fails costs storage, not data, and must not turn a finished write into
- * a reported failure. The next write sweeps again.
+ * a reported failure. The bound stays where it was, which is still true, so
+ * the next write that could leave parts behind sweeps again.
  */
 async function sweepParts(key: string, firstUnused: number) {
   try {
@@ -109,6 +146,7 @@ async function sweepParts(key: string, firstUnused: number) {
     if (unused.length > 0) {
       await AsyncStorage.multiRemove(unused);
     }
+    partCounts.set(key, firstUnused);
   } catch (error) {
     console.warn(`Could not sweep unused parts of ${key}`, error);
   }

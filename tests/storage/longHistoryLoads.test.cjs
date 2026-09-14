@@ -152,6 +152,50 @@ module.exports = [
     },
   },
   {
+    name: 'long history: a database with a part missing is set aside like a corrupt one, not thrown',
+    async run() {
+      const { createEmptyDatabase } = require('../../.test-dist/data/seed');
+      const fake = createFakeAsyncStorage();
+      const { database } = loadStorageModules(fake);
+      await database.saveDatabase({ ...createEmptyDatabase('fi'), ...buildHistory(320) });
+      const survivor = fake.rows.get('@vinha/database/v1#0');
+      fake.rows.delete('@vinha/database/v1#2');
+
+      // Thrown, the provider opened an empty database in memory and its first
+      // save swept every part that was left, with nothing kept.
+      const loaded = await database.loadDatabase();
+
+      assert.equal(loaded.workoutSessions.length, 0);
+      const quarantined = await loadAgainstFake(fake, (requireDist) =>
+        requireDist('storage/largeItem.js').getLargeItem('@vinha/database/corrupt'),
+      );
+      assert.ok(quarantined, 'nothing was set aside');
+      assert.ok(quarantined.includes(survivor), 'the parts that were left are not in the quarantined copy');
+      assert.deepEqual(
+        [...fake.rows.keys()].filter((key) => key.startsWith('@vinha/database/v1#')),
+        [],
+        'the broken parts outlive the empty database that replaced them',
+      );
+    },
+  },
+  {
+    name: 'long history: a workout bundle with a part missing opens empty instead of never hydrating',
+    async run() {
+      const fake = createFakeAsyncStorage();
+      const { workout } = loadStorageModules(fake);
+      await workout.saveWorkoutBundle({
+        activeSession: null,
+        history: { sessions: [], slotHistory: { big: [{ note: '€'.repeat(1_000_000) }] }, lastSelectedTemplateId: null },
+        activeCardio: null,
+      });
+      fake.rows.delete('@vinha/workout/v1#1');
+
+      const loaded = await workout.loadWorkoutBundle();
+      assert.deepEqual(loaded.history.slotHistory, {});
+      assert.equal(loaded.activeSession, null);
+    },
+  },
+  {
     name: 'long history: reset leaves no part of the old database behind',
     async run() {
       const { createEmptyDatabase } = require('../../.test-dist/data/seed');

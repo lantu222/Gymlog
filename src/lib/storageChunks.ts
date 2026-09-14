@@ -18,7 +18,18 @@
  */
 
 /**
- * The most UTF-16 code units one part holds.
+ * The most UTF-8 bytes a value may take and still be stored as one row.
+ *
+ * Splitting starts only here, near the limit, and not at the part size: a
+ * build from before splitting reads the manifest as a corrupt database and
+ * writes an empty one over it. Every history such a build could still read —
+ * 1.7 MB opened on the emulator — therefore stays one row it can read, and
+ * only a history it could never have opened anyway gets split.
+ */
+export const SINGLE_ROW_BYTES = 1_800_000;
+
+/**
+ * The most UTF-16 code units one part holds once a value is split.
  *
  * The window counts UTF-8 bytes, which is at most three per code unit (a
  * surrogate pair is four bytes for two units), so a part tops out at 768 KB —
@@ -60,21 +71,64 @@ function isHighSurrogate(code: number) {
   return code >= 0xd800 && code <= 0xdbff;
 }
 
+function isLowSurrogate(code: number) {
+  return code >= 0xdc00 && code <= 0xdfff;
+}
+
 /**
- * The value in order, each part at most `maxChars` long.
+ * Whether `text` is at most `maxBytes` once encoded as UTF-8.
+ *
+ * Counts only when it has to: a string short enough at three bytes a unit
+ * fits, and one longer than the limit in units cannot. A full save runs this
+ * on every commit, and the workout bundle once a second mid-session.
+ */
+export function fitsOneRow(text: string, maxBytes: number = SINGLE_ROW_BYTES): boolean {
+  if (text.length * 3 <= maxBytes) {
+    return true;
+  }
+  if (text.length > maxBytes) {
+    return false;
+  }
+  let bytes = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    const code = text.charCodeAt(index);
+    if (code < 0x80) {
+      bytes += 1;
+    } else if (code < 0x800) {
+      bytes += 2;
+    } else if (isHighSurrogate(code) && index + 1 < text.length && isLowSurrogate(text.charCodeAt(index + 1))) {
+      bytes += 4;
+      index += 1;
+    } else {
+      bytes += 3;
+    }
+    if (bytes > maxBytes) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * The value as it should be stored: itself when it fits one row, otherwise in
+ * order, each part at most `maxChars` long.
  *
  * A cut never lands between the two halves of a surrogate pair: the bridge
  * encodes each part to UTF-8 on its own, and half an emoji in a session note
  * would come back as two replacement characters.
  */
-export function splitStoredText(text: string, maxChars: number = STORAGE_CHUNK_CHARS): string[] {
-  // Two is the floor, not one: a one-unit part could never hold a whole pair,
-  // and backing off the cut would never move forward.
-  const size = Math.max(2, Math.floor(maxChars));
-  if (text.length <= size) {
+export function splitStoredText(
+  text: string,
+  maxChars: number = STORAGE_CHUNK_CHARS,
+  maxRowBytes: number = SINGLE_ROW_BYTES,
+): string[] {
+  if (fitsOneRow(text, maxRowBytes)) {
     return [text];
   }
 
+  // Two is the floor, not one: a one-unit part could never hold a whole pair,
+  // and backing off the cut would never move forward.
+  const size = Math.max(2, Math.floor(maxChars));
   const parts: string[] = [];
   let start = 0;
   while (start < text.length) {
@@ -122,4 +176,17 @@ export function joinStoredChunks(manifest: ChunkManifest, parts: ReadonlyArray<s
     joined += part;
   }
   return joined.length === manifest.length ? joined : null;
+}
+
+/**
+ * What is left of a split value whose parts are not all there, kept for a
+ * person to recover from.
+ *
+ * It starts with the manifest line, so no JSON parser accepts it and every
+ * loader takes its corrupt branch — a missing middle part must never read back
+ * as a shorter history that happens to parse.
+ */
+export function describeIncompleteChunks(head: string, parts: ReadonlyArray<string | null | undefined>): string {
+  const missing = parts.flatMap((part, index) => (typeof part === 'string' ? [] : [`#${index}`]));
+  return `${head}\nmissing ${missing.join(' ') || 'none'}\n${parts.map((part) => part ?? '').join('')}`;
 }

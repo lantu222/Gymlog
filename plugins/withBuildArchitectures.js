@@ -1,5 +1,7 @@
 const { withGradleProperties } = require('@expo/config-plugins');
 
+const { setGradleProperty } = require('./gradleProperty');
+
 /**
  * Which CPU architectures the app is built for.
  *
@@ -38,18 +40,7 @@ const ARCHITECTURES = ['arm64-v8a', 'x86_64'];
 const RETIRED_ARCHITECTURES = ['armeabi-v7a', 'x86'];
 
 function applyBuildArchitectures(properties) {
-  const value = ARCHITECTURES.join(',');
-  const existing = properties.find(
-    (item) => item.type === 'property' && item.key === 'reactNativeArchitectures',
-  );
-
-  if (existing) {
-    existing.value = value;
-    return properties;
-  }
-
-  properties.push({ type: 'property', key: 'reactNativeArchitectures', value });
-  return properties;
+  return setGradleProperty(properties, 'reactNativeArchitectures', ARCHITECTURES.join(','));
 }
 
 module.exports = function withBuildArchitectures(config) {
