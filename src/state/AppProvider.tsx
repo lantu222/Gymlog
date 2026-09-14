@@ -604,9 +604,18 @@ export function AppProvider({ children }: React.PropsWithChildren) {
         built.sessions.map((session) => session.id),
       );
 
+      // What onboarding writes is a new programme even when it lands on the id
+      // of the one it replaces, so it is dated as one. An edit keeps createdAt
+      // and moves updatedAt; carried over here, a replaced programme would
+      // look edited, and the next run of setup would stop replacing it (see
+      // findReplaceableOnboardingTemplateId).
+      const templates = built.database.workoutTemplates.map((template) =>
+        template.id === built.workoutTemplateId ? { ...template, createdAt: template.updatedAt } : template,
+      );
       const withPlan = workoutPlanRepository.upsert(
         {
           ...built.database,
+          workoutTemplates: templates,
           workoutPlans: built.database.workoutPlans.map((item) => ({ ...item, isActive: false })),
         },
         { ...plan, isActive: true },

@@ -85,3 +85,21 @@ export class ProgramLimitReachedError extends Error {
     this.limit = limit;
   }
 }
+
+/**
+ * The line above "your programmes", or null when there is nothing worth saying.
+ *
+ * Same rule as the running-programme line on Home (lib/programCapNotice): a
+ * count nobody is near is a sign about nothing, so it appears only with one
+ * place left and at the wall. The point is that the limit sheet never arrives
+ * as news. Pro has no limit and no line.
+ */
+export function programSlotsLineKey(slots: ProgramSlots): 'lastPlace' | 'atCap' | null {
+  if (slots.limit === null) {
+    return null;
+  }
+  if (slots.used >= slots.limit) {
+    return 'atCap';
+  }
+  return slots.used === slots.limit - 1 ? 'lastPlace' : null;
+}

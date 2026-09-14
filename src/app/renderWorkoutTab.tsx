@@ -8,6 +8,8 @@ import { recordOwnBlock } from '../lib/ownBlockHistory';
 import { formatShortDate } from '../lib/format';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { t } from '../lib/i18n';
+import { ProgramSlots, programSlotsLineKey } from '../lib/programSlots';
+import { createUnlessAtLimit } from './programLimitGuard';
 import { AFFINITY_REASON_KEYS, resolveProgramAffinity } from '../lib/programAffinity';
 import { composeProgramWeekForSelection } from '../lib/programDayComposer';
 import { buildCustomProgramDetail, buildReadyProgramDetail } from '../lib/programDetails';
@@ -100,7 +102,7 @@ export interface WorkoutTabDeps {
   /** Resolves to whether the programme is running afterwards; the cap can refuse. */
   handleAdoptReadyProgram: (workoutTemplateId: string, options?: { lead?: boolean }) => Promise<boolean>;
   handleStartCustomProgram: (workoutTemplateId: string) => void;
-  handleAdoptCustomProgram: (workoutTemplateId: string, options?: { lead?: boolean }) => Promise<void>;
+  handleAdoptCustomProgram: (workoutTemplateId: string, options?: { lead?: boolean }) => Promise<boolean>;
   handleStartCustomProgramSession: (workoutTemplateId: string, sessionId: string, trimSets?: boolean) => void;
   /**
    * Change what a programme's day holds, for good — drop a lift, keep a swap,
@@ -172,7 +174,7 @@ export interface WorkoutTabDeps {
     /** Null sets the target alone and leaves the reader's programme alone. */
     templateId: string | null;
   }) => Promise<void>;
-  programSlots: { canCreate: boolean };
+  programSlots: ProgramSlots;
   setProgramLimitVisible: (visible: boolean) => void;
   trackedProgress: Array<{ logs: Array<{ weight: number; repsPerSet: number[]; performedAt: string }> }>;
   workoutSessions: Parameters<typeof computeSeasonProgress>[0];
@@ -443,8 +445,14 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             // trained one workout and then found Home still running whatever
             // it ran before. handleAdoptReadyProgram existed the whole time
             // and was wired only to the season screen.
-            void handleAdoptReadyProgram(route.workoutTemplateId, { lead: true });
-            navigate(ROOT_ROUTES.home);
+            // Home once it is running, and not before: at the free limit the
+            // sheet opens here, on the programme the reader asked for, rather
+            // than on a Home still leading with the old one.
+            void handleAdoptReadyProgram(route.workoutTemplateId, { lead: true }).then((adopted) => {
+              if (adopted) {
+                navigate(ROOT_ROUTES.home);
+              }
+            });
             return;
           }
 
@@ -463,8 +471,11 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
 
           // Held but not leading, or not held at all — both are answered by
           // adoption, which now promotes rather than returning early.
-          void handleAdoptCustomProgram(route.workoutTemplateId, { lead: true });
-          navigate(ROOT_ROUTES.home);
+          void handleAdoptCustomProgram(route.workoutTemplateId, { lead: true }).then((adopted) => {
+            if (adopted) {
+              navigate(ROOT_ROUTES.home);
+            }
+          });
         }}
         onStartSession={(sessionId) => {
           if (route.programType === 'ready') {
@@ -1030,6 +1041,12 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           })
         }
         customPrograms={programsCustomItems}
+        ownProgramsLine={(() => {
+          const key = programSlotsLineKey(programSlots);
+          return key
+            ? t(preferences.appLanguage, `programLimit.${key}`, { used: programSlots.used, limit: programSlots.limit ?? 0 })
+            : null;
+        })()}
         exerciseLibraryCount={exerciseBrowserItems.length}
         exerciseLibraryEntries={exerciseBrowserItems}
         nameBook={exerciseNameBook}
@@ -1041,8 +1058,13 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         proUnlocked={proUnlocked}
         onOpenPaywall={() => navigate({ tab: 'profile', screen: 'premium' })}
         onImportProgram={async (draft) => {
-          const workoutTemplateId = await upsertWorkoutTemplate(draft);
-          navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+          const workoutTemplateId = await createUnlessAtLimit(
+            () => upsertWorkoutTemplate(draft),
+            () => setProgramLimitVisible(true),
+          );
+          if (workoutTemplateId) {
+            navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+          }
         }}
         onOpenExploreProgram={handleOpenReadyProgramDetail}
         onOpenCustomProgram={handleOpenCustomProgramDetail}

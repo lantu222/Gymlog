@@ -38,6 +38,7 @@ import { TrainingBreakScreen } from '../screens/TrainingBreakScreen';
 import { TrainingPlanScreen } from '../screens/TrainingPlanScreen';
 import { AppDatabase, AppPreferences, SetupWeekday, WorkoutTemplateDraft } from '../types/models';
 import { CompletionSummaryState, WorkoutCelebrationState } from './workoutCompletionState';
+import { createUnlessAtLimit } from './programLimitGuard';
 
 /**
  * The profile tab's screens, one route branch each — moved verbatim from
@@ -308,8 +309,13 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
             : setProgramLimitVisible(true)
         }
         onImportProgram={async (draft) => {
-          const workoutTemplateId = await upsertWorkoutTemplate(draft);
-          navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+          const workoutTemplateId = await createUnlessAtLimit(
+            () => upsertWorkoutTemplate(draft),
+            () => setProgramLimitVisible(true),
+          );
+          if (workoutTemplateId) {
+            navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+          }
         }}
       />
     );

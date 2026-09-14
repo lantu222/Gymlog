@@ -132,12 +132,15 @@ module.exports = [
       assert.doesNotMatch(proRows[0], /pro\.v6\.[a-z]+\.(ready|logging)/);
 
       // The wall says what it does not touch. "Three programs" alone reads as
-      // a limit on training.
+      // a limit on training. And since 2026-09-14 it also says the free way
+      // past it: deleting one makes room.
       const i18n = read('src', 'lib', 'i18n.ts');
       const body = i18n.split('\n').filter((line) => line.includes("'programLimit.body':"));
       assert.equal(body.length, 2, 'both languages');
-      assert.match(body[0], /ready-made program stays open/);
-      assert.match(body[1], /valmis ohjelma pysyy auki/);
+      assert.match(body[0], /Ready-made programmes and your training history stay free/);
+      assert.match(body[0], /Delete one to make a new one/);
+      assert.match(body[1], /Valmiit ohjelmat ja treenihistoriasi pysyvät ilmaisina/);
+      assert.match(body[1], /Poista yksi tehdäksesi uuden/);
     },
   },
   {

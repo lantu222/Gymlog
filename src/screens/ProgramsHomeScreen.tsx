@@ -196,6 +196,11 @@ interface ProgramsHomeScreenProps {
     }
   >;
   customPrograms: ProgramsCustomItem[];
+  /**
+   * "2/3 omaa ohjelmaa · yksi paikka jäljellä", or null. Only near and at the
+   * free limit, so the limit sheet never arrives as news.
+   */
+  ownProgramsLine?: string | null;
   exerciseLibraryCount: number;
   onOpenExploreProgram: (programId: string) => void;
   onOpenCustomProgram: (programId: string, programType: 'ready' | 'custom') => void;
@@ -749,6 +754,7 @@ export function ProgramsHomeScreen({
   onOpenGoalPicker,
   onRemoveGoal,
   customPrograms,
+  ownProgramsLine = null,
   exerciseLibraryCount,
   onOpenExploreProgram,
   onOpenCustomProgram,
@@ -829,6 +835,7 @@ export function ProgramsHomeScreen({
             on Home already is. Three answers to one question. */}
 
         <Text style={styles.sectionEyebrowStandalone}>{t(language, 'programs.yourPrograms')}</Text>
+        {ownProgramsLine ? <Text style={styles.ownProgramsLine}>{ownProgramsLine}</Text> : null}
         {customPrograms.map((program) => (
           <Pressable
             key={program.id}
@@ -1979,6 +1986,15 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.7,
     marginTop: 11,
+  },
+  ownProgramsLine: {
+    color: theme.muted,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+    marginTop: -4,
+    marginBottom: 10,
+    paddingHorizontal: 2,
   },
   sectionEyebrowStandalone: {
     color: theme.faint,

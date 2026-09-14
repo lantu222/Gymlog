@@ -200,6 +200,7 @@ const suites = [
   ...require('./lib/weightDial.test.cjs'),
   ...require('./lib/welcomeMarquee.test.cjs'),
   ...require('./lib/programSlots.test.cjs'),
+  ...require('./lib/programLimitNotice.test.cjs'),
   ...require('./lib/programSeasons.test.cjs'),
   ...require('./lib/personalRecords.test.cjs'),
   ...require('./lib/sessionFeel.test.cjs'),
