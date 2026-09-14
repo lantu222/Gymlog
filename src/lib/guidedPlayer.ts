@@ -1290,6 +1290,40 @@ function stripCoachingQualifier(normalized: string): string | null {
   return head && head !== normalized ? head : null;
 }
 
+function resolveExactOrAlias(candidate: string, lowerNames: readonly string[]): number | null {
+  const exact = lowerNames.indexOf(candidate);
+  if (exact >= 0) {
+    return exact;
+  }
+
+  const alias = GUIDED_LIBRARY_ALIASES[candidate];
+  const aliasIndex = alias ? lowerNames.indexOf(alias) : -1;
+  return aliasIndex >= 0 ? aliasIndex : null;
+}
+
+/**
+ * The library row a name is FILED under: its own name, or the alias table's
+ * hand-checked answer — never a substring match.
+ *
+ * `findGuidedLibraryIndex` goes on to containment, which is right for finding
+ * a photo and wrong for deciding that two lifts are one: the catalogue's
+ * "Barbell Bench Press" is contained in "Decline Barbell Bench Press", and
+ * "Squat" in "Box Squat". Null when only a substring would place the name.
+ */
+export function findFiledLibraryIndex(exerciseName: string, libraryNames: readonly string[]): number | null {
+  const normalized = exerciseName.trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+  const lowerNames = libraryNames.map((name) => name.trim().toLowerCase());
+  const direct = resolveExactOrAlias(normalized, lowerNames);
+  if (direct !== null) {
+    return direct;
+  }
+  const stripped = stripCoachingQualifier(normalized);
+  return stripped ? resolveExactOrAlias(stripped, lowerNames) : null;
+}
+
 export function findGuidedLibraryIndex(
   exerciseName: string,
   libraryNames: string[],
@@ -1300,18 +1334,7 @@ export function findGuidedLibraryIndex(
   }
   const lowerNames = libraryNames.map((name) => name.trim().toLowerCase());
 
-  const resolveExactOrAlias = (candidate: string): number | null => {
-    const exact = lowerNames.indexOf(candidate);
-    if (exact >= 0) {
-      return exact;
-    }
-
-    const alias = GUIDED_LIBRARY_ALIASES[candidate];
-    const aliasIndex = alias ? lowerNames.indexOf(alias) : -1;
-    return aliasIndex >= 0 ? aliasIndex : null;
-  };
-
-  const direct = resolveExactOrAlias(normalized);
+  const direct = resolveExactOrAlias(normalized, lowerNames);
   if (direct !== null) {
     return direct;
   }
@@ -1334,7 +1357,7 @@ export function findGuidedLibraryIndex(
   // "seated cable rows", "side plank" is inside "push up to side plank".
   // Anything the strip should reach is worth naming in the alias table.
   const stripped = stripCoachingQualifier(normalized);
-  return stripped ? resolveExactOrAlias(stripped) : null;
+  return stripped ? resolveExactOrAlias(stripped, lowerNames) : null;
 }
 
 /** Oversized 2-letter initials for the brand-panel media fallback. */

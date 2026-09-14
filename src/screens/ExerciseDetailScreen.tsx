@@ -300,8 +300,10 @@ export function ExerciseDetailScreen({
         {/* The star was here too, and it went with the library's
             (2026-09-01). Its one effect — putting the lift on Progress before
             it had been logged — belongs to a target now, which names a number
-            with it. The spacer keeps the title centred. */}
-        <View style={styles.iconButton} />
+            with it. The spacer keeps the title centred, and is only a width:
+            it used to keep the button's surface and border too, and drew an
+            empty square where the star had been. */}
+        <View style={styles.iconSpacer} />
       </View>
 
       <ScrollView
@@ -608,6 +610,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  iconSpacer: {
+    width: 38,
+    height: 38,
   },
   topBarTitle: {
     fontSize: 13,

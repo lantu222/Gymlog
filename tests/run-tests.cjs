@@ -122,6 +122,7 @@ const suites = [
   ...require('./lib/progressionActivePlan.test.cjs'),
   ...require('./lib/progressionSignal.test.cjs'),
   ...require('./lib/exerciseProgressForName.test.cjs'),
+  ...require('./lib/liftHistoryIdentity.test.cjs'),
   ...require('./lib/lifetimeSummary.test.cjs'),
   ...require('./lib/profileOverview.test.cjs'),
   ...require('./lib/homeStatCards.test.cjs'),
