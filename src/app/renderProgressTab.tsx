@@ -27,7 +27,10 @@ export interface ProgressTabDeps {
   targetLifts: NonNullable<ProgressScreenProps['targetLifts']>;
   distinctRecordCount: number;
   recordSources: NonNullable<ProgressScreenProps['setLogSources']>;
-  trackedProgress: ProgressScreenProps['summaries'];
+  /** Each target lift under every name it was logged as — see getLiftProgress. */
+  targetLiftProgress: ProgressScreenProps['summaries'];
+  /** The set logs those rows open, built from the same merged summaries. */
+  targetLiftSources: NonNullable<ProgressScreenProps['liftSetLogSources']>;
   bodyweightProgress: ProgressScreenProps['bodyweightProgress'];
   measurementEntries: ProgressScreenProps['measurementEntries'];
   workoutSessions: ProgressScreenProps['workoutSessions'];
@@ -57,7 +60,8 @@ export function renderProgressTab(deps: ProgressTabDeps): React.ReactElement | n
     targetLifts,
     distinctRecordCount,
     recordSources,
-    trackedProgress,
+    targetLiftProgress,
+    targetLiftSources,
     bodyweightProgress,
     measurementEntries,
     workoutSessions,
@@ -86,8 +90,9 @@ export function renderProgressTab(deps: ProgressTabDeps): React.ReactElement | n
       recordCount={distinctRecordCount}
       records={personalRecords}
       setLogSources={recordSources}
+      liftSetLogSources={targetLiftSources}
       onStartWorkout={() => resetToRoute(ROOT_ROUTES.home)}
-      summaries={trackedProgress}
+      summaries={targetLiftProgress}
       bodyweightProgress={bodyweightProgress}
       measurementEntries={measurementEntries}
       workoutSessions={workoutSessions}

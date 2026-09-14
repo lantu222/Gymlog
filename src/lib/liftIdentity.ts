@@ -87,6 +87,11 @@ export function liftGroupOf(name: string): number | null {
   return GROUP_BY_NAME.get(normalize(name)) ?? null;
 }
 
+/** Every name in one group, lower-case — for deciding how many library rows a group names. */
+export function liftGroupNames(group: number): readonly string[] {
+  return SAME_LIFT_GROUPS[group] ?? [];
+}
+
 /**
  * True when both names are the same lift by the groups above. Null-safe on
  * names the groups say nothing about — the caller then falls back to the

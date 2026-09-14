@@ -22,7 +22,7 @@ import {
   resolveCollectionProgress,
 } from '../lib/exerciseCollections';
 import { toggleTechniqueStatement } from '../lib/exerciseLearning';
-import { getExerciseProgressForName } from '../lib/progression';
+import { getExerciseProgressForName, SameLiftMatcher } from '../lib/progression';
 import { catalogLevelForSetup } from '../lib/goalProgramme';
 import { getReadyProgramContent } from '../lib/readyProgramContent';
 import { getReadyProgramBlockWeeks } from '../lib/readyProgramDuration';
@@ -148,6 +148,8 @@ export interface WorkoutTabDeps {
   editorDraft: React.ComponentProps<typeof WorkoutEditorScreen>['initialDraft'];
   editorExerciseHistoryLookup: React.ComponentProps<typeof WorkoutEditorScreen>['exerciseHistoryLookup'];
   exerciseLibrary: AppDatabase['exerciseLibrary'];
+  /** Whether a log is one library row's history — see isSameLiftAsLibraryRow. */
+  sameLibraryRow: SameLiftMatcher;
   guidedEntryEyebrow: GuidedProps['entryEyebrow'];
   guidedWeekProgress: GuidedProps['weekProgress'];
   guidedNextUp: GuidedProps['nextUp'];
@@ -236,6 +238,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     editorDraft,
     editorExerciseHistoryLookup,
     exerciseLibrary,
+    sameLibraryRow,
     guidedEntryEyebrow,
     guidedWeekProgress,
     guidedNextUp,
@@ -816,7 +819,11 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
       <ExerciseDetailScreen
         language={preferences.appLanguage}
         item={exercise}
-        history={getExerciseProgressForName(database, exercise.name)}
+        // Every log that is this row, not only the ones spelled like it: an
+        // onboarding programme logs "Bench Press" against the library's
+        // "Barbell Bench Press - Medium Grip". A variation filed as its own
+        // row (sumo, trap bar) stays on its own page.
+        history={getExerciseProgressForName(database, exercise.name, sameLibraryRow)}
         unitPreference={unitPreference}
         // Decides whether this lift's caution is for this reader.
         cautionFlags={preferences.setupCautionFlags}
