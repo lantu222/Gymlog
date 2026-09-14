@@ -14,6 +14,7 @@ const root = path.join(__dirname, '..', '..');
 const strip = (source) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 const app = strip(fs.readFileSync(path.join(root, 'App.tsx'), 'utf8'));
 const provider = strip(fs.readFileSync(path.join(root, 'src', 'state', 'AppProvider.tsx'), 'utf8'));
+const database = strip(fs.readFileSync(path.join(root, 'src', 'storage', 'database.ts'), 'utf8'));
 
 /** From `signature` to the next function declared at the same indent. */
 function body(source, signature) {
@@ -37,6 +38,24 @@ module.exports = [
         );
       }
       assert.doesNotMatch(app, /activate: \(planId\) => \(\{ activePlanId: planId \}\)/);
+    },
+  },
+  {
+    name: 'program cap wiring: the catalogue onboarding finish follows the same rule',
+    run() {
+      const pick = body(app, 'async function handleOnboardingPickReadyProgram');
+      assert.match(pick, /activateOnboardingPlan\(preferences, adoptedPlanId\)/);
+      assert.doesNotMatch(pick, /activePlanIds: adoptedPlanId \? \[adoptedPlanId\] : \[\]/, 're-running onboarding stops a season');
+    },
+  },
+  {
+    name: 'program cap wiring: the loader repairs the lead after the preferences overlay, not before',
+    run() {
+      const load = database.slice(database.indexOf('export async function loadDatabase'));
+      const overlay = load.indexOf('await loadStoredPreferences(database.preferences)');
+      const repair = load.indexOf('includeLeadInRunningSet(preferences, database.workoutPlans)');
+      assert.ok(overlay > 0, 'the preferences overlay moved');
+      assert.ok(repair > overlay, 'the repair runs on a copy the overlay then replaces');
     },
   },
   {

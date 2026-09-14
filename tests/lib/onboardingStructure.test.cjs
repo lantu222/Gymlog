@@ -173,8 +173,9 @@ module.exports = [
       assert.ok(readyPick, 'handleOnboardingPickReadyProgram not found');
       assert.match(readyPick[0], /buildProgramWorkoutPlan\(/);
       assert.match(readyPick[0], /await upsertWorkoutPlan\(plan\)/);
-      assert.match(readyPick[0], /activePlanId: adoptedPlanId/);
-      assert.match(readyPick[0], /activePlanIds: adoptedPlanId \? \[adoptedPlanId\] : \[\]/);
+      // The plan leads and joins the running set by the same rule the guided
+      // finishes use (programCapWiring pins the rule itself).
+      assert.match(readyPick[0], /activateOnboardingPlan\(preferences, adoptedPlanId\)/);
       // Comments stripped first: the code block explains the old bug by quoting
       // it, and a naive search would match the explanation instead of a relapse.
       const readyPickCode = readyPick[0].replace(/^\s*\/\/.*$/gm, '');

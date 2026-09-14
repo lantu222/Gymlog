@@ -73,6 +73,7 @@ import {
   activateOnboardingPlan,
   addActiveProgram,
   evaluateProgramAdoption,
+  ONBOARDING_PLAN_PREFIX,
   removeActiveProgram,
 } from './src/lib/activeProgramSet';
 import { listRunningProgrammes, stopProgramme } from './src/lib/runningProgrammes';
@@ -2823,8 +2824,10 @@ function VinhaApp() {
         // highlights on a later visit, the plan is what Home trains from.
         recommendedProgramId: programId,
         setupDaysPerWeek: templateDaysPerWeek,
-        activePlanId: adoptedPlanId,
-        activePlanIds: adoptedPlanId ? [adoptedPlanId] : [],
+        // The same rule as the guided finishes: onboarding's earlier plan is
+        // replaced, and a season or a programme adopted by hand keeps running.
+        // No template, no plan — and nothing that was running is stopped.
+        ...(adoptedPlanId ? activateOnboardingPlan(preferences, adoptedPlanId) : {}),
       });
       if (
         typeof aboutYouValues?.weightKg === 'number' &&
@@ -3569,7 +3572,7 @@ function VinhaApp() {
         // plan") — the Home hero must count the same total, not the generic
         // 8-week default.
         const onboardingBlockWeeks =
-          activeWorkoutPlan.id.startsWith('onboarding_plan_') && setupSelection && preferences.recommendedProgramId
+          activeWorkoutPlan.id.startsWith(ONBOARDING_PLAN_PREFIX) && setupSelection && preferences.recommendedProgramId
             ? composeProgramWeekForSelection(setupSelection, preferences.recommendedProgramId)?.weeks
             : undefined;
         // The demo tester's block is one week by construction — see

@@ -23,6 +23,7 @@ import {
 import { intervalOffSeconds } from '../lib/intervalScheme';
 import { normalizeSupersetGroups } from '../lib/supersetGrouping';
 import { collapseRepRange } from '../lib/singleRepTarget';
+import { includeLeadInRunningSet } from '../lib/activeProgramSet';
 import { buildLegacyTemplateSessions, getLegacyTemplateSessionId } from '../lib/workoutTemplateSessions';
 import {
   AppDatabase,
@@ -1255,7 +1256,10 @@ export async function loadDatabase() {
 
   try {
     const database = normalizeDatabase(JSON.parse(raw) as Partial<AppDatabase>);
-    return { ...database, preferences: await loadStoredPreferences(database.preferences) };
+    const preferences = await loadStoredPreferences(database.preferences);
+    // After the overlay, not inside normalizeDatabase: the preferences key is
+    // normalized without the plans, and it is the copy that wins.
+    return { ...database, preferences: includeLeadInRunningSet(preferences, database.workoutPlans) };
   } catch {
     // Unreadable storage is a corrupt install, not a new one — but inventing
     // history to paper over it would be the same lie.

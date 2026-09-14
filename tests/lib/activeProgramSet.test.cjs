@@ -1,6 +1,7 @@
 const {
   ONBOARDING_PLAN_PREFIX,
   activateOnboardingPlan,
+  includeLeadInRunningSet,
   FREE_ACTIVE_PROGRAM_CAP,
   PRO_ACTIVE_PROGRAM_CAP,
   addActiveProgram,
@@ -159,6 +160,45 @@ module.exports = [
       assert.deepEqual(result.activePlanIds, ['season_plan_summer', 'ready_plan_run', next]);
       // Saved twice in a row, the same plan is not counted twice.
       assert.deepEqual(activateOnboardingPlan(result, next).activePlanIds, result.activePlanIds);
+    },
+  },
+  {
+    // Installs that onboarded before the fix: the lead is stored outside the
+    // set, and nothing but the loader will ever put it back.
+    name: 'a stored lead missing from the running set is counted again on load',
+    run() {
+      const assert = require('node:assert/strict');
+      const plans = [
+        { id: 'onboarding_plan_x', entries: [{}] },
+        { id: 'ready_plan_run', entries: [{}] },
+        { id: 'custom_plan_deleted', entries: [] },
+      ];
+
+      const repaired = includeLeadInRunningSet(
+        { activePlanId: 'onboarding_plan_x', activePlanIds: ['ready_plan_run'], appLanguage: 'fi' },
+        plans,
+      );
+      assert.deepEqual(repaired.activePlanIds, ['ready_plan_run', 'onboarding_plan_x']);
+      assert.equal(repaired.appLanguage, 'fi', 'the rest of the preferences did not survive');
+      assert.equal(
+        evaluateProgramAdoption({ activePlanIds: repaired.activePlanIds, targetPlanId: 'ready_plan_b', proUnlocked: false }).kind,
+        'blocked',
+      );
+
+      // Nothing to repair, or nothing real to count.
+      const already = { activePlanId: 'ready_plan_run', activePlanIds: ['ready_plan_run'] };
+      assert.equal(includeLeadInRunningSet(already, plans), already);
+      assert.deepEqual(includeLeadInRunningSet({ activePlanId: null, activePlanIds: [] }, plans).activePlanIds, []);
+      assert.deepEqual(
+        includeLeadInRunningSet({ activePlanId: 'plan_gone', activePlanIds: [] }, plans).activePlanIds,
+        [],
+        'a lead whose plan no longer exists takes a slot',
+      );
+      assert.deepEqual(
+        includeLeadInRunningSet({ activePlanId: 'custom_plan_deleted', activePlanIds: [] }, plans).activePlanIds,
+        [],
+        'a lead whose programme was deleted takes a slot',
+      );
     },
   },
 ];

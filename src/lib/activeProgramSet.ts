@@ -91,6 +91,30 @@ export const ONBOARDING_PLAN_PREFIX = 'onboarding_plan_';
  * running the questionnaire again is answering it again. Anything the reader
  * adopted themselves — a ready programme, a season — stays.
  */
+/**
+ * The lead counted in the running set, for installs whose set left it out.
+ *
+ * Every install that finished guided onboarding before the fix above has its
+ * programme as the lead and nowhere in the set, and nothing rewrites stored
+ * preferences on its own, so the cap would keep undercounting there by one.
+ * Applied on load. A lead whose plan is gone, or has no days left, is not a
+ * programme anyone is running and is not given a slot.
+ */
+export function includeLeadInRunningSet<T extends { activePlanId: string | null; activePlanIds: string[] }>(
+  preferences: T,
+  plans: ReadonlyArray<{ id: string; entries: ReadonlyArray<unknown> }>,
+): T {
+  const lead = preferences.activePlanId;
+  if (!lead || preferences.activePlanIds.includes(lead)) {
+    return preferences;
+  }
+  const plan = plans.find((candidate) => candidate.id === lead);
+  if (!plan || plan.entries.length === 0) {
+    return preferences;
+  }
+  return { ...preferences, activePlanIds: addActiveProgram(preferences.activePlanIds, lead) };
+}
+
 export function activateOnboardingPlan(
   current: { activePlanIds: readonly string[] },
   planId: string,
