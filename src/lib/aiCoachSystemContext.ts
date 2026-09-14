@@ -1,6 +1,5 @@
 import { AICoachTrainingContext } from '../types/aiCoach';
 import { renderAiCoachProgramme } from './aiCoachProgramme';
-import { localDateKey } from './completedSessions';
 
 function line(label: string, value: string) {
   return `${label}: ${value}`;
@@ -53,9 +52,7 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
       const parts: string[] = [s.title];
       if (s.durationMinutes) parts.push(`${s.durationMinutes} min`);
       if (s.setsCompleted) parts.push(`${s.setsCompleted} sets`);
-      // The local day, like the week headers below: a late-evening session's
-      // UTC date is already tomorrow's here.
-      parts.push(localDateKey(s.performedAt) || s.performedAt.slice(0, 10));
+      parts.push(s.performedAt.slice(0, 10));
       return `- ${parts.join(' | ')}`;
     });
     const recentBlock = section('Recent sessions (before this window)', recentLines);
@@ -85,7 +82,7 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
   if (weekBlock) blocks.push(weekBlock);
 
   const sessionLines = history.sessions.map((entry) => {
-    const parts: string[] = [localDateKey(entry.performedAt) || entry.performedAt.slice(0, 10), entry.name];
+    const parts: string[] = [entry.performedAt.slice(0, 10), entry.name];
     if (entry.durationMinutes) parts.push(`${entry.durationMinutes} min`);
     parts.push(`${entry.setCount} sets across ${entry.exerciseCount} exercises`);
     if (entry.volumeKg !== null) parts.push(kg(entry.volumeKg));

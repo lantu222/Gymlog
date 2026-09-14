@@ -29,7 +29,7 @@
  * caller passes `nowIso`, and storage/coachAdviceMemoryStore owns the disk.
  */
 
-import { calendarDaysBetween } from './completedSessions';
+import { calendarDaysBetween, localDateKey } from './completedSessions';
 
 /** One thing the coach said, and when it said it. */
 export interface CoachAdviceMemoryEntry {
@@ -67,13 +67,7 @@ export interface CoachAdviceMemoryLine {
  * believes. Same trap, and the same fix, as lib/widgetPayload's toDateKey.
  */
 export function coachAdviceDateLabel(at: string): string {
-  const date = new Date(at);
-  if (!Number.isFinite(date.getTime())) {
-    return at.slice(0, 10);
-  }
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${date.getFullYear()}-${month}-${day}`;
+  return localDateKey(at) || at.slice(0, 10);
 }
 
 /**

@@ -1,4 +1,4 @@
-import { getCalendarWeekStartAfter, getRollingWindowStart } from './completedSessions';
+import { getCalendarWeekStartAfter, getRollingWindowStart, localDateKey } from './completedSessions';
 import { getTotalVolume } from './progression';
 import { ExerciseLog, SetupWeekday, WorkoutSession } from '../types/models';
 import { TrainingSchedule, trainsOn } from './trainingSchedule';
@@ -185,10 +185,7 @@ function startOfWeek(time: number) {
 }
 
 function isoDate(time: number) {
-  const date = new Date(time);
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getDate()}`.padStart(2, '0');
-  return `${date.getFullYear()}-${month}-${day}`;
+  return localDateKey(time);
 }
 
 function summarizeSession(

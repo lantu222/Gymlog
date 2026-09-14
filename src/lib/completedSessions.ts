@@ -41,10 +41,13 @@ export function getCalendarDayStartTimestamp(dateInput: string | Date) {
  * "2026-09-14" for the day the reader lived it, in the device's timezone.
  *
  * Not `toISOString().slice(0, 10)`, and not a stored ISO string's first ten
- * characters: both are UTC, and in Helsinki a session between midnight and
- * 02:00 or 03:00 is still yesterday there — a late session merged into the
- * previous day's chart point and exported under the wrong date. Empty for a
- * value that is not a date.
+ * characters: both are UTC. A Helsinki session between midnight and 02:00
+ * (03:00 in summer) is already today on the reader's clock and still yesterday
+ * in UTC, so it merged into the previous day's chart point and was exported
+ * under the wrong date. Empty for a value that is not a date.
+ *
+ * Device-side only: on the coach endpoint the process timezone is UTC, which
+ * is why dates meant for the coach are resolved on the phone before sending.
  */
 export function localDateKey(value: string | number | Date): string {
   const date = new Date(value);

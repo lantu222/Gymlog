@@ -1,3 +1,4 @@
+import { calendarDaysBetween } from './completedSessions';
 import { ProgramSeason } from './programSeasons';
 
 /**
@@ -65,8 +66,6 @@ export function nextSeasonWindow(date: Date = new Date()): SeasonWindow {
   return resolveSeasonWindow(new Date(current.end.getTime() + 86_400_000));
 }
 
-const DAY = 86_400_000;
-
 /**
  * Which week of the season `date` falls in, 1-based and clamped.
  *
@@ -84,9 +83,7 @@ export function seasonWeek(window: SeasonWindow, date: Date = new Date()): numbe
   // number of 24-hour days. Divided as milliseconds, a session between 23:00
   // and midnight on the last day of a week landed in the next one — its week
   // lost the full-week points and the streak broke.
-  const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-  const days = Math.round((dayStart - window.start.getTime()) / DAY);
-  return Math.min(SEASON_WEEKS, Math.floor(days / 7) + 1);
+  return Math.min(SEASON_WEEKS, Math.floor(calendarDaysBetween(window.start, date) / 7) + 1);
 }
 
 /** Whole weeks left, floored, never negative. */

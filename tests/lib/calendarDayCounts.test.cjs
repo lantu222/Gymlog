@@ -7,7 +7,6 @@ const { resolveSeasonWindow, seasonWeek } = require('../../.test-dist/lib/season
 const { computeSeasonProgress, countSeasonRecords } = require('../../.test-dist/lib/seasonScoring.js');
 const { localDateKey } = require('../../.test-dist/lib/completedSessions.js');
 const { buildWorkoutLogCsv } = require('../../.test-dist/lib/workoutLogCsvExport.js');
-const { buildAiCoachSystemContext } = require('../../.test-dist/lib/aiCoachSystemContext.js');
 
 /**
  * Days as the reader lives them, not as 24-hour spans or UTC dates.
@@ -94,7 +93,7 @@ module.exports = [
     },
   },
   {
-    name: 'calendar days: the log export and the coach both date a session after midnight by the local day',
+    name: 'calendar days: the log export dates a session after midnight by the local day',
     run() {
       withHelsinkiClocks(() => {
         // 00:30 on 2 March in Helsinki, still 1 March in UTC.
@@ -114,36 +113,6 @@ module.exports = [
           ],
         });
         assert.match(csv.split('\n')[1], /^2026-03-02,/);
-
-        const context = buildAiCoachSystemContext({
-          unitPreference: 'kg',
-          activeSession: null,
-          recentCompletedSessions: [],
-          trackedLifts: [],
-          latestTopSets: [],
-          sessionsThisWeek: 1,
-          sessionsLast30Days: 1,
-          rhythm: [],
-          readyProgramCount: 5,
-          recommendedProgramId: null,
-          recommendedProgramTitle: null,
-          customProgramTitle: null,
-          plateaus: [],
-          fatigue: { acwr: 1, recoveryScore: 98, signal: 'optimal', sessionCount7d: 1, confident: true },
-          history: {
-            windowDays: 56,
-            sessionCount: 1,
-            totalVolumeKg: 480,
-            sessions: [
-              { sessionId: 's1', name: 'Push A', performedAt, durationMinutes: 40, volumeKg: 480, setCount: 1, exerciseCount: 1 },
-            ],
-            lifts: [],
-            weeks: [{ weekStart: '2026-03-02', sessions: 1, volumeKg: 480, plannedSessions: null }],
-            schedule: null,
-            truncated: false,
-          },
-        });
-        assert.ok(context.includes('- 2026-03-02 | Push A'), 'the session is dated a day before the week it is filed under');
       });
     },
   },
