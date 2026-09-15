@@ -190,11 +190,14 @@ module.exports = [
       // The flow finds each lift's log through the same matcher the progress
       // row uses, rather than by name. Matching on the name is how the row
       // once read 70 kg of 200 beside a picker saying "not logged yet".
+      // Every spelling it matches, not the first: trap bar 150 and sumo 170
+      // made the flow's best 150 while the row said 170 (2026-09-15).
       assert.match(
         app,
-        /proLiftHistories\.find\(\(entry\) =>\s*\n\s*isSameLift\(entry\.name, preset\.exerciseName, libraryNames\)/,
-        'the flow matches the log by name again',
+        /proLiftHistories\.filter\(\(entry\) =>\s*\n\s*isSameLift\(entry\.name, preset\.exerciseName, libraryNames\)/,
+        'the flow matches the log by name again, or stops at the first spelling',
       );
+      assert.match(app, /const bestKg = histories\.reduce\(\(best, entry\) => Math\.max\(best, entry\.bestWeightKg\), 0\);/);
 
       // And the resolution the row uses is the same function, so a lift that
       // matches in one place matches in the other.

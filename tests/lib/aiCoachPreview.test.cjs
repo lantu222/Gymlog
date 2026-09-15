@@ -239,12 +239,82 @@ module.exports.push(
       const one = buildAiCoachPreviewAnswer('olenko palautunut', baseContext({
         fatigue: { acwr: 1.05, recoveryScore: 90, signal: 'optimal', sessionCount7d: 1, confident: true },
       }), 'fi');
-      assert.match(one.why.join(' '), /1 treeni tällä viikolla/);
+      // A rolling seven days, said as one: "tällä viikolla" was a count that
+      // started last Thursday.
+      assert.match(one.why.join(' '), /1 treeni viimeisen 7 päivän aikana/);
 
       const many = buildAiCoachPreviewAnswer('olenko palautunut', baseContext({
         fatigue: { acwr: 1.05, recoveryScore: 90, signal: 'optimal', sessionCount7d: 4, confident: true },
       }), 'fi');
-      assert.match(many.why.join(' '), /4 treeniä tällä viikolla/);
+      assert.match(many.why.join(' '), /4 treeniä viimeisen 7 päivän aikana/);
+    },
+  },
+  {
+    name: 'preview routing: a word is matched as a word, never inside another one',
+    run() {
+      const running = buildAiCoachPreviewAnswer('haluan juosta 20 km', baseContext(), 'en').takeaway;
+      for (const prompt of [
+        'How many crunches should I do?',
+        'Syönkö runsaasti proteiinia?',
+        'Miten vahvistan rungon lihaksia?',
+        'Kirjoita minulle runo',
+        'Syönkö perunaa illalla?',
+        'Brunssin jälkeen treeni?',
+        'Analysoi viime treenini, tein runsaasti sarjoja',
+      ]) {
+        assert.notEqual(buildAiCoachPreviewAnswer(prompt, baseContext(), 'en').takeaway, running, prompt);
+      }
+      assert.equal(buildAiCoachPreviewAnswer('I want to run a 10k', baseContext(), 'en').takeaway, running);
+      assert.equal(buildAiCoachPreviewAnswer('Running twice a week?', baseContext(), 'en').takeaway, running);
+    },
+  },
+  {
+    name: 'preview routing: the app’s own chips get their own answers, whatever the signals',
+    run() {
+      const plateau = { plateaus: [{ exerciseKey: 'bench press', name: 'Bench Press', stagnantSessions: 4, topWeightKg: 100 }] };
+      const load = { fatigue: { acwr: 1.7, recoveryScore: 35, signal: 'high', sessionCount7d: 6, confident: true } };
+      const session = { recentCompletedSessions: [{ title: 'Push', setsCompleted: 12, durationMinutes: 50, swappedExercises: 0 }] };
+
+      const protein = buildAiCoachPreviewAnswer('Paljonko proteiinia tavoitteeseeni?', baseContext(plateau), 'en');
+      assert.equal(protein.takeaway, buildAiCoachPreviewAnswer('How much protein?', baseContext(), 'en').takeaway);
+      // "Protein for recovery" is a food question.
+      assert.equal(buildAiCoachPreviewAnswer('How much protein do I need for recovery?', baseContext(), 'en').takeaway, protein.takeaway);
+
+      const analysis = buildAiCoachPreviewAnswer('Analyze my last workout', baseContext({ ...load, ...session }), 'en');
+      assert.match(analysis.takeaway, /Push/);
+      const analysisWithPlateau = buildAiCoachPreviewAnswer('Analysoi viime treenini', baseContext({ ...plateau, ...session }), 'en');
+      assert.match(analysisWithPlateau.takeaway, /Push/);
+    },
+  },
+  {
+    name: 'preview routing: recovery needs history, rest between sets is not recovery, and "recovered" is',
+    run() {
+      const thin = { fatigue: { acwr: 4, recoveryScore: 0, signal: 'high', sessionCount7d: 1, confident: false } };
+      const answer = buildAiCoachPreviewAnswer('Olenko palautunut?', baseContext(thin), 'fi');
+      const text = [answer.takeaway, ...answer.why, ...answer.nextSteps].join(' ');
+      assert.doesNotMatch(text, /ACWR|Kevennä|30–40/);
+      assert.equal(answer.unanswered, true);
+
+      const ok = baseContext();
+      const recovered = buildAiCoachPreviewAnswer('Am I recovered?', ok, 'en');
+      assert.equal(recovered.takeaway, buildAiCoachPreviewAnswer('recovery?', ok, 'en').takeaway);
+      assert.equal(buildAiCoachPreviewAnswer('Am I overtrained?', ok, 'en').takeaway, recovered.takeaway);
+      assert.notEqual(buildAiCoachPreviewAnswer('Kuinka pitkä palautus sarjojen välissä?', ok, 'fi').takeaway, buildAiCoachPreviewAnswer('olenko palautunut', ok, 'fi').takeaway);
+
+      // And the level is said in the reader's language.
+      const load = baseContext({ fatigue: { acwr: 1.4, recoveryScore: 62, signal: 'elevated', sessionCount7d: 5, confident: true } });
+      const finnish = buildAiCoachPreviewAnswer('mitä pitäisi tehdä tällä viikolla', load, 'fi');
+      assert.doesNotMatch([finnish.takeaway, ...finnish.why].join(' '), /elevated|high\b/);
+    },
+  },
+  {
+    name: 'preview routing: a lift question finds its own plateau, in Finnish too, and not by a shared word',
+    run() {
+      const squat = { plateaus: [{ exerciseKey: 'back squat', name: 'Back Squat', stagnantSessions: 3, topWeightKg: 120 }] };
+      assert.match(buildAiCoachPreviewAnswer('Kyykky jumissa', baseContext(squat), 'en').takeaway, /Back Squat|squat/i);
+
+      const row = { plateaus: [{ exerciseKey: 'barbell row', name: 'Barbell Row', stagnantSessions: 3, topWeightKg: 70 }] };
+      assert.doesNotMatch(buildAiCoachPreviewAnswer('My barbell bench is not moving', baseContext(row), 'en').takeaway, /Row/);
     },
   },
 );

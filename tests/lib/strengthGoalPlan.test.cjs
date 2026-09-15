@@ -84,6 +84,17 @@ module.exports = [
       assert.equal(resolveObservedRate([at(0, 100)]), null);
       // Two sessions on the same day: a span of zero, not a rate of infinity.
       assert.equal(resolveObservedRate([at(0, 90), at(0, 100)]), null);
+      // Nor three days: 60 then 65 was "about 3 weeks" to +30, beside "5 kg in 0 weeks".
+      assert.equal(resolveObservedRate([at(3 / 7, 60), at(0, 65)]), null);
+      assert.ok(resolveObservedRate([at(1, 60), at(0, 65)]), 'a week is enough to measure');
+      // Seven calendar days across the spring clock change are 167 hours: still a week.
+      require('../helpers/clockChange.cjs').withHelsinkiClocks(() => {
+        const spring = resolveObservedRate([
+          { time: new Date(2026, 2, 25, 18, 0, 0).getTime(), topSetWeightKg: 60 },
+          { time: new Date(2026, 3, 1, 18, 0, 0).getTime(), topSetWeightKg: 65 },
+        ]);
+        assert.ok(spring, 'a week that lost an hour measured no pace');
+      });
       // Garbage in the log does not become a number.
       assert.equal(resolveObservedRate([{ time: NaN, topSetWeightKg: 80 }, at(0, 90)]), null);
       assert.equal(resolveObservedRate([at(2, 80), { time: 1, topSetWeightKg: NaN }]), null);

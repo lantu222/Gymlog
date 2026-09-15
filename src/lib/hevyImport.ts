@@ -61,6 +61,38 @@ export function isHevyHistoryCsv(text: string): boolean {
   return header.includes('exercise_title') && header.includes('start_time');
 }
 
+/**
+ * The file → records, where a record ends at a line break outside quotes.
+ *
+ * It split on every line break first, so a workout description or an exercise
+ * note written on two lines tore each of that workout's rows in half: neither
+ * half parsed, every set of the workout was dropped, and the import counted
+ * them under "cardio and duration-only blocks".
+ */
+function splitCsvRecords(text: string): string[] {
+  const records: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    if (char === '"') {
+      // A doubled quote inside quotes toggles twice and stays inside.
+      inQuotes = !inQuotes;
+      current += char;
+    } else if (!inQuotes && (char === '\n' || char === '\r')) {
+      if (char === '\r' && text[i + 1] === '\n') {
+        i += 1;
+      }
+      records.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  records.push(current);
+  return records;
+}
+
 /** One CSV line → fields, honouring quotes, embedded commas and "" escapes. */
 function splitCsvLine(line: string): string[] {
   const fields: string[] = [];
@@ -144,7 +176,7 @@ export function parseHevyCsv(text: string): HevyImportPreview {
     skippedRowCount: 0,
     errors: [],
   };
-  const lines = text.trim().split(/\r?\n/);
+  const lines = splitCsvRecords(text.trim());
   if (lines.length < 2) {
     return { ...empty, errors: ['EMPTY'] };
   }
