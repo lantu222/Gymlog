@@ -20,6 +20,7 @@ import type { WorkoutHistoryStore } from '../workout/workoutTypes';
 import {
   AccountBackupPayload,
   AccountBackupSummary,
+  autoBackupWouldShrinkLog,
   buildAccountBackupPayload,
   describeAccountBackup,
   hasLocalDataWorthKeeping,
@@ -75,8 +76,12 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
   const [loaded, setLoaded] = useState(false);
   const [phase, setPhase] = useState<AccountBackupPhase>('idle');
 
-  // The payload waiting on the reader's restore-or-keep answer.
-  const pendingRestoreRef = useRef<{ payload: AccountBackupPayload; idToken: string } | null>(null);
+  // The payload waiting on the reader's restore-or-keep answer, with the
+  // account it belongs to. The account travels with it because the answer is
+  // given from a dialog opened by the render that started sign-in, whose
+  // `account` was still null — reading it from there made "Use backup" return
+  // without restoring anything, and "Keep this phone's data" report a failure.
+  const pendingRestoreRef = useRef<{ payload: AccountBackupPayload; idToken: string; account: StoredAccount } | null>(null);
   const latestRef = useRef(input);
   latestRef.current = input;
 
@@ -108,7 +113,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       const payload = buildAccountBackupPayload(database, workoutHistory, new Date().toISOString());
       const result = await uploadBackup(idToken, payload);
       if (result.ok) {
-        await persistAccount({ ...base, lastBackupAt: result.savedAt });
+        await persistAccount({ ...base, lastBackupAt: result.savedAt, lastBackupSessionCount: database.workoutSessions.length });
         return true;
       }
       return false;
@@ -137,20 +142,25 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         email: result.account.email,
         name: result.account.name,
         lastBackupAt: null,
+        lastBackupSessionCount: null,
       };
 
       const remote = await downloadBackup(result.account.idToken);
       if (remote.ok) {
         const summary = describeAccountBackup(remote.payload);
+        const remoteSessionCount = remote.payload.database.workoutSessions?.length ?? 0;
         if (hasLocalDataWorthKeeping(latestRef.current.database)) {
           // Both sides have data — nobody's copy dies without a decision.
-          pendingRestoreRef.current = { payload: remote.payload, idToken: result.account.idToken };
-          await persistAccount(base);
+          // The count is the cloud's, so the automatic backup cannot shrink it
+          // while the question is open or after "keep" is refused.
+          const pendingAccount = { ...base, lastBackupSessionCount: remoteSessionCount };
+          pendingRestoreRef.current = { payload: remote.payload, idToken: result.account.idToken, account: pendingAccount };
+          await persistAccount(pendingAccount);
           return { kind: 'choice', summary };
         }
         setPhase('restoring');
         await applyRestore(remote.payload);
-        await persistAccount({ ...base, lastBackupAt: remote.payload.exportedAt });
+        await persistAccount({ ...base, lastBackupAt: remote.payload.exportedAt, lastBackupSessionCount: remoteSessionCount });
         return { kind: 'restored', summary };
       }
       if (remote.error !== 'NO_BACKUP') {
@@ -175,10 +185,10 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
   const resolveRestoreChoice = useCallback(
     async (choice: 'restore' | 'keep_local'): Promise<boolean> => {
       const pending = pendingRestoreRef.current;
-      const current = account;
-      if (!pending || !current) {
+      if (!pending) {
         return false;
       }
+      const current = pending.account;
       pendingRestoreRef.current = null;
       if (choice === 'restore') {
         setPhase('restoring');
@@ -197,11 +207,16 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         setPhase('idle');
       }
     },
-    [account, applyRestore, persistAccount, uploadCurrent],
+    [applyRestore, persistAccount, uploadCurrent],
   );
 
   const backupNow = useCallback(async (): Promise<boolean> => {
     if (!available || !account) {
+      return false;
+    }
+    if (pendingRestoreRef.current) {
+      // The reader has not answered restore-or-keep yet. An upload now would
+      // answer it for them, by overwriting the copy they may be about to pick.
       return false;
     }
     setPhase('backing_up');
@@ -235,7 +250,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     }
     const result = await deleteBackup(idToken);
     if (result.ok) {
-      await persistAccount({ ...account, lastBackupAt: null });
+      await persistAccount({ ...account, lastBackupAt: null, lastBackupSessionCount: null });
     }
     return result.ok;
   }, [account, available, persistAccount]);
@@ -254,6 +269,8 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
   const lastFingerprintRef = useRef<string | null>(null);
   const backupNowRef = useRef(backupNow);
   backupNowRef.current = backupNow;
+  const accountRef = useRef(account);
+  accountRef.current = account;
 
   useEffect(() => {
     if (!available || !account || !input.hydrated || phase !== 'idle') {
@@ -269,6 +286,9 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     }
     const timer = setTimeout(() => {
       lastFingerprintRef.current = backupFingerprint;
+      if (autoBackupWouldShrinkLog(latestRef.current.database.workoutSessions.length, accountRef.current?.lastBackupSessionCount ?? null)) {
+        return;
+      }
       void backupNowRef.current();
     }, 8000);
     return () => clearTimeout(timer);

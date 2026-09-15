@@ -155,6 +155,9 @@ module.exports = [
           '@vinha/database/corrupt',
           '@vinha/database/v1',
           '@vinha/preferences/v1',
+          // The workout bundle's own quarantine slot (2026-09-15). The same
+          // "copy of a damaged data file" line in the policy covers it.
+          '@vinha/workout/corrupt',
           '@vinha/workout/v1',
         ],
         'The policy declares these storage keys. A new one needs a line in "Where it is stored".',

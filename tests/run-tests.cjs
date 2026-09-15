@@ -85,6 +85,7 @@ const suites = [
   ...require('./features/workout/resetClearsHistory.test.cjs'),
   ...require('./state/completedWorkoutPersistence.test.cjs'),
   ...require('./state/commitSavesPreferences.test.cjs'),
+  ...require('./state/writesWaitForLoad.test.cjs'),
   ...require('./state/commitRollsBack.test.cjs'),
   ...require('./utils/haptics.test.cjs'),
   ...require('./utils/reduceMotion.test.cjs'),

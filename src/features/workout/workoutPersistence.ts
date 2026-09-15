@@ -9,6 +9,8 @@ import { WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutSessionRuntime, W
 const STORAGE_KEY = '@vinha/workout/v1';
 /** Pre-rename key; see the note in storage/database.ts. */
 const LEGACY_STORAGE_KEY = '@gymlog/workout/v1';
+/** Where an unreadable bundle is put before an empty one replaces it. */
+const CORRUPT_STORAGE_KEY = '@vinha/workout/corrupt';
 
 export function createEmptyWorkoutHistory(): WorkoutHistoryStore {
   return {
@@ -160,6 +162,14 @@ export async function loadWorkoutBundle() {
   try {
     return normalizeWorkoutBundle(JSON.parse(raw));
   } catch {
+    // Set aside before the empty bundle takes its place: the provider saves
+    // what it loaded straight away, and this held every lift's "last time".
+    // Same rule as the database's quarantine.
+    try {
+      await setLargeItem(CORRUPT_STORAGE_KEY, raw);
+    } catch {
+      // Out of space, most likely. Opening the app still matters more.
+    }
     return { activeSession: null, history: createEmptyWorkoutHistory(), activeCardio: null } satisfies WorkoutPersistenceBundle;
   }
 }
@@ -172,5 +182,6 @@ export async function saveWorkoutBundle(bundle: WorkoutPersistenceBundle) {
 
 export async function clearWorkoutBundle() {
   await removeLargeItem(STORAGE_KEY);
+  await removeLargeItem(CORRUPT_STORAGE_KEY);
   await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
 }

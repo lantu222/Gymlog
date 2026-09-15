@@ -158,6 +158,27 @@ export function hasLocalDataWorthKeeping(database: AppDatabase): boolean {
     database.workoutSessions.length > 0 ||
     database.cardioSessions.length > 0 ||
     database.bodyweightEntries.length > 0 ||
+    // Measurements are logged by hand like the rest; a phone holding only
+    // those was overwritten on sign-in without being asked.
+    database.measurementEntries.length > 0 ||
     database.workoutTemplates.length > 0
   );
+}
+
+/**
+ * Whether an automatic backup would replace a cloud copy holding far more of
+ * the log than this phone does.
+ *
+ * The automatic backup fires on any change in counts. A phone whose database
+ * was set aside as unreadable opens empty and still signed in; the reader
+ * redoes setup or logs one workout, and eight seconds later the one full copy
+ * left was replaced by that. Less than half of a copy of at least three
+ * workouts is not a reader tidying their history — the automatic path stops,
+ * and "Back up now" stays the reader's own decision.
+ */
+export function autoBackupWouldShrinkLog(localSessionCount: number, lastBackupSessionCount: number | null): boolean {
+  if (lastBackupSessionCount === null || lastBackupSessionCount < 3) {
+    return false;
+  }
+  return localSessionCount * 2 < lastBackupSessionCount;
 }
