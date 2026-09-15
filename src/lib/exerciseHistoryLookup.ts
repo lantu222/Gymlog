@@ -187,6 +187,32 @@ function isUsableEntry(entry: WorkoutSlotHistoryEntry | null | undefined): boole
 }
 
 /**
+ * A slot's entries that were this lift.
+ *
+ * A slot keeps its id when the lift in it changes — swapped during a session,
+ * swapped on Home before starting, or replaced in the programme — and every
+ * entry is written under the slot. So trap bar deadlifts swapped for a leg
+ * press at 200 kg opened the next trap bar session at 200 kg, and its "Last
+ * time" card showed the leg press as its own. An entry names its lift; one
+ * naming another lift is not this one's history. Entries with no name (very
+ * old installs) cannot be told apart and are kept.
+ */
+export function entriesForLift(
+  entries: readonly WorkoutSlotHistoryEntry[] | null | undefined,
+  exerciseName: string | null | undefined,
+): WorkoutSlotHistoryEntry[] {
+  const list = (entries ?? []).filter(Boolean);
+  const target = normalizeExerciseName(exerciseName ?? '');
+  if (!target) {
+    return [...list];
+  }
+  return list.filter((entry) => {
+    const name = normalizeExerciseName(entry.exerciseName ?? '');
+    return !name || name === target;
+  });
+}
+
+/**
  * The newest session in a slot's own history that actually logged something.
  *
  * A skipped or empty entry is not a "last time" — it is a day this lift did
@@ -248,12 +274,13 @@ export interface ResolvedLastTime {
 export function resolveLastTimeEntry(query: LastTimeQuery): ResolvedLastTime | null {
   // The scoped key is this day's own history, and it is never gated: whatever
   // reps were done here last time, they were done HERE.
-  const scoped = selectLatestUsableEntry(query.slotHistory?.[query.slotId]);
+  // …as long as it was THIS lift. See entriesForLift.
+  const scoped = selectLatestUsableEntry(entriesForLift(query.slotHistory?.[query.slotId], query.exerciseName));
   if (scoped) {
     return { entry: scoped, borrowed: false };
   }
 
-  const legacy = selectLegacySlotEntry(query.slotHistory, query.templateSlotId, query.repWindow);
+  const legacy = selectLegacySlotEntry(query.slotHistory, query.templateSlotId, query.repWindow, query.exerciseName);
   if (legacy) {
     return { entry: legacy, borrowed: false };
   }
@@ -279,11 +306,12 @@ export function selectLegacySlotEntry(
   slotHistory: Record<string, WorkoutSlotHistoryEntry[]>,
   templateSlotId: string | null | undefined,
   repWindow: RepWindow | null | undefined,
+  exerciseName?: string | null,
 ): WorkoutSlotHistoryEntry | null {
   if (!templateSlotId) {
     return null;
   }
-  const latest = selectLatestUsableEntry(slotHistory?.[templateSlotId]);
+  const latest = selectLatestUsableEntry(entriesForLift(slotHistory?.[templateSlotId], exerciseName));
   if (!latest || !entryMatchesRepWindow(latest, repWindow)) {
     return null;
   }

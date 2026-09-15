@@ -69,6 +69,8 @@ interface WorkoutContextValue {
       sets: Array<{ setIndex: number; loadKg: number; reps: number; completedAt?: string | null }>;
     }>;
   }) => void;
+  /** A deleted saved workout, taken out of "last time", prefill and progression. */
+  forgetHistorySession: (sessionId: string) => void;
   skipExercise: (slotId: string, reason?: string) => void;
   swapExercise: (
     slotId: string,
@@ -281,6 +283,9 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
       },
       recordLoggedWorkout(input) {
         dispatch({ type: 'history/recordLogged', payload: input });
+      },
+      forgetHistorySession(sessionId) {
+        dispatch({ type: 'history/forgetSession', payload: { sessionId } });
       },
       removeSet(slotId) {
         dispatch({ type: 'exercise/removeSet', payload: { slotId } });
