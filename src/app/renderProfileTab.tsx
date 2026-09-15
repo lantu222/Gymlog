@@ -175,6 +175,7 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
         reason={route.reason ?? null}
         language={preferences.appLanguage}
         proUnlocked={coachProUnlocked}
+        trialAvailable={canStartProTrial(preferences)}
         onManageSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
         onPurchase={(plan) => {
@@ -217,6 +218,15 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
             // reminder, not the trial.
             void requestNotificationPermission();
             navigate({ tab: 'profile', screen: 'premium_unlock', plan });
+            return;
+          }
+          // The invented purchase belongs to the demo build alone. Reachable
+          // here after the trial is spent (review, 2026-09-15), it would be a
+          // free Pro that never expires in any build that shipped without
+          // billing — a build releaseReadiness refuses, but the write must
+          // not be the thing that makes the refusal matter.
+          if (!isDemoBuild()) {
+            showToast(t(preferences.appLanguage, 'premium.purchaseUnavailable'));
             return;
           }
           void updatePreferences({

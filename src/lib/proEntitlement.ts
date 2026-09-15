@@ -181,15 +181,18 @@ export function canStartProTrial(preferences: Pick<AppPreferences, 'proTrialStar
 }
 
 /**
- * The fields that decide Pro, and are therefore not taken from a backup.
+ * The fields that decide what Pro and the free tier hand out, and are
+ * therefore not taken from a backup.
  *
  * The backup endpoint stores whatever a signed-in caller uploads and checks
  * its size, not its contents, so a payload with a promo date far in the
- * future was a permanent Pro for the price of one PUT. A restore keeps the
- * device's own entitlement and takes everything else. With Play Billing the
- * store answers this question anyway and nothing here is restorable.
+ * future was a permanent Pro for the price of one PUT — and one with an empty
+ * `coachDemoMomentsUsed` was three more free model calls, as often as wanted.
+ * A restore keeps the device's own entitlement and meters and takes
+ * everything else. With Play Billing the store answers the Pro question
+ * anyway; the meters are per install by definition.
  */
-export const PRO_ENTITLEMENT_FIELDS = [
+export const DEVICE_ONLY_PREFERENCE_FIELDS = [
   'promoProUntil',
   'proTrialUntil',
   'proTrialStartedAt',
@@ -197,14 +200,16 @@ export const PRO_ENTITLEMENT_FIELDS = [
   'mockSubscriptionTerm',
   'mockSubscriptionCancelledAt',
   'aiCoachProQuota',
+  'coachDemoMomentsUsed',
+  'firstLaunchAt',
 ] as const;
 
-export function keepDeviceEntitlement<T extends Pick<AppPreferences, (typeof PRO_ENTITLEMENT_FIELDS)[number]>>(
+export function keepDeviceEntitlement<T extends Pick<AppPreferences, (typeof DEVICE_ONLY_PREFERENCE_FIELDS)[number]>>(
   restored: T,
-  device: Pick<AppPreferences, (typeof PRO_ENTITLEMENT_FIELDS)[number]>,
+  device: Pick<AppPreferences, (typeof DEVICE_ONLY_PREFERENCE_FIELDS)[number]>,
 ): T {
   const kept = { ...restored };
-  for (const field of PRO_ENTITLEMENT_FIELDS) {
+  for (const field of DEVICE_ONLY_PREFERENCE_FIELDS) {
     (kept as Record<string, unknown>)[field] = device[field];
   }
   return kept;

@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const {
-  PRO_ENTITLEMENT_FIELDS,
+  DEVICE_ONLY_PREFERENCE_FIELDS,
   canStartProTrial,
   keepDeviceEntitlement,
   resolveProEntitlement,
@@ -38,7 +38,12 @@ module.exports = [
   {
     name: 'pro restore: a backup carrying Pro restores everything but the Pro',
     run() {
-      const device = preferences({ appLanguage: 'fi', aiCoachProQuota: { monthStart: '2026-09-01', used: 7 } });
+      const device = preferences({
+        appLanguage: 'fi',
+        aiCoachProQuota: { monthStart: '2026-09-01', used: 7 },
+        coachDemoMomentsUsed: ['day7', 'day30', 'day90'],
+        firstLaunchAt: '2026-06-01T00:00:00.000Z',
+      });
       const restored = preferences({
         appLanguage: 'en',
         profileName: 'Sanna',
@@ -49,17 +54,22 @@ module.exports = [
         mockSubscriptionTerm: 'lifetime',
         mockSubscriptionCancelledAt: null,
         aiCoachProQuota: { monthStart: '2026-09-01', used: 0 },
+        coachDemoMomentsUsed: [],
+        firstLaunchAt: '2026-09-14T00:00:00.000Z',
       });
       assert.equal(resolveProEntitlement(restored).unlocked, true, 'the crafted backup is not one this test would catch');
 
       const kept = keepDeviceEntitlement(restored, device);
       assert.equal(resolveProEntitlement(kept).unlocked, false, 'the backup bought Pro');
-      for (const field of PRO_ENTITLEMENT_FIELDS) {
+      for (const field of DEVICE_ONLY_PREFERENCE_FIELDS) {
         assert.deepEqual(kept[field], device[field], `${field} came from the backup`);
       }
-      // The month's coach quota is metering, not history: a backup from the
-      // start of the month must not hand the questions back.
+      // The meters are per install, not history: a backup from the start of
+      // the month must not hand the questions back, and an empty list of free
+      // coach moments must not hand out three more model calls.
       assert.deepEqual(kept.aiCoachProQuota, { monthStart: '2026-09-01', used: 7 });
+      assert.deepEqual(kept.coachDemoMomentsUsed, ['day7', 'day30', 'day90']);
+      assert.equal(kept.firstLaunchAt, '2026-06-01T00:00:00.000Z');
       // Everything that is not entitlement is the backup's.
       assert.equal(kept.appLanguage, 'en');
       assert.equal(kept.profileName, 'Sanna');
@@ -93,6 +103,23 @@ module.exports = [
       assert.match(profile, /const trialUntil = canStartProTrial\(preferences\) && plan !== 'lifetime' \? resolveTrialProUntil\(\) : null;/);
       assert.match(profile, /updatePreferences\(\{ proTrialUntil: trialUntil, proTrialStartedAt: new Date\(\)\.toISOString\(\) \}\)/);
       assert.doesNotMatch(profile, /PRO_TRIAL_ENABLED && plan !== 'lifetime'/, 'the CTA still mints a trial on every press');
+
+      // Once the trial is spent the same button is a purchase, so the screen
+      // has to be told and say so — and the invented purchase stays in the
+      // demo build: reachable after the trial, it would otherwise be a free
+      // Pro that never expires in any build shipped without billing.
+      assert.match(profile, /trialAvailable=\{canStartProTrial\(preferences\)\}/);
+      const purchase = profile.slice(profile.indexOf('onPurchase={(plan) => {'), profile.indexOf("onOpenLegal={(document) => navigate({ tab: 'profile', screen: 'legal', document })}"));
+      const guard = purchase.indexOf('if (!isDemoBuild()) {');
+      const write = purchase.indexOf('mockSubscriptionPurchasedAt: new Date().toISOString()');
+      assert.ok(guard > 0 && guard < write, 'the invented purchase is written outside the demo build');
+      assert.match(purchase.slice(guard, write), /showToast\(t\(preferences\.appLanguage, 'premium\.purchaseUnavailable'\)\);\s*return;/);
+
+      const premium = read('src', 'screens', 'PremiumScreen.tsx');
+      assert.match(premium, /const trialOffered = PRO_TRIAL_ENABLED && trialAvailable;/);
+      assert.match(premium, /resolveTierCtaKey\(tier, trialOffered\)/);
+      assert.match(premium, /resolveTierFineKey\(tier, activePlan\.id, trialOffered\)/);
+      assert.doesNotMatch(premium, /resolveTierCtaKey\(tier, PRO_TRIAL_ENABLED\)/, 'the button promises a trial it will not start');
 
       // Stored, read back, and absent on an older install (which gets its one).
       const fake = createFakeAsyncStorage();
