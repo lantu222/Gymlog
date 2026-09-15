@@ -418,6 +418,7 @@ const EN = {
   // because "Make my own copy" does.
   'toast.programCopyFailed': 'Could not copy the program',
   'toast.planSaveFailed': 'Could not save your programme',
+  'premium.purchaseUnavailable': 'Buying is not available in this build yet',
   'toast.lastExerciseInDay': 'That is the last exercise of the day — delete the day in the editor instead',
   // Was an English literal inside App.tsx, shown in a Finnish app.
   'toast.cardioSaveFailed': 'Could not save cardio session',
@@ -3524,6 +3525,7 @@ const FI: Record<I18nKey, string> = {
   'toast.addExercisesTemplate': 'Lisää liikkeitä ennen tämän pohjan aloittamista',
   'toast.programCopyFailed': 'Ohjelmaa ei voitu kopioida',
   'toast.planSaveFailed': 'Ohjelmaasi ei voitu tallentaa',
+  'premium.purchaseUnavailable': 'Ostaminen ei ole vielä käytössä tässä versiossa',
   'toast.lastExerciseInDay': 'Tämä on päivän viimeinen liike — poista koko päivä muokkaimessa',
   'toast.cardioSaveFailed': 'Cardio-treeniä ei voitu tallentaa',
   'aiCompose.read': 'Luettu ohjeestasi',

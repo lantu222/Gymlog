@@ -57,6 +57,12 @@ interface PremiumScreenProps {
   reason?: 'program_cap' | null;
   /** Whether Pro is actually on — the preview switch or a live promo code. */
   proUnlocked: boolean;
+  /**
+   * Whether this install may still start the trial. Once it has been used the
+   * button is a purchase, and has to say so: the trial wording on a press that
+   * buys would be a receipt for something never offered.
+   */
+  trialAvailable?: boolean;
   language?: AppLanguage;
   onBack: () => void;
   /** Receives the package the reader had selected when they pressed buy. */
@@ -227,6 +233,7 @@ function CardFade({ width }: { width: number }) {
 export function PremiumScreen({
   reason = null,
   proUnlocked,
+  trialAvailable = true,
   language = 'en',
   onBack,
   onPurchase,
@@ -252,8 +259,9 @@ export function PremiumScreen({
     setPlan(defaultPlanForTier(next));
   };
 
-  const ctaKey = resolveTierCtaKey(tier, PRO_TRIAL_ENABLED);
-  const fineKey = resolveTierFineKey(tier, activePlan.id, PRO_TRIAL_ENABLED);
+  const trialOffered = PRO_TRIAL_ENABLED && trialAvailable;
+  const ctaKey = resolveTierCtaKey(tier, trialOffered);
+  const fineKey = resolveTierFineKey(tier, activePlan.id, trialOffered);
 
   const buy = () => {
     // The free tab sells nothing. Its button is the honest exit, which is the

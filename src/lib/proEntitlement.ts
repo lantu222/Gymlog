@@ -169,6 +169,52 @@ export const PRO_TRIAL_DAYS = 14;
  */
 export const PRO_TRIAL_ENABLED = true;
 
+/**
+ * Whether this install may still start the trial.
+ *
+ * Once. The CTA used to mint fourteen fresh days on every press, which made
+ * the trial a subscription nobody paid for. Play Billing grants one per
+ * account; until then it is one per install, marked by `proTrialStartedAt`.
+ */
+export function canStartProTrial(preferences: Pick<AppPreferences, 'proTrialStartedAt'>): boolean {
+  return PRO_TRIAL_ENABLED && preferences.proTrialStartedAt === null;
+}
+
+/**
+ * The fields that decide what Pro and the free tier hand out, and are
+ * therefore not taken from a backup.
+ *
+ * The backup endpoint stores whatever a signed-in caller uploads and checks
+ * its size, not its contents, so a payload with a promo date far in the
+ * future was a permanent Pro for the price of one PUT — and one with an empty
+ * `coachDemoMomentsUsed` was three more free model calls, as often as wanted.
+ * A restore keeps the device's own entitlement and meters and takes
+ * everything else. With Play Billing the store answers the Pro question
+ * anyway; the meters are per install by definition.
+ */
+export const DEVICE_ONLY_PREFERENCE_FIELDS = [
+  'promoProUntil',
+  'proTrialUntil',
+  'proTrialStartedAt',
+  'mockSubscriptionPurchasedAt',
+  'mockSubscriptionTerm',
+  'mockSubscriptionCancelledAt',
+  'aiCoachProQuota',
+  'coachDemoMomentsUsed',
+  'firstLaunchAt',
+] as const;
+
+export function keepDeviceEntitlement<T extends Pick<AppPreferences, (typeof DEVICE_ONLY_PREFERENCE_FIELDS)[number]>>(
+  restored: T,
+  device: Pick<AppPreferences, (typeof DEVICE_ONLY_PREFERENCE_FIELDS)[number]>,
+): T {
+  const kept = { ...restored };
+  for (const field of DEVICE_ONLY_PREFERENCE_FIELDS) {
+    (kept as Record<string, unknown>)[field] = device[field];
+  }
+  return kept;
+}
+
 /** The date Pro should run until, or null when the trial is switched off. */
 export function resolveTrialProUntil(now: Date = new Date()): string | null {
   if (!PRO_TRIAL_ENABLED) {
