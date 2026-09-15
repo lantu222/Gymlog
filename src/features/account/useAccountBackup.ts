@@ -25,7 +25,7 @@ import {
   describeAccountBackup,
   hasLocalDataWorthKeeping,
 } from '../../lib/accountBackup';
-import { deleteBackup, downloadBackup, isBackupApiConfigured, uploadBackup } from './backupApi';
+import { BackupDownloadResult, deleteBackup, downloadBackup, isBackupApiConfigured, uploadBackup } from './backupApi';
 import { getFreshIdToken, isGoogleSignInConfigured, signInWithGoogle, signOutGoogle } from './googleAuth';
 import { clearStoredAccount, loadStoredAccount, saveStoredAccount, StoredAccount } from './accountStore';
 
@@ -56,7 +56,13 @@ export interface AccountBackupApi {
   phase: AccountBackupPhase;
   signIn: () => Promise<SignInOutcome>;
   resolveRestoreChoice: (choice: 'restore' | 'keep_local') => Promise<boolean>;
+  /** The automatic backup: never asks, and never writes over an unseen copy. */
   backupNow: () => Promise<boolean>;
+  /**
+   * "Back up now". On a phone that has never synced it can come back as
+   * 'choice' or 'restored', exactly like sign-in.
+   */
+  backUpOrAsk: () => Promise<SignInOutcome>;
   signOut: () => Promise<void>;
   deleteRemoteBackup: () => Promise<boolean>;
 }
@@ -127,6 +133,50 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     restoreWorkoutHistory(payload.workoutHistory);
   }, []);
 
+  /**
+   * What this phone does once it has seen the cloud's answer: ask when both
+   * sides hold data, restore onto an empty phone, upload as the first backup
+   * only on a confirmed "no backup", and otherwise stay signed in without
+   * claiming a backup. Shared by sign-in and by "Back up now" on a phone that
+   * has never synced, so the second gets the same question as the first.
+   */
+  const settleWithRemote = useCallback(
+    async (idToken: string, base: StoredAccount, remote: BackupDownloadResult): Promise<SignInOutcome> => {
+      if (remote.ok) {
+        const summary = describeAccountBackup(remote.payload);
+        const remoteSessionCount = remote.payload.database.workoutSessions?.length ?? 0;
+        if (hasLocalDataWorthKeeping(latestRef.current.database)) {
+          // Both sides have data — nobody's copy dies without a decision.
+          // The count is the cloud's, so the automatic backup cannot shrink it
+          // while the question is open or after "keep" is refused.
+          const pendingAccount = { ...base, lastBackupSessionCount: remoteSessionCount };
+          pendingRestoreRef.current = { payload: remote.payload, idToken, account: pendingAccount };
+          await persistAccount(pendingAccount);
+          return { kind: 'choice', summary };
+        }
+        setPhase('restoring');
+        await applyRestore(remote.payload);
+        await persistAccount({ ...base, lastBackupAt: remote.payload.exportedAt, lastBackupSessionCount: remoteSessionCount });
+        return { kind: 'restored', summary };
+      }
+      if (remote.error !== 'NO_BACKUP') {
+        // The server is unreachable or spoke nonsense: signed in, not backed
+        // up, and the state says so instead of inventing a timestamp.
+        await persistAccount(base);
+        return { kind: 'failed' };
+      }
+
+      setPhase('backing_up');
+      const uploaded = await uploadCurrent(idToken, base);
+      if (!uploaded) {
+        await persistAccount(base);
+        return { kind: 'failed' };
+      }
+      return { kind: 'backed_up' };
+    },
+    [applyRestore, persistAccount, uploadCurrent],
+  );
+
   const signIn = useCallback(async (): Promise<SignInOutcome> => {
     if (!available) {
       return { kind: 'unavailable' };
@@ -146,41 +196,11 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       };
 
       const remote = await downloadBackup(result.account.idToken);
-      if (remote.ok) {
-        const summary = describeAccountBackup(remote.payload);
-        const remoteSessionCount = remote.payload.database.workoutSessions?.length ?? 0;
-        if (hasLocalDataWorthKeeping(latestRef.current.database)) {
-          // Both sides have data — nobody's copy dies without a decision.
-          // The count is the cloud's, so the automatic backup cannot shrink it
-          // while the question is open or after "keep" is refused.
-          const pendingAccount = { ...base, lastBackupSessionCount: remoteSessionCount };
-          pendingRestoreRef.current = { payload: remote.payload, idToken: result.account.idToken, account: pendingAccount };
-          await persistAccount(pendingAccount);
-          return { kind: 'choice', summary };
-        }
-        setPhase('restoring');
-        await applyRestore(remote.payload);
-        await persistAccount({ ...base, lastBackupAt: remote.payload.exportedAt, lastBackupSessionCount: remoteSessionCount });
-        return { kind: 'restored', summary };
-      }
-      if (remote.error !== 'NO_BACKUP') {
-        // The server is unreachable or spoke nonsense: signed in, not backed
-        // up, and the state says so instead of inventing a timestamp.
-        await persistAccount(base);
-        return { kind: 'failed' };
-      }
-
-      setPhase('backing_up');
-      const uploaded = await uploadCurrent(result.account.idToken, base);
-      if (!uploaded) {
-        await persistAccount(base);
-        return { kind: 'failed' };
-      }
-      return { kind: 'backed_up' };
+      return await settleWithRemote(result.account.idToken, base, remote);
     } finally {
       setPhase('idle');
     }
-  }, [available, applyRestore, persistAccount, uploadCurrent]);
+  }, [available, settleWithRemote]);
 
   const resolveRestoreChoice = useCallback(
     async (choice: 'restore' | 'keep_local'): Promise<boolean> => {
@@ -210,39 +230,56 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     [applyRestore, persistAccount, uploadCurrent],
   );
 
-  const backupNow = useCallback(async (): Promise<boolean> => {
-    if (!available || !account) {
-      return false;
-    }
-    if (pendingRestoreRef.current) {
-      // The reader has not answered restore-or-keep yet. An upload now would
-      // answer it for them, by overwriting the copy they may be about to pick.
-      return false;
-    }
-    setPhase('backing_up');
-    try {
-      const idToken = await getFreshIdToken();
-      if (!idToken) {
-        // The Google session is gone; saying "signed in" would promise
-        // backups that cannot happen.
-        await persistAccount(null);
-        return false;
+  /**
+   * One backup. `interactive` is the reader pressing "Back up now"; the
+   * automatic backup is not.
+   */
+  const runBackup = useCallback(
+    async (interactive: boolean): Promise<SignInOutcome> => {
+      if (!available || !account) {
+        return { kind: 'failed' };
       }
-      if (!account.lastBackupAt) {
-        // This phone has never written or read the cloud copy: sign-in could
-        // not reach it, or the app closed on the restore-or-keep question.
-        // Whatever is there has not been seen, so it is not overwritten —
-        // only a confirmed "no backup" lets this phone's data be the first.
-        const remote = await downloadBackup(idToken);
-        if (remote.ok || remote.error !== 'NO_BACKUP') {
-          return false;
+      if (pendingRestoreRef.current) {
+        // The reader has not answered restore-or-keep yet. An upload now would
+        // answer it for them, by overwriting the copy they may be about to pick.
+        return { kind: 'failed' };
+      }
+      setPhase('backing_up');
+      try {
+        const idToken = await getFreshIdToken();
+        if (!idToken) {
+          // The Google session is gone; saying "signed in" would promise
+          // backups that cannot happen.
+          await persistAccount(null);
+          return { kind: 'failed' };
         }
+        if (!account.lastBackupAt) {
+          // This phone has never written or read the cloud copy: sign-in could
+          // not reach it, or the app closed on the restore-or-keep question.
+          // Whatever is there has not been seen, so it is not overwritten.
+          const remote = await downloadBackup(idToken);
+          if (interactive) {
+            // The reader is here to answer, so they get sign-in's question —
+            // otherwise nothing but signing out and in again would ever lift
+            // this (PR #119 review).
+            return await settleWithRemote(idToken, account, remote);
+          }
+          // Unattended, only a confirmed "no backup" lets this phone's data be
+          // the first.
+          if (remote.ok || remote.error !== 'NO_BACKUP') {
+            return { kind: 'failed' };
+          }
+        }
+        return (await uploadCurrent(idToken, account)) ? { kind: 'backed_up' } : { kind: 'failed' };
+      } finally {
+        setPhase('idle');
       }
-      return await uploadCurrent(idToken, account);
-    } finally {
-      setPhase('idle');
-    }
-  }, [account, available, persistAccount, uploadCurrent]);
+    },
+    [account, available, persistAccount, settleWithRemote, uploadCurrent],
+  );
+
+  const backupNow = useCallback(async (): Promise<boolean> => (await runBackup(false)).kind === 'backed_up', [runBackup]);
+  const backUpOrAsk = useCallback(() => runBackup(true), [runBackup]);
 
   const signOut = useCallback(async () => {
     await signOutGoogle();
@@ -330,6 +367,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     signIn,
     resolveRestoreChoice,
     backupNow,
+    backUpOrAsk,
     signOut,
     deleteRemoteBackup,
   };

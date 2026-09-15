@@ -89,21 +89,34 @@ module.exports = [
     name: 'writesWaitForLoad: restore-or-keep answers with the account it was asked for, and nothing uploads meanwhile',
     run() {
       const hook = code(read('src', 'features', 'account', 'useAccountBackup.ts'));
-      const resolve = hook.slice(hook.indexOf('const resolveRestoreChoice = useCallback('), hook.indexOf('const backupNow = useCallback('));
+      const resolve = hook.slice(hook.indexOf('const resolveRestoreChoice = useCallback('), hook.indexOf('const runBackup = useCallback('));
       // The dialog calls the function from the render that started sign-in,
       // when `account` was still null.
       assert.match(resolve, /const current = pending\.account;/);
       assert.doesNotMatch(resolve, /=\s*account\b/);
       assert.doesNotMatch(resolve.slice(resolve.lastIndexOf('[')), /\baccount\b/);
 
-      const backupNow = hook.slice(hook.indexOf('const backupNow = useCallback('), hook.indexOf('const signOut = useCallback('));
-      assert.match(backupNow, /if \(pendingRestoreRef\.current\) \{\s*return false;/);
+      const backup = hook.slice(hook.indexOf('const runBackup = useCallback('), hook.indexOf('const signOut = useCallback('));
+      assert.match(backup, /if \(pendingRestoreRef\.current\) \{\s*return \{ kind: 'failed' \};/);
       // A phone that has never written or read the cloud copy (sign-in could
-      // not reach it, or the app closed on the question) looks before it writes.
+      // not reach it, or the app closed on the question) looks before it writes:
+      // unattended it uploads only on a confirmed "no backup", and the reader
+      // pressing "Back up now" gets sign-in's question instead of a dead end.
       assert.match(
-        backupNow,
-        /if \(!account\.lastBackupAt\) \{\s*const remote = await downloadBackup\(idToken\);\s*if \(remote\.ok \|\| remote\.error !== 'NO_BACKUP'\) \{\s*return false;\s*\}\s*\}\s*return await uploadCurrent\(idToken, account\);/,
+        backup,
+        /if \(!account\.lastBackupAt\) \{\s*const remote = await downloadBackup\(idToken\);\s*if \(interactive\) \{\s*return await settleWithRemote\(idToken, account, remote\);\s*\}\s*if \(remote\.ok \|\| remote\.error !== 'NO_BACKUP'\) \{\s*return \{ kind: 'failed' \};\s*\}\s*\}\s*return \(await uploadCurrent\(idToken, account\)\)/,
       );
+      assert.match(hook, /const backupNow = useCallback\(async \(\): Promise<boolean> => \(await runBackup\(false\)\)\.kind === 'backed_up'/);
+      assert.match(hook, /const backUpOrAsk = useCallback\(\(\) => runBackup\(true\)/);
+      // Sign-in settles through the same function, so the two cannot drift.
+      const signIn = hook.slice(hook.indexOf('const signIn = useCallback('), hook.indexOf('const resolveRestoreChoice = useCallback('));
+      assert.match(signIn, /return await settleWithRemote\(result\.account\.idToken, base, remote\);/);
+
+      // And the Settings row is wired to the asking path, through the same presenter as sign-in.
+      const app = code(read('App.tsx'));
+      assert.match(app, /presentAccountOutcome\(await accountBackup\.backUpOrAsk\(\), 'account\.backupFailed'\)/);
+      assert.match(app, /presentAccountOutcome\(await accountBackup\.signIn\(\), 'account\.signInFailed'\)/);
+      assert.match(code(read('src', 'app', 'renderProfileTab.tsx')), /onBackupNow: \(\) => void handleAccountBackupNow\(\)/);
 
       // The automatic path will not replace a much fuller cloud copy.
       assert.match(hook, /if \(autoBackupWouldShrinkLog\(latestRef\.current\.database\.workoutSessions\.length, accountRef\.current\?\.lastBackupSessionCount \?\? null\)\) \{\s*return;\s*\}\s*void backupNowRef\.current\(\);/);

@@ -66,7 +66,7 @@ import {
   TourTargetId,
   TourSurface,
 } from './src/lib/firstRunTour';
-import { useAccountBackup } from './src/features/account/useAccountBackup';
+import { SignInOutcome, useAccountBackup } from './src/features/account/useAccountBackup';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
 import {
@@ -4168,9 +4168,8 @@ function VinhaApp() {
    * appears when both the phone and the cloud hold data. Shared by the
    * hand-off card and the Settings row so both tell the same story.
    */
-  const handleAccountSignIn = useCallback(async () => {
+  const presentAccountOutcome = useCallback((outcome: SignInOutcome, failedKey: I18nKey) => {
     const language = preferences.appLanguage;
-    const outcome = await accountBackup.signIn();
     if (outcome.kind === 'backed_up') {
       // No toast. The backup row states the result better than a bar can: it
       // carries the account and, in green, when the cloud copy was written.
@@ -4184,7 +4183,7 @@ function VinhaApp() {
       return outcome.kind;
     }
     if (outcome.kind === 'failed') {
-      showToast(t(language, 'account.signInFailed'));
+      showToast(t(language, failedKey));
       return outcome.kind;
     }
     if (outcome.kind === 'unavailable') {
@@ -4233,6 +4232,18 @@ function VinhaApp() {
     return outcome.kind;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountBackup, preferences.appLanguage]);
+
+  const handleAccountSignIn = useCallback(
+    async () => presentAccountOutcome(await accountBackup.signIn(), 'account.signInFailed'),
+    [accountBackup, presentAccountOutcome],
+  );
+
+  // "Back up now" tells the same story as sign-in: on a phone that has never
+  // synced it may have to ask restore-or-keep before it can write anything.
+  const handleAccountBackupNow = useCallback(
+    async () => presentAccountOutcome(await accountBackup.backUpOrAsk(), 'account.backupFailed'),
+    [accountBackup, presentAccountOutcome],
+  );
 
   const handleSetupHandoffDone = async (choices: SetupHandoffChoices) => {
     const patch: Partial<AppPreferences> = { setupHandoffCompleted: true };
@@ -6199,6 +6210,7 @@ function VinhaApp() {
       handleAddHomeWidget,
       accountBackup,
       handleAccountSignIn,
+      handleAccountBackupNow,
       showToast,
       setSettingsImportVisible,
       setRatingSheetVisible,
