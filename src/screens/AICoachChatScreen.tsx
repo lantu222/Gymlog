@@ -369,6 +369,42 @@ export function AICoachChatScreen({
       turns: conversation.current,
     });
   }, [messages, onMemoryChange]);
+
+  /**
+   * Leaving while an answer is on its way.
+   *
+   * The request ran on after the screen unmounted: the answer still charged
+   * the question (Pro quota, or one of the free reader's three demo answers)
+   * and reported the advice, but it had no screen to land on — the reader
+   * came back to their question with nothing under it. The request is
+   * cancelled now, nothing is charged for it, and the question comes out of
+   * the kept thread so it can simply be asked again.
+   */
+  const pendingAskRef = useRef<{ token: number; controller: AbortController } | null>(null);
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  const onMemoryChangeRef = useRef(onMemoryChange);
+  onMemoryChangeRef.current = onMemoryChange;
+  useEffect(
+    () => () => {
+      const pending = pendingAskRef.current;
+      if (!pending) {
+        return;
+      }
+      pendingAskRef.current = null;
+      // The answer that still arrives now matches no token: it charges nothing.
+      askToken.current += 1;
+      pending.controller.abort();
+      onMemoryChangeRef.current({
+        lastActiveAt: new Date().toISOString(),
+        messages: messagesRef.current.filter(
+          (message) => message.id !== `me:${pending.token}` && message.id !== `offer:${pending.token}`,
+        ),
+        turns: conversation.current,
+      });
+    },
+    [],
+  );
   /**
    * Whether the last answer actually came from the coach.
    *
@@ -770,6 +806,8 @@ export function AICoachChatScreen({
       // The fact of a question, never its text: whether the coach is used at
       // all is the number the AI bill is justified against.
       trackEvent('coach_question_asked');
+      const controller = new AbortController();
+      pendingAskRef.current = { token, controller };
       try {
         const result = await requestAiCoachAdvice({
           prompt: trimmed,
@@ -785,7 +823,7 @@ export function AICoachChatScreen({
           // which closes the window between the first yes and the id landing.
           ...(logConsent.chat && logId ? { logId } : {}),
           ...(AI_COACH_DEBUG_TRANSCRIPTS && transcriptReporter ? { reporter: transcriptReporter } : {}),
-        });
+        }, controller.signal);
         if (token !== askToken.current) {
           return;
         }
@@ -982,6 +1020,9 @@ export function AICoachChatScreen({
           { id: `coach:${token}`, fromCoach: true, text: t(language, 'coach.error') },
         ]);
       } finally {
+        if (pendingAskRef.current?.token === token) {
+          pendingAskRef.current = null;
+        }
         if (token === askToken.current) {
           setAsking(false);
         }

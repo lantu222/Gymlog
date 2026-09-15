@@ -7,6 +7,8 @@
  * summary) handed to App.tsx on save.
  */
 import { parseNumberInput } from './format';
+import { REPS_DIAL } from './weightDial';
+import { isLiftableWeight } from './weightLimits';
 import {
   ExercisePrLookup,
   WorkoutCompletionExerciseCard,
@@ -127,6 +129,27 @@ export interface FreestyleFinishSummary {
 export interface FreestyleFinishResult {
   draft: WorkoutTemplateDraft;
   summary: FreestyleFinishSummary;
+}
+
+/**
+ * Whether a typed set can be ticked done: its weight is one a person could
+ * lift and its reps fit the reps dial. Empty fields are allowed — the finish
+ * decides what an empty set means.
+ *
+ * The fields took anything. "825" for 82,5 was ticked, counted into volume and
+ * shown on the summary, and then the loader dropped the set on the next launch
+ * because nothing over the ceiling is a set.
+ */
+export function isLoggableFreestyleSet(set: Pick<FreestyleSetDraft, 'kg' | 'reps'>): boolean {
+  const kg = set.kg.trim() ? parseNumberInput(set.kg) : null;
+  const reps = set.reps.trim() ? parseNumberInput(set.reps) : null;
+  if (set.kg.trim() && !isLiftableWeight(kg)) {
+    return false;
+  }
+  if (set.reps.trim() && (reps === null || reps < 0 || reps > REPS_DIAL.max)) {
+    return false;
+  }
+  return true;
 }
 
 function setVolumeKg(set: FreestyleSetDraft) {
