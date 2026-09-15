@@ -63,6 +63,7 @@ import {
   getGuidedPhaseLabel,
   getGuidedSessionTitle,
   getGuidedSkipTargetIndex,
+  rollPastLoggedWork,
   getGuidedStepAnchor,
   getGuidedStepLabel,
   isGuidedExerciseOut,
@@ -76,6 +77,7 @@ import {
 import { formatLastOwnBlock, OwnBlockPhase, OwnBlockStats } from '../lib/ownBlockHistory';
 import { buildWarmupBrief } from '../lib/warmupBrief';
 import { HOLD_DIAL, REPS_DIAL, commitDialReps, commitDialWeight, stepDialReps, stepDialWeight } from '../lib/weightDial';
+import { isLiftableWeight } from '../lib/weightLimits';
 import { getExerciseInstructions } from '../lib/exerciseInstructions';
 import { getExerciseTeaching } from '../lib/exerciseTeaching';
 import { buildExerciseSheetHistory, LastTimeView } from '../lib/exerciseSheetHistory';
@@ -251,6 +253,12 @@ interface GuidedPlayerScreenProps {
   onEndSession: () => void;
   onFinishSession: () => void;
   isSavingWorkout: boolean;
+  /**
+   * The finish's save was refused. The finish step says so and offers the
+   * save again; it used to be an empty screen with the bar hidden and a toast
+   * that was gone in three seconds.
+   */
+  saveFailed?: boolean;
   /** Rest & alerts settings (design: Background Timer). */
   restAlerts?: { alerts: boolean; warning: boolean; ongoing: boolean; asked: boolean };
   /** The first-rest permission sheet was answered — see restAlertsAnswered. */
@@ -1115,6 +1123,7 @@ export function GuidedPlayerScreen({
   onEndSession,
   onFinishSession,
   isSavingWorkout,
+  saveFailed = false,
   restAlerts = { alerts: true, warning: true, ongoing: true, asked: false },
   onRestAlertsAnswered,
   autoResume = false,
@@ -1436,6 +1445,12 @@ export function GuidedPlayerScreen({
     (index: number) => {
       const clamped = Math.min(Math.max(0, index), steps.length - 1);
       setPaused(false);
+      // Moving on is resuming. The set screen's pause stops the session clock,
+      // and only its own button started it again: pause, then Log, Swap or
+      // Skip, and the clock stayed frozen for the rest of the workout.
+      if (workout.activeSession?.pausedAt) {
+        workout.resumeWorkout();
+      }
       setPauseSheetOpen(false);
       setHowtoOpen(false);
       const target = steps[clamped];
@@ -1616,6 +1631,13 @@ export function GuidedPlayerScreen({
   const showResume = opening.primaryAction === 'resume';
 
   const confirmSet = (slotId: string, setIndex: number, reps: number, loadKg: number | null) => {
+    // A logged set is corrected from the rest screen, not logged again: the
+    // store refuses it, and writing the draft first only made the screen look
+    // as if the new numbers had been kept.
+    if (isSetCompleted(slotId, setIndex)) {
+      advance();
+      return;
+    }
     workout.updateSetDraft(slotId, setIndex, {
       repsText: String(reps),
       loadText: loadKg === null ? '' : removeTrailingZeros(loadKg),
@@ -1837,6 +1859,9 @@ export function GuidedPlayerScreen({
     setSwapOpen(false);
     setSwapQuery('');
     setPaused(false);
+    if (workout.activeSession?.pausedAt) {
+      workout.resumeWorkout();
+    }
   };
 
   // Skipping an exercise removes its steps from the list, so the index we are
@@ -1852,13 +1877,17 @@ export function GuidedPlayerScreen({
   // exercise before logging anything — the rack is taken, so you move on —
   // threw the user back to the start of the warm-up.
   const resyncTargetRef = useRef<number | null>(null);
+  const isSetCompletedRef = useRef(isSetCompleted);
+  isSetCompletedRef.current = isSetCompleted;
   useEffect(() => {
     const target = resyncTargetRef.current;
     if (target === null) {
       return;
     }
     resyncTargetRef.current = null;
-    goToRef.current(Math.min(target, steps.length - 1));
+    // Past what is already logged: inside a superset the block's start is the
+    // other lift's round, done (see rollPastLoggedWork).
+    goToRef.current(rollPastLoggedWork(steps, Math.min(target, steps.length - 1), isSetCompletedRef.current));
   }, [steps]);
 
   const handleSkipExercise = () => {
@@ -1874,6 +1903,9 @@ export function GuidedPlayerScreen({
     workout.skipExercise(actionSlotId);
     setPauseSheetOpen(false);
     setPaused(false);
+    if (workout.activeSession?.pausedAt) {
+      workout.resumeWorkout();
+    }
   };
 
   const handleAddSet = () => {
@@ -3178,7 +3210,11 @@ export function GuidedPlayerScreen({
       )}
 
       {mode === 'player' && step.type === 'finish' && (
-        <FinishView onFinish={onFinishSession} />
+        <FinishView
+          onFinish={onFinishSession}
+          saveFailed={saveFailed && !isSavingWorkout}
+          language={language}
+        />
       )}
 
 
@@ -3302,6 +3338,7 @@ export function GuidedPlayerScreen({
           language={language}
           unitPreference={unitPreference}
           unloaded={isUnloadedTrackingMode(exerciseBySlot.get(step.slotId)?.trackingMode ?? 'load_and_reps')}
+          timed={isTimedTrackingMode(exerciseBySlot.get(step.slotId)?.trackingMode ?? 'load_and_reps')}
           reps={findSetByIndex(exerciseBySlot.get(step.slotId), step.setIndex)?.actualReps ?? 0}
           loadKg={findSetByIndex(exerciseBySlot.get(step.slotId), step.setIndex)?.actualLoadKg ?? 0}
           onCancel={() => setRestEditOpen(false)}
@@ -3756,6 +3793,7 @@ function LoggedSetEditor({
   language,
   unitPreference,
   unloaded,
+  timed,
   reps,
   loadKg,
   onCancel,
@@ -3764,6 +3802,8 @@ function LoggedSetEditor({
   language: AppLanguage;
   unitPreference: UnitPreference;
   unloaded: boolean;
+  /** A hold: the number is seconds, and its ceiling is the hold dial's. */
+  timed: boolean;
   reps: number;
   loadKg: number;
   onCancel: () => void;
@@ -3777,7 +3817,13 @@ function LoggedSetEditor({
 
   const nextReps = Math.round(parseNumberInput(repsDraft) ?? reps);
   const nextLoad = unloaded ? null : parseNumberInput(loadDraft) ?? loadKg;
-  const valid = nextReps > 0 && (unloaded || (nextLoad !== null && nextLoad >= 0));
+  // The dials' own ceilings. Without them "825" for 82,5 saved, showed on the
+  // summary, and was then dropped from the log on the next load — and opened
+  // the next session at 825.
+  const valid =
+    nextReps > 0 &&
+    nextReps <= (timed ? HOLD_DIAL.max : REPS_DIAL.max) &&
+    (unloaded || isLiftableWeight(nextLoad));
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onCancel}>
@@ -4298,7 +4344,16 @@ function SetStepView({
   );
 }
 
-function FinishView({ onFinish }: { onFinish: () => void }) {
+function FinishView({
+  onFinish,
+  saveFailed,
+  language,
+}: {
+  onFinish: () => void;
+  saveFailed: boolean;
+  language: AppLanguage;
+}) {
+  const styles = useThemedStyles(makeStyles);
   const firedRef = useRef(false);
 
   // Fires once on arrival: the summary is the destination now, so there is
@@ -4314,6 +4369,20 @@ function FinishView({ onFinish }: { onFinish: () => void }) {
   // Nothing to read here, on purpose. "{title} — valmis" and a spinner
   // flashed between the last set and the summary, and a screen that exists for
   // the length of a save should not say anything (user 2026-09-09).
+  //
+  // Unless the save was refused: then this screen is where the reader is left,
+  // and it has to say so and offer the save again.
+  if (saveFailed) {
+    return (
+      <StepIn stepKey="finish-failed">
+        <View style={styles.finishFailed}>
+          <Text style={styles.finishFailedTitle}>{t(language, 'guided.finish.saveFailed.title')}</Text>
+          <Text style={styles.finishFailedBody}>{t(language, 'guided.finish.saveFailed.body')}</Text>
+          <BigBtn label={t(language, 'guided.finish.saveFailed.retry')} onPress={onFinish} />
+        </View>
+      </StepIn>
+    );
+  }
   return (
     <StepIn stepKey="finish">
       <View style={{ flex: 1 }} />
@@ -5186,6 +5255,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 14,
   },
   editTitle: { fontSize: 19, fontWeight: '800', color: theme.ink },
+  // The finish step is the dark screen, so its failure copy is on GPD's ink.
+  finishFailed: { flex: 1, justifyContent: 'center', paddingHorizontal: 24, gap: 14 },
+  finishFailedTitle: { fontSize: 24, fontWeight: '800', color: GPD.ink },
+  finishFailedBody: { fontSize: 15, lineHeight: 22, color: GPD.muted, marginBottom: 10 },
   editBtn: {
     flex: 1,
     height: 54,

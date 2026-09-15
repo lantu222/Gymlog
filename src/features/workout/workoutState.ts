@@ -7,7 +7,10 @@ import {
   startCardioSession,
 } from '../../lib/cardio';
 import { CardioActivityType } from '../../types/models';
-import { isUnloadedTrackingMode } from './workoutTypes';
+import { isTimedTrackingMode, isUnloadedTrackingMode } from './workoutTypes';
+import { parseIntervalScheme } from '../../lib/intervalScheme';
+import { HOLD_DIAL, REPS_DIAL } from '../../lib/weightDial';
+import { isLiftableWeight } from '../../lib/weightLimits';
 import { isGuidedExerciseOut } from '../../lib/guidedPlayer';
 import { buildSupersetPlayOrder, supersetGroupIndexes } from '../../lib/supersetGrouping';
 import { GuidedResumeAnchor, WorkoutTrackingMode, WorkoutTemplateExercise, WorkoutExerciseInsertInput, WorkoutExerciseInstance, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRestTimerState, WorkoutRuntimeTemplate, WorkoutSessionMaterializeOptions, WorkoutSessionRuntime, WorkoutSessionSummary, WorkoutSetDraftInput, WorkoutSetEffort, WorkoutSetInstance, WorkoutSlotHistoryEntry, WorkoutSlotHistorySet, WorkoutStatus, WorkoutUiState, WorkoutExerciseStatus } from './workoutTypes';
@@ -716,6 +719,16 @@ function restBelongsAfter(
 }
 
 /**
+ * The most a set can count: the reps dial's top, or the hold dial's seconds —
+ * for a hold, and for an interval bout, whose number is its work seconds.
+ */
+function repsCeilingFor(exercise: Pick<WorkoutExerciseInstance, 'trackingMode' | 'exerciseName'>) {
+  return isTimedTrackingMode(exercise.trackingMode) || parseIntervalScheme(exercise.exerciseName) !== null
+    ? HOLD_DIAL.max
+    : REPS_DIAL.max;
+}
+
+/**
  * How long that rest runs. A superset rests as long as the most demanding lift
  * in it asks for — a squat paired with a curl is still a squat — which is the
  * same rule the guided player's step list uses.
@@ -1100,12 +1113,21 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       }
 
       const actualReps = resolveDraftReps(set);
-      if (!actualReps || actualReps <= 0) {
+      if (!actualReps || actualReps <= 0 || actualReps > repsCeilingFor(exercise)) {
         return state;
       }
 
       const actualLoadKg = resolveDraftLoadKg(set, action.payload.unitPreference);
-      if (!isUnloadedTrackingMode(exercise.trackingMode) && (actualLoadKg === null || actualLoadKg === undefined)) {
+      // An interval work bout is logged by the player with no load: a treadmill
+      // speed is not a weight. Its catalog rows are `reps_first`, so the load
+      // rule refused every bout — eight sprints ran, and none of them was kept.
+      const unloaded = isUnloadedTrackingMode(exercise.trackingMode) || parseIntervalScheme(exercise.exerciseName) !== null;
+      if (!unloaded && (actualLoadKg === null || actualLoadKg === undefined)) {
+        return state;
+      }
+      // Nothing above the dial's ceiling is a set anybody lifted, and the
+      // loader drops it on the next launch anyway.
+      if (typeof actualLoadKg === 'number' && !isLiftableWeight(actualLoadKg)) {
         return state;
       }
 
@@ -1173,11 +1195,17 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       if (!set || set.status !== 'completed') {
         return state;
       }
-      if (!Number.isFinite(action.payload.reps) || action.payload.reps <= 0) {
+      if (
+        !Number.isFinite(action.payload.reps) ||
+        action.payload.reps <= 0 ||
+        action.payload.reps > repsCeilingFor(exercise)
+      ) {
         return state;
       }
       const unloaded = isUnloadedTrackingMode(exercise.trackingMode);
-      if (!unloaded && (action.payload.loadKg === null || !Number.isFinite(action.payload.loadKg))) {
+      // Same ceiling as the dial: "825" typed for 82,5 was accepted here,
+      // shown on the summary, then dropped from the log on the next load.
+      if (!unloaded && !isLiftableWeight(action.payload.loadKg)) {
         return state;
       }
 

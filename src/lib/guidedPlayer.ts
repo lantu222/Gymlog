@@ -938,6 +938,53 @@ export function resolveGuidedResumeIndex(
   return firstIncomplete;
 }
 
+/**
+ * From an index, past work that is already done: a logged set, and a rest or
+ * walk-up whose set is logged.
+ *
+ * After a lift leaves the plan the player lands where that block started, and
+ * inside a superset that is the other lift's round — already logged. Skip A
+ * in round 2 and the screen showed B's first set, done; skip B and it showed
+ * A's rest, then A's logged set. Pressing Log there changed nothing but the
+ * draft, and the player moved on, so the set the reader really did was lost.
+ */
+export function rollPastLoggedWork(
+  steps: GuidedStep[],
+  from: number,
+  isSetCompleted: (slotId: string, setIndex: number) => boolean,
+): number {
+  const lastIndex = steps.length - 1;
+  let cursor = Math.min(Math.max(0, from), Math.max(0, lastIndex));
+  while (cursor < lastIndex) {
+    const step = steps[cursor];
+    if (step.type === 'set') {
+      if (!isSetCompleted(step.slotId, step.setIndex)) {
+        break;
+      }
+      cursor += 1;
+      // The rest right after a logged set belongs to it, as on resume.
+      if (steps[cursor]?.type === 'rest') {
+        cursor += 1;
+      }
+      continue;
+    }
+    if (step.type === 'rest' || step.type === 'position') {
+      // A lead-in leads to the next set. When that set is logged, it leads nowhere.
+      let next = cursor + 1;
+      while (next <= lastIndex && (steps[next].type === 'rest' || steps[next].type === 'position')) {
+        next += 1;
+      }
+      const target = steps[next];
+      if (target?.type === 'set' && isSetCompleted(target.slotId, target.setIndex)) {
+        cursor = next;
+        continue;
+      }
+    }
+    break;
+  }
+  return cursor;
+}
+
 /** Skip target: next step, jumping over the rest that follows a skipped set. */
 export function getGuidedSkipTargetIndex(steps: GuidedStep[], index: number): number {
   const lastIndex = steps.length - 1;

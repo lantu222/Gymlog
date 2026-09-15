@@ -39,6 +39,7 @@ import {
   carryForwardFreestyleSet,
   exerciseInitials,
   freestyleDoneSetCount,
+  isLoggableFreestyleSet,
   freestyleNextSetTarget,
   freestyleRestSecondsForTick,
   freestyleVolumeKg,
@@ -744,6 +745,13 @@ export function EmptyWorkoutScreen({
     const exercise = exercises.find((entry) => entry.localKey === exerciseKey);
     const set = exercise?.sets.find((entry) => entry.localKey === setKey);
     if (!exercise || !set) {
+      return;
+    }
+
+    // A set nobody could have lifted is not ticked (isLoggableFreestyleSet):
+    // the buzz and the untouched box say the numbers need a look.
+    if (!set.done && !isLoggableFreestyleSet(set)) {
+      void haptics.error();
       return;
     }
 
