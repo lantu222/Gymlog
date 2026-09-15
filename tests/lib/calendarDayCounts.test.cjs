@@ -125,7 +125,7 @@ module.exports = [
       assert.doesNotMatch(lastDone, /86400000|86_400_000/);
 
       const app = strip(read('App.tsx'));
-      assert.match(app, /daysSinceLogged: Math\.max\(0, calendarDaysBetween\(history\.latest\.time, now\)\)/);
+      assert.match(app, /daysSinceLogged: Math\.max\(0, calendarDaysBetween\(lastLoggedAt, now\)\)/);
 
       const progress = strip(read('src', 'screens', 'ProgressScreen.tsx'));
       assert.doesNotMatch(progress, /toISOString\(\)\.slice\(0, (7|10)\)/, 'a chart groups by UTC day or month');

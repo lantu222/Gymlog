@@ -147,13 +147,13 @@ module.exports = [
       assert.doesNotMatch(app, /programsGoalCandidates/);
       assert.doesNotMatch(app, /buildGoalPresetRows\(/, 'the page of round numbers is back');
       assert.match(app, /const goalFlowLifts = useMemo/);
-      assert.match(app, /rate: resolveObservedRate\(history\.points\)/);
+      assert.match(app, /rate: resolveObservedRate\(histories\.flatMap\(\(entry\) => entry\.points\)\)/);
       // The named eight, not the library: nobody puts a number on a cable
       // crossover, and step 3 has no programme to show for most of the 876.
       assert.match(app, /STRENGTH_GOAL_PRESETS\.map\(\(preset\) =>/);
       // Measured against the user's own log, through the same histories the
       // Pro insights read.
-      assert.match(app, /proLiftHistories\.find\(/);
+      assert.match(app, /proLiftHistories\.filter\(/);
       // Its own screen, reachable from the tab's target section.
       assert.match(app, /screen: 'goalFlow'/);
       assert.doesNotMatch(app, /screen: 'goalPicker'/);

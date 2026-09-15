@@ -1,5 +1,6 @@
 import { buildAiCoachActions } from './aiCoachActions';
-import { t } from './i18n';
+import { I18nKey, t } from './i18n';
+import { liftGroupOf } from './liftIdentity';
 import { AICoachAdvice, AICoachPlateauSummary, AICoachTrainingContext } from '../types/aiCoach';
 import { AppLanguage } from '../types/models';
 import { applyDecimalSeparator, removeTrailingZeros } from './format';
@@ -55,12 +56,57 @@ function formatRecentSessionLine(context: AICoachTrainingContext, language: AppL
   return t(language, 'coachPreview.last', { title: session.title });
 }
 
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** The word itself, standing alone — "run", never the "run" in "crunches" or "runo". */
+function hasWord(text: string, word: string) {
+  return new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegExp(word)}($|[^\\p{L}\\p{N}])`, 'u').test(text);
+}
+
+/** A word that starts with this stem — "palautu" in "palautunut", never mid-word. */
+function hasWordStart(text: string, stem: string) {
+  return new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegExp(stem)}`, 'u').test(text);
+}
+
+/**
+ * The lifts a question names, as lift groups. Finnish stems are the ones that
+ * mean the lift and not the furniture: "penkki" and "penkin" are the bench
+ * press, "penkillä" is sitting on one.
+ */
+const ASKED_LIFTS: ReadonlyArray<{ liftName: string; stems: readonly string[] }> = [
+  { liftName: 'bench press', stems: ['bench', 'penkki', 'penkin'] },
+  { liftName: 'squat', stems: ['squat', 'kyyk'] },
+  { liftName: 'deadlift', stems: ['deadlift', 'maastaveto', 'maastaved', 'maasta'] },
+];
+
+function askedLiftGroups(lower: string): number[] {
+  return ASKED_LIFTS.filter((lift) => lift.stems.some((stem) => hasWordStart(lower, stem)))
+    .map((lift) => liftGroupOf(lift.liftName))
+    .filter((group): group is number => group !== null);
+}
+
+/** Words every kind of lift shares; matching on them is matching on nothing. */
+const SHARED_EXERCISE_WORDS = new Set(['barbell', 'dumbbell', 'kettlebell', 'cable', 'machine', 'smith', 'band', 'press', 'seated', 'standing']);
+
 function findMatchingPlateau(lower: string, context: AICoachTrainingContext) {
+  const groups = askedLiftGroups(lower);
   return context.plateaus.find((p) => {
-    if (lower.includes(p.exerciseKey)) return true;
-    // match on any meaningful word in the exercise name (min 4 chars to avoid false positives)
-    return p.name.toLowerCase().split(/\s+/).some((word) => word.length >= 4 && lower.includes(word));
+    // The same lift under any spelling: "kyykky jumissa" finds a Back Squat.
+    const group = liftGroupOf(p.name);
+    if (group !== null && groups.includes(group)) return true;
+    if (hasWordStart(lower, p.exerciseKey)) return true;
+    // A distinctive word of the name — "barbell" made "my barbell bench"
+    // answer about Barbell Row.
+    return p.name
+      .toLowerCase()
+      .split(/\s+/)
+      .some((word) => word.length >= 4 && !SHARED_EXERCISE_WORDS.has(word) && hasWordStart(lower, word));
   });
+}
+
+/** The load level in the reader's language, not the model's English token. */
+function signalLabel(signal: AICoachTrainingContext['fatigue']['signal'], language: AppLanguage) {
+  return t(language, `coachPreview.signal.${signal}` as I18nKey);
 }
 
 function plateauWeight(p: AICoachPlateauSummary, unit: string, language: AppLanguage) {
@@ -96,7 +142,7 @@ function buildCombinedResponse(
         weight,
         count: plateau.stagnantSessions,
       }),
-      t(language, 'coachPreview.combined.why2', { signal, acwr: applyDecimalSeparator(`${acwr}`), recovery: recoveryScore }),
+      t(language, 'coachPreview.combined.why2', { signal: signalLabel(signal, language), acwr: applyDecimalSeparator(`${acwr}`), recovery: recoveryScore }),
       t(language, 'coachPreview.combined.why3'),
     ],
     nextSteps: [
@@ -166,7 +212,7 @@ function buildHighFatigueResponse(
       signal === 'high' ? 'coachPreview.fatigue.takeawayHigh' : 'coachPreview.fatigue.takeawayElevated',
     ),
     why: [
-      t(language, 'coachPreview.fatigue.why1', { acwr: applyDecimalSeparator(`${acwr}`), signal }),
+      t(language, 'coachPreview.fatigue.why1', { acwr: applyDecimalSeparator(`${acwr}`), signal: signalLabel(signal, language) }),
       t(language, 'coachPreview.fatigue.why2', { recovery: recoveryScore }),
       t(language, 'coachPreview.fatigue.why3', { sessions: sessionsWord(sessionCount7d, language) }),
     ],
@@ -205,8 +251,21 @@ export function buildAiCoachPreviewAnswer(
   const hasPlateau = context.plateaus.length > 0;
   const primaryPlateau = context.plateaus[0];
 
-  // Running questions bypass all context signals — different domain
-  if (lower.includes('20 km') || lower.includes('juosta') || lower.includes('juoks') || lower.includes('run') || lower.includes('challenge')) {
+  // Running questions bypass all context signals — different domain.
+  //
+  // Whole words, not substrings: `includes('run')` sent "crunches", "runsaasti
+  // proteiinia", "rungon lihakset", "runo", "perunaa" and "brunssi" to a
+  // 20 km running plan.
+  if (
+    lower.includes('20 km') ||
+    hasWordStart(lower, 'juosta') ||
+    hasWordStart(lower, 'juoks') ||
+    hasWord(lower, 'run') ||
+    hasWord(lower, 'runs') ||
+    hasWordStart(lower, 'running') ||
+    hasWordStart(lower, 'runner') ||
+    hasWordStart(lower, 'challenge')
+  ) {
     return {
       takeaway: t(language, 'coachPreview.run.takeaway'),
       why: [
@@ -230,8 +289,133 @@ export function buildAiCoachPreviewAnswer(
     };
   }
 
-  // Explicit recovery question: show detailed fatigue breakdown regardless of signal level
-  if (lower.includes('palautu') || lower.includes('väsy') || lower.includes('recovery') || lower.includes('fatigue') || lower.includes('tired') || lower.includes('overtraining')) {
+  // The app's own quick-ask chips come before the reader's signals. With a
+  // plateau on record, "Analysoi viime treenini" and "Paljonko proteiinia
+  // tavoitteeseeni?" both answered with the bench plateau; with load up,
+  // "Analyze my last workout" answered "take a lighter week".
+  //
+  // "Analyse my last workout" is one of the app's own quick-ask chips, and it
+  // matched nothing — so tapping it spent a free question and answered "ask a
+  // clearer question". Everything below is read from the stored session.
+  if (
+    hasWordStart(lower, 'analys') ||
+    hasWordStart(lower, 'analyz') ||
+    lower.includes('viime treeni') ||
+    lower.includes('edellinen treeni') ||
+    lower.includes('last workout') ||
+    lower.includes('last session')
+  ) {
+    const session = context.recentCompletedSessions[0];
+    if (!session) {
+      return {
+        unanswered: true,
+        takeaway: t(language, 'coachPreview.lastSession.noneTakeaway'),
+        why: [t(language, 'coachPreview.lastSession.noneWhy')],
+        nextSteps: [t(language, 'coachPreview.lastSession.noneNext')],
+        plan: [],
+        assumptions: [previewAssumption(language)],
+        actions: buildAiCoachActions(prompt, context),
+      };
+    }
+
+    const shape = [
+      session.setsCompleted !== null
+        ? t(language, 'coachPreview.lastSession.sets', { count: session.setsCompleted })
+        : null,
+      session.durationMinutes !== null
+        ? t(language, 'coachPreview.lastSession.minutes', { count: session.durationMinutes })
+        : null,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+
+    return {
+      takeaway: t(language, 'coachPreview.lastSession.takeaway', { title: session.title }),
+      why: [
+        shape || t(language, 'coachPreview.lastSession.noShape'),
+        topSetLine
+          ? t(language, 'coachPreview.lastSession.topSet', { line: topSetLine })
+          : t(language, 'coachPreview.lastSession.noTopSet'),
+        t(language, 'coachPreview.lastSession.rhythm', {
+          week: context.sessionsThisWeek,
+          month: context.sessionsLast30Days,
+        }),
+      ],
+      nextSteps: [
+        hasPlateau && primaryPlateau
+          ? t(language, 'coachPreview.lastSession.nextPlateau', { name: exerciseNameLabel(language, primaryPlateau.name) })
+          : t(language, 'coachPreview.lastSession.next1'),
+        hasHighFatigue
+          ? t(language, 'coachPreview.lastSession.nextFatigue')
+          : t(language, 'coachPreview.lastSession.next2'),
+        session.swappedExercises > 0
+          ? t(language, 'coachPreview.lastSession.nextSwaps', { count: session.swappedExercises })
+          : t(language, 'coachPreview.lastSession.next3'),
+      ],
+      plan: [
+        t(language, 'coachPreview.lastSession.plan1'),
+        t(language, 'coachPreview.lastSession.plan2'),
+      ],
+      assumptions: [previewAssumption(language)],
+      actions: buildAiCoachActions(prompt, context),
+    };
+  }
+
+  // "How much protein?" — the other chip that matched nothing. Vinha does not
+  // track food, and the honest answer says so before it says anything else.
+  // Before recovery, too: "protein for recovery" is a food question.
+  if (
+    hasWordStart(lower, 'proteiin') ||
+    hasWordStart(lower, 'protein') ||
+    hasWordStart(lower, 'ravinto') ||
+    hasWordStart(lower, 'kalori') ||
+    hasWordStart(lower, 'calorie') ||
+    hasWordStart(lower, 'nutrition') ||
+    hasWordStart(lower, 'syöd')
+  ) {
+    return {
+      takeaway: t(language, 'coachPreview.protein.takeaway'),
+      why: [
+        t(language, 'coachPreview.protein.why1'),
+        t(language, 'coachPreview.protein.why2'),
+        t(language, 'coachPreview.protein.why3'),
+      ],
+      nextSteps: [
+        t(language, 'coachPreview.protein.next1'),
+        t(language, 'coachPreview.protein.next2'),
+        t(language, 'coachPreview.protein.next3'),
+      ],
+      plan: [t(language, 'coachPreview.protein.plan1'), t(language, 'coachPreview.protein.plan2')],
+      assumptions: [previewAssumption(language), t(language, 'coachPreview.protein.assume')],
+      actions: buildAiCoachActions(prompt, context),
+    };
+  }
+
+  // Explicit recovery question: the load breakdown, when there is enough
+  // history to have one. Rest between sets is not this question.
+  const asksRestBetweenSets = /sarjojen väli|between sets/.test(lower);
+  if (
+    !asksRestBetweenSets &&
+    (hasWordStart(lower, 'palautu') ||
+      hasWordStart(lower, 'väsy') ||
+      hasWordStart(lower, 'recover') ||
+      hasWordStart(lower, 'fatigue') ||
+      hasWordStart(lower, 'tired') ||
+      hasWordStart(lower, 'overtrain'))
+  ) {
+    // The rule the file opens with, applied here too: one first-ever session
+    // answered "cut volume 30–40 %, ACWR 4, recovery 0/100".
+    if (!context.fatigue.confident) {
+      return {
+        unanswered: true,
+        takeaway: t(language, 'coachPreview.recovery.thinTakeaway'),
+        why: [t(language, 'coachPreview.recovery.thinWhy')],
+        nextSteps: [t(language, 'coachPreview.recovery.thinNext')],
+        plan: [],
+        assumptions: [previewAssumption(language)],
+        actions: buildAiCoachActions(prompt, context),
+      };
+    }
     const { signal, acwr, recoveryScore, sessionCount7d } = context.fatigue;
     const isHigh = signal === 'elevated' || signal === 'high';
     return {
@@ -253,7 +437,8 @@ export function buildAiCoachPreviewAnswer(
               : signal === 'undertrained'
                 ? 'coachPreview.recovery.why1Under'
                 : 'coachPreview.recovery.why1Ok',
-          { acwr },
+          // The app's decimal separator, like every other ACWR line here.
+          { acwr: applyDecimalSeparator(`${acwr}`) },
         ),
         t(language, 'coachPreview.fatigue.why2', { recovery: recoveryScore }),
         t(language, 'coachPreview.recovery.why3', { sessions: sessionsWord(sessionCount7d, language) }),
@@ -288,7 +473,7 @@ export function buildAiCoachPreviewAnswer(
   }
 
   // Specific lift question — check for matching plateau, then fatigue
-  if (lower.includes('bench') || lower.includes('penk') || lower.includes('squat') || lower.includes('kyyk') || lower.includes('deadlift') || lower.includes('maasta')) {
+  if (askedLiftGroups(lower).length > 0) {
     const plateau = findMatchingPlateau(lower, context);
 
     if (plateau && hasHighFatigue) {
@@ -359,102 +544,6 @@ export function buildAiCoachPreviewAnswer(
         t(language, 'coachPreview.program.plan3'),
       ],
       assumptions: [previewAssumption(language)],
-      actions: buildAiCoachActions(prompt, context),
-    };
-  }
-
-  // "Analyse my last workout" is one of the app's own quick-ask chips, and it
-  // matched nothing — so tapping it spent a free question and answered "ask a
-  // clearer question". Everything below is read from the stored session.
-  if (
-    lower.includes('analys') ||
-    lower.includes('analyz') ||
-    lower.includes('viime treeni') ||
-    lower.includes('edellinen treeni') ||
-    lower.includes('last workout') ||
-    lower.includes('last session')
-  ) {
-    const session = context.recentCompletedSessions[0];
-    if (!session) {
-      return {
-        unanswered: true,
-        takeaway: t(language, 'coachPreview.lastSession.noneTakeaway'),
-        why: [t(language, 'coachPreview.lastSession.noneWhy')],
-        nextSteps: [t(language, 'coachPreview.lastSession.noneNext')],
-        plan: [],
-        assumptions: [previewAssumption(language)],
-        actions: buildAiCoachActions(prompt, context),
-      };
-    }
-
-    const shape = [
-      session.setsCompleted !== null
-        ? t(language, 'coachPreview.lastSession.sets', { count: session.setsCompleted })
-        : null,
-      session.durationMinutes !== null
-        ? t(language, 'coachPreview.lastSession.minutes', { count: session.durationMinutes })
-        : null,
-    ]
-      .filter(Boolean)
-      .join(' \u00b7 ');
-
-    return {
-      takeaway: t(language, 'coachPreview.lastSession.takeaway', { title: session.title }),
-      why: [
-        shape || t(language, 'coachPreview.lastSession.noShape'),
-        topSetLine
-          ? t(language, 'coachPreview.lastSession.topSet', { line: topSetLine })
-          : t(language, 'coachPreview.lastSession.noTopSet'),
-        t(language, 'coachPreview.lastSession.rhythm', {
-          week: context.sessionsThisWeek,
-          month: context.sessionsLast30Days,
-        }),
-      ],
-      nextSteps: [
-        hasPlateau && primaryPlateau
-          ? t(language, 'coachPreview.lastSession.nextPlateau', { name: exerciseNameLabel(language, primaryPlateau.name) })
-          : t(language, 'coachPreview.lastSession.next1'),
-        hasHighFatigue
-          ? t(language, 'coachPreview.lastSession.nextFatigue')
-          : t(language, 'coachPreview.lastSession.next2'),
-        session.swappedExercises > 0
-          ? t(language, 'coachPreview.lastSession.nextSwaps', { count: session.swappedExercises })
-          : t(language, 'coachPreview.lastSession.next3'),
-      ],
-      plan: [
-        t(language, 'coachPreview.lastSession.plan1'),
-        t(language, 'coachPreview.lastSession.plan2'),
-      ],
-      assumptions: [previewAssumption(language)],
-      actions: buildAiCoachActions(prompt, context),
-    };
-  }
-
-  // "How much protein?" — the other chip that matched nothing. Vinha does not
-  // track food, and the honest answer says so before it says anything else.
-  if (
-    lower.includes('proteiin') ||
-    lower.includes('protein') ||
-    lower.includes('ravinto') ||
-    lower.includes('kalori') ||
-    lower.includes('calorie') ||
-    lower.includes('nutrition') ||
-    lower.includes('sy\u00f6d')
-  ) {
-    return {
-      takeaway: t(language, 'coachPreview.protein.takeaway'),
-      why: [
-        t(language, 'coachPreview.protein.why1'),
-        t(language, 'coachPreview.protein.why2'),
-        t(language, 'coachPreview.protein.why3'),
-      ],
-      nextSteps: [
-        t(language, 'coachPreview.protein.next1'),
-        t(language, 'coachPreview.protein.next2'),
-        t(language, 'coachPreview.protein.next3'),
-      ],
-      plan: [t(language, 'coachPreview.protein.plan1'), t(language, 'coachPreview.protein.plan2')],
-      assumptions: [previewAssumption(language), t(language, 'coachPreview.protein.assume')],
       actions: buildAiCoachActions(prompt, context),
     };
   }

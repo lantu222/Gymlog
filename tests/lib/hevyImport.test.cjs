@@ -105,7 +105,7 @@ module.exports = [
                 outcome: 'completed',
                 status: 'completed',
               })),
-              tracked: false,
+              tracked: true,
               orderIndex,
             })),
           });
@@ -131,6 +131,34 @@ module.exports = [
       const second = persistAll();
       assert.deepEqual(second, { imported: 0, duplicates: 2 });
       assert.equal(database.workoutSessions.length, 2);
+    },
+  },
+  {
+    name: 'hevyImport: a note written on two lines keeps its workout',
+    run() {
+      // A quoted description with a line break used to split every row of the
+      // workout in two; the halves did not parse and all six sets were dropped
+      // as "cardio and duration-only blocks".
+      const multiline = [
+        HEADER,
+        '"Push","10 Jun 2024, 08:15","10 Jun 2024, 09:05","Felt strong.\nShoulder fine.","Bench Press (Barbell)",,"Pause on chest\r\nevery rep",1,normal,80,8,,,',
+        '"Push","10 Jun 2024, 08:15","10 Jun 2024, 09:05","Felt strong.\nShoulder fine.","Bench Press (Barbell)",,,2,normal,80,6,,,',
+      ].join('\r\n');
+      const preview = parseHevyCsv(multiline);
+      assert.equal(preview.skippedRowCount, 0);
+      assert.equal(preview.workouts.length, 1);
+      assert.equal(preview.setCount, 2);
+      assert.deepEqual(preview.workouts[0].exercises[0].sets.map((set) => set.reps), [8, 6]);
+    },
+  },
+  {
+    name: 'hevyImport: an imported lift is tracked, so Records and Progress read it',
+    run() {
+      const provider = require('node:fs')
+        .readFileSync(require('node:path').join(__dirname, '..', '..', 'src', 'state', 'AppProvider.tsx'), 'utf8');
+      const importer = provider.slice(provider.indexOf('function importWorkoutHistory('), provider.indexOf('function restoreDatabaseFromBackup('));
+      assert.match(importer, /tracked: true,/);
+      assert.doesNotMatch(importer, /tracked: false/);
     },
   },
 ];

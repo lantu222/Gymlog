@@ -249,11 +249,13 @@ module.exports = [
         const acuteLoad = acwr * 1000;
         // 3 weeks of 1000 each → total28d = 3000 + acuteLoad, chronic = (3000 + acuteLoad)/4
         // We want chronic = 1000, so total28d = 4000, so older weeks contribute 4000 - acuteLoad
+        // The oldest on day 27, so the history covers the window's four weeks
+        // and the chronic load is the four-week average this arithmetic assumes.
         db.workoutSessions = [
           makeSession('acute', daysAgo(1), acuteLoad),
           makeSession('old1', daysAgo(10), (4000 - acuteLoad) / 3),
           makeSession('old2', daysAgo(17), (4000 - acuteLoad) / 3),
-          makeSession('old3', daysAgo(24), (4000 - acuteLoad) / 3),
+          makeSession('old3', daysAgo(27), (4000 - acuteLoad) / 3),
         ];
         return buildFatigueModel({ workoutSessions: db.workoutSessions, exerciseLogs: db.exerciseLogs }, NOW).recoveryScore;
       }
@@ -270,15 +272,38 @@ module.exports = [
   {
     name: 'fatigue: one logged session is not enough history to judge load',
     run() {
-      // 500 acute against 500/4 chronic reads as ACWR 4 — a confident "your
-      // load is well above the safe zone" built from a single workout.
+      // It used to read 500 acute against 500/4 chronic — ACWR 4, a confident
+      // "well above the safe zone" from a single workout. The flag guards it,
+      // and the average no longer counts weeks nobody trained.
       const result = buildFatigueModel(
         { workoutSessions: [makeSession('s1', daysAgo(1), 500)], exerciseLogs: [] },
         NOW,
       );
 
       assert.equal(result.confident, false);
-      assert.ok(result.acwr > 1.5, 'the raw ratio still spikes; the flag is what guards it');
+      assert.equal(result.acwr, 1);
+    },
+  },
+  {
+    name: 'fatigue: a new reader training steadily is not told recovery is low in week three',
+    run() {
+      // Identical 5,000 kg sessions every Mon/Wed/Fri from 31 Aug, read on Mon
+      // 14 Sep, Wed 16 Sep and Fri 18 Sep. Dividing two weeks of load by four
+      // read 1.71 "high" and then "elevated", and holds were applied to Pro loads.
+      withHelsinkiClocks(() => {
+        const days = [31, 2, 4, 7, 9, 11, 14, 16, 18];
+        const months = [7, 8, 8, 8, 8, 8, 8, 8, 8];
+        const sessions = days.map((day, index) =>
+          makeSession(`steady${index}`, new Date(2026, months[index], day, 18, 0, 0).toISOString(), 5000),
+        );
+        for (const [day, count] of [[14, 7], [16, 8], [18, 9]]) {
+          const model = buildFatigueModel(
+            { workoutSessions: sessions.slice(0, count), exerciseLogs: [] },
+            new Date(2026, 8, day, 20, 0, 0),
+          );
+          assert.equal(model.signal, 'optimal', `${day} Sep read ${model.signal} at ACWR ${model.acwr}`);
+        }
+      });
     },
   },
   {

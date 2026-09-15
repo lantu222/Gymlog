@@ -201,14 +201,13 @@ export function resolvePreviousExercisePr({
   exerciseName: string;
   lookup: ExercisePrLookup;
 }) {
-  if (libraryItemId && typeof lookup.byLibraryItemId[libraryItemId] === 'number') {
-    return lookup.byLibraryItemId[libraryItemId];
-  }
-
+  // The higher of the two, never the library row's alone. A free-workout set
+  // is saved with no template, so it reaches only the name index: bench at
+  // 100 kg there and 80 kg in a programme had the programme answer 93 and a
+  // 90 kg set earn a "new record" card, every time, below the real best.
+  const byLibrary = libraryItemId ? lookup.byLibraryItemId[libraryItemId] : undefined;
   const normalizedName = normalize(exerciseName);
-  if (normalizedName && typeof lookup.byName[normalizedName] === 'number') {
-    return lookup.byName[normalizedName];
-  }
-
-  return null;
+  const byName = normalizedName ? lookup.byName[normalizedName] : undefined;
+  const known = [byLibrary, byName].filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+  return known.length > 0 ? Math.max(...known) : null;
 }

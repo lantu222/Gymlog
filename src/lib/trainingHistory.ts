@@ -1,4 +1,5 @@
 import { getCalendarWeekStartAfter, getRollingWindowStart, localDateKey } from './completedSessions';
+import { getComparableLogSets } from './exerciseLog';
 import { getTotalVolume } from './progression';
 import { ExerciseLog, SetupWeekday, WorkoutSession } from '../types/models';
 import { TrainingSchedule, trainsOn } from './trainingSchedule';
@@ -125,18 +126,30 @@ export function sessionTime(session: Pick<WorkoutSession, 'performedAt'>) {
   return Number.isFinite(time) ? time : 0;
 }
 
-/** Heaviest completed set in a log, or null when nothing usable was logged. */
-export function topSetOf(log: ExerciseLog) {
-  if (log.skipped || log.weight <= 0) {
+/**
+ * Heaviest completed set in a log, with its own reps, or null when nothing
+ * usable was logged.
+ *
+ * It paired the log's heaviest weight with the most reps of ANY set: a ramp
+ * of 100 × 3 and a back-off of 70 × 12 came out as "100 kg × 12", which went
+ * into the plateau card and the coach's context as a set nobody did. The
+ * heaviest set now keeps its own reps; at equal weight, the one with more.
+ */
+export function topSetOf(log: ExerciseLog): { weight: number; reps: number } | null {
+  if (log.skipped) {
     return null;
   }
 
-  const reps = (log.repsPerSet ?? []).filter((count) => count > 0);
-  if (reps.length === 0) {
-    return null;
+  let top: { weight: number; reps: number } | null = null;
+  for (const set of getComparableLogSets(log)) {
+    if (!(set.weight > 0) || !(set.reps > 0)) {
+      continue;
+    }
+    if (!top || set.weight > top.weight || (set.weight === top.weight && set.reps > top.reps)) {
+      top = { weight: set.weight, reps: set.reps };
+    }
   }
-
-  return { weight: log.weight, reps: Math.max(...reps) };
+  return top;
 }
 
 export function completedReps(log: ExerciseLog) {
