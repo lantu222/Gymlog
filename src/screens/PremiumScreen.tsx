@@ -55,7 +55,7 @@ interface PremiumScreenProps {
    * random toll gate.
    */
   reason?: 'program_cap' | null;
-  /** Whether Pro is actually on — the preview switch or a live promo code. */
+  /** Whether Pro is actually on — the entitlement's answer: trial, purchase or promo grant. */
   proUnlocked: boolean;
   /**
    * Whether this install may still start the trial. Once it has been used the
@@ -251,9 +251,6 @@ export function PremiumScreen({
     [tier, plan],
   );
 
-  // A redeemed promo cannot be switched off from here, so that reader is sent
-  // to subscription management instead of to a toggle that would do nothing.
-
   const pickTab = (next: ProTierKey) => {
     setTab(next);
     setPlan(defaultPlanForTier(next));
@@ -363,7 +360,7 @@ export function PremiumScreen({
       <View style={styles.foot}>
         {proUnlocked ? (
           <View style={styles.activeCard}>
-            <Text style={styles.activeText}>{t(language, 'promo.proOn')}</Text>
+            <Text style={styles.activeText}>{t(language, 'pro.page.proOn')}</Text>
             {/* One door while Pro is on, and it goes to management. The old
                 second branch here turned Pro OFF from the paywall — free, from
                 inside the app, as often as you liked. A page that sells a

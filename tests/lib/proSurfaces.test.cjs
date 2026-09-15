@@ -87,16 +87,15 @@ module.exports = [
     },
   },
   {
-    name: 'redeeming a promo stores only the expiry, so Pro ends when the code does',
+    name: 'no screen takes a promo code any more: the codes lived in the bundle',
     run() {
-      const redeem = appSource.match(/onRedeemed=\{[^}]*\}/);
-      assert.ok(redeem, 'PromoCodeScreen should still be wired with onRedeemed');
-      assert.match(redeem[0], /promoProUntil: proUntilIso/);
-      assert.doesNotMatch(
-        redeem[0],
-        /adaptiveCoachPremiumUnlocked/,
-        'flipping the preview switch on redemption would make a 30-day code permanent Pro',
-      );
+      // The list of codes shipped inside the APK, so anyone who unpacked it
+      // could redeem without limit (user 2026-09-15: "promokoodit nyt pois").
+      // The door is closed until Play's own promo codes, which Play checks.
+      assert.doesNotMatch(appSource, /PromoCodeScreen|onRedeemed|screen(?: ===|:) 'promo'|onOpenPromo/);
+      assert.doesNotMatch(settingsSource, /onOpenPromo|settings\.promo/);
+      assert.doesNotMatch(i18nSource, /'settings\.promo'|'promo\./);
+      // The files themselves, and any write of the grant, are pinned in proLock.
     },
   },
   {
@@ -419,7 +418,7 @@ module.exports = [
       // button ran onTogglePreview, which flips the switch OFF. The page's only
       // button was a cancel button wearing a purchase label.
       assert.match(premiumSource, /\{proUnlocked \? \(/);
-      assert.match(premiumSource, /t\(language, 'promo\.proOn'\)/);
+      assert.match(premiumSource, /t\(language, 'pro\.page\.proOn'\)/);
       // A subscriber must not be shown a price to select, either — the plan
       // tiles live inside the not-yet-Pro branch, not above it.
       assert.match(premiumSource, /\) : \([\s\S]{0,200}?styles\.planRow/);

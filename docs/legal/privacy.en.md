@@ -137,13 +137,11 @@ Notifications come in three groups: while you train (the rest timer and the live
 
 Turn any group, or all of them, off in Settings → Notifications, or in Android’s own notification settings.
 
-## Payments and promo codes
+## Payments
 
 If you buy Pro, the payment is handled entirely by Google Play. We never see your card number, billing address or any payment detail. The app learns only whether Pro is active, which plan, and until when.
 
-A promo code is checked on your phone, and the app stores only the date until which it keeps Pro on. Nothing about it is sent anywhere.
-
-The free trial works the same way and costs nothing: starting it writes one date on your phone, Pro runs until that date and then stops on its own. Nothing is charged when it ends, nothing is sent anywhere, and no card is asked for. If you have notifications on, the app reminds you two days before it runs out; that reminder is written and shown by your phone, not by us.
+The free trial costs nothing: starting it writes one date on your phone, Pro runs until that date and then stops on its own. Nothing is charged when it ends, nothing is sent anywhere, and no card is asked for. If you have notifications on, the app reminds you two days before it runs out; that reminder is written and shown by your phone, not by us.
 
 ## Feedback, rating and sharing
 

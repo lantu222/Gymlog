@@ -31,7 +31,6 @@ interface SettingsScreenProps {
   onOpenTrainingBreak: () => void;
   /** Hands Home, Progress and Profile their first-run tour back, and goes Home. */
   onReplayTour: () => void;
-  onOpenPromo: () => void;
   onOpenSubscription: () => void;
   /**
    * The ONE Pro page. Every place a reader shows interest in Pro — the
@@ -239,7 +238,6 @@ export function SettingsScreen({
   onOpenNotifications,
   onOpenTrainingBreak,
   onReplayTour,
-  onOpenPromo,
   onOpenSubscription,
   onOpenPremium,
   onOpenLegal,
@@ -424,7 +422,6 @@ export function SettingsScreen({
               onPress={onOpenNotifications}
             />
             <Row icon="body" title={t(language, 'settings.myData')} sub={t(language, 'settings.myData.sub')} chevron onPress={onOpenMyData} />
-            <Row icon="tag" title={t(language, 'settings.promo')} chevron onPress={onOpenPromo} />
             {/* Before Pro the row is the way to Pro; after, it manages it. */}
             <Row
               icon="card"

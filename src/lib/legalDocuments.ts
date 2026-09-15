@@ -227,11 +227,10 @@ const PRIVACY_EN: LegalSection[] = [
     ],
   },
   {
-    heading: 'Payments and promo codes',
+    heading: 'Payments',
     body: [
       'If you buy Pro, the payment is handled entirely by Google Play. We never see your card number, billing address or any payment detail. The app learns only whether Pro is active, which plan, and until when.',
-      'A promo code is checked on your phone, and the app stores only the date until which it keeps Pro on. Nothing about it is sent anywhere.',
-      'The free trial works the same way and costs nothing: starting it writes one date on your phone, Pro runs until that date and then stops on its own. Nothing is charged when it ends, nothing is sent anywhere, and no card is asked for. If you have notifications on, the app reminds you two days before it runs out; that reminder is written and shown by your phone, not by us.',
+      'The free trial costs nothing: starting it writes one date on your phone, Pro runs until that date and then stops on its own. Nothing is charged when it ends, nothing is sent anywhere, and no card is asked for. If you have notifications on, the app reminds you two days before it runs out; that reminder is written and shown by your phone, not by us.',
     ],
   },
   {
@@ -435,11 +434,10 @@ const PRIVACY_FI: LegalSection[] = [
     ],
   },
   {
-    heading: 'Maksut ja kampanjakoodit',
+    heading: 'Maksut',
     body: [
       'Jos ostat Pron, maksun hoitaa kokonaan Google Play. Emme koskaan näe korttinumeroasi, laskutusosoitettasi emmekä mitään maksutietoa. Sovellus saa tietää vain, onko Pro voimassa, mikä tilaus ja mihin asti.',
-      'Kampanjakoodi tarkistetaan puhelimessasi, ja sovellus tallentaa vain päivän, johon asti se pitää Pron päällä. Siitä ei lähetetä mitään mihinkään.',
-      'Ilmainen kokeilu toimii samoin eikä maksa mitään: sen aloittaminen kirjoittaa puhelimeesi yhden päivämäärän, Pro on voimassa siihen asti ja päättyy sitten itsestään. Päättyminen ei veloita mitään, mitään ei lähetetä minnekään, eikä korttia kysytä. Jos ilmoitukset ovat päällä, sovellus muistuttaa kaksi päivää ennen loppua; sen muistutuksen kirjoittaa ja näyttää puhelimesi, emme me.',
+      'Ilmainen kokeilu ei maksa mitään: sen aloittaminen kirjoittaa puhelimeesi yhden päivämäärän, Pro on voimassa siihen asti ja päättyy sitten itsestään. Päättyminen ei veloita mitään, mitään ei lähetetä minnekään, eikä korttia kysytä. Jos ilmoitukset ovat päällä, sovellus muistuttaa kaksi päivää ennen loppua; sen muistutuksen kirjoittaa ja näyttää puhelimesi, emme me.',
     ],
   },
   {

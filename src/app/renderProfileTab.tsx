@@ -31,7 +31,6 @@ import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { PremiumScreen } from '../screens/PremiumScreen';
 import { PremiumUnlockScreen } from '../screens/PremiumUnlockScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
-import { PromoCodeScreen } from '../screens/PromoCodeScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { SubscriptionScreen } from '../screens/SubscriptionScreen';
 import { TrainingBreakScreen } from '../screens/TrainingBreakScreen';
@@ -377,22 +376,6 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
     );
   }
 
-  if (route.screen === 'promo') {
-    return (
-      <PromoCodeScreen
-        language={preferences.appLanguage}
-        promoProUntil={preferences.promoProUntil}
-        // The one rule about who has Pro, not a second clock comparison.
-        promoActive={proEntitlement.source === 'promo'}
-        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
-        // Only the promo date is stored. Flipping the preview switch here too
-        // would make a 30-day code permanent Pro, because nothing ever turns
-        // that switch back off — resolveProEntitlement reads the date itself.
-        onRedeemed={(proUntilIso) => void updatePreferences({ promoProUntil: proUntilIso })}
-      />
-    );
-  }
-
   if (route.screen === 'subscription') {
     return (
       <SubscriptionScreen
@@ -546,7 +529,6 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
         }
         onOpenNotifications={() => navigate({ tab: 'profile', screen: 'notifications' })}
         onOpenTrainingBreak={() => navigate({ tab: 'profile', screen: 'training_break' })}
-        onOpenPromo={() => navigate({ tab: 'profile', screen: 'promo' })}
         onOpenSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
         onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
         account={

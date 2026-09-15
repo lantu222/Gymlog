@@ -3,8 +3,15 @@ import { AppPreferences } from '../types/models';
 
 /**
  * One place decides whether the user has Pro, and it grants it from exactly
- * two things: a redeemed promo code that has not expired, and a recorded
- * purchase.
+ * three things: the trial, a recorded purchase, and a promo grant that is
+ * still running.
+ *
+ * The promo grant can no longer be made from inside the app. The codes were a
+ * list in the bundle (user 2026-09-15: "promokoodit nyt pois"): anyone who
+ * unpacked the APK could read them and redeem without limit, and the screen
+ * that took them is gone. The field stays readable so a code redeemed before
+ * that keeps what it promised until its own date — after which nothing writes
+ * it again until Play's own promo codes, which are checked by Play.
  *
  * There used to be a third — a "premium preview" switch the Pro page's CTA
  * flipped, with a button underneath to flip it back. That is not a paywall,

@@ -91,8 +91,8 @@ module.exports = [
     name: 'proLock: nothing decides Pro from a preference of its own',
     run() {
       /**
-       * The grant fields may be DISPLAYED — the promo screen shows the date,
-       * the subscription screen shows the term. What no file outside the
+       * The grant fields may be DISPLAYED — the subscription screen shows the
+       * term and a lapsed promo's date. What no file outside the
        * entitlement may do is turn one into a yes/no about a feature.
        */
       const offenders = [];
@@ -144,35 +144,72 @@ module.exports = [
     },
   },
   {
-    name: 'proLock: only the promo screen and the purchase write a grant',
+    name: 'proLock: only the purchase and the trial write a grant, and nothing writes a promo',
     run() {
-      // Writers, not readers: an updatePreferences that sets one of the four
-      // fields. Two places may, and the sweep names any third.
+      // Writers, not readers: an updatePreferences that sets one of the grant
+      // fields. One screen module may, and the sweep names any second.
       const allowedWriters = new Set(['src/app/renderProfileTab.tsx', 'src/data/seed.ts', 'src/state/AppProvider.tsx', 'src/storage/database.ts']);
+      // The promo grant has no writer at all since the codes left the bundle
+      // (2026-09-15) — not even the allowed module, and whatever the value is
+      // spelled as. Only the declaration and the loader, which carries a grant
+      // made before that through, may put anything but null after the key.
+      const promoMayCarry = new Set(['src/types/models.ts', 'src/storage/database.ts']);
       const offenders = [];
+      const promoWriters = [];
       for (const { rel, text } of sourceFiles()) {
-        if (allowedWriters.has(rel) || rel === 'src/lib/proEntitlement.ts') {
+        if (rel === 'src/lib/proEntitlement.ts') {
           continue;
         }
         for (const [index, line] of text.split('\n').entries()) {
-          if (/(promoProUntil|mockSubscriptionPurchasedAt|mockSubscriptionCancelledAt|mockSubscriptionTerm)\s*:/.test(line) && /updatePreferences|onPreferencesChange/.test(text)) {
+          if (
+            !promoMayCarry.has(rel) &&
+            (/promoProUntil\s*:(?!\s*null\b)/.test(line) || /\.promoProUntil\s*=[^=]/.test(line) || /[{,]\s*promoProUntil\s*[,}]/.test(line))
+          ) {
+            promoWriters.push(`${rel}:${index + 1}`);
+          }
+          if (/(mockSubscriptionPurchasedAt|mockSubscriptionCancelledAt|mockSubscriptionTerm)\s*:/.test(line) && /updatePreferences|onPreferencesChange/.test(text)) {
             // Only flag an actual assignment inside a preferences write.
-            if (/:\s*(new Date|'|"|`|null|true|false|proUntil|plan)/.test(line)) {
+            if (/:\s*(new Date|'|"|`|null|true|false|proUntil|plan)/.test(line) && !allowedWriters.has(rel)) {
               offenders.push(`${rel}:${index + 1}`);
             }
           }
         }
       }
-      assert.deepEqual(offenders, [], `a grant written outside the promo screen and the purchase:\n  ${offenders.join('\n  ')}`);
+      assert.deepEqual(offenders, [], `a grant written outside the purchase and the trial:\n  ${offenders.join('\n  ')}`);
+      assert.deepEqual(promoWriters, [], `a promo grant is written somewhere:\n  ${promoWriters.join('\n  ')}`);
 
-      // And the promo grant still comes from a code, not from opening a screen.
-      const promo = read('src', 'screens', 'PromoCodeScreen.tsx');
-      assert.match(promo, /const until = redeemPromoCode\(code\);/);
-      // An unknown code says so; it does not fall through to a grant.
-      assert.match(promo, /if \(until\) \{[\s\S]{0,120}onRedeemed\(until\);[\s\S]{0,60}\} else \{[\s\S]{0,80}'promo\.noMatch'/);
-      // And "is my promo live" is the entitlement's answer, not a second clock.
-      assert.match(promo, /promoActive: boolean;/);
-      assert.doesNotMatch(promo, /promoProUntil[^\n]*getTime\(\) >/);
+      // The door itself is gone: no screen, no code list, no route. The row,
+      // the wiring and the copy are pinned in proSurfaces.
+      assert.equal(fs.existsSync(path.join(root, 'src', 'screens', 'PromoCodeScreen.tsx')), false);
+      assert.equal(fs.existsSync(path.join(root, 'src', 'lib', 'promoCodes.ts')), false);
+      assert.doesNotMatch(read('src', 'navigation', 'routes.ts'), /screen: 'promo'/);
+    },
+  },
+  {
+    name: 'proLock: the demo switch is tied to the one flag the release step clears',
+    run() {
+      // DEMO_BUILD is declared in src and again in app.json. Pinning them to
+      // each other is what makes clearing extra.demoBuild a real release step
+      // instead of a note someone has to remember: the moment they disagree,
+      // this fails and names the other half.
+      const { DEMO_BUILD } = require('../../.test-dist/lib/demoMode');
+      const appJson = JSON.parse(read('app.json'));
+      assert.equal(
+        DEMO_BUILD,
+        appJson.expo.extra.demoBuild === true,
+        'src/lib/demoMode DEMO_BUILD and app.json extra.demoBuild disagree',
+      );
+
+      // The Settings demo section was removed by user decision (2026-08-22).
+      assert.ok(!/isDemoBuild/.test(read('src', 'screens', 'SettingsScreen.tsx')), 'the Settings demo section must stay removed');
+
+      // And the last preview-Pro switch went with it (user 2026-09-03). The
+      // Pro page sold a subscription and offered a button underneath to hand
+      // it back for free, which made Pro a light switch rather than a
+      // purchase. The page sells; the subscription screen cancels.
+      const premium = read('src', 'screens', 'PremiumScreen.tsx');
+      assert.doesNotMatch(premium, /previewOff|previewUnlocked|onTogglePreview/);
+      assert.match(premium, /onPurchase: \(plan: PlanId\) => void;/);
     },
   },
   {

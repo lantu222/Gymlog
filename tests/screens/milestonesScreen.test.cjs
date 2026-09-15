@@ -38,7 +38,8 @@ module.exports = [
     run() {
       assert.match(routes, /tab: 'profile';\s*\/\*\*[^*]*\*\/\s*screen: 'milestones';/);
       assert.match(tab, /import \{ MilestonesScreen \} from '\.\.\/screens\/MilestonesScreen'/);
-      const branch = between(tab, "if (route.screen === 'milestones')", "if (route.screen === 'promo')");
+      // The next branch was the promo screen until the codes left the bundle (2026-09-15).
+      const branch = between(tab, "if (route.screen === 'milestones')", "if (route.screen === 'subscription')");
       assert.match(branch, /<MilestonesScreen/);
       assert.match(branch, /ledger=\{milestoneLedger\}/);
       assert.match(branch, /lifetime=\{lifetimeSummary\}/);

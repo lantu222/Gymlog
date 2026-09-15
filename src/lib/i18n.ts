@@ -1043,7 +1043,6 @@ const EN = {
   'settings.notifications.sub': 'Rest timers and reminders, scheduled on this phone.',
   'settings.myData': 'My data',
   'settings.myData.sub': 'Basics & training preferences.',
-  'settings.promo': 'Promo code',
   'settings.subscription': 'Manage subscription',
   'settings.pro': 'Vinha Pro',
   'settings.importCsv': 'Import plan (CSV)',
@@ -1650,7 +1649,7 @@ const EN = {
   'settings.widget': 'Home screen widget',
   'settings.widget.sub': 'Your training month, your streak and today, on the home screen.',
   'settings.widget.added': 'Already on your home screen.',
-  // ── Training break, promo code, edit profile ──────────────────────────
+  // ── Training break, edit profile ──────────────────────────────────────
   'break.title': 'Training break',
   'break.switchSub': 'Silences reminders and notifications',
   'break.sinceDate': 'Since {date}',
@@ -2143,10 +2142,7 @@ const EN = {
   'pro.page.terms': 'Terms',
   'pro.page.privacy': 'Privacy',
 
-  // ── Promo code ──────────────────────────────────────────────────────
-  'promo.title': 'Promo code',
-  'promo.heroSub': 'Redeem an offer or gift code.',
-  'promo.proOn': 'Pro is on',
+  'pro.page.proOn': 'Pro is on',
   // Asked once on the way in, right after "Let's begin". It used to be offered
   // on the way out of the Pro unlock screen, back when dark was a perk.
   'trackChange.title': 'Add these to your home screen?',
@@ -2158,10 +2154,6 @@ const EN = {
   'themeChoice.dark': 'Dark',
   'themeChoice.done': 'Done',
   'themeChoice.foot': 'You can change it any time in Settings.',
-  'promo.proUntil': 'Your promo keeps Vinha Pro unlocked until {date}.',
-  'promo.placeholder': 'Promo or gift code',
-  'promo.apply': 'Apply',
-  'promo.noMatch': "That code didn't match anything.",
   'editProfile.title': 'Edit profile',
   'editProfile.save': 'Save',
   'editProfile.displayName': 'DISPLAY NAME',
@@ -4145,7 +4137,6 @@ const FI: Record<I18nKey, string> = {
   'settings.notifications.sub': 'Lepoajastimet ja muistutukset, ajastettuina tässä puhelimessa.',
   'settings.myData': 'Omat tiedot',
   'settings.myData.sub': 'Perustiedot ja treenivalinnat.',
-  'settings.promo': 'Kampanjakoodi',
   'settings.subscription': 'Hallinnoi tilausta',
   'settings.pro': 'Vinha Pro',
   'settings.importCsv': 'Tuo ohjelma (CSV)',
@@ -4667,7 +4658,7 @@ const FI: Record<I18nKey, string> = {
   'settings.widget': 'Kotinäytön widget',
   'settings.widget.sub': 'Treenikuukausi, putki ja tämä päivä kotinäytöllä.',
   'settings.widget.added': 'Jo kotinäytölläsi.',
-  // ── Training break, promo code, edit profile ──────────────────────────
+  // ── Training break, edit profile ──────────────────────────────────────
   'break.title': 'Treenitauko',
   'break.switchSub': 'Hiljentää muistutukset ja ilmoitukset',
   'break.sinceDate': 'Alkaen {date}',
@@ -5126,9 +5117,7 @@ const FI: Record<I18nKey, string> = {
   'pro.page.terms': 'Ehdot',
   'pro.page.privacy': 'Tietosuoja',
 
-  'promo.title': 'Kampanjakoodi',
-  'promo.heroSub': 'Lunasta tarjous- tai lahjakoodi.',
-  'promo.proOn': 'Pro on käytössä',
+  'pro.page.proOn': 'Pro on käytössä',
   'trackChange.title': 'Lisätäänkö nämä kotinäytöllesi?',
   'trackChange.no': 'Ei kiitos',
   'trackChange.yes': 'Kyllä, lisää',
@@ -5138,10 +5127,6 @@ const FI: Record<I18nKey, string> = {
   'themeChoice.dark': 'Tumma',
   'themeChoice.done': 'Valmis',
   'themeChoice.foot': 'Voit vaihtaa milloin vain Asetuksista.',
-  'promo.proUntil': 'Kampanjakoodisi pitää Vinha Pron auki {date} asti.',
-  'promo.placeholder': 'Kampanja- tai lahjakoodi',
-  'promo.apply': 'Käytä',
-  'promo.noMatch': 'Koodi ei vastannut mitään.',
   'editProfile.title': 'Muokkaa profiilia',
   'editProfile.save': 'Tallenna',
   'editProfile.displayName': 'NÄYTTÖNIMI',
