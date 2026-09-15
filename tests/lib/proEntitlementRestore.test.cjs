@@ -38,7 +38,7 @@ module.exports = [
   {
     name: 'pro restore: a backup carrying Pro restores everything but the Pro',
     run() {
-      const device = preferences({ appLanguage: 'fi' });
+      const device = preferences({ appLanguage: 'fi', aiCoachProQuota: { monthStart: '2026-09-01', used: 7 } });
       const restored = preferences({
         appLanguage: 'en',
         profileName: 'Sanna',
@@ -57,6 +57,9 @@ module.exports = [
       for (const field of PRO_ENTITLEMENT_FIELDS) {
         assert.deepEqual(kept[field], device[field], `${field} came from the backup`);
       }
+      // The month's coach quota is metering, not history: a backup from the
+      // start of the month must not hand the questions back.
+      assert.deepEqual(kept.aiCoachProQuota, { monthStart: '2026-09-01', used: 7 });
       // Everything that is not entitlement is the backup's.
       assert.equal(kept.appLanguage, 'en');
       assert.equal(kept.profileName, 'Sanna');
