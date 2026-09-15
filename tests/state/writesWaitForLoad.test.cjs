@@ -98,6 +98,12 @@ module.exports = [
 
       const backupNow = hook.slice(hook.indexOf('const backupNow = useCallback('), hook.indexOf('const signOut = useCallback('));
       assert.match(backupNow, /if \(pendingRestoreRef\.current\) \{\s*return false;/);
+      // A phone that has never written or read the cloud copy (sign-in could
+      // not reach it, or the app closed on the question) looks before it writes.
+      assert.match(
+        backupNow,
+        /if \(!account\.lastBackupAt\) \{\s*const remote = await downloadBackup\(idToken\);\s*if \(remote\.ok \|\| remote\.error !== 'NO_BACKUP'\) \{\s*return false;\s*\}\s*\}\s*return await uploadCurrent\(idToken, account\);/,
+      );
 
       // The automatic path will not replace a much fuller cloud copy.
       assert.match(hook, /if \(autoBackupWouldShrinkLog\(latestRef\.current\.database\.workoutSessions\.length, accountRef\.current\?\.lastBackupSessionCount \?\? null\)\) \{\s*return;\s*\}\s*void backupNowRef\.current\(\);/);

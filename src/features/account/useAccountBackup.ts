@@ -228,6 +228,16 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         await persistAccount(null);
         return false;
       }
+      if (!account.lastBackupAt) {
+        // This phone has never written or read the cloud copy: sign-in could
+        // not reach it, or the app closed on the restore-or-keep question.
+        // Whatever is there has not been seen, so it is not overwritten —
+        // only a confirmed "no backup" lets this phone's data be the first.
+        const remote = await downloadBackup(idToken);
+        if (remote.ok || remote.error !== 'NO_BACKUP') {
+          return false;
+        }
+      }
       return await uploadCurrent(idToken, account);
     } finally {
       setPhase('idle');

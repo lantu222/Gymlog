@@ -531,7 +531,12 @@ export function EmptyWorkoutScreen({
   const leaveGuardRef = useRef({ isSaving, onBack });
   leaveGuardRef.current = { isSaving, onBack };
   const requestLeave = () => {
-    if (doneSetCount > 0 && !isSaving) {
+    // While Finish is saving the sets are on their way to disk and the summary
+    // follows; leaving now would race it. Hardware back does the same.
+    if (isSaving) {
+      return;
+    }
+    if (doneSetCount > 0) {
       setConfirmingLeave(true);
       return;
     }
