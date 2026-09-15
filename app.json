@@ -69,7 +69,8 @@
 
       "./plugins/withHomeWidget.js",
     "./plugins/withBuildArchitectures.js",
-    "./plugins/withStorageSize.js"
+    "./plugins/withStorageSize.js",
+    "./plugins/withAllowBackup.js"
     ]
   }
 }
