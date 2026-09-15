@@ -26,6 +26,12 @@ export interface PersistCompletedWorkoutInput {
   logs: ExerciseLogDraft[];
   startedAt?: string;
   performedAt?: string;
+  /**
+   * The session's own count, pauses taken off, when the caller has one. Absent
+   * falls back to finish minus start, which is right only for a workout that
+   * was never paused.
+   */
+  durationMinutes?: number;
   legacyShapeMismatches?: string[];
 }
 
@@ -100,7 +106,10 @@ function buildSummary(
   performedAt: string,
 ): SessionSaveSummary {
   const startTime = input.startedAt ? new Date(input.startedAt).getTime() : new Date(performedAt).getTime();
-  const durationMinutes = Math.max(1, Math.round((new Date(performedAt).getTime() - startTime) / 60000) || 1);
+  const durationMinutes =
+    typeof input.durationMinutes === 'number' && Number.isFinite(input.durationMinutes) && input.durationMinutes > 0
+      ? Math.max(1, Math.round(input.durationMinutes))
+      : Math.max(1, Math.round((new Date(performedAt).getTime() - startTime) / 60000) || 1);
 
   return {
     sessionId: input.sessionId,

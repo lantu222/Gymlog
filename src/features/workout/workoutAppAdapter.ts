@@ -1,5 +1,6 @@
 import { ExerciseLogDraft, ExerciseLogSet } from '../../types/models';
 import { WorkoutExerciseInstance, WorkoutSessionRuntime, WorkoutSetStatus, WorkoutTrackingMode } from './workoutTypes';
+import { workoutSecondsUntil } from './workoutState';
 
 export type LegacyWorkoutDataMismatch =
   | 'template_exercise_id_not_mapped';
@@ -40,9 +41,49 @@ export interface AdaptedCompletedWorkoutSession {
   workoutNameSnapshot: string;
   startedAt: string;
   performedAt: string;
+  /** Start to finish less every pause: the number the player's clock showed. */
+  durationMinutes: number;
   exercises: AdaptedCompletedWorkoutExercise[];
   logs: ExerciseLogDraft[];
   legacyShapeMismatches: LegacyWorkoutDataMismatch[];
+}
+
+/**
+ * How long after the last logged set a finish still belongs to that workout.
+ * A cooldown or a slow walk to the phone fits well inside it; a session left
+ * open overnight does not.
+ */
+const STALE_FINISH_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * When the workout ended.
+ *
+ * It was `updatedAt`, which the clock moves to now on every tick while a rest
+ * timer runs. A phone that closed the app mid-rest and was reopened days later
+ * saved the workout on the day it was reopened, with a duration of thousands
+ * of minutes. Past a couple of hours since the last logged set, the last set is
+ * when the workout ended.
+ */
+function resolveFinishedAt(session: WorkoutSessionRuntime): string {
+  if (session.completedAt) {
+    return session.completedAt;
+  }
+  let lastSet: string | null = null;
+  let lastSetMs = -Infinity;
+  session.exercises.forEach((exercise) => {
+    exercise.sets.forEach((set) => {
+      const time = set.status === 'completed' && set.completedAt ? Date.parse(set.completedAt) : Number.NaN;
+      if (Number.isFinite(time) && time > lastSetMs) {
+        lastSet = set.completedAt ?? null;
+        lastSetMs = time;
+      }
+    });
+  });
+  const updatedMs = Date.parse(session.updatedAt);
+  if (lastSet && Number.isFinite(updatedMs) && updatedMs - lastSetMs > STALE_FINISH_MS) {
+    return lastSet;
+  }
+  return session.updatedAt;
 }
 
 function sortByOrderIndex<T extends { orderIndex: number }>(items: T[]) {
@@ -172,6 +213,7 @@ export function adaptCompletedWorkoutSessionForAppDatabase(
   session: WorkoutSessionRuntime,
 ): AdaptedCompletedWorkoutSession {
   const exercises = buildAdaptedCompletedWorkoutExercises(session);
+  const performedAt = resolveFinishedAt(session);
 
   return {
     sessionId: session.sessionId,
@@ -179,7 +221,11 @@ export function adaptCompletedWorkoutSessionForAppDatabase(
     workoutTemplateSessionId: session.templateSessionId,
     workoutNameSnapshot: session.templateName,
     startedAt: session.startedAt,
-    performedAt: session.completedAt ?? session.updatedAt,
+    performedAt,
+    // Less the pauses. The save used finish minus start, so an hour with a
+    // twenty-minute pause went into history as sixty minutes while the player
+    // had shown forty.
+    durationMinutes: Math.max(1, Math.round(workoutSecondsUntil(session, Date.parse(performedAt)) / 60) || 1),
     exercises,
     logs: buildExerciseLogDraftsFromWorkoutSession(session),
     legacyShapeMismatches: collectLegacyShapeMismatches(exercises),

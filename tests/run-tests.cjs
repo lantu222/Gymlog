@@ -82,6 +82,7 @@ const suites = [
   ...require('./features/workout/editLoggedSet.test.cjs'),
   ...require('./features/workout/loggedHistory.test.cjs'),
   ...require('./features/workout/borrowedPrefill.test.cjs'),
+  ...require('./features/workout/historyBelongsToLift.test.cjs'),
   ...require('./features/workout/resetClearsHistory.test.cjs'),
   ...require('./state/completedWorkoutPersistence.test.cjs'),
   ...require('./state/commitSavesPreferences.test.cjs'),

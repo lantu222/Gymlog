@@ -586,6 +586,8 @@ function VinhaApp() {
   const exerciseBrowserItems = exerciseLibrary;
   const summaryExitRouteRef = useRef<AppRoute | null>(null);
   const summaryNavigationPendingRef = useRef(false);
+  /** A finish that has started and not yet settled. See handleConfirmFinishWorkout. */
+  const finishInFlightRef = useRef(false);
   const workoutLogNavigationAllowedAtRef = useRef<number | null>(null);
   const route = navigationState.route;
   const appHydrated = hydrated && workout.hydrated;
@@ -1277,7 +1279,9 @@ function VinhaApp() {
 
   async function handleConfirmFinishWorkout() {
     const activeSession = workout.activeSession;
-    if (!activeSession || finishSaveState.status === 'saving') {
+    // A ref, not `finishSaveState`: two taps inside one render both read the
+    // state as idle, and each went on to save and finish.
+    if (!activeSession || finishInFlightRef.current) {
       return;
     }
 
@@ -1287,6 +1291,7 @@ function VinhaApp() {
       return;
     }
 
+    finishInFlightRef.current = true;
     setFinishSaveState({
       status: 'saving',
       sessionId: adaptedSession.sessionId,
@@ -1396,7 +1401,19 @@ function VinhaApp() {
         message: 'Could not save this workout. Try again before leaving the screen.',
       });
       showToast(t(preferences.appLanguage, 'toast.saveWorkoutFailed'));
+    } finally {
+      finishInFlightRef.current = false;
     }
+  }
+
+  /**
+   * Deleting a saved workout takes it out of the next session's prefill and
+   * "Last time" as well as the database — after the database delete has
+   * landed, so a refused delete leaves both as they were.
+   */
+  async function handleDeleteCompletedSession(sessionId: string) {
+    await deleteCompletedWorkoutSession(sessionId);
+    workout.forgetHistorySession(sessionId);
   }
 
   async function handleDismissTip(tipId: string) {
@@ -5935,7 +5952,7 @@ function VinhaApp() {
       upsertWorkoutTemplate,
       workoutSessions,
       getSessionLogs,
-      deleteCompletedWorkoutSession,
+      deleteCompletedWorkoutSession: handleDeleteCompletedSession,
       deleteCardioSession,
       unitPreference,
       coachProUnlocked,

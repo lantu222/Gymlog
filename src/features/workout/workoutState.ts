@@ -14,6 +14,7 @@ import { GuidedResumeAnchor, WorkoutTrackingMode, WorkoutTemplateExercise, Worko
 import { getWorkoutTemplateById } from './workoutCatalog';
 import { resolveProgressedLoadKg, resolveProgressedReps } from '../../lib/progressionGate';
 import {
+  entriesForLift,
   findHistoricalSetForIndex,
   findLatestEntryForExerciseName,
   RepWindow,
@@ -98,6 +99,14 @@ export type WorkoutAction =
         }>;
       };
     }
+  /**
+   * A saved workout the reader deleted, taken out of what the next session
+   * reads. Deleting in History removed the session and its logs from the
+   * database only; the per-slot history kept it, so a typo of 450 kg deleted
+   * from History still opened the next session at 450 kg with "Last time"
+   * showing it, and the progression gate stepped up from it.
+   */
+  | { type: 'history/forgetSession'; payload: { sessionId: string } }
   | { type: 'exercise/skip'; payload: { slotId: string; reason?: string } }
   | { type: 'exercise/insertAfter'; payload: { afterSlotId: string; exercise: WorkoutExerciseInsertInput } }
   | {
@@ -185,24 +194,27 @@ function buildScopedSlotId(templateId: string, templateSessionId: string, slotId
 function getHistoryEntries(
   history: WorkoutHistoryStore,
   slotId: string,
-  templateSlotId?: string,
-  legacyRepWindow?: RepWindow | null,
+  templateSlotId: string | undefined,
+  legacyRepWindow: RepWindow | null | undefined,
+  exerciseName: string,
 ) {
-  const scopedEntries = history.slotHistory[slotId] ?? [];
+  // Only the entries that were this lift: a swap writes under the same slot id
+  // (see entriesForLift).
+  const scopedEntries = entriesForLift(history.slotHistory[slotId], exerciseName);
   // Something real under the scoped key: that is the answer. A key holding
   // only skipped days is not — it says the lift did not happen here.
   if (selectLatestUsableEntry(scopedEntries) || !templateSlotId) {
     return scopedEntries;
   }
 
-  const legacy = selectLegacySlotEntry(history.slotHistory, templateSlotId, legacyRepWindow);
-  return legacy ? history.slotHistory[templateSlotId] ?? [] : scopedEntries;
+  const legacy = selectLegacySlotEntry(history.slotHistory, templateSlotId, legacyRepWindow, exerciseName);
+  return legacy ? entriesForLift(history.slotHistory[templateSlotId], exerciseName) : scopedEntries;
 }
 
 export function getHistoryEntriesForExercise(
   history: WorkoutHistoryStore,
   exercise:
-    | Pick<WorkoutExerciseInstance, 'slotId' | 'templateSlotId' | 'trackingMode' | 'sets'>
+    | Pick<WorkoutExerciseInstance, 'slotId' | 'templateSlotId' | 'trackingMode' | 'sets' | 'exerciseName'>
     | null
     | undefined,
 ) {
@@ -215,6 +227,7 @@ export function getHistoryEntriesForExercise(
     exercise.slotId,
     exercise.templateSlotId,
     resolveInstanceBorrowRepWindow(exercise),
+    exercise.exerciseName,
   );
 }
 
@@ -351,7 +364,7 @@ function resolveHistoricalSetDraft(
   exercise: WorkoutTemplateExercise,
   options: WorkoutSessionMaterializeOptions,
 ): ResolvedSetDraft {
-  const entries = getHistoryEntries(history, slotId, templateSlotId, resolveBorrowRepWindow(exercise));
+  const entries = getHistoryEntries(history, slotId, templateSlotId, resolveBorrowRepWindow(exercise), exercise.exerciseName);
   // The newest session that actually logged something, through the same
   // selector the "Last time" panel uses — reading `entries[0]` here and
   // sorting there is how the two came to disagree.
@@ -751,6 +764,45 @@ export function elapsedSecondsOf(session: WorkoutSessionRuntime, nowMs: number):
   return Math.max(0, Math.floor((wall - (session.pausedMs ?? 0) - open) / 1000));
 }
 
+function latestCompletedSetMs(session: WorkoutSessionRuntime): number {
+  let latest = -Infinity;
+  session.exercises.forEach((exercise) => {
+    exercise.sets.forEach((set) => {
+      const time = set.status === 'completed' && set.completedAt ? Date.parse(set.completedAt) : Number.NaN;
+      if (Number.isFinite(time) && time > latest) {
+        latest = time;
+      }
+    });
+  });
+  return latest;
+}
+
+/**
+ * How long the workout ran up to `endMs`, pauses off.
+ *
+ * When the end is the last logged set rather than the finish (a session left
+ * open and reopened days later), only the pauses that had run by that set come
+ * off — `pausedMs` by then also holds the days it sat paused, and subtracting
+ * all of it saved a 48-minute workout as one minute (PR #120 review).
+ */
+export function workoutSecondsUntil(session: WorkoutSessionRuntime, endMs: number): number {
+  const lastSetMs = latestCompletedSetMs(session);
+  if (Number.isFinite(lastSetMs) && endMs <= lastSetMs) {
+    const wall = endMs - new Date(session.startedAt).getTime();
+    const stamped = session.pausedMsAtLastSet;
+    if (typeof stamped === 'number' && Number.isFinite(stamped) && stamped >= 0) {
+      return Math.max(0, Math.floor((wall - stamped) / 1000));
+    }
+    // A session from before the stamp was kept. Its pauses are right unless
+    // they swallow the whole window — sets were logged in it, so time was
+    // spent unpaused — and then they ran past it, and the wall clock is the
+    // better answer.
+    const counted = elapsedSecondsOf(session, endMs);
+    return counted > 0 ? counted : Math.max(0, Math.floor(wall / 1000));
+  }
+  return elapsedSecondsOf(session, endMs);
+}
+
 function buildSummary(session: WorkoutSessionRuntime): WorkoutSessionSummary {
   const completedSets = session.exercises.flatMap((exercise) => exercise.sets).filter((set) => set.status === 'completed');
   const performedAt = session.completedAt ?? new Date().toISOString();
@@ -762,7 +814,7 @@ function buildSummary(session: WorkoutSessionRuntime): WorkoutSessionSummary {
     performedAt,
     // Less the pauses, so the number written to history is the same one the
     // player showed while the workout was running.
-    durationMinutes: Math.max(1, Math.round(elapsedSecondsOf(session, new Date(performedAt).getTime()) / 60) || 1),
+    durationMinutes: Math.max(1, Math.round(workoutSecondsUntil(session, new Date(performedAt).getTime()) / 60) || 1),
     setsCompleted: completedSets.length,
     exercisesCompleted: session.exercises.filter((exercise) => exercise.status === 'completed').length,
     exercisesSkipped: session.exercises.filter((exercise) => exercise.status === 'skipped').length,
@@ -1063,6 +1115,11 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       set.effort = set.effort ?? null;
       set.completedAt = new Date(action.payload.nowMs).toISOString();
       set.edited = true;
+      // The pause time run so far, so a workout that ends at this set takes
+      // off only these (workoutSecondsUntil).
+      session.pausedMsAtLastSet =
+        (session.pausedMs ?? 0) +
+        (session.pausedAt ? Math.max(0, action.payload.nowMs - new Date(session.pausedAt).getTime()) : 0);
 
       exercise.status = finalizeExerciseStatus(exercise);
       const nextTarget = findNextPendingTarget(session, exerciseIndex, action.payload.setIndex);
@@ -1344,6 +1401,29 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       });
 
       return { ...state, history: { ...state.history, slotHistory } };
+    }
+
+    case 'history/forgetSession': {
+      const { sessionId } = action.payload;
+      if (!sessionId) {
+        return state;
+      }
+      let changed = false;
+      const slotHistory: WorkoutHistoryStore['slotHistory'] = {};
+      Object.entries(state.history.slotHistory).forEach(([slotId, entries]) => {
+        const kept = (entries ?? []).filter((entry) => entry?.sessionId !== sessionId);
+        if (kept.length !== (entries ?? []).length) {
+          changed = true;
+        }
+        if (kept.length > 0) {
+          slotHistory[slotId] = kept;
+        }
+      });
+      const sessions = state.history.sessions.filter((summary) => summary.sessionId !== sessionId);
+      if (!changed && sessions.length === state.history.sessions.length) {
+        return state;
+      }
+      return { ...state, history: { ...state.history, slotHistory, sessions } };
     }
 
     /**
@@ -1726,6 +1806,13 @@ function cloneSession(session: WorkoutSessionRuntime) {
 
 export function completeWorkoutSession(state: WorkoutFeatureState, performedAt = new Date().toISOString()) {
   if (!state.activeSession) {
+    return state;
+  }
+  // Once. A second finish of the same session — a double tap on "Finish &
+  // save", or a retry after the save had already landed — filed every slot's
+  // entry a second time, which ate the ten-entry cap and doubled the session
+  // in the progression gate's reading.
+  if (state.activeSession.status === 'completed') {
     return state;
   }
 

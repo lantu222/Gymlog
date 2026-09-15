@@ -11,6 +11,7 @@
  * edits in a row compose instead of replacing each other.
  */
 
+import { createId } from './ids';
 import {
   normalizeSupersetGroups,
   setSupersetLink,
@@ -223,6 +224,7 @@ export function applyProgramSessionEdit(
   sessionId: string,
   edit: ProgramSessionEdit,
   makeId?: () => string,
+  makeExerciseId: () => string = () => createId('exercise'),
 ): ProgramSessionEditOutcome {
   // Answered before the programme is rebuilt: a drop that changes nothing
   // must not come back as a save, or the screen confirms an edit it did not
@@ -266,8 +268,17 @@ export function applyProgramSessionEdit(
         if (edit.kind === 'replace') {
           // Only the lift changes. Sets, reps and rest are the prescription,
           // and a swap is a different way to train it, not a different dose.
+          //
+          // The row gets a new id, though. Logged sets point at the row by id,
+          // and records, progress and the "last time" slot all resolve the
+          // lift through it — so keeping the id handed the old lift's whole
+          // history to the new one: bench press at 100 kg read as incline
+          // dumbbell press at 100 kg, and the new lift opened on that weight.
+          // With the old row gone, its logs fall back to the name they were
+          // logged under.
           return {
             ...toDraftExercise(exercise),
+            id: makeExerciseId(),
             name: edit.exerciseName,
             libraryItemId: edit.libraryItemId,
           };
