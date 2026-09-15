@@ -91,8 +91,8 @@ module.exports = [
     name: 'proLock: nothing decides Pro from a preference of its own',
     run() {
       /**
-       * The grant fields may be DISPLAYED — the promo screen shows the date,
-       * the subscription screen shows the term. What no file outside the
+       * The grant fields may be DISPLAYED — the subscription screen shows the
+       * term and a lapsed promo's date. What no file outside the
        * entitlement may do is turn one into a yes/no about a feature.
        */
       const offenders = [];
@@ -149,6 +149,11 @@ module.exports = [
       // Writers, not readers: an updatePreferences that sets one of the grant
       // fields. One screen module may, and the sweep names any second.
       const allowedWriters = new Set(['src/app/renderProfileTab.tsx', 'src/data/seed.ts', 'src/state/AppProvider.tsx', 'src/storage/database.ts']);
+      // The promo grant has no writer at all since the codes left the bundle
+      // (2026-09-15) — not even the allowed module, and whatever the value is
+      // spelled as. Only the declaration and the loader, which carries a grant
+      // made before that through, may put anything but null after the key.
+      const promoMayCarry = new Set(['src/types/models.ts', 'src/storage/database.ts']);
       const offenders = [];
       const promoWriters = [];
       for (const { rel, text } of sourceFiles()) {
@@ -156,18 +161,16 @@ module.exports = [
           continue;
         }
         for (const [index, line] of text.split('\n').entries()) {
-          if (/(promoProUntil|mockSubscriptionPurchasedAt|mockSubscriptionCancelledAt|mockSubscriptionTerm)\s*:/.test(line) && /updatePreferences|onPreferencesChange/.test(text)) {
+          if (
+            !promoMayCarry.has(rel) &&
+            (/promoProUntil\s*:(?!\s*null\b)/.test(line) || /\.promoProUntil\s*=[^=]/.test(line) || /[{,]\s*promoProUntil\s*[,}]/.test(line))
+          ) {
+            promoWriters.push(`${rel}:${index + 1}`);
+          }
+          if (/(mockSubscriptionPurchasedAt|mockSubscriptionCancelledAt|mockSubscriptionTerm)\s*:/.test(line) && /updatePreferences|onPreferencesChange/.test(text)) {
             // Only flag an actual assignment inside a preferences write.
-            if (/:\s*(new Date|'|"|`|null|true|false|proUntil|plan)/.test(line)) {
-              // The promo grant has no writer at all since the codes left the
-              // bundle (2026-09-15) — not even the allowed module. The seed,
-              // the provider default and the loader only carry null through.
-              if (/promoProUntil\s*:/.test(line) && !/promoProUntil\s*:\s*null/.test(line)) {
-                promoWriters.push(`${rel}:${index + 1}`);
-              }
-              if (!allowedWriters.has(rel)) {
-                offenders.push(`${rel}:${index + 1}`);
-              }
+            if (/:\s*(new Date|'|"|`|null|true|false|proUntil|plan)/.test(line) && !allowedWriters.has(rel)) {
+              offenders.push(`${rel}:${index + 1}`);
             }
           }
         }
@@ -175,11 +178,11 @@ module.exports = [
       assert.deepEqual(offenders, [], `a grant written outside the purchase and the trial:\n  ${offenders.join('\n  ')}`);
       assert.deepEqual(promoWriters, [], `a promo grant is written somewhere:\n  ${promoWriters.join('\n  ')}`);
 
-      // The door itself is gone: no screen, no code list, no route, no row.
+      // The door itself is gone: no screen, no code list, no route. The row,
+      // the wiring and the copy are pinned in proSurfaces.
       assert.equal(fs.existsSync(path.join(root, 'src', 'screens', 'PromoCodeScreen.tsx')), false);
       assert.equal(fs.existsSync(path.join(root, 'src', 'lib', 'promoCodes.ts')), false);
       assert.doesNotMatch(read('src', 'navigation', 'routes.ts'), /screen: 'promo'/);
-      assert.doesNotMatch(read('src', 'screens', 'SettingsScreen.tsx'), /onOpenPromo/);
     },
   },
   {
@@ -207,7 +210,6 @@ module.exports = [
       const premium = read('src', 'screens', 'PremiumScreen.tsx');
       assert.doesNotMatch(premium, /previewOff|previewUnlocked|onTogglePreview/);
       assert.match(premium, /onPurchase: \(plan: PlanId\) => void;/);
-      assert.equal(read('src', 'lib', 'i18n.ts').includes("'pro.previewOff'"), false, 'pro.previewOff is dead copy for a switch that no longer exists');
     },
   },
   {

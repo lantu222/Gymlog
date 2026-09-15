@@ -95,8 +95,7 @@ module.exports = [
       assert.doesNotMatch(appSource, /PromoCodeScreen|onRedeemed|screen(?: ===|:) 'promo'|onOpenPromo/);
       assert.doesNotMatch(settingsSource, /onOpenPromo|settings\.promo/);
       assert.doesNotMatch(i18nSource, /'settings\.promo'|'promo\./);
-      assert.equal(fs.existsSync(path.join(__dirname, '..', '..', 'src', 'screens', 'PromoCodeScreen.tsx')), false);
-      assert.equal(fs.existsSync(path.join(__dirname, '..', '..', 'src', 'lib', 'promoCodes.ts')), false);
+      // The files themselves, and any write of the grant, are pinned in proLock.
     },
   },
   {

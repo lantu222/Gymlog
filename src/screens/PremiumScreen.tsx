@@ -55,7 +55,7 @@ interface PremiumScreenProps {
    * random toll gate.
    */
   reason?: 'program_cap' | null;
-  /** Whether Pro is actually on — the preview switch or a live promo code. */
+  /** Whether Pro is actually on — the entitlement's answer: trial, purchase or promo grant. */
   proUnlocked: boolean;
   /**
    * Whether this install may still start the trial. Once it has been used the
@@ -250,9 +250,6 @@ export function PremiumScreen({
     () => tier.plans.find((entry) => entry.id === plan) ?? tier.plans[0],
     [tier, plan],
   );
-
-  // A redeemed promo cannot be switched off from here, so that reader is sent
-  // to subscription management instead of to a toggle that would do nothing.
 
   const pickTab = (next: ProTierKey) => {
     setTab(next);
