@@ -41,7 +41,6 @@ const ALLOWED = {
   getPlanWeekPhase: 'Plan phase wording, written ahead of the surface that will show it.',
   getProgramSeason: 'Season lookup by program, kept beside the seasons it answers for.',
   isSeasonActive: 'Season window predicate, kept beside resolveSeasonWindow.',
-  listPromoCodes: 'Lists live codes for a demo sheet that does not exist yet.',
   emptyRatingPromptState: 'Rating prompt state machine, waiting for its post-workout wiring; the demo shelf that exercised it was removed 2026-08-22.',
   decideRatingPrompt: 'See emptyRatingPromptState.',
   recordRatingAsked: 'See emptyRatingPromptState.',

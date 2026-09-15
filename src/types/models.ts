@@ -443,7 +443,13 @@ export interface AppPreferences {
   aiLogChatConsent: boolean;
   aiLogComposerConsent: boolean;
   aiLogPhotoConsent: boolean;
-  /** ISO date until which a redeemed promo keeps Pro unlocked; null = none. */
+  /**
+   * ISO date until which a promo grant keeps Pro unlocked; null = none.
+   *
+   * Read-only since 2026-09-15: the in-app redemption is gone (the codes lived
+   * in the bundle), so this only ever holds a grant made before that, and it
+   * runs out on its own. Play's promo codes will replace it, verified by Play.
+   */
   promoProUntil: string | null;
   /**
    * When the Pro trial runs out, separate from a promo code's grant.

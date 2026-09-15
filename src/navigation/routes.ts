@@ -213,10 +213,6 @@ export type AppRoute =
     }
   | {
       tab: 'profile';
-      screen: 'promo';
-    }
-  | {
-      tab: 'profile';
       /** Every reached milestone with its day, and every family's next one. */
       screen: 'milestones';
     }

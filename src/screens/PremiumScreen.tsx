@@ -363,7 +363,7 @@ export function PremiumScreen({
       <View style={styles.foot}>
         {proUnlocked ? (
           <View style={styles.activeCard}>
-            <Text style={styles.activeText}>{t(language, 'promo.proOn')}</Text>
+            <Text style={styles.activeText}>{t(language, 'pro.page.proOn')}</Text>
             {/* One door while Pro is on, and it goes to management. The old
                 second branch here turned Pro OFF from the paywall — free, from
                 inside the app, as often as you liked. A page that sells a

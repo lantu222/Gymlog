@@ -47,7 +47,6 @@ module.exports = [
         'LegalDocumentScreen',
         'MyDataScreen',
         'NotificationsScreen',
-        'PromoCodeScreen',
         'SettingsScreen',
         'SubscriptionScreen',
         'TrainingBreakScreen',

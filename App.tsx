@@ -6443,7 +6443,6 @@ function VinhaApp() {
       route.screen === 'training_plan' ||
       route.screen === 'notifications' ||
       route.screen === 'training_break' ||
-      route.screen === 'promo' ||
       route.screen === 'subscription' ||
       route.screen === 'legal');
   /**
