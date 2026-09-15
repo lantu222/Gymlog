@@ -4182,6 +4182,10 @@ function VinhaApp() {
       showToast(t(language, 'account.restore.restored'));
       return outcome.kind;
     }
+    if (outcome.kind === 'restore_failed') {
+      showToast(t(language, 'account.restore.failed'));
+      return outcome.kind;
+    }
     if (outcome.kind === 'failed') {
       showToast(t(language, failedKey));
       return outcome.kind;
@@ -4219,9 +4223,9 @@ function VinhaApp() {
           style: 'destructive',
           onPress: () => {
             void accountBackup.resolveRestoreChoice('restore').then((ok) => {
-              if (ok) {
-                showToast(t(language, 'account.restore.restored'));
-              }
+              // Both results speak: this button replaces the phone's data, and
+              // silence after it is no answer to whether it did.
+              showToast(t(language, ok ? 'account.restore.restored' : 'account.restore.failed'));
             });
           },
         },

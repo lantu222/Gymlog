@@ -22,6 +22,7 @@ import {
   AccountBackupSummary,
   autoBackupWouldShrinkLog,
   buildAccountBackupPayload,
+  countBackupItems,
   describeAccountBackup,
   hasLocalDataWorthKeeping,
 } from '../../lib/accountBackup';
@@ -47,6 +48,8 @@ export type SignInOutcome =
   | { kind: 'backed_up' }
   /** Fresh device, cloud had data — restored without asking. */
   | { kind: 'restored'; summary: AccountBackupSummary }
+  /** Signed in, and the phone refused to write the backup it downloaded. */
+  | { kind: 'restore_failed' }
   /** Both sides hold data. Call resolveRestoreChoice with the reader's answer. */
   | { kind: 'choice'; summary: AccountBackupSummary };
 
@@ -119,7 +122,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       const payload = buildAccountBackupPayload(database, workoutHistory, new Date().toISOString());
       const result = await uploadBackup(idToken, payload);
       if (result.ok) {
-        await persistAccount({ ...base, lastBackupAt: result.savedAt, lastBackupSessionCount: database.workoutSessions.length });
+        await persistAccount({ ...base, lastBackupAt: result.savedAt, lastBackupItemCount: countBackupItems(database) });
         return true;
       }
       return false;
@@ -144,19 +147,28 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     async (idToken: string, base: StoredAccount, remote: BackupDownloadResult): Promise<SignInOutcome> => {
       if (remote.ok) {
         const summary = describeAccountBackup(remote.payload);
-        const remoteSessionCount = remote.payload.database.workoutSessions?.length ?? 0;
+        const remoteItemCount = countBackupItems(remote.payload.database);
         if (hasLocalDataWorthKeeping(latestRef.current.database)) {
           // Both sides have data — nobody's copy dies without a decision.
           // The count is the cloud's, so the automatic backup cannot shrink it
           // while the question is open or after "keep" is refused.
-          const pendingAccount = { ...base, lastBackupSessionCount: remoteSessionCount };
+          const pendingAccount = { ...base, lastBackupItemCount: remoteItemCount };
           pendingRestoreRef.current = { payload: remote.payload, idToken, account: pendingAccount };
           await persistAccount(pendingAccount);
           return { kind: 'choice', summary };
         }
         setPhase('restoring');
-        await applyRestore(remote.payload);
-        await persistAccount({ ...base, lastBackupAt: remote.payload.exportedAt, lastBackupSessionCount: remoteSessionCount });
+        try {
+          await applyRestore(remote.payload);
+        } catch (error) {
+          // The disk refused the restore (full, or a row too big). Signed in,
+          // nothing synced, so the next "Back up now" asks again — and the
+          // reader is told now instead of seeing nothing happen.
+          console.error('Backup restore failed', error);
+          await persistAccount({ ...base, lastBackupItemCount: remoteItemCount });
+          return { kind: 'restore_failed' };
+        }
+        await persistAccount({ ...base, lastBackupAt: remote.payload.exportedAt, lastBackupItemCount: remoteItemCount });
         return { kind: 'restored', summary };
       }
       if (remote.error !== 'NO_BACKUP') {
@@ -192,7 +204,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         email: result.account.email,
         name: result.account.name,
         lastBackupAt: null,
-        lastBackupSessionCount: null,
+        lastBackupItemCount: null,
       };
 
       const remote = await downloadBackup(result.account.idToken);
@@ -216,6 +228,11 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           await applyRestore(pending.payload);
           await persistAccount({ ...current, lastBackupAt: pending.payload.exportedAt });
           return true;
+        } catch (error) {
+          // A refused write: the caller says so. The account stays unsynced,
+          // so "Back up now" asks the question again (PR #119 review).
+          console.error('Backup restore failed', error);
+          return false;
         } finally {
           setPhase('idle');
         }
@@ -297,7 +314,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     }
     const result = await deleteBackup(idToken);
     if (result.ok) {
-      await persistAccount({ ...account, lastBackupAt: null, lastBackupSessionCount: null });
+      await persistAccount({ ...account, lastBackupAt: null, lastBackupItemCount: null });
     }
     return result.ok;
   }, [account, available, persistAccount]);
@@ -333,7 +350,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
     }
     const timer = setTimeout(() => {
       lastFingerprintRef.current = backupFingerprint;
-      if (autoBackupWouldShrinkLog(latestRef.current.database.workoutSessions.length, accountRef.current?.lastBackupSessionCount ?? null)) {
+      if (autoBackupWouldShrinkLog(countBackupItems(latestRef.current.database), accountRef.current?.lastBackupItemCount ?? null)) {
         return;
       }
       void backupNowRef.current();

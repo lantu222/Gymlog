@@ -4,6 +4,7 @@ const {
   ACCOUNT_BACKUP_VERSION,
   autoBackupWouldShrinkLog,
   buildAccountBackupPayload,
+  countBackupItems,
   describeAccountBackup,
   hasLocalDataWorthKeeping,
   parseAccountBackupPayload,
@@ -110,6 +111,15 @@ module.exports = [
     // signed in; its next automatic backup replaced the one full copy left.
     name: 'accountBackup: the automatic backup will not replace a copy holding more than twice the log',
     run() {
+      // Counted over everything the backup watches, not workouts alone: two
+      // workouts and a year of weigh-ins is a log worth protecting.
+      assert.equal(
+        countBackupItems(makeDatabase({ workoutSessions: [{}, {}], bodyweightEntries: new Array(40).fill({}), workoutTemplates: [{}] })),
+        43,
+      );
+      assert.equal(countBackupItems({ workoutSessions: [{}] }), 1, 'an old backup missing arrays counts what it has');
+      assert.equal(autoBackupWouldShrinkLog(countBackupItems(makeDatabase({ bodyweightEntries: [{}] })), 43), true);
+
       // A quarantined phone: nothing, or one workout, against a real history.
       assert.equal(autoBackupWouldShrinkLog(0, 40), true);
       assert.equal(autoBackupWouldShrinkLog(1, 40), true);

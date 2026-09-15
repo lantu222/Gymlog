@@ -119,7 +119,19 @@ module.exports = [
       assert.match(code(read('src', 'app', 'renderProfileTab.tsx')), /onBackupNow: \(\) => void handleAccountBackupNow\(\)/);
 
       // The automatic path will not replace a much fuller cloud copy.
-      assert.match(hook, /if \(autoBackupWouldShrinkLog\(latestRef\.current\.database\.workoutSessions\.length, accountRef\.current\?\.lastBackupSessionCount \?\? null\)\) \{\s*return;\s*\}\s*void backupNowRef\.current\(\);/);
+      assert.match(hook, /if \(autoBackupWouldShrinkLog\(countBackupItems\(latestRef\.current\.database\), accountRef\.current\?\.lastBackupItemCount \?\? null\)\) \{\s*return;\s*\}\s*void backupNowRef\.current\(\);/);
+      // Both counts that feed it are over the same five collections.
+      assert.match(hook, /lastBackupItemCount: countBackupItems\(database\)/);
+      assert.match(hook, /const remoteItemCount = countBackupItems\(remote\.payload\.database\);/);
+
+      // A restore the disk refuses is reported, on both paths, not swallowed.
+      const restoreBranch = resolve.slice(resolve.indexOf("if (choice === 'restore')"));
+      assert.match(restoreBranch, /catch \(error\) \{[\s\S]*?return false;/);
+      const settle = hook.slice(hook.indexOf('const settleWithRemote = useCallback('), hook.indexOf('const signIn = useCallback('));
+      assert.match(settle, /try \{\s*await applyRestore\(remote\.payload\);\s*\} catch \(error\) \{[\s\S]*?return \{ kind: 'restore_failed' \};/);
+      const presenter = code(read('App.tsx'));
+      assert.match(presenter, /showToast\(t\(language, ok \? 'account\.restore\.restored' : 'account\.restore\.failed'\)\);/);
+      assert.match(presenter, /if \(outcome\.kind === 'restore_failed'\) \{\s*showToast\(t\(language, 'account\.restore\.failed'\)\);/);
     },
   },
   {
