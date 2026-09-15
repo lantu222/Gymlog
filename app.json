@@ -16,6 +16,7 @@
       "supportsTablet": true
     },
     "android": {
+      "allowBackup": false,
       "backgroundColor": "#F7F3FF",
       "versionCode": 1,
       "adaptiveIcon": {
@@ -69,7 +70,8 @@
 
       "./plugins/withHomeWidget.js",
     "./plugins/withBuildArchitectures.js",
-    "./plugins/withStorageSize.js"
+    "./plugins/withStorageSize.js",
+    "./plugins/withDataExtractionRules.js"
     ]
   }
 }
