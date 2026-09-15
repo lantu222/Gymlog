@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
-import { createEmptyDatabase } from '../data/seed';
+import { StorageLoadFailedScreen } from '../components/StorageLoadFailedScreen';
 import { resolveDeviceLanguage } from '../storage/deviceLocale';
 import { createId } from '../lib/ids';
 import { isProUnlocked, keepDeviceEntitlement } from '../lib/proEntitlement';
@@ -343,31 +343,65 @@ export function AppProvider({ children }: React.PropsWithChildren) {
   // never existed.
   const databaseRef = useRef(database);
 
+  /**
+   * Opens once the stored database is in memory. It is the first task in the
+   * write queue below, so every write made before the load has finished waits
+   * for it and then applies on top of what was stored.
+   *
+   * Without it a write that ran early built on the defaults this provider
+   * starts with: the Google-name effect did exactly that on every cold start,
+   * wrote the default preferences to their key, and the load laid them over
+   * the reader's real ones.
+   */
+  const hydrationGateRef = useRef<{ promise: Promise<void>; open: () => void } | null>(null);
+  if (hydrationGateRef.current === null) {
+    let open: () => void = () => undefined;
+    const promise = new Promise<void>((resolve) => {
+      open = resolve;
+    });
+    hydrationGateRef.current = { promise, open };
+  }
+
+  /**
+   * A load the phone refused, after retries. The app does not open on it.
+   *
+   * The fallback used to be an empty database marked hydrated: the app opened
+   * as a new install and its first save wrote nothing over everything, with
+   * no copy set aside — the quarantine only covers bytes that were read.
+   */
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+
   useEffect(() => {
     let cancelled = false;
 
     async function hydrate() {
-      try {
-        const nextDatabase = await loadDatabase();
-        if (cancelled) {
-          return;
-        }
-
-        databaseRef.current = nextDatabase;
-        setDatabase(nextDatabase);
-      } catch (error) {
-        console.error('Failed to hydrate database', error);
-
-        const fallbackDatabase = createEmptyDatabase(resolveDeviceLanguage());
-        if (cancelled) {
-          return;
-        }
-
-        databaseRef.current = fallbackDatabase;
-        setDatabase(fallbackDatabase);
-      } finally {
-        if (!cancelled) {
+      for (let attempt = 1; ; attempt += 1) {
+        try {
+          const nextDatabase = await loadDatabase();
+          if (cancelled) {
+            return;
+          }
+          databaseRef.current = nextDatabase;
+          setDatabase(nextDatabase);
+          setLoadFailed(false);
           setHydrated(true);
+          hydrationGateRef.current?.open();
+          return;
+        } catch (error) {
+          console.error('Failed to hydrate database', error);
+          if (cancelled) {
+            return;
+          }
+          if (attempt >= 3) {
+            setLoadFailed(true);
+            return;
+          }
+          // A locked or busy database is usually free a moment later.
+          await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
+          if (cancelled) {
+            return;
+          }
         }
       }
     }
@@ -377,7 +411,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadAttempt]);
 
   /**
    * The one write. Memory moves first so the screen answers at once, and
@@ -447,6 +481,9 @@ export function AppProvider({ children }: React.PropsWithChildren) {
   const runExclusiveRef = useRef<RunExclusive | null>(null);
   if (runExclusiveRef.current === null) {
     runExclusiveRef.current = createSerialTaskQueue();
+    // Held until the load lands (hydrationGateRef above).
+    const gate = hydrationGateRef.current;
+    void runExclusiveRef.current(() => gate.promise);
   }
   const runExclusive = runExclusiveRef.current;
 
@@ -1191,6 +1228,17 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     }),
     [database, hydrated],
   );
+
+  if (loadFailed) {
+    return (
+      <StorageLoadFailedScreen
+        onRetry={() => {
+          setLoadFailed(false);
+          setLoadAttempt((attempt) => attempt + 1);
+        }}
+      />
+    );
+  }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

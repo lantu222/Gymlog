@@ -65,7 +65,9 @@ export async function downloadBackup(idToken: string): Promise<BackupDownloadRes
       signal,
     });
     const body = (await response.json()) as { ok?: boolean; payload?: unknown; error?: string };
-    if (response.status === 404 || body.error === 'NO_BACKUP') {
+    // Only the server's own answer, never any 404: "no backup" makes the app
+    // upload this phone's data as the first one, over whatever is really there.
+    if (response.status === 404 && body.error === 'NO_BACKUP') {
       return { ok: false, error: 'NO_BACKUP' };
     }
     if (response.ok && body.ok) {

@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { StorageLoadFailedScreen } from '../../components/StorageLoadFailedScreen';
 import { trackEvent } from '../analytics/analyticsClient';
 
 import { CardioActivityType, UnitPreference } from '../../types/models';
@@ -100,18 +101,43 @@ const WorkoutContext = createContext<WorkoutContextValue | null>(null);
 export function WorkoutProvider({ children }: React.PropsWithChildren) {
   const [state, dispatch] = useReducer(workoutReducer, workoutInitialState);
   const hydratedRef = useRef(false);
+  /**
+   * The phone refused the read, after retries. There was no catch here at all,
+   * so the app sat on its splash forever; an empty bundle instead would be
+   * saved at once over the stored one. Nothing is written while this is set.
+   */
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
 
     async function hydrate() {
       dispatch({ type: 'session/markRestoring', payload: { value: true } });
-      const bundle = await loadWorkoutBundle();
-      if (cancelled) {
-        return;
+      for (let attempt = 1; ; attempt += 1) {
+        try {
+          const bundle = await loadWorkoutBundle();
+          if (cancelled) {
+            return;
+          }
+          dispatch({ type: 'session/hydrate', payload: bundle });
+          hydratedRef.current = true;
+          return;
+        } catch (error) {
+          console.error('Failed to hydrate workout bundle', error);
+          if (cancelled) {
+            return;
+          }
+          if (attempt >= 3) {
+            setLoadFailed(true);
+            return;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
+          if (cancelled) {
+            return;
+          }
+        }
       }
-      dispatch({ type: 'session/hydrate', payload: bundle });
-      hydratedRef.current = true;
     }
 
     hydrate();
@@ -119,7 +145,7 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadAttempt]);
 
   /**
    * The clock runs only while something needs one.
@@ -325,6 +351,17 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
     }),
     [completionSummary, state],
   );
+
+  if (loadFailed) {
+    return (
+      <StorageLoadFailedScreen
+        onRetry={() => {
+          setLoadFailed(false);
+          setLoadAttempt((attempt) => attempt + 1);
+        }}
+      />
+    );
+  }
 
   return <WorkoutContext.Provider value={value}>{children}</WorkoutContext.Provider>;
 }

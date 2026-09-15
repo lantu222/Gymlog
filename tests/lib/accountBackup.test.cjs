@@ -2,7 +2,9 @@ const assert = require('node:assert/strict');
 
 const {
   ACCOUNT_BACKUP_VERSION,
+  autoBackupWouldShrinkLog,
   buildAccountBackupPayload,
+  countBackupItems,
   describeAccountBackup,
   hasLocalDataWorthKeeping,
   parseAccountBackupPayload,
@@ -100,6 +102,34 @@ module.exports = [
       assert.equal(hasLocalDataWorthKeeping(makeDatabase({ cardioSessions: [{ id: 'c' }] })), true);
       assert.equal(hasLocalDataWorthKeeping(makeDatabase({ bodyweightEntries: [{ id: 'w' }] })), true);
       assert.equal(hasLocalDataWorthKeeping(makeDatabase({ workoutTemplates: [{ id: 't' }] })), true);
+      // Logged by hand like the rest; a measurements-only phone was overwritten unasked.
+      assert.equal(hasLocalDataWorthKeeping(makeDatabase({ measurementEntries: [{ id: 'm' }] })), true);
+    },
+  },
+  {
+    // A phone whose database was set aside as unreadable opens empty and still
+    // signed in; its next automatic backup replaced the one full copy left.
+    name: 'accountBackup: the automatic backup will not replace a copy holding more than twice the log',
+    run() {
+      // Counted over everything the backup watches, not workouts alone: two
+      // workouts and a year of weigh-ins is a log worth protecting.
+      assert.equal(
+        countBackupItems(makeDatabase({ workoutSessions: [{}, {}], bodyweightEntries: new Array(40).fill({}), workoutTemplates: [{}] })),
+        43,
+      );
+      assert.equal(countBackupItems({ workoutSessions: [{}] }), 1, 'an old backup missing arrays counts what it has');
+      assert.equal(autoBackupWouldShrinkLog(countBackupItems(makeDatabase({ bodyweightEntries: [{}] })), 43), true);
+
+      // A quarantined phone: nothing, or one workout, against a real history.
+      assert.equal(autoBackupWouldShrinkLog(0, 40), true);
+      assert.equal(autoBackupWouldShrinkLog(1, 40), true);
+      assert.equal(autoBackupWouldShrinkLog(19, 40), true);
+      // Half or more is a reader tidying their history, and it backs up.
+      assert.equal(autoBackupWouldShrinkLog(20, 40), false);
+      assert.equal(autoBackupWouldShrinkLog(41, 40), false);
+      // Too small a copy to judge, and an account from before the count was kept.
+      assert.equal(autoBackupWouldShrinkLog(0, 2), false);
+      assert.equal(autoBackupWouldShrinkLog(0, null), false);
     },
   },
 ];

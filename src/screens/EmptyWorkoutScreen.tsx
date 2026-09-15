@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
+  BackHandler,
   FlatList,
   Modal,
   Pressable,
@@ -53,6 +54,7 @@ import { subscribeRestActions, useRestEndAlert } from '../hooks/useRestEndAlert'
 import { useRestAlertPermissionMoment } from '../hooks/useRestAlertPermissionMoment';
 import { RestAlertAskOutcome } from '../lib/restAlertAnswer';
 import { RestAlertsSheet } from '../components/RestAlertsSheet';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { describeRest } from '../lib/restSchedule';
 import { useKeyboardReveal } from '../hooks/useKeyboardReveal';
 import { haptics } from '../utils/haptics';
@@ -516,6 +518,49 @@ export function EmptyWorkoutScreen({
   const hasExercises = exercises.length > 0;
   const canFinish = hasExercises && !isSaving;
 
+  /**
+   * Leaving with logged sets asks first.
+   *
+   * The sets live only in this screen until Finish saves them, and both the
+   * header chevron and hardware back went straight out: fifteen logged sets
+   * gone on one tap, with nothing asked and nothing to undo. Same question,
+   * same dialog as ending a guided session with sets in it.
+   */
+  const doneSetCount = freestyleDoneSetCount(exercises);
+  const [confirmingLeave, setConfirmingLeave] = useState(false);
+  const leaveGuardRef = useRef({ isSaving, onBack });
+  leaveGuardRef.current = { isSaving, onBack };
+  const requestLeave = () => {
+    // While Finish is saving the sets are on their way to disk and the summary
+    // follows; leaving now would race it. Hardware back does the same.
+    if (isSaving) {
+      return;
+    }
+    if (doneSetCount > 0) {
+      setConfirmingLeave(true);
+      return;
+    }
+    onBack();
+  };
+
+  // Registered only once there is something to lose, which puts it after the
+  // app's route-level listener; BackHandler asks the newest first.
+  const hasLoggedSets = doneSetCount > 0;
+  useEffect(() => {
+    if (!hasLoggedSets) {
+      return undefined;
+    }
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      // While Finish is saving, back does nothing: the sets are on their way
+      // to disk, and the summary follows.
+      if (!leaveGuardRef.current.isSaving) {
+        setConfirmingLeave(true);
+      }
+      return true;
+    });
+    return () => subscription.remove();
+  }, [hasLoggedSets]);
+
   useKeepScreenAwake(keepScreenAwake, 'empty-workout');
 
   useEffect(() => {
@@ -558,7 +603,6 @@ export function EmptyWorkoutScreen({
     }
   }, [rest, restStatus?.phase]);
 
-  const doneSetCount = freestyleDoneSetCount(exercises);
   const volumeKg = freestyleVolumeKg(exercises);
   const totalSetCount = exercises.reduce((sum, entry) => sum + entry.sets.length, 0);
 
@@ -973,7 +1017,7 @@ export function EmptyWorkoutScreen({
           the same room the row used to. */}
       <View style={styles.header}>
         <View style={styles.headerSide}>
-          <Pressable accessibilityRole="button" accessibilityLabel={t(language, 'emptyWorkout.a11y.back')} onPress={onBack} hitSlop={10} style={styles.headerBack}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t(language, 'emptyWorkout.a11y.back')} onPress={requestLeave} hitSlop={10} style={styles.headerBack}>
             <Svg viewBox="0 0 24 24" width={24} height={24}>
               <Path d="M15 6l-6 6 6 6" stroke={theme.ink} strokeWidth={2.2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
@@ -1190,6 +1234,25 @@ export function EmptyWorkoutScreen({
         language={language}
         onClose={() => setSheetVisible(false)}
         onAdd={addExercises}
+      />
+
+      <ConfirmDialog
+        language={language}
+        visible={confirmingLeave}
+        destructive
+        title={t(language, 'guided.endConfirm.title')}
+        message={t(
+          language,
+          doneSetCount === 1 ? 'guided.endConfirm.bodyOne' : 'guided.endConfirm.bodyMany',
+          { count: doneSetCount },
+        )}
+        confirmLabel={t(language, 'guided.exit.end')}
+        cancelLabel={t(language, 'guided.exit.keep')}
+        onCancel={() => setConfirmingLeave(false)}
+        onConfirm={() => {
+          setConfirmingLeave(false);
+          leaveGuardRef.current.onBack();
+        }}
       />
     </View>
   );

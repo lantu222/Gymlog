@@ -158,6 +158,48 @@ export function hasLocalDataWorthKeeping(database: AppDatabase): boolean {
     database.workoutSessions.length > 0 ||
     database.cardioSessions.length > 0 ||
     database.bodyweightEntries.length > 0 ||
+    // Measurements are logged by hand like the rest; a phone holding only
+    // those was overwritten on sign-in without being asked.
+    database.measurementEntries.length > 0 ||
     database.workoutTemplates.length > 0
   );
+}
+
+/**
+ * How much of the log a database holds, counted over the same five things the
+ * automatic backup watches: workouts, cardio, bodyweight, measurements and
+ * programmes. Missing arrays (an old backup) count as none.
+ */
+export function countBackupItems(
+  database: Partial<Pick<AppDatabase, 'workoutSessions' | 'cardioSessions' | 'bodyweightEntries' | 'measurementEntries' | 'workoutTemplates'>>,
+): number {
+  return (
+    (database.workoutSessions?.length ?? 0) +
+    (database.cardioSessions?.length ?? 0) +
+    (database.bodyweightEntries?.length ?? 0) +
+    (database.measurementEntries?.length ?? 0) +
+    (database.workoutTemplates?.length ?? 0)
+  );
+}
+
+/**
+ * Whether an automatic backup would replace a cloud copy holding far more of
+ * the log than this phone does.
+ *
+ * The automatic backup fires on any change in counts. A phone whose database
+ * was set aside as unreadable opens empty and still signed in; the reader
+ * redoes setup or logs one workout, and eight seconds later the one full copy
+ * left was replaced by that. Less than half of a copy of at least three
+ * things is not a reader tidying their history — the automatic path stops,
+ * and "Back up now" stays the reader's own decision.
+ *
+ * Counted over everything the backup watches (countBackupItems), not workouts
+ * alone: a reader with two workouts and a year of weigh-ins was never
+ * protected by a workout count (PR #119 review).
+ */
+export function autoBackupWouldShrinkLog(localItemCount: number, lastBackupItemCount: number | null): boolean {
+  if (lastBackupItemCount === null || lastBackupItemCount < 3) {
+    return false;
+  }
+  return localItemCount * 2 < lastBackupItemCount;
 }

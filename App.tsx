@@ -66,7 +66,7 @@ import {
   TourTargetId,
   TourSurface,
 } from './src/lib/firstRunTour';
-import { useAccountBackup } from './src/features/account/useAccountBackup';
+import { SignInOutcome, useAccountBackup } from './src/features/account/useAccountBackup';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
 import {
@@ -366,6 +366,10 @@ function VinhaApp() {
     importWorkoutHistory,
   } = useAppContext();
   const workout = useWorkoutContext();
+  // For listeners that must not re-subscribe on every workout change: the
+  // context is a new object once a second while a rest timer or cardio runs.
+  const workoutRef = useRef(workout);
+  workoutRef.current = workout;
 
   // Account & cloud backup: sign in with Google on the hand-off card or in
   // Settings, and the data survives a new phone. Free and Pro alike (decision
@@ -1098,6 +1102,15 @@ function VinhaApp() {
     preferences.setupCurrentWeightKg,
   ]);
 
+  /**
+   * The route-level back. BackHandler calls the newest listener first, and a
+   * screen with its own answer to back (the cardio end sheet, the guided
+   * player's exit sheet, the free workout's discard question) registers after
+   * this one. That only holds while this effect stays put: it used to depend on
+   * the workout context, which is a new object every second while a rest timer
+   * or cardio runs, so it re-subscribed every second, became the newest
+   * listener, and walked the reader Home past the screen's own handler.
+   */
   useEffect(() => {
     if (onboardingActive) {
       return undefined;
@@ -1112,7 +1125,7 @@ function VinhaApp() {
       if (route.tab === 'workout' && route.screen === 'summary') {
         setCompletionSummary(null);
         setFinishSaveState({ status: 'idle', sessionId: null, message: null });
-        workout.clearCompletedWorkout();
+        workoutRef.current.clearCompletedWorkout();
         navigateBack(summaryExitRouteRef.current ?? workoutHomeRoute);
         return true;
       }
@@ -1122,7 +1135,7 @@ function VinhaApp() {
     });
 
     return () => subscription.remove();
-  }, [navigationState.history.length, onboardingActive, route, workout]);
+  }, [navigationState.history.length, onboardingActive, route]);
 
   const homeSummary = useMemo(() => getHomeSummary(database, unitPreference), [database, unitPreference]);
   const lifetimeSummary = useMemo(() => getLifetimeTrainingSummary(database), [database]);
@@ -4149,22 +4162,31 @@ function VinhaApp() {
    * signing in now. Adopted once and never overwritten: a name typed in Profile
    * is the reader's own answer and outranks the account's.
    */
+  //
+  // Not before the stored preferences have loaded. The account is a small key
+  // and arrives first, while preferences are still the defaults and
+  // profileName is null — so this wrote the DEFAULT preferences plus the name
+  // to the preferences key, and the load then laid that over the real ones:
+  // onboarding, running programmes, goals, consents and the trial gone on a
+  // cold start, for every signed-in reader.
   useEffect(() => {
+    if (!appHydrated) {
+      return;
+    }
     const googleName = accountBackup.state.name?.trim();
     if (!googleName || preferences.profileName?.trim()) {
       return;
     }
     void updatePreferences({ profileName: googleName.slice(0, 32) });
-  }, [accountBackup.state.name, preferences.profileName, updatePreferences]);
+  }, [accountBackup.state.name, appHydrated, preferences.profileName, updatePreferences]);
 
   /**
    * The whole sign-in conversation: outcome toasts, and the one dialog that
    * appears when both the phone and the cloud hold data. Shared by the
    * hand-off card and the Settings row so both tell the same story.
    */
-  const handleAccountSignIn = useCallback(async () => {
+  const presentAccountOutcome = useCallback((outcome: SignInOutcome, failedKey: I18nKey) => {
     const language = preferences.appLanguage;
-    const outcome = await accountBackup.signIn();
     if (outcome.kind === 'backed_up') {
       // No toast. The backup row states the result better than a bar can: it
       // carries the account and, in green, when the cloud copy was written.
@@ -4177,8 +4199,12 @@ function VinhaApp() {
       showToast(t(language, 'account.restore.restored'));
       return outcome.kind;
     }
+    if (outcome.kind === 'restore_failed') {
+      showToast(t(language, 'account.restore.failed'));
+      return outcome.kind;
+    }
     if (outcome.kind === 'failed') {
-      showToast(t(language, 'account.signInFailed'));
+      showToast(t(language, failedKey));
       return outcome.kind;
     }
     if (outcome.kind === 'unavailable') {
@@ -4214,9 +4240,9 @@ function VinhaApp() {
           style: 'destructive',
           onPress: () => {
             void accountBackup.resolveRestoreChoice('restore').then((ok) => {
-              if (ok) {
-                showToast(t(language, 'account.restore.restored'));
-              }
+              // Both results speak: this button replaces the phone's data, and
+              // silence after it is no answer to whether it did.
+              showToast(t(language, ok ? 'account.restore.restored' : 'account.restore.failed'));
             });
           },
         },
@@ -4227,6 +4253,18 @@ function VinhaApp() {
     return outcome.kind;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountBackup, preferences.appLanguage]);
+
+  const handleAccountSignIn = useCallback(
+    async () => presentAccountOutcome(await accountBackup.signIn(), 'account.signInFailed'),
+    [accountBackup, presentAccountOutcome],
+  );
+
+  // "Back up now" tells the same story as sign-in: on a phone that has never
+  // synced it may have to ask restore-or-keep before it can write anything.
+  const handleAccountBackupNow = useCallback(
+    async () => presentAccountOutcome(await accountBackup.backUpOrAsk(), 'account.backupFailed'),
+    [accountBackup, presentAccountOutcome],
+  );
 
   const handleSetupHandoffDone = async (choices: SetupHandoffChoices) => {
     const patch: Partial<AppPreferences> = { setupHandoffCompleted: true };
@@ -6193,6 +6231,7 @@ function VinhaApp() {
       handleAddHomeWidget,
       accountBackup,
       handleAccountSignIn,
+      handleAccountBackupNow,
       showToast,
       setSettingsImportVisible,
       setRatingSheetVisible,

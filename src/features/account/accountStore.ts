@@ -15,6 +15,13 @@ export interface StoredAccount {
   email: string | null;
   name: string | null;
   lastBackupAt: string | null;
+  /**
+   * How much of the log the cloud copy held when this phone last wrote or read
+   * it (countBackupItems). The automatic backup compares against it so a phone
+   * that has lost its log does not quietly replace the copy that still has it.
+   * Null when unknown (an account stored before this was kept).
+   */
+  lastBackupItemCount: number | null;
 }
 
 export async function loadStoredAccount(): Promise<StoredAccount | null> {
@@ -32,6 +39,10 @@ export async function loadStoredAccount(): Promise<StoredAccount | null> {
       email: typeof parsed.email === 'string' ? parsed.email : null,
       name: typeof parsed.name === 'string' ? parsed.name : null,
       lastBackupAt: typeof parsed.lastBackupAt === 'string' ? parsed.lastBackupAt : null,
+      lastBackupItemCount:
+        typeof parsed.lastBackupItemCount === 'number' && Number.isFinite(parsed.lastBackupItemCount) && parsed.lastBackupItemCount >= 0
+          ? Math.floor(parsed.lastBackupItemCount)
+          : null,
     };
   } catch {
     return null;

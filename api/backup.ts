@@ -190,8 +190,15 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       let stored;
       try {
         stored = await get(pathname, { access: 'private', useCache: false });
-      } catch {
-        stored = null;
+      } catch (error) {
+        // `get` answers a missing blob with null and throws for everything
+        // else — a 403, a 5xx, the network. Those used to become NO_BACKUP,
+        // and the app treats NO_BACKUP as "upload this phone's data as the
+        // first backup": a new phone signing in during a storage blip wrote
+        // its empty database over the reader's whole history.
+        console.error('backup GET failed', error);
+        res.status(502).json({ ok: false, error: 'STORE_UNAVAILABLE' });
+        return;
       }
       if (!stored || stored.statusCode !== 200) {
         res.status(404).json({ ok: false, error: 'NO_BACKUP' });

@@ -1610,6 +1610,7 @@ const EN = {
   'account.restore.useBackup': 'Restore backup',
   'account.restore.keepLocal': 'Keep this phone',
   'account.restore.restored': 'Backup restored',
+  'account.restore.failed': 'Could not restore the backup. Nothing on this phone changed.',
   'account.prompt.title': 'Keep your training safe',
   'account.prompt.body':
     'Sign in with Google and your workouts survive a lost or new phone. Optional — everything works without it.',
@@ -1649,6 +1650,10 @@ const EN = {
   'settings.widget': 'Home screen widget',
   'settings.widget.sub': 'Your training month, your streak and today, on the home screen.',
   'settings.widget.added': 'Already on your home screen.',
+  // Storage refused a read at launch. Nothing has been written over it.
+  'storageLoadFailed.title': 'Your data could not be read',
+  'storageLoadFailed.body': 'The phone did not hand back what Vinha saved. Nothing has been changed or deleted — try again.',
+  'storageLoadFailed.retry': 'Try again',
   // ── Training break, edit profile ──────────────────────────────────────
   'break.title': 'Training break',
   'break.switchSub': 'Silences reminders and notifications',
@@ -4621,6 +4626,7 @@ const FI: Record<I18nKey, string> = {
   'account.restore.useBackup': 'Palauta varmuuskopio',
   'account.restore.keepLocal': 'Pidä tämä puhelin',
   'account.restore.restored': 'Varmuuskopio palautettu',
+  'account.restore.failed': 'Varmuuskopiota ei voitu palauttaa. Puhelimen tiedot eivät muuttuneet.',
   'account.prompt.title': 'Pidä treenisi tallessa',
   'account.prompt.body':
     'Kirjaudu Googlella, niin treenisi säilyvät vaikka puhelin katoaisi tai vaihtuisi. Vapaaehtoinen — kaikki toimii ilmankin.',
@@ -4658,6 +4664,9 @@ const FI: Record<I18nKey, string> = {
   'settings.widget': 'Kotinäytön widget',
   'settings.widget.sub': 'Treenikuukausi, putki ja tämä päivä kotinäytöllä.',
   'settings.widget.added': 'Jo kotinäytölläsi.',
+  'storageLoadFailed.title': 'Tietojasi ei voitu lukea',
+  'storageLoadFailed.body': 'Puhelin ei antanut Vinhan tallentamia tietoja. Mitään ei ole muutettu eikä poistettu — yritä uudelleen.',
+  'storageLoadFailed.retry': 'Yritä uudelleen',
   // ── Training break, edit profile ──────────────────────────────────────
   'break.title': 'Treenitauko',
   'break.switchSub': 'Hiljentää muistutukset ja ilmoitukset',

@@ -96,6 +96,7 @@ export interface ProfileTabDeps {
   tourTargets: TourTargetRegistry;
   accountBackup: AccountBackupApi;
   handleAccountSignIn: () => Promise<unknown>;
+  handleAccountBackupNow: () => Promise<unknown>;
   showToast: (message: string) => void;
   setSettingsImportVisible: (visible: boolean) => void;
   setRatingSheetVisible: (visible: boolean) => void;
@@ -147,6 +148,7 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
     handleAddHomeWidget,
     accountBackup,
     handleAccountSignIn,
+    handleAccountBackupNow,
     showToast,
     setSettingsImportVisible,
     setRatingSheetVisible,
@@ -539,15 +541,10 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
                 lastBackupAt: accountBackup.state.lastBackupAt,
                 busy: accountBackup.phase !== 'idle',
                 onSignIn: () => void handleAccountSignIn(),
-                onBackupNow: () => {
-                  void accountBackup.backupNow().then((ok) => {
-                    // Only the failure speaks; the row's green timestamp is
-                    // the success, and it is already on screen.
-                    if (!ok) {
-                      showToast(t(preferences.appLanguage, 'account.backupFailed'));
-                    }
-                  });
-                },
+                // Only the failure speaks; the row's green timestamp is the
+                // success, and it is already on screen. A phone that has never
+                // synced may be asked restore-or-keep first, as at sign-in.
+                onBackupNow: () => void handleAccountBackupNow(),
                 onSignOut: () => void accountBackup.signOut(),
                 onDeleteRemote: () => {
                   Alert.alert(
