@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { del, list, put } from '@vercel/blob';
 import { buildAiCoachPreviewAnswer } from '../src/lib/aiCoachPreview';
 import { buildAiCoachSystemContext } from '../src/lib/aiCoachSystemContext';
@@ -323,10 +324,39 @@ function createError(
   return { ok: false, source, error, fallback, note };
 }
 
-function setCors(res: ApiResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+/**
+ * The header the app presents on every call, and the key it has to carry.
+ *
+ * This endpoint had no caller check at all: a public URL, `Access-Control-
+ * Allow-Origin: *`, and only a per-instance rate limit between any web page
+ * or script and the Anthropic bill (security review, 2026-09-14). No browser
+ * client exists, so the CORS headers are gone — a browser now refuses the
+ * cross-origin call itself — and every request has to carry the build's key.
+ *
+ * The key ships inside the APK, so this is a lock on the front door, not a
+ * vault: it stops the public repository's readers and any web page, and it
+ * makes a caller take the app apart first. Play Integrity or a signed-in
+ * identity is the stronger door, and this is the shape it plugs into. Missing
+ * on the server means nobody gets in: a deploy without `AI_COACH_APP_KEY` is
+ * a coach that answers offline, never one that answers everyone.
+ */
+const APP_KEY_HEADER = 'x-vinha-app-key';
+
+function hasAppKey(req: ApiRequest): boolean {
+  // Trimmed on both sides: a value pasted into Vercel with the newline
+  // `openssl rand` prints would otherwise refuse every real build, silently.
+  const expected = process.env.AI_COACH_APP_KEY?.trim();
+  if (!expected) {
+    return false;
+  }
+  const header = req.headers[APP_KEY_HEADER];
+  const presented = (Array.isArray(header) ? header[0] : header)?.trim();
+  if (!presented) {
+    return false;
+  }
+  const a = Buffer.from(expected);
+  const b = Buffer.from(presented);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 function checkRateLimit(ip: string) {
@@ -1107,15 +1137,21 @@ async function forgetTranscripts(logId: string): Promise<number> {
 }
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
-  setCors(res);
-
-  if (req.method === 'OPTIONS') {
-    res.status(204).end();
+  if (req.method !== 'POST') {
+    res.status(405).json(createError({ code: 'METHOD_NOT_ALLOWED', message: 'Use POST.' }, undefined, undefined, 'preview'));
     return;
   }
 
-  if (req.method !== 'POST') {
-    res.status(405).json(createError({ code: 'METHOD_NOT_ALLOWED', message: 'Use POST.' }, undefined, undefined, 'preview'));
+  // Before anything is parsed, before the rate limit: a stranger's request
+  // costs a header comparison and nothing else. The app treats the refusal
+  // like any other failure and answers offline.
+  if (!hasAppKey(req)) {
+    // Only the misconfiguration is logged. A mismatch is a stranger, and a
+    // line per stranger would be a log bill anyone could run up for free.
+    if (!process.env.AI_COACH_APP_KEY?.trim()) {
+      console.error('ai-coach UNAUTHORIZED: AI_COACH_APP_KEY is not set, so every request is refused');
+    }
+    res.status(401).json(createError({ code: 'UNAUTHORIZED', message: 'Missing or wrong app key.' }, undefined, undefined, 'preview'));
     return;
   }
 

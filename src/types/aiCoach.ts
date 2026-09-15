@@ -436,7 +436,8 @@ export interface AICoachAdviceError {
   ok: false;
   source: 'live' | 'preview';
   error: {
-    code: 'BAD_REQUEST' | 'METHOD_NOT_ALLOWED' | 'RATE_LIMIT' | 'UPSTREAM_TIMEOUT' | 'UPSTREAM_ERROR' | 'INVALID_RESPONSE' | 'MISSING_API_KEY';
+    code: 'BAD_REQUEST' | 'METHOD_NOT_ALLOWED' | 'RATE_LIMIT' | 'UPSTREAM_TIMEOUT' | 'UPSTREAM_ERROR' | 'INVALID_RESPONSE' | 'MISSING_API_KEY'
+    | 'UNAUTHORIZED';
     message: string;
   };
   fallback?: AICoachAdvice;

@@ -14,14 +14,22 @@ This backend path is designed so that the app can work in two modes:
 
 ## Environment variables
 ### App
-Set this in the Expo environment for builds that should use live Vinha AI:
+Set these in the Expo environment for builds that should use live Vinha AI:
 - `EXPO_PUBLIC_AI_COACH_API_URL=https://your-domain.example/api/ai-coach`
+- `EXPO_PUBLIC_AI_COACH_APP_KEY=<the same value as the server's AI_COACH_APP_KEY>`
 
-If this variable is missing, the app automatically falls back to local preview mode.
+If either variable is missing, the app automatically falls back to local
+preview mode and never makes the round trip.
 
 ### Serverless endpoint
 Set these on the server / deployment platform:
 - `ANTHROPIC_API_KEY=...`
+- `AI_COACH_APP_KEY=...` — any long random string (`openssl rand -hex 32`). The
+  endpoint refuses every request that does not carry it in `x-vinha-app-key`,
+  and refuses everything when it is unset. It ships inside the APK, so it is a
+  lock on the front door (public-repo readers, web pages, casual scripts), not
+  a vault — Play Integrity is the stronger door. No CORS headers are sent: the
+  only client is the app.
 - `AI_COACH_CLAUDE_MODEL=claude-haiku-4-5-20251001` (optional)
 - `AI_COACH_CLAUDE_MAX_TOKENS=700` (optional)
 - `AI_COACH_RATE_LIMIT_MAX=12` (optional)
@@ -124,17 +132,29 @@ needs your accounts; none can be done from the repo.
    `aiCoachBudget.ts` are brakes, not caps — see A2 above). Do not skip to step 2
    without it: the moment the URL is public, the tap is open.
 2. **Deploy.** `npx vercel` from the repo root, link or create the project, and
-   in Vercel → Settings → Environment Variables set `ANTHROPIC_API_KEY`
-   (production). The optional tuning variables above can wait; the defaults are
-   the measured ones.
+   in Vercel → Settings → Environment Variables set `ANTHROPIC_API_KEY` and
+   `AI_COACH_APP_KEY` (production). The optional tuning variables above can
+   wait; the defaults are the measured ones. A deploy without the app key is a
+   coach that answers offline for everyone.
+
+   **Order matters the first time.** Set `AI_COACH_APP_KEY` in Vercel *before*
+   the keyed endpoint deploys, and ship an app build carrying the same
+   `EXPO_PUBLIC_AI_COACH_APP_KEY` at the same time: every build made before
+   the key existed is refused from that deploy on, and answers offline. Its
+   withdrawals (`mode: 'forget'`) fail too, and the app keeps the label until
+   a keyed build can retry — nothing is lost, but nothing is deleted either.
+
 3. **Smoke it.** `curl -X POST https://<project>.vercel.app/api/ai-coach -H
-   'content-type: application/json' -d '{"prompt":"hei","context":{}}'` should
-   answer with the JSON envelope, not a 500. A `MISSING_API_KEY` in the body
-   means step 2's variable did not reach production.
+   'content-type: application/json' -H "x-vinha-app-key: $AI_COACH_APP_KEY"
+   -d '{"prompt":"hei","context":{}}'` should answer with the JSON envelope,
+   not a 500. A `MISSING_API_KEY` in the body means step 2's Anthropic
+   variable did not reach production; a 401 `UNAUTHORIZED` means the app key
+   did not, or the header is missing.
 4. **Point the app at it.** `EXPO_PUBLIC_AI_COACH_API_URL=https://<project>.vercel.app/api/ai-coach`
-   in the build environment (`.env` for local `npm run start`, EAS secret or the
-   Gradle env for a release build). Without it the app stays in preview mode —
-   which is the intended fallback, not an error.
+   and `EXPO_PUBLIC_AI_COACH_APP_KEY=<same value as AI_COACH_APP_KEY>` in the
+   build environment (`.env` for local `npm run start`, EAS secret or the
+   Gradle env for a release build). Without either the app stays in preview
+   mode — which is the intended fallback, not an error.
 5. **Prove the live path beats the baseline.** `node scripts/eval-ai-coach.cjs
    --live` against the deployed URL. Preview scores 84 % (21/25) and fails only
    the two cases that need the history read; live has to clear that or the

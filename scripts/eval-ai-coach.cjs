@@ -10,7 +10,8 @@
  * needs no network and no key, so the harness is useful before the endpoint
  * is even deployed — it scores whatever answer generator you point it at.
  *
- * --live posts to $AI_COACH_API_URL and costs real money, one call per case.
+ * --live posts to $AI_COACH_API_URL with $AI_COACH_APP_KEY (the endpoint refuses
+ * calls without it) and costs real money, one call per case.
  */
 const { AI_COACH_EVAL_CASES } = require('../.test-dist/lib/aiCoachEvalCases.js');
 const { scoreCase, scoreRun, formatRunReport } = require('../.test-dist/lib/aiCoachEval.js');
@@ -66,7 +67,7 @@ async function answerFor(evalCase, retry = false) {
   const startedAt = Date.now();
   const response = await fetch(endpoint, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'x-vinha-app-key': process.env.AI_COACH_APP_KEY ?? '' },
     body: JSON.stringify({
       prompt: evalCase.prompt,
       context: evalCase.context,
@@ -77,6 +78,10 @@ async function answerFor(evalCase, retry = false) {
   });
   const payload = await response.json();
   timings.push({ id: evalCase.id, ms: Date.now() - startedAt });
+  if (response.status === 401) {
+    // Not transient and not the prompt's fault: the run cannot start.
+    throw new Error('the endpoint refused the app key — set AI_COACH_APP_KEY to the server\'s value');
+  }
 
   // A fallback answer is not the live coach; scoring it would quietly report
   // the preview's number as if the endpoint had produced it.
