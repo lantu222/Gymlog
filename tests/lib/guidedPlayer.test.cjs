@@ -1139,4 +1139,34 @@ module.exports = [
       assert.equal(negative.current, 0);
     },
   },
+  {
+    /**
+     * After a lift leaves a superset the player lands where its block began —
+     * the other lift's round, already logged. Log there was refused, and the
+     * set the reader really did was lost.
+     */
+    name: 'rollPastLoggedWork: lands past logged sets and the lead-ins to them',
+    run() {
+      const { rollPastLoggedWork } = require('../../.test-dist/lib/guidedPlayer.js');
+      const done = new Set(['a:0', 'b:0', 'a:1']);
+      const isDone = (slotId, setIndex) => done.has(`${slotId}:${setIndex}`);
+      // Round 1 done, A's round-2 set done, then B skipped: the plan is A alone.
+      const { steps } = buildGuidedSteps({
+        warmup: [],
+        exercises: [
+          { slotId: 'a', name: 'Bench Press', restSeconds: 90, setCount: 3, skipped: false, supersetGroup: 'ss' },
+          { slotId: 'b', name: 'Barbell Row', restSeconds: 90, setCount: 3, skipped: true, supersetGroup: 'ss' },
+        ],
+        cooldown: [],
+      });
+      const blockStart = steps.findIndex((step) => step.type === 'position' || step.type === 'set');
+      const landed = rollPastLoggedWork(steps, blockStart, isDone);
+      assert.equal(steps[landed].type, 'set');
+      assert.equal(steps[landed].slotId, 'a');
+      assert.equal(steps[landed].setIndex, 2);
+      // Nothing logged: it stays put. Everything logged: it runs past every set.
+      assert.equal(rollPastLoggedWork(steps, blockStart, () => false), blockStart);
+      assert.notEqual(steps[rollPastLoggedWork(steps, blockStart, () => true)].type, 'set');
+    },
+  },
 ];

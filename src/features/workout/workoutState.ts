@@ -720,12 +720,21 @@ function restBelongsAfter(
 
 /**
  * The most a set can count: the reps dial's top, or the hold dial's seconds —
- * for a hold, and for an interval bout, whose number is its work seconds.
+ * for a hold, and for an interval bout, whose number is its work seconds —
+ * and never less than the set's own prescription. "Rowing Machine (500m
+ * intervals)" prescribes 500, and a ceiling under it refused every set of that
+ * exercise as the player logged it (PR #121 review).
  */
-function repsCeilingFor(exercise: Pick<WorkoutExerciseInstance, 'trackingMode' | 'exerciseName'>) {
-  return isTimedTrackingMode(exercise.trackingMode) || parseIntervalScheme(exercise.exerciseName) !== null
-    ? HOLD_DIAL.max
-    : REPS_DIAL.max;
+export function repsCeilingFor(
+  exercise: Pick<WorkoutExerciseInstance, 'trackingMode' | 'exerciseName'>,
+  set?: Pick<WorkoutSetInstance, 'plannedRepsMax'> | null,
+) {
+  const dial =
+    isTimedTrackingMode(exercise.trackingMode) || parseIntervalScheme(exercise.exerciseName) !== null
+      ? HOLD_DIAL.max
+      : REPS_DIAL.max;
+  const planned = set?.plannedRepsMax;
+  return typeof planned === 'number' && Number.isFinite(planned) ? Math.max(dial, planned) : dial;
 }
 
 /**
@@ -1113,7 +1122,7 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       }
 
       const actualReps = resolveDraftReps(set);
-      if (!actualReps || actualReps <= 0 || actualReps > repsCeilingFor(exercise)) {
+      if (!actualReps || actualReps <= 0 || actualReps > repsCeilingFor(exercise, set)) {
         return state;
       }
 
@@ -1198,7 +1207,7 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       if (
         !Number.isFinite(action.payload.reps) ||
         action.payload.reps <= 0 ||
-        action.payload.reps > repsCeilingFor(exercise)
+        action.payload.reps > repsCeilingFor(exercise, set)
       ) {
         return state;
       }

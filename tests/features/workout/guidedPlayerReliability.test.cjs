@@ -3,8 +3,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { workoutReducer } = require('../../../.test-dist/features/workout/workoutState');
-const { buildGuidedSteps, rollPastLoggedWork } = require('../../../.test-dist/lib/guidedPlayer');
-const { isLoggableFreestyleSet } = require('../../../.test-dist/lib/emptyWorkoutSession');
 
 /**
  * Live-session audit, 2026-09-15: what the guided player does between Start
@@ -108,49 +106,21 @@ module.exports = [
       let plank = startWith([exercise({ exerciseName: 'Plank', trackingMode: 'hold', repsMin: 30, repsMax: 60, substitutionGroup: 'core' })]);
       plank = log(plank, plank.activeSession.exercises[0].slotId, 0, '', '600');
       assert.equal(setOf(plank).status, 'completed');
+
+      // A prescription past the reps dial is still the prescription: the
+      // catalog's "Rowing Machine (500m intervals)" asks for 500 (PR #121 review).
+      let rowing = startWith([exercise({ exerciseName: 'Rowing Machine (500m intervals)', repsMin: 500, repsMax: 500, sets: 6, substitutionGroup: 'row' })]);
+      rowing = log(rowing, rowing.activeSession.exercises[0].slotId, 0, '0', '500');
+      assert.equal(setOf(rowing).status, 'completed');
+      assert.equal(setOf(rowing).actualReps, 500);
+      const rowingEdited = workoutReducer(rowing, { type: 'set/editLogged', payload: { slotId: rowing.activeSession.exercises[0].slotId, setIndex: 0, reps: 480, loadKg: 0 } });
+      assert.equal(setOf(rowingEdited).actualReps, 480);
     },
   },
   {
-    name: 'guided: after a lift leaves a superset, the player lands past what is already logged',
+    name: 'guided: the free workout will not tick a set nobody could lift',
     run() {
-      const done = new Set();
-      const isDone = (slotId, setIndex) => done.has(`${slotId}:${setIndex}`);
-      const pair = (skippedB) =>
-        buildGuidedSteps({
-          warmup: [],
-          exercises: [
-            { slotId: 'a', name: 'Bench Press', restSeconds: 90, setCount: 3, skipped: false, supersetGroup: 'ss' },
-            { slotId: 'b', name: 'Barbell Row', restSeconds: 90, setCount: 3, skipped: skippedB, supersetGroup: 'ss' },
-          ],
-          cooldown: [],
-        }).steps;
-
-      // Round 1 done, A's round-2 set done, then B is skipped: the rebuilt plan is A alone.
-      ['a:0', 'b:0', 'a:1'].forEach((key) => done.add(key));
-      const steps = pair(true);
-      const blockStart = steps.findIndex((step) => step.type === 'position' || step.type === 'set');
-      const landed = rollPastLoggedWork(steps, blockStart, isDone);
-      assert.equal(steps[landed].type, 'set');
-      assert.equal(steps[landed].slotId, 'a');
-      assert.equal(steps[landed].setIndex, 2, 'the first set not yet logged, not a logged one');
-
-      // Nothing logged: it stays where it was put.
-      assert.equal(rollPastLoggedWork(steps, blockStart, () => false), blockStart);
-      // Everything logged: it runs to the end rather than stopping on a logged set.
-      const all = rollPastLoggedWork(steps, blockStart, () => true);
-      assert.notEqual(steps[all].type, 'set');
-    },
-  },
-  {
-    name: 'guided: a free-workout set nobody could lift cannot be ticked',
-    run() {
-      assert.equal(isLoggableFreestyleSet({ kg: '82,5', reps: '6' }), true);
-      assert.equal(isLoggableFreestyleSet({ kg: '', reps: '' }), true);
-      assert.equal(isLoggableFreestyleSet({ kg: '0', reps: '12' }), true);
-      assert.equal(isLoggableFreestyleSet({ kg: '825', reps: '6' }), false);
-      assert.equal(isLoggableFreestyleSet({ kg: '80', reps: '999' }), false);
-      assert.equal(isLoggableFreestyleSet({ kg: 'abc', reps: '6' }), false);
-
+      // The rule itself is covered in tests/lib/emptyWorkoutSession; this is the wiring.
       const screen = read('src', 'screens', 'EmptyWorkoutScreen.tsx');
       assert.match(screen, /if \(!set\.done && !isLoggableFreestyleSet\(set\)\) \{\s*void haptics\.error\(\);\s*return;/);
     },
@@ -165,8 +135,11 @@ module.exports = [
       assert.match(confirm, /if \(isSetCompleted\(slotId, setIndex\)\) \{\s*advance\(\);\s*return;\s*\}\s*workout\.updateSetDraft/);
       assert.match(player, /goToRef\.current\(rollPastLoggedWork\(steps, Math\.min\(target, steps\.length - 1\), isSetCompletedRef\.current\)\);/);
 
-      // The editor's Save follows the same ceilings as the reducer.
-      assert.match(player, /nextReps <= \(timed \? HOLD_DIAL\.max : REPS_DIAL\.max\) &&\s*\(unloaded \|\| isLiftableWeight\(nextLoad\)\)/);
+      // The editor's Save follows the reducer's own ceiling, interval and
+      // prescription included, so Save and the store cannot disagree.
+      assert.match(player, /nextReps <= repsCeiling &&\s*\(unloaded \|\| isLiftableWeight\(nextLoad\)\)/);
+      assert.match(player, /repsCeilingFor\(exercise, findSetByIndex\(exercise, step\.setIndex\)\)/);
+      // The superset landing rule lives in tests/lib/guidedPlayer; this is its wiring.
 
       // The finish step shows the failure and the save again.
       assert.match(player, /<FinishView\s*onFinish=\{onFinishSession\}\s*saveFailed=\{saveFailed && !isSavingWorkout\}/);

@@ -110,6 +110,7 @@ import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { useKeepScreenAwake } from '../utils/keepAwake';
 import {
   getHistoryEntriesForExercise,
+  repsCeilingFor,
   resolveInstanceBorrowRepWindow,
 } from '../features/workout/workoutState';
 import { resolveLastTimeEntry } from '../lib/exerciseHistoryLookup';
@@ -3338,7 +3339,14 @@ export function GuidedPlayerScreen({
           language={language}
           unitPreference={unitPreference}
           unloaded={isUnloadedTrackingMode(exerciseBySlot.get(step.slotId)?.trackingMode ?? 'load_and_reps')}
-          timed={isTimedTrackingMode(exerciseBySlot.get(step.slotId)?.trackingMode ?? 'load_and_reps')}
+          repsCeiling={(() => {
+            const exercise = exerciseBySlot.get(step.slotId);
+            // The reducer's own ceiling, so Save and the store cannot disagree:
+            // a hold's seconds, an interval's work seconds, a prescription past the dial.
+            return exercise
+              ? repsCeilingFor(exercise, findSetByIndex(exercise, step.setIndex))
+              : REPS_DIAL.max;
+          })()}
           reps={findSetByIndex(exerciseBySlot.get(step.slotId), step.setIndex)?.actualReps ?? 0}
           loadKg={findSetByIndex(exerciseBySlot.get(step.slotId), step.setIndex)?.actualLoadKg ?? 0}
           onCancel={() => setRestEditOpen(false)}
@@ -3793,7 +3801,7 @@ function LoggedSetEditor({
   language,
   unitPreference,
   unloaded,
-  timed,
+  repsCeiling,
   reps,
   loadKg,
   onCancel,
@@ -3802,8 +3810,8 @@ function LoggedSetEditor({
   language: AppLanguage;
   unitPreference: UnitPreference;
   unloaded: boolean;
-  /** A hold: the number is seconds, and its ceiling is the hold dial's. */
-  timed: boolean;
+  /** The most this set can count — the store's rule, see repsCeilingFor. */
+  repsCeiling: number;
   reps: number;
   loadKg: number;
   onCancel: () => void;
@@ -3822,7 +3830,7 @@ function LoggedSetEditor({
   // the next session at 825.
   const valid =
     nextReps > 0 &&
-    nextReps <= (timed ? HOLD_DIAL.max : REPS_DIAL.max) &&
+    nextReps <= repsCeiling &&
     (unloaded || isLiftableWeight(nextLoad));
 
   return (
