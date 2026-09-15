@@ -104,7 +104,13 @@ module.exports = [
       // pressing "Back up now" gets sign-in's question instead of a dead end.
       assert.match(
         backup,
-        /if \(!account\.lastBackupAt\) \{\s*const remote = await downloadBackup\(idToken\);\s*if \(interactive\) \{\s*return await settleWithRemote\(idToken, account, remote\);\s*\}\s*if \(remote\.ok \|\| remote\.error !== 'NO_BACKUP'\) \{\s*return \{ kind: 'failed' \};\s*\}\s*\}\s*return \(await uploadCurrent\(idToken, account\)\)/,
+        /if \(!account\.lastBackupAt\) \{\s*const remote = await downloadBackup\(idToken\);\s*if \(interactive\) \{\s*return await settleWithRemote\(idToken, account, remote\);\s*\}\s*if \(remote\.ok \|\| remote\.error !== 'NO_BACKUP'\) \{\s*return \{ kind: 'failed' \};\s*\}\s*\} else if/,
+      );
+      // An account synced before the copy's size was kept learns it before the
+      // first automatic upload, and that upload answers to the shrink guard.
+      assert.match(
+        backup,
+        /\} else if \(!interactive && account\.lastBackupItemCount === null\) \{\s*const remote = await downloadBackup\(idToken\);\s*if \(remote\.ok\) \{\s*const remoteItemCount = countBackupItems\(remote\.payload\.database\);\s*if \(autoBackupWouldShrinkLog\(countBackupItems\(latestRef\.current\.database\), remoteItemCount\)\) \{[\s\S]*?return \{ kind: 'failed' \};\s*\}\s*\} else if \(remote\.error !== 'NO_BACKUP'\) \{\s*return \{ kind: 'failed' \};/,
       );
       assert.match(hook, /const backupNow = useCallback\(async \(\): Promise<boolean> => \(await runBackup\(false\)\)\.kind === 'backed_up'/);
       assert.match(hook, /const backUpOrAsk = useCallback\(\(\) => runBackup\(true\)/);

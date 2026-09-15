@@ -286,6 +286,21 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           if (remote.ok || remote.error !== 'NO_BACKUP') {
             return { kind: 'failed' };
           }
+        } else if (!interactive && account.lastBackupItemCount === null) {
+          // Synced before the size of the copy was kept (every account from
+          // before this change): the shrink guard has nothing to compare, so
+          // the copy is read once to learn it, and the guard applies to this
+          // very upload (PR #119 review).
+          const remote = await downloadBackup(idToken);
+          if (remote.ok) {
+            const remoteItemCount = countBackupItems(remote.payload.database);
+            if (autoBackupWouldShrinkLog(countBackupItems(latestRef.current.database), remoteItemCount)) {
+              await persistAccount({ ...account, lastBackupItemCount: remoteItemCount });
+              return { kind: 'failed' };
+            }
+          } else if (remote.error !== 'NO_BACKUP') {
+            return { kind: 'failed' };
+          }
         }
         return (await uploadCurrent(idToken, account)) ? { kind: 'backed_up' } : { kind: 'failed' };
       } finally {
