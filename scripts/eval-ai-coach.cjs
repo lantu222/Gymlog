@@ -78,6 +78,10 @@ async function answerFor(evalCase, retry = false) {
   });
   const payload = await response.json();
   timings.push({ id: evalCase.id, ms: Date.now() - startedAt });
+  if (response.status === 401) {
+    // Not transient and not the prompt's fault: the run cannot start.
+    throw new Error('the endpoint refused the app key — set AI_COACH_APP_KEY to the server\'s value');
+  }
 
   // A fallback answer is not the live coach; scoring it would quietly report
   // the preview's number as if the endpoint had produced it.

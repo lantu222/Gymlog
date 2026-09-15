@@ -83,7 +83,8 @@ module.exports = [
       assert.doesNotMatch(code, /req\.method === 'OPTIONS'/);
 
       const check = code.slice(code.indexOf('function hasAppKey('), code.indexOf('function checkRateLimit('));
-      assert.match(check, /const expected = process\.env\.AI_COACH_APP_KEY;\s*if \(!expected\) \{\s*return false;/, 'an unset key opens the endpoint to everyone');
+      assert.match(check, /const expected = process\.env\.AI_COACH_APP_KEY\?\.trim\(\);\s*if \(!expected\) \{\s*return false;/, 'an unset key opens the endpoint to everyone, or a pasted newline shuts it to everyone');
+      assert.match(check, /\)\?\.trim\(\);/, 'the presented key is compared with its whitespace');
       assert.match(check, /req\.headers\[APP_KEY_HEADER\]/);
       assert.match(check, /a\.length === b\.length && timingSafeEqual\(a, b\)/, 'the comparison is not constant-time');
       assert.match(code, /const APP_KEY_HEADER = 'x-vinha-app-key';/);
@@ -91,7 +92,11 @@ module.exports = [
       // Refused before the forget route, the image parser, the body parser and
       // the rate limit: a stranger's request costs one comparison.
       const handler = code.slice(code.indexOf('export default async function handler('));
-      const refusal = handler.indexOf("res.status(401).json({ ok: false, error: 'UNAUTHORIZED' })");
+      const refusal = handler.indexOf("res.status(401).json(createError({ code: 'UNAUTHORIZED'");
+      // A stranger costs one comparison and no log line; only the server's own
+      // misconfiguration is written down.
+      const refusalBlock = handler.slice(handler.indexOf('if (!hasAppKey(req)) {'), refusal);
+      assert.match(refusalBlock, /if \(!process\.env\.AI_COACH_APP_KEY\?\.trim\(\)\) \{\s*console\.error/);
       assert.ok(refusal > 0, 'no refusal');
       for (const later of ['readForgetLogId(req.body)', 'parseImageBody(req.body)', 'checkRateLimit(']) {
         assert.ok(handler.indexOf(later) > refusal, `${later} runs before the key is checked`);
@@ -136,10 +141,18 @@ module.exports = [
       try {
         const answer = await withoutKey.requestAiCoachAdvice({ prompt: 'hei', context: CONTEXT, language: 'fi' });
         assert.equal(answer.source, 'preview');
+        // But a server it cannot open is not a server with nothing on it: an
+        // earlier build may have kept copies there, so a withdrawal is not
+        // done and the label has to stay.
+        assert.deepEqual(await withoutKey.forgetAiCoachLog('0123456789abcdef'), { ok: false, removed: 0 });
       } finally {
         globalThis.fetch = originalFetch;
       }
       assert.equal(untouched.calls.length, 0, 'the app called the endpoint without a key');
+
+      // No server at all: nothing was ever kept, and saying so is not a failure.
+      const noServer = loadClient({ NODE_ENV: 'test' });
+      assert.deepEqual(await noServer.forgetAiCoachLog('0123456789abcdef'), { ok: true, removed: 0 });
     },
   },
   {
@@ -150,7 +163,7 @@ module.exports = [
         EXPO_PUBLIC_AI_COACH_APP_KEY: 'stale-key',
         NODE_ENV: 'test',
       });
-      const refused = fakeFetch(401, { ok: false, error: 'UNAUTHORIZED' });
+      const refused = fakeFetch(401, { ok: false, source: 'preview', error: { code: 'UNAUTHORIZED', message: 'Missing or wrong app key.' } });
       const originalFetch = globalThis.fetch;
       globalThis.fetch = refused.fetch;
       try {

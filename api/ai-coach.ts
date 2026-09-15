@@ -343,12 +343,14 @@ function createError(
 const APP_KEY_HEADER = 'x-vinha-app-key';
 
 function hasAppKey(req: ApiRequest): boolean {
-  const expected = process.env.AI_COACH_APP_KEY;
+  // Trimmed on both sides: a value pasted into Vercel with the newline
+  // `openssl rand` prints would otherwise refuse every real build, silently.
+  const expected = process.env.AI_COACH_APP_KEY?.trim();
   if (!expected) {
     return false;
   }
   const header = req.headers[APP_KEY_HEADER];
-  const presented = Array.isArray(header) ? header[0] : header;
+  const presented = (Array.isArray(header) ? header[0] : header)?.trim();
   if (!presented) {
     return false;
   }
@@ -1144,8 +1146,12 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   // costs a header comparison and nothing else. The app treats the refusal
   // like any other failure and answers offline.
   if (!hasAppKey(req)) {
-    console.error('ai-coach UNAUTHORIZED:', process.env.AI_COACH_APP_KEY ? 'key mismatch' : 'AI_COACH_APP_KEY is not set');
-    res.status(401).json({ ok: false, error: 'UNAUTHORIZED' });
+    // Only the misconfiguration is logged. A mismatch is a stranger, and a
+    // line per stranger would be a log bill anyone could run up for free.
+    if (!process.env.AI_COACH_APP_KEY?.trim()) {
+      console.error('ai-coach UNAUTHORIZED: AI_COACH_APP_KEY is not set, so every request is refused');
+    }
+    res.status(401).json(createError({ code: 'UNAUTHORIZED', message: 'Missing or wrong app key.' }, undefined, undefined, 'preview'));
     return;
   }
 

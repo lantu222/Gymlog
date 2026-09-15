@@ -137,6 +137,13 @@ needs your accounts; none can be done from the repo.
    wait; the defaults are the measured ones. A deploy without the app key is a
    coach that answers offline for everyone.
 
+   **Order matters the first time.** Set `AI_COACH_APP_KEY` in Vercel *before*
+   the keyed endpoint deploys, and ship an app build carrying the same
+   `EXPO_PUBLIC_AI_COACH_APP_KEY` at the same time: every build made before
+   the key existed is refused from that deploy on, and answers offline. Its
+   withdrawals (`mode: 'forget'`) fail too, and the app keeps the label until
+   a keyed build can retry — nothing is lost, but nothing is deleted either.
+
 3. **Smoke it.** `curl -X POST https://<project>.vercel.app/api/ai-coach -H
    'content-type: application/json' -H "x-vinha-app-key: $AI_COACH_APP_KEY"
    -d '{"prompt":"hei","context":{}}'` should answer with the JSON envelope,
