@@ -5,14 +5,28 @@
  * that mints it on the first yes, and the tests that check its shape. Pure,
  * so it belongs in lib rather than in a screen.
  *
- * `Math.random` is enough, the same call the analytics install id makes: this
- * has to be unique among a handful of readers, not unguessable. It is never
- * sent to Anthropic, never joined to an account, and never reused after a
- * withdrawal — turning the last line off clears it, and the next yes mints a
- * new one, so two stretches of consent cannot be joined into one history.
+ * Unguessable, not merely unique: the label is also the only thing the
+ * withdrawal route asks for, so whoever can produce it can delete what is
+ * filed under it (security review, 2026-09-14). The platform's random source
+ * when there is one — Hermes and Node both have `crypto.getRandomValues` —
+ * and `Math.random` only where there is none. It is never sent to Anthropic,
+ * never joined to an account, and never reused after a withdrawal — turning
+ * the last line off clears it, and the next yes mints a new one, so two
+ * stretches of consent cannot be joined into one history.
  */
 export function randomLogId(): string {
-  const hex = (length: number) =>
-    Array.from({ length }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-  return `${hex(8)}-${hex(4)}-${hex(4)}-${hex(12)}`;
+  return `${randomHex(8)}-${randomHex(4)}-${randomHex(4)}-${randomHex(12)}`;
+}
+
+type RandomSource = { getRandomValues?: (array: Uint8Array) => Uint8Array };
+
+/** `length` hex characters from the strongest source at hand. */
+export function randomHex(length: number, source: RandomSource | undefined = (globalThis as { crypto?: RandomSource }).crypto): string {
+  if (source?.getRandomValues) {
+    const bytes = source.getRandomValues(new Uint8Array(Math.ceil(length / 2)));
+    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0'))
+      .join('')
+      .slice(0, length);
+  }
+  return Array.from({ length }, () => Math.floor(Math.random() * 16).toString(16)).join('');
 }

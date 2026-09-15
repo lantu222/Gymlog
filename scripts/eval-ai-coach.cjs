@@ -10,7 +10,8 @@
  * needs no network and no key, so the harness is useful before the endpoint
  * is even deployed — it scores whatever answer generator you point it at.
  *
- * --live posts to $AI_COACH_API_URL and costs real money, one call per case.
+ * --live posts to $AI_COACH_API_URL with $AI_COACH_APP_KEY (the endpoint refuses
+ * calls without it) and costs real money, one call per case.
  */
 const { AI_COACH_EVAL_CASES } = require('../.test-dist/lib/aiCoachEvalCases.js');
 const { scoreCase, scoreRun, formatRunReport } = require('../.test-dist/lib/aiCoachEval.js');
@@ -66,7 +67,7 @@ async function answerFor(evalCase, retry = false) {
   const startedAt = Date.now();
   const response = await fetch(endpoint, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'x-vinha-app-key': process.env.AI_COACH_APP_KEY ?? '' },
     body: JSON.stringify({
       prompt: evalCase.prompt,
       context: evalCase.context,

@@ -3,12 +3,20 @@ import { resolveLiveAiCoachUrl } from './aiCoachLiveGate';
 import { ProgramImageMediaType, ProgramTableRow, validateProgramTable } from './programImageImport';
 import { AICoachAdvice, AICoachAdviceError, AICoachAdviceRequest, AICoachAdviceSuccess } from '../types/aiCoach';
 
+// The key the endpoint asks for on every call (api/ai-coach.ts, hasAppKey).
+// Without it the server refuses, so a build that lacks it is a preview build
+// and never makes the round trip.
+const AI_COACH_APP_KEY = (process.env.EXPO_PUBLIC_AI_COACH_APP_KEY ?? '').trim();
 // Routed through the spend-cap gate: a release build only sees the URL after
 // a human has confirmed the Console usage limit (see aiCoachLiveGate.ts).
-const AI_COACH_API_URL = resolveLiveAiCoachUrl(
-  process.env.EXPO_PUBLIC_AI_COACH_API_URL,
-  process.env.NODE_ENV !== 'production',
-);
+const AI_COACH_API_URL = AI_COACH_APP_KEY
+  ? resolveLiveAiCoachUrl(process.env.EXPO_PUBLIC_AI_COACH_API_URL, process.env.NODE_ENV !== 'production')
+  : '';
+
+/** Every request's headers: JSON, and the key that opens the endpoint. */
+function coachHeaders(): Record<string, string> {
+  return { 'Content-Type': 'application/json', 'x-vinha-app-key': AI_COACH_APP_KEY };
+}
 // Outer bound over the endpoint's 30 s Claude timeout plus the round trip.
 const REQUEST_TIMEOUT_MS = 40000;
 
@@ -77,7 +85,7 @@ export async function forgetAiCoachLog(logId: string): Promise<{ ok: boolean; re
   try {
     const response = await fetch(AI_COACH_API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: coachHeaders(),
       body: JSON.stringify({ mode: 'forget', logId }),
       signal,
     });
@@ -107,9 +115,7 @@ export async function requestAiCoachAdvice(input: AICoachAdviceRequest, upstream
   try {
     const response = await fetch(AI_COACH_API_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: coachHeaders(),
       body: JSON.stringify(input),
       signal,
     });
@@ -211,7 +217,7 @@ export async function requestProgramTableFromImage(
   try {
     const response = await fetch(AI_COACH_API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: coachHeaders(),
       body: JSON.stringify({
         mode: 'table',
         mediaType: input.mediaType,
@@ -258,7 +264,7 @@ export async function requestProgrammeComposition(
   try {
     const response = await fetch(AI_COACH_API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: coachHeaders(),
       body: JSON.stringify({
         mode: 'compose',
         prompt: input.brief,
