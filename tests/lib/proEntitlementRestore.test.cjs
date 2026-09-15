@@ -1,0 +1,103 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const {
+  PRO_ENTITLEMENT_FIELDS,
+  canStartProTrial,
+  keepDeviceEntitlement,
+  resolveProEntitlement,
+} = require('../../.test-dist/lib/proEntitlement.js');
+const { createEmptyDatabase } = require('../../.test-dist/data/seed');
+const { createFakeAsyncStorage, loadAgainstFake } = require('../storage/fakeAsyncStorage.cjs');
+
+/**
+ * Pro cannot be restored from a backup, and the trial starts once.
+ *
+ * The backup endpoint stores whatever a signed-in caller uploads, so a payload
+ * with `promoProUntil: 9999-…` restored in-app was permanent Pro; and the
+ * trial CTA minted fourteen fresh days on every press (security review,
+ * 2026-09-14).
+ */
+
+const root = path.join(__dirname, '..', '..');
+const read = (...parts) =>
+  fs
+    .readFileSync(path.join(root, ...parts), 'utf8')
+    .replace(/\r\n/g, '\n')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/gm, '');
+
+const FAR = '9999-01-01T00:00:00.000Z';
+
+function preferences(overrides) {
+  return { ...createEmptyDatabase('fi').preferences, ...overrides };
+}
+
+module.exports = [
+  {
+    name: 'pro restore: a backup carrying Pro restores everything but the Pro',
+    run() {
+      const device = preferences({ appLanguage: 'fi' });
+      const restored = preferences({
+        appLanguage: 'en',
+        profileName: 'Sanna',
+        promoProUntil: FAR,
+        proTrialUntil: FAR,
+        proTrialStartedAt: '2026-01-01T00:00:00.000Z',
+        mockSubscriptionPurchasedAt: '2026-01-01T00:00:00.000Z',
+        mockSubscriptionTerm: 'lifetime',
+        mockSubscriptionCancelledAt: null,
+        aiCoachProQuota: { monthStart: '2026-09-01', used: 0 },
+      });
+      assert.equal(resolveProEntitlement(restored).unlocked, true, 'the crafted backup is not one this test would catch');
+
+      const kept = keepDeviceEntitlement(restored, device);
+      assert.equal(resolveProEntitlement(kept).unlocked, false, 'the backup bought Pro');
+      for (const field of PRO_ENTITLEMENT_FIELDS) {
+        assert.deepEqual(kept[field], device[field], `${field} came from the backup`);
+      }
+      // Everything that is not entitlement is the backup's.
+      assert.equal(kept.appLanguage, 'en');
+      assert.equal(kept.profileName, 'Sanna');
+      assert.equal(restored.promoProUntil, FAR, 'the input was mutated');
+    },
+  },
+  {
+    name: 'pro restore: the device keeps a Pro it actually has when restoring a free backup',
+    run() {
+      const device = preferences({ mockSubscriptionPurchasedAt: '2026-08-01T00:00:00.000Z', mockSubscriptionTerm: 'lifetime' });
+      const kept = keepDeviceEntitlement(preferences({}), device);
+      assert.equal(resolveProEntitlement(kept).unlocked, true, 'restoring a backup took the purchase away');
+    },
+  },
+  {
+    name: 'pro restore: the restore path goes through keepDeviceEntitlement with the device preferences',
+    run() {
+      const provider = read('src', 'state', 'AppProvider.tsx');
+      const restore = provider.slice(provider.indexOf('function restoreDatabaseFromBackup'), provider.indexOf('const value = useMemo<AppContextValue>'));
+      assert.match(restore, /preferences: keepDeviceEntitlement\(restored\.preferences, databaseRef\.current\.preferences\)/);
+      assert.doesNotMatch(restore, /await commit\(restored\)/, 'the backup is committed as it came');
+    },
+  },
+  {
+    name: 'pro trial: it starts once per install, and the loader keeps the mark',
+    run() {
+      assert.equal(canStartProTrial(preferences({})), true);
+      assert.equal(canStartProTrial(preferences({ proTrialStartedAt: '2026-09-01T00:00:00.000Z' })), false);
+
+      const profile = read('src', 'app', 'renderProfileTab.tsx');
+      assert.match(profile, /const trialUntil = canStartProTrial\(preferences\) && plan !== 'lifetime' \? resolveTrialProUntil\(\) : null;/);
+      assert.match(profile, /updatePreferences\(\{ proTrialUntil: trialUntil, proTrialStartedAt: new Date\(\)\.toISOString\(\) \}\)/);
+      assert.doesNotMatch(profile, /PRO_TRIAL_ENABLED && plan !== 'lifetime'/, 'the CTA still mints a trial on every press');
+
+      // Stored, read back, and absent on an older install (which gets its one).
+      const fake = createFakeAsyncStorage();
+      const { normalizeDatabase } = loadAgainstFake(fake, (requireDist) => requireDist('storage/database.js'));
+      const stored = normalizeDatabase({ preferences: { proTrialStartedAt: '2026-09-01T00:00:00.000Z' } });
+      assert.equal(stored.preferences.proTrialStartedAt, '2026-09-01T00:00:00.000Z');
+      assert.equal(normalizeDatabase({ preferences: {} }).preferences.proTrialStartedAt, null);
+      assert.equal(normalizeDatabase({ preferences: { proTrialStartedAt: 12 } }).preferences.proTrialStartedAt, null);
+    },
+  },
+];

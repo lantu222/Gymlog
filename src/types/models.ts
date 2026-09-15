@@ -454,6 +454,15 @@ export interface AppPreferences {
    */
   proTrialUntil: string | null;
   /**
+   * When the trial was started on this install, or null while it never was.
+   *
+   * The trial used to be minted afresh on every press of the CTA, so one
+   * reader could run fourteen free days forever (security review,
+   * 2026-09-14). One per install until Play Billing, which grants one per
+   * account; a restore does not carry it, so a new phone gets its own.
+   */
+  proTrialStartedAt: string | null;
+  /**
    * Demo-build only: which term the subscription screen pretends the reader is
    * on, and whether they have pretended to cancel it.
    *

@@ -53,6 +53,7 @@ const DEFAULT_PREFERENCES = {
   aiLogPhotoConsent: false,
   promoProUntil: null as string | null,
   proTrialUntil: null as string | null,
+  proTrialStartedAt: null as string | null,
   // Demo-build only; see AppPreferences. Yearly is the paywall's own default,
   // so the management screen opens describing the package most readers pick.
   mockSubscriptionTerm: 'yearly' as import('../lib/subscriptionView').SubscriptionTermKey,

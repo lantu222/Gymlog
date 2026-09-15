@@ -8,7 +8,7 @@ import { isDemoBuild } from '../lib/demoMode';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { t } from '../lib/i18n';
 import {
-  PRO_TRIAL_ENABLED,
+  canStartProTrial,
   canResumePurchase,
   resolveTrialProUntil,
 } from '../lib/proEntitlement';
@@ -207,9 +207,11 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
            * Lifetime is untouched: it has no trial CTA, so its button still
            * means what it says.
            */
-          const trialUntil = PRO_TRIAL_ENABLED && plan !== 'lifetime' ? resolveTrialProUntil() : null;
+          // Once per install: a second press of the CTA after the trial is
+          // what a purchase is for, so it falls through to the purchase below.
+          const trialUntil = canStartProTrial(preferences) && plan !== 'lifetime' ? resolveTrialProUntil() : null;
           if (trialUntil) {
-            void updatePreferences({ proTrialUntil: trialUntil });
+            void updatePreferences({ proTrialUntil: trialUntil, proTrialStartedAt: new Date().toISOString() });
             // The hand-off row promised a warning two days out, and a promise
             // that needs a permission has to ask for it. Declining costs the
             // reminder, not the trial.

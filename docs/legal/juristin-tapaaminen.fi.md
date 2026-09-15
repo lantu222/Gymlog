@@ -46,7 +46,8 @@ tietokantaa, koska tietokanta on se, mikä varmuuskopioidaan.
 | Valmentajan keskustelut | `transcripts/YYYY-MM-DD/` | **Vain kehityskytkimen ollessa päällä — ks. kohta 4.1** |
 
 **Varmuuskopio** on koko `@vinha/database/v1` liikekirjastoa lukuun ottamatta, plus
-treenihistoria. Se sisältää siis myös nimen, iän, sukupuolen, pituuden, painot ja
+treenihistoria. Palautus ei tuo Pro-tilaa mukanaan (kampanja-, kokeilu- ja ostokentät
+jäävät laitteen omiksi; 15.9.2026), koska palvelin ei tarkista lähetetyn kopion sisältöä. Se sisältää siis myös nimen, iän, sukupuolen, pituuden, painot ja
 varovaisuusalueet. Kesken olevaa treeniä ei kopioida. Yli 1 Mt:n varmuuskopio pakataan
 (gzip) ennen lähetystä; sisältö on sama. Katto on 4 Mt pakattuna. Identiteetti
 todennetaan jokaisella pyynnöllä Googlen tokeninfo-rajapintaa vasten, eikä palvelin

@@ -758,6 +758,12 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
         typeof input?.preferences?.proTrialUntil === 'string'
           ? input.preferences.proTrialUntil
           : fallback.preferences.proTrialUntil,
+      // Absent on every install from before the trial was once-only: those
+      // may have used it, and there is no way to tell, so they get the one.
+      proTrialStartedAt:
+        typeof input?.preferences?.proTrialStartedAt === 'string'
+          ? input.preferences.proTrialStartedAt
+          : fallback.preferences.proTrialStartedAt,
       mockSubscriptionTerm: isSubscriptionTermKey(input?.preferences?.mockSubscriptionTerm)
         ? input.preferences.mockSubscriptionTerm
         : fallback.preferences.mockSubscriptionTerm,

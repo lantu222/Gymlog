@@ -150,6 +150,7 @@ const suites = [
   ...require('./lib/progressActivity.test.cjs'),
   ...require('./lib/postSessionInsight.test.cjs'),
   ...require('./lib/proEntitlement.test.cjs'),
+  ...require('./lib/proEntitlementRestore.test.cjs'),
   ...require('./lib/proLock.test.cjs'),
   ...require('./lib/proTiers.test.cjs'),
   ...require('./lib/runningProgrammes.test.cjs'),

@@ -3,7 +3,7 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState 
 import { createEmptyDatabase } from '../data/seed';
 import { resolveDeviceLanguage } from '../storage/deviceLocale';
 import { createId } from '../lib/ids';
-import { isProUnlocked } from '../lib/proEntitlement';
+import { isProUnlocked, keepDeviceEntitlement } from '../lib/proEntitlement';
 import {
   countAuthoredPrograms,
   FREE_CUSTOM_PROGRAM_LIMIT,
@@ -248,6 +248,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       aiLogPhotoConsent: false,
       promoProUntil: null,
       proTrialUntil: null,
+      proTrialStartedAt: null,
       mockSubscriptionTerm: 'yearly',
       mockSubscriptionCancelledAt: null,
       mockSubscriptionPurchasedAt: null,
@@ -1108,9 +1109,15 @@ export function AppProvider({ children }: React.PropsWithChildren) {
   function restoreDatabaseFromBackup(input: Partial<AppDatabase>) {
     return runExclusive(async () => {
       const restored = normalizeDatabase(input);
-      // commit writes the preferences key too: the split-key would otherwise
-      // override the restored preferences on the next load.
-      await commit(restored);
+      // Pro is not restored: the server stores whatever a signed-in caller
+      // uploads, so a backup with a far-off promo date was a permanent Pro for
+      // the price of one PUT (security review, 2026-09-14). The device keeps
+      // what it had. commit writes the preferences key too: the split-key
+      // would otherwise override the restored preferences on the next load.
+      await commit({
+        ...restored,
+        preferences: keepDeviceEntitlement(restored.preferences, databaseRef.current.preferences),
+      });
     });
   }
 
