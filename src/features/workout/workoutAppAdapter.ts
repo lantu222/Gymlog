@@ -1,6 +1,6 @@
 import { ExerciseLogDraft, ExerciseLogSet } from '../../types/models';
 import { WorkoutExerciseInstance, WorkoutSessionRuntime, WorkoutSetStatus, WorkoutTrackingMode } from './workoutTypes';
-import { elapsedSecondsOf } from './workoutState';
+import { workoutSecondsUntil } from './workoutState';
 
 export type LegacyWorkoutDataMismatch =
   | 'template_exercise_id_not_mapped';
@@ -225,7 +225,7 @@ export function adaptCompletedWorkoutSessionForAppDatabase(
     // Less the pauses. The save used finish minus start, so an hour with a
     // twenty-minute pause went into history as sixty minutes while the player
     // had shown forty.
-    durationMinutes: Math.max(1, Math.round(elapsedSecondsOf(session, Date.parse(performedAt)) / 60) || 1),
+    durationMinutes: Math.max(1, Math.round(workoutSecondsUntil(session, Date.parse(performedAt)) / 60) || 1),
     exercises,
     logs: buildExerciseLogDraftsFromWorkoutSession(session),
     legacyShapeMismatches: collectLegacyShapeMismatches(exercises),

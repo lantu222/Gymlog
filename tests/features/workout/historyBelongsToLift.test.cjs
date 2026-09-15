@@ -217,6 +217,42 @@ module.exports = [
     },
   },
   {
+    name: 'history: a workout paused, left for days and resumed keeps its own length, not one minute',
+    run() {
+      // PR #120 review: last set 15:48, paused 15:50, resumed three days later —
+      // `pausedMs` now holds three days, and all of it came off a 48-minute workout.
+      const base = {
+        status: 'active',
+        startedAt: '2026-09-10T15:00:00.000Z',
+        updatedAt: '2026-09-13T16:00:00.000Z',
+        completedAt: undefined,
+        pausedMs: 72 * 60 * 60 * 1000 + 10 * 60 * 1000,
+        pausedAt: null,
+        exercises: [createExercise({ sets: [createSet({ setIndex: 0, completedAt: '2026-09-10T15:48:00.000Z' })] })],
+      };
+      // Ten minutes of pause had run by the last set.
+      const stamped = adaptCompletedWorkoutSessionForAppDatabase(createCompletedSession({ ...base, pausedMsAtLastSet: 10 * 60 * 1000 }));
+      assert.equal(stamped.performedAt, '2026-09-10T15:48:00.000Z');
+      assert.equal(stamped.durationMinutes, 38);
+      // A session from before the stamp: its pauses swallow the window, so the wall clock.
+      const legacy = adaptCompletedWorkoutSessionForAppDatabase(createCompletedSession(base));
+      assert.equal(legacy.durationMinutes, 48);
+
+      // The reducer stamps the pause time on every logged set, open pause included.
+      let state = start(EMPTY, 0);
+      const slotId = state.activeSession.exercises[0].slotId;
+      state = { ...state, activeSession: { ...state.activeSession, pausedMs: 5 * 60 * 1000, pausedAt: '2026-09-10T15:40:00.000Z' } };
+      state = logSet(state, slotId, 0, '140', '5', '2026-09-10T15:42:00.000Z');
+      assert.equal(state.activeSession.pausedMsAtLastSet, 7 * 60 * 1000);
+      // And the reducer's own summary reads the same way.
+      const completed = completeWorkoutSession(
+        { ...state, activeSession: { ...state.activeSession, startedAt: '2026-09-10T15:00:00.000Z', pausedMs: 72 * 60 * 60 * 1000, pausedAt: null } },
+        '2026-09-10T15:42:00.000Z',
+      );
+      assert.equal(completed.completionSummary.durationMinutes, 35);
+    },
+  },
+  {
     name: 'history: replacing a lift in a programme gives the row a new id, so the old lift keeps its history',
     run() {
       const sessions = [

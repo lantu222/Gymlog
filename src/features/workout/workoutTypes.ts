@@ -264,6 +264,15 @@ export interface WorkoutSessionRuntime {
   pausedMs: number;
   /** When the current pause began, or null while running. */
   pausedAt: string | null;
+  /**
+   * The pause time that had run by the latest logged set, open pause included.
+   *
+   * A workout that ends at its last set (left open, reopened days later) must
+   * take off only the pauses before that set: `pausedMs` by then also holds
+   * the days it sat paused, and subtracting that saved it as one minute.
+   * Absent on sessions started before this was kept.
+   */
+  pausedMsAtLastSet?: number;
   activePlanMode: DefaultScheduleMode;
   exercises: WorkoutExerciseInstance[];
   restTimer: WorkoutRestTimerState;
