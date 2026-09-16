@@ -287,8 +287,9 @@ What changed:
    summary the action prints. The step said `denials=0` on every run, including
    runs whose printed summary said 1. Of the 35 real reviews from 14–16
    September, 27 had at least one denial (24 had exactly one). The step now
-   prints the denied tool names (names only, because the log is public), so the
-   next run will show which tool is denied. It also blames the allowlist for an
+   prints the denied tool names (names only, because the log is public). The
+   first runs to print them named the Skill tool; see "What the reviewer may
+   run" below. It also blames the allowlist for an
    error only when at least half the turns were denied, because otherwise a
    healthy run's one denial would be named as the cause of every failure.
 
@@ -321,6 +322,49 @@ fixed by later work, and nine were still in `main`:
 Five more PRs (#24, #25, #28, #30, #54) merged on a red check. They changed only
 this workflow and this document, which the review never runs on.
 
+The first two runs under the new check, on #135 (`f4689c0`) and #136
+(`870de1b`), were reviewed and green: "Commit … was reviewed" in the log, and
+the summary on the PR with its marker.
+
+## What the reviewer may run (2026-09-16)
+
+The reviewer's Bash was unrestricted, and the action hands it the Claude GitHub
+App's token. That is how `gh pr comment` posts the summary, and the same token
+is written into the checkout's git remote. Only the instructions stopped a
+confused run from pushing, merging, or calling the API with it.
+
+`--allowedTools` now names Bash commands one by one:
+
+- **Reading the PR:** `gh pr view`, `gh pr diff`, `gh pr list`,
+  `gh issue view`, `gh issue list`, `gh search`.
+- **Reading the code:** `git diff`, `log`, `show`, `blame`, `ls-files`,
+  `status`, `rev-parse`, and `cat`, `head`, `tail`, `wc`, `ls`, `grep`. These
+  reach nothing that Read and Grep do not; they are listed because subagents
+  reach for them first. `git grep` and `rg` are left out: each can start
+  another program (`-O`, `--pre`), and Grep does their job.
+- **Writing:** `gh pr comment`, for the summary, and nothing else.
+
+`gh api` is gone. The review used it for one thing: the inline comments
+already on the PR, so that it does not post a finding twice. The workflow now
+lists those with its read-only token into `.ci-review/inline-comments.jsonl`,
+and the command reads that file.
+
+This stops a confused run, not one built to get around the list. git's own
+`-c` options can still start a program, and that program would hold the app
+token as well. The PRs here come from the owner's own sessions, and a PR from
+a fork gets no secrets, so the job stops at its first step.
+
+Both first runs had one denial, and the diagnostics named it: the Skill tool,
+which the model reached for instead of just following the command. The
+earlier runs' single denials were counted but not named, and were most likely
+the same. The command now says not to use Skill.
+
+When a run's last step prints `Denied tools: Bash(<program>) xN`, the review
+wanted a command the list does not have. Add it only if it cannot write, and
+add it to the reviewed list in `tests/scripts/claudeReviewWorkflow.test.cjs`
+in the same change. A PR that changes the list edits the workflow, so its own
+check is red; the list is first exercised on the PR after it.
+
 ## When the review does not run
 
 - **Check red, "No CLAUDE_CODE_OAUTH_TOKEN secret"** — setup step 3 has not been
@@ -329,7 +373,8 @@ this workflow and this document, which the review never runs on.
   case above. Otherwise read the action's step in the run log for the reason.
 - **Check red, "Nothing was posted for `<sha>`"** — the model ran and left no
   trace on the PR. This commit has not been reviewed. The last step of the log
-  shows turns, cost and denied tools. Re-run the job.
+  shows turns, cost and denied tools. Re-run the job. If the denied tools
+  include `Bash(...)`, see "What the reviewer may run" above.
 - **Check red, "posted N inline comments on `<sha>` but no summary"** — the
   review found things and stopped before it finished. Read the comments first,
   then re-run the job.
