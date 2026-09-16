@@ -315,4 +315,18 @@ module.exports = [
       assert.equal(freestyleNextSetTarget([]), null);
     },
   },
+  {
+    // "825" for 82,5 was ticked, counted into volume and shown on the summary,
+    // then dropped by the loader on the next launch.
+    name: 'isLoggableFreestyleSet: a set nobody could lift cannot be ticked',
+    run() {
+      const { isLoggableFreestyleSet } = require('../../.test-dist/lib/emptyWorkoutSession.js');
+      assert.equal(isLoggableFreestyleSet({ kg: '82,5', reps: '6' }), true);
+      assert.equal(isLoggableFreestyleSet({ kg: '', reps: '' }), true);
+      assert.equal(isLoggableFreestyleSet({ kg: '0', reps: '12' }), true);
+      assert.equal(isLoggableFreestyleSet({ kg: '825', reps: '6' }), false);
+      assert.equal(isLoggableFreestyleSet({ kg: '80', reps: '999' }), false);
+      assert.equal(isLoggableFreestyleSet({ kg: 'abc', reps: '6' }), false);
+    },
+  },
 ];

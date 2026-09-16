@@ -785,6 +785,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         onEndSession={() => void handleDiscardWorkout()}
         onFinishSession={() => void handleConfirmFinishWorkout()}
         isSavingWorkout={finishSaveState.status === 'saving'}
+        saveFailed={finishSaveState.status === 'error'}
         // Set by navigateToActiveWorkout — the reader pressed "resume", so the
         // player opens on the set instead of the session overview.
         autoResume={route.resume === true}

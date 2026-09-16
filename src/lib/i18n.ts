@@ -1378,6 +1378,9 @@ const EN = {
   // -- Rest (session flow, screen 7).
   'guided.rest.edit': 'Edit',
   'guided.rest.editTitle': 'Fix the set you just logged',
+  'guided.finish.saveFailed.title': 'Not saved yet',
+  'guided.finish.saveFailed.body': 'The phone refused to save this workout. Your sets are still here.',
+  'guided.finish.saveFailed.retry': 'Save workout',
   'guided.rest.editSave': 'Save',
   // -- Exercise to exercise (screen 8).
   'guided.walk.today': 'TODAY',
@@ -4435,6 +4438,9 @@ const FI: Record<I18nKey, string> = {
   'guided.own.cooldown': 'Palaudu omatoimisesti',
   'guided.rest.edit': 'Muokkaa',
   'guided.rest.editTitle': 'Korjaa juuri kirjattu sarja',
+  'guided.finish.saveFailed.title': 'Ei vielä tallennettu',
+  'guided.finish.saveFailed.body': 'Puhelin ei suostunut tallentamaan treeniä. Sarjasi ovat yhä tallessa.',
+  'guided.finish.saveFailed.retry': 'Tallenna treeni',
   'guided.rest.editSave': 'Tallenna',
   'guided.walk.today': 'TÄNÄÄN',
   'guided.walk.last': 'VIIMEKSI',
