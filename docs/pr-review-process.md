@@ -223,25 +223,36 @@ An earlier run had reported `permission_denials: 11`, and that looked like the
 answer until a run with zero denials failed in exactly the same way. Worth
 recording as a wrong turn: a plausible number in a log is not a cause.
 
-## Green on every push after the first (found 2026-09-16)
+## Green checks that reviewed nothing (found 2026-09-16)
 
-From 4 September to 16 September, **20 commits across 11 PRs** (#60, #68, #69,
-#75, #82, #84, #85, #88, #90, #111, #128) got a green `review` check without a
-review.
+From 28 August to 16 September, **56 pushes across 27 PRs** got a green
+`review` check from a run whose model stopped within 70 seconds and posted
+nothing. Every completed review took at least 110 seconds. **25 PRs were
+merged at a commit that only such a run had checked.**
+
+| When the run stopped | Pushes | PRs |
+|---|---|---|
+| After the PR's first "No issues found" summary | 38 | 19: #32, #33, #35, #37, #38, #40, #44, #45, #60, #68, #69, #75, #82, #84, #85, #88, #90, #111, #128 |
+| Before any summary | 16 | 9: #33, #40, #52, #61, #62, #66, #83, #85, #92 |
+| The abandoned background review, above | 2 | #26, #29 |
 
 The upstream plugin's first step launches a small agent to decide whether the
-PR needs a review at all, and one of its stop conditions is:
+PR needs a review at all. Two of its stop conditions are:
 
+> The pull request does not need code review (e.g. automated PR, trivial
+> change that is obviously correct)
+>
 > Claude has already commented on this PR
 
 The one issue comment the plugin posts is its `## Code review` / "No issues
-found" summary; findings go inline. So a PR whose first review came back clean
-was, as a rule, never reviewed again: every later push ran for under a minute,
-cost $0.05–0.21 against $1.45–7.22 for a real review, posted nothing, and
-passed. The rule is an agent's judgement, not code, so it has exceptions: one
-push to #69 after its summary was reviewed properly. PRs whose reviews
-had findings kept being reviewed, which is why nobody noticed. #127 had four
-inline findings across three commits and was reviewed on every push.
+found" summary; findings go inline. So once a PR's review came back clean, it
+was not reviewed again: every one of the 38 later pushes stopped, and no
+completed review ran after a summary on any PR. They cost $0.05–0.40 each,
+against $1.45–7.22 for a completed review on 14–16 September. Why the other 16
+stopped is not in the log; the plugin's first step has both conditions above,
+and the repo's command has neither. PRs whose reviews kept finding things were
+mostly reviewed on every push, which is why nobody noticed: #127 had four
+inline findings across three commits and was reviewed each time.
 
 PR #128 shows the break exactly:
 
@@ -254,11 +265,11 @@ PR #128 shows the break exactly:
 | `fcfb466` | 35089245092 | 3 | 20 s | $0.10 | nothing |
 
 All five are green. The run log hides the model's output, so the skip decision
-itself is not visible. The evidence is the plugin's own step 1, the timing (every
-short run follows the first summary comment on its PR), and the fact that no
-short run has ever posted anything. The one-shot-run step, "Confirm a review
-actually ran", passed on all of them because it checks that the model ran, and
-it had.
+itself is not visible. The evidence is the plugin's own step 1, the timing
+(after a summary, every run stopped), and the comments: every bot comment near
+one of the 60 short runs came from a longer run that was still finishing.
+"Confirm a review actually ran" passed on all of them because it checks that
+the model ran, and it had.
 
 What changed:
 
@@ -282,8 +293,33 @@ What changed:
    healthy run's one denial would be named as the cause of every failure.
 
 A turn-count threshold was considered and dropped. A skip took 2 to 19 turns and
-a real review 10 to 43, so the ranges overlap, and the comment is direct
-evidence where a turn count is only a guess.
+completed reviews on 14–16 September took 10 to 43, so the ranges overlap, and
+the comment is direct evidence where a turn count is only a guess.
+
+### What those pushes let through
+
+Reviewed on 16 September, after the fact. For each of the 25 PRs, the last
+commit a completed review saw was replayed onto the merge parent
+(`git merge-tree`), and the difference from the merge commit is what no
+review read. Six needed nothing: four differences were conflict resolutions
+only (#45, #68, #75, #90), one was empty (#111), and one only deleted a
+document (#61). The other 19 were reviewed. Nine findings had already been
+fixed by later work, and nine were still in `main`:
+
+| PR | Still in `main` on 16 September |
+|---|---|
+| #33 | Dragging a programme day re-deals the sessions without rotating the week, so Home's next session and the calendar name different days |
+| #33 | The programme page's week strip pairs days with sessions by position, which is wrong once an empty day is dragged above a trained one |
+| #33 | MIN / SESSION on the reader's own programmes leaves out the warm-up and cool-down that Home and the player count |
+| #40 | The duration axis steps by 22.5 minutes for any maximum between 61 and 90 |
+| #40 | A Home card or coach link to a lift that is not a target lift opens Progress with nothing expanded |
+| #69 | Strong & Lean Female says the upper body goes heavy with the barbell once; the pull day opens with a 4 × 10 barbell row too |
+| #92 | The hand-off shows the tracking dialog when every site it would offer is already on Home |
+| #92 | The back key does not close a policy or terms page opened over the hand-off |
+| #92 | `/api/transcripts` returns kept photos whole, so a few of them push the response past Vercel's 4.5 MB limit (debug reader only) |
+
+Five more PRs (#24, #25, #28, #30, #54) merged on a red check. They changed only
+this workflow and this document, which the review never runs on.
 
 ## When the review does not run
 

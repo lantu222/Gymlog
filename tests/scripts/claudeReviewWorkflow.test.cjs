@@ -10,10 +10,11 @@ const path = require('node:path');
  *
  * The workflow's whole job is that green means "this commit was reviewed".
  * It has failed that twice by passing while doing nothing: once when the
- * review ran in the background and was abandoned, and once — for twenty
- * commits — when the upstream plugin skipped every PR Claude had already
- * commented on. Neither failure shows up anywhere but a green check, so only
- * a test notices a change that brings one back.
+ * review ran in the background and was abandoned, and once — for 56 pushes
+ * across 27 PRs — when the upstream plugin decided a PR needed no review,
+ * most often because Claude had already commented on it. Neither failure
+ * shows up anywhere but a green check, so only a test notices a change that
+ * brings one back.
  *
  * Comments are stripped before anything is matched: the workflow explains
  * its history at length, and a guard that a comment can satisfy guards
@@ -169,7 +170,7 @@ module.exports = [
       const { step } = actionStep(steps);
 
       // The upstream plugin stops on any PR Claude has commented on, and
-      // exits green. Installing it again brings back twenty silent passes.
+      // exits green. Installing it again brings the silent passes back.
       assert.ok(!step.code.includes('code-review@claude-code-plugins'), 'the upstream code-review plugin is installed again');
       assert.ok(!step.code.includes('/code-review:code-review'), 'the prompt runs the upstream plugin command again');
 

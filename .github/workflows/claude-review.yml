@@ -11,13 +11,14 @@
 #
 # Green means one thing: the head commit has a summary comment from the
 # reviewer that names it. Until 2026-09-16 green meant only that the model ran.
-# The upstream code-review plugin stops as soon as Claude has commented on a
-# PR, so after the first "No issues found" every later push ran for under a
-# minute, reviewed nothing and passed — twenty commits across eleven PRs. The
-# review now comes from .claude/commands/ci-review.md, which the action reads
-# from the default branch, reviews every head commit, and ends by posting a
-# marker for that commit. "Confirm this commit's review was posted" looks for
-# it.
+# The upstream code-review plugin can end a run at its first step without a
+# word: on a PR Claude has already commented on, or on a change it judges
+# trivial. From 28 August to 16 September, 56 pushes across 27 PRs passed
+# after a run that stopped within 70 seconds, 38 of them after the PR's first
+# "No issues found". The review now comes from .claude/commands/ci-review.md,
+# which the action reads from the default branch, reviews every head commit,
+# and ends by posting a marker for that commit. "Confirm this commit's review
+# was posted" looks for it.
 #
 # One secret is required, CLAUDE_CODE_OAUTH_TOKEN, generated locally with
 # `claude setup-token` and pasted into Settings → Secrets and variables →
@@ -162,9 +163,9 @@ jobs:
           echo "Review ran, execution log at $EXECUTION_FILE"
 
       # The action's success says the model ran without an error. It does not
-      # say anything was reviewed: from 2026-09-04 to 2026-09-16, twenty
-      # commits passed this check after the model stopped at the eligibility
-      # step and posted nothing. The summary comment is the review's own record
+      # say anything was reviewed: from 2026-08-28 to 2026-09-16, 56 pushes
+      # passed this check after the model stopped at the eligibility step and
+      # posted nothing. The summary comment is the review's own record
       # that it finished, so this step looks for that record, on the PR, for
       # this exact commit.
       - name: Confirm this commit's review was posted
