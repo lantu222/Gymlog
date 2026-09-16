@@ -10,6 +10,7 @@ const assert = require('node:assert/strict');
 const { setNumberLanguage } = require('../../.test-dist/lib/format.js');
 setNumberLanguage('en');
 
+const { cycleSchedule, weekdaySchedule } = require('../../.test-dist/lib/trainingSchedule.js');
 const {
   buildNotificationPlan,
   parseReminderTime,
@@ -43,7 +44,7 @@ function planWith(overrides = {}) {
     nowMs: at(2026, 7, 1, 12, 0),
     prefs: { ...BASE_PREFS, ...(prefs ?? {}) },
     language: 'en',
-    trainingDays: ['mon', 'wed', 'fri'],
+    schedule: weekdaySchedule([0, 2, 4]),
     lastSessionAtMs: null,
     weekSessionCount: 0,
     weekVolumeKg: 0,
@@ -133,7 +134,7 @@ module.exports = [
           weighInReminder: true,
           level: 'quiet',
         },
-        trainingDays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
+        schedule: weekdaySchedule([0, 1, 2, 3, 4, 5, 6]),
       }).filter((item) => item.fireAtMs >= at(2026, 7, 5, 0, 0) && item.fireAtMs < at(2026, 7, 6, 0, 0));
       assert.equal(quiet.length, 1);
       assert.equal(quiet[0].category, 'measure');
@@ -151,7 +152,7 @@ module.exports = [
       // that was on by default — only a personal record outranks it.
       const quiet = planWith({
         prefs: { weighInReminder: true, level: 'quiet' },
-        trainingDays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
+        schedule: weekdaySchedule([0, 1, 2, 3, 4, 5, 6]),
       });
       const thursday = quiet.filter(
         (item) => item.fireAtMs >= at(2026, 7, 2, 0, 0) && item.fireAtMs < at(2026, 7, 3, 0, 0),
@@ -220,7 +221,7 @@ module.exports = [
         nowMs: at(2026, 7, 1, 19, 0), // Wednesday, after 17:30
         prefs: { ...BASE_PREFS, weeklySummary: false },
         language: 'en',
-        trainingDays: ['mon', 'wed', 'fri'],
+        schedule: weekdaySchedule([0, 2, 4]),
         lastSessionAtMs: null,
         weekSessionCount: 0,
         weekVolumeKg: 0,
@@ -245,7 +246,7 @@ module.exports = [
   {
     name: 'notificationPlan: no picked days means no reminders, not invented ones',
     run() {
-      const plan = planWith({ trainingDays: [] });
+      const plan = planWith({ schedule: weekdaySchedule([]) });
       assert.equal(plan.filter((item) => item.category === 'reminder').length, 0);
     },
   },
@@ -331,7 +332,7 @@ module.exports = [
         nowMs: at(2026, 7, 5, 20, 0), // Sunday, after 18:00
         prefs: { ...BASE_PREFS, sessionReminders: false, comebackNudge: false },
         language: 'en',
-        trainingDays: [],
+        schedule: weekdaySchedule([]),
         lastSessionAtMs: null,
         weekSessionCount: 4,
         weekVolumeKg: 9000,
@@ -548,6 +549,52 @@ module.exports = [
         trialOf(planWith({ proTrialEndsAtMs: endsAt, prefs: { pushEnabled: false } })).length,
         0,
       );
+    },
+  },
+  {
+    name: 'notificationPlan: a training cycle is reminded on its own days, not on last week’s weekdays',
+    run() {
+      // 3 on, 1 off from Monday 14 September 2026: training days are the
+      // 14th, 15th, 16th, then the 17th is rest, then 18th–20th. A weekday
+      // list cannot express that, and reminders used to read the weekdays
+      // setup once named — which after the first week is a different set of
+      // days entirely (2026-09-16).
+      const anchor = at(2026, 9, 14);
+      const plan = planWith({
+        nowMs: at(2026, 9, 14, 6, 0),
+        schedule: cycleSchedule([true, true, true, false], anchor),
+        prefs: { ...BASE_PREFS, sessionReminders: true, reminderTime: '18:00' },
+      });
+      const reminderDays = plan
+        .filter((entry) => entry.category === 'reminder')
+        .map((entry) => new Date(entry.fireAtMs).getDate());
+      assert.ok(reminderDays.includes(14) && reminderDays.includes(15) && reminderDays.includes(16), reminderDays.join(','));
+      assert.ok(!reminderDays.includes(17), 'the rest day gets no reminder');
+      assert.ok(reminderDays.includes(18), 'and the cycle turns over');
+      // Which is a different answer from the weekday list it used to use.
+      const asWeekdays = planWith({
+        nowMs: at(2026, 9, 14, 6, 0),
+        schedule: weekdaySchedule([0, 1, 2]),
+        prefs: { ...BASE_PREFS, sessionReminders: true, reminderTime: '18:00' },
+      })
+        .filter((entry) => entry.category === 'reminder')
+        .map((entry) => new Date(entry.fireAtMs).getDate());
+      assert.ok(!asWeekdays.includes(18), 'a weekday list repeats the same three days');
+    },
+  },
+  {
+    name: 'notificationPlan: the hook hands the planner the rhythm, not a list of free days',
+    run() {
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const hook = fs
+        .readFileSync(path.join(__dirname, '../../src/hooks/useScheduledNotifications.ts'), 'utf8');
+      // The reader's cycle first, then the days their own plan names, and
+      // only then what setup said they had free. Availability is not a plan.
+      assert.match(hook, /const cycle = database\.preferences\.trainingCycle;\s*if \(cycle\) \{\s*return cycleSchedule\(cycle\.pattern, cycle\.anchorDayStart\);/);
+      assert.match(hook, /const named = planWeekdayIndexes\(activePlan\?\.entries \?\? \[\]\);/);
+      assert.match(hook, /schedule,/);
+      assert.doesNotMatch(hook, /trainingDays: setupAvailableDays/);
     },
   },
 ];

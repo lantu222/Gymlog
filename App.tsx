@@ -97,6 +97,7 @@ import {
   getCalendarDayStartTimestamp,
   getCanonicalCompletedSessions,
   getRecentActivityStrip,
+  localDateKey,
 } from './src/lib/completedSessions';
 import { getLifetimeTrainingSummary } from './src/lib/lifetimeSummary';
 import { buildMilestoneLedger, getMilestoneFacts } from './src/lib/milestoneFacts';
@@ -596,6 +597,51 @@ function VinhaApp() {
   const workoutLogNavigationAllowedAtRef = useRef<number | null>(null);
   const route = navigationState.route;
   const appHydrated = hydrated && workout.hydrated;
+
+  /**
+   * Today, as a value a memo can depend on.
+   *
+   * "Today" was read from `new Date()` inside memos whose dependencies hold
+   * no time at all, so an app left open overnight kept yesterday: the session
+   * the reader picked for the day, the dot on the week strip, the row Home
+   * calls today. A phone that is never really closed is the normal case, not
+   * the odd one (2026-09-16).
+   *
+   * Two triggers, because either alone leaves a hole. Coming back to the app
+   * catches the phone that slept through midnight; a timer set for the next
+   * local midnight catches the one left awake on the kitchen counter. The
+   * timer is set to a calendar date rather than 24 hours on, so the clock
+   * change does not push it an hour into the wrong day.
+   */
+  const [todayKey, setTodayKey] = useState(() => localDateKey(new Date()));
+  useEffect(() => {
+    const sync = () =>
+      setTodayKey((current) => {
+        const next = localDateKey(new Date());
+        return next === current ? current : next;
+      });
+    sync();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        sync();
+      }
+    });
+    const now = new Date();
+    const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5).getTime();
+    const timer = setTimeout(sync, Math.max(1000, nextMidnight - now.getTime()));
+    return () => {
+      subscription.remove();
+      clearTimeout(timer);
+    };
+  }, [todayKey]);
+
+  /** Local midnight of the day the reader is in, from the key above. */
+  const todayStartMs = useMemo(() => {
+    const [year, month, day] = todayKey.split('-').map((part) => Number.parseInt(part, 10));
+    return Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)
+      ? new Date(year, month - 1, day).getTime()
+      : new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime();
+  }, [todayKey]);
 
   useEffect(() => {
     if (!appHydrated || preferences.hasOpenedAppBefore) {
@@ -1788,8 +1834,14 @@ function VinhaApp() {
   }
 
   async function handleCompletionStartNext(planId: string, nextTemplateId: string) {
-    await dismissCompletionCard(planId);
-    await handleAdoptReadyProgram(nextTemplateId, { lead: true });
+    // Adopted first, dismissed second. The card was put away before the
+    // adoption was attempted, so a reader at the free programme cap saw the
+    // paywall, said no — and the step-up offer was gone for good, with no way
+    // back to it (2026-09-16).
+    const adopted = await handleAdoptReadyProgram(nextTemplateId, { lead: true });
+    if (adopted) {
+      await dismissCompletionCard(planId);
+    }
   }
 
 
@@ -1936,7 +1988,17 @@ function VinhaApp() {
     // plan record's own boundary, so the new round begins at 0 of N without
     // touching a single logged session.
     await upsertWorkoutPlan({ ...plan, updatedAt: new Date().toISOString() });
-    await dismissCompletionCard(planId);
+    // The card goes because the block is no longer finished — 0 of N — not
+    // because it was dismissed. Dismissing put the plan id on a list that is
+    // never cleared, so the reader who restarted a programme was never
+    // congratulated for finishing it again: the card was answered once, for
+    // ever (2026-09-16). A new round is a new card, so the old dismissal is
+    // dropped here rather than added to.
+    if (preferences.dismissedCompletionPlanIds.includes(planId)) {
+      await updatePreferences({
+        dismissedCompletionPlanIds: preferences.dismissedCompletionPlanIds.filter((id) => id !== planId),
+      });
+    }
     // The hero counts 0 of N and the completion card is gone: the restart is
     // the thing on screen, not a sentence about it.
   }
@@ -3570,10 +3632,11 @@ function VinhaApp() {
   const homeActivePlanCard = useMemo(() => {
     const completedPlanSessions = getCanonicalCompletedSessions(database);
     // Local midnight, to date the reader's hand-picked session against. Read
-    // once per rebuild rather than per session, and local rather than UTC —
-    // the same midnight the calendar and the widget mean.
-    const now = new Date();
-    const todayDayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    // from the day key rather than from the clock, so an app left open
+    // overnight moves on with the reader rather than keeping yesterday — and
+    // local rather than UTC, the same midnight the calendar and the widget
+    // mean.
+    const todayDayStart = todayStartMs;
     /** The local midnight an ISO timestamp falls in — not the UTC one. */
     const toDayStartMs = (iso: string) => {
       const date = new Date(iso);
@@ -3849,7 +3912,7 @@ function VinhaApp() {
     // happens on the Programs tab, which is the one place that can say what
     // adopting it means.
     return null;
-  }, [database.workoutPlans, database.workoutSessions, database.exerciseLogs, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.dismissedCompletionPlanIds, preferences.recommendedProgramId, preferences.setupGoal, preferences.todaySession, recommendedReadyContent, recommendedReadyTemplate, setupSelection, workoutTemplates]);
+  }, [database.workoutPlans, database.workoutSessions, database.exerciseLogs, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.dismissedCompletionPlanIds, preferences.recommendedProgramId, preferences.setupGoal, preferences.todaySession, recommendedReadyContent, recommendedReadyTemplate, setupSelection, todayStartMs, workoutTemplates]);
   // The AI tab's opening state. Deterministic, so the most valuable-looking
   // part of the coach costs nothing to render and works offline.
   const progressWeeklyTarget = Number.parseInt(homeActivePlanCard?.sessionsPerWeek ?? '', 10) || null;
@@ -3927,7 +3990,9 @@ function VinhaApp() {
    * is for what happened, so it reports that instead.
    */
   const homeDoneThisWeekSessionIds = useMemo(() => {
-    const now = new Date();
+    // The week is read from the day key too: an app open over Sunday night
+    // kept last week's dots until it was closed.
+    const now = new Date(todayStartMs);
     const weekStart = getStartOfWeek(now).getTime();
     const weekEnd = getEndOfWeek(now).getTime();
     const ids = new Set<string>();
@@ -3941,7 +4006,7 @@ function VinhaApp() {
       }
     }
     return [...ids];
-  }, [workoutSessions]);
+  }, [todayStartMs, workoutSessions]);
 
   const homeTrainingSchedule = useMemo(() => {
     const cycle = preferences.trainingCycle;
@@ -4783,7 +4848,7 @@ function VinhaApp() {
     if (!progressWeeklyTarget) {
       return null;
     }
-    const now = new Date();
+    const now = new Date(todayStartMs);
     const weekStart = getStartOfWeek(now);
     const weekEnd = getEndOfWeek(now);
     // Only the plan's own sessions. This counted every session in the week,
@@ -4815,7 +4880,7 @@ function VinhaApp() {
       savedThisWeek,
       target: progressWeeklyTarget,
     };
-  }, [homeActivePlanCard, preferences.appLanguage, progressWeeklyTarget, workoutSessions]);
+  }, [homeActivePlanCard, preferences.appLanguage, progressWeeklyTarget, todayStartMs, workoutSessions]);
 
   /** Before the save: the session in hand is not in the log yet. */
   const guidedWeekProgress = weekProgressBase

@@ -121,4 +121,39 @@ module.exports = [
       assert.match(code, /\.\.\.programmeLineageIds\(activeTemplate\.id, workoutTemplates\),/);
     },
   },
+  {
+    name: 'route truth: the completion card is answered once per round, not once per plan',
+    run() {
+      // The step-up used to put the card away before it tried to adopt, so a
+      // reader at the free cap saw the paywall, said no, and lost the offer.
+      assert.match(
+        code,
+        /const adopted = await handleAdoptReadyProgram\(nextTemplateId, \{ lead: true \}\);\s*if \(adopted\) \{\s*await dismissCompletionCard\(planId\);/,
+      );
+      // And a restart clears the dismissal rather than adding one: the card
+      // hides because the block is no longer finished, and the list it was
+      // added to is never cleared — so finishing the same programme a second
+      // time was never acknowledged.
+      const restart = code.slice(code.indexOf('async function handleCompletionRestart'), code.indexOf('const activeProgramTemplateIds'));
+      assert.match(restart, /dismissedCompletionPlanIds: preferences\.dismissedCompletionPlanIds\.filter\(\(id\) => id !== planId\)/);
+      assert.doesNotMatch(restart, /await dismissCompletionCard\(planId\);/);
+    },
+  },
+  {
+    name: 'route truth: today moves on under an app that was left open',
+    run() {
+      // "Today" was read from new Date() inside memos whose dependencies hold
+      // no time at all, so a phone left open overnight kept yesterday's
+      // picked session, dots and rows until it was closed.
+      assert.match(code, /const \[todayKey, setTodayKey\] = useState\(\(\) => localDateKey\(new Date\(\)\)\);/);
+      // Both triggers: the app coming back, and a timer set for the next
+      // local midnight — a calendar date, not 24 hours on, so the clock
+      // change cannot push it into the wrong day.
+      assert.match(code, /AppState\.addEventListener\('change', \(state\) => \{\s*if \(state === 'active'\) \{\s*sync\(\);/);
+      assert.match(code, /new Date\(now\.getFullYear\(\), now\.getMonth\(\), now\.getDate\(\) \+ 1, 0, 0, 5\)\.getTime\(\)/);
+      // And the memos read it, rather than the clock.
+      assert.match(code, /const todayDayStart = todayStartMs;/);
+      assert.match(code, /\}, \[[^\]]*todayStartMs[^\]]*\]\);/);
+    },
+  },
 ];
