@@ -184,6 +184,14 @@ module.exports = [
         remove.indexOf('resyncTargetRef.current =') < remove.indexOf('workout.removeSet(step.slotId);'),
         'the landing place is chosen before the steps are rebuilt',
       );
+      // And ONLY when the step being removed is the one under the reader's
+      // feet. The set that goes is the lift's last, so from any earlier set
+      // nothing in front of them moves — and re-resolving would walk them
+      // back to a walk-up they have already been through (PR #126 review).
+      assert.match(
+        remove,
+        /const removedSetIndex = \(exercises\[index\]\?\.sets\.length \?\? 0\) - 1;\s*if \(step\.setIndex === removedSetIndex\) \{/,
+      );
 
       // The rule it lands by is the one tests/lib/guidedPlayer covers.
       const { rollPastLoggedWork } = require('../../../.test-dist/lib/guidedPlayer.js');
@@ -197,6 +205,10 @@ module.exports = [
       // A's only remaining set is logged, so rolling from A's block start
       // stops at B's walk-up rather than at B's set.
       assert.equal(rollPastLoggedWork(steps, 0, (slotId) => slotId === 'a'), 3);
+      // And with nothing logged it answers A's own walk-up — which is why
+      // the resync must not run from a set the reader is still standing on:
+      // it would send them backwards through a lead-in they have done.
+      assert.equal(rollPastLoggedWork(steps, 0, () => false), 0);
     },
   },
 ];

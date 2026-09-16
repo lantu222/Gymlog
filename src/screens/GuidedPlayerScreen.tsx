@@ -3049,19 +3049,31 @@ export function GuidedPlayerScreen({
                   }
                   return () => {
                     void haptics.select();
-                    // The list shrinks under the index the reader is sitting
-                    // on: the set and the rest before it are gone, so
-                    // everything after slides down and the same index is now
-                    // the NEXT lift's first set — its walk-up skipped
-                    // (2026-09-16). Re-resolve from this lift's own block
-                    // start, the way skipping an exercise does, and let
-                    // rollPastLoggedWork stop at the first thing not done.
-                    const blockStart = steps.findIndex(
-                      (candidate) =>
-                        (candidate.type === 'position' || candidate.type === 'set') &&
-                        candidate.slotId === step.slotId,
-                    );
-                    resyncTargetRef.current = blockStart >= 0 ? blockStart : stepIndex;
+                    /**
+                     * Only when the step being removed is the one under the
+                     * reader's feet.
+                     *
+                     * The set that goes is always the lift's last. Standing on
+                     * it, the list shrinks under the index: the set and the
+                     * rest before it are gone, everything after slides down,
+                     * and the same index becomes the NEXT lift's first set —
+                     * its walk-up skipped. Standing on any earlier set,
+                     * nothing in front of the reader moves at all, and
+                     * re-resolving would walk them BACK to a walk-up they
+                     * have already been through (PR #126 review).
+                     */
+                    const removedSetIndex = (exercises[index]?.sets.length ?? 0) - 1;
+                    if (step.setIndex === removedSetIndex) {
+                      // The first thing in this block that is not done yet,
+                      // which after the removal is the next lift's lead-in
+                      // when the rest of the block is logged.
+                      const blockStart = steps.findIndex(
+                        (candidate) =>
+                          (candidate.type === 'position' || candidate.type === 'set') &&
+                          candidate.slotId === step.slotId,
+                      );
+                      resyncTargetRef.current = blockStart >= 0 ? blockStart : stepIndex;
+                    }
                     workout.removeSet(step.slotId);
                   };
                 })()
