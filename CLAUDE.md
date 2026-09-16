@@ -63,9 +63,12 @@ that reliably lands while the code can still change is the one that runs before
 the PR exists.
 
 `.github/workflows/claude-review.yml` posts a second review on the PR itself,
-and goes red rather than silent when it cannot run. Both paths read this file,
-so review guidance belongs here — see [docs/pr-review-process.md](docs/pr-review-process.md)
-for the history and the one-time setup.
+one for every pushed commit, using `.claude/commands/ci-review.md` from `main`.
+Its check is green only when that commit's `## Code review` summary is on the
+PR; a run that reviewed nothing goes red rather than silent, whatever the model
+reported. Both paths read this file, so review guidance belongs here — see
+[docs/pr-review-process.md](docs/pr-review-process.md) for the history and the
+one-time setup.
 
 What is worth flagging in this repo, beyond ordinary correctness:
 

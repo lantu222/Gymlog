@@ -90,12 +90,44 @@ while the code is still editable. It is now part of the pre-PR routine in
 
 ## 2. On the PR — `.github/workflows/claude-review.yml`
 
-`anthropics/claude-code-action@v1` runs the same review on every PR open, push,
-reopen and ready-for-review, and posts findings as inline comments. This is the
-direct replacement for the Codex connector.
+`anthropics/claude-code-action@v1` reviews the head commit on every PR open,
+push, reopen and ready-for-review, and posts findings as inline comments. This
+is the direct replacement for the Codex connector.
 
-It fails the check when its credential is missing rather than passing quietly.
-A red check that says "no review ran" is the whole point: the failure this
+The review instructions are `.claude/commands/ci-review.md`, this repo's copy of
+the upstream code-review plugin's command (`anthropics/claude-code`,
+`plugins/code-review/commands/code-review.md` at `db8834b`). The copy differs in
+three ways: it reviews a PR that Claude has already commented on, it does not
+skip a change it judges trivial, and it always ends with a summary comment that
+names the commit:
+
+```
+## Code review
+
+No issues found. Checked for bugs and CLAUDE.md compliance.
+
+Commit <sha>
+
+<!-- claude-review head=<sha> -->
+```
+
+**Green means that comment exists for the head commit**, posted by
+`claude[bot]`. "Confirm this commit's review was posted", the step after the
+action, looks for it on the PR and fails without it. The action's own success
+only means the model ran without an error, and on 2026-09-16 that turned out to
+mean nothing (see below).
+
+The rest of the job:
+
+- A **draft** is not reviewed; the check shows as skipped until the PR is
+  marked ready, and `ready_for_review` starts the review.
+- A **commit that already has its summary** (a re-run of a green job, a
+  reopen) is not reviewed again. The job goes green and links the comment.
+- **One review per PR at a time.** A push cancels the review of the commit it
+  replaced; that run shows as cancelled.
+- A **missing credential** fails the first step rather than passing quietly.
+
+A red check that says "not reviewed" is the whole point: the failure this
 document exists because of was a silent one.
 
 ### Setup, once
@@ -121,8 +153,8 @@ With a Claude API key instead of a subscription token, change the workflow's
 | Path | Billing | Fit here |
 |---|---|---|
 | `/code-review` in-session | Plan usage already being spent | The default. Runs where it can still change the code |
-| This workflow, subscription token | Plan usage, plus GitHub Actions minutes | The PR-side backstop |
-| This workflow, API key | Per token, cents to low dollars per PR | Use if the plan's usage is the binding constraint |
+| This workflow, subscription token | Plan usage, plus GitHub Actions minutes. One commit's review cost $1.45–7.22 at API prices on 14–16 Sep, and every push gets one | The PR-side backstop |
+| This workflow, API key | Per token: the same $1.45–7.22 for each commit reviewed | Use if the plan's usage is the binding constraint |
 | Managed Code Review | $15–25 per review, Team/Enterprise plans only | Not available on an individual plan, and ~$400 for a batch this size |
 
 ## The Codex connector is gone
@@ -151,6 +183,11 @@ The consequence is permanent. Every PR that touches
 `.github/workflows/claude-review.yml`, including the one that first added it,
 gets no review from this workflow, and the check is red saying so. Review those
 by hand, or with `/code-review` before opening them.
+
+`.claude/commands/ci-review.md` is protected differently. The action replaces
+`.claude/` in the checkout with the default branch's copy before it starts, so
+a PR that edits the command is reviewed by the version already on `main`, and
+its own change first runs on the next PR after it merges.
 
 The action signals this by exiting **green** with nothing reviewed, which is why
 the workflow's last step exists: it checks the action's `execution_file` output
@@ -186,12 +223,119 @@ An earlier run had reported `permission_denials: 11`, and that looked like the
 answer until a run with zero denials failed in exactly the same way. Worth
 recording as a wrong turn: a plausible number in a log is not a cause.
 
+## Green checks that reviewed nothing (found 2026-09-16)
+
+From 28 August to 16 September, **56 pushes across 27 PRs** got a green
+`review` check from a run whose model stopped within 70 seconds and posted
+nothing. Every completed review took at least 110 seconds. **25 PRs were
+merged at a commit that only such a run had checked.**
+
+| When the run stopped | Pushes | PRs |
+|---|---|---|
+| After the PR's first "No issues found" summary | 38 | 19: #32, #33, #35, #37, #38, #40, #44, #45, #60, #68, #69, #75, #82, #84, #85, #88, #90, #111, #128 |
+| Before any summary | 16 | 9: #33, #40, #52, #61, #62, #66, #83, #85, #92 |
+| The abandoned background review, above | 2 | #26, #29 |
+
+The upstream plugin's first step launches a small agent to decide whether the
+PR needs a review at all. Two of its stop conditions are:
+
+> The pull request does not need code review (e.g. automated PR, trivial
+> change that is obviously correct)
+>
+> Claude has already commented on this PR
+
+The one issue comment the plugin posts is its `## Code review` / "No issues
+found" summary; findings go inline. So once a PR's review came back clean, it
+was not reviewed again: every one of the 38 later pushes stopped, and no
+completed review ran after a summary on any PR. They cost $0.05–0.40 each,
+against $1.45–7.22 for a completed review on 14–16 September. Why the other 16
+stopped is not in the log; the plugin's first step has both conditions above,
+and the repo's command has neither. PRs whose reviews kept finding things were
+mostly reviewed on every push, which is why nobody noticed: #127 had four
+inline findings across three commits and was reviewed each time.
+
+PR #128 shows the break exactly:
+
+| Commit | Run | Turns | Time | Cost | Posted |
+|---|---|---|---|---|---|
+| `b63bbff` | 35072390467 | 17 | 312 s | $1.80 | "No issues found", 08:16 |
+| `668be56` | 35085944167 | 19 | 52 s | $0.21 | nothing |
+| `0e7e165` | 35088217352 | 2 | 19 s | $0.09 | nothing |
+| `cbe22c0` | 35088438041 | 4 | 21 s | $0.10 | nothing |
+| `fcfb466` | 35089245092 | 3 | 20 s | $0.10 | nothing |
+
+All five are green. The run log hides the model's output, so the skip decision
+itself is not visible. The evidence is the plugin's own step 1, the timing
+(after a summary, every run stopped), and the comments: every bot comment near
+one of the 60 short runs came from a longer run that was still finishing.
+"Confirm a review actually ran" passed on all of them because it checks that
+the model ran, and it had.
+
+What changed:
+
+1. **The review is this repo's command**, `.claude/commands/ci-review.md`,
+   without the "already commented" and "trivial change" stops. Drafts are
+   skipped by the workflow instead, visibly.
+2. **Every review ends with a summary naming its commit**, findings or not.
+3. **"Confirm this commit's review was posted"** fails the job unless that
+   summary exists for the head commit. Run against #128 as it stands, it fails
+   `668be56`, `0e7e165`, `cbe22c0` and `fcfb466`. It fails `b63bbff` too, but
+   only because that summary was posted before the marker existed.
+4. **The diagnostics step read denials from a field the execution file does not
+   have.** The file holds the SDK's raw result, where denials are a
+   `permission_denials` array; `permission_denials_count` exists only in the
+   summary the action prints. The step said `denials=0` on every run, including
+   runs whose printed summary said 1. Of the 35 real reviews from 14–16
+   September, 27 had at least one denial (24 had exactly one). The step now
+   prints the denied tool names (names only, because the log is public), so the
+   next run will show which tool is denied. It also blames the allowlist for an
+   error only when at least half the turns were denied, because otherwise a
+   healthy run's one denial would be named as the cause of every failure.
+
+A turn-count threshold was considered and dropped. A skip took 2 to 19 turns and
+completed reviews on 14–16 September took 10 to 43, so the ranges overlap, and
+the comment is direct evidence where a turn count is only a guess.
+
+### What those pushes let through
+
+Reviewed on 16 September, after the fact. For each of the 25 PRs, the last
+commit a completed review saw was replayed onto the merge parent
+(`git merge-tree`), and the difference from the merge commit is what no
+review read. Six needed nothing: four differences were conflict resolutions
+only (#45, #68, #75, #90), one was empty (#111), and one only deleted a
+document (#61). The other 19 were reviewed. Nine findings had already been
+fixed by later work, and nine were still in `main`:
+
+| PR | Still in `main` on 16 September |
+|---|---|
+| #33 | Dragging a programme day re-deals the sessions without rotating the week, so Home's next session and the calendar name different days |
+| #33 | The programme page's week strip pairs days with sessions by position, which is wrong once an empty day is dragged above a trained one |
+| #33 | MIN / SESSION on the reader's own programmes leaves out the warm-up and cool-down that Home and the player count |
+| #40 | The duration axis steps by 22.5 minutes for any maximum between 61 and 90 |
+| #40 | A Home card or coach link to a lift that is not a target lift opens Progress with nothing expanded |
+| #69 | Strong & Lean Female says the upper body goes heavy with the barbell once; the pull day opens with a 4 × 10 barbell row too |
+| #92 | The hand-off shows the tracking dialog when every site it would offer is already on Home |
+| #92 | The back key does not close a policy or terms page opened over the hand-off |
+| #92 | `/api/transcripts` returns kept photos whole, so a few of them push the response past Vercel's 4.5 MB limit (debug reader only) |
+
+Five more PRs (#24, #25, #28, #30, #54) merged on a red check. They changed only
+this workflow and this document, which the review never runs on.
+
 ## When the review does not run
 
 - **Check red, "No CLAUDE_CODE_OAUTH_TOKEN secret"** — setup step 3 has not been
   done, and nothing on the PR has been reviewed.
 - **Check red, "exited without reviewing this PR"** — usually the workflow-file
   case above. Otherwise read the action's step in the run log for the reason.
+- **Check red, "Nothing was posted for `<sha>`"** — the model ran and left no
+  trace on the PR. This commit has not been reviewed. The last step of the log
+  shows turns, cost and denied tools. Re-run the job.
+- **Check red, "posted N inline comments on `<sha>` but no summary"** — the
+  review found things and stopped before it finished. Read the comments first,
+  then re-run the job.
+- **Check skipped** — the PR is a draft. It is reviewed once it is marked ready.
+- **Check cancelled** — a newer push replaced this commit, and that push has its
+  own run.
 - **Check red, action failure** — read the run log. A failed review is not a
   clean review; re-run it or review the diff by hand before merging. Since
   2026-09-03 the run's last step names the case for you: tool denials, a
