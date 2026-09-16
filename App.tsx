@@ -2262,15 +2262,7 @@ function VinhaApp() {
   async function handleForgetHeldProgram(workoutTemplateId: string) {
     await forgetHeldProgramme(workoutTemplateId);
     void haptics.success();
-    startTransition(() =>
-      setNavigationState((current) => ({
-        route: workoutHomeRoute,
-        history: withoutTrailingRoute(
-          forgetRoutesForTemplate(current.history, workoutTemplateId),
-          workoutHomeRoute,
-        ),
-      })),
-    );
+    leaveDeletedProgramme(workoutTemplateId);
   }
 
   async function handleRemoveActiveProgram(planId: string) {
@@ -3059,10 +3051,18 @@ function VinhaApp() {
   async function handleDeleteCustomWorkout(workoutTemplateId: string) {
     await deleteWorkoutTemplate(workoutTemplateId);
     void haptics.success();
-    // The programme's pages go with the programme. `navigate` pushes, so the
-    // page the reader deleted it from stayed in the back stack: Back returned
-    // to a programme that no longer exists, the route guard bounced them to
-    // the list, and Back read as broken (2026-09-16).
+    leaveDeletedProgramme(workoutTemplateId);
+  }
+
+  /**
+   * Off the page of a programme that no longer exists, and out of its pages.
+   *
+   * The programme's pages go with the programme. `navigate` pushes, so the
+   * page the reader deleted it from stayed in the back stack: Back returned
+   * to a programme that no longer exists, the route guard bounced them to
+   * the list, and Back read as broken (2026-09-16).
+   */
+  function leaveDeletedProgramme(workoutTemplateId: string) {
     startTransition(() =>
       setNavigationState((current) => ({
         route: workoutHomeRoute,

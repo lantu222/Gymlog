@@ -233,7 +233,14 @@ module.exports = [
       // (device, 2026-09-16). The sheet freezes the clock like every other
       // overlay that asks for attention.
       const player = read('src', 'screens', 'GuidedPlayerScreen.tsx');
-      assert.match(player, /const frozen = [^;]*\brunSheetOpen\b[^;]*;/);
+      assert.match(player, /const frozen = [^;]*\brunSheetHolds\b[^;]*;/);
+      // Not during an interval, where both halves are the workout: a runner
+      // who glances at the sheet must not find the clock stopped.
+      assert.match(player, /const runSheetHolds = runSheetOpen && !intervalRunning;/);
+      assert.match(
+        player,
+        /const intervalRunning =\s*\(step\.type === 'set' && step\.interval !== undefined\) \|\| \(step\.type === 'rest' && Boolean\(step\.recoveryKind\)\);/,
+      );
       // The clock honours it.
       assert.match(player, /if \(mode !== 'player' \|\| frozen\) \{\s*\/\/ Pausing freezes the leftover time/);
 

@@ -460,10 +460,10 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         // reader's, and its page keeps the switch rather than offering to
         // adopt it again (device, 2026-09-16).
         held={programIsHeld}
-        // Off only. The switch renders solely when the programme is running,
-        // so its value is always true and the only change it can report is
-        // false — turning one ON is the adopt button's job, on the other side
-        // of this same slot.
+        // Both ways now. The switch shows for a held programme too, off, and
+        // turning it on rejoins the running set under the plan the programme
+        // already has; a programme the reader never took up still gets the
+        // adopt button instead (device, 2026-09-16).
         onSetRunning={(next) => {
           void (next ? onResumeProgram(route.workoutTemplateId) : onStopProgram(route.workoutTemplateId));
         }}
@@ -489,14 +489,12 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             // trained one workout and then found Home still running whatever
             // it ran before. handleAdoptReadyProgram existed the whole time
             // and was wired only to the season screen.
-            // Home once it is running, and not before: at the free limit the
-            // sheet opens here, on the programme the reader asked for, rather
-            // than on a Home still leading with the old one.
-            // And it stays here once it is running (device, 2026-09-16):
-            // the reader came to this programme, and being carried to Home
-            // the moment it was adopted read as the app leaving the page they
-            // were on. The switch that replaces the button says it is running;
-            // the toast says so after the write, not before.
+            // It stays on this page (device, 2026-09-16): being carried to
+            // Home the moment a programme was adopted read as the app leaving
+            // the page the reader was on. At the free limit the sheet opens
+            // here, on the programme they asked for; otherwise the switch
+            // that replaces the button says it is running, and the toast says
+            // so after the write, not before.
             void handleAdoptReadyProgram(route.workoutTemplateId, { lead: true }).then((adopted) => {
               if (adopted) {
                 showToast(t(preferences.appLanguage, 'toast.programStarted'));

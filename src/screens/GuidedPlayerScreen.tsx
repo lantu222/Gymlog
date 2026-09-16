@@ -1429,8 +1429,13 @@ export function GuidedPlayerScreen({
   // `runSheetOpen` joined when the sheet began carrying the corrections: a
   // rest that ran out under an open sheet moved the session on, and the lift
   // the reader was about to correct vanished from under their thumb
-  // (device, 2026-09-16).
-  const frozen = paused || howtoOpen || exitOpen || pauseSheetOpen || swapOpen || restEditOpen || runSheetOpen || ownBlock !== null || restAsk.sheetOpen;
+  // (device, 2026-09-16). Not during intervals, though: there both halves
+  // ARE the workout, and a runner who glances at the sheet mid-bout must not
+  // find the clock stopped.
+  const intervalRunning =
+    (step.type === 'set' && step.interval !== undefined) || (step.type === 'rest' && Boolean(step.recoveryKind));
+  const runSheetHolds = runSheetOpen && !intervalRunning;
+  const frozen = paused || howtoOpen || exitOpen || pauseSheetOpen || swapOpen || restEditOpen || runSheetHolds || ownBlock !== null || restAsk.sheetOpen;
   // Seconds since the reader said they would do it themselves. Derived from
   // the session clock's tick so it needs no timer of its own.
   const ownElapsedSeconds = ownBlock ? Math.max(0, Math.floor((clockNowMs - ownBlock.startedAt) / 1000)) : 0;
@@ -4935,7 +4940,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   // Above the lift, because it changes what the next tap means: log this and
   // you are walking to the other station, not starting a rest.
   setSupersetPill: {
-    // Centred on the frame's top line, which runs 8 in from the edge.
+    // Top-left, where the frame's line used to run; the frame is gone from
+    // this screen (device, 2026-09-16) and the badge stands on its own.
     position: 'absolute',
     top: -2,
     left: 26,
