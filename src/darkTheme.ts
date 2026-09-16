@@ -68,6 +68,8 @@ export const HG_DARK = {
   onHighlight: '#241203',
   blue: '#4FA8FF',
   gold: '#E4B14C',
+  orange: '#FF8A4C',
+  orangeSoft: 'rgba(255, 138, 76, 0.26)',
   // The caution and danger washes invert: light's cream and pink become a
   // tinted panel a shade off `surface`, with the ink brightened to carry the
   // meaning instead. The light values (#FDF3E3, #FEF2F2) are all but white and

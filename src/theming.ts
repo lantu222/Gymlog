@@ -68,6 +68,16 @@ export interface Theme {
   onHighlight: string;
   blue: string;
   gold: string;
+  /**
+   * Orange in both themes, for a control the reader asked to be orange in
+   * both. `highlight` is orange only in dark — in light it is the brand
+   * violet — so a control painted with it read as purple on the light theme
+   * (device, 2026-09-16). Light takes a deeper orange, readable as text on a
+   * light surface.
+   */
+  orange: string;
+  /** A tinted wash of `orange`, under a chip it outlines. */
+  orangeSoft: string;
   /** Caution: a missing piece of gear, a form warning, an "check this" note. */
   amber: string;
   amberSoft: string;

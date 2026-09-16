@@ -21,6 +21,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -1136,6 +1137,15 @@ export function GuidedPlayerScreen({
   const themeName = useThemeName();
   const workout = useWorkoutContext();
   const session = workout.activeSession;
+  // The contents sheet's list is bounded by the screen. The sheet's own
+  // maxHeight does not bound a ScrollView inside it (the swap list learned the
+  // same), so a long session grew past the bottom and the last lifts could not
+  // be reached (device, 2026-09-16).
+  // Also inside the sheet's own cap (78 %) less what sits around the list —
+  // handle, title and bottom padding, about 160 — or on a short screen the
+  // sheet would clip the list's end again.
+  const { height: windowHeight } = useWindowDimensions();
+  const runSheetListMaxHeight = Math.round(Math.min(windowHeight * 0.6, windowHeight * 0.78 - 160));
 
   /**
    * The session clock, derived here rather than ticked into global state.
@@ -3495,7 +3505,7 @@ export function GuidedPlayerScreen({
       {runSheetOpen && (
         <GPSheet onClose={() => setRunSheetOpen(false)}>
           <Text style={styles.sheetTitle}>{t(language, 'guided.runSheet.title')}</Text>
-          <ScrollView style={{ flexGrow: 0, flexShrink: 1 }} showsVerticalScrollIndicator={false}>
+          <ScrollView style={{ flexGrow: 0, maxHeight: runSheetListMaxHeight }}>
             {buildGuidedRunSheet(stepPlan, stepIndex).map((item) => {
               // The corrections for the round being rested after — every lift
               // of it with a logged set, whichever lift the rest step names.
@@ -3610,7 +3620,7 @@ export function GuidedPlayerScreen({
                             // it read as one more line (device, 2026-09-16).
                             style={({ pressed }) => [styles.runEditChip, pressed && { opacity: 0.7 }]}
                           >
-                            <GPIcon name="edit" size={13} color={theme.highlight} sw={2.4} />
+                            <GPIcon name="edit" size={13} color={theme.orange} sw={2.4} />
                             <Text style={styles.runEdit} numberOfLines={1}>
                               {isSuperset
                                 ? `${t(language, 'guided.rest.edit')} · ${exerciseNameLabel(language, name)}`
@@ -5474,7 +5484,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '700',
     color: theme.ink,
   },
-  runEdit: { flexShrink: 1, fontSize: 13, fontWeight: '800', color: theme.highlight },
+  // Orange in both themes (device, 2026-09-16): `highlight` is violet in light.
+  runEdit: { flexShrink: 1, fontSize: 13, fontWeight: '800', color: theme.orange },
   runEditChip: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
@@ -5485,8 +5496,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 999,
     borderWidth: 1.2,
-    borderColor: theme.highlight,
-    backgroundColor: theme.highlightSoft,
+    borderColor: theme.orange,
+    backgroundColor: theme.orangeSoft,
   },
   runPlan: {
     marginTop: 2,

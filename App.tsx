@@ -78,7 +78,13 @@ import {
   removeActiveProgram,
   resolveActiveProgramCap,
 } from './src/lib/activeProgramSet';
-import { listHeldProgrammes, resumeProgramme, stopProgramme } from './src/lib/runningProgrammes';
+import {
+  leadTemplateId,
+  listHeldProgrammes,
+  resolveLeadPlanId,
+  resumeProgramme,
+  stopProgramme,
+} from './src/lib/runningProgrammes';
 import {
   buildReadyProgramPlanId,
   buildCustomProgramPlanId,
@@ -4327,16 +4333,22 @@ function VinhaApp() {
    * being rewritten, a stored value from an older build. Rather than chase each
    * one, the invariant is repaired wherever it broke: a held programme with no
    * lead becomes the lead.
+   *
+   * A lead naming a plan that no longer exists is broken the same way — Home
+   * rendered no programme and no row carried the Active tag — and was left
+   * alone because it was not empty (2026-09-16).
    */
   useEffect(() => {
-    if (!appHydrated || preferences.activePlanId) {
+    if (!appHydrated) {
       return;
     }
-    const held = preferences.activePlanIds.find((planId) =>
-      database.workoutPlans.some((plan) => plan.id === planId),
-    );
-    if (held) {
-      void updatePreferences({ activePlanId: held });
+    const lead = resolveLeadPlanId({
+      activePlanId: preferences.activePlanId,
+      activePlanIds: preferences.activePlanIds,
+      plans: database.workoutPlans,
+    });
+    if (lead !== preferences.activePlanId) {
+      void updatePreferences({ activePlanId: lead });
     }
   }, [appHydrated, database.workoutPlans, preferences.activePlanId, preferences.activePlanIds, updatePreferences]);
 
@@ -5884,6 +5896,10 @@ function VinhaApp() {
   // "Omat ohjelmasi" was listing each of those as a programme. Those sessions
   // live in History; the same rule the programme cap already uses.
   const programsCustomItems = useMemo(() => {
+    // The Active tag follows the plan Home leads with, read from the plan
+    // itself. It was read off Home's hero card, which is null whenever the
+    // hero cannot be built — and then no row carried the tag at all.
+    const leadingTemplateId = leadTemplateId({ activePlanId: preferences.activePlanId, plans: database.workoutPlans });
     const authored = customWorkouts
       .filter((template) => template.origin !== 'freestyle')
       .map((template) => ({
@@ -5896,7 +5912,7 @@ function VinhaApp() {
           template.sessionCount === 1 ? 'prog.custom.countsOne' : 'prog.custom.counts',
           { sessions: template.sessionCount, exercises: template.exerciseCount },
         ),
-        active: homeActivePlanCard?.programId === template.id,
+        active: leadingTemplateId === template.id,
         programType: 'custom' as const,
       }));
 
@@ -5949,7 +5965,7 @@ function VinhaApp() {
         }
         // The SAME question the authored rows ask, so one list cannot hold two
         // notions of "active" and mark a row by each.
-        const active = homeActivePlanCard?.programId === row.templateId;
+        const active = leadingTemplateId === row.templateId;
         return {
           id: row.templateId,
           name: runningProgrammeTitle(row.templateId, row.planName, template.daysPerWeek),
@@ -5976,7 +5992,6 @@ function VinhaApp() {
   }, [
     customWorkouts,
     database.workoutPlans,
-    homeActivePlanCard,
     preferences.activePlanId,
     preferences.activePlanIds,
     preferences.appLanguage,

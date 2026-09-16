@@ -4,6 +4,17 @@ const { t, I18N_KEYS, SUPPORTED_LANGUAGES } = require('../../.test-dist/lib/i18n
 
 module.exports = [
   {
+    // "Pidä tämä puhelin" read as keeping the device (user, 2026-09-16). The
+    // button names the data, and the question says the other copy goes.
+    name: 'i18n: restore-or-keep names the data it keeps, and says the other is replaced',
+    run() {
+      assert.equal(t('fi', 'account.restore.keepLocal'), 'Käytä puhelimen tietoja');
+      assert.equal(t('en', 'account.restore.keepLocal'), 'Use the data on this phone');
+      assert.match(t('fi', 'account.restore.body'), /Kumpi pidetään\? Toinen korvataan\.$/);
+      assert.match(t('en', 'account.restore.body'), /Which one do you keep\? The other is replaced\.$/);
+    },
+  },
+  {
     name: 'i18n: every English key has a Finnish translation and neither renders empty',
     run() {
       assert.ok(I18N_KEYS.length >= 12, 'key list should cover at least the Welcome surface');
