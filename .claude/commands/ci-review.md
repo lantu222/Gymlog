@@ -1,7 +1,7 @@
 ---
 allowed-tools: Bash(gh issue view:*), Bash(gh search:*), Bash(gh issue list:*), Bash(gh pr comment:*), Bash(gh pr diff:*), Bash(gh pr view:*), Bash(gh pr list:*), mcp__github_inline_comment__create_inline_comment
 description: Review one head commit of a pull request and post the result (run by .github/workflows/claude-review.yml)
-argument-hint: "[--comment] <owner/repo/pull/N> --head <full commit sha>"
+argument-hint: "[--comment] <owner/repo/pull/N> --head <full commit sha> [--existing <file>]"
 ---
 
 Provide a code review for the pull request named in these arguments, as of the head commit given by `--head`:
@@ -9,6 +9,8 @@ Provide a code review for the pull request named in these arguments, as of the h
 $ARGUMENTS
 
 Review it even if Claude has commented on this pull request before. Every new head commit gets its own review, and an earlier comment covers only the commit it names. Do not skip the review because the change looks small, obvious or automated. The workflow that runs this command has already skipped drafts and commits that have a review.
+
+These instructions are the whole review. Do not call the Skill tool to load another one.
 
 **Agent assumptions (applies to all agents and subagents):**
 - All tools are functional and will work without error. Do not test tools or make exploratory calls. Make sure this is clear to every subagent that is launched.
@@ -57,7 +59,7 @@ To do this, follow these steps precisely:
 
    If `--comment` argument was NOT provided, stop here. Do not post any GitHub comments.
 
-7. List the inline comments already on the pull request with `gh api --paginate repos/<owner>/<repo>/pulls/<number>/comments`. Set aside every issue that one of them already raises about the same code: it has been reported, and posting it again is noise. The rest are the new issues.
+7. List the inline comments already on the pull request. With `--existing <file>`, read that file with the Read tool: one JSON object per line, with `path`, `line`, `author` and `body`. Do not fetch them any other way; in CI the file is the only route. Without `--existing`, use `gh api --paginate repos/<owner>/<repo>/pulls/<number>/comments`. Set aside every issue that one of them already raises about the same code: it has been reported, and posting it again is noise. The rest are the new issues.
 
 8. If there are new issues, create a list of all comments that you plan on leaving. This is only for you to make sure you are comfortable with the comments. Do not post this list anywhere.
 

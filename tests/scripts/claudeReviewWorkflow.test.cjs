@@ -88,6 +88,8 @@ function stepNamed(steps, name) {
 const PRIOR = "Find this commit's review";
 const POSTED = "Confirm this commit's review was posted";
 const RAN = 'Confirm a review actually ran';
+const LIST = 'List the comments already on this PR';
+const EXISTING = '.ci-review/inline-comments.jsonl';
 const EXPLAIN = 'Say which kind of red this is';
 
 function actionStep(steps) {
@@ -143,6 +145,8 @@ function runStep(script, { summaries = '', findings = '', ghFails = false }) {
     fs.writeFileSync(file, `${stub}\n${script}\n`);
     const result = spawnSync(findBash(), ['--noprofile', '--norc', '-e', file.replace(/\\/g, '/')], {
       encoding: 'utf8',
+      // A step that writes a file writes it here, never into the repo.
+      cwd: dir,
       env: {
         ...process.env,
         FIXTURES: dir.replace(/\\/g, '/'),
@@ -154,7 +158,14 @@ function runStep(script, { summaries = '', findings = '', ghFails = false }) {
       },
     });
     assert.equal(result.error, undefined, String(result.error));
-    return { status: result.status, stdout: result.stdout, stderr: result.stderr, output: fs.readFileSync(output, 'utf8') };
+    const listed = path.join(dir, EXISTING);
+    return {
+      status: result.status,
+      stdout: result.stdout,
+      stderr: result.stderr,
+      output: fs.readFileSync(output, 'utf8'),
+      listed: fs.existsSync(listed) ? fs.readFileSync(listed, 'utf8') : null,
+    };
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -181,6 +192,11 @@ module.exports = [
         prompt.includes('--head ${{ github.event.pull_request.head.sha }}'),
         'the prompt must name the head commit, or the summary cannot say which commit it covers',
       );
+      assert.ok(
+        // Absolute, because that is the only kind of path Read takes.
+        prompt.includes(`--existing \${{ github.workspace }}/${EXISTING}`),
+        'the prompt must hand over the listed comments, or the reviewer has no way to see them',
+      );
       assert.ok(fs.existsSync(path.join(ROOT, COMMAND)), `${COMMAND} is missing; /ci-review would reach the model as plain text`);
     },
   },
@@ -202,10 +218,18 @@ module.exports = [
 
       // The command also appears as /ci-review in local sessions, where
       // allowed-tools skips the prompt. `gh api` covers DELETE and merge as
-      // much as the one read step 7 needs; CI allows Bash wholesale anyway.
+      // much as the one read step 7 needs.
       const allowed = command.match(/^allowed-tools: (.*)$/m);
       assert.ok(allowed, `${COMMAND} lost its allowed-tools line`);
       assert.ok(!allowed[1].includes('Bash(gh api'), 'allowed-tools pre-approves gh api, writes included, in local sessions');
+
+      // In CI the earlier comments come as a file, because the allowlist has
+      // no `gh api` in it; a command that still fetched them would be denied.
+      const step7 = command.slice(command.indexOf('\n7. '), command.indexOf('\n8. '));
+      assert.match(step7, /With `--existing <file>`, read that file with the Read tool/);
+      assert.match(step7, /Do not fetch them any other way/);
+      // The one denial nearly every run had was the Skill tool.
+      assert.match(command, /Do not call the Skill tool/);
     },
   },
   {
@@ -232,12 +256,15 @@ module.exports = [
     run() {
       const { steps } = parseWorkflow();
       const prior = stepNamed(steps, PRIOR);
+      const list = stepNamed(steps, LIST);
       const action = actionStep(steps);
       const ran = stepNamed(steps, RAN);
       const posted = stepNamed(steps, POSTED);
       const explain = stepNamed(steps, EXPLAIN);
 
       assert.ok(prior.index < action.index, 'the lookup must come before the review it can skip');
+      assert.ok(list.index < action.index, 'the earlier comments must be listed before the review reads them');
+      assert.equal(list.step.if, "steps.prior.outputs.url == ''");
       assert.ok(action.index < ran.index && ran.index < posted.index, 'the checks must follow the review');
       assert.ok(posted.index < explain.index, 'the diagnostics come last');
 
@@ -279,8 +306,87 @@ module.exports = [
       // so reading it reported 0 denials on runs that had them.
       assert.ok(!step.run.includes('permission_denials_count'), 'diagnostics read a field the execution file does not have');
       assert.match(step.run, /\.permission_denials \/\/ \[\] \| length/);
-      // Names only: the log is public and a denied call's input is not.
-      assert.ok(!step.run.includes('tool_input'), 'diagnostics would print denied tool input to a public log');
+      // Names only, and for Bash the program alone: the log is public and a
+      // denied call's input is not. The one read of the input goes through
+      // the filter that keeps a plain lowercase word and drops the rest. It
+      // splits on every kind of space: jq's anchors match at line breaks, so a
+      // word split on spaces alone could carry the next line into the log.
+      const sanitized =
+        '(.tool_input.command // "") | [splits("\\\\s+")] | map(select(test("^[a-z][a-z0-9._-]{0,30}$"))) | (.[0] // "?")';
+      assert.ok(step.run.includes(sanitized), 'the Bash program is no longer read through its filter');
+      assert.equal(step.run.split('tool_input').length - 1, 1, 'denied tool input is read somewhere else too');
+    },
+  },
+  {
+    /**
+     * With plain `Bash`, the reviewer held the Claude app's token and could
+     * push, merge or call any API with it; only the instructions said not
+     * to. The list below is the reviewed set. Adding a command to the
+     * workflow means adding it here, on purpose.
+     */
+    name: 'claude-review: the reviewer can read the PR and post its summary, and nothing that writes',
+    run() {
+      const { step } = actionStep(parseWorkflow().steps);
+      const line = step.code.split('\n').find((entry) => entry.includes('--allowedTools'));
+      assert.ok(line, 'the action no longer passes an allowlist');
+      const tools = line.match(/--allowedTools "([^"]*)"/)[1].split(',').map((tool) => tool.trim());
+
+      assert.equal(tools[0], 'mcp__github_inline_comment__create_inline_comment', 'the comment tool must stay first');
+      assert.ok(!tools.includes('Bash'), 'plain Bash is back: the reviewer can push and merge with the app token');
+      const REVIEWED = new Set([
+        'Bash(gh pr view *)',
+        'Bash(gh pr diff *)',
+        'Bash(gh pr comment *)',
+        'Bash(gh pr list *)',
+        'Bash(gh issue view *)',
+        'Bash(gh issue list *)',
+        'Bash(gh search *)',
+        'Bash(git diff *)',
+        'Bash(git log *)',
+        'Bash(git show *)',
+        'Bash(git blame *)',
+        'Bash(git ls-files *)',
+        'Bash(git status *)',
+        'Bash(git rev-parse *)',
+        'Bash(cat *)',
+        'Bash(head *)',
+        'Bash(tail *)',
+        'Bash(wc *)',
+        'Bash(ls *)',
+        'Bash(grep *)',
+      ]);
+      for (const tool of tools.filter((entry) => entry.startsWith('Bash'))) {
+        assert.ok(REVIEWED.has(tool), `${tool} is not on the reviewed list of commands the reviewer may run`);
+      }
+      for (const tool of ['Write', 'Edit', 'NotebookEdit', 'WebFetch', 'Skill']) {
+        assert.ok(!tools.includes(tool), `${tool} lets the reviewer do more than read and comment`);
+      }
+      // What a review cannot work without.
+      for (const tool of ['Read', 'Grep', 'Glob', 'Task', 'Agent', 'Bash(gh pr view *)', 'Bash(gh pr diff *)', 'Bash(gh pr comment *)']) {
+        assert.ok(tools.includes(tool), `${tool} is missing, and the review cannot run without it`);
+      }
+    },
+  },
+  {
+    name: 'claude-review: the earlier comments are listed with the read-only token, into the file the prompt names',
+    run() {
+      const { step } = stepNamed(parseWorkflow().steps, LIST);
+      assert.match(step.code, /GH_TOKEN: \$\{\{ github\.token \}\}/);
+      assert.ok(step.run.includes(`> ${EXISTING}`), 'the listing is not written where the prompt says it is');
+
+      const listed = runStep(step.run, { findings: '{"path":"a.ts","line":3,"author":"claude[bot]","body":"x"}\n' });
+      assert.equal(listed.status, 0, listed.stderr);
+      assert.equal(listed.listed, '{"path":"a.ts","line":3,"author":"claude[bot]","body":"x"}\n');
+      assert.match(listed.stdout, /1 inline comments already on the PR/);
+
+      const none = runStep(step.run, {});
+      assert.equal(none.status, 0, none.stderr);
+      assert.equal(none.listed, '');
+      assert.match(none.stdout, /0 inline comments already on the PR/);
+
+      // No listing, no review: the reviewer would post every finding again.
+      const apiDown = runStep(step.run, { ghFails: true });
+      assert.notEqual(apiDown.status, 0);
     },
   },
   {
