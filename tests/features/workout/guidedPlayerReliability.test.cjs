@@ -118,11 +118,18 @@ module.exports = [
     },
   },
   {
-    name: 'guided: the free workout will not tick a set nobody could lift',
+    name: 'guided: the free workout will not tick a set nobody could lift, or keep one ticked',
     run() {
       // The rule itself is covered in tests/lib/emptyWorkoutSession; this is the wiring.
       const screen = read('src', 'screens', 'EmptyWorkoutScreen.tsx');
       assert.match(screen, /if \(!set\.done && !isLoggableFreestyleSet\(set\)\) \{\s*void haptics\.error\(\);\s*return;/);
+      // The weight and rep fields stay editable after the tick, so the same
+      // rule has to hold on the way through the edit: 82,5 ticked and then
+      // typed over as 825 stayed ticked at 825 kg (PR #121 review).
+      assert.match(
+        screen,
+        /return next\.done && !isLoggableFreestyleSet\(next\) \? \{ \.\.\.next, done: false \} : next;/,
+      );
     },
   },
   {

@@ -713,7 +713,21 @@ export function EmptyWorkoutScreen({
         exercise.localKey === exerciseKey
           ? {
               ...exercise,
-              sets: exercise.sets.map((set) => (set.localKey === setKey ? { ...set, ...patch } : set)),
+              sets: exercise.sets.map((set) => {
+                if (set.localKey !== setKey) {
+                  return set;
+                }
+                const next = { ...set, ...patch };
+                // The fields stay editable after the tick, so the ceiling has
+                // to hold here as well as on the tick itself: typing 825 into
+                // a set already logged at 82,5 kept it logged, and the volume
+                // strip, the one-rep-max card and the saved workout all took
+                // the 825 (PR #121 review). A logged set that stops being
+                // loggable stops being logged — the tick comes back off, and
+                // toggleSetDone refuses to put it back until the number is
+                // one somebody could have lifted.
+                return next.done && !isLoggableFreestyleSet(next) ? { ...next, done: false } : next;
+              }),
             }
           : exercise,
       ),
