@@ -17,12 +17,18 @@
  *
  *   GET /api/transcripts?since=2026-08-23&limit=200   (that day and later)
  *   GET /api/transcripts?since=2026-09                (that month and later)
+ *   GET /api/transcripts?path=transcripts/<day>/<name>.json   (one entry)
  *   x-transcript-secret: <TRANSCRIPT_READ_SECRET>
+ *
+ * The list leaves kept photos out and says how big each one is; one entry
+ * asked for by path carries its photo. A photo is up to 2.8 MB of base64, and
+ * a list that carried them all went past the platform's 4.5 MB response
+ * limit and failed as a whole.
  */
 import { timingSafeEqual } from 'node:crypto';
 import { get, list } from '@vercel/blob';
 import { AI_COACH_DEBUG_TRANSCRIPTS } from '../src/lib/aiCoachDebug';
-import { shapeTranscriptEntry, transcriptTimeKey } from '../src/lib/aiCoachLogId';
+import { isTranscriptPath, shapeTranscriptEntry, transcriptTimeKey } from '../src/lib/aiCoachLogId';
 
 const SINCE_PATTERN = /^\d{4}-\d{2}(-\d{2})?$/;
 
@@ -69,6 +75,26 @@ export default async function handler(req: RequestLike, res: ResponseLike): Prom
   }
   if (!secretMatches(headerValue(req, 'x-transcript-secret'), process.env.TRANSCRIPT_READ_SECRET)) {
     res.status(401).json({ ok: false, error: 'UNAUTHORIZED' });
+    return;
+  }
+
+  const onePath = queryValue(req, 'path');
+  if (onePath !== undefined) {
+    if (!isTranscriptPath(onePath)) {
+      res.status(400).json({ ok: false, error: 'BAD_PATH', expected: 'transcripts/YYYY-MM-DD/<name>.json' });
+      return;
+    }
+    const stored = await get(onePath, { access: 'private', useCache: false });
+    if (!stored || stored.statusCode !== 200) {
+      res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+      return;
+    }
+    try {
+      const text = await new Response(stored.stream).text();
+      res.status(200).json({ ok: true, entry: shapeTranscriptEntry(onePath, JSON.parse(text), { withPhoto: true }) });
+    } catch {
+      res.status(200).json({ ok: true, entry: { pathname: onePath, corrupt: true } });
+    }
     return;
   }
 

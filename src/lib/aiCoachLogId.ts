@@ -63,6 +63,13 @@ export interface ShapedTranscriptEntry {
   label: string | null;
   /** Present when the stored entry holds an email the endpoint did not return. */
   withheld?: true;
+  /** How much base64 a kept photo holds, when the photo itself was left out. */
+  photoChars?: number;
+}
+
+export interface ShapeTranscriptOptions {
+  /** Keep a stored photo's data. Only for one entry asked for by path. */
+  withPhoto?: boolean;
 }
 
 /**
@@ -75,19 +82,50 @@ export interface ShapedTranscriptEntry {
  * cleanup find those entries without anyone reading an address. The label
  * comes from the path, and the fields this function sets are written last so
  * a stored field of the same name cannot stand in for them.
+ *
+ * A kept photo is up to 2.8 MB of base64, and the list handed every one back
+ * whole: a few of them pushed the response past the platform's 4.5 MB limit
+ * and the whole list failed (backfill review of #92, 2026-09-16). So the list
+ * says how big a photo is, and the photo itself comes only with one entry
+ * asked for by path.
  */
-export function shapeTranscriptEntry(pathname: string, stored: unknown): ShapedTranscriptEntry {
+export function shapeTranscriptEntry(
+  pathname: string,
+  stored: unknown,
+  options: ShapeTranscriptOptions = {},
+): ShapedTranscriptEntry {
   const record =
     stored && typeof stored === 'object' && !Array.isArray(stored) ? (stored as Record<string, unknown>) : {};
-  // `withheld` is taken out as well: only this function may say it.
-  const { reporter, withheld: _stored, ...rest } = record;
+  // `withheld` and `photoChars` are taken out as well: only this function
+  // may say them.
+  const { reporter, withheld: _stored, photoChars: _chars, dataBase64, ...rest } = record;
   const heldAnEmail = typeof reporter === 'string' && reporter.length > 0;
+  const photo = typeof dataBase64 === 'string' ? dataBase64 : null;
   return {
     ...rest,
+    ...(photo === null ? {} : options.withPhoto ? { dataBase64: photo } : { photoChars: photo.length }),
     pathname,
     label: logIdFromTranscriptPath(pathname),
     ...(heldAnEmail ? { withheld: true as const } : {}),
   };
+}
+
+/**
+ * Whether a path names one kept copy, for the reader's single-entry request.
+ *
+ * The store is keyed, not a file system, but the endpoint still reads only
+ * the shape the writer makes: `transcripts/<day>/<name>.json`, where the name
+ * is a label and a time, or a time and a suffix for the entries from before
+ * labels.
+ */
+export function isTranscriptPath(pathname: string): boolean {
+  const parts = pathname.split('/');
+  return (
+    parts.length === 3
+    && parts[0] === 'transcripts'
+    && /^\d{4}-\d{2}-\d{2}$/.test(parts[1])
+    && /^[\w-]{1,200}\.json$/.test(parts[2])
+  );
 }
 
 type RandomSource = { getRandomValues?: (array: Uint8Array) => Uint8Array };

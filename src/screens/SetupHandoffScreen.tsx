@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
@@ -119,17 +119,13 @@ export function SetupHandoffScreen({
    *
    * Built from the plan rather than fixed, so a reader who is already signed
    * in never sees a sign-in page and a reader who bought Pro never sees a Pro
-   * page — the same rule the rows already followed.
+   * page — the same rule the rows already followed. Every page is there only
+   * when it has something on it: the widget page on a launcher that cannot
+   * pin one was a title, a terms line and nothing between them (user,
+   * 2026-09-10), and the tracking dialog asked for sites already on Home
+   * (backfill review of #92, 2026-09-16). See SetupHandoffPlan.pages.
    */
-  const pages = [
-    ...(plan.offerAccountBackup ? (['signin'] as const) : []),
-    'tracking' as const,
-    // Only when it has something on it. With sign-in, Pro and the sites all
-    // moved to pages of their own, the widget is the last row left — and on a
-    // launcher that cannot pin one, the reader met a page with a title, a
-    // terms line and nothing between them (user, 2026-09-10).
-    ...(plan.offerWidget ? (['offers'] as const) : []),
-  ];
+  const pages = plan.pages;
   const [pageIndex, setPageIndex] = useState(0);
   const page = pages[Math.min(pageIndex, pages.length - 1)];
 
@@ -156,6 +152,21 @@ export function SetupHandoffScreen({
     }
     setPageIndex((current) => current + 1);
   };
+
+  // Nothing to ask, only the Pro page to open: go straight there rather than
+  // draw a title over an empty page. Once — a second call would open the Pro
+  // page twice.
+  const finishedEmpty = useRef(false);
+  useEffect(() => {
+    if (pages.length === 0 && !finishedEmpty.current) {
+      finishedEmpty.current = true;
+      finish();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pages.length]);
+  if (pages.length === 0) {
+    return <View style={styles.screen} />;
+  }
 
   if (page === 'signin') {
     return (

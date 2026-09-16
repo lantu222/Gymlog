@@ -91,8 +91,13 @@ module.exports = [
     name: 'writesWaitForLoad: the route-level back listener does not re-subscribe on every workout tick',
     run() {
       const app = code(read('App.tsx'));
-      const at = app.indexOf("BackHandler.addEventListener('hardwareBackPress', () => {\n      const nextRoute = getBackRoute(route, workoutHomeRoute);");
+      // The listener that walks routes: the one holding getBackRoute. A check
+      // for a document open over the hand-off now comes first inside it.
+      const nextRouteAt = app.indexOf('const nextRoute = getBackRoute(route, workoutHomeRoute);');
+      assert.notEqual(nextRouteAt, -1);
+      const at = app.lastIndexOf("BackHandler.addEventListener('hardwareBackPress', () => {", nextRouteAt);
       assert.notEqual(at, -1);
+      assert.ok(nextRouteAt - at < 400, 'getBackRoute is no longer at the top of a back listener');
       const deps = app.slice(app.indexOf('}, [', at), app.indexOf(']);', at) + 3);
       // The context is a new object every second while a rest timer or cardio
       // runs; depending on it made this the newest listener every second.
