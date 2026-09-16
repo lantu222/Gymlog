@@ -44,6 +44,12 @@ module.exports = [
         'paljonko unta tarvitsen treenin tueksi',
         // An off-topic word inside a real question does not win.
         'ehdinkö juosta maratonin ennen vaaleja',
+        // "want to die" lives inside "diet", and a gym injury is reported in
+        // the same words self-harm is. Both used to get the crisis line
+        // (PR #124 review).
+        'I want to diet for summer, how big a deficit should I run?',
+        'I hurt myself doing deadlifts last week, what can I still train?',
+        'satutin itseni penkissä, mitä voin treenata',
       ]) {
         assert.equal(classifyCoachScope(prompt), 'training', prompt);
       }
@@ -60,6 +66,13 @@ module.exports = [
         'kirjoita runo äidille',
         'mikä malli olet',
         'should I buy bitcoin',
+        // Every one of these carries an everyday word the gym also uses —
+        // program, rest, run — and every one of them read as a training
+        // question until the veto was narrowed to words that mean the gym
+        // and nothing else (PR #124 review).
+        'write me a python program that sorts a list',
+        'should I buy bitcoin with the rest of my money',
+        'write me a poem about my run',
       ]) {
         assert.equal(classifyCoachScope(prompt), 'off_topic', prompt);
       }
@@ -76,6 +89,18 @@ module.exports = [
       ]) {
         assert.equal(classifyCoachScope(prompt), 'crisis', prompt);
       }
+      // The near-misses of a phrase already listed are listed too: one word
+      // in the middle, or the base form of the same sentence (PR #124).
+      for (const prompt of [
+        'en halua enää elää',
+        'en jaksa enää elää',
+        'I think about ending it all',
+        "I don't want to live anymore",
+        'I have been cutting myself',
+      ]) {
+        assert.equal(classifyCoachScope(prompt), 'crisis', prompt);
+      }
+
       // A hard week is not a crisis.
       assert.equal(classifyCoachScope('en jaksa enää treenata näin kovaa'), 'training');
       assert.equal(classifyCoachScope('tämä ohjelma tappaa minut'), 'training');
@@ -142,6 +167,28 @@ module.exports = [
         'the crisis answer comes before the live path, not after it',
       );
       assert.doesNotMatch(entry, /fetch\(/);
+    },
+  },
+  {
+    name: 'coach scope: the chat answers a reader in trouble before the quota gate, and keeps nothing',
+    run() {
+      const screen = read('src', 'screens', 'AICoachChatScreen.tsx');
+      const handler = screen.slice(screen.indexOf('const trimmed = prompt.trim();'), screen.indexOf('const measurement = parseMeasurementIntent'));
+      // Before the quota gate, which renders the answer blurred behind an
+      // "unlock this" button — a crisis line is not something to sell.
+      assert.match(handler, /if \(classifyCoachScope\(trimmed\) === 'crisis'\) \{/);
+      assert.ok(
+        handler.indexOf("classifyCoachScope(trimmed) === 'crisis'") < handler.length,
+        'the crisis branch is inside the opening of the ask handler',
+      );
+      assert.doesNotMatch(handler, /if \(!canAsk && !force\)/);
+      // And the turn is not appended to the thread, so the message does not
+      // travel with the next question.
+      const branch = handler.slice(handler.indexOf("classifyCoachScope(trimmed) === 'crisis'"));
+      const branchEnd = branch.indexOf('return;');
+      assert.doesNotMatch(branch.slice(0, branchEnd), /conversation\.current/);
+      assert.doesNotMatch(branch.slice(0, branchEnd), /requestAiCoachAdvice/);
+      assert.doesNotMatch(branch.slice(0, branchEnd), /onQuestionUsed/);
     },
   },
 ];
