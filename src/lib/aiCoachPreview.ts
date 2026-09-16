@@ -1,4 +1,5 @@
 import { buildAiCoachActions } from './aiCoachActions';
+import { classifyCoachScope } from './aiCoachScope';
 import { I18nKey, t } from './i18n';
 import { liftGroupOf } from './liftIdentity';
 import { AICoachAdvice, AICoachPlateauSummary, AICoachTrainingContext } from '../types/aiCoach';
@@ -236,6 +237,38 @@ export function buildAiCoachPreviewAnswer(
   context: AICoachTrainingContext,
   language: AppLanguage = 'en',
 ): AICoachAdvice {
+  /**
+   * The scope rule, before any answer is built.
+   *
+   * Offline there is no model to apply COACH_SYSTEM_RULES, so the mock
+   * answered everything: a question about the weather came back as a recovery
+   * reading with the reader's own numbers in it. Two things are refused here
+   * — a subject that cannot be a training question, and a reader in trouble,
+   * who gets a person's answer and a number to call rather than sets and
+   * reps.
+   */
+  const scope = classifyCoachScope(prompt);
+  if (scope === 'crisis') {
+    return {
+      takeaway: t(language, 'coachPreview.crisis.takeaway'),
+      why: [t(language, 'coachPreview.crisis.why1')],
+      nextSteps: [t(language, 'coachPreview.crisis.next1'), t(language, 'coachPreview.crisis.next2')],
+      plan: [],
+      assumptions: [],
+      actions: [],
+    };
+  }
+  if (scope === 'off_topic') {
+    return {
+      takeaway: t(language, 'coachPreview.offTopic.takeaway'),
+      why: [],
+      nextSteps: [t(language, 'coachPreview.offTopic.next1')],
+      plan: [],
+      assumptions: [],
+      actions: [],
+    };
+  }
+
   const lower = prompt.toLowerCase();
   const activeContext = formatActiveContext(context, language);
   const liftLine = formatLiftLine(context, language);
