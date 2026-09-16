@@ -89,17 +89,17 @@ module.exports = [
     },
   },
   {
-    name: 'route truth: an edit the copy refused does not move the reader as if it had gone through',
+    name: 'route truth: an edit the programme refused does not confirm itself',
     run() {
-      // Removing the copy's last lift in a day, or a row already at the edge,
-      // is refused inside the custom path — and the reader used to be carried
-      // to the copy's day anyway, which reads as "done".
+      // runProgramExerciseEdit answers whether the programme changed, so
+      // nothing downstream has to assume it did.
+      assert.match(code, /async function runProgramExerciseEdit\([\s\S]{0,260}\): Promise<boolean> \{/);
+      // And an edit aimed at a programme the reader has their own copy of
+      // opens that copy instead of editing rows they cannot see.
       assert.match(
         code,
-        /const edited = await runProgramExerciseEdit\('custom', existingCopyId, target\.sessionId, target\.exerciseId, edit\);\s*if \(edited\) \{\s*navigate\(\{/,
+        /const existingCopyId = await findWorkoutTemplateIdBySource\(programId\);\s*if \(existingCopyId\) \{[\s\S]{0,400}programType: 'custom',\s*workoutTemplateId: existingCopyId,\s*\}\);\s*return false;/,
       );
-      // And the outcome is a real answer, not an assumption.
-      assert.match(code, /async function runProgramExerciseEdit\([\s\S]{0,260}\): Promise<boolean> \{/);
     },
   },
 ];

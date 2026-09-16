@@ -3,10 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const {
-  buildDuplicatedCustomProgramDraft,
-  locateCopiedProgramTarget,
-} = require('../../.test-dist/lib/customProgramDuplication.js');
+const { buildDuplicatedCustomProgramDraft } = require('../../.test-dist/lib/customProgramDuplication.js');
 
 const ROOT = path.join(__dirname, '..', '..');
 const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8').replace(/\r\n/g, '\n');
@@ -138,78 +135,6 @@ module.exports = [
       assert.match(lib, /name: taken \? buildDisplayCopyName\(name, language, existingNames\) : name,/);
       // The toast only that handler raised went with it.
       assert.doesNotMatch(read('src/lib/i18n.ts'), /workoutDuplicateFailed/);
-    },
-  },
-  {
-    name: 'an edit made on the catalog page finds the same day and lift in the copy',
-    run() {
-      // The copy is written through the repository, which mints its own ids.
-      const original = [
-        { id: 'full_body_a', exercises: [{ id: 'cat_1', name: 'Squat' }, { id: 'cat_2', name: 'Bench Press' }] },
-        { id: 'full_body_b', exercises: [{ id: 'cat_3', name: 'Deadlift' }] },
-      ];
-      const copy = [
-        { id: 'sess_aaa', exercises: [{ id: 'ex_aaa', name: 'Squat' }, { id: 'ex_bbb', name: 'Bench Press' }] },
-        { id: 'sess_bbb', exercises: [{ id: 'ex_ccc', name: 'Deadlift' }] },
-      ];
-
-      assert.deepEqual(locateCopiedProgramTarget(original, copy, 'full_body_a', 'cat_2'), {
-        sessionId: 'sess_aaa',
-        exerciseId: 'ex_bbb',
-      });
-      assert.deepEqual(locateCopiedProgramTarget(original, copy, 'full_body_b', 'cat_3'), {
-        sessionId: 'sess_bbb',
-        exerciseId: 'ex_ccc',
-      });
-
-      // An add names the day only.
-      assert.deepEqual(locateCopiedProgramTarget(original, copy, 'full_body_a', ''), {
-        sessionId: 'sess_aaa',
-        exerciseId: '',
-      });
-
-      // The reader already dropped that lift from their copy: there is
-      // nothing to edit, and the caller must not claim there was.
-      const trimmed = [{ id: 'sess_aaa', exercises: [{ id: 'ex_aaa', name: 'Squat' }] }, copy[1]];
-      assert.equal(locateCopiedProgramTarget(original, trimmed, 'full_body_a', 'cat_2'), null);
-      assert.equal(locateCopiedProgramTarget(original, copy, 'no_such_day', 'cat_1'), null);
-      // The reader deleted that whole day from their copy. There is no day at
-      // its position any more, and the day that is there is a different day —
-      // even when it happens to hold a lift of the same name.
-      assert.equal(locateCopiedProgramTarget(original, [copy[0]], 'full_body_b', 'cat_3'), null);
-      const sharedName = [
-        { id: 'full_body_a', exercises: [{ id: 'cat_1', name: 'Squat' }] },
-        { id: 'full_body_b', exercises: [{ id: 'cat_2', name: 'Squat' }] },
-      ];
-      assert.equal(
-        locateCopiedProgramTarget(sharedName, [{ id: 'sess_aaa', exercises: [{ id: 'ex_aaa', name: 'Squat' }] }], 'full_body_b', 'cat_2'),
-        null,
-      );
-      assert.equal(locateCopiedProgramTarget(original, copy, 'full_body_a', 'no_such_lift'), null);
-
-      // The same lift twice in a day is answered by which of the two it is.
-      const twice = [
-        { id: 'full_body_a', exercises: [{ id: 'cat_1', name: 'Squat' }, { id: 'cat_2', name: 'Squat' }] },
-      ];
-      const twiceCopy = [
-        { id: 'sess_aaa', exercises: [{ id: 'ex_aaa', name: 'Squat' }, { id: 'ex_bbb', name: 'Squat' }] },
-      ];
-      assert.deepEqual(locateCopiedProgramTarget(twice, twiceCopy, 'full_body_a', 'cat_2'), {
-        sessionId: 'sess_aaa',
-        exerciseId: 'ex_bbb',
-      });
-      // A lift added to the copy shifts every row after it, and the second
-      // squat is still the second squat.
-      const grown = [
-        { id: 'sess_aaa', exercises: [{ id: 'ex_zzz', name: 'Leg Press' }, { id: 'ex_aaa', name: 'Squat' }, { id: 'ex_bbb', name: 'Squat' }] },
-      ];
-      assert.deepEqual(locateCopiedProgramTarget(twice, grown, 'full_body_a', 'cat_2'), {
-        sessionId: 'sess_aaa',
-        exerciseId: 'ex_bbb',
-      });
-      // One of the two dropped: the second squat is not there to edit.
-      const halved = [{ id: 'sess_aaa', exercises: [{ id: 'ex_aaa', name: 'Squat' }] }];
-      assert.equal(locateCopiedProgramTarget(twice, halved, 'full_body_a', 'cat_2'), null);
     },
   },
 ];

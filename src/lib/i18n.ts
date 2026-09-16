@@ -420,6 +420,7 @@ const EN = {
   'toast.planSaveFailed': 'Could not save your programme',
   'premium.purchaseUnavailable': 'Buying is not available in this build yet',
   'toast.lastExerciseInDay': 'That is the last exercise of the day — delete the day in the editor instead',
+  'toast.ownProgrammeVersion': 'You already have your own version of this programme — opening it, so you can see what you change',
   // Was an English literal inside App.tsx, shown in a Finnish app.
   'toast.cardioSaveFailed': 'Could not save cardio session',
   // AI assisted, rebuilt as one text field. The reader says it; the app
@@ -3524,6 +3525,7 @@ const FI: Record<I18nKey, string> = {
   'toast.planSaveFailed': 'Ohjelmaasi ei voitu tallentaa',
   'premium.purchaseUnavailable': 'Ostaminen ei ole vielä käytössä tässä versiossa',
   'toast.lastExerciseInDay': 'Tämä on päivän viimeinen liike — poista koko päivä muokkaimessa',
+  'toast.ownProgrammeVersion': 'Sinulla on tästä ohjelmasta oma versio — avataan se, niin näet mitä muutat',
   'toast.cardioSaveFailed': 'Cardio-treeniä ei voitu tallentaa',
   'aiCompose.read': 'Luettu ohjeestasi',
   'aiCompose.read.days': '{count} päivää',

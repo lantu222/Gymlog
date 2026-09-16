@@ -59,12 +59,14 @@ module.exports = [
         !/const existingCopy = workoutTemplates\.find\(/.test(wiring),
         'the copy must be looked up in stored data, not in the rendered template list',
       );
-      // Routed through the custom path, which edits in place — and against
-      // the copy's own ids, not the catalog's: this page shows the original,
-      // so the ids in hand name rows the copy has never heard of, and the
-      // edit was written back unchanged and confirmed (2026-09-16).
-      assert.match(wiring, /runProgramExerciseEdit\('custom', existingCopyId, target\.sessionId, target\.exerciseId, edit\)/);
-      assert.match(wiring, /const target = locateCopiedProgramTarget\(/);
+      // And no edit is made from this page once the copy exists. The page
+      // shows the catalog's rows, the copy has its own day order and its own
+      // lifts, and an edit that lands on the row next to the one the reader
+      // dragged — while saying it worked — is worse than no edit (PR #123
+      // review). The reader is taken to their own version instead.
+      assert.match(wiring, /showToast\(t\(preferences\.appLanguage, 'toast\.ownProgrammeVersion'\)\);/);
+      assert.doesNotMatch(wiring, /runProgramExerciseEdit\('custom', existingCopyId/);
+      assert.doesNotMatch(wiring, /locateCopiedProgramTarget/);
       // And the first copy records the link, or there is nothing to find.
       assert.match(wiring, /draft\.sourceTemplateId = programId;/);
     },

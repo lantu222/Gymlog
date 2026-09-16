@@ -142,10 +142,7 @@ import { setUsageStatisticsEnabled, trackEvent } from './src/features/analytics/
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
 import { buildExerciseHistoryLookup } from './src/lib/workoutEditorTable';
 import { buildExercisePrLookup } from './src/lib/workoutCompletionSummary';
-import {
-  buildDuplicatedCustomProgramDraft,
-  locateCopiedProgramTarget,
-} from './src/lib/customProgramDuplication';
+import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
 import { isSupersetLinked, setSupersetLink, supersetGroupIndexes, supersetSetTargets } from './src/lib/supersetGrouping';
 import { resolveObservedRate } from './src/lib/strengthGoalPlan';
 import type { GoalFlowLift, GoalFlowProposal } from './src/screens/StrengthGoalFlowScreen';
@@ -2508,56 +2505,33 @@ function VinhaApp() {
     const existingCopyId = await findWorkoutTemplateIdBySource(programId);
     if (existingCopyId) {
       /**
-       * The ids in hand are the catalog's, and the copy minted its own.
+       * The reader already has their own version of this programme, and this
+       * page is not it.
        *
-       * This page shows the original — that is the whole point of the copy —
-       * so a second edit made from here named a day and a lift the copy has
-       * never heard of. The edit applied to nothing, the programme was
-       * written back unchanged, and the screen buzzed as if it had worked.
+       * The catalog original stays untouched behind the copy — that is the
+       * whole point of it — so the rows in front of the reader are not the
+       * rows any edit would change. The edit used to be applied to the copy
+       * with the ids in hand, which the copy has never heard of: it landed on
+       * nothing, was written back unchanged, and the screen buzzed as if it
+       * had worked.
+       *
+       * Translating the ids is not the fix either. A copy can have days
+       * reordered and lifts dropped, so the same position means a different
+       * day and the same name a different row — and reorder and superset
+       * links ARE positions. An edit that lands on the row next to the one
+       * the reader dragged, and says it worked, is worse than no edit.
+       *
+       * So no edit is made here. The reader is taken to their own version,
+       * where the rows on screen are the rows that change.
        */
-      const copiedSessions = await getWorkoutTemplateSessionsFresh(existingCopyId);
-      const target = locateCopiedProgramTarget(
-        template.sessions.map((session) => ({
-          id: session.id,
-          exercises: session.exercises.map((exercise) => ({ id: exercise.id, name: exercise.exerciseName })),
-        })),
-        copiedSessions.map((session) => ({
-          id: session.id,
-          exercises: session.exercises.map((exercise) => ({ id: exercise.id, name: exercise.name })),
-        })),
-        sessionId,
-        exerciseId,
-      );
-      if (!target) {
-        // The copy has moved on from the original and this lift is not in it.
-        // Nothing is claimed; the reader is taken to their own version, which
-        // is the programme this edit was always going to change.
-        navigate({
-          tab: 'workout',
-          screen: 'program',
-          programType: 'custom',
-          workoutTemplateId: existingCopyId,
-        });
-        return false;
-      }
-      // Straight to the body, not back through the queue this call is already
-      // holding — the same reason the provider has an "Exclusive" twin.
-      const edited = await runProgramExerciseEdit('custom', existingCopyId, target.sessionId, target.exerciseId, edit);
-      // Onto the copy's version of the day, exactly as the first edit lands:
-      // the change is in the copy, and the page the reader is standing on
-      // cannot show it. Only when there was a change: an edit the copy
-      // refused — its last lift in that day, a row already at the edge —
-      // must not move the reader as if it had gone through.
-      if (edited) {
-        navigate({
-          tab: 'workout',
-          screen: 'programDay',
-          programType: 'custom',
-          workoutTemplateId: existingCopyId,
-          sessionId: target.sessionId,
-        });
-      }
-      return edited;
+      showToast(t(preferences.appLanguage, 'toast.ownProgrammeVersion'));
+      navigate({
+        tab: 'workout',
+        screen: 'program',
+        programType: 'custom',
+        workoutTemplateId: existingCopyId,
+      });
+      return false;
     }
 
     // No cap check for the programme being run: the copy replaces it, so the
