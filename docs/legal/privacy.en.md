@@ -36,7 +36,7 @@ Everything below is either entered by you or worked out by the app from what you
 
 Android’s own backup is switched off for this app. Your phone does not copy Vinha’s data into your Google account’s backup, and it does not hand it to a new phone during the device-to-device transfer at setup. Nothing of your training log leaves the phone that way.
 
-That means a new phone starts empty unless you use the cloud backup below, or export your log as CSV first. It is off so that the only copy of your training data outside this phone is the app’s own backup — the one you switch on yourself.
+That means a new phone starts empty unless you use the cloud backup below, or export your log as CSV first. It is off so that the app’s own backup below, which you switch on yourself, is the only place your full training log is kept outside this phone.
 
 ## Cloud backup (optional)
 
@@ -64,7 +64,7 @@ Our server forwards the question to Anthropic, the company behind the Claude mod
 
 We keep no copy of our own unless you have said we may. The coach asks once, before your first question, in three separate lines: your questions and answers, the programmes you ask it to build, and the photos you import one from. Every line starts as no, each is its own answer, and none of them changes the answer you get. What you allow is kept for up to 24 months and then deleted automatically, and it is used for one thing: making the coach better at writing programmes.
 
-You can take it back at any time in Settings, and taking it back deletes what was already kept. Turn a line off and the copies made under it are removed from our server, not just stopped from growing.
+You can take it back at any time in Settings, and taking it back deletes what was already kept. Turning any one line off removes every copy kept for you from our server — including those made under the lines you leave on — rather than only stopping new ones.
 
 The programme composer works the same way: when you ask the app to build a programme from a written brief, the brief and the same summary are sent along the same route.
 

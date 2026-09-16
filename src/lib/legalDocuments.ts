@@ -118,7 +118,7 @@ const PRIVACY_EN: LegalSection[] = [
     heading: 'Android backup',
     body: [
       'Android’s own backup is switched off for this app. Your phone does not copy Vinha’s data into your Google account’s backup, and it does not hand it to a new phone during the device-to-device transfer at setup. Nothing of your training log leaves the phone that way.',
-      'That means a new phone starts empty unless you use the cloud backup below, or export your log as CSV first. It is off so that the only copy of your training data outside this phone is the app’s own backup — the one you switch on yourself.',
+      'That means a new phone starts empty unless you use the cloud backup below, or export your log as CSV first. It is off so that the app’s own backup below, which you switch on yourself, is the only place your full training log is kept outside this phone.',
     ],
   },
   {
@@ -140,7 +140,7 @@ const PRIVACY_EN: LegalSection[] = [
       'It does not contain your name, your email, your Google account or any identifier of your phone. The question cannot be tied to you. Our server sees the phone’s internet address, which it holds briefly in memory to limit how many requests one connection can make; it is not stored.',
       'Our server forwards the question to Anthropic, the company behind the Claude model, which writes the answer in the United States. Under Anthropic’s commercial terms the data is not used to train its models and is deleted within 30 days.',
       'We keep no copy of our own unless you have said we may. The coach asks once, before your first question, in three separate lines: your questions and answers, the programmes you ask it to build, and the photos you import one from. Every line starts as no, each is its own answer, and none of them changes the answer you get. What you allow is kept for up to 24 months and then deleted automatically, and it is used for one thing: making the coach better at writing programmes.',
-      'You can take it back at any time in Settings, and taking it back deletes what was already kept. Turn a line off and the copies made under it are removed from our server, not just stopped from growing.',
+      'You can take it back at any time in Settings, and taking it back deletes what was already kept. Turning any one line off removes every copy kept for you from our server — including those made under the lines you leave on — rather than only stopping new ones.',
       'The programme composer works the same way: when you ask the app to build a programme from a written brief, the brief and the same summary are sent along the same route.',
       'Importing a programme from a photo also uses this route. The photo you picked is scaled down and sent so the table in it can be read; it is used for that one import and is not kept.',
     ],
@@ -325,7 +325,7 @@ const PRIVACY_FI: LegalSection[] = [
     heading: 'Androidin oma varmuuskopio',
     body: [
       'Androidin oma varmuuskopiointi on tälle sovellukselle pois päältä. Puhelimesi ei kopioi Vinhan tietoja Google-tilisi varmuuskopioon eikä anna niitä uudelle puhelimelle käyttöönoton laitesiirrossa. Treenilokistasi ei lähde tätä kautta mitään.',
-      'Uusi puhelin aloittaa siis tyhjästä, ellet käytä alla kuvattua pilvivarmuuskopiota tai vie lokiasi ensin CSV-tiedostona. Se on pois päältä siksi, että ainoa tämän puhelimen ulkopuolinen kopio treenitiedoistasi olisi sovelluksen oma varmuuskopio — se, jonka kytket itse päälle.',
+      'Uusi puhelin aloittaa siis tyhjästä, ellet käytä alla kuvattua pilvivarmuuskopiota tai vie lokiasi ensin CSV-tiedostona. Se on pois päältä siksi, että alla kuvattu sovelluksen oma varmuuskopio, jonka kytket itse päälle, on ainoa paikka, jossa koko treenilokiasi säilytetään tämän puhelimen ulkopuolella.',
     ],
   },
   {
@@ -347,7 +347,7 @@ const PRIVACY_FI: LegalSection[] = [
       'Siinä ei ole nimeäsi, sähköpostiasi, Google-tiliäsi eikä mitään puhelimesi tunnistetta. Kysymystä ei voi yhdistää sinuun. Palvelimemme näkee puhelimen internet-osoitteen, jota se pitää hetken muistissa rajoittaakseen, montako pyyntöä yksi yhteys voi tehdä; sitä ei tallenneta.',
       'Palvelimemme välittää kysymyksen Anthropicille, Claude-mallin kehittäjälle, joka kirjoittaa vastauksen Yhdysvalloissa. Anthropicin kaupallisten ehtojen mukaan tietoja ei käytetä sen mallien opettamiseen, ja ne poistetaan 30 päivän kuluessa.',
       'Me emme säilytä omaa kopiotamme, ellet ole antanut siihen lupaa. Valmentaja kysyy sen kerran, ennen ensimmäistä kysymystäsi, kolmena erillisenä rivinä: kysymyksesi ja vastaukset, ohjelmat joita pyydät sen rakentamaan, ja valokuvat joista tuot ohjelman. Jokainen rivi alkaa ei-vastauksesta, jokainen on oma vastauksensa, eikä mikään niistä muuta sitä vastausta jonka saat. Sallimasi säilytetään enintään 24 kuukautta ja poistetaan sitten automaattisesti, ja sitä käytetään yhteen asiaan: valmentajan parantamiseen ohjelmien kirjoittajana.',
-      'Voit peruuttaa luvan milloin tahansa asetuksista, ja peruutus poistaa myös jo säilytetyn. Kun kytket rivin pois, sen nojalla tehdyt kopiot poistetaan palvelimeltamme eikä niiden kertyminen vain lopu.',
+      'Voit peruuttaa luvan milloin tahansa asetuksista, ja peruutus poistaa myös jo säilytetyn. Kun kytket yhdenkin rivin pois, jokainen sinulle säilytetty kopio poistetaan palvelimeltamme — myös päälle jätettyjen rivien nojalla tehdyt — eikä vain uusien kertyminen lopu.',
       'Ohjelmakoostaja toimii samalla tavalla: kun pyydät sovellusta rakentamaan ohjelman kirjoittamasi kuvauksen pohjalta, kuvaus ja sama yhteenveto lähetetään samaa reittiä.',
       'Myös ohjelman tuonti valokuvasta käyttää tätä reittiä. Valitsemasi kuva pienennetään ja lähetetään, jotta siinä oleva taulukko voidaan lukea; sitä käytetään siihen yhteen tuontiin, eikä sitä säilytetä.',
     ],

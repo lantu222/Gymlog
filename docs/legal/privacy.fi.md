@@ -36,7 +36,7 @@ Kaikki alla oleva on joko sinun syöttämääsi tai sovelluksen laskemaa siitä,
 
 Androidin oma varmuuskopiointi on tälle sovellukselle pois päältä. Puhelimesi ei kopioi Vinhan tietoja Google-tilisi varmuuskopioon eikä anna niitä uudelle puhelimelle käyttöönoton laitesiirrossa. Treenilokistasi ei lähde tätä kautta mitään.
 
-Uusi puhelin aloittaa siis tyhjästä, ellet käytä alla kuvattua pilvivarmuuskopiota tai vie lokiasi ensin CSV-tiedostona. Se on pois päältä siksi, että ainoa tämän puhelimen ulkopuolinen kopio treenitiedoistasi olisi sovelluksen oma varmuuskopio — se, jonka kytket itse päälle.
+Uusi puhelin aloittaa siis tyhjästä, ellet käytä alla kuvattua pilvivarmuuskopiota tai vie lokiasi ensin CSV-tiedostona. Se on pois päältä siksi, että alla kuvattu sovelluksen oma varmuuskopio, jonka kytket itse päälle, on ainoa paikka, jossa koko treenilokiasi säilytetään tämän puhelimen ulkopuolella.
 
 ## Pilvivarmuuskopio (vapaaehtoinen)
 
@@ -64,7 +64,7 @@ Palvelimemme välittää kysymyksen Anthropicille, Claude-mallin kehittäjälle,
 
 Me emme säilytä omaa kopiotamme, ellet ole antanut siihen lupaa. Valmentaja kysyy sen kerran, ennen ensimmäistä kysymystäsi, kolmena erillisenä rivinä: kysymyksesi ja vastaukset, ohjelmat joita pyydät sen rakentamaan, ja valokuvat joista tuot ohjelman. Jokainen rivi alkaa ei-vastauksesta, jokainen on oma vastauksensa, eikä mikään niistä muuta sitä vastausta jonka saat. Sallimasi säilytetään enintään 24 kuukautta ja poistetaan sitten automaattisesti, ja sitä käytetään yhteen asiaan: valmentajan parantamiseen ohjelmien kirjoittajana.
 
-Voit peruuttaa luvan milloin tahansa asetuksista, ja peruutus poistaa myös jo säilytetyn. Kun kytket rivin pois, sen nojalla tehdyt kopiot poistetaan palvelimeltamme eikä niiden kertyminen vain lopu.
+Voit peruuttaa luvan milloin tahansa asetuksista, ja peruutus poistaa myös jo säilytetyn. Kun kytket yhdenkin rivin pois, jokainen sinulle säilytetty kopio poistetaan palvelimeltamme — myös päälle jätettyjen rivien nojalla tehdyt — eikä vain uusien kertyminen lopu.
 
 Ohjelmakoostaja toimii samalla tavalla: kun pyydät sovellusta rakentamaan ohjelman kirjoittamasi kuvauksen pohjalta, kuvaus ja sama yhteenveto lähetetään samaa reittiä.
 

@@ -17,7 +17,7 @@ const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
  * that makes changing the text also change the date the reader sees.
  * The failing assertion prints the value to paste back here.
  */
-const LEGAL_TEXT_FINGERPRINT = 'aab2bf055930d118';
+const LEGAL_TEXT_FINGERPRINT = '0ae6310fedd85522';
 
 const IDS = ['privacy', 'terms'];
 const LANGUAGES = ['en', 'fi'];
@@ -472,7 +472,12 @@ module.exports = [
       // tests/lib/allowBackup.test.cjs; this one ties the flag to the two
       // places the document makes a promise about it, so flipping it back on
       // cannot leave either one behind.
-      const allowBackup = JSON.parse(read('app.json')).expo.android.allowBackup === true;
+      //
+      // Read the way Expo reads it. Android's default is on, so a missing key
+      // means on — comparing the raw value with `=== true` read a deleted line
+      // as off and kept demanding the "switched off" wording (review, #127).
+      const { AndroidConfig } = require('@expo/config-plugins');
+      const allowBackup = AndroidConfig.AllowBackup.getAllowBackup(JSON.parse(read('app.json')).expo);
       const expected = allowBackup
         ? {
             en: [/Android’s own backup is switched on/, /Android backup: as long as your Google account keeps it/],
@@ -496,14 +501,18 @@ module.exports = [
     },
   },
   {
-    name: 'a change to the wording moves the date at the top of the document',
+    name: 'a change to the wording cannot land without someone deciding about the date',
     run() {
       // The policy promises that "the date at the top always tells you which
-      // version you are reading", and that a change is shown before it takes
-      // effect. Nothing enforced it: #92 rewrote the whole coach-consent
-      // section on 11 September and #118 dropped the promo paragraph on the
-      // 15th, both under a document still dated the 5th, and both published
-      // to the public page by the legal-pages workflow.
+      // version you are reading". Nothing made anyone look: #92 rewrote the
+      // whole coach-consent section on 11 September and #118 dropped the promo
+      // paragraph on the 15th, both under a document still dated the 5th, and
+      // both published to the public page by the legal-pages workflow.
+      //
+      // This cannot force the date to move — a test does not know what day it
+      // is, and a same-day second edit rightly keeps the date. What it does is
+      // stop the wording from changing silently: the hash has to be pasted
+      // back by hand, next to a message that names the date as it stands.
       //
       // Everything the reader sees except one field. updatedLabel is derived
       // from the date, so hashing it would let a bump satisfy this guard
