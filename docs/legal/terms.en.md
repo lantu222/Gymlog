@@ -1,6 +1,6 @@
 # Terms of service
 
-*Updated 5 September 2026*
+*Updated 16 September 2026*
 
 The rules for using Vinha: the health warning, how Pro billing works, and what we promise.
 
@@ -61,7 +61,6 @@ You own your data. We claim no rights to anything you log, build or import, and 
 - Lifetime means use of the service for as long as Vinha is offered commercially and maintained. If the service is discontinued for good, the lifetime licence ends with it. It is a single payment with nothing to renew or cancel.
 - When Pro ends, nothing you logged is lost. Your data, your programmes and your history stay; only the Pro features lock until Pro is on again.
 - Refunds follow Google Play’s refund policy and your statutory consumer rights, including a right of withdrawal where the law gives you one. Pro starts the moment the purchase is confirmed, and by using it straight away you agree that the service begins at once.
-- Promo codes may be limited in time or number, can expire, and have no cash value.
 - If a price changes, you will be told in advance through Google Play, and the change never applies to a period you have already paid for.
 
 ## Features that need our server

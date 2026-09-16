@@ -12,6 +12,13 @@ const {
 const root = path.join(__dirname, '..', '..');
 const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 
+/**
+ * The wording as it last stood, hashed. Not a lock on the text — a trigger
+ * that makes changing the text also change the date the reader sees.
+ * The failing assertion prints the value to paste back here.
+ */
+const LEGAL_TEXT_FINGERPRINT = '46b96c4f0393edeb';
+
 const IDS = ['privacy', 'terms'];
 const LANGUAGES = ['en', 'fi'];
 
@@ -453,6 +460,65 @@ module.exports = [
       assert.match(en, /most recent three months/);
       assert.match(fi, /kolme omaa ohjelmaa, kaksi käytössä kerrallaan/);
       assert.match(fi, /viimeisimmän kolmen kuukauden/);
+    },
+  },
+  {
+    name: 'the policy tells the truth about Android’s own backup',
+    run() {
+      // #117 switched allowBackup off and left the policy saying it was on,
+      // in the direction that costs a reader their history: "this is the only
+      // way your history survives changing phones" was, by then, describing a
+      // channel the app had just closed. The flag has its own guard in
+      // tests/lib/allowBackup.test.cjs; this one ties the flag to the two
+      // places the document makes a promise about it, so flipping it back on
+      // cannot leave either one behind.
+      const allowBackup = JSON.parse(read('app.json')).expo.android.allowBackup === true;
+      const expected = allowBackup
+        ? {
+            en: [/Android’s own backup is switched on/, /Android backup: as long as your Google account keeps it/],
+            fi: [/varmuuskopiointi on tälle sovellukselle päällä/, /Android-varmuuskopio: niin kauan kuin/],
+          }
+        : {
+            en: [/Android’s own backup is switched off/, /Android backup: nothing to keep/],
+            fi: [/varmuuskopiointi on tälle sovellukselle pois päältä/, /Android-varmuuskopio: ei mitään säilytettävää/],
+          };
+      for (const language of LANGUAGES) {
+        const text = renderLegalDocumentMarkdown(buildLegalDocument('privacy', language));
+        for (const pattern of expected[language]) {
+          assert.match(
+            text,
+            pattern,
+            `app.json says android.allowBackup=${allowBackup}, and the ${language} privacy policy still says otherwise. `
+              + 'Both the Android backup section and the retention list have to agree with the flag.',
+          );
+        }
+      }
+    },
+  },
+  {
+    name: 'a change to the wording moves the date at the top of the document',
+    run() {
+      // The policy promises that "the date at the top always tells you which
+      // version you are reading", and that a change is shown before it takes
+      // effect. Nothing enforced it: #92 rewrote the whole coach-consent
+      // section on 11 September and #118 dropped the promo paragraph on the
+      // 15th, both under a document still dated the 5th, and both published
+      // to the public page by the legal-pages workflow.
+      //
+      // Sections only. updatedLabel is derived from the date, so hashing it
+      // too would let a bump satisfy this guard without anyone reading what
+      // changed.
+      const payload = IDS.flatMap((id) =>
+        LANGUAGES.map((language) => JSON.stringify(buildLegalDocument(id, language).sections)),
+      ).join(String.fromCharCode(10));
+      const fingerprint = require('node:crypto').createHash('sha256').update(payload).digest('hex').slice(0, 16);
+      assert.equal(
+        fingerprint,
+        LEGAL_TEXT_FINGERPRINT,
+        `The legal wording changed. LEGAL_LAST_UPDATED still says ${LEGAL_LAST_UPDATED}: bump it in `
+          + 'src/lib/legalDocuments.ts if a reader should re-read this, re-run node scripts/export-legal.cjs, '
+          + `and set LEGAL_TEXT_FINGERPRINT in this file to '${fingerprint}'.`,
+      );
     },
   },
 ];

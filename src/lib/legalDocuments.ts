@@ -60,7 +60,7 @@ function publisher(): string {
 }
 
 /** Bumped whenever the wording changes in a way a user should re-read. */
-export const LEGAL_LAST_UPDATED = '2026-09-05';
+export const LEGAL_LAST_UPDATED = '2026-09-16';
 
 export type LegalDocumentId = 'privacy' | 'terms';
 
@@ -117,8 +117,8 @@ const PRIVACY_EN: LegalSection[] = [
   {
     heading: 'Android backup',
     body: [
-      'Android’s own backup is switched on for this app. That means your phone can copy Vinha’s data into the backup of your own Google account, so a new phone can restore it. Unless you use the cloud backup below, this is the only way your history survives changing phones.',
-      'That copy is between you and Google. We never see it and cannot read it. Google encrypts it, and on current Android versions the key is tied to your device PIN. You can switch it off at any time in Android settings under Google → Backup, and Vinha keeps working exactly the same.',
+      'Android’s own backup is switched off for this app. Your phone does not copy Vinha’s data into your Google account’s backup, and it does not hand it to a new phone during the device-to-device transfer at setup. Nothing of your training log leaves the phone that way.',
+      'That means a new phone starts empty unless you use the cloud backup below, or export your log as CSV first. It is off so that the only copy of your training data outside this phone is the app’s own backup — the one you switch on yourself.',
     ],
   },
   {
@@ -172,7 +172,7 @@ const PRIVACY_EN: LegalSection[] = [
     bullets: [
       'Vercel (United States): runs our server and stores the cloud backups and the usage events. The storage is in the European Union.',
       'Anthropic (United States): answers coach questions, composes programmes and reads programme photos, as described above.',
-      'Google (United States): verifies your Google sign-in, keeps the Android backup of your own account, and handles Google Play payments. Your relationship with Google is covered by Google’s own privacy policy.',
+      'Google (United States): verifies your Google sign-in and handles Google Play payments. Your relationship with Google is covered by Google’s own privacy policy.',
     ],
   },
   {
@@ -252,7 +252,7 @@ const PRIVACY_EN: LegalSection[] = [
     heading: 'How long we keep it',
     bullets: [
       'On your phone: until you reset the app’s data or uninstall it.',
-      'Android backup: as long as your Google account keeps it — that is Google’s setting, not ours.',
+      'Android backup: nothing to keep — Android’s own backup is switched off for this app.',
       'Cloud backup: until you delete it in Settings, or ask us to.',
       'Coach questions, briefs and photos: not kept by us unless you allowed it, and then for up to 24 months or until you take the permission back, whichever comes first. Anthropic deletes its own copy within 30 days either way.',
       'Usage statistics: up to 24 months, then deleted automatically.',
@@ -324,8 +324,8 @@ const PRIVACY_FI: LegalSection[] = [
   {
     heading: 'Androidin oma varmuuskopio',
     body: [
-      'Androidin oma varmuuskopiointi on tälle sovellukselle päällä. Puhelimesi voi siis kopioida Vinhan tiedot oman Google-tilisi varmuuskopioon, jotta uusi puhelin voi palauttaa ne. Ellet käytä alla kuvattua pilvivarmuuskopiota, tämä on ainoa tapa, jolla historiasi selviää puhelimen vaihdosta.',
-      'Se kopio on sinun ja Googlen välinen. Me emme näe sitä emmekä voi lukea sitä. Google salaa sen, ja nykyisissä Android-versioissa avain on sidottu laitteesi PIN-koodiin. Voit kytkeä sen pois milloin tahansa Androidin asetuksista kohdasta Google → Varmuuskopiointi, ja Vinha toimii täsmälleen samalla tavalla.',
+      'Androidin oma varmuuskopiointi on tälle sovellukselle pois päältä. Puhelimesi ei kopioi Vinhan tietoja Google-tilisi varmuuskopioon eikä anna niitä uudelle puhelimelle käyttöönoton laitesiirrossa. Treenilokistasi ei lähde tätä kautta mitään.',
+      'Uusi puhelin aloittaa siis tyhjästä, ellet käytä alla kuvattua pilvivarmuuskopiota tai vie lokiasi ensin CSV-tiedostona. Se on pois päältä siksi, että ainoa tämän puhelimen ulkopuolinen kopio treenitiedoistasi olisi sovelluksen oma varmuuskopio — se, jonka kytket itse päälle.',
     ],
   },
   {
@@ -379,7 +379,7 @@ const PRIVACY_FI: LegalSection[] = [
     bullets: [
       'Vercel (Yhdysvallat): ajaa palvelimemme ja säilyttää pilvivarmuuskopiot ja käyttötapahtumat. Tallennustila on Euroopan unionin alueella.',
       'Anthropic (Yhdysvallat): vastaa valmentajan kysymyksiin, koostaa ohjelmia ja lukee ohjelmakuvia, kuten yllä kuvattiin.',
-      'Google (Yhdysvallat): vahvistaa Google-kirjautumisesi, säilyttää oman tilisi Android-varmuuskopion ja hoitaa Google Playn maksut. Suhdettasi Googleen koskee Googlen oma tietosuojakäytäntö.',
+      'Google (Yhdysvallat): vahvistaa Google-kirjautumisesi ja hoitaa Google Playn maksut. Suhdettasi Googleen koskee Googlen oma tietosuojakäytäntö.',
     ],
   },
   {
@@ -459,7 +459,7 @@ const PRIVACY_FI: LegalSection[] = [
     heading: 'Kuinka kauan säilytämme tiedot',
     bullets: [
       'Puhelimessasi: kunnes nollaat sovelluksen tiedot tai poistat sovelluksen.',
-      'Android-varmuuskopio: niin kauan kuin Google-tilisi sitä säilyttää — se on Googlen asetus, ei meidän.',
+      'Android-varmuuskopio: ei mitään säilytettävää — Androidin oma varmuuskopiointi on tälle sovellukselle pois päältä.',
       'Pilvivarmuuskopio: kunnes poistat sen asetuksista tai pyydät meitä poistamaan sen.',
       'Valmentajan kysymykset, kuvaukset ja kuvat: emme säilytä niitä, ellet ole antanut lupaa. Luvan kanssa enintään 24 kuukautta tai siihen asti kun peruutat luvan, kumpi tulee ensin. Anthropic poistaa oman kopionsa 30 päivän kuluessa joka tapauksessa.',
       'Käyttötilastot: enintään 24 kuukautta, sen jälkeen automaattinen poisto.',
@@ -560,7 +560,6 @@ const TERMS_EN: LegalSection[] = [
       'Lifetime means use of the service for as long as Vinha is offered commercially and maintained. If the service is discontinued for good, the lifetime licence ends with it. It is a single payment with nothing to renew or cancel.',
       'When Pro ends, nothing you logged is lost. Your data, your programmes and your history stay; only the Pro features lock until Pro is on again.',
       'Refunds follow Google Play’s refund policy and your statutory consumer rights, including a right of withdrawal where the law gives you one. Pro starts the moment the purchase is confirmed, and by using it straight away you agree that the service begins at once.',
-      'Promo codes may be limited in time or number, can expire, and have no cash value.',
       'If a price changes, you will be told in advance through Google Play, and the change never applies to a period you have already paid for.',
     ],
   },
@@ -678,7 +677,6 @@ const TERMS_FI: LegalSection[] = [
       'Elinikäinen tarkoittaa palvelun käyttöä niin kauan kuin Vinhaa tarjotaan kaupallisesti ja sitä ylläpidetään. Jos palvelu lopetetaan pysyvästi, elinikäinen käyttöoikeus päättyy samalla. Se on kertamaksu, jossa ei ole mitään uusittavaa tai peruttavaa.',
       'Kun Pro päättyy, mitään kirjaamaasi ei menetetä. Tietosi, ohjelmasi ja historiasi säilyvät; vain Pro-ominaisuudet menevät lukkoon, kunnes Pro on taas päällä.',
       'Palautukset noudattavat Google Playn palautuskäytäntöä ja lakisääteisiä kuluttajaoikeuksiasi, mukaan lukien peruuttamisoikeus silloin, kun laki sen sinulle antaa. Pro alkaa heti, kun osto on vahvistettu, ja ottamalla sen heti käyttöön hyväksyt, että palvelu alkaa välittömästi.',
-      'Kampanjakoodit voivat olla aika- tai määrärajattuja, ne voivat vanheta, eikä niillä ole rahallista arvoa.',
       'Jos hinta muuttuu, saat siitä tiedon etukäteen Google Playn kautta, eikä muutos koskaan koske jo maksamaasi kautta.',
     ],
   },

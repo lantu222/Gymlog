@@ -1,6 +1,6 @@
 # Käyttöehdot
 
-*Päivitetty 5.9.2026*
+*Päivitetty 16.9.2026*
 
 Vinhan käytön säännöt: terveysvaroitus, miten Pro-laskutus toimii ja mitä lupaamme.
 
@@ -61,7 +61,6 @@ Tietosi ovat sinun. Emme vaadi oikeuksia mihinkään, mitä kirjaat, rakennat ta
 - Elinikäinen tarkoittaa palvelun käyttöä niin kauan kuin Vinhaa tarjotaan kaupallisesti ja sitä ylläpidetään. Jos palvelu lopetetaan pysyvästi, elinikäinen käyttöoikeus päättyy samalla. Se on kertamaksu, jossa ei ole mitään uusittavaa tai peruttavaa.
 - Kun Pro päättyy, mitään kirjaamaasi ei menetetä. Tietosi, ohjelmasi ja historiasi säilyvät; vain Pro-ominaisuudet menevät lukkoon, kunnes Pro on taas päällä.
 - Palautukset noudattavat Google Playn palautuskäytäntöä ja lakisääteisiä kuluttajaoikeuksiasi, mukaan lukien peruuttamisoikeus silloin, kun laki sen sinulle antaa. Pro alkaa heti, kun osto on vahvistettu, ja ottamalla sen heti käyttöön hyväksyt, että palvelu alkaa välittömästi.
-- Kampanjakoodit voivat olla aika- tai määrärajattuja, ne voivat vanheta, eikä niillä ole rahallista arvoa.
 - Jos hinta muuttuu, saat siitä tiedon etukäteen Google Playn kautta, eikä muutos koskaan koske jo maksamaasi kautta.
 
 ## Toiminnot, jotka tarvitsevat palvelimemme

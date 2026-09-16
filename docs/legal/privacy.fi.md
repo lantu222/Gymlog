@@ -1,6 +1,6 @@
 # Tietosuojaseloste
 
-*Päivitetty 5.9.2026*
+*Päivitetty 16.9.2026*
 
 Mitä Vinha tallentaa, mikä lähtee puhelimestasi ja mitä voit sille tehdä.
 
@@ -34,9 +34,9 @@ Kaikki alla oleva on joko sinun syöttämääsi tai sovelluksen laskemaa siitä,
 
 ## Androidin oma varmuuskopio
 
-Androidin oma varmuuskopiointi on tälle sovellukselle päällä. Puhelimesi voi siis kopioida Vinhan tiedot oman Google-tilisi varmuuskopioon, jotta uusi puhelin voi palauttaa ne. Ellet käytä alla kuvattua pilvivarmuuskopiota, tämä on ainoa tapa, jolla historiasi selviää puhelimen vaihdosta.
+Androidin oma varmuuskopiointi on tälle sovellukselle pois päältä. Puhelimesi ei kopioi Vinhan tietoja Google-tilisi varmuuskopioon eikä anna niitä uudelle puhelimelle käyttöönoton laitesiirrossa. Treenilokistasi ei lähde tätä kautta mitään.
 
-Se kopio on sinun ja Googlen välinen. Me emme näe sitä emmekä voi lukea sitä. Google salaa sen, ja nykyisissä Android-versioissa avain on sidottu laitteesi PIN-koodiin. Voit kytkeä sen pois milloin tahansa Androidin asetuksista kohdasta Google → Varmuuskopiointi, ja Vinha toimii täsmälleen samalla tavalla.
+Uusi puhelin aloittaa siis tyhjästä, ellet käytä alla kuvattua pilvivarmuuskopiota tai vie lokiasi ensin CSV-tiedostona. Se on pois päältä siksi, että ainoa tämän puhelimen ulkopuolinen kopio treenitiedoistasi olisi sovelluksen oma varmuuskopio — se, jonka kytket itse päälle.
 
 ## Pilvivarmuuskopio (vapaaehtoinen)
 
@@ -95,7 +95,7 @@ Meillä ei ole omia palvelimia. Kolme yritystä käsittelee tietoja puolestamme 
 
 - Vercel (Yhdysvallat): ajaa palvelimemme ja säilyttää pilvivarmuuskopiot ja käyttötapahtumat. Tallennustila on Euroopan unionin alueella.
 - Anthropic (Yhdysvallat): vastaa valmentajan kysymyksiin, koostaa ohjelmia ja lukee ohjelmakuvia, kuten yllä kuvattiin.
-- Google (Yhdysvallat): vahvistaa Google-kirjautumisesi, säilyttää oman tilisi Android-varmuuskopion ja hoitaa Google Playn maksut. Suhdettasi Googleen koskee Googlen oma tietosuojakäytäntö.
+- Google (Yhdysvallat): vahvistaa Google-kirjautumisesi ja hoitaa Google Playn maksut. Suhdettasi Googleen koskee Googlen oma tietosuojakäytäntö.
 
 ## Tiedot Euroopan unionin ulkopuolella
 
@@ -160,7 +160,7 @@ Puhelimessasi sovelluksen tietoja suojaavat puhelimen oma lukitus ja Androidin s
 ## Kuinka kauan säilytämme tiedot
 
 - Puhelimessasi: kunnes nollaat sovelluksen tiedot tai poistat sovelluksen.
-- Android-varmuuskopio: niin kauan kuin Google-tilisi sitä säilyttää — se on Googlen asetus, ei meidän.
+- Android-varmuuskopio: ei mitään säilytettävää — Androidin oma varmuuskopiointi on tälle sovellukselle pois päältä.
 - Pilvivarmuuskopio: kunnes poistat sen asetuksista tai pyydät meitä poistamaan sen.
 - Valmentajan kysymykset, kuvaukset ja kuvat: emme säilytä niitä, ellet ole antanut lupaa. Luvan kanssa enintään 24 kuukautta tai siihen asti kun peruutat luvan, kumpi tulee ensin. Anthropic poistaa oman kopionsa 30 päivän kuluessa joka tapauksessa.
 - Käyttötilastot: enintään 24 kuukautta, sen jälkeen automaattinen poisto.
