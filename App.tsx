@@ -279,6 +279,7 @@ import { ExportablePlan } from './src/screens/ExportPlanScreen';
 import { NewProgramSheet } from './src/components/NewProgramSheet';
 import { buildCoachContextChips } from './src/lib/coachChat';
 import { isAiCoachLiveConfigured, requestProgramTableFromImage } from './src/lib/aiCoachClient';
+import { accountNameStep } from './src/lib/accountNameAdoption';
 import type { CatalogScreenItem } from './src/screens/CatalogScreen';
 import { ProgramsExploreItem } from './src/screens/ProgramsHomeScreen';
 import { WorkoutCompletionScreen } from './src/screens/WorkoutCompletionScreen';
@@ -1736,9 +1737,10 @@ function VinhaApp() {
    * and the copy's days carry new ids. The rotation matches a plan entry
    * against a logged session by both ids, so the day after the copy was made
    * it found no match at all and offered day 1 to a reader who trained day 3
-   * yesterday. The copy is built from the original in order, so the two lists
-   * line up — and when they stop lining up, nothing is translated rather than
-   * a day being guessed at (see programLineage).
+   * yesterday. A day is found by its name, which follows it when the reader
+   * reorders the copy, and by position only where the name says nothing — a
+   * day that cannot be told is not translated rather than guessed at (see
+   * programLineage).
    */
   /**
    * The programmes some OTHER plan is running, so their work is that plan's.
@@ -1766,11 +1768,20 @@ function VinhaApp() {
     if (!copy || !source) {
       return sessions;
     }
+    const copiedDays = getWorkoutTemplateSessions(copy.id);
     return alignHistoryToCopiedDays(sessions, {
       fromTemplateIds: programmeHistoryIds(copy.id, database.workoutTemplates, templatesRunByOtherPlans(copy.id)),
       fromSessionIds: source.sessions.map((session) => session.id),
+      // The copy stores its day names translated, in whichever language the
+      // app was in when it was made.
+      fromSessionNames: source.sessions.map((session) => [
+        session.name,
+        localizeSessionName(session.name, 'fi'),
+        localizeSessionName(session.name, 'en'),
+      ]),
       toTemplateId: copy.id,
-      toSessionIds: getWorkoutTemplateSessions(copy.id).map((session) => session.id),
+      toSessionIds: copiedDays.map((session) => session.id),
+      toSessionNames: copiedDays.map((session) => session.name),
     });
   }
 
@@ -4483,7 +4494,9 @@ function VinhaApp() {
    * An effect rather than a line inside the sign-in handler, because it has to
    * cover the reader who signed in before this shipped as well as the one
    * signing in now. Adopted once and never overwritten: a name typed in Profile
-   * is the reader's own answer and outranks the account's.
+   * is the reader's own answer and outranks the account's — and so is a name
+   * cleared there, which the old "the profile has no name" rule filled straight
+   * back in (2026-09-16).
    */
   //
   // Not before the stored preferences have loaded. The account is a small key
@@ -4496,12 +4509,23 @@ function VinhaApp() {
     if (!appHydrated) {
       return;
     }
-    const googleName = accountBackup.state.name?.trim();
-    if (!googleName || preferences.profileName?.trim()) {
-      return;
+    const step = accountNameStep({
+      accountName: accountBackup.state.name,
+      profileName: preferences.profileName,
+      adopted: preferences.accountNameAdopted,
+    });
+    if (step.kind === 'markAdopted') {
+      void updatePreferences({ accountNameAdopted: true });
+    } else if (step.kind === 'adopt') {
+      void updatePreferences({ profileName: step.name, accountNameAdopted: true });
     }
-    void updatePreferences({ profileName: googleName.slice(0, 32) });
-  }, [accountBackup.state.name, appHydrated, preferences.profileName, updatePreferences]);
+  }, [
+    accountBackup.state.name,
+    appHydrated,
+    preferences.accountNameAdopted,
+    preferences.profileName,
+    updatePreferences,
+  ]);
 
   /**
    * The whole sign-in conversation: outcome toasts, and the one dialog that

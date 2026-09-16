@@ -60,6 +60,81 @@ module.exports = [
     },
   },
   {
+    // Matching by position alone sent yesterday's day to whatever the reader
+    // had dragged into its place (review, 2026-09-16).
+    name: 'lineage: a day is found by its name, wherever the reader moved it',
+    run() {
+      const logged = (day) => ({ id: day, workoutTemplateId: 'tpl_ppl', workoutTemplateSessionId: day });
+      const base = {
+        fromTemplateIds: ['copy_1', 'tpl_ppl'],
+        fromSessionIds: ['push', 'pull', 'legs'],
+        // Its own name, and how it reads translated.
+        fromSessionNames: [['Push', 'Työntö'], ['Pull', 'Veto'], ['Legs', 'Jalat']],
+        toTemplateId: 'copy_1',
+      };
+      const dayOf = (mapping, day) => alignHistoryToCopiedDays([logged(day)], { ...base, ...mapping })[0].workoutTemplateSessionId;
+
+      // Reordered: Legs moved first. Pull is still Pull.
+      const reordered = { toSessionIds: ['c_legs', 'c_push', 'c_pull'], toSessionNames: ['Jalat', 'Työntö', 'Veto'] };
+      assert.equal(dayOf(reordered, 'pull'), 'c_pull');
+      assert.equal(dayOf(reordered, 'push'), 'c_push');
+      assert.equal(dayOf(reordered, 'legs'), 'c_legs');
+      // The same, with the copy made while the app was in English.
+      assert.equal(dayOf({ toSessionIds: ['c_legs', 'c_push'], toSessionNames: [' legs ', 'PUSH'] }, 'legs'), 'c_legs');
+
+      // A day deleted: the others are still found, the deleted one is not.
+      const shortened = { toSessionIds: ['c_push', 'c_legs'], toSessionNames: ['Työntö', 'Jalat'] };
+      assert.equal(dayOf(shortened, 'legs'), 'c_legs');
+      assert.equal(dayOf(shortened, 'pull'), 'pull');
+
+      // A day renamed where it stood: its place says which day it is.
+      const renamed = { toSessionIds: ['c_push', 'c_back', 'c_legs'], toSessionNames: ['Työntö', 'Selkä', 'Jalat'] };
+      assert.equal(dayOf(renamed, 'pull'), 'c_back');
+      // Renamed AND moved: the place now holds a day the original knows, so
+      // nothing is guessed.
+      const renamedMoved = { toSessionIds: ['c_push', 'c_legs', 'c_back'], toSessionNames: ['Työntö', 'Jalat', 'Selkä'] };
+      assert.equal(dayOf(renamedMoved, 'pull'), 'pull');
+      assert.equal(dayOf(renamedMoved, 'legs'), 'c_legs');
+
+      // Every day renamed: position is all there is.
+      const allRenamed = { toSessionIds: ['c_1', 'c_2', 'c_3'], toSessionNames: ['A', 'B', 'C'] };
+      assert.equal(dayOf(allRenamed, 'pull'), 'c_2');
+
+      // Two days by one name: the one still in its place, or neither.
+      const twins = {
+        fromSessionIds: ['fb1', 'fb2', 'arms'],
+        fromSessionNames: [['Full Body'], ['Full Body'], ['Arms']],
+      };
+      const loggedTwin = (day) => [{ id: day, workoutTemplateId: 'tpl_ppl', workoutTemplateSessionId: day }];
+      const inPlace = alignHistoryToCopiedDays(loggedTwin('fb2'), {
+        ...base,
+        ...twins,
+        toSessionIds: ['c_fb1', 'c_fb2', 'c_arms'],
+        toSessionNames: ['Full Body', 'Full Body', 'Arms'],
+      });
+      assert.equal(inPlace[0].workoutTemplateSessionId, 'c_fb2');
+      const moved = alignHistoryToCopiedDays(loggedTwin('fb1'), {
+        ...base,
+        ...twins,
+        toSessionIds: ['c_arms', 'c_fb1', 'c_fb2'],
+        toSessionNames: ['Arms', 'Full Body', 'Full Body'],
+      });
+      assert.equal(moved[0].workoutTemplateSessionId, 'fb1');
+    },
+  },
+  {
+    name: 'lineage: the app hands over the day names, translated both ways',
+    run() {
+      const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+      const wiring = readAppWiring();
+      const call = wiring.slice(wiring.indexOf('return alignHistoryToCopiedDays(sessions, {'));
+      const args = call.slice(0, call.indexOf('});'));
+      assert.match(args, /fromSessionNames: source\.sessions\.map\(\(session\) => \[\s*session\.name,\s*localizeSessionName\(session\.name, 'fi'\),\s*localizeSessionName\(session\.name, 'en'\),\s*\]\),/);
+      assert.match(args, /toSessionNames: copiedDays\.map\(\(session\) => session\.name\),/);
+      assert.match(args, /toSessionIds: copiedDays\.map\(\(session\) => session\.id\),/);
+    },
+  },
+  {
     name: 'lineage: once the days no longer line up, nothing is translated',
     run() {
       const sessions = [{ id: 's1', workoutTemplateId: 'tpl_full_body', workoutTemplateSessionId: 'day_b' }];

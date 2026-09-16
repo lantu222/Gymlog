@@ -68,6 +68,7 @@ const DEFAULT_PREFERENCES = {
   aiSetupCompleted: false,
   hasOpenedAppBefore: false,
   setupWeightSeeded: false,
+  accountNameAdopted: false,
   homeWidgetPromptDismissed: false,
   accountBackupPromptDismissed: false,
   aiOnlineNoticeAcknowledged: false,

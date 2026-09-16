@@ -64,9 +64,9 @@ module.exports = [
     name: 'writesWaitForLoad: the Google name is adopted only after the stored preferences loaded',
     run() {
       const app = code(read('App.tsx'));
-      const at = app.indexOf('const googleName = accountBackup.state.name?.trim();');
+      const at = app.indexOf('const step = accountNameStep({');
       assert.notEqual(at, -1);
-      const effect = app.slice(app.lastIndexOf('useEffect(() => {', at), app.indexOf('}, [', at) + 120);
+      const effect = app.slice(app.lastIndexOf('useEffect(() => {', at), app.indexOf(']);', app.indexOf('}, [', at)) + 3);
       assert.match(effect, /if \(!appHydrated\) \{\s*return;\s*\}/);
       assert.ok(effect.indexOf('!appHydrated') < effect.indexOf('updatePreferences('), 'the guard comes before the write');
       assert.match(effect, /\}, \[[^\]]*appHydrated[^\]]*\]\);/);
@@ -160,8 +160,17 @@ module.exports = [
       assert.match(screen, /accessibilityLabel=\{t\(language, 'emptyWorkout\.a11y\.back'\)\} onPress=\{requestLeave\}/);
       assert.doesNotMatch(screen, /onPress=\{onBack\}/);
       assert.match(screen, /BackHandler\.addEventListener\('hardwareBackPress'/);
-      const request = screen.slice(screen.indexOf('const requestLeave = () => {'), screen.indexOf('const hasLoggedSets'));
+      const requestStart = screen.indexOf('const requestLeave = () => {');
+      const request = screen.slice(requestStart, screen.indexOf('BackHandler.addEventListener', requestStart));
       assert.ok(request.indexOf('setConfirmingLeave(true)') < request.indexOf('onBack()'), 'with sets logged, the question comes before leaving');
+      // Typed-but-unticked sets are lost the same way, so they ask too
+      // (2026-09-16) — from the chevron and from hardware back alike.
+      assert.match(screen, /const hasUnsavedWork = unsavedWork\.doneSets > 0 \|\| unsavedWork\.enteredSets > 0;/);
+      assert.match(request, /if \(hasUnsavedWork\) \{\s*setConfirmingLeave\(true\);/);
+      assert.match(
+        screen,
+        /useEffect\(\(\) => \{\s*if \(!hasUnsavedWork\) \{\s*return undefined;\s*\}\s*const subscription = BackHandler\.addEventListener/,
+      );
       assert.match(screen, /<ConfirmDialog[\s\S]*?visible=\{confirmingLeave\}/);
     },
   },

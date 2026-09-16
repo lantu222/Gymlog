@@ -5,6 +5,7 @@ const {
   buildFreestyleFinish,
   exerciseInitials,
   freestyleDoneSetCount,
+  freestyleUnsavedWork,
   freestyleNextSetTarget,
   freestyleRestSecondsForTick,
   freestyleVolumeKg,
@@ -121,6 +122,33 @@ module.exports = [
       const exercises = [makeExercise()];
       assert.equal(freestyleDoneSetCount(exercises), 1);
       assert.equal(freestyleVolumeKg(exercises), 500);
+    },
+  },
+  {
+    name: 'leaving counts typed-but-unticked sets as work to lose',
+    run() {
+      const set = (kg, reps, done) => ({ localKey: `s${kg}${reps}${done}`, kg, reps, done });
+      const exercise = (sets) => ({ ...makeExercise(), sets });
+
+      // Nothing typed, nothing ticked: leaving loses nothing.
+      assert.deepEqual(freestyleUnsavedWork([exercise([set('', '', false)])]), { doneSets: 0, enteredSets: 0 });
+      assert.deepEqual(freestyleUnsavedWork([exercise([set('  ', ' ', false)])]), { doneSets: 0, enteredSets: 0 });
+      assert.deepEqual(freestyleUnsavedWork([]), { doneSets: 0, enteredSets: 0 });
+
+      // The bug: two exercises, four sets typed, none ticked.
+      assert.deepEqual(
+        freestyleUnsavedWork([
+          exercise([set('60', '8', false), set('60', '', false)]),
+          exercise([set('', '10', false), set('20', '12', false)]),
+        ]),
+        { doneSets: 0, enteredSets: 4 },
+      );
+
+      // A ticked set is counted once, as done, never as entered too.
+      assert.deepEqual(
+        freestyleUnsavedWork([exercise([set('60', '8', true), set('60', '8', false), set('', '', false)])]),
+        { doneSets: 1, enteredSets: 1 },
+      );
     },
   },
   {

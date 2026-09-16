@@ -107,7 +107,11 @@ export function buildSetupPreferencePatch(
       : null,
     onboardingCompleted: true,
     setupCompleted: true,
-    profileName: selection.profileName?.trim() ? selection.profileName.trim().slice(0, 32) : null,
+    // Only a name the questionnaire carries is written. It has not asked for
+    // one since 2026-09-09, so a re-run whose seed had none wrote null over
+    // the reader's own name — and over the account's, which is taken once and
+    // not again (2026-09-16).
+    ...(selection.profileName?.trim() ? { profileName: selection.profileName.trim().slice(0, 32) } : {}),
     setupGender: selection.gender,
     setupAge: selection.age ?? null,
     setupAgeRange: selection.ageRange ?? null,

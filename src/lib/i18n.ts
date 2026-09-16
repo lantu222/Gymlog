@@ -1150,6 +1150,7 @@ const EN = {
   // ── Empty Workout (freestyle logger) ───────────────────────────────────
   'emptyWorkout.title': 'Empty workout',
   'emptyWorkout.finish': 'Finish',
+  'emptyWorkout.leaveConfirm.bodyEntered': 'You lose the weights and reps you have entered. This cannot be undone.',
   'emptyWorkout.stat.setsOne': '1 set',
   'emptyWorkout.stat.setsMany': '{count} sets',
   'emptyWorkout.stat.volume': '{volume} kg volume',
@@ -1743,8 +1744,10 @@ const EN = {
   'coachPreview.offTopic.next1': 'Ask me about your programme, a lift that has stalled, or how recovered you are.',
   'coachPreview.crisis.takeaway': 'That sounds heavy, and it matters more than training does.',
   'coachPreview.crisis.why1': 'This is not something a training app should answer.',
-  'coachPreview.crisis.next1': 'Talk to someone now: MIELI crisis line 09 2525 0111, open around the clock.',
-  'coachPreview.crisis.next2': 'In an emergency call 112.',
+  // The English reader may not be in Finland: the line says whose number it
+  // is, and the emergency line covers everywhere else (review, 2026-09-16).
+  'coachPreview.crisis.next1': 'Talk to someone now: in Finland, MIELI crisis line 09 2525 0111, open around the clock.',
+  'coachPreview.crisis.next2': 'In an emergency call 112, or the local emergency number where you are.',
   'coachPreview.run.takeaway': 'Start with 3 runs a week.',
   'coachPreview.run.why1': 'Rhythm beats random hard days.',
   'coachPreview.run.why2': 'One longer run drives the build.',
@@ -4255,6 +4258,7 @@ const FI: Record<I18nKey, string> = {
   // ── Empty Workout ──────────────────────────────────────────────────────
   'emptyWorkout.title': 'Tyhjä treeni',
   'emptyWorkout.finish': 'Lopeta',
+  'emptyWorkout.leaveConfirm.bodyEntered': 'Menetät kirjoittamasi painot ja toistot. Tätä ei voi perua.',
   'emptyWorkout.stat.setsOne': '1 sarja',
   'emptyWorkout.stat.setsMany': '{count} sarjaa',
   'emptyWorkout.stat.volume': '{volume} kg volyymia',

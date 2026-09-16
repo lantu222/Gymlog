@@ -1456,29 +1456,36 @@ export interface GuidedRunItem {
 }
 
 /**
- * "60 × 8 · 60 × 8 · 62,5 × 7": the sets logged so far in one lift, for the run
- * sheet. Bodyweight sets are their reps alone. Empty when nothing is logged.
- * The sheet used to list the session's shape and nothing of what had happened
- * in it; the reader wanted "kaiken mitä on kirjattu, mitä on tulossa" in one
- * place (user 2026-09-09).
+ * The corrections a rest offers: each lift of the round that has a logged set,
+ * with the index of its last one.
  *
- * A hold logs seconds in the reps field, so `timed` puts the unit on them:
- * a 45-second plank as "45" beside "60 × 8" reads as forty-five reps, and a
- * weighted one as "20 × 45" reads as twenty kilos for forty-five (bot review,
- * PR #90 — the same class of bug `formatSetScheme` guards against).
+ * The block was shown only when the lift the rest belongs to had logged
+ * something. A superset rests once per round and the rest step names the lift
+ * that closed it, so a round where only the first lift was logged offered no
+ * way back to that lift's numbers at all (review, 2026-09-16). Each lift
+ * answers for itself now.
  */
-export function formatLoggedSetsLine(
-  sets: ReadonlyArray<{ status: string; actualLoadKg?: number; actualReps?: number }>,
-  timed = false,
-): string {
-  return sets
-    .filter((set) => set.status === 'completed')
-    .map((set) => {
-      const count = timed ? `${set.actualReps ?? 0} s` : `${set.actualReps ?? 0}`;
-      const load = set.actualLoadKg ?? 0;
-      return load > 0 ? `${removeTrailingZeros(load)} × ${count}` : count;
-    })
-    .join(' · ');
+export function restRoundCorrections<
+  L extends { slotId: string; sets: ReadonlyArray<{ status: string }> },
+>(
+  members: ReadonlyArray<{ slotId?: string | null; name: string }>,
+  liftBySlot: ReadonlyMap<string, L>,
+): Array<{ name: string; lift: L; setIndex: number }> {
+  const corrections: Array<{ name: string; lift: L; setIndex: number }> = [];
+  for (const member of members) {
+    const lift = member.slotId ? liftBySlot.get(member.slotId) : undefined;
+    if (!lift) {
+      continue;
+    }
+    const setIndex = lift.sets.reduce(
+      (latest, set, index) => (set.status === 'completed' ? index : latest),
+      -1,
+    );
+    if (setIndex >= 0) {
+      corrections.push({ name: member.name, lift, setIndex });
+    }
+  }
+  return corrections;
 }
 
 /**

@@ -57,7 +57,6 @@ import {
   getGuidedBackTargetIndex,
   getGuidedInitials,
   buildGuidedRunSheet,
-  formatLoggedSetsLine,
   getGuidedNextName,
   getGuidedNextPreview,
   getGuidedPhaseLabel,
@@ -69,6 +68,7 @@ import {
   isGuidedExerciseOut,
   resolveGuidedOpening,
   resolveGuidedSetTarget,
+  restRoundCorrections,
 } from '../lib/guidedPlayer';
 import {
   buildOverviewColumns,
@@ -3497,14 +3497,12 @@ export function GuidedPlayerScreen({
           <Text style={styles.sheetTitle}>{t(language, 'guided.runSheet.title')}</Text>
           <ScrollView style={{ flexGrow: 0, flexShrink: 1 }} showsVerticalScrollIndicator={false}>
             {buildGuidedRunSheet(stepPlan, stepIndex).map((item) => {
-              // Whether the lift this rest belongs to has anything logged in
-              // it. Read off the step rather than off the row: a superset row
-              // holds several lifts, and the set you may want to correct is
-              // the one you just did, not the first one in the block.
-              const restingLift = step.type === 'rest' ? exerciseBySlot.get(step.slotId) : undefined;
-              const restingLogged = restingLift
-                ? formatLoggedSetsLine(restingLift.sets, isTimedTrackingMode(restingLift.trackingMode))
-                : '';
+              // The corrections for the round being rested after — every lift
+              // of it with a logged set, whichever lift the rest step names.
+              const roundCorrections =
+                item.status === 'current' && step.type === 'rest' && !step.recoveryKind
+                  ? restRoundCorrections(item.members, exerciseBySlot)
+                  : [];
               const isSuperset = item.members.length > 1;
               return (
               <View
@@ -3589,32 +3587,22 @@ export function GuidedPlayerScreen({
                       it: the rest screen's own card carried this link until the
                       card went. Only while resting — that is the one step
                       whose "just logged" set is unambiguous. */}
-                  {item.status === 'current' && restingLogged && step.type === 'rest' && !step.recoveryKind ? (
+                  {roundCorrections.length > 0 ? (
                     <View style={{ gap: 2 }}>
-                      {item.members.map((member) => {
+                      {roundCorrections.map(({ name, lift, setIndex }) => {
                         // Each lift of the round gets its own way back to its
                         // numbers. A superset rests once per round and the
                         // rest step names only the lift that closed it, so
                         // the first half of the block had no correction
                         // anywhere in the player (2026-09-16).
-                        const lift = member.slotId ? exerciseBySlot.get(member.slotId) : undefined;
-                        const lastLogged = lift
-                          ? lift.sets.reduce(
-                              (latest, set, index) => (set.status === 'completed' ? index : latest),
-                              -1,
-                            )
-                          : -1;
-                        if (!lift || lastLogged < 0) {
-                          return null;
-                        }
                         return (
                           <Pressable
-                            key={`edit-${member.slotId ?? member.name}`}
+                            key={`edit-${lift.slotId}`}
                             accessibilityRole="button"
                             hitSlop={8}
                             onPress={() => {
                               setRunSheetOpen(false);
-                              setRestEdit({ slotId: lift.slotId, setIndex: lastLogged });
+                              setRestEdit({ slotId: lift.slotId, setIndex });
                             }}
                             // A chip in the action colour, pencil first: it is
                             // the one thing in the sheet that does something,
@@ -3625,7 +3613,7 @@ export function GuidedPlayerScreen({
                             <GPIcon name="edit" size={13} color={theme.highlight} sw={2.4} />
                             <Text style={styles.runEdit} numberOfLines={1}>
                               {isSuperset
-                                ? `${t(language, 'guided.rest.edit')} · ${exerciseNameLabel(language, member.name)}`
+                                ? `${t(language, 'guided.rest.edit')} · ${exerciseNameLabel(language, name)}`
                                 : t(language, 'guided.rest.edit')}
                             </Text>
                           </Pressable>

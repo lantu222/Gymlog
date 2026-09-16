@@ -68,36 +68,62 @@ export function isHevyHistoryCsv(text: string): boolean {
  * note written on two lines tore each of that workout's rows in half: neither
  * half parsed, every set of the workout was dropped, and the import counted
  * them under "cardio and duration-only blocks".
+ *
+ * A quote opens a quoted field only where a field starts. Every quote used to
+ * flip the state, so one inside an unquoted field — a note reading
+ * `6" box jump` — left the scan "inside quotes" for the rest of the file:
+ * every following row joined one record, which did not parse (2026-09-16).
  */
 function splitCsvRecords(text: string): string[] {
   const records: string[] = [];
   let current = '';
   let inQuotes = false;
+  let atFieldStart = true;
   for (let i = 0; i < text.length; i += 1) {
     const char = text[i];
-    if (char === '"') {
-      // A doubled quote inside quotes toggles twice and stays inside.
-      inQuotes = !inQuotes;
+    if (inQuotes) {
       current += char;
-    } else if (!inQuotes && (char === '\n' || char === '\r')) {
+      if (char === '"') {
+        if (text[i + 1] === '"') {
+          current += '"';
+          i += 1;
+        } else {
+          inQuotes = false;
+        }
+      }
+      continue;
+    }
+    if (char === '\n' || char === '\r') {
       if (char === '\r' && text[i + 1] === '\n') {
         i += 1;
       }
       records.push(current);
       current = '';
-    } else {
-      current += char;
+      atFieldStart = true;
+      continue;
     }
+    if (char === '"' && atFieldStart) {
+      inQuotes = true;
+    }
+    current += char;
+    // Spaces after the comma still count as the start: some writers put one
+    // before a quoted field.
+    atFieldStart = char === ',' || (atFieldStart && isCsvBlank(char));
   }
   records.push(current);
   return records;
 }
 
-/** One CSV line → fields, honouring quotes, embedded commas and "" escapes. */
+/**
+ * One CSV line → fields, honouring quotes, embedded commas and "" escapes.
+ * As above, only a quote that starts a field opens one; a quote inside an
+ * unquoted field is part of its text.
+ */
 function splitCsvLine(line: string): string[] {
   const fields: string[] = [];
   let current = '';
   let inQuotes = false;
+  let atFieldStart = true;
   for (let i = 0; i < line.length; i += 1) {
     const char = line[i];
     if (inQuotes) {
@@ -111,17 +137,24 @@ function splitCsvLine(line: string): string[] {
       } else {
         current += char;
       }
-    } else if (char === '"') {
+    } else if (char === '"' && atFieldStart) {
       inQuotes = true;
+      atFieldStart = false;
     } else if (char === ',') {
       fields.push(current);
       current = '';
+      atFieldStart = true;
     } else {
       current += char;
+      atFieldStart = atFieldStart && isCsvBlank(char);
     }
   }
   fields.push(current);
   return fields;
+}
+
+function isCsvBlank(char: string): boolean {
+  return char === ' ' || char === '\t';
 }
 
 /** `"10 Jun 2024, 08:15"` or ISO → ISO string, or null. */

@@ -152,6 +152,41 @@ module.exports = [
     },
   },
   {
+    name: 'hevyImport: a stray quote inside a note does not swallow the rest of the file',
+    run() {
+      // Hand-edited or non-conformant: the note is unquoted and carries an
+      // inch mark. Every quote used to flip the scan, so every row after this
+      // one joined a single record that did not parse.
+      const stray = [
+        HEADER,
+        '"Legs","12 Jun 2024, 17:30",,,"Box Jump",,Notes: 6" box,0,normal,0,5,,,',
+        '"Legs","12 Jun 2024, 17:30",,,"Squat (Barbell)",,,0,normal,100,5,,,',
+        '"Legs","12 Jun 2024, 17:30",,,"Squat (Barbell)",,,1,normal,100,5,,,',
+        // A quoted field with an escaped quote still reads as one field.
+        '"Legs","12 Jun 2024, 17:30",,"Said ""easy"", then, not","Squat (Barbell)",,,2,normal,100,4,,,',
+      ].join('\n');
+      const preview = parseHevyCsv(stray);
+      assert.equal(preview.skippedRowCount, 0);
+      assert.equal(preview.workouts.length, 1);
+      const squat = preview.workouts[0].exercises.find((exercise) => /squat/i.test(exercise.name));
+      assert.ok(squat, 'the squat rows after the stray quote are read');
+      assert.deepEqual(squat.sets.map((set) => set.reps), [5, 5, 4]);
+      assert.equal(preview.setCount, 4);
+
+      // A writer that puts a space before a quoted field still gets its
+      // quoted comma kept inside the field.
+      // quoted comma — and its quoted line break — kept inside the field.
+      const spaced = [
+        HEADER,
+        '"Legs", "12 Jun 2024, 17:30",, "Heavy.\nKnees fine.","Squat (Barbell)",,,0,normal,100,5,,,',
+        '"Legs", "12 Jun 2024, 17:30",,,"Squat (Barbell)",,,1,normal,100,5,,,',
+      ].join('\n');
+      const spacedPreview = parseHevyCsv(spaced);
+      assert.equal(spacedPreview.skippedRowCount, 0);
+      assert.equal(spacedPreview.setCount, 2);
+    },
+  },
+  {
     name: 'hevyImport: an imported lift is tracked, so Records and Progress read it',
     run() {
       const provider = require('node:fs')
