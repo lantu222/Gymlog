@@ -340,6 +340,7 @@ const suites = [
   ...require('./lib/notificationRoute.test.cjs'),
   ...require('./lib/historyView.test.cjs'),
   ...require('./lib/programDetails.test.cjs'),
+  ...require('./lib/programmeRouteTruth.test.cjs'),
   ...require('./lib/customProgramDuplication.test.cjs'),
   ...require('./lib/programRename.test.cjs'),
   ...require('./lib/programInsights.test.cjs'),

@@ -368,3 +368,29 @@ export function buildCustomSessionRuntimeTemplate(template: WorkoutRuntimeTempla
     ],
   };
 }
+
+/**
+ * Whether the composed week may stand in for the catalog's own days.
+ *
+ * The composed week renames every day — `onboarding_<programme>_<n>` — so a
+ * plan whose entries point at the catalog's session ids cannot find its day
+ * in it. Home's day rows carry those entry ids, and the day they opened was
+ * looked up in the composed week: no match, and the reader got an empty
+ * screen instead of the day they tapped (2026-09-15).
+ *
+ * The composed week describes what the reader WOULD run, so it stands in
+ * only while nothing says otherwise. Once a plan exists and names its days,
+ * those days are what the reader runs.
+ */
+export function composedWeekMatchesPlan(
+  composedSessionIds: string[],
+  planSessionIds: Array<string | null | undefined>,
+): boolean {
+  const named = planSessionIds.filter((id): id is string => typeof id === 'string' && id.length > 0);
+  if (named.length === 0) {
+    return true;
+  }
+
+  const composed = new Set(composedSessionIds);
+  return named.every((id) => composed.has(id));
+}

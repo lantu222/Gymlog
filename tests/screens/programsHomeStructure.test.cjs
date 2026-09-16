@@ -336,7 +336,7 @@ module.exports = [
       );
       assert.doesNotMatch(i18nSource, /'programs\.campaign/);
       // Handlers reuse existing navigation, nothing new invented.
-      assert.match(appSource, /onOpenExploreProgram=\{handleOpenReadyProgramDetail\}/);
+      assert.match(appSource, /onOpenExploreProgram=\{handleOpenProgramDetail\}/);
       assert.match(appSource, /onOpenCustomProgram=\{handleOpenCustomProgramDetail\}/);
       assert.match(appSource, /onOpenLibrary=\{\(\) => navigate\(\{ tab: 'workout', screen: 'list' \}\)\}/);
       // ...and the library can be left again. ExercisesScreen declared an

@@ -5,6 +5,7 @@ const {
   buildCustomSessionRuntimeTemplate,
   buildReadyProgramDetail,
   buildReadySessionRuntimeTemplate,
+  composedWeekMatchesPlan,
 } = require('../../.test-dist/lib/programDetails.js');
 const { getWorkoutTemplateById, WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog.js');
 
@@ -335,6 +336,26 @@ module.exports = [
           template.sessions.length !== template.daysPerWeek,
       ).map((template) => `${template.id} days=${template.daysPerWeek} sessions=${template.sessions.length}`);
       assert.deepEqual(offenders, []);
+    },
+  },
+  {
+    name: 'a composed week stands in only until the plan names its own days',
+    run() {
+      const composed = ['onboarding_tpl_a_1', 'onboarding_tpl_a_2', 'onboarding_tpl_a_3'];
+
+      // Nothing adopted yet: the composed week is what the reader was shown.
+      assert.equal(composedWeekMatchesPlan(composed, []), true);
+      assert.equal(composedWeekMatchesPlan(composed, [null, undefined, '']), true);
+
+      // The plan runs the composed days — Home's rows and this page agree.
+      assert.equal(composedWeekMatchesPlan(composed, ['onboarding_tpl_a_2', 'onboarding_tpl_a_1']), true);
+
+      // The plan runs the catalog's days. Standing in here is what opened an
+      // empty screen from Home's day row: the id it carried was not in the
+      // composed week at all.
+      assert.equal(composedWeekMatchesPlan(composed, ['full_body_a', 'full_body_b']), false);
+      // One stale entry is enough — that day is the one that opens blank.
+      assert.equal(composedWeekMatchesPlan(composed, ['onboarding_tpl_a_1', 'full_body_b']), false);
     },
   },
 ];

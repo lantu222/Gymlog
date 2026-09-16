@@ -114,7 +114,7 @@ import {
   pickCompletionLift,
 } from './src/lib/proInsights';
 import { markCoachDemoMomentUsed, resolveDueCoachDemoMoment } from './src/lib/coachDemoMoments';
-import { buildHomePlanProgress } from './src/lib/homePlanProgress';
+import { buildHomePlanProgress, weekOfLastLoggedSession } from './src/lib/homePlanProgress';
 import { resolveHomePrompt } from './src/lib/homePrompts';
 import { buildHomeStatCardCatalog, buildHomeStatCards, resolveHomeStatCardKeys } from './src/lib/homeStatCards';
 import { silencedSuggestionKinds } from './src/lib/coachSuggestions';
@@ -1454,8 +1454,29 @@ function VinhaApp() {
   }
 
 
-  function handleOpenReadyProgramDetail(workoutTemplateId: string) {
-    navigate({ tab: 'workout', screen: 'program', programType: 'ready', workoutTemplateId });
+  /**
+   * The type is a fact about the id, not something the caller can know.
+   *
+   * This was `handleOpenProgramDetail`, which wrote `programType:
+   * 'ready'` whatever it was handed. Home's "other programmes" list holds
+   * whatever the reader adopted, their own programmes included, so tapping
+   * your own programme sent the route guard looking for a catalog template
+   * that was never there and left the reader on the programme list. Every
+   * caller that has an id and no type comes here, and the type is resolved
+   * the way Home resolves its own hero — the stored template first, so the
+   * two cannot disagree about what an id is.
+   */
+  function resolveProgramTypeForTemplate(workoutTemplateId: string): 'ready' | 'custom' {
+    return workoutTemplates.some((template) => template.id === workoutTemplateId) ? 'custom' : 'ready';
+  }
+
+  function handleOpenProgramDetail(workoutTemplateId: string) {
+    navigate({
+      tab: 'workout',
+      screen: 'program',
+      programType: resolveProgramTypeForTemplate(workoutTemplateId),
+      workoutTemplateId,
+    });
   }
 
   function handleOpenCustomProgramDetail(
@@ -2353,22 +2374,23 @@ function VinhaApp() {
     sessionId: string,
     exerciseId: string,
     edit: ProgramExerciseEdit,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const next = programEditQueue.current.then(() =>
       runProgramExerciseEdit(programType, programId, sessionId, exerciseId, edit),
     );
     // A failed edit must not wedge every edit queued behind it.
-    programEditQueue.current = next.catch(() => undefined);
+    programEditQueue.current = next.then(() => undefined).catch(() => undefined);
     return next;
   }
 
+  /** Resolves true when the programme actually changed. */
   async function runProgramExerciseEdit(
     programType: 'ready' | 'custom',
     programId: string,
     sessionId: string,
     exerciseId: string,
     edit: ProgramExerciseEdit,
-  ) {
+  ): Promise<boolean> {
     if (programType === 'custom') {
       // The day is read inside the write, not before it: an add that lands
       // while the previous add is still being saved must build on it rather
@@ -2399,10 +2421,10 @@ function VinhaApp() {
       );
       if (result.reason === 'lastExerciseInDay') {
         showToast(t(preferences.appLanguage, 'toast.lastExerciseInDay'));
-        return;
+        return false;
       }
       if (!result.saved) {
-        return;
+        return false;
       }
       void haptics.success();
       if (edit.kind === 'replace') {
@@ -2422,12 +2444,12 @@ function VinhaApp() {
         // override. A toast that repeats the screen is the thing the reader
         // keeps asking to be rid of (user 2026-08-26).
       }
-      return;
+      return true;
     }
 
     const template = WORKOUT_TEMPLATES_V1.find((item) => item.id === programId);
     if (!template) {
-      return;
+      return false;
     }
 
     /**
@@ -2446,7 +2468,7 @@ function VinhaApp() {
         ? Math.max(0, Math.min(day.exercises.length - 1, Math.round(edit.toIndex)))
         : -1;
       if (!day || from === -1 || to === from) {
-        return;
+        return false;
       }
     }
 
@@ -2457,10 +2479,10 @@ function VinhaApp() {
       const day = template.sessions.find((session) => session.id === sessionId);
       const from = day?.exercises.findIndex((exercise) => exercise.id === exerciseId) ?? -1;
       if (!day || from === -1 || from >= day.exercises.length - 1) {
-        return;
+        return false;
       }
       if (isSupersetLinked(day.exercises, from) === edit.linked) {
-        return;
+        return false;
       }
     }
 
@@ -2482,10 +2504,34 @@ function VinhaApp() {
      */
     const existingCopyId = await findWorkoutTemplateIdBySource(programId);
     if (existingCopyId) {
-      // Straight to the body, not back through the queue this call is already
-      // holding — the same reason the provider has an "Exclusive" twin.
-      await runProgramExerciseEdit('custom', existingCopyId, sessionId, exerciseId, edit);
-      return;
+      /**
+       * The reader already has their own version of this programme, and this
+       * page is not it.
+       *
+       * The catalog original stays untouched behind the copy — that is the
+       * whole point of it — so the rows in front of the reader are not the
+       * rows any edit would change. The edit used to be applied to the copy
+       * with the ids in hand, which the copy has never heard of: it landed on
+       * nothing, was written back unchanged, and the screen buzzed as if it
+       * had worked.
+       *
+       * Translating the ids is not the fix either. A copy can have days
+       * reordered and lifts dropped, so the same position means a different
+       * day and the same name a different row — and reorder and superset
+       * links ARE positions. An edit that lands on the row next to the one
+       * the reader dragged, and says it worked, is worse than no edit.
+       *
+       * So no edit is made here. The reader is taken to their own version,
+       * where the rows on screen are the rows that change.
+       */
+      showToast(t(preferences.appLanguage, 'toast.ownProgrammeVersion'));
+      navigate({
+        tab: 'workout',
+        screen: 'program',
+        programType: 'custom',
+        workoutTemplateId: existingCopyId,
+      });
+      return false;
     }
 
     // No cap check for the programme being run: the copy replaces it, so the
@@ -2495,7 +2541,7 @@ function VinhaApp() {
     const wasRunning = preferences.activePlanIds.includes(readyPlanId);
     if (!wasRunning && !programSlots.canCreate) {
       setProgramLimitVisible(true);
-      return;
+      return false;
     }
     const draft = buildDuplicatedCustomProgramDraft(
       template.name,
@@ -2692,13 +2738,15 @@ function VinhaApp() {
             }
           : { tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId },
       );
+      return true;
     } catch (error) {
       if (error instanceof ProgramLimitReachedError) {
         setProgramLimitVisible(true);
-        return;
+        return false;
       }
       console.error('Failed to remove exercise from ready program', error);
       showToast(t(preferences.appLanguage, 'toast.programCopyFailed'));
+      return false;
     }
   }
 
@@ -3660,10 +3708,16 @@ function VinhaApp() {
         // The demo tester's block is one week by construction — see
         // handleCreateDemoCompletionProgram.
         const demoBlockWeeks = activeWorkoutPlan.id.startsWith('demo_plan_') ? 1 : undefined;
+        // An adopted ready programme carries its own block length — twelve
+        // weeks for several of them — and Home counted every one of them as
+        // the generic eight. The programme's own page already showed twelve,
+        // so the hero said "week 1/8" beside a page saying 12, and the
+        // session total under it was a third short.
+        const readyBlockWeeks = readyPlanTemplate ? getReadyProgramBlockWeeks(readyPlanTemplate) : undefined;
         const planProgress = buildHomePlanProgress({ language: preferences.appLanguage,
           completedSessions: completedSessionCount,
           sessionsPerWeek: sortedEntries.length,
-          totalWeeks: demoBlockWeeks ?? onboardingBlockWeeks,
+          totalWeeks: demoBlockWeeks ?? onboardingBlockWeeks ?? readyBlockWeeks,
         });
 
         return {
@@ -4692,6 +4746,18 @@ function VinhaApp() {
       weekLabel: homeActivePlanCard
         ? t(preferences.appLanguage, 'guided.finish.week', { week: homeActivePlanCard.currentWeek })
         : t(preferences.appLanguage, 'guided.finish.thisWeek'),
+      // The same sentence on the other side of the save, where the week the
+      // reader is in has already rolled over: the summary names the week the
+      // session it is summarising filled.
+      completionWeekLabel: homeActivePlanCard
+        ? t(preferences.appLanguage, 'guided.finish.week', {
+            week: weekOfLastLoggedSession({
+              sessionsDone: homeActivePlanCard.sessionsDone,
+              sessionsTotal: homeActivePlanCard.sessionsTotal,
+              totalWeeks: homeActivePlanCard.planTotalWeeks,
+            }),
+          })
+        : t(preferences.appLanguage, 'guided.finish.thisWeek'),
       savedThisWeek,
       target: progressWeeklyTarget,
     };
@@ -4709,7 +4775,7 @@ function VinhaApp() {
   /** After the save: the log already contains it. */
   const completionWeekProgress = weekProgressBase
     ? {
-        weekLabel: weekProgressBase.weekLabel,
+        weekLabel: weekProgressBase.completionWeekLabel,
         done: weekProgressBase.savedThisWeek,
         target: weekProgressBase.target,
       }
@@ -6147,7 +6213,7 @@ function VinhaApp() {
       customWorkouts,
       recommendedReadyProgramId: recommendedReadyTemplate?.id ?? null,
       navigateToGuidedWorkout,
-      handleOpenReadyProgramDetail,
+      handleOpenProgramDetail,
       handleStartReadyProgram,
       handleOpenCustomProgramDetail,
       goalProgrammeSuggestions,
@@ -6281,7 +6347,7 @@ function VinhaApp() {
           const plan = database.workoutPlans.find((entry) => entry.id === planId);
           const templateId = plan?.entries[0]?.workoutTemplateId;
           if (templateId) {
-            handleOpenReadyProgramDetail(templateId);
+            handleOpenProgramDetail(templateId);
           }
         }}
         onRemoveOtherProgram={(planId) => void handleRemoveActiveProgram(planId)}

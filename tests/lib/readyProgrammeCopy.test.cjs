@@ -59,8 +59,14 @@ module.exports = [
         !/const existingCopy = workoutTemplates\.find\(/.test(wiring),
         'the copy must be looked up in stored data, not in the rendered template list',
       );
-      // Routed through the custom path, which edits in place.
-      assert.match(wiring, /runProgramExerciseEdit\('custom', existingCopyId, sessionId, exerciseId, edit\)/);
+      // And no edit is made from this page once the copy exists. The page
+      // shows the catalog's rows, the copy has its own day order and its own
+      // lifts, and an edit that lands on the row next to the one the reader
+      // dragged — while saying it worked — is worse than no edit (PR #123
+      // review). The reader is taken to their own version instead.
+      assert.match(wiring, /showToast\(t\(preferences\.appLanguage, 'toast\.ownProgrammeVersion'\)\);/);
+      assert.doesNotMatch(wiring, /runProgramExerciseEdit\('custom', existingCopyId/);
+      assert.doesNotMatch(wiring, /locateCopiedProgramTarget/);
       // And the first copy records the link, or there is nothing to find.
       assert.match(wiring, /draft\.sourceTemplateId = programId;/);
     },
@@ -83,8 +89,8 @@ module.exports = [
         'every edit should be chained onto the one before it',
       );
       assert.ok(
-        body.includes('next.catch('),
-        'a failed edit must not wedge the queue behind it',
+        body.includes('next.then(() => undefined).catch(() => undefined)'),
+        'a failed edit must not wedge the queue behind it, and the queue carries no result',
       );
     },
   },
