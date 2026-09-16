@@ -180,6 +180,7 @@ import {
 import { suggestHomeStatCardKeys } from './src/lib/homeCardSuggestions';
 import { isMeasurementCardKey } from './src/lib/homeStatCards';
 import { resolveNextPlanEntryIndex } from './src/lib/planRotation';
+import { alignHistoryToCopiedDays, programmeLineageIds } from './src/lib/programLineage';
 import { cycleSchedule, trainsOn, weekdaySchedule } from './src/lib/trainingSchedule';
 import {
   planWeekdayIndexes,
@@ -1634,6 +1635,35 @@ function VinhaApp() {
    * alongside has the same rotation and no one asking it. Same pure rule
    * either way, so the two cannot drift.
    */
+  /**
+   * Completed sessions, with a copied programme's history wearing the ids its
+   * copy knows them by.
+   *
+   * Editing a lift in a ready programme hands the reader their own copy of it,
+   * and the copy's days carry new ids. The rotation matches a plan entry
+   * against a logged session by both ids, so the day after the copy was made
+   * it found no match at all and offered day 1 to a reader who trained day 3
+   * yesterday. The copy is built from the original in order, so the two lists
+   * line up — and when they stop lining up, nothing is translated rather than
+   * a day being guessed at (see programLineage).
+   */
+  function completedSessionsForTemplate(workoutTemplateId: string | null | undefined) {
+    const sessions = getCanonicalCompletedSessions(database);
+    const copy = workoutTemplateId
+      ? database.workoutTemplates.find((template) => template.id === workoutTemplateId) ?? null
+      : null;
+    const source = copy?.sourceTemplateId ? getWorkoutTemplateById(copy.sourceTemplateId) : null;
+    if (!copy || !source) {
+      return sessions;
+    }
+    return alignHistoryToCopiedDays(sessions, {
+      fromTemplateIds: programmeLineageIds(copy.id, database.workoutTemplates),
+      fromSessionIds: source.sessions.map((session) => session.id),
+      toTemplateId: copy.id,
+      toSessionIds: getWorkoutTemplateSessions(copy.id).map((session) => session.id),
+    });
+  }
+
   function resolveNextSessionIdForTemplate(workoutTemplateId: string): string | null {
     const plan = database.workoutPlans.find(
       (item) => item.entries[0]?.workoutTemplateId === workoutTemplateId,
@@ -1642,7 +1672,7 @@ function VinhaApp() {
       return null;
     }
     const ordered = [...plan.entries].sort((left, right) => left.orderIndex - right.orderIndex);
-    const index = resolveNextPlanEntryIndex(ordered, getCanonicalCompletedSessions(database));
+    const index = resolveNextPlanEntryIndex(ordered, completedSessionsForTemplate(workoutTemplateId));
     return ordered[index]?.workoutTemplateSessionId ?? ordered[0]?.workoutTemplateSessionId ?? null;
   }
 
@@ -1794,7 +1824,7 @@ function VinhaApp() {
     // whatever comes next in the rotation takes the first day not yet gone.
     const labels = rotateLabelsForNextSession(
       dayIndexes.map((index) => WEEKDAY_KEYS[index]),
-      resolveNextPlanEntryIndex(ordered, getCanonicalCompletedSessions(database)),
+      resolveNextPlanEntryIndex(ordered, completedSessionsForTemplate(ordered[0]?.workoutTemplateId)),
       new Date(),
     );
     const entries = ordered.map((entry, index) => ({ ...entry, label: labels[index] }));
@@ -1861,7 +1891,7 @@ function VinhaApp() {
     // day beside it.
     const placed = rotateLabelsForNextSession(
       labels,
-      resolveNextPlanEntryIndex(ordered, getCanonicalCompletedSessions(database)),
+      resolveNextPlanEntryIndex(ordered, completedSessionsForTemplate(ordered[0]?.workoutTemplateId)),
       new Date(),
     );
     await upsertWorkoutPlan({
@@ -2676,13 +2706,26 @@ function VinhaApp() {
       const sessionIds = copiedSessions
         .filter((session) => session.exercises.length > 0)
         .map((session) => session.id);
+      /**
+       * The copy keeps the block the reader was already in.
+       *
+       * `now` is the plan record's own boundary: every session count on Home
+       * is measured from it. Stamping it with today turned "week 3, 7 of 24"
+       * into "week 1, 0 of 24" because the reader changed one lift — the
+       * programme is the same programme, and the block it is in is the same
+       * block. Only when it replaces a plan that was running: a copy of a
+       * programme they were merely browsing has no block to inherit.
+       */
+      const replacedPlan = wasRunning
+        ? database.workoutPlans.find((item) => item.id === readyPlanId) ?? null
+        : null;
       const plan = buildProgramWorkoutPlan({
         planId,
         workoutTemplateId,
         programName: formatWorkoutDisplayLabel(draft.name),
         sessionIds,
         dayLabels: planLabelsForProgramme(sessionIds.length, preferences.setupAvailableDays, new Date()),
-        now: new Date().toISOString(),
+        now: replacedPlan?.updatedAt ?? new Date().toISOString(),
       });
       await upsertWorkoutPlan(plan);
       // The copy takes the ready programme's place rather than joining it —
@@ -2696,7 +2739,12 @@ function VinhaApp() {
                 removeActiveProgram(preferences.activePlanIds, readyPlanId),
                 plan.id,
               ),
-              activePlanId: plan.id,
+              // The copy takes the ready programme's PLACE, which is not the
+              // same as the lead. Editing a lift in a programme the reader
+              // holds but does not lead with used to promote it over the one
+              // Home was running — a change of programme nobody asked for.
+              activePlanId:
+                preferences.activePlanId === readyPlanId ? plan.id : preferences.activePlanId ?? plan.id,
             }
           : {},
       );
@@ -3673,7 +3721,7 @@ function VinhaApp() {
       });
       // Was `homeSessions[0]`, always. Finishing day 1 offered day 1 again,
       // and the start button logged the wrong session against the plan.
-      const nextSessionIndex = resolveNextPlanEntryIndex(sortedEntries, completedPlanSessions);
+      const nextSessionIndex = resolveNextPlanEntryIndex(sortedEntries, completedSessionsForTemplate(firstEntry.workoutTemplateId));
       // The reader's own answer wins for the day they gave it. The rotation
       // knows what comes next in the programme and cannot know that today is
       // legs — but it is right again tomorrow, so the override is dated rather
@@ -3688,7 +3736,13 @@ function VinhaApp() {
       const nextSession = pickedToday ?? homeSessions[nextSessionIndex] ?? homeSessions[0] ?? null;
       if (activeTemplate && nextSession) {
         const estimatedDuration = Number.parseInt(nextSession.duration.replace(/\D/g, ''), 10) || 20;
-        const planTemplateIds = new Set(sortedEntries.map((entry) => entry.workoutTemplateId));
+        // The programme, not the record that happens to hold it: a copy made
+        // by editing one lift is the same programme the reader has been
+        // training, and every counter below reads this set.
+        const planTemplateIds = new Set([
+          ...sortedEntries.map((entry) => entry.workoutTemplateId),
+          ...programmeLineageIds(activeTemplate.id, workoutTemplates),
+        ]);
         // Counted from the plan record's own start, not all time. Plan records
         // are only written at onboarding, adoption and restart, so `updatedAt`
         // IS the block boundary — and without it "Uusi kierros" is impossible:

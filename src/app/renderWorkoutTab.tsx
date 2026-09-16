@@ -15,6 +15,7 @@ import { composeProgramWeekForSelection } from '../lib/programDayComposer';
 import { buildCustomProgramDetail, buildReadyProgramDetail, composedWeekMatchesPlan } from '../lib/programDetails';
 import { resolveProgramEquipment } from '../lib/programEquipment';
 import { buildProgramFingerprint } from '../lib/programFingerprint';
+import { programmeLineageIds } from '../lib/programLineage';
 import { getSeasonProgramId, ProgramSeason } from '../lib/programSeasons';
 import { planWeekdayIndexes } from '../lib/programTrainingDays';
 import {
@@ -964,7 +965,10 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
       // own six-day split would call four workouts a missed week.
       weeklyTarget: seasonProgramTemplate?.daysPerWeek ?? null,
       records: seasonRecords,
-      programId: seasonProgramId,
+      // The season programme and the reader's own copy of it. Changing one
+      // lift in it makes a copy under a new id, and that used to end their
+      // season without saying so.
+      programIds: programmeLineageIds(seasonProgramId, database.workoutTemplates),
     });
     const seasonBadges = resolveSeasonBadges(seasonProgress, {
       // The current window is by definition the one containing today, so it

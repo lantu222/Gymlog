@@ -102,4 +102,23 @@ module.exports = [
       );
     },
   },
+  {
+    name: 'route truth: a copy made by editing a lift keeps the block, the lead and the history',
+    run() {
+      // The copy IS the programme the reader has been training. Stamping the
+      // new plan with today turned "week 3, 7 of 24" into "week 1, 0 of 24"
+      // for changing one lift.
+      assert.match(code, /const replacedPlan = wasRunning\s*\? database\.workoutPlans\.find\(\(item\) => item\.id === readyPlanId\) \?\? null\s*: null;/);
+      assert.match(code, /now: replacedPlan\?\.updatedAt \?\? new Date\(\)\.toISOString\(\),/);
+      // Taking the ready programme's place is not the same as taking the
+      // lead: editing a lift in a programme the reader holds but does not
+      // lead with used to promote it over the one Home was running.
+      assert.match(
+        code,
+        /activePlanId:\s*preferences\.activePlanId === readyPlanId \? plan\.id : preferences\.activePlanId \?\? plan\.id,/,
+      );
+      // And every counter reads the programme, not the record holding it.
+      assert.match(code, /\.\.\.programmeLineageIds\(activeTemplate\.id, workoutTemplates\),/);
+    },
+  },
 ];

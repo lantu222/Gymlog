@@ -7,6 +7,7 @@ import {
   FirstRunSetupSelection,
 } from '../lib/firstRunSetup';
 import { composeProgramWeekForSelection } from '../lib/programDayComposer';
+import { planLabelsForProgramme } from '../lib/trainingWeekSync';
 import { WorkoutRuntimeTemplate } from '../features/workout/workoutTypes';
 import {
   AppLanguage,
@@ -188,9 +189,24 @@ export function buildSavedOnboardingWorkoutPlan(
   sessionIds: string[],
   language: AppLanguage,
 ) {
-  const days = selection.scheduleMode === 'self_managed' && selection.availableDays.length > 0
-    ? selection.availableDays
-    : DEFAULT_RHYTHM_BY_DAYS[selection.daysPerWeek] ?? DEFAULT_RHYTHM_BY_DAYS[3];
+  /**
+   * The same weekdays adoption would give, placed the same way.
+   *
+   * This dealt the reader's days out from the first one, always: day 1 was
+   * Monday whatever day the questionnaire was finished on. Home offers the
+   * session that comes next — today — and the calendar reads the plan's own
+   * labels, so a reader who finished on Thursday was offered day 1 today and
+   * shown it on Monday. planLabelsForProgramme is what adoption uses, and
+   * with a date it rotates the week so the next session takes the first
+   * training day that has not gone.
+   */
+  const labels = planLabelsForProgramme(
+    Math.max(1, sessionIds.length),
+    selection.scheduleMode === 'self_managed' && selection.availableDays.length > 0
+      ? selection.availableDays
+      : DEFAULT_RHYTHM_BY_DAYS[selection.daysPerWeek] ?? DEFAULT_RHYTHM_BY_DAYS[3],
+    new Date(),
+  );
   const timestamp = new Date().toISOString();
   const planId = `${ONBOARDING_PLAN_PREFIX}${workoutTemplateId}`;
 
@@ -202,7 +218,7 @@ export function buildSavedOnboardingWorkoutPlan(
       id: `${planId}_entry_${index + 1}`,
       workoutTemplateId,
       workoutTemplateSessionId: sessionIds[index] ?? null,
-      label: days[index % days.length] ?? `Day ${index + 1}`,
+      label: labels[index % labels.length] ?? `Day ${index + 1}`,
       orderIndex: index,
     })),
     isActive: true,
