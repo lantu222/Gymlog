@@ -1105,9 +1105,11 @@ function VinhaApp() {
       return;
     }
 
-    void addBodyweightEntry(preferences.setupCurrentWeightKg).then(() =>
-      updatePreferences({ setupWeightSeeded: true }),
-    );
+    void addBodyweightEntry(preferences.setupCurrentWeightKg)
+      // Flagged only once the weigh-in is actually stored: a write that failed
+      // has seeded nothing, and the empty log below asks again next render.
+      .then(() => updatePreferences({ setupWeightSeeded: true }))
+      .catch(() => undefined);
   }, [
     addBodyweightEntry,
     database.bodyweightEntries.length,

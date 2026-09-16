@@ -4234,10 +4234,24 @@ export function OnboardingScreen({
     [footerVisible, insets.bottom, locationStageActive, stage],
   );
 
-  // The stage step back, for every surface below that does not define its own.
-  backActionRef.current = isBuildingPlan
-    ? () => undefined
-    : () => setStageIndex((current) => Math.max(0, current - 1));
+  /**
+   * Back, in priority order: an open sheet first, then the stage, and nothing
+   * at all while the plan is being written.
+   *
+   * The sheet is a transparent Modal, which swallows the key on Android — but
+   * only while RN's own handling gets there first, and a listener that would
+   * otherwise walk the questionnaire backwards behind an open sheet is not
+   * something to leave to ordering.
+   */
+  const resolveBackAction = (stageBack: () => void) => {
+    if (helperVisible) {
+      return () => setHelperVisible(false);
+    }
+    return isBuildingPlan ? () => undefined : stageBack;
+  };
+  backActionRef.current = resolveBackAction(() =>
+    setStageIndex((current) => Math.max(0, current - 1)),
+  );
 
   if (isBuildingPlan) {
     return renderBuildingPlan();
@@ -4266,7 +4280,7 @@ export function OnboardingScreen({
     setStageIndex((current) => Math.max(0, current - 1));
   };
   // And the hardware key does exactly what the button does.
-  backActionRef.current = goBack;
+  backActionRef.current = resolveBackAction(goBack);
 
   return (
     <View style={[styles.root, styles.rootLight]}>
@@ -4352,7 +4366,15 @@ export function OnboardingScreen({
         </View>
       ) : null}
 
-      <Modal visible={helperVisible} transparent animationType="fade">
+      {/* Back closes the sheet rather than stepping the questionnaire behind
+          it: the hardware key now has an answer during onboarding, and an
+          open sheet is the first thing it should be answering. */}
+      <Modal
+        visible={helperVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setHelperVisible(false)}
+      >
         <View style={styles.sheetOverlay}>
           <View style={styles.sheetBackdrop}>
             <Pressable style={StyleSheet.absoluteFill} onPress={() => setHelperVisible(false)} />

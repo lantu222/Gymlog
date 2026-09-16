@@ -51,7 +51,7 @@ module.exports = [
       );
       assert.match(
         wiring,
-        /void addBodyweightEntry\(preferences\.setupCurrentWeightKg\)\.then\(\(\) =>\s*updatePreferences\(\{ setupWeightSeeded: true \}\),\s*\);/,
+        /void addBodyweightEntry\(preferences\.setupCurrentWeightKg\)\s*\.then\(\(\) => updatePreferences\(\{ setupWeightSeeded: true \}\)\)\s*\.catch\(\(\) => undefined\);/,
       );
       // The old rule, which put a deleted weigh-in straight back.
       assert.doesNotMatch(
