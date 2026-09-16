@@ -127,8 +127,23 @@ export function alignHistoryToCopiedDays<T extends LineageSession>(
 export function programmeHistoryIds(
   templateId: string,
   templates: readonly ProgrammeLineageTemplate[],
+  /**
+   * Programmes another plan is running right now.
+   *
+   * A reader who edited a ready programme and later took the original up
+   * again has both: the copy, and the original under its own plan. Work
+   * logged against the original from then on belongs to THAT plan's block —
+   * counting it here would inflate the copy's week and skew which day its
+   * rotation offers next (PR #125 review). History logged before the original
+   * was taken up again is the same programme's; this cannot separate the two
+   * by date, so it takes the safer side and leaves the whole of it to the
+   * plan that is actually running it.
+   */
+  claimedElsewhere: readonly string[] = [],
 ): string[] {
   const own = templates.find((template) => template.id === templateId) ?? null;
   const source = own?.sourceTemplateId ?? null;
-  return source && source !== templateId ? [templateId, source] : [templateId];
+  return source && source !== templateId && !claimedElsewhere.includes(source)
+    ? [templateId, source]
+    : [templateId];
 }

@@ -118,7 +118,10 @@ module.exports = [
         /activePlanId:\s*preferences\.activePlanId === readyPlanId \? plan\.id : preferences\.activePlanId \?\? plan\.id,/,
       );
       // And every counter reads the programme, not the record holding it.
-      assert.match(code, /\.\.\.programmeHistoryIds\(activeTemplate\.id, workoutTemplates\),/);
+      assert.match(
+        code,
+        /\.\.\.programmeHistoryIds\(activeTemplate\.id, workoutTemplates, templatesRunByOtherPlans\(activeTemplate\.id\)\),/,
+      );
     },
   },
   {
@@ -153,6 +156,10 @@ module.exports = [
       assert.match(code, /new Date\(now\.getFullYear\(\), now\.getMonth\(\), now\.getDate\(\) \+ 1, 0, 0, 5\)\.getTime\(\)/);
       // And the memos read it, rather than the clock.
       assert.match(code, /const todayDayStart = todayStartMs;/);
+      // The timer re-arms itself rather than being re-armed by the state it
+      // sets: a fire that finds the same date leaves the state untouched, and
+      // an effect keyed on it would never set another timer (PR #125 review).
+      assert.match(code, /timer = setTimeout\(\(\) => \{\s*sync\(\);\s*arm\(\);\s*\}/);
       assert.match(code, /\}, \[[^\]]*todayStartMs[^\]]*\]\);/);
     },
   },

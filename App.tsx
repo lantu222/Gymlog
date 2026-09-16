@@ -615,25 +615,47 @@ function VinhaApp() {
    */
   const [todayKey, setTodayKey] = useState(() => localDateKey(new Date()));
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const sync = () =>
       setTodayKey((current) => {
         const next = localDateKey(new Date());
         return next === current ? current : next;
       });
+    /**
+     * The timer re-arms itself rather than being re-armed by the state it
+     * sets.
+     *
+     * Keying the effect on `todayKey` looked equivalent and was not: a fire
+     * that finds the same date — a clock corrected backwards, a timezone
+     * change, a wake a second early — leaves the state untouched, so the
+     * effect never re-runs and no replacement timer is ever set. From then on
+     * the day only moved when the app was reopened, which is the exact gap
+     * the timer exists to close (PR #125 review).
+     */
+    const arm = () => {
+      const now = new Date();
+      const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5).getTime();
+      timer = setTimeout(() => {
+        sync();
+        arm();
+      }, Math.max(1000, nextMidnight - now.getTime()));
+    };
     sync();
+    arm();
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         sync();
+        // Back from a sleep that swallowed the timer: aim at the next
+        // midnight from here rather than trusting one armed days ago.
+        clearTimeout(timer);
+        arm();
       }
     });
-    const now = new Date();
-    const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5).getTime();
-    const timer = setTimeout(sync, Math.max(1000, nextMidnight - now.getTime()));
     return () => {
       subscription.remove();
       clearTimeout(timer);
     };
-  }, [todayKey]);
+  }, []);
 
   /** Local midnight of the day the reader is in, from the key above. */
   const todayStartMs = useMemo(() => {
@@ -1693,6 +1715,18 @@ function VinhaApp() {
    * line up — and when they stop lining up, nothing is translated rather than
    * a day being guessed at (see programLineage).
    */
+  /**
+   * The programmes some OTHER plan is running, so their work is that plan's.
+   *
+   * Read off the plan records rather than the active set: a plan the reader
+   * holds but does not lead with is still the plan those sessions belong to.
+   */
+  function templatesRunByOtherPlans(workoutTemplateId: string | null | undefined): string[] {
+    return database.workoutPlans
+      .map((plan) => plan.entries[0]?.workoutTemplateId)
+      .filter((id): id is string => Boolean(id) && id !== workoutTemplateId);
+  }
+
   function completedSessionsForTemplate(
     workoutTemplateId: string | null | undefined,
     // The canonical list walks every logged session, so a caller that has
@@ -1708,7 +1742,7 @@ function VinhaApp() {
       return sessions;
     }
     return alignHistoryToCopiedDays(sessions, {
-      fromTemplateIds: programmeHistoryIds(copy.id, database.workoutTemplates),
+      fromTemplateIds: programmeHistoryIds(copy.id, database.workoutTemplates, templatesRunByOtherPlans(copy.id)),
       fromSessionIds: source.sessions.map((session) => session.id),
       toTemplateId: copy.id,
       toSessionIds: getWorkoutTemplateSessions(copy.id).map((session) => session.id),
@@ -3812,7 +3846,7 @@ function VinhaApp() {
         // training, and every counter below reads this set.
         const planTemplateIds = new Set([
           ...sortedEntries.map((entry) => entry.workoutTemplateId),
-          ...programmeHistoryIds(activeTemplate.id, workoutTemplates),
+          ...programmeHistoryIds(activeTemplate.id, workoutTemplates, templatesRunByOtherPlans(activeTemplate.id)),
         ]);
         // Counted from the plan record's own start, not all time. Plan records
         // are only written at onboarding, adoption and restart, so `updatedAt`

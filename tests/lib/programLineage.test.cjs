@@ -111,6 +111,14 @@ module.exports = [
       assert.deepEqual(programmeHistoryIds('loop', [{ id: 'loop', sourceTemplateId: 'loop' }]), ['loop']);
       // The season still asks for the whole family.
       assert.ok(programmeLineageIds('tpl_full_body', TEMPLATES).includes('copy_2'));
+
+      // And a programme another plan is running keeps its own work: a reader
+      // who took the original up again after copying it has two plans, and
+      // the sessions logged in the original belong to the original's block
+      // (PR #125 review).
+      assert.deepEqual(programmeHistoryIds('copy_1', TEMPLATES, ['tpl_full_body']), ['copy_1']);
+      assert.deepEqual(programmeHistoryIds('copy_1', TEMPLATES, ['tpl_other']), ['copy_1', 'tpl_full_body']);
+      assert.deepEqual(programmeHistoryIds('copy_1', TEMPLATES, []), ['copy_1', 'tpl_full_body']);
     },
   },
 ];
