@@ -1457,19 +1457,17 @@ function VinhaApp() {
   }
 
 
-  function handleOpenReadyProgramDetail(workoutTemplateId: string) {
-    navigate({ tab: 'workout', screen: 'program', programType: 'ready', workoutTemplateId });
-  }
-
   /**
    * The type is a fact about the id, not something the caller can know.
    *
-   * Home's "other programmes" list holds whatever the reader adopted, their
-   * own programmes included, and every row opened as a ready one. The route
-   * guard then found no catalog template under that id and replaced the route
-   * with the programme list: tapping your own programme took you to a page
-   * that was not it. Resolved the way Home resolves its own hero — the stored
-   * template first, so the two cannot disagree about what an id is.
+   * This was `handleOpenProgramDetail`, which wrote `programType:
+   * 'ready'` whatever it was handed. Home's "other programmes" list holds
+   * whatever the reader adopted, their own programmes included, so tapping
+   * your own programme sent the route guard looking for a catalog template
+   * that was never there and left the reader on the programme list. Every
+   * caller that has an id and no type comes here, and the type is resolved
+   * the way Home resolves its own hero — the stored template first, so the
+   * two cannot disagree about what an id is.
    */
   function resolveProgramTypeForTemplate(workoutTemplateId: string): 'ready' | 'custom' {
     return workoutTemplates.some((template) => template.id === workoutTemplateId) ? 'custom' : 'ready';
@@ -2379,22 +2377,23 @@ function VinhaApp() {
     sessionId: string,
     exerciseId: string,
     edit: ProgramExerciseEdit,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const next = programEditQueue.current.then(() =>
       runProgramExerciseEdit(programType, programId, sessionId, exerciseId, edit),
     );
     // A failed edit must not wedge every edit queued behind it.
-    programEditQueue.current = next.catch(() => undefined);
+    programEditQueue.current = next.then(() => undefined).catch(() => undefined);
     return next;
   }
 
+  /** Resolves true when the programme actually changed. */
   async function runProgramExerciseEdit(
     programType: 'ready' | 'custom',
     programId: string,
     sessionId: string,
     exerciseId: string,
     edit: ProgramExerciseEdit,
-  ) {
+  ): Promise<boolean> {
     if (programType === 'custom') {
       // The day is read inside the write, not before it: an add that lands
       // while the previous add is still being saved must build on it rather
@@ -2425,10 +2424,10 @@ function VinhaApp() {
       );
       if (result.reason === 'lastExerciseInDay') {
         showToast(t(preferences.appLanguage, 'toast.lastExerciseInDay'));
-        return;
+        return false;
       }
       if (!result.saved) {
-        return;
+        return false;
       }
       void haptics.success();
       if (edit.kind === 'replace') {
@@ -2448,12 +2447,12 @@ function VinhaApp() {
         // override. A toast that repeats the screen is the thing the reader
         // keeps asking to be rid of (user 2026-08-26).
       }
-      return;
+      return true;
     }
 
     const template = WORKOUT_TEMPLATES_V1.find((item) => item.id === programId);
     if (!template) {
-      return;
+      return false;
     }
 
     /**
@@ -2472,7 +2471,7 @@ function VinhaApp() {
         ? Math.max(0, Math.min(day.exercises.length - 1, Math.round(edit.toIndex)))
         : -1;
       if (!day || from === -1 || to === from) {
-        return;
+        return false;
       }
     }
 
@@ -2483,10 +2482,10 @@ function VinhaApp() {
       const day = template.sessions.find((session) => session.id === sessionId);
       const from = day?.exercises.findIndex((exercise) => exercise.id === exerciseId) ?? -1;
       if (!day || from === -1 || from >= day.exercises.length - 1) {
-        return;
+        return false;
       }
       if (isSupersetLinked(day.exercises, from) === edit.linked) {
-        return;
+        return false;
       }
     }
 
@@ -2539,22 +2538,26 @@ function VinhaApp() {
           programType: 'custom',
           workoutTemplateId: existingCopyId,
         });
-        return;
+        return false;
       }
       // Straight to the body, not back through the queue this call is already
       // holding — the same reason the provider has an "Exclusive" twin.
-      await runProgramExerciseEdit('custom', existingCopyId, target.sessionId, target.exerciseId, edit);
+      const edited = await runProgramExerciseEdit('custom', existingCopyId, target.sessionId, target.exerciseId, edit);
       // Onto the copy's version of the day, exactly as the first edit lands:
       // the change is in the copy, and the page the reader is standing on
-      // cannot show it.
-      navigate({
-        tab: 'workout',
-        screen: 'programDay',
-        programType: 'custom',
-        workoutTemplateId: existingCopyId,
-        sessionId: target.sessionId,
-      });
-      return;
+      // cannot show it. Only when there was a change: an edit the copy
+      // refused — its last lift in that day, a row already at the edge —
+      // must not move the reader as if it had gone through.
+      if (edited) {
+        navigate({
+          tab: 'workout',
+          screen: 'programDay',
+          programType: 'custom',
+          workoutTemplateId: existingCopyId,
+          sessionId: target.sessionId,
+        });
+      }
+      return edited;
     }
 
     // No cap check for the programme being run: the copy replaces it, so the
@@ -2564,7 +2567,7 @@ function VinhaApp() {
     const wasRunning = preferences.activePlanIds.includes(readyPlanId);
     if (!wasRunning && !programSlots.canCreate) {
       setProgramLimitVisible(true);
-      return;
+      return false;
     }
     const draft = buildDuplicatedCustomProgramDraft(
       template.name,
@@ -2761,13 +2764,15 @@ function VinhaApp() {
             }
           : { tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId },
       );
+      return true;
     } catch (error) {
       if (error instanceof ProgramLimitReachedError) {
         setProgramLimitVisible(true);
-        return;
+        return false;
       }
       console.error('Failed to remove exercise from ready program', error);
       showToast(t(preferences.appLanguage, 'toast.programCopyFailed'));
+      return false;
     }
   }
 
@@ -6228,7 +6233,7 @@ function VinhaApp() {
       customWorkouts,
       recommendedReadyProgramId: recommendedReadyTemplate?.id ?? null,
       navigateToGuidedWorkout,
-      handleOpenReadyProgramDetail,
+      handleOpenProgramDetail,
       handleStartReadyProgram,
       handleOpenCustomProgramDetail,
       goalProgrammeSuggestions,

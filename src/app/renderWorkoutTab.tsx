@@ -124,7 +124,8 @@ export interface WorkoutTabDeps {
       | { kind: 'prescribe'; prescription: ProgramPrescription }
       | { kind: 'reorder'; toIndex: number }
       | { kind: 'supersetLink'; linked: boolean },
-  ) => Promise<void>;
+    /** Resolves true when the programme actually changed. */
+  ) => Promise<boolean>;
   /** A custom programme's own name. Ready ones keep the catalog's. */
   handleRenameCustomProgram: (workoutTemplateId: string, name: string) => void;
   handleReorderProgramSession: (
@@ -162,7 +163,7 @@ export interface WorkoutTabDeps {
   customWorkouts: WorkoutsProps['customWorkouts'];
   recommendedReadyProgramId: string | null;
   navigateToGuidedWorkout: WorkoutsProps['onOpenWorkout'];
-  handleOpenReadyProgramDetail: (workoutTemplateId: string) => void;
+  handleOpenProgramDetail: (workoutTemplateId: string) => void;
   handleStartReadyProgram: WorkoutsProps['onStartReadyProgram'];
   handleOpenCustomProgramDetail: WorkoutsProps['onOpenCustomProgram'];
   goalProgrammeSuggestions: ProgramsHomeProps['goalProgrammes'];
@@ -251,7 +252,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     customWorkouts,
     recommendedReadyProgramId,
     navigateToGuidedWorkout,
-    handleOpenReadyProgramDetail,
+    handleOpenProgramDetail,
     handleStartReadyProgram,
     handleOpenCustomProgramDetail,
     goalProgrammeSuggestions,
@@ -836,7 +837,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         recommendedReadyProgramId={recommendedReadyProgramId}
         tailoringPreferences={tailoringPreferences}
         onOpenWorkout={navigateToGuidedWorkout}
-        onOpenReadyProgram={handleOpenReadyProgramDetail}
+        onOpenReadyProgram={handleOpenProgramDetail}
         onStartReadyProgram={handleStartReadyProgram}
         onOpenCustomProgram={handleOpenCustomProgramDetail}
         onStartCustomWorkout={handleStartCustomProgram}
@@ -998,13 +999,13 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           void handleAdoptReadyProgram(seasonProgramId);
         }}
         onBack={() => navigateBack({ tab: 'workout', screen: 'programs_home' })}
-        onOpenProgram={handleOpenReadyProgramDetail}
+        onOpenProgram={handleOpenProgramDetail}
         onStartToday={() => {
           if (homeActivePlanCard?.programId === seasonProgramId && homeActivePlanCard.nextSession?.id) {
             handleStartReadyProgramSession(seasonProgramId, homeActivePlanCard.nextSession.id);
             return;
           }
-          handleOpenReadyProgramDetail(seasonProgramId);
+          handleOpenProgramDetail(seasonProgramId);
         }}
       />
     );
@@ -1088,7 +1089,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
           }
         }}
-        onOpenExploreProgram={handleOpenReadyProgramDetail}
+        onOpenExploreProgram={handleOpenProgramDetail}
         onOpenCustomProgram={handleOpenCustomProgramDetail}
         onCreateProgram={() =>
           programSlots.canCreate

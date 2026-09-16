@@ -27,10 +27,9 @@ module.exports = [
         code,
         /onOpenOtherProgram=\{\(planId\) => \{[\s\S]{0,320}handleOpenProgramDetail\(templateId\);/,
       );
-      assert.doesNotMatch(
-        code,
-        /onOpenOtherProgram=\{\(planId\) => \{[\s\S]{0,320}handleOpenReadyProgramDetail\(templateId\);/,
-      );
+      // And no door forces the type any more: the one that did is gone.
+      assert.doesNotMatch(code, /handleOpenReadyProgramDetail/);
+      assert.doesNotMatch(code, /screen: 'program', programType: 'ready', workoutTemplateId \}\);/);
       // Stored template first, the same order Home resolves its own hero in:
       // an id both stores know is custom on both screens or on neither.
       assert.match(
@@ -87,6 +86,20 @@ module.exports = [
       );
       assert.match(code, /weekLabel: weekProgressBase\.completionWeekLabel,\s*done: weekProgressBase\.savedThisWeek,/);
       assert.match(code, /weekLabel: weekProgressBase\.weekLabel,\s*done: weekProgressBase\.savedThisWeek \+ 1,/);
+    },
+  },
+  {
+    name: 'route truth: an edit the copy refused does not move the reader as if it had gone through',
+    run() {
+      // Removing the copy's last lift in a day, or a row already at the edge,
+      // is refused inside the custom path — and the reader used to be carried
+      // to the copy's day anyway, which reads as "done".
+      assert.match(
+        code,
+        /const edited = await runProgramExerciseEdit\('custom', existingCopyId, target\.sessionId, target\.exerciseId, edit\);\s*if \(edited\) \{\s*navigate\(\{/,
+      );
+      // And the outcome is a real answer, not an assumption.
+      assert.match(code, /async function runProgramExerciseEdit\([\s\S]{0,260}\): Promise<boolean> \{/);
     },
   },
 ];

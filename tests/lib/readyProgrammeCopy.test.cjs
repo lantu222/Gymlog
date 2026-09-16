@@ -87,8 +87,8 @@ module.exports = [
         'every edit should be chained onto the one before it',
       );
       assert.ok(
-        body.includes('next.catch('),
-        'a failed edit must not wedge the queue behind it',
+        body.includes('next.then(() => undefined).catch(() => undefined)'),
+        'a failed edit must not wedge the queue behind it, and the queue carries no result',
       );
     },
   },
