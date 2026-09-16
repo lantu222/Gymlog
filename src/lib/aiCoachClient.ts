@@ -1,4 +1,5 @@
 import { buildAiCoachPreviewAnswer } from './aiCoachPreview';
+import { classifyCoachScope } from './aiCoachScope';
 import { resolveLiveAiCoachUrl } from './aiCoachLiveGate';
 import { ProgramImageMediaType, ProgramTableRow, validateProgramTable } from './programImageImport';
 import { AICoachAdvice, AICoachAdviceError, AICoachAdviceRequest, AICoachAdviceSuccess } from '../types/aiCoach';
@@ -112,6 +113,23 @@ export async function forgetAiCoachLog(logId: string): Promise<{ ok: boolean; re
 }
 
 export async function requestAiCoachAdvice(input: AICoachAdviceRequest, upstreamSignal?: AbortSignal): Promise<RequestAiCoachAdviceResult> {
+  /**
+   * A reader in trouble is answered here, before anything goes anywhere.
+   *
+   * The rule is on the server too, but this is the one answer that must not
+   * depend on a connection, on the spend cap, or on the model doing as it is
+   * told — and the message itself is the last thing that should travel. The
+   * answer is one sentence and a number to call, built by the same offline
+   * coach that handles the no-URL case.
+   */
+  if (classifyCoachScope(input.prompt) === 'crisis') {
+    return {
+      answer: buildAiCoachPreviewAnswer(input.prompt, input.context, input.language),
+      source: 'preview',
+      note: undefined,
+    };
+  }
+
   if (!AI_COACH_API_URL) {
     return {
       answer: buildAiCoachPreviewAnswer(input.prompt, input.context, input.language),

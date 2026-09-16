@@ -17,6 +17,7 @@ import { ProLockedCard } from '../components/ProLockedCard';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
 import { trackEvent } from '../features/analytics/analyticsClient';
 import { buildAiCoachPreviewAnswer } from '../lib/aiCoachPreview';
+import { classifyCoachScope } from '../lib/aiCoachScope';
 import { PRO_COACH_QUESTIONS_PER_MONTH, coachQuotaReset } from '../lib/aiCoachQuota';
 import { formatShortDate } from '../lib/format';
 import { CoachChatIntroInput, CoachContextChip, buildCoachContextChips, buildCoachContextReadout, buildCoachNoticed, buildCoachOpeningLine, buildCoachOpeningOffer, buildCoachOpeningRows } from '../lib/coachChat';
@@ -743,6 +744,28 @@ export function AICoachChatScreen({
 
       const token = (askToken.current += 1);
       setDraft('');
+
+      /**
+       * A reader in trouble is answered first, and here.
+       *
+       * Before the quota gate: out of questions, the answer below is rendered
+       * blurred behind an "unlock this" button, and the crisis line is not
+       * something to sell. Before the network: it must not depend on a
+       * connection, on the spend cap, or on the model doing as it is told.
+       * And it is not appended to `conversation.current` the way every other
+       * turn is, so the message does not travel with the next question — a
+       * client-side check that still posts the text is not the promise it
+       * looks like (PR #124 review).
+       */
+      if (classifyCoachScope(trimmed) === 'crisis') {
+        const answer = buildAiCoachPreviewAnswer(trimmed, trainingContext, language);
+        setMessages((current) => [
+          ...current,
+          { id: `me:${token}`, fromCoach: false, text: trimmed },
+          { id: `coach:${token}`, fromCoach: true, text: answer.takeaway, advice: answer },
+        ]);
+        return;
+      }
 
       // "Kiitos" is answered here. It never reaches the network, so it costs
       // nothing and cannot come back as an analysis with a four-week plan
