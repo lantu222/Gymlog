@@ -207,7 +207,10 @@ module.exports = [
       log('generic', 'Deadlift', 185, 2);
       log('trap', 'Trap Bar Deadlift', 200, 3);
       log('sumo', 'Sumo Deadlift', 170, 4);
-      // A group spelling the library files nowhere: none of the four rows' own.
+      // A partial pull, which the deadlift group no longer folds in: it
+      // starts above the knee and takes 20–40 % more weight, so counting it
+      // handed the reader a best they never pulled from the floor
+      // (2026-09-16).
       log('rack', 'Rack Pull', 240, 5);
 
       const pageIds = (row) => getExerciseProgressForName(database, row, sameLibraryRow).logs.map((entry) => entry.id).sort();
@@ -221,8 +224,8 @@ module.exports = [
       const tracked = getTrackedExerciseProgress(database);
       assert.deepEqual(
         getLiftProgress('Barbell Deadlift', tracked, sameLift).logs.map((entry) => entry.id).sort(),
-        ['conventional', 'generic', 'rack', 'sumo', 'trap'],
-        'the deadlift TARGET still counts every pull liftIdentity folds in',
+        ['conventional', 'generic', 'sumo', 'trap'],
+        'the deadlift TARGET still counts every pull liftIdentity folds in — and only those',
       );
     },
   },
@@ -394,6 +397,22 @@ module.exports = [
       const spacer = screen.match(/iconSpacer: \{([^}]*)\}/);
       assert.ok(spacer, 'the spacer style is missing');
       assert.doesNotMatch(spacer[1], /backgroundColor|borderWidth/, 'the spacer wears chrome again');
+    },
+  },
+  {
+    name: 'a rack pull is not a deadlift, and cannot become one’s personal best',
+    run() {
+      // Partials start above the knee and move a fraction of the range, so
+      // 240 kg off pins is not a 240 kg deadlift. Sumo and trap bar stay in
+      // by decision: those are the lift, from another stance or handle.
+      assert.equal(liftGroupOf('Rack Pull'), null);
+      assert.equal(liftGroupOf('Rack Pulls'), null);
+      assert.equal(liftGroupOf('Block Pull'), null);
+      assert.equal(liftGroupOf('Sumo Deadlift'), liftGroupOf('Deadlift'));
+      assert.equal(liftGroupOf('Trap Bar Deadlift'), liftGroupOf('Deadlift'));
+      // The deficit stays too: same full pull, from a harder position, and it
+      // loads less — it cannot inflate anything.
+      assert.equal(liftGroupOf('Deficit Deadlift'), liftGroupOf('Deadlift'));
     },
   },
 ];

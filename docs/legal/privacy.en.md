@@ -1,6 +1,6 @@
 # Privacy policy
 
-*Updated 5 September 2026*
+*Updated 16 September 2026*
 
 What Vinha stores, what leaves your phone, and what you can do about it.
 
@@ -34,9 +34,9 @@ Everything below is either entered by you or worked out by the app from what you
 
 ## Android backup
 
-Android’s own backup is switched on for this app. That means your phone can copy Vinha’s data into the backup of your own Google account, so a new phone can restore it. Unless you use the cloud backup below, this is the only way your history survives changing phones.
+Android’s own backup is switched off for this app. Your phone does not copy Vinha’s data into your Google account’s backup, and it does not hand it to a new phone during the device-to-device transfer at setup. Nothing of your training log leaves the phone that way.
 
-That copy is between you and Google. We never see it and cannot read it. Google encrypts it, and on current Android versions the key is tied to your device PIN. You can switch it off at any time in Android settings under Google → Backup, and Vinha keeps working exactly the same.
+That means a new phone starts empty unless you use the cloud backup below, or export your log as CSV first. It is off so that the app’s own backup below, which you switch on yourself, is the only place your full training log is kept outside this phone.
 
 ## Cloud backup (optional)
 
@@ -64,11 +64,11 @@ Our server forwards the question to Anthropic, the company behind the Claude mod
 
 We keep no copy of our own unless you have said we may. The coach asks once, before your first question, in three separate lines: your questions and answers, the programmes you ask it to build, and the photos you import one from. Every line starts as no, each is its own answer, and none of them changes the answer you get. What you allow is kept for up to 24 months and then deleted automatically, and it is used for one thing: making the coach better at writing programmes.
 
-You can take it back at any time in Settings, and taking it back deletes what was already kept. Turn a line off and the copies made under it are removed from our server, not just stopped from growing.
+You can take it back at any time in Settings, and taking it back deletes what was already kept. Turning any one line off removes every copy kept for you from our server — including those made under the lines you leave on — rather than only stopping new ones.
 
 The programme composer works the same way: when you ask the app to build a programme from a written brief, the brief and the same summary are sent along the same route.
 
-Importing a programme from a photo also uses this route. The photo you picked is scaled down and sent so the table in it can be read; it is used for that one import and is not kept.
+Importing a programme from a photo also uses this route. The photo you picked is scaled down and sent so the table in it can be read; it is used for that one import and is not kept — unless you ticked the photos line above, in which case the photo and the table read from it are kept like any other allowed copy.
 
 ## Usage statistics
 
@@ -95,7 +95,7 @@ We run no servers of our own. Three companies process data for us, under contrac
 
 - Vercel (United States): runs our server and stores the cloud backups and the usage events. The storage is in the European Union.
 - Anthropic (United States): answers coach questions, composes programmes and reads programme photos, as described above.
-- Google (United States): verifies your Google sign-in, keeps the Android backup of your own account, and handles Google Play payments. Your relationship with Google is covered by Google’s own privacy policy.
+- Google (United States): verifies your Google sign-in and handles Google Play payments. Your relationship with Google is covered by Google’s own privacy policy.
 
 ## Data outside the European Union
 
@@ -160,7 +160,7 @@ On your phone, the app’s data is protected by the phone’s own lock and the s
 ## How long we keep it
 
 - On your phone: until you reset the app’s data or uninstall it.
-- Android backup: as long as your Google account keeps it — that is Google’s setting, not ours.
+- Android backup: nothing to keep — Android’s own backup is switched off for this app.
 - Cloud backup: until you delete it in Settings, or ask us to.
 - Coach questions, briefs and photos: not kept by us unless you allowed it, and then for up to 24 months or until you take the permission back, whichever comes first. Anthropic deletes its own copy within 30 days either way.
 - Usage statistics: up to 24 months, then deleted automatically.

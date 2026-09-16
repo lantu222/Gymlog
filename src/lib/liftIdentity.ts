@@ -35,9 +35,15 @@ const SAME_LIFT_GROUPS: readonly (readonly string[])[] = [
     'competition deadlift',
     'sumo deadlift',
     'trap bar deadlift',
+    // A deficit deadlift is the same pull with the floor lowered: the full
+    // range, from a harder position, and it loads LESS than the competition
+    // lift — so it can never stand in for a number the reader has not made.
     'deficit deadlift',
-    'block pull',
-    'rack pull',
+    // Rack pulls and block pulls are NOT here, and that is the point. They
+    // start above the knee, move a fraction of the range and take 20–40 %
+    // more weight, so counting them as deadlifts handed the reader a personal
+    // best they never pulled from the floor, marked a deadlift goal covered,
+    // and mixed two different lifts into one progress line (2026-09-16).
   ],
   [
     'back squat',

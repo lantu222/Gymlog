@@ -47,7 +47,7 @@ import {
   parseNumberInput,
   removeTrailingZeros,
 } from '../lib/format';
-import { localDateKey } from '../lib/completedSessions';
+import { localDateKey, subtractCalendarMonths } from '../lib/completedSessions';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { I18nKey, t } from '../lib/i18n';
 import { ProMomentContent, WeeklyReadRow } from '../lib/proInsights';
@@ -352,15 +352,15 @@ function getOverviewRangeStart(range: OverviewRange) {
       start.setDate(start.getDate() - 6);
       start.setHours(0, 0, 0, 0);
       return start;
+    // Through subtractCalendarMonths, not setMonth: on the 31st the raw call
+    // asks for a day the target month does not have and JavaScript answers
+    // with one in the month after it, so "last month" began three days ago.
     case '1m':
-      start.setMonth(start.getMonth() - 1);
-      return start;
+      return subtractCalendarMonths(now, 1);
     case '3m':
-      start.setMonth(start.getMonth() - 3);
-      return start;
+      return subtractCalendarMonths(now, 3);
     case '6m':
-      start.setMonth(start.getMonth() - 6);
-      return start;
+      return subtractCalendarMonths(now, 6);
     case 'all':
     default:
       return null;
@@ -512,13 +512,8 @@ function getMeasurementRangeStart(range: MeasureRange) {
     return null;
   }
 
-  const start = new Date();
-  if (range === '3m') {
-    start.setMonth(start.getMonth() - 3);
-  } else {
-    start.setFullYear(start.getFullYear() - 1);
-  }
-  return start;
+  const now = new Date();
+  return range === '3m' ? subtractCalendarMonths(now, 3) : subtractCalendarMonths(now, 12);
 }
 
 function getSignalPriority(kind: ReturnType<typeof getExerciseProgressSignal>['kind']) {

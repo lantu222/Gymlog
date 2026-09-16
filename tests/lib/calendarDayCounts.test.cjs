@@ -5,7 +5,7 @@ const path = require('node:path');
 const { withHelsinkiClocks } = require('../helpers/clockChange.cjs');
 const { resolveSeasonWindow, seasonWeek } = require('../../.test-dist/lib/season.js');
 const { computeSeasonProgress, countSeasonRecords } = require('../../.test-dist/lib/seasonScoring.js');
-const { localDateKey } = require('../../.test-dist/lib/completedSessions.js');
+const { localDateKey, subtractCalendarMonths } = require('../../.test-dist/lib/completedSessions.js');
 const { buildWorkoutLogCsv } = require('../../.test-dist/lib/workoutLogCsvExport.js');
 
 /**
@@ -130,6 +130,58 @@ module.exports = [
       const progress = strip(read('src', 'screens', 'ProgressScreen.tsx'));
       assert.doesNotMatch(progress, /toISOString\(\)\.slice\(0, (7|10)\)/, 'a chart groups by UTC day or month');
       assert.doesNotMatch(progress, /return dateString\.slice\(0, 10\)/);
+    },
+  },
+  {
+    name: 'calendar months: a month back from the 31st is the last day of that month, not the 3rd of this one',
+    run() {
+      withHelsinkiClocks(() => {
+        // 31 March minus one month asked JavaScript for 31 February, and it
+        // answered 3 March: the Progress tab's "last month" range began three
+        // days ago and the chart quietly lost four weeks of its own window.
+        const march31 = new Date(2026, 2, 31, 14, 30, 0, 0);
+        const backOne = subtractCalendarMonths(march31, 1);
+        assert.equal(backOne.getMonth(), 1, 'February');
+        assert.equal(backOne.getDate(), 28, '2026 is not a leap year');
+        // The raw arithmetic this replaces, for the record.
+        const raw = new Date(march31);
+        raw.setMonth(raw.getMonth() - 1);
+        assert.equal(raw.getMonth(), 2, 'setMonth rolls into March');
+        assert.equal(raw.getDate(), 3);
+
+        // A day that exists in the target month is kept, time of day included.
+        const may31 = new Date(2026, 4, 31, 8, 15, 0, 0);
+        const backThree = subtractCalendarMonths(may31, 3);
+        assert.equal(backThree.getMonth(), 1);
+        assert.equal(backThree.getDate(), 28);
+        const backSix = subtractCalendarMonths(may31, 6);
+        assert.equal(backSix.getFullYear(), 2025);
+        assert.equal(backSix.getMonth(), 10, 'November');
+        assert.equal(backSix.getDate(), 30, 'November has thirty days');
+        assert.equal(backSix.getHours(), 8);
+        assert.equal(backSix.getMinutes(), 15);
+
+        // A leap year keeps its 29th.
+        const march31Leap = new Date(2028, 2, 31, 12, 0, 0, 0);
+        assert.equal(subtractCalendarMonths(march31Leap, 1).getDate(), 29);
+
+        // And a year back crosses the year cleanly.
+        const jan15 = new Date(2026, 0, 15, 6, 0, 0, 0);
+        const yearBack = subtractCalendarMonths(jan15, 12);
+        assert.equal(yearBack.getFullYear(), 2025);
+        assert.equal(yearBack.getMonth(), 0);
+        assert.equal(yearBack.getDate(), 15);
+      });
+    },
+  },
+  {
+    name: 'calendar months: the Progress ranges step by calendar month',
+    run() {
+      const screen = fs
+        .readFileSync(path.join(__dirname, '..', '..', 'src', 'screens', 'ProgressScreen.tsx'), 'utf8');
+      assert.match(screen, /case '1m':\s*return subtractCalendarMonths\(now, 1\);/);
+      assert.match(screen, /return range === '3m' \? subtractCalendarMonths\(now, 3\) : subtractCalendarMonths\(now, 12\);/);
+      assert.doesNotMatch(screen, /start\.setMonth\(start\.getMonth\(\) - \d\)/);
     },
   },
 ];

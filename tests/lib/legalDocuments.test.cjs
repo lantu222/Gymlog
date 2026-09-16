@@ -12,6 +12,21 @@ const {
 const root = path.join(__dirname, '..', '..');
 const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 
+/**
+ * Every wording the documents have gone out with, oldest first, and the date
+ * each went out under. Not a lock on the text — a record that makes a change
+ * of text carry a change of date.
+ *
+ * A new wording is a new entry, and its date must be later than the one
+ * before, so pasting the new hash under the old date fails. A second edit on
+ * the day of the last entry replaces that entry's fingerprint instead: the
+ * date already names that day's version. The failing assertion prints what to
+ * write here.
+ */
+const LEGAL_TEXT_VERSIONS = [
+  { date: '2026-09-16', fingerprint: 'c52c7814c8a7ba76' },
+];
+
 const IDS = ['privacy', 'terms'];
 const LANGUAGES = ['en', 'fi'];
 
@@ -543,6 +558,106 @@ module.exports = [
       assert.match(en, /most recent three months/);
       assert.match(fi, /kolme omaa ohjelmaa, kaksi käytössä kerrallaan/);
       assert.match(fi, /viimeisimmän kolmen kuukauden/);
+    },
+  },
+  {
+    name: 'the policy tells the truth about Android’s own backup',
+    run() {
+      // #117 switched allowBackup off and left the policy saying it was on,
+      // in the direction that costs a reader their history: "this is the only
+      // way your history survives changing phones" was, by then, describing a
+      // channel the app had just closed. The flag has its own guard in
+      // tests/lib/allowBackup.test.cjs; this one ties the flag to the two
+      // places the document makes a promise about it, so flipping it back on
+      // cannot leave either one behind.
+      //
+      // Read the way Expo reads it. Android's default is on, so a missing key
+      // means on — comparing the raw value with `=== true` read a deleted line
+      // as off and kept demanding the "switched off" wording (review, #127).
+      const { AndroidConfig } = require('@expo/config-plugins');
+      const allowBackup = AndroidConfig.AllowBackup.getAllowBackup(JSON.parse(read('app.json')).expo);
+      const expected = allowBackup
+        ? {
+            en: [/Android’s own backup is switched on/, /Android backup: as long as your Google account keeps it/],
+            fi: [/varmuuskopiointi on tälle sovellukselle päällä/, /Android-varmuuskopio: niin kauan kuin/],
+          }
+        : {
+            en: [/Android’s own backup is switched off/, /Android backup: nothing to keep/],
+            fi: [/varmuuskopiointi on tälle sovellukselle pois päältä/, /Android-varmuuskopio: ei mitään säilytettävää/],
+          };
+      for (const language of LANGUAGES) {
+        const text = renderLegalDocumentMarkdown(buildLegalDocument('privacy', language));
+        for (const pattern of expected[language]) {
+          assert.match(
+            text,
+            pattern,
+            `app.json says android.allowBackup=${allowBackup}, and the ${language} privacy policy still says otherwise. `
+              + 'Both the Android backup section and the retention list have to agree with the flag.',
+          );
+        }
+      }
+    },
+  },
+  {
+    name: 'a new wording goes out under a new date',
+    run() {
+      // The policy promises that "the date at the top always tells you which
+      // version you are reading". Nothing enforced it: #92 rewrote the whole
+      // coach-consent section on 11 September and #118 dropped the promo
+      // paragraph on the 15th, both under a document still dated the 5th, and
+      // both published to the public page by the legal-pages workflow.
+      //
+      // The first version of this guard kept one hash and only named the date
+      // in its message, so pasting the new hash under the stale date went
+      // green (review, #127). The record is a history now, and the date is
+      // part of what has to match: a new entry must be later than the last,
+      // and the last must be the date the documents show. The one way left to
+      // keep a stale date is to overwrite a past entry, which is what a
+      // same-day edit does and what a reviewer can see in the diff.
+      //
+      // Everything the reader sees except one field. updatedLabel is derived
+      // from the date, so hashing it would let a bump satisfy this guard
+      // without anyone reading what changed. The first version hashed the
+      // sections alone and missed the title and summary, which live in a
+      // separate map and are published on the same page (review, #127) — so
+      // the one field is named and taken out, and anything added to a
+      // document later is covered without anyone remembering to list it.
+      const payload = IDS.flatMap((id) =>
+        LANGUAGES.map((language) => {
+          const { updatedLabel, ...wording } = buildLegalDocument(id, language);
+          return JSON.stringify(wording);
+        }),
+      ).join(String.fromCharCode(10));
+      const fingerprint = require('node:crypto').createHash('sha256').update(payload).digest('hex').slice(0, 16);
+
+      assert.ok(LEGAL_TEXT_VERSIONS.length > 0, 'LEGAL_TEXT_VERSIONS is empty');
+      for (let index = 1; index < LEGAL_TEXT_VERSIONS.length; index += 1) {
+        const before = LEGAL_TEXT_VERSIONS[index - 1];
+        const after = LEGAL_TEXT_VERSIONS[index];
+        assert.ok(
+          after.date > before.date,
+          `LEGAL_TEXT_VERSIONS: the entry for ${after.date} is not later than the one for ${before.date}. `
+            + 'A new wording needs a new date — bump LEGAL_LAST_UPDATED in src/lib/legalDocuments.ts. '
+            + 'If this is a second change on the same day, replace the last entry’s fingerprint instead of adding one.',
+        );
+      }
+
+      const current = LEGAL_TEXT_VERSIONS[LEGAL_TEXT_VERSIONS.length - 1];
+      assert.equal(
+        fingerprint,
+        current.fingerprint,
+        `The legal wording changed (the last recorded version is dated ${current.date}). `
+          + 'Bump LEGAL_LAST_UPDATED in src/lib/legalDocuments.ts, re-run node scripts/export-legal.cjs, and add '
+          + `{ date: '<the new date>', fingerprint: '${fingerprint}' } to the end of LEGAL_TEXT_VERSIONS. `
+          + `A second change on ${current.date} itself replaces that entry’s fingerprint instead.`,
+      );
+      assert.equal(
+        LEGAL_LAST_UPDATED,
+        current.date,
+        `The documents say ${LEGAL_LAST_UPDATED}, but the last recorded wording is dated ${current.date}. `
+          + 'The date and the record move together: a bumped date without a changed wording has nothing new to '
+          + 'show the reader, and a recorded version under a different date is not the one they see.',
+      );
     },
   },
 ];

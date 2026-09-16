@@ -193,7 +193,12 @@ export interface WorkoutTabDeps {
   programsCustomItems: ProgramsHomeProps['customPrograms'];
   exerciseNameBook: ProgramsHomeProps['nameBook'];
   teachExerciseName: (wrote: string, target: { name: string; libraryItemId: string }) => void;
-  handlePickProgramImage: () => Promise<string | null>;
+  /**
+   * Undefined in a build with no live coach: the photo path is the coach's,
+   * and the sheet hides the button rather than offering one that returns
+   * nothing (2026-09-16).
+   */
+  handlePickProgramImage?: () => Promise<string | null>;
   coachProUnlocked: boolean;
 }
 

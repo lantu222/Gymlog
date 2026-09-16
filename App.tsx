@@ -239,7 +239,7 @@ import { buildCustomSessionRuntimeTemplate, buildReadySessionRuntimeTemplate } f
 import { applySessionAdaptation } from './src/lib/sessionAdaptation';
 import { buildProgramInsightMap } from './src/lib/programInsights';
 import { buildTailoringPreferences } from './src/lib/tailoringFit';
-import { popRoute, pushRoute } from './src/navigation/routeHistory';
+import { forgetRoutesForTemplate, popRoute, pushRoute, withoutTrailingRoute } from './src/navigation/routeHistory';
 import { AppRoute, ROOT_ROUTES, RootTabKey, WORKOUT_PLAN_ROUTE } from './src/navigation/routes';
 import { getBackRoute } from './src/app/backRoute';
 import { renderProfileTab } from './src/app/renderProfileTab';
@@ -278,7 +278,7 @@ import { VinhaSplashScreen } from './src/screens/VinhaSplashScreen';
 import { ExportablePlan } from './src/screens/ExportPlanScreen';
 import { NewProgramSheet } from './src/components/NewProgramSheet';
 import { buildCoachContextChips } from './src/lib/coachChat';
-import { requestProgramTableFromImage } from './src/lib/aiCoachClient';
+import { isAiCoachLiveConfigured, requestProgramTableFromImage } from './src/lib/aiCoachClient';
 import type { CatalogScreenItem } from './src/screens/CatalogScreen';
 import { ProgramsExploreItem } from './src/screens/ProgramsHomeScreen';
 import { WorkoutCompletionScreen } from './src/screens/WorkoutCompletionScreen';
@@ -1158,17 +1158,35 @@ function VinhaApp() {
       return;
     }
 
-    if (database.bodyweightEntries.length > 0) {
+    /**
+     * Once, ever — not "whenever the log is empty".
+     *
+     * An empty log is also what the reader sees the moment they delete their
+     * only weigh-in, and this effect put setup's number straight back: the
+     * row reappeared, and deleting it looked broken (2026-09-16). The flag
+     * records that the seed has been written, so a deleted weigh-in stays
+     * deleted.
+     */
+    if (preferences.setupWeightSeeded || database.bodyweightEntries.length > 0) {
+      if (!preferences.setupWeightSeeded && database.bodyweightEntries.length > 0) {
+        void updatePreferences({ setupWeightSeeded: true });
+      }
       return;
     }
 
-    void addBodyweightEntry(preferences.setupCurrentWeightKg);
+    void addBodyweightEntry(preferences.setupCurrentWeightKg)
+      // Flagged only once the weigh-in is actually stored: a write that failed
+      // has seeded nothing, and the empty log below asks again next render.
+      .then(() => updatePreferences({ setupWeightSeeded: true }))
+      .catch(() => undefined);
   }, [
     addBodyweightEntry,
     database.bodyweightEntries.length,
     hydrated,
     preferences.onboardingCompleted,
     preferences.setupCurrentWeightKg,
+    preferences.setupWeightSeeded,
+    updatePreferences,
   ]);
 
   /**
@@ -2978,7 +2996,23 @@ function VinhaApp() {
   async function handleDeleteCustomWorkout(workoutTemplateId: string) {
     await deleteWorkoutTemplate(workoutTemplateId);
     void haptics.success();
-    navigate(workoutHomeRoute);
+    // The programme's pages go with the programme. `navigate` pushes, so the
+    // page the reader deleted it from stayed in the back stack: Back returned
+    // to a programme that no longer exists, the route guard bounced them to
+    // the list, and Back read as broken (2026-09-16).
+    startTransition(() =>
+      setNavigationState((current) => ({
+        route: workoutHomeRoute,
+        // And no copy of the destination left on top of the stack: the
+        // programme was opened FROM this list, so without the second call the
+        // first Back press pops the duplicate and lands on the screen the
+        // reader is already looking at (PR #126 review).
+        history: withoutTrailingRoute(
+          forgetRoutesForTemplate(current.history, workoutTemplateId),
+          workoutHomeRoute,
+        ),
+      })),
+    );
   }
 
   async function handleOnboardingPickReadyProgram(programId: string) {
@@ -3119,7 +3153,16 @@ function VinhaApp() {
    * nothing to import, and the sheet says so in one sentence rather than
    * teaching them the difference.
    */
-  async function handlePickProgramImage(): Promise<string | null> {
+  /**
+   * Import a programme from a photo — the live coach's path, and only its.
+   *
+   * `requestProgramTableFromImage` returns null before it makes a request
+   * when there is no endpoint, so in a preview build the button opened the
+   * gallery, took a photo the reader had to choose, and produced nothing at
+   * all. The button is offered only when there is something behind it
+   * (2026-09-16).
+   */
+  async function pickProgramImageForImport(): Promise<string | null> {
     const picked = await pickProgramImage();
     if (picked.status !== 'picked') {
       return null;
@@ -3133,6 +3176,8 @@ function VinhaApp() {
     });
     return rows && rows.length > 0 ? programTableToCsv(rows) : null;
   }
+
+  const handlePickProgramImage = isAiCoachLiveConfigured() ? pickProgramImageForImport : undefined;
 
   async function handleContinueEntry() {
     await updatePreferences({
