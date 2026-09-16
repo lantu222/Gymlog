@@ -14,9 +14,21 @@ fails if a fourth appears. The policy names all three.
 
 | Feature | Client → endpoint | Sent | Stored server-side | Processor |
 |---|---|---|---|---|
-| Cloud backup (optional, Google sign-in) | `src/features/account/backupApi.ts` → `api/backup.ts` | Google ID token + the whole app database (profile, log, body data, programmes, preferences) | The backup JSON, filed under HMAC(Google `sub`) in a **private** Vercel Blob store (EU region per `docs/account-backup.md`). No email, no name, no logs of payloads. | Vercel (function + storage), Google (token verification) |
-| AI coach online mode, programme composer, photo import | `src/lib/aiCoachClient.ts` → `api/ai-coach.ts` | Question + conversation history + training summary **including latest weight, measurements, height, age, gender, goals and setup answers**; the composer brief; the downscaled photo | **Nothing by default. With consent, three separate lines each starting at no** (`aiLogChatConsent` / `aiLogComposerConsent` / `aiLogPhotoConsent`): `keepTranscript()` files the question and its answer, the brief and the proposal it produced, or the photo itself plus the rows read out of it, as `transcripts/<day>/<aiLogId>--…`. **Never the training summary** — that is sent, answered from, and dropped. Swept at 24 months by `api/prune-events.ts`; turning any one line off calls a forget route that deletes every copy under the label, whichever line made it. The same prefix also holds entries a development log wrote **before #92**, without consent, and chat copies written before #128 carry the signed-in email — both cleaned by hand before release, §3 | Vercel (function; storage in the EU — function region unconfirmed), Anthropic (model; deletes within 30 days, no training) |
-| Anonymous usage events | `src/features/analytics/analyticsClient.ts` → `api/events.ts` | Random install id + event names, timestamps, `step` / `path` | Batches as private blobs (Vercel, EU); deleted after 24 months by the daily cron (`api/prune-events.ts`, `docs/usage-events.md`) | Vercel |
+| Cloud backup (optional, Google sign-in) | `src/features/account/backupApi.ts` → `api/backup.ts` | Google ID token + the whole app database (profile, log, body data, programmes, preferences) | The backup JSON, filed under HMAC(Google `sub`) in a **private** Vercel Blob store (EU region per `docs/account-backup.md`). No email, no name, no logs of payloads. | Vercel (function and storage in Stockholm, `arn1`), Google (token verification) |
+| AI coach online mode, programme composer, photo import | `src/lib/aiCoachClient.ts` → `api/ai-coach.ts` | Question + conversation history + training summary **including latest weight, measurements, height, age, gender, goals and setup answers**; the composer brief; the downscaled photo | **Nothing by default. With consent, three separate lines each starting at no** (`aiLogChatConsent` / `aiLogComposerConsent` / `aiLogPhotoConsent`): `keepTranscript()` files the question and its answer, the brief and the proposal it produced, or the photo itself plus the rows read out of it, as `transcripts/<day>/<aiLogId>--…`. **Never the training summary** — that is sent, answered from, and dropped. Swept at 24 months by `api/prune-events.ts`; turning any one line off calls a forget route that deletes every copy under the label, whichever line made it. The same prefix also holds entries a development log wrote **before #92**, without consent, and chat copies written before #128 carry the signed-in email — both cleaned by hand before release, §3 | Vercel (function and storage in Stockholm, `arn1`), Anthropic (model, United States; deletes within 30 days, no training) |
+| Anonymous usage events | `src/features/analytics/analyticsClient.ts` → `api/events.ts` | Random install id + event names, timestamps, `step` / `path` | Batches as private blobs (Vercel, EU); deleted after 24 months by the daily cron (`api/prune-events.ts`, `docs/usage-events.md`) | Vercel (function and storage in Stockholm, `arn1`) |
+
+**Regions verified 2026-09-16**, on the production deployment of that day.
+*Storage:* `vercel blob list-stores --scope vinha-fit` shows the one store,
+`vinha-backups`, in `arn1` — backups, usage events and coach copies all live there.
+*Functions:* `vercel inspect` shows the five functions it lists as `[arn1]` (it hides
+one), and responses from `/api/transcripts` and `/api/coach-health` carry
+`x-vercel-id: arn1::arn1::…` — the second segment is where the function actually ran.
+On the Hobby plan the function region is a dashboard setting (Settings → Functions →
+Function Region); `vercel.json` cannot set it and is ignored if it tries, and a
+changed setting applies to the next deploy.
+Vercel itself is a US company, so the policy's standard-contractual-clauses sentence
+still applies to it; what is settled is where the code runs and the data sits.
 
 Everything else stays on the device: eight AsyncStorage keys (`@vinha/account`,
 `analytics`, `coach/memory`, `database`, `database/corrupt`, `preferences`,
@@ -101,12 +113,24 @@ label, not on the line; the policy says the same since 2026-09-16.)
   One more pass over the kind that stays: a chat copy written before #128 was
   deployed carries the signed-in email in a `reporter` field. Strip the field, or
   delete those entries, before the Email row in §2 can be answered as transient.
+  The reader endpoint never returns the address; `node scripts/coach-transcripts.cjs
+  --withheld --limit 500` lists the entries that hold one. The endpoint returns at
+  most 500 of the newest, so check the total it reports: past 500, the list is not
+  the whole store.
+
+  **As it stood on 2026-09-16:** 123 entries, every one of them the pre-#92 kind — no
+  label, and all dated 2026-08-23 to 2026-09-08, none after 11 September. 44 of them
+  hold an email, all from 23 to 27 August. No consented copy existed. On that snapshot
+  the cleanup removes all 123 — re-count on the day, since a reader who ticks a line
+  adds the kind that stays, and an unlabelled entry dated after 11 September would
+  mean an old deploy was still writing without consent.
 
   And do not read a green suite as the answer here: `releaseReadiness` only
   enforces the constant once `demoBuild` is cleared, so today the suite passes
   with the switch on (verified 2026-09-16). Open the file and look at the value.
-- #128 deployed to Vercel — the endpoint stops accepting an email on the next
-  deploy, not on merge.
+- #128 live on Vercel — verified 2026-09-16 on production: a malformed `since` is
+  refused with 400, and no returned entry carries a `reporter` key. Still true on
+  the day if nothing older has been redeployed over it.
 - `demoBuild` removed from `app.json`.
 - Pro can actually be bought through Google Play, or the copy stops saying it can.
   The policy says the payment "is handled entirely by Google Play" and that Play
@@ -117,8 +141,10 @@ label, not on the line; the policy says the same since 2026-09-16.)
   No billing library is installed — the paywall is deliberately device-side
   until Play Billing lands — so on submission day either the billing exists or
   those sentences do not.
-- Vercel Blob store region confirmed **EU** in the Vercel dashboard — the policy
-  says so in both languages.
+- Storage and functions still in the EU — the policy says so in both languages.
+  Verified 2026-09-16 (§1); on the day, re-check both: `vercel blob list-stores
+  --scope vinha-fit` for the store, and the second segment of `x-vercel-id` on any
+  `/api/*` response for the functions.
 - Privacy policy URL in Play Console points at the published policy, and the
   in-app text is the same version (`LEGAL_LAST_UPDATED`).
 - The public account-deletion URL is live and entered in the form (§2).
