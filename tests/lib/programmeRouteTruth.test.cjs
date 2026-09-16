@@ -102,4 +102,65 @@ module.exports = [
       );
     },
   },
+  {
+    name: 'route truth: a copy made by editing a lift keeps the block, the lead and the history',
+    run() {
+      // The copy IS the programme the reader has been training. Stamping the
+      // new plan with today turned "week 3, 7 of 24" into "week 1, 0 of 24"
+      // for changing one lift.
+      assert.match(code, /const replacedPlan = wasRunning\s*\? database\.workoutPlans\.find\(\(item\) => item\.id === readyPlanId\) \?\? null\s*: null;/);
+      assert.match(code, /now: replacedPlan\?\.updatedAt \?\? new Date\(\)\.toISOString\(\),/);
+      // Taking the ready programme's place is not the same as taking the
+      // lead: editing a lift in a programme the reader holds but does not
+      // lead with used to promote it over the one Home was running.
+      assert.match(
+        code,
+        /activePlanId:\s*preferences\.activePlanId === readyPlanId \? plan\.id : preferences\.activePlanId \?\? plan\.id,/,
+      );
+      // And every counter reads the programme, not the record holding it.
+      assert.match(
+        code,
+        /\.\.\.programmeHistoryIds\(activeTemplate\.id, workoutTemplates, templatesRunByOtherPlans\(activeTemplate\.id\)\),/,
+      );
+    },
+  },
+  {
+    name: 'route truth: the completion card is answered once per round, not once per plan',
+    run() {
+      // The step-up used to put the card away before it tried to adopt, so a
+      // reader at the free cap saw the paywall, said no, and lost the offer.
+      assert.match(
+        code,
+        /const adopted = await handleAdoptReadyProgram\(nextTemplateId, \{ lead: true \}\);\s*if \(adopted\) \{\s*await dismissCompletionCard\(planId\);/,
+      );
+      // And a restart clears the dismissal rather than adding one: the card
+      // hides because the block is no longer finished, and the list it was
+      // added to is never cleared — so finishing the same programme a second
+      // time was never acknowledged.
+      const restart = code.slice(code.indexOf('async function handleCompletionRestart'), code.indexOf('const activeProgramTemplateIds'));
+      assert.match(restart, /dismissedCompletionPlanIds: preferences\.dismissedCompletionPlanIds\.filter\(\(id\) => id !== planId\)/);
+      assert.doesNotMatch(restart, /await dismissCompletionCard\(planId\);/);
+    },
+  },
+  {
+    name: 'route truth: today moves on under an app that was left open',
+    run() {
+      // "Today" was read from new Date() inside memos whose dependencies hold
+      // no time at all, so a phone left open overnight kept yesterday's
+      // picked session, dots and rows until it was closed.
+      assert.match(code, /const \[todayKey, setTodayKey\] = useState\(\(\) => localDateKey\(new Date\(\)\)\);/);
+      // Both triggers: the app coming back, and a timer set for the next
+      // local midnight — a calendar date, not 24 hours on, so the clock
+      // change cannot push it into the wrong day.
+      assert.match(code, /AppState\.addEventListener\('change', \(state\) => \{\s*if \(state === 'active'\) \{\s*sync\(\);/);
+      assert.match(code, /new Date\(now\.getFullYear\(\), now\.getMonth\(\), now\.getDate\(\) \+ 1, 0, 0, 5\)\.getTime\(\)/);
+      // And the memos read it, rather than the clock.
+      assert.match(code, /const todayDayStart = todayStartMs;/);
+      // The timer re-arms itself rather than being re-armed by the state it
+      // sets: a fire that finds the same date leaves the state untouched, and
+      // an effect keyed on it would never set another timer (PR #125 review).
+      assert.match(code, /timer = setTimeout\(\(\) => \{\s*sync\(\);\s*arm\(\);\s*\}/);
+      assert.match(code, /\}, \[[^\]]*todayStartMs[^\]]*\]\);/);
+    },
+  },
 ];

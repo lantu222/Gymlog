@@ -354,6 +354,7 @@ const suites = [
   ...require('./lib/plateMath.test.cjs'),
   ...require('./lib/programAdoption.test.cjs'),
   ...require('./lib/planRotation.test.cjs'),
+  ...require('./lib/programLineage.test.cjs'),
   ...require('./integration/planRotationAdvances.test.cjs'),
   ...require('./lib/programTrainingDays.test.cjs'),
   ...require('./lib/trainingWeekSync.test.cjs'),

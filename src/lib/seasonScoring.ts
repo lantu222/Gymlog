@@ -92,24 +92,32 @@ export function computeSeasonProgress(
     now?: Date;
     records?: number;
     /**
-     * The season's one program. Only work logged against IT scores.
+     * The season's one program, and the reader's own copies of it. Only work
+     * logged against those scores.
      *
      * Without this the competition leaks: someone running a six-day program of
      * their own would out-point someone running the three-day season program,
      * which is the exact unfairness one shared program exists to remove. A
      * season is one event, and points come from the event.
+     *
+     * It is a list because editing one lift in the season programme hands the
+     * reader their own copy of it, under a new template id — and that used to
+     * drop them out of the competition silently, mid-season, for changing a
+     * lift they cannot do (2026-09-16). The copy is the same programme; see
+     * programLineage. Null means no filter, which is what the past-season
+     * report needs; an empty list means nothing scores.
      */
-    programId?: string | null;
+    programIds?: readonly string[] | null;
   } = {},
 ): SeasonProgress {
-  const { weeklyTarget = null, now = new Date(), records = 0, programId = null } = options;
+  const { weeklyTarget = null, now = new Date(), records = 0, programIds = null } = options;
   const currentWeek = Math.max(1, seasonWeek(window, now));
 
   const perWeek = new Map<number, number>();
   let workouts = 0;
 
   for (const session of sessions) {
-    if (programId !== null && session.workoutTemplateId !== programId) {
+    if (programIds !== null && !programIds.includes(session.workoutTemplateId ?? '')) {
       continue;
     }
     const stamp = Date.parse(session.performedAt);

@@ -349,7 +349,7 @@ module.exports = [
       const mine = computeSeasonProgress(
         [own(1), own(2), own(3), own(4), own(5), own(6)],
         window,
-        { weeklyTarget: 3, programId: 'tpl_season', now: at(2026, 4, 6) },
+        { weeklyTarget: 3, programIds: ['tpl_season'], now: at(2026, 4, 6) },
       );
       assert.equal(mine.points, 0);
       assert.equal(mine.workouts, 0);
@@ -357,7 +357,7 @@ module.exports = [
       const theirs = computeSeasonProgress(
         [seasonSession(1), seasonSession(3), seasonSession(5), own(2), own(4)],
         window,
-        { weeklyTarget: 3, programId: 'tpl_season', now: at(2026, 4, 6) },
+        { weeklyTarget: 3, programIds: ['tpl_season'], now: at(2026, 4, 6) },
       );
       assert.equal(theirs.workouts, 3);
       assert.equal(theirs.points, 3 * POINTS_PER_WORKOUT + POINTS_PER_FULL_WEEK);
@@ -375,7 +375,7 @@ module.exports = [
       // would call four workouts a missed week.
       const app = require('../helpers/appWiringSource.cjs').readAppWiring();
       assert.match(app, /weeklyTarget: seasonProgramTemplate\?\.daysPerWeek \?\? null/);
-      assert.match(app, /programId: seasonProgramId/);
+      assert.match(app, /programIds: programmeLineageIds\(seasonProgramId, database\.workoutTemplates\)/);
       // And the copy says the rule, because a reader whose own workouts score
       // nothing deserves to know why before they log one.
       const i18n = read('src', 'lib', 'i18n.ts');
@@ -565,6 +565,40 @@ module.exports = [
       assert.equal(winter.year, 2026);
       assert.equal(formatSeasonDateRange(winter, 'fi', 'whenSpanning'), '1.10.–31.3.2027');
       assert.equal(formatSeasonDateRange(winter, 'en', 'whenSpanning'), '1/10–31/3/2027');
+    },
+  },
+  {
+    name: 'a reader who changes one lift in the season programme stays in the season',
+    run() {
+      const window = resolveSeasonWindow(at(2026, 4, 5));
+      const before = (day) => ({ id: `b-${day}`, workoutTemplateId: 'tpl_season', performedAt: at(2026, 4, day).toISOString() });
+      // Editing a lift hands the reader their own copy, under a new id. Their
+      // season used to end there, silently, for changing a lift they cannot
+      // do (2026-09-16).
+      const after = (day) => ({ id: `a-${day}`, workoutTemplateId: 'copy_of_season', performedAt: at(2026, 4, day).toISOString() });
+
+      const dropped = computeSeasonProgress([before(1), after(3), after(5)], window, {
+        weeklyTarget: 3,
+        programIds: ['tpl_season'],
+        now: at(2026, 4, 6),
+      });
+      assert.equal(dropped.workouts, 1);
+
+      const kept = computeSeasonProgress([before(1), after(3), after(5)], window, {
+        weeklyTarget: 3,
+        programIds: ['tpl_season', 'copy_of_season'],
+        now: at(2026, 4, 6),
+      });
+      assert.equal(kept.workouts, 3);
+      assert.equal(kept.points, 3 * POINTS_PER_WORKOUT + POINTS_PER_FULL_WEEK);
+
+      // Somebody else's programme still scores nothing.
+      const other = computeSeasonProgress([{ id: 'x', workoutTemplateId: 'tpl_mine', performedAt: at(2026, 4, 2).toISOString() }], window, {
+        weeklyTarget: 3,
+        programIds: ['tpl_season', 'copy_of_season'],
+        now: at(2026, 4, 6),
+      });
+      assert.equal(other.workouts, 0);
     },
   },
 ];
