@@ -25,8 +25,11 @@ export interface ProgrammeLineageTemplate {
  * Every template id that counts as the same programme as `templateId`: the
  * template itself, the catalog programme it was copied from, and every copy
  * made from that same original — a reader who edited, reset and edited again
- * has two copies of one programme, and the block they are running is the same
- * block either way.
+ * has two copies of one programme.
+ *
+ * This is the whole family, and it is what a SEASON asks for: the season's
+ * programme scores, and so does the reader's own copy of it. A counter that
+ * measures one plan's block wants `programmeHistoryIds` instead — see there.
  *
  * The ids come back in a stable order: the given one first, then the source,
  * then the siblings in the order they are stored.
@@ -109,4 +112,23 @@ export function alignHistoryToCopiedDays<T extends LineageSession>(
       workoutTemplateSessionId: toSessionIds[dayIndex],
     };
   });
+}
+
+/**
+ * The ids whose logged work belongs to THIS programme's block: the template
+ * itself and the one it was copied from.
+ *
+ * Deliberately not the siblings. A copy inherits the history of the
+ * programme it was made from — that is the whole point — but work logged in
+ * somebody's OTHER copy of the same original belongs to that copy's own
+ * block, and counting it here would inflate a week counter with sessions the
+ * reader trained under a different plan (review of this change, 2026-09-16).
+ */
+export function programmeHistoryIds(
+  templateId: string,
+  templates: readonly ProgrammeLineageTemplate[],
+): string[] {
+  const own = templates.find((template) => template.id === templateId) ?? null;
+  const source = own?.sourceTemplateId ?? null;
+  return source && source !== templateId ? [templateId, source] : [templateId];
 }

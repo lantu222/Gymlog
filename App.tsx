@@ -181,7 +181,7 @@ import {
 import { suggestHomeStatCardKeys } from './src/lib/homeCardSuggestions';
 import { isMeasurementCardKey } from './src/lib/homeStatCards';
 import { resolveNextPlanEntryIndex } from './src/lib/planRotation';
-import { alignHistoryToCopiedDays, programmeLineageIds } from './src/lib/programLineage';
+import { alignHistoryToCopiedDays, programmeHistoryIds } from './src/lib/programLineage';
 import { cycleSchedule, trainsOn, weekdaySchedule } from './src/lib/trainingSchedule';
 import {
   planWeekdayIndexes,
@@ -1693,8 +1693,13 @@ function VinhaApp() {
    * line up — and when they stop lining up, nothing is translated rather than
    * a day being guessed at (see programLineage).
    */
-  function completedSessionsForTemplate(workoutTemplateId: string | null | undefined) {
-    const sessions = getCanonicalCompletedSessions(database);
+  function completedSessionsForTemplate(
+    workoutTemplateId: string | null | undefined,
+    // The canonical list walks every logged session, so a caller that has
+    // already built it hands it over rather than paying for it twice.
+    completed?: readonly ReturnType<typeof getCanonicalCompletedSessions>[number][],
+  ) {
+    const sessions = completed ?? getCanonicalCompletedSessions(database);
     const copy = workoutTemplateId
       ? database.workoutTemplates.find((template) => template.id === workoutTemplateId) ?? null
       : null;
@@ -1703,7 +1708,7 @@ function VinhaApp() {
       return sessions;
     }
     return alignHistoryToCopiedDays(sessions, {
-      fromTemplateIds: programmeLineageIds(copy.id, database.workoutTemplates),
+      fromTemplateIds: programmeHistoryIds(copy.id, database.workoutTemplates),
       fromSessionIds: source.sessions.map((session) => session.id),
       toTemplateId: copy.id,
       toSessionIds: getWorkoutTemplateSessions(copy.id).map((session) => session.id),
@@ -3784,7 +3789,10 @@ function VinhaApp() {
       });
       // Was `homeSessions[0]`, always. Finishing day 1 offered day 1 again,
       // and the start button logged the wrong session against the plan.
-      const nextSessionIndex = resolveNextPlanEntryIndex(sortedEntries, completedSessionsForTemplate(firstEntry.workoutTemplateId));
+      const nextSessionIndex = resolveNextPlanEntryIndex(
+        sortedEntries,
+        completedSessionsForTemplate(firstEntry.workoutTemplateId, completedPlanSessions),
+      );
       // The reader's own answer wins for the day they gave it. The rotation
       // knows what comes next in the programme and cannot know that today is
       // legs — but it is right again tomorrow, so the override is dated rather
@@ -3804,7 +3812,7 @@ function VinhaApp() {
         // training, and every counter below reads this set.
         const planTemplateIds = new Set([
           ...sortedEntries.map((entry) => entry.workoutTemplateId),
-          ...programmeLineageIds(activeTemplate.id, workoutTemplates),
+          ...programmeHistoryIds(activeTemplate.id, workoutTemplates),
         ]);
         // Counted from the plan record's own start, not all time. Plan records
         // are only written at onboarding, adoption and restart, so `updatedAt`

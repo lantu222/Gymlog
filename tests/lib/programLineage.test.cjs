@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 
 const {
   alignHistoryToCopiedDays,
+  programmeHistoryIds,
   programmeLineageIds,
 } = require('../../.test-dist/lib/programLineage.js');
 
@@ -94,6 +95,22 @@ module.exports = [
         }),
         sessions,
       );
+    },
+  },
+  {
+    name: 'lineage: a block counts its own history, not another copy of the same programme',
+    run() {
+      // A copy inherits the programme it was made from — that is the point —
+      // but work logged in somebody's OTHER copy belongs to that copy's own
+      // block, and counting it would inflate this one's week counter.
+      assert.deepEqual(programmeHistoryIds('copy_1', TEMPLATES), ['copy_1', 'tpl_full_body']);
+      assert.deepEqual(programmeHistoryIds('tpl_full_body', TEMPLATES), ['tpl_full_body']);
+      assert.deepEqual(programmeHistoryIds('own', TEMPLATES), ['own']);
+      assert.deepEqual(programmeHistoryIds('tpl_unknown', TEMPLATES), ['tpl_unknown']);
+      // A record that somehow points at itself is still one id, not two.
+      assert.deepEqual(programmeHistoryIds('loop', [{ id: 'loop', sourceTemplateId: 'loop' }]), ['loop']);
+      // The season still asks for the whole family.
+      assert.ok(programmeLineageIds('tpl_full_body', TEMPLATES).includes('copy_2'));
     },
   },
 ];

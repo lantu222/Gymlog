@@ -452,7 +452,7 @@ module.exports = [
       // yesterday (2026-09-16).
       assert.match(
         appSource,
-        /resolveNextPlanEntryIndex\(sortedEntries, completedSessionsForTemplate\(firstEntry\.workoutTemplateId\)\)/,
+        /resolveNextPlanEntryIndex\(\s*sortedEntries,\s*completedSessionsForTemplate\(firstEntry\.workoutTemplateId, completedPlanSessions\),\s*\)/,
       );
       assert.match(appSource, /equipmentLabel: buildSessionEquipmentLabel\(/);
       assert.match(appSource, /totalSets: session\.exercises\.reduce/);

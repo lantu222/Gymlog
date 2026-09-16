@@ -118,7 +118,7 @@ module.exports = [
         /activePlanId:\s*preferences\.activePlanId === readyPlanId \? plan\.id : preferences\.activePlanId \?\? plan\.id,/,
       );
       // And every counter reads the programme, not the record holding it.
-      assert.match(code, /\.\.\.programmeLineageIds\(activeTemplate\.id, workoutTemplates\),/);
+      assert.match(code, /\.\.\.programmeHistoryIds\(activeTemplate\.id, workoutTemplates\),/);
     },
   },
   {
