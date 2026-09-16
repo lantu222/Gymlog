@@ -42,7 +42,6 @@ import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { getFocusAreaLabel } from '../lib/focusAreaPresentation';
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
-import { AI_COACH_DEBUG_TRANSCRIPTS } from '../lib/aiCoachDebug';
 import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { layout, radii, spacing } from '../theme';
@@ -163,8 +162,6 @@ interface AICoachChatScreenProps {
    * than a paywall.
    */
   onOpenProgramme: (programId: string) => void;
-  /** TEMPORARY: the signed-in email, attached to the development transcript log. */
-  transcriptReporter: string | null;
   /**
    * The thread as it stood when this screen was last open, or null to start a
    * new one.
@@ -302,7 +299,6 @@ export function AICoachChatScreen({
   onComposeProgramme,
   onSaveProgramme,
   onOpenProgramme,
-  transcriptReporter,
   memory,
   onMemoryChange,
   onAdviceGiven,
@@ -445,7 +441,7 @@ export function AICoachChatScreen({
   // the honest way to fill the screen and the claim Pro is sold on.
   const readout = useMemo(
     () => buildCoachContextReadout(trainingContext, language),
-    [language, trainingContext, transcriptReporter],
+    [language, trainingContext],
   );
   const noticed = useMemo(
     () => (proUnlocked ? buildCoachNoticed(intro.weeklyRead, language) : []),
@@ -845,7 +841,6 @@ export function AICoachChatScreen({
           // No label, nothing kept: the server refuses the write without one,
           // which closes the window between the first yes and the id landing.
           ...(logConsent.chat && logId ? { logId } : {}),
-          ...(AI_COACH_DEBUG_TRANSCRIPTS && transcriptReporter ? { reporter: transcriptReporter } : {}),
         }, controller.signal);
         if (token !== askToken.current) {
           return;

@@ -405,10 +405,11 @@ module.exports = [
       assert.equal(
         match[1],
         'false',
-        'AI_COACH_DEBUG_TRANSCRIPTS is still true: the coach endpoint logs the reporter and the effort override '
-          + 'on conversations nobody consented to. Flip it to false (or delete src/lib/aiCoachDebug.ts) and unset '
-          + 'AI_COACH_DEBUG_TRANSCRIPTS in Vercel. Leave the consented copies alone: they are what the reader allowed, '
-          + 'the 24-month cron sweeps them, and the Settings switch deletes them.',
+        'AI_COACH_DEBUG_TRANSCRIPTS is still true: the coach endpoint still honours the effort and model '
+          + 'overrides, and api/transcripts.ts still reads the log back. Flip it to false (or delete '
+          + 'src/lib/aiCoachDebug.ts) and unset AI_COACH_DEBUG_TRANSCRIPTS in Vercel. Leave the consented copies '
+          + 'alone: they are what the reader allowed, the 24-month cron sweeps them, and the Settings switch '
+          + 'deletes them.',
       );
     },
   },

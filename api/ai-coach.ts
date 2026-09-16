@@ -496,7 +496,6 @@ function parseBody(body: unknown): ParsedBody | null {
     history: sanitizeHistory(candidate.history),
     language: candidate.language === 'fi' || candidate.language === 'en' ? candidate.language : undefined,
     mode: candidate.mode === 'compose' ? 'compose' : 'advice',
-    reporter: typeof candidate.reporter === 'string' && candidate.reporter.length <= 200 ? candidate.reporter : undefined,
     /**
      * Whether this reader has said the server may keep a copy of the text.
      *
@@ -1299,7 +1298,6 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   // training context is never written down on any of these paths.
   await keepTranscript(input.keepConsent, input.logId, {
     kind: 'chat',
-    reporter: input.reporter ?? null,
     language: input.language,
     model: CLAUDE_MODEL,
     durationMs: Date.now() - startedAt,

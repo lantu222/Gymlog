@@ -400,7 +400,6 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
         onOpenProgramme={(programId) =>
           navigate({ tab: 'workout', screen: 'program', programType: 'ready', workoutTemplateId: programId })
         }
-        transcriptReporter={accountBackup.state.status === 'signed_in' ? accountBackup.state.email : null}
         memory={coachChatMemory}
         onMemoryChange={onCoachChatMemoryChange}
         onAdviceGiven={onCoachAdviceGiven}

@@ -302,6 +302,48 @@ module.exports = [
     },
   },
   {
+    name: 'a coach question carries no account identity, and the server will not take one',
+    run() {
+      // The policy says of a coach question: "The question cannot be tied to
+      // you." For a while it could. A development field carried the signed-in
+      // account's email with every request, and when the reader had allowed a
+      // copy to be kept, the email was filed next to the question.
+      //
+      // Two halves, and the second is the one that mattered. The client sent
+      // the field only while AI_COACH_DEBUG_TRANSCRIPTS was on, so flipping
+      // that constant looked like the fix — but the endpoint accepted the
+      // field from anyone, ungated, so an older install kept sending it and
+      // the server kept writing it down. A gate on the sender is not a gate.
+      //
+      // Named fields rather than the word: `reporter` is ordinary English and
+      // a comment explaining this is not a regression.
+      const endpoint = read('api/ai-coach.ts');
+      for (const forbidden of ['candidate.reporter', 'input.reporter', 'reporter:']) {
+        assert.ok(
+          !endpoint.includes(forbidden),
+          `api/ai-coach.ts reads or writes ${forbidden}. The coach endpoint must not accept an account `
+            + 'identity, whatever the client sends and whatever the debug flag says.',
+        );
+      }
+
+      // And nothing on the phone puts an address into a coach request.
+      const senders = ['src/screens/AICoachChatScreen.tsx', 'src/lib/aiCoachClient.ts', 'src/app/renderHomeScreens.tsx'];
+      for (const file of senders) {
+        const source = read(file);
+        assert.ok(
+          !/transcriptReporter|reporter:/.test(source),
+          `${file} still attaches an account identity to a coach request`,
+        );
+      }
+      // The email reaches the chat screen through no other name, either: the
+      // account state is the one place it lives, and it belongs to the backup.
+      assert.ok(
+        !/state\.email/.test(read('src/app/renderHomeScreens.tsx').split('<AICoachChatScreen')[1] ?? ''),
+        'renderHomeScreens hands the account email to the coach screen under some other prop name',
+      );
+    },
+  },
+  {
     name: 'the exported Markdown matches the in-app documents',
     run() {
       for (const id of IDS) {
