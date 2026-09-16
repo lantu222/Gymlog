@@ -326,21 +326,56 @@ module.exports = [
         );
       }
 
-      // And nothing on the phone puts an address into a coach request.
-      const senders = ['src/screens/AICoachChatScreen.tsx', 'src/lib/aiCoachClient.ts', 'src/app/renderHomeScreens.tsx'];
-      for (const file of senders) {
-        const source = read(file);
+      // And nothing on the phone puts one into a coach request. The files are
+      // found by what they import, not listed by hand: the composer and the
+      // photo import build requests in files a hand-written list forgot.
+      const sources = [path.join(root, 'App.tsx')];
+      const walkSource = (dir) => {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          const full = path.join(dir, entry.name);
+          if (entry.isDirectory()) walkSource(full);
+          else if (/\.tsx?$/.test(entry.name)) sources.push(full);
+        }
+      };
+      walkSource(path.join(root, 'src'));
+      const files = sources.map((full) => ({ file: path.relative(root, full), text: fs.readFileSync(full, 'utf8') }));
+
+      const coachCallers = files.filter(({ file, text }) => file.endsWith('aiCoachClient.ts') || /aiCoachClient'/.test(text));
+      assert.ok(
+        coachCallers.length >= 3,
+        `expected the coach client and at least two callers, found: ${coachCallers.map(({ file }) => file).join(', ')}`,
+      );
+      for (const { file, text } of coachCallers) {
         assert.ok(
-          !/transcriptReporter|reporter:/.test(source),
-          `${file} still attaches an account identity to a coach request`,
+          !/transcriptReporter|reporter:/.test(text),
+          `${file} attaches an account identity to a coach request`,
         );
       }
-      // The email reaches the chat screen through no other name, either: the
-      // account state is the one place it lives, and it belongs to the backup.
-      assert.ok(
-        !/state\.email/.test(read('src/app/renderHomeScreens.tsx').split('<AICoachChatScreen')[1] ?? ''),
-        'renderHomeScreens hands the account email to the coach screen under some other prop name',
-      );
+
+      // The chat screen is the one that was handed the email as a prop, so
+      // every place it is rendered is read to the end of its element — the
+      // line that closes it at the same indentation, so a nested `<Icon />`
+      // inside a prop does not end the read early. And at least one render
+      // must be found: a guard that finds nothing to look at passes forever.
+      const renders = [];
+      for (const { file, text } of files) {
+        const lines = text.split(String.fromCharCode(10));
+        lines.forEach((line, index) => {
+          const open = line.match(/^(\s*)<AICoachChatScreen\b/);
+          if (!open) return;
+          const close = new RegExp(`^${open[1]}(/>|</AICoachChatScreen>)`);
+          const end = lines.findIndex((candidate, at) => at > index && close.test(candidate));
+          assert.ok(end > index, `${file}:${index + 1} — could not find where <AICoachChatScreen> closes`);
+          renders.push({ file, line: index + 1, props: lines.slice(index, end).join(String.fromCharCode(10)) });
+        });
+      }
+      assert.ok(renders.length > 0, 'AICoachChatScreen is rendered nowhere — this guard is looking in the wrong place');
+      for (const { file, line, props } of renders) {
+        assert.ok(
+          !/email|reporter/i.test(props),
+          `${file}:${line} hands an account identity to AICoachChatScreen under some prop name`,
+        );
+      }
     },
   },
   {

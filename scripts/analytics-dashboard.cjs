@@ -36,7 +36,10 @@ async function fetchTranscripts() {
         prompt: String(entry.prompt ?? ''),
         takeaway: String(entry.answer?.takeaway ?? ''),
         source: String(entry.source ?? ''),
-        reporter: entry.reporter ? String(entry.reporter) : null,
+        // The reader's log label out of the path, as coach-transcripts.cjs
+        // reads it; an entry from before 2026-09-16 may carry an email instead.
+        reporter: (/\/([a-f0-9-]{8,64})--/.exec(String(entry.pathname ?? '')) ?? [])[1]
+          ?? (entry.reporter ? String(entry.reporter) : null),
       }))
       .filter((entry) => entry.prompt);
   } catch {
