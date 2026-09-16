@@ -141,7 +141,7 @@ label, not on the line; the policy says the same since 2026-09-16.)
   No billing library is installed — the paywall is deliberately device-side
   until Play Billing lands — so on submission day either the billing exists or
   those sentences do not.
-- Storage and functions still in the EU — the policy says so in both languages.
+- Storage still in the EU — the policy says so in both languages; the function region (§1) is not claimed there.
   Verified 2026-09-16 (§1); on the day, re-check both: `vercel blob list-stores
   --scope vinha-fit` for the store, and the second segment of `x-vercel-id` on any
   `/api/*` response for the functions.
