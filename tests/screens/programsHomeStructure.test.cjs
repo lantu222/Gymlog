@@ -621,7 +621,10 @@ module.exports = [
       assert.match(app, /if \(!template\) \{[\s\S]{0,40}?return null;/);
       // One notion of "active" for the whole list, the same one the authored
       // rows ask, so two rows cannot both be marked by different rules.
-      assert.match(app, /const active = homeActivePlanCard\?\.programId === row\.templateId;/);
+      // The lead plan's own template, not Home's hero card, which is null
+      // whenever the hero cannot be built (device, 2026-09-16).
+      assert.match(app, /const active = leadingTemplateId === row\.templateId;/);
+      assert.match(app, /active: leadingTemplateId === template\.id,/);
       assert.match(app, /^\s+active,$/m);
 
       // One name for one programme. Home resolved season titles and ready

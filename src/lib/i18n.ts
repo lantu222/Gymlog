@@ -1611,9 +1611,10 @@ const EN = {
   'account.deleteRemote.sub': 'Removes the copy on the server, keeps this phone',
   'account.restore.title': 'Backup found',
   'account.restore.body':
-    'Your account has a backup from {date}: {workouts} workouts, {programs} programs. This phone also has data. Which one do you keep?',
+    'Your account has a backup from {date}: {workouts} workouts, {programs} programs. This phone also has data. Which one do you keep? The other is replaced.',
   'account.restore.useBackup': 'Restore backup',
-  'account.restore.keepLocal': 'Keep this phone',
+  // "Keep this phone" read as keeping the device (user, 2026-09-16).
+  'account.restore.keepLocal': 'Use the data on this phone',
   'account.restore.restored': 'Backup restored',
   'account.restore.failed': 'Could not restore the backup. Nothing on this phone changed.',
   'account.prompt.title': 'Keep your training safe',
@@ -4648,9 +4649,9 @@ const FI: Record<I18nKey, string> = {
   'account.deleteRemote.sub': 'Poistaa kopion palvelimelta, tämä puhelin säilyy',
   'account.restore.title': 'Varmuuskopio löytyi',
   'account.restore.body':
-    'Tililläsi on varmuuskopio ({date}): {workouts} treeniä, {programs} ohjelmaa. Tälläkin puhelimella on dataa. Kumpi pidetään?',
+    'Tililläsi on varmuuskopio ({date}): {workouts} treeniä, {programs} ohjelmaa. Tälläkin puhelimella on dataa. Kumpi pidetään? Toinen korvataan.',
   'account.restore.useBackup': 'Palauta varmuuskopio',
-  'account.restore.keepLocal': 'Pidä tämä puhelin',
+  'account.restore.keepLocal': 'Käytä puhelimen tietoja',
   'account.restore.restored': 'Varmuuskopio palautettu',
   'account.restore.failed': 'Varmuuskopiota ei voitu palauttaa. Puhelimen tiedot eivät muuttuneet.',
   'account.prompt.title': 'Pidä treenisi tallessa',

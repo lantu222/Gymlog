@@ -252,6 +252,27 @@ module.exports = [
         player,
         /style=\{\(\{ pressed \}\) => \[styles\.runEditChip, pressed && \{ opacity: 0\.7 \}\]\}\s*>\s*<GPIcon name="edit"/,
       );
+      // Orange in both themes: `highlight` is violet in light, and the chip
+      // read as purple on the reader's phone (device, 2026-09-16).
+      assert.match(player, /<GPIcon name="edit" size=\{13\} color=\{theme\.orange\} sw=\{2\.4\} \/>/);
+      assert.match(player, /runEdit: \{ flexShrink: 1, fontSize: 13, fontWeight: '800', color: theme\.orange \}/);
+      assert.match(player, /runEditChip: \{[^}]*borderColor: theme\.orange,\s*backgroundColor: theme\.orangeSoft,/);
+      // A long session scrolls: the list is bounded by the screen, because the
+      // sheet's maxHeight does not bound a ScrollView inside it (device,
+      // 2026-09-16 — the last lifts could not be reached).
+      assert.match(
+        player,
+        /const runSheetListMaxHeight = Math\.round\(Math\.min\(windowHeight \* 0\.6, windowHeight \* 0\.78 - 160\)\);/,
+      );
+      // And the sheet it sits in is still capped at the 78 % that bound uses.
+      assert.match(player, /  sheet: \{[^}]*maxHeight: '78%',/);
+      assert.match(
+        player,
+        /<Text style=\{styles\.sheetTitle\}>\{t\(language, 'guided\.runSheet\.title'\)\}<\/Text>\s*<ScrollView style=\{\{ flexGrow: 0, maxHeight: runSheetListMaxHeight \}\}>/,
+      );
+      const { lightTheme, darkTheme } = require('../../../.test-dist/theming.js');
+      assert.equal(darkTheme.orange, darkTheme.highlight, 'dark keeps the one action orange');
+      assert.notEqual(lightTheme.orange, lightTheme.highlight, 'light is orange, not the brand violet');
     },
   },
 ];

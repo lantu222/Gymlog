@@ -5,6 +5,8 @@ const {
   listRunningProgrammes,
   planIdsForTemplate,
   planIdsHoldingTemplate,
+  leadTemplateId,
+  resolveLeadPlanId,
   resumeProgramme,
   stopProgramme,
 } = require('../../.test-dist/lib/runningProgrammes.js');
@@ -216,10 +218,12 @@ module.exports = [
     name: 'held programmes: switched back on under the plan it already has',
     run() {
       const plans = [plan('ready_plan_a', 'tpl_a'), plan('ready_plan_b', 'tpl_b')];
-      // Something else leads: rejoin the running set, leave the lead alone.
+      // Something else leads: rejoin the running set, and take the lead — the
+      // switch is Active, and so is the tag (device, 2026-09-16). The other
+      // keeps running.
       assert.deepEqual(
         resumeProgramme({ activePlanId: 'ready_plan_b', activePlanIds: ['ready_plan_b'], plans, templateId: 'tpl_a' }),
-        { planId: 'ready_plan_a', activePlanIds: ['ready_plan_b', 'ready_plan_a'], activePlanId: 'ready_plan_b' },
+        { planId: 'ready_plan_a', activePlanIds: ['ready_plan_b', 'ready_plan_a'], activePlanId: 'ready_plan_a' },
       );
       // Nothing leads: this one does.
       assert.deepEqual(
@@ -233,6 +237,86 @@ module.exports = [
       );
       // Not held: nothing to switch on.
       assert.equal(resumeProgramme({ activePlanId: null, activePlanIds: [], plans, templateId: 'tpl_z' }), null);
+    },
+  },
+  {
+    // Off and on again, several times: the Active tag left the programme and
+    // never came back (device, 2026-09-16).
+    name: 'held programmes: off and on again, the programme is Home’s again every time',
+    run() {
+      const plans = [plan('ready_plan_a', 'tpl_a'), plan('ready_plan_b', 'tpl_b'), plan('ready_plan_c', 'tpl_c')];
+      let state = { activePlanId: 'ready_plan_a', activePlanIds: ['ready_plan_a', 'ready_plan_b', 'ready_plan_c'] };
+      for (let round = 0; round < 3; round += 1) {
+        const off = stopProgramme({ ...state, plans, templateId: 'tpl_a' });
+        state = { activePlanId: off.activePlanId, activePlanIds: off.activePlanIds };
+        assert.notEqual(state.activePlanId, 'ready_plan_a');
+        assert.equal(leadTemplateId({ activePlanId: state.activePlanId, plans }), 'tpl_b', 'the lead passes to one still running');
+        const on = resumeProgramme({ ...state, plans, templateId: 'tpl_a' });
+        state = { activePlanId: on.activePlanId, activePlanIds: on.activePlanIds };
+        assert.equal(leadTemplateId({ activePlanId: state.activePlanId, plans }), 'tpl_a');
+        assert.deepEqual([...state.activePlanIds].sort(), ['ready_plan_a', 'ready_plan_b', 'ready_plan_c']);
+      }
+    },
+  },
+  {
+    name: 'held programmes: switched on under the plan it already runs under',
+    run() {
+      // Held twice; the one it runs under is kept, not a second id added.
+      const plans = [plan('onboarding_plan_a', 'tpl_a'), plan('ready_plan_a', 'tpl_a')];
+      const resumed = resumeProgramme({ activePlanId: null, activePlanIds: ['ready_plan_a'], plans, templateId: 'tpl_a' });
+      assert.equal(resumed.planId, 'ready_plan_a');
+      assert.deepEqual(resumed.activePlanIds, ['ready_plan_a']);
+      assert.equal(resumed.activePlanId, 'ready_plan_a');
+      // Whichever place in the list that plan has.
+      const first = resumeProgramme({
+        activePlanId: null,
+        activePlanIds: ['onboarding_plan_a'],
+        plans: [...plans, plan('season_plan_a', 'tpl_a')],
+        templateId: 'tpl_a',
+      });
+      assert.equal(first.planId, 'onboarding_plan_a');
+      assert.deepEqual(first.activePlanIds, ['onboarding_plan_a']);
+      // Not running at all: the first plan that holds it.
+      assert.equal(resumeProgramme({ activePlanId: null, activePlanIds: [], plans, templateId: 'tpl_a' }).planId, 'onboarding_plan_a');
+    },
+  },
+  {
+    name: 'lead: the app repairs a stale lead, and the Active tag reads the lead plan',
+    run() {
+      const { readAppWiring } = require('../helpers/appWiringSource.cjs');
+      const wiring = readAppWiring()
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '');
+      assert.match(
+        wiring,
+        /const lead = resolveLeadPlanId\(\{\s*activePlanId: preferences\.activePlanId,\s*activePlanIds: preferences\.activePlanIds,\s*plans: database\.workoutPlans,\s*\}\);\s*if \(lead !== preferences\.activePlanId\) \{\s*void updatePreferences\(\{ activePlanId: lead \}\);/,
+      );
+      // The old repair, which looked only for an empty lead.
+      assert.doesNotMatch(wiring, /if \(!appHydrated \|\| preferences\.activePlanId\) \{/);
+      // Both kinds of row ask the lead plan, not Home's hero card.
+      assert.match(wiring, /const leadingTemplateId = leadTemplateId\(\{ activePlanId: preferences\.activePlanId, plans: database\.workoutPlans \}\);/);
+      assert.match(wiring, /active: leadingTemplateId === template\.id,/);
+      assert.match(wiring, /const active = leadingTemplateId === row\.templateId;/);
+      assert.doesNotMatch(wiring, /active: homeActivePlanCard\?\.programId === template\.id/);
+    },
+  },
+  {
+    name: 'lead: a lead naming a plan that is gone is repaired, not kept',
+    run() {
+      const plans = [plan('ready_plan_a', 'tpl_a'), plan('ready_plan_b', 'tpl_b'), { id: 'empty_plan', name: 'x', entries: [] }];
+      // A lead that exists is kept, running or not.
+      assert.equal(resolveLeadPlanId({ activePlanId: 'ready_plan_b', activePlanIds: ['ready_plan_a'], plans }), 'ready_plan_b');
+      // Gone, or empty: the first running plan that exists.
+      assert.equal(resolveLeadPlanId({ activePlanId: 'deleted_plan', activePlanIds: ['gone', 'ready_plan_a'], plans }), 'ready_plan_a');
+      assert.equal(resolveLeadPlanId({ activePlanId: 'empty_plan', activePlanIds: ['ready_plan_b'], plans }), 'ready_plan_b');
+      assert.equal(resolveLeadPlanId({ activePlanId: null, activePlanIds: ['ready_plan_a'], plans }), 'ready_plan_a');
+      // Nothing running: nothing leads.
+      assert.equal(resolveLeadPlanId({ activePlanId: 'deleted_plan', activePlanIds: [], plans }), null);
+      assert.equal(resolveLeadPlanId({ activePlanId: null, activePlanIds: ['gone'], plans }), null);
+
+      assert.equal(leadTemplateId({ activePlanId: 'ready_plan_b', plans }), 'tpl_b');
+      assert.equal(leadTemplateId({ activePlanId: 'deleted_plan', plans }), null);
+      assert.equal(leadTemplateId({ activePlanId: null, plans }), null);
     },
   },
   {

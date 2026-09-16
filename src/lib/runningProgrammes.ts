@@ -160,9 +160,14 @@ export function listHeldProgrammes(input: {
  *
  * It rejoins under the plan it already has — the block it was in, its day
  * labels, its place in the rotation — rather than being adopted afresh, which
- * would stamp a new block over the old one. It leads only when nothing else
- * does: switching a programme back on is not a request to change what Home
- * shows first. Null when the reader holds no plan for it.
+ * would stamp a new block over the old one. Null when the reader holds no plan
+ * for it.
+ *
+ * And it leads. It used to lead only when nothing else did, and to the reader
+ * the switch is called Active and so is the tag Home's programme carries:
+ * switching a programme off handed the lead to another, switching it back on
+ * did not take it back, and the tag never returned to the programme they had
+ * just made active (device, 2026-09-16). The others keep running beside it.
  */
 export function resumeProgramme(input: {
   activePlanId: string | null;
@@ -170,7 +175,11 @@ export function resumeProgramme(input: {
   plans: readonly RunningPlan[];
   templateId: string;
 }): { activePlanId: string | null; activePlanIds: string[]; planId: string } | null {
-  const plan = input.plans.find((candidate) => candidate.entries[0]?.workoutTemplateId === input.templateId);
+  // A plan it is already running under, if any, so a programme held under two
+  // ids does not start running under the second.
+  const running = new Set([input.activePlanId, ...input.activePlanIds]);
+  const holding = input.plans.filter((candidate) => candidate.entries[0]?.workoutTemplateId === input.templateId);
+  const plan = holding.find((candidate) => running.has(candidate.id)) ?? holding[0];
   if (!plan) {
     return null;
   }
@@ -178,8 +187,40 @@ export function resumeProgramme(input: {
   return {
     planId: plan.id,
     activePlanIds,
-    activePlanId: input.activePlanId ?? plan.id,
+    activePlanId: plan.id,
   };
+}
+
+/**
+ * The plan Home leads with, repaired.
+ *
+ * The stored lead is kept while it names a plan that exists. Otherwise the
+ * first running plan that exists leads, or nothing does. A lead naming a plan
+ * that is gone rendered no programme on Home and no Active tag anywhere, and
+ * nothing put it right: the repair only ever looked for an empty lead.
+ */
+export function resolveLeadPlanId(input: {
+  activePlanId: string | null;
+  activePlanIds: readonly string[];
+  plans: readonly RunningPlan[];
+}): string | null {
+  const exists = (planId: string | null | undefined): planId is string =>
+    Boolean(planId) && input.plans.some((plan) => plan.id === planId && plan.entries.length > 0);
+  if (exists(input.activePlanId)) {
+    return input.activePlanId;
+  }
+  return input.activePlanIds.find(exists) ?? null;
+}
+
+/** The programme Home leads with, or null. */
+export function leadTemplateId(input: {
+  activePlanId: string | null;
+  plans: readonly RunningPlan[];
+}): string | null {
+  if (!input.activePlanId) {
+    return null;
+  }
+  return input.plans.find((plan) => plan.id === input.activePlanId)?.entries[0]?.workoutTemplateId ?? null;
 }
 
 /** Every plan that holds one programme, for a reader who wants it gone. */

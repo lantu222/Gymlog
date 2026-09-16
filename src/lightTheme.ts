@@ -52,6 +52,9 @@ export const HG = {
   onHighlight: '#FFFFFF',
   blue: '#0A84FF',
   gold: '#E4B14C',
+  // Deep enough to read as 13px text on white (about 5:1).
+  orange: '#C2410C',
+  orangeSoft: 'rgba(234, 88, 12, 0.10)',
   // Caution and danger, as tokens rather than the fixed `PW`/inline hexes the
   // screens used to carry. A "you may be missing a rack" note and a "delete
   // this program" button are the same two moments in both themes; only the
