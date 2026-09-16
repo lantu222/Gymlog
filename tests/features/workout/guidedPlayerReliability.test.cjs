@@ -211,4 +211,40 @@ module.exports = [
       assert.equal(rollPastLoggedWork(steps, 0, () => false), 0);
     },
   },
+  {
+    name: 'guided: the walk-up is read in one glance',
+    run() {
+      // A two-line name pushed the walk-up into a scroll (device,
+      // 2026-09-16). The name holds one line and the type gives way instead.
+      const player = read('src', 'screens', 'GuidedPlayerScreen.tsx');
+      const walk = player.slice(player.indexOf("{t(language, 'guided.nextUp')}"), player.indexOf("t(language, 'guided.walk.today')"));
+      assert.match(
+        walk,
+        /<Text\s*style=\{styles\.positionName\}\s*numberOfLines=\{1\}\s*adjustsFontSizeToFit\s*minimumFontScale=\{0\.5\}\s*>/,
+      );
+      assert.match(walk, /height=\{210\}/);
+    },
+  },
+  {
+    name: 'guided: the session holds still while its contents sheet is open',
+    run() {
+      // A rest that ran out under an open sheet moved the session on, and the
+      // lift the reader was about to correct vanished from under their thumb
+      // (device, 2026-09-16). The sheet freezes the clock like every other
+      // overlay that asks for attention.
+      const player = read('src', 'screens', 'GuidedPlayerScreen.tsx');
+      assert.match(player, /const frozen = [^;]*\brunSheetOpen\b[^;]*;/);
+      // The clock honours it.
+      assert.match(player, /if \(mode !== 'player' \|\| frozen\) \{\s*\/\/ Pausing freezes the leftover time/);
+
+      // No "Olet tässä" line, in the sheet or the dictionaries.
+      assert.doesNotMatch(player, /guided\.runSheet\.here/);
+      assert.doesNotMatch(read('src', 'lib', 'i18n.ts'), /'guided\.runSheet\.here'/);
+      // And the correction reads as a control: a chip with a pencil.
+      assert.match(
+        player,
+        /style=\{\(\{ pressed \}\) => \[styles\.runEditChip, pressed && \{ opacity: 0\.7 \}\]\}\s*>\s*<GPIcon name="edit"/,
+      );
+    },
+  },
 ];

@@ -163,4 +163,24 @@ module.exports = [
       assert.match(code, /\}, \[[^\]]*todayStartMs[^\]]*\]\);/);
     },
   },
+  {
+    name: 'route truth: active and deleted are two different things',
+    run() {
+      // The Active switch was a one-way door that also read as a delete, and
+      // a ready programme had no delete at all (device, 2026-09-16).
+      assert.match(
+        code,
+        /onSetRunning=\{\(next\) => \{\s*void \(next \? onResumeProgram\(route\.workoutTemplateId\) : onStopProgram\(route\.workoutTemplateId\)\);/,
+      );
+      assert.match(code, /held=\{programIsHeld\}/);
+      // A held ready programme can be deleted, apart from the switch.
+      assert.match(
+        code,
+        /: programIsHeld\s*\? \(\) => void onForgetHeldProgram\(route\.workoutTemplateId\)/,
+      );
+      assert.match(code, /const canDeleteProgram = route\.programType === 'custom' \|\| programIsHeld;/);
+      // And the list keeps what the switch turned off.
+      assert.match(code, /const runningRows = listHeldProgrammes\(\{/);
+    },
+  },
 ];

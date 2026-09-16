@@ -888,8 +888,15 @@ module.exports = [
       assert.match(onboardingSource, /onRequestClose=\{\(\) => setHelperVisible\(false\)\}/);
       // ...and nothing at all while the plan is being written.
       assert.match(onboardingSource, /return isBuildingPlan \? \(\) => undefined : stageBack;/);
-      // App.tsx still stands down, which is what leaves the screen in charge.
-      assert.match(appSource, /if \(onboardingActive\) \{\s*return undefined;\s*\}/);
+      // App.tsx stands down for both forms of the questionnaire, which is
+      // what leaves the screen in charge. The setup route is the same screen,
+      // and the app's listener — re-subscribed on every route change, after
+      // the child's — used to win there and send back straight to settings
+      // (device, 2026-09-16).
+      assert.match(
+        appSource,
+        /if \(onboardingActive \|\| \(route\.tab === 'profile' && route\.screen === 'setup'\)\) \{\s*return undefined;\s*\}\s*const subscription = BackHandler\.addEventListener/,
+      );
     },
   },
 ];

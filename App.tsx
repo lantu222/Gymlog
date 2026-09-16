@@ -78,7 +78,7 @@ import {
   removeActiveProgram,
   resolveActiveProgramCap,
 } from './src/lib/activeProgramSet';
-import { listRunningProgrammes, stopProgramme } from './src/lib/runningProgrammes';
+import { listHeldProgrammes, resumeProgramme, stopProgramme } from './src/lib/runningProgrammes';
 import {
   buildReadyProgramPlanId,
   buildCustomProgramPlanId,
@@ -354,6 +354,7 @@ function VinhaApp() {
     upsertWorkoutPlan,
     saveOnboardingResult,
     deleteWorkoutTemplate,
+    forgetHeldProgramme,
     resetAllData,
     addBodyweightEntry,
     addMeasurementEntry,
@@ -1199,7 +1200,13 @@ function VinhaApp() {
    * listener, and walked the reader Home past the screen's own handler.
    */
   useEffect(() => {
-    if (onboardingActive) {
+    // Stands down for the questionnaire in BOTH of its forms. The setup route
+    // is the same OnboardingScreen, which answers back itself, stage by
+    // stage — but this listener re-subscribes on every route change, and a
+    // parent's effect runs after its child's, so it was always the newest
+    // one: back from any question of "create a new programme" went straight
+    // to settings (device, 2026-09-16).
+    if (onboardingActive || (route.tab === 'profile' && route.screen === 'setup')) {
       return undefined;
     }
 
@@ -2208,6 +2215,62 @@ function VinhaApp() {
       return;
     }
     await updatePreferences(stopped);
+  }
+
+  /**
+   * The Active switch, turned back on.
+   *
+   * Under the plan the programme already has, so its block and its place in
+   * the rotation come back with it — and through the same cap the adoption
+   * path answers to, because running is what the cap counts (device,
+   * 2026-09-16: the switch used to be a one-way door).
+   */
+  async function handleResumeProgram(workoutTemplateId: string) {
+    const resumed = resumeProgramme({
+      activePlanId: preferences.activePlanId,
+      activePlanIds: preferences.activePlanIds,
+      plans: database.workoutPlans,
+      templateId: workoutTemplateId,
+    });
+    if (!resumed) {
+      return;
+    }
+    const decision = evaluateProgramAdoption({
+      activePlanIds: preferences.activePlanIds,
+      targetPlanId: resumed.planId,
+      proUnlocked: resolveProEntitlement(preferences).unlocked,
+    });
+    if (decision.kind === 'blocked') {
+      if (decision.canUpgrade) {
+        setRunningCapSheet({ visible: true, used: decision.used, cap: decision.cap });
+        return;
+      }
+      showToast(t(preferences.appLanguage, 'programs.cap.full', { cap: decision.cap }));
+      return;
+    }
+    await updatePreferences({ activePlanIds: resumed.activePlanIds, activePlanId: resumed.activePlanId });
+  }
+
+  /**
+   * "Remove from my programmes", for a programme with no template of its own.
+   *
+   * Deleting a custom programme deletes its template; a ready programme's
+   * template is catalog data, so what goes is every plan that holds it. The
+   * page the reader deleted it from goes with it, the same way a deleted
+   * custom programme's pages do.
+   */
+  async function handleForgetHeldProgram(workoutTemplateId: string) {
+    await forgetHeldProgramme(workoutTemplateId);
+    void haptics.success();
+    startTransition(() =>
+      setNavigationState((current) => ({
+        route: workoutHomeRoute,
+        history: withoutTrailingRoute(
+          forgetRoutesForTemplate(current.history, workoutTemplateId),
+          workoutHomeRoute,
+        ),
+      })),
+    );
   }
 
   async function handleRemoveActiveProgram(planId: string) {
@@ -5843,7 +5906,10 @@ function VinhaApp() {
     // Home already listed them under its hero, and its own removal copy says
     // "it stays in Programs" — a promise this list could not keep.
     const authoredIds = authored.map((item) => item.id);
-    const runningRows = listRunningProgrammes({
+    // And every programme the reader HOLDS, running or not: switching one off
+    // is not deleting it, and a list that dropped it made the switch look
+    // like a delete (device, 2026-09-16).
+    const runningRows = listHeldProgrammes({
       activePlanId: preferences.activePlanId,
       activePlanIds: preferences.activePlanIds,
       plans: database.workoutPlans,
@@ -5873,7 +5939,9 @@ function VinhaApp() {
            */
           subtitle: active
             ? t(preferences.appLanguage, 'programs.activeSubtitle')
-            : t(preferences.appLanguage, 'programs.card.days', { count: template.daysPerWeek }),
+            : row.running
+              ? t(preferences.appLanguage, 'programs.card.days', { count: template.daysPerWeek })
+              : t(preferences.appLanguage, 'programs.card.switchedOff'),
           active,
           programType: 'ready' as const,
         };
@@ -6365,6 +6433,8 @@ function VinhaApp() {
     // fallback below catches it — the same drop-through the old chain had.
     content = renderWorkoutTab({
       onStopProgram: handleStopProgram,
+      onResumeProgram: handleResumeProgram,
+      onForgetHeldProgram: handleForgetHeldProgram,
       route,
       navigate,
       navigateBack,

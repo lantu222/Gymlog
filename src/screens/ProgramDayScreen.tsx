@@ -17,6 +17,7 @@ import { AddExerciseSheet } from '../components/AddExerciseSheet';
 import { KitBar, KitGroupLabel, KitRow, KitSearch, KitSheet } from '../components/sheetKit';
 import { CutSurface } from '../components/CutSurface';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { hyphenateFinnish } from '../lib/finnishHyphenation';
 import { rankExerciseMatches } from '../lib/exerciseSearch';
 import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import {
@@ -713,17 +714,27 @@ export function ProgramDayScreen({
                     </Svg>
                   </View>
                 ) : null}
-                <View style={[styles.exerciseNum, index === 0 && styles.exerciseNumAnchor]}>
-                  <Text style={[styles.exerciseNumText, index === 0 && styles.exerciseNumTextAnchor]}>
-                    {index + 1}
-                  </Text>
-                </View>
-                <Text style={styles.exerciseName} numberOfLines={2}>
-                  {exerciseNameLabel(
+                {/* No numbered tile, and no line limit on the name (device,
+                    2026-09-16). The tile took the width a Finnish compound
+                    needs — "lantionnostopito" broke wherever the column ran
+                    out, or ended in an ellipsis — and the order is already
+                    the order of the rows. The whole name is shown, broken on
+                    its syllables when it has to break. */}
+                {(() => {
+                  const name = exerciseNameLabel(
                     language,
                     (exercise.slotId ? sessionSwaps[exercise.slotId] : undefined) ?? exercise.name,
-                  )}
-                </Text>
+                  );
+                  return (
+                    <Text
+                      style={styles.exerciseName}
+                      accessibilityLabel={name}
+                      android_hyphenationFrequency="normal"
+                    >
+                      {language === 'fi' ? hyphenateFinnish(name) : name}
+                    </Text>
+                  );
+                })()}
                 <View style={[styles.roleTag, { backgroundColor: tints[exercise.role]?.bg ?? theme.surfaceSoft }]}>
                   <Text style={[styles.roleTagText, { color: tints[exercise.role]?.ink ?? theme.muted }]}>
                     {t(language, ROLE_TAG_KEYS[exercise.role] ?? 'detail.role.accessory')}
@@ -1620,7 +1631,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   // stops at one edge of the word and starts at the other.
   supersetGroupPill: {
     position: 'absolute',
-    top: -7,
+    // Four points higher than the line's own centre (device, 2026-09-16):
+    // centred exactly, the word sat low and read as part of the first row.
+    top: -11,
     left: 18,
     backgroundColor: theme.surface,
     paddingHorizontal: 6,
@@ -2100,25 +2113,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-  },
-  exerciseNum: {
-    width: 30,
-    height: 30,
-    borderRadius: 10,
-    backgroundColor: theme.surfaceSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  exerciseNumAnchor: {
-    backgroundColor: theme.purpleBright,
-  },
-  exerciseNumText: {
-    color: theme.purpleDark,
-    fontSize: 12.5,
-    fontWeight: '800',
-  },
-  exerciseNumTextAnchor: {
-    color: '#FFFFFF',
   },
   exerciseName: {
     flex: 1,

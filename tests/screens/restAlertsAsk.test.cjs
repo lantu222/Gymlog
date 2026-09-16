@@ -49,7 +49,7 @@ module.exports = [
       // ask; unfreezing re-runs the step effect, which mirrors the rest.
       assert.match(
         guided,
-        /const frozen =\s*paused\s*\|\| howtoOpen\s*\|\| exitOpen\s*\|\| pauseSheetOpen\s*\|\| swapOpen\s*\|\| restEditOpen\s*\|\| ownBlock !== null\s*\|\| restAsk\.sheetOpen;/,
+        /const frozen =\s*paused\s*\|\| howtoOpen\s*\|\| exitOpen\s*\|\| pauseSheetOpen\s*\|\| swapOpen\s*\|\| restEditOpen\s*\|\| runSheetOpen\s*\|\| ownBlock !== null\s*\|\| restAsk\.sheetOpen;/,
       );
       assert.match(guided, /restAlerts\?: \{ alerts: boolean; warning: boolean; ongoing: boolean; asked: boolean \};/);
     },

@@ -611,7 +611,10 @@ module.exports = [
       // Running — leading or not — gets the Active switch. Only a programme
       // the reader has not taken up gets the button, which is the one thing
       // this page exists to offer.
-      assert.match(programDetailSource, /\{running && onSetRunning \? \(/);
+      // Running OR held: a programme switched off keeps its switch, off,
+      // rather than turning back into an adopt button (device, 2026-09-16).
+      assert.match(programDetailSource, /\{\(running \|\| held\) && onSetRunning \? \(/);
+      assert.match(programDetailSource, /value=\{running\}/);
       assert.match(programDetailSource, /\) : activePlanSummary \? null : \(/);
       assert.match(programDetailSource, /program\.primaryActionLabel/);
       // The switch is the shared one, not a second spelling of a toggle.

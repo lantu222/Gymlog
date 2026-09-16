@@ -10,6 +10,7 @@ import { PROGRAM_FOCUS_COLORS, ProgramFocusSegment,
   getProgramFocusQualityLabel,
 } from '../lib/programFocusSplit';
 import { formatPercent } from '../lib/format';
+import { resolvePickSeam } from '../lib/programPickSeam';
 import { t } from '../lib/i18n';
 import { AppLanguage } from '../types/models';
 
@@ -30,9 +31,10 @@ import { AppLanguage } from '../types/models';
  */
 
 const SEAM_PCT = 1.2;
-/** Selected-half seam ends, as fractions of the height: [left edge, right edge]. */
-const CUT_TOP: [number, number] = [0.64, 0.58];
-const CUT_BOTTOM: [number, number] = [0.44, 0.36];
+/*
+ * Where the seam sits lives in src/lib/programPickSeam: fixed fractions are
+ * only its starting point now, and the measured cards decide where it can go.
+ */
 /**
  * Room the pinned CTA needs at the foot of the screen: the 52pt pill, its
  * bottom padding and a gap, so the last line of the chosen card never runs
@@ -208,7 +210,25 @@ export function ProgramPickScreen({
   const bottom = options[1] ?? null;
   const topSelected = top !== null && selectedId === top.id;
 
-  const [l, r] = topSelected ? CUT_TOP : CUT_BOTTOM;
+  /**
+   * Each card's natural height, measured, so the seam can make room for it.
+   * Keyed by programme and by state: a card is a different height chosen
+   * than collapsed, and both are needed to place one seam.
+   */
+  const [contentHeights, setContentHeights] = React.useState<Record<string, number>>({});
+  const measureContent = (key: string) => (event: LayoutChangeEvent) => {
+    const next = Math.round(event.nativeEvent.layout.height);
+    setContentHeights((current) => (current[key] === next ? current : { ...current, [key]: next }));
+  };
+  const chosen = topSelected ? top : bottom;
+  const collapsed = topSelected ? bottom : top;
+  const [l, r] = resolvePickSeam({
+    height,
+    topSelected,
+    selectedContentHeight: chosen ? contentHeights[`${chosen.id}:selected`] ?? 0 : 0,
+    collapsedContentHeight: collapsed ? contentHeights[`${collapsed.id}:collapsed`] ?? 0 : 0,
+    ctaRoom: CTA_ROOM,
+  });
   const topPoints = `0,0 100,0 100,${r * 100} 0,${l * 100}`;
   const bottomPoints = `0,${l * 100 + SEAM_PCT} 100,${r * 100 + SEAM_PCT} 100,100 0,100`;
   // Rectangles that stay clear of the slant, so no line of type lands in the
@@ -269,7 +289,7 @@ export function ProgramPickScreen({
             Views not being targets, and it was not true of all of them —
             selection only registered from certain spots (user 2026-08-23).
             The week link renders after this block, interactive. */}
-        <View pointerEvents="none">
+        <View pointerEvents="none" onLayout={measureContent(`${option.id}:${selected ? 'selected' : 'collapsed'}`)}>
           <View style={styles.halfHead}>
             <View style={styles.halfHeadCopy}>
               {option.recommended ? (

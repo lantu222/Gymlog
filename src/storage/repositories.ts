@@ -94,6 +94,16 @@ export const workoutPlanRepository = {
         : [plan, ...database.workoutPlans],
     };
   },
+  /** Every plan in `planIds` gone; the rest untouched. */
+  removeMany(database: AppDatabase, planIds: readonly string[]): AppDatabase {
+    if (planIds.length === 0) {
+      return database;
+    }
+    return {
+      ...database,
+      workoutPlans: database.workoutPlans.filter((plan) => !planIds.includes(plan.id)),
+    };
+  },
 };
 
 export const workoutSessionRepository = {

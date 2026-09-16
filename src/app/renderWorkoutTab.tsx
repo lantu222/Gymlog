@@ -86,6 +86,10 @@ export interface WorkoutTabDeps {
   tailoringPreferences: Parameters<typeof buildTailoringBadgeLabels>[0];
   activeProgramTemplateIds: string[];
   onStopProgram: (workoutTemplateId: string) => Promise<void>;
+  /** The Active switch turned back on — see handleResumeProgram. */
+  onResumeProgram: (workoutTemplateId: string) => Promise<void>;
+  /** Remove a held ready programme from the reader's programmes. */
+  onForgetHeldProgram: (workoutTemplateId: string) => Promise<void>;
   homeActivePlanCard: {
     programId: string;
     programType: 'ready' | 'custom';
@@ -220,6 +224,8 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     tailoringPreferences,
     activeProgramTemplateIds,
     onStopProgram,
+    onResumeProgram,
+    onForgetHeldProgram,
     homeActivePlanCard,
     programInsightsByTemplateId,
     availableEquipmentForDrills,
@@ -356,6 +362,11 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     // joined during onboarding carries a different plan id for the same
     // programme, and it is no less the reader's own.
     const programIsMine = activeProgramTemplateIds.includes(route.workoutTemplateId);
+    // Held: a plan exists for it, running or not — see listHeldProgrammes.
+    const programIsHeld =
+      programIsMine ||
+      database.workoutPlans.some((plan) => plan.entries[0]?.workoutTemplateId === route.workoutTemplateId);
+    const canDeleteProgram = route.programType === 'custom' || programIsHeld;
     // Held is not the same as leading. A programme you hold but do not lead
     // with has a third answer — put it on Home — and without it the only way
     // there was to remove whatever was leading.
@@ -445,14 +456,16 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         // Running at all, not "the one Home leads with". A programme can run
         // without leading, and this switch is the only way to stop either.
         running={programIsMine}
+        // Held is wider than running: a programme switched off is still the
+        // reader's, and its page keeps the switch rather than offering to
+        // adopt it again (device, 2026-09-16).
+        held={programIsHeld}
         // Off only. The switch renders solely when the programme is running,
         // so its value is always true and the only change it can report is
         // false — turning one ON is the adopt button's job, on the other side
         // of this same slot.
         onSetRunning={(next) => {
-          if (!next) {
-            void onStopProgram(route.workoutTemplateId);
-          }
+          void (next ? onResumeProgram(route.workoutTemplateId) : onStopProgram(route.workoutTemplateId));
         }}
         onPrimaryAction={() => {
           if (readyProgramIsMine) {
@@ -479,9 +492,14 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             // Home once it is running, and not before: at the free limit the
             // sheet opens here, on the programme the reader asked for, rather
             // than on a Home still leading with the old one.
+            // And it stays here once it is running (device, 2026-09-16):
+            // the reader came to this programme, and being carried to Home
+            // the moment it was adopted read as the app leaving the page they
+            // were on. The switch that replaces the button says it is running;
+            // the toast says so after the write, not before.
             void handleAdoptReadyProgram(route.workoutTemplateId, { lead: true }).then((adopted) => {
               if (adopted) {
-                navigate(ROOT_ROUTES.home);
+                showToast(t(preferences.appLanguage, 'toast.programStarted'));
               }
             });
             return;
@@ -504,7 +522,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           // adoption, which now promotes rather than returning early.
           void handleAdoptCustomProgram(route.workoutTemplateId, { lead: true }).then((adopted) => {
             if (adopted) {
-              navigate(ROOT_ROUTES.home);
+              showToast(t(preferences.appLanguage, 'toast.programStarted'));
             }
           });
         }}
@@ -564,18 +582,24 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             sessionId,
           })
         }
-        destructiveActionLabel={
-          route.programType === 'custom' ? t(preferences.appLanguage, 'detail.delete') : undefined
-        }
-        destructiveActionTitle={
-          route.programType === 'custom' ? t(preferences.appLanguage, 'detail.delete.title') : undefined
-        }
+        // Deleting is its own action, apart from the switch (device,
+        // 2026-09-16): a custom programme deletes its template, a held ready
+        // programme drops every plan that holds it. A catalog programme the
+        // reader never took up has nothing of theirs to delete.
+        destructiveActionLabel={canDeleteProgram ? t(preferences.appLanguage, 'detail.delete') : undefined}
+        destructiveActionTitle={canDeleteProgram ? t(preferences.appLanguage, 'detail.delete.title') : undefined}
         destructiveActionMessage={
-          route.programType === 'custom'
+          canDeleteProgram
             ? t(preferences.appLanguage, 'detail.delete.message', { program: program.title })
             : undefined
         }
-        onDestructiveAction={route.programType === 'custom' ? () => void handleDeleteCustomWorkout(route.workoutTemplateId) : undefined}
+        onDestructiveAction={
+          route.programType === 'custom'
+            ? () => void handleDeleteCustomWorkout(route.workoutTemplateId)
+            : programIsHeld
+              ? () => void onForgetHeldProgram(route.workoutTemplateId)
+              : undefined
+        }
       />
     ) : (
       <View />

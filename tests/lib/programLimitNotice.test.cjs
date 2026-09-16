@@ -75,18 +75,22 @@ module.exports = [
         'a free reader at the running limit is still sent straight to the paywall',
       );
       const blocks = app.match(/if \(decision\.canUpgrade\) \{\s*setRunningCapSheet\(\{ visible: true, used: decision\.used, cap: decision\.cap \}\)/g) ?? [];
-      assert.equal(blocks.length, 2, 'both adoption paths (ready and custom) show the sheet');
+      // Both adoption paths, and switching a held programme back on — which
+      // runs under the same cap (device, 2026-09-16).
+      assert.equal(blocks.length, 3, 'every path that starts a programme running shows the sheet');
+      assert.match(body(app, 'async function handleResumeProgram'), /evaluateProgramAdoption\(/);
       assert.match(app, /kind="running"[\s\S]{0,400}navigate\(\{ tab: 'profile', screen: 'premium', reason: 'program_cap' \}\)/);
 
-      // The programme page's "take it on" goes Home only once it is running.
-      // It navigated first, so at the limit the sheet opened over a Home still
-      // leading with the old programme (seen on the emulator, 2026-09-14).
+      // The programme page's "take it on" answers only once it is running —
+      // and it no longer leaves the page: being carried to Home the moment a
+      // programme was adopted read as the app leaving where the reader was
+      // (device, 2026-09-16). The toast follows the write.
       const workoutTab = read('src', 'app', 'renderWorkoutTab.tsx');
       for (const adopt of ['handleAdoptReadyProgram', 'handleAdoptCustomProgram']) {
         assert.match(
           workoutTab,
-          new RegExp(`void ${adopt}\\(route\\.workoutTemplateId, \\{ lead: true \\}\\)\\.then\\(\\(adopted\\) => \\{\\s*if \\(adopted\\) \\{\\s*navigate\\(ROOT_ROUTES\\.home\\);`),
-          `${adopt} navigates Home whether or not the programme was taken on`,
+          new RegExp(`void ${adopt}\\(route\\.workoutTemplateId, \\{ lead: true \\}\\)\\.then\\(\\(adopted\\) => \\{\\s*if \\(adopted\\) \\{\\s*showToast\\(t\\(preferences\\.appLanguage, 'toast\\.programStarted'\\)\\);`),
+          `${adopt} confirms before the write resolves, or leaves the page`,
         );
       }
       assert.match(body(app, 'async function handleAdoptCustomProgram'), /return false;\s*\}\s*showToast\(t\(preferences\.appLanguage, 'programs\.cap\.full'/);

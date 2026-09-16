@@ -417,6 +417,7 @@ const EN = {
   // Removed in the orphan sweep when nothing used them; restored here
   // because "Make my own copy" does.
   'toast.programCopyFailed': 'Could not copy the program',
+  'toast.programStarted': 'Programme started',
   'toast.planSaveFailed': 'Could not save your programme',
   'premium.purchaseUnavailable': 'Buying is not available in this build yet',
   'toast.lastExerciseInDay': 'That is the last exercise of the day — delete the day in the editor instead',
@@ -1430,7 +1431,6 @@ const EN = {
   // A superset's block is counted in rounds: three rounds of A1 + A2 is six
   // sets, and a row saying "3 sets" over two lifts states neither number.
   'guided.runSheet.rounds': '{count} rounds',
-  'guided.runSheet.here': 'You are here',
   'guided.runSheet.progress': '{done}/{count} sets',
   'guided.action.addSet': 'Add a set',
   'guided.action.removeSet': 'Remove set',
@@ -2628,6 +2628,7 @@ const EN = {
   // declares, so a new program lands in the right rows the day it is added.
   'programs.library.sub': '{count} exercises · browse and swap into your plan',
   'programs.card.days': '{count} days / week',
+  'programs.card.switchedOff': 'Switched off',
   'programs.card.daysShort': '{count}d / wk',
   'programs.goals': 'YOUR TARGETS',
   'programs.goals.add': 'Set a target',
@@ -3538,6 +3539,7 @@ const FI: Record<I18nKey, string> = {
   'toast.addExercisesSession': 'Lisää liikkeitä ennen tämän treenin aloittamista',
   'toast.addExercisesTemplate': 'Lisää liikkeitä ennen tämän pohjan aloittamista',
   'toast.programCopyFailed': 'Ohjelmaa ei voitu kopioida',
+  'toast.programStarted': 'Ohjelma otettu käyttöön',
   'toast.planSaveFailed': 'Ohjelmaasi ei voitu tallentaa',
   'premium.purchaseUnavailable': 'Ostaminen ei ole vielä käytössä tässä versiossa',
   'toast.lastExerciseInDay': 'Tämä on päivän viimeinen liike — poista koko päivä muokkaimessa',
@@ -4492,7 +4494,6 @@ const FI: Record<I18nKey, string> = {
   'guided.runSheet.title': 'Treenin sisältö',
   'guided.runSheet.open': 'Näytä treenin sisältö',
   'guided.runSheet.rounds': '{count} kierrosta',
-  'guided.runSheet.here': 'Olet tässä',
   'guided.runSheet.progress': '{done}/{count} sarjaa',
   'guided.action.addSet': 'Lisää sarja',
   'guided.action.removeSet': 'Poista sarja',
@@ -5608,6 +5609,7 @@ const FI: Record<I18nKey, string> = {
   'programs.viewPlan': 'Katso koko ohjelma',
   'programs.library.sub': '{count} liikettä · selaa ja vaihda ohjelmaasi',
   'programs.card.days': '{count} pv / viikko',
+  'programs.card.switchedOff': 'Pois päältä',
   'programs.card.daysShort': '{count} pv / vk',
   'programs.goals': 'TAVOITTEESI',
   'programs.goals.add': 'Aseta tavoite',

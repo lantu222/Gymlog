@@ -1,8 +1,11 @@
 const assert = require('node:assert/strict');
 
 const {
+  listHeldProgrammes,
   listRunningProgrammes,
   planIdsForTemplate,
+  planIdsHoldingTemplate,
+  resumeProgramme,
   stopProgramme,
 } = require('../../.test-dist/lib/runningProgrammes.js');
 
@@ -176,6 +179,68 @@ module.exports = [
         null,
         'a programme that was not running reports a change',
       );
+    },
+  },
+  {
+    name: 'held programmes: switching one off keeps it, it does not delete it',
+    run() {
+      // The Active switch took a ready programme out of the running set, and
+      // with no template of its own nothing listed it any more — to the
+      // reader, the switch had deleted it (device, 2026-09-16).
+      const plans = [plan('ready_plan_a', 'tpl_a'), plan('ready_plan_b', 'tpl_b'), plan('custom_plan_c', 'own_c')];
+      const held = listHeldProgrammes({
+        activePlanId: 'ready_plan_b',
+        activePlanIds: ['ready_plan_b'],
+        plans,
+        authoredTemplateIds: ['own_c'],
+      });
+      assert.deepEqual(
+        held.map((row) => [row.templateId, row.running, row.leading]),
+        [
+          ['tpl_b', true, true],
+          ['tpl_a', false, false],
+        ],
+      );
+      // An authored programme is listed by its own source, not twice.
+      assert.ok(!held.some((row) => row.templateId === 'own_c'));
+      // Held once, even when two plans point at it.
+      const twice = listHeldProgrammes({
+        activePlanId: null,
+        activePlanIds: [],
+        plans: [plan('onboarding_plan_a', 'tpl_a'), plan('ready_plan_a', 'tpl_a')],
+      });
+      assert.equal(twice.length, 1);
+    },
+  },
+  {
+    name: 'held programmes: switched back on under the plan it already has',
+    run() {
+      const plans = [plan('ready_plan_a', 'tpl_a'), plan('ready_plan_b', 'tpl_b')];
+      // Something else leads: rejoin the running set, leave the lead alone.
+      assert.deepEqual(
+        resumeProgramme({ activePlanId: 'ready_plan_b', activePlanIds: ['ready_plan_b'], plans, templateId: 'tpl_a' }),
+        { planId: 'ready_plan_a', activePlanIds: ['ready_plan_b', 'ready_plan_a'], activePlanId: 'ready_plan_b' },
+      );
+      // Nothing leads: this one does.
+      assert.deepEqual(
+        resumeProgramme({ activePlanId: null, activePlanIds: [], plans, templateId: 'tpl_a' }),
+        { planId: 'ready_plan_a', activePlanIds: ['ready_plan_a'], activePlanId: 'ready_plan_a' },
+      );
+      // Already running: nothing doubles.
+      assert.deepEqual(
+        resumeProgramme({ activePlanId: 'ready_plan_a', activePlanIds: ['ready_plan_a'], plans, templateId: 'tpl_a' })?.activePlanIds,
+        ['ready_plan_a'],
+      );
+      // Not held: nothing to switch on.
+      assert.equal(resumeProgramme({ activePlanId: null, activePlanIds: [], plans, templateId: 'tpl_z' }), null);
+    },
+  },
+  {
+    name: 'held programmes: deleting one finds every plan that holds it',
+    run() {
+      const plans = [plan('onboarding_plan_a', 'tpl_a'), plan('ready_plan_a', 'tpl_a'), plan('ready_plan_b', 'tpl_b')];
+      assert.deepEqual(planIdsHoldingTemplate(plans, 'tpl_a'), ['onboarding_plan_a', 'ready_plan_a']);
+      assert.deepEqual(planIdsHoldingTemplate(plans, 'tpl_z'), []);
     },
   },
 ];

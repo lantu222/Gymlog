@@ -343,6 +343,8 @@ const suites = [
   ...require('./lib/notificationRoute.test.cjs'),
   ...require('./lib/historyView.test.cjs'),
   ...require('./lib/programDetails.test.cjs'),
+  ...require('./lib/programPickSeam.test.cjs'),
+  ...require('./lib/finnishHyphenation.test.cjs'),
   ...require('./lib/programmeRouteTruth.test.cjs'),
   ...require('./lib/customProgramDuplication.test.cjs'),
   ...require('./lib/programRename.test.cjs'),
