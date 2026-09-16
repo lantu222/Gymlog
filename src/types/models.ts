@@ -527,6 +527,14 @@ export interface AppPreferences {
   aiSetupCompleted: boolean;
   hasOpenedAppBefore: boolean;
   /**
+   * Whether setup's weight has already been written as a weigh-in.
+   *
+   * Without it the seeding rule is "the log is empty", which is also true the
+   * moment the reader deletes their only weigh-in — so the app put it
+   * straight back and the delete looked broken (2026-09-16).
+   */
+  setupWeightSeeded: boolean;
+  /**
    * True once the home-screen widget offer has been answered either way. The
    * offer is shown once; Settings keeps a permanent entry for later.
    */

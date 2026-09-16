@@ -223,6 +223,39 @@ export function addCalendarDays(reference: Date | string | number, days: number)
 }
 
 /**
+ * `reference` shifted by whole calendar months, keeping its day of the month
+ * where that day exists — and the last day of the target month where it does
+ * not.
+ *
+ * `setMonth(getMonth() - 1)` on 31 March asks for 31 February, and JavaScript
+ * answers 3 March: the "last month" range on the Progress tab started three
+ * days ago instead of a month ago, and the chart quietly lost four weeks of
+ * its own window (2026-09-16). Clamping to the month's last day is what a
+ * reader means by "a month back" from the 31st.
+ */
+export function subtractCalendarMonths(reference: Date | string | number, months: number) {
+  const date = new Date(reference);
+  const targetMonthStart = new Date(date.getFullYear(), date.getMonth() - months, 1);
+  // Day 0 of the next month is the last day of this one, which is where 31
+  // February has to land.
+  const lastDayOfTarget = new Date(
+    targetMonthStart.getFullYear(),
+    targetMonthStart.getMonth() + 1,
+    0,
+  ).getDate();
+
+  return new Date(
+    targetMonthStart.getFullYear(),
+    targetMonthStart.getMonth(),
+    Math.min(date.getDate(), lastDayOfTarget),
+    date.getHours(),
+    date.getMinutes(),
+    date.getSeconds(),
+    date.getMilliseconds(),
+  );
+}
+
+/**
  * The start of the calendar week `weeks` before `weekStart`.
  *
  * `weekStart` is expected to be a local week start, as

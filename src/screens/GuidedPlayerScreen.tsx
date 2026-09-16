@@ -1392,7 +1392,17 @@ export function GuidedPlayerScreen({
   const [swapOpen, setSwapOpen] = useState(false);
   // The rest screen's "fix the set you just logged" sheet. Declared here,
   // with the other overlays, because `frozen` below has to see it.
-  const [restEditOpen, setRestEditOpen] = useState(false);
+  /**
+   * Which logged set the rest screen is correcting.
+   *
+   * A boolean was enough while a rest belonged to one lift. A superset rests
+   * once per ROUND, and the rest step names only the lift that closed it — so
+   * the other half of the block had no way back to its numbers anywhere in
+   * the player (2026-09-16). The sheet offers each lift of the round its own
+   * correction, and this says which one was asked for.
+   */
+  const [restEdit, setRestEdit] = useState<{ slotId: string; setIndex: number } | null>(null);
+  const restEditOpen = restEdit !== null;
   const [swapQuery, setSwapQuery] = useState('');
   const [confirmingEnd, setConfirmingEnd] = useState(false);
   /** The lift whose final set was just logged — a one-second check-splash
@@ -2183,7 +2193,7 @@ export function GuidedPlayerScreen({
    * numbers are changed here instead, on the screen that is asking about them.
    */
   useEffect(() => {
-    setRestEditOpen(false);
+    setRestEdit(null);
   }, [stepIndex]);
 
   /** Into the next set before the clock gets there. */
@@ -3039,6 +3049,31 @@ export function GuidedPlayerScreen({
                   }
                   return () => {
                     void haptics.select();
+                    /**
+                     * Only when the step being removed is the one under the
+                     * reader's feet.
+                     *
+                     * The set that goes is always the lift's last. Standing on
+                     * it, the list shrinks under the index: the set and the
+                     * rest before it are gone, everything after slides down,
+                     * and the same index becomes the NEXT lift's first set —
+                     * its walk-up skipped. Standing on any earlier set,
+                     * nothing in front of the reader moves at all, and
+                     * re-resolving would walk them BACK to a walk-up they
+                     * have already been through (PR #126 review).
+                     */
+                    const removedSetIndex = (exercises[index]?.sets.length ?? 0) - 1;
+                    if (step.setIndex === removedSetIndex) {
+                      // The first thing in this block that is not done yet,
+                      // which after the removal is the next lift's lead-in
+                      // when the rest of the block is logged.
+                      const blockStart = steps.findIndex(
+                        (candidate) =>
+                          (candidate.type === 'position' || candidate.type === 'set') &&
+                          candidate.slotId === step.slotId,
+                      );
+                      resyncTargetRef.current = blockStart >= 0 ? blockStart : stepIndex;
+                    }
                     workout.removeSet(step.slotId);
                   };
                 })()
@@ -3334,25 +3369,25 @@ export function GuidedPlayerScreen({
 
 
       {/* Correcting the set that was just logged, on the screen that shows it. */}
-      {restEditOpen && step.type === 'rest' ? (
+      {restEdit && step.type === 'rest' ? (
         <LoggedSetEditor
           language={language}
           unitPreference={unitPreference}
-          unloaded={isUnloadedTrackingMode(exerciseBySlot.get(step.slotId)?.trackingMode ?? 'load_and_reps')}
+          unloaded={isUnloadedTrackingMode(exerciseBySlot.get(restEdit.slotId)?.trackingMode ?? 'load_and_reps')}
           repsCeiling={(() => {
-            const exercise = exerciseBySlot.get(step.slotId);
+            const exercise = exerciseBySlot.get(restEdit.slotId);
             // The reducer's own ceiling, so Save and the store cannot disagree:
             // a hold's seconds, an interval's work seconds, a prescription past the dial.
             return exercise
-              ? repsCeilingFor(exercise, findSetByIndex(exercise, step.setIndex))
+              ? repsCeilingFor(exercise, findSetByIndex(exercise, restEdit.setIndex))
               : REPS_DIAL.max;
           })()}
-          reps={findSetByIndex(exerciseBySlot.get(step.slotId), step.setIndex)?.actualReps ?? 0}
-          loadKg={findSetByIndex(exerciseBySlot.get(step.slotId), step.setIndex)?.actualLoadKg ?? 0}
-          onCancel={() => setRestEditOpen(false)}
+          reps={findSetByIndex(exerciseBySlot.get(restEdit.slotId), restEdit.setIndex)?.actualReps ?? 0}
+          loadKg={findSetByIndex(exerciseBySlot.get(restEdit.slotId), restEdit.setIndex)?.actualLoadKg ?? 0}
+          onCancel={() => setRestEdit(null)}
           onSave={(reps, loadKg) => {
-            workout.editLoggedSet(step.slotId, step.setIndex, reps, loadKg);
-            setRestEditOpen(false);
+            workout.editLoggedSet(restEdit.slotId, restEdit.setIndex, reps, loadKg);
+            setRestEdit(null);
           }}
         />
       ) : null}
@@ -3535,17 +3570,43 @@ export function GuidedPlayerScreen({
                       card went. Only while resting — that is the one step
                       whose "just logged" set is unambiguous. */}
                   {item.status === 'current' && restingLogged && step.type === 'rest' && !step.recoveryKind ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      hitSlop={8}
-                      onPress={() => {
-                        setRunSheetOpen(false);
-                        setRestEditOpen(true);
-                      }}
-                      style={{ alignSelf: 'flex-start', paddingVertical: 2 }}
-                    >
-                      <Text style={styles.runEdit}>{t(language, 'guided.rest.edit')}</Text>
-                    </Pressable>
+                    <View style={{ gap: 2 }}>
+                      {item.members.map((member) => {
+                        // Each lift of the round gets its own way back to its
+                        // numbers. A superset rests once per round and the
+                        // rest step names only the lift that closed it, so
+                        // the first half of the block had no correction
+                        // anywhere in the player (2026-09-16).
+                        const lift = member.slotId ? exerciseBySlot.get(member.slotId) : undefined;
+                        const lastLogged = lift
+                          ? lift.sets.reduce(
+                              (latest, set, index) => (set.status === 'completed' ? index : latest),
+                              -1,
+                            )
+                          : -1;
+                        if (!lift || lastLogged < 0) {
+                          return null;
+                        }
+                        return (
+                          <Pressable
+                            key={`edit-${member.slotId ?? member.name}`}
+                            accessibilityRole="button"
+                            hitSlop={8}
+                            onPress={() => {
+                              setRunSheetOpen(false);
+                              setRestEdit({ slotId: lift.slotId, setIndex: lastLogged });
+                            }}
+                            style={{ alignSelf: 'flex-start', paddingVertical: 2 }}
+                          >
+                            <Text style={styles.runEdit}>
+                              {isSuperset
+                                ? `${t(language, 'guided.rest.edit')} · ${exerciseNameLabel(language, member.name)}`
+                                : t(language, 'guided.rest.edit')}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
                   ) : null}
                 </View>
                 {item.setCount && item.members.length > 1 ? (

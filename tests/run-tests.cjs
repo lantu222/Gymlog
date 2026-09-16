@@ -140,6 +140,7 @@ const suites = [
   ...require('./lib/ratingPrompt.test.cjs'),
   ...require('./lib/blurredPreviewText.test.cjs'),
   ...require('./lib/bodyweightCard.test.cjs'),
+  ...require('./lib/bodyweightSeedOnce.test.cjs'),
   ...require('./lib/programFamilyIdentity.test.cjs'),
   ...require('./lib/programCatalogFocus.test.cjs'),
   ...require('./lib/seasonEnrolment.test.cjs'),
