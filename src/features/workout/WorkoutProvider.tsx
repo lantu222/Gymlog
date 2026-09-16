@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useReducer, useState } from 'react';
+import { AppState } from 'react-native';
 import { StorageLoadFailedScreen } from '../../components/StorageLoadFailedScreen';
 import { trackEvent } from '../analytics/analyticsClient';
 
@@ -6,6 +7,7 @@ import { CardioActivityType, UnitPreference } from '../../types/models';
 import { ActiveCardioSession } from '../../lib/cardio';
 import { CORE_WORKOUT_TEMPLATE_ID, WORKOUT_TEMPLATES_V1, getWorkoutTemplateById, getWorkoutTemplateSessions } from './workoutCatalog';
 import { clearWorkoutBundle, loadWorkoutBundle, normalizeWorkoutBundle, saveWorkoutBundle } from './workoutPersistence';
+import { loadWithRetry } from '../../storage/loadWithRetry';
 import { GuidedResumeAnchor, WorkoutExerciseInsertInput, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRuntimeTemplate, WorkoutSessionRuntime, WorkoutSetEffort } from './workoutTypes';
 import {
   WorkoutFeatureState,
@@ -86,7 +88,6 @@ interface WorkoutContextValue {
   pauseCardio: () => void;
   resumeCardio: () => void;
   clearCardio: () => void;
-  tick: () => void;
   /**
    * Replaces the workout history with a cloud backup, through the same
    * normalizer the stored bundle goes through on load. The active session is
@@ -100,7 +101,6 @@ const WorkoutContext = createContext<WorkoutContextValue | null>(null);
 
 export function WorkoutProvider({ children }: React.PropsWithChildren) {
   const [state, dispatch] = useReducer(workoutReducer, workoutInitialState);
-  const hydratedRef = useRef(false);
   /**
    * The phone refused the read, after retries. There was no catch here at all,
    * so the app sat on its splash forever; an empty bundle instead would be
@@ -114,30 +114,18 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
 
     async function hydrate() {
       dispatch({ type: 'session/markRestoring', payload: { value: true } });
-      for (let attempt = 1; ; attempt += 1) {
-        try {
-          const bundle = await loadWorkoutBundle();
-          if (cancelled) {
-            return;
-          }
-          dispatch({ type: 'session/hydrate', payload: bundle });
-          hydratedRef.current = true;
-          return;
-        } catch (error) {
-          console.error('Failed to hydrate workout bundle', error);
-          if (cancelled) {
-            return;
-          }
-          if (attempt >= 3) {
-            setLoadFailed(true);
-            return;
-          }
-          await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
-          if (cancelled) {
-            return;
-          }
-        }
+      const result = await loadWithRetry(loadWorkoutBundle, {
+        isCancelled: () => cancelled,
+        onError: (error) => console.error('Failed to hydrate workout bundle', error),
+      });
+      if (result.kind === 'cancelled') {
+        return;
       }
+      if (result.kind === 'failed') {
+        setLoadFailed(true);
+        return;
+      }
+      dispatch({ type: 'session/hydrate', payload: result.value });
     }
 
     hydrate();
@@ -162,23 +150,36 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
    * answer to the settings lag that survived three earlier fixes: theme and
    * language were never slow, the app was simply always busy.
    */
-  // Only a running rest timer and cardio need a clock shared across the app.
-  // The session's own elapsed seconds are derived where they are shown, so an
-  // unfinished workout no longer re-renders every screen once a second.
-  const needsClock =
-    state.activeSession?.restTimer.status === 'running' || Boolean(state.activeCardio);
+  //
+  // Nothing shared needs a second hand at all. The session's elapsed seconds
+  // are derived where they are shown, the player and the free workout count
+  // their own rests, and cardio keeps its own clock — so a running rest still
+  // ticked the whole app, and rewrote the workout bundle, once a second
+  // (2026-09-16). The one thing the shared state does with time is put a rest
+  // away when it ends: one timer, set for that moment.
+  const restEndsAtMs =
+    state.activeSession?.status === 'active' && state.activeSession.restTimer.status === 'running'
+      ? state.activeSession.restTimer.endsAtMs
+      : null;
 
   useEffect(() => {
-    if (!hydratedRef.current || !needsClock) {
+    if (!state.hydrated || restEndsAtMs === null) {
       return;
     }
-
-    const interval = setInterval(() => {
-      dispatch({ type: 'session/tick', payload: { nowMs: Date.now() } });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [state.hydrated, needsClock]);
+    const settle = () => dispatch({ type: 'session/tick', payload: { nowMs: Date.now() } });
+    const timeout = setTimeout(settle, Math.max(0, restEndsAtMs - Date.now()));
+    // A timer does not run while the app is asleep: settle on waking, and the
+    // reducer does nothing if the rest has not ended yet.
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next === 'active') {
+        settle();
+      }
+    });
+    return () => {
+      clearTimeout(timeout);
+      subscription.remove();
+    };
+  }, [state.hydrated, restEndsAtMs]);
 
   useEffect(() => {
     if (!state.hydrated) {
@@ -272,7 +273,7 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
         dispatch({ type: 'timer/clear' });
       },
       pauseRestTimer() {
-        dispatch({ type: 'timer/pause' });
+        dispatch({ type: 'timer/pause', payload: { nowMs: Date.now() } });
       },
       resumeRestTimer() {
         dispatch({ type: 'timer/resume', payload: { nowMs: Date.now() } });
@@ -340,9 +341,6 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
       },
       clearCardio() {
         dispatch({ type: 'cardio/clear' });
-      },
-      tick() {
-        dispatch({ type: 'session/tick', payload: { nowMs: Date.now() } });
       },
       restoreHistoryFromBackup(history) {
         const bundle = normalizeWorkoutBundle({ activeSession: null, history, activeCardio: null });

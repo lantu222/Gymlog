@@ -1,6 +1,6 @@
 import { ExerciseLogDraft, ExerciseLogSet } from '../../types/models';
 import { WorkoutExerciseInstance, WorkoutSessionRuntime, WorkoutSetStatus, WorkoutTrackingMode } from './workoutTypes';
-import { workoutSecondsUntil } from './workoutState';
+import { sessionLastActiveMs, workoutSecondsUntil } from '../../lib/sessionClock';
 
 export type LegacyWorkoutDataMismatch =
   | 'template_exercise_id_not_mapped';
@@ -58,13 +58,16 @@ const STALE_FINISH_MS = 2 * 60 * 60 * 1000;
 /**
  * When the workout ended.
  *
- * It was `updatedAt`, which the clock moves to now on every tick while a rest
- * timer runs. A phone that closed the app mid-rest and was reopened days later
+ * It was `updatedAt`, which the clock moved to now on every tick while a rest
+ * timer ran. A phone that closed the app mid-rest and was reopened days later
  * saved the workout on the day it was reopened, with a duration of thousands
  * of minutes. Past a couple of hours since the last logged set, the last set is
  * when the workout ended.
+ *
+ * The clock no longer moves `updatedAt` during a rest (2026-09-16); the rest
+ * is read at `nowMs` instead, so finishing mid-rest still ends the workout now.
  */
-function resolveFinishedAt(session: WorkoutSessionRuntime): string {
+function resolveFinishedAt(session: WorkoutSessionRuntime, nowMs: number): string {
   if (session.completedAt) {
     return session.completedAt;
   }
@@ -79,11 +82,14 @@ function resolveFinishedAt(session: WorkoutSessionRuntime): string {
       }
     });
   });
-  const updatedMs = Date.parse(session.updatedAt);
-  if (lastSet && Number.isFinite(updatedMs) && updatedMs - lastSetMs > STALE_FINISH_MS) {
+  const activeMs = sessionLastActiveMs(session, nowMs);
+  if (lastSet && Number.isFinite(activeMs) && activeMs - lastSetMs > STALE_FINISH_MS) {
     return lastSet;
   }
-  return session.updatedAt;
+  if (!Number.isFinite(activeMs) || activeMs === Date.parse(session.updatedAt)) {
+    return session.updatedAt;
+  }
+  return new Date(activeMs).toISOString();
 }
 
 function sortByOrderIndex<T extends { orderIndex: number }>(items: T[]) {
@@ -211,9 +217,10 @@ export function buildExerciseLogDraftsFromWorkoutSession(session: WorkoutSession
 
 export function adaptCompletedWorkoutSessionForAppDatabase(
   session: WorkoutSessionRuntime,
+  nowMs: number = Date.now(),
 ): AdaptedCompletedWorkoutSession {
   const exercises = buildAdaptedCompletedWorkoutExercises(session);
-  const performedAt = resolveFinishedAt(session);
+  const performedAt = resolveFinishedAt(session, nowMs);
 
   return {
     sessionId: session.sessionId,

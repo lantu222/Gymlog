@@ -25,6 +25,7 @@ import {
   getTrackedExerciseProgress,
 } from '../lib/progression';
 import { loadDatabase, normalizeDatabase, resetDatabase, saveDatabase, savePreferences } from '../storage/database';
+import { loadWithRetry } from '../storage/loadWithRetry';
 import {
   bodyweightRepository,
   exerciseLogRepository,
@@ -384,34 +385,23 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     let cancelled = false;
 
     async function hydrate() {
-      for (let attempt = 1; ; attempt += 1) {
-        try {
-          const nextDatabase = await loadDatabase();
-          if (cancelled) {
-            return;
-          }
-          databaseRef.current = nextDatabase;
-          setDatabase(nextDatabase);
-          setLoadFailed(false);
-          setHydrated(true);
-          hydrationGateRef.current?.open();
-          return;
-        } catch (error) {
-          console.error('Failed to hydrate database', error);
-          if (cancelled) {
-            return;
-          }
-          if (attempt >= 3) {
-            setLoadFailed(true);
-            return;
-          }
-          // A locked or busy database is usually free a moment later.
-          await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
-          if (cancelled) {
-            return;
-          }
-        }
+      const result = await loadWithRetry(loadDatabase, {
+        isCancelled: () => cancelled,
+        onError: (error) => console.error('Failed to hydrate database', error),
+      });
+      if (result.kind === 'cancelled') {
+        return;
       }
+      if (result.kind === 'failed') {
+        setLoadFailed(true);
+        return;
+      }
+      const nextDatabase = result.value;
+      databaseRef.current = nextDatabase;
+      setDatabase(nextDatabase);
+      setLoadFailed(false);
+      setHydrated(true);
+      hydrationGateRef.current?.open();
     }
 
     hydrate();

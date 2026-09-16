@@ -295,7 +295,6 @@ export function WorkoutsScreen({
     ? templates.find((template) => template.id === recommendedReadyProgramId) ?? null
     : null;
   const recommendedKickoffSession = recommendedReadyTemplate?.sessions[0] ?? null;
-  const activeSessionDurationMinutes = activeSession ? Math.max(1, Math.round(activeSession.elapsedSeconds / 60)) : null;
   const primaryCustomWorkout =
     customWorkouts.find((template) => template.id === activeTemplateId) ??
     customWorkouts[0] ??

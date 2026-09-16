@@ -36,7 +36,13 @@ module.exports = [
       );
       // A failed load is not a new install: no empty database is put in its place.
       assert.doesNotMatch(hydrate, /createEmptyDatabase/);
-      assert.match(hydrate, /setLoadFailed\(true\)/);
+      assert.match(hydrate, /const result = await loadWithRetry\(loadDatabase, \{\s*isCancelled: \(\) => cancelled,/);
+      assert.match(hydrate, /if \(result\.kind === 'failed'\) \{\s*setLoadFailed\(true\);\s*return;\s*\}/);
+      assert.ok(
+        hydrate.indexOf("result.kind === 'cancelled'") < hydrate.indexOf('databaseRef.current = nextDatabase;') &&
+          hydrate.indexOf("result.kind === 'failed'") < hydrate.indexOf('databaseRef.current = nextDatabase;'),
+        'only a load that landed reaches the ref',
+      );
       assert.match(provider, /if \(loadFailed\) \{\s*return \(\s*<StorageLoadFailedScreen/);
     },
   },
@@ -45,9 +51,18 @@ module.exports = [
     run() {
       const provider = code(read('src', 'features', 'workout', 'WorkoutProvider.tsx'));
       const hydrate = provider.slice(provider.indexOf('async function hydrate()'), provider.indexOf('hydrate();'));
-      assert.match(hydrate, /catch \(error\)/, 'a read that throws has to be caught, or the splash never goes');
-      const catchBlock = hydrate.slice(hydrate.indexOf('catch (error)'));
-      assert.doesNotMatch(catchBlock, /session\/hydrate/, 'hydrating on a failed read saves the empty bundle over the stored one');
+      // The read goes through loadWithRetry, which catches (tests/storage/loadWithRetry).
+      assert.match(
+        hydrate,
+        /const result = await loadWithRetry\(loadWorkoutBundle, \{\s*isCancelled: \(\) => cancelled,/,
+        'a read that throws has to be caught, or the splash never goes',
+      );
+      const failed = hydrate.slice(hydrate.indexOf("if (result.kind === 'failed') {"));
+      assert.match(failed, /^if \(result\.kind === 'failed'\) \{\s*setLoadFailed\(true\);\s*return;\s*\}/);
+      assert.ok(
+        hydrate.indexOf("result.kind === 'failed'") < hydrate.indexOf("type: 'session/hydrate'"),
+        'hydrating on a failed read saves the empty bundle over the stored one',
+      );
       assert.match(provider, /if \(loadFailed\) \{\s*return \(\s*<StorageLoadFailedScreen/);
 
       // A bundle that reads but will not parse is set aside first, and a reset removes the copy.

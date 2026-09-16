@@ -13,6 +13,7 @@ import { HOLD_DIAL, REPS_DIAL } from '../../lib/weightDial';
 import { isLiftableWeight } from '../../lib/weightLimits';
 import { isGuidedExerciseOut } from '../../lib/guidedPlayer';
 import { buildSupersetPlayOrder, supersetGroupIndexes } from '../../lib/supersetGrouping';
+import { elapsedSecondsOf, restSecondsLeft, restTimerHasEnded, workoutSecondsUntil } from '../../lib/sessionClock';
 import { GuidedResumeAnchor, WorkoutTrackingMode, WorkoutTemplateExercise, WorkoutExerciseInsertInput, WorkoutExerciseInstance, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRestTimerState, WorkoutRuntimeTemplate, WorkoutSessionMaterializeOptions, WorkoutSessionRuntime, WorkoutSessionSummary, WorkoutSetDraftInput, WorkoutSetEffort, WorkoutSetInstance, WorkoutSlotHistoryEntry, WorkoutSlotHistorySet, WorkoutStatus, WorkoutUiState, WorkoutExerciseStatus } from './workoutTypes';
 import { getWorkoutTemplateById } from './workoutCatalog';
 import { resolveProgressedLoadKg, resolveProgressedReps } from '../../lib/progressionGate';
@@ -28,7 +29,6 @@ import {
 export interface WorkoutFeatureState {
   hydrated: boolean;
   isRestoring: boolean;
-  nowMs: number;
   history: WorkoutHistoryStore;
   activeSession: WorkoutSessionRuntime | null;
   activeCardio: ActiveCardioSession | null;
@@ -125,7 +125,7 @@ export type WorkoutAction =
     }
   | { type: 'exercise/updateNotes'; payload: { slotId: string; notes: string } }
   | { type: 'timer/start'; payload: { slotId: string; setIndex: number; durationSeconds: number; nowMs: number } }
-  | { type: 'timer/pause' }
+  | { type: 'timer/pause'; payload: { nowMs: number } }
   | { type: 'timer/resume'; payload: { nowMs: number } }
   | { type: 'timer/override'; payload: { durationSeconds: number; nowMs: number } }
   | { type: 'timer/clear' }
@@ -779,51 +779,9 @@ function closePause(session: WorkoutSessionRuntime): WorkoutSessionRuntime {
   };
 }
 
-/** Wall time since the start, less every pause — including one still open. */
-export function elapsedSecondsOf(session: WorkoutSessionRuntime, nowMs: number): number {
-  const open = session.pausedAt ? Math.max(0, nowMs - new Date(session.pausedAt).getTime()) : 0;
-  const wall = nowMs - new Date(session.startedAt).getTime();
-  return Math.max(0, Math.floor((wall - (session.pausedMs ?? 0) - open) / 1000));
-}
-
-function latestCompletedSetMs(session: WorkoutSessionRuntime): number {
-  let latest = -Infinity;
-  session.exercises.forEach((exercise) => {
-    exercise.sets.forEach((set) => {
-      const time = set.status === 'completed' && set.completedAt ? Date.parse(set.completedAt) : Number.NaN;
-      if (Number.isFinite(time) && time > latest) {
-        latest = time;
-      }
-    });
-  });
-  return latest;
-}
-
-/**
- * How long the workout ran up to `endMs`, pauses off.
- *
- * When the end is the last logged set rather than the finish (a session left
- * open and reopened days later), only the pauses that had run by that set come
- * off — `pausedMs` by then also holds the days it sat paused, and subtracting
- * all of it saved a 48-minute workout as one minute (PR #120 review).
- */
-export function workoutSecondsUntil(session: WorkoutSessionRuntime, endMs: number): number {
-  const lastSetMs = latestCompletedSetMs(session);
-  if (Number.isFinite(lastSetMs) && endMs <= lastSetMs) {
-    const wall = endMs - new Date(session.startedAt).getTime();
-    const stamped = session.pausedMsAtLastSet;
-    if (typeof stamped === 'number' && Number.isFinite(stamped) && stamped >= 0) {
-      return Math.max(0, Math.floor((wall - stamped) / 1000));
-    }
-    // A session from before the stamp was kept. Its pauses are right unless
-    // they swallow the whole window — sets were logged in it, so time was
-    // spent unpaused — and then they ran past it, and the wall clock is the
-    // better answer.
-    const counted = elapsedSecondsOf(session, endMs);
-    return counted > 0 ? counted : Math.max(0, Math.floor(wall / 1000));
-  }
-  return elapsedSecondsOf(session, endMs);
-}
+// The session clock lives in src/lib/sessionClock.ts; re-exported for the
+// screens and suites that have always imported it from here.
+export { elapsedSecondsOf, workoutSecondsUntil };
 
 function buildSummary(session: WorkoutSessionRuntime): WorkoutSessionSummary {
   const completedSets = session.exercises.flatMap((exercise) => exercise.sets).filter((set) => set.status === 'completed');
@@ -895,7 +853,6 @@ function resolveDraftReps(set: WorkoutSetInstance) {
 export const workoutInitialState: WorkoutFeatureState = {
   hydrated: false,
   isRestoring: true,
-  nowMs: Date.now(),
   history: { sessions: [], slotHistory: {}, lastSelectedTemplateId: null },
   activeSession: null,
   activeCardio: null,
@@ -908,7 +865,6 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       return {
         hydrated: true,
         isRestoring: false,
-        nowMs: Date.now(),
         history: action.payload.history,
         activeSession: action.payload.activeSession,
         activeCardio: action.payload.activeCardio ?? null,
@@ -936,7 +892,6 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
           ...state.history,
           lastSelectedTemplateId: action.payload.templateId,
         },
-        nowMs: Date.now(),
       };
     }
 
@@ -958,7 +913,6 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
           ...state.history,
           lastSelectedTemplateId: action.payload.template.id,
         },
-        nowMs: Date.now(),
       };
     }
 
@@ -989,28 +943,35 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       };
     }
 
-    case 'session/tick':
-      if (!state.activeSession) {
-        return { ...state, nowMs: action.payload.nowMs };
+    /**
+     * The rest ran out: put the timer away. Nothing else.
+     *
+     * This ran every second while a rest was on, and every run returned a new
+     * state object — a new `nowMs`, a new `updatedAt` — so every consumer of
+     * the provider re-rendered once a second, and the persistence effect wrote
+     * the whole workout bundle, history included, once a second (2026-09-16).
+     * No screen reads a countdown from here; the player and the free workout
+     * keep their own clocks. So the provider dispatches this once, when the
+     * rest ends, and a tick that has nothing to do returns the same state.
+     */
+    case 'session/tick': {
+      const session = state.activeSession;
+      if (!session || session.status !== 'active' || !restTimerHasEnded(session.restTimer, action.payload.nowMs)) {
+        return state;
       }
-      if (state.activeSession.status !== 'active') {
-        return { ...state, nowMs: action.payload.nowMs };
-      }
+      const endedAtMs = session.restTimer.endsAtMs ?? action.payload.nowMs;
       return {
         ...state,
-        nowMs: action.payload.nowMs,
         activeSession: {
-          ...state.activeSession,
-          elapsedSeconds: elapsedSecondsOf(state.activeSession, action.payload.nowMs),
-          restTimer:
-            state.activeSession.restTimer.status === 'running' && state.activeSession.restTimer.endsAtMs
-              ? action.payload.nowMs >= state.activeSession.restTimer.endsAtMs
-                ? createInitialTimer()
-                : state.activeSession.restTimer
-              : state.activeSession.restTimer,
-          updatedAt: new Date(action.payload.nowMs).toISOString(),
+          ...session,
+          elapsedSeconds: elapsedSecondsOf(session, action.payload.nowMs),
+          restTimer: createInitialTimer(),
+          // In use until the rest ended, not until whenever this ran — a
+          // phone that slept through the end dispatches it on waking.
+          updatedAt: new Date(Math.max(Date.parse(session.updatedAt) || 0, endedAtMs)).toISOString(),
         },
       };
+    }
 
     case 'exercise/setActive':
       if (!state.activeSession) {
@@ -1185,7 +1146,7 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       session.ui.focusedField = null;
       session.updatedAt = new Date(action.payload.nowMs).toISOString();
 
-      return { ...state, activeSession: session, nowMs: action.payload.nowMs };
+      return { ...state, activeSession: session };
     }
 
     case 'set/editLogged': {
@@ -1311,7 +1272,7 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       session.ui.focusedField = null;
       session.updatedAt = new Date(action.payload.nowMs).toISOString();
 
-      return { ...state, activeSession: session, nowMs: action.payload.nowMs };
+      return { ...state, activeSession: session };
     }
 
     case 'set/undo': {
@@ -1652,7 +1613,6 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
             durationSeconds: action.payload.durationSeconds,
           },
         },
-        nowMs: action.payload.nowMs,
       };
 
     case 'timer/pause':
@@ -1666,7 +1626,8 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
           restTimer: {
             ...state.activeSession.restTimer,
             status: 'paused',
-            durationSeconds: Math.max(0, Math.ceil((state.activeSession.restTimer.endsAtMs - state.nowMs) / 1000)),
+            // Read at the moment of the pause, from the action.
+            durationSeconds: restSecondsLeft(state.activeSession.restTimer, action.payload.nowMs),
           },
         },
       };
@@ -1686,7 +1647,6 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
             endsAtMs: action.payload.nowMs + state.activeSession.restTimer.durationSeconds * 1000,
           },
         },
-        nowMs: action.payload.nowMs,
       };
 
     case 'timer/override':
@@ -1712,7 +1672,6 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
                   endsAtMs: action.payload.nowMs + action.payload.durationSeconds * 1000,
                 },
         },
-        nowMs: action.payload.nowMs,
       };
 
     case 'timer/clear':
@@ -1754,7 +1713,6 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       return {
         ...state,
         activeCardio: startCardioSession(action.payload.activityType, action.payload.nowMs),
-        nowMs: action.payload.nowMs,
       };
 
     case 'cardio/pause':
@@ -1764,7 +1722,6 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       return {
         ...state,
         activeCardio: pauseCardioSession(state.activeCardio, action.payload.nowMs),
-        nowMs: action.payload.nowMs,
       };
 
     case 'cardio/resume':
@@ -1774,7 +1731,6 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       return {
         ...state,
         activeCardio: resumeCardioSession(state.activeCardio, action.payload.nowMs),
-        nowMs: action.payload.nowMs,
       };
 
     case 'cardio/clear':
@@ -1824,7 +1780,6 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
         ...workoutInitialState,
         hydrated: true,
         isRestoring: false,
-        nowMs: action.payload.nowMs,
       };
 
     default:
