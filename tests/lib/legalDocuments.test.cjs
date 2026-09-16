@@ -17,7 +17,7 @@ const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
  * that makes changing the text also change the date the reader sees.
  * The failing assertion prints the value to paste back here.
  */
-const LEGAL_TEXT_FINGERPRINT = '46b96c4f0393edeb';
+const LEGAL_TEXT_FINGERPRINT = 'aab2bf055930d118';
 
 const IDS = ['privacy', 'terms'];
 const LANGUAGES = ['en', 'fi'];
@@ -505,11 +505,18 @@ module.exports = [
       // 15th, both under a document still dated the 5th, and both published
       // to the public page by the legal-pages workflow.
       //
-      // Sections only. updatedLabel is derived from the date, so hashing it
-      // too would let a bump satisfy this guard without anyone reading what
-      // changed.
+      // Everything the reader sees except one field. updatedLabel is derived
+      // from the date, so hashing it would let a bump satisfy this guard
+      // without anyone reading what changed. The first version hashed the
+      // sections alone and missed the title and summary, which live in a
+      // separate map and are published on the same page (review, #127) — so
+      // the one field is named and taken out, and anything added to a
+      // document later is covered without anyone remembering to list it.
       const payload = IDS.flatMap((id) =>
-        LANGUAGES.map((language) => JSON.stringify(buildLegalDocument(id, language).sections)),
+        LANGUAGES.map((language) => {
+          const { updatedLabel, ...wording } = buildLegalDocument(id, language);
+          return JSON.stringify(wording);
+        }),
       ).join(String.fromCharCode(10));
       const fingerprint = require('node:crypto').createHash('sha256').update(payload).digest('hex').slice(0, 16);
       assert.equal(
