@@ -142,7 +142,7 @@ const PRIVACY_EN: LegalSection[] = [
       'We keep no copy of our own unless you have said we may. The coach asks once, before your first question, in three separate lines: your questions and answers, the programmes you ask it to build, and the photos you import one from. Every line starts as no, each is its own answer, and none of them changes the answer you get. What you allow is kept for up to 24 months and then deleted automatically, and it is used for one thing: making the coach better at writing programmes.',
       'You can take it back at any time in Settings, and taking it back deletes what was already kept. Turning any one line off removes every copy kept for you from our server — including those made under the lines you leave on — rather than only stopping new ones.',
       'The programme composer works the same way: when you ask the app to build a programme from a written brief, the brief and the same summary are sent along the same route.',
-      'Importing a programme from a photo also uses this route. The photo you picked is scaled down and sent so the table in it can be read; it is used for that one import and is not kept.',
+      'Importing a programme from a photo also uses this route. The photo you picked is scaled down and sent so the table in it can be read; it is used for that one import and is not kept — unless you ticked the photos line above, in which case the photo and the table read from it are kept like any other allowed copy.',
     ],
   },
   {
@@ -349,7 +349,7 @@ const PRIVACY_FI: LegalSection[] = [
       'Me emme säilytä omaa kopiotamme, ellet ole antanut siihen lupaa. Valmentaja kysyy sen kerran, ennen ensimmäistä kysymystäsi, kolmena erillisenä rivinä: kysymyksesi ja vastaukset, ohjelmat joita pyydät sen rakentamaan, ja valokuvat joista tuot ohjelman. Jokainen rivi alkaa ei-vastauksesta, jokainen on oma vastauksensa, eikä mikään niistä muuta sitä vastausta jonka saat. Sallimasi säilytetään enintään 24 kuukautta ja poistetaan sitten automaattisesti, ja sitä käytetään yhteen asiaan: valmentajan parantamiseen ohjelmien kirjoittajana.',
       'Voit peruuttaa luvan milloin tahansa asetuksista, ja peruutus poistaa myös jo säilytetyn. Kun kytket yhdenkin rivin pois, jokainen sinulle säilytetty kopio poistetaan palvelimeltamme — myös päälle jätettyjen rivien nojalla tehdyt — eikä vain uusien kertyminen lopu.',
       'Ohjelmakoostaja toimii samalla tavalla: kun pyydät sovellusta rakentamaan ohjelman kirjoittamasi kuvauksen pohjalta, kuvaus ja sama yhteenveto lähetetään samaa reittiä.',
-      'Myös ohjelman tuonti valokuvasta käyttää tätä reittiä. Valitsemasi kuva pienennetään ja lähetetään, jotta siinä oleva taulukko voidaan lukea; sitä käytetään siihen yhteen tuontiin, eikä sitä säilytetä.',
+      'Myös ohjelman tuonti valokuvasta käyttää tätä reittiä. Valitsemasi kuva pienennetään ja lähetetään, jotta siinä oleva taulukko voidaan lukea; sitä käytetään siihen yhteen tuontiin, eikä sitä säilytetä — paitsi jos rastitit yllä valokuvien rivin, jolloin kuva ja siitä luettu taulukko säilytetään kuten muutkin sallimasi kopiot.',
     ],
   },
   {

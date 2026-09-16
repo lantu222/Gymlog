@@ -13,11 +13,19 @@ const root = path.join(__dirname, '..', '..');
 const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 
 /**
- * The wording as it last stood, hashed. Not a lock on the text — a trigger
- * that makes changing the text also change the date the reader sees.
- * The failing assertion prints the value to paste back here.
+ * Every wording the documents have gone out with, oldest first, and the date
+ * each went out under. Not a lock on the text — a record that makes a change
+ * of text carry a change of date.
+ *
+ * A new wording is a new entry, and its date must be later than the one
+ * before, so pasting the new hash under the old date fails. A second edit on
+ * the day of the last entry replaces that entry's fingerprint instead: the
+ * date already names that day's version. The failing assertion prints what to
+ * write here.
  */
-const LEGAL_TEXT_FINGERPRINT = '0ae6310fedd85522';
+const LEGAL_TEXT_VERSIONS = [
+  { date: '2026-09-16', fingerprint: 'c52c7814c8a7ba76' },
+];
 
 const IDS = ['privacy', 'terms'];
 const LANGUAGES = ['en', 'fi'];
@@ -501,18 +509,21 @@ module.exports = [
     },
   },
   {
-    name: 'a change to the wording cannot land without someone deciding about the date',
+    name: 'a new wording goes out under a new date',
     run() {
       // The policy promises that "the date at the top always tells you which
-      // version you are reading". Nothing made anyone look: #92 rewrote the
-      // whole coach-consent section on 11 September and #118 dropped the promo
+      // version you are reading". Nothing enforced it: #92 rewrote the whole
+      // coach-consent section on 11 September and #118 dropped the promo
       // paragraph on the 15th, both under a document still dated the 5th, and
       // both published to the public page by the legal-pages workflow.
       //
-      // This cannot force the date to move — a test does not know what day it
-      // is, and a same-day second edit rightly keeps the date. What it does is
-      // stop the wording from changing silently: the hash has to be pasted
-      // back by hand, next to a message that names the date as it stands.
+      // The first version of this guard kept one hash and only named the date
+      // in its message, so pasting the new hash under the stale date went
+      // green (review, #127). The record is a history now, and the date is
+      // part of what has to match: a new entry must be later than the last,
+      // and the last must be the date the documents show. The one way left to
+      // keep a stale date is to overwrite a past entry, which is what a
+      // same-day edit does and what a reviewer can see in the diff.
       //
       // Everything the reader sees except one field. updatedLabel is derived
       // from the date, so hashing it would let a bump satisfy this guard
@@ -528,12 +539,34 @@ module.exports = [
         }),
       ).join(String.fromCharCode(10));
       const fingerprint = require('node:crypto').createHash('sha256').update(payload).digest('hex').slice(0, 16);
+
+      assert.ok(LEGAL_TEXT_VERSIONS.length > 0, 'LEGAL_TEXT_VERSIONS is empty');
+      for (let index = 1; index < LEGAL_TEXT_VERSIONS.length; index += 1) {
+        const before = LEGAL_TEXT_VERSIONS[index - 1];
+        const after = LEGAL_TEXT_VERSIONS[index];
+        assert.ok(
+          after.date > before.date,
+          `LEGAL_TEXT_VERSIONS: the entry for ${after.date} is not later than the one for ${before.date}. `
+            + 'A new wording needs a new date — bump LEGAL_LAST_UPDATED in src/lib/legalDocuments.ts. '
+            + 'If this is a second change on the same day, replace the last entry’s fingerprint instead of adding one.',
+        );
+      }
+
+      const current = LEGAL_TEXT_VERSIONS[LEGAL_TEXT_VERSIONS.length - 1];
       assert.equal(
         fingerprint,
-        LEGAL_TEXT_FINGERPRINT,
-        `The legal wording changed. LEGAL_LAST_UPDATED still says ${LEGAL_LAST_UPDATED}: bump it in `
-          + 'src/lib/legalDocuments.ts if a reader should re-read this, re-run node scripts/export-legal.cjs, '
-          + `and set LEGAL_TEXT_FINGERPRINT in this file to '${fingerprint}'.`,
+        current.fingerprint,
+        `The legal wording changed (the last recorded version is dated ${current.date}). `
+          + 'Bump LEGAL_LAST_UPDATED in src/lib/legalDocuments.ts, re-run node scripts/export-legal.cjs, and add '
+          + `{ date: '<the new date>', fingerprint: '${fingerprint}' } to the end of LEGAL_TEXT_VERSIONS. `
+          + `A second change on ${current.date} itself replaces that entry’s fingerprint instead.`,
+      );
+      assert.equal(
+        LEGAL_LAST_UPDATED,
+        current.date,
+        `The documents say ${LEGAL_LAST_UPDATED}, but the last recorded wording is dated ${current.date}. `
+          + 'The date and the record move together: a bumped date without a changed wording has nothing new to '
+          + 'show the reader, and a recorded version under a different date is not the one they see.',
       );
     },
   },

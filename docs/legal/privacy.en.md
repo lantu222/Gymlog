@@ -68,7 +68,7 @@ You can take it back at any time in Settings, and taking it back deletes what wa
 
 The programme composer works the same way: when you ask the app to build a programme from a written brief, the brief and the same summary are sent along the same route.
 
-Importing a programme from a photo also uses this route. The photo you picked is scaled down and sent so the table in it can be read; it is used for that one import and is not kept.
+Importing a programme from a photo also uses this route. The photo you picked is scaled down and sent so the table in it can be read; it is used for that one import and is not kept — unless you ticked the photos line above, in which case the photo and the table read from it are kept like any other allowed copy.
 
 ## Usage statistics
 
