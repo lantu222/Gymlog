@@ -102,6 +102,8 @@ export interface WorkoutTabDeps {
   } | null;
   programInsightsByTemplateId: WorkoutsProps['programInsightsByTemplateId'];
   availableEquipmentForDrills: ProgramDetailProps['availableEquipment'];
+  /** Warm-up and cool-down seconds for a day's lifts — the ones Home counts. */
+  routineSecondsForExercises: NonNullable<ProgramDetailProps['routineSeconds']>;
   resolveNextSessionIdForTemplate: (workoutTemplateId: string) => string | null;
   handleStartReadyProgramSession: (workoutTemplateId: string, sessionId: string, trimSets?: boolean) => void;
   /** Resolves to whether the programme is running afterwards; the cap can refuse. */
@@ -229,6 +231,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     homeActivePlanCard,
     programInsightsByTemplateId,
     availableEquipmentForDrills,
+    routineSecondsForExercises,
     resolveNextSessionIdForTemplate,
     handleStartReadyProgramSession,
     handleAdoptReadyProgram,
@@ -394,6 +397,11 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             programIsMine && !programLeads,
           )
         : null;
+    // The plan's entries, in stored order — the order the week strip reads
+    // both its days and the session on each of them.
+    const detailPlanEntries =
+      database.workoutPlans.find((plan) => plan.entries[0]?.workoutTemplateId === route.workoutTemplateId)
+        ?.entries ?? [];
 
     return program ? (
       <ProgramDetailScreen
@@ -533,10 +541,10 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           handleStartCustomProgramSession(route.workoutTemplateId, sessionId);
         }}
         programBlockWeeks={readyTemplate ? getReadyProgramBlockWeeks(readyTemplate) : null}
-        trainingDayIndexes={planWeekdayIndexes(
-          database.workoutPlans.find((plan) => plan.entries[0]?.workoutTemplateId === route.workoutTemplateId)
-            ?.entries ?? [],
-        )}
+        trainingDayIndexes={planWeekdayIndexes(detailPlanEntries)}
+        // Same entries, same order: which session each of those days holds.
+        trainingDaySessionIds={detailPlanEntries.map((entry) => entry.workoutTemplateSessionId ?? null)}
+        routineSeconds={routineSecondsForExercises}
         // Custom only, like every other edit here: a ready programme's name
         // is catalog data, and a reader who wants their own version of one
         // gets a custom copy the moment they change a lift in it.

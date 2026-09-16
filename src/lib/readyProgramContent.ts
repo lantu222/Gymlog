@@ -186,7 +186,7 @@ const READY_PROGRAM_CONTENT: Record<string, ReadyProgramContent> = {
     equipmentProfile:
       'A standard gym: barbell, dumbbells, cables, machines and a kettlebell.',
     whyItWorks:
-      'The upper body is trained three times, once heavy with the barbell and twice lighter with dumbbells and cables, and the lower body once heavy plus hip thrusts and swings on the pull day, so strength and muscle both progress without the week turning into a grind.',
+      'The upper body is trained three times, twice led by a barbell lift (the bench press and the barbell row) and once with dumbbells, and the lower body once heavy plus hip thrusts and swings on the pull day, so strength and muscle both progress without the week turning into a grind.',
   },
   tpl_gainer_joint_friendly_v1: {
     summary:

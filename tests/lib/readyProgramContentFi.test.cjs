@@ -53,4 +53,30 @@ module.exports = [
       }
     },
   },
+  {
+    /**
+     * Both languages said the upper body went heavy with the barbell once,
+     * while the pull day opens with the same 4 × 10 barbell row as the bench
+     * day (backfill review of #69, 2026-09-16). The copy is pinned to the
+     * week it describes: change which days open on a barbell and this fails
+     * until the sentence follows.
+     */
+    name: 'Strong & Lean Female says what its week does: two upper days open on a barbell lift',
+    run() {
+      const template = WORKOUT_TEMPLATES_V1.find((entry) => entry.id === 'tpl_gainer_strong_lean_female_v1');
+      assert.ok(template, 'the programme is gone from the catalog');
+      assert.deepEqual(
+        template.sessions
+          .map((session) => session.exercises[0].exerciseName)
+          .filter((name) => /^Barbell /.test(name)),
+        ['Barbell Bench Press', 'Barbell Row'],
+      );
+      const en = getReadyProgramContent(template.id, 'en').whyItWorks;
+      const fi = getReadyProgramContent(template.id, 'fi').whyItWorks;
+      assert.match(en, /twice led by a barbell lift \(the bench press and the barbell row\)/);
+      assert.match(fi, /kahdesti tankoliikkeestä alkaen \(penkki ja kulmasoutu\)/);
+      assert.doesNotMatch(en, /once heavy with the barbell/);
+      assert.doesNotMatch(fi, /kerran raskaasti tangolla/);
+    },
+  },
 ];

@@ -169,7 +169,7 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
     equipmentProfile:
       'Tavallinen sali: tanko, käsipainot, taljat, laitteet ja kahvakuula.',
     whyItWorks:
-      'Ylävartalo treenataan kolmesti, kerran raskaasti tangolla ja kahdesti kevyemmin käsipainoilla ja taljoilla, alavartalo kerran raskaasti ja lisäksi lantionnostoilla ja heilautuksilla vetopäivänä, joten voima ja lihas kehittyvät ilman että viikko käy raskaaksi.',
+      'Ylävartalo treenataan kolmesti, kahdesti tankoliikkeestä alkaen (penkki ja kulmasoutu) ja kerran käsipainoilla, alavartalo kerran raskaasti ja lisäksi lantionnostoilla ja heilautuksilla vetopäivänä, joten voima ja lihas kehittyvät ilman että viikko käy raskaaksi.',
   },
   tpl_gainer_joint_friendly_v1: {
     summary:

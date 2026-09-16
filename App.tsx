@@ -162,7 +162,7 @@ import {
   ProgramPrescription,
   toDraftExercise,
 } from './src/lib/programSessionEdit';
-import { repointPlanEntrySessions } from './src/lib/planSessionOrder';
+import { reorderPlanWeek } from './src/lib/planSessionOrder';
 import { reorderProgramSessions } from './src/lib/programSessionOrder';
 import { ProgramLimitReachedError } from './src/lib/programSlots';
 import { createUnlessAtLimit } from './src/app/programLimitGuard';
@@ -2474,9 +2474,13 @@ function VinhaApp() {
       return;
     }
     const saved = await getWorkoutTemplateSessionsFresh(workoutTemplateId);
-    const repointed = repointPlanEntrySessions(
+    // And the week turns with it, like every other writer of the labels: the
+    // session that comes next takes the first training day not yet gone.
+    const repointed = reorderPlanWeek(
       plan.entries,
       saved.map((session) => session.id),
+      completedSessionsForTemplate(workoutTemplateId),
+      new Date(),
     );
     if (repointed.kind === 'skip') {
       return;
@@ -3751,6 +3755,11 @@ function VinhaApp() {
       ),
     }),
     [preferences.appLanguage, availableEquipmentForDrills, preferences.routineDrillOverrides],
+  );
+  /** The same cost for a day known only by its lifts — the programme page's. */
+  const routineSecondsForExercises = useCallback(
+    (exerciseNames: string[]) => routineBlockSeconds(classifySessionFocus(exerciseNames)),
+    [routineBlockSeconds],
   );
   // Both used to depend on the whole preferences object, so a theme or sound
   // toggle handed them a new object and they rebuilt — and everything
@@ -6492,6 +6501,7 @@ function VinhaApp() {
       homeActivePlanCard,
       programInsightsByTemplateId,
       availableEquipmentForDrills,
+      routineSecondsForExercises,
       resolveNextSessionIdForTemplate,
       handleStartReadyProgramSession,
       handleAdoptReadyProgram,

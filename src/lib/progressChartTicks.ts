@@ -32,8 +32,12 @@ export function getOverviewDurationTicks(maxValue: number) {
     // Past the ladder, round up to whole days so the top is still a number a
     // reader can name.
     ?? Math.ceil(Math.max(maxValue, 1) / 1440) * 1440;
-  const step = top / (top <= 60 ? Math.max(1, top / 15) : 4);
-  return Array.from({ length: Math.round(top / step) + 1 }, (_, index) => index * step);
+  // Quarters above an hour, except where a quarter is not a whole number of
+  // minutes: 90 split in four printed "22.5m" and "1h 7.5m" on an ordinary
+  // workout's axis (backfill review of #40, 2026-09-16), so it takes thirds.
+  const intervals = top <= 60 ? Math.max(1, top / 15) : top % 4 === 0 ? 4 : 3;
+  const step = top / intervals;
+  return Array.from({ length: intervals + 1 }, (_, index) => index * step);
 }
 
 /**
