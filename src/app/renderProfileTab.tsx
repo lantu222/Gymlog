@@ -79,7 +79,12 @@ export interface ProfileTabDeps {
   exerciseBrowserItems: React.ComponentProps<typeof TrainingPlanScreen>['exerciseLibrary'];
   exerciseNameBook: React.ComponentProps<typeof TrainingPlanScreen>['nameBook'];
   teachExerciseName: (wrote: string, target: { name: string; libraryItemId: string }) => void;
-  handlePickProgramImage: () => Promise<string | null>;
+  /**
+   * Undefined in a build with no live coach: the photo path is the coach's,
+   * and the sheet hides the button rather than offering one that returns
+   * nothing (2026-09-16).
+   */
+  handlePickProgramImage?: () => Promise<string | null>;
   handleChangeTrainingDays: (days: SetupWeekday[]) => Promise<void>;
   programSlots: { canCreate: boolean };
   setProgramLimitVisible: (visible: boolean) => void;

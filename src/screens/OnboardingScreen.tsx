@@ -7,6 +7,7 @@ import {
   Easing,
   Image,
   ImageBackground,
+  BackHandler,
   ImageStyle,
   ImageSourcePropType,
   Modal,
@@ -2211,6 +2212,25 @@ export function OnboardingScreen({
     });
   }, [stageIndex]);
 
+  /**
+   * Android's back key, during the questionnaire.
+   *
+   * The app-level handler stands down while onboarding is open — there is no
+   * route to pop — and nothing took its place, so the hardware key fell
+   * through to Android's default and CLOSED THE APP, from any step, with
+   * every answer so far thrown away (2026-09-16). The key now does what the
+   * screen's own back button does, and while the plan is being built it does
+   * nothing at all rather than stepping out of a write in progress.
+   */
+  const backActionRef = useRef<() => void>(() => undefined);
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      backActionRef.current();
+      return true;
+    });
+    return () => subscription.remove();
+  }, []);
+
   useEffect(() => {
     if (!isBuildingPlan) {
       buildingPlanScreenOpacity.setValue(1);
@@ -4214,6 +4234,25 @@ export function OnboardingScreen({
     [footerVisible, insets.bottom, locationStageActive, stage],
   );
 
+  /**
+   * Back, in priority order: an open sheet first, then the stage, and nothing
+   * at all while the plan is being written.
+   *
+   * The sheet is a transparent Modal, which swallows the key on Android — but
+   * only while RN's own handling gets there first, and a listener that would
+   * otherwise walk the questionnaire backwards behind an open sheet is not
+   * something to leave to ordering.
+   */
+  const resolveBackAction = (stageBack: () => void) => {
+    if (helperVisible) {
+      return () => setHelperVisible(false);
+    }
+    return isBuildingPlan ? () => undefined : stageBack;
+  };
+  backActionRef.current = resolveBackAction(() =>
+    setStageIndex((current) => Math.max(0, current - 1)),
+  );
+
   if (isBuildingPlan) {
     return renderBuildingPlan();
   }
@@ -4240,6 +4279,8 @@ export function OnboardingScreen({
     }
     setStageIndex((current) => Math.max(0, current - 1));
   };
+  // And the hardware key does exactly what the button does.
+  backActionRef.current = resolveBackAction(goBack);
 
   return (
     <View style={[styles.root, styles.rootLight]}>
@@ -4325,7 +4366,15 @@ export function OnboardingScreen({
         </View>
       ) : null}
 
-      <Modal visible={helperVisible} transparent animationType="fade">
+      {/* Back closes the sheet rather than stepping the questionnaire behind
+          it: the hardware key now has an answer during onboarding, and an
+          open sheet is the first thing it should be answering. */}
+      <Modal
+        visible={helperVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setHelperVisible(false)}
+      >
         <View style={styles.sheetOverlay}>
           <View style={styles.sheetBackdrop}>
             <Pressable style={StyleSheet.absoluteFill} onPress={() => setHelperVisible(false)} />

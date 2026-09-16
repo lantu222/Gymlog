@@ -6,6 +6,8 @@ const {
   rotateLabelsForNextSession,
   weekdaysFromPlanLabels,
 } = require('../../.test-dist/lib/trainingWeekSync.js');
+const { buildSavedOnboardingWorkoutPlan } = require('../../.test-dist/app/onboardingHandoff.js');
+const { DEFAULT_FIRST_RUN_SELECTION } = require('../../.test-dist/lib/firstRunSetup.js');
 
 module.exports = [
   {
@@ -183,6 +185,40 @@ module.exports = [
         rotateLabelsForNextSession(["wed", "fri", "sun"], 0, sunday),
         "the answer depends on the week, not on how the caller held it",
       );
+    },
+  },
+  {
+    name: 'the questionnaire places its days the way adoption does, not from Monday',
+    run() {
+      // Finished on a Thursday. Home offers the session that comes next —
+      // today — and the calendar reads these labels, so dealing them out from
+      // the reader's first day put day 1 on Monday and the two disagreed.
+      const thursday = new Date(2026, 8, 17, 18, 0, 0);
+      const selection = {
+        ...DEFAULT_FIRST_RUN_SELECTION,
+        scheduleMode: 'self_managed',
+        availableDays: ['mon', 'wed', 'fri'],
+        daysPerWeek: 3,
+      };
+      const realDate = Date;
+      // eslint-disable-next-line no-global-assign
+      Date = class extends realDate {
+        constructor(...args) {
+          super(...(args.length ? args : [thursday.getTime()]));
+        }
+        static now() {
+          return thursday.getTime();
+        }
+      };
+      try {
+        const plan = buildSavedOnboardingWorkoutPlan(selection, 'tpl_copy', ['d1', 'd2', 'd3'], 'fi');
+        assert.deepEqual(plan.entries.map((entry) => entry.label), ['fri', 'mon', 'wed']);
+        // Same answer adoption gives for the same day.
+        assert.deepEqual(planLabelsForProgramme(3, ['mon', 'wed', 'fri'], thursday), ['fri', 'mon', 'wed']);
+      } finally {
+        // eslint-disable-next-line no-global-assign
+        Date = realDate;
+      }
     },
   },
 ];

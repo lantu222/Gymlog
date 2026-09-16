@@ -176,9 +176,9 @@ export function buildAiCoachBodyState(
       kind,
       unit: latest.unit,
       latestValue: latest.value,
-      latestAt: latest.recordedAt.slice(0, 10),
+      latestAt: localDateKey(latest.recordedAt),
       previousValue: previous?.value ?? null,
-      previousAt: previous ? previous.recordedAt.slice(0, 10) : null,
+      previousAt: previous ? localDateKey(previous.recordedAt) : null,
     };
   });
 
@@ -187,13 +187,23 @@ export function buildAiCoachBodyState(
   }
   return {
     weightKg: latestWeight?.weight ?? null,
-    weightAt: latestWeight ? latestWeight.recordedAt.slice(0, 10) : null,
+    weightAt: latestWeight ? localDateKey(latestWeight.recordedAt) : null,
     weightChange30d: weightChange(weights, 30, now),
     weightChange90d: weightChange(weights, 90, now),
     measurements,
   };
 }
 
+/**
+ * Dates the coach quotes are the reader's days, not UTC's.
+ *
+ * `recordedAt.slice(0, 10)` is the first ten characters of an ISO string,
+ * which is the UTC date: a weigh-in at half past midnight in Helsinki is
+ * stored as 21:30 the previous day, so the coach told the reader they last
+ * weighed in yesterday — and dated the change it was reading from
+ * (2026-09-16). localDateKey resolves the day on the phone, which is the only
+ * place that knows the reader's timezone; the endpoint's own clock is UTC.
+ */
 export function buildAiCoachGoals(
   coachGoals: CoachGoal[],
   bodyweightGoalKg: number | null,
@@ -222,7 +232,7 @@ export function buildAiCoachGoals(
     unit: goal.unit,
     startValue: goal.startValue,
     currentValue: currentFor(goal.kind),
-    setAt: goal.createdAt.slice(0, 10),
+    setAt: localDateKey(goal.createdAt),
     isPrimary: goal.id === primaryId,
   }));
   // The onboarding weight goal counts as a goal too — but the one the user

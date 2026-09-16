@@ -818,6 +818,13 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
         typeof input?.preferences?.hasOpenedAppBefore === 'boolean'
           ? input.preferences.hasOpenedAppBefore
           : fallback.preferences.hasOpenedAppBefore,
+      // An install from before the flag existed has whatever weigh-ins it
+      // has: treat a log with something in it as already seeded, so the old
+      // rule's one-off write is not repeated on the first load.
+      setupWeightSeeded:
+        typeof input?.preferences?.setupWeightSeeded === 'boolean'
+          ? input.preferences.setupWeightSeeded
+          : Array.isArray(input?.bodyweightEntries) && input.bodyweightEntries.length > 0,
       homeWidgetPromptDismissed:
         typeof input?.preferences?.homeWidgetPromptDismissed === 'boolean'
           ? input.preferences.homeWidgetPromptDismissed

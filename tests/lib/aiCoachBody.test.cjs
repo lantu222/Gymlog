@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { withHelsinkiClocks } = require('../helpers/clockChange.cjs');
 const { buildAiCoachBodyState, buildAiCoachGoals } = require('../../.test-dist/lib/aiTrainingContext.js');
 const { buildAiCoachSystemContext } = require('../../.test-dist/lib/aiCoachSystemContext.js');
 const { normalizeAiCoachTrainingContext } = require('../../.test-dist/lib/aiTrainingContext.js');
@@ -223,6 +224,42 @@ module.exports = [
         ],
       });
       assert.deepEqual(current.goals.map((goal) => goal.isPrimary), [true, false]);
+    },
+  },
+  {
+    name: 'aiCoachBody: the dates are the reader’s days, not UTC’s',
+    run() {
+      // Under Helsinki's clock, so the assertion is not vacuous on a UTC
+      // runner where the two dates are the same string either way.
+      withHelsinkiClocks(() => {
+        // Half past midnight in Helsinki is 21:30 the previous day in UTC, so
+        // slicing the ISO string told the reader they last weighed in
+        // yesterday — and dated the change it was reading from (2026-09-16).
+        const justAfterMidnight = new Date(2026, 8, 16, 0, 30, 0, 0);
+        assert.equal(justAfterMidnight.toISOString().slice(0, 10), '2026-09-15', 'the UTC date is the day before');
+        const earlier = new Date(2026, 8, 2, 7, 0, 0, 0);
+        const body = buildAiCoachBodyState(
+          [
+            { id: 'bw-1', recordedAt: earlier.toISOString(), weight: 84 },
+            { id: 'bw-2', recordedAt: justAfterMidnight.toISOString(), weight: 82.4 },
+          ],
+          [
+            { id: 'm-1', recordedAt: justAfterMidnight.toISOString(), kind: 'chest', value: 104, unit: 'cm' },
+            { id: 'm-0', recordedAt: earlier.toISOString(), kind: 'chest', value: 102, unit: 'cm' },
+          ],
+          new Date(2026, 8, 16, 9, 0, 0, 0),
+        );
+        assert.equal(body.weightAt, '2026-09-16');
+        assert.equal(body.measurements[0].latestAt, '2026-09-16');
+
+        // A goal set just after local midnight is dated the day it was set.
+        const goals = buildAiCoachGoals(
+          [{ id: 'g1', text: 'chest 110 cm', kind: 'chest', targetValue: 110, unit: 'cm', startValue: 104, createdAt: justAfterMidnight.toISOString() }],
+          null,
+          body,
+        );
+        assert.equal(goals[0].setAt, '2026-09-16');
+      });
     },
   },
 ];

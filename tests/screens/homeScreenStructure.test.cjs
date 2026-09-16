@@ -446,7 +446,14 @@ module.exports = [
       // source now, and a reader with no plan gets Home's no-plan state.
       assert.doesNotMatch(appSource, /recommendedReadyTemplate\.splitType/);
       assert.match(appSource, /focusLabel: getSessionBodyFocusLabel\(/);
-      assert.match(appSource, /resolveNextPlanEntryIndex\(sortedEntries, completedPlanSessions\)/);
+      // The rotation reads the programme's history, not one template record's:
+      // a copy made by editing a lift carries new day ids, and the rotation
+      // found no match at all and offered day 1 to a reader who trained day 3
+      // yesterday (2026-09-16).
+      assert.match(
+        appSource,
+        /resolveNextPlanEntryIndex\(\s*sortedEntries,\s*completedSessionsForTemplate\(firstEntry\.workoutTemplateId, completedPlanSessions\),\s*\)/,
+      );
       assert.match(appSource, /equipmentLabel: buildSessionEquipmentLabel\(/);
       assert.match(appSource, /totalSets: session\.exercises\.reduce/);
       assert.doesNotMatch(homeScreenSource, /planChartBars/);

@@ -8,6 +8,7 @@ const {
   PROGRAM_TABLE_RULES,
 } = require('../../.test-dist/lib/programImageImport.js');
 const { parseCsvProgram } = require('../../.test-dist/lib/csvProgramImport.js');
+const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
 /**
  * Reading a programme out of a photo.
@@ -135,6 +136,26 @@ module.exports = [
       assert.equal(isProgramImageMediaType('application/pdf'), false);
       assert.equal(isProgramImageMediaType(''), false);
       assert.equal(isProgramImageMediaType(undefined), false);
+    },
+  },
+  {
+    name: 'the photo button is offered only where there is a coach behind it',
+    run() {
+      // requestProgramTableFromImage returns null before it makes a request
+      // when there is no endpoint, so in a preview build the button opened
+      // the gallery, made the reader choose a photo, and produced nothing
+      // (2026-09-16). NewProgramSheet hides it when the handler is absent.
+      const wiring = readAppWiring();
+      assert.match(
+        wiring,
+        /const handlePickProgramImage = isAiCoachLiveConfigured\(\) \? pickProgramImageForImport : undefined;/,
+      );
+      assert.match(wiring, /handlePickProgramImage\?: \(\) => Promise<string \| null>;/);
+      const sheet = require('node:fs').readFileSync(
+        require('node:path').join(__dirname, '..', '..', 'src', 'components', 'NewProgramSheet.tsx'),
+        'utf8',
+      );
+      assert.match(sheet, /\{onPickImage \? \(/, 'the sheet renders the row only when it has a handler');
     },
   },
 ];

@@ -28,6 +28,7 @@ import { AppLanguage, NotificationLevel, NotificationPrefs, SetupWeekday } from 
 import { exerciseNameLabel } from './exerciseNameLabel';
 import { MEASUREMENT_LABEL_KEYS } from './homeStatCards';
 import { isMeasurementReminderKind } from './measurementReminder';
+import { isScheduleKnown, TrainingSchedule, trainsOn } from './trainingSchedule';
 
 export type NotificationCategory =
   | 'record'
@@ -66,7 +67,16 @@ export interface NotificationPlanInput {
   prefs: NotificationPrefs;
   language: AppLanguage;
   /** Days the user picked in setup. Empty = unknown, so no reminders. */
-  trainingDays: SetupWeekday[];
+  /**
+   * The rhythm itself, not a list of weekdays.
+   *
+   * This was `trainingDays: SetupWeekday[]`, matched with `getDay()` — so a
+   * reader on a 3-on-1-off cycle was reminded on the weekdays their setup
+   * once named, which after the first week is a different set of days
+   * entirely. The same TrainingSchedule Home draws its dots from answers
+   * both kinds, and answers them the same way (2026-09-16).
+   */
+  schedule: TrainingSchedule;
   lastSessionAtMs: number | null;
   weekSessionCount: number;
   weekVolumeKg: number;
@@ -178,14 +188,7 @@ function isSameLocalDay(left: number, right: number) {
 
 function buildSessionReminders(input: NotificationPlanInput): PlannedNotification[] {
   const { prefs, language, nowMs } = input;
-  if (!prefs.sessionReminders || input.trainingDays.length === 0) {
-    return [];
-  }
-
-  const wantedWeekdays = new Set(
-    input.trainingDays.map((day) => JS_WEEKDAY[day]).filter((index) => index !== undefined),
-  );
-  if (wantedWeekdays.size === 0) {
+  if (!prefs.sessionReminders || !isScheduleKnown(input.schedule)) {
     return [];
   }
 
@@ -198,7 +201,7 @@ function buildSessionReminders(input: NotificationPlanInput): PlannedNotificatio
     if (fireAtMs <= nowMs) {
       continue;
     }
-    if (!wantedWeekdays.has(new Date(fireAtMs).getDay())) {
+    if (!trainsOn(input.schedule, new Date(fireAtMs))) {
       continue;
     }
     // Already trained that day — the reminder has nothing left to ask for.

@@ -19,6 +19,8 @@ import {
   getVolumeThisWeekKg,
 } from '../lib/completedSessions';
 import { buildNotificationPlan } from '../lib/notificationPlan';
+import { planWeekdayIndexes, WEEKDAY_KEYS } from '../lib/programTrainingDays';
+import { cycleSchedule, weekdaySchedule } from '../lib/trainingSchedule';
 import { findLatestSessionPr } from '../lib/workoutCompletionSummary';
 import { AppDatabase } from '../types/models';
 import { syncPlannedNotifications } from '../utils/appNotifications';
@@ -83,7 +85,38 @@ export function useScheduledNotifications(database: AppDatabase) {
     ? signals.latestMeasurementAtMsByKind[measurementKind] ?? null
     : null;
 
-  const trainingDaysKey = setupAvailableDays.join(',');
+  /**
+   * The rhythm the reminders follow: the reader's cycle when they have set
+   * one, otherwise the days their own plan names, otherwise what setup said
+   * they had free.
+   *
+   * Reminders used to read `setupAvailableDays` alone, which is availability
+   * rather than a plan — and for a reader on a 3-on-1-off cycle it is not
+   * even the right kind of answer: their training days move through the week.
+   * This is the schedule Home draws its dots from (2026-09-16).
+   */
+  const schedule = useMemo(() => {
+    const cycle = database.preferences.trainingCycle;
+    if (cycle) {
+      return cycleSchedule(cycle.pattern, cycle.anchorDayStart);
+    }
+    const activePlan =
+      database.workoutPlans.find((plan) => plan.id === database.preferences.activePlanId) ?? null;
+    const named = planWeekdayIndexes(activePlan?.entries ?? []);
+    return weekdaySchedule(
+      named.length > 0
+        ? named
+        : setupAvailableDays
+            .map((day) => WEEKDAY_KEYS.indexOf(day))
+            .filter((index) => index >= 0),
+    );
+  }, [
+    database.preferences.activePlanId,
+    database.preferences.trainingCycle,
+    database.workoutPlans,
+    setupAvailableDays,
+  ]);
+  const scheduleKey = JSON.stringify(schedule);
   const onTrainingBreak = trainingBreak !== null;
   const prKey = signals.latestPr
     ? `${signals.latestPr.exerciseName}|${signals.latestPr.weightKg}|${signals.latestPr.reps}|${signals.latestPr.achievedAtMs}`
@@ -103,7 +136,7 @@ export function useScheduledNotifications(database: AppDatabase) {
       nowMs: Date.now(),
       prefs: notificationPrefs,
       language: appLanguage,
-      trainingDays: setupAvailableDays,
+      schedule,
       onTrainingBreak,
       lastSessionAtMs: signals.lastSessionAtMs,
       weekSessionCount: signals.weekSessionCount,
@@ -137,7 +170,7 @@ export function useScheduledNotifications(database: AppDatabase) {
     lastMeasurementAtMs,
     trialEndsAtMs,
     appLanguage,
-    trainingDaysKey,
+    scheduleKey,
     onTrainingBreak,
     signals.lastSessionAtMs,
     signals.lastBodyweightAtMs,
