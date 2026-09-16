@@ -5,6 +5,7 @@ const {
   isSameRoute,
   popRoute,
   pushRoute,
+  withoutTrailingRoute,
 } = require('../../.test-dist/navigation/routeHistory.js');
 const { readAppWiring } = require('../helpers/appWiringSource.cjs');
 
@@ -66,8 +67,29 @@ module.exports = [
         wiring.indexOf('async function handleDeleteCustomWorkout'),
         wiring.indexOf('async function handleOnboardingPickReadyProgram'),
       );
-      assert.match(body, /history: forgetRoutesForTemplate\(current\.history, workoutTemplateId\)/);
+      assert.match(
+        body,
+        /history: withoutTrailingRoute\(\s*forgetRoutesForTemplate\(current\.history, workoutTemplateId\),\s*workoutHomeRoute,\s*\)/,
+      );
       assert.doesNotMatch(body, /navigate\(workoutHomeRoute\);/);
+    },
+  },
+  {
+    name: 'landing on a route does not leave a copy of it on top of the stack',
+    run() {
+      const list = { tab: 'workout', screen: 'programs_home' };
+      const home = { tab: 'home' };
+
+      // The programme was opened FROM the list, so the list is both the new
+      // route and the top of the stack: the first Back press would pop the
+      // duplicate and land on the screen already on screen (PR #126 review).
+      assert.deepEqual(withoutTrailingRoute([home, list], list), [home]);
+      // Anything else on top is a real page back.
+      assert.deepEqual(withoutTrailingRoute([home, list], home), [home, list]);
+      assert.deepEqual(withoutTrailingRoute([], list), []);
+      // Only the top one: a copy further down is somewhere the reader really
+      // was, and dropping it would shorten a path they can still walk.
+      assert.deepEqual(withoutTrailingRoute([list, home], list), [list, home]);
     },
   },
 ];

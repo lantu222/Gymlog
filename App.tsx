@@ -237,7 +237,7 @@ import { buildCustomSessionRuntimeTemplate, buildReadySessionRuntimeTemplate } f
 import { applySessionAdaptation } from './src/lib/sessionAdaptation';
 import { buildProgramInsightMap } from './src/lib/programInsights';
 import { buildTailoringPreferences } from './src/lib/tailoringFit';
-import { forgetRoutesForTemplate, popRoute, pushRoute } from './src/navigation/routeHistory';
+import { forgetRoutesForTemplate, popRoute, pushRoute, withoutTrailingRoute } from './src/navigation/routeHistory';
 import { AppRoute, ROOT_ROUTES, RootTabKey, WORKOUT_PLAN_ROUTE } from './src/navigation/routes';
 import { getBackRoute } from './src/app/backRoute';
 import { renderProfileTab } from './src/app/renderProfileTab';
@@ -2854,7 +2854,14 @@ function VinhaApp() {
     startTransition(() =>
       setNavigationState((current) => ({
         route: workoutHomeRoute,
-        history: forgetRoutesForTemplate(current.history, workoutTemplateId),
+        // And no copy of the destination left on top of the stack: the
+        // programme was opened FROM this list, so without the second call the
+        // first Back press pops the duplicate and lands on the screen the
+        // reader is already looking at (PR #126 review).
+        history: withoutTrailingRoute(
+          forgetRoutesForTemplate(current.history, workoutTemplateId),
+          workoutHomeRoute,
+        ),
       })),
     );
   }
