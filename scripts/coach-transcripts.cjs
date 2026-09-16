@@ -4,12 +4,19 @@
  *
  * Reads api/transcripts.ts on the deployed backend (same origin as
  * EXPO_PUBLIC_AI_COACH_API_URL) with TRANSCRIPT_READ_SECRET from .env.local,
- * and prints each conversation: who asked (signed-in email or "anonymous"),
- * when, the question, and the coach's answer as sections.
+ * and prints each conversation: which phone asked (the reader's log label,
+ * the first part of the id is enough to tell two phones apart), when, the
+ * question, and the coach's answer as sections.
+ *
+ * Entries from before #92 have no label and print as "unlabelled". Some
+ * entries hold a signed-in email in the store; the endpoint withholds the
+ * address and marks the entry "email withheld", which is how the release
+ * cleanup finds them (docs/play-data-safety.md, section 3).
  *
  *   node scripts/coach-transcripts.cjs                 # everything, newest first
  *   node scripts/coach-transcripts.cjs --since 2026-08-23
- *   node scripts/coach-transcripts.cjs --who puoliso@example.com
+ *   node scripts/coach-transcripts.cjs --who 3f2a      # a label, or its start
+ *   node scripts/coach-transcripts.cjs --withheld      # only entries to clean
  *   node scripts/coach-transcripts.cjs --limit 20 --json
  *
  * Delete together with api/transcripts.ts before Play — the release guard
@@ -27,6 +34,11 @@ function readEnvLocal() {
     if (m) out[m[1]] = m[2].replace(/^"|"$/g, '');
   }
   return out;
+}
+
+/** Which phone asked: the label the endpoint read out of the path. */
+function labelOf(entry) {
+  return entry.label || 'unlabelled';
 }
 
 function arg(name, fallback) {
@@ -56,7 +68,8 @@ function arg(name, fallback) {
   }
   const data = await res.json();
   let entries = data.entries.filter((e) => !e.corrupt);
-  if (who) entries = entries.filter((e) => (e.reporter || '').toLowerCase().includes(who.toLowerCase()));
+  if (who) entries = entries.filter((e) => labelOf(e).toLowerCase().includes(who.toLowerCase()));
+  if (process.argv.includes('--withheld')) entries = entries.filter((e) => e.withheld === true);
 
   if (process.argv.includes('--json')) {
     console.log(JSON.stringify(entries, null, 2));
@@ -74,8 +87,8 @@ function arg(name, fallback) {
       lastDay = day;
     }
     const time = at.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
-    const who = e.reporter || 'anonymous';
-    const meta = `${e.source}${e.model ? ` · ${e.model}` : ''}${e.durationMs ? ` · ${(e.durationMs / 1000).toFixed(1)} s` : ''}`;
+    const who = labelOf(e);
+    const meta = `${e.source}${e.model ? ` · ${e.model}` : ''}${e.durationMs ? ` · ${(e.durationMs / 1000).toFixed(1)} s` : ''}${e.withheld ? ' · email withheld' : ''}`;
     console.log(`\n[${time}] ${who}  (${meta})`);
     console.log(`  Q: ${e.prompt}`);
     const a = e.answer;

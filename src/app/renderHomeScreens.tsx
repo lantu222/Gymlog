@@ -75,7 +75,6 @@ export interface HomeScreensDeps {
   homePinnedStatCardKeys: string[];
   addBodyweightEntry: (weightKg: number) => Promise<unknown>;
   addMeasurementEntry: (kind: MeasurementKind, value: number, unit: MeasurementUnit) => Promise<unknown>;
-  accountBackup: { state: { status: string; email: string | null } };
   /** The coach thread, held above the screen so leaving it does not end it. */
   coachChatMemory: ChatScreenProps['memory'];
   onCoachChatMemoryChange: ChatScreenProps['onMemoryChange'];
@@ -121,7 +120,6 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
     homePinnedStatCardKeys,
     addBodyweightEntry,
     addMeasurementEntry,
-    accountBackup,
     coachChatMemory,
     onCoachChatMemoryChange,
     onCoachAdviceGiven,
@@ -400,7 +398,6 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
         onOpenProgramme={(programId) =>
           navigate({ tab: 'workout', screen: 'program', programType: 'ready', workoutTemplateId: programId })
         }
-        transcriptReporter={accountBackup.state.status === 'signed_in' ? accountBackup.state.email : null}
         memory={coachChatMemory}
         onMemoryChange={onCoachChatMemoryChange}
         onAdviceGiven={onCoachAdviceGiven}

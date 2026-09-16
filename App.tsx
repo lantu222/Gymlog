@@ -6278,7 +6278,6 @@ function VinhaApp() {
       homePinnedStatCardKeys,
       addBodyweightEntry,
       addMeasurementEntry,
-      accountBackup,
       coachChatMemory,
       onCoachChatMemoryChange: setCoachChatMemory,
       onCoachAdviceGiven: handleCoachAdviceGiven,

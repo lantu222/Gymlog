@@ -36,7 +36,10 @@ async function fetchTranscripts() {
         prompt: String(entry.prompt ?? ''),
         takeaway: String(entry.answer?.takeaway ?? ''),
         source: String(entry.source ?? ''),
-        reporter: entry.reporter ? String(entry.reporter) : null,
+        // The label the endpoint read out of the path. Nothing else
+        // identifies a phone here: the endpoint withholds the email some old
+        // entries still hold.
+        label: entry.label ? String(entry.label) : null,
       }))
       .filter((entry) => entry.prompt);
   } catch {
@@ -89,7 +92,7 @@ function render({ dailies, funnel, funnelTotal, retention }, transcripts, meta) 
               .slice(0, 20)
               .map(
                 (entry) => `<div class="chat">
-        <div class="chatmeta">${esc(entry.at.slice(0, 16).replace('T', ' '))} · ${esc(entry.source)}${entry.reporter ? ' · ' + esc(entry.reporter) : ''}</div>
+        <div class="chatmeta">${esc(entry.at.slice(0, 16).replace('T', ' '))} · ${esc(entry.source)}${entry.label ? ' · ' + esc(entry.label) : ''}</div>
         <div class="q">${esc(entry.prompt)}</div>
         <div class="a">${esc(entry.takeaway)}</div>
       </div>`,

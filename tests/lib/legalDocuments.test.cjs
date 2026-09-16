@@ -317,6 +317,99 @@ module.exports = [
     },
   },
   {
+    name: 'a coach question carries no account identity, and the server will not take one',
+    run() {
+      // The policy says of a coach question: "The question cannot be tied to
+      // you." For a while it could. A development field carried the signed-in
+      // account's email with every request, and when the reader had allowed a
+      // copy to be kept, the email was filed next to the question.
+      //
+      // Two halves, and the second is the one that mattered. The client sent
+      // the field only while AI_COACH_DEBUG_TRANSCRIPTS was on, so flipping
+      // that constant looked like the fix — but the endpoint accepted the
+      // field from anyone, ungated, so an older install kept sending it and
+      // the server kept writing it down. A gate on the sender is not a gate.
+      //
+      // Named fields rather than the word: `reporter` is ordinary English and
+      // a comment explaining this is not a regression.
+      const endpoint = read('api/ai-coach.ts');
+      for (const forbidden of ['candidate.reporter', 'input.reporter', 'reporter:']) {
+        assert.ok(
+          !endpoint.includes(forbidden),
+          `api/ai-coach.ts reads or writes ${forbidden}. The coach endpoint must not accept an account `
+            + 'identity, whatever the client sends and whatever the debug flag says.',
+        );
+      }
+
+      // The emails already in the store stay there on one condition: nothing
+      // shows them to anyone (user decision, 2026-09-16). What the reader
+      // endpoint returns is shaped by shapeTranscriptEntry, whose behaviour
+      // tests/lib/transcriptEntry.test.cjs checks; this only makes sure every
+      // entry goes through it and none is handed back as parsed.
+      const reader = read('api/transcripts.ts');
+      assert.match(reader, /return shapeTranscriptEntry\(pathname, JSON\.parse\(text\)\)/,
+        'api/transcripts.ts must return each stored entry through shapeTranscriptEntry');
+      assert.ok(
+        !/\.\.\.\s*\(?\s*JSON\.parse/.test(reader) && !/\.\.\.\s*(parsed|stored|record)\b/.test(reader),
+        'api/transcripts.ts spreads a parsed entry into its answer — an email in the store would go with it',
+      );
+      for (const tool of ['scripts/coach-transcripts.cjs', 'scripts/analytics-dashboard.cjs']) {
+        assert.ok(!/\.reporter\b/.test(read(tool)), `${tool} reads the email field the endpoint withholds`);
+      }
+
+      // And nothing on the phone puts one into a coach request. The files are
+      // found by what they import, not listed by hand: the composer and the
+      // photo import build requests in files a hand-written list forgot.
+      const sources = [path.join(root, 'App.tsx')];
+      const walkSource = (dir) => {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          const full = path.join(dir, entry.name);
+          if (entry.isDirectory()) walkSource(full);
+          else if (/\.tsx?$/.test(entry.name)) sources.push(full);
+        }
+      };
+      walkSource(path.join(root, 'src'));
+      const files = sources.map((full) => ({ file: path.relative(root, full), text: fs.readFileSync(full, 'utf8') }));
+
+      const coachCallers = files.filter(({ file, text }) => file.endsWith('aiCoachClient.ts') || /aiCoachClient'/.test(text));
+      assert.ok(
+        coachCallers.length >= 3,
+        `expected the coach client and at least two callers, found: ${coachCallers.map(({ file }) => file).join(', ')}`,
+      );
+      for (const { file, text } of coachCallers) {
+        assert.ok(
+          !/transcriptReporter|reporter:/.test(text),
+          `${file} attaches an account identity to a coach request`,
+        );
+      }
+
+      // The chat screen is the one that was handed the email as a prop, so
+      // every place it is rendered is read to the end of its element — the
+      // line that closes it at the same indentation, so a nested `<Icon />`
+      // inside a prop does not end the read early. And at least one render
+      // must be found: a guard that finds nothing to look at passes forever.
+      const renders = [];
+      for (const { file, text } of files) {
+        const lines = text.split(String.fromCharCode(10));
+        lines.forEach((line, index) => {
+          const open = line.match(/^(\s*)<AICoachChatScreen\b/);
+          if (!open) return;
+          const close = new RegExp(`^${open[1]}(/>|</AICoachChatScreen>)`);
+          const end = lines.findIndex((candidate, at) => at > index && close.test(candidate));
+          assert.ok(end > index, `${file}:${index + 1} — could not find where <AICoachChatScreen> closes`);
+          renders.push({ file, line: index + 1, props: lines.slice(index, end).join(String.fromCharCode(10)) });
+        });
+      }
+      assert.ok(renders.length > 0, 'AICoachChatScreen is rendered nowhere — this guard is looking in the wrong place');
+      for (const { file, line, props } of renders) {
+        assert.ok(
+          !/email|reporter/i.test(props),
+          `${file}:${line} hands an account identity to AICoachChatScreen under some prop name`,
+        );
+      }
+    },
+  },
+  {
     name: 'the exported Markdown matches the in-app documents',
     run() {
       for (const id of IDS) {

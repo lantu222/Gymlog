@@ -408,13 +408,6 @@ export interface AICoachAdviceRequest {
    */
   language?: 'fi' | 'en';
   /**
-   * TEMPORARY, development only: the signed-in account's email, so the
-   * transcript log can say which phone asked. Sent only while
-   * AI_COACH_DEBUG_TRANSCRIPTS is on (src/lib/aiCoachDebug.ts) and ignored
-   * by the server otherwise.
-   */
-  reporter?: string;
-  /**
    * TEMPORARY, development only: per-request thinking-effort override
    * (low | medium | high | off) so latency settings can be A/B-measured
    * against production without a deploy per setting. Honored only while

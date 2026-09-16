@@ -4,6 +4,7 @@ import { buildAiCoachPreviewAnswer } from '../src/lib/aiCoachPreview';
 import { buildAiCoachSystemContext } from '../src/lib/aiCoachSystemContext';
 import { normalizeAiCoachTrainingContext } from '../src/lib/aiTrainingContext';
 import { AI_COACH_DEBUG_TRANSCRIPTS } from '../src/lib/aiCoachDebug';
+import { LOG_ID_PATTERN } from '../src/lib/aiCoachLogId';
 import {
   isProgramImageMediaType,
   PROGRAM_IMAGE_MAX_BASE64_CHARS,
@@ -390,16 +391,6 @@ type ParsedBody = AICoachAdviceRequest & { mode: 'advice' | 'compose' };
  * the key, the budget and the rate limit: no prompt, no training context, just
  * a picture of a spreadsheet.
  */
-/**
- * The shape a label may take.
- *
- * It ends up in a filename, so anything with a slash or a dot in it would be
- * a path the caller chose rather than a label. Declared once and read by all
- * four places that accept one — the advice body, the image body, the forget
- * route and the client that mints them.
- */
-const LOG_ID_PATTERN = /^[a-f0-9-]{8,64}$/;
-
 interface ParsedImageBody {
   mode: 'table';
   mediaType: ProgramImageMediaType;
@@ -496,7 +487,6 @@ function parseBody(body: unknown): ParsedBody | null {
     history: sanitizeHistory(candidate.history),
     language: candidate.language === 'fi' || candidate.language === 'en' ? candidate.language : undefined,
     mode: candidate.mode === 'compose' ? 'compose' : 'advice',
-    reporter: typeof candidate.reporter === 'string' && candidate.reporter.length <= 200 ? candidate.reporter : undefined,
     /**
      * Whether this reader has said the server may keep a copy of the text.
      *
@@ -1299,7 +1289,6 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   // training context is never written down on any of these paths.
   await keepTranscript(input.keepConsent, input.logId, {
     kind: 'chat',
-    reporter: input.reporter ?? null,
     language: input.language,
     model: CLAUDE_MODEL,
     durationMs: Date.now() - startedAt,
