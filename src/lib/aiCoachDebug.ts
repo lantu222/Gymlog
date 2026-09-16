@@ -11,11 +11,11 @@
  *   - `api/transcripts.ts`, which reads the log back and 404s without this.
  *
  * It used to carry a third: the signed-in account's email, attached to every
- * question so the log could say which phone asked. That is gone (2026-09-16).
- * The policy says a coach question cannot be tied to the reader, the label a
- * consenting reader already has says which phone asked without a name, and
- * the server accepted the field whether this flag was on or not — so flipping
- * the flag was never the fix it looked like.
+ * question a signed-in reader asked, so the log could say which phone asked.
+ * That is gone (2026-09-16). The policy says a coach question cannot be tied
+ * to the reader, the label a consenting reader already has says which phone
+ * asked without a name, and the server accepted the field whether this flag
+ * was on or not — so flipping the flag was never the fix it looked like.
  *
  * tests/releaseReadiness.test.cjs fails while this is true, once the demo flag
  * is cleared: the overrides cannot reach Play by being forgotten. Flip to

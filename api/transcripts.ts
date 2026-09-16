@@ -22,6 +22,9 @@
 import { timingSafeEqual } from 'node:crypto';
 import { get, list } from '@vercel/blob';
 import { AI_COACH_DEBUG_TRANSCRIPTS } from '../src/lib/aiCoachDebug';
+import { shapeTranscriptEntry, transcriptTimeKey } from '../src/lib/aiCoachLogId';
+
+const SINCE_PATTERN = /^\d{4}-\d{2}(-\d{2})?$/;
 
 interface RequestLike {
   method?: string;
@@ -69,8 +72,13 @@ export default async function handler(req: RequestLike, res: ResponseLike): Prom
     return;
   }
 
-  const rawSince = queryValue(req, 'since');
-  const since = rawSince && /^\d{4}-\d{2}(-\d{2})?$/.test(rawSince) ? rawSince : undefined;
+  // A malformed date is refused rather than ignored: ignored, `--since
+  // 23.8.2026` listed everything under a heading that said it was filtered.
+  const since = queryValue(req, 'since');
+  if (since !== undefined && !SINCE_PATTERN.test(since)) {
+    res.status(400).json({ ok: false, error: 'BAD_SINCE', expected: 'YYYY-MM or YYYY-MM-DD' });
+    return;
+  }
   const limit = Math.min(500, Math.max(1, Number(queryValue(req, 'limit') ?? 200) || 200));
 
   // The whole folder is listed and the date is a lower bound on the path.
@@ -89,8 +97,13 @@ export default async function handler(req: RequestLike, res: ResponseLike): Prom
     cursor = page.hasMore ? page.cursor : undefined;
   } while (cursor);
 
-  // Newest first, then cap — the reader wants the latest conversations.
-  pathnames.sort().reverse();
+  // Newest first, then cap — the reader wants the latest conversations. By
+  // time, not by name: a labelled name sorts by its random label.
+  pathnames.sort((a, b) => {
+    const ka = transcriptTimeKey(a);
+    const kb = transcriptTimeKey(b);
+    return ka < kb ? 1 : ka > kb ? -1 : 0;
+  });
   const selected = pathnames.slice(0, limit);
 
   const entries = await Promise.all(
@@ -101,12 +114,10 @@ export default async function handler(req: RequestLike, res: ResponseLike): Prom
       }
       try {
         const text = await new Response(stored.stream).text();
-        // Entries written before 2026-09-16 may carry the signed-in email as
-        // `reporter`. They stay in the store (user decision, 2026-09-16) on the
-        // condition that nothing shows them to anyone, so the field ends here:
-        // no script, dashboard or copied response can print what never left.
-        const { reporter: _withheld, ...entry } = JSON.parse(text) as Record<string, unknown>;
-        return { pathname, ...entry };
+        // The email some old entries hold ends here, and only the fact of it
+        // goes on — see shapeTranscriptEntry. Nothing this returns can print
+        // an address, whatever reads it.
+        return shapeTranscriptEntry(pathname, JSON.parse(text));
       } catch {
         return { pathname, corrupt: true };
       }

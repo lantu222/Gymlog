@@ -162,6 +162,7 @@ const suites = [
   ...require('./lib/subscriptionView.test.cjs'),
   ...require('./lib/cancelSurvey.test.cjs'),
   ...require('./lib/legalDocuments.test.cjs'),
+  ...require('./lib/transcriptEntry.test.cjs'),
   ...require('./lib/notificationPlan.test.cjs'),
   ...require('./lib/programCsvExport.test.cjs'),
   ...require('./lib/setupHandoff.test.cjs'),

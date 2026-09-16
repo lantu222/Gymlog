@@ -36,10 +36,10 @@ async function fetchTranscripts() {
         prompt: String(entry.prompt ?? ''),
         takeaway: String(entry.answer?.takeaway ?? ''),
         source: String(entry.source ?? ''),
-        // The reader's log label out of the path, as coach-transcripts.cjs
-        // reads it. Nothing else identifies a phone here: the endpoint
-        // withholds the email some old entries still hold.
-        label: (/\/([a-f0-9-]{8,64})--/.exec(String(entry.pathname ?? '')) ?? [])[1] ?? null,
+        // The label the endpoint read out of the path. Nothing else
+        // identifies a phone here: the endpoint withholds the email some old
+        // entries still hold.
+        label: entry.label ? String(entry.label) : null,
       }))
       .filter((entry) => entry.prompt);
   } catch {

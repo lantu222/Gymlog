@@ -342,13 +342,16 @@ module.exports = [
       }
 
       // The emails already in the store stay there on one condition: nothing
-      // shows them to anyone (user decision, 2026-09-16). The reader endpoint
-      // drops the field before it answers, and the tools that print its
-      // answer never look for it.
-      assert.match(
-        read('api/transcripts.ts'),
-        /const \{ reporter: _withheld, \.\.\.entry \} = /,
-        'api/transcripts.ts must drop `reporter` before it answers — entries in the store still hold an email',
+      // shows them to anyone (user decision, 2026-09-16). What the reader
+      // endpoint returns is shaped by shapeTranscriptEntry, whose behaviour
+      // tests/lib/transcriptEntry.test.cjs checks; this only makes sure every
+      // entry goes through it and none is handed back as parsed.
+      const reader = read('api/transcripts.ts');
+      assert.match(reader, /return shapeTranscriptEntry\(pathname, JSON\.parse\(text\)\)/,
+        'api/transcripts.ts must return each stored entry through shapeTranscriptEntry');
+      assert.ok(
+        !/\.\.\.\s*\(?\s*JSON\.parse/.test(reader) && !/\.\.\.\s*(parsed|stored|record)\b/.test(reader),
+        'api/transcripts.ts spreads a parsed entry into its answer — an email in the store would go with it',
       );
       for (const tool of ['scripts/coach-transcripts.cjs', 'scripts/analytics-dashboard.cjs']) {
         assert.ok(!/\.reporter\b/.test(read(tool)), `${tool} reads the email field the endpoint withholds`);

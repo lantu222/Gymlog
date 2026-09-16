@@ -384,7 +384,7 @@ module.exports = [
     name: 'release: the development transcript log is off before Play',
     run() {
       // This flag does not decide what transcripts/ keeps. The reader does,
-      // and has since #92 (2026-09-10): a reader who ticked "keep a copy" has
+      // and has since #92: a reader who ticked "keep a copy" has
       // a copy kept, with a 24-month sweep and a delete route behind it, and
       // that is a shipped feature that stays. What the flag still switches on
       // is development-only — the per-request effort and model overrides, and
