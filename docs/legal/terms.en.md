@@ -1,6 +1,6 @@
 # Terms of service
 
-*Updated 5 September 2026*
+*Updated 16 September 2026*
 
 The rules for using Vinha: the health warning, how Pro billing works, and what we promise.
 

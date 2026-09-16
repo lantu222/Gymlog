@@ -1,6 +1,6 @@
 # Tietosuojaseloste
 
-*Päivitetty 5.9.2026*
+*Päivitetty 16.9.2026*
 
 Mitä Vinha tallentaa, mikä lähtee puhelimestasi ja mitä voit sille tehdä.
 
@@ -34,9 +34,9 @@ Kaikki alla oleva on joko sinun syöttämääsi tai sovelluksen laskemaa siitä,
 
 ## Androidin oma varmuuskopio
 
-Androidin oma varmuuskopiointi on tälle sovellukselle päällä. Puhelimesi voi siis kopioida Vinhan tiedot oman Google-tilisi varmuuskopioon, jotta uusi puhelin voi palauttaa ne. Ellet käytä alla kuvattua pilvivarmuuskopiota, tämä on ainoa tapa, jolla historiasi selviää puhelimen vaihdosta.
+Androidin oma varmuuskopiointi on tälle sovellukselle pois päältä. Puhelimesi ei kopioi Vinhan tietoja Google-tilisi varmuuskopioon eikä anna niitä uudelle puhelimelle käyttöönoton laitesiirrossa. Treenilokistasi ei lähde tätä kautta mitään.
 
-Se kopio on sinun ja Googlen välinen. Me emme näe sitä emmekä voi lukea sitä. Google salaa sen, ja nykyisissä Android-versioissa avain on sidottu laitteesi PIN-koodiin. Voit kytkeä sen pois milloin tahansa Androidin asetuksista kohdasta Google → Varmuuskopiointi, ja Vinha toimii täsmälleen samalla tavalla.
+Uusi puhelin aloittaa siis tyhjästä, ellet käytä alla kuvattua pilvivarmuuskopiota tai vie lokiasi ensin CSV-tiedostona. Se on pois päältä siksi, että alla kuvattu sovelluksen oma varmuuskopio, jonka kytket itse päälle, on ainoa paikka, jossa koko treenilokiasi säilytetään tämän puhelimen ulkopuolella.
 
 ## Pilvivarmuuskopio (vapaaehtoinen)
 
@@ -64,11 +64,11 @@ Palvelimemme välittää kysymyksen Anthropicille, Claude-mallin kehittäjälle,
 
 Me emme säilytä omaa kopiotamme, ellet ole antanut siihen lupaa. Valmentaja kysyy sen kerran, ennen ensimmäistä kysymystäsi, kolmena erillisenä rivinä: kysymyksesi ja vastaukset, ohjelmat joita pyydät sen rakentamaan, ja valokuvat joista tuot ohjelman. Jokainen rivi alkaa ei-vastauksesta, jokainen on oma vastauksensa, eikä mikään niistä muuta sitä vastausta jonka saat. Sallimasi säilytetään enintään 24 kuukautta ja poistetaan sitten automaattisesti, ja sitä käytetään yhteen asiaan: valmentajan parantamiseen ohjelmien kirjoittajana.
 
-Voit peruuttaa luvan milloin tahansa asetuksista, ja peruutus poistaa myös jo säilytetyn. Kun kytket rivin pois, sen nojalla tehdyt kopiot poistetaan palvelimeltamme eikä niiden kertyminen vain lopu.
+Voit peruuttaa luvan milloin tahansa asetuksista, ja peruutus poistaa myös jo säilytetyn. Kun kytket yhdenkin rivin pois, jokainen sinulle säilytetty kopio poistetaan palvelimeltamme — myös päälle jätettyjen rivien nojalla tehdyt — eikä vain uusien kertyminen lopu.
 
 Ohjelmakoostaja toimii samalla tavalla: kun pyydät sovellusta rakentamaan ohjelman kirjoittamasi kuvauksen pohjalta, kuvaus ja sama yhteenveto lähetetään samaa reittiä.
 
-Myös ohjelman tuonti valokuvasta käyttää tätä reittiä. Valitsemasi kuva pienennetään ja lähetetään, jotta siinä oleva taulukko voidaan lukea; sitä käytetään siihen yhteen tuontiin, eikä sitä säilytetä.
+Myös ohjelman tuonti valokuvasta käyttää tätä reittiä. Valitsemasi kuva pienennetään ja lähetetään, jotta siinä oleva taulukko voidaan lukea; sitä käytetään siihen yhteen tuontiin, eikä sitä säilytetä — paitsi jos rastitit yllä valokuvien rivin, jolloin kuva ja siitä luettu taulukko säilytetään kuten muutkin sallimasi kopiot.
 
 ## Käyttötilastot
 
@@ -95,7 +95,7 @@ Meillä ei ole omia palvelimia. Kolme yritystä käsittelee tietoja puolestamme 
 
 - Vercel (Yhdysvallat): ajaa palvelimemme ja säilyttää pilvivarmuuskopiot ja käyttötapahtumat. Tallennustila on Euroopan unionin alueella.
 - Anthropic (Yhdysvallat): vastaa valmentajan kysymyksiin, koostaa ohjelmia ja lukee ohjelmakuvia, kuten yllä kuvattiin.
-- Google (Yhdysvallat): vahvistaa Google-kirjautumisesi, säilyttää oman tilisi Android-varmuuskopion ja hoitaa Google Playn maksut. Suhdettasi Googleen koskee Googlen oma tietosuojakäytäntö.
+- Google (Yhdysvallat): vahvistaa Google-kirjautumisesi ja hoitaa Google Playn maksut. Suhdettasi Googleen koskee Googlen oma tietosuojakäytäntö.
 
 ## Tiedot Euroopan unionin ulkopuolella
 
@@ -160,7 +160,7 @@ Puhelimessasi sovelluksen tietoja suojaavat puhelimen oma lukitus ja Androidin s
 ## Kuinka kauan säilytämme tiedot
 
 - Puhelimessasi: kunnes nollaat sovelluksen tiedot tai poistat sovelluksen.
-- Android-varmuuskopio: niin kauan kuin Google-tilisi sitä säilyttää — se on Googlen asetus, ei meidän.
+- Android-varmuuskopio: ei mitään säilytettävää — Androidin oma varmuuskopiointi on tälle sovellukselle pois päältä.
 - Pilvivarmuuskopio: kunnes poistat sen asetuksista tai pyydät meitä poistamaan sen.
 - Valmentajan kysymykset, kuvaukset ja kuvat: emme säilytä niitä, ellet ole antanut lupaa. Luvan kanssa enintään 24 kuukautta tai siihen asti kun peruutat luvan, kumpi tulee ensin. Anthropic poistaa oman kopionsa 30 päivän kuluessa joka tapauksessa.
 - Käyttötilastot: enintään 24 kuukautta, sen jälkeen automaattinen poisto.
