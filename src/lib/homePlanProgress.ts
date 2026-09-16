@@ -56,3 +56,33 @@ export function buildHomePlanProgress({
     sessionsTotal: totalPlannedSessions,
   };
 }
+
+/**
+ * The week the session that was just logged belongs to.
+ *
+ * `currentWeek` is the week the reader is IN, and the moment the last session
+ * of a week is saved that is already the next one — so the summary for the
+ * third session of week 1 read "WEEK 2 · 3/3", a week label over a count that
+ * belongs to the week before it. The summary is about the session that was
+ * logged, so it names the week that session filled. The finish view, which
+ * renders before the save, still asks for `currentWeek`: there the session is
+ * not in the log yet and the reader is genuinely still in that week.
+ */
+export function weekOfLastLoggedSession({
+  sessionsDone,
+  sessionsTotal,
+  totalWeeks,
+}: {
+  sessionsDone: number;
+  sessionsTotal: number;
+  totalWeeks: number;
+}): number {
+  const weeks = Math.max(1, Math.round(totalWeeks));
+  const perWeek = Math.max(1, Math.round(sessionsTotal / weeks));
+  const done = Math.max(0, Math.round(sessionsDone));
+  if (done === 0) {
+    return 1;
+  }
+
+  return Math.min(weeks, Math.floor((done - 1) / perWeek) + 1);
+}

@@ -61,3 +61,57 @@ export function buildDuplicatedCustomProgramDraft(
       })),
   };
 }
+/** A day and a lift, as either the catalog or the reader's copy holds them. */
+export interface ProgramTargetDay {
+  id: string;
+  exercises: ReadonlyArray<{ id: string; name: string }>;
+}
+
+/**
+ * Where a catalog programme's day and lift ended up in the reader's copy.
+ *
+ * The copy is written through the repository, which mints its own ids, so an
+ * edit made from the catalog page — that page still shows the untouched
+ * original — carries ids the copy has never heard of. It used to apply to
+ * nothing and be confirmed anyway. The copy keeps the days in order and the
+ * lifts under their own names, so that is what this matches on: the day by
+ * position, the lift by name inside it, and when a day holds the same lift
+ * twice, by which of those it is — the second squat of the day, not the
+ * second row. Anything else picks a row the reader was not pointing at once
+ * they have added or moved a lift in their own version.
+ *
+ * Null means the copy has moved on from the original and this edit has no
+ * target in it — the caller must not claim an edit it cannot make.
+ */
+export function locateCopiedProgramTarget(
+  original: ReadonlyArray<ProgramTargetDay>,
+  copy: ReadonlyArray<ProgramTargetDay>,
+  sessionId: string,
+  exerciseId: string,
+): { sessionId: string; exerciseId: string } | null {
+  const dayIndex = original.findIndex((session) => session.id === sessionId);
+  if (dayIndex === -1) {
+    return null;
+  }
+  const copiedDay = copy[dayIndex];
+  if (!copiedDay) {
+    return null;
+  }
+  // An add names the day and nothing else; there is no lift to find.
+  if (!exerciseId) {
+    return { sessionId: copiedDay.id, exerciseId: '' };
+  }
+
+  const source = original[dayIndex].exercises.findIndex((exercise) => exercise.id === exerciseId);
+  if (source === -1) {
+    return null;
+  }
+  const key = (exercise: { name: string }) => exercise.name.trim().toLowerCase();
+  const name = key(original[dayIndex].exercises[source]);
+  const occurrence = original[dayIndex].exercises
+    .slice(0, source)
+    .filter((exercise) => key(exercise) === name).length;
+  const sameName = copiedDay.exercises.filter((exercise) => key(exercise) === name);
+  const picked = sameName[occurrence];
+  return picked ? { sessionId: copiedDay.id, exerciseId: picked.id } : null;
+}

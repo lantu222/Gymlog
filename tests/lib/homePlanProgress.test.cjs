@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 
-const { buildHomePlanProgress } = require('../../.test-dist/lib/homePlanProgress.js');
+const { buildHomePlanProgress, weekOfLastLoggedSession } = require('../../.test-dist/lib/homePlanProgress.js');
 
 module.exports = [
   {
@@ -81,6 +81,29 @@ module.exports = [
           sessionsTotal: 16,
         },
       );
+    },
+  },
+  {
+    name: 'the summary names the week the session it summarises filled',
+    run() {
+      // A three-day plan over eight weeks. The third session of week 1 is
+      // saved, so Home is already in week 2 — but the summary is about that
+      // third session, and it belongs to week 1. This read "WEEK 2 · 3/3".
+      assert.equal(weekOfLastLoggedSession({ sessionsDone: 3, sessionsTotal: 24, totalWeeks: 8 }), 1);
+      assert.equal(buildHomePlanProgress({ completedSessions: 3, sessionsPerWeek: 3, totalWeeks: 8 }).currentWeek, 2);
+
+      // Mid-week the two agree: nothing has rolled over.
+      assert.equal(weekOfLastLoggedSession({ sessionsDone: 4, sessionsTotal: 24, totalWeeks: 8 }), 2);
+      assert.equal(weekOfLastLoggedSession({ sessionsDone: 1, sessionsTotal: 24, totalWeeks: 8 }), 1);
+
+      // The block's last session belongs to the block's last week, not to a
+      // ninth week that does not exist.
+      assert.equal(weekOfLastLoggedSession({ sessionsDone: 24, sessionsTotal: 24, totalWeeks: 8 }), 8);
+
+      // Nothing logged yet, and unusable numbers, both answer week 1 rather
+      // than dividing by zero.
+      assert.equal(weekOfLastLoggedSession({ sessionsDone: 0, sessionsTotal: 24, totalWeeks: 8 }), 1);
+      assert.equal(weekOfLastLoggedSession({ sessionsDone: 2, sessionsTotal: 0, totalWeeks: 0 }), 1);
     },
   },
 ];

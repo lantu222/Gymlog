@@ -12,7 +12,7 @@ import { ProgramSlots, programSlotsLineKey } from '../lib/programSlots';
 import { createUnlessAtLimit } from './programLimitGuard';
 import { AFFINITY_REASON_KEYS, resolveProgramAffinity } from '../lib/programAffinity';
 import { composeProgramWeekForSelection } from '../lib/programDayComposer';
-import { buildCustomProgramDetail, buildReadyProgramDetail } from '../lib/programDetails';
+import { buildCustomProgramDetail, buildReadyProgramDetail, composedWeekMatchesPlan } from '../lib/programDetails';
 import { resolveProgramEquipment } from '../lib/programEquipment';
 import { buildProgramFingerprint } from '../lib/programFingerprint';
 import { getSeasonProgramId, ProgramSeason } from '../lib/programSeasons';
@@ -307,6 +307,32 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     return null;
   }
 
+  /**
+   * The composed week, but only while it is still what the reader would run.
+   *
+   * Composing renames every day, so a plan that names the catalog's own days
+   * cannot find one of them in the composed week — and the day page renders
+   * an empty screen for a day row that was right there on Home. Once the
+   * programme is adopted, the plan's days are the truth; before that, the
+   * composed week is what the reader was shown and promised.
+   */
+  const resolveComposedWeekForRoute = (workoutTemplateId: string) => {
+    if (preferences.recommendedProgramId !== workoutTemplateId || !setupSelection) {
+      return null;
+    }
+    const composed = composeProgramWeekForSelection(setupSelection, workoutTemplateId);
+    if (!composed) {
+      return null;
+    }
+    const planSessionIds = database.workoutPlans
+      .flatMap((plan) => plan.entries)
+      .filter((entry) => entry.workoutTemplateId === workoutTemplateId)
+      .map((entry) => entry.workoutTemplateSessionId);
+    return composedWeekMatchesPlan(composed.sessions.map((session) => session.id), planSessionIds)
+      ? composed
+      : null;
+  };
+
   if (route.screen === 'program') {
     const readyTemplate = route.programType === 'ready' ? getWorkoutTemplateById(route.workoutTemplateId) : null;
     const customTemplate = route.programType === 'custom' ? customWorkoutRuntimeMap[route.workoutTemplateId] ?? null : null;
@@ -336,9 +362,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           readyProgramTailoringBadges,
           // Truth rule: when this is the user's active program, the detail
           // shows the composed week they actually run, not the raw catalog.
-          preferences.recommendedProgramId === route.workoutTemplateId && setupSelection
-            ? composeProgramWeekForSelection(setupSelection, route.workoutTemplateId)
-            : null,
+          resolveComposedWeekForRoute(route.workoutTemplateId),
           preferences.appLanguage,
           readyProgramIsMine,
           programIsMine && !programLeads,
@@ -560,9 +584,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           programInsightsByTemplateId[route.workoutTemplateId],
           null,
           [],
-          preferences.recommendedProgramId === route.workoutTemplateId && setupSelection
-            ? composeProgramWeekForSelection(setupSelection, route.workoutTemplateId)
-            : null,
+          resolveComposedWeekForRoute(route.workoutTemplateId),
           preferences.appLanguage,
         )
       : customTemplate

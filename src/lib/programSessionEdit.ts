@@ -226,6 +226,24 @@ export function applyProgramSessionEdit(
   makeId?: () => string,
   makeExerciseId: () => string = () => createId('exercise'),
 ): ProgramSessionEditOutcome {
+  /**
+   * The day and the lift this edit names have to be in the programme.
+   *
+   * Only reorder and superset links asked, so every other edit aimed at a day
+   * or a lift that is not here rebuilt the programme unchanged and came back
+   * as a save: the screen buzzed, the write happened, and nothing moved. That
+   * is what an edit made from a ready programme's page did once a copy of it
+   * existed — the page shows the catalog's rows, and the copy carries its own
+   * ids (2026-09-16).
+   */
+  const targetDay = sessions.find((session) => session.id === sessionId);
+  if (!targetDay) {
+    return { kind: 'skip', reason: 'exerciseMissing' };
+  }
+  if (edit.kind !== 'add' && !targetDay.exercises.some((exercise) => exercise.id === edit.exerciseId)) {
+    return { kind: 'skip', reason: 'exerciseMissing' };
+  }
+
   // Answered before the programme is rebuilt: a drop that changes nothing
   // must not come back as a save, or the screen confirms an edit it did not
   // make. The destination is clamped rather than refused — a finger that

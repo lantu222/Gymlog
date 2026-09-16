@@ -352,4 +352,39 @@ module.exports = [
       assert.equal(withoutRest.sessions[0].exercises[0].targetSets, 5);
     },
   },
+  {
+    name: 'an edit aimed at a day or a lift that is not there is refused, not confirmed',
+    run() {
+      // A ready programme's page keeps showing the catalog after the reader's
+      // copy exists, so an edit from it named ids the copy has never heard of.
+      // Every edit but reorder and superset-link rebuilt the programme
+      // unchanged and came back as a save: the screen buzzed, the write
+      // happened, and the number the reader pressed never moved.
+      const missingDay = applyProgramSessionEdit(programme(), 'day_9', { kind: 'remove', exerciseId: 'e1' });
+      assert.equal(missingDay.kind, 'skip');
+      assert.equal(missingDay.reason, 'exerciseMissing');
+
+      for (const edit of [
+        { kind: 'remove', exerciseId: 'nope' },
+        { kind: 'replace', exerciseId: 'nope', exerciseName: 'Leg Press', libraryItemId: null },
+        { kind: 'prescribe', exerciseId: 'nope', prescription: { targetSets: 4, repMin: 6, repMax: 8, restSeconds: 120 } },
+      ]) {
+        const result = applyProgramSessionEdit(programme(), 'day_1', edit);
+        assert.equal(result.kind, 'skip', `${edit.kind} confirmed an edit it could not make`);
+        assert.equal(result.reason, 'exerciseMissing');
+      }
+
+      // Adding names the day and nothing else, so a real day still saves.
+      const added = applyProgramSessionEdit(programme(), 'day_2', {
+        kind: 'add',
+        exercises: [lift('e4', 'Incline Press')],
+      });
+      assert.equal(added.kind, 'save');
+      const addedToNothing = applyProgramSessionEdit(programme(), 'day_9', {
+        kind: 'add',
+        exercises: [lift('e4', 'Incline Press')],
+      });
+      assert.equal(addedToNothing.kind, 'skip');
+    },
+  },
 ];

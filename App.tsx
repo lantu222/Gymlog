@@ -114,7 +114,7 @@ import {
   pickCompletionLift,
 } from './src/lib/proInsights';
 import { markCoachDemoMomentUsed, resolveDueCoachDemoMoment } from './src/lib/coachDemoMoments';
-import { buildHomePlanProgress } from './src/lib/homePlanProgress';
+import { buildHomePlanProgress, weekOfLastLoggedSession } from './src/lib/homePlanProgress';
 import { resolveHomePrompt } from './src/lib/homePrompts';
 import { buildHomeStatCardCatalog, buildHomeStatCards, resolveHomeStatCardKeys } from './src/lib/homeStatCards';
 import { silencedSuggestionKinds } from './src/lib/coachSuggestions';
@@ -142,7 +142,10 @@ import { setUsageStatisticsEnabled, trackEvent } from './src/features/analytics/
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
 import { buildExerciseHistoryLookup } from './src/lib/workoutEditorTable';
 import { buildExercisePrLookup } from './src/lib/workoutCompletionSummary';
-import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
+import {
+  buildDuplicatedCustomProgramDraft,
+  locateCopiedProgramTarget,
+} from './src/lib/customProgramDuplication';
 import { isSupersetLinked, setSupersetLink, supersetGroupIndexes, supersetSetTargets } from './src/lib/supersetGrouping';
 import { resolveObservedRate } from './src/lib/strengthGoalPlan';
 import type { GoalFlowLift, GoalFlowProposal } from './src/screens/StrengthGoalFlowScreen';
@@ -1458,6 +1461,29 @@ function VinhaApp() {
     navigate({ tab: 'workout', screen: 'program', programType: 'ready', workoutTemplateId });
   }
 
+  /**
+   * The type is a fact about the id, not something the caller can know.
+   *
+   * Home's "other programmes" list holds whatever the reader adopted, their
+   * own programmes included, and every row opened as a ready one. The route
+   * guard then found no catalog template under that id and replaced the route
+   * with the programme list: tapping your own programme took you to a page
+   * that was not it. Resolved the way Home resolves its own hero — the stored
+   * template first, so the two cannot disagree about what an id is.
+   */
+  function resolveProgramTypeForTemplate(workoutTemplateId: string): 'ready' | 'custom' {
+    return workoutTemplates.some((template) => template.id === workoutTemplateId) ? 'custom' : 'ready';
+  }
+
+  function handleOpenProgramDetail(workoutTemplateId: string) {
+    navigate({
+      tab: 'workout',
+      screen: 'program',
+      programType: resolveProgramTypeForTemplate(workoutTemplateId),
+      workoutTemplateId,
+    });
+  }
+
   function handleOpenCustomProgramDetail(
     workoutTemplateId: string,
     programType: 'ready' | 'custom' = 'custom',
@@ -2482,9 +2508,52 @@ function VinhaApp() {
      */
     const existingCopyId = await findWorkoutTemplateIdBySource(programId);
     if (existingCopyId) {
+      /**
+       * The ids in hand are the catalog's, and the copy minted its own.
+       *
+       * This page shows the original — that is the whole point of the copy —
+       * so a second edit made from here named a day and a lift the copy has
+       * never heard of. The edit applied to nothing, the programme was
+       * written back unchanged, and the screen buzzed as if it had worked.
+       */
+      const copiedSessions = await getWorkoutTemplateSessionsFresh(existingCopyId);
+      const target = locateCopiedProgramTarget(
+        template.sessions.map((session) => ({
+          id: session.id,
+          exercises: session.exercises.map((exercise) => ({ id: exercise.id, name: exercise.exerciseName })),
+        })),
+        copiedSessions.map((session) => ({
+          id: session.id,
+          exercises: session.exercises.map((exercise) => ({ id: exercise.id, name: exercise.name })),
+        })),
+        sessionId,
+        exerciseId,
+      );
+      if (!target) {
+        // The copy has moved on from the original and this lift is not in it.
+        // Nothing is claimed; the reader is taken to their own version, which
+        // is the programme this edit was always going to change.
+        navigate({
+          tab: 'workout',
+          screen: 'program',
+          programType: 'custom',
+          workoutTemplateId: existingCopyId,
+        });
+        return;
+      }
       // Straight to the body, not back through the queue this call is already
       // holding — the same reason the provider has an "Exclusive" twin.
-      await runProgramExerciseEdit('custom', existingCopyId, sessionId, exerciseId, edit);
+      await runProgramExerciseEdit('custom', existingCopyId, target.sessionId, target.exerciseId, edit);
+      // Onto the copy's version of the day, exactly as the first edit lands:
+      // the change is in the copy, and the page the reader is standing on
+      // cannot show it.
+      navigate({
+        tab: 'workout',
+        screen: 'programDay',
+        programType: 'custom',
+        workoutTemplateId: existingCopyId,
+        sessionId: target.sessionId,
+      });
       return;
     }
 
@@ -3660,10 +3729,16 @@ function VinhaApp() {
         // The demo tester's block is one week by construction — see
         // handleCreateDemoCompletionProgram.
         const demoBlockWeeks = activeWorkoutPlan.id.startsWith('demo_plan_') ? 1 : undefined;
+        // An adopted ready programme carries its own block length — twelve
+        // weeks for several of them — and Home counted every one of them as
+        // the generic eight. The programme's own page already showed twelve,
+        // so the hero said "week 1/8" beside a page saying 12, and the
+        // session total under it was a third short.
+        const readyBlockWeeks = readyPlanTemplate ? getReadyProgramBlockWeeks(readyPlanTemplate) : undefined;
         const planProgress = buildHomePlanProgress({ language: preferences.appLanguage,
           completedSessions: completedSessionCount,
           sessionsPerWeek: sortedEntries.length,
-          totalWeeks: demoBlockWeeks ?? onboardingBlockWeeks,
+          totalWeeks: demoBlockWeeks ?? onboardingBlockWeeks ?? readyBlockWeeks,
         });
 
         return {
@@ -4692,6 +4767,18 @@ function VinhaApp() {
       weekLabel: homeActivePlanCard
         ? t(preferences.appLanguage, 'guided.finish.week', { week: homeActivePlanCard.currentWeek })
         : t(preferences.appLanguage, 'guided.finish.thisWeek'),
+      // The same sentence on the other side of the save, where the week the
+      // reader is in has already rolled over: the summary names the week the
+      // session it is summarising filled.
+      completionWeekLabel: homeActivePlanCard
+        ? t(preferences.appLanguage, 'guided.finish.week', {
+            week: weekOfLastLoggedSession({
+              sessionsDone: homeActivePlanCard.sessionsDone,
+              sessionsTotal: homeActivePlanCard.sessionsTotal,
+              totalWeeks: homeActivePlanCard.planTotalWeeks,
+            }),
+          })
+        : t(preferences.appLanguage, 'guided.finish.thisWeek'),
       savedThisWeek,
       target: progressWeeklyTarget,
     };
@@ -4709,7 +4796,7 @@ function VinhaApp() {
   /** After the save: the log already contains it. */
   const completionWeekProgress = weekProgressBase
     ? {
-        weekLabel: weekProgressBase.weekLabel,
+        weekLabel: weekProgressBase.completionWeekLabel,
         done: weekProgressBase.savedThisWeek,
         target: weekProgressBase.target,
       }
@@ -6275,7 +6362,7 @@ function VinhaApp() {
           const plan = database.workoutPlans.find((entry) => entry.id === planId);
           const templateId = plan?.entries[0]?.workoutTemplateId;
           if (templateId) {
-            handleOpenReadyProgramDetail(templateId);
+            handleOpenProgramDetail(templateId);
           }
         }}
         onRemoveOtherProgram={(planId) => void handleRemoveActiveProgram(planId)}
