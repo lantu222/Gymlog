@@ -110,9 +110,23 @@ export interface SetupHandoffInput {
   canOfferPro: boolean;
 }
 
+/** One screen of the hand-off. Pro is not one: it opens after the last. */
+export type SetupHandoffPage = 'signin' | 'tracking' | 'offers';
+
 export interface SetupHandoffPlan {
   /** False when there is nothing left to offer and the step must not appear. */
   shouldShow: boolean;
+  /**
+   * The pages to show, in order: sign-in, the tracking dialog, the widget.
+   *
+   * Each only when it has something on it. The tracking dialog was on every
+   * hand-off whether or not `offerTrackedSites` said it had anything to ask,
+   * so a reader whose sites were all on Home already was asked to pick them
+   * again — unselected, and a pick changed nothing (backfill review of #92,
+   * 2026-09-16). Empty when the only offer is Pro: the hand-off then goes
+   * straight to the Pro page.
+   */
+  pages: SetupHandoffPage[];
   offerWidget: boolean;
   /** Null when the card this reader would be offered is already on Home. */
   tracking: SetupTrackingOffer | null;
@@ -164,9 +178,16 @@ export function planSetupHandoff(input: SetupHandoffInput): SetupHandoffPlan {
   const offerAccountBackup = input.canOfferAccountBackup === true;
   const offerPro = input.canOfferPro === true;
 
+  const pages: SetupHandoffPage[] = [
+    ...(offerAccountBackup ? (['signin'] as const) : []),
+    ...(offerTrackedSites ? (['tracking'] as const) : []),
+    ...(input.canOfferWidget ? (['offers'] as const) : []),
+  ];
+
   return {
     shouldShow:
       input.canOfferWidget || tracking !== null || offerTrackedSites || offerAccountBackup || offerPro,
+    pages,
     offerWidget: input.canOfferWidget,
     tracking,
     offerTrackedSites,

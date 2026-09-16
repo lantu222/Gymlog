@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 
 const {
   LOG_ID_PATTERN,
+  isTranscriptPath,
   logIdFromTranscriptPath,
   randomLogId,
   shapeTranscriptEntry,
@@ -99,6 +100,66 @@ module.exports = [
         const shaped = shapeTranscriptEntry(path, stored);
         assert.deepEqual(shaped, { pathname: path, label: LABEL }, `stored ${JSON.stringify(stored)}`);
       }
+    },
+  },
+  {
+    /**
+     * A kept photo is up to 2.8 MB of base64, and the list returned every one
+     * whole: a few of them pushed the response past the platform's 4.5 MB
+     * limit and the list failed (backfill review of #92, 2026-09-16).
+     */
+    name: 'transcript entry: the list says how big a photo is, and only one entry carries it',
+    run() {
+      const path = labelled('2026-09-12', '2026-09-12T10-00-00-000Z');
+      const stored = { kind: 'photo', mediaType: 'image/jpeg', dataBase64: 'x'.repeat(2_800_000), rows: [] };
+
+      const listed = shapeTranscriptEntry(path, stored);
+      assert.equal('dataBase64' in listed, false);
+      assert.equal(listed.photoChars, 2_800_000);
+      assert.ok(JSON.stringify(listed).length < 1000, 'a listed photo entry is still megabytes');
+      assert.equal(listed.mediaType, 'image/jpeg');
+
+      const one = shapeTranscriptEntry(path, stored, { withPhoto: true });
+      assert.equal(one.dataBase64.length, 2_800_000);
+      assert.equal('photoChars' in one, false);
+
+      // Only the shaper says how big a photo is.
+      const chat = shapeTranscriptEntry(path, { kind: 'chat', prompt: 'q', photoChars: 5 });
+      assert.equal('photoChars' in chat, false);
+      assert.equal('dataBase64' in shapeTranscriptEntry(path, { dataBase64: 42 }, { withPhoto: true }), false);
+    },
+  },
+  {
+    name: 'transcript entry: one entry is asked for only by a path the writer could have made',
+    run() {
+      assert.equal(isTranscriptPath(labelled('2026-09-12', '2026-09-12T10-00-00-000Z')), true);
+      assert.equal(isTranscriptPath(unlabelled('2026-09-01', '2026-09-01T10-00-00-000Z')), true);
+      for (const bad of [
+        'transcripts/2026-09-12/../secrets.json',
+        'transcripts/../x.json',
+        'other/2026-09-12/a.json',
+        'transcripts/2026-09-12/a.txt',
+        'transcripts/2026-09-12/sub/a.json',
+        'transcripts/latest/a.json',
+        'transcripts/2026-09-12/.json',
+        '/transcripts/2026-09-12/a.json',
+        '',
+      ]) {
+        assert.equal(isTranscriptPath(bad), false, bad);
+      }
+
+      // And the endpoint checks before it reads, and reads that one entry
+      // with its photo.
+      const endpoint = require('node:fs').readFileSync(
+        require('node:path').join(__dirname, '..', '..', 'api', 'transcripts.ts'),
+        'utf8',
+      );
+      const check = endpoint.indexOf('if (!isTranscriptPath(onePath))');
+      const read = endpoint.indexOf('await get(onePath');
+      assert.ok(check > 0 && read > check, 'the path is read before it is checked');
+      assert.match(endpoint, /shapeTranscriptEntry\(onePath, JSON\.parse\(text\), \{ withPhoto: true \}\)/);
+      // The list never asks for photos.
+      assert.match(endpoint, /return shapeTranscriptEntry\(pathname, JSON\.parse\(text\)\);/);
     },
   },
 ];

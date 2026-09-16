@@ -18,6 +18,11 @@
  *   node scripts/coach-transcripts.cjs --who 3f2a      # a label, or its start
  *   node scripts/coach-transcripts.cjs --withheld      # only entries to clean
  *   node scripts/coach-transcripts.cjs --limit 20 --json
+ *   node scripts/coach-transcripts.cjs --path transcripts/2026-09-12/<name>.json
+ *
+ * The list leaves kept photos out — a few of them used to push the response
+ * past the platform's limit — and prints each one's size and path. `--path`
+ * fetches that one entry and saves its photo in the current directory.
  *
  * Delete together with api/transcripts.ts before Play — the release guard
  * in tests/releaseReadiness.test.cjs lists both.
@@ -54,6 +59,27 @@ function arg(name, fallback) {
     console.error('Need EXPO_PUBLIC_AI_COACH_API_URL and TRANSCRIPT_READ_SECRET in .env.local');
     process.exit(1);
   }
+  const onePath = arg('path');
+  if (onePath) {
+    const one = new URL('/api/transcripts', base);
+    one.searchParams.set('path', onePath);
+    const res = await fetch(one, { headers: { 'x-transcript-secret': secret } });
+    if (!res.ok) {
+      console.error(`HTTP ${res.status}: ${await res.text()}`);
+      process.exit(1);
+    }
+    const { entry } = await res.json();
+    if (typeof entry.dataBase64 === 'string') {
+      const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[entry.mediaType] || 'bin';
+      const file = `${path.basename(onePath, '.json')}.${ext}`;
+      fs.writeFileSync(file, Buffer.from(entry.dataBase64, 'base64'));
+      delete entry.dataBase64;
+      console.log(`Photo saved to ${file}`);
+    }
+    console.log(JSON.stringify(entry, null, 2));
+    return;
+  }
+
   const since = arg('since');
   const who = arg('who');
   const limit = arg('limit', '200');
@@ -90,7 +116,22 @@ function arg(name, fallback) {
     const who = labelOf(e);
     const meta = `${e.source}${e.model ? ` · ${e.model}` : ''}${e.durationMs ? ` · ${(e.durationMs / 1000).toFixed(1)} s` : ''}${e.withheld ? ' · email withheld' : ''}`;
     console.log(`\n[${time}] ${who}  (${meta})`);
+    if (e.kind === 'photo') {
+      const kb = typeof e.photoChars === 'number' ? `, ${Math.round((e.photoChars * 3) / 4 / 1024)} KB` : '';
+      const read = Array.isArray(e.rows) ? `${e.rows.length} rows read` : 'nothing read';
+      console.log(`  Photo: ${e.mediaType || '?'}${kb} · ${read}`);
+      console.log(`     --path ${e.pathname}`);
+      continue;
+    }
     console.log(`  Q: ${e.prompt}`);
+    if (e.kind === 'composer') {
+      const p = e.proposal;
+      console.log(p ? `  A: ${p.title} · ${(p.sessions || []).length} sessions` : '  A: (no proposal)');
+      for (const session of (p && p.sessions) || []) {
+        console.log(`     → ${session.name}: ${(session.exercises || []).length} exercises`);
+      }
+      continue;
+    }
     const a = e.answer;
     if (!a) {
       console.log('  A: (no answer)');

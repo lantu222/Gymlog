@@ -1093,6 +1093,8 @@ function VinhaApp() {
    * mid-onboarding would end onboarding. Null puts the hand-off back.
    */
   const [handoffLegalDocument, setHandoffLegalDocument] = useState<LegalDocumentId | null>(null);
+  const handoffLegalOpenRef = useRef(false);
+  handoffLegalOpenRef.current = handoffLegalDocument !== null;
   /**
    * Today's swaps for the next session, slot id → exercise name, chosen on Home
    * before the session exists. Deliberately not persisted: it is an answer to
@@ -1218,6 +1220,13 @@ function VinhaApp() {
     }
 
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      // A document open over the hand-off is not a route; back closes it
+      // before anything behind it moves. Asked here as well as below, because
+      // this listener re-subscribes on route changes and can end up newest.
+      if (handoffLegalOpenRef.current) {
+        setHandoffLegalDocument(null);
+        return true;
+      }
       const nextRoute = getBackRoute(route, workoutHomeRoute);
       if (!nextRoute && navigationState.history.length === 0) {
         return false;
@@ -1237,6 +1246,27 @@ function VinhaApp() {
 
     return () => subscription.remove();
   }, [navigationState.history.length, onboardingActive, route]);
+
+  /**
+   * The back key closes a policy or terms page opened over the hand-off.
+   *
+   * The page is drawn over the hand-off rather than routed, so the handler
+   * above never knew it was open: on a fresh install the route behind has no
+   * history, back returned false, and Android put the app away with the terms
+   * still up (backfill review of #92, 2026-09-16). Registered while the page
+   * is open and after the route handler, so it is the newest listener — and it
+   * works on the setup route too, where the route handler stands down.
+   */
+  useEffect(() => {
+    if (!handoffLegalDocument) {
+      return undefined;
+    }
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      setHandoffLegalDocument(null);
+      return true;
+    });
+    return () => subscription.remove();
+  }, [handoffLegalDocument]);
 
   const homeSummary = useMemo(() => getHomeSummary(database, unitPreference), [database, unitPreference]);
   const lifetimeSummary = useMemo(() => getLifetimeTrainingSummary(database), [database]);

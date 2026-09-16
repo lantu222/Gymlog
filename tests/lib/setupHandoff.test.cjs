@@ -286,4 +286,79 @@ module.exports = [
       assert.deepEqual(everything.trackedSiteOptions, ['chest']);
     },
   },
+  {
+    /**
+     * A page only when it has something on it.
+     *
+     * The tracking dialog was on every hand-off. A reader whose chest was on
+     * Home already — exactly the plan the test above describes — was asked to
+     * pick chest again, unselected, and picking it changed nothing (backfill
+     * review of #92, 2026-09-16).
+     */
+    name: 'the hand-off shows only the pages that have something to ask',
+    run() {
+      const base = {
+        canOfferWidget: false,
+        pinnedCardKeys: ['bodyweight', 'chest'],
+        focusAreas: ['chest'],
+        canOfferAccountBackup: false,
+        canOfferPro: true,
+      };
+
+      // Every site on Home, Pro still to offer: no page, straight to Pro.
+      const onlyPro = planSetupHandoff(base);
+      assert.deepEqual(onlyPro.pages, []);
+      assert.equal(onlyPro.shouldShow, true);
+      assert.equal(onlyPro.offerPro, true);
+
+      // A site not on Home yet brings the dialog back, and so does naming
+      // nothing measurable, when the dialog offers every site.
+      assert.deepEqual(planSetupHandoff({ ...base, pinnedCardKeys: ['bodyweight'] }).pages, ['tracking']);
+      assert.deepEqual(planSetupHandoff({ ...base, focusAreas: [] }).pages, ['tracking']);
+      // In order, each on its own condition.
+      assert.deepEqual(
+        planSetupHandoff({ ...base, pinnedCardKeys: [], canOfferAccountBackup: true, canOfferWidget: true }).pages,
+        ['signin', 'tracking', 'offers'],
+      );
+      assert.deepEqual(planSetupHandoff({ ...base, canOfferWidget: true }).pages, ['offers']);
+      assert.deepEqual(planSetupHandoff({ ...base, canOfferAccountBackup: true }).pages, ['signin']);
+
+      // The screen reads the plan's list, and with nothing on it goes to Pro
+      // once rather than drawing a title over an empty page.
+      const screen = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'screens', 'SetupHandoffScreen.tsx'),
+        'utf8',
+      );
+      assert.match(screen, /const pages = plan\.pages;/);
+      assert.doesNotMatch(screen, /'tracking' as const,/);
+      assert.match(
+        screen,
+        /if \(pages\.length === 0 && !finishedEmpty\.current\) \{\s*finishedEmpty\.current = true;\s*finish\(\);/,
+      );
+      assert.match(screen, /if \(pages\.length === 0\) \{\s*return <View style=\{styles\.screen\} \/>;/);
+    },
+  },
+  {
+    /**
+     * The policy and the terms open over the hand-off, not as a route, so the
+     * route-level back handler never knew they were up: on a fresh install
+     * back left the app with the terms still showing (backfill review of #92,
+     * 2026-09-16).
+     */
+    name: 'the back key closes a document opened over the hand-off',
+    run() {
+      const app = fs.readFileSync(path.join(__dirname, '..', '..', 'App.tsx'), 'utf8');
+      const own = app.search(
+        /if \(!handoffLegalDocument\) \{\s*return undefined;\s*\}\s*const subscription = BackHandler\.addEventListener\('hardwareBackPress', \(\) => \{\s*setHandoffLegalDocument\(null\);\s*return true;/,
+      );
+      assert.ok(own > 0, 'no back listener of its own while a document is open');
+      const route = app.search(
+        /if \(handoffLegalOpenRef\.current\) \{\s*setHandoffLegalDocument\(null\);\s*return true;\s*\}\s*const nextRoute = getBackRoute/,
+      );
+      assert.ok(route > 0, 'the route handler would walk past an open document');
+      // Registered after the route handler, so it is the newest listener.
+      assert.ok(route < own, 'the document listener has to be declared after the route one');
+      assert.match(app, /handoffLegalOpenRef\.current = handoffLegalDocument !== null;/);
+    },
+  },
 ];
