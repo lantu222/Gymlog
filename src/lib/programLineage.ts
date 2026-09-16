@@ -70,24 +70,33 @@ export interface LineageSession {
  * so the day after the copy was made the rotation found no match at all and
  * offered day 1 — to a reader who trained day 3 yesterday.
  *
- * The copy is built from the original day by day, in order, so at that moment
- * the two lists line up exactly. That is the only claim made here: day `n` of
- * the original is day `n` of the copy. Once the copy no longer has the same
- * number of days, the reader has rearranged their programme and the lists no
- * longer line up — then nothing is translated, and the rotation starts over
- * rather than guessing at a day.
+ * A day is found by its name first. The copy takes the original's day names,
+ * and a name follows its day wherever the reader drags it — matching by
+ * position alone sent yesterday's day 1 to whatever the reader had moved into
+ * first place (review, 2026-09-16). A day is found by position only where its
+ * name says nothing: it matches no day of the copy, the lists are the same
+ * length, and the copy's day in that place carries no name the original
+ * knows — a day renamed where it stood. Anything else is not translated, and
+ * the rotation starts over rather than guessing at a day.
  */
 export function alignHistoryToCopiedDays<T extends LineageSession>(
   sessions: readonly T[],
   mapping: {
     fromTemplateIds: readonly string[];
     fromSessionIds: readonly string[];
+    /**
+     * Every name each original day can carry in a copy — its own, and as it
+     * reads translated — index for index with `fromSessionIds`.
+     */
+    fromSessionNames?: ReadonlyArray<readonly string[]>;
     toTemplateId: string;
     toSessionIds: readonly string[];
+    /** The copy's day names, index for index with `toSessionIds`. */
+    toSessionNames?: readonly string[];
   },
 ): T[] {
   const { fromTemplateIds, fromSessionIds, toTemplateId, toSessionIds } = mapping;
-  if (fromSessionIds.length === 0 || fromSessionIds.length !== toSessionIds.length) {
+  if (fromSessionIds.length === 0 || toSessionIds.length === 0) {
     return [...sessions];
   }
 
@@ -96,22 +105,60 @@ export function alignHistoryToCopiedDays<T extends LineageSession>(
     return [...sessions];
   }
 
+  const days = copiedDayMap(mapping);
   return sessions.map((session) => {
     if (!session.workoutTemplateId || !from.has(session.workoutTemplateId)) {
       return session;
     }
-    const dayIndex = session.workoutTemplateSessionId
-      ? fromSessionIds.indexOf(session.workoutTemplateSessionId)
-      : -1;
-    if (dayIndex === -1) {
+    const day = session.workoutTemplateSessionId ? days.get(session.workoutTemplateSessionId) : undefined;
+    if (!day) {
       return session;
     }
     return {
       ...session,
       workoutTemplateId: toTemplateId,
-      workoutTemplateSessionId: toSessionIds[dayIndex],
+      workoutTemplateSessionId: day,
     };
   });
+}
+
+/** Original day id → the copy's day id, for the days that can be told. */
+function copiedDayMap(mapping: {
+  fromSessionIds: readonly string[];
+  fromSessionNames?: ReadonlyArray<readonly string[]>;
+  toSessionIds: readonly string[];
+  toSessionNames?: readonly string[];
+}): Map<string, string> {
+  const { fromSessionIds, toSessionIds } = mapping;
+  const normalize = (name: string) => name.trim().toLowerCase();
+  const toNames =
+    mapping.toSessionNames?.length === toSessionIds.length ? mapping.toSessionNames.map(normalize) : [];
+  const fromNames = fromSessionIds.map(
+    (_, index) => new Set((mapping.fromSessionNames?.[index] ?? []).map(normalize).filter(Boolean)),
+  );
+  const sameLength = fromSessionIds.length === toSessionIds.length;
+  const days = new Map<string, string>();
+
+  fromSessionIds.forEach((fromId, index) => {
+    const matches = toNames.flatMap((name, toIndex) => (fromNames[index].has(name) ? [toIndex] : []));
+    if (matches.length === 1) {
+      days.set(fromId, toSessionIds[matches[0]]);
+      return;
+    }
+    if (matches.length > 1) {
+      // Two days by one name: the one still in the same place, or neither.
+      if (sameLength && matches.includes(index)) {
+        days.set(fromId, toSessionIds[index]);
+      }
+      return;
+    }
+    const inPlace = toNames[index];
+    const inPlaceIsKnown = inPlace !== undefined && fromNames.some((names) => names.has(inPlace));
+    if (sameLength && !inPlaceIsKnown) {
+      days.set(fromId, toSessionIds[index]);
+    }
+  });
+  return days;
 }
 
 /**

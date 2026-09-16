@@ -40,7 +40,7 @@ const {
   findGuidedStepIndexByAnchor,
   dialHoldIntervalMs,
   buildGuidedRunSheet,
-  formatLoggedSetsLine,
+  restRoundCorrections,
   GUIDED_POSITION_SECONDS,
 } = require('../../.test-dist/lib/guidedPlayer.js');
 
@@ -91,25 +91,44 @@ module.exports = [
   },
   {
     /**
-     * The sheet listed the session's shape and nothing of what had happened in
-     * it; the reader wanted "kaiken mitä on kirjattu, mitä on tulossa" in one
-     * place (user 2026-09-09).
+     * A superset rests once per round, and the rest step names the lift that
+     * closed it. The corrections were gated on THAT lift having logged
+     * something, so a round with only its first lift logged offered none
+     * (review, 2026-09-16).
      */
-    name: 'the run sheet prints the sets logged in a lift, and nothing for one not started',
+    name: 'a rest offers a correction for every lift of the round that has a logged set',
     run() {
-      const sets = [
-        { setIndex: 0, status: 'completed', actualLoadKg: 60, actualReps: 8 },
-        { setIndex: 1, status: 'completed', actualLoadKg: 62.5, actualReps: 7 },
-        { setIndex: 2, status: 'pending' },
-      ];
-      assert.equal(formatLoggedSetsLine(sets), '60 × 8 · 62.5 × 7');
-      // Bodyweight: reps alone.
-      assert.equal(formatLoggedSetsLine([{ status: 'completed', actualLoadKg: 0, actualReps: 12 }]), '12');
-      assert.equal(formatLoggedSetsLine([{ status: 'pending' }]), '');
-      // A hold logs seconds in the reps field: "45" beside "60 × 8" would read as
-      // forty-five reps, and "20 × 45" as twenty kilos for forty-five (PR #90 review).
-      assert.equal(formatLoggedSetsLine([{ status: 'completed', actualLoadKg: 0, actualReps: 45 }], true), '45 s');
-      assert.equal(formatLoggedSetsLine([{ status: 'completed', actualLoadKg: 20, actualReps: 45 }], true), '20 × 45 s');
+      const lift = (slotId, statuses) => ({ slotId, sets: statuses.map((status) => ({ status })) });
+      const liftBySlot = new Map([
+        ['a', lift('a', ['completed', 'completed', 'pending'])],
+        ['b', lift('b', ['pending', 'pending'])],
+        ['c', lift('c', ['completed', 'skipped', 'completed', 'pending'])],
+      ]);
+
+      // Only the first lift of the pair is logged: it still gets its way back.
+      assert.deepEqual(
+        restRoundCorrections([{ slotId: 'a', name: 'Bench' }, { slotId: 'b', name: 'Row' }], liftBySlot).map(
+          ({ name, lift: { slotId }, setIndex }) => ({ name, slotId, setIndex }),
+        ),
+        [{ name: 'Bench', slotId: 'a', setIndex: 1 }],
+      );
+      // The last COMPLETED set, not the last touched one.
+      assert.deepEqual(
+        restRoundCorrections([{ slotId: 'c', name: 'Squat' }], liftBySlot).map((entry) => entry.setIndex),
+        [2],
+      );
+      // Nothing logged, no slot, or a slot the session does not know: nothing.
+      assert.deepEqual(restRoundCorrections([{ slotId: 'b', name: 'Row' }], liftBySlot), []);
+      assert.deepEqual(restRoundCorrections([{ slotId: null, name: 'Drill' }, { name: 'Walk' }], liftBySlot), []);
+      assert.deepEqual(restRoundCorrections([{ slotId: 'zz', name: 'Gone' }], liftBySlot), []);
+      // Every logged lift of the round, in the round's order.
+      assert.deepEqual(
+        restRoundCorrections(
+          [{ slotId: 'c', name: 'Squat' }, { slotId: 'b', name: 'Row' }, { slotId: 'a', name: 'Bench' }],
+          liftBySlot,
+        ).map((entry) => entry.name),
+        ['Squat', 'Bench'],
+      );
     },
   },
   {

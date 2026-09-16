@@ -284,6 +284,18 @@ module.exports.push(
       assert.match(analysis.takeaway, /Push/);
       const analysisWithPlateau = buildAiCoachPreviewAnswer('Analysoi viime treenini', baseContext({ ...plateau, ...session }), 'en');
       assert.match(analysisWithPlateau.takeaway, /Push/);
+      // "Analyse" on its own still reads the last session.
+      assert.match(buildAiCoachPreviewAnswer('Analysoi', baseContext(session), 'fi').takeaway, /Push/);
+
+      // "Analyse my programme" and "analyse my bench" name something else,
+      // and get that thing's answer — not a summary of the last session.
+      const programme = buildAiCoachPreviewAnswer('Säädä ohjelmaani', baseContext(session), 'fi').takeaway;
+      assert.equal(buildAiCoachPreviewAnswer('Analysoi ohjelmani', baseContext(session), 'fi').takeaway, programme);
+      assert.equal(buildAiCoachPreviewAnswer('Analyze my program', baseContext(session), 'fi').takeaway, programme);
+      const lift = buildAiCoachPreviewAnswer('penkki', baseContext(session), 'fi').takeaway;
+      assert.equal(buildAiCoachPreviewAnswer('analysoi penkki', baseContext(session), 'fi').takeaway, lift);
+      assert.doesNotMatch(lift, /Push/);
+      assert.doesNotMatch(programme, /Push/);
     },
   },
   {

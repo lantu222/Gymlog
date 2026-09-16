@@ -257,17 +257,19 @@ module.exports = [
       // logged, and Muokkaa moved into it, on the current lift while resting.
       assert.doesNotMatch(playerSource, /restLoggedCard|restLogged\b|guided\.rest\.logged'/);
       assert.equal(i18nSource.includes("'guided.rest.logged'"), false);
-      // `restingLogged` is the lift the CURRENT rest belongs to, which since
-      // supersets is not necessarily the first lift named in the row — and a
-      // superset rests once per ROUND, so every lift in the block gets its
-      // own correction rather than only the one that closed it (2026-09-16).
+      // A superset rests once per ROUND, so every lift in the block gets its
+      // own correction rather than only the one that closed it — and the
+      // block is not gated on the lift the rest step names having logged
+      // something (2026-09-16). See `restRoundCorrections`.
       assert.match(
         playerSource,
-        /item\.status === 'current' && restingLogged && step\.type === 'rest' && !step\.recoveryKind \? \([\s\S]*?item\.members\.map\(\(member\) => \{/,
+        /const roundCorrections =\s*item\.status === 'current' && step\.type === 'rest' && !step\.recoveryKind\s*\? restRoundCorrections\(item\.members, exerciseBySlot\)\s*: \[\];/,
       );
+      assert.match(playerSource, /\{roundCorrections\.length > 0 \? \(/);
+      assert.doesNotMatch(playerSource, /restingLogged/);
       assert.match(
         playerSource,
-        /setRunSheetOpen\(false\);\s*setRestEdit\(\{ slotId: lift\.slotId, setIndex: lastLogged \}\);/,
+        /setRunSheetOpen\(false\);\s*setRestEdit\(\{ slotId: lift\.slotId, setIndex \}\);/,
       );
       // One NextLine left in the file: the drills'. The rest screen's is gone.
       assert.equal((playerSource.match(/<NextLine /g) ?? []).length, 1);

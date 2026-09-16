@@ -267,6 +267,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       aiSetupCompleted: false,
       hasOpenedAppBefore: false,
   setupWeightSeeded: false,
+      accountNameAdopted: false,
       homeWidgetPromptDismissed: false,
       accountBackupPromptDismissed: false,
       aiOnlineNoticeAcknowledged: false,

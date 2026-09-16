@@ -75,6 +75,11 @@ function askedLiftGroups(lower: string): number[] {
     .filter((group): group is number => group !== null);
 }
 
+/** A question about the programme or its split. */
+function namesProgramme(lower: string): boolean {
+  return lower.includes('program') || lower.includes('ohjelma') || lower.includes('split') || lower.includes('treenijako');
+}
+
 /** Words every kind of lift shares; matching on them is matching on nothing. */
 const SHARED_EXERCISE_WORDS = new Set(['barbell', 'dumbbell', 'kettlebell', 'cable', 'machine', 'smith', 'band', 'press', 'seated', 'standing']);
 
@@ -319,14 +324,20 @@ export function buildAiCoachPreviewAnswer(
   // "Analyse my last workout" is one of the app's own quick-ask chips, and it
   // matched nothing — so tapping it spent a free question and answered "ask a
   // clearer question". Everything below is read from the stored session.
-  if (
-    hasWordStart(lower, 'analys') ||
-    hasWordStart(lower, 'analyz') ||
+  //
+  // "Analyse" alone is not the chip, though: "Analysoi ohjelmani" and
+  // "analysoi penkki" ask about the programme and the lift, which have their
+  // own answers below — and got a summary of the last session (2026-09-16).
+  const asksLastSession =
     lower.includes('viime treeni') ||
     lower.includes('edellinen treeni') ||
     lower.includes('last workout') ||
-    lower.includes('last session')
-  ) {
+    lower.includes('last session');
+  const asksBareAnalysis =
+    (hasWordStart(lower, 'analys') || hasWordStart(lower, 'analyz')) &&
+    !namesProgramme(lower) &&
+    askedLiftGroups(lower).length === 0;
+  if (asksLastSession || asksBareAnalysis) {
     const session = context.recentCompletedSessions[0];
     if (!session) {
       return {
@@ -542,7 +553,7 @@ export function buildAiCoachPreviewAnswer(
   }
 
   // Program or split question — no urgent signals, give structural advice
-  if (lower.includes('program') || lower.includes('ohjelma') || lower.includes('split') || lower.includes('treenijako')) {
+  if (namesProgramme(lower)) {
     const plateauNames = context.plateaus
       .map((p) => exerciseNameLabel(language, p.name))
       .join(', ');

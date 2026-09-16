@@ -125,7 +125,11 @@ module.exports = [
       // English gets the same two, in English.
       const english = buildAiCoachPreviewAnswer('recommend me a movie', CONTEXT, 'en');
       assert.match(english.takeaway, /only answer training questions/);
-      assert.match(JSON.stringify(buildAiCoachPreviewAnswer('I want to kill myself', CONTEXT, 'en')), /09 2525 0111/);
+      const englishCrisis = JSON.stringify(buildAiCoachPreviewAnswer('I want to kill myself', CONTEXT, 'en'));
+      assert.match(englishCrisis, /09 2525 0111/);
+      // Said as Finland's number, with a way to help for a reader elsewhere.
+      assert.match(englishCrisis, /in Finland, MIELI/);
+      assert.match(englishCrisis, /local emergency number/);
 
       // And a training question still gets its answer.
       const training = buildAiCoachPreviewAnswer('olenko palautunut', CONTEXT, 'fi');

@@ -535,6 +535,14 @@ export interface AppPreferences {
    */
   setupWeightSeeded: boolean;
   /**
+   * Whether a signed-in account has had its one chance to name the profile.
+   *
+   * Without it the rule is "the profile has no name", which is also true the
+   * moment the reader clears theirs — so the account's name came straight
+   * back (2026-09-16). See src/lib/accountNameAdoption.ts.
+   */
+  accountNameAdopted: boolean;
+  /**
    * True once the home-screen widget offer has been answered either way. The
    * offer is shown once; Settings keeps a permanent entry for later.
    */

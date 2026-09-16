@@ -280,6 +280,34 @@ export function freestyleDoneSetCount(exercises: FreestyleExerciseDraft[]) {
   );
 }
 
+/**
+ * What leaving would throw away: sets ticked, and sets with a number in them
+ * that were not ticked yet.
+ *
+ * The leave question counted only ticked sets, so four sets with their
+ * weights and reps typed in and the tick still to come went on one tap of
+ * back, with nothing asked. A new exercise starts with an empty set and a new
+ * set carries only what the reader typed above it, so a number in a draft is
+ * the reader's own.
+ */
+export function freestyleUnsavedWork(exercises: FreestyleExerciseDraft[]): {
+  doneSets: number;
+  enteredSets: number;
+} {
+  let doneSets = 0;
+  let enteredSets = 0;
+  for (const exercise of exercises) {
+    for (const set of exercise.sets) {
+      if (set.done) {
+        doneSets += 1;
+      } else if (set.kg.trim() !== '' || set.reps.trim() !== '') {
+        enteredSets += 1;
+      }
+    }
+  }
+  return { doneSets, enteredSets };
+}
+
 function buildLogDrafts(exercises: FreestyleExerciseDraft[], performedAtIso: string): ExerciseLogDraft[] {
   return exercises.map((exercise, orderIndex) => {
     const sets = exercise.sets.map((set, setIndex) => ({

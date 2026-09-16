@@ -38,7 +38,7 @@ import {
   buildFreestyleFinish,
   carryForwardFreestyleSet,
   exerciseInitials,
-  freestyleDoneSetCount,
+  freestyleUnsavedWork,
   isLoggableFreestyleSet,
   freestyleNextSetTarget,
   freestyleRestSecondsForTick,
@@ -526,8 +526,13 @@ export function EmptyWorkoutScreen({
    * header chevron and hardware back went straight out: fifteen logged sets
    * gone on one tap, with nothing asked and nothing to undo. Same question,
    * same dialog as ending a guided session with sets in it.
+   *
+   * Numbers typed into sets not ticked yet count too — they are lost the same
+   * way (2026-09-16).
    */
-  const doneSetCount = freestyleDoneSetCount(exercises);
+  const unsavedWork = freestyleUnsavedWork(exercises);
+  const doneSetCount = unsavedWork.doneSets;
+  const hasUnsavedWork = unsavedWork.doneSets > 0 || unsavedWork.enteredSets > 0;
   const [confirmingLeave, setConfirmingLeave] = useState(false);
   const leaveGuardRef = useRef({ isSaving, onBack });
   leaveGuardRef.current = { isSaving, onBack };
@@ -537,7 +542,7 @@ export function EmptyWorkoutScreen({
     if (isSaving) {
       return;
     }
-    if (doneSetCount > 0) {
+    if (hasUnsavedWork) {
       setConfirmingLeave(true);
       return;
     }
@@ -546,9 +551,8 @@ export function EmptyWorkoutScreen({
 
   // Registered only once there is something to lose, which puts it after the
   // app's route-level listener; BackHandler asks the newest first.
-  const hasLoggedSets = doneSetCount > 0;
   useEffect(() => {
-    if (!hasLoggedSets) {
+    if (!hasUnsavedWork) {
       return undefined;
     }
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -560,7 +564,7 @@ export function EmptyWorkoutScreen({
       return true;
     });
     return () => subscription.remove();
-  }, [hasLoggedSets]);
+  }, [hasUnsavedWork]);
 
   useKeepScreenAwake(keepScreenAwake, 'empty-workout');
 
@@ -1263,11 +1267,15 @@ export function EmptyWorkoutScreen({
         visible={confirmingLeave}
         destructive
         title={t(language, 'guided.endConfirm.title')}
-        message={t(
-          language,
-          doneSetCount === 1 ? 'guided.endConfirm.bodyOne' : 'guided.endConfirm.bodyMany',
-          { count: doneSetCount },
-        )}
+        message={
+          unsavedWork.doneSets === 0
+            ? t(language, 'emptyWorkout.leaveConfirm.bodyEntered')
+            : t(
+                language,
+                unsavedWork.doneSets === 1 ? 'guided.endConfirm.bodyOne' : 'guided.endConfirm.bodyMany',
+                { count: unsavedWork.doneSets },
+              )
+        }
         confirmLabel={t(language, 'guided.exit.end')}
         cancelLabel={t(language, 'guided.exit.keep')}
         onCancel={() => setConfirmingLeave(false)}

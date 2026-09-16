@@ -825,6 +825,14 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
         typeof input?.preferences?.setupWeightSeeded === 'boolean'
           ? input.preferences.setupWeightSeeded
           : Array.isArray(input?.bodyweightEntries) && input.bodyweightEntries.length > 0,
+      // An install from before the flag existed that has a name has had it
+      // from the account or from the reader, and either way the account's
+      // turn is over. One without a name may simply never have signed in, so
+      // it keeps its chance.
+      accountNameAdopted:
+        typeof input?.preferences?.accountNameAdopted === 'boolean'
+          ? input.preferences.accountNameAdopted
+          : typeof input?.preferences?.profileName === 'string' && input.preferences.profileName.trim().length > 0,
       homeWidgetPromptDismissed:
         typeof input?.preferences?.homeWidgetPromptDismissed === 'boolean'
           ? input.preferences.homeWidgetPromptDismissed
