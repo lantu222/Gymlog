@@ -8,9 +8,9 @@
  * the first part of the id is enough to tell two phones apart), when, the
  * question, and the coach's answer as sections.
  *
- * Entries from before 2026-09-16 may still name a signed-in email instead;
- * requests stopped carrying one then, and the label is what identifies a
- * phone from that day on.
+ * Entries from before #92 have no label and print as "unlabelled". Some of
+ * them hold a signed-in email in the store; the endpoint withholds it, and
+ * this script never had another way to see it.
  *
  *   node scripts/coach-transcripts.cjs                 # everything, newest first
  *   node scripts/coach-transcripts.cjs --since 2026-08-23
@@ -37,12 +37,11 @@ function readEnvLocal() {
 /**
  * Which phone asked. The label is the part of the pathname before `--`
  * (`transcripts/<day>/<label>--<time>.json`, written by keepTranscript), and
- * it is on every entry the endpoint returns. An old entry without a label
- * falls back to the email it may still carry.
+ * it is on every entry the endpoint returns from #92 on.
  */
 function labelOf(entry) {
   const match = /\/([a-f0-9-]{8,64})--/.exec(entry.pathname || '');
-  return match ? match[1] : entry.reporter || 'unlabelled';
+  return match ? match[1] : 'unlabelled';
 }
 
 function arg(name, fallback) {

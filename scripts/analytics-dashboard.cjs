@@ -37,9 +37,9 @@ async function fetchTranscripts() {
         takeaway: String(entry.answer?.takeaway ?? ''),
         source: String(entry.source ?? ''),
         // The reader's log label out of the path, as coach-transcripts.cjs
-        // reads it; an entry from before 2026-09-16 may carry an email instead.
-        reporter: (/\/([a-f0-9-]{8,64})--/.exec(String(entry.pathname ?? '')) ?? [])[1]
-          ?? (entry.reporter ? String(entry.reporter) : null),
+        // reads it. Nothing else identifies a phone here: the endpoint
+        // withholds the email some old entries still hold.
+        label: (/\/([a-f0-9-]{8,64})--/.exec(String(entry.pathname ?? '')) ?? [])[1] ?? null,
       }))
       .filter((entry) => entry.prompt);
   } catch {
@@ -92,7 +92,7 @@ function render({ dailies, funnel, funnelTotal, retention }, transcripts, meta) 
               .slice(0, 20)
               .map(
                 (entry) => `<div class="chat">
-        <div class="chatmeta">${esc(entry.at.slice(0, 16).replace('T', ' '))} · ${esc(entry.source)}${entry.reporter ? ' · ' + esc(entry.reporter) : ''}</div>
+        <div class="chatmeta">${esc(entry.at.slice(0, 16).replace('T', ' '))} · ${esc(entry.source)}${entry.label ? ' · ' + esc(entry.label) : ''}</div>
         <div class="q">${esc(entry.prompt)}</div>
         <div class="a">${esc(entry.takeaway)}</div>
       </div>`,

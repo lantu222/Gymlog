@@ -101,7 +101,12 @@ export default async function handler(req: RequestLike, res: ResponseLike): Prom
       }
       try {
         const text = await new Response(stored.stream).text();
-        return { pathname, ...(JSON.parse(text) as Record<string, unknown>) };
+        // Entries written before 2026-09-16 may carry the signed-in email as
+        // `reporter`. They stay in the store (user decision, 2026-09-16) on the
+        // condition that nothing shows them to anyone, so the field ends here:
+        // no script, dashboard or copied response can print what never left.
+        const { reporter: _withheld, ...entry } = JSON.parse(text) as Record<string, unknown>;
+        return { pathname, ...entry };
       } catch {
         return { pathname, corrupt: true };
       }

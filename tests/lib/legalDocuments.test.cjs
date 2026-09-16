@@ -326,6 +326,19 @@ module.exports = [
         );
       }
 
+      // The emails already in the store stay there on one condition: nothing
+      // shows them to anyone (user decision, 2026-09-16). The reader endpoint
+      // drops the field before it answers, and the tools that print its
+      // answer never look for it.
+      assert.match(
+        read('api/transcripts.ts'),
+        /const \{ reporter: _withheld, \.\.\.entry \} = /,
+        'api/transcripts.ts must drop `reporter` before it answers — entries in the store still hold an email',
+      );
+      for (const tool of ['scripts/coach-transcripts.cjs', 'scripts/analytics-dashboard.cjs']) {
+        assert.ok(!/\.reporter\b/.test(read(tool)), `${tool} reads the email field the endpoint withholds`);
+      }
+
       // And nothing on the phone puts one into a coach request. The files are
       // found by what they import, not listed by hand: the composer and the
       // photo import build requests in files a hand-written list forgot.
