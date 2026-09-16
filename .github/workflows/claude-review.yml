@@ -7,7 +7,17 @@
 # This workflow is built so that cannot repeat: when the review cannot run, the
 # check goes red and names the reason, instead of staying quiet. That covers the
 # action exiting green without reviewing anything, which it does whenever a PR
-# changes this file — see the last step.
+# changes this file — see "Confirm a review actually ran".
+#
+# Green means one thing: the head commit has a summary comment from the
+# reviewer that names it. Until 2026-09-16 green meant only that the model ran.
+# The upstream code-review plugin stops as soon as Claude has commented on a
+# PR, so after the first "No issues found" every later push ran for under a
+# minute, reviewed nothing and passed — twenty commits across eleven PRs. The
+# review now comes from .claude/commands/ci-review.md, which the action reads
+# from the default branch, reviews every head commit, and ends by posting a
+# marker for that commit. "Confirm this commit's review was posted" looks for
+# it.
 #
 # One secret is required, CLAUDE_CODE_OAUTH_TOKEN, generated locally with
 # `claude setup-token` and pasted into Settings → Secrets and variables →
@@ -24,6 +34,17 @@ on:
 jobs:
   review:
     runs-on: ubuntu-latest
+    # A draft is reviewed when it is marked ready, and the check shows as
+    # skipped until then. The upstream plugin skipped drafts itself, and
+    # passed; the repo's command does not look, so the job does.
+    if: ${{ !github.event.pull_request.draft }}
+    # One review per PR at a time, and it is for the newest push. A review of
+    # a commit that has already been replaced costs as much as a real one and
+    # reads a diff that has moved under it. The replaced run shows as
+    # cancelled, not green.
+    concurrency:
+      group: claude-review-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     # Was twenty, on the argument that a slower review misses the merge window.
     # A real review of a large PR took eighteen minutes on 2026-09-03, which is
     # close enough to the cap to lose one to the clock — and a review killed
@@ -52,7 +73,33 @@ jobs:
         with:
           fetch-depth: 1
 
+      # A re-run or a reopen of a commit that already has its review. The
+      # review would cost the same again and post the same summary twice.
+      #
+      # GH_TOKEN stays on the steps that read. At job level it would reach the
+      # action too, and gh prefers it over the token the action hands the
+      # reviewer, so the summary comment would be refused.
+      - name: Find this commit's review
+        id: prior
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REVIEWER: claude[bot]
+        run: |
+          # Captured before `head`, so a failed API call fails the step
+          # instead of reading as "no review yet".
+          summaries=$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
+            --jq '.[] | select(.user.login == env.REVIEWER and (.body | contains("<!-- claude-review head=" + env.HEAD_SHA + " -->"))) | .html_url')
+          url=$(printf '%s\n' "$summaries" | head -n 1)
+          if [ -n "$url" ]; then
+            echo "Commit $HEAD_SHA already has its review, so this run does not review it again: $url"
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
       - id: claude
+        if: steps.prior.outputs.url == ''
         uses: anthropics/claude-code-action@v1
         env:
           # The review skill runs itself as a background subagent. In a one-shot
@@ -68,20 +115,27 @@ jobs:
           CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1'
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
-          plugins: "code-review@claude-code-plugins"
+          # The command is this repo's copy of the code-review plugin's, minus
+          # the step that skipped any PR Claude had commented on. The action
+          # restores .claude/ from the default branch before it runs, so a PR
+          # cannot rewrite the instructions it is reviewed by.
+          #
           # --comment puts the findings on the PR as inline comments. Without
-          # it they go to the run log, where nobody reads them.
-          prompt: "/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
+          # it they go to the run log, where nobody reads them. --head is the
+          # commit the summary comment names, and the one the last step looks
+          # for.
+          prompt: "/ci-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }} --head ${{ github.event.pull_request.head.sha }}"
           # --allowedTools is an ALLOWLIST: anything missing from it is denied,
           # and a denied tool in a non-interactive run is simply a dead turn.
           # Naming only the comment tool cost a run 39 turns, 39 denials and
           # $7.76 before it errored out — while still posting two findings, so
           # the check went red on a review that had actually worked
-          # (2026-09-03). These are the tools a reviewer needs to read a diff:
-          # the repo is checked out read-only, the job's GITHUB_TOKEN has no
-          # write scope, and comments go through the MCP server, so nothing
-          # here can change the PR.
+          # (2026-09-03). These are the tools a reviewer needs to read a diff.
+          # The job's own GITHUB_TOKEN has no write scope, but Bash is not
+          # read-only: the action gives the reviewer the Claude app's token,
+          # which is how `gh pr comment` posts the summary, and writes the same
+          # token into the checkout's git remote. Only the instructions keep
+          # the reviewer from writing anything else.
           #
           # The comment tool stays first for a second reason: the action only
           # starts the inline-comment MCP server when it is named here.
@@ -97,6 +151,7 @@ jobs:
       # Without this step the silent-absence failure would simply have moved
       # from the connector into the workflow meant to replace it.
       - name: Confirm a review actually ran
+        if: steps.prior.outputs.url == ''
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
         run: |
@@ -105,6 +160,37 @@ jobs:
             exit 1
           fi
           echo "Review ran, execution log at $EXECUTION_FILE"
+
+      # The action's success says the model ran without an error. It does not
+      # say anything was reviewed: from 2026-09-04 to 2026-09-16, twenty
+      # commits passed this check after the model stopped at the eligibility
+      # step and posted nothing. The summary comment is the review's own record
+      # that it finished, so this step looks for that record, on the PR, for
+      # this exact commit.
+      - name: Confirm this commit's review was posted
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REVIEWER: claude[bot]
+        run: |
+          summaries=$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
+            --jq '.[] | select(.user.login == env.REVIEWER and (.body | contains("<!-- claude-review head=" + env.HEAD_SHA + " -->"))) | .html_url')
+          url=$(printf '%s\n' "$summaries" | head -n 1)
+          if [ -n "$url" ]; then
+            echo "Commit $HEAD_SHA was reviewed: $url"
+            exit 0
+          fi
+          findings=$(gh api --paginate "repos/$REPO/pulls/$PR/comments" \
+            --jq '.[] | select(.user.login == env.REVIEWER and .original_commit_id == env.HEAD_SHA) | .id')
+          inline=$(printf '%s' "$findings" | grep -c . || true)
+          if [ "$inline" != "0" ]; then
+            echo "::error::The review posted $inline inline comments on $HEAD_SHA but no summary, so it stopped before it finished. The comments are findings: read them, then re-run this job."
+          else
+            echo "::error::Nothing was posted for $HEAD_SHA: no summary comment and no inline comments. This commit has not been reviewed, whatever the step above reported. The next step shows how far the run got; re-run this job or review the diff by hand."
+          fi
+          exit 1
 
       # Runs even when the action failed, because a red check that does not say
       # WHICH red it is gets treated as noise. Two different failures produced
@@ -131,16 +217,28 @@ jobs:
             exit 0
           fi
           turns=$(echo "$summary" | jq -r '.num_turns // "?"')
-          denials=$(echo "$summary" | jq -r '.permission_denials_count // 0')
+          # The file holds the SDK's raw result, where denials are an array.
+          # A count field exists only in the summary the action prints, so
+          # reading one here said 0 on every run, including the ones whose
+          # printed summary said 1. Tool names only: this log is public, and a
+          # denied call's input can carry review text.
+          denials=$(echo "$summary" | jq -r '.permission_denials // [] | length')
+          denied=$(echo "$summary" | jq -r '.permission_denials // [] | map(.tool_name // "?") | group_by(.) | map("\(.[0]) x\(length)") | join(", ")')
           failed=$(echo "$summary" | jq -r '.is_error // false')
           cost=$(echo "$summary" | jq -r '.total_cost_usd // 0')
           echo "turns=$turns denials=$denials is_error=$failed cost_usd=$cost"
+          if [ -n "$denied" ]; then
+            echo "Denied tools: $denied"
+          fi
           if [ "$failed" != "true" ]; then
-            echo "The review completed. Findings, if any, are inline comments on the PR."
+            echo "The run ended without an error. Whether it reviewed this commit is the verdict of \"Confirm this commit's review was posted\", not of this step."
             exit 0
           fi
-          if [ "$denials" != "0" ] && [ "$denials" != "null" ]; then
-            echo "::warning::The review was denied $denials tool calls, which is a workflow problem, not a finding. It may still have posted comments — read them before assuming this red check means nothing. Widen --allowedTools in .github/workflows/claude-review.yml."
+          # Denials are blamed only when they are a large share of the run.
+          # Most healthy reviews have at least one (27 of 35 on 14–16 Sep), so
+          # "any denial" would name the allowlist as the cause of most errors.
+          if [ "$denials" -gt 0 ] && [ $((denials * 2)) -ge "${turns//[!0-9]/0}" ]; then
+            echo "::warning::The review was denied $denials tool calls in $turns turns, which is a workflow problem, not a finding. It may still have posted comments — read them before assuming this red check means nothing. Widen --allowedTools in .github/workflows/claude-review.yml."
           elif [ "$turns" = "1" ]; then
             echo "::warning::The review errored on its first turn with no tool denials, so the model never got going: upstream refused the request. That is a usage limit OR a provider incident, and the two look identical from here — check status.anthropic.com before concluding anything about budget. Either way this PR has NOT been reviewed; re-run the job."
           else
