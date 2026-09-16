@@ -1,4 +1,4 @@
-import { getRollingWindowStart } from './completedSessions';
+import { calendarDaysBetween, getRollingWindowStart } from './completedSessions';
 import { ExerciseLog, WorkoutSession } from '../types/models';
 import { getSessionTotalVolume } from './progression';
 
@@ -20,10 +20,8 @@ export interface FatigueResult {
   /**
    * False until there is enough history for the ratio to mean anything.
    *
-   * The chronic load is a 28-day total divided by four, so a user with one
-   * logged session gets acute 500 against chronic 125 — an ACWR of 4 and a
-   * confident "your load is well above the safe zone" built from a single
-   * workout. Callers must not give load advice while this is false.
+   * The chronic load is a weekly average, and a week or two of history makes
+   * a thin one: callers must not give load advice while this is false.
    */
   confident: boolean;
 }
@@ -97,7 +95,18 @@ export function buildFatigueModel(input: FatigueModelInput, referenceDate?: Date
     (sum, s) => sum + resolveSessionVolume(s, logsBySession),
     0,
   );
-  const chronicLoadKg = total28dLoadKg / 4;
+  // A weekly average over the weeks the reader has actually been training, up
+  // to the window's four. Dividing by four from the first week made a new
+  // reader training three identical sessions a week read "recovery low" on day
+  // fifteen: two weeks of load averaged over four is half a week's worth, and
+  // this week looked like double it (ACWR 1.71).
+  const firstEverMs = input.workoutSessions.reduce((earliest, session) => {
+    const time = new Date(session.performedAt).getTime();
+    return Number.isFinite(time) && time <= now.getTime() && time < earliest ? time : earliest;
+  }, Infinity);
+  const coveredDays = Number.isFinite(firstEverMs) ? calendarDaysBetween(firstEverMs, now) + 1 : 28;
+  const chronicWeeks = Math.min(4, Math.max(1, coveredDays / 7));
+  const chronicLoadKg = total28dLoadKg / chronicWeeks;
 
   const acwr = chronicLoadKg > 0 ? acuteLoadKg / chronicLoadKg : 0;
 

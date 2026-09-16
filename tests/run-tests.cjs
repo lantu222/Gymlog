@@ -148,6 +148,7 @@ const suites = [
   ...require('./lib/trainingRhythm.test.cjs'),
   ...require('./lib/progressionAnalyzer.test.cjs'),
   ...require('./lib/fatigueModel.test.cjs'),
+  ...require('./lib/progressNumbers.test.cjs'),
   ...require('./lib/progressActivity.test.cjs'),
   ...require('./lib/postSessionInsight.test.cjs'),
   ...require('./lib/proEntitlement.test.cjs'),

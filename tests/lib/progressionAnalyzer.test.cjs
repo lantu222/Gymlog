@@ -65,12 +65,36 @@ module.exports = [
     },
   },
   {
-    name: 'plateau: regression over three sessions is a plateau',
+    name: 'plateau: the stall counts the sessions at the latest weight, not a heavier one before them',
     run() {
-      // user went from 102 down to 100, stuck there
-      const result = detectPlateau(makeSummary([102, 100, 100]));
-      assert.equal(result.isPlateau, true);
-      assert.equal(result.stagnantSessions, 3);
+      // Down from 102 to 100 and stuck there: two sessions at 100 so far. The
+      // coach reads "N sessions at 100 kg", so the 102 is not one of them.
+      const two = detectPlateau(makeSummary([102, 100, 100]));
+      assert.equal(two.isPlateau, false);
+      assert.equal(two.stagnantSessions, 2);
+      const three = detectPlateau(makeSummary([102, 100, 100, 100]));
+      assert.equal(three.isPlateau, true);
+      assert.equal(three.stagnantSessions, 3);
+    },
+  },
+  {
+    name: 'plateau: a light day is not a stall, and rising reps are progress',
+    run() {
+      // "3 sessions at 60 kg without improvement", from 100 → 100 → a light 60.
+      const light = detectPlateau(makeSummary([100, 100, 60]));
+      assert.equal(light.isPlateau, false);
+      assert.equal(light.stagnantSessions, 1);
+
+      // 100 × 5 → 100 × 6 → 100 × 8 is getting stronger at the same weight.
+      const reps = [5, 6, 8];
+      const summary = makeSummary([100, 100, 100]);
+      [...summary.logs].reverse().forEach((log, index) => {
+        log.sets = log.sets.map((set) => ({ ...set, reps: reps[index] }));
+        log.repsPerSet = log.sets.map((set) => set.reps);
+      });
+      const rising = detectPlateau(summary);
+      assert.equal(rising.isPlateau, false);
+      assert.equal(rising.stagnantSessions, 1);
     },
   },
   {

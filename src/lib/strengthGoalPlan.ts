@@ -12,6 +12,8 @@
  * there is nothing to divide returns a named reason instead of a figure.
  */
 
+import { calendarDaysBetween } from './completedSessions';
+
 /** One logged session of a lift: when, and the top set. */
 export interface RatePoint {
   time: number;
@@ -50,6 +52,9 @@ export const RATE_HORIZON_WEEKS = 104;
  * block of training, not the same one paused.
  */
 export const RATE_MAX_GAP_WEEKS = 8;
+
+/** The shortest stretch a pace is measured over. See resolveObservedRate. */
+export const RATE_MIN_SPAN_WEEKS = 1;
 
 const WEEK_MS = 7 * 86_400_000;
 
@@ -99,7 +104,11 @@ export function resolveObservedRate(points: readonly RatePoint[]): ObservedRate 
   const first = usable[0];
   const last = usable[usable.length - 1];
   const spanWeeks = (last.time - first.time) / WEEK_MS;
-  if (!(spanWeeks > 0)) {
+  // Under a week is not a pace. Two sessions three days apart, 60 then 65,
+  // became "about 3 weeks at your pace" for +30 kg, above a line reading
+  // "you have added 5 kg in 0 weeks". Counted in calendar days: seven days
+  // across a clock change are 167 hours, which is still a week.
+  if (!(spanWeeks > 0) || calendarDaysBetween(first.time, last.time) < RATE_MIN_SPAN_WEEKS * 7) {
     return null;
   }
 

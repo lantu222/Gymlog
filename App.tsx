@@ -5234,10 +5234,15 @@ function VinhaApp() {
         preferences.strengthGoals.find((goal) =>
           isSameLift(goal.exerciseName, preset.exerciseName, libraryNames),
         )?.targetKg ?? null;
-      const history = proLiftHistories.find((entry) =>
+      // Every spelling of the lift, not the first one found. Trap bar at 150
+      // over six sessions and sumo at 170 over two made the flow's best 150,
+      // while the Programs goal row took the max — so a "+20" target of 170
+      // read as reached the moment it was saved.
+      const histories = proLiftHistories.filter((entry) =>
         isSameLift(entry.name, preset.exerciseName, libraryNames),
       );
-      if (!history || !(history.bestWeightKg > 0)) {
+      const bestKg = histories.reduce((best, entry) => Math.max(best, entry.bestWeightKg), 0);
+      if (histories.length === 0 || !(bestKg > 0)) {
         return {
           exerciseName: preset.exerciseName,
           targetKg,
@@ -5247,13 +5252,14 @@ function VinhaApp() {
           daysSinceLogged: null,
         };
       }
+      const lastLoggedAt = histories.reduce((latest, entry) => Math.max(latest, entry.latest.time), 0);
       return {
         exerciseName: preset.exerciseName,
         targetKg,
-        bestKg: history.bestWeightKg,
-        rate: resolveObservedRate(history.points),
-        lastLoggedAt: history.latest.time,
-        daysSinceLogged: Math.max(0, calendarDaysBetween(history.latest.time, now)),
+        bestKg,
+        rate: resolveObservedRate(histories.flatMap((entry) => entry.points)),
+        lastLoggedAt,
+        daysSinceLogged: Math.max(0, calendarDaysBetween(lastLoggedAt, now)),
       };
     });
   }, [libraryNames, preferences.strengthGoals, proLiftHistories]);

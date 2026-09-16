@@ -1125,7 +1125,11 @@ export function AppProvider({ children }: React.PropsWithChildren) {
               outcome: 'completed' as const,
               status: 'completed' as const,
             })),
-            tracked: false,
+            // Tracked like a logged lift. Untracked, the whole imported history
+            // was missing from Records, the Progress rows and target rows,
+            // while the finish screen's record check did count it — so the two
+            // disagreed about what the reader's best was.
+            tracked: true,
             orderIndex,
           })),
         });

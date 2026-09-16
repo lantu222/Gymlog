@@ -10,25 +10,40 @@ export interface PlateauResult {
   topWeightHistory: number[];
 }
 
-function getTopWorkingWeight(log: ExerciseLogWithSession): number | null {
-  const sets = getComparableLogSets(log);
-  if (sets.length === 0) return null;
-  const top = sets.reduce((best, set) => Math.max(best, set.weight), 0);
-  return top > 0 ? top : null;
-}
-
-function countStagnantSessions(weights: number[]): number {
-  // weights: newest first
-  // count consecutive non-improving pairs from the newest, then add 1 for the starting session
-  let nonImprovingPairs = 0;
-  for (let i = 0; i < weights.length - 1; i++) {
-    if (weights[i] <= weights[i + 1]) {
-      nonImprovingPairs++;
-    } else {
-      break;
+/** The heaviest working set and its own reps (the most, at that weight). */
+function getTopWorkingSet(log: ExerciseLogWithSession): { weight: number; reps: number } | null {
+  let top: { weight: number; reps: number } | null = null;
+  for (const set of getComparableLogSets(log)) {
+    if (!(set.weight > 0)) continue;
+    if (!top || set.weight > top.weight || (set.weight === top.weight && set.reps > top.reps)) {
+      top = { weight: set.weight, reps: set.reps };
     }
   }
-  return nonImprovingPairs + 1;
+  return top;
+}
+
+/**
+ * How many of the newest sessions are stuck: at the newest session's top
+ * weight, with the reps at that weight not rising.
+ *
+ * It counted every session that was not heavier than the one before, so a
+ * light day after two at 100 kg read "3 sessions at 60 kg without
+ * improvement", and 100 × 5 → 100 × 6 → 100 × 8 — progress by the reps —
+ * read as a plateau. The same rule the training history's stall count uses:
+ * the sessions sharing the latest weight.
+ */
+function countStagnantSessions(sets: Array<{ weight: number; reps: number }>): number {
+  // Newest first.
+  let stuck = 1;
+  for (let i = 1; i < sets.length; i++) {
+    const newer = sets[i - 1];
+    const older = sets[i];
+    if (older.weight !== sets[0].weight || newer.reps > older.reps) {
+      break;
+    }
+    stuck++;
+  }
+  return stuck;
 }
 
 export function detectPlateau(summary: ExerciseProgressSummary, threshold = 3): PlateauResult {
@@ -36,11 +51,12 @@ export function detectPlateau(summary: ExerciseProgressSummary, threshold = 3): 
     (a, b) => new Date(b.performedAt).getTime() - new Date(a.performedAt).getTime(),
   );
 
-  const topWeightHistory = sortedLogs
-    .map((log) => getTopWorkingWeight(log))
-    .filter((w): w is number => w !== null);
+  const topSets = sortedLogs
+    .map((log) => getTopWorkingSet(log))
+    .filter((set): set is { weight: number; reps: number } => set !== null);
+  const topWeightHistory = topSets.map((set) => set.weight);
 
-  const stagnantSessions = topWeightHistory.length > 0 ? countStagnantSessions(topWeightHistory) : 0;
+  const stagnantSessions = topSets.length > 0 ? countStagnantSessions(topSets) : 0;
 
   return {
     exerciseKey: summary.key,
