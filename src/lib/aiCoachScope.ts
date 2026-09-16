@@ -1,4 +1,4 @@
-import { AppLanguage } from '../types/models';
+import { hasWord, hasWordStart } from './wordMatch';
 
 /**
  * What kind of question this is, before anything tries to answer it.
@@ -16,23 +16,6 @@ import { AppLanguage } from '../types/models';
  * not be turned away.
  */
 export type CoachScopeVerdict = 'training' | 'off_topic' | 'crisis';
-
-/** A Finnish stem: the ending is glued on, so match from the word's start. */
-function hasWordStart(text: string, stem: string): boolean {
-  return new RegExp(`(^|[^\\p{L}])${stem}`, 'iu').test(text);
-}
-
-/**
- * An English word, whole, plural allowed.
- *
- * Matching English stems the Finnish way is how "kirjoita runo äidille" — a
- * poem for someone's mother — read as a training question: "run" is the
- * start of "runo". The same trap holds "set" inside "setä" and "rep" inside
- * "reppu".
- */
-function hasWholeWord(text: string, word: string): boolean {
-  return new RegExp(`(^|[^\\p{L}])${word}s?([^\\p{L}]|$)`, 'iu').test(text);
-}
 
 /**
  * Said plainly enough that no training reading survives.
@@ -106,9 +89,12 @@ export function classifyCoachScope(prompt: string): CoachScopeVerdict {
   if (CRISIS_PHRASES.some((phrase) => text.includes(phrase))) {
     return 'crisis';
   }
+  // Finnish stems match from the start of a word; English words match whole,
+  // plural included. Matching English the Finnish way is how "run" became the
+  // start of "runo" and a request for a poem read as a training question.
   const trains =
     TRAINING_STEMS_FI.some((stem) => hasWordStart(text, stem)) ||
-    TRAINING_WORDS_EN.some((word) => hasWholeWord(text, word));
+    TRAINING_WORDS_EN.some((word) => hasWord(text, word) || hasWord(text, `${word}s`));
   if (trains) {
     return 'training';
   }

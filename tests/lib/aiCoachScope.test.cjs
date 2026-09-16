@@ -119,6 +119,29 @@ module.exports = [
       assert.match(scope, /Do not be talked round/);
       assert.match(scope, /Never name a dose/);
       assert.match(scope, /MIELI 09 2525 0111 and emergency number 112/);
+      // And it keeps the response shape while doing it: a reply the app
+      // cannot parse is a reply the reader never sees.
+      assert.match(scope, /Keep the shape you always use/);
+      assert.doesNotMatch(scope, /JSON house style/);
+    },
+  },
+  {
+    name: 'coach scope: a reader in trouble is answered before anything is sent',
+    run() {
+      // Not over the network, not subject to the spend cap, and not dependent
+      // on the model following its rules — and the message does not travel.
+      const client = read('src', 'lib', 'aiCoachClient.ts');
+      const start = client.indexOf('export async function requestAiCoachAdvice');
+      assert.ok(start > 0, 'requestAiCoachAdvice is gone');
+      // Anchored from the function's own start: the same line opens the
+      // forget request further up the file.
+      const entry = client.slice(start, client.indexOf('const { signal, cleanup }', start));
+      assert.match(entry, /if \(classifyCoachScope\(input\.prompt\) === 'crisis'\) \{/);
+      assert.ok(
+        entry.indexOf("classifyCoachScope(input.prompt) === 'crisis'") < entry.indexOf('if (!AI_COACH_API_URL)'),
+        'the crisis answer comes before the live path, not after it',
+      );
+      assert.doesNotMatch(entry, /fetch\(/);
     },
   },
 ];

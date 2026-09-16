@@ -1,5 +1,6 @@
 import { buildAiCoachActions } from './aiCoachActions';
 import { classifyCoachScope } from './aiCoachScope';
+import { hasWord, hasWordStart } from './wordMatch';
 import { I18nKey, t } from './i18n';
 import { liftGroupOf } from './liftIdentity';
 import { AICoachAdvice, AICoachPlateauSummary, AICoachTrainingContext } from '../types/aiCoach';
@@ -55,18 +56,6 @@ function formatRecentSessionLine(context: AICoachTrainingContext, language: AppL
   const session = context.recentCompletedSessions[0];
   if (!session) return null;
   return t(language, 'coachPreview.last', { title: session.title });
-}
-
-const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-/** The word itself, standing alone — "run", never the "run" in "crunches" or "runo". */
-function hasWord(text: string, word: string) {
-  return new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegExp(word)}($|[^\\p{L}\\p{N}])`, 'u').test(text);
-}
-
-/** A word that starts with this stem — "palautu" in "palautunut", never mid-word. */
-function hasWordStart(text: string, stem: string) {
-  return new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegExp(stem)}`, 'u').test(text);
 }
 
 /**
