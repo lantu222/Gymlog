@@ -258,10 +258,16 @@ module.exports = [
       assert.doesNotMatch(playerSource, /restLoggedCard|restLogged\b|guided\.rest\.logged'/);
       assert.equal(i18nSource.includes("'guided.rest.logged'"), false);
       // `restingLogged` is the lift the CURRENT rest belongs to, which since
-      // supersets is not necessarily the first lift named in the row.
+      // supersets is not necessarily the first lift named in the row — and a
+      // superset rests once per ROUND, so every lift in the block gets its
+      // own correction rather than only the one that closed it (2026-09-16).
       assert.match(
         playerSource,
-        /item\.status === 'current' && restingLogged && step\.type === 'rest' && !step\.recoveryKind \? \([\s\S]*?setRunSheetOpen\(false\);\s*setRestEditOpen\(true\);/,
+        /item\.status === 'current' && restingLogged && step\.type === 'rest' && !step\.recoveryKind \? \([\s\S]*?item\.members\.map\(\(member\) => \{/,
+      );
+      assert.match(
+        playerSource,
+        /setRunSheetOpen\(false\);\s*setRestEdit\(\{ slotId: lift\.slotId, setIndex: lastLogged \}\);/,
       );
       // One NextLine left in the file: the drills'. The rest screen's is gone.
       assert.equal((playerSource.match(/<NextLine /g) ?? []).length, 1);

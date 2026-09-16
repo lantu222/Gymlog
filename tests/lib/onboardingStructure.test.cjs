@@ -867,4 +867,26 @@ module.exports = [
 
     },
   },
+  {
+    name: 'the hardware back key steps the questionnaire back instead of closing the app',
+    run() {
+      // The app-level handler stands down while onboarding is open, and
+      // nothing took its place: the key fell through to Android's default and
+      // closed the app, from any step, with every answer thrown away
+      // (2026-09-16).
+      assert.match(
+        onboardingSource,
+        /BackHandler\.addEventListener\('hardwareBackPress', \(\) => \{\s*backActionRef\.current\(\);\s*return true;/,
+      );
+      // The key does what the button does...
+      assert.match(onboardingSource, /backActionRef\.current = goBack;/);
+      // ...and nothing at all while the plan is being written.
+      assert.match(
+        onboardingSource,
+        /backActionRef\.current = isBuildingPlan\s*\? \(\) => undefined/,
+      );
+      // App.tsx still stands down, which is what leaves the screen in charge.
+      assert.match(appSource, /if \(onboardingActive\) \{\s*return undefined;\s*\}/);
+    },
+  },
 ];

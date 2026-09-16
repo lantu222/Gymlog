@@ -145,7 +145,13 @@ module.exports = [
       // The editor's Save follows the reducer's own ceiling, interval and
       // prescription included, so Save and the store cannot disagree.
       assert.match(player, /nextReps <= repsCeiling &&\s*\(unloaded \|\| isLiftableWeight\(nextLoad\)\)/);
-      assert.match(player, /repsCeilingFor\(exercise, findSetByIndex\(exercise, step\.setIndex\)\)/);
+      assert.match(player, /repsCeilingFor\(exercise, findSetByIndex\(exercise, restEdit\.setIndex\)\)/);
+      // And the correction is written to the set the reader chose, which in a
+      // superset is not always the one the rest step names (2026-09-16).
+      assert.match(
+        player,
+        /workout\.editLoggedSet\(restEdit\.slotId, restEdit\.setIndex, reps, loadKg\);/,
+      );
       // The superset landing rule lives in tests/lib/guidedPlayer; this is its wiring.
 
       // The finish step shows the failure and the save again.
@@ -163,6 +169,34 @@ module.exports = [
       assert.match(cleanup, /message\.id !== `me:\$\{pending\.token\}`/);
       assert.match(chat, /pendingAskRef\.current = \{ token, controller \};/);
       assert.match(chat, /\}, controller\.signal\);\s*if \(token !== askToken\.current\) \{\s*return;/);
+    },
+  },
+  {
+    name: 'guided: taking a set away lands on the next lift’s walk-up, not past it',
+    run() {
+      // Removing the last set deletes it and the rest before it, so the list
+      // shrinks under the index the reader is on and the same index becomes
+      // the next lift's first set — its walk-up skipped (2026-09-16).
+      const player = read('src', 'screens', 'GuidedPlayerScreen.tsx');
+      const remove = player.slice(player.indexOf('const removable = block.every('), player.indexOf('panels={setPanelSource}'));
+      assert.match(remove, /resyncTargetRef\.current = blockStart >= 0 \? blockStart : stepIndex;/);
+      assert.ok(
+        remove.indexOf('resyncTargetRef.current =') < remove.indexOf('workout.removeSet(step.slotId);'),
+        'the landing place is chosen before the steps are rebuilt',
+      );
+
+      // The rule it lands by is the one tests/lib/guidedPlayer covers.
+      const { rollPastLoggedWork } = require('../../../.test-dist/lib/guidedPlayer.js');
+      const steps = [
+        { type: 'position', phase: 'work', slotId: 'a', exerciseName: 'A', seconds: 20, groupIndex: 0, exerciseIndex: 0, exerciseCount: 2 },
+        { type: 'set', phase: 'work', slotId: 'a', setIndex: 0, exerciseName: 'A', groupIndex: 0 },
+        { type: 'rest', phase: 'work', slotId: 'a', setIndex: 0, seconds: 90, groupIndex: 0 },
+        { type: 'position', phase: 'work', slotId: 'b', exerciseName: 'B', seconds: 20, groupIndex: 0, exerciseIndex: 1, exerciseCount: 2 },
+        { type: 'set', phase: 'work', slotId: 'b', setIndex: 0, exerciseName: 'B', groupIndex: 0 },
+      ];
+      // A's only remaining set is logged, so rolling from A's block start
+      // stops at B's walk-up rather than at B's set.
+      assert.equal(rollPastLoggedWork(steps, 0, (slotId) => slotId === 'a'), 3);
     },
   },
 ];

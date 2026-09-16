@@ -7,6 +7,7 @@ import {
   Easing,
   Image,
   ImageBackground,
+  BackHandler,
   ImageStyle,
   ImageSourcePropType,
   Modal,
@@ -2211,6 +2212,25 @@ export function OnboardingScreen({
     });
   }, [stageIndex]);
 
+  /**
+   * Android's back key, during the questionnaire.
+   *
+   * The app-level handler stands down while onboarding is open — there is no
+   * route to pop — and nothing took its place, so the hardware key fell
+   * through to Android's default and CLOSED THE APP, from any step, with
+   * every answer so far thrown away (2026-09-16). The key now does what the
+   * screen's own back button does, and while the plan is being built it does
+   * nothing at all rather than stepping out of a write in progress.
+   */
+  const backActionRef = useRef<() => void>(() => undefined);
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      backActionRef.current();
+      return true;
+    });
+    return () => subscription.remove();
+  }, []);
+
   useEffect(() => {
     if (!isBuildingPlan) {
       buildingPlanScreenOpacity.setValue(1);
@@ -4214,6 +4234,11 @@ export function OnboardingScreen({
     [footerVisible, insets.bottom, locationStageActive, stage],
   );
 
+  // The stage step back, for every surface below that does not define its own.
+  backActionRef.current = isBuildingPlan
+    ? () => undefined
+    : () => setStageIndex((current) => Math.max(0, current - 1));
+
   if (isBuildingPlan) {
     return renderBuildingPlan();
   }
@@ -4240,6 +4265,8 @@ export function OnboardingScreen({
     }
     setStageIndex((current) => Math.max(0, current - 1));
   };
+  // And the hardware key does exactly what the button does.
+  backActionRef.current = goBack;
 
   return (
     <View style={[styles.root, styles.rootLight]}>
