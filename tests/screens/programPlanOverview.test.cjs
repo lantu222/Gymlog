@@ -475,16 +475,48 @@ module.exports = [
         programDetailSource,
         /const committedDays = useMemo\(\s*\(\) => \[\.\.\.orderedDays\]\.sort/,
       );
-      // The pairing reads the order-carrying array instead.
+      // The pairing reads the order-carrying array instead, with the plan's
+      // own session for each of those days.
       assert.match(
         programDetailSource,
-        /\(draftDays \?\? orderedDays\)\.forEach\(\(dayIndex, order\) => \{/,
+        /sessionsOnTrainingDays\(\s*draftDays \?\? orderedDays,\s*draftDays \? null : trainingDaySessionIds,\s*program\.sessions,?\s*\)/,
       );
       assert.doesNotMatch(
         programDetailSource,
         /shownDays\.forEach\(\(dayIndex, order\)/,
         'pairing from the sorted view is the bug this pins',
       );
+      // By position in the programme was the second bug: a day with no
+      // exercises is never in the plan (backfill review of #33, 2026-09-16).
+      assert.doesNotMatch(programDetailSource, /program\.sessions\[order\]/);
+      // And the ids come from the same entries, in the same order, as the days.
+      assert.match(
+        appSource,
+        /trainingDayIndexes=\{planWeekdayIndexes\(detailPlanEntries\)\}\s*\/\/[^\n]*\n\s*trainingDaySessionIds=\{detailPlanEntries\.map\(\(entry\) => entry\.workoutTemplateSessionId \?\? null\)\}/,
+      );
+    },
+  },
+  {
+    /**
+     * One number for one day.
+     *
+     * Home and the player add the warm-up and cool-down to a session's
+     * minutes; this page did not, so a custom programme's day read ~40 min
+     * here and ~50 on Home (backfill review of #33, 2026-09-16).
+     */
+    name: 'the page counts the warm-up and cool-down Home counts',
+    run() {
+      assert.match(
+        programDetailSource,
+        /routineSeconds\(session\.exercises\.map\(\(exercise\) => exercise\.name\)\)/,
+      );
+      assert.match(appSource, /routineSeconds=\{routineSecondsForExercises\}/);
+      // Home's own helper, not a second one that could drift from it.
+      assert.match(
+        appSource,
+        /const routineSecondsForExercises = useCallback\(\s*\(exerciseNames: string\[\]\) => routineBlockSeconds\(classifySessionFocus\(exerciseNames\)\),/,
+      );
+      assert.match(appSource, /availableEquipmentForDrills,\s*routineSecondsForExercises,/);
     },
   },
   {
@@ -529,11 +561,16 @@ module.exports = [
       // assignment from there — a reorder that stopped at the template moved
       // the list on one screen and changed nothing about what gets trained
       // (found in review, 2026-08-31).
-      assert.match(appSource, /repointPlanEntrySessions\(\s*plan\.entries/);
+      // The week turns with it, from the reader's own history — without that,
+      // Home offered one session and the calendar put another on its day.
+      assert.match(
+        appSource,
+        /reorderPlanWeek\(\s*plan\.entries,\s*saved\.map\(\(session\) => session\.id\),\s*completedSessionsForTemplate\(workoutTemplateId\),\s*new Date\(\),?\s*\)/,
+      );
       // Read back, not assumed: the repository decides the saved order.
       assert.match(
         appSource,
-        /getWorkoutTemplateSessionsFresh\(workoutTemplateId\)[\s\S]{0,400}repointPlanEntrySessions/,
+        /getWorkoutTemplateSessionsFresh\(workoutTemplateId\)[\s\S]{0,400}reorderPlanWeek/,
       );
     },
   },

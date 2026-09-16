@@ -61,6 +61,43 @@ export const WEEKDAY_INDEX: Record<string, number> = {
 export const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 
 /**
+ * Which session each training day holds, as the programme page's week strip
+ * prints it.
+ *
+ * The plan answers this: each entry pins a weekday to a session by id. The
+ * strip paired the days with the programme's sessions by position instead,
+ * which is the same answer only while every day has something in it. A day
+ * with no exercises never reaches the plan, so once one was dragged above a
+ * trained day the strip put it on Monday while Home trained the next one there
+ * (backfill review of #33, 2026-09-16).
+ *
+ * Without usable plan ids — no plan yet, an entry that stands for the whole
+ * template, or a rhythm still being edited — the days take the sessions that
+ * have exercises, in the programme's order, which is how adoption deals them.
+ */
+export function sessionsOnTrainingDays<S extends { id: string; exerciseCount: number }>(
+  days: readonly number[],
+  planSessionIds: readonly (string | null | undefined)[] | null | undefined,
+  sessions: readonly S[],
+): Map<number, S> {
+  const fromPlan =
+    planSessionIds && planSessionIds.length === days.length
+      ? planSessionIds.map((id) => (id ? sessions.find((session) => session.id === id) : undefined))
+      : null;
+  const dealt = fromPlan && fromPlan.every(Boolean)
+    ? (fromPlan as S[])
+    : sessions.filter((session) => session.exerciseCount > 0);
+  const byDay = new Map<number, S>();
+  days.forEach((day, order) => {
+    const session = dealt[order];
+    if (session) {
+      byDay.set(day, session);
+    }
+  });
+  return byDay;
+}
+
+/**
  * The weekdays a plan's own entries name, when they name weekdays at all.
  *
  * Entry labels are written from `setupAvailableDays`, so an adopted plan

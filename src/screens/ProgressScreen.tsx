@@ -823,15 +823,8 @@ export function ProgressScreen({
     }
   }, [initialSection]);
 
-  // Deep links: AI coach opens progress/detail with a lift key; the old
-  // bodyweight detail route now lands on the Measures tab.
-  useEffect(() => {
-    if (selectedExerciseKey) {
-      setProgressSection('tracked');
-      setExpandedKey(selectedExerciseKey);
-    }
-  }, [selectedExerciseKey]);
-
+  // The old bodyweight detail route now lands on the Measures tab. Lift deep
+  // links are answered below trackedRows, which they need.
   useEffect(() => {
     if (showBodyweightDetail) {
       setProgressSection('measures');
@@ -1096,6 +1089,35 @@ export function ProgressScreen({
       summary: byKey.get(lift.exerciseName.trim().toLowerCase()) ?? null,
     }));
   }, [summaries, targetLifts]);
+
+  /**
+   * Deep links: a Home lift card and the coach's "review this trend" open
+   * progress/detail with a lift key.
+   *
+   * Both carry the key of any tracked lift, and the Tracked section has held
+   * only the target lifts since 2026-09-01 — so a link to a lift without a
+   * target switched the tab and expanded nothing (backfill review of #40,
+   * 2026-09-16). A target row still opens in place; any other lift opens its
+   * own set log, the one Records opens for it, which is the lift the card
+   * showed. Keyed on the link alone: data arriving later must not reopen a
+   * sheet the reader closed.
+   */
+  useEffect(() => {
+    if (!selectedExerciseKey) {
+      return;
+    }
+    const row = trackedRows.find(({ summary }) => summary?.key === selectedExerciseKey);
+    if (row) {
+      setProgressSection('tracked');
+      setExpandedKey(selectedExerciseKey);
+      return;
+    }
+    if (setLogSources.some((entry) => entry.key === selectedExerciseKey)) {
+      setProgressSection('records');
+      setSetLogTarget({ key: selectedExerciseKey, fromLift: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedExerciseKey]);
 
 
   // ── measures data ──

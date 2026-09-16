@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 
-const { repointPlanEntrySessions } = require('../../.test-dist/lib/planSessionOrder.js');
+const { repointPlanEntrySessions, reorderPlanWeek } = require('../../.test-dist/lib/planSessionOrder.js');
+const { resolveNextPlanEntryIndex } = require('../../.test-dist/lib/planRotation.js');
 
 const plan = () => [
   { orderIndex: 0, label: 'mon', workoutTemplateSessionId: 'a' },
@@ -96,6 +97,73 @@ module.exports = [
       // A plan with no entries has nothing to re-point, which is a no-op
       // rather than a disagreement.
       assert.deepEqual(repointPlanEntrySessions([], ['a']), {
+        kind: 'skip',
+        reason: 'unchanged',
+      });
+    },
+  },
+  {
+    name: 'a reorder turns the week so the session Home offers next sits on the next training day',
+    run() {
+      const week = () => [
+        { id: 'e1', workoutTemplateId: 't', orderIndex: 0, label: 'mon', workoutTemplateSessionId: 'a' },
+        { id: 'e2', workoutTemplateId: 't', orderIndex: 1, label: 'wed', workoutTemplateSessionId: 'b' },
+        { id: 'e3', workoutTemplateId: 't', orderIndex: 2, label: 'fri', workoutTemplateSessionId: 'c' },
+      ];
+      // A was logged on Monday; on Tuesday the reader drags C to the top.
+      const logged = [{ workoutTemplateId: 't', workoutTemplateSessionId: 'a', performedAt: '2026-09-14T08:00:00.000Z' }];
+      const tuesday = new Date(2026, 8, 15, 12, 0);
+      const dayOf = (entries, sessionId) => entries.find((entry) => entry.workoutTemplateSessionId === sessionId).label;
+
+      // Re-dealing alone: Home offers B, the entry after A, and B sits on
+      // Friday — while Wednesday, the next training day, holds A.
+      const dealt = repointPlanEntrySessions(week(), ['c', 'a', 'b']);
+      const offeredBefore = dealt.entries[resolveNextPlanEntryIndex(dealt.entries, logged)];
+      assert.equal(offeredBefore.workoutTemplateSessionId, 'b');
+      assert.equal(offeredBefore.label, 'fri');
+      assert.equal(dayOf(dealt.entries, 'a'), 'wed');
+
+      const turned = reorderPlanWeek(week(), ['c', 'a', 'b'], logged, tuesday);
+      assert.equal(turned.kind, 'repointed');
+      const offered = turned.entries[resolveNextPlanEntryIndex(turned.entries, logged)];
+      assert.equal(offered.workoutTemplateSessionId, 'b');
+      assert.equal(offered.label, 'wed');
+      // The rest follow in the programme's new order, on the same three days.
+      assert.deepEqual(
+        turned.entries.map((entry) => [entry.workoutTemplateSessionId, entry.label]),
+        [['c', 'fri'], ['a', 'mon'], ['b', 'wed']],
+      );
+      assert.deepEqual(turned.entries.map((entry) => entry.orderIndex), [0, 1, 2]);
+    },
+  },
+  {
+    name: 'with nothing logged, the new first session takes the next training day',
+    run() {
+      const week = [
+        { workoutTemplateId: 't', orderIndex: 0, label: 'mon', workoutTemplateSessionId: 'a' },
+        { workoutTemplateId: 't', orderIndex: 1, label: 'wed', workoutTemplateSessionId: 'b' },
+        { workoutTemplateId: 't', orderIndex: 2, label: 'fri', workoutTemplateSessionId: 'c' },
+      ];
+      const turned = reorderPlanWeek(week, ['c', 'a', 'b'], [], new Date(2026, 8, 15, 12, 0));
+      assert.deepEqual(
+        turned.entries.map((entry) => [entry.workoutTemplateSessionId, entry.label]),
+        [['c', 'wed'], ['a', 'fri'], ['b', 'mon']],
+      );
+    },
+  },
+  {
+    name: 'a week whose labels name no weekday is re-dealt and left unturned, and refusals pass through',
+    run() {
+      const byPosition = [
+        { workoutTemplateId: 't', orderIndex: 0, label: 'Day 1', workoutTemplateSessionId: 'a' },
+        { workoutTemplateId: 't', orderIndex: 1, label: 'Day 2', workoutTemplateSessionId: 'b' },
+      ];
+      const turned = reorderPlanWeek(byPosition, ['b', 'a'], [], new Date(2026, 8, 15, 12, 0));
+      assert.deepEqual(
+        turned.entries.map((entry) => [entry.workoutTemplateSessionId, entry.label]),
+        [['b', 'Day 1'], ['a', 'Day 2']],
+      );
+      assert.deepEqual(reorderPlanWeek(plan().map((entry) => ({ ...entry, workoutTemplateId: 't' })), ['a', 'b', 'c'], [], new Date()), {
         kind: 'skip',
         reason: 'unchanged',
       });

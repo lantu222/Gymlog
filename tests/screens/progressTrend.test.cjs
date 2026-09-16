@@ -630,4 +630,30 @@ module.exports = [
       assert.match(screen, /visible=\{setLogTarget !== null\}/);
     },
   },
+  {
+    /**
+     * A link to a lift lands on that lift.
+     *
+     * Home's lift cards and the coach's trend button carry the key of any
+     * tracked lift, and the Tracked section holds only the target lifts. A
+     * link to any other lift switched the tab and opened nothing (backfill
+     * review of #40, 2026-09-16).
+     */
+    name: 'progress deep link: a target row opens in place, any other lift opens its own set log',
+    run() {
+      const start = screen.indexOf('const row = trackedRows.find(({ summary }) => summary?.key === selectedExerciseKey)');
+      assert.ok(start > 0, 'the deep link no longer looks for a target row first');
+      const body = screen.slice(start, screen.indexOf('}, [selectedExerciseKey]);', start));
+      assert.match(body, /if \(row\) \{\s*setProgressSection\('tracked'\);\s*setExpandedKey\(selectedExerciseKey\);\s*return;/);
+      assert.match(
+        body,
+        /setLogSources\.some\(\(entry\) => entry\.key === selectedExerciseKey\)\) \{\s*setProgressSection\('records'\);\s*setSetLogTarget\(\{ key: selectedExerciseKey, fromLift: false \}\);/,
+      );
+      // The row lookup needs trackedRows, so the effect has to come after it.
+      assert.ok(screen.indexOf('const trackedRows = useMemo(') < start, 'the deep link reads trackedRows before it exists');
+      // And the old answer, which expanded a key no row might have, is gone.
+      const effects = screen.match(/if \(selectedExerciseKey\) \{\s*setProgressSection\('tracked'\);\s*setExpandedKey\(selectedExerciseKey\);/g) ?? [];
+      assert.equal(effects.length, 0, 'the unconditional expand is back');
+    },
+  },
 ];

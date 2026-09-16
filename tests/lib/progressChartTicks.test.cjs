@@ -49,6 +49,21 @@ module.exports = [
       assert.deepEqual(getOverviewDurationTicks(58), [0, 15, 30, 45, 60]);
       // And the one that used to clip.
       assert.deepEqual(getOverviewDurationTicks(95), [0, 30, 60, 90, 120]);
+      // An hour and a bit is an ordinary session, and its axis read
+      // 0 / 22.5 / 45 / 67.5 / 90 until thirds took over from quarters.
+      for (const max of [61, 75, 90]) {
+        assert.deepEqual(getOverviewDurationTicks(max), [0, 30, 60, 90], `${max} min`);
+      }
+    },
+  },
+  {
+    name: 'duration ticks: every label is a whole number of minutes',
+    run() {
+      for (let max = 0; max <= 3000; max += 1) {
+        for (const tick of getOverviewDurationTicks(max)) {
+          assert.ok(Number.isInteger(tick), `${max}: a tick at ${tick} minutes prints as a fraction`);
+        }
+      }
     },
   },
   {

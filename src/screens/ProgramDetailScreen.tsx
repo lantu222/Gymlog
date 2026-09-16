@@ -16,7 +16,7 @@ import { progressionRuleLabel } from '../lib/progressionRuleLabel';
 import { EQUIPMENT_CHIP_KEYS, missingEquipment } from '../lib/programEquipment';
 import { EmphasisSheet } from '../components/EmphasisSheet';
 import { EMPHASIS_AREA_KEYS, emphasisAreaForExercise, resolveProgramEmphasis } from '../lib/programEmphasis';
-import { WEEKDAY_INDEX, WEEKDAY_KEYS } from '../lib/programTrainingDays';
+import { WEEKDAY_INDEX, WEEKDAY_KEYS, sessionsOnTrainingDays } from '../lib/programTrainingDays';
 import { DEFAULT_RHYTHM_BY_DAYS, isSetupDaysPerWeek } from '../lib/firstRunSetup';
 import { estimateSessionMinutes } from '../lib/sessionDuration';
 import { useDragHold } from '../hooks/useDragHold';
@@ -128,6 +128,17 @@ interface ProgramDetailScreenProps {
   programBlockWeeks?: number | null;
   /** Monday-first indexes the plan currently trains on, when it names days. */
   trainingDayIndexes?: number[] | null;
+  /**
+   * The session each of `trainingDayIndexes` holds, in the same order — the
+   * plan's own answer to which session is which day.
+   */
+  trainingDaySessionIds?: Array<string | null> | null;
+  /**
+   * Warm-up and cool-down seconds for a day's lifts, from the blocks the
+   * player runs. Home adds them to its minutes; without them this page quoted
+   * a shorter session than Home and the player did for the same day.
+   */
+  routineSeconds?: (exerciseNames: string[]) => { warmupSeconds: number; cooldownSeconds: number };
   /** Commits a finished rhythm change. Absent = the strip is read-only. */
   onSaveRhythm?: (dayIndexes: number[]) => void;
   /**
@@ -227,6 +238,8 @@ export function ProgramDetailScreen({
   onReorderSession,
   programBlockWeeks = null,
   trainingDayIndexes = null,
+  trainingDaySessionIds = null,
+  routineSeconds,
   onSaveRhythm,
   trainingCycle = null,
   onChangeTrainingCycle,
@@ -390,6 +403,11 @@ export function ProgramDetailScreen({
             restSeconds: exercise.restSeconds,
             supersetGroup: exercise.supersetGroup ?? null,
           })),
+          // The same warm-up and cool-down Home and the player count, so the
+          // three screens quote one number for one day.
+          ...(session.exercises.length > 0 && routineSeconds
+            ? routineSeconds(session.exercises.map((exercise) => exercise.name))
+            : {}),
         }),
       )
       .filter((minutes) => minutes > 0);
@@ -397,7 +415,7 @@ export function ProgramDetailScreen({
       return 0;
     }
     return Math.round(estimates.reduce((sum, minutes) => sum + minutes, 0) / estimates.length);
-  }, [program.badges, program.sessions]);
+  }, [program.badges, program.sessions, routineSeconds]);
   // Eight weeks is the catalog's default block; the strip states the same
   // number the total is derived from rather than two numbers that disagree.
   const progressPercent = activePlanSummary?.progressPercent ?? 1;
@@ -579,17 +597,21 @@ export function ProgramDetailScreen({
    * A draft in flight has no committed answer yet — handleSaveRhythm
    * re-derives one from the rotation on save — so it previews in the order
    * the chips read.
+   *
+   * Paired by the plan's session ids, not by position in the programme: a day
+   * with no exercises is in the programme but never in the plan, and pairing
+   * by position named it on a training day once it was dragged up
+   * (sessionsOnTrainingDays).
    */
   const trainingDaySessions = useMemo(() => {
     const map = new Map<number, string>();
-    (draftDays ?? orderedDays).forEach((dayIndex, order) => {
-      const session = program.sessions[order];
-      if (session) {
-        map.set(dayIndex, session.name);
-      }
-    });
+    sessionsOnTrainingDays(
+      draftDays ?? orderedDays,
+      draftDays ? null : trainingDaySessionIds,
+      program.sessions,
+    ).forEach((session, dayIndex) => map.set(dayIndex, session.name));
     return map;
-  }, [draftDays, orderedDays, program.sessions]);
+  }, [draftDays, orderedDays, program.sessions, trainingDaySessionIds]);
 
   const scheduleSlots = useMemo(
     () =>
