@@ -73,6 +73,7 @@
 const suites = [
   ...require('./releaseReadiness.test.cjs'),
   ...require('./scripts/slackNotify.test.cjs'),
+  ...require('./scripts/claudeReviewWorkflow.test.cjs'),
   ...require('./lib/appIcon.test.cjs'),
   ...require('./lib/proBenefits.test.cjs'),
   ...require('./features/workout/workoutAppAdapter.test.cjs'),
