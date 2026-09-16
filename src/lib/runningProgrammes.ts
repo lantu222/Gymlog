@@ -117,3 +117,74 @@ export function stopProgramme(input: {
     activePlanId: planIds.includes(input.activePlanId ?? '') ? activePlanIds[0] ?? null : input.activePlanId,
   };
 }
+
+/** A programme the reader holds, and whether it is running right now. */
+export interface HeldProgramme extends RunningProgramme {
+  running: boolean;
+}
+
+/**
+ * Every programme the reader holds — the running ones first, in the order
+ * listRunningProgrammes gives them, then the ones they switched off but kept.
+ *
+ * "Active" and "mine" are two questions (device, 2026-09-16). The Active
+ * switch answered both: switching a ready programme off took it out of the
+ * running set, and since an adopted ready programme has no template of its
+ * own, nothing listed it any more — to the reader, the switch had deleted it.
+ * A programme is held while a plan for it exists; running is the smaller set.
+ */
+export function listHeldProgrammes(input: {
+  activePlanId: string | null;
+  activePlanIds: readonly string[];
+  plans: readonly RunningPlan[];
+  authoredTemplateIds?: readonly string[];
+}): HeldProgramme[] {
+  const running = listRunningProgrammes(input).map((row) => ({ ...row, running: true }));
+  const seen = new Set<string>([...(input.authoredTemplateIds ?? []), ...running.map((row) => row.templateId)]);
+  const stopped: HeldProgramme[] = [];
+
+  for (const plan of input.plans) {
+    const templateId = plan.entries[0]?.workoutTemplateId;
+    if (!templateId || seen.has(templateId)) {
+      continue;
+    }
+    seen.add(templateId);
+    stopped.push({ templateId, planId: plan.id, planName: plan.name, leading: false, running: false });
+  }
+
+  return [...running, ...stopped];
+}
+
+/**
+ * The running set once a held programme is switched back on.
+ *
+ * It rejoins under the plan it already has — the block it was in, its day
+ * labels, its place in the rotation — rather than being adopted afresh, which
+ * would stamp a new block over the old one. It leads only when nothing else
+ * does: switching a programme back on is not a request to change what Home
+ * shows first. Null when the reader holds no plan for it.
+ */
+export function resumeProgramme(input: {
+  activePlanId: string | null;
+  activePlanIds: readonly string[];
+  plans: readonly RunningPlan[];
+  templateId: string;
+}): { activePlanId: string | null; activePlanIds: string[]; planId: string } | null {
+  const plan = input.plans.find((candidate) => candidate.entries[0]?.workoutTemplateId === input.templateId);
+  if (!plan) {
+    return null;
+  }
+  const activePlanIds = [...new Set([...input.activePlanIds, plan.id])];
+  return {
+    planId: plan.id,
+    activePlanIds,
+    activePlanId: input.activePlanId ?? plan.id,
+  };
+}
+
+/** Every plan that holds one programme, for a reader who wants it gone. */
+export function planIdsHoldingTemplate(plans: readonly RunningPlan[], templateId: string): string[] {
+  return plans
+    .filter((plan) => plan.entries[0]?.workoutTemplateId === templateId)
+    .map((plan) => plan.id);
+}

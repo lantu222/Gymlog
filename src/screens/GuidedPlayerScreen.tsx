@@ -1426,7 +1426,16 @@ export function GuidedPlayerScreen({
   // `restEditOpen` joined when the rest started running out into the set
   // (review, PR #88): its edits commit on Save only, and a rest that expired
   // behind the sheet would have unmounted a correction half-made.
-  const frozen = paused || howtoOpen || exitOpen || pauseSheetOpen || swapOpen || restEditOpen || ownBlock !== null || restAsk.sheetOpen;
+  // `runSheetOpen` joined when the sheet began carrying the corrections: a
+  // rest that ran out under an open sheet moved the session on, and the lift
+  // the reader was about to correct vanished from under their thumb
+  // (device, 2026-09-16). Not during intervals, though: there both halves
+  // ARE the workout, and a runner who glances at the sheet mid-bout must not
+  // find the clock stopped.
+  const intervalRunning =
+    (step.type === 'set' && step.interval !== undefined) || (step.type === 'rest' && Boolean(step.recoveryKind));
+  const runSheetHolds = runSheetOpen && !intervalRunning;
+  const frozen = paused || howtoOpen || exitOpen || pauseSheetOpen || swapOpen || restEditOpen || runSheetHolds || ownBlock !== null || restAsk.sheetOpen;
   // Seconds since the reader said they would do it themselves. Derived from
   // the session clock's tick so it needs no timer of its own.
   const ownElapsedSeconds = ownBlock ? Math.max(0, Math.floor((clockNowMs - ownBlock.startedAt) / 1000)) : 0;
@@ -2860,18 +2869,28 @@ export function GuidedPlayerScreen({
                   <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: theme.highlight }}>
                     {t(language, 'guided.nextUp')}
                   </Text>
-                  <Text style={styles.positionName} numberOfLines={2}>
+                  {/* One line, the type shrinking to fit rather than the name
+                      wrapping (device, 2026-09-16): a two-line name was the
+                      line that pushed this screen into a scroll, and a walk-up
+                      is read in one glance or not at all. */}
+                  <Text
+                    style={styles.positionName}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.5}
+                  >
                     {exerciseNameLabel(language, step.exerciseName)}
                   </Text>
                 </View>
 
                 {/* Bigger. The shape was right and the box was not (user
                     2026-09-04) — and the screen has the room, having lost a
-                    countdown. */}
+                    countdown. A little under the 230 it was, so the whole
+                    walk-up fits without scrolling (device, 2026-09-16). */}
                 <MediaZone
                   name={step.exerciseName}
                   library={exerciseLibrary}
-                  height={230}
+                  height={210}
                   mode="set"
                   showActions={false}
                   fit="cover"
@@ -3562,9 +3581,10 @@ export function GuidedPlayerScreen({
                       </View>
                     );
                   })}
-                  {item.status === 'current' ? (
-                    <Text style={styles.runHere}>{t(language, 'guided.runSheet.here')}</Text>
-                  ) : null}
+                  {/* No "Olet tässä" line: the row's colour and its dot say
+                      it already, and a third line of the same weight made the
+                      one control in the row hard to find (device,
+                      2026-09-16). */}
                   {/* Correcting the set just logged, from the sheet that shows
                       it: the rest screen's own card carried this link until the
                       card went. Only while resting — that is the one step
@@ -3596,9 +3616,14 @@ export function GuidedPlayerScreen({
                               setRunSheetOpen(false);
                               setRestEdit({ slotId: lift.slotId, setIndex: lastLogged });
                             }}
-                            style={{ alignSelf: 'flex-start', paddingVertical: 2 }}
+                            // A chip in the action colour, pencil first: it is
+                            // the one thing in the sheet that does something,
+                            // and as plain text in the same type as the names
+                            // it read as one more line (device, 2026-09-16).
+                            style={({ pressed }) => [styles.runEditChip, pressed && { opacity: 0.7 }]}
                           >
-                            <Text style={styles.runEdit}>
+                            <GPIcon name="edit" size={13} color={theme.highlight} sw={2.4} />
+                            <Text style={styles.runEdit} numberOfLines={1}>
                               {isSuperset
                                 ? `${t(language, 'guided.rest.edit')} · ${exerciseNameLabel(language, member.name)}`
                                 : t(language, 'guided.rest.edit')}
@@ -4081,11 +4106,10 @@ function SetStepView({
         onPress={dial ? () => setDial(null) : undefined}
         accessible={false}
       >
-        {/* First child, so the line is painted under everything: that is what
-            lets the label break it where it sits, the way a fieldset legend
-            breaks its own frame. It fills the screen, takes no taps, and
-            moves no layout. */}
-        {superset ? <SupersetBorder radius={22} inset={8} /> : null}
+        {/* No running frame around the whole screen during a set (device,
+            2026-09-16): it boxed the lift in moving light while the reader
+            was trying to lift it. The badge at the top says "superset" on its
+            own, and the order of play under it says which lift is next. */}
         {/* "This is a superset" has to arrive before the set does, not after
             the rest fails to appear. The lifts are named in the order they
             are performed, the one you are on is the dark one, and the rest at
@@ -4916,7 +4940,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   // Above the lift, because it changes what the next tap means: log this and
   // you are walking to the other station, not starting a rest.
   setSupersetPill: {
-    // Centred on the frame's top line, which runs 8 in from the edge.
+    // Top-left, where the frame's line used to run; the frame is gone from
+    // this screen (device, 2026-09-16) and the badge stands on its own.
     position: 'absolute',
     top: -2,
     left: 26,
@@ -5461,21 +5486,26 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '700',
     color: theme.ink,
   },
-  runEdit: { marginTop: 2, fontSize: 13, fontWeight: '800', color: theme.highlight },
+  runEdit: { flexShrink: 1, fontSize: 13, fontWeight: '800', color: theme.highlight },
+  runEditChip: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1.2,
+    borderColor: theme.highlight,
+    backgroundColor: theme.highlightSoft,
+  },
   runPlan: {
     marginTop: 2,
     fontSize: 12.5,
     fontWeight: '700',
     color: theme.muted,
     fontVariant: ['tabular-nums'],
-  },
-  runHere: {
-    fontSize: 11.5,
-    lineHeight: 15,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-    color: theme.purple,
-    marginTop: 2,
   },
   runMeta: {
     fontSize: 12.5,

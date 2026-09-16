@@ -75,15 +75,16 @@ module.exports = [
      */
     name: 'superset outline: every surface that lists a superset wears it',
     run() {
-      // The contents sheet, the entry table and the set screen — and the day
-      // view and the free workout have their own, asserted below.
-      assert.equal((playerSource.match(/<SupersetBorder /g) ?? []).length, 3);
-      // Painted first in both, so the label can break the line it sits on.
+      // The contents sheet and the entry table — and the day view and the
+      // free workout have their own, asserted below.
+      assert.equal((playerSource.match(/<SupersetBorder /g) ?? []).length, 2);
+      // Painted first, so the label can break the line it sits on.
       assert.match(playerSource, /<SupersetBorder radius=\{14\} \/>\s*<View style=\{styles\.runSupersetPill\}>/);
-      assert.match(
-        playerSource,
-        /\{superset \? <SupersetBorder radius=\{22\} inset=\{8\} \/> : null\}/,
-      );
+      // NOT on the set screen: a running frame around the lift while the
+      // reader was lifting it was the thing they asked to lose. The badge
+      // stays on its own (device, 2026-09-16).
+      assert.doesNotMatch(playerSource, /<SupersetBorder radius=\{22\} inset=\{8\} \/>/);
+      assert.match(playerSource, /\{superset \? \(\s*<>\s*\{\/\*[\s\S]*?\*\/\}\s*<View style=\{styles\.setSupersetPill\}>/);
       // One word, both dictionaries.
       assert.equal((i18nSource.match(/'guided\.superset\.pill': '[^']+'/g) ?? []).length, 2);
       assert.equal((i18nSource.match(/'guided\.superset\.thenRest': '[^']+'/g) ?? []).length, 2);

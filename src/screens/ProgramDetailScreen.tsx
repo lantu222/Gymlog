@@ -87,6 +87,15 @@ interface ProgramDetailScreenProps {
    * 2026-09-07, "aktiivinen/eiaktiivinen nappia ei ole").
    */
   running?: boolean;
+  /**
+   * Is this programme the reader's at all, running or not?
+   *
+   * A programme switched off is still held, and its page keeps the switch —
+   * off — rather than offering to adopt it again. The switch used to appear
+   * only while running, so switching it off replaced it with "Ota ohjelma
+   * käyttöön" and the programme read as deleted (device, 2026-09-16).
+   */
+  held?: boolean;
   /** Absent leaves the switch out entirely — a catalog preview has none. */
   onSetRunning?: (next: boolean) => void;
   onStartSession: (sessionId: string) => void;
@@ -212,6 +221,7 @@ export function ProgramDetailScreen({
   onRenameProgram,
   onPrimaryAction,
   running = false,
+  held = false,
   onSetRunning,
   onOpenSession,
   onReorderSession,
@@ -955,14 +965,14 @@ export function ProgramDetailScreen({
             that does not belong here (user 2026-08-31): this page is what the
             programme IS, Home is where today's session is started, and the day
             rows below open the exact session a reader wants instead. */}
-        {running && onSetRunning ? (
+        {(running || held) && onSetRunning ? (
           <View style={styles.activeRow}>
             <View style={styles.activeCopy}>
               <Text style={styles.activeLabel}>{t(language, 'detail.active')}</Text>
               <Text style={styles.activeHint}>{t(language, 'detail.activeHint')}</Text>
             </View>
             <ToggleSwitch
-              value
+              value={running}
               onChange={(next) => onSetRunning(next)}
               label={t(language, 'detail.active')}
             />

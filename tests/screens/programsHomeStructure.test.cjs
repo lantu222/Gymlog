@@ -596,7 +596,9 @@ module.exports = [
       // The rule itself lives in src/lib and is tested there. What this pins
       // is that App.tsx asks it, with the reader's own templates excluded so a
       // programme cannot appear both as authored and as running.
-      assert.match(app, /const runningRows = listRunningProgrammes\(\{/);
+      // Held, not only running: a programme switched off is still the
+      // reader's and stays on this list (device, 2026-09-16).
+      assert.match(app, /const runningRows = listHeldProgrammes\(\{/);
       assert.match(app, /authoredTemplateIds: authoredIds,/);
       assert.doesNotMatch(
         app,
@@ -609,7 +611,9 @@ module.exports = [
       // it contradicted the ACTIVE tag beside it, which only the leader
       // carries (review, 2026-09-07).
       assert.match(app, /subtitle: active\s*\r?\n?\s*\? t\(preferences\.appLanguage, 'programs\.activeSubtitle'\)/);
-      assert.match(app, /: t\(preferences\.appLanguage, 'programs\.card\.days', \{ count: template\.daysPerWeek \}\),/);
+      // A running programme that does not lead says its week; one switched
+      // off says so instead (device, 2026-09-16).
+      assert.match(app, /\? t\(preferences\.appLanguage, 'programs\.card\.days', \{ count: template\.daysPerWeek \}\)\s*: t\(preferences\.appLanguage, 'programs\.card\.switchedOff'\),/);
       // Only what the catalog can open — a plan pointing at a deleted custom
       // template is neither authored nor ready, and its row would navigate
       // nowhere.

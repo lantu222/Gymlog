@@ -18,7 +18,7 @@ import { createSerialTaskQueue, RunExclusive } from '../lib/serialTaskQueue';
 import { buildWorkoutTemplateSessions } from '../lib/workoutTemplateSessions';
 import { persistCompletedWorkoutSessionToDatabase, PersistCompletedWorkoutInput, SessionSaveSummary } from './completedWorkoutPersistence';
 import type { HevyImportedWorkout } from '../lib/hevyImport';
-import { stopProgramme } from '../lib/runningProgrammes';
+import { planIdsHoldingTemplate, stopProgramme } from '../lib/runningProgrammes';
 import {
   getBodyweightProgress,
   getLatestLogForTemplateExercise,
@@ -107,6 +107,12 @@ interface AppContextValue {
   completeOnboarding: (patch?: Partial<AppPreferences>) => Promise<void>;
   upsertWorkoutTemplate: (draft: WorkoutTemplateDraft, options?: UpsertWorkoutTemplateOptions) => Promise<string>;
   upsertWorkoutPlan: (plan: WorkoutPlan) => Promise<void>;
+  /**
+   * A held programme gone for good: it stops running and every plan that
+   * holds it is removed. Logged sessions stay. The programme itself is
+   * catalog data and is not touched — this is "remove it from mine".
+   */
+  forgetHeldProgramme: (workoutTemplateId: string) => Promise<void>;
   /** Onboarding's whole result — preferences, template and plan — in one save. */
   saveOnboardingResult: (input: {
     preferences: Partial<AppPreferences>;
@@ -857,6 +863,29 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     });
   }
 
+  function forgetHeldProgramme(workoutTemplateId: string) {
+    return runExclusive(async () => {
+      const current = databaseRef.current;
+      // Stopped first, while the plans still name it — the same order the
+      // template delete below uses, for the same reason: a removed plan left
+      // in the running set holds a slot against the cap for nothing.
+      const stopped = stopProgramme({
+        activePlanId: current.preferences.activePlanId,
+        activePlanIds: current.preferences.activePlanIds,
+        plans: current.workoutPlans,
+        templateId: workoutTemplateId,
+      });
+      const nextDatabase = workoutPlanRepository.removeMany(
+        current,
+        planIdsHoldingTemplate(current.workoutPlans, workoutTemplateId),
+      );
+      await commit({
+        ...nextDatabase,
+        preferences: stopped ? { ...nextDatabase.preferences, ...stopped } : nextDatabase.preferences,
+      });
+    });
+  }
+
   function deleteWorkoutTemplate(workoutTemplateId: string) {
     return runExclusive(async () => {
       const current = databaseRef.current;
@@ -1210,6 +1239,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       ),
       upsertWorkoutTemplate,
       upsertWorkoutPlan,
+      forgetHeldProgramme,
       saveOnboardingResult,
       renameWorkoutTemplate,
       editWorkoutTemplateSessions,
