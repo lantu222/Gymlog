@@ -401,9 +401,11 @@ module.exports = [
       assert.match(goalBody, /active: goals\.includes\(option\.id\)/);
       assert.doesNotMatch(goalBody, /active: goal === option\.id/);
       assert.match(onboardingSource, /const canContinue[\s\S]{0,200}stage === 'goal'\s*\r?\n?\s*\? goals\.length > 0/);
+      // Answered only when a selection came in: the editor opened without one
+      // (a reader who never finished setup) asks the goal too (2026-09-17).
       assert.match(
         onboardingSource,
-        /initialSelection \|\| editMode \? \(setupSeed\.goals\?\.length \? setupSeed\.goals : \[setupSeed\.goal\]\) : \[\]/,
+        /seededAnswers \? \(setupSeed\.goals\?\.length \? setupSeed\.goals : \[setupSeed\.goal\]\) : \[\]/,
       );
       assert.match(onboardingSource, /titleKey: 'onb\.goal\.strength\.title'/);
       assert.match(onboardingSource, /goal: 'lean_athletic'/);

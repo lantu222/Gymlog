@@ -402,6 +402,8 @@ const suites = [
   ...require('./lib/drillMedia.test.cjs'),
   ...require('./lib/userFitnessProfile.test.cjs'),
   ...require('./lib/calendarDayCounts.test.cjs'),
+  ...require('./lib/setupSeed.test.cjs'),
+  ...require('./screens/onboardingEntryAndSaves.test.cjs'),
 ];
 
 (async () => {

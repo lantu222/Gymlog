@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { OnboardingBackButton } from '../components/OnboardingBackButton';
+import { useHardwareBack } from '../hooks/useHardwareBack';
 import { t } from '../lib/i18n';
 import { darkTheme, Theme, useTheme, useThemedStyles } from '../theming';
 import { HG_DARK } from '../darkTheme';
@@ -182,6 +183,9 @@ export function StartPathScreen({
   const [manropeLoaded] = useFonts({ Manrope: require('../../assets/fonts/Manrope.ttf') });
   const fontFamily = manropeLoaded ? 'Manrope' : undefined;
   const [selected, setSelected] = useState<StartPath>('build');
+  // The key goes where the chevron goes: back to Welcome, the one screen
+  // where leaving the app is what back should do.
+  useHardwareBack(onBack);
 
   return (
     // Top padding = inset + the back chevron (10 + 40) + a gap, so the title

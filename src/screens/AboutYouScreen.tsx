@@ -4,6 +4,7 @@ import { useFonts } from 'expo-font';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { OnboardingBackButton } from '../components/OnboardingBackButton';
+import { useHardwareBack } from '../hooks/useHardwareBack';
 import { RulerPicker } from '../components/RulerPicker';
 import { removeTrailingZeros } from '../lib/format';
 import { I18nKey, t } from '../lib/i18n';
@@ -117,6 +118,8 @@ export function AboutYouScreen({
   const insets = useSafeAreaInsets();
   const [manropeLoaded] = useFonts({ Manrope: require('../../assets/fonts/Manrope.ttf') });
   const fontFamily = manropeLoaded ? 'Manrope' : undefined;
+  // The key does what the chevron does: back to the start path.
+  useHardwareBack(onBack);
 
   /**
    * Nothing is answered until the reader answers it (user, 2026-09-09).

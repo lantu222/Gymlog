@@ -74,7 +74,9 @@ module.exports = [
         assert.doesNotMatch(finish, /await saveOnboardingResult\(/, `${signature} saves around the explanation`);
         const guard = finish.search(/if \(!saved\) \{\s*return;/);
         assert.ok(guard > 0, `${signature} carries on after a refused save`);
-        for (const after of ['addBodyweightEntry(', 'haptics.success()', 'resetToRoute(ROOT_ROUTES.home)']) {
+        // The weigh-in that stood first here is gone from both finishes: the
+        // flagged seeding effect logs the setup weight, once (2026-09-17).
+        for (const after of ['haptics.success()', 'resetToRoute(ROOT_ROUTES.home)']) {
           assert.ok(finish.indexOf(after) > guard, `${signature}: ${after} can run before the save is known to have landed`);
         }
       }

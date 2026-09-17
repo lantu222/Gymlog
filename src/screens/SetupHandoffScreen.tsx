@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { VinhaIcon } from '../components/VinhaIcon';
 import { TrackChangeDialog } from '../components/TrackChangeDialog';
+import { useHardwareBack } from '../hooks/useHardwareBack';
 import { t } from '../lib/i18n';
 import { type SetupHandoffPlan } from '../lib/setupHandoff';
 import { radii, spacing } from '../theme';
@@ -129,9 +130,9 @@ export function SetupHandoffScreen({
   const [pageIndex, setPageIndex] = useState(0);
   const page = pages[Math.min(pageIndex, pages.length - 1)];
 
-  const finish = () =>
+  const finish = (widget = addWidget) =>
     onDone({
-      addWidget: plan.offerWidget && addWidget,
+      addWidget: plan.offerWidget && widget,
       trackedSites,
       signInForBackup: plan.offerAccountBackup && signInForBackup,
       showPro: plan.offerPro,
@@ -152,6 +153,28 @@ export function SetupHandoffScreen({
     }
     setPageIndex((current) => current + 1);
   };
+
+  /**
+   * Android's back key: "not now" to the page in front of the reader.
+   *
+   * Nothing answered it on the sign-in and widget pages, so the key reached
+   * the route behind the hand-off — popping a screen nobody could see, or
+   * closing the app with the offers still waiting (2026-09-17). There is no
+   * page to go back to: the questions behind this are saved. So the key
+   * declines, which is what it already did on the tracking page, whose
+   * dialog closes through Done. Declining the widget means declining it —
+   * the row is on by default, and back is not a yes.
+   */
+  useHardwareBack(() => {
+    if (pages.length === 0) {
+      return;
+    }
+    if (page === 'offers' && pageIndex >= pages.length - 1) {
+      finish(false);
+      return;
+    }
+    advance();
+  });
 
   // Nothing to ask, only the Pro page to open: go straight there rather than
   // draw a title over an empty page. Once — a second call would open the Pro
@@ -267,7 +290,7 @@ export function SetupHandoffScreen({
         <LegalFootnote language={language} onOpenLegal={onOpenLegal} />
         <Pressable
           accessibilityRole="button"
-          onPress={finish}
+          onPress={() => finish()}
           style={({ pressed }) => [styles.done, pressed && styles.pressed]}
         >
           <Text style={styles.doneText}>{t(language, 'handoff.done')}</Text>

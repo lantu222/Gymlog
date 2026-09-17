@@ -28,8 +28,6 @@ import { createId } from './src/lib/ids';
 import {
   buildFirstRunRecommendationReasons,
   buildFirstRunPromptSuggestions,
-  DEFAULT_RHYTHM_BY_DAYS,
-  DEFAULT_FIRST_RUN_SELECTION,
   FirstRunSetupSelection,
   getFocusAreaTitle,
   isSetupDaysPerWeek,
@@ -260,7 +258,9 @@ import { formatGoalLabel, formatHomeSessionTitle } from './src/app/homeSessionTi
 import {
   buildSavedOnboardingPlan,
   buildSavedOnboardingWorkoutPlan,
+  buildSetupBasicsFromPreferences,
   buildSetupPreferencePatch,
+  buildSetupSeedKey,
   buildSetupSelectionFromPreferences,
 } from './src/app/onboardingHandoff';
 import {
@@ -304,6 +304,7 @@ import {
   AppLanguage,
   AppPreferences,
   ExerciseTemplateDraft,
+  SetupCautionFlag,
   SetupDaysPerWeek,
   SetupWeekday,
   SetupGender,
@@ -1128,6 +1129,9 @@ function VinhaApp() {
   const [handoffLegalDocument, setHandoffLegalDocument] = useState<LegalDocumentId | null>(null);
   const handoffLegalOpenRef = useRef(false);
   handoffLegalOpenRef.current = handoffLegalDocument !== null;
+  // Whether the hand-off is on screen, for the route-level back below. Set
+  // where the hand-off plan is worked out, further down.
+  const setupHandoffActiveRef = useRef(false);
   /**
    * Today's swaps for the next session, slot id → exercise name, chosen on Home
    * before the session exists. Deliberately not persisted: it is an answer to
@@ -1267,6 +1271,13 @@ function VinhaApp() {
       if (handoffLegalOpenRef.current) {
         setHandoffLegalDocument(null);
         return true;
+      }
+      // The hand-off answers back itself. It is drawn over the route rather
+      // than routed, so this listener — re-subscribed as onboarding closes,
+      // after the hand-off's own — was the newest and popped the route
+      // behind it. False hands the key on to the hand-off's listener.
+      if (setupHandoffActiveRef.current) {
+        return false;
       }
       const nextRoute = getBackRoute(route, workoutHomeRoute);
       if (!nextRoute && navigationState.history.length === 0) {
@@ -3178,10 +3189,13 @@ function VinhaApp() {
       let adoptedPlanId: string | null = null;
       if (template) {
         // No questionnaire ran on this path, so there are no chosen weekdays to
-        // hang the sessions on. The programme's own day count is a fact about
-        // the thing the reader just picked, so the default rhythm for THAT
-        // count beats a global fallback.
-        const dayLabels = DEFAULT_RHYTHM_BY_DAYS[templateDaysPerWeek ?? 3] ?? DEFAULT_RHYTHM_BY_DAYS[3];
+        // hang the sessions on. The programme's own session count is a fact
+        // about the thing the reader just picked, so the rhythm for THAT count
+        // beats a global fallback — placed the way every other adoption places
+        // it, with day 1 on the first training day still ahead. The unrotated
+        // rhythm put day 1 on Monday whatever day the pick was made, while
+        // Home offered it today (2026-09-17; the guided path was fixed in #125).
+        const dayLabels = planLabelsForProgramme(template.sessions.length, [], new Date());
         const plan = buildProgramWorkoutPlan({
           planId: buildReadyProgramPlanId(programId),
           workoutTemplateId: programId,
@@ -3201,8 +3215,8 @@ function VinhaApp() {
       // 2026-09-10). Four paths complete onboarding and only one of them used
       // to say so, so the funnel's last row read 0 % while people plainly got
       // through it — plans adopted and workouts logged under a step nobody had
-      // reached. `path` is what tells the four apart.
-      trackEvent('onboarding_completed', { path: 'ready_catalog' });
+      // reached. `path` is what tells the four apart. Sent below, once the
+      // write has landed.
       // The ready path skips the About form, so every basic here is normally
       // null — that is fine and deliberate. Guided onboarding is the path that
       // fills them. No questionnaire ran either, so setup stays incomplete.
@@ -3228,14 +3242,17 @@ function VinhaApp() {
             )
           : {}),
       });
-      if (
-        typeof aboutYouValues?.weightKg === 'number' &&
-        aboutYouValues.weightKg > 0 &&
-        database.bodyweightEntries.length === 0
-      ) {
-        await addBodyweightEntry(aboutYouValues.weightKg);
-      }
+      trackEvent('onboarding_completed', { path: 'ready_catalog' });
+      // No weigh-in written here: the setup weight is logged once, by the
+      // flagged seeding effect, which this and the effect both writing used to
+      // turn into two identical entries.
       resetToRoute(ROOT_ROUTES.home);
+    } catch (error) {
+      // The reader tapped a programme and nothing happened: the button came
+      // back and no reason was given (2026-09-17). Said out loud now, the
+      // same way the guided finish says it.
+      console.error('Failed to save the onboarding catalogue pick', error);
+      showToast(t(preferences.appLanguage, 'toast.planSaveFailed'));
     } finally {
       setBusySavingReadyPick(false);
     }
@@ -3372,13 +3389,14 @@ function VinhaApp() {
     if (!saved) {
       return;
     }
-    if (
-      typeof selection.currentWeightKg === 'number' &&
-      selection.currentWeightKg > 0 &&
-      database.bodyweightEntries.length === 0
-    ) {
-      await addBodyweightEntry(selection.currentWeightKg);
-    }
+    // The questionnaire's finish, counted. The only call for this path sat in
+    // a finish handler nothing on screen reached, so the funnel's last row
+    // missed the path most readers take (2026-09-17).
+    trackEvent('onboarding_completed', { path: 'build' });
+    // The About form's weight reaches the log through the flagged seeding
+    // effect, once. Writing it here as well gave a first run two identical
+    // weigh-ins: the effect fires as soon as onboarding is marked done, and
+    // this check read a `database` from before the save, always empty.
     // Onboarding ends here, on the app itself.
     //
     // Two paywalls have been removed from this seam. First the hop to the
@@ -3395,6 +3413,26 @@ function VinhaApp() {
 
   function handleOpenSetupEditor() {
     navigate({ tab: 'profile', screen: 'setup' });
+  }
+
+  /**
+   * My Data's "Edit limitations", saved as what it is: a preference.
+   *
+   * The step used to walk on into a whole new programme, so a limitation
+   * counted only if the reader rebuilt their training behind it, and backing
+   * out dropped it (2026-09-17). Back to My Data once the write has landed;
+   * a refused write keeps the step open and says so.
+   */
+  async function handleSaveSetupLimitations(cautionFlags: SetupCautionFlag[]) {
+    try {
+      await updatePreferences({ setupCautionFlags: cautionFlags });
+    } catch (error) {
+      console.error('Failed to save the limitations', error);
+      showToast(t(preferences.appLanguage, 'toast.limitationsSaveFailed'));
+      return;
+    }
+    void haptics.success();
+    navigateBack(ROOT_ROUTES.profile);
   }
 
   function handleOpenPremium() {
@@ -3440,13 +3478,11 @@ function VinhaApp() {
     if (!saved) {
       return;
     }
-    if (
-      typeof selection.currentWeightKg === 'number' &&
-      selection.currentWeightKg > 0 &&
-      database.bodyweightEntries.length === 0
-    ) {
-      await addBodyweightEntry(selection.currentWeightKg);
-    }
+    // No weigh-in on a re-run. The questions carry the stored setup weight
+    // through without asking for a new one, so there is nothing new to log —
+    // and an empty log here is usually one the reader emptied: this put their
+    // deleted weigh-in straight back (2026-09-17). The first one is the
+    // seeding effect's, once.
     void haptics.success();
     resetToRoute(ROOT_ROUTES.home);
   }
@@ -3731,19 +3767,13 @@ function VinhaApp() {
   // downstream of the setup selection (the recommendation, the programme
   // rankings, the goal-programme suggestions) rebuilt with them. Measured: that
   // chain was the ~4.9s behind every settings switch. A key over the fields
-  // each one actually reads is what "changed" should have meant all along.
-  const setupSelectionKey = JSON.stringify([
-    preferences.automatedProgressionEnabled, preferences.bodyweightGoalKg, preferences.profileName,
-    preferences.setupAge, preferences.setupAgeRange, preferences.setupAvailableDays,
-    preferences.setupCautionFlags, preferences.setupCompleted, preferences.setupCurrentWeightKg,
-    preferences.setupDaysPerWeek, preferences.setupEquipment, preferences.setupEquipmentItems,
-    preferences.setupFocusAreas, preferences.setupGender, preferences.setupGoal, preferences.setupGoals,
-    preferences.setupGuidanceMode, preferences.setupHeightCm, preferences.setupLevel,
-    preferences.setupScheduleMode, preferences.setupSecondaryOutcomes, preferences.setupTrainingEnvironment,
-    preferences.setupWeeklyMinutes, preferences.unitPreference,
-  ]);
+  // each one actually reads is what "changed" should have meant all along —
+  // kept beside the builders, where a test holds it to what they read.
+  const setupSelectionKey = buildSetupSeedKey(preferences);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const setupSelection = useMemo(() => buildSetupSelectionFromPreferences(preferences), [setupSelectionKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const setupBasics = useMemo(() => buildSetupBasicsFromPreferences(preferences), [setupSelectionKey]);
   const tailoringKey = JSON.stringify([
     preferences.setupBodyweightPreference, preferences.setupElbowFriendlySwaps, preferences.setupEquipment,
     preferences.setupFreeWeightsPreference, preferences.setupKneeFriendlySwaps, preferences.setupMachinesPreference,
@@ -4416,6 +4446,7 @@ function VinhaApp() {
     ],
   );
   const setupHandoffActive = setupHandoffPlan?.shouldShow ?? false;
+  setupHandoffActiveRef.current = setupHandoffActive;
 
   /**
    * The first-run tour: once per surface, only on a tab's root, only after
@@ -6243,7 +6274,6 @@ function VinhaApp() {
            * than a plan nobody chose.
            */
           onStartEmpty={() => {
-            trackEvent('onboarding_completed', { path: 'empty' });
             void completeOnboarding({
               onboardingCompleted: true,
               setupCompleted: false,
@@ -6252,7 +6282,18 @@ function VinhaApp() {
               // friction this path exists to escape, and both live in
               // Settings for whenever the reader wants them.
               setupHandoffCompleted: true,
-            }).then(() => navigate({ tab: 'home', screen: 'dashboard' }));
+            })
+              .then(() => {
+                // Counted once it has happened, not when it was asked for.
+                trackEvent('onboarding_completed', { path: 'empty' });
+                navigate({ tab: 'home', screen: 'dashboard' });
+              })
+              // A refused write left the reader on this screen with no word
+              // about why the button did nothing (2026-09-17).
+              .catch((error) => {
+                console.error('Failed to start empty', error);
+                showToast(t(preferences.appLanguage, 'toast.startEmptyFailed'));
+              });
           }}
           onBrowsePrograms={() => {
             // Straight to the catalog. This fork used to detour through the
@@ -6360,7 +6401,13 @@ function VinhaApp() {
       <OnboardingScreen
         key={`setup:${preferences.recommendedProgramId ?? 'none'}:${preferences.setupCompleted ? 'complete' : 'pending'}:${route.stage ?? 'default'}`}
         mode="edit"
-        initialSelection={setupSelection ?? DEFAULT_FIRST_RUN_SELECTION}
+        // Answers only for a reader who gave them. One who started empty or
+        // picked from the catalogue was handed the questionnaire's defaults
+        // here, and finishing wrote those over their My Data — gender, age,
+        // height, weight, rhythm (2026-09-17). They get what they entered as
+        // basics, and the questions open unanswered.
+        initialSelection={setupSelection}
+        basicsSeed={setupSelection ? null : setupBasics}
         initialStage={route.stage ?? (setupSelection ? 'review' : 'location')}
         initialUnitPreference={unitPreference}
         language={preferences.appLanguage}
@@ -6370,6 +6417,7 @@ function VinhaApp() {
         onDismissTip={handleDismissTip}
         onCancel={() => navigateBack(ROOT_ROUTES.profile)}
         onCompleteToTraining={handleSetupCompleteToTraining}
+        onSaveLimitations={route.stage === 'avoid' ? handleSaveSetupLimitations : undefined}
       />
     );
   } else if (
