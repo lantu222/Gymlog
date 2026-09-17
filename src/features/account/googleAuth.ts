@@ -117,25 +117,37 @@ export async function signInWithGoogle(): Promise<GoogleSignInResult> {
   }
 }
 
+export type FreshIdTokenResult =
+  | { status: 'ok'; idToken: string }
+  /** Google has no saved credential for this app: the session is really gone. */
+  | { status: 'signed_out' }
+  /** Anything else — offline, Play services busy, a timeout. Try again later. */
+  | { status: 'error' };
+
 /**
- * A fresh short-lived ID token for a background backup, without UI. Returns
- * null when the session is gone — the caller downgrades to signed-out and the
- * next backup asks the user to sign in again, rather than failing silently
- * forever.
+ * A fresh short-lived ID token for a background backup, without UI.
+ *
+ * Only the library's own "no saved credential" answer (SIGN_IN_REQUIRED,
+ * which it returns as `noSavedCredentialFound`) means signed out; the caller
+ * then downgrades the account, so the next backup asks the reader to sign in
+ * again instead of failing silently forever. Every other failure used to mean
+ * the same thing, so opening the app offline quietly signed the reader out,
+ * and nothing was backed up again until they noticed.
  */
-export async function getFreshIdToken(): Promise<string | null> {
+export async function getFreshIdToken(): Promise<FreshIdTokenResult> {
   const module = loadModule();
   if (!module) {
-    return null;
+    return { status: 'error' };
   }
   try {
     const response = await module.GoogleSignin.signInSilently();
-    if (response.type !== 'success') {
-      return null;
+    if (response.type === 'noSavedCredentialFound') {
+      return { status: 'signed_out' };
     }
-    return response.data.idToken ?? null;
+    const idToken = response.type === 'success' ? response.data.idToken : null;
+    return idToken ? { status: 'ok', idToken } : { status: 'error' };
   } catch {
-    return null;
+    return { status: 'error' };
   }
 }
 

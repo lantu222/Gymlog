@@ -3,7 +3,8 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState 
 import { StorageLoadFailedScreen } from '../components/StorageLoadFailedScreen';
 import { resolveDeviceLanguage } from '../storage/deviceLocale';
 import { createId } from '../lib/ids';
-import { isProUnlocked, keepDeviceEntitlement } from '../lib/proEntitlement';
+import { preferencesForRestore } from '../lib/accountBackup';
+import { isProUnlocked } from '../lib/proEntitlement';
 import {
   countAuthoredPrograms,
   FREE_CUSTOM_PROGRAM_LIMIT,
@@ -162,7 +163,7 @@ interface AppContextValue {
    * stored database goes through on load — an old backup gets defaults, not a
    * crash, and the exercise library is reseeded exactly like on load.
    */
-  restoreDatabaseFromBackup: (input: Partial<AppDatabase>) => Promise<void>;
+  restoreDatabaseFromBackup: (input: Partial<AppDatabase>) => Promise<AppDatabase>;
   /**
    * Writes a parsed Hevy export into the history, through the same
    * persistence path a finished live workout takes. Session ids are
@@ -1182,12 +1183,16 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       // Pro is not restored: the server stores whatever a signed-in caller
       // uploads, so a backup with a far-off promo date was a permanent Pro for
       // the price of one PUT (security review, 2026-09-14). The device keeps
-      // what it had. commit writes the preferences key too: the split-key
-      // would otherwise override the restored preferences on the next load.
-      await commit({
+      // what it had, and its own privacy answers; the lead programme is
+      // counted in the running set as a load counts it. commit writes the
+      // preferences key too: the split-key would otherwise override the
+      // restored preferences on the next load.
+      const next: AppDatabase = {
         ...restored,
-        preferences: keepDeviceEntitlement(restored.preferences, databaseRef.current.preferences),
-      });
+        preferences: preferencesForRestore(restored.preferences, databaseRef.current.preferences, restored.workoutPlans),
+      };
+      await commit(next);
+      return next;
     });
   }
 

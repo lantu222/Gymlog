@@ -21,7 +21,7 @@
  *   request and response bodies over 4.5 MB whatever this says)
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { del, get, put } from '@vercel/blob';
+import { BlobNotFoundError, del, get, put } from '@vercel/blob';
 
 type ApiRequest = {
   method?: string;
@@ -213,8 +213,17 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     if (req.method === 'DELETE') {
       try {
         await del(pathname);
-      } catch {
-        // Already gone is the outcome the caller asked for.
+      } catch (error) {
+        // Already gone is the outcome the caller asked for (the store does
+        // not throw for a missing blob, but should it, that is still done).
+        // Anything else — auth, a 5xx, the network — used to be swallowed
+        // here too, and the app told the reader the copy was gone while it
+        // was still on the server.
+        if (!(error instanceof BlobNotFoundError)) {
+          console.error('backup DELETE failed:', error instanceof Error ? error.message.slice(0, 200) : 'unknown');
+          res.status(502).json({ ok: false, error: 'STORE_UNAVAILABLE' });
+          return;
+        }
       }
       res.status(200).json({ ok: true });
       return;

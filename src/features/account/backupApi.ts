@@ -96,7 +96,9 @@ export async function deleteBackup(idToken: string): Promise<{ ok: boolean }> {
       headers: { authorization: `Bearer ${idToken}` },
       signal,
     });
-    return { ok: response.ok };
+    // The server's own yes, not just a 2xx from whatever answered.
+    const body = (await response.json().catch(() => null)) as { ok?: boolean } | null;
+    return { ok: response.ok && body?.ok === true };
   } catch {
     return { ok: false };
   } finally {

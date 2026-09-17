@@ -93,8 +93,12 @@ interface WorkoutContextValue {
    * normalizer the stored bundle goes through on load. The active session is
    * deliberately dropped: a backup restore is a new phone or an explicit
    * replace, not a place to resurrect a workout from another device.
+   *
+   * Resolves once the bundle is on disk, and rejects when the disk refuses
+   * it — "Backup restored" used to show while the write was still queued,
+   * and a refused one was only logged.
    */
-  restoreHistoryFromBackup: (history: unknown) => void;
+  restoreHistoryFromBackup: (history: unknown) => Promise<WorkoutHistoryStore>;
 }
 
 const WorkoutContext = createContext<WorkoutContextValue | null>(null);
@@ -342,9 +346,14 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
       clearCardio() {
         dispatch({ type: 'cardio/clear' });
       },
-      restoreHistoryFromBackup(history) {
+      async restoreHistoryFromBackup(history) {
         const bundle = normalizeWorkoutBundle({ activeSession: null, history, activeCardio: null });
+        // Written first and shown after, so a refused write changes nothing
+        // on screen and the caller can say so. The persistence effect writes
+        // the same bundle again once the state lands; that is the same bytes.
+        await saveWorkoutBundle(bundle);
         dispatch({ type: 'session/hydrate', payload: bundle });
+        return bundle.history;
       },
     }),
     [completionSummary, state],
