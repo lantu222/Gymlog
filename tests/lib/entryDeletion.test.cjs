@@ -56,7 +56,7 @@ module.exports = [
       // one stray tap on a list you are scrolling.
       assert.match(history, /setPendingCardioDelete\(\{ id: session\.id/);
       assert.match(history, /onDeleteCardioSession\?\.\(target\.id\)/);
-      assert.match(readAppWiring(), /onDeleteCardioSession=\{\(sessionId\) => void deleteCardioSession\(sessionId\)\}/);
+      assert.match(readAppWiring(), /onDeleteCardioSession=\{\(sessionId\) => \{\s*deleteCardioSession\(sessionId\)\.catch\(/);
     },
   },
   {

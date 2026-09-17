@@ -111,8 +111,8 @@ module.exports = [
         ],
       };
       assert.equal(buildWorkoutLogCsv(input).split('\n').length, 3);
-      assert.deepEqual(summarizeWorkoutLog(input), { sessions: 1, sets: 2 });
-      assert.deepEqual(summarizeWorkoutLog({ sessions: [], logs: [] }), { sessions: 0, sets: 0 });
+      assert.deepEqual(summarizeWorkoutLog(input), { sessions: 1, sets: 2, cardio: 0 });
+      assert.deepEqual(summarizeWorkoutLog({ sessions: [], logs: [] }), { sessions: 0, sets: 0, cardio: 0 });
     },
   },
   {
@@ -126,7 +126,10 @@ module.exports = [
       assert.match(screen, /buildWorkoutLogCsv\(log\)/);
 
       const app = require('../helpers/appWiringSource.cjs').readAppWiring();
-      assert.match(app, /log=\{\{ sessions: database\.workoutSessions, logs: database\.exerciseLogs \}\}/);
+      assert.match(
+        app,
+        /log=\{\{\s*sessions: database\.workoutSessions,\s*logs: database\.exerciseLogs,\s*cardio: database\.cardioSessions,\s*\}\}/,
+      );
 
       // The claims themselves, each checked against the code that backs it.
       // i18n.ts is copy, not code: "no feed, no followers" IS the claim,

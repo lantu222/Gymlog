@@ -565,7 +565,10 @@ module.exports = [
         /<ProgressScreen[\s\S]*recentSessions=\{homeRecentSessions\}/,
       );
       assert.doesNotMatch(appSource, /customTemplates=/);
-      assert.match(appSource, /onCreateWorkoutFromExercises=\{\(\) => navigate\(\{ tab: 'workout', screen: 'empty' \}\)\}/);
+      assert.match(
+        appSource,
+        /onCreateWorkoutFromExercises=\{\(\) =>\s*guardStrengthStartOverCardio\(\(\) => navigate\(\{ tab: 'workout', screen: 'empty' \}\)\)\s*\}/,
+      );
       assert.doesNotMatch(appSource, /onCreateWorkoutFromExercises=\{\(\) => navigate\(\{ tab: 'workout', screen: 'editor' \}\)\}/);
       assert.doesNotMatch(appSource, /onBrowseReadyPlans=/);
       assert.doesNotMatch(appSource, /<HomeScreen[\s\S]*onOpenProgressOverview=/);

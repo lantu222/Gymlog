@@ -34,6 +34,7 @@ export interface ProgressTabDeps {
   bodyweightProgress: ProgressScreenProps['bodyweightProgress'];
   measurementEntries: ProgressScreenProps['measurementEntries'];
   workoutSessions: ProgressScreenProps['workoutSessions'];
+  cardioSessions: ProgressScreenProps['cardioSessions'];
   activityCalendar: ProgressScreenProps['activityCalendar'];
   homeTrainingSchedule: ProgressScreenProps['trainingSchedule'];
   progressTrainingRhythm: ProgressScreenProps['rhythm'];
@@ -65,6 +66,7 @@ export function renderProgressTab(deps: ProgressTabDeps): React.ReactElement | n
     bodyweightProgress,
     measurementEntries,
     workoutSessions,
+    cardioSessions,
     activityCalendar,
     homeTrainingSchedule,
     progressTrainingRhythm,
@@ -96,6 +98,7 @@ export function renderProgressTab(deps: ProgressTabDeps): React.ReactElement | n
       bodyweightProgress={bodyweightProgress}
       measurementEntries={measurementEntries}
       workoutSessions={workoutSessions}
+      cardioSessions={cardioSessions}
       activityCalendar={activityCalendar}
       tourTargets={deps.tourTargets}
       // The same resolved rhythm Home and the widget mark their calendars

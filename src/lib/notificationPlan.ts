@@ -78,6 +78,12 @@ export interface NotificationPlanInput {
    */
   schedule: TrainingSchedule;
   lastSessionAtMs: number | null;
+  /**
+   * Newest completed workout, cardio left out. The reminder skip reads this
+   * rather than `lastSessionAtMs`: a run does not do the day's planned
+   * training, so a morning run used to cancel that evening's reminder.
+   */
+  lastWorkoutAtMs: number | null;
   weekSessionCount: number;
   weekVolumeKg: number;
   latestPr: LatestPrSignal | null;
@@ -205,7 +211,8 @@ function buildSessionReminders(input: NotificationPlanInput): PlannedNotificatio
       continue;
     }
     // Already trained that day — the reminder has nothing left to ask for.
-    if (input.lastSessionAtMs !== null && isSameLocalDay(input.lastSessionAtMs, fireAtMs)) {
+    const lastWorkoutAtMs = input.lastWorkoutAtMs ?? null;
+    if (lastWorkoutAtMs !== null && isSameLocalDay(lastWorkoutAtMs, fireAtMs)) {
       continue;
     }
 

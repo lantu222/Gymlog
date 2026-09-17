@@ -24,7 +24,7 @@ import { HomeStatCardsSection } from '../components/HomeStatCardsSection';
 import { TourTargetRegistry } from '../features/tour/tourTargets';
 import { TourTargetId } from '../lib/firstRunTour';
 import { useTourScroller } from '../features/tour/useTourScroller';
-import { CardioIconKind } from '../lib/cardio';
+import { CardioIconKind, getCardioActivity } from '../lib/cardio';
 import { HomeStatCard } from '../lib/homeStatCards';
 import { VinhaIcon } from '../components/VinhaIcon';
 import { getHomeMiniCalendarDays, getHomeMonthCalendar, HomeDaySessionSummary } from '../lib/homeCalendar';
@@ -43,7 +43,7 @@ import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailo
 import { buildSwapShortlist } from '../lib/swapShortlist';
 import { localizeSessionFocus, localizeSessionName, localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { weekdayCodeForDate, weekdayLabel } from '../lib/planWeekdays';
-import { t } from '../lib/i18n';
+import { I18nKey, t } from '../lib/i18n';
 import { ProMomentContent } from '../lib/proInsights';
 import { CutButton } from '../components/CutButton';
 import { VinhaWordmark } from '../components/VinhaWordmark';
@@ -52,7 +52,7 @@ import { ProLockedCard } from '../components/ProLockedCard';
 import { ProMomentSheet } from '../components/ProMomentSheet';
 import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemedStyles } from '../theming';
-import { AppLanguage } from '../types/models';
+import { AppLanguage, CardioActivityType } from '../types/models';
 import { queryReduceMotion } from '../utils/reduceMotion';
 
 // The Home Pro sheet is gone (design: Vinha Paywall Moments): contextual
@@ -283,6 +283,13 @@ interface HomeScreenProps {
    */
   onFindProgram?: () => void;
   onOpenCardio?: () => void;
+  /**
+   * The cardio run still on the clock (running, or stopped and not yet
+   * saved), or null. A run survives the app being closed, but nothing
+   * outside the cardio screen said it was there — the reader came back to a
+   * Home that looked like nothing was going on.
+   */
+  activeCardioActivity?: CardioActivityType | null;
   /** Where every Pro touchpoint leads — the full Pro page. */
   onOpenPremium?: () => void;
   /** Where an existing subscriber goes from the header pill. */
@@ -426,6 +433,7 @@ export function HomeScreen({
   onCreateWorkoutFromExercises,
   onFindProgram,
   onOpenCardio,
+  activeCardioActivity = null,
   onOpenPremium,
   onOpenSubscription,
   plateau = null,
@@ -1155,6 +1163,33 @@ export function HomeScreen({
             ) : null}
           </Animated.View>
         </Animated.View>
+
+        {/* A cardio run still on the clock, near the top where a returning
+            reader looks first. Same row as the Cardio one at the bottom, and
+            it opens the same screen — which shows the run where it was.
+            No rise animation: the rise styles are one native node per index,
+            and a row that comes and goes while Home is open must not share
+            one with the week card (a shared node has crashed the app). */}
+        {activeCardioActivity && onOpenCardio ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(language, 'home.a11y.resumeCardio')}
+            onPress={onOpenCardio}
+            style={({ pressed }) => [styles.emptyWorkoutRow, pressed && styles.pressed]}
+          >
+            <View style={styles.emptyWorkoutIcon}>
+              <CardioIcon kind={getCardioActivity(activeCardioActivity).icon} size={20} color={theme.highlight} />
+            </View>
+            <Text style={styles.emptyWorkoutTitle} numberOfLines={1}>
+              {t(language, 'home.cardio.inProgress', {
+                activity: t(language, `cardio.activity.${activeCardioActivity}` as I18nKey),
+              })}
+            </Text>
+            <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+              <Path d="M9 6l6 6-6 6" stroke={theme.highlight} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </Pressable>
+        ) : null}
 
         {/* Paywall moment 2: the plateau detection. The finding — real lift,
             real numbers, real dates — is free; the fix is the conclusion. Free

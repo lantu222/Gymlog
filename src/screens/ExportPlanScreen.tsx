@@ -68,6 +68,21 @@ export function ExportPlanScreen({ language = 'en', plans, log, onBack }: Export
   }
 
   const logSummary = summarizeWorkoutLog(log);
+  // Cardio is logged work too: the check used sets alone, and a runner was
+  // told "Nothing logged yet" with the row switched off.
+  const logEmpty = logSummary.sets === 0 && logSummary.cardio === 0;
+  const logMeta = [
+    logSummary.sets > 0
+      ? t(language, 'export.log.meta', { sessions: logSummary.sessions, sets: logSummary.sets })
+      : null,
+    logSummary.cardio === 1
+      ? t(language, 'export.log.cardioOne')
+      : logSummary.cardio > 1
+        ? t(language, 'export.log.cardioMany', { count: logSummary.cardio })
+        : null,
+  ]
+    .filter((part): part is string => part !== null)
+    .join(' · ');
 
   async function shareLog() {
     try {
@@ -146,27 +161,20 @@ export function ExportPlanScreen({ language = 'en', plans, log, onBack }: Export
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t(language, 'export.log.title')}
-            disabled={logSummary.sets === 0}
+            disabled={logEmpty}
             onPress={() => void shareLog()}
             style={({ pressed }) => [
               styles.card,
               styles.row,
-              logSummary.sets === 0 && { opacity: 0.55 },
+              logEmpty && { opacity: 0.55 },
               pressed && { opacity: 0.7 },
             ]}
           >
             <View style={styles.rowCopy}>
               <Text style={styles.rowTitle}>{t(language, 'export.log.title')}</Text>
-              <Text style={styles.rowSub}>
-                {logSummary.sets === 0
-                  ? t(language, 'export.log.empty')
-                  : t(language, 'export.log.meta', {
-                      sessions: logSummary.sessions,
-                      sets: logSummary.sets,
-                    })}
-              </Text>
+              <Text style={styles.rowSub}>{logEmpty ? t(language, 'export.log.empty') : logMeta}</Text>
             </View>
-            {logSummary.sets > 0 ? <ChevronIcon /> : null}
+            {logEmpty ? null : <ChevronIcon />}
           </Pressable>
         </View>
 

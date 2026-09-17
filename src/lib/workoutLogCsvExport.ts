@@ -1,4 +1,5 @@
-import { ExerciseLog, WorkoutSession } from '../types/models';
+import { CardioSession, ExerciseLog, WorkoutSession } from '../types/models';
+import { getCardioActivity } from './cardio';
 import { localDateKey } from './completedSessions';
 
 /**
@@ -25,6 +26,14 @@ import { localDateKey } from './completedSessions';
 export const WORKOUT_LOG_CSV_HEADER = 'Date,Workout,Exercise,Set,Reps,Weight (kg),Completed';
 
 /**
+ * Cardio is its own table after the sets, a blank line between. A run has no
+ * sets, reps or kilos — forced into those columns it would export as a row of
+ * blanks — and it has a duration and a distance instead. Seconds and
+ * kilometres as raw numbers, for the same reason the weights are raw.
+ */
+export const CARDIO_LOG_CSV_HEADER = 'Date,Activity,Duration (s),Distance (km),Feel';
+
+/**
  * RFC 4180 quoting. Exercise names carry commas ("Rows (Bar or Rings)") and
  * apostrophes, and a workout can be named anything at all — an unquoted field
  * turns one of those into two columns and silently shifts every value after it.
@@ -44,6 +53,11 @@ function isoDate(value: string): string {
 export interface WorkoutLogCsvInput {
   sessions: WorkoutSession[];
   logs: ExerciseLog[];
+  /**
+   * Runs, rides and rows. Left out, a reader who only does cardio was told
+   * "Nothing logged yet" over a history full of sessions.
+   */
+  cardio?: Array<Pick<CardioSession, 'id' | 'activityType' | 'performedAt' | 'durationSec' | 'distanceKm' | 'feel'>>;
 }
 
 /**
@@ -87,7 +101,7 @@ function logRows(log: ExerciseLog): Array<{
  * A session with no logged sets contributes no rows: the file should contain
  * work, not a record of days the app was opened.
  */
-export function buildWorkoutLogCsv({ sessions, logs }: WorkoutLogCsvInput): string {
+export function buildWorkoutLogCsv({ sessions, logs, cardio = [] }: WorkoutLogCsvInput): string {
   const logsBySession = new Map<string, ExerciseLog[]>();
   for (const log of logs) {
     const bucket = logsBySession.get(log.sessionId);
@@ -124,13 +138,50 @@ export function buildWorkoutLogCsv({ sessions, logs }: WorkoutLogCsvInput): stri
     }
   }
 
-  return rows.join('\n');
+  const cardioRows = buildCardioRows(cardio);
+  // The sets table stays first and exactly as it was. A cardio-only log
+  // leaves it out rather than opening on a header with nothing under it.
+  const tables: string[] = [];
+  if (rows.length > 1 || cardioRows.length === 0) {
+    tables.push(rows.join('\n'));
+  }
+  if (cardioRows.length > 0) {
+    tables.push([CARDIO_LOG_CSV_HEADER, ...cardioRows].join('\n'));
+  }
+  return tables.join('\n\n');
+}
+
+function uniqueCardio(cardio: NonNullable<WorkoutLogCsvInput['cardio']>) {
+  const seen = new Set<string>();
+  return cardio.filter((session) => {
+    if (seen.has(session.id)) {
+      return false;
+    }
+    seen.add(session.id);
+    return true;
+  });
+}
+
+/** Newest first, one row a session. */
+function buildCardioRows(cardio: NonNullable<WorkoutLogCsvInput['cardio']>): string[] {
+  return uniqueCardio(cardio)
+    .sort((left, right) => new Date(right.performedAt).getTime() - new Date(left.performedAt).getTime())
+    .map((session) =>
+      [
+        csvField(isoDate(session.performedAt)),
+        csvField(getCardioActivity(session.activityType).name),
+        csvField(Math.max(0, Math.round(session.durationSec))),
+        csvField(session.distanceKm ?? ''),
+        csvField(session.feel ?? ''),
+      ].join(','),
+    );
 }
 
 /** Row and session counts for the export screen, so it can say what it will send. */
-export function summarizeWorkoutLog({ sessions, logs }: WorkoutLogCsvInput): {
+export function summarizeWorkoutLog({ sessions, logs, cardio = [] }: WorkoutLogCsvInput): {
   sessions: number;
   sets: number;
+  cardio: number;
 } {
   const sessionIds = new Set(sessions.map((session) => session.id));
   const counted = new Set<string>();
@@ -145,5 +196,5 @@ export function summarizeWorkoutLog({ sessions, logs }: WorkoutLogCsvInput): {
       counted.add(log.sessionId);
     }
   }
-  return { sessions: counted.size, sets };
+  return { sessions: counted.size, sets, cardio: uniqueCardio(cardio).length };
 }

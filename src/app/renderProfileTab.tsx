@@ -94,7 +94,7 @@ export interface ProfileTabDeps {
   /** Whether AI-assisted composition opens the chat or the paywall. */
   proUnlocked: boolean;
   exportablePlans: React.ComponentProps<typeof ExportPlanScreen>['plans'];
-  database: Pick<AppDatabase, 'workoutSessions' | 'exerciseLogs'>;
+  database: Pick<AppDatabase, 'workoutSessions' | 'exerciseLogs' | 'cardioSessions'>;
   settingsScrollOffsetRef: React.MutableRefObject<number>;
   homeWidgetState: { supported: boolean; added: boolean } | null;
   handleAddHomeWidget: () => Promise<void>;
@@ -502,7 +502,11 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
       <ExportPlanScreen
         language={preferences.appLanguage}
         plans={exportablePlans}
-        log={{ sessions: database.workoutSessions, logs: database.exerciseLogs }}
+        log={{
+          sessions: database.workoutSessions,
+          logs: database.exerciseLogs,
+          cardio: database.cardioSessions,
+        }}
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
       />
     );

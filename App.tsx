@@ -380,6 +380,9 @@ function VinhaApp() {
   // context is a new object once a second while a rest timer or cardio runs.
   const workoutRef = useRef(workout);
   workoutRef.current = workout;
+  // A boolean, so the back listener below can ask it without depending on the
+  // whole context: this flips only when a run starts or goes away.
+  const cardioRunActive = workout.activeCardio !== null;
 
   // Account & cloud backup: sign in with Google on the hand-off card or in
   // Settings, and the data survives a new phone. Free and Pro alike (decision
@@ -1209,6 +1212,14 @@ function VinhaApp() {
    * listener, and walked the reader Home past the screen's own handler.
    */
   useEffect(() => {
+    // Stands down on the cardio screen while a run is on the clock. The
+    // player's back opens its end sheet, but this listener re-subscribes on
+    // every route change and a parent's effect runs after its child's — so
+    // coming back to a running session made this the newest listener, and
+    // back walked Home past the sheet. The screen answers back in every mode.
+    if (cardioRunActive && route.tab === 'home' && route.screen === 'cardio') {
+      return undefined;
+    }
     // Stands down for the questionnaire in BOTH of its forms. The setup route
     // is the same OnboardingScreen, which answers back itself, stage by
     // stage — but this listener re-subscribes on every route change, and a
@@ -1245,7 +1256,7 @@ function VinhaApp() {
     });
 
     return () => subscription.remove();
-  }, [navigationState.history.length, onboardingActive, route]);
+  }, [cardioRunActive, navigationState.history.length, onboardingActive, route]);
 
   /**
    * The back key closes a policy or terms page opened over the hand-off.
@@ -4225,6 +4236,9 @@ function VinhaApp() {
         activeWorkoutSummary: homeActiveWorkoutSummary,
         homeSummary,
         workoutSessions,
+        // homeSummary's counts include runs; without them here the context
+        // said "3 sessions" and "no sessions logged" about the same reader.
+        cardioSessions,
         exerciseLogs: database.exerciseLogs,
         trackedProgress,
         readyProgramCount: workout.templates.length,
@@ -4298,6 +4312,7 @@ function VinhaApp() {
       homeActiveWorkoutSummary,
       homeActivePlanCard,
       homeSummary,
+      cardioSessions,
       selectedCustomProgram.title,
       selectedCustomProgram.workoutId,
       trackedProgress,
@@ -6609,6 +6624,7 @@ function VinhaApp() {
       bodyweightProgress,
       measurementEntries,
       workoutSessions,
+      cardioSessions,
       activityCalendar: homeSummary.streak.calendar,
       homeTrainingSchedule,
       progressTrainingRhythm,
@@ -6828,7 +6844,11 @@ function VinhaApp() {
 
           handleStartReadyProgramSession(homeActivePlanCard.programId, sessionId);
         }}
-        onCreateWorkoutFromExercises={() => navigate({ tab: 'workout', screen: 'empty' })}
+        // Through the cardio guard like every other start: the empty workout
+        // began over a run still on the clock, and left two sessions live.
+        onCreateWorkoutFromExercises={() =>
+          guardStrengthStartOverCardio(() => navigate({ tab: 'workout', screen: 'empty' }))
+        }
         // No programme to start: the hero button goes to the catalog instead of
         // offering an empty session the "empty workout" row already offers.
         //
@@ -6838,6 +6858,7 @@ function VinhaApp() {
         // closed the app.
         onFindProgram={() => navigate(resolveTabRoute('workout'))}
         onOpenCardio={() => navigate({ tab: 'home', screen: 'cardio' })}
+        activeCardioActivity={workout.activeCardio?.activityType ?? null}
         onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
         plateau={proPlateau ? { headline: proPlateau.detection.headline, meta: proPlateau.detection.meta, locked: proPlateau.conclusion, moment: proPlateau.moment } : null}
         proUnlocked={coachProUnlocked}

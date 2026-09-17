@@ -48,6 +48,7 @@ import {
   removeTrailingZeros,
 } from '../lib/format';
 import { localDateKey, subtractCalendarMonths } from '../lib/completedSessions';
+import { addCardioMinutesByDay } from '../lib/dashboard';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { I18nKey, t } from '../lib/i18n';
 import { ProMomentContent, WeeklyReadRow } from '../lib/proInsights';
@@ -79,12 +80,16 @@ import { TrainingRhythmSummary } from '../lib/trainingRhythm';
 import { layout } from '../theme';
 import {
   AppLanguage,
+  CardioSession,
   MeasurementEntry,
   MeasurementKind,
   MeasurementUnit,
   UnitPreference,
   WorkoutSession,
 } from '../types/models';
+
+// One empty list for every render, so the default does not move the memo.
+const EMPTY_CARDIO: Array<Pick<CardioSession, 'performedAt' | 'durationSec'>> = [];
 
 type ProgressSection = 'overview' | 'records' | 'tracked' | 'measures';
 type OverviewMetric = 'volume' | 'duration' | 'bodyweight';
@@ -124,6 +129,8 @@ interface ProgressScreenProps {
   bodyweightProgress: BodyweightProgressSummary;
   measurementEntries: MeasurementEntry[];
   workoutSessions: WorkoutSession[];
+  /** Runs and rides: their minutes belong in the duration chart. */
+  cardioSessions?: Array<Pick<CardioSession, 'performedAt' | 'durationSec'>>;
   /**
    * The plan's rhythm — cycle or weekdays — the same schedule Home and the
    * widget mark their calendars from, so all three agree on which day trains.
@@ -690,6 +697,7 @@ export function ProgressScreen({
   bodyweightProgress,
   measurementEntries,
   workoutSessions,
+  cardioSessions = EMPTY_CARDIO,
   activityCalendar,
   tourTargets,
   trainingSchedule,
@@ -995,10 +1003,20 @@ export function ProgressScreen({
     const olderSessionsExist = !rows.length && workoutSessions.some((session) => isBefore(session.performedAt));
 
     if (overviewMetric === 'duration') {
+      // Cardio time counts here: the activity calendar below marks run days,
+      // and a chart that left them out drew a month of running as no time.
+      const durationDays = addCardioMinutesByDay(
+        rows.map((row) => ({ performedAt: row.performedAt, minutes: row.duration })),
+        cardioSessions,
+        start ? start.getTime() : null,
+      );
+      const olderDurationExists =
+        !durationDays.length &&
+        (olderSessionsExist || cardioSessions.some((session) => isBefore(session.performedAt)));
       const points = bucketOverviewPointsByRange(
-        rows.map((row) => ({
-          label: row.performedAt,
-          value: row.duration,
+        durationDays.map((day) => ({
+          label: day.performedAt,
+          value: day.minutes,
         })),
         resolvedOverviewRange,
         'sum',
@@ -1015,7 +1033,7 @@ export function ProgressScreen({
           title: formatDate(point.label, language),
           value: formatDurationMinutes(point.value),
         }),
-        emptyLabel: t(language, olderSessionsExist ? 'progress.noSessionsRange' : 'progress.noDurations'),
+        emptyLabel: t(language, olderDurationExists ? 'progress.noSessionsRange' : 'progress.noDurations'),
       };
     }
 
@@ -1056,7 +1074,7 @@ export function ProgressScreen({
       }),
       emptyLabel: t(language, olderSessionsExist ? 'progress.noSessionsRange' : 'progress.noVolume'),
     };
-  }, [bodyweightProgress.entries, bodyweightProgress.latest?.weight, overviewMetric, resolvedOverviewRange, unitPreference, workoutSessions]);
+  }, [bodyweightProgress.entries, bodyweightProgress.latest?.weight, cardioSessions, overviewMetric, resolvedOverviewRange, unitPreference, workoutSessions]);
 
   const activityCalendarDays = useMemo(() => activityCalendar.weeks.flat(), [activityCalendar.weeks]);
   // Start of today, so a planned day that has already gone by can be told

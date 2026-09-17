@@ -1,5 +1,6 @@
 import { AICoachTrainingContext } from '../types/aiCoach';
 import { renderAiCoachProgramme } from './aiCoachProgramme';
+import { CARDIO_ACTIVITIES } from './cardio';
 
 /**
  * A session's date as the reader lived it.
@@ -32,12 +33,29 @@ function trim(value: number) {
   return `${Math.round(value * 10) / 10}`;
 }
 
+function cardioActivityName(id: string) {
+  return CARDIO_ACTIVITIES.find((activity) => activity.id === id)?.name ?? id;
+}
+
+function plural(count: number, word: string) {
+  return `${count} ${word}${count === 1 ? '' : 's'}`;
+}
+
 export function buildAiCoachSystemContext(context: AICoachTrainingContext): string {
   const u = context.unitPreference;
   const blocks: string[] = [];
+  // Cardio counts as a session on Home and in the 30-day figure, and nowhere
+  // in the strength blocks. With runs on record, every count says which kind
+  // it is — unqualified, "3 sessions" beside "No sessions logged" read as a
+  // contradiction, and the model had no way to know the three were runs.
+  const cardio = context.cardio ?? null;
+  const strength = cardio ? 'strength session' : 'session';
 
   // Load & fatigue — always present, first so LLM sees it immediately
   const { signal, acwr, recoveryScore, sessionCount7d, confident } = context.fatigue;
+  const weekCount = cardio
+    ? `${plural(sessionCount7d, strength)} + ${cardio.sessionsLast7Days} cardio`
+    : plural(sessionCount7d, strength);
   blocks.push(
     section('Load', [
       // ACWR off four weeks of data is a ratio, not a reading. Stating the
@@ -45,10 +63,15 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
       line(
         'This week',
         confident
-          ? `${sessionCount7d} session${sessionCount7d === 1 ? '' : 's'} | ACWR ${acwr} (${signal}) | Recovery ${recoveryScore}/100`
-          : `${sessionCount7d} session${sessionCount7d === 1 ? '' : 's'} | too little history to read load or recovery — do not comment on fatigue`,
+          ? `${weekCount} | ACWR ${acwr} (${signal}${cardio ? ', lifting load only' : ''}) | Recovery ${recoveryScore}/100`
+          : `${weekCount} | too little history to read load or recovery — do not comment on fatigue`,
       ),
-      line('Last 30 days', `${context.sessionsLast30Days} sessions`),
+      line(
+        'Last 30 days',
+        cardio
+          ? `${context.sessionsLast30Days} sessions, ${cardio.sessionsLast30Days} of them cardio`
+          : `${context.sessionsLast30Days} sessions`,
+      ),
     ])!,
   );
 
@@ -109,6 +132,22 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
     blocks.push(section(heading, sessionLines)!);
   }
 
+  if (cardio && cardio.sessions.length > 0) {
+    const cardioLines = cardio.sessions.map((entry) => {
+      const parts: string[] = [sessionDay({ day: entry.day, performedAt: '' }), cardioActivityName(entry.activity)];
+      parts.push(`${entry.minutes} min`);
+      if (entry.distanceKm !== null) parts.push(`${trim(entry.distanceKm)} km`);
+      return `- ${parts.join(' | ')}`;
+    });
+    const shown = cardio.truncated ? `, ${cardioLines.length} shown` : '';
+    blocks.push(
+      section(
+        `Cardio (last ${cardio.windowDays} days: ${plural(cardio.sessionCount, 'session')}, ${cardio.totalMinutes} min; oldest first${shown}) — not part of the strength history or load above`,
+        cardioLines,
+      )!,
+    );
+  }
+
   const trajectoryLines = history.lifts.map((lift) => {
     const series = lift.weightSeriesKg.map(trim).join(' → ');
     const flat = `flat at ${trim(lift.latestWeightKg)} kg for ${lift.stalledSessions} session${lift.stalledSessions === 1 ? '' : 's'}`;
@@ -148,7 +187,9 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
   if (history.sessionCount === 0) {
     blocks.push(
       section('Training history', [
-        'No sessions logged in this window. Do not describe trends, volume, or progress.',
+        cardio
+          ? 'No strength sessions logged in this window (cardio is listed separately). Do not describe lifting trends, volume, or progress.'
+          : 'No sessions logged in this window. Do not describe trends, volume, or progress.',
       ])!,
     );
   } else if (history.confidence === 'low') {
@@ -156,7 +197,7 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
     // logged session. A single data point is a fact, not a direction.
     blocks.push(
       section('Reading note', [
-        `Only ${history.sessionCount} session${history.sessionCount === 1 ? '' : 's'} in this window: not a trend. Do not describe progress, consistency, or momentum.`,
+        `Only ${plural(history.sessionCount, strength)} in this window: not a trend. Do not describe progress, consistency, or momentum.`,
       ])!,
     );
   } else if (history.confidence === 'medium') {
@@ -165,13 +206,13 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
     // everything and the hedge stops carrying information.
     blocks.push(
       section('Reading note', [
-        `${history.sessionCount} sessions in the last ${history.windowDays} days: enough to read a direction, not enough to call it settled. Qualify the reading once, in the sentence it belongs to — not in front of every claim.`,
+        `${plural(history.sessionCount, strength)} in the last ${history.windowDays} days: enough to read a direction, not enough to call it settled. Qualify the reading once, in the sentence it belongs to — not in front of every claim.`,
       ])!,
     );
   } else {
     blocks.push(
       section('Reading note', [
-        `${history.sessionCount} sessions across the last ${history.windowDays} days: a long enough record to state findings plainly. Do not hedge.`,
+        `${plural(history.sessionCount, strength)} across the last ${history.windowDays} days: a long enough record to state findings plainly. Do not hedge.`,
       ])!,
     );
   }

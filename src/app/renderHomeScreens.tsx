@@ -241,8 +241,21 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
         selectedSessionId={route.screen === 'session' ? route.sessionId : undefined}
         getSessionLogs={getSessionLogs}
         onSelectSession={(sessionId) => navigate({ tab: 'home', screen: 'session', sessionId })}
-        onDeleteSession={(sessionId) => void deleteCompletedWorkoutSession(sessionId)}
-        onDeleteCardioSession={(sessionId) => void deleteCardioSession(sessionId)}
+        // A refused delete rolls memory back, so the row reappears — and with
+        // the promise dropped on the floor that was all the reader got: a
+        // confirmed delete that silently undid itself. Say it did not happen.
+        onDeleteSession={(sessionId) => {
+          deleteCompletedWorkoutSession(sessionId).catch((error) => {
+            console.error('Failed to delete workout session', error);
+            showToast(t(preferences.appLanguage, 'toast.deleteFailed'));
+          });
+        }}
+        onDeleteCardioSession={(sessionId) => {
+          deleteCardioSession(sessionId).catch((error) => {
+            console.error('Failed to delete cardio session', error);
+            showToast(t(preferences.appLanguage, 'toast.deleteFailed'));
+          });
+        }}
         onBack={() => navigateBack(ROOT_ROUTES.home)}
       />
     );

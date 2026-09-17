@@ -1,10 +1,21 @@
 import { calendarDaysBetween, getRollingWindowStart, localDateKey } from './completedSessions';
+import { getCardioMinutes } from './cardio';
 import { HomeSummary } from './dashboard';
 import { ExerciseProgressSummary } from './progression';
-import { BodyweightEntry, CoachGoal, ExerciseLog, MeasurementEntry, SetupWeekday, UnitPreference, WorkoutSession } from '../types/models';
+import {
+  BodyweightEntry,
+  CardioSession,
+  CoachGoal,
+  ExerciseLog,
+  MeasurementEntry,
+  SetupWeekday,
+  UnitPreference,
+  WorkoutSession,
+} from '../types/models';
 import {
   AICoachBody,
   AICoachBodyChange,
+  AICoachCardio,
   AICoachGoal,
   AICoachHistory,
   AICoachHistoryConfidence,
@@ -26,6 +37,10 @@ import type { TrainingSchedule } from './trainingSchedule';
  */
 const MAX_HISTORY_SESSIONS = 24;
 const MAX_HISTORY_LIFTS = 10;
+/** A cardio line is short, but it is still a line per session. */
+const MAX_CARDIO_SESSIONS = 12;
+
+type AiCardioInput = Pick<CardioSession, 'id' | 'activityType' | 'performedAt' | 'durationSec' | 'distanceKm'>;
 
 export interface BuildAiTrainingContextInput {
   unitPreference: UnitPreference;
@@ -47,6 +62,11 @@ export interface BuildAiTrainingContextInput {
     };
   };
   workoutSessions: WorkoutSession[];
+  /**
+   * Runs, rides and rows. `homeSummary`'s counts already include them, so
+   * leaving them out here made the context disagree with itself.
+   */
+  cardioSessions?: AiCardioInput[];
   exerciseLogs: ExerciseLog[];
   trackedProgress: ExerciseProgressSummary[];
   readyProgramCount: number;
@@ -335,11 +355,65 @@ function buildHistoryBlock(
   };
 }
 
+/**
+ * The cardio block: what the session counts include and the strength blocks
+ * do not. Null when there is none to report, which is what an older client's
+ * payload looks like too.
+ *
+ * Deduplicated by id and bounded at now, like every sibling window; the 7- and
+ * 30-day counts use the same calendar-stepped edges as the Load lines they sit
+ * beside, so "3 sessions, 3 of them cardio" is one count read two ways.
+ */
+export function buildAiCoachCardio(
+  cardioSessions: AiCardioInput[],
+  windowDays: number,
+  now: Date = new Date(),
+): AICoachCardio | null {
+  const nowMs = now.getTime();
+  const seen = new Set<string>();
+  const dated = cardioSessions
+    .filter((session) => {
+      if (seen.has(session.id)) {
+        return false;
+      }
+      seen.add(session.id);
+      return true;
+    })
+    .map((session) => ({ session, at: new Date(session.performedAt).getTime() }))
+    .filter((entry) => Number.isFinite(entry.at) && entry.at <= nowMs)
+    .sort((left, right) => left.at - right.at);
+  const since = (days: number) => {
+    const start = getRollingWindowStart(now, days);
+    return dated.filter((entry) => entry.at >= start);
+  };
+  const inWindow = since(windowDays);
+  const last30 = since(30);
+  if (inWindow.length === 0 && last30.length === 0) {
+    return null;
+  }
+  const shown = inWindow.slice(-MAX_CARDIO_SESSIONS);
+  return {
+    windowDays,
+    sessionCount: inWindow.length,
+    totalMinutes: getCardioMinutes(inWindow.map((entry) => entry.session)),
+    sessionsLast7Days: since(7).length,
+    sessionsLast30Days: last30.length,
+    sessions: shown.map(({ session }) => ({
+      day: localDateKey(session.performedAt),
+      activity: session.activityType,
+      minutes: getCardioMinutes([session]),
+      distanceKm: typeof session.distanceKm === 'number' && session.distanceKm > 0 ? session.distanceKm : null,
+    })),
+    truncated: inWindow.length > shown.length,
+  };
+}
+
 export function buildAiTrainingContext({
   unitPreference,
   activeWorkoutSummary,
   homeSummary,
   workoutSessions,
+  cardioSessions = [],
   exerciseLogs,
   trackedProgress,
   readyProgramCount,
@@ -442,6 +516,7 @@ export function buildAiTrainingContext({
     plateaus,
     fatigue,
     history: buildHistoryBlock(workoutSessions, exerciseLogs, trainingDays, historyWindowDays, schedule, now),
+    cardio: buildAiCoachCardio(cardioSessions, historyWindowDays, now),
     ...(plannerSetup !== undefined ? { plannerSetup } : {}),
     body,
     goals: buildAiCoachGoals(coachGoals, bodyweightGoalKg, body, primaryGoalId),
@@ -512,6 +587,48 @@ function normalizeHistory(input: Partial<AICoachHistory> | null | undefined): AI
   };
 }
 
+/**
+ * The cardio block, rebuilt field by field. Rendered as text in front of the
+ * model, so a line that is not a plain day, a known-shaped id and numbers is
+ * dropped rather than passed on; an older client sends none, which is null.
+ */
+function normalizeCardio(input: unknown): AICoachCardio | null {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return null;
+  }
+  const raw = input as Partial<Record<keyof AICoachCardio, unknown>>;
+  const count = (value: unknown) =>
+    typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.round(value) : 0;
+  const sessions = (Array.isArray(raw.sessions) ? raw.sessions : [])
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === 'object')
+    .filter(
+      (entry) =>
+        typeof entry.day === 'string' &&
+        /^\d{4}-\d{2}-\d{2}$/.test(entry.day) &&
+        typeof entry.activity === 'string' &&
+        /^[a-z-]{1,20}$/.test(entry.activity),
+    )
+    .slice(-MAX_CARDIO_SESSIONS)
+    .map((entry) => ({
+      day: entry.day as string,
+      activity: entry.activity as string,
+      minutes: count(entry.minutes),
+      distanceKm:
+        typeof entry.distanceKm === 'number' && Number.isFinite(entry.distanceKm) && entry.distanceKm > 0
+          ? entry.distanceKm
+          : null,
+    }));
+  return {
+    windowDays: count(raw.windowDays) || DEFAULT_HISTORY_WINDOW_DAYS,
+    sessionCount: count(raw.sessionCount),
+    totalMinutes: count(raw.totalMinutes),
+    sessionsLast7Days: count(raw.sessionsLast7Days),
+    sessionsLast30Days: count(raw.sessionsLast30Days),
+    sessions,
+    truncated: raw.truncated === true,
+  };
+}
+
 function withPrimaryGoal(goals: AICoachGoal[]): AICoachGoal[] {
   if (goals.length === 0 || goals.some((goal) => goal.isPrimary === true)) {
     return goals;
@@ -549,6 +666,7 @@ export function normalizeAiCoachTrainingContext(
       confident: false,
     },
     history: normalizeHistory(candidate.history),
+    cardio: normalizeCardio(candidate.cardio),
     plannerSetup: candidate.plannerSetup ?? null,
     body: candidate.body && typeof candidate.body === 'object' ? candidate.body : null,
     // An installed app that predates the primary goal sends goals without the
