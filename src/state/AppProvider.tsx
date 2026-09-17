@@ -175,6 +175,8 @@ interface AppContextValue {
   saveCardioSession: (input: {
     activityType: CardioActivityType;
     startedAt: string;
+    /** When the run's clock stopped; the row is dated by it. */
+    endedAt?: string | null;
     durationSec: number;
     distanceKm?: number | null;
     feel?: CardioFeel | null;
@@ -1084,6 +1086,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
   function saveCardioSession(input: {
     activityType: CardioActivityType;
     startedAt: string;
+    endedAt?: string | null;
     durationSec: number;
     distanceKm?: number | null;
     feel?: CardioFeel | null;
@@ -1094,7 +1097,12 @@ export function AppProvider({ children }: React.PropsWithChildren) {
         id: createId('cardio_session'),
         activityType: input.activityType,
         startedAt: input.startedAt,
-        performedAt: new Date().toISOString(),
+        // Dated when the run ended, not when "Complete" was pressed: the
+        // finish screen can sit open, or the app sit killed, past midnight.
+        performedAt:
+          input.endedAt && Number.isFinite(Date.parse(input.endedAt))
+            ? input.endedAt
+            : new Date().toISOString(),
         durationSec: Math.max(0, Math.round(input.durationSec)),
         distanceKm: input.distanceKm && input.distanceKm > 0 ? input.distanceKm : null,
         feel: input.feel ?? null,

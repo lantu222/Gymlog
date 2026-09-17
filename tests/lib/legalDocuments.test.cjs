@@ -463,6 +463,8 @@ module.exports = [
         activeWorkoutSummary: 'workouts',
         homeSummary: 'workouts',
         workoutSessions: 'workouts',
+        // Runs and rides are workouts in the app's own words ("Cardio workouts").
+        cardioSessions: 'workouts',
         exerciseLogs: 'workouts',
         trackedProgress: 'workouts',
         readyProgramCount: null,

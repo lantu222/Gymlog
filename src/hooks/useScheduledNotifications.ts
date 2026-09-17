@@ -15,6 +15,7 @@ import { AppState } from 'react-native';
 
 import {
   getLastActivityTimestamp,
+  getLastWorkoutTimestamp,
   getSessionsThisWeek,
   getVolumeThisWeekKg,
 } from '../lib/completedSessions';
@@ -42,6 +43,8 @@ export function useScheduledNotifications(database: AppDatabase) {
   const signals = useMemo(
     () => ({
       lastSessionAtMs: getLastActivityTimestamp(database),
+      // Workouts only: a run does not do the day's planned training.
+      lastWorkoutAtMs: getLastWorkoutTimestamp(database),
       weekSessionCount: getSessionsThisWeek(database),
       weekVolumeKg: getVolumeThisWeekKg(database),
       latestPr: findLatestSessionPr({
@@ -139,6 +142,7 @@ export function useScheduledNotifications(database: AppDatabase) {
       schedule,
       onTrainingBreak,
       lastSessionAtMs: signals.lastSessionAtMs,
+      lastWorkoutAtMs: signals.lastWorkoutAtMs,
       weekSessionCount: signals.weekSessionCount,
       weekVolumeKg: signals.weekVolumeKg,
       latestPr: signals.latestPr,
@@ -173,6 +177,7 @@ export function useScheduledNotifications(database: AppDatabase) {
     scheduleKey,
     onTrainingBreak,
     signals.lastSessionAtMs,
+    signals.lastWorkoutAtMs,
     signals.lastBodyweightAtMs,
     signals.weekSessionCount,
     signals.weekVolumeKg,

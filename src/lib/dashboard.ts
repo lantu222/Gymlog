@@ -1,14 +1,17 @@
-import { AppDatabase, UnitPreference, WorkoutPlan, WorkoutPlanEntry } from '../types/models';
+import { AppDatabase, CardioSession, UnitPreference, WorkoutPlan, WorkoutPlanEntry } from '../types/models';
 import {
   getCalendarWeekStartBefore,
   getCalendarWeekStartTimestamp,
+  getCanonicalCardioSessions,
   getCanonicalCompletedSessions,
   getCurrentWeekStreak,
   getMonthlyActivityCalendar,
   getRecentActivityStrip,
   getSessionsLast30Days,
   getSessionsThisWeek,
+  localDateKey,
 } from './completedSessions';
+import { getCardioMinutes } from './cardio';
 import { getComparableLogSets } from './exerciseLog';
 import { convertWeightFromKg, formatLogSetSummary, formatVolume, removeTrailingZeros } from './format';
 import { getActivePlan, getBodyweightProgress, getMostRecentSessionSummary, getRecentLogsForExercise } from './progression';
@@ -304,16 +307,57 @@ function getSessionVolumeKg(session: AppDatabase['workoutSessions'][number]) {
 export function getMonthTrainingTotals(database: AppDatabase, now = new Date()) {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
   const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime();
-  const sessions = getCanonicalCompletedSessions(database).filter((session) => {
-    const performedAt = new Date(session.performedAt).getTime();
+  const inMonth = (performedAtIso: string) => {
+    const performedAt = new Date(performedAtIso).getTime();
     return performedAt >= monthStart && performedAt < nextMonthStart;
-  });
+  };
+  const sessions = getCanonicalCompletedSessions(database).filter((session) => inMonth(session.performedAt));
+  // The calendar beside these figures marks cardio days, so the runs belong in
+  // the figures too — a month of runs read "0 min" next to a grid full of
+  // marked days. In the count as well as the minutes: the app calls a run a
+  // cardio workout, and "Workouts 0 · Duration 3 h" is a contradiction.
+  const cardio = getCanonicalCardioSessions(database).filter((session) => inMonth(session.performedAt));
+  const cardioMinutes = getCardioMinutes(cardio);
 
   return {
-    workouts: sessions.length,
-    durationMinutes: sessions.reduce((sum, session) => sum + getSessionDurationMinutes(session), 0),
+    workouts: sessions.length + cardio.length,
+    durationMinutes:
+      sessions.reduce((sum, session) => sum + getSessionDurationMinutes(session), 0) + cardioMinutes,
     volumeKg: sessions.reduce((sum, session) => sum + getSessionVolumeKg(session), 0),
   };
+}
+
+/**
+ * Training minutes per local day, cardio added to the workout days it shares
+ * and given days of its own. Progress's duration chart summed workouts only,
+ * while the activity calendar below it marks cardio days — a month of runs
+ * drew no time at all beside a grid full of marks.
+ *
+ * `days` is one entry per local day; the result keeps that, sorted oldest
+ * first. Cardio before `startMs` (the chart's range) is left out.
+ */
+export function addCardioMinutesByDay(
+  days: Array<{ performedAt: string; minutes: number }>,
+  cardioSessions: Array<Pick<CardioSession, 'performedAt' | 'durationSec'>>,
+  startMs: number | null,
+): Array<{ performedAt: string; minutes: number }> {
+  const byDay = new Map<string, { performedAt: string; minutes: number; cardio: Array<Pick<CardioSession, 'durationSec'>> }>();
+  for (const day of days) {
+    byDay.set(localDateKey(day.performedAt), { performedAt: day.performedAt, minutes: day.minutes, cardio: [] });
+  }
+  for (const session of cardioSessions) {
+    const performedAt = new Date(session.performedAt).getTime();
+    if (!Number.isFinite(performedAt) || (startMs !== null && performedAt < startMs)) {
+      continue;
+    }
+    const key = localDateKey(session.performedAt);
+    const day = byDay.get(key) ?? { performedAt: session.performedAt, minutes: 0, cardio: [] };
+    day.cardio.push(session);
+    byDay.set(key, day);
+  }
+  return [...byDay.values()]
+    .map((day) => ({ performedAt: day.performedAt, minutes: day.minutes + getCardioMinutes(day.cardio) }))
+    .sort((left, right) => new Date(left.performedAt).getTime() - new Date(right.performedAt).getTime());
 }
 
 function getHomeWeeklySnapshot(database: AppDatabase, now = new Date()) {

@@ -144,8 +144,22 @@ export function getSessionsThisWeek(database: AppDatabase, now = new Date()) {
  * trained today" check in the notification planner.
  */
 export function getLastActivityTimestamp(database: AppDatabase): number | null {
+  return newestTimestamp(getAllActivityTimestamps(database));
+}
+
+/**
+ * Newest completed *workout* timestamp, cardio left out. For the one question a
+ * run does not answer: is the day's planned training behind you. A run marks
+ * the day without doing the workout planned for it (the widget's rule too), so
+ * a morning run must not cancel that evening's reminder.
+ */
+export function getLastWorkoutTimestamp(database: AppDatabase): number | null {
+  return newestTimestamp(getCanonicalCompletedSessions(database).map((session) => session.performedAt));
+}
+
+function newestTimestamp(isoStamps: string[]): number | null {
   let newest: number | null = null;
-  getAllActivityTimestamps(database).forEach((performedAtIso) => {
+  isoStamps.forEach((performedAtIso) => {
     const performedAt = new Date(performedAtIso).getTime();
     if (!Number.isFinite(performedAt)) {
       return;

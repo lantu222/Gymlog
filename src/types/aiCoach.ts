@@ -261,6 +261,35 @@ export interface AICoachProgramme {
   truncated: boolean;
 }
 
+/** One cardio session as the coach reads it. */
+export interface AICoachCardioSession {
+  /** The reader's local day, resolved on the phone. */
+  day: string;
+  /** The activity id: run, tread-run, tread-walk, cycle-in, cycle-out, row. */
+  activity: string;
+  minutes: number;
+  distanceKm: number | null;
+}
+
+/**
+ * Cardio in the history window. The session counts above include it (Home
+ * counts a run as a session), while every strength block leaves it out — so
+ * without this the context said "Last 30 days: 3 sessions" and "No sessions
+ * logged" about the same reader, and the model had no way to know the three
+ * were runs.
+ */
+export interface AICoachCardio {
+  windowDays: number;
+  sessionCount: number;
+  totalMinutes: number;
+  /** Rolling 7 and 30 days, the same windows as the Load lines. */
+  sessionsLast7Days: number;
+  sessionsLast30Days: number;
+  /** Oldest first, newest kept when capped. */
+  sessions: AICoachCardioSession[];
+  truncated: boolean;
+}
+
 export interface AICoachTrainingContext {
   unitPreference: UnitPreference;
   activeSession: AICoachActiveSessionSummary | null;
@@ -279,6 +308,8 @@ export interface AICoachTrainingContext {
   plateaus: AICoachPlateauSummary[];
   fatigue: AICoachFatigueSummary;
   history: AICoachHistory;
+  /** Optional so an older client's payload still parses; null = no cardio. */
+  cardio?: AICoachCardio | null;
   plannerSetup?: AICoachPlannerSetupSummary | null;
   /** Optional so an older client's payload still parses. */
   body?: AICoachBody | null;

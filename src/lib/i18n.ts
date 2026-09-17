@@ -80,6 +80,10 @@ const EN = {
   'home.findProgram': 'Find a program',
   'home.emptyWorkout.title': 'Empty workout',
   'home.cardio.title': 'Cardio',
+  // A run left going when the app closed. Nothing outside the cardio screen
+  // said so, and "Empty workout" started over the top of it.
+  'home.cardio.inProgress': '{activity} in progress',
+  'home.a11y.resumeCardio': 'Resume the cardio session',
 
   // A goal always has a programme. These say which — never how soon.
   'goals.programme.covered': '{programme} trains this lift',
@@ -424,6 +428,9 @@ const EN = {
   'toast.ownProgrammeVersion': 'You already have your own version of this programme — opening it, so you can see what you change',
   // Was an English literal inside App.tsx, shown in a Finnish app.
   'toast.cardioSaveFailed': 'Could not save cardio session',
+  // History's delete: memory rolls back when the disk refuses, and without
+  // this the row simply came back with no word about why.
+  'toast.deleteFailed': 'Could not delete the workout',
   // AI assisted, rebuilt as one text field. The reader says it; the app
   // shows what it read before it shows the week.
   'aiCompose.read': 'Read from your brief',
@@ -1058,6 +1065,9 @@ const EN = {
   'export.log.section': 'YOUR TRAINING LOG',
   'export.log.title': 'Export every logged set',
   'export.log.meta': '{sessions} sessions · {sets} sets',
+  // Cardio travels in the same file; a runner was told "Nothing logged yet".
+  'export.log.cardioOne': '1 cardio session',
+  'export.log.cardioMany': '{count} cardio sessions',
   'export.log.empty': 'Nothing logged yet',
   // Split so each half agrees with its own count: "1 day · 13 exercises".
   'export.meta.day': '1 day',
@@ -3222,6 +3232,8 @@ const FI: Record<I18nKey, string> = {
   'home.findProgram': 'Etsi ohjelma',
   'home.emptyWorkout.title': 'Tyhjä treeni',
   'home.cardio.title': 'Cardio',
+  'home.cardio.inProgress': '{activity} kesken',
+  'home.a11y.resumeCardio': 'Jatka cardiotreeniä',
 
   'goals.programme.covered': '{programme} treenaa tätä liikettä',
   'goals.programme.suggest': 'Ehdotus: {programme}',
@@ -3549,6 +3561,7 @@ const FI: Record<I18nKey, string> = {
   'toast.lastExerciseInDay': 'Tämä on päivän viimeinen liike — poista koko päivä muokkaimessa',
   'toast.ownProgrammeVersion': 'Sinulla on tästä ohjelmasta oma versio — avataan se, niin näet mitä muutat',
   'toast.cardioSaveFailed': 'Cardio-treeniä ei voitu tallentaa',
+  'toast.deleteFailed': 'Treeniä ei voitu poistaa',
   'aiCompose.read': 'Luettu ohjeestasi',
   'aiCompose.read.days': '{count} päivää',
   'aiCompose.read.daysCapped': 'pyysit {asked} päivää · koostaja rakentaa {count}',
@@ -4179,6 +4192,8 @@ const FI: Record<I18nKey, string> = {
   'export.log.section': 'TREENILOKISI',
   'export.log.title': 'Vie kaikki kirjatut sarjat',
   'export.log.meta': '{sessions} treeniä · {sets} sarjaa',
+  'export.log.cardioOne': '1 cardiotreeni',
+  'export.log.cardioMany': '{count} cardiotreeniä',
   'export.log.empty': 'Ei vielä kirjauksia',
   'export.meta.day': '1 päivä',
   'export.meta.days': '{count} päivää',

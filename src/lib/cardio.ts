@@ -9,6 +9,7 @@
 
 import { CardioActivityType, CardioFeel, CardioSession } from '../types/models';
 import { getCalendarWeekStartTimestamp } from './completedSessions';
+import { removeTrailingZeros } from './format';
 
 export type CardioIconKind = 'run' | 'walk' | 'treadmill' | 'cycle' | 'row';
 
@@ -91,9 +92,13 @@ export function formatCardioPace(paceSecPerKm: number): string {
   return `${minutes}:${String(seconds).padStart(2, '0')} /km`;
 }
 
+/**
+ * "4,2 km" for a Finnish reader, "4.2 km" for an English one. A template
+ * literal always prints a point, so Finnish History read "4.2 km" beside
+ * weights that all had their comma; the app's own decimal mark decides now.
+ */
 function formatDistanceKm(distanceKm: number): string {
-  const rounded = Math.round(distanceKm * 100) / 100;
-  return `${rounded} km`;
+  return `${removeTrailingZeros(Math.round(distanceKm * 100) / 100)} km`;
 }
 
 /**
@@ -115,9 +120,20 @@ export function getWeekCardioMinutes(
   now = new Date(),
 ): number {
   const weekStart = getCalendarWeekStartTimestamp(now);
-  const totalSec = sessions
-    .filter((session) => getCalendarWeekStartTimestamp(session.performedAt) === weekStart)
-    .reduce((sum, session) => sum + Math.max(0, session.durationSec), 0);
+  return getCardioMinutes(
+    sessions.filter((session) => getCalendarWeekStartTimestamp(session.performedAt) === weekStart),
+  );
+}
+
+/**
+ * Whole minutes of cardio, rounded once over the total rather than per run,
+ * so ten 90-second strides are 15 minutes and not 20.
+ */
+export function getCardioMinutes(sessions: Array<Pick<CardioSession, 'durationSec'>>): number {
+  const totalSec = sessions.reduce(
+    (sum, session) => sum + (Number.isFinite(session.durationSec) ? Math.max(0, session.durationSec) : 0),
+    0,
+  );
   return Math.round(totalSec / 60);
 }
 
@@ -131,11 +147,18 @@ export interface ActiveCardioSession {
   startedAt: string;
   accumulatedMs: number;
   resumedAt: string | null;
+  /**
+   * When the clock last stopped; null while it runs. Finishing pauses first,
+   * so for a finished run this is when it ended — and that is the date the
+   * saved row gets. It used to be dated when "Complete" was pressed, so a
+   * run finished at 23:50 and saved the next morning landed on the wrong day.
+   */
+  pausedAt: string | null;
 }
 
 export function startCardioSession(activityType: CardioActivityType, nowMs: number): ActiveCardioSession {
   const iso = new Date(nowMs).toISOString();
-  return { activityType, startedAt: iso, accumulatedMs: 0, resumedAt: iso };
+  return { activityType, startedAt: iso, accumulatedMs: 0, resumedAt: iso, pausedAt: null };
 }
 
 export function getCardioElapsedMs(session: ActiveCardioSession, nowMs: number): number {
@@ -151,6 +174,7 @@ export function pauseCardioSession(session: ActiveCardioSession, nowMs: number):
     ...session,
     accumulatedMs: getCardioElapsedMs(session, nowMs),
     resumedAt: null,
+    pausedAt: new Date(nowMs).toISOString(),
   };
 }
 
@@ -158,7 +182,27 @@ export function resumeCardioSession(session: ActiveCardioSession, nowMs: number)
   if (session.resumedAt) {
     return session;
   }
-  return { ...session, resumedAt: new Date(nowMs).toISOString() };
+  return { ...session, resumedAt: new Date(nowMs).toISOString(), pausedAt: null };
+}
+
+/**
+ * The moment a run ended, which is what its saved row is dated by.
+ *
+ * A stopped clock stopped at `pausedAt`, however long the finish screen then
+ * sat open — or the app sat killed — before "Complete". A clock still running
+ * ends now. A stored time that cannot be right (before the start, or after
+ * now on a phone whose clock moved) falls back to now rather than dating the
+ * run somewhere it never happened.
+ */
+export function getCardioEndedAt(session: ActiveCardioSession, nowMs: number): string {
+  if (!session.resumedAt && session.pausedAt) {
+    const pausedMs = new Date(session.pausedAt).getTime();
+    const startedMs = new Date(session.startedAt).getTime();
+    if (Number.isFinite(pausedMs) && pausedMs >= startedMs && pausedMs <= nowMs) {
+      return new Date(pausedMs).toISOString();
+    }
+  }
+  return new Date(nowMs).toISOString();
 }
 
 /** Normalizes a persisted active-cardio blob; null when unusable. */
@@ -175,10 +219,22 @@ export function normalizeActiveCardioSession(input: unknown): ActiveCardioSessio
   }
   const resumedAt =
     typeof raw.resumedAt === 'string' && !Number.isNaN(new Date(raw.resumedAt).getTime()) ? raw.resumedAt : null;
+  const accumulatedMs =
+    typeof raw.accumulatedMs === 'number' && Number.isFinite(raw.accumulatedMs) ? Math.max(0, raw.accumulatedMs) : 0;
+  const storedPausedAt =
+    typeof raw.pausedAt === 'string' && !Number.isNaN(new Date(raw.pausedAt).getTime()) ? raw.pausedAt : null;
+  // A paused run saved before pausedAt existed has no record of when it
+  // stopped. The earliest it can have stopped is its start plus the time it
+  // ran, which is exact for a run paused once — and much nearer the truth
+  // than "whenever Complete is pressed", which is what a null would mean.
+  const pausedAt = resumedAt
+    ? null
+    : storedPausedAt ?? new Date(new Date(raw.startedAt).getTime() + accumulatedMs).toISOString();
   return {
     activityType: getCardioActivity(raw.activityType).id,
     startedAt: raw.startedAt,
-    accumulatedMs: typeof raw.accumulatedMs === 'number' && Number.isFinite(raw.accumulatedMs) ? Math.max(0, raw.accumulatedMs) : 0,
+    accumulatedMs,
     resumedAt,
+    pausedAt,
   };
 }

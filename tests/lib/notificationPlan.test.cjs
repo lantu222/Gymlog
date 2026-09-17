@@ -46,6 +46,7 @@ function planWith(overrides = {}) {
     language: 'en',
     schedule: weekdaySchedule([0, 2, 4]),
     lastSessionAtMs: null,
+    lastWorkoutAtMs: null,
     weekSessionCount: 0,
     weekVolumeKg: 0,
     latestPr: null,
@@ -237,10 +238,26 @@ module.exports = [
     run() {
       const plan = planWith({
         prefs: { weeklySummary: false, comebackNudge: false },
-        lastSessionAtMs: at(2026, 7, 1, 8, 15), // trained this morning
+        lastSessionAtMs: at(2026, 7, 1, 8, 15),
+        lastWorkoutAtMs: at(2026, 7, 1, 8, 15), // trained this morning
       }).filter((item) => item.category === 'reminder');
 
       assert.equal(plan[0].fireAtMs, at(2026, 7, 3, 17, 30), "today's reminder is dropped");
+    },
+  },
+  {
+    name: 'notificationPlan: a morning run does not cancel the evening workout reminder',
+    run() {
+      // A run marks the day on the calendar without doing the workout planned
+      // for it — the widget's rule. Fed the any-activity timestamp, the
+      // reminder skip treated this morning's run as the day's training done.
+      const plan = planWith({
+        prefs: { weeklySummary: false, comebackNudge: false },
+        lastSessionAtMs: at(2026, 7, 1, 7, 0), // ran this morning
+        lastWorkoutAtMs: at(2026, 6, 29, 18, 0), // last lifted on Monday
+      }).filter((item) => item.category === 'reminder');
+
+      assert.equal(plan[0].fireAtMs, at(2026, 7, 1, 17, 30), "today's reminder still fires");
     },
   },
   {

@@ -35,6 +35,7 @@ import {
   getCardioActivity,
   getCardioAvgPaceSecPerKm,
   getCardioElapsedMs,
+  getCardioEndedAt,
   getWeekCardioMinutes,
   parseCardioDistanceKm,
 } from '../lib/cardio';
@@ -66,6 +67,8 @@ interface CardioScreenProps {
   onSaveCardioSession: (input: {
     activityType: CardioActivityType;
     startedAt: string;
+    /** When the clock stopped — the saved row's date. */
+    endedAt: string;
     durationSec: number;
     distanceKm: number | null;
     feel: CardioFeel | null;
@@ -95,6 +98,14 @@ export function CardioScreen({
   const [finishing, setFinishing] = useState(false);
   const [conflictFor, setConflictFor] = useState<CardioActivityType | null>(null);
   const [endSheetOpen, setEndSheetOpen] = useState(false);
+  /**
+   * One save per run. `isSaving` comes from App, which sets it inside the save
+   * — a render after the tap — so two quick taps on "Complete" both read false
+   * and saved the run twice, each under a fresh id that nothing downstream
+   * folds together. A ref answers the second tap at once; the strength finish
+   * has the same guard (finishInFlightRef).
+   */
+  const completeInFlightRef = useRef(false);
 
   const mode: 'list' | 'player' | 'finish' = activeCardio ? (finishing ? 'finish' : 'player') : 'list';
 
@@ -103,6 +114,7 @@ export function CardioScreen({
     if (!activeCardio) {
       setFinishing(false);
       setEndSheetOpen(false);
+      completeInFlightRef.current = false;
     }
   }, [activeCardio]);
 
@@ -164,11 +176,17 @@ export function CardioScreen({
           cardioSessions={cardioSessions}
           isSaving={isSaving}
           onComplete={async (distanceKm, feel) => {
-            const durationSec = Math.round(getCardioElapsedMs(activeCardio, Date.now()) / 1000);
+            if (completeInFlightRef.current) {
+              return;
+            }
+            completeInFlightRef.current = true;
+            const nowMs = Date.now();
+            const durationSec = Math.round(getCardioElapsedMs(activeCardio, nowMs) / 1000);
             try {
               await onSaveCardioSession({
                 activityType: activeCardio.activityType,
                 startedAt: activeCardio.startedAt,
+                endedAt: getCardioEndedAt(activeCardio, nowMs),
                 durationSec,
                 distanceKm,
                 feel,
@@ -176,6 +194,10 @@ export function CardioScreen({
             } catch {
               // Save failed (App shows the toast) — keep the session so the
               // user can retry; never claim success before the save resolves.
+              // The guard opens again only here: after a save that landed the
+              // run is on its way out, and a tap in between must not save it
+              // a second time.
+              completeInFlightRef.current = false;
               return;
             }
             void haptics.success();
@@ -435,7 +457,15 @@ function CardioFinishView({
 
   const distanceKm = parseCardioDistanceKm(distanceText);
   const pace = getCardioAvgPaceSecPerKm(durationSec, distanceKm);
-  const weekMinutes = getWeekCardioMinutes(cardioSessions) + Math.round(durationSec / 60);
+  // Worked out once, when Finish opened this view. Recomputed per render it
+  // counted the run twice while the save was pending: the new row is in
+  // `cardioSessions` before the disk write finishes, and this run was added
+  // on top of it. The week is the run's own — the one its row will be dated in.
+  const [weekMinutes] = useState(
+    () =>
+      getWeekCardioMinutes(cardioSessions, new Date(getCardioEndedAt(session, Date.now()))) +
+      Math.round(durationSec / 60),
+  );
 
   return (
     <View style={{ flex: 1, minHeight: 0 }}>
