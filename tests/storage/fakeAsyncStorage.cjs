@@ -89,12 +89,16 @@ const STORAGE_MODULES = [
  * The stubs sit in the require cache only while `load` runs. A module holds on
  * to the AsyncStorage it was given at require time, so the returned exports
  * keep using the fake after the cache is put back, and no other suite sees it.
+ *
+ * `options.locale` is the tag the phone reports (storage/deviceLocale); left
+ * out, the stub reports none and the language falls to Node's own Intl.
  */
-function loadAgainstFake(fake, load) {
+function loadAgainstFake(fake, load, options = {}) {
   const from = { paths: [path.join(DIST, 'storage')] };
+  const i18nManager = options.locale ? { getConstants: () => ({ localeIdentifier: options.locale }) } : {};
   const stubs = [
     ['@react-native-async-storage/async-storage', { __esModule: true, default: fake }],
-    ['react-native', { I18nManager: {}, NativeModules: {}, Platform: { OS: 'android' } }],
+    ['react-native', { I18nManager: i18nManager, NativeModules: {}, Platform: { OS: 'android' } }],
   ];
   const saved = new Map();
   const put = (file, entry) => {

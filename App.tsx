@@ -40,6 +40,7 @@ import { buildCardioStatsLine, getCardioActivity } from './src/lib/cardio';
 import { setSoundCuesEnabled } from './src/utils/sound';
 import { haptics, setHapticsEnabled } from './src/utils/haptics';
 import { useScheduledNotifications } from './src/hooks/useScheduledNotifications';
+import { usePendingAiLogDeletions } from './src/hooks/usePendingAiLogDeletions';
 import { ThemeProvider, themeForName, useTheme } from './src/theming';
 import { writeHomeWidgetPayload } from './src/utils/homeWidget';
 import {
@@ -248,7 +249,7 @@ import { buildProgramInsightMap } from './src/lib/programInsights';
 import { buildTailoringPreferences } from './src/lib/tailoringFit';
 import { forgetRoutesForTemplate, popRoute, pushRoute, withoutTrailingRoute } from './src/navigation/routeHistory';
 import { AppRoute, ROOT_ROUTES, RootTabKey, WORKOUT_PLAN_ROUTE } from './src/navigation/routes';
-import { getBackRoute } from './src/app/backRoute';
+import { backSkipsHistory, getBackRoute } from './src/app/backRoute';
 import { renderProfileTab } from './src/app/renderProfileTab';
 import { resolveTodaySessionPick } from './src/lib/todaySessionPick';
 import { renderHomeScreens } from './src/app/renderHomeScreens';
@@ -364,6 +365,7 @@ function VinhaApp() {
     deleteWorkoutTemplate,
     forgetHeldProgramme,
     resetAllData,
+    clearPendingAiLogDeletions,
     addBodyweightEntry,
     addMeasurementEntry,
     deleteBodyweightEntry,
@@ -613,6 +615,13 @@ function VinhaApp() {
   const workoutLogNavigationAllowedAtRef = useRef<number | null>(null);
   const route = navigationState.route;
   const appHydrated = hydrated && workout.hydrated;
+  // The coach-log deletes a reset could not confirm, retried on start and on
+  // every return to the foreground; Reset uses the same runner for its own.
+  const deletePendingAiLogs = usePendingAiLogDeletions({
+    hydrated,
+    pending: preferences.pendingAiLogDeletions,
+    clear: clearPendingAiLogDeletions,
+  });
 
   /**
    * Today, as a value a memo can depend on.
@@ -1248,6 +1257,11 @@ function VinhaApp() {
         return false;
       }
 
+      if (nextRoute && backSkipsHistory(route)) {
+        resetToRoute(nextRoute);
+        return true;
+      }
+
       if (route.tab === 'workout' && route.screen === 'summary') {
         setCompletionSummary(null);
         setFinishSaveState({ status: 'idle', sessionId: null, message: null });
@@ -1586,20 +1600,6 @@ function VinhaApp() {
       dismissedTipIds: [...dismissedTipIds, tipId],
     });
   }
-
-  async function persistSetupSelection(selection: FirstRunSetupSelection, recommendedProgramId: string | null) {
-    trackEvent('onboarding_completed', { path: onboardingPath });
-    await completeOnboarding(buildSetupPreferencePatch(selection, recommendedProgramId, preferences.trainingCycle));
-
-    if (
-      typeof selection.currentWeightKg === 'number' &&
-      selection.currentWeightKg > 0 &&
-      database.bodyweightEntries.length === 0
-    ) {
-      await addBodyweightEntry(selection.currentWeightKg);
-    }
-  }
-
 
   /**
    * The type is a fact about the id, not something the caller can know.
@@ -2226,18 +2226,6 @@ function VinhaApp() {
     workoutTemplates,
   ]);
 
-  /**
-   * Start the questionnaire again, keeping everything already logged.
-   *
-   * There was no way back into onboarding once it had been finished, so a
-   * reader whose life changed had to live with the programme their first five
-   * minutes had chosen. entryFlowCompleted stays true — they have met the
-   * Welcome screen and do not need to again.
-   */
-  async function handleRedoOnboarding() {
-    await updatePreferences({ onboardingCompleted: false, setupCompleted: false });
-  }
-
   /** The reader dropping a programme — the only path that removes one. */
   /**
    * Make a programme you already hold the one Home leads with.
@@ -2805,12 +2793,15 @@ function VinhaApp() {
       return false;
     }
 
-    // No cap check for the programme being run: the copy replaces it, so the
-    // reader ends with what they started with. Copying one they are only
-    // browsing does add, and the repository charges that as before.
+    // The copy is a programme of the reader's own, whether or not it replaces
+    // the ready one they run, so it takes a slot like any other: at the limit
+    // the edit opens the limit sheet here, before anything is built. Running
+    // ones used to be waved through, and one round of edit → adopt the next →
+    // edit per ready programme put a free reader past the cap (audit
+    // 2026-09-16). The provider checks the same thing again at the write.
     const readyPlanId = buildReadyProgramPlanId(programId);
     const wasRunning = preferences.activePlanIds.includes(readyPlanId);
-    if (!wasRunning && !programSlots.canCreate) {
+    if (!programSlots.canCreate) {
       setProgramLimitVisible(true);
       return false;
     }
@@ -2936,7 +2927,7 @@ function VinhaApp() {
     draft.sourceTemplateId = programId;
 
     try {
-      const workoutTemplateId = await upsertWorkoutTemplate(draft, { replacesPlanId: readyPlanId });
+      const workoutTemplateId = await upsertWorkoutTemplate(draft);
       const planId = buildCustomProgramPlanId(workoutTemplateId);
       // Read the ids back rather than trusting the draft's: the repository
       // assigns them, and a plan pointing at ids that were never stored is a
@@ -3234,47 +3225,6 @@ function VinhaApp() {
     }
   }
 
-  async function handleOnboardingSkip(destination: 'home' | 'programs' = 'home') {
-    // Skipping is finishing: the reader is in the app with no programme, which
-    // is a real outcome and one worth being able to count.
-    trackEvent('onboarding_completed', { path: 'skip' });
-    await completeOnboarding({
-      onboardingCompleted: true,
-      setupCompleted: false,
-      trainingFirstRunDismissed: false,
-      setupGoal: null,
-      setupLevel: null,
-      setupDaysPerWeek: null,
-      setupEquipment: null,
-      setupTrainingEnvironment: null,
-      setupSecondaryOutcomes: [],
-      setupFocusAreas: [],
-      setupGuidanceMode: null,
-      setupScheduleMode: null,
-      setupWeeklyMinutes: null,
-      setupAvailableDays: [],
-        setupTrainingFeel: 'challenging',
-        setupWorkoutVariety: 'balanced',
-        setupFreeWeightsPreference: 'neutral',
-        setupBodyweightPreference: 'neutral',
-        setupMachinesPreference: 'neutral',
-        setupShoulderFriendlySwaps: 'neutral',
-        setupElbowFriendlySwaps: 'neutral',
-        setupKneeFriendlySwaps: 'neutral',
-        bodyweightGoalKg: null,
-        recommendedProgramId: null,
-    });
-    if (destination === 'programs') {
-      if (preferences.programsTabEnabled) {
-        resetToRoute({ tab: 'workout', screen: 'programs_home' });
-      } else {
-        resetToRoute(ROOT_ROUTES.workout);
-      }
-      return;
-    }
-    navigate(ROOT_ROUTES.home);
-  }
-
   /**
    * A photo of a programme, as the CSV text the paste box would have held.
    *
@@ -3325,15 +3275,6 @@ function VinhaApp() {
   async function handleBackToEntry() {
     await updatePreferences({
       entryFlowCompleted: false,
-    });
-  }
-
-  function openRecommendedProgramDetail(recommendedProgramId: string) {
-    replaceRoute({
-      tab: 'workout',
-      screen: 'program',
-      programType: 'ready',
-      workoutTemplateId: recommendedProgramId,
     });
   }
 
@@ -3436,23 +3377,6 @@ function VinhaApp() {
     resetToRoute(ROOT_ROUTES.home);
   }
 
-  async function handleOnboardingCompleteToProgramDetail(
-    selection: FirstRunSetupSelection,
-    recommendedProgramId: string,
-  ) {
-    await persistSetupSelection(selection, recommendedProgramId);
-    openRecommendedProgramDetail(recommendedProgramId);
-  }
-
-  async function handleOnboardingCompleteToCustom(
-    selection: FirstRunSetupSelection,
-    recommendedProgramId: string | null,
-    prefillName: string,
-  ) {
-    await persistSetupSelection(selection, recommendedProgramId);
-    navigate({ tab: 'workout', screen: 'editor', prefillName });
-  }
-
   function handleOpenSetupEditor() {
     navigate({ tab: 'profile', screen: 'setup' });
   }
@@ -3511,27 +3435,6 @@ function VinhaApp() {
     resetToRoute(ROOT_ROUTES.home);
   }
 
-  async function handleSetupOpenProgramDetail(selection: FirstRunSetupSelection, recommendedProgramId: string) {
-    await persistSetupSelection(selection, recommendedProgramId);
-    void haptics.success();
-    const template = getWorkoutTemplateById(recommendedProgramId);
-    if (!template) {
-      navigate(workoutHomeRoute);
-      return;
-    }
-
-    openRecommendedProgramDetail(recommendedProgramId);
-  }
-
-  async function handleSetupBuildOwn(
-    selection: FirstRunSetupSelection,
-    recommendedProgramId: string | null,
-    prefillName: string,
-  ) {
-    await persistSetupSelection(selection, recommendedProgramId);
-    void haptics.success();
-    navigate({ tab: 'workout', screen: 'editor', prefillName });
-  }
   const customWorkoutRuntimeMap = useMemo(
     () =>
       Object.fromEntries(
@@ -6358,11 +6261,8 @@ function VinhaApp() {
           }
           onDismissTip={handleDismissTip}
           onBackToEntry={() => setOnboardingStep('about')}
-          onSkip={() => void handleOnboardingSkip()}
           onCompleteToTraining={handleOnboardingCompleteToTraining}
           onFullBleedReviewChange={setFullBleedReview}
-          onCompleteToProgramDetail={handleOnboardingCompleteToProgramDetail}
-          onCompleteToCustom={handleOnboardingCompleteToCustom}
         />
       );
     }
@@ -6419,11 +6319,8 @@ function VinhaApp() {
         readyProgramCount={workout.templates.length}
         dismissedTipIds={dismissedTipIds}
         onDismissTip={handleDismissTip}
-        onSkip={() => navigateBack(ROOT_ROUTES.profile)}
         onCancel={() => navigateBack(ROOT_ROUTES.profile)}
         onCompleteToTraining={handleSetupCompleteToTraining}
-        onCompleteToProgramDetail={handleSetupOpenProgramDetail}
-        onCompleteToCustom={handleSetupBuildOwn}
       />
     );
   } else if (
@@ -6712,6 +6609,7 @@ function VinhaApp() {
       setSettingsImportVisible,
       setRatingSheetVisible,
       resetAllData: handleResetAllData,
+      deletePendingAiLogs,
       setCompletionSummary,
       setWorkoutCelebration,
       setFinishSaveState,

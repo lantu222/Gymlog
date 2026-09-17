@@ -1,3 +1,4 @@
+import { withoutOwedCoachLog } from './aiLogDeletion';
 import { currentPeriodEndAt } from './subscriptionTerm';
 import { AppPreferences } from '../types/models';
 
@@ -198,6 +199,11 @@ export function canStartProTrial(preferences: Pick<AppPreferences, 'proTrialStar
  * A restore keeps the device's own entitlement and meters and takes
  * everything else. With Play Billing the store answers the Pro question
  * anyway; the meters are per install by definition.
+ *
+ * One more field rides here for the same reason: `pendingAiLogDeletions`, the
+ * coach-log deletes this install still owes (lib/aiLogDeletion). It is this
+ * phone's errand — a restore must not replace it with another phone's list or
+ * an empty one, and a reset, which keeps this whole list, must not drop it.
  */
 export const DEVICE_ONLY_PREFERENCE_FIELDS = [
   'promoProUntil',
@@ -209,9 +215,19 @@ export const DEVICE_ONLY_PREFERENCE_FIELDS = [
   'aiCoachProQuota',
   'coachDemoMomentsUsed',
   'firstLaunchAt',
+  'pendingAiLogDeletions',
 ] as const;
 
-export function keepDeviceEntitlement<T extends Pick<AppPreferences, (typeof DEVICE_ONLY_PREFERENCE_FIELDS)[number]>>(
+export function keepDeviceEntitlement<
+  T extends Pick<
+    AppPreferences,
+    | (typeof DEVICE_ONLY_PREFERENCE_FIELDS)[number]
+    | 'aiLogId'
+    | 'aiLogChatConsent'
+    | 'aiLogComposerConsent'
+    | 'aiLogPhotoConsent'
+  >,
+>(
   restored: T,
   device: Pick<AppPreferences, (typeof DEVICE_ONLY_PREFERENCE_FIELDS)[number]>,
 ): T {
@@ -219,7 +235,9 @@ export function keepDeviceEntitlement<T extends Pick<AppPreferences, (typeof DEV
   for (const field of DEVICE_ONLY_PREFERENCE_FIELDS) {
     (kept as Record<string, unknown>)[field] = device[field];
   }
-  return kept;
+  // And the one thing the device's list says about the rest: a label this
+  // phone owes a delete for is not handed back to the coach by a backup.
+  return withoutOwedCoachLog(kept);
 }
 
 /** The date Pro should run until, or null when the trial is switched off. */

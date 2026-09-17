@@ -81,7 +81,11 @@ export function buildAccountBackupPayload(
   return {
     version: ACCOUNT_BACKUP_VERSION,
     exportedAt,
-    database: rest,
+    // The coach-log deletes this phone still owes are its own errand, and
+    // their labels are what the delete route asks for: they do not leave the
+    // phone in a backup. A restore keeps the device's list either way
+    // (DEVICE_ONLY_PREFERENCE_FIELDS).
+    database: { ...rest, preferences: { ...rest.preferences, pendingAiLogDeletions: [] } },
     workoutHistory,
   };
 }

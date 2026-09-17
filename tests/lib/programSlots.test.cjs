@@ -67,18 +67,14 @@ module.exports = [
       // slot silently.
       assert.match(
         provider,
-        /if \(!existingTemplate && draft\.origin !== 'freestyle' && !replacesRunningPlan\) \{[\s\S]{0,400}ProgramLimitReachedError/,
+        /if \(!existingTemplate && draft\.origin !== 'freestyle'\) \{[\s\S]{0,400}ProgramLimitReachedError/,
       );
-      // The one exemption, and it is verified here rather than claimed by the
-      // caller — otherwise a screen could talk its way past the cap by passing
-      // an id. A ready programme is immutable, so changing one lift in the one
-      // you run means storing a copy; that copy REPLACES the original, so the
-      // reader ends with the number of programmes they started with and there
-      // is nothing for the cap to count. Copying a second one still counts.
-      assert.match(
-        provider,
-        /current\.preferences\.activePlanIds\.includes\(options\.replacesPlanId\)/,
-      );
+      // No exemption for a copy that replaces a running ready programme. There
+      // was one, on the grounds that the reader ends with as many programmes
+      // as before — but the ready one was never theirs, so each edit → adopt
+      // the next → edit round added a copy past the cap (audit 2026-09-16).
+      const code = provider.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+      assert.doesNotMatch(code, /replacesPlanId|replacesRunningPlan/);
       // Counted over AUTHORED templates: a freestyle log leaves a template
       // behind, and counting those meant three ad-hoc sessions filled the free
       // tier without the user authoring anything.
@@ -88,7 +84,7 @@ module.exports = [
       // Editing must never be blocked — the guard sits inside the
       // "no existing template" branch, which is the create case only.
       const gate = provider.slice(
-        provider.indexOf("if (!existingTemplate && draft.origin !== 'freestyle' && !replacesRunningPlan) {"),
+        provider.indexOf("if (!existingTemplate && draft.origin !== 'freestyle') {"),
         provider.indexOf('const workoutTemplateId ='),
       );
       assert.ok(gate.includes('ProgramLimitReachedError'), 'the throw belongs to the create branch');
@@ -144,7 +140,7 @@ module.exports = [
     },
   },
   {
-    name: 'changing a ready programme copies it, and that copy is not a second programme',
+    name: 'changing a ready programme copies it, in its place, and the copy counts toward the free limit',
     run() {
       const plan = read('src', 'screens', 'TrainingPlanScreen.tsx');
       const detail = read('src', 'screens', 'ProgramDetailScreen.tsx');
@@ -164,12 +160,25 @@ module.exports = [
       // It still reuses the one duplication path rather than a second copier.
       assert.match(app, /buildDuplicatedCustomProgramDraft\([\s\S]{0,80}template\.name/);
       // And the copy replaces the running plan instead of joining it, so the
-      // reader keeps the number of programmes they had. Charging a slot to
-      // remove one exercise would price editing, which the cap never gates.
-      assert.match(app, /upsertWorkoutTemplate\(draft, \{ replacesPlanId: readyPlanId \}\)/);
+      // reader runs the number of programmes they ran.
       assert.match(app, /removeActiveProgram\(preferences\.activePlanIds, readyPlanId\)/);
-      // Copying one the reader is only browsing does add, and still counts.
-      assert.match(app, /if \(!wasRunning && !programSlots\.canCreate\)/);
+      // But it is a programme of their own either way, so it takes a slot:
+      // running or browsed, the copy is refused at the limit — with the same
+      // sheet a new programme opens, before anything is built. Editing the
+      // copy afterwards is an edit and goes down the custom path uncapped.
+      const copy = app.slice(
+        app.indexOf('const existingCopyId = await findWorkoutTemplateIdBySource(programId);'),
+        app.indexOf('const draft = buildDuplicatedCustomProgramDraft('),
+      );
+      assert.ok(copy.length > 0, 'the ready-programme copy path should be findable');
+      assert.match(copy, /if \(existingCopyId\) \{[\s\S]*?return false;\s*\}/);
+      assert.match(copy, /if \(!programSlots\.canCreate\) \{\s*setProgramLimitVisible\(true\);\s*return false;\s*\}/);
+      assert.ok(
+        copy.indexOf('if (existingCopyId) {') < copy.indexOf('if (!programSlots.canCreate) {'),
+        'an existing copy is opened before the cap is asked',
+      );
+      assert.doesNotMatch(copy, /wasRunning && !programSlots|!wasRunning/);
+      assert.match(app, /const workoutTemplateId = await upsertWorkoutTemplate\(draft\);/);
     },
   },
   {

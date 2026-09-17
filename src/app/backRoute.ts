@@ -55,9 +55,24 @@ export function getBackRoute(route: AppRoute, workoutHome: AppRoute): AppRoute |
 
   // Back out of the unlock moment lands on Profile, not on the paywall you
   // just came through — going 'back' to a page selling what you now own.
+  // Only true together with backSkipsHistory below.
   if (route.tab === 'profile' && route.screen === 'premium_unlock') {
     return ROOT_ROUTES.profile;
   }
 
   return null;
+}
+
+/**
+ * Whether the back route above is the destination rather than a fallback.
+ *
+ * The shell hands getBackRoute's answer to navigateBack, which pops the history
+ * first and only lands on that route when the history is empty. From the
+ * unlock moment the history is never empty — its top is the paywall the reader
+ * just came through — so the Profile route above was never reached and back
+ * opened a page selling what they now own (audit 2026-09-16). For these routes
+ * the history is left behind instead.
+ */
+export function backSkipsHistory(route: AppRoute): boolean {
+  return route.tab === 'profile' && route.screen === 'premium_unlock';
 }

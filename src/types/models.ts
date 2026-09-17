@@ -444,6 +444,17 @@ export interface AppPreferences {
   aiLogComposerConsent: boolean;
   aiLogPhotoConsent: boolean;
   /**
+   * Labels whose kept coach copies this install still owes a delete for.
+   *
+   * Reset clears `aiLogId`, and the label is the only way back to the copies
+   * filed under it — so it is moved here first, and stays until the server
+   * confirms the delete. Retried when the app starts and when it comes back
+   * to the foreground (lib/aiLogDeletion). This phone's errand, not the
+   * reader's data: a reset keeps it and a backup neither carries nor
+   * restores it (DEVICE_ONLY_PREFERENCE_FIELDS).
+   */
+  pendingAiLogDeletions: string[];
+  /**
    * ISO date until which a promo grant keeps Pro unlocked; null = none.
    *
    * Read-only since 2026-09-15: the in-app redemption is gone (the codes lived

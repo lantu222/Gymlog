@@ -127,8 +127,8 @@ interface OnboardingScreenProps {
   basicsSeed?: Partial<FirstRunSetupSelection> | null;
   initialStage?: SetupStage;
   tailoringPreferences?: TailoringPreferencesInput | null;
+  /** Back from the first question of the first run: the About-you step. */
   onBackToEntry?: () => void | Promise<void>;
-  onSkip: () => void | Promise<void>;
   onCompleteToTraining: (selection: FirstRunSetupSelection, recommendedProgramId: string) => void | Promise<void>;
   /**
    * Fires when a full-bleed review screen takes over — the program picker's
@@ -137,12 +137,6 @@ interface OnboardingScreenProps {
    * would cut a band across either of them.
    */
   onFullBleedReviewChange?: (tone: 'light' | 'dark' | null) => void;
-  onCompleteToProgramDetail: (selection: FirstRunSetupSelection, recommendedProgramId: string) => void | Promise<void>;
-  onCompleteToCustom: (
-    selection: FirstRunSetupSelection,
-    recommendedProgramId: string | null,
-    prefillName: string,
-  ) => void | Promise<void>;
   onCancel?: () => void | Promise<void>;
 }
 
@@ -703,25 +697,7 @@ const GUIDANCE_MODE_OPTIONS: Array<{
   },
 ];
 
-const SCHEDULE_MODE_OPTIONS: Array<{
-  mode: SetupScheduleMode;
-  titleKey: I18nKey;
-  bodyKey: I18nKey;
-}> = [
-  {
-    mode: 'app_managed',
-    titleKey: 'onb.schedule.app_managed.title',
-    bodyKey: 'onb.schedule.app_managed.body',
-  },
-  {
-    mode: 'self_managed',
-    titleKey: 'onb.schedule.self_managed.title',
-    bodyKey: 'onb.schedule.self_managed.body',
-  },
-];
-
 const FOCUS_AREA_OPTIONS = getOnboardingFocusAreaPresentationOptions();
-const REFINEMENT_FOCUS_AREA_OPTIONS: SetupFocusArea[] = FOCUS_AREA_OPTIONS.map((option) => option.area);
 
 // Focus rows read the avoid-step flags: a flagged part tints its row amber
 // (Be careful) or red (Avoid entirely) with a warning triangle; info-level
@@ -1624,11 +1600,8 @@ export function OnboardingScreen({
   initialStage,
   tailoringPreferences = null,
   onBackToEntry,
-  onSkip,
   onCompleteToTraining,
   onFullBleedReviewChange,
-  onCompleteToProgramDetail,
-  onCompleteToCustom,
   onCancel,
 }: OnboardingScreenProps) {
   const { C, styles } = useOnboardingPalette();
@@ -2498,122 +2471,6 @@ export function OnboardingScreen({
       setHelperState('error');
       setHelperError(t(language, 'coachPreview.default.takeaway'));
     }
-  }
-
-  function renderProjectedPreview() {
-    const previewTitle = formatWorkoutDisplayLabel(
-      projectedSessions[0]?.name ?? recommendedProgram?.sessions?.[0]?.name ?? recommendedProgram?.name ?? 'Start here',
-      'Workout',
-    );
-    const previewDuration = recommendedProgram?.estimatedSessionDuration
-      ? `${recommendedProgram.estimatedSessionDuration} min`
-      : null;
-    const topBadges = [locationLabel, goalLabel, levelLabel, `${projectedDaysPerWeek} days`];
-    const extraBadges = [...secondaryOutcomeLabels, ...focusAreaLabels].slice(0, 3);
-
-    return (
-      <SurfaceCard accent="neutral" emphasis="standard" style={styles.previewCard}>
-        <View style={styles.previewHeader}>
-          <View style={styles.previewHeaderCopy}>
-            <Text style={styles.previewKicker}>{t(language, 'onb.preview.startWith')}</Text>
-            <Text style={styles.previewTitle}>{previewTitle}</Text>
-            {previewDuration ? <Text style={styles.previewBody}>Time {previewDuration}</Text> : null}
-          </View>
-          <View style={styles.previewHeaderAside}>
-            <PreviewGlyph dayCount={projectedDaysPerWeek} />
-            {recommendedProgram ? (
-              <BadgePill label={formatWorkoutDisplayLabel(recommendedProgram.name, 'Program')} accent="neutral" />
-            ) : null}
-          </View>
-        </View>
-
-        <View style={styles.previewBadgeRow}>
-          {topBadges.map((label) => (
-            <BadgePill key={label} label={label} accent="neutral" />
-          ))}
-        </View>
-
-        {extraBadges.length ? (
-          <View style={styles.previewSectionBlock}>
-            <View style={styles.previewBadgeRow}>
-              {extraBadges.map((label) => (
-                <BadgePill key={label} label={label} accent="neutral" />
-              ))}
-            </View>
-          </View>
-        ) : null}
-
-        <View style={styles.previewSectionBlock}>
-          <View style={styles.previewBadgeRow}>
-            <BadgePill label={guidanceModeLabel} accent="neutral" />
-            <BadgePill label={scheduleModeLabel} accent="neutral" />
-            <BadgePill label={`~${effectiveWeeklyMinutes} min`} accent="neutral" />
-          </View>
-        </View>
-
-        {stage === 'recommendation' ||
-        selection.scheduleMode !== DEFAULT_FIRST_RUN_SELECTION.scheduleMode ||
-        typeof selection.weeklyMinutes === 'number' ||
-        selection.availableDays.length ? (
-          <View style={styles.previewSectionBlock}>
-            {selection.scheduleMode === 'self_managed' && availableDayLabels.length ? (
-              <View style={styles.previewBadgeRow}>
-                {availableDayLabels.map((label) => (
-                  <BadgePill key={label} label={label} accent="neutral" />
-                ))}
-              </View>
-            ) : null}
-            <Text style={styles.previewSupportText}>{scheduleFitNote}</Text>
-          </View>
-        ) : null}
-
-        {selection.currentWeightKg || selection.targetWeightKg ? (
-          <View style={styles.previewSectionBlock}>
-            <View style={styles.previewBadgeRow}>
-              {selection.currentWeightKg ? (
-                <BadgePill
-                  label={`Current ${formatWeight(selection.currentWeightKg, unitPreference)}`}
-                  accent="neutral"
-                />
-              ) : null}
-              {selection.targetWeightKg ? (
-                <BadgePill
-                  label={`Target ${formatWeight(selection.targetWeightKg, unitPreference)}`}
-                  accent="neutral"
-                />
-              ) : null}
-            </View>
-          </View>
-        ) : null}
-
-        <View style={styles.previewSectionBlock}>
-          <Text style={styles.previewSectionLabel}>{t(language, 'onb.preview.thisWeek')}</Text>
-          <View style={styles.previewRhythmRow}>
-            {projectedRhythm.map((day) => (
-              <View key={day} style={styles.previewDayPill}>
-                <Text style={styles.previewDayText}>{day}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {projectedSessions.length ? (
-          <View style={styles.previewSectionBlock}>
-            <Text style={styles.previewSectionLabel}>{t(language, 'onb.preview.comingUp')}</Text>
-            <View style={styles.previewSessionList}>
-              {projectedSessions.map((session) => (
-                <View key={session.id} style={styles.previewSessionRow}>
-                  <Text style={styles.previewSessionName}>{session.name}</Text>
-                  <Text style={styles.previewSessionBody}>{session.body}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        ) : null}
-
-        {activeRecommendationMismatchNote ? <Text style={styles.previewNote}>{activeRecommendationMismatchNote}</Text> : null}
-      </SurfaceCard>
-    );
   }
 
   function applyEquipmentEnvironment(option: (typeof LOCATION_SELECTION_OPTIONS)[number], items: string[]) {
@@ -3763,315 +3620,6 @@ export function OnboardingScreen({
     });
   }
 
-  function renderRecommendation() {
-    const recommendationPrimaryLabel = 'Open week';
-    const recommendationSecondaryLabel = 'Open plan';
-    const recommendationHeroTitle = formatWorkoutDisplayLabel(
-      projectedSessions[0]?.name ?? recommendedProgram?.sessions?.[0]?.name ?? recommendedProgram?.name ?? 'Start here',
-      'Workout',
-    );
-    const recommendationPlanLabel = recommendedProgram
-      ? formatWorkoutDisplayLabel(recommendedProgram.name, 'Program')
-      : '';
-    const recommendationDurationLabel = recommendedProgram ? `${recommendedProgram.estimatedSessionDuration} min` : '';
-    const recommendationPhoto = getFitnessPhotoVariant({
-      title: recommendationHeroTitle,
-      goal: selection.goal,
-    });
-    const visibleFitBadges = [
-      ...tailoringBadgeLabels.slice(0, 2),
-      ...secondaryOutcomeLabels.slice(0, 1),
-      ...focusAreaLabels.slice(0, 1),
-    ].slice(0, 3);
-    const flowSessions = projectedSessions.slice(0, 3);
-    const recommendationFlowItems = flowSessions.map((session, index) => ({
-      id: session.id,
-      day: projectedRhythm[index] ?? t(language, 'onb.flow.dayFallback', { index: index + 1 }),
-      title: formatWorkoutDisplayLabel(session.name, 'Workout'),
-      label:
-        index === 0
-          ? t(language, 'onb.flow.startHere')
-          : index === flowSessions.length - 1
-            ? t(language, 'onb.flow.finish')
-            : t(language, 'onb.flow.then'),
-    }));
-
-    function renderRecommendationRefinementPanel() {
-      if (activeRecommendationRefinement === 'schedule') {
-        return (
-          <View style={styles.refinementPanel}>
-            <View style={styles.scheduleHeaderRow}>
-              <View style={styles.scheduleHeaderCopy}>
-                <Text style={styles.scheduleTitle}>{t(language, 'onb.schedule.title')}</Text>
-                <Text style={styles.scheduleBody}>{t(language, 'onb.schedule.body')}</Text>
-              </View>
-              <PreviewGlyph dayCount={projectedDaysPerWeek} />
-            </View>
-
-            <View style={styles.scheduleMiniRow}>
-              <View style={styles.scheduleMiniCard}>
-                <Text style={styles.scheduleMiniLabel}>{t(language, 'onb.schedule.currentRhythm')}</Text>
-                <View style={styles.recommendationRhythmRow}>
-                  {projectedRhythm.map((day) => (
-                    <View key={day} style={styles.recommendationDayPill}>
-                      <Text style={styles.recommendationDayText}>{day}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-              <View style={styles.scheduleMiniCard}>
-                <Text style={styles.scheduleMiniLabel}>{t(language, 'onb.schedule.time')}</Text>
-                <Text style={styles.scheduleMiniValue}>~{effectiveWeeklyMinutes} min</Text>
-                <Text style={styles.scheduleMiniMeta}>{scheduleModeLabel}</Text>
-              </View>
-            </View>
-
-            <View style={styles.optionBlock}>
-              <Text style={styles.optionLabel}>{t(language, 'onb.schedule.style')}</Text>
-              <View style={styles.choiceRow}>
-                {SCHEDULE_MODE_OPTIONS.map((option) => (
-                  <ChoiceChip
-                    key={option.mode}
-                    label={t(language, option.titleKey)}
-                    active={scheduleMode === option.mode}
-                    onPress={() => {
-                      setScheduleMode(option.mode);
-                      if (option.mode === 'app_managed') {
-                        setAvailableDays([]);
-                      }
-                    }}
-                  />
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.optionBlock}>
-              <Text style={styles.optionLabel}>{t(language, 'onb.schedule.weeklyTime')}</Text>
-              <View style={styles.choiceRow}>
-                {weeklyMinuteOptions.map((minutes) => (
-                  <ChoiceChip
-                    key={minutes}
-                    label={`${minutes} min`}
-                    active={effectiveWeeklyMinutes === minutes}
-                    onPress={() => setWeeklyMinutes(minutes)}
-                  />
-                ))}
-              </View>
-            </View>
-
-            {scheduleMode === 'self_managed' ? (
-              <View style={styles.optionBlock}>
-                <Text style={styles.optionLabel}>{t(language, 'onb.schedule.whichDays')}</Text>
-                <View style={styles.choiceRow}>
-                  {WEEKDAY_OPTIONS.map((day) => (
-                    <ChoiceChip
-                      key={day}
-                      label={getWeekdayShortLabel(day, language)}
-                      active={availableDays.includes(day)}
-                      onPress={() => toggleAvailableDay(day)}
-                    />
-                  ))}
-                </View>
-              </View>
-            ) : null}
-
-            <Text style={styles.personalizationHint}>{scheduleFitNote}</Text>
-          </View>
-        );
-      }
-
-      if (activeRecommendationRefinement === 'focus') {
-        return (
-          <View style={styles.refinementPanel}>
-            <Text style={styles.personalizationTitle}>{t(language, 'onb.extra.title')}</Text>
-            <Text style={styles.personalizationBody}>{t(language, 'onb.extra.body')}</Text>
-            <View style={styles.personalizationGrid}>
-              {REFINEMENT_FOCUS_AREA_OPTIONS.map((area) => {
-                const active = focusAreas.includes(area);
-                return (
-                  <Pressable
-                    key={area}
-                    onPress={() => {
-                      void haptics.select();
-                      toggleFocusArea(area);
-                    }}
-                    style={[
-                      styles.personalizationOption,
-                      active && styles.personalizationOptionActive,
-                    ]}
-                  >
-                    <Text style={[styles.personalizationOptionTitle, active && styles.personalizationOptionTitleActive]}>
-                      {getFocusAreaTitle(area, language)}
-                    </Text>
-                    <Text style={styles.personalizationOptionBody}>{getFocusAreaDescription(area)}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            <Text style={styles.personalizationHint}>
-              {focusAreaSummary
-                ? `Now: ${focusAreaSummary}`
-                : 'Leave empty for default.'}
-            </Text>
-          </View>
-        );
-      }
-
-      if (activeRecommendationRefinement === 'custom') {
-        return (
-          <View style={styles.refinementPanel}>
-            <Text style={styles.buildOwnKicker}>{t(language, 'onb.custom.kicker')}</Text>
-            {/* These four shipped hardcoded in English on the last onboarding
-                step of a Finnish app. */}
-            <Text style={styles.buildOwnTitle}>
-              {t(language, guidanceMode === 'self_directed' ? 'onb.custom.baseTitle' : 'onb.custom.ownTitle')}
-            </Text>
-            <Text style={styles.buildOwnBody}>
-              {t(language, guidanceMode === 'self_directed' ? 'onb.custom.baseBody' : 'onb.custom.ownBody')}
-            </Text>
-            <Pressable
-              onPress={() =>
-                runAction(() =>
-                  onCompleteToCustom(
-                    selection,
-                    activeRecommendedProgramId,
-                    buildFirstRunCustomProgramName(selection, language),
-                  ),
-                )
-              }
-              style={styles.secondaryButton}
-            >
-              <Text style={styles.secondaryButtonText}>{t(language, 'onb.custom.cta')}</Text>
-            </Pressable>
-          </View>
-        );
-      }
-
-      if (activeRecommendationRefinement === 'ai') {
-        return (
-          <View style={styles.refinementPanel}>
-            <Text style={styles.personalizationTitle}>{t(language, 'onb.ai.ask')}</Text>
-            <Text style={styles.personalizationBody}>{t(language, 'onb.ai.askBody')}</Text>
-            <Pressable
-              onPress={() => openHelper(helperSuggestions[1] ?? helperSuggestions[0] ?? helperPrompt)}
-              style={styles.secondaryButton}
-            >
-              <Text style={styles.secondaryButtonText}>{t(language, 'onb.ai.open')}</Text>
-            </Pressable>
-          </View>
-        );
-      }
-
-      return null;
-    }
-
-    return (
-      <View style={styles.stageBody}>
-        <View style={styles.heroBlock}>
-          <Text style={styles.kicker}>{editMode ? 'Setup' : 'Ready'}</Text>
-          <Text style={styles.title}>{t(language, 'onb.startWeek.title')}</Text>
-          <Text style={styles.body}>{t(language, 'onb.startWeek.body')}</Text>
-        </View>
-
-        {recommendedProgram ? (
-          <View style={styles.recommendationCard}>
-            <FitnessPhotoSurface variant={recommendationPhoto} style={styles.recommendationHeroSurface}>
-              <View style={styles.recommendationHeroContent}>
-                <View style={styles.recommendationBadgeCluster}>
-                  <BadgePill label={levelLabel} accent="neutral" />
-                  <BadgePill label={`${recommendedProgram.daysPerWeek} days`} accent="neutral" />
-                </View>
-
-                <View style={styles.recommendationHeroCopy}>
-                  {recommendationPlanLabel ? <Text style={styles.recommendationHeroEyebrow}>{recommendationPlanLabel}</Text> : null}
-                  <Text style={styles.recommendationHeroTitle}>{recommendationHeroTitle}</Text>
-                  {recommendationDurationLabel ? <Text style={styles.recommendationHeroMeta}>Time {recommendationDurationLabel}</Text> : null}
-                </View>
-              </View>
-            </FitnessPhotoSurface>
-
-            <View style={styles.recommendationActions}>
-              <Pressable
-                onPress={() => runAction(() => onCompleteToTraining(selection, activeRecommendedProgramId))}
-                style={styles.primaryButton}
-              >
-                <Text style={styles.primaryButtonText}>{recommendationPrimaryLabel}</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => runAction(() => onCompleteToProgramDetail(selection, activeRecommendedProgramId))}
-                style={styles.recommendationSecondaryButton}
-              >
-                <Text style={styles.recommendationSecondaryButtonText}>{recommendationSecondaryLabel}</Text>
-              </Pressable>
-            </View>
-
-            <View style={styles.recommendationTokenRow}>
-              {visibleFitBadges.map((label) => (
-                <BadgePill key={label} label={label} accent="neutral" />
-              ))}
-              <BadgePill label={`${effectiveWeeklyMinutes} min`} accent="neutral" />
-            </View>
-
-            {recommendationFlowItems.length ? (
-              <View style={styles.recommendationFlowBlock}>
-                <Text style={styles.recommendationSectionLabel}>{t(language, 'onb.preview.comingUp')}</Text>
-                <View style={styles.recommendationSessionGrid}>
-                  {recommendationFlowItems.map((session, index) => (
-                    <React.Fragment key={session.id}>
-                      <View style={styles.recommendationSessionCard}>
-                        <View style={styles.recommendationSessionTopRow}>
-                          <View style={styles.recommendationSessionDayPill}>
-                            <Text style={styles.recommendationSessionDayText}>{session.day}</Text>
-                          </View>
-                          <Text style={styles.recommendationSessionLabel}>{session.label}</Text>
-                        </View>
-                        <Text style={styles.recommendationSessionTitle}>{session.title}</Text>
-                      </View>
-                      {index < recommendationFlowItems.length - 1 ? <Text style={styles.recommendationFlowConnector}>v</Text> : null}
-                    </React.Fragment>
-                  ))}
-                </View>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-
-        <SurfaceCard accent="neutral" emphasis="flat" style={styles.personalizationCard}>
-          <Text style={styles.personalizationKicker}>{t(language, 'onb.tune.kicker')}</Text>
-          <Text style={styles.personalizationTitle}>{t(language, 'onb.tune.title')}</Text>
-          <Text style={styles.personalizationBody}>{t(language, 'onb.tune.body')}</Text>
-          <View style={styles.choiceRow}>
-            <ChoiceChip
-              label={t(language, 'planSet.week')}
-              active={activeRecommendationRefinement === 'schedule'}
-              onPress={() => toggleRecommendationRefinement('schedule')}
-            />
-            <ChoiceChip
-              label={t(language, 'onb.focusLabel')}
-              active={activeRecommendationRefinement === 'focus'}
-              onPress={() => toggleRecommendationRefinement('focus')}
-            />
-            <ChoiceChip
-              label={t(language, 'setup.guidance.own')}
-              active={activeRecommendationRefinement === 'custom'}
-              onPress={() => toggleRecommendationRefinement('custom')}
-            />
-            <ChoiceChip
-              label={t(language, 'brand.coach')}
-              active={activeRecommendationRefinement === 'ai'}
-              onPress={() => toggleRecommendationRefinement('ai')}
-            />
-          </View>
-          {activeRecommendationRefinement ? renderRecommendationRefinementPanel() : null}
-        </SurfaceCard>
-
-        <Pressable onPress={() => setStageIndex((current) => Math.max(0, current - 1))} style={styles.recommendationBackButton}>
-          <Text style={styles.secondaryText}>{t(language, 'onb.backToSetup')}</Text>
-        </Pressable>
-      </View>
-    );
-  }
-
   function renderBuildingPlan() {
     const activePhaseIndex = Math.min(buildingPlanPhaseIndex, buildingPlanPhases.length - 1);
 
@@ -4273,7 +3821,7 @@ export function OnboardingScreen({
       if (editMode) {
         void runAction(() => onCancel?.());
       } else {
-        void runAction(onBackToEntry ?? onSkip);
+        void runAction(() => onBackToEntry?.());
       }
       return;
     }

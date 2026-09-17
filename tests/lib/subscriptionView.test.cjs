@@ -12,6 +12,9 @@ const {
 const NONE = { unlocked: false, source: null, promoUntil: null };
 const PREVIEW = { unlocked: true, source: 'preview', promoUntil: null };
 const promo = (until) => ({ unlocked: true, source: 'promo', promoUntil: until });
+// resolveProEntitlement carries the trial's end in promoUntil, as it does a promo's.
+const trial = (until) => ({ unlocked: true, source: 'trial', promoUntil: until, purchaseEndsAt: null });
+const PURCHASE = { unlocked: true, source: 'purchase', promoUntil: null, purchaseEndsAt: null };
 
 const base = { mockTerm: 'yearly', mockCancelled: false };
 
@@ -60,11 +63,70 @@ module.exports = [
         ...base,
         entitlement: promo('2026-09-15T00:00:00.000Z'),
       });
-      assert.equal(view.promoBacked, true);
+      assert.equal(view.grant, 'promo');
       assert.equal(view.term, null);
       assert.equal(view.nextChargeAt, null);
       // ...and the gate refuses the billing rows even in a demo build.
       assert.equal(showsMockBilling(view, true), false);
+    },
+  },
+  {
+    name: 'subscription: the free trial is its own state — it ends on its date and nothing is charged',
+    run() {
+      // The trial fell through to the purchase branch: "Yearly · active", a
+      // next payment of 79,90 €, a Visa and a member-since date, for a reader
+      // who had started fourteen free days (audit 2026-09-16). It is a dated
+      // grant, like a promo, and the screen says exactly that.
+      const until = '2026-09-30T08:00:00.000Z';
+      const view = resolveSubscriptionView({
+        entitlement: trial(until),
+        mockTerm: 'monthly',
+        mockCancelled: false,
+        now: new Date('2026-09-17T08:00:00.000Z'),
+      });
+      assert.equal(view.state, 'active');
+      assert.equal(view.grant, 'trial');
+      assert.equal(view.term, null, 'a trial is on no billing term');
+      assert.equal(view.cancelled, false);
+      assert.equal(view.endsAt, until, 'it ends when the trial ends');
+      assert.equal(view.nextChargeAt, null, 'and nothing is charged');
+      // No card, no receipts, no term switcher — even in a demo build.
+      assert.equal(showsMockBilling(view, true), false);
+      assert.equal(showsMockBilling(view, false), false);
+
+      // The real entitlement gives the trial exactly this shape, so the two
+      // cannot drift: the view reads the trial's date from promoUntil.
+      const { resolveProEntitlement } = require('../../.test-dist/lib/proEntitlement.js');
+      const entitlement = resolveProEntitlement(
+        {
+          promoProUntil: null,
+          proTrialUntil: until,
+          mockSubscriptionPurchasedAt: null,
+          mockSubscriptionTerm: 'yearly',
+          mockSubscriptionCancelledAt: null,
+        },
+        new Date('2026-09-17T08:00:00.000Z'),
+      );
+      const fromReal = resolveSubscriptionView({ entitlement, mockTerm: 'yearly', mockCancelled: false });
+      assert.equal(fromReal.grant, 'trial');
+      assert.equal(fromReal.endsAt, until);
+      assert.equal(fromReal.term, null);
+    },
+  },
+  {
+    name: 'subscription: only a purchase may show billing, and only in a demo build',
+    run() {
+      const cases = [
+        ['none', resolveSubscriptionView({ ...base, entitlement: NONE }), false],
+        ['lapsed', resolveSubscriptionView({ ...base, entitlement: NONE, lapsedPromoUntil: '2026-07-15T00:00:00.000Z' }), false],
+        ['promo', resolveSubscriptionView({ ...base, entitlement: promo('2026-12-01T00:00:00.000Z') }), false],
+        ['trial', resolveSubscriptionView({ ...base, entitlement: trial('2026-12-01T00:00:00.000Z') }), false],
+        ['purchase', resolveSubscriptionView({ ...base, entitlement: PURCHASE }), true],
+      ];
+      for (const [label, view, demo] of cases) {
+        assert.equal(showsMockBilling(view, true), demo, `${label} in a demo build`);
+        assert.equal(showsMockBilling(view, false), false, `${label} in a release build`);
+      }
     },
   },
   {

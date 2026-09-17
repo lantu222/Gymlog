@@ -24,7 +24,9 @@ module.exports = [
         /createSeedDatabase\(\)/,
         'storage/database.ts must not build the demo seed — a new install would show invented history',
       );
-      assert.match(databaseCode, /const empty = normalizeDatabase\(createEmptyDatabase\(\)\)/);
+      // The reset's blank database is the empty one too, in the phone's
+      // language (tests/storage/resetKeepsInstall runs it).
+      assert.match(databaseCode, /const blank = createEmptyDatabase\(resolveDeviceLanguage\(\)\);/);
     },
   },
   {

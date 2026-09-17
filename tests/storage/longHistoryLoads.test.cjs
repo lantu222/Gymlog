@@ -211,7 +211,7 @@ module.exports = [
         activeCardio: null,
       });
 
-      await database.resetDatabase();
+      await database.resetDatabase(empty.preferences);
       await workout.clearWorkoutBundle();
 
       const leftovers = [...fake.rows.keys()].filter((key) => key.includes('#'));

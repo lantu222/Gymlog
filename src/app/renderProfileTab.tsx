@@ -17,6 +17,7 @@ import { randomLogId } from '../lib/aiCoachLogId';
 import { localizeSessionFocus } from '../lib/sessionNameLabel';
 import { MOCK_BILLING, currentPeriodEndAt, nextChargeAt } from '../lib/subscriptionView';
 import { AppRoute, ROOT_ROUTES } from '../navigation/routes';
+import { resolveDeviceLanguage } from '../storage/deviceLocale';
 import {
   getNotificationPermissionGranted,
   requestNotificationPermission,
@@ -106,6 +107,8 @@ export interface ProfileTabDeps {
   setSettingsImportVisible: (visible: boolean) => void;
   setRatingSheetVisible: (visible: boolean) => void;
   resetAllData: () => Promise<void>;
+  /** Asks the server to delete these coach-log labels; resolves with the ones it could not confirm. */
+  deletePendingAiLogs: (logIds: readonly string[]) => Promise<string[]>;
   setCompletionSummary: (value: CompletionSummaryState | null) => void;
   setWorkoutCelebration: (value: WorkoutCelebrationState | null) => void;
   setFinishSaveState: (value: {
@@ -158,6 +161,7 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
     setSettingsImportVisible,
     setRatingSheetVisible,
     resetAllData,
+    deletePendingAiLogs,
     setCompletionSummary,
     setWorkoutCelebration,
     setFinishSaveState,
@@ -223,7 +227,7 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
             // that needs a permission has to ask for it. Declining costs the
             // reminder, not the trial.
             void requestNotificationPermission();
-            navigate({ tab: 'profile', screen: 'premium_unlock', plan });
+            navigate({ tab: 'profile', screen: 'premium_unlock', plan, trialUntil });
             return;
           }
           // The invented purchase belongs to the demo build alone. Reachable
@@ -260,14 +264,25 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
         onSeeEverything={() => navigate({ tab: 'profile', screen: 'premium' })}
         // The badge names the moment only when there is a record of it. A
         // promo went live when it was redeemed, not now — with no instant to
-        // show, the badge says "live" and leaves the time out.
-        liveSince={preferences.mockSubscriptionPurchasedAt ?? null}
+        // show, the badge says "live" and leaves the time out. A trial is not
+        // a purchase, so an older purchase record says nothing about it.
+        liveSince={route.trialUntil ? null : preferences.mockSubscriptionPurchasedAt ?? null}
         // Counted here, from the instant the purchase was recorded plus the
         // term's own length. One function, shared with the subscription screen.
-        renewsAt={nextChargeAt(
-          route.plan ?? preferences.mockSubscriptionTerm,
-          preferences.mockSubscriptionPurchasedAt ?? MOCK_BILLING.lastChargedAt,
-        )}
+        //
+        // Not for a trial: it renews into nothing. With no purchase record the
+        // count ran from the mock charge date, so a monthly trial started today
+        // read "renews 15.9.2026 at 9,90 €" — a charge nobody agreed to, on a
+        // day already gone. The trial's receipt names the day it ends instead.
+        renewsAt={
+          route.trialUntil
+            ? null
+            : nextChargeAt(
+                route.plan ?? preferences.mockSubscriptionTerm,
+                preferences.mockSubscriptionPurchasedAt ?? MOCK_BILLING.lastChargedAt,
+              )
+        }
+        trialEndsAt={route.trialUntil ?? null}
         // "Takaisin treeniin" goes to Home, not back to the tab the purchase
         // happened to start from. The route lives under `profile` because the
         // paywall does, but the button names a destination and the reader takes
@@ -629,6 +644,13 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
           }
         }}
         onResetAllData={async () => {
+          // The coach's kept copies are part of "all data". The reset files
+          // their label as a delete still owed in the same write that clears
+          // it (resetDatabase), so the delete is asked for after the wipe —
+          // the local part never waits on the network, and a delete that
+          // fails is retried on the next start or foreground until the server
+          // confirms it.
+          const logId = preferences.aiLogId;
           // Sign out BEFORE wiping: reset while signed in would let the
           // auto-backup push the freshly emptied database over the cloud
           // copy — the reset would silently destroy the one safety net it
@@ -641,6 +663,18 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
           setFinishSaveState({ status: 'idle', sessionId: null, message: null });
           await workout.resetWorkoutData();
           resetToRoute(ROOT_ROUTES.home);
+          if (logId) {
+            // Empty in a build without the live coach: it sends nothing, and
+            // there is nothing to say. Otherwise the reader hears once, here,
+            // that part of the request is still under way; the retries after
+            // this are quiet, because the label never comes back to a reset.
+            const notYet = await deletePendingAiLogs([logId]);
+            if (notYet.includes(logId)) {
+              // In the language the app has just come back in — the phone's,
+              // as resetDatabase chose it — not the one this closure remembers.
+              showToast(t(resolveDeviceLanguage(), 'toast.resetCoachCopiesPending'));
+            }
+          }
         }}
       />
     );

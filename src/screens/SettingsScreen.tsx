@@ -84,8 +84,15 @@ function getInitials(name: string | null) {
   return (first + second).toUpperCase();
 }
 
-/* Prototype icon set (psuite-shared.jsx `Ic`): 24x24 strokes, 20px in the tile. */
-const IC_PATHS: Record<string, string> = {
+/*
+ * Prototype icon set (psuite-shared.jsx `Ic`): 24x24 strokes, 20px in the tile.
+ *
+ * Keyed by name, and the name is a type. This was a Record<string, string>
+ * read with `?? ''`, so a row asking for an icon the set never had — the three
+ * coach-log rows asked for brain, file and eye — compiled, rendered an empty
+ * tile, and nothing said so.
+ */
+const IC_PATHS = {
   gift: 'M4 11h16v9H4zM4 8h16v3H4zM12 8v12M12 8S9 3 6.5 5 8 8 12 8zM12 8s3-5 5.5-3S16 8 12 8',
   moon: 'M20 14a8 8 0 01-10-10 8 8 0 1010 10z',
   bell: 'M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6M10 20a2 2 0 004 0',
@@ -101,6 +108,7 @@ const IC_PATHS: Record<string, string> = {
   download: 'M12 4v12M7 11l5 5 5-5M4 20h16',
   shield: 'M12 3l8 3v6c0 4.5-3.4 7.5-8 9-4.6-1.5-8-4.5-8-9V6z',
   doc: 'M7 3h7l4 4v14H7zM14 3v4h4',
+  image: 'M4 5h16v14H4zM4 16l5-5 4 4 2-2 5 5M15 9.5h.01',
   analytics: 'M4 20V4M4 20h16M8 16l3-4 3 2 4-6',
   sun: 'M12 17a5 5 0 100-10 5 5 0 000 10zM12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19',
   trash: 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13',
@@ -108,16 +116,18 @@ const IC_PATHS: Record<string, string> = {
   back: 'M15 5l-7 7 7 7',
   chevron: 'M9 6l6 6-6 6',
   star: 'm12 3.5 2.6 5.27 5.82.85-4.21 4.1.99 5.79L12 16.77l-5.2 2.74.99-5.79-4.21-4.1 5.82-.85z',
-};
+} satisfies Record<string, string>;
 
-function Ic({ n, c, s = 20, sw = 2 }: { n: string; c?: string; s?: number; sw?: number }) {
+type IcName = keyof typeof IC_PATHS;
+
+function Ic({ n, c, s = 20, sw = 2 }: { n: IcName; c?: string; s?: number; sw?: number }) {
   // A parameter default cannot reach a hook; resolve it in the body.
   const theme = useTheme();
   const stroke = c ?? theme.purpleDark;
 
   return (
     <Svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-      <Path d={IC_PATHS[n] ?? ''} stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d={IC_PATHS[n]} stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -181,7 +191,7 @@ function Row({
   disabled = false,
   onPress,
 }: {
-  icon: string;
+  icon: IcName;
   iconColor?: string;
   title: string;
   sub?: string;
@@ -515,7 +525,7 @@ export function SettingsScreen({
             {onWithdrawCoachLog ? (
               <>
                 <Row
-                  icon="brain"
+                  icon="chat"
                   title={t(language, 'settings.coachLog.chat')}
                   sub={t(language, 'settings.coachLog.sub')}
                   control={
@@ -527,7 +537,7 @@ export function SettingsScreen({
                   }
                 />
                 <Row
-                  icon="file"
+                  icon="doc"
                   title={t(language, 'settings.coachLog.composer')}
                   control={
                     <ToggleSwitch
@@ -538,7 +548,7 @@ export function SettingsScreen({
                   }
                 />
                 <Row
-                  icon="eye"
+                  icon="image"
                   title={t(language, 'settings.coachLog.photo')}
                   control={
                     <ToggleSwitch

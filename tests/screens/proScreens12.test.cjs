@@ -39,7 +39,8 @@ module.exports = [
       // The spelled count is capitalised, so it must open its own sentence.
       assert.match(i18n, /'unlock\.headline': 'Kiitos\. \{count\} rajaa poistui, ja Pro on päällä\.'/);
       // No purchase record, no invented time: the badge drops to a bare "live".
-      assert.match(tab, /liveSince=\{preferences\.mockSubscriptionPurchasedAt \?\? null\}/);
+      // A trial is not a purchase, so it never borrows one's instant.
+      assert.match(tab, /liveSince=\{route\.trialUntil \? null : preferences\.mockSubscriptionPurchasedAt \?\? null\}/);
       assert.doesNotMatch(tab, /liveSince=\{[^}]*new Date\(\)/);
       for (const key of ['unlock.state.liveSince', 'unlock.headline']) {
         assert.equal(i18n.split(`'${key}': '`).length - 1, 2, `${key} in EN and FI`);
