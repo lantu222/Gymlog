@@ -141,7 +141,12 @@ interface AICoachChatScreenProps {
   onCoachSuggestionResolved: (kind: CoachSuggestionKind, accepted: boolean) => void;
   /** Whether the morning weigh-in nudge is already on, so it is never offered twice. */
   weighInReminderEnabled: boolean;
-  onEnableWeighInReminder: () => void;
+  /**
+   * Turns the nudge on, permission first. Resolves 'on' once the write has
+   * landed, 'blocked' when the phone refuses notifications (nothing stored),
+   * and rejects when the write fails.
+   */
+  onEnableWeighInReminder: () => Promise<'on' | 'blocked'>;
   /** Opens the measures page on one measurement, so a question can be answered with a tap. */
   onOpenMeasure: (kind: string) => void;
   /**
@@ -650,12 +655,24 @@ export function AICoachChatScreen({
         return;
       }
       if (offer.type === 'weighIn') {
-        onEnableWeighInReminder();
+        // The confirmation follows the write, never the tap: "Morning weigh-in
+        // is on" used to be said before anything had been saved, over a
+        // switch the planner then ignored.
+        let outcome: 'on' | 'blocked' | 'failed';
+        try {
+          outcome = await onEnableWeighInReminder();
+        } catch {
+          outcome = 'failed';
+        }
+        const reply =
+          outcome === 'on'
+            ? t(language, 'coachChat.weighIn.done')
+            : outcome === 'blocked'
+              ? t(language, 'coachChat.weighIn.blocked')
+              : t(language, 'coachChat.weighIn.failed');
         setMessages((current) =>
           current.map((message) =>
-            message.id === messageId
-              ? { id: `${messageId}:done`, fromCoach: true, text: t(language, 'coachChat.weighIn.done') }
-              : message,
+            message.id === messageId ? { id: `${messageId}:${outcome}`, fromCoach: true, text: reply } : message,
           ),
         );
         return;

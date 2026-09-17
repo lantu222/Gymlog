@@ -120,10 +120,12 @@ module.exports = [
       const unlock = stripComments(read('src', 'screens', 'PremiumUnlockScreen.tsx'));
 
       // The trial press carries its end date on the route, so the first frame
-      // knows — the preferences write is still on its way.
+      // knows — the preferences write is still on its way. The permission ask
+      // for the trial's warning sits between the two now, so the window is
+      // wide enough to hold it and no wider.
       assert.match(
         tab,
-        /if \(trialUntil\) \{[\s\S]{0,300}navigate\(\{ tab: 'profile', screen: 'premium_unlock', plan, trialUntil \}\);/,
+        /if \(trialUntil\) \{[\s\S]{0,900}navigate\(\{ tab: 'profile', screen: 'premium_unlock', plan, trialUntil \}\);/,
       );
       assert.match(tab, /renewsAt=\{\s*route\.trialUntil\s*\?\s*null\s*:\s*nextChargeAt\(/);
       assert.match(tab, /trialEndsAt=\{route\.trialUntil \?\? null\}/);

@@ -607,9 +607,10 @@ module.exports = [
       const hook = fs
         .readFileSync(path.join(__dirname, '../../src/hooks/useScheduledNotifications.ts'), 'utf8');
       // The reader's cycle first, then the days their own plan names, and
-      // only then what setup said they had free. Availability is not a plan.
-      assert.match(hook, /const cycle = database\.preferences\.trainingCycle;\s*if \(cycle\) \{\s*return cycleSchedule\(cycle\.pattern, cycle\.anchorDayStart\);/);
-      assert.match(hook, /const named = planWeekdayIndexes\(activePlan\?\.entries \?\? \[\]\);/);
+      // only then what setup said they had free — the order itself is tested
+      // in tests/lib/reminderSchedule.test.cjs, against the function the hook
+      // and the settings screens share.
+      assert.match(hook, /return resolveReminderSchedule\(\{\s*trainingCycle: database\.preferences\.trainingCycle,\s*planEntries: activePlan\?\.entries \?\? \[\],\s*availableDays: setupAvailableDays,\s*\}\);/);
       assert.match(hook, /schedule,/);
       assert.doesNotMatch(hook, /trainingDays: setupAvailableDays/);
     },

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { RestAlertAskOutcome } from '../lib/restAlertAnswer';
+import { canScheduleExactAlarms, openExactAlarmSettings } from '../utils/exactAlarm';
 import {
   RestAlertPermission,
   getRestAlertPermission,
@@ -73,6 +74,14 @@ export function useRestAlertPermissionMoment(input: {
     onAnswered?.(next === 'granted' ? 'granted' : 'denied');
     if (next === 'granted') {
       onGranted?.();
+      // The sheet promised a ring when rest ends, and from Android 14 an
+      // allowed notification is still an inexact alarm until the reader also
+      // allows exact ones — minutes late, on a rest of ninety seconds. The
+      // reader has just said yes to exactly that, so the one page that
+      // finishes the job opens now rather than being left for them to find.
+      if ((await canScheduleExactAlarms()) === false) {
+        void openExactAlarmSettings();
+      }
     }
   };
 

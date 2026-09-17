@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { AppState, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
@@ -29,8 +29,14 @@ import { AppLanguage, NotificationLevel, NotificationPrefs, SetupWeekday } from 
 interface NotificationsScreenProps {
   prefs: NotificationPrefs;
   language?: AppLanguage;
-  /** Days picked in setup. Empty = reminders have no days to fire on. */
-  trainingDays?: SetupWeekday[];
+  /**
+   * Whether the reminders have days to fire on — read from the schedule the
+   * reminders themselves follow (resolveReminderSchedule), not from the days
+   * picked in setup. Those are only the last of three sources, and a reader
+   * on a cycle, or whose plan names its weekdays, was told "No training days
+   * picked yet" while the reminders fired.
+   */
+  scheduleKnown?: boolean;
   onTrainingBreak?: boolean;
   onBack: () => void;
   onChange: (patch: Partial<NotificationPrefs>) => void;
@@ -38,6 +44,16 @@ interface NotificationsScreenProps {
   requestPermission?: () => Promise<boolean>;
   /** Reads the current OS permission without prompting. */
   checkPermission?: () => Promise<boolean>;
+  /**
+   * Gets the workout alerts permission: the system dialog while Android can
+   * still show it, the app's system settings once it cannot. Resolves with
+   * whether notifications are allowed now.
+   */
+  allowWorkoutAlerts?: () => Promise<boolean>;
+  /** Whether Android lets a rest alert ring on the second; null = cannot tell. */
+  checkExactAlarms?: () => Promise<boolean | null>;
+  /** Opens the system page that allows exact alarms for the app. */
+  onAllowExactAlarms?: () => void;
   onOpenTrainingPlan?: () => void;
 }
 
@@ -73,32 +89,46 @@ const WEEKDAY_NAME_KEYS: Record<SetupWeekday, I18nKey> = {
 const MEASURE_TIME = `${String(WEIGH_IN_HOUR).padStart(2, '0')}:${String(WEIGH_IN_MINUTE).padStart(2, '0')}`;
 
 /**
- * Notification settings (spec screen 4, restructured 2026-09-03). The master
- * defaults to off, and everything below it dims and locks while it stays off.
+ * Notification settings (spec screen 4, restructured 2026-09-03 and again
+ * 2026-09-17). Two kinds of notification, two kinds of switch.
  *
- * The master is the OS permission, not a wish: turning it on asks Android for
- * permission and only stores "on" if we got it. If the user later revokes it in
- * system settings, the mount check flips this back off rather than letting the
- * screen claim notifications are running when nothing can be delivered.
+ * The workout alerts come first and answer to their own group switch: they
+ * fire only while a session is open, ship on, and need nothing but the OS
+ * permission (user decision 2026-09-17). They used to sit under the master
+ * like everything else, and since the master ships off, the end-of-rest alert
+ * was silent on most phones. When the OS is what keeps them quiet, the card
+ * says so and offers the way to allow them.
  *
- * Below it, ten switches in two flat lists became three groups (design "Vinha
- * — Settings, Notifications & My data"): each says what it sends, carries one
- * switch, and keeps every original switch one tap in behind Details. Nothing
- * about what gets scheduled changed — see src/lib/notificationGroups.ts.
+ * The master governs the scheduled notifications — reminders, recaps, the
+ * trial warning — defaults to off, and everything below it dims and locks
+ * while it stays off. It is the OS permission, not a wish: turning it on asks
+ * Android for permission and only stores "on" if we got it. If the user later
+ * revokes it in system settings, the mount check flips this back off rather
+ * than letting the screen claim notifications are running when nothing can
+ * be delivered.
+ *
+ * The switches are grouped (design "Vinha — Settings, Notifications & My
+ * data"): each group says what it sends, carries one switch, and keeps every
+ * original switch one tap in behind Details — see src/lib/notificationGroups.ts.
  */
 export function NotificationsScreen({
   prefs,
   language = 'en',
-  trainingDays = [],
+  scheduleKnown = false,
   onTrainingBreak = false,
   onBack,
   onChange,
   requestPermission,
   checkPermission,
+  allowWorkoutAlerts,
+  checkExactAlarms,
+  onAllowExactAlarms,
   onOpenTrainingPlan,
 }: NotificationsScreenProps) {
-  // A training break silences everything until it ends, so the switches show
-  // exactly that instead of staying lit under a note (user, 2026-08-22).
+  // A training break silences the scheduled notifications until it ends, so
+  // their switches show exactly that instead of staying lit under a note
+  // (user, 2026-08-22). The workout alerts are not among them: a reader who
+  // opens a session during a break is training, and wants its alerts.
   const effectiveEnabled = prefs.pushEnabled && !onTrainingBreak;
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -134,6 +164,27 @@ export function NotificationsScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /**
+   * What the OS lets the workout alerts do: null until it has answered. Read
+   * again whenever the app comes back to the front, because the way to fix
+   * either answer is a trip to system settings.
+   */
+  const [osAllowed, setOsAllowed] = useState<boolean | null>(null);
+  const [exactAllowed, setExactAllowed] = useState<boolean | null>(null);
+  const readWorkoutAccess = useCallback(() => {
+    void checkPermission?.().then(setOsAllowed);
+    void checkExactAlarms?.().then(setExactAllowed);
+  }, [checkPermission, checkExactAlarms]);
+  useEffect(() => {
+    readWorkoutAccess();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        readWorkoutAccess();
+      }
+    });
+    return () => subscription.remove();
+  }, [readWorkoutAccess]);
+
   const handleMasterChange = (next: boolean) => {
     if (!next) {
       setSystemBlocked(false);
@@ -146,6 +197,8 @@ export function NotificationsScreen({
     }
     void requestPermission().then((granted) => {
       setSystemBlocked(!granted);
+      // One permission for both kinds: the workout card's answer changed too.
+      setOsAllowed(granted);
       onChange({ pushEnabled: granted });
     });
   };
@@ -179,7 +232,7 @@ export function NotificationsScreen({
     onChange(item.patch(next));
   };
 
-  const remindersWithoutDays = prefs.sessionReminders && trainingDays.length === 0;
+  const remindersWithoutDays = prefs.sessionReminders && !scheduleKnown;
   const measureKind = prefs.measurementReminderKind;
   const levelSub = LEVELS.find((level) => level.key === prefs.level)?.subKey ?? 'notif.level.normalSub';
 
@@ -299,11 +352,59 @@ export function NotificationsScreen({
     return null;
   };
 
+  /**
+   * What stands between a lit workout card and an alert that rings: the OS
+   * permission first, then — for the end-of-rest alert — Android's exact-alarm
+   * grant, without which the alert may arrive minutes after the rest ended.
+   * Nothing is shown while either answer is still unknown.
+   */
+  const renderWorkoutAccess = () => {
+    if (osAllowed === false && allowWorkoutAlerts) {
+      return (
+        <View style={[styles.detailRow, styles.accessRow]}>
+          <View style={styles.rowCopy}>
+            <Text style={styles.detailTitle}>{t(language, 'notif.workout.blockedTitle')}</Text>
+            <Text style={styles.detailSub}>{t(language, 'notif.workout.blockedBody')}</Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => void allowWorkoutAlerts().then(setOsAllowed)}
+            hitSlop={8}
+            style={({ pressed }) => pressed && { opacity: 0.65 }}
+          >
+            <Text style={styles.rowAction}>{t(language, 'notif.workout.allow')}</Text>
+          </Pressable>
+        </View>
+      );
+    }
+    if (osAllowed === true && prefs.restAlerts && exactAllowed === false && onAllowExactAlarms) {
+      return (
+        <View style={[styles.detailRow, styles.accessRow]}>
+          <View style={styles.rowCopy}>
+            <Text style={styles.detailTitle}>{t(language, 'notif.exact.title')}</Text>
+            <Text style={styles.detailSub}>{t(language, 'notif.exact.body')}</Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onAllowExactAlarms}
+            hitSlop={8}
+            style={({ pressed }) => pressed && { opacity: 0.65 }}
+          >
+            <Text style={styles.rowAction}>{t(language, 'notif.workout.allow')}</Text>
+          </Pressable>
+        </View>
+      );
+    }
+    return null;
+  };
+
   const renderGroup = (group: NotificationGroup) => {
     const reading = readNotificationGroup(group, prefs);
-    // A break silences the lot, so the card reads off while it lasts — the
-    // same rule the individual switches follow.
-    const groupOn = effectiveEnabled && reading.isOn;
+    // The master and a break govern the scheduled groups only; the workout
+    // group is its own switch. A card the master governs reads off while the
+    // master or a break keeps it quiet — the rule its switches follow.
+    const governed = group.scheduled ? effectiveEnabled : true;
+    const groupOn = governed && reading.isOn;
     const open = openGroup === group.key;
     const summary = groupOn
       ? notificationGroupSummary(group, prefs, language, t)
@@ -381,7 +482,7 @@ export function NotificationsScreen({
                   </View>
                   <ToggleSwitch
                     label={t(language, item.titleKey)}
-                    value={effectiveEnabled && item.isOn(prefs)}
+                    value={governed && item.isOn(prefs)}
                     onChange={(next) => handleSwitchToggle(group, item, next)}
                   />
                 </View>
@@ -390,9 +491,14 @@ export function NotificationsScreen({
             ))}
           </View>
         ) : null}
+
+        {!group.scheduled && groupOn ? renderWorkoutAccess() : null}
       </View>
     );
   };
+
+  const workoutGroups = NOTIFICATION_GROUPS.filter((group) => !group.scheduled);
+  const scheduledGroups = NOTIFICATION_GROUPS.filter((group) => group.scheduled);
 
   return (
     <View style={styles.screen}>
@@ -411,7 +517,13 @@ export function NotificationsScreen({
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
-        {/* master */}
+        {/* The workout alerts: their own switch, outside the master's reach. */}
+        <View style={styles.firstSection}>
+          <SectionLabel label={t(language, 'notif.section.workout')} />
+          {workoutGroups.map(renderGroup)}
+        </View>
+
+        {/* master — the scheduled notifications */}
         <View style={[styles.card, styles.masterCard, prefs.pushEnabled && styles.masterCardOn]}>
           <View style={styles.masterCopy}>
             <Text style={styles.masterTitle}>{t(language, 'notif.push')}</Text>
@@ -432,14 +544,13 @@ export function NotificationsScreen({
           <Text style={styles.note}>{t(language, 'notif.breakNote')}</Text>
         ) : null}
 
-        {/* Everything below obeys the master switch — including the rest
-            alerts, which used to sit outside the dimmed area and stay lit
-            after the reader turned notifications off (user, 2026-08-22). */}
+        {/* Everything below obeys the master switch. The workout alerts do
+            not, and so sit above it rather than lit inside a dimmed area. */}
         <View style={styles.dimmable} pointerEvents={effectiveEnabled ? 'auto' : 'none'}>
           <View style={effectiveEnabled ? null : styles.dimmed}>
             <View style={styles.section}>
               <SectionLabel label={t(language, 'notif.section.what')} />
-              {NOTIFICATION_GROUPS.map(renderGroup)}
+              {scheduledGroups.map(renderGroup)}
             </View>
 
             <View style={styles.section}>
@@ -503,7 +614,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 13,
     padding: 15,
+    marginTop: 12,
+  },
+  firstSection: {
     marginTop: 4,
+  },
+  accessRow: {
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
   },
   masterCardOn: {
     borderColor: theme.purple,

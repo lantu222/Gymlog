@@ -1,6 +1,6 @@
 import React from 'react';
 import { TourTargetRegistry } from '../features/tour/tourTargets';
-import { Alert } from 'react-native';
+import { Alert, Linking } from 'react-native';
 
 import { AccountBackupApi } from '../features/account/useAccountBackup';
 import { buildCancelSurveyAnswer } from '../lib/cancelSurvey';
@@ -17,11 +17,16 @@ import { randomLogId } from '../lib/aiCoachLogId';
 import { localizeSessionFocus } from '../lib/sessionNameLabel';
 import { MOCK_BILLING, currentPeriodEndAt, nextChargeAt } from '../lib/subscriptionView';
 import { AppRoute, ROOT_ROUTES } from '../navigation/routes';
+import { remindersOptedIn } from '../lib/reminderOptIn';
+import { reminderWeekdays, resolveReminderSchedule } from '../lib/reminderSchedule';
+import { isScheduleKnown } from '../lib/trainingSchedule';
 import { resolveDeviceLanguage } from '../storage/deviceLocale';
 import {
   getNotificationPermissionGranted,
   requestNotificationPermission,
 } from '../utils/appNotifications';
+import { canScheduleExactAlarms, openExactAlarmSettings } from '../utils/exactAlarm';
+import { getRestAlertPermission, requestRestAlertPermission } from '../utils/sessionNotifications';
 import { EditProfileScreen } from '../screens/EditProfileScreen';
 import { ExportPlanScreen } from '../screens/ExportPlanScreen';
 import { LegalDocumentScreen } from '../screens/LegalDocumentScreen';
@@ -95,7 +100,7 @@ export interface ProfileTabDeps {
   /** Whether AI-assisted composition opens the chat or the paywall. */
   proUnlocked: boolean;
   exportablePlans: React.ComponentProps<typeof ExportPlanScreen>['plans'];
-  database: Pick<AppDatabase, 'workoutSessions' | 'exerciseLogs' | 'cardioSessions'>;
+  database: Pick<AppDatabase, 'workoutSessions' | 'exerciseLogs' | 'cardioSessions' | 'workoutPlans'>;
   settingsScrollOffsetRef: React.MutableRefObject<number>;
   homeWidgetState: { supported: boolean; added: boolean } | null;
   handleAddHomeWidget: () => Promise<void>;
@@ -124,6 +129,25 @@ export interface ProfileTabDeps {
   unitPreference: React.ComponentProps<typeof ProfileScreen>['unitPreference'];
   homeTrainingDayIndexes: number[];
   distinctRecordCount: number;
+}
+
+/**
+ * The workout alerts' permission from the settings screen: the system dialog
+ * while Android will still show it, the app's own system page once the reader
+ * has refused it for good — a dialog that can no longer appear would make the
+ * button do nothing at all. Module-level so the screen's effect sees one
+ * function for the life of the app.
+ */
+async function allowWorkoutAlerts(): Promise<boolean> {
+  if ((await getRestAlertPermission()) === 'denied') {
+    await Linking.openSettings().catch(() => undefined);
+    return false;
+  }
+  return (await requestRestAlertPermission()) === 'granted';
+}
+
+function allowExactAlarms() {
+  void openExactAlarmSettings();
 }
 
 export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | null {
@@ -179,6 +203,18 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
     return null;
   }
 
+  /**
+   * The rhythm the reminders fire on, read by the two screens that talk about
+   * reminders. They read `setupAvailableDays` alone, and said "No training
+   * days" to a reader whose cycle or plan the reminders were following.
+   */
+  const reminderSchedule = () =>
+    resolveReminderSchedule({
+      trainingCycle: preferences.trainingCycle,
+      planEntries: database.workoutPlans.find((plan) => plan.id === preferences.activePlanId)?.entries ?? [],
+      availableDays: preferences.setupAvailableDays,
+    });
+
   if (route.screen === 'premium') {
     return (
       <PremiumScreen
@@ -225,8 +261,21 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
             void updatePreferences({ proTrialUntil: trialUntil, proTrialStartedAt: new Date().toISOString() });
             // The hand-off row promised a warning two days out, and a promise
             // that needs a permission has to ask for it. Declining costs the
-            // reminder, not the trial.
-            void requestNotificationPermission();
+            // reminder, not the trial. Granting has to reach the switch the
+            // warning is scheduled behind, or the permission was asked for
+            // nothing — and only that switch: the trial asked for one warning,
+            // not for the recaps that ship on inside it. A phone that had
+            // already allowed notifications answers without a dialog, so this
+            // also reaches a reader who once switched the reminders off; what
+            // they get is the one warning the trial screen promised, since
+            // every other scheduled category goes off with it.
+            void requestNotificationPermission(preferences.appLanguage)
+              .then((granted) =>
+                granted
+                  ? updatePreferences({ notificationPrefs: remindersOptedIn(preferences.notificationPrefs) })
+                  : undefined,
+              )
+              .catch(() => undefined);
             navigate({ tab: 'profile', screen: 'premium_unlock', plan, trialUntil });
             return;
           }
@@ -316,7 +365,14 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
           totalSets: session.totalSets ?? 0,
           isNext: session.id === homeActivePlanCard?.nextSession.id,
         }))}
-        trainingDays={preferences.setupAvailableDays}
+        // The days picked in setup, or — when there are none — the weekdays
+        // the reminders follow instead, so an empty list here cannot sit
+        // beside reminders that fire on the plan's own days.
+        trainingDays={
+          preferences.setupAvailableDays.length > 0
+            ? preferences.setupAvailableDays
+            : reminderWeekdays(reminderSchedule())
+        }
         trainingCycle={preferences.trainingCycle}
         exerciseLibrary={exerciseBrowserItems}
         nameBook={exerciseNameBook}
@@ -359,14 +415,17 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
       <NotificationsScreen
         language={preferences.appLanguage}
         prefs={preferences.notificationPrefs}
-        trainingDays={preferences.setupAvailableDays}
+        scheduleKnown={isScheduleKnown(reminderSchedule())}
         onTrainingBreak={preferences.trainingBreak !== null}
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
         onChange={(patch) =>
           void updatePreferences({ notificationPrefs: { ...preferences.notificationPrefs, ...patch } })
         }
-        requestPermission={requestNotificationPermission}
+        requestPermission={() => requestNotificationPermission(preferences.appLanguage)}
         checkPermission={getNotificationPermissionGranted}
+        allowWorkoutAlerts={allowWorkoutAlerts}
+        checkExactAlarms={canScheduleExactAlarms}
+        onAllowExactAlarms={allowExactAlarms}
         onOpenTrainingPlan={() => navigate({ tab: 'profile', screen: 'training_plan' })}
       />
     );

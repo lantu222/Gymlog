@@ -47,6 +47,15 @@ export interface NotificationGroup {
   titleKey: I18nKey;
   /** What the group is, shown while it is off. */
   blurbKey: I18nKey;
+  /**
+   * Whether the phone's Notifications switch governs this group.
+   *
+   * The scheduled groups wait on it; the workout group does not (user
+   * 2026-09-17). Its alerts fire only while a session is open, so they have
+   * their own switches and need nothing but the OS permission — gated on a
+   * switch that ships off, the end-of-rest alert was silent on most phones.
+   */
+  scheduled: boolean;
   switches: NotificationSwitch[];
 }
 
@@ -98,6 +107,7 @@ export const NOTIFICATION_GROUPS: readonly NotificationGroup[] = [
     key: 'workout',
     titleKey: 'notif.group.workout',
     blurbKey: 'notif.group.workoutBlurb',
+    scheduled: false,
     switches: [
       boolSwitch('restAlerts', 'notif.rest.alerts', 'notif.rest.alertsSub', true),
       boolSwitch('restWarning', 'notif.rest.warning', 'notif.rest.warningSub', true),
@@ -109,6 +119,7 @@ export const NOTIFICATION_GROUPS: readonly NotificationGroup[] = [
     key: 'wins',
     titleKey: 'notif.group.wins',
     blurbKey: 'notif.group.winsBlurb',
+    scheduled: true,
     switches: [
       boolSwitch('personalRecords', 'notif.records', 'notif.recordsSub', true),
       boolSwitch('weeklySummary', 'notif.weekly', 'notif.weeklySub', true),
@@ -118,6 +129,7 @@ export const NOTIFICATION_GROUPS: readonly NotificationGroup[] = [
     key: 'nudges',
     titleKey: 'notif.group.nudges',
     blurbKey: 'notif.group.nudgesBlurb',
+    scheduled: true,
     switches: [
       boolSwitch('sessionReminders', 'notif.reminders', 'notif.remindersSub', false),
       boolSwitch('comebackNudge', 'notif.comeback', 'notif.comebackSub', true),

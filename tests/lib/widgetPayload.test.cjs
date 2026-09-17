@@ -612,4 +612,96 @@ module.exports = [
       );
     },
   },
+  {
+    /**
+     * Audit 2026-09-16 (N7): the tile opened the calendar's slot for today
+     * while Home offered the rotation's next session — two different
+     * workouts for the same day, one tap apart.
+     */
+    name: 'widgetPayload: today the tile opens the session Home is offering',
+    run() {
+      const base = {
+        hasActiveSession: false,
+        hasActivePlan: true,
+        // Thursday: the calendar's third slot, s3.
+        nowMs: at(2026, 7, 30),
+        schedule: weekdaySchedule([1, 2, 3]),
+        sessions: SESSIONS,
+      };
+      assert.equal(resolveHomeWidgetSessionTap(base).next.session.id, 's3', 'the calendar’s own answer');
+
+      // Home's rotation says s1 is next: the tile opens s1, today.
+      const home = resolveHomeWidgetSessionTap({ ...base, homeSessionId: 's1' });
+      assert.equal(home.kind, 'open');
+      assert.equal(home.next.session.id, 's1');
+      assert.equal(home.next.offset, 0);
+
+      // A later day keeps the calendar's answer: Home has none for it.
+      const monday = resolveHomeWidgetSessionTap({ ...base, nowMs: at(2026, 7, 27), homeSessionId: 's1' });
+      assert.equal(monday.next.offset, 1);
+      assert.equal(monday.next.session.id, 's1', 'Tuesday is the calendar’s first slot');
+      const mondayOther = resolveHomeWidgetSessionTap({ ...base, nowMs: at(2026, 7, 27), homeSessionId: 's2' });
+      assert.equal(mondayOther.next.session.id, 's1', 'a rotation guess leaked onto another day');
+
+      // Today done: the next training day, the calendar's.
+      const done = resolveHomeWidgetSessionTap({
+        ...base,
+        homeSessionId: 's1',
+        completedWorkoutDayStarts: [at(2026, 7, 30, 7)],
+      });
+      assert.equal(done.next.offset, 5);
+
+      // A pick makes a rest day a training day, as the 2x1 reads it.
+      const picked = resolveHomeWidgetSessionTap({
+        ...base,
+        nowMs: at(2026, 7, 27),
+        homeSessionId: 's2',
+        todayPicked: true,
+      });
+      assert.deepEqual([picked.next.session.id, picked.next.offset, picked.next.weekdayIndex], ['s2', 0, 0]);
+
+      // A session the plan no longer has is no answer.
+      assert.equal(resolveHomeWidgetSessionTap({ ...base, homeSessionId: 'gone' }).next.session.id, 's3');
+      assert.equal(
+        resolveHomeWidgetSessionTap({ ...base, homeSessionId: 'gone', todayPicked: true }).next.session.id,
+        's3',
+      );
+    },
+  },
+  {
+    /**
+     * Audit 2026-09-16 (N5, N8): the app handed the widget Home's next
+     * session as "today's pick", so every rest day read "Treeni"; and the
+     * month totals were keyed on the data alone, so a month turned over under
+     * last month's figures.
+     */
+    name: 'widgetPayload: the app hands the widget today’s pick only, and recounts when the day turns',
+    run() {
+      // The rule the wiring relies on: without a pick, a rest day is rest.
+      const rest = build({ schedule: weekdaySchedule([0]) });
+      assert.equal(rest.routineDays[0].kind, 'rest');
+
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const app = fs
+        .readFileSync(path.join(__dirname, '..', '..', 'App.tsx'), 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '');
+      assert.match(app, /todaySessionId: homeActivePlanCard\?\.todayPickSessionId \?\? null,/);
+      assert.doesNotMatch(app, /todaySessionId: homeActivePlanCard\?\.nextSession/);
+      assert.match(app, /todayPickSessionId: pickedToday\?\.id \?\? null,/);
+      assert.match(
+        app,
+        /resolveHomeWidgetSessionTap\(\{[\s\S]*?homeSessionId: homeActivePlanCard\?\.nextSession\.id \?\? null,\s*todayPicked: Boolean\(homeActivePlanCard\?\.todayPickSessionId\),\s*\}\)/,
+      );
+      assert.match(
+        app,
+        /const widgetMonthTotals = useMemo\(\s*\(\) => getMonthTrainingTotals\(database, new Date\(todayStartMs\)\),\s*\[database, todayStartMs\],\s*\);/,
+      );
+      assert.match(
+        app,
+        /getRecentActivityStrip\(database, new Date\(todayStartMs\), 45\)[\s\S]{0,120}\[database, todayStartMs\],/,
+      );
+    },
+  },
 ];

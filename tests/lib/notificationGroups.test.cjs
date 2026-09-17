@@ -40,6 +40,28 @@ const everySwitch = () => NOTIFICATION_GROUPS.flatMap((item) => item.switches);
 
 module.exports = [
   {
+    name: 'notificationGroups: the workout alerts are their own switch; the master governs what is scheduled',
+    run() {
+      // User decision 2026-09-17. The four workout switches were under the
+      // master, which ships off — so the end-of-rest alert was silent on most
+      // phones. Everything the planner schedules stays under it.
+      assert.deepEqual(
+        NOTIFICATION_GROUPS.map((item) => [item.key, item.scheduled]),
+        [
+          ['workout', false],
+          ['wins', true],
+          ['nudges', true],
+        ],
+      );
+      assert.deepEqual(
+        group('workout').switches.map((item) => item.key),
+        ['restAlerts', 'restWarning', 'sessionOngoing', 'idleNudge'],
+      );
+      // And every switch the workout group owns ships on.
+      assert.ok(group('workout').switches.every((item) => item.restoreDefault));
+    },
+  },
+  {
     name: 'notificationGroups: three groups hold every switch the flat list had, each exactly once',
     run() {
       assert.deepEqual(NOTIFICATION_GROUPS.map((item) => item.key), ['workout', 'wins', 'nudges']);

@@ -1339,10 +1339,11 @@ export function GuidedPlayerScreen({
   });
   /**
    * The OS mirror of a rest, behind the same switch the empty workout
-   * honours: the phone's master notifications switch silences rest alerts
-   * too (user 2026-08-22). This screen used to hand every rest to the OS
-   * regardless, which on a fresh install meant a ladder behind a permission
-   * nobody had been asked for — nothing fired, and nothing said so.
+   * honours: the rest-alert switch in Settings, the reader's own, which no
+   * longer waits on the phone's Notifications switch (user 2026-09-17). This
+   * screen used to hand every rest to the OS regardless, which on a fresh
+   * install meant a ladder behind a permission nobody had been asked for —
+   * nothing fired, and nothing said so.
    */
   const syncRestNotification = useCallback(
     (endsAtMs: number | null, nextName?: string | null) =>

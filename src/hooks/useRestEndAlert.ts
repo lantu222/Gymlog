@@ -4,10 +4,9 @@ import { t } from '../lib/i18n';
 import { formatEndsAt } from '../lib/restSchedule';
 import type { AppLanguage } from '../types/models';
 import {
-  RestLadderIds,
   cancelRestLadder,
-  clearAllSessionNotifications,
   clearOngoingSession,
+  clearStaleSessionAlerts,
   scheduleRestLadder,
   setupSessionNotifications,
   showOngoingSession,
@@ -46,39 +45,33 @@ export interface RestAlertOptions {
  * context, through the sheet the screen shows — see `requestRestAlertPermission`.
  * Channels and action categories are set up on mount so the first rest has
  * somewhere to go the moment permission lands.
+ *
+ * Ordering is the module's job: every call below is queued there in the order
+ * it is made, so a newer rest always replaces an older one on the OS clock.
  */
 export function useRestEndAlert(language: AppLanguage, options: RestAlertOptions = {}) {
-  const idsRef = useRef<RestLadderIds | null>(null);
-  const tokenRef = useRef(0);
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
+  // Again on a language switch: the buttons under an alert are in the
+  // language they were registered in.
   useEffect(() => {
-    void setupSessionNotifications({
-      extend30: t(language, 'rest.notify.action.extend30'),
-      extend60: t(language, 'rest.notify.action.extend60'),
-      skip: t(language, 'rest.notify.action.skip'),
-      open: t(language, 'rest.notify.action.open'),
-      logSet: t(language, 'rest.notify.action.logSet'),
-      finish: t(language, 'rest.notify.action.finish'),
-      stillGoing: t(language, 'rest.notify.action.stillGoing'),
-    });
-    // An alert from a session that died mid-rest has nothing left to say.
-    void clearAllSessionNotifications();
+    void setupSessionNotifications(language);
   }, [language]);
+
+  // Once, on opening — not on a language switch, which would clear a running
+  // rest's alerts. A rest from a session that died mid-rest has nothing left
+  // to say; the screen arms its own rest again straight after this.
+  useEffect(() => {
+    void clearStaleSessionAlerts();
+  }, []);
 
   const sync = useCallback(
     async (endsAtMs: number | null, nextName?: string | null) => {
-      // The token guards against an older async schedule landing after a newer
-      // one and leaking an orphan alert.
-      const token = (tokenRef.current += 1);
-      const previous = idsRef.current;
-      idsRef.current = null;
-      void cancelRestLadder(previous);
-
       const { warning = true, ongoing = true, session = null } = optionsRef.current;
 
       if (endsAtMs === null) {
+        void cancelRestLadder();
         // Back to the session card, or nothing.
         if (ongoing && session) {
           void showOngoingSession({ kind: 'session', title: session.title, body: session.body });
@@ -100,7 +93,8 @@ export function useRestEndAlert(language: AppLanguage, options: RestAlertOptions
         });
       }
 
-      const ids = await scheduleRestLadder({
+      // Replaces the ladder armed before it, whichever process armed it.
+      await scheduleRestLadder({
         endsAtMs,
         warning,
         copy: {
@@ -112,13 +106,6 @@ export function useRestEndAlert(language: AppLanguage, options: RestAlertOptions
           repeatBody: next ? t(language, 'rest.notify.next', { name: next }) : t(language, 'rest.notify.plain'),
         },
       });
-
-      if (token !== tokenRef.current) {
-        // Superseded while we awaited the schedule — don't keep this one.
-        void cancelRestLadder(ids);
-        return;
-      }
-      idsRef.current = ids;
     },
     [language],
   );
@@ -127,9 +114,7 @@ export function useRestEndAlert(language: AppLanguage, options: RestAlertOptions
   // card with it — the session may go on, but this screen no longer speaks for it.
   useEffect(
     () => () => {
-      tokenRef.current += 1;
-      void cancelRestLadder(idsRef.current);
-      idsRef.current = null;
+      void cancelRestLadder();
       void clearOngoingSession();
     },
     [],

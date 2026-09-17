@@ -20,8 +20,7 @@ import {
   getVolumeThisWeekKg,
 } from '../lib/completedSessions';
 import { buildNotificationPlan } from '../lib/notificationPlan';
-import { planWeekdayIndexes, WEEKDAY_KEYS } from '../lib/programTrainingDays';
-import { cycleSchedule, weekdaySchedule } from '../lib/trainingSchedule';
+import { resolveReminderSchedule } from '../lib/reminderSchedule';
 import { findLatestSessionPr } from '../lib/workoutCompletionSummary';
 import { AppDatabase } from '../types/models';
 import { syncPlannedNotifications } from '../utils/appNotifications';
@@ -95,24 +94,18 @@ export function useScheduledNotifications(database: AppDatabase) {
    *
    * Reminders used to read `setupAvailableDays` alone, which is availability
    * rather than a plan — and for a reader on a 3-on-1-off cycle it is not
-   * even the right kind of answer: their training days move through the week.
-   * This is the schedule Home draws its dots from (2026-09-16).
+   * even the right kind of answer: their training days move through the week
+   * (2026-09-16). The rule is `resolveReminderSchedule`, because the screens
+   * that say whether reminders have days to fire on must read the same one.
    */
   const schedule = useMemo(() => {
-    const cycle = database.preferences.trainingCycle;
-    if (cycle) {
-      return cycleSchedule(cycle.pattern, cycle.anchorDayStart);
-    }
     const activePlan =
       database.workoutPlans.find((plan) => plan.id === database.preferences.activePlanId) ?? null;
-    const named = planWeekdayIndexes(activePlan?.entries ?? []);
-    return weekdaySchedule(
-      named.length > 0
-        ? named
-        : setupAvailableDays
-            .map((day) => WEEKDAY_KEYS.indexOf(day))
-            .filter((index) => index >= 0),
-    );
+    return resolveReminderSchedule({
+      trainingCycle: database.preferences.trainingCycle,
+      planEntries: activePlan?.entries ?? [],
+      availableDays: setupAvailableDays,
+    });
   }, [
     database.preferences.activePlanId,
     database.preferences.trainingCycle,
@@ -155,7 +148,7 @@ export function useScheduledNotifications(database: AppDatabase) {
     });
 
     queueRef.current = queueRef.current
-      .then(() => syncPlannedNotifications(plan))
+      .then(() => syncPlannedNotifications(plan, appLanguage))
       .catch(() => undefined);
     // Primitive deps only: the preference object is rebuilt on every save, and
     // depending on its identity would re-arm the alarms for no reason.
