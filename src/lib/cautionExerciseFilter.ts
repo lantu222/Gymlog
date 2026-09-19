@@ -1,7 +1,6 @@
 import { WorkoutTemplateExercise } from '../features/workout/workoutTypes';
-import { AppLanguage, SetupCautionArea, SetupCautionFlag, SetupFocusArea } from '../types/models';
+import { SetupCautionArea, SetupCautionFlag, SetupFocusArea } from '../types/models';
 import { isHoldExerciseName } from './holdExercises';
-import { t } from './i18n';
 
 /**
  * Caution flags become real training changes (onboarding truth plan P2).
@@ -262,20 +261,4 @@ export function applyCautionFlagsToExercises(
     .filter((exercise): exercise is WorkoutTemplateExercise => exercise !== null);
 
   return { exercises: adjusted, removed, swapped };
-}
-
-/** Short human summary for the plan overview, e.g. "Knees left out · Shoulders swapped". */
-export function buildCautionSummaryLabel(
-  flags: SetupCautionFlag[],
-  areaLabels: Record<SetupCautionArea, string>,
-  language: AppLanguage = 'en',
-) {
-  const parts = flags
-    .filter((flag) => flag.level !== 'info')
-    .map((flag) =>
-      t(language, flag.level === 'avoid' ? 'onb.caution.summary.leftOut' : 'onb.caution.summary.friendly', {
-        area: areaLabels[flag.area],
-      }),
-    );
-  return parts.length > 0 ? t(language, 'onb.caution.summary.line', { parts: parts.join(' · ') }) : null;
 }

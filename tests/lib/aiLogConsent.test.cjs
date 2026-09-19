@@ -189,11 +189,24 @@ module.exports = [
       // The label is cleared only once every line is off, so a later yes mints
       // a new one and two stretches of consent cannot be joined into one.
       assert.ok(handler.includes('allOff') && handler.includes('aiLogId: null'));
-      // And only once the delete has landed. Dropping the label after a failed
-      // call would leave the copies filed under a name nothing can look up.
+      // A line still on keeps the label and files nothing: copies are still
+      // being kept under it, and a queued delete would take those too.
+      assert.match(handler, /if \(!allOff\) \{\s*(?:\/\/[^\n]*\n\s*)*return;\s*\}/);
       assert.ok(
-        handler.includes('allOff && forgotten.ok'),
-        'the label must survive a delete that did not succeed',
+        handler.indexOf('if (!allOff)') < handler.indexOf('withPendingAiLogDeletion('),
+        'only an all-off withdrawal may file the label as owed',
+      );
+      // And the label outlives a delete that did not land — not as `aiLogId`,
+      // which a later yes would reuse, but as a delete still owed, in the same
+      // write that clears it. Dropping it outright would leave the copies
+      // filed under a name nothing can look up again.
+      assert.match(
+        handler,
+        /await updatePreferences\(\{\s*aiLogId: null,\s*pendingAiLogDeletions: withPendingAiLogDeletion\(preferences\.pendingAiLogDeletions, logId\),\s*\}\);/,
+      );
+      assert.ok(
+        handler.indexOf('if (forgotten.ok)') < handler.indexOf('withPendingAiLogDeletion('),
+        'a confirmed delete owes nothing',
       );
     },
   },

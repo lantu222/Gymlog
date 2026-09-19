@@ -437,6 +437,7 @@ const EN = {
   // copies. Said once; the app keeps asking on every start and foreground
   // until the server confirms (lib/aiLogDeletion).
   'toast.resetCoachCopiesPending': 'Data cleared. The coach’s kept copies could not be deleted yet — the app will keep trying.',
+  'toast.coachCopiesPending': 'Logging is off. The coach’s kept copies could not be deleted yet — the app will keep trying.',
   // AI assisted, rebuilt as one text field. The reader says it; the app
   // shows what it read before it shows the week.
   'aiCompose.read': 'Read from your brief',
@@ -3571,6 +3572,7 @@ const FI: Record<I18nKey, string> = {
   'toast.cardioSaveFailed': 'Cardio-treeniä ei voitu tallentaa',
   'toast.deleteFailed': 'Treeniä ei voitu poistaa',
   'toast.resetCoachCopiesPending': 'Tiedot tyhjennetty. Valmentajan säilyttämiä kopioita ei voitu vielä poistaa — sovellus yrittää uudelleen.',
+  'toast.coachCopiesPending': 'Lokitus pois päältä. Valmentajan säilyttämiä kopioita ei voitu vielä poistaa — sovellus yrittää uudelleen.',
   'aiCompose.read': 'Luettu ohjeestasi',
   'aiCompose.read.days': '{count} päivää',
   'aiCompose.read.daysCapped': 'pyysit {asked} päivää · koostaja rakentaa {count}',

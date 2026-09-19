@@ -5,7 +5,6 @@ const { getWorkoutTemplateById } = require('../../.test-dist/features/workout/wo
 
 const {
   buildFirstRunRecommendationReasons,
-  buildScheduleFitNote,
   buildFirstRunCustomProgramName,
   buildFirstRunPromptSuggestions,
   resolveProjectedTrainingDays,
@@ -352,22 +351,6 @@ module.exports = [
       );
 
       assert.deepEqual(projectedDays, ['mon', 'thu', 'sat']);
-    },
-  },
-  {
-    name: 'schedule fit note warns when the weekly budget is tighter than the default split',
-    run() {
-      const note = buildScheduleFitNote(
-        {
-          scheduleMode: 'self_managed',
-          weeklyMinutes: 140,
-          availableDays: ['mon', 'wed', 'fri', 'sat'],
-        },
-        4,
-        55,
-      );
-
-      assert.match(note, /tight week/i);
     },
   },
   {
