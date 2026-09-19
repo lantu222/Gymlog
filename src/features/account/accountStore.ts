@@ -22,6 +22,39 @@ export interface StoredAccount {
    * Null when unknown (an account stored before this was kept).
    */
   lastBackupItemCount: number | null;
+  /**
+   * accountBackupFingerprint of the data this phone last uploaded or
+   * restored. The automatic backup runs while the data differs from it, so an
+   * edit is backed up and a failed upload is tried again — the counts it used
+   * to watch missed the first and marked the second done before it happened.
+   * Null when unknown (one upload settles it).
+   */
+  lastBackupFingerprint: string | null;
+  /**
+   * True after "Delete cloud backup": the automatic backup stays out until
+   * the reader backs up themselves, or signs in again.
+   */
+  autoBackupPaused: boolean;
+}
+
+/** The stored record, repaired: an account written by an older build lacks the newer fields. */
+export function normalizeStoredAccount(parsed: Partial<StoredAccount> | null | undefined): StoredAccount | null {
+  if (!parsed || typeof parsed !== 'object' || typeof parsed.sub !== 'string' || !parsed.sub) {
+    return null;
+  }
+  return {
+    sub: parsed.sub,
+    email: typeof parsed.email === 'string' ? parsed.email : null,
+    name: typeof parsed.name === 'string' ? parsed.name : null,
+    lastBackupAt: typeof parsed.lastBackupAt === 'string' ? parsed.lastBackupAt : null,
+    lastBackupItemCount:
+      typeof parsed.lastBackupItemCount === 'number' && Number.isFinite(parsed.lastBackupItemCount) && parsed.lastBackupItemCount >= 0
+        ? Math.floor(parsed.lastBackupItemCount)
+        : null,
+    lastBackupFingerprint:
+      typeof parsed.lastBackupFingerprint === 'string' && parsed.lastBackupFingerprint ? parsed.lastBackupFingerprint : null,
+    autoBackupPaused: parsed.autoBackupPaused === true,
+  };
 }
 
 export async function loadStoredAccount(): Promise<StoredAccount | null> {
@@ -30,20 +63,7 @@ export async function loadStoredAccount(): Promise<StoredAccount | null> {
     if (!raw) {
       return null;
     }
-    const parsed = JSON.parse(raw) as Partial<StoredAccount>;
-    if (typeof parsed.sub !== 'string' || !parsed.sub) {
-      return null;
-    }
-    return {
-      sub: parsed.sub,
-      email: typeof parsed.email === 'string' ? parsed.email : null,
-      name: typeof parsed.name === 'string' ? parsed.name : null,
-      lastBackupAt: typeof parsed.lastBackupAt === 'string' ? parsed.lastBackupAt : null,
-      lastBackupItemCount:
-        typeof parsed.lastBackupItemCount === 'number' && Number.isFinite(parsed.lastBackupItemCount) && parsed.lastBackupItemCount >= 0
-          ? Math.floor(parsed.lastBackupItemCount)
-          : null,
-    };
+    return normalizeStoredAccount(JSON.parse(raw) as Partial<StoredAccount>);
   } catch {
     return null;
   }

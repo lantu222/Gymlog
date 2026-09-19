@@ -6,6 +6,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW, SectionLabel, ToggleSwitch } from '../components/SettingsUi';
 import { buildFeedbackMailto } from '../lib/feedbackLink';
+import { formatDateNumeric } from '../lib/format';
 import { t } from '../lib/i18n';
 import { resolveProEntitlement } from '../lib/proEntitlement';
 import { Theme, useTheme, useThemedStyles } from '../theming';
@@ -154,12 +155,16 @@ function Seg<T extends string>({
 }
 
 /** Prototype Row: 13px/15px padding, 36 tile r11, hairline divider inside a Card. */
-/** "22.8.2026 14.32" — the date alone hid every same-day backup. */
-function backupTimeLabel(iso: string): string {
+/**
+ * "22.8.2026 14:32" — the date alone hid every same-day backup. The date is
+ * written in the app's language: toLocaleDateString() followed the phone, so
+ * a Finnish reader on an English phone read "8/22/2026".
+ */
+function backupTimeLabel(iso: string, language: AppLanguage): string {
   const date = new Date(iso);
   const hh = String(date.getHours()).padStart(2, '0');
   const mm = String(date.getMinutes()).padStart(2, '0');
-  return `${date.toLocaleDateString()} ${hh}:${mm}`;
+  return `${formatDateNumeric(date, language)} ${hh}:${mm}`;
 }
 
 function Row({
@@ -173,6 +178,7 @@ function Row({
   chevron = false,
   danger = false,
   last = false,
+  disabled = false,
   onPress,
 }: {
   icon: string;
@@ -186,6 +192,11 @@ function Row({
   chevron?: boolean;
   danger?: boolean;
   last?: boolean;
+  /**
+   * Shown, dimmed, and not pressable. A row that simply dropped its handler
+   * looked exactly like a live one and swallowed the tap without a word.
+   */
+  disabled?: boolean;
   onPress?: () => void;
 }) {
   const theme = useTheme();
@@ -193,7 +204,7 @@ function Row({
   const styles = useThemedStyles(makeStyles);
 
   const inner = (
-    <View style={[styles.row, !last && styles.rowDivider]}>
+    <View style={[styles.row, !last && styles.rowDivider, disabled && styles.rowDisabled]}>
       <View style={[styles.rowTile, danger && { backgroundColor: RED_SOFT }]}>
         <Ic n={icon} c={danger ? RED : iconColor ?? theme.highlight} />
       </View>
@@ -207,6 +218,13 @@ function Row({
     </View>
   );
 
+  if (disabled) {
+    return (
+      <View accessible accessibilityRole="button" accessibilityState={{ disabled: true }}>
+        {inner}
+      </View>
+    );
+  }
   return onPress ? (
     <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => pressed && styles.pressed}>
       {inner}
@@ -444,7 +462,8 @@ export function SettingsScreen({
                 title={t(language, 'account.signIn')}
                 sub={t(language, 'account.signIn.sub')}
                 chevron
-                onPress={account.busy ? undefined : account.onSignIn}
+                disabled={account.busy}
+                onPress={account.onSignIn}
               />
             ) : null}
             {account && account.signedIn ? (
@@ -458,14 +477,15 @@ export function SettingsScreen({
                   <Text style={styles.rowSub}>
                     {account.email ? `${account.email} · ` : ''}
                     {account.lastBackupAt ? (
-                      <Text style={styles.rowSubOk}>{backupTimeLabel(account.lastBackupAt)}</Text>
+                      <Text style={styles.rowSubOk}>{backupTimeLabel(account.lastBackupAt, language)}</Text>
                     ) : (
                       t(language, 'account.noBackupYet')
                     )}
                   </Text>
                 }
                 chevron
-                onPress={account.busy ? undefined : account.onBackupNow}
+                disabled={account.busy}
+                onPress={account.onBackupNow}
               />
             ) : null}
             {/* The one thing the app sends on its own, and the reader's say
@@ -603,22 +623,34 @@ export function SettingsScreen({
                   title={t(language, 'account.deleteRemote')}
                   sub={t(language, 'account.deleteRemote.sub')}
                   danger
-                  onPress={account.busy ? undefined : account.onDeleteRemote}
+                  disabled={account.busy}
+                  onPress={account.onDeleteRemote}
                 />
                 <Row
                   icon="body"
                   title={t(language, 'account.signOut')}
                   danger
-                  onPress={account.busy ? undefined : account.onSignOut}
+                  disabled={account.busy}
+                  onPress={account.onSignOut}
                 />
               </>
             ) : null}
+            {/* Not while an account operation runs: Reset signs out and
+                wipes, and a restore finishing after that wrote the backup
+                onto the emptied phone. The hook also drops anything that
+                sign-out overtakes; this keeps the two from meeting.
+                Dimmed and saying why, not silently dead: the automatic
+                backup runs on its own a few seconds after any change, and
+                a red row that ignored the tap read as broken (PR #139
+                review). Waiting after the confirm instead would be the
+                same silence, only later. */}
             <Row
               icon="trash"
               title={t(language, 'settings.resetData')}
-              sub={t(language, 'settings.resetData.sub')}
+              sub={t(language, account?.busy ? 'settings.resetData.busy' : 'settings.resetData.sub')}
               danger
               last
+              disabled={account?.busy === true}
               onPress={() => setResetVisible(true)}
             />
           </View>
@@ -735,6 +767,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   rowDivider: {
     borderBottomWidth: 1,
     borderBottomColor: theme.border,
+  },
+  rowDisabled: {
+    opacity: 0.45,
   },
   // Accent-tinted (user 2026-08-25: "tee ikoneista oransseja").
   rowTile: {

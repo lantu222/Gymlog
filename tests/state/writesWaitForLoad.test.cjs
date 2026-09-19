@@ -118,25 +118,18 @@ module.exports = [
 
       const backup = hook.slice(hook.indexOf('const runBackup = useCallback('), hook.indexOf('const signOut = useCallback('));
       assert.match(backup, /if \(pendingRestoreRef\.current\) \{\s*return \{ kind: 'failed' \};/);
-      // A phone that has never written or read the cloud copy (sign-in could
-      // not reach it, or the app closed on the question) looks before it writes:
-      // unattended it uploads only on a confirmed "no backup", and the reader
-      // pressing "Back up now" gets sign-in's question instead of a dead end.
-      assert.match(
-        backup,
-        /if \(!account\.lastBackupAt\) \{\s*const remote = await downloadBackup\(idToken\);\s*if \(interactive\) \{\s*return await settleWithRemote\(idToken, account, remote\);\s*\}\s*if \(remote\.ok \|\| remote\.error !== 'NO_BACKUP'\) \{\s*return \{ kind: 'failed' \};\s*\}\s*\} else if/,
-      );
-      // An account synced before the copy's size was kept learns it before the
-      // first automatic upload, and that upload answers to the shrink guard.
-      assert.match(
-        backup,
-        /\} else if \(!interactive && account\.lastBackupItemCount === null\) \{\s*const remote = await downloadBackup\(idToken\);\s*if \(remote\.ok\) \{\s*const remoteItemCount = countBackupItems\(remote\.payload\.database\);\s*if \(autoBackupWouldShrinkLog\(countBackupItems\(latestRef\.current\.database\), remoteItemCount\)\) \{[\s\S]*?return \{ kind: 'failed' \};\s*\}\s*\} else if \(remote\.error !== 'NO_BACKUP'\) \{\s*return \{ kind: 'failed' \};/,
-      );
-      assert.match(hook, /const backupNow = useCallback\(async \(\): Promise<boolean> => \(await runBackup\(false\)\)\.kind === 'backed_up'/);
+      // What a backup may do — look first when the copy is unseen, of unknown
+      // size, or about to shrink; ask the reader, or hold when unattended — is
+      // decided in lib/accountBackup (planBackup, decideAfterLook; pinned in
+      // tests/lib/accountBackup) and run in tests/features/account.
+      assert.match(backup, /const plan = planBackup\(\{ interactive, sync: current, localItemCount: countBackupItems\(latestRef\.current\.database\) \}\);\s*if \(plan === 'skip'\) \{\s*return \{ kind: 'failed' \};/);
+      assert.match(backup, /if \(decision === 'settle'\) \{\s*return await settleWithRemote\(idToken, current, remote, generation\);/);
+      assert.match(backup, /if \(decision === 'ask' && remote\.ok\) \{\s*return await askRestoreOrKeep\(idToken, current, remote\.payload\);/);
+      assert.match(hook, /const running = runBackup\(false\)\.then\(\(outcome\) => outcome\.kind === 'backed_up'\);/);
       assert.match(hook, /const backUpOrAsk = useCallback\(\(\) => runBackup\(true\)/);
       // Sign-in settles through the same function, so the two cannot drift.
       const signIn = hook.slice(hook.indexOf('const signIn = useCallback('), hook.indexOf('const resolveRestoreChoice = useCallback('));
-      assert.match(signIn, /return await settleWithRemote\(result\.account\.idToken, base, remote\);/);
+      assert.match(signIn, /return await settleWithRemote\(result\.account\.idToken, base, remote, generation\);/);
 
       // And the Settings row is wired to the asking path, through the same presenter as sign-in.
       const app = code(read('App.tsx'));
@@ -144,19 +137,20 @@ module.exports = [
       assert.match(app, /presentAccountOutcome\(await accountBackup\.signIn\(\), 'account\.signInFailed'\)/);
       assert.match(code(read('src', 'app', 'renderProfileTab.tsx')), /onBackupNow: \(\) => void handleAccountBackupNow\(\)/);
 
-      // The automatic path will not replace a much fuller cloud copy.
-      assert.match(hook, /if \(autoBackupWouldShrinkLog\(countBackupItems\(latestRef\.current\.database\), accountRef\.current\?\.lastBackupItemCount \?\? null\)\) \{\s*return;\s*\}\s*void backupNowRef\.current\(\);/);
-      // Both counts that feed it are over the same five collections.
+      // The automatic path goes through the same planner: it runs backupNow,
+      // which is runBackup(false), and only when the data differs.
+      assert.match(hook, /if \(current\.lastBackupFingerprint === accountBackupFingerprint\(database, workoutHistory\)\) \{\s*return;\s*\}\s*void backupNowRef\.current\(\);/);
+      // Both counts that feed the shrink guard are over the same five collections.
       assert.match(hook, /lastBackupItemCount: countBackupItems\(database\)/);
-      assert.match(hook, /const remoteItemCount = countBackupItems\(remote\.payload\.database\);/);
+      assert.match(hook, /lastBackupItemCount: countBackupItems\(payload\.database\)/);
 
       // A restore the disk refuses is reported, on both paths, not swallowed.
       const restoreBranch = resolve.slice(resolve.indexOf("if (choice === 'restore')"));
-      assert.match(restoreBranch, /catch \(error\) \{[\s\S]*?return false;/);
+      assert.match(restoreBranch, /catch \(error\) \{[\s\S]*?return 'failed';/);
       const settle = hook.slice(hook.indexOf('const settleWithRemote = useCallback('), hook.indexOf('const signIn = useCallback('));
-      assert.match(settle, /try \{\s*await applyRestore\(remote\.payload\);\s*\} catch \(error\) \{[\s\S]*?return \{ kind: 'restore_failed' \};/);
+      assert.match(settle, /try \{\s*fingerprint = await applyRestore\(remote\.payload, generation\);\s*\} catch \(error\) \{[\s\S]*?return \{ kind: 'restore_failed' \};/);
       const presenter = code(read('App.tsx'));
-      assert.match(presenter, /showToast\(t\(language, ok \? 'account\.restore\.restored' : 'account\.restore\.failed'\)\);/);
+      assert.match(presenter, /showToast\(t\(language, result === 'done' \? 'account\.restore\.restored' : 'account\.restore\.failed'\)\);/);
       assert.match(presenter, /if \(outcome\.kind === 'restore_failed'\) \{\s*showToast\(t\(language, 'account\.restore\.failed'\)\);/);
     },
   },

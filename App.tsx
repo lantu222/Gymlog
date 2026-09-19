@@ -67,6 +67,7 @@ import {
   TourSurface,
 } from './src/lib/firstRunTour';
 import { SignInOutcome, useAccountBackup } from './src/features/account/useAccountBackup';
+import { restoreQuestionCopy } from './src/lib/accountBackupCopy';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
 import {
@@ -388,7 +389,11 @@ function VinhaApp() {
   // Settings, and the data survives a new phone. Free and Pro alike (decision
   // 2026-08-22). Absent entirely in builds without the OAuth client id.
   const accountBackup = useAccountBackup({
-    hydrated,
+    // Both stores, not the database alone: the workout store can load later
+    // (its Retry screen), and a backup before then uploads the empty history
+    // it starts with over the real one. The same as appHydrated below.
+    hydrated: hydrated && workout.hydrated,
+    liveSession: workout.activeSession !== null || workout.activeCardio !== null,
     database,
     workoutHistory: workout.history,
     restoreDatabase: restoreDatabaseFromBackup,
@@ -4620,49 +4625,78 @@ function VinhaApp() {
       showToast(t(language, failedKey));
       return outcome.kind;
     }
+    if (outcome.kind === 'not_backed_up') {
+      // Signed in all the same: "Sign-in failed" here told a signed-in reader
+      // they were not. What failed is the backup.
+      showToast(t(language, 'account.backupFailed'));
+      return outcome.kind;
+    }
     if (outcome.kind === 'unavailable') {
       showToast(t(language, 'account.signInUnavailable'));
       return outcome.kind;
     }
     if (outcome.kind !== 'choice') {
-      // Cancelled: the reader changed their mind, and that is not an error.
+      // Cancelled: the reader changed their mind, or signed out meanwhile,
+      // and neither is an error.
       return outcome.kind;
     }
-    const summary = outcome.summary;
-    Alert.alert(
-      t(language, 'account.restore.title'),
-      t(language, 'account.restore.body', {
-        date: new Date(summary.exportedAt).toLocaleDateString(),
-        workouts: String(summary.workoutCount),
-        programs: String(summary.customProgramCount),
-      }),
-      [
-        {
-          text: t(language, 'account.restore.keepLocal'),
-          onPress: () => {
-            void accountBackup.resolveRestoreChoice('keep_local').then((ok) => {
-              // Only the failure speaks. Success is the row's green timestamp.
-              if (!ok) {
-                showToast(t(language, 'account.backupFailed'));
+    const copy = restoreQuestionCopy(outcome.summary, language);
+    const keepLocal = () => {
+      void accountBackup.resolveRestoreChoice('keep_local').then((result) => {
+        // Only the failure speaks. Success is the row's green timestamp.
+        if (result === 'failed') {
+          showToast(t(language, 'account.backupFailed'));
+        }
+      });
+    };
+    const ask = () =>
+      Alert.alert(
+        copy.title,
+        copy.body,
+        [
+          {
+            text: copy.keepLocal,
+            onPress: () => {
+              const replace = copy.replace;
+              if (!replace) {
+                keepLocal();
+                return;
               }
-            });
+              // This phone holds far less than the cloud copy it would
+              // replace — a phone that was just set up, or one whose
+              // database was set aside. One tap was enough to lose the
+              // history, so it is asked again, naming what goes.
+              Alert.alert(
+                replace.title,
+                replace.body,
+                [
+                  // Back to the first question: dismissing would leave the
+                  // pending choice dangling with no way back.
+                  { text: replace.back, style: 'cancel', onPress: ask },
+                  { text: replace.confirm, style: 'destructive', onPress: keepLocal },
+                ],
+                { cancelable: false },
+              );
+            },
           },
-        },
-        {
-          text: t(language, 'account.restore.useBackup'),
-          style: 'destructive',
-          onPress: () => {
-            void accountBackup.resolveRestoreChoice('restore').then((ok) => {
-              // Both results speak: this button replaces the phone's data, and
-              // silence after it is no answer to whether it did.
-              showToast(t(language, ok ? 'account.restore.restored' : 'account.restore.failed'));
-            });
+          {
+            text: copy.useBackup,
+            style: 'destructive',
+            onPress: () => {
+              void accountBackup.resolveRestoreChoice('restore').then((result) => {
+                // Both results speak: this button replaces the phone's data, and
+                // silence after it is no answer to whether it did.
+                if (result !== 'cancelled') {
+                  showToast(t(language, result === 'done' ? 'account.restore.restored' : 'account.restore.failed'));
+                }
+              });
+            },
           },
-        },
-      ],
-      // Dismissing would leave the pending choice dangling with no way back.
-      { cancelable: false },
-    );
+        ],
+        // Dismissing would leave the pending choice dangling with no way back.
+        { cancelable: false },
+      );
+    ask();
     return outcome.kind;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountBackup, preferences.appLanguage]);

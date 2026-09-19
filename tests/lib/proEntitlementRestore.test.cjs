@@ -89,8 +89,12 @@ module.exports = [
     run() {
       const provider = read('src', 'state', 'AppProvider.tsx');
       const restore = provider.slice(provider.indexOf('function restoreDatabaseFromBackup'), provider.indexOf('const value = useMemo<AppContextValue>'));
-      assert.match(restore, /preferences: keepDeviceEntitlement\(restored\.preferences, databaseRef\.current\.preferences\)/);
+      // preferencesForRestore = keepDeviceEntitlement, the privacy answers and
+      // the loader's lead-in step (tests/lib/accountBackup runs it).
+      assert.match(restore, /preferences: preferencesForRestore\(restored\.preferences, databaseRef\.current\.preferences, restored\.workoutPlans\)/);
       assert.doesNotMatch(restore, /await commit\(restored\)/, 'the backup is committed as it came');
+      const lib = read('src', 'lib', 'accountBackup.ts');
+      assert.match(lib, /return includeLeadInRunningSet\(keepDevicePrivacyChoices\(keepDeviceEntitlement\(restored, device\), device\), plans\);/);
     },
   },
   {

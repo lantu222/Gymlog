@@ -570,7 +570,13 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
                           // kopio poistettu" over a row that has just changed
                           // to "Ei vielä varmuuskopiota". The row is the
                           // answer; the bar was the app saying it twice.
-                          void accountBackup.deleteRemoteBackup();
+                          // A failure has no row to show it, so it speaks:
+                          // silence read as "deleted" while the copy stayed.
+                          void accountBackup.deleteRemoteBackup().then((result) => {
+                            if (result === 'failed') {
+                              showToast(t(preferences.appLanguage, 'account.deleteRemote.failed'));
+                            }
+                          });
                         },
                       },
                     ],
