@@ -731,11 +731,28 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           // And the plan follows the days. The template is half the record:
           // the plan pins each day to a weekday and decides which comes next,
           // and this editor can add and remove days.
-          await syncPlanToTemplate(workoutTemplateId);
-          // Was an untranslated "Template saved" — English on a Finnish
-          // screen, saying what the programme page opening right after it
-          // already says. The haptic carries it now (user 2026-08-26).
-          void haptics.success();
+          //
+          // Its own catch, and its own sentence. The template is saved by the
+          // time this runs, so "could not save" would be false — but a plan
+          // write the storage refuses rethrows, and an unhandled rejection
+          // here would have skipped the haptic and the navigation both: the
+          // reader would have seen the button do nothing, with the programme
+          // saved and its week out of step behind them (CI review of #146).
+          let weekSynced = true;
+          try {
+            await syncPlanToTemplate(workoutTemplateId);
+          } catch (error) {
+            console.error('Failed to bring the plan into step with the template', error);
+            weekSynced = false;
+          }
+          if (weekSynced) {
+            // Was an untranslated "Template saved" — English on a Finnish
+            // screen, saying what the programme page opening right after it
+            // already says. The haptic carries it now (user 2026-08-26).
+            void haptics.success();
+          } else {
+            showToast(t(preferences.appLanguage, 'toast.planWeekOutOfStep'));
+          }
           replaceRoute({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
         }}
       />

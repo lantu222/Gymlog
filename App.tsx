@@ -3337,7 +3337,15 @@ function VinhaApp() {
    * the one function every path goes through.
    */
   function askPhotoOnlineNotice(): Promise<boolean> {
-    if (preferences.aiOnlineNoticeAcknowledged) {
+    // Its own flag, and the chat's as well — one way only. The chat's notice
+    // covers everything this one does and a great deal more (the workouts, the
+    // programme, the goals, the weight and measurements, height, age, gender,
+    // the conversation so far), so a reader who has read THAT has been told
+    // about a photo too. Answering this one cannot stand in for that: sharing
+    // the flag would have let a reader who only ever saw "one photo, and
+    // nothing else about you" send all of it later with no notice at all
+    // (CI review of #146).
+    if (preferences.aiPhotoNoticeAcknowledged || preferences.aiOnlineNoticeAcknowledged) {
       return Promise.resolve(true);
     }
     return new Promise((resolve) => {
@@ -3349,9 +3357,9 @@ function VinhaApp() {
           {
             text: t(preferences.appLanguage, 'csv.photo.notice.continue'),
             onPress: () => {
-              // Answered once, for the coach as a whole: the chat reads the
-              // same flag and will not ask again.
-              void updatePreferences({ aiOnlineNoticeAcknowledged: true });
+              // This notice only. The chat asks its own, because it discloses
+              // its own.
+              void updatePreferences({ aiPhotoNoticeAcknowledged: true });
               resolve(true);
             },
           },

@@ -852,6 +852,9 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
         typeof input?.preferences?.aiOnlineNoticeAcknowledged === 'boolean'
           ? input.preferences.aiOnlineNoticeAcknowledged
           : fallback.preferences.aiOnlineNoticeAcknowledged,
+      // A consent-shaped field, so the identity check: anything that is not
+      // exactly `true` reads as "not yet shown", which is the safe direction.
+      aiPhotoNoticeAcknowledged: input?.preferences?.aiPhotoNoticeAcknowledged === true,
       coachGoals: Array.isArray(input?.preferences?.coachGoals)
         ? input.preferences.coachGoals.filter(
             (goal): goal is NonNullable<typeof goal> =>

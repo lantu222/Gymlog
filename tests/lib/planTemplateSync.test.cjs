@@ -132,6 +132,17 @@ module.exports = [
       assert.match(save, /showToast\(t\(preferences\.appLanguage, 'toast\.planSaveFailed'\)\);/);
       // The success state still follows the write, never precedes it.
       assert.ok(save.indexOf('haptics.success()') > save.indexOf('await syncPlanToTemplate'));
+      // And the plan write has an answer of its own. It rethrows on a refusal
+      // like every other write, and an unhandled rejection here would have
+      // skipped the haptic AND the navigation: the button would look dead
+      // while the programme was saved and its week left out of step.
+      assert.match(save, /try \{\s*await syncPlanToTemplate\(workoutTemplateId\);\s*\} catch \(error\) \{/);
+      // "Could not save" would be false by then — the template is written.
+      assert.match(save, /showToast\(t\(preferences\.appLanguage, 'toast\.planWeekOutOfStep'\)\);/);
+      assert.ok(
+        save.indexOf('replaceRoute({') > save.indexOf('toast.planWeekOutOfStep'),
+        'the programme page opens either way: the programme really is saved',
+      );
 
       const app = strip(read('App.tsx'));
       assert.match(app, /async function syncPlanToTemplate\(workoutTemplateId: string\) \{/);

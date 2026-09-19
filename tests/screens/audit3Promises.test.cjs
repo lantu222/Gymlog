@@ -36,15 +36,37 @@ module.exports = [
       // sheet is rendered from three screens, and a gate placed in it would be
       // missed by a fourth.
       assert.match(app, /function askPhotoOnlineNotice\(\): Promise<boolean> \{/);
-      assert.match(app, /if \(preferences\.aiOnlineNoticeAcknowledged\) \{\s*return Promise\.resolve\(true\);\s*\}/);
       assert.match(
         app,
         /async function pickProgramImageForImport\(\): Promise<ProgramImageImportResult> \{\s*if \(!\(await askPhotoOnlineNotice\(\)\)\) \{/,
         'the notice must be asked before anything else in the import',
       );
-      // Acknowledged once, for the coach as a whole — the chat reads the same
-      // flag and must not ask again.
-      assert.match(app, /void updatePreferences\(\{ aiOnlineNoticeAcknowledged: true \}\);/);
+      /*
+       * Its own flag, one way only.
+       *
+       * The chat's notice discloses the workouts, the programme, the goals and
+       * setup answers, the weight and measurements, height, age, gender and
+       * the conversation so far. This one says "one photo, and expressly
+       * nothing else about you". Sharing a flag let the narrow answer stand in
+       * for the broad disclosure: accept this, never open the coach, then ask
+       * it a question — and all of that left the device with no notice ever
+       * shown (CI review of #146). The broad one still satisfies the narrow.
+       */
+      assert.match(
+        app,
+        /if \(preferences\.aiPhotoNoticeAcknowledged \|\| preferences\.aiOnlineNoticeAcknowledged\) \{/,
+      );
+      assert.match(app, /void updatePreferences\(\{ aiPhotoNoticeAcknowledged: true \}\);/);
+      assert.doesNotMatch(app, /updatePreferences\(\{ aiOnlineNoticeAcknowledged: true \}\)/, 'the photo notice answers the chat’s disclosure');
+      // Stored like every other consent-shaped field: only an exact `true`
+      // counts, so a malformed file reads as "not yet shown".
+      assert.match(
+        strip(read('src', 'storage', 'database.ts')),
+        /aiPhotoNoticeAcknowledged: input\?\.preferences\?\.aiPhotoNoticeAcknowledged === true,/,
+      );
+      for (const file of [['src', 'data', 'seed.ts'], ['src', 'state', 'AppProvider.tsx']]) {
+        assert.match(read(...file), /aiPhotoNoticeAcknowledged: false,/, `${file.join('/')} does not start it at no`);
+      }
       // And the notice is asked BEFORE the picker opens, not after a photo has
       // been chosen.
       assert.ok(
@@ -60,6 +82,7 @@ module.exports = [
       ]) {
         bothLanguages(key);
       }
+      bothLanguages('toast.planWeekOutOfStep');
     },
   },
   {

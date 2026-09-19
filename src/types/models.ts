@@ -565,6 +565,19 @@ export interface AppPreferences {
    * privacy policy promises it before the first question leaves the device.
    */
   aiOnlineNoticeAcknowledged: boolean;
+  /**
+   * The reader has seen the notice the PHOTO import shows, which is its own
+   * because what it discloses is its own: one photo, and expressly nothing
+   * else about them.
+   *
+   * Kept apart from the chat's flag on purpose. The chat sends the recent
+   * workouts, the programme, the goals and setup answers, the latest weight
+   * and measurements, height, age, gender and the conversation so far — so
+   * answering the photo notice must not stand in for a disclosure that covers
+   * all of that, which is what a shared flag did (CI review of #146). The
+   * chat's own notice is broader, so it satisfies this one; not the reverse.
+   */
+  aiPhotoNoticeAcknowledged: boolean;
   coachGoals: CoachGoal[];
   /**
    * Which goal is the one the coach answers against right now.

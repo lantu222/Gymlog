@@ -271,6 +271,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       homeWidgetPromptDismissed: false,
       accountBackupPromptDismissed: false,
       aiOnlineNoticeAcknowledged: false,
+      aiPhotoNoticeAcknowledged: false,
       coachGoals: [],
       primaryGoalId: null,
       coachSuggestionState: {},
