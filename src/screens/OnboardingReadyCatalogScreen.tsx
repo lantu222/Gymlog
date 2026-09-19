@@ -14,6 +14,7 @@ import Svg, {
 } from 'react-native-svg';
 
 import { PrimaryCTAButton } from '../components/PrimaryCTAButton';
+import { useHardwareBack } from '../hooks/useHardwareBack';
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { WorkoutTemplateV1 } from '../features/workout/workoutTypes';
 import { I18nKey, t } from '../lib/i18n';
@@ -209,6 +210,13 @@ export function OnboardingReadyCatalogScreen({
   const [levelFilter, setLevelFilter] = useState<WorkoutTemplateV1['level'] | 'all'>('all');
   const [focusFilter, setFocusFilter] = useState<CatalogFocusKey>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // The key does what the chevron does, and like the chevron it waits while
+  // the pick is being saved: the save ends on Home either way.
+  useHardwareBack(() => {
+    if (!busy) {
+      onBack();
+    }
+  });
   // One measurement for the whole list: every card is the same full width.
   const [cardWidth, setCardWidth] = useState(0);
 

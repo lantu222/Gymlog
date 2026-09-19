@@ -128,6 +128,30 @@ export function isSetupDaysPerWeek(value: number): value is SetupDaysPerWeek {
 
 const WEEKDAY_ORDER: SetupWeekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
+/**
+ * The week a days step goes back to when its rhythm is removed.
+ *
+ * A rhythm sets the day count from its own arithmetic (2 on, 1 off is five a
+ * week) and leaves the weekday list alone, and removing it only cleared the
+ * pattern. The count stayed at the rhythm's: chip 5 lit beside Mon/Wed/Fri,
+ * and a five-day plan saved under a three-day week (2026-09-17). The lit
+ * weekdays are what the step shows once the rhythm is gone, so they are the
+ * answer, and the count is theirs.
+ */
+export function weekAfterCycleRemoved(
+  availableDays: readonly SetupWeekday[],
+  daysPerWeek: SetupDaysPerWeek,
+): { availableDays: SetupWeekday[]; daysPerWeek: SetupDaysPerWeek } {
+  const count = availableDays.length;
+  // An empty list draws the count's own rhythm, and so does a stored list the
+  // step could not have produced (it keeps two to six).
+  if (!isSetupDaysPerWeek(count)) {
+    return { availableDays: [...DEFAULT_RHYTHM_BY_DAYS[daysPerWeek]], daysPerWeek };
+  }
+  const days = [...availableDays].sort((left, right) => WEEKDAY_ORDER.indexOf(left) - WEEKDAY_ORDER.indexOf(right));
+  return { availableDays: days, daysPerWeek: count };
+}
+
 export const DEFAULT_FIRST_RUN_SELECTION: FirstRunSetupSelection = {
   profileName: null,
   gender: 'unspecified',

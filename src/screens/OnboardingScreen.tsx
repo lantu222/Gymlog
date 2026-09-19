@@ -65,6 +65,7 @@ import {
   getEffectiveWeeklyMinutes,
   getSetupEquipmentTitle,
   getSetupGoalTitle,
+  weekAfterCycleRemoved,
 } from '../lib/firstRunSetup';
 import { buildRecommendationTradeoffLabel } from '../lib/recommendationExplanation';
 import { buildRecommendationOptionIds } from '../lib/recommendationPresentation';
@@ -138,6 +139,12 @@ interface OnboardingScreenProps {
    */
   onFullBleedReviewChange?: (tone: 'light' | 'dark' | null) => void;
   onCancel?: () => void | Promise<void>;
+  /**
+   * Given when the editor was opened on the limitations step alone (My Data's
+   * "Edit limitations"): the step saves its flags and leaves, instead of
+   * walking on into a whole new programme.
+   */
+  onSaveLimitations?: (cautionFlags: SetupCautionFlag[]) => void | Promise<void>;
 }
 
 type SetupStage =
@@ -1347,11 +1354,6 @@ function getPlanReadyWeekIconName({
   return 'strength';
 }
 
-function formatProfileName(value: string) {
-  const trimmedStart = value.replace(/^\s+/, '');
-  return trimmedStart.replace(/\b\p{L}/gu, (letter) => letter.toLocaleUpperCase());
-}
-
 /** The level step's motion box — the wordmark's own frame. */
 const LEVEL_FIELD_WIDTH = 280;
 
@@ -1603,6 +1605,7 @@ export function OnboardingScreen({
   onCompleteToTraining,
   onFullBleedReviewChange,
   onCancel,
+  onSaveLimitations,
 }: OnboardingScreenProps) {
   const { C, styles } = useOnboardingPalette();
   const insets = useSafeAreaInsets();
@@ -1618,6 +1621,20 @@ export function OnboardingScreen({
   const setupSeed =
     initialSelection ?? (basicsSeed ? { ...DEFAULT_FIRST_RUN_SELECTION, ...basicsSeed } : DEFAULT_FIRST_RUN_SELECTION);
   const editMode = mode === 'edit';
+  /**
+   * Whether the questions arrive already answered — a selection, not a mode.
+   *
+   * These read `initialSelection || editMode`, and the editor was always handed
+   * a selection, the defaults standing in for a reader who had none. A reader
+   * who started empty or came from the catalogue opened "Create a new plan" on
+   * a goal, a level and a location nobody chose, and could tap straight
+   * through to a programme built from them (2026-09-17). They get their basics
+   * through `basicsSeed` now, and the questions open unanswered, as on a first
+   * run.
+   */
+  const seededAnswers = Boolean(initialSelection);
+  /** The limitations step on its own, opened from My Data to edit one fact. */
+  const limitationsOnly = editMode && initialStage === 'avoid' && Boolean(onSaveLimitations);
   /**
    * How long "Building your plan" is on screen. Choreography, not work: the
    * plan is composed before the screen opens, and nothing here waits on it.
@@ -1675,7 +1692,6 @@ export function OnboardingScreen({
     ),
   ).current;
   const buildingPlanRingSpin = useRef(new Animated.Value(0)).current;
-  const [profileName] = useState(setupSeed.profileName ?? '');
   const [gender, setGender] = useState<SetupGender>(setupSeed.gender);
   /**
    * The band is the answer now, not a year rounded into one (2026-09-09).
@@ -1686,13 +1702,17 @@ export function OnboardingScreen({
    * derive it from. A reader whose install predates the change may still have a
    * stored year and no band; that is what the second branch is for.
    */
-  const [ageRange] = useState<SetupAgeRange>(() => {
+  const [ageRange] = useState<SetupAgeRange | undefined>(() => {
     if (setupSeed.ageRange && setupSeed.ageRange !== 'unspecified') {
       return setupSeed.ageRange;
     }
+    // No band and no year is an unanswered question, and it stays one. This
+    // fell back to 19–25, which finishing setup then stored as the reader's
+    // age (2026-09-17). The recommender reads the band only to ask "41 or
+    // over?", so nothing it decides changes.
     return typeof setupSeed.age === 'number' && Number.isFinite(setupSeed.age)
       ? getAgeRangeFromAge(clampSetupAge(setupSeed.age))
-      : '19_25';
+      : setupSeed.ageRange;
   });
   const [goal, setGoal] = useState<SetupGoal>(setupSeed.goal);
   /**
@@ -1705,18 +1725,23 @@ export function OnboardingScreen({
    * shows and what the gate reads.
    */
   const [goals, setGoals] = useState<SetupGoal[]>(
-    initialSelection || editMode ? (setupSeed.goals?.length ? setupSeed.goals : [setupSeed.goal]) : [],
+    seededAnswers ? (setupSeed.goals?.length ? setupSeed.goals : [setupSeed.goal]) : [],
   );
   const [level, setLevel] = useState<SetupLevel>(setupSeed.level);
   const [daysPerWeek, setDaysPerWeek] = useState<SetupDaysPerWeek>(setupSeed.daysPerWeek);
-  const [profileLevelSelected, setProfileLevelSelected] = useState(() => Boolean(initialSelection || editMode));
-  const [profileFrequencySelected, setProfileFrequencySelected] = useState(() => Boolean(initialSelection || editMode));
+  const [profileLevelSelected, setProfileLevelSelected] = useState(seededAnswers);
+  // A week carried in with the basics answers the days question: a rhythm from
+  // the plan screen, or weekdays named in Profile. Both are the reader's own,
+  // and the count follows from them.
+  const [profileFrequencySelected, setProfileFrequencySelected] = useState(
+    () => seededAnswers || Boolean(setupSeed.trainingCyclePattern) || setupSeed.availableDays.length > 0,
+  );
   const [equipment, setEquipment] = useState<SetupEquipment>(setupSeed.equipment);
   const [trainingEnvironment, setTrainingEnvironment] = useState<SetupTrainingEnvironment>(
     setupSeed.trainingEnvironment,
   );
   const [selectedLocationOptionId, setSelectedLocationOptionId] = useState<LocationSelectionOptionId | null>(() =>
-    initialSelection || editMode
+    seededAnswers
       ? getDefaultLocationOptionId(setupSeed.equipment, setupSeed.trainingEnvironment)
       : null,
   );
@@ -1868,7 +1893,10 @@ export function OnboardingScreen({
   const targetWeightValue = useMemo(() => parseNumberInput(targetWeightDraft), [targetWeightDraft]);
   const selection = useMemo<FirstRunSetupSelection>(
     () => ({
-      profileName: formatProfileName(profileName).trim() ? formatProfileName(profileName).trim().slice(0, 32) : null,
+      // No name. The questionnaire has not asked for one since 2026-09-09, and
+      // the one it passed on was the stored name run through a capitaliser
+      // whose word boundary was ASCII: "Ylönen" came back "YlÖNen" on every
+      // re-run (2026-09-17). A name is Profile's to write, not setup's.
       gender,
       ageRange,
       heightCm: setupSeed.heightCm ?? null,
@@ -1908,7 +1936,6 @@ export function OnboardingScreen({
       goals,
       guidanceMode,
       level,
-      profileName,
       scheduleMode,
       secondaryOutcomes,
       setupSeed.heightCm,
@@ -2764,9 +2791,12 @@ export function OnboardingScreen({
             pane's "STEP 2 OF 6" landed exactly on the chevron ("step teksti
             menee back napin taakse", user 2026-09-02). They step down from
             the same edge the chevron does now. */}
-        <View pointerEvents="none" style={[styles.locationProgressBarWrap, { top: insets.top + 10 }]}>
-          <StepDots index={stageIndex} />
-        </View>
+        {/* One step edited on its own is not step 5 of 6: no dots, no count. */}
+        {limitationsOnly ? null : (
+          <View pointerEvents="none" style={[styles.locationProgressBarWrap, { top: insets.top + 10 }]}>
+            <StepDots index={stageIndex} />
+          </View>
+        )}
         <View
           style={[
             styles.locationTopPane,
@@ -2776,7 +2806,7 @@ export function OnboardingScreen({
         >
           <View style={styles.locationTopSlope} />
           <View style={[styles.locationTopCopy, topCopyStyle]}>
-            <Text style={[styles.locationStepLabel, stepLabelStyle]}>{stepLabel}</Text>
+            {limitationsOnly ? null : <Text style={[styles.locationStepLabel, stepLabelStyle]}>{stepLabel}</Text>}
             {titleLines.map((line) => (
               <Text key={line} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.84} style={[styles.locationHeadline, titleStyle]}>
                 {line}
@@ -3023,9 +3053,17 @@ export function OnboardingScreen({
     setDaysPerWeek(cycleDaysPerWeek(on, cyclePattern.length - on));
   }, [cyclePattern]);
 
-  /** Back to plain weekdays: the list above becomes the answer again. */
+  /**
+   * Back to plain weekdays: the list above becomes the answer again — its
+   * days and its count. The count used to stay at the rhythm's, so removing
+   * "2 on, 1 off" left chip 5 lit beside three lit weekdays and saved a
+   * five-day plan (2026-09-17).
+   */
   function clearCycle() {
     void haptics.select();
+    const week = weekAfterCycleRemoved(availableDays, daysPerWeek);
+    setAvailableDays(week.availableDays);
+    setDaysPerWeek(week.daysPerWeek);
     setCyclePattern(null);
     setScheduleMode('self_managed');
   }
@@ -3758,6 +3796,10 @@ export function OnboardingScreen({
         t(language, 'onb.cta.startTraining')
       : stage === 'planning'
       ? t(language, 'onb.cta.buildPlan')
+      : stage === 'avoid' && limitationsOnly
+      ? busy
+        ? t(language, 'onb.cta.saving')
+        : t(language, 'common.save')
       : stage === 'avoid'
       ? cautionFlags.length > 0
         ? t(language, 'common.continue')
@@ -3816,8 +3858,13 @@ export function OnboardingScreen({
 
   // One back control, top-left, like every other screen — the footer link it
   // replaces is below. Where it goes is the same decision the link made.
+  //
+  // A step the editor was opened ON is the way out, like the first one. "Edit
+  // limitations" opens on the limitations step, and back from it walked into
+  // the days question, then the level, then the goal — four screens away
+  // from the My Data page the reader came from (2026-09-17).
   const goBack = () => {
-    if (stage === 'location') {
+    if (stage === 'location' || (editMode && stage === initialStage)) {
       if (editMode) {
         void runAction(() => onCancel?.());
       } else {
@@ -3898,6 +3945,15 @@ export function OnboardingScreen({
                 if (stage === 'planning') {
                   void haptics.impactMedium();
                   setIsBuildingPlan(true);
+                  return;
+                }
+
+                // The limitations are preferences, and saving them is the
+                // whole edit. Walking on meant a limitation counted only if a
+                // whole new programme was built behind it; the programme is
+                // still one tap away, from "Create a new plan".
+                if (stage === 'avoid' && limitationsOnly && onSaveLimitations) {
+                  void runAction(() => onSaveLimitations(cautionFlags));
                   return;
                 }
 

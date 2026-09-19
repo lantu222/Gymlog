@@ -36,6 +36,88 @@ function getDefaultTrainingEnvironment(equipment: SetupEquipment): SetupTraining
   }
 }
 
+/**
+ * What the reader has told the app about themselves, whether or not they ever
+ * answered the questionnaire.
+ *
+ * A reader who started empty or picked from the catalogue has no answers —
+ * `setupCompleted` is false — but can still have a weight, a height, a rhythm
+ * and limitations, entered in My Data or on the plan screen. Setup opened for
+ * them from the questionnaire's defaults, and finishing it wrote those
+ * defaults over all of it: gender "unspecified", 19–25, no height, no weight,
+ * no cycle (2026-09-17). These are the fields the questionnaire carries
+ * through without asking, so they are seeded from what is stored — and a
+ * missing age band stays missing rather than becoming 19–25.
+ *
+ * The week is here for the same reason the rhythm is. Profile's weekday picker
+ * and dragging a day on the plan screen both write `setupAvailableDays`,
+ * `setupDaysPerWeek` and `setupScheduleMode` without finishing setup, so a
+ * reader who never answered the questions can still have named their training
+ * days — and seeding only the cycle left the other half of the same week to be
+ * overwritten by the defaults on the next re-run (review of this change).
+ */
+export function buildSetupBasicsFromPreferences(preferences: AppPreferences): Partial<FirstRunSetupSelection> {
+  return {
+    gender: preferences.setupGender ?? DEFAULT_FIRST_RUN_SELECTION.gender,
+    age: preferences.setupAge,
+    ageRange: preferences.setupAgeRange ?? undefined,
+    heightCm: preferences.setupHeightCm,
+    currentWeightKg: preferences.setupCurrentWeightKg,
+    targetWeightKg: preferences.bodyweightGoalKg,
+    daysPerWeek: preferences.setupDaysPerWeek ?? DEFAULT_FIRST_RUN_SELECTION.daysPerWeek,
+    scheduleMode: preferences.setupScheduleMode ?? DEFAULT_FIRST_RUN_SELECTION.scheduleMode,
+    availableDays:
+      preferences.setupAvailableDays.length > 0
+        ? preferences.setupAvailableDays
+        : DEFAULT_FIRST_RUN_SELECTION.availableDays,
+    trainingCyclePattern: preferences.trainingCycle?.pattern ?? null,
+    automatedProgression: preferences.automatedProgressionEnabled,
+    cautionFlags: preferences.setupCautionFlags,
+  };
+}
+
+/**
+ * Every preference the two builders above and below read — the memo key the
+ * shell rebuilds the setup selection on.
+ *
+ * The key used to be a hand-kept list beside the memo, and it had dropped
+ * `trainingCycle`: a rhythm set or removed on the plan screen left setup
+ * seeded with the old one, and the next run of the questions wrote the old
+ * one back (2026-09-17). A test reads which fields the builders touch and
+ * holds this list to them.
+ */
+const SETUP_SEED_PREFERENCE_KEYS = [
+  'automatedProgressionEnabled',
+  'bodyweightGoalKg',
+  'profileName',
+  'setupAge',
+  'setupAgeRange',
+  'setupAvailableDays',
+  'setupCautionFlags',
+  'setupCompleted',
+  'setupCurrentWeightKg',
+  'setupDaysPerWeek',
+  'setupEquipment',
+  'setupEquipmentItems',
+  'setupFocusAreas',
+  'setupGender',
+  'setupGoal',
+  'setupGoals',
+  'setupGuidanceMode',
+  'setupHeightCm',
+  'setupLevel',
+  'setupScheduleMode',
+  'setupSecondaryOutcomes',
+  'setupTrainingEnvironment',
+  'setupWeeklyMinutes',
+  'trainingCycle',
+  'unitPreference',
+] as const satisfies readonly (keyof AppPreferences)[];
+
+export function buildSetupSeedKey(preferences: AppPreferences): string {
+  return JSON.stringify(SETUP_SEED_PREFERENCE_KEYS.map((key) => preferences[key]));
+}
+
 export function buildSetupSelectionFromPreferences(preferences: AppPreferences): FirstRunSetupSelection | null {
   if (
     !preferences.setupCompleted ||
@@ -46,19 +128,24 @@ export function buildSetupSelectionFromPreferences(preferences: AppPreferences):
     return null;
   }
 
+  const basics = buildSetupBasicsFromPreferences(preferences);
+
   return {
+    ...basics,
     profileName: preferences.profileName,
-    gender: preferences.setupGender ?? DEFAULT_FIRST_RUN_SELECTION.gender,
-    age: preferences.setupAge ?? DEFAULT_FIRST_RUN_SELECTION.age,
-    ageRange: preferences.setupAgeRange ?? DEFAULT_FIRST_RUN_SELECTION.ageRange,
-    heightCm: preferences.setupHeightCm,
+    // Required here, optional in the basics — so these four say again what the
+    // basics already worked out, rather than working it out a second time and
+    // drifting from it.
+    gender: basics.gender ?? DEFAULT_FIRST_RUN_SELECTION.gender,
+    daysPerWeek: basics.daysPerWeek ?? DEFAULT_FIRST_RUN_SELECTION.daysPerWeek,
+    scheduleMode: basics.scheduleMode ?? DEFAULT_FIRST_RUN_SELECTION.scheduleMode,
+    availableDays: basics.availableDays ?? DEFAULT_FIRST_RUN_SELECTION.availableDays,
     goal: preferences.setupGoal,
     goals:
       preferences.setupGoals.length > 0
         ? preferences.setupGoals
         : [preferences.setupGoal],
     level: preferences.setupLevel ?? DEFAULT_FIRST_RUN_SELECTION.level,
-    daysPerWeek: preferences.setupDaysPerWeek,
     equipment: preferences.setupEquipment,
     trainingEnvironment:
       preferences.setupTrainingEnvironment ?? getDefaultTrainingEnvironment(preferences.setupEquipment),
@@ -68,18 +155,8 @@ export function buildSetupSelectionFromPreferences(preferences: AppPreferences):
         ? preferences.setupSecondaryOutcomes
         : DEFAULT_FIRST_RUN_SELECTION.secondaryOutcomes,
     focusAreas: preferences.setupFocusAreas.length > 0 ? preferences.setupFocusAreas : DEFAULT_FIRST_RUN_SELECTION.focusAreas,
-    cautionFlags: preferences.setupCautionFlags,
     guidanceMode: preferences.setupGuidanceMode ?? DEFAULT_FIRST_RUN_SELECTION.guidanceMode,
-    scheduleMode: preferences.setupScheduleMode ?? DEFAULT_FIRST_RUN_SELECTION.scheduleMode,
-    automatedProgression: preferences.automatedProgressionEnabled,
     weeklyMinutes: preferences.setupWeeklyMinutes,
-    availableDays:
-      preferences.setupAvailableDays.length > 0
-        ? preferences.setupAvailableDays
-        : DEFAULT_FIRST_RUN_SELECTION.availableDays,
-    trainingCyclePattern: preferences.trainingCycle?.pattern ?? null,
-    currentWeightKg: preferences.setupCurrentWeightKg,
-    targetWeightKg: preferences.bodyweightGoalKg,
     unitPreference: preferences.unitPreference,
   };
 }
