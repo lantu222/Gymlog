@@ -250,6 +250,14 @@ const EN = {
   'csv.photo.cta': 'Read from a photo',
   'csv.photo.reading': 'Reading the photo…',
   'csv.photo.failed': 'Could not read a programme from that photo. You can still paste the table above.',
+  'csv.import.failed': 'Could not save the programme. The table is still here — try again.',
+  'toast.planWeekOutOfStep': 'Programme saved, but its week could not be updated — edit the days again to retry',
+  'export.log.failed': 'Could not hand the log over. Try again.',
+  'csv.photo.notice.title': 'The photo is sent to be read',
+  'csv.photo.notice.body':
+    'Reading a table from a photo is the coach’s online mode: the photo you pick is sent to our server and on from there to the model that reads it. Nothing else about you goes with it, and it is deleted after 30 days. No copy is kept unless you allow it in Settings.',
+  'csv.photo.notice.continue': 'Pick a photo',
+  'csv.photo.notice.cancel': 'Not now',
   'progress.title': 'Progress',
   'cal.dow.mon': 'Mon',
   'cal.dow.tue': 'Tue',
@@ -433,6 +441,9 @@ const EN = {
   // History's delete: memory rolls back when the disk refuses, and without
   // this the row simply came back with no word about why.
   'toast.deleteFailed': 'Could not delete the workout',
+  'toast.entryDeleteFailed': 'Could not delete that entry — it is back in the list',
+  'export.log.tooBig': 'The log could not be handed over — it has grown past what a share can carry. Export your programme instead, and tell us: we will add a file export.',
+  'toast.entrySaveFailed': 'Could not save that entry',
   // After Reset, when the server did not confirm deleting the coach's kept
   // copies. Said once; the app keeps asking on every start and foreground
   // until the server confirms (lib/aiLogDeletion).
@@ -3399,6 +3410,14 @@ const FI: Record<I18nKey, string> = {
   'csv.photo.cta': 'Lue kuvasta',
   'csv.photo.reading': 'Luetaan kuvaa…',
   'csv.photo.failed': 'Kuvasta ei saatu ohjelmaa. Voit yhä liittää taulukon yllä olevaan kenttään.',
+  'csv.import.failed': 'Ohjelmaa ei voitu tallentaa. Taulukko on yhä tässä — yritä uudelleen.',
+  'toast.planWeekOutOfStep': 'Ohjelma tallennettiin, mutta sen viikkoa ei voitu päivittää — muokkaa päiviä uudelleen',
+  'export.log.failed': 'Lokia ei saatu luovutettua. Yritä uudelleen.',
+  'csv.photo.notice.title': 'Kuva lähetetään luettavaksi',
+  'csv.photo.notice.body':
+    'Taulukon lukeminen kuvasta on valmentajan verkkotila: valitsemasi kuva lähetetään palvelimellemme ja sieltä mallille, joka lukee sen. Mukana ei lähde muuta sinusta, ja kuva poistetaan 30 päivän kuluttua. Kopiota ei säilytetä, ellet salli sitä asetuksissa.',
+  'csv.photo.notice.continue': 'Valitse kuva',
+  'csv.photo.notice.cancel': 'Ei nyt',
   'progress.title': 'Kehitys',
   'cal.dow.mon': 'ma',
   'cal.dow.tue': 'ti',
@@ -3571,6 +3590,9 @@ const FI: Record<I18nKey, string> = {
   'toast.ownProgrammeVersion': 'Sinulla on tästä ohjelmasta oma versio — avataan se, niin näet mitä muutat',
   'toast.cardioSaveFailed': 'Cardio-treeniä ei voitu tallentaa',
   'toast.deleteFailed': 'Treeniä ei voitu poistaa',
+  'toast.entryDeleteFailed': 'Merkintää ei voitu poistaa — se on takaisin listassa',
+  'export.log.tooBig': 'Lokia ei saatu luovutettua — se on kasvanut isommaksi kuin jako pystyy kantamaan. Vie ohjelmasi sen sijaan ja kerro meille: lisäämme tiedostoviennin.',
+  'toast.entrySaveFailed': 'Merkintää ei voitu tallentaa',
   'toast.resetCoachCopiesPending': 'Tiedot tyhjennetty. Valmentajan säilyttämiä kopioita ei voitu vielä poistaa — sovellus yrittää uudelleen.',
   'toast.coachCopiesPending': 'Lokitus pois päältä. Valmentajan säilyttämiä kopioita ei voitu vielä poistaa — sovellus yrittää uudelleen.',
   'aiCompose.read': 'Luettu ohjeestasi',

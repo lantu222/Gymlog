@@ -6,6 +6,7 @@ import { NewProgramSheet } from '../components/NewProgramSheet';
 import { ChevronIcon, SectionLabel, makeSettingsStyles } from '../components/SettingsUi';
 import { CsvLibraryEntry } from '../lib/csvProgramImport';
 import { I18nKey, t } from '../lib/i18n';
+import type { ProgramImageImportResult } from '../utils/programImagePicker';
 import { cycleSchedule, patternFromOnOff, trainsOn } from '../lib/trainingSchedule';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
@@ -82,7 +83,7 @@ interface TrainingPlanScreenProps {
   /** The reader's own lift names, for the CSV importer's matcher. */
   nameBook?: readonly ExerciseNameBookEntry[];
   onTeachName?: (wrote: string, exercise: CsvLibraryEntry) => Promise<void> | void;
-  onPickImage?: () => Promise<string | null>;
+  onPickImage?: () => Promise<ProgramImageImportResult>;
   language?: AppLanguage;
   onBack: () => void;
   /**
@@ -110,7 +111,7 @@ interface TrainingPlanScreenProps {
   /** Where the padlock leads. */
   onOpenPaywall?: () => void;
   onBuildYourself: () => void;
-  onImportProgram: (draft: WorkoutTemplateDraft) => Promise<void> | void;
+  onImportProgram: (draft: WorkoutTemplateDraft) => Promise<boolean | void> | boolean | void;
 }
 
 function SessionTile({ title }: { title: string }) {

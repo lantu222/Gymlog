@@ -37,6 +37,7 @@ import {
   sortProgramLadder,
 } from '../lib/programLadder';
 import { I18nKey, t } from '../lib/i18n';
+import type { ProgramImageImportResult } from '../utils/programImagePicker';
 import { PROGRAM_CATEGORIES, ProgramCategoryKey } from '../lib/programCategories';
 import { GoalProgrammeSuggestionView } from '../lib/goalProgramme';
 import { StrengthGoalProgress } from '../lib/strengthGoals';
@@ -227,12 +228,12 @@ interface ProgramsHomeScreenProps {
   proUnlocked?: boolean;
   /** Where the padlock leads. */
   onOpenPaywall?: () => void;
-  onImportProgram: (draft: WorkoutTemplateDraft) => Promise<void> | void;
+  onImportProgram: (draft: WorkoutTemplateDraft) => Promise<boolean | void> | boolean | void;
   exerciseLibraryEntries: CsvLibraryEntry[];
   /** The reader's own lift names, for the CSV importer's matcher. */
   nameBook?: readonly ExerciseNameBookEntry[];
   onTeachName?: (wrote: string, exercise: CsvLibraryEntry) => Promise<void> | void;
-  onPickImage?: () => Promise<string | null>;
+  onPickImage?: () => Promise<ProgramImageImportResult>;
   language?: AppLanguage;
   onOpenLibrary: () => void;
 }

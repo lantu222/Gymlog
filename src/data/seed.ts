@@ -73,6 +73,7 @@ const DEFAULT_PREFERENCES = {
   homeWidgetPromptDismissed: false,
   accountBackupPromptDismissed: false,
   aiOnlineNoticeAcknowledged: false,
+  aiPhotoNoticeAcknowledged: false,
   coachGoals: [],
   primaryGoalId: null,
   coachSuggestionState: {},

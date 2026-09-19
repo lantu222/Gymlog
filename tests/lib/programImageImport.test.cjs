@@ -150,7 +150,10 @@ module.exports = [
         wiring,
         /const handlePickProgramImage = isAiCoachLiveConfigured\(\) \? pickProgramImageForImport : undefined;/,
       );
-      assert.match(wiring, /handlePickProgramImage\?: \(\) => Promise<string \| null>;/);
+      // The result carries which of the four endings it was since 2026-09-19:
+      // `null` for every one of them told a reader who had backed out of the
+      // picker that their photo could not be read.
+      assert.match(wiring, /handlePickProgramImage\?: \(\) => Promise<ProgramImageImportResult>;/);
       const sheet = require('node:fs').readFileSync(
         require('node:path').join(__dirname, '..', '..', 'src', 'components', 'NewProgramSheet.tsx'),
         'utf8',

@@ -8,7 +8,8 @@ import { recordOwnBlock } from '../lib/ownBlockHistory';
 import { formatShortDate } from '../lib/format';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { t } from '../lib/i18n';
-import { ProgramSlots, programSlotsLineKey } from '../lib/programSlots';
+import type { ProgramImageImportResult } from '../utils/programImagePicker';
+import { ProgramLimitReachedError, ProgramSlots, programSlotsLineKey } from '../lib/programSlots';
 import { createUnlessAtLimit } from './programLimitGuard';
 import { AFFINITY_REASON_KEYS, resolveProgramAffinity } from '../lib/programAffinity';
 import { composeProgramWeekForSelection } from '../lib/programDayComposer';
@@ -184,6 +185,8 @@ export interface WorkoutTabDeps {
   }) => Promise<void>;
   programSlots: ProgramSlots;
   setProgramLimitVisible: (visible: boolean) => void;
+  /** Brings the running plan's week back into step with the template's days. */
+  syncPlanToTemplate: (workoutTemplateId: string) => Promise<void>;
   trackedProgress: Array<{ logs: Array<{ weight: number; repsPerSet: number[]; performedAt: string }> }>;
   workoutSessions: Parameters<typeof computeSeasonProgress>[0];
   handleEnrolSeason: (season: ProgramSeason, year: number) => void;
@@ -204,7 +207,7 @@ export interface WorkoutTabDeps {
    * and the sheet hides the button rather than offering one that returns
    * nothing (2026-09-16).
    */
-  handlePickProgramImage?: () => Promise<string | null>;
+  handlePickProgramImage?: () => Promise<ProgramImageImportResult>;
   coachProUnlocked: boolean;
 }
 
@@ -276,6 +279,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     handleAcceptTargetProposal,
     programSlots,
     setProgramLimitVisible,
+    syncPlanToTemplate,
     trackedProgress,
     workoutSessions,
     handleEnrolSeason,
@@ -707,11 +711,48 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         defaultRestSeconds={preferences.defaultRestSeconds}
         onBack={() => navigateBack(workoutHomeRoute)}
         onSave={async (draft) => {
-          const workoutTemplateId = await upsertWorkoutTemplate(draft);
-          // Was an untranslated "Template saved" — English on a Finnish
-          // screen, saying what the programme page opening right after it
-          // already says. The haptic carries it now (user 2026-08-26).
-          void haptics.success();
+          let workoutTemplateId: string;
+          try {
+            workoutTemplateId = await upsertWorkoutTemplate(draft);
+          } catch (error) {
+            // The only one of the eight `upsertWorkoutTemplate` callers that
+            // had no answer for a refused write: the programme cap throws, the
+            // storage layer throws, and "Tallenna" did nothing at all — no
+            // message, no retry, no sign it had been refused (audit 3).
+            if (error instanceof ProgramLimitReachedError) {
+              setProgramLimitVisible(true);
+              return;
+            }
+            console.error('Failed to save the programme', error);
+            void haptics.error();
+            showToast(t(preferences.appLanguage, 'toast.planSaveFailed'));
+            return;
+          }
+          // And the plan follows the days. The template is half the record:
+          // the plan pins each day to a weekday and decides which comes next,
+          // and this editor can add and remove days.
+          //
+          // Its own catch, and its own sentence. The template is saved by the
+          // time this runs, so "could not save" would be false — but a plan
+          // write the storage refuses rethrows, and an unhandled rejection
+          // here would have skipped the haptic and the navigation both: the
+          // reader would have seen the button do nothing, with the programme
+          // saved and its week out of step behind them (CI review of #146).
+          let weekSynced = true;
+          try {
+            await syncPlanToTemplate(workoutTemplateId);
+          } catch (error) {
+            console.error('Failed to bring the plan into step with the template', error);
+            weekSynced = false;
+          }
+          if (weekSynced) {
+            // Was an untranslated "Template saved" — English on a Finnish
+            // screen, saying what the programme page opening right after it
+            // already says. The haptic carries it now (user 2026-08-26).
+            void haptics.success();
+          } else {
+            showToast(t(preferences.appLanguage, 'toast.planWeekOutOfStep'));
+          }
           replaceRoute({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
         }}
       />
@@ -1129,9 +1170,12 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             () => upsertWorkoutTemplate(draft),
             () => setProgramLimitVisible(true),
           );
-          if (workoutTemplateId) {
-            navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+          if (!workoutTemplateId) {
+            // Refused at the cap: the sheet keeps the table it read.
+            return false;
           }
+          navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+          return true;
         }}
         onOpenExploreProgram={handleOpenProgramDetail}
         onOpenCustomProgram={handleOpenCustomProgramDetail}

@@ -22,6 +22,20 @@ export type PickProgramImageResult =
   | { status: 'failed' };
 
 /**
+ * What a whole photo import came to, as the sheet needs to hear it.
+ *
+ * `cancelled` is its own answer because the sheet used to be handed `null` for
+ * every ending and said "Could not read a programme from that photo" — to a
+ * reader who had backed out of the picker, about a photo that was never sent
+ * (audit 3, 2026-09-19). Declining the online notice ends the same way: the
+ * reader said no, which is not a failure to report back to them.
+ */
+export type ProgramImageImportResult =
+  | { status: 'read'; csv: string }
+  | { status: 'cancelled' }
+  | { status: 'failed' };
+
+/**
  * Longest edge, in pixels, after downscaling.
  *
  * A 4000px phone photo of a spreadsheet is not more readable than a 1600px

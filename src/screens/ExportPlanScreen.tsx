@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
@@ -10,6 +10,17 @@ import { buildWorkoutLogCsv, summarizeWorkoutLog, WorkoutLogCsvInput } from '../
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AppLanguage } from '../types/models';
+
+/**
+ * Above this, a refused share is credibly about the size.
+ *
+ * Android carries an intent's extras through a Binder transaction with about a
+ * megabyte to share between everything in flight, and a share is refused well
+ * before that. 200k characters is roughly 110 logged workouts — comfortably
+ * under where the refusals start, and comfortably over anything that fails for
+ * another reason.
+ */
+const LOG_SHARE_SIZE_HINT = 200_000;
 
 export interface ExportablePlan {
   id: string;
@@ -84,14 +95,63 @@ export function ExportPlanScreen({ language = 'en', plans, log, onBack }: Export
     .filter((part): part is string => part !== null)
     .join(' · ');
 
+  /*
+   * The log goes out as text in a share intent, and a long enough log does not
+   * fit in one.
+   *
+   * Android passes an intent's extras through a Binder transaction with about
+   * a megabyte to share between everything in flight, so a large EXTRA_TEXT is
+   * refused rather than truncated. Measured with the real builder: 273 logged
+   * workouts at 25 sets each is 507 kB, 500 is 928 kB — and 273 is not a
+   * number out of the air, it is the history this app has already seen split
+   * across storage rows for the same reason.
+   *
+   * That refusal used to land in the catch below beside a dismissed sheet,
+   * under "nothing to recover from". So the reader with the most to lose
+   * pressed the one button that backs up "your log is yours" and watched
+   * nothing happen at all (audit 3, 2026-09-19).
+   *
+   * Saying so is the fix that can be made here. Handing over a FILE instead
+   * would lift the limit — the reader picks a folder and the CSV is written
+   * into it — and that needs `StorageAccessFramework` and a device to test on;
+   * it is written up as the follow-up rather than shipped untested.
+   */
+  const [logError, setLogError] = useState<string | null>(null);
+
   async function shareLog() {
+    setLogError(null);
+    let csv: string;
     try {
-      await Share.share({
+      csv = buildWorkoutLogCsv(log);
+    } catch (error) {
+      // Building it is not sharing it: a throw here is malformed stored data,
+      // and blaming the size would be a confident wrong answer.
+      console.error('Failed to build the training log', error);
+      setLogError(t(language, 'export.log.failed'));
+      return;
+    }
+    try {
+      const result = await Share.share({
         title: t(language, 'export.log.title'),
-        message: buildWorkoutLogCsv(log),
+        message: csv,
       });
-    } catch {
-      // Same as above: dismissing the sheet is not a failure.
+      // `dismissedAction` is the reader closing the sheet; anything else is a
+      // target that took it.
+      if (result.action === Share.dismissedAction) {
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to share the training log', error);
+      // Size is named only when the size can carry the blame. A share can also
+      // fail with no target at all or a refused permission, and the sentence
+      // below does not merely say "it failed" — it asserts a cause and gives
+      // advice premised on it, so a small log failing for another reason would
+      // be told to wait for a feature that would not help it (CI review of
+      // #146). Characters rather than bytes: this is a threshold for choosing
+      // a sentence, not a limit to enforce.
+      setLogError(
+        t(language, csv.length > LOG_SHARE_SIZE_HINT ? 'export.log.tooBig' : 'export.log.failed'),
+      );
     }
   }
 
@@ -176,6 +236,7 @@ export function ExportPlanScreen({ language = 'en', plans, log, onBack }: Export
             </View>
             {logEmpty ? null : <ChevronIcon />}
           </Pressable>
+          {logError ? <Text style={styles.rowError}>{logError}</Text> : null}
         </View>
 
         <Text style={styles.footer}>{t(language, 'export.footer')}</Text>
@@ -268,6 +329,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
+  },
+  rowError: {
+    color: theme.danger,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 8,
+    paddingHorizontal: 4,
   },
   footer: {
     color: theme.faint,
