@@ -1,4 +1,4 @@
-import { MeasurementKind } from '../types/models';
+import { MeasurementKind, MeasurementUnit } from '../types/models';
 
 /**
  * Every measurement the app can take — the one list, so a new one cannot be
@@ -67,4 +67,19 @@ export function isMeasurementKind(value: unknown): value is MeasurementKind {
   return (
     typeof value === 'string' && (MEASUREMENT_KIND_ORDER as readonly string[]).includes(value)
   );
+}
+
+/**
+ * What a kind is measured in. One answer, because there were two.
+ *
+ * Body fat is a percentage and every other measure is a length. The Progress
+ * tab sent `'cm'` for all of them — "always centimetres", said its comment —
+ * while the coach chat's writer sent `'%'` for body fat, so the same measure
+ * was stored under two different units depending on where the reader entered
+ * it. The tab printed `%` regardless, which is what kept it hidden from
+ * itself; the leak was the coach being handed "bodyfat, 20 cm" (audit 3,
+ * 2026-09-19).
+ */
+export function measurementUnitForKind(kind: MeasurementKind): MeasurementUnit {
+  return kind === 'bodyfat' ? '%' : 'cm';
 }

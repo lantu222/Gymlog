@@ -6,6 +6,7 @@ import { SimpleLineChart } from '../components/SimpleLineChart';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { getExerciseInstructions } from '../lib/exerciseInstructions';
 import { countRemainingStatements } from '../lib/exerciseLearning';
+import { getComparableLogSets } from '../lib/exerciseLog';
 import { getExerciseTeaching, shouldShowTeachingCaution } from '../lib/exerciseTeaching';
 import { calendarDaysBetween } from '../lib/completedSessions';
 import { convertWeightFromKg, formatShortDate, removeTrailingZeros } from '../lib/format';
@@ -272,13 +273,25 @@ export function ExerciseDetailScreen({
   const logs = history?.logs ?? [];
   const hasHistory = logs.length > 0;
 
+  const unloaded = (history?.bestWeight ?? 0) <= 0 && (history?.bestReps ?? 0) > 0;
+  /*
+   * The same rule for the line: an unloaded lift plots the reps it actually
+   * did, rather than a row of zeroes with a date under each one.
+   *
+   * Through `getComparableLogSets`, which is what `bestReps` above is counted
+   * from. A raw sum over `log.sets` counts warm-up sets too — a Hevy import
+   * writes each set's `kind` — so the line could rise above the personal best
+   * printed directly over it (CI review of #147).
+   */
   const chartPoints = useMemo(
     () =>
       [...logs].reverse().map((log) => ({
         label: formatShortDate(log.performedAt, language),
-        value: convertWeightFromKg(log.weight, unitPreference),
+        value: unloaded
+          ? getComparableLogSets(log).reduce((sum, set) => sum + (set.reps ?? 0), 0)
+          : convertWeightFromKg(log.weight, unitPreference),
       })),
-    [language, logs, unitPreference],
+    [language, logs, unloaded, unitPreference],
   );
 
   const trendDelta = useMemo(() => {
@@ -288,8 +301,20 @@ export function ExerciseDetailScreen({
     return chartPoints[chartPoints.length - 1].value - chartPoints[0].value;
   }, [chartPoints]);
 
-  const personalBest =
-    history?.bestWeight != null
+  /*
+   * A lift with no bar is measured in reps, not in kilograms.
+   *
+   * `bestWeight` is 0 for a pull-up, not null, so `!= null` was true and the
+   * card printed "0 kg" — under it a chart flat on the axis and "+0 kg since
+   * start", to a reader who had gone from 21 reps to 33 (audit 3,
+   * 2026-09-19). The library already answers this: `finalizeExerciseSummary`
+   * computes `bestReps` and `latestValue` for exactly the unloaded case, and
+   * Home's stat cards filter on `bestWeight > 0` for the same reason. This
+   * screen was the one place printing the raw kilogram.
+   */
+  const personalBest = unloaded
+    ? t(language, 'exDetail.bestReps', { count: history?.bestReps ?? 0 })
+    : history?.bestWeight != null && history.bestWeight > 0
       ? `${removeTrailingZeros(convertWeightFromKg(history.bestWeight, unitPreference))} ${unitPreference}`
       : '—';
 
@@ -391,7 +416,7 @@ export function ExerciseDetailScreen({
                 <StatCard
                   label={t(language, 'exDetail.personalBest')}
                   value={personalBest}
-                  meta={t(language, 'exDetail.topSet')}
+                  meta={t(language, unloaded ? 'exDetail.bestSession' : 'exDetail.topSet')}
                 />
                 <StatCard
                   label={t(language, 'exDetail.lastDone')}
@@ -405,18 +430,25 @@ export function ExerciseDetailScreen({
                 />
               </View>
               <View style={styles.workingWeightHeader}>
-                <Text style={styles.workingWeightLabel}>{t(language, 'progress.workingWeight')}</Text>
+                <Text style={styles.workingWeightLabel}>
+                  {t(language, unloaded ? 'exDetail.repsPerSession' : 'progress.workingWeight')}
+                </Text>
                 {trendDelta != null ? (
                   <Text style={[styles.workingWeightDelta, trendDelta < 0 && styles.workingWeightDeltaDown]}>
                     {trendDelta >= 0 ? '+' : ''}
-                    {removeTrailingZeros(trendDelta)} {unitPreference} {t(language, 'exDetail.sinceStart')}
+                    {/* The unit follows the measure, not the setting. The card
+                        above says "33 toistoa" for an unloaded lift, and this
+                        read "+12 kg" beside it (CI review of #147). */}
+                    {removeTrailingZeros(trendDelta)}{' '}
+                    {unloaded ? t(language, 'exDetail.repsUnit') : unitPreference}{' '}
+                    {t(language, 'exDetail.sinceStart')}
                   </Text>
                 ) : null}
               </View>
               <SimpleLineChart
                 points={chartPoints}
                 accent={theme.purple}
-                unitLabel={unitPreference}
+                unitLabel={unloaded ? t(language, 'exDetail.repsUnit') : unitPreference}
                 emptyLabel={t(language, 'progress.noEntries')}
               />
             </>

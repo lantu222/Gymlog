@@ -31,6 +31,7 @@ import { catalogLevelForSetup } from '../lib/goalProgramme';
 import { getReadyProgramContent } from '../lib/readyProgramContent';
 import { getReadyProgramBlockWeeks } from '../lib/readyProgramDuration';
 import { nextSeasonWindow, resolveSeasonWindow } from '../lib/season';
+import { isEnrolled } from '../lib/seasonEnrolment';
 import { computeSeasonProgress, countSeasonRecords, resolveSeasonBadges } from '../lib/seasonScoring';
 import { removeStrengthGoal, upsertStrengthGoal } from '../lib/strengthGoals';
 import { buildTailoringBadgeLabels } from '../lib/tailoringFit';
@@ -1075,12 +1076,31 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         // there, so the button's own sentence was never true and the season
         // could not be joined at all. It joins now, and joining ADDS: the
         // reader's own programme stays exactly where it was.
-        running={activeProgramTemplateIds.includes(seasonProgramId)}
+        /*
+         * In the season, or not — read from the sign-up as well as the plan.
+         *
+         * `seasonEnrolments` was written by the join and read by nothing:
+         * `isEnrolled` was imported into App.tsx and never called, so the CTA
+         * still decided everything from the active plan. Which is the exact
+         * thing the enrolment record exists to stop — "changing programme
+         * mid-season used to silently un-join you… It no longer can", says
+         * `seasonEnrolment.ts`, and it still could (audit 3, 2026-09-19).
+         */
+        running={
+          activeProgramTemplateIds.includes(seasonProgramId) ||
+          isEnrolled(preferences.seasonEnrolments, seasonInView, seasonWindow.year)
+        }
         onJoinSeason={() => {
           // Two things, and they are genuinely two: the row that says you are
           // in the season, and the programme swap that makes it trainable.
-          const window = resolveSeasonWindow();
-          handleEnrolSeason(window.season, window.year);
+          //
+          // Both about the season being LOOKED AT. This re-resolved from today
+          // for the enrolment while adopting the viewed season's programme, so
+          // opening the winter card in September and pressing "Aloita kausi"
+          // filed the reader into summer and handed them the winter programme
+          // (audit 3, 2026-09-19). `seasonWindow` above already resolves this
+          // correctly, and every other number on the screen reads it.
+          handleEnrolSeason(seasonInView, seasonWindow.year);
           void handleAdoptReadyProgram(seasonProgramId);
         }}
         onBack={() => navigateBack({ tab: 'workout', screen: 'programs_home' })}

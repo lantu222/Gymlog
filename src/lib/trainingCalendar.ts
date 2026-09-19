@@ -27,11 +27,29 @@ function dayStartOf(iso: string): number | null {
  */
 export function weeklyTrainingStreak(
   sessions: readonly WorkoutSession[],
+  /**
+   * The runs, which are training weeks too.
+   *
+   * Left out, the streak under the Progress calendar read 0 for a reader whose
+   * calendar above it marked three days that week — the calendar counts every
+   * activity, Home's own streak counts every activity, and this one counted
+   * lifted sessions alone (audit 3, 2026-09-19).
+   *
+   * What is NOT copied from Home's streak is its treatment of an unfinished
+   * week: this one does not let an empty current week break a run, which is
+   * deliberate and explained above. Two different policies for two different
+   * places would be a drift; one policy over two different activity sets was
+   * the bug.
+   */
+  cardioSessions: ReadonlyArray<{ performedAt: string }> = [],
   now: Date = new Date(),
 ): number {
   const trainedWeeks = new Set<number>();
-  for (const session of sessions) {
-    const day = dayStartOf(session.performedAt);
+  for (const performedAt of [
+    ...sessions.map((session) => session.performedAt),
+    ...cardioSessions.map((session) => session.performedAt),
+  ]) {
+    const day = dayStartOf(performedAt);
     if (day !== null) {
       trainedWeeks.add(mondayOf(new Date(day)));
     }

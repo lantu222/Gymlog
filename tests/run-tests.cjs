@@ -406,6 +406,7 @@ const suites = [
   ...require('./screens/onboardingEntryAndSaves.test.cjs'),
   ...require('./lib/planTemplateSync.test.cjs'),
   ...require('./screens/audit3Promises.test.cjs'),
+  ...require('./screens/audit3Numbers.test.cjs'),
 ];
 
 (async () => {
