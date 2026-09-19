@@ -306,15 +306,38 @@ module.exports = [
       // so reading it reported 0 denials on runs that had them.
       assert.ok(!step.run.includes('permission_denials_count'), 'diagnostics read a field the execution file does not have');
       assert.match(step.run, /\.permission_denials \/\/ \[\] \| length/);
-      // Names only, and for Bash the program alone: the log is public and a
-      // denied call's input is not. The one read of the input goes through
-      // the filter that keeps a plain lowercase word and drops the rest. It
-      // splits on every kind of space: jq's anchors match at line breaks, so a
-      // word split on spaces alone could carry the next line into the log.
+      // Names only, and for Bash the program and its subcommands: the log is
+      // public and a denied call's input is not. The one read of the input
+      // goes through `name`, which keeps up to three plain lowercase words and
+      // drops everything from the first thing that is not one.
+      //
+      // The word must END at a space or at the end of the command. Without
+      // that lookahead `gh api repos/owner/repo/pulls/1` would print its
+      // path's first segment, and the point of the filter is that no part of
+      // a path, a URL, a quoted string or an `ENV=value` prefix can reach the
+      // log. One word was not enough to act on: `gh pr diff` is allowed and
+      // `gh api` is refused on purpose, and both printed as `Bash(gh)`.
       const sanitized =
-        '(.tool_input.command // "") | [splits("\\\\s+")] | map(select(test("^[a-z][a-z0-9._-]{0,30}$"))) | (.[0] // "?")';
+        'def name: [match("^[a-z][a-z0-9._-]{0,30}(?=\\\\s|$)(?: [a-z][a-z0-9._-]{0,30}(?=\\\\s|$)){0,2}").string] | .[0] // "?";';
       assert.ok(step.run.includes(sanitized), 'the Bash program is no longer read through its filter');
+      assert.ok(step.run.includes('(.tool_input.command // "") | name'), 'the input reaches the log without the filter');
       assert.equal(step.run.split('tool_input').length - 1, 1, 'denied tool input is read somewhere else too');
+
+      // And the filter does what the comment says, run rather than read. Each
+      // of these is a shape that has to lose everything after the program.
+      for (const [command, expected] of [
+        ["gh api repos/owner/repo/pulls/1/comments --jq '.[].body'", 'gh api'],
+        ['gh pr diff 142 --name-only', 'gh pr diff'],
+        ["git grep -n 'SECRET TOKEN abc' -- src", 'git grep'],
+        ['grep -rn "private key here" src/', 'grep'],
+        ['cat src/very/secret/path.ts', 'cat'],
+        ['NODE_ENV=test npm run test:unit', '?'],
+        ['/usr/bin/env node -e "1"', '?'],
+        ['ls', 'ls'],
+      ]) {
+        const match = command.match(/^[a-z][a-z0-9._-]{0,30}(?=\s|$)(?: [a-z][a-z0-9._-]{0,30}(?=\s|$)){0,2}/);
+        assert.equal(match ? match[0] : '?', expected, `the denial log would print ${command} wrongly`);
+      }
     },
   },
   {
