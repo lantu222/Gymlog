@@ -273,9 +273,20 @@ jobs:
           # src/x.ts` as `Bash(grep)`, and `NODE_ENV=1 npm test` as `Bash(?)`.
           # Anchored at the start, so a word that ran across a line break
           # cannot carry the next line with it.
+          #
+          # And every subcommand, not just the first. A Bash rule has to match
+          # each part of a compound command on its own, so `gh pr diff 1 | sed
+          # -n 1,200p` is refused over `sed` while `gh pr diff` is allowed —
+          # and naming the first part alone reported seventeen denials of a
+          # command that is on the allowlist, which read as the allowlist being
+          # broken (2026-09-19). Split on the separators the permission system
+          # recognises and name each part: `Bash(gh pr diff + sed)` says which
+          # one to look at. The word filter runs per part, so a separator
+          # inside a quoted string can only mislabel, never leak.
           denials=$(echo "$summary" | jq -r '.permission_denials // [] | length')
           denied=$(echo "$summary" | jq -r '
-            def name: [match("^[a-z][a-z0-9._-]{0,30}(?=\\s|$)(?: [a-z][a-z0-9._-]{0,30}(?=\\s|$)){0,2}").string] | .[0] // "?";
+            def word: [match("^[a-z][a-z0-9._-]{0,30}(?=\\s|$)(?: [a-z][a-z0-9._-]{0,30}(?=\\s|$)){0,2}").string] | .[0] // "?";
+            def name: [splits("\\s*(?:&&|\\|\\||\\|&|;|\\||&|\\n)\\s*")] | map(word) | .[0:4] | join(" + ");
             .permission_denials // []
             | map(if .tool_name == "Bash" then "Bash(" + ((.tool_input.command // "") | name) + ")" else (.tool_name // "?") end)
             | group_by(.) | map("\(.[0]) x\(length)") | join(", ")')
