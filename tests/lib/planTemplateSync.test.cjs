@@ -91,6 +91,20 @@ module.exports = [
     },
   },
   {
+    name: 'plan sync: a new day never takes an id a surviving day already has',
+    run() {
+      // Day 1 removed and a fourth added: the new day lands at index 2, whose
+      // adoption name `p_entry_3` the surviving third day already carries.
+      const entries = syncPlanEntriesToTemplate({ ...base, entries: planEntries(), sessionIds: ['s2', 's3', 's4'] });
+      assert.ok(entries);
+      const ids = entries.map((entry) => entry.id);
+      assert.equal(new Set(ids).size, ids.length, `two entries share an id: ${ids.join(', ')}`);
+      // The survivors keep theirs, so nothing that remembers an entry by id
+      // loses it.
+      assert.deepEqual(ids.slice(0, 2), ['p_entry_2', 'p_entry_3']);
+    },
+  },
+  {
     name: 'plan sync: a plan rebuilt from nothing reads like one adoption wrote',
     run() {
       const entries = syncPlanEntriesToTemplate({ ...base, entries: [], sessionIds: ['s1', 's2'] });
@@ -124,6 +138,11 @@ module.exports = [
       // Read back from the repository, like the reorder beside it.
       assert.match(app, /const saved = await getWorkoutTemplateSessionsFresh\(workoutTemplateId\);\s*const entries = syncPlanEntriesToTemplate\(\{/);
       assert.match(app, /dayLabels: planLabelsForProgramme\(saved\.length, preferences\.setupAvailableDays, new Date\(\)\)/);
+      // The block boundary is left alone. On a plan `updatedAt` is not a
+      // modification stamp — Home counts the week from it — so stamping it
+      // would reset a reader mid-block to week 1 for adding a day.
+      assert.match(app, /await upsertWorkoutPlan\(\{ \.\.\.plan, entries, updatedAt: plan\.updatedAt \}\);/);
+      assert.doesNotMatch(app, /upsertWorkoutPlan\(\{ \.\.\.plan, entries, updatedAt: new Date\(\)/);
     },
   },
 ];

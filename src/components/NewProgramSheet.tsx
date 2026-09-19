@@ -691,6 +691,13 @@ export function NewProgramSheet({
                               )}
                         </Text>
                       </Pressable>
+                      {/* Here as well as in the Hevy branch above. The two
+                          previews are mutually exclusive, so a message set by
+                          the programme import rendered only inside the other
+                          branch was a message nobody could see — the very
+                          silent failure this was added to end (CI review of
+                          #146). */}
+                      {importError ? <Text style={styles.errorNote}>{importError}</Text> : null}
                     </>
                   ) : null}
                 </>

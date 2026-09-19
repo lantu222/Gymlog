@@ -67,6 +67,28 @@ export function syncPlanEntriesToTemplate(input: PlanTemplateSyncInput): Workout
   const spare = input.dayLabels.filter((label) => !taken.has(label));
   let spareIndex = 0;
 
+  /*
+   * A new entry's id, and it cannot be a survivor's.
+   *
+   * `${planId}_entry_${index + 1}` is what adoption names a slot, and taking
+   * it from the REBUILT position collides the moment survivors and new days
+   * are mixed: remove day 1 and add a fourth, and the new day lands at index 2
+   * — `p_entry_3`, which the surviving third day is already called (CI review
+   * of #146). The lowest number nothing holds keeps the adoption shape without
+   * that.
+   */
+  const usedIds = new Set(next.map((id) => bySession.get(id)?.id).filter((id): id is string => Boolean(id)));
+  let nextNumber = 1;
+  const mintId = () => {
+    let candidate = `${input.planId}_entry_${nextNumber}`;
+    while (usedIds.has(candidate)) {
+      nextNumber += 1;
+      candidate = `${input.planId}_entry_${nextNumber}`;
+    }
+    usedIds.add(candidate);
+    return candidate;
+  };
+
   return next.map((sessionId, index) => {
     const kept = bySession.get(sessionId);
     const label =
@@ -79,9 +101,7 @@ export function syncPlanEntriesToTemplate(input: PlanTemplateSyncInput): Workout
           ? input.dayLabels[index % input.dayLabels.length]
           : `Day ${index + 1}`);
     return {
-      // The id an adoption would have given this slot, so a plan rebuilt by
-      // either path reads the same.
-      id: kept?.id ?? `${input.planId}_entry_${index + 1}`,
+      id: kept?.id ?? mintId(),
       workoutTemplateId: input.workoutTemplateId,
       workoutTemplateSessionId: sessionId,
       label,

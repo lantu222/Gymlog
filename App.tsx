@@ -2584,7 +2584,13 @@ function VinhaApp() {
     if (!entries) {
       return;
     }
-    await upsertWorkoutPlan({ ...plan, entries, updatedAt: new Date().toISOString() });
+    // `updatedAt` is NOT touched, exactly as the reorder above and the rename
+    // refuse to touch it: on a plan it is the block boundary, not a
+    // modification stamp. Home counts the week from it, so stamping it here
+    // would have reset a reader mid-block to "week 1, 0 of 24" for adding a
+    // day — with every completed session still in the database (CI review
+    // of #146).
+    await upsertWorkoutPlan({ ...plan, entries, updatedAt: plan.updatedAt });
   }
 
   /**

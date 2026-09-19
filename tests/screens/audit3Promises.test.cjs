@@ -90,6 +90,14 @@ module.exports = [
       assert.ok(handler.indexOf('if (saved === false)') < handler.indexOf('handleClose()'), 'closed only on a save that happened');
       assert.match(handler, /catch \{\s*setImportError\(t\(language, 'csv\.import\.failed'\)\);/);
       bothLanguages('csv.import.failed');
+      // And the message renders where this handler runs. `preview` and
+      // `hevyPreview` are mutually exclusive, so a message rendered only in
+      // the Hevy branch was one nobody could see.
+      assert.equal(
+        sheet.split('{importError ? <Text style={styles.errorNote}>{importError}</Text> : null}').length - 1,
+        2,
+        'the import error renders in one branch only',
+      );
 
       // And every caller answers it.
       for (const file of [['App.tsx'], ['src', 'app', 'renderProfileTab.tsx'], ['src', 'app', 'renderWorkoutTab.tsx']]) {
