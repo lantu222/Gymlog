@@ -115,7 +115,11 @@ export interface ProfileTabDeps {
   /** Asks the server to delete these coach-log labels; resolves with the ones it could not confirm. */
   deletePendingAiLogs: (logIds: readonly string[]) => Promise<string[]>;
   /** Retires the coach's label inside the provider's queue, filing its delete as owed when `owed`. */
-  retireAiLogLabel: (logId: string, owed: boolean) => Promise<void>;
+  /**
+   * Retires the coach's label inside the provider's queue, filing its delete as
+   * owed when `owed`; resolves with whether it ended up owed.
+   */
+  retireAiLogLabel: (logId: string, owed: boolean) => Promise<boolean>;
   setCompletionSummary: (value: CompletionSummaryState | null) => void;
   setWorkoutCelebration: (value: WorkoutCelebrationState | null) => void;
   setFinishSaveState: (value: {
@@ -719,8 +723,8 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
           // time it returns, and writing its list back would drop a label a
           // reset filed in the meantime — leaving those copies under a name
           // nothing can look up (CI review of #143).
-          await retireAiLogLabel(logId, !forgotten.ok);
-          if (!forgotten.ok) {
+          const stillOwed = await retireAiLogLabel(logId, !forgotten.ok);
+          if (stillOwed) {
             showToast(t(preferences.appLanguage, 'toast.coachCopiesPending'));
           }
         }}

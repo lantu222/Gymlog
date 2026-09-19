@@ -201,7 +201,10 @@ module.exports = [
       // which a later yes would reuse, but as a delete still owed. Dropping it
       // outright would leave the copies filed under a name nothing can look up
       // again.
-      assert.match(handler, /await retireAiLogLabel\(logId, !forgotten\.ok\);/);
+      assert.match(handler, /const stillOwed = await retireAiLogLabel\(logId, !forgotten\.ok\);/);
+      // And the reader hears "still on its way" only when it is: the provider
+      // may find the label back in use and file nothing.
+      assert.match(handler, /if \(stillOwed\) \{\s*showToast\(t\(preferences\.appLanguage, 'toast\.coachCopiesPending'\)\);/);
 
       /*
        * And that write reads the owed list where it writes it.
@@ -224,11 +227,27 @@ module.exports = [
       assert.match(retire, /return runExclusive\(async \(\) => \{\s*const current = databaseRef\.current;/);
       assert.match(
         retire,
-        /pendingAiLogDeletions: owed\s*\?\s*withPendingAiLogDeletion\(current\.preferences\.pendingAiLogDeletions, logId\)/,
+        /const pending = owed \? withPendingAiLogDeletion\(live\.pendingAiLogDeletions, logId\) : live\.pendingAiLogDeletions;/,
       );
-      // A reader who switched the log back on during that window has a new
-      // label, and nulling it would strand the copies it has started keeping.
-      assert.match(retire, /aiLogId: current\.preferences\.aiLogId === logId \? null : current\.preferences\.aiLogId,/);
+      assert.match(retire, /const live = current\.preferences;/);
+      /*
+       * And live consent is read there too.
+       *
+       * A line switched back on during the delete does NOT mint a new label —
+       * the handler mints one only when there is none, and this one is still
+       * here — so the app goes on writing copies under it. Retiring it on the
+       * caller's stale "every line is off" would queue a delete for copies the
+       * reader has just said yes to (CI review of #143, second round).
+       */
+      assert.match(
+        retire,
+        /const consented =\s*live\.aiLogChatConsent \|\| live\.aiLogComposerConsent \|\| live\.aiLogPhotoConsent;/,
+      );
+      assert.match(retire, /if \(consented && live\.aiLogId === logId\) \{\s*return false;\s*\}/);
+      // A different label is current: it is left alone, and the old one's
+      // copies are still owed a delete nothing else will ask for.
+      assert.match(retire, /const retiring = live\.aiLogId === logId;/);
+      assert.match(retire, /aiLogId: retiring \? null : live\.aiLogId,/);
       // A refused write puts memory back, like every other write in there.
       assert.match(retire, /catch \(error\) \{\s*databaseRef\.current = current;/);
     },

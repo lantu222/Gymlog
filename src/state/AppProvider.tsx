@@ -181,8 +181,12 @@ interface AppContextValue {
   resetAllData: () => Promise<void>;
   /** Drops labels the server has confirmed deleting from the list still owed. */
   clearPendingAiLogDeletions: (deleted: readonly string[]) => Promise<void>;
-  /** Retire the coach's label, filing its delete as owed when `owed`. */
-  retireAiLogLabel: (logId: string, owed: boolean) => Promise<void>;
+  /**
+   * Retire the coach's label, filing its delete as owed when `owed`. Resolves
+   * with whether it ended up owed: a line switched back on under this label in
+   * the meantime leaves it in use, and nothing is filed or said.
+   */
+  retireAiLogLabel: (logId: string, owed: boolean) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -1147,21 +1151,40 @@ export function AppProvider({ children }: React.PropsWithChildren) {
    * look up (CI review of #143). Read here, at write time, like the clear
    * beside it.
    *
-   * The label is cleared only if it is still the one being retired. A reader
-   * who switched the log back on during that same window has a new label, and
-   * nulling it would strand the copies it has already started collecting.
+   * Whose consent counts is read here too, and that is the whole of it. The
+   * caller decided "every line is off" before a delete that can take forty
+   * seconds, and a line switched back on inside that window does NOT mint a
+   * new label — the withdrawal handler mints one only when there is none, and
+   * this one is still here until this runs. So the app goes on writing copies
+   * under it, and retiring it on the caller's word would file a delete for
+   * copies the reader has just said yes to (CI review of #143).
+   *
+   * Three answers, then:
+   * - consent is back on under this very label: nothing. It is in use.
+   * - a different label is current: leave it alone, but the copies under the
+   *   old one are owed a delete that nothing else will ask for.
+   * - every line still off, same label: retire it, owed if the delete failed.
    */
   function retireAiLogLabel(logId: string, owed: boolean) {
     return runExclusive(async () => {
       const current = databaseRef.current;
+      const live = current.preferences;
+      const consented =
+        live.aiLogChatConsent || live.aiLogComposerConsent || live.aiLogPhotoConsent;
+      if (consented && live.aiLogId === logId) {
+        return false;
+      }
+      const retiring = live.aiLogId === logId;
+      const pending = owed ? withPendingAiLogDeletion(live.pendingAiLogDeletions, logId) : live.pendingAiLogDeletions;
+      if (!retiring && pending === live.pendingAiLogDeletions) {
+        return false;
+      }
       const next = {
         ...current,
         preferences: {
-          ...current.preferences,
-          aiLogId: current.preferences.aiLogId === logId ? null : current.preferences.aiLogId,
-          pendingAiLogDeletions: owed
-            ? withPendingAiLogDeletion(current.preferences.pendingAiLogDeletions, logId)
-            : current.preferences.pendingAiLogDeletions,
+          ...live,
+          aiLogId: retiring ? null : live.aiLogId,
+          pendingAiLogDeletions: pending,
         },
       };
       databaseRef.current = next;
@@ -1173,6 +1196,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
         setDatabase(current);
         throw error;
       }
+      return owed;
     });
   }
 

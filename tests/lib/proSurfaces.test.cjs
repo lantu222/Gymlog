@@ -497,12 +497,14 @@ module.exports = [
       assert.doesNotMatch(benefits, /coach\.adaptive|coach\.rest/);
 
       // Onboarding's progression step sold the effort feedback too.
+      //
+      // The whole file, not a window between two constants. Both of those
+      // constants have since been deleted as dead code, and `slice(-1, -1)`
+      // is the empty string — the assertion went on passing against nothing
+      // (CI review of #143, 2026-09-19). A claim that must not appear anywhere
+      // never needed a window in the first place.
       const onboarding = read('src', 'screens', 'OnboardingScreen.tsx');
-      const bullets = onboarding.slice(
-        onboarding.indexOf('const PROGRESSION_BULLET_KEYS'),
-        onboarding.indexOf('const CAUTION_REFINEMENT_OPTIONS'),
-      );
-      assert.doesNotMatch(bullets, /'onb\.progression\.b2'/);
+      assert.doesNotMatch(onboarding, /'onb\.progression\.b2'/);
     },
   },
   {
