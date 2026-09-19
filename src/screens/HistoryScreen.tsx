@@ -525,23 +525,30 @@ export function HistoryScreen({
           <EmptyState title={t(language, 'history.empty.title')} body={t(language, 'history.empty.body')} />
         ) : (
           <>
-            <View style={styles.browseCard}>
-              <TextInput
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder={t(language, 'history.searchPlaceholder')}
-                placeholderTextColor={theme.faint}
-                selectionColor={theme.purple}
-                style={styles.searchInput}
-              />
-              {/* A list of what happened, and a search over it. The review /
-                  tracked filter chips and their "N tarkistettavaa" count are
-                  gone: they were a triage layer over a history, and a history
-                  is not a to-do list. */}
-              <Text style={styles.browseMeta}>
-                {t(language, 'history.browse.meta', { sessions: filteredSessions.length })}
-              </Text>
-            </View>
+            {/* The search is over the lifted sessions, and its count is of
+                them — so with runs and no lifts it printed "0 treeniä" directly
+                above the list of the reader's actual runs (CI review of #147).
+                Nothing to search, nothing to count: the card stays away and the
+                cardio section speaks for itself. */}
+            {sessions.length > 0 ? (
+              <View style={styles.browseCard}>
+                <TextInput
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder={t(language, 'history.searchPlaceholder')}
+                  placeholderTextColor={theme.faint}
+                  selectionColor={theme.purple}
+                  style={styles.searchInput}
+                />
+                {/* A list of what happened, and a search over it. The review /
+                    tracked filter chips and their "N tarkistettavaa" count are
+                    gone: they were a triage layer over a history, and a history
+                    is not a to-do list. */}
+                <Text style={styles.browseMeta}>
+                  {t(language, 'history.browse.meta', { sessions: filteredSessions.length })}
+                </Text>
+              </View>
+            ) : null}
 
             <FeelSummaryCard summary={feelSummary} language={language} />
 

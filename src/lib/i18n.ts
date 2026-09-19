@@ -255,6 +255,8 @@ const EN = {
   'export.log.failed': 'Could not hand the log over. Try again.',
   'exDetail.bestReps': '{count} reps',
   'exDetail.repsUnit': 'reps',
+  'exDetail.bestSession': 'best session',
+  'exDetail.repsPerSession': 'Reps per session',
   'csv.photo.notice.title': 'The photo is sent to be read',
   'csv.photo.notice.body':
     'Reading a table from a photo is the coach’s online mode: the photo you pick is sent to our server and on from there to the model that reads it. Nothing else about you goes with it, and it is deleted after 30 days. No copy is kept unless you allow it in Settings.',
@@ -3417,6 +3419,8 @@ const FI: Record<I18nKey, string> = {
   'export.log.failed': 'Lokia ei saatu luovutettua. Yritä uudelleen.',
   'exDetail.bestReps': '{count} toistoa',
   'exDetail.repsUnit': 'toistoa',
+  'exDetail.bestSession': 'paras treeni',
+  'exDetail.repsPerSession': 'Toistot per treeni',
   'csv.photo.notice.title': 'Kuva lähetetään luettavaksi',
   'csv.photo.notice.body':
     'Taulukon lukeminen kuvasta on valmentajan verkkotila: valitsemasi kuva lähetetään palvelimellemme ja sieltä mallille, joka lukee sen. Mukana ei lähde muuta sinusta, ja kuva poistetaan 30 päivän kuluttua. Kopiota ei säilytetä, ellet salli sitä asetuksissa.',

@@ -416,7 +416,7 @@ export function ExerciseDetailScreen({
                 <StatCard
                   label={t(language, 'exDetail.personalBest')}
                   value={personalBest}
-                  meta={t(language, 'exDetail.topSet')}
+                  meta={t(language, unloaded ? 'exDetail.bestSession' : 'exDetail.topSet')}
                 />
                 <StatCard
                   label={t(language, 'exDetail.lastDone')}
@@ -430,7 +430,9 @@ export function ExerciseDetailScreen({
                 />
               </View>
               <View style={styles.workingWeightHeader}>
-                <Text style={styles.workingWeightLabel}>{t(language, 'progress.workingWeight')}</Text>
+                <Text style={styles.workingWeightLabel}>
+                  {t(language, unloaded ? 'exDetail.repsPerSession' : 'progress.workingWeight')}
+                </Text>
                 {trendDelta != null ? (
                   <Text style={[styles.workingWeightDelta, trendDelta < 0 && styles.workingWeightDeltaDown]}>
                     {trendDelta >= 0 ? '+' : ''}

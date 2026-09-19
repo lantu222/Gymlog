@@ -83,6 +83,10 @@ module.exports = [
       // And "nothing matched your search" only when something was searched
       // for: with runs and no lifts, nothing was.
       assert.match(screen, /\{filteredSessions\.length === 0 && !filtersActive \? null : filteredSessions\.length \? \(/);
+      // Nor a search card counting the lifted sessions: its "0 treeniä" sat
+      // directly above the list of the reader's actual runs (CI review of
+      // #147) — the same class of disagreement this batch is about.
+      assert.match(screen, /\{sessions\.length > 0 \? \(\s*<View style=\{styles\.browseCard\}>/);
     },
   },
   {
@@ -153,8 +157,19 @@ module.exports = [
       // card: "33 toistoa" sat beside a trend reading "+12 kg" and a kg axis.
       assert.match(screen, /\{unloaded \? t\(language, 'exDetail\.repsUnit'\) : unitPreference\}\{' '\}/);
       assert.match(screen, /unitLabel=\{unloaded \? t\(language, 'exDetail\.repsUnit'\) : unitPreference\}/);
-      bothLanguages('exDetail.bestReps');
-      bothLanguages('exDetail.repsUnit');
+      /*
+       * Every line in the block, not the ones that were easy.
+       *
+       * `bestReps` is the highest SESSION total (`Math.max` over
+       * `getTotalReps`), so "40 reps · raskain työsarja" named a set nobody
+       * did; and the header over a reps-labelled chart still read "Työpaino"
+       * (CI review of #147). Each sibling branches on the same flag.
+       */
+      assert.match(screen, /meta=\{t\(language, unloaded \? 'exDetail\.bestSession' : 'exDetail\.topSet'\)\}/);
+      assert.match(screen, /t\(language, unloaded \? 'exDetail\.repsPerSession' : 'progress\.workingWeight'\)/);
+      for (const key of ['exDetail.bestReps', 'exDetail.repsUnit', 'exDetail.bestSession', 'exDetail.repsPerSession']) {
+        bothLanguages(key);
+      }
     },
   },
   {
