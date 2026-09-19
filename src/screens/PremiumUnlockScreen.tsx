@@ -7,6 +7,7 @@ import { countWord } from '../lib/countWord';
 import { CutSurface } from '../components/CutSurface';
 import { I18nKey, t } from '../lib/i18n';
 import { PRO_UNLOCK_CARDS, PRO_UNLOCK_LIMIT_VARS } from '../lib/proBenefits';
+import { PRO_TRIAL_DAYS } from '../lib/proEntitlement';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 import { queryReduceMotion } from '../utils/reduceMotion';
@@ -102,6 +103,14 @@ interface PremiumUnlockScreenProps {
    * no money moves.
    */
   renewsAt?: string | null;
+  /**
+   * When the free trial this press started ends, ISO; null for a purchase.
+   *
+   * Set, the receipt is the trial's: its length, the day it ends and that
+   * nothing is charged — no price, no renewal, no preview-price caveat. The
+   * trial used to get the purchase receipt for whichever plan was selected.
+   */
+  trialEndsAt?: string | null;
 }
 
 /** Gap between one row landing and the next — slow enough to watch. */
@@ -118,6 +127,7 @@ export function PremiumUnlockScreen({
   onSeeEverything,
   liveSince = null,
   renewsAt = null,
+  trialEndsAt = null,
 }: PremiumUnlockScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -203,7 +213,11 @@ export function PremiumUnlockScreen({
           {t(language, 'unlock.headline', { count: countWord(PRO_UNLOCK_CARDS.length, language) })}
         </Animated.Text>
         <Animated.Text style={[styles.lead, ready && riseStyle(0)]}>
-          {t(language, 'unlock.body')}
+          {/* "You just made the next stretch possible" thanks a payment; a
+              trial made none. */}
+          {trialEndsAt
+            ? t(language, 'unlock.body.trial', { days: PRO_TRIAL_DAYS })
+            : t(language, 'unlock.body')}
         </Animated.Text>
 
         <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.card}>
@@ -277,24 +291,39 @@ export function PremiumUnlockScreen({
           the receipt would be the one lie a reader could check.
         */}
         <Animated.View style={[styles.receipt, ready && riseStyle(stops - 1)]}>
-          <View style={styles.receiptHead}>
-            <Text style={styles.receiptName}>{t(language, receipt.nameKey)}</Text>
-            <Text style={styles.receiptPrice}>{t(language, receipt.priceKey)}</Text>
-          </View>
-          <Text style={styles.receiptUnit}>{t(language, receipt.unitKey)}</Text>
-          {/*
-            The renewal line, counted rather than written. Lifetime says so
-            instead: it is not a renewal far away, it is the absence of one.
-          */}
-          <Text style={styles.receiptRenews}>
-            {plan === 'lifetime' || !renewsAt
-              ? t(language, 'unlock.receipt.noRenewal')
-              : t(language, 'unlock.receipt.renews', {
-                  date: formatDate(renewsAt, language),
-                  price: t(language, receipt.priceKey),
-                })}
-          </Text>
-          <Text style={styles.receiptNote}>{t(language, 'pro.v3.notice')}</Text>
+          {trialEndsAt ? (
+            <>
+              <View style={styles.receiptHead}>
+                <Text style={styles.receiptName}>
+                  {t(language, 'unlock.receipt.trial', { days: PRO_TRIAL_DAYS })}
+                </Text>
+              </View>
+              <Text style={styles.receiptRenews}>
+                {t(language, 'unlock.receipt.trialEnds', { date: formatDate(trialEndsAt, language) })}
+              </Text>
+            </>
+          ) : (
+            <>
+              <View style={styles.receiptHead}>
+                <Text style={styles.receiptName}>{t(language, receipt.nameKey)}</Text>
+                <Text style={styles.receiptPrice}>{t(language, receipt.priceKey)}</Text>
+              </View>
+              <Text style={styles.receiptUnit}>{t(language, receipt.unitKey)}</Text>
+              {/*
+                The renewal line, counted rather than written. Lifetime says so
+                instead: it is not a renewal far away, it is the absence of one.
+              */}
+              <Text style={styles.receiptRenews}>
+                {plan === 'lifetime' || !renewsAt
+                  ? t(language, 'unlock.receipt.noRenewal')
+                  : t(language, 'unlock.receipt.renews', {
+                      date: formatDate(renewsAt, language),
+                      price: t(language, receipt.priceKey),
+                    })}
+              </Text>
+              <Text style={styles.receiptNote}>{t(language, 'pro.v3.notice')}</Text>
+            </>
+          )}
           <Pressable accessibilityRole="button" onPress={onManageSubscription} hitSlop={6}>
             <Text style={styles.receiptManage}>{t(language, 'unlock.receipt.manage')}</Text>
           </Pressable>

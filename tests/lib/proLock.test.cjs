@@ -376,7 +376,9 @@ module.exports = [
       // it for a store build takes them off the screen.
       const view = read('src', 'lib', 'subscriptionView.ts');
       assert.match(view, /export function showsMockBilling\(view: SubscriptionView, demoBuild: boolean\)/);
-      assert.match(view, /return demoBuild && view\.state === 'active' && !view\.promoBacked;/);
+      // ...and only for a purchase: a promo and the trial are grants with no
+      // card behind them, in any build.
+      assert.match(view, /return demoBuild && view\.state === 'active' && view\.grant === null;/);
       assert.equal(JSON.parse(read('app.json')).expo.extra.demoBuild, true);
     },
   },

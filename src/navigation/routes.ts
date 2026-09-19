@@ -244,6 +244,13 @@ export type AppRoute =
        * selection is local state that dies with the screen.
        */
       plan?: 'monthly' | 'yearly' | 'lifetime';
+      /**
+       * Set when the press started the free trial rather than a purchase: the
+       * ISO instant the trial ends. Carried for the same reason as `plan` —
+       * the preferences write is still on its way when this screen draws its
+       * first frame, and that frame must not print a renewal price.
+       */
+      trialUntil?: string;
     }
   | {
       tab: 'profile';

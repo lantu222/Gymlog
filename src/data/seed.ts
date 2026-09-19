@@ -51,6 +51,7 @@ const DEFAULT_PREFERENCES = {
   aiLogChatConsent: false,
   aiLogComposerConsent: false,
   aiLogPhotoConsent: false,
+  pendingAiLogDeletions: [] as string[],
   promoProUntil: null as string | null,
   proTrialUntil: null as string | null,
   proTrialStartedAt: null as string | null,

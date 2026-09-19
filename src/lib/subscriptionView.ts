@@ -164,18 +164,22 @@ export interface SubscriptionView {
   /** True when the reader has cancelled but Pro is still running. */
   cancelled: boolean;
   /**
-   * When Pro stops. For a promo this is the real expiry; for mock billing it is
-   * the derived next-charge date, which is also when a cancelled term lapses.
+   * When Pro stops. For a promo or the trial this is the real expiry; for mock
+   * billing it is the derived next-charge date, which is also when a cancelled
+   * term lapses.
    */
   endsAt: string | null;
-  /** When the next charge lands. Null when cancelled, lifetime, or not active. */
+  /** When the next charge lands. Null when cancelled, lifetime, a grant, or not active. */
   nextChargeAt: string | null;
   /**
-   * True when the source is a promo — nothing to manage, nothing to cancel, and
-   * no billing rows may be shown even in a demo build. A promo is real, so the
-   * screen must not dress it in an invented card and receipt history.
+   * What Pro runs on when it is not a purchase: a promo code or the free
+   * trial. Both are real grants on a real clock — nothing to manage, nothing to
+   * cancel, and no billing rows may be shown even in a demo build, so the
+   * screen must not dress either in an invented card and receipt history.
+   * `lapsed` keeps 'promo', because an expired promo is the only lapse the app
+   * can prove. Null for a purchase and for never subscribed.
    */
-  promoBacked: boolean;
+  grant: 'promo' | 'trial' | null;
 }
 
 /**
@@ -218,14 +222,20 @@ export function resolveSubscriptionView(input: {
     // A promo is real Pro on a real clock. It has no term, no card and no
     // receipts, and pretending otherwise would put invented billing on top of
     // a fact the reader can check against the code they redeemed.
-    if (entitlement.source === 'promo') {
+    //
+    // The trial is the same kind of fact. It used to fall through to the
+    // purchase branch below, so a reader on day two of a free trial read
+    // "Yearly · active", a next payment of 79,90 €, a Visa and a "member
+    // since" — a subscription nobody had started, on the one screen they
+    // would open to check.
+    if (entitlement.source === 'promo' || entitlement.source === 'trial') {
       return {
         state: 'active',
         term: null,
         cancelled: false,
         endsAt: entitlement.promoUntil,
         nextChargeAt: null,
-        promoBacked: true,
+        grant: entitlement.source,
       };
     }
 
@@ -240,7 +250,7 @@ export function resolveSubscriptionView(input: {
       cancelled: mockCancelled,
       endsAt: charge,
       nextChargeAt: mockCancelled ? null : charge,
-      promoBacked: false,
+      grant: null,
     };
   }
 
@@ -253,18 +263,19 @@ export function resolveSubscriptionView(input: {
     cancelled: false,
     endsAt: lapsed ? lapsedPromoUntil : null,
     nextChargeAt: null,
-    promoBacked: lapsed,
+    grant: lapsed ? 'promo' : null,
   };
 }
 
 /**
  * Whether the billing rows may render at all.
  *
- * Three things have to be true together: the reader has Pro, it did not come
- * from a promo, and this is a demo build. The last one is the release valve —
- * clearing extra.demoBuild takes every invented card and receipt off the screen
- * in one move rather than requiring a screen edit.
+ * Three things have to be true together: the reader has Pro, it came from a
+ * purchase rather than a promo or the trial, and this is a demo build. The
+ * last one is the release valve — clearing extra.demoBuild takes every
+ * invented card and receipt off the screen in one move rather than requiring
+ * a screen edit.
  */
 export function showsMockBilling(view: SubscriptionView, demoBuild: boolean): boolean {
-  return demoBuild && view.state === 'active' && !view.promoBacked;
+  return demoBuild && view.state === 'active' && view.grant === null;
 }

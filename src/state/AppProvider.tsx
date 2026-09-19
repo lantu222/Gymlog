@@ -4,6 +4,7 @@ import { StorageLoadFailedScreen } from '../components/StorageLoadFailedScreen';
 import { resolveDeviceLanguage } from '../storage/deviceLocale';
 import { createId } from '../lib/ids';
 import { preferencesForRestore } from '../lib/accountBackup';
+import { withoutAiLogDeletions } from '../lib/aiLogDeletion';
 import { isProUnlocked } from '../lib/proEntitlement';
 import {
   countAuthoredPrograms,
@@ -69,20 +70,6 @@ export interface WorkoutTemplateSessionsEditResult {
   reason?: string;
 }
 
-export interface UpsertWorkoutTemplateOptions {
-  /**
-   * The plan this new programme takes the place of.
-   *
-   * Granted only when that plan is actually one the reader is running, checked
-   * inside the provider — a screen cannot talk its way past the cap by passing
-   * an id. A ready programme is immutable, so changing one lift in the one you
-   * train means storing a copy; that copy replaces the original rather than
-   * joining it, so the reader keeps the same number of programmes and the cap
-   * has nothing to count.
-   */
-  replacesPlanId?: string;
-}
-
 interface AppContextValue {
   database: AppDatabase;
   hydrated: boolean;
@@ -107,7 +94,7 @@ interface AppContextValue {
   setUnitPreference: (nextUnit: UnitPreference) => Promise<void>;
   updatePreferences: (patch: Partial<AppPreferences>) => Promise<void>;
   completeOnboarding: (patch?: Partial<AppPreferences>) => Promise<void>;
-  upsertWorkoutTemplate: (draft: WorkoutTemplateDraft, options?: UpsertWorkoutTemplateOptions) => Promise<string>;
+  upsertWorkoutTemplate: (draft: WorkoutTemplateDraft) => Promise<string>;
   upsertWorkoutPlan: (plan: WorkoutPlan) => Promise<void>;
   /**
    * A held programme gone for good: it stops running and every plan that
@@ -192,6 +179,8 @@ interface AppContextValue {
   addBodyweightEntry: (weightKg: number, recordedAt?: string) => Promise<void>;
   addMeasurementEntry: (kind: MeasurementKind, value: number, unit: MeasurementUnit, recordedAt?: string) => Promise<void>;
   resetAllData: () => Promise<void>;
+  /** Drops labels the server has confirmed deleting from the list still owed. */
+  clearPendingAiLogDeletions: (deleted: readonly string[]) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -256,6 +245,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       aiLogChatConsent: false,
       aiLogComposerConsent: false,
       aiLogPhotoConsent: false,
+      pendingAiLogDeletions: [],
       promoProUntil: null,
       proTrialUntil: null,
       proTrialStartedAt: null,
@@ -537,15 +527,12 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     });
   }
 
-  function upsertWorkoutTemplate(draft: WorkoutTemplateDraft, options?: UpsertWorkoutTemplateOptions) {
-    return runExclusive(() => upsertWorkoutTemplateExclusive(draft, options));
+  function upsertWorkoutTemplate(draft: WorkoutTemplateDraft) {
+    return runExclusive(() => upsertWorkoutTemplateExclusive(draft));
   }
 
-  async function upsertWorkoutTemplateExclusive(
-    draft: WorkoutTemplateDraft,
-    options?: UpsertWorkoutTemplateOptions,
-  ) {
-    const built = buildTemplateUpsert(draft, options);
+  async function upsertWorkoutTemplateExclusive(draft: WorkoutTemplateDraft) {
+    const built = buildTemplateUpsert(draft);
     await commit(built.database);
     return built.workoutTemplateId;
   }
@@ -554,7 +541,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
    * The template write with no commit of its own, so a caller writing more than
    * one thing can carry the result forward and land it all in a single save.
    */
-  function buildTemplateUpsert(draft: WorkoutTemplateDraft, options?: UpsertWorkoutTemplateOptions) {
+  function buildTemplateUpsert(draft: WorkoutTemplateDraft) {
     const trimmedName = draft.name.trim();
     const nextName = trimmedName || 'Untitled workout';
     const current = databaseRef.current;
@@ -569,17 +556,16 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     // would mean a user at the cap could not save a workout they had already
     // performed.
     //
-    // One exemption, verified here rather than claimed by the caller: a copy
-    // that REPLACES a ready programme the reader is currently running. Changing
-    // one lift in the programme you already train is using what you have, not
-    // acquiring another — you end with the same number of programmes you
-    // started with. Charging a slot for it would price the act of editing,
-    // which the paragraph above says is never blocked. Copying a SECOND ready
-    // programme still counts, because that one adds.
-    const replacesRunningPlan =
-      typeof options?.replacesPlanId === 'string' &&
-      current.preferences.activePlanIds.includes(options.replacesPlanId);
-    if (!existingTemplate && draft.origin !== 'freestyle' && !replacesRunningPlan) {
+    // A copy that replaces a running ready programme is NOT exempt, though it
+    // was. The reasoning was that it leaves the reader with as many
+    // programmes as before — but the cap counts programmes of your own, and
+    // the ready one it replaced was never one. Edit a running ready
+    // programme, adopt the next, edit that: every round added a copy past the
+    // limit, so a free reader could hold four, five, six (audit 2026-09-16).
+    // Under the limit the copy is made as any new programme is; at the limit
+    // the edit meets the same sheet. Editing the copy afterwards is an edit,
+    // and never blocked.
+    if (!existingTemplate && draft.origin !== 'freestyle') {
       const slots = resolveProgramSlots(
         countAuthoredPrograms(current.workoutTemplates),
         isProUnlocked(current.preferences),
@@ -1117,9 +1103,40 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     });
   }
 
+  /**
+   * Take labels off the coach-log deletes still owed, once the server has
+   * confirmed them.
+   *
+   * Read and written inside the queue rather than as an updatePreferences
+   * patch: a retry started before a reset would otherwise write back the list
+   * it read, and drop the label that reset had just filed.
+   */
+  function clearPendingAiLogDeletions(deleted: readonly string[]) {
+    return runExclusive(async () => {
+      const current = databaseRef.current;
+      const pending = current.preferences.pendingAiLogDeletions;
+      const remaining = withoutAiLogDeletions(pending, deleted);
+      if (remaining.length === pending.length) {
+        return;
+      }
+      const next = { ...current, preferences: { ...current.preferences, pendingAiLogDeletions: remaining } };
+      databaseRef.current = next;
+      setDatabase(next);
+      try {
+        await savePreferences(next.preferences);
+      } catch (error) {
+        databaseRef.current = current;
+        setDatabase(current);
+        throw error;
+      }
+    });
+  }
+
   function resetAllData() {
     return runExclusive(async () => {
-      const cleared = await resetDatabase();
+      // The live preferences, not a reload: they carry what this install has
+      // been granted, and resetDatabase keeps exactly that.
+      const cleared = await resetDatabase(databaseRef.current.preferences);
       databaseRef.current = cleared;
       setDatabase(cleared);
     });
@@ -1262,6 +1279,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       teachExerciseName,
       addMeasurementEntry,
       resetAllData,
+      clearPendingAiLogDeletions,
       restoreDatabaseFromBackup,
       importWorkoutHistory,
     }),

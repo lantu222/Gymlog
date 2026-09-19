@@ -11,6 +11,8 @@ import { normalizeFirstRunToursSeen } from '../lib/firstRunTour';
 import type { NotificationPrefs } from '../types/models';
 import { normalizeDefaultRestSeconds } from '../lib/restPreference';
 import { normalizePurchaseRecord } from '../lib/purchaseRecord';
+import { DEVICE_ONLY_PREFERENCE_FIELDS, keepDeviceEntitlement } from '../lib/proEntitlement';
+import { normalizePendingAiLogDeletions, withPendingAiLogDeletion } from '../lib/aiLogDeletion';
 import { isSubscriptionTermKey } from '../lib/subscriptionView';
 import { createEmptyDatabase } from '../data/seed';
 import { resolveDeviceLanguage } from './deviceLocale';
@@ -750,6 +752,8 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
       aiLogChatConsent: input?.preferences?.aiLogChatConsent === true,
       aiLogComposerConsent: input?.preferences?.aiLogComposerConsent === true,
       aiLogPhotoConsent: input?.preferences?.aiLogPhotoConsent === true,
+      // Absent on every install from before the retry existed: nothing owed.
+      pendingAiLogDeletions: normalizePendingAiLogDeletions(input?.preferences?.pendingAiLogDeletions),
       promoProUntil:
         typeof input?.preferences?.promoProUntil === 'string'
           ? input.preferences.promoProUntil
@@ -1369,8 +1373,42 @@ export async function saveDatabase(database: AppDatabase) {
   );
 }
 
-export async function resetDatabase() {
-  const empty = normalizeDatabase(createEmptyDatabase());
+/**
+ * Erase the reader's data, and only theirs.
+ *
+ * `device` is the preferences in memory at the moment of the reset. Two
+ * things come out of the new database differently from a blank one:
+ *
+ * - The language is the phone's, as on a first launch. `createEmptyDatabase()`
+ *   with no argument is English, so a reset turned a Finnish phone's app
+ *   English. The chosen language is not kept — the note below the save says
+ *   why a reset leaves no old preference behind — but the default it falls
+ *   back to is the same one a new install gets.
+ * - The entitlement and the meters are kept (DEVICE_ONLY_PREFERENCE_FIELDS,
+ *   the list a restore keeps too). They are not the reader's data, they are
+ *   what this install has already been given: writing defaults over them made
+ *   Reset a way to start the fourteen-day trial again and to refill the free
+ *   coach answers, as often as wanted — and it dropped a paid membership. The
+ *   privacy answers are NOT in that list and go with everything else.
+ * - The coach-log label goes with the consents, but not before it is filed as
+ *   a delete still owed (lib/aiLogDeletion). It is the only way back to the
+ *   copies kept under it, so it moves in the same write that clears it: no
+ *   moment exists where the label is gone and the delete not yet recorded.
+ *   The caller asks the server, and the label leaves the list only when the
+ *   server confirms.
+ */
+export async function resetDatabase(
+  device: Pick<AppPreferences, (typeof DEVICE_ONLY_PREFERENCE_FIELDS)[number] | 'aiLogId'>,
+) {
+  const blank = createEmptyDatabase(resolveDeviceLanguage());
+  const kept = keepDeviceEntitlement(blank.preferences, device);
+  const empty = normalizeDatabase({
+    ...blank,
+    preferences: {
+      ...kept,
+      pendingAiLogDeletions: withPendingAiLogDeletion(kept.pendingAiLogDeletions, device.aiLogId),
+    },
+  });
   await saveDatabase(empty);
   // Reset has to mean reset: leaving the pre-rename blob behind would let it
   // come back if the new key were ever cleared on its own. The quarantined copy

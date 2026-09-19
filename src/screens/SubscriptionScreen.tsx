@@ -142,7 +142,7 @@ export function SubscriptionScreen({
     setSheet('term');
   };
 
-  /** The status line under "Vinha Pro" — one sentence, four possible truths. */
+  /** The status line under "Vinha Pro" — one sentence, five possible truths. */
   const statusLine = () => {
     if (model.state === 'lapsed') {
       return t(language, 'subs.status.lapsed', { date: date(model.endsAt) });
@@ -150,8 +150,11 @@ export function SubscriptionScreen({
     if (model.state === 'none') {
       return t(language, 'subs.none');
     }
-    if (model.promoBacked) {
+    if (model.grant === 'promo') {
       return t(language, 'subs.status.promo', { date: date(model.endsAt) });
+    }
+    if (model.grant === 'trial') {
+      return t(language, 'subs.status.trial', { date: date(model.endsAt) });
     }
     if (model.cancelled) {
       return t(language, 'subs.status.cancelled', { date: date(model.endsAt) });
@@ -198,6 +201,88 @@ export function SubscriptionScreen({
       </View>
     </Pressable>
   );
+
+  /**
+   * The facts under the status line, as a list so the last one closes the
+   * card whatever was left out.
+   *
+   * And things are left out. The card, the charge amount and the join date
+   * are MOCK_BILLING, and outside a demo build (`billing`) none of them may
+   * appear, whatever Pro runs on. They used to be drawn in every build with
+   * only their tap gated, so a release would have shown a Visa ending 4242 to
+   * a reader who can look in Google Play and find none. What stays is known:
+   * when a grant or a cancelled term ends, and that nothing is scheduled.
+   */
+  const metaRows = () => {
+    type Meta = { key: string; label: string; value: string; valueColor?: string; onPress?: () => void };
+    const proEnds: Meta = {
+      key: 'ends',
+      label: t(language, 'subs.meta.proEnds'),
+      value: date(model.endsAt),
+      valueColor: statusAccent,
+    };
+    const nothingScheduled: Meta = {
+      key: 'charge',
+      label: t(language, 'subs.meta.nextCharge'),
+      value: t(language, 'subs.meta.nextChargeNone'),
+    };
+    const method: Meta[] = billing
+      ? [
+          {
+            key: 'method',
+            label: t(language, 'subs.meta.method'),
+            value: t(language, MOCK_BILLING.methods[0].titleKey),
+            onPress: () => setSheet('pay'),
+          },
+        ]
+      : [];
+
+    if (model.grant) {
+      return [proEnds, nothingScheduled];
+    }
+    if (model.cancelled) {
+      return [proEnds, { ...nothingScheduled, valueColor: statusAccent }, ...method];
+    }
+    if (lifetime) {
+      const paid: Meta[] = billing
+        ? [
+            {
+              key: 'paid',
+              label: t(language, 'subs.meta.paid'),
+              value: t(language, 'subs.meta.paidValue', {
+                date: date(MOCK_BILLING.lastChargedAt),
+                price: t(language, term!.priceKey),
+              }),
+            },
+          ]
+        : [];
+      return [
+        { key: 'charge', label: t(language, 'subs.meta.nextCharge'), value: t(language, 'subs.meta.noRenewal') },
+        ...paid,
+        ...method,
+      ];
+    }
+    if (!billing) {
+      return [nothingScheduled];
+    }
+    return [
+      {
+        key: 'charge',
+        label: t(language, 'subs.meta.nextCharge'),
+        value: t(language, 'subs.meta.nextChargeValue', {
+          date: date(model.nextChargeAt),
+          price: t(language, term!.priceKey),
+        }),
+        onPress: openTermSheet,
+      },
+      ...method,
+      {
+        key: 'since',
+        label: t(language, 'subs.meta.memberSince'),
+        value: t(language, 'subs.meta.memberSinceValue', { date: date(MOCK_BILLING.memberSince) }),
+      },
+    ];
+  };
 
   const Row = ({
     icon,
@@ -299,9 +384,13 @@ export function SubscriptionScreen({
                 <Text style={styles.noteTitle}>{t(language, 'subs.lifetime.title')}</Text>
                 <Text style={styles.noteBody}>{t(language, 'subs.lifetime.body')}</Text>
               </CutSurface>
-            ) : model.promoBacked ? (
+            ) : model.grant ? (
               <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={[styles.card, styles.notePad]}>
-                <Text style={styles.noteBody}>{t(language, 'subs.promoNote')}</Text>
+                <Text style={styles.noteBody}>
+                  {model.grant === 'trial'
+                    ? t(language, 'subs.trialNote', { date: date(model.endsAt) })
+                    : t(language, 'subs.promoNote')}
+                </Text>
               </CutSurface>
             ) : model.cancelled ? (
               <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.card}>
@@ -324,10 +413,10 @@ export function SubscriptionScreen({
               </CutSurface>
             )}
 
-            {/* The promo card above already says there is nothing to manage.
-                Repeating it as a footer put the same sentence twice on an
-                otherwise empty page. */}
-            {model.promoBacked ? null : (
+            {/* The promo or trial card above already says there is nothing to
+                manage. Repeating it as a footer put the same sentence twice on
+                an otherwise empty page. */}
+            {model.grant ? null : (
               <Text style={styles.footer}>
                 {t(language, lifetime ? 'subs.foot.lifetime' : 'subs.foot.play')}
               </Text>
@@ -358,84 +447,24 @@ export function SubscriptionScreen({
                 <Text style={styles.freeNote}>
                   {t(language, model.state === 'lapsed' ? 'subs.lapsedNote' : 'subs.noneNote')}
                 </Text>
-              ) : model.promoBacked ? (
-                <>
-                  <MetaRow
-                    label={t(language, 'subs.meta.proEnds')}
-                    value={date(model.endsAt)}
-                    valueColor={statusAccent}
-                  />
-                  <MetaRow
-                    label={t(language, 'subs.meta.nextCharge')}
-                    value={t(language, 'subs.meta.nextChargeNone')}
-                    last
-                  />
-                </>
-              ) : model.cancelled ? (
-                <>
-                  <MetaRow
-                    label={t(language, 'subs.meta.proEnds')}
-                    value={date(model.endsAt)}
-                    valueColor={statusAccent}
-                  />
-                  <MetaRow
-                    label={t(language, 'subs.meta.nextCharge')}
-                    value={t(language, 'subs.meta.nextChargeNone')}
-                    valueColor={statusAccent}
-                  />
-                  <MetaRow
-                    label={t(language, 'subs.meta.method')}
-                    value={t(language, MOCK_BILLING.methods[0].titleKey)}
-                    onPress={billing ? () => setSheet('pay') : undefined}
-                    last
-                  />
-                  <View style={styles.warnBanner}>
-                    <Glyph name="warn" color={theme.amberInk} size={16} />
-                    <Text style={styles.warnText}>{t(language, 'subs.cancelledNote')}</Text>
-                  </View>
-                </>
-              ) : lifetime ? (
-                <>
-                  <MetaRow
-                    label={t(language, 'subs.meta.nextCharge')}
-                    value={t(language, 'subs.meta.noRenewal')}
-                  />
-                  <MetaRow
-                    label={t(language, 'subs.meta.paid')}
-                    value={t(language, 'subs.meta.paidValue', {
-                      date: date(MOCK_BILLING.lastChargedAt),
-                      price: t(language, term!.priceKey),
-                    })}
-                  />
-                  <MetaRow
-                    label={t(language, 'subs.meta.method')}
-                    value={t(language, MOCK_BILLING.methods[0].titleKey)}
-                    onPress={billing ? () => setSheet('pay') : undefined}
-                    last
-                  />
-                </>
               ) : (
                 <>
-                  <MetaRow
-                    label={t(language, 'subs.meta.nextCharge')}
-                    value={t(language, 'subs.meta.nextChargeValue', {
-                      date: date(model.nextChargeAt),
-                      price: t(language, term!.priceKey),
-                    })}
-                    onPress={billing ? openTermSheet : undefined}
-                  />
-                  <MetaRow
-                    label={t(language, 'subs.meta.method')}
-                    value={t(language, MOCK_BILLING.methods[0].titleKey)}
-                    onPress={billing ? () => setSheet('pay') : undefined}
-                  />
-                  <MetaRow
-                    label={t(language, 'subs.meta.memberSince')}
-                    value={t(language, 'subs.meta.memberSinceValue', {
-                      date: date(MOCK_BILLING.memberSince),
-                    })}
-                    last
-                  />
+                  {metaRows().map((row, index, rows) => (
+                    <MetaRow
+                      key={row.key}
+                      label={row.label}
+                      value={row.value}
+                      valueColor={row.valueColor}
+                      onPress={row.onPress}
+                      last={index === rows.length - 1}
+                    />
+                  ))}
+                  {model.cancelled ? (
+                    <View style={styles.warnBanner}>
+                      <Glyph name="warn" color={theme.amberInk} size={16} />
+                      <Text style={styles.warnText}>{t(language, 'subs.cancelledNote')}</Text>
+                    </View>
+                  ) : null}
                 </>
               )}
             </CutSurface>
@@ -464,9 +493,11 @@ export function SubscriptionScreen({
                     title={t(language, 'subs.row.manageMembership')}
                     sub={t(
                       language,
-                      model.promoBacked
+                      model.grant === 'promo'
                         ? 'subs.row.manageMembershipSubPromo'
-                        : 'subs.row.manageMembershipSub',
+                        : model.grant === 'trial'
+                          ? 'subs.row.manageMembershipSubTrial'
+                          : 'subs.row.manageMembershipSub',
                     )}
                     onPress={() => setView('membership')}
                     divider
@@ -534,9 +565,11 @@ export function SubscriptionScreen({
             <Text style={styles.footer}>
               {t(
                 language,
-                model.promoBacked && model.state === 'active'
+                model.state === 'active' && model.grant === 'promo'
                   ? 'subs.foot.promo'
-                  : lifetime
+                  : model.state === 'active' && model.grant === 'trial'
+                    ? 'subs.foot.trial'
+                    : lifetime
                     ? 'subs.foot.lifetime'
                     : 'subs.foot.play',
               )}
