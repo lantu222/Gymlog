@@ -728,9 +728,11 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         keepScreenAwake={preferences.keepScreenAwakeDuringWorkout}
         exercisePrLookup={exercisePrLookup}
         restAlerts={{
-          // The master notifications switch silences these too — three lit
-          // switches after "off" were the visual half of the same lie.
-          alerts: preferences.notificationPrefs.pushEnabled && preferences.notificationPrefs.restAlerts,
+          // Their own switches and the OS permission, not the phone's
+          // Notifications switch: that one governs the scheduled reminders
+          // (user 2026-09-17). Gated on it, the end-of-rest alert was silent
+          // on every phone where the first-rest ask never had to open.
+          alerts: preferences.notificationPrefs.restAlerts,
           warning: preferences.notificationPrefs.restWarning,
           ongoing: preferences.notificationPrefs.sessionOngoing,
           asked: preferences.notificationPrefs.restAlertsAsked,
@@ -849,9 +851,11 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         // player opens on the set instead of the session overview.
         autoResume={route.resume === true}
         restAlerts={{
-          // The master notifications switch silences these too — three lit
-          // switches after "off" were the visual half of the same lie.
-          alerts: preferences.notificationPrefs.pushEnabled && preferences.notificationPrefs.restAlerts,
+          // Their own switches and the OS permission, not the phone's
+          // Notifications switch: that one governs the scheduled reminders
+          // (user 2026-09-17). Gated on it, the end-of-rest alert was silent
+          // on every phone where the first-rest ask never had to open.
+          alerts: preferences.notificationPrefs.restAlerts,
           warning: preferences.notificationPrefs.restWarning,
           ongoing: preferences.notificationPrefs.sessionOngoing,
           asked: preferences.notificationPrefs.restAlertsAsked,

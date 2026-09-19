@@ -31,22 +31,40 @@ module.exports = [
     },
   },
   {
-    name: 'release: no exact-alarm permission is declared',
+    name: 'release: the rest alert may ask for exact alarms, and nothing claims to be an alarm clock',
     run() {
       // USE_EXACT_ALARM is restricted to alarm clocks and calendars, and Play
-      // asks for a justification at upload; a training reminder does not
-      // qualify. SCHEDULE_EXACT_ALARM is denied by default from Android 14, so
-      // the app has to work without it anyway. expo-notifications checks
-      // canScheduleExactAlarms() and falls back to setAndAllowWhileIdle, which
-      // still fires through Doze — a reminder that lands a few minutes late is
-      // the whole cost of dropping both.
+      // asks for a justification at upload; a rest timer does not qualify.
+      //
+      // SCHEDULE_EXACT_ALARM is the user-granted one, and it is declared on
+      // purpose (user decision 2026-09-17). Without it expo-notifications
+      // checks canScheduleExactAlarms(), gets "no", and arms every alert with
+      // setAndAllowWhileIdle — a reminder a few minutes late costs nothing, an
+      // end-of-rest alert a few minutes late is no alert. Android 14 denies it
+      // by default, so the app still has to work without it: the rest-alert
+      // ask and Settings send the reader to "Alarms & reminders", and the
+      // native module that reads the grant must be there to back them.
       const permissions = readJson('app.json')?.expo?.android?.permissions ?? [];
-      for (const permission of ['android.permission.USE_EXACT_ALARM', 'android.permission.SCHEDULE_EXACT_ALARM']) {
-        assert.ok(
-          !permissions.includes(permission),
-          `${permission} is back in app.json — it turns a submission into a policy review.`,
-        );
-      }
+      assert.ok(
+        !permissions.includes('android.permission.USE_EXACT_ALARM'),
+        'USE_EXACT_ALARM is back in app.json — it turns a submission into a policy review.',
+      );
+      assert.ok(
+        permissions.includes('android.permission.SCHEDULE_EXACT_ALARM'),
+        'SCHEDULE_EXACT_ALARM is gone — every rest alert becomes an inexact alarm Android may hold for minutes.',
+      );
+      const moduleConfig = readJson('modules/exact-alarm/expo-module.config.json');
+      assert.deepEqual(moduleConfig.android.modules, ['expo.modules.exactalarm.ExactAlarmModule']);
+      const kotlin = read('modules/exact-alarm/android/src/main/java/expo/modules/exactalarm/ExactAlarmModule.kt');
+      assert.match(kotlin, /Name\("ExactAlarm"\)/);
+      assert.match(kotlin, /AsyncFunction<Boolean>\("canScheduleExactAlarms"\)/);
+      assert.match(kotlin, /AsyncFunction<Boolean>\("openSettings"\)/);
+      assert.match(kotlin, /Settings\.ACTION_REQUEST_SCHEDULE_EXACT_ALARM/);
+      // The JS side asks for the module by the name the Kotlin side registers.
+      const bridge = read('src/utils/exactAlarm.ts');
+      assert.match(bridge, /requireOptionalNativeModule<ExactAlarmNativeModule>\('ExactAlarm'\)/);
+      assert.match(bridge, /canScheduleExactAlarms\(\): Promise<boolean>;/);
+      assert.match(bridge, /openSettings\(\): Promise<boolean>;/);
     },
   },
   {

@@ -68,6 +68,22 @@ module.exports = [
     },
   },
   {
+    // "Your Pro trial ends soon" fell through to null: the warning the
+    // hand-off row promised opened onto whatever screen the app was left on.
+    name: 'the trial warning opens the Pro page',
+    run() {
+      assert.deepEqual(routeForNotification({ ...PLAN, category: 'trial' }), { tab: 'profile', screen: 'premium' });
+      // Every category the planner can send has somewhere to go.
+      const planner = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib', 'notificationPlan.ts'), 'utf8');
+      const union = planner.slice(planner.indexOf('export type NotificationCategory ='), planner.indexOf('export interface PlannedNotification'));
+      const categories = [...union.matchAll(/\| '([a-zA-Z]+)'/g)].map((match) => match[1]);
+      assert.ok(categories.length >= 7, `read ${categories.join(',')}`);
+      for (const category of categories) {
+        assert.notEqual(routeForNotification({ ...PLAN, category, measureKind: 'hips' }), null, category);
+      }
+    },
+  },
+  {
     /**
      * A notification still pending from an older build can carry a category
      * this one has never heard of. Null leaves the app where it is, which is
@@ -108,6 +124,13 @@ module.exports = [
       // 2026-09-05). The async pair is deprecated in expo-notifications 55.
       assert.match(appWiring, /Notifications\.getLastNotificationResponse\(\)/);
       assert.match(appWiring, /Notifications\.clearLastNotificationResponse\(\)/);
+      // And a tap while the app runs is forgotten too, once routed: it is
+      // stored for as long as the native module lives, which outlasts a
+      // remount — and the remount read it back as a cold start.
+      assert.match(
+        appWiring,
+        /addNotificationResponseReceivedListener\(\(response\) => \{\s*handle\(response\);\s*try \{\s*Notifications\.clearLastNotificationResponse\(\);/,
+      );
       assert.doesNotMatch(appWiring, /getLastNotificationResponseAsync/);
       // Held until the store is loaded, like the widget's target — a route
       // reset into a half-built app lands somewhere about to re-render.

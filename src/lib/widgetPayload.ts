@@ -433,13 +433,39 @@ export function resolveHomeWidgetSessionTap(input: {
   schedule: TrainingSchedule;
   sessions: HomeDaySessionSummary[];
   completedWorkoutDayStarts?: number[];
+  /**
+   * The session Home's hero offers: the reader's pick for today, or the
+   * rotation's next. Absent = the calendar's own mapping, as before.
+   */
+  homeSessionId?: string | null;
+  /** Whether `homeSessionId` is a pick the reader made for today. */
+  todayPicked?: boolean;
 }): HomeWidgetSessionTap {
   if (input.hasActiveSession) {
     return { kind: 'resume' };
   }
-  const next = findHomeWidgetNextSession(input);
-  if (!next || !input.hasActivePlan) {
+  if (!input.hasActivePlan) {
     return { kind: 'home' };
+  }
+  const homeSession = input.homeSessionId
+    ? input.sessions.find((session) => session.id === input.homeSessionId) ?? null
+    : null;
+  const today = new Date(input.nowMs);
+  // A pick makes today a training day whatever the calendar says — the 2x1
+  // reads it that way, so its tap has to open it.
+  if (homeSession && input.todayPicked) {
+    return { kind: 'open', next: { session: homeSession, offset: 0, weekdayIndex: weekdayIndexOf(today) } };
+  }
+  const next = findHomeWidgetNextSession(input);
+  if (!next) {
+    return { kind: 'home' };
+  }
+  // Today, the tile means "the workout Home is offering me". The calendar maps
+  // a date to a slot, the rotation knows which session comes next, and on any
+  // day the two disagree the tap opened a workout Home was not showing. Later
+  // days keep the calendar's answer: Home has none for them.
+  if (next.offset === 0 && homeSession) {
+    return { kind: 'open', next: { ...next, session: homeSession } };
   }
   return { kind: 'open', next };
 }

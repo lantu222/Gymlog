@@ -14,18 +14,35 @@ import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
 import { PLAN_NOTIFICATION_MARKER, installNotificationHandler } from './notificationHandler';
+import { t } from '../lib/i18n';
 import type { PlannedNotification } from '../lib/notificationPlan';
+import type { AppLanguage } from '../types/models';
 
 export const TRAINING_NOTIFICATION_CHANNEL_ID = 'training';
 
-let channelReady = false;
+/** The name the channel was last written with; null until it exists. */
+let channelName: string | null = null;
 
-async function ensureChannel() {
-  if (Platform.OS !== 'android' || channelReady) {
+/**
+ * The channel, under its name in the reader's language.
+ *
+ * The name is what Android's own notification settings list, and it was a
+ * hard-coded "Training" on a Finnish phone. Writing the channel again with the
+ * same id renames it — Android keeps the reader's own choices for it — so a
+ * language switch reaches the system settings too. Without a language (the
+ * permission ask, which only needs the channel to exist) an existing channel
+ * is left as it is.
+ */
+async function ensureChannel(language?: AppLanguage) {
+  if (Platform.OS !== 'android') {
+    return;
+  }
+  const name = language ? t(language, 'notif.channel.training') : channelName ?? t('en', 'notif.channel.training');
+  if (channelName === name) {
     return;
   }
   await Notifications.setNotificationChannelAsync(TRAINING_NOTIFICATION_CHANNEL_ID, {
-    name: 'Training',
+    name,
     // DEFAULT, not HIGH: a reminder is not a rest timer going off. It should
     // land in the shade, not interrupt whatever the phone is doing.
     importance: Notifications.AndroidImportance.DEFAULT,
@@ -33,7 +50,7 @@ async function ensureChannel() {
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
     bypassDnd: false,
   });
-  channelReady = true;
+  channelName = name;
 }
 
 /** Current OS permission, without ever showing a dialog. */
@@ -54,13 +71,13 @@ export async function getNotificationPermissionGranted(): Promise<boolean> {
  * Returns what we actually ended up with — the caller must not store "on" for a
  * user the OS is going to keep silent.
  */
-export async function requestNotificationPermission(): Promise<boolean> {
+export async function requestNotificationPermission(language?: AppLanguage): Promise<boolean> {
   if (Platform.OS === 'web') {
     return false;
   }
   try {
     installNotificationHandler();
-    await ensureChannel();
+    await ensureChannel(language);
 
     const current = await Notifications.getPermissionsAsync();
     if (current.granted) {
@@ -102,7 +119,10 @@ async function cancelOurScheduled(
  * Makes the pending notifications match `plan` exactly. Returns how many are
  * pending afterwards, or 0 when nothing could be scheduled.
  */
-export async function syncPlannedNotifications(plan: PlannedNotification[]): Promise<number> {
+export async function syncPlannedNotifications(
+  plan: PlannedNotification[],
+  language?: AppLanguage,
+): Promise<number> {
   if (Platform.OS === 'web') {
     return 0;
   }
@@ -123,7 +143,7 @@ export async function syncPlannedNotifications(plan: PlannedNotification[]): Pro
       return 0;
     }
 
-    await ensureChannel();
+    await ensureChannel(language);
 
     const wanted = new Map(plan.map((item) => [signatureOf(item), item] as const));
     const kept = new Set<string>();

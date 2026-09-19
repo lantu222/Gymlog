@@ -20,31 +20,20 @@ const FRESH = {
 
 module.exports = [
   {
-    name: 'restAlertsAnswered: Allow on a fresh install turns the phone on for the workout alone',
+    name: 'restAlertsAnswered: Allow records the ask and keeps the end-of-rest alert on, and nothing else',
     run() {
-      // Measured 2026-09-02: the ask granted the permission and never touched
-      // the master switch the ladder is gated on — one ladder, then silence.
+      // The rest alerts have their own switches now (user 2026-09-17). The
+      // phone's Notifications switch governs the scheduled reminders, so the
+      // answer to a question about rest alerts leaves it where it was.
       const next = restAlertsAnswered(FRESH, 'granted');
-      assert.equal(next.restAlertsAsked, true);
-      assert.equal(next.pushEnabled, true);
-      assert.equal(next.restAlerts, true);
-      // "Only during a workout. Never a marketing push." — the categories
-      // that default to on stay off when THIS is what switched the phone on.
-      assert.equal(next.personalRecords, false);
-      assert.equal(next.weeklySummary, false);
-      assert.equal(next.comebackNudge, false);
-      // Untouched: the reader's other choices.
-      assert.equal(next.sessionReminders, false);
-      assert.equal(next.restWarning, true);
-      assert.equal(next.level, 'normal');
-    },
-  },
-  {
-    name: 'restAlertsAnswered: a master switch already on keeps every choice the reader made',
-    run() {
-      const on = { ...FRESH, pushEnabled: true, weeklySummary: true, restAlerts: false };
-      const next = restAlertsAnswered(on, 'granted');
-      assert.deepEqual(next, { ...on, restAlertsAsked: true });
+      assert.deepEqual(next, { ...FRESH, restAlertsAsked: true });
+      assert.equal(next.pushEnabled, false, 'the rest ask switched the reminders on');
+      // A reader who said yes to "rings when rest ends" wants the alert.
+      const offBefore = restAlertsAnswered({ ...FRESH, restAlerts: false }, 'granted');
+      assert.equal(offBefore.restAlerts, true);
+      // The reminder categories are not this sheet's business either way.
+      const on = { ...FRESH, pushEnabled: true, weeklySummary: true };
+      assert.deepEqual(restAlertsAnswered(on, 'granted'), { ...on, restAlertsAsked: true });
     },
   },
   {
@@ -52,6 +41,10 @@ module.exports = [
     run() {
       assert.deepEqual(restAlertsAnswered(FRESH, 'later'), { ...FRESH, restAlertsAsked: true });
       assert.deepEqual(restAlertsAnswered(FRESH, 'denied'), { ...FRESH, restAlertsAsked: true });
+      // A reader who switched the alert off keeps it off when they only
+      // dismissed the sheet.
+      const off = { ...FRESH, restAlerts: false };
+      assert.equal(restAlertsAnswered(off, 'later').restAlerts, false);
       // Pure: the input is not written to.
       assert.equal(FRESH.restAlertsAsked, false);
     },

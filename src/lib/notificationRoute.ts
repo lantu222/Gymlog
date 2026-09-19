@@ -76,6 +76,11 @@ export function routeForNotification(data: unknown): AppRoute | null {
     case 'comeback':
     case 'reminder':
       return ROOT_ROUTES.home;
+    // "Your Pro trial ends soon" — the page that says what Pro is and what
+    // keeping it costs. It fell through to null, so the warning the hand-off
+    // row promised opened onto whatever screen the app was left on.
+    case 'trial':
+      return { tab: 'profile', screen: 'premium' };
     default:
       return null;
   }

@@ -15,6 +15,7 @@ import {
   cancelIdleNudge,
   clearAllSessionNotifications,
   scheduleIdleNudge,
+  setupSessionNotifications,
 } from './src/utils/sessionNotifications';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -558,9 +559,24 @@ function VinhaApp() {
     }
   }, [activeSessionId, activeSessionStatus]);
 
+  // The session's buttons in the reader's language, from here as well as from
+  // the workout screens: the idle nudge is armed here, and its buttons were
+  // whatever language the player last registered — or the one the app had
+  // started in, before the registration learned to follow a switch.
+  useEffect(() => {
+    if (activeSessionId && activeSessionStatus === 'active') {
+      void setupSessionNotifications(preferences.appLanguage);
+    }
+  }, [activeSessionId, activeSessionStatus, preferences.appLanguage]);
+
   // The idle nudge: 25 minutes after the last logged set, one question. Keyed
   // on the count of completed sets so every logged set pushes it forward, and
   // on the app coming to the foreground, which also counts as being there.
+  //
+  // Its own switch and the OS permission decide it, and nothing else: the
+  // phone's Notifications switch governs the scheduled reminders (user
+  // 2026-09-17), and a training break silences only those — a reader who is
+  // in a session is training, and wants its alerts.
   const completedSetCount = useMemo(
     () =>
       (workout.activeSession?.exercises ?? []).reduce(
@@ -4008,6 +4024,10 @@ function VinhaApp() {
             ...nextSession,
             label: 'Week 1 · Day 1',
           },
+          // The reader's own answer for today, apart from the rotation's. The
+          // widget needs the difference: a pick makes today a training day,
+          // the rotation's next session does not.
+          todayPickSessionId: pickedToday?.id ?? null,
 
           // The catalog lookup, not the DB one: a custom template has no goal
           // or level for affinity to compare, so its card simply offers no
@@ -4665,16 +4685,24 @@ function VinhaApp() {
   // to six days of the month before it — so 45 days back covers the longest
   // grid whatever today's date is. (21 was right for the four-week strip this
   // replaced, and would have left the first fortnight of every month blank.)
+  //
+  // Both of these read "today", so both are keyed on the day as well as the
+  // data: keyed on the data alone, an app left open over the last night of a
+  // month drew the new month's calendar beside last month's totals until the
+  // next workout was logged.
   const widgetCompletedDayStarts = useMemo(
     () =>
-      getRecentActivityStrip(database, new Date(), 45)
+      getRecentActivityStrip(database, new Date(todayStartMs), 45)
         .filter((day) => day.active)
         .map((day) => day.dayStart),
-    [database],
+    [database, todayStartMs],
   );
   // This month's totals, for the three figures the 4x2 draws beside the
   // calendar, and the streak the 2x1 counts.
-  const widgetMonthTotals = useMemo(() => getMonthTrainingTotals(database), [database]);
+  const widgetMonthTotals = useMemo(
+    () => getMonthTrainingTotals(database, new Date(todayStartMs)),
+    [database, todayStartMs],
+  );
 
   // The narrower set, for the one question the strip cannot answer: is today's
   // session behind you. The strip counts cardio, and a run leaves the planned
@@ -4705,9 +4733,11 @@ function VinhaApp() {
         // catalog's curated titles live on this side of the bridge.
         suggestion: widgetSuggestion,
         schedule: homeTrainingSchedule,
-        // Home's own answer for today, so the launcher cannot name a different
-        // workout than the screen the reader just left.
-        todaySessionId: homeActivePlanCard?.nextSession.id ?? null,
+        // The session the reader picked for today, and only that. Home's next
+        // session is always set — it is the rotation's answer for whenever the
+        // reader trains next — and passed here it made every rest day read
+        // "Treeni" on the 2x1.
+        todaySessionId: homeActivePlanCard?.todayPickSessionId ?? null,
         completedDayStarts: widgetCompletedDayStarts,
         completedWorkoutDayStarts: widgetCompletedWorkoutDayStarts,
         sessions: homeActivePlanCard?.sessions ?? [],
@@ -4811,6 +4841,11 @@ function VinhaApp() {
       schedule: homeTrainingSchedule,
       sessions: homeActivePlanCard?.sessions ?? [],
       completedWorkoutDayStarts: widgetCompletedWorkoutDayStarts,
+      // Today's session is the one Home offers, not the calendar's slot for
+      // today: the two differ whenever the rotation and the weekday disagree,
+      // and the tap opened the one Home was not showing.
+      homeSessionId: homeActivePlanCard?.nextSession.id ?? null,
+      todayPicked: Boolean(homeActivePlanCard?.todayPickSessionId),
     });
 
     // A running workout wins. The tile means "my training", and a reader who
@@ -4898,7 +4933,21 @@ function VinhaApp() {
       Notifications.clearLastNotificationResponse();
     }
 
-    const subscription = Notifications.addNotificationResponseReceivedListener(handle);
+    /*
+     * A tap while the app is running is stored as the last response too, and
+     * for as long as the native module lives — which outlasts this component
+     * when Android recreates the activity around a live JS runtime. Left
+     * there, the next mount read it as a cold start and opened the same
+     * page again. Forgotten once it has been routed, like the cold one.
+     */
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      handle(response);
+      try {
+        Notifications.clearLastNotificationResponse();
+      } catch {
+        // Unavailable on this platform: nothing is stored to forget.
+      }
+    });
     return () => {
       cancelled = true;
       subscription.remove();

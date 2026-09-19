@@ -30,8 +30,12 @@ module.exports = [
       // The two old section labels and their hand-rolled arrays.
       assert.doesNotMatch(screen, /REST_TOGGLES|TRAINING_TOGGLES/);
       assert.doesNotMatch(screen, /'notif\.rest\.section'|'notif\.training'/);
-      assert.match(screen, /NOTIFICATION_GROUPS\.map\(renderGroup\)/);
+      assert.match(screen, /const workoutGroups = NOTIFICATION_GROUPS\.filter\(\(group\) => !group\.scheduled\);/);
+      assert.match(screen, /const scheduledGroups = NOTIFICATION_GROUPS\.filter\(\(group\) => group\.scheduled\);/);
+      assert.match(screen, /workoutGroups\.map\(renderGroup\)/);
+      assert.match(screen, /scheduledGroups\.map\(renderGroup\)/);
       assert.match(screen, /<SectionLabel label=\{t\(language, 'notif\.section\.what'\)\} \/>/);
+      assert.match(screen, /<SectionLabel label=\{t\(language, 'notif\.section\.workout'\)\} \/>/);
       // The reading, the summary and the toggle all come from the lib rather
       // than being recomputed in the view.
       assert.match(screen, /readNotificationGroup\(group, prefs\)/);
@@ -48,7 +52,7 @@ module.exports = [
       assert.match(screen, /group\.switches\.map\(\(item, index\) =>/);
       assert.match(screen, /onChange=\{\(next\) => handleSwitchToggle\(group, item, next\)\}/);
       assert.match(screen, /onChange\(item\.patch\(next\)\)/);
-      assert.match(screen, /value=\{effectiveEnabled && item\.isOn\(prefs\)\}/);
+      assert.match(screen, /value=\{governed && item\.isOn\(prefs\)\}/);
       // Turning off the last switch by hand empties the group, which closes
       // the card — so it remembers first, or the next group-on would restore
       // the defaults over the reader's own choices.
@@ -67,17 +71,53 @@ module.exports = [
     },
   },
   {
-    name: 'notifications: the master switch still gates everything, and a break still reads as off',
+    name: 'notifications: the master and a break gate the scheduled groups; the workout alerts answer to their own switch',
     run() {
-      // The permission rules are untouched by the restructure.
+      // The permission rules for the master are untouched.
       assert.match(screen, /const effectiveEnabled = prefs\.pushEnabled && !onTrainingBreak/);
       assert.match(screen, /void requestPermission\(\)\.then\(\(granted\) => \{/);
       assert.match(screen, /onChange\(\{ pushEnabled: granted \}\)/);
       assert.match(screen, /checkPermission\(\)\.then\(\(granted\) => \{/);
       assert.match(screen, /pointerEvents=\{effectiveEnabled \? 'auto' : 'none'\}/);
-      // A group card reads off during a break, like the switches inside it.
-      assert.match(screen, /const groupOn = effectiveEnabled && reading\.isOn/);
+      // A scheduled card reads off during a break or with the master off, like
+      // the switches inside it; the workout card does not (user 2026-09-17).
+      assert.match(screen, /const governed = group\.scheduled \? effectiveEnabled : true;/);
+      assert.match(screen, /const groupOn = governed && reading\.isOn/);
       assert.match(screen, /'notif\.breakNote'/);
+      // The workout card sits above the master, outside the dimmed area.
+      const layout = between(screen, 'contentContainerStyle={styles.body}', "t(language, 'notif.footer')");
+      assert.ok(
+        layout.indexOf('workoutGroups.map(renderGroup)') < layout.indexOf("t(language, 'notif.push')"),
+        'the workout alerts are rendered under the master again',
+      );
+      assert.ok(layout.indexOf('workoutGroups.map(renderGroup)') < layout.indexOf('styles.dimmable'));
+      assert.ok(layout.indexOf('scheduledGroups.map(renderGroup)') > layout.indexOf('styles.dimmable'));
+      // The copy stops promising that the master silences everything.
+      for (const key of ['notif.pushOff', 'notif.breakNote', 'notif.footer']) {
+        const rows = i18n.split('\n').filter((row) => row.includes(`'${key}':`));
+        assert.equal(rows.length, 2, key);
+        for (const row of rows) {
+          assert.doesNotMatch(row, /everything|kaikki/i, `${key} still says the master silences everything`);
+        }
+      }
+    },
+  },
+  {
+    name: 'notifications: the workout card says when the phone keeps its alerts quiet, and offers the way out',
+    run() {
+      const access = between(screen, 'const renderWorkoutAccess', 'const renderGroup');
+      assert.match(access, /osAllowed === false && allowWorkoutAlerts/);
+      assert.match(access, /onPress=\{\(\) => void allowWorkoutAlerts\(\)\.then\(setOsAllowed\)\}/);
+      assert.match(access, /osAllowed === true && prefs\.restAlerts && exactAllowed === false && onAllowExactAlarms/);
+      assert.match(access, /onPress=\{onAllowExactAlarms\}/);
+      assert.match(screen, /\{!group\.scheduled && groupOn \? renderWorkoutAccess\(\) : null\}/);
+      // Read again on the way back from system settings.
+      assert.match(screen, /AppState\.addEventListener\('change', \(state\) => \{\s*if \(state === 'active'\) \{\s*readWorkoutAccess\(\);/);
+      // Wired to the real checks, as stable functions the effect can depend on.
+      assert.match(tab, /allowWorkoutAlerts=\{allowWorkoutAlerts\}/);
+      assert.match(tab, /checkExactAlarms=\{canScheduleExactAlarms\}/);
+      assert.match(tab, /onAllowExactAlarms=\{allowExactAlarms\}/);
+      assert.match(tab, /async function allowWorkoutAlerts\(\): Promise<boolean> \{\s*if \(\(await getRestAlertPermission\(\)\) === 'denied'\) \{\s*await Linking\.openSettings\(\)/);
     },
   },
   {

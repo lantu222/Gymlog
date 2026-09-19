@@ -8,7 +8,9 @@ import { buildProgrammeDraft, composeProgrammePreview, resolveLiveProposal } fro
 import { recordSuggestionAccepted, recordSuggestionRejected } from '../lib/coachSuggestions';
 import { t } from '../lib/i18n';
 import { ProgramLimitReachedError } from '../lib/programSlots';
+import { remindersOptedIn } from '../lib/reminderOptIn';
 import { AppRoute, ROOT_ROUTES } from '../navigation/routes';
+import { requestNotificationPermission } from '../utils/appNotifications';
 import { haptics } from '../utils/haptics';
 import { AICoachChatScreen } from '../screens/AICoachChatScreen';
 import { AICoachScreen } from '../screens/AICoachScreen';
@@ -383,11 +385,22 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
               : { tab: 'progress', screen: 'list', section: 'measures', measure: kind },
           )
         }
-        onEnableWeighInReminder={() =>
-          void updatePreferences({
-            notificationPrefs: { ...preferences.notificationPrefs, weighInReminder: true },
-          })
-        }
+        // "Morning weigh-in is on" was said over a write the planner ignored:
+        // every scheduled reminder waits on the Notifications switch, which
+        // ships off, and this wrote only `weighInReminder`. So the permission
+        // is asked first — a phone that will stay silent gets told so, and
+        // nothing is stored — and the switch goes on with the reminder. The
+        // chat says it is on once this resolves; a write that fails throws.
+        onEnableWeighInReminder={async () => {
+          const granted = await requestNotificationPermission(preferences.appLanguage);
+          if (!granted) {
+            return 'blocked';
+          }
+          await updatePreferences({
+            notificationPrefs: remindersOptedIn(preferences.notificationPrefs, { weighInReminder: true }),
+          });
+          return 'on';
+        }}
         onCoachSuggestionResolved={(kind, accepted) =>
           void updatePreferences({
             coachSuggestionState: accepted

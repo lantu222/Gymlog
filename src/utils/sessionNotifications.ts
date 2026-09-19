@@ -30,7 +30,10 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
+import { t } from '../lib/i18n';
 import { restAlertTimes } from '../lib/restSchedule';
+import { createSerialTaskQueue } from '../lib/serialTaskQueue';
+import type { AppLanguage } from '../types/models';
 import { ONGOING_NOTIFICATION_MARKER, installNotificationHandler } from './notificationHandler';
 
 export const REST_CHANNEL_ID = 'rest-timer';
@@ -55,12 +58,42 @@ export const ACTION_LOG_SET = 'log-set';
 export const ACTION_FINISH = 'finish';
 export const ACTION_STILL_GOING = 'still-going';
 
+/**
+ * The rest ladder's identifiers — fixed, not generated.
+ *
+ * They were the random ids `scheduleNotificationAsync` hands back, kept in a
+ * screen's memory and nowhere else. A process that died mid-rest took them
+ * with it: the alarms were still armed in the OS, nothing could name them to
+ * cancel, and re-entering the player restarted the rest and armed a second
+ * set beside the first — two "Rest over"s, one of them at a time that no
+ * longer meant anything. A fixed id is its own handle: scheduling replaces,
+ * and cancelling reaches whatever an earlier process left behind.
+ */
+export const REST_LADDER_IDS = {
+  warning: 'vinha-rest-warning',
+  end: 'vinha-rest-end',
+  repeat: 'vinha-rest-repeat',
+} as const;
+
+/** Our one ongoing card, by a fixed id so re-posting replaces rather than stacks. */
+export const ONGOING_ID = 'vinha-session-ongoing';
+export const IDLE_ID = 'vinha-session-idle';
+
 export type RestAlertPermission = 'granted' | 'denied' | 'undetermined';
 
-let setupDone = false;
 let permission: RestAlertPermission = 'undetermined';
 
-export interface SessionNotificationActionLabels {
+/**
+ * Every write below goes through one queue, in the order it was asked for.
+ *
+ * With fixed ids the ORDER is the correctness: "cancel the old rest" landing
+ * after "schedule the new one" cancels the new one, and nothing would say so.
+ * The native calls give no ordering promise of their own, so each waits for
+ * the one before it. The last thing asked for is what the OS ends up holding.
+ */
+const runInOrder = createSerialTaskQueue();
+
+export interface SessionNotificationLabels {
   extend30: string;
   extend60: string;
   skip: string;
@@ -68,78 +101,123 @@ export interface SessionNotificationActionLabels {
   logSet: string;
   finish: string;
   stillGoing: string;
+  /** The channel names Android lists in its own notification settings. */
+  restChannel: string;
+  restWarningChannel: string;
+  sessionChannel: string;
+  idleChannel: string;
+}
+
+export function sessionNotificationLabels(language: AppLanguage): SessionNotificationLabels {
+  return {
+    extend30: t(language, 'rest.notify.action.extend30'),
+    extend60: t(language, 'rest.notify.action.extend60'),
+    skip: t(language, 'rest.notify.action.skip'),
+    open: t(language, 'rest.notify.action.open'),
+    logSet: t(language, 'rest.notify.action.logSet'),
+    finish: t(language, 'rest.notify.action.finish'),
+    stillGoing: t(language, 'rest.notify.action.stillGoing'),
+    // The same names the reader toggles in the app's own settings, so the two
+    // lists can be matched line by line.
+    restChannel: t(language, 'notif.rest.alerts'),
+    restWarningChannel: t(language, 'notif.rest.warning'),
+    sessionChannel: t(language, 'notif.channel.session'),
+    idleChannel: t(language, 'notif.rest.idle'),
+  };
+}
+
+/** The labels last registered with the OS; null until a registration landed. */
+let registeredKey: string | null = null;
+
+async function registerSessionSurfaces(labels: SessionNotificationLabels): Promise<void> {
+  if (Platform.OS === 'android') {
+    // Writing a channel again under the same id renames it and keeps what the
+    // reader chose for it in system settings.
+    await Notifications.setNotificationChannelAsync(REST_CHANNEL_ID, {
+      name: labels.restChannel,
+      importance: Notifications.AndroidImportance.HIGH,
+      // No `sound` key: naming one makes expo-notifications look for a
+      // bundled asset file, so the channel keeps the system default tone.
+      vibrationPattern: [0, 220, 120, 220],
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      bypassDnd: false,
+    });
+    // The 10 s warning: a tick you feel, not a tone you hear — you may
+    // still be under the bar.
+    await Notifications.setNotificationChannelAsync(REST_WARNING_CHANNEL_ID, {
+      name: labels.restWarningChannel,
+      importance: Notifications.AndroidImportance.DEFAULT,
+      sound: null,
+      vibrationPattern: [0, 80],
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    });
+    // The ongoing card: silent, low, never buzzes — it is a surface, not an alert.
+    await Notifications.setNotificationChannelAsync(SESSION_CHANNEL_ID, {
+      name: labels.sessionChannel,
+      importance: Notifications.AndroidImportance.LOW,
+      sound: null,
+      enableVibrate: false,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    });
+    await Notifications.setNotificationChannelAsync(IDLE_CHANNEL_ID, {
+      name: labels.idleChannel,
+      importance: Notifications.AndroidImportance.DEFAULT,
+      vibrationPattern: [0, 120],
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    });
+  }
+  const opens = { opensAppToForeground: true };
+  await Notifications.setNotificationCategoryAsync(CATEGORY_REST_RUNNING, [
+    { identifier: ACTION_EXTEND_30, buttonTitle: labels.extend30, options: opens },
+    { identifier: ACTION_SKIP_REST, buttonTitle: labels.skip, options: opens },
+    { identifier: ACTION_OPEN, buttonTitle: labels.open, options: opens },
+  ]);
+  await Notifications.setNotificationCategoryAsync(CATEGORY_REST_END, [
+    { identifier: ACTION_LOG_SET, buttonTitle: labels.logSet, options: opens },
+    { identifier: ACTION_EXTEND_60, buttonTitle: labels.extend60, options: opens },
+  ]);
+  await Notifications.setNotificationCategoryAsync(CATEGORY_SESSION, [
+    { identifier: ACTION_OPEN, buttonTitle: labels.open, options: opens },
+    { identifier: ACTION_FINISH, buttonTitle: labels.finish, options: opens },
+  ]);
+  await Notifications.setNotificationCategoryAsync(CATEGORY_IDLE, [
+    { identifier: ACTION_STILL_GOING, buttonTitle: labels.stillGoing, options: opens },
+    { identifier: ACTION_FINISH, buttonTitle: labels.finish, options: opens },
+  ]);
 }
 
 /**
- * Channels and action categories. Safe to call repeatedly; the work happens
- * once. Does NOT request permission — that is asked in context, at the first
- * rest, through `requestRestAlertPermission` (rule 05).
+ * Channels and action categories, in the reader's language. Does NOT request
+ * permission — that is asked in context, at the first rest, through
+ * `requestRestAlertPermission` (rule 05).
+ *
+ * Safe to call on every render that might have changed the language: the work
+ * happens when the labels differ from the ones registered. It used to happen
+ * once per process, so the buttons under a rest alert kept the language the
+ * app had started in — "Skip rest" on a phone just switched to Finnish.
  */
-export async function setupSessionNotifications(labels: SessionNotificationActionLabels): Promise<void> {
+export function setupSessionNotifications(language: AppLanguage): Promise<void> {
   if (Platform.OS === 'web') {
-    return;
+    return Promise.resolve();
   }
   installNotificationHandler();
-  if (setupDone) {
-    return;
+  const labels = sessionNotificationLabels(language);
+  const key = JSON.stringify(labels);
+  if (registeredKey === key) {
+    return Promise.resolve();
   }
-  setupDone = true;
-  try {
-    if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync(REST_CHANNEL_ID, {
-        name: 'Rest timer',
-        importance: Notifications.AndroidImportance.HIGH,
-        // No `sound` key: naming one makes expo-notifications look for a
-        // bundled asset file, so the channel keeps the system default tone.
-        vibrationPattern: [0, 220, 120, 220],
-        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-        bypassDnd: false,
-      });
-      // The 10 s warning: a tick you feel, not a tone you hear — you may
-      // still be under the bar.
-      await Notifications.setNotificationChannelAsync(REST_WARNING_CHANNEL_ID, {
-        name: 'Rest warning',
-        importance: Notifications.AndroidImportance.DEFAULT,
-        sound: null,
-        vibrationPattern: [0, 80],
-        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-      });
-      // The ongoing card: silent, low, never buzzes — it is a surface, not an alert.
-      await Notifications.setNotificationChannelAsync(SESSION_CHANNEL_ID, {
-        name: 'Workout in progress',
-        importance: Notifications.AndroidImportance.LOW,
-        sound: null,
-        enableVibrate: false,
-        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-      });
-      await Notifications.setNotificationChannelAsync(IDLE_CHANNEL_ID, {
-        name: 'Idle workout',
-        importance: Notifications.AndroidImportance.DEFAULT,
-        vibrationPattern: [0, 120],
-        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-      });
+  registeredKey = key;
+  return runInOrder(async () => {
+    try {
+      await registerSessionSurfaces(labels);
+    } catch {
+      // Notifications are an enhancement — never let setup break a workout.
+      // Forget the key so the next call tries again.
+      if (registeredKey === key) {
+        registeredKey = null;
+      }
     }
-    const opens = { opensAppToForeground: true };
-    await Notifications.setNotificationCategoryAsync(CATEGORY_REST_RUNNING, [
-      { identifier: ACTION_EXTEND_30, buttonTitle: labels.extend30, options: opens },
-      { identifier: ACTION_SKIP_REST, buttonTitle: labels.skip, options: opens },
-      { identifier: ACTION_OPEN, buttonTitle: labels.open, options: opens },
-    ]);
-    await Notifications.setNotificationCategoryAsync(CATEGORY_REST_END, [
-      { identifier: ACTION_LOG_SET, buttonTitle: labels.logSet, options: opens },
-      { identifier: ACTION_EXTEND_60, buttonTitle: labels.extend60, options: opens },
-    ]);
-    await Notifications.setNotificationCategoryAsync(CATEGORY_SESSION, [
-      { identifier: ACTION_OPEN, buttonTitle: labels.open, options: opens },
-      { identifier: ACTION_FINISH, buttonTitle: labels.finish, options: opens },
-    ]);
-    await Notifications.setNotificationCategoryAsync(CATEGORY_IDLE, [
-      { identifier: ACTION_STILL_GOING, buttonTitle: labels.stillGoing, options: opens },
-      { identifier: ACTION_FINISH, buttonTitle: labels.finish, options: opens },
-    ]);
-  } catch {
-    // Notifications are an enhancement — never let setup break a workout.
-  }
+  });
 }
 
 /** Current permission without asking. */
@@ -187,16 +265,18 @@ function secondsUntil(atMs: number): number {
 }
 
 async function scheduleAt(
+  identifier: string,
   atMs: number,
   content: Notifications.NotificationContentInput,
   channelId: string,
-): Promise<string | null> {
+): Promise<void> {
   const seconds = secondsUntil(atMs);
   if (!Number.isFinite(seconds) || seconds < 1) {
-    return null;
+    return;
   }
   try {
-    return await Notifications.scheduleNotificationAsync({
+    await Notifications.scheduleNotificationAsync({
+      identifier,
       content: { ...content, data: { ...(content.data ?? {}), ...marker() } },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
@@ -205,76 +285,11 @@ async function scheduleAt(
       },
     });
   } catch {
-    return null;
+    // One rung missing is not worth failing the others over.
   }
 }
 
-export interface RestLadderIds {
-  warning: string | null;
-  end: string | null;
-  repeat: string | null;
-}
-
-export interface RestLadderCopy {
-  warningTitle: string;
-  warningBody: string;
-  endTitle: string;
-  endBody: string;
-  repeatTitle: string;
-  repeatBody: string;
-}
-
-/**
- * Schedules the rest ladder for an absolute end time. Pass `warning: false`
- * to skip the 10 s tick (a setting). Returns the ids to cancel with.
- */
-export async function scheduleRestLadder(input: {
-  endsAtMs: number;
-  warning: boolean;
-  copy: RestLadderCopy;
-}): Promise<RestLadderIds> {
-  if ((await getRestAlertPermission()) !== 'granted') {
-    return { warning: null, end: null, repeat: null };
-  }
-  const times = restAlertTimes(input.endsAtMs);
-  const [warning, end, repeat] = await Promise.all([
-    input.warning
-      ? scheduleAt(
-          times.warningAtMs,
-          { title: input.copy.warningTitle, body: input.copy.warningBody, sound: false },
-          REST_WARNING_CHANNEL_ID,
-        )
-      : Promise.resolve(null),
-    scheduleAt(
-      input.endsAtMs,
-      {
-        title: input.copy.endTitle,
-        body: input.copy.endBody,
-        sound: true,
-        priority: Notifications.AndroidNotificationPriority.HIGH,
-        categoryIdentifier: CATEGORY_REST_END,
-      },
-      REST_CHANNEL_ID,
-    ),
-    scheduleAt(
-      times.repeatAtMs,
-      {
-        title: input.copy.repeatTitle,
-        body: input.copy.repeatBody,
-        sound: true,
-        priority: Notifications.AndroidNotificationPriority.HIGH,
-        categoryIdentifier: CATEGORY_REST_END,
-      },
-      REST_CHANNEL_ID,
-    ),
-  ]);
-  return { warning, end, repeat };
-}
-
-async function cancelOne(id: string | null): Promise<void> {
-  if (!id) {
-    return;
-  }
+async function cancelOne(id: string): Promise<void> {
   try {
     await Notifications.cancelScheduledNotificationAsync(id);
   } catch {
@@ -287,22 +302,83 @@ async function cancelOne(id: string | null): Promise<void> {
   }
 }
 
-export async function cancelRestLadder(ids: RestLadderIds | null): Promise<void> {
-  if (!ids) {
-    return;
-  }
-  await Promise.all([cancelOne(ids.warning), cancelOne(ids.end), cancelOne(ids.repeat)]);
+async function cancelLadderNow(): Promise<void> {
+  await Promise.all(Object.values(REST_LADDER_IDS).map(cancelOne));
 }
 
-/** Our one ongoing card, by a fixed id so re-posting replaces rather than stacks. */
-const ONGOING_ID = 'vinha-session-ongoing';
+export interface RestLadderCopy {
+  warningTitle: string;
+  warningBody: string;
+  endTitle: string;
+  endBody: string;
+  repeatTitle: string;
+  repeatBody: string;
+}
+
+/**
+ * Schedules the rest ladder for an absolute end time, in place of whatever
+ * ladder was armed before — by this process or by one that died. Pass
+ * `warning: false` to skip the 10 s tick (a setting).
+ */
+export function scheduleRestLadder(input: {
+  endsAtMs: number;
+  warning: boolean;
+  copy: RestLadderCopy;
+}): Promise<void> {
+  return runInOrder(async () => {
+    await cancelLadderNow();
+    if ((await getRestAlertPermission()) !== 'granted') {
+      return;
+    }
+    const times = restAlertTimes(input.endsAtMs);
+    await Promise.all([
+      input.warning
+        ? scheduleAt(
+            REST_LADDER_IDS.warning,
+            times.warningAtMs,
+            { title: input.copy.warningTitle, body: input.copy.warningBody, sound: false },
+            REST_WARNING_CHANNEL_ID,
+          )
+        : Promise.resolve(),
+      scheduleAt(
+        REST_LADDER_IDS.end,
+        input.endsAtMs,
+        {
+          title: input.copy.endTitle,
+          body: input.copy.endBody,
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+          categoryIdentifier: CATEGORY_REST_END,
+        },
+        REST_CHANNEL_ID,
+      ),
+      scheduleAt(
+        REST_LADDER_IDS.repeat,
+        times.repeatAtMs,
+        {
+          title: input.copy.repeatTitle,
+          body: input.copy.repeatBody,
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+          categoryIdentifier: CATEGORY_REST_END,
+        },
+        REST_CHANNEL_ID,
+      ),
+    ]);
+  });
+}
+
+/** The ladder gone, whoever armed it. */
+export function cancelRestLadder(): Promise<void> {
+  return runInOrder(cancelLadderNow);
+}
 
 /**
  * Posts or replaces the ongoing session card. Sticky and silent. `kind`
  * picks the action set: a running rest offers +30 s / skip, a session offers
  * open / finish.
  */
-export async function showOngoingSession(input: {
+export function showOngoingSession(input: {
   kind: 'rest' | 'session';
   title: string;
   body: string;
@@ -310,76 +386,97 @@ export async function showOngoingSession(input: {
   if (Platform.OS !== 'android') {
     // iOS has no ongoing notification; a Live Activity is the carrier there
     // and is not in this build. The scheduled alerts still cover the rest end.
-    return;
+    return Promise.resolve();
   }
-  if ((await getRestAlertPermission()) !== 'granted') {
-    return;
-  }
-  try {
-    await Notifications.scheduleNotificationAsync({
-      identifier: ONGOING_ID,
-      content: {
-        title: input.title,
-        body: input.body,
-        sound: false,
-        sticky: true,
-        autoDismiss: false,
-        priority: Notifications.AndroidNotificationPriority.LOW,
-        categoryIdentifier: input.kind === 'rest' ? CATEGORY_REST_RUNNING : CATEGORY_SESSION,
-        data: { ...marker(), [ONGOING_NOTIFICATION_MARKER]: true },
-      },
-      // Immediate, on the silent channel: a channel-only trigger presents now.
-      trigger: { channelId: SESSION_CHANNEL_ID },
-    });
-  } catch {
-    // Surface only; the session is unaffected.
-  }
+  return runInOrder(async () => {
+    if ((await getRestAlertPermission()) !== 'granted') {
+      return;
+    }
+    try {
+      await Notifications.scheduleNotificationAsync({
+        identifier: ONGOING_ID,
+        content: {
+          title: input.title,
+          body: input.body,
+          sound: false,
+          sticky: true,
+          autoDismiss: false,
+          priority: Notifications.AndroidNotificationPriority.LOW,
+          categoryIdentifier: input.kind === 'rest' ? CATEGORY_REST_RUNNING : CATEGORY_SESSION,
+          data: { ...marker(), [ONGOING_NOTIFICATION_MARKER]: true },
+        },
+        // Immediate, on the silent channel: a channel-only trigger presents now.
+        trigger: { channelId: SESSION_CHANNEL_ID },
+      });
+    } catch {
+      // Surface only; the session is unaffected.
+    }
+  });
 }
 
-export async function clearOngoingSession(): Promise<void> {
-  await cancelOne(ONGOING_ID);
+export function clearOngoingSession(): Promise<void> {
+  return runInOrder(() => cancelOne(ONGOING_ID));
 }
-
-const IDLE_ID = 'vinha-session-idle';
 
 /** (Re)schedules the idle nudge for an absolute time; cancels the previous one. */
-export async function scheduleIdleNudge(input: { atMs: number; title: string; body: string }): Promise<void> {
-  await cancelOne(IDLE_ID);
-  if ((await getRestAlertPermission()) !== 'granted') {
-    return;
-  }
-  const seconds = secondsUntil(input.atMs);
-  if (!Number.isFinite(seconds) || seconds < 1) {
-    return;
-  }
+export function scheduleIdleNudge(input: { atMs: number; title: string; body: string }): Promise<void> {
+  return runInOrder(async () => {
+    await cancelOne(IDLE_ID);
+    if ((await getRestAlertPermission()) !== 'granted') {
+      return;
+    }
+    const seconds = secondsUntil(input.atMs);
+    if (!Number.isFinite(seconds) || seconds < 1) {
+      return;
+    }
+    try {
+      await Notifications.scheduleNotificationAsync({
+        identifier: IDLE_ID,
+        content: {
+          title: input.title,
+          body: input.body,
+          sound: true,
+          categoryIdentifier: CATEGORY_IDLE,
+          data: marker(),
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: Math.max(1, Math.round(seconds)),
+          channelId: IDLE_CHANNEL_ID,
+        },
+      });
+    } catch {
+      // Nudge is advisory.
+    }
+  });
+}
+
+export function cancelIdleNudge(): Promise<void> {
+  return runInOrder(() => cancelOne(IDLE_ID));
+}
+
+/**
+ * Pending session notifications of ours, except the ones named in `keep`.
+ * Catches what no fixed id reaches: a ladder armed by a build that still
+ * generated its ids.
+ */
+async function cancelScheduledSessionNotifications(keep: readonly string[]): Promise<void> {
   try {
-    await Notifications.scheduleNotificationAsync({
-      identifier: IDLE_ID,
-      content: {
-        title: input.title,
-        body: input.body,
-        sound: true,
-        categoryIdentifier: CATEGORY_IDLE,
-        data: marker(),
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-        seconds: Math.max(1, Math.round(seconds)),
-        channelId: IDLE_CHANNEL_ID,
-      },
-    });
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    await Promise.all(
+      scheduled
+        .filter(
+          (request) =>
+            request.content.data?.[SESSION_NOTIFICATION_MARKER] === true && !keep.includes(request.identifier),
+        )
+        .map((request) => cancelOne(request.identifier)),
+    );
   } catch {
-    // Nudge is advisory.
+    // Nothing pending.
   }
 }
 
-export async function cancelIdleNudge(): Promise<void> {
-  await cancelOne(IDLE_ID);
-}
-
-/** Everything this module posted, gone — for session end and for a fresh open. */
-export async function clearAllSessionNotifications(): Promise<void> {
-  await Promise.all([clearOngoingSession(), cancelIdleNudge()]);
+async function dismissPresentedSessionNotifications(): Promise<void> {
   try {
     const presented = await Notifications.getPresentedNotificationsAsync();
     await Promise.all(
@@ -390,4 +487,30 @@ export async function clearAllSessionNotifications(): Promise<void> {
   } catch {
     // Nothing in the shade.
   }
+}
+
+/**
+ * A workout screen opening: whatever an earlier rest left behind goes, and
+ * the screen arms its own rest again if one is running.
+ *
+ * NOT the idle nudge. It is the session's, not the screen's, and App arms it
+ * only when a set is logged — cancelling it here meant that stepping out of
+ * the player and back in switched the nudge off for the rest of the session.
+ */
+export function clearStaleSessionAlerts(): Promise<void> {
+  return runInOrder(async () => {
+    await cancelLadderNow();
+    await cancelOne(ONGOING_ID);
+    await cancelScheduledSessionNotifications([IDLE_ID]);
+    await dismissPresentedSessionNotifications();
+  });
+}
+
+/** Everything this module posted or armed, gone — for the end of a session. */
+export function clearAllSessionNotifications(): Promise<void> {
+  return runInOrder(async () => {
+    await Promise.all([cancelLadderNow(), cancelOne(ONGOING_ID), cancelOne(IDLE_ID)]);
+    await cancelScheduledSessionNotifications([]);
+    await dismissPresentedSessionNotifications();
+  });
 }
