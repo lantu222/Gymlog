@@ -54,7 +54,9 @@ module.exports = [
       const wiring = require('../helpers/appWiringSource.cjs').readAppWiring();
 
       assert.match(screen, /offer: \{ type: 'compose' as const, brief \}/);
-      assert.match(screen, /await onComposeProgramme\(offer\.brief\)/);
+      // With the signal that cancels it: leaving the chat must not leave a
+      // billed composition running into a screen that is gone.
+      assert.match(screen, /await onComposeProgramme\(offer\.brief, controller\.signal\)/);
 
       // It used to hand the brief over and navigate to the composer screen,
       // which saved a step and ended the conversation. Drawing the week here is
@@ -73,7 +75,7 @@ module.exports = [
 
       // Compose and save are written once, so the chat cannot store a
       // programme the old composer would have refused.
-      assert.match(wiring, /async function composeProgramme\(brief: string\)/);
+      assert.match(wiring, /async function composeProgramme\(brief: string, signal\?: AbortSignal\)/);
       assert.match(wiring, /async function saveProgramme\(/);
       assert.match(wiring, /onSaveProgramme=\{saveProgramme\}/);
 

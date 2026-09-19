@@ -30,8 +30,11 @@ export function ConfirmDialog({
   onConfirm,
 }: ConfirmDialogProps) {
   const styles = useThemedStyles(makeStyles);
+  // Back is the reflexive "no" on Android, and a dialog that asks before
+  // something destructive has to accept it: without onRequestClose the
+  // hardware back button did nothing at all here (audit 3, 2026-09-19).
   return (
-    <Modal visible={visible} transparent animationType="fade">
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <View style={styles.overlay}>
         <View style={styles.dialog}>
           <Text style={styles.title}>{title}</Text>

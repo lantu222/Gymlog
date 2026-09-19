@@ -164,11 +164,41 @@ module.exports = [
     name: 'guided: leaving the coach mid-answer cancels it, charges nothing and takes the question back',
     run() {
       const chat = read('src', 'screens', 'AICoachChatScreen.tsx');
-      const cleanup = chat.slice(chat.indexOf('const pendingAskRef = useRef'), chat.indexOf('const pendingAskRef = useRef') + 1400);
+      // To the end of the effect, not a character count: the window was 1400
+      // characters and the compose cleanup added beside it pushed the ask's
+      // own lines out of it (audit 3, 2026-09-19).
+      const start = chat.indexOf('const pendingAskRef = useRef');
+      assert.notEqual(start, -1, 'the pending-ask ref moved');
+      const end = chat.indexOf('\n    [],\n  );', start);
+      assert.ok(end > start, 'the cleanup effect no longer ends where this guard thinks');
+      const cleanup = chat.slice(start, end);
       assert.match(cleanup, /askToken\.current \+= 1;\s*pending\.controller\.abort\(\);/);
       assert.match(cleanup, /message\.id !== `me:\$\{pending\.token\}`/);
       assert.match(chat, /pendingAskRef\.current = \{ token, controller \};/);
       assert.match(chat, /\}, controller\.signal\);\s*if \(token !== askToken\.current\) \{\s*return;/);
+
+      // And a compose that has not come back is cancelled on the way out, the
+      // way the ask above it is: a composition is a billed call, and one left
+      // running answers into a screen that is gone (audit 3, 2026-09-19).
+      assert.match(cleanup, /for \(const controller of composeControllersRef\.current\.values\(\)\) \{\s*controller\.abort\(\);/);
+      assert.match(chat, /composeControllersRef\.current\.set\(messageId, controller\);/);
+      assert.match(chat, /await onComposeProgramme\(offer\.brief, controller\.signal\)/);
+
+      // The building line never enters the thread at all. It used to replace
+      // the offer message, and the thread is published upward on every
+      // change, so leaving mid-build kept "Rakennan viikkoa…" in the
+      // conversation with nothing that could ever resolve it and no offer
+      // left to retry. Held beside the thread instead, so what is published
+      // is never a state that only makes sense on a mounted screen.
+      assert.match(chat, /const \[composingIds, setComposingIds\] = useState<readonly string\[\]>\(\[\]\);/);
+      assert.match(chat, /composingIds\.includes\(message\.id\) \? \(/);
+      assert.doesNotMatch(chat, /id: `\$\{messageId\}:building`/);
+      // Cleared in a finally: a rejected compose must not leave the offer
+      // under a spinner with no way out.
+      assert.match(
+        chat,
+        /\} finally \{\s*\/\/[^\n]*\n\s*\/\/[^\n]*\n\s*setComposingIds\(\(current\) => current\.filter\(\(id\) => id !== messageId\)\);/,
+      );
     },
   },
   {

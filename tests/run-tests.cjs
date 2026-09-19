@@ -407,6 +407,7 @@ const suites = [
   ...require('./lib/planTemplateSync.test.cjs'),
   ...require('./screens/audit3Promises.test.cjs'),
   ...require('./screens/audit3Numbers.test.cjs'),
+  ...require('./screens/audit3Actions.test.cjs'),
 ];
 
 (async () => {
