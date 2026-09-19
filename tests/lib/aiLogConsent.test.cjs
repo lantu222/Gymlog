@@ -186,28 +186,51 @@ module.exports = [
         handler.indexOf('updatePreferences({') < handler.indexOf('forgetAiCoachLog('),
         'the switch must go off before the delete is attempted',
       );
-      // The label is cleared only once every line is off, so a later yes mints
+      // The label is retired only once every line is off, so a later yes mints
       // a new one and two stretches of consent cannot be joined into one.
-      assert.ok(handler.includes('allOff') && handler.includes('aiLogId: null'));
+      assert.ok(handler.includes('allOff'));
       // A line still on keeps the label and files nothing: copies are still
       // being kept under it, and a queued delete would take those too.
       assert.match(handler, /if \(!allOff\) \{\s*(?:\/\/[^\n]*\n\s*)*return;\s*\}/);
       assert.ok(
-        handler.indexOf('if (!allOff)') < handler.indexOf('withPendingAiLogDeletion('),
-        'only an all-off withdrawal may file the label as owed',
+        handler.indexOf('if (!allOff)') < handler.indexOf('retireAiLogLabel('),
+        'only an all-off withdrawal may retire the label',
       );
+
       // And the label outlives a delete that did not land — not as `aiLogId`,
-      // which a later yes would reuse, but as a delete still owed, in the same
-      // write that clears it. Dropping it outright would leave the copies
-      // filed under a name nothing can look up again.
+      // which a later yes would reuse, but as a delete still owed. Dropping it
+      // outright would leave the copies filed under a name nothing can look up
+      // again.
+      assert.match(handler, /await retireAiLogLabel\(logId, !forgotten\.ok\);/);
+
+      /*
+       * And that write reads the owed list where it writes it.
+       *
+       * The handler builds nothing: it has just awaited a delete that can take
+       * the whole request timeout, so any list it read before that await is
+       * stale, and `updatePreferences` lays a patch's array straight over the
+       * current one — a label a reset filed during that window would be gone
+       * with it, its copies left under a name nothing can look up (CI review
+       * of #143, 2026-09-19). The provider reads inside its queue, like the
+       * clear beside it.
+       */
+      assert.doesNotMatch(handler, /pendingAiLogDeletions/, 'the handler builds the owed list from a stale snapshot');
+      const provider = read('src', 'state', 'AppProvider.tsx');
+      const retire = provider.slice(
+        provider.indexOf('function retireAiLogLabel('),
+        provider.indexOf('function resetAllData('),
+      );
+      assert.ok(retire.length > 0, 'the provider no longer retires the label');
+      assert.match(retire, /return runExclusive\(async \(\) => \{\s*const current = databaseRef\.current;/);
       assert.match(
-        handler,
-        /await updatePreferences\(\{\s*aiLogId: null,\s*pendingAiLogDeletions: withPendingAiLogDeletion\(preferences\.pendingAiLogDeletions, logId\),\s*\}\);/,
+        retire,
+        /pendingAiLogDeletions: owed\s*\?\s*withPendingAiLogDeletion\(current\.preferences\.pendingAiLogDeletions, logId\)/,
       );
-      assert.ok(
-        handler.indexOf('if (forgotten.ok)') < handler.indexOf('withPendingAiLogDeletion('),
-        'a confirmed delete owes nothing',
-      );
+      // A reader who switched the log back on during that window has a new
+      // label, and nulling it would strand the copies it has started keeping.
+      assert.match(retire, /aiLogId: current\.preferences\.aiLogId === logId \? null : current\.preferences\.aiLogId,/);
+      // A refused write puts memory back, like every other write in there.
+      assert.match(retire, /catch \(error\) \{\s*databaseRef\.current = current;/);
     },
   },
 ];

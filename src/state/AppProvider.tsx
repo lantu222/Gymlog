@@ -4,7 +4,7 @@ import { StorageLoadFailedScreen } from '../components/StorageLoadFailedScreen';
 import { resolveDeviceLanguage } from '../storage/deviceLocale';
 import { createId } from '../lib/ids';
 import { preferencesForRestore } from '../lib/accountBackup';
-import { withoutAiLogDeletions } from '../lib/aiLogDeletion';
+import { withPendingAiLogDeletion, withoutAiLogDeletions } from '../lib/aiLogDeletion';
 import { isProUnlocked } from '../lib/proEntitlement';
 import {
   countAuthoredPrograms,
@@ -181,6 +181,8 @@ interface AppContextValue {
   resetAllData: () => Promise<void>;
   /** Drops labels the server has confirmed deleting from the list still owed. */
   clearPendingAiLogDeletions: (deleted: readonly string[]) => Promise<void>;
+  /** Retire the coach's label, filing its delete as owed when `owed`. */
+  retireAiLogLabel: (logId: string, owed: boolean) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -1132,6 +1134,48 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     });
   }
 
+  /**
+   * Retire the coach's label, and file its delete as still owed when the
+   * server did not confirm it — in one write, inside the queue.
+   *
+   * The caller cannot build this patch itself. It has just awaited a delete
+   * that may have taken the full request timeout, so the `pendingAiLogDeletions`
+   * it read before that await is stale, and `updatePreferences` would lay the
+   * old array straight over the current one: a retry that confirmed a label in
+   * the meantime would find it back on the list, and a label a reset filed in
+   * the meantime would be gone, with its copies left under a name nothing can
+   * look up (CI review of #143). Read here, at write time, like the clear
+   * beside it.
+   *
+   * The label is cleared only if it is still the one being retired. A reader
+   * who switched the log back on during that same window has a new label, and
+   * nulling it would strand the copies it has already started collecting.
+   */
+  function retireAiLogLabel(logId: string, owed: boolean) {
+    return runExclusive(async () => {
+      const current = databaseRef.current;
+      const next = {
+        ...current,
+        preferences: {
+          ...current.preferences,
+          aiLogId: current.preferences.aiLogId === logId ? null : current.preferences.aiLogId,
+          pendingAiLogDeletions: owed
+            ? withPendingAiLogDeletion(current.preferences.pendingAiLogDeletions, logId)
+            : current.preferences.pendingAiLogDeletions,
+        },
+      };
+      databaseRef.current = next;
+      setDatabase(next);
+      try {
+        await savePreferences(next.preferences);
+      } catch (error) {
+        databaseRef.current = current;
+        setDatabase(current);
+        throw error;
+      }
+    });
+  }
+
   function resetAllData() {
     return runExclusive(async () => {
       // The live preferences, not a reload: they carry what this install has
@@ -1280,6 +1324,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       addMeasurementEntry,
       resetAllData,
       clearPendingAiLogDeletions,
+      retireAiLogLabel,
       restoreDatabaseFromBackup,
       importWorkoutHistory,
     }),

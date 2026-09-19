@@ -13,7 +13,6 @@ import {
   resolveTrialProUntil,
 } from '../lib/proEntitlement';
 import { forgetAiCoachLog } from '../lib/aiCoachClient';
-import { withPendingAiLogDeletion } from '../lib/aiLogDeletion';
 import { randomLogId } from '../lib/aiCoachLogId';
 import { localizeSessionFocus } from '../lib/sessionNameLabel';
 import { MOCK_BILLING, currentPeriodEndAt, nextChargeAt } from '../lib/subscriptionView';
@@ -115,6 +114,8 @@ export interface ProfileTabDeps {
   resetAllData: () => Promise<void>;
   /** Asks the server to delete these coach-log labels; resolves with the ones it could not confirm. */
   deletePendingAiLogs: (logIds: readonly string[]) => Promise<string[]>;
+  /** Retires the coach's label inside the provider's queue, filing its delete as owed when `owed`. */
+  retireAiLogLabel: (logId: string, owed: boolean) => Promise<void>;
   setCompletionSummary: (value: CompletionSummaryState | null) => void;
   setWorkoutCelebration: (value: WorkoutCelebrationState | null) => void;
   setFinishSaveState: (value: {
@@ -187,6 +188,7 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
     setRatingSheetVisible,
     resetAllData,
     deletePendingAiLogs,
+    retireAiLogLabel,
     setCompletionSummary,
     setWorkoutCelebration,
     setFinishSaveState,
@@ -706,20 +708,21 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
             // would delete the copies the reader is still allowing.
             return;
           }
-          if (forgotten.ok) {
-            await updatePreferences({ aiLogId: null });
-            return;
-          }
-          // Every line off and the delete did not land. The label is the one
-          // thread back to the copies, so it is filed as owed in the same
-          // write that clears it — after that the runner asks again on every
-          // start and foreground until the server confirms, and a new yes
+          // The label is retired here either way, and filed as a delete still
+          // owed when the server did not confirm — after that the runner asks
+          // again on every start and foreground until it does, and a new yes
           // mints a new label rather than reusing one whose copies are owed.
-          await updatePreferences({
-            aiLogId: null,
-            pendingAiLogDeletions: withPendingAiLogDeletion(preferences.pendingAiLogDeletions, logId),
-          });
-          showToast(t(preferences.appLanguage, 'toast.coachCopiesPending'));
+          //
+          // Through the provider's queue rather than an `updatePreferences`
+          // patch built here: the delete above can take the whole request
+          // timeout, so the `preferences` this closure holds is stale by the
+          // time it returns, and writing its list back would drop a label a
+          // reset filed in the meantime — leaving those copies under a name
+          // nothing can look up (CI review of #143).
+          await retireAiLogLabel(logId, !forgotten.ok);
+          if (!forgotten.ok) {
+            showToast(t(preferences.appLanguage, 'toast.coachCopiesPending'));
+          }
         }}
         onResetAllData={async () => {
           // The coach's kept copies are part of "all data". The reset files
