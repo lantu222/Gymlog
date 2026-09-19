@@ -4,6 +4,7 @@ import { TourTargetRegistry } from '../features/tour/tourTargets';
 import { AppRoute, ROOT_ROUTES } from '../navigation/routes';
 import { ProgressScreen } from '../screens/ProgressScreen';
 import { AppPreferences, MeasurementKind, MeasurementUnit } from '../types/models';
+import { t } from '../lib/i18n';
 import { haptics } from '../utils/haptics';
 
 type ProgressScreenProps = React.ComponentProps<typeof ProgressScreen>;
@@ -47,6 +48,7 @@ export interface ProgressTabDeps {
   addMeasurementEntry: (kind: MeasurementKind, value: number, unit: MeasurementUnit) => Promise<unknown>;
   deleteBodyweightEntry: (entryId: string) => Promise<unknown>;
   deleteMeasurementEntry: (entryId: string) => Promise<unknown>;
+  showToast: (message: string) => void;
   homeRecentSessions: ProgressScreenProps['recentSessions'];
 }
 
@@ -79,6 +81,7 @@ export function renderProgressTab(deps: ProgressTabDeps): React.ReactElement | n
     addMeasurementEntry,
     deleteBodyweightEntry,
     deleteMeasurementEntry,
+    showToast,
     homeRecentSessions,
   } = deps;
 
@@ -120,18 +123,47 @@ export function renderProgressTab(deps: ProgressTabDeps): React.ReactElement | n
       initialMeasure={route.screen === 'list' ? route.measure : undefined}
       scrollToTarget={route.screen === 'list' ? route.scrollTo : undefined}
       showBodyweightDetail={route.screen === 'bodyweight'}
-      // Removing a reading is silent the same way adding one is: the row
-      // leaves the list and the curve redraws without it.
+      /*
+       * Removing a reading is silent the same way adding one is: the row
+       * leaves the list and the curve redraws without it.
+       *
+       * Silent about SUCCESS, that is. A refused write rolls memory back
+       * (`commit` puts the previous snapshot in and rethrows), so the row
+       * reappears — and with the promise dropped on the floor and a success
+       * buzz already fired before the write had resolved, that was the whole
+       * of what the reader got: a delete they confirmed, felt, watched happen
+       * and then watched undo itself (audit 3, 2026-09-19). The history list
+       * one screen over has said so since 2026-09-16; this tab had no
+       * `showToast` at all.
+       */
       onDeleteBodyweight={(entryId) => {
-        void deleteBodyweightEntry(entryId);
-        void haptics.success();
+        deleteBodyweightEntry(entryId)
+          .then(() => haptics.success())
+          .catch((error) => {
+            console.error('Failed to delete bodyweight entry', error);
+            void haptics.error();
+            showToast(t(preferences.appLanguage, 'toast.entryDeleteFailed'));
+          });
       }}
       onDeleteMeasurement={(entryId) => {
-        void deleteMeasurementEntry(entryId);
-        void haptics.success();
+        deleteMeasurementEntry(entryId)
+          .then(() => haptics.success())
+          .catch((error) => {
+            console.error('Failed to delete measurement entry', error);
+            void haptics.error();
+            showToast(t(preferences.appLanguage, 'toast.entryDeleteFailed'));
+          });
       }}
       onAddBodyweight={async (weightKg) => {
-        await addBodyweightEntry(weightKg);
+        try {
+          await addBodyweightEntry(weightKg);
+        } catch (error) {
+          // The sheet has already closed over a value that was not stored.
+          console.error('Failed to save bodyweight entry', error);
+          void haptics.error();
+          showToast(t(preferences.appLanguage, 'toast.entrySaveFailed'));
+          return;
+        }
         // No "saved" toast (user 2026-08-25: "outo pilleri... ihan turha").
         // The save announces itself: the dot lands on the chart, and the
         // haptic says it landed.
@@ -142,7 +174,14 @@ export function renderProgressTab(deps: ProgressTabDeps): React.ReactElement | n
       heightCm={preferences.setupHeightCm}
       onSaveHeight={(nextHeightCm) => void updatePreferences({ setupHeightCm: nextHeightCm })}
       onAddMeasurement={async (kind, value, unit) => {
-        await addMeasurementEntry(kind, value, unit);
+        try {
+          await addMeasurementEntry(kind, value, unit);
+        } catch (error) {
+          console.error('Failed to save measurement entry', error);
+          void haptics.error();
+          showToast(t(preferences.appLanguage, 'toast.entrySaveFailed'));
+          return;
+        }
         // No "saved" toast, same rule as bodyweight (user 2026-08-25:
         // "teksti mittaus tallennettu poistetaan ja kaikki tämmöiset").
         // The value lands on the card in front of the reader; the haptic

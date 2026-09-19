@@ -404,6 +404,8 @@ const suites = [
   ...require('./lib/calendarDayCounts.test.cjs'),
   ...require('./lib/setupSeed.test.cjs'),
   ...require('./screens/onboardingEntryAndSaves.test.cjs'),
+  ...require('./lib/planTemplateSync.test.cjs'),
+  ...require('./screens/audit3Promises.test.cjs'),
 ];
 
 (async () => {

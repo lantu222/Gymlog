@@ -164,6 +164,7 @@ import {
   toDraftExercise,
 } from './src/lib/programSessionEdit';
 import { reorderPlanWeek } from './src/lib/planSessionOrder';
+import { syncPlanEntriesToTemplate } from './src/lib/planTemplateSync';
 import { reorderProgramSessions } from './src/lib/programSessionOrder';
 import { ProgramLimitReachedError } from './src/lib/programSlots';
 import { createUnlessAtLimit } from './src/app/programLimitGuard';
@@ -282,7 +283,7 @@ import { StartPathScreen } from './src/screens/StartPathScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { setNumberLanguage } from './src/lib/format';
 import { programTableToCsv } from './src/lib/programImageImport';
-import { pickProgramImage } from './src/utils/programImagePicker';
+import { pickProgramImage, type ProgramImageImportResult } from './src/utils/programImagePicker';
 import { VinhaSplashScreen } from './src/screens/VinhaSplashScreen';
 import { ExportablePlan } from './src/screens/ExportPlanScreen';
 import { NewProgramSheet } from './src/components/NewProgramSheet';
@@ -2551,6 +2552,42 @@ function VinhaApp() {
   }
 
   /**
+   * The running plan's week, after the template editor changed its days.
+   *
+   * `reorderPlanWeek` above deliberately refuses a changed COUNT — a drag must
+   * not invent or drop a training day. The editor's day chips are the case
+   * where the count is the thing that changed, and nothing followed it: a day
+   * added was never offered, a day removed left an entry pointing at a session
+   * that no longer existed, and Home went on counting the old number (audit 3,
+   * 2026-09-19).
+   *
+   * Read back from the repository rather than from the draft, like the reorder
+   * beside it: the ids are the repository's to assign.
+   */
+  async function syncPlanToTemplate(workoutTemplateId: string) {
+    const plan = database.workoutPlans.find(
+      (item) => item.entries[0]?.workoutTemplateId === workoutTemplateId,
+    );
+    if (!plan) {
+      return;
+    }
+    const saved = await getWorkoutTemplateSessionsFresh(workoutTemplateId);
+    const entries = syncPlanEntriesToTemplate({
+      entries: plan.entries,
+      sessionIds: saved.map((session) => session.id),
+      planId: plan.id,
+      workoutTemplateId,
+      // A new day lands on the reader's own training days, laid out for the
+      // new count the way every other adoption lays them out.
+      dayLabels: planLabelsForProgramme(saved.length, preferences.setupAvailableDays, new Date()),
+    });
+    if (!entries) {
+      return;
+    }
+    await upsertWorkoutPlan({ ...plan, entries, updatedAt: new Date().toISOString() });
+  }
+
+  /**
    * Take one lift out of the programme for good, from wherever the reader is
    * looking at it.
    *
@@ -3276,10 +3313,61 @@ function VinhaApp() {
    * all. The button is offered only when there is something behind it
    * (2026-09-16).
    */
-  async function pickProgramImageForImport(): Promise<string | null> {
+  /**
+   * The notice, before the photo leaves — the one the policy promises.
+   *
+   * "Two things leave your phone only if you choose them: … the AI coach's
+   * online mode (you read a notice and then send a question, ask for a
+   * programme, or import one from a photo)" — docs/legal/privacy, both
+   * languages. The notice existed in exactly one place, the chat screen, and
+   * `aiOnlineNoticeAcknowledged` was read only there. The photo import is
+   * reached from the Programs tab, the training plan and Settings, none of
+   * which touches the chat, so a reader who had never opened the coach could
+   * send a photo of their programme with nothing said at all (audit 3,
+   * 2026-09-19).
+   *
+   * Here rather than in the sheet, because the sheet is rendered from three
+   * screens and a fourth entry point would miss a gate placed in it. This is
+   * the one function every path goes through.
+   */
+  function askPhotoOnlineNotice(): Promise<boolean> {
+    if (preferences.aiOnlineNoticeAcknowledged) {
+      return Promise.resolve(true);
+    }
+    return new Promise((resolve) => {
+      Alert.alert(
+        t(preferences.appLanguage, 'csv.photo.notice.title'),
+        t(preferences.appLanguage, 'csv.photo.notice.body'),
+        [
+          { text: t(preferences.appLanguage, 'csv.photo.notice.cancel'), style: 'cancel', onPress: () => resolve(false) },
+          {
+            text: t(preferences.appLanguage, 'csv.photo.notice.continue'),
+            onPress: () => {
+              // Answered once, for the coach as a whole: the chat reads the
+              // same flag and will not ask again.
+              void updatePreferences({ aiOnlineNoticeAcknowledged: true });
+              resolve(true);
+            },
+          },
+        ],
+        { cancelable: true, onDismiss: () => resolve(false) },
+      );
+    });
+  }
+
+  async function pickProgramImageForImport(): Promise<ProgramImageImportResult> {
+    if (!(await askPhotoOnlineNotice())) {
+      return { status: 'cancelled' };
+    }
     const picked = await pickProgramImage();
+    if (picked.status === 'cancelled') {
+      // Backing out of the picker is an answer, not a failure. It used to come
+      // back as the same null every other ending did, so the sheet told a
+      // reader who had chosen nothing that their photo could not be read.
+      return { status: 'cancelled' };
+    }
     if (picked.status !== 'picked') {
-      return null;
+      return { status: 'failed' };
     }
     const rows = await requestProgramTableFromImage({
       ...picked.image,
@@ -3288,7 +3376,7 @@ function VinhaApp() {
       keepConsent: preferences.aiLogPhotoConsent,
       logId: preferences.aiLogId,
     });
-    return rows && rows.length > 0 ? programTableToCsv(rows) : null;
+    return rows && rows.length > 0 ? { status: 'read', csv: programTableToCsv(rows) } : { status: 'failed' };
   }
 
   const handlePickProgramImage = isAiCoachLiveConfigured() ? pickProgramImageForImport : undefined;
@@ -6620,6 +6708,7 @@ function VinhaApp() {
       handleAcceptTargetProposal,
       programSlots,
       setProgramLimitVisible,
+      syncPlanToTemplate,
       trackedProgress,
       workoutSessions,
       handleEnrolSeason,
@@ -6666,6 +6755,7 @@ function VinhaApp() {
       addMeasurementEntry,
       deleteBodyweightEntry,
       deleteMeasurementEntry,
+      showToast,
       homeRecentSessions,
     });
   } else if (route.tab === 'profile') {
@@ -7118,10 +7208,14 @@ function VinhaApp() {
             () => upsertWorkoutTemplate(draft),
             () => setProgramLimitVisible(true),
           );
-          setSettingsImportVisible(false);
-          if (workoutTemplateId) {
-            navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+          if (!workoutTemplateId) {
+            // Refused at the cap: the sheet stays open with the table it read,
+            // so this one does not hide it either.
+            return false;
           }
+          setSettingsImportVisible(false);
+          navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+          return true;
         }}
         onImportHistory={async (preview) => {
           // Thrown on when the write fails: the sheet keeps the pasted export

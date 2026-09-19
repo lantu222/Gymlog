@@ -7,6 +7,7 @@ import { buildDraftFromCsvPreview, CsvLibraryEntry, parseCsvProgram } from '../l
 import { countKnownNames } from '../lib/exerciseNameBook';
 import { HevyImportPreview, isHevyHistoryCsv, parseHevyCsv } from '../lib/hevyImport';
 import { I18nKey, t } from '../lib/i18n';
+import type { ProgramImageImportResult } from '../utils/programImagePicker';
 import { ProLockIcon, ProPill } from './ProLockMarks';
 import type { AppLanguage, ExerciseNameBookEntry, WorkoutTemplateDraft } from '../types/models';
 import { Theme, useTheme, useThemedStyles } from '../theming';
@@ -63,7 +64,12 @@ interface NewProgramSheetProps {
   proUnlocked?: boolean;
   /** Where the lock leads. Required for the row to lock at all. */
   onOpenPaywall?: () => void;
-  onImportProgram: (draft: WorkoutTemplateDraft) => Promise<void> | void;
+  /**
+   * Saves the imported programme. `false` says it was refused — the free cap,
+   * which the caller answers with its own sheet — so this one stays open with
+   * the table still in it rather than closing over a save that never happened.
+   */
+  onImportProgram: (draft: WorkoutTemplateDraft) => Promise<boolean | void> | boolean | void;
   /**
    * A pasted Hevy export is HISTORY, not a programme — workouts already
    * performed. When the paste is recognised as one, this runs instead of
@@ -78,11 +84,13 @@ interface NewProgramSheetProps {
   nameBook?: readonly ExerciseNameBookEntry[];
   /**
    * Reads a programme out of a photo the reader picks. Returns the CSV text
-   * the paste box would have held, or null when nothing usable came back —
-   * the sheet does not care which of the several ways it can fail happened,
-   * because the reader is left in the same place by all of them.
+   * the paste box would have held, or says the reader ended it themselves, or
+   * that it failed — the sheet does not care WHICH way it failed, because the
+   * reader is left in the same place by all of them, but it does care whether
+   * it failed at all: it used to report a reader's own cancel as an unreadable
+   * photo.
    */
-  onPickImage?: () => Promise<string | null>;
+  onPickImage?: () => Promise<ProgramImageImportResult>;
   /**
    * Called when the reader says what one of their own names means. Persisting
    * it is the caller's job; this sheet only re-parses once it comes back.
@@ -195,14 +203,18 @@ export function NewProgramSheet({
     setImageNote(null);
     setReadingImage(true);
     try {
-      const csv = await onPickImage();
-      if (csv) {
-        setCsvText(csv);
-      } else {
+      const result = await onPickImage();
+      if (result.status === 'read') {
+        setCsvText(result.csv);
+      } else if (result.status === 'failed') {
         // One sentence for every way this ends badly. The reader is in the
         // same place whether the network failed, the photo was not a
         // programme, or permission was refused: nothing to import, try the
         // paste box. Naming the branch would not change what they do next.
+        //
+        // Backing out of the picker, and declining the online notice, are not
+        // among them: both used to arrive here as the same empty answer and be
+        // reported as a photo that could not be read (audit 3, 2026-09-19).
         setImageNote(t(language, 'csv.photo.failed'));
       }
     } finally {
@@ -294,9 +306,21 @@ export function NewProgramSheet({
       return;
     }
     setImporting(true);
+    setImportError(null);
     try {
-      await onImportProgram(buildDraftFromCsvPreview(preview, programName.trim() || defaultProgramName));
+      // Closed only on a save that happened. `createUnlessAtLimit` shows the
+      // limit sheet and RESOLVES, so awaiting it told this sheet nothing: at
+      // the free cap it closed and `reset()` threw away the table — which on
+      // the photo path had cost a model call to produce, and had to be shot
+      // again (audit 3, 2026-09-19). The Hevy branch above already keeps its
+      // text on screen for the same reason.
+      const saved = await onImportProgram(buildDraftFromCsvPreview(preview, programName.trim() || defaultProgramName));
+      if (saved === false) {
+        return;
+      }
       handleClose();
+    } catch {
+      setImportError(t(language, 'csv.import.failed'));
     } finally {
       setImporting(false);
     }

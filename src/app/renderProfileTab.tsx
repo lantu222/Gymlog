@@ -7,6 +7,7 @@ import { buildCancelSurveyAnswer } from '../lib/cancelSurvey';
 import { isDemoBuild } from '../lib/demoMode';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { t } from '../lib/i18n';
+import type { ProgramImageImportResult } from '../utils/programImagePicker';
 import {
   canStartProTrial,
   canResumePurchase,
@@ -90,7 +91,7 @@ export interface ProfileTabDeps {
    * and the sheet hides the button rather than offering one that returns
    * nothing (2026-09-16).
    */
-  handlePickProgramImage?: () => Promise<string | null>;
+  handlePickProgramImage?: () => Promise<ProgramImageImportResult>;
   handleChangeTrainingDays: (days: SetupWeekday[]) => Promise<void>;
   programSlots: { canCreate: boolean };
   setProgramLimitVisible: (visible: boolean) => void;
@@ -409,9 +410,12 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
             () => upsertWorkoutTemplate(draft),
             () => setProgramLimitVisible(true),
           );
-          if (workoutTemplateId) {
-            navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+          if (!workoutTemplateId) {
+            // Refused at the cap: the sheet keeps the table it read.
+            return false;
           }
+          navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+          return true;
         }}
       />
     );
