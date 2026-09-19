@@ -45,6 +45,24 @@ function getFunctionBody(name) {
   return onboardingSource.slice(start, nextFunction);
 }
 
+/**
+ * The text between two anchors, failing loudly when either has moved.
+ *
+ * `slice(indexOf(a), indexOf(b))` says nothing when an anchor is gone: -1 is a
+ * valid slice bound, so a missing END quietly widens the window to the whole
+ * file and every `doesNotMatch` in it starts asking a different question. That
+ * is what happened when `SetupOptionCard` was deleted as dead code — the scope
+ * of the LocationChoiceCard guards grew from 130 lines to 4,700 and they all
+ * still passed (CI review of #143, 2026-09-19).
+ */
+function between(source, from, to) {
+  const start = source.indexOf(from);
+  assert.notEqual(start, -1, `anchor missing: ${from}`);
+  const end = source.indexOf(to, start + from.length);
+  assert.notEqual(end, -1, `anchor missing after ${from}: ${to}`);
+  return source.slice(start, end);
+}
+
 module.exports = [
   {
     name: 'onboarding review step uses the light plan-ready flow',
@@ -608,10 +626,7 @@ module.exports = [
       //   laid out inside the parent's padding box, so a paddingTop here would
       //   push the mark down by the status-bar inset while the splash, which
       //   has none, hands it over at the unpadded coordinate.
-      const welcomeScreenStyle = welcomeSource.slice(
-        welcomeSource.indexOf('  screen: {'),
-        welcomeSource.indexOf('  markSlot: {'),
-      );
+      const welcomeScreenStyle = between(welcomeSource, '  screen: {', '  markSlot: {');
       assert.doesNotMatch(welcomeScreenStyle, /padding/);
       // These asserted the feature row's copy was still in the dictionary,
       // twenty lines below the comment saying the feature row was cut on
@@ -628,10 +643,10 @@ module.exports = [
   {
     name: 'onboarding selection steps keep vertical layout still and progress aligned',
     run() {
-      const locationChoiceBody = onboardingSource.slice(
-        onboardingSource.indexOf('function LocationChoiceCard'),
-        onboardingSource.indexOf('function SetupOptionCard'),
-      );
+      // Ends at the next function that survives, not at `SetupOptionCard`:
+      // that one went with the dead recommendation page, and the missing
+      // anchor had widened this window to the rest of the file.
+      const locationChoiceBody = between(onboardingSource, 'function LocationChoiceCard', 'function clampSetupAge');
 
       // Selection highlight is a subtle scale (max 1.5%), never a layout jump.
       assert.match(locationChoiceBody, /outputRange: \[1, 1\.015\]/);
@@ -720,10 +735,7 @@ module.exports = [
        * Two rows cannot be pinned by counting `daysWeekRow`: the fix IS that
        * there is one of it, and that it comes first.
        */
-      const daysRender = onboardingSource.slice(
-        onboardingSource.indexOf('function renderDays'),
-        onboardingSource.indexOf('function renderCautionRow'),
-      );
+      const daysRender = between(onboardingSource, 'function renderDays', 'function renderCautionRow');
       assert.equal(
         daysRender.split('style={styles.daysWeekRow}').length - 1,
         1,
@@ -739,10 +751,7 @@ module.exports = [
       assert.match(daysRender, /return cycleActive \? \(/);
       // Choosing weekdays or a count still clears the cycle.
       // Three clears: the count chips, the weekday toggles, and Remove.
-      const countBody = onboardingSource.slice(
-        onboardingSource.indexOf('function selectTrainingDaysCount'),
-        onboardingSource.indexOf('function renderDays'),
-      );
+      const countBody = between(onboardingSource, 'function selectTrainingDaysCount', 'function renderDays');
       assert.equal(countBody.split('setCyclePattern(null)').length - 1, 3);
       // The handoff persists the pattern anchored at today — and keeps the
       // old anchor when only the questionnaire was re-run with the same
