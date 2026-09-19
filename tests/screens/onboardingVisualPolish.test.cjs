@@ -199,7 +199,10 @@ module.exports = [
       // a Finnish reader's finished week came out as "Mon / Wed / Fri".
       assert.match(composerSource, /weekdayLabel: day\.weekdayLabel,/);
       assert.match(composerSource, /weekday: day\.weekday,/);
-      assert.match(onboardingSource, /getWeekdayShortLabel\(session\.weekday, language\)/);
+      // The per-session list that turned `session.weekday` into a word was the
+      // row-per-training-day card's, and nothing has read it since the seven
+      // cells replaced it; it is gone (2026-09-19). What draws the week is
+      // below, and that is what this guard holds.
       // And it reaches the card. Since 2026-09-09 the card draws the whole
       // week as seven cells rather than a row per training day — a five-day
       // programme used to push its own first rows out of the card — so the

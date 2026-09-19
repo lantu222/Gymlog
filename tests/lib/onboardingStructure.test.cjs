@@ -45,6 +45,24 @@ function getFunctionBody(name) {
   return onboardingSource.slice(start, nextFunction);
 }
 
+/**
+ * The text between two anchors, failing loudly when either has moved.
+ *
+ * `slice(indexOf(a), indexOf(b))` says nothing when an anchor is gone: -1 is a
+ * valid slice bound, so a missing END quietly widens the window to the whole
+ * file and every `doesNotMatch` in it starts asking a different question. That
+ * is what happened when `SetupOptionCard` was deleted as dead code — the scope
+ * of the LocationChoiceCard guards grew from 130 lines to 4,700 and they all
+ * still passed (CI review of #143, 2026-09-19).
+ */
+function between(source, from, to) {
+  const start = source.indexOf(from);
+  assert.notEqual(start, -1, `anchor missing: ${from}`);
+  const end = source.indexOf(to, start + from.length);
+  assert.notEqual(end, -1, `anchor missing after ${from}: ${to}`);
+  return source.slice(start, end);
+}
+
 module.exports = [
   {
     name: 'onboarding review step uses the light plan-ready flow',
@@ -146,7 +164,10 @@ module.exports = [
       // the selection, still defaults on, and stays editable in plan settings.
       // Onboarding just no longer asks a free user to configure a Pro feature.
       assert.doesNotMatch(onboardingSource, /renderPlanReadyProgression/);
-      assert.match(onboardingSource, /const \[automatedProgressionEnabled, setAutomatedProgressionEnabled\] = useState\(/);
+      // Read, never written: with the screen gone there is nothing left in
+      // onboarding that could change it, so the setter went with the dead
+      // code (2026-09-19). The value still reaches the selection below.
+      assert.match(onboardingSource, /const \[automatedProgressionEnabled\] = useState\(/);
       assert.match(onboardingSource, /automatedProgression: automatedProgressionEnabled/);
       assert.match(handoffSource, /automatedProgressionEnabled: selection\.automatedProgression \?\? true/);
       assert.doesNotMatch(onboardingSource, /Save your plan/);
@@ -530,7 +551,10 @@ module.exports = [
       assert.match(planningBody, /<CautionGlyph/);
       // The area mapping is shared with the exercise filter (P2) so UI colour
       // and actual filtering can never disagree.
-      assert.match(onboardingSource, /import \{ buildCautionSummaryLabel, CAUTION_TO_FOCUS_AREAS \} from '..\/lib\/cautionExerciseFilter'/);
+      // `buildCautionSummaryLabel` rode in on the same import and was read by
+      // the projected preview alone; it went with it (2026-09-19). What the
+      // guard is about is the mapping, and that is still shared.
+      assert.match(onboardingSource, /import \{ CAUTION_TO_FOCUS_AREAS \} from '..\/lib\/cautionExerciseFilter'/);
       assert.match(onboardingSource, /function getFocusAreaCautionLevel\(/);
 
       // Anatomy-highlight cards are gone.
@@ -602,10 +626,7 @@ module.exports = [
       //   laid out inside the parent's padding box, so a paddingTop here would
       //   push the mark down by the status-bar inset while the splash, which
       //   has none, hands it over at the unpadded coordinate.
-      const welcomeScreenStyle = welcomeSource.slice(
-        welcomeSource.indexOf('  screen: {'),
-        welcomeSource.indexOf('  markSlot: {'),
-      );
+      const welcomeScreenStyle = between(welcomeSource, '  screen: {', '  markSlot: {');
       assert.doesNotMatch(welcomeScreenStyle, /padding/);
       // These asserted the feature row's copy was still in the dictionary,
       // twenty lines below the comment saying the feature row was cut on
@@ -622,10 +643,10 @@ module.exports = [
   {
     name: 'onboarding selection steps keep vertical layout still and progress aligned',
     run() {
-      const locationChoiceBody = onboardingSource.slice(
-        onboardingSource.indexOf('function LocationChoiceCard'),
-        onboardingSource.indexOf('function SetupOptionCard'),
-      );
+      // Ends at the next function that survives, not at `SetupOptionCard`:
+      // that one went with the dead recommendation page, and the missing
+      // anchor had widened this window to the rest of the file.
+      const locationChoiceBody = between(onboardingSource, 'function LocationChoiceCard', 'function clampSetupAge');
 
       // Selection highlight is a subtle scale (max 1.5%), never a layout jump.
       assert.match(locationChoiceBody, /outputRange: \[1, 1\.015\]/);
@@ -714,10 +735,7 @@ module.exports = [
        * Two rows cannot be pinned by counting `daysWeekRow`: the fix IS that
        * there is one of it, and that it comes first.
        */
-      const daysRender = onboardingSource.slice(
-        onboardingSource.indexOf('function renderDays'),
-        onboardingSource.indexOf('function renderCautionRow'),
-      );
+      const daysRender = between(onboardingSource, 'function renderDays', 'function renderCautionRow');
       assert.equal(
         daysRender.split('style={styles.daysWeekRow}').length - 1,
         1,
@@ -733,10 +751,7 @@ module.exports = [
       assert.match(daysRender, /return cycleActive \? \(/);
       // Choosing weekdays or a count still clears the cycle.
       // Three clears: the count chips, the weekday toggles, and Remove.
-      const countBody = onboardingSource.slice(
-        onboardingSource.indexOf('function selectTrainingDaysCount'),
-        onboardingSource.indexOf('function renderDays'),
-      );
+      const countBody = between(onboardingSource, 'function selectTrainingDaysCount', 'function renderDays');
       assert.equal(countBody.split('setCyclePattern(null)').length - 1, 3);
       // The handoff persists the pattern anchored at today — and keeps the
       // old anchor when only the questionnaire was re-run with the same
@@ -831,9 +846,19 @@ module.exports = [
         reviewBody,
         /const planReadyWeeks = planReadyPayload\.blockLengthWeeks > 0 \? planReadyPayload\.blockLengthWeeks : READY_PROGRAM_MIN_BLOCK_WEEKS/,
       );
-      // Composed-week day count wins; the raw template count is only a fallback.
-      assert.match(reviewBody, /projectedDaysPerWeek[\s\S]*planReadyPayload\.programDaysPerWeek[\s\S]*planReadyPayload\.requestedDaysPerWeek/);
-      assert.match(reviewBody, /const planReadyTotalWorkouts = planReadyWeeks \* planReadyPerWeek/);
+      /*
+       * The per-week and total-workout numbers are the option's, not a second
+       * copy worked out here.
+       *
+       * `renderReview` derived `planReadyPerWeek` and `planReadyTotalWorkouts`
+       * from the payload and handed the card `option.totalWorkouts` — the
+       * composed week's own figure. Two derivations of one number, one of them
+       * printed and one of them not (2026-09-19). The card is fed from the
+       * option; the composer is what decides the number.
+       */
+      assert.doesNotMatch(reviewBody, /planReadyPerWeek|planReadyTotalWorkouts/);
+      assert.match(reviewBody, /totalWorkouts: option\.totalWorkouts,/);
+      assert.match(onboardingSource, /totalWorkouts: week\.totalWorkouts,/);
 
       // Subtitle line: "{N}-week plan · goal · location", dot separated.
       assert.match(
@@ -876,10 +901,11 @@ module.exports = [
       // nothing took its place: the key fell through to Android's default and
       // closed the app, from any step, with every answer thrown away
       // (2026-09-16).
-      assert.match(
-        onboardingSource,
-        /BackHandler\.addEventListener\('hardwareBackPress', \(\) => \{\s*backActionRef\.current\(\);\s*return true;/,
-      );
+      // Through the shared hook since 2026-09-19 — this screen had its own
+      // copy of it, subscription contract and all, in the same repo that now
+      // has the hook.
+      assert.match(onboardingSource, /useHardwareBack\(\(\) => backActionRef\.current\(\)\);/);
+      assert.doesNotMatch(onboardingSource, /BackHandler/);
       // The key does what the button does...
       assert.match(onboardingSource, /backActionRef\.current = resolveBackAction\(goBack\);/);
       // ...an open sheet closes before the stage steps...

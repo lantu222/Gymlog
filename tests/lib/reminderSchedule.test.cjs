@@ -52,6 +52,48 @@ module.exports = [
     },
   },
   {
+    name: 'reminder schedule: a three-session plan reminds three times, not on every free day',
+    run() {
+      const { resolveProgramTrainingDays, WEEKDAY_KEYS } = require('../../.test-dist/lib/programTrainingDays.js');
+
+      // Free Monday to Friday, running a three-session programme whose days
+      // are positional ("Day 1"), so the plan names no weekdays. This fired
+      // five reminders a week while Home's strip lit three dots.
+      const free = ['mon', 'tue', 'wed', 'thu', 'fri'];
+      const positional = [{ label: 'Day 1' }, { label: 'Day 2' }, { label: 'Day 3' }];
+      const days = reminderWeekdays(
+        resolveReminderSchedule({ trainingCycle: null, planEntries: positional, availableDays: free }),
+      );
+      assert.equal(days.length, 3, `three sessions, three reminder days (${days.join(', ')})`);
+
+      // The same days Home's week strip lights, from the same function.
+      const strip = resolveProgramTrainingDays(
+        free.map((day) => WEEKDAY_KEYS.indexOf(day)),
+        positional.length,
+      ).map((index) => WEEKDAY_KEYS[index]);
+      assert.deepEqual(days, strip, 'the reminders and the week strip name the same days');
+
+      // A plan with more sessions than free days keeps every one of them, and
+      // no plan at all leaves availability as the only answer there is.
+      assert.deepEqual(
+        reminderWeekdays(
+          resolveReminderSchedule({
+            trainingCycle: null,
+            planEntries: [{}, {}, {}, {}, {}, {}],
+            availableDays: ['mon', 'wed', 'fri'],
+          }),
+        ),
+        ['mon', 'wed', 'fri'],
+      );
+      assert.deepEqual(
+        reminderWeekdays(
+          resolveReminderSchedule({ trainingCycle: null, planEntries: NO_PLAN, availableDays: free }),
+        ),
+        free,
+      );
+    },
+  },
+  {
     name: 'reminder schedule: the settings screens read the rule the reminders follow',
     run() {
       const screen = read('src', 'screens', 'NotificationsScreen.tsx');

@@ -186,15 +186,70 @@ module.exports = [
         handler.indexOf('updatePreferences({') < handler.indexOf('forgetAiCoachLog('),
         'the switch must go off before the delete is attempted',
       );
-      // The label is cleared only once every line is off, so a later yes mints
+      // The label is retired only once every line is off, so a later yes mints
       // a new one and two stretches of consent cannot be joined into one.
-      assert.ok(handler.includes('allOff') && handler.includes('aiLogId: null'));
-      // And only once the delete has landed. Dropping the label after a failed
-      // call would leave the copies filed under a name nothing can look up.
+      assert.ok(handler.includes('allOff'));
+      // A line still on keeps the label and files nothing: copies are still
+      // being kept under it, and a queued delete would take those too.
+      assert.match(handler, /if \(!allOff\) \{\s*(?:\/\/[^\n]*\n\s*)*return;\s*\}/);
       assert.ok(
-        handler.includes('allOff && forgotten.ok'),
-        'the label must survive a delete that did not succeed',
+        handler.indexOf('if (!allOff)') < handler.indexOf('retireAiLogLabel('),
+        'only an all-off withdrawal may retire the label',
       );
+
+      // And the label outlives a delete that did not land — not as `aiLogId`,
+      // which a later yes would reuse, but as a delete still owed. Dropping it
+      // outright would leave the copies filed under a name nothing can look up
+      // again.
+      assert.match(handler, /const stillOwed = await retireAiLogLabel\(logId, !forgotten\.ok\);/);
+      // And the reader hears "still on its way" only when it is: the provider
+      // may find the label back in use and file nothing.
+      assert.match(handler, /if \(stillOwed\) \{\s*showToast\(t\(preferences\.appLanguage, 'toast\.coachCopiesPending'\)\);/);
+
+      /*
+       * And that write reads the owed list where it writes it.
+       *
+       * The handler builds nothing: it has just awaited a delete that can take
+       * the whole request timeout, so any list it read before that await is
+       * stale, and `updatePreferences` lays a patch's array straight over the
+       * current one — a label a reset filed during that window would be gone
+       * with it, its copies left under a name nothing can look up (CI review
+       * of #143, 2026-09-19). The provider reads inside its queue, like the
+       * clear beside it.
+       */
+      assert.doesNotMatch(handler, /pendingAiLogDeletions/, 'the handler builds the owed list from a stale snapshot');
+      const provider = read('src', 'state', 'AppProvider.tsx');
+      const retire = provider.slice(
+        provider.indexOf('function retireAiLogLabel('),
+        provider.indexOf('function resetAllData('),
+      );
+      assert.ok(retire.length > 0, 'the provider no longer retires the label');
+      assert.match(retire, /return runExclusive\(async \(\) => \{\s*const current = databaseRef\.current;/);
+      assert.match(
+        retire,
+        /const pending = owed \? withPendingAiLogDeletion\(live\.pendingAiLogDeletions, logId\) : live\.pendingAiLogDeletions;/,
+      );
+      assert.match(retire, /const live = current\.preferences;/);
+      /*
+       * And live consent is read there too.
+       *
+       * A line switched back on during the delete does NOT mint a new label —
+       * the handler mints one only when there is none, and this one is still
+       * here — so the app goes on writing copies under it. Retiring it on the
+       * caller's stale "every line is off" would queue a delete for copies the
+       * reader has just said yes to (CI review of #143, second round).
+       */
+      assert.match(
+        retire,
+        /const consented =\s*live\.aiLogChatConsent \|\| live\.aiLogComposerConsent \|\| live\.aiLogPhotoConsent;/,
+      );
+      assert.match(retire, /if \(consented && live\.aiLogId === logId\) \{\s*return false;\s*\}/);
+      // A different label is current: it is left alone, and the old one's
+      // copies are still owed a delete nothing else will ask for.
+      assert.match(retire, /const retiring = live\.aiLogId === logId;/);
+      assert.match(retire, /aiLogId: retiring \? null : live\.aiLogId,/);
+      // A refused write puts memory back, like every other write in there.
+      assert.match(retire, /catch \(error\) \{\s*databaseRef\.current = current;/);
     },
   },
 ];

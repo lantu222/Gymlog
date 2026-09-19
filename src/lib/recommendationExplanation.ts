@@ -1,7 +1,6 @@
 import { buildTailoringRecommendationNote, TailoringPreferencesInput } from './tailoringFit';
 import type { FirstRunSetupSelection } from './firstRunSetup';
-import type { RecommendationCandidate, RecommendationScoreBreakdown } from '../types/recommendation';
-import type { SetupEquipment, SetupFocusArea, SetupGoal, SetupSecondaryOutcome, SetupWeekday } from '../types/models';
+import type { SetupEquipment, SetupFocusArea, SetupSecondaryOutcome, SetupWeekday } from '../types/models';
 
 export interface RecommendationReasonOptions {
   projectedDaysPerWeek: number;
@@ -18,27 +17,7 @@ const DEFAULT_RHYTHM_BY_DAYS: Record<number, SetupWeekday[]> = {
 
 const WEEKDAY_ORDER: SetupWeekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
-const TRADEOFF_GAIN_LABELS: Record<keyof RecommendationScoreBreakdown, string> = {
-  goalAlignment: 'Sharper main-goal match',
-  scheduleFit: 'Easier week fit',
-  equipmentFit: 'Cleaner equipment match',
-  experienceFit: 'Safer readiness fit',
-  genderFit: 'Better program-style match',
-  preferenceFit: 'Better secondary preference fit',
-  focusFit: 'More focus-area emphasis',
-  contentFit: 'Cleaner workout-content match',
-};
 
-const TRADEOFF_LOSS_LABELS: Record<keyof RecommendationScoreBreakdown, string> = {
-  goalAlignment: 'main-goal match',
-  scheduleFit: 'week fit',
-  equipmentFit: 'equipment match',
-  experienceFit: 'readiness fit',
-  genderFit: 'program-style match',
-  preferenceFit: 'secondary preference fit',
-  focusFit: 'focus-area alignment',
-  contentFit: 'workout-content fit',
-};
 
 function formatList(items: string[]) {
   if (items.length === 0) {
@@ -342,19 +321,6 @@ function resolveProjectedTrainingDays(
   );
 }
 
-function findStrongestDimensionDelta(
-  primary: RecommendationCandidate,
-  alternative: RecommendationCandidate,
-  predicate: (delta: number) => boolean,
-) {
-  return (Object.keys(primary.breakdown) as Array<keyof RecommendationScoreBreakdown>)
-    .map((dimension) => ({
-      dimension,
-      delta: alternative.breakdown[dimension] - primary.breakdown[dimension],
-    }))
-    .filter(({ delta }) => predicate(delta))
-    .sort((left, right) => Math.abs(right.delta) - Math.abs(left.delta))[0] ?? null;
-}
 
 export function buildRecommendationReasonLines(
   selection: FirstRunSetupSelection,
@@ -413,26 +379,4 @@ export function buildRecommendationReasonLines(
   }
 
   return reasons.slice(0, 4);
-}
-
-export function buildRecommendationTradeoffLabel(
-  primaryCandidate: RecommendationCandidate,
-  alternativeCandidate: RecommendationCandidate,
-) {
-  const strongestGain = findStrongestDimensionDelta(primaryCandidate, alternativeCandidate, (delta) => delta > 0);
-  const strongestLoss = findStrongestDimensionDelta(primaryCandidate, alternativeCandidate, (delta) => delta < 0);
-
-  if (!strongestGain && !strongestLoss) {
-    return 'Very close overall, with a slightly different training feel.';
-  }
-
-  if (strongestGain && strongestLoss) {
-    return `${TRADEOFF_GAIN_LABELS[strongestGain.dimension]}, but a softer ${TRADEOFF_LOSS_LABELS[strongestLoss.dimension]}.`;
-  }
-
-  if (strongestGain) {
-    return `${TRADEOFF_GAIN_LABELS[strongestGain.dimension]} if that tradeoff matters more to you.`;
-  }
-
-  return `Very close overall, but with a softer ${TRADEOFF_LOSS_LABELS[strongestLoss.dimension]}.`;
 }

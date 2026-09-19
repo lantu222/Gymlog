@@ -114,6 +114,12 @@ export interface ProfileTabDeps {
   resetAllData: () => Promise<void>;
   /** Asks the server to delete these coach-log labels; resolves with the ones it could not confirm. */
   deletePendingAiLogs: (logIds: readonly string[]) => Promise<string[]>;
+  /** Retires the coach's label inside the provider's queue, filing its delete as owed when `owed`. */
+  /**
+   * Retires the coach's label inside the provider's queue, filing its delete as
+   * owed when `owed`; resolves with whether it ended up owed.
+   */
+  retireAiLogLabel: (logId: string, owed: boolean) => Promise<boolean>;
   setCompletionSummary: (value: CompletionSummaryState | null) => void;
   setWorkoutCelebration: (value: WorkoutCelebrationState | null) => void;
   setFinishSaveState: (value: {
@@ -186,6 +192,7 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
     setRatingSheetVisible,
     resetAllData,
     deletePendingAiLogs,
+    retireAiLogLabel,
     setCompletionSummary,
     setWorkoutCelebration,
     setFinishSaveState,
@@ -669,6 +676,13 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
          * and the label is cleared only once every line is off: a new yes then
          * mints a new label, so two stretches of consent cannot be joined into
          * one history.
+         *
+         * A delete that did not land is filed the way Reset files its own
+         * (`pendingAiLogDeletions`), so the retry runner finishes it on the
+         * next start and every foreground. Before that the one attempt made
+         * here was the only one there would ever be: offline when the last
+         * switch went off, and the copies waited for the reader to toggle
+         * something again, or for the 24-month sweep (2026-09-19).
          */
         onWithdrawCoachLog={async (line, next) => {
           const patch =
@@ -692,14 +706,26 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
             return;
           }
           const forgotten = await forgetAiCoachLog(logId);
-          // The label is dropped only once the copies under it are actually
-          // gone. It is the one thread back to them: cleared after a delete
-          // that failed — offline, rate limited, server down — the copies stay
-          // filed under a name nothing can look up again, and only the 24-month
-          // sweep would ever reach them. Kept, the switch is still off, nothing
-          // new is written, and the next time this runs the delete can land.
-          if (allOff && forgotten.ok) {
-            await updatePreferences({ aiLogId: null });
+          if (!allOff) {
+            // A line is still on, so copies are still being kept under this
+            // label: it stays, and it must not be filed as owed — the retry
+            // would delete the copies the reader is still allowing.
+            return;
+          }
+          // The label is retired here either way, and filed as a delete still
+          // owed when the server did not confirm — after that the runner asks
+          // again on every start and foreground until it does, and a new yes
+          // mints a new label rather than reusing one whose copies are owed.
+          //
+          // Through the provider's queue rather than an `updatePreferences`
+          // patch built here: the delete above can take the whole request
+          // timeout, so the `preferences` this closure holds is stale by the
+          // time it returns, and writing its list back would drop a label a
+          // reset filed in the meantime — leaving those copies under a name
+          // nothing can look up (CI review of #143).
+          const stillOwed = await retireAiLogLabel(logId, !forgotten.ok);
+          if (stillOwed) {
+            showToast(t(preferences.appLanguage, 'toast.coachCopiesPending'));
           }
         }}
         onResetAllData={async () => {

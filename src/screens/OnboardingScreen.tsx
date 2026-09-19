@@ -1,17 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AccessibilityInfo,
   ActivityIndicator,
   Animated,
   Dimensions,
   Easing,
-  Image,
-  ImageBackground,
-  BackHandler,
-  ImageStyle,
-  ImageSourcePropType,
   Modal,
-  PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -24,10 +17,10 @@ import {
 import { HG } from '../lightTheme';
 import { useThemeName } from '../theming';
 import { HG_DARK } from '../darkTheme';
-import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 
-import { BadgePill, SurfaceAccent, SurfaceCard } from '../components/MainScreenPrimitives';
-import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
+import { BadgePill } from '../components/MainScreenPrimitives';
+import { useHardwareBack } from '../hooks/useHardwareBack';
 import { VinhaIcon, VinhaIconName } from '../components/VinhaIcon';
 import { VinhaWordmark } from '../components/VinhaWordmark';
 import { ProgramPickScreen } from './ProgramPickScreen';
@@ -35,58 +28,36 @@ import { LEVEL_STREAKS } from '../lib/levelStreaks';
 import { OnboardingOptionIcon, OnboardingOptionIconName } from '../components/OnboardingOptionIcon';
 import { PrimaryCTAButton } from '../components/PrimaryCTAButton';
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
-import { getFitnessPhotoVariant } from '../assets/fitnessPhotos';
-import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
-import { applyDecimalSeparator, convertWeightToKg, formatPercent, formatWeight, formatWeightInputValue, parseNumberInput } from '../lib/format';
-import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { applyDecimalSeparator, convertWeightToKg, formatPercent, formatWeightInputValue, parseNumberInput } from '../lib/format';
 import { OnboardingBackButton } from '../components/OnboardingBackButton';
 import { equipmentItemLabel, I18nKey, t } from '../lib/i18n';
 import {
-  buildScheduleFitNote,
-  buildFirstRunCustomProgramName,
-  buildFirstRunHelperPrompt,
   buildFirstRunPromptSuggestions,
   buildFirstRunAiCoachContext,
   DEFAULT_FIRST_RUN_SELECTION,
   DEFAULT_RHYTHM_BY_DAYS,
-  formatFocusAreaList,
   FirstRunSetupSelection,
-  FirstRunStep,
-  getFocusAreaDescription,
-  getFocusAreaTitle,
-  getGuidanceModeLabel,
   getRecommendedProgramName,
-  getScheduleModeLabel,
-  getSecondaryOutcomeTitle,
-  getWeeklyMinuteOptions,
   getWeekdayShortLabel,
   resolveFirstRunRecommendationWithTailoring,
-  resolveProjectedTrainingDays,
-  getEffectiveWeeklyMinutes,
   getSetupEquipmentTitle,
   getSetupGoalTitle,
   weekAfterCycleRemoved,
 } from '../lib/firstRunSetup';
-import { buildRecommendationTradeoffLabel } from '../lib/recommendationExplanation';
 import { buildRecommendationOptionIds } from '../lib/recommendationPresentation';
 import { buildRecommendationPlanReadyPayload } from '../lib/recommendationProgramme';
 import { READY_PROGRAM_MIN_BLOCK_WEEKS } from '../lib/readyProgramDuration';
-import { buildSessionGuidance } from '../lib/sessionGuidance';
 import { getFocusAreaLabel, getOnboardingFocusAreaPresentationOptions } from '../lib/focusAreaPresentation';
 import {
   buildProgramFocusSplit,
-  getProgramFocusQualityLabel,
-  PROGRAM_FOCUS_COLORS,
-  ProgramFocusSegment,
 } from '../lib/programFocusSplit';
 import { composeProgramWeekForSelection } from '../lib/programDayComposer';
-import { buildCautionSummaryLabel, CAUTION_TO_FOCUS_AREAS } from '../lib/cautionExerciseFilter';
-import { buildTailoringBadgeLabels, TailoringPreferencesInput } from '../lib/tailoringFit';
+import { CAUTION_TO_FOCUS_AREAS } from '../lib/cautionExerciseFilter';
+import { TailoringPreferencesInput } from '../lib/tailoringFit';
 import { getReadyTemplatePresentation } from '../lib/templatePresentation';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
 import { trackEvent } from '../features/analytics/analyticsClient';
 import { cycleSchedule, cycleSessionsPerWeek, patternFromOnOff, trainsOn } from '../lib/trainingSchedule';
-import { localizeSessionFocus } from '../lib/sessionNameLabel';
 import { colors, radii, spacing } from '../theme';
 import { haptics } from '../utils/haptics';
 import {
@@ -158,7 +129,6 @@ type SetupStage =
   | 'recommendation';
 type HelperState = 'idle' | 'loading' | 'ready' | 'error';
 type RecommendationRefinementPanel = 'schedule' | 'focus' | 'custom' | 'ai' | null;
-type PlanReadyHeroKey = 'mass' | 'strength' | 'athletic';
 type LocationSelectionOptionId = SetupTrainingEnvironment;
 type LocationBenefit = { icon: VinhaIconName; label: string; body?: string };
 type FocusBadgeTone = 'neutral' | 'green' | 'blue' | 'purple';
@@ -298,49 +268,9 @@ function useOnboardingPalette(): { C: OnbPalette; styles: OnbStyles } {
     ? { C: ONB_DARK, styles: ONBOARDING_STYLES.dark }
     : { C: ONB_LIGHT, styles: ONBOARDING_STYLES.light };
 }
-function formatPlanReadyExercisePrescription(exercise: {
-  sets: number;
-  repsMin: number;
-  repsMax: number;
-  restSecondsMin: number;
-  restSecondsMax: number;
-}) {
-  const repsLabel = exercise.repsMin === exercise.repsMax
-    ? `${exercise.repsMin} reps`
-    : `${exercise.repsMin}-${exercise.repsMax} reps`;
-  const restLabel = exercise.restSecondsMin === exercise.restSecondsMax
-    ? `${exercise.restSecondsMin} sec`
-    : `${exercise.restSecondsMin}-${exercise.restSecondsMax} sec`;
 
-  return `${exercise.sets} sets x ${repsLabel} - ${restLabel} rest`;
-}
 
-function formatPlanReadyExerciseRepTarget(exercise: {
-  sets: number;
-  repsMin: number;
-  repsMax: number;
-}) {
-  const repsLabel = exercise.repsMin === exercise.repsMax
-    ? `${exercise.repsMin}`
-    : `${exercise.repsMin}-${exercise.repsMax}`;
 
-  return `${exercise.sets} x ${repsLabel}`;
-}
-
-function formatPlanReadyExerciseSetLabel(exercise: { sets: number }) {
-  return `${exercise.sets} ${exercise.sets === 1 ? 'set' : 'sets'}`;
-}
-
-function formatPlanReadyExerciseRepLabel(exercise: {
-  repsMin: number;
-  repsMax: number;
-}) {
-  const repsLabel = exercise.repsMin === exercise.repsMax
-    ? `${exercise.repsMin}`
-    : `${exercise.repsMin}-${exercise.repsMax}`;
-
-  return `${repsLabel} reps`;
-}
 
 function getStageIndex(stage?: SetupStage) {
   const index = stage ? STAGES.indexOf(stage) : -1;
@@ -592,9 +522,6 @@ const AVOID_EXTRA_AREA_OPTIONS: Array<{ area: SetupCautionArea; labelKey: I18nKe
   { area: 'ankles', labelKey: 'onb.area.ankles' },
 ];
 
-const CAUTION_AREA_LABEL_KEYS = Object.fromEntries(
-  [...AVOID_AREA_OPTIONS, ...AVOID_EXTRA_AREA_OPTIONS].map((option) => [option.area, option.labelKey]),
-) as Record<SetupCautionArea, I18nKey>;
 
 const CAUTION_LEVEL_OPTIONS: Array<{ level: SetupCautionLevel; labelKey: I18nKey; bodyKey: I18nKey }> = [
   { level: 'info', labelKey: 'onb.caution.info.label', bodyKey: 'onb.caution.info.body' },
@@ -608,15 +535,6 @@ const CAUTION_LEVEL_COLORS: Record<SetupCautionLevel, { ink: string; soft: strin
   avoid: { ink: '#DC2626', soft: '#FEE2E2' },
 };
 
-// Plan-review progression card. Copy honesty (truth plan P7): every bullet
-// describes something the app actually does today — no promised deloads or
-// auto-progressing weights the engine doesn't ship yet.
-const PROGRESSION_BULLET_KEYS: I18nKey[] = [
-  'onb.progression.b1',
-  // b2 sold the effort feedback that tuned rest and the next set. That went
-  // with the list logger it lived in (2026-08-02).
-  'onb.progression.b3',
-];
 
 
 function CautionGlyph({ color, size = 18 }: { color: string; size?: number }) {
@@ -633,76 +551,8 @@ function CautionGlyph({ color, size = 18 }: { color: string; size?: number }) {
   );
 }
 
-function getGoalBackgroundSource(goal: SetupGoal) {
-  switch (goal) {
-    case 'strength':
-      return require('../../assets/fitness/selected/strength-goal-card.png');
-    case 'muscle':
-      return require('../../assets/fitness/selected/build-muscle-goal-card.png');
-    case 'general':
-    case 'lean_athletic':
-    case 'general_fitness':
-      return require('../../assets/fitness/selected/lose-weight-goal-card.png');
-    case 'run_mobility':
-      return require('../../assets/fitness/selected/endurance-cardio-goal-card.png');
-    default:
-      return undefined;
-  }
-}
 
-function getPlanReadyHeroKey({
-  title,
-  goal,
-}: {
-  title?: string | null;
-  goal?: string | null;
-}): PlanReadyHeroKey {
-  const haystack = `${title ?? ''} ${goal ?? ''}`.toLowerCase();
 
-  if (
-    haystack.includes('athletic') ||
-    haystack.includes('cardio') ||
-    haystack.includes('conditioning') ||
-    haystack.includes('run') ||
-    haystack.includes('mobility') ||
-    haystack.includes('hiit')
-  ) {
-    return 'athletic';
-  }
-
-  if (
-    haystack.includes('strength') ||
-    haystack.includes('power') ||
-    haystack.includes('barbell') ||
-    haystack.includes('low reps')
-  ) {
-    return 'strength';
-  }
-
-  return 'mass';
-}
-
-const GUIDANCE_MODE_OPTIONS: Array<{
-  mode: SetupGuidanceMode;
-  titleKey: I18nKey;
-  bodyKey: I18nKey;
-}> = [
-  {
-    mode: 'done_for_me',
-    titleKey: 'onb.guidance.done_for_me.title',
-    bodyKey: 'onb.guidance.done_for_me.body',
-  },
-  {
-    mode: 'guided_editable',
-    titleKey: 'onb.guidance.guided_editable.title',
-    bodyKey: 'onb.guidance.guided_editable.body',
-  },
-  {
-    mode: 'self_directed',
-    titleKey: 'onb.guidance.self_directed.title',
-    bodyKey: 'onb.guidance.self_directed.body',
-  },
-];
 
 const FOCUS_AREA_OPTIONS = getOnboardingFocusAreaPresentationOptions();
 
@@ -855,22 +705,6 @@ function normalizeFocusBadge(input: unknown, fallbackTone: FocusBadgeTone): { la
   return null;
 }
 
-function ChoiceChip({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  const { styles } = useOnboardingPalette();
-  return (
-    <Pressable onPress={onPress} style={[styles.choiceChip, active && styles.choiceChipActive]}>
-      <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>{label}</Text>
-    </Pressable>
-  );
-}
 
 function LocationChoiceCard({
   label,
@@ -879,7 +713,6 @@ function LocationChoiceCard({
   focusLabel,
   focusTone = 'neutral',
   tags,
-  benefits,
   active,
   subdued = false,
   onPress,
@@ -1002,283 +835,7 @@ function LocationChoiceCard({
   );
 }
 
-// Screen 08b "Pick your program" card. Both options render through this same
-// template so the alternative reads as a real choice, not a footnote.
-function SetupOptionCard({
-  title,
-  body,
-  active,
-  backgroundSource,
-  focusImageSource,
-  imageMode = 'background',
-  compact = false,
-  accessibilityLabel,
-  onPress,
-}: {
-  title: string;
-  body: string;
-  active: boolean;
-  backgroundSource?: number;
-  focusImageSource?: ImageSourcePropType;
-  imageMode?: 'background' | 'icon';
-  compact?: boolean;
-  accessibilityLabel?: string;
-  onPress: () => void;
-}) {
-  const { styles } = useOnboardingPalette();
-  const hasBackground = Boolean(backgroundSource);
-  const hasFocusImage = Boolean(focusImageSource);
-  const iconImage = hasBackground && imageMode === 'icon';
-  const visualCard = iconImage || hasFocusImage;
-  const activeAnimation = useRef(new Animated.Value(active ? 1 : 0)).current;
 
-  useEffect(() => {
-    Animated.spring(activeAnimation, {
-      toValue: active ? 1 : 0,
-      friction: 9,
-      tension: 90,
-      useNativeDriver: true,
-    }).start();
-  }, [active, activeAnimation]);
-
-  // Interpolated once per mount — per-render interpolations leak native
-  // animated nodes (disconnectAnimatedNodes crash under Fabric).
-  const animatedStyles = useRef({
-    card: {
-      transform: [{ scale: activeAnimation.interpolate({ inputRange: [0, 1], outputRange: [1, 1.02] }) }],
-    },
-    thumb: {
-      transform: [{ scale: activeAnimation.interpolate({ inputRange: [0, 1], outputRange: [1, 1.04] }) }],
-    },
-    copy: {
-      transform: [{ translateY: activeAnimation.interpolate({ inputRange: [0, 1], outputRange: [0, -2] }) }],
-    },
-    figureImage: {
-      opacity: activeAnimation.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }),
-      transform: [{ scale: activeAnimation.interpolate({ inputRange: [0, 1], outputRange: [1, 1.035] }) }],
-    },
-    selectionBadge: {
-      opacity: activeAnimation,
-      transform: [{ scale: activeAnimation.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1] }) }],
-    },
-    iconImageFade: {
-      opacity: activeAnimation.interpolate({ inputRange: [0, 1], outputRange: [0.84, 1] }),
-    },
-    iconGlow: {
-      opacity: activeAnimation.interpolate({ inputRange: [0, 1], outputRange: [0, 0.28] }),
-    },
-    iconPaint: {
-      opacity: activeAnimation.interpolate({ inputRange: [0, 1], outputRange: [0, 0.2] }),
-      transform: [{ scale: activeAnimation.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }],
-    },
-    iconRing: {
-      opacity: activeAnimation,
-      transform: [{ scale: activeAnimation.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) }],
-    },
-  }).current;
-  const cardAnimatedStyle = visualCard ? animatedStyles.card : undefined;
-  const thumbAnimatedStyle = iconImage ? animatedStyles.thumb : undefined;
-  const copyAnimatedStyle = visualCard ? animatedStyles.copy : undefined;
-
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? title}
-      accessibilityState={{ selected: active }}
-      style={[
-        styles.setupOptionCard,
-        compact && styles.setupOptionCardCompact,
-        hasBackground && !iconImage && styles.setupOptionCardImage,
-        visualCard && styles.setupOptionCardIcon,
-        active && styles.setupOptionCardActive,
-        hasBackground && !iconImage && active && styles.setupOptionCardImageActive,
-        visualCard && active && styles.setupOptionCardIconActive,
-      ]}
-    >
-      {hasFocusImage && focusImageSource ? (
-        <Animated.View style={[styles.setupOptionCardFigureContent, cardAnimatedStyle]}>
-          <View style={[styles.setupOptionCardFigureThumb, active && styles.setupOptionCardIconThumbActive]}>
-            <Animated.Image
-              source={focusImageSource}
-              resizeMode="cover"
-              style={[styles.setupOptionCardFigureImage, animatedStyles.figureImage]}
-            />
-            <View style={styles.setupOptionCardFigureVignette} />
-            <Animated.View
-              pointerEvents="none"
-              style={[styles.setupOptionCardSelectionBadge, animatedStyles.selectionBadge]}
-            >
-              <View style={styles.setupOptionCardSelectionCheck}>
-                <View style={[styles.setupOptionCardSelectionCheckMark, styles.setupOptionCardSelectionCheckMarkShort]} />
-                <View style={[styles.setupOptionCardSelectionCheckMark, styles.setupOptionCardSelectionCheckMarkLong]} />
-              </View>
-            </Animated.View>
-          </View>
-          <Animated.View style={[styles.setupOptionCardFigureCopy, copyAnimatedStyle]}>
-            <Text style={styles.setupOptionCardFigureTitle} numberOfLines={1}>
-              {title}
-            </Text>
-          </Animated.View>
-        </Animated.View>
-      ) : iconImage ? (
-        <Animated.View style={[styles.setupOptionCardIconContent, cardAnimatedStyle]}>
-          <Animated.View style={[styles.setupOptionCardIconCopy, copyAnimatedStyle]}>
-            <Text style={[styles.setupOptionCardTitle, styles.setupOptionCardTitleOnImage]}>{title}</Text>
-            <Text style={[styles.setupOptionCardBody, styles.setupOptionCardBodyOnImage]}>{body}</Text>
-          </Animated.View>
-          <View style={[styles.setupOptionCardIconThumb, active && styles.setupOptionCardIconThumbActive]}>
-            <Animated.Image
-              source={backgroundSource}
-              resizeMode="cover"
-              style={[styles.setupOptionCardIconImage, thumbAnimatedStyle, animatedStyles.iconImageFade]}
-            />
-            <View style={styles.setupOptionCardIconShade} />
-            <Animated.View
-              pointerEvents="none"
-              style={[styles.setupOptionCardIconGlow, animatedStyles.iconGlow]}
-            />
-            <Animated.View
-              pointerEvents="none"
-              style={[styles.setupOptionCardIconPaint, animatedStyles.iconPaint]}
-            />
-            <Animated.View
-              pointerEvents="none"
-              style={[styles.setupOptionCardIconRing, animatedStyles.iconRing]}
-            />
-            <Animated.View
-              pointerEvents="none"
-              style={[styles.setupOptionCardSelectionBadge, animatedStyles.selectionBadge]}
-            >
-              <View style={styles.setupOptionCardSelectionCheck}>
-                <View style={[styles.setupOptionCardSelectionCheckMark, styles.setupOptionCardSelectionCheckMarkShort]} />
-                <View style={[styles.setupOptionCardSelectionCheckMark, styles.setupOptionCardSelectionCheckMarkLong]} />
-              </View>
-            </Animated.View>
-          </View>
-        </Animated.View>
-      ) : hasBackground ? (
-        <View style={[styles.setupOptionCardImageSurface, compact && styles.setupOptionCardImageSurfaceCompact]}>
-          <Image
-            source={backgroundSource}
-            resizeMode="cover"
-            style={styles.setupOptionCardImageAsset}
-          />
-          <View style={styles.setupOptionCardImageShade} />
-          <View style={[styles.setupOptionCardContent, compact && styles.setupOptionCardContentCompact]}>
-            <Text
-              style={[
-                styles.setupOptionCardTitle,
-                compact && styles.setupOptionCardTitleCompact,
-                styles.setupOptionCardTitleOnImage,
-                active && styles.setupOptionCardTitleActive,
-              ]}
-              numberOfLines={2}
-            >
-              {title}
-            </Text>
-            <Text
-              style={[
-                styles.setupOptionCardBody,
-                compact && styles.setupOptionCardBodyCompact,
-                styles.setupOptionCardBodyOnImage,
-                active && styles.setupOptionCardBodyActive,
-              ]}
-              numberOfLines={2}
-            >
-              {body}
-            </Text>
-          </View>
-          {compact && active ? (
-            <View style={styles.setupOptionCardSelectionBadge}>
-              <View style={styles.setupOptionCardSelectionCheck}>
-                <View style={[styles.setupOptionCardSelectionCheckMark, styles.setupOptionCardSelectionCheckMarkShort]} />
-                <View style={[styles.setupOptionCardSelectionCheckMark, styles.setupOptionCardSelectionCheckMarkLong]} />
-              </View>
-            </View>
-          ) : null}
-        </View>
-      ) : (
-        <>
-          <Text style={[styles.setupOptionCardTitle, active && styles.setupOptionCardTitleActive]}>{title}</Text>
-          <Text style={[styles.setupOptionCardBody, active && styles.setupOptionCardBodyActive]}>{body}</Text>
-        </>
-      )}
-    </Pressable>
-  );
-}
-
-function ProfileCheckRow({
-  title,
-  body,
-  badge,
-  dotCount,
-  compactMeta = false,
-  active,
-  onPress,
-}: {
-  title: string;
-  body?: string;
-  badge?: string;
-  dotCount?: number;
-  compactMeta?: boolean;
-  active: boolean;
-  onPress: () => void;
-}) {
-  const { styles } = useOnboardingPalette();
-  return (
-    <Pressable onPress={onPress} style={[styles.profileCheckRow, active && styles.profileCheckRowActive]}>
-      <View style={[styles.profileCheckBox, active && styles.profileCheckBoxActive]}>
-        {active ? (
-          <>
-            <View style={[styles.profileCheckMark, styles.profileCheckMarkShort]} />
-            <View style={[styles.profileCheckMark, styles.profileCheckMarkLong]} />
-          </>
-        ) : null}
-      </View>
-      <View style={styles.profileCheckCopy}>
-        <View style={styles.profileCheckTitleRow}>
-          <Text style={[styles.profileCheckTitle, active && styles.profileCheckTitleActive]}>{title}</Text>
-          {dotCount && !compactMeta ? (
-            <View style={styles.profileCheckDotRow}>
-              {Array.from({ length: dotCount }).map((_, index) => (
-                <View
-                  key={`${title}-dot-${index}`}
-                  style={[styles.profileCheckDot, active && styles.profileCheckDotActive]}
-                />
-              ))}
-            </View>
-          ) : null}
-          {badge && !compactMeta ? (
-            <View style={[styles.profileCheckBadge, active && styles.profileCheckBadgeActive]}>
-              <Text style={[styles.profileCheckBadgeText, active && styles.profileCheckBadgeTextActive]}>{badge}</Text>
-            </View>
-          ) : null}
-        </View>
-        {compactMeta && (dotCount || badge) ? (
-          <View style={styles.profileCheckMetaRow}>
-            {dotCount ? (
-              <View style={styles.profileCheckDotRow}>
-                {Array.from({ length: dotCount }).map((_, index) => (
-                  <View
-                    key={`${title}-meta-dot-${index}`}
-                    style={[styles.profileCheckDot, active && styles.profileCheckDotActive]}
-                  />
-                ))}
-              </View>
-            ) : null}
-            {badge ? (
-              <View style={[styles.profileCheckBadge, active && styles.profileCheckBadgeActive]}>
-                <Text style={[styles.profileCheckBadgeText, active && styles.profileCheckBadgeTextActive]}>{badge}</Text>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-        {body ? <Text style={[styles.profileCheckBody, active && styles.profileCheckBodyActive]}>{body}</Text> : null}
-      </View>
-    </Pressable>
-  );
-}
 
 function clampSetupAge(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
@@ -1300,59 +857,7 @@ function getAgeRangeFromAge(age: number): SetupAgeRange {
   return '41_plus';
 }
 
-function PreviewGlyph({ dayCount }: { dayCount: number }) {
-  const { styles } = useOnboardingPalette();
-  const bars = dayCount >= 4 ? [20, 30, 24, 30] : dayCount === 2 ? [18, 28, 0, 22] : [18, 28, 18, 26];
-  return (
-    <View style={styles.previewGlyph}>
-      {bars.map((height, index) =>
-        height ? <View key={`bar-${index}`} style={[styles.previewGlyphBar, { height }]} /> : <View key={`gap-${index}`} style={styles.previewGlyphGap} />,
-      )}
-    </View>
-  );
-}
 
-function getPlanReadyWeekIconName({
-  training,
-  title,
-  body,
-}: {
-  training: boolean;
-  title: string;
-  body: string;
-}): VinhaIconName {
-  const haystack = `${title} ${body}`.toLowerCase();
-
-  if (!training) {
-    return 'restDay';
-  }
-
-  if (haystack.includes('tempo')) {
-    return 'tempo';
-  }
-
-  if (haystack.includes('run') || haystack.includes('stride') || haystack.includes('cardio')) {
-    return 'endurance';
-  }
-
-  if (haystack.includes('mobility') || haystack.includes('reset') || haystack.includes('recovery')) {
-    return 'mobility';
-  }
-
-  if (haystack.includes('bench') || haystack.includes('press')) {
-    return 'benchPress';
-  }
-
-  if (haystack.includes('squat') || haystack.includes('leg')) {
-    return 'squat';
-  }
-
-  if (haystack.includes('deadlift') || haystack.includes('hinge')) {
-    return 'deadlift';
-  }
-
-  return 'strength';
-}
 
 /** The level step's motion box — the wordmark's own frame. */
 const LEVEL_FIELD_WIDTH = 280;
@@ -1525,72 +1030,9 @@ function formatGoalList(goals: SetupGoal[], language: AppLanguage) {
   return goals.map((goal) => getSetupGoalTitle(goal, language)).join(', ');
 }
 
-function getAgeRangeLabel(ageRange: SetupAgeRange) {
-  switch (ageRange) {
-    case '18':
-      return '18';
-    case '19_25':
-      return '19-25';
-    case '26_30':
-      return '26-30';
-    case '31_40':
-      return '31-40';
-    case '41_plus':
-      return '41+';
-    case 'unspecified':
-      return 'Prefer not to say';
-    default:
-      return 'Not set';
-  }
-}
 
-function getLevelLabel(level: SetupLevel, language: AppLanguage) {
-  if (level === 'beginner') {
-    return t(language, 'setup.level.beginner');
-  }
 
-  return t(language, level === 'pro' ? 'setup.level.pro' : 'setup.level.advanced');
-}
 
-function getTrainingProfileSetupSummary(level: SetupLevel, daysPerWeek: SetupDaysPerWeek) {
-  const duration =
-    level === 'pro'
-      ? '60-75 min sessions'
-      : level === 'advanced'
-        ? '50-70 min sessions'
-        : '45-60 min sessions';
-  const structure =
-    daysPerWeek <= 3
-      ? 'Full body structure'
-      : daysPerWeek === 4
-        ? 'Upper/lower structure'
-        : daysPerWeek === 5
-          ? 'Split structure'
-          : 'High-frequency split';
-  const recovery =
-    level === 'pro'
-      ? 'Workload managed'
-      : level === 'advanced'
-        ? 'Progressive balance'
-        : 'Recovery focused';
-
-  return {
-    workouts: `${daysPerWeek === 6 ? '6+' : daysPerWeek} workouts / week`,
-    duration,
-    structure,
-    recovery,
-  };
-}
-
-function TrainingSetupMetric({ icon, label }: { icon: VinhaIconName; label: string }) {
-  const { C, styles } = useOnboardingPalette();
-  return (
-    <View style={styles.trainingSetupMetric}>
-      <VinhaIcon name={icon} size={18} color={C.primary} />
-      <Text style={styles.trainingSetupMetricText}>{label}</Text>
-    </View>
-  );
-}
 
 export function OnboardingScreen({
   initialUnitPreference,
@@ -1609,15 +1051,6 @@ export function OnboardingScreen({
 }: OnboardingScreenProps) {
   const { C, styles } = useOnboardingPalette();
   const insets = useSafeAreaInsets();
-  // Catalog keys resolved once per language for the helpers that want plain
-  // labels (caution summaries, focus rows).
-  const cautionAreaLabels = useMemo(
-    () =>
-      Object.fromEntries(
-        Object.entries(CAUTION_AREA_LABEL_KEYS).map(([area, key]) => [area, t(language, key)]),
-      ) as Record<SetupCautionArea, string>,
-    [language],
-  );
   const setupSeed =
     initialSelection ?? (basicsSeed ? { ...DEFAULT_FIRST_RUN_SELECTION, ...basicsSeed } : DEFAULT_FIRST_RUN_SELECTION);
   const editMode = mode === 'edit';
@@ -1692,7 +1125,7 @@ export function OnboardingScreen({
     ),
   ).current;
   const buildingPlanRingSpin = useRef(new Animated.Value(0)).current;
-  const [gender, setGender] = useState<SetupGender>(setupSeed.gender);
+  const [gender] = useState<SetupGender>(setupSeed.gender);
   /**
    * The band is the answer now, not a year rounded into one (2026-09-09).
    *
@@ -1769,7 +1202,7 @@ export function OnboardingScreen({
     [levelThumbAnim, levelThumbSegmentWidth],
   );
   const levelFlamePop = useRef(new Animated.Value(1)).current;
-  const [secondaryOutcomes, setSecondaryOutcomes] = useState<SetupSecondaryOutcome[]>(
+  const [secondaryOutcomes] = useState<SetupSecondaryOutcome[]>(
     setupSeed.secondaryOutcomes,
   );
   const [focusAreas, setFocusAreas] = useState<SetupFocusArea[]>(setupSeed.focusAreas);
@@ -1779,9 +1212,9 @@ export function OnboardingScreen({
       AVOID_EXTRA_AREA_OPTIONS.some((option) => option.area === flag.area),
     ),
   );
-  const [guidanceMode, setGuidanceMode] = useState<SetupGuidanceMode>(setupSeed.guidanceMode);
+  const [guidanceMode] = useState<SetupGuidanceMode>(setupSeed.guidanceMode);
   const [scheduleMode, setScheduleMode] = useState<SetupScheduleMode>(setupSeed.scheduleMode);
-  const [weeklyMinutes, setWeeklyMinutes] = useState<number | null>(setupSeed.weeklyMinutes ?? null);
+  const [weeklyMinutes] = useState<number | null>(setupSeed.weeklyMinutes ?? null);
   const [availableDays, setAvailableDays] = useState<SetupWeekday[]>(setupSeed.availableDays);
   // The repeating rhythm, kept as the raw pattern rather than a preset id so
   // a cycle set elsewhere (the plan screen's steppers can build ones these
@@ -1859,7 +1292,7 @@ export function OnboardingScreen({
     // The picker reports its own tone: its top half flips white when the
     // second program is chosen, and white icons would vanish into it.
   }, [onFullBleedReviewChange, stageIndex]);
-  const [automatedProgressionEnabled, setAutomatedProgressionEnabled] = useState(
+  const [automatedProgressionEnabled] = useState(
     setupSeed.automatedProgression ?? true,
   );
   const [helperVisible, setHelperVisible] = useState(false);
@@ -1972,48 +1405,6 @@ export function OnboardingScreen({
 
     return recommendation.featuredProgramId;
   }, [recommendation.featuredProgramId, recommendationOptionIds, selectedRecommendationProgramId]);
-  const recommendedProgram = useMemo(
-    () => getWorkoutTemplateById(activeRecommendedProgramId),
-    [activeRecommendedProgramId],
-  );
-  const activeRecommendationCandidate = useMemo(
-    () => recommendation.scoredCandidates.find((candidate) => candidate.programId === activeRecommendedProgramId) ?? null,
-    [activeRecommendedProgramId, recommendation.scoredCandidates],
-  );
-  const alternativeRecommendationPrograms = useMemo(
-    () =>
-      recommendationOptionIds
-        .filter((programId) => programId !== activeRecommendedProgramId)
-        .map((programId) => {
-          const template = getWorkoutTemplateById(programId);
-          const candidate = recommendation.scoredCandidates.find((entry) => entry.programId === programId) ?? null;
-          if (!template) {
-            return null;
-          }
-
-          return {
-            id: programId,
-            template,
-            presentation: getReadyTemplatePresentation(template, language),
-            tradeoffNote:
-              activeRecommendationCandidate && candidate
-                ? buildRecommendationTradeoffLabel(activeRecommendationCandidate, candidate)
-                : null,
-          };
-        })
-        .filter(
-          (
-            option,
-          ): option is {
-            id: string;
-            template: NonNullable<ReturnType<typeof getWorkoutTemplateById>>;
-            presentation: ReturnType<typeof getReadyTemplatePresentation>;
-            tradeoffNote: string | null;
-          } => option !== null,
-        )
-        .slice(0, 2),
-    [activeRecommendationCandidate, activeRecommendedProgramId, recommendation.scoredCandidates, recommendationOptionIds],
-  );
   const activeRecommendationMismatchNote =
     activeRecommendedProgramId === recommendation.featuredProgramId ? recommendation.mismatchNote : null;
   const planReadyPayload = useMemo(
@@ -2058,10 +1449,6 @@ export function OnboardingScreen({
     () => buildFirstRunPromptSuggestions(selection, getRecommendedProgramName(activeRecommendedProgramId)),
     [activeRecommendedProgramId, selection],
   );
-  const helperPrompt = useMemo(
-    () => buildFirstRunHelperPrompt(stage as FirstRunStep, selection, recommendedProgram?.name ?? null),
-    [recommendedProgram?.name, selection, stage],
-  );
   // The composed week for the currently selected program — the single truth
   // for day counts and the week preview (matches what gets saved).
   const composedActiveWeek = useMemo(
@@ -2073,97 +1460,11 @@ export function OnboardingScreen({
     [equipment, language, trainingEnvironment],
   );
   const goalLabel = useMemo(() => formatGoalList(goals, language), [goals, language]);
-  const levelLabel = useMemo(() => getLevelLabel(level, language), [language, level]);
-  const secondaryOutcomeLabels = useMemo(
-    () => secondaryOutcomes.map((outcome) => getSecondaryOutcomeTitle(outcome)),
-    [secondaryOutcomes],
-  );
-  const focusAreaLabels = useMemo(
-    () => focusAreas.map((area) => getFocusAreaTitle(area, language)),
-    [focusAreas, language],
-  );
-  const focusAreaSummary = useMemo(() => formatFocusAreaList(focusAreas), [focusAreas]);
-  const guidanceModeLabel = useMemo(() => getGuidanceModeLabel(guidanceMode), [guidanceMode]);
-  const scheduleModeLabel = useMemo(() => getScheduleModeLabel(scheduleMode), [scheduleMode]);
-  const projectedDaysPerWeek = composedActiveWeek?.days ?? recommendedProgram?.daysPerWeek ?? daysPerWeek;
-  // Built after the composed week so the day tag carries the week the user
-  // actually runs, not the catalog template's own count.
-  const recommendedProgramPresentation = useMemo(
-    () =>
-      recommendedProgram
-        ? getReadyTemplatePresentation(recommendedProgram, language, projectedDaysPerWeek)
-        : null,
-    [recommendedProgram, language, projectedDaysPerWeek],
-  );
-  const recommendedProgramTags = useMemo(
-    () => recommendedProgramPresentation?.tags.slice(0, 3) ?? [],
-    [recommendedProgramPresentation],
-  );
-  const projectedRhythm = useMemo(() => {
-    return resolveProjectedTrainingDays(selection, projectedDaysPerWeek).map((day) => getWeekdayShortLabel(day, language));
-  }, [language, projectedDaysPerWeek, selection]);
-  const weeklyMinuteOptions = useMemo(
-    () => getWeeklyMinuteOptions(projectedDaysPerWeek, recommendedProgram?.estimatedSessionDuration ?? null),
-    [projectedDaysPerWeek, recommendedProgram?.estimatedSessionDuration],
-  );
-  const effectiveWeeklyMinutes = useMemo(
-    () => getEffectiveWeeklyMinutes(selection, projectedDaysPerWeek, recommendedProgram?.estimatedSessionDuration ?? null),
-    [projectedDaysPerWeek, recommendedProgram?.estimatedSessionDuration, selection],
-  );
-  const scheduleFitNote = useMemo(
-    () => buildScheduleFitNote(selection, projectedDaysPerWeek, recommendedProgram?.estimatedSessionDuration ?? null),
-    [projectedDaysPerWeek, recommendedProgram?.estimatedSessionDuration, selection],
-  );
 
   function toggleGoal(nextGoal: SetupGoal) {
     setGoal(nextGoal);
     setGoals([nextGoal]);
   }
-  const availableDayLabels = useMemo(
-    () => availableDays.map((day) => getWeekdayShortLabel(day, language)),
-    [availableDays, language],
-  );
-  const projectedSessions = useMemo(
-    () =>
-      recommendedProgram && composedActiveWeek
-        ? composedActiveWeek.sessions
-            .map((session) => ({
-              id: session.id,
-              name: session.name,
-              // The composed week carries an English label for the coach brief
-              // and the weekday itself for the reader. Printing the label put
-              // "Mon / Wed / Fri" on the finished-plan card in a Finnish app.
-              weekdayLabel: session.weekday
-                ? getWeekdayShortLabel(session.weekday, language)
-                : session.weekdayLabel,
-              guidance: buildSessionGuidance(recommendedProgram, session),
-              hiddenExerciseCount: Math.max(0, session.exercises.length - 5),
-              exercises: session.exercises.slice(0, 5).map((exercise) => ({
-                id: exercise.id,
-                name: exercise.exerciseName,
-                prescription: formatPlanReadyExercisePrescription(exercise),
-                compactPrescription: formatPlanReadyExerciseRepTarget(exercise),
-                setsLabel: formatPlanReadyExerciseSetLabel(exercise),
-                repsLabel: formatPlanReadyExerciseRepLabel(exercise),
-              })),
-              detailExercises: session.exercises.map((exercise) => ({
-                id: exercise.id,
-                name: exercise.exerciseName,
-                prescription: formatPlanReadyExercisePrescription(exercise),
-              })),
-              body:
-                session.exercises
-                  .slice(0, 3)
-                  .map((exercise) => exercise.exerciseName)
-                  .join(', ') || `${session.exercises.length} exercises`,
-            }))
-        : [],
-    [recommendedProgram, composedActiveWeek, language],
-  );
-  const tailoringBadgeLabels = useMemo(
-    () => buildTailoringBadgeLabels(recommendationTailoringPreferences).slice(0, 3),
-    [recommendationTailoringPreferences],
-  );
 
   useEffect(() => {
     setUnitPreference(initialUnitPreference);
@@ -2223,13 +1524,10 @@ export function OnboardingScreen({
    * nothing at all rather than stepping out of a write in progress.
    */
   const backActionRef = useRef<() => void>(() => undefined);
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      backActionRef.current();
-      return true;
-    });
-    return () => subscription.remove();
-  }, []);
+  // Through the ref, not a closure: the action is decided twice below, once
+  // for the branch that returns early while the plan is being built and once
+  // for the questions, and the key must get whichever of them is on screen.
+  useHardwareBack(() => backActionRef.current());
 
   useEffect(() => {
     if (!isBuildingPlan) {
@@ -2415,14 +1713,6 @@ export function OnboardingScreen({
     isBuildingPlan,
   ]);
 
-  function openHelper(prefill?: string) {
-    setHelperDraft(prefill ?? helperPrompt);
-    setHelperVisible(true);
-    setHelperState('idle');
-    setHelperAnswer(null);
-    setHelperNote('');
-    setHelperError('');
-  }
 
   async function runAction(action: () => Promise<void> | void) {
     if (busy) {
@@ -2437,11 +1727,6 @@ export function OnboardingScreen({
     }
   }
 
-  function toggleSecondaryOutcome(outcome: SetupSecondaryOutcome) {
-    setSecondaryOutcomes((current) =>
-      current.includes(outcome) ? current.filter((item) => item !== outcome) : [...current, outcome],
-    );
-  }
 
   function toggleFocusArea(area: SetupFocusArea) {
     setFocusAreas((current) => {
@@ -2462,15 +1747,7 @@ export function OnboardingScreen({
     });
   }
 
-  function toggleAvailableDay(day: SetupWeekday) {
-    setAvailableDays((current) =>
-      current.includes(day) ? current.filter((item) => item !== day) : [...current, day],
-    );
-  }
 
-  function toggleRecommendationRefinement(panel: Exclude<RecommendationRefinementPanel, null>) {
-    setActiveRecommendationRefinement((current) => (current === panel ? null : panel));
-  }
 
   async function askAiCoach() {
     const prompt = helperDraft.trim();
@@ -2752,7 +2029,6 @@ export function OnboardingScreen({
   function renderOnboardingShell({
     stepLabel,
     titleLines,
-    subtitle,
     children,
     shellStyle,
     topPaneStyle,
@@ -3442,14 +2718,6 @@ export function OnboardingScreen({
    */
   function renderReview() {
     const planReadyWeeks = planReadyPayload.blockLengthWeeks > 0 ? planReadyPayload.blockLengthWeeks : READY_PROGRAM_MIN_BLOCK_WEEKS;
-    // Composed-week day count wins; the raw template's own count is only a
-    // fallback (days-per-week truth).
-    const planReadyPerWeek =
-      projectedDaysPerWeek
-      || planReadyPayload.programDaysPerWeek
-      || planReadyPayload.requestedDaysPerWeek
-      || 3;
-    const planReadyTotalWorkouts = planReadyWeeks * planReadyPerWeek;
     // No "why" sentence is computed here any more.
     //
     // The card had a blurb slot, the waterfall's reason was resolved into it,

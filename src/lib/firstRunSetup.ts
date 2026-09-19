@@ -219,18 +219,6 @@ export function getSetupGoalTitle(goal: SetupGoal, language: AppLanguage = 'en')
   }
 }
 
-function getEquipmentLabel(equipment: SetupEquipment) {
-  switch (equipment) {
-    case 'gym':
-      return 'a full gym';
-    case 'minimal':
-      return 'minimal equipment';
-    case 'home':
-      return 'a home setup';
-    default:
-      return 'your equipment';
-  }
-}
 
 export function getSetupEquipmentTitle(equipment: SetupEquipment, language: AppLanguage = 'en') {
   switch (equipment) {
@@ -259,47 +247,6 @@ export function getSecondaryOutcomeLabel(outcome: SetupSecondaryOutcome) {
       return 'strength';
     default:
       return 'progress';
-  }
-}
-
-export function getSecondaryOutcomeTitle(outcome: SetupSecondaryOutcome, language: AppLanguage = 'en') {
-  switch (outcome) {
-    case 'consistency':
-      return t(language, 'setup.outcome.consistency');
-    case 'mobility':
-      return t(language, 'setup.outcome.mobility');
-    case 'conditioning':
-      return t(language, 'setup.outcome.conditioning');
-    case 'muscle':
-      return t(language, 'setup.outcome.muscle');
-    case 'strength':
-      return t(language, 'setup.outcome.strength');
-    default:
-      return t(language, 'setup.outcome.default');
-  }
-}
-
-export function getGuidanceModeLabel(mode: SetupGuidanceMode, language: AppLanguage = 'en') {
-  switch (mode) {
-    case 'done_for_me':
-      return t(language, 'setup.guidance.simple');
-    case 'guided_editable':
-      return t(language, 'setup.guidance.recommend');
-    case 'self_directed':
-      return t(language, 'setup.guidance.own');
-    default:
-      return t(language, 'setup.guidance.default');
-  }
-}
-
-export function getScheduleModeLabel(mode: SetupScheduleMode, language: AppLanguage = 'en') {
-  switch (mode) {
-    case 'app_managed':
-      return t(language, 'setup.schedule.app');
-    case 'self_managed':
-      return t(language, 'setup.schedule.self');
-    default:
-      return t(language, 'setup.schedule.default');
   }
 }
 
@@ -337,39 +284,6 @@ export function formatWeekdayList(days: SetupWeekday[], language: AppLanguage = 
  */
 export function getFocusAreaTitle(area: SetupFocusArea, language: AppLanguage = 'en') {
   return getFocusAreaLabel(area, language);
-}
-
-export function getFocusAreaDescription(area: SetupFocusArea) {
-  switch (area) {
-    case 'bodyweight':
-      return 'Bodyweight focus.';
-    case 'arms':
-      return 'Arm focus.';
-    case 'glutes':
-      return 'Glute focus.';
-    case 'quads':
-      return 'Quad focus.';
-    case 'hamstrings':
-      return 'Hamstring focus.';
-    case 'calves':
-      return 'Calf focus.';
-    case 'legs':
-      return 'Leg focus.';
-    case 'chest':
-      return 'Chest focus.';
-    case 'shoulders':
-      return 'Shoulder focus.';
-    case 'back':
-      return 'Back focus.';
-    case 'core':
-      return 'Abs focus.';
-    case 'mobility':
-      return 'Mobility focus.';
-    case 'conditioning':
-      return 'Conditioning focus.';
-    default:
-      return 'Extra focus.';
-  }
 }
 
 function formatList(items: string[]) {
@@ -453,12 +367,6 @@ export function getRecommendedWeeklyMinutes(daysPerWeek: number, estimatedSessio
   return roundToNearestTen(Math.max(60, daysPerWeek * (estimatedSessionDuration ?? fallbackSessionDuration)));
 }
 
-export function getWeeklyMinuteOptions(daysPerWeek: number, estimatedSessionDuration?: number | null) {
-  const baseline = getRecommendedWeeklyMinutes(daysPerWeek, estimatedSessionDuration);
-  const step = daysPerWeek >= 4 ? 40 : 30;
-  return [...new Set([Math.max(60, baseline - step), baseline, Math.min(360, baseline + step)])];
-}
-
 export function getEffectiveWeeklyMinutes(
   selection: Pick<FirstRunSetupSelection, 'weeklyMinutes'>,
   daysPerWeek: number,
@@ -497,30 +405,6 @@ export function resolveProjectedTrainingDays(
   );
 }
 
-export function buildScheduleFitNote(
-  selection: Pick<FirstRunSetupSelection, 'scheduleMode' | 'weeklyMinutes' | 'availableDays'>,
-  daysPerWeek: number,
-  estimatedSessionDuration?: number | null,
-) {
-  const effectiveWeeklyMinutes = getEffectiveWeeklyMinutes(selection, daysPerWeek, estimatedSessionDuration);
-  const recommendedWeeklyMinutes = getRecommendedWeeklyMinutes(daysPerWeek, estimatedSessionDuration);
-  const requiredDays = resolveDefaultRhythm(daysPerWeek).length;
-
-  if (selection.scheduleMode === 'self_managed' && selection.availableDays.length < requiredDays) {
-    return `Pick ${requiredDays} days.`;
-  }
-
-  if (effectiveWeeklyMinutes < recommendedWeeklyMinutes - 20) {
-    return 'Tight week. Shorter sessions.';
-  }
-
-  if (effectiveWeeklyMinutes > recommendedWeeklyMinutes + 40) {
-    return 'Extra room this week.';
-  }
-
-  return 'This week fits well.';
-}
-
 export function buildFirstRunRecommendationReasons(
   selection: FirstRunSetupSelection,
   options: {
@@ -533,64 +417,9 @@ export function buildFirstRunRecommendationReasons(
   return buildRecommendationReasonLines(selection, options, tailoringPreferences);
 }
 
-function buildFocusAreasPromptFragment(selection: FirstRunSetupSelection) {
-  const focusAreas = formatFocusAreaList(selection.focusAreas);
-  return focusAreas ? ` I also want extra focus on ${focusAreas}.` : '';
-}
 
-function buildSchedulePromptFragment(selection: FirstRunSetupSelection) {
-  const scheduleMode = selection.scheduleMode ?? DEFAULT_FIRST_RUN_SELECTION.scheduleMode;
-  const availableDays = Array.isArray(selection.availableDays) ? selection.availableDays : [];
-  const fragments: string[] = [];
 
-  fragments.push(
-    scheduleMode === 'self_managed'
-      ? 'I want to manage the training days myself'
-      : 'I am happy to let Vinha place the weekly rhythm for me',
-  );
 
-  if (typeof selection.weeklyMinutes === 'number' && selection.weeklyMinutes > 0) {
-    fragments.push(`I can train about ${selection.weeklyMinutes} minutes per week`);
-  }
-
-  if (scheduleMode === 'self_managed' && availableDays.length > 0) {
-    fragments.push(`the days that usually work are ${formatWeekdayList(availableDays)}`);
-  }
-
-  return fragments.length ? ` ${fragments.join(', ')}.` : '';
-}
-
-function buildGuidancePromptFragment(mode: SetupGuidanceMode) {
-  switch (mode) {
-    case 'done_for_me':
-      return 'Vinha to keep the path simple and mostly done for me';
-    case 'guided_editable':
-      return 'Vinha to recommend the path but still leave room to edit';
-    case 'self_directed':
-      return 'a strong starting point before I build my own split';
-    default:
-      return 'a clear starting path';
-  }
-}
-
-function buildWeightPromptFragment(selection: FirstRunSetupSelection) {
-  const currentWeight = selection.currentWeightKg;
-  const targetWeight = selection.targetWeightKg;
-
-  if (typeof currentWeight === 'number' && typeof targetWeight === 'number') {
-    return ` I am currently ${Math.round(currentWeight)} kg and aiming for ${Math.round(targetWeight)} kg.`;
-  }
-
-  if (typeof currentWeight === 'number') {
-    return ` I currently weigh about ${Math.round(currentWeight)} kg.`;
-  }
-
-  if (typeof targetWeight === 'number') {
-    return ` I am aiming for about ${Math.round(targetWeight)} kg.`;
-  }
-
-  return '';
-}
 
 function buildLowEquipmentMismatchNote(selection: FirstRunSetupSelection) {
   const base =
@@ -655,46 +484,6 @@ export function buildFirstRunPromptSuggestions(
       ? 'Turn this into custom?'
       : `How should I start with ${selection.daysPerWeek} days?`,
   ];
-}
-
-export function buildFirstRunHelperPrompt(
-  step: FirstRunStep,
-  selection: FirstRunSetupSelection,
-  recommendationProgramName?: string | null,
-) {
-  if (step === 'location') {
-    return `Best start for ${getEquipmentLabel(selection.equipment)}?`;
-  }
-
-  if (step === 'gender') {
-    return 'Does gender need to change the setup?';
-  }
-
-  if (step === 'goal') {
-    return `Right goal for ${selection.level} ${getGoalLabel(selection.goal)}?`;
-  }
-
-  if (step === 'profile') {
-    return `Best ${selection.daysPerWeek}-day setup for me?`;
-  }
-
-  if (step === 'focus') {
-    return 'Which focus should get the extra work?';
-  }
-
-  if (step === 'review') {
-    return `${recommendationProgramName ?? 'This plan'} or another plan?`;
-  }
-
-  if (step === 'planning') {
-    return `Best ${selection.daysPerWeek}-day setup?`;
-  }
-
-  if (step === 'about') {
-    return 'Should bodyweight change the start?';
-  }
-
-  return `${recommendationProgramName ?? 'This plan'} or another plan?`;
 }
 
 export function buildFirstRunAiCoachContext(

@@ -4,7 +4,7 @@ import { StorageLoadFailedScreen } from '../components/StorageLoadFailedScreen';
 import { resolveDeviceLanguage } from '../storage/deviceLocale';
 import { createId } from '../lib/ids';
 import { preferencesForRestore } from '../lib/accountBackup';
-import { withoutAiLogDeletions } from '../lib/aiLogDeletion';
+import { withPendingAiLogDeletion, withoutAiLogDeletions } from '../lib/aiLogDeletion';
 import { isProUnlocked } from '../lib/proEntitlement';
 import {
   countAuthoredPrograms,
@@ -181,6 +181,12 @@ interface AppContextValue {
   resetAllData: () => Promise<void>;
   /** Drops labels the server has confirmed deleting from the list still owed. */
   clearPendingAiLogDeletions: (deleted: readonly string[]) => Promise<void>;
+  /**
+   * Retire the coach's label, filing its delete as owed when `owed`. Resolves
+   * with whether it ended up owed: a line switched back on under this label in
+   * the meantime leaves it in use, and nothing is filed or said.
+   */
+  retireAiLogLabel: (logId: string, owed: boolean) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -1132,6 +1138,68 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     });
   }
 
+  /**
+   * Retire the coach's label, and file its delete as still owed when the
+   * server did not confirm it — in one write, inside the queue.
+   *
+   * The caller cannot build this patch itself. It has just awaited a delete
+   * that may have taken the full request timeout, so the `pendingAiLogDeletions`
+   * it read before that await is stale, and `updatePreferences` would lay the
+   * old array straight over the current one: a retry that confirmed a label in
+   * the meantime would find it back on the list, and a label a reset filed in
+   * the meantime would be gone, with its copies left under a name nothing can
+   * look up (CI review of #143). Read here, at write time, like the clear
+   * beside it.
+   *
+   * Whose consent counts is read here too, and that is the whole of it. The
+   * caller decided "every line is off" before a delete that can take forty
+   * seconds, and a line switched back on inside that window does NOT mint a
+   * new label — the withdrawal handler mints one only when there is none, and
+   * this one is still here until this runs. So the app goes on writing copies
+   * under it, and retiring it on the caller's word would file a delete for
+   * copies the reader has just said yes to (CI review of #143).
+   *
+   * Three answers, then:
+   * - consent is back on under this very label: nothing. It is in use.
+   * - a different label is current: leave it alone, but the copies under the
+   *   old one are owed a delete that nothing else will ask for.
+   * - every line still off, same label: retire it, owed if the delete failed.
+   */
+  function retireAiLogLabel(logId: string, owed: boolean) {
+    return runExclusive(async () => {
+      const current = databaseRef.current;
+      const live = current.preferences;
+      const consented =
+        live.aiLogChatConsent || live.aiLogComposerConsent || live.aiLogPhotoConsent;
+      if (consented && live.aiLogId === logId) {
+        return false;
+      }
+      const retiring = live.aiLogId === logId;
+      const pending = owed ? withPendingAiLogDeletion(live.pendingAiLogDeletions, logId) : live.pendingAiLogDeletions;
+      if (!retiring && pending === live.pendingAiLogDeletions) {
+        return false;
+      }
+      const next = {
+        ...current,
+        preferences: {
+          ...live,
+          aiLogId: retiring ? null : live.aiLogId,
+          pendingAiLogDeletions: pending,
+        },
+      };
+      databaseRef.current = next;
+      setDatabase(next);
+      try {
+        await savePreferences(next.preferences);
+      } catch (error) {
+        databaseRef.current = current;
+        setDatabase(current);
+        throw error;
+      }
+      return owed;
+    });
+  }
+
   function resetAllData() {
     return runExclusive(async () => {
       // The live preferences, not a reload: they carry what this install has
@@ -1280,6 +1348,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       addMeasurementEntry,
       resetAllData,
       clearPendingAiLogDeletions,
+      retireAiLogLabel,
       restoreDatabaseFromBackup,
       importWorkoutHistory,
     }),

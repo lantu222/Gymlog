@@ -2,7 +2,6 @@ const assert = require('node:assert/strict');
 
 const {
   applyCautionFlagsToExercises,
-  buildCautionSummaryLabel,
   exerciseHitsCautionArea,
 } = require('../../.test-dist/lib/cautionExerciseFilter');
 const { composeProgramWeekForSelection } = require('../../.test-dist/lib/programDayComposer');
@@ -212,23 +211,6 @@ module.exports = [
       }
       assert.ok(composed > 100, `the sweep composed only ${composed} weeks`);
       assert.deepEqual(offenders, []);
-    },
-  },
-  {
-    name: 'cautionExerciseFilter: summary label lists serious flags only',
-    run() {
-      assert.equal(
-        buildCautionSummaryLabel(
-          [
-            { area: 'knees', level: 'avoid', refinements: [] },
-            { area: 'shoulders', level: 'careful', refinements: [] },
-            { area: 'hips', level: 'info', refinements: [] },
-          ],
-          AREA_LABELS,
-        ),
-        'Trains around: Knees left out · Shoulders joint-friendly',
-      );
-      assert.equal(buildCautionSummaryLabel([], AREA_LABELS), null);
     },
   },
 ];
