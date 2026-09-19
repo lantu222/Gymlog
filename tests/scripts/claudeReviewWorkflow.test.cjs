@@ -317,14 +317,32 @@ module.exports = [
       // a path, a URL, a quoted string or an `ENV=value` prefix can reach the
       // log. One word was not enough to act on: `gh pr diff` is allowed and
       // `gh api` is refused on purpose, and both printed as `Bash(gh)`.
-      const sanitized =
-        'def name: [match("^[a-z][a-z0-9._-]{0,30}(?=\\\\s|$)(?: [a-z][a-z0-9._-]{0,30}(?=\\\\s|$)){0,2}").string] | .[0] // "?";';
-      assert.ok(step.run.includes(sanitized), 'the Bash program is no longer read through its filter');
+      //
+      // And every subcommand, because a Bash rule has to match each part of a
+      // compound command on its own: naming the first part alone reported
+      // seventeen denials of `gh pr diff`, which is ON the allowlist, while
+      // the part that was actually refused went unnamed.
+      const word =
+        'def word: [match("^[a-z][a-z0-9._-]{0,30}(?=\\\\s|$)(?: [a-z][a-z0-9._-]{0,30}(?=\\\\s|$)){0,2}").string] | .[0] // "?";';
+      const parts =
+        'def name: [splits("\\\\s*(?:&&|\\\\|\\\\||\\\\|&|;|\\\\||&|\\\\n)\\\\s*")] | map(word) | .[0:4] | join(" + ");';
+      assert.ok(step.run.includes(word), 'the Bash program is no longer read through its filter');
+      assert.ok(step.run.includes(parts), 'the denial log no longer names every subcommand');
       assert.ok(step.run.includes('(.tool_input.command // "") | name'), 'the input reaches the log without the filter');
       assert.equal(step.run.split('tool_input').length - 1, 1, 'denied tool input is read somewhere else too');
 
       // And the filter does what the comment says, run rather than read. Each
-      // of these is a shape that has to lose everything after the program.
+      // of these is a shape that has to lose everything but the program names
+      // — and a compound one has to name the part that was refused.
+      const label = (command) =>
+        command
+          .split(/\s*(?:&&|\|\||\|&|;|\||&|\n)\s*/)
+          .map((part) => {
+            const match = part.match(/^[a-z][a-z0-9._-]{0,30}(?=\s|$)(?: [a-z][a-z0-9._-]{0,30}(?=\s|$)){0,2}/);
+            return match ? match[0] : '?';
+          })
+          .slice(0, 4)
+          .join(' + ');
       for (const [command, expected] of [
         ["gh api repos/owner/repo/pulls/1/comments --jq '.[].body'", 'gh api'],
         ['gh pr diff 142 --name-only', 'gh pr diff'],
@@ -334,9 +352,14 @@ module.exports = [
         ['NODE_ENV=test npm run test:unit', '?'],
         ['/usr/bin/env node -e "1"', '?'],
         ['ls', 'ls'],
+        // The case the one-word label hid: the allowed half is named first,
+        // and the refused half is named at all.
+        ["gh pr diff 143 | sed -n '1,200p'", 'gh pr diff + sed'],
+        ['cd /home/runner/work && gh pr diff 143', 'cd + gh pr diff'],
+        // A separator inside a quoted string can only mislabel, never leak.
+        ['grep -rn "private key | here" src/', 'grep + ?'],
       ]) {
-        const match = command.match(/^[a-z][a-z0-9._-]{0,30}(?=\s|$)(?: [a-z][a-z0-9._-]{0,30}(?=\s|$)){0,2}/);
-        assert.equal(match ? match[0] : '?', expected, `the denial log would print ${command} wrongly`);
+        assert.equal(label(command), expected, `the denial log would print ${command} wrongly`);
       }
     },
   },
