@@ -11,6 +11,17 @@ import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AppLanguage } from '../types/models';
 
+/**
+ * Above this, a refused share is credibly about the size.
+ *
+ * Android carries an intent's extras through a Binder transaction with about a
+ * megabyte to share between everything in flight, and a share is refused well
+ * before that. 200k characters is roughly 110 logged workouts — comfortably
+ * under where the refusals start, and comfortably over anything that fails for
+ * another reason.
+ */
+const LOG_SHARE_SIZE_HINT = 200_000;
+
 export interface ExportablePlan {
   id: string;
   name: string;
@@ -109,8 +120,17 @@ export function ExportPlanScreen({ language = 'en', plans, log, onBack }: Export
 
   async function shareLog() {
     setLogError(null);
+    let csv: string;
     try {
-      const csv = buildWorkoutLogCsv(log);
+      csv = buildWorkoutLogCsv(log);
+    } catch (error) {
+      // Building it is not sharing it: a throw here is malformed stored data,
+      // and blaming the size would be a confident wrong answer.
+      console.error('Failed to build the training log', error);
+      setLogError(t(language, 'export.log.failed'));
+      return;
+    }
+    try {
       const result = await Share.share({
         title: t(language, 'export.log.title'),
         message: csv,
@@ -122,7 +142,16 @@ export function ExportPlanScreen({ language = 'en', plans, log, onBack }: Export
       }
     } catch (error) {
       console.error('Failed to share the training log', error);
-      setLogError(t(language, 'export.log.tooBig'));
+      // Size is named only when the size can carry the blame. A share can also
+      // fail with no target at all or a refused permission, and the sentence
+      // below does not merely say "it failed" — it asserts a cause and gives
+      // advice premised on it, so a small log failing for another reason would
+      // be told to wait for a feature that would not help it (CI review of
+      // #146). Characters rather than bytes: this is a threshold for choosing
+      // a sentence, not a limit to enforce.
+      setLogError(
+        t(language, csv.length > LOG_SHARE_SIZE_HINT ? 'export.log.tooBig' : 'export.log.failed'),
+      );
     }
   }
 

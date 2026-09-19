@@ -168,12 +168,28 @@ module.exports = [
       assert.ok(handler.length > 0, 'the log share moved');
       // A log past what an intent can carry used to land in the same catch as
       // a dismissed sheet, under "nothing to recover from".
-      assert.match(handler, /catch \(error\) \{[\s\S]{0,200}setLogError\(t\(language, 'export\.log\.tooBig'\)\);/);
       assert.doesNotMatch(handler, /\} catch \{/, 'a bare catch cannot tell a refusal from a dismissal');
       // Dismissing the sheet is still not a failure.
       assert.match(handler, /if \(result\.action === Share\.dismissedAction\) \{\s*return;\s*\}/);
       assert.match(screen, /\{logError \? <Text style=\{styles\.rowError\}>\{logError\}<\/Text> : null\}/);
+
+      /*
+       * And size is blamed only when the size can carry the blame.
+       *
+       * `export.log.tooBig` does not say "it failed" — it names a cause and
+       * gives advice premised on it. Building the CSV is its own try, and a
+       * refused share on a small log reads as the plain failure, so a reader
+       * whose export broke for another reason is not told to wait for a
+       * feature that would not help them (CI review of #146).
+       */
+      assert.match(handler, /csv = buildWorkoutLogCsv\(log\);\s*\} catch \(error\) \{/);
+      assert.match(
+        handler,
+        /t\(language, csv\.length > LOG_SHARE_SIZE_HINT \? 'export\.log\.tooBig' : 'export\.log\.failed'\)/,
+      );
+      assert.match(screen, /const LOG_SHARE_SIZE_HINT = 200_000;/);
       bothLanguages('export.log.tooBig');
+      bothLanguages('export.log.failed');
     },
   },
 ];

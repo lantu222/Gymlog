@@ -252,6 +252,7 @@ const EN = {
   'csv.photo.failed': 'Could not read a programme from that photo. You can still paste the table above.',
   'csv.import.failed': 'Could not save the programme. The table is still here — try again.',
   'toast.planWeekOutOfStep': 'Programme saved, but its week could not be updated — edit the days again to retry',
+  'export.log.failed': 'Could not hand the log over. Try again.',
   'csv.photo.notice.title': 'The photo is sent to be read',
   'csv.photo.notice.body':
     'Reading a table from a photo is the coach’s online mode: the photo you pick is sent to our server and on from there to the model that reads it. Nothing else about you goes with it, and it is deleted after 30 days. No copy is kept unless you allow it in Settings.',
@@ -3411,6 +3412,7 @@ const FI: Record<I18nKey, string> = {
   'csv.photo.failed': 'Kuvasta ei saatu ohjelmaa. Voit yhä liittää taulukon yllä olevaan kenttään.',
   'csv.import.failed': 'Ohjelmaa ei voitu tallentaa. Taulukko on yhä tässä — yritä uudelleen.',
   'toast.planWeekOutOfStep': 'Ohjelma tallennettiin, mutta sen viikkoa ei voitu päivittää — muokkaa päiviä uudelleen',
+  'export.log.failed': 'Lokia ei saatu luovutettua. Yritä uudelleen.',
   'csv.photo.notice.title': 'Kuva lähetetään luettavaksi',
   'csv.photo.notice.body':
     'Taulukon lukeminen kuvasta on valmentajan verkkotila: valitsemasi kuva lähetetään palvelimellemme ja sieltä mallille, joka lukee sen. Mukana ei lähde muuta sinusta, ja kuva poistetaan 30 päivän kuluttua. Kopiota ei säilytetä, ellet salli sitä asetuksissa.',
