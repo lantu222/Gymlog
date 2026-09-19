@@ -143,9 +143,18 @@ module.exports = [
       assert.match(screen, /const unloaded = \(history\?\.bestWeight \?\? 0\) <= 0 && \(history\?\.bestReps \?\? 0\) > 0;/);
       assert.match(screen, /t\(language, 'exDetail\.bestReps', \{ count: history\?\.bestReps \?\? 0 \}\)/);
       assert.match(screen, /history\?\.bestWeight != null && history\.bestWeight > 0/);
-      // And the line plots the reps rather than a row of zeroes.
-      assert.match(screen, /value: unloaded\s*\?\s*\(log\.sets \?\? \[\]\)\.reduce/);
+      // And the line plots the reps rather than a row of zeroes — counted the
+      // way `bestReps` above it is counted. A raw sum over `log.sets` takes
+      // warm-up sets too (a Hevy import writes each set's kind), so the line
+      // could rise above the personal best printed over it (CI review of #147).
+      assert.match(screen, /value: unloaded\s*\?\s*getComparableLogSets\(log\)\.reduce/);
+      assert.doesNotMatch(screen, /\(log\.sets \?\? \[\]\)\.reduce/);
+      // The unit follows the measure everywhere on the screen, not only on the
+      // card: "33 toistoa" sat beside a trend reading "+12 kg" and a kg axis.
+      assert.match(screen, /\{unloaded \? t\(language, 'exDetail\.repsUnit'\) : unitPreference\}\{' '\}/);
+      assert.match(screen, /unitLabel=\{unloaded \? t\(language, 'exDetail\.repsUnit'\) : unitPreference\}/);
       bothLanguages('exDetail.bestReps');
+      bothLanguages('exDetail.repsUnit');
     },
   },
   {
