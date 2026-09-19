@@ -27,6 +27,8 @@
  * figure on it. The data is the user's either way.
  */
 
+import { subtractCalendarMonths } from './completedSessions';
+
 export const FREE_TREND_MONTHS = 3;
 
 /**
@@ -118,6 +120,13 @@ export function isRecordLocked(
     // failure would hide a record the user set yesterday.
     return false;
   }
-  const cutoff = new Date(now.getFullYear(), now.getMonth() - FREE_RECORD_MONTHS, now.getDate());
+  // Through `subtractCalendarMonths`, the way the trend ranges above go — the
+  // comment there says the window matches the charts on purpose, and the raw
+  // construction did not: `new Date(y, m - 3, 31)` on 31 May asks for 31
+  // February and JavaScript answers 3 March. So on the 31st of some months the
+  // free depth rolled into the following month and locked records the reader
+  // was entitled to, while the 3M chart beside them drew from 28 February
+  // (audit 3, 2026-09-19).
+  const cutoff = subtractCalendarMonths(now, FREE_RECORD_MONTHS);
   return stamp < cutoff.getTime();
 }

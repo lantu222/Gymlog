@@ -180,20 +180,21 @@ module.exports = [
       // that resets every Monday morning is a counter nobody trusts.
       const weeks = [at(2026, 7, 22), at(2026, 7, 29), at(2026, 8, 3)];
       const sessions = weeks.map((date, index) => ({ id: `s${index}`, performedAt: date.toISOString() }));
-      assert.equal(weeklyTrainingStreak(sessions, NOW), 3);
+      assert.equal(weeklyTrainingStreak(sessions, [], NOW), 3);
 
       const withoutThisWeek = sessions.slice(0, 2);
-      assert.equal(weeklyTrainingStreak(withoutThisWeek, NOW), 2, 'the unfinished week is not counted against');
+      assert.equal(weeklyTrainingStreak(withoutThisWeek, [], NOW), 2, 'the unfinished week is not counted against');
 
       // A gap ends it.
       assert.equal(
         weeklyTrainingStreak(
           [{ id: 'old', performedAt: at(2026, 6, 1).toISOString() }],
+          [],
           NOW,
         ),
         0,
       );
-      assert.equal(weeklyTrainingStreak([], NOW), 0);
+      assert.equal(weeklyTrainingStreak([], [], NOW), 0);
     },
   },
 ];

@@ -9,6 +9,7 @@ import {
   SEASON_WEEKS,
   resolveSeasonWindow,
   seasonBlockIndex,
+  seasonLastDay,
   seasonProgressRatio,
   seasonWeek,
   seasonWeeksLeft,
@@ -281,7 +282,13 @@ export function SeasonScreen({
           <Text style={styles.heroDates}>
             {t(language, 'season.range', {
               start: formatDay(window.start, language),
-              end: formatDay(new Date(window.end.getTime() - 86_400_000), language),
+              // Through `seasonLastDay`, not a fixed day of milliseconds. The
+              // winter season ends the day the clocks move, so subtracting
+              // 86 400 000 from local midnight lands at 23:00 the day before
+              // and the hero printed 30.3. where the same season's range on
+              // the Programs tile — which already steps by calendar date —
+              // printed 31.3. (audit 3, 2026-09-19).
+              end: formatDay(seasonLastDay(window), language),
             })}
             {'  ·  '}
             {t(language, 'season.weeksUnit', { count: SEASON_WEEKS })}

@@ -16,7 +16,7 @@ import {
   getOverviewDurationTicks,
   getOverviewVolumeTicks,
 } from '../lib/progressChartTicks';
-import { DEFAULT_MEASUREMENT_VALUE } from '../lib/measurementKinds';
+import { DEFAULT_MEASUREMENT_VALUE, measurementUnitForKind } from '../lib/measurementKinds';
 import { SimpleLineChart } from '../components/SimpleLineChart';
 import { WeightTrendChart } from '../components/WeightTrendChart';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -814,7 +814,10 @@ export function ProgressScreen({
   const tourScroller = useTourScroller('progress', tourTargets);
   const scrollRef = tourScroller.ref;
 
-  const trainingStreak = useMemo(() => weeklyTrainingStreak(workoutSessions), [workoutSessions]);
+  const trainingStreak = useMemo(
+    () => weeklyTrainingStreak(workoutSessions, cardioSessions),
+    [cardioSessions, workoutSessions],
+  );
 
   const openSetLog: ExerciseSetLog | null = useMemo(() => {
     if (setLogTarget === null) {
@@ -892,21 +895,39 @@ export function ProgressScreen({
     const monthEnd = new Date(monthStart);
     monthEnd.setMonth(monthEnd.getMonth() + 1);
 
-    const currentMonthSessions = workoutSessions.filter((session) => {
-      const performedAt = new Date(session.performedAt);
-      return performedAt >= monthStart && performedAt < monthEnd;
-    });
+    const inMonth = (performedAt: string) => {
+      const at = new Date(performedAt);
+      return at >= monthStart && at < monthEnd;
+    };
+    const currentMonthSessions = workoutSessions.filter((session) => inMonth(session.performedAt));
+    /*
+     * The runs count too, because the calendar right beside these figures
+     * marks the days they were run on.
+     *
+     * This read `workoutSessions` alone, so a month of running showed a grid
+     * full of marked days over "0 treeniä tässä kuussa" — while the duration
+     * chart on the same tab already counted the same runs' minutes. The
+     * widget's own month totals fixed exactly this and say so: "Workouts 0 ·
+     * Duration 3 h is a contradiction" (audit 3, 2026-09-19).
+     *
+     * Volume stays strength-only: a run has no tonnage, and adding zero to it
+     * would not be counting it, only diluting the average it is not part of.
+     */
+    const currentMonthCardio = cardioSessions.filter((session) => inMonth(session.performedAt));
 
     const volumeKg = currentMonthSessions.reduce((sum, session) => sum + getSessionVolumeKg(session), 0);
-    const totalDuration = currentMonthSessions.reduce((sum, session) => sum + getSessionDurationMinutes(session), 0);
-    const averageDuration = currentMonthSessions.length ? Math.round(totalDuration / currentMonthSessions.length) : 0;
+    const totalDuration =
+      currentMonthSessions.reduce((sum, session) => sum + getSessionDurationMinutes(session), 0) +
+      currentMonthCardio.reduce((sum, session) => sum + Math.round((session.durationSec ?? 0) / 60), 0);
+    const counted = currentMonthSessions.length + currentMonthCardio.length;
+    const averageDuration = counted ? Math.round(totalDuration / counted) : 0;
 
     return {
-      sessions: currentMonthSessions.length,
+      sessions: counted,
       volumeKg,
       averageDuration,
     };
-  }, [activityCalendar.weeks, workoutSessions]);
+  }, [activityCalendar.weeks, cardioSessions, workoutSessions]);
 
   /**
    * The trend tab's bodyweight grid, on the same calendar-days axis as the
@@ -1234,9 +1255,16 @@ export function ProgressScreen({
     if (selectedMeasureModel.kind === null) {
       onAddBodyweight(convertWeightToKg(value, unitPreference));
     } else {
-      // Always centimetres: the ruler dials the unit the app stores, so there
-      // is no reading to convert on the way in.
-      await onAddMeasurement(selectedMeasureModel.kind, value, 'cm');
+      // The unit the kind is measured in, not "always centimetres". A body-fat
+      // reading is a percentage, and storing it as `cm` made the same measure
+      // carry two different units depending on which screen it was entered
+      // from — the coach was told "bodyfat, 20 cm" (audit 3, 2026-09-19). The
+      // screen already prints `%` for it, which is what hid this from itself.
+      await onAddMeasurement(
+        selectedMeasureModel.kind,
+        value,
+        measurementUnitForKind(selectedMeasureModel.kind),
+      );
     }
   }
 

@@ -272,13 +272,18 @@ export function ExerciseDetailScreen({
   const logs = history?.logs ?? [];
   const hasHistory = logs.length > 0;
 
+  const unloaded = (history?.bestWeight ?? 0) <= 0 && (history?.bestReps ?? 0) > 0;
+  // The same rule for the line: an unloaded lift plots the reps it actually
+  // did, rather than a row of zeroes with a date under each one.
   const chartPoints = useMemo(
     () =>
       [...logs].reverse().map((log) => ({
         label: formatShortDate(log.performedAt, language),
-        value: convertWeightFromKg(log.weight, unitPreference),
+        value: unloaded
+          ? (log.sets ?? []).reduce((sum, set) => sum + (set.reps ?? 0), 0)
+          : convertWeightFromKg(log.weight, unitPreference),
       })),
-    [language, logs, unitPreference],
+    [language, logs, unloaded, unitPreference],
   );
 
   const trendDelta = useMemo(() => {
@@ -288,8 +293,20 @@ export function ExerciseDetailScreen({
     return chartPoints[chartPoints.length - 1].value - chartPoints[0].value;
   }, [chartPoints]);
 
-  const personalBest =
-    history?.bestWeight != null
+  /*
+   * A lift with no bar is measured in reps, not in kilograms.
+   *
+   * `bestWeight` is 0 for a pull-up, not null, so `!= null` was true and the
+   * card printed "0 kg" — under it a chart flat on the axis and "+0 kg since
+   * start", to a reader who had gone from 21 reps to 33 (audit 3,
+   * 2026-09-19). The library already answers this: `finalizeExerciseSummary`
+   * computes `bestReps` and `latestValue` for exactly the unloaded case, and
+   * Home's stat cards filter on `bestWeight > 0` for the same reason. This
+   * screen was the one place printing the raw kilogram.
+   */
+  const personalBest = unloaded
+    ? t(language, 'exDetail.bestReps', { count: history?.bestReps ?? 0 })
+    : history?.bestWeight != null && history.bestWeight > 0
       ? `${removeTrailingZeros(convertWeightFromKg(history.bestWeight, unitPreference))} ${unitPreference}`
       : '—';
 

@@ -29,7 +29,7 @@ module.exports = [
           createSession('s3', '2026-03-31T10:00:00'),
         ];
 
-        assert.equal(weeklyTrainingStreak(sessions, new Date(2026, 3, 1, 12, 0, 0)), 3);
+        assert.equal(weeklyTrainingStreak(sessions, [], new Date(2026, 3, 1, 12, 0, 0)), 3);
 
         // Autumn, where the cursor drifts to 01:00 instead.
         const autumn = [
@@ -38,7 +38,7 @@ module.exports = [
           createSession('a3', '2026-10-27T10:00:00'),
         ];
 
-        assert.equal(weeklyTrainingStreak(autumn, new Date(2026, 9, 28, 12, 0, 0)), 3);
+        assert.equal(weeklyTrainingStreak(autumn, [], new Date(2026, 9, 28, 12, 0, 0)), 3);
       });
     },
   },
@@ -53,7 +53,7 @@ module.exports = [
           createSession('s2', '2026-03-24T10:00:00'),
         ];
 
-        assert.equal(weeklyTrainingStreak(sessions, new Date(2026, 3, 1, 12, 0, 0)), 2);
+        assert.equal(weeklyTrainingStreak(sessions, [], new Date(2026, 3, 1, 12, 0, 0)), 2);
       });
     },
   },

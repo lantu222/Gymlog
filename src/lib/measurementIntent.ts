@@ -10,6 +10,7 @@
  * log a number the reader never meant.
  */
 import type { AppLanguage, MeasurementKind } from '../types/models';
+import { measurementUnitForKind } from './measurementKinds';
 
 export type MeasurementIntentKind = MeasurementKind | 'bodyweight';
 
@@ -49,9 +50,14 @@ export function isMeasurementIntentKind(value: string): value is MeasurementInte
 }
 
 function unitFor(kind: MeasurementIntentKind): MeasurementIntent['unit'] {
-  if (kind === 'bodyweight') return 'kg';
-  if (kind === 'bodyfat') return '%';
-  return 'cm';
+  // Bodyweight is this module's own extra kind; every other answer is the one
+  // shared rule, so the two writers cannot drift apart again. The narrowing is
+  // the parser's: it never reads a measurement in inches.
+  if (kind === 'bodyweight') {
+    return 'kg';
+  }
+  const unit = measurementUnitForKind(kind);
+  return unit === 'in' ? 'cm' : unit;
 }
 
 export function parseMeasurementIntent(text: string, _language: AppLanguage = 'fi'): MeasurementIntent | null {

@@ -511,7 +511,17 @@ export function HistoryScreen({
         <Text style={styles.pageTitle}>{t(language, 'history.title')}</Text>
         <Text style={styles.pageSubtitle}>{t(language, 'history.subtitle')}</Text>
 
-        {sessions.length === 0 ? (
+        {/*
+          Nothing logged means nothing of EITHER kind.
+
+          This gated the whole list on the lifted sessions alone, and the
+          cardio section lives inside the branch below it — so a reader who had
+          only ever logged runs was told "ei vielä mitään kirjattua" while
+          their runs sat in the database, marking the Progress calendar and
+          feeding its duration chart, with no row anywhere they could open or
+          delete (audit 3, 2026-09-19).
+        */}
+        {sessions.length === 0 && cardioSessions.length === 0 ? (
           <EmptyState title={t(language, 'history.empty.title')} body={t(language, 'history.empty.body')} />
         ) : (
           <>
@@ -535,7 +545,11 @@ export function HistoryScreen({
 
             <FeelSummaryCard summary={feelSummary} language={language} />
 
-            {filteredSessions.length ? (
+            {/* "Nothing matched your search" only when there was a search.
+                With runs and no lifts there is nothing to match and nothing
+                was asked for, so the cardio section below speaks for itself
+                rather than sitting under an empty-filter notice. */}
+            {filteredSessions.length === 0 && !filtersActive ? null : filteredSessions.length ? (
               <>
                 {/* Grouped by the month they happened in, newest first — the
                     same headers Records has, through the same helper, so the

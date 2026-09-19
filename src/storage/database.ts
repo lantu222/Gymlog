@@ -4,7 +4,7 @@ import { buildRetiredLibraryIdRemap } from '../lib/legacyLibraryIds';
 import { normalizeSeasonEnrolments } from '../lib/seasonEnrolment';
 import { normalizeStrengthGoals } from '../lib/strengthGoals';
 import { normalizeCancelSurveyAnswer } from '../lib/cancelSurvey';
-import { isMeasurementKind } from '../lib/measurementKinds';
+import { isMeasurementKind, measurementUnitForKind } from '../lib/measurementKinds';
 import { normalizeMeasurementReminder } from '../lib/measurementReminder';
 import { normalizeOwnBlockStats } from '../lib/ownBlockHistory';
 import { normalizeFirstRunToursSeen } from '../lib/firstRunTour';
@@ -639,7 +639,13 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
             return {
               id,
               kind,
-              unit,
+              // Body fat is a percentage whatever the stored row says. Every
+              // reading the Progress tab wrote before 2026-09-19 carries `cm`,
+              // because that writer sent "always centimetres" — so the coach
+              // was handed "bodyfat, 20 cm" from a row nothing else would ever
+              // correct. The kind decides the unit; a length keeps whichever
+              // of cm and in it was stored with.
+              unit: kind === 'bodyfat' ? measurementUnitForKind(kind) : unit,
               value,
               recordedAt,
             } satisfies MeasurementEntry;
