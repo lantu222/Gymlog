@@ -253,13 +253,32 @@ jobs:
           # A count field exists only in the summary the action prints, so
           # reading one here said 0 on every run, including the ones whose
           # printed summary said 1. Tool names only, and for Bash the program
-          # alone: this log is public, and a denied call's input can carry
-          # review text. The program is the first plain lowercase word, so an
-          # `ENV=value` prefix or a path never reaches the log. Split on every
-          # kind of space: jq's `^` and `$` match at line breaks, and a word
-          # that ran across one would carry the next line with it.
+          # and its subcommands: this log is public, and a denied call's input
+          # can carry review text.
+          #
+          # One word was not enough to act on. Every run since 2026-09-16 has
+          # reported twenty to thirty `Bash(gh)` denials, and `gh` is half
+          # allowed — `gh pr diff` is on the allowlist and `gh api` is kept off
+          # it deliberately, because the token the action hands the reviewer
+          # can write. Which of the two the reviewer kept reaching for decides
+          # whether there is anything to fix, and the log could not say.
+          #
+          # Up to three words, each a plain lowercase word ending at a space or
+          # at the end of the command — the lookahead is what makes the second
+          # part true, and without it `gh api repos/owner/repo/pulls/1` would
+          # print its path's first segment. A flag, a path, a URL, a quoted
+          # string or an `ENV=value` prefix all fail the test and end the name
+          # where they start, so nothing from the diff or the review reaches
+          # the log: that call prints as `Bash(gh api)`, `grep -n secret
+          # src/x.ts` as `Bash(grep)`, and `NODE_ENV=1 npm test` as `Bash(?)`.
+          # Anchored at the start, so a word that ran across a line break
+          # cannot carry the next line with it.
           denials=$(echo "$summary" | jq -r '.permission_denials // [] | length')
-          denied=$(echo "$summary" | jq -r '.permission_denials // [] | map(if .tool_name == "Bash" then "Bash(" + ((.tool_input.command // "") | [splits("\\s+")] | map(select(test("^[a-z][a-z0-9._-]{0,30}$"))) | (.[0] // "?")) + ")" else (.tool_name // "?") end) | group_by(.) | map("\(.[0]) x\(length)") | join(", ")')
+          denied=$(echo "$summary" | jq -r '
+            def name: [match("^[a-z][a-z0-9._-]{0,30}(?=\\s|$)(?: [a-z][a-z0-9._-]{0,30}(?=\\s|$)){0,2}").string] | .[0] // "?";
+            .permission_denials // []
+            | map(if .tool_name == "Bash" then "Bash(" + ((.tool_input.command // "") | name) + ")" else (.tool_name // "?") end)
+            | group_by(.) | map("\(.[0]) x\(length)") | join(", ")')
           failed=$(echo "$summary" | jq -r '.is_error // false')
           cost=$(echo "$summary" | jq -r '.total_cost_usd // 0')
           echo "turns=$turns denials=$denials is_error=$failed cost_usd=$cost"
