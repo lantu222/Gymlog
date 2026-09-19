@@ -156,7 +156,7 @@ interface AICoachChatScreenProps {
    * conversation now — see ChatMessage.proposal for why that is the point
    * rather than a shortcut.
    */
-  onComposeProgramme: (brief: string) => Promise<ProgrammeProposal | null>;
+  onComposeProgramme: (brief: string, signal?: AbortSignal) => Promise<ProgrammeProposal | null>;
   /** Saves a proposal as a programme of the reader's own. */
   onSaveProgramme: (proposal: ProgrammeProposal) => Promise<void>;
   /**
@@ -383,12 +383,41 @@ export function AICoachChatScreen({
    * the kept thread so it can simply be asked again.
    */
   const pendingAskRef = useRef<{ token: number; controller: AbortController } | null>(null);
+  /**
+   * Which offers are being built, held outside the thread.
+   *
+   * A compose used to swap the offer message for a "Rakennan viikkoa…" one.
+   * The thread is published upward on every change, so that placeholder went
+   * into the kept conversation — and leaving mid-build left it there forever,
+   * with the offer it replaced gone and nothing that could resolve it.
+   *
+   * So the offer stays in `messages` for the whole build and the building
+   * line is drawn from this instead. Nothing has to be put back on the way
+   * out: what was published was never wrong. It is a list rather than one
+   * value because a thread can hold two compose offers, the same reason
+   * `savingProposalId` is kept per message (audit 3, 2026-09-19).
+   */
+  const [composingIds, setComposingIds] = useState<readonly string[]>([]);
+  /**
+   * The builds themselves, so leaving cancels them.
+   *
+   * A composition is a live call and it is billed whether or not anything
+   * reads the answer. The ask beside it has held an AbortController since it
+   * was written — "nothing is charged for it" — and this one walked away
+   * leaving the request to finish into nothing, then offered the reader the
+   * same build again on their return (audit 3, 2026-09-19).
+   */
+  const composeControllersRef = useRef(new Map<string, AbortController>());
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
   const onMemoryChangeRef = useRef(onMemoryChange);
   onMemoryChangeRef.current = onMemoryChange;
   useEffect(
     () => () => {
+      for (const controller of composeControllersRef.current.values()) {
+        controller.abort();
+      }
+      composeControllersRef.current.clear();
       const pending = pendingAskRef.current;
       if (!pending) {
         return;
@@ -630,20 +659,32 @@ export function AICoachChatScreen({
           onOpenPremium();
           return;
         }
+        // The offer stays where it is while the week is built, and the
+        // building line is drawn over it from `composingIds` — so the thread
+        // that gets published upward still holds the offer, and walking away
+        // mid-build leaves a conversation that is one tap from asking again
+        // rather than a "Rakennan viikkoa…" nothing can ever resolve.
+        //
+        // The build can take the whole request timeout, so this is not a rare
+        // window (audit 3, 2026-09-19).
+        setComposingIds((current) => (current.includes(messageId) ? current : [...current, messageId]));
+        const controller = new AbortController();
+        composeControllersRef.current.set(messageId, controller);
+        let proposal: ProgrammeProposal | null = null;
+        try {
+          proposal = await onComposeProgramme(offer.brief, controller.signal);
+        } finally {
+          // In a finally, so a rejected compose clears the building line too
+          // rather than leaving the offer under a spinner with no way out.
+          setComposingIds((current) => current.filter((id) => id !== messageId));
+          composeControllersRef.current.delete(messageId);
+        }
         // The offer becomes the week it was offering. Replaced rather than
         // appended: leaving "shall I build this?" above the thing it built
         // would invite a second tap that composes the same brief again.
         setMessages((current) =>
           current.map((message) =>
             message.id === messageId
-              ? { id: `${messageId}:building`, fromCoach: true, text: t(language, 'coachChat.compose.building') }
-              : message,
-          ),
-        );
-        const proposal = await onComposeProgramme(offer.brief);
-        setMessages((current) =>
-          current.map((message) =>
-            message.id === `${messageId}:building`
               ? proposal
                 ? { id: `${messageId}:proposal`, fromCoach: true, text: '', proposal }
                 : // A failed compose says so rather than leaving the thread on
@@ -1054,6 +1095,18 @@ export function AICoachChatScreen({
           ...current,
           { id: `coach:${token}`, fromCoach: true, text: t(language, 'coach.error') },
         ]);
+        // And the question comes back into the field it was typed in. The
+        // draft is cleared the moment the ask starts, so a failure left the
+        // reader with an apology, no retry control and nothing to retry with
+        // but their own memory of what they had written (audit 3,
+        // 2026-09-19).
+        //
+        // The question stays in the thread above, unlike the unmount path,
+        // which lifts it out: there nobody saw it fail, here the apology is
+        // addressed to something and would read as an answer to nothing
+        // without it. Sending again therefore logs the question twice, which
+        // is what asking twice looks like.
+        setDraft((current) => (current.trim() ? current : trimmed));
       } finally {
         if (pendingAskRef.current?.token === token) {
           pendingAskRef.current = null;
@@ -1244,7 +1297,16 @@ export function AICoachChatScreen({
           ) : null}
 
           {messages.map((message) =>
-            message.catalog ? (
+            // Drawn over the offer rather than in place of it: the offer is
+            // still in the thread underneath, so leaving now keeps it.
+            composingIds.includes(message.id) ? (
+              <View key={message.id} style={styles.bubbleRow}>
+                <View style={[styles.coachBubble, styles.thinkingBubble]}>
+                  <ActivityIndicator size="small" color={theme.purple} />
+                  <Text style={styles.thinkingText}>{t(language, 'coachChat.compose.building')}</Text>
+                </View>
+              </View>
+            ) : message.catalog ? (
               <View key={message.id} style={styles.bubbleRow}>
                 <View style={[styles.coachBubble, styles.offerBubble]}>
                   <Text style={styles.coachText}>{message.text}</Text>

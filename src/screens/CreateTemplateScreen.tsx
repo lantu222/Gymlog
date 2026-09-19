@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -7,6 +7,7 @@ import { CutSurface } from '../components/CutSurface';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 
 import { AddExerciseSheet } from '../components/AddExerciseSheet';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { getExerciseTemplateDefaults } from '../lib/exerciseSuggestions';
@@ -257,6 +258,15 @@ export function CreateTemplateScreen({
   const [templateName, setTemplateName] = useState(initialDraft.name);
   const [sessions, setSessions] = useState<TemplateSessionState[]>(() => mapDraftToSessions(initialDraft, language));
   const [activeSessionKey, setActiveSessionKey] = useState<string | null>(null);
+  const [pendingDayDrop, setPendingDayDrop] = useState<{ nextCount: TemplateDayCount; days: number } | null>(null);
+  /**
+   * The count the dialog was opened with, kept past the closing.
+   *
+   * `pendingDayDrop` is cleared on the tap and the modal fades out after it,
+   * so reading the count straight off it repainted the body as "0 päivää" for
+   * the length of the fade.
+   */
+  const lastDayDropCount = useRef(1);
 
   const sessionCount = clampDayCount(sessions.length);
   const presets = SPLIT_PRESETS[sessionCount];
@@ -279,6 +289,7 @@ export function CreateTemplateScreen({
   // days, which then showed up on Home as a session with nothing in it.
   const emptyDayCount = sessions.filter((session) => session.exercises.length === 0).length;
   const canSave = sessions.length > 0 && emptyDayCount === 0;
+  const dayDropCount = pendingDayDrop?.days ?? lastDayDropCount.current;
   const activeSession = sessions.find((session) => session.localKey === activeSessionKey) ?? null;
   const activeSessionLibraryIds = useMemo(
     () =>
@@ -303,6 +314,29 @@ export function CreateTemplateScreen({
 
       return current.slice(0, nextCount);
     });
+  }
+
+  /**
+   * Lowering the count takes the LAST days, and takes what is in them.
+   *
+   * The chips sit side by side, so "3" is a finger-width from "4", and a tap
+   * dropped a day full of lifts with no confirmation and nothing to undo it
+   * with — the drop is recoverable only by backing out of the whole screen,
+   * which nothing says (audit 3, 2026-09-19). Asking first, and only when
+   * there is something to lose: going from three empty days to two is not a
+   * question worth asking.
+   */
+  function requestSessionCount(nextCount: TemplateDayCount) {
+    const dropped = sessions.slice(nextCount);
+    if (nextCount >= sessions.length || dropped.every((session) => session.exercises.length === 0)) {
+      setSessionCount(nextCount);
+      return;
+    }
+    // Every day the slice takes, not only the ones with lifts in them:
+    // `setSessionCount` removes the whole tail, so counting the non-empty days
+    // alone said "one day" while two disappeared.
+    lastDayDropCount.current = dropped.length;
+    setPendingDayDrop({ nextCount, days: dropped.length });
   }
 
   /**
@@ -447,7 +481,7 @@ export function CreateTemplateScreen({
             {DAY_OPTIONS.map((option) => {
               const active = option === sessions.length;
               return (
-                <Pressable key={option} onPress={() => setSessionCount(option)}>
+                <Pressable key={option} onPress={() => requestSessionCount(option)}>
                   <CutSurface
                     size="chip"
                     fill={active ? theme.purpleBright : theme.surface}
@@ -645,6 +679,28 @@ export function CreateTemplateScreen({
         onClose={() => setActiveSessionKey(null)}
         onSelectItem={() => {}}
         onConfirmSelection={appendExercisesToSession}
+      />
+
+      {/* Asked only when a day with lifts in it is about to go. The chips sit
+          side by side, so the tap that drops one is a finger-width from the
+          tap that keeps it. */}
+      <ConfirmDialog
+        language={language}
+        visible={pendingDayDrop !== null}
+        destructive
+        title={t(language, dayDropCount === 1 ? 'tpl.dropDays.titleOne' : 'tpl.dropDays.titleMany')}
+        message={t(language, dayDropCount === 1 ? 'tpl.dropDays.bodyOne' : 'tpl.dropDays.bodyMany', {
+          count: dayDropCount,
+        })}
+        confirmLabel={t(language, 'tpl.dropDays.confirm')}
+        onCancel={() => setPendingDayDrop(null)}
+        onConfirm={() => {
+          const target = pendingDayDrop;
+          setPendingDayDrop(null);
+          if (target) {
+            setSessionCount(target.nextCount);
+          }
+        }}
       />
     </View>
   );

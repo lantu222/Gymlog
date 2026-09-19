@@ -257,6 +257,12 @@ const EN = {
   'exDetail.repsUnit': 'reps',
   'exDetail.bestSession': 'best session',
   'exDetail.repsPerSession': 'Reps per session',
+  'tpl.dropDays.titleOne': 'Remove the last day?',
+  'tpl.dropDays.titleMany': 'Remove the last days?',
+  'tpl.dropDays.bodyOne': 'This drops the last day and the exercises in it. Nothing is saved until you press Save.',
+  'tpl.dropDays.bodyMany':
+    'This drops the last {count} days and the exercises in them. Nothing is saved until you press Save.',
+  'tpl.dropDays.confirm': 'Remove',
   'csv.photo.notice.title': 'The photo is sent to be read',
   'csv.photo.notice.body':
     'Reading a table from a photo is the coach’s online mode: the photo you pick is sent to our server and on from there to the model that reads it. Nothing else about you goes with it, and it is deleted after 30 days. No copy is kept unless you allow it in Settings.',
@@ -3421,6 +3427,13 @@ const FI: Record<I18nKey, string> = {
   'exDetail.repsUnit': 'toistoa',
   'exDetail.bestSession': 'paras treeni',
   'exDetail.repsPerSession': 'Toistot per treeni',
+  'tpl.dropDays.titleOne': 'Poistetaanko viimeinen päivä?',
+  'tpl.dropDays.titleMany': 'Poistetaanko viimeiset päivät?',
+  'tpl.dropDays.bodyOne':
+    'Tämä pudottaa viimeisen päivän ja sen liikkeet. Mitään ei tallenneta ennen kuin painat Tallenna.',
+  'tpl.dropDays.bodyMany':
+    'Tämä pudottaa {count} viimeistä päivää ja niiden liikkeet. Mitään ei tallenneta ennen kuin painat Tallenna.',
+  'tpl.dropDays.confirm': 'Poista',
   'csv.photo.notice.title': 'Kuva lähetetään luettavaksi',
   'csv.photo.notice.body':
     'Taulukon lukeminen kuvasta on valmentajan verkkotila: valitsemasi kuva lähetetään palvelimellemme ja sieltä mallille, joka lukee sen. Mukana ei lähde muuta sinusta, ja kuva poistetaan 30 päivän kuluttua. Kopiota ei säilytetä, ellet salli sitä asetuksissa.',
