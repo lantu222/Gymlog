@@ -115,7 +115,7 @@ import {
   repsCeilingFor,
   resolveInstanceBorrowRepWindow,
 } from '../features/workout/workoutState';
-import { resolveLastTimeEntry } from '../lib/exerciseHistoryLookup';
+import { isUsableEntry, resolveLastTimeEntry } from '../lib/exerciseHistoryLookup';
 import {
   isTimedTrackingMode,
   isUnloadedTrackingMode,
@@ -2204,7 +2204,9 @@ export function GuidedPlayerScreen({
     const instance = slotId ? exerciseBySlot.get(slotId) ?? null : null;
     // The lift by name, then whatever only the slot knows. The two stamp a
     // session with the same performedAt (finishWorkout hands one value to
-    // both writes), so a session present in both is one row, not two.
+    // both writes), so a session present in both is one row, not two. And
+    // only a session that happened: the slot holds an entry for every
+    // exercise a finished session listed, skipped ones included.
     const lift = instance ? liftHistory?.(instance.exerciseName) ?? [] : [];
     const known = new Set(lift.map((entry) => entry.performedAt));
     const past = [
@@ -2213,7 +2215,7 @@ export function GuidedPlayerScreen({
         sets: entry.sets.map((set) => ({ loadKg: set.weight, reps: set.reps })),
       })),
       ...getHistoryEntriesForExercise(workout.history, instance)
-        .filter((entry) => !known.has(entry.performedAt))
+        .filter((entry) => isUsableEntry(entry) && !known.has(entry.performedAt))
         .map((entry) => ({
           performedAt: entry.performedAt,
           sets: entry.sets.map((set) => ({ loadKg: set.loadKg, reps: set.reps })),

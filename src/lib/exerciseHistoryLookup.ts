@@ -181,8 +181,15 @@ export function entryMatchesRepWindow(
   return reps >= low - REP_WINDOW_TOLERANCE && reps <= high + REP_WINDOW_TOLERANCE;
 }
 
-/** A session that actually happened: not skipped, and with sets in it. */
-function isUsableEntry(entry: WorkoutSlotHistoryEntry | null | undefined): boolean {
+/**
+ * A session that actually happened: not skipped, and with sets in it.
+ *
+ * Exported for the sheet's History tab, which lists a slot's entries: a
+ * finished session writes one for every exercise in it, skipped ones
+ * included, and those drew as dated rows with nothing in them (CI review
+ * of #155).
+ */
+export function isUsableEntry(entry: WorkoutSlotHistoryEntry | null | undefined): boolean {
   return Boolean(entry) && !entry!.skipped && entry!.sets.length > 0;
 }
 

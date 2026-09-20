@@ -238,8 +238,8 @@ module.exports = [
       assert.doesNotMatch(playerSource, /lift && lift\.length > 0/, 'the lift replaces the slot again');
       assert.match(
         playerSource,
-        /const known = new Set\(lift\.map\(\(entry\) => entry\.performedAt\)\)[\s\S]{0,600}getHistoryEntriesForExercise\(workout\.history, instance\)\s*\.filter\(\(entry\) => !known\.has\(entry\.performedAt\)\)/,
-        'the slot rows the lift lacks must be added, on performedAt',
+        /const known = new Set\(lift\.map\(\(entry\) => entry\.performedAt\)\)[\s\S]{0,600}getHistoryEntriesForExercise\(workout\.history, instance\)\s*\.filter\(\(entry\) => isUsableEntry\(entry\) && !known\.has\(entry\.performedAt\)\)/,
+        'the slot rows the lift lacks must be added, on performedAt — and only the usable ones (CI review of #155)',
       );
       assert.match(tabSource, /<GuidedPlayerScreen[\s\S]{0,1500}liftHistory=\{liftHistory\}/);
       assert.match(appSource, /const liftHistory = useMemo/);
