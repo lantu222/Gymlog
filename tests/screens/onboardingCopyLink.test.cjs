@@ -45,6 +45,19 @@ module.exports = [
         "a page whose programme the reader has copied shows the catalog's own week",
       );
 
+      // And the page acts on the id it is really about. Adoption resumes
+      // the copy, so a page that asked every question of the catalog id
+      // kept offering to adopt a programme it had just started, said so on
+      // every tap, and its Active switch turned nothing off (CI review).
+      for (const line of [
+        'const runningTemplateId = ownCopyTemplateId ?? route.workoutTemplateId;',
+        'const programIsMine = activeProgramTemplateIds.includes(runningTemplateId);',
+        'const programLeads = homeActivePlanCard?.programId === runningTemplateId;',
+        'next ? onResumeProgram(runningTemplateId) : onStopProgram(runningTemplateId)',
+      ]) {
+        assert.ok(tab.includes(line), `the page must act on the id it is about: ${line}`);
+      }
+
       const provider = read('src', 'state', 'AppProvider.tsx');
       const lookup = provider.slice(provider.indexOf('function findWorkoutTemplateIdBySource('));
       assert.match(

@@ -387,19 +387,39 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           }, tailoringPreferences).join(' ')
         : null;
     const readyProgramTailoringBadges = buildTailoringBadgeLabels(tailoringPreferences).slice(0, 3);
+    /*
+     * Which id this page's answers are about.
+     *
+     * The reader's own version of a catalog programme is the programme — it
+     * is what adoption resumes, what Home leads with, what the Active switch
+     * switches — and it carries its own template id. Every question here was
+     * asked of the catalog id, so a page whose programme was running under a
+     * copy showed the adopt button, said "programme started" on every tap,
+     * and its switch turned nothing off (CI review of #163). The catalog
+     * template is still what the page DRAWS; this is what it acts on.
+     */
+    const heldTemplateIds = database.workoutPlans
+      .map((plan) => plan.entries[0]?.workoutTemplateId)
+      .filter((id): id is string => typeof id === 'string');
+    const ownCopyTemplateId =
+      route.programType === 'ready'
+        ? findReadyProgrammeCopyId(route.workoutTemplateId, database.workoutTemplates, [
+            ...activeProgramTemplateIds,
+            ...heldTemplateIds,
+          ])
+        : null;
+    const runningTemplateId = ownCopyTemplateId ?? route.workoutTemplateId;
     // Membership is asked of the template, not the plan id — a programme
     // joined during onboarding carries a different plan id for the same
     // programme, and it is no less the reader's own.
-    const programIsMine = activeProgramTemplateIds.includes(route.workoutTemplateId);
+    const programIsMine = activeProgramTemplateIds.includes(runningTemplateId);
     // Held: a plan exists for it, running or not — see listHeldProgrammes.
-    const programIsHeld =
-      programIsMine ||
-      database.workoutPlans.some((plan) => plan.entries[0]?.workoutTemplateId === route.workoutTemplateId);
+    const programIsHeld = programIsMine || heldTemplateIds.includes(runningTemplateId);
     const canDeleteProgram = route.programType === 'custom' || programIsHeld;
     // Held is not the same as leading. A programme you hold but do not lead
     // with has a third answer — put it on Home — and without it the only way
     // there was to remove whatever was leading.
-    const programLeads = homeActivePlanCard?.programId === route.workoutTemplateId;
+    const programLeads = homeActivePlanCard?.programId === runningTemplateId;
     const readyProgramIsMine = route.programType === 'ready' && programLeads;
     const program = readyTemplate
       ? buildReadyProgramDetail(
@@ -499,7 +519,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         // already has; a programme the reader never took up still gets the
         // adopt button instead (device, 2026-09-16).
         onSetRunning={(next) => {
-          void (next ? onResumeProgram(route.workoutTemplateId) : onStopProgram(route.workoutTemplateId));
+          void (next ? onResumeProgram(runningTemplateId) : onStopProgram(runningTemplateId));
         }}
         onPrimaryAction={() => {
           if (readyProgramIsMine) {
@@ -629,7 +649,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           route.programType === 'custom'
             ? () => void handleDeleteCustomWorkout(route.workoutTemplateId)
             : programIsHeld
-              ? () => void onForgetHeldProgram(route.workoutTemplateId)
+              ? () => void onForgetHeldProgram(runningTemplateId)
               : undefined
         }
       />
