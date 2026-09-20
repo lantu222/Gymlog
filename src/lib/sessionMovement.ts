@@ -19,16 +19,21 @@ export interface MovementLogLike {
   exerciseNameSnapshot: string;
   weight: number;
   repsPerSet: number[];
-  sets?: Array<{ weight: number; reps: number }>;
+  sets?: Array<{ weight: number; reps: number; status?: string | null }>;
 }
 
 function normalizeName(name: string): string {
   return name.trim().toLowerCase();
 }
 
-/** A log's heaviest set, from the per-set rows when it has them. */
+/**
+ * A log's heaviest DONE set, from the per-set rows when it has them. A
+ * pending or skipped row is a number typed, not a bar lifted: a 120 left
+ * unticked beside a done 100 made the next 105 read "−15 kg" (audit
+ * round 4, 2026-09-20).
+ */
 function topOf(log: MovementLogLike): number {
-  const rows = log.sets ?? [];
+  const rows = (log.sets ?? []).filter((set) => set.status !== 'pending' && set.status !== 'skipped');
   if (rows.length > 0) {
     return rows.reduce((max, set) => Math.max(max, Number.isFinite(set.weight) ? set.weight : 0), 0);
   }

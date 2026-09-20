@@ -19,11 +19,16 @@ const FI_WEEKDAYS = ['ma', 'ti', 'ke', 'to', 'pe', 'la', 'su'];
 const FI_WEEKDAYS_SHORT = ['su', 'ma', 'ti', 'ke', 'to', 'pe', 'la'];
 
 function buildCompletedSessionSignature(session: WorkoutSession) {
+  // A date that does not parse is kept as written rather than thrown on:
+  // `toISOString` on an invalid date is a RangeError, and this runs from
+  // a top-level memo on every render — one bad string in a restored
+  // backup was a red screen at every launch (audit round 4, 2026-09-20).
+  const stamp = Date.parse(session.performedAt);
   return [
     session.workoutTemplateId,
     session.workoutTemplateSessionId ?? '',
     session.workoutNameSnapshot.trim().toLowerCase(),
-    new Date(session.performedAt).toISOString(),
+    Number.isFinite(stamp) ? new Date(stamp).toISOString() : String(session.performedAt),
   ].join('|');
 }
 
@@ -417,7 +422,12 @@ export function getCurrentWeekStreak(database: AppDatabase, now = new Date()) {
   );
 
   let streak = 0;
-  let cursor = currentWeekStart;
+  // An empty current week does not break the run: it is not over yet, and
+  // a counter that reads 0 every Monday morning until the first session is
+  // a counter nobody trusts. The lifetime summary and the Progress
+  // calendar already walk from last week in that case; Home did not, so
+  // the three showed three numbers (audit round 4, 2026-09-20).
+  let cursor = activeWeeks.has(currentWeekStart) ? currentWeekStart : getCalendarWeekStartBefore(currentWeekStart);
 
   while (activeWeeks.has(cursor)) {
     streak += 1;

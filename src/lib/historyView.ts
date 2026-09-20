@@ -85,7 +85,9 @@ export function buildHistorySessionViewModel(
     workoutName: session.workoutNameSnapshot,
     performedAt: session.performedAt,
     durationMinutes,
-    exerciseCount: logs.length,
+    // The lifts done, as the completion screen counts them; a skipped one is
+    // listed as skipped beside it, not counted twice.
+    exerciseCount: logs.filter((log) => !log.skipped).length,
     skippedExercises,
     trackedExercises,
     setsCompleted: getCompletedSetCount(logs),

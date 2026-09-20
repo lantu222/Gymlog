@@ -141,7 +141,17 @@ export function getComparableLogSets(
 
   const orderedSets = getOrderedLogSets(log);
   const completedSets = orderedSets.filter((set) => set.status !== 'pending' && set.status !== 'skipped');
-  const comparableSets = completedSets.length > 0 ? completedSets : orderedSets;
+  /*
+   * Only what was done. This used to fall back to every row when none was
+   * completed, so a lift put on the board and never performed — three
+   * pending plan targets, or a freestyle row typed and never ticked —
+   * counted as work: sets and kilos on the History row, the weekly volume,
+   * the milestone ladders, and a personal record nobody lifted, which then
+   * withheld every real record below it (audit round 4, 2026-09-20). A
+   * legacy log with no statuses at all still counts every row: its rows
+   * are not pending, they are simply older than the field.
+   */
+  const comparableSets = completedSets;
   const workingSets = comparableSets.filter((set) => set.kind === 'working');
   return workingSets.length > 0 ? workingSets : comparableSets;
 }
