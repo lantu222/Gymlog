@@ -164,6 +164,16 @@ jobs:
           # are left out because each can start another program (`-O`,
           # `--pre`), and Grep does their job.
           #
+          # `git fetch` and `echo` are here because #148's review was denied
+          # both: the checkout is shallow, so without a fetch there is no base
+          # commit to diff against, and `echo` appears in almost every
+          # compound the reviewer writes — one denied part denies the whole
+          # command. `npx`, `node` and `rm` were denied in that same run and
+          # are deliberately still absent: each would hand arbitrary execution
+          # to a run holding the app token, which is the one thing the list
+          # above exists to prevent. The reviewer does not need to typecheck —
+          # the `test` job does that, and its verdict is its own check.
+          #
           # This stops a confused run, not one built to get around it: git's
           # own `-c` options can still start a program, and that program would
           # hold the app token too. PRs here come from the owner's sessions,
@@ -175,7 +185,7 @@ jobs:
           # versions; an extra name in an allowlist costs nothing, a missing
           # one costs the review.
           claude_args: >-
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Read,Grep,Glob,Task,Agent,TodoWrite,Bash(gh pr view *),Bash(gh pr diff *),Bash(gh pr comment *),Bash(gh pr list *),Bash(gh issue view *),Bash(gh issue list *),Bash(gh search *),Bash(git diff *),Bash(git log *),Bash(git show *),Bash(git blame *),Bash(git ls-files *),Bash(git status *),Bash(git rev-parse *),Bash(cat *),Bash(head *),Bash(tail *),Bash(wc *),Bash(ls *),Bash(grep *)"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Read,Grep,Glob,Task,Agent,TodoWrite,Bash(gh pr view *),Bash(gh pr diff *),Bash(gh pr comment *),Bash(gh pr list *),Bash(gh issue view *),Bash(gh issue list *),Bash(gh search *),Bash(git diff *),Bash(git fetch *),Bash(git log *),Bash(git show *),Bash(git blame *),Bash(git ls-files *),Bash(git status *),Bash(git rev-parse *),Bash(cat *),Bash(head *),Bash(tail *),Bash(wc *),Bash(ls *),Bash(grep *),Bash(echo *)"
 
       # The action can exit green without reviewing anything — it did exactly
       # that the first time this workflow ran. Its own success is therefore not
@@ -296,16 +306,27 @@ jobs:
           if [ -n "$denied" ]; then
             echo "Denied tools: $denied"
           fi
+          # Denials are blamed only when they are a large share of the run.
+          # Most healthy reviews have at least one (27 of 35 on 14–16 Sep), so
+          # "any denial" would name the allowlist as the cause of most errors.
+          #
+          # Checked BEFORE the is_error exit below, and fatal rather than
+          # advisory. A review denied most of its calls does not error — it
+          # runs out of ways to look and writes what it can, which on #148 was
+          # "No issues found" from a run denied `gh pr diff` itself: green,
+          # posted, and hollow. That is worse than red, because red is read.
+          # The denial arithmetic used to sit under an `exit 0` that a
+          # successful run always took, so it had never once run on the case
+          # it was written for (2026-09-20).
+          if [ "$denials" -gt 0 ] && [ $((denials * 2)) -ge "${turns//[!0-9]/0}" ]; then
+            echo "::error::The review was denied $denials tool calls in $turns turns, so it could not read what it was reviewing. Whatever it posted says nothing about this PR. This is a workflow problem: widen --allowedTools in .github/workflows/claude-review.yml, or narrow what the reviewer is asked to run."
+            exit 1
+          fi
           if [ "$failed" != "true" ]; then
             echo "The run ended without an error. Whether it reviewed this commit is the verdict of \"Confirm this commit's review was posted\", not of this step."
             exit 0
           fi
-          # Denials are blamed only when they are a large share of the run.
-          # Most healthy reviews have at least one (27 of 35 on 14–16 Sep), so
-          # "any denial" would name the allowlist as the cause of most errors.
-          if [ "$denials" -gt 0 ] && [ $((denials * 2)) -ge "${turns//[!0-9]/0}" ]; then
-            echo "::warning::The review was denied $denials tool calls in $turns turns, which is a workflow problem, not a finding. It may still have posted comments — read them before assuming this red check means nothing. Widen --allowedTools in .github/workflows/claude-review.yml."
-          elif [ "$turns" = "1" ]; then
+          if [ "$turns" = "1" ]; then
             echo "::warning::The review errored on its first turn with no tool denials, so the model never got going: upstream refused the request. That is a usage limit OR a provider incident, and the two look identical from here — check status.anthropic.com before concluding anything about budget. Either way this PR has NOT been reviewed; re-run the job."
           else
             echo "::warning::The review errored after $turns turns. Read the step log above for what it was doing."

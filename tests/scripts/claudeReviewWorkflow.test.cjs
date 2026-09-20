@@ -297,6 +297,34 @@ module.exports = [
     },
   },
   {
+    /*
+     * The denial check has to run on the runs it was written for.
+     *
+     * It sat below an `exit 0` that every successful run took, and a review
+     * denied most of its calls does not error — it runs out of ways to look
+     * and writes what it can. On #148 that was "No issues found" from a run
+     * denied `gh pr diff` itself: posted, green, and about nothing. So the
+     * arithmetic had never once run on the case it exists for, and the only
+     * shape that catches it is: evaluate denials first, and fail.
+     */
+    name: 'claude-review: a review denied most of its calls goes red, not green with nothing in it',
+    run() {
+      const { step } = stepNamed(parseWorkflow().steps, EXPLAIN);
+      const ratio = step.run.indexOf('denials * 2');
+      const earlyExit = step.run.indexOf('The run ended without an error');
+      assert.ok(ratio !== -1, 'the denial ratio is gone');
+      assert.ok(earlyExit !== -1, 'the is_error early exit is gone');
+      assert.ok(ratio < earlyExit, 'the denial check sits below the exit that every successful run takes');
+
+      // And it is fatal. A warning does not turn the check red, and a green
+      // check is what made the hollow review believable.
+      const branch = step.run.slice(ratio, earlyExit);
+      assert.match(branch, /::error::/);
+      assert.match(branch, /exit 1/);
+      assert.doesNotMatch(branch, /::warning::/);
+    },
+  },
+  {
     name: 'claude-review: diagnostics read denials from the array the execution file actually has',
     run() {
       const { steps } = parseWorkflow();
@@ -388,6 +416,9 @@ module.exports = [
         'Bash(gh issue list *)',
         'Bash(gh search *)',
         'Bash(git diff *)',
+        // The checkout is shallow: without a fetch there is no base commit to
+        // diff against, and #148's review was denied it.
+        'Bash(git fetch *)',
         'Bash(git log *)',
         'Bash(git show *)',
         'Bash(git blame *)',
@@ -400,15 +431,38 @@ module.exports = [
         'Bash(wc *)',
         'Bash(ls *)',
         'Bash(grep *)',
+        // Present in almost every compound the reviewer writes, and one
+        // denied part denies the whole command.
+        'Bash(echo *)',
       ]);
+      // Denied in the same run and deliberately still absent: each hands
+      // arbitrary execution to a run holding the app token.
+      for (const tool of ['Bash(npx *)', 'Bash(node *)', 'Bash(rm *)', 'Bash(gh api *)']) {
+        assert.ok(!tools.includes(tool), `${tool} lets the reviewer run whatever it likes with a token that can write`);
+      }
       for (const tool of tools.filter((entry) => entry.startsWith('Bash'))) {
         assert.ok(REVIEWED.has(tool), `${tool} is not on the reviewed list of commands the reviewer may run`);
       }
       for (const tool of ['Write', 'Edit', 'NotebookEdit', 'WebFetch', 'Skill']) {
         assert.ok(!tools.includes(tool), `${tool} lets the reviewer do more than read and comment`);
       }
-      // What a review cannot work without.
-      for (const tool of ['Read', 'Grep', 'Glob', 'Task', 'Agent', 'Bash(gh pr view *)', 'Bash(gh pr diff *)', 'Bash(gh pr comment *)']) {
+      // What a review cannot work without. `git fetch` and `echo` are here
+      // because #148's reviewer was denied both and returned "No issues
+      // found" about a diff it had never read: the checkout is shallow, so
+      // without a fetch there is no base commit to compare against, and one
+      // denied part of a compound denies the whole command.
+      for (const tool of [
+        'Read',
+        'Grep',
+        'Glob',
+        'Task',
+        'Agent',
+        'Bash(gh pr view *)',
+        'Bash(gh pr diff *)',
+        'Bash(gh pr comment *)',
+        'Bash(git fetch *)',
+        'Bash(echo *)',
+      ]) {
         assert.ok(tools.includes(tool), `${tool} is missing, and the review cannot run without it`);
       }
     },
