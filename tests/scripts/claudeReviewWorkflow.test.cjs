@@ -231,6 +231,9 @@ module.exports = [
       assert.match(step7, /Do not fetch them any other way/);
       // The one denial nearly every run had was the Skill tool.
       assert.match(command, /Do not call the Skill tool/);
+      // Refused calls are dead turns; the reviewer is told which ones.
+      assert.match(command, /The runner is read-only\./, 'the command no longer tells the reviewer it cannot run code');
+      assert.match(command, /never by running it/);
     },
   },
   {
@@ -319,7 +322,50 @@ module.exports = [
       const { steps } = parseWorkflow();
       const { step: gate, index: gateAt } = stepNamed(steps, GATE);
       assert.notEqual(gate.continueOnError, 'true', `${GATE} cannot fail the check`);
-      assert.match(gate.run, /denials \* 2/, 'the gate no longer weighs denials against turns');
+      /*
+       * And it weighs refused READS of the PR, not every denial. Counting
+       * every denial went red on the first run that had read the diff and
+       * found something: 37 denials in 15 turns, all `node`, `npm run
+       * typecheck` and `Write` from validation agents trying to run the
+       * code (2026-09-20). A red that lies is ignored as fast as a green one.
+       */
+      assert.match(gate.run, /refused \* 2/, 'the gate no longer weighs refused reads against turns');
+      assert.doesNotMatch(gate.run, /denials \* 2/, 'the gate counts every denial again, which went red on a review that had read the diff');
+      assert.ok(gate.run.includes('gh pr (diff|view)|git (diff|show|log)'), 'the gate no longer names the reads of the PR');
+      assert.ok(gate.run.includes('.tool_name == "Read"'), 'a refused Read no longer counts as a refused read');
+      // Counted, never printed: the one read of the input sits inside a
+      // select that ends in a length, and nothing else touches it.
+      assert.equal(gate.run.split('tool_input').length - 1, 1, 'the gate reads denied tool input somewhere other than the count');
+      assert.match(gate.run, /select\([\s\S]*?tool_input[\s\S]*?\| length'/, 'the input must only be counted');
+
+      // The classification, run rather than read: the FIRST part of the
+      // command decides, split the same way the denial log splits.
+      const refusedRead = (command) => {
+        const first = command.split(/\s*(?:&&|\|\||\|&|;|\||&|\n)\s*/)[0] ?? '';
+        return /^(gh pr (diff|view)|git (diff|show|log))(\s|$)/.test(first);
+      };
+      for (const [command, expected] of [
+        // The three runs this gate exists for: the diff, refused over /tmp.
+        ['gh pr diff 150 > /tmp/diff.txt', true],
+        ['gh pr diff 150 | wc -l', true],
+        ['gh pr view 150 --json files | python3 -c "1"', true],
+        ['git diff main...HEAD -- src', true],
+        ['git show abc123:src/x.ts', true],
+        ['git log --oneline -5', true],
+        // The run that must stay green: code the runner refuses to run.
+        ['node -e "1"', false],
+        ['npm run typecheck 2>&1 | tail -3', false],
+        ['npx tsc -p tsconfig.test.json', false],
+        ['python3 -c "1"', false],
+        ['rm -rf .ci-review/x', false],
+        // Refused over its first part, not over the read behind it.
+        ['mkdir -p .ci-review && gh pr diff 150 > .ci-review/diff.txt', false],
+        ['cat src/x.ts', false],
+        ['git diffx', false],
+        ['gh api repos/o/r/pulls/1', false],
+      ]) {
+        assert.equal(refusedRead(command), expected, `the gate would count ${command} wrongly`);
+      }
       assert.match(gate.run, /::error::/);
       assert.match(gate.run, /exit 1/);
       assert.match(gate.if ?? '', /always\(\)/, 'the gate must run even when the review errored');
@@ -329,6 +375,8 @@ module.exports = [
       const { step: explain, index: explainAt } = stepNamed(steps, EXPLAIN);
       assert.equal(explain.continueOnError, 'true', 'diagnostics must not decide the check');
       assert.doesNotMatch(explain.run, /::error::/, 'diagnostics raise warnings, not errors');
+      assert.doesNotMatch(explain.run, /Widen --allowedTools/, 'diagnostics prescribe a wider allowlist for denials the allowlist is right to make');
+      assert.match(explain.run, /and still read the PR/, 'a healthy run with a long denial list gets no pointer to ci-review.md');
       assert.ok(gateAt < explainAt, 'the denial list is printed below the verdict that cites it');
     },
   },

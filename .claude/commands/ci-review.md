@@ -16,6 +16,7 @@ These instructions are the whole review. Do not call the Skill tool to load anot
 - All tools are functional and will work without error. Do not test tools or make exploratory calls. Make sure this is clear to every subagent that is launched.
 - Only call a tool if it is required to complete the task. Every tool call should have a clear purpose.
 - **Scratch files go in `.ci-review/`, a relative path, and nowhere else.** It already exists; there is one writable directory on the runner and that is it — `/tmp` and the rest of the filesystem are refused, and so is a command that merely *points* at them, because an output redirect is checked against where it writes. A large diff saved to `/tmp` cost three runs most of their turns being denied; `gh pr diff <n> > .ci-review/diff.txt` is the same command that works.
+- **The runner is read-only.** `node`, `npm`, `npx`, `python3`, `rm`, `mkdir`, `Write` and any redirect outside `.ci-review/` are refused, and a refused call is a dead turn. The typecheck and the test suite are the CI job's to run, not yours. Validate a finding by reading the code it is about — the callers, the callee, the tests that exist — never by running it. A run that was denied 37 calls in 15 turns had spent them all on `node`, `npm run typecheck` and `Write` (2026-09-20).
 
 To do this, follow these steps precisely:
 

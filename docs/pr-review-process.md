@@ -292,6 +292,19 @@ What changed:
    run" below. It also blames the allowlist for an
    error only when at least half the turns were denied, because otherwise a
    healthy run's one denial would be named as the cause of every failure.
+5. **"Confirm the review could read the PR"** fails the job when the reviewer
+   was refused the PR itself — `gh pr diff`, `gh pr view`, `git diff`, `git
+   show`, `git log` or `Read` — in at least half its turns. Three runs on #150
+   (2026-09-20) were refused `gh pr diff` seven to ten times each and posted
+   "No issues found" anyway: the model was writing the diff to `/tmp`, and a
+   redirect is checked against where it writes. #149 made the verdict fatal
+   inside the diagnostics step, which is `continue-on-error`, so nothing
+   changed; #151 gave it its own step; #152 gave the reviewer `.ci-review/`
+   to write in, and the refusals of the diff stopped. The first run after that
+   still went red, on 37 denials in 15 turns that were all `node`, `npm run
+   typecheck` and `Write` from validation agents trying to run the code — so
+   the gate now counts refused reads only. The runner is read-only by
+   design, and the command says so.
 
 A turn-count threshold was considered and dropped. A skip took 2 to 19 turns and
 completed reviews on 14–16 September took 10 to 43, so the ranges overlap, and
@@ -359,11 +372,18 @@ which the model reached for instead of just following the command. The
 earlier runs' single denials were counted but not named, and were most likely
 the same. The command now says not to use Skill.
 
-When a run's last step prints `Denied tools: Bash(<program>) xN`, the review
-wanted a command the list does not have. Add it only if it cannot write, and
-add it to the reviewed list in `tests/scripts/claudeReviewWorkflow.test.cjs`
-in the same change. A PR that changes the list edits the workflow, so its own
-check is red; the list is first exercised on the PR after it.
+When a run's last step prints `Denied tools: Bash(<program>) xN`, read which
+programs. A refused *read* of the PR — `gh pr diff`, `gh pr view`, `git
+diff`/`show`/`log` — is the allowlist's problem, and "Confirm the review could
+read the PR" goes red over it: add the command only if it cannot write, and add
+it to the reviewed list in `tests/scripts/claudeReviewWorkflow.test.cjs` in
+the same change. A refused *run* — `node`, `npm`, `npx`, `python3`, `Write`, a
+redirect outside `.ci-review/` — is the reviewer trying to execute code on a
+runner that refuses that by design; the fix is a sentence in
+`.claude/commands/ci-review.md`, never a wider list. A `[redirect]`,
+`[subshell]`, `[backtick]` or `[env-prefix]` marker after the name says what
+shape the refused command had. A PR that changes the list edits the workflow,
+so its own check is red; the list is first exercised on the PR after it.
 
 ## When the review does not run
 
@@ -371,6 +391,9 @@ check is red; the list is first exercised on the PR after it.
   done, and nothing on the PR has been reviewed.
 - **Check red, "exited without reviewing this PR"** — usually the workflow-file
   case above. Otherwise read the action's step in the run log for the reason.
+- **Check red, "refused the PR itself N times in T turns"** — the reviewer
+  could not read the diff, so whatever it posted says nothing about this PR.
+  The last step lists what was refused; see "What the reviewer may run" above.
 - **Check red, "Nothing was posted for `<sha>`"** — the model ran and left no
   trace on the PR. This commit has not been reviewed. The last step of the log
   shows turns, cost and denied tools. Re-run the job. If the denied tools
