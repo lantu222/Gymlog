@@ -46,6 +46,7 @@ import {
   matchesMuscleFilter,
   FreestyleDraftSnapshot,
   FreestyleExerciseSnapshot,
+  resolveFreestyleDraftStart,
 } from '../lib/emptyWorkoutSession';
 import { getExerciseTemplateDefaults, getPopularExerciseLibraryItems, getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { bodyPartLabel, I18nKey, t } from '../lib/i18n';
@@ -514,7 +515,9 @@ export function EmptyWorkoutScreen({
    * rest that ended while the app was gone does not come back.
    */
   const [exercises, setExercises] = useState<FreestyleExerciseState[]>(() => freestyleDraft?.exercises ?? []);
-  const [startedAtMs, setStartedAtMs] = useState<number | null>(() => freestyleDraft?.startedAtMs ?? null);
+  const [startedAtMs, setStartedAtMs] = useState<number | null>(() =>
+    resolveFreestyleDraftStart(freestyleDraft, Date.now()),
+  );
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [rest, setRest] = useState<{ totalSeconds: number; endsAtMs: number; startedAtMs: number } | null>(() =>
     freestyleDraft?.rest && freestyleDraft.rest.endsAtMs > Date.now() ? freestyleDraft.rest : null,
@@ -568,8 +571,8 @@ export function EmptyWorkoutScreen({
   const doneSetCount = unsavedWork.doneSets;
   const hasUnsavedWork = unsavedWork.doneSets > 0 || unsavedWork.enteredSets > 0;
   const [confirmingLeave, setConfirmingLeave] = useState(false);
-  const leaveGuardRef = useRef({ isSaving, onBack });
-  leaveGuardRef.current = { isSaving, onBack };
+  const leaveGuardRef = useRef({ isSaving, onBack, hasUnsavedWork, onClearDraft });
+  leaveGuardRef.current = { isSaving, onBack, hasUnsavedWork, onClearDraft };
   const requestLeave = () => {
     // While Finish is saving the sets are on their way to disk and the summary
     // follows; leaving now would race it. Hardware back does the same.
@@ -586,22 +589,35 @@ export function EmptyWorkoutScreen({
     onBack();
   };
 
-  // Registered only once there is something to lose, which puts it after the
-  // app's route-level listener; BackHandler asks the newest first.
+  /*
+   * Hardware back leaves the way the chevron leaves.
+   *
+   * This was registered only once there was something to lose, so a board
+   * with lifts added and nothing typed yet had no listener at all: back fell
+   * through to the app's route handling, which knows nothing about the draft,
+   * and the untouched board came back on the next visit — while the chevron
+   * in that exact state discarded it (CI review of #162). One listener for
+   * both gestures, and `requestLeave` is the one rule they share.
+   */
   useEffect(() => {
-    if (!hasUnsavedWork) {
-      return undefined;
-    }
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      const guard = leaveGuardRef.current;
       // While Finish is saving, back does nothing: the sets are on their way
       // to disk, and the summary follows.
-      if (!leaveGuardRef.current.isSaving) {
-        setConfirmingLeave(true);
+      if (guard.isSaving) {
+        return true;
       }
+      if (guard.hasUnsavedWork) {
+        setConfirmingLeave(true);
+        return true;
+      }
+      // Leaving on purpose is a discard, from either gesture.
+      guard.onClearDraft?.();
+      guard.onBack();
       return true;
     });
     return () => subscription.remove();
-  }, [hasUnsavedWork]);
+  }, []);
 
   useKeepScreenAwake(keepScreenAwake, 'empty-workout');
 

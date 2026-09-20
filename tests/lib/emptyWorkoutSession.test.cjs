@@ -411,5 +411,44 @@ module.exports = [
       assert.deepEqual(stored.rest, { totalSeconds: 90, endsAtMs: 1_090_000, startedAtMs: 1_000_000 });
       assert.equal(normalizeFreestyleDraftSnapshot({ exercises: stored.exercises, rest: { endsAtMs: 'soon' } }).rest, null, 'a rest without numbers is no rest');
     },
+  },
+  {
+    /*
+     * CI review of #162: savedAtMs was written on every save and read
+     * nowhere, so a draft found days later resumed with its original clock —
+     * a header counting in days, and a saved session claiming them.
+     */
+    name: 'a resumed freestyle session keeps its clock while the draft is fresh, and starts a new one when it is not',
+    run() {
+      const {
+        resolveFreestyleDraftStart,
+        FREESTYLE_DRAFT_CLOCK_MAX_AGE_MS,
+      } = require('../../.test-dist/lib/emptyWorkoutSession.js');
+      const now = 1_700_000_000_000;
+      const startedAtMs = now - 45 * 60 * 1000;
+
+      assert.equal(resolveFreestyleDraftStart(null, now), null);
+      assert.equal(resolveFreestyleDraftStart({ startedAtMs: null, savedAtMs: now }, now), null, 'a draft with no clock has none');
+      assert.equal(
+        resolveFreestyleDraftStart({ startedAtMs, savedAtMs: now - 2 * 60 * 1000 }, now),
+        startedAtMs,
+        'two minutes after the process died, the session is the same session',
+      );
+      assert.equal(
+        resolveFreestyleDraftStart({ startedAtMs, savedAtMs: now - FREESTYLE_DRAFT_CLOCK_MAX_AGE_MS }, now),
+        startedAtMs,
+        'the boundary belongs to the session, not past it',
+      );
+      assert.equal(
+        resolveFreestyleDraftStart({ startedAtMs, savedAtMs: now - 3 * 24 * 60 * 60 * 1000 }, now),
+        now,
+        'a board found three days later is the same lifts and a new session',
+      );
+      assert.equal(
+        resolveFreestyleDraftStart({ startedAtMs, savedAtMs: now + 60 * 60 * 1000 }, now),
+        now,
+        'a draft saved in the future says nothing about how long ago that was',
+      );
+    },
   }
 ];

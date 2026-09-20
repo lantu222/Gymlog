@@ -128,6 +128,44 @@ export interface FreestyleDraftSnapshot {
   savedAtMs: number;
 }
 
+/**
+ * How long a stored draft's clock stays the session's clock.
+ *
+ * Long enough to cover the thing the draft exists for — a process killed
+ * mid-session, a phone left face down through a long rest, a night's sleep
+ * with the app in the background — and short enough that a board found days
+ * later is not still counting.
+ */
+export const FREESTYLE_DRAFT_CLOCK_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+/**
+ * When a resumed freestyle session started.
+ *
+ * The draft's own start, while the draft is fresh: that is the session the
+ * reader is coming back to, and its clock has been running the whole time.
+ *
+ * A draft older than that is the same lifts and a NEW session. `savedAtMs`
+ * was written on every save and read nowhere, so a board left on Friday and
+ * reopened on Monday resumed with a header reading 72:14:03 and saved a
+ * session claiming 4 334 minutes, starting three days before the first set
+ * of it was logged (CI review of #162). The rows are the reader's work and
+ * they stay; the clock starts now.
+ *
+ * A `savedAtMs` in the future — the device clock moved back — is not fresh
+ * either, for the same reason: nothing can be said about how long ago that
+ * was.
+ */
+export function resolveFreestyleDraftStart(
+  draft: { startedAtMs: number | null; savedAtMs: number } | null | undefined,
+  now: number,
+): number | null {
+  if (!draft || draft.startedAtMs === null) {
+    return null;
+  }
+  const age = now - draft.savedAtMs;
+  return age >= 0 && age <= FREESTYLE_DRAFT_CLOCK_MAX_AGE_MS ? draft.startedAtMs : now;
+}
+
 const finiteOr = (value: unknown, fallback: number) =>
   typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 

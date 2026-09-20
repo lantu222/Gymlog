@@ -36,6 +36,12 @@ module.exports = [
       const screen = read('src', 'screens', 'EmptyWorkoutScreen.tsx');
       assert.match(screen, /useState<FreestyleExerciseState\[\]>\(\(\) => freestyleDraft\?\.exercises \?\? \[\]\)/, 'the lifts must start from the draft');
       assert.match(screen, /freestyleDraft\?\.rest && freestyleDraft\.rest\.endsAtMs > Date\.now\(\) \? freestyleDraft\.rest : null/, 'a rest that ended while the app was gone must not come back');
+      // CI review of #162: the clock came back however old the draft was.
+      assert.match(screen, /useState<number \| null>\(\(\) =>\s*resolveFreestyleDraftStart\(freestyleDraft, Date\.now\(\)\),/, 'the session clock must go through the staleness rule');
+      // CI review of #162: hardware back registered no listener when there
+      // was nothing to lose, so it left without discarding what the chevron
+      // discarded in the same state.
+      assert.match(screen, /BackHandler\.addEventListener\('hardwareBackPress', \(\) => \{[\s\S]{0,700}guard\.onClearDraft\?\.\(\);\s*guard\.onBack\(\);\s*return true;[\s\S]{0,60}\}, \[\]\);/, 'one hardware-back listener, registered always, leaving the way the chevron leaves');
       assert.match(screen, /const timer = setTimeout\(\(\) => \{\s*sink\.onSaveDraft\?\.\(\{ exercises, startedAtMs, rest, savedAtMs: Date\.now\(\) \}\);\s*\}, 400\);/, 'the draft must be written back, debounced');
       assert.match(screen, /await onSave\(draft, summary\);\s*\/\/[^\n]*\n\s*draftSinkRef\.current\.onClearDraft\?\.\(\);/, 'finishing must clear the draft, after the save');
       assert.match(screen, /setConfirmingLeave\(false\);\s*draftSinkRef\.current\.onClearDraft\?\.\(\);\s*leaveGuardRef\.current\.onBack\(\);/, 'a confirmed leave must discard the draft');
