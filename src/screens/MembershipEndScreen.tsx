@@ -338,7 +338,11 @@ function CancelSurvey({
 
   return (
     <View style={styles.screen}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.surveyBody}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.surveyBody}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={styles.surveyTitle}>{t(language, 'subs.survey.title')}</Text>
         <Text style={styles.surveySub}>{t(language, 'subs.survey.sub')}</Text>
 

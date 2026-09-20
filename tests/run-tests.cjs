@@ -277,6 +277,7 @@ const suites = [
   ...require('./lib/historyDelete.test.cjs'),
   ...require('./screens/guidedPlayerSwap.test.cjs'),
   ...require('./screens/exerciseSheet.test.cjs'),
+  ...require('./screens/keyboardPersistTaps.test.cjs'),
   ...require('./screens/resumeIntent.test.cjs'),
   ...require('./screens/teachingSections.test.cjs'),
   ...require('./screens/completionHero.test.cjs'),

@@ -379,7 +379,11 @@ export function StrengthGoalFlowScreen({
                 })
           }
         />
-        <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
+        <ScrollView
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.numberCard}>
             {bestKg === null ? (
               <>

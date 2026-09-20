@@ -506,6 +506,7 @@ export function HistoryScreen({
     <View style={styles.screen}>
       <ScrollView
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.listContent, { paddingBottom: layout.bottomTabBarReserve }]}
       >
         <Text style={styles.pageTitle}>{t(language, 'history.title')}</Text>

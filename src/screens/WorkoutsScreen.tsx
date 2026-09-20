@@ -420,7 +420,11 @@ export function WorkoutsScreen({
         title={t(language, 'tabs.programs')}
         subtitle={t(language, 'ready.subtitle', { count: readyDiscoveryItems.length })}
       />
-      <ScrollView contentContainerStyle={styles.readyTemplateContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.readyTemplateContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.readyTemplateSearchCard}>
           <MagnifyingGlass size={18} color="#98A2B3" weight="bold" />
           <TextInput
@@ -447,6 +451,7 @@ export function WorkoutsScreen({
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.readyTemplateFilterRow}
             snapToInterval={116}
             decelerationRate="fast"
@@ -552,6 +557,7 @@ export function WorkoutsScreen({
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
                   contentContainerStyle={styles.readyTemplateCarousel}
                   decelerationRate="fast"
                   snapToInterval={232}
