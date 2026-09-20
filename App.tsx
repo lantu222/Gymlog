@@ -1834,6 +1834,40 @@ function VinhaApp() {
     }
 
     const planId = buildReadyProgramPlanId(workoutTemplateId);
+    // Held but switched off: resumed, not rebuilt. Falling through here
+    // built a fresh plan over the same id, and its updatedAt is the block
+    // boundary — a programme at week 5, 12 of 24, came back from the goal
+    // flow or the completion card as week 1, 0 of 24, with its week dealt
+    // again while the rotation carried on (audit round 4, 2026-09-20).
+    // The Active switch already keeps the plan; this is the same path.
+    if (database.workoutPlans.some((item) => item.id === planId)) {
+      const resumed = resumeProgramme({
+        activePlanId: preferences.activePlanId,
+        activePlanIds: preferences.activePlanIds,
+        plans: database.workoutPlans,
+        templateId: workoutTemplateId,
+      });
+      if (resumed) {
+        const held = evaluateProgramAdoption({
+          activePlanIds: preferences.activePlanIds,
+          targetPlanId: resumed.planId,
+          proUnlocked: resolveProEntitlement(preferences).unlocked,
+        });
+        if (held.kind === 'blocked') {
+          if (held.canUpgrade) {
+            setRunningCapSheet({ visible: true, used: held.used, cap: held.cap });
+            return false;
+          }
+          showToast(t(preferences.appLanguage, 'programs.cap.full', { cap: held.cap }));
+          return false;
+        }
+        await updatePreferences({
+          activePlanIds: resumed.activePlanIds,
+          activePlanId: options?.lead ? resumed.planId : resumed.activePlanId,
+        });
+        return true;
+      }
+    }
     const decision = evaluateProgramAdoption({
       activePlanIds: preferences.activePlanIds,
       targetPlanId: planId,
@@ -1960,7 +1994,11 @@ function VinhaApp() {
     // chips. Writing only the first left a reader who moved leg day here still
     // being reminded on the day they moved it off.
     const days = weekdaysFromPlanLabels(entries);
-    if (days.length > 0) {
+    // Only for a programme that is running: moving a day on a programme
+    // the reader holds but has switched off changed Profile's chips and the
+    // reminders while Home and the calendar kept the lead programme's days
+    // (audit round 4, 2026-09-20).
+    if (days.length > 0 && activeProgramTemplateIds.includes(workoutTemplateId)) {
       await updatePreferences({
         setupAvailableDays: days,
         // Naming the days by hand IS self-managed; leaving the mode alone would
@@ -2964,6 +3002,15 @@ function VinhaApp() {
             }
           : {},
       );
+      if (wasRunning) {
+        // The record the copy replaced goes with it. Left behind, it listed
+        // the programme twice — the copy running, the catalog version
+        // "switched off" — and that row's Active switch re-adopted the
+        // untouched original beside the copy, two slots for one programme
+        // (audit round 4, 2026-09-20). The block boundary was read off it
+        // above, before this.
+        await forgetHeldProgramme(template.id);
+      }
       void haptics.success();
       if (edit.kind === 'replace') {
         setSessionSwaps((current) => {
