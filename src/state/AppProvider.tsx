@@ -15,6 +15,7 @@ import {
 } from '../lib/programSlots';
 import { rememberName } from '../lib/exerciseNameBook';
 import { normalizeSupersetGroups } from '../lib/supersetGrouping';
+import { findReadyProgrammeCopyId } from '../lib/programmeCopyLink';
 import { plansChanged, renamePlansForTemplate } from '../lib/programRename';
 import { createSerialTaskQueue, RunExclusive } from '../lib/serialTaskQueue';
 import { buildWorkoutTemplateSessions } from '../lib/workoutTemplateSessions';
@@ -818,10 +819,12 @@ export function AppProvider({ children }: React.PropsWithChildren) {
    * the emulator 2026-08-27, two "HOME Starter" rows from a single adjustment).
    */
   function findWorkoutTemplateIdBySource(sourceTemplateId: string): Promise<string | null> {
+    // The link is the answer where there is one. Where there is not — a
+    // copy onboarding made before it wrote the link — the composed week's
+    // own day ids say the same thing, so those installs are not left with
+    // a programme nothing can find. See lib/programmeCopyLink.
     return runExclusive(async () =>
-      databaseRef.current.workoutTemplates.find(
-        (template) => template.sourceTemplateId === sourceTemplateId,
-      )?.id ?? null,
+      findReadyProgrammeCopyId(sourceTemplateId, databaseRef.current.workoutTemplates),
     );
   }
 

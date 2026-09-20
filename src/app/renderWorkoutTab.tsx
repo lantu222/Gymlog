@@ -13,6 +13,7 @@ import { ProgramLimitReachedError, ProgramSlots, programSlotsLineKey } from '../
 import { createUnlessAtLimit } from './programLimitGuard';
 import { AFFINITY_REASON_KEYS, resolveProgramAffinity } from '../lib/programAffinity';
 import { composeProgramWeekForSelection } from '../lib/programDayComposer';
+import { findReadyProgrammeCopyId } from '../lib/programmeCopyLink';
 import { buildCustomProgramDetail, buildReadyProgramDetail, composedWeekMatchesPlan } from '../lib/programDetails';
 import { resolveProgramEquipment } from '../lib/programEquipment';
 import { buildProgramFingerprint } from '../lib/programFingerprint';
@@ -345,6 +346,20 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
    */
   const resolveComposedWeekForRoute = (workoutTemplateId: string) => {
     if (preferences.recommendedProgramId !== workoutTemplateId || !setupSelection) {
+      return null;
+    }
+    /*
+     * And only while the composed week is the only version of it.
+     *
+     * Onboarding saves what it composed as a programme of the reader's own,
+     * and that copy is what they train. This page is the catalog
+     * programme's page: its day editor and its adopt button work on the
+     * original. Showing the copy's week here made a page whose days and
+     * whose buttons disagreed — the reader tapped a day they had been
+     * shown on Home and edited something else (audit round 4, 2026-09-20).
+     * The copy has a page of its own, which is where its week belongs.
+     */
+    if (findReadyProgrammeCopyId(workoutTemplateId, database.workoutTemplates)) {
       return null;
     }
     const composed = composeProgramWeekForSelection(setupSelection, workoutTemplateId);

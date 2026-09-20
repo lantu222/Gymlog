@@ -133,7 +133,11 @@ module.exports = [
       // measured from the active programme, and the ranker's first reason is
       // "same goal, one level up".
       assert.match(app, /backfillRecommendations\(\{/);
-      assert.match(app, /adoptedIds: activeProgramTemplateIds/);
+      // Under the running set expanded with the catalog programmes those
+      // running programmes are copies of: the row dropped what was adopted by
+      // template id, and a copy carries a new one, so the questionnaire's own
+      // pick kept being recommended to the reader training it (audit round 4).
+      assert.match(app, /adoptedIds: expandRunningIdsWithSources\(\s*activeProgramTemplateIds,/);
       // Six cards (user asked for a fuller row, 2026-08-25) — but only ever
       // filled with reasoned matches, so the constant is the CAP, not a
       // padding target: with no anchor the row still shrinks to the picks.

@@ -75,9 +75,10 @@ module.exports = [
         'a free reader at the running limit is still sent straight to the paywall',
       );
       const blocks = app.match(/if \(decision\.canUpgrade\) \{\s*setRunningCapSheet\(\{ visible: true, used: decision\.used, cap: decision\.cap \}\)/g) ?? [];
-      // Both adoption paths, and switching a held programme back on — which
-      // runs under the same cap (device, 2026-09-16).
-      assert.equal(blocks.length, 3, 'every path that starts a programme running shows the sheet');
+      // Both adoption paths, switching a held programme back on — which runs
+      // under the same cap (device, 2026-09-16) — and resuming a held one from
+      // an adoption, which is the same cap again (audit round 4, 2026-09-20).
+      assert.equal(blocks.length, 4, 'every path that starts a programme running shows the sheet');
       assert.match(body(app, 'async function handleResumeProgram'), /evaluateProgramAdoption\(/);
       assert.match(app, /kind="running"[\s\S]{0,400}navigate\(\{ tab: 'profile', screen: 'premium', reason: 'program_cap' \}\)/);
 

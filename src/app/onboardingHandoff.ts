@@ -236,6 +236,20 @@ export function buildSavedOnboardingPlan(
   }));
   const draft: WorkoutTemplateDraft = {
     name: buildFirstRunCustomProgramName(selection, language),
+    /*
+     * Which catalog programme this is the reader's version of.
+     *
+     * Editing a lift in a ready programme has recorded this since the
+     * copies started piling up (#bugs 2026-08-26); onboarding, which makes
+     * the same kind of copy for most readers, recorded nothing. So the
+     * programme being trained and the catalog page it came from were two
+     * unrelated things: the page went on showing the composed week while
+     * its day editor could not find the copy and built a second one, and
+     * "Take this programme" adopted the untouched original beside it
+     * (audit round 4, 2026-09-20). One line, and every reader of the link
+     * — the editor, the catalog page, the lineage counters — agrees.
+     */
+    sourceTemplateId: recommendedProgramId,
     sessions: sessions.map((session) => ({
       id: session.id,
       name: session.name,

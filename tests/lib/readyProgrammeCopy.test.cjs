@@ -106,7 +106,10 @@ module.exports = [
       const provider = read('src/state/AppProvider.tsx');
       const start = provider.indexOf('function findWorkoutTemplateIdBySource(');
       assert.ok(start > -1, 'the provider should own the lookup');
-      const body = provider.slice(start, start + 400);
+      // To the end of the function, not a fixed number of characters:
+      // 400 was enough until the lookup grew a comment, and then the guard
+      // failed on a function that still did exactly what it asks for.
+      const body = provider.slice(start, provider.indexOf('\n  }', start));
       assert.ok(body.includes('runExclusive('), 'the lookup must run inside the queue');
       assert.ok(body.includes('databaseRef.current'), 'the lookup must read stored data');
     },
