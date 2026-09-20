@@ -57,78 +57,166 @@ module.exports = [
     },
   },
   {
-    name: 'dead screens: no route is declared that nothing navigates to',
+    /*
+     * The rule the deletion came from, kept as a rule — and kept honestly.
+     *
+     * The first version of this guard asked "does the string `screen: 'x'`
+     * appear anywhere?", which is not the same question at all. Run that
+     * version against the tree before this commit and it reports nothing
+     * wrong with `ai` or `editor`: `App.tsx` *did* contain
+     * `navigate({ tab: 'home', screen: 'ai', prompt })` — inside
+     * `handleOpenAICoach`, a function wired to nothing but the dead screen
+     * itself. The guard would have passed the very bug it is named after
+     * (CI review of #150).
+     *
+     * So it walks the graph instead. A route is reachable when something
+     * that can actually run builds it:
+     *
+     *   seeds        the four tab roots plus the plans route, which the
+     *                bottom bar reaches from anywhere
+     *   renders      `route.screen === 'x'` next to a JSX tag says which
+     *                component that route puts on screen
+     *   builds       a `{ tab, screen }` construction, and the top-level
+     *                function it sits inside
+     *   attached     a handler named as a JSX prop belongs to that component
+     *
+     * Then: a route is reachable if one of its constructions sits in a
+     * handler attached to a component that some already-reachable route
+     * renders. Repeat until nothing new is added.
+     *
+     * Defaults to reachable. A construction with no enclosing handler, or a
+     * handler nothing attaches to a component, counts — so the check only
+     * ever accuses a route it can SEE is built solely by handlers living on
+     * screens that are themselves out of reach. That is the shape of this
+     * PR's bug, and it is the shape it is worth failing over.
+     *
+     * Checked against b7932fc, the commit before this one: it names
+     * `home/ai`, `workout/editor` and `workout/celebration` there, and only
+     * `workout/season` here.
+     */
+    name: 'dead screens: every route is reachable from something a reader can press',
     run() {
-      /*
-       * The rule the deletion came from, kept as a rule.
-       *
-       * Every `screen:` in the route union must have somewhere that builds it,
-       * or it is a door with no key — which is exactly how 2 000 lines sat in
-       * the bundle being compiled, translated and reviewed for weeks.
-       *
-       * Read from the union rather than a list, so a route added tomorrow is
-       * covered without anyone remembering to add it here.
-       */
-      const routes = read('src', 'navigation', 'routes.ts');
-      // A declaration ends in a semicolon, a construction does not — which is
-      // also what lets routes.ts itself count as a builder for the route
-      // constants it exports (WORKOUT_PLAN_ROUTE and friends).
-      const declared = new Set([...routes.matchAll(/^\s+screen: '([^']+)';/gm)].map((m) => m[1]));
-      assert.ok(declared.size > 20, `only ${declared.size} routes parsed — the union's shape changed`);
-
-      /*
-       * One route is declared, rendered, and built by nothing — and it is not
-       * a defect.
-       *
-       * `season` is PARKED ON PURPOSE (decision 2026-08-31, written down in
-       * ProgramsHomeScreen where the section used to be): the screen and every
-       * library under it were left working so that putting the section back is
-       * one commit. An entry point that is absent by decision is not a bug,
-       * and deleting the screen would throw away what the decision kept.
-       *
-       * This guard's first run flagged `celebration` beside it, and that one
-       * WAS dead: 83b718b rebuilt the post-finish flow onto `screen: 'summary'`
-       * and WorkoutCompletionScreen, deleting the `replaceRoute` that opened
-       * the old one. It is removed in this commit rather than listed here —
-       * the difference between the two is a decision to come back, and only
-       * `season` has one.
-       *
-       * Removing this name must mean the route got its entry point back, or
-       * the screen went.
-       */
-      const UNWIRED = new Set(['season']);
-
-      // Every source file except the union's own, so a route built in a tab
-      // module nobody thought to list here still counts. Narrowing this to
-      // three files named fourteen live routes as dead on the first run.
       const walk = (dir) => {
         const out = [];
         for (const entry of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
           const next = `${dir}/${entry.name}`;
           if (entry.isDirectory()) out.push(...walk(next));
-          else if (/\.tsx?$/.test(entry.name) && next !== 'src/navigation/routes.ts') out.push(next);
+          else if (/\.tsx?$/.test(entry.name)) out.push(next);
         }
         return out;
       };
-      const everything = ['App.tsx', ...walk('src')]
-        .map((file) => read(...file.split('/')))
-        .join('\n');
+      const ROUTES = 'src/navigation/routes.ts';
+      const routesSrc = read(...ROUTES.split('/'));
+      const sources = ['App.tsx', ...walk('src')]
+        .filter((f) => f !== ROUTES)
+        .map((f) => read(...f.split('/')));
 
-      // A route is built somewhere if its name appears as a `screen: 'x'`
-      // value outside the type union itself.
-      const built = new Set([...everything.matchAll(/screen: '([^']+)'(?!;)/g)].map((m) => m[1]));
-      for (const m of routes.matchAll(/screen: '([^']+)'(?!;)/g)) built.add(m[1]);
+      // Declared, as tab+screen. Keyed on the pair because a screen name is
+      // not unique: 'list' is declared under workout, progress and profile,
+      // and 'detail' under two — on the bare name, one going unreachable
+      // would hide behind the other (CI review of #150). Split into union
+      // members first: several carry a doc comment between the brace and
+      // `tab:`, which a `{\s*tab:` regex skips silently — `season` among them.
+      const declared = new Set();
+      for (const member of routesSrc.split(/\n  \| \{/).slice(1)) {
+        const body = member.slice(0, member.indexOf('\n    }'));
+        const tab = body.match(/tab: '([^']+)';/);
+        const screen = body.match(/screen: '([^']+)';/);
+        if (tab && screen) declared.add(`${tab[1]}/${screen[1]}`);
+      }
+      assert.ok(declared.size > 30, `only ${declared.size} routes parsed — the union's shape changed`);
 
-      const unreachable = [...declared].filter((name) => !built.has(name) && !UNWIRED.has(name));
-      assert.deepEqual(
-        unreachable,
-        [],
-        `these routes are declared but nothing builds them: ${unreachable.join(', ')}`,
+      const rendersOf = new Map();
+      for (const src of sources) {
+        for (const m of src.matchAll(/route\.screen === '([^']+)'/g)) {
+          const tag = src.slice(m.index, m.index + 900).match(/<([A-Z]\w+)/);
+          if (!tag) continue;
+          if (!rendersOf.has(m[1])) rendersOf.set(m[1], new Set());
+          rendersOf.get(m[1]).add(tag[1]);
+        }
+      }
+
+      const builds = new Map();
+      for (const src of sources) {
+        const lines = src.split('\n');
+        let holder = null;
+        lines.forEach((line, i) => {
+          const fn =
+            line.match(/^\s{0,4}(?:export\s+)?(?:async\s+)?function (\w+)/) ||
+            line.match(/^\s{0,4}const (\w+) = (?:useCallback\(|async |\()/);
+          if (fn) holder = fn[1];
+          const screen = line.match(/screen: '([^']+)'(?!;)/);
+          if (!screen) return;
+          const tab = lines.slice(Math.max(0, i - 6), i + 2).join('\n').match(/tab: '([^']+)'/);
+          if (!tab) return;
+          const key = `${tab[1]}/${screen[1]}`;
+          if (!builds.has(key)) builds.set(key, []);
+          builds.get(key).push(holder);
+        });
+      }
+
+      const attachedTo = new Map();
+      for (const src of sources) {
+        for (const m of src.matchAll(/\w+=\{(\w+)\}/g)) {
+          const tags = [...src.slice(Math.max(0, m.index - 2500), m.index).matchAll(/<([A-Z]\w+)/g)];
+          if (!tags.length) continue;
+          if (!attachedTo.has(m[1])) attachedTo.set(m[1], new Set());
+          attachedTo.get(m[1]).add(tags[tags.length - 1][1]);
+        }
+      }
+
+      const reachable = new Set(
+        [...routesSrc.matchAll(/tab: '([^']+)', screen: '([^']+)'/g)].map((m) => `${m[1]}/${m[2]}`),
       );
-      // And the two held apart are still exactly that: if one gets wired up,
-      // this fails so the list stops claiming something untrue.
-      const stillUnwired = [...UNWIRED].filter((name) => !built.has(name));
-      assert.deepEqual([...UNWIRED], stillUnwired, 'a route in UNWIRED has an entry point now — take it off the list');
+      assert.ok(reachable.size >= 4, 'the tab roots are gone from routes.ts — the seeds are wrong');
+      for (let pass = 0; pass < 12; pass += 1) {
+        const live = new Set();
+        for (const key of reachable) {
+          for (const c of rendersOf.get(key.split('/')[1]) ?? []) live.add(c);
+        }
+        let grew = false;
+        for (const key of declared) {
+          if (reachable.has(key)) continue;
+          for (const holder of builds.get(key) ?? []) {
+            const hosts = holder ? attachedTo.get(holder) : null;
+            if (!hosts || hosts.size === 0 || [...hosts].some((c) => live.has(c))) {
+              reachable.add(key);
+              grew = true;
+              break;
+            }
+          }
+        }
+        if (!grew) break;
+      }
+
+      /*
+       * `season` is unreachable ON PURPOSE (decision 2026-08-31, written down
+       * in ProgramsHomeScreen where the section used to be): the screen and
+       * every library under it were left working so that putting the section
+       * back is one commit. An entry point absent by decision is not a bug,
+       * and deleting the screen would throw away what the decision kept.
+       *
+       * This guard's first run flagged `celebration` beside it, and that one
+       * WAS dead: 83b718b rebuilt the post-finish flow onto `summary` and
+       * WorkoutCompletionScreen, deleting the `replaceRoute` that opened the
+       * old one. It is removed in this commit rather than listed here — the
+       * difference between the two is a decision to come back, and only
+       * `season` has one.
+       */
+      const PARKED = new Set(['workout/season']);
+
+      const unreachable = [...declared].filter((k) => !reachable.has(k) && !PARKED.has(k)).sort();
+      assert.deepEqual(unreachable, [], `nothing can open these routes: ${unreachable.join(', ')}`);
+
+      // Both halves of what PARKED promises. Filtering it against `reachable`
+      // alone caught a route being quietly wired but not one being quietly
+      // deleted: with the union entry gone, the name is simply absent from
+      // both sets and the list would have kept claiming it was parked
+      // (CI review of #150).
+      for (const key of PARKED) {
+        assert.ok(!reachable.has(key), `${key} has an entry point now — take it out of PARKED`);
+        assert.ok(declared.has(key), `${key} is no longer a route at all — take it out of PARKED`);
+      }
     },
   },
   {
