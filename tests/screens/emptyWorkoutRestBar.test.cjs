@@ -57,7 +57,13 @@ module.exports = [
       // The end cue is the opposite case: it must re-arm when +15s revives a
       // rest that had already finished, so it keys on the deadline.
       assert.match(screen, /restDoneCuedRef\.current !== rest\.endsAtMs/);
-      assert.match(screen, /startedAtMs: current\.startedAtMs/);
+      // And an extension keeps that identity. The rule moved into the lib
+      // with the rest of the schedule maths (CI review of #162), so this is
+      // asked of extendRest — where tests/lib/restSchedule.test.cjs also
+      // holds the two numbers of a rebased rest to the same span.
+      const lib = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib', 'restSchedule.ts'), 'utf8');
+      assert.match(lib, /export function extendRest\(/);
+      assert.match(lib, /startedAtMs: current\.startedAtMs/);
     },
   },
   {

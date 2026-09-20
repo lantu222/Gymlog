@@ -36,6 +36,44 @@ export function describeRest(endsAtMs: number, nowMs: number): RestStatus {
   return { phase: 'done', remainingSeconds: 0, overrunSeconds: Math.abs(delta) };
 }
 
+/** A rest in flight, as the screens hold it. */
+export interface RestWindow {
+  totalSeconds: number;
+  endsAtMs: number;
+  startedAtMs: number;
+}
+
+/**
+ * "+15 s" on a rest, whether it is still running or long overdue.
+ *
+ * A running rest is made longer: the end moves out and the whole rest is
+ * that much longer, which is what the bar draws against.
+ *
+ * An overrun rest is a new rest of the added length. Extending from an end
+ * already gone by gave one second to somebody tapping "+15 s" on a rest
+ * thirty seconds overdue (audit round 4, 2026-09-20) — and rebasing only
+ * the end left the total at the old rest plus fifteen, so the bar reopened
+ * "0:15" one fifth full and drained from there, contradicting the countdown
+ * it had just restarted (CI review of #162). Both numbers describe the same
+ * span or neither of them means anything.
+ *
+ * Never shorter than a second: the bar is a countdown, and a rest that ends
+ * the moment it is extended reads as a tap that did nothing.
+ */
+export function extendRest(current: RestWindow, deltaSeconds: number, nowMs: number): RestWindow {
+  const overrun = current.endsAtMs <= nowMs;
+  const endsAtMs = Math.max(nowMs + 1000, (overrun ? nowMs : current.endsAtMs) + deltaSeconds * 1000);
+  return {
+    // Same rest, moved end: startedAtMs carries so the once-per-rest work
+    // does not run again.
+    startedAtMs: current.startedAtMs,
+    totalSeconds: overrun
+      ? Math.max(1, Math.round((endsAtMs - nowMs) / 1000))
+      : Math.max(1, current.totalSeconds + deltaSeconds),
+    endsAtMs,
+  };
+}
+
 /** "m:ss" for a countdown or an overrun; hours appear only past sixty minutes. */
 export function formatClock(totalSeconds: number): string {
   const s = Math.max(0, Math.floor(totalSeconds));

@@ -58,7 +58,11 @@ module.exports = [
     run() {
       const screen = read('src', 'screens', 'EmptyWorkoutScreen.tsx');
       assert.match(screen, /const removeExercise = \(exerciseKey: string\) => \{[\s\S]{0,500}if \(exercises\.length <= 1\) \{\s*setRest\(null\);/);
-      assert.match(screen, /const endsAtMs = Math\.max\(now \+ 1000, Math\.max\(now, current\.endsAtMs\) \+ deltaSeconds \* 1000\);/);
+      // The rule is in the lib now, where both numbers of the rest move
+      // together and a unit test can hold them to it: rebasing only the end
+      // left the bar drawing a fifteen-second rest one fifth full (CI review
+      // of #162). See tests/lib/restSchedule.test.cjs.
+      assert.match(screen, /setRest\(\(current\) => \(current \? extendRest\(current, deltaSeconds, Date\.now\(\)\) : current\)\)/);
       const app = read('App.tsx');
       const finish = app.slice(app.indexOf('const finishLoggedWorkoutSave = async'), app.indexOf('workout.recordLoggedWorkout({'));
       assert.match(finish, /\} catch \(error\) \{[\s\S]{0,400}await deleteWorkoutTemplate\(workoutTemplateId\)\.catch\(\(\) => undefined\);\s*throw error;/, 'a session save that fails must take its template with it');

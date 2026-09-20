@@ -59,7 +59,7 @@ import { useRestAlertPermissionMoment } from '../hooks/useRestAlertPermissionMom
 import { RestAlertAskOutcome } from '../lib/restAlertAnswer';
 import { RestAlertsSheet } from '../components/RestAlertsSheet';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { describeRest } from '../lib/restSchedule';
+import { describeRest, extendRest } from '../lib/restSchedule';
 import { useKeyboardReveal } from '../hooks/useKeyboardReveal';
 import { haptics } from '../utils/haptics';
 import { useKeepScreenAwake } from '../utils/keepAwake';
@@ -881,24 +881,10 @@ export function EmptyWorkoutScreen({
     });
   };
 
+  // Both numbers of the rest move together, and the rule is in the lib with
+  // the rest of the schedule maths: see extendRest.
   const adjustRest = (deltaSeconds: number) =>
-    setRest((current) => {
-      if (!current) {
-        return current;
-      }
-      const now = Date.now();
-      // An overrun rest extends from now, not from an end already gone by:
-      // "+15 s" from the lock screen on a rest thirty seconds overdue gave
-      // one second (audit round 4, 2026-09-20).
-      const endsAtMs = Math.max(now + 1000, Math.max(now, current.endsAtMs) + deltaSeconds * 1000);
-      return {
-        // Same rest, moved end: startedAtMs carries so the once-per-rest work
-        // does not run again.
-        startedAtMs: current.startedAtMs,
-        totalSeconds: Math.max(1, current.totalSeconds + deltaSeconds),
-        endsAtMs,
-      };
-    });
+    setRest((current) => (current ? extendRest(current, deltaSeconds, Date.now()) : current));
 
   const handleFinish = async () => {
     if (!canFinish) {
