@@ -220,10 +220,12 @@ module.exports = [
      * bench pressed anywhere else was not this slot's history. The reader
      * pressed the exercise's name and expects the exercise's history.
      *
-     * So the tab reads the lift by name, the rows the records read, and keeps
-     * the slot only as the fallback for a lift the records have nothing on.
-     * Guarded end to end: App builds the lookup from the record sources, the
-     * tab passes it, the player asks it first.
+     * So the tab reads the lift by name — EVERY log, not the tracked summaries
+     * the records read: tracking is a per-programme mark, and built from the
+     * tracked summaries the tab lost an untracked slot's own sessions (CI
+     * review of #154). The slot's rows are added where the lift lacks them,
+     * never replaced. Guarded end to end: App builds the lookup from every
+     * log, the tab passes it, the player unions the two on performedAt.
      */
     name: "the History tab reads the lift's history, and the slot only when the lift has none",
     run() {
@@ -233,18 +235,18 @@ module.exports = [
       );
       const appSource = fs.readFileSync(path.join(__dirname, '..', '..', 'App.tsx'), 'utf8');
       assert.match(playerSource, /liftHistory\?\.\(instance\.exerciseName\)/);
+      assert.doesNotMatch(playerSource, /lift && lift\.length > 0/, 'the lift replaces the slot again');
       assert.match(
         playerSource,
-        /lift && lift\.length > 0[\s\S]{0,400}getHistoryEntriesForExercise\(workout\.history, instance\)/,
-        'the slot must stay the fallback, after the lift',
+        /const known = new Set\(lift\.map\(\(entry\) => entry\.performedAt\)\)[\s\S]{0,600}getHistoryEntriesForExercise\(workout\.history, instance\)\s*\.filter\(\(entry\) => !known\.has\(entry\.performedAt\)\)/,
+        'the slot rows the lift lacks must be added, on performedAt',
       );
       assert.match(tabSource, /<GuidedPlayerScreen[\s\S]{0,1500}liftHistory=\{liftHistory\}/);
       assert.match(appSource, /const liftHistory = useMemo/);
-      assert.match(
-        appSource,
-        /recordSources\.map\(\(source\) => \[source\.name\.trim\(\)\.toLowerCase\(\), source\.entries\]/,
-        'the lookup must be built from the same sources the records read',
-      );
+      const liftMemo = appSource.match(/const liftHistory = useMemo\(\(\) => \{[\s\S]*?\n  \}, \[/);
+      assert.ok(liftMemo, 'the liftHistory memo is gone');
+      assert.ok(!liftMemo[0].includes('recordSources'), 'the lookup is built from the tracked summaries again');
+      assert.match(appSource, /const byName = getLiftHistoryByName\(database\);/, 'the lookup must be built from every log');
       assert.match(appSource, /renderWorkoutTab\(\{[\s\S]{0,4000}\r?\n {6}liftHistory,\r?\n/);
     },
   },

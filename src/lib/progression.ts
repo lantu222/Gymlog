@@ -320,6 +320,54 @@ export function getLiftProgress(
   );
 }
 
+export interface LiftHistoryEntry {
+  performedAt: string;
+  sets: Array<{ weight: number; reps: number }>;
+}
+
+/**
+ * Every session of every lift, by name — tracked or not.
+ *
+ * The tracked summaries above are the Records' view: a lift is judged only
+ * where its programme marked it `tracked`, and "Leg Curl" is tracked in one
+ * programme and an accessory in another. A history tab under the lift's own
+ * name is not that view. It was built from the tracked summaries once, and an
+ * untracked slot's own sessions vanished from its own tab (CI review of #154).
+ *
+ * Keyed by the canonical name, lowercased, the way the summaries group.
+ * Skipped logs and logs that recorded no work are not sessions of the lift.
+ */
+export function getLiftHistoryByName(database: AppDatabase): Map<string, LiftHistoryEntry[]> {
+  const exercisesById = Object.fromEntries(
+    database.exerciseTemplates.map((exercise) => [exercise.id, exercise] as const),
+  );
+  const sessionsById = Object.fromEntries(
+    database.workoutSessions.map((session) => [session.id, session] as const),
+  );
+  const byName = new Map<string, LiftHistoryEntry[]>();
+  for (const log of database.exerciseLogs) {
+    if (log.skipped || !logRecordedWork(log)) {
+      continue;
+    }
+    const session = sessionsById[log.sessionId];
+    if (!session) {
+      continue;
+    }
+    const key = normalizeExerciseKey(resolveCanonicalExerciseName(log, exercisesById));
+    const entry: LiftHistoryEntry = {
+      performedAt: session.performedAt,
+      sets: getComparableLogSets(log).map((set) => ({ weight: set.weight, reps: set.reps })),
+    };
+    const list = byName.get(key);
+    if (list) {
+      list.push(entry);
+    } else {
+      byName.set(key, [entry]);
+    }
+  }
+  return byName;
+}
+
 export function getTrackedExerciseProgress(database: AppDatabase): ExerciseProgressSummary[] {
   const exercisesById = Object.fromEntries(
     database.exerciseTemplates.map((exercise) => [exercise.id, exercise] as const),

@@ -82,7 +82,7 @@ import { isLiftableWeight } from '../lib/weightLimits';
 import { getExerciseInstructions } from '../lib/exerciseInstructions';
 import { getExerciseTeaching } from '../lib/exerciseTeaching';
 import { buildExerciseSheetHistory, LastTimeView } from '../lib/exerciseSheetHistory';
-import type { RecordEntry } from '../lib/personalRecords';
+import type { LiftHistoryEntry } from '../lib/progression';
 import { ExerciseSheet } from '../components/ExerciseSheet';
 import { CtaShimmer } from '../components/CtaShimmer';
 import { SupersetBorder } from '../components/SupersetBorder';
@@ -236,10 +236,12 @@ interface GuidedPlayerScreenProps {
    * session, the rows the records tab reads. The sheet's History tab read
    * only this slot's entries, so a bench pressed on 28.8. in another
    * programme was "no entries yet" here while the records tab showed its
-   * 7 × 60 (#bugs 2026-09-20). Null, or nothing under the name, falls back
-   * to the slot.
+   * 7 × 60 (#bugs 2026-09-20). The slot's own rows are added where the lift
+   * does not already have them — never replaced: the lift's list is every
+   * log by name, and a session whose database write failed, or one this
+   * install only has in slot history, is still this slot's past.
    */
-  liftHistory?: (exerciseName: string) => readonly RecordEntry[] | null;
+  liftHistory?: (exerciseName: string) => readonly LiftHistoryEntry[] | null;
   soundCuesEnabled: boolean;
   /** Keep the display on for the whole guided session. */
   keepScreenAwake?: boolean;
@@ -2200,17 +2202,23 @@ export function GuidedPlayerScreen({
   const sheetHistory = useMemo(() => {
     const slotId = step.type === 'set' ? step.slotId : null;
     const instance = slotId ? exerciseBySlot.get(slotId) ?? null : null;
-    const lift = instance ? liftHistory?.(instance.exerciseName) ?? null : null;
-    const past =
-      lift && lift.length > 0
-        ? lift.map((entry) => ({
-            performedAt: entry.performedAt,
-            sets: entry.sets.map((set) => ({ loadKg: set.weight, reps: set.reps })),
-          }))
-        : getHistoryEntriesForExercise(workout.history, instance).map((entry) => ({
-            performedAt: entry.performedAt,
-            sets: entry.sets.map((set) => ({ loadKg: set.loadKg, reps: set.reps })),
-          }));
+    // The lift by name, then whatever only the slot knows. The two stamp a
+    // session with the same performedAt (finishWorkout hands one value to
+    // both writes), so a session present in both is one row, not two.
+    const lift = instance ? liftHistory?.(instance.exerciseName) ?? [] : [];
+    const known = new Set(lift.map((entry) => entry.performedAt));
+    const past = [
+      ...lift.map((entry) => ({
+        performedAt: entry.performedAt,
+        sets: entry.sets.map((set) => ({ loadKg: set.weight, reps: set.reps })),
+      })),
+      ...getHistoryEntriesForExercise(workout.history, instance)
+        .filter((entry) => !known.has(entry.performedAt))
+        .map((entry) => ({
+          performedAt: entry.performedAt,
+          sets: entry.sets.map((set) => ({ loadKg: set.loadKg, reps: set.reps })),
+        })),
+    ];
     const todaySets = (instance?.sets ?? [])
       .filter((set) => set.status === 'completed')
       .map((set) => ({ loadKg: set.actualLoadKg ?? 0, reps: set.actualReps ?? 0 }));
