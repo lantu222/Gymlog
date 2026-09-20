@@ -59,8 +59,14 @@ function walk(dir) {
  */
 const INPUT_TAGS = ['TextInput', 'KitSearch'];
 const INPUT_RE = new RegExp(`<(${INPUT_TAGS.join('|')})\\b`, 'g');
-/** How far above a container a sibling input still raises the keyboard over it. */
-const SIBLING_LINES = 12;
+/**
+ * How far above a container a sibling input still raises the keyboard over
+ * it. Forty, not twelve: the add-exercise sheet hoists its list header into a
+ * `const listHeader = (...)` with the search field at its top and a chip row
+ * twenty lines below, and the FlatList takes it by name — nothing textual
+ * puts the two in one span (CI review of #156, fourth round).
+ */
+const SIBLING_LINES = 40;
 
 /** Every scroll container in the source, with its span and its own attributes. */
 function scrollContainers(src) {

@@ -442,7 +442,7 @@ export function AddExerciseSheet({
       {multiSelect ? (
         <View style={styles.quickBodyPartGroup}>
           <Text style={styles.filterTitle}>{t(language, 'sheet.bodyPart')}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickBodyPartRow}>
+          <ScrollView horizontal keyboardShouldPersistTaps="handled" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickBodyPartRow}>
             {quickBodyPartOptions.map((option) => {
               const active = option === bodyPart;
               return (

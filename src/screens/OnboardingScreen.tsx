@@ -3297,7 +3297,7 @@ export function OnboardingScreen({
             {helperState === 'error' ? <Text style={styles.helperErrorText}>{helperError}</Text> : null}
 
             {helperState === 'ready' && helperAnswer ? (
-              <ScrollView style={styles.answerScroll} contentContainerStyle={styles.answerContent} showsVerticalScrollIndicator={false}>
+              <ScrollView keyboardShouldPersistTaps="handled" style={styles.answerScroll} contentContainerStyle={styles.answerContent} showsVerticalScrollIndicator={false}>
                 <View style={styles.answerHeaderRow}>
                   <Text style={styles.answerSection}>{t(language, 'onb.ai.answer')}</Text>
                   <BadgePill label={t(language, helperSource === 'live' ? 'onb.ai.live' : 'onb.ai.preview')} accent="neutral" />
