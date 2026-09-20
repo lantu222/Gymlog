@@ -91,6 +91,7 @@ const RAN = 'Confirm a review actually ran';
 const LIST = 'List the comments already on this PR';
 const EXISTING = '.ci-review/inline-comments.jsonl';
 const EXPLAIN = 'Say which kind of red this is';
+const GATE = 'Confirm the review could read the PR';
 
 function actionStep(steps) {
   const index = steps.findIndex((step) => (step.uses ?? '').startsWith('anthropics/claude-code-action@'));
@@ -298,30 +299,37 @@ module.exports = [
   },
   {
     /*
-     * The denial check has to run on the runs it was written for.
+     * The denial verdict has to live where it can fail.
      *
-     * It sat below an `exit 0` that every successful run took, and a review
-     * denied most of its calls does not error — it runs out of ways to look
-     * and writes what it can. On #148 that was "No issues found" from a run
-     * denied `gh pr diff` itself: posted, green, and about nothing. So the
-     * arithmetic had never once run on the case it exists for, and the only
-     * shape that catches it is: evaluate denials first, and fail.
+     * A review denied most of its calls does not error — it runs out of ways
+     * to look and writes what it can. On #148 that was "No issues found" from
+     * a run denied `gh pr diff` itself: posted, green, and about nothing.
+     *
+     * #149 put the arithmetic in the diagnostics step and made it `exit 1`.
+     * That step is `continue-on-error` by design — "diagnostics must never be
+     * the reason a check is red" — so the step went red and the job stayed
+     * green, and #150 passed on a run denied 33 calls in 9 turns. A fatal
+     * check inside a step that cannot fail is decoration.
+     *
+     * So the guard pins the property that was actually missing: the verdict
+     * is its own step, and that step is not continue-on-error.
      */
-    name: 'claude-review: a review denied most of its calls goes red, not green with nothing in it',
+    name: 'claude-review: the denial verdict lives in a step that can fail the check',
     run() {
-      const { step } = stepNamed(parseWorkflow().steps, EXPLAIN);
-      const ratio = step.run.indexOf('denials * 2');
-      const earlyExit = step.run.indexOf('The run ended without an error');
-      assert.ok(ratio !== -1, 'the denial ratio is gone');
-      assert.ok(earlyExit !== -1, 'the is_error early exit is gone');
-      assert.ok(ratio < earlyExit, 'the denial check sits below the exit that every successful run takes');
+      const { steps } = parseWorkflow();
+      const { step: gate, index: gateAt } = stepNamed(steps, GATE);
+      assert.notEqual(gate.continueOnError, 'true', `${GATE} cannot fail the check`);
+      assert.match(gate.run, /denials \* 2/, 'the gate no longer weighs denials against turns');
+      assert.match(gate.run, /::error::/);
+      assert.match(gate.run, /exit 1/);
+      assert.match(gate.if ?? '', /always\(\)/, 'the gate must run even when the review errored');
 
-      // And it is fatal. A warning does not turn the check red, and a green
-      // check is what made the hollow review believable.
-      const branch = step.run.slice(ratio, earlyExit);
-      assert.match(branch, /::error::/);
-      assert.match(branch, /exit 1/);
-      assert.doesNotMatch(branch, /::warning::/);
+      // And the diagnostics step is back to explaining rather than deciding,
+      // so the two cannot drift into contradicting each other.
+      const { step: explain, index: explainAt } = stepNamed(steps, EXPLAIN);
+      assert.equal(explain.continueOnError, 'true', 'diagnostics must not decide the check');
+      assert.doesNotMatch(explain.run, /::error::/, 'diagnostics raise warnings, not errors');
+      assert.ok(gateAt < explainAt, 'the denial list is printed below the verdict that cites it');
     },
   },
   {
