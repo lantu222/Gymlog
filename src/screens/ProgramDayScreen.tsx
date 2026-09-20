@@ -1162,6 +1162,7 @@ export function ProgramDayScreen({
           style={styles.swapList}
           contentContainerStyle={styles.kitListPad}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           {swapRow && swapRow.shortlist.total === 0 && swapLibraryMatches.length === 0 ? (
             <Text style={styles.swapEmpty}>

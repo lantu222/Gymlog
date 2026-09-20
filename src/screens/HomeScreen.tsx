@@ -2120,6 +2120,7 @@ export function HomeScreen({
           style={styles.adaptOptsScroll}
           contentContainerStyle={styles.kitListPad}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           {([
             { key: 'home.swapSheet.variations' as const, rows: swapRow.shortlist.variations },
