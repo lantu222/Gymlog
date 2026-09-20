@@ -494,8 +494,15 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
         }))
       : [],
     exerciseLibrary: mergeExerciseLibrary(input?.exerciseLibrary, fallback.exerciseLibrary),
+    // An entry that is not an object with an id is not a session. Mapped
+    // through the defaults below it became one — "Workout", dated now —
+    // so a null or a stray number in a stored array put a workout on
+    // today's calendar (loader probe, 2026-09-20). Cardio below already
+    // drops such entries; sessions follow.
     workoutSessions: Array.isArray(input?.workoutSessions)
-      ? input.workoutSessions.map((session: any) => ({
+      ? input.workoutSessions
+          .filter((session: any) => session !== null && typeof session === 'object' && String(session.id ?? '').length > 0)
+          .map((session: any) => ({
           id: String(session?.id ?? ''),
           workoutTemplateId: String(session?.workoutTemplateId ?? ''),
           workoutTemplateSessionId:

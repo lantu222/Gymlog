@@ -26,7 +26,10 @@ export function normalizePurchaseRecord(
   fallback: PurchaseRecord,
   now: Date = new Date(),
 ): PurchaseRecord {
-  const legacyStore = stored !== undefined && 'adaptiveCoachPremiumUnlocked' in stored;
+  // `in` throws on null, and a stored `preferences: null` reached here as
+  // null — which made the whole database unreadable and set it aside as
+  // corrupt, history and all, over one field (loader probe, 2026-09-20).
+  const legacyStore = stored != null && typeof stored === 'object' && 'adaptiveCoachPremiumUnlocked' in stored;
   const purchasedAt =
     !legacyStore && typeof stored?.mockSubscriptionPurchasedAt === 'string'
       ? stored.mockSubscriptionPurchasedAt

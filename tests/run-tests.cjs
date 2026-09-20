@@ -387,6 +387,7 @@ const suites = [
   ...require('./lib/exerciseNameLabel.test.cjs'),
   ...require('./storage/firstLaunchIsEmpty.test.cjs'),
   ...require('./storage/corruptDatabase.test.cjs'),
+  ...require('./storage/loaderJunk.test.cjs'),
   ...require('./lib/storageChunks.test.cjs'),
   ...require('./storage/largeItem.test.cjs'),
   ...require('./storage/loadWithRetry.test.cjs'),
