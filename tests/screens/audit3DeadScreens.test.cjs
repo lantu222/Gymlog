@@ -6,6 +6,61 @@ const ROOT = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').replace(/\r\n/g, '\n');
 const exists = (...parts) => fs.existsSync(path.join(ROOT, ...parts));
 
+/*
+ * The tab of the SAME object literal, not the nearest one on the page.
+ * A seven-line lookback took the first `tab:` it saw, and in a run of
+ * constructions that is the line above: `{ tab: 'profile', screen:
+ * 'premium' }` two lines under `{ tab: 'home', screen: 'cardio' }` was
+ * filed as `home/premium`. Inert while every route kept a correctly filed
+ * builder elsewhere — and a silent pass the day one does not (CI review of
+ * #150). So walk the braces out to the literal's own `{` and `}`, and
+ * refuse anything too big to be a route object.
+ */
+const literalAround = (src, at) => {
+  let start = -1;
+  for (let i = at, depth = 0; i >= 0 && at - i < 600; i -= 1) {
+    if (src[i] === '}') depth += 1;
+    else if (src[i] === '{' && depth === 0) {
+      start = i;
+      break;
+    } else if (src[i] === '{') depth -= 1;
+  }
+  if (start < 0) return '';
+  for (let i = at, depth = 0; i < src.length && i - at < 600; i += 1) {
+    if (src[i] === '{') depth += 1;
+    else if (src[i] === '}' && depth === 0) return src.slice(start, i + 1);
+    else if (src[i] === '}') depth -= 1;
+  }
+  return '';
+};
+
+/**
+ * Every `{ tab, screen }` construction in one source file, keyed
+ * `tab/screen`, with the top-level function it sits inside (null at module
+ * level). A construction whose own literal carries no tab string is not a
+ * builder of anything: a loud false alarm beats a builder filed under
+ * whatever tab happens to sit nearby.
+ */
+const constructionsIn = (src) => {
+  const lines = src.split('\n');
+  const holderAt = [];
+  let holder = null;
+  lines.forEach((line, i) => {
+    const fn =
+      line.match(/^\s{0,4}(?:export\s+)?(?:async\s+)?function (\w+)/) ||
+      line.match(/^\s{0,4}const (\w+) = (?:useCallback\(|async |\()/);
+    if (fn) holder = fn[1];
+    holderAt[i] = holder;
+  });
+  const out = [];
+  for (const m of src.matchAll(/screen: '([^']+)'(?!;)/g)) {
+    const tab = literalAround(src, m.index).match(/tab: '([^']+)'/);
+    if (!tab) continue;
+    out.push({ key: `${tab[1]}/${m[1]}`, holder: holderAt[src.slice(0, m.index).split('\n').length - 1] });
+  }
+  return out;
+};
+
 /**
  * Two screens nothing could open — audit round 3, 2026-09-20.
  *
@@ -138,21 +193,10 @@ module.exports = [
 
       const builds = new Map();
       for (const src of sources) {
-        const lines = src.split('\n');
-        let holder = null;
-        lines.forEach((line, i) => {
-          const fn =
-            line.match(/^\s{0,4}(?:export\s+)?(?:async\s+)?function (\w+)/) ||
-            line.match(/^\s{0,4}const (\w+) = (?:useCallback\(|async |\()/);
-          if (fn) holder = fn[1];
-          const screen = line.match(/screen: '([^']+)'(?!;)/);
-          if (!screen) return;
-          const tab = lines.slice(Math.max(0, i - 6), i + 2).join('\n').match(/tab: '([^']+)'/);
-          if (!tab) return;
-          const key = `${tab[1]}/${screen[1]}`;
+        for (const { key, holder } of constructionsIn(src)) {
           if (!builds.has(key)) builds.set(key, []);
           builds.get(key).push(holder);
-        });
+        }
       }
 
       const attachedTo = new Map();
@@ -249,6 +293,42 @@ module.exports = [
 
       const lib = read('src', 'lib', 'emptyWorkoutSession.ts');
       assert.doesNotMatch(lib, /Structurally identical to WorkoutEditorFinishSummary/);
+    },
+  },
+  {
+    /*
+     * The keying, pinned to the shape that fooled the lookback window: two
+     * constructions two lines apart under different tabs, as at App.tsx
+     * where `onOpenPremium` sits under `onOpenCardio`. A fixture rather
+     * than the live file, because the live file having such pairs today and
+     * none tomorrow are both legal — the rule has to hold either way.
+     */
+    name: "dead screens: a construction is filed under its own tab, not its neighbour's",
+    run() {
+      const fixture = [
+        'function ProfileHost() {',
+        '  return (',
+        '    <Home',
+        "      onOpenCardio={() => navigate({ tab: 'home', screen: 'cardio' })}",
+        '      activeCardioActivity={null}',
+        "      onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}",
+        '      onSetTrainingDays={() =>',
+        "        navigate({ tab: 'profile', screen: 'training_plan', editSchedule: true })",
+        '      }',
+        '    />',
+        '  );',
+        '}',
+      ].join('\n');
+      const found = constructionsIn(fixture);
+      assert.deepEqual(
+        found.map((c) => c.key),
+        ['home/cardio', 'profile/premium', 'profile/training_plan'],
+      );
+      assert.ok(found.every((c) => c.holder === 'ProfileHost'), 'the enclosing function was lost');
+
+      // No tab string in the literal itself: not a builder, whatever sits above it.
+      const spread = "navigate({ tab: 'home', screen: 'cardio' });\nnavigate({ tab: route.tab, screen: 'detail' });";
+      assert.deepEqual(constructionsIn(spread).map((c) => c.key), ['home/cardio']);
     },
   },
 ];
