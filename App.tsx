@@ -3923,6 +3923,7 @@ function VinhaApp() {
 
         return {
           id: session.id,
+          name: session.name,
           title: formatHomeSessionTitle(session.name, session.exercises),
           duration: `~${estimatedDuration} min`,
           dayLabel: entryLabel,
@@ -3941,6 +3942,7 @@ function VinhaApp() {
             // find a row in the stored template.
             exerciseId: exercise.id,
             setsLabel: `${exercise.targetSets} sets`,
+            targetSets: exercise.targetSets,
             schemeLabel: formatSetScheme(
               exercise.targetSets,
               exercise.repMin,
@@ -4167,13 +4169,32 @@ function VinhaApp() {
    * is for what happened, so it reports that instead.
    */
   const homeDoneThisWeekSessionIds = useMemo(() => {
+    // The programme's own history, read the way the hero counter and the
+    // rotation read it: sessions of the lead programme and of what it was
+    // copied from, with the original's day ids read as the copy's. This
+    // used to match every session's day id against the plan's, unaligned
+    // and unfiltered — so a swap that copied the programme greyed Monday's
+    // chip while the hero kept counting it, and a day trained in ANOTHER
+    // programme lit a chip here, because the catalog reuses day ids across
+    // programmes (audit round 4, 2026-09-20).
+    const programId = homeActivePlanCard?.programId ?? null;
+    if (!programId) {
+      return [];
+    }
+    const lineage = new Set([
+      programId,
+      ...programmeHistoryIds(programId, workoutTemplates, templatesRunByOtherPlans(programId)),
+    ]);
     // The week is read from the day key too: an app open over Sunday night
     // kept last week's dots until it was closed.
     const now = new Date(todayStartMs);
     const weekStart = getStartOfWeek(now).getTime();
     const weekEnd = getEndOfWeek(now).getTime();
     const ids = new Set<string>();
-    for (const session of workoutSessions) {
+    for (const session of completedSessionsForTemplate(programId)) {
+      if (!session.workoutTemplateId || !lineage.has(session.workoutTemplateId)) {
+        continue;
+      }
       const stamp = Date.parse(session.performedAt);
       if (!Number.isFinite(stamp) || stamp < weekStart || stamp >= weekEnd) {
         continue;
@@ -4183,7 +4204,16 @@ function VinhaApp() {
       }
     }
     return [...ids];
-  }, [todayStartMs, workoutSessions]);
+    // Keyed on what completedSessionsForTemplate and the lineage read.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    homeActivePlanCard?.programId,
+    todayStartMs,
+    database.workoutSessions,
+    database.exerciseLogs,
+    database.workoutTemplates,
+    database.workoutPlans,
+  ]);
 
   const homeTrainingSchedule = useMemo(() => {
     const cycle = preferences.trainingCycle;
