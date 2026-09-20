@@ -388,43 +388,46 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         : null;
     const readyProgramTailoringBadges = buildTailoringBadgeLabels(tailoringPreferences).slice(0, 3);
     /*
-     * Which id this page's answers are about.
+     * The reader's own version of this programme, when they have a live one.
      *
-     * The reader's own version of a catalog programme is the programme — it
-     * is what adoption resumes, what Home leads with, what the Active switch
-     * switches — and it carries its own template id. Every question here was
-     * asked of the catalog id, so a page whose programme was running under a
-     * copy showed the adopt button, said "programme started" on every tap,
-     * and its switch turned nothing off (CI review of #163). The catalog
-     * template is still what the page DRAWS; this is what it acts on.
+     * Not to answer the page's questions with. This page belongs to the
+     * catalog programme: it draws the catalog's week, its rhythm editor
+     * writes the catalog plan, its delete forgets the catalog plan, and
+     * every prop on it names the id in the route. Resolving those against
+     * the copy instead needed a new exception for each one — the start that
+     * asked for a plan the catalog id has no entry in, the delete that named
+     * one programme and removed another, the rhythm controls that vanished —
+     * and there is always another prop (CI review of #163, three rounds).
+     *
+     * So the page says what it is, and the one button that would otherwise
+     * lie takes the reader to their own version. The day editor has answered
+     * this way since 2026-08-26, with this same toast.
+     *
+     * Running first, then merely held. A copy nothing points at is a
+     * leftover — forgetting a programme drops its plan and leaves the
+     * template standing — and a leftover is not a page to be sent to.
      */
     const heldTemplateIds = database.workoutPlans
       .map((plan) => plan.entries[0]?.workoutTemplateId)
       .filter((id): id is string => typeof id === 'string');
-    // Running first, then merely held, and nothing else: forgetting a
-    // programme drops its plan and leaves the template standing, and a page
-    // that took that leftover asked every question about a template nothing
-    // points at — the adopt button for a programme already running under its
-    // own id, no switch, no way to put it down (CI review of #163).
-    const ownCopyTemplateId =
-      route.programType === 'ready'
+    const ownProgrammeCopyId =
+      route.programType === 'ready' && !activeProgramTemplateIds.includes(route.workoutTemplateId)
         ? findHeldReadyProgrammeCopyId(route.workoutTemplateId, database.workoutTemplates, [
             ...activeProgramTemplateIds,
             ...heldTemplateIds,
           ])
         : null;
-    const runningTemplateId = ownCopyTemplateId ?? route.workoutTemplateId;
     // Membership is asked of the template, not the plan id — a programme
     // joined during onboarding carries a different plan id for the same
     // programme, and it is no less the reader's own.
-    const programIsMine = activeProgramTemplateIds.includes(runningTemplateId);
+    const programIsMine = activeProgramTemplateIds.includes(route.workoutTemplateId);
     // Held: a plan exists for it, running or not — see listHeldProgrammes.
-    const programIsHeld = programIsMine || heldTemplateIds.includes(runningTemplateId);
+    const programIsHeld = programIsMine || heldTemplateIds.includes(route.workoutTemplateId);
     const canDeleteProgram = route.programType === 'custom' || programIsHeld;
     // Held is not the same as leading. A programme you hold but do not lead
     // with has a third answer — put it on Home — and without it the only way
     // there was to remove whatever was leading.
-    const programLeads = homeActivePlanCard?.programId === runningTemplateId;
+    const programLeads = homeActivePlanCard?.programId === route.workoutTemplateId;
     const readyProgramIsMine = route.programType === 'ready' && programLeads;
     const program = readyTemplate
       ? buildReadyProgramDetail(
@@ -524,20 +527,10 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         // already has; a programme the reader never took up still gets the
         // adopt button instead (device, 2026-09-16).
         onSetRunning={(next) => {
-          void (next ? onResumeProgram(runningTemplateId) : onStopProgram(runningTemplateId));
+          void (next ? onResumeProgram(route.workoutTemplateId) : onStopProgram(route.workoutTemplateId));
         }}
         onPrimaryAction={() => {
           if (readyProgramIsMine) {
-            // Their own version of it is what runs, so it is what starts: the
-            // plan's days carry the copy's ids, the catalog lookup knows
-            // nothing about them, and asking for the next session of the
-            // catalog programme found no plan and quietly went Home instead
-            // (CI review of #163). The custom path is the same path the
-            // copy's own page takes.
-            if (ownCopyTemplateId) {
-              handleStartCustomProgram(ownCopyTemplateId);
-              return;
-            }
             // Already the reader's. Adoption returns early for a programme it
             // already holds, so this button used to read like a decision and do
             // nothing but navigate Home. It now starts the session the rotation
@@ -552,6 +545,23 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           }
 
           if (route.programType === 'ready') {
+            if (ownProgrammeCopyId) {
+              // They already train their own version of this programme.
+              // Adopting the catalog original beside it would give one
+              // programme two rows, two plans and two slots of the cap, and
+              // the handler resuming the copy instead left this page saying
+              // "started" while nothing on it changed (audit round 4,
+              // 2026-09-20 and its review). Their version has a page of its
+              // own; this is the way to it.
+              showToast(t(preferences.appLanguage, 'toast.ownProgrammeVersion'));
+              navigate({
+                tab: 'workout',
+                screen: 'program',
+                programType: 'custom',
+                workoutTemplateId: ownProgrammeCopyId,
+              });
+              return;
+            }
             // The button says "Ota ohjelma käyttöön" and it now does that. It
             // called handleStartReadyProgram, which starts the first SESSION
             // and never touches the active plan — so a reader who pressed it
@@ -663,17 +673,9 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         onDestructiveAction={
           route.programType === 'custom'
             ? () => void handleDeleteCustomWorkout(route.workoutTemplateId)
-            : ownCopyTemplateId
-              ? // Delete means delete. Forgetting only drops the plans, which
-                // is the whole of it for a catalog programme — there is no row
-                // of the reader's to remove. Their own copy IS a row, and
-                // forgetting it left the template behind for good, holding a
-                // slot of the free cap for a programme they had just confirmed
-                // deleting (CI review of #163).
-                () => void handleDeleteCustomWorkout(ownCopyTemplateId)
-              : programIsHeld
-                ? () => void onForgetHeldProgram(route.workoutTemplateId)
-                : undefined
+            : programIsHeld
+              ? () => void onForgetHeldProgram(route.workoutTemplateId)
+              : undefined
         }
       />
     ) : (

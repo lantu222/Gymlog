@@ -171,13 +171,9 @@ module.exports = [
     run() {
       // The Active switch was a one-way door that also read as a delete, and
       // a ready programme had no delete at all (device, 2026-09-16).
-      // On the id the page is about rather than the one in the route: the
-      // reader's own copy of a catalog programme is what runs, and the
-      // switch acting on the catalog id turned nothing off (CI review of
-      // #163). The two are the same id for every programme without a copy.
       assert.match(
         code,
-        /onSetRunning=\{\(next\) => \{\s*void \(next \? onResumeProgram\(runningTemplateId\) : onStopProgram\(runningTemplateId\)\);/,
+        /onSetRunning=\{\(next\) => \{\s*void \(next \? onResumeProgram\(route\.workoutTemplateId\) : onStopProgram\(route\.workoutTemplateId\)\);/,
       );
       assert.match(code, /held=\{programIsHeld\}/);
       // A held ready programme can be deleted, apart from the switch.

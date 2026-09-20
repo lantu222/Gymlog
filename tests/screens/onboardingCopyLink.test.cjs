@@ -49,24 +49,25 @@ module.exports = [
       // the copy, so a page that asked every question of the catalog id
       // kept offering to adopt a programme it had just started, said so on
       // every tap, and its Active switch turned nothing off (CI review).
+      // The page belongs to the catalog programme and says so: its week, its
+      // rhythm, its delete, every prop naming the id in the route. Resolving
+      // those against the reader's copy instead needed a new exception for
+      // each one and grew another every round (CI review of #163). The one
+      // button that would otherwise lie opens their own version, the way the
+      // day editor has since 2026-08-26.
       for (const line of [
-        'const runningTemplateId = ownCopyTemplateId ?? route.workoutTemplateId;',
-        // Only a copy something points at. A leftover copy — the plan
-        // forgotten, the template left standing — is not what the reader
-        // is training (CI review of #163).
-        'findHeldReadyProgrammeCopyId(route.workoutTemplateId, database.workoutTemplates, [',
-        'const programIsMine = activeProgramTemplateIds.includes(runningTemplateId);',
-        'const programLeads = homeActivePlanCard?.programId === runningTemplateId;',
-        'next ? onResumeProgram(runningTemplateId) : onStopProgram(runningTemplateId)',
-        // And the actions speak to the programme that runs: the plan's days
-        // carry the copy's ids, so the catalog start found no plan and went
-        // Home, and forgetting left the copy's template holding a free slot
-        // for a programme the reader had just deleted (CI review of #163).
-        'handleStartCustomProgram(ownCopyTemplateId);',
-        '() => void handleDeleteCustomWorkout(ownCopyTemplateId)',
+        "showToast(t(preferences.appLanguage, 'toast.ownProgrammeVersion'));",
+        "programType: 'custom',",
+        'workoutTemplateId: ownProgrammeCopyId,',
       ]) {
-        assert.ok(tab.includes(line), `the page must act on the id it is about: ${line}`);
+        assert.ok(tab.includes(line), `the page must open the reader's own version: ${line}`);
       }
+      // And nothing else on the page pretends to be that copy.
+      assert.ok(!/runningTemplateId/.test(tab), 'the page asks its own questions of the route');
+      assert.ok(
+        tab.includes('const programIsMine = activeProgramTemplateIds.includes(route.workoutTemplateId);'),
+        'membership belongs to the catalog programme',
+      );
 
       const provider = read('src', 'state', 'AppProvider.tsx');
       const lookup = provider.slice(provider.indexOf('function findWorkoutTemplateIdBySource('));
