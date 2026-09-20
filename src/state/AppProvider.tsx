@@ -630,11 +630,19 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       // An edit never changes what a template is: a freestyle log opened in the
       // editor stays freestyle, and vice versa.
       origin: existingTemplate?.origin ?? draft.origin ?? 'authored',
-      // Nor does it change where it came from. The link is written once, by
-      // the copy that created the template, and every later edit carries it —
-      // otherwise the second edit would look for a copy and not find the one
-      // it is editing.
-      sourceTemplateId: existingTemplate?.sourceTemplateId ?? draft.sourceTemplateId ?? null,
+      // Nor does it change where it came from: an edit names no source, so
+      // the stored link carries through every later edit — otherwise the
+      // second edit would look for a copy and not find the one it is editing.
+      //
+      // A draft that DOES name one is the newest truth, and this read the
+      // stored link first. Answering the questionnaire again writes a new
+      // programme over the untouched one from the last run (see
+      // withReplaceableOnboardingId), so a second run with a different
+      // recommendation left a template full of programme B's days still
+      // linked to programme A — A's page hiding its own week, adoption of A
+      // resuming B, and A's history counting B's sessions (review of the
+      // onboarding link, 2026-09-20).
+      sourceTemplateId: draft.sourceTemplateId ?? existingTemplate?.sourceTemplateId ?? null,
     };
 
     let nextDatabase = workoutTemplateRepository.upsert(current, nextTemplate);
@@ -823,9 +831,17 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     // copy onboarding made before it wrote the link — the composed week's
     // own day ids say the same thing, so those installs are not left with
     // a programme nothing can find. See lib/programmeCopyLink.
-    return runExclusive(async () =>
-      findReadyProgrammeCopyId(sourceTemplateId, databaseRef.current.workoutTemplates),
-    );
+    return runExclusive(async () => {
+      const current = databaseRef.current;
+      // Running first when there is more than one copy: an install from
+      // before the link can hold an onboarding copy and a later fork of the
+      // same programme, and the edit belongs to the one being trained.
+      const running = current.workoutPlans
+        .filter((plan) => current.preferences.activePlanIds.includes(plan.id))
+        .map((plan) => plan.entries[0]?.workoutTemplateId)
+        .filter((id): id is string => typeof id === 'string');
+      return findReadyProgrammeCopyId(sourceTemplateId, current.workoutTemplates, running);
+    });
   }
 
   function editWorkoutTemplateSessions(

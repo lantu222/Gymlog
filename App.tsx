@@ -1879,7 +1879,6 @@ function VinhaApp() {
     if (!template) {
       return false;
     }
-    trackEvent('plan_adopted');
 
     // Already running this programme under some other plan id (an onboarding
     // pick, say) — joining again would spend a cap slot on a duplicate. But
@@ -1906,7 +1905,19 @@ function VinhaApp() {
      * block intact. Only if it has no plan at all does the catalog version
      * get built below.
      */
-    const copyTemplateId = findReadyProgrammeCopyId(workoutTemplateId, database.workoutTemplates);
+    const copyTemplateId = findReadyProgrammeCopyId(
+      workoutTemplateId,
+      database.workoutTemplates,
+      // Running first, then merely held: with two copies of one programme
+      // — possible on an install from before the link — resuming the one
+      // nothing points at would leave both running.
+      [
+        ...activeProgramTemplateIds,
+        ...database.workoutPlans
+          .map((plan) => plan.entries[0]?.workoutTemplateId)
+          .filter((id): id is string => typeof id === 'string'),
+      ],
+    );
     if (copyTemplateId) {
       if (activeProgramTemplateIds.includes(copyTemplateId)) {
         if (options?.lead) {
@@ -1916,10 +1927,25 @@ function VinhaApp() {
       }
       const resumedCopy = await resumeHeldProgramme(copyTemplateId, options);
       if (resumedCopy !== null) {
+        if (resumedCopy) {
+          trackEvent('plan_adopted');
+        }
         return resumedCopy;
       }
     }
 
+    /*
+     * Counted where a programme actually starts running.
+     *
+     * This fired at the top of the handler, before every early return, so
+     * the funnel counted an adoption each time a reader tapped the page of
+     * a programme they were already running — and, with the branch above,
+     * each time they tapped one they run under their own copy (review of
+     * the onboarding link, 2026-09-20). The cap refusing the adoption
+     * below is not an adoption either, but it is an attempt at one, which
+     * is what this row has always meant.
+     */
+    trackEvent('plan_adopted');
     const planId = buildReadyProgramPlanId(workoutTemplateId);
     // Held but switched off: resumed, not rebuilt. Falling through here
     // built a fresh plan over the same id, and its updatedAt is the block
@@ -5704,6 +5730,10 @@ function VinhaApp() {
     },
     [
       activeProgramTemplateIds,
+      // The row asks which catalog programmes the running ones are copies
+      // of, so a copy made without the running set changing — a fork made
+      // while browsing — has to reach it (review, 2026-09-20).
+      database.workoutTemplates,
       homeActivePlanCard?.programId,
       preferences.appLanguage,
       recommendedReadyTemplate,

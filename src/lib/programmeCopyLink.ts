@@ -66,15 +66,23 @@ export function isCopyOfReadyProgramme(
 /**
  * The reader's own version of a ready programme, or null.
  *
- * The first one, in stored order. A reader can end up with two — a copy from
- * onboarding and a fork of the same programme made later — and this answers
- * with the older, which is the one the plans point at.
+ * A reader can hold two: a copy from onboarding and, on an install made
+ * before the link existed, a fork of the same programme made later by
+ * editing a lift. Stored order answers with the older one, which is not
+ * necessarily the one being trained — and resuming the wrong one leaves two
+ * copies of one programme running, which is the thing this module exists to
+ * prevent. So the caller says which ids it would rather have, running ones
+ * first, and stored order decides only what nothing else does.
  */
 export function findReadyProgrammeCopyId(
   readyTemplateId: string,
   templates: readonly ProgrammeCopyTemplate[],
+  preferredIds: readonly string[] = [],
 ): string | null {
-  return templates.find((template) => isCopyOfReadyProgramme(template, readyTemplateId))?.id ?? null;
+  const copies = templates
+    .filter((template) => isCopyOfReadyProgramme(template, readyTemplateId))
+    .map((template) => template.id);
+  return copies.find((id) => preferredIds.includes(id)) ?? copies[0] ?? null;
 }
 
 /**
@@ -109,19 +117,15 @@ export function expandRunningIdsWithSources(
   templates: readonly ProgrammeCopyTemplate[],
   readyTemplateIds: readonly string[],
 ): string[] {
-  const ids: string[] = [];
-  const add = (id: string) => {
-    if (!ids.includes(id)) {
-      ids.push(id);
-    }
-  };
+  const byId = new Map(templates.map((template) => [template.id, template]));
+  const ids = new Set<string>();
   for (const runningId of runningTemplateIds) {
-    add(runningId);
-    const template = templates.find((item) => item.id === runningId);
+    ids.add(runningId);
+    const template = byId.get(runningId);
     const source = template ? resolveSourceReadyProgrammeId(template, readyTemplateIds) : null;
     if (source) {
-      add(source);
+      ids.add(source);
     }
   }
-  return ids;
+  return [...ids];
 }

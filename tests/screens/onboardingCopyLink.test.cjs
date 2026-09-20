@@ -49,7 +49,7 @@ module.exports = [
       const lookup = provider.slice(provider.indexOf('function findWorkoutTemplateIdBySource('));
       assert.match(
         lookup.slice(0, lookup.indexOf('\n  }')),
-        /findReadyProgrammeCopyId\(sourceTemplateId, databaseRef\.current\.workoutTemplates\)/,
+        /findReadyProgrammeCopyId\(sourceTemplateId, current\.workoutTemplates, running\)/,
         'the editor must find a copy made before the link was written',
       );
     },
@@ -64,19 +64,43 @@ module.exports = [
       );
       assert.match(
         adopt,
-        /const copyTemplateId = findReadyProgrammeCopyId\(workoutTemplateId, database\.workoutTemplates\);/,
+        /const copyTemplateId = findReadyProgrammeCopyId\(\s*workoutTemplateId,\s*database\.workoutTemplates,/,
         'adoption must look for the reader’s own version first',
       );
       assert.match(
         adopt,
-        /const resumedCopy = await resumeHeldProgramme\(copyTemplateId, options\);\s*if \(resumedCopy !== null\) \{\s*return resumedCopy;/,
+        /const resumedCopy = await resumeHeldProgramme\(copyTemplateId, options\);\s*if \(resumedCopy !== null\) \{[\s\S]{0,200}return resumedCopy;/,
         'a held copy comes back through its own plan, block and all',
+      );
+
+      assert.match(
+        adopt,
+        /findReadyProgrammeCopyId\(\s*workoutTemplateId,\s*database\.workoutTemplates,[\s\S]{0,400}\.\.\.activeProgramTemplateIds,/,
+        'with two copies of one programme, the one being trained answers',
+      );
+      // The funnel row counts adoptions, and this fired at the top of the
+      // handler — once per tap, including the taps that adopt nothing.
+      assert.ok(
+        !/return false;\s*\}\s*trackEvent\('plan_adopted'\);/.test(adopt),
+        'the event must not fire before the early returns',
+      );
+      assert.match(
+        app,
+        /trackEvent\('plan_adopted'\);\s*const planId = buildReadyProgramPlanId\(workoutTemplateId\);/,
+        'the event belongs where a programme starts running',
       );
 
       assert.match(
         app,
         /adoptedIds: expandRunningIdsWithSources\(\s*activeProgramTemplateIds,\s*database\.workoutTemplates,/,
         'a programme run under a copy of it counts as run',
+      );
+      // The row reads the stored templates, so it has to depend on them: a
+      // fork made while browsing changes no other dependency (review).
+      assert.match(
+        app,
+        /\[\s*activeProgramTemplateIds,[\s\S]{0,400}database\.workoutTemplates,[\s\S]{0,300}workout\.templates,\s*\],/,
+        'the recommendation memo must depend on the templates it reads',
       );
     },
   },

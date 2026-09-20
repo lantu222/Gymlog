@@ -55,8 +55,21 @@ module.exports = [
       );
 
       const templates = [ownWork, onboardingCopy, fork];
-      assert.equal(findReadyProgrammeCopyId('tpl_strong_starter', templates), 'custom_2', 'the older copy answers');
+      assert.equal(findReadyProgrammeCopyId('tpl_strong_starter', templates), 'custom_2', 'stored order answers when nothing else does');
       assert.equal(findReadyProgrammeCopyId('tpl_other', templates), null);
+      // An install from before the link can hold both an onboarding copy and
+      // a fork of the same programme. Resuming the one nothing points at
+      // would leave two copies of one programme running (review, 2026-09-20).
+      assert.equal(
+        findReadyProgrammeCopyId('tpl_strong_starter', templates, ['custom_1']),
+        'custom_1',
+        'the copy the reader is training answers',
+      );
+      assert.equal(
+        findReadyProgrammeCopyId('tpl_strong_starter', templates, ['custom_9']),
+        'custom_2',
+        'a preference for something that is not a copy changes nothing',
+      );
     },
   },
   {
