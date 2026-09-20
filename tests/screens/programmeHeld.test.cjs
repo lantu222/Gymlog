@@ -28,8 +28,12 @@ module.exports = [
   {
     name: 'programmes: the fork forgets the record it replaced, adoption resumes a held one, the rhythm of a held one stays its own',
     run() {
-      const fork = between('const replacedPlan = wasRunning', "if (edit.kind === 'replace')");
-      assert.match(fork, /if \(wasRunning\) \{[\s\S]{0,600}await forgetHeldProgramme\(template\.id\);/, 'the replaced plan record must go with the copy');
+      const fork = between('const replacedPlan = wasHeld', "if (edit.kind === 'replace')");
+      // On the record, not on the running set: a programme switched off
+      // still has its plan, and editing a lift in one left that record
+      // behind while the copy started from week 1 (CI review of #161).
+      assert.match(fork, /if \(wasHeld\) \{[\s\S]{0,600}await forgetHeldProgramme\(template\.id\);/, 'the replaced plan record must go with the copy');
+      assert.match(app, /const wasHeld = database\.workoutPlans\.some\(\(item\) => item\.id === readyPlanId\);/, 'held is read off the plan records');
 
       const adopt = between('const planId = buildReadyProgramPlanId(workoutTemplateId);', 'const dayLabels = planLabelsForProgramme(');
       assert.match(adopt, /if \(database\.workoutPlans\.some\(\(item\) => item\.id === planId\)\) \{[\s\S]{0,300}resumeProgramme\(\{/, 'a held programme must be resumed, not rebuilt');

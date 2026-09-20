@@ -2830,6 +2830,13 @@ function VinhaApp() {
     // 2026-09-16). The provider checks the same thing again at the write.
     const readyPlanId = buildReadyProgramPlanId(programId);
     const wasRunning = preferences.activePlanIds.includes(readyPlanId);
+    // Held is not running, and both of them are "this reader trains this
+    // programme". Stopping a programme rewrites the active set and leaves
+    // its plan record standing, block and all; only the running set says
+    // whether the copy takes a slot, and everything else about it — the
+    // block it inherits, the record it replaces — follows the record
+    // (CI review of #161).
+    const wasHeld = database.workoutPlans.some((item) => item.id === readyPlanId);
     if (!programSlots.canCreate) {
       setProgramLimitVisible(true);
       return false;
@@ -2974,10 +2981,12 @@ function VinhaApp() {
        * is measured from it. Stamping it with today turned "week 3, 7 of 24"
        * into "week 1, 0 of 24" because the reader changed one lift — the
        * programme is the same programme, and the block it is in is the same
-       * block. Only when it replaces a plan that was running: a copy of a
-       * programme they were merely browsing has no block to inherit.
+       * block. Only when it replaces a plan the reader HELD: a copy of a
+       * programme they were merely browsing has no block to inherit, and a
+       * programme switched off has one — its weeks did not stop being
+       * trained because it is not the one Home leads with today.
        */
-      const replacedPlan = wasRunning
+      const replacedPlan = wasHeld
         ? database.workoutPlans.find((item) => item.id === readyPlanId) ?? null
         : null;
       const plan = buildProgramWorkoutPlan({
@@ -3009,8 +3018,9 @@ function VinhaApp() {
             }
           : {},
       );
-      if (wasRunning) {
-        // The record the copy replaced goes with it. Left behind, it listed
+      if (wasHeld) {
+        // The record the copy replaced goes with it, whether or not it was
+        // the one running. Left behind, it listed
         // the programme twice — the copy running, the catalog version
         // "switched off" — and that row's Active switch re-adopted the
         // untouched original beside the copy, two slots for one programme
