@@ -51,6 +51,10 @@ module.exports = [
       // every tap, and its Active switch turned nothing off (CI review).
       for (const line of [
         'const runningTemplateId = ownCopyTemplateId ?? route.workoutTemplateId;',
+        // Only a copy something points at. A leftover copy — the plan
+        // forgotten, the template left standing — is not what the reader
+        // is training (CI review of #163).
+        'findHeldReadyProgrammeCopyId(route.workoutTemplateId, database.workoutTemplates, [',
         'const programIsMine = activeProgramTemplateIds.includes(runningTemplateId);',
         'const programLeads = homeActivePlanCard?.programId === runningTemplateId;',
         'next ? onResumeProgram(runningTemplateId) : onStopProgram(runningTemplateId)',

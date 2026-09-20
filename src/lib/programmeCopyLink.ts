@@ -63,6 +63,16 @@ export function isCopyOfReadyProgramme(
   );
 }
 
+/** Every template that is a copy of this programme, in stored order. */
+function copyIdsOf(
+  readyTemplateId: string,
+  templates: readonly ProgrammeCopyTemplate[],
+): string[] {
+  return templates
+    .filter((template) => isCopyOfReadyProgramme(template, readyTemplateId))
+    .map((template) => template.id);
+}
+
 /**
  * The reader's own version of a ready programme, or null.
  *
@@ -79,14 +89,35 @@ export function findReadyProgrammeCopyId(
   templates: readonly ProgrammeCopyTemplate[],
   preferredIds: readonly string[] = [],
 ): string | null {
-  const copies = templates
-    .filter((template) => isCopyOfReadyProgramme(template, readyTemplateId))
-    .map((template) => template.id);
+  const copies = copyIdsOf(readyTemplateId, templates);
   // Walked the copies and asked whether each was preferred, which reads
   // `preferredIds` as a set: with a held copy stored before a running one,
   // the held copy won and adoption resumed a second copy beside the first
   // (CI review of #163). The order of the preference is the preference.
   return preferredIds.find((id) => copies.includes(id)) ?? copies[0] ?? null;
+}
+
+/**
+ * The reader's own version of a ready programme that something points at.
+ *
+ * Forgetting a programme drops the plan and leaves the template standing, so
+ * a reader can carry a copy nothing points at for good. That leftover is not
+ * what they are training, and a page that asked its questions about it showed
+ * the adopt button for a programme already running under its own catalog id,
+ * with no switch and no way to put it down (CI review of #163). Null when
+ * every copy is a leftover — the caller then means the catalog programme.
+ *
+ * Whether a copy EXISTS is a different question, and findReadyProgrammeCopyId
+ * is the one that answers it: a leftover copy still means the composed week
+ * belongs to the reader's own page rather than to the catalog's.
+ */
+export function findHeldReadyProgrammeCopyId(
+  readyTemplateId: string,
+  templates: readonly ProgrammeCopyTemplate[],
+  heldTemplateIds: readonly string[],
+): string | null {
+  const copies = copyIdsOf(readyTemplateId, templates);
+  return heldTemplateIds.find((id) => copies.includes(id)) ?? null;
 }
 
 /**

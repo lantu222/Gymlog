@@ -13,7 +13,7 @@ import { ProgramLimitReachedError, ProgramSlots, programSlotsLineKey } from '../
 import { createUnlessAtLimit } from './programLimitGuard';
 import { AFFINITY_REASON_KEYS, resolveProgramAffinity } from '../lib/programAffinity';
 import { composeProgramWeekForSelection } from '../lib/programDayComposer';
-import { findReadyProgrammeCopyId } from '../lib/programmeCopyLink';
+import { findHeldReadyProgrammeCopyId, findReadyProgrammeCopyId } from '../lib/programmeCopyLink';
 import { buildCustomProgramDetail, buildReadyProgramDetail, composedWeekMatchesPlan } from '../lib/programDetails';
 import { resolveProgramEquipment } from '../lib/programEquipment';
 import { buildProgramFingerprint } from '../lib/programFingerprint';
@@ -401,9 +401,14 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     const heldTemplateIds = database.workoutPlans
       .map((plan) => plan.entries[0]?.workoutTemplateId)
       .filter((id): id is string => typeof id === 'string');
+    // Running first, then merely held, and nothing else: forgetting a
+    // programme drops its plan and leaves the template standing, and a page
+    // that took that leftover asked every question about a template nothing
+    // points at — the adopt button for a programme already running under its
+    // own id, no switch, no way to put it down (CI review of #163).
     const ownCopyTemplateId =
       route.programType === 'ready'
-        ? findReadyProgrammeCopyId(route.workoutTemplateId, database.workoutTemplates, [
+        ? findHeldReadyProgrammeCopyId(route.workoutTemplateId, database.workoutTemplates, [
             ...activeProgramTemplateIds,
             ...heldTemplateIds,
           ])

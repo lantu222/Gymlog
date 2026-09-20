@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 
 const {
+  findHeldReadyProgrammeCopyId,
   findReadyProgrammeCopyId,
   isCopyOfReadyProgramme,
   onboardingSessionIdPrefix,
@@ -78,6 +79,26 @@ module.exports = [
         findReadyProgrammeCopyId('tpl_strong_starter', templates, ['custom_1', 'custom_2']),
         'custom_1',
         'the running copy beats the held one however they are stored',
+      );
+
+      // A copy nothing points at is a leftover: forgetting a programme drops
+      // the plan and leaves the template standing for good. It still means
+      // the reader HAS a copy, so the composed week is not the catalog's —
+      // but it is not what they are training (CI review of #163).
+      assert.equal(
+        findHeldReadyProgrammeCopyId('tpl_strong_starter', templates, ['tpl_strong_starter']),
+        null,
+        'a copy with no plan is not the programme being trained',
+      );
+      assert.equal(
+        findHeldReadyProgrammeCopyId('tpl_strong_starter', templates, ['custom_2', 'custom_1']),
+        'custom_2',
+        'and the order the caller asks in still decides between two that are held',
+      );
+      assert.equal(
+        findReadyProgrammeCopyId('tpl_strong_starter', templates, []),
+        'custom_2',
+        'while the question "is there a copy at all" still answers yes',
       );
     },
   },
