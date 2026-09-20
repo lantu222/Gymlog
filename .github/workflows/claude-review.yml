@@ -241,6 +241,41 @@ jobs:
       # error straight after an expensive run. The first had posted findings
       # anyway; the second had posted nothing. Only the log could tell them
       # apart, and nobody reads the log of a check they assume is flaky.
+      # A review that was refused the diff is not a review, whatever it posted.
+      #
+      # #148 went green on "No issues found" from a run denied `gh pr diff`
+      # itself, and the PR merged on it. A denied run does not error — it runs
+      # out of ways to look and writes what it can — so neither "a review
+      # actually ran" nor "its summary was posted" catches this. It needs its
+      # own verdict, and the verdict has to live in a step that can fail:
+      # #149's `exit 1` went into the diagnostics step below, which is
+      # `continue-on-error`, so the step went red and the job stayed green.
+      #
+      # The ratio, not the count: most healthy reviews are denied something
+      # (27 of 35 on 14–16 Sep). Half the turns or more spent being refused is
+      # a reviewer that could not work.
+      - name: Confirm the review could read the PR
+        if: always() && steps.claude.outputs.execution_file != ''
+        env:
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        run: |
+          if [ ! -s "$EXECUTION_FILE" ]; then
+            exit 0
+          fi
+          summary=$(jq -s '[.[] | .. | objects | select(has("num_turns"))] | last // empty' "$EXECUTION_FILE" 2>/dev/null || true)
+          if [ -z "$summary" ]; then
+            exit 0
+          fi
+          turns=$(echo "$summary" | jq -r '.num_turns // 0')
+          denials=$(echo "$summary" | jq -r '.permission_denials // [] | length')
+          turns=${turns//[!0-9]/}
+          : "${turns:=0}"
+          if [ "$denials" -gt 0 ] && [ "$turns" -gt 0 ] && [ $((denials * 2)) -ge "$turns" ]; then
+            echo "::error::The review was denied $denials tool calls in $turns turns, so it could not read what it was reviewing. Whatever it posted says nothing about this PR. Widen --allowedTools in .github/workflows/claude-review.yml, or narrow what the reviewer is asked to run — see the denial list in the step below."
+            exit 1
+          fi
+          echo "The review was denied $denials of $turns turns: it could do its work."
+
       - name: Say which kind of red this is
         if: always() && steps.claude.outputs.execution_file != ''
         # Diagnostics must never be the reason a check is red — or green. This
@@ -306,27 +341,23 @@ jobs:
           if [ -n "$denied" ]; then
             echo "Denied tools: $denied"
           fi
+          if [ "$failed" != "true" ]; then
+            echo "The run ended without an error. Whether it reviewed this commit is the verdict of \"Confirm this commit's review was posted\" and \"Confirm the review could read the PR\", not of this step."
+            exit 0
+          fi
           # Denials are blamed only when they are a large share of the run.
           # Most healthy reviews have at least one (27 of 35 on 14–16 Sep), so
           # "any denial" would name the allowlist as the cause of most errors.
           #
-          # Checked BEFORE the is_error exit below, and fatal rather than
-          # advisory. A review denied most of its calls does not error — it
-          # runs out of ways to look and writes what it can, which on #148 was
-          # "No issues found" from a run denied `gh pr diff` itself: green,
-          # posted, and hollow. That is worse than red, because red is read.
-          # The denial arithmetic used to sit under an `exit 0` that a
-          # successful run always took, so it had never once run on the case
-          # it was written for (2026-09-20).
+          # This explains an error; it does not decide one. #149 put a fatal
+          # `exit 1` here and it changed nothing, because this step is
+          # `continue-on-error` — the step went red, the job stayed green, and
+          # #150 passed on a review denied 33 of 42 calls. The verdict belongs
+          # in a step that can actually fail, which is the one above
+          # (2026-09-20).
           if [ "$denials" -gt 0 ] && [ $((denials * 2)) -ge "${turns//[!0-9]/0}" ]; then
-            echo "::error::The review was denied $denials tool calls in $turns turns, so it could not read what it was reviewing. Whatever it posted says nothing about this PR. This is a workflow problem: widen --allowedTools in .github/workflows/claude-review.yml, or narrow what the reviewer is asked to run."
-            exit 1
-          fi
-          if [ "$failed" != "true" ]; then
-            echo "The run ended without an error. Whether it reviewed this commit is the verdict of \"Confirm this commit's review was posted\", not of this step."
-            exit 0
-          fi
-          if [ "$turns" = "1" ]; then
+            echo "::warning::The review was denied $denials tool calls in $turns turns, which is a workflow problem, not a finding. Widen --allowedTools in .github/workflows/claude-review.yml."
+          elif [ "$turns" = "1" ]; then
             echo "::warning::The review errored on its first turn with no tool denials, so the model never got going: upstream refused the request. That is a usage limit OR a provider incident, and the two look identical from here — check status.anthropic.com before concluding anything about budget. Either way this PR has NOT been reviewed; re-run the job."
           else
             echo "::warning::The review errored after $turns turns. Read the step log above for what it was doing."
