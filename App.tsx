@@ -1946,44 +1946,18 @@ function VinhaApp() {
      * is what this row has always meant.
      */
     trackEvent('plan_adopted');
-    const planId = buildReadyProgramPlanId(workoutTemplateId);
     // Held but switched off: resumed, not rebuilt. Falling through here
     // built a fresh plan over the same id, and its updatedAt is the block
     // boundary — a programme at week 5, 12 of 24, came back from the goal
     // flow or the completion card as week 1, 0 of 24, with its week dealt
     // again while the rotation carried on (audit round 4, 2026-09-20).
-    // The Active switch already keeps the plan; this is the same path.
-    if (database.workoutPlans.some((item) => item.id === planId)) {
-      const resumed = resumeProgramme({
-        activePlanId: preferences.activePlanId,
-        activePlanIds: preferences.activePlanIds,
-        plans: database.workoutPlans,
-        templateId: workoutTemplateId,
-      });
-      if (resumed) {
-        const held = evaluateProgramAdoption({
-          activePlanIds: preferences.activePlanIds,
-          targetPlanId: resumed.planId,
-          proUnlocked: resolveProEntitlement(preferences).unlocked,
-        });
-        if (held.kind === 'blocked') {
-          if (held.canUpgrade) {
-            setRunningCapSheet({ visible: true, used: held.used, cap: held.cap });
-            return false;
-          }
-          showToast(t(preferences.appLanguage, 'programs.cap.full', { cap: held.cap }));
-          return false;
-        }
-        await updatePreferences({
-          activePlanIds: resumed.activePlanIds,
-          // resumeProgramme names the resumed plan as activePlanId whichever way,
-          // so the lead is kept here: joining a season must not quietly demote
-          // the programme at the top of Home (CI review of #161).
-          activePlanId: options?.lead ? resumed.planId : preferences.activePlanId ?? resumed.planId,
-        });
-        return true;
-      }
+    // The Active switch already keeps the plan; this is the same path, and
+    // it is the same path the reader's own copy comes back through above.
+    const resumedHeld = await resumeHeldProgramme(workoutTemplateId, options);
+    if (resumedHeld !== null) {
+      return resumedHeld;
     }
+    const planId = buildReadyProgramPlanId(workoutTemplateId);
     const decision = evaluateProgramAdoption({
       activePlanIds: preferences.activePlanIds,
       targetPlanId: planId,

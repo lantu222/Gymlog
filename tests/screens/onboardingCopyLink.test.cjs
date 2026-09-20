@@ -86,7 +86,7 @@ module.exports = [
       );
       assert.match(
         app,
-        /trackEvent\('plan_adopted'\);\s*const planId = buildReadyProgramPlanId\(workoutTemplateId\);/,
+        /trackEvent\('plan_adopted'\);\s*\/\/ Held but switched off/,
         'the event belongs where a programme starts running',
       );
 

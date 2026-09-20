@@ -70,6 +70,15 @@ module.exports = [
         'custom_2',
         'a preference for something that is not a copy changes nothing',
       );
+      // Two copies, both preferred, the caller's order deciding: running ids
+      // come first and a held one is stored first. Asking each copy whether
+      // it was preferred instead read the list as a set, and the held copy
+      // won (CI review of #163).
+      assert.equal(
+        findReadyProgrammeCopyId('tpl_strong_starter', templates, ['custom_1', 'custom_2']),
+        'custom_1',
+        'the running copy beats the held one however they are stored',
+      );
     },
   },
   {

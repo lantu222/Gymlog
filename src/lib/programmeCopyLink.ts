@@ -82,7 +82,11 @@ export function findReadyProgrammeCopyId(
   const copies = templates
     .filter((template) => isCopyOfReadyProgramme(template, readyTemplateId))
     .map((template) => template.id);
-  return copies.find((id) => preferredIds.includes(id)) ?? copies[0] ?? null;
+  // Walked the copies and asked whether each was preferred, which reads
+  // `preferredIds` as a set: with a held copy stored before a running one,
+  // the held copy won and adoption resumed a second copy beside the first
+  // (CI review of #163). The order of the preference is the preference.
+  return preferredIds.find((id) => copies.includes(id)) ?? copies[0] ?? null;
 }
 
 /**
