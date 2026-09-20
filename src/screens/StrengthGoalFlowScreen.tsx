@@ -295,6 +295,7 @@ export function StrengthGoalFlowScreen({
         />
         <FlatList
           style={styles.list}
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.listContent}
           data={shown}
           keyExtractor={(lift) => lift.exerciseName}
@@ -379,7 +380,11 @@ export function StrengthGoalFlowScreen({
                 })
           }
         />
-        <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
+        <ScrollView
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.numberCard}>
             {bestKg === null ? (
               <>

@@ -444,7 +444,11 @@ export function CreateTemplateScreen({
         onRightActionPress={canSave ? () => void handleSave() : undefined}
       />
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <CutSurface
           size="lg"
           fill={theme.surface}
