@@ -10,22 +10,24 @@ const ROOT = path.join(__dirname, '..', '..');
  *
  * React Native's default (`keyboardShouldPersistTaps="never"`) dismisses the
  * keyboard on the first tap outside the focused input and drops that tap: the
- * button under the finger does nothing until the second press. Seven
- * containers had it — the template editor's Save and "add exercise" under its
- * name field, the strength-goal flow's "+5 kg" chips under the kilo field
- * ("tavoitetta ei pysty mitenkään laittamaan nappi ei toimi", #bugs
- * 2026-09-05), the search fields on Workouts and History, the membership
- * survey, and the swap sheets on Home and the programme day, where the search
- * field sits ABOVE the list rather than inside it. The library browser and
- * the add-exercise sheet already set `"handled"`; the rule is the same for
- * every container, so it is checked for every container.
+ * button under the finger does nothing until the second press. Ten containers
+ * had it — the template editor's Save and "add exercise" under its name field
+ * and the preset row inside it, the strength-goal flow's "+5 kg" chips under
+ * the kilo field ("tavoitetta ei pysty mitenkään laittamaan nappi ei toimi",
+ * #bugs 2026-09-05), the Workouts search with its filter chips and the
+ * programme carousel that IS its result list, the History search, the
+ * membership survey, and the swap sheets on Home and the programme day, where
+ * the search field sits ABOVE the list rather than inside it. The library
+ * browser and the add-exercise sheet already set `"handled"`; the rule is the
+ * same for every container, so it is checked for every container.
  *
- * Two shapes count. A container that HOLDS an input, nested ones included —
- * the prop is not inherited, and React Native's own guidance for nested
- * scroll views is that each one sets it, so an outer container counts the
- * inputs inside its inner ones. And a container that FOLLOWS an input as its
- * sibling, the search-then-list sheet: the keyboard raised by the field above
- * eats the first tap on the list below just the same (CI review of #156).
+ * Three shapes count, because the prop is not inherited — each ScrollView
+ * resolves it on its own at touch time. A container that HOLDS an input,
+ * nested ones included. A container that FOLLOWS an input as its sibling,
+ * the search-then-list sheet: the keyboard raised by the field above eats the
+ * first tap on the list below just the same. And a container NESTED INSIDE
+ * either of those — a horizontal chip row under a search field is under the
+ * same keyboard (CI review of #156, three rounds).
  *
  * The scan is textual but shaped like JSX, not like lines. Its first version
  * walked lines and kept a stack: a self-closing container whose `/>` sat on
@@ -33,12 +35,12 @@ const ROOT = path.join(__dirname, '..', '..');
  * was credited to every open frame rather than the one it sat on. Its second
  * read tags, but judged a self-closing element on its whole span, so a
  * `keyboardShouldPersistTaps` on a ScrollView nested inside its
- * `ListHeaderComponent` prop passed for the outer FlatList (CI review of
- * #156, twice). Now each `<ScrollView` / `<FlatList` / `<SectionList` is read
- * to the end of its own opening tag with braces and quotes tracked, judged on
- * the text at brace depth 0 of that tag alone, and closed at its matching
- * close tag or its own `/>`; a `useRef<ScrollView | null>` is a generic, not
- * a tag, and is skipped by the character before the `<`.
+ * `ListHeaderComponent` prop passed for the outer FlatList. Now each
+ * `<ScrollView` / `<FlatList` / `<SectionList` is read to the end of its own
+ * opening tag with braces and quotes tracked, judged on the text at brace
+ * depth 0 of that tag alone, and closed at its matching close tag or its own
+ * `/>`; a `useRef<ScrollView | null>` is a generic, not a tag, and is skipped
+ * by the character before the `<`.
  */
 function walk(dir) {
   const out = [];
@@ -60,11 +62,9 @@ const INPUT_RE = new RegExp(`<(${INPUT_TAGS.join('|')})\\b`, 'g');
 /** How far above a container a sibling input still raises the keyboard over it. */
 const SIBLING_LINES = 12;
 
-/** Scroll containers that hold or follow a text input, and whether each one's own tag persists taps. */
-function scrollContainersWithInputs(source) {
-  const src = source.replace(/\r\n/g, '\n');
-  const lines = src.split('\n');
-  const found = [];
+/** Every scroll container in the source, with its span and its own attributes. */
+function scrollContainers(src) {
+  const out = [];
   const openRe = /<(ScrollView|FlatList|SectionList)\b/g;
   let m;
   while ((m = openRe.exec(src))) {
@@ -124,29 +124,53 @@ function scrollContainersWithInputs(source) {
       }
     }
 
-    const line = src.slice(0, start).split('\n').length;
-    const inputs = (src.slice(start, end).match(INPUT_RE) ?? []).length;
-    const above = lines.slice(Math.max(0, line - 1 - SIBLING_LINES), line - 1).join('\n');
-    const siblingInput = INPUT_RE.test(above);
-    INPUT_RE.lastIndex = 0;
-    if (inputs === 0 && !siblingInput) continue;
-    found.push({
-      line,
-      inputs,
-      siblingInput,
+    out.push({
+      start,
+      end,
       selfClosing,
+      line: src.slice(0, start).split('\n').length,
       // On this container's own attributes. A descendant's prop, a prop on an
       // element nested inside one of its props, or a comment that names it,
       // is not this container persisting anything.
       persists: /\bkeyboardShouldPersistTaps\s*=/.test(ownText),
     });
   }
-  return found;
+  return out;
+}
+
+/** Scroll containers under a keyboard — holding, following, or nested inside one that does. */
+function scrollContainersWithInputs(source) {
+  const src = source.replace(/\r\n/g, '\n');
+  const lines = src.split('\n');
+  const containers = scrollContainers(src);
+  for (const c of containers) {
+    c.inputs = (src.slice(c.start, c.end).match(INPUT_RE) ?? []).length;
+    const above = lines.slice(Math.max(0, c.line - 1 - SIBLING_LINES), c.line - 1).join('\n');
+    c.siblingInput = INPUT_RE.test(above);
+    INPUT_RE.lastIndex = 0;
+    c.underKeyboard = c.inputs > 0 || c.siblingInput;
+  }
+  // Nested inside one that is under the keyboard: so is this one. To a
+  // fixpoint, since the ancestor may itself be flagged by its ancestor.
+  for (let pass = 0; pass < containers.length; pass += 1) {
+    let grew = false;
+    for (const c of containers) {
+      if (c.underKeyboard) continue;
+      if (containers.some((outer) => outer !== c && outer.underKeyboard && outer.start < c.start && c.end <= outer.end)) {
+        c.underKeyboard = true;
+        grew = true;
+      }
+    }
+    if (!grew) break;
+  }
+  return containers
+    .filter((c) => c.underKeyboard)
+    .map(({ line, inputs, siblingInput, selfClosing, persists }) => ({ line, inputs, siblingInput, selfClosing, persists }));
 }
 
 module.exports = [
   {
-    name: 'keyboard: every scroll container that holds or follows a text input keeps taps alive',
+    name: 'keyboard: every scroll container under a text input keeps taps alive',
     run() {
       // The wrapper list is true of the code, not of this file.
       const kit = fs.readFileSync(path.join(ROOT, 'src', 'components', 'sheetKit.tsx'), 'utf8');
@@ -171,7 +195,7 @@ module.exports = [
   {
     // The scanner on fixtures, one per way it has been fooled, so a green tree
     // cannot be a scanner that sees nothing.
-    name: 'keyboard: the scan reads tags, judges each on its own attributes, and sees a sibling input',
+    name: 'keyboard: the scan reads tags, judges each on its own attributes, and follows the keyboard down',
     run() {
       const shape = (source) => scrollContainersWithInputs(source).map((c) => [c.line, c.persists]);
 
@@ -181,7 +205,8 @@ module.exports = [
       assert.deepEqual(shape(bare.replace('<ScrollView style={s.x}>', '<ScrollView style={s.x} keyboardShouldPersistTaps="handled">')), [[2, true]]);
 
       // A multi-line self-closing FlatList whose header holds the input: the
-      // container ends at its own `/>`, and the prop must sit on it.
+      // container ends at its own `/>`, and the prop must sit on it. The
+      // ScrollView after it follows the header's input.
       const flat = [
         '<FlatList',
         '  data={rows}',
@@ -192,13 +217,12 @@ module.exports = [
         '  <Text />',
         '</ScrollView>',
       ].join('\n');
-      assert.deepEqual(shape(flat), [[1, false], [6, true]], "the self-closing FlatList is judged on its own tag, not the next container's; the ScrollView follows the header's input");
+      assert.deepEqual(shape(flat), [[1, false], [6, true]]);
       assert.deepEqual(shape(flat.replace('  data={rows}', '  data={rows}\n  keyboardShouldPersistTaps="handled"')), [[1, true], [7, true]]);
 
       // The prop on an element NESTED INSIDE a prop of the self-closing
       // container is that element's, not the container's (the library
-      // browser's shape: a FlatList whose ListHeaderComponent holds the
-      // search field and a horizontal chip ScrollView that persists).
+      // browser's shape).
       const nestedProp = [
         '<FlatList',
         '  data={rows}',
@@ -212,7 +236,7 @@ module.exports = [
         '  }',
         '/>',
       ].join('\n');
-      assert.deepEqual(shape(nestedProp), [[1, false], [6, true]], 'the chip row\'s prop must not vouch for the FlatList');
+      assert.deepEqual(shape(nestedProp), [[1, false], [6, true]], "the chip row's prop must not vouch for the FlatList");
       assert.deepEqual(shape(nestedProp.replace('  data={rows}', '  data={rows}\n  keyboardShouldPersistTaps="handled"')), [[1, true], [7, true]]);
 
       // Nested paired containers: the inner one persists, the outer one —
@@ -225,6 +249,23 @@ module.exports = [
         '</ScrollView>',
       ].join('\n');
       assert.deepEqual(shape(nested), [[1, false], [2, true]]);
+
+      // The keyboard follows the nesting DOWN too: a chip row below the
+      // field, inside the same scroll view, holds no input of its own and is
+      // under the keyboard all the same (Workouts' filter chips, the template
+      // editor's preset row).
+      const chips = [
+        '<ScrollView keyboardShouldPersistTaps="handled">',
+        '  <TextInput value={q} />',
+        '  <Text>a great many lines of other content</Text>',
+        ...Array.from({ length: 20 }, () => '  <Text />'),
+        '  <ScrollView horizontal>',
+        '    <Pressable onPress={pick} />',
+        '  </ScrollView>',
+        '</ScrollView>',
+      ].join('\n');
+      assert.deepEqual(shape(chips), [[1, true], [24, false]], 'a scroller inside a container under the keyboard is under it too');
+      assert.deepEqual(shape(chips.replace('<ScrollView horizontal>', '<ScrollView horizontal keyboardShouldPersistTaps="handled">')), [[1, true], [24, true]]);
 
       // The search-then-list sheet: the field is a sibling above the list.
       const sibling = ['<KitSearch value={q} onChangeText={setQ} />', '<ScrollView style={s.list}>', '  <KitRow onPress={pick} />', '</ScrollView>'].join('\n');

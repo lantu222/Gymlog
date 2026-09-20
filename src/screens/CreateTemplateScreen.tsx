@@ -503,7 +503,7 @@ export function CreateTemplateScreen({
 
         <View style={[styles.card, styles.quickLayoutsCard]}>
           <Text style={styles.cardKicker}>{t(language, 'tpl.quickLayouts')}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetRow}>
+          <ScrollView horizontal keyboardShouldPersistTaps="handled" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetRow}>
             {presets.map((preset) => {
               const previewImage = presetPreviewImages[preset.id];
 

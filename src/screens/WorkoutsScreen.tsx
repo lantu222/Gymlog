@@ -451,6 +451,7 @@ export function WorkoutsScreen({
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.readyTemplateFilterRow}
             snapToInterval={116}
             decelerationRate="fast"
@@ -556,6 +557,7 @@ export function WorkoutsScreen({
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
                   contentContainerStyle={styles.readyTemplateCarousel}
                   decelerationRate="fast"
                   snapToInterval={232}
