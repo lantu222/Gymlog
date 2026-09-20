@@ -223,7 +223,12 @@ import { exerciseNameLabel } from './src/lib/exerciseNameLabel';
 import { buildProgramFingerprint } from './src/lib/programFingerprint';
 import { firstRecordDates, RecordSource, resolveRecords } from './src/lib/personalRecords';
 import { getComparableLogSets } from './src/lib/exerciseLog';
-import { ExerciseProgressSummary, getLiftProgress, SameLiftMatcher } from './src/lib/progression';
+import {
+  ExerciseProgressSummary,
+  getLiftHistoryByName,
+  getLiftProgress,
+  SameLiftMatcher,
+} from './src/lib/progression';
 import { resolveGoalProgress, upsertStrengthGoal } from './src/lib/strengthGoals';
 import {
   countByCategory,
@@ -5548,15 +5553,16 @@ function VinhaApp() {
     [toSetLogSource, trackedProgress],
   );
   /**
-   * The lift's history by name, for the player's sheet — the same rows the
-   * records read, keyed the way `toSetLogSource` keys body parts above.
+   * The lift's history by name, for the player's sheet. Every log, not the
+   * tracked summaries the records read: tracking is a per-programme mark,
+   * and a lift untracked here has still been lifted (CI review of #154).
+   * Keyed on the three tables it reads, like exercisePrLookup.
    */
   const liftHistory = useMemo(() => {
-    const byName = new Map(
-      recordSources.map((source) => [source.name.trim().toLowerCase(), source.entries] as const),
-    );
+    const byName = getLiftHistoryByName(database);
     return (exerciseName: string) => byName.get(exerciseName.trim().toLowerCase()) ?? null;
-  }, [recordSources]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [database.exerciseLogs, database.exerciseTemplates, database.workoutSessions]);
   const personalRecords = useMemo(
     () => ({
       weight: resolveRecords(recordSources, 'weight'),
