@@ -28,17 +28,29 @@ module.exports = [
   },
   {
     /**
-     * Written once, by the copy that created the template. If an edit could
-     * drop it, the edit after that would look for a copy and not find the very
-     * template it had just written.
+     * An edit names no source, so the stored link carries through every later
+     * edit: if an edit could drop it, the edit after that would look for a
+     * copy and not find the very template it had just written.
+     *
+     * And a draft that DOES name one wins, which is the other way round from
+     * how this was written. Answering the questionnaire again writes a new
+     * programme over the untouched one from the last run, so a second run
+     * with a different recommendation left a template full of programme B's
+     * days still linked to programme A — A's page hiding its own week,
+     * adoption of A resuming B, A's history counting B's sessions (review of
+     * the onboarding link, 2026-09-20).
      */
-    name: 'the link survives every later edit of the copy',
+    name: 'the link survives every later edit of the copy, and a new copy may name a new source',
     run() {
       const provider = read('src/state/AppProvider.tsx');
       assert.match(
         provider,
-        /sourceTemplateId: existingTemplate\?\.sourceTemplateId \?\? draft\.sourceTemplateId \?\? null,/,
+        /sourceTemplateId: draft\.sourceTemplateId \?\? existingTemplate\?\.sourceTemplateId \?\? null,/,
       );
+      // Onboarding is the path that writes a source over an existing row, so
+      // the two halves of this only hold together while its draft carries one.
+      const handoff = read('src/app/onboardingHandoff.ts');
+      assert.match(handoff, /sourceTemplateId: recommendedProgramId,/);
     },
   },
   {
@@ -106,7 +118,10 @@ module.exports = [
       const provider = read('src/state/AppProvider.tsx');
       const start = provider.indexOf('function findWorkoutTemplateIdBySource(');
       assert.ok(start > -1, 'the provider should own the lookup');
-      const body = provider.slice(start, start + 400);
+      // To the end of the function, not a fixed number of characters:
+      // 400 was enough until the lookup grew a comment, and then the guard
+      // failed on a function that still did exactly what it asks for.
+      const body = provider.slice(start, provider.indexOf('\n  }', start));
       assert.ok(body.includes('runExclusive('), 'the lookup must run inside the queue');
       assert.ok(body.includes('databaseRef.current'), 'the lookup must read stored data');
     },

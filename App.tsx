@@ -207,6 +207,7 @@ import {
   resolveCompletionCard,
 } from './src/lib/programCompletion';
 import { backfillRecommendations } from './src/lib/recommendationBackfill';
+import { expandRunningIdsWithSources, findReadyProgrammeCopyId } from './src/lib/programmeCopyLink';
 import { STRENGTH_GOAL_PRESETS } from './src/lib/strengthGoalPresets';
 import {
   describeGoalCoverage,
@@ -1820,6 +1821,56 @@ function VinhaApp() {
    * other caller ignores the value, which is why this can be added without
    * touching them.
    */
+  /**
+   * Put a programme the reader already holds back into the running set.
+   *
+   * Held is not gone: the plan record is still there with its block, its
+   * week and its rotation, and switching a programme on has always resumed
+   * it rather than rebuilding it. Adoption arrives at the same programmes by
+   * other doors — the goal flow, a completion card, a catalog page whose
+   * programme the reader has a copy of — and each of them used to build a
+   * plan over the top instead, which is week 5 of 24 coming back as week 1.
+   *
+   * Answers true when the programme is running again, false when the cap
+   * refused it, and null when there is no plan to resume — the caller then
+   * builds one.
+   */
+  async function resumeHeldProgramme(
+    templateId: string,
+    options?: { lead?: boolean },
+  ): Promise<boolean | null> {
+    const resumed = resumeProgramme({
+      activePlanId: preferences.activePlanId,
+      activePlanIds: preferences.activePlanIds,
+      plans: database.workoutPlans,
+      templateId,
+    });
+    if (!resumed) {
+      return null;
+    }
+    const decision = evaluateProgramAdoption({
+      activePlanIds: preferences.activePlanIds,
+      targetPlanId: resumed.planId,
+      proUnlocked: resolveProEntitlement(preferences).unlocked,
+    });
+    if (decision.kind === 'blocked') {
+      if (decision.canUpgrade) {
+        setRunningCapSheet({ visible: true, used: decision.used, cap: decision.cap });
+        return false;
+      }
+      showToast(t(preferences.appLanguage, 'programs.cap.full', { cap: decision.cap }));
+      return false;
+    }
+    await updatePreferences({
+      activePlanIds: resumed.activePlanIds,
+      // resumeProgramme names the resumed plan as activePlanId whichever way,
+      // so the lead is kept here: joining a season must not quietly demote the
+      // programme at the top of Home.
+      activePlanId: options?.lead ? resumed.planId : preferences.activePlanId ?? resumed.planId,
+    });
+    return true;
+  }
+
   async function handleAdoptReadyProgram(
     workoutTemplateId: string,
     options?: { lead?: boolean },
@@ -1828,7 +1879,6 @@ function VinhaApp() {
     if (!template) {
       return false;
     }
-    trackEvent('plan_adopted');
 
     // Already running this programme under some other plan id (an onboarding
     // pick, say) — joining again would spend a cap slot on a duplicate. But
@@ -1843,44 +1893,71 @@ function VinhaApp() {
       return true;
     }
 
-    const planId = buildReadyProgramPlanId(workoutTemplateId);
+    /*
+     * The reader's own version of this programme IS this programme.
+     *
+     * Onboarding hands most readers a copy of the recommended programme,
+     * fitted to their answers, and that copy is what they train. Adopting the
+     * catalog original beside it gave one programme two rows in the list, two
+     * plans, two slots of the running cap — and a Home offering a week the
+     * reader had never been shown (audit round 4, 2026-09-20). The copy is
+     * the answer: running already, or resumed through its own plan with its
+     * block intact. Only if it has no plan at all does the catalog version
+     * get built below.
+     */
+    const copyTemplateId = findReadyProgrammeCopyId(
+      workoutTemplateId,
+      database.workoutTemplates,
+      // Running first, then merely held: with two copies of one programme
+      // — possible on an install from before the link — resuming the one
+      // nothing points at would leave both running.
+      [
+        ...activeProgramTemplateIds,
+        ...database.workoutPlans
+          .map((plan) => plan.entries[0]?.workoutTemplateId)
+          .filter((id): id is string => typeof id === 'string'),
+      ],
+    );
+    if (copyTemplateId) {
+      if (activeProgramTemplateIds.includes(copyTemplateId)) {
+        if (options?.lead) {
+          await promoteHeldProgramToLead(copyTemplateId);
+        }
+        return true;
+      }
+      const resumedCopy = await resumeHeldProgramme(copyTemplateId, options);
+      if (resumedCopy !== null) {
+        if (resumedCopy) {
+          trackEvent('plan_adopted');
+        }
+        return resumedCopy;
+      }
+    }
+
+    /*
+     * Counted where a programme actually starts running.
+     *
+     * This fired at the top of the handler, before every early return, so
+     * the funnel counted an adoption each time a reader tapped the page of
+     * a programme they were already running — and, with the branch above,
+     * each time they tapped one they run under their own copy (review of
+     * the onboarding link, 2026-09-20). The cap refusing the adoption
+     * below is not an adoption either, but it is an attempt at one, which
+     * is what this row has always meant.
+     */
+    trackEvent('plan_adopted');
     // Held but switched off: resumed, not rebuilt. Falling through here
     // built a fresh plan over the same id, and its updatedAt is the block
     // boundary — a programme at week 5, 12 of 24, came back from the goal
     // flow or the completion card as week 1, 0 of 24, with its week dealt
     // again while the rotation carried on (audit round 4, 2026-09-20).
-    // The Active switch already keeps the plan; this is the same path.
-    if (database.workoutPlans.some((item) => item.id === planId)) {
-      const resumed = resumeProgramme({
-        activePlanId: preferences.activePlanId,
-        activePlanIds: preferences.activePlanIds,
-        plans: database.workoutPlans,
-        templateId: workoutTemplateId,
-      });
-      if (resumed) {
-        const held = evaluateProgramAdoption({
-          activePlanIds: preferences.activePlanIds,
-          targetPlanId: resumed.planId,
-          proUnlocked: resolveProEntitlement(preferences).unlocked,
-        });
-        if (held.kind === 'blocked') {
-          if (held.canUpgrade) {
-            setRunningCapSheet({ visible: true, used: held.used, cap: held.cap });
-            return false;
-          }
-          showToast(t(preferences.appLanguage, 'programs.cap.full', { cap: held.cap }));
-          return false;
-        }
-        await updatePreferences({
-          activePlanIds: resumed.activePlanIds,
-          // resumeProgramme names the resumed plan as activePlanId whichever way,
-          // so the lead is kept here: joining a season must not quietly demote
-          // the programme at the top of Home (CI review of #161).
-          activePlanId: options?.lead ? resumed.planId : preferences.activePlanId ?? resumed.planId,
-        });
-        return true;
-      }
+    // The Active switch already keeps the plan; this is the same path, and
+    // it is the same path the reader's own copy comes back through above.
+    const resumedHeld = await resumeHeldProgramme(workoutTemplateId, options);
+    if (resumedHeld !== null) {
+      return resumedHeld;
     }
+    const planId = buildReadyProgramPlanId(workoutTemplateId);
     const decision = evaluateProgramAdoption({
       activePlanIds: preferences.activePlanIds,
       targetPlanId: planId,
@@ -5587,7 +5664,16 @@ function VinhaApp() {
 
       return backfillRecommendations({
         picks,
-        adoptedIds: activeProgramTemplateIds,
+        // A programme you run under your own copy of it is a programme you
+        // run. The row dropped what was adopted by template id, and a copy
+        // carries a new one — so the card the questionnaire had just handed
+        // over went on being recommended, under the catalog name, to the
+        // reader already training it (audit round 4, 2026-09-20).
+        adoptedIds: expandRunningIdsWithSources(
+          activeProgramTemplateIds,
+          database.workoutTemplates,
+          workout.templates.map((template) => template.id),
+        ),
         anchor,
         catalog: workout.templates,
         // Six either way: the questionnaire's picks lead when they exist, and
@@ -5618,6 +5704,10 @@ function VinhaApp() {
     },
     [
       activeProgramTemplateIds,
+      // The row asks which catalog programmes the running ones are copies
+      // of, so a copy made without the running set changing — a fork made
+      // while browsing — has to reach it (review, 2026-09-20).
+      database.workoutTemplates,
       homeActivePlanCard?.programId,
       preferences.appLanguage,
       recommendedReadyTemplate,

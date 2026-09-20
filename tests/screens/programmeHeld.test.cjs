@@ -35,8 +35,12 @@ module.exports = [
       assert.match(fork, /if \(wasHeld\) \{[\s\S]{0,600}await forgetHeldProgramme\(template\.id\);/, 'the replaced plan record must go with the copy');
       assert.match(app, /const wasHeld = database\.workoutPlans\.some\(\(item\) => item\.id === readyPlanId\);/, 'held is read off the plan records');
 
-      const adopt = between('const planId = buildReadyProgramPlanId(workoutTemplateId);', 'const dayLabels = planLabelsForProgramme(');
-      assert.match(adopt, /if \(database\.workoutPlans\.some\(\(item\) => item\.id === planId\)\) \{[\s\S]{0,300}resumeProgramme\(\{/, 'a held programme must be resumed, not rebuilt');
+      // Resuming is one rule in one place now: the reader's own copy of a
+      // catalog programme comes back through the same helper, so the block
+      // that was written here went with it rather than being copied.
+      const adopt = between('async function handleAdoptReadyProgram(', 'const dayLabels = planLabelsForProgramme(');
+      assert.match(adopt, /const resumedHeld = await resumeHeldProgramme\(workoutTemplateId, options\);\s*if \(resumedHeld !== null\) \{\s*return resumedHeld;/, 'a held programme must be resumed, not rebuilt');
+      assert.match(app, /async function resumeHeldProgramme\([\s\S]{0,400}resumeProgramme\(\{/, 'and the helper is the one that resumes');
 
       const rhythm = between('async function handleSaveRhythm(', 'setupScheduleMode:');
       // Not the running set: two programmes may run at once, and the second

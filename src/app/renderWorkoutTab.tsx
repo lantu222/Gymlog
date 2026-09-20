@@ -13,6 +13,7 @@ import { ProgramLimitReachedError, ProgramSlots, programSlotsLineKey } from '../
 import { createUnlessAtLimit } from './programLimitGuard';
 import { AFFINITY_REASON_KEYS, resolveProgramAffinity } from '../lib/programAffinity';
 import { composeProgramWeekForSelection } from '../lib/programDayComposer';
+import { findHeldReadyProgrammeCopyId, findReadyProgrammeCopyId } from '../lib/programmeCopyLink';
 import { buildCustomProgramDetail, buildReadyProgramDetail, composedWeekMatchesPlan } from '../lib/programDetails';
 import { resolveProgramEquipment } from '../lib/programEquipment';
 import { buildProgramFingerprint } from '../lib/programFingerprint';
@@ -347,6 +348,20 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     if (preferences.recommendedProgramId !== workoutTemplateId || !setupSelection) {
       return null;
     }
+    /*
+     * And only while the composed week is the only version of it.
+     *
+     * Onboarding saves what it composed as a programme of the reader's own,
+     * and that copy is what they train. This page is the catalog
+     * programme's page: its day editor and its adopt button work on the
+     * original. Showing the copy's week here made a page whose days and
+     * whose buttons disagreed — the reader tapped a day they had been
+     * shown on Home and edited something else (audit round 4, 2026-09-20).
+     * The copy has a page of its own, which is where its week belongs.
+     */
+    if (findReadyProgrammeCopyId(workoutTemplateId, database.workoutTemplates)) {
+      return null;
+    }
     const composed = composeProgramWeekForSelection(setupSelection, workoutTemplateId);
     if (!composed) {
       return null;
@@ -372,14 +387,42 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           }, tailoringPreferences).join(' ')
         : null;
     const readyProgramTailoringBadges = buildTailoringBadgeLabels(tailoringPreferences).slice(0, 3);
+    /*
+     * The reader's own version of this programme, when they have a live one.
+     *
+     * Not to answer the page's questions with. This page belongs to the
+     * catalog programme: it draws the catalog's week, its rhythm editor
+     * writes the catalog plan, its delete forgets the catalog plan, and
+     * every prop on it names the id in the route. Resolving those against
+     * the copy instead needed a new exception for each one — the start that
+     * asked for a plan the catalog id has no entry in, the delete that named
+     * one programme and removed another, the rhythm controls that vanished —
+     * and there is always another prop (CI review of #163, three rounds).
+     *
+     * So the page says what it is, and the one button that would otherwise
+     * lie takes the reader to their own version. The day editor has answered
+     * this way since 2026-08-26, with this same toast.
+     *
+     * Running first, then merely held. A copy nothing points at is a
+     * leftover — forgetting a programme drops its plan and leaves the
+     * template standing — and a leftover is not a page to be sent to.
+     */
+    const heldTemplateIds = database.workoutPlans
+      .map((plan) => plan.entries[0]?.workoutTemplateId)
+      .filter((id): id is string => typeof id === 'string');
+    const ownProgrammeCopyId =
+      route.programType === 'ready' && !activeProgramTemplateIds.includes(route.workoutTemplateId)
+        ? findHeldReadyProgrammeCopyId(route.workoutTemplateId, database.workoutTemplates, [
+            ...activeProgramTemplateIds,
+            ...heldTemplateIds,
+          ])
+        : null;
     // Membership is asked of the template, not the plan id — a programme
     // joined during onboarding carries a different plan id for the same
     // programme, and it is no less the reader's own.
     const programIsMine = activeProgramTemplateIds.includes(route.workoutTemplateId);
     // Held: a plan exists for it, running or not — see listHeldProgrammes.
-    const programIsHeld =
-      programIsMine ||
-      database.workoutPlans.some((plan) => plan.entries[0]?.workoutTemplateId === route.workoutTemplateId);
+    const programIsHeld = programIsMine || heldTemplateIds.includes(route.workoutTemplateId);
     const canDeleteProgram = route.programType === 'custom' || programIsHeld;
     // Held is not the same as leading. A programme you hold but do not lead
     // with has a third answer — put it on Home — and without it the only way
@@ -502,6 +545,23 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           }
 
           if (route.programType === 'ready') {
+            if (ownProgrammeCopyId) {
+              // They already train their own version of this programme.
+              // Adopting the catalog original beside it would give one
+              // programme two rows, two plans and two slots of the cap, and
+              // the handler resuming the copy instead left this page saying
+              // "started" while nothing on it changed (audit round 4,
+              // 2026-09-20 and its review). Their version has a page of its
+              // own; this is the way to it.
+              showToast(t(preferences.appLanguage, 'toast.ownProgrammeVersion'));
+              navigate({
+                tab: 'workout',
+                screen: 'program',
+                programType: 'custom',
+                workoutTemplateId: ownProgrammeCopyId,
+              });
+              return;
+            }
             // The button says "Ota ohjelma käyttöön" and it now does that. It
             // called handleStartReadyProgram, which starts the first SESSION
             // and never touches the active plan — so a reader who pressed it
