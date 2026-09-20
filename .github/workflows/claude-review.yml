@@ -254,6 +254,14 @@ jobs:
       # The ratio, not the count: most healthy reviews are denied something
       # (27 of 35 on 14–16 Sep). Half the turns or more spent being refused is
       # a reviewer that could not work.
+      #
+      # Refused READS, not every refusal. Counting every denial went red on
+      # the first run that had actually read the diff and found something
+      # (2026-09-20: 37 denials in 15 turns, all `node`, `npm run typecheck`
+      # and `Write` — validation agents trying to run the code on a runner
+      # that refuses that by design). A red that lies teaches the same thing
+      # as a green that lies: ignore the check. The question here is whether
+      # the reviewer could read the PR, so only a refused read of it counts.
       - name: Confirm the review could read the PR
         if: always() && steps.claude.outputs.execution_file != ''
         env:
@@ -268,13 +276,23 @@ jobs:
           fi
           turns=$(echo "$summary" | jq -r '.num_turns // 0')
           denials=$(echo "$summary" | jq -r '.permission_denials // [] | length')
+          # A denied call counts only when its first part is a read of the PR:
+          # the same split as the denial log below, then the program names
+          # that fetch the diff or the history. The input is tested, never
+          # printed — this log is public.
+          refused=$(echo "$summary" | jq -r '
+            def lead: [splits("\\s*(?:&&|\\|\\||\\|&|;|\\||&|\\n)\\s*")] | .[0] // "";
+            [.permission_denials // [] | .[]
+             | select(.tool_name == "Read"
+                      or (.tool_name == "Bash" and ((.tool_input.command // "") | lead | test("^(gh pr (diff|view)|git (diff|show|log))(\\s|$)"))))]
+            | length')
           turns=${turns//[!0-9]/}
           : "${turns:=0}"
-          if [ "$denials" -gt 0 ] && [ "$turns" -gt 0 ] && [ $((denials * 2)) -ge "$turns" ]; then
-            echo "::error::The review was denied $denials tool calls in $turns turns, so it could not read what it was reviewing. Whatever it posted says nothing about this PR. Widen --allowedTools in .github/workflows/claude-review.yml, or narrow what the reviewer is asked to run — see the denial list in the step below."
+          if [ "$refused" -gt 0 ] && [ "$turns" -gt 0 ] && [ $((refused * 2)) -ge "$turns" ]; then
+            echo "::error::The review was refused the PR itself $refused times in $turns turns — gh pr diff, gh pr view, git diff/show/log or Read — so it could not read what it was reviewing. Whatever it posted says nothing about this PR. Widen --allowedTools in .github/workflows/claude-review.yml, or narrow what the reviewer is asked to run — see the denial list in the step below."
             exit 1
           fi
-          echo "The review was denied $denials of $turns turns: it could do its work."
+          echo "The review was refused $refused reads of the PR in $turns turns, and denied $denials calls in all: it could read what it was reviewing."
 
       - name: Say which kind of red this is
         if: always() && steps.claude.outputs.execution_file != ''
@@ -348,6 +366,9 @@ jobs:
           fi
           if [ "$failed" != "true" ]; then
             echo "The run ended without an error. Whether it reviewed this commit is the verdict of \"Confirm this commit's review was posted\" and \"Confirm the review could read the PR\", not of this step."
+            if [ "$denials" -gt 0 ] && [ $((denials * 2)) -ge "${turns//[!0-9]/0}" ]; then
+              echo "::warning::The review was denied $denials calls in $turns turns and still read the PR. The list above is what it did not need — running code, writing outside .ci-review/ — and the runner refuses those by design. A long list is a reviewer that needs telling, in .claude/commands/ci-review.md, not a wider allowlist."
+            fi
             exit 0
           fi
           # Denials are blamed only when they are a large share of the run.
@@ -361,7 +382,7 @@ jobs:
           # in a step that can actually fail, which is the one above
           # (2026-09-20).
           if [ "$denials" -gt 0 ] && [ $((denials * 2)) -ge "${turns//[!0-9]/0}" ]; then
-            echo "::warning::The review was denied $denials tool calls in $turns turns, which is a workflow problem, not a finding. Widen --allowedTools in .github/workflows/claude-review.yml."
+            echo "::warning::The review was denied $denials tool calls in $turns turns, which is a workflow problem, not a finding. Read the list above: refused reads of the PR mean the allowlist in .github/workflows/claude-review.yml, refused runs of code mean the reviewer needs telling in .claude/commands/ci-review.md."
           elif [ "$turns" = "1" ]; then
             echo "::warning::The review errored on its first turn with no tool denials, so the model never got going: upstream refused the request. That is a usage limit OR a provider incident, and the two look identical from here — check status.anthropic.com before concluding anything about budget. Either way this PR has NOT been reviewed; re-run the job."
           else
