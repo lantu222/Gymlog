@@ -643,4 +643,32 @@ module.exports = [
       assert.equal(cooked.heldForFatigue, true);
     },
   },
+  {
+    name: 'the freestyle draft rides in the bundle: hydrated, saved, cleared',
+    run() {
+      const { workoutReducer, workoutInitialState } = require('../../../.test-dist/features/workout/workoutState.js');
+      const snapshot = {
+        exercises: [{ localKey: 'a', name: 'Bench', libraryItemId: null, imageUrl: null, repMin: 6, repMax: 8, restSeconds: 90, trackedDefault: true, sets: [{ localKey: 's', kg: '60', reps: '8', done: true }], supersetGroup: null, displayName: 'Bench', initials: 'BE', metaLabel: '', isBarbell: false }],
+        startedAtMs: 1,
+        rest: null,
+        savedAtMs: 2,
+      };
+      const history = { sessions: [], slotHistory: {}, lastSelectedTemplateId: null };
+      const hydrated = workoutReducer(workoutInitialState, {
+        type: 'session/hydrate',
+        payload: { activeSession: null, history, activeCardio: null, freestyleDraft: snapshot },
+      });
+      assert.deepEqual(hydrated.freestyleDraft, snapshot, 'a stored draft is back after hydrate');
+      const without = workoutReducer(workoutInitialState, {
+        type: 'session/hydrate',
+        payload: { activeSession: null, history, activeCardio: null },
+      });
+      assert.equal(without.freestyleDraft, null, 'a bundle from before the field hydrates to no draft');
+      const saved = workoutReducer(without, { type: 'freestyle/save', payload: { snapshot } });
+      assert.deepEqual(saved.freestyleDraft, snapshot);
+      const cleared = workoutReducer(saved, { type: 'freestyle/clear' });
+      assert.equal(cleared.freestyleDraft, null);
+      assert.equal(workoutReducer(cleared, { type: 'freestyle/clear' }), cleared, 'clearing nothing is the same state');
+    },
+  }
 ];

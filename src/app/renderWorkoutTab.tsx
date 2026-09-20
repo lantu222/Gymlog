@@ -82,6 +82,10 @@ export interface WorkoutTabDeps {
   unitPreference: UnitPreference;
   database: AppDatabase;
   workout: { templates: Parameters<typeof resolveProgramAffinity>[1] };
+  /** The freestyle session in flight, from the workout provider — see FreestyleDraftSnapshot. */
+  freestyleDraft: React.ComponentProps<typeof EmptyWorkoutScreen>['freestyleDraft'];
+  saveFreestyleDraft: NonNullable<React.ComponentProps<typeof EmptyWorkoutScreen>['onSaveDraft']>;
+  clearFreestyleDraft: NonNullable<React.ComponentProps<typeof EmptyWorkoutScreen>['onClearDraft']>;
   customWorkoutRuntimeMap: Record<string, Parameters<typeof buildCustomProgramDetail>[0] | undefined>;
   setupSelection: FirstRunSetupSelection | null;
   setupRecommendation: { featuredProgramId?: string | null; mismatchNote?: string | null } | null;
@@ -259,6 +263,9 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     finishLoggedWorkoutSave,
     exerciseLibrary,
     liftHistory,
+    freestyleDraft,
+    saveFreestyleDraft,
+    clearFreestyleDraft,
     sameLibraryRow,
     guidedEntryEyebrow,
     guidedWeekProgress,
@@ -763,6 +770,9 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     return (
       <EmptyWorkoutScreen
         language={preferences.appLanguage}
+        freestyleDraft={freestyleDraft}
+        onSaveDraft={saveFreestyleDraft}
+        onClearDraft={clearFreestyleDraft}
         exerciseLibrary={exerciseBrowserItems}
         recentExerciseLibraryItems={recentExerciseBrowserItems}
         defaultRestSeconds={preferences.defaultRestSeconds}

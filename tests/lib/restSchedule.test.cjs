@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 
 const {
   describeRest,
+  extendRest,
   formatClock,
   formatEndsAt,
   restAlertTimes,
@@ -54,6 +55,34 @@ module.exports = [
       assert.equal(REST_REPEAT_AFTER_SECONDS, 30);
       assert.equal(IDLE_NUDGE_MINUTES, 25);
       assert.equal(idleNudgeAtMs(1_000_000), 1_000_000 + 25 * 60_000);
+    },
+  },
+  {
+    /*
+     * Audit round 4 and the review of it (2026-09-20). "+15 s" on a rest
+     * thirty seconds overdue extended from an end already gone by and gave
+     * one second; rebasing only the end then left the total at the old rest
+     * plus fifteen, so the bar reopened "0:15" one fifth full and drained
+     * from there, contradicting the countdown it had just restarted.
+     */
+    name: 'a rest is extended from now once it is overdue, and both of its numbers say the same span',
+    run() {
+      const now = 1_700_000_000_000;
+      const running = { totalSeconds: 60, endsAtMs: now + 20_000, startedAtMs: now - 40_000 };
+      const longer = extendRest(running, 15, now);
+      assert.equal(longer.endsAtMs, now + 35_000, 'a running rest ends fifteen seconds later');
+      assert.equal(longer.totalSeconds, 75, 'and the whole rest is fifteen seconds longer');
+      assert.equal(longer.startedAtMs, running.startedAtMs, 'it is the same rest');
+
+      const overdue = { totalSeconds: 60, endsAtMs: now - 30_000, startedAtMs: now - 90_000 };
+      const restarted = extendRest(overdue, 15, now);
+      assert.equal(restarted.endsAtMs, now + 15_000, 'an overdue rest gets the whole fifteen seconds');
+      assert.equal(restarted.totalSeconds, 15, 'and the bar draws fifteen seconds, not seventy-five');
+      assert.equal(restarted.startedAtMs, overdue.startedAtMs, 'still the same rest');
+
+      const shortened = extendRest(running, -30, now);
+      assert.equal(shortened.endsAtMs, now + 1000, 'a rest never ends the instant it is adjusted');
+      assert.ok(shortened.totalSeconds >= 1, 'and never draws a span of nothing');
     },
   },
 ];

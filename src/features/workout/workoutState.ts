@@ -1,4 +1,5 @@
 import { createId } from '../../lib/ids';
+import type { FreestyleDraftSnapshot } from '../../lib/emptyWorkoutSession';
 import { convertWeightToKg, formatWeightInputValue, parseNumberInput } from '../../lib/format';
 import {
   ActiveCardioSession,
@@ -32,6 +33,8 @@ export interface WorkoutFeatureState {
   history: WorkoutHistoryStore;
   activeSession: WorkoutSessionRuntime | null;
   activeCardio: ActiveCardioSession | null;
+  /** A freestyle session in flight; see FreestyleDraftSnapshot. */
+  freestyleDraft: FreestyleDraftSnapshot | null;
   completionSummary: WorkoutSessionSummary | null;
 }
 
@@ -134,6 +137,8 @@ export type WorkoutAction =
   | { type: 'cardio/pause'; payload: { nowMs: number } }
   | { type: 'cardio/resume'; payload: { nowMs: number } }
   | { type: 'cardio/clear' }
+  | { type: 'freestyle/save'; payload: { snapshot: FreestyleDraftSnapshot } }
+  | { type: 'freestyle/clear' }
   | { type: 'session/openFinishSummary' }
   | { type: 'session/finishWorkout'; payload?: { performedAt?: string } }
   | { type: 'session/discardWorkout' }
@@ -856,6 +861,7 @@ export const workoutInitialState: WorkoutFeatureState = {
   history: { sessions: [], slotHistory: {}, lastSelectedTemplateId: null },
   activeSession: null,
   activeCardio: null,
+  freestyleDraft: null,
   completionSummary: null,
 };
 
@@ -868,6 +874,7 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
         history: action.payload.history,
         activeSession: action.payload.activeSession,
         activeCardio: action.payload.activeCardio ?? null,
+        freestyleDraft: action.payload.freestyleDraft ?? null,
         completionSummary: null,
       };
 
@@ -1732,6 +1739,12 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
         ...state,
         activeCardio: resumeCardioSession(state.activeCardio, action.payload.nowMs),
       };
+
+    case 'freestyle/save':
+      return { ...state, freestyleDraft: action.payload.snapshot };
+
+    case 'freestyle/clear':
+      return state.freestyleDraft ? { ...state, freestyleDraft: null } : state;
 
     case 'cardio/clear':
       if (!state.activeCardio) {

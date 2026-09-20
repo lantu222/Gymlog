@@ -1238,6 +1238,16 @@ function VinhaApp() {
     if (cardioRunActive && route.tab === 'home' && route.screen === 'cardio') {
       return undefined;
     }
+    // Stands down on the free workout, in every state. Its own listener
+    // answers back — the question before logged sets are lost, and the
+    // discard when there is nothing to lose — and it registers once, on
+    // mount. This listener re-subscribes on every route change and a
+    // parent's effect runs after its child's, so it was the newest one:
+    // back walked Home past the question and past the discard (CI review
+    // of #162). Same stand-down as the cardio player and the questionnaire.
+    if (route.tab === 'workout' && route.screen === 'empty') {
+      return undefined;
+    }
     // Stands down for the questionnaire in BOTH of its forms. The setup route
     // is the same OnboardingScreen, which answers back itself, stage by
     // stage — but this listener re-subscribes on every route change, and a
@@ -6222,17 +6232,27 @@ function VinhaApp() {
   // template first, then the completed session, and only then the summary
   // screen — a failed save must leave the logger open with its sets intact.
   const finishLoggedWorkoutSave = async (draft: WorkoutTemplateDraft, summary: FreestyleFinishSummary) => {
-    trackEvent('workout_completed');
     const workoutTemplateId = await upsertWorkoutTemplate(draft);
     const sessionId = createId('session');
-    await saveCompletedWorkoutSession({
-      sessionId,
-      workoutTemplateId,
-      workoutNameSnapshot: summary.workoutName,
-      logs: summary.logs,
-      startedAt: summary.startedAt,
-      performedAt: summary.performedAt,
-    });
+    try {
+      await saveCompletedWorkoutSession({
+        sessionId,
+        workoutTemplateId,
+        workoutNameSnapshot: summary.workoutName,
+        logs: summary.logs,
+        startedAt: summary.startedAt,
+        performedAt: summary.performedAt,
+      });
+    } catch (error) {
+      // The template is written first so the session can name it. A session
+      // that did not land must not leave the template behind — the retry made
+      // a second one (audit round 4, 2026-09-20). Best effort: the failure
+      // the reader hears about is the save.
+      await deleteWorkoutTemplate(workoutTemplateId).catch(() => undefined);
+      throw error;
+    }
+    // Counted once it is on disk, as the guided path counts it.
+    trackEvent('workout_completed');
     /**
      * Remembered for the next time these lifts come up.
      *
@@ -6597,6 +6617,9 @@ function VinhaApp() {
       unitPreference,
       database,
       workout,
+      freestyleDraft: workout.freestyleDraft,
+      saveFreestyleDraft: workout.saveFreestyleDraft,
+      clearFreestyleDraft: workout.clearFreestyleDraft,
       customWorkoutRuntimeMap,
       setupSelection,
       setupRecommendation,

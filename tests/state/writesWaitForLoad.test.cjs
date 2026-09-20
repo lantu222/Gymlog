@@ -181,10 +181,18 @@ module.exports = [
       // (2026-09-16) — from the chevron and from hardware back alike.
       assert.match(screen, /const hasUnsavedWork = unsavedWork\.doneSets > 0 \|\| unsavedWork\.enteredSets > 0;/);
       assert.match(request, /if \(hasUnsavedWork\) \{\s*setConfirmingLeave\(true\);/);
+      // One listener, registered always. This asserted the opposite — no
+      // listener unless there was something to lose — which left the empty
+      // board's back press to the app's route handling, so it kept a draft
+      // the chevron in that same state discarded (CI review of #162). Back
+      // still asks whenever the chevron would.
       assert.match(
         screen,
-        /useEffect\(\(\) => \{\s*if \(!hasUnsavedWork\) \{\s*return undefined;\s*\}\s*const subscription = BackHandler\.addEventListener/,
+        /const subscription = BackHandler\.addEventListener\('hardwareBackPress', \(\) => \{\s*const guard = leaveGuardRef\.current;/,
       );
+      const listener = screen.slice(screen.indexOf("BackHandler.addEventListener('hardwareBackPress'"));
+      assert.match(listener, /if \(guard\.hasUnsavedWork\) \{\s*setConfirmingLeave\(true\);\s*return true;/, 'back asks whenever the chevron would');
+      assert.doesNotMatch(screen, /if \(!hasUnsavedWork\) \{\s*return undefined;/, 'nothing left to lose is still a leave, and it discards');
       assert.match(screen, /<ConfirmDialog[\s\S]*?visible=\{confirmingLeave\}/);
     },
   },

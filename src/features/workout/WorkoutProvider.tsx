@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useReducer, useState } from 'react';
+import type { FreestyleDraftSnapshot } from '../../lib/emptyWorkoutSession';
 import { AppState } from 'react-native';
 import { StorageLoadFailedScreen } from '../../components/StorageLoadFailedScreen';
 import { trackEvent } from '../analytics/analyticsClient';
@@ -84,6 +85,10 @@ interface WorkoutContextValue {
   updateNotes: (slotId: string, notes: string) => void;
   setGuidedStep: (stepIndex: number, anchor?: GuidedResumeAnchor) => void;
   activeCardio: ActiveCardioSession | null;
+  /** A freestyle session in flight, persisted with the bundle; see FreestyleDraftSnapshot. */
+  freestyleDraft: FreestyleDraftSnapshot | null;
+  saveFreestyleDraft: (snapshot: FreestyleDraftSnapshot) => void;
+  clearFreestyleDraft: () => void;
   startCardio: (activityType: CardioActivityType) => void;
   pauseCardio: () => void;
   resumeCardio: () => void;
@@ -194,11 +199,12 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
       activeSession: state.activeSession,
       history: state.history,
       activeCardio: state.activeCardio,
+      freestyleDraft: state.freestyleDraft,
     };
     saveWorkoutBundle(bundle).catch((error) => {
       console.error('Failed to persist workout bundle', error);
     });
-  }, [state.activeSession, state.activeCardio, state.hydrated, state.history]);
+  }, [state.activeSession, state.activeCardio, state.freestyleDraft, state.hydrated, state.history]);
 
   const completionSummary = selectWorkoutSummary(state);
 
@@ -334,6 +340,13 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
         dispatch({ type: 'session/setGuidedStep', payload: { stepIndex, anchor } });
       },
       activeCardio: state.activeCardio,
+      freestyleDraft: state.freestyleDraft,
+      saveFreestyleDraft(snapshot) {
+        dispatch({ type: 'freestyle/save', payload: { snapshot } });
+      },
+      clearFreestyleDraft() {
+        dispatch({ type: 'freestyle/clear' });
+      },
       startCardio(activityType) {
         dispatch({ type: 'cardio/start', payload: { activityType, nowMs: Date.now() } });
       },
