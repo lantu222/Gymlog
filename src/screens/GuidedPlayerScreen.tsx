@@ -82,6 +82,7 @@ import { isLiftableWeight } from '../lib/weightLimits';
 import { getExerciseInstructions } from '../lib/exerciseInstructions';
 import { getExerciseTeaching } from '../lib/exerciseTeaching';
 import { buildExerciseSheetHistory, LastTimeView } from '../lib/exerciseSheetHistory';
+import type { RecordEntry } from '../lib/personalRecords';
 import { ExerciseSheet } from '../components/ExerciseSheet';
 import { CtaShimmer } from '../components/CtaShimmer';
 import { SupersetBorder } from '../components/SupersetBorder';
@@ -230,6 +231,15 @@ interface GuidedPlayerScreenProps {
   /** Ranks the swap list the same way the list logger does. */
   tailoringPreferences?: TailoringPreferencesInput | null;
   exerciseLibrary: ExerciseLibraryItem[];
+  /**
+   * The lift's whole logged history by name — every programme and free
+   * session, the rows the records tab reads. The sheet's History tab read
+   * only this slot's entries, so a bench pressed on 28.8. in another
+   * programme was "no entries yet" here while the records tab showed its
+   * 7 × 60 (#bugs 2026-09-20). Null, or nothing under the name, falls back
+   * to the slot.
+   */
+  liftHistory?: (exerciseName: string) => readonly RecordEntry[] | null;
   soundCuesEnabled: boolean;
   /** Keep the display on for the whole guided session. */
   keepScreenAwake?: boolean;
@@ -1109,6 +1119,7 @@ export function GuidedPlayerScreen({
   routineDrillOverrides = {},
   tailoringPreferences = null,
   exerciseLibrary,
+  liftHistory,
   soundCuesEnabled,
   keepScreenAwake = false,
   onToggleSoundCues,
@@ -1130,6 +1141,8 @@ export function GuidedPlayerScreen({
   onRestAlertsAnswered,
   autoResume = false,
 }: GuidedPlayerScreenProps) {
+  // Read here, on the screen: inside the sheet's Modal it is always 0.
+  const screenInsets = useSafeAreaInsets();
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   // The resolved theme, for the status bar: the player has its own dark
@@ -2187,10 +2200,17 @@ export function GuidedPlayerScreen({
   const sheetHistory = useMemo(() => {
     const slotId = step.type === 'set' ? step.slotId : null;
     const instance = slotId ? exerciseBySlot.get(slotId) ?? null : null;
-    const past = getHistoryEntriesForExercise(workout.history, instance).map((entry) => ({
-      performedAt: entry.performedAt,
-      sets: entry.sets.map((set) => ({ loadKg: set.loadKg, reps: set.reps })),
-    }));
+    const lift = instance ? liftHistory?.(instance.exerciseName) ?? null : null;
+    const past =
+      lift && lift.length > 0
+        ? lift.map((entry) => ({
+            performedAt: entry.performedAt,
+            sets: entry.sets.map((set) => ({ loadKg: set.weight, reps: set.reps })),
+          }))
+        : getHistoryEntriesForExercise(workout.history, instance).map((entry) => ({
+            performedAt: entry.performedAt,
+            sets: entry.sets.map((set) => ({ loadKg: set.loadKg, reps: set.reps })),
+          }));
     const todaySets = (instance?.sets ?? [])
       .filter((set) => set.status === 'completed')
       .map((set) => ({ loadKg: set.actualLoadKg ?? 0, reps: set.actualReps ?? 0 }));
@@ -2201,7 +2221,7 @@ export function GuidedPlayerScreen({
       instance?.trackingMode ?? 'load_and_reps',
       unitPreference,
     );
-  }, [exerciseBySlot, language, step, unitPreference, workout.history]);
+  }, [exerciseBySlot, language, liftHistory, step, unitPreference, workout.history]);
 
   /* ── rest screen ───────────────────────────────────────────────────────── */
   /**
@@ -3437,6 +3457,7 @@ export function GuidedPlayerScreen({
           learn={sheetLearn}
           watchFor={sheetWatchFor}
           history={sheetHistory}
+          bottomInset={screenInsets.bottom}
           onClose={() => setSetPanelsOpen(false)}
         />
       ) : null}

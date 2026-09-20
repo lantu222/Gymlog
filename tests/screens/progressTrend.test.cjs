@@ -656,4 +656,26 @@ module.exports = [
       assert.equal(effects.length, 0, 'the unconditional expand is back');
     },
   },
+  {
+    /**
+     * The set log sheet's last session sat against the gesture bar ("vähän
+     * pelivaraa alapalkin ja näppäinten väliin", #bugs 2026-09-20): the sheet
+     * had no inset at all. A Modal's own reads 0 in this app, so the screen
+     * reads it and passes it — the same rule the measure picker follows.
+     */
+    name: "the set log sheet clears the system bar with the screen's inset",
+    run() {
+      const sheet = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'components', 'SetLogSheet.tsx'),
+        'utf8',
+      );
+      const screen = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'screens', 'ProgressScreen.tsx'),
+        'utf8',
+      );
+      assert.doesNotMatch(sheet, /useSafeAreaInsets/);
+      assert.match(sheet, /paddingBottom: 26 \+ bottomInset/);
+      assert.match(screen, /<SetLogSheet\r?\n\s+bottomInset=\{insets\.bottom\}/);
+    },
+  },
 ];

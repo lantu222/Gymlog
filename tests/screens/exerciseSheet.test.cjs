@@ -73,8 +73,15 @@ module.exports = [
       assert.match(sheetSource, /guided\.sheet\.noHistory/);
       // Today's bar is the accent one; the rest are not.
       assert.match(sheetSource, /bar\.isToday \? theme\.highlight : theme\.purpleLight/);
-      // The sheet clears the system bar — the bug the Pro sheet had.
-      assert.match(sheetSource, /paddingBottom: insets\.bottom/);
+      // The sheet clears the system bar — with the SCREEN's inset. It used to
+      // read its own, and inside a Modal that is always 0 in this app: the
+      // padding it added was 20 on every phone, and this guard pinned the
+      // zero as the fix ("vähän pelivaraa alapalkin ja näppäinten väliin",
+      // #bugs 2026-09-20). The screen reads it; the sheet takes a prop.
+      assert.doesNotMatch(sheetSource, /useSafeAreaInsets/);
+      assert.match(sheetSource, /paddingBottom: bottomInset \+ 20/);
+      assert.match(playerSource, /const screenInsets = useSafeAreaInsets\(\);/);
+      assert.match(playerSource, /<ExerciseSheet[\s\S]{0,900}bottomInset=\{screenInsets\.bottom\}/);
     },
   },
   {
@@ -203,6 +210,42 @@ module.exports = [
       }
       // The retired panels' own strings went with the component.
       assert.doesNotMatch(i18nSource, /'panels\.last\.title'/);
+    },
+  },
+  {
+    /**
+     * #bugs 2026-09-20: the History tab said "no entries yet" for a bench
+     * press while the records tab, in the same minute, showed its 7 × 60 from
+     * 28.8. The tab read this SLOT's entries — this programme's bench — and a
+     * bench pressed anywhere else was not this slot's history. The reader
+     * pressed the exercise's name and expects the exercise's history.
+     *
+     * So the tab reads the lift by name, the rows the records read, and keeps
+     * the slot only as the fallback for a lift the records have nothing on.
+     * Guarded end to end: App builds the lookup from the record sources, the
+     * tab passes it, the player asks it first.
+     */
+    name: "the History tab reads the lift's history, and the slot only when the lift has none",
+    run() {
+      const tabSource = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'app', 'renderWorkoutTab.tsx'),
+        'utf8',
+      );
+      const appSource = fs.readFileSync(path.join(__dirname, '..', '..', 'App.tsx'), 'utf8');
+      assert.match(playerSource, /liftHistory\?\.\(instance\.exerciseName\)/);
+      assert.match(
+        playerSource,
+        /lift && lift\.length > 0[\s\S]{0,400}getHistoryEntriesForExercise\(workout\.history, instance\)/,
+        'the slot must stay the fallback, after the lift',
+      );
+      assert.match(tabSource, /<GuidedPlayerScreen[\s\S]{0,1500}liftHistory=\{liftHistory\}/);
+      assert.match(appSource, /const liftHistory = useMemo/);
+      assert.match(
+        appSource,
+        /recordSources\.map\(\(source\) => \[source\.name\.trim\(\)\.toLowerCase\(\), source\.entries\]/,
+        'the lookup must be built from the same sources the records read',
+      );
+      assert.match(appSource, /renderWorkoutTab\(\{[\s\S]{0,4000}\r?\n {6}liftHistory,\r?\n/);
     },
   },
 ];

@@ -41,6 +41,12 @@ interface SetLogSheetProps {
   onOpenPro: () => void;
   /** The empty state's way out: there is nothing to read until you log one. */
   onStartWorkout?: () => void;
+  /**
+   * The screen's bottom safe-area inset. A Modal's own reads 0, so the last
+   * session sat under the gesture bar ("vähän pelivaraa alapalkin ja
+   * näppäinten väliin", #bugs 2026-09-20); the screen reads it and passes it.
+   */
+  bottomInset?: number;
 }
 
 function decimal(value: number, language: AppLanguage) {
@@ -188,6 +194,7 @@ export function SetLogSheet({
   onClose,
   onOpenPro,
   onStartWorkout,
+  bottomInset = 0,
 }: SetLogSheetProps) {
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
@@ -259,7 +266,7 @@ export function SetLogSheet({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose} />
-      <View style={styles.sheet}>
+      <View style={[styles.sheet, { paddingBottom: 26 + bottomInset }]}>
         <View style={styles.grabber} />
 
         <View style={styles.head}>

@@ -158,6 +158,8 @@ export interface WorkoutTabDeps {
   exercisePrLookup: React.ComponentProps<typeof EmptyWorkoutScreen>['exercisePrLookup'];
   finishLoggedWorkoutSave: (draft: WorkoutTemplateDraft, summary: FreestyleFinishSummary) => Promise<unknown>;
   exerciseLibrary: AppDatabase['exerciseLibrary'];
+  /** The lift's logged history by name, for the player's History tab. */
+  liftHistory: React.ComponentProps<typeof GuidedPlayerScreen>['liftHistory'];
   /** Whether a log is one library row's history — see isSameLiftAsLibraryRow. */
   sameLibraryRow: SameLiftMatcher;
   guidedEntryEyebrow: GuidedProps['entryEyebrow'];
@@ -256,6 +258,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     exercisePrLookup,
     finishLoggedWorkoutSave,
     exerciseLibrary,
+    liftHistory,
     sameLibraryRow,
     guidedEntryEyebrow,
     guidedWeekProgress,
@@ -818,6 +821,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         routineDrillOverrides={preferences.routineDrillOverrides}
         tailoringPreferences={tailoringPreferences}
         exerciseLibrary={exerciseLibrary}
+        liftHistory={liftHistory}
         soundCuesEnabled={preferences.soundCuesEnabled}
         onToggleSoundCues={(next) => void updatePreferences({ soundCuesEnabled: next })}
         language={preferences.appLanguage}

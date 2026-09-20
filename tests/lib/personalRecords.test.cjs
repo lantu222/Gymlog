@@ -197,4 +197,61 @@ module.exports = [
       assert.equal(weeklyTrainingStreak([], [], NOW), 0);
     },
   },
+  {
+    /*
+     * The Slack screenshot: 4.9. had 8×55, 6×60, 5×60, 4×60 and 9.9. had 8×55
+     * and three 8×60s, and the PR badge sat on the 6×60 with "60 kg × 6 ·
+     * 4.9." on the best-weight card. A better set on the same number is the
+     * record set now — and the record before 60 is still 55, not 60.
+     */
+    name: 'a better set on the same number moves the record, not the record before it',
+    run() {
+      const sumo = {
+        key: 'sumo',
+        name: 'Sumomaastaveto',
+        entries: [
+          entry([2026, 8, 27], [{ weight: 55, reps: 8 }]),
+          entry([2026, 9, 4], [
+            { weight: 55, reps: 8 },
+            { weight: 60, reps: 6 },
+            { weight: 60, reps: 5 },
+            { weight: 60, reps: 4 },
+          ]),
+          entry([2026, 9, 9], [
+            { weight: 55, reps: 8 },
+            { weight: 60, reps: 8 },
+            { weight: 60, reps: 8 },
+            { weight: 60, reps: 8 },
+          ]),
+        ],
+      };
+      const now = at(2026, 9, 20);
+      const weight = resolveRecord(sumo, 'weight', now);
+      assert.equal(weight.value, 60);
+      assert.equal(weight.companion, 8, 'the record set is the 8 × 60, not the first 60');
+      assert.equal(weight.performedAt.slice(0, 10), '2026-09-09');
+      assert.equal(weight.previous, 55, 'the record before 60 is 55, whichever set holds 60');
+
+      // Most reps in a set: 8, and at 60 kg rather than the 55 that came first.
+      const reps = resolveRecord(sumo, 'reps', now);
+      assert.equal(reps.value, 8);
+      assert.equal(reps.companion, 60);
+      assert.equal(reps.performedAt.slice(0, 10), '2026-09-09');
+
+      // A worse set on the same number leaves the record where it is.
+      const later = { ...sumo, entries: [...sumo.entries, entry([2026, 9, 15], [{ weight: 60, reps: 5 }])] };
+      assert.equal(resolveRecord(later, 'weight', now).performedAt.slice(0, 10), '2026-09-09');
+
+      // Volume has no better set on a tie: the same work later is not a new record.
+      const flat = {
+        key: 'flat',
+        name: 'Flat',
+        entries: [
+          entry([2026, 9, 1], [{ weight: 50, reps: 10 }]),
+          entry([2026, 9, 8], [{ weight: 25, reps: 10 }, { weight: 25, reps: 10 }]),
+        ],
+      };
+      assert.equal(resolveRecord(flat, 'volume', now).performedAt.slice(0, 10), '2026-09-01');
+    },
+  },
 ];

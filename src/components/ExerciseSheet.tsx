@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ExerciseSheetHistory, SHEET_HISTORY_SESSIONS } from '../lib/exerciseSheetHistory';
 import { removeTrailingZeros } from '../lib/format';
@@ -68,6 +67,12 @@ interface ExerciseSheetProps {
   watchFor: ExerciseSheetWatchFor[];
   history: ExerciseSheetHistory;
   initialTab?: ExerciseSheetTab;
+  /**
+   * The screen's bottom safe-area inset. This sheet read its own, and inside
+   * a Modal that is always 0 — so the padding it added was 20, on every
+   * phone. The screen reads the real one and passes it (#bugs 2026-09-20).
+   */
+  bottomInset?: number;
   onClose: () => void;
 }
 
@@ -84,11 +89,11 @@ export function ExerciseSheet({
   watchFor,
   history,
   initialTab,
+  bottomInset = 0,
   onClose,
 }: ExerciseSheetProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const insets = useSafeAreaInsets();
   // A lift with no teaching has no Learn tab, so it cannot open on one.
   const tabs = learn ? ALL_TABS : ALL_TABS.filter((key) => key !== 'learn');
   const [tab, setTab] = useState<ExerciseSheetTab>(initialTab ?? tabs[0]);
@@ -102,7 +107,7 @@ export function ExerciseSheet({
           accessibilityRole="button"
           accessibilityLabel={t(language, 'common.close')}
         />
-        <View style={[styles.sheet, { paddingBottom: insets.bottom + 20 }]}>
+        <View style={[styles.sheet, { paddingBottom: bottomInset + 20 }]}>
           <View style={styles.grip} />
           <Text style={styles.title} numberOfLines={2}>
             {exerciseName}
