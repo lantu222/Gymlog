@@ -41,10 +41,20 @@ module.exports = [
       // CI review of #162: hardware back registered no listener when there
       // was nothing to lose, so it left without discarding what the chevron
       // discarded in the same state.
-      assert.match(screen, /BackHandler\.addEventListener\('hardwareBackPress', \(\) => \{[\s\S]{0,700}guard\.onClearDraft\?\.\(\);\s*guard\.onBack\(\);\s*return true;[\s\S]{0,60}\}, \[\]\);/, 'one hardware-back listener, registered always, leaving the way the chevron leaves');
-      assert.match(screen, /const timer = setTimeout\(\(\) => \{\s*sink\.onSaveDraft\?\.\(\{ exercises, startedAtMs, rest, savedAtMs: Date\.now\(\) \}\);\s*\}, 400\);/, 'the draft must be written back, debounced');
-      assert.match(screen, /await onSave\(draft, summary\);\s*\/\/[^\n]*\n\s*draftSinkRef\.current\.onClearDraft\?\.\(\);/, 'finishing must clear the draft, after the save');
-      assert.match(screen, /setConfirmingLeave\(false\);\s*draftSinkRef\.current\.onClearDraft\?\.\(\);\s*leaveGuardRef\.current\.onBack\(\);/, 'a confirmed leave must discard the draft');
+      assert.match(screen, /BackHandler\.addEventListener\('hardwareBackPress', \(\) => \{[\s\S]{0,700}guard\.discardDraft\(\);\s*guard\.onBack\(\);\s*return true;[\s\S]{0,60}\}, \[\]\);/, 'one hardware-back listener, registered always, leaving the way the chevron leaves');
+      assert.match(screen, /const timer = setTimeout\(\(\) => \{\s*draftTimerRef\.current = null;\s*sink\.onSaveDraft\?\.\(\{ exercises, startedAtMs, rest, savedAtMs: Date\.now\(\) \}\);\s*\}, 400\);/, 'the draft must be written back, debounced');
+      // And a discard takes the pending write with it: the clear is urgent,
+      // the route change behind it is a transition, and an edit made inside
+      // the last 400 ms fired in that gap and wrote the board back (CI
+      // review of #162).
+      assert.match(screen, /const discardDraft = \(\) => \{\s*if \(draftTimerRef\.current !== null\) \{\s*clearTimeout\(draftTimerRef\.current\);/, 'a discard cancels the write that has not happened yet');
+      assert.equal(
+        (screen.match(/draftSinkRef\.current\.onClearDraft\?\.\(\)/g) ?? []).length,
+        1,
+        'every discard goes through discardDraft, which is the one place that clears',
+      );
+      assert.match(screen, /await onSave\(draft, summary\);\s*\/\/[^\n]*\n\s*discardDraft\(\);/, 'finishing must clear the draft, after the save');
+      assert.match(screen, /setConfirmingLeave\(false\);\s*discardDraft\(\);\s*leaveGuardRef\.current\.onBack\(\);/, 'a confirmed leave must discard the draft');
       // And the app stands down for this route, so the screen's listener is
       // the one that answers. This listener registers once on mount, and
       // App's re-subscribes on every route change after its children — so

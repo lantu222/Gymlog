@@ -524,6 +524,8 @@ export function EmptyWorkoutScreen({
   );
   const draftSinkRef = useRef({ onSaveDraft, onClearDraft });
   draftSinkRef.current = { onSaveDraft, onClearDraft };
+  /** The write that has not happened yet, so a discard can take it with it. */
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const sink = draftSinkRef.current;
     if (exercises.length === 0) {
@@ -531,10 +533,35 @@ export function EmptyWorkoutScreen({
       return undefined;
     }
     const timer = setTimeout(() => {
+      draftTimerRef.current = null;
       sink.onSaveDraft?.({ exercises, startedAtMs, rest, savedAtMs: Date.now() });
     }, 400);
-    return () => clearTimeout(timer);
+    draftTimerRef.current = timer;
+    return () => {
+      clearTimeout(timer);
+      if (draftTimerRef.current === timer) {
+        draftTimerRef.current = null;
+      }
+    };
   }, [exercises, startedAtMs, rest]);
+  /**
+   * Throw the board away, pending write and all.
+   *
+   * Every discard used to call onClearDraft and leave, trusting the effect's
+   * cleanup to cancel the debounce on unmount. It does not get there in time:
+   * the clear is an urgent dispatch and the route change behind it is a
+   * transition, so the screen is still mounted in the gap between them — and
+   * an edit made less than 400 ms before leaving fired its timer in that gap
+   * and wrote the discarded board straight back (CI review of #162). The
+   * timer goes first, then the clear.
+   */
+  const discardDraft = () => {
+    if (draftTimerRef.current !== null) {
+      clearTimeout(draftTimerRef.current);
+      draftTimerRef.current = null;
+    }
+    draftSinkRef.current.onClearDraft?.();
+  };
   /**
    * How much room the floating bar needs at the bottom of the list, measured
    * rather than assumed. This was a flat 118, which holds at the default font
@@ -571,8 +598,8 @@ export function EmptyWorkoutScreen({
   const doneSetCount = unsavedWork.doneSets;
   const hasUnsavedWork = unsavedWork.doneSets > 0 || unsavedWork.enteredSets > 0;
   const [confirmingLeave, setConfirmingLeave] = useState(false);
-  const leaveGuardRef = useRef({ isSaving, onBack, hasUnsavedWork, onClearDraft });
-  leaveGuardRef.current = { isSaving, onBack, hasUnsavedWork, onClearDraft };
+  const leaveGuardRef = useRef({ isSaving, onBack, hasUnsavedWork, discardDraft });
+  leaveGuardRef.current = { isSaving, onBack, hasUnsavedWork, discardDraft };
   const requestLeave = () => {
     // While Finish is saving the sets are on their way to disk and the summary
     // follows; leaving now would race it. Hardware back does the same.
@@ -585,7 +612,7 @@ export function EmptyWorkoutScreen({
     }
     // Leaving on purpose is a discard; the draft would otherwise come back
     // on the next visit, lifts and all.
-    onClearDraft?.();
+    discardDraft();
     onBack();
   };
 
@@ -612,7 +639,7 @@ export function EmptyWorkoutScreen({
         return true;
       }
       // Leaving on purpose is a discard, from either gesture.
-      guard.onClearDraft?.();
+      guard.discardDraft();
       guard.onBack();
       return true;
     });
@@ -902,8 +929,8 @@ export function EmptyWorkoutScreen({
         exercisePrLookup,
       });
       await onSave(draft, summary);
-      // On disk: nothing left to resume.
-      draftSinkRef.current.onClearDraft?.();
+      // On disk: nothing left to resume, and no pending write to put it back.
+      discardDraft();
     } catch {
       // Save failed — the logged sets stay on screen so nothing is lost;
       // App.tsx surfaces the error toast. Never show success early.
@@ -1332,7 +1359,7 @@ export function EmptyWorkoutScreen({
         onCancel={() => setConfirmingLeave(false)}
         onConfirm={() => {
           setConfirmingLeave(false);
-          draftSinkRef.current.onClearDraft?.();
+          discardDraft();
           leaveGuardRef.current.onBack();
         }}
       />
