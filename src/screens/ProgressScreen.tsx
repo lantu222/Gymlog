@@ -2157,6 +2157,7 @@ export function ProgressScreen({
 
       {/* One lift's sets, over the curve they belong to. */}
       <SetLogSheet
+        bottomInset={insets.bottom}
         visible={setLogTarget !== null}
         log={openSetLog}
         language={language}

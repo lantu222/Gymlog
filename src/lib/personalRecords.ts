@@ -17,6 +17,13 @@ import { groupByMonth } from './monthGroups';
  * changed. That is walked chronologically rather than taken as "the
  * second-best value ever": a lift that went 80 → 85 → 82.5 has a previous
  * record of 80, not 82.5.
+ *
+ * A record matched on the number by a better set moves to that set: 6 × 60
+ * beaten by 8 × 60 is still a 60 kg record, but the record set — and the
+ * day it stands on — is the 8 × 60. Before this, the badge sat on the 6 × 60
+ * for good and the best-weight card named it (#bugs 2026-09-20). `previous`
+ * is untouched by such a move: the record before 60 was 55, whichever set
+ * holds 60 now.
  */
 
 export type RecordKind = 'weight' | 'reps' | 'volume';
@@ -104,10 +111,25 @@ function candidateFor(entry: RecordEntry, kind: RecordKind): Candidate | null {
     return { value: best.weight, companion: best.reps, performedAt: entry.performedAt, stamp };
   }
 
-  const best = sets.reduce((top, set) => (set.reps > top.reps ? set : top));
+  // Same reps, heavier bar: the better set, within a session as across them.
+  const best = sets.reduce((top, set) =>
+    set.reps > top.reps || (set.reps === top.reps && set.weight > top.weight) ? set : top,
+  );
   return best.reps > 0
     ? { value: best.reps, companion: best.weight > 0 ? best.weight : null, performedAt: entry.performedAt, stamp }
     : null;
+}
+
+/**
+ * Same record number, better set: more reps at that weight, or more weight at
+ * those reps. Volume has no such tie — the companion there is a set count,
+ * and more sets for the same work is not a better session.
+ */
+function betterCompanion(kind: RecordKind, candidate: Candidate, best: Candidate): boolean {
+  if (kind === 'volume') {
+    return false;
+  }
+  return (candidate.companion ?? 0) > (best.companion ?? 0);
 }
 
 /**
@@ -140,6 +162,9 @@ export function resolveRecord(
     }
     if (candidate.value > best.value) {
       previous = best.value;
+      best = candidate;
+    } else if (candidate.value === best.value && betterCompanion(kind, candidate, best)) {
+      // Same number, better set: the record moves, the record before it does not.
       best = candidate;
     }
   }

@@ -1387,7 +1387,7 @@ const EN = {
   'guided.finish.saveFailed.retry': 'Save workout',
   'guided.rest.editSave': 'Save',
   // -- Exercise to exercise (screen 8).
-  'guided.walk.today': 'TODAY',
+  'guided.walk.today': 'NOW',
   'guided.walk.last': 'LAST',
   'guided.walk.lastBorrowed': 'LAST\nANOTHER DAY',
   'guided.walk.plan': '{sets} × {reps} · {rest} s rest',
@@ -4420,7 +4420,7 @@ const FI: Record<I18nKey, string> = {
   'guided.finish.saveFailed.body': 'Puhelin ei suostunut tallentamaan treeniä. Sarjasi ovat yhä tallessa.',
   'guided.finish.saveFailed.retry': 'Tallenna treeni',
   'guided.rest.editSave': 'Tallenna',
-  'guided.walk.today': 'TÄNÄÄN',
+  'guided.walk.today': 'NYT',
   'guided.walk.last': 'VIIMEKSI',
   'guided.walk.lastBorrowed': 'VIIMEKSI\nERI PÄIVÄ',
   'guided.walk.plan': '{sets} × {reps} · lepo {rest} s',

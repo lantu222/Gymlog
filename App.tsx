@@ -5547,6 +5547,16 @@ function VinhaApp() {
     () => trackedProgress.map(toSetLogSource),
     [toSetLogSource, trackedProgress],
   );
+  /**
+   * The lift's history by name, for the player's sheet — the same rows the
+   * records read, keyed the way `toSetLogSource` keys body parts above.
+   */
+  const liftHistory = useMemo(() => {
+    const byName = new Map(
+      recordSources.map((source) => [source.name.trim().toLowerCase(), source.entries] as const),
+    );
+    return (exerciseName: string) => byName.get(exerciseName.trim().toLowerCase()) ?? null;
+  }, [recordSources]);
   const personalRecords = useMemo(
     () => ({
       weight: resolveRecords(recordSources, 'weight'),
@@ -6518,6 +6528,7 @@ function VinhaApp() {
       exercisePrLookup,
       finishLoggedWorkoutSave,
       exerciseLibrary,
+      liftHistory,
       sameLibraryRow,
       guidedEntryEyebrow,
       guidedWeekProgress,

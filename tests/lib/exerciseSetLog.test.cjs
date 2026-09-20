@@ -112,4 +112,27 @@ module.exports = [
       assert.equal(claim.gate, 'isSetLogLocked');
     },
   },
+  {
+    name: 'the PR chip follows the record to the better set on the same weight, once',
+    run() {
+      const sumo = {
+        key: 'sumo',
+        name: 'Sumomaastaveto',
+        bodyPart: 'legs',
+        entries: [
+          { performedAt: at(2026, 9, 4), sets: [{ weight: 55, reps: 8 }, { weight: 60, reps: 6 }, { weight: 60, reps: 5 }] },
+          { performedAt: at(2026, 9, 9), sets: [{ weight: 55, reps: 8 }, { weight: 60, reps: 8 }, { weight: 60, reps: 8 }] },
+        ],
+      };
+      const log = buildExerciseSetLog(sumo, { now: new Date(2026, 8, 20, 12, 0, 0, 0) });
+      const marked = log.sessions.flatMap((session) =>
+        session.sets.map((set, index) => (set.isRecord ? `${session.performedAt.slice(0, 10)}#${index}` : null)).filter(Boolean),
+      );
+      // The first 8 × 60 of 9 September, and only it: the two that matched it
+      // after it are matches, not records.
+      assert.deepEqual(marked, ['2026-09-09#1']);
+      assert.equal(log.bestWeight.companion, 8);
+      assert.equal(log.bestReps.companion, 60, 'most reps, and at the heavier bar');
+    },
+  },
 ];
