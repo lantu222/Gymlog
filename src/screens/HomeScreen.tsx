@@ -561,9 +561,22 @@ export function HomeScreen({
     new Date().getMonth(),
     new Date().getDate(),
   ).getTime();
+  // The grid returns to the current month when the day changes. Its offset is
+  // relative to today, so a grid paged to next month and left open across a
+  // month-boundary midnight would otherwise slide a month on its own once the
+  // memo below re-keys on the day (CI review of #160).
+  useEffect(() => {
+    setMonthOffset(0);
+  }, [todayDayStart]);
+  // Keyed on the day as well: `isToday` is baked into the grid at memo time,
+  // and with the date missing from the deps an app left open on Home
+  // overnight kept yesterday's ring on the expanded month while the strip
+  // above it had moved on (audit round 4, 2026-09-20). App re-renders Home
+  // at midnight and on foreground, so the day start is what changes.
   const monthCalendar = useMemo(
     () => getHomeMonthCalendar(new Date(), language, monthOffset),
-    [language, monthOffset],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [language, monthOffset, todayDayStart],
   );
 
   // --- Session hero data (Home v4) ---------------------------------------
@@ -604,8 +617,17 @@ export function HomeScreen({
   // The number carried alongside the label, not parsed back out of it.
   const planDurationMinutes =
     nextPlanSession?.durationMinutes ?? (Number.parseInt(planDuration.replace(/\D/g, ''), 10) || 45);
-  const totalExerciseCount = nextPlanSession?.exercises.length ?? 0;
-  const totalSets = nextPlanSession?.totalSets ?? 0;
+  // The header counts what will be done today: a lift dropped for the day is
+  // struck through in the list below, and the line above it used to keep
+  // counting it (audit round 4, 2026-09-20).
+  const plannedExercises = (nextPlanSession?.exercises ?? []).filter(
+    (exercise) => !(exercise.slotId && sessionDrops.includes(exercise.slotId)),
+  );
+  const totalExerciseCount = plannedExercises.length;
+  const totalSets =
+    nextPlanSession && nextPlanSession.exercises.every((exercise) => typeof exercise.targetSets === 'number')
+      ? plannedExercises.reduce((sum, exercise) => sum + (exercise.targetSets ?? 0), 0)
+      : nextPlanSession?.totalSets ?? 0;
   // The greeting line and the rule above it are gone (user 2026-08-25): the
   // header is the wordmark, the PRO pill and the date. The greeting rotation
   // (lib/homeGreeting) went with its only caller.
@@ -2039,7 +2061,10 @@ export function HomeScreen({
                 onPen={
                   onRenameSession
                     ? () => {
-                        setRenameDraft(localizeSessionName(session.title, language));
+                        // The stored name, not the presentation: a placeholder
+                        // day reads as a focus label nobody typed, and saving
+                        // that made it the real name (audit round 4).
+                        setRenameDraft(session.name ?? localizeSessionName(session.title, language));
                         setRenamingSessionId(session.id);
                       }
                     : null

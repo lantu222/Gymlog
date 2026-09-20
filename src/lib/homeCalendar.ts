@@ -80,6 +80,14 @@ export interface HomeMiniCalendarDay {
 export interface HomeDaySessionSummary {
   id: string;
   title: string;
+  /**
+   * The day's stored name, as written — what a rename edits. `title` is a
+   * presentation: a placeholder name ("Day 2") reads as a focus label
+   * derived from the first lift, and prefilling the rename field with
+   * that wrote "Lower Focus" into the template as the real name (audit
+   * round 4, 2026-09-20).
+   */
+  name?: string;
   duration: string;
   /**
    * The plan's actual weekday label for this session (e.g. "Tue"), taken from
@@ -109,6 +117,8 @@ export interface HomeDaySessionSummary {
   exercises: Array<{
     name: string;
     setsLabel: string;
+    /** The number behind `setsLabel`, so a dropped lift can be taken off the header count. */
+    targetSets?: number;
     /**
      * The stored template's own exercise id. Removing a lift from the
      * programme is written against this — the slot id below belongs to the

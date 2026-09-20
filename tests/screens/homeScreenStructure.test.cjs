@@ -98,7 +98,7 @@ module.exports = [
       // The month grid pages, so the offset is part of what it memoises on.
       assert.match(
         homeScreenSource,
-        /getHomeMonthCalendar\(new Date\(\), language, monthOffset\),\s*\r?\n?\s*\[language, monthOffset\]/,
+        /getHomeMonthCalendar\(new Date\(\), language, monthOffset\),[\s\S]{0,400}\[language, monthOffset, todayDayStart\]/,
       );
       assert.match(homeScreenSource, /setMonthOffset\(\(current\) => current - 1\)/);
       assert.match(homeScreenSource, /setMonthOffset\(\(current\) => current \+ 1\)/);
@@ -836,7 +836,7 @@ module.exports = [
       // from a second field that could disagree with them.
       assert.match(
         homeScreenSource,
-        /const totalExerciseCount = nextPlanSession\?\.exercises\.length \?\? 0;/,
+        /const totalExerciseCount = plannedExercises\.length;/,
       );
       assert.doesNotMatch(homeScreenSource, /hiddenExerciseCount/);
       assert.doesNotMatch(homeScreenSource, /home\.section\.more/);
