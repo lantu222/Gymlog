@@ -18,10 +18,21 @@ const ROOT = path.join(__dirname, '..', '..');
  * browser and the add-exercise sheet already set `"handled"`; the rule is
  * the same for every container, so it is checked for every container.
  *
- * The scan is textual: every `<ScrollView` / `<FlatList` range in
- * src/screens and src/components that contains a `<TextInput` must contain
- * `keyboardShouldPersistTaps`. Run against the tree before the fix it names
- * six containers; a container added later without the prop lands here too.
+ * Every container, nested ones included: the prop is not inherited, and
+ * React Native's own guidance for nested scroll views is that each one sets
+ * it. So an outer container counts the inputs inside its inner ones, and is
+ * judged on its own opening tag alone.
+ *
+ * The scan is textual but shaped like JSX, not like lines. Its first version
+ * walked lines and kept a stack: a self-closing container whose `/>` sat on
+ * its own line never popped and swallowed the rest of the file, and the prop
+ * was credited to every open frame rather than the one it sat on — so a
+ * container missing the prop passed whenever any other one in the file had
+ * it (CI review of #156). Now each `<ScrollView` / `<FlatList` /
+ * `<SectionList` is read to the end of its own opening tag (braces and
+ * quotes tracked, since props hold arrow functions with `>` in them), then to
+ * its matching close tag or its own `/>`; a `useRef<ScrollView | null>` is a
+ * generic, not a tag, and is skipped by the character before the `<`.
  */
 function walk(dir) {
   const out = [];
@@ -33,26 +44,77 @@ function walk(dir) {
   return out;
 }
 
-/** Scroll containers with a text input inside, and whether each persists taps. */
+/** Scroll containers with a text input anywhere inside, and whether each one's own tag persists taps. */
 function scrollContainersWithInputs(source) {
-  const lines = source.replace(/\r\n/g, '\n').split('\n');
-  const open = [];
+  const src = source.replace(/\r\n/g, '\n');
   const found = [];
-  lines.forEach((line, index) => {
-    if (/<(ScrollView|FlatList|SectionList)\b/.test(line)) {
-      open.push({ line: index + 1, inputs: 0, persists: false });
+  const openRe = /<(ScrollView|FlatList|SectionList)\b/g;
+  let m;
+  while ((m = openRe.exec(src))) {
+    const start = m.index;
+    const tag = m[1];
+    // `useRef<ScrollView | null>`, `RefObject<FlatList>`: a generic, not JSX.
+    if (start > 0 && /[A-Za-z0-9_$]/.test(src[start - 1])) continue;
+
+    // The end of the opening tag: the first `>` at brace depth 0 outside a
+    // string — props hold `() => ...` and `{a > b}`.
+    let depth = 0;
+    let quote = null;
+    let tagEnd = -1;
+    let selfClosing = false;
+    for (let i = start + m[0].length; i < src.length; i += 1) {
+      const c = src[i];
+      if (quote) {
+        if (c === quote && src[i - 1] !== '\\') quote = null;
+        continue;
+      }
+      if (c === '"' || c === "'" || c === '`') {
+        quote = c;
+      } else if (c === '{') {
+        depth += 1;
+      } else if (c === '}') {
+        depth -= 1;
+      } else if (c === '>' && depth === 0) {
+        tagEnd = i;
+        selfClosing = src[i - 1] === '/';
+        break;
+      }
     }
-    for (const container of open) {
-      if (/<TextInput\b/.test(line)) container.inputs += 1;
-      if (/keyboardShouldPersistTaps/.test(line)) container.persists = true;
+    if (tagEnd < 0) continue;
+
+    let end = tagEnd + 1;
+    if (!selfClosing) {
+      const pairRe = new RegExp(`<${tag}\\b|</${tag}>`, 'g');
+      pairRe.lastIndex = tagEnd + 1;
+      let level = 1;
+      let pair;
+      end = src.length;
+      while ((pair = pairRe.exec(src))) {
+        if (pair[0].startsWith('</')) {
+          level -= 1;
+          if (level === 0) {
+            end = pair.index + pair[0].length;
+            break;
+          }
+        } else if (!/[A-Za-z0-9_$]/.test(src[pair.index - 1] ?? '')) {
+          level += 1;
+        }
+      }
     }
-    if (/<\/(ScrollView|FlatList|SectionList)>/.test(line) || /<(ScrollView|FlatList|SectionList)\b[^>]*\/>/.test(line)) {
-      const container = open.pop();
-      if (container && container.inputs > 0) found.push(container);
-    }
-  });
-  // A container the file never closes is still a container.
-  for (const container of open) if (container.inputs > 0) found.push(container);
+
+    const openingTag = src.slice(start, tagEnd + 1);
+    const body = src.slice(start, end);
+    const inputs = (body.match(/<TextInput\b/g) ?? []).length;
+    if (inputs === 0) continue;
+    found.push({
+      line: src.slice(0, start).split('\n').length,
+      inputs,
+      selfClosing,
+      // On this container's own tag. A descendant's prop, or a comment that
+      // names it, is not this container persisting anything.
+      persists: /\bkeyboardShouldPersistTaps\s*=/.test(openingTag),
+    });
+  }
   return found;
 }
 
@@ -75,15 +137,55 @@ module.exports = [
     },
   },
   {
-    // The scanner, on a fixture, so a passing tree cannot be a scanner that sees nothing.
-    name: 'keyboard: the scan finds an input inside a container and respects the prop',
+    // The scanner on fixtures, one per way it has been fooled, so a green tree
+    // cannot be a scanner that sees nothing.
+    name: 'keyboard: the scan reads tags, not lines',
     run() {
+      const shape = (source) => scrollContainersWithInputs(source).map((c) => [c.line, c.persists]);
+
+      // A plain container, then the same with the prop.
       const bare = ['<View>', '  <ScrollView style={s.x}>', '    <TextInput value={v} />', '    <Pressable onPress={go} />', '  </ScrollView>', '</View>'].join('\n');
-      assert.deepEqual(scrollContainersWithInputs(bare).map((c) => [c.line, c.persists]), [[2, false]]);
-      const fixed = bare.replace('<ScrollView style={s.x}>', '<ScrollView style={s.x} keyboardShouldPersistTaps="handled">');
-      assert.deepEqual(scrollContainersWithInputs(fixed).map((c) => [c.line, c.persists]), [[2, true]]);
+      assert.deepEqual(shape(bare), [[2, false]]);
+      assert.deepEqual(shape(bare.replace('<ScrollView style={s.x}>', '<ScrollView style={s.x} keyboardShouldPersistTaps="handled">')), [[2, true]]);
+
+      // A multi-line self-closing FlatList whose header holds the input: the
+      // container ends at its own `/>`, and the prop must sit on it.
+      const flat = [
+        '<FlatList',
+        '  data={rows}',
+        '  renderItem={({ item }) => <Row onPress={() => open(item)} big={item.n > 3} />}',
+        '  ListHeaderComponent={<TextInput value={q} />}',
+        '/>',
+        '<ScrollView keyboardShouldPersistTaps="handled">',
+        '  <Text />',
+        '</ScrollView>',
+      ].join('\n');
+      assert.deepEqual(shape(flat), [[1, false]], 'the self-closing FlatList must be judged on its own tag, not the next container\'s');
+      assert.deepEqual(shape(flat.replace('  data={rows}', '  data={rows}\n  keyboardShouldPersistTaps="handled"')), [[1, true]]);
+
+      // Nested: the inner one persists, the outer one — which also holds the
+      // input — does not. The prop is not inherited; both are judged.
+      const nested = [
+        '<ScrollView>',
+        '  <ScrollView horizontal keyboardShouldPersistTaps="handled">',
+        '    <TextInput value={v} />',
+        '  </ScrollView>',
+        '</ScrollView>',
+      ].join('\n');
+      assert.deepEqual(shape(nested), [[1, false], [2, true]]);
+
+      // A generic is not a tag, and a comment naming the prop persists nothing.
+      const noise = [
+        'const ref = useRef<ScrollView | null>(null);',
+        '// keyboardShouldPersistTaps is set on the sheet below',
+        '<ScrollView ref={ref}>',
+        '  <TextInput value={v} />',
+        '</ScrollView>',
+      ].join('\n');
+      assert.deepEqual(shape(noise), [[3, false]]);
+
       // No input, no requirement — a plain list is not the case.
-      assert.deepEqual(scrollContainersWithInputs('<FlatList data={d} />\n<ScrollView>\n<Text />\n</ScrollView>'), []);
+      assert.deepEqual(shape('<FlatList data={d} />\n<ScrollView>\n<Text />\n</ScrollView>'), []);
     },
   },
 ];

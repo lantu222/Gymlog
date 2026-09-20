@@ -295,7 +295,6 @@ export function StrengthGoalFlowScreen({
         />
         <FlatList
           style={styles.list}
-          keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.listContent}
           data={shown}
           keyExtractor={(lift) => lift.exerciseName}
