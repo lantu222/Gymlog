@@ -149,10 +149,13 @@ function scrollContainers(src) {
       end,
       selfClosing,
       line: src.slice(0, start).split('\n').length,
-      // On this container's own attributes. A descendant's prop, a prop on an
-      // element nested inside one of its props, or a comment that names it,
-      // is not this container persisting anything.
-      persists: /\bkeyboardShouldPersistTaps\s*=/.test(ownText),
+      // On this container's own attributes, and set to a value that keeps the
+      // tap: "never" is the default this guard exists to remove, and its
+      // presence proved nothing (CI review of #156, sixth round). A
+      // descendant's prop, a prop on an element nested inside one of its
+      // props, or a comment that names it, is not this container persisting
+      // anything.
+      persists: /\bkeyboardShouldPersistTaps\s*=\s*["'](handled|always)["']/.test(ownText),
     });
   }
   return out;
@@ -223,6 +226,9 @@ module.exports = [
       const bare = ['<View>', '  <ScrollView style={s.x}>', '    <TextInput value={v} />', '    <Pressable onPress={go} />', '  </ScrollView>', '</View>'].join('\n');
       assert.deepEqual(shape(bare), [[2, false]]);
       assert.deepEqual(shape(bare.replace('<ScrollView style={s.x}>', '<ScrollView style={s.x} keyboardShouldPersistTaps="handled">')), [[2, true]]);
+      // The value counts: "never" is the default written out, and persists nothing.
+      assert.deepEqual(shape(bare.replace('<ScrollView style={s.x}>', '<ScrollView style={s.x} keyboardShouldPersistTaps="never">')), [[2, false]]);
+      assert.deepEqual(shape(bare.replace('<ScrollView style={s.x}>', "<ScrollView style={s.x} keyboardShouldPersistTaps='always'>")), [[2, true]]);
 
       // A multi-line self-closing FlatList whose header holds the input: the
       // container ends at its own `/>`, and the prop must sit on it. The
