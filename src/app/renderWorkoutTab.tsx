@@ -528,6 +528,16 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         }}
         onPrimaryAction={() => {
           if (readyProgramIsMine) {
+            // Their own version of it is what runs, so it is what starts: the
+            // plan's days carry the copy's ids, the catalog lookup knows
+            // nothing about them, and asking for the next session of the
+            // catalog programme found no plan and quietly went Home instead
+            // (CI review of #163). The custom path is the same path the
+            // copy's own page takes.
+            if (ownCopyTemplateId) {
+              handleStartCustomProgram(ownCopyTemplateId);
+              return;
+            }
             // Already the reader's. Adoption returns early for a programme it
             // already holds, so this button used to read like a decision and do
             // nothing but navigate Home. It now starts the session the rotation
@@ -653,9 +663,17 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         onDestructiveAction={
           route.programType === 'custom'
             ? () => void handleDeleteCustomWorkout(route.workoutTemplateId)
-            : programIsHeld
-              ? () => void onForgetHeldProgram(runningTemplateId)
-              : undefined
+            : ownCopyTemplateId
+              ? // Delete means delete. Forgetting only drops the plans, which
+                // is the whole of it for a catalog programme — there is no row
+                // of the reader's to remove. Their own copy IS a row, and
+                // forgetting it left the template behind for good, holding a
+                // slot of the free cap for a programme they had just confirmed
+                // deleting (CI review of #163).
+                () => void handleDeleteCustomWorkout(ownCopyTemplateId)
+              : programIsHeld
+                ? () => void onForgetHeldProgram(route.workoutTemplateId)
+                : undefined
         }
       />
     ) : (

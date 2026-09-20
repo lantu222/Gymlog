@@ -183,7 +183,7 @@ module.exports = [
       // A held ready programme can be deleted, apart from the switch.
       assert.match(
         code,
-        /: programIsHeld\s*\? \(\) => void onForgetHeldProgram\(runningTemplateId\)/,
+        /: programIsHeld\s*\? \(\) => void onForgetHeldProgram\(route\.workoutTemplateId\)/,
       );
       assert.match(code, /const canDeleteProgram = route\.programType === 'custom' \|\| programIsHeld;/);
       // And the list keeps what the switch turned off.

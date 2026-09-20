@@ -58,6 +58,12 @@ module.exports = [
         'const programIsMine = activeProgramTemplateIds.includes(runningTemplateId);',
         'const programLeads = homeActivePlanCard?.programId === runningTemplateId;',
         'next ? onResumeProgram(runningTemplateId) : onStopProgram(runningTemplateId)',
+        // And the actions speak to the programme that runs: the plan's days
+        // carry the copy's ids, so the catalog start found no plan and went
+        // Home, and forgetting left the copy's template holding a free slot
+        // for a programme the reader had just deleted (CI review of #163).
+        'handleStartCustomProgram(ownCopyTemplateId);',
+        '() => void handleDeleteCustomWorkout(ownCopyTemplateId)',
       ]) {
         assert.ok(tab.includes(line), `the page must act on the id it is about: ${line}`);
       }
