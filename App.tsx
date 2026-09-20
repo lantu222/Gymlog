@@ -1834,6 +1834,43 @@ function VinhaApp() {
     }
 
     const planId = buildReadyProgramPlanId(workoutTemplateId);
+    // Held but switched off: resumed, not rebuilt. Falling through here
+    // built a fresh plan over the same id, and its updatedAt is the block
+    // boundary — a programme at week 5, 12 of 24, came back from the goal
+    // flow or the completion card as week 1, 0 of 24, with its week dealt
+    // again while the rotation carried on (audit round 4, 2026-09-20).
+    // The Active switch already keeps the plan; this is the same path.
+    if (database.workoutPlans.some((item) => item.id === planId)) {
+      const resumed = resumeProgramme({
+        activePlanId: preferences.activePlanId,
+        activePlanIds: preferences.activePlanIds,
+        plans: database.workoutPlans,
+        templateId: workoutTemplateId,
+      });
+      if (resumed) {
+        const held = evaluateProgramAdoption({
+          activePlanIds: preferences.activePlanIds,
+          targetPlanId: resumed.planId,
+          proUnlocked: resolveProEntitlement(preferences).unlocked,
+        });
+        if (held.kind === 'blocked') {
+          if (held.canUpgrade) {
+            setRunningCapSheet({ visible: true, used: held.used, cap: held.cap });
+            return false;
+          }
+          showToast(t(preferences.appLanguage, 'programs.cap.full', { cap: held.cap }));
+          return false;
+        }
+        await updatePreferences({
+          activePlanIds: resumed.activePlanIds,
+          // resumeProgramme names the resumed plan as activePlanId whichever way,
+          // so the lead is kept here: joining a season must not quietly demote
+          // the programme at the top of Home (CI review of #161).
+          activePlanId: options?.lead ? resumed.planId : preferences.activePlanId ?? resumed.planId,
+        });
+        return true;
+      }
+    }
     const decision = evaluateProgramAdoption({
       activePlanIds: preferences.activePlanIds,
       targetPlanId: planId,
@@ -1960,7 +1997,15 @@ function VinhaApp() {
     // chips. Writing only the first left a reader who moved leg day here still
     // being reminded on the day they moved it off.
     const days = weekdaysFromPlanLabels(entries);
-    if (days.length > 0) {
+    // Only the plan Home leads with, which is the same invariant the Profile
+    // picker states two functions below. Availability is one list for the
+    // whole app — Profile's chips, the reminders, the widget — and a rhythm
+    // is per programme. Moving a day on a programme the reader holds but has
+    // switched off rewrote that list while Home and the calendar kept reading
+    // the lead plan's own labels (audit round 4, 2026-09-20); so does moving a
+    // day on the SECOND running programme, which the running-set test let
+    // through — two may run at once (CI review of #161).
+    if (days.length > 0 && plan.id === preferences.activePlanId) {
       await updatePreferences({
         setupAvailableDays: days,
         // Naming the days by hand IS self-managed; leaving the mode alone would
@@ -2785,6 +2830,13 @@ function VinhaApp() {
     // 2026-09-16). The provider checks the same thing again at the write.
     const readyPlanId = buildReadyProgramPlanId(programId);
     const wasRunning = preferences.activePlanIds.includes(readyPlanId);
+    // Held is not running, and both of them are "this reader trains this
+    // programme". Stopping a programme rewrites the active set and leaves
+    // its plan record standing, block and all; only the running set says
+    // whether the copy takes a slot, and everything else about it — the
+    // block it inherits, the record it replaces — follows the record
+    // (CI review of #161).
+    const wasHeld = database.workoutPlans.some((item) => item.id === readyPlanId);
     if (!programSlots.canCreate) {
       setProgramLimitVisible(true);
       return false;
@@ -2929,10 +2981,12 @@ function VinhaApp() {
        * is measured from it. Stamping it with today turned "week 3, 7 of 24"
        * into "week 1, 0 of 24" because the reader changed one lift — the
        * programme is the same programme, and the block it is in is the same
-       * block. Only when it replaces a plan that was running: a copy of a
-       * programme they were merely browsing has no block to inherit.
+       * block. Only when it replaces a plan the reader HELD: a copy of a
+       * programme they were merely browsing has no block to inherit, and a
+       * programme switched off has one — its weeks did not stop being
+       * trained because it is not the one Home leads with today.
        */
-      const replacedPlan = wasRunning
+      const replacedPlan = wasHeld
         ? database.workoutPlans.find((item) => item.id === readyPlanId) ?? null
         : null;
       const plan = buildProgramWorkoutPlan({
@@ -2964,6 +3018,16 @@ function VinhaApp() {
             }
           : {},
       );
+      if (wasHeld) {
+        // The record the copy replaced goes with it, whether or not it was
+        // the one running. Left behind, it listed
+        // the programme twice — the copy running, the catalog version
+        // "switched off" — and that row's Active switch re-adopted the
+        // untouched original beside the copy, two slots for one programme
+        // (audit round 4, 2026-09-20). The block boundary was read off it
+        // above, before this.
+        await forgetHeldProgramme(template.id);
+      }
       void haptics.success();
       if (edit.kind === 'replace') {
         setSessionSwaps((current) => {

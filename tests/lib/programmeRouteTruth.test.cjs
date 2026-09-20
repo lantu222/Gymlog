@@ -108,7 +108,10 @@ module.exports = [
       // The copy IS the programme the reader has been training. Stamping the
       // new plan with today turned "week 3, 7 of 24" into "week 1, 0 of 24"
       // for changing one lift.
-      assert.match(code, /const replacedPlan = wasRunning\s*\? database\.workoutPlans\.find\(\(item\) => item\.id === readyPlanId\) \?\? null\s*: null;/);
+      // Off the plan RECORD, not the running set: a programme the reader
+      // switched off still has its plan and its weeks, and its copy inherits
+      // them (CI review of #161).
+      assert.match(code, /const replacedPlan = wasHeld\s*\? database\.workoutPlans\.find\(\(item\) => item\.id === readyPlanId\) \?\? null\s*: null;/);
       assert.match(code, /now: replacedPlan\?\.updatedAt \?\? new Date\(\)\.toISOString\(\),/);
       // Taking the ready programme's place is not the same as taking the
       // lead: editing a lift in a programme the reader holds but does not
