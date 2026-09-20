@@ -44,6 +44,8 @@ import {
   freestyleRestSecondsForTick,
   freestyleVolumeKg,
   matchesMuscleFilter,
+  FreestyleDraftSnapshot,
+  FreestyleExerciseSnapshot,
 } from '../lib/emptyWorkoutSession';
 import { getExerciseTemplateDefaults, getPopularExerciseLibraryItems, getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { bodyPartLabel, I18nKey, t } from '../lib/i18n';
@@ -69,12 +71,8 @@ import { sound } from '../utils/sound';
  * empty-workout.jsx + aw3-shared.jsx in the design archive.
  */
 
-interface FreestyleExerciseState extends FreestyleExerciseDraft {
-  displayName: string;
-  initials: string;
-  metaLabel: string;
-  isBarbell: boolean;
-}
+// The lift as the screen holds it — the same shape the provider persists.
+type FreestyleExerciseState = FreestyleExerciseSnapshot;
 
 interface EmptyWorkoutScreenProps {
   exerciseLibrary: ExerciseLibraryItem[];
@@ -85,6 +83,14 @@ interface EmptyWorkoutScreenProps {
   language?: AppLanguage;
   onBack: () => void;
   onSave: (draft: WorkoutTemplateDraft, summary: FreestyleFinishSummary) => Promise<void> | void;
+  /**
+   * The session in flight, from the workout provider: read once, on mount,
+   * so a process the OS reclaimed mid-session reopens on the same board.
+   * Mirrored back through the two callbacks — the provider persists it.
+   */
+  freestyleDraft?: FreestyleDraftSnapshot | null;
+  onSaveDraft?: (snapshot: FreestyleDraftSnapshot) => void;
+  onClearDraft?: () => void;
   /** Rest & alerts settings (design: Background Timer). */
   restAlerts?: { alerts: boolean; warning: boolean; ongoing: boolean; asked: boolean };
   /**
@@ -487,6 +493,9 @@ export function EmptyWorkoutScreen({
   language = 'en',
   onBack,
   onSave,
+  freestyleDraft = null,
+  onSaveDraft,
+  onClearDraft,
   restAlerts = { alerts: true, warning: true, ongoing: true, asked: false },
   onRestAlertsAnswered,
   onOpenSystemSettings,
@@ -494,10 +503,35 @@ export function EmptyWorkoutScreen({
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const AW3 = useAW3();
-  const [exercises, setExercises] = useState<FreestyleExerciseState[]>([]);
-  const [startedAtMs, setStartedAtMs] = useState<number | null>(null);
+  /*
+   * The session outlives the process. Everything here lived in React state
+   * alone — forty minutes in, Android reclaiming the app for a camera or a
+   * call meant reopening to the empty board with nothing to recover, while
+   * the guided player had persisted every set (audit round 4, 2026-09-20).
+   * The draft is the workout provider's state, persisted with the bundle:
+   * read once here, on mount, and written back below, debounced — a
+   * keystroke in a weight field is not a reason to rewrite the bundle. A
+   * rest that ended while the app was gone does not come back.
+   */
+  const [exercises, setExercises] = useState<FreestyleExerciseState[]>(() => freestyleDraft?.exercises ?? []);
+  const [startedAtMs, setStartedAtMs] = useState<number | null>(() => freestyleDraft?.startedAtMs ?? null);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const [rest, setRest] = useState<{ totalSeconds: number; endsAtMs: number; startedAtMs: number } | null>(null);
+  const [rest, setRest] = useState<{ totalSeconds: number; endsAtMs: number; startedAtMs: number } | null>(() =>
+    freestyleDraft?.rest && freestyleDraft.rest.endsAtMs > Date.now() ? freestyleDraft.rest : null,
+  );
+  const draftSinkRef = useRef({ onSaveDraft, onClearDraft });
+  draftSinkRef.current = { onSaveDraft, onClearDraft };
+  useEffect(() => {
+    const sink = draftSinkRef.current;
+    if (exercises.length === 0) {
+      sink.onClearDraft?.();
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      sink.onSaveDraft?.({ exercises, startedAtMs, rest, savedAtMs: Date.now() });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [exercises, startedAtMs, rest]);
   /**
    * How much room the floating bar needs at the bottom of the list, measured
    * rather than assumed. This was a flat 118, which holds at the default font
@@ -546,6 +580,9 @@ export function EmptyWorkoutScreen({
       setConfirmingLeave(true);
       return;
     }
+    // Leaving on purpose is a discard; the draft would otherwise come back
+    // on the next visit, lifts and all.
+    onClearDraft?.();
     onBack();
   };
 
@@ -708,8 +745,15 @@ export function EmptyWorkoutScreen({
     setNowMs(Date.now());
   };
 
-  const removeExercise = (exerciseKey: string) =>
+  const removeExercise = (exerciseKey: string) => {
     setExercises((current) => current.filter((exercise) => exercise.localKey !== exerciseKey));
+    // The rest belonged to a lift; over an empty board it froze — the tick is
+    // gated on having lifts — and covered the quick list, with Skip the only
+    // way out (audit round 4, 2026-09-20).
+    if (exercises.length <= 1) {
+      setRest(null);
+    }
+  };
 
   const patchSet = (exerciseKey: string, setKey: string, patch: Partial<{ kg: string; reps: string }>) =>
     setExercises((current) =>
@@ -827,13 +871,16 @@ export function EmptyWorkoutScreen({
         return current;
       }
       const now = Date.now();
-      const remaining = Math.max(1, Math.ceil((current.endsAtMs - now) / 1000) + deltaSeconds);
+      // An overrun rest extends from now, not from an end already gone by:
+      // "+15 s" from the lock screen on a rest thirty seconds overdue gave
+      // one second (audit round 4, 2026-09-20).
+      const endsAtMs = Math.max(now + 1000, Math.max(now, current.endsAtMs) + deltaSeconds * 1000);
       return {
         // Same rest, moved end: startedAtMs carries so the once-per-rest work
         // does not run again.
         startedAtMs: current.startedAtMs,
         totalSeconds: Math.max(1, current.totalSeconds + deltaSeconds),
-        endsAtMs: now + remaining * 1000,
+        endsAtMs,
       };
     });
 
@@ -853,6 +900,8 @@ export function EmptyWorkoutScreen({
         exercisePrLookup,
       });
       await onSave(draft, summary);
+      // On disk: nothing left to resume.
+      draftSinkRef.current.onClearDraft?.();
     } catch {
       // Save failed — the logged sets stay on screen so nothing is lost;
       // App.tsx surfaces the error toast. Never show success early.
@@ -1281,6 +1330,7 @@ export function EmptyWorkoutScreen({
         onCancel={() => setConfirmingLeave(false)}
         onConfirm={() => {
           setConfirmingLeave(false);
+          draftSinkRef.current.onClearDraft?.();
           leaveGuardRef.current.onBack();
         }}
       />

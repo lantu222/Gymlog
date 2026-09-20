@@ -6222,17 +6222,27 @@ function VinhaApp() {
   // template first, then the completed session, and only then the summary
   // screen — a failed save must leave the logger open with its sets intact.
   const finishLoggedWorkoutSave = async (draft: WorkoutTemplateDraft, summary: FreestyleFinishSummary) => {
-    trackEvent('workout_completed');
     const workoutTemplateId = await upsertWorkoutTemplate(draft);
     const sessionId = createId('session');
-    await saveCompletedWorkoutSession({
-      sessionId,
-      workoutTemplateId,
-      workoutNameSnapshot: summary.workoutName,
-      logs: summary.logs,
-      startedAt: summary.startedAt,
-      performedAt: summary.performedAt,
-    });
+    try {
+      await saveCompletedWorkoutSession({
+        sessionId,
+        workoutTemplateId,
+        workoutNameSnapshot: summary.workoutName,
+        logs: summary.logs,
+        startedAt: summary.startedAt,
+        performedAt: summary.performedAt,
+      });
+    } catch (error) {
+      // The template is written first so the session can name it. A session
+      // that did not land must not leave the template behind — the retry made
+      // a second one (audit round 4, 2026-09-20). Best effort: the failure
+      // the reader hears about is the save.
+      await deleteWorkoutTemplate(workoutTemplateId).catch(() => undefined);
+      throw error;
+    }
+    // Counted once it is on disk, as the guided path counts it.
+    trackEvent('workout_completed');
     /**
      * Remembered for the next time these lifts come up.
      *
@@ -6597,6 +6607,9 @@ function VinhaApp() {
       unitPreference,
       database,
       workout,
+      freestyleDraft: workout.freestyleDraft,
+      saveFreestyleDraft: workout.saveFreestyleDraft,
+      clearFreestyleDraft: workout.clearFreestyleDraft,
       customWorkoutRuntimeMap,
       setupSelection,
       setupRecommendation,

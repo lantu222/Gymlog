@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { normalizeFreestyleDraftSnapshot } from '../../lib/emptyWorkoutSession';
 
 import { normalizeActiveCardioSession } from '../../lib/cardio';
 import { scrubImpossibleSessionLoads } from '../../lib/impossibleLoads';
@@ -129,6 +130,7 @@ export function normalizeWorkoutBundle(input: unknown): WorkoutPersistenceBundle
       activeSession: null,
       history: createEmptyWorkoutHistory(),
       activeCardio: null,
+      freestyleDraft: null,
     };
   }
 
@@ -136,6 +138,7 @@ export function normalizeWorkoutBundle(input: unknown): WorkoutPersistenceBundle
     activeSession: normalizeActiveSession(input.activeSession),
     history: normalizeHistory(input.history),
     activeCardio: normalizeActiveCardioSession(input.activeCardio),
+    freestyleDraft: normalizeFreestyleDraftSnapshot(input.freestyleDraft),
   };
 }
 

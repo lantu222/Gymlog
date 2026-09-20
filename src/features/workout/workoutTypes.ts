@@ -2,6 +2,7 @@
 // format.ts imports them. Erasing these keeps workoutTypes a leaf at build time
 // instead of a node in a cycle through progressionGate and cardio.
 import type { SetupLevel, UnitPreference } from '../../types/models';
+import type { FreestyleDraftSnapshot } from '../../lib/emptyWorkoutSession';
 import type { ProgressionFatigueSignal } from '../../lib/progressionGate';
 import type { ActiveCardioSession } from '../../lib/cardio';
 
@@ -326,6 +327,8 @@ export interface WorkoutPersistenceBundle {
   history: WorkoutHistoryStore;
   /** Live cardio session (Cardio v1) — same offline persistence as strength. */
   activeCardio?: ActiveCardioSession | null;
+  /** A freestyle session in flight — same offline persistence as the guided one. */
+  freestyleDraft?: FreestyleDraftSnapshot | null;
 }
 
 export interface WorkoutSetDraftInput {

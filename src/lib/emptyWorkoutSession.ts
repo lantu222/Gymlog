@@ -103,6 +103,115 @@ export interface FreestyleExerciseDraft {
   supersetGroup?: string | null;
 }
 
+/** A lift as the screen holds it: the draft plus what it draws for it. */
+export interface FreestyleExerciseSnapshot extends FreestyleExerciseDraft {
+  displayName: string;
+  initials: string;
+  metaLabel: string;
+  isBarbell: boolean;
+}
+
+/**
+ * A freestyle session in flight, as the workout provider keeps it.
+ *
+ * The session used to live in the screen's React state alone: forty
+ * minutes in, Android reclaiming the app for a camera or a call meant
+ * reopening to an empty board with nothing to recover, while the guided
+ * player had persisted every set (audit round 4, 2026-09-20). This is what
+ * survives — the lifts with their rows, when the session started, and the
+ * rest that was running.
+ */
+export interface FreestyleDraftSnapshot {
+  exercises: FreestyleExerciseSnapshot[];
+  startedAtMs: number | null;
+  rest: { totalSeconds: number; endsAtMs: number; startedAtMs: number } | null;
+  savedAtMs: number;
+}
+
+const finiteOr = (value: unknown, fallback: number) =>
+  typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+
+/**
+ * A stored snapshot, or null. Read from disk, so nothing in it is trusted:
+ * a lift without a name or rows is dropped, a row without a key is
+ * dropped, numbers that are not numbers become the defaults, and a
+ * snapshot left with no lifts is no snapshot.
+ */
+export function normalizeFreestyleDraftSnapshot(input: unknown): FreestyleDraftSnapshot | null {
+  if (!input || typeof input !== 'object') {
+    return null;
+  }
+  const raw = input as Record<string, unknown>;
+  const exercises: FreestyleExerciseSnapshot[] = [];
+  for (const item of Array.isArray(raw.exercises) ? raw.exercises : []) {
+    if (!item || typeof item !== 'object') {
+      continue;
+    }
+    const lift = item as Record<string, unknown>;
+    if (typeof lift.localKey !== 'string' || !lift.localKey || typeof lift.name !== 'string' || !lift.name.trim()) {
+      continue;
+    }
+    const sets: FreestyleSetDraft[] = [];
+    for (const row of Array.isArray(lift.sets) ? lift.sets : []) {
+      if (!row || typeof row !== 'object') {
+        continue;
+      }
+      const set = row as Record<string, unknown>;
+      if (typeof set.localKey !== 'string' || !set.localKey) {
+        continue;
+      }
+      sets.push({
+        localKey: set.localKey,
+        kg: typeof set.kg === 'string' ? set.kg : '',
+        reps: typeof set.reps === 'string' ? set.reps : '',
+        done: set.done === true,
+      });
+    }
+    if (sets.length === 0) {
+      continue;
+    }
+    const displayName = typeof lift.displayName === 'string' && lift.displayName ? lift.displayName : lift.name;
+    exercises.push({
+      localKey: lift.localKey,
+      name: lift.name,
+      libraryItemId: typeof lift.libraryItemId === 'string' ? lift.libraryItemId : null,
+      imageUrl: typeof lift.imageUrl === 'string' ? lift.imageUrl : null,
+      repMin: finiteOr(lift.repMin, 8),
+      repMax: finiteOr(lift.repMax, 12),
+      restSeconds: finiteOr(lift.restSeconds, 90),
+      trackedDefault: lift.trackedDefault !== false,
+      sets,
+      supersetGroup: typeof lift.supersetGroup === 'string' ? lift.supersetGroup : null,
+      displayName,
+      initials: typeof lift.initials === 'string' ? lift.initials : displayName.slice(0, 2).toUpperCase(),
+      metaLabel: typeof lift.metaLabel === 'string' ? lift.metaLabel : '',
+      isBarbell: lift.isBarbell === true,
+    });
+  }
+  if (exercises.length === 0) {
+    return null;
+  }
+  const restRaw = raw.rest && typeof raw.rest === 'object' ? (raw.rest as Record<string, unknown>) : null;
+  const rest =
+    restRaw &&
+    typeof restRaw.endsAtMs === 'number' &&
+    Number.isFinite(restRaw.endsAtMs) &&
+    typeof restRaw.startedAtMs === 'number' &&
+    Number.isFinite(restRaw.startedAtMs)
+      ? {
+          totalSeconds: Math.max(1, Math.round(finiteOr(restRaw.totalSeconds, 60))),
+          endsAtMs: restRaw.endsAtMs,
+          startedAtMs: restRaw.startedAtMs,
+        }
+      : null;
+  return {
+    exercises,
+    startedAtMs: typeof raw.startedAtMs === 'number' && Number.isFinite(raw.startedAtMs) ? raw.startedAtMs : null,
+    rest,
+    savedAtMs: finiteOr(raw.savedAtMs, 0),
+  };
+}
+
 export interface FreestyleFinishInput {
   exercises: FreestyleExerciseDraft[];
   workoutName: string;

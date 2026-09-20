@@ -357,4 +357,59 @@ module.exports = [
       assert.equal(isLoggableFreestyleSet({ kg: 'abc', reps: '6' }), false);
     },
   },
+  {
+    /*
+     * Audit round 4 (2026-09-20): the freestyle session lived in the screen's
+     * React state alone, so a process the OS reclaimed mid-session lost every
+     * set. The snapshot the provider persists comes back through this — read
+     * from disk, so nothing in it is trusted.
+     */
+    name: 'a stored freestyle draft comes back with its lifts, rows and rest, and junk does not',
+    run() {
+      const { normalizeFreestyleDraftSnapshot } = require('../../.test-dist/lib/emptyWorkoutSession.js');
+      assert.equal(normalizeFreestyleDraftSnapshot(null), null);
+      assert.equal(normalizeFreestyleDraftSnapshot({ exercises: [] }), null, 'no lifts is no draft');
+      assert.equal(normalizeFreestyleDraftSnapshot({ exercises: [{ localKey: 'a', name: 'Bench', sets: [] }] }), null, 'a lift with no rows is dropped, and the draft with it');
+
+      const stored = normalizeFreestyleDraftSnapshot({
+        exercises: [
+          {
+            localKey: 'a',
+            name: 'Bench Press',
+            libraryItemId: 'lib_bench',
+            imageUrl: null,
+            repMin: 6,
+            repMax: 8,
+            restSeconds: 120,
+            trackedDefault: true,
+            sets: [
+              { localKey: 's1', kg: '60', reps: '8', done: true },
+              { localKey: 's2', kg: '62.5', reps: '', done: false },
+              { kg: 'no key' },
+            ],
+            supersetGroup: null,
+            displayName: 'Bench Press',
+            initials: 'BP',
+            metaLabel: 'Barbell',
+            isBarbell: true,
+          },
+          null,
+          { localKey: 'b', name: '', sets: [{ localKey: 'x', kg: '1', reps: '1', done: true }] },
+          { localKey: 'c', name: 'Curl', sets: [{ localKey: 'y', kg: 20, reps: null, done: 'yes' }], repMin: 'ten' },
+        ],
+        startedAtMs: 1_000_000,
+        rest: { totalSeconds: 90, endsAtMs: 1_090_000, startedAtMs: 1_000_000 },
+        savedAtMs: 1_050_000,
+      });
+      assert.ok(stored);
+      assert.deepEqual(stored.exercises.map((lift) => lift.localKey), ['a', 'c'], 'the null and the nameless are gone');
+      assert.deepEqual(stored.exercises[0].sets.map((set) => [set.localKey, set.kg, set.done]), [['s1', '60', true], ['s2', '62.5', false]], 'the row without a key is gone');
+      assert.deepEqual(stored.exercises[1].sets, [{ localKey: 'y', kg: '', reps: '', done: false }], 'numbers that are not strings become blank rows, not crashes');
+      assert.equal(stored.exercises[1].repMin, 8, 'a rep bound that is not a number is the default');
+      assert.equal(stored.exercises[1].displayName, 'Curl');
+      assert.equal(stored.startedAtMs, 1_000_000);
+      assert.deepEqual(stored.rest, { totalSeconds: 90, endsAtMs: 1_090_000, startedAtMs: 1_000_000 });
+      assert.equal(normalizeFreestyleDraftSnapshot({ exercises: stored.exercises, rest: { endsAtMs: 'soon' } }).rest, null, 'a rest without numbers is no rest');
+    },
+  }
 ];
