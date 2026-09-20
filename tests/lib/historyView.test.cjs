@@ -61,7 +61,10 @@ module.exports = [
         ],
       );
 
-      assert.equal(summary.exerciseCount, 3);
+      // The lifts done, as the completion screen counts them: three logs,
+      // one skipped, is two exercises and one skip — not three and one
+      // (audit round 4, 2026-09-20).
+      assert.equal(summary.exerciseCount, 2);
       assert.equal(summary.skippedExercises, 1);
       assert.equal(summary.trackedExercises, 2);
       assert.equal(summary.setsCompleted, 6);

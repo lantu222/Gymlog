@@ -78,4 +78,31 @@ module.exports = [
       });
     },
   },
+  {
+    /*
+     * Audit round 4 (2026-09-20): the canonical list built a signature with
+     * `new Date(performedAt).toISOString()`, which throws on a date that does
+     * not parse — and it runs from a top-level memo on every render, so one
+     * bad string in a restored backup was a red screen at every launch. The
+     * loader accepts any string here; the reader of it must not throw.
+     */
+    name: 'a session whose date does not parse is kept as written, not thrown on',
+    run() {
+      const { getCanonicalCompletedSessions } = require('../../.test-dist/lib/completedSessions.js');
+      const database = {
+        workoutSessions: [
+          { id: 'ok', workoutTemplateId: 't', workoutTemplateSessionId: 'd1', workoutNameSnapshot: 'Upper', performedAt: '2026-09-20T10:00:00.000Z' },
+          { id: 'bad', workoutTemplateId: 't', workoutTemplateSessionId: 'd1', workoutNameSnapshot: 'Upper', performedAt: 'not a date' },
+        ],
+        // Both did work: the canonical list is of sessions with a completed set.
+        exerciseLogs: [
+          { id: 'log_ok', sessionId: 'ok', exerciseTemplateId: null, exerciseNameSnapshot: 'Bench Press', weight: 80, repsPerSet: [5], sets: [{ orderIndex: 0, weight: 80, reps: 5, kind: 'working', outcome: 'completed', status: 'completed' }], tracked: true, orderIndex: 0 },
+          { id: 'log_bad', sessionId: 'bad', exerciseTemplateId: null, exerciseNameSnapshot: 'Bench Press', weight: 80, repsPerSet: [5], sets: [{ orderIndex: 0, weight: 80, reps: 5, kind: 'working', outcome: 'completed', status: 'completed' }], tracked: true, orderIndex: 0 },
+        ],
+        cardioSessions: [],
+      };
+      const sessions = getCanonicalCompletedSessions(database);
+      assert.deepEqual(sessions.map((session) => session.id).sort(), ['bad', 'ok']);
+    },
+  },
 ];

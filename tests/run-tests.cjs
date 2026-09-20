@@ -215,6 +215,8 @@ const suites = [
   ...require('./lib/programSeasons.test.cjs'),
   ...require('./lib/personalRecords.test.cjs'),
   ...require('./lib/progression.test.cjs'),
+  ...require('./lib/exerciseLog.test.cjs'),
+  ...require('./lib/workoutCompletionCards.test.cjs'),
   ...require('./lib/deadLibModules.test.cjs'),
   ...require('./lib/sessionFeel.test.cjs'),
   ...require('./lib/exerciseNameBook.test.cjs'),

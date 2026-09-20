@@ -142,7 +142,15 @@ module.exports = [
     },
   },
   {
-    name: 'missing the current week results in streak = 0',
+    /*
+     * This used to pin the opposite: an empty current week read as 0. That
+     * is a counter that resets every Monday morning until the first session,
+     * which the Progress calendar and the lifetime summary already refused
+     * to be — so Home, Progress and Milestones showed three numbers for one
+     * log (audit round 4, 2026-09-20). The week that is not over yet does
+     * not break the run; a week that IS over and empty does.
+     */
+    name: 'an empty current week does not break the streak; an empty finished week does',
     run() {
       const database = createEmptyDatabase();
       database.workoutSessions = [
@@ -152,7 +160,8 @@ module.exports = [
       database.exerciseLogs = [createCompletedLog('session_last_week'), createCompletedLog('session_two_weeks_ago')];
 
       const now = new Date('2026-03-19T12:00:00.000Z');
-      assert.equal(getCurrentWeekStreak(database, now), 0);
+      assert.equal(getCurrentWeekStreak(database, now), 2, 'Thursday of an empty week: last week and the one before still count');
+      assert.equal(getCurrentWeekStreak(database, new Date('2026-03-26T12:00:00.000Z')), 0, 'a whole empty week has passed: the run is over');
       assert.equal(getSessionsThisWeek(database, now), 0);
       assert.equal(getSessionsLast30Days(database, now), 2);
     },

@@ -138,4 +138,31 @@ module.exports = [
       );
     },
   },
+  {
+    /*
+     * Audit round 4 (2026-09-20): a 120 typed and never ticked beside a done
+     * 100 read as last time's top set, so today's 105 came out "−15 kg" and
+     * the lift went missing from WHAT MOVED. A pending or skipped row is a
+     * number typed, not a bar lifted.
+     */
+    name: 'last time is the heaviest set that was done, not the heaviest one typed',
+    run() {
+      const tops = buildPreviousTopSets({
+        logs: [
+          {
+            ...log('s3', 'Bench Press', 100),
+            sets: [
+              { weight: 100, reps: 8, status: 'completed' },
+              { weight: 120, reps: 8, status: 'pending' },
+              { weight: 110, reps: 8, status: 'skipped' },
+            ],
+          },
+          log('today', 'Bench Press', 105),
+        ],
+        performedAtBySessionId: PERFORMED,
+        excludeSessionId: 'today',
+      });
+      assert.equal(tops['bench press'], 100);
+    },
+  },
 ];

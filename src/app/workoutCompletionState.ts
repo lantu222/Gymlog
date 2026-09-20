@@ -221,9 +221,14 @@ export function buildCompletionCardsFromAdaptedSession({
       };
     })
     .filter(isWorkoutCompletionPrCard)
-    .slice(0, 3);
+    // Strongest first: the hero shows the first card, and the morning-after
+    // notification names the strongest by the same estimate
+    // (findLatestSessionPr) — in exercise order the two could name
+    // different lifts for one session (audit round 4, 2026-09-20).
+    .sort((left, right) => right.estimatedOneRepMaxKg - left.estimatedOneRepMaxKg);
 
-  // Mark the recap rows whose exercise earned a PR this session.
+  // Mark the recap rows whose exercise earned a PR this session — every
+  // one, not only the three the hero strip has room for.
   const prSlotIds = new Set(prCards.map((card) => card.id.replace(/^pr:/, '')));
   const exerciseCardsWithPr = exerciseCards.map((card) =>
     prSlotIds.has(card.id) ? { ...card, isPr: true } : card,
@@ -231,7 +236,7 @@ export function buildCompletionCardsFromAdaptedSession({
 
   return {
     exerciseCards: exerciseCardsWithPr,
-    prCards,
+    prCards: prCards.slice(0, 3),
   };
 }
 
