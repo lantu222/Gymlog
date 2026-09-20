@@ -45,6 +45,12 @@ module.exports = [
       assert.match(screen, /const timer = setTimeout\(\(\) => \{\s*sink\.onSaveDraft\?\.\(\{ exercises, startedAtMs, rest, savedAtMs: Date\.now\(\) \}\);\s*\}, 400\);/, 'the draft must be written back, debounced');
       assert.match(screen, /await onSave\(draft, summary\);\s*\/\/[^\n]*\n\s*draftSinkRef\.current\.onClearDraft\?\.\(\);/, 'finishing must clear the draft, after the save');
       assert.match(screen, /setConfirmingLeave\(false\);\s*draftSinkRef\.current\.onClearDraft\?\.\(\);\s*leaveGuardRef\.current\.onBack\(\);/, 'a confirmed leave must discard the draft');
+      // And the app stands down for this route, so the screen's listener is
+      // the one that answers. This listener registers once on mount, and
+      // App's re-subscribes on every route change after its children — so
+      // without the stand-down back walked Home past both the question and
+      // the discard (CI review of #162).
+      assert.match(app, /if \(route\.tab === .workout. && route\.screen === .empty.\) \{\s*return undefined;/, "the app must stand down for the free workout");
     },
   },
   {

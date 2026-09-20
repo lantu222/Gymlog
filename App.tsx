@@ -1238,6 +1238,16 @@ function VinhaApp() {
     if (cardioRunActive && route.tab === 'home' && route.screen === 'cardio') {
       return undefined;
     }
+    // Stands down on the free workout, in every state. Its own listener
+    // answers back — the question before logged sets are lost, and the
+    // discard when there is nothing to lose — and it registers once, on
+    // mount. This listener re-subscribes on every route change and a
+    // parent's effect runs after its child's, so it was the newest one:
+    // back walked Home past the question and past the discard (CI review
+    // of #162). Same stand-down as the cardio player and the questionnaire.
+    if (route.tab === 'workout' && route.screen === 'empty') {
+      return undefined;
+    }
     // Stands down for the questionnaire in BOTH of its forms. The setup route
     // is the same OnboardingScreen, which answers back itself, stage by
     // stage — but this listener re-subscribes on every route change, and a
