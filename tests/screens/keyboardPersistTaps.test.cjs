@@ -68,6 +68,38 @@ const INPUT_RE = new RegExp(`<(${INPUT_TAGS.join('|')})\\b`, 'g');
  */
 const SIBLING_LINES = 40;
 
+/**
+ * The end of an opening tag that starts at `start`: the first `>` at brace
+ * depth 0 outside a string — props hold `() => ...` and `{a > b}`. `ownText`
+ * is the tag's text at depth 0 only: its own attributes, not the JSX inside
+ * a prop. Null when the tag never closes.
+ */
+function openingTagAt(src, start, tagLength) {
+  let depth = 0;
+  let quote = null;
+  let ownText = '';
+  for (let i = start + tagLength; i < src.length; i += 1) {
+    const c = src[i];
+    if (quote) {
+      if (c === quote && src[i - 1] !== '\\') quote = null;
+      if (depth === 0) ownText += c;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === '`') {
+      quote = c;
+    } else if (c === '{') {
+      depth += 1;
+    } else if (c === '}') {
+      depth -= 1;
+      continue;
+    } else if (c === '>' && depth === 0) {
+      return { tagEnd: i, selfClosing: src[i - 1] === '/', ownText };
+    }
+    if (depth === 0) ownText += c;
+  }
+  return null;
+}
+
 /** Every scroll container in the source, with its span and its own attributes. */
 function scrollContainers(src) {
   const out = [];
@@ -79,39 +111,18 @@ function scrollContainers(src) {
     // `useRef<ScrollView | null>`, `RefObject<FlatList>`: a generic, not JSX.
     if (start > 0 && /[A-Za-z0-9_$]/.test(src[start - 1])) continue;
 
-    // The end of the opening tag: the first `>` at brace depth 0 outside a
-    // string — props hold `() => ...` and `{a > b}`. `ownText` is the tag's
-    // text at depth 0 only: its own attributes, not the JSX inside a prop.
-    let depth = 0;
-    let quote = null;
-    let tagEnd = -1;
-    let selfClosing = false;
-    let ownText = '';
-    for (let i = start + m[0].length; i < src.length; i += 1) {
-      const c = src[i];
-      if (quote) {
-        if (c === quote && src[i - 1] !== '\\') quote = null;
-        if (depth === 0) ownText += c;
-        continue;
-      }
-      if (c === '"' || c === "'" || c === '`') {
-        quote = c;
-      } else if (c === '{') {
-        depth += 1;
-      } else if (c === '}') {
-        depth -= 1;
-        continue;
-      } else if (c === '>' && depth === 0) {
-        tagEnd = i;
-        selfClosing = src[i - 1] === '/';
-        break;
-      }
-      if (depth === 0) ownText += c;
-    }
-    if (tagEnd < 0) continue;
+    const opening = openingTagAt(src, start, m[0].length);
+    if (!opening) continue;
+    const { tagEnd, selfClosing, ownText } = opening;
 
     let end = tagEnd + 1;
     if (!selfClosing) {
+      // The matching close tag, by nesting of the same name. A nested opener
+      // that is itself self-closing has no close tag of its own and must
+      // not raise the level — counted, it left the outer span running to the
+      // end of the file (CI review of #156, fifth round). Each nested tag is
+      // read to its own end so a `>` inside its props is not mistaken for
+      // anything.
       const pairRe = new RegExp(`<${tag}\\b|</${tag}>`, 'g');
       pairRe.lastIndex = tagEnd + 1;
       let level = 1;
@@ -125,7 +136,10 @@ function scrollContainers(src) {
             break;
           }
         } else if (!/[A-Za-z0-9_$]/.test(src[pair.index - 1] ?? '')) {
-          level += 1;
+          const inner = openingTagAt(src, pair.index, pair[0].length);
+          if (!inner) break;
+          if (!inner.selfClosing) level += 1;
+          pairRe.lastIndex = inner.tagEnd + 1;
         }
       }
     }
@@ -272,6 +286,21 @@ module.exports = [
       ].join('\n');
       assert.deepEqual(shape(chips), [[1, true], [24, false]], 'a scroller inside a container under the keyboard is under it too');
       assert.deepEqual(shape(chips.replace('<ScrollView horizontal>', '<ScrollView horizontal keyboardShouldPersistTaps="handled">')), [[1, true], [24, true]]);
+
+      // A self-closing container of the same name nested inside a paired one
+      // has no close tag: the outer span must still end at its own close,
+      // not run to the end of the file and swallow a container far below.
+      const selfClosedInner = [
+        '<ScrollView>',
+        '  <TextInput value={q} />',
+        '  <ScrollView horizontal keyboardShouldPersistTaps="handled" />',
+        '</ScrollView>',
+        ...Array.from({ length: 45 }, () => '<Text />'),
+        '<ScrollView>',
+        '  <Text>far from any input</Text>',
+        '</ScrollView>',
+      ].join('\n');
+      assert.deepEqual(shape(selfClosedInner), [[1, false], [3, true]], 'the outer span ran past its close tag');
 
       // The search-then-list sheet: the field is a sibling above the list.
       const sibling = ['<KitSearch value={q} onChangeText={setQ} />', '<ScrollView style={s.list}>', '  <KitRow onPress={pick} />', '</ScrollView>'].join('\n');
