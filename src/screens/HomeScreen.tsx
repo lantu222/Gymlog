@@ -561,6 +561,13 @@ export function HomeScreen({
     new Date().getMonth(),
     new Date().getDate(),
   ).getTime();
+  // The grid returns to the current month when the day changes. Its offset is
+  // relative to today, so a grid paged to next month and left open across a
+  // month-boundary midnight would otherwise slide a month on its own once the
+  // memo below re-keys on the day (CI review of #160).
+  useEffect(() => {
+    setMonthOffset(0);
+  }, [todayDayStart]);
   // Keyed on the day as well: `isToday` is baked into the grid at memo time,
   // and with the date missing from the deps an app left open on Home
   // overnight kept yesterday's ring on the expanded month while the strip
