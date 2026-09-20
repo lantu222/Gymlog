@@ -20,11 +20,6 @@ export type AppRoute =
     }
   | {
       tab: 'home';
-      screen: 'ai';
-      prompt?: string;
-    }
-  | {
-      tab: 'home';
       screen: 'history';
     }
   | {
@@ -113,12 +108,6 @@ export type AppRoute =
     }
   | {
       tab: 'workout';
-      screen: 'editor';
-      workoutTemplateId?: string;
-      prefillName?: string;
-    }
-  | {
-      tab: 'workout';
       screen: 'template';
       workoutTemplateId?: string;
     }
@@ -146,10 +135,6 @@ export type AppRoute =
   | {
       tab: 'workout';
       screen: 'summary';
-    }
-  | {
-      tab: 'workout';
-      screen: 'celebration';
     }
   | {
       tab: 'progress';

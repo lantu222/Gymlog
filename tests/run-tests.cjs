@@ -295,7 +295,6 @@ const suites = [
   ...require('./lib/aiCoachPreview.test.cjs'),
   ...require('./lib/aiCoachScope.test.cjs'),
   ...require('./lib/coachChipAnswers.test.cjs'),
-  ...require('./lib/aiCoachActions.test.cjs'),
   ...require('./lib/displayLabel.test.cjs'),
   ...require('./lib/decimalSeparator.test.cjs'),
   ...require('./lib/localizedFormatting.test.cjs'),
@@ -366,7 +365,6 @@ const suites = [
   ...require('./lib/readyProgramDuration.test.cjs'),
   ...require('./lib/workoutTemplateSessions.test.cjs'),
   ...require('./lib/workoutEditorNaming.test.cjs'),
-  ...require('./lib/workoutEditorTable.test.cjs'),
   ...require('./lib/plateMath.test.cjs'),
   ...require('./lib/programAdoption.test.cjs'),
   ...require('./lib/planRotation.test.cjs'),
@@ -408,6 +406,7 @@ const suites = [
   ...require('./screens/audit3Promises.test.cjs'),
   ...require('./screens/audit3Numbers.test.cjs'),
   ...require('./screens/audit3Actions.test.cjs'),
+  ...require('./screens/audit3DeadScreens.test.cjs'),
 ];
 
 (async () => {

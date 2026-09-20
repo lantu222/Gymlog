@@ -22,10 +22,6 @@ const progressScreenSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'screens', 'ProgressScreen.tsx'),
   'utf8',
 );
-const workoutEditorScreenSource = fs.readFileSync(
-  path.join(__dirname, '..', '..', 'src', 'screens', 'WorkoutEditorScreen.tsx'),
-  'utf8',
-);
 const emptyWorkoutScreenSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'screens', 'EmptyWorkoutScreen.tsx'),
   'utf8',
@@ -590,7 +586,8 @@ module.exports = [
         'utf8',
       );
       assert.match(workoutTabSource, /if \(route\.screen === 'empty'\)/);
-      assert.match(workoutTabSource, /if \(route\.screen === 'editor'\)/);
+      // The editor is gone: nothing could reach it (audit 3, 2026-09-20).
+      assert.doesNotMatch(workoutTabSource, /route\.screen === 'editor'/);
       assert.match(workoutTabSource, /<EmptyWorkoutScreen/);
       assert.doesNotMatch(appSource, /presentation=/);
       assert.doesNotMatch(workoutTabSource, /presentation=/);
@@ -598,11 +595,8 @@ module.exports = [
       // call sites, which meant a dark-themed card that could never render —
       // this guard pinned the null; now it pins the absence.
       assert.doesNotMatch(appSource, /inlineTip/);
-      assert.doesNotMatch(workoutEditorScreenSource, /inlineTip/);
       assert.doesNotMatch(appSource, /Start with the main lift first/);
       assert.doesNotMatch(appSource, /WORKOUT_EDITOR_TIP_ID/);
-      assert.doesNotMatch(workoutEditorScreenSource, /emptyWorkout/);
-      assert.doesNotMatch(workoutEditorScreenSource, /presentation\?:/);
       // The freestyle screen speaks the HG/AW3 language: empty state, add
       // sheet, shared set table with plate readout and the floating rest bar.
       assert.match(emptyWorkoutScreenSource, /emptyWorkout\.empty\.title/);

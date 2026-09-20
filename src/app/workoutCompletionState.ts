@@ -51,15 +51,6 @@ export interface CompletionSummaryState {
   insight: PostSessionInsight | null;
 }
 
-export interface WorkoutCelebrationState {
-  workoutName: string;
-  heroImageUrl: string | null;
-  workoutsThisWeek: number;
-  totalLiftedKgThisWeek: number;
-  totalDurationMinutesThisWeek: number;
-  prCount: number;
-}
-
 function isWorkoutCompletionPrCard(
   card: WorkoutCompletionPrCard | null,
 ): card is WorkoutCompletionPrCard {

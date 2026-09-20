@@ -112,7 +112,7 @@ export interface FreestyleFinishInput {
   exercisePrLookup: ExercisePrLookup;
 }
 
-/** Structurally identical to WorkoutEditorFinishSummary (App.tsx onSave contract). */
+/** What a finished freestyle session hands to the save. */
 export interface FreestyleFinishSummary {
   workoutName: string;
   startedAt: string;

@@ -27,7 +27,6 @@ import { formatDurationMinutes, formatRepRange, formatSetScheme, formatShortDate
 import { createId } from './src/lib/ids';
 import {
   buildFirstRunRecommendationReasons,
-  buildFirstRunPromptSuggestions,
   FirstRunSetupSelection,
   getFocusAreaTitle,
   isSetupDaysPerWeek,
@@ -148,7 +147,6 @@ import { localizeSessionFocus, localizeSessionName } from './src/lib/sessionName
 import { setUsageStatisticsEnabled, trackEvent } from './src/features/analytics/analyticsClient';
 
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
-import { buildExerciseHistoryLookup } from './src/lib/workoutEditorTable';
 import { buildExercisePrLookup } from './src/lib/workoutCompletionSummary';
 import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
 import { isSupersetLinked, setSupersetLink, supersetGroupIndexes, supersetSetTargets } from './src/lib/supersetGrouping';
@@ -271,7 +269,6 @@ import {
   CompletionSummaryState,
   getEndOfWeek,
   getStartOfWeek,
-  WorkoutCelebrationState,
 } from './src/app/workoutCompletionState';
 import { buildSessionAnalysis } from './src/lib/sessionAnalysis';
 import { AboutYouScreen, AboutYouValues } from './src/screens/AboutYouScreen';
@@ -293,8 +290,7 @@ import { accountNameStep } from './src/lib/accountNameAdoption';
 import type { CatalogScreenItem } from './src/screens/CatalogScreen';
 import { ProgramsExploreItem } from './src/screens/ProgramsHomeScreen';
 import { WorkoutCompletionScreen } from './src/screens/WorkoutCompletionScreen';
-import { WorkoutCelebrationScreen } from './src/screens/WorkoutCelebrationScreen';
-import { WorkoutEditorFinishSummary } from './src/screens/WorkoutEditorScreen';
+import { FreestyleFinishSummary } from './src/lib/emptyWorkoutSession';
 import { WorkoutProvider, useWorkoutContext } from './src/features/workout/WorkoutProvider';
 import { adaptLegacyWorkoutTemplateToRuntimeTemplate } from './src/features/workout/customWorkoutAdapter';
 import { AdaptedCompletedWorkoutExercise, adaptCompletedWorkoutSessionForAppDatabase } from './src/features/workout/workoutAppAdapter';
@@ -312,7 +308,6 @@ import {
   UnitPreference,
   WorkoutTemplateDraft,
 } from './src/types/models';
-import { AICoachAction } from './src/types/aiCoach';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {
   // Native splash may already be controlled by the host app during fast refresh.
@@ -328,13 +323,6 @@ interface FinishSaveState {
   sessionId: string | null;
   message: string | null;
 }
-
-const DEFAULT_HOME_AI_PROMPT_SUGGESTIONS = [
-  'Best 3-day muscle plan?',
-  'Bench stuck?',
-  'Fix my split?',
-  '30-day run challenge?',
-];
 
 function VinhaApp() {
   const theme = useTheme();
@@ -456,7 +444,6 @@ function VinhaApp() {
   // unmounts on navigation, so the position survives here.
   const settingsScrollOffsetRef = useRef(0);
   const [completionSummary, setCompletionSummary] = useState<CompletionSummaryState | null>(null);
-  const [workoutCelebration, setWorkoutCelebration] = useState<WorkoutCelebrationState | null>(null);
   const [ratingSheetVisible, setRatingSheetVisible] = useState(false);
   const [finishSaveState, setFinishSaveState] = useState<FinishSaveState>({
     status: 'idle',
@@ -848,7 +835,6 @@ function VinhaApp() {
   function leaveFinishedWorkout(nextRoute: AppRoute) {
     startTransition(() => {
       setCompletionSummary(null);
-      setWorkoutCelebration(null);
       setFinishSaveState({ status: 'idle', sessionId: null, message: null });
       setNavigationState({ route: nextRoute, history: [] });
     });
@@ -1007,15 +993,6 @@ function VinhaApp() {
       (route.screen === 'program' || route.screen === 'programDay') &&
       ((route.programType === 'ready' && !workout.templates.some((template) => template.id === route.workoutTemplateId)) ||
         (route.programType === 'custom' && !workoutTemplates.some((template) => template.id === route.workoutTemplateId)))
-    ) {
-      replaceRoute(workoutHomeRoute);
-    }
-
-    if (
-      route.tab === 'workout' &&
-      route.screen === 'editor' &&
-      route.workoutTemplateId &&
-      !workoutTemplates.some((template) => template.id === route.workoutTemplateId)
     ) {
       replaceRoute(workoutHomeRoute);
     }
@@ -1661,75 +1638,6 @@ function VinhaApp() {
   ) {
     navigate({ tab: 'workout', screen: 'program', programType, workoutTemplateId });
   }
-
-  function handleOpenAICoach(prompt: string) {
-    navigate({ tab: 'home', screen: 'ai', prompt });
-  }
-
-  function handleSelectAiCoachAction(action: AICoachAction, prompt: string) {
-    switch (action.kind) {
-      case 'resume_workout':
-        if (!navigateToActiveWorkout({ resume: true })) {
-          showToast(t(preferences.appLanguage, 'toast.noActiveWorkout'));
-        }
-        return;
-
-      case 'open_last_session':
-        if (action.sessionId) {
-          navigate({ tab: 'home', screen: 'session', sessionId: action.sessionId });
-        } else {
-          navigate({ tab: 'home', screen: 'history' });
-        }
-        return;
-
-      case 'open_lift_progress':
-        if (action.exerciseKey) {
-          navigate({ tab: 'progress', screen: 'detail', exerciseKey: action.exerciseKey });
-        } else {
-          navigate(ROOT_ROUTES.progress);
-        }
-        return;
-
-      case 'open_progress':
-        navigate(ROOT_ROUTES.progress);
-        return;
-
-      case 'browse_ready_plans':
-        navigate(workoutHomeRoute);
-        return;
-
-      case 'open_recommended_program': {
-        const recommendedProgramId = action.programId ?? preferences.recommendedProgramId;
-        if (recommendedProgramId) {
-          navigate({
-            tab: 'workout',
-            screen: 'program',
-            programType: 'ready',
-            workoutTemplateId: recommendedProgramId,
-          });
-        } else {
-          navigate(workoutHomeRoute);
-        }
-        return;
-      }
-
-      case 'review_setup':
-        handleOpenSetupEditor();
-        return;
-
-      case 'open_custom_editor':
-        navigate({
-          tab: 'workout',
-          screen: 'editor',
-          prefillName: action.prefillName ?? (prompt.trim() ? 'Vinha AI custom workout' : undefined),
-        });
-        return;
-
-      default:
-        navigate(ROOT_ROUTES.home);
-    }
-  }
-
 
   // Cardio v1 conflict rule: never two live sessions, never a silent discard.
   // Mirrors the sheet the cardio list shows when a strength session is live.
@@ -3514,10 +3422,6 @@ function VinhaApp() {
     resetToRoute(ROOT_ROUTES.home);
   }
 
-  function handleOpenSetupEditor() {
-    navigate({ tab: 'profile', screen: 'setup' });
-  }
-
   /**
    * My Data's "Edit limitations", saved as what it is: a preference.
    *
@@ -3674,16 +3578,6 @@ function VinhaApp() {
     [database.exerciseLogs, database.exerciseTemplates, database.workoutSessions, exerciseLibrary],
   );
   const recentExerciseBrowserItems = recentExerciseLibraryItems;
-  const editorExerciseHistoryLookup = useMemo(
-    () =>
-      buildExerciseHistoryLookup({
-        exerciseLogs: database.exerciseLogs,
-        workoutSessions: database.workoutSessions,
-        exerciseTemplates: database.exerciseTemplates,
-        unitPreference,
-      }),
-    [database.exerciseLogs, database.exerciseTemplates, database.workoutSessions, unitPreference],
-  );
   const exercisePrLookup = useMemo(
     () =>
       buildExercisePrLookup({
@@ -5280,13 +5174,6 @@ function VinhaApp() {
       weekday: dayKey ? t(preferences.appLanguage, dayKey) : rawDay,
     };
   }, [homeActivePlanCard, preferences.appLanguage, workout.activeSession?.templateSessionId]);
-  const homeAiPromptSuggestions = useMemo(
-    () =>
-      setupSelection
-        ? buildFirstRunPromptSuggestions(setupSelection, recommendedReadyTemplate?.name ?? null)
-        : DEFAULT_HOME_AI_PROMPT_SUGGESTIONS,
-    [recommendedReadyTemplate?.name, setupSelection],
-  );
   const nextPlannedWorkout = useMemo(() => {
     if (!homeSummary.nextWorkout?.plan) {
       return null;
@@ -5701,13 +5588,6 @@ function VinhaApp() {
   );
   const milestoneLedger = useMemo(() => buildMilestoneLedger(milestoneFacts, unitPreference), [milestoneFacts, unitPreference]);
 
-  const programsSeasonTileCounts = useMemo(
-    () => ({
-      winter: getSeasonProgramIds('winter').length,
-      summer: getSeasonProgramIds('summer').length,
-    }),
-    [],
-  );
   /**
    * The strip under "Aloita treeni".
    *
@@ -6172,46 +6052,6 @@ function VinhaApp() {
     runningProgrammeTitle,
   ]);
 
-  const editorDraft = useMemo<WorkoutTemplateDraft>(() => {
-    if (route.tab !== 'workout' || route.screen !== 'editor') {
-      return { name: '', sessions: [{ name: 'Session 1', exercises: [] }] };
-    }
-
-    if (!route.workoutTemplateId) {
-      // The editor could open pre-loaded with one exercise, from the library
-      // card's "add to workout". That door closed in #38 and nothing has set
-      // prefillExerciseLibraryId since, so the branch built an empty array by
-      // a longer route.
-      return {
-        name: route.prefillName ?? '',
-        sessions: [{ name: 'Session 1', exercises: [] }],
-      };
-    }
-
-    const template = workoutTemplates.find((item) => item.id === route.workoutTemplateId);
-    if (!template) {
-      return { name: '', sessions: [{ name: 'Session 1', exercises: [] }] };
-    }
-
-    return {
-      id: template.id,
-      name: template.name,
-      sessions: getWorkoutTemplateSessions(template.id).map((session) => ({
-        id: session.id,
-        name: session.name,
-        exercises: session.exercises.map((exercise) => ({
-          id: exercise.id,
-          name: exercise.name,
-          targetSets: exercise.targetSets,
-          repMin: exercise.repMin,
-          repMax: exercise.repMax,
-          restSeconds: exercise.restSeconds,
-          trackedDefault: exercise.trackedDefault,
-          libraryItemId: exercise.libraryItemId ?? null,
-        })),
-      })),
-    };
-  }, [exerciseBrowserItems, getWorkoutTemplateSessions, preferences.defaultRestSeconds, route, workoutTemplates]);
   const templateBuilderDraft = useMemo<WorkoutTemplateDraft>(() => {
     // In the reader's language: the builder keeps any non-empty name it is
     // given, so "Day 1" here skipped its own Finnish default and was saved as
@@ -6271,7 +6111,7 @@ function VinhaApp() {
   // Shared finish path for logged one-off sessions (freestyle + editor):
   // template first, then the completed session, and only then the summary
   // screen — a failed save must leave the logger open with its sets intact.
-  const finishLoggedWorkoutSave = async (draft: WorkoutTemplateDraft, summary: WorkoutEditorFinishSummary) => {
+  const finishLoggedWorkoutSave = async (draft: WorkoutTemplateDraft, summary: FreestyleFinishSummary) => {
     trackEvent('workout_completed');
     const workoutTemplateId = await upsertWorkoutTemplate(draft);
     const sessionId = createId('session');
@@ -6526,7 +6366,6 @@ function VinhaApp() {
   } else if (
     route.tab === 'home' &&
     (route.screen === 'cardio' ||
-      route.screen === 'ai' ||
       route.screen === 'history' ||
       route.screen === 'session' ||
       route.screen === 'ai_chat' ||
@@ -6549,10 +6388,7 @@ function VinhaApp() {
       navigateToActiveWorkout,
       setFinishSaveState,
       showToast,
-      homeAiPromptSuggestions,
       aiCoachTrainingContext,
-      handleOpenAICoach,
-      handleSelectAiCoachAction,
       exerciseLibrary,
       programSlots,
       setProgramLimitVisible,
@@ -6632,24 +6468,6 @@ function VinhaApp() {
         }}
       />
     );
-  } else if (route.tab === 'workout' && route.screen === 'celebration' && workoutCelebration) {
-    content = (
-      <WorkoutCelebrationScreen
-        language={preferences.appLanguage}
-        workoutName={workoutCelebration.workoutName}
-        heroImageUrl={workoutCelebration.heroImageUrl}
-        workoutsThisWeek={workoutCelebration.workoutsThisWeek}
-        totalLiftedKgThisWeek={workoutCelebration.totalLiftedKgThisWeek}
-        totalDurationMinutesThisWeek={workoutCelebration.totalDurationMinutesThisWeek}
-        prCount={workoutCelebration.prCount}
-        unitPreference={unitPreference}
-        // Same shape as the summary: the celebration branch is guarded on
-        // `&& workoutCelebration`, so clearing it urgently would drop through
-        // to the same catch-all on the way out.
-        onDone={() => leaveFinishedWorkout(ROOT_ROUTES.home)}
-        onViewProgress={() => leaveFinishedWorkout(ROOT_ROUTES.progress)}
-      />
-    );
   } else if (route.tab === 'workout') {
     // Every route-pure workout branch. `summary` and `celebration` sit above
     // this on purpose: their guards read finish-flow state, and when that
@@ -6699,8 +6517,6 @@ function VinhaApp() {
       showToast,
       exercisePrLookup,
       finishLoggedWorkoutSave,
-      editorDraft,
-      editorExerciseHistoryLookup,
       exerciseLibrary,
       sameLibraryRow,
       guidedEntryEyebrow,
@@ -6814,7 +6630,6 @@ function VinhaApp() {
       deletePendingAiLogs,
       retireAiLogLabel,
       setCompletionSummary,
-      setWorkoutCelebration,
       setFinishSaveState,
       workout,
       lifetimeSummary,
@@ -7039,8 +6854,7 @@ function VinhaApp() {
       (route.screen === 'detail' ||
         route.screen === 'empty' ||
         route.screen === 'guided' ||
-        route.screen === 'summary' ||
-        route.screen === 'celebration')
+        route.screen === 'summary')
     ) &&
     !(route.tab === 'home' && route.screen === 'cardio') &&
     // The setup editor is a full-screen flow — the floating bar was covering
@@ -7095,7 +6909,6 @@ function VinhaApp() {
    * pale strips framing a black page.
    */
   const premiumActive = route.tab === 'profile' && route.screen === 'premium';
-  const aiCoachActive = route.tab === 'home' && route.screen === 'ai';
   const historyActive = route.tab === 'home' && (route.screen === 'history' || route.screen === 'session' || route.screen === 'cardio');
   // The saved-session view opens on the same purple hero as Workout Complete,
   // so the status bar joins it instead of sitting above it as a light strip.
@@ -7182,7 +6995,7 @@ function VinhaApp() {
             activeTab={route.tab === 'workout' && route.screen === 'plans' ? null : route.tab}
             aiActive={
               route.tab === 'home' &&
-              (route.screen === 'ai_chat' || route.screen === 'ai')
+              route.screen === 'ai_chat'
             }
             onTabPress={navigateToTab}
             // The design's rule for the middle button: it opens the chat, for

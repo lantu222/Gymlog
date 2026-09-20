@@ -51,9 +51,9 @@ import { CatalogScreen, CatalogScreenItem } from '../screens/CatalogScreen';
 import { ProgramsHomeScreen } from '../screens/ProgramsHomeScreen';
 import { SeasonScreen } from '../screens/SeasonScreen';
 import { GoalFlowProposal, StrengthGoalFlowScreen } from '../screens/StrengthGoalFlowScreen';
-import { WorkoutEditorFinishSummary, WorkoutEditorScreen } from '../screens/WorkoutEditorScreen';
 import { WorkoutsScreen } from '../screens/WorkoutsScreen';
-import { AppDatabase, AppPreferences, WorkoutTemplateDraft } from '../types/models';
+import { AppDatabase, AppPreferences, UnitPreference, WorkoutTemplateDraft } from '../types/models';
+import { FreestyleFinishSummary } from '../lib/emptyWorkoutSession';
 
 /** One empty array, so "nothing learned yet" is the same value every render. */
 const NOTHING_LEARNED: string[] = [];
@@ -79,7 +79,7 @@ export interface WorkoutTabDeps {
   workoutHomeRoute: AppRoute;
   preferences: AppPreferences;
   updatePreferences: (patch: Partial<AppPreferences>) => Promise<unknown>;
-  unitPreference: React.ComponentProps<typeof WorkoutEditorScreen>['unitPreference'];
+  unitPreference: UnitPreference;
   database: AppDatabase;
   workout: { templates: Parameters<typeof resolveProgramAffinity>[1] };
   customWorkoutRuntimeMap: Record<string, Parameters<typeof buildCustomProgramDetail>[0] | undefined>;
@@ -156,9 +156,7 @@ export interface WorkoutTabDeps {
   upsertWorkoutTemplate: (draft: WorkoutTemplateDraft) => Promise<string>;
   showToast: (message: string) => void;
   exercisePrLookup: React.ComponentProps<typeof EmptyWorkoutScreen>['exercisePrLookup'];
-  finishLoggedWorkoutSave: (draft: WorkoutTemplateDraft, summary: WorkoutEditorFinishSummary) => Promise<unknown>;
-  editorDraft: React.ComponentProps<typeof WorkoutEditorScreen>['initialDraft'];
-  editorExerciseHistoryLookup: React.ComponentProps<typeof WorkoutEditorScreen>['exerciseHistoryLookup'];
+  finishLoggedWorkoutSave: (draft: WorkoutTemplateDraft, summary: FreestyleFinishSummary) => Promise<unknown>;
   exerciseLibrary: AppDatabase['exerciseLibrary'];
   /** Whether a log is one library row's history — see isSameLiftAsLibraryRow. */
   sameLibraryRow: SameLiftMatcher;
@@ -257,8 +255,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     showToast,
     exercisePrLookup,
     finishLoggedWorkoutSave,
-    editorDraft,
-    editorExerciseHistoryLookup,
     exerciseLibrary,
     sameLibraryRow,
     guidedEntryEyebrow,
@@ -807,37 +803,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             console.error('Failed to save freestyle workout', error);
             showToast(t(preferences.appLanguage, 'toast.saveWorkoutFailed'));
             throw error;
-          }
-        }}
-      />
-    );
-  }
-
-  if (route.screen === 'editor') {
-    return (
-      <WorkoutEditorScreen
-        language={preferences.appLanguage}
-        key={`editor:${route.workoutTemplateId ?? 'new'}:${route.prefillName ?? ''}`}
-        initialDraft={editorDraft}
-        exerciseLibrary={exerciseBrowserItems}
-        recentExerciseLibraryItems={recentExerciseBrowserItems}
-        defaultRestSeconds={preferences.defaultRestSeconds}
-        unitPreference={unitPreference}
-        exerciseHistoryLookup={editorExerciseHistoryLookup}
-        exercisePrLookup={exercisePrLookup}
-        onBack={() => navigateBack(workoutHomeRoute)}
-        onUseTemplate={() => navigate(workoutHomeRoute)}
-        onSave={async (draft, summary: WorkoutEditorFinishSummary) => {
-          const isNew = !draft.id;
-          try {
-            await finishLoggedWorkoutSave(draft, summary);
-          } catch (error) {
-            console.error('Failed to save workout', error);
-            showToast(t(preferences.appLanguage, 'toast.saveWorkoutFailed'));
-            throw error;
-          }
-          if (isNew) {
-            void haptics.success();
           }
         }}
       />
