@@ -38,7 +38,6 @@ module.exports = [
       for (const screen of [
         'src/screens/ProgramDayScreen.tsx',
         'src/screens/CreateTemplateScreen.tsx',
-        'src/screens/WorkoutEditorScreen.tsx',
       ]) {
         assert.match(read(screen), /bottomInset=\{\w+\.bottom\}/, `${screen} should pass the inset`);
       }

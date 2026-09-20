@@ -56,10 +56,12 @@ module.exports = [
         appSource,
         /navigateToActiveWorkoutRef\.current = \(\) => navigateToActiveWorkout\(\{ resume: true \}\)/,
       );
-      // The coach action named resume_workout.
-      const coach = appSource.indexOf("case 'resume_workout':");
-      assert.ok(coach > 0, 'the resume_workout action moved');
-      assert.match(appSource.slice(coach, coach + 300), /navigateToActiveWorkout\(\{ resume: true \}\)/);
+      // The coach's resume_workout action used to be the third entry point.
+      // It is gone with the screen that drew it: nothing could reach
+      // AICoachScreen, so nothing could tap the action either (audit 3,
+      // 2026-09-20). The chat that replaced it resumes through the same
+      // navigateToActiveWorkout above.
+      assert.doesNotMatch(appSource, /case 'resume_workout':/);
 
       // Nothing calls it bare any more: an unmarked call is an unstated
       // intent, and the default it would take is the wrong one for a guard.

@@ -13,7 +13,6 @@ import { AppRoute, ROOT_ROUTES } from '../navigation/routes';
 import { requestNotificationPermission } from '../utils/appNotifications';
 import { haptics } from '../utils/haptics';
 import { AICoachChatScreen } from '../screens/AICoachChatScreen';
-import { AICoachScreen } from '../screens/AICoachScreen';
 import { CardioScreen } from '../screens/CardioScreen';
 import { HistoryScreen } from '../screens/HistoryScreen';
 import { SessionAnalysisScreen } from '../screens/SessionAnalysisScreen';
@@ -56,10 +55,7 @@ export interface HomeScreensDeps {
     message: string | null;
   }) => void;
   showToast: (message: string) => void;
-  homeAiPromptSuggestions: React.ComponentProps<typeof AICoachScreen>['suggestions'];
   aiCoachTrainingContext: ChatScreenProps['trainingContext'];
-  handleOpenAICoach: (prompt: string) => void;
-  handleSelectAiCoachAction: React.ComponentProps<typeof AICoachScreen>['onSelectAction'];
   exerciseLibrary: AppDatabase['exerciseLibrary'];
   programSlots: { canCreate: boolean };
   setProgramLimitVisible: (visible: boolean) => void;
@@ -101,10 +97,7 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
     navigateToActiveWorkout,
     setFinishSaveState,
     showToast,
-    homeAiPromptSuggestions,
     aiCoachTrainingContext,
-    handleOpenAICoach,
-    handleSelectAiCoachAction,
     exerciseLibrary,
     programSlots,
     setProgramLimitVisible,
@@ -253,20 +246,6 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
           }
         }}
         onLeave={() => navigateBack(ROOT_ROUTES.home)}
-      />
-    );
-  }
-
-  if (route.screen === 'ai') {
-    return (
-      <AICoachScreen
-        language={preferences.appLanguage}
-        initialPrompt={route.prompt}
-        suggestions={homeAiPromptSuggestions}
-        trainingContext={aiCoachTrainingContext}
-        onBack={() => navigateBack(ROOT_ROUTES.home)}
-        onSubmitPrompt={handleOpenAICoach}
-        onSelectAction={handleSelectAiCoachAction}
       />
     );
   }

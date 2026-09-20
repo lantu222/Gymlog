@@ -324,33 +324,12 @@ export interface AICoachTrainingContext {
   coachMemory?: CoachAdviceMemoryLine[];
 }
 
-export type AICoachActionKind =
-  | 'resume_workout'
-  | 'open_last_session'
-  | 'open_lift_progress'
-  | 'open_progress'
-  | 'browse_ready_plans'
-  | 'open_recommended_program'
-  | 'review_setup'
-  | 'open_custom_editor';
-
-export interface AICoachAction {
-  kind: AICoachActionKind;
-  label: string;
-  description: string;
-  sessionId?: string;
-  exerciseKey?: string;
-  programId?: string | null;
-  prefillName?: string | null;
-}
-
 export interface AICoachAdvice {
   takeaway: string;
   why: string[];
   nextSteps: string[];
   plan: string[];
   assumptions: string[];
-  actions?: AICoachAction[];
   /**
    * True when the coach could not answer and asked for a clearer question.
    *

@@ -1,4 +1,3 @@
-import { buildAiCoachActions } from './aiCoachActions';
 import { classifyCoachScope } from './aiCoachScope';
 import { hasWord, hasWordStart } from './wordMatch';
 import { I18nKey, t } from './i18n';
@@ -151,7 +150,6 @@ function buildCombinedResponse(
       t(language, 'coachPreview.combined.plan3'),
     ],
     assumptions: [previewAssumption(language), t(language, 'coachPreview.assume.deload')],
-    actions: buildAiCoachActions(prompt, context),
   };
 }
 
@@ -191,7 +189,6 @@ function buildPlateauResponse(
       previewAssumption(language),
       t(language, 'coachPreview.assume.plateau', { count: plateau.stagnantSessions }),
     ],
-    actions: buildAiCoachActions(prompt, context),
   };
 }
 
@@ -222,7 +219,6 @@ function buildHighFatigueResponse(
       t(language, 'coachPreview.fatigue.plan3'),
     ],
     assumptions: [previewAssumption(language), t(language, 'coachPreview.assume.volume28')],
-    actions: buildAiCoachActions(prompt, context),
   };
 }
 
@@ -249,7 +245,6 @@ export function buildAiCoachPreviewAnswer(
       nextSteps: [t(language, 'coachPreview.crisis.next1'), t(language, 'coachPreview.crisis.next2')],
       plan: [],
       assumptions: [],
-      actions: [],
     };
   }
   if (scope === 'off_topic') {
@@ -259,7 +254,6 @@ export function buildAiCoachPreviewAnswer(
       nextSteps: [t(language, 'coachPreview.offTopic.next1')],
       plan: [],
       assumptions: [],
-      actions: [],
     };
   }
 
@@ -312,7 +306,6 @@ export function buildAiCoachPreviewAnswer(
         t(language, 'coachPreview.run.plan4'),
       ],
       assumptions: [previewAssumption(language), t(language, 'coachPreview.assume.runBase')],
-      actions: buildAiCoachActions(prompt, context),
     };
   }
 
@@ -347,7 +340,6 @@ export function buildAiCoachPreviewAnswer(
         nextSteps: [t(language, 'coachPreview.lastSession.noneNext')],
         plan: [],
         assumptions: [previewAssumption(language)],
-        actions: buildAiCoachActions(prompt, context),
       };
     }
 
@@ -390,7 +382,6 @@ export function buildAiCoachPreviewAnswer(
         t(language, 'coachPreview.lastSession.plan2'),
       ],
       assumptions: [previewAssumption(language)],
-      actions: buildAiCoachActions(prompt, context),
     };
   }
 
@@ -420,7 +411,6 @@ export function buildAiCoachPreviewAnswer(
       ],
       plan: [t(language, 'coachPreview.protein.plan1'), t(language, 'coachPreview.protein.plan2')],
       assumptions: [previewAssumption(language), t(language, 'coachPreview.protein.assume')],
-      actions: buildAiCoachActions(prompt, context),
     };
   }
 
@@ -446,7 +436,6 @@ export function buildAiCoachPreviewAnswer(
         nextSteps: [t(language, 'coachPreview.recovery.thinNext')],
         plan: [],
         assumptions: [previewAssumption(language)],
-        actions: buildAiCoachActions(prompt, context),
       };
     }
     const { signal, acwr, recoveryScore, sessionCount7d } = context.fatigue;
@@ -501,7 +490,6 @@ export function buildAiCoachPreviewAnswer(
           ]
         : [t(language, 'coachPreview.recovery.okPlan1'), t(language, 'coachPreview.recovery.okPlan2')],
       assumptions: [previewAssumption(language), t(language, 'coachPreview.assume.volume')],
-      actions: buildAiCoachActions(prompt, context),
     };
   }
 
@@ -535,7 +523,6 @@ export function buildAiCoachPreviewAnswer(
         t(language, 'coachPreview.lift.plan3'),
       ],
       assumptions: [previewAssumption(language)],
-      actions: buildAiCoachActions(prompt, context),
     };
   }
 
@@ -577,7 +564,6 @@ export function buildAiCoachPreviewAnswer(
         t(language, 'coachPreview.program.plan3'),
       ],
       assumptions: [previewAssumption(language)],
-      actions: buildAiCoachActions(prompt, context),
     };
   }
 
@@ -605,6 +591,5 @@ export function buildAiCoachPreviewAnswer(
       t(language, 'coachPreview.default.plan3'),
     ],
     assumptions: [previewAssumption(language)],
-    actions: buildAiCoachActions(prompt, context),
   };
 }

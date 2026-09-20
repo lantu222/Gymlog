@@ -10,8 +10,7 @@ import { AppRoute, ROOT_ROUTES } from '../navigation/routes';
 export function getBackRoute(route: AppRoute, workoutHome: AppRoute): AppRoute | null {
   if (
     route.tab === 'home' &&
-    (route.screen === 'ai' ||
-      route.screen === 'ai_chat' ||
+    (route.screen === 'ai_chat' ||
       route.screen === 'history' ||
       route.screen === 'session' ||
       route.screen === 'analysis' ||
@@ -30,10 +29,8 @@ export function getBackRoute(route: AppRoute, workoutHome: AppRoute): AppRoute |
       route.screen === 'program' ||
       route.screen === 'programDay' ||
       route.screen === 'template' ||
-      route.screen === 'editor' ||
       route.screen === 'guided' ||
-      route.screen === 'summary' ||
-      route.screen === 'celebration')
+      route.screen === 'summary')
   ) {
     return workoutHome;
   }

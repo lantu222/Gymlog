@@ -113,14 +113,18 @@ module.exports = [
       assert.match(offTopic.takeaway, /Vastaan vain treeniin/);
       assert.deepEqual(offTopic.why, []);
       assert.deepEqual(offTopic.plan, []);
-      assert.deepEqual(offTopic.actions, []);
+      // An off-topic answer used to carry an empty action list. There is no
+      // action list at all now: only AICoachScreen ever drew one, and nothing
+      // could reach that screen (audit 3, 2026-09-20). Pinned as absent so the
+      // field cannot come back unread.
+      assert.equal(offTopic.actions, undefined);
       // No opinion on the subject on the way past, and no numbers from the log.
       assert.doesNotMatch(JSON.stringify(offTopic), /presidentti|vaali/i);
 
       const crisis = buildAiCoachPreviewAnswer('mietin itsemurhaa', CONTEXT, 'fi');
       assert.match(JSON.stringify(crisis), /09 2525 0111/);
       assert.match(JSON.stringify(crisis), /112/);
-      assert.deepEqual(crisis.actions, []);
+      assert.equal(crisis.actions, undefined);
 
       // English gets the same two, in English.
       const english = buildAiCoachPreviewAnswer('recommend me a movie', CONTEXT, 'en');

@@ -43,7 +43,7 @@ import { SubscriptionScreen } from '../screens/SubscriptionScreen';
 import { TrainingBreakScreen } from '../screens/TrainingBreakScreen';
 import { TrainingPlanScreen } from '../screens/TrainingPlanScreen';
 import { AppDatabase, AppPreferences, SetupWeekday, WorkoutTemplateDraft } from '../types/models';
-import { CompletionSummaryState, WorkoutCelebrationState } from './workoutCompletionState';
+import { CompletionSummaryState } from './workoutCompletionState';
 import { createUnlessAtLimit } from './programLimitGuard';
 
 /**
@@ -122,7 +122,6 @@ export interface ProfileTabDeps {
    */
   retireAiLogLabel: (logId: string, owed: boolean) => Promise<boolean>;
   setCompletionSummary: (value: CompletionSummaryState | null) => void;
-  setWorkoutCelebration: (value: WorkoutCelebrationState | null) => void;
   setFinishSaveState: (value: {
     status: 'idle' | 'saving' | 'error';
     sessionId: string | null;
@@ -195,7 +194,6 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
     deletePendingAiLogs,
     retireAiLogLabel,
     setCompletionSummary,
-    setWorkoutCelebration,
     setFinishSaveState,
     workout,
     lifetimeSummary,
@@ -748,7 +746,6 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
           await accountBackup.signOut();
           await resetAllData();
           setCompletionSummary(null);
-          setWorkoutCelebration(null);
           setFinishSaveState({ status: 'idle', sessionId: null, message: null });
           await workout.resetWorkoutData();
           resetToRoute(ROOT_ROUTES.home);
