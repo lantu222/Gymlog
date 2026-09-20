@@ -136,22 +136,60 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
    * the same thing — two copies of this is how the chat ends up saving a
    * programme the composer would have refused.
    */
-  async function composeProgramme(brief: string) {
-    const live = await requestProgrammeComposition({
-      brief,
-      context: aiCoachTrainingContext,
-      language: preferences.appLanguage,
-      // The composer line of the consent sheet, read as it stands now.
-      keepConsent: preferences.aiLogComposerConsent,
-      logId: preferences.aiLogId,
-    });
+  async function composeProgramme(brief: string, signal?: AbortSignal) {
+    const live = await requestProgrammeComposition(
+      {
+        brief,
+        context: aiCoachTrainingContext,
+        language: preferences.appLanguage,
+        // The composer line of the consent sheet, read as it stands now.
+        keepConsent: preferences.aiLogComposerConsent,
+        logId: preferences.aiLogId,
+      },
+      // Leaving the chat cancels the build: it is a billed call, and an
+      // answer with no screen to land on is paid for twice over when the
+      // restored offer is tapped again.
+      signal,
+    );
     if (live) {
-      return resolveLiveProposal(live, brief, exerciseLibrary, preferences.defaultRestSeconds);
+      const resolved = resolveLiveProposal(live, brief, exerciseLibrary, preferences.defaultRestSeconds);
+      /*
+       * A week whose every lift the library does not know is not a week.
+       *
+       * `resolveLiveProposal` drops exercises it cannot resolve and then drops
+       * any session left with none, and the server only promises that
+       * `sessions.length > 0` — so a model answer full of names this device
+       * has never heard of resolved to `sessions: []`, was drawn as a saveable
+       * programme under a card reading "checked against the exercise library",
+       * and saved as one empty day (audit 3, 2026-09-19).
+       *
+       * The deterministic composer is the fallback that already exists for a
+       * live answer that never arrived; an answer that arrived with nothing
+       * usable in it leaves the reader in the same place.
+       */
+      if (resolved.sessions.length > 0) {
+        return resolved;
+      }
+      // The names it could not place come with it. They are the one thing the
+      // discarded answer knew that the composer does not, and the card that
+      // lists them (ProgrammeProposalCard) would otherwise have nothing to
+      // list in exactly the case the list is for.
+      return {
+        ...composeProgrammePreview(brief, preferences, exerciseLibrary),
+        unresolvedNames: resolved.unresolvedNames,
+      };
     }
     return composeProgrammePreview(brief, preferences, exerciseLibrary);
   }
 
   async function saveProgramme(proposal: Parameters<typeof buildProgrammeDraft>[0]) {
+    // A proposal with no days is not saved, whatever produced it. The provider
+    // would fabricate one empty session out of it and the reader would land on
+    // a programme page with nothing in it.
+    if (proposal.sessions.length === 0) {
+      showToast(t(preferences.appLanguage, 'toast.aiBuildFailed'));
+      return;
+    }
     // Checked before the write as well as inside it: the wall should land where
     // the reader pressed, not after the programme has been built.
     if (!programSlots.canCreate) {
@@ -411,9 +449,9 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
         // The week is built here and read in the thread that asked for it.
         // Failures come back as null so the chat can say so rather than
         // sitting on "building…" forever.
-        onComposeProgramme={async (brief) => {
+        onComposeProgramme={async (brief, signal) => {
           try {
-            return await composeProgramme(brief);
+            return await composeProgramme(brief, signal);
           } catch (error) {
             console.error('Failed to compose programme from chat', error);
             return null;
