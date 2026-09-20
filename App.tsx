@@ -1997,11 +1997,15 @@ function VinhaApp() {
     // chips. Writing only the first left a reader who moved leg day here still
     // being reminded on the day they moved it off.
     const days = weekdaysFromPlanLabels(entries);
-    // Only for a programme that is running: moving a day on a programme
-    // the reader holds but has switched off changed Profile's chips and the
-    // reminders while Home and the calendar kept the lead programme's days
-    // (audit round 4, 2026-09-20).
-    if (days.length > 0 && activeProgramTemplateIds.includes(workoutTemplateId)) {
+    // Only the plan Home leads with, which is the same invariant the Profile
+    // picker states two functions below. Availability is one list for the
+    // whole app — Profile's chips, the reminders, the widget — and a rhythm
+    // is per programme. Moving a day on a programme the reader holds but has
+    // switched off rewrote that list while Home and the calendar kept reading
+    // the lead plan's own labels (audit round 4, 2026-09-20); so does moving a
+    // day on the SECOND running programme, which the running-set test let
+    // through — two may run at once (CI review of #161).
+    if (days.length > 0 && plan.id === preferences.activePlanId) {
       await updatePreferences({
         setupAvailableDays: days,
         // Naming the days by hand IS self-managed; leaving the mode alone would

@@ -35,7 +35,10 @@ module.exports = [
       assert.match(adopt, /if \(database\.workoutPlans\.some\(\(item\) => item\.id === planId\)\) \{[\s\S]{0,300}resumeProgramme\(\{/, 'a held programme must be resumed, not rebuilt');
 
       const rhythm = between('async function handleSaveRhythm(', 'setupScheduleMode:');
-      assert.match(rhythm, /if \(days\.length > 0 && activeProgramTemplateIds\.includes\(workoutTemplateId\)\) \{/, "availability must follow a running programme's rhythm only");
+      // Not the running set: two programmes may run at once, and the second
+      // one's rhythm is not the app's availability either (CI review of #161).
+      assert.match(rhythm, /if \(days\.length > 0 && plan\.id === preferences\.activePlanId\) \{/, "availability must follow the lead plan's rhythm only");
+      assert.ok(!/activeProgramTemplateIds/.test(rhythm), 'the running set is not the lead');
     },
   },
 ];
