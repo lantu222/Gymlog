@@ -15,6 +15,7 @@ These instructions are the whole review. Do not call the Skill tool to load anot
 **Agent assumptions (applies to all agents and subagents):**
 - All tools are functional and will work without error. Do not test tools or make exploratory calls. Make sure this is clear to every subagent that is launched.
 - Only call a tool if it is required to complete the task. Every tool call should have a clear purpose.
+- **Scratch files go in `.ci-review/`, a relative path, and nowhere else.** It already exists; there is one writable directory on the runner and that is it — `/tmp` and the rest of the filesystem are refused, and so is a command that merely *points* at them, because an output redirect is checked against where it writes. A large diff saved to `/tmp` cost three runs most of their turns being denied; `gh pr diff <n> > .ci-review/diff.txt` is the same command that works.
 
 To do this, follow these steps precisely:
 

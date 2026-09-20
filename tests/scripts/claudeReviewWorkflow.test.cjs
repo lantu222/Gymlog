@@ -365,7 +365,9 @@ module.exports = [
       assert.ok(step.run.includes(word), 'the Bash program is no longer read through its filter');
       assert.ok(step.run.includes(parts), 'the denial log no longer names every subcommand');
       assert.ok(step.run.includes('(.tool_input.command // "") | name'), 'the input reaches the log without the filter');
-      assert.equal(step.run.split('tool_input').length - 1, 1, 'denied tool input is read somewhere else too');
+      // Twice: once through `name`, once through `shape`. Both filter before
+      // anything is printed, and nothing else may touch the input.
+      assert.equal(step.run.split('tool_input').length - 1, 2, 'denied tool input is read somewhere else too');
 
       // And the filter does what the comment says, run rather than read. Each
       // of these is a shape that has to lose everything but the program names
@@ -396,6 +398,43 @@ module.exports = [
         ['grep -rn "private key | here" src/', 'grep + ?'],
       ]) {
         assert.equal(label(command), expected, `the denial log would print ${command} wrongly`);
+      }
+
+      /*
+       * And the SHAPE of a denied command, because the names were not enough.
+       *
+       * Three runs in a row were denied `gh pr diff` while `Bash(gh pr diff *)`
+       * sat on the allowlist, and the log could not say why: it prints three
+       * words, so `gh pr diff 150 > /tmp/x` reads exactly like the bare
+       * command. Four hypotheses were tested against the docs and three were
+       * wrong. So the log says what the command's shape is — a redirect, a
+       * subshell, a backtick, an env prefix — and the next run settles it
+       * instead of a fifth guess (2026-09-20).
+       *
+       * Markers only. No operand, no path, no content: the log is public.
+       */
+      assert.match(step.run, /def shape:/, 'the denial log no longer reports command shape');
+      const shape = (command) => {
+        const marks = [
+          />/.test(command) ? 'redirect' : null,
+          /[$][(]/.test(command) ? 'subshell' : null,
+          /`/.test(command) ? 'backtick' : null,
+          /^[A-Z_]+=/.test(command) ? 'env-prefix' : null,
+        ].filter(Boolean);
+        return marks.length ? ` [${marks.join(',')}]` : '';
+      };
+      for (const [command, expected] of [
+        // The hypothesis this exists to test: an allowlisted command refused
+        // over where it was pointing its output.
+        ['gh pr diff 150 > /tmp/diff.txt', ' [redirect]'],
+        ['gh pr diff 150 >> notes.txt', ' [redirect]'],
+        ['echo "$(gh pr diff 150)" | head', ' [subshell]'],
+        ['NODE_ENV=test npm run test:unit', ' [env-prefix]'],
+        // A plain pipeline is not a shape: those are already named part by part.
+        ['gh pr diff 150 | wc -l', ''],
+        ['ls', ''],
+      ]) {
+        assert.equal(shape(command), expected, `the denial log would describe ${command} wrongly`);
       }
     },
   },
@@ -454,6 +493,23 @@ module.exports = [
       for (const tool of ['Write', 'Edit', 'NotebookEdit', 'WebFetch', 'Skill']) {
         assert.ok(!tools.includes(tool), `${tool} lets the reviewer do more than read and comment`);
       }
+      /*
+       * One scratch directory, and only that one.
+       *
+       * A reviewer handed a 3 400-line diff reaches for a file to put it in,
+       * and every attempt was refused — `Write`, `mkdir`, and `gh pr diff`
+       * itself whenever it redirected. An output redirect is checked against
+       * the Edit rules, so with no Edit rule at all there was nowhere on the
+       * runner it could write.
+       *
+       * `.ci-review/` is the workflow's own scratch directory, already used
+       * for the inline-comment listing. Anchored with a leading slash, so it
+       * is that directory in the workspace and nothing else: a bare `Edit`,
+       * or one reaching outside, would hand a run holding the app token the
+       * ability to rewrite the checkout it is reviewing.
+       */
+      const edits = tools.filter((tool) => tool.startsWith('Edit'));
+      assert.deepEqual(edits, ['Edit(/.ci-review/**)'], 'the reviewer may write in one scratch directory, nowhere else');
       // What a review cannot work without. `git fetch` and `echo` are here
       // because #148's reviewer was denied both and returned "No issues
       // found" about a diff it had never read: the checkout is shallow, so
