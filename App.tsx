@@ -1863,7 +1863,10 @@ function VinhaApp() {
         }
         await updatePreferences({
           activePlanIds: resumed.activePlanIds,
-          activePlanId: options?.lead ? resumed.planId : resumed.activePlanId,
+          // resumeProgramme names the resumed plan as activePlanId whichever way,
+          // so the lead is kept here: joining a season must not quietly demote
+          // the programme at the top of Home (CI review of #161).
+          activePlanId: options?.lead ? resumed.planId : preferences.activePlanId ?? resumed.planId,
         });
         return true;
       }
