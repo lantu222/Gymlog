@@ -151,11 +151,12 @@ module.exports = [
       const back = between(handoff, 'useHardwareBack(', '});');
       assert.match(back, /if \(page === 'offers' && pageIndex >= pages\.length - 1\) \{\s*finish\(false\);/);
       assert.match(back, /advance\(\);/);
-      assert.match(handoff, /const finish = \(widget = addWidget\) =>/);
+      assert.match(handoff, /const finish = \(widget = addWidget, signIn = signInForBackup\) =>/);
       assert.match(handoff, /addWidget: plan\.offerWidget && widget,/);
       // A press handler passes its event: `onPress={finish}` would have read
-      // it as the widget answer.
+      // it as the widget answer, and `onPress={advance}` as a yes to sign-in.
       assert.doesNotMatch(handoff, /onPress=\{finish\}/);
+      assert.doesNotMatch(handoff, /onPress=\{advance\}|onDone=\{advance\}/);
 
       // The shell's route listener, newest after onboarding closes, hands the
       // key on while the hand-off is up — after closing a document over it.

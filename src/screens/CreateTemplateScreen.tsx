@@ -422,12 +422,33 @@ export function CreateTemplateScreen({
     );
   }
 
+  /**
+   * One save per press, however fast the second one comes.
+   *
+   * A new programme has no id until the provider mints one, so each save is a
+   * new programme: two taps on Tallenna made two, the reader landed on the
+   * second, and the pair spent two of the three free places — or the second
+   * met the limit sheet over the programme the first had just saved
+   * (double-tap audit, 2026-09-21). A ref, because the second tap arrives
+   * before a re-render could disable the buttons; the state is what disables
+   * them after.
+   */
+  const savingRef = useRef(false);
+  const [saving, setSaving] = useState(false);
+
   async function handleSave() {
-    if (!canSave) {
+    if (!canSave || savingRef.current) {
       return;
     }
 
-    await onSave(buildTemplateDraft(templateName, sessions, initialDraft, language));
+    savingRef.current = true;
+    setSaving(true);
+    try {
+      await onSave(buildTemplateDraft(templateName, sessions, initialDraft, language));
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
   }
 
   return (
@@ -440,8 +461,8 @@ export function CreateTemplateScreen({
         // Same gate as the button at the bottom: while a day is empty there is
         // no save action, so the header shows none rather than a word that
         // does nothing when tapped.
-        rightActionLabel={canSave ? t(language, 'common.save') : undefined}
-        onRightActionPress={canSave ? () => void handleSave() : undefined}
+        rightActionLabel={canSave && !saving ? t(language, 'common.save') : undefined}
+        onRightActionPress={canSave && !saving ? () => void handleSave() : undefined}
       />
 
       <ScrollView
@@ -662,8 +683,8 @@ export function CreateTemplateScreen({
 
         <CutButton
           label={t(language, 'tpl.save')}
-          onPress={canSave ? () => void handleSave() : undefined}
-          variant={canSave ? 'primary' : 'disabled'}
+          onPress={canSave && !saving ? () => void handleSave() : undefined}
+          variant={canSave && !saving ? 'primary' : 'disabled'}
           size="lg"
           stretch
         />
