@@ -97,8 +97,10 @@ export const EQUIPMENT_FALLBACKS: Array<[string, string[]]> = [
   ['weighted pull', ['Pullups', 'Inverted Row']],
   ['weighted dip', ['Bench Dips']],
   ['weighted bench dip', ['Bench Dips']],
-  // The recovery day's bodyweight variant takes the bridge too.
-  ['farmer', ['Butt Lift (Bridge)']],
+  // A hold, because the swap keeps the prescription's numbers and a carry's
+  // are seconds or metres: 3 × 40 of a carry became 3 × 40 bridges. A brace
+  // held for those seconds is the carry without the weight (CI review of #172).
+  ['farmer', ['Plank']],
   ['bench press', ['Leverage Chest Press', 'Dumbbell Floor Press', 'Push-Up Wide']],
   ['back squat', ['Goblet Squat', 'Bodyweight Squat']],
   ['front squat', ['Goblet Squat', 'Bodyweight Squat']],

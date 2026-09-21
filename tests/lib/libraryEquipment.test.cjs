@@ -173,4 +173,56 @@ module.exports = [
       assert.deepEqual([...loaded], []);
     },
   },
+  {
+    /**
+     * The swap keeps the prescription's numbers, and a carry's are seconds or
+     * metres: the bridge it fell back to first became "3 × 40" bridges (CI
+     * review of #172). A hold reads those numbers as what they were.
+     */
+    name: 'library equipment: a farmer\'s walk with nothing to carry becomes a hold, not 40 reps',
+    run() {
+      const { applyEquipmentToExercises } = require('../../.test-dist/lib/equipmentExerciseFilter.js');
+      const carry = {
+        id: 'carry',
+        exerciseName: "Farmer's Walk",
+        slotId: 'carry_1',
+        role: 'secondary',
+        progressionPriority: 'medium',
+        trackingMode: 'load_and_reps',
+        sets: 3,
+        repsMin: 40,
+        repsMax: 40,
+        restSecondsMin: 60,
+        restSecondsMax: 90,
+        substitutionGroup: 'conditioning_circuit',
+      };
+      const barOnly = applyEquipmentToExercises([carry], ['Pull-up bar', 'Yoga mat']).exercises[0];
+      assert.equal(barOnly.exerciseName, 'Plank');
+      assert.equal(barOnly.trackingMode, 'hold');
+      assert.equal(barOnly.repsMin, 40);
+      // With something to carry, it stays the carry.
+      assert.equal(applyEquipmentToExercises([carry], ['Dumbbells']).exercises[0].exerciseName, "Farmer's Walk");
+    },
+  },
+  {
+    /**
+     * The override list is a list, and a list misses names: four of the same
+     * class were found after it was written (CI review of #172). A library
+     * name that names an implement and is still filed as bodyweight fails
+     * here unless it is below, with the reason it carries no load.
+     */
+    name: 'library equipment: no name that carries an implement is filed as bodyweight',
+    run() {
+      const IMPLEMENT =
+        /weighted|sled|chain|plate|sandbag|barbell|dumbbell|kettlebell|trap bar|farmer|yoke|keg|atlas|log lift|axle|tire flip|sledgehammer|heavy bag|rickshaw|prowler|wrist roller/i;
+      const NO_LOAD = new Set([
+        // The dumbbell is a handle to push up from; the load is the body.
+        'Close-Grip Push-Up off of a Dumbbell',
+      ]);
+      const misfiled = GENERATED_EXERCISE_LIBRARY.filter(
+        (item) => item.equipment === 'bodyweight' && IMPLEMENT.test(item.name) && !NO_LOAD.has(item.name),
+      ).map((item) => item.name);
+      assert.deepEqual(misfiled, [], 'add them to scripts/exercise-equipment-overrides.json');
+    },
+  },
 ];

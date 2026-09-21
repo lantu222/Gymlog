@@ -4086,7 +4086,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Chain Handle Extension",
     "category": "compound",
     "bodyPart": "triceps",
-    "equipment": "bodyweight",
+    "equipment": "barbell",
     "primaryMuscles": [
       "triceps"
     ],
@@ -8999,7 +8999,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Heavy Bag Thrust",
     "category": "compound",
     "bodyPart": "chest",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "chest"
     ],
@@ -19347,7 +19347,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Sledgehammer Swings",
     "category": "core",
     "bodyPart": "core",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "abdominals"
     ],
@@ -23573,7 +23573,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Weighted Ball Hyperextension",
     "category": "compound",
     "bodyPart": "back",
-    "equipment": "bodyweight",
+    "equipment": "dumbbell",
     "primaryMuscles": [
       "lower back"
     ],
@@ -23602,7 +23602,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Weighted Ball Side Bend",
     "category": "core",
     "bodyPart": "core",
-    "equipment": "bodyweight",
+    "equipment": "dumbbell",
     "primaryMuscles": [
       "abdominals"
     ],
@@ -23659,7 +23659,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Weighted Crunches",
     "category": "core",
     "bodyPart": "core",
-    "equipment": "bodyweight",
+    "equipment": "dumbbell",
     "primaryMuscles": [
       "abdominals"
     ],
@@ -23772,7 +23772,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Weighted Sit-Ups - With Bands",
     "category": "core",
     "bodyPart": "core",
-    "equipment": "bodyweight",
+    "equipment": "dumbbell",
     "primaryMuscles": [
       "abdominals"
     ],

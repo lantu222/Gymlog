@@ -2,6 +2,7 @@
   "_why": "free-exercise-db files these under 'other', and mapEquipment turned every value it did not know into 'bodyweight': a trap bar deadlift in your own programme had no weight dial and saved 0 kg, the Bodyweight chip listed sled pushes, and a bodyweight-only coach plan could draw a yoke walk. Each lift here moves an external load and goes in the nearest bucket the filter chips have: barbell for bars and plates, dumbbell for what is held in the hands or hung from a belt, machine for sleds and strongman implements, which only a full gym has. Read by scripts/generate_free_exercise_library.mjs and checked against the generated library by tests/lib/libraryEquipment.test.cjs.",
   "overrides": {
     "Axle Deadlift": "barbell",
+    "Chain Handle Extension": "barbell",
     "Chain Press": "barbell",
     "Front Plate Raise": "barbell",
     "Log Lift": "barbell",
@@ -17,8 +18,12 @@
     "Wrist Roller": "barbell",
 
     "Farmer's Walk": "dumbbell",
+    "Weighted Ball Hyperextension": "dumbbell",
+    "Weighted Ball Side Bend": "dumbbell",
     "Weighted Bench Dip": "dumbbell",
+    "Weighted Crunches": "dumbbell",
     "Weighted Pull Ups": "dumbbell",
+    "Weighted Sit-Ups - With Bands": "dumbbell",
     "Weighted Squat": "dumbbell",
 
     "Atlas Stone Trainer": "machine",
@@ -29,6 +34,7 @@
     "Circus Bell": "machine",
     "Conan's Wheel": "machine",
     "Forward Drag with Press": "machine",
+    "Heavy Bag Thrust": "machine",
     "Keg Load": "machine",
     "Power Stairs": "machine",
     "Prowler Sprint": "machine",
@@ -41,6 +47,7 @@
     "Sled Push": "machine",
     "Sled Reverse Flye": "machine",
     "Sled Row": "machine",
+    "Sledgehammer Swings": "machine",
     "Tire Flip": "machine",
     "Yoke Walk": "machine"
   }
