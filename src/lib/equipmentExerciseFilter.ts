@@ -60,6 +60,20 @@ const EQUIPMENT_RULES: EquipmentRule[] = [
   { pattern: 'hanging', requires: [['Pull-up bar']] },
   { pattern: 'band', requires: [['Resistance bands']] },
   { pattern: 'hip thrust', requires: [['Bench', ...BARBELL, 'Dumbbells']] },
+  // The weight is the exercise. They were logged as bodyweight, so a plan for
+  // someone with no equipment carried weighted dips without asking anything
+  // of them; logged with the weight (2026-09-21), they need a weight to hang.
+  { pattern: 'weighted pull', requires: [['Dumbbells', 'Kettlebells', ...BARBELL]] },
+  { pattern: 'weighted dip', requires: [['Dumbbells', 'Kettlebells', ...BARBELL]] },
+  { pattern: 'weighted bench dip', requires: [['Dumbbells', 'Kettlebells', ...BARBELL]] },
+  // Filed with its dumbbells on the same day, and it had no rule at all: the
+  // recovery day's loaded variant handed it to anyone with any chip (CI review
+  // of #172).
+  { pattern: 'farmer', requires: [['Dumbbells', 'Kettlebells', ...BARBELL]] },
+  // A plate lift needs the plate. The curl rule above lets bands through, and
+  // a dumbbell curl for a bands-only reader fell back to reverse plate curls
+  // with a weight dial and no plate (CI review of #172).
+  { pattern: 'plate', requires: [BARBELL] },
 ];
 
 /**
@@ -83,6 +97,14 @@ export const EQUIPMENT_RULES_FOR_DISPLAY: readonly EquipmentRule[] = EQUIPMENT_R
  * `equipmentRemoved`, which is the truthful outcome.
  */
 export const EQUIPMENT_FALLBACKS: Array<[string, string[]]> = [
+  // Ahead of "pull-up": with a bar and no weight, the pull-up itself.
+  ['weighted pull', ['Pullups', 'Inverted Row']],
+  ['weighted dip', ['Bench Dips']],
+  ['weighted bench dip', ['Bench Dips']],
+  // A hold, because the swap keeps the prescription's numbers and a carry's
+  // are seconds or metres: 3 × 40 of a carry became 3 × 40 bridges. A brace
+  // held for those seconds is the carry without the weight (CI review of #172).
+  ['farmer', ['Plank']],
   ['bench press', ['Leverage Chest Press', 'Dumbbell Floor Press', 'Push-Up Wide']],
   ['back squat', ['Goblet Squat', 'Bodyweight Squat']],
   ['front squat', ['Goblet Squat', 'Bodyweight Squat']],

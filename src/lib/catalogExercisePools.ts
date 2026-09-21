@@ -122,18 +122,17 @@ const programmeLoadedByName = (() => {
  *
  * The programmes answer first because a swap lands on their names: 226 of the
  * 283 names the swap groups offer are not spelled the library's way, so the
- * library says "load" for a pull-up by not finding it, and some it does find
- * it gets wrong — its trap bar deadlift and farmer's walk are "bodyweight".
- * The composer keeps asking the library alone: its pools are curated against
- * the library, and its bodyweight pool counts on that farmer's walk logging
- * no weight.
+ * library says "load" for a pull-up by not finding it. The composer keeps
+ * asking the library alone: its pools are curated against the library.
  *
- * On the library's word alone a loaded slot stays loaded. Its "bodyweight" is
- * wrong for more than those two — weighted squat, bench press with bands, the
- * axle, car and rickshaw deadlifts, the Svend press — and a swap to one of
- * them from the sheet's library search hid the weight dial and saved 0 kg:
- * the bug this rule fixes, through another door (CI review of #170). The two
- * mistakes do not cost the same. A dial shown for bodyweight work is left at
+ * On the library's word alone a loaded slot stays loaded. Its "bodyweight" was
+ * the generator's fallback for any equipment it did not know, and that filed
+ * the trap bar deadlift, the farmer's walk, the Svend press and the axle, car
+ * and rickshaw deadlifts as bodyweight; a swap to one of them from the sheet's
+ * library search hid the weight dial and saved 0 kg (CI review of #170). The
+ * loaded ones are named in scripts/exercise-equipment-overrides.json now
+ * (2026-09-21), but the fallback still decides for every name that list does
+ * not reach, so the rule stays. The two mistakes do not cost the same. A dial shown for bodyweight work is left at
  * zero; a dial hidden for a loaded lift loses the weight. So the library may
  * move a slot to loaded, never away from it; the programmes' own answer, and
  * the hold list's seconds, still decide both ways.
@@ -355,7 +354,10 @@ export const SUPPLEMENTAL_DAY_POOL = {
     loaded: ['Alternate Hammer Curl', 'Triceps Pushdown', 'Cable Crunch'],
   },
   recoveryStrength: {
-    bodyweight: ['Cat Stretch', "Farmer's Walk"],
+    // Not the farmer's walk here: it carries a weight, and this variant is the
+    // plan for someone with no equipment. The library filed it as bodyweight
+    // until 2026-09-21, which is how it got in.
+    bodyweight: ['Cat Stretch', 'Butt Lift (Bridge)'],
     loaded: ['Cat Stretch', "Farmer's Walk"],
   },
   easyRun: {

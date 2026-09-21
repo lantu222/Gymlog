@@ -115,13 +115,17 @@ module.exports = [
   {
     name: 'swap is the lift: a loaded slot swapped to a lift only the library knows keeps its weight dial',
     run() {
-      // CI review of #170: the library files a weighted squat and a banded
+      // CI review of #170: the library filed a weighted squat and a banded
       // bench press as "bodyweight". Taken at its word, the swap from the
-      // sheet's library search hid the dial and saved 0 kg.
+      // sheet's library search hid the dial and saved 0 kg. The weighted
+      // squat is loaded in the library now (2026-09-21), so the rule is held
+      // to a lift it still files as bodyweight: a banded squat.
+      const { getCatalogTrackingMode } = require('../../../.test-dist/lib/catalogExercisePools.js');
+      assert.equal(getCatalogTrackingMode('Squats - With Bands'), 'bodyweight');
       let state = start(readyDay('tpl_3_day_full_body_v1', 0));
       const squat = state.activeSession.exercises[0];
       assert.equal(squat.trackingMode, 'load_and_reps');
-      state = swap(state, squat.slotId, 'Weighted Squat');
+      state = swap(state, squat.slotId, 'Squats - With Bands');
       const weighted = state.activeSession.exercises[0];
       assert.equal(isUnloadedTrackingMode(weighted.trackingMode), false);
       state = log(state, squat.slotId, 0, 60, 8);

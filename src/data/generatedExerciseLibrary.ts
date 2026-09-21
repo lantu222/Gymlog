@@ -735,7 +735,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Atlas Stone Trainer",
     "category": "compound",
     "bodyPart": "back",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "lower back"
     ],
@@ -766,7 +766,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Atlas Stones",
     "category": "compound",
     "bodyPart": "back",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "lower back"
     ],
@@ -802,7 +802,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Axle Deadlift",
     "category": "compound",
     "bodyPart": "back",
-    "equipment": "bodyweight",
+    "equipment": "barbell",
     "primaryMuscles": [
       "lower back"
     ],
@@ -864,7 +864,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Backward Drag",
     "category": "compound",
     "bodyPart": "legs",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "quadriceps"
     ],
@@ -1916,7 +1916,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Bear Crawl Sled Drags",
     "category": "compound",
     "bodyPart": "legs",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "quadriceps"
     ],
@@ -3942,7 +3942,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Car Deadlift",
     "category": "compound",
     "bodyPart": "legs",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "quadriceps"
     ],
@@ -4086,7 +4086,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Chain Handle Extension",
     "category": "compound",
     "bodyPart": "triceps",
-    "equipment": "bodyweight",
+    "equipment": "barbell",
     "primaryMuscles": [
       "triceps"
     ],
@@ -4110,7 +4110,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Chain Press",
     "category": "compound",
     "bodyPart": "chest",
-    "equipment": "bodyweight",
+    "equipment": "barbell",
     "primaryMuscles": [
       "chest"
     ],
@@ -4492,7 +4492,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Circus Bell",
     "category": "compound",
     "bodyPart": "shoulders",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "shoulders"
     ],
@@ -5038,7 +5038,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Conan's Wheel",
     "category": "compound",
     "bodyPart": "legs",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "quadriceps"
     ],
@@ -7485,7 +7485,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Farmer's Walk",
     "category": "compound",
     "bodyPart": "biceps",
-    "equipment": "bodyweight",
+    "equipment": "dumbbell",
     "primaryMuscles": [
       "forearms"
     ],
@@ -7811,7 +7811,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Forward Drag with Press",
     "category": "compound",
     "bodyPart": "chest",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "chest"
     ],
@@ -8182,7 +8182,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Front Plate Raise",
     "category": "compound",
     "bodyPart": "shoulders",
-    "equipment": "bodyweight",
+    "equipment": "barbell",
     "primaryMuscles": [
       "shoulders"
     ],
@@ -8999,7 +8999,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Heavy Bag Thrust",
     "category": "compound",
     "bodyPart": "chest",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "chest"
     ],
@@ -10342,7 +10342,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Keg Load",
     "category": "compound",
     "bodyPart": "back",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "lower back"
     ],
@@ -11853,7 +11853,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Log Lift",
     "category": "compound",
     "bodyPart": "shoulders",
-    "equipment": "bodyweight",
+    "equipment": "barbell",
     "primaryMuscles": [
       "shoulders"
     ],
@@ -12341,7 +12341,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Lying Face Down Plate Neck Resistance",
     "category": "compound",
     "bodyPart": "full body",
-    "equipment": "bodyweight",
+    "equipment": "barbell",
     "primaryMuscles": [
       "neck"
     ],
@@ -12366,7 +12366,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Lying Face Up Plate Neck Resistance",
     "category": "compound",
     "bodyPart": "full body",
-    "equipment": "bodyweight",
+    "equipment": "barbell",
     "primaryMuscles": [
       "neck"
     ],
@@ -15027,7 +15027,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Plate Pinch",
     "category": "compound",
     "bodyPart": "biceps",
-    "equipment": "bodyweight",
+    "equipment": "barbell",
     "primaryMuscles": [
       "forearms"
     ],
@@ -15053,7 +15053,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Plate Twist",
     "category": "core",
     "bodyPart": "core",
-    "equipment": "bodyweight",
+    "equipment": "barbell",
     "primaryMuscles": [
       "abdominals"
     ],
@@ -15428,7 +15428,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Power Stairs",
     "category": "compound",
     "bodyPart": "legs",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "hamstrings"
     ],
@@ -15567,7 +15567,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Prowler Sprint",
     "category": "cardio",
     "bodyPart": "legs",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "hamstrings"
     ],
@@ -16605,7 +16605,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Reverse Plate Curls",
     "category": "compound",
     "bodyPart": "biceps",
-    "equipment": "bodyweight",
+    "equipment": "barbell",
     "primaryMuscles": [
       "biceps"
     ],
@@ -16687,7 +16687,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Rickshaw Carry",
     "category": "compound",
     "bodyPart": "biceps",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "forearms"
     ],
@@ -16718,7 +16718,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Rickshaw Deadlift",
     "category": "compound",
     "bodyPart": "legs",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "quadriceps"
     ],
@@ -17169,7 +17169,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Sandbag Load",
     "category": "compound",
     "bodyPart": "legs",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "quadriceps"
     ],
@@ -17931,7 +17931,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Seated Head Harness Neck Resistance",
     "category": "compound",
     "bodyPart": "full body",
-    "equipment": "bodyweight",
+    "equipment": "barbell",
     "primaryMuscles": [
       "neck"
     ],
@@ -19185,7 +19185,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Sled Drag - Harness",
     "category": "compound",
     "bodyPart": "legs",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "quadriceps"
     ],
@@ -19212,7 +19212,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Sled Overhead Backward Walk",
     "category": "compound",
     "bodyPart": "shoulders",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "shoulders"
     ],
@@ -19240,7 +19240,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Sled Overhead Triceps Extension",
     "category": "compound",
     "bodyPart": "triceps",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "triceps"
     ],
@@ -19265,7 +19265,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Sled Push",
     "category": "compound",
     "bodyPart": "legs",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "quadriceps"
     ],
@@ -19294,7 +19294,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Sled Reverse Flye",
     "category": "compound",
     "bodyPart": "shoulders",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "shoulders"
     ],
@@ -19319,7 +19319,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Sled Row",
     "category": "compound",
     "bodyPart": "back",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "middle back"
     ],
@@ -19347,7 +19347,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Sledgehammer Swings",
     "category": "core",
     "bodyPart": "core",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "abdominals"
     ],
@@ -21558,7 +21558,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Standing Olympic Plate Hand Squeeze",
     "category": "compound",
     "bodyPart": "biceps",
-    "equipment": "bodyweight",
+    "equipment": "barbell",
     "primaryMuscles": [
       "forearms"
     ],
@@ -22626,7 +22626,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Svend Press",
     "category": "compound",
     "bodyPart": "chest",
-    "equipment": "bodyweight",
+    "equipment": "barbell",
     "primaryMuscles": [
       "chest"
     ],
@@ -22794,7 +22794,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Tire Flip",
     "category": "compound",
     "bodyPart": "legs",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "quadriceps"
     ],
@@ -22905,7 +22905,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Trap Bar Deadlift",
     "category": "compound",
     "bodyPart": "legs",
-    "equipment": "bodyweight",
+    "equipment": "barbell",
     "primaryMuscles": [
       "quadriceps"
     ],
@@ -23573,7 +23573,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Weighted Ball Hyperextension",
     "category": "compound",
     "bodyPart": "back",
-    "equipment": "bodyweight",
+    "equipment": "dumbbell",
     "primaryMuscles": [
       "lower back"
     ],
@@ -23602,7 +23602,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Weighted Ball Side Bend",
     "category": "core",
     "bodyPart": "core",
-    "equipment": "bodyweight",
+    "equipment": "dumbbell",
     "primaryMuscles": [
       "abdominals"
     ],
@@ -23630,7 +23630,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Weighted Bench Dip",
     "category": "compound",
     "bodyPart": "triceps",
-    "equipment": "bodyweight",
+    "equipment": "dumbbell",
     "primaryMuscles": [
       "triceps"
     ],
@@ -23659,7 +23659,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Weighted Crunches",
     "category": "core",
     "bodyPart": "core",
-    "equipment": "bodyweight",
+    "equipment": "dumbbell",
     "primaryMuscles": [
       "abdominals"
     ],
@@ -23715,7 +23715,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Weighted Pull Ups",
     "category": "compound",
     "bodyPart": "back",
-    "equipment": "bodyweight",
+    "equipment": "dumbbell",
     "primaryMuscles": [
       "lats"
     ],
@@ -23772,7 +23772,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Weighted Sit-Ups - With Bands",
     "category": "core",
     "bodyPart": "core",
-    "equipment": "bodyweight",
+    "equipment": "dumbbell",
     "primaryMuscles": [
       "abdominals"
     ],
@@ -23797,7 +23797,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Weighted Squat",
     "category": "compound",
     "bodyPart": "legs",
-    "equipment": "bodyweight",
+    "equipment": "dumbbell",
     "primaryMuscles": [
       "quadriceps"
     ],
@@ -24195,7 +24195,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Wrist Roller",
     "category": "compound",
     "bodyPart": "biceps",
-    "equipment": "bodyweight",
+    "equipment": "barbell",
     "primaryMuscles": [
       "forearms"
     ],
@@ -24247,7 +24247,7 @@ export const GENERATED_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
     "name": "Yoke Walk",
     "category": "compound",
     "bodyPart": "legs",
-    "equipment": "bodyweight",
+    "equipment": "machine",
     "primaryMuscles": [
       "quadriceps"
     ],
