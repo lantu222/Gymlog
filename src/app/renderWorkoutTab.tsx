@@ -31,6 +31,7 @@ import { getExerciseProgressForName, SameLiftMatcher } from '../lib/progression'
 import { catalogLevelForSetup } from '../lib/goalProgramme';
 import { getReadyProgramContent } from '../lib/readyProgramContent';
 import { getReadyProgramBlockWeeks } from '../lib/readyProgramDuration';
+import { AdaptedSessionRef, SessionAdaptation, withSessionSwap } from '../lib/sessionAdaptation';
 import { nextSeasonWindow, resolveSeasonWindow } from '../lib/season';
 import { isEnrolled } from '../lib/seasonEnrolment';
 import { computeSeasonProgress, countSeasonRecords, resolveSeasonBadges } from '../lib/seasonScoring';
@@ -153,8 +154,9 @@ export interface WorkoutTabDeps {
     updates: Parameters<NonNullable<ProgramDetailProps['onSaveEmphasis']>>[0],
   ) => Promise<void>;
   handleDeleteCustomWorkout: (workoutTemplateId: string) => Promise<void>;
-  sessionSwaps: React.ComponentProps<typeof ProgramDayScreen>['sessionSwaps'];
-  setSessionSwaps: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  /** Today's swaps and left-out slots held for one session (lib/sessionAdaptation). */
+  sessionAdaptationFor: (ref: AdaptedSessionRef | null | undefined) => SessionAdaptation;
+  adaptSession: (ref: AdaptedSessionRef, change: (current: SessionAdaptation) => SessionAdaptation) => void;
   templateBuilderDraft: React.ComponentProps<typeof CreateTemplateScreen>['initialDraft'];
   exerciseBrowserItems: React.ComponentProps<typeof ExercisesScreen>['items'];
   recentExerciseBrowserItems: React.ComponentProps<typeof CreateTemplateScreen>['recentExerciseLibraryItems'];
@@ -253,8 +255,8 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     handleSaveRhythm,
     handleSaveEmphasis,
     handleDeleteCustomWorkout,
-    sessionSwaps,
-    setSessionSwaps,
+    sessionAdaptationFor,
+    adaptSession,
     templateBuilderDraft,
     exerciseBrowserItems,
     recentExerciseBrowserItems,
@@ -700,6 +702,8 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         : null;
     const daySession = program?.sessions.find((session) => session.id === route.sessionId) ?? null;
     const dayIndex = daySession ? program!.sessions.findIndex((session) => session.id === route.sessionId) : -1;
+    // The same pair the programme page starts this day with.
+    const daySessionRef: AdaptedSessionRef = { programId: route.workoutTemplateId, sessionId: route.sessionId };
 
     return program && daySession ? (
       <ProgramDayScreen
@@ -718,9 +722,11 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             routineDrillOverrides: { ...preferences.routineDrillOverrides, [slotKey]: drillKey },
           })
         }
-        sessionSwaps={sessionSwaps}
+        // Held for this day of this programme: slot ids repeat across days,
+        // so a swap made here is not an answer about any other day.
+        sessionSwaps={sessionAdaptationFor(daySessionRef).swaps}
         onSwapExercise={(slotId, exerciseName) =>
-          setSessionSwaps((current) => ({ ...current, [slotId]: exerciseName }))
+          adaptSession(daySessionRef, (current) => withSessionSwap(current, slotId, exerciseName))
         }
         exerciseLibrary={exerciseBrowserItems}
         recentExerciseLibraryItems={recentExerciseBrowserItems}

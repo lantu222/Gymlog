@@ -231,6 +231,22 @@ module.exports = [
     },
   },
   {
+    // Swap audit, 2026-09-21. A swap made on Home before the start finishes
+    // as `completed`, and its log is keyed by the slot's template exercise —
+    // the programmed lift's key. Read as that lift, a dumbbell press at 90 kg
+    // was the bench press's new record.
+    name: 'post-session insight does not read a swapped-in lift as the lift it replaced',
+    run() {
+      const input = baseInput({
+        sessionExerciseLogs: [
+          { ...log('s4', null, 'Dumbbell Bench Press', 90, [5]), templateExerciseId: 'bench', swappedFrom: 'Bench press' },
+        ],
+      });
+
+      assert.equal(computePostSessionInsight(input, new Date('2026-05-08T12:00:00.000Z')), null);
+    },
+  },
+  {
     name: 'post-session insight detects a three-session plateau by exercise id',
     run() {
       const input = baseInput({

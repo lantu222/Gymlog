@@ -11,7 +11,8 @@
  *
  * It deliberately does not persist. An adaptation is an answer to "how is today
  * going", and a stale one is worse than none — if the session is not started,
- * the change goes away with it.
+ * the change goes away with it. While it waits, it is held for the one session
+ * it was made on and the day it was made on (see HeldSessionAdaptations).
  *
  * What is NOT here, on purpose:
  * - Equipment substitution. A taken rack is discovered in the gym, not at home
@@ -23,6 +24,7 @@
  */
 
 import { WorkoutRuntimeTemplate, WorkoutTemplateExercise } from '../features/workout/workoutTypes';
+import { prescriptionAfterSwap, trackingModeAfterSwap } from './catalogExercisePools';
 import { estimateSessionMinutes } from './sessionDuration';
 
 export interface SessionAdaptation {
@@ -48,8 +50,36 @@ export function hasSessionAdaptation(adaptation: SessionAdaptation | null | unde
   );
 }
 
+/**
+ * The slot as the swapped-in lift: its own name, the way it is logged (and
+ * numbers in that unit), and the programmed lift on record.
+ *
+ * The name alone was not the lift. The slot kept the programmed lift's
+ * tracking mode — a pull-up swapped here for a lat pulldown started with no
+ * weight dial — and nothing said a swap had happened, so the save filed the
+ * pulldown under the programme's pull-up (swap audit, 2026-09-21). The same
+ * rules as the player's own swap (trackingModeAfterSwap, prescriptionAfterSwap),
+ * so a swap made here and one made there are saved alike.
+ */
 function applySwap(exercise: WorkoutTemplateExercise, name: string): WorkoutTemplateExercise {
-  return { ...exercise, exerciseName: name };
+  if (name.trim().toLowerCase() === exercise.exerciseName.trim().toLowerCase()) {
+    return exercise;
+  }
+  const trackingMode = trackingModeAfterSwap(exercise.trackingMode, name);
+  const { repsMin, repsMax } = prescriptionAfterSwap(
+    exercise.trackingMode,
+    trackingMode,
+    { repsMin: exercise.repsMin, repsMax: exercise.repsMax },
+    name,
+  );
+  return {
+    ...exercise,
+    exerciseName: name,
+    trackingMode,
+    repsMin,
+    repsMax,
+    sourceExerciseName: exercise.sourceExerciseName ?? exercise.exerciseName,
+  };
 }
 
 /**
@@ -82,6 +112,117 @@ export function applySessionAdaptation(
       }),
     })),
   };
+}
+
+/** The session an adaptation was made for: one day of one programme. */
+export interface AdaptedSessionRef {
+  programId: string;
+  sessionId: string;
+}
+
+/**
+ * Today's adaptations, each held for the session it was made on.
+ *
+ * They used to be one set of swaps and drops keyed by slot id alone, spent
+ * only when a session started. A slot id is not unique to a day — 51 of the 57
+ * ready programmes reuse them across days — so on a three-day full body, a
+ * back squat swapped for goblet squats on day A's Home card turned day B's leg
+ * press into goblet squats once B was picked for today instead, and the bench
+ * left out of A took B's overhead press with it. Nothing let them go at
+ * midnight or on "Reset all data" either (swap audit, 2026-09-21).
+ *
+ * So each is filed under the programme and day it was made on, the whole set
+ * is dated, and it is read back only for that session on that date.
+ */
+export interface HeldSessionAdaptations {
+  /** Local midnight of the day these were made on. */
+  dayStart: number;
+  bySession: Record<string, SessionAdaptation>;
+}
+
+export const NO_HELD_SESSION_ADAPTATIONS: HeldSessionAdaptations = { dayStart: 0, bySession: {} };
+
+function heldKey(ref: AdaptedSessionRef) {
+  // Both ids are free text as far as this module knows; an array cannot run
+  // one into the other the way a joined string can.
+  return JSON.stringify([ref.programId, ref.sessionId]);
+}
+
+/**
+ * This session's adaptation today: none when the ones held were made for
+ * another session, or on another day.
+ */
+export function heldAdaptationFor(
+  held: HeldSessionAdaptations,
+  ref: AdaptedSessionRef | null | undefined,
+  todayStart: number,
+): SessionAdaptation {
+  if (!ref || held.dayStart !== todayStart) {
+    return EMPTY_SESSION_ADAPTATION;
+  }
+  return held.bySession[heldKey(ref)] ?? EMPTY_SESSION_ADAPTATION;
+}
+
+/**
+ * One session's adaptation, changed. Whatever is held from an earlier day is
+ * let go on the way — it answered a day that is over.
+ */
+export function updateHeldAdaptation(
+  held: HeldSessionAdaptations,
+  ref: AdaptedSessionRef,
+  todayStart: number,
+  change: (current: SessionAdaptation) => SessionAdaptation,
+): HeldSessionAdaptations {
+  const bySession = held.dayStart === todayStart ? { ...held.bySession } : {};
+  const key = heldKey(ref);
+  const next = change(bySession[key] ?? EMPTY_SESSION_ADAPTATION);
+  if (hasSessionAdaptation(next)) {
+    bySession[key] = next;
+  } else {
+    delete bySession[key];
+  }
+  return { dayStart: todayStart, bySession };
+}
+
+/**
+ * Spent: the session it was made for has started. The ones held for other
+ * sessions stay — each still answers for its own day.
+ */
+export function spendHeldAdaptation(
+  held: HeldSessionAdaptations,
+  ref: AdaptedSessionRef,
+): HeldSessionAdaptations {
+  const key = heldKey(ref);
+  if (!(key in held.bySession)) {
+    return held;
+  }
+  const bySession = { ...held.bySession };
+  delete bySession[key];
+  return { ...held, bySession };
+}
+
+export function withSessionSwap(adaptation: SessionAdaptation, slotId: string, exerciseName: string): SessionAdaptation {
+  return { ...adaptation, swaps: { ...adaptation.swaps, [slotId]: exerciseName } };
+}
+
+/** Left out once: dropping a slot twice does not list it twice. */
+export function withSessionDrop(adaptation: SessionAdaptation, slotId: string): SessionAdaptation {
+  const drops = adaptation.drops ?? [];
+  return drops.includes(slotId) ? adaptation : { ...adaptation, drops: [...drops, slotId] };
+}
+
+export function withoutSessionDrop(adaptation: SessionAdaptation, slotId: string): SessionAdaptation {
+  return { ...adaptation, drops: (adaptation.drops ?? []).filter((id) => id !== slotId) };
+}
+
+/**
+ * The programme took the swap: "Keep this swap in my programme" wrote the lift
+ * into the day, and an override on a slot that already says it is nothing
+ * but a stale mark on the row.
+ */
+export function withoutSessionSwapsTo(adaptation: SessionAdaptation, exerciseName: string): SessionAdaptation {
+  const swaps = Object.fromEntries(Object.entries(adaptation.swaps).filter(([, name]) => name !== exerciseName));
+  return { ...adaptation, swaps };
 }
 
 
