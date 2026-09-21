@@ -15,7 +15,7 @@ import { gunzipSync, gzipSync, strFromU8 } from 'fflate';
 
 import type { AppDatabase, AppPreferences } from '../types/models';
 import type { WorkoutHistoryStore } from '../features/workout/workoutTypes';
-import { includeLeadInRunningSet, ONBOARDING_PLAN_PREFIX } from './activeProgramSet';
+import { ONBOARDING_PLAN_PREFIX, reconcileRunningSet } from './activeProgramSet';
 import { base64ToBytes, bytesToBase64 } from './base64';
 import { DEVICE_ONLY_PREFERENCE_FIELDS, keepDeviceEntitlement } from './proEntitlement';
 import { countAuthoredPrograms } from './programSlots';
@@ -348,17 +348,18 @@ export function keepDevicePrivacyChoices<T extends Pick<AppPreferences, DevicePr
 
 /**
  * The preferences a restore commits: the backup's, minus what belongs to
- * this phone (entitlement and meters, privacy answers), with the lead
- * programme counted in the running set the way a load counts it — the restore
+ * this phone (entitlement and meters, privacy answers), with the running set
+ * made to agree with the backup's plans the way a load does it — the restore
  * normalized the backup but skipped that step, so a backup from before
- * activateOnboardingPlan restored with the cap undercounting by one.
+ * activateOnboardingPlan restored with the cap undercounting by one, and a
+ * backup carrying the seed's phantom plan id restored it (reconcileRunningSet).
  */
 export function preferencesForRestore(
   restored: AppPreferences,
   device: AppPreferences,
   plans: ReadonlyArray<{ id: string; entries: ReadonlyArray<unknown> }>,
 ): AppPreferences {
-  return includeLeadInRunningSet(keepDevicePrivacyChoices(keepDeviceEntitlement(restored, device), device), plans);
+  return reconcileRunningSet(keepDevicePrivacyChoices(keepDeviceEntitlement(restored, device), device), plans);
 }
 
 /**

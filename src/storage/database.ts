@@ -26,7 +26,7 @@ import {
 } from '../lib/exerciseLearning';
 import { normalizeSupersetGroups } from '../lib/supersetGrouping';
 import { savedPrescription } from '../lib/singleRepTarget';
-import { includeLeadInRunningSet } from '../lib/activeProgramSet';
+import { reconcileRunningSet } from '../lib/activeProgramSet';
 import { buildLegacyTemplateSessions, getLegacyTemplateSessionId } from '../lib/workoutTemplateSessions';
 import {
   AppDatabase,
@@ -1339,8 +1339,9 @@ export async function loadDatabase() {
     const database = normalizeDatabase(JSON.parse(raw) as Partial<AppDatabase>);
     const preferences = await loadStoredPreferences(database.preferences);
     // After the overlay, not inside normalizeDatabase: the preferences key is
-    // normalized without the plans, and it is the copy that wins.
-    return { ...database, preferences: includeLeadInRunningSet(preferences, database.workoutPlans) };
+    // normalized without the plans, and it is the copy that wins. This is
+    // where an install carrying a running id with no plan behind it heals.
+    return { ...database, preferences: reconcileRunningSet(preferences, database.workoutPlans) };
   } catch {
     // Unreadable storage is a corrupt install, not a new one — but inventing
     // history to paper over it would be the same lie.
@@ -1365,13 +1366,13 @@ export async function loadDatabase() {
     //
     // Except the running set: which programmes run is a fact about the
     // database, and the programmes went with it. Kept, its ids would count
-    // against the cap with nothing behind them. Written back to the key too,
-    // or the next launch would read them from there again.
+    // against the cap with nothing behind them — the rule every load applies,
+    // here against no plans at all, and again on the next launch against the
+    // key's copy, so the key itself is left as it was.
     const blank = normalizeDatabase(createEmptyDatabase(resolveDeviceLanguage()));
     const stored = await loadStoredPreferences(blank.preferences);
-    const empty = { ...blank, preferences: { ...stored, activePlanId: null, activePlanIds: [] } };
+    const empty = { ...blank, preferences: reconcileRunningSet(stored, blank.workoutPlans) };
     await saveDatabase(empty);
-    await savePreferences(empty.preferences);
     return empty;
   }
 }

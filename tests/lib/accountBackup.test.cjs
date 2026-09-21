@@ -186,11 +186,16 @@ module.exports = [
         'an adopted ready programme was restored over unasked',
       );
       assert.equal(hasLocalDataWorthKeeping(makeDatabase({ workoutPlans: [readyPlan] })), true);
-      // A running-set id with no plan behind it is not a programme: a fresh
-      // install carries the seed's default one exactly so.
+      // A running-set id with no plan behind it is not a programme. This
+      // pinned that every fresh install carried the seed's one exactly so; it
+      // no longer does (the phantom took a cap slot, 2026-09-21), but an
+      // install that stored it before, or a backup of one, still holds it
+      // until the next load drops it — and must not read as data meanwhile.
       const fresh = createEmptyDatabase('fi');
-      assert.ok(fresh.preferences.activePlanIds.length > 0 && fresh.workoutPlans.length === 0, 'the fresh-install shape this pins has changed');
+      assert.deepEqual(fresh.preferences.activePlanIds, [], 'a fresh install runs a programme it does not have');
       assert.equal(hasLocalDataWorthKeeping(fresh), false, 'every fresh install was asked');
+      const phantom = { ...fresh, preferences: { ...fresh.preferences, activePlanIds: ['plan_push_pull_legs'] } };
+      assert.equal(hasLocalDataWorthKeeping(phantom), false, 'a phantom running id made the phone ask');
       assert.equal(hasLocalDataWorthKeeping({ ...fresh, preferences: { ...fresh.preferences, activePlanId: readyPlan.id } }), false);
 
       // And the question counts it as a programme, on either side, once.

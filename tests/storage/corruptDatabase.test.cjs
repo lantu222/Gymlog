@@ -65,6 +65,7 @@ module.exports = [
         activePlanIds: ['ready_plan_tpl_x', 'custom_plan_mine'],
       };
       await database.savePreferences(preferences);
+      const keyBefore = fake.rows.get('@vinha/preferences/v1');
       fake.rows.set('@vinha/database/v1', '{"workoutSessions":[{"id":');
 
       const loaded = await database.loadDatabase();
@@ -82,10 +83,9 @@ module.exports = [
       assert.equal(loaded.preferences.activePlanId, null);
       assert.deepEqual(loaded.preferences.activePlanIds, []);
 
-      // What the load wrote is the reader's preferences, and the next launch reads the same.
-      const key = JSON.parse(fake.rows.get('@vinha/preferences/v1'));
-      assert.equal(key.darkThemeEnabled, true, 'the load wrote defaults over the intact copy');
-      assert.equal(key.firstLaunchAt, '2026-08-01T00:00:00.000Z');
+      // Nothing the load wrote touched the intact copy, and the next launch
+      // reads the same — the running set dropped again against no plans.
+      assert.equal(fake.rows.get('@vinha/preferences/v1'), keyBefore, 'the load wrote over the intact copy');
       const again = await database.loadDatabase();
       assert.equal(again.preferences.darkThemeEnabled, true);
       assert.equal(again.preferences.firstLaunchAt, '2026-08-01T00:00:00.000Z');

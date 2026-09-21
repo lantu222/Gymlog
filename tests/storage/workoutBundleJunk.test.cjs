@@ -120,6 +120,11 @@ module.exports = [
         ['no lifts', without(ready, 'exercises'), 'dropped'],
         ['lifts that are not a list', { ...ready, exercises: 'bench' }, 'dropped'],
         ['a custom programme with no lifts', { ...without(ready, 'exercises'), templateId: 'workout_custom' }, 'dropped'],
+        // A list with no lift left in it is no session: kept, Home offered to
+        // resume an empty workout (CI review of #167).
+        ['lifts that are all junk', { ...ready, exercises: [null, null] }, 'dropped'],
+        ['lifts that all lost their sets', { ...ready, exercises: ready.exercises.map((exercise) => without(exercise, 'sets')) }, 'dropped'],
+        ['an empty list of lifts', { ...ready, exercises: [] }, 'dropped'],
         ['no rest timer', without(ready, 'restTimer'), 'kept'],
         ['no screen state', without(ready, 'ui'), 'kept'],
         ['a screen state without its open slots', { ...ready, ui: { ...ready.ui, expandedSlotIds: null } }, 'kept'],

@@ -14,6 +14,8 @@
  * `ready_plan_<id>` — and both questions below turn on that fact.
  */
 
+import { planCanRun } from './activeProgramSet';
+
 /** The only part of a plan these rules read. */
 export interface RunningPlan {
   id: string;
@@ -204,8 +206,8 @@ export function resolveLeadPlanId(input: {
   activePlanIds: readonly string[];
   plans: readonly RunningPlan[];
 }): string | null {
-  const exists = (planId: string | null | undefined): planId is string =>
-    Boolean(planId) && input.plans.some((plan) => plan.id === planId && plan.entries.length > 0);
+  // The same test the loader's running-set repair uses (reconcileRunningSet).
+  const exists = (planId: string | null | undefined): planId is string => planCanRun(input.plans, planId);
   if (exists(input.activePlanId)) {
     return input.activePlanId;
   }

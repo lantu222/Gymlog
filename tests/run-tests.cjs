@@ -404,6 +404,7 @@ const suites = [
   ...require('./storage/loaderJunk.test.cjs'),
   ...require('./storage/workoutBundleJunk.test.cjs'),
   ...require('./storage/prescriptionRoundTrip.test.cjs'),
+  ...require('./storage/runningSetMatchesPlans.test.cjs'),
   ...require('./lib/storageChunks.test.cjs'),
   ...require('./storage/largeItem.test.cjs'),
   ...require('./storage/loadWithRetry.test.cjs'),

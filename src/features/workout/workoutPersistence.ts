@@ -83,9 +83,10 @@ const FRESH_UI: WorkoutUiState = {
  * (persistence audit, 2026-09-20; the database had the same hole, #157).
  *
  * The lifts are the session: without a list of them there is nothing to
- * resume, and a lift that is not an object with its sets is not one. The
- * timer and the screen state are where the player was, not what was done,
- * so a missing one starts fresh.
+ * resume, and a lift that is not an object with its sets is not one. A list
+ * with none left in it is no session either — kept, Home offered to resume
+ * an empty workout (CI review of #167). The timer and the screen state are
+ * where the player was, not what was done, so a missing one starts fresh.
  */
 function repairSessionShape(input: Record<string, unknown>): WorkoutSessionRuntime | null {
   if (!Array.isArray(input.exercises)) {
@@ -94,6 +95,9 @@ function repairSessionShape(input: Record<string, unknown>): WorkoutSessionRunti
   const exercises = input.exercises.filter(
     (exercise): exercise is Record<string, unknown> => isObject(exercise) && Array.isArray(exercise.sets),
   );
+  if (exercises.length === 0) {
+    return null;
+  }
   const ui = isObject(input.ui) ? input.ui : {};
   return {
     ...input,
