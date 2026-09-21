@@ -326,6 +326,21 @@ module.exports = [
       leaving.emit('active');
       await flush();
       assert.equal(armed, 1, 'a screen that was gone re-armed a rest');
+
+      // The screen goes while the grant check for a return is still out.
+      const third = createHookRuntime();
+      const racing = loadMoment(third);
+      let late = 0;
+      const open = await openSheet(third, racing, { ...props, onGranted: () => (late += 1) });
+      racing.os.dialog = deferred();
+      const answer = open.allow();
+      racing.os.dialog.resolve('granted');
+      await answer;
+      racing.os.exact = true;
+      racing.emit('active');
+      third.unmount();
+      await flush();
+      assert.equal(late, 1, 'a grant check that outlived the screen armed a rest behind it');
     },
   },
 ];

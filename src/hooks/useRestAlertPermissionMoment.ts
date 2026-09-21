@@ -48,7 +48,15 @@ export function useRestAlertPermissionMoment(input: {
   const onGrantedRef = useRef(input.onGranted);
   onGrantedRef.current = input.onGranted;
   const exactReturnRef = useRef<{ remove: () => void } | null>(null);
-  useEffect(() => () => exactReturnRef.current?.remove(), []);
+  useEffect(
+    () => () => {
+      // Emptied too, so a grant check already under way when the screen
+      // goes cannot arm a rest behind it.
+      exactReturnRef.current?.remove();
+      exactReturnRef.current = null;
+    },
+    [],
+  );
   // null until the OS has answered: the guided player can mount straight
   // onto a running rest (Continue after leaving mid-rest), and asking before
   // the answer is in showed the sheet for a permission that was never
