@@ -1,4 +1,5 @@
 import { calendarDaysBetween, getRollingWindowStart } from './completedSessions';
+import { logRecordsSwap } from './exerciseLog';
 import { formatWeight } from './format';
 import { ExerciseLog, PostSessionInsightType, UnitPreference, WorkoutSession } from '../types/models';
 
@@ -41,7 +42,12 @@ function getExerciseKey(log: ExerciseLog) {
 }
 
 function getCompletedWorkingSets(log: ExerciseLog) {
-  if (log.skipped || log.status === 'skipped' || log.status === 'swapped') {
+  // A swapped-in lift is keyed by the slot's template exercise below, which
+  // is the programmed lift's key: a leg press would be read as that squat's
+  // session. The player's swap was already kept out by its status; a swap
+  // made on Home before the start finishes as `completed`, and says it was a
+  // swap only here.
+  if (log.skipped || log.status === 'skipped' || log.status === 'swapped' || logRecordsSwap(log)) {
     return [];
   }
 

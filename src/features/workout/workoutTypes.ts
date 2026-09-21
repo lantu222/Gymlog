@@ -71,6 +71,14 @@ export interface WorkoutTemplateExercise {
    * be SWAPPED for. This one says what it is performed WITH.
    */
   supersetGroup?: string | null;
+  /**
+   * The lift the programme prescribes here, when today's session swapped it
+   * out before starting (Home's "just today" swap). Carried onto the live
+   * exercise as `sourceExerciseName`, so a swap made before the start is saved
+   * the same way as one made in the player — as the lift that was done, with
+   * the swap on record. Absent on every template the programme itself wrote.
+   */
+  sourceExerciseName?: string;
 }
 
 export interface WorkoutTemplateSession {
@@ -165,6 +173,20 @@ export interface WorkoutSetInstance {
   completedAt?: string;
   edited: boolean;
   skippedReason?: string;
+  /**
+   * The lift this set was logged as, and how that lift is logged — a swap
+   * changes the exercise's mode too. Stamped when the set is logged, cleared
+   * when it is taken back. The save reads it to put each set under the lift
+   * that did it (lib/liftSegments); `swappedAfterSetIndex` only says where the
+   * latest swap was, which cannot tell two earlier lifts apart.
+   */
+  loggedAs?: WorkoutLiftIdentity;
+}
+
+/** A lift as a logged set knows it: its name, and how it is logged. */
+export interface WorkoutLiftIdentity {
+  exerciseName: string;
+  trackingMode: WorkoutTrackingMode;
 }
 
 export interface WorkoutExerciseInstance {

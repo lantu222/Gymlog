@@ -74,15 +74,36 @@ module.exports = [
     },
   },
   {
-    name: 'drops: swaps and drops are spent together when the session starts',
+    // Rewritten 2026-09-21 (swap audit). This pinned the swaps and drops as
+    // one slot-keyed pair that every start applied and then cleared — which is
+    // the leak: slot ids repeat across a programme's days, so what was chosen
+    // for day A was applied to day B when B was started instead, and until
+    // something started nothing let it go. They are still spent together, but
+    // only the session's own, and read only for the session they were made on
+    // (lib/sessionAdaptation, suites in sessionAdaptation.test.cjs).
+    name: 'drops: a start applies and spends only what was chosen for that session',
     run() {
       const wiring = require('../helpers/appWiringSource.cjs').readAppWiring();
-      // Both are answers about today. Clearing one and keeping the other would
-      // carry a stale decision into the next session.
-      assert.match(wiring, /setSessionSwaps\(\{\}\);\s*\n\s*setSessionDrops\(\[\]\);/);
-      assert.match(wiring, /\{ swaps: sessionSwaps, drops: sessionDrops \}/);
-      // Dropping twice must not stack the same slot.
-      assert.match(wiring, /current\.includes\(slotId\) \? current : \[\.\.\.current, slotId\]/);
+      // Each start's own body, from its name to the navigation that ends it —
+      // bounded both ends, so a match cannot come from some other function.
+      const startBody = (signature) => {
+        const from = wiring.indexOf(signature);
+        assert.ok(from >= 0, `${signature} is gone`);
+        const to = wiring.indexOf('navigateToGuidedWorkout(workoutTemplateId);', from);
+        assert.ok(to > from, `${signature} no longer ends in the guided player`);
+        return wiring.slice(from, to);
+      };
+      for (const [label, body] of [
+        ['ready', startBody('function startReadyProgramSessionWithUnit(')],
+        ['custom', startBody('function handleStartCustomProgramSession(')],
+      ]) {
+        assert.match(body, /const sessionRef = \{ programId: workoutTemplateId, sessionId \};/, label);
+        assert.match(body, /applySessionAdaptation\(\s*build\w+SessionRuntimeTemplate\([^)]*\),\s*sessionAdaptationFor\(sessionRef\),\s*\)/, label);
+        assert.match(body, /setHeldSessionAdaptations\(\(held\) => spendHeldAdaptation\(held, sessionRef\)\);/, label);
+      }
+      // No start reads the old unscoped pair any more.
+      assert.doesNotMatch(wiring, /\{ swaps: sessionSwaps, drops: sessionDrops \}/);
+      assert.doesNotMatch(wiring, /setSessionSwaps\(\{\}\)|setSessionDrops\(\[\]\)/);
     },
   },
   {

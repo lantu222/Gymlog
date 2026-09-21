@@ -245,7 +245,20 @@ import { decideRatingPrompt, recordRatingAsked, recordRatingCompleted } from './
  */
 const PLAY_LISTING_URL = 'https://play.google.com/store/apps/details?id=app.vinha';
 import { buildCustomSessionRuntimeTemplate, buildReadySessionRuntimeTemplate } from './src/lib/programDetails';
-import { applySessionAdaptation } from './src/lib/sessionAdaptation';
+import {
+  AdaptedSessionRef,
+  applySessionAdaptation,
+  HeldSessionAdaptations,
+  heldAdaptationFor,
+  NO_HELD_SESSION_ADAPTATIONS,
+  SessionAdaptation,
+  spendHeldAdaptation,
+  updateHeldAdaptation,
+  withoutSessionDrop,
+  withoutSessionSwapsTo,
+  withSessionDrop,
+  withSessionSwap,
+} from './src/lib/sessionAdaptation';
 import { buildProgramInsightMap } from './src/lib/programInsights';
 import { buildTailoringPreferences } from './src/lib/tailoringFit';
 import { forgetRoutesForTemplate, popRoute, pushRoute, withoutTrailingRoute } from './src/navigation/routeHistory';
@@ -1117,11 +1130,19 @@ function VinhaApp() {
   // where the hand-off plan is worked out, further down.
   const setupHandoffActiveRef = useRef(false);
   /**
-   * Today's swaps for the next session, slot id → exercise name, chosen on Home
-   * before the session exists. Deliberately not persisted: it is an answer to
-   * "what am I doing today", and it is spent when the session starts.
+   * Today's swaps and left-out slots, chosen on Home or a programme's day page
+   * before the session exists — each held for the session it was made on, on
+   * the day it was made (lib/sessionAdaptation). Deliberately not persisted: it
+   * is an answer to "what am I doing today", and it is spent when that session
+   * starts.
    */
-  const [sessionSwaps, setSessionSwaps] = useState<Record<string, string>>({});
+  const [heldSessionAdaptations, setHeldSessionAdaptations] =
+    useState<HeldSessionAdaptations>(NO_HELD_SESSION_ADAPTATIONS);
+  /** What is held for this session today — read by every screen that shows or starts it. */
+  const sessionAdaptationFor = (ref: AdaptedSessionRef | null | undefined): SessionAdaptation =>
+    heldAdaptationFor(heldSessionAdaptations, ref, todayStartMs);
+  const adaptSession = (ref: AdaptedSessionRef, change: (current: SessionAdaptation) => SessionAdaptation) =>
+    setHeldSessionAdaptations((held) => updateHeldAdaptation(held, ref, todayStartMs, change));
   /**
    * The open coach conversation, held here because the chat screen unmounts.
    *
@@ -1141,12 +1162,6 @@ function VinhaApp() {
    * question of a cold start is answered without it rather than delayed by it.
    */
   const [coachAdviceMemory, setCoachAdviceMemory] = useState<CoachAdviceMemoryEntry[]>([]);
-  /**
-   * Slots left out of today's session, chosen on Home beside the swaps and
-   * spent at the same moment. Not a change to the programme — that is edited
-   * from the programme's own page.
-   */
-  const [sessionDrops, setSessionDrops] = useState<string[]>([]);
   // Shown when a create is blocked, from wherever it was attempted. Not a
   // route: the user was in the middle of something, and a screen change
   // would lose the thing they were doing to a wall they may dismiss.
@@ -1742,9 +1757,12 @@ function VinhaApp() {
       // promotion before them would move Home for a workout that never began.
       void leadOnTrain(workoutTemplateId);
       void updatePreferences({ trainingFirstRunDismissed: true });
+      // Only what was chosen for THIS session: a swap made on another day's
+      // card shares slot ids with this one and is not an answer about it.
+      const sessionRef = { programId: workoutTemplateId, sessionId };
       const runtimeTemplate = applySessionAdaptation(
         buildReadySessionRuntimeTemplate(template, sessionId),
-        { swaps: sessionSwaps, drops: sessionDrops },
+        sessionAdaptationFor(sessionRef),
       );
       workout.startCustomWorkout(runtimeTemplate, nextUnitPreference, {
         ...resolveProgressionOptions(preferences),
@@ -1752,8 +1770,7 @@ function VinhaApp() {
       });
       // Today's changes are spent the moment they are applied — an adaptation
       // is an answer about right now, and a stale one is worse than none.
-      setSessionSwaps({});
-      setSessionDrops([]);
+      setHeldSessionAdaptations((held) => spendHeldAdaptation(held, sessionRef));
       navigateToGuidedWorkout(workoutTemplateId);
     });
   }
@@ -2485,16 +2502,16 @@ function VinhaApp() {
       // a workout, so Home follows what actually started.
       void leadOnTrain(workoutTemplateId);
       void updatePreferences({ trainingFirstRunDismissed: true });
+      const sessionRef = { programId: workoutTemplateId, sessionId };
       const runtimeTemplate = applySessionAdaptation(
         buildCustomSessionRuntimeTemplate(customTemplate, sessionId),
-        { swaps: sessionSwaps, drops: sessionDrops },
+        sessionAdaptationFor(sessionRef),
       );
       workout.startCustomWorkout(runtimeTemplate, unitPreference, {
         ...resolveProgressionOptions(preferences),
         fatigueSignal: progressionFatigueSignal,
       });
-      setSessionSwaps({});
-      setSessionDrops([]);
+      setHeldSessionAdaptations((held) => spendHeldAdaptation(held, sessionRef));
       navigateToGuidedWorkout(workoutTemplateId);
     });
   }
@@ -2840,15 +2857,7 @@ function VinhaApp() {
       if (edit.kind === 'replace') {
         // Today's swap has been spent by the programme itself. Leaving it in
         // place would keep an override on a slot that now already says this.
-        setSessionSwaps((current) => {
-          const next = { ...current };
-          for (const [slotId, name] of Object.entries(next)) {
-            if (name === edit.exerciseName) {
-              delete next[slotId];
-            }
-          }
-          return next;
-        });
+        adaptSession({ programId, sessionId }, (current) => withoutSessionSwapsTo(current, edit.exerciseName));
         // No "it is in your programme now" popup: the row behind the sheet
         // already says the new lift, and it stops being marked as today's
         // override. A toast that repeats the screen is the thing the reader
@@ -3152,15 +3161,7 @@ function VinhaApp() {
       }
       void haptics.success();
       if (edit.kind === 'replace') {
-        setSessionSwaps((current) => {
-          const next = { ...current };
-          for (const [slotId, name] of Object.entries(next)) {
-            if (name === edit.exerciseName) {
-              delete next[slotId];
-            }
-          }
-          return next;
-        });
+        adaptSession({ programId, sessionId }, (current) => withoutSessionSwapsTo(current, edit.exerciseName));
       }
       /**
        * Onto the copy's version of the day the reader is standing on.
@@ -3889,6 +3890,9 @@ function VinhaApp() {
     await resetAllData();
     setCoachAdviceMemory([]);
     setCoachChatMemory(null);
+    // Same reason: today's swaps outlive the reset in this component's state,
+    // and would reappear on the first programme adopted after it.
+    setHeldSessionAdaptations(NO_HELD_SESSION_ADAPTATIONS);
   }, [resetAllData]);
 
   const handleCoachAdviceGiven = useCallback((takeaway: string) => {
@@ -4299,6 +4303,20 @@ function VinhaApp() {
     // adopting it means.
     return null;
   }, [database.workoutPlans, database.workoutSessions, database.exerciseLogs, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.dismissedCompletionPlanIds, preferences.recommendedProgramId, preferences.setupGoal, preferences.todaySession, recommendedReadyContent, recommendedReadyTemplate, setupSelection, todayStartMs, workoutTemplates]);
+  /**
+   * The session Home's card offers, which is what its swaps and left-out rows
+   * are held for. Pick another session for today and the card shows that
+   * one's own — none, until some are made for it.
+   */
+  const homeSessionRef: AdaptedSessionRef | null = homeActivePlanCard?.nextSession
+    ? { programId: homeActivePlanCard.programId, sessionId: homeActivePlanCard.nextSession.id }
+    : null;
+  const homeSessionAdaptation = sessionAdaptationFor(homeSessionRef);
+  const adaptHomeSession = (change: (current: SessionAdaptation) => SessionAdaptation) => {
+    if (homeSessionRef) {
+      adaptSession(homeSessionRef, change);
+    }
+  };
   // The AI tab's opening state. Deterministic, so the most valuable-looking
   // part of the coach costs nothing to render and works offline.
   const progressWeeklyTarget = Number.parseInt(homeActivePlanCard?.sessionsPerWeek ?? '', 10) || null;
@@ -6794,8 +6812,8 @@ function VinhaApp() {
       handleReorderProgramSession,
       handleSaveEmphasis,
       handleDeleteCustomWorkout,
-      sessionSwaps,
-      setSessionSwaps,
+      sessionAdaptationFor,
+      adaptSession,
       templateBuilderDraft,
       exerciseBrowserItems,
       recentExerciseBrowserItems,
@@ -7023,17 +7041,13 @@ function VinhaApp() {
             navigate({ tab: 'progress', screen: 'detail', exerciseKey: key.slice('lift:'.length) });
           }
         }}
-        sessionSwaps={sessionSwaps}
+        sessionSwaps={homeSessionAdaptation.swaps}
         onSwapSessionExercise={(slotId, exerciseName) =>
-          setSessionSwaps((current) => ({ ...current, [slotId]: exerciseName }))
+          adaptHomeSession((current) => withSessionSwap(current, slotId, exerciseName))
         }
-        sessionDrops={sessionDrops}
-        onDropSessionExercise={(slotId) =>
-          setSessionDrops((current) => (current.includes(slotId) ? current : [...current, slotId]))
-        }
-        onRestoreSessionExercise={(slotId) =>
-          setSessionDrops((current) => current.filter((id) => id !== slotId))
-        }
+        sessionDrops={homeSessionAdaptation.drops}
+        onDropSessionExercise={(slotId) => adaptHomeSession((current) => withSessionDrop(current, slotId))}
+        onRestoreSessionExercise={(slotId) => adaptHomeSession((current) => withoutSessionDrop(current, slotId))}
         onRemoveSessionExercise={(exerciseId) => {
           const sessionId = homeActivePlanCard?.nextSession?.id;
           if (homeActivePlanCard && sessionId) {

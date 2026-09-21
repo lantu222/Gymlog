@@ -1,4 +1,10 @@
 import { GENERATED_EXERCISE_LIBRARY } from '../data/generatedExerciseLibrary';
+import { WORKOUT_TEMPLATES_V1 } from '../features/workout/workoutCatalog';
+import {
+  isTimedTrackingMode,
+  isUnloadedTrackingMode,
+  WorkoutTrackingMode,
+} from '../features/workout/workoutTypes';
 import { findGuidedLibraryIndex } from './guidedPlayer';
 import { isHoldExerciseName } from './holdExercises';
 import { SetupFocusArea } from '../types/models';
@@ -87,6 +93,155 @@ export function getCatalogTrackingMode(name: string): 'bodyweight' | 'load_and_r
   return byName.get(name.trim().toLowerCase())?.equipment === 'bodyweight'
     ? 'bodyweight'
     : 'load_and_reps';
+}
+
+/**
+ * Whether the ready programmes log a name with a weight, for every name they
+ * prescribe. A name some rows load and others do not (a reverse lunge, a calf
+ * raise) is loaded: a weight dial left at zero still records bodyweight work
+ * truthfully, and a hidden one cannot record a weight that was lifted.
+ */
+const programmeLoadedByName = (() => {
+  const loadedByName = new Map<string, boolean>();
+  for (const template of WORKOUT_TEMPLATES_V1) {
+    for (const session of template.sessions) {
+      for (const exercise of session.exercises) {
+        const key = exercise.exerciseName.trim().toLowerCase();
+        const loaded = !isUnloadedTrackingMode(exercise.trackingMode);
+        loadedByName.set(key, (loadedByName.get(key) ?? false) || loaded);
+      }
+    }
+  }
+  return loadedByName;
+})();
+
+/**
+ * How a lift is logged when it is swapped into a slot: the way the ready
+ * programmes log it, and the library's answer (getCatalogTrackingMode) only
+ * for a name no programme prescribes — one picked from the library's own list.
+ *
+ * The programmes answer first because a swap lands on their names: 226 of the
+ * 283 names the swap groups offer are not spelled the library's way, so the
+ * library says "load" for a pull-up by not finding it, and some it does find
+ * it gets wrong — its trap bar deadlift and farmer's walk are "bodyweight".
+ * The composer keeps asking the library alone: its pools are curated against
+ * the library, and its bodyweight pool counts on that farmer's walk logging
+ * no weight.
+ *
+ * On the library's word alone a loaded slot stays loaded. Its "bodyweight" is
+ * wrong for more than those two — weighted squat, bench press with bands, the
+ * axle, car and rickshaw deadlifts, the Svend press — and a swap to one of
+ * them from the sheet's library search hid the weight dial and saved 0 kg:
+ * the bug this rule fixes, through another door (CI review of #170). The two
+ * mistakes do not cost the same. A dial shown for bodyweight work is left at
+ * zero; a dial hidden for a loaded lift loses the weight. So the library may
+ * move a slot to loaded, never away from it; the programmes' own answer, and
+ * the hold list's seconds, still decide both ways.
+ */
+function swappedInTrackingMode(
+  name: string,
+  current: WorkoutTrackingMode,
+): 'bodyweight' | 'load_and_reps' | 'hold' {
+  if (isHoldExerciseName(name)) {
+    return 'hold';
+  }
+  const programmeLoaded = programmeLoadedByName.get(name.trim().toLowerCase());
+  if (programmeLoaded !== undefined) {
+    return programmeLoaded ? 'load_and_reps' : 'bodyweight';
+  }
+  const library = getCatalogTrackingMode(name);
+  return library === 'bodyweight' && !isUnloadedTrackingMode(current) ? 'load_and_reps' : library;
+}
+
+/**
+ * The tracking mode a slot takes on when another lift is swapped into it.
+ *
+ * The slot's mode is how the lift it was PROGRAMMED with is logged, and a swap
+ * used to keep it: a pull-up swapped for a lat pulldown kept "bodyweight", so
+ * the set screen hid the weight dial and the pulldown was saved as 0 kg × 12;
+ * a glute bridge hold swapped for a barbell hip thrust kept "hold", and its
+ * dial counted seconds (swap audit, 2026-09-21). One rule for both places a
+ * swap is made — the player's sheet and Home before the start.
+ *
+ * Only the kind of set changes hands: when the lift coming in is logged the
+ * same way as the slot already is, the slot's own mode stays.
+ */
+export function trackingModeAfterSwap(current: WorkoutTrackingMode, exerciseName: string): WorkoutTrackingMode {
+  const incoming = swappedInTrackingMode(exerciseName, current);
+  const sameKind =
+    isUnloadedTrackingMode(incoming) === isUnloadedTrackingMode(current) &&
+    isTimedTrackingMode(incoming) === isTimedTrackingMode(current);
+  return sameKind ? current : incoming;
+}
+
+export interface SwapPrescription {
+  repsMin: number;
+  repsMax: number;
+}
+
+function middle<T>(items: T[], by: (item: T) => number): T | null {
+  if (items.length === 0) {
+    return null;
+  }
+  const sorted = [...items].sort((left, right) => by(left) - by(right));
+  return sorted[Math.floor((sorted.length - 1) / 2)];
+}
+
+/**
+ * What the ready programmes prescribe: the middle of the rows that write each
+ * name (by their top number, so the pair stays one row's pair), and the middle
+ * timed and counted rows over all of them, for a name none of them writes.
+ */
+const programmePrescriptions = (() => {
+  const rowsByName = new Map<string, SwapPrescription[]>();
+  const timed: SwapPrescription[] = [];
+  const counted: SwapPrescription[] = [];
+  for (const template of WORKOUT_TEMPLATES_V1) {
+    for (const session of template.sessions) {
+      for (const exercise of session.exercises) {
+        const row = { repsMin: exercise.repsMin, repsMax: exercise.repsMax };
+        const key = exercise.exerciseName.trim().toLowerCase();
+        const rows = rowsByName.get(key) ?? [];
+        rows.push(row);
+        rowsByName.set(key, rows);
+        (isTimedTrackingMode(exercise.trackingMode) ? timed : counted).push(row);
+      }
+    }
+  }
+  const byName = new Map<string, SwapPrescription>();
+  rowsByName.forEach((rows, key) => byName.set(key, middle(rows, (row) => row.repsMax)!));
+  return {
+    byName,
+    timed: middle(timed, (row) => row.repsMax) ?? { repsMin: 30, repsMax: 30 },
+    counted: middle(counted, (row) => row.repsMax) ?? { repsMin: 10, repsMax: 10 },
+  };
+})();
+
+/**
+ * The numbers a slot asks for after a swap that turns seconds into
+ * repetitions, or repetitions into seconds.
+ *
+ * A slot's numbers are written in its programmed lift's unit, and a swap that
+ * keeps the unit keeps them — same sets, same reps, same slot. Across the
+ * unit they mean nothing: a 60-second glute bridge hold swapped for a barbell
+ * hip thrust opened the reps dial at 60, and a hip thrust at 10 swapped for a
+ * hold asked for 10 seconds (review of this change). There, the incoming
+ * lift's own prescription is used — as the programmes write it, or, for a
+ * name none of them writes, as they write that kind of set.
+ */
+export function prescriptionAfterSwap(
+  from: WorkoutTrackingMode,
+  to: WorkoutTrackingMode,
+  current: SwapPrescription,
+  exerciseName: string,
+): SwapPrescription {
+  if (isTimedTrackingMode(from) === isTimedTrackingMode(to)) {
+    return current;
+  }
+  return (
+    programmePrescriptions.byName.get(exerciseName.trim().toLowerCase()) ??
+    (isTimedTrackingMode(to) ? programmePrescriptions.timed : programmePrescriptions.counted)
+  );
 }
 
 /** Bodyweight-first, then the loaded version. Both are real catalog entries. */

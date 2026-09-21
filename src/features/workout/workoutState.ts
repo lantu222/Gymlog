@@ -15,9 +15,16 @@ import { isLiftableWeight } from '../../lib/weightLimits';
 import { isGuidedExerciseOut } from '../../lib/guidedPlayer';
 import { buildSupersetPlayOrder, supersetGroupIndexes } from '../../lib/supersetGrouping';
 import { elapsedSecondsOf, restSecondsLeft, restTimerHasEnded, settleSessionClock, workoutSecondsUntil } from '../../lib/sessionClock';
-import { GuidedResumeAnchor, WorkoutTrackingMode, WorkoutTemplateExercise, WorkoutExerciseInsertInput, WorkoutExerciseInstance, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRestTimerState, WorkoutRuntimeTemplate, WorkoutSessionMaterializeOptions, WorkoutSessionRuntime, WorkoutSessionSummary, WorkoutSetDraftInput, WorkoutSetEffort, WorkoutSetInstance, WorkoutSlotHistoryEntry, WorkoutSlotHistorySet, WorkoutStatus, WorkoutUiState, WorkoutExerciseStatus } from './workoutTypes';
+import { GuidedResumeAnchor, WorkoutTrackingMode, WorkoutTemplateExercise, WorkoutExerciseInsertInput, WorkoutExerciseInstance, WorkoutHistoryStore, WorkoutLiftIdentity, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRestTimerState, WorkoutRuntimeTemplate, WorkoutSessionMaterializeOptions, WorkoutSessionRuntime, WorkoutSessionSummary, WorkoutSetDraftInput, WorkoutSetEffort, WorkoutSetInstance, WorkoutSlotHistoryEntry, WorkoutSlotHistorySet, WorkoutStatus, WorkoutUiState, WorkoutExerciseStatus } from './workoutTypes';
 import { getWorkoutTemplateById } from './workoutCatalog';
 import { resolveProgressedLoadKg, resolveProgressedReps } from '../../lib/progressionGate';
+import { prescriptionAfterSwap, trackingModeAfterSwap } from '../../lib/catalogExercisePools';
+import {
+  liftBeforeSwap,
+  liftOfSet,
+  setIndexWithinLift,
+  splitExerciseByLift,
+} from '../../lib/liftSegments';
 import {
   entriesForLift,
   findHistoricalSetForIndex,
@@ -193,6 +200,19 @@ function cloneExercise(exercise: WorkoutExerciseInstance): WorkoutExerciseInstan
     ...exercise,
     sets: exercise.sets.map(cloneSet),
   };
+}
+
+/**
+ * The lift a set is logged as, stamped on it when it is logged.
+ *
+ * At logging time rather than at the swap: a swap can only stamp the sets that
+ * are logged when it happens, and a set taken back and logged again after it
+ * then carried nothing — which a session from before the stamp also carries,
+ * so the two could not be told apart (lib/liftSegments reads an unstamped set
+ * below the swap line as the old lift).
+ */
+function currentLiftOf(exercise: WorkoutExerciseInstance): WorkoutLiftIdentity {
+  return { exerciseName: exercise.exerciseName, trackingMode: exercise.trackingMode };
 }
 
 function parseInputNumber(value: string | undefined) {
@@ -515,6 +535,10 @@ function materializeExercise(
     restSecondsMax: exercise.restSecondsMax,
     substitutionGroup: exercise.substitutionGroup,
     supersetGroup: exercise.supersetGroup ?? null,
+    // A swap made on Home before the start, on record the same way as one
+    // made in the player — otherwise the save could not tell the lift that
+    // was done from the one the programme wrote here.
+    ...(exercise.sourceExerciseName ? { sourceExerciseName: exercise.sourceExerciseName } : {}),
     orderIndex,
     sets,
     status: 'pending',
@@ -1161,6 +1185,7 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
       set.effort = set.effort ?? null;
       set.completedAt = new Date(action.payload.nowMs).toISOString();
       set.edited = true;
+      set.loggedAs = currentLiftOf(exercise);
       // The pause time run so far, so a workout that ends at this set takes
       // off only these (workoutSecondsUntil).
       session.pausedMsAtLastSet =
@@ -1219,14 +1244,18 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
       if (!set || set.status !== 'completed') {
         return state;
       }
+      // Judged as the lift it was logged as: a pull-up set corrected after the
+      // swap to a lat pulldown is still a pull-up, with no weight to ask for.
+      // The correction sheet asks the same rule (liftOfSet).
+      const lift = liftOfSet(exercise, set);
       if (
         !Number.isFinite(action.payload.reps) ||
         action.payload.reps <= 0 ||
-        action.payload.reps > repsCeilingFor(exercise, set)
+        action.payload.reps > repsCeilingFor(lift, set)
       ) {
         return state;
       }
-      const unloaded = isUnloadedTrackingMode(exercise.trackingMode);
+      const unloaded = isUnloadedTrackingMode(lift.trackingMode);
       // Same ceiling as the dial: "825" typed for 82,5 was accepted here,
       // shown on the summary, then dropped from the log on the next load.
       if (!unloaded && !isLiftableWeight(action.payload.loadKg)) {
@@ -1303,6 +1332,7 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
       targetSet.completedAt = new Date(action.payload.nowMs).toISOString();
       targetSet.status = 'completed';
       targetSet.edited = true;
+      targetSet.loggedAs = currentLiftOf(exercise);
 
       exercise.status = finalizeExerciseStatus(exercise);
       const nextTarget = findNextPendingTarget(session, exerciseIndex, action.payload.setIndex);
@@ -1350,6 +1380,9 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
       set.actualReps = undefined;
       set.effort = null;
       set.completedAt = undefined;
+      // Taken back, it is done again as whatever the slot holds now — the
+      // lift it was logged as before a swap no longer answers for it.
+      set.loggedAs = undefined;
       exercise.status = 'active';
       session.restTimer = createInitialTimer();
       updateActiveExercise(session, exerciseIndex, action.payload.setIndex);
@@ -1382,13 +1415,25 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
         if (position === exerciseIndex) {
           nextSetIndex = memberNextIndex;
         }
+        // A last set logged as another lift — the slot was swapped after it —
+        // lends the new set neither its weight nor numbers in its unit: three
+        // 60-second holds, a swap to a hip thrust, and the added set asked for
+        // 60 reps at the hold's weight (review of #170).
+        const sourceLift = sourceSet ? liftBeforeSwap(member, sourceSet) : null;
+        const sourceReps = {
+          repsMin: sourceSet?.plannedRepsMin ?? member.sets[0]?.plannedRepsMin ?? 1,
+          repsMax: sourceSet?.plannedRepsMax ?? member.sets[0]?.plannedRepsMax ?? 1,
+        };
+        const planned = sourceLift
+          ? prescriptionAfterSwap(sourceLift.trackingMode, member.trackingMode, sourceReps, member.exerciseName)
+          : sourceReps;
         member.sets = [
           ...member.sets,
           {
             setIndex: memberNextIndex,
-            plannedLoadKg: sourceSet?.actualLoadKg ?? sourceSet?.plannedLoadKg,
-            plannedRepsMin: sourceSet?.plannedRepsMin ?? member.sets[0]?.plannedRepsMin ?? 1,
-            plannedRepsMax: sourceSet?.plannedRepsMax ?? member.sets[0]?.plannedRepsMax ?? 1,
+            plannedLoadKg: sourceLift ? undefined : sourceSet?.actualLoadKg ?? sourceSet?.plannedLoadKg,
+            plannedRepsMin: planned.repsMin,
+            plannedRepsMax: planned.repsMax,
             draftLoadText: '',
             draftRepsText: '',
             status: 'pending',
@@ -1584,8 +1629,35 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
         return state;
       }
       const exercise = session.exercises[exerciseIndex];
+      // A set logged here is stamped with its lift already (currentLiftOf);
+      // one logged by a build from before the stamp is stamped now, before
+      // the name changes and the answer is lost.
+      exercise.sets.forEach((set) => {
+        if (set.status === 'completed' && !set.loggedAs) {
+          set.loggedAs = liftBeforeSwap(exercise, set) ?? currentLiftOf(exercise);
+        }
+      });
       exercise.sourceExerciseName = exercise.sourceExerciseName ?? exercise.exerciseName;
       exercise.exerciseName = action.payload.exerciseName;
+      // The mode is the incoming lift's. Kept from the old one, a pull-up
+      // swapped for a lat pulldown hid the weight dial and saved 0 kg × 12.
+      const previousMode = exercise.trackingMode;
+      exercise.trackingMode = trackingModeAfterSwap(previousMode, action.payload.exerciseName);
+      // And the sets still ahead ask for numbers in its unit: seconds of a
+      // hold are not repetitions of a hip thrust.
+      const pendingSets = exercise.sets.filter((set) => set.status === 'pending');
+      if (pendingSets.length > 0) {
+        const prescription = prescriptionAfterSwap(
+          previousMode,
+          exercise.trackingMode,
+          { repsMin: pendingSets[0].plannedRepsMin, repsMax: pendingSets[0].plannedRepsMax },
+          action.payload.exerciseName,
+        );
+        pendingSets.forEach((set) => {
+          set.plannedRepsMin = prescription.repsMin;
+          set.plannedRepsMax = prescription.repsMax;
+        });
+      }
       exercise.substitutionGroup = action.payload.substitutionGroup;
       exercise.status = 'swapped';
       // The prefilled load belongs to the lift you just swapped AWAY from — it
@@ -1600,7 +1672,12 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
         requireLoaded: !isUnloadedTrackingMode(exercise.trackingMode),
         // Same gate as the session's own prefill: the swapped-in lift's weight
         // only carries over from sessions run at reps this slot is asking for.
-        repWindow: resolveInstanceBorrowRepWindow(exercise),
+        // Asked of the sets still ahead: a set logged before the swap carries
+        // the old lift's prescription.
+        repWindow: resolveInstanceBorrowRepWindow({
+          trackingMode: exercise.trackingMode,
+          sets: pendingSets.length > 0 ? pendingSets : exercise.sets,
+        }),
       });
       // Sets logged before this moment were a different lift. Clearing their
       // drafts is not enough on its own: the logger also carries forward from
@@ -1621,7 +1698,9 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
         if (set.status !== 'pending') {
           return;
         }
-        const historical = findHistoricalSetForIndex(swappedInEntry, set.setIndex);
+        // By its place within the new lift, which is how that lift's history
+        // numbers it — not by its place in the slot (review of #170).
+        const historical = findHistoricalSetForIndex(swappedInEntry, setIndexWithinLift(exercise, set));
         set.draftLoadText = historical ? formatWeightInputValue(historical.loadKg, action.payload.unitPreference) : '';
         set.plannedLoadKg = historical?.loadKg;
         set.autoProgressedFromKg = undefined;
@@ -1880,30 +1959,32 @@ export function completeWorkoutSession(state: WorkoutFeatureState, performedAt =
   const slotHistory: WorkoutHistoryStore['slotHistory'] = { ...state.history.slotHistory };
 
   session.exercises.forEach((exercise) => {
-    const sets = exercise.sets
-      .filter((set) => set.status === 'completed' && typeof set.actualLoadKg === 'number' && typeof set.actualReps === 'number')
-      .map((set) => ({
-        setIndex: set.setIndex,
-        loadKg: set.actualLoadKg ?? 0,
-        reps: set.actualReps ?? 0,
-        completedAt: set.completedAt ?? performedAt,
-        effort: set.effort ?? null,
-      }));
-
-    const entry: WorkoutSlotHistoryEntry = {
+    // One entry per lift the slot held: the sets before a swap are the old
+    // lift's history, not the new one's, and the next session of either lift
+    // opens on what that lift actually did (lib/liftSegments).
+    const entries = splitExerciseByLift(exercise).map((segment): WorkoutSlotHistoryEntry => ({
       slotId: exercise.slotId,
       templateId: session.templateId,
       templateName: session.templateName,
-      exerciseName: exercise.exerciseName,
+      exerciseName: segment.exerciseName,
       substitutionGroup: exercise.substitutionGroup,
       performedAt,
       sessionId: session.sessionId,
-      sets,
-      skipped: exercise.status === 'skipped',
-      swappedFrom: exercise.sourceExerciseName,
-    };
+      sets: segment.sets
+        .filter((set) => set.status === 'completed' && typeof set.actualLoadKg === 'number' && typeof set.actualReps === 'number')
+        .map((set) => ({
+          setIndex: set.setIndex,
+          loadKg: set.actualLoadKg ?? 0,
+          reps: set.actualReps ?? 0,
+          completedAt: set.completedAt ?? performedAt,
+          effort: set.effort ?? null,
+        })),
+      skipped: segment.current && exercise.status === 'skipped',
+      swappedFrom: segment.swappedFrom ?? undefined,
+    }));
 
-    slotHistory[exercise.slotId] = [entry, ...(slotHistory[exercise.slotId] ?? [])].slice(0, 10);
+    // Newest first, like the list it joins: the lift the slot ended on leads.
+    slotHistory[exercise.slotId] = [...entries.reverse(), ...(slotHistory[exercise.slotId] ?? [])].slice(0, 10);
   });
 
   return {

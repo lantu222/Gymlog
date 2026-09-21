@@ -116,6 +116,7 @@ import {
   resolveInstanceBorrowRepWindow,
 } from '../features/workout/workoutState';
 import { isUsableEntry, resolveLastTimeEntry } from '../lib/exerciseHistoryLookup';
+import { liftOfSet } from '../lib/liftSegments';
 import {
   isTimedTrackingMode,
   isUnloadedTrackingMode,
@@ -1429,6 +1430,12 @@ export function GuidedPlayerScreen({
    */
   const [restEdit, setRestEdit] = useState<{ slotId: string; setIndex: number } | null>(null);
   const restEditOpen = restEdit !== null;
+  /** The lift the set being corrected was logged as (lib/liftSegments). */
+  const restEditLift = (() => {
+    const exercise = restEdit ? exerciseBySlot.get(restEdit.slotId) : undefined;
+    const set = exercise && restEdit ? findSetByIndex(exercise, restEdit.setIndex) : null;
+    return exercise ? (set ? liftOfSet(exercise, set) : exercise) : null;
+  })();
   const [swapQuery, setSwapQuery] = useState('');
   const [confirmingEnd, setConfirmingEnd] = useState(false);
   /** The lift whose final set was just logged — a one-second check-splash
@@ -3440,15 +3447,18 @@ export function GuidedPlayerScreen({
         <LoggedSetEditor
           language={language}
           unitPreference={unitPreference}
-          unloaded={isUnloadedTrackingMode(exerciseBySlot.get(restEdit.slotId)?.trackingMode ?? 'load_and_reps')}
-          repsCeiling={(() => {
-            const exercise = exerciseBySlot.get(restEdit.slotId);
+          // The set is judged as the lift it was logged as — the reducer's
+          // rule (liftOfSet). A swap changes the exercise's mode, so reading
+          // the exercise here offered a squat set no weight after a swap to a
+          // bodyweight lift, and the store refused the save for lacking one.
+          unloaded={isUnloadedTrackingMode(restEditLift?.trackingMode ?? 'load_and_reps')}
+          repsCeiling={
             // The reducer's own ceiling, so Save and the store cannot disagree:
             // a hold's seconds, an interval's work seconds, a prescription past the dial.
-            return exercise
-              ? repsCeilingFor(exercise, findSetByIndex(exercise, restEdit.setIndex))
-              : REPS_DIAL.max;
-          })()}
+            restEditLift
+              ? repsCeilingFor(restEditLift, findSetByIndex(exerciseBySlot.get(restEdit.slotId), restEdit.setIndex))
+              : REPS_DIAL.max
+          }
           reps={findSetByIndex(exerciseBySlot.get(restEdit.slotId), restEdit.setIndex)?.actualReps ?? 0}
           loadKg={findSetByIndex(exerciseBySlot.get(restEdit.slotId), restEdit.setIndex)?.actualLoadKg ?? 0}
           onCancel={() => setRestEdit(null)}

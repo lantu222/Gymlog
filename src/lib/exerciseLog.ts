@@ -205,6 +205,50 @@ export function deriveLegacyLogFieldsFromSets(sets: ExerciseLogSet[]) {
   };
 }
 
+/**
+ * The lift a log was swapped in for — none, when it was not a swap
+ * (logRecordsSwap). Settled here, on the way in and on every load, so the
+ * History badge, the swap counts, Progress and the insight all read one
+ * answer: a log "swapped from" the lift it names is the programmed lift.
+ */
+function normalizeSwappedFrom(log: { swappedFrom?: unknown; exerciseNameSnapshot?: unknown }): string | null {
+  return logRecordsSwap(log) ? (log.swappedFrom as string).trim() : null;
+}
+
+/**
+ * The programme exercise a log is filed under — none, when the log records a
+ * swap.
+ *
+ * A programme's own exercise names its logs: Progress groups a log by its
+ * template's name before its own. A swapped-in lift is not that exercise, and
+ * the save used to keep the programmed lift's template on it, so a leg press
+ * at 200 kg in the reader's own programme went into Progress as "back squat"
+ * (swap audit, 2026-09-21). Every log is normalized through here on its way
+ * in and on every load, so a new one cannot be filed wrong and the ones
+ * already stored are filed under the lift they name.
+ */
+function normalizeLogTemplateId(exerciseTemplateId: unknown, swappedFrom: string | null): string | null {
+  if (swappedFrom) {
+    return null;
+  }
+  return typeof exerciseTemplateId === 'string' ? exerciseTemplateId : null;
+}
+
+/**
+ * Whether a log is a lift swapped in for another.
+ *
+ * A log that names the lift it says it was swapped from is not: an older build
+ * saved a slot swapped away and back (A → B → A) as A "swapped from A". That
+ * is the programmed lift — it keeps its template and its place in the
+ * post-session insight, and loads with no swap on it, so History does not
+ * badge a bench press as swapped from the bench press (review of #170).
+ */
+export function logRecordsSwap(log: { swappedFrom?: unknown; exerciseNameSnapshot?: unknown }): boolean {
+  const from = typeof log.swappedFrom === 'string' ? log.swappedFrom.trim().toLowerCase() : '';
+  const named = typeof log.exerciseNameSnapshot === 'string' ? log.exerciseNameSnapshot.trim().toLowerCase() : '';
+  return from !== '' && from !== named;
+}
+
 export function normalizeExerciseLog(log: Partial<ExerciseLog> | null | undefined): ExerciseLog | null {
   if (
     !log ||
@@ -220,14 +264,12 @@ export function normalizeExerciseLog(log: Partial<ExerciseLog> | null | undefine
   const skipped = log.skipped === true;
   const normalizedSets = normalizeExerciseSets(log.sets, log.weight, log.repsPerSet);
   const derived = deriveLegacyLogFieldsFromSets(normalizedSets);
+  const swappedFrom = normalizeSwappedFrom(log);
 
   return {
     id: log.id,
     sessionId: log.sessionId,
-    exerciseTemplateId:
-      typeof log.exerciseTemplateId === 'string' || log.exerciseTemplateId === null
-        ? log.exerciseTemplateId
-        : null,
+    exerciseTemplateId: normalizeLogTemplateId(log.exerciseTemplateId, swappedFrom),
     exerciseNameSnapshot: log.exerciseNameSnapshot,
     weight: skipped ? 0 : derived.weight,
     repsPerSet: skipped ? [] : derived.repsPerSet,
@@ -248,7 +290,7 @@ export function normalizeExerciseLog(log: Partial<ExerciseLog> | null | undefine
     templateExerciseId:
       typeof log.templateExerciseId === 'string' || log.templateExerciseId === null ? log.templateExerciseId : null,
     notes: typeof log.notes === 'string' ? log.notes.trim() || null : null,
-    swappedFrom: typeof log.swappedFrom === 'string' ? log.swappedFrom.trim() || null : null,
+    swappedFrom,
   };
 }
 
@@ -256,9 +298,11 @@ export function normalizeExerciseLogDraft(log: ExerciseLogDraft) {
   const skipped = log.skipped === true;
   const normalizedSets = normalizeExerciseSets(log.sets, log.weight, log.repsPerSet);
   const derived = deriveLegacyLogFieldsFromSets(normalizedSets);
+  const swappedFrom = normalizeSwappedFrom(log);
 
   return {
     ...log,
+    exerciseTemplateId: normalizeLogTemplateId(log.exerciseTemplateId, swappedFrom),
     weight: skipped ? 0 : derived.weight,
     repsPerSet: skipped ? [] : derived.repsPerSet,
     sets: normalizedSets,
@@ -276,6 +320,6 @@ export function normalizeExerciseLogDraft(log: ExerciseLogDraft) {
     templateExerciseId:
       typeof log.templateExerciseId === 'string' || log.templateExerciseId === null ? log.templateExerciseId : null,
     notes: typeof log.notes === 'string' ? log.notes.trim() || null : null,
-    swappedFrom: typeof log.swappedFrom === 'string' ? log.swappedFrom.trim() || null : null,
+    swappedFrom,
   };
 }

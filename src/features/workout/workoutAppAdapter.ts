@@ -1,6 +1,7 @@
 import { ExerciseLogDraft, ExerciseLogSet } from '../../types/models';
 import { WorkoutExerciseInstance, WorkoutSessionRuntime, WorkoutSetStatus, WorkoutTrackingMode } from './workoutTypes';
 import { sessionLastActiveMs, workoutSecondsUntil } from '../../lib/sessionClock';
+import { LiftSegment, splitExerciseByLift } from '../../lib/liftSegments';
 
 export type LegacyWorkoutDataMismatch =
   | 'template_exercise_id_not_mapped';
@@ -18,6 +19,11 @@ export interface AdaptedCompletedWorkoutSet {
 }
 
 export interface AdaptedCompletedWorkoutExercise {
+  /**
+   * The row's id on the finish screen: the live slot's id, except for a
+   * further lift the same slot held, which is `<slot id>#<position>` — one
+   * slot swapped mid-exercise is two rows. See bridgeRowId.
+   */
   slotId: string;
   templateSlotId: string;
   templateExerciseId: string;
@@ -129,54 +135,106 @@ function adaptSetForBridge(
   };
 }
 
-function adaptExerciseForBridge(exercise: WorkoutExerciseInstance): AdaptedCompletedWorkoutExercise {
-  return {
-    slotId: exercise.slotId,
+/**
+ * What a finished slot is saved as: one row per lift it held (lib/liftSegments).
+ *
+ * The lift the programme wrote here keeps its claim on the programme's
+ * exercise template. Any other lift has none: the template is the programmed
+ * lift, and naming a leg press log after it put 200 kg on "back squat" in
+ * Progress (swap audit, 2026-09-21). What belongs to the exercise as a whole —
+ * its status, its notes — stays with the lift it ended on; a lift it held
+ * before a swap was done as far as it went.
+ */
+interface SavedLift {
+  segment: LiftSegment;
+  exerciseTemplateId: string | null;
+  exerciseName: string;
+  skipped: boolean;
+  notes: string | null;
+  status: ExerciseLogDraft['status'];
+  /** The row that stands for the exercise: the lift it ended on, else the last one done. */
+  holdsExercise: boolean;
+}
+
+function savedLifts(exercise: WorkoutExerciseInstance): SavedLift[] {
+  const notes = exercise.notes?.trim() ? exercise.notes.trim() : null;
+  const segments = splitExerciseByLift(exercise);
+  // Swapped after its last set, the exercise ended on a lift with no row of
+  // its own; the last lift that was done stands for it instead.
+  const holder = segments.find((segment) => segment.current) ?? segments[segments.length - 1];
+  return segments.map((segment) => ({
+    segment,
+    exerciseTemplateId:
+      exercise.sessionInserted || segment.swappedFrom !== null ? null : exercise.persistedExerciseTemplateId ?? null,
+    exerciseName: segment.exerciseName,
+    skipped: segment.current && exercise.status === 'skipped',
+    notes: segment === holder ? notes : null,
+    holdsExercise: segment === holder,
+    status: segment.current ? adaptExerciseStatus(exercise.status) : 'completed',
+  }));
+}
+
+/**
+ * A row of a split slot needs an id of its own: the finish screen keys its
+ * cards, its PR badges and its "what moved" lines by this. The row standing
+ * for the exercise keeps the slot's id; any other lift the slot held is told
+ * apart by its position.
+ */
+function bridgeRowId(exercise: WorkoutExerciseInstance, lift: SavedLift, index: number) {
+  return lift.holdsExercise ? exercise.slotId : `${exercise.slotId}#${index}`;
+}
+
+function adaptExerciseForBridge(exercise: WorkoutExerciseInstance): AdaptedCompletedWorkoutExercise[] {
+  return savedLifts(exercise).map((lift, index) => ({
+    slotId: bridgeRowId(exercise, lift, index),
     templateSlotId: exercise.templateSlotId,
     templateExerciseId: exercise.templateExerciseId,
-    persistedExerciseTemplateId: exercise.persistedExerciseTemplateId ?? null,
-    exerciseName: exercise.exerciseName,
+    persistedExerciseTemplateId: lift.exerciseTemplateId,
+    exerciseName: lift.exerciseName,
     tracked: isTrackedExercise(exercise),
-    trackingMode: exercise.trackingMode,
+    trackingMode: lift.segment.trackingMode,
     orderIndex: exercise.orderIndex,
-    skipped: exercise.status === 'skipped',
+    skipped: lift.skipped,
     sessionInserted: exercise.sessionInserted === true,
-    notes: exercise.notes?.trim() ? exercise.notes.trim() : null,
-    swappedFrom: exercise.sourceExerciseName?.trim() ? exercise.sourceExerciseName.trim() : null,
-    sets: sortByOrderIndex(exercise.sets.map(adaptSetForBridge)),
+    notes: lift.notes,
+    swappedFrom: lift.segment.swappedFrom,
+    sets: sortByOrderIndex(lift.segment.sets.map(adaptSetForBridge)),
+  }));
+}
+
+function adaptSetToLogSet(set: WorkoutExerciseInstance['sets'][number]): ExerciseLogDraft['sets'][number] {
+  return {
+    orderIndex: set.setIndex,
+    weight: set.actualLoadKg ?? 0,
+    reps: set.actualReps ?? 0,
+    kind: 'working' as const,
+    outcome: set.status === 'completed' ? ('completed' as const) : set.status === 'skipped' ? ('skipped' as const) : null,
+    status: set.status,
+    effort: set.effort ?? null,
+    completedAt: set.completedAt ?? null,
+    skippedReason: set.skippedReason ?? null,
   };
 }
 
-function adaptExerciseToLogDraft(exercise: WorkoutExerciseInstance): ExerciseLogDraft {
-  const sets = sortByOrderIndex(
-    exercise.sets.map((set) => ({
-      orderIndex: set.setIndex,
-      weight: set.actualLoadKg ?? 0,
-      reps: set.actualReps ?? 0,
-      kind: 'working' as const,
-      outcome: set.status === 'completed' ? ('completed' as const) : set.status === 'skipped' ? ('skipped' as const) : null,
-      status: set.status,
-      effort: set.effort ?? null,
-      completedAt: set.completedAt ?? null,
-      skippedReason: set.skippedReason ?? null,
-    })),
+function adaptExerciseToLogDrafts(exercise: WorkoutExerciseInstance): ExerciseLogDraft[] {
+  return savedLifts(exercise).map(
+    (lift) =>
+      ({
+        exerciseTemplateId: lift.exerciseTemplateId,
+        exerciseNameSnapshot: lift.exerciseName,
+        sets: sortByOrderIndex(lift.segment.sets.map(adaptSetToLogSet)),
+        tracked: isTrackedExercise(exercise),
+        orderIndex: exercise.orderIndex,
+        skipped: lift.skipped,
+        sessionInserted: exercise.sessionInserted === true,
+        status: lift.status,
+        slotId: exercise.slotId,
+        templateSlotId: exercise.templateSlotId,
+        templateExerciseId: exercise.templateExerciseId,
+        notes: lift.notes,
+        swappedFrom: lift.segment.swappedFrom,
+      }) satisfies ExerciseLogDraft,
   );
-
-  return {
-    exerciseTemplateId: exercise.sessionInserted ? null : exercise.persistedExerciseTemplateId ?? null,
-    exerciseNameSnapshot: exercise.exerciseName,
-    sets,
-    tracked: isTrackedExercise(exercise),
-    orderIndex: exercise.orderIndex,
-    skipped: exercise.status === 'skipped',
-    sessionInserted: exercise.sessionInserted === true,
-    status: adaptExerciseStatus(exercise.status),
-    slotId: exercise.slotId,
-    templateSlotId: exercise.templateSlotId,
-    templateExerciseId: exercise.templateExerciseId,
-    notes: exercise.notes?.trim() ? exercise.notes.trim() : null,
-    swappedFrom: exercise.sourceExerciseName?.trim() ? exercise.sourceExerciseName.trim() : null,
-  } satisfies ExerciseLogDraft;
 }
 
 function shouldPersistExercise(exercise: WorkoutExerciseInstance) {
@@ -184,7 +242,11 @@ function shouldPersistExercise(exercise: WorkoutExerciseInstance) {
     return true;
   }
 
-  if (exercise.notes?.trim() || exercise.sourceExerciseName?.trim()) {
+  // A swap made in the player is on record even with nothing logged after it.
+  // One made on Home before the start is only the plan until a set is done:
+  // kept regardless, an untouched session with one swapped row was saved as a
+  // finished workout instead of being discarded (review of this change).
+  if (exercise.notes?.trim() || (exercise.status === 'swapped' && exercise.sourceExerciseName?.trim())) {
     return true;
   }
 
@@ -197,7 +259,9 @@ function collectLegacyShapeMismatches(
   const mismatches = new Set<LegacyWorkoutDataMismatch>();
 
   exercises.forEach((exercise) => {
-    if (exercise.templateExerciseId && !exercise.persistedExerciseTemplateId) {
+    // A swapped-in lift has no template on purpose (see savedLifts); that is
+    // not the legacy shape this counts.
+    if (exercise.templateExerciseId && !exercise.persistedExerciseTemplateId && exercise.swappedFrom === null) {
       mismatches.add('template_exercise_id_not_mapped');
     }
   });
@@ -208,11 +272,11 @@ function collectLegacyShapeMismatches(
 export function buildAdaptedCompletedWorkoutExercises(
   session: WorkoutSessionRuntime,
 ): AdaptedCompletedWorkoutExercise[] {
-  return sortByOrderIndex(session.exercises.map(adaptExerciseForBridge));
+  return sortByOrderIndex(session.exercises.flatMap(adaptExerciseForBridge));
 }
 
 export function buildExerciseLogDraftsFromWorkoutSession(session: WorkoutSessionRuntime): ExerciseLogDraft[] {
-  return sortByOrderIndex(session.exercises.filter(shouldPersistExercise).map(adaptExerciseToLogDraft));
+  return sortByOrderIndex(session.exercises.filter(shouldPersistExercise).flatMap(adaptExerciseToLogDrafts));
 }
 
 export function adaptCompletedWorkoutSessionForAppDatabase(
