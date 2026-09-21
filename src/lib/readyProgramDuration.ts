@@ -1,5 +1,7 @@
 import { WorkoutTemplateV1 } from '../features/workout/workoutTypes';
 
+import { ProgrammeLineageTemplate, programmeOriginId } from './programLineage';
+
 /**
  * How long a ready program runs (user decision 2026-08-23: nothing is offered
  * as a four-week block any more — either it runs 8-12 weeks or it is not in
@@ -62,4 +64,34 @@ export function getReadyProgramBlockWeeks(
   }
 
   return BLOCK_WEEKS_BY_LEVEL[template.level] ?? READY_PROGRAM_MIN_BLOCK_WEEKS;
+}
+
+/**
+ * The block a running programme is counted over, whichever record holds it.
+ *
+ * Home asked the catalog only when the plan pointed at the catalog template
+ * itself. Changing one lift hands the reader their own copy, and the copy
+ * found no block and fell back to the generic eight weeks — while it kept the
+ * old block's start and counted the original's sessions, as it should. A
+ * twelve-week programme 16 sessions in went from "week 9/12, 16 of 24" to
+ * "week 8/8, 16 of 16", and the completion card called it finished with a
+ * third of it still to go (audit, 2026-09-20). The catalog card beside it
+ * still said twelve.
+ *
+ * The copy is the same programme, and records which one: its block is its
+ * origin's. Undefined for a programme the reader built themselves — there is
+ * no catalog block behind it, and the caller's default applies.
+ *
+ * The lookup is passed in, so this stays a rule about lineage and not a
+ * second route into the catalog.
+ */
+export function getProgrammeBlockWeeks(
+  templateId: string,
+  storedTemplates: readonly ProgrammeLineageTemplate[],
+  findReadyTemplate: (
+    templateId: string,
+  ) => Pick<WorkoutTemplateV1, 'level' | 'blockLengthWeeks' | 'sessions'> | null | undefined,
+): number | undefined {
+  const origin = findReadyTemplate(programmeOriginId(templateId, storedTemplates));
+  return origin ? getReadyProgramBlockWeeks(origin) : undefined;
 }

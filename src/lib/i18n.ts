@@ -1489,7 +1489,6 @@ const EN = {
   // finish step, from wherever the session stands.
   'guided.exit.finishSave': "I'm done",
   'guided.pauseSheet.title': 'Paused',
-  'guided.finish.thisWeek': 'THIS WEEK',
   'guided.coach.pr': 'Strong work. {kg} kg on {name} is a new best.',
   'guided.coach.prSub': 'Next {name} target: {kg} kg.',
   'guided.coach.top': 'Solid session. {name} at {kg} kg moved well.',
@@ -4501,7 +4500,6 @@ const FI: Record<I18nKey, string> = {
   'guided.exit.end': 'Hylkää treeni',
   'guided.exit.finishSave': 'Olen valmis',
   'guided.pauseSheet.title': 'Tauolla',
-  'guided.finish.thisWeek': 'TÄLLÄ VIIKOLLA',
   'guided.coach.pr': 'Hienoa työtä. {kg} kg liikkeessä {name} on uusi ennätys.',
   'guided.coach.prSub': 'Seuraava tavoite liikkeessä {name}: {kg} kg.',
   'guided.coach.top': 'Kunnon treeni. {name} painolla {kg} kg liikkui hyvin.',

@@ -22,6 +22,20 @@ export interface ProgrammeLineageTemplate {
 }
 
 /**
+ * The programme a template stands for: the catalog programme it was copied
+ * from, or itself when it is no copy.
+ *
+ * Whatever a programme IS rather than holds — its block length, the page it
+ * was taken from — belongs to the origin. The copy exists only because the
+ * catalog original may not be edited; asking the copy for those answers
+ * found nothing and fell back to a generic default.
+ */
+export function programmeOriginId(templateId: string, templates: readonly ProgrammeLineageTemplate[]): string {
+  const own = templates.find((template) => template.id === templateId) ?? null;
+  return own?.sourceTemplateId ?? templateId;
+}
+
+/**
  * Every template id that counts as the same programme as `templateId`: the
  * template itself, the catalog programme it was copied from, and every copy
  * made from that same original — a reader who edited, reset and edited again
@@ -38,8 +52,7 @@ export function programmeLineageIds(
   templateId: string,
   templates: readonly ProgrammeLineageTemplate[],
 ): string[] {
-  const own = templates.find((template) => template.id === templateId) ?? null;
-  const origin = own?.sourceTemplateId ?? templateId;
+  const origin = programmeOriginId(templateId, templates);
   const ids = [templateId];
   const add = (id: string | null | undefined) => {
     if (id && !ids.includes(id)) {

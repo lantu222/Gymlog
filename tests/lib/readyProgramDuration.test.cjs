@@ -1,11 +1,15 @@
 const assert = require('node:assert/strict');
 
 const {
+  getProgrammeBlockWeeks,
   getReadyProgramBlockWeeks,
   READY_PROGRAM_MIN_BLOCK_WEEKS,
   READY_PROGRAM_MAX_BLOCK_WEEKS,
 } = require('../../.test-dist/lib/readyProgramDuration');
-const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog');
+const { WORKOUT_TEMPLATES_V1, getWorkoutTemplateById } = require('../../.test-dist/features/workout/workoutCatalog');
+const { buildHomePlanProgress } = require('../../.test-dist/lib/homePlanProgress');
+const { countSessionsSince, resolveCompletionCard } = require('../../.test-dist/lib/programCompletion');
+const { programmeHistoryIds } = require('../../.test-dist/lib/programLineage');
 const { READY_PROGRAM_COLLECTIONS } = require('../../.test-dist/lib/readyProgramCollections');
 
 const days = (count) => Array.from({ length: count }, (_, index) => ({ id: `s${index}` }));
@@ -101,6 +105,79 @@ module.exports = [
         assert.ok(collected.has(id), `${id} missing from collections`);
         assert.ok(WORKOUT_TEMPLATES_V1.some((template) => template.id === id), `${id} missing from catalog`);
       }
+    },
+  },
+  {
+    name: 'programme block: the copy made by changing one lift runs the block of the programme it came from',
+    run() {
+      // Two days a week of a 24-session dose: twelve weeks.
+      const ready = getWorkoutTemplateById('tpl_2_day_beginner_strength_v1');
+      assert.equal(getReadyProgramBlockWeeks(ready), 12);
+      const stored = [
+        { id: 'tpl_custom_copy', sourceTemplateId: ready.id },
+        { id: 'tpl_custom_own', sourceTemplateId: null },
+        { id: 'tpl_custom_orphan', sourceTemplateId: 'tpl_retired_v0' },
+      ];
+
+      assert.equal(getProgrammeBlockWeeks(ready.id, stored, getWorkoutTemplateById), 12);
+      // The copy was counted as the generic eight weeks.
+      assert.equal(getProgrammeBlockWeeks('tpl_custom_copy', stored, getWorkoutTemplateById), 12);
+      // No catalog programme behind it: no block to claim, so the caller's
+      // default still applies.
+      assert.equal(getProgrammeBlockWeeks('tpl_custom_own', stored, getWorkoutTemplateById), undefined);
+      assert.equal(getProgrammeBlockWeeks('tpl_custom_orphan', stored, getWorkoutTemplateById), undefined);
+    },
+  },
+  {
+    name: 'programme block: every ready programme and a copy of it count the same weeks',
+    run() {
+      for (const template of WORKOUT_TEMPLATES_V1) {
+        const copyId = `copy_of_${template.id}`;
+        const stored = [{ id: copyId, sourceTemplateId: template.id }];
+        assert.equal(
+          getProgrammeBlockWeeks(copyId, stored, getWorkoutTemplateById),
+          getReadyProgramBlockWeeks(template),
+          template.id,
+        );
+      }
+    },
+  },
+  {
+    name: 'programme block: changing a lift sixteen sessions into a twelve-week block leaves it 16 of 24',
+    run() {
+      // The audit's walk (2026-09-20), through the pieces Home composes. The
+      // copy keeps the plan record's start and counts the original's
+      // sessions; before this it counted them over eight weeks, read "week
+      // 8/8, 16/16", and the completion card called the block finished with
+      // eight sessions still to go.
+      const ready = getWorkoutTemplateById('tpl_2_day_beginner_strength_v1');
+      const planStart = new Date(2026, 6, 1, 8).toISOString();
+      const sessions = Array.from({ length: 16 }, (_, index) => ({
+        id: `s${index}`,
+        workoutTemplateId: ready.id,
+        performedAt: new Date(2026, 6, 2 + index * 3, 18).toISOString(),
+      }));
+      const copy = { id: 'tpl_custom_copy', sourceTemplateId: ready.id };
+      const progress = buildHomePlanProgress({
+        language: 'fi',
+        completedSessions: countSessionsSince(sessions, new Set(programmeHistoryIds(copy.id, [copy], [])), planStart),
+        sessionsPerWeek: ready.sessions.length,
+        totalWeeks: getProgrammeBlockWeeks(copy.id, [copy], getWorkoutTemplateById),
+      });
+
+      assert.equal(progress.weekLabel, 'Viikko 9 / 12');
+      assert.deepEqual([progress.sessionsDone, progress.sessionsTotal], [16, 24]);
+      assert.equal(
+        resolveCompletionCard({
+          planId: 'custom_plan_tpl_custom_copy',
+          sessionsDone: progress.sessionsDone,
+          sessionsTotal: progress.sessionsTotal,
+          activeTemplate: null,
+          catalog: WORKOUT_TEMPLATES_V1,
+          dismissedPlanIds: [],
+        }),
+        null,
+      );
     },
   },
 ];

@@ -4,6 +4,7 @@ const {
   alignHistoryToCopiedDays,
   programmeHistoryIds,
   programmeLineageIds,
+  programmeOriginId,
 } = require('../../.test-dist/lib/programLineage.js');
 
 /**
@@ -19,6 +20,18 @@ const TEMPLATES = [
 ];
 
 module.exports = [
+  {
+    name: 'lineage: a copy stands for the programme it came from, anything else for itself',
+    run() {
+      // What a programme IS — its block length above all — is asked of this
+      // id; asking the copy's own id found nothing in the catalog.
+      assert.equal(programmeOriginId('copy_1', TEMPLATES), 'tpl_full_body');
+      assert.equal(programmeOriginId('copy_other', TEMPLATES), 'tpl_upper_lower');
+      assert.equal(programmeOriginId('tpl_full_body', TEMPLATES), 'tpl_full_body');
+      assert.equal(programmeOriginId('own', TEMPLATES), 'own');
+      assert.equal(programmeOriginId('unknown', TEMPLATES), 'unknown');
+    },
+  },
   {
     name: 'lineage: a copy, the programme it came from, and the other copies of it are one programme',
     run() {

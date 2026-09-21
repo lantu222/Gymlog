@@ -96,7 +96,7 @@ import { describeProgramCap, programCapLineKey } from './src/lib/programCapNotic
 import { computePostSessionInsight } from './src/lib/postSessionInsight';
 import { composeProgramWeekForSelection } from './src/lib/programDayComposer';
 import { resolveAvailableEquipment } from './src/lib/equipmentExerciseFilter';
-import { getReadyProgramBlockWeeks } from './src/lib/readyProgramDuration';
+import { getProgrammeBlockWeeks, getReadyProgramBlockWeeks } from './src/lib/readyProgramDuration';
 import { getReadyProgramContent } from './src/lib/readyProgramContent';
 import {
   calendarDaysBetween,
@@ -121,7 +121,7 @@ import {
   pickCompletionLift,
 } from './src/lib/proInsights';
 import { markCoachDemoMomentUsed, resolveDueCoachDemoMoment } from './src/lib/coachDemoMoments';
-import { buildHomePlanProgress, weekOfLastLoggedSession } from './src/lib/homePlanProgress';
+import { blockWeekOfSession, blockWeekTally, buildHomePlanProgress } from './src/lib/homePlanProgress';
 import { resolveHomePrompt } from './src/lib/homePrompts';
 import { buildHomeStatCardCatalog, buildHomeStatCards, resolveHomeStatCardKeys } from './src/lib/homeStatCards';
 import { silencedSuggestionKinds } from './src/lib/coachSuggestions';
@@ -201,11 +201,7 @@ import {
   weekdaysFromPlanLabels,
 } from './src/lib/trainingWeekSync';
 import { programCoverStyle } from './src/lib/programVisualIdentity';
-import {
-  countPlanSessionsInRange,
-  countSessionsSince,
-  resolveCompletionCard,
-} from './src/lib/programCompletion';
+import { countSessionsSince, resolveCompletionCard } from './src/lib/programCompletion';
 import { backfillRecommendations } from './src/lib/recommendationBackfill';
 import { expandRunningIdsWithSources, findReadyProgrammeCopyId } from './src/lib/programmeCopyLink';
 import { STRENGTH_GOAL_PRESETS } from './src/lib/strengthGoalPresets';
@@ -1320,9 +1316,34 @@ function VinhaApp() {
     return () => subscription.remove();
   }, [handoffLegalDocument]);
 
-  const homeSummary = useMemo(() => getHomeSummary(database, unitPreference), [database, unitPreference]);
-  const lifetimeSummary = useMemo(() => getLifetimeTrainingSummary(database), [database]);
-  const progressTrainingRhythm = useMemo(() => getTrainingRhythm(database), [database]);
+  /*
+   * Keyed on the day as well as the data. All three read "this week" or "this
+   * month" off the clock, and keyed on the data alone they kept the day they
+   * were last computed: an app left open from Sunday night into Monday had the
+   * coach open with last week's "3 sessions this week", and on the 1st
+   * Progress drew last month's calendar and totals beside a widget already on
+   * the new one — until the next workout was logged (audit, 2026-09-20).
+   *
+   * The clock is read here, where the day key makes the memo re-run, rather
+   * than defaulted inside each function where no dependency list can see it.
+   * The moment, not the key's midnight: the thirty-day count ends at `now`,
+   * and midnight would leave out everything logged today.
+   */
+  const homeSummary = useMemo(
+    () => getHomeSummary(database, unitPreference, new Date()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [database, unitPreference, todayKey],
+  );
+  const lifetimeSummary = useMemo(
+    () => getLifetimeTrainingSummary(database, new Date()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [database, todayKey],
+  );
+  const progressTrainingRhythm = useMemo(
+    () => getTrainingRhythm(database, { now: new Date() }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [database, todayKey],
+  );
   // The paywall-moments data layer: real lift histories → detections (free)
   // and deterministic conclusions (Pro / blurred). Pure, from logged sets.
   const proLiftHistories = useMemo(
@@ -4156,11 +4177,14 @@ function VinhaApp() {
         // the generic eight. The programme's own page already showed twelve,
         // so the hero said "week 1/8" beside a page saying 12, and the
         // session total under it was a third short.
-        const readyBlockWeeks = readyPlanTemplate ? getReadyProgramBlockWeeks(readyPlanTemplate) : undefined;
+        // Asked of the programme, not of the record holding it: the copy
+        // made by changing one lift keeps this block's start and its
+        // sessions, so it keeps its length too — see getProgrammeBlockWeeks.
+        const programmeBlockWeeks = getProgrammeBlockWeeks(activeTemplate.id, workoutTemplates, getWorkoutTemplateById);
         const planProgress = buildHomePlanProgress({ language: preferences.appLanguage,
           completedSessions: completedSessionCount,
           sessionsPerWeek: sortedEntries.length,
-          totalWeeks: demoBlockWeeks ?? onboardingBlockWeeks ?? readyBlockWeeks,
+          totalWeeks: demoBlockWeeks ?? onboardingBlockWeeks ?? programmeBlockWeeks,
         });
 
         return {
@@ -4171,6 +4195,10 @@ function VinhaApp() {
           // all sessions in the week and filled the programme's week with
           // freestyle workouts.
           planTemplateIds: [...planTemplateIds],
+          // The boundary every count above is measured from, so a screen
+          // asking which week a past session filled counts from the same
+          // place the hero does.
+          blockStartedAt: activeWorkoutPlan.updatedAt,
           eyebrow: `${sortedEntries.length} day custom plan`,
           goalLabel: formatGoalLabel(preferences.aiPlannerGoal || preferences.setupGoal || 'general'),
           // For a CUSTOM programme the template's name wins, and the plan's
@@ -4498,8 +4526,10 @@ function VinhaApp() {
       // Focus, not the ordinal: the coach's line has the day in it already
       // ("today", "next on the plan"), so "Päivä 1:" pushed the real name past
       // the edge and it arrived as "Koko keho + H..." (user, 2026-08-25).
+      // Today from the day key, like the count below it — the clock read
+      // here was only as fresh as whatever last changed this memo's inputs.
       todaySessionTitle:
-        homeActivePlanCard?.nextSession && trainsOn(homeTrainingSchedule, new Date())
+        homeActivePlanCard?.nextSession && trainsOn(homeTrainingSchedule, new Date(todayStartMs))
           ? localizeSessionFocus(
               formatWorkoutDisplayLabel(homeActivePlanCard.nextSession.title),
               preferences.appLanguage,
@@ -4518,7 +4548,7 @@ function VinhaApp() {
       // from a sentence now, and this is the reader that needs to know.
       hasProgramme: Boolean(homeActivePlanCard),
     }),
-    [homeActivePlanCard, homeSummary.streak.sessionsThisWeek, homeTrainingSchedule, preferences.appLanguage, proFatigue, proWeeklyRead],
+    [homeActivePlanCard, homeSummary.streak.sessionsThisWeek, homeTrainingSchedule, preferences.appLanguage, proFatigue, proWeeklyRead, todayStartMs],
   );
   /**
    * Home must never say "find a programme" while one is running.
@@ -5230,16 +5260,23 @@ function VinhaApp() {
             sessions: workoutSessions,
             logs: database.exerciseLogs,
             language: preferences.appLanguage,
-            weekNumber: homeActivePlanCard?.currentWeek ?? null,
+            // The week the analysed session filled, not the week the reader
+            // is in: right after a week's last session those are two weeks,
+            // and the analysis read "WEEK 2" beside a summary that had just
+            // said week 1. A session outside the block gets no week at all.
+            weekNumber: homeActivePlanCard
+              ? blockWeekOfSession({
+                  sessionId: analysisSessionId,
+                  sessions: getCanonicalCompletedSessions(database),
+                  templateIds: new Set(homeActivePlanCard.planTemplateIds),
+                  blockStartedAt: homeActivePlanCard.blockStartedAt,
+                  sessionsTotal: homeActivePlanCard.sessionsTotal,
+                  totalWeeks: homeActivePlanCard.planTotalWeeks,
+                })
+              : null,
           })
         : null,
-    [
-      analysisSessionId,
-      database.exerciseLogs,
-      homeActivePlanCard?.currentWeek,
-      preferences.appLanguage,
-      workoutSessions,
-    ],
+    [analysisSessionId, database, homeActivePlanCard, preferences.appLanguage, workoutSessions],
   );
 
   const profilePlanSummary = useMemo(() => {
@@ -5270,75 +5307,54 @@ function VinhaApp() {
     };
   }, [homeActivePlanCard, preferences.appLanguage]);
   // Guided-player context props (entry eyebrow + finish-screen cards).
+  // The weekday from the day key, not the clock: keyed on the week alone, a
+  // player opened after midnight in an app left open named yesterday.
   const guidedEntryEyebrow = useMemo(() => {
-    const weekday = t(preferences.appLanguage, `guided.weekday.${new Date().getDay()}` as I18nKey);
+    const weekday = t(preferences.appLanguage, `guided.weekday.${new Date(todayStartMs).getDay()}` as I18nKey);
     const week = homeActivePlanCard?.currentWeek;
     return week ? t(preferences.appLanguage, 'guided.entry.eyebrow', { weekday, week }) : weekday;
-  }, [homeActivePlanCard?.currentWeek, preferences.appLanguage]);
+  }, [homeActivePlanCard?.currentWeek, preferences.appLanguage, todayStartMs]);
   /**
-   * Sessions logged this week, and the label above them.
+   * The programme's week, and how much of it is done — "VIIKKO 2 · 1/3".
    *
-   * `done` is deliberately NOT part of this: the two screens that show it sit
-   * on opposite sides of the save. The guided player's finish view renders
-   * before the session is written, so it has to add the one in hand; the
-   * summary renders after, where the same +1 counted it twice and printed
-   * "2/1" beside a Home that said 1/1. One base, two honest readings.
+   * Both numbers come from the block, the same count Home's hero reads. The
+   * count used to be the plan's sessions Monday to Sunday under a week label
+   * taken from the block, and the two only line up for a plan started on a
+   * Monday — see blockWeekTally.
+   *
+   * The two screens that show it sit on opposite sides of the save. The
+   * guided player's finish view renders before the session is written, so it
+   * counts the one in hand; the summary renders after, where the log already
+   * has it and the same +1 counted it twice ("2/1" beside a Home that said
+   * 1/1). One count, two honest readings.
    */
   const weekProgressBase = useMemo(() => {
-    if (!progressWeeklyTarget) {
+    if (!homeActivePlanCard || !progressWeeklyTarget) {
       return null;
     }
-    const now = new Date(todayStartMs);
-    const weekStart = getStartOfWeek(now);
-    const weekEnd = getEndOfWeek(now);
-    // Only the plan's own sessions. This counted every session in the week,
-    // and the label above it names the programme's week while the denominator
-    // is the programme's days per week — so two freestyle workouts read as
-    // "VIIKKO 1 · 2/2" against a programme neither of them touched.
-    const savedThisWeek = countPlanSessionsInRange(
-      workoutSessions,
-      new Set(homeActivePlanCard?.planTemplateIds ?? []),
-      weekStart.getTime(),
-      weekEnd.getTime(),
-    );
-    return {
-      weekLabel: homeActivePlanCard
-        ? t(preferences.appLanguage, 'guided.finish.week', { week: homeActivePlanCard.currentWeek })
-        : t(preferences.appLanguage, 'guided.finish.thisWeek'),
-      // The same sentence on the other side of the save, where the week the
-      // reader is in has already rolled over: the summary names the week the
-      // session it is summarising filled.
-      completionWeekLabel: homeActivePlanCard
-        ? t(preferences.appLanguage, 'guided.finish.week', {
-            week: weekOfLastLoggedSession({
-              sessionsDone: homeActivePlanCard.sessionsDone,
-              sessionsTotal: homeActivePlanCard.sessionsTotal,
-              totalWeeks: homeActivePlanCard.planTotalWeeks,
-            }),
-          })
-        : t(preferences.appLanguage, 'guided.finish.thisWeek'),
-      savedThisWeek,
-      target: progressWeeklyTarget,
+    const reading = (sessionsDone: number) => {
+      const tally = blockWeekTally({
+        sessionsDone,
+        sessionsTotal: homeActivePlanCard.sessionsTotal,
+        totalWeeks: homeActivePlanCard.planTotalWeeks,
+      });
+      return {
+        weekLabel: t(preferences.appLanguage, 'guided.finish.week', { week: tally.week }),
+        done: tally.done,
+        target: tally.target,
+      };
     };
-  }, [homeActivePlanCard, preferences.appLanguage, progressWeeklyTarget, todayStartMs, workoutSessions]);
+    return {
+      beforeSave: reading(homeActivePlanCard.sessionsDone + 1),
+      afterSave: reading(homeActivePlanCard.sessionsDone),
+    };
+  }, [homeActivePlanCard, preferences.appLanguage, progressWeeklyTarget]);
 
   /** Before the save: the session in hand is not in the log yet. */
-  const guidedWeekProgress = weekProgressBase
-    ? {
-        weekLabel: weekProgressBase.weekLabel,
-        done: weekProgressBase.savedThisWeek + 1,
-        target: weekProgressBase.target,
-      }
-    : null;
+  const guidedWeekProgress = weekProgressBase?.beforeSave ?? null;
 
   /** After the save: the log already contains it. */
-  const completionWeekProgress = weekProgressBase
-    ? {
-        weekLabel: weekProgressBase.completionWeekLabel,
-        done: weekProgressBase.savedThisWeek,
-        target: weekProgressBase.target,
-      }
-    : null;
+  const completionWeekProgress = weekProgressBase?.afterSave ?? null;
   const guidedNextUp = useMemo(() => {
     const card = homeActivePlanCard;
     const templateSessionId = workout.activeSession?.templateSessionId;
@@ -5861,7 +5877,9 @@ function VinhaApp() {
    * the picker behind it said "not logged yet" for the same lift.
    */
   const goalFlowLifts = useMemo<GoalFlowLift[]>(() => {
-    const now = Date.now();
+    // Today from the day key: "logged 2 days ago" is a count of calendar
+    // days, and read off the clock it stayed a day behind in an app left open.
+    const now = todayStartMs;
     return STRENGTH_GOAL_PRESETS.map((preset) => {
       // The target already set for this lift, so the flow can say so instead
       // of replacing it in silence.
@@ -5897,7 +5915,7 @@ function VinhaApp() {
         daysSinceLogged: Math.max(0, calendarDaysBetween(lastLoggedAt, now)),
       };
     });
-  }, [libraryNames, preferences.strengthGoals, proLiftHistories]);
+  }, [libraryNames, preferences.strengthGoals, proLiftHistories, todayStartMs]);
 
   /**
    * The Progress tab's target rows: each target lift under every name it was

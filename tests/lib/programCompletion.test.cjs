@@ -4,7 +4,6 @@ const {
   isPlanComplete,
   resolveCompletionCard,
   countSessionsSince,
-  countPlanSessionsInRange,
 } = require('../../.test-dist/lib/programCompletion.js');
 const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog.js');
 
@@ -116,63 +115,12 @@ module.exports = [
       assert.equal(countSessionsSince(sessions, templateIds, 'garbage'), 0);
     },
   },
-  {
-    name: 'the programme week counts only the programme’s own sessions',
-    run() {
-      // Reported from the phone: two freestyle workouts filled "VIIKKO 1 · 2/2"
-      // of a programme neither of them belonged to. A freestyle session is
-      // saved against a template of its own, so template membership is the
-      // whole test — the same one plan progress already uses.
-      const planTemplates = new Set(['tpl_plan']);
-      const weekStart = Date.parse('2026-08-10T00:00:00.000Z');
-      const weekEnd = Date.parse('2026-08-17T00:00:00.000Z');
-      const sessions = [
-        { workoutTemplateId: 'tpl_freestyle_1', performedAt: '2026-08-11T10:00:00.000Z' },
-        { workoutTemplateId: 'tpl_freestyle_2', performedAt: '2026-08-12T10:00:00.000Z' },
-        { workoutTemplateId: 'tpl_plan', performedAt: '2026-08-13T10:00:00.000Z' },
-      ];
-
-      assert.equal(countPlanSessionsInRange(sessions, planTemplates, weekStart, weekEnd), 1);
-      // The bar used to read 2 before the plan session existed at all.
-      assert.equal(countPlanSessionsInRange(sessions.slice(0, 2), planTemplates, weekStart, weekEnd), 0);
-    },
-  },
-  {
-    name: 'the week window excludes its own end and the weeks around it',
-    run() {
-      const planTemplates = new Set(['tpl_plan']);
-      const weekStart = Date.parse('2026-08-10T00:00:00.000Z');
-      const weekEnd = Date.parse('2026-08-17T00:00:00.000Z');
-      const sessions = [
-        { workoutTemplateId: 'tpl_plan', performedAt: '2026-08-09T23:59:59.000Z' },
-        { workoutTemplateId: 'tpl_plan', performedAt: '2026-08-10T00:00:00.000Z' },
-        { workoutTemplateId: 'tpl_plan', performedAt: '2026-08-17T00:00:00.000Z' },
-        { workoutTemplateId: 'tpl_plan', performedAt: 'not-a-date' },
-        { workoutTemplateId: null, performedAt: '2026-08-12T10:00:00.000Z' },
-      ];
-
-      assert.equal(countPlanSessionsInRange(sessions, planTemplates, weekStart, weekEnd), 1);
-      // No plan, no reading — an empty template set cannot mean "count all".
-      assert.equal(countPlanSessionsInRange(sessions, new Set(), weekStart, weekEnd), 0);
-      assert.equal(countPlanSessionsInRange(sessions, planTemplates, Number.NaN, weekEnd), 0);
-    },
-  },
-  {
-    name: 'a session with zero logged sets does not advance the week bar',
-    run() {
-      // "Onko viikko 2/6 legit" (user 2026-08-23): an opened-and-abandoned
-      // player saved with setsCompleted: 0 counted like a workout. A legacy
-      // save without the field still counts — absent is unknown, not empty.
-      const planTemplates = new Set(['tpl_plan']);
-      const weekStart = Date.parse('2026-08-10T00:00:00.000Z');
-      const weekEnd = Date.parse('2026-08-17T00:00:00.000Z');
-      const sessions = [
-        { workoutTemplateId: 'tpl_plan', performedAt: '2026-08-11T10:00:00.000Z', setsCompleted: 0 },
-        { workoutTemplateId: 'tpl_plan', performedAt: '2026-08-12T10:00:00.000Z', setsCompleted: 15 },
-        { workoutTemplateId: 'tpl_plan', performedAt: '2026-08-13T10:00:00.000Z' },
-      ];
-
-      assert.equal(countPlanSessionsInRange(sessions, planTemplates, weekStart, weekEnd), 2);
-    },
-  },
+  // The three suites that stood here pinned countPlanSessionsInRange, the
+  // Monday-to-Sunday counter behind the "VIIKKO 1 · 2/2" pill. The pill
+  // counted the calendar under a week label taken from the block, and the
+  // two disagreed for every plan not started on a Monday (audit,
+  // 2026-09-20); it reads the block now, and the counter had no other
+  // caller. Its two rules — only the plan's own sessions, and none without
+  // a completed set — are held where the pill's count comes from, in
+  // homePlanProgress.test.cjs.
 ];
