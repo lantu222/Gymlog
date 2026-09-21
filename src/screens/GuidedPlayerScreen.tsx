@@ -1022,6 +1022,7 @@ function DialCard({
   faint,
   onCommit,
   invalid = false,
+  onDraftCleared,
 }: {
   label: string;
   value: string;
@@ -1040,6 +1041,13 @@ function DialCard({
   onCommit: (text: string) => void;
   /** What is typed is not a number this card can log; drawn in the danger ink. */
   invalid?: boolean;
+  /**
+   * The field stopped showing typed text and shows the card's number again:
+   * the keyboard went away, or a step moved the number. Whatever made the
+   * typed text unloggable is no longer on screen (CI review of #174: the log
+   * button stayed locked, red, over a field that read a good weight).
+   */
+  onDraftCleared?: () => void;
 }) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -1075,7 +1083,10 @@ function DialCard({
               onCommit(text);
             }}
             onFocus={() => setDraft(value)}
-            onBlur={() => setDraft(null)}
+            onBlur={() => {
+              setDraft(null);
+              onDraftCleared?.();
+            }}
             onSubmitEditing={onToggle}
             autoFocus
             keyboardType={unit ? 'decimal-pad' : 'number-pad'}
@@ -1097,8 +1108,26 @@ function DialCard({
         {unit ? <Text style={styles.setDialUnit}>{unit}</Text> : null}
       </Pressable>
       <View style={styles.setDialControls}>
-        <DialButton glyph="−" accessibilityLabel={downLabel} onStep={() => onStep(-1)} />
-        <DialButton glyph="+" accessibilityLabel={upLabel} onStep={() => onStep(1)} />
+        {/* A step moves the card's number, so the field shows that number
+            rather than text typed before it. */}
+        <DialButton
+          glyph="−"
+          accessibilityLabel={downLabel}
+          onStep={() => {
+            setDraft(null);
+            onDraftCleared?.();
+            onStep(-1);
+          }}
+        />
+        <DialButton
+          glyph="+"
+          accessibilityLabel={upLabel}
+          onStep={() => {
+            setDraft(null);
+            onDraftCleared?.();
+            onStep(1);
+          }}
+        />
       </View>
     </View>
   );
@@ -4395,6 +4424,7 @@ function SetStepView({
                 wide={false}
                 faint={kg <= 0}
                 invalid={logBlocked}
+                onDraftCleared={() => setWeightTextInvalid(false)}
               />
             ) : null}
           </View>

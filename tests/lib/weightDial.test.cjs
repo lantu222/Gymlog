@@ -113,6 +113,16 @@ module.exports = [
       // While the field holds no loggable weight, the set is not logged.
       assert.match(screen, /const logBlocked = dial === 'weight' && weightTextInvalid;/);
       assert.match(screen, /disabled=\{logBlocked\}/);
+      // And only while the typed text is what the field shows. The keyboard
+      // going away, or a step, puts the card's own number back in the field;
+      // the lock stayed on over a good weight (CI review of #174).
+      assert.match(screen, /onDraftCleared=\{\(\) => setWeightTextInvalid\(false\)\}/);
+      assert.match(screen, /onBlur=\{\(\) => \{\s*setDraft\(null\);\s*onDraftCleared\?\.\(\);\s*\}\}/);
+      assert.equal(
+        (screen.match(/setDraft\(null\);\s*onDraftCleared\?\.\(\);\s*onStep\((-1|1)\);/g) ?? []).length,
+        2,
+        'both step buttons clear the typed text',
+      );
       // The old unbounded arithmetic must not come back.
       assert.doesNotMatch(screen, /setKg\(\(current\) => Math\.max\(0, Number\(\(current \+ direction/);
       // And the wiring lives on a screen, not in the shell — this only checks
