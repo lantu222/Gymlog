@@ -93,7 +93,7 @@ export const EQUIPMENT_FALLBACKS: Array<[string, string[]]> = [
   ['weighted pull', ['Pullups', 'Inverted Row']],
   ['weighted dip', ['Bench Dips']],
   ['weighted bench dip', ['Bench Dips']],
-  ['bench press',['Leverage Chest Press', 'Dumbbell Floor Press', 'Push-Up Wide']],
+  ['bench press', ['Leverage Chest Press', 'Dumbbell Floor Press', 'Push-Up Wide']],
   ['back squat', ['Goblet Squat', 'Bodyweight Squat']],
   ['front squat', ['Goblet Squat', 'Bodyweight Squat']],
   ['box squat', ['Goblet Squat', 'Bodyweight Squat']],
