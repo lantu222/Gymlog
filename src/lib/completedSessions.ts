@@ -1,4 +1,4 @@
-import { getComparableLogSets } from './exerciseLog';
+import { isExerciseDone } from './sessionTotals';
 import { AppDatabase, WorkoutSession } from '../types/models';
 
 const FI_MONTHS = [
@@ -72,25 +72,28 @@ export function getCalendarWeekStartTimestamp(dateInput: string | Date) {
   return date.getTime();
 }
 
-function getSessionIdsWithCompletedSets(database: AppDatabase) {
+function getSessionIdsWithCompletedSets(database: Pick<AppDatabase, 'exerciseLogs'>) {
   const completedSessionIds = new Set<string>();
 
   for (const log of database.exerciseLogs) {
-    if (log.skipped) {
-      continue;
+    // A session counts when an exercise in it was done — the same rule that
+    // counts the exercises themselves, so a session can never be counted
+    // with "0 liikettä" in it.
+    if (isExerciseDone(log)) {
+      completedSessionIds.add(log.sessionId);
     }
-
-    if (getComparableLogSets(log).length === 0) {
-      continue;
-    }
-
-    completedSessionIds.add(log.sessionId);
   }
 
   return completedSessionIds;
 }
 
-export function getCanonicalCompletedSessions(database: AppDatabase) {
+/**
+ * The sessions every activity figure counts: at least one exercise done, and
+ * one row per workout however many times it was saved.
+ *
+ * Only the two arrays are read, so a memo can depend on exactly those.
+ */
+export function getCanonicalCompletedSessions(database: Pick<AppDatabase, 'workoutSessions' | 'exerciseLogs'>) {
   const completedSessionIds = getSessionIdsWithCompletedSets(database);
   const seenSignatures = new Set<string>();
 
@@ -177,9 +180,11 @@ function newestTimestamp(isoStamps: string[]): number | null {
 }
 
 /**
- * Lifted volume of the current calendar week in kg. Sums the stored session
- * volume, the same source the lifetime summary uses, so the weekly-summary
- * notification can never quote a number the app itself would contradict.
+ * Lifted volume of the current calendar week in kg. Sums the session volume,
+ * the same source the lifetime summary uses, so the weekly-summary
+ * notification can never quote a number the app itself would contradict. The
+ * loader reads that volume off the logs (lib/sessionTotals), so it is also
+ * what History shows.
  */
 export function getVolumeThisWeekKg(database: AppDatabase, now = new Date()) {
   const currentWeekStart = getCalendarWeekStartTimestamp(now);

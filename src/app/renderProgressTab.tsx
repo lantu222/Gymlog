@@ -34,7 +34,12 @@ export interface ProgressTabDeps {
   targetLiftSources: NonNullable<ProgressScreenProps['liftSetLogSources']>;
   bodyweightProgress: ProgressScreenProps['bodyweightProgress'];
   measurementEntries: ProgressScreenProps['measurementEntries'];
-  workoutSessions: ProgressScreenProps['workoutSessions'];
+  /**
+   * getCanonicalCompletedSessions, not every saved session: the streak and
+   * the month figures sit on the same card as the calendar, and the calendar
+   * counts only sessions in which an exercise was done.
+   */
+  completedWorkoutSessions: ProgressScreenProps['workoutSessions'];
   cardioSessions: ProgressScreenProps['cardioSessions'];
   activityCalendar: ProgressScreenProps['activityCalendar'];
   homeTrainingSchedule: ProgressScreenProps['trainingSchedule'];
@@ -67,7 +72,7 @@ export function renderProgressTab(deps: ProgressTabDeps): React.ReactElement | n
     targetLiftSources,
     bodyweightProgress,
     measurementEntries,
-    workoutSessions,
+    completedWorkoutSessions,
     cardioSessions,
     activityCalendar,
     homeTrainingSchedule,
@@ -100,7 +105,7 @@ export function renderProgressTab(deps: ProgressTabDeps): React.ReactElement | n
       summaries={targetLiftProgress}
       bodyweightProgress={bodyweightProgress}
       measurementEntries={measurementEntries}
-      workoutSessions={workoutSessions}
+      workoutSessions={completedWorkoutSessions}
       cardioSessions={cardioSessions}
       activityCalendar={activityCalendar}
       tourTargets={deps.tourTargets}

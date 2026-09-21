@@ -1,6 +1,6 @@
 import { createId } from '../lib/ids';
 import { normalizeExerciseLogDraft } from '../lib/exerciseLog';
-import { getCompletedSetCount, getSessionTotalVolume } from '../lib/progression';
+import { getSessionTotals } from '../lib/sessionTotals';
 import { exerciseLogRepository, workoutSessionRepository } from '../storage/repositories';
 import { AppDatabase, ExerciseLog, ExerciseLogDraft } from '../types/models';
 
@@ -15,6 +15,11 @@ export interface SessionSaveSummary {
   entriesSaved: number;
   setsCompleted: number;
   totalVolume: number;
+  /**
+   * Exercises done, by lib/sessionTotals' rule — what History will say about
+   * this session, so the completion screen can say the same.
+   */
+  exercisesCompleted: number;
   durationMinutes: number;
 }
 
@@ -53,6 +58,7 @@ function createEmptySummary(): SessionSaveSummary {
     entriesSaved: 0,
     setsCompleted: 0,
     totalVolume: 0,
+    exercisesCompleted: 0,
     durationMinutes: 0,
   };
 }
@@ -110,6 +116,9 @@ function buildSummary(
     typeof input.durationMinutes === 'number' && Number.isFinite(input.durationMinutes) && input.durationMinutes > 0
       ? Math.max(1, Math.round(input.durationMinutes))
       : Math.max(1, Math.round((new Date(performedAt).getTime() - startTime) / 60000) || 1);
+  // The same reading the loader takes of every stored session, so the row
+  // written now and the row read back on the next launch cannot differ.
+  const totals = getSessionTotals(logsToPersist);
 
   return {
     sessionId: input.sessionId,
@@ -120,8 +129,9 @@ function buildSummary(
     notesSaved: logsToPersist.filter((log) => Boolean(log.notes)).length,
     sessionInsertedExercises: logsToPersist.filter((log) => log.sessionInserted === true).length,
     entriesSaved: logsToPersist.length,
-    setsCompleted: getCompletedSetCount(logsToPersist),
-    totalVolume: getSessionTotalVolume(logsToPersist),
+    setsCompleted: totals.setsCompleted,
+    totalVolume: totals.totalVolumeKg,
+    exercisesCompleted: totals.exercisesCompleted,
     durationMinutes,
   };
 }
@@ -162,7 +172,10 @@ export function persistCompletedWorkoutSessionToDatabase(
     completedAt: performedAt,
     durationMinutes: summary.durationMinutes,
     setsCompleted: summary.setsCompleted,
-    exercisesCompleted: logsToPersist.filter((log) => log.status === 'completed').length,
+    // Not `status === 'completed'`: a lift swapped and then done keeps its
+    // swapped status, and one left with a set still pending stays active.
+    // Both were done.
+    exercisesCompleted: summary.exercisesCompleted,
     exercisesSkipped: logsToPersist.filter((log) => log.skipped === true || log.status === 'skipped').length,
     exercisesSwapped: summary.exercisesSwapped,
     totalVolumeKg: summary.totalVolume,

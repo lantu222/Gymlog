@@ -230,7 +230,7 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
         trialAvailable={canStartProTrial(preferences)}
         onManageSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
-        onPurchase={(plan) => {
+        onPurchase={async (plan) => {
           /**
            * The one purchase in the app.
            *
@@ -260,11 +260,31 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
            * Lifetime is untouched: it has no trial CTA, so its button still
            * means what it says.
            */
+          /**
+           * The unlock screen says Pro is on, so it follows the write that turns
+           * Pro on and never precedes it. It used to be navigated to beside a
+           * `void` write: a refused write is rolled back by `commit` and
+           * rethrown, so the reader got a receipt for Pro over an app that had
+           * just put Pro back off, and an unhandled rejection with it (audit,
+           * 2026-09-21).
+           */
+          const turnProOn = async (patch: Partial<AppPreferences>) => {
+            try {
+              await updatePreferences(patch);
+              return true;
+            } catch (error) {
+              console.error('Failed to turn Pro on', error);
+              showToast(t(preferences.appLanguage, 'toast.proUnlockFailed'));
+              return false;
+            }
+          };
           // Once per install: a second press of the CTA after the trial is
           // what a purchase is for, so it falls through to the purchase below.
           const trialUntil = canStartProTrial(preferences) && plan !== 'lifetime' ? resolveTrialProUntil() : null;
           if (trialUntil) {
-            void updatePreferences({ proTrialUntil: trialUntil, proTrialStartedAt: new Date().toISOString() });
+            if (!(await turnProOn({ proTrialUntil: trialUntil, proTrialStartedAt: new Date().toISOString() }))) {
+              return;
+            }
             // The hand-off row promised a warning two days out, and a promise
             // that needs a permission has to ask for it. Declining costs the
             // reminder, not the trial. Granting has to reach the switch the
@@ -294,13 +314,15 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
             showToast(t(preferences.appLanguage, 'premium.purchaseUnavailable'));
             return;
           }
-          void updatePreferences({
+          const purchased = await turnProOn({
             mockSubscriptionPurchasedAt: new Date().toISOString(),
             mockSubscriptionTerm: plan,
             // A re-purchase after cancelling starts a fresh subscription.
             mockSubscriptionCancelledAt: null,
           });
-          navigate({ tab: 'profile', screen: 'premium_unlock', plan });
+          if (purchased) {
+            navigate({ tab: 'profile', screen: 'premium_unlock', plan });
+          }
         }}
         onOpenLegal={(document) => navigate({ tab: 'profile', screen: 'legal', document })}
       />

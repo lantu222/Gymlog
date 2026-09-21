@@ -1552,11 +1552,13 @@ function VinhaApp() {
         durationMinutes: summary.durationMinutes,
         setsCompleted: summary.setsCompleted,
         totalVolume: summary.totalVolume,
-        // The tile counts lifts that were done, and it counts them off the
-        // same cards the list below draws — so the two cannot disagree.
-        // summary.exercisesLogged is every persisted entry, skipped included:
-        // "6 LIIKETTÄ" above five rows of "0 sarjaa" was that number.
-        exercisesLogged: completionCards.exerciseCards.filter((card) => card.completedSets > 0).length,
+        // The tile counts lifts that were done: the save's own count, by the
+        // rule History reads the same logs with (lib/sessionTotals), so this
+        // tile and the session's History row cannot disagree. The cards below
+        // agree too — a card with a completed set is a log the rule counts.
+        // Not summary.exercisesLogged, which is every persisted entry, skipped
+        // included: "6 LIIKETTÄ" above five rows of "0 sarjaa" was that number.
+        exercisesLogged: summary.exercisesCompleted,
         volumeDeltaKg: getVolumeDeltaVsPrevious(
           {
             sessionId: adaptedSession.sessionId,
@@ -3836,10 +3838,17 @@ function VinhaApp() {
    * resetDatabase clears the memory's key on disk, but this component is not
    * remounted by a reset: without this the state would still hold every
    * takeaway, hand them to the next question, and write them straight back.
+   *
+   * The open conversation too, for the same reason. It was never on disk, so
+   * the reset never touched it: chat, reset, onboard again and open the coach
+   * inside eight hours, and the old thread was back on screen — and in live
+   * mode sent to the model as the history of a reader who had just asked for
+   * all of it to go (audit, 2026-09-21).
    */
   const handleResetAllData = useCallback(async () => {
     await resetAllData();
     setCoachAdviceMemory([]);
+    setCoachChatMemory(null);
   }, [resetAllData]);
 
   const handleCoachAdviceGiven = useCallback((takeaway: string) => {
@@ -5509,6 +5518,23 @@ function VinhaApp() {
       },
     ];
   }, [homeSummary.bodyweight.latest, homeSummary.bodyweight.previous, homeSummary.weeklySnapshot, unitPreference]);
+  /**
+   * The sessions Progress counts: the canonical list — an exercise done in
+   * it, one row per workout — that the calendar on the same card, the widget
+   * and Profile already count. Handed every saved session, the activity card
+   * counted a free workout with weights typed and nothing ticked, and read
+   * "3 viikkoa putkeen · 3 treeniä" over a calendar that marked two (audit,
+   * 2026-09-21). The History card at the foot of the tab keeps every saved
+   * session, as History itself does.
+   */
+  const completedWorkoutSessions = useMemo(
+    () =>
+      getCanonicalCompletedSessions({
+        workoutSessions: database.workoutSessions,
+        exerciseLogs: database.exerciseLogs,
+      }),
+    [database.exerciseLogs, database.workoutSessions],
+  );
   const homeRecentSessions = useMemo(
     () =>
       [...workoutSessions]
@@ -6795,7 +6821,7 @@ function VinhaApp() {
       targetLiftSources,
       bodyweightProgress,
       measurementEntries,
-      workoutSessions,
+      completedWorkoutSessions,
       cardioSessions,
       activityCalendar: homeSummary.streak.calendar,
       homeTrainingSchedule,

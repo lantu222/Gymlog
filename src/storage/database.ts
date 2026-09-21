@@ -19,6 +19,7 @@ import { resolveDeviceLanguage } from './deviceLocale';
 import { clearCoachAdviceMemory } from './coachAdviceMemoryStore';
 import { getLargeItem, MissingPartsError, removeLargeItem, setLargeItem } from './largeItem';
 import { normalizeExerciseLog } from '../lib/exerciseLog';
+import { withLoggedSessionTotals } from '../lib/sessionTotals';
 import {
   normalizeLearnedExerciseIds,
   normalizeTechniqueChecks,
@@ -476,6 +477,13 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
     };
   });
 
+  // Before the sessions: each session's totals are read off these.
+  const normalizedExerciseLogs = Array.isArray(input?.exerciseLogs)
+    ? input.exerciseLogs
+        .map((log) => normalizeExerciseLog(log))
+        .filter((log): log is NonNullable<typeof log> => Boolean(log))
+    : [];
+
   return {
     workoutTemplates: normalizedTemplates,
     exerciseTemplates: supersetNormalizedExerciseTemplates,
@@ -499,7 +507,12 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
     // so a null or a stray number in a stored array put a workout on
     // today's calendar (loader probe, 2026-09-20). Cardio below already
     // drops such entries; sessions follow.
-    workoutSessions: Array.isArray(input?.workoutSessions)
+    //
+    // Sets, volume and exercises done are not taken as stored: they are read
+    // again from the session's logs, so a total written by an older build's
+    // arithmetic cannot outlive the fix to it. See lib/sessionTotals.
+    workoutSessions: withLoggedSessionTotals(
+      Array.isArray(input?.workoutSessions)
       ? input.workoutSessions
           .filter((session: any) => session !== null && typeof session === 'object' && String(session.id ?? '').length > 0)
           .map((session: any) => ({
@@ -527,14 +540,6 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
             typeof session?.durationMinutes === 'number' && Number.isFinite(session.durationMinutes)
               ? session.durationMinutes
               : undefined,
-          setsCompleted:
-            typeof session?.setsCompleted === 'number' && Number.isFinite(session.setsCompleted)
-              ? session.setsCompleted
-              : undefined,
-          exercisesCompleted:
-            typeof session?.exercisesCompleted === 'number' && Number.isFinite(session.exercisesCompleted)
-              ? session.exercisesCompleted
-              : undefined,
           exercisesSkipped:
             typeof session?.exercisesSkipped === 'number' && Number.isFinite(session.exercisesSkipped)
               ? session.exercisesSkipped
@@ -542,10 +547,6 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
           exercisesSwapped:
             typeof session?.exercisesSwapped === 'number' && Number.isFinite(session.exercisesSwapped)
               ? session.exercisesSwapped
-              : undefined,
-          totalVolumeKg:
-            typeof session?.totalVolumeKg === 'number' && Number.isFinite(session.totalVolumeKg)
-              ? session.totalVolumeKg
               : undefined,
           trackedExercisesUpdated:
             typeof session?.trackedExercisesUpdated === 'number' && Number.isFinite(session.trackedExercisesUpdated)
@@ -564,6 +565,8 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
             : undefined,
         }))
       : [],
+      normalizedExerciseLogs,
+    ),
     cardioSessions: Array.isArray(input?.cardioSessions)
       ? input.cardioSessions
           .map((session: any) => {
@@ -598,11 +601,7 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
           })
           .filter((session): session is NonNullable<typeof session> => session !== null)
       : [],
-    exerciseLogs: Array.isArray(input?.exerciseLogs)
-      ? input.exerciseLogs
-          .map((log) => normalizeExerciseLog(log))
-          .filter((log): log is NonNullable<typeof log> => Boolean(log))
-      : [],
+    exerciseLogs: normalizedExerciseLogs,
     bodyweightEntries: Array.isArray(input?.bodyweightEntries) ? input.bodyweightEntries : [],
     // Every field is required for an entry to be usable, and a half-written
     // one would resolve a name to nothing — so a malformed row is dropped

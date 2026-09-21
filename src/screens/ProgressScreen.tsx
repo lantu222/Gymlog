@@ -128,6 +128,11 @@ interface ProgressScreenProps {
   onSetTarget?: (exerciseName: string) => void;
   bodyweightProgress: BodyweightProgressSummary;
   measurementEntries: MeasurementEntry[];
+  /**
+   * The completed sessions — getCanonicalCompletedSessions — which is what the
+   * activity calendar is marked from. The streak and the month figures beside
+   * it count these, so a session saved with nothing done is in neither.
+   */
   workoutSessions: WorkoutSession[];
   /** Runs and rides: their minutes belong in the duration chart. */
   cardioSessions?: Array<Pick<CardioSession, 'performedAt' | 'durationSec'>>;

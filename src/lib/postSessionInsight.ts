@@ -234,10 +234,10 @@ function evaluateSessionVolumePeak(input: PostSessionInsightInput, priorSessions
   });
 
   // Only sessions whose volume is actually known can be compared against.
-  // src/storage/database.ts normalises a missing or malformed totalVolumeKg to
-  // undefined, so legacy and partially written sessions carry none — and
-  // reading those as zero made any positive number today "the highest in six
-  // weeks". Five kilos is not a peak; it is the only session we can measure.
+  // src/storage/database.ts reads totalVolumeKg off each session's logs and
+  // leaves it undefined for a session with no logs to read — and reading those
+  // as zero made any positive number today "the highest in six weeks". Five
+  // kilos is not a peak; it is the only session we can measure.
   const comparablePriors = priorInWindow.filter(
     (session): session is typeof session & { totalVolumeKg: number } =>
       typeof session.totalVolumeKg === 'number',

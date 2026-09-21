@@ -418,6 +418,9 @@ const suites = [
   ...require('./screens/audit3Numbers.test.cjs'),
   ...require('./screens/audit3Actions.test.cjs'),
   ...require('./screens/audit3DeadScreens.test.cjs'),
+  ...require('./lib/sessionTotals.test.cjs'),
+  ...require('./storage/loaderSessionTotals.test.cjs'),
+  ...require('./screens/oneCount.test.cjs'),
 ];
 
 (async () => {
