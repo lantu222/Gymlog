@@ -419,6 +419,7 @@ const suites = [
   ...require('./lib/storageSize.test.cjs'),
   ...require('./lib/allowBackup.test.cjs'),
   ...require('./lib/dataExtractionRules.test.cjs'),
+  ...require('./lib/androidPermissions.test.cjs'),
   ...require('./storage/preferenceBounds.test.cjs'),
   ...require('./lib/untranslatedCopy.test.cjs'),
   ...require('./lib/homeCalendarPaging.test.cjs'),

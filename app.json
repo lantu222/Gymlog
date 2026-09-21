@@ -29,6 +29,13 @@
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.SCHEDULE_EXACT_ALARM"
       ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+      ],
       "package": "app.vinha"
     },
     "web": {
@@ -47,7 +54,8 @@
         "expo-audio",
         {
           "recordAudioAndroid": false,
-          "microphonePermission": false
+          "microphonePermission": false,
+          "enableBackgroundPlayback": false
         }
       ],
       [
@@ -58,17 +66,13 @@
         }
       ],
       [
-
         "expo-image-picker",
-
         {
-
-          "photosPermission": "Vinha reads your training programme from a photo you choose."
-
+          "photosPermission": "Vinha reads your training programme from a photo you choose.",
+          "cameraPermission": false,
+          "microphonePermission": false
         }
-
       ],
-
       "./plugins/withHomeWidget.js",
     "./plugins/withBuildArchitectures.js",
     "./plugins/withStorageSize.js",
