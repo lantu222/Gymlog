@@ -54,13 +54,20 @@ module.exports = [
     name: 'one press: an edit queued behind the one that copied a ready programme does not navigate again',
     run() {
       const app = strip(readAppWiring());
-      // The copy is recorded where it is made, before the navigation to it.
-      const made = app.indexOf('copiedInThisEditBurst.current.add(programId);');
-      assert.ok(made > 0, 'the copy is not recorded');
-      assert.ok(
-        made < app.indexOf("screen: 'programDay',", made),
-        'recorded after the navigation, so an edit settling in between would miss it',
-      );
+      // The copy is recorded where it is made, before the navigation to it —
+      // both looked for inside the one function that makes the copy, since
+      // "screen: 'programDay'," appears elsewhere in the wiring too and an
+      // unbounded search would find one of those (CI review of #173).
+      const start = app.indexOf('async function runProgramExerciseEdit(');
+      assert.ok(start > 0, 'runProgramExerciseEdit not found');
+      const tail = app.slice(start + 1);
+      const end = tail.search(/\n  (?:async )?function \w+\(/);
+      const edit = end === -1 ? tail : tail.slice(0, end);
+      const made = edit.indexOf('copiedInThisEditBurst.current.add(programId);');
+      const navigated = edit.indexOf("screen: 'programDay',");
+      assert.ok(made > 0, 'the copy is not recorded where it is made');
+      assert.ok(navigated > 0, 'the navigation to the copy moved out of runProgramExerciseEdit');
+      assert.ok(made < navigated, 'recorded after the navigation, so an edit settling in between would miss it');
       // And forgotten once the queue drains, so a later visit is still told.
       assert.match(app, /pendingProgramEdits\.current \+= 1;/);
       assert.match(
