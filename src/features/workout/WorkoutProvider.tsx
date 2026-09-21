@@ -350,6 +350,11 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
         dispatch({ type: 'freestyle/clear' });
       },
       startCardio(activityType) {
+        // A run is a workout here as it is on the calendar, and it sent
+        // neither end of one. Counted without saying which kind: the privacy
+        // policy puts a `path` on setup events only, so which activity it was
+        // stays on the phone (analytics audit, 2026-09-21).
+        trackEvent('workout_started');
         dispatch({ type: 'cardio/start', payload: { activityType, nowMs: Date.now() } });
       },
       pauseCardio() {

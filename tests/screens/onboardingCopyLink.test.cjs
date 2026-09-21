@@ -103,15 +103,13 @@ module.exports = [
         'with two copies of one programme, the one being trained answers',
       );
       // The funnel row counts adoptions, and this fired at the top of the
-      // handler — once per tap, including the taps that adopt nothing.
+      // handler — once per tap, including the taps that adopt nothing — and
+      // then above the cap check, counting a refusal as an adoption. It
+      // belongs after the write; tests/screens/analyticsTruth.test.cjs pins
+      // every door (analytics audit, 2026-09-21).
       assert.ok(
-        !/return false;\s*\}\s*trackEvent\('plan_adopted'\);/.test(adopt),
-        'the event must not fire before the early returns',
-      );
-      assert.match(
-        app,
-        /trackEvent\('plan_adopted'\);\s*\/\/ Held but switched off/,
-        'the event belongs where a programme starts running',
+        !/trackEvent\('plan_adopted'\)/.test(adopt.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')),
+        'the event must not fire before the cap has answered and the plan is written',
       );
 
       assert.match(

@@ -19,19 +19,25 @@
  */
 
 export const ANALYTICS_EVENTS = [
-  /** App came to the foreground. Daily actives and D2/D7 retention fall out. */
+  /**
+   * The app was opened: a cold start, or a return after half an hour away
+   * (lib/analyticsMoments). Daily actives and retention fall out.
+   */
   'app_open',
-  /** An onboarding step was reached; `step` says which. The funnel's spine. */
+  /**
+   * An onboarding step was reached; `path` names it — welcome, the path
+   * picker, about, the catalogue, a questionnaire stage. The funnel's spine.
+   */
   'onboarding_step',
-  /** Onboarding finished; `path` says whether built or picked ready. */
+  /** Onboarding finished; `path` says whether built, picked ready, or started empty. */
   'onboarding_completed',
-  /** A programme was adopted as the active plan. */
+  /** A programme started running: a plan joined the running set. */
   'plan_adopted',
-  /** A workout session was started. */
+  /** A workout session was started — guided, free or cardio. */
   'workout_started',
   /** A workout session was saved. Started-without-completed is a finding. */
   'workout_completed',
-  /** The Pro paywall was on screen. */
+  /** The Pro paywall was opened by a reader without Pro; once per visit. */
   'paywall_viewed',
   /** A question left for the coach (the fact of it — never the text). */
   'coach_question_asked',

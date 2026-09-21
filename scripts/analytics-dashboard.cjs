@@ -13,7 +13,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
 
-const { fetchEvents, aggregate } = require('./analytics-report.cjs');
+const { fetchEvents, aggregate, coverageWarning, share, TIME_ZONE } = require('./analytics-report.cjs');
 
 /**
  * The coach log, for the same page. Best-effort: the transcript tap is a
@@ -49,7 +49,7 @@ async function fetchTranscripts() {
 
 const esc = (value) => String(value).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-function render({ dailies, funnel, funnelTotal, retention }, transcripts, meta) {
+function render({ dailies, funnels, retention, installsSeen }, transcripts, meta) {
   const maxActives = Math.max(1, ...dailies.map((row) => row.actives));
   const dayBars = dailies
     .slice(-30)
@@ -62,17 +62,28 @@ function render({ dailies, funnel, funnelTotal, retention }, transcripts, meta) 
     })
     .join('');
 
-  const maxFunnel = Math.max(1, ...funnel.map(([, count]) => count), funnelTotal);
-  const funnelRows = funnel
-    .map(([label, count]) => {
-      const width = Math.round((count / maxFunnel) * 100);
-      const share = funnelTotal ? Math.round((count / funnelTotal) * 100) : 0;
-      return `<div class="frow">
-        <span class="flabel">${esc(label)}</span>
-        <div class="ftrack"><div class="fbar" style="width:${width}%"></div></div>
-        <span class="fcount">${count} <em>(${share} %)</em></span>
+  // One block per branch, each bar a share of the installs that reached the
+  // branch's first row — the same denominators the terminal report prints.
+  const funnelRows = funnels
+    .map((funnel) => {
+      const rows = funnel.rows
+        .map((row) => {
+          const percent = share(row.count, funnel.base);
+          return `<div class="frow">
+        <span class="flabel">${esc(row.label)}</span>
+        <div class="ftrack"><div class="fbar" style="width:${percent}%"></div></div>
+        <span class="fcount">${row.count} <em>(${percent} %)</em></span>
       </div>`;
+        })
+        .join('');
+      return `<h3 class="ftitle">${esc(funnel.title)} <em>(${funnel.base})</em></h3>${rows}`;
     })
+    .join('');
+  const retentionKpis = retention.windows
+    .map(
+      (window) =>
+        `<div class="kpi"><b>${window.returned}/${window.eligible}</b><span>${esc(window.label)}</span></div>`,
+    )
     .join('');
 
   const dailyRows = dailies
@@ -123,6 +134,8 @@ function render({ dailies, funnel, funnelTotal, retention }, transcripts, meta) 
   .ftrack { flex:1; background:var(--bg); border-radius:6px; height:16px; overflow:hidden; }
   .fbar { height:100%; background:linear-gradient(90deg,var(--purple),var(--accent)); border-radius:6px; }
   .fcount { width:90px; text-align:right; font-variant-numeric:tabular-nums; } .fcount em { color:var(--muted); font-style:normal; font-size:11.5px; }
+  .ftitle { font-size:13px; margin:16px 0 4px; } .ftitle:first-of-type { margin-top:0; } .ftitle em { color:var(--muted); font-style:normal; font-weight:400; }
+  .warn { color:var(--accent); font-weight:600; margin:-12px 0 22px; }
   table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
   th,td { text-align:right; padding:5px 8px; border-bottom:1px solid var(--line); font-size:13px; }
   th:first-child, td:first-child { text-align:left; }
@@ -136,15 +149,15 @@ function render({ dailies, funnel, funnelTotal, retention }, transcripts, meta) 
   .a { color:var(--muted); font-size:13.5px; }
 </style></head><body>
 <h1>Vinha <b>käyttötilastot</b></h1>
-<p class="meta">Päivitetty ${esc(meta.generatedAt)} · ${meta.eventCount} tapahtumaa palvelimella · lataukset ja rahat: Play Console</p>
+<p class="meta">Päivitetty ${esc(meta.generatedAt)} · ${meta.eventCount} tapahtumaa, ${meta.batchesFetched}/${meta.batchTotal} erää · päivät ${esc(TIME_ZONE)} · lataukset ja rahat: Play Console</p>
+${meta.warning ? `<p class="warn">${esc(meta.warning)}</p>` : ''}
 <div class="grid">
   <div class="card"><h2>Paluu</h2><div class="kpis">
-    <div class="kpi"><b>${retention.installs}</b><span>asennusta nähty</span></div>
-    <div class="kpi"><b>${retention.d2}</b><span>palasi D2</span></div>
-    <div class="kpi"><b>${retention.d7}</b><span>palasi D7</span></div>
-  </div></div>
+    <div class="kpi"><b>${retention.installs}</b><span>asennusta avannut</span></div>
+    ${retentionKpis}
+  </div><p class="meta" style="margin:10px 0 0">Mukana vain asennukset, joiden ikkuna päättyi ennen ${esc(retention.horizon)}.</p></div>
   <div class="card"><h2>Aktiiviset / päivä (30 pv)</h2><div class="bars">${dayBars || '<span class="meta">ei vielä dataa</span>'}</div></div>
-  <div class="card wide"><h2>Suppilo — missä matka katkeaa</h2>${funnelRows}</div>
+  <div class="card wide"><h2>Suppilo — missä matka katkeaa (${installsSeen} asennusta nähty)</h2>${funnelRows}</div>
   <div class="card wide"><h2>Päivittäin</h2>
     <table><tr><th>Päivä</th><th>Aktiiviset</th><th>Avaukset</th><th>Treenit</th><th>Coach</th><th>Paywall</th></tr>${dailyRows}</table>
   </div>
@@ -155,13 +168,17 @@ function render({ dailies, funnel, funnelTotal, retention }, transcripts, meta) 
 }
 
 async function main() {
-  const { events, batchTotal } = await fetchEvents(undefined);
+  const fetched = await fetchEvents(undefined);
+  const warning = coverageWarning(fetched);
+  if (warning) console.warn(warning);
   const transcripts = await fetchTranscripts();
-  const summary = aggregate(events);
+  const summary = aggregate(fetched.events);
   const html = render(summary, transcripts, {
     generatedAt: new Date().toLocaleString('fi-FI'),
-    eventCount: events.length,
-    batchTotal,
+    eventCount: fetched.events.length,
+    batchTotal: fetched.batchTotal,
+    batchesFetched: fetched.batchesFetched,
+    warning,
   });
   const outDir = path.join(__dirname, '..', 'dist-analytics');
   fs.mkdirSync(outDir, { recursive: true });
@@ -173,7 +190,12 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  process.exitCode = 1;
-});
+module.exports = { render };
+
+// Run only as a script, so a test can render a page without fetching one.
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error.message);
+    process.exitCode = 1;
+  });
+}
