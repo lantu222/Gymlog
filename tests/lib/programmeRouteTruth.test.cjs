@@ -48,11 +48,18 @@ module.exports = [
       // Twelve-week programmes were counted as eight — the generic default —
       // so the hero said "week 1/8" beside a programme page saying 12, and
       // the session total under it was a third short.
+      //
+      // Rewritten 2026-09-21: this pinned the block to `readyPlanTemplate`,
+      // which exists only while the plan points at the catalog itself. The
+      // copy made by changing one lift fell back to eight weeks — "week 8/8"
+      // and a completion card sixteen sessions into a 24-session block. The
+      // block is asked of the programme, lineage included.
       assert.match(
         code,
-        /const readyBlockWeeks = readyPlanTemplate \? getReadyProgramBlockWeeks\(readyPlanTemplate\) : undefined;/,
+        /const programmeBlockWeeks = getProgrammeBlockWeeks\(activeTemplate\.id, workoutTemplates, getWorkoutTemplateById\);/,
       );
-      assert.match(code, /totalWeeks: demoBlockWeeks \?\? onboardingBlockWeeks \?\? readyBlockWeeks,/);
+      assert.match(code, /totalWeeks: demoBlockWeeks \?\? onboardingBlockWeeks \?\? programmeBlockWeeks,/);
+      assert.doesNotMatch(code, /readyPlanTemplate \? getReadyProgramBlockWeeks\(readyPlanTemplate\)/);
     },
   },
   {
@@ -77,15 +84,18 @@ module.exports = [
   {
     name: 'route truth: the summary and the finish view read different sides of the save',
     run() {
-      // The finish view renders before the write and asks for the week the
-      // reader is in; the summary renders after it, where that week has
-      // already rolled over.
-      assert.match(
-        code,
-        /completionWeekLabel: homeActivePlanCard[\s\S]{0,240}weekOfLastLoggedSession\(\{/,
-      );
-      assert.match(code, /weekLabel: weekProgressBase\.completionWeekLabel,\s*done: weekProgressBase\.savedThisWeek,/);
-      assert.match(code, /weekLabel: weekProgressBase\.weekLabel,\s*done: weekProgressBase\.savedThisWeek \+ 1,/);
+      // The finish view renders before the write and counts the session in
+      // hand; the summary renders after it, where the log already holds it.
+      //
+      // Rewritten 2026-09-21: this pinned `savedThisWeek`, a Monday-to-Sunday
+      // count, under a week label taken from the block — "VIIKKO 1 · 1/3"
+      // for the session that finished week 1 of a plan started on a
+      // Thursday. Both sides now read one block tally, from Home's count.
+      assert.match(code, /beforeSave: reading\(homeActivePlanCard\.sessionsDone \+ 1\),/);
+      assert.match(code, /afterSave: reading\(homeActivePlanCard\.sessionsDone\),/);
+      assert.match(code, /const guidedWeekProgress = weekProgressBase\?\.beforeSave \?\? null;/);
+      assert.match(code, /const completionWeekProgress = weekProgressBase\?\.afterSave \?\? null;/);
+      assert.doesNotMatch(code, /savedThisWeek/);
     },
   },
   {

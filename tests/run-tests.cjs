@@ -287,6 +287,7 @@ const suites = [
   ...require('./screens/keyboardPersistTaps.test.cjs'),
   ...require('./screens/onboardingCopyLink.test.cjs'),
   ...require('./screens/homeWeekTruth.test.cjs'),
+  ...require('./screens/weekAndDayTruth.test.cjs'),
   ...require('./screens/programmeHeld.test.cjs'),
   ...require('./screens/freestyleSurvives.test.cjs'),
   ...require('./screens/resumeIntent.test.cjs'),
