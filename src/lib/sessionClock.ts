@@ -9,11 +9,49 @@ import type { WorkoutRestTimerState, WorkoutSessionRuntime } from '../features/w
  * else.
  */
 
-/** Wall time since the start, less every pause — including one still open. */
+/**
+ * The longest stretch with nothing done in it that still counts as training.
+ *
+ * Nothing in a guided session waits this long by itself: a rest is minutes, a
+ * drill is seconds, a hold or a timed bout tops out at the hold dial's thirty
+ * minutes. A stretch past it is the phone put away — the app closed between
+ * two sets and opened the next morning — and counting it saved a workout of
+ * two evening sets and a morning's worth more as 921 minutes (live-session
+ * audit, 2026-09-20).
+ *
+ * Two hours and not one, because a warm-up or cool-down done the reader's own
+ * way tells the store nothing until it ends, and an hour on the bike as a
+ * cool-down is a cool-down (PR review). The same two hours the finish allows
+ * after the last set (workoutAppAdapter's STALE_FINISH_MS).
+ */
+export const SESSION_IDLE_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * Wall time since the start, less every pause — including one still open —
+ * and less a stretch still running with nothing done in it for longer than
+ * SESSION_IDLE_MS. That stretch is taken off for good at the next thing done
+ * (settleSessionClock); left in until then, the clock on a phone picked up the
+ * next morning read fifteen hours, and dropped back at the first tap.
+ */
 export function elapsedSecondsOf(session: WorkoutSessionRuntime, nowMs: number): number {
   const open = session.pausedAt ? Math.max(0, nowMs - new Date(session.pausedAt).getTime()) : 0;
   const wall = nowMs - new Date(session.startedAt).getTime();
-  return Math.max(0, Math.floor((wall - (session.pausedMs ?? 0) - open) / 1000));
+  return Math.max(0, Math.floor((wall - (session.pausedMs ?? 0) - open - openIdleMs(session, nowMs)) / 1000));
+}
+
+/** The idle stretch running at `nowMs`, when it is long enough not to count. */
+function openIdleMs(session: WorkoutSessionRuntime, nowMs: number): number {
+  // An open pause already stops the clock; taking the same time off twice
+  // would run it backwards.
+  if (session.pausedAt) {
+    return 0;
+  }
+  const lastActiveMs = sessionLastActiveMs(session, nowMs);
+  if (!Number.isFinite(lastActiveMs)) {
+    return 0;
+  }
+  const idleMs = nowMs - lastActiveMs;
+  return idleMs > SESSION_IDLE_MS ? idleMs : 0;
 }
 
 export function latestCompletedSetMs(session: WorkoutSessionRuntime): number {
@@ -86,4 +124,89 @@ export function sessionLastActiveMs(session: WorkoutSessionRuntime, nowMs: numbe
     return base;
   }
   return Math.max(base, Math.min(nowMs, timer.endsAtMs));
+}
+
+/**
+ * Whether the reader has started the session: stepped into the player, or
+ * settled a set.
+ *
+ * "Start" on a programme day builds the session and opens its overview, and
+ * the overview is reading, not training. Read defensively: a stored session
+ * is only as whole as the build that wrote it.
+ */
+export function sessionHasBegun(session: WorkoutSessionRuntime): boolean {
+  if (typeof session.ui?.guidedStepIndex === 'number') {
+    return true;
+  }
+  return (session.exercises ?? []).some((exercise) =>
+    (exercise.sets ?? []).some((set) => set.status !== 'pending'),
+  );
+}
+
+/**
+ * The session clock after one change to the session, `before` to `after`.
+ *
+ * Every change that is the reader doing something — a set logged, a step
+ * moved on, a swap — moves `updatedAt` to when it happened, and the clock is
+ * settled against that. Two rules, both about time that is not the workout:
+ *
+ * - It starts at the first step. The clock used to start when "Start" built
+ *   the session, while the reader was still on the overview; one read in the
+ *   morning, closed with X and resumed at six in the evening saved 35 minutes
+ *   of training as 633 (live-session audit, 2026-09-20). The first step into
+ *   the player, or the first set settled, is when the workout began, so
+ *   `startedAt` moves there and nothing before it counts.
+ * - A stretch longer than SESSION_IDLE_MS with nothing done in it is time
+ *   away, and comes off like a pause at the first thing done after it. A rest
+ *   still running counts as in use up to its end (sessionLastActiveMs); a
+ *   stretch spent paused is already off, so it is not taken off again.
+ *
+ * Kept in the pause total rather than a field of its own, so the clock on
+ * screen, the summary and the saved duration — all of which read
+ * `pausedMs` — take it off without being told about it.
+ */
+export function settleSessionClock(
+  before: WorkoutSessionRuntime | null,
+  after: WorkoutSessionRuntime | null,
+): WorkoutSessionRuntime | null {
+  if (!before || !after || before === after || before.sessionId !== after.sessionId || after.status === 'completed') {
+    return after;
+  }
+  const atMs = Date.parse(after.updatedAt);
+  if (!Number.isFinite(atMs)) {
+    return after;
+  }
+
+  if (!sessionHasBegun(before)) {
+    if (!sessionHasBegun(after) || !(atMs > Date.parse(before.startedAt))) {
+      return after;
+    }
+    const at = new Date(atMs).toISOString();
+    return {
+      ...after,
+      startedAt: at,
+      pausedMs: 0,
+      pausedAt: after.pausedAt ? at : null,
+      ...(typeof after.pausedMsAtLastSet === 'number' ? { pausedMsAtLastSet: 0 } : {}),
+    };
+  }
+
+  if (before.pausedAt) {
+    return after;
+  }
+  const lastActiveMs = sessionLastActiveMs(before, atMs);
+  const idleMs = Number.isFinite(lastActiveMs) ? atMs - lastActiveMs : 0;
+  if (idleMs <= SESSION_IDLE_MS) {
+    return after;
+  }
+  // A set logged by this very change came after the gap, so the pause total
+  // stamped on it (workoutSecondsUntil) has to hold the gap as well.
+  const loggedNow = latestCompletedSetMs(after) > latestCompletedSetMs(before);
+  return {
+    ...after,
+    pausedMs: (after.pausedMs ?? 0) + idleMs,
+    ...(loggedNow && typeof after.pausedMsAtLastSet === 'number'
+      ? { pausedMsAtLastSet: after.pausedMsAtLastSet + idleMs }
+      : {}),
+  };
 }

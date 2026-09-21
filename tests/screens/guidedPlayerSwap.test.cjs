@@ -363,9 +363,12 @@ module.exports = [
       assert.match(playerSource, /label=\{t\(language, 'guided\.action\.swap'\)\}/);
       assert.match(playerSource, /label=\{t\(language, 'guided\.action\.skipExercise'\)\}/);
       // And the third door to the whole session, for the set screen that had none.
+      // Out of the pause through `unpause`, which was `setPaused(false)`
+      // here: that cleared the screen's pause and left the session clock
+      // stopped behind it (live-session audit, 2026-09-20).
       assert.match(
         playerSource,
-        /label=\{t\(language, 'guided\.runSheet\.title'\)\}\s*onPress=\{\(\) => \{\s*setPauseSheetOpen\(false\);\s*setPaused\(false\);\s*setRunSheetOpen\(true\);/,
+        /label=\{t\(language, 'guided\.runSheet\.title'\)\}\s*onPress=\{\(\) => \{\s*setPauseSheetOpen\(false\);\s*unpause\(\);\s*setRunSheetOpen\(true\);/,
       );
     },
   },

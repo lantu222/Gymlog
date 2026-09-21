@@ -449,6 +449,9 @@ const EN = {
   // this the row simply came back with no word about why.
   'toast.deleteFailed': 'Could not delete the workout',
   'toast.entryDeleteFailed': 'Could not delete that entry — it is back in the list',
+  // A programme with a workout of it running is not deleted: the workout
+  // would have nowhere to be saved to (see lib/programmeDeletion).
+  'toast.programDeleteWorkoutRunning': 'A workout of this program is in progress — save or discard it first',
   'export.log.tooBig': 'The log could not be handed over — it has grown past what a share can carry. Export your programme instead, and tell us: we will add a file export.',
   'toast.entrySaveFailed': 'Could not save that entry',
   // After Reset, when the server did not confirm deleting the coach's kept
@@ -3540,6 +3543,7 @@ const FI: Record<I18nKey, string> = {
   'toast.cardioSaveFailed': 'Cardio-treeniä ei voitu tallentaa',
   'toast.deleteFailed': 'Treeniä ei voitu poistaa',
   'toast.entryDeleteFailed': 'Merkintää ei voitu poistaa — se on takaisin listassa',
+  'toast.programDeleteWorkoutRunning': 'Tämän ohjelman treeni on kesken — tallenna tai hylkää se ensin',
   'export.log.tooBig': 'Lokia ei saatu luovutettua — se on kasvanut isommaksi kuin jako pystyy kantamaan. Vie ohjelmasi sen sijaan ja kerro meille: lisäämme tiedostoviennin.',
   'toast.entrySaveFailed': 'Merkintää ei voitu tallentaa',
   'toast.resetCoachCopiesPending': 'Tiedot tyhjennetty. Valmentajan säilyttämiä kopioita ei voitu vielä poistaa — sovellus yrittää uudelleen.',

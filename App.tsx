@@ -252,6 +252,7 @@ import { applySessionAdaptation } from './src/lib/sessionAdaptation';
 import { buildProgramInsightMap } from './src/lib/programInsights';
 import { buildTailoringPreferences } from './src/lib/tailoringFit';
 import { forgetRoutesForTemplate, popRoute, pushRoute, withoutTrailingRoute } from './src/navigation/routeHistory';
+import { liveSessionBlocksProgrammeDelete } from './src/lib/programmeDeletion';
 import { AppRoute, ROOT_ROUTES, RootTabKey, WORKOUT_PLAN_ROUTE } from './src/navigation/routes';
 import { backSkipsHistory, getBackRoute } from './src/app/backRoute';
 import { renderProfileTab } from './src/app/renderProfileTab';
@@ -1247,6 +1248,15 @@ function VinhaApp() {
     // back walked Home past the question and past the discard (CI review
     // of #162). Same stand-down as the cardio player and the questionnaire.
     if (route.tab === 'workout' && route.screen === 'empty') {
+      return undefined;
+    }
+    // Stands down on the guided player, in both of its modes. Its own
+    // listener answers back — the exit sheet in the player, a plain leave on
+    // the overview. But "Continue" from Home mounts it straight into the
+    // player in the same commit as the route change, and a parent's effect
+    // runs after its child's: this listener was the newest, and back walked
+    // Home past the exit sheet (live-session audit, 2026-09-20).
+    if (route.tab === 'workout' && route.screen === 'guided') {
       return undefined;
     }
     // Stands down for the questionnaire in BOTH of its forms. The setup route
@@ -3242,6 +3252,13 @@ function VinhaApp() {
 
 
   async function handleDeleteCustomWorkout(workoutTemplateId: string) {
+    // Not while one of its days is running: the player would be routed to a
+    // programme that is gone, and the sets in it could never be saved.
+    if (liveSessionBlocksProgrammeDelete(workout.activeSession, workoutTemplateId)) {
+      void haptics.error();
+      showToast(t(preferences.appLanguage, 'toast.programDeleteWorkoutRunning'));
+      return;
+    }
     await deleteWorkoutTemplate(workoutTemplateId);
     void haptics.success();
     leaveDeletedProgramme(workoutTemplateId);

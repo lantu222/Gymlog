@@ -1487,16 +1487,30 @@ export function GuidedPlayerScreen({
     sound[kind]();
   }, []);
 
+  /**
+   * Out of the pause, on the screen and on the session clock together.
+   *
+   * The set screen's Pause stops both, and they came back apart: closing the
+   * actions sheet by tapping outside it cleared the screen's pause and kept
+   * the session's, so the screen offered "Pause" while the clock stood still
+   * (live-session audit, 2026-09-20). Every way out of the pause comes through
+   * here. The session's resume does nothing when nothing is paused, so no
+   * caller asks first — the asking read the session from the last render,
+   * and the resume that followed put that session back over the set logged
+   * in the same tap.
+   */
+  const unpause = useCallback(() => {
+    setPaused(false);
+    workout.resumeWorkout();
+  }, [workout]);
+
   const goTo = useCallback(
     (index: number) => {
       const clamped = Math.min(Math.max(0, index), steps.length - 1);
-      setPaused(false);
       // Moving on is resuming. The set screen's pause stops the session clock,
       // and only its own button started it again: pause, then Log, Swap or
       // Skip, and the clock stayed frozen for the rest of the workout.
-      if (workout.activeSession?.pausedAt) {
-        workout.resumeWorkout();
-      }
+      unpause();
       setPauseSheetOpen(false);
       setHowtoOpen(false);
       const target = steps[clamped];
@@ -1515,7 +1529,7 @@ export function GuidedPlayerScreen({
         cue('finish');
       }
     },
-    [steps, workout, cue],
+    [steps, workout, cue, unpause],
   );
 
   /** ±15s / +10s: shift the leftover time, the deadline and any pending alert. */
@@ -1904,10 +1918,7 @@ export function GuidedPlayerScreen({
     );
     setSwapOpen(false);
     setSwapQuery('');
-    setPaused(false);
-    if (workout.activeSession?.pausedAt) {
-      workout.resumeWorkout();
-    }
+    unpause();
   };
 
   // Skipping an exercise removes its steps from the list, so the index we are
@@ -1948,10 +1959,7 @@ export function GuidedPlayerScreen({
     resyncTargetRef.current = blockStart >= 0 ? blockStart : stepIndex;
     workout.skipExercise(actionSlotId);
     setPauseSheetOpen(false);
-    setPaused(false);
-    if (workout.activeSession?.pausedAt) {
-      workout.resumeWorkout();
-    }
+    unpause();
   };
 
   const handleAddSet = () => {
@@ -1960,7 +1968,7 @@ export function GuidedPlayerScreen({
     }
     workout.addSet(actionSlotId);
     setPauseSheetOpen(false);
-    setPaused(false);
+    unpause();
   };
 
   const backOne = () => {
@@ -2839,7 +2847,7 @@ export function GuidedPlayerScreen({
                     big
                     onPress={() => {
                       if (paused) {
-                        setPaused(false);
+                        unpause();
                       } else {
                         setPaused(true);
                         setPauseSheetOpen(true);
@@ -3063,8 +3071,7 @@ export function GuidedPlayerScreen({
               // rack is taken put five decisions in front of you first.
               onPause={() => {
                 if (paused) {
-                  setPaused(false);
-                  workout.resumeWorkout();
+                  unpause();
                   return;
                 }
                 setPaused(true);
@@ -3680,7 +3687,7 @@ export function GuidedPlayerScreen({
         <GPSheet
           onClose={() => {
             setPauseSheetOpen(false);
-            setPaused(false);
+            unpause();
           }}
         >
           <Text style={styles.sheetTitle}>{t(language, 'guided.pauseSheet.title')}</Text>
@@ -3695,7 +3702,7 @@ export function GuidedPlayerScreen({
               label={t(language, 'guided.runSheet.title')}
               onPress={() => {
                 setPauseSheetOpen(false);
-                setPaused(false);
+                unpause();
                 setRunSheetOpen(true);
               }}
             />
@@ -3713,7 +3720,7 @@ export function GuidedPlayerScreen({
                 label={t(language, `guided.own.${skippablePhase}` as 'guided.own.warmup')}
                 onPress={() => {
                   setPauseSheetOpen(false);
-                  setPaused(false);
+                  unpause();
                   setOwnBlock({ phase: skippablePhase, startedAt: Date.now() });
                 }}
               />
@@ -3802,7 +3809,7 @@ export function GuidedPlayerScreen({
           onClose={() => {
             setSwapOpen(false);
             setSwapQuery('');
-            setPaused(false);
+            unpause();
           }}
         >
           <Text style={styles.sheetTitle}>
