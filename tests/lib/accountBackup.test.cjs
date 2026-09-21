@@ -5,16 +5,21 @@ const {
   DEVICE_PRIVACY_PREFERENCE_FIELDS,
   accountBackupFingerprint,
   autoBackupWouldShrinkLog,
+  backupWouldShrink,
   buildAccountBackupPayload,
+  countBackup,
   countBackupContents,
   countBackupItems,
+  countHistoryItems,
   decideAfterLook,
   describeAccountBackup,
   describeRestoreChoice,
   hasLocalDataWorthKeeping,
+  hasWorkoutInProgress,
   parseAccountBackupPayload,
   planBackup,
   preferencesForRestore,
+  syncCounts,
 } = require('../../.test-dist/lib/accountBackup.js');
 const { restoreQuestionCopy } = require('../../.test-dist/lib/accountBackupCopy.js');
 const { DEVICE_ONLY_PREFERENCE_FIELDS, resolveProEntitlement } = require('../../.test-dist/lib/proEntitlement.js');
@@ -208,7 +213,7 @@ module.exports = [
         '2026-09-12T10:00:00.000Z',
       );
       const small = makeDatabase({ workoutSessions: [{}], workoutTemplates: [{ id: 'mine' }] });
-      const summary = describeRestoreChoice(cloud, small);
+      const summary = describeRestoreChoice(cloud, small, false, HISTORY);
       assert.equal(summary.cloud.workoutCount, 12);
       assert.equal(summary.cloud.customProgramCount, 2);
       assert.deepEqual(summary.local, {
@@ -221,7 +226,7 @@ module.exports = [
         workoutInProgress: false,
       });
       assert.equal(summary.keepingLocalShrinksCloud, true);
-      assert.equal(describeRestoreChoice(cloud, makeDatabase({ workoutSessions: new Array(10).fill({}) })).keepingLocalShrinksCloud, false);
+      assert.equal(describeRestoreChoice(cloud, makeDatabase({ workoutSessions: new Array(10).fill({}) }), false, HISTORY).keepingLocalShrinksCloud, false);
 
       // The words: both sides, in the app's language, with the date the app writes.
       const fi = restoreQuestionCopy(summary, 'fi');
@@ -253,6 +258,8 @@ module.exports = [
           '2026-09-12T10:00:00.000Z',
         ),
         makeDatabase(),
+        false,
+        HISTORY,
       );
       assert.equal(weighIns.keepingLocalShrinksCloud, true);
       assert.match(restoreQuestionCopy(weighIns, 'fi').replace.body, /^Varmuuskopiossa on 1 cardiotreeni, 300 punnitusta, 4 mittausta\. /);
@@ -265,6 +272,7 @@ module.exports = [
         cloud,
         makeDatabase({ bodyweightEntries: new Array(200).fill({}), cardioSessions: new Array(30).fill({}) }),
         true,
+        HISTORY,
       );
       assert.deepEqual(runner.local, {
         workoutCount: 0,
@@ -287,11 +295,13 @@ module.exports = [
       const adopted = describeRestoreChoice(
         cloud,
         makeDatabase({ workoutPlans: [{ id: 'ready_plan_tpl_x', entries: [{ workoutTemplateId: 'tpl_x' }] }] }),
+        false,
+        HISTORY,
       );
       assert.match(restoreQuestionCopy(adopted, 'fi').body, /Tällä puhelimella on 1 ohjelma\. /);
       assert.match(restoreQuestionCopy(adopted, 'en').body, /This phone has 1 program\. /);
       // An empty phone still says what it has.
-      assert.match(restoreQuestionCopy(describeRestoreChoice(cloud, makeDatabase()), 'fi').body, /Tällä puhelimella on 0 treeniä\. /);
+      assert.match(restoreQuestionCopy(describeRestoreChoice(cloud, makeDatabase(), false, HISTORY), 'fi').body, /Tällä puhelimella on 0 treeniä\. /);
     },
   },
   {
@@ -399,36 +409,40 @@ module.exports = [
   {
     name: 'accountBackup: what a backup may do before and after it reads the cloud copy',
     run() {
-      const synced = { lastBackupAt: '2026-09-10T08:00:00.000Z', lastBackupItemCount: 40, autoBackupPaused: false };
+      // Counts are per store since the workout history got its own guard;
+      // this suite is about the database side and keeps the history even.
+      const local = (itemCount, historyCount = 10) => ({ itemCount, historyCount });
+      const synced = { lastBackupAt: '2026-09-10T08:00:00.000Z', lastBackupItemCount: 40, lastBackupHistoryCount: 10, autoBackupPaused: false };
       // Nothing to worry about: straight up.
-      assert.equal(planBackup({ interactive: false, sync: synced, localItemCount: 41 }), 'upload');
-      assert.equal(planBackup({ interactive: true, sync: synced, localItemCount: 41 }), 'upload');
+      assert.equal(planBackup({ interactive: false, sync: synced, local: local(41) }), 'upload');
+      assert.equal(planBackup({ interactive: true, sync: synced, local: local(41) }), 'upload');
       // A phone holding far less: the automatic path stays out, "Back up now" looks and asks.
-      assert.equal(planBackup({ interactive: false, sync: synced, localItemCount: 3 }), 'skip');
-      assert.equal(planBackup({ interactive: true, sync: synced, localItemCount: 3 }), 'look', '"Back up now" skipped the shrink check');
+      assert.equal(planBackup({ interactive: false, sync: synced, local: local(3) }), 'skip');
+      assert.equal(planBackup({ interactive: true, sync: synced, local: local(3) }), 'look', '"Back up now" skipped the shrink check');
       // Never synced, or the size never learned: look first, either way.
       for (const interactive of [false, true]) {
-        assert.equal(planBackup({ interactive, sync: { ...synced, lastBackupAt: null }, localItemCount: 41 }), 'look');
-        assert.equal(planBackup({ interactive, sync: { ...synced, lastBackupItemCount: null }, localItemCount: 41 }), 'look');
+        assert.equal(planBackup({ interactive, sync: { ...synced, lastBackupAt: null }, local: local(41) }), 'look');
+        assert.equal(planBackup({ interactive, sync: { ...synced, lastBackupItemCount: null }, local: local(41) }), 'look');
+        assert.equal(planBackup({ interactive, sync: { ...synced, lastBackupHistoryCount: null }, local: local(41) }), 'look');
       }
       // After "Delete cloud backup" only the reader backs up.
-      const paused = { lastBackupAt: null, lastBackupItemCount: null, autoBackupPaused: true };
-      assert.equal(planBackup({ interactive: false, sync: paused, localItemCount: 5 }), 'skip', 'the delete was undone by the next weigh-in');
-      assert.equal(planBackup({ interactive: true, sync: paused, localItemCount: 5 }), 'look');
+      const paused = { lastBackupAt: null, lastBackupItemCount: null, lastBackupHistoryCount: null, autoBackupPaused: true };
+      assert.equal(planBackup({ interactive: false, sync: paused, local: local(5) }), 'skip', 'the delete was undone by the next weigh-in');
+      assert.equal(planBackup({ interactive: true, sync: paused, local: local(5) }), 'look');
 
-      const backup = (itemCount) => ({ kind: 'backup', itemCount });
+      const backup = (itemCount, historyCount = 10) => ({ kind: 'backup', itemCount, historyCount });
       // Never synced: the reader gets sign-in's question; unattended, only "no backup" uploads.
-      assert.equal(decideAfterLook({ interactive: true, neverSynced: true, remote: backup(40), localItemCount: 0 }), 'settle');
-      assert.equal(decideAfterLook({ interactive: true, neverSynced: true, remote: { kind: 'unreachable' }, localItemCount: 0 }), 'settle');
-      assert.equal(decideAfterLook({ interactive: false, neverSynced: true, remote: { kind: 'none' }, localItemCount: 0 }), 'upload');
-      assert.equal(decideAfterLook({ interactive: false, neverSynced: true, remote: backup(1), localItemCount: 9 }), 'fail');
-      assert.equal(decideAfterLook({ interactive: false, neverSynced: true, remote: { kind: 'unreachable' }, localItemCount: 9 }), 'fail');
+      assert.equal(decideAfterLook({ interactive: true, neverSynced: true, remote: backup(40), local: local(0) }), 'settle');
+      assert.equal(decideAfterLook({ interactive: true, neverSynced: true, remote: { kind: 'unreachable' }, local: local(0) }), 'settle');
+      assert.equal(decideAfterLook({ interactive: false, neverSynced: true, remote: { kind: 'none' }, local: local(0) }), 'upload');
+      assert.equal(decideAfterLook({ interactive: false, neverSynced: true, remote: backup(1), local: local(9) }), 'fail');
+      assert.equal(decideAfterLook({ interactive: false, neverSynced: true, remote: { kind: 'unreachable' }, local: local(9) }), 'fail');
       // Synced.
-      assert.equal(decideAfterLook({ interactive: true, neverSynced: false, remote: backup(40), localItemCount: 3 }), 'ask');
-      assert.equal(decideAfterLook({ interactive: false, neverSynced: false, remote: backup(40), localItemCount: 3 }), 'hold');
-      assert.equal(decideAfterLook({ interactive: true, neverSynced: false, remote: backup(40), localItemCount: 30 }), 'upload');
-      assert.equal(decideAfterLook({ interactive: true, neverSynced: false, remote: { kind: 'none' }, localItemCount: 0 }), 'upload');
-      assert.equal(decideAfterLook({ interactive: true, neverSynced: false, remote: { kind: 'unreachable' }, localItemCount: 30 }), 'fail');
+      assert.equal(decideAfterLook({ interactive: true, neverSynced: false, remote: backup(40), local: local(3) }), 'ask');
+      assert.equal(decideAfterLook({ interactive: false, neverSynced: false, remote: backup(40), local: local(3) }), 'hold');
+      assert.equal(decideAfterLook({ interactive: true, neverSynced: false, remote: backup(40), local: local(30) }), 'upload');
+      assert.equal(decideAfterLook({ interactive: true, neverSynced: false, remote: { kind: 'none' }, local: local(0) }), 'upload');
+      assert.equal(decideAfterLook({ interactive: true, neverSynced: false, remote: { kind: 'unreachable' }, local: local(30) }), 'fail');
     },
   },
   {
@@ -455,6 +469,75 @@ module.exports = [
       // Too small a copy to judge, and an account from before the count was kept.
       assert.equal(autoBackupWouldShrinkLog(0, 2), false);
       assert.equal(autoBackupWouldShrinkLog(0, null), false);
+    },
+  },
+  {
+    // The workout store is read, and set aside when unreadable, on its own:
+    // the database stays whole and the history opens empty. The shrink guard
+    // counted the database only, so the automatic backup uploaded that empty
+    // history over the only copy left of every lift's "last time", prefills
+    // and progression (persistence audit, 2026-09-20).
+    name: 'accountBackup: an emptied workout history does not replace the cloud copy of it',
+    run() {
+      const history = {
+        sessions: new Array(20).fill({}),
+        slotHistory: { a: new Array(10).fill({}), b: new Array(4).fill({}) },
+        lastSelectedTemplateId: 't',
+      };
+      // The sessions the player remembers and every remembered set per slot.
+      assert.equal(countHistoryItems(history), 34);
+      assert.equal(countHistoryItems(HISTORY), 0);
+      assert.equal(countHistoryItems({ sessions: 'x', slotHistory: { a: null, b: [{}] } }), 1, 'an odd backup counts what it has');
+      assert.equal(countHistoryItems(null), 0);
+
+      // A year of weigh-ins and the history beside it. The database is the
+      // same on both sides, so a sum of the two stores still reads as more
+      // than half: only a per-store count sees the history go.
+      const database = makeDatabase({ workoutSessions: new Array(20).fill({}), bodyweightEntries: new Array(300).fill({}) });
+      const cloud = countBackup(database, history);
+      const phone = countBackup(database, HISTORY);
+      assert.ok(phone.itemCount + phone.historyCount > (cloud.itemCount + cloud.historyCount) / 2, 'the sum would not have caught it');
+      assert.equal(backupWouldShrink(phone, cloud), true);
+      assert.equal(backupWouldShrink(cloud, cloud), false);
+      assert.equal(backupWouldShrink(phone, { itemCount: cloud.itemCount, historyCount: null }), false, 'an unknown size is not a shrink');
+
+      // The automatic backup stays out; "Back up now" looks, and then asks.
+      const sync = { lastBackupAt: '2026-09-20T12:00:00.000Z', ...syncCounts(cloud), autoBackupPaused: false };
+      assert.deepEqual(syncCounts(cloud), { lastBackupItemCount: 320, lastBackupHistoryCount: 34 });
+      assert.equal(planBackup({ interactive: false, sync, local: phone }), 'skip', 'the empty history was uploaded over the full one');
+      assert.equal(planBackup({ interactive: true, sync, local: phone }), 'look');
+      const remote = { kind: 'backup', ...cloud };
+      assert.equal(decideAfterLook({ interactive: false, neverSynced: false, remote, local: phone }), 'hold');
+      assert.equal(decideAfterLook({ interactive: true, neverSynced: false, remote, local: phone }), 'ask');
+
+      // And "Use the data on this phone" is asked a second time.
+      const payload = buildAccountBackupPayload(database, history, '2026-09-20T12:00:00.000Z');
+      assert.equal(describeRestoreChoice(payload, database, false, HISTORY).keepingLocalShrinksCloud, true);
+      assert.equal(describeRestoreChoice(payload, database, false, history).keepingLocalShrinksCloud, false);
+    },
+  },
+  {
+    // #162 keeps a free workout's board across the process, and a restore
+    // replaces the player's store with the backup's history alone. The
+    // question counted the guided session and the run: signing in with a
+    // free workout open threw it out unasked (persistence audit, 2026-09-20).
+    name: 'accountBackup: a free workout on the board is a workout in progress',
+    run() {
+      const none = { activeSession: null, activeCardio: null, freestyleDraft: null };
+      assert.equal(hasWorkoutInProgress(none), false);
+      assert.equal(hasWorkoutInProgress({ ...none, activeSession: { sessionId: 's' } }), true);
+      assert.equal(hasWorkoutInProgress({ ...none, activeCardio: { activityType: 'run' } }), true);
+      const draft = { exercises: [{ localKey: 'k', name: 'Bench Press', sets: [{ localKey: 's', kg: '80', reps: '8', done: true }] }] };
+      assert.equal(hasWorkoutInProgress({ ...none, freestyleDraft: draft }), true, 'the free workout was not counted');
+
+      // On an otherwise empty phone that is the difference between a
+      // question and a restore that runs without one.
+      const empty = makeDatabase();
+      assert.equal(hasLocalDataWorthKeeping(empty, hasWorkoutInProgress({ ...none, freestyleDraft: draft })), true);
+      const cloud = buildAccountBackupPayload(makeDatabase({ workoutSessions: [{}] }), HISTORY, '2026-09-20T12:00:00.000Z');
+      const summary = describeRestoreChoice(cloud, empty, hasWorkoutInProgress({ ...none, freestyleDraft: draft }), HISTORY);
+      assert.equal(summary.local.workoutInProgress, true);
+      assert.match(restoreQuestionCopy(summary, 'en').body, /This phone has a workout in progress\. /);
     },
   },
 ];

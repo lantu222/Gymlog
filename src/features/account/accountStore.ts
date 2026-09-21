@@ -23,6 +23,12 @@ export interface StoredAccount {
    */
   lastBackupItemCount: number | null;
   /**
+   * The same for the workout history (countHistoryItems), which is set aside
+   * on its own when it cannot be read and was not counted above. Null when
+   * unknown: an account stored before it was kept looks at the copy once.
+   */
+  lastBackupHistoryCount: number | null;
+  /**
    * accountBackupFingerprint of the data this phone last uploaded or
    * restored. The automatic backup runs while the data differs from it, so an
    * edit is backed up and a failed upload is tried again — the counts it used
@@ -42,15 +48,15 @@ export function normalizeStoredAccount(parsed: Partial<StoredAccount> | null | u
   if (!parsed || typeof parsed !== 'object' || typeof parsed.sub !== 'string' || !parsed.sub) {
     return null;
   }
+  const count = (value: unknown) =>
+    typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.floor(value) : null;
   return {
     sub: parsed.sub,
     email: typeof parsed.email === 'string' ? parsed.email : null,
     name: typeof parsed.name === 'string' ? parsed.name : null,
     lastBackupAt: typeof parsed.lastBackupAt === 'string' ? parsed.lastBackupAt : null,
-    lastBackupItemCount:
-      typeof parsed.lastBackupItemCount === 'number' && Number.isFinite(parsed.lastBackupItemCount) && parsed.lastBackupItemCount >= 0
-        ? Math.floor(parsed.lastBackupItemCount)
-        : null,
+    lastBackupItemCount: count(parsed.lastBackupItemCount),
+    lastBackupHistoryCount: count(parsed.lastBackupHistoryCount),
     lastBackupFingerprint:
       typeof parsed.lastBackupFingerprint === 'string' && parsed.lastBackupFingerprint ? parsed.lastBackupFingerprint : null,
     autoBackupPaused: parsed.autoBackupPaused === true,

@@ -122,7 +122,12 @@ module.exports = [
       // size, or about to shrink; ask the reader, or hold when unattended — is
       // decided in lib/accountBackup (planBackup, decideAfterLook; pinned in
       // tests/lib/accountBackup) and run in tests/features/account.
-      assert.match(backup, /const plan = planBackup\(\{ interactive, sync: current, localItemCount: countBackupItems\(latestRef\.current\.database\) \}\);\s*if \(plan === 'skip'\) \{\s*return \{ kind: 'failed' \};/);
+      // Both stores are counted, database and workout history: the history
+      // is set aside on its own when it cannot be read, and counting the
+      // database alone let its empty stand-in replace the cloud copy
+      // (persistence audit, 2026-09-20).
+      assert.match(backup, /const plan = planBackup\(\{\s*interactive,\s*sync: current,\s*local: countBackup\(latestRef\.current\.database, latestRef\.current\.workoutHistory\),\s*\}\);\s*if \(plan === 'skip'\) \{\s*return \{ kind: 'failed' \};/);
+      assert.match(backup, /local: countBackup\(latestRef\.current\.database, latestRef\.current\.workoutHistory\),\s*\}\);\s*if \(decision === 'settle'\)/);
       assert.match(backup, /if \(decision === 'settle'\) \{\s*return await settleWithRemote\(idToken, current, remote, generation\);/);
       assert.match(backup, /if \(decision === 'ask' && remote\.ok\) \{\s*return await askRestoreOrKeep\(idToken, current, remote\.payload\);/);
       assert.match(hook, /const running = runBackup\(false\)\.then\(\(outcome\) => outcome\.kind === 'backed_up'\);/);
@@ -140,9 +145,12 @@ module.exports = [
       // The automatic path goes through the same planner: it runs backupNow,
       // which is runBackup(false), and only when the data differs.
       assert.match(hook, /if \(current\.lastBackupFingerprint === accountBackupFingerprint\(database, workoutHistory\)\) \{\s*return;\s*\}\s*void backupNowRef\.current\(\);/);
-      // Both counts that feed the shrink guard are over the same five collections.
-      assert.match(hook, /lastBackupItemCount: countBackupItems\(database\)/);
-      assert.match(hook, /lastBackupItemCount: countBackupItems\(payload\.database\)/);
+      // Every count the account keeps is taken the one way, both stores at
+      // once (syncCounts of countBackup), so the stored size and the local
+      // one it is compared with cannot be counted differently.
+      assert.match(hook, /\.\.\.syncCounts\(countBackup\(database, workoutHistory\)\)/);
+      assert.match(hook, /\.\.\.syncCounts\(countBackup\(payload\.database, payload\.workoutHistory\)\)/);
+      assert.doesNotMatch(hook, /lastBackupItemCount: countBackupItems\(/, 'a count taken of the database alone');
 
       // A restore the disk refuses is reported, on both paths, not swallowed.
       const restoreBranch = resolve.slice(resolve.indexOf("if (choice === 'restore')"));
