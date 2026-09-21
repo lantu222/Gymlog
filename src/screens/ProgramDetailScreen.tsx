@@ -78,26 +78,54 @@ interface ProgramDetailScreenProps {
   onBack: () => void;
   onPrimaryAction: () => void;
   /**
-   * Is this programme running at all?
+   * Is this THE active programme — the one Home leads with and the list tags?
    *
-   * Separate from `activePlanSummary`, which is only the programme Home LEADS
-   * with. A programme can run without leading, and there was no way to stop
-   * one from its own page: the only control was "Show this on Home", which
-   * changed which one led and could not turn any of them off (user
-   * 2026-09-07, "aktiivinen/eiaktiivinen nappia ei ole").
+   * One programme is active and the reader may hold several (user
+   * 2026-09-21). The switch used to say whether a programme was running at
+   * all, so every programme the reader held read as on while only one wore
+   * the ACTIVE tag: four switches on, one tag.
    */
-  running?: boolean;
+  active?: boolean;
   /**
-   * Is this programme the reader's at all, running or not?
+   * Is this programme the reader's at all, active or not?
    *
-   * A programme switched off is still held, and its page keeps the switch —
-   * off — rather than offering to adopt it again. The switch used to appear
-   * only while running, so switching it off replaced it with "Ota ohjelma
-   * käyttöön" and the programme read as deleted (device, 2026-09-16).
+   * A programme that is not the active one is still held, and its page keeps
+   * the switch — off — rather than offering to adopt it again. The switch
+   * used to appear only while running, so switching it off replaced it with
+   * "Ota ohjelma käyttöön" and the programme read as deleted (device,
+   * 2026-09-16).
    */
   held?: boolean;
   /** Absent leaves the switch out entirely — a catalog preview has none. */
-  onSetRunning?: (next: boolean) => void;
+  onSetActive?: (next: boolean) => void;
+  /**
+   * The programme that is active now, when it is another one, by the name
+   * the list gives it.
+   *
+   * Making this programme active moves the reader off that one, and the page
+   * asks first, naming it: the advice is to finish one programme before
+   * starting the next (user 2026-09-21). Null when there is nothing to move
+   * off — this one is active already, or none is.
+   */
+  switchingFrom?: string | null;
+  /**
+   * The programme that becomes active if this one is switched off, by the
+   * name the list gives it, or null when none would.
+   *
+   * Home always leads with a programme while the reader holds one running, so
+   * switching the active one off hands the lead on. Said under the switch,
+   * before it is pressed, rather than as a toast after: it is the one thing
+   * the press changes that this page does not show.
+   */
+  stoppingHandsTo?: string | null;
+  /**
+   * Does the adopt button make this programme the active one?
+   *
+   * Its other answers — starting the next session, opening the reader's own
+   * version, opening the editor — change nothing about which programme is
+   * active, and are not asked about.
+   */
+  primaryActionActivates?: boolean;
   onStartSession: (sessionId: string) => void;
   /**
    * Rename the programme. Absent for a ready one, whose name is catalog data.
@@ -231,9 +259,12 @@ export function ProgramDetailScreen({
   onStartSession,
   onRenameProgram,
   onPrimaryAction,
-  running = false,
+  active = false,
   held = false,
-  onSetRunning,
+  onSetActive,
+  switchingFrom = null,
+  stoppingHandsTo = null,
+  primaryActionActivates = false,
   onOpenSession,
   onReorderSession,
   programBlockWeeks = null,
@@ -338,6 +369,26 @@ export function ProgramDetailScreen({
     [program.sessions],
   );
   const [confirmVisible, setConfirmVisible] = useState(false);
+  /**
+   * Which control is waiting on "are you sure": the switch or the adopt
+   * button. Both make this programme the active one; until the reader answers,
+   * neither has done anything, and the switch still reads off.
+   */
+  const [pendingSwitch, setPendingSwitch] = useState<'switch' | 'adopt' | null>(null);
+  const activate = (via: 'switch' | 'adopt') => {
+    if (via === 'switch') {
+      onSetActive?.(true);
+      return;
+    }
+    onPrimaryAction();
+  };
+  const askBeforeActivating = (via: 'switch' | 'adopt') => {
+    if (switchingFrom) {
+      setPendingSwitch(via);
+      return;
+    }
+    activate(via);
+  };
   /**
    * The one thing that makes a good program the wrong pick: a week without
    * room for it. Only shown when the setup actually says how many days the
@@ -987,15 +1038,23 @@ export function ProgramDetailScreen({
             that does not belong here (user 2026-08-31): this page is what the
             programme IS, Home is where today's session is started, and the day
             rows below open the exact session a reader wants instead. */}
-        {(running || held) && onSetRunning ? (
+        {(active || held) && onSetActive ? (
           <View style={styles.activeRow}>
             <View style={styles.activeCopy}>
               <Text style={styles.activeLabel}>{t(language, 'detail.active')}</Text>
-              <Text style={styles.activeHint}>{t(language, 'detail.activeHint')}</Text>
+              {/* What the switch does from where it is. Off, it said "turn it
+                  off to stop the programme" — about a switch already off. */}
+              <Text style={styles.activeHint}>
+                {!active
+                  ? t(language, 'detail.activeHintOff')
+                  : stoppingHandsTo
+                    ? t(language, 'detail.activeHintNext', { name: stoppingHandsTo })
+                    : t(language, 'detail.activeHint')}
+              </Text>
             </View>
             <ToggleSwitch
-              value={running}
-              onChange={(next) => onSetRunning(next)}
+              value={active}
+              onChange={(next) => (next ? askBeforeActivating('switch') : onSetActive(false))}
               label={t(language, 'detail.active')}
             />
           </View>
@@ -1003,7 +1062,7 @@ export function ProgramDetailScreen({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={program.primaryActionLabel}
-            onPress={onPrimaryAction}
+            onPress={() => (primaryActionActivates ? askBeforeActivating('adopt') : onPrimaryAction())}
             style={({ pressed }) => [styles.adoptButton, pressed && { opacity: 0.9 }]}
           >
             <Text style={styles.adoptButtonText}>{program.primaryActionLabel}</Text>
@@ -1302,6 +1361,22 @@ export function ProgramDetailScreen({
           onConfirm={handleConfirmDelete}
         />
       ) : null}
+
+      <ConfirmDialog
+        language={language}
+        visible={pendingSwitch !== null && switchingFrom !== null}
+        title={t(language, 'detail.switchActive.title')}
+        message={t(language, 'detail.switchActive.message', { name: switchingFrom ?? '' })}
+        confirmLabel={t(language, 'detail.switchActive.confirm')}
+        onCancel={() => setPendingSwitch(null)}
+        onConfirm={() => {
+          const via = pendingSwitch;
+          setPendingSwitch(null);
+          if (via) {
+            activate(via);
+          }
+        }}
+      />
     </View>
   );
 }

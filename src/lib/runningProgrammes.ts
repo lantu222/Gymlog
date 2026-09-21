@@ -225,6 +225,57 @@ export function leadTemplateId(input: {
   return input.plans.find((plan) => plan.id === input.activePlanId)?.entries[0]?.workoutTemplateId ?? null;
 }
 
+/**
+ * The active programme a reader would move off by making `templateId` active.
+ *
+ * The reader may hold several programmes and one of them is active: the one
+ * Home leads with and the list tags (user 2026-09-21). Making another one
+ * active is a switch, and the page asks first — the advice is to finish one
+ * programme before starting the next. Read off the list's own rows, so the
+ * question names the programme exactly as the tag beside it does.
+ *
+ * Null when there is nothing to move off: this programme is the active one
+ * already, or none is.
+ */
+export function programmeSwitchedFrom<T extends { id: string; active?: boolean }>(
+  rows: readonly T[],
+  templateId: string,
+): T | null {
+  const active = rows.find((row) => row.active) ?? null;
+  return active && active.id !== templateId ? active : null;
+}
+
+/**
+ * The programme that becomes active when the active one is switched off.
+ *
+ * Stopping the lead hands it on — Home never goes without a programme while
+ * one is running (resolveLeadPlanId) — so switching one programme off can
+ * make another active, and the page says which before the switch is pressed.
+ * The same two steps the app takes: stopProgramme, then the lead repair.
+ *
+ * Null when `templateId` is not the active programme, since stopping it moves
+ * nothing, and when no other programme would take over.
+ */
+export function leadAfterStopping(input: {
+  activePlanId: string | null;
+  activePlanIds: readonly string[];
+  plans: readonly RunningPlan[];
+  templateId: string;
+}): string | null {
+  if (leadTemplateId({ activePlanId: input.activePlanId, plans: input.plans }) !== input.templateId) {
+    return null;
+  }
+  const stopped = stopProgramme(input);
+  if (!stopped) {
+    return null;
+  }
+  const next = leadTemplateId({
+    activePlanId: resolveLeadPlanId({ ...stopped, plans: input.plans }),
+    plans: input.plans,
+  });
+  return next && next !== input.templateId ? next : null;
+}
+
 /** Every plan that holds one programme, for a reader who wants it gone. */
 export function planIdsHoldingTemplate(plans: readonly RunningPlan[], templateId: string): string[] {
   return plans

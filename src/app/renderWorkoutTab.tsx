@@ -31,6 +31,7 @@ import { getExerciseProgressForName, SameLiftMatcher } from '../lib/progression'
 import { catalogLevelForSetup } from '../lib/goalProgramme';
 import { getReadyProgramContent } from '../lib/readyProgramContent';
 import { getReadyProgramBlockWeeks } from '../lib/readyProgramDuration';
+import { leadAfterStopping, programmeSwitchedFrom } from '../lib/runningProgrammes';
 import { AdaptedSessionRef, SessionAdaptation, withSessionSwap } from '../lib/sessionAdaptation';
 import { nextSeasonWindow, resolveSeasonWindow } from '../lib/season';
 import { isEnrolled } from '../lib/seasonEnrolment';
@@ -94,7 +95,7 @@ export interface WorkoutTabDeps {
   tailoringPreferences: Parameters<typeof buildTailoringBadgeLabels>[0];
   activeProgramTemplateIds: string[];
   onStopProgram: (workoutTemplateId: string) => Promise<void>;
-  /** The Active switch turned back on — see handleResumeProgram. */
+  /** The Active switch turned on — see handleResumeProgram. */
   onResumeProgram: (workoutTemplateId: string) => Promise<void>;
   /** Remove a held ready programme from the reader's programmes. */
   onForgetHeldProgram: (workoutTemplateId: string) => Promise<void>;
@@ -431,6 +432,20 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     // there was to remove whatever was leading.
     const programLeads = homeActivePlanCard?.programId === route.workoutTemplateId;
     const readyProgramIsMine = route.programType === 'ready' && programLeads;
+    // The switch is ACTIVE, one programme's, and read off the same rows the
+    // list tags — so the switch, the tag and the question below cannot name
+    // three different programmes. It said "running" and every programme the
+    // reader held read as on, beside one ACTIVE tag (user 2026-09-21).
+    const switchedFrom = programmeSwitchedFrom(programsCustomItems, route.workoutTemplateId);
+    const programIsActive = programsCustomItems.some(
+      (row) => row.active && row.id === route.workoutTemplateId,
+    );
+    const stoppingHandsToId = leadAfterStopping({
+      activePlanId: preferences.activePlanId,
+      activePlanIds: preferences.activePlanIds,
+      plans: database.workoutPlans,
+      templateId: route.workoutTemplateId,
+    });
     const program = readyTemplate
       ? buildReadyProgramDetail(
           readyTemplate,
@@ -517,20 +532,29 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             : null
         }
         onBack={() => navigateBack(workoutHomeRoute)}
-        // Running at all, not "the one Home leads with". A programme can run
-        // without leading, and this switch is the only way to stop either.
-        running={programIsMine}
-        // Held is wider than running: a programme switched off is still the
-        // reader's, and its page keeps the switch rather than offering to
-        // adopt it again (device, 2026-09-16).
+        active={programIsActive}
+        // Held is wider than active: every programme the reader holds keeps
+        // its switch — off unless it is the active one — rather than offering
+        // to adopt it again (device, 2026-09-16).
         held={programIsHeld}
-        // Both ways now. The switch shows for a held programme too, off, and
-        // turning it on rejoins the running set under the plan the programme
-        // already has; a programme the reader never took up still gets the
-        // adopt button instead (device, 2026-09-16).
-        onSetRunning={(next) => {
+        // On makes it the active programme, resumed under the plan it already
+        // has; off stops it, and the lead passes on. A programme the reader
+        // never took up still gets the adopt button instead.
+        onSetActive={(next) => {
           void (next ? onResumeProgram(route.workoutTemplateId) : onStopProgram(route.workoutTemplateId));
         }}
+        switchingFrom={switchedFrom?.name ?? null}
+        stoppingHandsTo={
+          programsCustomItems.find((row) => row.id === stoppingHandsToId)?.name ?? null
+        }
+        // Only the adopt answers make this programme active; the button's
+        // other answers start a session, open an editor or the reader's own
+        // version, and switch nothing.
+        primaryActionActivates={
+          route.programType === 'ready'
+            ? !readyProgramIsMine && !ownProgrammeCopyId
+            : !programLeads && Boolean(customTemplate?.sessions.some((session) => session.exercises.length > 0))
+        }
         onPrimaryAction={() => {
           if (readyProgramIsMine) {
             // Already the reader's. Adoption returns early for a programme it
