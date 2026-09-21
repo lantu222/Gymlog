@@ -5,7 +5,9 @@ const {
   listRunningProgrammes,
   planIdsForTemplate,
   planIdsHoldingTemplate,
+  leadAfterStopping,
   leadTemplateId,
+  programmeSwitchedFrom,
   resolveLeadPlanId,
   resumeProgramme,
   stopProgramme,
@@ -325,6 +327,71 @@ module.exports = [
       const plans = [plan('onboarding_plan_a', 'tpl_a'), plan('ready_plan_a', 'tpl_a'), plan('ready_plan_b', 'tpl_b')];
       assert.deepEqual(planIdsHoldingTemplate(plans, 'tpl_a'), ['onboarding_plan_a', 'ready_plan_a']);
       assert.deepEqual(planIdsHoldingTemplate(plans, 'tpl_z'), []);
+    },
+  },
+  {
+    /**
+     * One programme is active and the reader may hold several (user
+     * 2026-09-21). Making another one active is a switch the page asks about,
+     * naming the programme it moves off — and only when there is one.
+     */
+    name: 'active switch: asks only when another programme is the active one, and names it',
+    run() {
+      const rows = [
+        { id: 'tpl_strong_elite_v1', name: 'STRONG Elite', active: true },
+        { id: 'tpl_glutes', name: 'Advanced Glutes', active: false },
+        { id: 'custom_mine', name: 'My week' },
+      ];
+      assert.equal(programmeSwitchedFrom(rows, 'tpl_glutes')?.name, 'STRONG Elite');
+      assert.equal(programmeSwitchedFrom(rows, 'custom_mine')?.name, 'STRONG Elite');
+      // Already the active one: nothing to move off.
+      assert.equal(programmeSwitchedFrom(rows, 'tpl_strong_elite_v1'), null);
+      // Nothing active: nothing to ask.
+      assert.equal(
+        programmeSwitchedFrom(rows.map((row) => ({ ...row, active: false })), 'tpl_glutes'),
+        null,
+      );
+    },
+  },
+  {
+    /**
+     * Switching the active programme off hands the lead on, so the page says
+     * which programme takes over before the switch is pressed. It has to be
+     * the one the app actually lands on: stopProgramme, then the lead repair.
+     */
+    name: 'active switch: switching the active one off names the programme that takes over',
+    run() {
+      const plans = [
+        plan('ready_plan_a', 'tpl_a'),
+        plan('onboarding_plan_a', 'tpl_a'),
+        { id: 'empty_plan', name: 'x', entries: [] },
+        plan('ready_plan_b', 'tpl_b'),
+      ];
+      const running = {
+        activePlanId: 'ready_plan_a',
+        activePlanIds: ['onboarding_plan_a', 'empty_plan', 'ready_plan_a', 'ready_plan_b'],
+        plans,
+      };
+      // Past A's second plan and the empty one, to the programme that can run.
+      assert.equal(leadAfterStopping({ ...running, templateId: 'tpl_a' }), 'tpl_b');
+      // The same answer the two real steps reach.
+      const stopped = stopProgramme({ ...running, templateId: 'tpl_a' });
+      assert.equal(
+        leadTemplateId({ activePlanId: resolveLeadPlanId({ ...stopped, plans }), plans }),
+        'tpl_b',
+      );
+      // B is not the active one: switching it off moves nothing.
+      assert.equal(leadAfterStopping({ ...running, templateId: 'tpl_b' }), null);
+      // The only programme running: nothing takes over.
+      assert.equal(
+        leadAfterStopping({
+          activePlanId: 'ready_plan_a',
+          activePlanIds: ['ready_plan_a', 'onboarding_plan_a'],
+          plans,
+          templateId: 'tpl_a',
+        }),
+        null,
+      );
     },
   },
 ];

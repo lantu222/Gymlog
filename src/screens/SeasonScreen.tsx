@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } fr
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { I18nKey, t } from '../lib/i18n';
-import { getSeasonProgramTitleKey, type ProgramSeason } from '../lib/programSeasons';
+import type { ProgramSeason } from '../lib/programSeasons';
 import {
   SEASON_BLOCK_WEEKS,
   SEASON_WEEKS,
@@ -379,16 +379,13 @@ export function SeasonScreen({
           >
             <ProgramMiniCover stops={gradient} fingerprint={seasonProgram.fingerprint} />
             <View style={styles.programCopy}>
-              {/* The season's name leads and the program's name follows.
-                  Both are true: you are doing the summer season, and the
-                  training in it is RUN — so tapping through to a screen that
-                  says RUN is not a surprise. */}
+              {/* The programme's own name, the one its page wears. It led with
+                  a season name ("Talvikunto") that the Programs list then put
+                  on every programme tagged for the season (user 2026-09-21). */}
               <Text style={styles.programName} numberOfLines={1}>
-                {t(language, getSeasonProgramTitleKey(seasonProgram.id) ?? 'season.programTitle.summer')}
+                {seasonProgram.name}
               </Text>
               <Text style={styles.programMeta}>
-                {seasonProgram.name}
-                {'  ·  '}
                 {t(language, 'programs.card.days', { count: seasonProgram.days })}
                 {'  ·  '}
                 {t(language, 'season.weeksUnit', { count: SEASON_WEEKS })}

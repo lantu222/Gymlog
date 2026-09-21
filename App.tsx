@@ -169,7 +169,6 @@ import { ProgramLimitReachedError } from './src/lib/programSlots';
 import { createUnlessAtLimit } from './src/app/programLimitGuard';
 import {
   ProgramSeason,
-  getSeasonProgramTitleKey,
   getSeasonProgramId,
   getSeasonProgramIds,
 } from './src/lib/programSeasons';
@@ -1751,11 +1750,11 @@ function VinhaApp() {
     }
 
     guardStrengthStartOverCardio(() => {
-      // Here, and not at the top: three things above can return without a
-      // workout starting — no template, another session already running (which
-      // navigates to THAT one), and the reader declining the cardio guard. A
-      // promotion before them would move Home for a workout that never began.
-      void leadOnTrain(workoutTemplateId);
+      // Training a session does not change which programme is active. It
+      // used to — the lead followed whatever was trained — and a one-off
+      // session from another programme quietly moved Home and the ACTIVE tag
+      // off the one the reader had chosen. The Active switch is the one door
+      // now, and it asks first (user 2026-09-21).
       void updatePreferences({ trainingFirstRunDismissed: true });
       // Only what was chosen for THIS session: a swap made on another day's
       // card shares slot ids with this one and is not an answer about it.
@@ -2280,10 +2279,12 @@ function VinhaApp() {
   /**
    * What a RUNNING programme is called, wherever it is listed.
    *
-   * A season programme goes by the season's name, not the template's: the
-   * reader joined "Kesakunto" and the template is called "RUN". Everything
-   * else goes by its presentation title, and a plan whose template is gone
-   * falls back to the plan's own name.
+   * Its presentation title, the name its own page wears, and a plan whose
+   * template is gone falls back to the plan's own name. A programme tagged
+   * for a season used to go by the season's name here instead, and that tag
+   * covers twenty-odd ordinary programmes: STRONG Elite was "Talvikunto" in
+   * the list and STRONG Elite once opened (user 2026-09-21, "poistetaan
+   * kaikki talvikunto kesäkunto").
    *
    * One function because the comment that used to sit inside Home's copy was
    * right: computing this per screen is what put three different names on one
@@ -2292,10 +2293,6 @@ function VinhaApp() {
    */
   const runningProgrammeTitle = useCallback(
     (templateId: string | null, planName: string | null | undefined, days: number): string => {
-      const seasonTitleKey = templateId ? getSeasonProgramTitleKey(templateId) : null;
-      if (seasonTitleKey) {
-        return t(preferences.appLanguage, seasonTitleKey);
-      }
       const template = templateId ? getWorkoutTemplateById(templateId) : null;
       if (template) {
         return getReadyTemplatePresentation(template, preferences.appLanguage, days).title;
@@ -2326,16 +2323,12 @@ function VinhaApp() {
         const days = template?.daysPerWeek ?? plan.entries.length;
         // The reader's own programme is named by its template, for the same
         // reason the hero above is: the plan's copy of the name can be older
-        // than the last rename. A ready one is not in this map at all, so it
-        // still goes through runningProgrammeTitle's season rules.
+        // than the last rename. A ready one is not in this map at all, and
+        // gets its presentation title from runningProgrammeTitle — the one
+        // helper every surface names a running programme with.
         const ownTemplate = templateId
           ? workoutTemplates.find((entry) => entry.id === templateId) ?? null
           : null;
-        // A season programme goes by the season's name, not the template's:
-        // the reader joined "Kesäkunto" and the template is called "RUN".
-        // One helper decides that for every surface, because computing it
-        // separately per screen is what put three different names on one
-        // programme today.
         return {
           planId,
           title: runningProgrammeTitle(templateId, ownTemplate?.name || plan.name, days),
@@ -2395,12 +2388,16 @@ function VinhaApp() {
   }
 
   /**
-   * The Active switch, turned back on.
+   * The Active switch, turned on: this programme becomes THE active one.
    *
-   * Under the plan the programme already has, so its block and its place in
-   * the rotation come back with it — and through the same cap the adoption
-   * path answers to, because running is what the cap counts (device,
-   * 2026-09-16: the switch used to be a one-way door).
+   * One programme is active and the others the reader holds stay theirs
+   * (user 2026-09-21), so this makes it the lead and leaves the rest where
+   * they are. One the reader switched off comes back under the plan it
+   * already has, so its block and its place in the rotation come back with
+   * it — and through the same cap the adoption path answers to, because
+   * running is what the cap counts (device, 2026-09-16: the switch used to be
+   * a one-way door). The page has already asked whether to move off the
+   * programme that was active.
    */
   async function handleResumeProgram(workoutTemplateId: string) {
     const resumed = resumeProgramme({
@@ -2452,23 +2449,6 @@ function VinhaApp() {
     });
   }
 
-  /**
-   * Training a held programme is what makes Home lead with it.
-   *
-   * "Show this on Home" was the only way to change the lead, and it went with
-   * the Active switch (user 2026-09-07: it changed which programme led and
-   * could not turn any of them off, which was not the question being asked).
-   * Removing it removed the capability too — caught in review — so the signal
-   * moved to the honest one: the plan you are actually training is the plan
-   * you are actually training. Nothing to press, and nothing to explain.
-   */
-  async function leadOnTrain(workoutTemplateId: string) {
-    if (!activeProgramTemplateIds.includes(workoutTemplateId)) {
-      return;
-    }
-    await promoteHeldProgramToLead(workoutTemplateId);
-  }
-
   function handleStartReadyProgram(workoutTemplateId: string) {
     const template = getWorkoutTemplateById(workoutTemplateId);
     const firstSessionId = template?.sessions[0]?.id;
@@ -2498,9 +2478,8 @@ function VinhaApp() {
     }
 
     guardStrengthStartOverCardio(() => {
-      // Same place as the ready path: past every return that can leave without
-      // a workout, so Home follows what actually started.
-      void leadOnTrain(workoutTemplateId);
+      // Nor here: training leaves the active programme where it is, as on the
+      // ready path above.
       void updatePreferences({ trainingFirstRunDismissed: true });
       const sessionRef = { programId: workoutTemplateId, sessionId };
       const runtimeTemplate = applySessionAdaptation(

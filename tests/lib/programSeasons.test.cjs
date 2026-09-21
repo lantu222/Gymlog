@@ -6,7 +6,6 @@ const {
   getSeasonForDate,
   getSeasonProgramIds,
   orderSeasons,
-  getSeasonProgramTitleKey,
 } = require('../../.test-dist/lib/programSeasons.js');
 const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog');
 
@@ -123,14 +122,33 @@ module.exports = [
     },
   },
   {
-    name: 'a season programme goes by the season name, others keep their own',
+    /**
+     * Every programme is called what it is. A season tag used to rename the
+     * programme in the Programs list and on Home — and the tag covers twenty-
+     * odd ordinary programmes, so STRONG Elite was "Talvikunto" in the list
+     * and STRONG Elite once opened (user 2026-09-21, "poistetaan kaikki
+     * talvikunto kesäkunto").
+     */
+    name: 'no programme goes by a season name',
     run() {
       const assert = require('node:assert/strict');
-      const { SEASON_PROGRAM_IDS } = require('../../.test-dist/lib/programSeasons.js');
-      assert.equal(getSeasonProgramTitleKey(SEASON_PROGRAM_IDS.summer), 'season.programTitle.summer');
-      assert.equal(getSeasonProgramTitleKey(SEASON_PROGRAM_IDS.winter), 'season.programTitle.winter');
-      // Not a season programme: no rename, it keeps its catalogue name.
-      assert.equal(getSeasonProgramTitleKey('tpl_not_a_season'), null);
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const read = (...segments) => fs.readFileSync(path.join(__dirname, '..', '..', ...segments), 'utf8');
+      const seasons = require('../../.test-dist/lib/programSeasons.js');
+      assert.equal(seasons.getSeasonProgramTitleKey, undefined, 'the season-name helper is back');
+      const i18n = read('src', 'lib', 'i18n.ts');
+      for (const name of ['Talvikunto', 'Kesäkunto', 'season.programTitle']) {
+        assert.doesNotMatch(i18n, new RegExp(name), `${name} is back in the copy`);
+      }
+      // The resolver that names a running programme asks the template, and
+      // nothing about seasons.
+      const app = read('App.tsx');
+      const at = app.indexOf('const runningProgrammeTitle = useCallback(');
+      assert.ok(at > 0, 'runningProgrammeTitle not found');
+      assert.doesNotMatch(app.slice(at, app.indexOf('\n  );', at)), /[Ss]eason/);
+      // STRONG Elite is tagged winter, and is still STRONG Elite.
+      assert.equal(seasons.getProgramSeason('tpl_strong_elite_v1'), 'winter');
     },
   },
 ];

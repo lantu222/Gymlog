@@ -2683,11 +2683,6 @@ const EN = {
   'season.noTarget': 'Pick a season program and the week gets a target.',
   'season.blockWeeks': 'WKS {from}–{to}',
   'season.theProgram': 'THE SEASON PROGRAM',
-  // The season's own identity, over the program that supplies the training.
-  // Two names for one thing, because both are true: you are doing the summer
-  // season, and the training in it is RUN.
-  'season.programTitle.summer': 'Summer conditioning',
-  'season.programTitle.winter': 'Winter build',
   'season.running': 'YOU ARE RUNNING THIS',
   'season.join': 'Start the season',
   'home.otherPrograms': 'YOUR OTHER PROGRAMMES',
@@ -2920,6 +2915,11 @@ const EN = {
   'detail.startNext': 'Start next workout',
   'detail.active': 'Active',
   'detail.activeHint': 'Turn it off to stop the programme. Your logged sessions stay.',
+  'detail.activeHintNext': 'Turn it off to stop the programme, and {name} becomes your active programme. Your logged sessions stay.',
+  'detail.activeHintOff': 'Turn it on to make this your active programme, the one Home shows.',
+  'detail.switchActive.title': 'Are you sure?',
+  'detail.switchActive.message': '{name} is your active programme. We recommend finishing one programme before starting a new one — that is how you get the most out of it.',
+  'detail.switchActive.confirm': 'Switch programme',
   'detail.adopt': 'Start this programme',
   // ── Workout saved ─────────────────────────────────────────────────────
   // ── Workout saved counts ──────────────────────────────────────────────
@@ -5617,8 +5617,6 @@ const FI: Record<I18nKey, string> = {
   'season.noTarget': 'Valitse kauden ohjelma, niin viikko saa tavoitteen.',
   'season.blockWeeks': 'VKO {from}–{to}',
   'season.theProgram': 'KAUDEN OHJELMA',
-  'season.programTitle.summer': 'Kesäkunto',
-  'season.programTitle.winter': 'Talvikunto',
   'season.running': 'VEDÄT TÄTÄ',
   'season.join': 'Aloita kausi',
   'home.otherPrograms': 'MUUT OHJELMASI',
@@ -5825,6 +5823,11 @@ const FI: Record<I18nKey, string> = {
   'detail.startNext': 'Aloita seuraava treeni',
   'detail.active': 'Aktiivinen',
   'detail.activeHint': 'Ota pois päältä lopettaaksesi ohjelman. Kirjatut treenit säilyvät.',
+  'detail.activeHintNext': 'Ota pois päältä lopettaaksesi ohjelman, jolloin {name} on aktiivinen ohjelmasi. Kirjatut treenit säilyvät.',
+  'detail.activeHintOff': 'Ota päälle, niin tästä tulee aktiivinen ohjelmasi ja Koti näyttää sen.',
+  'detail.switchActive.title': 'Oletko varma?',
+  'detail.switchActive.message': 'Sinulla on aktiivisena ohjelmana {name}. Suosittelemme, että teet yhden ohjelman loppuun ja aloitat sitten uuden — näin saat siitä parhaan hyödyn.',
+  'detail.switchActive.confirm': 'Vaihda ohjelma',
   'detail.adopt': 'Ota ohjelma käyttöön',
   // ── Access choice + workout saved ─────────────────────────────────────
   // ── Workout saved counts ──────────────────────────────────────────────

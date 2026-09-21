@@ -183,7 +183,7 @@ module.exports = [
       // a ready programme had no delete at all (device, 2026-09-16).
       assert.match(
         code,
-        /onSetRunning=\{\(next\) => \{\s*void \(next \? onResumeProgram\(route\.workoutTemplateId\) : onStopProgram\(route\.workoutTemplateId\)\);/,
+        /onSetActive=\{\(next\) => \{\s*void \(next \? onResumeProgram\(route\.workoutTemplateId\) : onStopProgram\(route\.workoutTemplateId\)\);/,
       );
       assert.match(code, /held=\{programIsHeld\}/);
       // A held ready programme can be deleted, apart from the switch.

@@ -157,7 +157,12 @@ module.exports = [
       // under the week rhythm — not in a footer pinned to the bottom, where
       // the floating tab bar covered it and a reader reported there was no way
       // to start a programme at all. A pinned footer here must stay gone.
-      assert.match(programDetailSource, /onPress=\{onPrimaryAction\}/);
+      // It asks first when pressing it makes this the active programme and
+      // another one is active now (user 2026-09-21).
+      assert.match(
+        programDetailSource,
+        /onPress=\{\(\) => \(primaryActionActivates \? askBeforeActivating\('adopt'\) : onPrimaryAction\(\)\)\}/,
+      );
       assert.match(programDetailSource, /styles\.adoptButton/);
       assert.doesNotMatch(programDetailSource, /stickyFooter/);
       assert.match(i18nSource, /'detail\.adopt': 'Start this programme'/);
@@ -643,15 +648,20 @@ module.exports = [
      * (user 2026-08-31). The adopt button stays for a programme the reader
      * has NOT taken up: that is the one thing this page exists to offer.
      */
-    name: 'the running programme offers a switch instead of a start button, and an unadopted one still gets the button',
+    name: 'a held programme offers a switch instead of a start button, and an unadopted one still gets the button',
     run() {
-      // Running — leading or not — gets the Active switch. Only a programme
-      // the reader has not taken up gets the button, which is the one thing
-      // this page exists to offer.
-      // Running OR held: a programme switched off keeps its switch, off,
-      // rather than turning back into an adopt button (device, 2026-09-16).
-      assert.match(programDetailSource, /\{\(running \|\| held\) && onSetRunning \? \(/);
-      assert.match(programDetailSource, /value=\{running\}/);
+      // Every programme the reader holds gets the Active switch. Only a
+      // programme the reader has not taken up gets the button, which is the
+      // one thing this page exists to offer.
+      // Active OR held: a programme that is not the active one keeps its
+      // switch, off, rather than turning back into an adopt button (device,
+      // 2026-09-16).
+      assert.match(programDetailSource, /\{\(active \|\| held\) && onSetActive \? \(/);
+      // The switch is ON for one programme: the active one. It read
+      // "running", and all four programmes a reader held read as on beside
+      // one ACTIVE tag (user 2026-09-21).
+      assert.match(programDetailSource, /value=\{active\}/);
+      assert.doesNotMatch(programDetailSource, /value=\{running\}/);
       assert.match(programDetailSource, /\) : activePlanSummary \? null : \(/);
       assert.match(programDetailSource, /program\.primaryActionLabel/);
       // The switch is the shared one, not a second spelling of a toggle.
@@ -675,36 +685,74 @@ module.exports = [
         'stopping a programme leaves its other plan running',
       );
 
-      // Removing "Show this on Home" removed the ONLY way to change which
-      // programme Home leads with — caught in review. Training a held one is
-      // what promotes it now, so the capability is not gone with the button.
-      assert.match(app, /async function leadOnTrain\(workoutTemplateId: string\)/);
-      assert.match(app, /await promoteHeldProgramToLead\(workoutTemplateId\);/);
-      // Promoted where the workout ACTUALLY starts, inside the cardio guard's
-      // callback — past every return that can leave without one: no template,
-      // another session already running (which navigates to that one instead),
-      // an empty custom session, and the reader declining the guard. Placed at
-      // the top of either handler, tapping a session while another workout was
-      // running would have moved Home to a programme that never started.
+      // The switch is the way to change which programme Home leads with:
+      // turning it on makes this one the lead, under the plan it already has.
+      const resumeAt = app.indexOf('async function handleResumeProgram(workoutTemplateId: string)');
+      assert.ok(resumeAt > 0, 'handleResumeProgram not found');
+      assert.match(
+        app.slice(resumeAt, app.indexOf('\n  }', resumeAt)),
+        /activePlanId: resumed\.activePlanId \}\);/,
+      );
+      // And the only way. Training a session from another programme used to
+      // promote it, so a one-off workout moved Home and the ACTIVE tag off
+      // the programme the reader had chosen, past the question the switch
+      // asks (user 2026-09-21).
+      assert.doesNotMatch(app, /leadOnTrain/);
       for (const start of ['startReadyProgramSessionWithUnit', 'handleStartCustomProgramSession']) {
         const at = app.indexOf(`function ${start}`);
         assert.ok(at > 0, `${start} not found`);
         const body = app.slice(at, app.indexOf('\n  function ', at + 1));
-        assert.match(body, /void leadOnTrain\(workoutTemplateId\);/, `${start} never promotes`);
-        assert.ok(
-          body.indexOf('guardStrengthStartOverCardio') < body.indexOf('leadOnTrain'),
-          `${start} promotes before the workout can be refused`,
-        );
-        assert.ok(
-          body.indexOf('navigateToActiveWorkout') < body.indexOf('leadOnTrain'),
-          `${start} promotes before the resume check`,
-        );
+        assert.doesNotMatch(body, /promoteHeldProgramToLead|activePlanId:/, `${start} moves the active programme`);
       }
       assert.match(app, /onStopProgram: handleStopProgram,/);
-      assert.match(app, /running=\{programIsMine\}/);
+      // ACTIVE is read off the list's own rows, the ones that carry the tag.
+      assert.match(app, /active=\{programIsActive\}/);
+      assert.match(
+        app,
+        /const programIsActive = programsCustomItems\.some\(\s*\(row\) => row\.active && row\.id === route\.workoutTemplateId,?\s*\);/,
+      );
       // The cycle's own sentence went with it — the chips draw the week and
       // the header prints the rate.
       assert.doesNotMatch(programDetailSource, /detail\.week\.cycleStatus/);
+    },
+  },
+  {
+    /**
+     * "Kun sliderista valitaan aktiiviseksi tulisi tulla teksti 'oletko
+     * varma, sinulla on aktiivisena ohjelmana xx'" (user 2026-09-21). The
+     * advice is to finish one programme before starting the next, so both
+     * doors that make a programme active ask first — the switch and the
+     * adopt button — and name the programme the reader would move off.
+     */
+    name: 'making another programme active asks first, and names the active one',
+    run() {
+      const code = programDetailSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+      // On asks; off goes straight through.
+      assert.match(
+        code,
+        /onChange=\{\(next\) => \(next \? askBeforeActivating\('switch'\) : onSetActive\(false\)\)\}/,
+      );
+      // Only when there is a programme to move off; otherwise it just acts.
+      assert.match(
+        code,
+        /const askBeforeActivating = \(via: 'switch' \| 'adopt'\) => \{\s*if \(switchingFrom\) \{\s*setPendingSwitch\(via\);\s*return;\s*\}\s*activate\(via\);/,
+      );
+      // Nothing happens until the reader says yes.
+      assert.match(code, /visible=\{pendingSwitch !== null && switchingFrom !== null\}/);
+      assert.match(code, /onCancel=\{\(\) => setPendingSwitch\(null\)\}/);
+      assert.match(code, /t\(language, 'detail\.switchActive\.message', \{ name: switchingFrom \?\? '' \}\)/);
+
+      // The name is the one the list puts beside the ACTIVE tag.
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
+      assert.match(app, /const switchedFrom = programmeSwitchedFrom\(programsCustomItems, route\.workoutTemplateId\);/);
+      assert.match(app, /switchingFrom=\{switchedFrom\?\.name \?\? null\}/);
+      // The adopt button asks only on the branches that adopt.
+      assert.match(app, /\? !readyProgramIsMine && !ownProgrammeCopyId/);
+
+      assert.match(
+        i18nSource,
+        /'detail\.switchActive\.message': 'Sinulla on aktiivisena ohjelmana \{name\}\. Suosittelemme, että teet yhden ohjelman loppuun/,
+      );
     },
   },
   {
