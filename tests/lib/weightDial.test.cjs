@@ -72,7 +72,10 @@ module.exports = [
       // Mid-edit with the field emptied: the number being adjusted survives.
       assert.equal(commitDialWeight('', 82.5), 82.5);
       assert.equal(commitDialWeight('kg', 82.5), 82.5);
-      assert.equal(commitDialWeight('-5', 82.5), 0);
+      // Below zero is not a weight either, and it used to become 0 over the
+      // dialled one while the field read red (CI review of #174).
+      assert.equal(commitDialWeight('-5', 82.5), 82.5);
+      assert.equal(commitDialWeight('0', 82.5), 0);
       // Past the ceiling is a typo, not a heavier set. It was clamped to 500,
       // so "825" for 82,5 logged 500 kg while the field read 825 (decimal
       // audit, 2026-09-21); the set editor and freestyle already refused it.

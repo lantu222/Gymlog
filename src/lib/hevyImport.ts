@@ -74,7 +74,7 @@ export function isHevyHistoryCsv(text: string): boolean {
  * `6" box jump` — left the scan "inside quotes" for the rest of the file:
  * every following row joined one record, which did not parse (2026-09-16).
  */
-function splitCsvRecords(text: string): string[] {
+function splitCsvRecords(text: string, delimiter: CsvDelimiter): string[] {
   const records: string[] = [];
   let current = '';
   let inQuotes = false;
@@ -106,9 +106,9 @@ function splitCsvRecords(text: string): string[] {
       inQuotes = true;
     }
     current += char;
-    // Spaces after the comma still count as the start: some writers put one
-    // before a quoted field.
-    atFieldStart = char === ',' || (atFieldStart && isCsvBlank(char));
+    // Spaces after the separator still count as the start: some writers put
+    // one before a quoted field.
+    atFieldStart = char === delimiter || (atFieldStart && isCsvBlank(char));
   }
   records.push(current);
   return records;
@@ -229,12 +229,17 @@ export function parseHevyCsv(text: string): HevyImportPreview {
     skippedRowCount: 0,
     errors: [],
   };
-  const lines = splitCsvRecords(text.trim());
+  // The separator first, off the header line: the record splitter needs it
+  // too, to know where a quoted field can open. With a comma hard-wired there,
+  // a quoted note holding a line break in a semicolon file split its row in
+  // two (CI review of #174). The header has neither quotes nor line breaks.
+  const trimmed = text.trim();
+  const delimiter = detectCsvDelimiter(trimmed.split(/\r?\n/, 1)[0] ?? '');
+  const lines = splitCsvRecords(trimmed, delimiter);
   if (lines.length < 2) {
     return { ...empty, errors: ['EMPTY'] };
   }
 
-  const delimiter = detectCsvDelimiter(lines[0]);
   const header = splitCsvLine(lines[0], delimiter).map((column) => column.trim().toLowerCase());
   const col = (name: string) => header.indexOf(name);
   const columns = {

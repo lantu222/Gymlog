@@ -64,6 +64,19 @@ module.exports = [
       const tabs = semicolons.replace(/;/g, '\t');
       assert.equal(parseHevyCsv(tabs).workouts[0].exercises[0].sets[0].weightKg, 82.5);
 
+      // A quoted note with a line break in a later field: the record splitter
+      // has to know the separator too, or the row is torn in two and its set
+      // dropped (CI review of #174).
+      const noted = [
+        'title;start_time;exercise_title;exercise_notes;set_type;weight_kg;reps',
+        '"Push";"2024-06-10T08:15:00.000Z";"Bench Press";"felt heavy\ntoday";normal;82,5;5',
+        '"Push";"2024-06-10T08:15:00.000Z";"Bench Press";;normal;85;3',
+      ].join('\n');
+      const notedPreview = parseHevyCsv(noted);
+      assert.deepEqual(notedPreview.errors, []);
+      assert.equal(notedPreview.setCount, 2);
+      assert.equal(notedPreview.skippedRowCount, 0);
+
       // And the comma file Hevy itself writes is read as before.
       const commas = ['title,start_time,exercise_title,set_type,weight_kg,reps', '"Push","2024-06-10T08:15:00.000Z","Bench Press",normal,82.5,5'].join('\n');
       assert.equal(parseHevyCsv(commas).workouts[0].exercises[0].sets[0].weightKg, 82.5);

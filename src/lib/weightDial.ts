@@ -68,10 +68,12 @@ export function commitDialWeight(
   // comma missed. It was clamped, so the field read 825 while the set logged
   // 500 kg and carried 500 into the next one (decimal audit, 2026-09-21).
   // The set-log editor and the freestyle fields already refuse it.
-  if (parsed === null || parsed > max) {
+  // Below zero likewise: "-5" became 0 and threw away the dialled weight,
+  // while the field it was typed in read red (CI review of #174).
+  if (parsed === null || parsed < 0 || parsed > max) {
     return toDialPrecision(Math.min(max, Math.max(0, previousKg)));
   }
-  return toDialPrecision(Math.max(0, parsed));
+  return toDialPrecision(parsed);
 }
 
 /**
