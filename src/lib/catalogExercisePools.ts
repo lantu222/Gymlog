@@ -127,8 +127,21 @@ const programmeLoadedByName = (() => {
  * The composer keeps asking the library alone: its pools are curated against
  * the library, and its bodyweight pool counts on that farmer's walk logging
  * no weight.
+ *
+ * On the library's word alone a loaded slot stays loaded. Its "bodyweight" is
+ * wrong for more than those two — weighted squat, bench press with bands, the
+ * axle, car and rickshaw deadlifts, the Svend press — and a swap to one of
+ * them from the sheet's library search hid the weight dial and saved 0 kg:
+ * the bug this rule fixes, through another door (CI review of #170). The two
+ * mistakes do not cost the same. A dial shown for bodyweight work is left at
+ * zero; a dial hidden for a loaded lift loses the weight. So the library may
+ * move a slot to loaded, never away from it; the programmes' own answer, and
+ * the hold list's seconds, still decide both ways.
  */
-function swappedInTrackingMode(name: string): 'bodyweight' | 'load_and_reps' | 'hold' {
+function swappedInTrackingMode(
+  name: string,
+  current: WorkoutTrackingMode,
+): 'bodyweight' | 'load_and_reps' | 'hold' {
   if (isHoldExerciseName(name)) {
     return 'hold';
   }
@@ -136,7 +149,8 @@ function swappedInTrackingMode(name: string): 'bodyweight' | 'load_and_reps' | '
   if (programmeLoaded !== undefined) {
     return programmeLoaded ? 'load_and_reps' : 'bodyweight';
   }
-  return getCatalogTrackingMode(name);
+  const library = getCatalogTrackingMode(name);
+  return library === 'bodyweight' && !isUnloadedTrackingMode(current) ? 'load_and_reps' : library;
 }
 
 /**
@@ -153,7 +167,7 @@ function swappedInTrackingMode(name: string): 'bodyweight' | 'load_and_reps' | '
  * same way as the slot already is, the slot's own mode stays.
  */
 export function trackingModeAfterSwap(current: WorkoutTrackingMode, exerciseName: string): WorkoutTrackingMode {
-  const incoming = swappedInTrackingMode(exerciseName);
+  const incoming = swappedInTrackingMode(exerciseName, current);
   const sameKind =
     isUnloadedTrackingMode(incoming) === isUnloadedTrackingMode(current) &&
     isTimedTrackingMode(incoming) === isTimedTrackingMode(current);

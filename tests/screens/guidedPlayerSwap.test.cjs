@@ -438,4 +438,32 @@ module.exports = [
       );
     },
   },
+  {
+    /**
+     * Review of #170. A swap now changes the exercise's tracking mode, so the
+     * correction sheet can no longer read the exercise to know whether a
+     * logged set had a weight: a squat set corrected after a swap to a
+     * bodyweight lift was offered no weight field, sent none, and the reducer
+     * — judging it as the squat it was — refused the save. The sheet asks the
+     * reducer's rule, liftOfSet.
+     */
+    name: 'guided swap: a logged set is corrected as the lift it was logged as',
+    run() {
+      const source = playerSource.replace(/\r\n/g, '\n');
+      assert.match(source, /return exercise \? \(set \? liftOfSet\(exercise, set\) : exercise\) : null;/);
+      const editor = source.slice(source.indexOf('<LoggedSetEditor'), source.indexOf('onCancel={() => setRestEdit(null)}'));
+      assert.ok(editor.length > 0 && editor.length < 2000, 'the correction sheet moved');
+      assert.match(editor, /unloaded=\{isUnloadedTrackingMode\(restEditLift\?\.trackingMode \?\? 'load_and_reps'\)\}/);
+      assert.match(editor, /repsCeilingFor\(restEditLift, /);
+      assert.doesNotMatch(editor, /exerciseBySlot\.get\(restEdit\.slotId\)\?\.trackingMode/);
+      // And the reducer asks the same rule.
+      const reducer = fs
+        .readFileSync(path.join(__dirname, '..', '..', 'src', 'features', 'workout', 'workoutState.ts'), 'utf8')
+        .replace(/\r\n/g, '\n');
+      const edit = reducer.slice(reducer.indexOf("case 'set/editLogged': {"), reducer.indexOf("case 'set/recordEffort': {"));
+      assert.ok(edit.length > 0 && edit.length < 4000, 'set/editLogged moved');
+      assert.match(edit, /const lift = liftOfSet\(exercise, set\);/);
+      assert.match(edit, /isUnloadedTrackingMode\(lift\.trackingMode\)/);
+    },
+  },
 ];

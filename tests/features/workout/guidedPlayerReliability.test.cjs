@@ -152,7 +152,10 @@ module.exports = [
       // The editor's Save follows the reducer's own ceiling, interval and
       // prescription included, so Save and the store cannot disagree.
       assert.match(player, /nextReps <= repsCeiling &&\s*\(unloaded \|\| isLiftableWeight\(nextLoad\)\)/);
-      assert.match(player, /repsCeilingFor\(exercise, findSetByIndex\(exercise, restEdit\.setIndex\)\)/);
+      // Asked of the lift the set was logged as, which is what the reducer
+      // asks since a swap changes the exercise's mode (review of #170; this
+      // pinned `repsCeilingFor(exercise, …)` until then — see guidedPlayerSwap).
+      assert.match(player, /repsCeilingFor\(restEditLift, findSetByIndex\(exerciseBySlot\.get\(restEdit\.slotId\), restEdit\.setIndex\)\)/);
       // And the correction is written to the set the reader chose, which in a
       // superset is not always the one the rest step names (2026-09-16).
       assert.match(

@@ -1,4 +1,5 @@
 import { calendarDaysBetween, getRollingWindowStart } from './completedSessions';
+import { logRecordsSwap } from './exerciseLog';
 import { formatWeight } from './format';
 import { ExerciseLog, PostSessionInsightType, UnitPreference, WorkoutSession } from '../types/models';
 
@@ -46,7 +47,7 @@ function getCompletedWorkingSets(log: ExerciseLog) {
   // session. The player's swap was already kept out by its status; a swap
   // made on Home before the start finishes as `completed`, and says it was a
   // swap only here.
-  if (log.skipped || log.status === 'skipped' || log.status === 'swapped' || log.swappedFrom) {
+  if (log.skipped || log.status === 'skipped' || log.status === 'swapped' || logRecordsSwap(log)) {
     return [];
   }
 

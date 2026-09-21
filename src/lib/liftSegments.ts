@@ -109,6 +109,21 @@ export function liftBeforeSwap(exercise: SegmentableExercise, set: WorkoutSetIns
 }
 
 /**
+ * The lift a logged set is judged as: the one it was logged as, which after a
+ * swap need not be the exercise's current one.
+ *
+ * Correcting a set asks this twice — the correction sheet, for whether to show
+ * a weight and how far the dial goes, and the reducer, for whether to accept
+ * the save — and the two used to read the exercise's current mode. Once a swap
+ * changes the mode, a squat set corrected after a swap to a bodyweight lift
+ * was offered no weight and then refused for having none (review of #170).
+ * One answer, here, for both.
+ */
+export function liftOfSet(exercise: SegmentableExercise, set: WorkoutSetInstance): WorkoutLiftIdentity {
+  return liftBeforeSwap(exercise, set) ?? { exerciseName: exercise.exerciseName, trackingMode: exercise.trackingMode };
+}
+
+/**
  * The slot's sets, grouped by the lift that did them, in the order the lifts
  * were first done.
  *

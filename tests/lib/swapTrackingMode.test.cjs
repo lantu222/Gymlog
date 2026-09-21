@@ -38,9 +38,39 @@ module.exports = [
       // "load" by not finding it.
       assert.equal(getCatalogTrackingMode('Pull-Up'), 'load_and_reps');
       assert.equal(trackingModeAfterSwap('load_and_reps', 'Pull-Up'), 'bodyweight');
-      // A name only the library knows is answered by the library.
-      assert.equal(trackingModeAfterSwap('load_and_reps', 'Pullups'), 'bodyweight');
+      // A name only the library knows is answered by the library — into an
+      // unloaded slot. (This read `load_and_reps` → "Pullups" → bodyweight
+      // until the CI review of #170: from a loaded slot the library's
+      // "bodyweight" no longer takes the dial away; see the next suite.)
+      assert.equal(trackingModeAfterSwap('hold', 'Pullups'), 'bodyweight');
       assert.equal(trackingModeAfterSwap('bodyweight', 'Barbell Squat'), 'load_and_reps');
+    },
+  },
+  {
+    name: 'swap tracking: the library alone never takes the weight dial away',
+    run() {
+      // CI review of #170. The library files these clearly loaded lifts as
+      // "bodyweight", and the sheet's library search offers every one of
+      // them; a loaded slot swapped to one hid the dial and saved 0 kg.
+      for (const name of [
+        'Weighted Squat',
+        'Bench Press - With Bands',
+        'Axle Deadlift',
+        'Car Deadlift',
+        'Rickshaw Deadlift',
+        'Svend Press',
+        'Front Plate Raise',
+        'Weighted Bench Dip',
+      ]) {
+        assert.equal(trackingModeAfterSwap('load_and_reps', name), 'load_and_reps', name);
+        assert.equal(trackingModeAfterSwap('reps_first', name), 'reps_first', name);
+      }
+      // Towards a weight it may move a slot: the mistake that costs nothing.
+      assert.equal(trackingModeAfterSwap('bodyweight', 'Barbell Squat'), 'load_and_reps');
+      // The programmes' own answer still decides both ways, and a hold is
+      // still counted in seconds.
+      assert.equal(trackingModeAfterSwap('load_and_reps', 'Pull-Up'), 'bodyweight');
+      assert.equal(trackingModeAfterSwap('load_and_reps', 'Plank'), 'hold');
     },
   },
   {

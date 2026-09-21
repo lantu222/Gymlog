@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 
-const { splitExerciseByLift, liftBeforeSwap } = require('../../.test-dist/lib/liftSegments.js');
+const { splitExerciseByLift, liftBeforeSwap, liftOfSet } = require('../../.test-dist/lib/liftSegments.js');
 
 /**
  * Which lift each set of a slot was (swap audit, 2026-09-21). The sets before
@@ -217,6 +217,22 @@ module.exports = [
         ['Front Squat', 'load_and_reps'],
         ['Back Squat', 'load_and_reps'],
       ]);
+    },
+  },
+  {
+    name: 'lift segments: a logged set is judged as the lift it was logged as, whatever the slot holds now',
+    run() {
+      // The correction sheet and the reducer both ask this (review of #170).
+      const slot = {
+        exerciseName: 'Pull-Up',
+        trackingMode: 'bodyweight',
+        sourceExerciseName: 'Back Squat',
+        swappedAfterSetIndex: 0,
+        sets: [set(0, { loggedAs: squat }), set(1, { actualLoadKg: 0, actualReps: 8, loggedAs: pullUp }), set(2, { status: 'pending' })],
+      };
+      assert.deepEqual(liftOfSet(slot, slot.sets[0]), squat);
+      assert.deepEqual(liftOfSet(slot, slot.sets[1]), pullUp);
+      assert.deepEqual(liftOfSet(slot, slot.sets[2]), pullUp);
     },
   },
   {

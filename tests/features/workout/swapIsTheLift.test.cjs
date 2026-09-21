@@ -113,6 +113,31 @@ module.exports = [
     },
   },
   {
+    name: 'swap is the lift: a loaded slot swapped to a lift only the library knows keeps its weight dial',
+    run() {
+      // CI review of #170: the library files a weighted squat and a banded
+      // bench press as "bodyweight". Taken at its word, the swap from the
+      // sheet's library search hid the dial and saved 0 kg.
+      let state = start(readyDay('tpl_3_day_full_body_v1', 0));
+      const squat = state.activeSession.exercises[0];
+      assert.equal(squat.trackingMode, 'load_and_reps');
+      state = swap(state, squat.slotId, 'Weighted Squat');
+      const weighted = state.activeSession.exercises[0];
+      assert.equal(isUnloadedTrackingMode(weighted.trackingMode), false);
+      state = log(state, squat.slotId, 0, 60, 8);
+      const saved = adaptCompletedWorkoutSessionForAppDatabase(state.activeSession).logs.find((row) => row.slotId === squat.slotId);
+      assert.deepEqual(saved.sets.filter((set) => set.status === 'completed').map((set) => `${set.weight}x${set.reps}`), ['60x8']);
+
+      // The same swap made on Home before the start.
+      const day = readyDay('tpl_3_day_full_body_v1', 0);
+      const bench = day.sessions[0].exercises.find((exercise) => exercise.exerciseName === 'Bench Press');
+      const banded = applySessionAdaptation(day, { swaps: { [bench.slotId]: 'Bench Press - With Bands' }, drops: [] })
+        .sessions[0].exercises.find((exercise) => exercise.slotId === bench.slotId);
+      assert.equal(banded.exerciseName, 'Bench Press - With Bands');
+      assert.equal(isUnloadedTrackingMode(banded.trackingMode), false);
+    },
+  },
+  {
     name: 'swap is the lift: a hold swapped for a loaded lift stops counting seconds',
     run() {
       let state = start(readyDay('tpl_gainer_advanced_glutes_v1', 4));
@@ -265,6 +290,20 @@ module.exports = [
       assert.equal(stored.exerciseTemplateId, null);
       const unswapped = normalizeExerciseLog({ ...stored, id: 'log_plain', swappedFrom: null, exerciseTemplateId: 'ex_my_squat' });
       assert.equal(unswapped.exerciseTemplateId, 'ex_my_squat');
+      // Swapped away and back, an older build saved the squat "swapped from"
+      // itself. That is the programmed lift, and it keeps its template.
+      const swappedBack = normalizeExerciseLog({
+        ...stored,
+        id: 'log_back',
+        exerciseNameSnapshot: 'Back Squat',
+        swappedFrom: 'Back Squat',
+        exerciseTemplateId: 'ex_my_squat',
+      });
+      assert.equal(swappedBack.exerciseTemplateId, 'ex_my_squat');
+      // And it loads as no swap at all: History's badge, the swap counts and
+      // Progress read the same answer.
+      assert.equal(swappedBack.swappedFrom, null);
+      assert.equal(stored.swappedFrom, 'Back Squat');
 
       const database = {
         ...myDatabase(),
@@ -353,6 +392,40 @@ module.exports = [
       next = swap(next, slotId, 'Leg Press');
       const press = next.activeSession.exercises[0];
       assert.equal(resolveGuidedSetTarget(press.sets, 0, press.trackingMode, press.swappedAfterSetIndex).loadKg, 200);
+    },
+  },
+  {
+    name: 'swap is the lift: a set added after the swap takes nothing from the lift before it',
+    run() {
+      // Review of #170: every hold set done, a swap to a hip thrust, then
+      // "add set" — the new set copied the last set's 60 (seconds) as reps.
+      let state = start(readyDay('tpl_gainer_advanced_glutes_v1', 4));
+      const bridge = state.activeSession.exercises.find((item) => item.exerciseName === 'Glute Bridge Hold');
+      bridge.sets.forEach((item) => {
+        state = log(state, bridge.slotId, item.setIndex, null, 60);
+      });
+      state = swap(state, bridge.slotId, 'Barbell Hip Thrust');
+      state = workoutReducer(state, { type: 'exercise/addSet', payload: { slotId: bridge.slotId } });
+      const thrust = state.activeSession.exercises.find((item) => item.slotId === bridge.slotId);
+      const added = thrust.sets[thrust.sets.length - 1];
+      assert.equal(added.status, 'pending');
+      assert.ok(added.plannedRepsMax <= 15, `the added hip thrust set asks for ${added.plannedRepsMax}`);
+
+      // Nor the old lift's weight: three squats at 100, a swap to goblet
+      // squats, and the added set opened on the squat's 100.
+      let squatState = start(readyDay('tpl_3_day_full_body_v1', 0));
+      const squat = squatState.activeSession.exercises[0];
+      squat.sets.forEach((item) => {
+        squatState = log(squatState, squat.slotId, item.setIndex, 100, 5);
+      });
+      squatState = swap(squatState, squat.slotId, 'Goblet Squat');
+      squatState = workoutReducer(squatState, { type: 'exercise/addSet', payload: { slotId: squat.slotId } });
+      const goblet = squatState.activeSession.exercises[0];
+      const gobletSet = goblet.sets[goblet.sets.length - 1];
+      assert.equal(gobletSet.plannedLoadKg, undefined);
+      assert.equal(resolveGuidedSetTarget(goblet.sets, gobletSet.setIndex, goblet.trackingMode, goblet.swappedAfterSetIndex).loadKg, null);
+      // Same unit, so the same numbers.
+      assert.equal(gobletSet.plannedRepsMax, squat.sets[0].plannedRepsMax);
     },
   },
   {

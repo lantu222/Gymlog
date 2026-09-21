@@ -19,7 +19,7 @@ import { GuidedResumeAnchor, WorkoutTrackingMode, WorkoutTemplateExercise, Worko
 import { getWorkoutTemplateById } from './workoutCatalog';
 import { resolveProgressedLoadKg, resolveProgressedReps } from '../../lib/progressionGate';
 import { prescriptionAfterSwap, trackingModeAfterSwap } from '../../lib/catalogExercisePools';
-import { liftBeforeSwap, splitExerciseByLift } from '../../lib/liftSegments';
+import { liftBeforeSwap, liftOfSet, splitExerciseByLift } from '../../lib/liftSegments';
 import {
   entriesForLift,
   findHistoricalSetForIndex,
@@ -1241,7 +1241,8 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
       }
       // Judged as the lift it was logged as: a pull-up set corrected after the
       // swap to a lat pulldown is still a pull-up, with no weight to ask for.
-      const lift = liftBeforeSwap(exercise, set) ?? exercise;
+      // The correction sheet asks the same rule (liftOfSet).
+      const lift = liftOfSet(exercise, set);
       if (
         !Number.isFinite(action.payload.reps) ||
         action.payload.reps <= 0 ||
@@ -1409,13 +1410,25 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
         if (position === exerciseIndex) {
           nextSetIndex = memberNextIndex;
         }
+        // A last set logged as another lift — the slot was swapped after it —
+        // lends the new set neither its weight nor numbers in its unit: three
+        // 60-second holds, a swap to a hip thrust, and the added set asked for
+        // 60 reps at the hold's weight (review of #170).
+        const sourceLift = sourceSet ? liftBeforeSwap(member, sourceSet) : null;
+        const sourceReps = {
+          repsMin: sourceSet?.plannedRepsMin ?? member.sets[0]?.plannedRepsMin ?? 1,
+          repsMax: sourceSet?.plannedRepsMax ?? member.sets[0]?.plannedRepsMax ?? 1,
+        };
+        const planned = sourceLift
+          ? prescriptionAfterSwap(sourceLift.trackingMode, member.trackingMode, sourceReps, member.exerciseName)
+          : sourceReps;
         member.sets = [
           ...member.sets,
           {
             setIndex: memberNextIndex,
-            plannedLoadKg: sourceSet?.actualLoadKg ?? sourceSet?.plannedLoadKg,
-            plannedRepsMin: sourceSet?.plannedRepsMin ?? member.sets[0]?.plannedRepsMin ?? 1,
-            plannedRepsMax: sourceSet?.plannedRepsMax ?? member.sets[0]?.plannedRepsMax ?? 1,
+            plannedLoadKg: sourceLift ? undefined : sourceSet?.actualLoadKg ?? sourceSet?.plannedLoadKg,
+            plannedRepsMin: planned.repsMin,
+            plannedRepsMax: planned.repsMax,
             draftLoadText: '',
             draftRepsText: '',
             status: 'pending',

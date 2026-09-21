@@ -205,8 +205,14 @@ export function deriveLegacyLogFieldsFromSets(sets: ExerciseLogSet[]) {
   };
 }
 
-function normalizeSwappedFrom(value: unknown): string | null {
-  return typeof value === 'string' ? value.trim() || null : null;
+/**
+ * The lift a log was swapped in for — none, when it was not a swap
+ * (logRecordsSwap). Settled here, on the way in and on every load, so the
+ * History badge, the swap counts, Progress and the insight all read one
+ * answer: a log "swapped from" the lift it names is the programmed lift.
+ */
+function normalizeSwappedFrom(log: { swappedFrom?: unknown; exerciseNameSnapshot?: unknown }): string | null {
+  return logRecordsSwap(log) ? (log.swappedFrom as string).trim() : null;
 }
 
 /**
@@ -228,6 +234,21 @@ function normalizeLogTemplateId(exerciseTemplateId: unknown, swappedFrom: string
   return typeof exerciseTemplateId === 'string' ? exerciseTemplateId : null;
 }
 
+/**
+ * Whether a log is a lift swapped in for another.
+ *
+ * A log that names the lift it says it was swapped from is not: an older build
+ * saved a slot swapped away and back (A → B → A) as A "swapped from A". That
+ * is the programmed lift — it keeps its template and its place in the
+ * post-session insight, and loads with no swap on it, so History does not
+ * badge a bench press as swapped from the bench press (review of #170).
+ */
+export function logRecordsSwap(log: { swappedFrom?: unknown; exerciseNameSnapshot?: unknown }): boolean {
+  const from = typeof log.swappedFrom === 'string' ? log.swappedFrom.trim().toLowerCase() : '';
+  const named = typeof log.exerciseNameSnapshot === 'string' ? log.exerciseNameSnapshot.trim().toLowerCase() : '';
+  return from !== '' && from !== named;
+}
+
 export function normalizeExerciseLog(log: Partial<ExerciseLog> | null | undefined): ExerciseLog | null {
   if (
     !log ||
@@ -243,7 +264,7 @@ export function normalizeExerciseLog(log: Partial<ExerciseLog> | null | undefine
   const skipped = log.skipped === true;
   const normalizedSets = normalizeExerciseSets(log.sets, log.weight, log.repsPerSet);
   const derived = deriveLegacyLogFieldsFromSets(normalizedSets);
-  const swappedFrom = normalizeSwappedFrom(log.swappedFrom);
+  const swappedFrom = normalizeSwappedFrom(log);
 
   return {
     id: log.id,
@@ -277,7 +298,7 @@ export function normalizeExerciseLogDraft(log: ExerciseLogDraft) {
   const skipped = log.skipped === true;
   const normalizedSets = normalizeExerciseSets(log.sets, log.weight, log.repsPerSet);
   const derived = deriveLegacyLogFieldsFromSets(normalizedSets);
-  const swappedFrom = normalizeSwappedFrom(log.swappedFrom);
+  const swappedFrom = normalizeSwappedFrom(log);
 
   return {
     ...log,
