@@ -579,6 +579,7 @@ export function EmptyWorkoutScreen({
   );
   const [sheetVisible, setSheetVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const finishingRef = useRef(false);
 
   const hasExercises = exercises.length > 0;
   const canFinish = hasExercises && !isSaving;
@@ -914,10 +915,15 @@ export function EmptyWorkoutScreen({
     setRest((current) => (current ? extendRest(current, deltaSeconds, Date.now()) : current));
 
   const handleFinish = async () => {
-    if (!canFinish) {
+    // The ref as well as the state: `canFinish` is read from the render the
+    // press came from, and a second press can arrive before the one that
+    // disables the button. Each duplicate here is a template AND a session —
+    // the same guard the cardio and guided finishes carry (#138, #120).
+    if (!canFinish || finishingRef.current) {
       return;
     }
 
+    finishingRef.current = true;
     setIsSaving(true);
     try {
       const { draft, summary } = buildFreestyleFinish({
@@ -934,6 +940,7 @@ export function EmptyWorkoutScreen({
     } catch {
       // Save failed — the logged sets stay on screen so nothing is lost;
       // App.tsx surfaces the error toast. Never show success early.
+      finishingRef.current = false;
       setIsSaving(false);
     }
   };

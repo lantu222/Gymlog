@@ -130,11 +130,15 @@ export function SetupHandoffScreen({
   const [pageIndex, setPageIndex] = useState(0);
   const page = pages[Math.min(pageIndex, pages.length - 1)];
 
-  const finish = (widget = addWidget) =>
+  // The answers are passed in where a press has just given one: state set in
+  // the same handler is not read back until the next render, so the sign-in
+  // button on the last page finished with the old "no" and the sign-in was
+  // silently skipped (double-tap audit, 2026-09-21).
+  const finish = (widget = addWidget, signIn = signInForBackup) =>
     onDone({
       addWidget: plan.offerWidget && widget,
       trackedSites,
-      signInForBackup: plan.offerAccountBackup && signInForBackup,
+      signInForBackup: plan.offerAccountBackup && signIn,
       showPro: plan.offerPro,
     });
 
@@ -146,9 +150,9 @@ export function SetupHandoffScreen({
    * from most phones, the tracking dialog IS the last page, and its Done
    * button was dead: tapped, nothing, no way forward (user, 2026-09-10).
    */
-  const advance = () => {
+  const advance = (signIn = signInForBackup) => {
     if (pageIndex >= pages.length - 1) {
-      finish();
+      finish(addWidget, signIn);
       return;
     }
     setPageIndex((current) => current + 1);
@@ -212,14 +216,14 @@ export function SetupHandoffScreen({
             accessibilityRole="button"
             onPress={() => {
               setSignInForBackup(true);
-              advance();
+              advance(true);
             }}
             style={({ pressed }) => [styles.googleCta, pressed && styles.pressed]}
           >
             <GoogleGlyph size={18} />
             <Text style={styles.googleCtaText}>{t(language, 'handoff.signin.cta')}</Text>
           </Pressable>
-          <Pressable accessibilityRole="button" onPress={advance} style={({ pressed }) => pressed && styles.pressed}>
+          <Pressable accessibilityRole="button" onPress={() => advance()} style={({ pressed }) => pressed && styles.pressed}>
             <Text style={styles.pageSkip}>{t(language, 'handoff.signin.skip')}</Text>
           </Pressable>
         </View>
@@ -238,7 +242,7 @@ export function SetupHandoffScreen({
         selected={trackedSites}
         offered={plan.trackedSiteOptions}
         onChange={setTrackedSites}
-        onDone={advance}
+        onDone={() => advance()}
       />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <Text style={styles.title}>{t(language, titleKey)}</Text>

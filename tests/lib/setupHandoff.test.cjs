@@ -192,7 +192,10 @@ module.exports = [
         'utf8',
       );
       assert.match(screen, /const \[signInForBackup, setSignInForBackup\] = useState\(false\)/);
-      assert.match(screen, /signInForBackup: plan\.offerAccountBackup && signInForBackup/);
+      // The answer defaults to that state, and only the sign-in button passes
+      // a yes in its place (see the next suite).
+      assert.match(screen, /const finish = \(widget = addWidget, signIn = signInForBackup\) =>/);
+      assert.match(screen, /signInForBackup: plan\.offerAccountBackup && signIn,/);
       // And no separate "not now": Done with everything off already is one.
       assert.doesNotMatch(screen, /handoff\.notNow|handoff\.skip/);
     },

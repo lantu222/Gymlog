@@ -2794,6 +2794,21 @@ function VinhaApp() {
    * arrives while the first copy is still being written.
    */
   const programEditQueue = useRef<Promise<void>>(Promise.resolve());
+  /**
+   * Ready programmes a queued edit has copied, while the queue is still busy.
+   *
+   * The first edit on a catalogue day copies the programme and carries the
+   * reader to the copy's day. An edit pressed on the catalogue day before that
+   * landed — a second tap on the bin, a stepper's next "+" — then finds the
+   * copy and took the "you already have your own version" branch: a toast,
+   * and a push to the copy's programme page on top of the day they had just
+   * been carried to (double-tap audit, 2026-09-21). Those edits were aimed at
+   * rows that are gone from the screen, so they are dropped quietly. Cleared
+   * when the queue drains, so a reader who comes back to the catalogue day
+   * later is still told and taken to their version.
+   */
+  const pendingProgramEdits = useRef(0);
+  const copiedInThisEditBurst = useRef(new Set<string>());
 
   function handleEditProgramExercise(
     programType: 'ready' | 'custom',
@@ -2802,11 +2817,19 @@ function VinhaApp() {
     exerciseId: string,
     edit: ProgramExerciseEdit,
   ): Promise<boolean> {
+    pendingProgramEdits.current += 1;
     const next = programEditQueue.current.then(() =>
       runProgramExerciseEdit(programType, programId, sessionId, exerciseId, edit),
     );
     // A failed edit must not wedge every edit queued behind it.
     programEditQueue.current = next.then(() => undefined).catch(() => undefined);
+    const settle = () => {
+      pendingProgramEdits.current -= 1;
+      if (pendingProgramEdits.current === 0) {
+        copiedInThisEditBurst.current.clear();
+      }
+    };
+    void next.then(settle, settle);
     return next;
   }
 
@@ -2922,6 +2945,10 @@ function VinhaApp() {
      * after the previous edit's write, not merely against fresh data.
      */
     const existingCopyId = await findWorkoutTemplateIdBySource(programId);
+    if (existingCopyId && copiedInThisEditBurst.current.has(programId)) {
+      // Made by an edit queued ahead of this one; see copiedInThisEditBurst.
+      return false;
+    }
     if (existingCopyId) {
       /**
        * The reader already has their own version of this programme, and this
@@ -3159,6 +3186,7 @@ function VinhaApp() {
         // above, before this.
         await forgetHeldProgramme(template.id);
       }
+      copiedInThisEditBurst.current.add(programId);
       void haptics.success();
       if (edit.kind === 'replace') {
         adaptSession({ programId, sessionId }, (current) => withoutSessionSwapsTo(current, edit.exerciseName));

@@ -108,7 +108,10 @@ module.exports = [
       // opens that copy instead of editing rows they cannot see.
       assert.match(
         code,
-        /const existingCopyId = await findWorkoutTemplateIdBySource\(programId\);\s*if \(existingCopyId\) \{[\s\S]{0,400}programType: 'custom',\s*workoutTemplateId: existingCopyId,\s*\}\);\s*return false;/,
+        // Unless the copy was made by an edit queued ahead of this one: that
+        // edit has already carried the reader to the copy (double-tap audit,
+        // 2026-09-21), and the rows this one was aimed at are gone.
+        /const existingCopyId = await findWorkoutTemplateIdBySource\(programId\);\s*if \(existingCopyId && copiedInThisEditBurst\.current\.has\(programId\)\) \{\s*return false;\s*\}\s*if \(existingCopyId\) \{[\s\S]{0,400}programType: 'custom',\s*workoutTemplateId: existingCopyId,\s*\}\);\s*return false;/,
       );
     },
   },

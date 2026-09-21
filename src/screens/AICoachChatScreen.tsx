@@ -773,6 +773,32 @@ export function AICoachChatScreen({
   );
 
   /**
+   * One answer per offer, however fast it is tapped.
+   *
+   * The offer stays on screen until its write resolves, and nothing marked it
+   * as answered in the meantime: two taps on "log it" wrote the weigh-in twice
+   * — two rows in the weight list and the chart — under one "logged" line
+   * (double-tap audit, 2026-09-21). A ref, not state: the second tap arrives
+   * before a re-render could disable anything.
+   */
+  const resolvingOfferIdsRef = useRef(new Set<string>());
+  const resolveOfferOnce = useCallback(
+    async (...args: Parameters<typeof resolveOffer>) => {
+      const [messageId] = args;
+      if (resolvingOfferIdsRef.current.has(messageId)) {
+        return;
+      }
+      resolvingOfferIdsRef.current.add(messageId);
+      try {
+        await resolveOffer(...args);
+      } finally {
+        resolvingOfferIdsRef.current.delete(messageId);
+      }
+    },
+    [resolveOffer],
+  );
+
+  /**
    * The demo moment's key, held past the hand-off that carried it.
    *
    * It arrives on the route and the route is cleared the instant the question
@@ -1354,7 +1380,7 @@ export function AICoachChatScreen({
                     <Pressable
                       accessibilityRole="button"
                       onPress={() =>
-                        void resolveOffer(
+                        void resolveOfferOnce(
                           message.id,
                           message.offer as NonNullable<ChatMessage['offer']>,
                           false,
@@ -1368,7 +1394,7 @@ export function AICoachChatScreen({
                     <Pressable
                       accessibilityRole="button"
                       onPress={() =>
-                        void resolveOffer(
+                        void resolveOfferOnce(
                           message.id,
                           message.offer as NonNullable<ChatMessage['offer']>,
                           true,
