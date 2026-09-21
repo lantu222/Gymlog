@@ -70,6 +70,10 @@ const EQUIPMENT_RULES: EquipmentRule[] = [
   // recovery day's loaded variant handed it to anyone with any chip (CI review
   // of #172).
   { pattern: 'farmer', requires: [['Dumbbells', 'Kettlebells', ...BARBELL]] },
+  // A plate lift needs the plate. The curl rule above lets bands through, and
+  // a dumbbell curl for a bands-only reader fell back to reverse plate curls
+  // with a weight dial and no plate (CI review of #172).
+  { pattern: 'plate', requires: [BARBELL] },
 ];
 
 /**

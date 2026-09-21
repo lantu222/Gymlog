@@ -202,6 +202,18 @@ module.exports = [
       assert.equal(barOnly.repsMin, 40);
       // With something to carry, it stays the carry.
       assert.equal(applyEquipmentToExercises([carry], ['Dumbbells']).exercises[0].exerciseName, "Farmer's Walk");
+
+      // And a plate lift needs a plate: a dumbbell curl for a bands-only
+      // reader fell back to reverse plate curls, now filed as loaded (CI
+      // review of #172). With nothing honest left, the curl goes.
+      const curl = { ...carry, id: 'curl', exerciseName: 'Dumbbell Curl', repsMin: 12, repsMax: 12 };
+      const banded = applyEquipmentToExercises([curl], ['Resistance bands']);
+      assert.deepEqual(banded.exercises.map((exercise) => exercise.exerciseName), []);
+      assert.deepEqual(banded.removed, ['Dumbbell Curl']);
+      assert.equal(
+        applyEquipmentToExercises([curl], ['Barbell & plates']).exercises[0].exerciseName,
+        'Reverse Plate Curls',
+      );
     },
   },
   {
