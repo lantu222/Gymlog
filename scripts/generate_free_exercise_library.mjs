@@ -5,6 +5,10 @@ import https from 'node:https';
 const DATA_URL = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json';
 const IMAGE_BASE_URL = 'https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@main/exercises';
 const OUTPUT_PATH = path.resolve(process.cwd(), 'src/data/generatedExerciseLibrary.ts');
+// Loaded lifts the source files under "other", by name — see the file's _why.
+const EQUIPMENT_OVERRIDES = JSON.parse(
+  await fs.readFile(path.resolve(process.cwd(), 'scripts/exercise-equipment-overrides.json'), 'utf8'),
+).overrides;
 
 function fetchJson(url) {
   return new Promise((resolve, reject) => {
@@ -151,12 +155,16 @@ function mapExercise(entry) {
   const category = mapCategory(entry, preliminaryBodyPart);
   const bodyPart = mapBodyPart(entry.primaryMuscles, category);
 
+  const name = String(entry.name ?? 'Exercise').trim();
+
   return {
     id: toId(entry.id ?? entry.name),
-    name: String(entry.name ?? 'Exercise').trim(),
+    name,
     category,
     bodyPart,
-    equipment: mapEquipment(entry.equipment),
+    // The fallback in mapEquipment is "bodyweight", which is wrong for every
+    // loaded lift the source calls "other"; those are named in the overrides.
+    equipment: EQUIPMENT_OVERRIDES[name] ?? mapEquipment(entry.equipment),
     primaryMuscles: Array.isArray(entry.primaryMuscles) ? entry.primaryMuscles.map((item) => String(item)) : [],
     secondaryMuscles: Array.isArray(entry.secondaryMuscles) ? entry.secondaryMuscles.map((item) => String(item)) : [],
     instructions: Array.isArray(entry.instructions) ? entry.instructions.map((item) => String(item)) : [],

@@ -29,10 +29,13 @@ module.exports = [
     name: 'swap tracking: the programmes answer for their own names before the library does',
     run() {
       const { getCatalogTrackingMode } = require('../../.test-dist/lib/catalogExercisePools.js');
-      // The library files the trap bar deadlift under "bodyweight"; the
-      // programmes load it. Asked of the library first, the hinge slot's swap
-      // to it would have hidden the weight dial all over again.
-      assert.equal(getCatalogTrackingMode('Trap Bar Deadlift'), 'bodyweight');
+      // The library files the Russian twist under "bodyweight"; the
+      // programmes load it. Asked of the library first, a swap to it from an
+      // unloaded slot would have hidden the weight dial. (The example was the
+      // trap bar deadlift until the library filed it as loaded, 2026-09-21.)
+      assert.equal(getCatalogTrackingMode('Russian Twist'), 'bodyweight');
+      assert.equal(trackingModeAfterSwap('bodyweight', 'Russian Twist'), 'load_and_reps');
+      assert.equal(getCatalogTrackingMode('Trap Bar Deadlift'), 'load_and_reps');
       assert.equal(trackingModeAfterSwap('load_and_reps', 'Trap Bar Deadlift'), 'load_and_reps');
       // "Pull-Up" is not the library's spelling, so the library answers
       // "load" by not finding it.
