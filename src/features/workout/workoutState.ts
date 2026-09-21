@@ -19,7 +19,12 @@ import { GuidedResumeAnchor, WorkoutTrackingMode, WorkoutTemplateExercise, Worko
 import { getWorkoutTemplateById } from './workoutCatalog';
 import { resolveProgressedLoadKg, resolveProgressedReps } from '../../lib/progressionGate';
 import { prescriptionAfterSwap, trackingModeAfterSwap } from '../../lib/catalogExercisePools';
-import { liftBeforeSwap, liftOfSet, splitExerciseByLift } from '../../lib/liftSegments';
+import {
+  liftBeforeSwap,
+  liftOfSet,
+  setIndexWithinLift,
+  splitExerciseByLift,
+} from '../../lib/liftSegments';
 import {
   entriesForLift,
   findHistoricalSetForIndex,
@@ -1693,7 +1698,9 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
         if (set.status !== 'pending') {
           return;
         }
-        const historical = findHistoricalSetForIndex(swappedInEntry, set.setIndex);
+        // By its place within the new lift, which is how that lift's history
+        // numbers it — not by its place in the slot (review of #170).
+        const historical = findHistoricalSetForIndex(swappedInEntry, setIndexWithinLift(exercise, set));
         set.draftLoadText = historical ? formatWeightInputValue(historical.loadKg, action.payload.unitPreference) : '';
         set.plannedLoadKg = historical?.loadKg;
         set.autoProgressedFromKg = undefined;

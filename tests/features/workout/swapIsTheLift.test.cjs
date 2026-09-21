@@ -395,6 +395,37 @@ module.exports = [
     },
   },
   {
+    /*
+     * Review of #170: a slot that held two lifts stores each one's sets
+     * numbered from 0, and the swap's prefill asked that history by the slot's
+     * own index. Swapped in at index 0 the two agree, which is the only case
+     * the suite above tries; swapped in after two sets of something else, the
+     * leg press asked its history for set 2, found nothing, and opened empty.
+     */
+    name: 'swap is the lift: a lift swapped in mid-exercise again opens on what it lifted',
+    run() {
+      let state = start(readyDay('tpl_3_day_full_body_v1', 0));
+      const slotId = state.activeSession.exercises[0].slotId;
+      state = log(state, slotId, 0, 100, 5);
+      state = log(state, slotId, 1, 100, 5);
+      state = swap(state, slotId, 'Leg Press');
+      state = log(state, slotId, 2, 200, 10);
+      state = workoutReducer(state, { type: 'session/finishWorkout', payload: { performedAt: '2026-09-14T09:00:00.000Z' } });
+      state = workoutReducer(state, { type: 'session/clearCompletedSession' });
+
+      let next = start(readyDay('tpl_3_day_full_body_v1', 0), state, 2);
+      next = log(next, slotId, 0, 100, 5);
+      next = log(next, slotId, 1, 100, 5);
+      next = swap(next, slotId, 'Leg Press');
+      const press = next.activeSession.exercises[0];
+      const pending = press.sets.filter((set) => set.status === 'pending');
+      assert.ok(pending.length > 0, 'the swap leaves sets to do');
+      assert.equal(pending[0].setIndex, 2, 'the first set of the leg press is the slot\'s third');
+      assert.equal(pending[0].plannedLoadKg, 200, 'and it opens on the leg press\'s own first set');
+      assert.equal(pending[0].draftLoadText, '200');
+    },
+  },
+  {
     name: 'swap is the lift: a set added after the swap takes nothing from the lift before it',
     run() {
       // Review of #170: every hold set done, a swap to a hip thrust, then

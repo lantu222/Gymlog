@@ -124,6 +124,37 @@ export function liftOfSet(exercise: SegmentableExercise, set: WorkoutSetInstance
 }
 
 /**
+ * Where a set sits within the lift it belongs to — the number that lift's
+ * history knows it by.
+ *
+ * A slot that held more than one lift stores each lift's sets numbered from 0
+ * (splitExerciseByLift, below), so a leg press swapped in after two sets of
+ * back squat is saved as leg press set 0, not set 2. The swap's prefill asked
+ * that history by the slot's own index — 2 — found nothing, and a lift with a
+ * perfectly good last time opened on an empty field (review of #170). A slot
+ * that held one lift keeps its own numbering, exactly as splitExerciseByLift
+ * leaves it.
+ */
+export function setIndexWithinLift(exercise: SegmentableExercise, set: WorkoutSetInstance): number {
+  const keyOf = (candidate: WorkoutSetInstance) => normalizeName(liftOfSet(exercise, candidate).exerciseName);
+  const own = keyOf(set);
+  const ordered = [...exercise.sets].sort((left, right) => left.setIndex - right.setIndex);
+  if (ordered.every((candidate) => keyOf(candidate) === own)) {
+    return set.setIndex;
+  }
+  let position = 0;
+  for (const candidate of ordered) {
+    if (candidate.setIndex === set.setIndex) {
+      return position;
+    }
+    if (keyOf(candidate) === own) {
+      position += 1;
+    }
+  }
+  return position;
+}
+
+/**
  * The slot's sets, grouped by the lift that did them, in the order the lifts
  * were first done.
  *
