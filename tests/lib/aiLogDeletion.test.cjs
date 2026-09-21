@@ -1,7 +1,10 @@
 const assert = require('node:assert/strict');
 
 const {
+  AI_LOG_WRITE_WINDOW_MS,
   MAX_PENDING_AI_LOG_DELETIONS,
+  aiLogDeleteSettlesAt,
+  aiLogRetryAt,
   createAiLogDeletionRunner,
   normalizePendingAiLogDeletions,
   withPendingAiLogDeletion,
@@ -223,6 +226,107 @@ module.exports = [
       assert.match(clear, /return runExclusive\(async \(\) => \{\s*const current = databaseRef\.current;/);
       assert.match(clear, /withoutAiLogDeletions\(pending, deleted\)/);
       assert.match(clear, /await savePreferences\(next\.preferences\);/);
+    },
+  },
+  {
+    // The server keeps a copy after the model answers, and a delete lists the
+    // copies there when it arrives: a withdrawal made while a question was
+    // still being answered deleted every copy but that one, and the label was
+    // retired as done (server audit, 2026-09-21).
+    name: 'aiLogDeletion: a delete confirmed while a request carrying the label may still be writing stays owed until it cannot be',
+    async run() {
+      // The app's own outer bound on a coach call.
+      const WINDOW = 40_000;
+      let clock = 10_000;
+      const deleted = [];
+      const { forget, calls } = scriptedForget({ [A]: true });
+      const run = createAiLogDeletionRunner({
+        live: true,
+        forget,
+        onDeleted: async (labels) => {
+          deleted.push(...labels);
+        },
+        // A question under A left the phone at 0.
+        lastCarriedAt: (label) => (label === A ? 0 : null),
+        now: () => clock,
+      });
+      assert.deepEqual(await run([A]), [A], 'a delete that raced a copy still being written was called final');
+      assert.deepEqual(deleted, []);
+      assert.equal(calls.length, 1, 'the delete is still sent: what was there goes now');
+
+      clock = WINDOW;
+      assert.deepEqual(await run([A]), []);
+      assert.deepEqual(deleted, [A]);
+
+      assert.equal(AI_LOG_WRITE_WINDOW_MS, WINDOW);
+      assert.equal(aiLogDeleteSettlesAt(null, 1_000), null, 'no request carried it: the delete is final');
+      assert.equal(aiLogDeleteSettlesAt(0, 10_000), WINDOW);
+      assert.equal(aiLogDeleteSettlesAt(0, WINDOW), null);
+      // When to ask again: once the latest of the late copies has landed.
+      assert.equal(aiLogRetryAt([A, B], (label) => (label === A ? 0 : 5_000), 10_000), 5_000 + WINDOW);
+      assert.equal(aiLogRetryAt([A], () => null, 10_000), null);
+    },
+  },
+  {
+    name: 'aiLogDeletion: the app knows when a request last carried a label, and asks again once its copy has landed',
+    async run() {
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const root = path.join(__dirname, '..', '..');
+      const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8').replace(/\r\n/g, '\n');
+      const code = (...parts) => read(...parts).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+      // The window is the app's own outer bound on a coach call, which is
+      // past the endpoint's upstream timeout.
+      const client = code('src', 'lib', 'aiCoachClient.ts');
+      assert.equal(Number(client.match(/const REQUEST_TIMEOUT_MS = (\d+);/)[1]), AI_LOG_WRITE_WINDOW_MS);
+      const endpoint = read('api', 'ai-coach.ts');
+      assert.ok(Number(endpoint.match(/AI_COACH_CLAUDE_TIMEOUT_MS \?\? (\d+)\)/)[1]) < AI_LOG_WRITE_WINDOW_MS);
+
+      // Every request that can leave a copy notes it before it is sent.
+      const notes = client.match(/noteAiLogCarried\(input\.keepConsent, input\.logId\);\s*const response = await fetch\(/g) ?? [];
+      assert.equal(notes.length, 3, 'a request that can leave a copy does not say when it left');
+
+      // Run: a question under a label, with the switch on and with it off.
+      const saved = {
+        fetch: global.fetch,
+        url: process.env.EXPO_PUBLIC_AI_COACH_API_URL,
+        key: process.env.EXPO_PUBLIC_AI_COACH_APP_KEY,
+        mode: process.env.NODE_ENV,
+      };
+      const modulePath = path.join(root, '.test-dist', 'lib', 'aiCoachClient.js');
+      process.env.EXPO_PUBLIC_AI_COACH_API_URL = 'https://coach.example.test/api/ai-coach';
+      process.env.EXPO_PUBLIC_AI_COACH_APP_KEY = 'app-key';
+      // A development build reaches the URL without the spend-cap sign-off.
+      process.env.NODE_ENV = 'development';
+      delete require.cache[modulePath];
+      delete require.cache[path.join(root, '.test-dist', 'lib', 'aiCoachLiveGate.js')];
+      global.fetch = async () => ({ ok: true, status: 200, json: async () => ({ ok: true, source: 'live', answer: { takeaway: 'x', why: [], nextSteps: [], plan: [], assumptions: [] } }) });
+      try {
+        const coach = require(modulePath);
+        assert.equal(coach.lastAiLogCarriedAt(B), null);
+        await coach.requestAiCoachAdvice({ prompt: 'Why?', context: {}, keepConsent: false, logId: B });
+        assert.equal(coach.lastAiLogCarriedAt(B), null, 'a request that keeps nothing was noted');
+        const before = Date.now();
+        await coach.requestAiCoachAdvice({ prompt: 'Why?', context: {}, keepConsent: true, logId: B });
+        assert.ok(coach.lastAiLogCarriedAt(B) >= before);
+      } finally {
+        global.fetch = saved.fetch;
+        for (const [key, value] of [['EXPO_PUBLIC_AI_COACH_API_URL', saved.url], ['EXPO_PUBLIC_AI_COACH_APP_KEY', saved.key], ['NODE_ENV', saved.mode]]) {
+          if (value === undefined) {
+            delete process.env[key];
+          } else {
+            process.env[key] = value;
+          }
+        }
+        delete require.cache[modulePath];
+      }
+
+      // The retry runner reads it, and a timer asks again when the late copy has landed.
+      const hook = code('src', 'hooks', 'usePendingAiLogDeletions.ts');
+      assert.match(hook, /lastCarriedAt: lastAiLogCarriedAt,/);
+      assert.match(hook, /const at = aiLogRetryAt\(input\.pending, lastAiLogCarriedAt, Date\.now\(\)\);/);
+      assert.match(hook, /void run\(pendingRef\.current\);\s*\}\s*\}, at - Date\.now\(\) \+ SETTLE_MARGIN_MS\);/);
     },
   },
 ];

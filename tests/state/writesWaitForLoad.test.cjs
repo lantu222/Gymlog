@@ -127,9 +127,12 @@ module.exports = [
       // database alone let its empty stand-in replace the cloud copy
       // (persistence audit, 2026-09-20).
       assert.match(backup, /const plan = planBackup\(\{\s*interactive,\s*sync: current,\s*local: countBackup\(latestRef\.current\.database, latestRef\.current\.workoutHistory\),\s*\}\);\s*if \(plan === 'skip'\) \{\s*return \{ kind: 'failed' \};/);
-      assert.match(backup, /local: countBackup\(latestRef\.current\.database, latestRef\.current\.workoutHistory\),\s*\}\);\s*if \(decision === 'settle'\)/);
+      // The look also asks whether the copy is this phone's own: another
+      // phone's copy is asked about, never overwritten (server audit,
+      // 2026-09-21; run in tests/features/account).
+      assert.match(backup, /local: countBackup\(latestRef\.current\.database, latestRef\.current\.workoutHistory\),\s*unseen: remote\.ok && !isCloudCopyThisPhones\(current, remote\),\s*\}\);\s*if \(decision === 'settle'\)/);
       assert.match(backup, /if \(decision === 'settle'\) \{\s*return await settleWithRemote\(idToken, current, remote, generation\);/);
-      assert.match(backup, /if \(decision === 'ask' && remote\.ok\) \{\s*return await askRestoreOrKeep\(idToken, current, remote\.payload\);/);
+      assert.match(backup, /if \(decision === 'ask' && remote\.ok\) \{\s*return await askRestoreOrKeep\(idToken, current, remote\.payload, remote\.version\);/);
       assert.match(hook, /const running = runBackup\(false\)\.then\(\(outcome\) => outcome\.kind === 'backed_up'\);/);
       assert.match(hook, /const backUpOrAsk = useCallback\(\(\) => runBackup\(true\)/);
       // Sign-in settles through the same function, so the two cannot drift.

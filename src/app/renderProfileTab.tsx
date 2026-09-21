@@ -13,7 +13,8 @@ import {
   canResumePurchase,
   resolveTrialProUntil,
 } from '../lib/proEntitlement';
-import { forgetAiCoachLog } from '../lib/aiCoachClient';
+import { forgetAiCoachLog, lastAiLogCarriedAt } from '../lib/aiCoachClient';
+import { aiLogDeleteSettlesAt } from '../lib/aiLogDeletion';
 import { randomLogId } from '../lib/aiCoachLogId';
 import { localizeSessionFocus } from '../lib/sessionNameLabel';
 import { MOCK_BILLING, currentPeriodEndAt, nextChargeAt } from '../lib/subscriptionView';
@@ -729,6 +730,7 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
           if (next || !logId) {
             return;
           }
+          const deleteSentAt = Date.now();
           const forgotten = await forgetAiCoachLog(logId);
           if (!allOff) {
             // A line is still on, so copies are still being kept under this
@@ -747,8 +749,17 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
           // time it returns, and writing its list back would drop a label a
           // reset filed in the meantime — leaving those copies under a name
           // nothing can look up (CI review of #143).
-          const stillOwed = await retireAiLogLabel(logId, !forgotten.ok);
-          if (stillOwed) {
+          //
+          // A confirmed delete is not the last word while a question sent
+          // under the label may still be answered: the server keeps its copy
+          // after the model replies, which is after this delete listed what
+          // was there. Until that request's copy has landed the label stays
+          // owed, and the runner asks again then (server audit, 2026-09-21).
+          // Quietly: what was kept is gone, and the rest follows within the
+          // minute — the toast is for a delete that did not land.
+          const settling = aiLogDeleteSettlesAt(lastAiLogCarriedAt(logId), deleteSentAt) !== null;
+          const stillOwed = await retireAiLogLabel(logId, !forgotten.ok || settling);
+          if (stillOwed && !forgotten.ok) {
             showToast(t(preferences.appLanguage, 'toast.coachCopiesPending'));
           }
         }}

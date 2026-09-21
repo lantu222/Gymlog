@@ -16,6 +16,7 @@ const {
   describeRestoreChoice,
   hasLocalDataWorthKeeping,
   hasWorkoutInProgress,
+  isCloudCopyThisPhones,
   parseAccountBackupPayload,
   planBackup,
   preferencesForRestore,
@@ -417,7 +418,13 @@ module.exports = [
       // Counts are per store since the workout history got its own guard;
       // this suite is about the database side and keeps the history even.
       const local = (itemCount, historyCount = 10) => ({ itemCount, historyCount });
-      const synced = { lastBackupAt: '2026-09-10T08:00:00.000Z', lastBackupItemCount: 40, lastBackupHistoryCount: 10, autoBackupPaused: false };
+      const synced = {
+        lastBackupAt: '2026-09-10T08:00:00.000Z',
+        lastBackupItemCount: 40,
+        lastBackupHistoryCount: 10,
+        autoBackupPaused: false,
+        cloudVersion: '"v1"',
+      };
       // Nothing to worry about: straight up.
       assert.equal(planBackup({ interactive: false, sync: synced, local: local(41) }), 'upload');
       assert.equal(planBackup({ interactive: true, sync: synced, local: local(41) }), 'upload');
@@ -429,6 +436,9 @@ module.exports = [
         assert.equal(planBackup({ interactive, sync: { ...synced, lastBackupAt: null }, local: local(41) }), 'look');
         assert.equal(planBackup({ interactive, sync: { ...synced, lastBackupItemCount: null }, local: local(41) }), 'look');
         assert.equal(planBackup({ interactive, sync: { ...synced, lastBackupHistoryCount: null }, local: local(41) }), 'look');
+        // Nor the copy's version: an upload names the copy it replaces, and
+        // one this phone has not read cannot be named (server audit, 2026-09-21).
+        assert.equal(planBackup({ interactive, sync: { ...synced, cloudVersion: null }, local: local(41) }), 'look');
       }
       // After "Delete cloud backup" only the reader backs up.
       const paused = { lastBackupAt: null, lastBackupItemCount: null, lastBackupHistoryCount: null, autoBackupPaused: true };
@@ -448,6 +458,38 @@ module.exports = [
       assert.equal(decideAfterLook({ interactive: true, neverSynced: false, remote: backup(40), local: local(30) }), 'upload');
       assert.equal(decideAfterLook({ interactive: true, neverSynced: false, remote: { kind: 'none' }, local: local(0) }), 'upload');
       assert.equal(decideAfterLook({ interactive: true, neverSynced: false, remote: { kind: 'unreachable' }, local: local(30) }), 'fail');
+      // A copy another phone wrote: asked about, and never replaced unattended
+      // — not even by a phone holding more than it does.
+      assert.equal(decideAfterLook({ interactive: true, neverSynced: false, remote: backup(40), local: local(60), unseen: true }), 'ask');
+      assert.equal(decideAfterLook({ interactive: false, neverSynced: false, remote: backup(40), local: local(60), unseen: true }), 'fail');
+      assert.equal(decideAfterLook({ interactive: false, neverSynced: false, remote: backup(40), local: local(60), unseen: false }), 'upload');
+    },
+  },
+  {
+    name: 'accountBackup: a phone knows its own cloud copy by version, and without one by what it wrote or restored',
+    run() {
+      const db = makeDatabase({ workoutSessions: [{ id: 'a', workoutNameSnapshot: 'Push', performedAt: '2026-09-01T10:00:00.000Z' }] });
+      const history = { sessions: [], slotHistory: {}, lastSelectedTemplateId: null };
+      // What the server hands back is the upload, through JSON.
+      const uploaded = JSON.parse(JSON.stringify(buildAccountBackupPayload(db, history, '2026-09-10T08:00:00.000Z')));
+      const sync = { cloudVersion: '"v1"', lastBackupAt: '2026-09-10T08:00:03.000Z', lastBackupFingerprint: accountBackupFingerprint(db, history) };
+
+      assert.equal(isCloudCopyThisPhones(sync, { version: '"v1"', payload: uploaded }), true);
+      assert.equal(isCloudCopyThisPhones(sync, { version: '"v2"', payload: uploaded }), false, 'a newer version is another write');
+
+      // An account from before versions. Its upload kept the fingerprint of
+      // what it sent, and the copy fingerprints the same after the round trip.
+      const legacy = { ...sync, cloudVersion: null };
+      assert.equal(isCloudCopyThisPhones(legacy, { version: '"v9"', payload: uploaded }), true);
+      // Its restore kept the copy's own export time.
+      assert.equal(
+        isCloudCopyThisPhones({ cloudVersion: null, lastBackupAt: uploaded.exportedAt, lastBackupFingerprint: null }, { version: null, payload: uploaded }),
+        true,
+      );
+      // Another phone's copy is neither.
+      const theirs = JSON.parse(JSON.stringify(buildAccountBackupPayload(makeDatabase(), history, '2026-09-11T08:00:00.000Z')));
+      assert.equal(isCloudCopyThisPhones(legacy, { version: '"v9"', payload: theirs }), false, 'a legacy account adopted another phone\'s copy');
+      assert.equal(isCloudCopyThisPhones({ cloudVersion: null, lastBackupAt: null, lastBackupFingerprint: null }, { version: null, payload: theirs }), false);
     },
   },
   {

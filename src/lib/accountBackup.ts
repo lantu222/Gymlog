@@ -545,6 +545,12 @@ export interface BackupSyncState {
   lastBackupHistoryCount: number | null;
   /** Set by "Delete cloud backup"; only the reader's own backup lifts it. */
   autoBackupPaused: boolean;
+  /**
+   * The version of the cloud copy this phone last wrote or restored — the
+   * copy an upload names, and the only one the server lets it replace. Null
+   * when unknown (see isCloudCopyThisPhones).
+   */
+  cloudVersion: string | null;
 }
 
 /**
@@ -577,29 +583,68 @@ export function planBackup(input: {
   if (backupWouldShrink(local, { itemCount: sync.lastBackupItemCount, historyCount: sync.lastBackupHistoryCount })) {
     return interactive ? 'look' : 'skip';
   }
+  if (!sync.cloudVersion) {
+    // An upload names the copy it replaces, and a copy this phone has not
+    // read cannot be named: an account from before versions reads it once
+    // (server audit, 2026-09-21).
+    return 'look';
+  }
   return 'upload';
 }
 
 export type BackupLookResult = ({ kind: 'backup' } & BackupCounts) | { kind: 'none' } | { kind: 'unreachable' };
 
 /**
+ * Whether the copy the cloud holds is the one this phone last wrote or
+ * restored — a copy it may replace without asking anyone.
+ *
+ * Two phones on one account used to take turns overwriting the one copy, the
+ * older data winning whenever its phone wrote last (server audit,
+ * 2026-09-21). Versions settle it when both sides have one. An account stored
+ * before versions has none, and adopting whatever its first look found would
+ * be that same overwrite once more — so it recognizes its own copy the two
+ * ways it can: a restore kept the copy's `exportedAt` as the backup time, and
+ * an upload kept the fingerprint of what it sent.
+ */
+export function isCloudCopyThisPhones(
+  sync: Pick<BackupSyncState, 'cloudVersion' | 'lastBackupAt'> & { lastBackupFingerprint: string | null },
+  remote: { version: string | null; payload: AccountBackupPayload },
+): boolean {
+  if (sync.cloudVersion !== null && remote.version !== null) {
+    return sync.cloudVersion === remote.version;
+  }
+  if (sync.lastBackupAt !== null && remote.payload.exportedAt === sync.lastBackupAt) {
+    return true;
+  }
+  return (
+    sync.lastBackupFingerprint !== null &&
+    accountBackupFingerprint(remote.payload.database as AppDatabase, remote.payload.workoutHistory) ===
+      sync.lastBackupFingerprint
+  );
+}
+
+/**
  * What a backup does once it has read the cloud copy.
  *
  * - 'settle': never synced and the reader is here — sign-in's own question.
- * - 'ask': this upload would shrink the copy — the restore-or-keep question.
- * - 'hold': the same, unattended — keep the copy and remember its size.
+ * - 'ask': this upload would shrink the copy, or the copy is not the one this
+ *   phone last wrote or restored (`unseen`) — the restore-or-keep question.
+ * - 'hold': shrinking, unattended — keep the copy and remember its size.
  * - 'upload', or 'fail' when nothing may be written.
  *
  * Unattended, a phone that has never synced uploads only onto a confirmed
  * "no backup"; a copy it has not seen is not overwritten by nobody's decision.
+ * The same holds for a phone that has synced and finds another phone's copy.
  */
 export function decideAfterLook(input: {
   interactive: boolean;
   neverSynced: boolean;
   remote: BackupLookResult;
   local: BackupCounts;
+  /** The copy found is not the one this phone last wrote or restored (isCloudCopyThisPhones). */
+  unseen?: boolean;
 }): 'settle' | 'ask' | 'hold' | 'upload' | 'fail' {
-  const { interactive, neverSynced, remote, local } = input;
+  const { interactive, neverSynced, remote, local, unseen = false } = input;
   if (neverSynced) {
     if (interactive) {
       return 'settle';
@@ -608,6 +653,11 @@ export function decideAfterLook(input: {
   }
   if (remote.kind === 'unreachable') {
     return 'fail';
+  }
+  if (remote.kind === 'backup' && unseen) {
+    // Another phone wrote it. Replacing it is the reader's decision, with
+    // both sides counted in front of them, and nobody's while they are away.
+    return interactive ? 'ask' : 'fail';
   }
   if (remote.kind === 'backup' && backupWouldShrink(local, remote)) {
     return interactive ? 'ask' : 'hold';

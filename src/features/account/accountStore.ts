@@ -41,6 +41,15 @@ export interface StoredAccount {
    * the reader backs up themselves, or signs in again.
    */
   autoBackupPaused: boolean;
+  /**
+   * The version (the server's ETag) of the cloud copy this phone last wrote
+   * or restored: the one copy its next upload may replace. The server refuses
+   * a write naming any other, so a second phone on the account can no longer
+   * overwrite what the first one wrote (server audit, 2026-09-21). Null when
+   * unknown — never synced, stored by an older build, or a server that does
+   * not send versions yet — and then the next backup reads the copy first.
+   */
+  cloudVersion: string | null;
 }
 
 /** The stored record, repaired: an account written by an older build lacks the newer fields. */
@@ -60,6 +69,9 @@ export function normalizeStoredAccount(parsed: Partial<StoredAccount> | null | u
     lastBackupFingerprint:
       typeof parsed.lastBackupFingerprint === 'string' && parsed.lastBackupFingerprint ? parsed.lastBackupFingerprint : null,
     autoBackupPaused: parsed.autoBackupPaused === true,
+    // Absent on every account stored before versions were kept: unknown,
+    // which reads the copy once rather than trusting a version never seen.
+    cloudVersion: typeof parsed.cloudVersion === 'string' && parsed.cloudVersion ? parsed.cloudVersion : null,
   };
 }
 

@@ -2,12 +2,15 @@ const assert = require('node:assert/strict');
 
 const {
   DEFAULT_BUDGET_LIMITS,
+  IMAGE_INPUT_TOKEN_CEILING,
   checkBudget,
+  checkImageBudget,
   createBudgetState,
   estimateTokens,
   readBudgetLimitsFromEnv,
   recordSpend,
 } = require('../../.test-dist/lib/aiCoachBudget.js');
+const { PROGRAM_IMAGE_MAX_BASE64_CHARS } = require('../../.test-dist/lib/programImageImport.js');
 
 const NOW = 1_700_000_000_000;
 
@@ -119,6 +122,70 @@ module.exports = [
         const limits = readBudgetLimitsFromEnv({ AI_COACH_TOKEN_BUDGET: bad });
         assert.equal(limits.instanceTokenBudget, DEFAULT_BUDGET_LIMITS.instanceTokenBudget, `bad value: ${bad}`);
       }
+    },
+  },
+  {
+    // Every photo import was refused (server audit, 2026-09-21): a third of
+    // its base64 length was checked as prompt text against the 2,000-character
+    // question cap, and a 1600 px JPEG is 200–500 thousand characters.
+    name: 'budget: a real photo is charged what the model charges for it, not refused as text',
+    run() {
+      const photo = checkImageBudget({ imageBase64Chars: 450_000, fixedChars: 3000 }, state(), NOW);
+      assert.equal(photo.allowed, true, `a real photo was refused: ${JSON.stringify(photo.rejection)}`);
+      // The API scales a large picture down, so its cost has a ceiling.
+      assert.equal(photo.estimatedTokens, IMAGE_INPUT_TOKEN_CEILING + Math.ceil(3000 / 3.5) + DEFAULT_BUDGET_LIMITS.maxOutputTokens);
+      assert.equal(checkImageBudget({ imageBase64Chars: 2_000_000, fixedChars: 3000 }, state(), NOW).estimatedTokens, photo.estimatedTokens);
+
+      // Its own size limit — the import's — refused before anything is charged.
+      const huge = checkImageBudget({ imageBase64Chars: PROGRAM_IMAGE_MAX_BASE64_CHARS + 1, fixedChars: 3000 }, state(), NOW);
+      assert.equal(huge.allowed, false);
+      assert.equal(huge.rejection.reason, 'image_too_large');
+      assert.equal(huge.estimatedTokens, 0);
+
+      // And the window still brakes it.
+      const spent = checkImageBudget(
+        { imageBase64Chars: 450_000, fixedChars: 3000 },
+        state({ spentTokens: DEFAULT_BUDGET_LIMITS.instanceTokenBudget - 100 }),
+        NOW,
+      );
+      assert.equal(spent.rejection.reason, 'budget_exhausted');
+    },
+  },
+  {
+    // The endpoint's ~11 KB of rules were counted against the reader's 24 KB
+    // context cap, and three earlier exchanges against the question's 2,000
+    // characters: a heavy reader, or one mid-conversation, went offline
+    // (server audit, 2026-09-21).
+    name: 'budget: fixed rules are charged but never refused, and the conversation has its own limit',
+    run() {
+      const full = checkBudget(
+        {
+          promptChars: DEFAULT_BUDGET_LIMITS.maxPromptChars,
+          historyChars: DEFAULT_BUDGET_LIMITS.maxHistoryChars,
+          contextChars: DEFAULT_BUDGET_LIMITS.maxContextChars,
+          fixedChars: 12_000,
+        },
+        state(),
+        NOW,
+      );
+      assert.equal(full.allowed, true, `refused: ${JSON.stringify(full.rejection)}`);
+      const withoutRules = checkBudget(
+        { promptChars: DEFAULT_BUDGET_LIMITS.maxPromptChars, historyChars: DEFAULT_BUDGET_LIMITS.maxHistoryChars, contextChars: DEFAULT_BUDGET_LIMITS.maxContextChars },
+        state(),
+        NOW,
+      );
+      assert.ok(full.estimatedTokens - withoutRules.estimatedTokens >= Math.floor(12_000 / 3.5), 'the rules must still be paid for');
+
+      const longThread = checkBudget(
+        { promptChars: 100, historyChars: DEFAULT_BUDGET_LIMITS.maxHistoryChars + 1, contextChars: 500 },
+        state(),
+        NOW,
+      );
+      assert.equal(longThread.rejection.reason, 'history_too_large');
+      assert.equal(longThread.estimatedTokens, 0);
+
+      assert.equal(readBudgetLimitsFromEnv({ AI_COACH_MAX_HISTORY_CHARS: '900' }).maxHistoryChars, 900);
+      assert.equal(readBudgetLimitsFromEnv({}).maxHistoryChars, DEFAULT_BUDGET_LIMITS.maxHistoryChars);
     },
   },
   {

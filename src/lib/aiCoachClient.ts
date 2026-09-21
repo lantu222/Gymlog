@@ -23,7 +23,31 @@ function coachHeaders(): Record<string, string> {
   return { 'Content-Type': 'application/json', 'x-vinha-app-key': AI_COACH_APP_KEY };
 }
 // Outer bound over the endpoint's 30 s Claude timeout plus the round trip.
+// Also how long after a request its kept copy may still be written
+// (lib/aiLogDeletion AI_LOG_WRITE_WINDOW_MS, pinned equal to this).
 const REQUEST_TIMEOUT_MS = 40000;
+
+/**
+ * When a request carrying each coach-log label last left the phone.
+ *
+ * The server keeps a copy after the model answers, so a delete sent while a
+ * question is still being answered misses that one copy. The withdrawal and
+ * the delete retries read this to know when a delete of the label is final
+ * (lib/aiLogDeletion, server audit 2026-09-21). Kept in memory: an app
+ * restarted inside those forty seconds forgets it, which leaves the one late
+ * copy to the 24-month sweep — the narrow case this cannot reach.
+ */
+const aiLogCarriedAt = new Map<string, number>();
+
+function noteAiLogCarried(keepConsent: boolean | undefined, logId: string | null | undefined) {
+  if (keepConsent === true && logId) {
+    aiLogCarriedAt.set(logId, Date.now());
+  }
+}
+
+export function lastAiLogCarriedAt(logId: string): number | null {
+  return aiLogCarriedAt.get(logId) ?? null;
+}
 
 export interface RequestAiCoachAdviceResult {
   answer: AICoachAdvice;
@@ -141,6 +165,7 @@ export async function requestAiCoachAdvice(input: AICoachAdviceRequest, upstream
   const { signal, cleanup } = getAbortSignal(REQUEST_TIMEOUT_MS, upstreamSignal);
 
   try {
+    noteAiLogCarried(input.keepConsent, input.logId);
     const response = await fetch(AI_COACH_API_URL, {
       method: 'POST',
       headers: coachHeaders(),
@@ -243,6 +268,7 @@ export async function requestProgramTableFromImage(
   }
   const { signal, cleanup } = getAbortSignal(REQUEST_TIMEOUT_MS, upstreamSignal);
   try {
+    noteAiLogCarried(input.keepConsent, input.logId);
     const response = await fetch(AI_COACH_API_URL, {
       method: 'POST',
       headers: coachHeaders(),
@@ -290,6 +316,7 @@ export async function requestProgrammeComposition(
   }
   const { signal, cleanup } = getAbortSignal(REQUEST_TIMEOUT_MS, upstreamSignal);
   try {
+    noteAiLogCarried(input.keepConsent, input.logId);
     const response = await fetch(AI_COACH_API_URL, {
       method: 'POST',
       headers: coachHeaders(),

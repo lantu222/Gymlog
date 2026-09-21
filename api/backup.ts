@@ -19,9 +19,26 @@
  * - BACKUP_PATH_SECRET     — any long random string; changing it orphans stored backups
  * - BACKUP_MAX_BYTES       — optional payload cap, default 4 MB (Vercel refuses
  *   request and response bodies over 4.5 MB whatever this says)
+ *
+ * Versions (server audit, 2026-09-21). Two phones on one Google account share
+ * the one blob, and each used to upload whenever it had not shrunk against its
+ * own last count, without looking at what the cloud held: the phone that wrote
+ * last won, older data included. Every copy now has a version — the blob's
+ * ETag — and a write names the copy it replaces:
+ *
+ * - GET answers with `version`, the copy it returned.
+ * - PUT answers with `version`, the copy it wrote.
+ * - PUT with `x-backup-expected-version: <version>` replaces that copy and no
+ *   other; with `none` it writes only where there is no copy yet. When the
+ *   store holds anything else it answers 412 BACKUP_CHANGED and writes
+ *   nothing. The phone then reads the copy and asks the reader restore-or-keep,
+ *   the question it already asks when it holds far less than the cloud.
+ * - PUT without the header is a build from before versions, and still
+ *   overwrites: refusing it would stop every installed phone backing up until
+ *   the reader updates, which is a worse loss than the one this closes.
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { BlobNotFoundError, del, get, put } from '@vercel/blob';
+import { BlobNotFoundError, BlobPreconditionFailedError, del, get, head, put } from '@vercel/blob';
 
 type ApiRequest = {
   method?: string;
@@ -120,6 +137,45 @@ function backupPathname(sub: string, secret: string): string {
   return `backups/${createHmac('sha256', secret).update(sub).digest('hex')}.json`;
 }
 
+/** The header a versioned write names the copy it replaces with. */
+const EXPECTED_VERSION_HEADER = 'x-backup-expected-version';
+/** Its value for "there is no copy yet": the first backup of an account. */
+const NO_COPY = 'none';
+
+/**
+ * The copy a write says it replaces: undefined when it says nothing (a build
+ * from before versions), NO_COPY, a version, or null for a value that is not
+ * one — an ETag is short and printable, and this one ends up in a header.
+ */
+function expectedVersion(req: ApiRequest): string | null | undefined {
+  const header = req.headers[EXPECTED_VERSION_HEADER];
+  const value = (Array.isArray(header) ? header[0] : header)?.trim();
+  if (value === undefined || value === '') {
+    return undefined;
+  }
+  return value.length <= 200 && /^[\x21-\x7e]+$/.test(value) ? value : null;
+}
+
+/**
+ * The version of the stored copy, or null when there is none.
+ *
+ * Read with `head` because its ETag comes from the same API as the one `put`
+ * returns and `ifMatch` compares against; `get`'s comes from the content
+ * response's own header, and a format difference between the two would read
+ * as a conflict on every write after a restore.
+ */
+async function storedVersion(pathname: string): Promise<string | null> {
+  try {
+    const meta = await head(pathname);
+    return meta.etag || null;
+  } catch (error) {
+    if (error instanceof BlobNotFoundError) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 function bearerToken(req: ApiRequest): string | null {
   const header = req.headers.authorization;
   const value = Array.isArray(header) ? header[0] : header;
@@ -174,21 +230,55 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         res.status(413).json({ ok: false, error: 'PAYLOAD_TOO_LARGE', maxBytes: MAX_BYTES });
         return;
       }
-      await put(pathname, body, {
-        access: 'private',
-        contentType: 'application/json',
-        addRandomSuffix: false,
-        allowOverwrite: true,
-      });
+      const expected = expectedVersion(req);
+      if (expected === null) {
+        res.status(400).json({ ok: false, error: 'BAD_VERSION' });
+        return;
+      }
+      const options = { access: 'private' as const, contentType: 'application/json', addRandomSuffix: false };
+      let written;
+      try {
+        written =
+          expected === undefined
+            ? await put(pathname, body, { ...options, allowOverwrite: true })
+            : expected === NO_COPY
+              ? await put(pathname, body, { ...options, allowOverwrite: false })
+              : await put(pathname, body, { ...options, allowOverwrite: true, ifMatch: expected });
+      } catch (error) {
+        // The store names a lost race two ways: a version that no longer
+        // matches, and a copy that has gone since it was read. A first write
+        // refused because a copy exists comes back as a plain error, so for
+        // that one the store is asked whether a copy is there now — anything
+        // else is a storage failure, and the outer catch says so.
+        const conflict =
+          expected === undefined
+            ? false
+            : error instanceof BlobPreconditionFailedError ||
+              (expected === NO_COPY
+                ? (await storedVersion(pathname).catch(() => null)) !== null
+                : error instanceof BlobNotFoundError);
+        if (!conflict) {
+          throw error;
+        }
+        res.status(412).json({ ok: false, error: 'BACKUP_CHANGED' });
+        return;
+      }
       // Success is reported only after the store accepted the write — the
       // same rule the app applies to saved workouts.
-      res.status(200).json({ ok: true, savedAt: new Date().toISOString() });
+      res.status(200).json({ ok: true, savedAt: new Date().toISOString(), version: written.etag || null });
       return;
     }
 
     if (req.method === 'GET') {
       let stored;
+      let version: string | null;
       try {
+        // The version first, then the copy. The other way round, a write
+        // landing between the two reads would pair the new version with the
+        // old content, and a phone holding that pair could replace a copy it
+        // never saw. This way round the worst is an old version with the new
+        // content, which the phone's next write names wrongly and is refused.
+        version = await storedVersion(pathname);
         stored = await get(pathname, { access: 'private', useCache: false });
       } catch (error) {
         // `get` answers a missing blob with null and throws for everything
@@ -206,7 +296,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       }
       const payload = await new Response(stored.stream).text();
       res.setHeader('content-type', 'application/json');
-      res.status(200).end(JSON.stringify({ ok: true, payload: JSON.parse(payload) }));
+      res.status(200).end(JSON.stringify({ ok: true, payload: JSON.parse(payload), version }));
       return;
     }
 

@@ -1,10 +1,15 @@
 /**
  * The daily check that the live coach's key still works.
  *
- * vercel.json runs this once a day. It asks Anthropic for its model list — a
- * call that needs a valid key and spends no tokens — and when the key is
- * missing or refused it posts one line to Slack #bugs. The rule for what counts
- * lives in src/lib/coachKeyHealth.ts; see there for why a timeout does not.
+ * vercel.json runs this once a day. It checks that AI_COACH_APP_KEY is set —
+ * without it the coach refuses every request the app makes — and asks the
+ * coach's own model for one token: the model list it used to read answers a
+ * valid key even when every real call is refused, by a spend limit, spent
+ * credit or a model that no longer exists (server audit, 2026-09-21). One
+ * token of input and output a day costs a few thousandths of a cent. When
+ * anything is missing or refused it posts one line to Slack #bugs. The rule
+ * for what counts lives in src/lib/coachKeyHealth.ts; see there for why a
+ * timeout does not.
  *
  * Two ways in, the same as api/prune-events.ts:
  *   - Vercel's cron, with `Authorization: Bearer <CRON_SECRET>`
@@ -19,6 +24,7 @@
  */
 import { timingSafeEqual } from 'node:crypto';
 
+import { AI_COACH_DEFAULT_MODEL } from '../src/lib/aiCoachModel';
 import { classifyCoachKeyProbe, coachKeyAlertText } from '../src/lib/coachKeyHealth';
 
 interface RequestLike {
@@ -62,19 +68,48 @@ function authorized(req: RequestLike): boolean {
   return secretMatches(headerValue(req, 'x-analytics-secret'), process.env.ANALYTICS_READ_SECRET);
 }
 
-/** Anthropic's answer status for the model list, or null when none arrived in time. */
-async function probeStatus(apiKey: string): Promise<number | null> {
+/** The coach's model, as api/ai-coach.ts resolves it. */
+const COACH_MODEL = process.env.AI_COACH_CLAUDE_MODEL ?? AI_COACH_DEFAULT_MODEL;
+
+/**
+ * The smallest call the coach could make: its own model, one word in, one
+ * token out, and no thinking to pay for (Haiku takes no thinking setting at
+ * all, as in api/ai-coach.ts effortConfig).
+ */
+function probeBody(model: string): string {
+  return JSON.stringify({
+    model,
+    max_tokens: 1,
+    ...(/haiku/.test(model) ? {} : { thinking: { type: 'disabled' } }),
+    messages: [{ role: 'user', content: 'ping' }],
+  });
+}
+
+/** Anthropic's own error type and message, clipped: what a refusal says about the account. */
+async function refusalDetail(response: Response): Promise<string | null> {
+  const body = (await response.json().catch(() => null)) as { error?: { type?: unknown; message?: unknown } } | null;
+  const parts = [body?.error?.type, body?.error?.message].filter((part): part is string => typeof part === 'string' && part.length > 0);
+  return parts.length > 0 ? parts.join(': ').slice(0, 200) : null;
+}
+
+/** Anthropic's answer to the one-token call, or a null status when none arrived in time. */
+async function probeCoachCall(apiKey: string): Promise<{ status: number | null; detail: string | null }> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
   try {
-    const response = await fetch('https://api.anthropic.com/v1/models?limit=1', {
-      method: 'GET',
-      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: probeBody(COACH_MODEL),
       signal: controller.signal,
     });
-    return response.status;
+    return { status: response.status, detail: response.ok ? null : await refusalDetail(response) };
   } catch {
-    return null;
+    return { status: null, detail: null };
   } finally {
     clearTimeout(timeout);
   }
@@ -105,9 +140,16 @@ export default async function handler(req: RequestLike, res: ResponseLike): Prom
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  const status = apiKey ? await probeStatus(apiKey) : null;
-  const verdict = classifyCoachKeyProbe({ keyConfigured: Boolean(apiKey), status });
-  const text = coachKeyAlertText(verdict, status);
+  const probe = apiKey ? await probeCoachCall(apiKey) : { status: null, detail: null };
+  const status = probe.status;
+  const verdict = classifyCoachKeyProbe({
+    keyConfigured: Boolean(apiKey),
+    // Read as the coach reads it (hasAppKey trims): a value that is only
+    // whitespace refuses every build too.
+    appKeyConfigured: Boolean(process.env.AI_COACH_APP_KEY?.trim()),
+    status,
+  });
+  const text = coachKeyAlertText(verdict, status, probe.detail);
 
   let notified: 'sent' | 'skipped' | 'no-webhook' | 'failed' | null = null;
   if (text) {

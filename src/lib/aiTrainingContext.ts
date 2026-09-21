@@ -24,6 +24,8 @@ import {
   AICoachProgramme,
   AICoachTrainingContext,
 } from '../types/aiCoach';
+import { DEFAULT_BUDGET_LIMITS } from './aiCoachBudget';
+import { buildAiCoachContextText } from './aiCoachSystemContext';
 import { detectPlateaus } from './progressionAnalyzer';
 import { buildFatigueModel } from './fatigueModel';
 import { buildTrainingHistory, DEFAULT_HISTORY_WINDOW_DAYS } from './trainingHistory';
@@ -487,7 +489,7 @@ export function buildAiTrainingContext({
     sessionCount7d: fatigueResult.sessionCount7d,
   };
 
-  return {
+  return fitAiCoachContextToCap({
     unitPreference,
     activeSession: includeActiveSessionContext && activeWorkoutSummary
       ? {
@@ -533,7 +535,103 @@ export function buildAiTrainingContext({
     // endpoint, where the timezone is the server's. Expiry runs here too — the
     // file was last written when the reader's last question was answered.
     coachMemory: buildCoachAdviceLines(coachMemory, now.toISOString()),
-  };
+  });
+}
+
+/** A goal is a sentence; past this it is a paragraph pasted into the chat. */
+const FIT_GOAL_TEXT_CHARS = 200;
+/** The last resort's length for any one piece of text. */
+const FIT_ANY_TEXT_CHARS = 60;
+
+function clipText(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
+/** Every string in a value, clipped — the last step, when names alone overflow. */
+function clipAllText<T>(value: T, max: number): T {
+  if (typeof value === 'string') {
+    return clipText(value, max) as unknown as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => clipAllText(entry, max)) as unknown as T;
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, clipAllText(entry, max)])) as T;
+  }
+  return value;
+}
+
+/**
+ * What goes when a context is too big to send, least needed first. Each step
+ * keeps what the one before it kept and takes a little more; the history
+ * blocks say "N of M shown" when they are trimmed, so nothing reads as a
+ * shorter record than the reader has.
+ */
+const CONTEXT_SHEDDING: ReadonlyArray<(context: AICoachTrainingContext) => AICoachTrainingContext> = [
+  (context) => ({
+    ...context,
+    goals: (context.goals ?? []).map((goal) => ({ ...goal, text: clipText(goal.text, FIT_GOAL_TEXT_CHARS) })),
+  }),
+  (context) => ({ ...context, coachMemory: [] }),
+  (context) => ({ ...context, plateaus: context.plateaus.slice(0, 5) }),
+  (context) => ({
+    ...context,
+    history: { ...context.history, sessions: context.history.sessions.slice(-12), truncated: true },
+    cardio: context.cardio ? { ...context.cardio, sessions: context.cardio.sessions.slice(-6), truncated: true } : context.cardio,
+  }),
+  (context) => ({
+    ...context,
+    programme: context.programme
+      ? {
+          ...context.programme,
+          days: context.programme.days.map((day) => ({ ...day, exercises: day.exercises.slice(0, 6) })),
+          truncated: true,
+        }
+      : context.programme,
+    history: {
+      ...context.history,
+      lifts: context.history.lifts.slice(0, 5).map((lift) => ({ ...lift, weightSeriesKg: lift.weightSeriesKg.slice(-8) })),
+    },
+  }),
+  // The reader can open their plan; the coach can do without its rows.
+  (context) => ({ ...context, programme: null }),
+  (context) => ({
+    ...context,
+    history: { ...context.history, sessions: [], lifts: [], truncated: true },
+    cardio: context.cardio ? { ...context.cardio, sessions: [], truncated: true } : context.cardio,
+    goals: (context.goals ?? []).filter((goal) => goal.isPrimary),
+  }),
+  (context) => clipAllText(context, FIT_ANY_TEXT_CHARS),
+];
+
+/**
+ * The context, trimmed until the endpoint will take it.
+ *
+ * The endpoint refuses a context longer than its cap — measured on the text it
+ * sends (buildAiCoachContextText) — and a refusal reaches the reader as the
+ * offline badge on every question. The caps in this file keep an ordinary
+ * reader well under it, but names and goals are the reader's own words with no
+ * length, and a heavy reader crossed the cap once the endpoint's own rules
+ * were counted in it (server audit, 2026-09-21). Measured exactly as the
+ * endpoint measures, after the same repair; returned untouched when it fits.
+ */
+export function fitAiCoachContextToCap(
+  context: AICoachTrainingContext,
+  maxChars: number = DEFAULT_BUDGET_LIMITS.maxContextChars,
+): AICoachTrainingContext {
+  const fits = (candidate: AICoachTrainingContext) =>
+    buildAiCoachContextText(normalizeAiCoachTrainingContext(candidate)).length <= maxChars;
+  if (fits(context)) {
+    return context;
+  }
+  let fitted = context;
+  for (const shed of CONTEXT_SHEDDING) {
+    fitted = shed(fitted);
+    if (fits(fitted)) {
+      break;
+    }
+  }
+  return fitted;
 }
 
 /**
