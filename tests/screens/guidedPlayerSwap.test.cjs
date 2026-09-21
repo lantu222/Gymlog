@@ -136,7 +136,9 @@ module.exports = [
       // The buttons render unconditionally, under the number, above the hint.
       assert.match(
         playerSource,
-        /<\/Pressable>\s*<View style=\{styles\.setDialControls\}>\s*<DialButton glyph="−"[^\n]*\n\s*<DialButton glyph="\+"[^\n]*\n\s*<\/View>/,
+        // Each button may span lines since a step also clears typed text
+        // (CI review of #174); a note may sit above them.
+        /<\/Pressable>\s*<View style=\{styles\.setDialControls\}>\s*(?:\{\/\*[\s\S]*?\*\/\}\s*)?<DialButton\s+glyph="−"[\s\S]*?\/>\s*<DialButton\s+glyph="\+"[\s\S]*?\/>\s*<\/View>/,
       );
       assert.doesNotMatch(playerSource, /open \? \(\s*<View style=\{styles\.setDialControls\}>/);
       // The reps card steps and commits through the lib rule, inside the same

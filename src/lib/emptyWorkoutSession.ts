@@ -287,6 +287,10 @@ export interface FreestyleFinishResult {
  * The fields took anything. "825" for 82,5 was ticked, counted into volume and
  * shown on the summary, and then the loader dropped the set on the next launch
  * because nothing over the ceiling is a set.
+ *
+ * Reps are whole. "8,5" was ticked and stored as 8.5 reps — into volume, a PR
+ * card and the history line (decimal audit, 2026-09-21); the guided dials round,
+ * and a field cannot round without saying so, so it refuses like a typo.
  */
 export function isLoggableFreestyleSet(set: Pick<FreestyleSetDraft, 'kg' | 'reps'>): boolean {
   const kg = set.kg.trim() ? parseNumberInput(set.kg) : null;
@@ -294,7 +298,7 @@ export function isLoggableFreestyleSet(set: Pick<FreestyleSetDraft, 'kg' | 'reps
   if (set.kg.trim() && !isLiftableWeight(kg)) {
     return false;
   }
-  if (set.reps.trim() && (reps === null || reps < 0 || reps > REPS_DIAL.max)) {
+  if (set.reps.trim() && (reps === null || reps < 0 || reps > REPS_DIAL.max || !Number.isInteger(reps))) {
     return false;
   }
   return true;

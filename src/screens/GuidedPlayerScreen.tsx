@@ -77,7 +77,15 @@ import {
 } from '../lib/sessionOverviewRows';
 import { formatLastOwnBlock, OwnBlockPhase, OwnBlockStats } from '../lib/ownBlockHistory';
 import { buildWarmupBrief } from '../lib/warmupBrief';
-import { HOLD_DIAL, REPS_DIAL, commitDialReps, commitDialWeight, stepDialReps, stepDialWeight } from '../lib/weightDial';
+import {
+  HOLD_DIAL,
+  REPS_DIAL,
+  commitDialReps,
+  commitDialWeight,
+  isLoggableTypedWeight,
+  stepDialReps,
+  stepDialWeight,
+} from '../lib/weightDial';
 import { isLiftableWeight } from '../lib/weightLimits';
 import { getExerciseInstructions } from '../lib/exerciseInstructions';
 import { getExerciseTeaching } from '../lib/exerciseTeaching';
@@ -1013,6 +1021,8 @@ function DialCard({
   wide,
   faint,
   onCommit,
+  invalid = false,
+  onDraftCleared,
 }: {
   label: string;
   value: string;
@@ -1029,6 +1039,15 @@ function DialCard({
   faint: boolean;
   /** Commit a typed value; the lib rule decides what the text becomes. */
   onCommit: (text: string) => void;
+  /** What is typed is not a number this card can log; drawn in the danger ink. */
+  invalid?: boolean;
+  /**
+   * The field stopped showing typed text and shows the card's number again:
+   * the keyboard went away, or a step moved the number. Whatever made the
+   * typed text unloggable is no longer on screen (CI review of #174: the log
+   * button stayed locked, red, over a field that read a good weight).
+   */
+  onDraftCleared?: () => void;
 }) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -1064,14 +1083,17 @@ function DialCard({
               onCommit(text);
             }}
             onFocus={() => setDraft(value)}
-            onBlur={() => setDraft(null)}
+            onBlur={() => {
+              setDraft(null);
+              onDraftCleared?.();
+            }}
             onSubmitEditing={onToggle}
             autoFocus
             keyboardType={unit ? 'decimal-pad' : 'number-pad'}
             returnKeyType="done"
             selectTextOnFocus
             accessibilityLabel={label}
-            style={[styles.setDialNumber, faint && { color: theme.faint }]}
+            style={[styles.setDialNumber, faint && { color: theme.faint }, invalid && { color: theme.danger }]}
           />
         ) : (
           <Text
@@ -1086,8 +1108,26 @@ function DialCard({
         {unit ? <Text style={styles.setDialUnit}>{unit}</Text> : null}
       </Pressable>
       <View style={styles.setDialControls}>
-        <DialButton glyph="−" accessibilityLabel={downLabel} onStep={() => onStep(-1)} />
-        <DialButton glyph="+" accessibilityLabel={upLabel} onStep={() => onStep(1)} />
+        {/* A step moves the card's number, so the field shows that number
+            rather than text typed before it. */}
+        <DialButton
+          glyph="−"
+          accessibilityLabel={downLabel}
+          onStep={() => {
+            setDraft(null);
+            onDraftCleared?.();
+            onStep(-1);
+          }}
+        />
+        <DialButton
+          glyph="+"
+          accessibilityLabel={upLabel}
+          onStep={() => {
+            setDraft(null);
+            onDraftCleared?.();
+            onStep(1);
+          }}
+        />
       </View>
     </View>
   );
@@ -3956,15 +3996,21 @@ function LoggedSetEditor({
   const [repsDraft, setRepsDraft] = useState(String(reps));
   const [loadDraft, setLoadDraft] = useState(removeTrailingZeros(loadKg));
 
-  const nextReps = Math.round(parseNumberInput(repsDraft) ?? reps);
-  const nextLoad = unloaded ? null : parseNumberInput(loadDraft) ?? loadKg;
+  const typedReps = parseNumberInput(repsDraft);
+  const typedLoad = unloaded ? null : parseNumberInput(loadDraft);
+  const nextReps = Math.round(typedReps ?? reps);
+  const nextLoad = unloaded ? null : typedLoad ?? loadKg;
   // The dials' own ceilings. Without them "825" for 82,5 saved, showed on the
   // summary, and was then dropped from the log on the next load — and opened
   // the next session at 825.
+  // And a field that holds no number — emptied, or "82,,5" — is not the old
+  // number: it saved the value from before the edit while the field showed
+  // something else (decimal audit, 2026-09-21).
   const valid =
+    typedReps !== null &&
     nextReps > 0 &&
     nextReps <= repsCeiling &&
-    (unloaded || isLiftableWeight(nextLoad));
+    (unloaded || (typedLoad !== null && isLiftableWeight(nextLoad)));
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onCancel}>
@@ -4083,6 +4129,17 @@ function SetStepView({
   const [kg, setKg] = useState(target?.loadKg ?? 0);
   /** Which dial is open for editing; null = both locked. */
   const [dial, setDial] = useState<'reps' | 'weight' | null>(null);
+  /**
+   * The weight field holds text that is not a weight — "825" for 82,5, or
+   * "82,,5". The dial keeps its last good number meanwhile, so logging would
+   * write a number the field does not show; the log button waits instead.
+   * Only while the field is open: closing it shows the number the dial kept.
+   */
+  const [weightTextInvalid, setWeightTextInvalid] = useState(false);
+  useEffect(() => {
+    setWeightTextInvalid(false);
+  }, [dial, stepIndex]);
+  const logBlocked = dial === 'weight' && weightTextInvalid;
 
   useEffect(() => {
     setDial(null);
@@ -4357,12 +4414,17 @@ function SetStepView({
                 // accelerates to a tick every 45 ms and the top end had nothing
                 // stopping it. See lib/weightDial.
                 onStep={(direction) => setKg((current) => stepDialWeight(current, direction))}
-                onCommit={(text) => setKg((current) => commitDialWeight(text, current))}
+                onCommit={(text) => {
+                  setWeightTextInvalid(!isLoggableTypedWeight(text));
+                  setKg((current) => commitDialWeight(text, current));
+                }}
                 downLabel={t(language, 'guided.a11y.weightDown')}
                 upLabel={t(language, 'guided.a11y.weightUp')}
                 editHint={t(language, 'guided.a11y.tapToEdit')}
                 wide={false}
                 faint={kg <= 0}
+                invalid={logBlocked}
+                onDraftCleared={() => setWeightTextInvalid(false)}
               />
             ) : null}
           </View>
@@ -4429,11 +4491,17 @@ function SetStepView({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t(language, 'guided.logSetIndex', { index: step.setIndex + 1 })}
+            accessibilityState={{ disabled: logBlocked }}
+            disabled={logBlocked}
             onPress={() => {
               setDial(null);
               onConfirm(step.slotId, step.setIndex, reps, bodyweight ? null : kg);
             }}
-            style={({ pressed }) => [styles.setLogButton, pressed && { opacity: 0.9 }]}
+            style={({ pressed }) => [
+              styles.setLogButton,
+              pressed && { opacity: 0.9 },
+              logBlocked && { opacity: 0.4 },
+            ]}
           >
             <GPIcon name="check" size={18} color={theme.onHighlight} sw={2.8} />
             <Text style={styles.setLogButtonText}>

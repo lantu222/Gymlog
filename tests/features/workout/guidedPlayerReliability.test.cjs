@@ -151,7 +151,12 @@ module.exports = [
 
       // The editor's Save follows the reducer's own ceiling, interval and
       // prescription included, so Save and the store cannot disagree.
-      assert.match(player, /nextReps <= repsCeiling &&\s*\(unloaded \|\| isLiftableWeight\(nextLoad\)\)/);
+      // And a field holding no number is not the old number (decimal audit,
+      // 2026-09-21): an emptied or "82,,5" field saved the value from before.
+      assert.match(
+        player,
+        /typedReps !== null &&\s*nextReps > 0 &&\s*nextReps <= repsCeiling &&\s*\(unloaded \|\| \(typedLoad !== null && isLiftableWeight\(nextLoad\)\)\)/,
+      );
       // Asked of the lift the set was logged as, which is what the reducer
       // asks since a swap changes the exercise's mode (review of #170; this
       // pinned `repsCeilingFor(exercise, …)` until then — see guidedPlayerSwap).

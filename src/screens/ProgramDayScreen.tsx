@@ -41,6 +41,7 @@ import {
 import { buildSwapOptionsForSlot } from '../lib/tailoringFit';
 import { buildSwapShortlist } from '../lib/swapShortlist';
 import { formatPlanSessionTitle, localizeSessionName } from '../lib/sessionNameLabel';
+import { formatClock } from '../lib/restSchedule';
 import { layout, radii, spacing } from '../theme';
 import { Theme, darkTheme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage, ExerciseLibraryItem } from '../types/models';
@@ -617,10 +618,14 @@ export function ProgramDayScreen({
     setTuneDraft(next);
   };
 
+  // Whole minutes as minutes, the rest as a clock: 135 s read "2.3 min" — a
+  // dot in Finnish, and not 2 min 15 s (decimal audit, 2026-09-21).
   const formatRest = (seconds: number) =>
     seconds < 120
       ? `${seconds} s`
-      : `${Number.isInteger(seconds / 60) ? seconds / 60 : (seconds / 60).toFixed(1)} min`;
+      : Number.isInteger(seconds / 60)
+        ? `${seconds / 60} min`
+        : `${formatClock(seconds)} min`;
   const formatDose = (dose: ProgramPrescription | null, timed: boolean) =>
     dose
       ? `${dose.targetSets} × ${

@@ -8,7 +8,7 @@ import { getSetupEquipmentTitle, getSetupGoalTitle } from '../lib/firstRunSetup'
 import { I18nKey, t } from '../lib/i18n';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
-import { removeTrailingZeros } from '../lib/format';
+import { formatWeightInputValue, parseNumberInput, removeTrailingZeros } from '../lib/format';
 import {
   AppLanguage,
   AppPreferences,
@@ -231,7 +231,9 @@ export function MyDataScreen({
     } else if (field === 'height') {
       setDraftValue(preferences.setupHeightCm !== null ? `${preferences.setupHeightCm}` : '');
     } else {
-      setDraftValue(preferences.setupCurrentWeightKg !== null ? `${preferences.setupCurrentWeightKg}` : '');
+      // In the reader's decimal mark, as the row above it reads: the field
+      // opened on '82.5' under a row saying '82,5 kg' (decimal audit, 2026-09-21).
+      setDraftValue(formatWeightInputValue(preferences.setupCurrentWeightKg));
     }
     setEditing(field);
   };
@@ -241,8 +243,8 @@ export function MyDataScreen({
       return true;
     }
     const meta = BASIC_FIELD_META[editing];
-    const parsed = Number(draftValue.replace(',', '.'));
-    return Number.isFinite(parsed) && parsed >= meta.min && parsed <= meta.max;
+    const parsed = parseNumberInput(draftValue);
+    return parsed !== null && parsed >= meta.min && parsed <= meta.max;
   })();
 
   const saveEditor = () => {
@@ -257,8 +259,8 @@ export function MyDataScreen({
       // over the band the reader just chose.
       onSaveBasics({ setupAgeRange: draftAgeRange, setupAge: null });
     } else {
-      const parsed = Number(draftValue.replace(',', '.'));
-      if (!numericDraftValid) {
+      const parsed = parseNumberInput(draftValue);
+      if (!numericDraftValid || parsed === null) {
         return;
       }
       if (editing === 'height') {

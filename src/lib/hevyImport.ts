@@ -74,7 +74,7 @@ export function isHevyHistoryCsv(text: string): boolean {
  * `6" box jump` — left the scan "inside quotes" for the rest of the file:
  * every following row joined one record, which did not parse (2026-09-16).
  */
-function splitCsvRecords(text: string): string[] {
+function splitCsvRecords(text: string, delimiter: CsvDelimiter): string[] {
   const records: string[] = [];
   let current = '';
   let inQuotes = false;
@@ -106,20 +106,20 @@ function splitCsvRecords(text: string): string[] {
       inQuotes = true;
     }
     current += char;
-    // Spaces after the comma still count as the start: some writers put one
-    // before a quoted field.
-    atFieldStart = char === ',' || (atFieldStart && isCsvBlank(char));
+    // Spaces after the separator still count as the start: some writers put
+    // one before a quoted field.
+    atFieldStart = char === delimiter || (atFieldStart && isCsvBlank(char));
   }
   records.push(current);
   return records;
 }
 
 /**
- * One CSV line → fields, honouring quotes, embedded commas and "" escapes.
+ * One CSV line → fields, honouring quotes, embedded delimiters and "" escapes.
  * As above, only a quote that starts a field opens one; a quote inside an
  * unquoted field is part of its text.
  */
-function splitCsvLine(line: string): string[] {
+function splitCsvLine(line: string, delimiter: CsvDelimiter = ','): string[] {
   const fields: string[] = [];
   let current = '';
   let inQuotes = false;
@@ -140,7 +140,7 @@ function splitCsvLine(line: string): string[] {
     } else if (char === '"' && atFieldStart) {
       inQuotes = true;
       atFieldStart = false;
-    } else if (char === ',') {
+    } else if (char === delimiter) {
       fields.push(current);
       current = '';
       atFieldStart = true;
@@ -151,6 +151,26 @@ function splitCsvLine(line: string): string[] {
   }
   fields.push(current);
   return fields;
+}
+
+type CsvDelimiter = ',' | ';' | '\t';
+
+/**
+ * The separator the file was written with, read off its header.
+ *
+ * Hevy writes commas. The same file opened and saved by a spreadsheet set to
+ * Finnish comes back with semicolons (the comma is the decimal mark there),
+ * or with tabs when it is pasted out of one. Split on commas alone, its header
+ * was one column: isHevyHistoryCsv said yes and the import said it found
+ * no sets (decimal audit, 2026-09-21). The weights in such a file are
+ * written 82,5, which toNumber already reads.
+ */
+function detectCsvDelimiter(headerLine: string): CsvDelimiter {
+  if (headerLine.includes('\t')) {
+    return '\t';
+  }
+  const count = (mark: string) => headerLine.split(mark).length - 1;
+  return count(';') > count(',') ? ';' : ',';
 }
 
 function isCsvBlank(char: string): boolean {
@@ -209,12 +229,18 @@ export function parseHevyCsv(text: string): HevyImportPreview {
     skippedRowCount: 0,
     errors: [],
   };
-  const lines = splitCsvRecords(text.trim());
+  // The separator first, off the header line: the record splitter needs it
+  // too, to know where a quoted field can open. With a comma hard-wired there,
+  // a quoted note holding a line break in a semicolon file split its row in
+  // two (CI review of #174). The header has neither quotes nor line breaks.
+  const trimmed = text.trim();
+  const delimiter = detectCsvDelimiter(trimmed.split(/\r?\n/, 1)[0] ?? '');
+  const lines = splitCsvRecords(trimmed, delimiter);
   if (lines.length < 2) {
     return { ...empty, errors: ['EMPTY'] };
   }
 
-  const header = splitCsvLine(lines[0]).map((column) => column.trim().toLowerCase());
+  const header = splitCsvLine(lines[0], delimiter).map((column) => column.trim().toLowerCase());
   const col = (name: string) => header.indexOf(name);
   const columns = {
     title: col('title'),
@@ -241,7 +267,7 @@ export function parseHevyCsv(text: string): HevyImportPreview {
     if (!lines[i].trim()) {
       continue;
     }
-    const fields = splitCsvLine(lines[i]);
+    const fields = splitCsvLine(lines[i], delimiter);
     const startedAt = parseHevyTimestamp(fields[columns.startTime] ?? '');
     const exerciseName = (fields[columns.exercise] ?? '').trim();
     if (!startedAt || !exerciseName) {

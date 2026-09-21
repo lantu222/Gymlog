@@ -67,13 +67,32 @@ module.exports = [
     },
   },
   {
-    name: 'typed nonsense keeps the number that was there, and a typo is clamped',
+    name: 'typed nonsense keeps the number that was there, and so does a typo past the ceiling',
     run() {
       // Mid-edit with the field emptied: the number being adjusted survives.
       assert.equal(commitDialWeight('', 82.5), 82.5);
       assert.equal(commitDialWeight('kg', 82.5), 82.5);
-      assert.equal(commitDialWeight('-5', 82.5), 0);
-      assert.equal(commitDialWeight('5000', 82.5), WEIGHT_DIAL_MAX_KG);
+      // Below zero is not a weight either, and it used to become 0 over the
+      // dialled one while the field read red (CI review of #174).
+      assert.equal(commitDialWeight('-5', 82.5), 82.5);
+      assert.equal(commitDialWeight('0', 82.5), 0);
+      // Past the ceiling is a typo, not a heavier set. It was clamped to 500,
+      // so "825" for 82,5 logged 500 kg while the field read 825 (decimal
+      // audit, 2026-09-21); the set editor and freestyle already refused it.
+      assert.equal(commitDialWeight('825', 82), 82);
+      assert.equal(commitDialWeight('5000', 82.5), 82.5);
+      assert.equal(commitDialWeight(String(WEIGHT_DIAL_MAX_KG), 82.5), WEIGHT_DIAL_MAX_KG);
+
+      // And the field says whether it holds a loggable weight, so the log
+      // button can wait rather than write the number the dial kept.
+      const { isLoggableTypedWeight } = require('../../.test-dist/lib/weightDial.js');
+      assert.equal(isLoggableTypedWeight('82,5'), true);
+      assert.equal(isLoggableTypedWeight('82.5'), true);
+      assert.equal(isLoggableTypedWeight('0'), true);
+      assert.equal(isLoggableTypedWeight('825'), false);
+      assert.equal(isLoggableTypedWeight('82,,5'), false);
+      assert.equal(isLoggableTypedWeight(''), false);
+      assert.equal(isLoggableTypedWeight('-5'), false);
     },
   },
   {
@@ -90,7 +109,23 @@ module.exports = [
         'utf8',
       );
       assert.match(screen, /onStep=\{\(direction\) => setKg\(\(current\) => stepDialWeight\(current, direction\)\)\}/);
-      assert.match(screen, /onCommit=\{\(text\) => setKg\(\(current\) => commitDialWeight\(text, current\)\)\}/);
+      assert.match(
+        screen,
+        /onCommit=\{\(text\) => \{\s*setWeightTextInvalid\(!isLoggableTypedWeight\(text\)\);\s*setKg\(\(current\) => commitDialWeight\(text, current\)\);\s*\}\}/,
+      );
+      // While the field holds no loggable weight, the set is not logged.
+      assert.match(screen, /const logBlocked = dial === 'weight' && weightTextInvalid;/);
+      assert.match(screen, /disabled=\{logBlocked\}/);
+      // And only while the typed text is what the field shows. The keyboard
+      // going away, or a step, puts the card's own number back in the field;
+      // the lock stayed on over a good weight (CI review of #174).
+      assert.match(screen, /onDraftCleared=\{\(\) => setWeightTextInvalid\(false\)\}/);
+      assert.match(screen, /onBlur=\{\(\) => \{\s*setDraft\(null\);\s*onDraftCleared\?\.\(\);\s*\}\}/);
+      assert.equal(
+        (screen.match(/setDraft\(null\);\s*onDraftCleared\?\.\(\);\s*onStep\((-1|1)\);/g) ?? []).length,
+        2,
+        'both step buttons clear the typed text',
+      );
       // The old unbounded arithmetic must not come back.
       assert.doesNotMatch(screen, /setKg\(\(current\) => Math\.max\(0, Number\(\(current \+ direction/);
       // And the wiring lives on a screen, not in the shell — this only checks

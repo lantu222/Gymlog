@@ -12,7 +12,7 @@ import {
 import Svg, { Path } from 'react-native-svg';
 
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
-import { removeTrailingZeros } from '../lib/format';
+import { parseNumberInput, removeTrailingZeros } from '../lib/format';
 import { t } from '../lib/i18n';
 import { isValidTarget } from '../lib/strengthGoals';
 import {
@@ -253,8 +253,12 @@ export function StrengthGoalFlowScreen({
    * a starting point.
    */
   const bestKg = picked?.bestKg ?? null;
-  const typedTargetKg = Number.parseFloat(typedKg.replace(',', '.'));
-  const targetKg = bestKg === null ? typedTargetKg : bestKg + delta;
+  // The shared parser, like every other number field: parseFloat read
+  // '100,5,5' as 100.5 and '80-' as 80. And the sum is rounded to what a
+  // weight is written to: a best imported in pounds (61.23) plus 10 showed
+  // and stored 71.22999999999999 (decimal audit, 2026-09-21).
+  const typedTargetKg = parseNumberInput(typedKg) ?? Number.NaN;
+  const targetKg = bestKg === null ? typedTargetKg : Number((bestKg + delta).toFixed(2));
   /*
    * The same ceiling on both branches. It guarded only the typed number, and
    * a delta on a logged best can pass it too: a mistyped 999 kg in the log
@@ -406,7 +410,7 @@ export function StrengthGoalFlowScreen({
             ) : (
               <>
                 <View style={styles.numberLine}>
-                  <Text style={styles.number}>{targetKg}</Text>
+                  <Text style={styles.number}>{removeTrailingZeros(targetKg)}</Text>
                   <Text style={styles.numberUnit}>{unitLabel}</Text>
                 </View>
                 <Text style={styles.numberDelta}>

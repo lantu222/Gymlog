@@ -37,6 +37,7 @@ import {
   getCardioElapsedMs,
   getCardioEndedAt,
   getWeekCardioMinutes,
+  isCardioDistanceTextSavable,
   parseCardioDistanceKm,
 } from '../lib/cardio';
 import { I18nKey, t } from '../lib/i18n';
@@ -456,6 +457,8 @@ function CardioFinishView({
   const [feel, setFeel] = useState<CardioFeel | null>(null);
 
   const distanceKm = parseCardioDistanceKm(distanceText);
+  // Text that is not a distance holds the save rather than dropping the distance.
+  const distanceInvalid = !isCardioDistanceTextSavable(distanceText);
   const pace = getCardioAvgPaceSecPerKm(durationSec, distanceKm);
   // Worked out once, when Finish opened this view. Recomputed per render it
   // counted the run twice while the save was pending: the new row is in
@@ -496,7 +499,7 @@ function CardioFinishView({
             placeholder={t(language, 'cardio.addDistance')}
             placeholderTextColor={theme.faint}
             keyboardType="decimal-pad"
-            style={styles.distanceInput}
+            style={[styles.distanceInput, distanceInvalid && { color: theme.danger }]}
           />
           {pace !== null ? (
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
@@ -543,8 +546,9 @@ function CardioFinishView({
 
       <View style={styles.finishFooter}>
         <Pressable
-          style={[styles.completeBtn, { opacity: isSaving ? 0.6 : 1 }]}
-          onPress={isSaving ? undefined : () => void onComplete(distanceKm, feel)}
+          style={[styles.completeBtn, { opacity: isSaving || distanceInvalid ? 0.6 : 1 }]}
+          accessibilityState={{ disabled: isSaving || distanceInvalid }}
+          onPress={isSaving || distanceInvalid ? undefined : () => void onComplete(distanceKm, feel)}
         >
           <Text style={{ fontSize: 15.5, fontWeight: '800', color: '#fff' }}>
             {t(language, isSaving ? 'cardio.saving' : 'cardio.complete')}
