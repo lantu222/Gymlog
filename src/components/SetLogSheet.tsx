@@ -493,7 +493,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   proTagSolid: {
     borderRadius: 6,
-    backgroundColor: theme.purple,
+    // The white-label violet (accessibility audit, 2026-09-21).
+    backgroundColor: theme.purpleFill,
     paddingHorizontal: 7,
     paddingVertical: 3,
   },
@@ -640,8 +641,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.bg,
   },
   chipRecord: {
-    backgroundColor: theme.purple,
-    borderColor: theme.purple,
+    backgroundColor: theme.purpleFill,
+    borderColor: theme.purpleFill,
   },
   chipText: {
     color: theme.ink,

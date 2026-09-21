@@ -431,7 +431,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   freshTag: {
     borderRadius: 5,
-    backgroundColor: theme.purple,
+    // The white-label violet (accessibility audit, 2026-09-21).
+    backgroundColor: theme.purpleFill,
     paddingHorizontal: 6,
     paddingVertical: 2.5,
   },

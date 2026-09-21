@@ -544,6 +544,11 @@ export function ExerciseLibraryBrowser({
                 return (
                   <Pressable
                     key={option}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    // 34 drawn, 44 to the thumb (accessibility audit,
+                    // 2026-09-21); the rail's padding holds the slop.
+                    hitSlop={{ top: 5, bottom: 5 }}
                     onPress={() => setBodyPartFilter(toggleFilter(bodyPartFilter, option))}
                     style={[styles.categoryChip, selected && styles.categoryChipActive]}
                   >
@@ -757,7 +762,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.purple,
+    // The white-label violet (accessibility audit, 2026-09-21).
+    backgroundColor: theme.purpleFill,
     paddingHorizontal: 4,
   },
   filterBadgeText: {
@@ -790,10 +796,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '700',
     paddingHorizontal: 2,
   },
+  // 5 below, not 2, so the chips' 5 of hitSlop is inside the rail — Android
+  // clips a slop to its parent (accessibility audit, 2026-09-21).
   categoryRail: {
     gap: 8,
     paddingTop: 12,
-    paddingBottom: 2,
+    paddingBottom: 5,
     paddingRight: 8,
   },
   categoryChip: {
@@ -808,8 +816,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 14,
   },
   categoryChipActive: {
-    borderColor: theme.purple,
-    backgroundColor: theme.purple,
+    borderColor: theme.purpleFill,
+    backgroundColor: theme.purpleFill,
   },
   categoryChipText: {
     color: theme.ink,

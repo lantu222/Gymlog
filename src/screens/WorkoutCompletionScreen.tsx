@@ -1380,7 +1380,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   primaryButton: {
     height: 54,
     borderRadius: 16,
-    backgroundColor: theme.purpleBright,
+    // The white-label violet: white on the dark theme's purpleBright is 2.7:1
+    // (accessibility audit, 2026-09-21).
+    backgroundColor: theme.purpleFill,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 22,

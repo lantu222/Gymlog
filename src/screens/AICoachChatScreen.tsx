@@ -2018,7 +2018,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   meBubble: {
     maxWidth: '82%',
-    backgroundColor: theme.purple,
+    // The white-label violet: the reader's own words are white, and white on
+    // the dark theme's `purple` was 3.49:1 (accessibility audit, 2026-09-21).
+    backgroundColor: theme.purpleFill,
     borderRadius: 20,
     borderBottomRightRadius: 8,
     paddingVertical: 12,

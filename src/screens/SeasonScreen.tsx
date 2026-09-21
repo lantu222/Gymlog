@@ -462,7 +462,7 @@ export function SeasonScreen({
         <Text style={styles.sectionEyebrow}>{t(language, 'season.series')}</Text>
         <View style={styles.lockedCard}>
           <View style={styles.lockedRow}>
-            <View style={[styles.avatar, { backgroundColor: theme.purple }]}>
+            <View style={[styles.avatar, { backgroundColor: theme.purpleFill }]}>
               <Text style={styles.avatarText}>{t(language, 'season.you').slice(0, 2).toUpperCase()}</Text>
             </View>
             <Text style={styles.lockedName}>{t(language, 'season.you')}</Text>

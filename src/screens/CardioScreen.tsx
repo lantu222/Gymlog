@@ -47,6 +47,7 @@ import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { AppLanguage, CardioActivityType, CardioFeel, CardioSession } from '../types/models';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
 import { useKeepScreenAwake } from '../utils/keepAwake';
+import { queryReduceMotion } from '../utils/reduceMotion';
 
 function cardioActivityName(language: AppLanguage, activityType: CardioActivityType) {
   return t(language, `cardio.activity.${activityType}` as I18nKey);
@@ -295,7 +296,15 @@ function CardioListView({
       contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 30 }}
       showsVerticalScrollIndicator={false}
     >
-      <Pressable onPress={onLeave} style={styles.backBtn} hitSlop={8}>
+      {/* Icon-only, so it carries its own name (accessibility audit,
+          2026-09-21). */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t(language, 'common.back')}
+        onPress={onLeave}
+        style={styles.backBtn}
+        hitSlop={8}
+      >
         <Svg width={19} height={19} viewBox="0 0 24 24" fill="none" stroke={theme.purpleDark} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
           <Path d="M15 6l-6 6 6 6" />
         </Svg>
@@ -306,6 +315,7 @@ function CardioListView({
         {CARDIO_ACTIVITIES.map((activity) => (
           <Pressable
             key={activity.id}
+            accessibilityRole="button"
             style={({ pressed }) => [styles.activityCard, pressed && { opacity: 0.85 }]}
             onPress={() => onStart(activity.id)}
           >
@@ -361,10 +371,25 @@ function CardioPlayerView({
     return () => clearInterval(interval);
   }, [session, running]);
 
-  // Pulsing icon tile while the clock runs.
+  // Pulsing icon tile while the clock runs — unless the phone asks for less
+  // motion. It is a loop with no end for as long as the run lasts, the kind
+  // of movement that setting exists to stop (accessibility audit,
+  // 2026-09-21). Until the OS answers it pulses, the helper's safe default.
   const pulse = useRef(new Animated.Value(1)).current;
+  const [reduceMotion, setReduceMotion] = useState(false);
   useEffect(() => {
-    if (!running) {
+    let mounted = true;
+    void queryReduceMotion().then((reduced) => {
+      if (mounted) {
+        setReduceMotion(reduced);
+      }
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (!running || reduceMotion) {
       pulse.setValue(1);
       return;
     }
@@ -376,12 +401,22 @@ function CardioPlayerView({
     );
     loop.start();
     return () => loop.stop();
-  }, [pulse, running]);
+  }, [pulse, running, reduceMotion]);
 
   return (
     <View style={{ flex: 1 }}>
+      {/* The ✕, pause and end were icons with no name; the words under pause
+          and end are sibling Text, which a screen reader does not read as
+          the button's (accessibility audit, 2026-09-21). The ✕ opens the same
+          end sheet as End, so it says the same. */}
       <View style={styles.playerTopBar}>
-        <Pressable onPress={onExit} style={styles.playerTopBtn} hitSlop={8}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t(language, 'cardio.end')}
+          onPress={onExit}
+          style={styles.playerTopBtn}
+          hitSlop={8}
+        >
           <Svg width={19} height={19} viewBox="0 0 24 24" fill="none" stroke={theme.ink} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
             <Path d="M6 6l12 12M18 6L6 18" />
           </Svg>
@@ -412,7 +447,12 @@ function CardioPlayerView({
           pause now (user 2026-08-26). */}
       <View style={styles.playerControls}>
         <View style={{ alignItems: 'center' }}>
-          <Pressable onPress={running ? onPause : onResume} style={styles.pauseBtn}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(language, running ? 'cardio.pause' : 'cardio.resume')}
+            onPress={running ? onPause : onResume}
+            style={styles.pauseBtn}
+          >
             <Svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
               {running ? <Path d="M9 5v14M15 5v14" /> : <Path d="M8 5l11 7-11 7z" />}
             </Svg>
@@ -422,7 +462,12 @@ function CardioPlayerView({
           </Text>
         </View>
         <View style={{ alignItems: 'center' }}>
-          <Pressable onPress={onExit} style={styles.endBtn}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(language, 'cardio.end')}
+            onPress={onExit}
+            style={styles.endBtn}
+          >
             <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={theme.onHighlight} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
               <Path d="M6 6h12v12H6z" />
             </Svg>
@@ -531,6 +576,8 @@ function CardioFinishView({
               return (
                 <Pressable
                   key={option.key}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
                   onPress={() => setFeel(selected ? null : option.key)}
                   style={[styles.feelPill, selected && styles.feelPillSelected]}
                 >
@@ -546,6 +593,7 @@ function CardioFinishView({
 
       <View style={styles.finishFooter}>
         <Pressable
+          accessibilityRole="button"
           style={[styles.completeBtn, { opacity: isSaving || distanceInvalid ? 0.6 : 1 }]}
           accessibilityState={{ disabled: isSaving || distanceInvalid }}
           onPress={isSaving || distanceInvalid ? undefined : () => void onComplete(distanceKm, feel)}
@@ -794,9 +842,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 9,
   },
+  // The white-label violet (accessibility audit, 2026-09-21).
   feelPillSelected: {
-    backgroundColor: theme.purple,
-    borderColor: theme.purple,
+    backgroundColor: theme.purpleFill,
+    borderColor: theme.purpleFill,
   },
   feelPillText: { fontSize: 13.5, fontWeight: '800', color: theme.muted },
   finishFooter: {

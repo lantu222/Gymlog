@@ -80,7 +80,8 @@ const makeStyles = (theme: Theme) =>
     cta: {
       height: 52,
       borderRadius: 16,
-      backgroundColor: theme.purple,
+      // The white-label violet (accessibility audit, 2026-09-21).
+      backgroundColor: theme.purpleFill,
       alignItems: 'center',
       justifyContent: 'center',
     },

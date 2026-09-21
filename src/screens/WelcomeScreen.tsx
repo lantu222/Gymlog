@@ -38,9 +38,10 @@ const TAGLINE_HEIGHT = 16;
 /** The flags below the tagline: their top margin plus the line they sit on. */
 const LANG_ROW_HEIGHT = 14 + 26;
 // Light design tokens (HG palette from the redesign handoff). SURFACE, INK and
-// BORDER left with the language chips they dressed — the rest of this screen
-// reads its colours from the theme.
-const FAINT = '#9A93AC';
+// BORDER left with the language chips they dressed, and FAINT — a fixed
+// #9A93AC, 2.94:1 on white — gave way to the theme's own `faint`
+// (accessibility audit, 2026-09-21). The screen reads its colours from the
+// theme.
 
 interface WelcomeScreenProps {
   language: AppLanguage;
@@ -225,7 +226,7 @@ export function WelcomeScreen({ language, onChangeLanguage, onContinue }: Welcom
                 <Pressable
                   accessibilityRole="button"
                   accessibilityState={{ selected: option.key === language }}
-                  accessibilityLabel={`Language ${option.label}`}
+                  accessibilityLabel={t(language, 'welcome.a11y.language', { name: option.name })}
                   hitSlop={10}
                   onPress={() => onChangeLanguage(option.key)}
                   style={({ pressed }) => [pressed && { opacity: 0.6 }]}
@@ -296,7 +297,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   // The design's tagline is a quiet footer, not a headline: small, tracked
   // out, and the last thing you read rather than the second.
   tagline: {
-    color: FAINT,
+    color: theme.faint,
     fontSize: 12.5,
     fontWeight: '700',
     letterSpacing: 2.7,

@@ -68,9 +68,11 @@ export function CutButton({
   // warn button and a near-white disabled button are both lit panels on a
   // near-black page, and this component is shared — so the whole set was one
   // migration, not six call-site fixes.
+  // `primary` is the white-label violet, not purpleBright: white on the dark
+  // theme's purpleBright was 2.72:1 (accessibility audit, 2026-09-21).
   const fill =
     variant === 'primary'
-      ? theme.purpleBright
+      ? theme.purpleFill
       : variant === 'accent'
         ? theme.highlight
       : variant === 'done'

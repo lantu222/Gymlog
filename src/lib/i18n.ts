@@ -17,6 +17,11 @@ const EN = {
   'brand.tagline': 'Training that moves forward.',
   // The coach's name. Brand: "Vinha-valmentaja", never "Vinha AI".
   'welcome.start': "Let's begin",
+  // The flag buttons, for a screen reader. {name} is the language's own name
+  // (Suomi, English) — the one word a reader stuck in the wrong language can
+  // still recognise. Was a hard-coded "Language FIN" in English on both
+  // (accessibility audit, 2026-09-21).
+  'welcome.a11y.language': 'Language: {name}',
 
   // ── Bottom tab bar (accessibility labels — the bar is icon-only) ───────
   'tabs.home': 'Home',
@@ -1189,6 +1194,14 @@ const EN = {
   'emptyWorkout.a11y.setNotDone': 'Mark set not done',
   'emptyWorkout.a11y.remove': 'Remove {name}',
   'emptyWorkout.a11y.addSetTo': 'Add set to {name}',
+  // A set's two number fields, named for a screen reader. Both were bare
+  // fields that announced only "0" or the number in them — no set, no unit,
+  // no lift (accessibility audit, 2026-09-21). The InLift pair is for lists
+  // that hold several lifts; the set editor is about one set already.
+  'a11y.setField.kg': 'Set {index}, weight, kg',
+  'a11y.setField.reps': 'Set {index}, reps',
+  'a11y.setField.kgInLift': '{name}, set {index}, weight, kg',
+  'a11y.setField.repsInLift': '{name}, set {index}, reps',
   // One round for the whole superset, so the label says the block rather than
   // a lift: the button moves both.
   'emptyWorkout.a11y.addSetToBlock': 'Add a round to this superset',
@@ -1464,8 +1477,24 @@ const EN = {
   // raised, this one a weight the app deliberately did not. Says why, because
   // "unchanged" is otherwise indistinguishable from nothing having happened.
   'guided.heldForRecovery': 'HELD · RECOVERY',
-  'guided.a11y.weightDown': 'Lower the weight by 2.5 kg',
-  'guided.a11y.weightUp': 'Raise the weight by 2.5 kg',
+  // {kg} is the dial's own step (lib/weightDial), filled in by the screen. The
+  // copy said 2.5 kg while the dial moved 1.25 (accessibility audit,
+  // 2026-09-21), so a screen-reader user was told twice the real change.
+  'guided.a11y.weightDown': 'Lower the weight by {kg} kg',
+  'guided.a11y.weightUp': 'Raise the weight by {kg} kg',
+  // Under the weight dial while the typed text cannot be logged. Red alone
+  // was the only sign, and red is not read aloud (accessibility audit,
+  // 2026-09-21).
+  'guided.weightInvalid': 'Not a valid weight',
+  // The ✕ and the sound toggle in the player's top bar were bare icons.
+  'guided.a11y.exit': 'Leave guided mode',
+  'guided.a11y.soundCues': 'Sound cues',
+  // The set screen's lift card, spoken from what it shows: the name, then last
+  // time. It used to be announced only as "Exercise info", which replaced the
+  // name and the numbers it carries (accessibility audit, 2026-09-21).
+  'guided.a11y.lastTime': 'Last time',
+  'guided.a11y.lastTimeBorrowed': 'Last time, on another day',
+  'guided.a11y.lastTimeReps': 'reps {reps}',
   'guided.a11y.repsDown': 'One rep fewer',
   'guided.a11y.repsUp': 'One rep more',
   'guided.a11y.secondsDown': 'Five seconds less',
@@ -3137,6 +3166,7 @@ const FI: Record<I18nKey, string> = {
   // ties the brand to its meaning — which is what the English line does too.
   'brand.tagline': 'Treeni, joka etenee.',
   'welcome.start': 'Aloitetaan',
+  'welcome.a11y.language': 'Kieli: {name}',
 
   // ── Bottom tab bar ─────────────────────────────────────────────────────
   'tabs.home': 'Koti',
@@ -4261,6 +4291,10 @@ const FI: Record<I18nKey, string> = {
   'emptyWorkout.a11y.setNotDone': 'Poista sarjan merkintä',
   'emptyWorkout.a11y.remove': 'Poista {name}',
   'emptyWorkout.a11y.addSetTo': 'Lisää sarja liikkeeseen {name}',
+  'a11y.setField.kg': 'Sarja {index}, paino, kg',
+  'a11y.setField.reps': 'Sarja {index}, toistot',
+  'a11y.setField.kgInLift': '{name}, sarja {index}, paino, kg',
+  'a11y.setField.repsInLift': '{name}, sarja {index}, toistot',
   'emptyWorkout.a11y.addSetToBlock': 'Lisää kierros tähän supersarjaan',
   'emptyWorkout.a11y.addSelected': 'Lisää valitut liikkeet',
 
@@ -4486,8 +4520,14 @@ const FI: Record<I18nKey, string> = {
   'guided.autoRepsDown': 'AUTOMAATTINEN −{count}',
   'guided.carriedFrom': 'VIIMEKSI · {date}',
   'guided.heldForRecovery': 'PIDETÄÄN · PALAUTUMINEN',
-  'guided.a11y.weightDown': 'Vähennä painoa 2,5 kg',
-  'guided.a11y.weightUp': 'Lisää painoa 2,5 kg',
+  'guided.a11y.weightDown': 'Vähennä painoa {kg} kg',
+  'guided.a11y.weightUp': 'Lisää painoa {kg} kg',
+  'guided.weightInvalid': 'Ei kelvollinen paino',
+  'guided.a11y.exit': 'Poistu ohjatusta tilasta',
+  'guided.a11y.soundCues': 'Äänimerkit',
+  'guided.a11y.lastTime': 'Viime kerralla',
+  'guided.a11y.lastTimeBorrowed': 'Viime kerralla, eri päivänä',
+  'guided.a11y.lastTimeReps': 'toistot {reps}',
   'guided.a11y.repsDown': 'Yksi toisto vähemmän',
   'guided.a11y.repsUp': 'Yksi toisto enemmän',
   'guided.a11y.secondsDown': 'Viisi sekuntia vähemmän',
@@ -6051,9 +6091,15 @@ export function t(
   );
 }
 
-export const SUPPORTED_LANGUAGES: Array<{ key: AppLanguage; label: string; flag: string }> = [
-  { key: 'fi', label: 'FIN', flag: '🇫🇮' },
-  { key: 'en', label: 'ENG', flag: '🇬🇧' },
+/**
+ * `name` is each language's name in itself — an endonym, so it is the same
+ * word whichever language the app is in. It is what the Welcome flags say to
+ * a screen reader: a reader who landed in the wrong language still knows
+ * "Suomi" or "English" when it is read out.
+ */
+export const SUPPORTED_LANGUAGES: Array<{ key: AppLanguage; label: string; name: string; flag: string }> = [
+  { key: 'fi', label: 'FIN', name: 'Suomi', flag: '🇫🇮' },
+  { key: 'en', label: 'ENG', name: 'English', flag: '🇬🇧' },
 ];
 
 const BODY_PART_KEYS: Record<string, I18nKey> = {

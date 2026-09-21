@@ -536,10 +536,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
     marginTop: 3,
   },
+  // The white-label violet here and on the sheet's Save (accessibility
+  // audit, 2026-09-21).
   newPlanButton: {
     height: 48,
     borderRadius: 14,
-    backgroundColor: theme.purple,
+    backgroundColor: theme.purpleFill,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 12,
@@ -583,8 +585,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
   },
+  // theme.danger rather than a fixed #C0392B, which was 3.23:1 on the dark
+  // card (accessibility audit, 2026-09-21).
   limitTextAvoid: {
-    color: '#C0392B',
+    color: theme.danger,
   },
   footerText: {
     color: theme.faint,
@@ -659,7 +663,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
   },
   sheetError: {
-    color: '#C0392B',
+    color: theme.danger,
     fontSize: 12.5,
     fontWeight: '700',
     marginTop: 8,
@@ -683,7 +687,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 11,
     paddingHorizontal: 22,
     borderRadius: 12,
-    backgroundColor: theme.purple,
+    backgroundColor: theme.purpleFill,
   },
   sheetSaveDisabled: {
     backgroundColor: '#D8D2E6',

@@ -428,8 +428,12 @@ export function PremiumScreen({
                         line. Free is the only tier whose plan carries none, so
                         its price tile was a line shorter than Pro's and
                         Lifetime's. Reserving the line rather than measuring
-                        it: the space stays right if the type ever changes. */}
-                    <Text style={styles.priceSub} numberOfLines={1}>
+                        it: the space stays right if the type ever changes.
+                        Not capped at one line: at the large font sizes the
+                        cap cut the price terms off mid-word, and the row
+                        stretches every tile to the tallest (accessibility
+                        audit, 2026-09-21). */}
+                    <Text style={styles.priceSub}>
                       {entry.subKey ? t(language, entry.subKey) : ' '}
                     </Text>
                   </Pressable>
@@ -533,9 +537,22 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
   },
-  segmentTab: { flex: 1, height: 40, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  // minHeight, not height: at the large font sizes a fixed 40 clipped the
+  // tab's own word (accessibility audit, 2026-09-21).
+  segmentTab: {
+    flex: 1,
+    minHeight: 40,
+    paddingVertical: 6,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   segmentTabOn: { backgroundColor: 'rgba(255,255,255,0.15)' },
-  segmentText: { fontSize: 14.5, fontWeight: '700', color: 'rgba(255,255,255,0.30)' },
+  // .30 → .62 (accessibility audit, 2026-09-21): the tiers you are not on
+  // were 2.6:1 on the sky, a tab row you could see was there and not read.
+  // .62 is 5.9–6.3:1 on all three skies; the pill behind the chosen one and
+  // its .88 still say which is picked.
+  segmentText: { fontSize: 14.5, fontWeight: '700', color: 'rgba(255,255,255,0.62)', textAlign: 'center' },
   segmentTextOn: { color: 'rgba(255,255,255,0.88)' },
 
   cardWrap: { flex: 1, paddingHorizontal: 16, paddingTop: 14 },

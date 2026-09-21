@@ -1,0 +1,119 @@
+const assert = require('node:assert/strict');
+
+const {
+  exerciseCardAccessibilityLabel,
+  setFieldAccessibilityLabel,
+  weightStepAccessibilityLabel,
+} = require('../../.test-dist/lib/accessibilityLabels.js');
+const { removeTrailingZeros, setNumberLanguage } = require('../../.test-dist/lib/format.js');
+const { WEIGHT_DIAL_STEP_KG } = require('../../.test-dist/lib/weightDial.js');
+const { t } = require('../../.test-dist/lib/i18n.js');
+const {
+  rulerStepCount,
+  rulerValueAt,
+  stepRulerValue,
+} = require('../../.test-dist/lib/rulerValue.js');
+
+/**
+ * Screen-reader labels built from what a control shows (accessibility audit,
+ * 2026-09-21).
+ *
+ * The set screen's lift card was labelled with its action, "Liikkeen tiedot",
+ * and on Android a label replaces the contents — the lift's name and last
+ * time's numbers were never spoken. The weight dial's −/+ said 2,5 kg while
+ * the dial moved 1,25. The set fields were bare numbers. These pin the words
+ * a reader hears.
+ */
+module.exports = [
+  {
+    name: 'a11y labels: the lift card is read as the lift, then last time',
+    run() {
+      setNumberLanguage('fi');
+      assert.equal(
+        exerciseCardAccessibilityLabel('fi', 'Penkkipunnerrus', { heaviestKg: 62.5, reps: [8, 8, 6], borrowed: false }),
+        'Penkkipunnerrus. Viime kerralla: 62,5 kg, toistot 8, 8, 6',
+      );
+      // Borrowed history is a different claim, as it is on the card.
+      assert.equal(
+        exerciseCardAccessibilityLabel('fi', 'Kyykky', { heaviestKg: 100, reps: [5], borrowed: true }),
+        'Kyykky. Viime kerralla, eri päivänä: 100 kg, toistot 5',
+      );
+      // No weight on any set: the card prints a dash, the label says nothing.
+      assert.equal(
+        exerciseCardAccessibilityLabel('fi', 'Leuanveto', { heaviestKg: 0, reps: [10, 9], borrowed: false }),
+        'Leuanveto. Viime kerralla: toistot 10, 9',
+      );
+      // Never done: the card's own first-time line.
+      assert.equal(
+        exerciseCardAccessibilityLabel('fi', 'Penkkipunnerrus', null),
+        `Penkkipunnerrus. ${t('fi', 'guided.card.firstTime')}`,
+      );
+      setNumberLanguage('en');
+      assert.equal(
+        exerciseCardAccessibilityLabel('en', 'Bench press', { heaviestKg: 62.5, reps: [8, 8, 6], borrowed: false }),
+        'Bench press. Last time: 62.5 kg, reps 8, 8, 6',
+      );
+      setNumberLanguage('fi');
+      // The action is not the label: it went to the hint.
+      assert.doesNotMatch(
+        exerciseCardAccessibilityLabel('fi', 'Kyykky', null),
+        new RegExp(t('fi', 'guided.panelsToggle')),
+      );
+    },
+  },
+  {
+    name: 'a11y labels: a set field names its set, what it holds, and the unit',
+    run() {
+      assert.equal(setFieldAccessibilityLabel('fi', 'kg', 2), 'Sarja 2, paino, kg');
+      assert.equal(setFieldAccessibilityLabel('fi', 'reps', 2), 'Sarja 2, toistot');
+      assert.equal(setFieldAccessibilityLabel('en', 'kg', 3), 'Set 3, weight, kg');
+      // Where the list holds more than one lift, the lift comes first.
+      assert.equal(setFieldAccessibilityLabel('fi', 'reps', 1, 'Kyykky'), 'Kyykky, sarja 1, toistot');
+      assert.equal(setFieldAccessibilityLabel('en', 'kg', 1, 'Squat'), 'Squat, set 1, weight, kg');
+    },
+  },
+  {
+    name: 'a11y labels: the weight dial\'s −/+ say the step the dial takes',
+    run() {
+      setNumberLanguage('fi');
+      assert.equal(weightStepAccessibilityLabel('fi', -1), 'Vähennä painoa 1,25 kg');
+      assert.equal(weightStepAccessibilityLabel('fi', 1), 'Lisää painoa 1,25 kg');
+      setNumberLanguage('en');
+      assert.equal(weightStepAccessibilityLabel('en', 1), 'Raise the weight by 1.25 kg');
+      // Tied to the constant, not to a number in the copy: the copy said 2,5
+      // for as long as the dial moved 1,25.
+      assert.ok(weightStepAccessibilityLabel('en', -1).includes(`${removeTrailingZeros(WEIGHT_DIAL_STEP_KG)} kg`));
+      setNumberLanguage('fi');
+      for (const language of ['fi', 'en']) {
+        for (const key of ['guided.a11y.weightDown', 'guided.a11y.weightUp']) {
+          assert.match(t(language, key), /\{kg\}/, `${language} ${key} must take the step`);
+          assert.doesNotMatch(t(language, key), /2[.,]5/);
+        }
+      }
+    },
+  },
+  {
+    name: 'ruler: one screen-reader step is one mark, held inside the scale',
+    run() {
+      const kg = { min: 35, max: 220, step: 0.1 };
+      assert.equal(stepRulerValue(75, 1, kg), 75.1);
+      assert.equal(stepRulerValue(75, -1, kg), 74.9);
+      // The ends hold.
+      assert.equal(stepRulerValue(220, 1, kg), 220);
+      assert.equal(stepRulerValue(35, -1, kg), 35);
+      // Off-grid input lands on the grid, one mark over.
+      assert.equal(stepRulerValue(75.04, 1, kg), 75.1);
+      // Three hundred steps do not drift into 74.30000000000001.
+      let value = 44.3;
+      for (let index = 0; index < 300; index += 1) {
+        value = stepRulerValue(value, 1, kg);
+      }
+      assert.equal(value, 74.3);
+      // Half-centimetre tapes and whole-centimetre heights.
+      assert.equal(stepRulerValue(80, 1, { min: 20, max: 200, step: 0.5 }), 80.5);
+      assert.equal(stepRulerValue(180, -1, { min: 120, max: 220, step: 1 }), 179);
+      assert.equal(rulerStepCount(kg), 1850);
+      assert.equal(rulerValueAt(1850, kg), 220);
+    },
+  },
+];

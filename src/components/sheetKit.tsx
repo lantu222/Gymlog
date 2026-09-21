@@ -57,6 +57,12 @@ interface KitSheetProps {
   description?: string | null;
   /** Safe-area (or keyboard) inset, read on the screen — 0 inside a Modal. */
   bottomInset: number;
+  /**
+   * What the ✕ says to a screen reader — t(language, 'common.close') at every
+   * call site. Required, because a close button with no name is announced as
+   * just "button" (accessibility audit, 2026-09-21).
+   */
+  closeLabel: string;
   /** True while the commit bar is up, so the list shrinks to make room. */
   barUp?: boolean;
   reduceMotion?: boolean | null;
@@ -72,6 +78,7 @@ export function KitSheet({
   context = null,
   description = null,
   bottomInset,
+  closeLabel,
   barUp = false,
   reduceMotion = false,
   children,
@@ -86,7 +93,15 @@ export function KitSheet({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <Pressable style={styles.scrim} onPress={onClose} accessibilityRole="button" />
+        {/* Out of the accessibility tree: the ✕ below is the same action with
+            a name, and this was a second, nameless "button" covering the
+            screen (accessibility audit, 2026-09-21). */}
+        <Pressable
+          style={styles.scrim}
+          onPress={onClose}
+          accessible={false}
+          importantForAccessibility="no"
+        />
         <View
           style={[
             styles.sheet,
@@ -106,6 +121,7 @@ export function KitSheet({
             </View>
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel={closeLabel}
               onPress={onClose}
               hitSlop={8}
               style={({ pressed }) => [styles.x, pressed && styles.pressed]}

@@ -91,7 +91,9 @@ const makeStyles = (theme: Theme) =>
       width: '100%',
       height: 56,
       borderRadius: 18,
-      backgroundColor: theme.purpleBright,
+      // The white-label violet, not purpleBright: white on the dark theme's
+      // purpleBright is 2.7:1 (accessibility audit, 2026-09-21).
+      backgroundColor: theme.purpleFill,
       shadowColor: theme.purpleBright,
       shadowOpacity: 0.32,
       shadowRadius: 14,

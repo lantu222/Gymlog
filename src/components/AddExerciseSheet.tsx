@@ -890,9 +890,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderColor: theme.border,
     backgroundColor: theme.surface,
   },
+  // purpleFill, not purple, wherever white is written on the violet: in dark
+  // `purple` is a text violet and white on it is 3.5:1 (accessibility audit,
+  // 2026-09-21).
   quickBodyPartChipActive: {
-    backgroundColor: theme.purple,
-    borderColor: theme.purple,
+    backgroundColor: theme.purpleFill,
+    borderColor: theme.purpleFill,
   },
   quickBodyPartChipText: {
     color: theme.muted,
@@ -995,8 +998,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
   },
   gridCheckBadgeActive: {
-    backgroundColor: theme.purple,
-    borderColor: theme.purple,
+    backgroundColor: theme.purpleFill,
+    borderColor: theme.purpleFill,
   },
   gridCheckBadgeText: {
     color: theme.ink,
@@ -1049,7 +1052,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.purpleBright,
+    backgroundColor: theme.purpleFill,
   },
   gridActionPillSelected: {
     backgroundColor: theme.purpleLight,

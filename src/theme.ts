@@ -113,7 +113,10 @@ export const PRO_SURFACE = {
   ink: '#FFFFFF',
   inkDim: 'rgba(255,255,255,0.92)',
   inkMuted: 'rgba(255,255,255,0.66)',
-  inkFaint: 'rgba(255,255,255,0.44)',
+  // .44 → .60 (accessibility audit, 2026-09-21): the benefit sub-lines and
+  // the price sub-line are 13–14px text, and at .44 they were 4.3:1 on the
+  // card and the plan tiles. .60 is 6.9 on the card and 7.3 on a tile.
+  inkFaint: 'rgba(255,255,255,0.60)',
   inkGhost: 'rgba(255,255,255,0.45)',
   card: 'rgba(22,20,30,0.72)',
   cardEdge: 'rgba(255,255,255,0.08)',

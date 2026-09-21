@@ -25,7 +25,12 @@ export const HG = {
   // muted/faint/border darkened 2026-07-22 (user: hairlines and secondary text
   // read too washed-out on device).
   muted: '#5E5670',
-  faint: '#8A82A0',
+  // Darkened again 2026-09-21 (accessibility audit, 2026-09-21): #8A82A0 was
+  // 3.08:1 on `bg` and 3.63:1 on white, and `faint` is text in about 170
+  // places — dates, counts, meta lines. #6E6684 is 4.57 on `bg`, 4.68 on
+  // `surfaceSoft` and 5.39 on white, and still a clear step below `muted`
+  // (6.91 on white). tests/lib/themeContrast.test.cjs holds all three.
+  faint: '#6E6684',
   // Darkened again 2026-09-02 (user, on the device build: "ääriviivat ovat
   // liian haaleita") — one step, not a redraw.
   border: '#CDBEE6',
@@ -34,6 +39,13 @@ export const HG = {
   /** The old HG.purple. Still the brighter accent on a few surfaces. */
   purpleBright: '#7C3AED',
   purpleDark: '#5B21B6',
+  /**
+   * The violet a white label sits on. The same value as `purple` here — white
+   * on #6D28D9 is 7.1:1 — so nothing moves in light; the token exists because
+   * the dark theme's `purple` is a text-on-dark violet that white only reaches
+   * 3.5:1 on (accessibility audit, 2026-09-21).
+   */
+  purpleFill: '#6D28D9',
   // purpleLight and purpleSoft are within a hair of each other and should
   // collapse into one token once every call site reads from `HG`.
   purpleLight: '#EFE7FF',
@@ -41,10 +53,14 @@ export const HG = {
   green: '#16A34A',
   greenSoft: '#E8F7EE',
   greenInk: '#157A3A',
-  // Same green as `green` today, on purpose: the light theme is unchanged by
-  // the accent split. The two are separate tokens because the dark theme moves
-  // this one to orange and must not drag "done" along with it.
-  accent: '#16A34A',
+  // A shade deeper than `green` (accessibility audit, 2026-09-21). Until then
+  // the two were the same #16A34A, and white on it — "Kirjaa sarja", the
+  // session's start button — was 3.30:1. #15803D is still green and takes
+  // white at 5.02:1. `green` keeps meaning *done* (ticks, filled dots, the
+  // recovery ring), where nothing is written on it. The two are separate
+  // tokens because the dark theme moves this one to orange and must not drag
+  // "done" along with it.
+  accent: '#15803D',
   // Likewise the same violet the app already used for links and badges — the
   // light theme keeps its two accent families, and only dark collapses them.
   highlight: '#6D28D9',

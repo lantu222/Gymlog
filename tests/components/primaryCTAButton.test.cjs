@@ -25,7 +25,11 @@ module.exports = [
       // colours are the palette's own now (theme migration 2026-08-01) rather
       // than local copies of it, so the CTA can follow a theme change.
       assert.match(componentSource, /useThemedStyles\(makeStyles\)/);
-      assert.match(componentSource, /backgroundColor: theme\.purpleBright/);
+      // purpleFill, the violet a white label sits on, since the accessibility
+      // audit of 2026-09-21: the white "Jatka" on the dark theme's
+      // purpleBright was 2.72:1. The shadow keeps purpleBright's glow.
+      assert.match(componentSource, /backgroundColor: theme\.purpleFill/);
+      assert.match(componentSource, /shadowColor: theme\.purpleBright/);
       assert.match(componentSource, /backgroundColor: theme\.purpleLight/);
       assert.match(componentSource, /color: theme\.faint/);
       assert.match(componentSource, /height: 56/);

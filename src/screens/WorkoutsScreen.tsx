@@ -683,7 +683,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.purpleLight,
   },
   readyTemplateFilterButtonActive: {
-    backgroundColor: theme.purpleBright,
+    backgroundColor: theme.purpleFill,
   },
   readyTemplateFilterBlock: {
     gap: 6,
@@ -712,9 +712,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 6,
     paddingHorizontal: spacing.sm,
   },
+  // The white-label violet: white on the dark theme's purpleBright is 2.7:1
+  // (accessibility audit, 2026-09-21).
   readyTemplateFilterChipActive: {
-    backgroundColor: theme.purpleBright,
-    borderColor: theme.purpleBright,
+    backgroundColor: theme.purpleFill,
+    borderColor: theme.purpleFill,
   },
   readyTemplateFilterText: {
     color: theme.muted,

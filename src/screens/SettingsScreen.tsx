@@ -71,8 +71,6 @@ interface SettingsScreenProps {
   } | null;
 }
 
-const RED = '#C0392B';
-const RED_SOFT = '#FBEAE7';
 
 function getInitials(name: string | null) {
   if (!name?.trim()) {
@@ -215,11 +213,14 @@ function Row({
 
   const inner = (
     <View style={[styles.row, !last && styles.rowDivider, disabled && styles.rowDisabled]}>
-      <View style={[styles.rowTile, danger && { backgroundColor: RED_SOFT }]}>
-        <Ic n={icon} c={danger ? RED : iconColor ?? theme.highlight} />
+      {/* The danger tokens, not a fixed #C0392B on #FBEAE7: those were
+          light-surface values, and the title was 3.23:1 on the dark card
+          (accessibility audit, 2026-09-21). */}
+      <View style={[styles.rowTile, danger && { backgroundColor: theme.dangerSoft }]}>
+        <Ic n={icon} c={danger ? theme.danger : iconColor ?? theme.highlight} />
       </View>
       <View style={styles.rowCopy}>
-        <Text style={[styles.rowTitle, danger && { color: RED }]}>{title}</Text>
+        <Text style={[styles.rowTitle, danger && { color: theme.danger }]}>{title}</Text>
         {subNode ?? (sub ? <Text style={styles.rowSub}>{sub}</Text> : null)}
       </View>
       {value !== undefined ? <Text style={styles.rowValue}>{value}</Text> : null}
