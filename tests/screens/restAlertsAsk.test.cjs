@@ -8,6 +8,72 @@ const guided = read('src', 'screens', 'GuidedPlayerScreen.tsx');
 const tab = read('src', 'app', 'renderWorkoutTab.tsx');
 const i18n = read('src', 'lib', 'i18n.ts');
 const strip = (source) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const { createHookRuntime, deferred, flush, requireWithStubs } = require('../helpers/hookHarness.cjs');
+
+/** The arguments a screen passes to the moment, comments dropped. */
+function momentCall(source, name) {
+  const code = strip(source);
+  const start = code.indexOf('useRestAlertPermissionMoment({');
+  assert.ok(start >= 0, `${name} does not call the moment`);
+  const end = code.indexOf('\n  });', start);
+  assert.ok(end > start, `${name}: the call has no end`);
+  return code.slice(start, end);
+}
+
+/**
+ * The compiled moment under the hook harness, with the OS replaced: the
+ * permission and its dialog, the exact-alarm grant and its settings page,
+ * and AppState, whose events the test sends.
+ */
+function loadMoment(runtime) {
+  const listeners = new Set();
+  const os = { permission: 'undetermined', exact: false, opened: 0, dialog: null };
+  const AppState = {
+    currentState: 'active',
+    addEventListener(type, listener) {
+      listeners.add(listener);
+      return { remove: () => listeners.delete(listener) };
+    },
+  };
+  const { useRestAlertPermissionMoment } = requireWithStubs(
+    path.join(__dirname, '..', '..', '.test-dist', 'hooks', 'useRestAlertPermissionMoment.js'),
+    {
+      react: runtime.react,
+      'react-native': { AppState },
+      '../utils/exactAlarm': {
+        canScheduleExactAlarms: async () => os.exact,
+        openExactAlarmSettings: async () => {
+          os.opened += 1;
+        },
+      },
+      '../utils/sessionNotifications': {
+        getRestAlertPermission: async () => os.permission,
+        requestRestAlertPermission: () => os.dialog.promise,
+      },
+    },
+  );
+  return {
+    os,
+    hook: useRestAlertPermissionMoment,
+    emit(state) {
+      AppState.currentState = state;
+      [...listeners].forEach((listener) => listener(state));
+    },
+    get listening() {
+      return listeners.size;
+    },
+  };
+}
+
+/** Mounted onto a running rest, with the OS answer in and the sheet up. */
+async function openSheet(runtime, env, props) {
+  runtime.render(env.hook, props);
+  await flush();
+  runtime.render(env.hook, props);
+  const moment = runtime.render(env.hook, props);
+  assert.equal(moment.sheetOpen, true, 'the sheet did not open for an undetermined permission');
+  return moment;
+}
 
 /**
  * The first-rest permission moment, measured on the emulator 2026-09-02:
@@ -134,9 +200,11 @@ module.exports = [
     run() {
       const hook = strip(read('src', 'hooks', 'useRestAlertPermissionMoment.ts'));
       const allow = hook.slice(hook.indexOf('const allow = async'), hook.indexOf('const later ='));
+      // The handler of the latest render (native audit, 2026-09-21), and a
+      // re-arm waiting for the reader to come back from the settings page.
       assert.match(
         allow,
-        /if \(next === 'granted'\) \{\s*onGranted\?\.\(\);\s*if \(\(await canScheduleExactAlarms\(\)\) === false\) \{\s*void openExactAlarmSettings\(\);/,
+        /if \(next === 'granted'\) \{\s*onGrantedRef\.current\?\.\(\);\s*if \(\(await canScheduleExactAlarms\(\)\) === false\) \{\s*rearmWhenExactAllowed\(\);\s*void openExactAlarmSettings\(\);/,
       );
       // Unknown is not "no": a build without the native module says nothing.
       const bridge = read('src', 'utils', 'exactAlarm.ts');
@@ -154,6 +222,110 @@ module.exports = [
       for (const line of b2) {
         assert.doesNotMatch(line, /Countdown|without unlocking|Laskuri|ilman avaamista/i);
       }
+    },
+  },
+  {
+    name: 'rest alerts: the guided player hands the running rest to the OS once the grant is in',
+    run() {
+      // The sheet closes before the system dialog answers, so the step effect
+      // re-armed the rest while the answer was still "not granted", and
+      // without a grant handler nothing armed it after (native audit,
+      // 2026-09-21): the rest that prompted the ask never rang.
+      const call = momentCall(guided, 'GuidedPlayerScreen');
+      assert.match(
+        call,
+        /onGranted: \(\) => \{\s*const endsAt = endsAtRef\.current;\s*if \(stepRef\.current\?\.type === 'rest' && endsAt !== null && endsAt > Date\.now\(\)\) \{\s*void syncRestNotification\(endsAt, /,
+        'the guided player does not re-arm the rest when permission lands',
+      );
+      // Through the wrapper that honours the rest-alert switch, never the raw sync.
+      assert.doesNotMatch(call, /syncRestEndAlert\(/);
+      // The freestyle screen keeps its own.
+      assert.match(momentCall(empty, 'EmptyWorkoutScreen'), /onGranted: \(\) => \{\s*if \(rest && describeRest\(rest\.endsAtMs, Date\.now\(\)\)\.phase === 'running'\) \{\s*void syncRestAlert\(rest\.endsAtMs\);/);
+    },
+  },
+  {
+    name: 'rest alerts: a grant re-arms with the latest handler, and again on coming back with exact alarms allowed',
+    async run() {
+      const runtime = createHookRuntime();
+      const env = loadMoment(runtime);
+      const armed = [];
+      const props = (tag) => ({
+        restRunning: true,
+        restKey: 4,
+        asked: false,
+        alertsWanted: true,
+        onAnswered: () => undefined,
+        onGranted: () => armed.push(tag),
+      });
+
+      const moment = await openSheet(runtime, env, props('opening render'));
+      env.os.dialog = deferred();
+      const allowing = moment.allow();
+      // The screen renders again while the dialog is up — the sheet closed,
+      // the step effect re-ran — so the handler the grant should reach is
+      // that render's, not the one Allow was pressed in.
+      runtime.render(env.hook, props('latest render'));
+      env.os.permission = 'granted';
+      env.os.dialog.resolve('granted');
+      await allowing;
+      assert.deepEqual(armed, ['latest render'], 'the grant reached a stale handler, or none');
+      assert.equal(env.os.opened, 1, 'the exact-alarm page did not open');
+
+      // The dialog closing reports "active" as well: nothing is allowed yet.
+      env.emit('active');
+      await flush();
+      assert.deepEqual(armed, ['latest render'], 're-armed before exact alarms were allowed');
+
+      // Back from "Alarms & reminders" with the grant: armed again, exactly.
+      env.os.exact = true;
+      env.emit('background');
+      env.emit('active');
+      await flush();
+      assert.deepEqual(armed, ['latest render', 'latest render'], 'coming back with exact alarms did not re-arm the rest');
+
+      // Once. The listener is gone.
+      env.emit('background');
+      env.emit('active');
+      await flush();
+      assert.equal(armed.length, 2);
+      assert.equal(env.listening, 0, 'the return listener outlived its job');
+      runtime.unmount();
+    },
+  },
+  {
+    name: 'rest alerts: no return listener when exact alarms are already allowed, and none after leaving the screen',
+    async run() {
+      const props = { restRunning: true, restKey: 1, asked: false, alertsWanted: true, onGranted: () => undefined };
+
+      // Android 13 and older, or a reader who allowed them before.
+      const runtime = createHookRuntime();
+      const env = loadMoment(runtime);
+      env.os.exact = true;
+      const moment = await openSheet(runtime, env, props);
+      env.os.dialog = deferred();
+      const allowing = moment.allow();
+      env.os.dialog.resolve('granted');
+      await allowing;
+      assert.equal(env.os.opened, 0);
+      assert.equal(env.listening, 0);
+      runtime.unmount();
+
+      // Leaving the workout while the settings page is open drops the listener.
+      const second = createHookRuntime();
+      const leaving = loadMoment(second);
+      let armed = 0;
+      const sheet = await openSheet(second, leaving, { ...props, onGranted: () => (armed += 1) });
+      leaving.os.dialog = deferred();
+      const pending = sheet.allow();
+      leaving.os.dialog.resolve('granted');
+      await pending;
+      assert.equal(leaving.listening, 1);
+      second.unmount();
+      assert.equal(leaving.listening, 0, 'the return listener outlived the screen');
+      leaving.os.exact = true;
+      leaving.emit('active');
+      await flush();
+      assert.equal(armed, 1, 'a screen that was gone re-armed a rest');
     },
   },
 ];
