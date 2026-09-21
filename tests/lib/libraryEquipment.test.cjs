@@ -130,4 +130,47 @@ module.exports = [
       assert.deepEqual(loaded, []);
     },
   },
+  {
+    /**
+     * The farmer's walk became a dumbbell lift and had no equipment rule, so
+     * the recovery day's loaded variant — chosen for any reader with any chip
+     * at all — handed it to someone whose only gear is a pull-up bar (CI
+     * review of #172).
+     */
+    name: 'library equipment: a pull-up bar and a mat are not asked for a weight either',
+    run() {
+      const {
+        DEFAULT_FIRST_RUN_SELECTION,
+        resolveFirstRunRecommendationWithTailoring,
+      } = require('../../.test-dist/lib/firstRunSetup.js');
+      const { composeProgramWeekForSelection } = require('../../.test-dist/lib/programDayComposer.js');
+      const loaded = new Set();
+      for (const goal of ['strength', 'muscle', 'general', 'run_mobility', 'lean_athletic', 'general_fitness']) {
+        for (const level of ['beginner', 'advanced', 'pro']) {
+          for (const daysPerWeek of [2, 3, 4, 5, 6]) {
+            const selection = {
+              ...DEFAULT_FIRST_RUN_SELECTION,
+              goal,
+              goals: [goal],
+              level,
+              daysPerWeek,
+              trainingEnvironment: 'bodyweight_only',
+              equipment: 'home',
+              equipmentItems: ['Pull-up bar', 'Yoga mat'],
+            };
+            const recommendation = resolveFirstRunRecommendationWithTailoring(selection, null);
+            const week = composeProgramWeekForSelection(selection, recommendation.featuredProgramId);
+            for (const session of week?.sessions ?? []) {
+              for (const exercise of session.exercises) {
+                if (exercise.trackingMode === 'load_and_reps') {
+                  loaded.add(exercise.exerciseName);
+                }
+              }
+            }
+          }
+        }
+      }
+      assert.deepEqual([...loaded], []);
+    },
+  },
 ];
