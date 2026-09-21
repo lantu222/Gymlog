@@ -24,10 +24,9 @@ import {
   normalizeLearnedExerciseIds,
   normalizeTechniqueChecks,
 } from '../lib/exerciseLearning';
-import { intervalOffSeconds } from '../lib/intervalScheme';
 import { normalizeSupersetGroups } from '../lib/supersetGrouping';
-import { collapseRepRange } from '../lib/singleRepTarget';
-import { includeLeadInRunningSet } from '../lib/activeProgramSet';
+import { savedPrescription } from '../lib/singleRepTarget';
+import { reconcileRunningSet } from '../lib/activeProgramSet';
 import { buildLegacyTemplateSessions, getLegacyTemplateSessionId } from '../lib/workoutTemplateSessions';
 import {
   AppDatabase,
@@ -145,6 +144,19 @@ function normalizeActivePlanIds(rawValue: unknown, legacyActivePlanId: unknown):
   }
 
   return typeof legacyActivePlanId === 'string' && legacyActivePlanId.length > 0 ? [legacyActivePlanId] : [];
+}
+
+/**
+ * The least a stored list entry has to be to be anything: an object with the
+ * id everything else hangs from. Each list decides what else it needs.
+ */
+function hasStoredId(value: unknown): value is Record<string, unknown> & { id: string } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { id?: unknown }).id === 'string' &&
+    (value as { id: string }).id.trim().length > 0
+  );
 }
 
 function normalizeTemplateSessions(
@@ -344,15 +356,15 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
         const name = typeof exercise?.name === 'string' ? exercise.name : 'Exercise';
         // Programmes saved before 2026-08-25 still carry rep ranges; the
         // catalogs collapsed theirs that day, and stored programmes follow
-        // the same rule on load (holds excepted — their numbers are seconds).
-        const reps = collapseRepRange({
+        // the same rule on load (holds excepted — their numbers are seconds),
+        // as does an interval's rest. The writer in AppProvider applies the
+        // same function, so this only ever changes rows saved before it did.
+        const prescription = savedPrescription({
           name,
           repMin: typeof exercise?.repMin === 'number' ? exercise.repMin : 6,
           repMax: typeof exercise?.repMax === 'number' ? exercise.repMax : 8,
+          restSeconds: typeof exercise?.restSeconds === 'number' ? exercise.restSeconds : null,
         });
-        // An interval's rest is the off-phase its own name states — a saved
-        // 30/30 carried a 60 s rest on top of the 30 s walk (2026-08-26).
-        const offSeconds = intervalOffSeconds(name);
         return {
           id: String(exercise?.id ?? ''),
           workoutTemplateId: String(exercise?.workoutTemplateId ?? ''),
@@ -360,10 +372,9 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
             typeof exercise?.workoutTemplateSessionId === 'string' ? exercise.workoutTemplateSessionId : '',
           name,
           targetSets: typeof exercise?.targetSets === 'number' ? exercise.targetSets : 3,
-          repMin: reps.repMin,
-          repMax: reps.repMax,
-          restSeconds:
-            offSeconds ?? (typeof exercise?.restSeconds === 'number' ? exercise.restSeconds : null),
+          repMin: prescription.repMin,
+          repMax: prescription.repMax,
+          restSeconds: prescription.restSeconds,
           trackedDefault: typeof exercise?.trackedDefault === 'boolean' ? exercise.trackedDefault : true,
           orderIndex: typeof exercise?.orderIndex === 'number' ? exercise.orderIndex : 0,
           libraryItemId: liveLibraryItemId(exercise?.libraryItemId),
@@ -379,8 +390,11 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
       })
     : [];
 
+  // A stored programme with no id is not a programme. Mapped through the
+  // defaults below, a null in the list became one called "Workout" with an
+  // empty id, and it took a slot of the free limit (loader probe, 2026-09-20).
   const rawTemplates: WorkoutTemplate[] = Array.isArray(input?.workoutTemplates)
-    ? input.workoutTemplates.map((template: any) => {
+    ? input.workoutTemplates.filter(hasStoredId).map((template: any) => {
         const templateId = String(template?.id ?? '');
         const templateExercises = rawExerciseTemplates.filter((exercise) => exercise.workoutTemplateId === templateId);
         const sessions = normalizeTemplateSessions(template, templateExercises);
@@ -487,17 +501,29 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
   return {
     workoutTemplates: normalizedTemplates,
     exerciseTemplates: supersetNormalizedExerciseTemplates,
+    // A plan is found by its id, and its entries are only the programmes they
+    // name, so neither can be repaired without them. A null plan loaded as
+    // `{ entries: [] }` with no id, and the sign-in restore decision threw on
+    // it (loader probe, 2026-09-20).
     workoutPlans: Array.isArray(input?.workoutPlans)
-      ? input.workoutPlans.map((plan: any) => ({
+      ? input.workoutPlans.filter(hasStoredId).map((plan: any) => ({
           ...plan,
-          entries: Array.isArray(plan?.entries)
-            ? plan.entries.map((entry: any) => ({
-                ...entry,
-                workoutTemplateSessionId:
-                  typeof entry?.workoutTemplateSessionId === 'string' && entry.workoutTemplateSessionId.trim().length
-                    ? entry.workoutTemplateSessionId
-                    : null,
-              }))
+          entries: Array.isArray(plan.entries)
+            ? plan.entries
+                .filter(
+                  (entry: any) =>
+                    entry !== null &&
+                    typeof entry === 'object' &&
+                    typeof entry.workoutTemplateId === 'string' &&
+                    entry.workoutTemplateId.length > 0,
+                )
+                .map((entry: any) => ({
+                  ...entry,
+                  workoutTemplateSessionId:
+                    typeof entry.workoutTemplateSessionId === 'string' && entry.workoutTemplateSessionId.trim().length
+                      ? entry.workoutTemplateSessionId
+                      : null,
+                }))
             : [],
         }))
       : [],
@@ -602,7 +628,21 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
           .filter((session): session is NonNullable<typeof session> => session !== null)
       : [],
     exerciseLogs: normalizedExerciseLogs,
-    bodyweightEntries: Array.isArray(input?.bodyweightEntries) ? input.bodyweightEntries : [],
+    // Passed through untouched until 2026-09-21, so one null weigh-in crashed
+    // every launch: the provider sorts this list on `recordedAt` while it
+    // renders, and nothing above it catches. A weigh-in is its three fields
+    // or nothing, the way a measurement is below, and a weight the writer
+    // refuses (zero or less) is not one.
+    bodyweightEntries: Array.isArray(input?.bodyweightEntries)
+      ? input.bodyweightEntries.filter(
+          (entry: unknown) =>
+            hasStoredId(entry) &&
+            typeof entry.recordedAt === 'string' &&
+            typeof entry.weight === 'number' &&
+            Number.isFinite(entry.weight) &&
+            entry.weight > 0,
+        )
+      : [],
     // Every field is required for an entry to be usable, and a half-written
     // one would resolve a name to nothing — so a malformed row is dropped
     // rather than repaired. Absent entirely (any database written before
@@ -1299,8 +1339,9 @@ export async function loadDatabase() {
     const database = normalizeDatabase(JSON.parse(raw) as Partial<AppDatabase>);
     const preferences = await loadStoredPreferences(database.preferences);
     // After the overlay, not inside normalizeDatabase: the preferences key is
-    // normalized without the plans, and it is the copy that wins.
-    return { ...database, preferences: includeLeadInRunningSet(preferences, database.workoutPlans) };
+    // normalized without the plans, and it is the copy that wins. This is
+    // where an install carrying a running id with no plan behind it heals.
+    return { ...database, preferences: reconcileRunningSet(preferences, database.workoutPlans) };
   } catch {
     // Unreadable storage is a corrupt install, not a new one — but inventing
     // history to paper over it would be the same lie.
@@ -1316,7 +1357,21 @@ export async function loadDatabase() {
       // Out of space, most likely — the same condition that truncated the
       // write in the first place. Opening the app still matters more.
     }
-    const empty = normalizeDatabase(createEmptyDatabase(resolveDeviceLanguage()));
+    // The preferences are a row of their own and the blob's corruption is
+    // not in them. Opened on defaults instead, the app lost the theme, the
+    // notification choices, the trial's start and the coach's counters, and
+    // the first preference it saved (the install date, stamped straight
+    // away) wrote those defaults over the intact copy (persistence audit,
+    // 2026-09-20).
+    //
+    // Except the running set: which programmes run is a fact about the
+    // database, and the programmes went with it. Kept, its ids would count
+    // against the cap with nothing behind them — the rule every load applies,
+    // here against no plans at all, and again on the next launch against the
+    // key's copy, so the key itself is left as it was.
+    const blank = normalizeDatabase(createEmptyDatabase(resolveDeviceLanguage()));
+    const stored = await loadStoredPreferences(blank.preferences);
+    const empty = { ...blank, preferences: reconcileRunningSet(stored, blank.workoutPlans) };
     await saveDatabase(empty);
     return empty;
   }

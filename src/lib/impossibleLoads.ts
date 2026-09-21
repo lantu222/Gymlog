@@ -45,13 +45,16 @@ export function setCarriesImpossibleLoad(set: WorkoutSetInstance): boolean {
  */
 export function scrubImpossibleSessionLoads(session: WorkoutSessionRuntime): WorkoutSessionRuntime {
   /*
-   * The caller validates three string fields and casts the rest, and this now
-   * runs BEFORE its template lookup — which means it runs on stored shapes the
-   * old code never reached, every custom-programme session among them (the
-   * lookup only searches the ready catalog, so those returned early). A
+   * This runs on stored shapes, every custom-programme session among them. A
    * truncated blob with no `exercises` would throw here, and the only catch
    * above is around the whole bundle: one bad session would take the slot
    * history and the active cardio with it (found in review, 2026-09-05).
+   *
+   * That guard covered this function only. The loader's own slot remap read
+   * the same missing fields a few lines later and threw anyway, so the loader
+   * now repairs the session's shape before either runs
+   * (workoutPersistence.repairSessionShape, 2026-09-21). This check stays for
+   * any other caller.
    */
   if (!Array.isArray(session.exercises)) {
     return session;

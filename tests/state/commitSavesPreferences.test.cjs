@@ -29,9 +29,11 @@ module.exports = [
       // commit is dead weight and should go with it.
       const database = read('src', 'storage', 'database.ts');
       // The key's copy is what loadDatabase returns (after the running-set
-      // repair, which reads the overlay rather than replacing it).
+      // repair, which reads the overlay rather than replacing it). The repair
+      // is reconcileRunningSet since it also drops ids with no plan behind
+      // them (2026-09-21); includeLeadInRunningSet is one step of it.
       assert.match(database, /const preferences = await loadStoredPreferences\(database\.preferences\)/);
-      assert.match(database, /preferences: includeLeadInRunningSet\(preferences, database\.workoutPlans\)/);
+      assert.match(database, /preferences: reconcileRunningSet\(preferences, database\.workoutPlans\)/);
       assert.match(
         functionBody(database, 'async function loadStoredPreferences(', ''),
         /\{ \.\.\.fallback, \.\.\.parsed \}/,

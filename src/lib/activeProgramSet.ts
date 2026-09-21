@@ -79,28 +79,70 @@ export function removeActiveProgram(activePlanIds: readonly string[], planId: st
 /** Every plan onboarding writes is named this, followed by its template id. */
 export const ONBOARDING_PLAN_PREFIX = 'onboarding_plan_';
 
+/** The only part of a plan the running-set rules read. */
+type StoredPlan = { id: string; entries: ReadonlyArray<unknown> };
+
+/**
+ * Whether a plan id names a programme that can run: a stored plan with at
+ * least one day. A plan that is gone, or one that deleting its template
+ * emptied, is not a programme anyone is running. The one test behind the
+ * running set's repair and the lead's (runningProgrammes.resolveLeadPlanId).
+ */
+export function planCanRun(plans: ReadonlyArray<StoredPlan>, planId: string | null | undefined): planId is string {
+  return Boolean(planId) && plans.some((plan) => plan.id === planId && plan.entries.length > 0);
+}
+
 /**
  * The lead counted in the running set, for installs whose set left it out.
  *
  * Every install that finished guided onboarding before activateOnboardingPlan
  * existed has its programme as the lead and nowhere in the set, and nothing
  * rewrites stored preferences on its own, so the cap would keep undercounting
- * there by one. Applied on load. A lead whose plan is gone, or has no days
- * left, is not a programme anyone is running and is not given a slot.
+ * there by one. A lead whose plan is gone, or has no days left, is not a
+ * programme anyone is running and is not given a slot. Part of
+ * reconcileRunningSet, which is what the load applies.
  */
 export function includeLeadInRunningSet<T extends { activePlanId: string | null; activePlanIds: string[] }>(
   preferences: T,
-  plans: ReadonlyArray<{ id: string; entries: ReadonlyArray<unknown> }>,
+  plans: ReadonlyArray<StoredPlan>,
 ): T {
   const lead = preferences.activePlanId;
-  if (!lead || preferences.activePlanIds.includes(lead)) {
-    return preferences;
-  }
-  const plan = plans.find((candidate) => candidate.id === lead);
-  if (!plan || plan.entries.length === 0) {
+  if (!lead || preferences.activePlanIds.includes(lead) || !planCanRun(plans, lead)) {
     return preferences;
   }
   return { ...preferences, activePlanIds: addActiveProgram(preferences.activePlanIds, lead) };
+}
+
+/**
+ * The stored running set, made to agree with the plans that are stored.
+ *
+ * The cap counts `activePlanIds` as it finds them, and nothing checked them
+ * against the plans. Every new install carried the demo seed's
+ * `plan_push_pull_legs` there with no plan behind it, so one of a free
+ * reader's two slots was taken before they chose anything, and the first
+ * ready programme after onboarding met the cap sheet (2026-09-21). An id
+ * naming no plan that can run is dropped; the lead is counted in the set
+ * when it can run, and gives way to the first programme still running when
+ * it cannot — as it does when the lead is stopped.
+ *
+ * Applied wherever preferences meet the plans they describe: on load, after
+ * the preferences key is laid over the blob, and on a restore. Nothing writes
+ * a running id before its plan (adoption and onboarding store the plan first
+ * or in the same commit), so nothing legitimate is dropped. The same object
+ * comes back when nothing changes.
+ */
+export function reconcileRunningSet<T extends { activePlanId: string | null; activePlanIds: string[] }>(
+  preferences: T,
+  plans: ReadonlyArray<StoredPlan>,
+): T {
+  const running = Array.from(new Set(preferences.activePlanIds)).filter((planId) => planCanRun(plans, planId));
+  const counted = includeLeadInRunningSet({ ...preferences, activePlanIds: running }, plans);
+  const lead = planCanRun(plans, counted.activePlanId) ? counted.activePlanId : counted.activePlanIds[0] ?? null;
+  const unchanged =
+    lead === preferences.activePlanId &&
+    counted.activePlanIds.length === preferences.activePlanIds.length &&
+    counted.activePlanIds.every((planId, index) => planId === preferences.activePlanIds[index]);
+  return unchanged ? preferences : { ...preferences, activePlanId: lead, activePlanIds: counted.activePlanIds };
 }
 
 /**

@@ -94,7 +94,10 @@ module.exports = [
       assert.match(restore, /preferences: preferencesForRestore\(restored\.preferences, databaseRef\.current\.preferences, restored\.workoutPlans\)/);
       assert.doesNotMatch(restore, /await commit\(restored\)/, 'the backup is committed as it came');
       const lib = read('src', 'lib', 'accountBackup.ts');
-      assert.match(lib, /return includeLeadInRunningSet\(keepDevicePrivacyChoices\(keepDeviceEntitlement\(restored, device\), device\), plans\);/);
+      // The loader's running-set step is reconcileRunningSet since it also
+      // drops ids with no plan behind them (2026-09-21), and a restore takes
+      // the same one: a backup of an install carrying the phantom is healed.
+      assert.match(lib, /return reconcileRunningSet\(keepDevicePrivacyChoices\(keepDeviceEntitlement\(restored, device\), device\), plans\);/);
     },
   },
   {

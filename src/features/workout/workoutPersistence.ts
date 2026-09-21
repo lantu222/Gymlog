@@ -5,7 +5,14 @@ import { normalizeActiveCardioSession } from '../../lib/cardio';
 import { scrubImpossibleSessionLoads } from '../../lib/impossibleLoads';
 import { getLargeItem, MissingPartsError, removeLargeItem, setLargeItem } from '../../storage/largeItem';
 import { getWorkoutTemplateById } from './workoutCatalog';
-import { WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutSessionRuntime, WorkoutSessionSummary } from './workoutTypes';
+import {
+  WorkoutHistoryStore,
+  WorkoutPersistenceBundle,
+  WorkoutRestTimerState,
+  WorkoutSessionRuntime,
+  WorkoutSessionSummary,
+  WorkoutUiState,
+} from './workoutTypes';
 
 const STORAGE_KEY = '@vinha/workout/v1';
 /** Pre-rename key; see the note in storage/database.ts. */
@@ -45,6 +52,68 @@ function normalizeHistory(input: unknown): WorkoutHistoryStore {
   };
 }
 
+const IDLE_REST_TIMER: WorkoutRestTimerState = {
+  status: 'idle',
+  exerciseSlotId: null,
+  setIndex: null,
+  startedAtMs: null,
+  endsAtMs: null,
+  durationSeconds: 0,
+};
+
+const FRESH_UI: WorkoutUiState = {
+  activeSlotId: null,
+  activeSetIndex: 0,
+  focusedField: null,
+  noteEditorSlotId: null,
+  swapSheetSlotId: null,
+  expandedSlotIds: [],
+  finishSummaryOpen: false,
+};
+
+/**
+ * The parts of a stored session everything below and the player itself reach
+ * into without asking, made safe to reach into.
+ *
+ * The session is the one part of the bundle nobody checked: three string
+ * fields and a cast. A ready-programme session missing its lifts, its rest
+ * timer or its screen state threw in the slot remap below, and the catch
+ * around the whole bundle set aside the history, the run and the free workout
+ * with it — every lift's "last time" gone over one field of a draft
+ * (persistence audit, 2026-09-20; the database had the same hole, #157).
+ *
+ * The lifts are the session: without a list of them there is nothing to
+ * resume, and a lift that is not an object with its sets is not one. A list
+ * with none left in it is no session either — kept, Home offered to resume
+ * an empty workout (CI review of #167). The timer and the screen state are
+ * where the player was, not what was done, so a missing one starts fresh.
+ */
+function repairSessionShape(input: Record<string, unknown>): WorkoutSessionRuntime | null {
+  if (!Array.isArray(input.exercises)) {
+    return null;
+  }
+  const exercises = input.exercises.filter(
+    (exercise): exercise is Record<string, unknown> => isObject(exercise) && Array.isArray(exercise.sets),
+  );
+  if (exercises.length === 0) {
+    return null;
+  }
+  const ui = isObject(input.ui) ? input.ui : {};
+  return {
+    ...input,
+    exercises,
+    restTimer: { ...IDLE_REST_TIMER, ...(isObject(input.restTimer) ? input.restTimer : {}) },
+    ui: {
+      ...FRESH_UI,
+      activeSlotId: typeof exercises[0]?.slotId === 'string' ? exercises[0].slotId : null,
+      ...ui,
+      expandedSlotIds: Array.isArray(ui.expandedSlotIds)
+        ? ui.expandedSlotIds.filter((slotId): slotId is string => typeof slotId === 'string')
+        : [],
+    },
+  } as unknown as WorkoutSessionRuntime;
+}
+
 function normalizeActiveSession(input: unknown): WorkoutSessionRuntime | null {
   if (!isObject(input)) {
     return null;
@@ -54,7 +123,12 @@ function normalizeActiveSession(input: unknown): WorkoutSessionRuntime | null {
     return null;
   }
 
-  const session = scrubImpossibleSessionLoads(input as unknown as WorkoutSessionRuntime);
+  const repaired = repairSessionShape(input);
+  if (!repaired) {
+    return null;
+  }
+
+  const session = scrubImpossibleSessionLoads(repaired);
   const template = getWorkoutTemplateById(session.templateId);
   if (!template) {
     return session;

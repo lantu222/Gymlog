@@ -362,7 +362,10 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
         dispatch({ type: 'cardio/clear' });
       },
       async restoreHistoryFromBackup(history) {
-        const bundle = normalizeWorkoutBundle({ activeSession: null, history, activeCardio: null });
+        // The live session, the run and the free workout are put away, all
+        // three: the restore question counted them (hasWorkoutInProgress) and
+        // the reader chose the backup.
+        const bundle = normalizeWorkoutBundle({ activeSession: null, history, activeCardio: null, freestyleDraft: null });
         // Written first and shown after, so a refused write changes nothing
         // on screen and the caller can say so. The persistence effect writes
         // the same bundle again once the state lands; that is the same bytes.

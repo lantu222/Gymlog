@@ -15,6 +15,7 @@ import {
 } from '../lib/programSlots';
 import { rememberName } from '../lib/exerciseNameBook';
 import { normalizeSupersetGroups } from '../lib/supersetGrouping';
+import { savedPrescription } from '../lib/singleRepTarget';
 import { findReadyProgrammeCopyId } from '../lib/programmeCopyLink';
 import { plansChanged, renamePlansForTemplate } from '../lib/programRename';
 import { createSerialTaskQueue, RunExclusive } from '../lib/serialTaskQueue';
@@ -593,20 +594,32 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       // from the other has ended that pair, whether or not the screen that
       // made the edit knew supersets existed.
       const exercises = normalizeSupersetGroups(
-        session.exercises.map((exercise, exerciseIndex) => ({
-          id: exercise.id ?? createId('exercise'),
-          workoutTemplateId,
-          workoutTemplateSessionId,
-          name: exercise.name.trim() || `Exercise ${exerciseIndex + 1}`,
-          targetSets: Math.max(1, exercise.targetSets),
-          repMin: Math.max(1, exercise.repMin),
-          repMax: Math.max(Math.max(1, exercise.repMin), exercise.repMax),
-          restSeconds: exercise.restSeconds && exercise.restSeconds > 0 ? exercise.restSeconds : null,
-          trackedDefault: exercise.trackedDefault,
-          orderIndex: exerciseIndex,
-          libraryItemId: exercise.libraryItemId ?? null,
-          supersetGroup: exercise.supersetGroup ?? null,
-        })),
+        session.exercises.map((exercise, exerciseIndex) => {
+          const name = exercise.name.trim() || `Exercise ${exerciseIndex + 1}`;
+          // Through the rule the loader applies (one rep number, an
+          // interval resting its named off-phase), or the screen shows what
+          // was typed until the next launch shows something else.
+          const prescription = savedPrescription({
+            name,
+            repMin: Math.max(1, exercise.repMin),
+            repMax: Math.max(Math.max(1, exercise.repMin), exercise.repMax),
+            restSeconds: exercise.restSeconds && exercise.restSeconds > 0 ? exercise.restSeconds : null,
+          });
+          return {
+            id: exercise.id ?? createId('exercise'),
+            workoutTemplateId,
+            workoutTemplateSessionId,
+            name,
+            targetSets: Math.max(1, exercise.targetSets),
+            repMin: prescription.repMin,
+            repMax: prescription.repMax,
+            restSeconds: prescription.restSeconds,
+            trackedDefault: exercise.trackedDefault,
+            orderIndex: exerciseIndex,
+            libraryItemId: exercise.libraryItemId ?? null,
+            supersetGroup: exercise.supersetGroup ?? null,
+          };
+        }),
       );
 
       return {

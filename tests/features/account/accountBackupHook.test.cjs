@@ -53,6 +53,8 @@ function syncedAccount(local, extra = {}) {
     name: 'Reader',
     lastBackupAt: '2026-09-10T08:00:00.000Z',
     lastBackupItemCount: lib.countBackupItems(local),
+    // The copy these accounts made carries an empty history.
+    lastBackupHistoryCount: 0,
     lastBackupFingerprint: lib.accountBackupFingerprint(local, emptyHistory()),
     autoBackupPaused: false,
     ...extra,
@@ -238,6 +240,54 @@ module.exports = [
         assert.equal(outcome.kind, 'choice', 'the workout in progress was restored over without asking');
         assert.equal(env.calls.restoreDatabase + env.calls.restoreHistory, 0);
         assert.equal(outcome.summary.local.workoutInProgress, true);
+      });
+    },
+  },
+  {
+    name: 'account hook: a workout history set aside as unreadable is not backed up over the cloud copy of it',
+    async run() {
+      // The workout store's loader puts an unreadable bundle away and opens
+      // on an empty history. The database is whole, so the guard that
+      // counted only the database saw nothing shrink, the fingerprint moved,
+      // and eight seconds later the empty history replaced the only copy of
+      // every lift's "last time" (persistence audit, 2026-09-20).
+      const local = database({ workoutSessions: workouts(4) });
+      const history = {
+        sessions: Array.from({ length: 20 }, (_, index) => ({ sessionId: `h${index}`, templateId: 'tpl_x', templateName: 'Push', performedAt: '2026-09-01T10:00:00.000Z' })),
+        slotHistory: { 'tpl_x:s1:bench': Array.from({ length: 10 }, (_, index) => ({ slotId: 'tpl_x:s1:bench', sessionId: `h${index}`, sets: [] })) },
+        lastSelectedTemplateId: 'tpl_x',
+      };
+      const cloud = JSON.parse(JSON.stringify(lib.buildAccountBackupPayload(local, history, '2026-09-10T08:00:00.000Z')));
+      const madeWithHistory = { lastBackupFingerprint: lib.accountBackupFingerprint(local, history) };
+
+      await withHook({ local, stored: syncedAccount(local, { ...madeWithHistory, lastBackupHistoryCount: 30 }), cloud }, async (env) => {
+        assert.deepEqual(env.app.history.sessions, [], 'the phone should open on the empty history the loader hands over');
+        await env.advance(QUIET_MS);
+        assert.equal(env.calls.upload, 0, 'the empty history replaced the cloud copy of it');
+        assert.equal(env.server.blob.workoutHistory.sessions.length, 20);
+        // "Back up now" is the reader's decision, and it is asked twice.
+        const outcome = await env.api.backUpOrAsk();
+        assert.equal(outcome.kind, 'choice');
+        assert.equal(outcome.summary.keepingLocalShrinksCloud, true, '"Use the data on this phone" was not asked a second time');
+        assert.equal(env.calls.upload, 0);
+      });
+
+      // An account stored before the history was counted looks at the copy
+      // once, stays out, and learns the size for next time.
+      await withHook({ local, stored: syncedAccount(local, { ...madeWithHistory, lastBackupHistoryCount: null }), cloud }, async (env) => {
+        await env.advance(QUIET_MS);
+        assert.equal(env.calls.download, 1, 'an account with no history count uploaded without looking');
+        assert.equal(env.calls.upload, 0);
+        assert.equal(env.store.account.lastBackupHistoryCount, 30);
+      });
+
+      // A history that is all there backs up as before.
+      await withHook({ local, stored: syncedAccount(local, { ...madeWithHistory, lastBackupHistoryCount: 30 }), cloud }, async (env) => {
+        env.app.history = { ...history, sessions: [{ sessionId: 'h20', templateId: 'tpl_x', templateName: 'Push', performedAt: '2026-09-11T10:00:00.000Z' }, ...history.sessions] };
+        await env.settle();
+        await env.advance(QUIET_MS);
+        assert.equal(env.calls.upload, 1);
+        assert.equal(env.store.account.lastBackupHistoryCount, 31);
       });
     },
   },
@@ -664,13 +714,24 @@ module.exports = [
         name: null,
         lastBackupAt: 'x',
         lastBackupItemCount: 4,
+        // Unknown for an account stored before the history was counted: its
+        // next backup looks at the copy first and learns it.
+        lastBackupHistoryCount: null,
         lastBackupFingerprint: null,
         autoBackupPaused: false,
       });
-      const odd = normalizeStoredAccount({ sub: 's', lastBackupFingerprint: 7, autoBackupPaused: 'yes', lastBackupItemCount: -1 });
+      const odd = normalizeStoredAccount({
+        sub: 's',
+        lastBackupFingerprint: 7,
+        autoBackupPaused: 'yes',
+        lastBackupItemCount: -1,
+        lastBackupHistoryCount: 'many',
+      });
       assert.equal(odd.lastBackupFingerprint, null);
       assert.equal(odd.autoBackupPaused, false);
       assert.equal(odd.lastBackupItemCount, null);
+      assert.equal(odd.lastBackupHistoryCount, null);
+      assert.equal(normalizeStoredAccount({ sub: 's', lastBackupHistoryCount: 12.7 }).lastBackupHistoryCount, 12);
       assert.equal(normalizeStoredAccount({ sub: 's', lastBackupFingerprint: 'abc', autoBackupPaused: true }).autoBackupPaused, true);
       assert.equal(normalizeStoredAccount({ sub: '' }), null);
       assert.equal(normalizeStoredAccount(null), null);

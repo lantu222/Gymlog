@@ -27,13 +27,14 @@ import {
   accountBackupFingerprint,
   BackupLookResult,
   buildAccountBackupPayload,
-  countBackupItems,
+  countBackup,
   decideAfterLook,
   describeAccountBackup,
   describeRestoreChoice,
   hasLocalDataWorthKeeping,
   planBackup,
   RestoreChoiceSummary,
+  syncCounts,
 } from '../../lib/accountBackup';
 import { BackupDownloadResult, deleteBackup, downloadBackup, isBackupApiConfigured, uploadBackup } from './backupApi';
 import { getFreshIdToken, isGoogleSignInConfigured, signInWithGoogle, signOutGoogle } from './googleAuth';
@@ -113,7 +114,7 @@ class Superseded extends Error {}
 
 function lookResult(remote: BackupDownloadResult): BackupLookResult {
   if (remote.ok) {
-    return { kind: 'backup', itemCount: countBackupItems(remote.payload.database) };
+    return { kind: 'backup', ...countBackup(remote.payload.database, remote.payload.workoutHistory) };
   }
   return remote.error === 'NO_BACKUP' ? { kind: 'none' } : { kind: 'unreachable' };
 }
@@ -212,7 +213,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       await persistAccount({
         ...base,
         lastBackupAt: result.savedAt,
-        lastBackupItemCount: countBackupItems(database),
+        ...syncCounts(countBackup(database, workoutHistory)),
         lastBackupFingerprint: fingerprint,
         // The reader's own backup (or restore, or sign-in) is what lifts a
         // delete's pause.
@@ -262,9 +263,14 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
    */
   const askRestoreOrKeep = useCallback(
     async (idToken: string, base: StoredAccount, payload: AccountBackupPayload): Promise<SignInOutcome> => {
-      const pendingAccount = { ...base, lastBackupItemCount: countBackupItems(payload.database) };
+      const pendingAccount = { ...base, ...syncCounts(countBackup(payload.database, payload.workoutHistory)) };
       pendingRestoreRef.current = { payload, idToken, account: pendingAccount };
-      const summary = describeRestoreChoice(payload, latestRef.current.database, latestRef.current.liveSession);
+      const summary = describeRestoreChoice(
+        payload,
+        latestRef.current.database,
+        latestRef.current.liveSession,
+        latestRef.current.workoutHistory,
+      );
       await persistAccount(pendingAccount);
       return { kind: 'choice', summary };
     },
@@ -286,7 +292,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           return await askRestoreOrKeep(idToken, base, remote.payload);
         }
         const summary = describeAccountBackup(remote.payload);
-        const remoteItemCount = countBackupItems(remote.payload.database);
+        const remoteCounts = syncCounts(countBackup(remote.payload.database, remote.payload.workoutHistory));
         enterPhase('restoring');
         let fingerprint: string;
         try {
@@ -300,13 +306,13 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
           // reader is told now instead of seeing nothing happen.
           console.error('Backup restore failed', error);
           ensureCurrent(generation);
-          await persistAccount({ ...base, lastBackupItemCount: remoteItemCount });
+          await persistAccount({ ...base, ...remoteCounts });
           return { kind: 'restore_failed' };
         }
         await persistAccount({
           ...base,
           lastBackupAt: remote.payload.exportedAt,
-          lastBackupItemCount: remoteItemCount,
+          ...remoteCounts,
           // What is on the phone now is the cloud copy; nothing to upload.
           lastBackupFingerprint: fingerprint,
           // Phone and cloud agree again, by the reader's own doing — the
@@ -355,6 +361,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         name: result.account.name,
         lastBackupAt: null,
         lastBackupItemCount: null,
+        lastBackupHistoryCount: null,
         lastBackupFingerprint: null,
         autoBackupPaused: false,
       };
@@ -444,7 +451,11 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
       if (!interactive && !current.lastBackupAt && unseenCopyFoundRef.current) {
         return { kind: 'failed' };
       }
-      const plan = planBackup({ interactive, sync: current, localItemCount: countBackupItems(latestRef.current.database) });
+      const plan = planBackup({
+        interactive,
+        sync: current,
+        local: countBackup(latestRef.current.database, latestRef.current.workoutHistory),
+      });
       if (plan === 'skip') {
         return { kind: 'failed' };
       }
@@ -473,7 +484,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
             interactive,
             neverSynced: !current.lastBackupAt,
             remote: lookResult(remote),
-            localItemCount: countBackupItems(latestRef.current.database),
+            local: countBackup(latestRef.current.database, latestRef.current.workoutHistory),
           });
           if (decision === 'settle') {
             // The reader is here to answer, so they get sign-in's question —
@@ -488,7 +499,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
             return await askRestoreOrKeep(idToken, current, remote.payload);
           }
           if (decision === 'hold' && remote.ok) {
-            await persistAccount({ ...current, lastBackupItemCount: countBackupItems(remote.payload.database) });
+            await persistAccount({ ...current, ...syncCounts(countBackup(remote.payload.database, remote.payload.workoutHistory)) });
             return { kind: 'failed' };
           }
           if (decision !== 'upload') {
@@ -590,6 +601,7 @@ export function useAccountBackup(input: AccountBackupInput): AccountBackupApi {
         ...current,
         lastBackupAt: null,
         lastBackupItemCount: null,
+        lastBackupHistoryCount: null,
         lastBackupFingerprint: null,
         autoBackupPaused: true,
       });

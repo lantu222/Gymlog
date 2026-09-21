@@ -66,6 +66,7 @@ import {
   TourSurface,
 } from './src/lib/firstRunTour';
 import { SignInOutcome, useAccountBackup } from './src/features/account/useAccountBackup';
+import { hasWorkoutInProgress } from './src/lib/accountBackup';
 import { restoreQuestionCopy } from './src/lib/accountBackupCopy';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
@@ -390,7 +391,8 @@ function VinhaApp() {
     // (its Retry screen), and a backup before then uploads the empty history
     // it starts with over the real one. The same as appHydrated below.
     hydrated: hydrated && workout.hydrated,
-    liveSession: workout.activeSession !== null || workout.activeCardio !== null,
+    // Everything a restore puts away, the free workout's board included.
+    liveSession: hasWorkoutInProgress(workout),
     database,
     workoutHistory: workout.history,
     restoreDatabase: restoreDatabaseFromBackup,

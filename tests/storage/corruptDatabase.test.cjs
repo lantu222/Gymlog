@@ -39,6 +39,60 @@ module.exports = [
     },
   },
   {
+    // The preferences live on their own key, and a corrupt blob is not a
+    // corrupt preferences row. The first launch after one opened on
+    // defaults, and the install-date stamp (App.tsx, straight after load)
+    // then saved those defaults over the intact copy: theme, notification
+    // choices, the trial's start and the coach's counters, gone
+    // (persistence audit, 2026-09-20). Run, against the in-memory storage.
+    name: 'a corrupt database opens with the preferences its own key still holds, and does not overwrite them',
+    async run() {
+      const { createFakeAsyncStorage, loadAgainstFake } = require('./fakeAsyncStorage.cjs');
+      const fake = createFakeAsyncStorage();
+      const database = loadAgainstFake(fake, (requireDist) => requireDist('storage/database.js'));
+      const { createEmptyDatabase } = require(path.join(__dirname, '..', '..', '.test-dist', 'data', 'seed.js'));
+
+      const preferences = {
+        ...createEmptyDatabase('en').preferences,
+        appLanguage: 'fi',
+        darkThemeEnabled: true,
+        proTrialStartedAt: '2026-09-17T00:00:00.000Z',
+        coachDemoMomentsUsed: ['day7'],
+        firstLaunchAt: '2026-08-01T00:00:00.000Z',
+        hasOpenedAppBefore: true,
+        notificationPrefs: { ...createEmptyDatabase('en').preferences.notificationPrefs, pushEnabled: true, reminderTime: '06:05' },
+        activePlanId: 'ready_plan_tpl_x',
+        activePlanIds: ['ready_plan_tpl_x', 'custom_plan_mine'],
+      };
+      await database.savePreferences(preferences);
+      const keyBefore = fake.rows.get('@vinha/preferences/v1');
+      fake.rows.set('@vinha/database/v1', '{"workoutSessions":[{"id":');
+
+      const loaded = await database.loadDatabase();
+      assert.equal(fake.rows.has('@vinha/database/corrupt'), true, 'the blob is still set aside');
+      assert.deepEqual(loaded.workoutSessions, [], 'the corrupt blob is not read');
+      assert.equal(loaded.preferences.appLanguage, 'fi');
+      assert.equal(loaded.preferences.darkThemeEnabled, true, 'the theme reset to the default');
+      assert.equal(loaded.preferences.proTrialStartedAt, '2026-09-17T00:00:00.000Z', 'the trial marker was lost');
+      assert.deepEqual(loaded.preferences.coachDemoMomentsUsed, ['day7']);
+      assert.equal(loaded.preferences.firstLaunchAt, '2026-08-01T00:00:00.000Z', 'the install date would be stamped again');
+      assert.equal(loaded.preferences.notificationPrefs.pushEnabled, true);
+      assert.equal(loaded.preferences.notificationPrefs.reminderTime, '06:05');
+      // The running set went with the programmes it named: kept, two ids
+      // with no plan behind them filled the free cap of two.
+      assert.equal(loaded.preferences.activePlanId, null);
+      assert.deepEqual(loaded.preferences.activePlanIds, []);
+
+      // Nothing the load wrote touched the intact copy, and the next launch
+      // reads the same — the running set dropped again against no plans.
+      assert.equal(fake.rows.get('@vinha/preferences/v1'), keyBefore, 'the load wrote over the intact copy');
+      const again = await database.loadDatabase();
+      assert.equal(again.preferences.darkThemeEnabled, true);
+      assert.equal(again.preferences.firstLaunchAt, '2026-08-01T00:00:00.000Z');
+      assert.deepEqual(again.preferences.activePlanIds, [], 'the next launch read the running set back from the key');
+    },
+  },
+  {
     name: 'erasing the app erases the quarantined copy too',
     run() {
       // Somebody asking for their data to be deleted is not asking for a copy

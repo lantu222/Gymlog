@@ -53,7 +53,9 @@ module.exports = [
     run() {
       const load = database.slice(database.indexOf('export async function loadDatabase'));
       const overlay = load.indexOf('await loadStoredPreferences(database.preferences)');
-      const repair = load.indexOf('includeLeadInRunningSet(preferences, database.workoutPlans)');
+      // reconcileRunningSet since it also drops running ids with no plan
+      // behind them (2026-09-21); counting the lead is one step of it.
+      const repair = load.indexOf('reconcileRunningSet(preferences, database.workoutPlans)');
       assert.ok(overlay > 0, 'the preferences overlay moved');
       assert.ok(repair > overlay, 'the repair runs on a copy the overlay then replaces');
     },

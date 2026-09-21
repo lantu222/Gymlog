@@ -210,7 +210,13 @@ export function createEmptyDatabase(appLanguage: AppLanguage = DEFAULT_PREFERENC
       // would put 'en' back — which is precisely what this function did on the
       // first attempt: it took the language and ignored it.
       appLanguage,
+      // Nothing runs, because nothing is here: DEFAULT_PREFERENCES is the demo
+      // seed's, and its running set names the seed's plan. Only the lead was
+      // cleared, so every new install ran a programme it did not have — one of
+      // the two free slots gone before the reader chose anything, and the cap
+      // sheet at their first ready programme after onboarding (2026-09-21).
       activePlanId: null,
+      activePlanIds: [],
     },
   };
 }

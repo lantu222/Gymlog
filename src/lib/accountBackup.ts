@@ -15,7 +15,7 @@ import { gunzipSync, gzipSync, strFromU8 } from 'fflate';
 
 import type { AppDatabase, AppPreferences } from '../types/models';
 import type { WorkoutHistoryStore } from '../features/workout/workoutTypes';
-import { includeLeadInRunningSet, ONBOARDING_PLAN_PREFIX } from './activeProgramSet';
+import { ONBOARDING_PLAN_PREFIX, reconcileRunningSet } from './activeProgramSet';
 import { base64ToBytes, bytesToBase64 } from './base64';
 import { DEVICE_ONLY_PREFERENCE_FIELDS, keepDeviceEntitlement } from './proEntitlement';
 import { countAuthoredPrograms } from './programSlots';
@@ -201,7 +201,7 @@ export function describeAccountBackup(payload: AccountBackupPayload): AccountBac
  * going, so it is named too.
  *
  * `keepingLocalShrinksCloud` is the automatic backup's own line
- * (autoBackupWouldShrinkLog). Past it, "Use the data on this phone" is asked a
+ * (backupWouldShrink). Past it, "Use the data on this phone" is asked a
  * second time, naming what the cloud copy holds — one tap used to replace a
  * full history with a phone that had just been set up.
  */
@@ -211,12 +211,39 @@ export interface RestoreChoiceSummary {
   keepingLocalShrinksCloud: boolean;
 }
 
-export function describeRestoreChoice(payload: AccountBackupPayload, local: AppDatabase, liveSession = false): RestoreChoiceSummary {
+export function describeRestoreChoice(
+  payload: AccountBackupPayload,
+  local: AppDatabase,
+  liveSession: boolean,
+  localHistory: WorkoutHistoryStore,
+): RestoreChoiceSummary {
   return {
     cloud: describeAccountBackup(payload),
     local: { ...countBackupContents(local), workoutInProgress: liveSession },
-    keepingLocalShrinksCloud: autoBackupWouldShrinkLog(countBackupItems(local), countBackupItems(payload.database)),
+    keepingLocalShrinksCloud: backupWouldShrink(
+      countBackup(local, localHistory),
+      countBackup(payload.database, payload.workoutHistory),
+    ),
   };
+}
+
+/**
+ * Whether the player holds a workout that a restore would put away.
+ *
+ * A restore replaces the player's store with the backup's history and nothing
+ * else (WorkoutProvider.restoreHistoryFromBackup), so a guided session, a run
+ * and a free workout's board all go. This asked about the first two only:
+ * a free workout left open when the app closed (#162 keeps it across that)
+ * was thrown out by the next sign-in — without a word on an otherwise empty
+ * phone, and without its "in progress" line in the question on any other
+ * (persistence audit, 2026-09-20).
+ */
+export function hasWorkoutInProgress(player: {
+  activeSession: unknown;
+  activeCardio: unknown;
+  freestyleDraft: unknown;
+}): boolean {
+  return player.activeSession != null || player.activeCardio != null || player.freestyleDraft != null;
 }
 
 /**
@@ -321,17 +348,18 @@ export function keepDevicePrivacyChoices<T extends Pick<AppPreferences, DevicePr
 
 /**
  * The preferences a restore commits: the backup's, minus what belongs to
- * this phone (entitlement and meters, privacy answers), with the lead
- * programme counted in the running set the way a load counts it — the restore
+ * this phone (entitlement and meters, privacy answers), with the running set
+ * made to agree with the backup's plans the way a load does it — the restore
  * normalized the backup but skipped that step, so a backup from before
- * activateOnboardingPlan restored with the cap undercounting by one.
+ * activateOnboardingPlan restored with the cap undercounting by one, and a
+ * backup carrying the seed's phantom plan id restored it (reconcileRunningSet).
  */
 export function preferencesForRestore(
   restored: AppPreferences,
   device: AppPreferences,
   plans: ReadonlyArray<{ id: string; entries: ReadonlyArray<unknown> }>,
 ): AppPreferences {
-  return includeLeadInRunningSet(keepDevicePrivacyChoices(keepDeviceEntitlement(restored, device), device), plans);
+  return reconcileRunningSet(keepDevicePrivacyChoices(keepDeviceEntitlement(restored, device), device), plans);
 }
 
 /**
@@ -426,6 +454,67 @@ export function countBackupItems(
 }
 
 /**
+ * How much of the workout history a copy holds: the sessions the player
+ * remembers and every set it remembers per slot — where each lift's "last
+ * time", its prefills and its progression are read from. Anything that is not
+ * a list counts as none (an old or odd backup).
+ */
+export function countHistoryItems(history: unknown): number {
+  if (!history || typeof history !== 'object') {
+    return 0;
+  }
+  const { sessions, slotHistory } = history as { sessions?: unknown; slotHistory?: unknown };
+  let count = Array.isArray(sessions) ? sessions.length : 0;
+  if (slotHistory && typeof slotHistory === 'object') {
+    for (const entries of Object.values(slotHistory)) {
+      count += Array.isArray(entries) ? entries.length : 0;
+    }
+  }
+  return count;
+}
+
+/** How much one copy holds, store by store. */
+export interface BackupCounts {
+  /** countBackupItems of the database. */
+  itemCount: number;
+  /** countHistoryItems of the workout history. */
+  historyCount: number;
+}
+
+export function countBackup(
+  database: Parameters<typeof countBackupItems>[0],
+  history: unknown,
+): BackupCounts {
+  return { itemCount: countBackupItems(database), historyCount: countHistoryItems(history) };
+}
+
+/** The same counts, as the stored account keeps them. */
+export function syncCounts(counts: BackupCounts): Pick<BackupSyncState, 'lastBackupItemCount' | 'lastBackupHistoryCount'> {
+  return { lastBackupItemCount: counts.itemCount, lastBackupHistoryCount: counts.historyCount };
+}
+
+/**
+ * Whether replacing `cloud` with `local` would lose most of either store.
+ *
+ * Each store is judged on its own because each is set aside on its own. The
+ * workout store's loader puts an unreadable bundle away and opens on an empty
+ * history while the database is whole, and the guard counted the database
+ * only: eight seconds later the automatic backup uploaded that empty history
+ * over the only copy left of it (persistence audit, 2026-09-20). A sum of the
+ * two would not have caught it either — a year of weigh-ins outweighs the
+ * history it would be losing.
+ */
+export function backupWouldShrink(
+  local: BackupCounts,
+  cloud: { itemCount: number | null; historyCount: number | null },
+): boolean {
+  return (
+    autoBackupWouldShrinkLog(local.itemCount, cloud.itemCount) ||
+    autoBackupWouldShrinkLog(local.historyCount, cloud.historyCount)
+  );
+}
+
+/**
  * Whether an automatic backup would replace a cloud copy holding far more of
  * the log than this phone does.
  *
@@ -438,7 +527,8 @@ export function countBackupItems(
  *
  * Counted over everything the backup watches (countBackupItems), not workouts
  * alone: a reader with two workouts and a year of weigh-ins was never
- * protected by a workout count (PR #119 review).
+ * protected by a workout count (PR #119 review). One store's count at a time:
+ * backupWouldShrink applies it to each.
  */
 export function autoBackupWouldShrinkLog(localItemCount: number, lastBackupItemCount: number | null): boolean {
   if (lastBackupItemCount === null || lastBackupItemCount < 3) {
@@ -451,6 +541,8 @@ export function autoBackupWouldShrinkLog(localItemCount: number, lastBackupItemC
 export interface BackupSyncState {
   lastBackupAt: string | null;
   lastBackupItemCount: number | null;
+  /** countHistoryItems of the copy; null for an account stored before it was kept. */
+  lastBackupHistoryCount: number | null;
   /** Set by "Delete cloud backup"; only the reader's own backup lifts it. */
   autoBackupPaused: boolean;
 }
@@ -468,26 +560,27 @@ export interface BackupSyncState {
 export function planBackup(input: {
   interactive: boolean;
   sync: BackupSyncState;
-  localItemCount: number;
+  local: BackupCounts;
 }): 'skip' | 'look' | 'upload' {
-  const { interactive, sync, localItemCount } = input;
+  const { interactive, sync, local } = input;
   if (!interactive && sync.autoBackupPaused) {
     // The reader deleted the cloud copy. Writing it back eight seconds after
     // the next weigh-in would undo that without a word.
     return 'skip';
   }
-  if (!sync.lastBackupAt || sync.lastBackupItemCount === null) {
+  if (!sync.lastBackupAt || sync.lastBackupItemCount === null || sync.lastBackupHistoryCount === null) {
     // Never synced (what is there has not been seen), or synced before the
-    // size of the copy was kept (nothing to compare against).
+    // size of the copy was kept (nothing to compare against). An account
+    // from before the history was counted looks once, and learns it.
     return 'look';
   }
-  if (autoBackupWouldShrinkLog(localItemCount, sync.lastBackupItemCount)) {
+  if (backupWouldShrink(local, { itemCount: sync.lastBackupItemCount, historyCount: sync.lastBackupHistoryCount })) {
     return interactive ? 'look' : 'skip';
   }
   return 'upload';
 }
 
-export type BackupLookResult = { kind: 'backup'; itemCount: number } | { kind: 'none' } | { kind: 'unreachable' };
+export type BackupLookResult = ({ kind: 'backup' } & BackupCounts) | { kind: 'none' } | { kind: 'unreachable' };
 
 /**
  * What a backup does once it has read the cloud copy.
@@ -504,9 +597,9 @@ export function decideAfterLook(input: {
   interactive: boolean;
   neverSynced: boolean;
   remote: BackupLookResult;
-  localItemCount: number;
+  local: BackupCounts;
 }): 'settle' | 'ask' | 'hold' | 'upload' | 'fail' {
-  const { interactive, neverSynced, remote, localItemCount } = input;
+  const { interactive, neverSynced, remote, local } = input;
   if (neverSynced) {
     if (interactive) {
       return 'settle';
@@ -516,7 +609,7 @@ export function decideAfterLook(input: {
   if (remote.kind === 'unreachable') {
     return 'fail';
   }
-  if (remote.kind === 'backup' && autoBackupWouldShrinkLog(localItemCount, remote.itemCount)) {
+  if (remote.kind === 'backup' && backupWouldShrink(local, remote)) {
     return interactive ? 'ask' : 'hold';
   }
   return 'upload';

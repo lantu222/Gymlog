@@ -250,4 +250,61 @@ module.exports = [
       );
     },
   },
+  {
+    // Every new install carried the demo seed's `plan_push_pull_legs` in the
+    // running set with no plan behind it, and the cap counts the set as
+    // stored: one of a free reader's two slots was gone before they chose
+    // anything (2026-09-21). The load and the restore apply this.
+    name: 'the running set keeps only programmes whose plans can run, and the lead follows',
+    run() {
+      const assert = require('node:assert/strict');
+      const { reconcileRunningSet, planCanRun } = require('../../.test-dist/lib/activeProgramSet.js');
+      const plans = [
+        { id: 'onboarding_plan_x', entries: [{}] },
+        { id: 'ready_plan_run', entries: [{}] },
+        { id: 'custom_plan_deleted', entries: [] },
+      ];
+      assert.equal(planCanRun(plans, 'ready_plan_run'), true);
+      assert.equal(planCanRun(plans, 'custom_plan_deleted'), false, 'a plan its template deletion emptied');
+      assert.equal(planCanRun(plans, 'plan_push_pull_legs'), false);
+      assert.equal(planCanRun(plans, null), false);
+
+      // The phantom goes; the programme that is really there stays, and leads.
+      const healed = reconcileRunningSet(
+        { activePlanId: 'onboarding_plan_x', activePlanIds: ['plan_push_pull_legs', 'onboarding_plan_x'], appLanguage: 'fi' },
+        plans,
+      );
+      assert.deepEqual(healed.activePlanIds, ['onboarding_plan_x']);
+      assert.equal(healed.activePlanId, 'onboarding_plan_x');
+      assert.equal(healed.appLanguage, 'fi', 'the rest of the preferences did not survive');
+      assert.equal(
+        evaluateProgramAdoption({ activePlanIds: healed.activePlanIds, targetPlanId: 'ready_plan_b', proUnlocked: false }).kind,
+        'adopt',
+        'the phantom still takes a slot',
+      );
+
+      // A lead with nothing behind it gives way to the first programme still
+      // running, as stopping the lead does; with none running, nothing leads.
+      assert.deepEqual(
+        reconcileRunningSet({ activePlanId: 'plan_gone', activePlanIds: ['custom_plan_deleted', 'ready_plan_run'] }, plans),
+        { activePlanId: 'ready_plan_run', activePlanIds: ['ready_plan_run'] },
+      );
+      assert.deepEqual(
+        reconcileRunningSet({ activePlanId: 'plan_push_pull_legs', activePlanIds: ['plan_push_pull_legs'] }, []),
+        { activePlanId: null, activePlanIds: [] },
+      );
+      // The lead is still counted in the set, as it was.
+      assert.deepEqual(
+        reconcileRunningSet({ activePlanId: 'onboarding_plan_x', activePlanIds: ['ready_plan_run'] }, plans).activePlanIds,
+        ['ready_plan_run', 'onboarding_plan_x'],
+      );
+      // Nothing to repair: the same object back, and duplicates are one.
+      const clean = { activePlanId: 'ready_plan_run', activePlanIds: ['ready_plan_run', 'onboarding_plan_x'] };
+      assert.equal(reconcileRunningSet(clean, plans), clean);
+      assert.deepEqual(
+        reconcileRunningSet({ activePlanId: 'ready_plan_run', activePlanIds: ['ready_plan_run', 'ready_plan_run'] }, plans).activePlanIds,
+        ['ready_plan_run'],
+      );
+    },
+  },
 ];

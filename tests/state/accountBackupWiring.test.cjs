@@ -111,9 +111,11 @@ module.exports = [
     run() {
       const provider = read('src', 'features', 'workout', 'WorkoutProvider.tsx');
       const restore = provider.slice(provider.indexOf('async restoreHistoryFromBackup(history) {'));
+      // The free workout's board is named with the other two: what the
+      // restore puts away is what the question counted (hasWorkoutInProgress).
       assert.match(
         restore,
-        /^async restoreHistoryFromBackup\(history\) \{\s*const bundle = normalizeWorkoutBundle\(\{ activeSession: null, history, activeCardio: null \}\);\s*await saveWorkoutBundle\(bundle\);\s*dispatch\(\{ type: 'session\/hydrate', payload: bundle \}\);\s*return bundle\.history;/,
+        /^async restoreHistoryFromBackup\(history\) \{\s*const bundle = normalizeWorkoutBundle\(\{ activeSession: null, history, activeCardio: null, freestyleDraft: null \}\);\s*await saveWorkoutBundle\(bundle\);\s*dispatch\(\{ type: 'session\/hydrate', payload: bundle \}\);\s*return bundle\.history;/,
       );
       // PR #133's load path stays as it was.
       assert.match(provider, /const result = await loadWithRetry\(loadWorkoutBundle, \{/);
@@ -123,10 +125,19 @@ module.exports = [
       // Both stores loaded, and a live workout counts as something to ask about.
       const hookCall = app.slice(app.indexOf('const accountBackup = useAccountBackup({'), app.indexOf('});', app.indexOf('const accountBackup = useAccountBackup({')));
       assert.match(hookCall, /hydrated: hydrated && workout\.hydrated,/, 'the backup ran before the workout history had loaded');
-      assert.match(hookCall, /liveSession: workout\.activeSession !== null \|\| workout\.activeCardio !== null,/);
+      // Through the shared rule, which counts the free workout too. This
+      // pinned `activeSession !== null || activeCardio !== null` written out
+      // here, and a free workout left open was restored over unasked
+      // (persistence audit, 2026-09-20).
+      assert.match(hookCall, /liveSession: hasWorkoutInProgress\(workout\),/);
+      assert.match(app, /import \{ hasWorkoutInProgress \} from '\.\/src\/lib\/accountBackup';/);
       const accountHook = read('src', 'features', 'account', 'useAccountBackup.ts');
       assert.match(accountHook, /if \(hasLocalDataWorthKeeping\(latestRef\.current\.database, latestRef\.current\.liveSession\)\) \{/);
-      assert.match(accountHook, /describeRestoreChoice\(payload, latestRef\.current\.database, latestRef\.current\.liveSession\)/);
+      // Both sides of the question counted per store, the history included.
+      assert.match(
+        accountHook,
+        /describeRestoreChoice\(\s*payload,\s*latestRef\.current\.database,\s*latestRef\.current\.liveSession,\s*latestRef\.current\.workoutHistory,\s*\)/,
+      );
 
       const appProvider = read('src', 'state', 'AppProvider.tsx');
       const restoreDb = appProvider.slice(appProvider.indexOf('function restoreDatabaseFromBackup'), appProvider.indexOf('const value = useMemo<AppContextValue>'));
