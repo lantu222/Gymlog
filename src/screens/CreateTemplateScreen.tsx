@@ -461,7 +461,7 @@ export function CreateTemplateScreen({
         // Same gate as the button at the bottom: while a day is empty there is
         // no save action, so the header shows none rather than a word that
         // does nothing when tapped.
-        rightActionLabel={canSave ? t(language, 'common.save') : undefined}
+        rightActionLabel={canSave && !saving ? t(language, 'common.save') : undefined}
         onRightActionPress={canSave && !saving ? () => void handleSave() : undefined}
       />
 
