@@ -137,7 +137,14 @@ module.exports = [
     run() {
       const player = read('src', 'screens', 'GuidedPlayerScreen.tsx');
       const goTo = player.slice(player.indexOf('const goTo = useCallback('), player.indexOf('/** ±15s / +10s'));
-      assert.match(goTo, /if \(workout\.activeSession\?\.pausedAt\) \{\s*workout\.resumeWorkout\(\);\s*\}/);
+      // Through `unpause`, and without asking first. This pinned
+      // `if (workout.activeSession?.pausedAt) { workout.resumeWorkout(); }`,
+      // and that line was the bug: the check and the resume both read the
+      // session from the render the tap happened in, and the resume put that
+      // session back over the set logged in the same tap (live-session audit,
+      // 2026-09-20; tests/screens/liveWorkoutWiring holds the rest).
+      assert.match(goTo, /\bunpause\(\);/);
+      assert.doesNotMatch(goTo, /activeSession\?\.pausedAt/);
       const confirm = player.slice(player.indexOf('const confirmSet = ('), player.indexOf('expireRef.current = () =>'));
       assert.match(confirm, /if \(isSetCompleted\(slotId, setIndex\)\) \{\s*advance\(\);\s*return;\s*\}\s*workout\.updateSetDraft/);
       assert.match(player, /goToRef\.current\(rollPastLoggedWork\(steps, Math\.min\(target, steps\.length - 1\), isSetCompletedRef\.current\)\);/);

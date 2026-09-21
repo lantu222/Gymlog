@@ -14,7 +14,7 @@ import { HOLD_DIAL, REPS_DIAL } from '../../lib/weightDial';
 import { isLiftableWeight } from '../../lib/weightLimits';
 import { isGuidedExerciseOut } from '../../lib/guidedPlayer';
 import { buildSupersetPlayOrder, supersetGroupIndexes } from '../../lib/supersetGrouping';
-import { elapsedSecondsOf, restSecondsLeft, restTimerHasEnded, workoutSecondsUntil } from '../../lib/sessionClock';
+import { elapsedSecondsOf, restSecondsLeft, restTimerHasEnded, settleSessionClock, workoutSecondsUntil } from '../../lib/sessionClock';
 import { GuidedResumeAnchor, WorkoutTrackingMode, WorkoutTemplateExercise, WorkoutExerciseInsertInput, WorkoutExerciseInstance, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRestTimerState, WorkoutRuntimeTemplate, WorkoutSessionMaterializeOptions, WorkoutSessionRuntime, WorkoutSessionSummary, WorkoutSetDraftInput, WorkoutSetEffort, WorkoutSetInstance, WorkoutSlotHistoryEntry, WorkoutSlotHistorySet, WorkoutStatus, WorkoutUiState, WorkoutExerciseStatus } from './workoutTypes';
 import { getWorkoutTemplateById } from './workoutCatalog';
 import { resolveProgressedLoadKg, resolveProgressedReps } from '../../lib/progressionGate';
@@ -59,7 +59,16 @@ export type WorkoutAction =
         progression?: WorkoutProgressionOptions;
       };
     }
-  | { type: 'session/resume'; payload: { session: WorkoutSessionRuntime } }
+  /**
+   * Close the open pause on the session as it stands in the store.
+   *
+   * It used to carry the session to put back, and the provider sent the one
+   * from the render the tap happened in. The player resumes in the same tap
+   * that logs, swaps or skips — so the reducer replaced the session with the
+   * copy from before that tap: pause, then "Log set", and the screen moved to
+   * the rest with the set never logged (live-session audit, 2026-09-20).
+   */
+  | { type: 'session/resume'; payload: { nowMs: number } }
   | { type: 'session/pause' }
   | { type: 'session/tick'; payload: { nowMs: number } }
   | { type: 'exercise/setActive'; payload: { slotId: string; setIndex?: number } }
@@ -132,7 +141,13 @@ export type WorkoutAction =
   | { type: 'timer/resume'; payload: { nowMs: number } }
   | { type: 'timer/override'; payload: { durationSeconds: number; nowMs: number } }
   | { type: 'timer/clear' }
-  | { type: 'session/setGuidedStep'; payload: { stepIndex: number; anchor?: GuidedResumeAnchor } }
+  /**
+   * The player moved to another step. It is the reader doing something, so it
+   * moves `updatedAt` like a logged set does: the cool-down is walked with no
+   * set logged in it, and a finish read off the last set left it out of the
+   * saved duration every time (live-session audit, 2026-09-20).
+   */
+  | { type: 'session/setGuidedStep'; payload: { stepIndex: number; anchor?: GuidedResumeAnchor; nowMs?: number } }
   | { type: 'cardio/start'; payload: { activityType: CardioActivityType; nowMs: number } }
   | { type: 'cardio/pause'; payload: { nowMs: number } }
   | { type: 'cardio/resume'; payload: { nowMs: number } }
@@ -771,16 +786,20 @@ function updateSessionTimestamp(session: WorkoutSessionRuntime, nowIso = new Dat
  * Called on resume and on finish, so a workout paused and then ended does not
  * carry an open pause window that nothing ever closes.
  */
-function closePause(session: WorkoutSessionRuntime): WorkoutSessionRuntime {
+function closePause(session: WorkoutSessionRuntime, nowMs: number): WorkoutSessionRuntime {
   if (!session.pausedAt) {
     return session.status === 'paused' ? { ...session, status: 'active' } : session;
   }
-  const held = Math.max(0, Date.now() - new Date(session.pausedAt).getTime());
+  const held = Math.max(0, nowMs - new Date(session.pausedAt).getTime());
   return {
     ...session,
     status: 'active',
     pausedMs: (session.pausedMs ?? 0) + held,
     pausedAt: null,
+    // Back from a pause is the reader here again. Left where the pause began,
+    // the first thing done after a pause longer than SESSION_IDLE_MS read the
+    // whole pause as time away (settleSessionClock) and took it off again.
+    updatedAt: new Date(Math.max(nowMs, Date.parse(session.updatedAt) || 0)).toISOString(),
   };
 }
 
@@ -865,7 +884,24 @@ export const workoutInitialState: WorkoutFeatureState = {
   completionSummary: null,
 };
 
+/**
+ * Every action, and then the session clock settled against what it did.
+ *
+ * The clock's rules — it starts at the first step, and a long stretch with
+ * nothing done in it does not count — live in src/lib/sessionClock.ts, and
+ * they are applied here once rather than in each case that touches the
+ * session, so a new action cannot forget them.
+ */
 export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction): WorkoutFeatureState {
+  const next = reduceWorkoutAction(state, action);
+  if (next === state || next.activeSession === state.activeSession) {
+    return next;
+  }
+  const settled = settleSessionClock(state.activeSession, next.activeSession);
+  return settled === next.activeSession ? next : { ...next, activeSession: settled };
+}
+
+function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction): WorkoutFeatureState {
   switch (action.type) {
     case 'session/hydrate':
       return {
@@ -923,16 +959,27 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       };
     }
 
-    case 'session/resume':
+    case 'session/resume': {
+      if (!state.activeSession) {
+        return state;
+      }
+      // Status and the open pause window are closed here, not left to the
+      // caller: resume used to hand the session straight back with
+      // `status: 'paused'` still on it, so the tick stayed asleep and the
+      // clock never restarted.
+      const resumed = closePause(state.activeSession, action.payload.nowMs);
+      // Nothing paused, nothing to do. The player asks on every way out of
+      // its pause, and a new state object for nothing re-renders the app and
+      // rewrites the workout bundle.
+      if (resumed === state.activeSession && state.completionSummary === null) {
+        return state;
+      }
       return {
         ...state,
-        // Status and the open pause window are closed here, not left to the
-        // caller: resume used to hand the session straight back with
-        // `status: 'paused'` still on it, so the tick stayed asleep and the
-        // clock never restarted.
-        activeSession: closePause(action.payload.session),
+        activeSession: resumed,
         completionSummary: null,
       };
+    }
 
     case 'session/pause': {
       if (!state.activeSession || state.activeSession.pausedAt) {
@@ -1707,6 +1754,7 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
         ...state,
         activeSession: {
           ...state.activeSession,
+          updatedAt: new Date(action.payload.nowMs ?? Date.now()).toISOString(),
           ui: {
             ...ui,
             guidedStepIndex: action.payload.stepIndex,

@@ -261,6 +261,9 @@ export interface WorkoutSessionRuntime {
    * — "eikö tauko tarkoita että tauko treenistä", reported 2026-08-21. Both the
    * clock on screen and the duration written to history subtract this, so there
    * is one answer to how long the workout took.
+   *
+   * It also holds every stretch of over two hours with nothing done in it:
+   * time away comes off the same way a pause does (settleSessionClock).
    */
   pausedMs: number;
   /** When the current pause began, or null while running. */

@@ -38,6 +38,7 @@ interface WorkoutContextValue {
   ) => void;
   /** Stop the workout clock. Its pauses come off the saved duration too. */
   pauseWorkout: () => void;
+  /** Start the clock again. Does nothing when nothing is paused. */
   resumeWorkout: () => void;
   finishWorkout: (performedAt?: string) => void;
   discardWorkout: () => void;
@@ -259,10 +260,11 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
         dispatch({ type: 'session/pause' });
       },
       resumeWorkout() {
-        if (!state.activeSession) {
-          return;
-        }
-        dispatch({ type: 'session/resume', payload: { session: state.activeSession } });
+        // No session in the action. This value is built from one render's
+        // state, and the player resumes in the same tap that logs a set,
+        // swaps or skips: the session sent from here was the one from before
+        // those, and the reducer put it back over them (2026-09-20).
+        dispatch({ type: 'session/resume', payload: { nowMs: Date.now() } });
       },
       finishWorkout(performedAt) {
         dispatch({ type: 'session/finishWorkout', payload: { performedAt } });
@@ -337,7 +339,7 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
         dispatch({ type: 'exercise/updateNotes', payload: { slotId, notes } });
       },
       setGuidedStep(stepIndex, anchor) {
-        dispatch({ type: 'session/setGuidedStep', payload: { stepIndex, anchor } });
+        dispatch({ type: 'session/setGuidedStep', payload: { stepIndex, anchor, nowMs: Date.now() } });
       },
       activeCardio: state.activeCardio,
       freestyleDraft: state.freestyleDraft,
