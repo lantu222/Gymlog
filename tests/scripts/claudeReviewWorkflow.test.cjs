@@ -529,6 +529,12 @@ module.exports = [
         // Present in almost every compound the reviewer writes, and one
         // denied part denies the whole command.
         'Bash(echo *)',
+        // The same reason, from the front of the chain: the reviewer opens
+        // with `mkdir -p .ci-review && gh pr diff …`, and a refused mkdir
+        // took the diff read with it — six denials in seven turns and a
+        // red gate on #161 (2026-09-20, #164). It makes a directory; it
+        // runs nothing and writes no content.
+        'Bash(mkdir *)',
       ]);
       // Denied in the same run and deliberately still absent: each hands
       // arbitrary execution to a run holding the app token.
