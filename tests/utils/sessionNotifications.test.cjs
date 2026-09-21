@@ -20,10 +20,16 @@ const DIST = path.join(ROOT, '.test-dist');
 
 function createFakeNotifications() {
   const scheduled = new Map();
+  /**
+   * The alarms really set in the OS, apart from `scheduled` — the library's
+   * stored list, which is what getAllScheduledNotificationsAsync reports. A
+   * force-stop clears these and leaves the list (native audit, 2026-09-21).
+   */
+  const armed = new Set();
   const presented = new Map();
   const channels = new Map();
   const categories = new Map();
-  const calls = { channel: 0, category: 0 };
+  const calls = { channel: 0, category: 0, schedule: 0 };
   const timing = { cancelDelayMs: 0 };
   let granted = true;
   let generated = 0;
@@ -59,7 +65,9 @@ function createFakeNotifications() {
       const id = identifier ?? `generated-${generated}`;
       const request = { identifier: id, content, trigger };
       if (trigger && (trigger.seconds !== undefined || trigger.date !== undefined)) {
+        calls.schedule += 1;
         scheduled.set(id, request);
+        armed.add(id);
       } else {
         presented.set(id, request);
       }
@@ -68,6 +76,7 @@ function createFakeNotifications() {
     async cancelScheduledNotificationAsync(id) {
       await tick(timing.cancelDelayMs);
       scheduled.delete(id);
+      armed.delete(id);
     },
     async dismissNotificationAsync(id) {
       await tick();
@@ -86,6 +95,7 @@ function createFakeNotifications() {
   return {
     api,
     scheduled,
+    armed,
     presented,
     channels,
     categories,
@@ -94,10 +104,15 @@ function createFakeNotifications() {
     setGranted(value) {
       granted = value;
     },
+    /** Force-stop, or exact alarms revoked: Android drops the app's alarms. */
+    forceStop() {
+      armed.clear();
+    },
     /** A notification the OS delivered: pending becomes presented. */
     deliver(id) {
       const request = scheduled.get(id);
       scheduled.delete(id);
+      armed.delete(id);
       presented.set(id, request);
     },
   };
@@ -326,6 +341,52 @@ module.exports = [
       // The permission ask without a language leaves an existing name alone.
       await app.requestNotificationPermission();
       assert.equal(fake.channels.get('training').name, 'Reminders and recaps');
+    },
+  },
+  {
+    name: 'reminders: a new process re-arms the plan the OS dropped, and later syncs write nothing for an unchanged plan',
+    async run() {
+      // Native audit, 2026-09-21: after a force-stop or an exact-alarm revoke
+      // the library still lists every request, the alarms behind them are
+      // gone, and the library re-arms only on boot or update. A sync that
+      // trusted the list kept them all and the reminders never came.
+      const fake = createFakeNotifications();
+      const day = 86_400_000;
+      const now = Date.now();
+      const plan = [1, 2, 3].map((n) => ({
+        key: `reminder:${n}`,
+        category: 'reminder',
+        title: 'Treeni',
+        body: `Päivä ${n}`,
+        fireAtMs: now + n * day,
+      }));
+      const planIds = () =>
+        [...fake.scheduled.values()].filter((request) => request.content.data?.gymlogPlan === true).map((r) => r.identifier);
+
+      const first = loadAgainst(fake).app;
+      assert.equal(await first.syncPlannedNotifications(plan, 'fi'), 3);
+      assert.equal(fake.armed.size, 3);
+      // Same process, same plan — every foreground does this: no writes.
+      const before = fake.calls.schedule;
+      assert.equal(await first.syncPlannedNotifications(plan, 'fi'), 3);
+      assert.equal(fake.calls.schedule, before, 'an unchanged plan was re-armed within one process');
+
+      fake.forceStop();
+      assert.equal(planIds().length, 3, 'the library still lists the dropped requests');
+
+      const second = loadAgainst(fake).app;
+      assert.equal(await second.syncPlannedNotifications(plan, 'fi'), 3);
+      assert.deepEqual(
+        planIds().filter((id) => !fake.armed.has(id)),
+        [],
+        'a listed reminder has no alarm behind it after the restart',
+      );
+      assert.equal(planIds().length, 3, 'the re-arm left duplicates');
+
+      // And the new process diffs from then on.
+      const after = fake.calls.schedule;
+      assert.equal(await second.syncPlannedNotifications(plan, 'fi'), 3);
+      assert.equal(fake.calls.schedule, after);
     },
   },
   {

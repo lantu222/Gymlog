@@ -4,7 +4,8 @@
  * The plan from `src/lib/notificationPlan.ts` is the whole truth: whatever it
  * contains should be pending, and nothing else of ours should be. Sync diffs
  * the two so an unchanged plan does not re-arm a month of alarms every time the
- * app comes to the foreground.
+ * app comes to the foreground — except on the first sync of each process,
+ * which re-arms the lot (`planNotificationSync`).
  *
  * Permission is never assumed. If the user revoked notifications in system
  * settings, sync cancels everything instead of leaving stale alarms behind
@@ -16,6 +17,7 @@ import * as Notifications from 'expo-notifications';
 import { PLAN_NOTIFICATION_MARKER, installNotificationHandler } from './notificationHandler';
 import { t } from '../lib/i18n';
 import type { PlannedNotification } from '../lib/notificationPlan';
+import { planNotificationSync } from '../lib/planNotificationSync';
 import type { AppLanguage } from '../types/models';
 
 export const TRAINING_NOTIFICATION_CHANNEL_ID = 'training';
@@ -100,14 +102,22 @@ function signatureOf(item: PlannedNotification) {
   return [item.key, item.fireAtMs, item.title, item.body].join('|');
 }
 
-async function cancelOurScheduled(
-  requests: Notifications.NotificationRequest[],
-  predicate: (request: Notifications.NotificationRequest) => boolean,
-) {
+/**
+ * Whether this process has put the plan onto the OS clock itself yet.
+ *
+ * What the OS reports as pending is expo-notifications' stored list, and a
+ * force-stop or an exact-alarm revoke cancels the alarms behind it without
+ * touching the list; the library re-arms it on boot and app update only. So
+ * the first sync of each process re-arms every plan request instead of
+ * trusting the list, and later ones diff (native audit, 2026-09-21).
+ */
+let armedThisProcess = false;
+
+async function cancelOurScheduled(identifiers: readonly string[]) {
   await Promise.all(
-    requests.filter(predicate).map(async (request) => {
+    identifiers.map(async (identifier) => {
       try {
-        await Notifications.cancelScheduledNotificationAsync(request.identifier);
+        await Notifications.cancelScheduledNotificationAsync(identifier);
       } catch {
         // Already fired or cancelled; nothing to undo.
       }
@@ -138,28 +148,29 @@ export async function syncPlannedNotifications(
     // No permission (never granted, or revoked in system settings): drop
     // everything rather than keep alarms that can no longer be delivered.
     const granted = await getNotificationPermissionGranted();
-    if (!granted || plan.length === 0) {
-      await cancelOurScheduled(ours, () => true);
+    const wanted = new Map(plan.map((item) => [signatureOf(item), item] as const));
+    const steps = planNotificationSync({
+      pending: ours.map((request) => ({
+        identifier: request.identifier,
+        signature: String(request.content.data?.signature ?? ''),
+      })),
+      wanted: [...wanted.keys()],
+      rearm: !armedThisProcess,
+      allowed: granted,
+    });
+
+    await cancelOurScheduled(steps.cancel);
+    if (steps.schedule.length === 0 && steps.keep.length === 0) {
+      armedThisProcess = true;
       return 0;
     }
 
     await ensureChannel(language);
 
-    const wanted = new Map(plan.map((item) => [signatureOf(item), item] as const));
-    const kept = new Set<string>();
-
-    await cancelOurScheduled(ours, (request) => {
-      const signature = String(request.content.data?.signature ?? '');
-      if (wanted.has(signature) && !kept.has(signature)) {
-        kept.add(signature);
-        return false;
-      }
-      return true;
-    });
-
-    let pending = kept.size;
-    for (const [signature, item] of wanted) {
-      if (kept.has(signature)) {
+    let pending = steps.keep.length;
+    for (const signature of steps.schedule) {
+      const item = wanted.get(signature);
+      if (!item) {
         continue;
       }
       try {
@@ -188,6 +199,9 @@ export async function syncPlannedNotifications(
       }
     }
 
+    // Set only once the writes are done: a sync that threw on the way leaves
+    // the next one to re-arm everything again.
+    armedThisProcess = true;
     return pending;
   } catch {
     // Notifications are an enhancement — never let scheduling break the app.
