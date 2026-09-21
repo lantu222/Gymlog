@@ -266,7 +266,7 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
            * `void` write: a refused write is rolled back by `commit` and
            * rethrown, so the reader got a receipt for Pro over an app that had
            * just put Pro back off, and an unhandled rejection with it (audit,
-           * 2026-09-21).
+           * 2026-09-20).
            */
           const turnProOn = async (patch: Partial<AppPreferences>) => {
             try {

@@ -3843,7 +3843,7 @@ function VinhaApp() {
    * the reset never touched it: chat, reset, onboard again and open the coach
    * inside eight hours, and the old thread was back on screen — and in live
    * mode sent to the model as the history of a reader who had just asked for
-   * all of it to go (audit, 2026-09-21).
+   * all of it to go (audit, 2026-09-20).
    */
   const handleResetAllData = useCallback(async () => {
     await resetAllData();
@@ -5524,7 +5524,7 @@ function VinhaApp() {
    * and Profile already count. Handed every saved session, the activity card
    * counted a free workout with weights typed and nothing ticked, and read
    * "3 viikkoa putkeen · 3 treeniä" over a calendar that marked two (audit,
-   * 2026-09-21). The History card at the foot of the tab keeps every saved
+   * 2026-09-20). The History card at the foot of the tab keeps every saved
    * session, as History itself does.
    */
   const completedWorkoutSessions = useMemo(

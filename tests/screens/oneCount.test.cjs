@@ -54,7 +54,7 @@ const emptyDatabase = () => ({
 
 /**
  * One count of what was done, and nothing claimed before it happened — the
- * wiring half of the audit of 2026-09-21. The rules are in lib/sessionTotals
+ * wiring half of the audit of 2026-09-20. The rules are in lib/sessionTotals
  * and lib/completedSessions; these hold the places that read them.
  */
 module.exports = [

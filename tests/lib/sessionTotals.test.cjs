@@ -60,7 +60,7 @@ const log = (overrides) => ({
 });
 
 /**
- * One count of what was done (audit, 2026-09-21): the sets, the kilos and the
+ * One count of what was done (audit, 2026-09-20): the sets, the kilos and the
  * exercises of a saved session are read off its logs by one rule, and every
  * surface that shows them — the completion screen, History, the stored row
  * the rest of the app reads — agrees.

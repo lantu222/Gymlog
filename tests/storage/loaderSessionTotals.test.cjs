@@ -83,7 +83,7 @@ function storedBeforeTheFix() {
 }
 
 /**
- * One count of what was done (audit, 2026-09-21), from the loader's side: a
+ * One count of what was done (audit, 2026-09-20), from the loader's side: a
  * total an older build wrote into a session row is not carried forward.
  */
 module.exports = [

@@ -11,7 +11,7 @@ import { getCompletedSetCount, getSessionTotalVolume } from './progression';
  * #159 stopped counting sets that were never ticked; every session saved
  * before it kept the old count. The same workout then read 4 sets and 1 960 kg
  * on Progress, Profile, the widget and the weekly notification, and 2 sets and
- * 960 kg in History, which recomputes (audit, 2026-09-21). The logs are the
+ * 960 kg in History, which recomputes (audit, 2026-09-20). The logs are the
  * record; these numbers are only ever a reading of them.
  */
 
@@ -32,7 +32,7 @@ type LoggedExercise = {
  * saved with nothing done in it whenever it was swapped, given a note or
  * added mid-session. Bench done beside a row swapped and never started read
  * "1 LIIKETTÄ" on the way out and "2 liikettä" in History (audit,
- * 2026-09-21).
+ * 2026-09-20).
  *
  * It is also what makes a session count at all: a session is a completed one
  * when an exercise in it was done (see getCanonicalCompletedSessions).
