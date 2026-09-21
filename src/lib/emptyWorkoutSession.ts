@@ -9,6 +9,7 @@
 import { parseNumberInput } from './format';
 import { REPS_DIAL } from './weightDial';
 import { isLiftableWeight } from './weightLimits';
+import { isExerciseDone } from './sessionTotals';
 import {
   ExercisePrLookup,
   WorkoutCompletionExerciseCard,
@@ -584,6 +585,7 @@ export function buildFreestyleFinish({
     [{ exerciseNames: named.map((exercise) => exercise.name) }],
     workoutName,
   )[0];
+  const logs = buildLogDrafts(named, performedAtIso);
 
   return {
     draft: {
@@ -614,10 +616,13 @@ export function buildFreestyleFinish({
       durationMinutes: Math.max(1, Math.round(elapsedSeconds / 60)),
       setsCompleted: freestyleDoneSetCount(named),
       totalVolume: freestyleVolumeKg(named),
-      exercisesLogged: named.length,
+      // The lifts done, off the logs this save writes and by the rule History
+      // reads them with. Every named row used to count, so a lift typed in and
+      // never ticked made "2 LIIKETTÄ" of a session that had one.
+      exercisesLogged: logs.filter(isExerciseDone).length,
       exerciseCards,
       prCards,
-      logs: buildLogDrafts(named, performedAtIso),
+      logs,
     },
   };
 }

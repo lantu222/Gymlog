@@ -441,6 +441,8 @@ const EN = {
   'toast.startEmptyFailed': 'Could not start. Try again.',
   'toast.limitationsSaveFailed': 'Could not save your limitations',
   'premium.purchaseUnavailable': 'Buying is not available in this build yet',
+  // The write that turns Pro on was refused, so the unlock screen is not shown.
+  'toast.proUnlockFailed': 'Pro did not turn on. Try again.',
   'toast.lastExerciseInDay': 'That is the last exercise of the day — delete the day in the editor instead',
   'toast.ownProgrammeVersion': 'You already have your own version of this programme — opening it, so you can see what you change',
   // Was an English literal inside App.tsx, shown in a Finnish app.
@@ -3537,6 +3539,7 @@ const FI: Record<I18nKey, string> = {
   'toast.startEmptyFailed': 'Aloitus ei onnistunut. Yritä uudelleen.',
   'toast.limitationsSaveFailed': 'Rajoituksia ei voitu tallentaa',
   'premium.purchaseUnavailable': 'Ostaminen ei ole vielä käytössä tässä versiossa',
+  'toast.proUnlockFailed': 'Pro ei mennyt päälle. Yritä uudelleen.',
   'toast.lastExerciseInDay': 'Tämä on päivän viimeinen liike — poista koko päivä muokkaimessa',
   'toast.ownProgrammeVersion': 'Sinulla on tästä ohjelmasta oma versio — avataan se, niin näet mitä muutat',
   'toast.cardioSaveFailed': 'Cardio-treeniä ei voitu tallentaa',

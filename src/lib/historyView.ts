@@ -1,6 +1,6 @@
 import { ExerciseLog, SessionFeel, WorkoutSession } from '../types/models';
 import { getComparableLogSets } from './exerciseLog';
-import { getCompletedSetCount, getSessionTotalVolume } from './progression';
+import { getSessionTotals } from './sessionTotals';
 
 export type HistoryFilter = 'all' | 'needs_review' | 'tracked';
 
@@ -79,19 +79,22 @@ export function buildHistorySessionViewModel(
   const topLiftWeightKg = topLog
     ? getComparableLogSets(topLog).reduce((top, set) => Math.max(top, set.weight), 0)
     : null;
+  const totals = getSessionTotals(logs);
 
   return {
     sessionId: session.id,
     workoutName: session.workoutNameSnapshot,
     performedAt: session.performedAt,
     durationMinutes,
-    // The lifts done, as the completion screen counts them; a skipped one is
-    // listed as skipped beside it, not counted twice.
-    exerciseCount: logs.filter((log) => !log.skipped).length,
+    // The lifts done, by the rule the completion screen counts them with; a
+    // skipped one is listed as skipped beside it, not counted twice. This
+    // said "every log not skipped", which counted a lift swapped and never
+    // started as one done.
+    exerciseCount: totals.exercisesCompleted,
     skippedExercises,
     trackedExercises,
-    setsCompleted: getCompletedSetCount(logs),
-    totalVolume: getSessionTotalVolume(logs),
+    setsCompleted: totals.setsCompleted,
+    totalVolume: totals.totalVolumeKg,
     topLiftName: topLog?.exerciseNameSnapshot ?? null,
     topLiftWeightKg,
     swappedExercises,

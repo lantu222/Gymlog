@@ -990,6 +990,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
         entriesSaved: 0,
         setsCompleted: 0,
         totalVolume: 0,
+        exercisesCompleted: 0,
         durationMinutes: 0,
       };
     }

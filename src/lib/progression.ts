@@ -120,7 +120,7 @@ export function getTotalReps(repsPerSet: number[]) {
   return repsPerSet.reduce((sum, reps) => sum + reps, 0);
 }
 
-export function getCompletedSetCount(logs: Pick<ExerciseLog, 'weight' | 'repsPerSet' | 'sets' | 'skipped'>[]) {
+export function getCompletedSetCount(logs: readonly Pick<ExerciseLog, 'weight' | 'repsPerSet' | 'sets' | 'skipped'>[]) {
   return logs.reduce((sum, log) => sum + (log.skipped ? 0 : getComparableLogSets(log).length), 0);
 }
 
@@ -129,7 +129,7 @@ export function getTotalVolume(log: Pick<ExerciseLog, 'weight' | 'repsPerSet' | 
 }
 
 export function getSessionTotalVolume(
-  logs: Pick<ExerciseLog, 'weight' | 'repsPerSet' | 'sets' | 'skipped'>[],
+  logs: readonly Pick<ExerciseLog, 'weight' | 'repsPerSet' | 'sets' | 'skipped'>[],
 ) {
   return logs.reduce((sum, log) => sum + (log.skipped ? 0 : getTotalVolume(log)), 0);
 }

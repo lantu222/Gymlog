@@ -105,7 +105,9 @@ module.exports = [
 
       const profile = read('src', 'app', 'renderProfileTab.tsx');
       assert.match(profile, /const trialUntil = canStartProTrial\(preferences\) && plan !== 'lifetime' \? resolveTrialProUntil\(\) : null;/);
-      assert.match(profile, /updatePreferences\(\{ proTrialUntil: trialUntil, proTrialStartedAt: new Date\(\)\.toISOString\(\) \}\)/);
+      // Written through turnProOn since 2026-09-21: the same patch, now awaited
+      // before the unlock screen opens (see screens/oneCount).
+      assert.match(profile, /turnProOn\(\{ proTrialUntil: trialUntil, proTrialStartedAt: new Date\(\)\.toISOString\(\) \}\)/);
       assert.doesNotMatch(profile, /PRO_TRIAL_ENABLED && plan !== 'lifetime'/, 'the CTA still mints a trial on every press');
 
       // Once the trial is spent the same button is a purchase, so the screen
@@ -113,7 +115,12 @@ module.exports = [
       // demo build: reachable after the trial, it would otherwise be a free
       // Pro that never expires in any build shipped without billing.
       assert.match(profile, /trialAvailable=\{canStartProTrial\(preferences\)\}/);
-      const purchase = profile.slice(profile.indexOf('onPurchase={(plan) => {'), profile.indexOf("onOpenLegal={(document) => navigate({ tab: 'profile', screen: 'legal', document })}"));
+      // The handler is async since it waits on its write. Asserted found: a
+      // -1 here slices from the end of the file and the checks below would
+      // read nothing.
+      const purchaseStart = profile.indexOf('onPurchase={async (plan) => {');
+      assert.ok(purchaseStart > -1, 'the purchase handler moved');
+      const purchase = profile.slice(purchaseStart, profile.indexOf("onOpenLegal={(document) => navigate({ tab: 'profile', screen: 'legal', document })}"));
       const guard = purchase.indexOf('if (!isDemoBuild()) {');
       const write = purchase.indexOf('mockSubscriptionPurchasedAt: new Date().toISOString()');
       assert.ok(guard > 0 && guard < write, 'the invented purchase is written outside the demo build');

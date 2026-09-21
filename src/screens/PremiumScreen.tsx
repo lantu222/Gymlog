@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
@@ -70,8 +70,11 @@ interface PremiumScreenProps {
    * Buys Pro. One direction only — this page sells, it does not cancel.
    * Ending a membership lives on the subscription screen, where the reader
    * can see what they are giving up and when it stops.
+   *
+   * May return the write it waits on; the button ignores presses until it
+   * settles.
    */
-  onPurchase: (plan: PlanId) => void;
+  onPurchase: (plan: PlanId) => void | Promise<void>;
   /** Where an existing subscriber goes instead of the buy CTA. */
   onManageSubscription: () => void;
   onOpenLegal: (document: 'privacy' | 'terms') => void;
@@ -242,6 +245,7 @@ export function PremiumScreen({
 }: PremiumScreenProps) {
   const [tab, setTab] = useState<ProTierKey>('pro');
   const [plan, setPlan] = useState<ProPlanId>(() => defaultPlanForTier('pro'));
+  const purchasing = useRef(false);
   const { width } = useWindowDimensions();
 
   const tier: ProTier = PRO_TIERS[tab];
@@ -268,7 +272,22 @@ export function PremiumScreen({
       onBack();
       return;
     }
-    onPurchase(activePlan.id as PlanId);
+    // One at a time. The unlock screen waits for the write that turns Pro on,
+    // so this page stays up while it lands, and a second tap in that moment
+    // would start a second write and push a second unlock screen.
+    if (purchasing.current) {
+      return;
+    }
+    purchasing.current = true;
+    void (async () => {
+      try {
+        await onPurchase(activePlan.id as PlanId);
+      } catch (error) {
+        console.error('Pro purchase failed', error);
+      } finally {
+        purchasing.current = false;
+      }
+    })();
   };
 
   return (

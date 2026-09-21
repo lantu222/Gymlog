@@ -209,7 +209,10 @@ module.exports = [
       // purchase. The page sells; the subscription screen cancels.
       const premium = read('src', 'screens', 'PremiumScreen.tsx');
       assert.doesNotMatch(premium, /previewOff|previewUnlocked|onTogglePreview/);
-      assert.match(premium, /onPurchase: \(plan: PlanId\) => void;/);
+      // One callback, one direction. It may hand back the write it waits on
+      // (2026-09-21: the unlock screen follows the write), which is still
+      // not a way to switch Pro back off.
+      assert.match(premium, /onPurchase: \(plan: PlanId\) => void \| Promise<void>;/);
     },
   },
   {

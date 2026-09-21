@@ -310,6 +310,11 @@ export interface WorkoutSession {
   performedAt: string;
   startedAt?: string;
   durationMinutes?: number;
+  /**
+   * setsCompleted, exercisesCompleted and totalVolumeKg are a reading of this
+   * session's logs (lib/sessionTotals), taken at save and again on every
+   * load — never trusted as stored.
+   */
   setsCompleted?: number;
   exercisesCompleted?: number;
   exercisesSkipped?: number;
