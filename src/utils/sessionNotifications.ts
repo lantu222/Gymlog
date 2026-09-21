@@ -242,6 +242,36 @@ export async function getRestAlertPermission(): Promise<RestAlertPermission> {
   return permission;
 }
 
+/**
+ * Whether the reader has switched the rest-alert channel off in Android's
+ * own settings (importance NONE). The app-wide permission stays granted
+ * then, so every check that read only the permission called the alert
+ * allowed while Android dropped each one (native audit, 2026-09-21). False
+ * off Android and before the channel exists — nothing has muted it then.
+ */
+export async function isRestAlertChannelBlocked(): Promise<boolean> {
+  if (Platform.OS !== 'android') {
+    return false;
+  }
+  try {
+    const channel = await Notifications.getNotificationChannelAsync(REST_CHANNEL_ID);
+    return channel?.importance === Notifications.AndroidImportance.NONE;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether an end-of-rest alert can reach the reader: the app may notify AND
+ * the rest-alert channel is not switched off. What Settings shows.
+ */
+export async function getRestAlertsAllowed(): Promise<boolean> {
+  if ((await getRestAlertPermission()) !== 'granted') {
+    return false;
+  }
+  return !(await isRestAlertChannelBlocked());
+}
+
 /** The system dialog. Only called after the in-app ask (rule 05). */
 export async function requestRestAlertPermission(): Promise<RestAlertPermission> {
   if (Platform.OS === 'web') {

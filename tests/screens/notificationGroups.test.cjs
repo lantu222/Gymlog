@@ -121,6 +121,30 @@ module.exports = [
     },
   },
   {
+    name: 'notifications: a rest-alert channel switched off in Android settings shows the workout card as blocked',
+    run() {
+      // Native audit, 2026-09-21: the card read the app-wide permission only,
+      // so a reader who muted "Rest alerts" in system settings was told
+      // nothing while every alert was dropped. The channel is read in
+      // tests/utils/sessionNotifications.test.cjs; this is the wiring.
+      const read = between(screen, 'const readWorkoutAccess = useCallback(', '}, [');
+      assert.match(read, /void checkWorkoutAlerts\?\.\(\)\.then\(setOsAllowed\);/);
+      assert.doesNotMatch(read, /checkPermission/, 'the card reads the permission alone again');
+      assert.match(tab, /checkWorkoutAlerts=\{getRestAlertsAllowed\}/);
+      // Turning the master on reads the card's answer rather than assuming it.
+      const master = between(screen, 'const handleMasterChange', 'const handleGroupToggle');
+      assert.doesNotMatch(master, /setOsAllowed\(granted\)/);
+      assert.match(master, /readWorkoutAccess\(\);/);
+      // Allow cannot unmute a channel with a dialog: it opens the app's page
+      // and says "not yet", so the card stays until the channel is back on.
+      const allow = between(tab, 'async function allowWorkoutAlerts', 'function allowExactAlarms');
+      assert.match(
+        allow,
+        /if \(await isRestAlertChannelBlocked\(\)\) \{\s*await Linking\.openSettings\(\)\.catch\(\(\) => undefined\);\s*return false;\s*\}\s*return true;/,
+      );
+    },
+  },
+  {
     name: 'notifications: the level is one segmented control, not three radio rows',
     run() {
       assert.match(screen, /import \{ Seg \} from '\.\.\/components\/Seg'/);

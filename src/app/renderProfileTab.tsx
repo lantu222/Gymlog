@@ -27,7 +27,12 @@ import {
   requestNotificationPermission,
 } from '../utils/appNotifications';
 import { canScheduleExactAlarms, openExactAlarmSettings } from '../utils/exactAlarm';
-import { getRestAlertPermission, requestRestAlertPermission } from '../utils/sessionNotifications';
+import {
+  getRestAlertPermission,
+  getRestAlertsAllowed,
+  isRestAlertChannelBlocked,
+  requestRestAlertPermission,
+} from '../utils/sessionNotifications';
 import { EditProfileScreen } from '../screens/EditProfileScreen';
 import { ExportPlanScreen } from '../screens/ExportPlanScreen';
 import { LegalDocumentScreen } from '../screens/LegalDocumentScreen';
@@ -149,7 +154,18 @@ async function allowWorkoutAlerts(): Promise<boolean> {
     await Linking.openSettings().catch(() => undefined);
     return false;
   }
-  return (await requestRestAlertPermission()) === 'granted';
+  if ((await requestRestAlertPermission()) !== 'granted') {
+    return false;
+  }
+  // Allowed, but the reader switched the rest-alert channel off in Android's
+  // settings: no dialog can undo that, and "allowed" would hide the card
+  // over an alert that stays silent (native audit, 2026-09-21). Their own
+  // page does; the screen reads again when the app comes back.
+  if (await isRestAlertChannelBlocked()) {
+    await Linking.openSettings().catch(() => undefined);
+    return false;
+  }
+  return true;
 }
 
 function allowExactAlarms() {
@@ -454,6 +470,7 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
         }
         requestPermission={() => requestNotificationPermission(preferences.appLanguage)}
         checkPermission={getNotificationPermissionGranted}
+        checkWorkoutAlerts={getRestAlertsAllowed}
         allowWorkoutAlerts={allowWorkoutAlerts}
         checkExactAlarms={canScheduleExactAlarms}
         onAllowExactAlarms={allowExactAlarms}

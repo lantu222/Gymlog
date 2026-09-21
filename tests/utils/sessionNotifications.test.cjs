@@ -36,7 +36,8 @@ function createFakeNotifications() {
   const tick = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 
   const api = {
-    AndroidImportance: { HIGH: 4, DEFAULT: 3, LOW: 2 },
+    // expo-notifications' own numbering (NotificationChannelManager.types).
+    AndroidImportance: { NONE: 2, MIN: 3, LOW: 4, DEFAULT: 5, HIGH: 6 },
     AndroidNotificationVisibility: { PUBLIC: 1, PRIVATE: 0 },
     AndroidNotificationPriority: { HIGH: 'high', LOW: 'low' },
     SchedulableTriggerInputTypes: { TIME_INTERVAL: 'timeInterval', DATE: 'date' },
@@ -44,7 +45,15 @@ function createFakeNotifications() {
     async setNotificationChannelAsync(id, channel) {
       await tick();
       calls.channel += 1;
-      channels.set(id, channel);
+      // Android lets an app rename its channel but keeps the importance the
+      // reader set for it in system settings.
+      const existing = channels.get(id);
+      channels.set(id, existing ? { ...channel, importance: existing.importance } : { ...channel });
+    },
+    async getNotificationChannelAsync(id) {
+      await tick();
+      const channel = channels.get(id);
+      return channel ? { id, ...channel } : null;
     },
     async setNotificationCategoryAsync(id, actions) {
       await tick();
@@ -319,6 +328,38 @@ module.exports = [
       const before = { ...fake.calls };
       await session.setupSessionNotifications('fi');
       assert.deepEqual(fake.calls, before);
+    },
+  },
+  {
+    name: 'rest alerts: the rest-alert channel switched off in Android settings reads as not allowed',
+    async run() {
+      // Native audit, 2026-09-21: the permission is app-wide and stays
+      // granted when the reader mutes one channel, so Settings called a
+      // muted rest alert allowed.
+      const fake = createFakeNotifications();
+      const { session } = loadAgainst(fake);
+      const { NONE, HIGH } = fake.api.AndroidImportance;
+
+      // No workout screen has made the channel yet: nothing has muted it.
+      assert.equal(await session.isRestAlertChannelBlocked(), false);
+      await session.setupSessionNotifications('en');
+      assert.equal(await session.getRestAlertsAllowed(), true);
+
+      fake.channels.get('rest-timer').importance = NONE;
+      assert.equal(await session.getRestAlertPermission(), 'granted', 'the fixture should keep the permission on');
+      assert.equal(await session.isRestAlertChannelBlocked(), true);
+      assert.equal(await session.getRestAlertsAllowed(), false, 'a muted rest-alert channel reads as allowed');
+      // Registering the channel again — a language switch — does not unmute it.
+      await session.setupSessionNotifications('fi');
+      assert.equal(await session.getRestAlertsAllowed(), false);
+
+      // Another channel muted is not this one.
+      fake.channels.get('rest-timer').importance = HIGH;
+      fake.channels.get('session-ongoing').importance = NONE;
+      assert.equal(await session.getRestAlertsAllowed(), true);
+      // And without the permission it is no, whatever the channel says.
+      fake.setGranted(false);
+      assert.equal(await session.getRestAlertsAllowed(), false);
     },
   },
   {
