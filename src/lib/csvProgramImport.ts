@@ -209,7 +209,11 @@ export function parseCsvProgram(
     const cells = splitCsvLine(lines[index], delimiter);
     const day = (cells[dayIndex] ?? '').trim();
     const exerciseName = (cells[exerciseIndex] ?? '').trim();
-    const sets = Number.parseInt((cells[setsIndex] ?? '').trim(), 10);
+    // A whole number, all of it. parseInt read "2,5" as 2 and "3-4" as 3 and
+    // reported nothing (decimal audit, 2026-09-21); a count of sets that is
+    // not one is the reader's to fix, like a missing name.
+    const setsText = (cells[setsIndex] ?? '').trim();
+    const sets = /^\d+$/.test(setsText) ? Number(setsText) : Number.NaN;
     const reps = parseReps((cells[repsIndex] ?? '').trim());
 
     if (!day || !exerciseName) {
@@ -217,7 +221,7 @@ export function parseCsvProgram(
       continue;
     }
     if (!Number.isFinite(sets) || sets <= 0) {
-      errors.push(`Row ${index + 1}: sets must be a positive number.`);
+      errors.push(`Row ${index + 1}: sets must be a whole number above zero.`);
       continue;
     }
     if (!reps) {

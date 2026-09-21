@@ -64,10 +64,26 @@ export function commitDialWeight(
 ): number {
   // parseNumberInput takes the Finnish comma as well as the dot.
   const parsed = parseNumberInput(text);
-  if (parsed === null) {
+  // Past the ceiling is a typo, not a heavier set: "825" is 82,5 with the
+  // comma missed. It was clamped, so the field read 825 while the set logged
+  // 500 kg and carried 500 into the next one (decimal audit, 2026-09-21).
+  // The set-log editor and the freestyle fields already refuse it.
+  if (parsed === null || parsed > max) {
     return toDialPrecision(Math.min(max, Math.max(0, previousKg)));
   }
-  return toDialPrecision(Math.min(max, Math.max(0, parsed)));
+  return toDialPrecision(Math.max(0, parsed));
+}
+
+/**
+ * Whether text typed into the weight dial is a weight the set can log.
+ *
+ * While it is not — empty mid-edit, "82,,5", "825" — the dial keeps the last
+ * number that was, and the log button waits: a set must log what the field
+ * says, and the field does not say a weight.
+ */
+export function isLoggableTypedWeight(text: string, { max = WEIGHT_DIAL_MAX_KG }: DialBounds = {}): boolean {
+  const parsed = parseNumberInput(text);
+  return parsed !== null && parsed >= 0 && parsed <= max;
 }
 
 /** The reps dial: whole numbers. 300 is past any set anyone logs on purpose. */

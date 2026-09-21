@@ -76,6 +76,16 @@ export function parseCardioDistanceKm(input: string): number | null {
   return Math.round(parsed * 100) / 100;
 }
 
+/**
+ * Whether the distance field can be saved as it stands: empty (no distance),
+ * or a distance. Text that is neither — "4,2,", "4..2", "1000" — used to save
+ * the run with no distance at all, and the only sign was the pace line going
+ * away (decimal audit, 2026-09-21).
+ */
+export function isCardioDistanceTextSavable(input: string): boolean {
+  return !input.trim() || parseCardioDistanceKm(input) !== null;
+}
+
 /** Derived avg pace in seconds per km; null without a usable distance. */
 export function getCardioAvgPaceSecPerKm(durationSec: number, distanceKm: number | null | undefined): number | null {
   if (!distanceKm || distanceKm <= 0 || durationSec <= 0) {

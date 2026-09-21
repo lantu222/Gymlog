@@ -115,6 +115,7 @@ const suites = [
   ...require('./lib/sessionAdaptation.test.cjs'),
   ...require('./lib/liftSegments.test.cjs'),
   ...require('./lib/swapTrackingMode.test.cjs'),
+  ...require('./lib/typedIsLogged.test.cjs'),
   ...require('./lib/sessionDuration.test.cjs'),
   ...require('./lib/sessionOverviewRows.test.cjs'),
   ...require('./lib/ownBlockHistory.test.cjs'),
