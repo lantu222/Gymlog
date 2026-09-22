@@ -168,8 +168,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 14.5,
     fontWeight: '800',
   },
+  // The theme's danger ink, not a fixed #C0392B: that one was a light-surface
+  // red, 3.23:1 on the dark card (accessibility audit, 2026-09-21). #DC2626
+  // is 4.83 on white and #FF6B6B 6.33 on the dark surface.
   setTitleDanger: {
-    color: '#C0392B',
+    color: theme.danger,
   },
   setSub: {
     color: theme.muted,

@@ -72,11 +72,15 @@ function Chip({
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
   return (
+    // The white-label violet under a picked chip's white text, and a slop
+    // that takes the 34-tall chip to 44 inside a row padded for it
+    // (accessibility audit, 2026-09-21).
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected: on }}
+      hitSlop={{ top: 5, bottom: 5 }}
       onPress={onPress}
-      style={[styles.chip, on && { backgroundColor: theme.purple, borderColor: theme.purple }]}
+      style={[styles.chip, on && { backgroundColor: theme.purpleFill, borderColor: theme.purpleFill }]}
     >
       <Text style={[styles.chipText, on && styles.chipTextOn]}>{label}</Text>
     </Pressable>
@@ -296,15 +300,20 @@ const makeStyles = (theme: Theme) =>
       // field taller than the 44 it is styled to be.
       paddingVertical: 0,
     },
+    // 5 of the 10 moved inside the row, and 5 given back below: the chips
+    // sit where they did, and the row is tall enough that Android does not
+    // clip their hitSlop to 34 (accessibility audit, 2026-09-21).
     chipScroll: {
       flexGrow: 0,
-      marginTop: 10,
+      marginTop: 5,
+      marginBottom: -5,
     },
     chipRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
       paddingHorizontal: 20,
+      paddingVertical: 5,
     },
     chip: {
       height: 34,

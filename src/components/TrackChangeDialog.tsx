@@ -276,7 +276,8 @@ const makeStyles = (theme: Theme) =>
       borderRadius: 16,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: theme.purple,
+      // The white-label violet (accessibility audit, 2026-09-21).
+      backgroundColor: theme.purpleFill,
     },
     ctaText: {
       color: '#FFFFFF',

@@ -1067,6 +1067,7 @@ export function ProgramDayScreen({
         }
         description={drillCurrent?.name}
         bottomInset={insets.bottom}
+        closeLabel={t(language, 'common.close')}
         barUp={drillPick !== null}
         bar={
           <KitBar
@@ -1117,6 +1118,7 @@ export function ProgramDayScreen({
         title={t(language, 'kit.swapTitle')}
         context={exerciseNameLabel(language, swapRow?.currentName ?? '')}
         bottomInset={insets.bottom}
+        closeLabel={t(language, 'common.close')}
         barUp={swapPickName !== null}
         bar={
           <KitBar
@@ -1269,6 +1271,7 @@ export function ProgramDayScreen({
         title={tuneRow?.name ?? ''}
         context={t(language, 'detail.day.tuneEyebrow')}
         bottomInset={insets.bottom}
+        closeLabel={t(language, 'common.close')}
         barUp={tuneChanged}
         bar={
           <KitBar

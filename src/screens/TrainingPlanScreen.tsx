@@ -725,9 +725,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.surfaceSoft,
     borderRadius: 12,
   },
+  // 44 square, drawn and touched. A hitSlop would not do here: the pill
+  // behind the two buttons is their parent, Android clips a slop to it, and
+  // a 34-tall pill would have cut the target straight back to 38×34
+  // (accessibility audit, 2026-09-21).
   stepperButton: {
-    width: 38,
-    height: 34,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -863,7 +867,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   createButton: {
     height: 50,
     borderRadius: 15,
-    backgroundColor: theme.purple,
+    // The white-label violet (accessibility audit, 2026-09-21).
+    backgroundColor: theme.purpleFill,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 24,

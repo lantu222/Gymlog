@@ -9,6 +9,8 @@ import {
   View,
 } from 'react-native';
 
+import { removeTrailingZeros } from '../lib/format';
+import { rulerIndexOf, rulerStepCount, rulerValueAt, stepRulerValue } from '../lib/rulerValue';
 import { haptics } from '../utils/haptics';
 import { Theme, useThemedStyles, useTheme } from '../theming';
 
@@ -69,6 +71,14 @@ interface RulerPickerProps {
    * saturated ground.
    */
   tone?: 'surface' | 'inverse';
+  /**
+   * What the ruler measures, for a screen reader — "Paino", "Pituus", the
+   * measure's name. Required: the ruler is an adjustable control now, and an
+   * adjustable with no name is "slider, 75 kg" of nothing in particular.
+   */
+  accessibilityLabel: string;
+  /** Spoken after the value: "kg", "cm", "%". */
+  unit: string;
 }
 
 export function RulerPicker({
@@ -80,6 +90,8 @@ export function RulerPicker({
   onChange,
   tone = 'surface',
   formatMajor,
+  accessibilityLabel,
+  unit,
 }: RulerPickerProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -92,14 +104,33 @@ export function RulerPicker({
   const reportedRef = useRef(value);
   const settledRef = useRef(false);
 
-  const stepCount = Math.max(1, Math.round((max - min) / step));
-  const indexFor = (candidate: number) => Math.round((candidate - min) / step);
-  const valueFor = (index: number) => {
-    // Rebuilt from the index rather than accumulated, so 0.1 steps do not
-    // drift into 74.30000000000001 after three hundred ticks.
-    const raw = min + index * step;
-    const decimals = step < 1 ? 1 : 0;
-    return Number(raw.toFixed(decimals));
+  // The arithmetic lives in lib/rulerValue, shared with the screen-reader
+  // steps below. Values are rebuilt from the index rather than accumulated,
+  // so 0.1 steps do not drift into 74.30000000000001.
+  const bounds = { min, max, step };
+  const stepCount = rulerStepCount(bounds);
+  const indexFor = (candidate: number) => rulerIndexOf(candidate, bounds);
+  const valueFor = (index: number) => rulerValueAt(index, bounds);
+
+  /**
+   * A screen reader's swipe up or down: one mark, then the ruler scrolls to
+   * it, exactly as if a thumb had moved it there (accessibility audit,
+   * 2026-09-21). Reported first, so the scroll that follows reads as the
+   * value already reported and does not call onChange a second time.
+   */
+  const stepBy = (direction: -1 | 1) => {
+    const next = stepRulerValue(reportedRef.current, direction, bounds);
+    if (Math.abs(next - reportedRef.current) < step / 2) {
+      return;
+    }
+    reportedRef.current = next;
+    const index = indexFor(next);
+    if (width > 0) {
+      setWindowStart(Math.max(0, index - Math.ceil(width / TICK_GAP / 2)));
+      scrollRef.current?.scrollTo({ x: index * TICK_GAP, animated: false });
+    }
+    haptics.select();
+    onChange(next);
   };
 
   const onLayout = (event: LayoutChangeEvent) => {
@@ -211,7 +242,27 @@ export function RulerPicker({
   }
 
   return (
-    <View style={styles.wrap} onLayout={onLayout}>
+    // The ruler as ONE adjustable control. It was a bare horizontal scroll
+    // view — no role, no value, no way to move it without a finger — and
+    // About you keeps Continue shut until the weight is moved, so a
+    // screen-reader user could not get past it (accessibility audit,
+    // 2026-09-21).
+    <View
+      style={styles.wrap}
+      onLayout={onLayout}
+      accessible
+      accessibilityRole="adjustable"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityValue={{ text: `${removeTrailingZeros(value)} ${unit}` }}
+      accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === 'increment') {
+          stepBy(1);
+        } else if (event.nativeEvent.actionName === 'decrement') {
+          stepBy(-1);
+        }
+      }}
+    >
       {/* Labels ride above the ticks in the same coordinate space, so a label
           and its tick cannot drift apart when the font metrics change. */}
       <ScrollView

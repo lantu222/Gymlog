@@ -651,8 +651,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '600',
     marginTop: 2,
   },
+  // theme.danger rather than a fixed #C0392B, which was 3.23:1 on the dark
+  // card (accessibility audit, 2026-09-21).
   masterSubBlocked: {
-    color: '#C0392B',
+    color: theme.danger,
   },
   note: {
     color: theme.muted,
@@ -801,9 +803,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderColor: theme.border,
     backgroundColor: theme.bg,
   },
+  // The white-label violet (accessibility audit, 2026-09-21).
   timeChipActive: {
-    borderColor: theme.purple,
-    backgroundColor: theme.purple,
+    borderColor: theme.purpleFill,
+    backgroundColor: theme.purpleFill,
   },
   timeChipText: {
     color: theme.muted,

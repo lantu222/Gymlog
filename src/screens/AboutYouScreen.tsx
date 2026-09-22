@@ -10,6 +10,7 @@ import { removeTrailingZeros } from '../lib/format';
 import { I18nKey, t } from '../lib/i18n';
 import { darkTheme, Theme, useThemedStyles } from '../theming';
 import { HG_DARK } from '../darkTheme';
+import { HG } from '../lightTheme';
 import { AppLanguage, SetupAgeRange } from '../types/models';
 
 /**
@@ -36,7 +37,9 @@ const ABOUT_LIGHT: AboutPalette = {
   surface: '#FFFFFF',
   ink: '#101828',
   muted: '#667085',
-  faint: '#9A93AC',
+  // The theme's faint ink; a fixed #9A93AC was 2.94:1 on white
+  // (accessibility audit, 2026-09-21).
+  faint: HG.faint,
   border: '#E4D8FF',
   purple: '#7C3AED',
   purpleLight: '#EFE7FF',
@@ -250,6 +253,8 @@ export function AboutYouScreen({
               majorEvery={10}
               value={rulerKg}
               tone="inverse"
+              accessibilityLabel={t(language, 'weightLog.title')}
+              unit="kg"
               onChange={(next) => {
                 setRulerKg(next);
                 setWeightKg(next);

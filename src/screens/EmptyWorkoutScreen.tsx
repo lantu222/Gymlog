@@ -26,6 +26,7 @@ import {
 } from '../lib/supersetGrouping';
 import { SupersetBorder } from '../components/SupersetBorder';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
+import { setFieldAccessibilityLabel } from '../lib/accessibilityLabels';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { rankExerciseMatches } from '../lib/exerciseSearch';
 import { orderExercisesBySelection } from '../lib/exerciseSelectionOrder';
@@ -1041,9 +1042,16 @@ export function EmptyWorkoutScreen({
                       </Svg>
                     </Pressable>
                   ) : null}
+                  {/* 30 drawn, 44 to the thumb: the slop reaches it inside
+                      a head row made 44 tall for it, and stops short of the
+                      chain beside it on the left so a tap between the two
+                      never lands on the one that deletes (accessibility
+                      audit, 2026-09-21). Removal still has no undo — noted,
+                      not done here. */}
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={t(language, 'emptyWorkout.a11y.remove', { name: exercise.displayName })}
+                    hitSlop={{ top: 7, bottom: 7, left: 3, right: 7 }}
                     onPress={() => removeExercise(exercise.localKey)}
                     style={styles.exerciseRemove}
                   >
@@ -1069,10 +1077,20 @@ export function EmptyWorkoutScreen({
                         <Text style={[styles.setIndex, styles.setColIndex, setIndex === activeIndex && styles.setIndexActive]}>
                           {setIndex + 1}
                         </Text>
+                        {/* Named for a screen reader: lift, set, field, unit.
+                            The column headers are Text above the list, so a
+                            field on its own announced only its number
+                            (accessibility audit, 2026-09-21). */}
                         <TextInput
                           {...keyboard.field(`${set.localKey}:kg`)}
                           value={set.kg}
                           onChangeText={(value) => patchSet(exercise.localKey, set.localKey, { kg: value })}
+                          accessibilityLabel={setFieldAccessibilityLabel(
+                            language,
+                            'kg',
+                            setIndex + 1,
+                            exerciseNameLabel(language, exercise.displayName),
+                          )}
                           placeholder="0"
                           placeholderTextColor={AW3.ghost}
                           selectionColor={theme.purple}
@@ -1083,6 +1101,12 @@ export function EmptyWorkoutScreen({
                           {...keyboard.field(`${set.localKey}:reps`)}
                           value={set.reps}
                           onChangeText={(value) => patchSet(exercise.localKey, set.localKey, { reps: value })}
+                          accessibilityLabel={setFieldAccessibilityLabel(
+                            language,
+                            'reps',
+                            setIndex + 1,
+                            exerciseNameLabel(language, exercise.displayName),
+                          )}
                           placeholder="0"
                           placeholderTextColor={AW3.ghost}
                           selectionColor={theme.purple}
@@ -1521,11 +1545,14 @@ const makeStyles = (theme: Theme) => {
     maxWidth: 260,
     textAlign: 'center',
   },
+  // purpleFill wherever white is written on violet — this CTA, Finish, the
+  // picked chips and the sheet's Add: in dark `purple` is a text violet and
+  // white on it is 3.49:1 (accessibility audit, 2026-09-21).
   emptyCta: {
     alignSelf: 'stretch',
     height: 54,
     borderRadius: 16,
-    backgroundColor: theme.purple,
+    backgroundColor: theme.purpleFill,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1626,10 +1653,17 @@ const makeStyles = (theme: Theme) => {
     borderTopWidth: 1,
     borderTopColor: AW3.hair,
   },
+  // 44 tall and 7 wider on the right than it looks, so the remove button's
+  // hitSlop is inside its parent: Android clips a slop to the parent's bounds
+  // (accessibility audit, 2026-09-21). The block's 20 of side padding is
+  // what the 7 borrows.
   exerciseHead: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 11,
+    minHeight: 44,
+    marginRight: -7,
+    paddingRight: 7,
   },
   exerciseHeadCopy: {
     flex: 1,
@@ -1724,8 +1758,10 @@ const makeStyles = (theme: Theme) => {
   setIndexActive: {
     color: theme.purple,
   },
+  // minHeight, not height: a fixed 40 clipped the number at the large font
+  // sizes (accessibility audit, 2026-09-21).
   setInput: {
-    height: 40,
+    minHeight: 40,
     borderRadius: 10,
     borderWidth: 1.5,
     borderColor: AW3.fieldBorder,
@@ -1812,7 +1848,7 @@ const makeStyles = (theme: Theme) => {
   finishButton: {
     height: 54,
     borderRadius: 16,
-    backgroundColor: theme.purple,
+    backgroundColor: theme.purpleFill,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1937,8 +1973,8 @@ const makeStyles = (theme: Theme) => {
     borderColor: AW3.fieldBorder,
   },
   sheetChipActive: {
-    backgroundColor: theme.purple,
-    borderColor: theme.purple,
+    backgroundColor: theme.purpleFill,
+    borderColor: theme.purpleFill,
   },
   sheetChipText: {
     fontSize: 13.5,
@@ -2099,7 +2135,7 @@ const makeStyles = (theme: Theme) => {
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.purple,
+    backgroundColor: theme.purpleFill,
     shadowColor: theme.purple,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.32,

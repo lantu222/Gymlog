@@ -931,8 +931,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 999,
   },
+  // The white-label violet (accessibility audit, 2026-09-21).
   chipFilled: {
-    backgroundColor: theme.purple,
+    backgroundColor: theme.purpleFill,
   },
   chipSoft: {
     backgroundColor: theme.purpleLight,

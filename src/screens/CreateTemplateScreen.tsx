@@ -648,7 +648,15 @@ export function CreateTemplateScreen({
                           </View>
                         </View>
 
+                        {/* Named, and 44 to the thumb: this was a bare "X"
+                            in a 32-wide circle (accessibility audit,
+                            2026-09-21). */}
                         <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={t(language, 'emptyWorkout.a11y.remove', {
+                            name: exerciseNameLabel(language, exercise.name),
+                          })}
+                          hitSlop={6}
                           onPress={() => removeExercise(session.localKey, exercise.localKey)}
                           style={styles.exerciseRemoveButton}
                         >

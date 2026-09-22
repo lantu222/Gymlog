@@ -37,6 +37,13 @@ export interface Theme {
   purple: string;
   purpleBright: string;
   purpleDark: string;
+  /**
+   * The violet a WHITE label sits on — a filled button, chip or tag. Not
+   * `purple`: in dark that is a light violet built to be read as text on a
+   * near-black page, and white on it is 3.5:1. Borders, dots, bars and violet
+   * text keep `purple`; anything with white written on it takes this.
+   */
+  purpleFill: string;
   purpleLight: string;
   purpleSoft: string;
   green: string;

@@ -302,7 +302,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 12,
     height: 44,
     borderRadius: 12,
-    backgroundColor: theme.purple,
+    // The white-label violet (accessibility audit, 2026-09-21).
+    backgroundColor: theme.purpleFill,
     alignItems: 'center',
     justifyContent: 'center',
   },

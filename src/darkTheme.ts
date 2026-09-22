@@ -50,6 +50,12 @@ export const HG_DARK = {
   purple: '#9B6DFF',
   purpleBright: '#A78BFA',
   purpleDark: '#8B5CF6',
+  // The violet under a white label (accessibility audit, 2026-09-21). The
+  // lifted ramp above is right for violet TEXT on this page and wrong under
+  // white text: white on `purple` is 3.49:1, on `purpleBright` 2.72, on
+  // `purpleDark` 4.23. #7C3AED takes white at 5.70:1 and still stands 3.08:1
+  // off `surface`, so a filled button reads as a shape rather than a hole.
+  purpleFill: '#7C3AED',
   purpleLight: '#2C2350',
   purpleSoft: '#2A2049',
   green: '#37D08A',

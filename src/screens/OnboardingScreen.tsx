@@ -207,7 +207,9 @@ const ONB_LIGHT: OnbPalette = {
   // Emphasis treatment (user-approved on Welcome/StartPath/Health): secondary
   // copy runs darker than the old #667085 so it stays legible on dim displays.
   textSoft: '#475467',
-  textMuted: '#9A93AC',
+  // The theme's faint ink, as dark already reads HG_DARK.faint. A fixed
+  // #9A93AC was 2.94:1 on the white cards (accessibility audit, 2026-09-21).
+  textMuted: HG.faint,
   border: '#E4D8FF',
   borderActive: '#7C3AED',
   trackIdle: '#E6DEF6',

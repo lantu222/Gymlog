@@ -176,6 +176,8 @@ export function WeightLogSheet({
         majorEvery={10}
         value={weight}
         onChange={setWeight}
+        accessibilityLabel={t(language, 'weightLog.title')}
+        unit="kg"
       />
 
       <SheetActions language={language} onCancel={onCancel} onSave={() => onSave(weight)} />
@@ -266,6 +268,8 @@ export function MeasureLogSheet({
         majorEvery={bounds.majorEvery}
         value={value}
         onChange={setValue}
+        accessibilityLabel={title}
+        unit={unit}
       />
 
       <SheetActions language={language} onCancel={onCancel} onSave={() => onSave(value)} />
@@ -314,6 +318,8 @@ export function BmiEditSheet({
         majorEvery={10}
         value={weight}
         onChange={setWeight}
+        accessibilityLabel={t(language, 'weightLog.title')}
+        unit="kg"
       />
 
       <Text style={styles.fieldLabel}>{t(language, 'bmi.height')}</Text>
@@ -325,6 +331,8 @@ export function BmiEditSheet({
         majorEvery={10}
         value={height}
         onChange={setHeight}
+        accessibilityLabel={t(language, 'bmi.height')}
+        unit="cm"
       />
 
       <SheetActions

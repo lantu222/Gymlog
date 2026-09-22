@@ -48,7 +48,14 @@ export const REST_BAR_BOTTOM = 30;
 const formatClock = formatTimer;
 
 /**
- * Slim floating rest bar (AW3 design language): purpleDark pill above the
+ * The pills are 34 tall, under the 44 a thumb needs. The slop makes up the
+ * difference vertically; sideways it stops at 3 so two pills' slop never
+ * meets across the 7 between them (accessibility audit, 2026-09-21).
+ */
+const PILL_SLOP = { top: 5, bottom: 5, left: 3, right: 3 } as const;
+
+/**
+ * Slim floating rest bar (AW3 design language): a violet pill above the
  * home indicator with the countdown, ±15s adjusters, Skip, and a thin
  * progress line. Shared by the freestyle logger; Active Workout v3 will
  * reuse it.
@@ -117,6 +124,7 @@ export function RestBar({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t(language, 'rest.bar.logSet')}
+            hitSlop={{ top: 2, bottom: 2 }}
             onPress={onLogSet ?? onSkip}
             style={[styles.pill, styles.pillDone]}
           >
@@ -161,13 +169,13 @@ export function RestBar({
           ) : null}
         </View>
         <View style={styles.pillRow}>
-          <Pressable accessibilityRole="button" accessibilityLabel={t(language, 'rest.a11y.shorten')} onPress={() => onAdjust(-15)} style={styles.pill}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t(language, 'rest.a11y.shorten')} hitSlop={PILL_SLOP} onPress={() => onAdjust(-15)} style={styles.pill}>
             <Text style={styles.pillText}>−15s</Text>
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel={t(language, 'rest.a11y.extend')} onPress={() => onAdjust(15)} style={styles.pill}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t(language, 'rest.a11y.extend')} hitSlop={PILL_SLOP} onPress={() => onAdjust(15)} style={styles.pill}>
             <Text style={styles.pillText}>+15s</Text>
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel={t(language, 'rest.a11y.skip')} onPress={onSkip} style={[styles.pill, styles.pillSolid]}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t(language, 'rest.a11y.skip')} hitSlop={PILL_SLOP} onPress={onSkip} style={[styles.pill, styles.pillSolid]}>
             <Text style={[styles.pillText, styles.pillTextSolid]}>{t(language, 'rest.skip')}</Text>
           </Pressable>
         </View>
@@ -188,7 +196,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     zIndex: 8,
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: theme.purpleDark,
+    // The white-label violet (accessibility audit, 2026-09-21). On the dark
+    // theme's purpleDark (#8B5CF6) the eyebrow was 2.69:1, "Päättyy" 2.58 and
+    // the pills 3.29; everything written on this bar is white.
+    backgroundColor: theme.purpleFill,
     shadowColor: '#3C1690',
     shadowOffset: { width: 0, height: 14 },
     shadowOpacity: 0.45,
@@ -206,8 +217,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   eyebrowDone: {
     color: '#22C55E',
   },
+  // #15803D, the light theme's action green: white on #16A34A was 3.30:1
+  // (accessibility audit, 2026-09-21). The edge and the track below keep the
+  // brighter green — nothing is written on them.
   pillDone: {
-    backgroundColor: '#16A34A',
+    backgroundColor: '#15803D',
     height: 40,
     paddingHorizontal: 16,
   },
@@ -228,17 +242,21 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  // .65 and .62 → .90 (accessibility audit, 2026-09-21): 10px type needs
+  // 4.5:1, and the translucent whites were under it on the dark theme's bar.
+  // .90 is 4.91 on the dark fill and 6.0 on the light one; the clock above
+  // is still the brightest thing on the bar.
   eyebrow: {
     fontSize: 10.5,
     fontWeight: '800',
     letterSpacing: 1.05,
-    color: 'rgba(255,255,255,0.65)',
+    color: 'rgba(255,255,255,0.90)',
   },
   endsAt: {
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.4,
-    color: 'rgba(255,255,255,0.62)',
+    color: 'rgba(255,255,255,0.90)',
     marginTop: 2,
   },
   time: {
@@ -248,17 +266,24 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontVariant: ['tabular-nums'],
     lineHeight: 23,
   },
+  // Padded and pulled back by the same 5, so the row is 44 tall without
+  // moving: Android clips a hitSlop to its parent, and a 34-tall row would
+  // have cut the pills' slop back to 34 (accessibility audit, 2026-09-21).
   pillRow: {
     flexDirection: 'row',
     gap: 7,
+    paddingVertical: PILL_SLOP.top,
+    marginVertical: -PILL_SLOP.top,
   },
+  // The wash is .10, not .16: a lighter pill is a lower-contrast pill, and
+  // white on .16 over the dark fill was 4.26:1. .10 is 4.77.
   pill: {
     height: 34,
     paddingHorizontal: 13,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: 'rgba(255,255,255,0.10)',
   },
   // Skip is the solid one of the three, and it is solid WHITE rather than
   // theme.surface. The bar it sits on is purple in both themes, so its

@@ -72,8 +72,16 @@ export function CoachDemoSheet({
           button than over the first line. Here it keeps a tall dialog off the
           navigation bar, which is what the inset is actually for. */}
       <View style={[styles.root, { paddingBottom: bottomInset }]}>
-        {/* Tapping the scrim is the same as "not now" — it costs nothing. */}
-        <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} accessibilityRole="button" />
+        {/* Tapping the scrim is the same as "not now" — it costs nothing.
+            The same as the skip button below, so a screen reader skips it:
+            it was a second, nameless button for one action (accessibility
+            audit, 2026-09-21). */}
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onDismiss}
+          accessible={false}
+          importantForAccessibility="no"
+        />
 
         <Animated.View
           style={[styles.card, { opacity: enter, transform: [{ translateY: lift }] }]}
@@ -147,7 +155,8 @@ const makeStyles = (theme: Theme) =>
     send: {
       height: 54,
       borderRadius: 999,
-      backgroundColor: theme.purple,
+      // The white-label violet (accessibility audit, 2026-09-21).
+      backgroundColor: theme.purpleFill,
       alignItems: 'center',
       justifyContent: 'center',
       marginTop: 22,

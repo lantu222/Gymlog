@@ -120,8 +120,11 @@ module.exports = [
     name: 'guided rest: the three timer controls are red, green and amber',
     run() {
       assert.match(playerSource, /label="−15s"\s+tint=\{theme\.danger\}/);
-      assert.match(playerSource, /label="\+15s"\s+tint=\{theme\.green\}/);
-      assert.match(playerSource, /icon=\{paused \? 'play' : 'pause'\}\s+tint=\{theme\.amber\}/);
+      // Green and amber in their ink shades since the accessibility audit
+      // (2026-09-21): these tints are the words' colour, and the raw accents
+      // were 3.30:1 and 3.19:1 as text on white. Still red, green and amber.
+      assert.match(playerSource, /label="\+15s"\s+tint=\{theme\.greenInk\}/);
+      assert.match(playerSource, /icon=\{paused \? 'play' : 'pause'\}\s+tint=\{theme\.amberInk\}/);
     },
   },
   {

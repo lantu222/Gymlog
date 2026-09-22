@@ -594,9 +594,11 @@ module.exports = [
       assert.match(player, /styles\.setDialLabel, open && \{ color: theme\.highlight \}/);
 
       // `highlight` and not `accent`: accent is GREEN in the light theme, and
-      // green already means "logged" on this screen.
+      // green already means "logged" on this screen. It is a deeper green
+      // since the accessibility audit (2026-09-21) — white on #16A34A was
+      // 3.30:1 — and still green, so the reason for this swap stands.
       const light = read('src', 'lightTheme.ts');
-      assert.match(light, /accent: '#16A34A'/, 'the light accent moved — recheck this swap');
+      assert.match(light, /accent: '#15803D'/, 'the light accent moved — recheck this swap');
       assert.match(light, /highlight: '#6D28D9'/, 'the light theme stopped being unchanged by this');
       assert.match(read('src', 'darkTheme.ts'), /highlight: '#FF8A4C'/, 'the dark highlight is not orange');
     },

@@ -34,7 +34,8 @@ export function ProPill({ label = 'PRO' }: { label?: string }) {
 const makeStyles = (theme: Theme) =>
   StyleSheet.create({
     pill: {
-      backgroundColor: theme.purple,
+      // The white-label violet (accessibility audit, 2026-09-21).
+      backgroundColor: theme.purpleFill,
       borderRadius: 6,
       paddingVertical: 3,
       paddingHorizontal: 7,

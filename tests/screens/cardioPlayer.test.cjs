@@ -19,7 +19,10 @@ module.exports = [
       // The only way to end was the X in the top bar — so the control that
       // SAVES the session looked like the one that throws it away.
       assert.match(source, /styles\.playerControls/);
-      assert.match(source, /<Pressable onPress=\{onExit\} style=\{styles\.endBtn\}/);
+      // The Pressable carries a role and a name since the accessibility audit
+      // (2026-09-21), so its props span lines; the handler and the style are
+      // what this pins.
+      assert.match(source, /<Pressable\s[^>]*?onPress=\{onExit\}\s*style=\{styles\.endBtn\}/);
       assert.match(source, /t\(language, 'cardio\.end'\)/);
       // Smaller than pause: pause is pressed many times a session, ending once.
       const endBtn = source.slice(source.indexOf('endBtn: {'), source.indexOf('pauseBtn: {'));

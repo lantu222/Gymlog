@@ -87,6 +87,11 @@ import {
   stepDialWeight,
 } from '../lib/weightDial';
 import { isLiftableWeight } from '../lib/weightLimits';
+import {
+  exerciseCardAccessibilityLabel,
+  setFieldAccessibilityLabel,
+  weightStepAccessibilityLabel,
+} from '../lib/accessibilityLabels';
 import { getExerciseInstructions } from '../lib/exerciseInstructions';
 import { getExerciseTeaching } from '../lib/exerciseTeaching';
 import { buildExerciseSheetHistory, LastTimeView } from '../lib/exerciseSheetHistory';
@@ -118,6 +123,7 @@ import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailo
 import { exerciseMatchesQuery, rankExerciseMatches } from '../lib/exerciseSearch';
 import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { useKeepScreenAwake } from '../utils/keepAwake';
+import { queryReduceMotion } from '../utils/reduceMotion';
 import {
   getHistoryEntriesForExercise,
   repsCeilingFor,
@@ -380,13 +386,44 @@ function GPIcon({ name, size = 22, color = '#fff', sw = 2.2 }: { name: string; s
   );
 }
 
+/**
+ * Whether the phone asks for less motion. StepIn and PopIn ran on every step
+ * of every session regardless (accessibility audit, 2026-09-21). The exported
+ * screen asks once — utils/reduceMotion, which always answers — and hands the
+ * answer down here, rather than every StepIn asking the OS on every step
+ * change. False until the answer comes: the entrance plays, the helper's safe
+ * default.
+ */
+const ReducedMotionContext = React.createContext(false);
+
+/**
+ * The ring's clock under the system font size. 76px in a 244dp ring had room
+ * for about one step of scaling: at the accessibility sizes the digits ran
+ * into the stroke and off the ring (accessibility audit, 2026-09-21). Capped
+ * at 1.3×, and shrunk to fit beyond that rather than clipped.
+ */
+const RING_CLOCK_FIT = {
+  maxFontSizeMultiplier: 1.3,
+  numberOfLines: 1,
+  adjustsFontSizeToFit: true,
+  minimumFontScale: 0.6,
+} as const;
+
 /* ── step entrance: fade + 14px rise ── */
 function StepIn({ children, stepKey, style }: { children: React.ReactNode; stepKey: string; style?: object }) {
   const anim = useRef(new Animated.Value(0)).current;
+  const reduceMotion = React.useContext(ReducedMotionContext);
   // Interpolated once: the player re-renders every second on the timer, and a
   // per-render interpolate leaks native nodes (disconnectAnimatedNodes crash).
   const translateY = useRef(anim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] })).current;
   useEffect(() => {
+    // Reduced motion: the step is simply there. Also the answer arriving
+    // mid-entrance, which finishes it at once.
+    if (reduceMotion) {
+      anim.stopAnimation();
+      anim.setValue(1);
+      return;
+    }
     anim.setValue(0);
     Animated.timing(anim, {
       toValue: 1,
@@ -394,7 +431,7 @@ function StepIn({ children, stepKey, style }: { children: React.ReactNode; stepK
       easing: Easing.bezier(0.22, 1, 0.36, 1),
       useNativeDriver: true,
     }).start();
-  }, [anim, stepKey]);
+  }, [anim, stepKey, reduceMotion]);
   return (
     <Animated.View style={[{ flex: 1, opacity: anim, transform: [{ translateY }] }, style]}>
       {children}
@@ -405,12 +442,20 @@ function StepIn({ children, stepKey, style }: { children: React.ReactNode; stepK
 /* ── pop-in for countdown digits / badges ── */
 function PopIn({ children, popKey }: { children: React.ReactNode; popKey: string | number }) {
   const anim = useRef(new Animated.Value(0)).current;
+  const reduceMotion = React.useContext(ReducedMotionContext);
   // Same rule as StepIn: one interpolation per value, never per render.
   const popStyle = useRef({
     opacity: anim.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 1, 1] }),
     transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }],
   }).current;
   useEffect(() => {
+    // A digit that scales up from 0.6 every second is exactly what reduced
+    // motion asks to stop.
+    if (reduceMotion) {
+      anim.stopAnimation();
+      anim.setValue(1);
+      return;
+    }
     anim.setValue(0);
     Animated.timing(anim, {
       toValue: 1,
@@ -418,7 +463,7 @@ function PopIn({ children, popKey }: { children: React.ReactNode; popKey: string
       easing: Easing.bezier(0.3, 1.4, 0.5, 1),
       useNativeDriver: true,
     }).start();
-  }, [anim, popKey]);
+  }, [anim, popKey, reduceMotion]);
   return <Animated.View style={popStyle}>{children}</Animated.View>;
 }
 
@@ -606,6 +651,7 @@ function RestRing({
 /* ── shared small components ── */
 function TopBar({
   dark,
+  language,
   label,
   clock,
   muted,
@@ -614,6 +660,8 @@ function TopBar({
   video,
 }: {
   dark: boolean;
+  /** For the two icon buttons' names — they had none. */
+  language: AppLanguage;
   label: string;
   /**
    * Session elapsed, m:ss. The one clock in the session, and it belongs here:
@@ -640,7 +688,16 @@ function TopBar({
   const buttonStyle = [styles.topBtn, dark ? styles.topBtnDark : null];
   return (
     <View style={styles.topBar}>
-      <Pressable onPress={onExit} style={buttonStyle} hitSlop={8}>
+      {/* Both corners were bare icons, announced as "button" and nothing
+          else (accessibility audit, 2026-09-21). The sound toggle is a
+          switch: on means the cues play. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t(language, 'guided.a11y.exit')}
+        onPress={onExit}
+        style={buttonStyle}
+        hitSlop={8}
+      >
         <GPIcon name="x" size={19} color={iconColor} />
       </Pressable>
       <Text style={[styles.topLabel, { color: dark ? GPD.muted : theme.muted }]} numberOfLines={1}>
@@ -658,7 +715,14 @@ function TopBar({
           <GPIcon name="video" size={20} color={video.active ? theme.purple : iconColor} sw={2.1} />
         </Pressable>
       ) : (
-        <Pressable onPress={onMute} style={buttonStyle} hitSlop={8}>
+        <Pressable
+          accessibilityRole="switch"
+          accessibilityLabel={t(language, 'guided.a11y.soundCues')}
+          accessibilityState={{ checked: !muted }}
+          onPress={onMute}
+          style={buttonStyle}
+          hitSlop={8}
+        >
           <GPIcon name={muted ? 'mute' : 'sound'} size={19} color={muted ? (dark ? GPD.faint : theme.faint) : iconColor} />
         </Pressable>
       )}
@@ -911,6 +975,7 @@ function GhostBtn({
   dark,
   danger,
   tint: tintProp,
+  accessibilityLabel,
 }: {
   label: string;
   onPress: () => void;
@@ -920,6 +985,8 @@ function GhostBtn({
   danger?: boolean;
   /** Outline and text in one colour, for a label that means a direction. */
   tint?: string;
+  /** When the visible label is a symbol ("+15s") rather than words. */
+  accessibilityLabel?: string;
 }) {
   const theme = useTheme();
 
@@ -928,6 +995,8 @@ function GhostBtn({
 
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       style={[
         styles.ghostBtn,
@@ -1053,6 +1122,15 @@ function DialCard({
   const styles = useThemedStyles(makeStyles);
   const [draft, setDraft] = useState<string | null>(null);
 
+  // One step, from either a button or a screen reader's swipe. A step moves
+  // the card's number, so the field shows that number rather than text typed
+  // before it.
+  const step = (direction: -1 | 1) => {
+    setDraft(null);
+    onDraftCleared?.();
+    onStep(direction);
+  };
+
   // Every keystroke commits. The field shows what is being typed (`draft`)
   // while the parent's number follows it through the lib rule, so nothing is
   // pending when the card closes — by the keyboard's done key, by a tap
@@ -1067,11 +1145,29 @@ function DialCard({
   return (
     <View style={[styles.setDialCard, wide && styles.setDialCardWide, open && styles.setDialCardOpen]}>
       <Text style={[styles.setDialLabel, open && { color: theme.highlight }]}>{label}</Text>
+      {/* An adjustable, the way a screen reader expects a number you nudge:
+          swipe up or down steps it by the dial's own step and the new value
+          is read back, where a button role left the reader hunting for two
+          small buttons and hearing nothing after them (accessibility audit,
+          2026-09-21). A double tap still opens it for typing. Open, it steps
+          aside so the field inside is reached on its own. */}
       <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${label} ${value}${unit ? ` ${unit}` : ''}`}
+        accessible={!open}
+        accessibilityRole={open ? undefined : 'adjustable'}
+        accessibilityLabel={label}
+        accessibilityValue={{ text: `${value}${unit ? ` ${unit}` : ''}` }}
         accessibilityHint={editHint}
-        accessibilityState={{ expanded: open }}
+        accessibilityActions={[
+          { name: 'increment', label: upLabel },
+          { name: 'decrement', label: downLabel },
+        ]}
+        onAccessibilityAction={(event) => {
+          if (event.nativeEvent.actionName === 'increment') {
+            step(1);
+          } else if (event.nativeEvent.actionName === 'decrement') {
+            step(-1);
+          }
+        }}
         onPress={open ? undefined : onToggle}
         style={({ pressed }) => [styles.setDialValue, pressed && !open && { opacity: 0.7 }]}
       >
@@ -1108,26 +1204,8 @@ function DialCard({
         {unit ? <Text style={styles.setDialUnit}>{unit}</Text> : null}
       </Pressable>
       <View style={styles.setDialControls}>
-        {/* A step moves the card's number, so the field shows that number
-            rather than text typed before it. */}
-        <DialButton
-          glyph="−"
-          accessibilityLabel={downLabel}
-          onStep={() => {
-            setDraft(null);
-            onDraftCleared?.();
-            onStep(-1);
-          }}
-        />
-        <DialButton
-          glyph="+"
-          accessibilityLabel={upLabel}
-          onStep={() => {
-            setDraft(null);
-            onDraftCleared?.();
-            onStep(1);
-          }}
-        />
+        <DialButton glyph="−" accessibilityLabel={downLabel} onStep={() => step(-1)} />
+        <DialButton glyph="+" accessibilityLabel={upLabel} onStep={() => step(1)} />
       </View>
     </View>
   );
@@ -1155,7 +1233,32 @@ function GPSheet({ onClose, children }: { onClose: () => void; children: React.R
 
 /* ══════════════════════════════ screen ══════════════════════════════ */
 
-export function GuidedPlayerScreen({
+/**
+ * The screen, inside the one question every StepIn and PopIn needs answered:
+ * does the phone ask for less motion? Asked once per session through the
+ * helper that always answers (accessibility audit, 2026-09-21).
+ */
+export function GuidedPlayerScreen(props: GuidedPlayerScreenProps) {
+  const [reduceMotion, setReduceMotion] = useState(false);
+  useEffect(() => {
+    let mounted = true;
+    void queryReduceMotion().then((reduced) => {
+      if (mounted) {
+        setReduceMotion(reduced);
+      }
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+  return (
+    <ReducedMotionContext.Provider value={reduceMotion}>
+      <GuidedPlayer {...props} />
+    </ReducedMotionContext.Provider>
+  );
+}
+
+function GuidedPlayer({
   unitPreference,
   language = 'en',
   availableEquipment = null,
@@ -2454,7 +2557,16 @@ export function GuidedPlayerScreen({
           <View style={styles.entryRoot}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <Text style={styles.entryEyebrow}>{entryEyebrow}</Text>
-              <Pressable onPress={onLeave} style={styles.topBtn} hitSlop={8}>
+              {/* Nothing has started yet, so this simply closes the player.
+                  Named — it was a bare icon (accessibility audit,
+                  2026-09-21). */}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t(language, 'common.close')}
+                onPress={onLeave}
+                style={styles.topBtn}
+                hitSlop={8}
+              >
                 <GPIcon name="x" size={19} color={theme.ink} />
               </Pressable>
             </View>
@@ -2746,6 +2858,7 @@ export function GuidedPlayerScreen({
         <>
           <TopBar
             dark={dark}
+            language={language}
             label={getGuidedPhaseLabel(step, language)}
             clock={formatSessionClock(derivedElapsedSeconds)}
             muted={muted}
@@ -3069,7 +3182,9 @@ export function GuidedPlayerScreen({
                     <Text style={[styles.intervalPhase, { color: theme.highlight }]}>
                       {t(language, step.interval.workKind === 'run' ? 'guided.interval.run' : 'guided.interval.hard')}
                     </Text>
-                    <Text style={styles.restCountdown}>{formatGuidedCountdown(secondsLeft)}</Text>
+                    <Text style={styles.restCountdown} {...RING_CLOCK_FIT}>
+                      {formatGuidedCountdown(secondsLeft)}
+                    </Text>
                   </RestRing>
                   {/* What comes next, so the pace is a decision made before it
                       arrives rather than a surprise at zero. */}
@@ -3256,7 +3371,7 @@ export function GuidedPlayerScreen({
                           )
                         : t(language, 'guided.rest')}
                     </Text>
-                    <Text style={styles.restCountdown}>
+                    <Text style={styles.restCountdown} {...RING_CLOCK_FIT}>
                       {formatGuidedCountdown(Math.max(0, secondsLeft))}
                     </Text>
                     {/* No "PAUSED" caption: the button below it has already
@@ -3280,7 +3395,10 @@ export function GuidedPlayerScreen({
                   ) : null}
                   {/* Red takes time away, green adds it, amber holds — told
                       apart at arm's length without reading (user 2026-09-09,
-                      light theme). */}
+                      light theme). Green and amber in their INK shades: the
+                      raw accents are 3.30:1 and 3.19:1 as text on white, and
+                      these are words, not swatches (accessibility audit,
+                      2026-09-21). Red already reads (4.83). */}
                   <View style={{ flexDirection: 'row', gap: 10 }}>
                     {/* No ±15 s on an interval: its two halves are the rhythm
                         the machine is set to, and stretching one desyncs the
@@ -3290,6 +3408,7 @@ export function GuidedPlayerScreen({
                       <GhostBtn
                         label="−15s"
                         tint={theme.danger}
+                        accessibilityLabel={t(language, 'rest.a11y.shorten')}
                         onPress={() => {
                           // The rest ring is the one control you use without
                           // looking at it.
@@ -3303,7 +3422,8 @@ export function GuidedPlayerScreen({
                     <View style={{ flex: 1 }}>
                       <GhostBtn
                         label="+15s"
-                        tint={theme.green}
+                        tint={theme.greenInk}
+                        accessibilityLabel={t(language, 'rest.a11y.extend')}
                         onPress={() => {
                           void haptics.select();
                           adjustRemaining(15000);
@@ -3314,7 +3434,7 @@ export function GuidedPlayerScreen({
                     <View style={{ flex: 1 }}>
                       <GhostBtn
                         icon={paused ? 'play' : 'pause'}
-                        tint={theme.amber}
+                        tint={theme.amberInk}
                         label={t(language, paused ? 'guided.resume' : 'guided.pause')}
                         onPress={() => setPaused((value) => !value)}
                       />
@@ -3326,7 +3446,7 @@ export function GuidedPlayerScreen({
                       the walk is skipping half the exercise, not shortening a
                       wait (#bugs 2026-08-26). Pause stays on both. */}
                   {step.recoveryKind ? null : (
-                    <Pressable style={styles.skipRestBtn} onPress={startRestNextSet}>
+                    <Pressable accessibilityRole="button" style={styles.skipRestBtn} onPress={startRestNextSet}>
                       <GPIcon name="skip" size={18} color={theme.ink} />
                       <Text style={{ fontSize: 15.5, fontWeight: '800', color: theme.ink }}>{t(language, 'guided.skipRest')}</Text>
                     </Pressable>
@@ -3391,6 +3511,7 @@ export function GuidedPlayerScreen({
               2026-09-04). */}
           <TopBar
             dark={false}
+            language={language}
             label={t(
               language,
               ownBlock.phase === 'warmup' ? 'guided.label.warmup' : 'guided.label.cooldown',
@@ -3503,6 +3624,7 @@ export function GuidedPlayerScreen({
           // the exercise here offered a squat set no weight after a swap to a
           // bodyweight lift, and the store refused the save for lacking one.
           unloaded={isUnloadedTrackingMode(restEditLift?.trackingMode ?? 'load_and_reps')}
+          setNumber={restEdit.setIndex + 1}
           repsCeiling={
             // The reducer's own ceiling, so Save and the store cannot disagree:
             // a hold's seconds, an interval's work seconds, a prescription past the dial.
@@ -3985,6 +4107,7 @@ function LoggedSetEditor({
   language,
   unitPreference,
   unloaded,
+  setNumber,
   repsCeiling,
   reps,
   loadKg,
@@ -3994,6 +4117,8 @@ function LoggedSetEditor({
   language: AppLanguage;
   unitPreference: UnitPreference;
   unloaded: boolean;
+  /** The set being corrected, as the screen counts it (1-based). */
+  setNumber: number;
   /** The most this set can count — the store's rule, see repsCeilingFor. */
   repsCeiling: number;
   reps: number;
@@ -4032,9 +4157,13 @@ function LoggedSetEditor({
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <View style={styles.editField}>
               <Text style={styles.editLabel}>{t(language, 'guided.reps')}</Text>
+              {/* Named with the set and the unit: the label above is a
+                  sibling Text, so the field alone was read as its number
+                  (accessibility audit, 2026-09-21). */}
               <TextInput
                 value={repsDraft}
                 onChangeText={setRepsDraft}
+                accessibilityLabel={setFieldAccessibilityLabel(language, 'reps', setNumber)}
                 keyboardType="number-pad"
                 selectTextOnFocus
                 style={styles.editInput}
@@ -4046,6 +4175,7 @@ function LoggedSetEditor({
                 <TextInput
                   value={loadDraft}
                   onChangeText={setLoadDraft}
+                  accessibilityLabel={setFieldAccessibilityLabel(language, 'kg', setNumber)}
                   keyboardType="decimal-pad"
                   selectTextOnFocus
                   style={styles.editInput}
@@ -4258,9 +4388,25 @@ function SetStepView({
             that looked like a camera — and cost the header the slot the sound
             toggle belongs in. The card says the name, shows the photo, and
             carries last time's numbers where they are read without a tap. */}
+        {/* Spoken as what it shows — the name, then last time — with the
+            action in the hint. A label that named the action replaced the
+            card's contents for TalkBack, so "Liikkeen tiedot" was all a
+            screen-reader user heard of the lift they were about to lift
+            (accessibility audit, 2026-09-21). */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t(language, 'guided.panelsToggle')}
+          accessibilityLabel={exerciseCardAccessibilityLabel(
+            language,
+            exerciseNameLabel(language, step.exerciseName),
+            panels?.history
+              ? {
+                  heaviestKg: heaviestOf(panels.history),
+                  reps: panels.history.sets.map((set) => set.reps),
+                  borrowed: panels.history.borrowed === true,
+                }
+              : null,
+          )}
+          accessibilityHint={t(language, 'guided.panelsToggle')}
           onPress={onOpenSheet}
           style={styles.setExerciseCard}
         >
@@ -4429,8 +4575,10 @@ function SetStepView({
                   setWeightTextInvalid(!isLoggableTypedWeight(text));
                   setKg((current) => commitDialWeight(text, current));
                 }}
-                downLabel={t(language, 'guided.a11y.weightDown')}
-                upLabel={t(language, 'guided.a11y.weightUp')}
+                // From the dial's own step, not a number in the copy — the
+                // copy said 2,5 kg while the dial moved 1,25.
+                downLabel={weightStepAccessibilityLabel(language, -1)}
+                upLabel={weightStepAccessibilityLabel(language, 1)}
                 editHint={t(language, 'guided.a11y.tapToEdit')}
                 wide={false}
                 faint={kg <= 0}
@@ -4439,6 +4587,16 @@ function SetStepView({
               />
             ) : null}
           </View>
+
+          {/* Why the log button is waiting, in words. The typed number going
+              red was the only sign, and colour is neither read aloud nor seen
+              by everyone (accessibility audit, 2026-09-21). Polite, so it is
+              announced once when it appears and not on every keystroke. */}
+          {logBlocked ? (
+            <View style={styles.setWeightError} accessibilityLiveRegion="polite">
+              <Text style={styles.setWeightErrorText}>{t(language, 'guided.weightInvalid')}</Text>
+            </View>
+          ) : null}
 
           {/* Badges about the numbers sit under the row, not inside the cards,
               so a badge does not make one card taller than the other. */}
@@ -5207,6 +5365,19 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   // A bodyweight lift has one dial; it takes the row rather than half of it.
   setDialCardWide: { flex: 1 },
+  // On `surface`, not on the page: the light danger ink is 4.83:1 on white
+  // and only 4.10 on `bg` (accessibility audit, 2026-09-21).
+  setWeightError: {
+    alignSelf: 'center',
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: theme.dangerBorder,
+    backgroundColor: theme.surface,
+  },
+  setWeightErrorText: { fontSize: 12.5, fontWeight: '800', color: theme.danger },
   // Open: the border says which card the buttons belong to.
   setDialCardOpen: { borderColor: theme.highlight, backgroundColor: theme.surface },
   setDialLabel: { fontSize: 11.5, fontWeight: '800', letterSpacing: 1.1, color: theme.muted },
@@ -5385,7 +5556,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   // The ring itself carries the purple; label and figure stay ink so the
   // countdown reads like every other number in the player.
   restRingLabel: { fontSize: 13, fontWeight: '800', letterSpacing: 2.6, color: theme.ink },
+  // Stretched across the ring less its stroke, so RING_CLOCK_FIT's shrink has
+  // a width to fit to.
   restCountdown: {
+    alignSelf: 'stretch',
+    paddingHorizontal: 22,
+    textAlign: 'center',
     fontSize: 76,
     fontWeight: '800',
     letterSpacing: -2.9,

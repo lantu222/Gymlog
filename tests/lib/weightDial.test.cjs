@@ -121,11 +121,18 @@ module.exports = [
       // the lock stayed on over a good weight (CI review of #174).
       assert.match(screen, /onDraftCleared=\{\(\) => setWeightTextInvalid\(false\)\}/);
       assert.match(screen, /onBlur=\{\(\) => \{\s*setDraft\(null\);\s*onDraftCleared\?\.\(\);\s*\}\}/);
-      assert.equal(
-        (screen.match(/setDraft\(null\);\s*onDraftCleared\?\.\(\);\s*onStep\((-1|1)\);/g) ?? []).length,
-        2,
-        'both step buttons clear the typed text',
+      // Both step buttons clear the typed text. Since the accessibility audit
+      // (2026-09-21) a screen reader's swipe steps the card too, so the three
+      // clears-and-steps became one `step` helper that all of them call —
+      // the rule is held on the helper, and on every caller going through it.
+      assert.match(
+        screen,
+        /const step = \(direction: -1 \| 1\) => \{\s*setDraft\(null\);\s*onDraftCleared\?\.\(\);\s*onStep\(direction\);\s*\};/,
+        'a step clears the typed text',
       );
+      assert.match(screen, /<DialButton glyph="−" accessibilityLabel=\{downLabel\} onStep=\{\(\) => step\(-1\)\} \/>/);
+      assert.match(screen, /<DialButton glyph="\+" accessibilityLabel=\{upLabel\} onStep=\{\(\) => step\(1\)\} \/>/);
+      assert.doesNotMatch(screen, /<DialButton[^>]*onStep=\{\(\) => \{/, 'a button steps around the helper');
       // The old unbounded arithmetic must not come back.
       assert.doesNotMatch(screen, /setKg\(\(current\) => Math\.max\(0, Number\(\(current \+ direction/);
       // And the wiring lives on a screen, not in the shell — this only checks

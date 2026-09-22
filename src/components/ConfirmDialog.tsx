@@ -40,10 +40,11 @@ export function ConfirmDialog({
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.message}>{message}</Text>
           <View style={styles.actions}>
-            <Pressable onPress={onCancel} style={styles.secondaryButton}>
+            <Pressable accessibilityRole="button" onPress={onCancel} style={styles.secondaryButton}>
               <Text style={styles.secondaryText}>{cancelLabel ?? t(language, 'common.cancel')}</Text>
             </Pressable>
             <Pressable
+              accessibilityRole="button"
               onPress={onConfirm}
               style={[styles.primaryButton, destructive && styles.destructiveButton]}
             >
@@ -87,13 +88,21 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  // Wraps. At the large font sizes "Peruuta" and a long confirm label did
+  // not fit one row, and a row that cannot wrap pushed the confirm button
+  // past the dialog's edge (accessibility audit, 2026-09-21). With wrap the
+  // confirm drops under Cancel, still right-aligned, and each button may
+  // shrink so its own label wraps before it clips.
   actions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'flex-end',
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
   secondaryButton: {
+    flexShrink: 1,
+    maxWidth: '100%',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderRadius: radii.md,
@@ -105,12 +114,17 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.ink,
     fontSize: 14,
     fontWeight: '700',
+    textAlign: 'center',
   },
   primaryButton: {
+    flexShrink: 1,
+    maxWidth: '100%',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderRadius: radii.md,
-    backgroundColor: theme.purple,
+    // The white-label violet: white on the dark theme's `purple` was 3.49:1
+    // (accessibility audit, 2026-09-21).
+    backgroundColor: theme.purpleFill,
   },
   destructiveButton: {
     backgroundColor: '#DC2626',
@@ -119,5 +133,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
+    textAlign: 'center',
   },
 });

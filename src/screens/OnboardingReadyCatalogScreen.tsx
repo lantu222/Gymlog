@@ -25,6 +25,7 @@ import { getReadyProgramCollectionCopy, READY_PROGRAM_COLLECTIONS } from '../lib
 import { getReadyTemplatePresentation } from '../lib/templatePresentation';
 import { darkTheme, Theme, useTheme, useThemedStyles } from '../theming';
 import { HG_DARK } from '../darkTheme';
+import { HG } from '../lightTheme';
 
 /**
  * This screen's own tokens, in two — same arrangement as StartPathScreen.
@@ -49,7 +50,9 @@ const CATALOG_LIGHT: CatalogPalette = {
   surface: '#FFFFFF',
   ink: '#101828',
   muted: '#667085',
-  faint: '#9A93AC',
+  // The theme's faint ink; a fixed #9A93AC was 2.94:1 on white
+  // (accessibility audit, 2026-09-21).
+  faint: HG.faint,
   border: '#E4D8FF',
   purple: '#7C3AED',
   purpleDark: '#5B21B6',

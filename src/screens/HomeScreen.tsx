@@ -1323,10 +1323,18 @@ export function HomeScreen({
                     under it — the only way to train something else was to walk
                     back out to the program. */}
                 <View style={styles.heroLead}>
+                {/* The label is the workout's name; switching it is the hint.
+                    Labelled with the action, TalkBack read "Vaihda tämän
+                    päivän treeni" in place of the name, so a screen-reader
+                    user was never told what today's workout is
+                    (accessibility audit, 2026-09-21). */}
                 <Pressable
-                  accessibilityRole={onPickTodaySession ? 'button' : undefined}
-                  accessibilityLabel={
-                    onPickTodaySession ? t(language, 'home.a11y.pickTodaySession') : undefined
+                  accessibilityRole={onPickTodaySession && planSessions.length > 1 ? 'button' : 'header'}
+                  accessibilityLabel={localizeWorkoutFocus(focusTitle, language)}
+                  accessibilityHint={
+                    onPickTodaySession && planSessions.length > 1
+                      ? t(language, 'home.a11y.pickTodaySession')
+                      : undefined
                   }
                   disabled={!onPickTodaySession || planSessions.length < 2}
                   onPress={() => setTodaySheetVisible(true)}
@@ -1828,11 +1836,15 @@ export function HomeScreen({
       >
         <View style={styles.signInOverlay}>
           {/* The scrim is "not now", not "no": the offer returns next launch,
-              only the button's own refusal is permanent. */}
+              only the button's own refusal is permanent. That makes it a
+              third answer with no other control, so it stays in the
+              accessibility tree — named, where it was a nameless button
+              (accessibility audit, 2026-09-21). */}
           <Pressable
             style={StyleSheet.absoluteFill}
             onPress={() => setSignInPopupOpen(false)}
             accessibilityRole="button"
+            accessibilityLabel={t(language, 'common.close')}
           />
           <View style={styles.signInCard}>
             <View style={styles.signInKickerRow}>
@@ -1910,6 +1922,7 @@ export function HomeScreen({
         }
         description={drillCurrent?.name}
         bottomInset={insets.bottom}
+        closeLabel={t(language, 'common.close')}
         barUp={drillPick !== null}
         reduceMotion={reduceMotion}
         bar={
@@ -1968,6 +1981,7 @@ export function HomeScreen({
         title={t(language, 'home.today.title')}
         description={t(language, 'home.today.caption')}
         bottomInset={keyboardInset > 0 ? keyboardInset : insets.bottom}
+        closeLabel={t(language, 'common.close')}
         barUp={todayPickDraft !== null}
         reduceMotion={reduceMotion}
         bar={
@@ -2089,6 +2103,7 @@ export function HomeScreen({
         title={t(language, 'kit.swapTitle')}
         context={exerciseNameLabel(language, swapRow.currentName)}
         bottomInset={insets.bottom}
+        closeLabel={t(language, 'common.close')}
         barUp={swapPickName !== null}
         reduceMotion={reduceMotion}
         bar={
@@ -2765,8 +2780,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   // A swapped row wears a filled chip: the plan says one thing and today says
   // another, and the list should not hide that.
+  // purpleFill wherever white is written on violet — here, the program
+  // buttons, the widget prompt and the adapt sheet's primary: in dark `purple`
+  // is a text violet and white on it is 3.49:1 (accessibility audit,
+  // 2026-09-21).
   planExerciseNumberChipSwapped: {
-    backgroundColor: theme.purple,
+    backgroundColor: theme.purpleFill,
   },
   planExerciseNumberText: {
     color: theme.purple,
@@ -2939,7 +2958,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flex: 1.4,
     height: 50,
     borderRadius: 14,
-    backgroundColor: theme.purple,
+    backgroundColor: theme.purpleFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3208,7 +3227,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 9,
     paddingHorizontal: 16,
     borderRadius: 999,
-    backgroundColor: theme.purple,
+    backgroundColor: theme.purpleFill,
   },
   widgetPromptCtaText: {
     color: '#FFFFFF',
@@ -3366,7 +3385,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   adaptPrimary: {
     height: 56,
     borderRadius: 18,
-    backgroundColor: theme.purple,
+    backgroundColor: theme.purpleFill,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 18,

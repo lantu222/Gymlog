@@ -2054,6 +2054,7 @@ export function ProgressScreen({
           visible={measurePickerVisible}
           onClose={() => setMeasurePickerVisible(false)}
           bottomInset={insets.bottom}
+          closeLabel={t(language, 'common.close')}
         >
           {untracked.map((item) => (
             <KitRow
@@ -2482,9 +2483,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: theme.surfaceSoft,
   },
-  // Any training day — trained, ahead, or behind — wears the same fill.
+  // Any training day — trained, ahead, or behind — wears the same fill. The
+  // white-label violet, since the day's number on it is white (accessibility
+  // audit, 2026-09-21).
   calendarBubbleTraining: {
-    backgroundColor: theme.purple,
+    backgroundColor: theme.purpleFill,
   },
   calendarBubbleToday: {
     borderWidth: 1.5,

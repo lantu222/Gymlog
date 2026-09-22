@@ -129,6 +129,7 @@ export function EmphasisSheet({
       title={t(language, 'emphasis.sheet.title')}
       context={t(language, 'emphasis.sheet.total', { sets: baseTotal })}
       bottomInset={bottomInset}
+      closeLabel={t(language, 'common.close')}
       barUp={touched}
       bar={
         <KitBar
