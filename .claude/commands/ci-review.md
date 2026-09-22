@@ -27,16 +27,18 @@ To do this, follow these steps precisely:
 
 2. Launch a sonnet agent to view the pull request and return a summary of the changes
 
-3. Launch 4 agents in parallel to independently review the changes. Each agent should return the list of issues, where each issue includes a description and the reason it was flagged (e.g. "CLAUDE.md adherence", "bug"). The agents should do the following:
+3. Launch 3 agents in parallel to independently review the changes. Each agent should return the list of issues, where each issue includes a description and the reason it was flagged (e.g. "CLAUDE.md adherence", "bug"). The agents should do the following:
 
-   Agents 1 + 2: CLAUDE.md compliance sonnet agents
-   Audit changes for CLAUDE.md compliance in parallel. Note: When evaluating CLAUDE.md compliance for a file, you should only consider CLAUDE.md files that share a file path with the file or parents.
+   Agent 1: CLAUDE.md compliance sonnet agent
+   Audit changes for CLAUDE.md compliance. Note: When evaluating CLAUDE.md compliance for a file, you should only consider CLAUDE.md files that share a file path with the file or parents.
 
-   Agent 3: Opus bug agent (parallel subagent with agent 4)
+   Agent 2: Sonnet bug agent (parallel subagent with agent 3)
    Scan for obvious bugs. Focus only on the diff itself without reading extra context. Flag only significant bugs; ignore nitpicks and likely false positives. Do not flag issues that you cannot validate without looking at context outside of the git diff.
 
-   Agent 4: Opus bug agent (parallel subagent with agent 3)
+   Agent 3: Opus bug agent (parallel subagent with agent 2)
    Look for problems that exist in the introduced code. This could be security issues, incorrect logic, etc. Only look for issues that fall within the changed code.
+
+   Opus runs once per review, in agent 3, and nowhere else. With two Opus bug agents and an Opus validator per finding, a review cost about 4 $ at API prices, and the 91 reviews of the week from 19 September used most of the owner's weekly plan, which this workflow shares (2026-09-22).
 
    **CRITICAL: We only want HIGH SIGNAL issues.** Flag issues where:
    - The code will fail to compile or parse (syntax errors, type errors, missing imports, unresolved references)
@@ -52,7 +54,7 @@ To do this, follow these steps precisely:
 
    In addition to the above, each subagent should be told the PR title and description. This will help provide context regarding the author's intent.
 
-4. For each issue found in the previous step by agents 3 and 4, launch parallel subagents to validate the issue. These subagents should get the PR title and description along with a description of the issue. The agent's job is to review the issue to validate that the stated issue is truly an issue with high confidence. For example, if an issue such as "variable is not defined" was flagged, the subagent's job would be to validate that is actually true in the code. Another example would be CLAUDE.md issues. The agent should validate that the CLAUDE.md rule that was violated is scoped for this file and is actually violated. Use Opus subagents for bugs and logic issues, and sonnet agents for CLAUDE.md violations.
+4. For each issue found in the previous step by agents 2 and 3, launch parallel subagents to validate the issue. These subagents should get the PR title and description along with a description of the issue. The agent's job is to review the issue to validate that the stated issue is truly an issue with high confidence. For example, if an issue such as "variable is not defined" was flagged, the subagent's job would be to validate that is actually true in the code. Another example would be CLAUDE.md issues. The agent should validate that the CLAUDE.md rule that was violated is scoped for this file and is actually violated. Use sonnet subagents for every validation.
 
 5. Filter out any issues that were not validated in step 4. This step will give us our list of high signal issues for our review.
 
