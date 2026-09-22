@@ -177,9 +177,17 @@ module.exports = [
       assert.ok(budgetAt !== -1 && budgetAt < fetchAt, 'budget must be checked before the upstream call');
 
       // One build of the context, used for both the measurement and the send.
-      assert.match(source, /const contextText = /);
-      assert.match(source, /contextChars: contextText\.length \+ COACH_SYSTEM_RULES\.length/);
+      assert.match(source, /const contextText = buildAiCoachContextText\(input\.context\);/);
       assert.match(source, /text: contextText, cache_control/);
+      // The reader's context is what the cap measures; the rules are this
+      // file's own and are charged, not refused. Counted together they left a
+      // heavy reader half the cap, and offline (server audit, 2026-09-21).
+      assert.match(source, /contextChars: contextText\.length,\s*\/\/[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*fixedChars: COACH_SYSTEM_RULES\.length,/);
+      assert.match(source, /contextChars: contextText\.length, fixedChars: COMPOSER_SYSTEM_RULES\.length/);
+      assert.doesNotMatch(source, /contextText\.length \+/);
+      // The conversation is measured against its own limit, not the question's.
+      assert.match(source, /promptChars: input\.prompt\.length,\s*\/\//);
+      assert.match(source, /historyChars: \(input\.history \?\? \[\]\)\.reduce\(/);
 
       // Spend is booked before the call: a timeout still burned tokens.
       const recordAt = source.indexOf('budgetState = recordSpend(');
@@ -188,6 +196,23 @@ module.exports = [
       // Refusal degrades to preview rather than erroring at the user.
       assert.match(source, /if \(!budget\.allowed\) \{/);
       assert.match(source, /budget_exhausted' \? 'RATE_LIMIT' : 'BAD_REQUEST'/);
+    },
+  },
+  {
+    name: 'a photo is checked as a photo, and nothing refused before the model is kept',
+    run() {
+      // A third of its base64 length against the question's cap refused every
+      // real photo (server audit, 2026-09-21); run in tests/api/aiCoachLimits.
+      const table = source.slice(source.indexOf('async function requestClaudeTable('), source.indexOf('async function keepTranscript('));
+      assert.match(table, /const budget = checkImageBudget\(\s*\{ imageBase64Chars: input\.dataBase64\.length, fixedChars: PROGRAM_TABLE_RULES\.length \}/);
+      assert.doesNotMatch(table, /dataBase64\.length \/ 3/);
+
+      // Every copy the endpoint keeps is behind the same question.
+      const handler = source.slice(source.indexOf('export default async function handler('));
+      const kept = handler.match(/await keepTranscript\(/g) ?? [];
+      const guarded = handler.match(/if \(!refusedBeforeModel\((?:table|composed|result)\)\) \{\s*await keepTranscript\(/g) ?? [];
+      assert.equal(kept.length, 3);
+      assert.equal(guarded.length, kept.length, 'a request refused before the model saw it is still kept');
     },
   },
   {

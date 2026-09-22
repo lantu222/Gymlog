@@ -41,6 +41,15 @@ function plural(count: number, word: string) {
   return `${count} ${word}${count === 1 ? '' : 's'}`;
 }
 
+/**
+ * The context block exactly as the endpoint sends it, heading included: what
+ * its size cap measures, and so what a client measures itself against
+ * (fitAiCoachContextToCap). One function, so the two cannot count differently.
+ */
+export function buildAiCoachContextText(context: AICoachTrainingContext): string {
+  return `# Training context\n\n${buildAiCoachSystemContext(context)}`;
+}
+
 export function buildAiCoachSystemContext(context: AICoachTrainingContext): string {
   const u = context.unitPreference;
   const blocks: string[] = [];

@@ -1,13 +1,13 @@
 import { timingSafeEqual } from 'node:crypto';
 import { del, list, put } from '@vercel/blob';
 import { buildAiCoachPreviewAnswer } from '../src/lib/aiCoachPreview';
-import { buildAiCoachSystemContext } from '../src/lib/aiCoachSystemContext';
+import { buildAiCoachContextText } from '../src/lib/aiCoachSystemContext';
 import { normalizeAiCoachTrainingContext } from '../src/lib/aiTrainingContext';
 import { AI_COACH_DEBUG_TRANSCRIPTS } from '../src/lib/aiCoachDebug';
 import { LOG_ID_PATTERN } from '../src/lib/aiCoachLogId';
+import { AI_COACH_DEFAULT_MODEL } from '../src/lib/aiCoachModel';
 import {
   isProgramImageMediaType,
-  PROGRAM_IMAGE_MAX_BASE64_CHARS,
   PROGRAM_TABLE_RULES,
   PROGRAM_TABLE_SCHEMA,
   PROGRAM_TABLE_TOOL_NAME,
@@ -17,6 +17,7 @@ import {
 import {
   BudgetState,
   checkBudget,
+  checkImageBudget,
   createBudgetState,
   readBudgetLimitsFromEnv,
   recordSpend,
@@ -54,7 +55,7 @@ const RATE_LIMIT_MAX = Number(process.env.AI_COACH_RATE_LIMIT_MAX ?? 12);
 // app's own fetch timeout (40 s) stays the outer bound.
 const CLAUDE_TIMEOUT_MS = Number(process.env.AI_COACH_CLAUDE_TIMEOUT_MS ?? 30000);
 
-const CLAUDE_MODEL = process.env.AI_COACH_CLAUDE_MODEL ?? 'claude-haiku-4-5-20251001';
+const CLAUDE_MODEL = process.env.AI_COACH_CLAUDE_MODEL ?? AI_COACH_DEFAULT_MODEL;
 // Coaching answers are short and grounded, so the default is a modest effort
 // setting, which keeps the Sonnet/Opus tiers fast. AI_COACH_EFFORT tunes it
 // without a deploy: low | medium | high, or 'off' to disable thinking
@@ -410,13 +411,10 @@ function parseImageBody(body: unknown): ParsedImageBody | null {
   if (candidate.mode !== 'table' || !isProgramImageMediaType(candidate.mediaType)) {
     return null;
   }
-  if (
-    typeof candidate.dataBase64 !== 'string' ||
-    !candidate.dataBase64 ||
-    // Refused before it is sent upstream, so an oversized body is never
-    // charged for. The client downscales; this is the backstop.
-    candidate.dataBase64.length > PROGRAM_IMAGE_MAX_BASE64_CHARS
-  ) {
+  // The size is checked with the budget (checkImageBudget), before anything
+  // goes upstream: an oversized photo is refused as one, not misread here as
+  // a malformed chat request.
+  if (typeof candidate.dataBase64 !== 'string' || !candidate.dataBase64) {
     return null;
   }
   const consented = parsed as { keepConsent?: unknown; logId?: unknown };
@@ -683,16 +681,23 @@ async function requestClaude(input: AICoachAdviceRequest) {
   // Build the context once: it is both what gets sent and what gets measured,
   // so the budget can never be checked against a different payload than the
   // one that actually goes out.
-  const contextText = `# Training context\n\n${buildAiCoachSystemContext(input.context)}`;
+  const contextText = buildAiCoachContextText(input.context);
   const now = Date.now();
+  // Each part against its own limit (server audit, 2026-09-21). Counted
+  // together, the rules took ~11 KB of the context's 24 and three earlier
+  // exchanges took the question's 2,000, and a reader with a full history or
+  // a long conversation was answered offline with the request refused.
   const budget = checkBudget(
     {
-      // The conversation rides in the prompt half: it is uncached and paid
-      // for on every turn, so it has to be measured with the question.
-      promptChars:
-        input.prompt.length +
-        (input.history ?? []).reduce((total, turn) => total + turn.question.length + turn.takeaway.length, 0),
-      contextChars: contextText.length + COACH_SYSTEM_RULES.length,
+      promptChars: input.prompt.length,
+      // Uncached and paid for on every turn, so it is measured — against its
+      // own cap, which sanitizeHistory already keeps it under.
+      historyChars: (input.history ?? []).reduce((total, turn) => total + turn.question.length + turn.takeaway.length, 0),
+      // The reader's data as sent: what the client's own caps keep under the
+      // limit (fitAiCoachContextToCap).
+      contextChars: contextText.length,
+      // This file's text, the same for every request: charged, never refused.
+      fixedChars: COACH_SYSTEM_RULES.length,
     },
     budgetState,
     now,
@@ -876,10 +881,11 @@ async function requestClaudeProgramme(input: ParsedBody): Promise<ProgrammeResul
   if (!apiKey) {
     return createError({ code: 'MISSING_API_KEY', message: 'ANTHROPIC_API_KEY is not configured.' });
   }
-  const contextText = `# Training context\n\n${buildAiCoachSystemContext(input.context)}`;
+  const contextText = buildAiCoachContextText(input.context);
   const now = Date.now();
+  // As for advice: the reader's context against its cap, the rules charged.
   const budget = checkBudget(
-    { promptChars: input.prompt.length, contextChars: contextText.length + COMPOSER_SYSTEM_RULES.length },
+    { promptChars: input.prompt.length, contextChars: contextText.length, fixedChars: COMPOSER_SYSTEM_RULES.length },
     budgetState,
     now,
     BUDGET_LIMITS,
@@ -964,12 +970,14 @@ async function requestClaudeTable(input: ParsedImageBody): Promise<TableResult> 
   }
 
   const now = Date.now();
-  // Images are charged by area, not by characters. Base64 length is the only
-  // size this endpoint can see, and ~750 base64 chars per token is the right
-  // order of magnitude for a screenshot — enough for the brake to mean
-  // something rather than to wave every image through as "0 chars of prompt".
-  const budget = checkBudget(
-    { promptChars: Math.round(input.dataBase64.length / 3), contextChars: PROGRAM_TABLE_RULES.length },
+  // Images are charged by area, not by characters, and the API scales a large
+  // one down before it is read — so a photo has its own size check (the
+  // import's limit) and a charge in tokens at most what the model bills.
+  // Measured as prompt text, a third of its base64 length against the
+  // question's 2,000-character cap, every real photo was refused (server
+  // audit, 2026-09-21).
+  const budget = checkImageBudget(
+    { imageBase64Chars: input.dataBase64.length, fixedChars: PROGRAM_TABLE_RULES.length },
     budgetState,
     now,
     BUDGET_LIMITS,
@@ -1088,6 +1096,22 @@ async function keepTranscript(
   }
 }
 
+/**
+ * The codes this endpoint answers with before anything reaches the model: no
+ * key, a request over a size limit, the budget spent.
+ */
+const REFUSED_BEFORE_MODEL: ReadonlySet<string> = new Set(['MISSING_API_KEY', 'BAD_REQUEST', 'RATE_LIMIT']);
+
+/**
+ * Whether a request was refused here, before the model saw it. Nothing of one
+ * is kept: the reader agreed to keep what the coach was asked, and this was
+ * never asked. A refused photo was filed anyway, the picture with it (server
+ * audit, 2026-09-21).
+ */
+function refusedBeforeModel(result: { ok: true } | AICoachAdviceError): boolean {
+  return result.ok !== true && REFUSED_BEFORE_MODEL.has(result.error.code);
+}
+
 /** The label to forget, or null when this is not a forget request. */
 function readForgetLogId(body: unknown): string | null {
   try {
@@ -1204,16 +1228,19 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     // is kept, together with what was read out of it — the pair is what makes
     // a misread importable page fixable later. Same folder and same naming as
     // the other two, so one withdrawal reaches all three and the 24-month cron
-    // sweeps them together.
-    await keepTranscript(imageInput.keepConsent, imageInput.logId, {
-      kind: 'photo',
-      model: CLAUDE_MODEL,
-      durationMs: Date.now() - imageStartedAt,
-      mediaType: imageInput.mediaType,
-      dataBase64: imageInput.dataBase64,
-      source: table.ok === true ? 'live' : `error:${table.error.code}`,
-      rows: table.ok === true ? table.rows : null,
-    });
+    // sweeps them together. A photo refused before the model saw it is not
+    // one the coach was asked about, and is not kept.
+    if (!refusedBeforeModel(table)) {
+      await keepTranscript(imageInput.keepConsent, imageInput.logId, {
+        kind: 'photo',
+        model: CLAUDE_MODEL,
+        durationMs: Date.now() - imageStartedAt,
+        mediaType: imageInput.mediaType,
+        dataBase64: imageInput.dataBase64,
+        source: table.ok === true ? 'live' : `error:${table.error.code}`,
+        rows: table.ok === true ? table.rows : null,
+      });
+    }
     if (table.ok === true) {
       res.status(200).json(table);
       return;
@@ -1260,16 +1287,18 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     const composeStartedAt = Date.now();
     const composed = await requestClaudeProgramme(input);
     // "Luodut ohjelmat": the brief and the week that came back, on the
-    // composer's own line of the consent sheet.
-    await keepTranscript(input.keepConsent, input.logId, {
-      kind: 'composer',
-      language: input.language,
-      model: CLAUDE_MODEL,
-      durationMs: Date.now() - composeStartedAt,
-      prompt: input.prompt,
-      source: composed.ok === true ? 'live' : `error:${composed.error.code}`,
-      proposal: composed.ok === true ? composed.proposal : null,
-    });
+    // composer's own line of the consent sheet — for a brief the model saw.
+    if (!refusedBeforeModel(composed)) {
+      await keepTranscript(input.keepConsent, input.logId, {
+        kind: 'composer',
+        language: input.language,
+        model: CLAUDE_MODEL,
+        durationMs: Date.now() - composeStartedAt,
+        prompt: input.prompt,
+        source: composed.ok === true ? 'live' : `error:${composed.error.code}`,
+        proposal: composed.ok === true ? composed.proposal : null,
+      });
+    }
     if (composed.ok === true) {
       res.status(200).json(composed);
       return;
@@ -1285,17 +1314,20 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   const startedAt = Date.now();
   const result = await requestClaude(input);
-  // The question and its answer, kept only for a reader who allowed it. The
-  // training context is never written down on any of these paths.
-  await keepTranscript(input.keepConsent, input.logId, {
-    kind: 'chat',
-    language: input.language,
-    model: CLAUDE_MODEL,
-    durationMs: Date.now() - startedAt,
-    prompt: input.prompt,
-    source: result.ok ? result.source : `error:${result.error.code}`,
-    answer: result.ok ? result.answer : result.fallback ?? null,
-  });
+  // The question and its answer, kept only for a reader who allowed it, and
+  // only for a question the model saw. The training context is never written
+  // down on any of these paths.
+  if (!refusedBeforeModel(result)) {
+    await keepTranscript(input.keepConsent, input.logId, {
+      kind: 'chat',
+      language: input.language,
+      model: CLAUDE_MODEL,
+      durationMs: Date.now() - startedAt,
+      prompt: input.prompt,
+      source: result.ok ? result.source : `error:${result.error.code}`,
+      answer: result.ok ? result.answer : result.fallback ?? null,
+    });
+  }
   if (result.ok) {
     res.status(200).json(result);
     return;

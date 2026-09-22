@@ -44,6 +44,49 @@ export function withoutAiLogDeletions(pending: readonly string[], deleted: reado
   return pending.filter((label) => !deleted.includes(label));
 }
 
+/**
+ * How long after a request that carried a label a copy of it may still be
+ * written: the app's own outer bound on a coach call (aiCoachClient's request
+ * timeout, pinned equal in tests/lib/aiLogDeletion).
+ *
+ * The server keeps a copy after the model has answered — up to its 30 s
+ * upstream timeout after the request arrived — and a delete lists the copies
+ * there when it arrives. So a withdrawal made while a question was still being
+ * answered deleted every copy but that one, and the label was retired as done
+ * (server audit, 2026-09-21).
+ */
+export const AI_LOG_WRITE_WINDOW_MS = 40_000;
+
+/**
+ * When a delete sent at `deleteSentAt` can be trusted to have found every
+ * copy: null when it already can, otherwise the moment after which asking
+ * again will. `lastCarriedAt` is when the last request carrying the label
+ * left the phone, or null when none has in this run of the app.
+ */
+export function aiLogDeleteSettlesAt(lastCarriedAt: number | null, deleteSentAt: number): number | null {
+  if (lastCarriedAt === null) {
+    return null;
+  }
+  const settles = lastCarriedAt + AI_LOG_WRITE_WINDOW_MS;
+  return deleteSentAt < settles ? settles : null;
+}
+
+/** The latest of those moments still ahead for any of `labels`, or null: when to ask once more. */
+export function aiLogRetryAt(
+  labels: readonly string[],
+  lastCarriedAt: (logId: string) => number | null,
+  now: number,
+): number | null {
+  let latest: number | null = null;
+  for (const label of labels) {
+    const at = aiLogDeleteSettlesAt(lastCarriedAt(label), now);
+    if (at !== null && (latest === null || at > latest)) {
+      latest = at;
+    }
+  }
+  return latest;
+}
+
 type CoachLogFields = Pick<
   AppPreferences,
   'aiLogId' | 'aiLogChatConsent' | 'aiLogComposerConsent' | 'aiLogPhotoConsent' | 'pendingAiLogDeletions'
@@ -84,6 +127,14 @@ export interface AiLogDeletionRunnerOptions {
   forget: (logId: string) => Promise<{ ok: boolean }>;
   /** Called with the labels the server confirmed, to take them off the list. */
   onDeleted: (logIds: string[]) => Promise<void>;
+  /**
+   * When a request carrying the label last left the phone (aiCoachClient). A
+   * delete confirmed before that request's copy can have landed is not
+   * final: the label stays owed (aiLogDeleteSettlesAt).
+   */
+  lastCarriedAt?: (logId: string) => number | null;
+  /** The clock, for the same question. */
+  now?: () => number;
 }
 
 /**
@@ -104,12 +155,18 @@ export function createAiLogDeletionRunner(options: AiLogDeletionRunnerOptions) {
       return running;
     }
     const attempt = (async () => {
+      const sentAt = (options.now ?? Date.now)();
       try {
         const answer = await options.forget(logId);
         if (!answer.ok) {
           return false;
         }
       } catch {
+        return false;
+      }
+      if (aiLogDeleteSettlesAt(options.lastCarriedAt?.(logId) ?? null, sentAt) !== null) {
+        // Everything that was there is gone, but a copy may still be on its
+        // way: owed until a delete sent after it has landed says so.
         return false;
       }
       try {

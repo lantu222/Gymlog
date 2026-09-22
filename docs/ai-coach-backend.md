@@ -171,11 +171,18 @@ the free tier keeps function logs for about an hour, so nothing recorded when it
 started. `api/coach-health.ts` now runs once a day from `vercel.json`
 (05:00 UTC, ±59 min on Hobby):
 
-- It calls `GET https://api.anthropic.com/v1/models` with the key — a call that
-  needs a valid key and spends no tokens.
-- A missing key, 401 or 403 posts one line to Slack `#bugs`, naming the status
-  and the fix. A timeout, 429 or 5xx does not: the next run asks again. The rule
-  and its tests are `src/lib/coachKeyHealth.ts` / `tests/lib/coachKeyHealth.test.cjs`.
+- It checks that `AI_COACH_APP_KEY` is set: without it the coach refuses every
+  request the app makes, whatever the Anthropic key says.
+- It asks the coach's own model (`AI_COACH_CLAUDE_MODEL`, or the default) for
+  one token with the key — a few thousandths of a cent a day. It used to read
+  the model list, which answers a valid key even while every real call is
+  refused by a spend limit, spent credit or a model that no longer exists
+  (server audit, 2026-09-21).
+- A missing key or app key, a 401 or 403 (the key), or a 400 or 404 (the call)
+  posts one line to Slack `#bugs`, naming the status, Anthropic's own reason
+  and the fix. A timeout, 429 or 5xx does not: the next run asks again. The
+  rule and its tests are `src/lib/coachKeyHealth.ts` /
+  `tests/lib/coachKeyHealth.test.cjs`.
 - It posts again every day until the key works, so a note that gets missed once
   comes back.
 - The key is never logged, returned or posted.

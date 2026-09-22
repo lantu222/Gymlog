@@ -85,6 +85,17 @@ backed up.
 - Sign-in on a fresh install with a cloud backup → restored automatically.
 - Sign-in when BOTH sides hold data → the app asks; nothing is destroyed
   without a choice. "Keep this phone" overwrites the cloud on the spot.
+- Every upload names the cloud copy it replaces: the version (blob ETag) this
+  phone last wrote or restored, or `none` for a first backup, in the
+  `x-backup-expected-version` header. The endpoint writes only over that copy
+  and otherwise answers 412 `BACKUP_CHANGED` without writing, so a second
+  phone on the account can no longer replace newer data with older. The
+  automatic backup then stops for that run of the app; "Back up now" asks
+  restore-or-keep about the copy that is there. An upload without the header
+  (a build from before 2026-09-21) still overwrites, so installed phones keep
+  backing up until they update. Deploy the endpoint before shipping the build:
+  against an endpoint that sends no versions, the new build reads the copy
+  before every upload.
 - Auto-backup after logged work changes (8 s debounce), only while signed in.
 - Backup success is only shown after the server accepted the write.
 - Sign-out keeps local data; "Delete cloud backup" removes the server copy.

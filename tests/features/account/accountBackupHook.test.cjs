@@ -57,7 +57,33 @@ function syncedAccount(local, extra = {}) {
     lastBackupHistoryCount: 0,
     lastBackupFingerprint: lib.accountBackupFingerprint(local, emptyHistory()),
     autoBackupPaused: false,
+    // The version the fake server gives the copy it starts with.
+    cloudVersion: 'v1',
     ...extra,
+  };
+}
+
+/**
+ * The server's copy, versioned the way api/backup.ts versions it: every write
+ * — this phone's upload, or a test standing in for another phone — is a new
+ * version, and a delete leaves none.
+ */
+function versionedStore(initial) {
+  let blob = initial;
+  let version = initial ? 'v1' : null;
+  let written = 1;
+  return {
+    get blob() {
+      return blob;
+    },
+    set blob(next) {
+      blob = next;
+      written += 1;
+      version = next ? `v${written}` : null;
+    },
+    get version() {
+      return version;
+    },
   };
 }
 
@@ -65,8 +91,8 @@ async function withHook({ local, stored = null, cloud = null }, scenario) {
   const clock = createClock();
   const runtime = createHookRuntime();
   const listeners = new Set();
-  const calls = { upload: 0, download: 0, delete: 0, restoreDatabase: 0, restoreHistory: 0 };
-  const server = { blob: cloud, uploadError: null, downloadError: null, deleteOk: true, gates: {} };
+  const calls = { upload: 0, download: 0, delete: 0, restoreDatabase: 0, restoreHistory: 0, expected: [] };
+  const server = Object.assign(versionedStore(cloud), { uploadError: null, downloadError: null, deleteOk: true, gates: {} });
   const google = {
     silent: { status: 'ok', idToken: 'token' },
     signIn: { status: 'signed_in', account: { sub: 'sub-1', email: 'reader@example.com', name: 'Reader', idToken: 'token' } },
@@ -91,14 +117,23 @@ async function withHook({ local, stored = null, cloud = null }, scenario) {
     },
     './backupApi': {
       isBackupApiConfigured: () => true,
-      async uploadBackup(_token, payload) {
+      BACKUP_CHANGED: 'BACKUP_CHANGED',
+      async uploadBackup(_token, payload, expected) {
         calls.upload += 1;
+        calls.expected.push(expected);
         await pass(server.gates, 'upload');
         if (server.uploadError) {
           return { ok: false, error: server.uploadError };
         }
+        // As the endpoint answers: no expectation at all is a build from
+        // before versions and overwrites; null is "onto no copy"; a version
+        // must be the copy that is there.
+        const refused = expected === undefined ? false : expected === null ? server.blob !== null : expected !== server.version;
+        if (refused) {
+          return { ok: false, error: 'BACKUP_CHANGED' };
+        }
         server.blob = JSON.parse(JSON.stringify(payload));
-        return { ok: true, savedAt: '2026-09-17T12:00:00.000Z' };
+        return { ok: true, savedAt: '2026-09-17T12:00:00.000Z', version: server.version };
       },
       async downloadBackup() {
         calls.download += 1;
@@ -106,7 +141,7 @@ async function withHook({ local, stored = null, cloud = null }, scenario) {
         if (server.downloadError) {
           return { ok: false, error: server.downloadError };
         }
-        return server.blob ? { ok: true, payload: server.blob } : { ok: false, error: 'NO_BACKUP' };
+        return server.blob ? { ok: true, payload: server.blob, version: server.version } : { ok: false, error: 'NO_BACKUP' };
       },
       async deleteBackup() {
         calls.delete += 1;
@@ -369,7 +404,7 @@ module.exports = [
         slotHistory: {},
         lastSelectedTemplateId: 'tpl_x',
       };
-      await withHook({ local, stored: syncedAccount(local, { lastBackupFingerprint: null }) }, async (env) => {
+      await withHook({ local, stored: syncedAccount(local, { lastBackupFingerprint: null }), cloud: cloudCopy(local) }, async (env) => {
         // The database is in; the player's store is still loading (or on its
         // Retry screen), holding the empty history it starts with.
         env.app.hydrated = false;
@@ -421,7 +456,7 @@ module.exports = [
     name: 'account hook: offline keeps the reader signed in; only Google having no credential signs them out',
     async run() {
       const local = database({ workoutSessions: [workout('a')] });
-      await withHook({ local, stored: syncedAccount(local, { lastBackupFingerprint: null }) }, async (env) => {
+      await withHook({ local, stored: syncedAccount(local, { lastBackupFingerprint: null }), cloud: cloudCopy(local) }, async (env) => {
         env.google.silent = { status: 'error' };
         assert.equal((await env.api.backUpOrAsk()).kind, 'failed');
         await env.settle();
@@ -440,7 +475,7 @@ module.exports = [
     name: 'account hook: an edit reaches the cloud copy, and a failed upload is tried again when the app returns',
     async run() {
       const local = database({ workoutSessions: [workout('a')] });
-      await withHook({ local, stored: syncedAccount(local) }, async (env) => {
+      await withHook({ local, stored: syncedAccount(local), cloud: cloudCopy(local) }, async (env) => {
         await env.advance(QUIET_MS);
         assert.equal(env.calls.upload, 0, 'unchanged data was uploaded');
 
@@ -558,7 +593,7 @@ module.exports = [
     name: 'account hook: sign-out overtakes a running upload and a running sign-in',
     async run() {
       const local = database({ workoutSessions: [workout('a')] });
-      await withHook({ local, stored: syncedAccount(local, { lastBackupFingerprint: null }) }, async (env) => {
+      await withHook({ local, stored: syncedAccount(local, { lastBackupFingerprint: null }), cloud: cloudCopy(local) }, async (env) => {
         env.server.gates.upload = deferred();
         const pending = env.api.backUpOrAsk();
         await flush();
@@ -706,6 +741,131 @@ module.exports = [
     },
   },
   {
+    // Two phones on one Google account shared the one blob, and each uploaded
+    // whenever it had not shrunk against its own last count — the phone that
+    // wrote last won, older data included (server audit, 2026-09-21). Every
+    // upload now names the copy it replaces, and the server keeps a copy it
+    // was not named.
+    name: 'account hook: a copy another phone wrote since is asked about, never overwritten',
+    async run() {
+      const local = database({ workoutSessions: workouts(3) });
+      await withHook({ local, stored: syncedAccount(local), cloud: cloudCopy(local) }, async (env) => {
+        // The other phone logs two workouts and backs up.
+        env.server.blob = cloudCopy(database({ workoutSessions: workouts(5) }));
+        const theirs = env.server.version;
+
+        // This phone logs one; its automatic backup runs.
+        await env.edit((db) => ({ ...db, workoutSessions: [...db.workoutSessions, workout('mine')] }));
+        await env.advance(QUIET_MS);
+        assert.equal(env.server.blob.database.workoutSessions.length, 5, "the other phone's workouts were overwritten");
+        assert.equal(env.store.account.lastBackupAt, '2026-09-10T08:00:00.000Z', 'a refused upload was reported as a backup');
+        assert.equal(env.calls.upload, 1);
+        assert.deepEqual(env.calls.expected, ['v1'], 'the upload did not name the copy it replaces');
+        assert.equal(env.store.account.cloudVersion, 'v1');
+
+        // Unattended, it does not send the history again to hear the same no.
+        await env.edit((db) => ({ ...db, preferences: { ...db.preferences, profileName: 'Sanna' } }));
+        await env.advance(QUIET_MS);
+        await env.foreground();
+        await env.advance(QUIET_MS);
+        assert.equal(env.calls.upload, 1);
+
+        // "Back up now" is refused the same way, and becomes the question.
+        const outcome = await env.api.backUpOrAsk();
+        assert.equal(outcome.kind, 'choice', '"Back up now" overwrote a copy this phone never saw');
+        assert.equal(outcome.summary.cloud.workoutCount, 5);
+        assert.equal(outcome.summary.local.workoutCount, 4);
+        assert.equal(env.server.blob.database.workoutSessions.length, 5);
+
+        // Keeping this phone's data replaces the copy that was shown, by name.
+        await env.settle();
+        assert.equal(await env.api.resolveRestoreChoice('keep_local'), 'done');
+        assert.equal(env.calls.expected[env.calls.expected.length - 1], theirs);
+        assert.equal(env.server.blob.database.workoutSessions.length, 4);
+        assert.equal(env.store.account.cloudVersion, env.server.version);
+
+        // And the automatic backup is back on.
+        await env.edit((db) => ({ ...db, preferences: { ...db.preferences, profileName: 'Sanna K' } }));
+        await env.advance(QUIET_MS);
+        assert.equal(env.server.blob.database.preferences.profileName, 'Sanna K');
+      });
+
+      // Restoring the other phone's copy instead makes it this phone's.
+      await withHook({ local, stored: syncedAccount(local), cloud: cloudCopy(local) }, async (env) => {
+        env.server.blob = cloudCopy(database({ workoutSessions: workouts(5) }));
+        assert.equal((await env.api.backUpOrAsk()).kind, 'choice');
+        await env.settle();
+        assert.equal(await env.api.resolveRestoreChoice('restore'), 'done');
+        assert.equal(env.store.account.cloudVersion, env.server.version);
+        await env.settle();
+        await env.edit((db) => ({ ...db, workoutSessions: [...db.workoutSessions, workout('next')] }));
+        await env.advance(QUIET_MS);
+        assert.equal(env.server.blob.database.workoutSessions.length, 6);
+      });
+    },
+  },
+  {
+    name: 'account hook: a restore remembers the copy it restored, and the next backup names it without reading it again',
+    async run() {
+      await withHook({ local: database(), cloud: cloudCopy(database({ workoutSessions: workouts(3) })) }, async (env) => {
+        assert.equal((await env.api.signIn()).kind, 'restored');
+        assert.equal(env.store.account.cloudVersion, 'v1', 'the restore did not keep the version of what it restored');
+        await env.settle();
+        await env.edit((db) => ({ ...db, bodyweightEntries: [{ id: 'bw', recordedAt: 't', weight: 80 }] }));
+        await env.advance(QUIET_MS);
+        assert.deepEqual(env.calls.expected, ['v1']);
+        assert.equal(env.calls.download, 1, 'a phone that knows its copy read it again before every write');
+        assert.equal(env.store.account.cloudVersion, env.server.version);
+      });
+    },
+  },
+  {
+    name: 'account hook: the first backup is written onto no copy, and one that lost the race asks instead',
+    async run() {
+      await withHook({ local: database({ workoutSessions: [workout('a')] }), cloud: null }, async (env) => {
+        assert.equal((await env.api.signIn()).kind, 'backed_up');
+        assert.deepEqual(env.calls.expected, [null]);
+        assert.equal(env.store.account.cloudVersion, env.server.version);
+      });
+      // Another phone's first backup lands between this one's look and its write.
+      await withHook({ local: database({ workoutSessions: [workout('a')] }), cloud: null }, async (env) => {
+        env.server.gates.upload = deferred();
+        const pending = env.api.signIn();
+        await env.settle();
+        env.server.blob = cloudCopy(database({ workoutSessions: workouts(4) }));
+        env.server.gates.upload.resolve();
+        assert.equal((await pending).kind, 'not_backed_up');
+        assert.equal(env.server.blob.database.workoutSessions.length, 4, 'the first backup overwrote the other phone\'s');
+        assert.equal(env.store.account.lastBackupAt, null);
+        delete env.server.gates.upload;
+        await env.settle();
+        assert.equal((await env.api.backUpOrAsk()).kind, 'choice');
+      });
+    },
+  },
+  {
+    name: 'account hook: an account from before versions knows its own copy, and not another phone\'s',
+    async run() {
+      const local = database({ workoutSessions: workouts(3) });
+      // Its last sync was an upload: the server's save time, not the copy's export time.
+      const uploadedBefore = { cloudVersion: null, lastBackupAt: '2026-09-10T09:00:00.000Z' };
+      await withHook({ local, stored: syncedAccount(local, uploadedBefore), cloud: cloudCopy(local) }, async (env) => {
+        await env.edit((db) => ({ ...db, bodyweightEntries: [{ id: 'bw', recordedAt: 't', weight: 80 }] }));
+        await env.advance(QUIET_MS);
+        assert.equal(env.calls.download, 1, 'an account without a version wrote without reading the copy');
+        assert.deepEqual(env.calls.expected, ['v1']);
+        assert.equal(env.store.account.cloudVersion, env.server.version);
+      });
+      await withHook({ local, stored: syncedAccount(local, uploadedBefore), cloud: cloudCopy(database({ workoutSessions: workouts(5) })) }, async (env) => {
+        await env.edit((db) => ({ ...db, bodyweightEntries: [{ id: 'bw', recordedAt: 't', weight: 80 }] }));
+        await env.advance(QUIET_MS);
+        assert.equal(env.calls.upload, 0, "an updated phone adopted the other phone's copy and wrote over it");
+        assert.equal(env.server.blob.database.workoutSessions.length, 5);
+        assert.equal((await env.api.backUpOrAsk()).kind, 'choice');
+      });
+    },
+  },
+  {
     name: 'account store: an account saved by an older build loads with the new fields defaulted',
     run() {
       assert.deepEqual(normalizeStoredAccount({ sub: 's', email: 'e', name: null, lastBackupAt: 'x', lastBackupItemCount: 4 }), {
@@ -719,6 +879,9 @@ module.exports = [
         lastBackupHistoryCount: null,
         lastBackupFingerprint: null,
         autoBackupPaused: false,
+        // Unknown for an account stored before versions were kept: its next
+        // backup reads the copy before it names one (server audit, 2026-09-21).
+        cloudVersion: null,
       });
       const odd = normalizeStoredAccount({
         sub: 's',
@@ -726,9 +889,13 @@ module.exports = [
         autoBackupPaused: 'yes',
         lastBackupItemCount: -1,
         lastBackupHistoryCount: 'many',
+        cloudVersion: 12,
       });
       assert.equal(odd.lastBackupFingerprint, null);
       assert.equal(odd.autoBackupPaused, false);
+      assert.equal(odd.cloudVersion, null);
+      assert.equal(normalizeStoredAccount({ sub: 's', cloudVersion: '' }).cloudVersion, null);
+      assert.equal(normalizeStoredAccount({ sub: 's', cloudVersion: '"v7"' }).cloudVersion, '"v7"');
       assert.equal(odd.lastBackupItemCount, null);
       assert.equal(odd.lastBackupHistoryCount, null);
       assert.equal(normalizeStoredAccount({ sub: 's', lastBackupHistoryCount: 12.7 }).lastBackupHistoryCount, 12);

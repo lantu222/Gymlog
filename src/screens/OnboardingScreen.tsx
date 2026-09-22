@@ -56,6 +56,7 @@ import { CAUTION_TO_FOCUS_AREAS } from '../lib/cautionExerciseFilter';
 import { TailoringPreferencesInput } from '../lib/tailoringFit';
 import { getReadyTemplatePresentation } from '../lib/templatePresentation';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
+import { AI_COACH_MAX_PROMPT_CHARS } from '../lib/aiCoachBudget';
 import { trackEvent } from '../features/analytics/analyticsClient';
 import { cycleSchedule, cycleSessionsPerWeek, patternFromOnOff, trainsOn } from '../lib/trainingSchedule';
 import { colors, radii, spacing } from '../theme';
@@ -3274,6 +3275,9 @@ export function OnboardingScreen({
               selectionColor="#F3F7FF"
               multiline
               textAlignVertical="top"
+              // The coach endpoint's question limit, as in the chat: past it
+              // the question was refused and answered offline.
+              maxLength={AI_COACH_MAX_PROMPT_CHARS}
               style={styles.sheetInput}
             />
 

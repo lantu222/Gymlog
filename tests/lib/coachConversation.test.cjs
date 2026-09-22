@@ -67,8 +67,12 @@ module.exports = [
       assert.match(source, /return clean\.slice\(-MAX_HISTORY_TURNS\);/);
       assert.match(source, /history: sanitizeHistory\(candidate\.history\)/);
 
-      // It rides in the uncached half, so the budget has to see it.
-      assert.match(source, /input\.prompt\.length \+\s*\n\s*\(input\.history \?\? \[\]\)\.reduce\(/);
+      // It rides in the uncached half, so the budget has to see it — against
+      // its own limit: added to the question's, three exchanges alone passed
+      // the 2,000-character cap and a follow-up went offline (server audit,
+      // 2026-09-21).
+      assert.match(source, /historyChars: \(input\.history \?\? \[\]\)\.reduce\(\(total, turn\) => total \+ turn\.question\.length \+ turn\.takeaway\.length, 0\)/);
+      assert.doesNotMatch(source, /input\.prompt\.length \+/);
 
       // Real turns rather than a preamble, so "why?" has an antecedent.
       assert.match(source, /\{ role: 'user', content: turn\.question \}/);

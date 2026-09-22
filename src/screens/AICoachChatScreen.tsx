@@ -19,6 +19,8 @@ import { trackEvent } from '../features/analytics/analyticsClient';
 import { buildAiCoachPreviewAnswer } from '../lib/aiCoachPreview';
 import { classifyCoachScope } from '../lib/aiCoachScope';
 import { PRO_COACH_QUESTIONS_PER_MONTH, coachQuotaReset } from '../lib/aiCoachQuota';
+import { AI_COACH_MAX_PROMPT_CHARS } from '../lib/aiCoachBudget';
+import { fitAiCoachContextToCap } from '../lib/aiTrainingContext';
 import { formatShortDate } from '../lib/format';
 import { CoachChatIntroInput, CoachContextChip, buildCoachContextChips, buildCoachContextReadout, buildCoachNoticed, buildCoachOpeningLine, buildCoachOpeningOffer, buildCoachOpeningRows } from '../lib/coachChat';
 import { coachSmallTalkReplyKey, parseCoachSmallTalk } from '../lib/coachSmallTalk';
@@ -348,7 +350,9 @@ export function AICoachChatScreen({
    * held still. Rebuilt only when the rest of the context changes.
    */
   const sentTrainingContext = useMemo(
-    () => ({ ...trainingContext, coachMemory: pinnedCoachMemory }),
+    // Fitted again: the pinned memory goes back into a context that may have
+    // been fitted without it, and the endpoint refuses one over its cap.
+    () => fitAiCoachContextToCap({ ...trainingContext, coachMemory: pinnedCoachMemory }),
     [trainingContext, pinnedCoachMemory],
   );
 
@@ -1575,6 +1579,10 @@ export function AICoachChatScreen({
               // pasted paragraph from eating the thread; past it, it scrolls.
               multiline
               textAlignVertical="top"
+              // The endpoint's own limit. Past it a question was refused as
+              // oversized and answered offline, with nothing to say why
+              // (server audit, 2026-09-21).
+              maxLength={AI_COACH_MAX_PROMPT_CHARS}
             />
             <Pressable
               accessibilityRole="button"

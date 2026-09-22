@@ -201,10 +201,16 @@ module.exports = [
       // which a later yes would reuse, but as a delete still owed. Dropping it
       // outright would leave the copies filed under a name nothing can look up
       // again.
-      assert.match(handler, /const stillOwed = await retireAiLogLabel\(logId, !forgotten\.ok\);/);
-      // And the reader hears "still on its way" only when it is: the provider
-      // may find the label back in use and file nothing.
-      assert.match(handler, /if \(stillOwed\) \{\s*showToast\(t\(preferences\.appLanguage, 'toast\.coachCopiesPending'\)\);/);
+      // So does a delete that landed while a question sent under the label
+      // could still be answered: its copy is written after the delete listed
+      // what was there (server audit, 2026-09-21; run in tests/lib/aiLogDeletion).
+      assert.match(handler, /const deleteSentAt = Date\.now\(\);\s*const forgotten = await forgetAiCoachLog\(logId\);/);
+      assert.match(handler, /const settling = aiLogDeleteSettlesAt\(lastAiLogCarriedAt\(logId\), deleteSentAt\) !== null;/);
+      assert.match(handler, /const stillOwed = await retireAiLogLabel\(logId, !forgotten\.ok \|\| settling\);/);
+      // And the reader hears "could not be deleted yet" only when it could
+      // not: the provider may find the label back in use and file nothing, and
+      // a delete waiting out a late copy has deleted everything that was there.
+      assert.match(handler, /if \(stillOwed && !forgotten\.ok\) \{\s*showToast\(t\(preferences\.appLanguage, 'toast\.coachCopiesPending'\)\);/);
 
       /*
        * And that write reads the owed list where it writes it.
