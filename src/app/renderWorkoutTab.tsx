@@ -31,7 +31,7 @@ import { getExerciseProgressForName, SameLiftMatcher } from '../lib/progression'
 import { catalogLevelForSetup } from '../lib/goalProgramme';
 import { getReadyProgramContent } from '../lib/readyProgramContent';
 import { getReadyProgramBlockWeeks } from '../lib/readyProgramDuration';
-import { leadAfterStopping, programmeSwitchedFrom } from '../lib/runningProgrammes';
+import { programmeSwitchedFrom, programmeToSwitchTo } from '../lib/runningProgrammes';
 import { AdaptedSessionRef, SessionAdaptation, withSessionSwap } from '../lib/sessionAdaptation';
 import { nextSeasonWindow, resolveSeasonWindow } from '../lib/season';
 import { isEnrolled } from '../lib/seasonEnrolment';
@@ -97,6 +97,8 @@ export interface WorkoutTabDeps {
   onStopProgram: (workoutTemplateId: string) => Promise<void>;
   /** The Active switch turned on — see handleResumeProgram. */
   onResumeProgram: (workoutTemplateId: string) => Promise<void>;
+  /** The active programme switched off in favour of another — see handleSwitchActiveProgram. */
+  onSwitchActiveProgram: (fromTemplateId: string, toPlanId: string) => Promise<void>;
   /** Remove a held ready programme from the reader's programmes. */
   onForgetHeldProgram: (workoutTemplateId: string) => Promise<void>;
   homeActivePlanCard: {
@@ -239,6 +241,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     activeProgramTemplateIds,
     onStopProgram,
     onResumeProgram,
+    onSwitchActiveProgram,
     onForgetHeldProgram,
     homeActivePlanCard,
     programInsightsByTemplateId,
@@ -440,12 +443,19 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     const programIsActive = programsCustomItems.some(
       (row) => row.active && row.id === route.workoutTemplateId,
     );
-    const stoppingHandsToId = leadAfterStopping({
+    // What switching the active programme off offers in its place: the next
+    // one running, or one the reader switched off — only a programme the list
+    // can open, by the name it gives it (user 2026-09-22).
+    const switchTo = programmeToSwitchTo({
       activePlanId: preferences.activePlanId,
       activePlanIds: preferences.activePlanIds,
       plans: database.workoutPlans,
       templateId: route.workoutTemplateId,
+      shown: programsCustomItems.map((row) => row.id),
     });
+    const switchToName = switchTo
+      ? programsCustomItems.find((row) => row.id === switchTo.templateId)?.name ?? null
+      : null;
     const program = readyTemplate
       ? buildReadyProgramDetail(
           readyTemplate,
@@ -544,9 +554,17 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           void (next ? onResumeProgram(route.workoutTemplateId) : onStopProgram(route.workoutTemplateId));
         }}
         switchingFrom={switchedFrom?.name ?? null}
-        stoppingHandsTo={
-          programsCustomItems.find((row) => row.id === stoppingHandsToId)?.name ?? null
+        stoppingHandsTo={switchToName}
+        // Switching the active one off asks first: make the other one active,
+        // or, with nothing else held, look for a new one in the catalogue.
+        onSwitchOff={
+          switchTo && switchToName
+            ? () => void onSwitchActiveProgram(route.workoutTemplateId, switchTo.planId)
+            : undefined
         }
+        onBrowseProgrammes={() => {
+          void onStopProgram(route.workoutTemplateId).then(() => navigate({ tab: 'workout', screen: 'catalog' }));
+        }}
         // Only the adopt answers make this programme active; the button's
         // other answers start a session, open an editor or the reader's own
         // version, and switch nothing.

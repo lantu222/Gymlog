@@ -4909,7 +4909,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     textAlign: 'right',
   },
   phaseColHead: { fontSize: 8.5, fontWeight: '800', letterSpacing: 0.3, color: theme.faint, textAlign: 'right' },
-  phaseColSets: { width: 38 },
+  // As wide as the reps column: "SARJAT" did not fit in 38 and read
+  // "SARJA…" (#bugs 2026-09-22), and the two headers are the same kind of word.
+  phaseColSets: { width: 46 },
   phaseColReps: { width: 46 },
   phaseColLoad: { width: 60 },
   // The step number's disc. Same size and place the play disc held, so the

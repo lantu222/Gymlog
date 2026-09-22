@@ -85,6 +85,7 @@ import {
   resolveLeadPlanId,
   resumeProgramme,
   stopProgramme,
+  switchActiveProgramme,
 } from './src/lib/runningProgrammes';
 import {
   buildReadyProgramPlanId,
@@ -2464,6 +2465,30 @@ function VinhaApp() {
     // was running already and only became the lead is not (analytics audit,
     // 2026-09-21).
     if (joinedRunningSet(preferences.activePlanIds, resumed.activePlanIds)) {
+      trackEvent('plan_adopted');
+    }
+  }
+
+  /**
+   * The active programme switched off, and the reader said yes to making
+   * another one active instead (user 2026-09-22).
+   *
+   * One write: every plan of the old programme stops and the chosen one leads,
+   * joining the running set if the reader had switched it off. Stopping and
+   * then resuming in two writes would read the running set from the render
+   * before the first. The count cannot grow, so the cap has nothing to refuse.
+   */
+  async function handleSwitchActiveProgram(fromTemplateId: string, toPlanId: string) {
+    const next = switchActiveProgramme({
+      activePlanId: preferences.activePlanId,
+      activePlanIds: preferences.activePlanIds,
+      plans: database.workoutPlans,
+      fromTemplateId,
+      toPlanId,
+    });
+    await updatePreferences(next);
+    // A programme switched back on is a programme taken into use.
+    if (joinedRunningSet(preferences.activePlanIds, next.activePlanIds)) {
       trackEvent('plan_adopted');
     }
   }
@@ -6870,6 +6895,7 @@ function VinhaApp() {
     content = renderWorkoutTab({
       onStopProgram: handleStopProgram,
       onResumeProgram: handleResumeProgram,
+      onSwitchActiveProgram: handleSwitchActiveProgram,
       onForgetHeldProgram: handleForgetHeldProgram,
       route,
       navigate,

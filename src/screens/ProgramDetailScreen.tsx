@@ -119,6 +119,17 @@ interface ProgramDetailScreenProps {
    */
   stoppingHandsTo?: string | null;
   /**
+   * Switching the active programme off asks first (user 2026-09-22). With
+   * another programme to take over (`stoppingHandsTo`), the question is
+   * whether to make that one active, and this does the switch. Without one,
+   * the question is whether to look for a new programme, and
+   * `onBrowseProgrammes` switches this one off and opens the catalogue. Either
+   * way nothing changes until the reader says yes; absent, the switch stops
+   * the programme straight away as before.
+   */
+  onSwitchOff?: () => void;
+  onBrowseProgrammes?: () => void;
+  /**
    * Does the adopt button make this programme the active one?
    *
    * Its other answers — starting the next session, opening the reader's own
@@ -264,6 +275,8 @@ export function ProgramDetailScreen({
   onSetActive,
   switchingFrom = null,
   stoppingHandsTo = null,
+  onSwitchOff,
+  onBrowseProgrammes,
   primaryActionActivates = false,
   onOpenSession,
   onReorderSession,
@@ -388,6 +401,24 @@ export function ProgramDetailScreen({
       return;
     }
     activate(via);
+  };
+  /**
+   * The switch turned off on the active programme: which question comes
+   * first. Another programme to take over asks whether to make it active;
+   * none asks whether to look for a new one (user 2026-09-22). Until the
+   * answer, the switch still reads on.
+   */
+  const [pendingOff, setPendingOff] = useState<'switch' | 'browse' | null>(null);
+  const askBeforeSwitchingOff = () => {
+    if (stoppingHandsTo && onSwitchOff) {
+      setPendingOff('switch');
+      return;
+    }
+    if (!stoppingHandsTo && onBrowseProgrammes) {
+      setPendingOff('browse');
+      return;
+    }
+    onSetActive?.(false);
   };
   /**
    * The one thing that makes a good program the wrong pick: a week without
@@ -1054,7 +1085,7 @@ export function ProgramDetailScreen({
             </View>
             <ToggleSwitch
               value={active}
-              onChange={(next) => (next ? askBeforeActivating('switch') : onSetActive(false))}
+              onChange={(next) => (next ? askBeforeActivating('switch') : askBeforeSwitchingOff())}
               label={t(language, 'detail.active')}
             />
           </View>
@@ -1374,6 +1405,28 @@ export function ProgramDetailScreen({
           setPendingSwitch(null);
           if (via) {
             activate(via);
+          }
+        }}
+      />
+
+      <ConfirmDialog
+        language={language}
+        visible={pendingOff !== null}
+        title={t(language, pendingOff === 'browse' ? 'detail.browseOff.title' : 'detail.switchOff.title')}
+        message={
+          pendingOff === 'browse'
+            ? t(language, 'detail.browseOff.message')
+            : t(language, 'detail.switchOff.message', { name: stoppingHandsTo ?? '' })
+        }
+        confirmLabel={t(language, pendingOff === 'browse' ? 'detail.browseOff.confirm' : 'detail.switchOff.confirm')}
+        onCancel={() => setPendingOff(null)}
+        onConfirm={() => {
+          const kind = pendingOff;
+          setPendingOff(null);
+          if (kind === 'switch') {
+            onSwitchOff?.();
+          } else if (kind === 'browse') {
+            onBrowseProgrammes?.();
           }
         }}
       />

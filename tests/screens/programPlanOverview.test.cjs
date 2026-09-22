@@ -727,10 +727,10 @@ module.exports = [
     name: 'making another programme active asks first, and names the active one',
     run() {
       const code = programDetailSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-      // On asks; off goes straight through.
+      // On asks; off asks too since 2026-09-22 — see the next suite.
       assert.match(
         code,
-        /onChange=\{\(next\) => \(next \? askBeforeActivating\('switch'\) : onSetActive\(false\)\)\}/,
+        /onChange=\{\(next\) => \(next \? askBeforeActivating\('switch'\) : askBeforeSwitchingOff\(\)\)\}/,
       );
       // Only when there is a programme to move off; otherwise it just acts.
       assert.match(
@@ -753,6 +753,49 @@ module.exports = [
         i18nSource,
         /'detail\.switchActive\.message': 'Sinulla on aktiivisena ohjelmana \{name\}\. Suosittelemme, että teet yhden ohjelman loppuun/,
       );
+    },
+  },
+  {
+    /**
+     * "Kun aktiivisen ohjelman ottaa pois päältä sliderista, pitää tulla
+     * toinen popup: haluatko vaihtaa aktiivisen ohjelman tähän x, tai jos ei
+     * ole mitään muita omissa ohjelmissa niin pitää viedä katalogiin" (user
+     * 2026-09-22). Off used to stop the programme at once and hand the lead
+     * to whichever plan came first.
+     */
+    name: 'switching the active programme off asks: switch to the other one, or look for a new one',
+    run() {
+      const code = programDetailSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+      // Nothing happens before the answer: off only opens a question.
+      assert.match(
+        code,
+        /const askBeforeSwitchingOff = \(\) => \{\s*if \(stoppingHandsTo && onSwitchOff\) \{\s*setPendingOff\('switch'\);\s*return;\s*\}\s*if \(!stoppingHandsTo && onBrowseProgrammes\) \{\s*setPendingOff\('browse'\);\s*return;\s*\}\s*onSetActive\?\.\(false\);/,
+      );
+      assert.match(code, /visible=\{pendingOff !== null\}/);
+      assert.match(code, /onCancel=\{\(\) => setPendingOff\(null\)\}/);
+      assert.match(code, /t\(language, 'detail\.switchOff\.message', \{ name: stoppingHandsTo \?\? '' \}\)/);
+
+      const app = require('../helpers/appWiringSource.cjs').readAppWiring();
+      // The offer is the pure rule's, named as the list names it.
+      assert.match(app, /const switchTo = programmeToSwitchTo\(\{/);
+      assert.match(app, /shown: programsCustomItems\.map\(\(row\) => row\.id\),/);
+      assert.match(app, /onSwitchActiveProgram\(route\.workoutTemplateId, switchTo\.planId\)/);
+      // No other programme: switched off, then the catalogue.
+      assert.match(
+        app,
+        /onBrowseProgrammes=\{\(\) => \{\s*void onStopProgram\(route\.workoutTemplateId\)\.then\(\(\) => navigate\(\{ tab: 'workout', screen: 'catalog' \}\)\);/,
+      );
+      // And the switch is one write, not a stop and a resume that would read
+      // the running set from the render before the stop.
+      const at = app.indexOf('async function handleSwitchActiveProgram(');
+      assert.ok(at > 0, 'handleSwitchActiveProgram not found');
+      const body = app.slice(at, app.indexOf('\n  }', at));
+      assert.match(body, /const next = switchActiveProgramme\(\{/);
+      assert.match(body, /await updatePreferences\(next\);/);
+      assert.doesNotMatch(body, /stopProgramme\(|resumeProgramme\(/);
+
+      assert.match(i18nSource, /'detail\.switchOff\.message': 'Haluatko vaihtaa aktiiviseksi ohjelmaksi \{name\}\?/);
+      assert.match(i18nSource, /'detail\.browseOff\.title': 'Haluatko katsoa uutta ohjelmaa\?'/);
     },
   },
   {

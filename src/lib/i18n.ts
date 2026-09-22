@@ -2949,6 +2949,12 @@ const EN = {
   'detail.switchActive.title': 'Are you sure?',
   'detail.switchActive.message': '{name} is your active programme. We recommend finishing one programme before starting a new one — that is how you get the most out of it.',
   'detail.switchActive.confirm': 'Switch programme',
+  'detail.switchOff.title': 'Switch your active programme?',
+  'detail.switchOff.message': 'Do you want {name} to be your active programme? This one stays in your programmes.',
+  'detail.switchOff.confirm': 'Switch',
+  'detail.browseOff.title': 'Look for a new programme?',
+  'detail.browseOff.message': 'You have no other programmes. This one is switched off, and you can pick a new one from the catalogue.',
+  'detail.browseOff.confirm': 'Browse programmes',
   'detail.adopt': 'Start this programme',
   // ── Workout saved ─────────────────────────────────────────────────────
   // ── Workout saved counts ──────────────────────────────────────────────
@@ -5868,6 +5874,12 @@ const FI: Record<I18nKey, string> = {
   'detail.switchActive.title': 'Oletko varma?',
   'detail.switchActive.message': 'Sinulla on aktiivisena ohjelmana {name}. Suosittelemme, että teet yhden ohjelman loppuun ja aloitat sitten uuden — näin saat siitä parhaan hyödyn.',
   'detail.switchActive.confirm': 'Vaihda ohjelma',
+  'detail.switchOff.title': 'Vaihdetaanko aktiivinen ohjelma?',
+  'detail.switchOff.message': 'Haluatko vaihtaa aktiiviseksi ohjelmaksi {name}? Tämä ohjelma jää Omiin ohjelmiisi.',
+  'detail.switchOff.confirm': 'Vaihda',
+  'detail.browseOff.title': 'Haluatko katsoa uutta ohjelmaa?',
+  'detail.browseOff.message': 'Sinulla ei ole muita ohjelmia. Tämä ohjelma otetaan pois päältä, ja voit valita uuden katalogista.',
+  'detail.browseOff.confirm': 'Katso ohjelmia',
   'detail.adopt': 'Ota ohjelma käyttöön',
   // ── Access choice + workout saved ─────────────────────────────────────
   // ── Workout saved counts ──────────────────────────────────────────────

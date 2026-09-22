@@ -276,6 +276,78 @@ export function leadAfterStopping(input: {
   return next && next !== input.templateId ? next : null;
 }
 
+/**
+ * The programme a reader switching the active one off is offered in its place.
+ *
+ * Switching the active programme off asks first (user 2026-09-22): "do you
+ * want X to be your active programme?" X is the one the app would lead with
+ * anyway — the next programme still running (leadAfterStopping) — and when
+ * nothing else runs, the first programme the reader holds but switched off,
+ * which switching takes back into use. Null when this is not the active
+ * programme, or the reader holds nothing else: then the page offers the
+ * catalogue instead.
+ *
+ * `shown` is the programmes the reader's list shows, when the caller has it:
+ * a plan whose programme the list cannot open (a deleted one of their own) is
+ * not something to be offered by name.
+ */
+export function programmeToSwitchTo(input: {
+  activePlanId: string | null;
+  activePlanIds: readonly string[];
+  plans: readonly RunningPlan[];
+  templateId: string;
+  shown?: readonly string[];
+}): { templateId: string; planId: string } | null {
+  if (leadTemplateId({ activePlanId: input.activePlanId, plans: input.plans }) !== input.templateId) {
+    return null;
+  }
+  const next = leadAfterStopping(input);
+  const planFor = (templateId: string) => {
+    const running = new Set(input.activePlanIds);
+    const holding = input.plans.filter(
+      (plan) => plan.entries[0]?.workoutTemplateId === templateId && planCanRun(input.plans, plan.id),
+    );
+    return (holding.find((plan) => running.has(plan.id)) ?? holding[0])?.id ?? null;
+  };
+  const offered = (templateId: string) => !input.shown || input.shown.includes(templateId);
+  if (next && offered(next)) {
+    const planId = planFor(next);
+    return planId ? { templateId: next, planId } : null;
+  }
+  for (const plan of input.plans) {
+    const templateId = plan.entries[0]?.workoutTemplateId;
+    if (templateId && templateId !== input.templateId && offered(templateId) && planCanRun(input.plans, plan.id)) {
+      return { templateId, planId: plan.id };
+    }
+  }
+  return null;
+}
+
+/**
+ * The running set once the active programme is switched off in favour of
+ * another: every plan of the old one stops, and the new one leads — joining
+ * the running set if the reader had switched it off. The count cannot grow:
+ * the old programme gives up at least one place for the one it hands over.
+ */
+export function switchActiveProgramme(input: {
+  activePlanId: string | null;
+  activePlanIds: readonly string[];
+  plans: readonly RunningPlan[];
+  fromTemplateId: string;
+  toPlanId: string;
+}): { activePlanId: string; activePlanIds: string[] } {
+  const stopped = stopProgramme({ ...input, templateId: input.fromTemplateId }) ?? {
+    activePlanId: input.activePlanId,
+    activePlanIds: [...input.activePlanIds],
+  };
+  return {
+    activePlanId: input.toPlanId,
+    activePlanIds: stopped.activePlanIds.includes(input.toPlanId)
+      ? stopped.activePlanIds
+      : [...stopped.activePlanIds, input.toPlanId],
+  };
+}
+
 /** Every plan that holds one programme, for a reader who wants it gone. */
 export function planIdsHoldingTemplate(plans: readonly RunningPlan[], templateId: string): string[] {
   return plans

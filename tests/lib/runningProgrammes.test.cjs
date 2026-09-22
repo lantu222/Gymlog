@@ -8,6 +8,8 @@ const {
   leadAfterStopping,
   leadTemplateId,
   programmeSwitchedFrom,
+  programmeToSwitchTo,
+  switchActiveProgramme,
   resolveLeadPlanId,
   resumeProgramme,
   stopProgramme,
@@ -391,6 +393,98 @@ module.exports = [
           templateId: 'tpl_a',
         }),
         null,
+      );
+    },
+  },
+  {
+    /**
+     * Switching the active programme off asks first (user 2026-09-22):
+     * "do you want X to be your active programme?" — X the next running
+     * programme, else one the reader switched off; none, and the page offers
+     * the catalogue instead.
+     */
+    name: 'switch off: the programme offered in the active one\'s place',
+    run() {
+      const plans = [
+        plan('ready_plan_a', 'tpl_a'),
+        plan('ready_plan_b', 'tpl_b'),
+        plan('ready_plan_c', 'tpl_c'),
+      ];
+      // Another one running: it is the one offered.
+      assert.deepEqual(
+        programmeToSwitchTo({ activePlanId: 'ready_plan_a', activePlanIds: ['ready_plan_a', 'ready_plan_c'], plans, templateId: 'tpl_a' }),
+        { templateId: 'tpl_c', planId: 'ready_plan_c' },
+      );
+      // Nothing else running, one held and switched off: that one.
+      assert.deepEqual(
+        programmeToSwitchTo({ activePlanId: 'ready_plan_a', activePlanIds: ['ready_plan_a'], plans, templateId: 'tpl_a' }),
+        { templateId: 'tpl_b', planId: 'ready_plan_b' },
+      );
+      // Only what the list can open is offered by name.
+      assert.deepEqual(
+        programmeToSwitchTo({
+          activePlanId: 'ready_plan_a',
+          activePlanIds: ['ready_plan_a'],
+          plans,
+          templateId: 'tpl_a',
+          shown: ['tpl_a', 'tpl_c'],
+        }),
+        { templateId: 'tpl_c', planId: 'ready_plan_c' },
+      );
+      // Nothing else held: nothing to offer — the page offers the catalogue.
+      assert.equal(
+        programmeToSwitchTo({ activePlanId: 'ready_plan_a', activePlanIds: ['ready_plan_a'], plans: [plans[0]], templateId: 'tpl_a' }),
+        null,
+      );
+      // Not the active one: switching it off hands nothing on.
+      assert.equal(
+        programmeToSwitchTo({ activePlanId: 'ready_plan_a', activePlanIds: ['ready_plan_a', 'ready_plan_b'], plans, templateId: 'tpl_b' }),
+        null,
+      );
+    },
+  },
+  {
+    name: 'switch off: one write stops every plan of the old one and leads with the new',
+    run() {
+      const plans = [
+        plan('onboarding_plan_a', 'tpl_a'),
+        plan('ready_plan_a', 'tpl_a'),
+        plan('ready_plan_b', 'tpl_b'),
+        plan('ready_plan_c', 'tpl_c'),
+      ];
+      // To one that was switched off: it joins, the old one goes, count holds.
+      const toHeld = switchActiveProgramme({
+        activePlanId: 'ready_plan_a',
+        activePlanIds: ['onboarding_plan_a', 'ready_plan_a', 'ready_plan_c'],
+        plans,
+        fromTemplateId: 'tpl_a',
+        toPlanId: 'ready_plan_b',
+      });
+      assert.deepEqual(toHeld, { activePlanId: 'ready_plan_b', activePlanIds: ['ready_plan_c', 'ready_plan_b'] });
+      // To one already running: it leads, nothing is added twice.
+      const toRunning = switchActiveProgramme({
+        activePlanId: 'ready_plan_a',
+        activePlanIds: ['ready_plan_a', 'ready_plan_c'],
+        plans,
+        fromTemplateId: 'tpl_a',
+        toPlanId: 'ready_plan_c',
+      });
+      assert.deepEqual(toRunning, { activePlanId: 'ready_plan_c', activePlanIds: ['ready_plan_c'] });
+      // stopProgramme alone would have led with the FIRST remaining plan,
+      // which is not the one the reader said yes to.
+      assert.equal(
+        stopProgramme({ activePlanId: 'ready_plan_a', activePlanIds: ['ready_plan_a', 'ready_plan_c', 'ready_plan_b'], plans, templateId: 'tpl_a' }).activePlanId,
+        'ready_plan_c',
+      );
+      assert.equal(
+        switchActiveProgramme({
+          activePlanId: 'ready_plan_a',
+          activePlanIds: ['ready_plan_a', 'ready_plan_c', 'ready_plan_b'],
+          plans,
+          fromTemplateId: 'tpl_a',
+          toPlanId: 'ready_plan_b',
+        }).activePlanId,
+        'ready_plan_b',
       );
     },
   },
