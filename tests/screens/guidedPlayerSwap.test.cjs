@@ -355,6 +355,11 @@ module.exports = [
       // The header row exists once, for the lifts.
       assert.equal((playerSource.match(/styles\.phaseColHead/g) ?? []).length, 3);
       assert.match(playerSource, /\{phase\.key === 'work' \? \(/);
+      // The sets column is as wide as the reps one: at 38 "SARJAT" read
+      // "SARJA…" on the phone (#bugs 2026-09-22), and both hold a header of
+      // the same length and weight.
+      const width = (name) => Number(playerSource.match(new RegExp(`${name}: \\{ width: (\\d+) \\}`))?.[1]);
+      assert.ok(width('phaseColSets') >= width('phaseColReps'), 'the sets header column is narrower than the reps one');
     },
   },
   {

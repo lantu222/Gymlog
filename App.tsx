@@ -85,6 +85,7 @@ import {
   resolveLeadPlanId,
   resumeProgramme,
   stopProgramme,
+  switchActiveProgramme,
 } from './src/lib/runningProgrammes';
 import {
   buildReadyProgramPlanId,
@@ -2469,6 +2470,44 @@ function VinhaApp() {
   }
 
   /**
+   * The active programme switched off, and the reader said yes to making
+   * another one active instead (user 2026-09-22).
+   *
+   * One write: every plan of the old programme stops and the chosen one leads,
+   * joining the running set if the reader had switched it off. Stopping and
+   * then resuming in two writes would read the running set from the render
+   * before the first. The count cannot grow, so the cap has nothing to refuse.
+   */
+  async function handleSwitchActiveProgram(fromTemplateId: string, to: { templateId: string; planId: string | null }) {
+    // One of the reader's own programmes never started has no plan yet: it
+    // gets the week adoption would give it, stored first, and the switch
+    // below counts it among the plans (CI review of #179).
+    let plans = database.workoutPlans;
+    let toPlanId = to.planId;
+    if (!toPlanId) {
+      const plan = buildCustomProgrammePlan(to.templateId);
+      if (!plan) {
+        return;
+      }
+      await upsertWorkoutPlan(plan);
+      plans = [...plans.filter((entry) => entry.id !== plan.id), plan];
+      toPlanId = plan.id;
+    }
+    const next = switchActiveProgramme({
+      activePlanId: preferences.activePlanId,
+      activePlanIds: preferences.activePlanIds,
+      plans,
+      fromTemplateId,
+      toPlanId,
+    });
+    await updatePreferences(next);
+    // A programme switched back on is a programme taken into use.
+    if (joinedRunningSet(preferences.activePlanIds, next.activePlanIds)) {
+      trackEvent('plan_adopted');
+    }
+  }
+
+  /**
    * "Remove from my programmes", for a programme with no template of its own.
    *
    * Deleting a custom programme deletes its template; a ready programme's
@@ -3252,6 +3291,33 @@ function VinhaApp() {
   }
 
   /** Resolves true once the programme is running, false when it was not taken on. */
+  /**
+   * The plan that takes one of the reader's own programmes into use, or null
+   * when it has no lift to train. Shared by adoption and by switching the
+   * active programme off in its favour, so both build the same week.
+   */
+  function buildCustomProgrammePlan(workoutTemplateId: string) {
+    const template = customWorkoutRuntimeMap[workoutTemplateId];
+    const sessionIds = (template?.sessions ?? [])
+      .filter((session) => session.exercises.length > 0)
+      .map((session) => session.id);
+    if (sessionIds.length === 0) {
+      return null;
+    }
+    // The program's own session count leads, exactly as it does for a ready
+    // programme: an imported six-day week dealt across three chosen weekdays
+    // would run every session twice and call itself a three-day programme.
+    const dayLabels = planLabelsForProgramme(sessionIds.length, preferences.setupAvailableDays, new Date());
+    return buildProgramWorkoutPlan({
+      planId: buildCustomProgramPlanId(workoutTemplateId),
+      workoutTemplateId,
+      programName: formatWorkoutDisplayLabel(template?.name ?? ''),
+      sessionIds,
+      dayLabels,
+      now: new Date().toISOString(),
+    });
+  }
+
   async function handleAdoptCustomProgram(workoutTemplateId: string, options?: { lead?: boolean }): Promise<boolean> {
     const template = customWorkoutRuntimeMap[workoutTemplateId];
     // An empty program is not a plan. Home would draw a card with no session
@@ -3292,19 +3358,10 @@ function VinhaApp() {
       return false;
     }
 
-    // The program's own session count leads, exactly as it does for a ready
-    // programme: an imported six-day week dealt across three chosen weekdays
-    // would run every session twice and call itself a three-day programme.
-    const dayLabels = planLabelsForProgramme(sessionIds.length, preferences.setupAvailableDays, new Date());
-
-    const plan = buildProgramWorkoutPlan({
-      planId,
-      workoutTemplateId,
-      programName: formatWorkoutDisplayLabel(template?.name ?? ''),
-      sessionIds,
-      dayLabels,
-      now: new Date().toISOString(),
-    });
+    const plan = buildCustomProgrammePlan(workoutTemplateId);
+    if (!plan) {
+      return false;
+    }
 
     await upsertWorkoutPlan(plan);
     await updatePreferences({
@@ -6870,6 +6927,7 @@ function VinhaApp() {
     content = renderWorkoutTab({
       onStopProgram: handleStopProgram,
       onResumeProgram: handleResumeProgram,
+      onSwitchActiveProgram: handleSwitchActiveProgram,
       onForgetHeldProgram: handleForgetHeldProgram,
       route,
       navigate,
