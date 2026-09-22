@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 
 import { RestAlertAskOutcome } from '../lib/restAlertAnswer';
 import { canScheduleExactAlarms, openExactAlarmSettings } from '../utils/exactAlarm';
@@ -32,10 +33,30 @@ export function useRestAlertPermissionMoment(input: {
   alertsWanted: boolean;
   /** The answer, for the app to record. */
   onAnswered?: (outcome: RestAlertAskOutcome) => void;
-  /** Permission just landed while a rest runs: hand that rest to the OS now. */
+  /**
+   * Permission just landed while a rest runs: hand that rest to the OS now.
+   * Called again when the reader comes back having allowed exact alarms, so
+   * the rest is re-armed on the second rather than left inexact.
+   */
   onGranted?: () => void;
 }) {
-  const { restRunning, restKey, asked, alertsWanted, onAnswered, onGranted } = input;
+  const { restRunning, restKey, asked, alertsWanted, onAnswered } = input;
+  // The latest handler, not the one from the render that opened the dialog:
+  // it runs after an await, and again after a trip to system settings, and
+  // by then the rest it should hand over may have moved (native audit,
+  // 2026-09-21).
+  const onGrantedRef = useRef(input.onGranted);
+  onGrantedRef.current = input.onGranted;
+  const exactReturnRef = useRef<{ remove: () => void } | null>(null);
+  useEffect(
+    () => () => {
+      // Emptied too, so a grant check already under way when the screen
+      // goes cannot arm a rest behind it.
+      exactReturnRef.current?.remove();
+      exactReturnRef.current = null;
+    },
+    [],
+  );
   // null until the OS has answered: the guided player can mount straight
   // onto a running rest (Continue after leaving mid-rest), and asking before
   // the answer is in showed the sheet for a permission that was never
@@ -67,19 +88,46 @@ export function useRestAlertPermissionMoment(input: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restKey, resolved]);
 
+  /**
+   * Back from "Alarms & reminders" with exact alarms allowed: arm the rest
+   * again. An alarm keeps the kind it was set as, so the rest handed to the
+   * OS before that grant would still ring minutes late (native audit,
+   * 2026-09-21). Listens until the grant is really there rather than for one
+   * return: the system dialog that just closed can report "active" after
+   * this is set up, and a reader may come back without allowing it.
+   */
+  const rearmWhenExactAllowed = () => {
+    exactReturnRef.current?.remove();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') {
+        return;
+      }
+      void canScheduleExactAlarms().then((exact) => {
+        if (exact !== true || exactReturnRef.current !== subscription) {
+          return;
+        }
+        subscription.remove();
+        exactReturnRef.current = null;
+        onGrantedRef.current?.();
+      });
+    });
+    exactReturnRef.current = subscription;
+  };
+
   const allow = async () => {
     setSheetOpen(false);
     const next = await requestRestAlertPermission();
     setPermission(next);
     onAnswered?.(next === 'granted' ? 'granted' : 'denied');
     if (next === 'granted') {
-      onGranted?.();
+      onGrantedRef.current?.();
       // The sheet promised a ring when rest ends, and from Android 14 an
       // allowed notification is still an inexact alarm until the reader also
       // allows exact ones — minutes late, on a rest of ninety seconds. The
       // reader has just said yes to exactly that, so the one page that
       // finishes the job opens now rather than being left for them to find.
       if ((await canScheduleExactAlarms()) === false) {
+        rearmWhenExactAllowed();
         void openExactAlarmSettings();
       }
     }

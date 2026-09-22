@@ -45,6 +45,13 @@ interface NotificationsScreenProps {
   /** Reads the current OS permission without prompting. */
   checkPermission?: () => Promise<boolean>;
   /**
+   * Whether a rest alert can reach the reader, without prompting: the
+   * permission, and the rest-alert channel not switched off in Android's
+   * settings. The permission alone called a muted channel allowed (native
+   * audit, 2026-09-21). Falls back to `checkPermission`.
+   */
+  checkWorkoutAlerts?: () => Promise<boolean>;
+  /**
    * Gets the workout alerts permission: the system dialog while Android can
    * still show it, the app's system settings once it cannot. Resolves with
    * whether notifications are allowed now.
@@ -120,6 +127,7 @@ export function NotificationsScreen({
   onChange,
   requestPermission,
   checkPermission,
+  checkWorkoutAlerts = checkPermission,
   allowWorkoutAlerts,
   checkExactAlarms,
   onAllowExactAlarms,
@@ -172,9 +180,9 @@ export function NotificationsScreen({
   const [osAllowed, setOsAllowed] = useState<boolean | null>(null);
   const [exactAllowed, setExactAllowed] = useState<boolean | null>(null);
   const readWorkoutAccess = useCallback(() => {
-    void checkPermission?.().then(setOsAllowed);
+    void checkWorkoutAlerts?.().then(setOsAllowed);
     void checkExactAlarms?.().then(setExactAllowed);
-  }, [checkPermission, checkExactAlarms]);
+  }, [checkWorkoutAlerts, checkExactAlarms]);
   useEffect(() => {
     readWorkoutAccess();
     const subscription = AppState.addEventListener('change', (state) => {
@@ -198,7 +206,9 @@ export function NotificationsScreen({
     void requestPermission().then((granted) => {
       setSystemBlocked(!granted);
       // One permission for both kinds: the workout card's answer changed too.
-      setOsAllowed(granted);
+      // Read, not assumed from `granted` — a muted rest-alert channel stays
+      // muted whatever the permission says.
+      readWorkoutAccess();
       onChange({ pushEnabled: granted });
     });
   };

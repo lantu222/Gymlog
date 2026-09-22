@@ -1483,15 +1483,26 @@ export function GuidedPlayerScreen({
   // The permission moment (rule 05): at the first rest, in context, once.
   // The rest step's index is the rest's identity — a new rest is a new step.
   // Paused or not does not matter here: a paused rest is still that rest.
-  // No grant handler of its own — the sheet freezes the step (below), and
-  // unfreezing re-runs the step effect, which mirrors the rest through the
-  // same switch as every other rest.
   const restAsk = useRestAlertPermissionMoment({
     restRunning: mode === 'player' && step.type === 'rest',
     restKey: step.type === 'rest' ? stepIndex : null,
     asked: restAlerts.asked,
     alertsWanted: restAlerts.alerts,
     onAnswered: onRestAlertsAnswered,
+    // The sheet freezes the step (below), but it closes BEFORE the system
+    // dialog answers, so the step effect re-armed the rest while the answer
+    // was still "not granted" and the OS got nothing — the very rest the
+    // reader had just allowed never rang (native audit, 2026-09-21). The rest
+    // goes to the OS again once the grant is in, and again when the reader
+    // comes back having allowed exact alarms. Not a rest that has ended or
+    // one the step effect has let go (paused, frozen): the step effect arms
+    // that one when it runs again.
+    onGranted: () => {
+      const endsAt = endsAtRef.current;
+      if (stepRef.current?.type === 'rest' && endsAt !== null && endsAt > Date.now()) {
+        void syncRestNotification(endsAt, exerciseNameLabel(language, getGuidedNextName(steps, stepIndex) ?? ''));
+      }
+    },
   });
   // The permission sheet freezes the step like every other sheet: a short
   // rest expiring behind the ask would walk the reader onto a set screen

@@ -43,9 +43,32 @@ channel. Nothing of the app's data reaches Google's backup, so no answer here
 depends on it.
 
 Not present, and must stay absent from the merged manifest: location, contacts,
-microphone (`RECORD_AUDIO` is stripped from expo-audio — verify in
-`android/app/build/intermediates/merged_manifests/release/.../AndroidManifest.xml`),
-camera, Health Connect, ads, third-party analytics or crash SDKs.
+microphone, camera, Health Connect, ads, third-party analytics or crash SDKs.
+
+**How the manifest is kept that way (native audit, 2026-09-21).** Until then it
+was not: the release APK of 21 September requested `RECORD_AUDIO`, `CAMERA`,
+`SYSTEM_ALERT_WINDOW`, `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_MEDIA_PLAYBACK`,
+and declared expo-audio's `AudioControlsService` as a `mediaPlayback` foreground
+service — all library defaults, none used. The app plays its cues in the
+foreground only and picks photos from the library only. Now:
+
+- `app.json` switches the defaults off at the plugin: expo-audio
+  `enableBackgroundPlayback: false` (no service, no foreground-service
+  permissions) and `recordAudioAndroid: false`; expo-image-picker
+  `cameraPermission: false` and `microphonePermission: false`.
+- `android.blockedPermissions` names all five. Prebuild writes each as
+  `tools:node="remove"`, which also strips what a library's own manifest declares
+  at the Gradle merge — expo-audio's `RECORD_AUDIO`, expo-image-picker's `CAMERA`,
+  the template's `SYSTEM_ALERT_WINDOW`.
+- `tests/lib/androidPermissions.test.cjs` computes the manifest prebuild would
+  write and fails if any of the five is requested, if any foreground service is
+  declared, or if app code starts using the camera, recording or lock-screen
+  media controls.
+- `android/` is generated, so a change here reaches the APK only after
+  `npx expo prebuild --clean`. On the day, read
+  `android/app/build/intermediates/merged_manifests/release/processReleaseManifest/AndroidManifest.xml`
+  and confirm that none of the five appears and no `<service>` carries
+  `foregroundServiceType`.
 
 ## 2. Form answers
 

@@ -20,17 +20,24 @@ const DIST = path.join(ROOT, '.test-dist');
 
 function createFakeNotifications() {
   const scheduled = new Map();
+  /**
+   * The alarms really set in the OS, apart from `scheduled` — the library's
+   * stored list, which is what getAllScheduledNotificationsAsync reports. A
+   * force-stop clears these and leaves the list (native audit, 2026-09-21).
+   */
+  const armed = new Set();
   const presented = new Map();
   const channels = new Map();
   const categories = new Map();
-  const calls = { channel: 0, category: 0 };
+  const calls = { channel: 0, category: 0, schedule: 0 };
   const timing = { cancelDelayMs: 0 };
   let granted = true;
   let generated = 0;
   const tick = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 
   const api = {
-    AndroidImportance: { HIGH: 4, DEFAULT: 3, LOW: 2 },
+    // expo-notifications' own numbering (NotificationChannelManager.types).
+    AndroidImportance: { NONE: 2, MIN: 3, LOW: 4, DEFAULT: 5, HIGH: 6 },
     AndroidNotificationVisibility: { PUBLIC: 1, PRIVATE: 0 },
     AndroidNotificationPriority: { HIGH: 'high', LOW: 'low' },
     SchedulableTriggerInputTypes: { TIME_INTERVAL: 'timeInterval', DATE: 'date' },
@@ -38,7 +45,15 @@ function createFakeNotifications() {
     async setNotificationChannelAsync(id, channel) {
       await tick();
       calls.channel += 1;
-      channels.set(id, channel);
+      // Android lets an app rename its channel but keeps the importance the
+      // reader set for it in system settings.
+      const existing = channels.get(id);
+      channels.set(id, existing ? { ...channel, importance: existing.importance } : { ...channel });
+    },
+    async getNotificationChannelAsync(id) {
+      await tick();
+      const channel = channels.get(id);
+      return channel ? { id, ...channel } : null;
     },
     async setNotificationCategoryAsync(id, actions) {
       await tick();
@@ -59,7 +74,9 @@ function createFakeNotifications() {
       const id = identifier ?? `generated-${generated}`;
       const request = { identifier: id, content, trigger };
       if (trigger && (trigger.seconds !== undefined || trigger.date !== undefined)) {
+        calls.schedule += 1;
         scheduled.set(id, request);
+        armed.add(id);
       } else {
         presented.set(id, request);
       }
@@ -68,6 +85,7 @@ function createFakeNotifications() {
     async cancelScheduledNotificationAsync(id) {
       await tick(timing.cancelDelayMs);
       scheduled.delete(id);
+      armed.delete(id);
     },
     async dismissNotificationAsync(id) {
       await tick();
@@ -86,6 +104,7 @@ function createFakeNotifications() {
   return {
     api,
     scheduled,
+    armed,
     presented,
     channels,
     categories,
@@ -94,10 +113,15 @@ function createFakeNotifications() {
     setGranted(value) {
       granted = value;
     },
+    /** Force-stop, or exact alarms revoked: Android drops the app's alarms. */
+    forceStop() {
+      armed.clear();
+    },
     /** A notification the OS delivered: pending becomes presented. */
     deliver(id) {
       const request = scheduled.get(id);
       scheduled.delete(id);
+      armed.delete(id);
       presented.set(id, request);
     },
   };
@@ -307,6 +331,38 @@ module.exports = [
     },
   },
   {
+    name: 'rest alerts: the rest-alert channel switched off in Android settings reads as not allowed',
+    async run() {
+      // Native audit, 2026-09-21: the permission is app-wide and stays
+      // granted when the reader mutes one channel, so Settings called a
+      // muted rest alert allowed.
+      const fake = createFakeNotifications();
+      const { session } = loadAgainst(fake);
+      const { NONE, HIGH } = fake.api.AndroidImportance;
+
+      // No workout screen has made the channel yet: nothing has muted it.
+      assert.equal(await session.isRestAlertChannelBlocked(), false);
+      await session.setupSessionNotifications('en');
+      assert.equal(await session.getRestAlertsAllowed(), true);
+
+      fake.channels.get('rest-timer').importance = NONE;
+      assert.equal(await session.getRestAlertPermission(), 'granted', 'the fixture should keep the permission on');
+      assert.equal(await session.isRestAlertChannelBlocked(), true);
+      assert.equal(await session.getRestAlertsAllowed(), false, 'a muted rest-alert channel reads as allowed');
+      // Registering the channel again — a language switch — does not unmute it.
+      await session.setupSessionNotifications('fi');
+      assert.equal(await session.getRestAlertsAllowed(), false);
+
+      // Another channel muted is not this one.
+      fake.channels.get('rest-timer').importance = HIGH;
+      fake.channels.get('session-ongoing').importance = NONE;
+      assert.equal(await session.getRestAlertsAllowed(), true);
+      // And without the permission it is no, whatever the channel says.
+      fake.setGranted(false);
+      assert.equal(await session.getRestAlertsAllowed(), false);
+    },
+  },
+  {
     name: 'the reminders channel is named in the reader language',
     async run() {
       const fake = createFakeNotifications();
@@ -326,6 +382,52 @@ module.exports = [
       // The permission ask without a language leaves an existing name alone.
       await app.requestNotificationPermission();
       assert.equal(fake.channels.get('training').name, 'Reminders and recaps');
+    },
+  },
+  {
+    name: 'reminders: a new process re-arms the plan the OS dropped, and later syncs write nothing for an unchanged plan',
+    async run() {
+      // Native audit, 2026-09-21: after a force-stop or an exact-alarm revoke
+      // the library still lists every request, the alarms behind them are
+      // gone, and the library re-arms only on boot or update. A sync that
+      // trusted the list kept them all and the reminders never came.
+      const fake = createFakeNotifications();
+      const day = 86_400_000;
+      const now = Date.now();
+      const plan = [1, 2, 3].map((n) => ({
+        key: `reminder:${n}`,
+        category: 'reminder',
+        title: 'Treeni',
+        body: `Päivä ${n}`,
+        fireAtMs: now + n * day,
+      }));
+      const planIds = () =>
+        [...fake.scheduled.values()].filter((request) => request.content.data?.gymlogPlan === true).map((r) => r.identifier);
+
+      const first = loadAgainst(fake).app;
+      assert.equal(await first.syncPlannedNotifications(plan, 'fi'), 3);
+      assert.equal(fake.armed.size, 3);
+      // Same process, same plan — every foreground does this: no writes.
+      const before = fake.calls.schedule;
+      assert.equal(await first.syncPlannedNotifications(plan, 'fi'), 3);
+      assert.equal(fake.calls.schedule, before, 'an unchanged plan was re-armed within one process');
+
+      fake.forceStop();
+      assert.equal(planIds().length, 3, 'the library still lists the dropped requests');
+
+      const second = loadAgainst(fake).app;
+      assert.equal(await second.syncPlannedNotifications(plan, 'fi'), 3);
+      assert.deepEqual(
+        planIds().filter((id) => !fake.armed.has(id)),
+        [],
+        'a listed reminder has no alarm behind it after the restart',
+      );
+      assert.equal(planIds().length, 3, 'the re-arm left duplicates');
+
+      // And the new process diffs from then on.
+      const after = fake.calls.schedule;
+      assert.equal(await second.syncPlannedNotifications(plan, 'fi'), 3);
+      assert.equal(fake.calls.schedule, after);
     },
   },
   {
