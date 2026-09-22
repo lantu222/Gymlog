@@ -146,6 +146,7 @@ import { toProgressionFatigueSignal } from './src/lib/progressionGate';
 import { resolveThemeName } from './src/lib/themePreference';
 import { localizeSessionFocus, localizeSessionName } from './src/lib/sessionNameLabel';
 import { setUsageStatisticsEnabled, trackEvent } from './src/features/analytics/analyticsClient';
+import { countsAsAppOpen, countsAsPaywallView, joinedRunningSet } from './src/lib/analyticsMoments';
 
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
 import { buildExercisePrLookup } from './src/lib/workoutCompletionSummary';
@@ -635,6 +636,8 @@ function VinhaApp() {
   const summaryNavigationPendingRef = useRef(false);
   /** A finish that has started and not yet settled. See handleConfirmFinishWorkout. */
   const finishInFlightRef = useRef(false);
+  /** Sessions whose `workout_completed` has been sent. See handleConfirmFinishWorkout. */
+  const completionCountedRef = useRef(new Set<string>());
   const workoutLogNavigationAllowedAtRef = useRef<number | null>(null);
   const route = navigationState.route;
   const appHydrated = hydrated && workout.hydrated;
@@ -1090,20 +1093,44 @@ function VinhaApp() {
   // of a long-finished install used to count as reaching step "path" —
   // the funnel's first stage was inflated by every returning user
   // (review finding, 2026-09-04).
+  //
+  // Welcome is its own step. The flow state starts at 'path' underneath the
+  // Welcome screen, so "path" was sent while Welcome was showing — and when
+  // the path picker itself came up nothing changed that this effect watches,
+  // so the picker was never measured at all: the funnel's first row was
+  // Welcome under the picker's name. A stage name in `path` is what the
+  // questionnaire already sends; the vocabulary is unchanged (analytics
+  // audit, 2026-09-21).
   useEffect(() => {
     if (hydrated && onboardingActive) {
-      trackEvent('onboarding_step', { path: onboardingStep });
+      trackEvent('onboarding_step', { path: entryFlowActive ? 'welcome' : onboardingStep });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, onboardingActive, onboardingStep]);
+  }, [hydrated, onboardingActive, entryFlowActive, onboardingStep]);
   // Conversion's top of funnel: the paywall was on screen. Purchases will
   // come from Play's own reporting once billing exists.
+  //
+  // Once per visit, and only to a reader it is a paywall for. This ran on
+  // every change of the route object: a Pro member looking at their own
+  // membership counted as a view, and so did every return from the terms
+  // page opened on top of it (analytics audit, 2026-09-21). The page counts
+  // as still open while it waits in the back stack.
+  const paywallOpenRef = useRef(false);
   useEffect(() => {
-    if (route.tab === 'profile' && route.screen === 'premium') {
+    const isPaywall = (candidate: AppRoute) => candidate.tab === 'profile' && candidate.screen === 'premium';
+    const onPaywall = isPaywall(route);
+    if (
+      countsAsPaywallView({
+        paywallWasOpen: paywallOpenRef.current,
+        onPaywall,
+        proUnlocked: resolveProEntitlement(preferences).unlocked,
+      })
+    ) {
       trackEvent('paywall_viewed');
     }
+    paywallOpenRef.current = onPaywall || navigationState.history.some(isPaywall);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [route]);
+  }, [route, navigationState.history]);
   const [busySavingReadyPick, setBusySavingReadyPick] = useState(false);
 
   // The onboarding flow state lives in memory; when the gate closes (finished)
@@ -1546,9 +1573,16 @@ function VinhaApp() {
         ...adaptedSession,
         performedAt: adaptedSession.performedAt,
       });
-      trackEvent('workout_completed');
       if (!summary.sessionId || !summary.performedAt) {
         throw new Error('Workout save did not produce a valid summary');
+      }
+      // Once per session. A write after this one can fail — the preferences
+      // below — and the retry saves again, which hands back the session
+      // already stored: counted on every pass, one workout was two
+      // (analytics audit, 2026-09-21).
+      if (!completionCountedRef.current.has(adaptedSession.sessionId)) {
+        completionCountedRef.current.add(adaptedSession.sessionId);
+        trackEvent('workout_completed');
       }
 
       // Only after the database save is verified: finishing flips the session
@@ -1919,6 +1953,12 @@ function VinhaApp() {
       // programme at the top of Home.
       activePlanId: options?.lead ? resumed.planId : preferences.activePlanId ?? resumed.planId,
     });
+    // Counted here, after the write, for every door that resumes through
+    // this — and only when the plan was not already running (analytics
+    // audit, 2026-09-21).
+    if (joinedRunningSet(preferences.activePlanIds, resumed.activePlanIds)) {
+      trackEvent('plan_adopted');
+    }
     return true;
   }
 
@@ -1976,27 +2016,13 @@ function VinhaApp() {
         }
         return true;
       }
+      // resumeHeldProgramme counts the adoption itself, once its write lands.
       const resumedCopy = await resumeHeldProgramme(copyTemplateId, options);
       if (resumedCopy !== null) {
-        if (resumedCopy) {
-          trackEvent('plan_adopted');
-        }
         return resumedCopy;
       }
     }
 
-    /*
-     * Counted where a programme actually starts running.
-     *
-     * This fired at the top of the handler, before every early return, so
-     * the funnel counted an adoption each time a reader tapped the page of
-     * a programme they were already running — and, with the branch above,
-     * each time they tapped one they run under their own copy (review of
-     * the onboarding link, 2026-09-20). The cap refusing the adoption
-     * below is not an adoption either, but it is an attempt at one, which
-     * is what this row has always meant.
-     */
-    trackEvent('plan_adopted');
     // Held but switched off: resumed, not rebuilt. Falling through here
     // built a fresh plan over the same id, and its updatedAt is the block
     // boundary — a programme at week 5, 12 of 24, came back from the goal
@@ -2061,6 +2087,17 @@ function VinhaApp() {
       // explicitly choosing a new lead, so the completion flow passes `lead`.
       activePlanId: options?.lead ? plan.id : preferences.activePlanId ?? plan.id,
     });
+    /*
+     * Counted where a programme has started running: after the write.
+     *
+     * This fired at the top of the handler, before every early return, and
+     * then (2026-09-20) above the cap check — "an attempt at one", so a free
+     * reader at the cap who looked at the sheet and said no was counted as
+     * having adopted a programme, and so was a write that failed. The row
+     * says a programme is in use; the cap sheet is not that (analytics
+     * audit, 2026-09-21).
+     */
+    trackEvent('plan_adopted');
     return true;
   }
 
@@ -2423,6 +2460,12 @@ function VinhaApp() {
       return;
     }
     await updatePreferences({ activePlanIds: resumed.activePlanIds, activePlanId: resumed.activePlanId });
+    // A programme switched back on is a programme taken into use; one that
+    // was running already and only became the lead is not (analytics audit,
+    // 2026-09-21).
+    if (joinedRunningSet(preferences.activePlanIds, resumed.activePlanIds)) {
+      trackEvent('plan_adopted');
+    }
   }
 
   /**
@@ -3268,6 +3311,9 @@ function VinhaApp() {
       activePlanIds: addActiveProgram(preferences.activePlanIds, plan.id),
       activePlanId: options?.lead ? plan.id : preferences.activePlanId ?? plan.id,
     });
+    // The reader's own programme taken into use is an adoption like a ready
+    // one, and was never counted as one (analytics audit, 2026-09-21).
+    trackEvent('plan_adopted');
     return true;
   }
 
@@ -3368,6 +3414,17 @@ function VinhaApp() {
         await upsertWorkoutPlan(plan);
         adoptedPlanId = plan.id;
       }
+      // The same rule as the guided finishes: onboarding's earlier plan is
+      // replaced, and a season or a programme adopted by hand keeps running.
+      // No template, no plan — and nothing that was running is stopped. Held
+      // in a name because the adoption below is read off it.
+      const activation = adoptedPlanId
+        ? activateOnboardingPlan(
+            preferences,
+            adoptedPlanId,
+            resolveActiveProgramCap(resolveProEntitlement(preferences).unlocked),
+          )
+        : null;
 
       // Finished, by the catalogue rather than by the questionnaire (fixed
       // 2026-09-10). Four paths complete onboarding and only one of them used
@@ -3389,18 +3446,15 @@ function VinhaApp() {
         // highlights on a later visit, the plan is what Home trains from.
         recommendedProgramId: programId,
         setupDaysPerWeek: templateDaysPerWeek,
-        // The same rule as the guided finishes: onboarding's earlier plan is
-        // replaced, and a season or a programme adopted by hand keeps running.
-        // No template, no plan — and nothing that was running is stopped.
-        ...(adoptedPlanId
-          ? activateOnboardingPlan(
-              preferences,
-              adoptedPlanId,
-              resolveActiveProgramCap(resolveProEntitlement(preferences).unlocked),
-            )
-          : {}),
+        ...(activation ?? {}),
       });
       trackEvent('onboarding_completed', { path: 'ready_catalog' });
+      // The pick is a programme taken into use, and this door sent only the
+      // completion: the funnel's "programme in use" row missed every reader
+      // who started from the catalogue (analytics audit, 2026-09-21).
+      if (activation && joinedRunningSet(preferences.activePlanIds, activation.activePlanIds)) {
+        trackEvent('plan_adopted');
+      }
       // No weigh-in written here: the setup weight is logged once, by the
       // flagged seeding effect, which this and the effect both writing used to
       // turn into two identical entries.
@@ -3583,6 +3637,7 @@ function VinhaApp() {
     // database through the same queue — at the end of onboarding, where the wait
     // is least affordable. The plan is built inside that single lock because it
     // needs the id the template upsert generates.
+    let joined = false;
     const saved = await saveOnboardingOrExplain({
       preferences: {
         onboardingCompleted: true,
@@ -3600,8 +3655,12 @@ function VinhaApp() {
           sessionIds,
           preferences.appLanguage,
         ),
-      activate: (planId, current) =>
-        activateOnboardingPlan(current, planId, resolveActiveProgramCap(resolveProEntitlement(current).unlocked)),
+      activate: (planId, current) => {
+        const next = activateOnboardingPlan(current, planId, resolveActiveProgramCap(resolveProEntitlement(current).unlocked));
+        // Read inside the lock, against the set as it stands there.
+        joined = joinedRunningSet(current.activePlanIds, next.activePlanIds);
+        return next;
+      },
     });
     if (!saved) {
       return;
@@ -3610,6 +3669,12 @@ function VinhaApp() {
     // a finish handler nothing on screen reached, so the funnel's last row
     // missed the path most readers take (2026-09-17).
     trackEvent('onboarding_completed', { path: 'build' });
+    // And the programme it built, which is running now. This path sent only
+    // the completion, so "programme in use" missed most first runs
+    // (analytics audit, 2026-09-21).
+    if (joined) {
+      trackEvent('plan_adopted');
+    }
     // The About form's weight reaches the log through the flagged seeding
     // effect, once. Writing it here as well gave a first run two identical
     // weigh-ins: the effect fires as soon as onboarding is marked done, and
@@ -3668,6 +3733,7 @@ function VinhaApp() {
     // database through the same queue — at the end of onboarding, where the wait
     // is least affordable. The plan is built inside that single lock because it
     // needs the id the template upsert generates.
+    let joined = false;
     const saved = await saveOnboardingOrExplain({
       preferences: {
         onboardingCompleted: true,
@@ -3685,11 +3751,20 @@ function VinhaApp() {
           sessionIds,
           preferences.appLanguage,
         ),
-      activate: (planId, current) =>
-        activateOnboardingPlan(current, planId, resolveActiveProgramCap(resolveProEntitlement(current).unlocked)),
+      activate: (planId, current) => {
+        const next = activateOnboardingPlan(current, planId, resolveActiveProgramCap(resolveProEntitlement(current).unlocked));
+        joined = joinedRunningSet(current.activePlanIds, next.activePlanIds);
+        return next;
+      },
     });
     if (!saved) {
       return;
+    }
+    // A re-run that wrote over its own untouched programme adds nothing; one
+    // that built a new programme beside it took that one into use
+    // (analytics audit, 2026-09-21).
+    if (joined) {
+      trackEvent('plan_adopted');
     }
     // No weigh-in on a re-run. The questions carry the stored setup weight
     // through without asking for a new one, so there is nothing new to log —
@@ -4645,13 +4720,24 @@ function VinhaApp() {
       }
     };
     void refresh();
-    // Also the day's app_open: the same foreground moment the widget check
-    // uses. Daily actives and D2/D7 retention are counted from these.
+    // Also app_open, which daily actives and retention are counted from: the
+    // cold start, and a return after a real absence. Every foreground used to
+    // count, and the app sends the reader out and back itself — the photo
+    // picker, a permission dialog, the system settings — so one sitting read
+    // as several opens (analytics audit, 2026-09-21).
     trackEvent('app_open');
+    let backgroundedAtMs: number | null = null;
     const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'background') {
+        backgroundedAtMs = Date.now();
+        return;
+      }
       if (state === 'active') {
         void refresh();
-        trackEvent('app_open');
+        if (countsAsAppOpen(backgroundedAtMs, Date.now())) {
+          trackEvent('app_open');
+        }
+        backgroundedAtMs = null;
       }
     });
     return () => {

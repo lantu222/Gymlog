@@ -54,6 +54,7 @@ import { createId } from '../lib/ids';
 import { ExercisePrLookup } from '../lib/workoutCompletionSummary';
 import { Theme, useTheme, useThemedStyles, aw3ForTheme, useAW3 } from '../theming';
 import { AppLanguage, ExerciseLibraryItem, WorkoutTemplateDraft } from '../types/models';
+import { trackEvent } from '../features/analytics/analyticsClient';
 import { subscribeRestActions, useRestEndAlert } from '../hooks/useRestEndAlert';
 import { useRestAlertPermissionMoment } from '../hooks/useRestAlertPermissionMoment';
 import { RestAlertAskOutcome } from '../lib/restAlertAnswer';
@@ -518,6 +519,15 @@ export function EmptyWorkoutScreen({
   const [startedAtMs, setStartedAtMs] = useState<number | null>(() =>
     resolveFreestyleDraftStart(freestyleDraft, Date.now()),
   );
+  /**
+   * Whether this session's `workout_started` has gone. The free workout sent
+   * `workout_completed` and never its start, so every one of them read as a
+   * workout finished that nobody began (analytics audit, 2026-09-21). It
+   * starts where the clock does, at the first lift on the board; a board
+   * brought back from a draft was started when that draft was, and is not
+   * started again.
+   */
+  const startCountedRef = useRef(freestyleDraft != null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [rest, setRest] = useState<{ totalSeconds: number; endsAtMs: number; startedAtMs: number } | null>(() =>
     freestyleDraft?.rest && freestyleDraft.rest.endsAtMs > Date.now() ? freestyleDraft.rest : null,
@@ -787,6 +797,10 @@ export function EmptyWorkoutScreen({
     setExercises((current) => [...current, ...items.map((item) => buildExerciseState(item, defaultRestSeconds, language))]);
     setStartedAtMs((current) => current ?? Date.now());
     setNowMs(Date.now());
+    if (!startCountedRef.current) {
+      startCountedRef.current = true;
+      trackEvent('workout_started');
+    }
   };
 
   const removeExercise = (exerciseKey: string) => {

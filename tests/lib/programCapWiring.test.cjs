@@ -33,7 +33,9 @@ module.exports = [
       for (const signature of ['async function handleOnboardingCompleteToTraining', 'async function handleSetupCompleteToTraining']) {
         assert.match(
           body(app, signature),
-          /activate: \(planId, current\) =>\s*activateOnboardingPlan\(current, planId, resolveActiveProgramCap\(resolveProEntitlement\(current\)\.unlocked\)\)/,
+          // A block since the analytics audit (2026-09-21): the activation is
+          // also read for plan_adopted, and what it returns is still the rule.
+          /activate: \(planId, current\) => \{\s*const next = activateOnboardingPlan\(current, planId, resolveActiveProgramCap\(resolveProEntitlement\(current\)\.unlocked\)\);[\s\S]{0,300}?return next;\s*\}/,
           `${signature} leads with its plan without counting it against the cap`,
         );
       }

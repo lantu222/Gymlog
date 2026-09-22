@@ -14,6 +14,25 @@ that promise.
 | Retention rule | `src/lib/analyticsRetention.ts` (`ANALYTICS_RETENTION_MONTHS = 24`) |
 | Retention enforcement | `api/prune-events.ts`, scheduled by `vercel.json` |
 
+## Reading it
+
+`GET /api/events` answers a page of the store's listing at a time, up to 500
+batches, with `next` (the cursor to continue from); the first page also
+carries `total`, every batch the query matches. The report follows `next` to
+the end and prints a warning when it read fewer batches than `total`.
+`--since` is a lower bound on the arrival day, not the only day.
+
+The report's days are Europe/Helsinki calendar days. Retention is two windows
+named for the days they cover — back on day 1–2 and on day 6–8 after the first
+open — and an install is in a window's denominator only once that window is
+over in the data. The funnel is one block per onboarding branch, each row a
+share of the installs that reached the branch's first row.
+
+When each event is true is decided in `src/lib/analyticsMoments.ts`: an open is
+a cold start or a return after 30 minutes away, a paywall view is once per
+visit and never for a reader with Pro on, an adoption is a plan joining the
+running set.
+
 ## The user's switch
 
 Settings → Usage statistics (`usageStatisticsEnabled`, on by default). The client
