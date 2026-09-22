@@ -98,7 +98,7 @@ export interface WorkoutTabDeps {
   /** The Active switch turned on — see handleResumeProgram. */
   onResumeProgram: (workoutTemplateId: string) => Promise<void>;
   /** The active programme switched off in favour of another — see handleSwitchActiveProgram. */
-  onSwitchActiveProgram: (fromTemplateId: string, toPlanId: string) => Promise<void>;
+  onSwitchActiveProgram: (fromTemplateId: string, to: { templateId: string; planId: string | null }) => Promise<void>;
   /** Remove a held ready programme from the reader's programmes. */
   onForgetHeldProgram: (workoutTemplateId: string) => Promise<void>;
   homeActivePlanCard: {
@@ -452,6 +452,16 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
       plans: database.workoutPlans,
       templateId: route.workoutTemplateId,
       shown: programsCustomItems.map((row) => row.id),
+      // The reader's own programmes with no plan yet, that have a lift to
+      // train: "your programmes" lists them, so they are other programmes.
+      unstarted: programsCustomItems
+        .filter(
+          (row) =>
+            row.programType === 'custom' &&
+            !database.workoutPlans.some((plan) => plan.entries[0]?.workoutTemplateId === row.id) &&
+            (customWorkoutRuntimeMap[row.id]?.sessions ?? []).some((session) => session.exercises.length > 0),
+        )
+        .map((row) => row.id),
     });
     const switchToName = switchTo
       ? programsCustomItems.find((row) => row.id === switchTo.templateId)?.name ?? null
@@ -559,7 +569,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         // or, with nothing else held, look for a new one in the catalogue.
         onSwitchOff={
           switchTo && switchToName
-            ? () => void onSwitchActiveProgram(route.workoutTemplateId, switchTo.planId)
+            ? () => void onSwitchActiveProgram(route.workoutTemplateId, switchTo)
             : undefined
         }
         onBrowseProgrammes={() => {

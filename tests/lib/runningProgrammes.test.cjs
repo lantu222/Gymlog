@@ -436,6 +436,29 @@ module.exports = [
         programmeToSwitchTo({ activePlanId: 'ready_plan_a', activePlanIds: ['ready_plan_a'], plans: [plans[0]], templateId: 'tpl_a' }),
         null,
       );
+      // Unless the reader has one of their own they never started: it is
+      // another programme, offered last, with no plan yet (CI review of #179).
+      assert.deepEqual(
+        programmeToSwitchTo({
+          activePlanId: 'ready_plan_a',
+          activePlanIds: ['ready_plan_a'],
+          plans: [plans[0]],
+          templateId: 'tpl_a',
+          unstarted: ['own_unstarted'],
+        }),
+        { templateId: 'own_unstarted', planId: null },
+      );
+      // Held ones still come first.
+      assert.equal(
+        programmeToSwitchTo({
+          activePlanId: 'ready_plan_a',
+          activePlanIds: ['ready_plan_a'],
+          plans,
+          templateId: 'tpl_a',
+          unstarted: ['own_unstarted'],
+        }).planId,
+        'ready_plan_b',
+      );
       // Not the active one: switching it off hands nothing on.
       assert.equal(
         programmeToSwitchTo({ activePlanId: 'ready_plan_a', activePlanIds: ['ready_plan_a', 'ready_plan_b'], plans, templateId: 'tpl_b' }),

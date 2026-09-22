@@ -290,6 +290,12 @@ export function leadAfterStopping(input: {
  * `shown` is the programmes the reader's list shows, when the caller has it:
  * a plan whose programme the list cannot open (a deleted one of their own) is
  * not something to be offered by name.
+ *
+ * `unstarted` is the reader's own programmes in that list with no plan yet —
+ * built, never taken into use, and with a lift to train. They are last, and
+ * come back with a null `planId`: the caller builds the plan. Without them a
+ * reader whose only other programme was one they had written but not started
+ * was told they had no other programmes (CI review of #179).
  */
 export function programmeToSwitchTo(input: {
   activePlanId: string | null;
@@ -297,7 +303,8 @@ export function programmeToSwitchTo(input: {
   plans: readonly RunningPlan[];
   templateId: string;
   shown?: readonly string[];
-}): { templateId: string; planId: string } | null {
+  unstarted?: readonly string[];
+}): { templateId: string; planId: string | null } | null {
   if (leadTemplateId({ activePlanId: input.activePlanId, plans: input.plans }) !== input.templateId) {
     return null;
   }
@@ -320,7 +327,8 @@ export function programmeToSwitchTo(input: {
       return { templateId, planId: plan.id };
     }
   }
-  return null;
+  const unstarted = (input.unstarted ?? []).find((templateId) => templateId !== input.templateId && offered(templateId));
+  return unstarted ? { templateId: unstarted, planId: null } : null;
 }
 
 /**

@@ -779,7 +779,10 @@ module.exports = [
       // The offer is the pure rule's, named as the list names it.
       assert.match(app, /const switchTo = programmeToSwitchTo\(\{/);
       assert.match(app, /shown: programsCustomItems\.map\(\(row\) => row\.id\),/);
-      assert.match(app, /onSwitchActiveProgram\(route\.workoutTemplateId, switchTo\.planId\)/);
+      assert.match(app, /onSwitchActiveProgram\(route\.workoutTemplateId, switchTo\)/);
+      // The reader's own programmes never started count as other programmes
+      // (CI review of #179): offered, and given a plan when chosen.
+      assert.match(app, /unstarted: programsCustomItems\s*\.filter\(/);
       // No other programme: switched off, then the catalogue.
       assert.match(
         app,
@@ -793,6 +796,13 @@ module.exports = [
       assert.match(body, /const next = switchActiveProgramme\(\{/);
       assert.match(body, /await updatePreferences\(next\);/);
       assert.doesNotMatch(body, /stopProgramme\(|resumeProgramme\(/);
+      // An unstarted programme gets its plan first, the one adoption builds,
+      // and the switch reads the plans with it in.
+      assert.match(
+        body,
+        /if \(!toPlanId\) \{\s*const plan = buildCustomProgrammePlan\(to\.templateId\);[\s\S]*?await upsertWorkoutPlan\(plan\);\s*plans = \[\.\.\.plans\.filter\(\(entry\) => entry\.id !== plan\.id\), plan\];/,
+      );
+      assert.match(app, /const plan = buildCustomProgrammePlan\(workoutTemplateId\);\s*if \(!plan\) \{\s*return false;/);
 
       assert.match(i18nSource, /'detail\.switchOff\.message': 'Haluatko vaihtaa aktiiviseksi ohjelmaksi \{name\}\?/);
       assert.match(i18nSource, /'detail\.browseOff\.title': 'Haluatko katsoa uutta ohjelmaa\?'/);
