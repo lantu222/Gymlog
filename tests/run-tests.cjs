@@ -218,6 +218,7 @@ const suites = [
   ...require('./lib/supersetsSurviveSaves.test.cjs'),
   ...require('./lib/catalogSupersets.test.cjs'),
   ...require('./lib/programSessionOrder.test.cjs'),
+  ...require('./lib/programSessionList.test.cjs'),
   ...require('./lib/planSessionOrder.test.cjs'),
   ...require('./lib/weightDial.test.cjs'),
   ...require('./lib/welcomeMarquee.test.cjs'),

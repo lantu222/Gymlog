@@ -167,6 +167,7 @@ import {
 import { reorderPlanWeek } from './src/lib/planSessionOrder';
 import { syncPlanEntriesToTemplate } from './src/lib/planTemplateSync';
 import { reorderProgramSessions } from './src/lib/programSessionOrder';
+import { newProgramSessionName, removeProgramSession } from './src/lib/programSessionList';
 import { ProgramLimitReachedError } from './src/lib/programSlots';
 import { createUnlessAtLimit } from './src/app/programLimitGuard';
 import {
@@ -2707,6 +2708,102 @@ function VinhaApp() {
       return;
     }
     await upsertWorkoutPlan({ ...plan, entries: repointed.entries, updatedAt: plan.updatedAt });
+  }
+
+  /**
+   * A new day at the end of a custom programme, made from the lifts the reader
+   * picked for it (#bugs 2026-09-24: "yhtä päivää ei voi lisätä").
+   *
+   * The day and its lifts are one write. A day saved empty first and filled
+   * afterwards would be a programme with an empty day in it for as long as the
+   * reader took to choose — and Home could offer it, and starting it would
+   * open an empty player. The id is minted here so the caller can open the
+   * new day without guessing which one it was.
+   *
+   * Resolves the new day's id once the programme is saved, with whether its
+   * week followed; null when nothing was written. A week that failed to
+   * follow does not make the day unsaved — reporting it as a failed save
+   * would tell the reader to try again and add the day twice (CI review of
+   * #183, the same split the editor makes since #146).
+   */
+  async function handleAddProgramSession(
+    workoutTemplateId: string,
+    exerciseNames: string[],
+  ): Promise<{ sessionId: string; weekSynced: boolean } | null> {
+    if (exerciseNames.length === 0) {
+      return null;
+    }
+    const newSessionId = createId('workout_template_session');
+    const exercises = buildAddedProgramExercises(exerciseNames, newSessionId);
+    const result = await editWorkoutTemplateSessions(workoutTemplateId, (sessions) => ({
+      kind: 'save',
+      sessions: [
+        ...[...sessions]
+          .sort((left, right) => left.orderIndex - right.orderIndex)
+          .map((session) => ({
+            id: session.id,
+            name: session.name,
+            exercises: session.exercises.map(toDraftExercise),
+          })),
+        {
+          id: newSessionId,
+          name: newProgramSessionName(sessions.length, preferences.appLanguage),
+          exercises,
+        },
+      ],
+    }));
+    if (!result.saved) {
+      return null;
+    }
+    // The week gets the new day on one of the reader's training days.
+    return { sessionId: newSessionId, weekSynced: await syncPlanAfterDayEdit(workoutTemplateId) };
+  }
+
+  /** The plan's week after a day was added or removed; false if it could not follow. */
+  async function syncPlanAfterDayEdit(workoutTemplateId: string): Promise<boolean> {
+    try {
+      await syncPlanToTemplate(workoutTemplateId);
+      return true;
+    } catch (error) {
+      console.error('Failed to bring the plan into step with the template', error);
+      return false;
+    }
+  }
+
+  /**
+   * One day out of a custom programme, the rest kept as they are (#bugs
+   * 2026-09-24: "tai poistaa päivä").
+   *
+   * The plan follows, like it does after the editor changes the count: an
+   * entry left pointing at a deleted day would keep a weekday for a session
+   * that no longer exists. The last day is refused — that is deleting the
+   * programme, which has its own button and its own question.
+   *
+   * Resolves once the programme is saved, with whether its week followed;
+   * null when nothing was written.
+   */
+  async function handleRemoveProgramSession(
+    workoutTemplateId: string,
+    sessionId: string,
+  ): Promise<{ weekSynced: boolean } | null> {
+    const result = await editWorkoutTemplateSessions(workoutTemplateId, (sessions) => {
+      const outcome = removeProgramSession(sessions, sessionId);
+      if (outcome.kind === 'skip') {
+        return { kind: 'skip', reason: outcome.reason };
+      }
+      return {
+        kind: 'save',
+        sessions: outcome.sessions.map((session) => ({
+          id: session.id,
+          name: session.name,
+          exercises: session.exercises.map(toDraftExercise),
+        })),
+      };
+    });
+    if (!result.saved) {
+      return null;
+    }
+    return { weekSynced: await syncPlanAfterDayEdit(workoutTemplateId) };
   }
 
   /**
@@ -6961,6 +7058,8 @@ function VinhaApp() {
       handleSaveRhythm,
       handleRenameCustomProgram,
       handleReorderProgramSession,
+      handleAddProgramSession,
+      handleRemoveProgramSession,
       handleSaveEmphasis,
       handleDeleteCustomWorkout,
       sessionAdaptationFor,

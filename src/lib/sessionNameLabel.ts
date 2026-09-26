@@ -322,7 +322,14 @@ export function localizeSessionName(name: string, language: AppLanguage = 'en'):
 }
 
 /**
- * A day of a programme, named the way the reader met it: "Päivä 1. Rinta".
+ * A day of a programme, named the way the reader met it: "Rinta".
+ *
+ * It said "Päivä 1. Rinta" until 2026-09-24: "Poistetaan päivä sana tästä eli
+ * näyttää vain treenin nimen" (#bugs). The row's place in the list already
+ * says which day it is, and since days can be dragged the number was the one
+ * part of the title that could go stale. A name that is ONLY a placeholder —
+ * "Day 3", "Päivä 3", "Workout A" — still needs something to say, so it says
+ * "Treeni 3", numbered by where the row sits now.
  *
  * Lived in ProgramDetailScreen, which is the screen you tap it on. The day
  * page then built its own title out of the programme name and a stripped
@@ -342,12 +349,14 @@ export function formatPlanSessionTitle(
   const normalizedProgram = programTitle.toLowerCase();
   const normalizedSession = sessionName.toLowerCase();
 
-  if (normalizedProgram.includes('full body') && /^minimal\s+[a-z]$/.test(normalizedSession)) {
-    return `${t(language, 'detail.day', { index: index + 1 })}. ${t(language, 'facet.fullBody')}`;
+  // The letter stays: without it three full-body days all read "Koko keho".
+  const minimal = normalizedSession.match(/^minimal\s+([a-z])$/);
+  if (normalizedProgram.includes('full body') && minimal) {
+    return `${t(language, 'facet.fullBody')} ${minimal[1].toUpperCase()}`;
   }
 
   if (/^workout\s+[a-z]$/.test(normalizedSession)) {
-    return `${t(language, 'detail.day', { index: index + 1 })}. ${t(language, 'ai.signal.workout')}`;
+    return t(language, 'detail.workoutPlaceholder', { index: index + 1 });
   }
 
   // A stored "Day 3: Upper" keeps its words and loses its number.
@@ -362,9 +371,10 @@ export function formatPlanSessionTitle(
   const storedDayPrefix = /^(?:day|päivä)\s+\d+\s*[.:–-]?\s*/i;
   if (storedDayPrefix.test(sessionName)) {
     const rest = sessionName.replace(storedDayPrefix, '').trim();
-    const label = t(language, 'detail.day', { index: index + 1 });
-    return rest ? `${label}. ${localizeSessionName(rest, language)}` : label;
+    return rest
+      ? localizeSessionName(rest, language)
+      : t(language, 'detail.workoutPlaceholder', { index: index + 1 });
   }
 
-  return `${t(language, 'detail.day', { index: index + 1 })}. ${localizeSessionName(sessionName, language)}`;
+  return localizeSessionName(sessionName, language);
 }
