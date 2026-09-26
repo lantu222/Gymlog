@@ -128,7 +128,9 @@ module.exports = [
       // typed over as 825 stayed ticked at 825 kg (PR #121 review).
       assert.match(
         screen,
-        /return next\.done && !isLoggableFreestyleSet\(next\) \? \{ \.\.\.next, done: false \} : next;/,
+        // Blank reps mid-edit are judged as if filled, so clearing a number to
+        // retype it keeps the tick; an unliftable weight still takes it off.
+        /const checked = next\.reps\.trim\(\) \? next : \{ \.\.\.next, reps: '1' \};\s*return next\.done && !isLoggableFreestyleSet\(checked\) \? \{ \.\.\.next, done: false \} : next;/,
       );
     },
   },

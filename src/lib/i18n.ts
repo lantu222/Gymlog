@@ -1160,6 +1160,8 @@ const EN = {
   // ── Plate readout ──────────────────────────────────────────────────────
   'plates.eyebrow': 'PLATES · PER SIDE · {bar}KG BAR',
   'plates.justBar': 'Just the bar ({bar} kg).',
+  'plates.belowBar': 'Lighter than the bar ({bar} kg).',
+  'plates.remainder': 'Standard plates leave {kg} kg off.',
 
   // ── Empty Workout (freestyle logger) ───────────────────────────────────
   'emptyWorkout.title': 'Empty workout',
@@ -4323,6 +4325,8 @@ const FI: Record<I18nKey, string> = {
   // ── Plate readout ──────────────────────────────────────────────────────
   'plates.eyebrow': 'LEVYT · PER PUOLI · {bar}KG TANKO',
   'plates.justBar': 'Pelkkä tanko ({bar} kg).',
+  'plates.belowBar': 'Kevyempi kuin tanko ({bar} kg).',
+  'plates.remainder': 'Vakiolevyillä jää {kg} kg pois.',
 
   // ── Empty Workout ──────────────────────────────────────────────────────
   'emptyWorkout.title': 'Tyhjä treeni',

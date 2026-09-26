@@ -47,8 +47,10 @@ module.exports = [
       // Stored as 8.5 reps — into volume, a PR card and the history line.
       assert.equal(isLoggableFreestyleSet({ kg: '82,5', reps: '8,5' }), false);
       assert.equal(isLoggableFreestyleSet({ kg: '82,5', reps: '8.5' }), false);
-      // Empty stays allowed: the finish decides what an empty set means.
-      assert.equal(isLoggableFreestyleSet({ kg: '', reps: '' }), true);
+      // A blank row is not a set (2026-09-26): it had saved a session nobody
+      // did once one tick became enough to save. A missing weight is fine.
+      assert.equal(isLoggableFreestyleSet({ kg: '', reps: '' }), false);
+      assert.equal(isLoggableFreestyleSet({ kg: '', reps: '12' }), true);
     },
   },
   {
