@@ -217,4 +217,18 @@ module.exports = [
       );
     },
   },
+  {
+    // A pinned CTA that grows by the inset needs the list above it to grow by
+    // the same amount, or its last rows sit under it (review of #193).
+    name: 'the category sheet list clears its pinned CTA by the same inset the CTA carries',
+    run() {
+      const source = fs.readFileSync(path.join(SRC_ROOT, 'screens', 'ProgramsHomeScreen.tsx'), 'utf8');
+      assert.match(source, /\{ paddingBottom: 34 \+ bottomInset \}/);
+      assert.match(
+        source,
+        /contentContainerStyle=\{\[styles\.catSheetListInner, \{ paddingBottom: 108 \+ bottomInset \}\]\}/,
+      );
+      assert.doesNotMatch(source, /catSheetListInner: \{[^}]*paddingBottom: 108/);
+    },
+  },
 ];

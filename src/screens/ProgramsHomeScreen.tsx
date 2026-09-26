@@ -694,7 +694,13 @@ function ProgramSheet({
             })}
           </ScrollView>
 
-          <ScrollView style={styles.catSheetList} contentContainerStyle={styles.catSheetListInner}>
+          {/* The list clears the pinned CTA, which grows by the inset: with
+              a fixed 108 the last rows sat under a CTA the navigation bar had
+              made taller, and could not be scrolled to (review of #193). */}
+          <ScrollView
+            style={styles.catSheetList}
+            contentContainerStyle={[styles.catSheetListInner, { paddingBottom: 108 + bottomInset }]}
+          >
             {shown.length === 0 ? (
               <Text style={styles.catSheetEmpty}>{t(language, 'programs.sheet.empty')}</Text>
             ) : (
@@ -2240,8 +2246,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   catSheetListInner: {
     paddingHorizontal: 18,
-    // Clears the pinned CTA below.
-    paddingBottom: 108,
+    // The bottom clearance is set where the list is drawn: it has to grow
+    // with the CTA below it, which carries the navigation-bar inset.
     gap: 10,
   },
   catSheetEmpty: {
