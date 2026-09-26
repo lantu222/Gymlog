@@ -37,6 +37,7 @@ import {
   FreestyleExerciseDraft,
   FreestyleFinishSummary,
   buildFreestyleFinish,
+  canFinishFreestyleSession,
   carryForwardFreestyleSet,
   exerciseInitials,
   freestyleUnsavedWork,
@@ -593,7 +594,11 @@ export function EmptyWorkoutScreen({
   const finishingRef = useRef(false);
 
   const hasExercises = exercises.length > 0;
-  const canFinish = hasExercises && !isSaving;
+  // Finish needs one ticked set (user decision, 2026-09-26): a board with rows
+  // typed in and nothing ticked is not a workout, and saving it produced a
+  // template with a session nobody performed.
+  const hasLoggedSet = canFinishFreestyleSession(exercises);
+  const canFinish = hasExercises && !isSaving && hasLoggedSet;
 
   /**
    * Leaving with logged sets asks first.
@@ -610,6 +615,15 @@ export function EmptyWorkoutScreen({
   const doneSetCount = unsavedWork.doneSets;
   const hasUnsavedWork = unsavedWork.doneSets > 0 || unsavedWork.enteredSets > 0;
   const [confirmingLeave, setConfirmingLeave] = useState(false);
+  /**
+   * The exercise a ✕ press is about to remove, once it has something to lose.
+   *
+   * The ✕ removed the lift on one tap with no undo — fifteen logged sets
+   * gone the same way leaving the whole screen used to go (user decision,
+   * 2026-09-26). An exercise nobody has touched yet — no set ticked, nothing
+   * typed — is not asked about, the same distinction the leave guard draws.
+   */
+  const [pendingRemoval, setPendingRemoval] = useState<{ key: string; name: string } | null>(null);
   const leaveGuardRef = useRef({ isSaving, onBack, hasUnsavedWork, discardDraft });
   leaveGuardRef.current = { isSaving, onBack, hasUnsavedWork, discardDraft };
   const requestLeave = () => {
@@ -812,6 +826,25 @@ export function EmptyWorkoutScreen({
     if (exercises.length <= 1) {
       setRest(null);
     }
+  };
+
+  /**
+   * The ✕: asks first once there is a set to lose, same as leaving the screen
+   * does (freestyleUnsavedWork). A lift just added and never touched — no
+   * number typed, nothing ticked — has nothing the reader would miss, so it
+   * goes without a dialog in the way of a pick that was a mistake.
+   */
+  const requestRemoveExercise = (exerciseKey: string, name: string) => {
+    const exercise = exercises.find((entry) => entry.localKey === exerciseKey);
+    if (!exercise) {
+      return;
+    }
+    const work = freestyleUnsavedWork([exercise]);
+    if (work.doneSets === 0 && work.enteredSets === 0) {
+      removeExercise(exerciseKey);
+      return;
+    }
+    setPendingRemoval({ key: exerciseKey, name });
   };
 
   const patchSet = (exerciseKey: string, setKey: string, patch: Partial<{ kg: string; reps: string }>) =>
@@ -1046,13 +1079,14 @@ export function EmptyWorkoutScreen({
                       a head row made 44 tall for it, and stops short of the
                       chain beside it on the left so a tap between the two
                       never lands on the one that deletes (accessibility
-                      audit, 2026-09-21). Removal still has no undo — noted,
-                      not done here. */}
+                      audit, 2026-09-21). Removal asks first once there is a
+                      set logged to lose — see requestRemoveExercise
+                      (2026-09-26). */}
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={t(language, 'emptyWorkout.a11y.remove', { name: exercise.displayName })}
                     hitSlop={{ top: 7, bottom: 7, left: 3, right: 7 }}
-                    onPress={() => removeExercise(exercise.localKey)}
+                    onPress={() => requestRemoveExercise(exercise.localKey, exercise.displayName)}
                     style={styles.exerciseRemove}
                   >
                     <Svg viewBox="0 0 24 24" width={18} height={18}>
@@ -1180,6 +1214,7 @@ export function EmptyWorkoutScreen({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t(language, 'emptyWorkout.finishWorkout')}
+            accessibilityHint={!hasLoggedSet ? t(language, 'emptyWorkout.finishNeedsSet') : undefined}
             onPress={handleFinish}
             disabled={!canFinish}
             hitSlop={10}
@@ -1334,9 +1369,16 @@ export function EmptyWorkoutScreen({
               <PlusIcon size={17} color={theme.purpleDark} strokeWidth={2.6} />
               <Text style={styles.addExerciseDashedText}>{t(language, 'emptyWorkout.addExercise')}</Text>
             </Pressable>
+            {/* Why Finish is greyed out, not just that it is: a board with
+                rows typed in and nothing ticked looked saveable, and saving it
+                produced a session nobody performed (user decision, 2026-09-26). */}
+            {!hasLoggedSet && !isSaving ? (
+              <Text style={styles.finishHint}>{t(language, 'emptyWorkout.finishNeedsSet')}</Text>
+            ) : null}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t(language, 'emptyWorkout.finishWorkout')}
+              accessibilityHint={!hasLoggedSet ? t(language, 'emptyWorkout.finishNeedsSet') : undefined}
               onPress={handleFinish}
               disabled={!canFinish}
               style={[styles.finishButton, isSaving && styles.finishButtonSaving]}
@@ -1406,6 +1448,22 @@ export function EmptyWorkoutScreen({
           setConfirmingLeave(false);
           discardDraft();
           leaveGuardRef.current.onBack();
+        }}
+      />
+
+      <ConfirmDialog
+        language={language}
+        visible={pendingRemoval != null}
+        destructive
+        title={t(language, 'emptyWorkout.removeConfirm.title')}
+        message={t(language, 'emptyWorkout.removeConfirm.body', { name: pendingRemoval?.name ?? '' })}
+        confirmLabel={t(language, 'emptyWorkout.removeConfirm.confirm')}
+        onCancel={() => setPendingRemoval(null)}
+        onConfirm={() => {
+          if (pendingRemoval) {
+            removeExercise(pendingRemoval.key);
+          }
+          setPendingRemoval(null);
         }}
       />
     </View>
@@ -1628,22 +1686,24 @@ const makeStyles = (theme: Theme) => {
 
   // logging state
   loggingContent: {},
-  // Amber, not red: nothing is broken, one thing is off.
+  // Amber, not red: nothing is broken, one thing is off. Theme tokens: the
+  // fixed hexes put #D97706 words on a pale box at 2.9:1, and the same pale
+  // box in dark; the guided player's banner reads the same tokens (2026-09-26).
   deniedBanner: {
     marginTop: 14,
     marginHorizontal: 14,
     padding: 13,
     borderRadius: 16,
-    backgroundColor: '#FEF3E2',
+    backgroundColor: theme.amberSoft,
     borderWidth: 1,
-    borderColor: 'rgba(217,119,6,0.2)',
+    borderColor: theme.amberBorder,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  deniedTitle: { fontSize: 13.5, fontWeight: '800', color: '#D97706' },
-  deniedBody: { fontSize: 12.5, fontWeight: '700', color: '#3B3550', marginTop: 3, lineHeight: 17 },
-  deniedAction: { fontSize: 13, fontWeight: '800', color: '#D97706' },
+  deniedTitle: { fontSize: 13.5, fontWeight: '800', color: theme.amberInk },
+  deniedBody: { fontSize: 12.5, fontWeight: '700', color: theme.ink, marginTop: 3, lineHeight: 17 },
+  deniedAction: { fontSize: 13, fontWeight: '800', color: theme.amberInk },
   exerciseBlock: {
     paddingTop: 15,
     paddingBottom: 8,
@@ -1866,6 +1926,13 @@ const makeStyles = (theme: Theme) => {
     fontSize: 16.5,
     fontWeight: '800',
     color: '#FFFFFF',
+  },
+  // Says why Finish is grey rather than leaving the reader to guess.
+  finishHint: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: theme.muted,
+    textAlign: 'center',
   },
 
   // shared tile

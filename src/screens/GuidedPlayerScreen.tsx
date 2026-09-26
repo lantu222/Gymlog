@@ -292,6 +292,8 @@ interface GuidedPlayerScreenProps {
   restAlerts?: { alerts: boolean; warning: boolean; ongoing: boolean; asked: boolean };
   /** The first-rest permission sheet was answered — see restAlertsAnswered. */
   onRestAlertsAnswered?: (outcome: RestAlertAskOutcome) => void;
+  /** The rest banner's "Turn on": the settings page that fixes the silence. */
+  onOpenSystemSettings?: () => void;
   /**
    * The reader asked to CONTINUE, not to open the session.
    *
@@ -1285,6 +1287,7 @@ function GuidedPlayer({
   saveFailed = false,
   restAlerts = { alerts: true, warning: true, ongoing: true, asked: false },
   onRestAlertsAnswered,
+  onOpenSystemSettings,
   autoResume = false,
 }: GuidedPlayerScreenProps) {
   // Read here, on the screen: inside the sheet's Modal it is always 0.
@@ -3347,6 +3350,30 @@ function GuidedPlayer({
                   </Text>
                   <GPIcon name="chevR" size={16} color={theme.faint} />
                 </Pressable>
+                {/* Alerts will not reach the reader — refused, or the rest
+                    channel muted in Android settings. The hook decided this
+                    for both workout screens, but only the freestyle one drew
+                    it, so the player — where most rests happen — ran them
+                    silent without a word (2026-09-26). Same copy, same once
+                    per session. */}
+                {restAsk.deniedBannerShown ? (
+                  <View style={styles.restDeniedBanner}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.restDeniedTitle}>{t(language, 'rest.denied.title')}</Text>
+                      <Text style={styles.restDeniedBody}>{t(language, 'rest.denied.body')}</Text>
+                    </View>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => {
+                        restAsk.dismissDeniedBanner();
+                        onOpenSystemSettings?.();
+                      }}
+                      hitSlop={8}
+                    >
+                      <Text style={styles.restDeniedAction}>{t(language, 'rest.denied.action')}</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                   <RestRing
                     stepKey={stepIndex}
@@ -5643,6 +5670,23 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   restRunStripText: { flex: 1, fontSize: 13.5, fontWeight: '800', color: theme.ink },
   restRunStripMeta: { fontSize: 13, fontWeight: '700', color: theme.muted, fontVariant: ['tabular-nums'] },
+  // Amber, not red: nothing is broken, one thing is off. Theme tokens, so it
+  // reads in dark as well (the freestyle banner's fixed hexes are light-only).
+  restDeniedBanner: {
+    marginHorizontal: 20,
+    marginTop: 8,
+    padding: 13,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.amberBorder,
+    backgroundColor: theme.amberSoft,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  restDeniedTitle: { fontSize: 13.5, fontWeight: '800', color: theme.amberInk },
+  restDeniedBody: { fontSize: 12.5, fontWeight: '700', color: theme.ink, marginTop: 3, lineHeight: 17 },
+  restDeniedAction: { fontSize: 13, fontWeight: '800', color: theme.amberInk },
   editVeil: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   editSheet: {
     backgroundColor: theme.bg,

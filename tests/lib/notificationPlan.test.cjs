@@ -610,7 +610,9 @@ module.exports = [
       // only then what setup said they had free — the order itself is tested
       // in tests/lib/reminderSchedule.test.cjs, against the function the hook
       // and the settings screens share.
-      assert.match(hook, /return resolveReminderSchedule\(\{\s*trainingCycle: database\.preferences\.trainingCycle,\s*planEntries: activePlan\?\.entries \?\? \[\],\s*availableDays: setupAvailableDays,\s*\}\);/);
+      // And the days taken off from the recovery sheet (2026-09-26): no
+      // reminder to train on a day the reader just made a rest day.
+      assert.match(hook, /return resolveReminderSchedule\(\{\s*trainingCycle: database\.preferences\.trainingCycle,\s*planEntries: activePlan\?\.entries \?\? \[\],\s*availableDays: setupAvailableDays,\s*restDayStarts: database\.preferences\.restDayStarts,\s*\}\);/);
       assert.match(hook, /schedule,/);
       assert.doesNotMatch(hook, /trainingDays: setupAvailableDays/);
     },

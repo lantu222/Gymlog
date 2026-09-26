@@ -214,6 +214,26 @@ module.exports = [
   },
   {
     /**
+     * User decision, 2026-09-26: 78% (set 2026-09-04 so the sheet would not
+     * resize itself per tab, see the `sheet` style's own comment) covered
+     * most of the set screen behind it. Lowered to 55%, still a fixed
+     * fraction of the window rather than of the content — the tab row must
+     * still not move when the reader switches tabs — and the body must still
+     * be the thing that scrolls, so a smaller sheet reaches its content by
+     * scrolling one screen further rather than by clipping it.
+     */
+    name: 'the sheet is a fixed 55% of the window, not 78%, and the body still scrolls to reach it all',
+    run() {
+      assert.match(sheetSource, /height: '55%',/);
+      assert.doesNotMatch(sheetSource, /height: '78%',/);
+      // Still a fixed fraction, not the content's own size — sizing to
+      // content is the exact bug the 78% comment documents.
+      assert.match(sheetSource, /body: \{ flex: 1, marginTop: 16 \}/);
+      assert.match(sheetSource, /<ScrollView style=\{styles\.body\} showsVerticalScrollIndicator=\{false\}>/);
+    },
+  },
+  {
+    /**
      * #bugs 2026-09-20: the History tab said "no entries yet" for a bench
      * press while the records tab, in the same minute, showed its 7 × 60 from
      * 28.8. The tab read this SLOT's entries — this programme's bench — and a

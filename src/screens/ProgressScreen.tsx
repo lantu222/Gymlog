@@ -54,6 +54,8 @@ import { I18nKey, t } from '../lib/i18n';
 import { ProMomentContent, WeeklyReadRow } from '../lib/proInsights';
 import { ProLockedCard } from '../components/ProLockedCard';
 import { ProMomentSheet } from '../components/ProMomentSheet';
+import { RecoverySheet } from '../components/RecoverySheet';
+import type { RecoveryActionKind, RecoverySheetModel } from '../lib/recoverySheet';
 import { SetLogSheet } from '../components/SetLogSheet';
 import { buildExerciseSetLog, ExerciseSetLog } from '../lib/exerciseSetLog';
 import { weeklyTrainingStreak } from '../lib/trainingCalendar';
@@ -213,6 +215,10 @@ interface ProgressScreenProps {
   readMoment?: ProMomentContent | null;
   proUnlocked?: boolean;
   onOpenPremium?: () => void;
+  /** What the recovery row opens; null when the row is not there either. */
+  recoverySheet?: RecoverySheetModel | null;
+  onRecoveryAction?: (kind: RecoveryActionKind) => void;
+  onRecoveryUndo?: (kind: 'lighten' | 'restTomorrow') => void;
 }
 
 // The activity grid is Monday-first, so these are the one-letter chips in that
@@ -731,6 +737,9 @@ export function ProgressScreen({
   onOpenSessionHistory,
   onOpenRecentSession,
   weeklyRead = [],
+  recoverySheet = null,
+  onRecoveryAction,
+  onRecoveryUndo,
   readMoment = null,
   proUnlocked = false,
   onOpenPremium,
@@ -739,6 +748,15 @@ export function ProgressScreen({
   const insets = useSafeAreaInsets();
   const styles = useThemedStyles(makeStyles);
   const [readSheetVisible, setReadSheetVisible] = useState(false);
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
+  // Closed with its model: a row that goes and comes back (the model losing
+  // and regaining confidence after a sync) must not bring the sheet back up
+  // on its own.
+  useEffect(() => {
+    if (!recoverySheet) {
+      setRecoveryOpen(false);
+    }
+  }, [recoverySheet]);
   const [progressSection, setProgressSection] = useState<ProgressSection>(initialSection ?? 'overview');
   // Which set log is open, and whether a target row opened it — see
   // liftSetLogSources for why the two lists are not one.
@@ -1296,14 +1314,25 @@ export function ProgressScreen({
             // them. Before, tapping a lift here did nothing at all and the
             // only way in was the records tab, then the list, then the lift
             // (user 2026-09-07).
-            const openable = setLogSources.some((entry) => entry.key === row.key);
+            // The recovery row opens its own sheet (2026-09-26): why the load
+            // reads the way it does, and what to do about it.
+            const recoveryDoor = row.key === 'recovery' && Boolean(recoverySheet);
+            const openable = recoveryDoor || setLogSources.some((entry) => entry.key === row.key);
             return (
               <View key={row.key} style={styles.readRow}>
                 <Pressable
                   accessibilityRole={openable ? 'button' : undefined}
-                  accessibilityLabel={openable ? row.name : undefined}
+                  accessibilityLabel={
+                    recoveryDoor
+                      ? t(language, 'recovery.a11y.row', { status: row.status })
+                      : openable
+                        ? row.name
+                        : undefined
+                  }
                   disabled={!openable}
-                  onPress={() => setSetLogTarget({ key: row.key, fromLift: false })}
+                  onPress={() =>
+                    recoveryDoor ? setRecoveryOpen(true) : setSetLogTarget({ key: row.key, fromLift: false })
+                  }
                   style={({ pressed }) => [styles.readRowHead, pressed && openable && styles.readRowPressed]}
                 >
                   <View style={[styles.readDotRing, { backgroundColor: tone.soft }]}>
@@ -1329,8 +1358,21 @@ export function ProgressScreen({
                       />
                     ))}
                   </View>
+                  {recoveryDoor ? (
+                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="M9 6l6 6-6 6"
+                        stroke={theme.faint}
+                        strokeWidth={2.4}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </Svg>
+                  ) : null}
                 </Pressable>
-                {row.locked ? (
+                {/* The recovery row's answer lives in its sheet now, lock and
+                    all; the row itself stays one line like the lifts. */}
+                {row.locked && !recoveryDoor ? (
                   <View style={styles.readLock}>
                     {proUnlocked ? (
                       <View style={styles.readFix}>
@@ -2182,6 +2224,19 @@ export function ProgressScreen({
           onOpenPremium?.();
         }}
       />
+
+      {recoverySheet ? (
+        <RecoverySheet
+          visible={recoveryOpen}
+          model={recoverySheet}
+          language={language}
+          bottomInset={insets.bottom}
+          onClose={() => setRecoveryOpen(false)}
+          onAction={(kind) => onRecoveryAction?.(kind)}
+          onUndo={(kind) => onRecoveryUndo?.(kind)}
+          onOpenPremium={() => onOpenPremium?.()}
+        />
+      ) : null}
 
       <ProMomentSheet
         visible={readSheetVisible}

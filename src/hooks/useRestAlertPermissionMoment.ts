@@ -6,6 +6,7 @@ import { canScheduleExactAlarms, openExactAlarmSettings } from '../utils/exactAl
 import {
   RestAlertPermission,
   getRestAlertPermission,
+  isRestAlertChannelBlocked,
   requestRestAlertPermission,
 } from '../utils/sessionNotifications';
 
@@ -29,7 +30,13 @@ export function useRestAlertPermissionMoment(input: {
   restKey: number | string | null;
   /** The in-app ask has been answered before, whichever way. */
   asked: boolean;
-  /** The settings say rest alerts should fire — so silence is worth a banner. */
+  /**
+   * The settings say rest alerts should fire — so silence is worth a banner.
+   * Silence covers two different OS answers: the permission refused, or
+   * granted with the rest-alert channel muted in Android's own settings. The
+   * banner used to read the permission alone, so a muted channel armed a
+   * silent rest with nothing said about it (#bugs, 2026-09-26).
+   */
   alertsWanted: boolean;
   /** The answer, for the app to record. */
   onAnswered?: (outcome: RestAlertAskOutcome) => void;
@@ -62,25 +69,33 @@ export function useRestAlertPermissionMoment(input: {
   // the answer is in showed the sheet for a permission that was never
   // undetermined (PR review).
   const [permission, setPermission] = useState<RestAlertPermission | null>(null);
+  // null until the channel read answers too — kept apart from `false` so the
+  // banner effect below does not fire on a stale "not muted" while the real
+  // answer is still in flight (same reason `permission` starts at null).
+  const [channelMuted, setChannelMuted] = useState<boolean | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [deniedBannerShown, setDeniedBannerShown] = useState(false);
 
   useEffect(() => {
     void getRestAlertPermission().then(setPermission);
+    void isRestAlertChannelBlocked().then(setChannelMuted);
   }, []);
 
-  const resolved = permission !== null;
+  const resolved = permission !== null && channelMuted !== null;
   useEffect(() => {
     if (!resolved || !restRunning || restKey === null) {
       return;
     }
     if (permission === 'undetermined' && !asked) {
       setSheetOpen(true);
-    } else if (permission !== 'granted' && alertsWanted) {
+    } else if (alertsWanted && (permission !== 'granted' || channelMuted)) {
       // Anything that is not a granted permission after the ask — "Not now",
       // or alerts switched off in system settings later — is a rest that will
-      // not reach the reader. Say so at the start of the rest rather than run
-      // a timer that silently cannot fire.
+      // not reach the reader. So is a permission that stayed granted while
+      // the rest-alert channel itself was muted in system settings: reading
+      // `permission` alone missed exactly that case, so the rest ran silent
+      // with no banner at all (#bugs, 2026-09-26). Say so at the start of the
+      // rest rather than run a timer that silently cannot fire.
       setDeniedBannerShown(true);
     }
     // Once per rest START, on purpose — and once more for the rest that was
@@ -143,7 +158,7 @@ export function useRestAlertPermissionMoment(input: {
     sheetOpen,
     allow,
     later,
-    deniedBannerShown: deniedBannerShown && permission !== 'granted',
+    deniedBannerShown: deniedBannerShown && (permission !== 'granted' || channelMuted === true),
     dismissDeniedBanner: () => setDeniedBannerShown(false),
   };
 }

@@ -28,10 +28,12 @@ import {
   requestNotificationPermission,
 } from '../utils/appNotifications';
 import { canScheduleExactAlarms, openExactAlarmSettings } from '../utils/exactAlarm';
+import type { NotificationAccessState } from '../lib/notificationAccessState';
 import {
+  getRestAlertAccessState,
   getRestAlertPermission,
-  getRestAlertsAllowed,
   isRestAlertChannelBlocked,
+  openRestAlertChannelSettings,
   requestRestAlertPermission,
 } from '../utils/sessionNotifications';
 import { EditProfileScreen } from '../screens/EditProfileScreen';
@@ -151,24 +153,31 @@ export interface ProfileTabDeps {
  * has refused it for good — a dialog that can no longer appear would make the
  * button do nothing at all. Module-level so the screen's effect sees one
  * function for the life of the app.
+ *
+ * Returns the state that action leaves things in — denied, channel muted, or
+ * granted — so the card can say which, not just "worked" or "did not"
+ * (#bugs, 2026-09-26: a muted channel and a refused permission read as the
+ * same flat "blocked").
  */
-async function allowWorkoutAlerts(): Promise<boolean> {
+async function allowWorkoutAlerts(): Promise<NotificationAccessState> {
   if ((await getRestAlertPermission()) === 'denied') {
     await Linking.openSettings().catch(() => undefined);
-    return false;
+    return 'denied';
   }
   if ((await requestRestAlertPermission()) !== 'granted') {
-    return false;
+    return 'denied';
   }
   // Allowed, but the reader switched the rest-alert channel off in Android's
   // settings: no dialog can undo that, and "allowed" would hide the card
   // over an alert that stays silent (native audit, 2026-09-21). Their own
-  // page does; the screen reads again when the app comes back.
+  // channel page does — sharper than the app's general settings, since the
+  // toggle sits several taps deep in there (2026-09-26). The screen reads
+  // again when the app comes back.
   if (await isRestAlertChannelBlocked()) {
-    await Linking.openSettings().catch(() => undefined);
-    return false;
+    await openRestAlertChannelSettings();
+    return 'channelMuted';
   }
-  return true;
+  return 'granted';
 }
 
 function allowExactAlarms() {
@@ -474,7 +483,7 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
         }
         requestPermission={() => requestNotificationPermission(preferences.appLanguage)}
         checkPermission={getNotificationPermissionGranted}
-        checkWorkoutAlerts={getRestAlertsAllowed}
+        checkWorkoutAlerts={getRestAlertAccessState}
         allowWorkoutAlerts={allowWorkoutAlerts}
         checkExactAlarms={canScheduleExactAlarms}
         onAllowExactAlarms={allowExactAlarms}

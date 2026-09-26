@@ -11,16 +11,25 @@
  */
 import { SetupWeekday } from '../types/models';
 import { planWeekdayIndexes, resolveProgramTrainingDays, WEEKDAY_KEYS } from './programTrainingDays';
-import { cycleSchedule, TrainingSchedule, weekdaySchedule } from './trainingSchedule';
+import { cycleSchedule, TrainingSchedule, weekdaySchedule, withRestDays } from './trainingSchedule';
 
 export interface ReminderScheduleInput {
   trainingCycle: { pattern: boolean[]; anchorDayStart: number } | null;
   /** The active plan's entries; their labels are weekdays when the plan names them. */
   planEntries: ReadonlyArray<{ label?: string | null }>;
   availableDays: readonly SetupWeekday[];
+  /**
+   * Days taken off from the recovery sheet. A reminder to train on a day the
+   * reader has just made a rest day would be the app arguing with itself.
+   */
+  restDayStarts?: readonly number[];
 }
 
 export function resolveReminderSchedule(input: ReminderScheduleInput): TrainingSchedule {
+  return withRestDays(resolveRhythm(input), input.restDayStarts ?? []);
+}
+
+function resolveRhythm(input: ReminderScheduleInput): TrainingSchedule {
   if (input.trainingCycle) {
     return cycleSchedule(input.trainingCycle.pattern, input.trainingCycle.anchorDayStart);
   }

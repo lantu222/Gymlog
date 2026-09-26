@@ -615,9 +615,14 @@ module.exports = [
     run() {
       // The head is the pressable part, so the locked card below it keeps its
       // own button.
-      assert.match(screen, /const openable = setLogSources\.some\(\(entry\) => entry\.key === row\.key\);/);
+      // The recovery row is the one row whose door is not a set log: it opens
+      // its sheet (2026-09-26). Every other row still opens its lift.
+      assert.match(screen, /const openable = recoveryDoor \|\| setLogSources\.some\(\(entry\) => entry\.key === row\.key\);/);
       assert.match(screen, /disabled=\{!openable\}/);
-      assert.match(screen, /onPress=\{\(\) => setSetLogTarget\(\{ key: row\.key, fromLift: false \}\)\}/);
+      assert.match(
+        screen,
+        /onPress=\{\(\) =>\s*recoveryDoor \? setRecoveryOpen\(true\) : setSetLogTarget\(\{ key: row\.key, fromLift: false \}\)\s*\}/,
+      );
 
       // Only where there is something behind it: a row with no source would
       // open a sheet that resolves to null and shows nothing.

@@ -3,10 +3,14 @@ const assert = require('node:assert/strict');
 const {
   applyCautionFlagsToExercises,
   exerciseHitsCautionArea,
+  CAUTION_TO_FOCUS_AREAS,
+  AREA_CAREFUL_SWAPS,
+  AREA_BODYWEIGHT_SWAPS,
 } = require('../../.test-dist/lib/cautionExerciseFilter');
 const { composeProgramWeekForSelection } = require('../../.test-dist/lib/programDayComposer');
 const { DEFAULT_FIRST_RUN_SELECTION } = require('../../.test-dist/lib/firstRunSetup');
 const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog');
+const { trackingModeAfterSwap } = require('../../.test-dist/lib/catalogExercisePools');
 
 function exercise(name, overrides = {}) {
   return {
@@ -210,6 +214,62 @@ module.exports = [
         }
       }
       assert.ok(composed > 100, `the sweep composed only ${composed} weeks`);
+      assert.deepEqual(offenders, []);
+    },
+  },
+  {
+    name: 'cautionExerciseFilter: every swap this filter can produce tracks the way the library says',
+    run() {
+      // Tracking mode used to be guessed from words in the REPLACEMENT's name
+      // (a short list: "bodyweight", "push-up", "glute bridge", "inverted row",
+      // "plank", "mountain climber") rather than read from the exercise it
+      // names. "Bench Dips" flagged for shoulders swapped to "Machine Chest
+      // Press" and kept `bodyweight` — a machine lift with no kg field — because
+      // "machine chest press" matches none of those words (found 2026-09-26).
+      //
+      // This sweeps every [pattern, replacement] pair in both swap tables,
+      // under every tracking mode a real exercise could carry that name with,
+      // and checks the filter's answer against trackingModeAfterSwap — the
+      // same rule the live player and Home use for every other swap, grounded
+      // in the ready programmes' own prescriptions and the generated library's
+      // equipment field, not in the replacement's spelling.
+      const startingModes = ['load_and_reps', 'reps_first', 'bodyweight', 'hold'];
+      const tables = [
+        ['careful', AREA_CAREFUL_SWAPS, []],
+        ['focus', AREA_BODYWEIGHT_SWAPS, null],
+      ];
+
+      const offenders = [];
+      let swept = 0;
+
+      for (const [kind, table] of tables) {
+        for (const [area, entries] of Object.entries(table)) {
+          const focusAreas = kind === 'focus' ? CAUTION_TO_FOCUS_AREAS[area] : [];
+          for (const [pattern, to] of entries) {
+            for (const trackingMode of startingModes) {
+              const result = applyCautionFlagsToExercises(
+                [exercise(pattern, { trackingMode })],
+                [{ area, level: 'careful', refinements: [] }],
+                focusAreas,
+              );
+              const swap = result.swapped.find((entry) => entry.to === to);
+              // Not every [pattern, mode] combination reaches this table's
+              // swap (a hold pattern into a non-hold replacement is guarded
+              // off elsewhere) — that guard has its own test above.
+              if (!swap) continue;
+
+              swept += 1;
+              const got = result.exercises[0].trackingMode;
+              const want = trackingModeAfterSwap(trackingMode, to);
+              if (got !== want) {
+                offenders.push(`${area}/${kind}: ${pattern} (${trackingMode}) -> ${to}: got ${got}, want ${want}`);
+              }
+            }
+          }
+        }
+      }
+
+      assert.ok(swept > 50, `the sweep only produced ${swept} swaps`);
       assert.deepEqual(offenders, []);
     },
   },

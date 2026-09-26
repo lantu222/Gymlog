@@ -10,11 +10,11 @@ import { parseNumberInput } from './format';
 import { REPS_DIAL } from './weightDial';
 import { isLiftableWeight } from './weightLimits';
 import { isExerciseDone } from './sessionTotals';
+import { beatsBest, heaviestOfSets } from './personalRecords';
 import {
   ExercisePrLookup,
   WorkoutCompletionExerciseCard,
   WorkoutCompletionPrCard,
-  estimateOneRepMaxKg,
   resolvePreviousExercisePr,
 } from './workoutCompletionSummary';
 import { buildPersistedSessionNames } from './workoutEditorNaming';
@@ -433,6 +433,20 @@ export function freestyleDoneSetCount(exercises: FreestyleExerciseDraft[]) {
 }
 
 /**
+ * Whether a freestyle session has anything to save (user decision,
+ * 2026-09-26): at least one set ticked done.
+ *
+ * Finish used to ask only "is there a lift on the board?" — a board with rows
+ * typed in and nothing ticked still saved, as a template with a session
+ * nobody performed and a history entry of zero completed sets. A free
+ * workout with nothing done is not a workout; it is the board the reader
+ * meant to fill in and left.
+ */
+export function canFinishFreestyleSession(exercises: FreestyleExerciseDraft[]): boolean {
+  return freestyleDoneSetCount(exercises) > 0;
+}
+
+/**
  * What leaving would throw away: sets ticked, and sets with a number in them
  * that were not ticked yet.
  *
@@ -524,51 +538,24 @@ export function buildFreestyleFinish({
 
   const prCards: WorkoutCompletionPrCard[] = named
     .map((exercise): WorkoutCompletionPrCard | null => {
-      const bestSet = exercise.sets.reduce<{
-        estimatedOneRepMaxKg: number;
-        performedWeightKg: number;
-        performedReps: number;
-      } | null>((best, set) => {
-        if (!set.done) {
-          return best;
-        }
-
-        const weightKg = parseNumberInput(set.kg);
-        const reps = parseNumberInput(set.reps);
-        if (weightKg === null || reps === null) {
-          return best;
-        }
-
-        const estimate = estimateOneRepMaxKg(weightKg, reps);
-        if (estimate === null) {
-          return best;
-        }
-
-        if (!best || estimate > best.estimatedOneRepMaxKg) {
-          return {
-            estimatedOneRepMaxKg: estimate,
-            performedWeightKg: weightKg,
-            performedReps: reps,
-          };
-        }
-
-        return best;
-      }, null);
+      const doneSets = exercise.sets
+        .filter((set) => set.done)
+        .map((set) => ({ weight: parseNumberInput(set.kg), reps: parseNumberInput(set.reps) }))
+        .filter((set): set is { weight: number; reps: number } => set.weight !== null && set.reps !== null);
+      const bestSet = heaviestOfSets(doneSets);
 
       if (!bestSet) {
         return null;
       }
 
-      const previousBestOneRepMaxKg = resolvePreviousExercisePr({
+      const previousBest = resolvePreviousExercisePr({
         libraryItemId: exercise.libraryItemId,
         exerciseName: exercise.name,
         lookup: exercisePrLookup,
       });
 
-      if (
-        previousBestOneRepMaxKg !== null &&
-        bestSet.estimatedOneRepMaxKg <= previousBestOneRepMaxKg + 0.05
-      ) {
+      // Beaten, not matched: heavier, or the same weight for more reps.
+      if (!beatsBest(bestSet, previousBest)) {
         return null;
       }
 
@@ -576,10 +563,10 @@ export function buildFreestyleFinish({
         id: `pr:${exercise.localKey}`,
         exerciseName: exercise.name.trim(),
         imageUrl: exercise.imageUrl,
-        estimatedOneRepMaxKg: bestSet.estimatedOneRepMaxKg,
-        previousBestOneRepMaxKg,
-        performedWeightKg: bestSet.performedWeightKg,
-        performedReps: bestSet.performedReps,
+        previousBestWeightKg: previousBest?.weight ?? null,
+        previousBestReps: previousBest?.reps ?? null,
+        performedWeightKg: bestSet.weight,
+        performedReps: bestSet.reps,
       };
     })
     .filter(isPrCard)

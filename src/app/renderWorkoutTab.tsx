@@ -1,9 +1,10 @@
 import React from 'react';
-import { Linking, View } from 'react-native';
+import { View } from 'react-native';
 
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { buildFirstRunRecommendationReasons, FirstRunSetupSelection } from '../lib/firstRunSetup';
 import { restAlertsAnswered } from '../lib/restAlertAnswer';
+import { openRestAlertSettings } from '../utils/sessionNotifications';
 import { recordOwnBlock } from '../lib/ownBlockHistory';
 import { formatShortDate } from '../lib/format';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
@@ -30,7 +31,6 @@ import { toggleTechniqueStatement } from '../lib/exerciseLearning';
 import { getExerciseProgressForName, SameLiftMatcher } from '../lib/progression';
 import { catalogLevelForSetup } from '../lib/goalProgramme';
 import { getReadyProgramContent } from '../lib/readyProgramContent';
-import { getReadyProgramBlockWeeks } from '../lib/readyProgramDuration';
 import { programmeSwitchedFrom, programmeToSwitchTo } from '../lib/runningProgrammes';
 import { AdaptedSessionRef, SessionAdaptation, withSessionSwap } from '../lib/sessionAdaptation';
 import { nextSeasonWindow, resolveSeasonWindow } from '../lib/season';
@@ -678,7 +678,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
 
           handleStartCustomProgramSession(route.workoutTemplateId, sessionId);
         }}
-        programBlockWeeks={readyTemplate ? getReadyProgramBlockWeeks(readyTemplate) : null}
         trainingDayIndexes={planWeekdayIndexes(detailPlanEntries)}
         // Same entries, same order: which session each of those days holds.
         trainingDaySessionIds={detailPlanEntries.map((entry) => entry.workoutTemplateSessionId ?? null)}
@@ -991,7 +990,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             notificationPrefs: restAlertsAnswered(preferences.notificationPrefs, outcome),
           })
         }
-        onOpenSystemSettings={() => void Linking.openSettings()}
+        onOpenSystemSettings={() => void openRestAlertSettings()}
         onBack={() => navigateBack(ROOT_ROUTES.home)}
         onSave={async (draft, summary) => {
           try {
@@ -1083,6 +1082,7 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             notificationPrefs: restAlertsAnswered(preferences.notificationPrefs, outcome),
           })
         }
+        onOpenSystemSettings={() => void openRestAlertSettings()}
       />
     );
   }
@@ -1100,7 +1100,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         onStartReadyProgram={handleStartReadyProgram}
         onOpenCustomProgram={handleOpenCustomProgramDetail}
         onStartCustomWorkout={handleStartCustomProgram}
-        onDeleteCustomWorkout={handleDeleteCustomWorkout}
         onCreateWorkout={() => navigate({ tab: 'workout', screen: 'template' })}
       />
     );

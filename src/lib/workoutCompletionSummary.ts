@@ -1,4 +1,5 @@
 import { getComparableLogSets } from './exerciseLog';
+import { WeightedSet, beatsBest, heaviestOfSets } from './personalRecords';
 import { ExerciseLog, ExerciseTemplate, WorkoutSession } from '../types/models';
 
 export interface WorkoutCompletionExerciseCard {
@@ -19,21 +20,31 @@ export interface WorkoutCompletionPrCard {
   id: string;
   exerciseName: string;
   imageUrl?: string | null;
-  estimatedOneRepMaxKg: number;
-  previousBestOneRepMaxKg: number | null;
+  /** The heaviest weight this lift carried before today's session, or null on its first-ever log. */
+  previousBestWeightKg: number | null;
+  /** The reps of that best set: a record at the same weight beat it on reps. */
+  previousBestReps: number | null;
   performedWeightKg: number;
   performedReps: number;
 }
 
+/** Each lift's best set so far — its weight, and the reps that break a tie at that weight. */
 export interface ExercisePrLookup {
-  byLibraryItemId: Record<string, number>;
-  byName: Record<string, number>;
+  byLibraryItemId: Record<string, WeightedSet>;
+  byName: Record<string, WeightedSet>;
 }
 
 function normalize(value: string) {
   return value.trim().toLowerCase();
 }
 
+/**
+ * An estimated one-rep max (Epley), for the exercise sheet's "EST. 1RM"
+ * figure — a number the sheet shows AS an estimate. Not used to declare a
+ * record anywhere: a record is the heaviest weight actually lifted
+ * (`heaviestOfSets`), decided 2026-09-26 after the completion screen and the
+ * Records tab disagreed about whether 80 kg × 10 beat a 100 kg × 1 best.
+ */
 export function estimateOneRepMaxKg(weightKg: number, reps: number) {
   if (!Number.isFinite(weightKg) || weightKg <= 0 || !Number.isFinite(reps) || reps <= 0) {
     return null;
@@ -46,6 +57,11 @@ export function estimateOneRepMaxKg(weightKg: number, reps: number) {
   return weightKg * (1 + reps / 30);
 }
 
+/**
+ * Every lift's heaviest weight ever logged, by name and by library item —
+ * the same rule the Records tab uses (`heaviestOfSets`), so a "new PR" here
+ * and a new row there can never disagree about what counts as one.
+ */
 export function buildExercisePrLookup({
   exerciseLogs,
   workoutSessions,
@@ -58,8 +74,8 @@ export function buildExercisePrLookup({
   const sessionsById = new Map(workoutSessions.map((session) => [session.id, session] as const));
   const templatesById = new Map(exerciseTemplates.map((exercise) => [exercise.id, exercise] as const));
 
-  const bestByLibraryItemId = new Map<string, number>();
-  const bestByName = new Map<string, number>();
+  const bestByLibraryItemId = new Map<string, WeightedSet>();
+  const bestByName = new Map<string, WeightedSet>();
 
   exerciseLogs.forEach((log) => {
     const session = sessionsById.get(log.sessionId);
@@ -67,27 +83,21 @@ export function buildExercisePrLookup({
       return;
     }
 
-    const comparableSets = getComparableLogSets(log);
-    comparableSets.forEach((set) => {
-      const estimate = estimateOneRepMaxKg(set.weight, set.reps);
-      if (estimate === null) {
-        return;
-      }
+    const topSet = heaviestOfSets(getComparableLogSets(log));
+    if (!topSet) {
+      return;
+    }
+    const best: WeightedSet = { weight: topSet.weight, reps: topSet.reps };
 
-      const normalizedName = normalize(log.exerciseNameSnapshot);
-      const previousByName = bestByName.get(normalizedName) ?? null;
-      if (previousByName === null || estimate > previousByName) {
-        bestByName.set(normalizedName, estimate);
-      }
+    const normalizedName = normalize(log.exerciseNameSnapshot);
+    if (beatsBest(best, bestByName.get(normalizedName) ?? null)) {
+      bestByName.set(normalizedName, best);
+    }
 
-      const template = log.exerciseTemplateId ? templatesById.get(log.exerciseTemplateId) ?? null : null;
-      if (template?.libraryItemId) {
-        const previousByLibrary = bestByLibraryItemId.get(template.libraryItemId) ?? null;
-        if (previousByLibrary === null || estimate > previousByLibrary) {
-          bestByLibraryItemId.set(template.libraryItemId, estimate);
-        }
-      }
-    });
+    const template = log.exerciseTemplateId ? templatesById.get(log.exerciseTemplateId) ?? null : null;
+    if (template?.libraryItemId && beatsBest(best, bestByLibraryItemId.get(template.libraryItemId) ?? null)) {
+      bestByLibraryItemId.set(template.libraryItemId, best);
+    }
   });
 
   return {
@@ -111,6 +121,11 @@ export interface LatestSessionPr {
  * Unlike the completion screen this ignores first-ever entries: calling the
  * first log of an exercise a "record" is technically true and practically
  * hollow, so a previous best has to exist for it to count here.
+ *
+ * "Strongest" and "record" both mean heaviest weight lifted, the same rule
+ * `buildExercisePrLookup` and the Records tab use — so the morning notification
+ * can never name a lift the completion screen or the Records tab would not
+ * also call a record.
  */
 export function findLatestSessionPr({
   workoutSessions,
@@ -143,7 +158,7 @@ export function findLatestSessionPr({
   });
 
   const templatesById = new Map(exerciseTemplates.map((exercise) => [exercise.id, exercise] as const));
-  const candidates: Array<LatestSessionPr & { estimate: number }> = [];
+  const candidates: LatestSessionPr[] = [];
 
   exerciseLogs
     .filter((log) => log.sessionId === latest.id)
@@ -159,20 +174,17 @@ export function findLatestSessionPr({
         return;
       }
 
-      getComparableLogSets(log).forEach((set) => {
-        const estimate = estimateOneRepMaxKg(set.weight, set.reps);
-        // Same 0.05 kg margin the completion screen uses, so the two surfaces
-        // can never disagree about whether a set was a record.
-        if (estimate === null || estimate <= previousBest + 0.05) {
-          return;
-        }
-        candidates.push({
-          exerciseName: log.exerciseNameSnapshot,
-          weightKg: set.weight,
-          reps: set.reps,
-          achievedAtMs: latestAtMs,
-          estimate,
-        });
+      // The log's own best set is the only one that can beat the prior best
+      // — any other set in the same log is, by the same rule, no better.
+      const topSet = heaviestOfSets(getComparableLogSets(log));
+      if (!topSet || !beatsBest(topSet, previousBest)) {
+        return;
+      }
+      candidates.push({
+        exerciseName: log.exerciseNameSnapshot,
+        weightKg: topSet.weight,
+        reps: topSet.reps,
+        achievedAtMs: latestAtMs,
       });
     });
 
@@ -181,7 +193,12 @@ export function findLatestSessionPr({
   }
 
   const best = candidates.reduce((strongest, candidate) =>
-    candidate.estimate > strongest.estimate ? candidate : strongest,
+    beatsBest(
+      { weight: candidate.weightKg, reps: candidate.reps },
+      { weight: strongest.weightKg, reps: strongest.reps },
+    )
+      ? candidate
+      : strongest,
   );
 
   return {
@@ -200,14 +217,19 @@ export function resolvePreviousExercisePr({
   libraryItemId?: string | null;
   exerciseName: string;
   lookup: ExercisePrLookup;
-}) {
-  // The higher of the two, never the library row's alone. A free-workout set
+}): WeightedSet | null {
+  // The better of the two, never the library row's alone. A free-workout set
   // is saved with no template, so it reaches only the name index: bench at
   // 100 kg there and 80 kg in a programme had the programme answer 93 and a
   // 90 kg set earn a "new record" card, every time, below the real best.
   const byLibrary = libraryItemId ? lookup.byLibraryItemId[libraryItemId] : undefined;
   const normalizedName = normalize(exerciseName);
   const byName = normalizedName ? lookup.byName[normalizedName] : undefined;
-  const known = [byLibrary, byName].filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
-  return known.length > 0 ? Math.max(...known) : null;
+  let best: WeightedSet | null = null;
+  for (const value of [byLibrary, byName]) {
+    if (value && Number.isFinite(value.weight) && Number.isFinite(value.reps) && beatsBest(value, best)) {
+      best = value;
+    }
+  }
+  return best;
 }

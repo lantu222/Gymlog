@@ -1,5 +1,6 @@
 import type { TourSurface } from '../lib/firstRunTour';
 import type { LegalAcceptance } from '../lib/legalAcceptance';
+import type { LightNextSession } from '../lib/recoverySheet';
 import { CancelSurveyAnswer } from '../lib/cancelSurvey';
 import { CoachSuggestionState } from '../lib/coachSuggestions';
 import { OwnBlockStats } from '../lib/ownBlockHistory';
@@ -431,6 +432,14 @@ export interface AppPreferences {
    * have; an older version than the app's asks again. See lib/legalAcceptance.
    */
   legalAcceptance: LegalAcceptance | null;
+  /**
+   * Days the reader took off from the recovery sheet ("Lisää lepopäivä
+   * huomiselle"), as local midnights. Every calendar reads them through the
+   * schedule (trainingSchedule.withRestDays).
+   */
+  restDayStarts: number[];
+  /** "Kevennä seuraava treeni", asked for and not yet spent. See recoverySheet. */
+  lightNextSession: LightNextSession | null;
   /**
    * Permission to KEEP a copy of what the coach was asked, one thing at a time.
    *

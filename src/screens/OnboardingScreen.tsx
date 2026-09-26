@@ -167,6 +167,13 @@ interface OnbPalette {
   cardActive: string;
   primary: string;
   primarySoft: string;
+  /**
+   * A violet filled under white type: the chosen day, level, focus and place.
+   * In light it is `primary`; in dark `primary` is a text violet, and white on
+   * it was 3.49:1 (accessibility audit, 2026-09-21; fixed 2026-09-26) — the
+   * dark fill is the app's own `purpleFill`.
+   */
+  primaryFill: string;
   text: string;
   textSoft: string;
   textMuted: string;
@@ -204,6 +211,7 @@ const ONB_LIGHT: OnbPalette = {
   cardActive: '#EFE7FF',
   primary: '#7C3AED',
   primarySoft: 'rgba(124,58,237,0.14)',
+  primaryFill: '#7C3AED',
   text: '#101828',
   // Emphasis treatment (user-approved on Welcome/StartPath/Health): secondary
   // copy runs darker than the old #667085 so it stays legible on dim displays.
@@ -233,6 +241,7 @@ const ONB_DARK: OnbPalette = {
   cardActive: HG_DARK.purpleLight,
   primary: HG_DARK.purple,
   primarySoft: 'rgba(155,109,255,0.18)',
+  primaryFill: HG_DARK.purpleFill,
   text: HG_DARK.ink,
   textSoft: HG_DARK.muted,
   textMuted: HG_DARK.faint,
@@ -3532,7 +3541,7 @@ const makeOnboardingStyles = (C: OnbPalette) => StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: C.primary,
+    backgroundColor: C.primaryFill,
     borderWidth: 1.5,
     borderColor: '#5B21B6',
     alignItems: 'center',
@@ -3648,7 +3657,7 @@ const makeOnboardingStyles = (C: OnbPalette) => StyleSheet.create({
     bottom: 4,
     left: 4,
     borderRadius: 999,
-    backgroundColor: C.primary,
+    backgroundColor: C.primaryFill,
     shadowColor: C.primary,
     shadowOpacity: 0.32,
     shadowRadius: 10,
@@ -3725,8 +3734,8 @@ const makeOnboardingStyles = (C: OnbPalette) => StyleSheet.create({
     justifyContent: 'center',
   },
   daysChipActive: {
-    borderColor: C.primary,
-    backgroundColor: C.primary,
+    borderColor: C.primaryFill,
+    backgroundColor: C.primaryFill,
     shadowColor: C.primary,
     shadowOpacity: 0.28,
     shadowRadius: 10,
@@ -3775,8 +3784,8 @@ const makeOnboardingStyles = (C: OnbPalette) => StyleSheet.create({
     justifyContent: 'center',
   },
   daysWeekCellActive: {
-    borderColor: C.primary,
-    backgroundColor: C.primary,
+    borderColor: C.primaryFill,
+    backgroundColor: C.primaryFill,
   },
   daysWeekCellText: {
     color: C.textSoft,
@@ -4010,8 +4019,8 @@ const makeOnboardingStyles = (C: OnbPalette) => StyleSheet.create({
     paddingHorizontal: 14,
   },
   focusListRowActive: {
-    backgroundColor: C.primary,
-    borderColor: C.primary,
+    backgroundColor: C.primaryFill,
+    borderColor: C.primaryFill,
     shadowColor: C.primary,
     shadowOpacity: 0.24,
     shadowRadius: 8,
@@ -4117,8 +4126,8 @@ const makeOnboardingStyles = (C: OnbPalette) => StyleSheet.create({
     paddingVertical: 22,
   },
   locationChoiceCardActive: {
-    backgroundColor: C.primary,
-    borderColor: C.primary,
+    backgroundColor: C.primaryFill,
+    borderColor: C.primaryFill,
     shadowColor: C.primary,
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.3,

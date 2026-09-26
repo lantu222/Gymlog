@@ -175,8 +175,6 @@ interface ProgramDetailScreenProps {
    * next to fill it. Undefined for a catalog programme, like the reorder above.
    */
   onAddSession?: (name: string) => void;
-  /** The catalog's declared block length. Null for a programme with none. */
-  programBlockWeeks?: number | null;
   /** Monday-first indexes the plan currently trains on, when it names days. */
   trainingDayIndexes?: number[] | null;
   /**
@@ -293,7 +291,6 @@ export function ProgramDetailScreen({
   onOpenSession,
   onReorderSession,
   onAddSession,
-  programBlockWeeks = null,
   trainingDayIndexes = null,
   trainingDaySessionIds = null,
   routineSeconds,

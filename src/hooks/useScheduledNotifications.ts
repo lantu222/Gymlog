@@ -105,10 +105,12 @@ export function useScheduledNotifications(database: AppDatabase) {
       trainingCycle: database.preferences.trainingCycle,
       planEntries: activePlan?.entries ?? [],
       availableDays: setupAvailableDays,
+      restDayStarts: database.preferences.restDayStarts,
     });
   }, [
     database.preferences.activePlanId,
     database.preferences.trainingCycle,
+    database.preferences.restDayStarts,
     database.workoutPlans,
     setupAvailableDays,
   ]);
