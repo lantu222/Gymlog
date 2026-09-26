@@ -1155,6 +1155,17 @@ function VinhaApp() {
   const [handoffLegalDocument, setHandoffLegalDocument] = useState<LegalDocumentId | null>(null);
   /** Read by the route-level back, which is declared before the value is. */
   const legalConsentDueRef = useRef(false);
+  /**
+   * The terms sheet, held on screen while its answer is being written.
+   *
+   * `updatePreferences` shows a change before the disk has it and takes it
+   * back if the disk refuses. Derived from the preferences alone, the sheet
+   * vanished on the optimistic half — before the acceptance was durable — and
+   * a refused write mounted a fresh sheet whose error the old one could never
+   * show (CI review of #184). Held, it leaves only after the write resolves,
+   * and a refusal lands on the sheet that asked.
+   */
+  const [legalSheetHeld, setLegalSheetHeld] = useState<'first' | 'changed' | null>(null);
   const handoffLegalOpenRef = useRef(false);
   handoffLegalOpenRef.current = handoffLegalDocument !== null;
   // Whether the hand-off is on screen, for the route-level back below. Set
@@ -4876,10 +4887,11 @@ function VinhaApp() {
    * Not before hydration: the stored answer is not known until then, and a
    * reader who had accepted would see the sheet flash.
    */
-  const legalConsentDue =
+  const legalConsentOwed =
     appHydrated && brandSplashDone && !onboardingActive && !setupHandoffActive
       ? legalAcceptanceDue(preferences.legalAcceptance, LEGAL_LAST_UPDATED)
       : null;
+  const legalConsentDue = legalConsentOwed ?? legalSheetHeld;
   legalConsentDueRef.current = legalConsentDue !== null;
 
   /**
@@ -4953,9 +4965,16 @@ function VinhaApp() {
         onOpenLegal={(document) => setHandoffLegalDocument(document)}
         // The sheet goes when the stored answer says it is no longer owed —
         // after this write, never on the tap.
-        onAccept={() =>
-          updatePreferences({ legalAcceptance: acceptLegal(LEGAL_LAST_UPDATED, new Date()) })
-        }
+        onAccept={async () => {
+          setLegalSheetHeld(legalConsentDue);
+          try {
+            await updatePreferences({ legalAcceptance: acceptLegal(LEGAL_LAST_UPDATED, new Date()) });
+          } finally {
+            // Refused, the preferences are already rolled back and the sheet
+            // stays owed; accepted, it goes now — after the write.
+            setLegalSheetHeld(null);
+          }
+        }}
       />
       {/* Over the sheet, the way the documents open over the hand-off:
           reading them is not an answer, and the box keeps its tick. */}

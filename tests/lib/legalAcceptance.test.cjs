@@ -121,13 +121,19 @@ module.exports = [
       assert.doesNotMatch(sheet, /setVisible|visible/);
 
       const app = read('App.tsx');
-      const due = between(app, 'const legalConsentDue =', ';\n');
-      assert.match(due, /appHydrated && brandSplashDone && !onboardingActive && !setupHandoffActive/);
-      assert.match(due, /legalAcceptanceDue\(preferences\.legalAcceptance, LEGAL_LAST_UPDATED\)/);
+      const owed = between(app, 'const legalConsentOwed =', ';\n');
+      assert.match(owed, /appHydrated && brandSplashDone && !onboardingActive && !setupHandoffActive/);
+      assert.match(owed, /legalAcceptanceDue\(preferences\.legalAcceptance, LEGAL_LAST_UPDATED\)/);
+      // Held on screen while the answer is written: updatePreferences shows
+      // the change before the disk has it (CI review of #184).
+      assert.match(app, /const legalConsentDue = legalConsentOwed \?\? legalSheetHeld;/);
       assert.match(app, /overlay=\{legalConsentElement \?\? tourElement\}/);
       const overlay = between(app, 'const legalConsentElement = legalConsentDue ? (', ') : null;');
       assert.match(overlay, /<LegalConsentSheet/);
-      assert.match(overlay, /onAccept=\{\(\) =>\s*updatePreferences\(\{ legalAcceptance: acceptLegal\(LEGAL_LAST_UPDATED, new Date\(\)\) \}\)\s*\}/);
+      assert.match(
+        overlay,
+        /onAccept=\{async \(\) => \{\s*setLegalSheetHeld\(legalConsentDue\);\s*try \{\s*await updatePreferences\(\{ legalAcceptance: acceptLegal\(LEGAL_LAST_UPDATED, new Date\(\)\) \}\);\s*\} finally \{[\s\S]*?setLegalSheetHeld\(null\);/,
+      );
       // The documents open over it, not instead of it.
       assert.ok(overlay.indexOf('<LegalDocumentScreen') > overlay.indexOf('<LegalConsentSheet'));
       // The tour waits: it would point at a screen the sheet covers.
