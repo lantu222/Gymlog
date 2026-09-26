@@ -99,9 +99,11 @@ module.exports = [
     name: 'home day view shows recovery when selected day is outside the plan rhythm',
     run() {
       const [monday, tuesday, wednesday] = getHomeMiniCalendarDays(new Date('2026-05-25T12:00:00.000Z')).slice(2, 5);
+      // Each day has a lift: a day with none hands its slot on (2026-09-26),
+      // and this case is about the rhythm, not about empty days.
       const sessions = [
-        { id: 'upper', title: 'Upper', duration: '~50 min', exercises: [], hiddenExerciseCount: 0 },
-        { id: 'lower', title: 'Lower', duration: '~50 min', exercises: [], hiddenExerciseCount: 0 },
+        { id: 'upper', title: 'Upper', duration: '~50 min', exercises: [{ name: 'Bench Press', setsLabel: '3 sets' }], hiddenExerciseCount: 0 },
+        { id: 'lower', title: 'Lower', duration: '~50 min', exercises: [{ name: 'Back Squat', setsLabel: '3 sets' }], hiddenExerciseCount: 0 },
       ];
 
       assert.equal(getHomeDayView(monday, weekdaySchedule([0, 2, 4]), sessions).kind, 'training');
