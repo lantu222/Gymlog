@@ -356,9 +356,12 @@ module.exports = [
       );
       assert.ok(own > 0, 'no back listener of its own while a document is open');
       // The hand-off's own check sits between (2026-09-17): after the
-      // document, before the route.
+      // document, before the route. So does the terms sheet's (2026-09-26),
+      // which is also drawn over the route rather than routed — and the
+      // document check still comes first, so back closes a document opened
+      // from either.
       const route = app.search(
-        /if \(handoffLegalOpenRef\.current\) \{\s*setHandoffLegalDocument\(null\);\s*return true;\s*\}\s*(?:\/\/[^\n]*\n\s*)*if \(setupHandoffActiveRef\.current\) \{\s*return false;\s*\}\s*const nextRoute = getBackRoute/,
+        /if \(handoffLegalOpenRef\.current\) \{\s*setHandoffLegalDocument\(null\);\s*return true;\s*\}\s*(?:\/\/[^\n]*\n\s*)*if \(setupHandoffActiveRef\.current\) \{\s*return false;\s*\}\s*(?:\/\/[^\n]*\n\s*)*if \(legalConsentDueRef\.current\) \{\s*return false;\s*\}\s*const nextRoute = getBackRoute/,
       );
       assert.ok(route > 0, 'the route handler would walk past an open document');
       // Registered after the route handler, so it is the newest listener.

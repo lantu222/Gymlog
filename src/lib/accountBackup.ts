@@ -11,6 +11,7 @@
  * an older app version is handled the way an older local database is — with
  * defaults, not a crash.
  */
+import { laterLegalAcceptance } from './legalAcceptance';
 import { gunzipSync, gzipSync, strFromU8 } from 'fflate';
 
 import type { AppDatabase, AppPreferences } from '../types/models';
@@ -359,7 +360,11 @@ export function preferencesForRestore(
   device: AppPreferences,
   plans: ReadonlyArray<{ id: string; entries: ReadonlyArray<unknown> }>,
 ): AppPreferences {
-  return reconcileRunningSet(keepDevicePrivacyChoices(keepDeviceEntitlement(restored, device), device), plans);
+  const kept = keepDevicePrivacyChoices(keepDeviceEntitlement(restored, device), device);
+  return reconcileRunningSet(
+    { ...kept, legalAcceptance: laterLegalAcceptance(device.legalAcceptance, restored.legalAcceptance) },
+    plans,
+  );
 }
 
 /**

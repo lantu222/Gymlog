@@ -8,6 +8,7 @@ import { isMeasurementKind, measurementUnitForKind } from '../lib/measurementKin
 import { normalizeMeasurementReminder } from '../lib/measurementReminder';
 import { normalizeOwnBlockStats } from '../lib/ownBlockHistory';
 import { normalizeFirstRunToursSeen } from '../lib/firstRunTour';
+import { normalizeLegalAcceptance } from '../lib/legalAcceptance';
 import type { NotificationPrefs } from '../types/models';
 import { normalizeDefaultRestSeconds } from '../lib/restPreference';
 import { normalizePurchaseRecord } from '../lib/purchaseRecord';
@@ -795,6 +796,8 @@ export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined
               startedAt: input.preferences.trainingBreak.startedAt,
             }
           : fallback.preferences.trainingBreak,
+      // Malformed reads as not accepted, which asks again — never the reverse.
+      legalAcceptance: normalizeLegalAcceptance(input?.preferences?.legalAcceptance),
       // Consent is `true` or it is not consent. A stored string, a null or a
       // missing field all mean no — the one direction it is safe to be wrong in.
       aiLogId:

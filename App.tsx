@@ -53,7 +53,9 @@ import { routeForNotification } from './src/lib/notificationRoute';
 import { planSetupHandoff } from './src/lib/setupHandoff';
 import { SetupHandoffChoices, SetupHandoffScreen } from './src/screens/SetupHandoffScreen';
 import { LegalDocumentScreen } from './src/screens/LegalDocumentScreen';
-import type { LegalDocumentId } from './src/lib/legalDocuments';
+import { LEGAL_LAST_UPDATED, formatLegalDate, type LegalDocumentId } from './src/lib/legalDocuments';
+import { acceptLegal, legalAcceptanceDue } from './src/lib/legalAcceptance';
+import { LegalConsentSheet } from './src/components/LegalConsentSheet';
 import { FirstRunTour } from './src/components/FirstRunTour';
 import { createTourTargetRegistry } from './src/features/tour/tourTargets';
 import {
@@ -1152,6 +1154,19 @@ function VinhaApp() {
    * mid-onboarding would end onboarding. Null puts the hand-off back.
    */
   const [handoffLegalDocument, setHandoffLegalDocument] = useState<LegalDocumentId | null>(null);
+  /** Read by the route-level back, which is declared before the value is. */
+  const legalConsentDueRef = useRef(false);
+  /**
+   * The terms sheet, held on screen while its answer is being written.
+   *
+   * `updatePreferences` shows a change before the disk has it and takes it
+   * back if the disk refuses. Derived from the preferences alone, the sheet
+   * vanished on the optimistic half — before the acceptance was durable — and
+   * a refused write mounted a fresh sheet whose error the old one could never
+   * show (CI review of #184). Held, it leaves only after the write resolves,
+   * and a refusal lands on the sheet that asked.
+   */
+  const [legalSheetHeld, setLegalSheetHeld] = useState<'first' | 'changed' | null>(null);
   const handoffLegalOpenRef = useRef(false);
   handoffLegalOpenRef.current = handoffLegalDocument !== null;
   // Whether the hand-off is on screen, for the route-level back below. Set
@@ -1323,6 +1338,12 @@ function VinhaApp() {
       // after the hand-off's own — was the newest and popped the route
       // behind it. False hands the key on to the hand-off's listener.
       if (setupHandoffActiveRef.current) {
+        return false;
+      }
+      // The terms sheet answers back itself (it leaves the app). Walking the
+      // route behind a sheet nobody can see past would change the screen the
+      // reader returns to, for a key they pressed to get away.
+      if (legalConsentDueRef.current) {
         return false;
       }
       const nextRoute = getBackRoute(route, workoutHomeRoute);
@@ -4955,6 +4976,22 @@ function VinhaApp() {
   setupHandoffActiveRef.current = setupHandoffActive;
 
   /**
+   * The terms, owed (#bugs 2026-09-22; decided 2026-09-26): never accepted, or
+   * accepted before the documents last changed. Asked over the app once the
+   * questions and the hand-off are behind the reader — the hand-off asks it
+   * itself, and this catches whoever skipped that page, everyone who was here
+   * before the question existed, and every change to the documents after.
+   * Not before hydration: the stored answer is not known until then, and a
+   * reader who had accepted would see the sheet flash.
+   */
+  const legalConsentOwed =
+    appHydrated && brandSplashDone && !onboardingActive && !setupHandoffActive
+      ? legalAcceptanceDue(preferences.legalAcceptance, LEGAL_LAST_UPDATED)
+      : null;
+  const legalConsentDue = legalConsentOwed ?? legalSheetHeld;
+  legalConsentDueRef.current = legalConsentDue !== null;
+
+  /**
    * The first-run tour: once per surface, only on a tab's root, only after
    * onboarding and its hand-off have finished. It goes in front of Home's
    * one-card prompt queue — the widget offer and the card suggestion wait
@@ -4965,6 +5002,8 @@ function VinhaApp() {
     brandSplashDone &&
     !onboardingActive &&
     !setupHandoffActive &&
+    // The tour waits for the terms: it points at a screen the sheet covers.
+    legalConsentDue === null &&
     tourSurface !== null &&
     isTourDue(preferences.firstRunToursSeen, tourSurface);
   const homeTourActive = tourActive && tourSurface === 'home';
@@ -5009,6 +5048,44 @@ function VinhaApp() {
         onFinish={handleTourFinish}
       />
     ) : null;
+
+  /**
+   * The terms sheet, when owed, in the shell's overlay slot — above the tab
+   * bar, where the tour draws. The two never meet: the tour waits for it.
+   */
+  const legalConsentElement = legalConsentDue ? (
+    <>
+      <LegalConsentSheet
+        language={preferences.appLanguage}
+        reason={legalConsentDue}
+        updatedLabel={formatLegalDate(preferences.appLanguage)}
+        onOpenLegal={(document) => setHandoffLegalDocument(document)}
+        // The sheet goes when the stored answer says it is no longer owed —
+        // after this write, never on the tap.
+        onAccept={async () => {
+          setLegalSheetHeld(legalConsentDue);
+          try {
+            await updatePreferences({ legalAcceptance: acceptLegal(LEGAL_LAST_UPDATED, new Date()) });
+          } finally {
+            // Refused, the preferences are already rolled back and the sheet
+            // stays owed; accepted, it goes now — after the write.
+            setLegalSheetHeld(null);
+          }
+        }}
+      />
+      {/* Over the sheet, the way the documents open over the hand-off:
+          reading them is not an answer, and the box keeps its tick. */}
+      {handoffLegalDocument ? (
+        <View style={LEGAL_OVER_CONSENT}>
+          <LegalDocumentScreen
+            document={handoffLegalDocument}
+            language={preferences.appLanguage}
+            onBack={() => setHandoffLegalDocument(null)}
+          />
+        </View>
+      ) : null}
+    </>
+  ) : null;
 
   // Nothing left to offer — a reader running onboarding a second time. Close the
   // door rather than leave it to open on some later launch.
@@ -5179,6 +5256,11 @@ function VinhaApp() {
     // permanent row either way.
     if (setupHandoffPlan?.offerWidget) {
       patch.homeWidgetPromptDismissed = true;
+    }
+    // In the same write as the page closing, so the sheet over the app never
+    // opens for a reader who has just ticked the box.
+    if (choices.legalAccepted) {
+      patch.legalAcceptance = acceptLegal(LEGAL_LAST_UPDATED, new Date());
     }
     const pinned = [...homePinnedStatCardKeys];
     // The site's name IS its card key, so the dialog's answer goes straight to
@@ -6867,9 +6949,13 @@ function VinhaApp() {
             signInForBackup: false,
             showPro: false,
             trackedSites: [],
+            legalAccepted: false,
           })
         }
         onOpenLegal={(document) => setHandoffLegalDocument(document)}
+        legalAlreadyAccepted={
+          legalAcceptanceDue(preferences.legalAcceptance, LEGAL_LAST_UPDATED) === null
+        }
       />
       {/* Over the hand-off, never instead of it (2026-09-10). The screen owns
           the reader's answers in local state — which page they are on, which
@@ -7559,7 +7645,7 @@ function VinhaApp() {
           />
         ) : undefined
       }
-      overlay={tourElement}
+      overlay={legalConsentElement ?? tourElement}
     >
       {content}
       <NewProgramSheet
@@ -7757,6 +7843,8 @@ export default function App() {
  * through; what survives is that screen's state, which is the whole point.
  */
 const LEGAL_OVER_HANDOFF = { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 } as const;
+/** Above the consent sheet's zIndex/elevation (40). */
+const LEGAL_OVER_CONSENT = { ...LEGAL_OVER_HANDOFF, zIndex: 50, elevation: 50 } as const;
 
 const WEEKDAY_LABEL_KEYS: Record<string, I18nKey> = {
   MON: 'setup.day.mon',

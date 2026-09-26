@@ -249,6 +249,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
         restAlertsAsked: false,
       },
       trainingBreak: null,
+      legalAcceptance: null,
       aiLogId: null,
       aiLogChatConsent: false,
       aiLogComposerConsent: false,

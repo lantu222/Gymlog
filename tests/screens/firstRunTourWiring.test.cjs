@@ -301,7 +301,10 @@ module.exports = [
       const shell = stripComments(shellSource);
       assert.match(shell, /\{tabBar\}\s*\{overlay\}/);
       const app = stripComments(appSource);
-      assert.match(app, /overlay=\{tourElement\}/);
+      // The terms sheet takes the slot while it is owed (2026-09-26); the
+      // tour waits for it, so the two are never both due.
+      assert.match(app, /overlay=\{legalConsentElement \?\? tourElement\}/);
+      assert.match(app.slice(app.indexOf('const tourActive ='), app.indexOf('const homeTourActive')), /legalConsentDue === null/);
       const trigger = app.slice(app.indexOf('const tourActive ='), app.indexOf('const homeTourActive'));
       assert.match(trigger, /brandSplashDone/);
       assert.match(trigger, /!onboardingActive/);
