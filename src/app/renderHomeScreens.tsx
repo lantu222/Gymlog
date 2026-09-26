@@ -316,7 +316,7 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
         }}
         questionsRemaining={resolveCoachQuota(preferences.aiCoachProQuota).remaining}
         onQuestionUsed={() =>
-          void updatePreferences({ aiCoachProQuota: recordCoachQuestion(preferences.aiCoachProQuota) })
+          void updatePreferences((current) => ({ aiCoachProQuota: recordCoachQuestion(current.aiCoachProQuota) }))
         }
         demoQuestion={route.demoQuestion ?? null}
         demoMomentKey={route.demoMomentKey ?? null}
@@ -377,10 +377,10 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
                     .map((entry) => ({ recordedAt: entry.recordedAt, value: entry.value })),
                 );
           const id = `goal-${Date.now().toString(36)}`;
-          await updatePreferences({
+          await updatePreferences((current) => ({
             coachGoals: [
               // One goal per kind: restating replaces, it does not stack.
-              ...preferences.coachGoals.filter((goal) => goal.kind !== intent.kind),
+              ...current.coachGoals.filter((goal) => goal.kind !== intent.kind),
               {
                 id,
                 text: intent.text,
@@ -395,7 +395,7 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
             // against. There is no other way to change it yet — goals have no
             // screen of their own — so the spoken word has to be the switch.
             primaryGoalId: id,
-          });
+          }));
         }}
         weighInReminderEnabled={preferences.notificationPrefs.weighInReminder}
         onOpenMeasure={(kind) =>

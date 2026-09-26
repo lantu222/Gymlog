@@ -28,9 +28,6 @@ const {
   getGuidedSkipTargetIndex,
   getGuidedBackTargetIndex,
   getGuidedSessionTitle,
-  findGuidedSessionPr,
-  findGuidedTopSet,
-  buildGuidedCoachMessage,
   formatGuidedCountdown,
   formatGuidedTarget,
   findGuidedLibraryIndex,
@@ -991,51 +988,6 @@ module.exports = [
       // The walk-up step keeps a nominal length for the duration estimate
       // even though it no longer counts down (2026-09-04).
       assert.equal(GUIDED_POSITION_SECONDS, 15);
-    },
-  },
-  {
-    name: 'PR detection requires history and a heavier lift',
-    run() {
-      const exercises = [
-        {
-          exerciseName: 'Bench Press',
-          sets: [
-            { status: 'completed', actualLoadKg: 60 },
-            { status: 'completed', actualLoadKg: 57.5 },
-          ],
-        },
-        {
-          exerciseName: 'Overhead Press',
-          sets: [{ status: 'completed', actualLoadKg: 40 }],
-        },
-      ];
-      // Bench beats its 57.5 history best; OHP has no history → no PR for it.
-      const pr = findGuidedSessionPr(exercises, (index) => (index === 0 ? 57.5 : null));
-      assert.deepEqual(pr, { exerciseName: 'Bench Press', bestKg: 60, deltaKg: 2.5 });
-      // Equal weight is not a record.
-      assert.equal(findGuidedSessionPr(exercises, () => 60), null);
-      const top = findGuidedTopSet(exercises);
-      assert.equal(top.exerciseName, 'Bench Press');
-      assert.equal(top.loadKg, 60);
-    },
-  },
-  {
-    name: 'coach message tiers: PR, top set, empty',
-    run() {
-      const withPr = buildGuidedCoachMessage({
-        pr: { exerciseName: 'Bench Press', bestKg: 60, deltaKg: 2.5 },
-        topSet: { exerciseName: 'Bench Press', loadKg: 60, reps: 8 },
-      });
-      assert.ok(withPr.message.includes('new best'));
-      assert.ok(withPr.sub.includes('62.5 kg'));
-      const noPr = buildGuidedCoachMessage({
-        pr: null,
-        topSet: { exerciseName: 'Squat', loadKg: 80, reps: 5 },
-      });
-      assert.ok(noPr.message.includes('Squat'));
-      assert.ok(noPr.sub.includes('× 6'));
-      const empty = buildGuidedCoachMessage({ pr: null, topSet: null });
-      assert.equal(empty.sub, null);
     },
   },
   {

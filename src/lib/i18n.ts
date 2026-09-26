@@ -1533,11 +1533,6 @@ const EN = {
   // finish step, from wherever the session stands.
   'guided.exit.finishSave': "I'm done",
   'guided.pauseSheet.title': 'Paused',
-  'guided.coach.pr': 'Strong work. {kg} kg on {name} is a new best.',
-  'guided.coach.prSub': 'Next {name} target: {kg} kg.',
-  'guided.coach.top': 'Solid session. {name} at {kg} kg moved well.',
-  'guided.coach.topSub': 'Aim for {kg} kg × {reps} next time.',
-  'guided.coach.logged': 'Session logged. Consistency is the win today.',
   // ── Notification settings ─────────────────────────────────────────────
   'notif.title': 'Notifications',
   'notif.push': 'Reminders and recaps',
@@ -4621,11 +4616,6 @@ const FI: Record<I18nKey, string> = {
   'guided.exit.end': 'Hylkää treeni',
   'guided.exit.finishSave': 'Olen valmis',
   'guided.pauseSheet.title': 'Tauolla',
-  'guided.coach.pr': 'Hienoa työtä. {kg} kg liikkeessä {name} on uusi ennätys.',
-  'guided.coach.prSub': 'Seuraava tavoite liikkeessä {name}: {kg} kg.',
-  'guided.coach.top': 'Kunnon treeni. {name} painolla {kg} kg liikkui hyvin.',
-  'guided.coach.topSub': 'Tavoittele ensi kerralla {kg} kg × {reps}.',
-  'guided.coach.logged': 'Treeni kirjattu. Säännöllisyys ratkaisee tänään.',
   // ── Notification settings ─────────────────────────────────────────────
   'notif.title': 'Ilmoitukset',
   'notif.push': 'Muistutukset ja koosteet',
