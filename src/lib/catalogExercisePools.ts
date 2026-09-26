@@ -1,3 +1,4 @@
+import { EXTRA_EXERCISE_LIBRARY } from '../data/extraExerciseLibrary';
 import { GENERATED_EXERCISE_LIBRARY } from '../data/generatedExerciseLibrary';
 import { WORKOUT_TEMPLATES_V1 } from '../features/workout/workoutCatalog';
 import {
@@ -30,8 +31,16 @@ const byName = new Map(
 
 const libraryNames = GENERATED_EXERCISE_LIBRARY.map((entry) => entry.name);
 
+// The app's own additions (extraExerciseLibrary), for what a name IS and how
+// it is logged — not for body part or category, whose areas are built from
+// the generated list (2026-09-26).
+const extraByName = new Map(
+  EXTRA_EXERCISE_LIBRARY.map((entry) => [entry.name.trim().toLowerCase(), entry] as const),
+);
+
 export function isCatalogExercise(name: string) {
-  return byName.has(name.trim().toLowerCase());
+  const key = name.trim().toLowerCase();
+  return byName.has(key) || extraByName.has(key);
 }
 
 export function getCatalogBodyPart(name: string) {
@@ -90,9 +99,13 @@ export function getCatalogTrackingMode(name: string): 'bodyweight' | 'load_and_r
     return 'hold';
   }
 
-  return byName.get(name.trim().toLowerCase())?.equipment === 'bodyweight'
-    ? 'bodyweight'
-    : 'load_and_reps';
+  const key = name.trim().toLowerCase();
+  // The app's own additions too: a fallback to "Band Curl" (filed bodyweight,
+  // as every band movement is) was handed a weight dial because only the
+  // generated list was asked (2026-09-26). Tracking only — body part and
+  // category lookups stay on the generated list their areas are built from.
+  const entry = byName.get(key) ?? extraByName.get(key);
+  return entry?.equipment === 'bodyweight' ? 'bodyweight' : 'load_and_reps';
 }
 
 /**

@@ -24,6 +24,7 @@ import {
   MeasurementUnit,
   WorkoutTemplateDraft,
 } from '../types/models';
+import type { PreferencesPatch } from '../state/AppProvider';
 
 type ChatScreenProps = React.ComponentProps<typeof AICoachChatScreen>;
 type CardioScreenProps = React.ComponentProps<typeof CardioScreen>;
@@ -43,7 +44,7 @@ export interface HomeScreensDeps {
   replaceRoute: (route: AppRoute) => void;
   navigateBack: (fallback?: AppRoute | null) => void;
   preferences: AppPreferences;
-  updatePreferences: (patch: Partial<AppPreferences>) => Promise<unknown>;
+  updatePreferences: (patch: PreferencesPatch) => Promise<unknown>;
   workout: { activeSession: unknown; discardWorkout: () => void };
   cardioSessions: CardioScreenProps['cardioSessions'];
   cardioSaving: boolean;
@@ -417,17 +418,17 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
           if (!granted) {
             return 'blocked';
           }
-          await updatePreferences({
-            notificationPrefs: remindersOptedIn(preferences.notificationPrefs, { weighInReminder: true }),
-          });
+          await updatePreferences((current) => ({
+            notificationPrefs: remindersOptedIn(current.notificationPrefs, { weighInReminder: true }),
+          }));
           return 'on';
         }}
         onCoachSuggestionResolved={(kind, accepted) =>
-          void updatePreferences({
+          void updatePreferences((current) => ({
             coachSuggestionState: accepted
-              ? recordSuggestionAccepted(preferences.coachSuggestionState, kind)
-              : recordSuggestionRejected(preferences.coachSuggestionState, kind),
-          })
+              ? recordSuggestionAccepted(current.coachSuggestionState, kind)
+              : recordSuggestionRejected(current.coachSuggestionState, kind),
+          }))
         }
         // The week is built here and read in the thread that asked for it.
         // Failures come back as null so the chat can say so rather than

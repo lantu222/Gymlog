@@ -205,11 +205,14 @@ module.exports = [
 
       // And a plate lift needs a plate: a dumbbell curl for a bands-only
       // reader fell back to reverse plate curls, now filed as loaded (CI
-      // review of #172). With nothing honest left, the curl goes.
+      // review of #172). The band curl is the honest one now (2026-09-26),
+      // logged without a weight.
       const curl = { ...carry, id: 'curl', exerciseName: 'Dumbbell Curl', repsMin: 12, repsMax: 12 };
       const banded = applyEquipmentToExercises([curl], ['Resistance bands']);
-      assert.deepEqual(banded.exercises.map((exercise) => exercise.exerciseName), []);
-      assert.deepEqual(banded.removed, ['Dumbbell Curl']);
+      assert.deepEqual(banded.exercises.map((exercise) => [exercise.exerciseName, exercise.trackingMode]), [
+        ['Band Curl', 'bodyweight'],
+      ]);
+      assert.deepEqual(banded.removed, []);
       assert.equal(
         applyEquipmentToExercises([curl], ['Barbell & plates']).exercises[0].exerciseName,
         'Reverse Plate Curls',

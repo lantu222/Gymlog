@@ -370,6 +370,7 @@ const suites = [
   ...require('./screens/startPathChoices.test.cjs'),
   ...require('./screens/restAlertsAsk.test.cjs'),
   ...require('./screens/restAlertsBanner.test.cjs'),
+  ...require('./screens/preferenceToggleSnapshots.test.cjs'),
   ...require('./screens/weekEditAndDayDoor.test.cjs'),
   ...require('./lib/profileMilestones.test.cjs'),
   ...require('./lib/milestoneLedger.test.cjs'),

@@ -81,11 +81,17 @@ module.exports = [
       assert.equal(isExerciseAllowedWithEquipment('Alternate Hammer Curl', ['Dumbbells']), true);
 
       const bandsOnly = applyEquipmentToExercises([exercise('Alternate Hammer Curl')], ['Resistance bands']);
-      // No honest band substitute exists in the fallback chain (both
-      // candidates need a dumbbell or a barbell plate), so it is truthfully
-      // removed rather than kept with a weight dial it cannot serve.
-      assert.deepEqual(bandsOnly.exercises, []);
-      assert.deepEqual(bandsOnly.removed, ['Alternate Hammer Curl']);
+      // The band curl (2026-09-26) is its honest substitute: reps only, no
+      // weight dial a band cannot serve. Before it existed the lift was
+      // removed.
+      assert.deepEqual(
+        bandsOnly.exercises.map((entry) => [entry.exerciseName, entry.trackingMode]),
+        [['Band Curl', 'bodyweight']],
+      );
+      assert.deepEqual(bandsOnly.removed, []);
+      // And the band curl needs the band: dumbbells alone do not stand in.
+      assert.equal(isExerciseAllowedWithEquipment('Band Curl', ['Dumbbells']), false);
+      assert.equal(isExerciseAllowedWithEquipment('Band Curl', ['Resistance bands']), true);
     },
   },
   {

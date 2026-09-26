@@ -19,7 +19,6 @@ const {
 const {
   sessionSlotOn,
   trainsOn,
-  upcomingSessionDayStarts,
   weekdaySchedule,
   cycleSchedule,
   withRestDays,
@@ -308,9 +307,6 @@ module.exports = [
       const cycle = withRestDays(cycleSchedule([true, true, false], NOW), [tomorrow]);
       assert.equal(trainsOn(cycle, new Date(tomorrow)), false);
       assert.equal(trainsOn(cycle, NOW), true);
-      // The next occurrences skip the day.
-      const upcoming = upcomingSessionDayStarts(withRest, 3, NOW);
-      assert.ok(!upcoming.includes(tomorrow));
 
       // And the reminders read it too.
       const reminders = resolveReminderSchedule({

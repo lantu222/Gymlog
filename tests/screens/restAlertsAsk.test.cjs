@@ -163,7 +163,8 @@ module.exports = [
     name: 'rest alerts: the app records the answer through the one rule, for both screens',
     run() {
       assert.match(tab, /import \{ restAlertsAnswered \} from '\.\.\/lib\/restAlertAnswer';/);
-      const writes = tab.match(/notificationPrefs: restAlertsAnswered\(preferences\.notificationPrefs, outcome\)/g) ?? [];
+      // From the stored prefs (the function form), not the render's (2026-09-26).
+      const writes = tab.match(/notificationPrefs: restAlertsAnswered\(current\.notificationPrefs, outcome\)/g) ?? [];
       assert.equal(writes.length, 2, 'both screens write the answer through restAlertsAnswered');
       assert.doesNotMatch(tab, /onRestAlertsAsked/);
       // Both screens are told whether the ask has happened.

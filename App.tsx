@@ -6656,13 +6656,15 @@ function VinhaApp() {
         return;
       }
     }
-    await updatePreferences({
-      strengthGoals: upsertStrengthGoal(preferences.strengthGoals, {
+    // From the stored goals: the programme was written above, awaited, and
+    // this render's snapshot predates it.
+    await updatePreferences((current) => ({
+      strengthGoals: upsertStrengthGoal(current.strengthGoals, {
         exerciseName: input.exerciseName,
         targetKg: input.targetKg,
         createdAt: new Date().toISOString(),
       }),
-    });
+    }));
 
     // And say so — by ARRIVING. Both writes have resolved by here, the
     // programme then the target, which is the order CLAUDE.md asks for: a
@@ -7546,9 +7548,9 @@ function VinhaApp() {
         // focus, so the choice belongs to every day with that focus rather
         // than to today. There is no "just this time" to offer.
         onSwapRoutineDrill={(slotKey, drillKey) =>
-          void updatePreferences({
-            routineDrillOverrides: { ...preferences.routineDrillOverrides, [slotKey]: drillKey },
-          })
+          void updatePreferences((current) => ({
+            routineDrillOverrides: { ...current.routineDrillOverrides, [slotKey]: drillKey },
+          }))
         }
         widgetPrompt={
           !homeTourActive && homeWidgetState?.supported && !homeWidgetState.added && !preferences.homeWidgetPromptDismissed
@@ -7583,9 +7585,9 @@ function VinhaApp() {
         statCatalogCards={homeStatCatalogCards}
         suggestedStatCardKeys={homePrompt === 'suggestion' ? homeSuggestedStatCardKeys : []}
         onDismissStatCardSuggestion={(key) =>
-          void updatePreferences({
-            dismissedCardSuggestionKeys: [...preferences.dismissedCardSuggestionKeys, key],
-          })
+          void updatePreferences((current) => ({
+            dismissedCardSuggestionKeys: [...current.dismissedCardSuggestionKeys, key],
+          }))
         }
         pinnedStatCardKeys={homePinnedStatCardKeys}
         onChangePinnedStatCardKeys={(next) => void updatePreferences({ homeStatCardKeys: next })}

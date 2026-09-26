@@ -17,7 +17,7 @@ export const WORKOUT_SUBSTITUTION_GROUPS: WorkoutSubstitutionGroup[] = [
   { id: 'horizontal_pull', allowedExerciseNames: ['Chest-Supported Row', 'Seated Cable Row', 'Barbell Row', 'T-Bar Row', 'Chest-Supported T-Bar Row', 'Dumbbell Row', 'Single-Arm Dumbbell Row', 'Pendlay Row', 'Bent-Over Row'] },
   { id: 'vertical_pull', allowedExerciseNames: ['Lat Pulldown', 'Assisted Pull-Up', 'Pull-Up', 'Weighted Pull-Up', 'Chin-Up', 'Explosive Pull-Up', 'Muscle-Up Progression (Negative)', 'Lat Pulldown (Wide Grip)'] },
   { id: 'single_leg', allowedExerciseNames: ['Reverse Lunge', 'Walking Lunge', 'Bulgarian Split Squat', 'Curtsy Lunge', 'Lateral Lunge', 'Step-Up', 'Step-Up (High Box)', 'Step-Up (Low Box)'] },
-  { id: 'accessory_arms', allowedExerciseNames: ['Triceps Pushdown', 'Dumbbell Curl', 'Hammer Curl'] },
+  { id: 'accessory_arms', allowedExerciseNames: ['Triceps Pushdown', 'Dumbbell Curl', 'Hammer Curl', 'Band Curl'] },
   // The upright row joined this group when it became a target lift (user,
   // 2026-09-01): a target has to have a programme that trains it, and no
   // catalog week prescribed it. It swaps with the face pull and the rear delt
@@ -41,7 +41,7 @@ export const WORKOUT_SUBSTITUTION_GROUPS: WorkoutSubstitutionGroup[] = [
   { id: 'bodyweight_core', allowedExerciseNames: ['Plank', 'Mountain Climbers', 'Push Up to Side Plank', 'Hollow Body Hold', 'Dead Bug', 'Dead Bug (Modified)', 'Bird Dog', 'Mountain Climber', 'Mountain Climber (20s on / 10s off)'] },
   { id: 'bodyweight_hinge', allowedExerciseNames: ['Glute Bridge', 'Single-Leg Glute Bridge', 'Hamstring Walkout'] },
   { id: 'chest_fly', allowedExerciseNames: ['Cable Fly', 'Dumbbell Fly', 'Pec Deck', 'Cable Crossover', 'Cable Pullover'] },
-  { id: 'barbell_curl', allowedExerciseNames: ['Barbell Curl', 'EZ-Bar Curl', 'Cable Curl', 'Preacher Curl', 'Bicep Curl', 'Dumbbell Bicep Curl', 'Cable Bicep Curl', 'Incline Dumbbell Curl', 'Cable Hammer Curl'] },
+  { id: 'barbell_curl', allowedExerciseNames: ['Barbell Curl', 'EZ-Bar Curl', 'Cable Curl', 'Preacher Curl', 'Bicep Curl', 'Dumbbell Bicep Curl', 'Cable Bicep Curl', 'Incline Dumbbell Curl', 'Cable Hammer Curl', 'Band Curl'] },
   { id: 'overhead_triceps', allowedExerciseNames: ['Overhead Triceps Extension', 'Skull Crusher', 'Close-Grip Bench Press', 'Weighted Dips', 'Triceps Dip (Chair)'] },
   ...Vinha_PROGRAM_SUBSTITUTION_GROUPS,
 ];
