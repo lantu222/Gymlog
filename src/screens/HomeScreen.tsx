@@ -629,10 +629,6 @@ export function HomeScreen({
   const sessionsDone = activePlan?.sessionsDone ?? 0;
   const sessionsTotal = activePlan?.sessionsTotal ?? 0;
   const sessionsProgressPercent = sessionsTotal > 0 ? Math.round((sessionsDone / sessionsTotal) * 100) : 0;
-  const planDuration = nextPlanSession?.duration ?? '~45 min';
-  // The number carried alongside the label, not parsed back out of it.
-  const planDurationMinutes =
-    nextPlanSession?.durationMinutes ?? (Number.parseInt(planDuration.replace(/\D/g, ''), 10) || 45);
   // The header counts what will be done today: a lift dropped for the day is
   // struck through in the list below, and the line above it used to keep
   // counting it (audit round 4, 2026-09-20).
