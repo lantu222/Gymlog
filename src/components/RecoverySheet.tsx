@@ -80,9 +80,11 @@ export function RecoverySheet({
       <ScrollView style={styles.scroll} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <View style={styles.statusRow}>
           <Text style={[styles.status, { color: tone.ink }]}>{model.status}</Text>
-          <View style={[styles.scorePill, { backgroundColor: tone.soft }]}>
-            <Text style={[styles.scoreText, { color: tone.ink }]}>{model.score}/100</Text>
-          </View>
+          {model.score !== null ? (
+            <View style={[styles.scorePill, { backgroundColor: tone.soft }]}>
+              <Text style={[styles.scoreText, { color: tone.ink }]}>{model.score}/100</Text>
+            </View>
+          ) : null}
         </View>
         <Text style={styles.lead}>{model.lead}</Text>
 

@@ -111,6 +111,43 @@ module.exports = [
     },
   },
   {
+    /**
+     * Found by the adversarial pass on #188 (2026-09-26): each read wrong to a
+     * real reader.
+     */
+    name: 'recovery sheet: a week off, a light week, a huge week, and a rest day already taken read true',
+    run() {
+      // Nothing in seven days is a week off, not "100 % lighter".
+      const off = sheet({}, { signal: 'undertrained', acwr: 0, acuteLoadKg: 0, sessionCount7d: 0, recoveryScore: 50 });
+      assert.match(off.lead, /ei ole kirjattu treenejä/);
+      assert.doesNotMatch(off.lead, /100 %/);
+      // A light week carries no score: "Kunnossa 20/100" said two things.
+      assert.equal(off.score, null);
+      assert.equal(sheet({}, { signal: 'undertrained', acwr: 0.25, recoveryScore: 20, sessionCount7d: 1 }).score, null);
+      assert.equal(sheet().score, 96, 'an ordinary week keeps its score');
+      // Past double the usual, a multiple — not "15900 % over".
+      setNumberLanguage('fi');
+      try {
+        const huge = sheet({}, { signal: 'high', acwr: 160, recoveryScore: 0 });
+        assert.match(huge.lead, /160,0-kertainen/);
+        assert.doesNotMatch(huge.lead, /%/);
+        assert.match(sheet({}, { signal: 'high', acwr: 1.62 }).lead, /62 % yli/);
+      } finally {
+        setNumberLanguage('en');
+      }
+      // Tomorrow already made a rest day: the advice is to keep it, and no
+      // button offers it again.
+      const marked = sheet({ tomorrowTrains: true, restTomorrowMarked: true }, { signal: 'high', acwr: 1.62 });
+      assert.match(marked.todos[0], /lepopäivä lepona/);
+      assert.ok(![marked.primary.kind, marked.secondary?.kind].includes('restTomorrow'));
+      const open = sheet({ tomorrowTrains: true, restTomorrowMarked: false }, { signal: 'high', acwr: 1.62 });
+      assert.equal(open.todos[0], 'Pidä huomenna lepopäivä');
+      // English percentages without the Finnish space.
+      const i18n = read('src', 'lib', 'i18n.ts');
+      assert.doesNotMatch(i18n, /'recovery\.lead\.[a-z]+': '[^']*\{pct\} % (lighter|heavier|over)/);
+    },
+  },
+  {
     name: 'recovery sheet: the buttons are the actions that apply, and none that would do nothing',
     run() {
       const green = sheet();

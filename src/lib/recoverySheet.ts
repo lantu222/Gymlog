@@ -40,7 +40,13 @@ export interface RecoveryWeekDay {
 export interface RecoverySheetModel {
   tone: RecoveryTone;
   status: string;
-  score: number;
+  /**
+   * The model's recovery score, or null on a light week. The score measures
+   * how well this week's load fits the usual one, so a rested reader scores
+   * low — "Kunnossa 20/100" said two opposite things at once (probe run,
+   * 2026-09-26). The status and the lead say it; the number is left out.
+   */
+  score: number | null;
   lead: string;
   acwrLabel: string;
   /** Where the "you" marker sits on the zone bar, 2..98 (percent). */
@@ -144,20 +150,33 @@ export function buildRecoverySheet(input: RecoverySheetInput): RecoverySheetMode
   );
 
   // A light week is green too — the model's "undertrained" is not a warning —
-  // but "your load is in line with your usual week" would be false of it.
+  // but "your load is in line with your usual week" would be false of it. A
+  // week with nothing in it is not "100 % lighter"; it is a week off. And a
+  // load past double the usual reads as a multiple: a reader who trained
+  // after a near-empty month was told their load was 15 900 % over.
   const lead =
     tone === 'red'
-      ? t(language, 'recovery.lead.red', { pct: over })
+      ? fatigue.acwr >= 2
+        ? t(language, 'recovery.lead.redTimes', { times: applyDecimalSeparator(fatigue.acwr.toFixed(1)) })
+        : t(language, 'recovery.lead.red', { pct: over })
       : tone === 'amber'
         ? t(language, 'recovery.lead.amber', { pct: over })
         : fatigue.signal === 'undertrained'
-          ? t(language, 'recovery.lead.light', { pct: under })
+          ? fatigue.sessionCount7d === 0
+            ? t(language, 'recovery.lead.rested')
+            : t(language, 'recovery.lead.light', { pct: under })
           : t(language, 'recovery.lead.green');
 
   const todos =
     tone === 'red'
       ? [
-          t(language, input.tomorrowTrains || input.restTomorrowMarked ? 'recovery.todo.red.rest' : 'recovery.todo.red.restAlready'),
+          // "Take tomorrow off" only while there is still something to do
+          // about it. Once marked — or when the rhythm had it off anyway —
+          // the line says to keep it, and no button offers it again.
+          t(
+            language,
+            input.tomorrowTrains && !input.restTomorrowMarked ? 'recovery.todo.red.rest' : 'recovery.todo.red.restAlready',
+          ),
           t(language, 'recovery.todo.red.lighter'),
           t(language, 'recovery.todo.red.hold'),
         ]
@@ -198,7 +217,7 @@ export function buildRecoverySheet(input: RecoverySheetInput): RecoverySheetMode
   return {
     tone,
     status,
-    score: fatigue.recoveryScore,
+    score: fatigue.signal === 'undertrained' ? null : fatigue.recoveryScore,
     lead,
     acwrLabel: applyDecimalSeparator(fatigue.acwr.toFixed(2)),
     markerPercent: Math.max(2, Math.min(98, ((fatigue.acwr - ZONE_MIN) / ZONE_SPAN) * 100)),
