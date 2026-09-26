@@ -2160,6 +2160,7 @@ export function ProgressScreen({
         language={language}
         initialKg={rulerWeightKg}
         dateIso={new Date().toISOString()}
+        bottomInset={insets.bottom}
         onCancel={() => setWeightSheetVisible(false)}
         onSave={(weightKg) => {
           onAddBodyweight(weightKg);
@@ -2179,6 +2180,7 @@ export function ProgressScreen({
           (selectedMeasureModel.kind ? DEFAULT_MEASUREMENT_VALUE[selectedMeasureModel.kind] : 90)
         }
         dateIso={new Date().toISOString()}
+        bottomInset={insets.bottom}
         onCancel={() => setMeasureSheetVisible(false)}
         onSave={(value) => {
           void handleSaveMeasure(value);
@@ -2190,6 +2192,7 @@ export function ProgressScreen({
         language={language}
         initialKg={rulerWeightKg}
         initialHeightCm={rulerHeightCm}
+        bottomInset={insets.bottom}
         onCancel={() => setBmiSheetVisible(false)}
         onSave={({ weightKg, heightCm: nextHeight }) => {
           onSaveHeight?.(nextHeight);
@@ -2242,6 +2245,7 @@ export function ProgressScreen({
         visible={readSheetVisible}
         content={readMoment}
         language={language}
+        bottomInset={insets.bottom}
         onClose={() => setReadSheetVisible(false)}
         onSeePro={() => {
           setReadSheetVisible(false);

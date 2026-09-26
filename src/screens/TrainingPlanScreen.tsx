@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { NewProgramSheet } from '../components/NewProgramSheet';
 import { ChevronIcon, SectionLabel, makeSettingsStyles } from '../components/SettingsUi';
@@ -160,6 +161,9 @@ export function TrainingPlanScreen({
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const settingsStyles = useThemedStyles(makeSettingsStyles);
+  // Read here, on the screen: inside NewProgramSheet's own Modal,
+  // useSafeAreaInsets itself always answers 0.
+  const insets = useSafeAreaInsets();
   const [editingSchedule, setEditingSchedule] = useState(startEditingSchedule);
   const [draftDays, setDraftDays] = useState<SetupWeekday[]>(trainingDays);
   const [createOpen, setCreateOpen] = useState(false);
@@ -538,6 +542,7 @@ export function TrainingPlanScreen({
         nameBook={nameBook}
         onTeachName={onTeachName}
         onPickImage={onPickImage}
+        bottomInset={insets.bottom}
         onClose={() => setCreateOpen(false)}
         onAiAssisted={() => {
           setCreateOpen(false);

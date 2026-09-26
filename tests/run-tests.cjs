@@ -460,6 +460,7 @@ const suites = [
   ...require('./lib/themeContrast.test.cjs'),
   ...require('./lib/accessibilityLabels.test.cjs'),
   ...require('./screens/accessibilityAudit.test.cjs'),
+  ...require('./screens/sheetBottomInset.test.cjs'),
 ];
 
 (async () => {

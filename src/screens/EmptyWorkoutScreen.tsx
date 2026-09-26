@@ -1414,6 +1414,7 @@ export function EmptyWorkoutScreen({
       <RestAlertsSheet
         visible={restAsk.sheetOpen}
         language={language}
+        bottomInset={sheetInsets.bottom}
         onAllow={() => void restAsk.allow()}
         onLater={restAsk.later}
       />

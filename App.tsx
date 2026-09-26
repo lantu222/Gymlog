@@ -2,6 +2,7 @@ import './src/globalFont';
 
 import React, { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, BackHandler, Linking, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 import { emitRestAction } from './src/hooks/useRestEndAlert';
 import { IDLE_NUDGE_MINUTES, idleNudgeAtMs } from './src/lib/restSchedule';
@@ -353,6 +354,22 @@ interface FinishSaveState {
   status: 'idle' | 'saving' | 'error';
   sessionId: string | null;
   message: string | null;
+}
+
+/**
+ * Reads the inset for NewProgramSheet's Modal.
+ *
+ * VinhaApp itself cannot call `useSafeAreaInsets` — it is the component that
+ * RETURNS `<AppShell>`, so its own fiber sits above AppShell's
+ * SafeAreaProvider, not inside it, and the hook throws with no provider to
+ * read from. This wrapper is rendered as an AppShell child instead (in the
+ * same spot NewProgramSheet used to sit), which puts it inside the provider,
+ * and it renders no Modal of its own — the same shape as a screen that reads
+ * insets and hands them to a sheet component (#bugs 2026-08-28 pattern).
+ */
+function SettingsImportSheet(props: Omit<React.ComponentProps<typeof NewProgramSheet>, 'bottomInset'>) {
+  const insets = useSafeAreaInsets();
+  return <NewProgramSheet {...props} bottomInset={insets.bottom} />;
 }
 
 function VinhaApp() {
@@ -7879,7 +7896,7 @@ function VinhaApp() {
       }
     >
       {content}
-      <NewProgramSheet
+      <SettingsImportSheet
         visible={settingsImportVisible}
         initialView="csv"
         language={preferences.appLanguage}

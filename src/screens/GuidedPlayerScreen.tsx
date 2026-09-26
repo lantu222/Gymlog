@@ -1214,17 +1214,28 @@ function DialCard({
 }
 
 /* ── bottom sheet ── */
-function GPSheet({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+function GPSheet({
+  onClose,
+  bottomInset,
+  children,
+}: {
+  onClose: () => void;
+  /**
+   * Safe-area inset, read on the screen — see `screenInsets` below for why:
+   * inside this Modal, `useSafeAreaInsets` itself always answers 0.
+   */
+  bottomInset: number;
+  children: React.ReactNode;
+}) {
   const styles = useThemedStyles(makeStyles);
   // The sheet's own 30 was a guess at the phone's navigation bar, and on a
   // three-button handset the last row and the footnote sat behind it. Measured
   // rather than guessed — reported twice, on two different sheets.
-  const insets = useSafeAreaInsets();
 
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.sheetScrim} onPress={onClose}>
-        <Pressable style={[styles.sheet, { paddingBottom: insets.bottom + 30 }]} onPress={() => undefined}>
+        <Pressable style={[styles.sheet, { paddingBottom: bottomInset + 30 }]} onPress={() => undefined}>
           <View style={styles.sheetHandle} />
           {children}
         </Pressable>
@@ -3661,6 +3672,7 @@ function GuidedPlayer({
           }
           reps={findSetByIndex(exerciseBySlot.get(restEdit.slotId), restEdit.setIndex)?.actualReps ?? 0}
           loadKg={findSetByIndex(exerciseBySlot.get(restEdit.slotId), restEdit.setIndex)?.actualLoadKg ?? 0}
+          bottomInset={screenInsets.bottom}
           onCancel={() => setRestEdit(null)}
           onSave={(reps, loadKg) => {
             workout.editLoggedSet(restEdit.slotId, restEdit.setIndex, reps, loadKg);
@@ -3700,6 +3712,7 @@ function GuidedPlayer({
           }
           fallbackName={getGuidedStepLabel(step, language)}
           language={language}
+          bottomInset={screenInsets.bottom}
           onClose={() => {
             setHowtoOpen(false);
           }}
@@ -3707,7 +3720,7 @@ function GuidedPlayer({
       )}
 
       {exitOpen && (
-        <GPSheet onClose={() => setExitOpen(false)}>
+        <GPSheet onClose={() => setExitOpen(false)} bottomInset={screenInsets.bottom}>
           <Text style={styles.sheetTitle}>{t(language, 'guided.exit.title')}</Text>
           <View style={{ gap: 10 }}>
             {/* No "keep training" button.
@@ -3752,7 +3765,7 @@ function GuidedPlayer({
         while your hands are chalked is how sets get skipped by accident.
       */}
       {runSheetOpen && (
-        <GPSheet onClose={() => setRunSheetOpen(false)}>
+        <GPSheet onClose={() => setRunSheetOpen(false)} bottomInset={screenInsets.bottom}>
           <Text style={styles.sheetTitle}>{t(language, 'guided.runSheet.title')}</Text>
           <ScrollView style={{ flexGrow: 0, maxHeight: runSheetListMaxHeight }}>
             {buildGuidedRunSheet(stepPlan, stepIndex).map((item) => {
@@ -3899,6 +3912,7 @@ function GuidedPlayer({
             setPauseSheetOpen(false);
             unpause();
           }}
+          bottomInset={screenInsets.bottom}
         >
           <Text style={styles.sheetTitle}>{t(language, 'guided.pauseSheet.title')}</Text>
           <View style={{ gap: 10 }}>
@@ -4021,6 +4035,7 @@ function GuidedPlayer({
             setSwapQuery('');
             unpause();
           }}
+          bottomInset={screenInsets.bottom}
         >
           <Text style={styles.sheetTitle}>
             {t(language, 'guided.swap.title', {
@@ -4078,6 +4093,7 @@ function GuidedPlayer({
       <RestAlertsSheet
         visible={restAsk.sheetOpen}
         language={language}
+        bottomInset={screenInsets.bottom}
         onAllow={() => void restAsk.allow()}
         onLater={restAsk.later}
       />
@@ -4138,6 +4154,7 @@ function LoggedSetEditor({
   repsCeiling,
   reps,
   loadKg,
+  bottomInset,
   onCancel,
   onSave,
 }: {
@@ -4150,12 +4167,16 @@ function LoggedSetEditor({
   repsCeiling: number;
   reps: number;
   loadKg: number;
+  /**
+   * Safe-area inset, read on the screen — inside this Modal
+   * `useSafeAreaInsets` itself always answers 0.
+   */
+  bottomInset: number;
   onCancel: () => void;
   onSave: (reps: number, loadKg: number | null) => void;
 }) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const insets = useSafeAreaInsets();
   const [repsDraft, setRepsDraft] = useState(String(reps));
   const [loadDraft, setLoadDraft] = useState(removeTrailingZeros(loadKg));
 
@@ -4179,7 +4200,7 @@ function LoggedSetEditor({
     <Modal visible transparent animationType="fade" onRequestClose={onCancel}>
       <View style={styles.editVeil}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onCancel} accessible={false} />
-        <View style={[styles.editSheet, { paddingBottom: insets.bottom + 20 }]}>
+        <View style={[styles.editSheet, { paddingBottom: bottomInset + 20 }]}>
           <Text style={styles.editTitle}>{t(language, 'guided.rest.editTitle')}</Text>
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <View style={styles.editField}>
@@ -4798,12 +4819,15 @@ function HowToSheetView({
   libraryItem,
   fallbackName,
   language,
+  bottomInset,
   onClose,
 }: {
   libraryItem: ExerciseLibraryItem | null;
   /** The step's own label, already in the reader's language. */
   fallbackName: string;
   language: AppLanguage;
+  /** Safe-area inset, read on the screen and passed through to GPSheet. */
+  bottomInset: number;
   onClose: () => void;
 }) {
   const theme = useTheme();
@@ -4814,7 +4838,7 @@ function HowToSheetView({
   // row's English — the two read differently ("Takakyykky" over "Barbell Full
   // Squat") and the user tapped the former.
   return (
-    <GPSheet onClose={onClose}>
+    <GPSheet onClose={onClose} bottomInset={bottomInset}>
       <Text style={{ fontSize: 20, fontWeight: '800', color: theme.ink }}>{fallbackName}</Text>
       {libraryItem?.primaryMuscles?.[0] ? (
         <Text style={{ fontSize: 13, fontWeight: '700', color: theme.purple, marginTop: 4 }}>

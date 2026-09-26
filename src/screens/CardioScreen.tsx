@@ -92,6 +92,8 @@ export function CardioScreen({
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const themeName = useThemeName();
+  // Read here, on the screen: inside CardioSheet's Modal it is always 0.
+  const insets = useSafeAreaInsets();
   const workout = useWorkoutContext();
   const activeCardio = workout.activeCardio;
   // Only hold the screen while a cardio session is actually running.
@@ -211,7 +213,7 @@ export function CardioScreen({
       )}
 
       {endSheetOpen && activeCardio && (
-        <CardioSheet onClose={() => setEndSheetOpen(false)}>
+        <CardioSheet onClose={() => setEndSheetOpen(false)} bottomInset={insets.bottom}>
           <Text style={styles.sheetTitle}>{t(language, 'cardio.endTitle')}</Text>
           {/* Cancel above discard, not below it. Both were neutral ghosts in a
               column, so the safe way out sat under the destructive one at the
@@ -245,7 +247,7 @@ export function CardioScreen({
       )}
 
       {conflictFor !== null && (
-        <CardioSheet onClose={() => setConflictFor(null)}>
+        <CardioSheet onClose={() => setConflictFor(null)} bottomInset={insets.bottom}>
           <Text style={styles.sheetTitle}>{t(language, 'cardio.conflictTitle')}</Text>
           <View style={{ gap: 10 }}>
             <SheetPrimaryBtn
@@ -608,16 +610,27 @@ function CardioFinishView({
 }
 
 /* ── sheets ── */
-function CardioSheet({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+function CardioSheet({
+  onClose,
+  bottomInset,
+  children,
+}: {
+  onClose: () => void;
+  /**
+   * Safe-area inset, read on the screen — inside this Modal
+   * `useSafeAreaInsets` itself always answers 0.
+   */
+  bottomInset: number;
+  children: React.ReactNode;
+}) {
   const styles = useThemedStyles(makeStyles);
-  const insets = useSafeAreaInsets();
 
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.sheetScrim} onPress={onClose}>
         {/* Bottom-anchored, so its padding has to know how tall the phone's
             system bar is. A fixed number put the last button behind it. */}
-        <Pressable style={[styles.sheet, { paddingBottom: insets.bottom + 30 }]} onPress={() => undefined}>
+        <Pressable style={[styles.sheet, { paddingBottom: bottomInset + 30 }]} onPress={() => undefined}>
           <View style={styles.sheetHandle} />
           {children}
         </Pressable>

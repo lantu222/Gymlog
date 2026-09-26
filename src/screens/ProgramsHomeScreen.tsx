@@ -23,6 +23,7 @@ import Svg, {
   Rect,
   Stop,
 } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CutSurface } from '../components/CutSurface';
 import { LAYERS_MOTIF, ProgramCoverStyle, programCoverStyle } from '../lib/programVisualIdentity';
@@ -518,6 +519,7 @@ function ProgramSheet({
   onPick,
   readerDaysPerWeek,
   readerLevel,
+  bottomInset,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -530,6 +532,11 @@ function ProgramSheet({
   onPick: (item: ProgramsExploreItem) => void;
   readerDaysPerWeek: number | null;
   readerLevel: string | null;
+  /**
+   * Safe-area inset, read on the screen — inside this Modal
+   * `useSafeAreaInsets` itself always answers 0.
+   */
+  bottomInset: number;
 }) {
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
@@ -724,7 +731,7 @@ function ProgramSheet({
               only real job is undoing the level filter, so it appears only
               when there is one to undo. */}
           {level !== null ? (
-            <View style={styles.catSheetCta}>
+            <View style={[styles.catSheetCta, { paddingBottom: 34 + bottomInset }]}>
               <Pressable
                 accessibilityRole="button"
                 onPress={() => setLevel(null)}
@@ -735,6 +742,92 @@ function ProgramSheet({
                 </Text>
               </Pressable>
             </View>
+          ) : null}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+/**
+ * The "switch to this programme?" confirm sheet — its own component, not
+ * inline in `ProgramsHomeScreen`, because the inset it pads with has to be
+ * read on the screen: inside this Modal `useSafeAreaInsets` itself always
+ * answers 0 (#bugs 2026-08-28).
+ */
+function SwitchProgramSheet({
+  visible,
+  item,
+  activeProgramTitle,
+  language,
+  bottomInset,
+  onClose,
+  onConfirm,
+}: {
+  visible: boolean;
+  item: ProgramsExploreItem | null;
+  activeProgramTitle: string | null;
+  language: AppLanguage;
+  /**
+   * Safe-area inset, read on the screen — inside this Modal
+   * `useSafeAreaInsets` itself always answers 0.
+   */
+  bottomInset: number;
+  onClose: () => void;
+  onConfirm: (id: string) => void;
+}) {
+  const styles = useThemedStyles(makeStyles);
+  const itemStyle = item ? item.cover : null;
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.sheetOverlay}>
+        <Pressable style={styles.sheetScrim} onPress={onClose} />
+        <View style={[styles.sheet, { paddingBottom: 26 + bottomInset }]}>
+          <View style={styles.sheetGrip} />
+          {item && itemStyle ? (
+            <>
+              <View style={styles.sheetHeaderRow}>
+                <GradientTile stops={itemStyle.tile} size={50} radius={14} />
+                <View style={styles.sheetHeaderCopy}>
+                  <Text style={styles.sheetName} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  <Text style={styles.sheetMeta} numberOfLines={1}>
+                    {t(language, 'programs.switchSheet.meta', {
+                      days: item.days,
+                      minutes: item.minutes,
+                      goal: item.goal,
+                    })}
+                  </Text>
+                </View>
+              </View>
+              {/* This sheet shipped in English inside a Finnish screen, with
+                  an "or 'program'" fallback that named nothing. */}
+              <Text style={styles.sheetExplainer}>
+                {activeProgramTitle
+                  ? t(language, 'programs.switchSheet.body', { name: activeProgramTitle })
+                  : t(language, 'programs.switchSheet.bodyNoActive')}
+              </Text>
+              <View style={styles.sheetButtonRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'common.cancel')}
+                  onPress={onClose}
+                  style={({ pressed }) => [styles.sheetCancel, pressed && styles.pressed]}
+                >
+                  <Text style={styles.sheetCancelText}>{t(language, 'common.cancel')}</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'programs.switchTo', { name: item.name })}
+                  onPress={() => onConfirm(item.id)}
+                  style={({ pressed }) => [styles.sheetConfirm, pressed && styles.pressed]}
+                >
+                  <Text style={styles.sheetConfirmText}>{t(language, 'programs.switchConfirm')}</Text>
+                </Pressable>
+              </View>
+            </>
           ) : null}
         </View>
       </View>
@@ -778,6 +871,9 @@ export function ProgramsHomeScreen({
 }: ProgramsHomeScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
+  // Read here, on the screen: inside ProgramSheet's and SwitchProgramSheet's
+  // own Modals, useSafeAreaInsets itself always answers 0.
+  const insets = useSafeAreaInsets();
   const [picked, setPicked] = useState<ProgramsExploreItem | null>(null);
   /**
    * Which sheet is open, if any.
@@ -798,8 +894,6 @@ export function ProgramsHomeScreen({
   const [allCategories, setAllCategories] = useState(false);
   // Where the season rows begin, measured rather than guessed — a hero CTA
   // that says "Open the season" has to actually arrive there.
-
-  const pickedStyle = picked ? picked.cover : null;
 
   // The open sheet's contents, drawn from the same sources the tiles count.
   // Resolved once, with the fallback here rather than on four props. Every
@@ -1333,62 +1427,18 @@ export function ProgramsHomeScreen({
         <View style={styles.bottomSafeFade} />
       </ScrollView>
 
-      <Modal visible={picked !== null} transparent animationType="slide" onRequestClose={() => setPicked(null)}>
-        <View style={styles.sheetOverlay}>
-          <Pressable style={styles.sheetScrim} onPress={() => setPicked(null)} />
-          <View style={styles.sheet}>
-            <View style={styles.sheetGrip} />
-            {picked && pickedStyle ? (
-              <>
-                <View style={styles.sheetHeaderRow}>
-                  <GradientTile stops={pickedStyle.tile} size={50} radius={14} />
-                  <View style={styles.sheetHeaderCopy}>
-                    <Text style={styles.sheetName} numberOfLines={1}>
-                      {picked.name}
-                    </Text>
-                    <Text style={styles.sheetMeta} numberOfLines={1}>
-                      {t(language, 'programs.switchSheet.meta', {
-                        days: picked.days,
-                        minutes: picked.minutes,
-                        goal: picked.goal,
-                      })}
-                    </Text>
-                  </View>
-                </View>
-                {/* This sheet shipped in English inside a Finnish screen, with
-                    an "or 'program'" fallback that named nothing. */}
-                <Text style={styles.sheetExplainer}>
-                  {activeProgramTitle
-                    ? t(language, 'programs.switchSheet.body', { name: activeProgramTitle })
-                    : t(language, 'programs.switchSheet.bodyNoActive')}
-                </Text>
-                <View style={styles.sheetButtonRow}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t(language, 'common.cancel')}
-                    onPress={() => setPicked(null)}
-                    style={({ pressed }) => [styles.sheetCancel, pressed && styles.pressed]}
-                  >
-                    <Text style={styles.sheetCancelText}>{t(language, 'common.cancel')}</Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t(language, 'programs.switchTo', { name: picked.name })}
-                    onPress={() => {
-                      const id = picked.id;
-                      setPicked(null);
-                      onOpenExploreProgram(id);
-                    }}
-                    style={({ pressed }) => [styles.sheetConfirm, pressed && styles.pressed]}
-                  >
-                    <Text style={styles.sheetConfirmText}>{t(language, 'programs.switchConfirm')}</Text>
-                  </Pressable>
-                </View>
-              </>
-            ) : null}
-          </View>
-        </View>
-      </Modal>
+      <SwitchProgramSheet
+        visible={picked !== null}
+        item={picked}
+        activeProgramTitle={activeProgramTitle}
+        language={language}
+        bottomInset={insets.bottom}
+        onClose={() => setPicked(null)}
+        onConfirm={(id) => {
+          setPicked(null);
+          onOpenExploreProgram(id);
+        }}
+      />
 
       <ProgramSheet
         visible={sheet !== null}
@@ -1398,6 +1448,7 @@ export function ProgramsHomeScreen({
         focus={sheetCategory ? t(language, sheetCategory.focusKey) : ''}
         tint={sheetCategory ? sheetCategory.tint : PROGRAM_CATEGORIES[0].tint}
         icon={sheetCategory ? sheetCategory.icon : PROGRAM_CATEGORIES[0].icon}
+        bottomInset={insets.bottom}
         items={sheetItems}
         readerDaysPerWeek={readerDaysPerWeek}
         readerLevel={readerLevel}
@@ -1425,6 +1476,7 @@ export function ProgramsHomeScreen({
         onOpenPaywall={onOpenPaywall}
         onBuildYourself={onCreateProgram}
         onImportProgram={onImportProgram}
+        bottomInset={insets.bottom}
       />
     </View>
   );

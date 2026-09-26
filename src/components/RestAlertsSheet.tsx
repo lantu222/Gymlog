@@ -1,6 +1,5 @@
 import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { t } from '../lib/i18n';
 import { Theme, useThemedStyles } from '../theming';
@@ -17,20 +16,24 @@ import { AppLanguage } from '../types/models';
 interface RestAlertsSheetProps {
   visible: boolean;
   language: AppLanguage;
+  /**
+   * Safe-area inset, read on the screen that mounts this sheet — inside this
+   * Modal, `useSafeAreaInsets` itself always answers 0 (#bugs 2026-08-28).
+   */
+  bottomInset: number;
   onAllow: () => void;
   onLater: () => void;
 }
 
-export function RestAlertsSheet({ visible, language, onAllow, onLater }: RestAlertsSheetProps) {
+export function RestAlertsSheet({ visible, language, bottomInset, onAllow, onLater }: RestAlertsSheetProps) {
   const styles = useThemedStyles(makeStyles);
   // Without this the "Not now" link sits behind the system nav buttons and
   // cannot be pressed at all — the same bug the Pro sheet had.
-  const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onLater}>
       <View style={styles.veil}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onLater} accessibilityLabel={t(language, 'rest.perm.later')} />
-        <View style={[styles.sheet, { paddingBottom: insets.bottom + 24 }]}>
+        <View style={[styles.sheet, { paddingBottom: bottomInset + 24 }]}>
           <View style={styles.grip} />
           <Text style={styles.title}>{t(language, 'rest.perm.title')}</Text>
           <Text style={styles.body}>{t(language, 'rest.perm.body')}</Text>
