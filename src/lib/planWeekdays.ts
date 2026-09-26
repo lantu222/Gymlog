@@ -46,5 +46,5 @@ export function weekdayLabel(code: string, language: AppLanguage) {
 // hasFixedWeekdays / resolveSessionWeekday are gone (2026-08-25): they read
 // the plan's STORED weekday labels, which a switch to a training cycle leaves
 // untouched — so the Home rows kept saying MON/THU under a six-day rotation.
-// The rows now ask trainingSchedule.upcomingSessionDayStarts, the same source
-// every calendar lights its dots from.
+// Every calendar now asks the schedule (sessionSlotOn, and Home's
+// sessionForSlot) which session a date holds.

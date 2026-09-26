@@ -51,6 +51,7 @@ import { SubscriptionScreen } from '../screens/SubscriptionScreen';
 import { TrainingBreakScreen } from '../screens/TrainingBreakScreen';
 import { TrainingPlanScreen } from '../screens/TrainingPlanScreen';
 import { AppDatabase, AppPreferences, SetupWeekday, WorkoutTemplateDraft } from '../types/models';
+import type { PreferencesPatch } from '../state/AppProvider';
 import { CompletionSummaryState } from './workoutCompletionState';
 import { createUnlessAtLimit } from './programLimitGuard';
 
@@ -70,7 +71,7 @@ export interface ProfileTabDeps {
   navigateBack: (fallback?: AppRoute | null) => void;
   resetToRoute: (route: AppRoute) => void;
   preferences: AppPreferences;
-  updatePreferences: (patch: Partial<AppPreferences>) => Promise<unknown>;
+  updatePreferences: (patch: PreferencesPatch) => Promise<unknown>;
   coachProUnlocked: boolean;
   proCoachSpecimen: React.ComponentProps<typeof PremiumUnlockScreen>['coachSpecimen'];
   proEntitlement: React.ComponentProps<typeof SubscriptionScreen>['entitlement'];
@@ -327,7 +328,9 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
             void requestNotificationPermission(preferences.appLanguage)
               .then((granted) =>
                 granted
-                  ? updatePreferences({ notificationPrefs: remindersOptedIn(preferences.notificationPrefs) })
+                  ? // After the system dialog, so from the stored prefs: this
+                    // render's are from before it.
+                    updatePreferences((current) => ({ notificationPrefs: remindersOptedIn(current.notificationPrefs) }))
                   : undefined,
               )
               .catch(() => undefined);
@@ -479,7 +482,10 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
         onTrainingBreak={preferences.trainingBreak !== null}
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
         onChange={(patch) =>
-          void updatePreferences({ notificationPrefs: { ...preferences.notificationPrefs, ...patch } })
+          // From the stored prefs, not this render's: two switches flipped in
+          // quick succession each built from the same snapshot, and the second
+          // write put the first switch back (2026-09-26).
+          void updatePreferences((current) => ({ notificationPrefs: { ...current.notificationPrefs, ...patch } }))
         }
         requestPermission={() => requestNotificationPermission(preferences.appLanguage)}
         checkPermission={getNotificationPermissionGranted}

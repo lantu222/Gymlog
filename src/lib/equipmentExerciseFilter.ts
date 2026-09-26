@@ -80,6 +80,10 @@ const EQUIPMENT_RULES: EquipmentRule[] = [
   // so a bands-only reader's arms accessory was a hammer curl with a weight
   // dial and no dumbbell (#bugs, 2026-09-26).
   { pattern: 'hammer curl', requires: [['Dumbbells']] },
+  // And the other way round: the band curl is the curl for a reader with a
+  // band, and the generic curl rule would otherwise let dumbbells stand in
+  // for the band it is named after (2026-09-26).
+  { pattern: 'band curl', requires: [['Resistance bands']] },
 ];
 
 /**
@@ -129,10 +133,10 @@ export const EQUIPMENT_FALLBACKS: Array<[string, string[]]> = [
   ['skull crusher', ['Triceps Pushdown', 'Incline Push-Up']],
   ['overhead triceps extension', ['Triceps Pushdown', 'Incline Push-Up']],
   ['triceps pushdown', ['Bench Dips']],
-  ['preacher curl', ['Dumbbell Bicep Curl']],
-  ['barbell curl', ['Dumbbell Bicep Curl']],
-  ['dumbbell curl', ['Reverse Plate Curls']],
-  ['hammer curl', ['Dumbbell Bicep Curl', 'Reverse Plate Curls']],
+  ['preacher curl', ['Dumbbell Bicep Curl', 'Band Curl']],
+  ['barbell curl', ['Dumbbell Bicep Curl', 'Band Curl']],
+  ['dumbbell curl', ['Reverse Plate Curls', 'Band Curl']],
+  ['hammer curl', ['Dumbbell Bicep Curl', 'Reverse Plate Curls', 'Band Curl']],
   ['rear delt', ['Band Pull Apart']],
   ['kettlebell swing', ['Butt Lift (Bridge)']],
   ['leg curl', ['Butt Lift (Bridge)']],

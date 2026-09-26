@@ -207,6 +207,23 @@ module.exports = [
     },
   },
   {
+    name: 'contrast: the weekly read words its status in the theme inks, not the paywall dots',
+    run() {
+      // PW green / amber were 3.30 / 3.19:1 as text on a light card, PW red
+      // 3.64 on a dark one (2026-09-26). The dot keeps PW; the word reads.
+      const progress = read('src', 'screens', 'ProgressScreen.tsx').replace(/\r\n/g, '\n');
+      assert.match(progress, /\{ dot: PW\.green, soft: PW\.greenSoft, ink: theme\.greenInk \}/);
+      assert.match(progress, /\{ dot: PW\.amber, soft: PW\.amberSoft, ink: theme\.amberInk \}/);
+      assert.match(progress, /\{ dot: PW\.red, soft: PW\.redSoft, ink: theme\.danger \}/);
+      assert.match(progress, /<Text style=\{\{ color: tone\.ink \}\}>\{row\.status\}<\/Text>/);
+      for (const [name, theme] of THEMES) {
+        for (const ink of ['greenInk', 'amberInk', 'danger']) {
+          atLeast(contrastRatio(theme[ink], theme.surface), WCAG_AA_TEXT, `${name} ${ink} on the read's card`);
+        }
+      }
+    },
+  },
+  {
     name: 'contrast: no screen keeps a private copy of an ink the audit darkened',
     run() {
       // #9A93AC was a light "faint" copied into four palettes (onboarding,

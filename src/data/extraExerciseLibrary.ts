@@ -81,4 +81,26 @@ export const EXTRA_EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
       'Jump the feet back under you and stand up into a jump with the arms overhead. Land soft and go straight into the next rep.',
     ],
   },
+  {
+    // The curl a resistance band gives. A bands-only reader's arm work had no
+    // curl to land on: a hammer curl needs dumbbells, and the fallback chain
+    // ended in a plate curl with no plate, so the lift was simply dropped
+    // (2026-09-26). No band biceps curl exists upstream.
+    //
+    // Filed under bodyweight, as the library files every band movement ("Band
+    // Pull Apart"): the app has no band equipment class, and a band has no
+    // kilograms to log — reps only.
+    id: 'extra_band_curl',
+    name: 'Band Curl',
+    category: 'compound',
+    bodyPart: 'biceps',
+    equipment: 'bodyweight',
+    primaryMuscles: ['biceps'],
+    secondaryMuscles: ['forearms'],
+    instructions: [
+      'Stand on the middle of the band with your feet about hip-width apart and hold an end in each hand, arms straight and palms facing forward.',
+      'Keep your elbows close to your sides and curl your hands up towards your shoulders, squeezing the biceps at the top.',
+      'Lower slowly against the band until your arms are straight again. Stand further apart on the band for more resistance, closer for less.',
+    ],
+  },
 ];

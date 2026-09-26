@@ -117,7 +117,8 @@ module.exports = [
       assert.match(weighIn, /if \(!granted\) \{\s*return 'blocked';\s*\}/);
       assert.match(
         weighIn,
-        /await updatePreferences\(\{\s*notificationPrefs: remindersOptedIn\(preferences\.notificationPrefs, \{ weighInReminder: true \}\),\s*\}\);\s*return 'on';/,
+        // From the stored prefs: the system dialog came in between (2026-09-26).
+        /await updatePreferences\(\(current\) => \(\{\s*notificationPrefs: remindersOptedIn\(current\.notificationPrefs, \{ weighInReminder: true \}\),\s*\}\)\);\s*return 'on';/,
       );
 
       const chat = read('src', 'screens', 'AICoachChatScreen.tsx');
@@ -136,7 +137,7 @@ module.exports = [
       const profile = read('src', 'app', 'renderProfileTab.tsx');
       assert.match(
         profile,
-        /void requestNotificationPermission\(preferences\.appLanguage\)\s*\.then\(\(granted\) =>\s*granted\s*\? updatePreferences\(\{ notificationPrefs: remindersOptedIn\(preferences\.notificationPrefs\) \}\)/,
+        /void requestNotificationPermission\(preferences\.appLanguage\)\s*\.then\(\(granted\) =>\s*granted\s*\?[\s\S]{0,160}?updatePreferences\(\(current\) => \(\{ notificationPrefs: remindersOptedIn\(current\.notificationPrefs\) \}\)\)/,
       );
       assert.doesNotMatch(profile, /void requestNotificationPermission\(\);/);
 

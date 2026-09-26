@@ -109,6 +109,11 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
     'Heilauta kuula jalkojen välistä taakse ja ojenna lantio räjähtävästi eteen. Kädet vain ohjaavat — työn tekee lantio, ja kuula nousee itsestään rintakehän korkeudelle.',
     'Anna kuulan pudota takaisin jalkojen väliin lantio taakse työntäen ja jatka suoraan seuraavaan toistoon. Selkä pysyy suorana ensimmäisestä toistosta viimeiseen.',
   ],
+  'Band Curl': [
+    'Seiso kuminauhan keskellä jalat noin lantion leveydellä ja ota kummastakin päästä kiinni, kädet suorina ja kämmenet eteenpäin.',
+    'Pidä kyynärpäät kyljissä ja koukista kädet kohti olkapäitä. Purista hauis tiukaksi yläasennossa.',
+    'Laske hitaasti nauhaa vastaan, kunnes kädet ovat taas suorat. Seiso nauhalla leveämmin, jos haluat enemmän vastusta, ja kapeammin, jos vähemmän.',
+  ],
   'Machine Hip Thrust': [
     'Asetu laitteeseen selkä tukea vasten ja lantiotyyny tai -tanko lantion päälle, aivan lonkkaluiden alapuolelle.',
     'Säädä istuin niin, että sääret ovat pystysuorassa liikkeen yläasennossa, ja työnnä kantapäillä lantio ylös.',

@@ -1302,12 +1302,15 @@ export function ProgressScreen({
         <Text style={styles.readTitle}>{t(language, 'pro.read.title')}</Text>
         <View style={styles.readList}>
           {weeklyRead.map((row) => {
+            // The dot keeps the paywall palette; the status WORD is text, and
+            // reads in the theme's inks. PW green and amber are 3.30 and 3.19:1
+            // as text on a light card, PW red 3.64 on a dark one (2026-09-26).
             const tone =
               row.tone === 'green'
-                ? { dot: PW.green, soft: PW.greenSoft }
+                ? { dot: PW.green, soft: PW.greenSoft, ink: theme.greenInk }
                 : row.tone === 'amber'
-                  ? { dot: PW.amber, soft: PW.amberSoft }
-                  : { dot: PW.red, soft: PW.redSoft };
+                  ? { dot: PW.amber, soft: PW.amberSoft, ink: theme.amberInk }
+                  : { dot: PW.red, soft: PW.redSoft, ink: theme.danger };
             // The row is a door when there is something behind it. The lift's
             // set log opens from the screen's root, so this does not change
             // section — the reader stays on the read and the lift comes to
@@ -1340,7 +1343,7 @@ export function ProgressScreen({
                   </View>
                   <View style={styles.readCopy}>
                     <Text style={styles.readName} numberOfLines={1}>
-                      {row.name} — <Text style={{ color: tone.dot }}>{row.status}</Text>
+                      {row.name} — <Text style={{ color: tone.ink }}>{row.status}</Text>
                     </Text>
                     <Text style={styles.readMeta}>{row.meta}</Text>
                   </View>

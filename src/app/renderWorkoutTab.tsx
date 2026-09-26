@@ -815,9 +815,9 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         // focus, so a choice belongs to every day with that focus rather
         // than to this one. There is no "just this time" to offer.
         onSwapRoutineDrill={(slotKey: string, drillKey: string) =>
-          void updatePreferences({
-            routineDrillOverrides: { ...preferences.routineDrillOverrides, [slotKey]: drillKey },
-          })
+          void updatePreferences((current) => ({
+            routineDrillOverrides: { ...current.routineDrillOverrides, [slotKey]: drillKey },
+          }))
         }
         // Held for this day of this programme: slot ids repeat across days,
         // so a swap made here is not an answer about any other day.
@@ -986,9 +986,9 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           asked: preferences.notificationPrefs.restAlertsAsked,
         }}
         onRestAlertsAnswered={(outcome) =>
-          void updatePreferences({
-            notificationPrefs: restAlertsAnswered(preferences.notificationPrefs, outcome),
-          })
+          void updatePreferences((current) => ({
+            notificationPrefs: restAlertsAnswered(current.notificationPrefs, outcome),
+          }))
         }
         onOpenSystemSettings={() => void openRestAlertSettings()}
         onBack={() => navigateBack(ROOT_ROUTES.home)}
@@ -1078,9 +1078,9 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           asked: preferences.notificationPrefs.restAlertsAsked,
         }}
         onRestAlertsAnswered={(outcome) =>
-          void updatePreferences({
-            notificationPrefs: restAlertsAnswered(preferences.notificationPrefs, outcome),
-          })
+          void updatePreferences((current) => ({
+            notificationPrefs: restAlertsAnswered(current.notificationPrefs, outcome),
+          }))
         }
         onOpenSystemSettings={() => void openRestAlertSettings()}
       />
@@ -1338,9 +1338,9 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         goalProgrammes={goalProgrammeSuggestions}
         onOpenGoalPicker={() => navigate({ tab: 'workout', screen: 'goalFlow' })}
         onRemoveGoal={(exerciseName) =>
-          void updatePreferences({
-            strengthGoals: removeStrengthGoal(preferences.strengthGoals, exerciseName),
-          })
+          void updatePreferences((current) => ({
+            strengthGoals: removeStrengthGoal(current.strengthGoals, exerciseName),
+          }))
         }
         customPrograms={programsCustomItems}
         ownProgramsLine={(() => {
