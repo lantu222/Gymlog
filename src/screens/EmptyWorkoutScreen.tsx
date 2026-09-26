@@ -1385,10 +1385,14 @@ export function EmptyWorkoutScreen({
               accessibilityHint={!hasLoggedSet ? t(language, 'emptyWorkout.finishNeedsSet') : undefined}
               onPress={handleFinish}
               disabled={!canFinish}
-              style={[styles.finishButton, isSaving && styles.finishButtonSaving]}
+              style={[
+                styles.finishButton,
+                isSaving && styles.finishButtonSaving,
+                !hasLoggedSet && !isSaving && styles.finishButtonDisabled,
+              ]}
             >
-              <CheckIcon size={19} color="#FFFFFF" />
-              <Text style={styles.finishButtonText}>
+              <CheckIcon size={19} color={!hasLoggedSet && !isSaving ? theme.faint : '#FFFFFF'} />
+              <Text style={[styles.finishButtonText, !hasLoggedSet && !isSaving && styles.finishButtonTextDisabled]}>
                 {isSaving ? t(language, 'emptyWorkout.saving') : t(language, 'emptyWorkout.finishWorkout')}
               </Text>
             </Pressable>
@@ -1926,6 +1930,16 @@ const makeStyles = (theme: Theme) => {
   },
   finishButtonSaving: {
     opacity: 0.7,
+  },
+  // The hint above says Finish is grey; it was only disabled, still drawn in
+  // full purple, so a tap that did nothing read as a broken button.
+  finishButtonDisabled: {
+    backgroundColor: '#E7E1F2',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  finishButtonTextDisabled: {
+    color: theme.faint,
   },
   finishButtonText: {
     fontSize: 16.5,

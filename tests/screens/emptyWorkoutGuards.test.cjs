@@ -26,6 +26,10 @@ module.exports = [
       );
       // Both Finish buttons (header + footer) key off the same canFinish.
       assert.equal((screen.match(/disabled=\{!canFinish\}/g) ?? []).length, 2);
+      // And the footer button looks it: disabled alone left it full purple
+      // beside a hint calling it grey (second look, 2026-09-26).
+      assert.match(screen, /!hasLoggedSet && !isSaving && styles\.finishButtonDisabled/);
+      assert.match(screen, /styles\.finishButtonText, !hasLoggedSet && !isSaving && styles\.finishButtonTextDisabled/);
       // The reader is told why, not just left to guess at a greyed-out button.
       assert.match(screen, /!hasLoggedSet && !isSaving \? \(\s*<Text style=\{styles\.finishHint\}>\{t\(language, 'emptyWorkout\.finishNeedsSet'\)\}/);
     },
