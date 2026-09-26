@@ -67,9 +67,9 @@ module.exports = [
       assert.doesNotMatch(programsHomeSource, /styles\.dayRow\b/);
       assert.doesNotMatch(programsHomeSource, /programs\.noActive/);
       assert.doesNotMatch(programsHomeSource, /onStartActiveSession/);
-      // What survives is the program's NAME, because the switch sheet says
-      // what you are leaving.
-      assert.match(programsHomeSource, /activeProgramTitle/);
+      // The name went too (2026-09-26): its only reader was the switch
+      // sheet, whose only opener — the trending list — left in #40.
+      assert.doesNotMatch(programsHomeSource, /activeProgramTitle|SwitchProgramSheet|setPicked/);
 
       assert.doesNotMatch(programsHomeSource, /onAdjustSchedule/);
 
@@ -281,18 +281,11 @@ module.exports = [
       // English sentence may sit in JSX here.
       assert.doesNotMatch(programsHomeSource, /exercises · browse|browse &amp; swap/);
       assert.match(programsHomeSource, /'programs\.library\.sub'/);
-      // Switch-program sheet: explainer + Cancel / Switch program; confirm opens
-      // the picked program (existing ready-program detail path).
-      //
-      // This sheet shipped in English inside a Finnish screen for weeks,
-      // together with an "or 'program'" fallback that named nothing. Both the
-      // sentence and the meta line go through the dictionary now.
-      assert.doesNotMatch(programsHomeSource, /Switching starts a fresh block/);
-      assert.doesNotMatch(programsHomeSource, /\?\? 'program'/);
-      assert.match(programsHomeSource, /'programs\.switchSheet\.body'/);
-      assert.match(programsHomeSource, /'programs\.switchSheet\.meta'/);
-      assert.match(programsHomeSource, /programs\.switchConfirm/);
-      assert.match(programsHomeSource, /onOpenExploreProgram\(id\)/);
+      // The switch-program sheet is gone (2026-09-26). Its only opener was the
+      // trending list #40 removed; a programme opens its own page, where
+      // adoption and the switch prompt live. Its copy went with it.
+      assert.doesNotMatch(programsHomeSource, /programs\.switchSheet|programs\.switchConfirm/);
+      assert.match(programsHomeSource, /onOpenExploreProgram\(item\.id\)/);
       // Your programs + create + library.
       assert.match(programsHomeSource, /programs\.yourPrograms/);
       assert.match(programsHomeSource, /customPrograms\.map/);
@@ -308,9 +301,10 @@ module.exports = [
       // only the ProgramsExploreItem type for its memo shapes.
       assert.match(appSource, /import \{ ProgramsHomeScreen \} from '\.\.\/screens\/ProgramsHomeScreen'/);
       assert.match(appSource, /if \(route\.screen === 'programs_home'\)/);
-      // App hands this tab the program's NAME and nothing else; the plan
-      // card itself goes to Home, which is the screen that runs it.
-      assert.match(appSource, /activeProgramTitle=\{homeActivePlanCard\?\.title \?\? null\}/);
+      // The plan card goes to Home, which is the screen that runs it; this tab
+      // no longer takes even the programme's name (its reader was the
+      // unreachable switch sheet, removed 2026-09-26).
+      assert.doesNotMatch(appSource, /activeProgramTitle=/);
       assert.match(appSource, /onOpenActivePlan=\{\(\) => \{/);
       // The curated eight-program Explore rail is gone with the always-open
       // catalog row it fed; the category tiles are the way in now.

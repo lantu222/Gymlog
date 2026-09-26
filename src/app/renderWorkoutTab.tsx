@@ -1316,7 +1316,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     return (
       <ProgramsHomeScreen
         language={preferences.appLanguage}
-        activeProgramTitle={homeActivePlanCard?.title ?? null}
         // What setup was told, not what the plan happens to run: the sheet is
         // for choosing a programme, so the week to match is the reader's own.
         // Null when setup never asked, and then no row is recommended.

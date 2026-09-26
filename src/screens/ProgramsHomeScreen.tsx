@@ -139,8 +139,6 @@ export interface ProgramsCustomItem {
 
 
 interface ProgramsHomeScreenProps {
-  /** The running program's name — the switch sheet says what you leave. */
-  activeProgramTitle?: string | null;
   /**
    * The week the reader said they have, from setup.
    *
@@ -749,94 +747,7 @@ function ProgramSheet({
   );
 }
 
-/**
- * The "switch to this programme?" confirm sheet — its own component, not
- * inline in `ProgramsHomeScreen`, because the inset it pads with has to be
- * read on the screen: inside this Modal `useSafeAreaInsets` itself always
- * answers 0 (#bugs 2026-08-28).
- */
-function SwitchProgramSheet({
-  visible,
-  item,
-  activeProgramTitle,
-  language,
-  bottomInset,
-  onClose,
-  onConfirm,
-}: {
-  visible: boolean;
-  item: ProgramsExploreItem | null;
-  activeProgramTitle: string | null;
-  language: AppLanguage;
-  /**
-   * Safe-area inset, read on the screen — inside this Modal
-   * `useSafeAreaInsets` itself always answers 0.
-   */
-  bottomInset: number;
-  onClose: () => void;
-  onConfirm: (id: string) => void;
-}) {
-  const styles = useThemedStyles(makeStyles);
-  const itemStyle = item ? item.cover : null;
-
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.sheetOverlay}>
-        <Pressable style={styles.sheetScrim} onPress={onClose} />
-        <View style={[styles.sheet, { paddingBottom: 26 + bottomInset }]}>
-          <View style={styles.sheetGrip} />
-          {item && itemStyle ? (
-            <>
-              <View style={styles.sheetHeaderRow}>
-                <GradientTile stops={itemStyle.tile} size={50} radius={14} />
-                <View style={styles.sheetHeaderCopy}>
-                  <Text style={styles.sheetName} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                  <Text style={styles.sheetMeta} numberOfLines={1}>
-                    {t(language, 'programs.switchSheet.meta', {
-                      days: item.days,
-                      minutes: item.minutes,
-                      goal: item.goal,
-                    })}
-                  </Text>
-                </View>
-              </View>
-              {/* This sheet shipped in English inside a Finnish screen, with
-                  an "or 'program'" fallback that named nothing. */}
-              <Text style={styles.sheetExplainer}>
-                {activeProgramTitle
-                  ? t(language, 'programs.switchSheet.body', { name: activeProgramTitle })
-                  : t(language, 'programs.switchSheet.bodyNoActive')}
-              </Text>
-              <View style={styles.sheetButtonRow}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t(language, 'common.cancel')}
-                  onPress={onClose}
-                  style={({ pressed }) => [styles.sheetCancel, pressed && styles.pressed]}
-                >
-                  <Text style={styles.sheetCancelText}>{t(language, 'common.cancel')}</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t(language, 'programs.switchTo', { name: item.name })}
-                  onPress={() => onConfirm(item.id)}
-                  style={({ pressed }) => [styles.sheetConfirm, pressed && styles.pressed]}
-                >
-                  <Text style={styles.sheetConfirmText}>{t(language, 'programs.switchConfirm')}</Text>
-                </Pressable>
-              </View>
-            </>
-          ) : null}
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
 export function ProgramsHomeScreen({
-  activeProgramTitle = null,
   readerDaysPerWeek = null,
   readerLevel = null,
   catalogItems,
@@ -871,10 +782,9 @@ export function ProgramsHomeScreen({
 }: ProgramsHomeScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  // Read here, on the screen: inside ProgramSheet's and SwitchProgramSheet's
-  // own Modals, useSafeAreaInsets itself always answers 0.
+  // Read here, on the screen: inside ProgramSheet's own Modal
+  // useSafeAreaInsets itself always answers 0.
   const insets = useSafeAreaInsets();
-  const [picked, setPicked] = useState<ProgramsExploreItem | null>(null);
   /**
    * Which sheet is open, if any.
    *
@@ -1426,19 +1336,6 @@ export function ProgramsHomeScreen({
 
         <View style={styles.bottomSafeFade} />
       </ScrollView>
-
-      <SwitchProgramSheet
-        visible={picked !== null}
-        item={picked}
-        activeProgramTitle={activeProgramTitle}
-        language={language}
-        bottomInset={insets.bottom}
-        onClose={() => setPicked(null)}
-        onConfirm={(id) => {
-          setPicked(null);
-          onOpenExploreProgram(id);
-        }}
-      />
 
       <ProgramSheet
         visible={sheet !== null}
@@ -2402,55 +2299,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 3,
     backgroundColor: theme.border,
     marginBottom: 16,
-  },
-  sheetHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 13,
-  },
-  sheetHeaderCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  sheetName: {
-    color: theme.ink,
-    fontSize: 18,
-    lineHeight: 23,
-    fontWeight: '800',
-  },
-  sheetMeta: {
-    marginTop: 2,
-    color: theme.muted,
-    fontSize: 12.5,
-    lineHeight: 16,
-    fontWeight: '700',
-  },
-  sheetExplainer: {
-    marginTop: 15,
-    marginHorizontal: 2,
-    color: theme.muted,
-    fontSize: 13.5,
-    lineHeight: 21,
-    fontWeight: '600',
-  },
-  sheetButtonRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 16,
-  },
-  sheetCancel: {
-    flex: 1,
-    height: 50,
-    borderRadius: 14,
-    backgroundColor: theme.purpleSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sheetCancelText: {
-    color: theme.ink,
-    fontSize: 15,
-    lineHeight: 19,
-    fontWeight: '800',
   },
   sheetConfirm: {
     flex: 1.4,
