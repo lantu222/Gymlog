@@ -9,13 +9,16 @@ import { AppLanguage } from '../types/models';
  * wanted a three-way split out of a five-day programme and had no way to get
  * there short of starting over (#bugs 2026-09-24).
  *
- * Two rules come from the rest of the app rather than from this feature:
+ * A new day is named first and saved empty, then filled on its own page
+ * (user, 2026-09-26: "tähän tulee ensiksi nimeä päivä … se menee tyhjänä").
+ * The first build picked the lifts first and wrote them with the day, to keep
+ * the rule that a programme never holds an empty day; the reader found that
+ * backwards. The rule moves to where an empty day could hurt: it is never
+ * offered as the next session and cannot be started (`nextStartableSession
+ * Index`, and the start handler's own refusal).
  *
- * - A programme with an empty day is not a programme. The template editor
- *   will not save one, and the day page refuses to remove a day's last lift.
- *   So a day is added WITH its lifts, in one write, and never exists empty.
- * - A programme has at least one day. Removing the last one would be deleting
- *   the programme, which has its own button and its own question.
+ * A programme has at least one day. Removing the last one would be deleting
+ * the programme, which has its own button and its own question.
  */
 
 /** Only the fields these read. Stored sessions carry more. */
@@ -47,6 +50,29 @@ export function removeProgramSession<T extends ListedSession>(
       .filter((session) => session.id !== sessionId)
       .map((session, orderIndex) => ({ ...session, orderIndex })),
   };
+}
+
+/**
+ * The session the rotation should offer, skipping days with nothing in them.
+ *
+ * `from` is where the rotation points; the search walks forward from there
+ * and wraps, so an empty day in the middle of a programme hands its turn to
+ * the next day that can actually be trained. Null when no day can — a
+ * programme whose days are all still empty has nothing to offer yet.
+ */
+export function nextStartableSessionIndex(exerciseCounts: ReadonlyArray<number>, from: number): number | null {
+  const count = exerciseCounts.length;
+  if (count === 0) {
+    return null;
+  }
+  const start = Number.isFinite(from) ? ((Math.floor(from) % count) + count) % count : 0;
+  for (let step = 0; step < count; step += 1) {
+    const index = (start + step) % count;
+    if ((exerciseCounts[index] ?? 0) > 0) {
+      return index;
+    }
+  }
+  return null;
 }
 
 /**

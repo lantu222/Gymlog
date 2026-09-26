@@ -63,20 +63,22 @@ module.exports = [
   },
   {
     /**
-     * A day is never saved empty. The editor refuses to save one and the day
-     * page refuses to remove a day's last lift; an "add day" that wrote an
-     * empty day first and filled it later would be the one way round both —
-     * Home could offer it and starting it would open an empty player.
+     * A new day is named first and saved empty (user, 2026-09-26: "tähän
+     * tulee ensiksi nimeä päivä … se menee tyhjänä"). The first build picked
+     * the lifts first to keep programmes free of empty days; the reader found
+     * that backwards. What the rule protected — Home offering an empty day,
+     * and starting one — is guarded where it happens instead (next suites).
      */
-    name: 'programme days: a new day is written together with its lifts, and not without them',
+    name: 'programme days: a new day is written under its name, empty, and a blank name takes the placeholder',
     run() {
       const app = read('App.tsx');
       const add = between(app, 'async function handleAddProgramSession(', '\n  }\n');
-      assert.match(add, /if \(exerciseNames\.length === 0\) \{\s*return null;\s*\}/, 'an empty day can be added');
+      assert.match(add, /workoutTemplateId: string,\s*name: string,/);
       const write = between(add, 'editWorkoutTemplateSessions(', 'if (!result.saved)');
-      // The new day and its lifts are inside the same write.
-      assert.match(write, /id: newSessionId,\s*name: newProgramSessionName\(sessions\.length, preferences\.appLanguage\),\s*exercises,/);
-      assert.ok(add.indexOf('buildAddedProgramExercises(exerciseNames, newSessionId)') < add.indexOf('editWorkoutTemplateSessions('));
+      assert.match(
+        write,
+        /id: newSessionId,\s*name: name\.trim\(\) \|\| newProgramSessionName\(sessions\.length, preferences\.appLanguage\),\s*exercises: \[\],/,
+      );
       // Every existing day is carried through whole — the writer replaces the
       // record, and a hand copy that forgets a field erases it.
       assert.match(write, /exercises: session\.exercises\.map\(toDraftExercise\)/);
@@ -94,14 +96,46 @@ module.exports = [
     },
   },
   {
+    // An empty day hands its turn to the next day that has something in it,
+    // wrapping round; with nothing anywhere, nothing is offered.
+    name: 'programme days: the rotation skips a day that is still empty',
+    run() {
+      const { nextStartableSessionIndex } = require('../../.test-dist/lib/programSessionList.js');
+      assert.equal(nextStartableSessionIndex([4, 0, 5], 1), 2);
+      assert.equal(nextStartableSessionIndex([4, 5, 0], 2), 0, 'wraps to the start');
+      assert.equal(nextStartableSessionIndex([4, 5, 6], 1), 1, 'a filled day keeps its turn');
+      assert.equal(nextStartableSessionIndex([0, 0], 0), null);
+      assert.equal(nextStartableSessionIndex([], 0), null);
+      assert.equal(nextStartableSessionIndex([3, 3], 7), 1, 'an index past the end wraps like the rotation');
+
+      // Home offers through it, and passes over a pick of an empty day.
+      const app = read('App.tsx');
+      assert.match(
+        app,
+        /const startableIndex = nextStartableSessionIndex\(\s*homeSessions\.map\(\(session\) => session\.exercises\.length\),\s*nextSessionIndex,\s*\);/,
+      );
+      assert.match(app, /\(pickedToday && pickedToday\.exercises\.length > 0 \? pickedToday : null\) \?\?/);
+      assert.doesNotMatch(app, /pickedToday \?\? homeSessions\[nextSessionIndex\] \?\? homeSessions\[0\]/);
+
+      // And starting one is refused, and lands on the day where lifts are
+      // added — not the template editor a programme page no longer opens.
+      const start = between(app, 'function handleStartCustomProgramSession(', '\n  }\n');
+      assert.match(
+        start,
+        /if \(!selectedSession\?\.exercises\.length\) \{[\s\S]*?navigate\(\{ tab: 'workout', screen: 'programDay', programType: 'custom', workoutTemplateId, sessionId \}\);/,
+      );
+      assert.doesNotMatch(start, /screen: 'template'/);
+    },
+  },
+  {
     name: 'programme days: custom only, the new day opens after it is saved, and removal is asked first',
     run() {
       const wiring = readAppWiring();
-      const addProp = between(wiring, '        onAddSession={', '        exerciseLibrary={exerciseBrowserItems}');
+      const addProp = between(wiring, '        onAddSession={', '        onSaveRhythm={');
       assert.match(addProp, /route\.programType === 'custom'/, 'a catalog programme can be given a day');
       // The navigation to the new day waits for its id, which only exists
       // once the write resolved.
-      assert.match(addProp, /handleAddProgramSession\(route\.workoutTemplateId, exerciseNames\)\.then\(\s*\(added\) => \{\s*if \(!added\) \{\s*return;\s*\}/);
+      assert.match(addProp, /handleAddProgramSession\(route\.workoutTemplateId, name\)\.then\(\s*\(added\) => \{\s*if \(!added\) \{\s*return;\s*\}/);
       assert.ok(addProp.indexOf('haptics.success()') > addProp.indexOf('if (!added)'));
       // A saved day whose week lagged still opens, and says the week lagged.
       assert.match(addProp, /if \(added\.weekSynced\) \{\s*void haptics\.success\(\);\s*\} else \{\s*showToast\(t\(preferences\.appLanguage, 'toast\.planWeekOutOfStep'\)\);/);
@@ -119,10 +153,15 @@ module.exports = [
       assert.match(dialog, /onConfirm=\{\(\) => \{\s*setConfirmRemoveSession\(false\);\s*onRemoveSession\(\);/);
       assert.match(dialog, /destructive/);
 
-      // And the page's add row opens the library, not an empty day.
+      // And the page's add row asks for a name first, and the sheet hands
+      // that name on — from the button and from the keyboard's done alike.
       const detail = read('src', 'screens', 'ProgramDetailScreen.tsx');
-      assert.match(detail, /onPress=\{\(\) => setAddSessionOpen\(true\)\}/);
-      assert.match(detail, /if \(items\.length > 0\) \{\s*onAddSession\?\.\(items\.map\(\(item\) => item\.name\)\);/);
+      assert.match(detail, /setNewDayName\(''\);\s*setAddSessionOpen\(true\);/);
+      assert.match(detail, /const submitNewDay = \(\) => \{\s*setAddSessionOpen\(false\);\s*onAddSession\?\.\(newDayName\);/);
+      assert.match(detail, /onSubmitEditing=\{submitNewDay\}/);
+      assert.match(detail, /onPress=\{submitNewDay\}/);
+      assert.doesNotMatch(detail, /AddExerciseSheet/);
+      assert.match(detail, /bottomInset=\{keyboardInset > 0 \? keyboardInset : insets\.bottom\}/);
     },
   },
   {
@@ -134,7 +173,7 @@ module.exports = [
       for (const line of i18n.split('\n').filter((row) => row.includes("'toast.lastExerciseInDay':"))) {
         assert.doesNotMatch(line, /muokkaim|editor/i, line);
       }
-      for (const key of ['detail.addWorkout', 'day.removeWorkout', 'day.removeWorkout.title', 'day.removeWorkout.message', 'day.removeWorkout.confirm']) {
+      for (const key of ['detail.addWorkout', 'detail.addDay.nameLabel', 'day.removeWorkout', 'day.removeWorkout.title', 'day.removeWorkout.message', 'day.removeWorkout.confirm']) {
         assert.equal(i18n.split(`'${key}':`).length - 1, 2, `${key} needs EN and FI`);
       }
     },
