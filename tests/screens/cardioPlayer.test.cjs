@@ -48,7 +48,12 @@ module.exports = [
     name: 'cardio: the sheet clears the phone buttons and the fills carry their own ink',
     run() {
       assert.match(source, /useSafeAreaInsets/);
-      assert.match(source, /styles\.sheet, \{ paddingBottom: insets\.bottom \+ 30 \}/);
+      // Read on the screen, not inside CardioSheet's own Modal — that hook
+      // call answers 0 there on a real device (#bugs 2026-08-28). The screen
+      // reads it and hands it down as a prop instead.
+      assert.match(source, /const insets = useSafeAreaInsets\(\);/);
+      assert.match(source, /<CardioSheet[^>]*\bonClose=\{[^}]*\}\s*bottomInset=\{insets\.bottom\}/s);
+      assert.match(source, /styles\.sheet, \{ paddingBottom: bottomInset \+ 30 \}/);
 
       // `highlight` is purple on the light theme and orange on the dark one, so
       // white reads on only one of them. Green was in neither.

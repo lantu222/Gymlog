@@ -23,6 +23,7 @@ import Svg, {
   Rect,
   Stop,
 } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CutSurface } from '../components/CutSurface';
 import { LAYERS_MOTIF, ProgramCoverStyle, programCoverStyle } from '../lib/programVisualIdentity';
@@ -138,8 +139,6 @@ export interface ProgramsCustomItem {
 
 
 interface ProgramsHomeScreenProps {
-  /** The running program's name — the switch sheet says what you leave. */
-  activeProgramTitle?: string | null;
   /**
    * The week the reader said they have, from setup.
    *
@@ -518,6 +517,7 @@ function ProgramSheet({
   onPick,
   readerDaysPerWeek,
   readerLevel,
+  bottomInset,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -530,6 +530,11 @@ function ProgramSheet({
   onPick: (item: ProgramsExploreItem) => void;
   readerDaysPerWeek: number | null;
   readerLevel: string | null;
+  /**
+   * Safe-area inset, read on the screen — inside this Modal
+   * `useSafeAreaInsets` itself always answers 0.
+   */
+  bottomInset: number;
 }) {
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
@@ -689,7 +694,13 @@ function ProgramSheet({
             })}
           </ScrollView>
 
-          <ScrollView style={styles.catSheetList} contentContainerStyle={styles.catSheetListInner}>
+          {/* The list clears the pinned CTA, which grows by the inset: with
+              a fixed 108 the last rows sat under a CTA the navigation bar had
+              made taller, and could not be scrolled to (review of #193). */}
+          <ScrollView
+            style={styles.catSheetList}
+            contentContainerStyle={[styles.catSheetListInner, { paddingBottom: 108 + bottomInset }]}
+          >
             {shown.length === 0 ? (
               <Text style={styles.catSheetEmpty}>{t(language, 'programs.sheet.empty')}</Text>
             ) : (
@@ -724,7 +735,7 @@ function ProgramSheet({
               only real job is undoing the level filter, so it appears only
               when there is one to undo. */}
           {level !== null ? (
-            <View style={styles.catSheetCta}>
+            <View style={[styles.catSheetCta, { paddingBottom: 34 + bottomInset }]}>
               <Pressable
                 accessibilityRole="button"
                 onPress={() => setLevel(null)}
@@ -743,7 +754,6 @@ function ProgramSheet({
 }
 
 export function ProgramsHomeScreen({
-  activeProgramTitle = null,
   readerDaysPerWeek = null,
   readerLevel = null,
   catalogItems,
@@ -778,7 +788,9 @@ export function ProgramsHomeScreen({
 }: ProgramsHomeScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const [picked, setPicked] = useState<ProgramsExploreItem | null>(null);
+  // Read here, on the screen: inside ProgramSheet's own Modal
+  // useSafeAreaInsets itself always answers 0.
+  const insets = useSafeAreaInsets();
   /**
    * Which sheet is open, if any.
    *
@@ -798,8 +810,6 @@ export function ProgramsHomeScreen({
   const [allCategories, setAllCategories] = useState(false);
   // Where the season rows begin, measured rather than guessed — a hero CTA
   // that says "Open the season" has to actually arrive there.
-
-  const pickedStyle = picked ? picked.cover : null;
 
   // The open sheet's contents, drawn from the same sources the tiles count.
   // Resolved once, with the fallback here rather than on four props. Every
@@ -1333,63 +1343,6 @@ export function ProgramsHomeScreen({
         <View style={styles.bottomSafeFade} />
       </ScrollView>
 
-      <Modal visible={picked !== null} transparent animationType="slide" onRequestClose={() => setPicked(null)}>
-        <View style={styles.sheetOverlay}>
-          <Pressable style={styles.sheetScrim} onPress={() => setPicked(null)} />
-          <View style={styles.sheet}>
-            <View style={styles.sheetGrip} />
-            {picked && pickedStyle ? (
-              <>
-                <View style={styles.sheetHeaderRow}>
-                  <GradientTile stops={pickedStyle.tile} size={50} radius={14} />
-                  <View style={styles.sheetHeaderCopy}>
-                    <Text style={styles.sheetName} numberOfLines={1}>
-                      {picked.name}
-                    </Text>
-                    <Text style={styles.sheetMeta} numberOfLines={1}>
-                      {t(language, 'programs.switchSheet.meta', {
-                        days: picked.days,
-                        minutes: picked.minutes,
-                        goal: picked.goal,
-                      })}
-                    </Text>
-                  </View>
-                </View>
-                {/* This sheet shipped in English inside a Finnish screen, with
-                    an "or 'program'" fallback that named nothing. */}
-                <Text style={styles.sheetExplainer}>
-                  {activeProgramTitle
-                    ? t(language, 'programs.switchSheet.body', { name: activeProgramTitle })
-                    : t(language, 'programs.switchSheet.bodyNoActive')}
-                </Text>
-                <View style={styles.sheetButtonRow}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t(language, 'common.cancel')}
-                    onPress={() => setPicked(null)}
-                    style={({ pressed }) => [styles.sheetCancel, pressed && styles.pressed]}
-                  >
-                    <Text style={styles.sheetCancelText}>{t(language, 'common.cancel')}</Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t(language, 'programs.switchTo', { name: picked.name })}
-                    onPress={() => {
-                      const id = picked.id;
-                      setPicked(null);
-                      onOpenExploreProgram(id);
-                    }}
-                    style={({ pressed }) => [styles.sheetConfirm, pressed && styles.pressed]}
-                  >
-                    <Text style={styles.sheetConfirmText}>{t(language, 'programs.switchConfirm')}</Text>
-                  </Pressable>
-                </View>
-              </>
-            ) : null}
-          </View>
-        </View>
-      </Modal>
-
       <ProgramSheet
         visible={sheet !== null}
         onClose={() => setSheet(null)}
@@ -1398,6 +1351,7 @@ export function ProgramsHomeScreen({
         focus={sheetCategory ? t(language, sheetCategory.focusKey) : ''}
         tint={sheetCategory ? sheetCategory.tint : PROGRAM_CATEGORIES[0].tint}
         icon={sheetCategory ? sheetCategory.icon : PROGRAM_CATEGORIES[0].icon}
+        bottomInset={insets.bottom}
         items={sheetItems}
         readerDaysPerWeek={readerDaysPerWeek}
         readerLevel={readerLevel}
@@ -1425,6 +1379,7 @@ export function ProgramsHomeScreen({
         onOpenPaywall={onOpenPaywall}
         onBuildYourself={onCreateProgram}
         onImportProgram={onImportProgram}
+        bottomInset={insets.bottom}
       />
     </View>
   );
@@ -2291,8 +2246,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   catSheetListInner: {
     paddingHorizontal: 18,
-    // Clears the pinned CTA below.
-    paddingBottom: 108,
+    // The bottom clearance is set where the list is drawn: it has to grow
+    // with the CTA below it, which carries the navigation-bar inset.
     gap: 10,
   },
   catSheetEmpty: {
@@ -2350,55 +2305,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 3,
     backgroundColor: theme.border,
     marginBottom: 16,
-  },
-  sheetHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 13,
-  },
-  sheetHeaderCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  sheetName: {
-    color: theme.ink,
-    fontSize: 18,
-    lineHeight: 23,
-    fontWeight: '800',
-  },
-  sheetMeta: {
-    marginTop: 2,
-    color: theme.muted,
-    fontSize: 12.5,
-    lineHeight: 16,
-    fontWeight: '700',
-  },
-  sheetExplainer: {
-    marginTop: 15,
-    marginHorizontal: 2,
-    color: theme.muted,
-    fontSize: 13.5,
-    lineHeight: 21,
-    fontWeight: '600',
-  },
-  sheetButtonRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 16,
-  },
-  sheetCancel: {
-    flex: 1,
-    height: 50,
-    borderRadius: 14,
-    backgroundColor: theme.purpleSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sheetCancelText: {
-    color: theme.ink,
-    fontSize: 15,
-    lineHeight: 19,
-    fontWeight: '800',
   },
   sheetConfirm: {
     flex: 1.4,

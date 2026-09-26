@@ -869,6 +869,7 @@ export function WorkoutCompletionScreen({
           visible={momentSheetVisible}
           content={lockedInsight.moment}
           language={language}
+          bottomInset={insets.bottom}
           onClose={() => setMomentSheetVisible(false)}
           onSeePro={() => {
             setMomentSheetVisible(false);

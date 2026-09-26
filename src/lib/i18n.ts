@@ -2729,7 +2729,6 @@ const EN = {
   'programs.cat.mobility': 'Mobility',
   'programs.cat.focus': 'Muscle group',
   'programs.cat.beginner': 'Beginners',
-  'programs.switchConfirm': 'Switch program',
   'programs.switchTo': 'Switch to {name}',
   'programs.viewAll': 'View all',
   'programs.showLess': 'Show less',
@@ -2904,9 +2903,6 @@ const EN = {
   'programs.affinity.sameDays': 'Fits your {days} days',
   'programs.affinity.lighterWeek': 'Lighter week: {days} days',
   // The switch sheet. This shipped in English inside a Finnish screen.
-  'programs.switchSheet.meta': '{days} days / week · ~{minutes} min · {goal}',
-  'programs.switchSheet.body': 'Switching starts a fresh block. Your progress in {name} stays in your history — you can come back to it any time.',
-  'programs.switchSheet.bodyNoActive': 'Switching starts a fresh block. Everything you have already logged stays in your history.',
   // ── Program detail screen ─────────────────────────────────────────────
   'detail.level.beginner': 'AMATEUR',
   'detail.level.intermediate': 'ADVANCED',
@@ -5747,7 +5743,6 @@ const FI: Record<I18nKey, string> = {
   'programs.cat.mobility': 'Liikkuvuus',
   'programs.cat.focus': 'Lihasryhmä',
   'programs.cat.beginner': 'Aloittelijat',
-  'programs.switchConfirm': 'Vaihda ohjelma',
   'programs.switchTo': 'Vaihda ohjelmaan {name}',
   'programs.viewAll': 'Näytä kaikki',
   'programs.showLess': 'Näytä vähemmän',
@@ -5899,9 +5894,6 @@ const FI: Record<I18nKey, string> = {
   'programs.affinity.sameGoalOtherSplit': 'Sama tavoite, {days} päivää viikossa',
   'programs.affinity.sameDays': 'Sopii {days} päivään',
   'programs.affinity.lighterWeek': 'Kevyempi viikko: {days} päivää',
-  'programs.switchSheet.meta': '{days} päivää / viikko · ~{minutes} min · {goal}',
-  'programs.switchSheet.body': 'Vaihto aloittaa uuden jakson. Edistymisesi ohjelmassa {name} säilyy historiassa — voit palata siihen milloin vain.',
-  'programs.switchSheet.bodyNoActive': 'Vaihto aloittaa uuden jakson. Kaikki jo kirjaamasi säilyy historiassa.',
   // ── Program detail screen ─────────────────────────────────────────────
   'detail.level.beginner': 'AMATEUR',
   'detail.level.intermediate': 'ADVANCED',

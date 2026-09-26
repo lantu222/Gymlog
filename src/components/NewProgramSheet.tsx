@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { buildDraftFromCsvPreview, CsvLibraryEntry, parseCsvProgram } from '../lib/csvProgramImport';
 import { countKnownNames } from '../lib/exerciseNameBook';
@@ -96,6 +95,11 @@ interface NewProgramSheetProps {
    * it is the caller's job; this sheet only re-parses once it comes back.
    */
   onTeachName?: (wrote: string, exercise: CsvLibraryEntry) => Promise<void> | void;
+  /**
+   * Safe-area inset, read on the screen that mounts this sheet — inside this
+   * Modal, `useSafeAreaInsets` itself always answers 0 (#bugs 2026-08-28).
+   */
+  bottomInset: number;
 }
 
 function OptionIcon({ name }: { name: 'spark' | 'build' | 'table' | 'layers' }) {
@@ -145,6 +149,7 @@ export function NewProgramSheet({
   language = 'en',
   exerciseLibrary,
   initialView = 'menu',
+  bottomInset,
   onClose,
   onAiAssisted,
   onBuildYourself,
@@ -163,7 +168,6 @@ export function NewProgramSheet({
   // The sheet sits on the system navigation bar. Its own 28dp used to be the
   // whole bottom padding, so on a phone with three-button navigation the last
   // option ("Tuo CSV") sat under the buttons.
-  const insets = useSafeAreaInsets();
   const [view, setView] = useState<'menu' | 'csv'>(initialView);
   /*
    * A wall, not a label (user, 2026-09-01, reversing my own call of the same
@@ -330,7 +334,7 @@ export function NewProgramSheet({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <Pressable style={styles.scrim} onPress={handleClose} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.panelWrap} pointerEvents="box-none">
-        <View style={[styles.panel, view === 'csv' && styles.panelTall, { paddingBottom: 28 + insets.bottom }]}>
+        <View style={[styles.panel, view === 'csv' && styles.panelTall, { paddingBottom: 28 + bottomInset }]}>
           <View style={styles.grabHandle} />
           <View style={styles.headerRow}>
             {view !== initialView ? (

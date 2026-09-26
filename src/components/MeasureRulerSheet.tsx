@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { RulerPicker } from './RulerPicker';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { formatShortDate, removeTrailingZeros } from '../lib/format';
 import { I18nKey, t } from '../lib/i18n';
@@ -32,15 +31,19 @@ interface SheetShellProps {
   visible: boolean;
   /** Required, not defaulted: the backdrop needs a label a reader can hear. */
   language: AppLanguage;
+  /**
+   * Safe-area inset, read on the SCREEN that mounts this sheet — inside this
+   * Modal, `useSafeAreaInsets` itself always answers 0 (#bugs 2026-08-28).
+   */
+  bottomInset: number;
   onClose: () => void;
   children: React.ReactNode;
 }
 
-function SheetShell({ visible, language, onClose, children }: SheetShellProps) {
+function SheetShell({ visible, language, bottomInset, onClose, children }: SheetShellProps) {
   const styles = useThemedStyles(makeStyles);
   // Without the inset the action row sits UNDER the system navigation bar and
   // Save is unreachable — the same failure the programme detail footer had.
-  const insets = useSafeAreaInsets();
   const slide = useRef(new Animated.Value(0)).current;
   const translateY = useRef(slide.interpolate({ inputRange: [0, 1], outputRange: [460, 0] })).current;
 
@@ -80,7 +83,7 @@ function SheetShell({ visible, language, onClose, children }: SheetShellProps) {
           onPress={onClose}
         />
         <Animated.View style={{ transform: [{ translateY }] }}>
-          <View style={[styles.sheet, { paddingBottom: insets.bottom + 22 }]}>{children}</View>
+          <View style={[styles.sheet, { paddingBottom: bottomInset + 22 }]}>{children}</View>
         </Animated.View>
       </View>
     </Modal>
@@ -136,6 +139,8 @@ interface WeightLogSheetProps {
   initialKg: number;
   /** ISO date the entry will carry. Shown as a pill so it is never a surprise. */
   dateIso: string;
+  /** Safe-area inset, read on the screen and passed through to SheetShell. */
+  bottomInset: number;
   onCancel: () => void;
   onSave: (weightKg: number) => void;
 }
@@ -145,6 +150,7 @@ export function WeightLogSheet({
   language,
   initialKg,
   dateIso,
+  bottomInset,
   onCancel,
   onSave,
 }: WeightLogSheetProps) {
@@ -160,7 +166,7 @@ export function WeightLogSheet({
   }, [visible, initialKg]);
 
   return (
-    <SheetShell visible={visible} language={language} onClose={onCancel}>
+    <SheetShell visible={visible} language={language} bottomInset={bottomInset} onClose={onCancel}>
       <View style={styles.titleRow}>
         <Text style={styles.title}>{t(language, 'weightLog.title')}</Text>
         <View style={styles.datePill}>
@@ -212,6 +218,8 @@ interface MeasureLogSheetProps {
   /** Opens on the last reading; the common edit is a small one. */
   initialValue: number;
   dateIso: string;
+  /** Safe-area inset, read on the screen and passed through to SheetShell. */
+  bottomInset: number;
   onCancel: () => void;
   onSave: (value: number) => void;
 }
@@ -237,6 +245,7 @@ export function MeasureLogSheet({
   unit,
   initialValue,
   dateIso,
+  bottomInset,
   onCancel,
   onSave,
 }: MeasureLogSheetProps) {
@@ -251,7 +260,7 @@ export function MeasureLogSheet({
   }, [visible, initialValue]);
 
   return (
-    <SheetShell visible={visible} language={language} onClose={onCancel}>
+    <SheetShell visible={visible} language={language} bottomInset={bottomInset} onClose={onCancel}>
       <View style={styles.titleRow}>
         <Text style={styles.title}>{title}</Text>
         <View style={styles.datePill}>
@@ -282,6 +291,8 @@ interface BmiEditSheetProps {
   language: AppLanguage;
   initialKg: number;
   initialHeightCm: number;
+  /** Safe-area inset, read on the screen and passed through to SheetShell. */
+  bottomInset: number;
   onCancel: () => void;
   onSave: (next: { weightKg: number; heightCm: number }) => void;
 }
@@ -291,6 +302,7 @@ export function BmiEditSheet({
   language,
   initialKg,
   initialHeightCm,
+  bottomInset,
   onCancel,
   onSave,
 }: BmiEditSheetProps) {
@@ -306,7 +318,7 @@ export function BmiEditSheet({
   }, [visible, initialKg, initialHeightCm]);
 
   return (
-    <SheetShell visible={visible} language={language} onClose={onCancel}>
+    <SheetShell visible={visible} language={language} bottomInset={bottomInset} onClose={onCancel}>
       <Text style={styles.title}>{t(language, 'bmi.title')}</Text>
 
       <Text style={styles.fieldLabel}>{t(language, 'weightCard.title')}</Text>

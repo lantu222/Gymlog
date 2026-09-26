@@ -2314,6 +2314,7 @@ export function HomeScreen({
           visible={plateauSheetVisible}
           content={plateau.moment}
           language={language}
+          bottomInset={insets.bottom}
           onClose={() => setPlateauSheetVisible(false)}
           onSeePro={() => {
             setPlateauSheetVisible(false);

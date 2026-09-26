@@ -314,7 +314,12 @@ module.exports = [
       // the queue itself (lib/homePrompts), the widget card at its own gate.
       const queue = app.slice(app.indexOf('const homePrompt = resolveHomePrompt('), app.indexOf('});', app.indexOf('const homePrompt = resolveHomePrompt(')));
       assert.match(queue, /tourActive: homeTourActive/);
-      const homeJsx = app.slice(app.indexOf('<HomeScreen'), app.indexOf('<NewProgramSheet'));
+      // The settings CSV sheet is `<SettingsImportSheet>` in VinhaApp's own
+      // JSX now — a thin wrapper that reads the bottom inset outside its
+      // Modal and hands it to NewProgramSheet (#bugs 2026-08-28 pattern) —
+      // so that is the boundary, not the (still-present, just relocated)
+      // `<NewProgramSheet` inside the wrapper's own body.
+      const homeJsx = app.slice(app.indexOf('<HomeScreen'), app.indexOf('<SettingsImportSheet'));
       assert.match(homeJsx, /!homeTourActive && homeWidgetState\?\.supported/);
       assert.match(homeJsx, /tourTargets=\{tourRegistry\}/);
       const prompts = stripComments(read('src/lib/homePrompts.ts'));

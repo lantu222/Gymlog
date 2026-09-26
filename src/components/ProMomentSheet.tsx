@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, LayoutChangeEvent, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Stop } from 'react-native-svg';
 
 import { CutSurface } from './CutSurface';
@@ -29,13 +28,17 @@ interface ProMomentSheetProps {
   visible: boolean;
   content: ProMomentContent | null;
   language: AppLanguage;
+  /**
+   * Safe-area inset, read on the screen that mounts this sheet — inside this
+   * Modal, `useSafeAreaInsets` itself always answers 0 (#bugs 2026-08-28).
+   */
+  bottomInset: number;
   onClose: () => void;
   onSeePro: () => void;
 }
 
-export function ProMomentSheet({ visible, content, language, onClose, onSeePro }: ProMomentSheetProps) {
+export function ProMomentSheet({ visible, content, language, bottomInset, onClose, onSeePro }: ProMomentSheetProps) {
   const styles = useThemedStyles(makeStyles);
-  const insets = useSafeAreaInsets();
   const [box, setBox] = useState({ width: 0, height: 0 });
   const onLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -69,7 +72,7 @@ export function ProMomentSheet({ visible, content, language, onClose, onSeePro }
         <Animated.View style={{ transform: [{ translateY: slideTranslate }] }}>
           <Pressable
             onPress={() => undefined}
-            style={[styles.sheet, { paddingBottom: insets.bottom + 22 }]}
+            style={[styles.sheet, { paddingBottom: bottomInset + 22 }]}
             onLayout={onLayout}
           >
             {box.width > 0 && box.height > 0 ? (
