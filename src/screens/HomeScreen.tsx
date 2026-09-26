@@ -40,7 +40,8 @@ import {
 import { AnimatedGreeting } from '../components/AnimatedGreeting';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
-import { buildSwapShortlist } from '../lib/swapShortlist';
+import { buildSwapLibraryMatches, buildSwapShortlist } from '../lib/swapShortlist';
+import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { localizeSessionFocus, localizeSessionName, localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { weekdayCodeForDate, weekdayLabel } from '../lib/planWeekdays';
 import { I18nKey, t } from '../lib/i18n';
@@ -52,7 +53,7 @@ import { ProLockedCard } from '../components/ProLockedCard';
 import { ProMomentSheet } from '../components/ProMomentSheet';
 import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemedStyles } from '../theming';
-import { AppLanguage, CardioActivityType } from '../types/models';
+import { AppLanguage, CardioActivityType, ExerciseLibraryItem } from '../types/models';
 import { queryReduceMotion } from '../utils/reduceMotion';
 
 // The Home Pro sheet is gone (design: Vinha Paywall Moments): contextual
@@ -414,6 +415,8 @@ interface HomeScreenProps {
   onKeepSwapInProgram?: (exerciseId: string, exerciseName: string) => void;
   /** Ranks the swap list the same way the player does. */
   tailoringPreferences?: TailoringPreferencesInput | null;
+  /** What the swap search reaches once the shortlist runs out. */
+  exerciseLibrary?: ExerciseLibraryItem[];
 }
 
 export function HomeScreen({
@@ -465,6 +468,7 @@ export function HomeScreen({
   onRemoveSessionExercise,
   onKeepSwapInProgram,
   tailoringPreferences = null,
+  exerciseLibrary,
 }: HomeScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -736,6 +740,29 @@ export function HomeScreen({
       ),
     };
   }, [nextPlanSession, swapSlotId, sessionSwaps, tailoringPreferences, swapQuery, language]);
+
+  /**
+   * The whole library, once something is typed. The shortlist is the slot's
+   * substitution group — "penkkipunnerrus" was nowhere in it for a cable row,
+   * and a reader who names a lift has made the choice (#bugs 2026-09-23).
+   */
+  const swapPopularOrder = useMemo(() => getPopularExerciseLibraryOrder(exerciseLibrary ?? []), [exerciseLibrary]);
+  const swapLibraryMatches = useMemo(() => {
+    if (!swapRow.currentName || !exerciseLibrary) {
+      return [];
+    }
+    return buildSwapLibraryMatches(exerciseLibrary, swapQuery, language, {
+      exclude: [
+        swapRow.currentName,
+        ...swapRow.shortlist.variations.map((option) => option.exerciseName),
+        ...swapRow.shortlist.related.map((option) => option.exerciseName),
+        ...(nextPlanSession?.exercises ?? []).map(
+          (item) => (item.slotId ? sessionSwaps[item.slotId] : undefined) ?? item.name,
+        ),
+      ],
+      popularOrder: swapPopularOrder,
+    });
+  }, [exerciseLibrary, language, nextPlanSession, sessionSwaps, swapPopularOrder, swapQuery, swapRow]);
 
   // --- Animations -----------------------------------------------------------
 
@@ -2162,26 +2189,32 @@ export function HomeScreen({
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          {swapQuery.trim() && swapRow.shortlist.total === 0 && swapLibraryMatches.length === 0 ? (
+            <Text style={styles.swapEmpty}>{t(language, 'home.swapSheet.noMatches')}</Text>
+          ) : null}
           {([
-            { key: 'home.swapSheet.variations' as const, rows: swapRow.shortlist.variations },
-            { key: 'home.swapSheet.related' as const, rows: swapRow.shortlist.related },
+            { key: 'home.swapSheet.variations' as const, rows: swapRow.shortlist.variations.map((option) => option.exerciseName) },
+            { key: 'home.swapSheet.related' as const, rows: swapRow.shortlist.related.map((option) => option.exerciseName) },
+            { key: 'home.swapSheet.library' as const, rows: swapLibraryMatches.map((item) => item.name) },
           ]).map((section) =>
             section.rows.length === 0 ? null : (
               <View key={section.key}>
-                {/* Named only when both halves are there — one heading over
-                    the whole list labels nothing. */}
-                {swapRow.shortlist.variations.length > 0 && swapRow.shortlist.related.length > 0 ? (
+                {/* Named only when there is more than one group — one heading
+                    over the whole list labels nothing. */}
+                {[
+                  swapRow.shortlist.variations.length,
+                  swapRow.shortlist.related.length,
+                  swapLibraryMatches.length,
+                ].filter((count) => count > 0).length > 1 ? (
                   <KitGroupLabel>{t(language, section.key)}</KitGroupLabel>
                 ) : null}
-                {section.rows.map((option) => (
+                {section.rows.map((exerciseName) => (
                   <KitRow
-                    key={option.exerciseName}
-                    title={exerciseNameLabel(language, option.exerciseName)}
-                    state={swapPickName === option.exerciseName ? 'sel' : 'idle'}
+                    key={exerciseName}
+                    title={exerciseNameLabel(language, exerciseName)}
+                    state={swapPickName === exerciseName ? 'sel' : 'idle'}
                     onPress={() =>
-                      setSwapPickName((current) =>
-                        current === option.exerciseName ? null : option.exerciseName,
-                      )
+                      setSwapPickName((current) => (current === exerciseName ? null : exerciseName))
                     }
                   />
                 ))}
@@ -3272,6 +3305,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   // The kit's lists carry their own horizontal padding: the sheet shell pads
   // only its header, so a full-bleed list can scroll under it.
   kitListPad: { paddingHorizontal: 18, paddingBottom: 6 },
+  swapEmpty: {
+    color: theme.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '600',
+    paddingVertical: 12,
+  },
   todayList: {
     marginTop: 4,
     // Capped so a six-session program cannot push the list off the sheet and

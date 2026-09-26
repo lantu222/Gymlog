@@ -2,10 +2,13 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { buildSwapShortlist, movementHead } = require('../../.test-dist/lib/swapShortlist.js');
+const { buildSwapLibraryMatches, buildSwapShortlist, movementHead } = require('../../.test-dist/lib/swapShortlist.js');
 const { buildSwapOptionsForSlot } = require('../../.test-dist/lib/tailoringFit.js');
 
-const read = (relative) => fs.readFileSync(path.join(__dirname, '../..', relative), 'utf8');
+// Line endings normalised: a Windows checkout is CRLF, and the App.tsx anchor
+// below spans a line break.
+const read = (relative) =>
+  fs.readFileSync(path.join(__dirname, '../..', relative), 'utf8').split('\r\n').join('\n');
 
 module.exports = [
   {
@@ -164,6 +167,70 @@ module.exports = [
       assert.match(day, /styles\.swapRemoveText, \{ color: theme\.danger \}/);
       for (const source of [home, day]) {
         assert.doesNotMatch(source, /color: '#(?:ff0000|f00)'/i, 'a literal red would ignore the dark theme');
+      }
+    },
+  },
+  {
+    /**
+     * The swap search reaches the whole library, on Home as well.
+     *
+     * "haluisin penkkipunnerruksen tähän mutta sitä ei saa" (#bugs
+     * 2026-09-23): Home's swap sheet searched only the slot's substitution
+     * group, so a lift from another area could not be named at all. The
+     * programme day had been fixed for the same report a month earlier, in its
+     * own copy of the code, and Home never got it.
+     */
+    name: 'swap search: a typed name reaches the whole library, best answer first',
+    run() {
+      const { GENERATED_EXERCISE_LIBRARY: library } = require('../../.test-dist/data/generatedExerciseLibrary.js');
+      const { getPopularExerciseLibraryOrder } = require('../../.test-dist/lib/exerciseSuggestions.js');
+      const popularOrder = getPopularExerciseLibraryOrder(library);
+
+      // Nothing typed, nothing added: the shortlist is the answer.
+      assert.deepEqual(buildSwapLibraryMatches(library, '   ', 'fi', { popularOrder }), []);
+
+      // The report's own case: a row being swapped, "penkki" typed.
+      const matches = buildSwapLibraryMatches(library, 'penkki', 'fi', {
+        exclude: ['Seated Cable Rows'],
+        popularOrder,
+      });
+      assert.equal(matches[0]?.name, 'Barbell Bench Press - Medium Grip', 'the bench press is not the first answer');
+      assert.ok(matches.length <= 12, 'the list is a search result, not the library');
+
+      // What is already on screen or in the session is not offered twice —
+      // matched on identity, so the other spelling of it is left out too.
+      const excluded = buildSwapLibraryMatches(library, 'penkki', 'fi', {
+        exclude: ['medium grip bench press - barbell'],
+        popularOrder,
+      });
+      assert.ok(!excluded.some((item) => item.name === 'Barbell Bench Press - Medium Grip'));
+
+      // English works too: the library is English underneath.
+      assert.equal(
+        buildSwapLibraryMatches(library, 'bench press', 'en', { popularOrder })[0]?.name,
+        'Barbell Bench Press - Medium Grip',
+      );
+    },
+  },
+  {
+    // Both swap sheets draw the library section, and both are handed a
+    // library to draw it from. Anchored on the <HomeScreen …/> element in
+    // App.tsx: the prop name appears all over that file, and a guard that
+    // counted it anywhere would pass without Home ever receiving it.
+    name: 'swap search: Home and the programme day both search the library',
+    run() {
+      const app = read('App.tsx');
+      const homeAt = app.indexOf('<HomeScreen');
+      assert.ok(homeAt > 0, 'HomeScreen is no longer rendered from App.tsx — recheck by hand');
+      const homeEnd = app.indexOf('\n      />', homeAt);
+      assert.ok(homeEnd > homeAt, 'the HomeScreen element was restructured — recheck by hand');
+      assert.match(app.slice(homeAt, homeEnd), /\n        exerciseLibrary=\{exerciseBrowserItems\}/);
+
+      for (const screen of ['src/screens/HomeScreen.tsx', 'src/screens/ProgramDayScreen.tsx']) {
+        const source = read(screen);
+        assert.match(source, /buildSwapLibraryMatches\(exerciseLibrary, swapQuery, language,/, `${screen} does not search the library`);
+        assert.match(source, /'home\.swapSheet\.library'/, `${screen} does not draw the library section`);
+        assert.match(source, /'home\.swapSheet\.noMatches'/, `${screen} says nothing when nothing matches`);
       }
     },
   },
