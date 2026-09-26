@@ -58,7 +58,7 @@ module.exports = [
   {
     name: 'commitRollsBack: a preference the disk refused is not left switched on',
     run() {
-      const update = functionBody(read('src', 'state', 'AppProvider.tsx'), 'function updatePreferences(patch: Partial<AppPreferences>)');
+      const update = functionBody(read('src', 'state', 'AppProvider.tsx'), 'function updatePreferences(patch: PreferencesPatch)');
       assert.match(
         update,
         /try \{\s*await savePreferences\(next\.preferences\);\s*\} catch \(error\) \{\s*databaseRef\.current = current;\s*setDatabase\(current\);\s*throw error;\s*\}/,

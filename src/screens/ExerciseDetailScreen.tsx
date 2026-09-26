@@ -225,26 +225,6 @@ export function ExerciseDetailScreen({
 }: ExerciseDetailScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const [toast, setToast] = useState<string | null>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(
-    () => () => {
-      if (toastTimer.current) {
-        clearTimeout(toastTimer.current);
-      }
-    },
-    [],
-  );
-
-  const flash = (message: string) => {
-    setToast(message);
-    if (toastTimer.current) {
-      clearTimeout(toastTimer.current);
-    }
-    toastTimer.current = setTimeout(() => setToast(null), 1700);
-  };
-
   /**
    * What is written about this lift, beyond the order of the steps.
    *
@@ -600,12 +580,6 @@ export function ExerciseDetailScreen({
 
         <Text style={styles.footnote}>{t(language, 'exDetail.footnote')}</Text>
       </ScrollView>
-
-      {toast ? (
-        <View pointerEvents="none" style={styles.toast}>
-          <Text style={styles.toastText}>{toast}</Text>
-        </View>
-      ) : null}
 
       {/*
         No "Add to workout" bar.
@@ -1106,22 +1080,5 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
     marginTop: 16,
-  },
-  toast: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 92,
-    alignItems: 'center',
-  },
-  toastText: {
-    backgroundColor: 'rgba(20,12,38,0.94)',
-    color: '#FFFFFF',
-    fontSize: 12.5,
-    fontWeight: '700',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 999,
-    overflow: 'hidden',
   },
 });

@@ -110,10 +110,12 @@ module.exports = [
     },
   },
   {
-    name: 'typed: the body-weight editor opens in the decimal mark its row is written in',
+    name: 'typed: My Data parses what is typed with the shared parser',
     run() {
+      // Its weight editor is gone (the row opens the weigh-in log, audit 7);
+      // height is still typed, and goes through the same parser.
       const screen = strip(read('src', 'screens', 'MyDataScreen.tsx'));
-      assert.match(screen, /setDraftValue\(formatWeightInputValue\(preferences\.setupCurrentWeightKg\)\);/);
+      assert.match(screen, /const parsed = parseNumberInput\(draftValue\);/);
       assert.doesNotMatch(screen, /Number\(draftValue\.replace/);
     },
   },

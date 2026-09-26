@@ -437,7 +437,7 @@ export function getTrackedExerciseProgress(database: AppDatabase): ExerciseProgr
     });
 }
 
-export function getBodyweightProgress(database: AppDatabase): BodyweightProgressSummary {
+export function getBodyweightProgress(database: Pick<AppDatabase, 'bodyweightEntries'>): BodyweightProgressSummary {
   const entries = [...database.bodyweightEntries].sort(
     (left, right) => new Date(right.recordedAt).getTime() - new Date(left.recordedAt).getTime(),
   );

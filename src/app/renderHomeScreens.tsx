@@ -458,7 +458,12 @@ export function renderHomeScreens(deps: HomeScreensDeps): React.ReactElement | n
         analysis={sessionAnalysis}
         language={preferences.appLanguage}
         onBack={() => navigateBack(ROOT_ROUTES.home)}
-        onAskCoach={() => navigate({ tab: 'home', screen: 'ai_chat' })}
+        // Back to the chat that opened this page, not a second one on top of
+        // it: pushing left chat → analysis → chat, so back replayed the
+        // analysis and took three presses to reach Home (audit 7, 2026-09-26).
+        // The analysis is only opened from the chat; the fallback covers a
+        // history that is somehow empty.
+        onAskCoach={() => navigateBack({ tab: 'home', screen: 'ai_chat' })}
       />
     );
   }

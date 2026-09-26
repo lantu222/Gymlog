@@ -1086,8 +1086,6 @@ function VinhaApp() {
   const [onboardingStep, setOnboardingStep] = useState<
     'path' | 'about' | 'questionnaire' | 'ready_catalog'
   >('path');
-  // Both start paths share about-you (profile creation); they fork after.
-  const [onboardingPath, setOnboardingPath] = useState<'build' | 'ready'>('build');
   // The funnel's spine: which onboarding stage was reached. If half of every
   // install stops at one stage, that stage is the finding — the question this
   // whole event pipe exists to answer (user, 2026-08-25).
@@ -1143,7 +1141,6 @@ function VinhaApp() {
   useEffect(() => {
     if (preferences.onboardingCompleted || !preferences.entryFlowCompleted) {
       setOnboardingStep('path');
-      setOnboardingPath('build');
       setAboutYouValues(null);
     }
   }, [preferences.entryFlowCompleted, preferences.onboardingCompleted]);
@@ -4235,8 +4232,21 @@ function VinhaApp() {
   const setupSelectionKey = buildSetupSeedKey(preferences);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const setupSelection = useMemo(() => buildSetupSelectionFromPreferences(preferences), [setupSelectionKey]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const setupBasics = useMemo(() => buildSetupBasicsFromPreferences(preferences), [setupSelectionKey]);
+  // What the setup questionnaire opens on: the same answers, with the weight
+  // from the weigh-in log rather than what setup was last told. Only the
+  // questionnaire — the recommendation and the composed onboarding week stay
+  // on `setupSelection`, so a weigh-in never reshapes a running programme.
+  const latestWeighInKg = bodyweightProgress.latest?.weight ?? null;
+  const setupEditSelection = useMemo(
+    () => buildSetupSelectionFromPreferences(preferences, latestWeighInKg),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [setupSelectionKey, latestWeighInKg],
+  );
+  const setupBasics = useMemo(
+    () => buildSetupBasicsFromPreferences(preferences, latestWeighInKg),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [setupSelectionKey, latestWeighInKg],
+  );
   const tailoringKey = JSON.stringify([
     preferences.setupBodyweightPreference, preferences.setupElbowFriendlySwaps, preferences.setupEquipment,
     preferences.setupFreeWeightsPreference, preferences.setupKneeFriendlySwaps, preferences.setupMachinesPreference,
@@ -6833,7 +6843,6 @@ function VinhaApp() {
           // v2 under Settings, and as an export of finished workouts rather
           // than an import of body stats.
           onGuidedOnboarding={() => {
-            setOnboardingPath('build');
             setOnboardingStep('about');
           }}
           /**
@@ -6876,7 +6885,6 @@ function VinhaApp() {
             // needs the answers: handleOnboardingPickReadyProgram already
             // reads every basic through `aboutYouValues?.` and stores null.
             // The profile is filled in later, from Settings.
-            setOnboardingPath('ready');
             setOnboardingStep('ready_catalog');
           }}
           onBack={() => void handleBackToEntry()}
@@ -6889,7 +6897,9 @@ function VinhaApp() {
           initialValues={aboutYouValues}
           onContinue={(values) => {
             setAboutYouValues(values);
-            setOnboardingStep(onboardingPath === 'ready' ? 'ready_catalog' : 'questionnaire');
+            // Only the build path opens About; the ready path goes from the
+            // fork straight to the catalogue.
+            setOnboardingStep('questionnaire');
           }}
           onBack={() => setOnboardingStep('path')}
         />
@@ -6983,8 +6993,8 @@ function VinhaApp() {
         // here, and finishing wrote those over their My Data — gender, age,
         // height, weight, rhythm (2026-09-17). They get what they entered as
         // basics, and the questions open unanswered.
-        initialSelection={setupSelection}
-        basicsSeed={setupSelection ? null : setupBasics}
+        initialSelection={setupEditSelection}
+        basicsSeed={setupEditSelection ? null : setupBasics}
         initialStage={route.stage ?? (setupSelection ? 'review' : 'location')}
         initialUnitPreference={unitPreference}
         language={preferences.appLanguage}
@@ -7258,6 +7268,7 @@ function VinhaApp() {
       upsertWorkoutTemplate,
       exportablePlans,
       database,
+      latestWeighInKg,
       settingsScrollOffsetRef,
       homeWidgetState,
       handleAddHomeWidget,

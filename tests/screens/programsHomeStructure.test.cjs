@@ -400,16 +400,18 @@ module.exports = [
 
       // The cost of that is real and stays measured: the coach answers a brief
       // naming a days-per-week with a matching ready programme, free, before
-      // its own Pro gate. This row no longer reaches it — Home's own "ask the
-      // coach" still does, and that is what keeps the free answer reachable.
+      // its own Pro gate. This row no longer reaches it — the tab bar's middle
+      // button still does, for everyone, and that is what keeps the free
+      // answer reachable. (This used to pin the session analysis's "ask the
+      // coach", which is itself behind Pro — the wrong door; audit 7.)
       const chat = read('src', 'screens', 'AICoachChatScreen.tsx');
       const catalogFirst = chat.indexOf('shouldOfferCatalogInstead(signals)');
       const proGate = chat.indexOf('if (!proUnlocked) {');
       assert.ok(catalogFirst > 0 && proGate > 0, 'the compose handler was restructured — recheck by hand');
       assert.ok(catalogFirst < proGate, 'the free catalog answer no longer runs before the Pro gate');
       assert.match(
-        read('src', 'app', 'renderHomeScreens.tsx'),
-        /onAskCoach=\{\(\) => navigate\(\{ tab: 'home', screen: 'ai_chat' \}\)\}/,
+        read('App.tsx'),
+        /<BottomTabBar[\s\S]{0,900}onAiPress=\{\(\) => navigate\(\{ tab: 'home', screen: 'ai_chat' \}\)\}/,
         'Home lost the ungated door to the coach, so the free answer has none',
       );
 
