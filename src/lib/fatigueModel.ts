@@ -132,7 +132,15 @@ export function buildFatigueModel(input: FatigueModelInput, referenceDate?: Date
     acwr: Math.round(acwr * 100) / 100,
     recoveryScore: computeRecoveryScore(acwr),
     signal: resolveSignal(acwr),
-    sessionCount7d: sessions7d.length,
+    // Counted over the seven calendar days, today and the six before it — the
+    // days the recovery sheet draws as its week. The load stays on the
+    // rolling window above; a count off that window reached into an eighth
+    // date, and the row read "2 sessions" over a week strip with one lit day
+    // (audit 9, 2026-09-26).
+    sessionCount7d: sessions28d.filter((s) => {
+      const d = new Date(s.performedAt);
+      return d >= new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+    }).length,
     sessionCount28d: sessions28d.length,
     confident,
   };
