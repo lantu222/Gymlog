@@ -114,6 +114,47 @@ module.exports = [
     },
   },
   {
+    /**
+     * The subscription sheets fit above the navigation keys, and the billing
+     * and payment sheets say only their title (#bugs 2026-09-23).
+     *
+     * Every sheet's Close sat under the phone's navigation bar: the sheet is a
+     * Modal, and inside one this app measures the bottom inset as zero. The
+     * inset is read on the screen and handed down — a sheet that measured its
+     * own would compile, render, and still be covered.
+     */
+    name: 'subscription sheets: every one clears the navigation bar, and two say only their title',
+    run() {
+      const sheet = stripComments(read('src', 'components', 'SubscriptionSheet.tsx'));
+      assert.match(sheet, /bottomInset: number;/, 'the inset is optional again');
+      assert.match(sheet, /style=\{\[styles\.sheet, \{ paddingBottom: 20 \+ bottomInset \}\]\}/);
+      assert.doesNotMatch(sheet, /useSafeAreaInsets/, 'measured inside the Modal it is zero');
+
+      const screen = stripComments(read('src', 'screens', 'SubscriptionScreen.tsx'));
+      assert.match(screen, /const insets = useSafeAreaInsets\(\);/);
+      const opened = countIn(screen, '<SubscriptionSheet');
+      assert.ok(opened >= 4, `expected the four sheets, found ${opened}`);
+      assert.equal(countIn(screen, 'bottomInset={insets.bottom}'), opened, 'a sheet was left under the navigation bar');
+
+      // Title only, as asked: no line under it and no fine print below.
+      for (const [open, close] of [
+        ["title={t(language, 'subs.term.title')}", "title={t(language, 'subs.pay.title')}"],
+        ["title={t(language, 'subs.pay.title')}", "title={t(language, 'subs.receipts.title')}"],
+      ]) {
+        const block = between(screen, open, close);
+        assert.doesNotMatch(block, /\bsub=\{/, `${open} has a subtitle again`);
+        assert.doesNotMatch(block, /footer=|'subs\.(term|pay)\.foot'/, `${open} has fine print again`);
+      }
+      // "This is your current period" said what the NYKYINEN badge says.
+      for (const key of ['subs.term.same', 'subs.term.sub', 'subs.term.foot', 'subs.pay.sub', 'subs.pay.foot']) {
+        assert.equal(countIn(i18n, `'${key}':`), 0, `${key} is back`);
+      }
+      // The change note stays: when the new period lands is not on screen
+      // anywhere else.
+      assert.match(screen, /termDraft !== mockTerm \? \(\s*<Text style=\{styles\.sheetNote\}>/);
+    },
+  },
+  {
     name: 'unlock moment: a trial gets the trial receipt, not a renewal price',
     run() {
       const tab = stripComments(read('src', 'app', 'renderProfileTab.tsx'));
