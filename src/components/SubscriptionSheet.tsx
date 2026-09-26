@@ -8,8 +8,12 @@ interface SubscriptionSheetProps {
   title: string;
   /** One line under the title. Omitted when the list explains itself. */
   sub?: string | null;
-  /** Fine print under the content — where the money actually goes. */
-  footer?: string | null;
+  /**
+   * The navigation bar's height, read on the screen and passed down: inside a
+   * Modal this app measures the safe-area inset as zero, and the sheet's own
+   * Close button sat under the phone's navigation keys (#bugs 2026-09-23).
+   */
+  bottomInset: number;
   onClose: () => void;
   children: React.ReactNode;
 }
@@ -30,7 +34,7 @@ export function SubscriptionSheet({
   visible,
   title,
   sub = null,
-  footer = null,
+  bottomInset,
   onClose,
   children,
 }: SubscriptionSheetProps) {
@@ -40,13 +44,12 @@ export function SubscriptionSheet({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.root}>
         <Pressable accessibilityRole="button" style={styles.veil} onPress={onClose} />
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: 20 + bottomInset }]}>
           <View style={styles.grabber} />
           <Text style={styles.title}>{title}</Text>
           {sub ? <Text style={styles.sub}>{sub}</Text> : null}
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
             {children}
-            {footer ? <Text style={styles.footer}>{footer}</Text> : null}
           </ScrollView>
         </View>
       </View>
@@ -74,7 +77,6 @@ const makeStyles = (theme: Theme) =>
       borderBottomRightRadius: 38,
       paddingHorizontal: 18,
       paddingTop: 16,
-      paddingBottom: 20,
       maxHeight: '86%',
     },
     grabber: {
@@ -100,13 +102,5 @@ const makeStyles = (theme: Theme) =>
     },
     body: {
       paddingBottom: 4,
-    },
-    footer: {
-      color: theme.faint,
-      fontSize: 11.5,
-      fontWeight: '600',
-      lineHeight: 17,
-      textAlign: 'center',
-      marginTop: 13,
     },
   });
