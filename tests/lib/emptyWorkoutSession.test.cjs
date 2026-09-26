@@ -391,10 +391,16 @@ module.exports = [
         buildFreestyleFinish,
         canFinishFreestyleSession,
         freestyleDoneSetCount,
+        freestyleUnsavedWork,
       } = require('../../.test-dist/lib/emptyWorkoutSession.js');
       const blank = makeExercise({ sets: [{ localKey: 'set_1', kg: '', reps: '', done: true }] });
       assert.equal(canFinishFreestyleSession([blank]), false);
       assert.equal(freestyleDoneSetCount([blank]), 0);
+      // The stat strip and the remove-lift question read this one: it must
+      // not call the blank row a set the finish refuses.
+      assert.deepEqual(freestyleUnsavedWork([blank]), { doneSets: 0, enteredSets: 0 });
+      const cleared = makeExercise({ sets: [{ localKey: 'set_1', kg: '60', reps: '', done: true }] });
+      assert.deepEqual(freestyleUnsavedWork([cleared]), { doneSets: 0, enteredSets: 1 });
       const mixed = makeExercise({
         sets: [
           { localKey: 'set_1', kg: '', reps: '', done: true },

@@ -461,14 +461,19 @@ export function canFinishFreestyleSession(exercises: FreestyleExerciseDraft[]): 
 }
 
 /**
- * What leaving would throw away: sets ticked, and sets with a number in them
- * that were not ticked yet.
+ * What leaving would throw away: sets done, and sets with a number in them
+ * that are not done yet.
  *
  * The leave question counted only ticked sets, so four sets with their
  * weights and reps typed in and the tick still to come went on one tap of
  * back, with nothing asked. A new exercise starts with an empty set and a new
  * set carries only what the reader typed above it, so a number in a draft is
  * the reader's own.
+ *
+ * "Done" is the finish's rule (`isDoneFreestyleSet`), not the raw tick: a
+ * ticked row whose reps were cleared to retype counted here as a set while
+ * Finish refused it, so the stat strip read "1 set" beside "add a set to
+ * finish", and removing that lift asked for a confirmation over nothing.
  */
 export function freestyleUnsavedWork(exercises: FreestyleExerciseDraft[]): {
   doneSets: number;
@@ -478,7 +483,7 @@ export function freestyleUnsavedWork(exercises: FreestyleExerciseDraft[]): {
   let enteredSets = 0;
   for (const exercise of exercises) {
     for (const set of exercise.sets) {
-      if (set.done) {
+      if (isDoneFreestyleSet(set)) {
         doneSets += 1;
       } else if (set.kg.trim() !== '' || set.reps.trim() !== '') {
         enteredSets += 1;

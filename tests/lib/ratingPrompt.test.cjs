@@ -152,7 +152,7 @@ module.exports = [
 
       // Counted when SHOWN, not when answered: a reader who closes it has
       // still been asked, and counting only answers would ask forever.
-      assert.match(appSource, /setRatingSheetVisible\(true\);\s*\n\s*void updatePreferences\(\{ ratingPrompt: recordRatingAsked\(/);
+      assert.match(appSource, /setRatingSheetVisible\(true\);\s*\n\s*void updatePreferences\(\(current\) => \(\{ ratingPrompt: recordRatingAsked\(current\.ratingPrompt/);
 
       // Every star opens the listing. No branch on the number: that is review
       // gating, and it is against Play policy.

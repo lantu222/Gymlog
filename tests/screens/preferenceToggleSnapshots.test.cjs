@@ -13,7 +13,9 @@ const strip = (source) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.
  * quick succession both start from the same snapshot and the second puts the
  * first back — the technique checklist lost ticks that way (audit 7), and the
  * notification switches, drill swaps, dismissed suggestions and goal removals
- * had the same shape (2026-09-26).
+ * had the same shape (2026-09-26). So did the counters and records a write
+ * advances from their last value: the warm-up/cool-down timings, the coach
+ * question quota, the coach goals and the rating prompt (second look, same day).
  */
 const KEYS = [
   'notificationPrefs',
@@ -23,6 +25,10 @@ const KEYS = [
   'strengthGoals',
   'exerciseTechniqueChecks',
   'learnedExerciseLibraryItemIds',
+  'ownBlockStats',
+  'aiCoachProQuota',
+  'coachGoals',
+  'ratingPrompt',
 ];
 
 module.exports = [

@@ -914,7 +914,7 @@ function VinhaApp() {
       return;
     }
     setRatingSheetVisible(true);
-    void updatePreferences({ ratingPrompt: recordRatingAsked(preferences.ratingPrompt, Date.now()) });
+    void updatePreferences((current) => ({ ratingPrompt: recordRatingAsked(current.ratingPrompt, Date.now()) }));
   }
 
   /**
@@ -8002,7 +8002,7 @@ function VinhaApp() {
           // on the way back: the app never learns whether a review was
           // actually left, and asking again someone who went to the listing
           // is worse than missing one who changed their mind.
-          void updatePreferences({ ratingPrompt: recordRatingCompleted(preferences.ratingPrompt) });
+          void updatePreferences((current) => ({ ratingPrompt: recordRatingCompleted(current.ratingPrompt) }));
           void Linking.openURL(PLAY_LISTING_URL);
         }}
         onDismiss={() => setRatingSheetVisible(false)}

@@ -1035,9 +1035,9 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         entryEyebrow={guidedEntryEyebrow}
         ownBlockStats={preferences.ownBlockStats}
         onRecordOwnBlock={(phase, seconds) =>
-          void updatePreferences({
-            ownBlockStats: recordOwnBlock(preferences.ownBlockStats, phase, seconds),
-          })
+          void updatePreferences((current) => ({
+            ownBlockStats: recordOwnBlock(current.ownBlockStats, phase, seconds),
+          }))
         }
         learnedExerciseIds={preferences.learnedExerciseLibraryItemIds}
         techniqueChecks={preferences.exerciseTechniqueChecks}
