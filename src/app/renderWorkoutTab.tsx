@@ -56,6 +56,7 @@ import { SeasonScreen } from '../screens/SeasonScreen';
 import { GoalFlowProposal, StrengthGoalFlowScreen } from '../screens/StrengthGoalFlowScreen';
 import { WorkoutsScreen } from '../screens/WorkoutsScreen';
 import { AppDatabase, AppPreferences, UnitPreference, WorkoutTemplateDraft } from '../types/models';
+import type { PreferencesPatch } from '../state/AppProvider';
 import { FreestyleFinishSummary } from '../lib/emptyWorkoutSession';
 
 /** One empty array, so "nothing learned yet" is the same value every render. */
@@ -81,7 +82,7 @@ export interface WorkoutTabDeps {
   replaceRoute: (route: AppRoute) => void;
   workoutHomeRoute: AppRoute;
   preferences: AppPreferences;
-  updatePreferences: (patch: Partial<AppPreferences>) => Promise<unknown>;
+  updatePreferences: (patch: PreferencesPatch) => Promise<unknown>;
   unitPreference: UnitPreference;
   database: AppDatabase;
   workout: { templates: Parameters<typeof resolveProgramAffinity>[1] };
@@ -1044,21 +1045,20 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         learnedExerciseIds={preferences.learnedExerciseLibraryItemIds}
         techniqueChecks={preferences.exerciseTechniqueChecks}
         onToggleTechniqueStatement={(libraryItemId, index) =>
-          void updatePreferences({
+          void updatePreferences((current) => ({
             exerciseTechniqueChecks: toggleTechniqueStatement(
-              preferences.exerciseTechniqueChecks,
+              current.exerciseTechniqueChecks,
               libraryItemId,
               index,
             ),
-          })
+          }))
         }
         onToggleExerciseLearned={(libraryItemId) => {
-          const current = preferences.learnedExerciseLibraryItemIds;
-          void updatePreferences({
+          void updatePreferences(({ learnedExerciseLibraryItemIds: current }) => ({
             learnedExerciseLibraryItemIds: current.includes(libraryItemId)
               ? current.filter((id) => id !== libraryItemId)
               : [...current, libraryItemId],
-          });
+          }));
         }}
         weekProgress={guidedWeekProgress}
         nextUp={guidedNextUp}
@@ -1124,22 +1124,21 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
         cautionFlags={preferences.setupCautionFlags}
         checkedStatements={preferences.exerciseTechniqueChecks[exercise.id] ?? []}
         onToggleStatement={(index) => {
-          void updatePreferences({
+          void updatePreferences((current) => ({
             exerciseTechniqueChecks: toggleTechniqueStatement(
-              preferences.exerciseTechniqueChecks,
+              current.exerciseTechniqueChecks,
               exercise.id,
               index,
             ),
-          });
+          }));
         }}
         learned={preferences.learnedExerciseLibraryItemIds.includes(exercise.id)}
         onToggleLearned={() => {
-          const current = preferences.learnedExerciseLibraryItemIds;
-          void updatePreferences({
+          void updatePreferences(({ learnedExerciseLibraryItemIds: current }) => ({
             learnedExerciseLibraryItemIds: current.includes(exercise.id)
               ? current.filter((id) => id !== exercise.id)
               : [...current, exercise.id],
-          });
+          }));
         }}
         // An easier/harder row opens that lift's own screen. Resolved by name
         // because the teaching content names lifts the way the library does;

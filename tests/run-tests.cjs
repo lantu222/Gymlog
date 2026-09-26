@@ -143,6 +143,7 @@ const suites = [
   ...require('./lib/homePrompts.test.cjs'),
   ...require('./lib/firstRunTour.test.cjs'),
   ...require('./screens/firstRunTourWiring.test.cjs'),
+  ...require('./screens/audit7Wiring.test.cjs'),
   ...require('./lib/homeCardSuggestions.test.cjs'),
   ...require('./lib/ratingPrompt.test.cjs'),
   ...require('./lib/blurredPreviewText.test.cjs'),

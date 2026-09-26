@@ -72,6 +72,17 @@ export interface WorkoutTemplateSessionsEditResult {
   reason?: string;
 }
 
+/**
+ * A patch, or a patch computed from the preferences as stored when the write
+ * runs. Use the function form for any toggle of a list or map: a handler that
+ * builds its patch from render-time preferences drops the first of two quick
+ * taps, because both start from the same snapshot and the second replaces the
+ * first (technique checklist, audit 7, 2026-09-26).
+ */
+export type PreferencesPatch =
+  | Partial<AppPreferences>
+  | ((current: AppPreferences) => Partial<AppPreferences>);
+
 interface AppContextValue {
   database: AppDatabase;
   hydrated: boolean;
@@ -94,7 +105,7 @@ interface AppContextValue {
   getLatestTemplateLog: (exerciseTemplateId: string) => ReturnType<typeof getLatestLogForTemplateExercise>;
   getSessionLogs: (sessionId: string) => AppDatabase['exerciseLogs'];
   setUnitPreference: (nextUnit: UnitPreference) => Promise<void>;
-  updatePreferences: (patch: Partial<AppPreferences>) => Promise<void>;
+  updatePreferences: (patch: PreferencesPatch) => Promise<void>;
   completeOnboarding: (patch?: Partial<AppPreferences>) => Promise<void>;
   upsertWorkoutTemplate: (draft: WorkoutTemplateDraft) => Promise<string>;
   upsertWorkoutPlan: (plan: WorkoutPlan) => Promise<void>;
@@ -498,14 +509,14 @@ export function AppProvider({ children }: React.PropsWithChildren) {
    * now; the in-memory database stays the single source of truth, and the next
    * full save carries the same values into the blob.
    */
-  function updatePreferences(patch: Partial<AppPreferences>) {
+  function updatePreferences(patch: PreferencesPatch) {
     return runExclusive(async () => {
       const current = databaseRef.current;
       const next = {
         ...current,
         preferences: {
           ...current.preferences,
-          ...patch,
+          ...(typeof patch === 'function' ? patch(current.preferences) : patch),
         },
       };
       databaseRef.current = next;

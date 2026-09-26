@@ -108,6 +108,8 @@ export interface ProfileTabDeps {
   proUnlocked: boolean;
   exportablePlans: React.ComponentProps<typeof ExportPlanScreen>['plans'];
   database: Pick<AppDatabase, 'workoutSessions' | 'exerciseLogs' | 'cardioSessions' | 'workoutPlans'>;
+  /** The weigh-in log's newest reading, as Home and Progress read it. */
+  latestWeighInKg: number | null;
   settingsScrollOffsetRef: React.MutableRefObject<number>;
   homeWidgetState: { supported: boolean; added: boolean } | null;
   handleAddHomeWidget: () => Promise<void>;
@@ -198,6 +200,7 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
     proUnlocked,
     exportablePlans,
     database,
+    latestWeighInKg,
     settingsScrollOffsetRef,
     homeWidgetState,
     handleAddHomeWidget,
@@ -614,6 +617,8 @@ export function renderProfileTab(deps: ProfileTabDeps): React.ReactElement | nul
         preferences={preferences}
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
         onSaveBasics={(patch) => void updatePreferences(patch)}
+        latestWeighInKg={latestWeighInKg}
+        onOpenWeighIns={() => navigate({ tab: 'progress', screen: 'bodyweight' })}
         onEditLimitations={() => navigate({ tab: 'profile', screen: 'setup', stage: 'avoid' })}
         onCreateNewPlan={() => navigate({ tab: 'profile', screen: 'setup', stage: 'location' })}
       />

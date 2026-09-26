@@ -55,14 +55,22 @@ function getDefaultTrainingEnvironment(equipment: SetupEquipment): SetupTraining
  * reader who never answered the questions can still have named their training
  * days — and seeding only the cycle left the other half of the same week to be
  * overwritten by the defaults on the next re-run (review of this change).
+ *
+ * The weight is the newest weigh-in when there is one. `setupCurrentWeightKg`
+ * is what the questionnaire was last told, and nothing else writes it — My
+ * Data shows the log instead (audit 7, 2026-09-26) — so a re-run seeded from
+ * it opened on a months-old number and read a goal weight against it.
  */
-export function buildSetupBasicsFromPreferences(preferences: AppPreferences): Partial<FirstRunSetupSelection> {
+export function buildSetupBasicsFromPreferences(
+  preferences: AppPreferences,
+  latestWeighInKg: number | null = null,
+): Partial<FirstRunSetupSelection> {
   return {
     gender: preferences.setupGender ?? DEFAULT_FIRST_RUN_SELECTION.gender,
     age: preferences.setupAge,
     ageRange: preferences.setupAgeRange ?? undefined,
     heightCm: preferences.setupHeightCm,
-    currentWeightKg: preferences.setupCurrentWeightKg,
+    currentWeightKg: latestWeighInKg ?? preferences.setupCurrentWeightKg,
     targetWeightKg: preferences.bodyweightGoalKg,
     daysPerWeek: preferences.setupDaysPerWeek ?? DEFAULT_FIRST_RUN_SELECTION.daysPerWeek,
     scheduleMode: preferences.setupScheduleMode ?? DEFAULT_FIRST_RUN_SELECTION.scheduleMode,
@@ -118,7 +126,10 @@ export function buildSetupSeedKey(preferences: AppPreferences): string {
   return JSON.stringify(SETUP_SEED_PREFERENCE_KEYS.map((key) => preferences[key]));
 }
 
-export function buildSetupSelectionFromPreferences(preferences: AppPreferences): FirstRunSetupSelection | null {
+export function buildSetupSelectionFromPreferences(
+  preferences: AppPreferences,
+  latestWeighInKg: number | null = null,
+): FirstRunSetupSelection | null {
   if (
     !preferences.setupCompleted ||
     !preferences.setupGoal ||
@@ -128,7 +139,7 @@ export function buildSetupSelectionFromPreferences(preferences: AppPreferences):
     return null;
   }
 
-  const basics = buildSetupBasicsFromPreferences(preferences);
+  const basics = buildSetupBasicsFromPreferences(preferences, latestWeighInKg);
 
   return {
     ...basics,

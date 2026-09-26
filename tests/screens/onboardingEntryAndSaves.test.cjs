@@ -58,11 +58,11 @@ module.exports = [
       const editor = app.match(/<OnboardingScreen\s[^>]*?mode="edit"[\s\S]*?\/>/);
       assert.ok(editor, 'the setup route renders the questionnaire in edit mode');
       assert.doesNotMatch(editor[0], /DEFAULT_FIRST_RUN_SELECTION/);
-      assert.match(editor[0], /initialSelection=\{setupSelection\}/);
-      assert.match(editor[0], /basicsSeed=\{setupSelection \? null : setupBasics\}/);
+      assert.match(editor[0], /initialSelection=\{setupEditSelection\}/);
+      assert.match(editor[0], /basicsSeed=\{setupEditSelection \? null : setupBasics\}/);
       assert.match(
         app,
-        /const setupBasics = useMemo\(\(\) => buildSetupBasicsFromPreferences\(preferences\), \[setupSelectionKey\]\);/,
+        /const setupBasics = useMemo\(\s*\(\) => buildSetupBasicsFromPreferences\(preferences, latestWeighInKg\),\s*(\/\/[^\n]*\n\s*)?\[setupSelectionKey, latestWeighInKg\],\s*\);/,
       );
       // Answered-ness is a fact about the seed, not about the mode: edit mode
       // with no selection opens its questions unanswered.

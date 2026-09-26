@@ -8,7 +8,7 @@ import { getSetupEquipmentTitle, getSetupGoalTitle } from '../lib/firstRunSetup'
 import { I18nKey, t } from '../lib/i18n';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
-import { formatWeightInputValue, parseNumberInput, removeTrailingZeros } from '../lib/format';
+import { formatWeight, parseNumberInput } from '../lib/format';
 import {
   AppLanguage,
   AppPreferences,
@@ -24,6 +24,13 @@ interface MyDataScreenProps {
   onBack: () => void;
   /** Basics edit in place — writes straight to preferences. */
   onSaveBasics: (patch: Partial<AppPreferences>) => void;
+  /**
+   * The newest weigh-in, in kg — the weight Home and Progress show. Null when
+   * the log is empty.
+   */
+  latestWeighInKg: number | null;
+  /** Weight is not a setting: the row opens the weigh-in log, where it is kept. */
+  onOpenWeighIns: () => void;
   /** Opens the questionnaire directly at the avoid step. */
   onEditLimitations: () => void;
   /** Runs the full questionnaire again → two fresh programs to pick from. */
@@ -53,7 +60,7 @@ const AGE_RANGE_KEYS: Record<Exclude<SetupAgeRange, 'unspecified'>, I18nKey> = {
   '41_plus': 'myData.age.41plus',
 };
 
-type BasicField = 'gender' | 'age' | 'height' | 'weight';
+type BasicField = 'gender' | 'age' | 'height';
 
 const BASIC_FIELD_META: Record<
   Exclude<BasicField, 'gender'>,
@@ -61,7 +68,6 @@ const BASIC_FIELD_META: Record<
 > = {
   age: { titleKey: 'myData.ageField', unitKey: 'myData.unit.years', min: 13, max: 100 },
   height: { titleKey: 'myData.height', unitKey: 'myData.unit.cm', min: 120, max: 230 },
-  weight: { titleKey: 'myData.weight', unitKey: 'myData.unit.kg', min: 30, max: 300 },
 };
 
 function genderLabel(preferences: AppPreferences, language: AppLanguage) {
@@ -168,6 +174,8 @@ export function MyDataScreen({
   language = 'en',
   onBack,
   onSaveBasics,
+  latestWeighInKg,
+  onOpenWeighIns,
   onEditLimitations,
   onCreateNewPlan,
 }: MyDataScreenProps) {
@@ -179,18 +187,39 @@ export function MyDataScreen({
   const [draftGender, setDraftGender] = useState<SetupGender>('unspecified');
   const [draftAgeRange, setDraftAgeRange] = useState<SetupAgeRange>('19_25');
 
-  const basics: Array<{ field: BasicField; label: string; value: string | null }> = [
-    { field: 'gender', label: t(language, 'myData.gender'), value: genderLabel(preferences, language) },
-    { field: 'age', label: t(language, 'myData.ageField'), value: ageLabel(preferences, language) },
+  // `edits`: the row opens an editor here. Weight opens the log instead, and
+  // is not announced as "Edit weight".
+  const basics: Array<{ key: string; label: string; value: string | null; edits: boolean; onPress: () => void }> = [
     {
-      field: 'height',
-      label: t(language, 'myData.height'),
-      value: preferences.setupHeightCm !== null ? `${preferences.setupHeightCm} cm` : null,
+      key: 'gender',
+      label: t(language, 'myData.gender'),
+      value: genderLabel(preferences, language),
+      edits: true,
+      onPress: () => openEditor('gender'),
     },
     {
-      field: 'weight',
+      key: 'age',
+      label: t(language, 'myData.ageField'),
+      value: ageLabel(preferences, language),
+      edits: true,
+      onPress: () => openEditor('age'),
+    },
+    {
+      key: 'height',
+      label: t(language, 'myData.height'),
+      value: preferences.setupHeightCm !== null ? `${preferences.setupHeightCm} cm` : null,
+      edits: true,
+      onPress: () => openEditor('height'),
+    },
+    // The weigh-in log, not the questionnaire's answer. This row used to show
+    // and edit `setupCurrentWeightKg`, a number Home and Progress never read:
+    // changing 75 to 82 here left both saying 75 (audit 7, 2026-09-26).
+    {
+      key: 'weight',
       label: t(language, 'myData.weight'),
-      value: preferences.setupCurrentWeightKg !== null ? `${removeTrailingZeros(preferences.setupCurrentWeightKg)} kg` : null,
+      value: latestWeighInKg !== null ? formatWeight(latestWeighInKg) : null,
+      edits: false,
+      onPress: onOpenWeighIns,
     },
   ];
 
@@ -228,12 +257,8 @@ export function MyDataScreen({
           ? preferences.setupAgeRange
           : '19_25',
       );
-    } else if (field === 'height') {
-      setDraftValue(preferences.setupHeightCm !== null ? `${preferences.setupHeightCm}` : '');
     } else {
-      // In the reader's decimal mark, as the row above it reads: the field
-      // opened on '82.5' under a row saying '82,5 kg' (decimal audit, 2026-09-21).
-      setDraftValue(formatWeightInputValue(preferences.setupCurrentWeightKg));
+      setDraftValue(preferences.setupHeightCm !== null ? `${preferences.setupHeightCm}` : '');
     }
     setEditing(field);
   };
@@ -263,11 +288,7 @@ export function MyDataScreen({
       if (!numericDraftValid || parsed === null) {
         return;
       }
-      if (editing === 'height') {
-        onSaveBasics({ setupHeightCm: Math.round(parsed) });
-      } else {
-        onSaveBasics({ setupCurrentWeightKg: Math.round(parsed * 10) / 10 });
-      }
+      onSaveBasics({ setupHeightCm: Math.round(parsed) });
     }
     setEditing(null);
   };
@@ -294,12 +315,12 @@ export function MyDataScreen({
           <View style={styles.card}>
             {basics.map((row, index) => (
               <DataRow
-                key={row.field}
+                key={row.key}
                 label={row.label}
                 value={row.value ?? t(language, 'myData.notSet')}
-                editLabel={t(language, 'myData.edit', { field: row.label })}
+                editLabel={row.edits ? t(language, 'myData.edit', { field: row.label }) : undefined}
                 isLast={index === basics.length - 1}
-                onPress={() => openEditor(row.field)}
+                onPress={row.onPress}
               />
             ))}
           </View>
