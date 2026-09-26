@@ -47,6 +47,7 @@ const DEFAULT_PREFERENCES = {
     restAlertsAsked: false,
   },
   trainingBreak: null as import('../types/models').TrainingBreak | null,
+  legalAcceptance: null as import('../lib/legalAcceptance').LegalAcceptance | null,
   aiLogId: null as string | null,
   aiLogChatConsent: false,
   aiLogComposerConsent: false,

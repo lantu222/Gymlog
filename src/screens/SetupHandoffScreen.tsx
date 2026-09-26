@@ -5,6 +5,7 @@ import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { VinhaIcon } from '../components/VinhaIcon';
+import { LegalConsentCheck } from '../components/LegalConsentCheck';
 import { TrackChangeDialog } from '../components/TrackChangeDialog';
 import { useHardwareBack } from '../hooks/useHardwareBack';
 import { t } from '../lib/i18n';
@@ -36,6 +37,12 @@ export interface SetupHandoffChoices {
    * list goes straight to Home's pinned keys.
    */
   trackedSites: MeasurementKind[];
+  /**
+   * The terms box was ticked when the reader went on (#bugs 2026-09-22). False
+   * when the page was skipped or left by the back key — the sheet over the app
+   * asks then, so nobody gets past without an answer.
+   */
+  legalAccepted: boolean;
 }
 
 interface SetupHandoffScreenProps {
@@ -55,6 +62,12 @@ interface SetupHandoffScreenProps {
    * the shell renders it over this screen instead and comes back here.
    */
   onOpenLegal: (document: 'privacy' | 'terms') => void;
+  /**
+   * This version of the documents is already accepted — a reader running the
+   * questions again from Profile. Then there is nothing to ask: no box, and
+   * nothing waits for one.
+   */
+  legalAlreadyAccepted: boolean;
 }
 
 /**
@@ -75,6 +88,7 @@ export function SetupHandoffScreen({
   onDone,
   onSkip,
   onOpenLegal,
+  legalAlreadyAccepted,
 }: SetupHandoffScreenProps) {
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
@@ -85,6 +99,10 @@ export function SetupHandoffScreen({
   // ask than a widget, and the decision (2026-08-22) is that sign-in stands
   // beside the door, never in it.
   const [signInForBackup, setSignInForBackup] = useState(false);
+  // One box for both pages that carry it: ticked on the sign-in page, it is
+  // still ticked on the last one.
+  const [legalChecked, setLegalChecked] = useState(false);
+  const legalReady = legalAlreadyAccepted || legalChecked;
 
   const trackingBody = useMemo(() => {
     if (!plan.tracking) {
@@ -140,6 +158,7 @@ export function SetupHandoffScreen({
       trackedSites,
       signInForBackup: plan.offerAccountBackup && signIn,
       showPro: plan.offerPro,
+      legalAccepted: legalChecked,
     });
 
   /**
@@ -210,15 +229,31 @@ export function SetupHandoffScreen({
 
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, GESTURE_BAR_FLOOR) + spacing.md }]}>
           {/* The one page in onboarding where an account is asked for, so the
-              terms live here rather than under a list of switches. */}
-          <LegalFootnote language={language} onOpenLegal={onOpenLegal} />
+              terms live here too. Sign-in waits for the box: it is the first
+              thing that would leave the phone. "Not now" does not — the next
+              page, or the sheet over the app, asks. */}
+          {legalAlreadyAccepted ? null : (
+            <LegalConsentCheck
+              language={language}
+              checked={legalChecked}
+              onToggle={() => setLegalChecked((current) => !current)}
+              onOpenLegal={onOpenLegal}
+            />
+          )}
           <Pressable
             accessibilityRole="button"
+            accessibilityState={{ disabled: !legalReady }}
+            disabled={!legalReady}
             onPress={() => {
               setSignInForBackup(true);
               advance(true);
             }}
-            style={({ pressed }) => [styles.googleCta, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.googleCta,
+              !legalAlreadyAccepted && styles.afterConsent,
+              !legalReady && styles.ctaWaiting,
+              pressed && styles.pressed,
+            ]}
           >
             <GoogleGlyph size={18} />
             <Text style={styles.googleCtaText}>{t(language, 'handoff.signin.cta')}</Text>
@@ -284,18 +319,30 @@ export function SetupHandoffScreen({
           { paddingBottom: Math.max(insets.bottom, GESTURE_BAR_FLOOR) + spacing.md },
         ]}
       >
-        {/* The one place onboarding names the documents. It sits here, on the
-            last screen, for the same reason a shop puts the terms at the till
-            rather than the door: this is the step where the reader can start
-            the backup, which is the first thing that would leave the phone. A
-            line, not a checkbox — nothing here is consented to by tapping
-            Done, and the two features that do need a yes ask for it in their
-            own moment. */}
-        <LegalFootnote language={language} onOpenLegal={onOpenLegal} />
+        {/* The terms, at the till rather than the door: the last screen
+            before the app. A tick box since 2026-09-26 (#bugs 2026-09-22) —
+            it was a line, "by continuing you accept", which recorded nothing
+            and which a skipped page never showed at all. Done waits for the
+            box. */}
+        {legalAlreadyAccepted ? null : (
+          <LegalConsentCheck
+            language={language}
+            checked={legalChecked}
+            onToggle={() => setLegalChecked((current) => !current)}
+            onOpenLegal={onOpenLegal}
+          />
+        )}
         <Pressable
           accessibilityRole="button"
+          accessibilityState={{ disabled: !legalReady }}
+          disabled={!legalReady}
           onPress={() => finish()}
-          style={({ pressed }) => [styles.done, pressed && styles.pressed]}
+          style={({ pressed }) => [
+            styles.done,
+            !legalAlreadyAccepted && styles.afterConsent,
+            !legalReady && styles.ctaWaiting,
+            pressed && styles.pressed,
+          ]}
         >
           <Text style={styles.doneText}>{t(language, 'handoff.done')}</Text>
         </Pressable>
@@ -325,45 +372,6 @@ function GoogleGlyph({ size = 20 }: { size?: number }) {
         d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
       />
     </Svg>
-  );
-}
-
-/**
- * The sentence naming the two documents, and the two links under it.
- *
- * One copy rather than two: it appears on the sign-in page and again in the
- * footer of the last page, and the two hand-written versions had already
- * drifted — one of them had a pressed state and the other did not.
- */
-function LegalFootnote({
-  language,
-  onOpenLegal,
-}: {
-  language: AppLanguage;
-  onOpenLegal: (document: 'privacy' | 'terms') => void;
-}) {
-  const styles = useThemedStyles(makeStyles);
-  return (
-    <>
-      <Text style={styles.legalLine}>{t(language, 'handoff.legal')}</Text>
-      <View style={styles.legalLinks}>
-        <Pressable
-          accessibilityRole="link"
-          onPress={() => onOpenLegal('terms')}
-          style={({ pressed }) => pressed && styles.pressed}
-        >
-          <Text style={styles.legalLink}>{t(language, 'settings.terms')}</Text>
-        </Pressable>
-        <Text style={styles.legalDot}>·</Text>
-        <Pressable
-          accessibilityRole="link"
-          onPress={() => onOpenLegal('privacy')}
-          style={({ pressed }) => pressed && styles.pressed}
-        >
-          <Text style={styles.legalLink}>{t(language, 'settings.privacy')}</Text>
-        </Pressable>
-      </View>
-    </>
   );
 }
 
@@ -561,30 +569,13 @@ const makeStyles = (theme: Theme) =>
       fontSize: 16,
       fontWeight: '800',
     },
-    legalLine: {
-      color: theme.muted,
-      fontSize: 12,
-      lineHeight: 17,
-      textAlign: 'center',
+    /** Room between the terms box and the button under it. */
+    afterConsent: {
+      marginTop: spacing.sm,
     },
-    legalLinks: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-      gap: 8,
-      marginTop: 2,
-      marginBottom: spacing.sm,
-    },
-    legalLink: {
-      color: theme.purple,
-      fontSize: 12,
-      fontWeight: '700',
-      // The tap target the 12pt label does not give on its own.
-      paddingVertical: 6,
-    },
-    legalDot: {
-      color: theme.faint,
-      fontSize: 12,
+    /** A button waiting for the terms box: there, but visibly not yet. */
+    ctaWaiting: {
+      opacity: 0.4,
     },
     /**
      * The shape every other screen in this flow ends on.

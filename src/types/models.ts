@@ -1,4 +1,5 @@
 import type { TourSurface } from '../lib/firstRunTour';
+import type { LegalAcceptance } from '../lib/legalAcceptance';
 import { CancelSurveyAnswer } from '../lib/cancelSurvey';
 import { CoachSuggestionState } from '../lib/coachSuggestions';
 import { OwnBlockStats } from '../lib/ownBlockHistory';
@@ -425,6 +426,11 @@ export interface AppPreferences {
   notificationPrefs: NotificationPrefs;
   /** Active training break, or null when training normally. */
   trainingBreak: TrainingBreak | null;
+  /**
+   * The terms and privacy policy the reader ticked, and when. Null until they
+   * have; an older version than the app's asks again. See lib/legalAcceptance.
+   */
+  legalAcceptance: LegalAcceptance | null;
   /**
    * Permission to KEEP a copy of what the coach was asked, one thing at a time.
    *

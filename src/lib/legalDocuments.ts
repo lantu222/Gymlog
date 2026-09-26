@@ -754,15 +754,23 @@ const TITLES: Record<LegalDocumentId, Record<AppLanguage, { title: string; summa
   },
 };
 
-/** dd.mm.yyyy in Finnish, ISO-ish long form in English. */
-function formatUpdated(language: AppLanguage): string {
+/**
+ * The documents' date as a reader writes it: 16.9.2026, or 16 September 2026.
+ * Shared with the consent sheet, which names the date the documents changed.
+ */
+export function formatLegalDate(language: AppLanguage): string {
   const [year, month, day] = LEGAL_LAST_UPDATED.split('-');
-  if (language === 'fi') return `Päivitetty ${Number(day)}.${Number(month)}.${year}`;
+  if (language === 'fi') return `${Number(day)}.${Number(month)}.${year}`;
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December',
   ];
-  return `Updated ${Number(day)} ${months[Number(month) - 1]} ${year}`;
+  return `${Number(day)} ${months[Number(month) - 1]} ${year}`;
+}
+
+/** dd.mm.yyyy in Finnish, ISO-ish long form in English. */
+function formatUpdated(language: AppLanguage): string {
+  return language === 'fi' ? `Päivitetty ${formatLegalDate(language)}` : `Updated ${formatLegalDate(language)}`;
 }
 
 export function buildLegalDocument(id: LegalDocumentId, language: AppLanguage): LegalDocument {

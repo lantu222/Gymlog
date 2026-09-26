@@ -97,7 +97,9 @@ module.exports = [
       // The loader's running-set step is reconcileRunningSet since it also
       // drops ids with no plan behind them (2026-09-21), and a restore takes
       // the same one: a backup of an install carrying the phantom is healed.
-      assert.match(lib, /return reconcileRunningSet\(keepDevicePrivacyChoices\(keepDeviceEntitlement\(restored, device\), device\), plans\);/);
+      // Since 2026-09-26 the terms acceptance rides between the two: the later
+      // of this phone's and the backup's (lib/legalAcceptance).
+      assert.match(lib, /const kept = keepDevicePrivacyChoices\(keepDeviceEntitlement\(restored, device\), device\);\s*return reconcileRunningSet\(\s*\{ \.\.\.kept, legalAcceptance: laterLegalAcceptance\(device\.legalAcceptance, restored\.legalAcceptance\) \},\s*plans,\s*\);/);
     },
   },
   {
