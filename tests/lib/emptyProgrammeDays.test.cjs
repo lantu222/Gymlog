@@ -64,7 +64,13 @@ module.exports = [
 
       // Home's own strip goes through the same function, not its own modulo.
       const home = strip(read('src', 'screens', 'HomeScreen.tsx'));
-      assert.match(home, /const session = sessionForSlot\(activePlan\.sessions, sessionSlotOn\(trainingSchedule, monday\)\);/);
+      assert.match(home, /return \{ date, session: sessionForSlot\(planSessions, sessionSlotOn\(trainingSchedule, date\)\) \};/);
+      // The chips and what a screen reader hears come from the same walk: the
+      // label was built from each session's next date and kept announcing
+      // the empty day (CI review, 2026-09-26).
+      assert.match(home, /accessibilityLabel=\{programWeek\s*\.flatMap\(/);
+      assert.match(home, /\{programWeek\.map\(\(\{ date: monday, session \}, offset\) => \{/);
+      assert.doesNotMatch(home, /planSessionDayStarts/);
       assert.doesNotMatch(home, /activePlan\.sessions\[\(\(slot %/);
     },
   },

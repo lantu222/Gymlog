@@ -28,7 +28,7 @@ import { CardioIconKind, getCardioActivity } from '../lib/cardio';
 import { HomeStatCard } from '../lib/homeStatCards';
 import { VinhaIcon } from '../components/VinhaIcon';
 import { getHomeMiniCalendarDays, getHomeMonthCalendar, HomeDaySessionSummary, sessionForSlot } from '../lib/homeCalendar';
-import { isScheduleKnown, sessionSlotOn, TrainingSchedule, trainsOn, UNKNOWN_SCHEDULE, upcomingSessionDayStarts } from '../lib/trainingSchedule';
+import { isScheduleKnown, sessionSlotOn, TrainingSchedule, trainsOn, UNKNOWN_SCHEDULE } from '../lib/trainingSchedule';
 import {
   getDefaultCooldown,
   getDefaultWarmup,
@@ -598,19 +598,22 @@ export function HomeScreen({
   // is not a choice, so the title only becomes a button past that.
   const planSessions = activePlan?.sessions ?? [];
   /**
-   * Which calendar day each programme session lands on next — asked from the
-   * schedule, the same source the strip above lights its dots from. The rows
-   * used to read the plan's STORED weekday labels, which survive a switch to
-   * a cycle untouched: the card said MON/THU while the calendar walked a
-   * six-day rotation (user, 2026-08-25).
+   * This calendar week, Monday first, and the session each day holds — asked
+   * from the schedule, the same source the calendar lights its dots from
+   * (the plan's STORED weekday labels survive a switch to a cycle untouched:
+   * the card said MON/THU while the calendar walked a six-day rotation, user
+   * 2026-08-25). An empty day hands its slot on (`sessionForSlot`).
+   *
+   * One walk for the chips and for what a screen reader hears: the label was
+   * built separately from each session's next date, and after empty days
+   * started handing their slot on it still announced "WED: Treeni 2" under a
+   * chip reading Pull (CI review of audit 8, 2026-09-26).
    */
-  const planSessionDayStarts = useMemo(
-    () => upcomingSessionDayStarts(trainingSchedule, planSessions.length),
-    // The array identity changes per render; length + schedule are the inputs
-    // the projection actually reads.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [trainingSchedule, planSessions.length],
-  );
+  const programWeek = Array.from({ length: 7 }, (_, offset) => {
+    const now = new Date();
+    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7) + offset);
+    return { date, session: sessionForSlot(planSessions, sessionSlotOn(trainingSchedule, date)) };
+  });
   useEffect(() => {
     const shown = Keyboard.addListener('keyboardDidShow', (event) =>
       setKeyboardInset(event.endCoordinates.height),
@@ -1612,27 +1615,16 @@ export function HomeScreen({
             {scheduleKnown ? (
               <View
                 style={styles.programWeekStrip}
-                accessibilityLabel={activePlan.sessions
-                  .map((session, index) => {
-                    const dayStart = planSessionDayStarts[index] ?? null;
-                    const weekday = dayStart !== null ? weekdayCodeForDate(new Date(dayStart)) : null;
-                    return weekday
-                      ? `${weekdayLabel(weekday, language)}: ${localizeSessionFocus(session.title, language)}`
-                      : localizeSessionFocus(session.title, language);
-                  })
+                accessibilityLabel={programWeek
+                  .flatMap(({ date, session }) =>
+                    session
+                      ? [`${weekdayLabel(weekdayCodeForDate(date), language)}: ${localizeSessionFocus(session.title, language)}`]
+                      : [],
+                  )
                   .join(', ')}
               >
-                {Array.from({ length: 7 }, (_, offset) => {
-                  // This calendar week, Monday first — the same walk the
-                  // month grid does, from the same schedule.
+                {programWeek.map(({ date: monday, session }, offset) => {
                   const now = new Date();
-                  const monday = new Date(
-                    now.getFullYear(),
-                    now.getMonth(),
-                    now.getDate() - ((now.getDay() + 6) % 7) + offset,
-                  );
-                  // The calendar's own rule: an empty day hands its slot on.
-                  const session = sessionForSlot(activePlan.sessions, sessionSlotOn(trainingSchedule, monday));
                   const code = session
                     ? localizeSessionFocus(session.title, language)
                         .replace(/[^\p{L}]/gu, '')
