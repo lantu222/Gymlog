@@ -9,9 +9,9 @@ import {
   WhatMovedRow,
 } from '../lib/sessionMovement';
 import { getTopSetLabel, MuscleFocusRow } from '../lib/workoutCompleteView';
+import { beatsBest, heaviestOfSets } from '../lib/personalRecords';
 import {
   buildExercisePrLookup,
-  estimateOneRepMaxKg,
   resolvePreviousExercisePr,
   WorkoutCompletionExerciseCard,
   WorkoutCompletionPrCard,
@@ -171,42 +171,24 @@ export function buildCompletionCardsFromAdaptedSession({
         ? templatesById.get(exercise.persistedExerciseTemplateId) ?? null
         : null;
       const libraryItem = template?.libraryItemId ? libraryById.get(template.libraryItemId) ?? null : null;
-      const bestSet = exercise.sets.reduce<{
-        estimatedOneRepMaxKg: number;
-        performedWeightKg: number;
-        performedReps: number;
-      } | null>((best, set) => {
-        if (set.status !== 'completed' || typeof set.weightKg !== 'number' || typeof set.reps !== 'number') {
-          return best;
-        }
-
-        const estimate = estimateOneRepMaxKg(set.weightKg, set.reps);
-        if (estimate === null) {
-          return best;
-        }
-
-        if (!best || estimate > best.estimatedOneRepMaxKg) {
-          return {
-            estimatedOneRepMaxKg: estimate,
-            performedWeightKg: set.weightKg,
-            performedReps: set.reps,
-          };
-        }
-
-        return best;
-      }, null);
+      const completedSets = exercise.sets.filter(
+        (set): set is typeof set & { weightKg: number; reps: number } =>
+          set.status === 'completed' && typeof set.weightKg === 'number' && typeof set.reps === 'number',
+      );
+      const bestSet = heaviestOfSets(completedSets.map((set) => ({ weight: set.weightKg, reps: set.reps })));
 
       if (!bestSet) {
         return null;
       }
 
-      const previousBestOneRepMaxKg = resolvePreviousExercisePr({
+      const previousBest = resolvePreviousExercisePr({
         libraryItemId: template?.libraryItemId ?? null,
         exerciseName: exercise.exerciseName,
         lookup: exercisePrLookup,
       });
 
-      if (previousBestOneRepMaxKg !== null && bestSet.estimatedOneRepMaxKg <= previousBestOneRepMaxKg + 0.05) {
+      // Beaten, not matched: heavier, or the same weight for more reps.
+      if (!beatsBest(bestSet, previousBest)) {
         return null;
       }
 
@@ -214,18 +196,21 @@ export function buildCompletionCardsFromAdaptedSession({
         id: `pr:${exercise.slotId}`,
         exerciseName: exercise.exerciseName,
         imageUrl: libraryItem?.imageUrls?.[0] ?? null,
-        estimatedOneRepMaxKg: bestSet.estimatedOneRepMaxKg,
-        previousBestOneRepMaxKg,
-        performedWeightKg: bestSet.performedWeightKg,
-        performedReps: bestSet.performedReps,
+        previousBestWeightKg: previousBest?.weight ?? null,
+        previousBestReps: previousBest?.reps ?? null,
+        performedWeightKg: bestSet.weight,
+        performedReps: bestSet.reps,
       };
     })
     .filter(isWorkoutCompletionPrCard)
     // Strongest first: the hero shows the first card, and the morning-after
-    // notification names the strongest by the same estimate
-    // (findLatestSessionPr) — in exercise order the two could name
-    // different lifts for one session (audit round 4, 2026-09-20).
-    .sort((left, right) => right.estimatedOneRepMaxKg - left.estimatedOneRepMaxKg);
+    // notification names the strongest by the same rule (findLatestSessionPr)
+    // — in exercise order the two could name different lifts for one session
+    // (audit round 4, 2026-09-20).
+    .sort(
+      (left, right) =>
+        right.performedWeightKg - left.performedWeightKg || right.performedReps - left.performedReps,
+    );
 
   // Mark the recap rows whose exercise earned a PR this session — every
   // one, not only the three the hero strip has room for.

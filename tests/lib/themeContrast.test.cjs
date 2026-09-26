@@ -102,6 +102,11 @@ module.exports = [
           atLeast(contrastRatio(theme[ink], theme.surface), WCAG_AA_TEXT, `${name} ${ink} on surface`);
         }
       }
+      // Danger is also text on the page itself ("Delete programme" under a
+      // list): light #DC2626 was 4.10:1 there (2026-09-26).
+      for (const [name, theme] of THEMES) {
+        atLeast(contrastRatio(theme.danger, theme.bg), WCAG_AA_TEXT, `${name} danger on bg`);
+      }
       const player = read('src', 'screens', 'GuidedPlayerScreen.tsx');
       assert.match(player, /label="\+15s"\s+tint=\{theme\.greenInk\}/);
       assert.match(player, /icon=\{paused \? 'play' : 'pause'\}\s+tint=\{theme\.amberInk\}/);
@@ -154,6 +159,50 @@ module.exports = [
       for (const [tier, skin] of Object.entries(PRO_TIER)) {
         const ground = compositeOver('rgba(255,255,255,0.06)', skin.sky[0]);
         atLeast(contrastRatio(segmentText[1], ground), WCAG_AA_TEXT, `${tier} unselected tier tab`);
+      }
+    },
+  },
+  {
+    name: 'contrast: onboarding letters white on a fill, not on its dark text violet',
+    run() {
+      // Onboarding paints from its own palette. Its dark `primary` is the text
+      // violet (#9B6DFF), and the chosen day, level, focus row and place card
+      // were filled with it under white type: 3.49:1 (2026-09-26).
+      const source = read('src', 'screens', 'OnboardingScreen.tsx').replace(/\r\n/g, '\n');
+      const palette = (name) => {
+        const match = new RegExp(`const ${name}: OnbPalette = \\{([\\s\\S]*?)\\n\\};`).exec(source);
+        assert.ok(match, `${name} not found`);
+        return match[1];
+      };
+      assert.match(palette('ONB_DARK'), /\n  primaryFill: HG_DARK\.purpleFill,/);
+      assert.match(palette('ONB_LIGHT'), /\n  primaryFill: '#7C3AED',/);
+      atLeast(contrastRatio('#FFFFFF', HG_DARK.purpleFill), WCAG_AA_TEXT, 'onboarding dark white on primaryFill');
+      atLeast(contrastRatio('#FFFFFF', '#7C3AED'), WCAG_AA_TEXT, 'onboarding light white on primaryFill');
+      // The card's second line is 85 % white on the same fill.
+      for (const fill of [HG_DARK.purpleFill, '#7C3AED']) {
+        atLeast(
+          contrastRatio(compositeOver('rgba(255,255,255,0.85)', fill), fill),
+          WCAG_AA_TEXT,
+          `onboarding card subtitle on ${fill}`,
+        );
+      }
+
+      // Each style lettered white, and the fill under it.
+      const styles = source.slice(source.indexOf('const makeOnboardingStyles ='));
+      const block = (key) => {
+        const match = new RegExp(`\\n  ${key}: \\{([^}]*)\\}`).exec(styles);
+        assert.ok(match, `${key} not found`);
+        return match[1];
+      };
+      for (const key of [
+        'daysChipActive',
+        'daysWeekCellActive',
+        'focusListRowActive',
+        'locationChoiceCardActive',
+        'levelSliderThumb',
+        'equipmentExpandedCheck',
+      ]) {
+        assert.match(block(key), /backgroundColor: C\.primaryFill,/, `${key} is filled with the text violet`);
       }
     },
   },

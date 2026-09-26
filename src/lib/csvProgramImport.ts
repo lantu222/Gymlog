@@ -1,5 +1,6 @@
-import type { ExerciseNameBookEntry, WorkoutTemplateDraft } from '../types/models';
+import type { AppLanguage, ExerciseNameBookEntry, WorkoutTemplateDraft } from '../types/models';
 import { lookupNameBook } from './exerciseNameBook';
+import { t } from './i18n';
 
 /**
  * CSV program import (design_handoff_programs_redesign):
@@ -43,6 +44,17 @@ export interface CsvProgramPreview {
 function normalizeName(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
+
+/**
+ * A programme's rhythm is one weekday mask (ProgramDetailScreen's week strip
+ * is seven chips, `getTrainingDayIndexes` clamps to `Math.min(dayCount, 7)`).
+ * An 8-day CSV used to import 8 sessions while the title, the chips and the
+ * rhythm editor could only ever show seven of them — the reader saw "8 days"
+ * on a plan the app could never schedule past day 7 (2026-09-26). Capping
+ * here, with a visible reason, keeps the title, the chips and the rhythm
+ * editor telling the same number.
+ */
+const MAX_TRAINING_DAYS = 7;
 
 function detectDelimiter(headerLine: string) {
   if (headerLine.includes('\t')) {
@@ -176,6 +188,9 @@ export function parseCsvProgram(
   text: string,
   library: CsvLibraryEntry[],
   nameBook: readonly ExerciseNameBookEntry[] = [],
+  // The errors are shown to the reader as they are, so they are written in
+  // the app's language; English was the only one until 2026-09-26.
+  language: AppLanguage = 'en',
 ): CsvProgramPreview {
   const lines = text
     .split(/\r?\n/)
@@ -184,7 +199,7 @@ export function parseCsvProgram(
   const errors: string[] = [];
 
   if (!lines.length) {
-    return { rows: [], matchedCount: 0, unmatchedCount: 0, dayCount: 0, errors: ['The file is empty.'] };
+    return { rows: [], matchedCount: 0, unmatchedCount: 0, dayCount: 0, errors: [t(language, 'csv.error.empty')] };
   }
 
   const delimiter = detectDelimiter(lines[0]);
@@ -200,11 +215,13 @@ export function parseCsvProgram(
       matchedCount: 0,
       unmatchedCount: 0,
       dayCount: 0,
-      errors: ['Header row must contain the columns Day, Exercise, Sets and Reps.'],
+      errors: [t(language, 'csv.error.header')],
     };
   }
 
   const rows: CsvProgramRow[] = [];
+  const seenDayKeys = new Set<string>();
+  const skippedDayKeys = new Set<string>();
   for (let index = 1; index < lines.length; index += 1) {
     const cells = splitCsvLine(lines[index], delimiter);
     const day = (cells[dayIndex] ?? '').trim();
@@ -217,16 +234,28 @@ export function parseCsvProgram(
     const reps = parseReps((cells[repsIndex] ?? '').trim());
 
     if (!day || !exerciseName) {
-      errors.push(`Row ${index + 1}: missing day or exercise name.`);
+      errors.push(t(language, 'csv.error.missing', { row: index + 1 }));
       continue;
     }
     if (!Number.isFinite(sets) || sets <= 0) {
-      errors.push(`Row ${index + 1}: sets must be a whole number above zero.`);
+      errors.push(t(language, 'csv.error.sets', { row: index + 1 }));
       continue;
     }
     if (!reps) {
-      errors.push(`Row ${index + 1}: reps must be a number or a range like 6-10.`);
+      errors.push(t(language, 'csv.error.reps', { row: index + 1 }));
       continue;
+    }
+
+    const dayKey = normalizeName(day);
+    if (!seenDayKeys.has(dayKey)) {
+      if (seenDayKeys.size >= MAX_TRAINING_DAYS) {
+        if (!skippedDayKeys.has(dayKey)) {
+          skippedDayKeys.add(dayKey);
+          errors.push(t(language, 'csv.error.dayCap', { row: index + 1, day, max: MAX_TRAINING_DAYS }));
+        }
+        continue;
+      }
+      seenDayKeys.add(dayKey);
     }
 
     rows.push({

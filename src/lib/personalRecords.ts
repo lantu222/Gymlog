@@ -75,6 +75,48 @@ export interface PersonalRecord {
 /** How recent a record has to be to read as new. */
 export const FRESH_RECORD_DAYS = 30;
 
+export interface WeightedSet {
+  weight: number;
+  reps: number;
+}
+
+/**
+ * The heaviest of a set of candidate sets, weight first and reps to break a
+ * tie — one lift, one rule, so a weight record and a "new PR" declaration can
+ * never point at different sets. Before this rule was shared, the completion
+ * screen picked its record by an estimated one-rep max (Epley) while this
+ * screen picked it by the weight actually on the bar, and 80 kg × 10 could be
+ * a "new record" on one screen and not the other (2026-09-26).
+ *
+ * Ignores anything with no weight: a bodyweight lift has no weight record,
+ * here or anywhere else this is used.
+ */
+export function heaviestOfSets<T extends WeightedSet>(sets: readonly T[]): T | null {
+  let best: T | null = null;
+  for (const set of sets) {
+    if (!(set.weight > 0)) {
+      continue;
+    }
+    if (beatsBest(set, best)) {
+      best = set;
+    }
+  }
+  return best;
+}
+
+/**
+ * Whether a set is a new weight record over `best`: heavier, or the same
+ * weight for more reps. The second half is the rule the Records tab has kept
+ * since PR #154 (the record moves to the better set); the completion screen
+ * and the morning notification asked for a heavier bar only, so 100 kg × 5
+ * after 100 kg × 3 was new on one screen and nothing on the other (user,
+ * 2026-09-26: "ennätys kaikkialla"). Equal on both counts is matched, not
+ * beaten.
+ */
+export function beatsBest(set: WeightedSet, best: WeightedSet | null): boolean {
+  return best === null || set.weight > best.weight || (set.weight === best.weight && set.reps > best.reps);
+}
+
 interface Candidate {
   value: number;
   companion: number | null;
@@ -101,14 +143,8 @@ function candidateFor(entry: RecordEntry, kind: RecordKind): Candidate | null {
   }
 
   if (kind === 'weight') {
-    const loaded = sets.filter((set) => set.weight > 0);
-    if (loaded.length === 0) {
-      return null;
-    }
-    const best = loaded.reduce((top, set) =>
-      set.weight > top.weight || (set.weight === top.weight && set.reps > top.reps) ? set : top,
-    );
-    return { value: best.weight, companion: best.reps, performedAt: entry.performedAt, stamp };
+    const best = heaviestOfSets(sets);
+    return best ? { value: best.weight, companion: best.reps, performedAt: entry.performedAt, stamp } : null;
   }
 
   // Same reps, heavier bar: the better set, within a session as across them.

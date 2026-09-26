@@ -4551,14 +4551,21 @@ function VinhaApp() {
           // the rotation's next session does not.
           todayPickSessionId: pickedToday?.id ?? null,
 
-          // The catalog lookup, not the DB one: a custom template has no goal
-          // or level for affinity to compare, so its card simply offers no
-          // step up. Restart is real here — a plan record exists to reset.
+          // The catalog lookup, not the DB one, but by SOURCE id for a copy:
+          // a custom template carries no goal or level for affinity to
+          // compare, so looking it up by its own id found nothing and the
+          // card offered no step up to a reader who had only edited one lift
+          // in a ready programme (#bugs, 2026-09-26) — see programmeCopyLink.
+          // A hand-built custom programme still has no source and still gets
+          // no step-up card, correctly: there is no "next level" of it.
+          // Restart is real here — a plan record exists to reset.
           completion: buildCompletion(
             activeWorkoutPlan.id,
             planProgress.sessionsDone,
             planProgress.sessionsTotal,
-            getWorkoutTemplateById(firstEntry.workoutTemplateId),
+            dbTemplate
+              ? (dbTemplate.sourceTemplateId ? getWorkoutTemplateById(dbTemplate.sourceTemplateId) : null)
+              : readyPlanTemplate,
             true,
           ),
         };

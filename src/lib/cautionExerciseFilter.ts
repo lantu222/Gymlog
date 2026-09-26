@@ -1,5 +1,6 @@
 import { WorkoutTemplateExercise } from '../features/workout/workoutTypes';
 import { SetupCautionArea, SetupCautionFlag, SetupFocusArea } from '../types/models';
+import { trackingModeAfterSwap } from './catalogExercisePools';
 import { isHoldExerciseName } from './holdExercises';
 
 /**
@@ -72,7 +73,9 @@ const AREA_AVOID_PATTERNS: Record<SetupCautionArea, string[]> = {
 
 // `careful` swaps: first matching pattern wins; unmatched exercises keep their
 // place (there is no honest generic swap for every movement).
-const AREA_CAREFUL_SWAPS: Record<SetupCautionArea, Array<[string, string]>> = {
+// Exposed (with AREA_BODYWEIGHT_SWAPS below) so a test can sweep every swap
+// this filter can produce and check its tracking mode against the library.
+export const AREA_CAREFUL_SWAPS: Record<SetupCautionArea, Array<[string, string]>> = {
   shoulders: [
     ['overhead press', 'Landmine Press'],
     ['shoulder press', 'Landmine Press'],
@@ -128,7 +131,7 @@ const AREA_CAREFUL_SWAPS: Record<SetupCautionArea, Array<[string, string]>> = {
 };
 
 // Careful + the area chosen as a focus: bodyweight-first variants (step-6 note).
-const AREA_BODYWEIGHT_SWAPS: Record<SetupCautionArea, Array<[string, string]>> = {
+export const AREA_BODYWEIGHT_SWAPS: Record<SetupCautionArea, Array<[string, string]>> = {
   shoulders: [
     ['overhead press', 'Incline Push-Up'],
     ['shoulder press', 'Incline Push-Up'],
@@ -153,15 +156,6 @@ const AREA_BODYWEIGHT_SWAPS: Record<SetupCautionArea, Array<[string, string]>> =
   ankles: [],
 };
 
-const BODYWEIGHT_NAME_PATTERNS = [
-  'bodyweight',
-  'push-up',
-  'glute bridge',
-  'inverted row',
-  'plank',
-  'mountain climber',
-];
-
 function normalize(name: string) {
   return name.trim().toLowerCase();
 }
@@ -183,14 +177,6 @@ function findSwap(exerciseName: string, table: Array<[string, string]>): string 
 
 function isBannedByAnyAvoid(exerciseName: string, flags: SetupCautionFlag[]): boolean {
   return flags.some((flag) => flag.level === 'avoid' && exerciseHitsCautionArea(exerciseName, flag.area));
-}
-
-function resolveTrackingMode(
-  replacementName: string,
-  original: WorkoutTemplateExercise['trackingMode'],
-): WorkoutTemplateExercise['trackingMode'] {
-  const normalized = normalize(replacementName);
-  return BODYWEIGHT_NAME_PATTERNS.some((pattern) => normalized.includes(pattern)) ? 'bodyweight' : original;
 }
 
 export interface CautionExerciseSwap {
@@ -251,7 +237,16 @@ export function applyCautionFlagsToExercises(
           return {
             ...exercise,
             exerciseName: replacement,
-            trackingMode: resolveTrackingMode(replacement, exercise.trackingMode),
+            // The library's own data, not a name guess: a keyword match on the
+            // replacement name called "Bench Dips" -> "Machine Chest Press"
+            // bodyweight, leaving the set screen with no kg field for a machine
+            // lift (found 2026-09-26). trackingModeAfterSwap is the same rule
+            // the live player and Home use for every other swap — hold names
+            // first, then the ready programmes' own prescriptions, then the
+            // generated library's equipment field, and it only ever moves a
+            // slot TOWARD needing a weight for a name none of those place, so
+            // an unknown name never silently loses its weight field either.
+            trackingMode: trackingModeAfterSwap(exercise.trackingMode, replacement),
           };
         }
       }

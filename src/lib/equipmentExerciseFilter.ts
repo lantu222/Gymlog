@@ -74,6 +74,12 @@ const EQUIPMENT_RULES: EquipmentRule[] = [
   // a dumbbell curl for a bands-only reader fell back to reverse plate curls
   // with a weight dial and no plate (CI review of #172).
   { pattern: 'plate', requires: [BARBELL] },
+  // The same class of miss as 'plate', for a different curl. "Hammer" names a
+  // grip a band cannot give — the library files it under Dumbbell equipment,
+  // not bands — but the generic curl rule above let bands satisfy it anyway,
+  // so a bands-only reader's arms accessory was a hammer curl with a weight
+  // dial and no dumbbell (#bugs, 2026-09-26).
+  { pattern: 'hammer curl', requires: [['Dumbbells']] },
 ];
 
 /**

@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const {
   EMPTY_WORKOUT_MUSCLE_FILTERS,
   buildFreestyleFinish,
+  canFinishFreestyleSession,
   exerciseInitials,
   freestyleDoneSetCount,
   freestyleUnsavedWork,
@@ -125,6 +126,24 @@ module.exports = [
     },
   },
   {
+    /**
+     * User decision, 2026-09-26: a freestyle session with no ticked set is
+     * not a workout, and Finish must not be reachable for one.
+     */
+    name: 'canFinishFreestyleSession needs one ticked set, typed numbers are not enough',
+    run() {
+      assert.equal(canFinishFreestyleSession([]), false);
+      assert.equal(
+        canFinishFreestyleSession([
+          { ...makeExercise(), sets: [{ localKey: 's1', kg: '60', reps: '8', done: false }] },
+        ]),
+        false,
+        'typed but unticked sets do not count',
+      );
+      assert.equal(canFinishFreestyleSession([makeExercise()]), true, 'one ticked set is enough');
+    },
+  },
+  {
     name: 'leaving counts typed-but-unticked sets as work to lose',
     run() {
       const set = (kg, reps, done) => ({ localKey: `s${kg}${reps}${done}`, kg, reps, done });
@@ -213,8 +232,8 @@ module.exports = [
         exercisePrLookup: emptyPrLookup,
       });
       assert.equal(fresh.summary.prCards.length, 1);
-      // 100 kg × 5 → Epley estimate 116.67.
-      assert.ok(Math.abs(fresh.summary.prCards[0].estimatedOneRepMaxKg - 100 * (1 + 5 / 30)) < 0.01);
+      // A record is the weight on the bar: 100 kg, not an Epley estimate off it.
+      assert.equal(fresh.summary.prCards[0].performedWeightKg, 100);
 
       const beaten = buildFreestyleFinish({
         exercises: [makeExercise()],
@@ -222,7 +241,7 @@ module.exports = [
         startedAtIso: '2026-07-22T10:00:00.000Z',
         performedAtIso: '2026-07-22T10:40:00.000Z',
         elapsedSeconds: 600,
-        exercisePrLookup: { byLibraryItemId: { ex_squat: 140 }, byName: {} },
+        exercisePrLookup: { byLibraryItemId: { ex_squat: { weight: 140, reps: 5 } }, byName: {} },
       });
       assert.equal(beaten.summary.prCards.length, 0);
     },

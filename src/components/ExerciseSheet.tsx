@@ -333,8 +333,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
      * row down under the reader's finger — and the steps themselves ran off
      * the bottom rather than scrolling (user 2026-09-04). Fixed height, and
      * the body scrolls inside it.
+     *
+     * Lowered from 78% to 55% (user decision, 2026-09-26): 78% covered most
+     * of the set screen behind it. Still a fixed fraction of the window, not
+     * of the content, so the tab row still cannot jump — and the body still
+     * scrolls inside it, so nothing at 55% is newly clipped, only reached
+     * with one more scroll on a short tab like Learn.
      */
-    height: '78%',
+    height: '55%',
   },
   grip: {
     alignSelf: 'center',

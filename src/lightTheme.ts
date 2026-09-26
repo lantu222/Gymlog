@@ -80,7 +80,10 @@ export const HG = {
   amberSoft: '#FDF3E3',
   amberBorder: '#F0D3A2',
   amberInk: '#7A5B32',
-  danger: '#DC2626',
+  // A step darker than the PW red: #DC2626 was 4.10:1 on the page (`bg`),
+  // under the 4.5 body text needs (accessibility audit, 2026-09-21; fixed
+  // 2026-09-26). 4.86 on the page, 5.74 on a card.
+  danger: '#C81E1E',
   dangerSoft: '#FEF2F2',
   dangerBorder: '#FECACA',
   // Pro sheet gradient stops (dark violet).

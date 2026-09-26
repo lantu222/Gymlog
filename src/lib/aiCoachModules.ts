@@ -12,6 +12,7 @@ import {
 } from './trainingHistory';
 import { AppLanguage, ExerciseLog, WorkoutSession } from '../types/models';
 import { removeTrailingZeros } from './format';
+import { WeightedSet, beatsBest } from './personalRecords';
 
 /**
  * Content for the AI Coach sheet's three data modules, computed from what the
@@ -189,28 +190,31 @@ function buildAnalysis(
   let heaviest: { log: ExerciseLog; weight: number; reps: number } | null = null;
   for (const log of sessionLogs) {
     const top = topSetOf(log);
-    if (top && (!heaviest || top.weight > heaviest.weight)) {
+    if (top && beatsBest(top, heaviest)) {
       heaviest = { log, weight: top.weight, reps: top.reps };
     }
   }
 
   if (heaviest) {
     const key = normalizedName(heaviest.log.exerciseNameSnapshot);
+    // The best set before this session, by the records rule: heavier, or the
+    // same weight for more reps (2026-09-26).
     const priorBest = logs
       .filter(
         (log) => log.sessionId !== latest.id && normalizedName(log.exerciseNameSnapshot) === key,
       )
-      .reduce((max, log) => {
+      .reduce<WeightedSet | null>((best, log) => {
         const top = topSetOf(log);
-        return top && top.weight > max ? top.weight : max;
-      }, 0);
+        return top && top.weight > 0 && beatsBest(top, best) ? { weight: top.weight, reps: top.reps } : best;
+      }, null);
 
     const liftName = exerciseNameLabel(language, heaviest.log.exerciseNameSnapshot);
     const setText = `${removeTrailingZeros(Math.round(heaviest.weight * 10) / 10)} kg × ${heaviest.reps}`;
     // Beating the old best and equalling it are different results; calling a
     // new PR "matched" undersells what the user actually did.
-    const beatBest = priorBest > 0 && heaviest.weight > priorBest;
-    const matchedBest = priorBest > 0 && heaviest.weight === priorBest;
+    const beatBest = priorBest !== null && beatsBest(heaviest, priorBest);
+    const matchedBest =
+      priorBest !== null && heaviest.weight === priorBest.weight && heaviest.reps === priorBest.reps;
     const topSetKey: I18nKey = beatBest
       ? 'coach.analysis.topSetNew'
       : matchedBest

@@ -91,4 +91,57 @@ module.exports = [
       assert.equal(draft.sessions[0].exercises[0].libraryItemId, 'lib_bench');
     },
   },
+  {
+    name: 'csv import caps a programme at 7 days, with a clear error, so title/chips/rhythm agree',
+    run() {
+      const lines = ['Day,Exercise,Sets,Reps'];
+      for (let day = 1; day <= 8; day += 1) {
+        lines.push(`Day ${day},Bench Press,4,6-10`);
+      }
+      const preview = parseCsvProgram(lines.join('\n'), LIBRARY);
+
+      // Only 7 distinct days survive — the same cap ProgramDetailScreen's
+      // week chips and rhythm editor enforce (getTrainingDayIndexes).
+      assert.equal(preview.dayCount, 7);
+      assert.equal(preview.rows.length, 7);
+      assert.equal(preview.rows.every((row) => row.day !== 'Day 8'), true);
+      assert.equal(preview.errors.some((error) => error.includes('Day 8')), true);
+
+      const draft = buildDraftFromCsvPreview(preview, 'Eight day plan');
+      assert.equal(draft.sessions.length, 7);
+    },
+  },
+  {
+    name: 'csv import errors are written in the reader\'s language',
+    run() {
+      // They are shown as they are; until 2026-09-26 every one was English.
+      assert.deepEqual(parseCsvProgram('', LIBRARY, [], 'fi').errors, ['Tiedosto on tyhjä.']);
+      assert.match(parseCsvProgram('Foo,Bar\n1,2', LIBRARY, [], 'fi').errors[0], /^Ensimmäisellä rivillä/);
+      const rows = parseCsvProgram(
+        'Day,Exercise,Sets,Reps\nDay 1,,4,10\nDay 1,Bench Press,four,10\nDay 1,Back Squat,4,heavy',
+        LIBRARY,
+        [],
+        'fi',
+      );
+      assert.deepEqual(rows.errors, [
+        'Rivi 2: päivä tai liikkeen nimi puuttuu.',
+        'Rivi 3: sarjojen pitää olla kokonaisluku, vähintään 1.',
+        'Rivi 4: toistojen pitää olla luku tai väli, esim. 6-10.',
+      ]);
+      const lines = ['Day,Exercise,Sets,Reps'];
+      for (let day = 1; day <= 8; day += 1) {
+        lines.push(`Päivä ${day},Bench Press,4,6-10`);
+      }
+      assert.deepEqual(parseCsvProgram(lines.join('\n'), LIBRARY, [], 'fi').errors, [
+        'Rivi 9: "Päivä 8" jätettiin pois. Ohjelmassa voi olla enintään 7 treenipäivää.',
+      ]);
+
+      // And the sheet passes its language in.
+      const sheet = require('node:fs').readFileSync(
+        require('node:path').join(__dirname, '..', '..', 'src', 'components', 'NewProgramSheet.tsx'),
+        'utf8',
+      );
+      assert.match(sheet, /parseCsvProgram\(csvText, exerciseLibrary, nameBook, language\)/);
+    },
+  },
 ];

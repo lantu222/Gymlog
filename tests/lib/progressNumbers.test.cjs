@@ -13,12 +13,29 @@ module.exports = [
     run() {
       // Bench 80 × 5 in a programme (library row), 100 × 5 in a free workout
       // (name only). A 90 × 5 set earned a "new record" card against 93.
-      const lookup = { byLibraryItemId: { lib_bench: 93.3 }, byName: { 'bench press': 116.7 } };
-      assert.equal(resolvePreviousExercisePr({ libraryItemId: 'lib_bench', exerciseName: 'Bench Press', lookup }), 116.7);
+      const set = (weight, reps) => ({ weight, reps });
+      const lookup = { byLibraryItemId: { lib_bench: set(80, 5) }, byName: { 'bench press': set(100, 5) } };
+      assert.deepEqual(resolvePreviousExercisePr({ libraryItemId: 'lib_bench', exerciseName: 'Bench Press', lookup }), set(100, 5));
       // And the other way round, and with only one side known.
-      assert.equal(resolvePreviousExercisePr({ libraryItemId: 'lib_bench', exerciseName: 'Bench Press', lookup: { byLibraryItemId: { lib_bench: 120 }, byName: { 'bench press': 100 } } }), 120);
-      assert.equal(resolvePreviousExercisePr({ libraryItemId: null, exerciseName: 'Bench Press', lookup }), 116.7);
-      assert.equal(resolvePreviousExercisePr({ libraryItemId: 'lib_bench', exerciseName: 'Row', lookup }), 93.3);
+      assert.deepEqual(
+        resolvePreviousExercisePr({
+          libraryItemId: 'lib_bench',
+          exerciseName: 'Bench Press',
+          lookup: { byLibraryItemId: { lib_bench: set(120, 3) }, byName: { 'bench press': set(100, 5) } },
+        }),
+        set(120, 3),
+      );
+      // At the same weight the index with more reps is the best (2026-09-26).
+      assert.deepEqual(
+        resolvePreviousExercisePr({
+          libraryItemId: 'lib_bench',
+          exerciseName: 'Bench Press',
+          lookup: { byLibraryItemId: { lib_bench: set(100, 3) }, byName: { 'bench press': set(100, 6) } },
+        }),
+        set(100, 6),
+      );
+      assert.deepEqual(resolvePreviousExercisePr({ libraryItemId: null, exerciseName: 'Bench Press', lookup }), set(100, 5));
+      assert.deepEqual(resolvePreviousExercisePr({ libraryItemId: 'lib_bench', exerciseName: 'Row', lookup }), set(80, 5));
       assert.equal(resolvePreviousExercisePr({ libraryItemId: 'nope', exerciseName: 'Row', lookup }), null);
     },
   },

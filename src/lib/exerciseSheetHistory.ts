@@ -12,6 +12,7 @@
  */
 import { formatShortDate, removeTrailingZeros } from './format';
 import { t } from './i18n';
+import { beatsBest } from './personalRecords';
 import { estimateOneRepMaxKg } from './workoutCompletionSummary';
 import { getTopSetLabel } from './workoutCompleteView';
 import { AppLanguage, UnitPreference } from '../types/models';
@@ -152,7 +153,17 @@ export function buildExerciseSheetHistory(
 
   const priorBest = sorted.reduce((max, session) => Math.max(max, barValueOf(topSetOf(session.sets))), 0);
   const todayTop = todayHasSets && today ? topSetOf(today.sets) : null;
-  const todayIsPr = todayTop !== null && barValueOf(todayTop) > priorBest && priorBest > 0;
+  // A loaded lift's record is the records rule (`beatsBest`): heavier, or the
+  // same load for more reps — the pill used to ask for a heavier bar only,
+  // and 100 × 5 after 100 × 3 went unmarked here while the Records tab called
+  // it new (2026-09-26). An unloaded lift's bar is its reps, as before.
+  const priorTop = topSetOf(sorted.flatMap((session) => session.sets));
+  const todayIsPr =
+    todayTop !== null &&
+    priorBest > 0 &&
+    (todayTop.loadKg > 0 && priorTop !== null && priorTop.loadKg > 0
+      ? beatsBest({ weight: todayTop.loadKg, reps: todayTop.reps }, { weight: priorTop.loadKg, reps: priorTop.reps })
+      : barValueOf(todayTop) > priorBest);
 
   const rows: SheetHistoryRow[] = [...series]
     .reverse()

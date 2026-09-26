@@ -54,8 +54,11 @@ module.exports = [
     name: 'today is a PR only once it actually beats every session before it',
     run() {
       const past = [session('2026-08-27T18:00:00.000Z', [[60, 8]])];
-      // Same weight is not a record.
-      assert.equal(buildExerciseSheetHistory(past, session('2026-09-04T18:00:00.000Z', [[60, 9]]), 'en').rows[0].isPr, false);
+      // The same weight for more reps is (user, 2026-09-26: the records rule,
+      // everywhere); the same weight for the same or fewer reps is not.
+      assert.equal(buildExerciseSheetHistory(past, session('2026-09-04T18:00:00.000Z', [[60, 9]]), 'en').rows[0].isPr, true);
+      assert.equal(buildExerciseSheetHistory(past, session('2026-09-04T18:00:00.000Z', [[60, 8]]), 'en').rows[0].isPr, false);
+      assert.equal(buildExerciseSheetHistory(past, session('2026-09-04T18:00:00.000Z', [[60, 7]]), 'en').rows[0].isPr, false);
       // Heavier is.
       const pr = buildExerciseSheetHistory(past, session('2026-09-04T18:00:00.000Z', [[62.5, 6]]), 'en');
       assert.equal(pr.rows[0].isPr, true);
