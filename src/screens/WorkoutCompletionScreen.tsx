@@ -20,6 +20,7 @@ import { ProMomentContent } from '../lib/proInsights';
 import { CoachDemoSheet } from '../components/CoachDemoSheet';
 import { ProLockedCard } from '../components/ProLockedCard';
 import { ProMomentSheet } from '../components/ProMomentSheet';
+import { KitSheet } from '../components/sheetKit';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { AppLanguage, SessionFeel } from '../types/models';
 import { haptics } from '../utils/haptics';
@@ -332,17 +333,12 @@ export function WorkoutCompletionScreen({
     const timer = setTimeout(() => setDemoSheetVisible(true), 900);
     return () => clearTimeout(timer);
   }, [demoQuestion]);
-  /** The "miltä treeni tuntui" ask, shown when Done is pressed. */
-  const [feelSheetVisible, setFeelSheetVisible] = useState(false);
   /**
-   * The sheet's refusal when the backdrop is tapped.
-   *
-   * Its own node, driving its own View. The haptic alone would not do: haptics
-   * are a user preference, and with them off a tap outside would go from
-   * "closes the sheet" to "does nothing at all", which reads as a frozen
-   * screen rather than as a question still waiting.
+   * The "miltä treeni tuntui" ask, shown when Done is pressed. Closing it
+   * writes nothing and leaves the summary where it was: Done pressed by
+   * accident had no way back, only four answers and Skip (#bugs 2026-09-24).
    */
-  const feelShake = useRef(new Animated.Value(0)).current;
+  const [feelSheetVisible, setFeelSheetVisible] = useState(false);
   const pr = prCards[0] ?? null;
 
   // The workout is saved by the time this screen mounts — mark the moment.
@@ -806,71 +802,59 @@ export function WorkoutCompletionScreen({
 
       {/* One question on the way out (user 2026-08-23): how did it feel?
           Four colour-coded answers, and skipping costs one tap. The verdict
-          is written onto the saved session. */}
-      {feelSheetVisible ? (
-        <View style={styles.feelOverlay}>
-          {/* A tap outside used to call onDone(null) — the same write Skip
-              makes, with none of the intent. It is one answer per workout,
-              and a thumb landing beside the sheet was throwing it away
-              (user 2026-09-01). Now it says no and stays. */}
+          is written onto the saved session.
+
+          The ✕, the backdrop and Android's back close the sheet and nothing
+          else — no answer is written, the summary is still there under it,
+          and Done asks again. The backdrop once called onDone(null) and threw
+          the answer away (user 2026-09-01), then refused with a shake, which
+          left an accidental Done with no way back (#bugs 2026-09-24). Closing
+          is the refusal that costs nothing. */}
+      <KitSheet
+        visible={feelSheetVisible}
+        onClose={() => setFeelSheetVisible(false)}
+        title={t(language, 'complete.feel.title')}
+        bottomInset={insets.bottom}
+        closeLabel={t(language, 'common.close')}
+        reduceMotion={reduceMotion}
+      >
+        <View style={styles.feelOptions}>
+          {/* Built from the shared scale so the sheet that collects the
+              answer and the history that reads it back cannot drift — same
+              four steps, same order, same colours. */}
+          {SESSION_FEEL_SCALE.map((feel) => {
+            const color = sessionFeelColor(theme, feel);
+            const label = t(language, SESSION_FEEL_LABEL_KEY[feel]);
+            return (
+              <Pressable
+                key={feel}
+                accessibilityRole="button"
+                accessibilityLabel={label}
+                onPress={() => {
+                  void haptics.select();
+                  onDone(feel);
+                }}
+                style={({ pressed }) => [
+                  styles.feelOption,
+                  { borderColor: color },
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View style={[styles.feelDot, { backgroundColor: color }]} />
+                <Text style={styles.feelOptionText}>{label}</Text>
+              </Pressable>
+            );
+          })}
           <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => {
-              void haptics.impactMedium();
-              feelShake.setValue(0);
-              Animated.sequence([
-                Animated.timing(feelShake, { toValue: 1, duration: 55, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-                Animated.timing(feelShake, { toValue: -1, duration: 70, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-                Animated.timing(feelShake, { toValue: 0, duration: 90, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-              ]).start();
-            }}
-            accessible={false}
-          />
-          <Animated.View
-            style={[
-              styles.feelSheet,
-              { paddingBottom: insets.bottom + 14 },
-              { transform: [{ translateX: feelShake.interpolate({ inputRange: [-1, 1], outputRange: [-7, 7] }) }] },
-            ]}
+            accessibilityRole="button"
+            onPress={() => onDone(null)}
+            style={styles.feelSkip}
+            hitSlop={8}
           >
-            <Text style={styles.feelTitle}>{t(language, 'complete.feel.title')}</Text>
-            {/* Built from the shared scale so the sheet that collects the
-                answer and the history that reads it back cannot drift — same
-                four steps, same order, same colours. */}
-            {SESSION_FEEL_SCALE.map((feel) => {
-              const color = sessionFeelColor(theme, feel);
-              const label = t(language, SESSION_FEEL_LABEL_KEY[feel]);
-              return (
-                <Pressable
-                  key={feel}
-                  accessibilityRole="button"
-                  accessibilityLabel={label}
-                  onPress={() => {
-                    void haptics.select();
-                    onDone(feel);
-                  }}
-                  style={({ pressed }) => [
-                    styles.feelOption,
-                    { borderColor: color },
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <View style={[styles.feelDot, { backgroundColor: color }]} />
-                  <Text style={styles.feelOptionText}>{label}</Text>
-                </Pressable>
-              );
-            })}
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => onDone(null)}
-              style={styles.feelSkip}
-              hitSlop={8}
-            >
-              <Text style={styles.feelSkipText}>{t(language, 'complete.feel.skip')}</Text>
-            </Pressable>
-          </Animated.View>
+            <Text style={styles.feelSkipText}>{t(language, 'complete.feel.skip')}</Text>
+          </Pressable>
         </View>
-      ) : null}
+      </KitSheet>
 
       {lockedInsight ? (
         <ProMomentSheet
@@ -911,26 +895,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flex: 1,
     backgroundColor: theme.bg,
   },
-  feelOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(10, 6, 30, 0.45)',
-    justifyContent: 'flex-end',
-  },
-  feelSheet: {
-    backgroundColor: theme.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 20,
+  feelOptions: {
+    paddingHorizontal: 18,
     gap: 10,
-  },
-  feelTitle: {
-    color: theme.ink,
-    fontSize: 19,
-    lineHeight: 24,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-    marginBottom: 4,
   },
   feelOption: {
     flexDirection: 'row',

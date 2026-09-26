@@ -9,6 +9,8 @@ const read = (...parts) =>
   fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8').split('\r\n').join('\n');
 const sheet = read('src', 'components', 'AddExerciseSheet.tsx');
 const dayScreen = read('src', 'screens', 'ProgramDayScreen.tsx');
+const homeScreen = read('src', 'screens', 'HomeScreen.tsx');
+const swapSearch = read('src', 'lib', 'swapShortlist.ts');
 const labels = read('src', 'lib', 'exerciseNameLabel.ts');
 
 const { rankExerciseMatches } = require('../../.test-dist/lib/exerciseSearch.js');
@@ -57,8 +59,13 @@ module.exports = [
       // Four call sites passed the accessor and two did not; a tie then fell
       // through to shortest name.
       assert.match(sheet, /rankExerciseMatches\(filtered, query, language, \(item\) => commonStarterOrder\.get\(item\.id\)\)/);
-      assert.match(dayScreen, /\(item\) => swapPopularOrder\.get\(item\.id\),/);
-      assert.match(dayScreen, /const swapPopularOrder = useMemo\(\(\) => getPopularExerciseLibraryOrder\(exerciseLibrary \?\? \[\]\), \[exerciseLibrary\]\)/);
+      // Both swap sheets hand the order to the shared swap search, and it
+      // hands it on to the ranker.
+      assert.match(swapSearch, /\(item\) => popularOrder\?\.get\(item\.id\),/);
+      for (const screen of [dayScreen, homeScreen]) {
+        assert.match(screen, /popularOrder: swapPopularOrder,/);
+        assert.match(screen, /const swapPopularOrder = useMemo\(\(\) => getPopularExerciseLibraryOrder\(exerciseLibrary \?\? \[\]\), \[exerciseLibrary\]\)/);
+      }
 
       // The behaviour the accessor buys, proved rather than asserted about.
       const library = [
