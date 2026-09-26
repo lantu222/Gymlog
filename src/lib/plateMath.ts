@@ -45,3 +45,32 @@ export function platesPerSide(totalKg: number, barKg: number = BAR_WEIGHT_KG): n
 
   return plates;
 }
+
+export interface PlateLoad {
+  /** One side, heaviest first. */
+  plates: number[];
+  /** Below the bar itself: no loading reaches this weight. */
+  belowBar: boolean;
+  /**
+   * What standard plates cannot make, both sides together — 62 kg on a 20 kg
+   * bar loads 60 and leaves 2.
+   */
+  remainderKg: number;
+}
+
+/**
+ * The readout's whole answer: the plates, and what they do not cover.
+ *
+ * The readout said "Just the bar (20 kg)" for 15 kg, which is not the bar,
+ * and drew the plates for 60 kg under a set of 62 without a word about the
+ * other two — what `platesPerSide` leaves off (audit, 2026-09-26).
+ */
+export function plateLoad(totalKg: number, barKg: number = BAR_WEIGHT_KG): PlateLoad {
+  if (!Number.isFinite(totalKg) || totalKg < barKg - 1e-9) {
+    return { plates: [], belowBar: true, remainderKg: 0 };
+  }
+  const plates = platesPerSide(totalKg, barKg);
+  const loaded = barKg + 2 * plates.reduce((sum, plate) => sum + plate, 0);
+  const remainderKg = Math.round((totalKg - loaded) * 100) / 100;
+  return { plates, belowBar: false, remainderKg: remainderKg > 0.001 ? remainderKg : 0 };
+}

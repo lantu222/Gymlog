@@ -12,6 +12,7 @@ import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { formatPercent } from '../lib/format';
 import { I18nKey, t } from '../lib/i18n';
 import { cycleSchedule, sessionSlotOn } from '../lib/trainingSchedule';
+import { sessionForSlot } from '../lib/homeCalendar';
 import { ProgramDetailViewModel } from '../lib/programDetails';
 import { progressionRuleLabel } from '../lib/progressionRuleLabel';
 import { EQUIPMENT_CHIP_KEYS, missingEquipment } from '../lib/programEquipment';
@@ -685,20 +686,19 @@ export function ProgramDetailScreen({
     }
     const schedule = cycleSchedule(trainingCycle.pattern, trainingCycle.anchorDayStart);
     const now = new Date();
-    const count = program.sessions.length;
     return Array.from({ length: 7 }, (_, offset) => {
       const date = new Date(
         now.getFullYear(),
         now.getMonth(),
         now.getDate() - ((now.getDay() + 6) % 7) + offset,
       );
-      const slot = sessionSlotOn(schedule, date);
+      // Home's rule (sessionForSlot): an empty day hands its slot to the next
+      // day with lifts, so this week and Home's say the same thing about a
+      // date (audit 9, 2026-09-26).
+      const session = sessionForSlot(program.sessions, sessionSlotOn(schedule, date));
       return {
-        isTraining: slot !== null,
-        session:
-          slot !== null && count > 0
-            ? program.sessions[((slot % count) + count) % count]?.name ?? null
-            : null,
+        isTraining: session !== null,
+        session: session?.name ?? null,
       };
     });
   }, [trainingCycle, program.sessions]);

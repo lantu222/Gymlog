@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { applyDecimalSeparator, parseNumberInput } from '../lib/format';
 import { t } from '../lib/i18n';
-import { BAR_WEIGHT_KG, PLATE_COLORS, platesPerSide } from '../lib/plateMath';
+import { BAR_WEIGHT_KG, PLATE_COLORS, plateLoad } from '../lib/plateMath';
 import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
@@ -28,17 +28,20 @@ export function PlatePop({ kg, barKg = BAR_WEIGHT_KG, language = 'en' }: PlatePo
   const styles = useThemedStyles(makeStyles);
   const total = parseNumberInput(kg);
   const valid = total !== null && total > 0;
-  const plates = valid ? platesPerSide(total, barKg) : [];
+  const load = valid ? plateLoad(total, barKg) : null;
 
   // Nothing to load yet: stay out of the way rather than explain yourself.
-  if (!valid) {
+  if (!valid || !load) {
     return null;
   }
+  const { plates } = load;
 
   return (
     <View>
       <Text style={styles.eyebrow}>{t(language, 'plates.eyebrow', { bar: barKg })}</Text>
-      {plates.length === 0 ? (
+      {load.belowBar ? (
+        <Text style={styles.barOnly}>{t(language, 'plates.belowBar', { bar: barKg })}</Text>
+      ) : plates.length === 0 && load.remainderKg === 0 ? (
         <Text style={styles.barOnly}>{t(language, 'plates.justBar', { bar: barKg })}</Text>
       ) : (
         <View style={styles.chipRow}>
@@ -49,6 +52,11 @@ export function PlatePop({ kg, barKg = BAR_WEIGHT_KG, language = 'en' }: PlatePo
           ))}
         </View>
       )}
+      {load.remainderKg > 0 ? (
+        <Text style={styles.remainder}>
+          {t(language, 'plates.remainder', { kg: formatPlate(load.remainderKg) })}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -64,6 +72,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 13.5,
     fontWeight: '800',
     color: theme.ink,
+    marginTop: 7,
+  },
+  remainder: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: theme.muted,
     marginTop: 7,
   },
   chipRow: {

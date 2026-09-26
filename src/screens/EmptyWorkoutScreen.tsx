@@ -866,7 +866,11 @@ export function EmptyWorkoutScreen({
                 // loggable stops being logged — the tick comes back off, and
                 // toggleSetDone refuses to put it back until the number is
                 // one somebody could have lifted.
-                return next.done && !isLoggableFreestyleSet(next) ? { ...next, done: false } : next;
+                // Blank reps mid-edit keep the tick: clearing "8" to type
+                // "10" is not a set undone. The finish does not count a
+                // ticked set with no reps (isDoneFreestyleSet, 2026-09-26).
+                const checked = next.reps.trim() ? next : { ...next, reps: '1' };
+                return next.done && !isLoggableFreestyleSet(checked) ? { ...next, done: false } : next;
               }),
             }
           : exercise,

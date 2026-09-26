@@ -280,9 +280,14 @@ export interface FreestyleFinishResult {
 }
 
 /**
- * Whether a typed set can be ticked done: its weight is one a person could
- * lift and its reps fit the reps dial. Empty fields are allowed — the finish
- * decides what an empty set means.
+ * Whether a typed set can be ticked done: it has reps, its weight is one a
+ * person could lift and its reps fit the reps dial. The weight may be empty —
+ * a bodyweight set has none.
+ *
+ * The reps may not. "Empty fields are allowed, the finish decides" let a
+ * blank row be ticked, and the finish decided it was a set: "1 set, 0 kg" in
+ * history, and — once a free workout needed one ticked set to be saved — the
+ * one tick that saved a session nobody did (audit, 2026-09-26).
  *
  * The fields took anything. "825" for 82,5 was ticked, counted into volume and
  * shown on the summary, and then the loader dropped the set on the next launch
@@ -298,14 +303,23 @@ export function isLoggableFreestyleSet(set: Pick<FreestyleSetDraft, 'kg' | 'reps
   if (set.kg.trim() && !isLiftableWeight(kg)) {
     return false;
   }
-  if (set.reps.trim() && (reps === null || reps < 0 || reps > REPS_DIAL.max || !Number.isInteger(reps))) {
+  if (reps === null || reps <= 0 || reps > REPS_DIAL.max || !Number.isInteger(reps)) {
     return false;
   }
   return true;
 }
 
+/**
+ * A set the finish counts as done: ticked, and a set by the rule above. A
+ * draft saved before that rule can still hold a ticked blank row; it is not
+ * work, so it is neither counted, logged as completed, nor enough to save.
+ */
+function isDoneFreestyleSet(set: FreestyleSetDraft): boolean {
+  return set.done && isLoggableFreestyleSet(set);
+}
+
 function setVolumeKg(set: FreestyleSetDraft) {
-  if (!set.done) {
+  if (!isDoneFreestyleSet(set)) {
     return 0;
   }
 
@@ -427,7 +441,7 @@ export function freestyleNextSetTarget(
 
 export function freestyleDoneSetCount(exercises: FreestyleExerciseDraft[]) {
   return exercises.reduce(
-    (total, exercise) => total + exercise.sets.filter((set) => set.done).length,
+    (total, exercise) => total + exercise.sets.filter(isDoneFreestyleSet).length,
     0,
   );
 }
@@ -481,10 +495,10 @@ function buildLogDrafts(exercises: FreestyleExerciseDraft[], performedAtIso: str
       weight: parseNumberInput(set.kg) ?? 0,
       reps: parseNumberInput(set.reps) ?? 0,
       kind: 'working' as const,
-      outcome: set.done ? ('completed' as const) : null,
-      status: set.done ? ('completed' as const) : ('pending' as const),
+      outcome: isDoneFreestyleSet(set) ? ('completed' as const) : null,
+      status: isDoneFreestyleSet(set) ? ('completed' as const) : ('pending' as const),
       effort: null,
-      completedAt: set.done ? performedAtIso : null,
+      completedAt: isDoneFreestyleSet(set) ? performedAtIso : null,
       skippedReason: null,
     }));
 
@@ -530,7 +544,7 @@ export function buildFreestyleFinish({
     id: exercise.localKey,
     name: exercise.name.trim(),
     imageUrl: exercise.imageUrl,
-    completedSets: exercise.sets.filter((set) => set.done).length,
+    completedSets: exercise.sets.filter(isDoneFreestyleSet).length,
     totalSets: Math.max(1, exercise.sets.length),
     totalVolumeKg: exercise.sets.reduce((sum, set) => sum + setVolumeKg(set), 0),
     notes: null,
@@ -539,7 +553,7 @@ export function buildFreestyleFinish({
   const prCards: WorkoutCompletionPrCard[] = named
     .map((exercise): WorkoutCompletionPrCard | null => {
       const doneSets = exercise.sets
-        .filter((set) => set.done)
+        .filter(isDoneFreestyleSet)
         .map((set) => ({ weight: parseNumberInput(set.kg), reps: parseNumberInput(set.reps) }))
         .filter((set): set is { weight: number; reps: number } => set.weight !== null && set.reps !== null);
       const bestSet = heaviestOfSets(doneSets);
@@ -570,6 +584,13 @@ export function buildFreestyleFinish({
       };
     })
     .filter(isPrCard)
+    // Strongest first, as the programme finish sorts them: the hero shows the
+    // first card, and in exercise order it could lead with the smallest
+    // record of the session (2026-09-26).
+    .sort(
+      (left, right) =>
+        right.performedWeightKg - left.performedWeightKg || right.performedReps - left.performedReps,
+    )
     .slice(0, 3);
 
   const persistedSessionName = buildPersistedSessionNames(

@@ -1160,6 +1160,8 @@ const EN = {
   // ── Plate readout ──────────────────────────────────────────────────────
   'plates.eyebrow': 'PLATES · PER SIDE · {bar}KG BAR',
   'plates.justBar': 'Just the bar ({bar} kg).',
+  'plates.belowBar': 'Lighter than the bar ({bar} kg).',
+  'plates.remainder': 'Standard plates leave {kg} kg off.',
 
   // ── Empty Workout (freestyle logger) ───────────────────────────────────
   'emptyWorkout.title': 'Empty workout',
@@ -2090,7 +2092,7 @@ const EN = {
   'recovery.todo.green.sleep': 'Sleep 7–9 h so the pace holds',
   'recovery.todo.amber.hold': 'Keep the weights where they are next session',
   'recovery.todo.amber.lastSet': 'Leave the last set off each lift',
-  'recovery.todo.amber.rest': 'Take a rest day before legs',
+  'recovery.todo.amber.rest': 'Take a rest day before your next heavy session',
   'recovery.todo.red.rest': 'Take tomorrow off',
   'recovery.todo.red.restAlready': 'Keep tomorrow as the rest day it is',
   'recovery.todo.red.lighter': 'Next session lighter — same lifts, one set fewer each',
@@ -4323,6 +4325,8 @@ const FI: Record<I18nKey, string> = {
   // ── Plate readout ──────────────────────────────────────────────────────
   'plates.eyebrow': 'LEVYT · PER PUOLI · {bar}KG TANKO',
   'plates.justBar': 'Pelkkä tanko ({bar} kg).',
+  'plates.belowBar': 'Kevyempi kuin tanko ({bar} kg).',
+  'plates.remainder': 'Vakiolevyillä jää {kg} kg pois.',
 
   // ── Empty Workout ──────────────────────────────────────────────────────
   'emptyWorkout.title': 'Tyhjä treeni',
@@ -5155,7 +5159,7 @@ const FI: Record<I18nKey, string> = {
   'recovery.todo.green.sleep': 'Nuku 7–9 h, niin tahti kestää',
   'recovery.todo.amber.hold': 'Pidä painot ennallaan seuraavassa treenissä',
   'recovery.todo.amber.lastSet': 'Jätä viimeinen sarja pois jokaisesta liikkeestä',
-  'recovery.todo.amber.rest': 'Pidä lepopäivä ennen jalkoja',
+  'recovery.todo.amber.rest': 'Pidä lepopäivä ennen seuraavaa raskasta treeniä',
   'recovery.todo.red.rest': 'Pidä huomenna lepopäivä',
   'recovery.todo.red.restAlready': 'Pidä huominen lepopäivä lepona',
   'recovery.todo.red.lighter': 'Seuraava treeni kevyempänä — samat liikkeet, yksi sarja vähemmän',

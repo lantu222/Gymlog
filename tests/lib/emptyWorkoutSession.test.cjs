@@ -363,13 +363,68 @@ module.exports = [
     },
   },
   {
+    // The hero shows the first card; in exercise order a curl record could
+    // lead a session that also set a squat record (2026-09-26).
+    name: 'freestyle record cards come strongest first',
+    run() {
+      const { buildFreestyleFinish } = require('../../.test-dist/lib/emptyWorkoutSession.js');
+      const lift = (localKey, name, kg, reps) =>
+        makeExercise({ localKey, name, libraryItemId: null, sets: [{ localKey: `${localKey}_1`, kg, reps, done: true }] });
+      const { summary } = buildFreestyleFinish({
+        exercises: [lift('a', 'Barbell Curl', '30', '10'), lift('b', 'Back Squat', '120', '5'), lift('c', 'Bench Press', '120', '6')],
+        workoutName: 'Empty workout',
+        startedAtIso: '2026-09-26T10:00:00.000Z',
+        performedAtIso: '2026-09-26T10:40:00.000Z',
+        elapsedSeconds: 600,
+        exercisePrLookup: emptyPrLookup,
+      });
+      assert.deepEqual(summary.prCards.map((card) => card.exerciseName), ['Bench Press', 'Back Squat', 'Barbell Curl']);
+    },
+  },
+  {
+    // A ticked blank row — possible before the rule, and still in a draft
+    // saved then — is not a set: not enough to save, not counted, not logged
+    // as completed (2026-09-26).
+    name: 'a ticked blank row is not a done set anywhere in the finish',
+    run() {
+      const {
+        buildFreestyleFinish,
+        canFinishFreestyleSession,
+        freestyleDoneSetCount,
+      } = require('../../.test-dist/lib/emptyWorkoutSession.js');
+      const blank = makeExercise({ sets: [{ localKey: 'set_1', kg: '', reps: '', done: true }] });
+      assert.equal(canFinishFreestyleSession([blank]), false);
+      assert.equal(freestyleDoneSetCount([blank]), 0);
+      const mixed = makeExercise({
+        sets: [
+          { localKey: 'set_1', kg: '', reps: '', done: true },
+          { localKey: 'set_2', kg: '60', reps: '8', done: true },
+        ],
+      });
+      assert.equal(canFinishFreestyleSession([mixed]), true);
+      const { summary } = buildFreestyleFinish({
+        exercises: [mixed],
+        workoutName: 'Empty workout',
+        startedAtIso: '2026-09-26T10:00:00.000Z',
+        performedAtIso: '2026-09-26T10:40:00.000Z',
+        elapsedSeconds: 600,
+        exercisePrLookup: emptyPrLookup,
+      });
+      assert.equal(summary.setsCompleted, 1);
+      assert.equal(summary.exerciseCards[0].completedSets, 1);
+      assert.deepEqual(summary.logs[0].sets.map((set) => set.status), ['pending', 'completed']);
+    },
+  },
+  {
     // "825" for 82,5 was ticked, counted into volume and shown on the summary,
     // then dropped by the loader on the next launch.
     name: 'isLoggableFreestyleSet: a set nobody could lift cannot be ticked',
     run() {
       const { isLoggableFreestyleSet } = require('../../.test-dist/lib/emptyWorkoutSession.js');
       assert.equal(isLoggableFreestyleSet({ kg: '82,5', reps: '6' }), true);
-      assert.equal(isLoggableFreestyleSet({ kg: '', reps: '' }), true);
+      assert.equal(isLoggableFreestyleSet({ kg: '', reps: '' }), false);
+      assert.equal(isLoggableFreestyleSet({ kg: '60', reps: '' }), false);
+      assert.equal(isLoggableFreestyleSet({ kg: '60', reps: '0' }), false);
       assert.equal(isLoggableFreestyleSet({ kg: '0', reps: '12' }), true);
       assert.equal(isLoggableFreestyleSet({ kg: '825', reps: '6' }), false);
       assert.equal(isLoggableFreestyleSet({ kg: '80', reps: '999' }), false);
