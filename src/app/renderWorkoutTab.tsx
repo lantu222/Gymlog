@@ -154,7 +154,7 @@ export interface WorkoutTabDeps {
   /** Resolves the new day's id once it is saved, and whether the week followed; or null. */
   handleAddProgramSession: (
     workoutTemplateId: string,
-    exerciseNames: string[],
+    name: string,
   ) => Promise<{ sessionId: string; weekSynced: boolean } | null>;
   /** Resolves once the day is gone, with whether the week followed; or null. */
   handleRemoveProgramSession: (
@@ -699,11 +699,11 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
             : undefined
         }
         // Custom only, like the reorder. The new day opens once it is saved,
-        // so the reader lands where its sets and reps are set.
+        // empty, on the page where its lifts are added.
         onAddSession={
           route.programType === 'custom'
-            ? (exerciseNames) =>
-                void handleAddProgramSession(route.workoutTemplateId, exerciseNames).then(
+            ? (name) =>
+                void handleAddProgramSession(route.workoutTemplateId, name).then(
                   (added) => {
                     if (!added) {
                       return;
@@ -731,8 +731,6 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
                 )
             : undefined
         }
-        exerciseLibrary={exerciseBrowserItems}
-        recentExerciseLibraryItems={recentExerciseBrowserItems}
         onSaveRhythm={
           database.workoutPlans.some((plan) => plan.entries[0]?.workoutTemplateId === route.workoutTemplateId)
             ? (dayIndexes) => void handleSaveRhythm(route.workoutTemplateId, dayIndexes)

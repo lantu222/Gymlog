@@ -169,7 +169,7 @@ import {
 import { reorderPlanWeek } from './src/lib/planSessionOrder';
 import { syncPlanEntriesToTemplate } from './src/lib/planTemplateSync';
 import { reorderProgramSessions } from './src/lib/programSessionOrder';
-import { newProgramSessionName, removeProgramSession } from './src/lib/programSessionList';
+import { newProgramSessionName, nextStartableSessionIndex, removeProgramSession } from './src/lib/programSessionList';
 import { ProgramLimitReachedError } from './src/lib/programSlots';
 import { createUnlessAtLimit } from './src/app/programLimitGuard';
 import {
@@ -2572,7 +2572,12 @@ function VinhaApp() {
     const selectedSession = customTemplate.sessions.find((session) => session.id === sessionId) ?? null;
     if (!selectedSession?.exercises.length) {
       showToast(t(preferences.appLanguage, 'toast.addExercisesSession'));
-      navigate({ tab: 'workout', screen: 'template', workoutTemplateId });
+      // To the day itself, where "Lisää liike" is. It went to the template
+      // editor, which a programme page no longer opens — and a day can be
+      // empty now on purpose, named first and filled after (2026-09-26).
+      if (selectedSession) {
+        navigate({ tab: 'workout', screen: 'programDay', programType: 'custom', workoutTemplateId, sessionId });
+      }
       return;
     }
 
@@ -2732,14 +2737,13 @@ function VinhaApp() {
   }
 
   /**
-   * A new day at the end of a custom programme, made from the lifts the reader
-   * picked for it (#bugs 2026-09-24: "yhtä päivää ei voi lisätä").
-   *
-   * The day and its lifts are one write. A day saved empty first and filled
-   * afterwards would be a programme with an empty day in it for as long as the
-   * reader took to choose — and Home could offer it, and starting it would
-   * open an empty player. The id is minted here so the caller can open the
-   * new day without guessing which one it was.
+   * A new day at the end of a custom programme, under the name the reader gave
+   * it, empty (#bugs 2026-09-24; named-first since 2026-09-26: "tähän tulee
+   * ensiksi nimeä päivä … se menee tyhjänä"). The reader fills it on its own
+   * page, which opens next. An empty day is never offered as the next session
+   * and cannot be started — see nextStartableSessionIndex and the start
+   * handler. The id is minted here so the caller can open the new day without
+   * guessing which one it was. A blank name takes the editor's placeholder.
    *
    * Resolves the new day's id once the programme is saved, with whether its
    * week followed; null when nothing was written. A week that failed to
@@ -2749,13 +2753,9 @@ function VinhaApp() {
    */
   async function handleAddProgramSession(
     workoutTemplateId: string,
-    exerciseNames: string[],
+    name: string,
   ): Promise<{ sessionId: string; weekSynced: boolean } | null> {
-    if (exerciseNames.length === 0) {
-      return null;
-    }
     const newSessionId = createId('workout_template_session');
-    const exercises = buildAddedProgramExercises(exerciseNames, newSessionId);
     const result = await editWorkoutTemplateSessions(workoutTemplateId, (sessions) => ({
       kind: 'save',
       sessions: [
@@ -2768,8 +2768,8 @@ function VinhaApp() {
           })),
         {
           id: newSessionId,
-          name: newProgramSessionName(sessions.length, preferences.appLanguage),
-          exercises,
+          name: name.trim() || newProgramSessionName(sessions.length, preferences.appLanguage),
+          exercises: [],
         },
       ],
     }));
@@ -4432,7 +4432,17 @@ function VinhaApp() {
         completed: completedPlanSessions,
         toDayStart: toDayStartMs,
       });
-      const nextSession = pickedToday ?? homeSessions[nextSessionIndex] ?? homeSessions[0] ?? null;
+      // A day named but not yet filled is not a session to offer: its turn
+      // goes to the next day that has something in it (2026-09-26). A pick of
+      // an empty day is passed over the same way.
+      const startableIndex = nextStartableSessionIndex(
+        homeSessions.map((session) => session.exercises.length),
+        nextSessionIndex,
+      );
+      const nextSession =
+        (pickedToday && pickedToday.exercises.length > 0 ? pickedToday : null) ??
+        (startableIndex === null ? null : homeSessions[startableIndex]) ??
+        null;
       if (activeTemplate && nextSession) {
         const estimatedDuration = Number.parseInt(nextSession.duration.replace(/\D/g, ''), 10) || 20;
         // The programme, not the record that happens to hold it: a copy made

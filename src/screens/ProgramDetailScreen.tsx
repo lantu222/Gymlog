@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AddExerciseSheet } from '../components/AddExerciseSheet';
+import { KitSheet } from '../components/sheetKit';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CutSurface } from '../components/CutSurface';
 import { ProgramPhotoSlot } from '../components/ProgramPhotoSlot';
@@ -34,7 +34,7 @@ import {
   localizeWorkoutFocus,
 } from '../lib/sessionNameLabel';
 import { layout, radii, spacing } from '../theme';
-import type { AppLanguage, ExerciseLibraryItem } from '../types/models';
+import type { AppLanguage } from '../types/models';
 
 /** The space between day rows — the list's gap, and part of every slot. */
 const DAY_ROW_GAP = spacing.sm;
@@ -170,14 +170,11 @@ interface ProgramDetailScreenProps {
    */
   onReorderSession?: (sessionId: string, toIndex: number) => void;
   /**
-   * A new day at the end, made from the lifts picked for it (#bugs
-   * 2026-09-24). The day and its lifts are one write — a day never exists
-   * empty. Undefined for a catalog programme, like the reorder above.
+   * A new day at the end, under the name the reader gives it (#bugs
+   * 2026-09-24; named first since 2026-09-26). Saved empty; its own page opens
+   * next to fill it. Undefined for a catalog programme, like the reorder above.
    */
-  onAddSession?: (exerciseNames: string[]) => void;
-  /** The library the new day's lifts are picked from. */
-  exerciseLibrary?: ExerciseLibraryItem[];
-  recentExerciseLibraryItems?: ExerciseLibraryItem[];
+  onAddSession?: (name: string) => void;
   /** The catalog's declared block length. Null for a programme with none. */
   programBlockWeeks?: number | null;
   /** Monday-first indexes the plan currently trains on, when it names days. */
@@ -296,8 +293,6 @@ export function ProgramDetailScreen({
   onOpenSession,
   onReorderSession,
   onAddSession,
-  exerciseLibrary,
-  recentExerciseLibraryItems = [],
   programBlockWeeks = null,
   trainingDayIndexes = null,
   trainingDaySessionIds = null,
@@ -325,7 +320,26 @@ export function ProgramDetailScreen({
   // The programme's own colour, the same one its browse cover wears.
   const [emphasisSheetVisible, setEmphasisSheetVisible] = useState(false);
   const [addSessionOpen, setAddSessionOpen] = useState(false);
-  const canAddSession = Boolean(onAddSession && exerciseLibrary && exerciseLibrary.length > 0);
+  const [newDayName, setNewDayName] = useState('');
+  // The keyboard covers the bottom of the name sheet; the sheet rides on it.
+  const [keyboardInset, setKeyboardInset] = useState(0);
+  useEffect(() => {
+    if (!addSessionOpen) {
+      return undefined;
+    }
+    const shown = Keyboard.addListener('keyboardDidShow', (event) => setKeyboardInset(event.endCoordinates.height));
+    const hidden = Keyboard.addListener('keyboardDidHide', () => setKeyboardInset(0));
+    return () => {
+      shown.remove();
+      hidden.remove();
+      setKeyboardInset(0);
+    };
+  }, [addSessionOpen]);
+  const canAddSession = Boolean(onAddSession);
+  const submitNewDay = () => {
+    setAddSessionOpen(false);
+    onAddSession?.(newDayName);
+  };
 
   /**
    * Dragging a day, identical to dragging a lift (user 2026-08-31: "tee
@@ -1321,13 +1335,15 @@ export function ProgramDetailScreen({
             </Animated.View>
             );
           })}
-          {/* A day is added where the list ends. The row opens the library,
-              not an empty day: the lifts are picked first and the day is
-              written with them, so no programme ever holds an empty day. */}
+          {/* A day is added where the list ends: named first, then filled on
+              its own page (user, 2026-09-26). */}
           {canAddSession ? (
             <Pressable
               accessibilityRole="button"
-              onPress={() => setAddSessionOpen(true)}
+              onPress={() => {
+                setNewDayName('');
+                setAddSessionOpen(true);
+              }}
               style={({ pressed }) => [styles.addSessionRow, pressed && styles.workoutCardPressed]}
             >
               <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
@@ -1431,26 +1447,38 @@ export function ProgramDetailScreen({
       </ScrollView>
 
       {canAddSession ? (
-        <AddExerciseSheet
-          bottomInset={insets.bottom}
+        <KitSheet
           visible={addSessionOpen}
-          language={language}
-          items={exerciseLibrary ?? []}
-          recentItems={recentExerciseLibraryItems}
-          title={t(language, 'detail.addWorkout')}
-          // What the new day will be called until it is renamed — the same
-          // placeholder the list prints for it.
-          subtitle={t(language, 'detail.workoutPlaceholder', { index: program.sessions.length + 1 })}
-          multiSelect
           onClose={() => setAddSessionOpen(false)}
-          onSelectItem={() => undefined}
-          onConfirmSelection={(items) => {
-            setAddSessionOpen(false);
-            if (items.length > 0) {
-              onAddSession?.(items.map((item) => item.name));
-            }
-          }}
-        />
+          title={t(language, 'detail.addWorkout')}
+          // The keyboard's height already reaches the screen's edge, as Home's
+          // rename sheet reads it: one or the other, never both.
+          bottomInset={keyboardInset > 0 ? keyboardInset : insets.bottom}
+          closeLabel={t(language, 'common.close')}
+        >
+          <View style={styles.newDayBody}>
+            <TextInput
+              value={newDayName}
+              onChangeText={setNewDayName}
+              autoFocus
+              // What a blank name becomes, so leaving it empty is a choice the
+              // reader can see rather than a surprise on the list.
+              placeholder={t(language, 'detail.workoutPlaceholder', { index: program.sessions.length + 1 })}
+              placeholderTextColor={theme.faint}
+              accessibilityLabel={t(language, 'detail.addDay.nameLabel')}
+              returnKeyType="done"
+              onSubmitEditing={submitNewDay}
+              style={styles.newDayInput}
+            />
+            <Pressable
+              accessibilityRole="button"
+              onPress={submitNewDay}
+              style={({ pressed }) => [styles.newDayCta, pressed && styles.workoutCardPressed]}
+            >
+              <Text style={styles.newDayCtaText}>{t(language, 'detail.addWorkout')}</Text>
+            </Pressable>
+          </View>
+        </KitSheet>
       ) : null}
 
       {onSaveEmphasis ? (
@@ -1933,6 +1961,33 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderWidth: 1.6,
     borderStyle: 'dashed',
     borderColor: theme.border,
+  },
+  newDayBody: {
+    paddingHorizontal: 18,
+    gap: 12,
+  },
+  newDayInput: {
+    minHeight: 50,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
+    paddingHorizontal: 14,
+    color: theme.ink,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  newDayCta: {
+    minHeight: 52,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.highlight,
+  },
+  newDayCtaText: {
+    color: theme.onHighlight,
+    fontSize: 16,
+    fontWeight: '900',
   },
   // Pressable, so the action accent — violet on this page is brand only.
   addSessionText: {
