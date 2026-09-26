@@ -363,8 +363,9 @@ module.exports = [
       // ("ei pysty hakemaan todellisuudessa mitään", #bugs 2026-08-26).
       assert.match(programDaySource, /swapLibraryMatches/);
       // The library search goes through the shared ranker (2026-09-02): the
-      // same match rule, best answer first.
-      assert.match(programDaySource, /rankExerciseMatches\(\s*exerciseLibrary\.filter/);
+      // same match rule, best answer first. Since 2026-09-26 it does so inside
+      // buildSwapLibraryMatches, which Home's swap sheet shares.
+      assert.match(programDaySource, /buildSwapLibraryMatches\(exerciseLibrary, swapQuery, language,/);
       assert.match(programDaySource, /home\.swapSheet\.library/);
       // And the pool-is-empty line only shows when nothing was searched for.
       assert.match(programDaySource, /swapQuery\.trim\(\) \? 'home\.swapSheet\.noMatches' : 'home\.swapSheet\.empty'/);
