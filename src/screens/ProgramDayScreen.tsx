@@ -652,7 +652,12 @@ export function ProgramDayScreen({
    * pair adds space no row reports, and `dragTargetFor` charges that per
    * boundary it crosses. See SUPERSET_BOX_EDGE.
    */
-  const renderExerciseRow = (exercise: ProgramDetailSessionItem['exercises'][number], index: number) => {
+  const renderExerciseRow = (
+    exercise: ProgramDetailSessionItem['exercises'][number],
+    index: number,
+    /** The superset frame is this row's edge: a rule of its own would double it. */
+    hideTopRule = false,
+  ) => {
             const dragging = dragIndex === index;
             // While a row travels, the rows between it and its target make
             // room by exactly its height — the drop is previewed, not
@@ -675,6 +680,7 @@ export function ProgramDayScreen({
               }}
               style={[
                 styles.exerciseCard,
+                hideTopRule && styles.exerciseCardNoRule,
                 index === 0 && styles.exerciseCardAnchor,
                 shift !== 0 && { transform: [{ translateY: shift }] },
                 dragging && [styles.exerciseCardLift, { transform: [{ translateY: dragY }] }],
@@ -711,7 +717,7 @@ export function ProgramDayScreen({
                   >
                     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
                       <Path
-                        d="M3 9h18M3 15h18"
+                        d="M4 6h16M4 12h16M4 18h16"
                         stroke={theme.faint}
                         strokeWidth={2.2}
                         strokeLinecap="round"
@@ -955,9 +961,19 @@ export function ProgramDayScreen({
         <View style={styles.exerciseList}>
           {/* Rows in runs rather than one flat list: a superset is one box
               with one label on it. */}
-          {supersetRuns.map((run) => {
-            const rows = run.indexes.map((index) => renderExerciseRow(session.exercises[index], index));
-            if (run.groupId === null || run.indexes.length < 2) {
+          {supersetRuns.map((run, runIndex) => {
+            const isSuperset = run.groupId !== null && run.indexes.length >= 2;
+            const previous = supersetRuns[runIndex - 1];
+            const afterSuperset = Boolean(previous && previous.groupId !== null && previous.indexes.length >= 2);
+            // The frame's own line is the edge at both ends of a superset. The
+            // first row inside it and the first row after it each drew a rule
+            // right against that line — two lines where one belongs, at the
+            // top and at the bottom ("liikaa poikkiviivoja … menee
+            // päällekkäin", #bugs 2026-09-26).
+            const rows = run.indexes.map((index, position) =>
+              renderExerciseRow(session.exercises[index], index, position === 0 && (isSuperset || afterSuperset)),
+            );
+            if (!isSuperset) {
               return rows;
             }
             return (
@@ -2153,6 +2169,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   // The anchor is marked by its number chip, which is filled while the rest
   // are washed — a second marker on the row's edge said the same thing twice.
   exerciseCardAnchor: {},
+  exerciseCardNoRule: {
+    borderTopWidth: 0,
+  },
   // One tap target for the two row icons, sized for a thumb rather than for
   // the glyph inside it.
   rowAction: {

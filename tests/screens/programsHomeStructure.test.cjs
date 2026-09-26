@@ -162,17 +162,19 @@ module.exports = [
       assert.match(read('src', 'app', 'renderWorkoutTab.tsx'), /<CatalogScreen/);
       assert.match(programsHomeSource, /\{level !== null \? \(/);
 
-      // The order the brief asks for, and the reason for it: what the reader
-      // OWNS opens the tab, and finding something new sits under it. The page
-      // used to open on a rotating advert and put the reader's own programmes
-      // sixth.
+      // The order, and the reason for it: what the reader OWNS opens the tab,
+      // and finding a programme comes straight after (#bugs 2026-09-26: "omat
+      // ohjelmat, selaa tavoitteen mukaan ja Sinulle — muut alapuolelle").
+      // Targets and courses sat between the two and pushed the browse off
+      // the first screen. The page once opened on a rotating advert with the
+      // reader's own programmes sixth.
       const order = [
         "'tabs.programs'",
         "'programs.yourPrograms'",
+        "'programs.browse'",
+        "'programs.forYou'",
         "'programs.goals'",
         "'programs.learn'",
-        "'programs.forYou'",
-        "'programs.browse'",
         "'programs.library'",
       ];
       // Each key exactly once, THEN compare positions. indexOf takes the

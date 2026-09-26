@@ -127,8 +127,14 @@ module.exports = [
       // Held on screen while the answer is written: updatePreferences shows
       // the change before the disk has it (CI review of #184).
       assert.match(app, /const legalConsentDue = legalConsentOwed \?\? legalSheetHeld;/);
-      assert.match(app, /overlay=\{legalConsentElement \?\? tourElement\}/);
-      const overlay = between(app, 'const legalConsentElement = legalConsentDue ? (', ') : null;');
+      assert.match(app, /legalConsentDue \? renderLegalConsent\(shellSafeAreaEdges\.includes\('bottom'\)\) : tourElement/);
+      const overlay = between(app, 'const renderLegalConsent = (shellPadsBottom: boolean) => (', '\n  );\n');
+      // The inset once, not twice: the shell usually pads the bottom already.
+      assert.match(overlay, /shellPadsBottom=\{shellPadsBottom\}/);
+      assert.match(
+        stripComments(read('src', 'components', 'LegalConsentSheet.tsx')),
+        /paddingBottom: \(shellPadsBottom \? 0 : Math\.max\(insets\.bottom, GESTURE_BAR_FLOOR\)\) \+ spacing\.lg/,
+      );
       assert.match(overlay, /<LegalConsentSheet/);
       assert.match(
         overlay,

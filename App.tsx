@@ -5052,12 +5052,18 @@ function VinhaApp() {
   /**
    * The terms sheet, when owed, in the shell's overlay slot — above the tab
    * bar, where the tour draws. The two never meet: the tour waits for it.
+   *
+   * Told whether the shell already pads the bottom edge: it usually does, and
+   * the sheet adding the navigation bar's height on top of that left a band
+   * of empty sheet under Continue (#bugs 2026-09-26, "jatka buttoni
+   * alemmas"). On the screens that drop the edge it pads for itself.
    */
-  const legalConsentElement = legalConsentDue ? (
+  const renderLegalConsent = (shellPadsBottom: boolean) => (
     <>
       <LegalConsentSheet
+        shellPadsBottom={shellPadsBottom}
         language={preferences.appLanguage}
-        reason={legalConsentDue}
+        reason={legalConsentDue ?? 'first'}
         updatedLabel={formatLegalDate(preferences.appLanguage)}
         onOpenLegal={(document) => setHandoffLegalDocument(document)}
         // The sheet goes when the stored answer says it is no longer owed —
@@ -5085,7 +5091,7 @@ function VinhaApp() {
         </View>
       ) : null}
     </>
-  ) : null;
+  );
 
   // Nothing left to offer — a reader running onboarding a second time. Close the
   // door rather than leave it to open on some later launch.
@@ -7568,33 +7574,34 @@ function VinhaApp() {
     );
   }
 
+  const shellSafeAreaEdges: Array<'top' | 'left' | 'right' | 'bottom'> =
+    // A saved workout drops the TOP edge so its gradient runs under the
+    // status bar — and used to drop the bottom one with it, which put the
+    // floating tab bar on top of the phone's own navigation buttons.
+    historySessionActive
+      ? ['left', 'right', 'bottom']
+      : welcomeActive || workoutSummaryActive || fullBleedReview !== null
+        ? ['left', 'right']
+        : onboardingScreenActive
+          ? // Every onboarding screen pads for the status bar itself — the
+            // path fork, About you, the ready catalog, the questionnaire
+            // and its back chevron all read insets.top. With the shell
+            // padding the top edge too, each of them sat one status bar
+            // too low, and the questionnaire's chevron (insets.top + 10
+            // inside a root already below the bar) landed on "STEP 2 OF
+            // 6" ("step teksti menee back napin taakse", user
+            // 2026-09-02). Same edges as Welcome, for the same reason.
+            //
+            // onboardingScreenActive, not onboardingActive: the same
+            // questionnaire is the plan editor under Profile, and it
+            // reads the inset there too (PR review).
+            ['left', 'right']
+          : ['top', 'left', 'right', 'bottom'];
+
   return (
     <AppShell
       toastMessage={toastMessage}
-      safeAreaEdges={
-        // A saved workout drops the TOP edge so its gradient runs under the
-        // status bar — and used to drop the bottom one with it, which put the
-        // floating tab bar on top of the phone's own navigation buttons.
-        historySessionActive
-          ? ['left', 'right', 'bottom']
-          : welcomeActive || workoutSummaryActive || fullBleedReview !== null
-            ? ['left', 'right']
-            : onboardingScreenActive
-              ? // Every onboarding screen pads for the status bar itself — the
-                // path fork, About you, the ready catalog, the questionnaire
-                // and its back chevron all read insets.top. With the shell
-                // padding the top edge too, each of them sat one status bar
-                // too low, and the questionnaire's chevron (insets.top + 10
-                // inside a root already below the bar) landed on "STEP 2 OF
-                // 6" ("step teksti menee back napin taakse", user
-                // 2026-09-02). Same edges as Welcome, for the same reason.
-                //
-                // onboardingScreenActive, not onboardingActive: the same
-                // questionnaire is the plan editor under Profile, and it
-                // reads the inset there too (PR review).
-                ['left', 'right']
-              : ['top', 'left', 'right', 'bottom']
-      }
+      safeAreaEdges={shellSafeAreaEdges}
       // Only the gradient-hero screens want light icons; everything else takes
       // the shell's light default.
       // The Pro page is black in both themes, so the bands the shell paints
@@ -7645,7 +7652,9 @@ function VinhaApp() {
           />
         ) : undefined
       }
-      overlay={legalConsentElement ?? tourElement}
+      overlay={
+        legalConsentDue ? renderLegalConsent(shellSafeAreaEdges.includes('bottom')) : tourElement
+      }
     >
       {content}
       <NewProgramSheet

@@ -557,6 +557,20 @@ module.exports = [
     run() {
       assert.match(programDetailSource, /rowHeights\.current\[index\] = event\.nativeEvent\.layout\.height/);
       assert.match(programDetailSource, /scrollEnabled=\{dragIndex === null\}/);
+      // While a day is held, every resting place is outlined and the one it
+      // will drop into is marked (#bugs 2026-09-26); the rows that make room
+      // move by a whole slot, gap included, so they land in their outlines.
+      assert.match(programDetailSource, /rowTops\.current\[index\] = event\.nativeEvent\.layout\.y/);
+      assert.match(programDetailSource, /\{dragIndex !== null \? \(\s*<View pointerEvents="none" style=\{StyleSheet\.absoluteFill\}>/);
+      assert.match(programDetailSource, /dragTarget === index && styles\.daySlotTarget/);
+      assert.match(programDetailSource, /const slot = \(rowHeights\.current\[dragIndex \?\? 0\] \?\? 0\) \+ DAY_ROW_GAP;/);
+      assert.match(programDetailSource, /remaining -= height \+ DAY_ROW_GAP;/);
+      // Three-line grips, on the days and on the lifts.
+      assert.doesNotMatch(programDetailSource, /M3 9h18M3 15h18/);
+      assert.doesNotMatch(
+        fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'screens', 'ProgramDayScreen.tsx'), 'utf8'),
+        /M3 9h18M3 15h18/,
+      );
       assert.match(programDetailSource, /onReorderSession\?\.\(session\.id, to\)/);
       // Only when there is an order to change, and only on a programme the
       // reader owns — dragging must never buy them a copy.
@@ -860,6 +874,44 @@ module.exports = [
         2,
         'a new violet appeared on this page — is it brand, or is it pressable?',
       );
+    },
+  },
+  {
+    /**
+     * A superset's frame is the edge of the rows it holds (#bugs 2026-09-26:
+     * "liikaa poikkiviivoja … menee päällekkäin"). The first row inside the
+     * frame and the first row after it each drew their own rule right
+     * against the frame's line — two lines where one belongs.
+     */
+    name: 'the superset frame is the only line at its top and bottom edge',
+    run() {
+      const day = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'screens', 'ProgramDayScreen.tsx'),
+        'utf8',
+      );
+      assert.match(day, /const isSuperset = run\.groupId !== null && run\.indexes\.length >= 2;/);
+      assert.match(
+        day,
+        /const afterSuperset = Boolean\(previous && previous\.groupId !== null && previous\.indexes\.length >= 2\);/,
+      );
+      assert.match(
+        day,
+        /renderExerciseRow\(session\.exercises\[index\], index, position === 0 && \(isSuperset \|\| afterSuperset\)\)/,
+      );
+      assert.match(day, /hideTopRule && styles\.exerciseCardNoRule/);
+      assert.match(day, /exerciseCardNoRule: \{\s*borderTopWidth: 0,/);
+    },
+  },
+  {
+    // The reader calls them days: "Ei lisää liike vaan Lisää päivä" (#bugs
+    // 2026-09-26). The row names stay the workout's own; the actions on the
+    // list say what they add and remove.
+    name: 'the day list adds and removes a day, in those words',
+    run() {
+      const i18n = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'), 'utf8');
+      assert.match(i18n, /'detail\.addWorkout': 'Lisää päivä',/);
+      assert.match(i18n, /'day\.removeWorkout': 'Poista päivä ohjelmasta',/);
+      assert.match(i18n, /'detail\.addWorkout': 'Add day',/);
     },
   },
 ];

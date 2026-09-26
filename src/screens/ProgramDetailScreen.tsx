@@ -36,6 +36,11 @@ import {
 import { layout, radii, spacing } from '../theme';
 import type { AppLanguage, ExerciseLibraryItem } from '../types/models';
 
+/** The space between day rows — the list's gap, and part of every slot. */
+const DAY_ROW_GAP = spacing.sm;
+/** How far a slot's outline sits outside the card that rests in it. */
+const DAY_SLOT_OUTSET = 4;
+
 const DAY_KEYS: I18nKey[] = [
   'setup.day.mon',
   'setup.day.tue',
@@ -334,6 +339,8 @@ export function ProgramDetailScreen({
   const [dragTarget, setDragTarget] = useState<number | null>(null);
   const dragY = useRef(new Animated.Value(0)).current;
   const rowHeights = useRef<number[]>([]);
+  /** Where each day row rests, so the slots can be drawn while one is held. */
+  const rowTops = useRef<number[]>([]);
 
   /** The grip is held before it picks a day up — see useDragHold. */
   const dragHold = useDragHold();
@@ -345,10 +352,12 @@ export function ProgramDetailScreen({
     const step = dy > 0 ? 1 : -1;
     for (let next = from + step; next >= 0 && next < program.sessions.length; next += step) {
       const height = heights[next] ?? 0;
-      if (height === 0 || remaining < height / 2) {
+      // A row and the gap after it: the list is spaced, so a slot is taller
+      // than the card in it.
+      if (height === 0 || remaining < (height + DAY_ROW_GAP) / 2) {
         break;
       }
-      remaining -= height;
+      remaining -= height + DAY_ROW_GAP;
       target = next;
     }
     return target;
@@ -1171,17 +1180,46 @@ export function ProgramDetailScreen({
             its quick Aloita, because starting today's session is the most
             common thing done here. */}
         <View style={styles.workoutList}>
+          {/* The slots, while a day is held (#bugs 2026-09-26: "kun painaa
+              pohjaa tulee ääriviivat jokaisen laatikon kohdalle … jokainen
+              treenipäivä napsahtaa omalle paikalleen"). One outline where each
+              day rests, drawn under the rows, and the one the held day will
+              drop into in the action colour. Absolute, so it takes no room and
+              the rows keep the positions the drag measures. */}
+          {dragIndex !== null ? (
+            <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+              {program.sessions.map((session, index) => {
+                const top = rowTops.current[index];
+                const height = rowHeights.current[index];
+                if (top === undefined || !height) {
+                  return null;
+                }
+                return (
+                  <View
+                    key={session.id}
+                    style={[
+                      styles.daySlot,
+                      { top: top - DAY_SLOT_OUTSET, height: height + DAY_SLOT_OUTSET * 2 },
+                      dragTarget === index && styles.daySlotTarget,
+                    ]}
+                  />
+                );
+              })}
+            </View>
+          ) : null}
           {program.sessions.map((session, index) => {
             const dragging = dragIndex === index;
             // While a row travels, the rows between it and its target make
-            // room by exactly its height — the drop is previewed, not
-            // imagined.
+            // room by exactly its slot — its height and the gap after it — so
+            // each one settles into the outline drawn for it. By height alone
+            // they stopped a gap short of the outline they were moving to.
+            const slot = (rowHeights.current[dragIndex ?? 0] ?? 0) + DAY_ROW_GAP;
             const shift =
               dragIndex !== null && dragTarget !== null && !dragging
                 ? dragIndex < index && index <= dragTarget
-                  ? -(rowHeights.current[dragIndex] ?? 0)
+                  ? -slot
                   : dragTarget <= index && index < dragIndex
-                    ? (rowHeights.current[dragIndex] ?? 0)
+                    ? slot
                     : 0
                 : 0;
             return (
@@ -1189,6 +1227,7 @@ export function ProgramDetailScreen({
               key={session.id}
               onLayout={(event) => {
                 rowHeights.current[index] = event.nativeEvent.layout.height;
+                rowTops.current[index] = event.nativeEvent.layout.y;
               }}
               style={[
                 shift !== 0 && { transform: [{ translateY: shift }] },
@@ -1228,9 +1267,11 @@ export function ProgramDetailScreen({
                     onResponderTerminate={() => endDrag(false)}
                     style={styles.workoutDragHandle}
                   >
+                    {/* Three lines, the grip every list app draws (#bugs
+                        2026-09-26); two read as an equals sign. */}
                     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
                       <Path
-                        d="M3 9h18M3 15h18"
+                        d="M4 6h16M4 12h16M4 18h16"
                         stroke={theme.faint}
                         strokeWidth={2.2}
                         strokeLinecap="round"
@@ -1864,7 +1905,22 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
   },
   workoutList: {
-    gap: spacing.sm,
+    gap: DAY_ROW_GAP,
+  },
+  // Outside the card by a few points, so the outline shows around a row that
+  // settles into it rather than hiding under it.
+  daySlot: {
+    position: 'absolute',
+    left: -DAY_SLOT_OUTSET,
+    right: -DAY_SLOT_OUTSET,
+    borderRadius: radii.lg + DAY_SLOT_OUTSET,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: theme.border,
+  },
+  daySlotTarget: {
+    borderColor: theme.highlight,
+    backgroundColor: theme.highlightSoft,
   },
   addSessionRow: {
     flexDirection: 'row',
