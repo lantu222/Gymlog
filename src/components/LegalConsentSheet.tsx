@@ -9,6 +9,11 @@ import { AppLanguage } from '../types/models';
 import { LegalConsentCheck } from './LegalConsentCheck';
 
 interface LegalConsentSheetProps {
+  /**
+   * The shell's SafeAreaView already stops above the navigation bar on most
+   * screens. Adding the inset again there doubled it (#bugs 2026-09-26).
+   */
+  shellPadsBottom: boolean;
   language: AppLanguage;
   /** 'first' never accepted; 'changed' accepted an earlier version. */
   reason: 'first' | 'changed';
@@ -33,6 +38,7 @@ interface LegalConsentSheetProps {
  * longer owed, which is after the write — never on the tap.
  */
 export function LegalConsentSheet({
+  shellPadsBottom,
   language,
   reason,
   updatedLabel,
@@ -62,7 +68,12 @@ export function LegalConsentSheet({
   return (
     <View style={styles.overlay} accessibilityViewIsModal>
       <View style={styles.scrim} />
-      <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, GESTURE_BAR_FLOOR) + spacing.md }]}>
+      <View
+        style={[
+          styles.sheet,
+          { paddingBottom: (shellPadsBottom ? 0 : Math.max(insets.bottom, GESTURE_BAR_FLOOR)) + spacing.lg },
+        ]}
+      >
         <Text style={styles.title} accessibilityRole="header">
           {t(language, 'legal.consent.title')}
         </Text>

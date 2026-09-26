@@ -909,6 +909,161 @@ export function ProgramsHomeScreen({
           </CutSurface>
         </Pressable>
 
+        {/* The rail that used to live here is a sheet now. Nine categories
+            sharing one horizontal rail gave every one of them the same
+            eight-card shape, no way to narrow further, and nowhere to say what
+            the category is FOR or what level its programs are. */}
+
+        {/* Categories as tiles. The first build made these text chips, which
+            was a silent substitution rather than a decision: on a row you scan
+            instead of read, colour and shape land before a word does, and nine
+            identical grey pills are read one at a time. */}
+        <View style={styles.sectionHeadRow}>
+          <Text style={styles.sectionEyebrow}>{t(language, 'programs.browse')}</Text>
+          <Pressable onPress={() => setAllCategories((value) => !value)} hitSlop={8}>
+            <Text style={styles.sectionLink}>
+              {t(language, allCategories ? 'programs.showLess' : 'programs.viewAll')}
+            </Text>
+          </Pressable>
+        </View>
+        {/* Expanded in place rather than on another screen. "Näytä kaikki"
+            used to open the old plans list, which is a different thing
+            entirely — the tiles are the menu, so showing all nine of them is
+            the answer. */}
+        <ScrollableOrGrid expanded={allCategories} style={styles.tileRow}>
+          {PROGRAM_CATEGORIES.map((entry) => {
+            return (
+              <Pressable
+                key={entry.key}
+                accessibilityRole="button"
+                accessibilityLabel={`${t(language, entry.labelKey)}, ${categoryCounts[entry.key]}`}
+                onPress={() => setSheet({ kind: 'category', key: entry.key })}
+                style={({ pressed }) => [styles.catTileWrap, pressed && styles.pressed]}
+              >
+                {/* One container decision, and this is it: a solid disc in the
+                    category's own ink with the mark knocked out in white.
+                    Nine pastel tiles behind a near-black outline needed the
+                    outline to hold them apart at all — the colour was doing no
+                    work. Filled, the hue is the tile, and the badge can sit on
+                    the edge because a circle has no cut corner to slice a
+                    digit in half. */}
+                <View style={[styles.catTile, { backgroundColor: entry.tint.ink }]}>
+                  <Svg width={30} height={30} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d={entry.icon}
+                      stroke="#FFFFFF"
+                      // A hair heavier than the 1.9 hairline the pale tiles
+                      // used: knocked out of a colour, a stroke reads thinner
+                      // than the same stroke drawn on light.
+                      strokeWidth={2.05}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                  <View
+                    style={[
+                      styles.catTileCount,
+                      { backgroundColor: entry.tint.ink, borderColor: theme.surface },
+                    ]}
+                  >
+                    <Text style={styles.catTileCountText}>{categoryCounts[entry.key]}</Text>
+                  </View>
+                </View>
+                <Text style={styles.catTileLabel} numberOfLines={2}>
+                  {t(language, entry.labelKey)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollableOrGrid>
+
+        {/* "For you" follows the browse tiles. It used to lead them, below the
+            reader's targets and courses; the user put finding a programme
+            straight under their own (#bugs 2026-09-26): own programmes, browse
+            by goal, for you — everything else below. */}
+        {recommendations.length > 0 ? (
+          <View>
+            <View style={styles.sectionHeadRow}>
+              <Text style={styles.sectionEyebrow}>{t(language, 'programs.forYou')}</Text>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.exploreRow}
+              style={styles.exploreScroll}
+            >
+              {recommendations.map((item) => {
+                const style = item.cover;
+                return (
+                  <Pressable
+                    key={item.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={t(language, 'programs.switchTo', { name: item.name })}
+                    // The card says "Katso lisätietoja", so it opens the
+                    // program's own screen. It opened the switch-confirm sheet
+                    // instead: a label promising detail that produced a
+                    // decision.
+                    onPress={() => onOpenExploreProgram(item.id)}
+                    style={({ pressed }) => [styles.recCard, pressed && styles.pressed]}
+                  >
+                    <ProgramCover
+                      style={style}
+                      goal={item.goal}
+                      days={item.days}
+                      name={item.name}
+                      fingerprint={item.fingerprint}
+                      language={language}
+                      width={186}
+                      height={104}
+                      compact
+                    />
+                    {/* Boost anatomy: what it is called, what it is, two
+                        facts, and the one number worth comparing. The card
+                        used to be a single meta line and a link — everything
+                        at one weight, so nothing was the answer to "which of
+                        these". */}
+                    <View style={styles.recBody}>
+                      <Text style={styles.recName} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                      <Text style={styles.recGoal} numberOfLines={1}>
+                        {item.goal}
+                      </Text>
+                      <View style={styles.recBullets}>
+                        <View style={styles.recBulletRow}>
+                          <View style={styles.recDot} />
+                          <Text style={styles.recBulletText} numberOfLines={1}>
+                            {t(language, 'programs.card.days', { count: item.days })} · ~{item.minutes} min
+                          </Text>
+                        </View>
+                        <View style={styles.recBulletRow}>
+                          <View style={styles.recDot} />
+                          <Text style={styles.recBulletText} numberOfLines={1}>
+                            {t(language, LEVEL_LABEL_KEYS[item.level])}
+                          </Text>
+                        </View>
+                      </View>
+                      {item.weeks > 0 ? (
+                        <View style={styles.recFoot}>
+                          <Text style={styles.recFootLabel}>{t(language, 'programs.card.lengthLabel')}</Text>
+                          <Text style={styles.recFootValue}>
+                            {t(language, 'programs.weeksShort', { count: item.weeks })}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        ) : null}
+
+        {/* The old "Vaihda ohjelmaa" rail lived here: the whole 55-program
+            catalog, always open, in the same card size as four other rows. It
+            is gone because the tiles above now are the way in, and a rail that
+            is always there makes a menu above it look decorative. */}
+
         {/* Seasons are PARKED, not deleted (decision 2026-08-31).
 
             Still here and still working: the 'season' route, SeasonScreen, and
@@ -1142,159 +1297,6 @@ export function ProgramsHomeScreen({
             </ScrollView>
           </View>
         ) : null}
-
-        {/* "For you" leads the browse: it is the only row that knows who is
-            reading it, and every card can say why it is there. */}
-        {recommendations.length > 0 ? (
-          <View>
-            <View style={styles.sectionHeadRow}>
-              <Text style={styles.sectionEyebrow}>{t(language, 'programs.forYou')}</Text>
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.exploreRow}
-              style={styles.exploreScroll}
-            >
-              {recommendations.map((item) => {
-                const style = item.cover;
-                return (
-                  <Pressable
-                    key={item.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={t(language, 'programs.switchTo', { name: item.name })}
-                    // The card says "Katso lisätietoja", so it opens the
-                    // program's own screen. It opened the switch-confirm sheet
-                    // instead: a label promising detail that produced a
-                    // decision.
-                    onPress={() => onOpenExploreProgram(item.id)}
-                    style={({ pressed }) => [styles.recCard, pressed && styles.pressed]}
-                  >
-                    <ProgramCover
-                      style={style}
-                      goal={item.goal}
-                      days={item.days}
-                      name={item.name}
-                      fingerprint={item.fingerprint}
-                      language={language}
-                      width={186}
-                      height={104}
-                      compact
-                    />
-                    {/* Boost anatomy: what it is called, what it is, two
-                        facts, and the one number worth comparing. The card
-                        used to be a single meta line and a link — everything
-                        at one weight, so nothing was the answer to "which of
-                        these". */}
-                    <View style={styles.recBody}>
-                      <Text style={styles.recName} numberOfLines={1}>
-                        {item.name}
-                      </Text>
-                      <Text style={styles.recGoal} numberOfLines={1}>
-                        {item.goal}
-                      </Text>
-                      <View style={styles.recBullets}>
-                        <View style={styles.recBulletRow}>
-                          <View style={styles.recDot} />
-                          <Text style={styles.recBulletText} numberOfLines={1}>
-                            {t(language, 'programs.card.days', { count: item.days })} · ~{item.minutes} min
-                          </Text>
-                        </View>
-                        <View style={styles.recBulletRow}>
-                          <View style={styles.recDot} />
-                          <Text style={styles.recBulletText} numberOfLines={1}>
-                            {t(language, LEVEL_LABEL_KEYS[item.level])}
-                          </Text>
-                        </View>
-                      </View>
-                      {item.weeks > 0 ? (
-                        <View style={styles.recFoot}>
-                          <Text style={styles.recFootLabel}>{t(language, 'programs.card.lengthLabel')}</Text>
-                          <Text style={styles.recFootValue}>
-                            {t(language, 'programs.weeksShort', { count: item.weeks })}
-                          </Text>
-                        </View>
-                      ) : null}
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
-        ) : null}
-
-        {/* The old "Vaihda ohjelmaa" rail lived here: the whole 55-program
-            catalog, always open, in the same card size as four other rows. It
-            is gone because the tiles above now are the way in, and a rail that
-            is always there makes a menu above it look decorative. */}
-
-        {/* The rail that used to live here is a sheet now. Nine categories
-            sharing one horizontal rail gave every one of them the same
-            eight-card shape, no way to narrow further, and nowhere to say what
-            the category is FOR or what level its programs are. */}
-
-        {/* Categories as tiles. The first build made these text chips, which
-            was a silent substitution rather than a decision: on a row you scan
-            instead of read, colour and shape land before a word does, and nine
-            identical grey pills are read one at a time. */}
-        <View style={styles.sectionHeadRow}>
-          <Text style={styles.sectionEyebrow}>{t(language, 'programs.browse')}</Text>
-          <Pressable onPress={() => setAllCategories((value) => !value)} hitSlop={8}>
-            <Text style={styles.sectionLink}>
-              {t(language, allCategories ? 'programs.showLess' : 'programs.viewAll')}
-            </Text>
-          </Pressable>
-        </View>
-        {/* Expanded in place rather than on another screen. "Näytä kaikki"
-            used to open the old plans list, which is a different thing
-            entirely — the tiles are the menu, so showing all nine of them is
-            the answer. */}
-        <ScrollableOrGrid expanded={allCategories} style={styles.tileRow}>
-          {PROGRAM_CATEGORIES.map((entry) => {
-            return (
-              <Pressable
-                key={entry.key}
-                accessibilityRole="button"
-                accessibilityLabel={`${t(language, entry.labelKey)}, ${categoryCounts[entry.key]}`}
-                onPress={() => setSheet({ kind: 'category', key: entry.key })}
-                style={({ pressed }) => [styles.catTileWrap, pressed && styles.pressed]}
-              >
-                {/* One container decision, and this is it: a solid disc in the
-                    category's own ink with the mark knocked out in white.
-                    Nine pastel tiles behind a near-black outline needed the
-                    outline to hold them apart at all — the colour was doing no
-                    work. Filled, the hue is the tile, and the badge can sit on
-                    the edge because a circle has no cut corner to slice a
-                    digit in half. */}
-                <View style={[styles.catTile, { backgroundColor: entry.tint.ink }]}>
-                  <Svg width={30} height={30} viewBox="0 0 24 24" fill="none">
-                    <Path
-                      d={entry.icon}
-                      stroke="#FFFFFF"
-                      // A hair heavier than the 1.9 hairline the pale tiles
-                      // used: knocked out of a colour, a stroke reads thinner
-                      // than the same stroke drawn on light.
-                      strokeWidth={2.05}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
-                  <View
-                    style={[
-                      styles.catTileCount,
-                      { backgroundColor: entry.tint.ink, borderColor: theme.surface },
-                    ]}
-                  >
-                    <Text style={styles.catTileCountText}>{categoryCounts[entry.key]}</Text>
-                  </View>
-                </View>
-                <Text style={styles.catTileLabel} numberOfLines={2}>
-                  {t(language, entry.labelKey)}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollableOrGrid>
 
         <Text style={styles.sectionEyebrowStandalone}>{t(language, 'programs.library')}</Text>
         <Pressable
