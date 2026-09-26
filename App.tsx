@@ -2720,13 +2720,16 @@ function VinhaApp() {
    * open an empty player. The id is minted here so the caller can open the
    * new day without guessing which one it was.
    *
-   * Resolves the new day's id once the programme and its week are saved, or
-   * null when nothing was written.
+   * Resolves the new day's id once the programme is saved, with whether its
+   * week followed; null when nothing was written. A week that failed to
+   * follow does not make the day unsaved — reporting it as a failed save
+   * would tell the reader to try again and add the day twice (CI review of
+   * #183, the same split the editor makes since #146).
    */
   async function handleAddProgramSession(
     workoutTemplateId: string,
     exerciseNames: string[],
-  ): Promise<string | null> {
+  ): Promise<{ sessionId: string; weekSynced: boolean } | null> {
     if (exerciseNames.length === 0) {
       return null;
     }
@@ -2753,8 +2756,18 @@ function VinhaApp() {
       return null;
     }
     // The week gets the new day on one of the reader's training days.
-    await syncPlanToTemplate(workoutTemplateId);
-    return newSessionId;
+    return { sessionId: newSessionId, weekSynced: await syncPlanAfterDayEdit(workoutTemplateId) };
+  }
+
+  /** The plan's week after a day was added or removed; false if it could not follow. */
+  async function syncPlanAfterDayEdit(workoutTemplateId: string): Promise<boolean> {
+    try {
+      await syncPlanToTemplate(workoutTemplateId);
+      return true;
+    } catch (error) {
+      console.error('Failed to bring the plan into step with the template', error);
+      return false;
+    }
   }
 
   /**
@@ -2766,9 +2779,13 @@ function VinhaApp() {
    * that no longer exists. The last day is refused — that is deleting the
    * programme, which has its own button and its own question.
    *
-   * Resolves true once the programme and its week are saved.
+   * Resolves once the programme is saved, with whether its week followed;
+   * null when nothing was written.
    */
-  async function handleRemoveProgramSession(workoutTemplateId: string, sessionId: string): Promise<boolean> {
+  async function handleRemoveProgramSession(
+    workoutTemplateId: string,
+    sessionId: string,
+  ): Promise<{ weekSynced: boolean } | null> {
     const result = await editWorkoutTemplateSessions(workoutTemplateId, (sessions) => {
       const outcome = removeProgramSession(sessions, sessionId);
       if (outcome.kind === 'skip') {
@@ -2784,10 +2801,9 @@ function VinhaApp() {
       };
     });
     if (!result.saved) {
-      return false;
+      return null;
     }
-    await syncPlanToTemplate(workoutTemplateId);
-    return true;
+    return { weekSynced: await syncPlanAfterDayEdit(workoutTemplateId) };
   }
 
   /**

@@ -80,13 +80,17 @@ module.exports = [
       // Every existing day is carried through whole — the writer replaces the
       // record, and a hand copy that forgets a field erases it.
       assert.match(write, /exercises: session\.exercises\.map\(toDraftExercise\)/);
-      // The week follows, and only after the programme is saved.
-      assert.ok(add.indexOf('await syncPlanToTemplate(workoutTemplateId)') > add.indexOf('if (!result.saved)'));
+      // The week follows, and only after the programme is saved — through
+      // its own catch, so a week that could not follow is not reported as a
+      // day that was not saved (CI review of #183).
+      assert.ok(add.indexOf('await syncPlanAfterDayEdit(workoutTemplateId)') > add.indexOf('if (!result.saved)'));
+      const sync = between(app, 'async function syncPlanAfterDayEdit(', '\n  }\n');
+      assert.match(sync, /try \{\s*await syncPlanToTemplate\(workoutTemplateId\);\s*return true;\s*\} catch/);
 
       const remove = between(app, 'async function handleRemoveProgramSession(', '\n  }\n');
       assert.match(remove, /removeProgramSession\(sessions, sessionId\)/);
       assert.match(remove, /exercises: session\.exercises\.map\(toDraftExercise\)/);
-      assert.ok(remove.indexOf('await syncPlanToTemplate(workoutTemplateId)') > remove.indexOf('if (!result.saved)'));
+      assert.ok(remove.indexOf('await syncPlanAfterDayEdit(workoutTemplateId)') > remove.indexOf('if (!result.saved)'));
     },
   },
   {
@@ -97,13 +101,15 @@ module.exports = [
       assert.match(addProp, /route\.programType === 'custom'/, 'a catalog programme can be given a day');
       // The navigation to the new day waits for its id, which only exists
       // once the write resolved.
-      assert.match(addProp, /handleAddProgramSession\(route\.workoutTemplateId, exerciseNames\)\.then\(\s*\(sessionId\) => \{\s*if \(!sessionId\) \{\s*return;\s*\}/);
-      assert.ok(addProp.indexOf('haptics.success()') > addProp.indexOf('if (!sessionId)'));
+      assert.match(addProp, /handleAddProgramSession\(route\.workoutTemplateId, exerciseNames\)\.then\(\s*\(added\) => \{\s*if \(!added\) \{\s*return;\s*\}/);
+      assert.ok(addProp.indexOf('haptics.success()') > addProp.indexOf('if (!added)'));
+      // A saved day whose week lagged still opens, and says the week lagged.
+      assert.match(addProp, /if \(added\.weekSynced\) \{\s*void haptics\.success\(\);\s*\} else \{\s*showToast\(t\(preferences\.appLanguage, 'toast\.planWeekOutOfStep'\)\);/);
 
       const removeProp = between(wiring, '        onRemoveSession={', '        onBack={');
       assert.match(removeProp, /route\.programType === 'custom' && program\.sessions\.length > 1/);
       // The success haptic is the write's, not the tap's.
-      assert.match(removeProp, /\(removed\) => \{\s*if \(removed\) \{\s*void haptics\.success\(\);/);
+      assert.match(removeProp, /\(removed\) => \{\s*if \(!removed\) \{\s*return;\s*\}\s*if \(removed\.weekSynced\) \{\s*void haptics\.success\(\);\s*\} else \{\s*showToast\(t\(preferences\.appLanguage, 'toast\.planWeekOutOfStep'\)\);/);
 
       // The day page asks before it removes: the prop is called only from the
       // dialog's confirm.

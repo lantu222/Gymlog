@@ -151,10 +151,16 @@ export interface WorkoutTabDeps {
     sessionId: string,
     toIndex: number,
   ) => Promise<void>;
-  /** Resolves the new day's id once it is saved, or null. */
-  handleAddProgramSession: (workoutTemplateId: string, exerciseNames: string[]) => Promise<string | null>;
-  /** Resolves true once the day is gone and the week has followed. */
-  handleRemoveProgramSession: (workoutTemplateId: string, sessionId: string) => Promise<boolean>;
+  /** Resolves the new day's id once it is saved, and whether the week followed; or null. */
+  handleAddProgramSession: (
+    workoutTemplateId: string,
+    exerciseNames: string[],
+  ) => Promise<{ sessionId: string; weekSynced: boolean } | null>;
+  /** Resolves once the day is gone, with whether the week followed; or null. */
+  handleRemoveProgramSession: (
+    workoutTemplateId: string,
+    sessionId: string,
+  ) => Promise<{ weekSynced: boolean } | null>;
   handleSaveRhythm: (workoutTemplateId: string, dayIndexes: number[]) => Promise<void>;
   handleSaveEmphasis: (
     workoutTemplateId: string,
@@ -698,11 +704,17 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           route.programType === 'custom'
             ? (exerciseNames) =>
                 void handleAddProgramSession(route.workoutTemplateId, exerciseNames).then(
-                  (sessionId) => {
-                    if (!sessionId) {
+                  (added) => {
+                    if (!added) {
                       return;
                     }
-                    void haptics.success();
+                    // The day is saved either way; only the week can lag.
+                    if (added.weekSynced) {
+                      void haptics.success();
+                    } else {
+                      showToast(t(preferences.appLanguage, 'toast.planWeekOutOfStep'));
+                    }
+                    const sessionId = added.sessionId;
                     navigate({
                       tab: 'workout',
                       screen: 'programDay',
@@ -869,8 +881,13 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
                 });
                 void handleRemoveProgramSession(route.workoutTemplateId, daySession.id).then(
                   (removed) => {
-                    if (removed) {
+                    if (!removed) {
+                      return;
+                    }
+                    if (removed.weekSynced) {
                       void haptics.success();
+                    } else {
+                      showToast(t(preferences.appLanguage, 'toast.planWeekOutOfStep'));
                     }
                   },
                   (error) => {
