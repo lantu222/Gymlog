@@ -186,4 +186,24 @@ module.exports = [
       });
     },
   },
+  {
+    name: 'a band accessory is logged with no weight dial',
+    run() {
+      // The Gainer mobility flow's shoulder day hard-coded this one exercise
+      // as "load_and_reps" while every neighbouring bodyweight/hold accessory
+      // on the same day was tagged correctly — a copy-paste slip that gave a
+      // resistance-band exercise a kg field to fill in (#bugs, 2026-09-26).
+      const offenders = [];
+      for (const template of WORKOUT_TEMPLATES_V1) {
+        for (const session of template.sessions) {
+          for (const item of session.exercises) {
+            if (item.exerciseName === 'Band Pull-Apart' && item.trackingMode !== 'bodyweight') {
+              offenders.push(`${template.id}/${session.id}/${item.id}: ${item.trackingMode}`);
+            }
+          }
+        }
+      }
+      assert.deepEqual(offenders, []);
+    },
+  },
 ];

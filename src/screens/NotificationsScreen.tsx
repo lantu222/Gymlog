@@ -8,6 +8,7 @@ import { CARD_SHADOW, SectionLabel, ToggleSwitch } from '../components/SettingsU
 import { MEASUREMENT_LABEL_KEYS } from '../lib/homeStatCards';
 import { I18nKey, t } from '../lib/i18n';
 import { MEASUREMENT_REMINDER_KINDS } from '../lib/measurementReminder';
+import { NotificationAccessState } from '../lib/notificationAccessState';
 import {
   DEFAULT_MEASUREMENT_KIND,
   NOTIFICATION_GROUPS,
@@ -45,18 +46,23 @@ interface NotificationsScreenProps {
   /** Reads the current OS permission without prompting. */
   checkPermission?: () => Promise<boolean>;
   /**
-   * Whether a rest alert can reach the reader, without prompting: the
-   * permission, and the rest-alert channel not switched off in Android's
-   * settings. The permission alone called a muted channel allowed (native
-   * audit, 2026-09-21). Falls back to `checkPermission`.
+   * Whether a rest alert can reach the reader, without prompting, and — when
+   * it cannot — which of the two reasons: the permission refused, or granted
+   * with the rest-alert channel switched off in Android's own settings. The
+   * permission alone called a muted channel allowed (native audit,
+   * 2026-09-21); a plain boolean then called it the same "not allowed" a
+   * refused permission gets (#bugs, 2026-09-26). Falls back to
+   * `checkPermission`, which cannot tell a muted channel from a refused
+   * permission and reads every channel mute as `granted`.
    */
-  checkWorkoutAlerts?: () => Promise<boolean>;
+  checkWorkoutAlerts?: () => Promise<NotificationAccessState>;
   /**
    * Gets the workout alerts permission: the system dialog while Android can
-   * still show it, the app's system settings once it cannot. Resolves with
-   * whether notifications are allowed now.
+   * still show it, its own settings page once it cannot — the channel's own
+   * page when only the channel is muted, the app's general one otherwise.
+   * Resolves with the state that leaves things in.
    */
-  allowWorkoutAlerts?: () => Promise<boolean>;
+  allowWorkoutAlerts?: () => Promise<NotificationAccessState>;
   /** Whether Android lets a rest alert ring on the second; null = cannot tell. */
   checkExactAlarms?: () => Promise<boolean | null>;
   /** Opens the system page that allows exact alarms for the app. */
@@ -127,7 +133,10 @@ export function NotificationsScreen({
   onChange,
   requestPermission,
   checkPermission,
-  checkWorkoutAlerts = checkPermission,
+  // Cannot see a muted channel, only the app-wide permission — the best a
+  // caller with no workout-specific check can offer.
+  checkWorkoutAlerts = checkPermission &&
+    (() => checkPermission().then((granted): NotificationAccessState => (granted ? 'granted' : 'denied'))),
   allowWorkoutAlerts,
   checkExactAlarms,
   onAllowExactAlarms,
@@ -173,14 +182,17 @@ export function NotificationsScreen({
   }, []);
 
   /**
-   * What the OS lets the workout alerts do: null until it has answered. Read
-   * again whenever the app comes back to the front, because the way to fix
-   * either answer is a trip to system settings.
+   * What the OS lets the workout alerts do: null until it has answered.
+   * Denied and channelMuted both mean "the card shows", with different copy —
+   * a plain boolean here is exactly the bug that called a muted channel the
+   * same as a refused permission (#bugs, 2026-09-26). Read again whenever the
+   * app comes back to the front, because the way to fix either answer is a
+   * trip to system settings.
    */
-  const [osAllowed, setOsAllowed] = useState<boolean | null>(null);
+  const [access, setAccess] = useState<NotificationAccessState | null>(null);
   const [exactAllowed, setExactAllowed] = useState<boolean | null>(null);
   const readWorkoutAccess = useCallback(() => {
-    void checkWorkoutAlerts?.().then(setOsAllowed);
+    void checkWorkoutAlerts?.().then(setAccess);
     void checkExactAlarms?.().then(setExactAllowed);
   }, [checkWorkoutAlerts, checkExactAlarms]);
   useEffect(() => {
@@ -364,21 +376,33 @@ export function NotificationsScreen({
 
   /**
    * What stands between a lit workout card and an alert that rings: the OS
-   * permission first, then — for the end-of-rest alert — Android's exact-alarm
-   * grant, without which the alert may arrive minutes after the rest ended.
-   * Nothing is shown while either answer is still unknown.
+   * permission or the rest-alert channel first, then — for the end-of-rest
+   * alert — Android's exact-alarm grant, without which the alert may arrive
+   * minutes after the rest ended. Nothing is shown while an answer is still
+   * unknown.
+   *
+   * The permission and the channel say different things and fix differently,
+   * so the card names which one is true rather than one flat "not allowed"
+   * for both (#bugs, 2026-09-26).
    */
   const renderWorkoutAccess = () => {
-    if (osAllowed === false && allowWorkoutAlerts) {
+    if (access !== null && access !== 'granted' && allowWorkoutAlerts) {
+      const channelMuted = access === 'channelMuted';
       return (
         <View style={[styles.detailRow, styles.accessRow]}>
           <View style={styles.rowCopy}>
-            <Text style={styles.detailTitle}>{t(language, 'notif.workout.blockedTitle')}</Text>
-            <Text style={styles.detailSub}>{t(language, 'notif.workout.blockedBody')}</Text>
+            <Text style={styles.detailTitle}>
+              {channelMuted
+                ? t(language, 'notif.workout.channelMutedTitle', { channel: t(language, 'notif.rest.alerts') })
+                : t(language, 'notif.workout.blockedTitle')}
+            </Text>
+            <Text style={styles.detailSub}>
+              {channelMuted ? t(language, 'notif.workout.channelMutedBody') : t(language, 'notif.workout.blockedBody')}
+            </Text>
           </View>
           <Pressable
             accessibilityRole="button"
-            onPress={() => void allowWorkoutAlerts().then(setOsAllowed)}
+            onPress={() => void allowWorkoutAlerts().then(setAccess)}
             hitSlop={8}
             style={({ pressed }) => pressed && { opacity: 0.65 }}
           >
@@ -387,7 +411,7 @@ export function NotificationsScreen({
         </View>
       );
     }
-    if (osAllowed === true && prefs.restAlerts && exactAllowed === false && onAllowExactAlarms) {
+    if (access === 'granted' && prefs.restAlerts && exactAllowed === false && onAllowExactAlarms) {
       return (
         <View style={[styles.detailRow, styles.accessRow]}>
           <View style={styles.rowCopy}>

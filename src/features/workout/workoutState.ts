@@ -1312,10 +1312,20 @@ function reduceWorkoutAction(state: WorkoutFeatureState, action: WorkoutAction):
         return state;
       }
 
+      // Only a set of the lift the slot holds NOW: a swap mid-exercise leaves
+      // earlier completed sets stamped as the lift before it (liftBeforeSwap),
+      // and "repeat last set" copying one of those brought the old lift's
+      // weight along with it — a leg press repeating a back squat's 100 kg
+      // because that was the last completed set in the slot (2026-09-26).
       const sourceSet = [...exercise.sets]
         .filter((item) => item.setIndex < action.payload.setIndex)
         .reverse()
-        .find((item) => item.status === 'completed' && typeof item.actualReps === 'number');
+        .find(
+          (item) =>
+            item.status === 'completed' &&
+            typeof item.actualReps === 'number' &&
+            liftBeforeSwap(exercise, item) === null,
+        );
 
       if (!sourceSet || (!isUnloadedTrackingMode(exercise.trackingMode) && typeof sourceSet.actualLoadKg !== 'number')) {
         return state;

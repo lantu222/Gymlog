@@ -279,15 +279,23 @@ function formatPrSet(pr: WorkoutCompletionPrCard) {
 }
 
 function formatPrNote(pr: WorkoutCompletionPrCard, language: AppLanguage) {
-  if (pr.previousBestOneRepMaxKg === null) {
+  if (pr.previousBestWeightKg === null) {
     return t(language, 'complete.pr.first');
   }
-  const delta = pr.estimatedOneRepMaxKg - pr.previousBestOneRepMaxKg;
+  // Same weight, more reps is a record too (2026-09-26) — and "+0 kg" would
+  // say it was not one. The reps are what moved.
+  if (pr.performedWeightKg === pr.previousBestWeightKg && pr.previousBestReps !== null) {
+    return t(language, 'complete.pr.moreReps', {
+      delta: pr.performedReps - pr.previousBestReps,
+      weight: removeTrailingZeros(pr.performedWeightKg),
+    });
+  }
+  const delta = pr.performedWeightKg - pr.previousBestWeightKg;
   // The delta alone made the reader do the arithmetic mid-celebration
-  // (user 2026-08-23): the number they want is the new max itself.
+  // (user 2026-08-23): the number they want is the new best itself.
   return t(language, 'complete.pr.delta', {
     delta: removeTrailingZeros(Number(delta.toFixed(1))),
-    max: removeTrailingZeros(Number(pr.estimatedOneRepMaxKg.toFixed(1))),
+    max: removeTrailingZeros(Number(pr.performedWeightKg.toFixed(1))),
   });
 }
 

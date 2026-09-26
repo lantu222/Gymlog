@@ -229,8 +229,8 @@ export function NewProgramSheet({
     [csvText],
   );
   const preview = useMemo(
-    () => (csvText.trim() && !hevyPreview ? parseCsvProgram(csvText, exerciseLibrary, nameBook) : null),
-    [csvText, exerciseLibrary, hevyPreview, nameBook],
+    () => (csvText.trim() && !hevyPreview ? parseCsvProgram(csvText, exerciseLibrary, nameBook, language) : null),
+    [csvText, exerciseLibrary, hevyPreview, nameBook, language],
   );
   /**
    * How many of the reader's own names this sheet recognised — the visible

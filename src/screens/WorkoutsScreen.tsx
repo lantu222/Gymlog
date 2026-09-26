@@ -48,7 +48,6 @@ interface WorkoutsScreenProps {
   onStartReadyProgram: (workoutTemplateId: string) => void;
   onOpenCustomProgram: (workoutTemplateId: string) => void;
   onStartCustomWorkout: (workoutTemplateId: string) => void;
-  onDeleteCustomWorkout: (workoutTemplateId: string) => void;
   onCreateWorkout: () => void;
   recommendedReadyProgramId?: string | null;
   tailoringPreferences?: TailoringPreferencesInput | null;
@@ -266,7 +265,6 @@ export function WorkoutsScreen({
   onStartReadyProgram,
   onOpenCustomProgram,
   onStartCustomWorkout,
-  onDeleteCustomWorkout,
   onCreateWorkout,
   recommendedReadyProgramId,
   tailoringPreferences = null,

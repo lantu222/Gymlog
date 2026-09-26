@@ -27,7 +27,7 @@ function momentCall(source, name) {
  */
 function loadMoment(runtime) {
   const listeners = new Set();
-  const os = { permission: 'undetermined', exact: false, opened: 0, dialog: null };
+  const os = { permission: 'undetermined', channelMuted: false, exact: false, opened: 0, dialog: null };
   const AppState = {
     currentState: 'active',
     addEventListener(type, listener) {
@@ -48,6 +48,7 @@ function loadMoment(runtime) {
       },
       '../utils/sessionNotifications': {
         getRestAlertPermission: async () => os.permission,
+        isRestAlertChannelBlocked: async () => os.channelMuted,
         requestRestAlertPermission: () => os.dialog.promise,
       },
     },
@@ -84,6 +85,43 @@ async function openSheet(runtime, env, props) {
  * files and the pure rule is tested in tests/lib/restAlertAnswer.test.cjs.
  */
 module.exports = [
+  {
+    /**
+     * #bugs, 2026-09-26: a reader can grant the app's notification permission
+     * and still mute the rest-alert channel itself in Android's settings. The
+     * banner used to check `permission` alone, which stays 'granted' the
+     * whole time — so the rest ran with no warning and no alert either.
+     */
+    name: 'rest alerts: a muted rest-alert channel shows the same banner as a refused permission, permission granted or not',
+    async run() {
+      const runtime = createHookRuntime();
+      const env = loadMoment(runtime);
+      env.os.permission = 'granted';
+      env.os.channelMuted = true;
+      const props = { restRunning: true, restKey: 'muted-channel', asked: true, alertsWanted: true, onAnswered: () => undefined };
+
+      runtime.render(env.hook, props);
+      await flush();
+      runtime.render(env.hook, props);
+      const moment = runtime.render(env.hook, props);
+      assert.equal(
+        moment.deniedBannerShown,
+        true,
+        'a muted rest-alert channel with the permission granted showed no banner',
+      );
+
+      // And the channel back on, nothing to warn about.
+      const runtime2 = createHookRuntime();
+      const clear = loadMoment(runtime2);
+      clear.os.permission = 'granted';
+      clear.os.channelMuted = false;
+      runtime2.render(clear.hook, props);
+      await flush();
+      runtime2.render(clear.hook, props);
+      const clean = runtime2.render(clear.hook, props);
+      assert.equal(clean.deniedBannerShown, false);
+    },
+  },
   {
     name: 'rest alerts: both workout screens ask at the first rest through the one hook, and render the sheet',
     run() {

@@ -27,14 +27,18 @@
  * a background task (expo-task-manager), which is not in the build; opening the
  * app and then acting is the honest version of the same button.
  */
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
 import { t } from '../lib/i18n';
+import { NotificationAccessState, resolveNotificationAccessState } from '../lib/notificationAccessState';
 import { restAlertTimes } from '../lib/restSchedule';
 import { createSerialTaskQueue } from '../lib/serialTaskQueue';
 import type { AppLanguage } from '../types/models';
 import { ONGOING_NOTIFICATION_MARKER, installNotificationHandler } from './notificationHandler';
+
+/** app.json's `android.package` — the one static id a channel-settings intent needs. */
+const ANDROID_PACKAGE_ID = 'app.vinha';
 
 export const REST_CHANNEL_ID = 'rest-timer';
 export const REST_WARNING_CHANNEL_ID = 'rest-warning';
@@ -262,14 +266,62 @@ export async function isRestAlertChannelBlocked(): Promise<boolean> {
 }
 
 /**
+ * What is standing between a rest alert and the reader, if anything: the
+ * permission refused, granted but the rest-alert channel muted, or clear.
+ * What Settings shows, and names which of the two it is (#bugs, 2026-09-26 —
+ * both used to read as one flat "blocked").
+ */
+export async function getRestAlertAccessState(): Promise<NotificationAccessState> {
+  const permissionGranted = (await getRestAlertPermission()) === 'granted';
+  const channelMuted = permissionGranted && (await isRestAlertChannelBlocked());
+  return resolveNotificationAccessState({ permissionGranted, channelMuted });
+}
+
+/**
  * Whether an end-of-rest alert can reach the reader: the app may notify AND
- * the rest-alert channel is not switched off. What Settings shows.
+ * the rest-alert channel is not switched off.
  */
 export async function getRestAlertsAllowed(): Promise<boolean> {
-  if ((await getRestAlertPermission()) !== 'granted') {
-    return false;
+  return (await getRestAlertAccessState()) === 'granted';
+}
+
+/**
+ * Opens Android's own settings page for the rest-alert channel — the one
+ * screen with the toggle that muted it — rather than the app's general
+ * notification page, where the reader would have to find the channel
+ * themselves. Falls back to the app's own settings page when the specific
+ * one is not there to open, same as `openExactAlarmSettings` (#bugs,
+ * 2026-09-26: the channel-muted card used to send the reader to the general
+ * page, same as a refused permission).
+ */
+export async function openRestAlertChannelSettings(): Promise<void> {
+  if (Platform.OS !== 'android') {
+    return;
   }
-  return !(await isRestAlertChannelBlocked());
+  try {
+    await Linking.sendIntent('android.settings.CHANNEL_NOTIFICATION_SETTINGS', [
+      { key: 'android.provider.extra.APP_PACKAGE', value: ANDROID_PACKAGE_ID },
+      { key: 'android.provider.extra.CHANNEL_ID', value: REST_CHANNEL_ID },
+    ]);
+    return;
+  } catch {
+    // Fall through to the generic page.
+  }
+  await Linking.openSettings().catch(() => undefined);
+}
+
+/**
+ * The page that fixes whatever is keeping rest alerts quiet: the rest-alert
+ * channel's own page when only the channel is muted, the app's notification
+ * settings otherwise. The in-workout banners' "Turn on" — they used to open the
+ * general page for both (2026-09-26).
+ */
+export async function openRestAlertSettings(): Promise<void> {
+  if ((await getRestAlertAccessState()) === 'channelMuted') {
+    await openRestAlertChannelSettings();
+    return;
+  }
+  await Linking.openSettings().catch(() => undefined);
 }
 
 /** The system dialog. Only called after the in-app ask (rule 05). */

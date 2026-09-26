@@ -70,6 +70,48 @@ module.exports = [
     },
   },
   {
+    name: 'equipmentExerciseFilter: a hammer curl needs an actual dumbbell, not a band',
+    run() {
+      // "Hammer" names a neutral-grip hold on a dumbbell — the library files
+      // "Alternate Hammer Curl" under Dumbbell equipment. The generic 'curl'
+      // rule treats Resistance bands as sufficient for any curl, which let it
+      // through for a bands-only reader with a kg dial and no dumbbell in
+      // their setup (#bugs, 2026-09-26).
+      assert.equal(isExerciseAllowedWithEquipment('Alternate Hammer Curl', ['Resistance bands']), false);
+      assert.equal(isExerciseAllowedWithEquipment('Alternate Hammer Curl', ['Dumbbells']), true);
+
+      const bandsOnly = applyEquipmentToExercises([exercise('Alternate Hammer Curl')], ['Resistance bands']);
+      // No honest band substitute exists in the fallback chain (both
+      // candidates need a dumbbell or a barbell plate), so it is truthfully
+      // removed rather than kept with a weight dial it cannot serve.
+      assert.deepEqual(bandsOnly.exercises, []);
+      assert.deepEqual(bandsOnly.removed, ['Alternate Hammer Curl']);
+    },
+  },
+  {
+    name: 'equipmentExerciseFilter: a bands-only composed week never asks for a hammer curl',
+    run() {
+      const template = WORKOUT_TEMPLATES_V1.find((entry) => entry.daysPerWeek >= 3);
+      assert.ok(template);
+
+      const week = composeProgramWeekForSelection(
+        {
+          ...DEFAULT_FIRST_RUN_SELECTION,
+          daysPerWeek: template.daysPerWeek,
+          availableDays: [],
+          scheduleMode: 'app_managed',
+          equipmentItems: ['Resistance bands'],
+          focusAreas: ['arms'],
+        },
+        template.id,
+      );
+
+      assert.ok(week);
+      const names = week.sessions.flatMap((sessionEntry) => sessionEntry.exercises.map((item) => item.exerciseName));
+      assert.equal(names.includes('Alternate Hammer Curl'), false);
+    },
+  },
+  {
     name: 'equipmentExerciseFilter: composed week never demands missing gear',
     run() {
       const template = WORKOUT_TEMPLATES_V1.find((entry) =>

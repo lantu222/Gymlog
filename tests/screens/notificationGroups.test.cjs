@@ -106,9 +106,9 @@ module.exports = [
     name: 'notifications: the workout card says when the phone keeps its alerts quiet, and offers the way out',
     run() {
       const access = between(screen, 'const renderWorkoutAccess', 'const renderGroup');
-      assert.match(access, /osAllowed === false && allowWorkoutAlerts/);
-      assert.match(access, /onPress=\{\(\) => void allowWorkoutAlerts\(\)\.then\(setOsAllowed\)\}/);
-      assert.match(access, /osAllowed === true && prefs\.restAlerts && exactAllowed === false && onAllowExactAlarms/);
+      assert.match(access, /access !== null && access !== 'granted' && allowWorkoutAlerts/);
+      assert.match(access, /onPress=\{\(\) => void allowWorkoutAlerts\(\)\.then\(setAccess\)\}/);
+      assert.match(access, /access === 'granted' && prefs\.restAlerts && exactAllowed === false && onAllowExactAlarms/);
       assert.match(access, /onPress=\{onAllowExactAlarms\}/);
       assert.match(screen, /\{!group\.scheduled && groupOn \? renderWorkoutAccess\(\) : null\}/);
       // Read again on the way back from system settings.
@@ -117,31 +117,45 @@ module.exports = [
       assert.match(tab, /allowWorkoutAlerts=\{allowWorkoutAlerts\}/);
       assert.match(tab, /checkExactAlarms=\{canScheduleExactAlarms\}/);
       assert.match(tab, /onAllowExactAlarms=\{allowExactAlarms\}/);
-      assert.match(tab, /async function allowWorkoutAlerts\(\): Promise<boolean> \{\s*if \(\(await getRestAlertPermission\(\)\) === 'denied'\) \{\s*await Linking\.openSettings\(\)/);
+      assert.match(tab, /async function allowWorkoutAlerts\(\): Promise<NotificationAccessState> \{\s*if \(\(await getRestAlertPermission\(\)\) === 'denied'\) \{\s*await Linking\.openSettings\(\)/);
     },
   },
   {
-    name: 'notifications: a rest-alert channel switched off in Android settings shows the workout card as blocked',
+    name: 'notifications: a rest-alert channel switched off in Android settings names the channel, not "not allowed"',
     run() {
       // Native audit, 2026-09-21: the card read the app-wide permission only,
       // so a reader who muted "Rest alerts" in system settings was told
-      // nothing while every alert was dropped. The channel is read in
+      // nothing while every alert was dropped. #bugs, 2026-09-26: once the
+      // card DID read the channel, it still said the same "phone has not
+      // allowed notifications" a refused permission gets, and its "Allow"
+      // button opened the app's general settings rather than the channel's
+      // own page. The channel read itself is tested in
       // tests/utils/sessionNotifications.test.cjs; this is the wiring.
       const read = between(screen, 'const readWorkoutAccess = useCallback(', '}, [');
-      assert.match(read, /void checkWorkoutAlerts\?\.\(\)\.then\(setOsAllowed\);/);
+      assert.match(read, /void checkWorkoutAlerts\?\.\(\)\.then\(setAccess\);/);
       assert.doesNotMatch(read, /checkPermission/, 'the card reads the permission alone again');
-      assert.match(tab, /checkWorkoutAlerts=\{getRestAlertsAllowed\}/);
+      assert.match(tab, /checkWorkoutAlerts=\{getRestAlertAccessState\}/);
       // Turning the master on reads the card's answer rather than assuming it.
       const master = between(screen, 'const handleMasterChange', 'const handleGroupToggle');
-      assert.doesNotMatch(master, /setOsAllowed\(granted\)/);
+      assert.doesNotMatch(master, /setAccess\(granted\)/);
       assert.match(master, /readWorkoutAccess\(\);/);
-      // Allow cannot unmute a channel with a dialog: it opens the app's page
-      // and says "not yet", so the card stays until the channel is back on.
+      // The card names which of the two states it is in.
+      const access = between(screen, 'const renderWorkoutAccess', 'const renderGroup');
+      assert.match(access, /const channelMuted = access === 'channelMuted';/);
+      assert.match(access, /'notif\.workout\.channelMutedTitle', \{ channel: t\(language, 'notif\.rest\.alerts'\) \}/);
+      assert.match(access, /'notif\.workout\.channelMutedBody'/);
+      // Allow cannot unmute a channel with a dialog: it opens the channel's
+      // OWN settings page, not the app's general one, and says "not yet" so
+      // the card stays until the channel is back on.
       const allow = between(tab, 'async function allowWorkoutAlerts', 'function allowExactAlarms');
       assert.match(
         allow,
-        /if \(await isRestAlertChannelBlocked\(\)\) \{\s*await Linking\.openSettings\(\)\.catch\(\(\) => undefined\);\s*return false;\s*\}\s*return true;/,
+        /if \(await isRestAlertChannelBlocked\(\)\) \{\s*await openRestAlertChannelSettings\(\);\s*return 'channelMuted';\s*\}\s*return 'granted';/,
       );
+      assert.match(tab, /openRestAlertChannelSettings,/);
+      // Both languages carry the new copy.
+      assert.equal((i18n.match(/'notif\.workout\.channelMutedTitle':/g) ?? []).length, 2);
+      assert.equal((i18n.match(/'notif\.workout\.channelMutedBody':/g) ?? []).length, 2);
     },
   },
   {
