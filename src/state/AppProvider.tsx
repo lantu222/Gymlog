@@ -261,6 +261,8 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       },
       trainingBreak: null,
       legalAcceptance: null,
+      restDayStarts: [],
+      lightNextSession: null,
       aiLogId: null,
       aiLogChatConsent: false,
       aiLogComposerConsent: false,

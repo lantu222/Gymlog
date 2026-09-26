@@ -567,12 +567,16 @@ module.exports = [
       // next, which hangs off `row.locked` further down. So: exactly one gate
       // in the whole readout, and it sits inside that branch.
       assert.equal((readout.match(/proUnlocked/g) ?? []).length, 1, 'a second lock appeared');
+      // `&& !recoveryDoor` since 2026-09-26: the recovery row's conclusion
+      // moved into its sheet, which draws the same lock (RecoverySheet).
+      const gate = 'row.locked && !recoveryDoor ? (';
+      assert.ok(readout.indexOf(gate) > 0, 'the conclusion gate was restructured — recheck by hand');
       assert.ok(
-        readout.indexOf('row.locked ? (') < readout.indexOf('proUnlocked'),
+        readout.indexOf(gate) < readout.indexOf('proUnlocked'),
         'the lock moved out of the conclusion and onto the status itself',
       );
       assert.ok(
-        readout.indexOf('styles.readBars') < readout.indexOf('row.locked ? ('),
+        readout.indexOf('styles.readBars') < readout.indexOf(gate),
         'the bars are drawn after the gate — the status is no longer free',
       );
 
@@ -600,10 +604,18 @@ module.exports = [
       // Two start paths now: ready and custom. The AI branch no longer starts
       // a workout of its own — it composes a programme that is saved as a
       // custom one and starts through the custom path like any other.
+      // Since 2026-09-26 both go through one door, startProgrammeWorkout,
+      // which also applies a lighter session from the recovery sheet — so the
+      // entitlement is resolved once, and both paths must use that door.
       assert.equal(
         (appSource.match(/resolveProgressionOptions\((preferences|nextPreferences)\)/g) ?? []).length,
+        1,
+        'a start path resolves progression on its own, past the shared door',
+      );
+      assert.equal(
+        (appSource.match(/startProgrammeWorkout\(runtimeTemplate, (nextUnitPreference|unitPreference)\)/g) ?? []).length,
         2,
-        'the ready and custom start paths must both resolve through the entitlement',
+        'the ready and custom start paths must both start through the shared door',
       );
 
       // There used to be a fourth path — the list logger's own bootstrap —
