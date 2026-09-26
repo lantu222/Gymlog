@@ -18,6 +18,8 @@
 export interface WeekdaySchedule {
   kind: 'weekdays';
   weekdayIndexes: number[];
+  /** Days the reader took off (see withRestDays). */
+  restDayStarts?: readonly number[];
 }
 
 /**
@@ -31,6 +33,8 @@ export interface CycleSchedule {
   kind: 'cycle';
   pattern: boolean[];
   anchorDayStart: number;
+  /** Days the reader took off (see withRestDays). */
+  restDayStarts?: readonly number[];
 }
 
 export type TrainingSchedule = WeekdaySchedule | CycleSchedule;
@@ -67,6 +71,20 @@ export function cycleSchedule(pattern: boolean[], anchor: Date | number): Traini
     : UNKNOWN_SCHEDULE;
 }
 
+/**
+ * The rhythm with days the reader has taken off — "Lisää lepopäivä huomiselle"
+ * from the recovery sheet (2026-09-26).
+ *
+ * A rest day is a day off and nothing more: it does not push the rest of the
+ * rhythm along. The session it would have carried is not lost — Home offers
+ * sessions by what was last trained, not by date — so it simply comes on the
+ * next training day. Shifting a cycle's count instead would move every later
+ * day, and then move them all back the day the rest day passed and was pruned.
+ */
+export function withRestDays(schedule: TrainingSchedule, restDayStarts: readonly number[]): TrainingSchedule {
+  return restDayStarts.length > 0 ? { ...schedule, restDayStarts: [...restDayStarts] } : schedule;
+}
+
 /** `[true, true, false]` from "two on, one off". */
 export function patternFromOnOff(onDays: number, offDays: number): boolean[] {
   const on = Math.max(1, Math.round(onDays));
@@ -95,6 +113,9 @@ function cycleOffset(schedule: CycleSchedule, date: Date) {
 
 export function trainsOn(schedule: TrainingSchedule, date: Date): boolean {
   if (!isScheduleKnown(schedule)) {
+    return false;
+  }
+  if (schedule.restDayStarts?.includes(dayStartOf(date))) {
     return false;
   }
   if (schedule.kind === 'weekdays') {

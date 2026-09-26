@@ -193,7 +193,17 @@ import { suggestHomeStatCardKeys } from './src/lib/homeCardSuggestions';
 import { isMeasurementCardKey } from './src/lib/homeStatCards';
 import { resolveNextPlanEntryIndex } from './src/lib/planRotation';
 import { alignHistoryToCopiedDays, programmeHistoryIds } from './src/lib/programLineage';
-import { cycleSchedule, trainsOn, weekdaySchedule } from './src/lib/trainingSchedule';
+import { cycleSchedule, trainsOn, weekdaySchedule, withRestDays } from './src/lib/trainingSchedule';
+import {
+  buildRecoverySheet,
+  dayStartPlus,
+  isLightenPending,
+  lightenedFatigueSignal,
+  lightenRuntimeTemplate,
+  withoutRestDay,
+  withRestDay,
+  type RecoveryActionKind,
+} from './src/lib/recoverySheet';
 import {
   planWeekdayIndexes,
   resolveProgramTrainingDays,
@@ -1817,15 +1827,38 @@ function VinhaApp() {
         buildReadySessionRuntimeTemplate(template, sessionId),
         sessionAdaptationFor(sessionRef),
       );
-      workout.startCustomWorkout(runtimeTemplate, nextUnitPreference, {
-        ...resolveProgressionOptions(preferences),
-        fatigueSignal: progressionFatigueSignal,
-      });
+      startProgrammeWorkout(runtimeTemplate, nextUnitPreference);
       // Today's changes are spent the moment they are applied — an adaptation
       // is an answer about right now, and a stale one is worse than none.
       setHeldSessionAdaptations((held) => spendHeldAdaptation(held, sessionRef));
       navigateToGuidedWorkout(workoutTemplateId);
     });
+  }
+
+  /**
+   * A programme session, started. The one door both programme starts use, so
+   * "Kevennä seuraava treeni" from the recovery sheet reaches whichever comes
+   * next: one set fewer on every lift that has one to spare, and loads held.
+   * Spent here — the request is for the next session, not every session.
+   */
+  function startProgrammeWorkout(
+    runtimeTemplate: Parameters<typeof workout.startCustomWorkout>[0],
+    unit: UnitPreference,
+  ) {
+    const lighten = isLightenPending(preferences.lightNextSession, new Date());
+    workout.startCustomWorkout(lighten ? lightenRuntimeTemplate(runtimeTemplate) : runtimeTemplate, unit, {
+      ...resolveProgressionOptions(preferences),
+      fatigueSignal: lighten ? lightenedFatigueSignal(progressionFatigueSignal) : progressionFatigueSignal,
+    });
+    if (preferences.lightNextSession) {
+      // A refused write rolls the request back into place, and it would
+      // lighten the session after this one too. Said, rather than left to
+      // happen quietly (CI review of #188); the sheet can take it back.
+      updatePreferences({ lightNextSession: null }).catch((error) => {
+        console.error('Failed to spend the lighter-session request', error);
+        showToast(t(preferences.appLanguage, 'recovery.toast.spendFailed'));
+      });
+    }
   }
 
   function handleStartReadyProgramSession(workoutTemplateId: string, sessionId: string) {
@@ -2592,10 +2625,7 @@ function VinhaApp() {
         buildCustomSessionRuntimeTemplate(customTemplate, sessionId),
         sessionAdaptationFor(sessionRef),
       );
-      workout.startCustomWorkout(runtimeTemplate, unitPreference, {
-        ...resolveProgressionOptions(preferences),
-        fatigueSignal: progressionFatigueSignal,
-      });
+      startProgrammeWorkout(runtimeTemplate, unitPreference);
       setHeldSessionAdaptations((held) => spendHeldAdaptation(held, sessionRef));
       navigateToGuidedWorkout(workoutTemplateId);
     });
@@ -4724,10 +4754,101 @@ function VinhaApp() {
     database.workoutPlans,
   ]);
 
-  const homeTrainingSchedule = useMemo(() => {
+  /** The rhythm as chosen, before any day taken off. */
+  const baseTrainingSchedule = useMemo(() => {
     const cycle = preferences.trainingCycle;
     return cycle ? cycleSchedule(cycle.pattern, cycle.anchorDayStart) : weekdaySchedule(homeTrainingDayIndexes);
   }, [homeTrainingDayIndexes, preferences.trainingCycle]);
+  /**
+   * The rhythm every calendar draws: the chosen one, with the days the reader
+   * took off from the recovery sheet (2026-09-26). One place, so Home, the
+   * widget, Progress and the coach all agree that tomorrow is rest.
+   */
+  const homeTrainingSchedule = useMemo(
+    () => withRestDays(baseTrainingSchedule, preferences.restDayStarts),
+    [baseTrainingSchedule, preferences.restDayStarts],
+  );
+
+  /**
+   * What the recovery row opens (design: GAINER Palautuminen Sheet). Null
+   * when the fatigue model is not confident — the row is not there either.
+   * Keyed on the day: "tomorrow" and the seven-day strip read the clock.
+   */
+  const recoverySheet = useMemo(() => {
+    const now = new Date();
+    const tomorrow = new Date(dayStartPlus(now, 1));
+    return buildRecoverySheet({
+      fatigue: proFatigue,
+      sessionDates: database.workoutSessions.map((session) => session.performedAt),
+      now,
+      nextSessionTitle: homeActivePlanCard?.nextSession
+        ? localizeSessionName(homeActivePlanCard.nextSession.title, preferences.appLanguage)
+        : null,
+      automatedProgression: preferences.automatedProgressionEnabled,
+      proUnlocked: coachProUnlocked,
+      // Asked of the rhythm before any rest day, so a day already taken off
+      // still reads as one the reader would have trained.
+      tomorrowTrains: trainsOn(baseTrainingSchedule, tomorrow),
+      restTomorrowMarked: preferences.restDayStarts.includes(tomorrow.getTime()),
+      lightenQueued: isLightenPending(preferences.lightNextSession, now),
+      language: preferences.appLanguage,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    proFatigue,
+    database.workoutSessions,
+    homeActivePlanCard?.nextSession,
+    preferences.appLanguage,
+    preferences.automatedProgressionEnabled,
+    preferences.restDayStarts,
+    preferences.lightNextSession,
+    coachProUnlocked,
+    baseTrainingSchedule,
+    todayStartMs,
+  ]);
+
+  /**
+   * The recovery sheet's two actions, and taking them back. Each says it is
+   * done only after the write has landed; a refused write says so instead.
+   */
+  async function handleRecoveryAction(kind: RecoveryActionKind) {
+    if (kind === 'close') {
+      return;
+    }
+    const now = new Date();
+    try {
+      if (kind === 'lighten') {
+        await updatePreferences({ lightNextSession: { requestedAt: now.toISOString() } });
+        void haptics.success();
+        showToast(t(preferences.appLanguage, 'recovery.toast.lighten'));
+        return;
+      }
+      await updatePreferences({
+        restDayStarts: withRestDay(preferences.restDayStarts, dayStartPlus(now, 1), now),
+      });
+      void haptics.success();
+      showToast(t(preferences.appLanguage, 'recovery.toast.rest'));
+    } catch (error) {
+      console.error('Failed to save the recovery action', error);
+      void haptics.error();
+      showToast(t(preferences.appLanguage, 'recovery.toast.failed'));
+    }
+  }
+
+  async function handleRecoveryUndo(kind: 'lighten' | 'restTomorrow') {
+    const now = new Date();
+    try {
+      await updatePreferences(
+        kind === 'lighten'
+          ? { lightNextSession: null }
+          : { restDayStarts: withoutRestDay(preferences.restDayStarts, dayStartPlus(now, 1), now) },
+      );
+    } catch (error) {
+      console.error('Failed to undo the recovery action', error);
+      void haptics.error();
+      showToast(t(preferences.appLanguage, 'recovery.toast.failed'));
+    }
+  }
   const aiCoachTrainingContext = useMemo(
     () =>
       buildAiTrainingContext({
@@ -7253,6 +7374,9 @@ function VinhaApp() {
       progressWeeklyTarget,
       unitPreference,
       proWeeklyRead,
+      recoverySheet,
+      onRecoveryAction: handleRecoveryAction,
+      onRecoveryUndo: handleRecoveryUndo,
       proPlateauMoment: proPlateau?.moment ?? null,
       coachProUnlocked,
       addBodyweightEntry,

@@ -47,6 +47,9 @@ export interface ProgressTabDeps {
   progressWeeklyTarget: ProgressScreenProps['weeklyTargetSessions'];
   unitPreference: ProgressScreenProps['unitPreference'];
   proWeeklyRead: ProgressScreenProps['weeklyRead'];
+  recoverySheet: ProgressScreenProps['recoverySheet'];
+  onRecoveryAction: NonNullable<ProgressScreenProps['onRecoveryAction']>;
+  onRecoveryUndo: NonNullable<ProgressScreenProps['onRecoveryUndo']>;
   proPlateauMoment: ProgressScreenProps['readMoment'];
   coachProUnlocked: boolean;
   addBodyweightEntry: (weightKg: number) => Promise<unknown>;
@@ -80,6 +83,9 @@ export function renderProgressTab(deps: ProgressTabDeps): React.ReactElement | n
     progressWeeklyTarget,
     unitPreference,
     proWeeklyRead,
+    recoverySheet,
+    onRecoveryAction,
+    onRecoveryUndo,
     proPlateauMoment,
     coachProUnlocked,
     addBodyweightEntry,
@@ -117,6 +123,9 @@ export function renderProgressTab(deps: ProgressTabDeps): React.ReactElement | n
       weeklyTargetSessions={progressWeeklyTarget}
       unitPreference={unitPreference}
       weeklyRead={proWeeklyRead}
+      recoverySheet={recoverySheet}
+      onRecoveryAction={onRecoveryAction}
+      onRecoveryUndo={onRecoveryUndo}
       readMoment={proPlateauMoment}
       proUnlocked={coachProUnlocked}
       targetLifts={targetLifts}
