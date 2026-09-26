@@ -178,25 +178,32 @@ module.exports = [
      * dropped into third place used to keep printing "Day 1", so a reordered
      * programme read "Day 2, Day 3, Day 1" straight down the list.
      */
-    name: 'a stored day number is replaced by the position the row now sits in',
+    name: 'a day row says the workout name, and only a placeholder is numbered — by position',
     run() {
+      // "Poistetaan päivä sana tästä eli näyttää vain treenin nimen" (#bugs
+      // 2026-09-24): the stored day number goes, and no "Day N." replaces it.
       assert.equal(
         formatPlanSessionTitle({ name: 'Day 1: Upper (Heavy)' }, 2, 'Strong Calves Pro', 'en'),
-        'Day 3. Upper (Heavy)',
+        'Upper (Heavy)',
       );
       // Whichever separator it was saved with.
       assert.equal(
         formatPlanSessionTitle({ name: 'Day 5. Accessory Strength Day' }, 0, 'X', 'en'),
-        'Day 1. Accessory Strength Day',
+        'Accessory Strength Day',
       );
-      // A name that is ONLY a number still says something.
-      assert.equal(formatPlanSessionTitle({ name: 'Day 4' }, 1, 'X', 'en'), 'Day 2');
-      // Names without a number are untouched apart from the prefix they
-      // always got.
-      assert.equal(
-        formatPlanSessionTitle({ name: 'Upper (Heavy)' }, 0, 'X', 'en'),
-        'Day 1. Upper (Heavy)',
-      );
+      assert.equal(formatPlanSessionTitle({ name: 'Upper (Heavy)' }, 0, 'X', 'en'), 'Upper (Heavy)');
+      assert.equal(formatPlanSessionTitle({ name: 'Päivä 2: Pakarat' }, 0, 'X', 'fi'), 'Pakarat');
+      // A name that is ONLY a placeholder still says something, numbered by
+      // the row's place now rather than the number it was saved with.
+      assert.equal(formatPlanSessionTitle({ name: 'Day 4' }, 1, 'X', 'en'), 'Workout 2');
+      assert.equal(formatPlanSessionTitle({ name: 'Päivä 4' }, 1, 'X', 'fi'), 'Treeni 2');
+      assert.equal(formatPlanSessionTitle({ name: 'Workout B' }, 2, 'X', 'fi'), 'Treeni 3');
+      // The full-body letters keep the days apart.
+      assert.equal(formatPlanSessionTitle({ name: 'Minimal B' }, 1, 'Full Body Minimal', 'fi'), 'Koko keho B');
+      // And nothing says "Päivä" any more.
+      for (const name of ['Day 1: Upper', 'Päivä 3', 'Workout A', 'Rinta', 'Minimal A']) {
+        assert.doesNotMatch(formatPlanSessionTitle({ name }, 0, 'Full Body', 'fi'), /päivä/i, name);
+      }
     },
   },
 ];

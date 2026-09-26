@@ -151,6 +151,10 @@ export interface WorkoutTabDeps {
     sessionId: string,
     toIndex: number,
   ) => Promise<void>;
+  /** Resolves the new day's id once it is saved, or null. */
+  handleAddProgramSession: (workoutTemplateId: string, exerciseNames: string[]) => Promise<string | null>;
+  /** Resolves true once the day is gone and the week has followed. */
+  handleRemoveProgramSession: (workoutTemplateId: string, sessionId: string) => Promise<boolean>;
   handleSaveRhythm: (workoutTemplateId: string, dayIndexes: number[]) => Promise<void>;
   handleSaveEmphasis: (
     workoutTemplateId: string,
@@ -256,6 +260,8 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
     editProgramExercise,
     handleRenameCustomProgram,
     handleReorderProgramSession,
+    handleAddProgramSession,
+    handleRemoveProgramSession,
     handleSaveRhythm,
     handleSaveEmphasis,
     handleDeleteCustomWorkout,
@@ -686,6 +692,35 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
                 void handleReorderProgramSession(route.workoutTemplateId, sessionId, toIndex)
             : undefined
         }
+        // Custom only, like the reorder. The new day opens once it is saved,
+        // so the reader lands where its sets and reps are set.
+        onAddSession={
+          route.programType === 'custom'
+            ? (exerciseNames) =>
+                void handleAddProgramSession(route.workoutTemplateId, exerciseNames).then(
+                  (sessionId) => {
+                    if (!sessionId) {
+                      return;
+                    }
+                    void haptics.success();
+                    navigate({
+                      tab: 'workout',
+                      screen: 'programDay',
+                      programType: 'custom',
+                      workoutTemplateId: route.workoutTemplateId,
+                      sessionId,
+                    });
+                  },
+                  (error) => {
+                    console.error('Failed to add a day to the programme', error);
+                    void haptics.error();
+                    showToast(t(preferences.appLanguage, 'toast.planSaveFailed'));
+                  },
+                )
+            : undefined
+        }
+        exerciseLibrary={exerciseBrowserItems}
+        recentExerciseLibraryItems={recentExerciseBrowserItems}
         onSaveRhythm={
           database.workoutPlans.some((plan) => plan.entries[0]?.workoutTemplateId === route.workoutTemplateId)
             ? (dayIndexes) => void handleSaveRhythm(route.workoutTemplateId, dayIndexes)
@@ -818,6 +853,35 @@ export function renderWorkoutTab(deps: WorkoutTabDeps): React.ReactElement | nul
           })
         }
         tailoringPreferences={preferences}
+        // Back to the programme page first, then the write. The route names
+        // this day, so once the day is gone the page has nothing left to draw
+        // and would flash blank until a navigation queued behind the write
+        // caught up. What says it worked is the row leaving the list under
+        // the reader's eyes, and the haptic — both after the write lands.
+        onRemoveSession={
+          route.programType === 'custom' && program.sessions.length > 1
+            ? () => {
+                navigateBack({
+                  tab: 'workout',
+                  screen: 'program',
+                  programType: route.programType,
+                  workoutTemplateId: route.workoutTemplateId,
+                });
+                void handleRemoveProgramSession(route.workoutTemplateId, daySession.id).then(
+                  (removed) => {
+                    if (removed) {
+                      void haptics.success();
+                    }
+                  },
+                  (error) => {
+                    console.error('Failed to remove a day from the programme', error);
+                    void haptics.error();
+                    showToast(t(preferences.appLanguage, 'toast.planSaveFailed'));
+                  },
+                );
+              }
+            : undefined
+        }
         onBack={() => navigateBack({ tab: 'workout', screen: 'program', programType: route.programType, workoutTemplateId: route.workoutTemplateId })}
       />
     ) : (

@@ -3,6 +3,7 @@ import { Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View } fr
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AddExerciseSheet } from '../components/AddExerciseSheet';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CutSurface } from '../components/CutSurface';
 import { ProgramPhotoSlot } from '../components/ProgramPhotoSlot';
@@ -33,7 +34,7 @@ import {
   localizeWorkoutFocus,
 } from '../lib/sessionNameLabel';
 import { layout, radii, spacing } from '../theme';
-import type { AppLanguage } from '../types/models';
+import type { AppLanguage, ExerciseLibraryItem } from '../types/models';
 
 const DAY_KEYS: I18nKey[] = [
   'setup.day.mon',
@@ -163,6 +164,15 @@ interface ProgramDetailScreenProps {
    * dragging.
    */
   onReorderSession?: (sessionId: string, toIndex: number) => void;
+  /**
+   * A new day at the end, made from the lifts picked for it (#bugs
+   * 2026-09-24). The day and its lifts are one write — a day never exists
+   * empty. Undefined for a catalog programme, like the reorder above.
+   */
+  onAddSession?: (exerciseNames: string[]) => void;
+  /** The library the new day's lifts are picked from. */
+  exerciseLibrary?: ExerciseLibraryItem[];
+  recentExerciseLibraryItems?: ExerciseLibraryItem[];
   /** The catalog's declared block length. Null for a programme with none. */
   programBlockWeeks?: number | null;
   /** Monday-first indexes the plan currently trains on, when it names days. */
@@ -280,6 +290,9 @@ export function ProgramDetailScreen({
   primaryActionActivates = false,
   onOpenSession,
   onReorderSession,
+  onAddSession,
+  exerciseLibrary,
+  recentExerciseLibraryItems = [],
   programBlockWeeks = null,
   trainingDayIndexes = null,
   trainingDaySessionIds = null,
@@ -306,6 +319,8 @@ export function ProgramDetailScreen({
   const styles = useThemedStyles(makeStyles);
   // The programme's own colour, the same one its browse cover wears.
   const [emphasisSheetVisible, setEmphasisSheetVisible] = useState(false);
+  const [addSessionOpen, setAddSessionOpen] = useState(false);
+  const canAddSession = Boolean(onAddSession && exerciseLibrary && exerciseLibrary.length > 0);
 
   /**
    * Dragging a day, identical to dragging a lift (user 2026-08-31: "tee
@@ -1265,6 +1280,21 @@ export function ProgramDetailScreen({
             </Animated.View>
             );
           })}
+          {/* A day is added where the list ends. The row opens the library,
+              not an empty day: the lifts are picked first and the day is
+              written with them, so no programme ever holds an empty day. */}
+          {canAddSession ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setAddSessionOpen(true)}
+              style={({ pressed }) => [styles.addSessionRow, pressed && styles.workoutCardPressed]}
+            >
+              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                <Path d="M12 5v14M5 12h14" stroke={theme.highlight} strokeWidth={2.4} strokeLinecap="round" />
+              </Svg>
+              <Text style={styles.addSessionText}>{t(language, 'detail.addWorkout')}</Text>
+            </Pressable>
+          ) : null}
         </View>
 
         {/* "Tee tästä oma versio" stood here. It asked the reader to
@@ -1358,6 +1388,29 @@ export function ProgramDetailScreen({
           </Pressable>
         ) : null}
       </ScrollView>
+
+      {canAddSession ? (
+        <AddExerciseSheet
+          bottomInset={insets.bottom}
+          visible={addSessionOpen}
+          language={language}
+          items={exerciseLibrary ?? []}
+          recentItems={recentExerciseLibraryItems}
+          title={t(language, 'detail.addWorkout')}
+          // What the new day will be called until it is renamed — the same
+          // placeholder the list prints for it.
+          subtitle={t(language, 'detail.workoutPlaceholder', { index: program.sessions.length + 1 })}
+          multiSelect
+          onClose={() => setAddSessionOpen(false)}
+          onSelectItem={() => undefined}
+          onConfirmSelection={(items) => {
+            setAddSessionOpen(false);
+            if (items.length > 0) {
+              onAddSession?.(items.map((item) => item.name));
+            }
+          }}
+        />
+      ) : null}
 
       {onSaveEmphasis ? (
         <EmphasisSheet
@@ -1812,6 +1865,25 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   workoutList: {
     gap: spacing.sm,
+  },
+  addSessionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    minHeight: 58,
+    paddingHorizontal: 12,
+    borderRadius: radii.lg,
+    borderWidth: 1.6,
+    borderStyle: 'dashed',
+    borderColor: theme.border,
+  },
+  // Pressable, so the action accent — violet on this page is brand only.
+  addSessionText: {
+    color: theme.highlight,
+    fontSize: 15.5,
+    lineHeight: 20,
+    fontWeight: '800',
   },
   workoutCard: {
     borderRadius: radii.lg,

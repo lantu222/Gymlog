@@ -470,6 +470,9 @@ const makeStyles = (theme: Theme) =>
       paddingHorizontal: 13,
       height: 44,
       marginHorizontal: 18,
+      // The first row sat flush against the field whenever the list had no
+      // group label to push it down (#bugs 2026-09-24, "turhan lähekkäin").
+      marginBottom: 12,
     },
     searchInput: {
       flex: 1,

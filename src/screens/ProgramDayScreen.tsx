@@ -14,6 +14,7 @@ import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddExerciseSheet } from '../components/AddExerciseSheet';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { KitBar, KitGroupLabel, KitRow, KitSearch, KitSheet } from '../components/sheetKit';
 import { CutSurface } from '../components/CutSurface';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
@@ -226,6 +227,13 @@ interface ProgramDayScreenProps {
    */
   onSupersetLink?: (exerciseId: string, linked: boolean) => void;
   tailoringPreferences?: Parameters<typeof buildSwapOptionsForSlot>[2];
+  /**
+   * Take this whole day out of the programme (#bugs 2026-09-24). Asked first;
+   * the caller leaves the page once the write has landed. Undefined for a
+   * catalog programme and for a programme's only day — removing that one is
+   * deleting the programme, which has its own button.
+   */
+  onRemoveSession?: () => void;
   onBack: () => void;
 }
 
@@ -249,12 +257,14 @@ export function ProgramDayScreen({
   onReorderExercise,
   onSupersetLink,
   tailoringPreferences,
+  onRemoveSession,
   onBack,
 }: ProgramDayScreenProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useThemedStyles(makeStyles);
   const tints = roleTints(theme);
+  const [confirmRemoveSession, setConfirmRemoveSession] = useState(false);
 
   // Warm-up and recovery closed by default: they are the same generated
   // blocks on every session of this focus, and the lifts are what the reader
@@ -1047,7 +1057,38 @@ export function ProgramDayScreen({
           </View>
         ) : null}
 
+        {/* Last on the page, under everything the day holds, and quiet: the
+            one edit here that cannot be undone by making another. */}
+        {onRemoveSession ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setConfirmRemoveSession(true)}
+            hitSlop={8}
+            style={({ pressed }) => [styles.removeSessionButton, pressed && styles.swapOptionPressed]}
+          >
+            <Text style={styles.removeSessionText}>{t(language, 'day.removeWorkout')}</Text>
+          </Pressable>
+        ) : null}
+
       </ScrollView>
+
+      {onRemoveSession ? (
+        <ConfirmDialog
+          language={language}
+          visible={confirmRemoveSession}
+          title={t(language, 'day.removeWorkout.title')}
+          message={t(language, 'day.removeWorkout.message', {
+            name: formatPlanSessionTitle(session, dayNumber - 1, programTitle, language),
+          })}
+          confirmLabel={t(language, 'day.removeWorkout.confirm')}
+          destructive
+          onCancel={() => setConfirmRemoveSession(false)}
+          onConfirm={() => {
+            setConfirmRemoveSession(false);
+            onRemoveSession();
+          }}
+        />
+      ) : null}
 
       {/* The swap writes into the same map the session start reads, so what
           you choose here is what you lift.
@@ -2040,6 +2081,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   // the one gesture looks the same wherever a list can grow.
   // The label in the middle with its plus beside it (user 2026-08-31): left
   // -aligned under a list of left-aligned names, it read as a sixth exercise.
+  removeSessionButton: {
+    alignSelf: 'center',
+    marginTop: 26,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+  },
+  removeSessionText: {
+    color: theme.danger,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '800',
+  },
   addRow: {
     flexDirection: 'row',
     alignItems: 'center',
