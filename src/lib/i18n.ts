@@ -2095,6 +2095,7 @@ const EN = {
   'recovery.toast.lighten': 'Next session lightened',
   'recovery.toast.rest': 'Tomorrow marked as a rest day',
   'recovery.toast.failed': 'Could not save that — try again',
+  'recovery.toast.spendFailed': 'The next session may still be lightened too — undo it from Recovery',
   'recovery.a11y.row': 'Recovery, {status}',
   'recovery.a11y.trained': 'trained',
   'pro.read.recoveryBody':
@@ -5143,6 +5144,7 @@ const FI: Record<I18nKey, string> = {
   'recovery.toast.lighten': 'Seuraava treeni kevennetty',
   'recovery.toast.rest': 'Huominen merkitty lepopäiväksi',
   'recovery.toast.failed': 'Tallennus epäonnistui — yritä uudelleen',
+  'recovery.toast.spendFailed': 'Myös seuraava treeni voi olla vielä kevennetty — peru se Palautuminen-paneelista',
   'recovery.a11y.row': 'Palautuminen, {status}',
   'recovery.a11y.trained': 'treenattu',
   'pro.read.recoveryBody':

@@ -341,7 +341,9 @@ module.exports = [
       const door = between(app, 'function startProgrammeWorkout(', '\n  }\n');
       assert.match(door, /lighten \? lightenRuntimeTemplate\(runtimeTemplate\) : runtimeTemplate/);
       assert.match(door, /fatigueSignal: lighten \? lightenedFatigueSignal\(progressionFatigueSignal\) : progressionFatigueSignal/);
-      assert.match(door, /updatePreferences\(\{ lightNextSession: null \}\)/);
+      assert.match(door, /updatePreferences\(\{ lightNextSession: null \}\)\.catch\(/, 'a refused spend is swallowed');
+      assert.match(door, /'recovery\.toast\.spendFailed'/);
+      assert.doesNotMatch(door, /void updatePreferences\(\{ lightNextSession: null \}\)/);
       // Done is said after the write.
       const action = between(app, 'async function handleRecoveryAction(', '\n  }\n');
       assert.ok(action.indexOf("'recovery.toast.lighten'") > action.indexOf('await updatePreferences({ lightNextSession'));
@@ -385,7 +387,7 @@ module.exports = [
       const i18n = read('src', 'lib', 'i18n.ts');
       const keys = [...read('src', 'lib', 'recoverySheet.ts').matchAll(/'(recovery\.[a-zA-Z.]+)'/g)].map((match) => match[1]);
       const componentKeys = [...read('src', 'components', 'RecoverySheet.tsx').matchAll(/'(recovery\.[a-zA-Z.]+)'/g)].map((match) => match[1]);
-      const all = [...new Set([...keys, ...componentKeys, 'recovery.toast.lighten', 'recovery.toast.rest', 'recovery.toast.failed', 'recovery.a11y.row'])];
+      const all = [...new Set([...keys, ...componentKeys, 'recovery.toast.lighten', 'recovery.toast.rest', 'recovery.toast.failed', 'recovery.toast.spendFailed', 'recovery.a11y.row'])];
       assert.ok(all.length > 30, `only ${all.length} keys found`);
       for (const key of all) {
         assert.equal(i18n.split(`'${key}':`).length - 1, 2, `${key} needs EN and FI`);

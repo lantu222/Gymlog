@@ -1851,7 +1851,13 @@ function VinhaApp() {
       fatigueSignal: lighten ? lightenedFatigueSignal(progressionFatigueSignal) : progressionFatigueSignal,
     });
     if (preferences.lightNextSession) {
-      void updatePreferences({ lightNextSession: null });
+      // A refused write rolls the request back into place, and it would
+      // lighten the session after this one too. Said, rather than left to
+      // happen quietly (CI review of #188); the sheet can take it back.
+      updatePreferences({ lightNextSession: null }).catch((error) => {
+        console.error('Failed to spend the lighter-session request', error);
+        showToast(t(preferences.appLanguage, 'recovery.toast.spendFailed'));
+      });
     }
   }
 
