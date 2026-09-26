@@ -222,6 +222,7 @@ const suites = [
   ...require('./lib/catalogSupersets.test.cjs'),
   ...require('./lib/programSessionOrder.test.cjs'),
   ...require('./lib/programSessionList.test.cjs'),
+  ...require('./lib/emptyProgrammeDays.test.cjs'),
   ...require('./lib/recoverySheet.test.cjs'),
   ...require('./lib/planSessionOrder.test.cjs'),
   ...require('./lib/weightDial.test.cjs'),

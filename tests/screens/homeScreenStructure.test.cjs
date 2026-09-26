@@ -471,9 +471,10 @@ module.exports = [
       // program; Home is for running one, and only one screen owns it.
       assert.match(homeScreenSource, /onPress=\{onOpenActivePlan\}/);
       assert.match(homeScreenSource, /t\(language, 'programs\.activeProgram'\)/);
-      // The sessions feed the strip's accessibility line now — the five day
-      // cards became a compact week strip (design frame 15).
-      assert.match(homeScreenSource, /activePlan\.sessions\s*\n?\s*\.map/);
+      // The week's walk feeds the strip's accessibility line — the five day
+      // cards became a compact week strip (design frame 15), and the line
+      // reads the same days the chips draw (2026-09-26).
+      assert.match(homeScreenSource, /accessibilityLabel=\{programWeek\s*\n?\s*\.flatMap/);
       // ONE action: see the plan. "Edit days" went with frame 04 — the
       // schedule editor lives on the plan screen this button opens.
       assert.match(homeScreenSource, /t\(language, 'programs\.viewPlan'\)/);
@@ -706,13 +707,13 @@ module.exports = [
       // strip lights its dots from — not the plan's stored weekday labels,
       // which survive a switch to a cycle untouched and kept saying MON/THU
       // under a six-day rotation (user, 2026-08-25).
-      assert.match(homeScreenSource, /upcomingSessionDayStarts\(trainingSchedule, planSessions\.length\)/);
+      assert.match(homeScreenSource, /sessionForSlot\(planSessions, sessionSlotOn\(trainingSchedule, date\)\)/);
       assert.doesNotMatch(homeScreenSource, /resolveSessionWeekday|hasFixedWeekdays/);
       // The five day cards became a compact strip (design frame 15), and the
       // strip asks the SCHEDULE which session a date owns — the same walk the
       // calendars do — never the plan's stored weekday labels.
       assert.match(homeScreenSource, /styles\.programWeekStrip/);
-      assert.match(homeScreenSource, /sessionSlotOn\(trainingSchedule, monday\)/);
+      assert.match(homeScreenSource, /\{programWeek\.map\(\(\{ date: monday, session \}, offset\) => \{/);
       assert.doesNotMatch(homeScreenSource, /const isToday = activePlan\.nextSession/);
     },
   },

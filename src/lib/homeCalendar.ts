@@ -1,4 +1,5 @@
 import { SessionFocusKind } from './homeSessionHero';
+import { nextStartableSessionIndex } from './programSessionList';
 import { sessionSlotOn, TrainingSchedule } from './trainingSchedule';
 import { AppLanguage } from '../types/models';
 
@@ -241,6 +242,34 @@ export function getHomeMonthCalendar(
 }
 
 /**
+ * The session a training slot holds.
+ *
+ * Modulo keeps a cycle longer than the programme walking round it: a
+ * three-session plan on a six-day rhythm returns to session 1, rather than
+ * running off the end of the list into a rest day it never meant (the walk
+ * handles a cycle running backwards from its anchor, and an empty list).
+ *
+ * A day with no exercises hands its slot to the next day that has some, the
+ * rule Home's hero uses (`nextStartableSessionIndex`). The week strip and the
+ * widget indexed the list straight, so a day added empty ("Lisää päivä")
+ * read as today's workout, "0 exercises", while the hero above it offered
+ * the next filled day (audit 8, 2026-09-26). Null when no day has anything.
+ */
+export function sessionForSlot<T extends { exercises: ReadonlyArray<unknown> }>(
+  sessions: ReadonlyArray<T>,
+  slot: number | null,
+): T | null {
+  if (slot === null) {
+    return null;
+  }
+  const index = nextStartableSessionIndex(
+    sessions.map((session) => session.exercises.length),
+    slot,
+  );
+  return index === null ? null : sessions[index] ?? null;
+}
+
+/**
  * What one day is for.
  *
  * The schedule decides whether the day trains and which slot of the programme
@@ -254,15 +283,7 @@ export function getHomeDayView(
   sessions: HomeDaySessionSummary[],
 ): HomeDayView {
   const trainingSlotIndex = sessionSlotOn(schedule, new Date(day.dayStart));
-  // Modulo keeps a cycle longer than the programme walking round it: a
-  // three-session plan on a six-day rhythm returns to session 1, rather than
-  // running off the end of the list into a rest day it never meant. The count
-  // is checked first because a cycle can run backwards from its anchor, and
-  // `% 0` is NaN.
-  const session =
-    trainingSlotIndex === null || sessions.length === 0
-      ? null
-      : sessions[((trainingSlotIndex % sessions.length) + sessions.length) % sessions.length] ?? null;
+  const session = sessionForSlot(sessions, trainingSlotIndex);
 
   if (session) {
     return {

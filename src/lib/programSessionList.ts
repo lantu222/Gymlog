@@ -53,6 +53,16 @@ export function removeProgramSession<T extends ListedSession>(
 }
 
 /**
+ * Whether a programme has days but not one with anything in it — the state
+ * Home names instead of looking like no programme at all (audit 8,
+ * 2026-09-26: add an empty day, remove the only filled one, and the hero,
+ * the week and the counters all vanished).
+ */
+export function hasOnlyEmptyDays(exerciseCounts: ReadonlyArray<number>): boolean {
+  return exerciseCounts.length > 0 && nextStartableSessionIndex(exerciseCounts, 0) === null;
+}
+
+/**
  * The session the rotation should offer, skipping days with nothing in them.
  *
  * `from` is where the rotation points; the search walks forward from there

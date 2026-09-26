@@ -169,7 +169,7 @@ import {
 import { reorderPlanWeek } from './src/lib/planSessionOrder';
 import { syncPlanEntriesToTemplate } from './src/lib/planTemplateSync';
 import { reorderProgramSessions } from './src/lib/programSessionOrder';
-import { newProgramSessionName, nextStartableSessionIndex, removeProgramSession } from './src/lib/programSessionList';
+import { hasOnlyEmptyDays, newProgramSessionName, nextStartableSessionIndex, removeProgramSession } from './src/lib/programSessionList';
 import { ProgramLimitReachedError } from './src/lib/programSlots';
 import { createUnlessAtLimit } from './src/app/programLimitGuard';
 import {
@@ -4618,6 +4618,31 @@ function VinhaApp() {
     return null;
   }, [database.workoutPlans, database.workoutSessions, database.exerciseLogs, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.dismissedCompletionPlanIds, preferences.recommendedProgramId, preferences.setupGoal, preferences.todaySession, recommendedReadyContent, recommendedReadyTemplate, setupSelection, todayStartMs, workoutTemplates]);
   /**
+   * The active programme when it has days but none with anything in them.
+   *
+   * The hero has nothing to offer then, and the card above returns null —
+   * which Home drew as having no programme at all: no hero, no week, no
+   * counters, for a programme the reader is running (audit 8, 2026-09-26;
+   * add an empty day, remove the only filled one). This names it instead,
+   * and opens the programme where days are filled. Only an own programme can
+   * be emptied; a ready one always has its lifts.
+   */
+  const homeEmptyProgramme = useMemo(() => {
+    if (homeActivePlanCard) {
+      return null;
+    }
+    const plan = database.workoutPlans.find((candidate) => candidate.id === preferences.activePlanId) ?? null;
+    const firstEntry = plan ? [...plan.entries].sort((left, right) => left.orderIndex - right.orderIndex)[0] : undefined;
+    const template = firstEntry
+      ? workoutTemplates.find((candidate) => candidate.id === firstEntry.workoutTemplateId) ?? null
+      : null;
+    if (!template) {
+      return null;
+    }
+    const counts = getWorkoutTemplateSessions(template.id).map((session) => session.exercises.length);
+    return hasOnlyEmptyDays(counts) ? { workoutTemplateId: template.id, title: template.name } : null;
+  }, [database.workoutPlans, getWorkoutTemplateSessions, homeActivePlanCard, preferences.activePlanId, workoutTemplates]);
+  /**
    * The session Home's card offers, which is what its swaps and left-out rows
    * are held for. Pick another session for today and the card shows that
    * one's own — none, until some are made for it.
@@ -5092,12 +5117,21 @@ function VinhaApp() {
   // It waits for `homeWidgetState`: until Android has answered whether it can
   // pin a widget, showing the step would either hide an offer that was
   // available or make one that is not.
+  //
+  // Held while its own closing write is in flight, the way the terms sheet is:
+  // `updatePreferences` shows the write before the disk has it, so the page
+  // left on the optimistic half, and a refused write brought a fresh one back
+  // at page one, tick cleared, nothing said (audit 8, 2026-09-26).
+  const [setupHandoffHeld, setSetupHandoffHeld] = useState(false);
+  const setupHandoffHeldRef = useRef(false);
   const setupHandoffReady =
-    preferences.onboardingCompleted && !preferences.setupHandoffCompleted && homeWidgetState !== null;
+    preferences.onboardingCompleted &&
+    (!preferences.setupHandoffCompleted || setupHandoffHeld) &&
+    homeWidgetState !== null;
   // Read once and depended on by value: the whole preferences object as a
   // dependency made a fresh plan on every unrelated write.
   const proUnlockedForHandoff = resolveProEntitlement(preferences).unlocked;
-  const setupHandoffPlan = useMemo(
+  const liveSetupHandoffPlan = useMemo(
     () =>
       setupHandoffReady
         ? planSetupHandoff({
@@ -5120,6 +5154,14 @@ function VinhaApp() {
       setupHandoffReady,
     ],
   );
+  // Frozen while its closing write is held: that write pins the tracked
+  // sites and marks the widget asked, which re-plans the page — and a plan
+  // with nothing left to offer unmounted the page mid-write anyway.
+  const heldSetupHandoffPlanRef = useRef(liveSetupHandoffPlan);
+  if (!setupHandoffHeld) {
+    heldSetupHandoffPlanRef.current = liveSetupHandoffPlan;
+  }
+  const setupHandoffPlan = setupHandoffHeld ? heldSetupHandoffPlanRef.current : liveSetupHandoffPlan;
   const setupHandoffActive = setupHandoffPlan?.shouldShow ?? false;
   setupHandoffActiveRef.current = setupHandoffActive;
 
@@ -5428,7 +5470,24 @@ function VinhaApp() {
     if (pinned.length !== homePinnedStatCardKeys.length) {
       patch.homeStatCardKeys = pinned;
     }
-    await updatePreferences(patch);
+    // One write at a time: a second Done during the first was a second patch.
+    if (setupHandoffHeldRef.current) {
+      return;
+    }
+    setupHandoffHeldRef.current = true;
+    setSetupHandoffHeld(true);
+    try {
+      await updatePreferences(patch);
+    } catch (error) {
+      // The page stays as the reader left it — their answers, their tick —
+      // and says so; nothing below runs on a write that did not happen.
+      console.error('Failed to finish the setup hand-off', error);
+      showToast(t(preferences.appLanguage, 'toast.setupHandoffFailed'));
+      return;
+    } finally {
+      setupHandoffHeldRef.current = false;
+      setSetupHandoffHeld(false);
+    }
     // The system dialog last, so it is not racing a state write.
     if (choices.addWidget) {
       await requestPinHomeWidget();
@@ -7453,6 +7512,17 @@ function VinhaApp() {
         tourFocus={tourFocus}
         onOpenSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
         activePlan={homeActivePlanCard}
+        emptyProgramme={homeEmptyProgramme}
+        onOpenEmptyProgramme={() => {
+          if (homeEmptyProgramme) {
+            navigate({
+              tab: 'workout',
+              screen: 'program',
+              programType: 'custom',
+              workoutTemplateId: homeEmptyProgramme.workoutTemplateId,
+            });
+          }
+        }}
         onCompletionStartNext={(planId, templateId) => void handleCompletionStartNext(planId, templateId)}
         onCompletionRestart={(planId) => void handleCompletionRestart(planId)}
         onCompletionDismiss={(planId) => void dismissCompletionCard(planId)}

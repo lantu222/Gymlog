@@ -117,6 +117,9 @@ const EN = {
   'home.swapSheet.dropNote': 'Today only. Your programme stays as it is.',
   'home.swapSheet.droppedToday': 'Left out today',
   'home.swapSheet.empty': 'No swap for this slot yet — the program prescribes this lift.',
+  'home.emptyProgramme.body': 'The days of this programme are empty. Add exercises to a day to train it.',
+  'home.emptyProgramme.action': 'Add exercises',
+  'toast.setupHandoffFailed': 'Could not save. Try again.',
 
   // ── Home · Your cards ──────────────────────────────────────────────────
   'cards.title': 'Your cards',
@@ -3315,6 +3318,9 @@ const FI: Record<I18nKey, string> = {
   'home.swapSheet.dropNote': 'Vain tälle kerralle. Ohjelmasi pysyy ennallaan.',
   'home.swapSheet.droppedToday': 'Jätetty tänään pois',
   'home.swapSheet.empty': 'Tälle paikalle ei ole vaihtoehtoa — ohjelma määrää tämän liikkeen.',
+  'home.emptyProgramme.body': 'Ohjelman päivät ovat tyhjiä. Lisää päivälle liikkeitä, niin voit treenata sitä.',
+  'home.emptyProgramme.action': 'Lisää liikkeitä',
+  'toast.setupHandoffFailed': 'Tallennus ei onnistunut. Yritä uudelleen.',
 
   // ── Home · Your cards ──────────────────────────────────────────────────
   'cards.title': 'Omat kortit',
