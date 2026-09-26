@@ -19,7 +19,6 @@ import { KitBar, KitGroupLabel, KitRow, KitSearch, KitSheet } from '../component
 import { CutSurface } from '../components/CutSurface';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { hyphenateFinnish } from '../lib/finnishHyphenation';
-import { rankExerciseMatches } from '../lib/exerciseSearch';
 import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import {
   classifySessionFocus,
@@ -40,7 +39,7 @@ import {
   stepProgramPrescription,
 } from '../lib/programSessionEdit';
 import { buildSwapOptionsForSlot } from '../lib/tailoringFit';
-import { buildSwapShortlist } from '../lib/swapShortlist';
+import { buildSwapLibraryMatches, buildSwapShortlist } from '../lib/swapShortlist';
 import { formatPlanSessionTitle, localizeSessionName } from '../lib/sessionNameLabel';
 import { formatClock } from '../lib/restSchedule';
 import { layout, radii, spacing } from '../theme';
@@ -451,27 +450,18 @@ export function ProgramDayScreen({
    */
   const swapPopularOrder = useMemo(() => getPopularExerciseLibraryOrder(exerciseLibrary ?? []), [exerciseLibrary]);
   const swapLibraryMatches = useMemo(() => {
-    const query = swapQuery.trim().toLowerCase();
-    if (!query || !swapRow || !exerciseLibrary) {
+    if (!swapRow || !exerciseLibrary) {
       return [];
     }
-
-    const alreadyOffered = new Set([
-      swapRow.currentName,
-      ...swapRow.shortlist.variations.map((option) => option.exerciseName),
-      ...swapRow.shortlist.related.map((option) => option.exerciseName),
-      ...session.exercises.map((item) => (item.slotId ? sessionSwaps[item.slotId] : undefined) ?? item.name),
-    ]);
-
-    // Best answer first — twelve rows is not room for the lift itself to
-    // sit behind its variants. The popularity accessor is what breaks ties;
-    // without it "penkki" answers with Penkkidippi before Penkkipunnerrus.
-    return rankExerciseMatches(
-      exerciseLibrary.filter((item) => !alreadyOffered.has(item.name)),
-      query,
-      language,
-      (item) => swapPopularOrder.get(item.id),
-    ).slice(0, 12);
+    return buildSwapLibraryMatches(exerciseLibrary, swapQuery, language, {
+      exclude: [
+        swapRow.currentName,
+        ...swapRow.shortlist.variations.map((option) => option.exerciseName),
+        ...swapRow.shortlist.related.map((option) => option.exerciseName),
+        ...session.exercises.map((item) => (item.slotId ? sessionSwaps[item.slotId] : undefined) ?? item.name),
+      ],
+      popularOrder: swapPopularOrder,
+    });
   }, [exerciseLibrary, language, session.exercises, sessionSwaps, swapPopularOrder, swapQuery, swapRow]);
 
   const focusKind = useMemo(

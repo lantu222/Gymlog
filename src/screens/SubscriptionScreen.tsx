@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CutSurface } from '../components/CutSurface';
 import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
@@ -112,6 +113,8 @@ export function SubscriptionScreen({
 }: SubscriptionScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
+  // Read here and handed to each sheet: inside their Modal it measures zero.
+  const insets = useSafeAreaInsets();
   const [view, setView] = useState<'subs' | 'membership'>('subs');
   const [sheet, setSheet] = useState<'term' | 'pay' | 'receipts' | 'includes' | null>(null);
   const [payMethod, setPayMethod] = useState<string>(MOCK_BILLING.defaultMethodId);
@@ -582,8 +585,7 @@ export function SubscriptionScreen({
       <SubscriptionSheet
         visible={sheet === 'term'}
         title={t(language, 'subs.term.title')}
-        sub={t(language, 'subs.term.sub')}
-        footer={t(language, 'subs.term.foot')}
+        bottomInset={insets.bottom}
         onClose={() => setSheet(null)}
       >
         <View style={styles.sheetList}>
@@ -628,12 +630,12 @@ export function SubscriptionScreen({
             );
           })}
         </View>
-        <Text style={styles.sheetNote}>
-          {t(
-            language,
-            termDraft === mockTerm ? 'subs.term.same' : SUBSCRIPTION_TERMS[termDraft].noteKey,
-          )}
-        </Text>
+        {/* Only when a different period is picked, where it says when the
+            change lands. "This is your current billing period" under a list
+            with a NYKYINEN badge said it twice (#bugs 2026-09-23). */}
+        {termDraft !== mockTerm ? (
+          <Text style={styles.sheetNote}>{t(language, SUBSCRIPTION_TERMS[termDraft].noteKey)}</Text>
+        ) : null}
         <Pressable
           accessibilityRole="button"
           onPress={() => {
@@ -663,8 +665,7 @@ export function SubscriptionScreen({
       <SubscriptionSheet
         visible={sheet === 'pay'}
         title={t(language, 'subs.pay.title')}
-        sub={t(language, 'subs.pay.sub')}
-        footer={t(language, 'subs.pay.foot')}
+        bottomInset={insets.bottom}
         onClose={() => setSheet(null)}
       >
         <View style={styles.sheetList}>
@@ -722,6 +723,7 @@ export function SubscriptionScreen({
         visible={sheet === 'receipts'}
         title={t(language, 'subs.receipts.title')}
         sub={t(language, 'subs.receipts.sub')}
+        bottomInset={insets.bottom}
         onClose={() => setSheet(null)}
       >
         <View style={styles.receiptCard}>
@@ -763,6 +765,7 @@ export function SubscriptionScreen({
         visible={sheet === 'includes'}
         title={t(language, 'subs.row.whatsIn')}
         sub={t(language, 'subs.row.whatsInSub')}
+        bottomInset={insets.bottom}
         onClose={() => setSheet(null)}
       >
         <View style={styles.receiptCard}>

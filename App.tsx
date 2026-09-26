@@ -7307,6 +7307,7 @@ function VinhaApp() {
           }
         }}
         tailoringPreferences={preferences}
+        exerciseLibrary={exerciseBrowserItems}
         // Paused counts: it is still a session the button resumes.
         hasActiveSession={workout.activeSession !== null && workout.activeSession.status !== 'completed'}
         onPickTodaySession={(sessionId) => void handlePickTodaySession(sessionId)}
