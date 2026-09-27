@@ -16,7 +16,7 @@ import {
   getPopularExerciseLibraryOrder,
   getSuggestedExerciseLibraryItems,
 } from '../lib/exerciseSuggestions';
-import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { exerciseListLabel, exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { filterBrowsableExercises } from '../lib/exerciseBrowseFilter';
 import { rankExerciseMatches } from '../lib/exerciseSearch';
 import { orderExercisesBySelection } from '../lib/exerciseSelectionOrder';
@@ -561,8 +561,12 @@ export function AddExerciseSheet({
                             </View>
 
                             <View style={styles.gridCardCopy}>
-                              <Text numberOfLines={3} style={styles.gridCardTitle}>
-                                {exerciseNameLabel(language, item.name)}
+                              <Text
+                                numberOfLines={3}
+                                style={styles.gridCardTitle}
+                                accessibilityLabel={exerciseNameLabel(language, item.name)}
+                              >
+                                {exerciseListLabel(language, item.name)}
                               </Text>
                               <Text numberOfLines={1} style={styles.gridCardBodyPart}>
                                 {toLabel(item.bodyPart, language)}
@@ -630,8 +634,12 @@ export function AddExerciseSheet({
                   </View>
 
                   <View style={styles.gridCardCopy}>
-                    <Text numberOfLines={3} style={styles.gridCardTitle}>
-                                {exerciseNameLabel(language, item.name)}
+                    <Text
+                      numberOfLines={3}
+                      style={styles.gridCardTitle}
+                      accessibilityLabel={exerciseNameLabel(language, item.name)}
+                    >
+                                {exerciseListLabel(language, item.name)}
                               </Text>
                     <Text numberOfLines={1} style={styles.gridCardBodyPart}>
                                 {toLabel(item.bodyPart, language)}

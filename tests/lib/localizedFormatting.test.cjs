@@ -68,7 +68,12 @@ module.exports = [
           continue;
         }
         for (const [index, line] of text.split('\n').entries()) {
-          if (line.includes('formatLiftDisplayLabel(') && !line.includes('exerciseNameLabel(')) {
+          // exerciseListLabel localizes too — it is exerciseNameLabel, shortened.
+          if (
+            line.includes('formatLiftDisplayLabel(') &&
+            !line.includes('exerciseNameLabel(') &&
+            !line.includes('exerciseListLabel(')
+          ) {
             offenders.push(`${rel}:${index + 1}`);
           }
         }

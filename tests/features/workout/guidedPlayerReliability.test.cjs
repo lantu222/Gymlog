@@ -267,7 +267,8 @@ module.exports = [
       const walk = player.slice(player.indexOf("{t(language, 'guided.nextUp')}"), player.indexOf("t(language, 'guided.walk.today')"));
       assert.match(
         walk,
-        /<Text\s*style=\{styles\.positionName\}\s*numberOfLines=\{1\}\s*adjustsFontSizeToFit\s*minimumFontScale=\{0\.5\}\s*>/,
+        // The full name for a screen reader may sit before the close (2026-09-27).
+        /<Text\s*style=\{styles\.positionName\}\s*numberOfLines=\{1\}\s*adjustsFontSizeToFit\s*minimumFontScale=\{0\.5\}\s*(?:accessibilityLabel=\{[^}]*\}\s*)?>/,
       );
       assert.match(walk, /height=\{210\}/);
     },

@@ -1301,3 +1301,34 @@ export const TRANSLATED_EXERCISE_NAMES = EXERCISE_NAME_FI;
  * label, and it would show the reader one exercise under another's name.
  */
 export const PLAIN_EXERCISE_NAMES = EXERCISE_NAME_EN;
+
+/**
+ * The gym's own short forms, for where a name has a row's width and no more.
+ *
+ * "Nimet ei kasva niin pitkiksi" (#bugs 2026-09-27): 269 of 860 Finnish names
+ * ran past 30 characters, and the equipment words were most of it —
+ * käsipainoilla in 39 of them, kahvakuulalla in 25, Smith-laitteessa in 14.
+ * The user picked abbreviations ("sopii, tee noin"). Whole words only, so
+ * "Käsipainosoutu" keeps its name.
+ */
+const SHORT_FORMS_FI: ReadonlyArray<readonly [RegExp, string]> = [
+  [/(^|\s)käsipain(?:oilla|olla)(?=\s|$)/g, '$1KP'],
+  [/(^|\s)kahvakuul(?:illa|alla)(?=\s|$)/g, '$1KK'],
+  [/(^|\s)Smith-laitteessa(?=\s|$)/g, '$1Smithissä'],
+];
+
+/**
+ * The exercise name for a list row or a heading: the label, shortened.
+ *
+ * Only where the name stands alone. A sentence ("Uusi ennätys: …"), the
+ * search, the coach's context and a screen reader's label keep the full
+ * `exerciseNameLabel` — "KP" is read once in the exercise sheet's title, not
+ * decoded mid-sentence, and a screen reader would spell it out.
+ */
+export function exerciseListLabel(language: AppLanguage, name: string): string {
+  const label = exerciseNameLabel(language, name);
+  if (language !== 'fi') {
+    return label;
+  }
+  return SHORT_FORMS_FI.reduce((text, [pattern, short]) => text.replace(pattern, short), label);
+}

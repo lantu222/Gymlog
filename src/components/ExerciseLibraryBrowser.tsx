@@ -13,7 +13,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 import { VinhaIcon, VinhaIconName } from './VinhaIcon';
 import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
-import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { exerciseListLabel, exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { rankExerciseMatches } from '../lib/exerciseSearch';
 import { I18nKey, t } from '../lib/i18n';
 import type { LibraryCollectionState } from '../lib/exerciseCollections';
@@ -259,8 +259,12 @@ function ExCard({
         </View>
       </View>
       <View style={styles.cardBody}>
-        <Text numberOfLines={2} style={styles.cardTitle}>
-          {exerciseNameLabel(language, item.name)}
+        <Text
+          numberOfLines={2}
+          style={styles.cardTitle}
+          accessibilityLabel={exerciseNameLabel(language, item.name)}
+        >
+          {exerciseListLabel(language, item.name)}
         </Text>
         <View style={styles.cardFooter}>
           <Text numberOfLines={1} style={styles.cardMeta}>
@@ -295,8 +299,12 @@ function ExRow({
     <Pressable onPress={onOpen} disabled={!onOpen} style={styles.row}>
       <Thumb uri={getItemImage(item)} radius={11} width={52} height={52} />
       <View style={styles.rowCopy}>
-        <Text numberOfLines={1} style={styles.rowTitle}>
-          {exerciseNameLabel(language, item.name)}
+        <Text
+          numberOfLines={2}
+          style={styles.rowTitle}
+          accessibilityLabel={exerciseNameLabel(language, item.name)}
+        >
+          {exerciseListLabel(language, item.name)}
         </Text>
         <Text numberOfLines={1} style={styles.rowMeta}>
           {libraryLabel(item.bodyPart, language)} · {libraryLabel(displayEquipmentValue(item), language)} ·{' '}

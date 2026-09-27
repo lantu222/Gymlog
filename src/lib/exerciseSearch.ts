@@ -94,9 +94,16 @@ const SEARCH_ALIASES: Record<string, readonly string[]> = {
   alaviistopenkki: ['laskeva penkki'],
   penkkari: ['penkkipunnerrus'],
   kp: ['kasipaino'],
+  // The short forms the rows print (exerciseListLabel) find what they stand for.
+  kk: ['kahvakuula'],
+  smithissa: ['smith'],
   mave: ['maastaveto'],
   leuka: ['leuanveto'],
   leuat: ['leuanveto'],
+  // The app's supinated grip is `alaote` (Leuanveto alaotteella); the gym also says vastaote.
+  // The stem, not the word: alaote / alaotteella differ in the consonant.
+  vastaote: ['alaot'],
+  vastaotteella: ['alaot'],
 };
 
 /** A term and the words it also stands for. */

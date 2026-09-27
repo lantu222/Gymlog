@@ -191,6 +191,11 @@ interface KitRowProps {
   onPen?: (() => void) | null;
   penLabel?: string;
   accessibilityLabel?: string;
+  /**
+   * Lines before the title ends in an ellipsis. Exercise rows pass 2: a long
+   * Finnish name is read whole (#bugs 2026-09-27); other rows keep one.
+   */
+  titleLines?: number;
 }
 
 export function KitRow({
@@ -202,6 +207,7 @@ export function KitRow({
   onPen = null,
   penLabel,
   accessibilityLabel,
+  titleLines = 1,
 }: KitRowProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -220,7 +226,7 @@ export function KitRow({
       ]}
     >
       <View style={styles.rowBody}>
-        <Text style={styles.rowName} numberOfLines={1}>
+        <Text style={styles.rowName} numberOfLines={titleLines}>
           {title}
         </Text>
         {meta ? <Text style={styles.rowMeta}>{meta}</Text> : null}
@@ -276,6 +282,12 @@ interface KitBarProps {
   /** The whole edit on one line: from → to. Mono, uppercase. */
   from: string;
   to: string;
+  /**
+   * What a screen reader says for from/to when the line shows a short form
+   * (KP, KK) — the full name, not the letters (review, 2026-09-27).
+   */
+  fromLabel?: string;
+  toLabel?: string;
   buttons: KitBarButton[];
   /**
    * The bar's secondary way out. Optional as a pair: a bar whose "cancel" says
@@ -299,6 +311,8 @@ export function KitBar({
   visible,
   from,
   to,
+  fromLabel,
+  toLabel,
   buttons,
   clearLabel,
   onClear,
@@ -343,7 +357,7 @@ export function KitBar({
       ]}
     >
       <View style={styles.swapline}>
-        <Text style={styles.swapFrom} numberOfLines={1}>
+        <Text style={styles.swapFrom} numberOfLines={1} accessibilityLabel={fromLabel ?? from}>
           {from.toUpperCase()}
         </Text>
         <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
@@ -355,7 +369,7 @@ export function KitBar({
             strokeLinejoin="round"
           />
         </Svg>
-        <Text style={styles.swapTo} numberOfLines={1}>
+        <Text style={styles.swapTo} numberOfLines={1} accessibilityLabel={toLabel ?? to}>
           {to.toUpperCase()}
         </Text>
       </View>
