@@ -1,4 +1,5 @@
-import { rankExerciseMatches } from './exerciseSearch';
+import { exerciseNameLabel } from './exerciseNameLabel';
+import { exerciseMatchesQuery, normalizeSearchText, rankExerciseMatches } from './exerciseSearch';
 import { TailoredSwapOption } from './tailoringFit';
 import { AppLanguage, ExerciseLibraryItem } from '../types/models';
 
@@ -46,6 +47,7 @@ const QUALIFIERS =
   /\b(barbell|dumbbell|machine|cable|banded|band|smith|kettlebell|bodyweight|assisted|weighted|light|heavy|paused|pause|competition|standing|seated|lying|incline|decline|single leg|single arm|one arm|alternating|reverse|wide|close|neutral|grip|deficit|sumo|conventional|explosive|slow|tempo)\b/g;
 
 export function movementHead(name: string): string {
+  if (typeof name !== 'string') return '';
   return (
     name
       .toLowerCase()
@@ -82,6 +84,7 @@ export interface SwapShortlist {
  * the others do not have and stays its own row.
  */
 function identityKey(name: string): string {
+  if (typeof name !== 'string') return '';
   return name
     .toLowerCase()
     // Brackets are punctuation here, not gear talk to discard: "(Banded)" is
@@ -116,7 +119,7 @@ export function buildSwapShortlist(
   // Matched on identity, not on the exact string: the session may hold the
   // other spelling of the same lift.
   const inSession = new Set(alreadyInSession.map(identityKey));
-  const needle = query.trim().toLowerCase();
+  const needle = query.trim();
   const variations: SearchableSwapOption[] = [];
   const related: SearchableSwapOption[] = [];
   // First wins, so the tailoring pass's ranking decides which spelling shows.
@@ -128,8 +131,11 @@ export function buildSwapShortlist(
       continue;
     }
     // Searched on the English name AND on whatever the caller passes as a
-    // label, because the reader types Finnish and the pool is English.
-    if (needle && !`${option.exerciseName} ${option.searchLabel ?? ''}`.toLowerCase().includes(needle)) {
+    // label, because the reader types Finnish and the pool is English — and
+    // by the same matcher as the library below it. This one took the query
+    // as one exact run of characters, so a second word or a space in the
+    // wrong place emptied the list (#bugs 2026-09-27).
+    if (needle && !exerciseMatchesQuery(`${option.exerciseName} ${option.searchLabel ?? ''}`, needle)) {
       continue;
     }
     seen.add(identity);
@@ -193,13 +199,54 @@ export function buildSwapLibraryMatches<T extends ExerciseLibraryItem>(
     return [];
   }
   const excluded = new Set(exclude.map(identityKey));
+  // And by the name the reader sees: a session holding "Bench Press" was
+  // offered the library's "Barbell Bench Press - Medium Grip" — different
+  // words, both "Penkkipunnerrus" on screen (emulator, 2026-09-27).
+  const excludedLabels = new Set(exclude.map((name) => normalizeSearchText(exerciseNameLabel(language, name))));
   // Best answer first — twelve rows is not room for the lift itself to sit
   // behind its variants. Popularity breaks ties; without it "penkki" answers
   // with Penkkidippi before Penkkipunnerrus.
   return rankExerciseMatches(
-    library.filter((item) => !excluded.has(identityKey(item.name))),
+    library.filter(
+      (item) =>
+        !excluded.has(identityKey(item.name)) &&
+        !excludedLabels.has(normalizeSearchText(exerciseNameLabel(language, item.name))),
+    ),
     query,
     language,
     (item) => popularOrder?.get(item.id),
   ).slice(0, MAX_LIBRARY_MATCHES);
+}
+
+/**
+ * The lifts in today's session the query names, as the reader sees them.
+ *
+ * They are left out of the swap lists on purpose — swapping to a lift two
+ * rows down changes nothing — but silently: "miksi penkkipunnerrus ei ole
+ * liike?", and only later "aaa, ei löytynyt koska minulla oli jo alin liike
+ * se" (#bugs 2026-09-27). The sheet names them instead. The lift being
+ * swapped is not among them; the sheet's title already says it.
+ */
+export function sessionLiftsMatchingQuery(
+  sessionLifts: readonly string[],
+  currentExerciseName: string,
+  query: string,
+  language: AppLanguage,
+): string[] {
+  if (!query.trim()) {
+    return [];
+  }
+  const current = identityKey(currentExerciseName);
+  const seen = new Set<string>([current]);
+  const names: string[] = [];
+  for (const name of sessionLifts) {
+    if (typeof name !== 'string' || !name.trim()) continue;
+    const identity = identityKey(name);
+    if (seen.has(identity)) continue;
+    const label = exerciseNameLabel(language, name);
+    if (!exerciseMatchesQuery(`${name} ${label}`, query)) continue;
+    seen.add(identity);
+    names.push(label);
+  }
+  return names;
 }

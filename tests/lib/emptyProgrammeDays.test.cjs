@@ -125,8 +125,11 @@ module.exports = [
       const home = strip(read('src', 'screens', 'HomeScreen.tsx'));
       assert.match(
         home,
-        /\{swapRow\.shortlist\.total === 0 && swapLibraryMatches\.length === 0 \? \(\s*<Text style=\{styles\.swapEmpty\}>\s*\{t\(language, swapQuery\.trim\(\) \? 'home\.swapSheet\.noMatches' : 'home\.swapSheet\.empty'\)\}/,
+        /\{swapRow\.shortlist\.total === 0 && swapLibraryMatches\.length === 0 && swapSessionHits\.length === 0 \? \(\s*<Text style=\{styles\.swapEmpty\}>\s*\{t\(language, swapQuery\.trim\(\) \? 'home\.swapSheet\.noMatches' : 'home\.swapSheet\.empty'\)\}/,
       );
+      // …unless the search hit a lift already in the session: then the sheet
+      // names it instead of saying the library has nothing (#bugs 2026-09-27).
+      assert.match(home, /t\(language, 'swap\.alreadyInSession', \{ names: swapSessionHits\.join\(', '\) \}\)/);
     },
   },
 ];

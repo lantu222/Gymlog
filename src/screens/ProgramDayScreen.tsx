@@ -39,7 +39,7 @@ import {
   stepProgramPrescription,
 } from '../lib/programSessionEdit';
 import { buildSwapOptionsForSlot } from '../lib/tailoringFit';
-import { buildSwapLibraryMatches, buildSwapShortlist } from '../lib/swapShortlist';
+import { buildSwapLibraryMatches, buildSwapShortlist, sessionLiftsMatchingQuery } from '../lib/swapShortlist';
 import { formatPlanSessionTitle, localizeSessionName } from '../lib/sessionNameLabel';
 import { formatClock } from '../lib/restSchedule';
 import { layout, radii, spacing } from '../theme';
@@ -463,6 +463,20 @@ export function ProgramDayScreen({
       popularOrder: swapPopularOrder,
     });
   }, [exerciseLibrary, language, session.exercises, sessionSwaps, swapPopularOrder, swapQuery, swapRow]);
+  // Left out of both lists on purpose, and named so the reader knows why the
+  // lift they typed is not there (#bugs 2026-09-27).
+  const swapSessionHits = useMemo(
+    () =>
+      swapRow
+        ? sessionLiftsMatchingQuery(
+            session.exercises.map((item) => (item.slotId ? sessionSwaps[item.slotId] : undefined) ?? item.name),
+            swapRow.currentName,
+            swapQuery,
+            language,
+          )
+        : [],
+    [language, session.exercises, sessionSwaps, swapQuery, swapRow],
+  );
 
   const focusKind = useMemo(
     () => classifySessionFocus(session.exercises.map((exercise) => exercise.name)),
@@ -1219,9 +1233,11 @@ export function ProgramDayScreen({
           keyboardShouldPersistTaps="handled"
         >
           {swapRow && swapRow.shortlist.total === 0 && swapLibraryMatches.length === 0 ? (
-            <Text style={styles.swapEmpty}>
-              {t(language, swapQuery.trim() ? 'home.swapSheet.noMatches' : 'home.swapSheet.empty')}
-            </Text>
+            swapSessionHits.length > 0 ? null : (
+              <Text style={styles.swapEmpty}>
+                {t(language, swapQuery.trim() ? 'home.swapSheet.noMatches' : 'home.swapSheet.empty')}
+              </Text>
+            )
           ) : (
             ([
               { key: 'home.swapSheet.variations' as const, rows: swapRow?.shortlist.variations ?? [] },
@@ -1262,6 +1278,11 @@ export function ProgramDayScreen({
               ),
             )
           )}
+          {swapSessionHits.length > 0 ? (
+            <Text style={styles.swapEmpty}>
+              {t(language, 'swap.alreadyInSession', { names: swapSessionHits.join(', ') })}
+            </Text>
+          ) : null}
             {/* A swap answers today. This makes it the programme's answer —
                 offered only once there is a swap to keep. */}
             {swapRow?.exerciseId && sessionSwaps[swapRow.slotId] && onKeepSwap ? (

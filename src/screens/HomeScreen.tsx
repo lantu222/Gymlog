@@ -40,7 +40,7 @@ import {
 import { AnimatedGreeting } from '../components/AnimatedGreeting';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
-import { buildSwapLibraryMatches, buildSwapShortlist } from '../lib/swapShortlist';
+import { buildSwapLibraryMatches, buildSwapShortlist, sessionLiftsMatchingQuery } from '../lib/swapShortlist';
 import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { localizeSessionFocus, localizeSessionName, localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { weekdayCodeForDate, weekdayLabel } from '../lib/planWeekdays';
@@ -771,6 +771,22 @@ export function HomeScreen({
       popularOrder: swapPopularOrder,
     });
   }, [exerciseLibrary, language, nextPlanSession, sessionSwaps, swapPopularOrder, swapQuery, swapRow]);
+  // Left out of both lists on purpose, and named so the reader knows why the
+  // lift they typed is not there (#bugs 2026-09-27).
+  const swapSessionHits = useMemo(
+    () =>
+      swapRow.currentName
+        ? sessionLiftsMatchingQuery(
+            (nextPlanSession?.exercises ?? []).map(
+              (item) => (item.slotId ? sessionSwaps[item.slotId] : undefined) ?? item.name,
+            ),
+            swapRow.currentName,
+            swapQuery,
+            language,
+          )
+        : [],
+    [language, nextPlanSession, sessionSwaps, swapQuery, swapRow.currentName],
+  );
 
   // --- Animations -----------------------------------------------------------
 
@@ -2201,7 +2217,7 @@ export function HomeScreen({
           {/* The programme day's sheet says why it is empty, and so does this
               one: with nothing typed and no swap for the lift, the sheet was
               a search bar over nothing (audit 8, 2026-09-26). */}
-          {swapRow.shortlist.total === 0 && swapLibraryMatches.length === 0 ? (
+          {swapRow.shortlist.total === 0 && swapLibraryMatches.length === 0 && swapSessionHits.length === 0 ? (
             <Text style={styles.swapEmpty}>
               {t(language, swapQuery.trim() ? 'home.swapSheet.noMatches' : 'home.swapSheet.empty')}
             </Text>
@@ -2235,6 +2251,11 @@ export function HomeScreen({
               </View>
             ),
           )}
+          {swapSessionHits.length > 0 ? (
+            <Text style={styles.swapEmpty}>
+              {t(language, 'swap.alreadyInSession', { names: swapSessionHits.join(', ') })}
+            </Text>
+          ) : null}
             {/* A swap made yesterday's answer today's. This turns it into the
                 programme's answer — offered here rather than as a mode above
                 the list, because before choosing there is nothing to keep. */}

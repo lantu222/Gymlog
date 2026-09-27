@@ -180,6 +180,7 @@ const suites = [
   ...require('./lib/setupHandoff.test.cjs'),
   ...require('./lib/quickLayoutExercises.test.cjs'),
   ...require('./lib/exerciseSearch.test.cjs'),
+  ...require('./lib/exerciseSearchWords.test.cjs'),
   ...require('./lib/libraryLabel.test.cjs'),
   ...require('./lib/goalProgramme.test.cjs'),
   ...require('./lib/liftIdentity.test.cjs'),
