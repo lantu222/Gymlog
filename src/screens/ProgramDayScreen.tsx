@@ -431,6 +431,7 @@ export function ProgramDayScreen({
             (item) => (item.slotId ? sessionSwaps[item.slotId] : undefined) ?? item.name,
           ),
           query: swapQuery,
+          language,
         },
       ),
     };

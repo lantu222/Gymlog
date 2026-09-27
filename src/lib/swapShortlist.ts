@@ -108,26 +108,36 @@ export interface SwapShortlistOptions {
   alreadyInSession?: readonly string[];
   /** What the reader typed to narrow the list. */
   query?: string;
+  /**
+   * The reader's language, for matching by the name on screen as well as by
+   * the stored words: "Bench Press" and "Barbell Bench Press - Medium Grip"
+   * are different identities and one "Penkkipunnerrus" (PR review).
+   */
+  language?: AppLanguage;
 }
 
 export function buildSwapShortlist(
   currentExerciseName: string,
   options: readonly SearchableSwapOption[],
-  { alreadyInSession = [], query = '' }: SwapShortlistOptions = {},
+  { alreadyInSession = [], query = '', language }: SwapShortlistOptions = {},
 ): SwapShortlist {
+  const shownKey = (name: string) => (language ? normalizeSearchText(exerciseNameLabel(language, name)) : null);
   const head = movementHead(currentExerciseName);
   // Matched on identity, not on the exact string: the session may hold the
   // other spelling of the same lift.
   const inSession = new Set(alreadyInSession.map(identityKey));
+  const inSessionShown = new Set(alreadyInSession.map(shownKey).filter((key): key is string => Boolean(key)));
   const needle = query.trim();
   const variations: SearchableSwapOption[] = [];
   const related: SearchableSwapOption[] = [];
   // First wins, so the tailoring pass's ranking decides which spelling shows.
   const seen = new Set<string>();
+  const seenShown = new Set<string>();
 
   for (const option of options) {
     const identity = identityKey(option.exerciseName);
-    if (seen.has(identity) || inSession.has(identity)) {
+    const shown = shownKey(option.exerciseName);
+    if (seen.has(identity) || inSession.has(identity) || (shown && (seenShown.has(shown) || inSessionShown.has(shown)))) {
       continue;
     }
     // Searched on the English name AND on whatever the caller passes as a
@@ -139,6 +149,7 @@ export function buildSwapShortlist(
       continue;
     }
     seen.add(identity);
+    if (shown) seenShown.add(shown);
     // An empty head means the name was all qualifiers — rare, and it must not
     // silently match every other empty one, so it counts as related.
     const optionHead = movementHead(option.exerciseName);

@@ -744,6 +744,7 @@ export function HomeScreen({
             (item) => (item.slotId ? sessionSwaps[item.slotId] : undefined) ?? item.name,
           ),
           query: swapQuery,
+          language,
         },
       ),
     };

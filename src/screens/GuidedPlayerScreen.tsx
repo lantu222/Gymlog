@@ -2114,7 +2114,9 @@ function GuidedPlayer({
    */
   const swapLibrary = useMemo(() => {
     const query = swapQuery.trim();
-    const suggested = new Set(swapOptions.map((option) => option.exerciseName));
+    // By the name on screen: a library row that reads the same as a row in
+    // Suggested above it is the same row twice (PR review).
+    const suggested = new Set(swapSuggestions.map((name) => exerciseNameLabel(language, name)));
     // Matched on the displayed name as well as the stored one: the plan may
     // hold "Barbell Squat" where the library holds "Back Squat", and both read
     // "Takakyykky" — so the lift you are standing at was offered as something
@@ -2126,7 +2128,7 @@ function GuidedPlayer({
         item.name !== current &&
         exerciseNameLabel(language, item.name) !== currentLabel &&
         !sessionLiftLabels.has(exerciseNameLabel(language, item.name)) &&
-        !suggested.has(item.name),
+        !suggested.has(exerciseNameLabel(language, item.name)),
     );
     if (!query) {
       const popular = getPopularExerciseLibraryOrder(exerciseLibrary);
@@ -2141,7 +2143,7 @@ function GuidedPlayer({
     // One row per shown name, as on Home and the programme day (PR review).
     const ranked = rankExerciseMatches(pool, query, language, (item) => popular.get(item.id));
     return oneRowPerShownName(ranked, language).slice(0, 40);
-  }, [actionExercise, exerciseLibrary, language, sessionLiftLabels, swapOptions, swapQuery]);
+  }, [actionExercise, exerciseLibrary, language, sessionLiftLabels, swapSuggestions, swapQuery]);
 
   const applySwap = (exerciseName: string) => {
     if (!actionExercise) {

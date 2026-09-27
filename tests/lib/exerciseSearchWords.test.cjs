@@ -144,6 +144,23 @@ module.exports = [
     },
   },
   {
+    name: 'the slot\'s shortlist leaves out a session lift and a repeat by the name on screen too',
+    run() {
+      const options = [
+        { exerciseName: 'Barbell Bench Press - Medium Grip', searchLabel: 'Penkkipunnerrus', score: 1, reason: null },
+        { exerciseName: 'Bench Press', searchLabel: 'Penkkipunnerrus', score: 1, reason: null },
+        { exerciseName: 'Dumbbell Bench Press', searchLabel: 'Penkkipunnerrus käsipainoilla', score: 1, reason: null },
+      ];
+      const names = (list) => [...list.variations, ...list.related].map((option) => option.exerciseName).sort();
+      // Two spellings of one lift: one row (PR review).
+      const plain = buildSwapShortlist('Smith Machine Bench Press', options, { language: 'fi' });
+      assert.deepEqual(names(plain), ['Barbell Bench Press - Medium Grip', 'Dumbbell Bench Press']);
+      // The session holds "Bench Press": its other spelling is not offered either.
+      const held = buildSwapShortlist('Smith Machine Bench Press', options, { alreadyInSession: ['Bench Press'], language: 'fi' });
+      assert.deepEqual(names(held), ['Dumbbell Bench Press']);
+    },
+  },
+  {
     name: 'two spellings of one session lift are named once',
     run() {
       // "Bench Press" and "Barbell Bench Press - Medium Grip" — different
