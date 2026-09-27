@@ -1,5 +1,16 @@
-import React, { useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Animated,
+  Image,
+  Modal,
+  PanResponder,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import { ExerciseSheetHistory, SHEET_HISTORY_SESSIONS } from '../lib/exerciseSheetHistory';
 import { removeTrailingZeros } from '../lib/format';
@@ -98,6 +109,75 @@ export function ExerciseSheet({
   const tabs = learn ? ALL_TABS : ALL_TABS.filter((key) => key !== 'learn');
   const [tab, setTab] = useState<ExerciseSheetTab>(initialTab ?? tabs[0]);
 
+  /*
+   * Two heights: 55% so the set screen stays in view (user decision
+   * 2026-09-26), and 90% by dragging the top of the sheet up, for reading
+   * the steps properly — "lähes koko sivun mittaiseksi voisi aukaista"
+   * (#bugs 2026-09-27; "55 % ja vetämällä 90 %, käy"). A tap on the grip
+   * toggles; dragging it well below 55% closes the sheet.
+   */
+  const { height: windowHeight } = useWindowDimensions();
+  const collapsedHeight = Math.round(windowHeight * 0.55);
+  const expandedHeight = Math.round(windowHeight * 0.9);
+  const sheetHeight = useRef(new Animated.Value(collapsedHeight)).current;
+  const [expanded, setExpanded] = useState(false);
+  const expandedRef = useRef(false);
+  const dragStart = useRef(collapsedHeight);
+  // Read through a ref: callers pass onClose inline, and the player
+  // re-renders every second for its clock — a gesture rebuilt on each render
+  // loses the drag it granted.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  const snapTo = (toExpanded: boolean) => {
+    expandedRef.current = toExpanded;
+    setExpanded(toExpanded);
+    Animated.spring(sheetHeight, {
+      toValue: toExpanded ? expandedHeight : collapsedHeight,
+      useNativeDriver: false,
+      bounciness: 0,
+      speed: 18,
+    }).start();
+  };
+
+  // Every opening starts at 55%, and a rotated or resized window re-measures.
+  useEffect(() => {
+    expandedRef.current = false;
+    setExpanded(false);
+    sheetHeight.setValue(collapsedHeight);
+  }, [visible, collapsedHeight, sheetHeight]);
+
+  const pan = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 4,
+        onPanResponderGrant: () => {
+          dragStart.current = expandedRef.current ? expandedHeight : collapsedHeight;
+        },
+        onPanResponderMove: (_, gesture) => {
+          const next = Math.min(expandedHeight, Math.max(collapsedHeight * 0.5, dragStart.current - gesture.dy));
+          sheetHeight.setValue(next);
+        },
+        onPanResponderRelease: (_, gesture) => {
+          const released = dragStart.current - gesture.dy;
+          if (Math.abs(gesture.dy) < 6) {
+            snapTo(!expandedRef.current);
+          } else if (released < collapsedHeight - 90) {
+            sheetHeight.setValue(collapsedHeight);
+            onCloseRef.current();
+          } else {
+            snapTo(released > (collapsedHeight + expandedHeight) / 2);
+          }
+        },
+        onPanResponderTerminate: () => snapTo(expandedRef.current),
+      }),
+    // snapTo and onClose go through refs and the animated value; the heights
+    // are the only thing the gesture is rebuilt for.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [collapsedHeight, expandedHeight],
+  );
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.veil}>
@@ -107,11 +187,22 @@ export function ExerciseSheet({
           accessibilityRole="button"
           accessibilityLabel={t(language, 'common.close')}
         />
-        <View style={[styles.sheet, { paddingBottom: bottomInset + 20 }]}>
-          <View style={styles.grip} />
-          <Text style={styles.title} numberOfLines={2}>
-            {exerciseName}
-          </Text>
+        <Animated.View style={[styles.sheet, { height: sheetHeight, paddingBottom: bottomInset + 20 }]}>
+          <View
+            {...pan.panHandlers}
+            accessible
+            accessibilityRole="button"
+            accessibilityState={{ expanded }}
+            accessibilityLabel={t(language, expanded ? 'exerciseSheet.collapse' : 'exerciseSheet.expand')}
+            accessibilityActions={[{ name: 'activate' }]}
+            onAccessibilityAction={() => snapTo(!expandedRef.current)}
+            style={styles.dragArea}
+          >
+            <View style={styles.grip} />
+            <Text style={styles.title} numberOfLines={2}>
+              {exerciseName}
+            </Text>
+          </View>
 
           <View style={styles.tabs}>
             {tabs.map((key) => (
@@ -311,7 +402,7 @@ export function ExerciseSheet({
               </View>
             ) : null}
           </ScrollView>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -340,8 +431,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
      * scrolls inside it, so nothing at 55% is newly clipped, only reached
      * with one more scroll on a short tab like Learn.
      */
-    height: '55%',
+    // Set by the drag above: 55% of the window, or 90% pulled up.
   },
+  dragArea: { paddingTop: 10, marginTop: -10 },
   grip: {
     alignSelf: 'center',
     width: 42,

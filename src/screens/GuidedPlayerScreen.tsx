@@ -117,7 +117,8 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
 import { elapsedSecondsOf } from '../features/workout/workoutState';
 import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
-import { exerciseMatchesQuery, rankExerciseMatches } from '../lib/exerciseSearch';
+import { exerciseMatchesQuery, oneRowPerShownName, rankExerciseMatches } from '../lib/exerciseSearch';
+import { sessionLiftsMatchingQuery } from '../lib/swapShortlist';
 import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { useKeepScreenAwake } from '../utils/keepAwake';
 import { queryReduceMotion } from '../utils/reduceMotion';
@@ -963,6 +964,29 @@ function BigBtn({
       {shimmer && !disabled ? <CtaShimmer tint={`${foreground}55`} /> : null}
       <GPIcon name={icon} size={tall ? 23 : 20} color={foreground} sw={2.6} />
       <Text style={[styles.bigBtnText, tall && styles.bigBtnTextTall, { color: foreground }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+/**
+ * A row of the swap list: the name reads from the left and may wrap to two
+ * lines. The list used GhostBtn — a fixed 48 dp, centred, unpadded button —
+ * and a long Finnish name touched its border or wrapped out of it
+ * (#bugs 2026-09-27).
+ */
+function SwapRow({ label, onPress, icon }: { label: string; onPress: () => void; icon?: string }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.swapRow, pressed ? { opacity: 0.7 } : null]}
+    >
+      {icon ? <GPIcon name={icon} size={17} color={theme.ink} /> : null}
+      <Text style={styles.swapRowText} numberOfLines={2}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -2033,17 +2057,54 @@ function GuidedPlayer({
     );
   }, [actionExercise, tailoringPreferences]);
 
+  /**
+   * Every lift in today's session as the reader sees it, the one being
+   * swapped included. Swapping to one of them is doing it twice and calling
+   * it a change — Home and the programme day have left them out since
+   * 2026-08-26; this sheet offered even the lift it was replacing
+   * (emulator, 2026-09-27).
+   */
+  const sessionLiftLabels = useMemo(
+    () => new Set(exercises.map((exercise) => exerciseNameLabel(language, exercise.exerciseName))),
+    [exercises, language],
+  );
+
   /** The programme's own alternatives, which are better answers than a search. */
   const swapSuggestions = useMemo(() => {
     const query = swapQuery.trim();
-    const names = swapOptions.map((option) => option.exerciseName);
+    // One row per name the reader sees: the pool holds "Bench Press" and
+    // "Barbell Bench Press - Medium Grip", both "Penkkipunnerrus" (emulator,
+    // 2026-09-27). The first — the tailoring pass's pick — stays.
+    const shown = new Set<string>();
+    const names = swapOptions
+      .map((option) => option.exerciseName)
+      .filter((name) => {
+        const label = exerciseNameLabel(language, name);
+        if (sessionLiftLabels.has(label) || shown.has(label)) {
+          return false;
+        }
+        shown.add(label);
+        return true;
+      });
     if (!query) {
       return names;
     }
-    return names.filter((name) =>
-      exerciseMatchesQuery(`${name} ${exerciseNameLabel(language, name)}`.toLowerCase(), query),
-    );
-  }, [language, swapOptions, swapQuery]);
+    return names.filter((name) => exerciseMatchesQuery(`${name} ${exerciseNameLabel(language, name)}`, query));
+  }, [language, sessionLiftLabels, swapOptions, swapQuery]);
+
+  /** Named under the lists, so a lift the reader typed is not silently missing. */
+  const swapSessionHits = useMemo(
+    () =>
+      actionExercise
+        ? sessionLiftsMatchingQuery(
+            exercises.map((exercise) => exercise.exerciseName),
+            actionExercise.exerciseName,
+            swapQuery,
+            language,
+          )
+        : [],
+    [actionExercise, exercises, language, swapQuery],
+  );
 
   /**
    * Everything else the library holds.
@@ -2053,7 +2114,9 @@ function GuidedPlayer({
    */
   const swapLibrary = useMemo(() => {
     const query = swapQuery.trim();
-    const suggested = new Set(swapOptions.map((option) => option.exerciseName));
+    // By the name on screen: a library row that reads the same as a row in
+    // Suggested above it is the same row twice (PR review).
+    const suggested = new Set(swapSuggestions.map((name) => exerciseNameLabel(language, name)));
     // Matched on the displayed name as well as the stored one: the plan may
     // hold "Barbell Squat" where the library holds "Back Squat", and both read
     // "Takakyykky" — so the lift you are standing at was offered as something
@@ -2064,19 +2127,23 @@ function GuidedPlayer({
       (item) =>
         item.name !== current &&
         exerciseNameLabel(language, item.name) !== currentLabel &&
-        !suggested.has(item.name),
+        !sessionLiftLabels.has(exerciseNameLabel(language, item.name)) &&
+        !suggested.has(exerciseNameLabel(language, item.name)),
     );
     if (!query) {
       const popular = getPopularExerciseLibraryOrder(exerciseLibrary);
-      return [...pool]
-        .sort((left, right) => (popular.get(left.id) ?? 1e6) - (popular.get(right.id) ?? 1e6))
-        .slice(0, 25);
+      const byPopularity = [...pool].sort(
+        (left, right) => (popular.get(left.id) ?? 1e6) - (popular.get(right.id) ?? 1e6),
+      );
+      return oneRowPerShownName(byPopularity, language).slice(0, 25);
     }
     // Best answer first, popularity breaking ties — the same rule as the
     // pickers, so the swap sheet does not disagree with them.
     const popular = getPopularExerciseLibraryOrder(exerciseLibrary);
-    return rankExerciseMatches(pool, query, language, (item) => popular.get(item.id)).slice(0, 40);
-  }, [actionExercise, exerciseLibrary, language, swapOptions, swapQuery]);
+    // One row per shown name, as on Home and the programme day (PR review).
+    const ranked = rankExerciseMatches(pool, query, language, (item) => popular.get(item.id));
+    return oneRowPerShownName(ranked, language).slice(0, 40);
+  }, [actionExercise, exerciseLibrary, language, sessionLiftLabels, swapSuggestions, swapQuery]);
 
   const applySwap = (exerciseName: string) => {
     if (!actionExercise) {
@@ -4056,7 +4123,7 @@ function GuidedPlayer({
                 <Text style={styles.swapSectionLabel}>{t(language, 'guided.swap.suggested')}</Text>
                 <View style={{ gap: 10 }}>
                   {swapSuggestions.map((name) => (
-                    <GhostBtn
+                    <SwapRow
                       key={`suggested-${name}`}
                       icon="check"
                       label={exerciseNameLabel(language, name)}
@@ -4071,16 +4138,21 @@ function GuidedPlayer({
             {swapLibrary.length > 0 ? (
               <View style={{ gap: 10 }}>
                 {swapLibrary.map((item) => (
-                  <GhostBtn
+                  <SwapRow
                     key={item.id}
                     label={exerciseNameLabel(language, item.name)}
                     onPress={() => applySwap(item.name)}
                   />
                 ))}
               </View>
-            ) : (
+            ) : swapSessionHits.length > 0 ? null : (
               <Text style={styles.sheetFootnote}>{t(language, 'guided.swap.noMatch')}</Text>
             )}
+            {swapSessionHits.length > 0 ? (
+              <Text style={styles.sheetFootnote}>
+                {t(language, 'swap.alreadyInSession', { names: swapSessionHits.join(', ') })}
+              </Text>
+            ) : null}
           </ScrollView>
 
           <Text style={styles.sheetFootnote}>{t(language, 'guided.swap.footnote')}</Text>
@@ -5601,6 +5673,19 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 8,
   },
   ghostBtnText: { fontSize: 14.5, fontWeight: '800', color: theme.ink },
+  swapRow: {
+    minHeight: 48,
+    borderRadius: 15,
+    borderWidth: 1.5,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+  },
+  swapRowText: { flex: 1, fontSize: 14.5, fontWeight: '800', color: theme.ink, lineHeight: 19 },
 
   /* rest (light theme like every other in-workout screen) */
   // The ring itself carries the purple; label and figure stay ink so the

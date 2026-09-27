@@ -222,9 +222,16 @@ module.exports = [
      * be the thing that scrolls, so a smaller sheet reaches its content by
      * scrolling one screen further rather than by clipping it.
      */
-    name: 'the sheet is a fixed 55% of the window, not 78%, and the body still scrolls to reach it all',
+    name: 'the sheet opens at 55% of the window, drags up to 90%, and the body still scrolls to reach it all',
     run() {
-      assert.match(sheetSource, /height: '55%',/);
+      // 55% so the set screen stays in view (2026-09-26); 90% by dragging,
+      // for reading the steps (#bugs 2026-09-27, "55 % ja vetämällä 90 %").
+      assert.match(sheetSource, /const collapsedHeight = Math\.round\(windowHeight \* 0\.55\);/);
+      assert.match(sheetSource, /const expandedHeight = Math\.round\(windowHeight \* 0\.9\);/);
+      assert.match(sheetSource, /\{\.\.\.pan\.panHandlers\}/);
+      assert.match(sheetSource, /<Animated\.View style=\{\[styles\.sheet, \{ height: sheetHeight,/);
+      // Every opening starts collapsed.
+      assert.match(sheetSource, /sheetHeight\.setValue\(collapsedHeight\);\s*\}, \[visible, collapsedHeight, sheetHeight\]\);/);
       assert.doesNotMatch(sheetSource, /height: '78%',/);
       // Still a fixed fraction, not the content's own size — sizing to
       // content is the exact bug the 78% comment documents.

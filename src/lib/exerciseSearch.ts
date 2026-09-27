@@ -41,10 +41,83 @@ export function buildExerciseSearchHaystack(
     .toLowerCase();
 }
 
-/** True when every whitespace-separated term of the query appears in the haystack. */
+/**
+ * Text as search compares it: lower case, ä/ö/å folded to a/o/a, and
+ * hyphens, dashes, brackets and runs of spaces all one space.
+ *
+ * "Joskus liikkeen nimeäminen on niin sana tarkkaa, jokainen väli pitää olla
+ * oikein muuten ei löydä" (#bugs 2026-09-27): "trap bar" missed "Trap bar
+ * -maastaveto" on the dash, and a keyboard without ä could not type "ylä".
+ */
+const normalizedCache = new Map<string, string>();
+
+export function normalizeSearchText(value: string): string {
+  // A stored row with no name must not throw on every keystroke — the crash
+  // class the name guards in this file's callers exist for (PR review).
+  if (typeof value !== 'string') {
+    return '';
+  }
+  // Library labels and facets repeat on every keystroke of every sheet; a
+  // bounded memo keeps the fold to once per string.
+  const cached = normalizedCache.get(value);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const normalized = foldSearchText(value);
+  if (normalizedCache.size > 20000) {
+    normalizedCache.clear();
+  }
+  normalizedCache.set(value, normalized);
+  return normalized;
+}
+
+function foldSearchText(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[äå]/g, 'a')
+    .replace(/ö/g, 'o')
+    .replace(/[-–—_/(),.:;]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * The gym's own words for lifts the library names otherwise, folded like
+ * everything else. "Eikö ole yläpenkkiä?" (#bugs 2026-09-27) — it was there,
+ * as "Vinopenkkipunnerrus". Kept to words a Finnish gym actually says; a
+ * term here widens every search that contains it.
+ */
+const SEARCH_ALIASES: Record<string, readonly string[]> = {
+  ylapenkki: ['vinopenkki'],
+  ylaviistopenkki: ['vinopenkki'],
+  alapenkki: ['laskeva penkki'],
+  alaviistopenkki: ['laskeva penkki'],
+  penkkari: ['penkkipunnerrus'],
+  kp: ['kasipaino'],
+  mave: ['maastaveto'],
+  leuka: ['leuanveto'],
+  leuat: ['leuanveto'],
+};
+
+/** A term and the words it also stands for. */
+function termVariants(term: string): string[] {
+  return [term, ...(SEARCH_ALIASES[term] ?? [])];
+}
+
+/**
+ * True when every term of the query appears in the haystack — in any order,
+ * as a piece of a word, with or without the spaces between words.
+ *
+ * "yläpenkki kp" finds Vinopenkkipunnerrus käsipainoilla, "penkki punnerrus"
+ * finds Penkkipunnerrus, and "trap bar" finds Trap bar -maastaveto — each
+ * term is a piece of a word, so a space typed inside a word costs nothing.
+ * The haystack's words are never joined: a term would then match across two
+ * of them ("…bar in ta…" for "rinta").
+ */
 export function exerciseMatchesQuery(haystack: string, query: string): boolean {
-  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  return terms.every((term) => haystack.includes(term));
+  const hay = normalizeSearchText(haystack);
+  const terms = normalizeSearchText(query).split(' ').filter(Boolean);
+  return terms.every((term) => termVariants(term).some((variant) => hay.includes(variant)));
 }
 
 /**
@@ -64,25 +137,53 @@ export function rankExerciseMatch(
   query: string,
   language: AppLanguage,
 ): number {
-  const needle = query.trim().toLowerCase();
-  if (!needle) {
+  const normalized = normalizeSearchText(query);
+  if (!normalized) {
     return 0;
   }
-  const shown = exerciseNameLabel(language, item.name).toLowerCase();
-  const stored = item.name.toLowerCase();
-  if (shown === needle || stored === needle) {
-    return 0;
-  }
-  if (shown.startsWith(needle)) {
-    return 1;
-  }
-  if (shown.split(/[\s\-–(]+/).some((word) => word.startsWith(needle))) {
-    return 2;
-  }
-  if (shown.includes(needle) || stored.includes(needle)) {
-    return 3;
-  }
-  return 4;
+  const shown = normalizeSearchText(exerciseNameLabel(language, item.name));
+  const stored = normalizeSearchText(item.name);
+  // A muscle or body part the reader names by the start of its word ranks
+  // with a name that starts so: "olkap" is asking for shoulder
+  // work, and Pystypunnerrus sorted behind every lift with "olkapää" in its
+  // name, past the list's cut (#bugs 2026-09-27). Popularity then decides.
+  const facetWords = [item.bodyPart, ...(item.primaryMuscles ?? [])]
+    .filter((facet): facet is string => Boolean(facet))
+    .flatMap((facet) => [facet, libraryLabel(facet, language)])
+    .flatMap((facet) => normalizeSearchText(facet).split(' '));
+  const rankFor = (needle: string) => {
+    if (shown === needle || stored === needle) {
+      return 0;
+    }
+    // Three letters before a muscle counts: one or two would rank every lift
+    // whose muscle starts so with the names the reader is spelling out.
+    if (shown.startsWith(needle) || (needle.length >= 3 && facetWords.some((word) => word.startsWith(needle)))) {
+      return 1;
+    }
+    if (shown.split(' ').some((word) => word.startsWith(needle))) {
+      return 2;
+    }
+    if (shown.includes(needle) || stored.includes(needle)) {
+      return 3;
+    }
+    return 4;
+  };
+  // "yläpenkki" ranks as what it stands for, so Vinopenkkipunnerrus leads —
+  // and each word of a longer query stands for its own words ("yläpenkki kp").
+  const best = Math.min(...queryVariants(normalized).map(rankFor));
+  // Every word found in the name is a name match, whatever order they came in.
+  return best === 4 && exerciseMatchesQuery(`${shown} ${stored}`, query) ? 3 : best;
+}
+
+/** The query with each word also read as what it stands for, every combination. */
+function queryVariants(normalized: string): string[] {
+  return normalized
+    .split(' ')
+    .filter(Boolean)
+    .reduce<string[]>(
+      (variants, term) => variants.flatMap((head) => termVariants(term).map((variant) => (head ? `${head} ${variant}` : variant))),
+      [''],
+    );
 }
 
 /**
@@ -102,23 +203,57 @@ export function rankExerciseMatches<
   /** A lower number is more popular; undefined is "not on the list". */
   popularity?: (item: T) => number | undefined,
 ): T[] {
-  const needle = query.trim().toLowerCase();
+  const needle = query.trim();
   if (!needle) {
     return [...items];
   }
-  const popular = (item: T) => popularity?.(item) ?? Number.POSITIVE_INFINITY;
-  return items
-    .map((item, index) => ({
-      item,
-      index,
-      rank: rankExerciseMatch(item, needle, language),
-      popular: popular(item),
-      length: exerciseNameLabel(language, item.name).length,
-    }))
+  // A large finite stand-in: Infinity - Infinity is NaN, and a comparator
+  // that returns NaN leaves the order to the engine.
+  const popular = (item: T) => popularity?.(item) ?? Number.MAX_SAFE_INTEGER;
+  const ranked = items
+    .map((item, index) => {
+      const label = exerciseNameLabel(language, item.name);
+      return {
+        item,
+        index,
+        rank: rankExerciseMatch(item, needle, language),
+        popular: popular(item),
+        label,
+        // Past popularity, a lift whose name says what was typed comes before
+        // one that only trains it: "hauis" is Hauiskääntö before Rannerulla.
+        // Every word of the query, as itself or what it stands for.
+        nameHit: exerciseMatchesQuery(`${label} ${item.name}`, needle) ? 0 : 1,
+      };
+    })
     .filter(({ item }) => exerciseMatchesQuery(buildExerciseSearchHaystack(item, language), needle))
     .sort(
       (left, right) =>
-        left.rank - right.rank || left.popular - right.popular || left.length - right.length || left.index - right.index,
-    )
-    .map(({ item }) => item);
+        left.rank - right.rank ||
+        left.popular - right.popular ||
+        left.nameHit - right.nameHit ||
+        left.label.length - right.label.length ||
+        left.index - right.index,
+    );
+  return ranked.map(({ item }) => item);
+}
+
+/**
+ * One row per name the reader sees, first kept: "Bench Press with Chains" and
+ * "Chain Press" both read "Penkkipunnerrus ketjuilla", and the swap list showed
+ * it twice (#bugs 2026-09-27). For choosing a replacement, not for browsing —
+ * the library keeps both rows, each with its own pictures and steps.
+ */
+export function oneRowPerShownName<T extends Pick<ExerciseLibraryItem, 'name'>>(
+  items: readonly T[],
+  language: AppLanguage,
+): T[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = normalizeSearchText(exerciseNameLabel(language, item.name));
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
 }

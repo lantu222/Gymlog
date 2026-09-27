@@ -4,6 +4,8 @@ import Svg, { Path } from 'react-native-svg';
 
 import { buildDraftFromCsvPreview, CsvLibraryEntry, parseCsvProgram } from '../lib/csvProgramImport';
 import { countKnownNames } from '../lib/exerciseNameBook';
+import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { exerciseMatchesQuery } from '../lib/exerciseSearch';
 import { HevyImportPreview, isHevyHistoryCsv, parseHevyCsv } from '../lib/hevyImport';
 import { I18nKey, t } from '../lib/i18n';
 import type { ProgramImageImportResult } from '../utils/programImagePicker';
@@ -253,13 +255,17 @@ export function NewProgramSheet({
     if (teaching === null) {
       return [];
     }
-    const query = teachQuery.trim().toLowerCase();
+    const query = teachQuery.trim();
+    // The same matcher as every other search: the Finnish name, any spacing,
+    // the gym's words. This one matched the English name as one exact run.
     const pool = query
-      ? exerciseLibrary.filter((entry) => entry.name.toLowerCase().includes(query))
+      ? exerciseLibrary.filter((entry) =>
+          exerciseMatchesQuery(`${entry.name} ${exerciseNameLabel(language, entry.name)}`, query),
+        )
       : exerciseLibrary;
     // Capped: 873 rows inside a sheet is a scroll, not a choice.
     return pool.slice(0, 20);
-  }, [exerciseLibrary, teachQuery, teaching]);
+  }, [exerciseLibrary, language, teachQuery, teaching]);
 
   async function handleTeach(exercise: CsvLibraryEntry) {
     if (teaching === null || !onTeachName) {

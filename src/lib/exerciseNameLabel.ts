@@ -1275,6 +1275,12 @@ const EXERCISE_NAME_EN: Record<string, string> = {
 
 /** The exercise name as the reader should see it; English is the stored id. */
 export function exerciseNameLabel(language: AppLanguage, name: string): string {
+  // Every row of every swap sheet goes through here while the reader types,
+  // and a stored row with no name threw on `.trim()` — the leading suspect for
+  // a crash mid-search that left no log (#bugs 2026-09-27).
+  if (typeof name !== 'string') {
+    return '';
+  }
   const key = name.trim();
   if (language !== 'fi') {
     return EXERCISE_NAME_EN[key] ?? name;
