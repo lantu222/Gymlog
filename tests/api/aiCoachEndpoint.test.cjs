@@ -176,13 +176,18 @@ module.exports = [
       const fetchAt = source.indexOf('https://api.anthropic.com/v1/messages');
       assert.ok(budgetAt !== -1 && budgetAt < fetchAt, 'budget must be checked before the upstream call');
 
-      // One build of the context, used for both the measurement and the send.
+      // The composer: one build of the context, measured and sent.
       assert.match(source, /const contextText = buildAiCoachContextText\(input\.context\);/);
       assert.match(source, /text: contextText, cache_control/);
+      // Advice sends the reader's language and measures the ids the phone fits
+      // itself against (fitAiCoachContextToCap) — the same context, built
+      // twice, differing only in names (2026-09-27).
+      assert.match(source, /const contextText = buildAiCoachContextText\(input\.context, input\.language \?\? 'en'\);/);
+      assert.match(source, /const measuredContextText = buildAiCoachContextText\(input\.context\);/);
       // The reader's context is what the cap measures; the rules are this
       // file's own and are charged, not refused. Counted together they left a
       // heavy reader half the cap, and offline (server audit, 2026-09-21).
-      assert.match(source, /contextChars: contextText\.length,\s*\/\/[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*fixedChars: COACH_SYSTEM_RULES\.length,/);
+      assert.match(source, /contextChars: measuredContextText\.length,\s*\/\/[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*fixedChars: COACH_SYSTEM_RULES\.length,/);
       assert.match(source, /contextChars: contextText\.length, fixedChars: COMPOSER_SYSTEM_RULES\.length/);
       assert.doesNotMatch(source, /contextText\.length \+/);
       // The conversation is measured against its own limit, not the question's.

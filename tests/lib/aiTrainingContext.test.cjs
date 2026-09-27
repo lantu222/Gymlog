@@ -119,6 +119,7 @@ module.exports = [
         'goals',
         'history',
         'homeState',
+        'lastSession',
         'latestTopSets',
         'plateaus',
         'profile',
