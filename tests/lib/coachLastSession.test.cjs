@@ -289,6 +289,26 @@ module.exports = [
     },
   },
   {
+    name: 'a history trimmed to fit is not "before the window": the recent row stands in, said so plainly',
+    run() {
+      // The shedding step empties history.sessions and keeps sessionCount; the
+      // recent rows survive, and the newest may be yesterday's (PR review).
+      const out = buildAiCoachSystemContext(
+        baseContext({
+          history: history({ sessionCount: 20, sessions: [], truncated: true }),
+          recentCompletedSessions: [
+            { sessionId: 'a', title: 'Day 4: Lower Body', performedAt: '2026-09-26T08:46:40.000Z', day: '2026-09-26', durationMinutes: 52, setsCompleted: 14, swappedExercises: 0, noteCount: 0 },
+          ],
+        }),
+        'fi',
+      );
+      const block = out.split('\n\n').find((entry) => entry.startsWith('## Last session'));
+      assert.ok(block.includes('Date: 2026-09-26 (write it as 26.9.)'), block);
+      assert.ok(block.includes('history rows were left out for this payload'));
+      assert.ok(!block.includes('before the history window'));
+    },
+  },
+  {
     name: 'the last session is the newest one up to now, its lifts in order, completed working sets only',
     run() {
       const now = new Date('2026-09-27T07:50:00.000Z');

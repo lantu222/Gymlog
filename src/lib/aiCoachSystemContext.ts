@@ -163,6 +163,7 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
     lastSession,
     newestSession,
     fallbackRecent,
+    context.history.sessionCount === 0,
     newestCardio,
     language,
     liftName,
@@ -482,6 +483,7 @@ function renderLastSession(
   last: AICoachLastSession | null,
   newest: AICoachHistorySession | null,
   recent: AICoachRecentCompletedSession | null,
+  recentBeforeWindow: boolean,
   newestCardio: AICoachCardioSession | null,
   language: AppLanguage | null,
   liftName: (name: string) => string,
@@ -533,7 +535,12 @@ function renderLastSession(
       dated(day),
       line('Name', sessionName(recent.title)),
       recent.setsCompleted ? line('Logged', `${recent.setsCompleted} sets`) : null,
-      '- (before the history window; this app version sends no set-by-set detail)',
+      // Two ways to get here, and only one is "before the window": a context
+      // trimmed to fit empties the history rows but keeps their count, and
+      // then this session may be yesterday's (PR review, 2026-09-27).
+      recentBeforeWindow
+        ? '- (before the history window; this app version sends no set-by-set detail)'
+        : '- (history rows were left out for this payload; this app version sends no set-by-set detail)',
       cardioLine,
       writes(day),
     );
