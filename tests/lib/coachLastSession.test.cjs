@@ -340,8 +340,9 @@ module.exports = [
         ...days.map((_, i) => log(`d4-${i}`, 'Trap Bar Deadlift', 0, three(loads[i]))),
         ...days.slice(2).map((_, i) => log(`d4-${i + 2}`, 'Leg Curl', 1, [{ weight: 50, reps: 12 }])),
         log('d4-4', 'Calf Raise', 2, [{ weight: 100, reps: 15 }]),
-        // The other lower day trains the same lift heavier; it is still "the time before".
-        log('d2', 'Leg Curl', 0, [{ weight: 50, reps: 10 }]),
+        // The other lower day trains the same lift heavier: it is "the time before",
+        // and it does not break this day's streak at 50 kg (review, 2026-09-27).
+        log('d2', 'Leg Curl', 0, [{ weight: 55, reps: 8 }]),
         log('future', 'Trap Bar Deadlift', 0, three(200)),
       ];
       const last = buildAiCoachLastSession(sessions, logs, now);
@@ -350,18 +351,18 @@ module.exports = [
       assert.equal(trap.sessionsAtThisWeight, 1);
       const curl = last.exercises.find((exercise) => exercise.name === 'Leg Curl');
       assert.equal(curl.previous.day, '2026-09-22');
-      assert.equal(curl.sessionsAtThisWeight, 4);
+      assert.equal(curl.sessionsAtThisWeight, 3);
       assert.equal(last.exercises.find((exercise) => exercise.name === 'Calf Raise').previous, null);
       // The same session, not the heavier other day.
       assert.equal(last.previousSameName.day, '2026-09-17');
 
       const out = buildAiCoachSystemContext(baseContext({ lastSession: last }), 'fi');
       assert.ok(
-        out.includes('- Trap bar -maastaveto — 3 sets this session: 155 kg x 6, 155 kg x 6, 155 kg x 6 | time before (2026-09-17): 150 kg x 6, 150 kg x 6, 150 kg x 6 | first session at 155 kg'),
+        out.includes('- Trap bar -maastaveto — 3 sets this session: 155 kg x 6, 155 kg x 6, 155 kg x 6 | time before (2026-09-17): 150 kg x 6, 150 kg x 6, 150 kg x 6 | first time at 155 kg in this session'),
         out,
       );
-      assert.ok(out.includes('4 sessions in a row at 50 kg, this one included'));
-      assert.ok(out.includes('Pohjenosto — 1 set this session: 100 kg x 15 | first time logged'));
+      assert.ok(out.includes('time before (2026-09-22): 55 kg x 8 | 3 of this session in a row at 50 kg, this one included'), out);
+      assert.ok(out.includes('Pohjenosto — 1 set this session: 100 kg x 15 | no earlier log under this name'));
       assert.ok(out.includes('Same session the time before: 2026-09-17 |'));
     },
   },
@@ -369,12 +370,12 @@ module.exports = [
     name: 'an app from before these fields is not told every lift is a first',
     run() {
       // #196's build sends sets only. Absent must stay absent through the
-      // endpoint's re-parse, or the context claims "first time logged".
+      // endpoint's re-parse, or the context claims "no earlier log" for every lift.
       const parsed = normalizeAiCoachTrainingContext({ lastSession: LAST_SESSION }).lastSession;
       assert.ok(!('previous' in parsed.exercises[0]));
       const out = buildAiCoachSystemContext(baseContext({ lastSession: parsed }), 'fi');
-      assert.ok(!out.includes('first time logged'), out);
-      assert.ok(!out.includes('first session at'));
+      assert.ok(!out.includes('no earlier log'), out);
+      assert.ok(!out.includes('first time at'));
 
       // A malformed "previous" is dropped, not turned into a first.
       const junk = normalizeAiCoachTrainingContext({

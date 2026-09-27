@@ -458,16 +458,21 @@ export function buildAiCoachLastSession(
     }
   }
   const sessionById = new Map(workoutSessions.map((session) => [session.id, session]));
-  const earlierLogsOf = (name: string) =>
-    exerciseLogs
-      .filter(
-        (log) =>
-          earlierAt.has(log.sessionId) &&
-          !log.skipped &&
-          normalizedName(log.exerciseNameSnapshot) === normalizedName(name) &&
-          setsOf(log).length > 0,
-      )
-      .sort((left, right) => (earlierAt.get(right.sessionId) ?? 0) - (earlierAt.get(left.sessionId) ?? 0));
+  const sameName = normalizedName(newest.workoutNameSnapshot);
+  // Earlier logs of each lift, newest first — grouped once, not rescanned per lift.
+  const earlierByLift = new Map<string, { log: ExerciseLog; sets: ReturnType<typeof setsOf> }[]>();
+  for (const log of exerciseLogs) {
+    if (!earlierAt.has(log.sessionId) || log.skipped) continue;
+    const sets = setsOf(log);
+    if (sets.length === 0) continue;
+    const key = normalizedName(log.exerciseNameSnapshot);
+    const list = earlierByLift.get(key) ?? [];
+    list.push({ log, sets });
+    earlierByLift.set(key, list);
+  }
+  for (const list of earlierByLift.values()) {
+    list.sort((left, right) => (earlierAt.get(right.log.sessionId) ?? 0) - (earlierAt.get(left.log.sessionId) ?? 0));
+  }
 
   const exercises = exerciseLogs
     .filter((log) => log.sessionId === sessionId && !log.skipped)
@@ -475,13 +480,18 @@ export function buildAiCoachLastSession(
     .map((log) => {
       const sets = setsOf(log);
       const name = log.exerciseNameSnapshot.trim();
-      const earlier = earlierLogsOf(name);
+      const earlier = earlierByLift.get(normalizedName(name)) ?? [];
       const before = earlier[0];
-      const beforeSession = before ? sessionById.get(before.sessionId) : undefined;
+      const beforeSession = before ? sessionById.get(before.log.sessionId) : undefined;
+      // The streak is this day's: a lift programmed heavier on one day and
+      // lighter on another would otherwise restart every session, and the
+      // block would call a weight "first" that this day has used for weeks.
       const top = topSetOf(log)?.weight ?? null;
       let sessionsAtThisWeight = 1;
       for (const entry of earlier) {
-        if (top === null || topSetOf(entry)?.weight !== top) break;
+        const entrySession = sessionById.get(entry.log.sessionId);
+        if (!entrySession || normalizedName(entrySession.workoutNameSnapshot) !== sameName) continue;
+        if (top === null || topSetOf(entry.log)?.weight !== top) break;
         sessionsAtThisWeight += 1;
       }
       return {
@@ -489,7 +499,7 @@ export function buildAiCoachLastSession(
         sets,
         previous:
           before && beforeSession
-            ? { day: localDateKey(beforeSession.performedAt), sets: setsOf(before).slice(0, MAX_LAST_SESSION_SETS) }
+            ? { day: localDateKey(beforeSession.performedAt), sets: before.sets.slice(0, MAX_LAST_SESSION_SETS) }
             : null,
         sessionsAtThisWeight,
       };
@@ -499,7 +509,6 @@ export function buildAiCoachLastSession(
     .slice(0, MAX_LAST_SESSION_EXERCISES)
     .map((exercise) => ({ ...exercise, sets: exercise.sets.slice(0, MAX_LAST_SESSION_SETS) }));
 
-  const sameName = normalizedName(newest.workoutNameSnapshot);
   let previousSameName: WorkoutSession | null = null;
   for (const session of workoutSessions) {
     const at = earlierAt.get(session.id);

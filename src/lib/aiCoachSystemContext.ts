@@ -525,15 +525,18 @@ function renderLastSession(
       if (exercise.previous) {
         parts.push(`time before (${exercise.previous.day}): ${exercise.previous.sets.map(set).join(', ')}`);
       } else if (exercise.previous === null) {
-        parts.push('first time logged');
+        // What the log shows, not a claim about the reader's past: a lift
+        // logged before under another row's name is still "no earlier log".
+        parts.push('no earlier log under this name');
       }
       const top = Math.max(...exercise.sets.map((entry) => entry.weightKg));
       const streak = exercise.sessionsAtThisWeight;
+      // Counted within this session's name — see buildAiCoachLastSession.
       if (typeof streak === 'number' && exercise.previous && top > 0) {
         parts.push(
           streak === 1
-            ? `first session at ${trim(top)} kg`
-            : `${streak} sessions in a row at ${trim(top)} kg, this one included`,
+            ? `first time at ${trim(top)} kg in this session`
+            : `${streak} of this session in a row at ${trim(top)} kg, this one included`,
         );
       }
       return `- ${liftName(exercise.name)} — ${parts.join(' | ')}`;

@@ -133,7 +133,7 @@ export interface AICoachLastSessionExercise {
    * happened before is stated, never inferred. Optional for older apps.
    */
   previous?: { day: string; sets: AICoachLastSessionSet[] } | null;
-  /** Sessions in a row, this one included, with this top-set weight. */
+  /** Sessions of this name in a row, this one included, at this top-set weight. */
   sessionsAtThisWeight?: number;
 }
 
