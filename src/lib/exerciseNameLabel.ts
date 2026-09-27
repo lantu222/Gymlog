@@ -89,8 +89,11 @@ const EXERCISE_NAME_FI: Record<string, string> = {
   // ── Vertical pull ────────────────────────────────────────────────────
   'Pull-Up': 'Leuanveto',
   Pullups: 'Leuanveto',
-  'Chin-Up': 'Myötäotteinen leuanveto',
-  Chinups: 'Myötäotteinen leuanveto',
+  // A chin-up is the supinated pull-up, and this app's word for that grip is
+  // `alaote` (Ylätalja alaotteella). It read "Myötäotteinen" — the overhand
+  // grip, i.e. the plain Leuanveto above it (user, 2026-09-27).
+  'Chin-Up': 'Leuanveto alaotteella',
+  Chinups: 'Leuanveto alaotteella',
   'Scapular Pull-Up': 'Lapaleuanveto',
   'Lat Pulldown': 'Ylätalja',
   // Plain, like its English label 'Lat Pulldown': this is THE lat pulldown
