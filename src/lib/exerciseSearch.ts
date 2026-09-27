@@ -52,6 +52,11 @@ export function buildExerciseSearchHaystack(
 const normalizedCache = new Map<string, string>();
 
 export function normalizeSearchText(value: string): string {
+  // A stored row with no name must not throw on every keystroke — the crash
+  // class the name guards in this file's callers exist for (PR review).
+  if (typeof value !== 'string') {
+    return '';
+  }
   // Library labels and facets repeat on every keystroke of every sheet; a
   // bounded memo keeps the fold to once per string.
   const cached = normalizedCache.get(value);

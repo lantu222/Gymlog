@@ -134,10 +134,25 @@ module.exports = [
     },
   },
   {
+    name: 'two spellings of one session lift are named once',
+    run() {
+      // "Bench Press" and "Barbell Bench Press - Medium Grip" — different
+      // words, one name on screen (PR review, 2026-09-27).
+      assert.deepEqual(
+        sessionLiftsMatchingQuery(['Bench Press', 'Barbell Bench Press - Medium Grip'], 'Chest-Supported Row', 'penkkipunnerrus', 'fi'),
+        ['Penkkipunnerrus'],
+      );
+    },
+  },
+  {
     name: 'a row with no name renders as nothing instead of throwing mid-search',
     run() {
       assert.equal(exerciseNameLabel('fi', undefined), '');
       assert.equal(exerciseNameLabel('en', null), '');
+      assert.equal(normalizeSearchText(undefined), '');
+      // A malformed library row does not take the whole search down with it.
+      const withBroken = [...library.slice(0, 50), { id: 'broken', name: undefined, bodyPart: 'chest' }];
+      assert.doesNotThrow(() => rankExerciseMatches(withBroken, 'penkki', 'fi'));
     },
   },
 ];

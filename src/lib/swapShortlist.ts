@@ -244,15 +244,20 @@ export function sessionLiftsMatchingQuery(
   // By the shown name as well: another spelling of the lift being swapped is
   // still the lift in the sheet's title.
   const currentLabel = normalizeSearchText(exerciseNameLabel(language, currentExerciseName));
+  const seenLabels = new Set<string>();
   const names: string[] = [];
   for (const name of sessionLifts) {
     if (typeof name !== 'string' || !name.trim()) continue;
     const identity = identityKey(name);
     if (seen.has(identity)) continue;
     const label = exerciseNameLabel(language, name);
-    if (normalizeSearchText(label) === currentLabel) continue;
+    const shown = normalizeSearchText(label);
+    // Named once per shown name: two spellings of one lift read the same, and
+    // the note said "Penkkipunnerrus, Penkkipunnerrus" (PR review).
+    if (shown === currentLabel || seenLabels.has(shown)) continue;
     if (!exerciseMatchesQuery(`${name} ${label}`, query)) continue;
     seen.add(identity);
+    seenLabels.add(shown);
     names.push(label);
   }
   return names;
