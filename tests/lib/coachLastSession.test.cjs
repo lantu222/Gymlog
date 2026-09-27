@@ -91,8 +91,8 @@ module.exports = [
       assert.ok(fi.includes('## Last session'), fi);
       assert.ok(fi.includes('Date: 2026-09-26 (write it as 26.9.)'));
       assert.ok(fi.includes('Name: Päivä 4: Alavartalo'));
-      assert.ok(fi.includes('- Jalkaprässi: 215 kg x 10 | 215 kg x 9'));
-      assert.ok(fi.includes('- Takareisikoukistus: 50 kg x 12'));
+      assert.ok(fi.includes('- Jalkaprässi — 2 sets this session: 215 kg x 10, 215 kg x 9'), fi);
+      assert.ok(fi.includes('- Takareisikoukistus — 1 set this session: 50 kg x 12'));
       assert.ok(fi.includes('Finnish — dates like 26.9., decimals like 82,5 kg'));
 
       const en = buildAiCoachSystemContext(
@@ -100,7 +100,7 @@ module.exports = [
         'en',
       );
       assert.ok(en.includes('Date: 2026-09-26 (write it as 26 Sep)'));
-      assert.ok(en.includes('- Leg Press: 215 kg x 10 | 215 kg x 9'));
+      assert.ok(en.includes('- Leg Press — 2 sets this session: 215 kg x 10, 215 kg x 9'));
       assert.ok(en.includes('English — dates like 26 Sep, decimals like 82.5 kg'));
     },
   },
@@ -176,7 +176,7 @@ module.exports = [
         },
       });
       const ids = buildAiCoachContextText(context);
-      assert.ok(ids.includes('- Triceps Pushdown - Rope Attachment: 30 kg x 12'), ids);
+      assert.ok(ids.includes('- Triceps Pushdown - Rope Attachment — 1 set this session: 30 kg x 12'), ids);
       assert.ok(ids.includes('  - Leverage Chest Press: 3 × 10'));
       assert.ok(!ids.includes('Rope Pushdown') && !ids.includes('Machine Chest Press'));
       // …and no format line: there is no reader language to state.
@@ -216,7 +216,7 @@ module.exports = [
         baseContext({ lastSession: { ...LAST_SESSION, exercises: [{ name: 'Pull-Up', sets: [{ weightKg: 0, reps: 10 }, { weightKg: 10, reps: 6 }] }] } }),
         'en',
       );
-      assert.ok(out.includes(': 10 with no added load | 10 kg x 6'), out);
+      assert.ok(out.includes('this session: 10 with no added load, 10 kg x 6'), out);
       assert.ok(!out.includes('0 kg x 10'));
     },
   },
@@ -324,6 +324,84 @@ module.exports = [
     },
   },
   {
+    name: 'each lift says what it did the time before and how long it has sat at this weight, so sets are never read as sessions',
+    run() {
+      // Aleksi, 2026-09-27: trap bar 140 → 145 → 150 → 150 → 155. Three sets
+      // of 155 × 6 were read as "155 kg three sessions in a row".
+      const now = new Date('2026-09-27T07:50:00.000Z');
+      const days = ['2026-08-24', '2026-08-31', '2026-09-07', '2026-09-17', '2026-09-26'];
+      const loads = [140, 145, 150, 150, 155];
+      const sessions = days.map((day, i) => session(`d4-${i}`, `${day}T09:00:00.000Z`, 'Day 4: Lower Body'));
+      sessions.push(session('d2', '2026-09-22T09:00:00.000Z', 'Day 2: Lower Body'));
+      // Written into the future by a wrong clock: neither "last" nor "before".
+      sessions.push(session('future', '2026-10-05T09:00:00.000Z', 'Day 4: Lower Body'));
+      const three = (weight) => [{ weight, reps: 6 }, { weight, reps: 6 }, { weight, reps: 6 }];
+      const logs = [
+        ...days.map((_, i) => log(`d4-${i}`, 'Trap Bar Deadlift', 0, three(loads[i]))),
+        ...days.slice(2).map((_, i) => log(`d4-${i + 2}`, 'Leg Curl', 1, [{ weight: 50, reps: 12 }])),
+        log('d4-4', 'Calf Raise', 2, [{ weight: 100, reps: 15 }]),
+        // The other lower day trains the same lift heavier: it is "the time before",
+        // and it does not break this day's streak at 50 kg (review, 2026-09-27).
+        log('d2', 'Leg Curl', 0, [{ weight: 55, reps: 8 }]),
+        log('future', 'Trap Bar Deadlift', 0, three(200)),
+      ];
+      const last = buildAiCoachLastSession(sessions, logs, now);
+      const trap = last.exercises.find((exercise) => exercise.name === 'Trap Bar Deadlift');
+      assert.deepEqual(trap.previous, { day: '2026-09-17', sets: three(150).map(({ weight, reps }) => ({ weightKg: weight, reps })) });
+      assert.equal(trap.sessionsAtThisWeight, 1);
+      const curl = last.exercises.find((exercise) => exercise.name === 'Leg Curl');
+      assert.equal(curl.previous.day, '2026-09-22');
+      assert.equal(curl.sessionsAtThisWeight, 3);
+      assert.equal(last.exercises.find((exercise) => exercise.name === 'Calf Raise').previous, null);
+      // The same session, not the heavier other day.
+      assert.equal(last.previousSameName.day, '2026-09-17');
+
+      const out = buildAiCoachSystemContext(baseContext({ lastSession: last }), 'fi');
+      assert.ok(
+        out.includes('- Trap bar -maastaveto — 3 sets this session: 155 kg x 6, 155 kg x 6, 155 kg x 6 | time before (2026-09-17): 150 kg x 6, 150 kg x 6, 150 kg x 6 | first time at 155 kg in this session'),
+        out,
+      );
+      assert.ok(out.includes('time before (2026-09-22): 55 kg x 8 | 3 of this session in a row at 50 kg, this one included'), out);
+      assert.ok(out.includes('Pohjenosto — 1 set this session: 100 kg x 15 | no earlier log under this name'));
+      assert.ok(out.includes('Same session the time before: 2026-09-17 |'));
+    },
+  },
+  {
+    name: 'an app from before these fields is not told every lift is a first',
+    run() {
+      // #196's build sends sets only. Absent must stay absent through the
+      // endpoint's re-parse, or the context claims "no earlier log" for every lift.
+      const parsed = normalizeAiCoachTrainingContext({ lastSession: LAST_SESSION }).lastSession;
+      assert.ok(!('previous' in parsed.exercises[0]));
+      const out = buildAiCoachSystemContext(baseContext({ lastSession: parsed }), 'fi');
+      assert.ok(!out.includes('no earlier log'), out);
+      assert.ok(!out.includes('first time at'));
+
+      // A malformed "previous" is dropped, not turned into a first.
+      const junk = normalizeAiCoachTrainingContext({
+        lastSession: { ...LAST_SESSION, exercises: [{ ...LAST_SESSION.exercises[0], previous: { day: 'x', sets: [] }, sessionsAtThisWeight: -2 }] },
+      }).lastSession;
+      assert.ok(!('previous' in junk.exercises[0]));
+      assert.ok(!('sessionsAtThisWeight' in junk.exercises[0]));
+    },
+  },
+  {
+    name: 'the next training day carries the reader\'s date format too',
+    run() {
+      const out = buildAiCoachSystemContext(
+        baseContext({
+          history: history({
+            sessionCount: 1,
+            sessions: [HISTORY_SESSIONS[1]],
+            schedule: { trainingDays: ['mon', 'thu'], nextTrainingDate: '2026-09-28', plannedPerWeek: 2, plannedSessions: 8, completedSessions: 5 },
+          }),
+        }),
+        'en',
+      );
+      assert.ok(out.includes('Next training day: 2026-09-28 (write it as 28 Sep)'), out);
+    },
+  },
+  {
     name: 'the last session is the newest one up to now, its lifts in order, completed working sets only',
     run() {
       const now = new Date('2026-09-27T07:50:00.000Z');
@@ -382,6 +460,7 @@ module.exports = [
         name: 'Day 4: Lower Body',
         exercises: [{ name: 'Leg Press', sets: [{ weightKg: 215, reps: 10 }] }],
         truncated: false,
+        previousSameName: null,
       });
     },
   },
