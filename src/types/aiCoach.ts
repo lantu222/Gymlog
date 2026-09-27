@@ -108,13 +108,33 @@ export interface AICoachLastSession {
   exercises: AICoachLastSessionExercise[];
   /** True when exercises or sets were dropped to keep the payload small. */
   truncated: boolean;
+  /**
+   * The newest earlier session of the same name: the only fair comparison.
+   * The coach opened with "14 031 kg, a little under 22.9. Day 2" — a
+   * different day's volume (2026-09-27). Optional: absent from older apps.
+   */
+  previousSameName?: { day: string; volumeKg: number | null } | null;
+}
+
+export interface AICoachLastSessionSet {
+  weightKg: number;
+  reps: number;
 }
 
 export interface AICoachLastSessionExercise {
   /** As stored, in English. */
   name: string;
   /** Completed sets in the order done; working sets only when there are any. */
-  sets: { weightKg: number; reps: number }[];
+  sets: AICoachLastSessionSet[];
+  /**
+   * The same lift the time before, set by set. Read off three sets of
+   * 155 × 6, the model said 155 kg was "the third session in a row" and
+   * told the reader to add weight — it was the first (2026-09-27). What
+   * happened before is stated, never inferred. Optional for older apps.
+   */
+  previous?: { day: string; sets: AICoachLastSessionSet[] } | null;
+  /** Sessions in a row, this one included, with this top-set weight. */
+  sessionsAtThisWeight?: number;
 }
 
 export interface AICoachHistoryLift {

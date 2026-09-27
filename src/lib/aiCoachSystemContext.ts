@@ -295,7 +295,14 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
         'Schedule',
         [
           line('Planned', planned),
-          s.nextTrainingDate ? line('Next training day', s.nextTrainingDate) : null,
+          s.nextTrainingDate
+            ? line(
+                'Next training day',
+                // An ISO day in the context came back verbatim in an English
+                // answer ("2026-09-28 is upper body", 2026-09-27).
+                language ? `${s.nextTrainingDate} (write it as ${readerDate(s.nextTrainingDate, language)})` : s.nextTrainingDate,
+              )
+            : null,
           line('Adherence', `${s.completedSessions} done of ${s.plannedSessions} planned in this window`),
         ].filter((entry): entry is string => entry !== null),
       )!,
@@ -510,10 +517,38 @@ function renderLastSession(
     'Last session — what "my last workout" / "viime treeni" means. Answer about this session, under this date, and no other';
   const lines: (string | null)[] = [];
   if (last) {
+    // Each lift states its own before-and-after, so nothing about earlier
+    // sessions has to be read off this one's sets: three sets of 155 × 6 were
+    // taken for "155 kg three sessions in a row" (2026-09-27).
+    const exerciseLine = (exercise: AICoachLastSession['exercises'][number]) => {
+      const parts = [`${plural(exercise.sets.length, 'set')} this session: ${exercise.sets.map(set).join(', ')}`];
+      if (exercise.previous) {
+        parts.push(`time before (${exercise.previous.day}): ${exercise.previous.sets.map(set).join(', ')}`);
+      } else if (exercise.previous === null) {
+        parts.push('first time logged');
+      }
+      const top = Math.max(...exercise.sets.map((entry) => entry.weightKg));
+      const streak = exercise.sessionsAtThisWeight;
+      if (typeof streak === 'number' && exercise.previous && top > 0) {
+        parts.push(
+          streak === 1
+            ? `first session at ${trim(top)} kg`
+            : `${streak} sessions in a row at ${trim(top)} kg, this one included`,
+        );
+      }
+      return `- ${liftName(exercise.name)} — ${parts.join(' | ')}`;
+    };
+    const before = last.previousSameName;
     lines.push(
       dated(last.day),
       line('Name', sessionName(last.name)),
-      ...last.exercises.map((exercise) => `- ${liftName(exercise.name)}: ${exercise.sets.map(set).join(' | ')}`),
+      before
+        ? line(
+            'Same session the time before',
+            `${before.day}${before.volumeKg !== null ? ` | ${kg(before.volumeKg)}` : ''} — compare with this, not with another day`,
+          )
+        : null,
+      ...last.exercises.map(exerciseLine),
       last.truncated ? '- (some exercises or sets were left out for this payload)' : null,
       cardioLine,
       writes(last.day),

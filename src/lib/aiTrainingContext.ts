@@ -30,7 +30,14 @@ import { buildAiCoachContextText } from './aiCoachSystemContext';
 import { detectPlateaus } from './progressionAnalyzer';
 import { buildFatigueModel } from './fatigueModel';
 import { getComparableLogSets } from './exerciseLog';
-import { buildTrainingHistory, DEFAULT_HISTORY_WINDOW_DAYS } from './trainingHistory';
+import {
+  buildTrainingHistory,
+  DEFAULT_HISTORY_WINDOW_DAYS,
+  normalizedName,
+  sessionTime,
+  sessionVolumeKg,
+  topSetOf,
+} from './trainingHistory';
 import { CoachAdviceMemoryEntry, buildCoachAdviceLines, parseCoachAdviceLines } from './coachAdviceMemory';
 import type { TrainingSchedule } from './trainingSchedule';
 
@@ -437,25 +444,87 @@ export function buildAiCoachLastSession(
     return null;
   }
   const sessionId = newest.id;
+  const setsOf = (log: ExerciseLog) =>
+    getComparableLogSets(log)
+      .filter((set) => set.reps > 0 && set.weight >= 0)
+      .map((set) => ({ weightKg: set.weight, reps: set.reps }));
+
+  // Every earlier session, newest first — "before" is by time, not by list order.
+  const earlierAt = new Map<string, number>();
+  for (const session of workoutSessions) {
+    const at = sessionTime(session);
+    if (session.id !== sessionId && at < newestAt) {
+      earlierAt.set(session.id, at);
+    }
+  }
+  const sessionById = new Map(workoutSessions.map((session) => [session.id, session]));
+  const earlierLogsOf = (name: string) =>
+    exerciseLogs
+      .filter(
+        (log) =>
+          earlierAt.has(log.sessionId) &&
+          !log.skipped &&
+          normalizedName(log.exerciseNameSnapshot) === normalizedName(name) &&
+          setsOf(log).length > 0,
+      )
+      .sort((left, right) => (earlierAt.get(right.sessionId) ?? 0) - (earlierAt.get(left.sessionId) ?? 0));
+
   const exercises = exerciseLogs
     .filter((log) => log.sessionId === sessionId && !log.skipped)
     .sort((left, right) => left.orderIndex - right.orderIndex)
     .map((log) => {
-      const sets = getComparableLogSets(log)
-        .filter((set) => set.reps > 0 && set.weight >= 0)
-        .map((set) => ({ weightKg: set.weight, reps: set.reps }));
-      return { name: log.exerciseNameSnapshot.trim(), sets };
+      const sets = setsOf(log);
+      const name = log.exerciseNameSnapshot.trim();
+      const earlier = earlierLogsOf(name);
+      const before = earlier[0];
+      const beforeSession = before ? sessionById.get(before.sessionId) : undefined;
+      const top = topSetOf(log)?.weight ?? null;
+      let sessionsAtThisWeight = 1;
+      for (const entry of earlier) {
+        if (top === null || topSetOf(entry)?.weight !== top) break;
+        sessionsAtThisWeight += 1;
+      }
+      return {
+        name,
+        sets,
+        previous:
+          before && beforeSession
+            ? { day: localDateKey(beforeSession.performedAt), sets: setsOf(before).slice(0, MAX_LAST_SESSION_SETS) }
+            : null,
+        sessionsAtThisWeight,
+      };
     })
     .filter((exercise) => exercise.name.length > 0 && exercise.sets.length > 0);
   const shown = exercises
     .slice(0, MAX_LAST_SESSION_EXERCISES)
     .map((exercise) => ({ ...exercise, sets: exercise.sets.slice(0, MAX_LAST_SESSION_SETS) }));
+
+  const sameName = normalizedName(newest.workoutNameSnapshot);
+  let previousSameName: WorkoutSession | null = null;
+  for (const session of workoutSessions) {
+    const at = earlierAt.get(session.id);
+    if (
+      at !== undefined &&
+      normalizedName(session.workoutNameSnapshot) === sameName &&
+      (!previousSameName || at > sessionTime(previousSameName))
+    ) {
+      previousSameName = session;
+    }
+  }
+  const previousVolume = previousSameName ? sessionVolumeKg(previousSameName, exerciseLogs) : null;
+
   return {
     day: localDateKey(newest.performedAt),
     name: newest.workoutNameSnapshot.trim(),
     exercises: shown,
     truncated:
       exercises.length > shown.length || exercises.some((exercise) => exercise.sets.length > MAX_LAST_SESSION_SETS),
+    previousSameName: previousSameName
+      ? {
+          day: localDateKey(previousSameName.performedAt),
+          volumeKg: previousVolume === null ? null : Math.round(previousVolume),
+        }
+      : null,
   };
 }
 
@@ -754,11 +823,28 @@ function normalizeLastSession(input: unknown): AICoachLastSession | null {
     return null;
   }
   const candidate = input as Partial<AICoachLastSession>;
-  const day = typeof candidate.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(candidate.day) ? candidate.day : null;
+  const isDay = (value: unknown): value is string => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+  const day = isDay(candidate.day) ? candidate.day : null;
   const name = typeof candidate.name === 'string' ? candidate.name.trim().slice(0, 120) : '';
   if (!day || !name || !Array.isArray(candidate.exercises)) {
     return null;
   }
+  const parseSets = (value: unknown) =>
+    (Array.isArray(value) ? value : [])
+      .slice(0, MAX_LAST_SESSION_SETS)
+      .filter(
+        (set): set is { weightKg: number; reps: number } =>
+          !!set &&
+          typeof set.weightKg === 'number' &&
+          Number.isFinite(set.weightKg) &&
+          set.weightKg >= 0 &&
+          set.weightKg <= 1000 &&
+          typeof set.reps === 'number' &&
+          Number.isInteger(set.reps) &&
+          set.reps > 0 &&
+          set.reps <= 500,
+      )
+      .map((set) => ({ weightKg: set.weightKg, reps: set.reps }));
   const exercises = candidate.exercises
     .slice(0, MAX_LAST_SESSION_EXERCISES)
     .map((exercise) => {
@@ -766,25 +852,39 @@ function normalizeLastSession(input: unknown): AICoachLastSession | null {
         exercise && typeof exercise === 'object' && typeof exercise.name === 'string'
           ? exercise.name.trim().slice(0, 80)
           : '';
-      const sets = (exercise && Array.isArray(exercise.sets) ? exercise.sets : [])
-        .slice(0, MAX_LAST_SESSION_SETS)
-        .filter(
-          (set): set is { weightKg: number; reps: number } =>
-            !!set &&
-            typeof set.weightKg === 'number' &&
-            Number.isFinite(set.weightKg) &&
-            set.weightKg >= 0 &&
-            set.weightKg <= 1000 &&
-            typeof set.reps === 'number' &&
-            Number.isInteger(set.reps) &&
-            set.reps > 0 &&
-            set.reps <= 500,
-        )
-        .map((set) => ({ weightKg: set.weightKg, reps: set.reps }));
-      return { name: exerciseName, sets };
+      const sets = parseSets(exercise?.sets);
+      const previousSets = parseSets(exercise?.previous?.sets);
+      // Absent stays absent: an app from before this field sends none, and
+      // null would tell the model every lift was a first.
+      const previous =
+        exercise?.previous && isDay(exercise.previous.day) && previousSets.length > 0
+          ? { day: exercise.previous.day, sets: previousSets }
+          : exercise?.previous === null
+            ? null
+            : undefined;
+      const streak = exercise?.sessionsAtThisWeight;
+      return {
+        name: exerciseName,
+        sets,
+        ...(previous !== undefined ? { previous } : {}),
+        ...(typeof streak === 'number' && Number.isInteger(streak) && streak >= 1 && streak <= 1000
+          ? { sessionsAtThisWeight: streak }
+          : {}),
+      };
     })
     .filter((exercise) => exercise.name.length > 0 && exercise.sets.length > 0);
-  return { day, name, exercises, truncated: candidate.truncated === true };
+  const before = candidate.previousSameName;
+  const previousSameName =
+    before && typeof before === 'object' && isDay(before.day)
+      ? {
+          day: before.day,
+          volumeKg:
+            typeof before.volumeKg === 'number' && Number.isFinite(before.volumeKg) && before.volumeKg >= 0
+              ? before.volumeKg
+              : null,
+        }
+      : null;
+  return { day, name, exercises, truncated: candidate.truncated === true, previousSameName };
 }
 
 /**
