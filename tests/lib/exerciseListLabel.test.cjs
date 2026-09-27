@@ -94,6 +94,8 @@ module.exports = [
       assert.ok(found('penkkipunnerrus smithissä').includes('Penkkipunnerrus Smithissä'));
       assert.ok(found('kyykky kk').some((label) => / KK$/.test(label)));
       assert.ok(found('vinopenkkipunnerrus kp').includes('Vinopenkkipunnerrus KP'));
+      // A chin-up is 'Leuanveto alaotteella'; the gym word for the grip finds it too.
+      assert.ok(found('leuanveto vastaote').includes('Leuanveto alaotteella'));
     },
   },
 ];
