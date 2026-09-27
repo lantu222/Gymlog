@@ -169,11 +169,23 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
   // the user is returning after a long break. Otherwise this is the same list
   // twice, and a model that sees a session in two places may count it twice.
   if (context.history.sessionCount === 0) {
+    // The last session is unwindowed, so after a long break it is the newest
+    // of these rows too (PR review, 2026-09-27): marked, like its history row.
+    // Newest first here, so the first match is the one.
+    const markedRecent = lastSession
+      ? context.recentCompletedSessions.find(
+          (s) =>
+            sessionDay(s) === lastSession.day &&
+            typeof s.title === 'string' &&
+            s.title.trim().slice(0, 120) === lastSession.name,
+        ) ?? null
+      : null;
     const recentLines = context.recentCompletedSessions.map((s) => {
       const parts: string[] = [sessionName(s.title)];
       if (s.durationMinutes) parts.push(`${s.durationMinutes} min`);
       if (s.setsCompleted) parts.push(`${s.setsCompleted} sets`);
       parts.push(sessionDay(s));
+      if (s === markedRecent) parts.push('the Last session above, not another one');
       return `- ${parts.join(' | ')}`;
     });
     const recentBlock = section('Recent sessions (before this window)', recentLines);

@@ -234,6 +234,28 @@ module.exports = [
     },
   },
   {
+    name: 'after a long break the recent-sessions row that is the last session is marked too',
+    run() {
+      // History window empty, the last session older than it: the same session
+      // is the Last session and the newest Recent row (PR review, 2026-09-27).
+      const old = { ...LAST_SESSION, day: '2026-06-01' };
+      const out = buildAiCoachSystemContext(
+        baseContext({
+          lastSession: old,
+          recentCompletedSessions: [
+            { sessionId: 'a', title: 'Day 4: Lower Body', performedAt: '2026-06-01T08:00:00.000Z', day: '2026-06-01', durationMinutes: 50, setsCompleted: 14, swappedExercises: 0, noteCount: 0 },
+            { sessionId: 'b', title: 'Day 3: Upper Body', performedAt: '2026-05-30T08:00:00.000Z', day: '2026-05-30', durationMinutes: 60, setsCompleted: 18, swappedExercises: 0, noteCount: 0 },
+          ],
+        }),
+        'fi',
+      );
+      assert.ok(out.includes('## Recent sessions'), out);
+      const marked = out.split('\n').filter((row) => row.includes('the Last session above'));
+      assert.equal(marked.length, 1, out);
+      assert.ok(marked[0].includes('2026-06-01'));
+    },
+  },
+  {
     name: 'the last session is the newest one up to now, its lifts in order, completed working sets only',
     run() {
       const now = new Date('2026-09-27T07:50:00.000Z');
