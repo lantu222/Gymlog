@@ -168,8 +168,22 @@ export function rankExerciseMatch(
     }
     return 4;
   };
-  // "yläpenkki" ranks as what it stands for, so Vinopenkkipunnerrus leads.
-  return Math.min(...termVariants(normalized).map(rankFor));
+  // "yläpenkki" ranks as what it stands for, so Vinopenkkipunnerrus leads —
+  // and each word of a longer query stands for its own words ("yläpenkki kp").
+  const best = Math.min(...queryVariants(normalized).map(rankFor));
+  // Every word found in the name is a name match, whatever order they came in.
+  return best === 4 && exerciseMatchesQuery(`${shown} ${stored}`, query) ? 3 : best;
+}
+
+/** The query with each word also read as what it stands for, every combination. */
+function queryVariants(normalized: string): string[] {
+  return normalized
+    .split(' ')
+    .filter(Boolean)
+    .reduce<string[]>(
+      (variants, term) => variants.flatMap((head) => termVariants(term).map((variant) => (head ? `${head} ${variant}` : variant))),
+      [''],
+    );
 }
 
 /**
@@ -196,7 +210,6 @@ export function rankExerciseMatches<
   // A large finite stand-in: Infinity - Infinity is NaN, and a comparator
   // that returns NaN leaves the order to the engine.
   const popular = (item: T) => popularity?.(item) ?? Number.MAX_SAFE_INTEGER;
-  const normalizedNeedle = normalizeSearchText(needle);
   const ranked = items
     .map((item, index) => {
       const label = exerciseNameLabel(language, item.name);
@@ -208,12 +221,8 @@ export function rankExerciseMatches<
         label,
         // Past popularity, a lift whose name says what was typed comes before
         // one that only trains it: "hauis" is Hauiskääntö before Rannerulla.
-        nameHit: termVariants(normalizedNeedle).some(
-          (variant) =>
-            normalizeSearchText(label).includes(variant) || normalizeSearchText(item.name).includes(variant),
-        )
-          ? 0
-          : 1,
+        // Every word of the query, as itself or what it stands for.
+        nameHit: exerciseMatchesQuery(`${label} ${item.name}`, needle) ? 0 : 1,
       };
     })
     .filter(({ item }) => exerciseMatchesQuery(buildExerciseSearchHaystack(item, language), needle))

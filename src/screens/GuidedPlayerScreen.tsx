@@ -117,7 +117,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
 import { elapsedSecondsOf } from '../features/workout/workoutState';
 import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
-import { exerciseMatchesQuery, rankExerciseMatches } from '../lib/exerciseSearch';
+import { exerciseMatchesQuery, oneRowPerShownName, rankExerciseMatches } from '../lib/exerciseSearch';
 import { sessionLiftsMatchingQuery } from '../lib/swapShortlist';
 import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { useKeepScreenAwake } from '../utils/keepAwake';
@@ -2130,14 +2130,17 @@ function GuidedPlayer({
     );
     if (!query) {
       const popular = getPopularExerciseLibraryOrder(exerciseLibrary);
-      return [...pool]
-        .sort((left, right) => (popular.get(left.id) ?? 1e6) - (popular.get(right.id) ?? 1e6))
-        .slice(0, 25);
+      const byPopularity = [...pool].sort(
+        (left, right) => (popular.get(left.id) ?? 1e6) - (popular.get(right.id) ?? 1e6),
+      );
+      return oneRowPerShownName(byPopularity, language).slice(0, 25);
     }
     // Best answer first, popularity breaking ties — the same rule as the
     // pickers, so the swap sheet does not disagree with them.
     const popular = getPopularExerciseLibraryOrder(exerciseLibrary);
-    return rankExerciseMatches(pool, query, language, (item) => popular.get(item.id)).slice(0, 40);
+    // One row per shown name, as on Home and the programme day (PR review).
+    const ranked = rankExerciseMatches(pool, query, language, (item) => popular.get(item.id));
+    return oneRowPerShownName(ranked, language).slice(0, 40);
   }, [actionExercise, exerciseLibrary, language, sessionLiftLabels, swapOptions, swapQuery]);
 
   const applySwap = (exerciseName: string) => {

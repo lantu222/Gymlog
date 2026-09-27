@@ -4,6 +4,7 @@ const {
   buildExerciseSearchHaystack,
   exerciseMatchesQuery,
   normalizeSearchText,
+  rankExerciseMatch,
   rankExerciseMatches,
 } = require('../../.test-dist/lib/exerciseSearch.js');
 const { exerciseNameLabel } = require('../../.test-dist/lib/exerciseNameLabel.js');
@@ -44,6 +45,15 @@ module.exports = [
     run() {
       assert.equal(labels('Yläpenkki')[0], 'Vinopenkkipunnerrus');
       assert.ok(labels('yläpenkki kp').includes('Vinopenkkipunnerrus käsipainoilla'));
+      // …and ranks as a name match, word by word (PR review): the dumbbell
+      // incline press leads a two-word alias query, not a muscle-only row.
+      // Each word read as what it stands for: "romanialainen mave" is the
+      // name exactly, so it ranks as the name.
+      const rdl = library.find((item) => exerciseNameLabel('fi', item.name) === 'Romanialainen maastaveto');
+      assert.equal(rankExerciseMatch(rdl, 'romanialainen mave', 'fi'), 0);
+      // Every word in the name, in whatever order, is at least a name match.
+      const incline = library.find((item) => item.name === 'Incline Dumbbell Press');
+      assert.ok(rankExerciseMatch(incline, 'kp yläpenkki', 'fi') <= 3);
       assert.ok(labels('alapenkki').some((label) => label.startsWith('Laskeva penkkipunnerrus')));
       assert.equal(labels('mave')[0], 'Maastaveto');
       assert.ok(labels('leuka').includes('Leuanveto'));
