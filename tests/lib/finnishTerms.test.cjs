@@ -91,12 +91,17 @@ function finnishSlices() {
   const i18n = read('src/lib/i18n.ts');
   const legal = read('src/lib/legalDocuments.ts');
   const teaching = read('src/lib/exerciseTeaching.ts');
+  const names = read('src/lib/exerciseNameLabel.ts');
   return [
     ['src/lib/i18n.ts', between(i18n, 'const FI: Record<I18nKey, string> = {', 'const STRINGS')],
     ['src/lib/readyProgramContentFi.ts', read('src/lib/readyProgramContentFi.ts')],
     ['src/lib/progressionRuleLabel.ts', read('src/lib/progressionRuleLabel.ts')],
     ['src/lib/exerciseInstructions.ts', read('src/lib/exerciseInstructions.ts')],
     ['src/lib/sessionNameLabel.ts', read('src/lib/sessionNameLabel.ts')],
+    // The exercise names themselves: "Myötäotteinen leuanveto" named the
+    // chin-up with the retired word — and the wrong grip — because this file
+    // was never read (2026-09-27).
+    ['src/lib/exerciseNameLabel.ts', between(names, 'const EXERCISE_NAME_FI', 'const EXERCISE_NAME_EN')],
     ['src/lib/exerciseTeaching.ts', between(teaching, 'const TEACHING_FI', 'export function getExerciseTeaching')],
     ['src/lib/legalDocuments.ts (privacy)', between(legal, 'const PRIVACY_FI', 'const TERMS_EN')],
     ['src/lib/legalDocuments.ts (terms)', between(legal, 'const TERMS_FI', 'const TITLES')],
