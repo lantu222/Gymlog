@@ -49,7 +49,24 @@ export function buildExerciseSearchHaystack(
  * oikein muuten ei löydä" (#bugs 2026-09-27): "trap bar" missed "Trap bar
  * -maastaveto" on the dash, and a keyboard without ä could not type "ylä".
  */
+const normalizedCache = new Map<string, string>();
+
 export function normalizeSearchText(value: string): string {
+  // Library labels and facets repeat on every keystroke of every sheet; a
+  // bounded memo keeps the fold to once per string.
+  const cached = normalizedCache.get(value);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const normalized = foldSearchText(value);
+  if (normalizedCache.size > 20000) {
+    normalizedCache.clear();
+  }
+  normalizedCache.set(value, normalized);
+  return normalized;
+}
+
+function foldSearchText(value: string): string {
   return value
     .toLowerCase()
     .replace(/[äå]/g, 'a')
@@ -133,7 +150,9 @@ export function rankExerciseMatch(
     if (shown === needle || stored === needle) {
       return 0;
     }
-    if (shown.startsWith(needle) || facetWords.some((word) => word.startsWith(needle))) {
+    // Three letters before a muscle counts: one or two would rank every lift
+    // whose muscle starts so with the names the reader is spelling out.
+    if (shown.startsWith(needle) || (needle.length >= 3 && facetWords.some((word) => word.startsWith(needle)))) {
       return 1;
     }
     if (shown.split(' ').some((word) => word.startsWith(needle))) {
@@ -201,18 +220,26 @@ export function rankExerciseMatches<
         left.label.length - right.label.length ||
         left.index - right.index,
     );
-  // One row per name the reader sees: "Bench Press with Chains" and "Chain
-  // Press" both read "Penkkipunnerrus ketjuilla", and the list showed it
-  // twice (#bugs 2026-09-27). The better-ranked row stays.
+  return ranked.map(({ item }) => item);
+}
+
+/**
+ * One row per name the reader sees, first kept: "Bench Press with Chains" and
+ * "Chain Press" both read "Penkkipunnerrus ketjuilla", and the swap list showed
+ * it twice (#bugs 2026-09-27). For choosing a replacement, not for browsing —
+ * the library keeps both rows, each with its own pictures and steps.
+ */
+export function oneRowPerShownName<T extends Pick<ExerciseLibraryItem, 'name'>>(
+  items: readonly T[],
+  language: AppLanguage,
+): T[] {
   const seen = new Set<string>();
-  return ranked
-    .filter(({ label }) => {
-      const key = normalizeSearchText(label);
-      if (seen.has(key)) {
-        return false;
-      }
-      seen.add(key);
-      return true;
-    })
-    .map(({ item }) => item);
+  return items.filter((item) => {
+    const key = normalizeSearchText(exerciseNameLabel(language, item.name));
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
 }

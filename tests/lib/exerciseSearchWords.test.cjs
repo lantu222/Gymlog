@@ -62,12 +62,25 @@ module.exports = [
     },
   },
   {
-    name: 'one row per name the reader sees',
+    name: 'the swap list shows one row per name the reader sees; the library keeps both rows',
     run() {
       const chains = labels('penkkipunnerrus ketjuilla').filter((label) => label === 'Penkkipunnerrus ketjuilla');
       assert.equal(chains.length, 1);
-      const ranked = rankExerciseMatches(library, 'penkkipunnerrus', 'fi').map((item) => exerciseNameLabel('fi', item.name));
-      assert.equal(new Set(ranked).size, ranked.length, 'a label repeated in the ranked list');
+      const swap = labels('penkkipunnerrus');
+      assert.equal(new Set(swap).size, swap.length, 'a label repeated in the swap list');
+      // Browsing is not choosing a replacement: both rows, each with its own
+      // pictures and steps, stay findable (review, 2026-09-27).
+      const browsed = rankExerciseMatches(library, 'ketjuilla', 'fi').map((item) => item.name);
+      assert.ok(browsed.includes('Bench Press with Chains') && browsed.includes('Chain Press'));
+    },
+  },
+  {
+    name: 'one or two letters spell a name, not a muscle',
+    run() {
+      // "s" on the way to "sivunosto" must not rank every lift whose muscle
+      // starts with s alongside the names (review, 2026-09-27).
+      const top = rankExerciseMatches(library, 'si', 'fi').slice(0, 5).map((item) => exerciseNameLabel('fi', item.name));
+      assert.ok(top.every((label) => /^si/i.test(label)), top.join(' | '));
     },
   },
   {
@@ -95,8 +108,12 @@ module.exports = [
         sessionLiftsMatchingQuery(session, 'Smith Machine Bench Press', 'penkkipunnerrus', 'fi'),
         [exerciseNameLabel('fi', 'Barbell Bench Press - Medium Grip')],
       );
-      // The lift being swapped is the sheet's own title, not a hit.
+      // The lift being swapped is the sheet's own title, not a hit — under
+      // another stored spelling too.
       assert.deepEqual(sessionLiftsMatchingQuery(session, 'Standing Military Press', 'pysty', 'fi'), []);
+      assert.deepEqual(sessionLiftsMatchingQuery(session, 'Bench Press', 'penkkipunnerrus', 'fi'), [
+        exerciseNameLabel('fi', 'Smith Machine Bench Press'),
+      ]);
       // Nothing typed, nothing named; a row with no name is skipped, not thrown on.
       assert.deepEqual(sessionLiftsMatchingQuery(session, 'Smith Machine Bench Press', '  ', 'fi'), []);
       assert.deepEqual(sessionLiftsMatchingQuery([undefined, 'Deadlift'], 'Deadlift', 'mave', 'fi'), []);

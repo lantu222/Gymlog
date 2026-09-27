@@ -1,5 +1,5 @@
 import { exerciseNameLabel } from './exerciseNameLabel';
-import { exerciseMatchesQuery, normalizeSearchText, rankExerciseMatches } from './exerciseSearch';
+import { exerciseMatchesQuery, normalizeSearchText, oneRowPerShownName, rankExerciseMatches } from './exerciseSearch';
 import { TailoredSwapOption } from './tailoringFit';
 import { AppLanguage, ExerciseLibraryItem } from '../types/models';
 
@@ -206,15 +206,18 @@ export function buildSwapLibraryMatches<T extends ExerciseLibraryItem>(
   // Best answer first — twelve rows is not room for the lift itself to sit
   // behind its variants. Popularity breaks ties; without it "penkki" answers
   // with Penkkidippi before Penkkipunnerrus.
-  return rankExerciseMatches(
-    library.filter(
+  return oneRowPerShownName(
+    rankExerciseMatches(
+      library.filter(
       (item) =>
         !excluded.has(identityKey(item.name)) &&
         !excludedLabels.has(normalizeSearchText(exerciseNameLabel(language, item.name))),
     ),
-    query,
+      query,
+      language,
+      (item) => popularOrder?.get(item.id),
+    ),
     language,
-    (item) => popularOrder?.get(item.id),
   ).slice(0, MAX_LIBRARY_MATCHES);
 }
 
@@ -238,12 +241,16 @@ export function sessionLiftsMatchingQuery(
   }
   const current = identityKey(currentExerciseName);
   const seen = new Set<string>([current]);
+  // By the shown name as well: another spelling of the lift being swapped is
+  // still the lift in the sheet's title.
+  const currentLabel = normalizeSearchText(exerciseNameLabel(language, currentExerciseName));
   const names: string[] = [];
   for (const name of sessionLifts) {
     if (typeof name !== 'string' || !name.trim()) continue;
     const identity = identityKey(name);
     if (seen.has(identity)) continue;
     const label = exerciseNameLabel(language, name);
+    if (normalizeSearchText(label) === currentLabel) continue;
     if (!exerciseMatchesQuery(`${name} ${label}`, query)) continue;
     seen.add(identity);
     names.push(label);

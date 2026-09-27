@@ -123,6 +123,11 @@ export function ExerciseSheet({
   const [expanded, setExpanded] = useState(false);
   const expandedRef = useRef(false);
   const dragStart = useRef(collapsedHeight);
+  // Read through a ref: callers pass onClose inline, and the player
+  // re-renders every second for its clock — a gesture rebuilt on each render
+  // loses the drag it granted.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   const snapTo = (toExpanded: boolean) => {
     expandedRef.current = toExpanded;
@@ -160,17 +165,17 @@ export function ExerciseSheet({
             snapTo(!expandedRef.current);
           } else if (released < collapsedHeight - 90) {
             sheetHeight.setValue(collapsedHeight);
-            onClose();
+            onCloseRef.current();
           } else {
             snapTo(released > (collapsedHeight + expandedHeight) / 2);
           }
         },
         onPanResponderTerminate: () => snapTo(expandedRef.current),
       }),
-    // snapTo and onClose read refs or are stable enough per render; the
-    // heights are what the gesture must be rebuilt for.
+    // snapTo and onClose go through refs and the animated value; the heights
+    // are the only thing the gesture is rebuilt for.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [collapsedHeight, expandedHeight, onClose],
+    [collapsedHeight, expandedHeight],
   );
 
   return (
