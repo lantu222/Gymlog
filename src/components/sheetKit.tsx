@@ -191,6 +191,11 @@ interface KitRowProps {
   onPen?: (() => void) | null;
   penLabel?: string;
   accessibilityLabel?: string;
+  /**
+   * Lines before the title ends in an ellipsis. Exercise rows pass 2: a long
+   * Finnish name is read whole (#bugs 2026-09-27); other rows keep one.
+   */
+  titleLines?: number;
 }
 
 export function KitRow({
@@ -202,6 +207,7 @@ export function KitRow({
   onPen = null,
   penLabel,
   accessibilityLabel,
+  titleLines = 1,
 }: KitRowProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -220,9 +226,7 @@ export function KitRow({
       ]}
     >
       <View style={styles.rowBody}>
-        {/* Two lines, not an ellipsis: a long Finnish name is read whole
-            (#bugs 2026-09-27). */}
-        <Text style={styles.rowName} numberOfLines={2}>
+        <Text style={styles.rowName} numberOfLines={titleLines}>
           {title}
         </Text>
         {meta ? <Text style={styles.rowMeta}>{meta}</Text> : null}

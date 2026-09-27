@@ -259,7 +259,11 @@ function ExCard({
         </View>
       </View>
       <View style={styles.cardBody}>
-        <Text numberOfLines={2} style={styles.cardTitle}>
+        <Text
+          numberOfLines={2}
+          style={styles.cardTitle}
+          accessibilityLabel={exerciseNameLabel(language, item.name)}
+        >
           {exerciseListLabel(language, item.name)}
         </Text>
         <View style={styles.cardFooter}>
@@ -295,7 +299,11 @@ function ExRow({
     <Pressable onPress={onOpen} disabled={!onOpen} style={styles.row}>
       <Thumb uri={getItemImage(item)} radius={11} width={52} height={52} />
       <View style={styles.rowCopy}>
-        <Text numberOfLines={2} style={styles.rowTitle}>
+        <Text
+          numberOfLines={2}
+          style={styles.rowTitle}
+          accessibilityLabel={exerciseNameLabel(language, item.name)}
+        >
           {exerciseListLabel(language, item.name)}
         </Text>
         <Text numberOfLines={1} style={styles.rowMeta}>

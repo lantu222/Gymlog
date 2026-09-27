@@ -94,6 +94,9 @@ const SEARCH_ALIASES: Record<string, readonly string[]> = {
   alaviistopenkki: ['laskeva penkki'],
   penkkari: ['penkkipunnerrus'],
   kp: ['kasipaino'],
+  // The short forms the rows print (exerciseListLabel) find what they stand for.
+  kk: ['kahvakuula'],
+  smithissa: ['smith'],
   mave: ['maastaveto'],
   leuka: ['leuanveto'],
   leuat: ['leuanveto'],

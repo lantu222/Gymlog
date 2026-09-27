@@ -1517,7 +1517,11 @@ export function HomeScreen({
                       </Text>
                     </View>
                     <View style={styles.planExerciseCopy}>
-                      <Text style={[styles.planExerciseName, dropped && styles.planExerciseDropped]} numberOfLines={2}>
+                      <Text
+                        style={[styles.planExerciseName, dropped && styles.planExerciseDropped]}
+                        numberOfLines={2}
+                        accessibilityLabel={rowName}
+                      >
                         {rowShown}
                       </Text>
                       <Text style={[styles.planExerciseScheme, dropped && styles.planExerciseDropped]}>
@@ -2246,6 +2250,7 @@ export function HomeScreen({
                     key={exerciseName}
                     title={exerciseListLabel(language, exerciseName)}
                     accessibilityLabel={exerciseNameLabel(language, exerciseName)}
+                    titleLines={2}
                     state={swapPickName === exerciseName ? 'sel' : 'idle'}
                     onPress={() =>
                       setSwapPickName((current) => (current === exerciseName ? null : exerciseName))

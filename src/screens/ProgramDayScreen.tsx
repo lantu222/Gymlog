@@ -1268,6 +1268,7 @@ export function ProgramDayScreen({
                       key={option.exerciseName}
                       title={exerciseListLabel(language, option.exerciseName)}
                       accessibilityLabel={exerciseNameLabel(language, option.exerciseName)}
+                      titleLines={2}
                       state={swapPickName === option.exerciseName ? 'sel' : 'idle'}
                       onPress={() =>
                         setSwapPickName((current) =>

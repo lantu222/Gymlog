@@ -561,7 +561,11 @@ export function AddExerciseSheet({
                             </View>
 
                             <View style={styles.gridCardCopy}>
-                              <Text numberOfLines={3} style={styles.gridCardTitle}>
+                              <Text
+                                numberOfLines={3}
+                                style={styles.gridCardTitle}
+                                accessibilityLabel={exerciseNameLabel(language, item.name)}
+                              >
                                 {exerciseListLabel(language, item.name)}
                               </Text>
                               <Text numberOfLines={1} style={styles.gridCardBodyPart}>
@@ -630,7 +634,11 @@ export function AddExerciseSheet({
                   </View>
 
                   <View style={styles.gridCardCopy}>
-                    <Text numberOfLines={3} style={styles.gridCardTitle}>
+                    <Text
+                      numberOfLines={3}
+                      style={styles.gridCardTitle}
+                      accessibilityLabel={exerciseNameLabel(language, item.name)}
+                    >
                                 {exerciseListLabel(language, item.name)}
                               </Text>
                     <Text numberOfLines={1} style={styles.gridCardBodyPart}>

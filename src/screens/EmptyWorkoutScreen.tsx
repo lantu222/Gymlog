@@ -375,7 +375,11 @@ function AddExerciseSheetHG({ visible, items, language, onClose, onAdd, bottomIn
                       <SelectTogglePill selected={selected} />
                     </View>
                   </View>
-                  <Text numberOfLines={2} style={styles.popularName}>
+                  <Text
+                    numberOfLines={2}
+                    style={styles.popularName}
+                    accessibilityLabel={exerciseNameLabel(language, formatLiftDisplayLabel(item.name, 'Exercise'))}
+                  >
                     {exerciseListLabel(language, formatLiftDisplayLabel(item.name, 'Exercise'))}
                   </Text>
                   <Text numberOfLines={1} style={styles.popularMeta}>
@@ -450,7 +454,11 @@ function AddExerciseSheetHG({ visible, items, language, onClose, onAdd, bottomIn
                 <Pressable onPress={() => toggle(item.id)} style={[styles.sheetRow, selected && styles.sheetRowSelected]}>
                   <Tile initials={exerciseInitials(exerciseNameLabel(language, formatLiftDisplayLabel(item.name, 'Exercise')))} size={46} />
                   <View style={styles.sheetRowCopy}>
-                    <Text numberOfLines={2} style={styles.sheetRowName}>
+                    <Text
+                      numberOfLines={2}
+                      style={styles.sheetRowName}
+                      accessibilityLabel={exerciseNameLabel(language, formatLiftDisplayLabel(item.name, 'Exercise'))}
+                    >
                       {exerciseListLabel(language, formatLiftDisplayLabel(item.name, 'Exercise'))}
                     </Text>
                     <Text numberOfLines={1} style={styles.sheetRowMeta}>
@@ -1016,7 +1024,11 @@ export function EmptyWorkoutScreen({
                 <View style={styles.exerciseHead}>
                   <Tile initials={exercise.initials} size={40} radius={11} />
                   <View style={styles.exerciseHeadCopy}>
-                    <Text numberOfLines={2} style={styles.exerciseName}>
+                    <Text
+                      numberOfLines={2}
+                      style={styles.exerciseName}
+                      accessibilityLabel={exerciseNameLabel(language, exercise.displayName)}
+                    >
                       {exerciseListLabel(language, exercise.displayName)}
                     </Text>
                     <Text numberOfLines={1} style={styles.exerciseMeta}>
@@ -1285,7 +1297,11 @@ export function EmptyWorkoutScreen({
                   <Pressable key={item.id} onPress={() => addExercises([item])} style={styles.quickRow}>
                     <Tile initials={exerciseInitials(exerciseNameLabel(language, formatLiftDisplayLabel(item.name, 'Exercise')))} size={44} />
                     <View style={styles.quickRowCopy}>
-                      <Text numberOfLines={2} style={styles.quickRowName}>
+                      <Text
+                        numberOfLines={2}
+                        style={styles.quickRowName}
+                        accessibilityLabel={exerciseNameLabel(language, formatLiftDisplayLabel(item.name, 'Exercise'))}
+                      >
                         {exerciseListLabel(language, formatLiftDisplayLabel(item.name, 'Exercise'))}
                       </Text>
                       <Text numberOfLines={1} style={styles.quickRowMeta}>

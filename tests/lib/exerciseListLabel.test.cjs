@@ -57,14 +57,43 @@ module.exports = [
         read('src/screens/GuidedPlayerScreen.tsx'),
         /label=\{exerciseListLabel\(language, item\.name\)\}\s*accessibilityLabel=\{exerciseNameLabel\(language, item\.name\)\}/,
       );
+      // Every text that prints the short form tells a screen reader the full
+      // name — "K P" is what TalkBack would say (review, 2026-09-27).
+      const missing = [];
+      for (const dir of ['src/screens', 'src/components']) {
+        for (const file of fs.readdirSync(path.join(__dirname, '..', '..', dir)).filter((name) => name.endsWith('.tsx'))) {
+          const source = read(`${dir}/${file}`);
+          const shown = /<Text\b((?:(?!<Text\b)[\s\S])*?)>\s*\{exerciseListLabel\(/g;
+          let match;
+          while ((match = shown.exec(source))) {
+            if (!/accessibilityLabel=/.test(match[1])) {
+              missing.push(`${dir}/${file}:${source.slice(0, match.index).split('\n').length}`);
+            }
+          }
+        }
+      }
+      assert.deepEqual(missing, []);
       // Domain logic writes sentences, the coach's context and search: none of
       // it may use the short form.
       const libDir = path.join(__dirname, '..', '..', 'src', 'lib');
       const users = fs
         .readdirSync(libDir)
         .filter((file) => file.endsWith('.ts') && file !== 'exerciseNameLabel.ts')
-        .filter((file) => fs.readFileSync(path.join(libDir, file), 'utf8').includes('exerciseListLabel'));
+        .filter((file) => fs.readFileSync(path.join(libDir, file), 'utf8').includes('exerciseListLabel('));
       assert.deepEqual(users, []);
+    },
+  },
+  {
+    name: 'what a row prints finds what it stands for',
+    run() {
+      const { buildExerciseSearchHaystack, exerciseMatchesQuery } = require('../../.test-dist/lib/exerciseSearch.js');
+      const found = (query) =>
+        library
+          .filter((item) => exerciseMatchesQuery(buildExerciseSearchHaystack(item, 'fi'), query))
+          .map((item) => exerciseListLabel('fi', item.name));
+      assert.ok(found('penkkipunnerrus smithissä').includes('Penkkipunnerrus Smithissä'));
+      assert.ok(found('kyykky kk').some((label) => / KK$/.test(label)));
+      assert.ok(found('vinopenkkipunnerrus kp').includes('Vinopenkkipunnerrus KP'));
     },
   },
 ];

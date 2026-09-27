@@ -878,7 +878,11 @@ function NameBlock({
 
   return (
     <View style={{ paddingHorizontal: 26, alignItems: 'center' }}>
-      <Text style={styles.exerciseName} numberOfLines={2}>
+      <Text
+        style={styles.exerciseName}
+        numberOfLines={2}
+        accessibilityLabel={exerciseNameLabel(language, name)}
+      >
         {exerciseListLabel(language, name)}
       </Text>
       {hasHowTo ? (
@@ -3188,6 +3192,7 @@ function GuidedPlayer({
                     numberOfLines={1}
                     adjustsFontSizeToFit
                     minimumFontScale={0.5}
+                    accessibilityLabel={exerciseNameLabel(language, step.exerciseName)}
                   >
                     {exerciseListLabel(language, step.exerciseName)}
                   </Text>
@@ -3684,7 +3689,11 @@ function GuidedPlayer({
                 {warmupBrief.firstLift ? (
                   <View style={styles.ownBriefFirst}>
                     <Text style={styles.ownBriefLabel}>{t(language, 'guided.own.brief.firstLift')}</Text>
-                    <Text style={styles.ownBriefFirstName} numberOfLines={1}>
+                    <Text
+                      style={styles.ownBriefFirstName}
+                      numberOfLines={1}
+                      accessibilityLabel={exerciseNameLabel(language, warmupBrief.firstLift.exerciseName)}
+                    >
                       {exerciseListLabel(language, warmupBrief.firstLift.exerciseName)}
                     </Text>
                     <Text style={styles.ownBriefFirstScheme}>{warmupBrief.firstLift.scheme}</Text>
@@ -3920,6 +3929,7 @@ function GuidedPlayer({
                             item.status === 'done' && { color: theme.muted },
                           ]}
                           numberOfLines={2}
+                          accessibilityLabel={exerciseNameLabel(language, member.name)}
                         >
                           {exerciseListLabel(language, member.name)}
                         </Text>
@@ -4504,6 +4514,7 @@ function SetStepView({
                 <Text
                   key={member.slotId}
                   style={member.slotId === step.slotId ? styles.setSupersetFlowNow : undefined}
+                  accessibilityLabel={exerciseNameLabel(language, member.name)}
                 >
                   {exerciseListLabel(language, member.name)}
                   {index < superset.members.length - 1 ? '  ·  ' : ''}
@@ -4554,7 +4565,11 @@ function SetStepView({
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={styles.setExerciseName} numberOfLines={2}>
+                <Text
+                  style={styles.setExerciseName}
+                  numberOfLines={2}
+                  accessibilityLabel={exerciseNameLabel(language, step.exerciseName)}
+                >
                   {exerciseListLabel(language, step.exerciseName)}
                 </Text>
                 <GPIcon name="info" size={16} color={theme.muted} sw={2.2} />
