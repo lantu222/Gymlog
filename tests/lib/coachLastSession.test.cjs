@@ -309,6 +309,21 @@ module.exports = [
     },
   },
   {
+    name: 'trimming a context to fit calls the last session cut only when it was',
+    run() {
+      const { fitAiCoachContextToCap } = require('../../.test-dist/lib/aiTrainingContext.js');
+      const many = Array.from({ length: 9 }, (_, i) => ({ name: `Lift ${i}`, sets: [{ weightKg: 50, reps: 10 }] }));
+      // A cap nothing fits under runs every shedding step, the one that trims
+      // the last session included (PR review, 2026-09-27).
+      const small = fitAiCoachContextToCap(normalizeAiCoachTrainingContext(baseContext({ lastSession: LAST_SESSION })), 10);
+      assert.equal(small.lastSession.exercises.length, 2);
+      assert.equal(small.lastSession.truncated, false);
+      const big = fitAiCoachContextToCap(normalizeAiCoachTrainingContext(baseContext({ lastSession: { ...LAST_SESSION, exercises: many } })), 10);
+      assert.equal(big.lastSession.exercises.length, 6);
+      assert.equal(big.lastSession.truncated, true);
+    },
+  },
+  {
     name: 'the last session is the newest one up to now, its lifts in order, completed working sets only',
     run() {
       const now = new Date('2026-09-27T07:50:00.000Z');

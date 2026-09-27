@@ -649,7 +649,12 @@ const CONTEXT_SHEDDING: ReadonlyArray<(context: AICoachTrainingContext) => AICoa
     ...context,
     history: { ...context.history, sessions: [], lifts: [], truncated: true },
     lastSession: context.lastSession
-      ? { ...context.lastSession, exercises: context.lastSession.exercises.slice(0, 6), truncated: true }
+      ? {
+          ...context.lastSession,
+          exercises: context.lastSession.exercises.slice(0, 6),
+          // Only when something was cut: the block says so to the model.
+          truncated: context.lastSession.truncated || context.lastSession.exercises.length > 6,
+        }
       : context.lastSession,
     cardio: context.cardio ? { ...context.cardio, sessions: [], truncated: true } : context.cardio,
     goals: (context.goals ?? []).filter((goal) => goal.isPrimary),
