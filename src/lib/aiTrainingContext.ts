@@ -534,6 +534,9 @@ export function buildAiCoachLastSession(
             ? { day: localDateKey(beforeSession.performedAt), sets: before.sets.slice(0, MAX_LAST_SESSION_SETS) }
             : null,
         sessionsAtThisWeight,
+        // By the name logged. A lift swapped in for the day is not the one the
+        // programme prescribes next time, so it gets no "next time" rather
+        // than the original lift's numbers under its name.
         next: nextFor(nextByLift.get(normalizedName(name))),
       };
     })

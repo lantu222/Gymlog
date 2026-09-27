@@ -1443,7 +1443,7 @@ export function AICoachChatScreen({
                   {/* The last-workout answer reads as the user laid it out
                       (2026-09-27): the observation, what I would do next, a
                       heads-up only when there is one, and an example. */}
-                  {message.advice?.topic === 'last_session' ? (
+                  {message.advice?.topic === 'last_session' && !message.advice.unanswered ? (
                     <Text style={styles.answerSectionLabel}>{t(language, 'coachChat.section.observation')}</Text>
                   ) : null}
                   <Text style={message.fromCoach ? styles.coachText : styles.meText}>{message.text}</Text>
