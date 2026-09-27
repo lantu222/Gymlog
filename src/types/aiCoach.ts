@@ -92,6 +92,31 @@ export interface AICoachHistorySession {
   exerciseCount: number;
 }
 
+/**
+ * The newest logged session, set by set — what "my last workout" means.
+ *
+ * The history block holds one line per session, and the model had to pick the
+ * newest out of it: asked to analyse the last workout on 2026-09-27, it
+ * analysed the one before (a different day, a third of the volume) in both
+ * languages, and in Finnish put the newest one's date on it.
+ */
+export interface AICoachLastSession {
+  /** Local YYYY-MM-DD, resolved on the phone like every other `day`. */
+  day: string;
+  /** Session name as stored, in English — an identifier, not a label. */
+  name: string;
+  exercises: AICoachLastSessionExercise[];
+  /** True when exercises or sets were dropped to keep the payload small. */
+  truncated: boolean;
+}
+
+export interface AICoachLastSessionExercise {
+  /** As stored, in English. */
+  name: string;
+  /** Completed sets in the order done; working sets only when there are any. */
+  sets: { weightKg: number; reps: number }[];
+}
+
 export interface AICoachHistoryLift {
   name: string;
   sessions: number;
@@ -308,6 +333,8 @@ export interface AICoachTrainingContext {
   plateaus: AICoachPlateauSummary[];
   fatigue: AICoachFatigueSummary;
   history: AICoachHistory;
+  /** Optional so an older client's payload still parses; null = none logged. */
+  lastSession?: AICoachLastSession | null;
   /** Optional so an older client's payload still parses; null = no cardio. */
   cardio?: AICoachCardio | null;
   plannerSetup?: AICoachPlannerSetupSummary | null;

@@ -1,6 +1,15 @@
-import { AICoachTrainingContext } from '../types/aiCoach';
+import {
+  AICoachCardioSession,
+  AICoachHistorySession,
+  AICoachLastSession,
+  AICoachRecentCompletedSession,
+  AICoachTrainingContext,
+} from '../types/aiCoach';
+import { AppLanguage } from '../types/models';
 import { renderAiCoachProgramme } from './aiCoachProgramme';
 import { CARDIO_ACTIVITIES } from './cardio';
+import { exerciseNameLabel } from './exerciseNameLabel';
+import { localizeSessionName } from './sessionNameLabel';
 
 /**
  * A session's date as the reader lived it.
@@ -41,18 +50,64 @@ function plural(count: number, word: string) {
   return `${count} ${word}${count === 1 ? '' : 's'}`;
 }
 
+const MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * A YYYY-MM-DD day the way the reader's language writes it: "26.9." or
+ * "26 Sep". The rules said so and the model still wrote "24.9." in English
+ * (2026-09-27); an example it can copy is harder to get wrong than a rule.
+ */
+function readerDate(day: string, language: AppLanguage) {
+  const match = day.match(/^\d{4}-(\d{2})-(\d{2})$/);
+  if (!match) return day;
+  const month = Number(match[1]);
+  const date = Number(match[2]);
+  return language === 'fi' ? `${date}.${month}.` : `${date} ${MONTHS_EN[month - 1] ?? match[1]}`;
+}
+
+function newestCardioSession(sessions: AICoachCardioSession[]) {
+  let newest: AICoachCardioSession | null = null;
+  for (const entry of sessions) {
+    if (!newest || entry.day >= newest.day) newest = entry;
+  }
+  return newest;
+}
+
+function newestHistorySession(sessions: AICoachHistorySession[]) {
+  let newest: AICoachHistorySession | null = null;
+  for (const entry of sessions) {
+    if (!newest || sessionDay(entry) >= sessionDay(newest)) newest = entry;
+  }
+  return newest;
+}
+
 /**
  * The context block exactly as the endpoint sends it, heading included: what
  * its size cap measures, and so what a client measures itself against
  * (fitAiCoachContextToCap). One function, so the two cannot count differently.
  */
-export function buildAiCoachContextText(context: AICoachTrainingContext): string {
-  return `# Training context\n\n${buildAiCoachSystemContext(context)}`;
+export function buildAiCoachContextText(context: AICoachTrainingContext, language: AppLanguage | null = null): string {
+  return `# Training context\n\n${buildAiCoachSystemContext(context, language)}`;
 }
 
-export function buildAiCoachSystemContext(context: AICoachTrainingContext): string {
+/**
+ * The context as the model reads it. Names are rendered in the reader's
+ * language: the context carries the stored English ids, and the model copied
+ * them into a Finnish answer ("Overhead Press", "Day 3: Upper Body") where
+ * every screen of the app says "Pystypunnerrus" and "Ylävartalo" (2026-09-27).
+ * No language (the default) keeps the ids exactly as stored: the programme
+ * composer answers in library names the app resolves back to rows, and even
+ * English labels rename some ("Triceps Pushdown - Rope Attachment" reads as
+ * "Rope Pushdown"). The phone's cap is measured on this form too.
+ */
+export function buildAiCoachSystemContext(context: AICoachTrainingContext, language: AppLanguage | null = null): string {
   const u = context.unitPreference;
   const blocks: string[] = [];
+  // Tolerant: on the endpoint a posted history row may carry no name at all.
+  const liftName = (name: unknown) =>
+    typeof name !== 'string' ? '' : language ? exerciseNameLabel(language, name) : name;
+  const sessionName = (name: unknown) =>
+    typeof name !== 'string' ? '' : language ? localizeSessionName(name, language) : name;
   // Cardio counts as a session on Home and in the 30-day figure, and nowhere
   // in the strength blocks. With runs on record, every count says which kind
   // it is — unqualified, "3 sessions" beside "No sessions logged" read as a
@@ -90,15 +145,68 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
     blocks.push(section('Active session', [`${context.activeSession.title}${next}`])!);
   }
 
+  const lastSession = context.lastSession ?? null;
+  const newestSession = newestHistorySession(context.history.sessions);
+  const newestCardio = newestCardioSession(context.cardio?.sessions ?? []);
+  // An older app, back after a break: no last session, an empty window, and
+  // the lifting it did is only in the unwindowed recent rows. The newest of
+  // them is the last session — "No lifting logged" above a list of lifts
+  // would tell a returning lifter they never lifted (PR review, 2026-09-27).
+  const fallbackRecent =
+    !lastSession && !newestSession
+      ? context.recentCompletedSessions.reduce<AICoachRecentCompletedSession | null>(
+          (newest, s) => (!newest || sessionDay(s) > sessionDay(newest) ? s : newest),
+          null,
+        )
+      : null;
+  const lastBlock = renderLastSession(
+    lastSession,
+    newestSession,
+    fallbackRecent,
+    context.history.sessionCount === 0,
+    newestCardio,
+    language,
+    liftName,
+    sessionName,
+  );
+  if (lastBlock) blocks.push(lastBlock);
+  // The same session appears again in the history list below. Marked there —
+  // one row, the newest that matches — because a session listed twice is one
+  // a model can count twice, and two rows marked as it would be the same
+  // mistake the other way round.
+  const markedSession = lastSession
+    ? newestHistorySession(
+        context.history.sessions.filter(
+          (entry) =>
+            sessionDay(entry) === lastSession.day &&
+            typeof entry.name === 'string' &&
+            entry.name.trim().slice(0, 120) === lastSession.name,
+        ),
+      )
+    : newestSession;
+  const isLastSession = (entry: AICoachHistorySession) => entry === markedSession;
+
   // Recent sessions — only when the history block below is empty, which means
   // the user is returning after a long break. Otherwise this is the same list
   // twice, and a model that sees a session in two places may count it twice.
   if (context.history.sessionCount === 0) {
+    // The last session is unwindowed, so after a long break it is the newest
+    // of these rows too (PR review, 2026-09-27): marked, like its history row.
+    // Newest first here, so the first match is the one.
+    const markedRecent = lastSession
+      ? context.recentCompletedSessions.find(
+          (s) =>
+            sessionDay(s) === lastSession.day &&
+            typeof s.title === 'string' &&
+            s.title.trim().slice(0, 120) === lastSession.name,
+        ) ?? null
+      : fallbackRecent;
     const recentLines = context.recentCompletedSessions.map((s) => {
-      const parts: string[] = [s.title];
+      const parts: string[] = [sessionName(s.title)];
       if (s.durationMinutes) parts.push(`${s.durationMinutes} min`);
       if (s.setsCompleted) parts.push(`${s.setsCompleted} sets`);
       parts.push(sessionDay(s));
+      if (s === markedRecent) parts.push('the Last session above, not another one');
       return `- ${parts.join(' | ')}`;
     });
     const recentBlock = section('Recent sessions (before this window)', recentLines);
@@ -109,7 +217,7 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
   const liftLines = context.trackedLifts.map((lift) => {
     const weight = lift.latestWeight !== null ? `${lift.latestWeight} ${u}` : '—';
     const best = lift.bestWeight !== null ? ` (best: ${lift.bestWeight} ${u})` : '';
-    return `- ${lift.name}: ${weight} x ${lift.latestReps}${best}`;
+    return `- ${liftName(lift.name)}: ${weight} x ${lift.latestReps}${best}`;
   });
   const liftBlock = section('Tracked lifts', liftLines);
   if (liftBlock) blocks.push(liftBlock);
@@ -128,10 +236,11 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
   if (weekBlock) blocks.push(weekBlock);
 
   const sessionLines = history.sessions.map((entry) => {
-    const parts: string[] = [sessionDay(entry), entry.name];
+    const parts: string[] = [sessionDay(entry), sessionName(entry.name)];
     if (entry.durationMinutes) parts.push(`${entry.durationMinutes} min`);
     parts.push(`${entry.setCount} sets across ${entry.exerciseCount} exercises`);
     if (entry.volumeKg !== null) parts.push(kg(entry.volumeKg));
+    if (isLastSession(entry)) parts.push('the Last session above, not another one');
     return `- ${parts.join(' | ')}`;
   });
   if (sessionLines.length > 0) {
@@ -171,7 +280,7 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
           : moved;
     const best =
       lift.bestWeightKg > lift.latestWeightKg ? `, best ${trim(lift.bestWeightKg)} kg` : '';
-    return `- ${lift.name}: ${move}${best} | top sets ${series} | latest ${trim(lift.latestWeightKg)} kg x ${lift.latestReps}`;
+    return `- ${liftName(lift.name)}: ${move}${best} | top sets ${series} | latest ${trim(lift.latestWeightKg)} kg x ${lift.latestReps}`;
   });
   const liftHistoryBlock = section('Lift trajectories (top set per session)', trajectoryLines);
   if (liftHistoryBlock) blocks.push(liftHistoryBlock);
@@ -303,7 +412,7 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
   // Plateaus — prominent, with actionable phrasing
   const plateauLines = context.plateaus.map((p) => {
     const weight = p.topWeightKg !== null ? `${p.topWeightKg} ${u}` : '—';
-    return `- ${p.name}: ${p.stagnantSessions} sessions at ${weight} without improvement`;
+    return `- ${liftName(p.name)}: ${p.stagnantSessions} sessions at ${weight} without improvement`;
   });
   const plateauBlock = section('Plateaus detected', plateauLines);
   if (plateauBlock) blocks.push(plateauBlock);
@@ -318,7 +427,7 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
   // The running programme's actual week. Titles alone made "what does my
   // programme contain" unanswerable and "does it suit my goal" a guess.
   if (context.programme) {
-    blocks.push(section('Current programme (the reader can see this on their plan page)', renderAiCoachProgramme(context.programme))!);
+    blocks.push(section('Current programme (the reader can see this on their plan page)', renderAiCoachProgramme(context.programme, liftName, sessionName))!);
   }
 
   // Planner setup — only if configured
@@ -357,3 +466,92 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
 
   return blocks.join('\n\n');
 }
+
+/**
+ * What "my last workout" means, set by set, headed so the model cannot take
+ * another session for it — see AICoachLastSession. An older app sends no
+ * sets; the newest line of the history stands in, so every reader with
+ * anything logged gets the block. The reader's date and number format ride
+ * along, with the reader's own date as the example; with no language (the
+ * composer, an older app) there is no format to state.
+ *
+ * A run newer than the last lift is named here too: the reader who lifted on
+ * Monday and ran on Wednesday means the run, and the block's own "no other"
+ * would otherwise forbid it.
+ */
+function renderLastSession(
+  last: AICoachLastSession | null,
+  newest: AICoachHistorySession | null,
+  recent: AICoachRecentCompletedSession | null,
+  recentBeforeWindow: boolean,
+  newestCardio: AICoachCardioSession | null,
+  language: AppLanguage | null,
+  liftName: (name: string) => string,
+  sessionName: (name: string) => string,
+) {
+  const writes = (day: string) =>
+    language === null
+      ? null
+      : line(
+          'Reader writes',
+          language === 'fi'
+            ? `Finnish — dates like ${readerDate(day, language)}, decimals like 82,5 kg`
+            : `English — dates like ${readerDate(day, language)}, decimals like 82.5 kg`,
+        );
+  const dated = (day: string) => line('Date', language === null ? day : `${day} (write it as ${readerDate(day, language)})`);
+  const set = (entry: { weightKg: number; reps: number }) =>
+    entry.weightKg > 0 ? `${trim(entry.weightKg)} kg x ${entry.reps}` : `${entry.reps} with no added load`;
+  const strengthDay = last ? last.day : newest ? sessionDay(newest) : recent ? sessionDay(recent) : null;
+  const cardioLine =
+    newestCardio && (strengthDay === null || newestCardio.day > strengthDay)
+      ? `- Newer than any lifting: ${cardioActivityName(newestCardio.activity)}, ${newestCardio.day}, ${newestCardio.minutes} min (in the Cardio block). If the reader means that, answer about it instead`
+      : null;
+  const heading =
+    'Last session — what "my last workout" / "viime treeni" means. Answer about this session, under this date, and no other';
+  const lines: (string | null)[] = [];
+  if (last) {
+    lines.push(
+      dated(last.day),
+      line('Name', sessionName(last.name)),
+      ...last.exercises.map((exercise) => `- ${liftName(exercise.name)}: ${exercise.sets.map(set).join(' | ')}`),
+      last.truncated ? '- (some exercises or sets were left out for this payload)' : null,
+      cardioLine,
+      writes(last.day),
+    );
+  } else if (newest) {
+    const day = sessionDay(newest);
+    const volume = newest.volumeKg !== null ? ` | ${kg(newest.volumeKg)}` : '';
+    lines.push(
+      dated(day),
+      line('Name', sessionName(newest.name)),
+      line('Logged', `${newest.setCount} sets across ${newest.exerciseCount} exercises${volume}`),
+      '- (this app version sends no set-by-set detail)',
+      cardioLine,
+      writes(day),
+    );
+  } else if (recent) {
+    const day = sessionDay(recent);
+    lines.push(
+      dated(day),
+      line('Name', sessionName(recent.title)),
+      recent.setsCompleted ? line('Logged', `${recent.setsCompleted} sets`) : null,
+      // Two ways to get here, and only one is "before the window": a context
+      // trimmed to fit empties the history rows but keeps their count, and
+      // then this session may be yesterday's (PR review, 2026-09-27).
+      recentBeforeWindow
+        ? '- (before the history window; this app version sends no set-by-set detail)'
+        : '- (history rows were left out for this payload; this app version sends no set-by-set detail)',
+      cardioLine,
+      writes(day),
+    );
+  } else if (cardioLine) {
+    lines.push('- No lifting logged.', cardioLine, writes(newestCardio!.day));
+  } else {
+    // Nothing logged: only the format, shown on the rules' own example day.
+    return section('Reader', [writes(RULES_EXAMPLE_DAY)].filter((entry): entry is string => entry !== null));
+  }
+  return section(heading, lines.filter((entry): entry is string => entry !== null));
+}
+
+/** The day the endpoint's rules use for their own date example ("3.8.", "3 Aug"). */
+const RULES_EXAMPLE_DAY = '2026-08-03';

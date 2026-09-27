@@ -84,18 +84,23 @@ export function buildAiCoachProgramme(card: ProgrammeCardInput | null | undefine
 
 /**
  * The programme as prompt text. Kept beside the builder so the shape and the
- * rendering cannot drift.
+ * rendering cannot drift. Names go through the caller's labels, so the
+ * context reads in the reader's language (identity by default).
  */
-export function renderAiCoachProgramme(programme: AICoachProgramme): string[] {
+export function renderAiCoachProgramme(
+  programme: AICoachProgramme,
+  liftName: (name: string) => string = (name) => name,
+  sessionName: (name: string) => string = (name) => name,
+): string[] {
   const lines = [
     `${programme.title} (${programme.source === 'ready' ? 'ready-made' : 'the reader authored it'}) | ${programme.daysPerWeek} days per week`,
   ];
   for (const day of programme.days) {
-    const head = [day.dayLabel, day.name].filter(Boolean).join(' · ');
+    const head = [day.dayLabel, day.name ? sessionName(day.name) : day.name].filter(Boolean).join(' · ');
     const minutes = day.estimatedMinutes ? ` (~${day.estimatedMinutes} min)` : '';
     lines.push(`- ${head}${minutes}`);
     for (const exercise of day.exercises) {
-      lines.push(`  - ${exercise.name}${exercise.scheme ? `: ${exercise.scheme}` : ''}`);
+      lines.push(`  - ${liftName(exercise.name)}${exercise.scheme ? `: ${exercise.scheme}` : ''}`);
     }
   }
   if (programme.truncated) {

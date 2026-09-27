@@ -134,7 +134,11 @@ module.exports = [
 
       // The same session listed twice is a session a model can count twice.
       assert.ok(!out.includes('Recent sessions'));
-      assert.equal(out.split('2026-07-14').length - 1, 1);
+      // It is named twice on purpose — as the Last session, and as its row in
+      // the history — and the row says it is that one, not a second session.
+      assert.equal(out.split('2026-07-14').length - 1, 2);
+      const row = out.split('\n').find((line) => line.startsWith('- 2026-07-14'));
+      assert.ok(row && row.includes('the Last session above, not another one'), row);
     },
   },
   {

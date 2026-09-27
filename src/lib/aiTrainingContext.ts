@@ -20,6 +20,7 @@ import {
   AICoachHistory,
   AICoachHistoryConfidence,
   AICoachHomeState,
+  AICoachLastSession,
   AICoachProfile,
   AICoachProgramme,
   AICoachTrainingContext,
@@ -28,6 +29,7 @@ import { DEFAULT_BUDGET_LIMITS } from './aiCoachBudget';
 import { buildAiCoachContextText } from './aiCoachSystemContext';
 import { detectPlateaus } from './progressionAnalyzer';
 import { buildFatigueModel } from './fatigueModel';
+import { getComparableLogSets } from './exerciseLog';
 import { buildTrainingHistory, DEFAULT_HISTORY_WINDOW_DAYS } from './trainingHistory';
 import { CoachAdviceMemoryEntry, buildCoachAdviceLines, parseCoachAdviceLines } from './coachAdviceMemory';
 import type { TrainingSchedule } from './trainingSchedule';
@@ -39,6 +41,8 @@ import type { TrainingSchedule } from './trainingSchedule';
  */
 const MAX_HISTORY_SESSIONS = 24;
 const MAX_HISTORY_LIFTS = 10;
+const MAX_LAST_SESSION_EXERCISES = 12;
+const MAX_LAST_SESSION_SETS = 8;
 /** A cardio line is short, but it is still a line per session. */
 const MAX_CARDIO_SESSIONS = 12;
 
@@ -410,6 +414,51 @@ export function buildAiCoachCardio(
   };
 }
 
+/**
+ * The newest session at or before now, with every exercise's completed sets —
+ * see AICoachLastSession. Null when nothing is logged.
+ */
+export function buildAiCoachLastSession(
+  workoutSessions: WorkoutSession[],
+  exerciseLogs: ExerciseLog[],
+  now: Date = new Date(),
+): AICoachLastSession | null {
+  const nowMs = now.getTime();
+  let newest: WorkoutSession | null = null;
+  let newestAt = -Infinity;
+  for (const session of workoutSessions) {
+    const at = new Date(session.performedAt).getTime();
+    if (Number.isFinite(at) && at <= nowMs && at > newestAt) {
+      newest = session;
+      newestAt = at;
+    }
+  }
+  if (!newest) {
+    return null;
+  }
+  const sessionId = newest.id;
+  const exercises = exerciseLogs
+    .filter((log) => log.sessionId === sessionId && !log.skipped)
+    .sort((left, right) => left.orderIndex - right.orderIndex)
+    .map((log) => {
+      const sets = getComparableLogSets(log)
+        .filter((set) => set.reps > 0 && set.weight >= 0)
+        .map((set) => ({ weightKg: set.weight, reps: set.reps }));
+      return { name: log.exerciseNameSnapshot.trim(), sets };
+    })
+    .filter((exercise) => exercise.name.length > 0 && exercise.sets.length > 0);
+  const shown = exercises
+    .slice(0, MAX_LAST_SESSION_EXERCISES)
+    .map((exercise) => ({ ...exercise, sets: exercise.sets.slice(0, MAX_LAST_SESSION_SETS) }));
+  return {
+    day: localDateKey(newest.performedAt),
+    name: newest.workoutNameSnapshot.trim(),
+    exercises: shown,
+    truncated:
+      exercises.length > shown.length || exercises.some((exercise) => exercise.sets.length > MAX_LAST_SESSION_SETS),
+  };
+}
+
 export function buildAiTrainingContext({
   unitPreference,
   activeWorkoutSummary,
@@ -518,6 +567,7 @@ export function buildAiTrainingContext({
     plateaus,
     fatigue,
     history: buildHistoryBlock(workoutSessions, exerciseLogs, trainingDays, historyWindowDays, schedule, now),
+    lastSession: buildAiCoachLastSession(workoutSessions, exerciseLogs, now),
     cardio: buildAiCoachCardio(cardioSessions, historyWindowDays, now),
     ...(plannerSetup !== undefined ? { plannerSetup } : {}),
     body,
@@ -598,6 +648,14 @@ const CONTEXT_SHEDDING: ReadonlyArray<(context: AICoachTrainingContext) => AICoa
   (context) => ({
     ...context,
     history: { ...context.history, sessions: [], lifts: [], truncated: true },
+    lastSession: context.lastSession
+      ? {
+          ...context.lastSession,
+          exercises: context.lastSession.exercises.slice(0, 6),
+          // Only when something was cut: the block says so to the model.
+          truncated: context.lastSession.truncated || context.lastSession.exercises.length > 6,
+        }
+      : context.lastSession,
     cardio: context.cardio ? { ...context.cardio, sessions: [], truncated: true } : context.cardio,
     goals: (context.goals ?? []).filter((goal) => goal.isPrimary),
   }),
@@ -686,6 +744,50 @@ function normalizeHistory(input: Partial<AICoachHistory> | null | undefined): AI
 }
 
 /**
+ * The last session, rebuilt field by field: it is rendered as text in front of
+ * the model, and on the endpoint it is whatever was posted. An exercise with a
+ * name that is not plain text or a set that is not two sane numbers is dropped;
+ * an older client sends none, which is null.
+ */
+function normalizeLastSession(input: unknown): AICoachLastSession | null {
+  if (!input || typeof input !== 'object') {
+    return null;
+  }
+  const candidate = input as Partial<AICoachLastSession>;
+  const day = typeof candidate.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(candidate.day) ? candidate.day : null;
+  const name = typeof candidate.name === 'string' ? candidate.name.trim().slice(0, 120) : '';
+  if (!day || !name || !Array.isArray(candidate.exercises)) {
+    return null;
+  }
+  const exercises = candidate.exercises
+    .slice(0, MAX_LAST_SESSION_EXERCISES)
+    .map((exercise) => {
+      const exerciseName =
+        exercise && typeof exercise === 'object' && typeof exercise.name === 'string'
+          ? exercise.name.trim().slice(0, 80)
+          : '';
+      const sets = (exercise && Array.isArray(exercise.sets) ? exercise.sets : [])
+        .slice(0, MAX_LAST_SESSION_SETS)
+        .filter(
+          (set): set is { weightKg: number; reps: number } =>
+            !!set &&
+            typeof set.weightKg === 'number' &&
+            Number.isFinite(set.weightKg) &&
+            set.weightKg >= 0 &&
+            set.weightKg <= 1000 &&
+            typeof set.reps === 'number' &&
+            Number.isInteger(set.reps) &&
+            set.reps > 0 &&
+            set.reps <= 500,
+        )
+        .map((set) => ({ weightKg: set.weightKg, reps: set.reps }));
+      return { name: exerciseName, sets };
+    })
+    .filter((exercise) => exercise.name.length > 0 && exercise.sets.length > 0);
+  return { day, name, exercises, truncated: candidate.truncated === true };
+}
+
+/**
  * The cardio block, rebuilt field by field. Rendered as text in front of the
  * model, so a line that is not a plain day, a known-shaped id and numbers is
  * dropped rather than passed on; an older client sends none, which is null.
@@ -764,6 +866,7 @@ export function normalizeAiCoachTrainingContext(
       confident: false,
     },
     history: normalizeHistory(candidate.history),
+    lastSession: normalizeLastSession(candidate.lastSession),
     cardio: normalizeCardio(candidate.cardio),
     plannerSetup: candidate.plannerSetup ?? null,
     body: candidate.body && typeof candidate.body === 'object' ? candidate.body : null,
