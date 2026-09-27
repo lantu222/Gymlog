@@ -2,6 +2,7 @@ import {
   AICoachCardioSession,
   AICoachHistorySession,
   AICoachLastSession,
+  AICoachRecentCompletedSession,
   AICoachTrainingContext,
 } from '../types/aiCoach';
 import { AppLanguage } from '../types/models';
@@ -147,7 +148,26 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
   const lastSession = context.lastSession ?? null;
   const newestSession = newestHistorySession(context.history.sessions);
   const newestCardio = newestCardioSession(context.cardio?.sessions ?? []);
-  const lastBlock = renderLastSession(lastSession, newestSession, newestCardio, language, liftName, sessionName);
+  // An older app, back after a break: no last session, an empty window, and
+  // the lifting it did is only in the unwindowed recent rows. The newest of
+  // them is the last session — "No lifting logged" above a list of lifts
+  // would tell a returning lifter they never lifted (PR review, 2026-09-27).
+  const fallbackRecent =
+    !lastSession && !newestSession
+      ? context.recentCompletedSessions.reduce<AICoachRecentCompletedSession | null>(
+          (newest, s) => (!newest || sessionDay(s) > sessionDay(newest) ? s : newest),
+          null,
+        )
+      : null;
+  const lastBlock = renderLastSession(
+    lastSession,
+    newestSession,
+    fallbackRecent,
+    newestCardio,
+    language,
+    liftName,
+    sessionName,
+  );
   if (lastBlock) blocks.push(lastBlock);
   // The same session appears again in the history list below. Marked there —
   // one row, the newest that matches — because a session listed twice is one
@@ -179,7 +199,7 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
             typeof s.title === 'string' &&
             s.title.trim().slice(0, 120) === lastSession.name,
         ) ?? null
-      : null;
+      : fallbackRecent;
     const recentLines = context.recentCompletedSessions.map((s) => {
       const parts: string[] = [sessionName(s.title)];
       if (s.durationMinutes) parts.push(`${s.durationMinutes} min`);
@@ -461,6 +481,7 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
 function renderLastSession(
   last: AICoachLastSession | null,
   newest: AICoachHistorySession | null,
+  recent: AICoachRecentCompletedSession | null,
   newestCardio: AICoachCardioSession | null,
   language: AppLanguage | null,
   liftName: (name: string) => string,
@@ -478,7 +499,7 @@ function renderLastSession(
   const dated = (day: string) => line('Date', language === null ? day : `${day} (write it as ${readerDate(day, language)})`);
   const set = (entry: { weightKg: number; reps: number }) =>
     entry.weightKg > 0 ? `${trim(entry.weightKg)} kg x ${entry.reps}` : `${entry.reps} with no added load`;
-  const strengthDay = last ? last.day : newest ? sessionDay(newest) : null;
+  const strengthDay = last ? last.day : newest ? sessionDay(newest) : recent ? sessionDay(recent) : null;
   const cardioLine =
     newestCardio && (strengthDay === null || newestCardio.day > strengthDay)
       ? `- Newer than any lifting: ${cardioActivityName(newestCardio.activity)}, ${newestCardio.day}, ${newestCardio.minutes} min (in the Cardio block). If the reader means that, answer about it instead`
@@ -503,6 +524,16 @@ function renderLastSession(
       line('Name', sessionName(newest.name)),
       line('Logged', `${newest.setCount} sets across ${newest.exerciseCount} exercises${volume}`),
       '- (this app version sends no set-by-set detail)',
+      cardioLine,
+      writes(day),
+    );
+  } else if (recent) {
+    const day = sessionDay(recent);
+    lines.push(
+      dated(day),
+      line('Name', sessionName(recent.title)),
+      recent.setsCompleted ? line('Logged', `${recent.setsCompleted} sets`) : null,
+      '- (before the history window; this app version sends no set-by-set detail)',
       cardioLine,
       writes(day),
     );

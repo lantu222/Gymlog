@@ -256,6 +256,39 @@ module.exports = [
     },
   },
   {
+    name: 'an older app back from a break with only a run in the window: the last lift comes from the recent rows, never "no lifting"',
+    run() {
+      // No lastSession (older app), an empty window, lifting only in the
+      // unwindowed recent rows, and a run last week (PR review, 2026-09-27).
+      const out = buildAiCoachSystemContext(
+        baseContext({
+          recentCompletedSessions: [
+            { sessionId: 'a', title: 'Day 4: Lower Body', performedAt: '2026-06-01T08:00:00.000Z', day: '2026-06-01', durationMinutes: 50, setsCompleted: 14, swappedExercises: 0, noteCount: 0 },
+            { sessionId: 'b', title: 'Day 3: Upper Body', performedAt: '2026-05-30T08:00:00.000Z', day: '2026-05-30', durationMinutes: 60, setsCompleted: 18, swappedExercises: 0, noteCount: 0 },
+          ],
+          cardio: {
+            windowDays: 56,
+            sessionCount: 1,
+            totalMinutes: 30,
+            sessionsLast7Days: 1,
+            sessionsLast30Days: 1,
+            sessions: [{ day: '2026-09-20', activity: 'run', minutes: 30, distanceKm: 5 }],
+            truncated: false,
+          },
+        }),
+        'fi',
+      );
+      assert.ok(!out.includes('No lifting logged'), out);
+      const block = out.split('\n\n').find((entry) => entry.startsWith('## Last session'));
+      assert.ok(block.includes('Date: 2026-06-01 (write it as 1.6.)'), block);
+      assert.ok(block.includes('Name: Päivä 4: Alavartalo'));
+      assert.ok(block.includes('Newer than any lifting:'));
+      const marked = out.split('\n').filter((row) => row.includes('the Last session above'));
+      assert.equal(marked.length, 1);
+      assert.ok(marked[0].includes('2026-06-01'));
+    },
+  },
+  {
     name: 'the last session is the newest one up to now, its lifts in order, completed working sets only',
     run() {
       const now = new Date('2026-09-27T07:50:00.000Z');
