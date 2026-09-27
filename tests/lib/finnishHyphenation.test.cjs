@@ -70,7 +70,9 @@ module.exports = [
       );
       const name = screen.slice(screen.indexOf('No numbered tile, and no line limit'), screen.indexOf('styles.roleTag'));
       // Broken where Finnish breaks, and only for Finnish text.
-      assert.match(name, /\{language === 'fi' \? hyphenateFinnish\(name\) : name\}/);
+      // The shown name is the short one (KP, KK — 2026-09-27); read aloud in full.
+      assert.match(name, /\{language === 'fi' \? hyphenateFinnish\(shown\) : shown\}/);
+      assert.match(name, /accessibilityLabel=\{name\}/);
       assert.match(name, /android_hyphenationFrequency="normal"/);
       // Read aloud without the marks.
       assert.match(name, /accessibilityLabel=\{name\}/);

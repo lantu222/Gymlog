@@ -38,7 +38,7 @@ import {
   RoutineBlockKind,
 } from '../lib/homeSessionHero';
 import { AnimatedGreeting } from '../components/AnimatedGreeting';
-import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { exerciseListLabel, exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
 import { buildSwapLibraryMatches, buildSwapShortlist, sessionLiftsMatchingQuery } from '../lib/swapShortlist';
 import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
@@ -1500,6 +1500,8 @@ export function HomeScreen({
                 // A swap changes the lift, not the prescription — same sets,
                 // same reps, same slot.
                 const rowName = exerciseNameLabel(language, swappedName ?? exercise.name);
+                // Shown short (KP, KK, Smithissä); the swap button reads it in full.
+                const rowShown = exerciseListLabel(language, swappedName ?? exercise.name);
                 const swapped = Boolean(swappedName);
                 const dropped = Boolean(exercise.slotId && sessionDrops.includes(exercise.slotId));
                 // The whole row opens the sheet, not the 15dp glyph at its
@@ -1516,7 +1518,7 @@ export function HomeScreen({
                     </View>
                     <View style={styles.planExerciseCopy}>
                       <Text style={[styles.planExerciseName, dropped && styles.planExerciseDropped]} numberOfLines={2}>
-                        {rowName}
+                        {rowShown}
                       </Text>
                       <Text style={[styles.planExerciseScheme, dropped && styles.planExerciseDropped]}>
                         {dropped ? t(language, 'home.swapSheet.droppedToday') : exercise.schemeLabel ?? exercise.setsLabel}
@@ -2162,8 +2164,8 @@ export function HomeScreen({
         bar={
           <KitBar
             visible={swapPickName !== null}
-            from={exerciseNameLabel(language, swapRow.currentName)}
-            to={swapPickName ? exerciseNameLabel(language, swapPickName) : ''}
+            from={exerciseListLabel(language, swapRow.currentName)}
+            to={swapPickName ? exerciseListLabel(language, swapPickName) : ''}
             buttons={[
               {
                 label: t(language, 'kit.justThisTime'),
@@ -2242,7 +2244,8 @@ export function HomeScreen({
                 {section.rows.map((exerciseName) => (
                   <KitRow
                     key={exerciseName}
-                    title={exerciseNameLabel(language, exerciseName)}
+                    title={exerciseListLabel(language, exerciseName)}
+                    accessibilityLabel={exerciseNameLabel(language, exerciseName)}
                     state={swapPickName === exerciseName ? 'sel' : 'idle'}
                     onPress={() =>
                       setSwapPickName((current) => (current === exerciseName ? null : exerciseName))

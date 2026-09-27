@@ -220,7 +220,9 @@ export function KitRow({
       ]}
     >
       <View style={styles.rowBody}>
-        <Text style={styles.rowName} numberOfLines={1}>
+        {/* Two lines, not an ellipsis: a long Finnish name is read whole
+            (#bugs 2026-09-27). */}
+        <Text style={styles.rowName} numberOfLines={2}>
           {title}
         </Text>
         {meta ? <Text style={styles.rowMeta}>{meta}</Text> : null}

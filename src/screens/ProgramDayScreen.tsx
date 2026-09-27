@@ -17,7 +17,7 @@ import { AddExerciseSheet } from '../components/AddExerciseSheet';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { KitBar, KitGroupLabel, KitRow, KitSearch, KitSheet } from '../components/sheetKit';
 import { CutSurface } from '../components/CutSurface';
-import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { exerciseListLabel, exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { hyphenateFinnish } from '../lib/finnishHyphenation';
 import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import {
@@ -747,17 +747,17 @@ export function ProgramDayScreen({
                     the order of the rows. The whole name is shown, broken on
                     its syllables when it has to break. */}
                 {(() => {
-                  const name = exerciseNameLabel(
-                    language,
-                    (exercise.slotId ? sessionSwaps[exercise.slotId] : undefined) ?? exercise.name,
-                  );
+                  const stored = (exercise.slotId ? sessionSwaps[exercise.slotId] : undefined) ?? exercise.name;
+                  const name = exerciseNameLabel(language, stored);
+                  // Shown short (KP, KK, Smithissä), read out in full.
+                  const shown = exerciseListLabel(language, stored);
                   return (
                     <Text
                       style={styles.exerciseName}
                       accessibilityLabel={name}
                       android_hyphenationFrequency="normal"
                     >
-                      {language === 'fi' ? hyphenateFinnish(name) : name}
+                      {language === 'fi' ? hyphenateFinnish(shown) : shown}
                     </Text>
                   );
                 })()}
@@ -1185,8 +1185,8 @@ export function ProgramDayScreen({
         bar={
           <KitBar
             visible={swapPickName !== null}
-            from={exerciseNameLabel(language, swapRow?.currentName ?? '')}
-            to={swapPickName ? exerciseNameLabel(language, swapPickName) : ''}
+            from={exerciseListLabel(language, swapRow?.currentName ?? '')}
+            to={swapPickName ? exerciseListLabel(language, swapPickName) : ''}
             buttons={[
               {
                 label: t(language, 'kit.justThisTime'),
@@ -1266,7 +1266,8 @@ export function ProgramDayScreen({
                   {section.rows.map((option) => (
                     <KitRow
                       key={option.exerciseName}
-                      title={exerciseNameLabel(language, option.exerciseName)}
+                      title={exerciseListLabel(language, option.exerciseName)}
+                      accessibilityLabel={exerciseNameLabel(language, option.exerciseName)}
                       state={swapPickName === option.exerciseName ? 'sel' : 'idle'}
                       onPress={() =>
                         setSwapPickName((current) =>

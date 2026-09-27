@@ -27,7 +27,7 @@ import {
 import { SupersetBorder } from '../components/SupersetBorder';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import { setFieldAccessibilityLabel } from '../lib/accessibilityLabels';
-import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { exerciseListLabel, exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { rankExerciseMatches } from '../lib/exerciseSearch';
 import { orderExercisesBySelection } from '../lib/exerciseSelectionOrder';
 import { parseNumberInput, removeTrailingZeros } from '../lib/format';
@@ -376,7 +376,7 @@ function AddExerciseSheetHG({ visible, items, language, onClose, onAdd, bottomIn
                     </View>
                   </View>
                   <Text numberOfLines={2} style={styles.popularName}>
-                    {exerciseNameLabel(language, formatLiftDisplayLabel(item.name, 'Exercise'))}
+                    {exerciseListLabel(language, formatLiftDisplayLabel(item.name, 'Exercise'))}
                   </Text>
                   <Text numberOfLines={1} style={styles.popularMeta}>
                     {buildMetaLabel(item, language)}
@@ -450,8 +450,8 @@ function AddExerciseSheetHG({ visible, items, language, onClose, onAdd, bottomIn
                 <Pressable onPress={() => toggle(item.id)} style={[styles.sheetRow, selected && styles.sheetRowSelected]}>
                   <Tile initials={exerciseInitials(exerciseNameLabel(language, formatLiftDisplayLabel(item.name, 'Exercise')))} size={46} />
                   <View style={styles.sheetRowCopy}>
-                    <Text numberOfLines={1} style={styles.sheetRowName}>
-                      {exerciseNameLabel(language, formatLiftDisplayLabel(item.name, 'Exercise'))}
+                    <Text numberOfLines={2} style={styles.sheetRowName}>
+                      {exerciseListLabel(language, formatLiftDisplayLabel(item.name, 'Exercise'))}
                     </Text>
                     <Text numberOfLines={1} style={styles.sheetRowMeta}>
                       {buildMetaLabel(item, language)}
@@ -1016,8 +1016,8 @@ export function EmptyWorkoutScreen({
                 <View style={styles.exerciseHead}>
                   <Tile initials={exercise.initials} size={40} radius={11} />
                   <View style={styles.exerciseHeadCopy}>
-                    <Text numberOfLines={1} style={styles.exerciseName}>
-                      {exerciseNameLabel(language, exercise.displayName)}
+                    <Text numberOfLines={2} style={styles.exerciseName}>
+                      {exerciseListLabel(language, exercise.displayName)}
                     </Text>
                     <Text numberOfLines={1} style={styles.exerciseMeta}>
                       {/* The superset note goes first, so it is the half that
@@ -1285,8 +1285,8 @@ export function EmptyWorkoutScreen({
                   <Pressable key={item.id} onPress={() => addExercises([item])} style={styles.quickRow}>
                     <Tile initials={exerciseInitials(exerciseNameLabel(language, formatLiftDisplayLabel(item.name, 'Exercise')))} size={44} />
                     <View style={styles.quickRowCopy}>
-                      <Text numberOfLines={1} style={styles.quickRowName}>
-                        {exerciseNameLabel(language, formatLiftDisplayLabel(item.name, 'Exercise'))}
+                      <Text numberOfLines={2} style={styles.quickRowName}>
+                        {exerciseListLabel(language, formatLiftDisplayLabel(item.name, 'Exercise'))}
                       </Text>
                       <Text numberOfLines={1} style={styles.quickRowMeta}>
                         {bodyPartLabel(language, item.bodyPart)}

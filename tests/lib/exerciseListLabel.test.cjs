@@ -1,0 +1,70 @@
+const assert = require('node:assert/strict');
+
+const { exerciseListLabel, exerciseNameLabel } = require('../../.test-dist/lib/exerciseNameLabel.js');
+const library = Object.values(require('../../.test-dist/data/generatedExerciseLibrary.js'))[0];
+
+// "Pitää keksiä joku sääntö tähän että nimet ei kasva niin pitkiksi"
+// (#bugs 2026-09-27) — abbreviations, the user's choice.
+
+module.exports = [
+  {
+    name: 'list names use the gym\'s short forms for the equipment words',
+    run() {
+      assert.equal(exerciseListLabel('fi', 'Incline Dumbbell Press'), 'Vinopenkkipunnerrus KP');
+      assert.equal(exerciseListLabel('fi', 'Smith Machine Bench Press'), 'Penkkipunnerrus Smithissä');
+      const kettlebell = library.find((item) => /kahvakuulalla$/.test(exerciseNameLabel('fi', item.name)));
+      assert.ok(kettlebell, 'no kettlebell name to test with');
+      assert.match(exerciseListLabel('fi', kettlebell.name), / KK$/);
+    },
+  },
+  {
+    name: 'only whole words shorten, and English and plain names pass through',
+    run() {
+      // A word that merely contains the equipment keeps its name.
+      const row = library.find((item) => /^Käsipainosoutu/.test(exerciseNameLabel('fi', item.name)));
+      assert.ok(row);
+      assert.equal(exerciseListLabel('fi', row.name), exerciseNameLabel('fi', row.name));
+      assert.equal(exerciseListLabel('en', 'Incline Dumbbell Press'), exerciseNameLabel('en', 'Incline Dumbbell Press'));
+      assert.equal(exerciseListLabel('fi', 'Bench Press'), 'Penkkipunnerrus');
+    },
+  },
+  {
+    name: 'the short forms take the long names down, and never make one longer',
+    run() {
+      const labels = [...new Set(library.map((item) => item.name))];
+      const over30 = (fn) => labels.filter((name) => fn('fi', name).length > 30).length;
+      assert.ok(over30(exerciseListLabel) < over30(exerciseNameLabel) - 40, `${over30(exerciseListLabel)} vs ${over30(exerciseNameLabel)}`);
+      for (const name of labels) {
+        assert.ok(exerciseListLabel('fi', name).length <= exerciseNameLabel('fi', name).length, name);
+      }
+    },
+  },
+  {
+    name: 'rows show the short name and read the full one; sentences keep the full name',
+    run() {
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const read = (file) => fs.readFileSync(path.join(__dirname, '..', '..', file), 'utf8');
+      // A swap row shows "KP" and a screen reader says "käsipainoilla".
+      for (const file of ['src/screens/HomeScreen.tsx', 'src/screens/ProgramDayScreen.tsx']) {
+        assert.match(
+          read(file),
+          /title=\{exerciseListLabel\(language, [^)]+\)\}\s*accessibilityLabel=\{exerciseNameLabel\(language, [^)]+\)\}/,
+          file,
+        );
+      }
+      assert.match(
+        read('src/screens/GuidedPlayerScreen.tsx'),
+        /label=\{exerciseListLabel\(language, item\.name\)\}\s*accessibilityLabel=\{exerciseNameLabel\(language, item\.name\)\}/,
+      );
+      // Domain logic writes sentences, the coach's context and search: none of
+      // it may use the short form.
+      const libDir = path.join(__dirname, '..', '..', 'src', 'lib');
+      const users = fs
+        .readdirSync(libDir)
+        .filter((file) => file.endsWith('.ts') && file !== 'exerciseNameLabel.ts')
+        .filter((file) => fs.readFileSync(path.join(libDir, file), 'utf8').includes('exerciseListLabel'));
+      assert.deepEqual(users, []);
+    },
+  },
+];

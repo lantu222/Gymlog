@@ -97,7 +97,7 @@ import { ExerciseSheet } from '../components/ExerciseSheet';
 import { CtaShimmer } from '../components/CtaShimmer';
 import { SupersetBorder } from '../components/SupersetBorder';
 import { getDrillLibraryName } from '../lib/drillMedia';
-import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { exerciseListLabel, exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { libraryLabel } from '../lib/libraryLabel';
 import { localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { classifySessionFocus, getDefaultCooldown, getDefaultWarmup } from '../lib/homeSessionHero';
@@ -879,7 +879,7 @@ function NameBlock({
   return (
     <View style={{ paddingHorizontal: 26, alignItems: 'center' }}>
       <Text style={styles.exerciseName} numberOfLines={2}>
-        {exerciseNameLabel(language, name)}
+        {exerciseListLabel(language, name)}
       </Text>
       {hasHowTo ? (
         <Pressable onPress={onHow} style={styles.cueRow}>
@@ -974,12 +974,24 @@ function BigBtn({
  * and a long Finnish name touched its border or wrapped out of it
  * (#bugs 2026-09-27).
  */
-function SwapRow({ label, onPress, icon }: { label: string; onPress: () => void; icon?: string }) {
+function SwapRow({
+  label,
+  onPress,
+  icon,
+  accessibilityLabel,
+}: {
+  label: string;
+  onPress: () => void;
+  icon?: string;
+  /** The full name, when the label is the short one. */
+  accessibilityLabel?: string;
+}) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
       onPress={onPress}
       style={({ pressed }) => [styles.swapRow, pressed ? { opacity: 0.7 } : null]}
     >
@@ -3177,7 +3189,7 @@ function GuidedPlayer({
                     adjustsFontSizeToFit
                     minimumFontScale={0.5}
                   >
-                    {exerciseNameLabel(language, step.exerciseName)}
+                    {exerciseListLabel(language, step.exerciseName)}
                   </Text>
                 </View>
 
@@ -3673,7 +3685,7 @@ function GuidedPlayer({
                   <View style={styles.ownBriefFirst}>
                     <Text style={styles.ownBriefLabel}>{t(language, 'guided.own.brief.firstLift')}</Text>
                     <Text style={styles.ownBriefFirstName} numberOfLines={1}>
-                      {exerciseNameLabel(language, warmupBrief.firstLift.exerciseName)}
+                      {exerciseListLabel(language, warmupBrief.firstLift.exerciseName)}
                     </Text>
                     <Text style={styles.ownBriefFirstScheme}>{warmupBrief.firstLift.scheme}</Text>
                   </View>
@@ -3909,7 +3921,7 @@ function GuidedPlayer({
                           ]}
                           numberOfLines={2}
                         >
-                          {exerciseNameLabel(language, member.name)}
+                          {exerciseListLabel(language, member.name)}
                         </Text>
                         {memberPlan ? <Text style={styles.runPlan}>{memberPlan}</Text> : null}
                       </View>
@@ -4126,7 +4138,8 @@ function GuidedPlayer({
                     <SwapRow
                       key={`suggested-${name}`}
                       icon="check"
-                      label={exerciseNameLabel(language, name)}
+                      label={exerciseListLabel(language, name)}
+                      accessibilityLabel={exerciseNameLabel(language, name)}
                       onPress={() => applySwap(name)}
                     />
                   ))}
@@ -4140,7 +4153,8 @@ function GuidedPlayer({
                 {swapLibrary.map((item) => (
                   <SwapRow
                     key={item.id}
-                    label={exerciseNameLabel(language, item.name)}
+                    label={exerciseListLabel(language, item.name)}
+                    accessibilityLabel={exerciseNameLabel(language, item.name)}
                     onPress={() => applySwap(item.name)}
                   />
                 ))}
@@ -4491,7 +4505,7 @@ function SetStepView({
                   key={member.slotId}
                   style={member.slotId === step.slotId ? styles.setSupersetFlowNow : undefined}
                 >
-                  {exerciseNameLabel(language, member.name)}
+                  {exerciseListLabel(language, member.name)}
                   {index < superset.members.length - 1 ? '  ·  ' : ''}
                 </Text>
               ))}
@@ -4541,7 +4555,7 @@ function SetStepView({
             <View style={{ flex: 1, minWidth: 0 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Text style={styles.setExerciseName} numberOfLines={2}>
-                  {exerciseNameLabel(language, step.exerciseName)}
+                  {exerciseListLabel(language, step.exerciseName)}
                 </Text>
                 <GPIcon name="info" size={16} color={theme.muted} sw={2.2} />
               </View>
