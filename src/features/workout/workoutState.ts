@@ -12,7 +12,7 @@ import { isTimedTrackingMode, isUnloadedTrackingMode } from './workoutTypes';
 import { parseIntervalScheme } from '../../lib/intervalScheme';
 import { HOLD_DIAL, REPS_DIAL } from '../../lib/weightDial';
 import { isLiftableWeight } from '../../lib/weightLimits';
-import { isGuidedExerciseOut } from '../../lib/guidedPlayer';
+import { isGuidedExerciseOut, resolveGuidedSetTarget } from '../../lib/guidedPlayer';
 import { buildSupersetPlayOrder, supersetGroupIndexes } from '../../lib/supersetGrouping';
 import { elapsedSecondsOf, restSecondsLeft, restTimerHasEnded, settleSessionClock, workoutSecondsUntil } from '../../lib/sessionClock';
 import { GuidedResumeAnchor, WorkoutTrackingMode, WorkoutTemplateExercise, WorkoutExerciseInsertInput, WorkoutExerciseInstance, WorkoutHistoryStore, WorkoutLiftIdentity, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRestTimerState, WorkoutRuntimeTemplate, WorkoutSessionMaterializeOptions, WorkoutSessionRuntime, WorkoutSessionSummary, WorkoutSetDraftInput, WorkoutSetEffort, WorkoutSetInstance, WorkoutSlotHistoryEntry, WorkoutSlotHistorySet, WorkoutStatus, WorkoutUiState, WorkoutExerciseStatus } from './workoutTypes';
@@ -617,6 +617,37 @@ function materializeWorkoutSessionFromTemplate(
     },
     sessionOrderIndex: options.sessionOrderIndex,
   };
+}
+
+/** One lift's opening targets for its next session, set by set. */
+export interface NextSessionLiftTargets {
+  exerciseName: string;
+  trackingMode: WorkoutTrackingMode;
+  sets: { loadKg: number | null; reps: number }[];
+}
+
+/**
+ * What the set screen will open on, the next time this session is started.
+ *
+ * The same materialisation a real start runs — history, progression gate,
+ * recovery hold — read through the set screen's own target resolver, with
+ * nothing logged yet. The coach's "Kehitysesimerkki" quotes these numbers
+ * rather than working out its own: if it said "7/7/7" and the dial opened on
+ * 12, the reader would have two coaches (user, 2026-09-27). Nothing is kept;
+ * the session built here is thrown away.
+ */
+export function previewNextSession(
+  template: WorkoutRuntimeTemplate,
+  options: WorkoutSessionMaterializeOptions,
+): NextSessionLiftTargets[] {
+  return materializeWorkoutSessionFromTemplate(template, options).exercises.map((exercise) => ({
+    exerciseName: exercise.exerciseName,
+    trackingMode: exercise.trackingMode,
+    sets: exercise.sets.map((_, setIndex) => {
+      const target = resolveGuidedSetTarget(exercise.sets, setIndex, exercise.trackingMode);
+      return { loadKg: target?.loadKg ?? null, reps: target?.reps ?? exercise.sets[setIndex].plannedRepsMax };
+    }),
+  }));
 }
 
 export function materializeWorkoutSession(

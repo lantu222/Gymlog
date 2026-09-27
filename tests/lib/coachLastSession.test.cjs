@@ -386,6 +386,49 @@ module.exports = [
     },
   },
   {
+    name: 'each lift carries what the app will prescribe next time, and the example has a number to quote',
+    run() {
+      const now = new Date('2026-09-27T07:50:00.000Z');
+      const sessions = [session('last', '2026-09-26T08:46:40.000Z', 'Day 4: Lower Body')];
+      const logs = [
+        log('last', 'Trap Bar Deadlift', 0, [{ weight: 155, reps: 6 }, { weight: 155, reps: 6 }, { weight: 155, reps: 6 }]),
+        log('last', 'Pull-Up', 1, [{ weight: 0, reps: 10 }]),
+        log('last', 'Leg Curl', 2, [{ weight: 50, reps: 12 }]),
+      ];
+      // What previewNextSession returned for the day: stored names, any case.
+      const next = [
+        { exerciseName: 'trap bar deadlift', sets: [{ loadKg: 155, reps: 7 }, { loadKg: 155, reps: 7 }, { loadKg: 155, reps: 7 }] },
+        { exerciseName: 'Pull-Up', sets: [{ loadKg: null, reps: 11 }] },
+      ];
+      const last = buildAiCoachLastSession(sessions, logs, now, next);
+      const byName = Object.fromEntries(last.exercises.map((exercise) => [exercise.name, exercise.next]));
+      assert.deepEqual(byName['Trap Bar Deadlift'], { loadKg: 155, reps: [7, 7, 7] });
+      assert.deepEqual(byName['Pull-Up'], { loadKg: null, reps: [11] });
+      // A lift the preview did not cover has nothing to quote.
+      assert.equal(byName['Leg Curl'], null);
+
+      const out = buildAiCoachSystemContext(baseContext({ lastSession: last }), 'fi');
+      assert.ok(out.includes("next time (the app's own prescription): 155 kg x 7, 7, 7"), out);
+      assert.ok(out.includes("next time (the app's own prescription): 11 reps"));
+    },
+  },
+  {
+    name: 'a posted next-time is re-parsed like the rest of the block',
+    run() {
+      const parsed = normalizeAiCoachTrainingContext({
+        lastSession: {
+          ...LAST_SESSION,
+          exercises: [
+            { ...LAST_SESSION.exercises[0], next: { loadKg: 215, reps: [10, 10, 2.5, -1, 11] } },
+            { ...LAST_SESSION.exercises[1], next: { loadKg: 'x', reps: [] } },
+          ],
+        },
+      }).lastSession;
+      assert.deepEqual(parsed.exercises[0].next, { loadKg: 215, reps: [10, 10, 11] });
+      assert.ok(!('next' in parsed.exercises[1]));
+    },
+  },
+  {
     name: 'the next training day carries the reader\'s date format too',
     run() {
       const out = buildAiCoachSystemContext(

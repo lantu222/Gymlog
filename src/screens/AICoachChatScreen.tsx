@@ -1440,12 +1440,38 @@ export function AICoachChatScreen({
                 style={[styles.bubbleRow, !message.fromCoach && styles.bubbleRowMe]}
               >
                 <View style={message.fromCoach ? styles.coachBubble : styles.meBubble}>
+                  {/* The last-workout answer reads as the user laid it out
+                      (2026-09-27): the observation, what I would do next, a
+                      heads-up only when there is one, and an example. */}
+                  {message.advice?.topic === 'last_session' ? (
+                    <Text style={styles.answerSectionLabel}>{t(language, 'coachChat.section.observation')}</Text>
+                  ) : null}
                   <Text style={message.fromCoach ? styles.coachText : styles.meText}>{message.text}</Text>
                   {message.advice
                     ? (
                         [
                           { key: 'why', label: 'coachChat.section.why' as const, lines: message.advice.why, mark: (_i: number) => '\u2022' },
-                          { key: 'next', label: 'coachChat.section.next' as const, lines: message.advice.nextSteps, mark: (i: number) => `${i + 1}.` },
+                          {
+                            key: 'next',
+                            label:
+                              message.advice.topic === 'last_session'
+                                ? ('coachChat.section.nextMine' as const)
+                                : ('coachChat.section.next' as const),
+                            lines: message.advice.nextSteps,
+                            mark: (i: number) => `${i + 1}.`,
+                          },
+                          {
+                            key: 'attention',
+                            label: 'coachChat.section.attention' as const,
+                            lines: message.advice.attention ? [message.advice.attention] : [],
+                            mark: (_i: number) => '!',
+                          },
+                          {
+                            key: 'example',
+                            label: 'coachChat.section.example' as const,
+                            lines: message.advice.example ? [message.advice.example] : [],
+                            mark: (_i: number) => '\u2192',
+                          },
                           { key: 'plan', label: 'coachChat.section.plan' as const, lines: message.advice.plan, mark: (_i: number) => '\u2192' },
                         ] as const
                       )

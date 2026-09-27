@@ -327,6 +327,7 @@ import { WorkoutProvider, useWorkoutContext } from './src/features/workout/Worko
 import { adaptLegacyWorkoutTemplateToRuntimeTemplate } from './src/features/workout/customWorkoutAdapter';
 import { AdaptedCompletedWorkoutExercise, adaptCompletedWorkoutSessionForAppDatabase } from './src/features/workout/workoutAppAdapter';
 import { getWorkoutTemplateById, WORKOUT_TEMPLATES_V1 } from './src/features/workout/workoutCatalog';
+import { previewNextSession } from './src/features/workout/workoutState';
 import { isTimedTrackingMode } from './src/features/workout/workoutTypes';
 import { AppProvider, useAppContext } from './src/state/AppProvider';
 import {
@@ -1858,15 +1859,29 @@ function VinhaApp() {
    * next: one set fewer on every lift that has one to spare, and loads held.
    * Spent here — the request is for the next session, not every session.
    */
+  /**
+   * The template and options a programme session starts with: the entitlement
+   * resolved once, and a pending lighter session applied. Shared by the start
+   * itself and by the coach's preview of the next session, so the example the
+   * coach quotes is what the start will open on.
+   */
+  function programmeStart(runtimeTemplate: Parameters<typeof workout.startCustomWorkout>[0], now: Date = new Date()) {
+    const lighten = isLightenPending(preferences.lightNextSession, now);
+    return {
+      template: lighten ? lightenRuntimeTemplate(runtimeTemplate) : runtimeTemplate,
+      options: {
+        ...resolveProgressionOptions(preferences),
+        fatigueSignal: lighten ? lightenedFatigueSignal(progressionFatigueSignal) : progressionFatigueSignal,
+      },
+    };
+  }
+
   function startProgrammeWorkout(
     runtimeTemplate: Parameters<typeof workout.startCustomWorkout>[0],
     unit: UnitPreference,
   ) {
-    const lighten = isLightenPending(preferences.lightNextSession, new Date());
-    workout.startCustomWorkout(lighten ? lightenRuntimeTemplate(runtimeTemplate) : runtimeTemplate, unit, {
-      ...resolveProgressionOptions(preferences),
-      fatigueSignal: lighten ? lightenedFatigueSignal(progressionFatigueSignal) : progressionFatigueSignal,
-    });
+    const start = programmeStart(runtimeTemplate);
+    workout.startCustomWorkout(start.template, unit, start.options);
     if (preferences.lightNextSession) {
       // A refused write rolls the request back into place, and it would
       // lighten the session after this one too. Said, rather than left to
@@ -4891,6 +4906,56 @@ function VinhaApp() {
       showToast(t(preferences.appLanguage, 'recovery.toast.failed'));
     }
   }
+  /**
+   * What the set screen will open on the next time the last session's day is
+   * started — the same materialisation and target resolver a real start uses,
+   * so the coach's example quotes the app's own numbers (user, 2026-09-27).
+   * Empty when the last session is not a programme day the app can start.
+   */
+  const coachNextSessionTargets = useMemo(() => {
+    const nowMs = Date.now();
+    const last = workoutSessions
+      .filter((session) => {
+        const at = new Date(session.performedAt).getTime();
+        return Number.isFinite(at) && at <= nowMs;
+      })
+      .reduce<(typeof workoutSessions)[number] | null>(
+        (newest, session) =>
+          !newest || new Date(session.performedAt).getTime() > new Date(newest.performedAt).getTime() ? session : newest,
+        null,
+      );
+    const sessionId = last?.workoutTemplateSessionId;
+    if (!last || !sessionId) {
+      return [];
+    }
+    try {
+      const custom = customWorkoutRuntimeMap[last.workoutTemplateId];
+      const ready = custom ? null : getWorkoutTemplateById(last.workoutTemplateId);
+      const runtimeTemplate = custom
+        ? buildCustomSessionRuntimeTemplate(custom, sessionId)
+        : ready
+          ? buildReadySessionRuntimeTemplate(ready, sessionId)
+          : null;
+      if (!runtimeTemplate) {
+        return [];
+      }
+      const start = programmeStart(runtimeTemplate, new Date(nowMs));
+      return previewNextSession(start.template, {
+        unitPreference,
+        history: workout.history,
+        sessionOrderIndex: 0,
+        ...start.options,
+      });
+    } catch (error) {
+      // A preview that cannot be built leaves the example out; it must never
+      // take the coach down with it.
+      console.error('Failed to preview the next session for the coach', error);
+      return [];
+    }
+    // programmeStart reads preferences and the recovery signal; todayStartMs
+    // because "the last session" and a pending lighter session are both dated.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customWorkoutRuntimeMap, preferences, progressionFatigueSignal, todayStartMs, unitPreference, workout.history, workoutSessions]);
   const aiCoachTrainingContext = useMemo(
     () =>
       buildAiTrainingContext({
@@ -4942,6 +5007,7 @@ function VinhaApp() {
         },
         // What Home already carries, and what the coach must not bring up:
         // an offer for something already on is the sign explaining a sign.
+        nextSessionTargets: coachNextSessionTargets,
         homeState: {
           pinnedStatCardKeys: homePinnedStatCardKeys,
           weighInReminderEnabled: preferences.notificationPrefs.weighInReminder,
@@ -4984,6 +5050,7 @@ function VinhaApp() {
       preferences.coachGoals,
       preferences.primaryGoalId,
       coachAdviceMemory,
+      coachNextSessionTargets,
       homePinnedStatCardKeys,
       preferences.coachSuggestionState,
       preferences.notificationPrefs.weighInReminder,

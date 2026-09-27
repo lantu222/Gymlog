@@ -121,6 +121,12 @@ export interface BuildAiTrainingContextInput {
   profile?: AICoachProfile | null;
   /** What Home already shows and what the coach must not offer right now. */
   homeState?: AICoachHomeState | null;
+  /**
+   * The set screen's opening targets for the last session's lifts, next time
+   * (workoutState previewNextSession) — from the caller, which owns the
+   * workout store. Empty when the last session is not a startable programme's.
+   */
+  nextSessionTargets?: readonly { exerciseName: string; sets: { loadKg: number | null; reps: number }[] }[];
   now?: Date;
 }
 
@@ -422,6 +428,25 @@ export function buildAiCoachCardio(
 }
 
 /**
+ * A lift's next-session targets as the context carries them: one load (the
+ * first set's — the screen opens there) and every set's reps. Null when the
+ * app has nothing to open on.
+ */
+function nextFor(
+  lift: { sets: { loadKg: number | null; reps: number }[] } | undefined,
+): { loadKg: number | null; reps: number[] } | null {
+  if (!lift || lift.sets.length === 0) {
+    return null;
+  }
+  const reps = lift.sets.map((set) => set.reps).filter((count) => Number.isFinite(count) && count > 0);
+  if (reps.length === 0) {
+    return null;
+  }
+  const loadKg = lift.sets[0].loadKg;
+  return { loadKg: typeof loadKg === 'number' && Number.isFinite(loadKg) && loadKg > 0 ? loadKg : null, reps };
+}
+
+/**
  * The newest session at or before now, with every exercise's completed sets —
  * see AICoachLastSession. Null when nothing is logged.
  */
@@ -429,7 +454,14 @@ export function buildAiCoachLastSession(
   workoutSessions: WorkoutSession[],
   exerciseLogs: ExerciseLog[],
   now: Date = new Date(),
+  /**
+   * What the set screen will open on next time for this session's lifts
+   * (workoutState previewNextSession), built by the caller that owns the
+   * workout store. Matched to a lift by name.
+   */
+  nextTargets: readonly { exerciseName: string; sets: { loadKg: number | null; reps: number }[] }[] = [],
 ): AICoachLastSession | null {
+  const nextByLift = new Map(nextTargets.map((lift) => [normalizedName(lift.exerciseName), lift]));
   const nowMs = now.getTime();
   let newest: WorkoutSession | null = null;
   let newestAt = -Infinity;
@@ -502,6 +534,7 @@ export function buildAiCoachLastSession(
             ? { day: localDateKey(beforeSession.performedAt), sets: before.sets.slice(0, MAX_LAST_SESSION_SETS) }
             : null,
         sessionsAtThisWeight,
+        next: nextFor(nextByLift.get(normalizedName(name))),
       };
     })
     .filter((exercise) => exercise.name.length > 0 && exercise.sets.length > 0);
@@ -563,6 +596,7 @@ export function buildAiTrainingContext({
   coachMemory = [],
   profile = null,
   homeState = null,
+  nextSessionTargets = [],
   now = new Date(),
 }: BuildAiTrainingContextInput): AICoachTrainingContext {
   const body = buildAiCoachBodyState(bodyweightEntries, measurementEntries, now);
@@ -645,7 +679,7 @@ export function buildAiTrainingContext({
     plateaus,
     fatigue,
     history: buildHistoryBlock(workoutSessions, exerciseLogs, trainingDays, historyWindowDays, schedule, now),
-    lastSession: buildAiCoachLastSession(workoutSessions, exerciseLogs, now),
+    lastSession: buildAiCoachLastSession(workoutSessions, exerciseLogs, now, nextSessionTargets),
     cardio: buildAiCoachCardio(cardioSessions, historyWindowDays, now),
     ...(plannerSetup !== undefined ? { plannerSetup } : {}),
     body,
@@ -872,9 +906,24 @@ function normalizeLastSession(input: unknown): AICoachLastSession | null {
             ? null
             : undefined;
       const streak = exercise?.sessionsAtThisWeight;
+      const rawNext = exercise?.next;
+      const nextReps = Array.isArray(rawNext?.reps)
+        ? rawNext.reps
+            .slice(0, MAX_LAST_SESSION_SETS)
+            .filter((count): count is number => typeof count === 'number' && Number.isInteger(count) && count > 0 && count <= 500)
+        : [];
+      const nextLoad = rawNext?.loadKg;
+      const next =
+        nextReps.length > 0
+          ? {
+              loadKg: typeof nextLoad === 'number' && Number.isFinite(nextLoad) && nextLoad > 0 && nextLoad <= 1000 ? nextLoad : null,
+              reps: nextReps,
+            }
+          : null;
       return {
         name: exerciseName,
         sets,
+        ...(next ? { next } : {}),
         ...(previous !== undefined ? { previous } : {}),
         ...(typeof streak === 'number' && Number.isInteger(streak) && streak >= 1 && streak <= 1000
           ? { sessionsAtThisWeight: streak }

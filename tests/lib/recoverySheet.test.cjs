@@ -335,8 +335,12 @@ module.exports = [
       assert.equal(app.split('startProgrammeWorkout(runtimeTemplate, ').length - 1, 2);
       assert.equal(app.split('workout.startCustomWorkout(').length - 1, 1, 'a start bypasses the lighter session');
       const door = between(app, 'function startProgrammeWorkout(', '\n  }\n');
-      assert.match(door, /lighten \? lightenRuntimeTemplate\(runtimeTemplate\) : runtimeTemplate/);
-      assert.match(door, /fatigueSignal: lighten \? lightenedFatigueSignal\(progressionFatigueSignal\) : progressionFatigueSignal/);
+      // The lightening lives in programmeStart, which the door and the
+      // coach's preview of the next session both use (2026-09-27).
+      assert.match(door, /const start = programmeStart\(runtimeTemplate\);\s*workout\.startCustomWorkout\(start\.template, unit, start\.options\);/);
+      const start = between(app, 'function programmeStart(', '\n  }\n');
+      assert.match(start, /lighten \? lightenRuntimeTemplate\(runtimeTemplate\) : runtimeTemplate/);
+      assert.match(start, /fatigueSignal: lighten \? lightenedFatigueSignal\(progressionFatigueSignal\) : progressionFatigueSignal/);
       assert.match(door, /updatePreferences\(\{ lightNextSession: null \}\)\.catch\(/, 'a refused spend is swallowed');
       assert.match(door, /'recovery\.toast\.spendFailed'/);
       assert.doesNotMatch(door, /void updatePreferences\(\{ lightNextSession: null \}\)/);
