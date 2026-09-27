@@ -1,4 +1,9 @@
-import { AICoachHistorySession, AICoachLastSession, AICoachTrainingContext } from '../types/aiCoach';
+import {
+  AICoachCardioSession,
+  AICoachHistorySession,
+  AICoachLastSession,
+  AICoachTrainingContext,
+} from '../types/aiCoach';
 import { AppLanguage } from '../types/models';
 import { renderAiCoachProgramme } from './aiCoachProgramme';
 import { CARDIO_ACTIVITIES } from './cardio';
@@ -59,6 +64,14 @@ function readerDate(day: string, language: AppLanguage) {
   return language === 'fi' ? `${date}.${month}.` : `${date} ${MONTHS_EN[month - 1] ?? match[1]}`;
 }
 
+function newestCardioSession(sessions: AICoachCardioSession[]) {
+  let newest: AICoachCardioSession | null = null;
+  for (const entry of sessions) {
+    if (!newest || entry.day >= newest.day) newest = entry;
+  }
+  return newest;
+}
+
 function newestHistorySession(sessions: AICoachHistorySession[]) {
   let newest: AICoachHistorySession | null = null;
   for (const entry of sessions) {
@@ -72,7 +85,7 @@ function newestHistorySession(sessions: AICoachHistorySession[]) {
  * its size cap measures, and so what a client measures itself against
  * (fitAiCoachContextToCap). One function, so the two cannot count differently.
  */
-export function buildAiCoachContextText(context: AICoachTrainingContext, language: AppLanguage = 'en'): string {
+export function buildAiCoachContextText(context: AICoachTrainingContext, language: AppLanguage | null = null): string {
   return `# Training context\n\n${buildAiCoachSystemContext(context, language)}`;
 }
 
@@ -81,15 +94,19 @@ export function buildAiCoachContextText(context: AICoachTrainingContext, languag
  * language: the context carries the stored English ids, and the model copied
  * them into a Finnish answer ("Overhead Press", "Day 3: Upper Body") where
  * every screen of the app says "Pystypunnerrus" and "Ylävartalo" (2026-09-27).
- * English is the default so the programme composer, which answers in library
- * names the app resolves back to rows, keeps reading the ids.
+ * No language (the default) keeps the ids exactly as stored: the programme
+ * composer answers in library names the app resolves back to rows, and even
+ * English labels rename some ("Triceps Pushdown - Rope Attachment" reads as
+ * "Rope Pushdown"). The phone's cap is measured on this form too.
  */
-export function buildAiCoachSystemContext(context: AICoachTrainingContext, language: AppLanguage = 'en'): string {
+export function buildAiCoachSystemContext(context: AICoachTrainingContext, language: AppLanguage | null = null): string {
   const u = context.unitPreference;
   const blocks: string[] = [];
   // Tolerant: on the endpoint a posted history row may carry no name at all.
-  const liftName = (name: unknown) => (typeof name === 'string' ? exerciseNameLabel(language, name) : '');
-  const sessionName = (name: unknown) => (typeof name === 'string' ? localizeSessionName(name, language) : '');
+  const liftName = (name: unknown) =>
+    typeof name !== 'string' ? '' : language ? exerciseNameLabel(language, name) : name;
+  const sessionName = (name: unknown) =>
+    typeof name !== 'string' ? '' : language ? localizeSessionName(name, language) : name;
   // Cardio counts as a session on Home and in the 30-day figure, and nowhere
   // in the strength blocks. With runs on record, every count says which kind
   // it is — unqualified, "3 sessions" beside "No sessions logged" read as a
@@ -129,14 +146,24 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
 
   const lastSession = context.lastSession ?? null;
   const newestSession = newestHistorySession(context.history.sessions);
-  const lastBlock = renderLastSession(lastSession, newestSession, language, liftName, sessionName);
+  const newestCardio = newestCardioSession(context.cardio?.sessions ?? []);
+  const lastBlock = renderLastSession(lastSession, newestSession, newestCardio, language, liftName, sessionName);
   if (lastBlock) blocks.push(lastBlock);
-  // The same session appears again in the history list below. Marked there,
-  // because a session listed twice is one a model can count twice.
-  const isLastSession = (entry: AICoachHistorySession) =>
-    lastSession
-      ? sessionDay(entry) === lastSession.day && entry.name?.trim() === lastSession.name
-      : entry === newestSession;
+  // The same session appears again in the history list below. Marked there —
+  // one row, the newest that matches — because a session listed twice is one
+  // a model can count twice, and two rows marked as it would be the same
+  // mistake the other way round.
+  const markedSession = lastSession
+    ? newestHistorySession(
+        context.history.sessions.filter(
+          (entry) =>
+            sessionDay(entry) === lastSession.day &&
+            typeof entry.name === 'string' &&
+            entry.name.trim().slice(0, 120) === lastSession.name,
+        ),
+      )
+    : newestSession;
+  const isLastSession = (entry: AICoachHistorySession) => entry === markedSession;
 
   // Recent sessions — only when the history block below is empty, which means
   // the user is returning after a long break. Otherwise this is the same list
@@ -412,47 +439,69 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext, langu
  * another session for it — see AICoachLastSession. An older app sends no
  * sets; the newest line of the history stands in, so every reader with
  * anything logged gets the block. The reader's date and number format ride
- * along, with the reader's own date as the example.
+ * along, with the reader's own date as the example; with no language (the
+ * composer, an older app) there is no format to state.
+ *
+ * A run newer than the last lift is named here too: the reader who lifted on
+ * Monday and ran on Wednesday means the run, and the block's own "no other"
+ * would otherwise forbid it.
  */
 function renderLastSession(
   last: AICoachLastSession | null,
   newest: AICoachHistorySession | null,
-  language: AppLanguage,
+  newestCardio: AICoachCardioSession | null,
+  language: AppLanguage | null,
   liftName: (name: string) => string,
   sessionName: (name: string) => string,
 ) {
   const writes = (day: string) =>
-    line(
-      'Reader writes',
-      language === 'fi'
-        ? `Finnish — dates like ${readerDate(day, language)}, decimals like 82,5 kg`
-        : `English — dates like ${readerDate(day, language)}, decimals like 82.5 kg`,
-    );
+    language === null
+      ? null
+      : line(
+          'Reader writes',
+          language === 'fi'
+            ? `Finnish — dates like ${readerDate(day, language)}, decimals like 82,5 kg`
+            : `English — dates like ${readerDate(day, language)}, decimals like 82.5 kg`,
+        );
+  const dated = (day: string) => line('Date', language === null ? day : `${day} (write it as ${readerDate(day, language)})`);
+  const set = (entry: { weightKg: number; reps: number }) =>
+    entry.weightKg > 0 ? `${trim(entry.weightKg)} kg x ${entry.reps}` : `${entry.reps} with no added load`;
+  const strengthDay = last ? last.day : newest ? sessionDay(newest) : null;
+  const cardioLine =
+    newestCardio && (strengthDay === null || newestCardio.day > strengthDay)
+      ? `- Newer than any lifting: ${cardioActivityName(newestCardio.activity)}, ${newestCardio.day}, ${newestCardio.minutes} min (in the Cardio block). If the reader means that, answer about it instead`
+      : null;
   const heading =
     'Last session — what "my last workout" / "viime treeni" means. Answer about this session, under this date, and no other';
+  const lines: (string | null)[] = [];
   if (last) {
-    const lines = [
-      line('Date', `${last.day} (write it as ${readerDate(last.day, language)})`),
+    lines.push(
+      dated(last.day),
       line('Name', sessionName(last.name)),
-      ...last.exercises.map(
-        (exercise) =>
-          `- ${liftName(exercise.name)}: ${exercise.sets.map((set) => `${trim(set.weightKg)} kg x ${set.reps}`).join(' | ')}`,
-      ),
-    ];
-    if (last.truncated) lines.push('- (some exercises or sets were left out for this payload)');
-    lines.push(writes(last.day));
-    return section(heading, lines);
-  }
-  if (newest) {
+      ...last.exercises.map((exercise) => `- ${liftName(exercise.name)}: ${exercise.sets.map(set).join(' | ')}`),
+      last.truncated ? '- (some exercises or sets were left out for this payload)' : null,
+      cardioLine,
+      writes(last.day),
+    );
+  } else if (newest) {
     const day = sessionDay(newest);
     const volume = newest.volumeKg !== null ? ` | ${kg(newest.volumeKg)}` : '';
-    return section(heading, [
-      line('Date', `${day} (write it as ${readerDate(day, language)})`),
+    lines.push(
+      dated(day),
       line('Name', sessionName(newest.name)),
       line('Logged', `${newest.setCount} sets across ${newest.exerciseCount} exercises${volume}`),
       '- (this app version sends no set-by-set detail)',
+      cardioLine,
       writes(day),
-    ]);
+    );
+  } else if (cardioLine) {
+    lines.push('- No lifting logged.', cardioLine, writes(newestCardio!.day));
+  } else {
+    // Nothing logged: only the format, shown on the rules' own example day.
+    return section('Reader', [writes(RULES_EXAMPLE_DAY)].filter((entry): entry is string => entry !== null));
   }
-  return section('Reader', [writes('2026-09-26')]);
+  return section(heading, lines.filter((entry): entry is string => entry !== null));
 }
+
+/** The day the endpoint's rules use for their own date example ("3.8.", "3 Aug"). */
+const RULES_EXAMPLE_DAY = '2026-08-03';

@@ -182,8 +182,8 @@ module.exports = [
       // Advice sends the reader's language and measures the ids the phone fits
       // itself against (fitAiCoachContextToCap) — the same context, built
       // twice, differing only in names (2026-09-27).
-      assert.match(source, /const contextText = buildAiCoachContextText\(input\.context, input\.language \?\? 'en'\);/);
-      assert.match(source, /const measuredContextText = buildAiCoachContextText\(input\.context\);/);
+      assert.match(source, /const contextText = buildAiCoachContextText\(input\.context, input\.language \?\? null\);/);
+      assert.match(source, /const measuredContextText = input\.language \? buildAiCoachContextText\(input\.context\) : contextText;/);
       // The reader's context is what the cap measures; the rules are this
       // file's own and are charged, not refused. Counted together they left a
       // heavy reader half the cap, and offline (server audit, 2026-09-21).

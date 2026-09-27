@@ -159,6 +159,81 @@ module.exports = [
     },
   },
   {
+    name: 'with no language the context keeps every stored id, even the ones an English label renames',
+    run() {
+      // exerciseNameLabel('en', …) is a label, not the id: it reads "Triceps
+      // Pushdown - Rope Attachment" as "Rope Pushdown". The composer answers in
+      // ids the app resolves back to library rows, so it must see them as stored.
+      const context = baseContext({
+        history: history({ sessionCount: 1, sessions: [HISTORY_SESSIONS[1]] }),
+        lastSession: { ...LAST_SESSION, exercises: [{ name: 'Triceps Pushdown - Rope Attachment', sets: [{ weightKg: 30, reps: 12 }] }] },
+        programme: {
+          title: 'Oma',
+          source: 'custom',
+          daysPerWeek: 1,
+          days: [{ dayLabel: 'MA', name: 'Day 1: Upper Body', estimatedMinutes: 40, exercises: [{ name: 'Leverage Chest Press', scheme: '3 × 10' }] }],
+          truncated: false,
+        },
+      });
+      const ids = buildAiCoachContextText(context);
+      assert.ok(ids.includes('- Triceps Pushdown - Rope Attachment: 30 kg x 12'), ids);
+      assert.ok(ids.includes('  - Leverage Chest Press: 3 × 10'));
+      assert.ok(!ids.includes('Rope Pushdown') && !ids.includes('Machine Chest Press'));
+      // …and no format line: there is no reader language to state.
+      assert.ok(!ids.includes('Reader writes'));
+      assert.ok(ids.includes('Date: 2026-09-26\n'));
+    },
+  },
+  {
+    name: 'a run newer than the last lift is named in the block; an older one is not',
+    run() {
+      const cardio = (day) => ({
+        windowDays: 56,
+        sessionCount: 1,
+        totalMinutes: 30,
+        sessionsLast7Days: 1,
+        sessionsLast30Days: 1,
+        sessions: [{ day, activity: 'run', minutes: 30, distanceKm: 5 }],
+        truncated: false,
+      });
+      const newer = buildAiCoachSystemContext(baseContext({ lastSession: LAST_SESSION, cardio: cardio('2026-09-27') }), 'fi');
+      const block = newer.split('\n\n').find((entry) => entry.startsWith('## Last session'));
+      assert.ok(block.includes('Newer than any lifting:') && block.includes('2026-09-27, 30 min'), block);
+
+      const older = buildAiCoachSystemContext(baseContext({ lastSession: LAST_SESSION, cardio: cardio('2026-09-20') }), 'fi');
+      assert.ok(!older.includes('Newer than any lifting'));
+
+      // Only runs logged: the block still exists, and says so.
+      const runsOnly = buildAiCoachSystemContext(baseContext({ cardio: cardio('2026-09-27') }), 'fi');
+      assert.ok(runsOnly.includes('- No lifting logged.'));
+      assert.ok(runsOnly.includes('Newer than any lifting:'));
+    },
+  },
+  {
+    name: 'a set with no added load says so instead of "0 kg"',
+    run() {
+      const out = buildAiCoachSystemContext(
+        baseContext({ lastSession: { ...LAST_SESSION, exercises: [{ name: 'Pull-Up', sets: [{ weightKg: 0, reps: 10 }, { weightKg: 10, reps: 6 }] }] } }),
+        'en',
+      );
+      assert.ok(out.includes(': 10 with no added load | 10 kg x 6'), out);
+      assert.ok(!out.includes('0 kg x 10'));
+    },
+  },
+  {
+    name: 'two sessions of the same name on the same day: only the newest row is the last session',
+    run() {
+      const restart = { ...HISTORY_SESSIONS[1], sessionId: 's4a', performedAt: '2026-09-26T07:10:00.000Z', volumeKg: 900, setCount: 2, exerciseCount: 1 };
+      const out = buildAiCoachSystemContext(
+        baseContext({ history: history({ sessionCount: 3, sessions: [HISTORY_SESSIONS[0], restart, HISTORY_SESSIONS[1]] }), lastSession: LAST_SESSION }),
+        'fi',
+      );
+      const marked = out.split('\n').filter((row) => row.includes('the Last session above'));
+      assert.equal(marked.length, 1, out);
+      assert.ok(marked[0].includes('14031 kg'));
+    },
+  },
+  {
     name: 'the last session is the newest one up to now, its lifts in order, completed working sets only',
     run() {
       const now = new Date('2026-09-27T07:50:00.000Z');

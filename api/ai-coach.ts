@@ -267,7 +267,7 @@ const COACH_SYSTEM_RULES = [
   '- Answer the question that was asked: a nutrition question gets a nutrition answer, a measurement question a measurement answer — never a training summary the user did not ask for.',
   '- Every line must state a conclusion or an instruction the user could not read off their own screen. Numbers appear only as evidence for a claim — never recite a session\'s sets, a list of entries, or a series of dates back to the user; the app already shows them.',
   '- "Analyse" means: what improved, what stalled, what was unusual, and what to do about it — not a recap of what was done.',
-  '- "My last workout", "viime treeni" and the like mean the session under "Last session" in the context: its date, its name, its sets. Never analyse another session in its place, and never put its date on another session.',
+  '- "My last workout", "viime treeni" and the like mean the session under "Last session" in the context: its date, its name, its sets. Never analyse another session in its place, and never put its date on another session. The one exception is a newer cardio session the block itself names, when the reader means that.',
   '- Name exercises and sessions exactly as the context names them: the names there are already in the reader\'s language.',
   '- Two concrete actions beat ten: at most three reasons and two next steps. Give a number wherever a number is the answer.',
   '- Be brief: the takeaway is one or two sentences, and every reason and step is a single clause of at most ~15 words. Cut anything the reader did not ask for.',
@@ -684,9 +684,10 @@ async function requestClaude(input: AICoachAdviceRequest) {
   // way the app does. Measured in the ids the phone fits itself against
   // (fitAiCoachContextToCap): a Finnish name a few letters longer must not
   // refuse a context the phone already trimmed to fit. The two texts differ
-  // only in names, a few per cent at most.
-  const contextText = buildAiCoachContextText(input.context, input.language ?? 'en');
-  const measuredContextText = buildAiCoachContextText(input.context);
+  // only in names, a few per cent at most; an app that sends no language gets
+  // the ids, and one build.
+  const contextText = buildAiCoachContextText(input.context, input.language ?? null);
+  const measuredContextText = input.language ? buildAiCoachContextText(input.context) : contextText;
   const now = Date.now();
   // Each part against its own limit (server audit, 2026-09-21). Counted
   // together, the rules took ~11 KB of the context's 24 and three earlier
