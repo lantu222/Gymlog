@@ -282,6 +282,12 @@ interface KitBarProps {
   /** The whole edit on one line: from → to. Mono, uppercase. */
   from: string;
   to: string;
+  /**
+   * What a screen reader says for from/to when the line shows a short form
+   * (KP, KK) — the full name, not the letters (review, 2026-09-27).
+   */
+  fromLabel?: string;
+  toLabel?: string;
   buttons: KitBarButton[];
   /**
    * The bar's secondary way out. Optional as a pair: a bar whose "cancel" says
@@ -305,6 +311,8 @@ export function KitBar({
   visible,
   from,
   to,
+  fromLabel,
+  toLabel,
   buttons,
   clearLabel,
   onClear,
@@ -349,7 +357,7 @@ export function KitBar({
       ]}
     >
       <View style={styles.swapline}>
-        <Text style={styles.swapFrom} numberOfLines={1}>
+        <Text style={styles.swapFrom} numberOfLines={1} accessibilityLabel={fromLabel ?? from}>
           {from.toUpperCase()}
         </Text>
         <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
@@ -361,7 +369,7 @@ export function KitBar({
             strokeLinejoin="round"
           />
         </Svg>
-        <Text style={styles.swapTo} numberOfLines={1}>
+        <Text style={styles.swapTo} numberOfLines={1} accessibilityLabel={toLabel ?? to}>
           {to.toUpperCase()}
         </Text>
       </View>

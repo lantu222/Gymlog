@@ -73,6 +73,21 @@ module.exports = [
         }
       }
       assert.deepEqual(missing, []);
+      // A short name passed as a prop has to bring its full name along: the
+      // swap bar's from/to (review, 2026-09-27).
+      for (const file of ['src/screens/HomeScreen.tsx', 'src/screens/ProgramDayScreen.tsx']) {
+        const source = read(file);
+        for (const side of ['from', 'to']) {
+          if (new RegExp(`\\b${side}=\\{[^\\n]*exerciseListLabel\\(`).test(source)) {
+            assert.match(source, new RegExp(`\\b${side}Label=\\{[^\\n]*exerciseNameLabel\\(`), `${file}: ${side}`);
+          }
+        }
+      }
+      // A nested Text is flattened into its parent: the label goes on the
+      // outer one, where a screen reader reads it.
+      const player = read('src/screens/GuidedPlayerScreen.tsx');
+      const flow = player.slice(player.indexOf('style={styles.setSupersetFlow}'), player.indexOf("t(language, 'guided.superset.thenRest')"));
+      assert.match(flow, /accessibilityLabel=\{\[/);
       // Domain logic writes sentences, the coach's context and search: none of
       // it may use the short form.
       const libDir = path.join(__dirname, '..', '..', 'src', 'lib');

@@ -2170,6 +2170,8 @@ export function HomeScreen({
             visible={swapPickName !== null}
             from={exerciseListLabel(language, swapRow.currentName)}
             to={swapPickName ? exerciseListLabel(language, swapPickName) : ''}
+            fromLabel={exerciseNameLabel(language, swapRow.currentName)}
+            toLabel={swapPickName ? exerciseNameLabel(language, swapPickName) : ''}
             buttons={[
               {
                 label: t(language, 'kit.justThisTime'),

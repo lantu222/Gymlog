@@ -4509,7 +4509,17 @@ function SetStepView({
               <Text style={styles.setSupersetPillText}>{t(language, 'guided.superset.pill')}</Text>
             </View>
             {/* And the order of play sits under the line, not on it. */}
-            <Text style={styles.setSupersetFlow} numberOfLines={2}>
+            {/* Labelled here, on the outer text: nested Text is flattened
+                into one node, and a label on a child is not read (review,
+                2026-09-27) — the names are the full ones, the line shows KP. */}
+            <Text
+              style={styles.setSupersetFlow}
+              numberOfLines={2}
+              accessibilityLabel={[
+                ...superset.members.map((member) => exerciseNameLabel(language, member.name)),
+                t(language, 'guided.superset.thenRest'),
+              ].join(', ')}
+            >
               {superset.members.map((member, index) => (
                 <Text
                   key={member.slotId}
