@@ -113,8 +113,12 @@ module.exports = [
     run() {
       const rules = source.slice(source.indexOf('const COACH_SYSTEM_RULES'));
       // A beginner who made every rep at 87.5 kg was told to hold it.
-      assert.match(rules, /every set reached its reps at the current weight is ready for the next increase/);
+      assert.match(rules, /A lift whose every set reached its reps is ready to progress/);
       assert.match(rules, /never for a set that was completed/);
+      // Review: the app often progresses by reps at the same weight ("Hold
+      // 50 kg and aim for 7\/7\/7"); "add weight" would contradict its card.
+      assert.match(rules, /When the context gives its "next time", that is the progression — more weight, or more reps at the same weight/);
+      assert.doesNotMatch(rules, /tell the reader to add weight next time/);
       // Six days a week, 95 minutes a session: "ACWR 1.03, you are not training too much".
       assert.match(rules, /answered from the absolute load in the log/);
       assert.match(rules, /never answer those questions from them alone/);
@@ -159,7 +163,7 @@ module.exports = [
       // One model line each way, picked by the log: the single "let the new
       // weight settle" line was told to every beginner who made every rep
       // (eval matrix, 2026-09-28).
-      assert.match(section, /`nextSteps`:[^\n]*every rep made means the next jump is due \("every rep landed, so the next jump is due"; in Finnish "kaikki toistot menivät, joten seuraava nosto on vuorossa"\)/);
+      assert.match(section, /`nextSteps`:[^\n]*every rep made means moving on, the way `example` moves \("every rep landed, so it is time to move on"; in Finnish "kaikki toistot menivät, joten on aika edetä"\)/);
       assert.match(section, /`nextSteps`:[^\n]*a missed rep or a drop means repeating the weight/);
       assert.match(section, /`nextSteps`:[^\n]*It never contradicts `example`/);
       assert.doesNotMatch(section, /let the new weight settle|anna uuden painon vakiintua/);
