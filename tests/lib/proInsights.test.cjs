@@ -112,7 +112,9 @@ module.exports = [
       // Beginner increment is 2.5 kg — the progression gate's own step, not a
       // forecast.
       assert.equal(moment.nextValue, 85);
-      assert.equal(nextStepKg(lift, 'intermediate'), 83.75);
+      // Every level steps 2.5 kg now: 1.25 kg is 0.625 kg a side, which
+      // standard plates cannot build (user decision 2026-09-28).
+      assert.equal(nextStepKg(lift, 'intermediate'), 85);
     },
   },
   {

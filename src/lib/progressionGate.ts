@@ -1,5 +1,6 @@
 import type { WorkoutSlotHistoryEntry } from '../features/workout/workoutTypes';
 import { SetupLevel } from '../types/models';
+import { calendarDaysBetween } from './completedSessions';
 
 /**
  * Double progression, as specified (ADR-004 + progression-gating-rules.md).
@@ -24,13 +25,31 @@ export interface ProgressionLevelParams {
   minSessions: number;
   /** Consecutive progression-ready sessions required before load moves. */
   requiredConsecutive: number;
+  /**
+   * Between sessions. The weight dial inside a session still steps 1.25 kg;
+   * this is only what the next session opens on.
+   */
   loadIncrementKg: number;
+  /**
+   * Reps past the ceiling, on every target set, that let a single session
+   * move the load before `minSessions` is reached — the weight was plainly
+   * too light. Null: no early move.
+   */
+  earlyJumpRepsOver: number | null;
 }
 
-/** Values owned by progression-gating-rules.md §7. */
+/**
+ * Values owned by progression-gating-rules.md §7.
+ *
+ * 2.5 kg for every level (user decision 2026-09-28): 1.25 kg on a barbell is
+ * 0.625 kg a side, which standard plates cannot build (break round). A
+ * beginner moves after two sessions, and after one when every set cleared the
+ * ceiling by two reps or more (same decision: "if they beat their own reps
+ * straight away, why not offer more?").
+ */
 export const PROGRESSION_LEVEL_PARAMS: Record<ProgressionLevelTier, ProgressionLevelParams> = {
-  beginner: { minSessions: 2, requiredConsecutive: 1, loadIncrementKg: 2.5 },
-  intermediate: { minSessions: 3, requiredConsecutive: 2, loadIncrementKg: 1.25 },
+  beginner: { minSessions: 2, requiredConsecutive: 1, loadIncrementKg: 2.5, earlyJumpRepsOver: 2 },
+  intermediate: { minSessions: 3, requiredConsecutive: 2, loadIncrementKg: 2.5, earlyJumpRepsOver: null },
 };
 
 export function getProgressionTier(level: SetupLevel | null | undefined): ProgressionLevelTier {
@@ -125,13 +144,28 @@ export function isProgressionReadySession(
   return entry.sets.every((set) => set.reps >= repsMax);
 }
 
+/**
+ * Calendar days, not elapsed milliseconds. A week off across the spring clock
+ * change is 6.96 days of time, which read as no break and added load on the
+ * first session back (break round, 2026-09-28).
+ */
 function daysBetween(laterIso: string, earlierIso: string): number {
   const later = Date.parse(laterIso);
   const earlier = Date.parse(earlierIso);
   if (!Number.isFinite(later) || !Number.isFinite(earlier)) {
     return 0;
   }
-  return Math.abs(later - earlier) / 86400000;
+  return Math.abs(calendarDaysBetween(earlier, later));
+}
+
+/** Every target set past the ceiling by `margin` reps: the load was too light. */
+function clearsCeilingBy(entry: WorkoutSlotHistoryEntry, repsMax: number, targetSets: number, margin: number): boolean {
+  return (
+    !entry.skipped &&
+    entry.sets.length >= targetSets &&
+    entry.sets.length > 0 &&
+    entry.sets.every((set) => set.reps >= repsMax + margin)
+  );
 }
 
 export function evaluateProgression(input: ProgressionGateInput): ProgressionDecision {
@@ -149,7 +183,15 @@ export function evaluateProgression(input: ProgressionGateInput): ProgressionDec
     return { recommendation: 'silent' };
   }
   if (history.length < params.minSessions) {
-    return { recommendation: 'silent' };
+    // Short of the baseline, one exception: a weight so light that every
+    // set went well past the ceiling. The holds below still apply to it.
+    const early =
+      params.earlyJumpRepsOver !== null &&
+      history.length >= 1 &&
+      clearsCeilingBy(history[0], repsMax, targetSets, params.earlyJumpRepsOver);
+    if (!early) {
+      return { recommendation: 'silent' };
+    }
   }
 
   const latest = history[0];
