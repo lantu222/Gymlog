@@ -60,4 +60,20 @@ module.exports = [
       assert.deepEqual(withoutExampleRepeats(kept, 'Pidä paino'), kept);
     },
   },
+  {
+    name: 'a next step with the same numbers about something else is kept (break round 2026-09-28)',
+    run() {
+      // 50 s of rest and 7 warm-up reps are not 50 kg for 7/7/7.
+      const step = 'Lepää 50 s pidempään sarjojen välissä ja tee ensin 7 lämmittelytoistoa tangolla';
+      assert.deepEqual(withoutExampleRepeats([step], 'Pidä 50 kg ja tavoittele 7/7/7'), [step]);
+      assert.deepEqual(withoutExampleRepeats(['Rest 50 seconds longer'], 'Hold 50 kg'), ['Rest 50 seconds longer']);
+      // A step that adds its own figure to the example's is more than the example.
+      const more = 'Pidä 155 kg ja tavoittele 6/6/6, ja lisää sitten 2,5 kg';
+      assert.deepEqual(withoutExampleRepeats([more], 'Pidä 155 kg ja tavoittele 6/6/6'), [more]);
+      // The unit is read off the word, not its first letter: "sarjaa" is no second.
+      assert.deepEqual(withoutExampleRepeats(['Tee 3 sarjaa 155 kg'], 'Pidä 155 kg, 3 sarjaa'), []);
+      // The repeat itself still goes, written with or without a space.
+      assert.deepEqual(withoutExampleRepeats(['Pidä 155kg, tavoite 6/6/6'], 'Pidä 155 kg ja tavoittele 6/6/6'), []);
+    },
+  },
 ];

@@ -715,6 +715,33 @@ export function extractToolInput(payload: unknown, toolName: string = ADVICE_TOO
   return null;
 }
 
+/**
+ * The context as text, or null when it cannot be written.
+ *
+ * The rows are shape-checked where the body is parsed; this is the net under
+ * that. A context that threw here used to throw outside every fallback, and
+ * the request ended with no JSON at all (break round 2026-09-28).
+ */
+function contextTextOrNull(context: AICoachAdviceRequest['context'], language?: AICoachAdviceRequest['language'] | null) {
+  try {
+    return buildAiCoachContextText(context, language);
+  } catch (error) {
+    console.error('AI coach context could not be written', error);
+    return null;
+  }
+}
+
+const UNREADABLE_CONTEXT = { code: 'BAD_REQUEST' as const, message: 'The training context could not be read.' };
+
+/** The offline answer, if even that can be built from this context. */
+function previewOrUndefined(input: AICoachAdviceRequest) {
+  try {
+    return buildAiCoachPreviewAnswer(input.prompt, input.context, input.language);
+  } catch {
+    return undefined;
+  }
+}
+
 async function requestClaude(input: AICoachAdviceRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -731,8 +758,12 @@ async function requestClaude(input: AICoachAdviceRequest) {
   // refuse a context the phone already trimmed to fit. The two texts differ
   // only in names, a few per cent at most; an app that sends no language gets
   // the ids, and one build.
-  const contextText = buildAiCoachContextText(input.context, input.language ?? null);
-  const measuredContextText = input.language ? buildAiCoachContextText(input.context) : contextText;
+  const contextText = contextTextOrNull(input.context, input.language ?? null);
+  const measuredContextText = input.language ? contextTextOrNull(input.context) : contextText;
+  if (contextText === null || measuredContextText === null) {
+    // The offline answer, as every other failure here gives one.
+    return createError(UNREADABLE_CONTEXT, previewOrUndefined(input));
+  }
   const now = Date.now();
   // Each part against its own limit (server audit, 2026-09-21). Counted
   // together, the rules took ~11 KB of the context's 24 and three earlier
@@ -932,7 +963,10 @@ async function requestClaudeProgramme(input: ParsedBody): Promise<ProgrammeResul
   if (!apiKey) {
     return createError({ code: 'MISSING_API_KEY', message: 'ANTHROPIC_API_KEY is not configured.' });
   }
-  const contextText = buildAiCoachContextText(input.context);
+  const contextText = contextTextOrNull(input.context);
+  if (contextText === null) {
+    return createError(UNREADABLE_CONTEXT);
+  }
   const now = Date.now();
   // As for advice: the reader's context against its cap, the rules charged.
   const budget = checkBudget(

@@ -19,6 +19,10 @@ import {
   AICoachGoal,
   AICoachHistory,
   AICoachHistoryConfidence,
+  AICoachHistoryLift,
+  AICoachHistorySchedule,
+  AICoachHistorySession,
+  AICoachHistoryWeek,
   AICoachHomeState,
   AICoachLastSession,
   AICoachProfile,
@@ -835,13 +839,65 @@ export function fitAiCoachContextToCap(
  * history without one of them used to throw on the way to the model — an
  * error where the honest outcome is a thinner answer.
  */
+const isFiniteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+
+/**
+ * One history row, as far as writing it needs. The context text reads these
+ * without a guard of its own — `lift.weightSeriesKg.map`,
+ * `entry.performedAt.slice`, `day.match` — so a row missing one of those threw
+ * outside every fallback and the reader got no answer at all, not even the
+ * preview (break round 2026-09-28). Such a row is dropped.
+ *
+ * Only what would throw is required. An older app sends sessions with fewer
+ * fields than today's, and a missing count reads as a thinner line, not an
+ * error; dropping those rows would have taken the reader's history with them.
+ */
+function isHistoryLift(value: unknown): value is AICoachHistoryLift {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const lift = value as Record<string, unknown>;
+  return typeof lift.name === 'string' && Array.isArray(lift.weightSeriesKg) && lift.weightSeriesKg.every(isFiniteNumber);
+}
+
+function isHistorySession(value: unknown): value is AICoachHistorySession {
+  return !!value && typeof value === 'object' && typeof (value as Record<string, unknown>).performedAt === 'string';
+}
+
+function isHistoryWeek(value: unknown): value is AICoachHistoryWeek {
+  return !!value && typeof value === 'object' && typeof (value as Record<string, unknown>).weekStart === 'string';
+}
+
+/**
+ * The schedule, repaired rather than dropped: the fields the context text
+ * calls methods on (`trainingDays.join`, the next date's `match`) are made
+ * safe, and the counts are left as sent. A schedule sent without its day list
+ * threw like a lift without its series did (review of the break round,
+ * 2026-09-28).
+ */
+function normalizeHistorySchedule(input: unknown): AICoachHistory['schedule'] {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return null;
+  }
+  const schedule = input as Record<string, unknown> & AICoachHistorySchedule;
+  const cycle = schedule.cycle as unknown;
+  return {
+    ...schedule,
+    trainingDays: Array.isArray(schedule.trainingDays)
+      ? (schedule.trainingDays as unknown[]).filter((day): day is SetupWeekday => typeof day === 'string')
+      : [],
+    cycle: cycle && typeof cycle === 'object' && !Array.isArray(cycle) ? (cycle as AICoachHistorySchedule['cycle']) : null,
+    nextTrainingDate: typeof schedule.nextTrainingDate === 'string' ? schedule.nextTrainingDate : null,
+  };
+}
+
 function normalizeHistory(input: Partial<AICoachHistory> | null | undefined): AICoachHistory {
   if (!input || typeof input !== 'object') {
     return emptyAiCoachHistory();
   }
   const empty = emptyAiCoachHistory();
   const list = <T,>(value: unknown, fallback: T[]): T[] => (Array.isArray(value) ? (value as T[]) : fallback);
-  const sessions = list(input.sessions, empty.sessions);
+  const sessions = list<unknown>(input.sessions, empty.sessions).filter(isHistorySession);
   return {
     windowDays:
       typeof input.windowDays === 'number' && Number.isFinite(input.windowDays) ? input.windowDays : empty.windowDays,
@@ -852,12 +908,12 @@ function normalizeHistory(input: Partial<AICoachHistory> | null | undefined): AI
     totalVolumeKg:
       typeof input.totalVolumeKg === 'number' && Number.isFinite(input.totalVolumeKg) ? input.totalVolumeKg : 0,
     sessions,
-    lifts: list(input.lifts, empty.lifts),
+    lifts: list<unknown>(input.lifts, empty.lifts).filter(isHistoryLift),
     // Shape-checked entry by entry where it is rendered (readRepsLifts); an
     // older app sends none.
     repsLifts: list(input.repsLifts, []),
-    weeks: list(input.weeks, empty.weeks),
-    schedule: input.schedule ?? null,
+    weeks: list<unknown>(input.weeks, empty.weeks).filter(isHistoryWeek),
+    schedule: normalizeHistorySchedule(input.schedule),
     truncated: input.truncated === true,
     // An older app sends a history with no confidence in it. Falling back to
     // 'low' would tell a reader with a year of training that their record is
