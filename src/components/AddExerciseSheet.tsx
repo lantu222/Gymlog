@@ -17,14 +17,18 @@ import {
   getSuggestedExerciseLibraryItems,
 } from '../lib/exerciseSuggestions';
 import { exerciseListLabel, exerciseNameLabel } from '../lib/exerciseNameLabel';
-import { filterBrowsableExercises } from '../lib/exerciseBrowseFilter';
+import {
+  BODY_PART_FILTERS,
+  BodyPartFilter,
+  filterBrowsableExercises,
+  matchesBodyPartFilter,
+} from '../lib/exerciseBrowseFilter';
 import { rankExerciseMatches } from '../lib/exerciseSearch';
 import { orderExercisesBySelection } from '../lib/exerciseSelectionOrder';
 import { I18nKey, t } from '../lib/i18n';
 import { displayEquipmentValue } from '../lib/libraryLabel';
 import {
   AppLanguage,
-  ExerciseBodyPart,
   ExerciseCategory,
   ExerciseEquipment,
   ExerciseLibraryItem,
@@ -72,18 +76,6 @@ function sortName(item: ExerciseLibraryItem, language: AppLanguage) {
 }
 
 const categoryOptions: Array<'all' | ExerciseCategory> = ['all', 'compound', 'isolation', 'cardio', 'core'];
-const bodyPartOptions: Array<'all' | ExerciseBodyPart> = [
-  'all',
-  'chest',
-  'back',
-  'shoulders',
-  'legs',
-  'biceps',
-  'triceps',
-  'core',
-  'glutes',
-  'full body',
-];
 /**
  * `kettlebells` is not an `ExerciseEquipment` — the library files kettlebells
  * under `dumbbell` — but it is what `displayEquipmentValue` prints on the row,
@@ -120,6 +112,10 @@ const FACET_KEYS: Record<string, I18nKey> = {
   triceps: 'facet.triceps',
   glutes: 'facet.glutes',
   'full body': 'facet.fullBody',
+  // The leg split, named as the library's muscle labels name them.
+  quadriceps: 'lib.muscle.quadriceps',
+  hamstrings: 'lib.muscle.hamstrings',
+  calves: 'lib.muscle.calves',
   barbell: 'facet.barbell',
   dumbbell: 'facet.dumbbell',
   machine: 'facet.machine',
@@ -209,7 +205,7 @@ export function AddExerciseSheet({
   const wasVisibleRef = useRef(false);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<'all' | ExerciseCategory>('all');
-  const [bodyPart, setBodyPart] = useState<'all' | ExerciseBodyPart>('all');
+  const [bodyPart, setBodyPart] = useState<BodyPartFilter>('all');
   const [equipment, setEquipment] = useState<SheetEquipmentOption>('all');
   const [pendingSelectedIds, setPendingSelectedIds] = useState<string[]>(selectedIds);
 
@@ -248,11 +244,6 @@ export function AddExerciseSheet({
 
   const effectiveSelectedIds = multiSelect ? pendingSelectedIds : selectedIds;
 
-  const quickBodyPartOptions = useMemo<Array<'all' | ExerciseBodyPart>>(
-    () => ['all', 'chest', 'back', 'shoulders', 'legs', 'glutes', 'core', 'full body'],
-    [],
-  );
-
   function handleSelectItem(item: ExerciseLibraryItem) {
     if (!multiSelect) {
       if (selectedIds.includes(item.id)) {
@@ -289,7 +280,7 @@ export function AddExerciseSheet({
       if (category !== 'all' && item.category !== category) {
         return false;
       }
-      if (bodyPart !== 'all' && item.bodyPart !== bodyPart) {
+      if (!matchesBodyPartFilter(item, bodyPart)) {
         return false;
       }
       if (equipment !== 'all' && displayEquipmentValue(item) !== equipment) {
@@ -443,7 +434,7 @@ export function AddExerciseSheet({
         <View style={styles.quickBodyPartGroup}>
           <Text style={styles.filterTitle}>{t(language, 'sheet.bodyPart')}</Text>
           <ScrollView horizontal keyboardShouldPersistTaps="handled" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickBodyPartRow}>
-            {quickBodyPartOptions.map((option) => {
+            {BODY_PART_FILTERS.map((option) => {
               const active = option === bodyPart;
               return (
                 <Pressable
@@ -470,7 +461,7 @@ export function AddExerciseSheet({
           />
           <FilterPillGroup
             title={t(language, 'sheet.bodyPart')}
-            options={bodyPartOptions}
+            options={BODY_PART_FILTERS}
             selected={bodyPart}
             language={language}
             onSelect={setBodyPart}

@@ -15,7 +15,7 @@
  * name, and comes back the moment the reader types a query. The rule is about
  * what is *offered*, not what exists.
  */
-import { ExerciseLibraryItem } from '../types/models';
+import { ExerciseBodyPart, ExerciseLibraryItem } from '../types/models';
 
 type BrowsableExercise = Pick<ExerciseLibraryItem, 'name'>;
 
@@ -60,4 +60,57 @@ export function filterBrowsableExercises<T extends BrowsableExercise>(
   }
 
   return items.filter(isBrowsableExercise);
+}
+
+/**
+ * The picker's body-part chips.
+ *
+ * The stored body parts are coarse: "legs" is 276 lifts, quad, hamstring and
+ * calf work in one list, so a reader building a day called "Etureidet ja
+ * takareidet" had to read through all of it. The three leg muscles are chips
+ * of their own, answered by the lift's primary muscles; the rest are the
+ * stored body part. Biceps and triceps were in the library all along and only
+ * missing from the chips ("laajennetaan kehonosaa hauis ojentaja yms", #bugs
+ * 2026-09-28).
+ */
+export type BodyPartFilter = 'all' | ExerciseBodyPart | LegMuscleFilter;
+
+// One list, and the type read off it, so a muscle cannot be a chip without
+// being answered by its muscles.
+const LEG_MUSCLE_FILTERS = ['quadriceps', 'hamstrings', 'calves'] as const;
+
+type LegMuscleFilter = (typeof LEG_MUSCLE_FILTERS)[number];
+
+function isLegMuscleFilter(filter: BodyPartFilter): filter is LegMuscleFilter {
+  return (LEG_MUSCLE_FILTERS as readonly string[]).includes(filter);
+}
+
+/** In reading order: the big groups, the arms after the shoulders, the legs split after "legs". */
+export const BODY_PART_FILTERS: BodyPartFilter[] = [
+  'all',
+  'chest',
+  'back',
+  'shoulders',
+  'biceps',
+  'triceps',
+  'legs',
+  'quadriceps',
+  'hamstrings',
+  'calves',
+  'glutes',
+  'core',
+  'full body',
+];
+
+export function matchesBodyPartFilter(
+  item: Pick<ExerciseLibraryItem, 'bodyPart' | 'primaryMuscles'>,
+  filter: BodyPartFilter,
+): boolean {
+  if (filter === 'all') {
+    return true;
+  }
+  if (isLegMuscleFilter(filter)) {
+    return (item.primaryMuscles ?? []).includes(filter);
+  }
+  return item.bodyPart === filter;
 }

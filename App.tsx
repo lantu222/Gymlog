@@ -2704,29 +2704,37 @@ function VinhaApp() {
   }
 
   /**
-   * Renaming a session from Home.
+   * Renaming one day of a custom programme — from Home's plan sheet and from
+   * the day's own page.
    *
    * Only a program of the reader's own can be renamed: the catalog's templates
    * are immutable at runtime, and a rename that silently did nothing would be
-   * worse than no button. The sheet asks whether this handler exists before it
-   * draws the pencil.
+   * worse than no button. Both surfaces ask whether they were handed this
+   * before they draw the pencil.
    */
-  async function handleRenameActivePlanSession(sessionId: string, name: string) {
+  async function handleRenameProgramSession(templateId: string, sessionId: string, name: string) {
     const trimmed = name.trim();
-    const templateId = homeActivePlanCard?.programId;
-    if (!trimmed || !templateId || homeActivePlanCard?.programType !== 'custom') {
+    if (!trimmed) {
       return;
     }
-    await editWorkoutTemplateSessions(templateId, (sessions) => ({
-      kind: 'save',
-      sessions: sessions.map((session) => ({
-        id: session.id,
-        // Every other field is copied because upsert replaces the record; only
-        // the one session the reader named changes.
-        name: session.id === sessionId ? trimmed : session.name,
-        exercises: session.exercises.map(toDraftExercise),
-      })),
-    }));
+    // Caught here, not by each caller: Home's sheet voided this and a failed
+    // write left the old name standing with nothing said.
+    try {
+      await editWorkoutTemplateSessions(templateId, (sessions) => ({
+        kind: 'save',
+        sessions: sessions.map((session) => ({
+          id: session.id,
+          // Every other field is copied because upsert replaces the record; only
+          // the one session the reader named changes.
+          name: session.id === sessionId ? trimmed : session.name,
+          exercises: session.exercises.map(toDraftExercise),
+        })),
+      }));
+    } catch (error) {
+      console.error('Failed to rename a day of the programme', error);
+      void haptics.error();
+      showToast(t(preferences.appLanguage, 'toast.planSaveFailed'));
+    }
   }
 
   /**
@@ -7461,6 +7469,7 @@ function VinhaApp() {
       editProgramExercise: handleEditProgramExercise,
       handleSaveRhythm,
       handleRenameCustomProgram,
+      handleRenameProgramSession,
       handleReorderProgramSession,
       handleAddProgramSession,
       handleRemoveProgramSession,
@@ -7750,7 +7759,7 @@ function VinhaApp() {
         // not offered for them rather than offered and inert.
         onRenameSession={
           homeActivePlanCard?.programType === 'custom'
-            ? (sessionId, name) => void handleRenameActivePlanSession(sessionId, name)
+            ? (sessionId, name) => void handleRenameProgramSession(homeActivePlanCard.programId, sessionId, name)
             : undefined
         }
         onStartActivePlanSession={(sessionId) => {
